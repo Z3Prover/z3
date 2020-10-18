@@ -607,7 +607,7 @@ namespace qe {
         params_ref                 m_params;
         stats                      m_stats;
         statistics                 m_st;
-        qe::mbp                    m_mbp;
+        qe::mbproj                 m_mbp;
         kernel                     m_fa;
         kernel                     m_ex;
         pred_abs                   m_pred_abs;

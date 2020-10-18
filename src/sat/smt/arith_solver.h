@@ -410,7 +410,6 @@ namespace arith {
         solver(euf::solver& ctx, theory_id id);
         ~solver() override;
         bool is_external(bool_var v) override { return false; }
-        bool propagate(literal l, sat::ext_constraint_idx idx) override { UNREACHABLE(); return false; }
         void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) override;
         void asserted(literal l) override;
         sat::check_result check() override;
@@ -419,7 +418,7 @@ namespace arith {
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
         void collect_statistics(statistics& st) const override;
-        euf::th_solver* clone(sat::solver* s, euf::solver& ctx) override;
+        euf::th_solver* clone(euf::solver& ctx) override;
         bool use_diseqs() const override { return true; }
         void new_eq_eh(euf::th_eq const& eq) override { mk_eq_axiom(eq.v1(), eq.v2()); }
         void new_diseq_eh(euf::th_eq const& de) override { mk_eq_axiom(de.v1(), de.v2()); }

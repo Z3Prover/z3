@@ -134,14 +134,14 @@ namespace euf {
             lit = lit2;
         }
 
-        m_var2expr.reserve(v + 1, nullptr);
-        if (m_var2expr[v]) {
+        m_bool_var2expr.reserve(v + 1, nullptr);
+        if (m_bool_var2expr[v]) {
             SASSERT(m_egraph.find(e));
             SASSERT(m_egraph.find(e)->bool_var() == v);
             return lit;
         }
         TRACE("euf", tout << "attach " << v << " " << mk_bounded_pp(e, m) << "\n";);
-        m_var2expr[v] = e;
+        m_bool_var2expr[v] = e;
         m_var_trail.push_back(v);
         enode* n = m_egraph.find(e);
         if (!n) 
@@ -367,12 +367,15 @@ namespace euf {
                 return true;
 
         return false;
-
     }
 
     expr_ref solver::mk_eq(expr* e1, expr* e2) {
-        if (e1 == e2)
+        expr_ref _e1(e1, m);
+        expr_ref _e2(e2, m);
+        if (m.are_equal(e1, e2))
             return expr_ref(m.mk_true(), m);
+        if (m.are_distinct(e1, e2))
+            return expr_ref(m.mk_false(), m);
         expr_ref r(m.mk_eq(e2, e1), m);
         if (!m_egraph.find(r))
             r = m.mk_eq(e1, e2);

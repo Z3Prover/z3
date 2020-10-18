@@ -192,7 +192,6 @@ namespace array {
         solver(euf::solver& ctx, theory_id id);
         ~solver() override;
         bool is_external(bool_var v) override { return false; }
-        bool propagate(literal l, sat::ext_constraint_idx idx) override { UNREACHABLE(); return false; }
         void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) override {}
         void asserted(literal l) override {}
         sat::check_result check() override;
@@ -201,7 +200,7 @@ namespace array {
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
         void collect_statistics(statistics& st) const override;
-        euf::th_solver* clone(sat::solver* s, euf::solver& ctx) override;
+        euf::th_solver* clone(euf::solver& ctx) override;
         void new_eq_eh(euf::th_eq const& eq) override;
         bool use_diseqs() const override { return true; }
         void new_diseq_eh(euf::th_eq const& eq) override;
@@ -217,5 +216,7 @@ namespace array {
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}
         void unmerge_eh(theory_var v1, theory_var v2) {}
+
+        euf::enode_vector const& parent_selects(euf::enode* n) const { return m_var_data[n->get_th_var(get_id())]->m_parent_selects; }
     };
 }

@@ -61,14 +61,10 @@ namespace arith {
         m_asserted.push_back(l);
     }
 
-    euf::th_solver* solver::clone(sat::solver* s, euf::solver& ctx) {
-        arith::solver* result = alloc(arith::solver, ctx, get_id());
-        ast_translation tr(m, ctx.get_manager());
-        for (unsigned i = result->get_num_vars(); i < get_num_vars(); ++i) {
-            expr* e1 = var2expr(i);
-            expr* e2 = tr(e1);
-            result->mk_evar(e2);
-        }
+    euf::th_solver* solver::clone(euf::solver& dst_ctx) {
+        arith::solver* result = alloc(arith::solver, dst_ctx, get_id());
+        for (unsigned i = result->get_num_vars(); i < get_num_vars(); ++i) 
+            result->mk_evar(ctx.copy(dst_ctx, var2enode(i))->get_expr());        
 
         unsigned v = 0;
         result->m_bounds.resize(m_bounds.size());
@@ -1425,19 +1421,7 @@ namespace arith {
 
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
         auto& jst = euf::th_propagation::from_index(idx);
-        for (auto lit : euf::th_propagation::lits(jst))
-            r.push_back(lit);
-        for (auto eq : euf::th_propagation::eqs(jst))
-            ctx.add_antecedent(eq.first, eq.second);
-
-        if (!probing && ctx.use_drat()) {
-            literal_vector lits;
-            for (auto lit : euf::th_propagation::lits(jst))
-                lits.push_back(~lit);
-            lits.push_back(l);
-            ctx.get_drat().add(lits, status());
-            for (auto eq : euf::th_propagation::eqs(jst))
-                IF_VERBOSE(0, verbose_stream() << "drat-log with equalities is TBD " << eq.first->get_expr_id() << "\n");
-        }
+        ctx.get_antecedents(l, jst, r, probing);
     }
+
 }

@@ -146,12 +146,10 @@ namespace user {
         return display_justification(out, idx);     
     }
 
-    euf::th_solver* solver::clone(sat::solver* dst_s, euf::solver& dst_ctx) {
+    euf::th_solver* solver::clone(euf::solver& dst_ctx) {
         auto* result = alloc(solver, dst_ctx);
-        result->set_solver(dst_s);
-        ast_translation tr(m, dst_ctx.get_manager(), false);
-        for (unsigned i = 0; i < get_num_vars(); ++i) 
-            result->add_expr(tr(var2expr(i)));
+        for (unsigned i = 0; i < get_num_vars(); ++i)
+            result->add_expr(ctx.copy(dst_ctx, var2enode(i))->get_expr());
         return result;
     }
 

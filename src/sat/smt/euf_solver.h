@@ -94,7 +94,7 @@ namespace euf {
         scoped_ptr<sat::dual_solver> m_dual_solver;
         user::solver*          m_user_propagator{ nullptr };
 
-        ptr_vector<expr>                                m_var2expr;
+        ptr_vector<expr>                                m_bool_var2expr;
         ptr_vector<size_t>                              m_explain;
         unsigned                                        m_num_scopes{ 0 };
         unsigned_vector                                 m_var_trail;
@@ -132,8 +132,7 @@ namespace euf {
         th_solver* quantifier2solver();
         th_solver* expr2solver(expr* e);
         th_solver* bool_var2solver(sat::bool_var v);
-        th_solver* fid2solver(family_id fid) const { return m_id2solver.get(fid, nullptr); }
-        void add_solver(family_id fid, th_solver* th);
+        void add_solver(th_solver* th);
         void init_ackerman();
 
         // model building
@@ -214,10 +213,13 @@ namespace euf {
         ast_manager& get_manager() { return m; }
         enode* get_enode(expr* e) const { return m_egraph.find(e); }
         sat::literal expr2literal(expr* e) const { return enode2literal(get_enode(e)); }
-        sat::literal enode2literal(enode* e) const { return sat::literal(e->bool_var(), false); }
+        sat::literal enode2literal(enode* n) const { return sat::literal(n->bool_var(), false); }
+        lbool value(enode* n) const { return s().value(enode2literal(n)); }
         smt_params const& get_config() const { return m_config; }
         region& get_region() { return m_trail.get_region(); }
         egraph& get_egraph() { return m_egraph; }
+        th_solver* fid2solver(family_id fid) const { return m_id2solver.get(fid, nullptr); }
+
         template <typename C>
         void push(C const& c) { m_trail.push(c); }
         template <typename V>
@@ -238,13 +240,22 @@ namespace euf {
         double get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const override;
         bool is_extended_binary(ext_justification_idx idx, literal_vector& r) override;
         bool is_external(bool_var v) override;
-        bool propagate(literal l, ext_constraint_idx idx) override;
+        bool propagated(literal l, ext_constraint_idx idx) override;
         bool unit_propagate() override;
-        bool propagate(enode* a, enode* b, ext_justification_idx);
+
+        void propagate(literal lit, ext_justification_idx idx);
+        bool propagate(enode* a, enode* b, ext_justification_idx idx);
+        void set_conflict(ext_justification_idx idx);
+
+        void propagate(literal lit, th_propagation* p) { propagate(lit, p->to_index()); }
+        bool propagate(enode* a, enode* b, th_propagation* p) { return propagate(a, b, p->to_index()); }
+        void set_conflict(th_propagation* p) { set_conflict(p->to_index()); }
+
         bool set_root(literal l, literal r) override;
         void flush_roots() override;
 
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) override;
+        void get_antecedents(literal l, th_propagation& jst, literal_vector& r, bool probing);
         void add_antecedent(enode* a, enode* b);
         void asserted(literal l) override;
         sat::check_result check() override;
@@ -260,8 +271,10 @@ namespace euf {
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, ext_constraint_idx idx) const override;
+        euf::egraph::b_pp bpp(enode* n) { return m_egraph.bpp(n); }
         void collect_statistics(statistics& st) const override;
         extension* copy(sat::solver* s) override;
+        enode* copy(solver& dst_ctx, enode* src_n);
         void find_mutexes(literal_vector& lits, vector<literal_vector>& mutexes) override;
         void gc() override;
         void pop_reinit() override;
@@ -288,7 +301,7 @@ namespace euf {
         expr_ref mk_eq(expr* e1, expr* e2);
         expr_ref mk_eq(euf::enode* n1, euf::enode* n2) { return mk_eq(n1->get_expr(), n2->get_expr()); }
         euf::enode* mk_enode(expr* e, unsigned n, enode* const* args) { return m_egraph.mk(e, n, args); }
-        expr* bool_var2expr(sat::bool_var v) { return m_var2expr.get(v, nullptr); }
+        expr* bool_var2expr(sat::bool_var v) { return m_bool_var2expr.get(v, nullptr); }
         sat::literal attach_lit(sat::literal lit, expr* e);
         void unhandled_function(func_decl* f);
         th_rewriter& get_rewriter() { return m_rewriter; }

@@ -26,6 +26,7 @@ Revision History:
 #include "ast/expr_functors.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_util.h"
+#include "ast/is_variable_test.h"
 
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/rewriter/expr_safe_replace.h"
@@ -35,7 +36,6 @@ Revision History:
 #include "model/model_pp.h"
 
 #include "qe/qe.h"
-#include "qe/qe_vartest.h"
 #include "qe/qe_lite.h"
 
 #include "muz/spacer/spacer_mev_array.h"

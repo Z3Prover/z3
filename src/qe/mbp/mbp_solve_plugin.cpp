@@ -23,9 +23,9 @@ Revision History:
 #include "ast/datatype_decl_plugin.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
-#include "qe/qe_solve_plugin.h"
+#include "qe/mbp/mbp_solve_plugin.h"
 
-namespace qe {
+namespace mbp {
 
     expr_ref solve_plugin::operator()(expr* lit) {
         if (m.is_not(lit, lit))

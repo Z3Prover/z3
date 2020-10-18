@@ -84,7 +84,7 @@ namespace euf {
 
     void solver::log_antecedents(std::ostream& out, literal l, literal_vector const& r) {
         for (sat::literal l : r) {
-            expr* n = m_var2expr[l.var()];
+            expr* n = m_bool_var2expr[l.var()];
             out << ~l << ": ";
             if (!l.sign()) out << "! ";
             out << mk_bounded_pp(n, m) << "\n";
@@ -93,7 +93,7 @@ namespace euf {
         if (l != sat::null_literal) {
             out << l << ": ";
             if (l.sign()) out << "! ";
-            expr* n = m_var2expr[l.var()];
+            expr* n = m_bool_var2expr[l.var()];
             out << mk_bounded_pp(n, m) << "\n";
         }
     }

@@ -3,7 +3,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 Module Name:
 
-    qe_arrays.cpp
+    mbp_arrays.cpp
 
 Abstract:
 
@@ -27,8 +27,8 @@ Revision History:
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 #include "model/model_evaluator.h"
-#include "qe/qe_arrays.h"
-#include "qe/qe_term_graph.h"
+#include "qe/mbp/mbp_arrays.h"
+#include "qe/mbp/mbp_term_graph.h"
 
 
 namespace {
@@ -154,7 +154,7 @@ namespace {
     }
 }
 
-namespace qe {
+namespace mbp {
 
 
     static bool is_eq(expr_ref_vector const& xs, expr_ref_vector const& ys) {
@@ -1571,7 +1571,7 @@ namespace qe {
     };
 
 
-    array_project_plugin::array_project_plugin(ast_manager& m) {
+    array_project_plugin::array_project_plugin(ast_manager& m):project_plugin(m) {
         m_imp = alloc(imp, m);
     }
 

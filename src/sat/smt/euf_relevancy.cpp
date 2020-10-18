@@ -64,7 +64,7 @@ namespace euf {
         m_relevant_expr_ids.resize(max_id + 1, false);
         auto const& core = m_dual_solver->core();
         for (auto lit : core) {
-            expr* e = m_var2expr.get(lit.var(), nullptr);
+            expr* e = m_bool_var2expr.get(lit.var(), nullptr);
             if (e)
                 todo.push_back(e);
         }

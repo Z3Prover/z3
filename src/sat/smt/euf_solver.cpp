@@ -26,6 +26,7 @@ Author:
 #include "sat/smt/arith_solver.h"
 #include "sat/smt/q_solver.h"
 #include "sat/smt/fpa_solver.h"
+#include "sat/smt/dt_solver.h"
 
 namespace euf {
 
@@ -60,9 +61,9 @@ namespace euf {
     * retrieve extension that is associated with Boolean variable.
     */
     th_solver* solver::bool_var2solver(sat::bool_var v) {
-        if (v >= m_var2expr.size())
+        if (v >= m_bool_var2expr.size())
             return nullptr;
-        expr* e = m_var2expr[v];
+        expr* e = m_bool_var2expr[v];
         if (!e)
             return nullptr;
         return expr2solver(e);
@@ -81,10 +82,8 @@ namespace euf {
         auto* ext = m_id2solver.get(fid, nullptr);
         if (ext)
             return ext;
-        ext = alloc(q::solver, *this);
-        ext->set_solver(m_solver);
-        ext->push_scopes(s().num_scopes());
-        add_solver(fid, ext);
+        ext = alloc(q::solver, *this, fid);
+        add_solver(ext);
         return ext;
     }
 
@@ -101,34 +100,37 @@ namespace euf {
         array_util au(m);
         fpa_util fpa(m);
         arith_util arith(m);
-        if (pb.get_family_id() == fid) 
+        datatype_util dt(m);
+        if (pb.get_family_id() == fid)
             ext = alloc(sat::ba_solver, *this, fid);
-        else if (bvu.get_family_id() == fid) 
+        else if (bvu.get_family_id() == fid)
             ext = alloc(bv::solver, *this, fid);
-        else if (au.get_family_id() == fid) 
+        else if (au.get_family_id() == fid)
             ext = alloc(array::solver, *this, fid);
-        else if (fpa.get_family_id() == fid) 
+        else if (fpa.get_family_id() == fid)
             ext = alloc(fpa::solver, *this);
         else if (arith.get_family_id() == fid)
             ext = alloc(arith::solver, *this, fid);
+        else if (dt.get_family_id() == fid)
+            ext = alloc(dt::solver, *this, fid);
         
-        if (ext) {
-            if (use_drat())
-                s().get_drat().add_theory(fid, ext->name());
-            ext->set_solver(m_solver);
-            ext->push_scopes(s().num_scopes());
-            add_solver(fid, ext);
-            if (ext->use_diseqs())
-                m_egraph.set_th_propagates_diseqs(fid);
-        }
+        if (ext) 
+            add_solver(ext);        
         else if (f) 
             unhandled_function(f);
         return ext;
     }
 
-    void solver::add_solver(family_id fid, th_solver* th) {
+    void solver::add_solver(th_solver* th) {
+        family_id fid = th->get_id();
+        if (use_drat())
+            s().get_drat().add_theory(fid, th->name());
+        th->set_solver(m_solver);
+        th->push_scopes(s().num_scopes());
         m_solvers.push_back(th);
         m_id2solver.setx(fid, th, nullptr);
+        if (th->use_diseqs())
+            m_egraph.set_th_propagates_diseqs(fid);
     }
 
     void solver::unhandled_function(func_decl* f) {
@@ -146,7 +148,7 @@ namespace euf {
     }
 
     bool solver::is_external(bool_var v) {
-        if (nullptr != m_var2expr.get(v, nullptr))
+        if (nullptr != m_bool_var2expr.get(v, nullptr))
             return true;
         for (auto* s : m_solvers)
             if (s->is_external(v))
@@ -154,10 +156,18 @@ namespace euf {
         return false;
     }
 
-    bool solver::propagate(literal l, ext_constraint_idx idx) { 
+    bool solver::propagated(literal l, ext_constraint_idx idx) { 
         auto* ext = sat::constraint_base::to_extension(idx);
         SASSERT(ext != this);
-        return ext->propagate(l, idx);
+        return ext->propagated(l, idx);
+    }
+
+    void solver::set_conflict(ext_constraint_idx idx) {
+        s().set_conflict(sat::justification::mk_ext_justification(s().scope_lvl(), idx));
+    }
+
+    void solver::propagate(literal lit, ext_justification_idx idx) {
+        s().assign(lit, sat::justification::mk_ext_justification(s().scope_lvl(), idx));
     }
 
     void solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) {
@@ -192,6 +202,23 @@ namespace euf {
             log_antecedents(l, r);
     }
 
+    void solver::get_antecedents(literal l, th_propagation& jst, literal_vector& r, bool probing) {
+        for (auto lit : euf::th_propagation::lits(jst))
+            r.push_back(lit);
+        for (auto eq : euf::th_propagation::eqs(jst))
+            add_antecedent(eq.first, eq.second);
+
+        if (!probing && use_drat()) {
+            literal_vector lits;
+            for (auto lit : euf::th_propagation::lits(jst))
+                lits.push_back(~lit);
+            lits.push_back(l);
+            get_drat().add(lits, sat::status::th(m_is_redundant, jst.ext().get_id()));
+            for (auto eq : euf::th_propagation::eqs(jst))
+                IF_VERBOSE(0, verbose_stream() << "drat-log with equalities is TBD " << eq.first->get_expr_id() << "\n");
+        }
+    }
+
     void solver::add_antecedent(enode* a, enode* b) {
         m_egraph.explain_eq<size_t>(m_explain, a, b);
     }
@@ -217,7 +244,7 @@ namespace euf {
             m_egraph.explain<size_t>(m_explain);
             break;
         case constraint::kind_t::eq:
-            e = m_var2expr[l.var()];
+            e = m_bool_var2expr[l.var()];
             n = m_egraph.find(e);
             SASSERT(n);
             SASSERT(n->is_equality());
@@ -225,7 +252,7 @@ namespace euf {
             m_egraph.explain_eq<size_t>(m_explain, n->get_arg(0), n->get_arg(1));
             break;
         case constraint::kind_t::lit:
-            e = m_var2expr[l.var()];
+            e = m_bool_var2expr[l.var()];
             n = m_egraph.find(e);
             SASSERT(n);
             SASSERT(m.is_bool(n->get_expr()));
@@ -238,7 +265,7 @@ namespace euf {
     }
 
     void solver::asserted(literal l) {
-        expr* e = m_var2expr.get(l.var(), nullptr);
+        expr* e = m_bool_var2expr.get(l.var(), nullptr);
         if (!e) {
             TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << "\n";);
             return;        
@@ -421,7 +448,7 @@ namespace euf {
         m_egraph.pop(n);
         scope const & s = m_scopes[m_scopes.size() - n];
         for (unsigned i = m_var_trail.size(); i-- > s.m_var_lim; )
-            m_var2expr[m_var_trail[i]] = nullptr;
+            m_bool_var2expr[m_var_trail[i]] = nullptr;
         m_var_trail.shrink(s.m_var_lim);        
         m_scopes.shrink(m_scopes.size() - n);
         SASSERT(m_egraph.num_scopes() == m_scopes.size());
@@ -534,7 +561,7 @@ namespace euf {
         m_egraph.display(out);
         out << "bool-vars\n";
         for (unsigned v : m_var_trail) {
-            expr* e = m_var2expr[v];
+            expr* e = m_bool_var2expr[v];
             out << v << ": " << e->get_id() << " " << m_solver->value(v) << " " << mk_bounded_pp(e, m, 1) << "\n";        
         }
         for (auto* e : m_solvers)
@@ -584,6 +611,17 @@ namespace euf {
         st.update("euf ackerman", m_stats.m_ackerman);
     }
 
+    enode* solver::copy(solver& dst_ctx, enode* src_n) {
+        if (!src_n)
+            return nullptr;
+        ast_translation tr(m, dst_ctx.get_manager(), false);
+        expr* e1 = src_n->get_expr();
+        expr* e2 = tr(e1);
+        euf::enode* n2 = dst_ctx.get_enode(e2);
+        SASSERT(n2);
+        return n2;
+    }
+
     sat::extension* solver::copy(sat::solver* s) { 
         auto* r = alloc(solver, *m_to_m, *m_to_si);
         r->m_config = m_config;
@@ -596,10 +634,12 @@ namespace euf {
         };
         r->m_egraph.copy_from(m_egraph, copy_justification);        
         r->set_solver(s);
-        for (unsigned i = 0; i < m_id2solver.size(); ++i) {
-            auto* e = m_id2solver[i];
-            if (e)
-                r->add_solver(i, e->clone(s, *r));
+        for (auto* s_orig : m_id2solver) {
+            if (s_orig) {
+                auto* s_clone = s_orig->clone(*r);
+                r->add_solver(s_clone);
+                s_clone->set_solver(s);
+            }
         }
         return r;
     }
@@ -653,8 +693,8 @@ namespace euf {
     unsigned solver::max_var(unsigned w) const { 
         for (auto* e : m_solvers)
             w = e->max_var(w);
-        for (unsigned sz = m_var2expr.size(); sz-- > 0; ) {
-            expr* n = m_var2expr[sz];
+        for (unsigned sz = m_bool_var2expr.size(); sz-- > 0; ) {
+            expr* n = m_bool_var2expr[sz];
             if (n && m.is_bool(n)) {
                 w = std::max(w, sz);
                 break;

@@ -26,7 +26,10 @@ namespace array {
             TRACE("array", tout << mk_pp(e, m) << "\n";);
             return sat::null_literal;
         }
-        return expr2literal(e);
+        auto lit = expr2literal(e);
+        if (sign)
+            lit.neg();
+        return lit;
     }
 
     void solver::internalize(expr* e, bool redundant) {

@@ -42,8 +42,7 @@ namespace fpa {
     }
 
 
-    expr_ref solver::convert(expr* e)
-    {
+    expr_ref solver::convert(expr* e) {    
         expr_ref res(m);
         expr* ccnv;
         TRACE("t_fpa", tout << "converting " << mk_ismt2_pp(e, m) << std::endl;);
@@ -105,6 +104,8 @@ namespace fpa {
     }
 
     bool solver::visit(expr* e) {
+        if (visited(e))
+            return true;
         if (!is_app(e) || to_app(e)->get_family_id() != get_id()) {
             ctx.internalize(e, m_is_redundant);
             return true;
@@ -161,11 +162,11 @@ namespace fpa {
         SASSERT(m_fpa_util.is_float(n->get_expr()) || m_fpa_util.is_rm(n->get_expr()));
         SASSERT(n->get_decl()->get_range() == s);
 
-        expr* owner = n->get_expr();
-
         if (is_attached_to_var(n))
             return;
         attach_new_th_var(n);
+
+        expr* owner = n->get_expr();
 
         if (m_fpa_util.is_rm(s) && !m_fpa_util.is_bv2rm(owner)) {
             // For every RM term, we need to make sure that it's

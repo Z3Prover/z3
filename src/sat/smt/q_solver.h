@@ -53,7 +53,7 @@ namespace q {
 
     public:
 
-        solver(euf::solver& ctx);
+        solver(euf::solver& ctx, family_id fid);
         ~solver() override {}
         bool is_external(sat::bool_var v) override { return false; }
         void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) override {}
@@ -64,7 +64,7 @@ namespace q {
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override { UNREACHABLE(); return out; }
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override { UNREACHABLE(); return out; }
         void collect_statistics(statistics& st) const override;
-        euf::th_solver* clone(sat::solver* s, euf::solver& ctx) override;
+        euf::th_solver* clone(euf::solver& ctx) override;
         bool unit_propagate() override;
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool redundant) override { UNREACHABLE(); }

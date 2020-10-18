@@ -1,0 +1,12 @@
+z3_add_component(mbp
+  SOURCES
+    mbp_arith.cpp    
+    mbp_arrays.cpp
+    mbp_datatypes.cpp
+    mbp_plugin.cpp
+    mbp_solve_plugin.cpp
+    mbp_term_graph.cpp
+  COMPONENT_DEPENDENCIES
+    model   
+    simplex
+)

@@ -38,9 +38,9 @@ Notes:
 #include "model/model_evaluator.h"
 #include "solver/solver.h"
 #include "qe/qe_mbi.h"
-#include "qe/qe_term_graph.h"
-#include "qe/qe_arith.h"
-#include "qe/qe_arrays.h"
+#include "qe/mbp/mbp_term_graph.h"
+#include "qe/mbp/mbp_arith.h"
+#include "qe/mbp/mbp_arrays.h"
 
 
 namespace qe {
@@ -263,8 +263,8 @@ namespace qe {
         return avars;
     }
 
-    vector<def> uflia_mbi::arith_project(model_ref& mdl, app_ref_vector& avars, expr_ref_vector& lits) {
-        arith_project_plugin ap(m);
+    vector<mbp::def> uflia_mbi::arith_project(model_ref& mdl, app_ref_vector& avars, expr_ref_vector& lits) {
+        mbp::arith_project_plugin ap(m);
         ap.set_check_purified(false);
         return ap.project(*mdl.get(), avars, lits);
     }
@@ -308,7 +308,7 @@ namespace qe {
         expr_ref_vector alits(m), uflits(m);
         split_arith(lits, alits, uflits);
         auto avars = get_arith_vars(lits);
-        vector<def> defs = arith_project(mdl, avars, alits);
+        vector<mbp::def> defs = arith_project(mdl, avars, alits);
         for (auto const& d : defs) uflits.push_back(m.mk_eq(d.var, d.term));
         TRACE("qe", tout << "uflits: " << uflits << "\n";);
         project_euf(mdl, uflits);
@@ -354,7 +354,7 @@ namespace qe {
        \brief add difference certificates to formula.       
     */
     void uflia_mbi::add_dcert(model_ref& mdl, expr_ref_vector& lits) {        
-        term_graph tg(m);
+        mbp::term_graph tg(m);
         add_arith_dcert(*mdl.get(), lits);
         func_decl_ref_vector shared(m_shared_trail);
         tg.set_vars(shared, false);
@@ -406,7 +406,7 @@ namespace qe {
      * \brief project private symbols.
      */
     void uflia_mbi::project_euf(model_ref& mdl, expr_ref_vector& lits) {
-        term_graph tg(m);
+        mbp::term_graph tg(m);
         func_decl_ref_vector shared(m_shared_trail);
         tg.set_vars(shared, false);
         tg.add_lits(lits);

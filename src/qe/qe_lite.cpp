@@ -17,25 +17,24 @@ Revision History:
 
 
 --*/
-#include "qe/qe_lite.h"
+#include "util/uint_set.h"
 #include "ast/expr_abstract.h"
 #include "ast/used_vars.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_smt2_pp.h"
-#include "tactic/tactical.h"
+#include "ast/is_variable_test.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/var_subst.h"
-#include "util/uint_set.h"
 #include "ast/ast_util.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/datatype_decl_plugin.h"
-
-#include "qe/qe_vartest.h"
-#include "qe/qe_solve_plugin.h"
+#include "tactic/tactical.h"
+#include "qe/mbp/mbp_solve_plugin.h"
+#include "qe/qe_lite.h"
 
 namespace qel {
 
@@ -73,7 +72,7 @@ namespace qel {
         beta_reducer    m_subst;
         expr_ref_vector m_subst_map;
         expr_ref_vector m_new_exprs;
-        plugin_manager<qe::solve_plugin> m_solvers;
+        plugin_manager<mbp::solve_plugin> m_solvers;
 
         ptr_vector<expr> m_map;
         int_vector       m_pos2var;
@@ -296,7 +295,7 @@ namespace qel {
             if (m.is_eq(e, lhs, rhs)) {
                 fid = get_sort(lhs)->get_family_id();
             }
-            qe::solve_plugin* p = m_solvers.get_plugin(fid);
+            auto* p = m_solvers.get_plugin(fid);
             if (p) {
                 expr_ref res = (*p)(e);
                 if (res != e && m.is_eq(res, lhs, rhs) && is_variable(lhs)) {
@@ -703,9 +702,9 @@ namespace qel {
         void set_is_variable_proc(is_variable_proc& proc) { 
             m_is_variable = &proc;
             m_solvers.reset();
-            m_solvers.register_plugin(qe::mk_arith_solve_plugin(m, proc));            
-            m_solvers.register_plugin(qe::mk_basic_solve_plugin(m, proc));            
-            m_solvers.register_plugin(qe::mk_bv_solve_plugin(m, proc));            
+            m_solvers.register_plugin(mbp::mk_arith_solve_plugin(m, proc));            
+            m_solvers.register_plugin(mbp::mk_basic_solve_plugin(m, proc));
+            m_solvers.register_plugin(mbp::mk_bv_solve_plugin(m, proc));
         }
 
         void operator()(quantifier * q, expr_ref & r, proof_ref & pr) {

@@ -151,7 +151,7 @@ namespace sat {
         unsigned_vector           m_weights;
         svector<wliteral>         m_wlits;
 
-        euf::th_solver* clone_aux(sat::solver* new_s, ast_manager& m, sat::sat_internalizer& si, euf::theory_id id);
+        euf::th_solver* clone_aux(ast_manager& m, sat::solver& s, sat::sat_internalizer& si, euf::theory_id id);
 
         bool subsumes(card& c1, card& c2, literal_vector& comp);
         bool subsumes(card& c1, clause& c2, bool& self);
@@ -402,7 +402,7 @@ namespace sat {
         void add_xr(literal_vector const& lits);
 
         bool is_external(bool_var v) override;
-        bool propagate(literal l, ext_constraint_idx idx) override;
+        bool propagated(literal l, ext_constraint_idx idx) override;
         bool unit_propagate() override { return false; }
         lbool resolve_conflict() override;
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r, bool probing) override;
@@ -433,7 +433,7 @@ namespace sat {
         literal internalize(expr* e, bool sign, bool root, bool redundant) override;
         void internalize(expr* e, bool redundant) override;
         bool to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) override;
-        euf::th_solver* clone(solver* s, euf::solver& ctx) override;
+        euf::th_solver* clone(euf::solver& ctx) override;
 
         ptr_vector<constraint> const & constraints() const { return m_constraints; }
         std::ostream& display(std::ostream& out, constraint const& c, bool values) const;
