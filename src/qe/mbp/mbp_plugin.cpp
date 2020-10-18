@@ -105,8 +105,8 @@ namespace mbp {
         for (unsigned i = 0; i < fmls.size(); ++i) {
             expr* fml = fmls.get(i), * nfml, * f1, * f2, * f3;
             SASSERT(m.is_bool(fml));
-            if (m.is_not(fml, nfml) && m.is_distinct(nfml)) 
-                fmls[i--] = mbp::project_plugin::pick_equality(m, model, nfml);                            
+            if (m.is_not(fml, nfml) && m.is_distinct(nfml))
+                fmls[i--] = mbp::project_plugin::pick_equality(m, model, nfml);
             else if (m.is_or(fml)) {
                 for (expr* arg : *to_app(fml)) {
                     val = eval(arg);
@@ -128,7 +128,7 @@ namespace mbp {
                     f2 = mk_not(m, f2);
                 }
                 fmls[i--] = f1;
-                push_back(fmls, f2);                
+                push_back(fmls, f2);
             }
             else if (m.is_implies(fml, f1, f2)) {
                 val = eval(f2);
@@ -160,7 +160,7 @@ namespace mbp {
                 for (expr* arg : *to_app(nfml)) {
                     val = eval(arg);
                     if (m.is_false(val)) {
-                        fmls[i--] = mk_not(m, arg);                        
+                        fmls[i--] = mk_not(m, arg);
                         break;
                     }
                 }
@@ -204,9 +204,8 @@ namespace mbp {
                     mbp::project_plugin::erase(fmls, i);
                 }
             }
-            else if (extract_bools(eval, fmls, fml)) 
-                mbp::project_plugin::erase(fmls, i);                
-            }
+            else if (extract_bools(eval, fmls, fml))
+                mbp::project_plugin::erase(fmls, i);
         }
         TRACE("qe", tout << fmls << "\n";);
     }
