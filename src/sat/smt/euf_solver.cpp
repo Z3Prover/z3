@@ -61,9 +61,9 @@ namespace euf {
     * retrieve extension that is associated with Boolean variable.
     */
     th_solver* solver::bool_var2solver(sat::bool_var v) {
-        if (v >= m_var2expr.size())
+        if (v >= m_bool_var2expr.size())
             return nullptr;
-        expr* e = m_var2expr[v];
+        expr* e = m_bool_var2expr[v];
         if (!e)
             return nullptr;
         return expr2solver(e);
@@ -148,7 +148,7 @@ namespace euf {
     }
 
     bool solver::is_external(bool_var v) {
-        if (nullptr != m_var2expr.get(v, nullptr))
+        if (nullptr != m_bool_var2expr.get(v, nullptr))
             return true;
         for (auto* s : m_solvers)
             if (s->is_external(v))
@@ -244,7 +244,7 @@ namespace euf {
             m_egraph.explain<size_t>(m_explain);
             break;
         case constraint::kind_t::eq:
-            e = m_var2expr[l.var()];
+            e = m_bool_var2expr[l.var()];
             n = m_egraph.find(e);
             SASSERT(n);
             SASSERT(n->is_equality());
@@ -252,7 +252,7 @@ namespace euf {
             m_egraph.explain_eq<size_t>(m_explain, n->get_arg(0), n->get_arg(1));
             break;
         case constraint::kind_t::lit:
-            e = m_var2expr[l.var()];
+            e = m_bool_var2expr[l.var()];
             n = m_egraph.find(e);
             SASSERT(n);
             SASSERT(m.is_bool(n->get_expr()));
@@ -265,7 +265,7 @@ namespace euf {
     }
 
     void solver::asserted(literal l) {
-        expr* e = m_var2expr.get(l.var(), nullptr);
+        expr* e = m_bool_var2expr.get(l.var(), nullptr);
         if (!e) {
             TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << "\n";);
             return;        
@@ -448,7 +448,7 @@ namespace euf {
         m_egraph.pop(n);
         scope const & s = m_scopes[m_scopes.size() - n];
         for (unsigned i = m_var_trail.size(); i-- > s.m_var_lim; )
-            m_var2expr[m_var_trail[i]] = nullptr;
+            m_bool_var2expr[m_var_trail[i]] = nullptr;
         m_var_trail.shrink(s.m_var_lim);        
         m_scopes.shrink(m_scopes.size() - n);
         SASSERT(m_egraph.num_scopes() == m_scopes.size());
@@ -561,7 +561,7 @@ namespace euf {
         m_egraph.display(out);
         out << "bool-vars\n";
         for (unsigned v : m_var_trail) {
-            expr* e = m_var2expr[v];
+            expr* e = m_bool_var2expr[v];
             out << v << ": " << e->get_id() << " " << m_solver->value(v) << " " << mk_bounded_pp(e, m, 1) << "\n";        
         }
         for (auto* e : m_solvers)
@@ -694,8 +694,8 @@ namespace euf {
     unsigned solver::max_var(unsigned w) const { 
         for (auto* e : m_solvers)
             w = e->max_var(w);
-        for (unsigned sz = m_var2expr.size(); sz-- > 0; ) {
-            expr* n = m_var2expr[sz];
+        for (unsigned sz = m_bool_var2expr.size(); sz-- > 0; ) {
+            expr* n = m_bool_var2expr[sz];
             if (n && m.is_bool(n)) {
                 w = std::max(w, sz);
                 break;

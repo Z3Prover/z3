@@ -134,14 +134,14 @@ namespace euf {
             lit = lit2;
         }
 
-        m_var2expr.reserve(v + 1, nullptr);
-        if (m_var2expr[v]) {
+        m_bool_var2expr.reserve(v + 1, nullptr);
+        if (m_bool_var2expr[v]) {
             SASSERT(m_egraph.find(e));
             SASSERT(m_egraph.find(e)->bool_var() == v);
             return lit;
         }
         TRACE("euf", tout << "attach " << v << " " << mk_bounded_pp(e, m) << "\n";);
-        m_var2expr[v] = e;
+        m_bool_var2expr[v] = e;
         m_var_trail.push_back(v);
         enode* n = m_egraph.find(e);
         if (!n) 

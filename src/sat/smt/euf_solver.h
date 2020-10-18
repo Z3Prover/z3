@@ -94,7 +94,7 @@ namespace euf {
         scoped_ptr<sat::dual_solver> m_dual_solver;
         user::solver*          m_user_propagator{ nullptr };
 
-        ptr_vector<expr>                                m_var2expr;
+        ptr_vector<expr>                                m_bool_var2expr;
         ptr_vector<size_t>                              m_explain;
         unsigned                                        m_num_scopes{ 0 };
         unsigned_vector                                 m_var_trail;
@@ -301,7 +301,7 @@ namespace euf {
         expr_ref mk_eq(expr* e1, expr* e2);
         expr_ref mk_eq(euf::enode* n1, euf::enode* n2) { return mk_eq(n1->get_expr(), n2->get_expr()); }
         euf::enode* mk_enode(expr* e, unsigned n, enode* const* args) { return m_egraph.mk(e, n, args); }
-        expr* bool_var2expr(sat::bool_var v) { return m_var2expr.get(v, nullptr); }
+        expr* bool_var2expr(sat::bool_var v) { return m_bool_var2expr.get(v, nullptr); }
         sat::literal attach_lit(sat::literal lit, expr* e);
         void unhandled_function(func_decl* f);
         th_rewriter& get_rewriter() { return m_rewriter; }
