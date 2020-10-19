@@ -23,37 +23,90 @@ Revision History:
 #include "util/util.h"
 #include <chrono>
 #include <climits>
+#include <condition_variable>
 #include <mutex>
 #include <thread>
+#include <vector>
 
+struct state {
+    std::thread * m_thread = nullptr;
+    std::timed_mutex m_mutex;
+    unsigned ms;
+    event_handler * eh;
+    int work = 0;
+    std::condition_variable_any cv;
+    std::mutex cv_lock;
+};
+
+/*
+ * NOTE: this implementation deliberately leaks threads when Z3
+ * exits. this is preferable to deallocating on exit, because
+ * destructing threads blocked on condition variables leads to
+ * deadlock.
+ */
+static std::vector<state *> available_workers;
+static std::mutex workers;
 
 struct scoped_timer::imp {
 private:
-    std::thread      m_thread;
-    std::timed_mutex m_mutex;
 
-    static void thread_func(unsigned ms, event_handler * eh, std::timed_mutex * mutex) {
-        auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+    static void thread_func(state *s) {
+        while (true) {
 
-        while (!mutex->try_lock_until(end)) {
-            if (std::chrono::steady_clock::now() >= end) {
-                eh->operator()(TIMEOUT_EH_CALLER);
-                return;
+            s->cv_lock.lock();
+            s->cv.wait(s->cv_lock, [=]{return s->work > 0;});
+            s->cv_lock.unlock();
+
+            auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(s->ms);
+
+            while (!s->m_mutex.try_lock_until(end)) {
+                if (std::chrono::steady_clock::now() >= end) {
+                    s->eh->operator()(TIMEOUT_EH_CALLER);
+                    goto next;
+                }
             }
-        }
 
-        mutex->unlock();
+            s->m_mutex.unlock();
+
+        next:
+            s->cv_lock.lock();
+            s->work--;
+            s->cv_lock.unlock();
+        }
     }
 
+    state *s;
+
 public:
-    imp(unsigned ms, event_handler * eh) {
-        m_mutex.lock();
-        m_thread = std::thread(thread_func, ms, eh, &m_mutex);
+    imp(unsigned _ms, event_handler * _eh) {
+        workers.lock();
+        if (available_workers.empty()) {
+            workers.unlock();
+            s = new state;
+        } else {
+            s = available_workers.back();
+            available_workers.pop_back();
+            workers.unlock();
+        }
+        s->ms = _ms;
+        s->eh = _eh;
+        s->m_mutex.lock();
+        s->cv_lock.lock();
+        s->work++;
+        if (!s->m_thread) {
+            s->m_thread = new std::thread(thread_func, s);
+            s->m_thread->detach();
+        } else {
+            s->cv.notify_one();
+        }
+        s->cv_lock.unlock();
     }
 
     ~imp() {
-        m_mutex.unlock();
-        m_thread.join();
+        s->m_mutex.unlock();
+        workers.lock();
+        available_workers.push_back(s);
+        workers.unlock();
     }
 };
 
