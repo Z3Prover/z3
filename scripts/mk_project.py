@@ -48,8 +48,8 @@ def init_project_def():
     add_lib('smt_params', ['ast', 'params'], 'smt/params')
     add_lib('core_tactics', ['tactic', 'macros', 'normal_forms', 'rewriter', 'pattern'], 'tactic/core')
     add_lib('arith_tactics', ['core_tactics', 'sat'], 'tactic/arith')
-
-    add_lib('sat_smt', ['sat', 'euf', 'tactic', 'solver', 'smt_params', 'bit_blaster', 'fpa', 'normal_forms', 'lp'], 'sat/smt')
+    add_lib('mbp', ['model', 'simplex'], 'qe/mbp')
+    add_lib('sat_smt', ['sat', 'euf', 'tactic', 'solver', 'smt_params', 'bit_blaster', 'fpa', 'mbp', 'normal_forms', 'lp'], 'sat/smt')
     add_lib('sat_tactic', ['tactic', 'sat', 'solver', 'sat_smt'], 'sat/tactic')
     add_lib('nlsat_tactic', ['nlsat', 'sat_tactic', 'arith_tactics'], 'nlsat/tactic')
     add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'math/subpaving/tactic')
@@ -61,7 +61,6 @@ def init_project_def():
     add_lib('fuzzing', ['ast'], 'test/fuzzing')
     add_lib('smt_tactic', ['smt'], 'smt/tactic')
     add_lib('sls_tactic', ['tactic', 'normal_forms', 'core_tactics', 'bv_tactics'], 'tactic/sls')
-    add_lib('mbp', ['model', 'simplex'], 'qe/mbp')
     add_lib('qe', ['smt', 'mbp', 'nlsat', 'tactic', 'nlsat_tactic'], 'qe')
     add_lib('sat_solver', ['solver', 'core_tactics', 'aig_tactic', 'bv_tactics', 'arith_tactics', 'sat_tactic'], 'sat/sat_solver')
     add_lib('fd_solver', ['core_tactics', 'arith_tactics', 'sat_solver', 'smt'], 'tactic/fd_solver') 

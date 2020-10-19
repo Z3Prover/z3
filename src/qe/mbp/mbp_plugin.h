@@ -35,18 +35,43 @@ namespace mbp {
         def(const expr_ref& v, expr_ref& t): var(v), term(t) {}
     };
 
-    class project_plugin {
-        ast_manager& m;
-        expr_mark m_visited;
-        expr_mark m_bool_visited;
+    /***
+    * An EUF inverter provides two services:
+    * 1. It inverts an uninterpreted function application f(s1,s2) with 'value' to a ground term evaluating to the same 
+    * 2. It adds constraints for arguments to s_i with 'value' to be within the bounds of the model value.
+    */
+    class euf_inverter {
+    public:
+        virtual expr* invert_app(app* t, expr* value) = 0;
+        virtual expr* invert_arg(app* t, unsigned i, expr* value) = 0;
+    };
 
-        bool extract_bools(model_evaluator& eval, expr_ref_vector& fmls, expr* fml);
+    class project_plugin {
+        ast_manager&     m;
+        expr_mark        m_visited;
+        ptr_vector<expr> m_to_visit;
+        expr_mark        m_bool_visited;
+        expr_mark        m_non_ground;
+        expr_ref_vector  m_cache, m_args;
+
+        void extract_bools(model_evaluator& eval, expr_ref_vector& fmls, unsigned i, expr* fml, bool is_true);
+        void visit_app(expr* e);
+        bool visit_ite(model_evaluator& eval, expr* e, expr_ref_vector& fmls);
+        bool visit_bool(model_evaluator& eval, expr* e, expr_ref_vector& fmls);
+        bool is_true(model_evaluator& eval, expr* e);
+
         // over-approximation
         bool contains_uninterpreted(expr* v) { return true; }
 
         void push_back(expr_ref_vector& lits, expr* lit);
+
+        void mark_non_ground(app_ref_vector const& vars, expr_ref_vector const& fmls);
+
+        expr* purify(euf_inverter& inv, model_evaluator& eval, expr* e, expr_ref_vector& lits);
+        void purify_app(euf_inverter& inv, model_evaluator& eval, app* t, expr_ref_vector& lits);
+
     public:
-        project_plugin(ast_manager& m) :m(m) {}
+        project_plugin(ast_manager& m) :m(m), m_cache(m), m_args(m) {}
         virtual ~project_plugin() {}
         virtual bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) { return false; }
         /**
@@ -81,7 +106,7 @@ namespace mbp {
         /*
         * Purify literals into linear inequalities or constraints without arithmetic variables.
         */
-        void purify(model& model, app_ref_vector const& vars, expr_ref_vector& fmls);
+        void purify(euf_inverter& inv, model& model, app_ref_vector const& vars, expr_ref_vector& fmls);
 
         static expr_ref pick_equality(ast_manager& m, model& model, expr* t);
         static void erase(expr_ref_vector& lits, unsigned& i);

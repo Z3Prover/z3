@@ -26,6 +26,7 @@ Notes:
 #include "sat/smt/sat_th.h"
 #include "solver/solver.h"
 #include "model/model_macro_solver.h"
+#include "qe/mbp/mbp_plugin.h"
 
 namespace euf {
     class solver;
@@ -65,10 +66,10 @@ namespace q {
         struct eq { bool operator()(indexed_decl const& a, indexed_decl const& b) const { return a.idx == b.idx && a.f == b.f; } };
     };
 
-    class model_fixer : public quantifier2macro_infos {
-        euf::solver&        ctx;      
-        solver&             m_qs;
-        ast_manager&        m;
+    class model_fixer : public quantifier2macro_infos, public mbp::euf_inverter {
+        euf::solver& ctx;
+        solver& m_qs;
+        ast_manager& m;
         obj_map<quantifier, quantifier_macro_info*> m_q2info;
         func_decl_dependencies                      m_dependencies;
         obj_map<sort, projection_function*>         m_projections;
@@ -81,6 +82,12 @@ namespace q {
         void collect_partial_functions(ptr_vector<quantifier> const& qs, func_decl_set& fns);
         projection_function* get_projection(sort* srt);
 
+        projection_meta_data* get_projection_data(func_decl* f, unsigned idx) const {
+            projection_meta_data* r = nullptr;
+            m_projection_data.find(indexed_decl(f, idx), r);
+            return r;
+        }
+
     public:
 
         model_fixer(euf::solver& ctx, solver& qs);
@@ -89,19 +96,15 @@ namespace q {
         /**
          * Update model in order to best satisfy quantifiers.
          * For the array property fragment, update the model
-         * such that the range of functions behaves monotonically 
+         * such that the range of functions behaves monotonically
          * based on regions over the inputs.
          */
         void operator()(model& mdl);
 
         quantifier_macro_info* operator()(quantifier* q) override;
 
-        projection_meta_data* operator()(func_decl* f, unsigned idx) const {
-            projection_meta_data* r = nullptr;
-            m_projection_data.find(indexed_decl(f, idx), r);
-            return r;
-        }
-        
+        expr* invert_app(app* t, expr* value) override;
+        expr* invert_arg(app* t, unsigned i, expr* value) override;
     };
 
 }

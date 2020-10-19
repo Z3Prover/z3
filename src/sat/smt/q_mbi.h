@@ -17,6 +17,7 @@ Author:
 #pragma once
 
 #include "solver/solver.h"
+#include "qe/mbp/mbp_plugin.h"
 #include "sat/smt/sat_th.h"
 #include "sat/smt/q_model_finder.h"
 #include "sat/smt/q_model_fixer.h"
@@ -31,7 +32,7 @@ namespace q {
 
     class mbqi {
         euf::solver&                           ctx;
-        solver&                                qs;
+        solver&                                m_qs;
         ast_manager&                           m;
         model_fixer                            m_model_fixer;
         model_finder                           m_model_finder;
@@ -40,6 +41,7 @@ namespace q {
         obj_map<sort, obj_hashtable<expr>*>    m_fresh;
         scoped_ptr_vector<obj_hashtable<expr>> m_values;
         expr_ref_vector                        m_fresh_trail;
+        scoped_ptr_vector<mbp::project_plugin> m_plugins;
         unsigned                               m_max_cex{ 1 };
 
         void restrict_to_universe(expr * sk, ptr_vector<expr> const & universe);
@@ -47,10 +49,14 @@ namespace q {
         expr_ref replace_model_value(expr* e);
         expr_ref choose_term(euf::enode* r);
         lbool check_forall(quantifier* q);
-        expr_ref specialize(quantifier* q, expr_ref_vector& vars);
-        expr_ref project(model& mdl, quantifier* q, expr_ref_vector& vars, bool inv);
+        expr_ref specialize(quantifier* q, app_ref_vector& vars);
+        expr_ref basic_project(model& mdl, quantifier* q, app_ref_vector& vars);
+        expr_ref solver_project(model& mdl, quantifier* q, app_ref_vector& vars);
+        expr_ref assign_value(model& mdl, app* v);
         void init_model();
         void init_solver();
+        mbp::project_plugin* get_plugin(app* var);
+        void add_plugin(mbp::project_plugin* p);
 
     public:
 

@@ -3,18 +3,15 @@ Copyright (c) 2015 Microsoft Corporation
 
 Module Name:
 
-    qe_mbp.cpp
+    mpb_plugin.cpp
 
 Abstract:
 
-    Model-based projection utilities
+    Model-based projection plugin utilities
 
 Author:
 
     Nikolaj Bjorner (nbjorner) 2015-5-29
-
-Revision History:
-
 
 --*/
 
@@ -97,6 +94,7 @@ namespace mbp {
     }
 
     void project_plugin::extract_literals(model& model, app_ref_vector const& vars, expr_ref_vector& fmls) {
+        m_cache.reset();
         m_bool_visited.reset();
         expr_ref val(m);
         model_evaluator eval(model);
@@ -106,7 +104,7 @@ namespace mbp {
             expr* fml = fmls.get(i), * nfml, * f1, * f2, * f3;
             SASSERT(m.is_bool(fml));
             if (m.is_not(fml, nfml) && m.is_distinct(nfml))
-                fmls[i--] = mbp::project_plugin::pick_equality(m, model, nfml);
+                fmls[i--] = pick_equality(m, model, nfml);
             else if (m.is_or(fml)) {
                 for (expr* arg : *to_app(fml)) {
                     val = eval(arg);
@@ -119,7 +117,7 @@ namespace mbp {
             }
             else if (m.is_and(fml)) {
                 fmls.append(to_app(fml)->get_num_args(), to_app(fml)->get_args());
-                mbp::project_plugin::erase(fmls, i);
+                erase(fmls, i);
             }
             else if (m.is_iff(fml, f1, f2) || (m.is_not(fml, nfml) && m.is_xor(nfml, f1, f2))) {
                 val = eval(f1);
@@ -154,7 +152,7 @@ namespace mbp {
             }
             else if (m.is_not(fml, nfml) && m.is_not(nfml, nfml)) {
                 push_back(fmls, nfml);
-                mbp::project_plugin::erase(fmls, i);
+                erase(fmls, i);
             }
             else if (m.is_not(fml, nfml) && m.is_and(nfml)) {
                 for (expr* arg : *to_app(nfml)) {
@@ -168,24 +166,22 @@ namespace mbp {
             else if (m.is_not(fml, nfml) && m.is_or(nfml)) {
                 for (expr* arg : *to_app(nfml))
                     push_back(fmls, mk_not(m, arg));
-                mbp::project_plugin::erase(fmls, i);
+                erase(fmls, i);
             }
             else if ((m.is_not(fml, nfml) && m.is_iff(nfml, f1, f2)) || m.is_xor(fml, f1, f2)) {
                 val = eval(f1);
-                if (m.is_true(val)) {
-                    f2 = mk_not(m, f2);
-                }
-                else {
-                    f1 = mk_not(m, f1);
-                }
+                if (m.is_true(val)) 
+                    f2 = mk_not(m, f2);                
+                else 
+                    f1 = mk_not(m, f1);                
                 push_back(fmls, f1);
                 push_back(fmls, f2);
-                mbp::project_plugin::erase(fmls, i);
+                erase(fmls, i);
             }
             else if (m.is_not(fml, nfml) && m.is_implies(nfml, f1, f2)) {
                 push_back(fmls, f1);
                 push_back(fmls, mk_not(m, f2));
-                mbp::project_plugin::erase(fmls, i);
+                erase(fmls, i);
             }
             else if (m.is_not(fml, nfml) && m.is_ite(nfml, f1, f2, f3)) {
                 val = eval(f1);
@@ -197,66 +193,186 @@ namespace mbp {
                     push_back(fmls, mk_not(m, f1));
                     push_back(fmls, mk_not(m, f3));
                 }
-                mbp::project_plugin::erase(fmls, i);
+                erase(fmls, i);
             }
-            else if (m.is_not(fml, nfml)) {
-                if (extract_bools(eval, fmls, nfml)) {
-                    mbp::project_plugin::erase(fmls, i);
-                }
-            }
-            else if (extract_bools(eval, fmls, fml))
-                mbp::project_plugin::erase(fmls, i);
+            else if (m.is_not(fml, nfml))
+                extract_bools(eval, fmls, i, nfml, false);
+            else
+                extract_bools(eval, fmls, i, fml, true);
         }
         TRACE("qe", tout << fmls << "\n";);
     }
 
-    bool project_plugin::extract_bools(model_evaluator& eval, expr_ref_vector& fmls, expr* fml) {
+    void project_plugin::extract_bools(model_evaluator& eval, expr_ref_vector& fmls, unsigned idx, expr* fml, bool is_true) {
         TRACE("qe", tout << "extract bools: " << mk_pp(fml, m) << "\n";);
-        ptr_vector<expr> todo;
-        expr_safe_replace sub(m);
-        m_visited.reset();
-        bool found_bool = false;
-        if (is_app(fml)) {
-            todo.append(to_app(fml)->get_num_args(), to_app(fml)->get_args());
+        if (!is_app(fml))
+            return;
+        m_to_visit.reset();
+        m_to_visit.append(to_app(fml)->get_num_args(), to_app(fml)->get_args());        
+        while (!m_to_visit.empty()) {
+            if (!m.inc())
+                return;
+            expr* e = m_to_visit.back();
+            if (m_cache.get(e->get_id(), nullptr)) {
+                m_to_visit.pop_back();
+            }
+            else if (!is_app(e)) {
+                m_cache.set(e->get_id(), e);
+                m_to_visit.pop_back();
+            }
+            else if (visit_ite(eval, e, fmls))
+                continue;
+            else if (visit_bool(eval, e, fmls))
+                continue;
+            else 
+                visit_app(e);            
         }
-        while (!todo.empty() && m.inc()) {
-            expr* e = todo.back();
-            todo.pop_back();
-            if (m_visited.is_marked(e)) {
+
+        SASSERT(m_to_visit.empty());
+        m_to_visit.push_back(fml);
+        visit_app(fml);
+        SASSERT(m_to_visit.empty());
+        expr* new_fml = m_cache.get(fml->get_id(), nullptr);
+        SASSERT(new_fml);
+        if (new_fml != fml) 
+            fmls[idx] = is_true ? new_fml : mk_not(m, new_fml);        
+    }
+
+    bool project_plugin::is_true(model_evaluator& eval, expr* e) {
+        expr_ref val = eval(e);
+        bool tt = m.is_true(val);
+        if (!tt && !m.is_false(val) && contains_uninterpreted(val))
+            throw default_exception("could not evaluate Boolean in model");
+        SASSERT(tt || m.is_false(val));
+        return tt;
+    }
+
+    bool project_plugin::visit_ite(model_evaluator& eval, expr* e, expr_ref_vector& fmls) {
+        expr* c = nullptr, * th = nullptr, * el = nullptr;
+        if (m.is_ite(e, c, th, el)) {
+            bool tt = is_true(eval, c);
+            if (!m_bool_visited.is_marked(c))
+                fmls.push_back(tt ? c : mk_not(m, c));
+            m_bool_visited.mark(c);
+            expr* s = tt ? th : el;
+            expr* t = m_cache.get(s->get_id(), nullptr);
+            if (t) {
+                m_to_visit.pop_back();
+                m_cache.set(e->get_id(), t);
+            }
+            else
+                m_to_visit.push_back(s);
+            return true;
+        }
+        else 
+            return false;
+    }
+
+    bool project_plugin::visit_bool(model_evaluator& eval, expr* e, expr_ref_vector& fmls) {
+        if (m.is_bool(e) && !m.is_true(e) && !m.is_false(e)) {
+            bool tt = is_true(eval, e);
+            if (!m_bool_visited.is_marked(e))
+                fmls.push_back(tt ? e : mk_not(m, e));
+            m_bool_visited.mark(e);
+            m_cache.set(e->get_id(), m.mk_bool_val(tt));
+            m_to_visit.pop_back();
+            return true;
+        }
+        else
+            return false;
+    }
+
+    void project_plugin::visit_app(expr* e) {
+        unsigned sz = m_to_visit.size();
+        m_args.reset();
+        bool diff = false;
+        for (expr* arg : *to_app(e)) {
+            expr* new_arg = m_cache.get(arg->get_id(), nullptr);
+            diff |= new_arg != arg;
+            if (new_arg == nullptr)
+                m_to_visit.push_back(arg);
+            else
+                m_args.push_back(new_arg);
+        }
+        if (sz == m_to_visit.size()) {
+            if (diff)
+                m_cache.set(e->get_id(), m.mk_app(to_app(e)->get_decl(), m_args));
+            else
+                m_cache.set(e->get_id(), e);
+            m_to_visit.pop_back();
+        }
+    }
+
+    void project_plugin::mark_non_ground(app_ref_vector const& vars, expr_ref_vector const& fmls) {
+        m_non_ground.reset();
+        m_to_visit.reset();
+        m_visited.reset();
+        for (expr* v : vars)
+            m_non_ground.mark(v);
+        m_to_visit.append(fmls.size(), fmls.c_ptr());
+        while (!m_to_visit.empty()) {
+            expr* e = m_to_visit.back();
+            if (!is_app(e)) {
+                m_visited.mark(e);
+                m_to_visit.pop_back();
                 continue;
             }
-            m_visited.mark(e);
-            if (m.is_bool(e) && !m.is_true(e) && !m.is_false(e)) {
-                expr_ref val = eval(e);
-                TRACE("qe", tout << "found: " << mk_pp(e, m) << " " << val << "\n";);
-                if (!m.inc())
-                    continue;
-                if (!m.is_true(val) && !m.is_false(val) && contains_uninterpreted(val)) 
-                    throw default_exception("could not evaluate Boolean in model");
-                SASSERT(m.is_true(val) || m.is_false(val));
+            unsigned n = m_to_visit.size();
+            for (expr* arg : *to_app(e)) {
+                if (!m_visited.is_marked(arg))
+                    m_to_visit.push_back(arg);
+                else if (m_non_ground.is_marked(arg))
+                    m_non_ground.mark(e);
+            }
+            if (m_to_visit.size() == n) {
+                m_visited.mark(e);
+                m_to_visit.pop_back();
+            }
+        }
+    }
 
-                if (!m_bool_visited.is_marked(e)) 
-                    fmls.push_back(m.is_true(val) ? e : mk_not(m, e));
-                sub.insert(e, val);
-                m_bool_visited.mark(e);
-                found_bool = true;
+    void project_plugin::purify(euf_inverter& inv, model& mdl, app_ref_vector const& vars, expr_ref_vector& lits) {
+        extract_literals(mdl, vars, lits);
+        if (!m.inc())
+            return;
+        mark_non_ground(vars, lits);
+        m_cache.reset();
+        model_evaluator eval(mdl);
+        eval.set_expand_array_equalities(true);
+        for (unsigned i = 0; i < lits.size(); ++i) 
+            lits[i] = purify(inv, eval, lits.get(i), lits);        
+    }
+
+    expr* project_plugin::purify(euf_inverter& inv, model_evaluator& eval, expr* e, expr_ref_vector& lits) {
+        m_to_visit.push_back(e);
+        while (!m_to_visit.empty()) {
+            expr* t = m_to_visit.back();
+            if (m_cache.get(t->get_id(), nullptr)) 
+                m_to_visit.pop_back();            
+            else if (!is_app(t) || !m_non_ground.is_marked(t)) {
+                m_cache.set(t->get_id(), t);
+                m_to_visit.pop_back();
             }
-            else if (is_app(e)) {
-                todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
-            }
-            else {
-                TRACE("qe", tout << "expression not handled " << mk_pp(e, m) << "\n";);
-            }
+            else 
+                purify_app(inv, eval, to_app(t), lits);
         }
-        if (found_bool) {
-            expr_ref tmp(m);
-            sub(fml, tmp);
-            expr_ref val = eval(tmp);
-            if (!m.is_true(val) && !m.is_false(val))
-                return false;
-            fmls.push_back(m.is_true(val) ? tmp : mk_not(m, tmp));
+        return m_cache.get(e->get_id());
+    }
+
+    void project_plugin::purify_app(euf_inverter& inv, model_evaluator& eval, app* t, expr_ref_vector& lits) {
+        if (is_uninterp(t) && t->get_num_args() > 0) {
+            expr_ref t_value = eval(t);
+            m_cache.set(t->get_id(), inv.invert_app(t, t_value));
+            unsigned i = 0;
+            for (expr* arg : *t) {
+                expr_ref arg_value = eval(arg);
+                push_back(lits, inv.invert_arg(t, i, arg_value));
+                ++i;                
+            }
+            m_to_visit.pop_back();
         }
-        return found_bool;
+        else 
+            visit_app(t);  
     }
 
 }

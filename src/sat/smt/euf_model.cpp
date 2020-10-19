@@ -25,6 +25,7 @@ namespace euf {
     void solver::update_model(model_ref& mdl) {
         deps_t deps;
         m_values.reset();
+        m_values2root.reset();
         collect_dependencies(deps);
         deps.topological_sort();
         dependencies2values(deps, mdl);
@@ -186,8 +187,9 @@ namespace euf {
         // TODO
     }
 
-    obj_map<expr,enode*> const& solver::values2root() {
-        m_values2root.reset();
+    obj_map<expr,enode*> const& solver::values2root() {    
+        if (!m_values2root.empty())
+            return m_values2root;
         for (enode* n : m_egraph.nodes())
             if (n->is_root())
                 m_values2root.insert(m_values.get(n->get_root_id()), n);

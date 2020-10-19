@@ -209,4 +209,40 @@ namespace q {
                     fns.insert(to_app(t)->get_decl());           
         }
     }
+
+    expr* model_fixer::invert_app(app* t, expr* value) { 
+        euf::enode* r = nullptr;
+        if (ctx.values2root().find(value, r))
+            return r->get_expr();
+        return value; 
+    }
+
+    expr* model_fixer::invert_arg(app* t, unsigned i, expr* value)  { 
+        auto const* md = get_projection_data(t->get_decl(), i);
+        if (!md)
+            return m.mk_true();
+        auto* proj = get_projection(t->get_decl()->get_domain(i));
+        if (!proj)
+            return m.mk_true();
+
+        if (md->values.size() <= 1) 
+            return m.mk_true();
+        
+        //
+        // md->values are sorted
+        // 
+        unsigned j = 0;
+        for (expr* val : md->values) {
+            if ((*proj)(value, val))
+                ++j;
+            else
+                break;
+        }
+        expr* lo = md->values[j];
+        expr* arg = t->get_arg(i);
+        expr* result = m.mk_not(proj->mk_lt(arg, lo));
+        if (j + 1 < md->values.size()) 
+            result = m.mk_and(result, proj->mk_lt(arg, md->values[j + 1]));
+        return result;
+    }
 }

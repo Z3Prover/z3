@@ -290,9 +290,8 @@ public:
             app_ref_vector new_vars(m);
             progress = false;
             for (mbp::project_plugin* p : m_plugins) {
-                if (p) {
+                if (p)
                     (*p)(model, vars, fmls);
-                }
             }
             while (!vars.empty() && !fmls.empty() && m.limit().inc()) {
                 var = vars.back();

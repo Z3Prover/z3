@@ -269,9 +269,8 @@ namespace mbp {
 
         vector<def> project(model& model, app_ref_vector& vars, expr_ref_vector& fmls, bool compute_def) {
             bool has_arith = false;
-            for (expr* v : vars) {
-                has_arith |= is_arith(v);
-            }
+            for (expr* v : vars) 
+                has_arith |= is_arith(v);            
             if (!has_arith) 
                 return vector<def>();            
             model_evaluator eval(model);
@@ -517,7 +516,6 @@ namespace mbp {
                     expr_ref val = eval(v);
                     if (!a.is_numeral(val, r)) {
                         TRACE("qe", tout << eval.get_model() << "\n";);
-
                         throw default_exception("mbp evaluation was only partial");
                     }
                     id = mbo.add_var(r, a.is_int(v));
