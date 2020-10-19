@@ -31,9 +31,9 @@ namespace q {
 
     class mbqi {
         struct q_body {
-            app_ref_vector vars;
-            expr_ref       mbody;  // body specialized with respect to model
-            expr_ref       vbody;  // body specialized with respect to vars
+            app_ref_vector  vars;
+            expr_ref        mbody;  // body specialized with respect to model
+            expr_ref_vector vbody;  // (negation of) body specialized with respect to vars
             q_body(ast_manager& m) : vars(m), mbody(m), vbody(m) {}
         };
 

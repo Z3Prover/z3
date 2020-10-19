@@ -30,23 +30,23 @@ Author:
 
 namespace q {
 
-    mbqi::mbqi(euf::solver& ctx, solver& s): 
-        ctx(ctx), 
-        m_qs(s), 
-        m(s.get_manager()), 
+    mbqi::mbqi(euf::solver& ctx, solver& s) :
+        ctx(ctx),
+        m_qs(s),
+        m(s.get_manager()),
         m_model_fixer(ctx, m_qs),
-        m_fresh_trail(m) 
+        m_fresh_trail(m)
     {
         add_plugin(alloc(mbp::arith_project_plugin, m));
         add_plugin(alloc(mbp::datatype_project_plugin, m));
         add_plugin(alloc(mbp::array_project_plugin, m));
     }
 
-    void mbqi::restrict_to_universe(expr * sk, ptr_vector<expr> const & universe) {
+    void mbqi::restrict_to_universe(expr* sk, ptr_vector<expr> const& universe) {
         SASSERT(!universe.empty());
         expr_ref_vector eqs(m);
-        for (expr * e : universe) 
-            eqs.push_back(m.mk_eq(sk, e));        
+        for (expr* e : universe)
+            eqs.push_back(m.mk_eq(sk, e));
         expr_ref fml(m.mk_or(eqs), m);
         m_solver->assert_expr(fml);
     }
@@ -60,8 +60,8 @@ namespace q {
             m_values.push_back(values);
         }
         if (!values->contains(e)) {
-            for (expr* b : *values) 
-                m_qs.add_unit(~m_qs.eq_internalize(e, b));            
+            for (expr* b : *values)
+                m_qs.add_unit(~m_qs.eq_internalize(e, b));
             values->insert(e);
             m_fresh_trail.push_back(e);
         }
@@ -71,14 +71,14 @@ namespace q {
     // for fixed value return expr
     // new fixed value is distinct from other expr
     expr_ref mbqi::replace_model_value(expr* e) {
-        if (m.is_model_value(e)) { 
+        if (m.is_model_value(e)) {
             register_value(e);
             return expr_ref(e, m);
         }
         if (is_app(e) && to_app(e)->get_num_args() > 0) {
             expr_ref_vector args(m);
-            for (expr* arg : *to_app(e)) 
-                args.push_back(replace_model_value(arg));            
+            for (expr* arg : *to_app(e))
+                args.push_back(replace_model_value(arg));
             return expr_ref(m.mk_app(to_app(e)->get_decl(), args), m);
         }
         return expr_ref(e, m);
@@ -88,17 +88,17 @@ namespace q {
         unsigned sz = r->class_size();
         unsigned start = ctx.s().rand()() % sz;
         unsigned i = 0;
-        for (euf::enode* n : euf::enode_class(r)) 
+        for (euf::enode* n : euf::enode_class(r))
             if (i++ >= start)
                 return expr_ref(n->get_expr(), m);
         return expr_ref(nullptr, m);
     }
-    
+
     lbool mbqi::check_forall(quantifier* q) {
         init_solver();
         ::solver::scoped_push _sp(*m_solver);
         quantifier* q_flat = m_qs.flatten(q);
-        auto* qb = specialize(q_flat);  
+        auto* qb = specialize(q_flat);
         if (!qb)
             return l_undef;
         m_solver->assert_expr(qb->mbody);
@@ -107,35 +107,19 @@ namespace q {
             return r;
         if (r == l_false)
             return l_true;
-        model_ref mdl0, mdl1;        
-        m_solver->get_model(mdl0); 
+        model_ref mdl0;
+        m_solver->get_model(mdl0);
         expr_ref proj(m);
-        auto add_projection = [&](model& mdl, bool inv) {
-            proj = solver_project(mdl, *qb);
-            if (!proj)
-                return;
-            if (is_forall(q))
-                m_qs.add_clause(~ctx.expr2literal(q), ctx.b_internalize(proj));
-            else
-                m_qs.add_clause(ctx.expr2literal(q),  ~ctx.b_internalize(proj));
-        };
-        bool added = false;
-#if 0
-        m_model_finder.restrict_instantiations(*m_solver, *mdl0, q_flat, vars);
-        for (unsigned i = 0; i < m_max_cex && l_true == m_solver->check_sat(0, nullptr); ++i) {
-            m_solver->get_model(mdl1);
-            add_projection(*mdl1, true);
-            if (!proj)
-                break;
-            added = true;
-            m_solver->assert_expr(m.mk_not(proj));
-        }
-#endif
-        if (!added) {
-            add_projection(*mdl0, false);
-            added = proj;
-        }
-        return added ? l_false : l_undef;
+        proj = solver_project(*mdl0, *qb);
+        if (!proj)
+            return l_undef;
+        sat::literal qlit = ctx.expr2literal(q);
+        if (is_forall(q))
+            qlit.neg();
+        ctx.get_rewriter()(proj);
+        // TODO: add as top-level clause for relevancy
+        m_qs.add_clause(~qlit, ~ctx.b_internalize(proj));
+        return l_false;
     }
 
     mbqi::q_body* mbqi::specialize(quantifier* q) {
@@ -155,27 +139,29 @@ namespace q {
                 if (m_model->has_uninterpreted_sort(s))
                     restrict_to_universe(vars.get(i), m_model->get_universe(s));
             }
-            result->vbody = subst(result->vbody, vars);
+            auto fml = subst(q->get_expr(), vars);
+            if (is_forall(q))
+                fml = m.mk_not(fml);
+            flatten_and(fml, result->vbody);
         }
         expr_ref& mbody = result->mbody;
         unsigned sz = q->get_num_decls();
         if (!m_model->eval_expr(q->get_expr(), mbody, true))
             return nullptr;
 
-        mbody = subst(mbody, result->vars);        
-        if (is_forall(q)) 
-            mbody = m.mk_not(mbody);        
+        mbody = subst(mbody, result->vars);
+        if (is_forall(q))
+            mbody = m.mk_not(mbody);
         return result;
     }
 
     /**
     * A most rudimentary projection operator that only tries to find proxy terms from the set of existing terms.
     * Refinements:
-    * - grammar based from MBQI paper 
+    * - grammar based from MBQI paper
     * - quantifier elimination based on projection operators defined in qe.
-    * 
+    *
     * - eliminate as-array terms, use lambda
-    * - have mode with inv-term from model-finder
     */
     expr_ref mbqi::basic_project(model& mdl, quantifier* q, app_ref_vector& vars) {
         unsigned sz = q->get_num_decls();
@@ -189,15 +175,14 @@ namespace q {
                 return expr_ref(m);
         }
         var_subst subst(m);
-        return subst(q->get_expr(), vals);   
+        return subst(q->get_expr(), vals);
     }
 
     expr_ref mbqi::solver_project(model& mdl, q_body& qb) {
         for (app* v : qb.vars)
             m_model->register_decl(v->get_decl(), mdl(v));
-        expr_ref_vector fmls(m);
+        expr_ref_vector fmls(qb.vbody);
         app_ref_vector vars(qb.vars);
-        fmls.push_back(m.mk_not(qb.vbody));
         mbp::project_plugin proj(m);
         proj.purify(m_model_fixer, mdl, vars, fmls);
         for (unsigned i = 0; i < vars.size(); ++i) {
@@ -216,7 +201,7 @@ namespace q {
             }
             esubst(fmls);
         }
-        return expr_ref(m.mk_not(mk_and(fmls)), m);
+        return mk_and(fmls);
     }
 
     expr_ref mbqi::assign_value(model& mdl, app* v) {

@@ -315,7 +315,7 @@ public:
 
     void set(unsigned idx, T * n) { super::set(idx, n); }
 
-    void setx(unsigned idx, T* n) { reserve(idx + 1); set(idx, n); }
+    void setx(unsigned idx, T* n) { super::reserve(idx + 1); super::set(idx, n); }
 
     // enable abuse:
     ref_vector & set(ref_vector const& other) {

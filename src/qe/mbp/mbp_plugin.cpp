@@ -150,7 +150,7 @@ namespace mbp {
                     push_back(fmls, mk_not(m, f1));
                     push_back(fmls, f3);
                 }
-                mbp::project_plugin::erase(fmls, i);
+                erase(fmls, i);
             }
             else if (m.is_not(fml, nfml) && m.is_not(nfml, nfml)) {
                 push_back(fmls, nfml);
