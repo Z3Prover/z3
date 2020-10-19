@@ -2022,7 +2022,7 @@ app* theory_seq::mk_value(app* e) {
     if (is_var(result)) {
         SASSERT(m_factory);
         expr_ref val(m);
-        val = m_factory->get_some_value(m.get_sort(result));
+        val = m_factory->get_fresh_value(m.get_sort(result));
         if (val) {
             result = val;
         }

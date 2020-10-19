@@ -62,7 +62,7 @@ namespace q {
         }
         if (!values->contains(e)) {
             for (expr* b : *values) 
-                m_qs.add_unit(~m_qs.eq_internlaize(e, b));            
+                m_qs.add_unit(~m_qs.eq_internalize(e, b));            
             values->insert(e);
             m_fresh_trail.push_back(e);
         }
