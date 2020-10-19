@@ -1803,7 +1803,7 @@ void theory_seq::init_model(expr_ref_vector const& es) {
         expr_ref s(m);
         if (!canonize(e, eqs, s)) s = e;
         if (is_var(s)) {
-            new_s = m_factory->get_some_value(m.get_sort(s));
+            new_s = m_factory->get_fresh_value(m.get_sort(s));
             m_rep.update(s, new_s, eqs);
         }
     }
