@@ -61,6 +61,7 @@ def init_project_def():
     add_lib('fuzzing', ['ast'], 'test/fuzzing')
     add_lib('smt_tactic', ['smt'], 'smt/tactic')
     add_lib('sls_tactic', ['tactic', 'normal_forms', 'core_tactics', 'bv_tactics'], 'tactic/sls')
+    add_lib('mbp', ['model', 'simplex'], 'qe/mbp')
     add_lib('qe', ['smt', 'mbp', 'nlsat', 'tactic', 'nlsat_tactic'], 'qe')
     add_lib('sat_solver', ['solver', 'core_tactics', 'aig_tactic', 'bv_tactics', 'arith_tactics', 'sat_tactic'], 'sat/sat_solver')
     add_lib('fd_solver', ['core_tactics', 'arith_tactics', 'sat_solver', 'smt'], 'tactic/fd_solver') 

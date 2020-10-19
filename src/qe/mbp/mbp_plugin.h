@@ -106,6 +106,7 @@ namespace mbp {
         /*
         * Purify literals into linear inequalities or constraints without arithmetic variables.
         */
+
         void purify(euf_inverter& inv, model& model, app_ref_vector const& vars, expr_ref_vector& fmls);
 
         static expr_ref pick_equality(ast_manager& m, model& model, expr* t);

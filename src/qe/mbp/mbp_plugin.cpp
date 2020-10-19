@@ -3,11 +3,13 @@ Copyright (c) 2015 Microsoft Corporation
 
 Module Name:
 
+
     mpb_plugin.cpp
 
 Abstract:
 
     Model-based projection plugin utilities
+
 
 Author:
 

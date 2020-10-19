@@ -2541,4 +2541,4 @@ namespace smt {
             m_new_constraints.reset();
         }
     }
-};
+}

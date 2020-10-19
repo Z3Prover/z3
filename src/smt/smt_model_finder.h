@@ -120,7 +120,7 @@ namespace smt {
 
         void checkpoint(char const* component);
 
-        quantifier_macro_info* operator()(quantifier* q);
+        quantifier_macro_info* operator()(quantifier* q) override;
 
     };
 };
