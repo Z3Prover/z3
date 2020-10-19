@@ -30,11 +30,11 @@ Revision History:
 #include "ast/rewriter/bv_elim.h"
 #include "ast/rewriter/der.h"
 #include "ast/rewriter/elim_bounds.h"
-#include "ast/rewriter/elim_term_ite.h"
 #include "ast/macros/macro_manager.h"
 #include "ast/macros/macro_finder.h"
 #include "ast/normal_forms/defined_names.h"
 #include "ast/normal_forms/pull_quant.h"
+#include "ast/normal_forms/elim_term_ite.h"
 #include "ast/pattern/pattern_inference.h"
 #include "smt/params/smt_params.h"
 

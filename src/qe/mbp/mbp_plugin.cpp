@@ -57,9 +57,9 @@ namespace mbp {
         expr_ref_vector vals(m);
         obj_map<expr, expr*> val2expr;
         app* alit = to_app(t);
-        if (alit->get_num_args() == 2) {
-            return expr_ref(m.mk_eq(alit->get_arg(0), alit->get_arg(1)), m);
-        }
+        SASSERT(alit->get_num_args() > 1);
+        if (alit->get_num_args() == 2) 
+            return expr_ref(m.mk_eq(alit->get_arg(0), alit->get_arg(1)), m);        
         for (expr* e1 : *alit) {
             expr* e2;
             val = model(e1);

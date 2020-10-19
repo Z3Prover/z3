@@ -13,7 +13,6 @@ z3_add_component(rewriter
     distribute_forall.cpp
     dl_rewriter.cpp
     elim_bounds.cpp
-    elim_term_ite.cpp
     enum2bv_rewriter.cpp
     expr_replacer.cpp
     expr_safe_replace.cpp
