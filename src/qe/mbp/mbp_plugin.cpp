@@ -305,13 +305,8 @@ namespace mbp {
         }
     }
 
-    void project_plugin::mark_non_ground(app_ref_vector const& vars, expr_ref_vector const& fmls) {
-        m_non_ground.reset();
-        m_to_visit.reset();
-        m_visited.reset();
-        for (expr* v : vars)
-            m_non_ground.mark(v);
-        m_to_visit.append(fmls.size(), fmls.c_ptr());
+    void project_plugin::mark_non_ground(expr* e) {
+        m_to_visit.push_back(e);
         while (!m_to_visit.empty()) {
             expr* e = m_to_visit.back();
             if (!is_app(e)) {
@@ -334,18 +329,25 @@ namespace mbp {
     }
 
     void project_plugin::purify(euf_inverter& inv, model& mdl, app_ref_vector const& vars, expr_ref_vector& lits) {
+        TRACE("mbp", tout << lits << "\n";);
         extract_literals(mdl, vars, lits);
         if (!m.inc())
             return;
-        mark_non_ground(vars, lits);
-        m_cache.reset();
         model_evaluator eval(mdl);
         eval.set_expand_array_equalities(true);
-        for (unsigned i = 0; i < lits.size(); ++i) 
-            lits[i] = purify(inv, eval, lits.get(i), lits);        
+        m_non_ground.reset();
+        m_to_visit.reset();
+        m_visited.reset();
+        m_cache.reset();
+        for (expr* v : vars)
+            m_non_ground.mark(v);
+        for (unsigned i = 0; m.inc() && i < lits.size(); ++i) 
+            lits[i] = purify(inv, eval, lits.get(i), lits); 
+        TRACE("mbp", tout << lits << "\n";);
     }
 
     expr* project_plugin::purify(euf_inverter& inv, model_evaluator& eval, expr* e, expr_ref_vector& lits) {
+        mark_non_ground(e);
         m_to_visit.push_back(e);
         while (!m_to_visit.empty()) {
             expr* t = m_to_visit.back();
@@ -366,11 +368,8 @@ namespace mbp {
             expr_ref t_value = eval(t);
             m_cache.set(t->get_id(), inv.invert_app(t, t_value));
             unsigned i = 0;
-            for (expr* arg : *t) {
-                expr_ref arg_value = eval(arg);
-                push_back(lits, inv.invert_arg(t, i, arg_value));
-                ++i;                
-            }
+            for (expr* arg : *t) 
+                push_back(lits, inv.invert_arg(t, i++, eval(arg)));            
             m_to_visit.pop_back();
         }
         else 

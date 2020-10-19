@@ -35,7 +35,6 @@ namespace q {
         m_qs(s), 
         m(s.get_manager()), 
         m_model_fixer(ctx, m_qs),
-        m_model_finder(ctx), 
         m_fresh_trail(m) 
     {
         add_plugin(alloc(mbp::arith_project_plugin, m));

@@ -30,7 +30,6 @@ z3_add_component(sat_smt
     euf_solver.cpp
     fpa_solver.cpp
     q_mbi.cpp
-    q_model_finder.cpp
     q_model_fixer.cpp
     q_solver.cpp
     sat_dual_solver.cpp

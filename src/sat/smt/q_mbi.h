@@ -19,7 +19,6 @@ Author:
 #include "solver/solver.h"
 #include "qe/mbp/mbp_plugin.h"
 #include "sat/smt/sat_th.h"
-#include "sat/smt/q_model_finder.h"
 #include "sat/smt/q_model_fixer.h"
 
 namespace euf {
@@ -35,7 +34,6 @@ namespace q {
         solver&                                m_qs;
         ast_manager&                           m;
         model_fixer                            m_model_fixer;
-        model_finder                           m_model_finder;
         model_ref                              m_model;
         ref<::solver>                          m_solver;
         obj_map<sort, obj_hashtable<expr>*>    m_fresh;

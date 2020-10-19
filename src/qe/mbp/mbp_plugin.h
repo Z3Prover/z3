@@ -65,7 +65,7 @@ namespace mbp {
 
         void push_back(expr_ref_vector& lits, expr* lit);
 
-        void mark_non_ground(app_ref_vector const& vars, expr_ref_vector const& fmls);
+        void mark_non_ground(expr* e);
 
         expr* purify(euf_inverter& inv, model_evaluator& eval, expr* e, expr_ref_vector& lits);
         void purify_app(euf_inverter& inv, model_evaluator& eval, app* t, expr_ref_vector& lits);
