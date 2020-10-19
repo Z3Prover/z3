@@ -219,7 +219,7 @@ namespace mbp {
                 m_to_visit.pop_back();
             }
             else if (!is_app(e)) {
-                m_cache.set(e->get_id(), e);
+                m_cache.setx(e->get_id(), e);
                 m_to_visit.pop_back();
             }
             else if (visit_ite(eval, e, fmls))
@@ -260,7 +260,7 @@ namespace mbp {
             expr* t = m_cache.get(s->get_id(), nullptr);
             if (t) {
                 m_to_visit.pop_back();
-                m_cache.set(e->get_id(), t);
+                m_cache.setx(e->get_id(), t);
             }
             else
                 m_to_visit.push_back(s);
@@ -276,7 +276,7 @@ namespace mbp {
             if (!m_bool_visited.is_marked(e))
                 fmls.push_back(tt ? e : mk_not(m, e));
             m_bool_visited.mark(e);
-            m_cache.set(e->get_id(), m.mk_bool_val(tt));
+            m_cache.setx(e->get_id(), m.mk_bool_val(tt));
             m_to_visit.pop_back();
             return true;
         }
@@ -297,10 +297,7 @@ namespace mbp {
                 m_args.push_back(new_arg);
         }
         if (sz == m_to_visit.size()) {
-            if (diff)
-                m_cache.set(e->get_id(), m.mk_app(to_app(e)->get_decl(), m_args));
-            else
-                m_cache.set(e->get_id(), e);
+            m_cache.setx(e->get_id(), diff ? m.mk_app(to_app(e)->get_decl(), m_args) : e);
             m_to_visit.pop_back();
         }
     }
@@ -354,7 +351,7 @@ namespace mbp {
             if (m_cache.get(t->get_id(), nullptr)) 
                 m_to_visit.pop_back();            
             else if (!is_app(t) || !m_non_ground.is_marked(t)) {
-                m_cache.set(t->get_id(), t);
+                m_cache.setx(t->get_id(), t);
                 m_to_visit.pop_back();
             }
             else 
@@ -366,7 +363,7 @@ namespace mbp {
     void project_plugin::purify_app(euf_inverter& inv, model_evaluator& eval, app* t, expr_ref_vector& lits) {
         if (is_uninterp(t) && t->get_num_args() > 0) {
             expr_ref t_value = eval(t);
-            m_cache.set(t->get_id(), inv.invert_app(t, t_value));
+            m_cache.setx(t->get_id(), inv.invert_app(t, t_value));
             unsigned i = 0;
             for (expr* arg : *t) 
                 push_back(lits, inv.invert_arg(t, i++, eval(arg)));            

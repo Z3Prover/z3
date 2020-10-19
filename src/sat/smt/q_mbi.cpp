@@ -97,10 +97,11 @@ namespace q {
     lbool mbqi::check_forall(quantifier* q) {
         init_solver();
         ::solver::scoped_push _sp(*m_solver);
-        app_ref_vector vars(m);
         quantifier* q_flat = m_qs.flatten(q);
-        expr_ref body = specialize(q_flat, vars);    
-        m_solver->assert_expr(body);
+        auto* qb = specialize(q_flat);  
+        if (!qb)
+            return l_undef;
+        m_solver->assert_expr(qb->mbody);
         lbool r = m_solver->check_sat(0, nullptr);
         if (r == l_undef)
             return r;
@@ -110,7 +111,7 @@ namespace q {
         m_solver->get_model(mdl0); 
         expr_ref proj(m);
         auto add_projection = [&](model& mdl, bool inv) {
-            proj = solver_project(mdl, q_flat, vars);
+            proj = solver_project(mdl, *qb);
             if (!proj)
                 return;
             if (is_forall(q))
@@ -137,23 +138,34 @@ namespace q {
         return added ? l_false : l_undef;
     }
 
-    expr_ref mbqi::specialize(quantifier* q, app_ref_vector& vars) {
-        expr_ref body(m);
-        unsigned sz = q->get_num_decls();
-        if (!m_model->eval_expr(q->get_expr(), body, true))
-            return expr_ref(m);
-        vars.resize(sz, nullptr);
-        for (unsigned i = 0; i < sz; ++i) {
-            sort* s = q->get_decl_sort(i);
-            vars[i] = m.mk_fresh_const(q->get_decl_name(i), s, false);    
-            if (m_model->has_uninterpreted_sort(s)) 
-                restrict_to_universe(vars.get(i), m_model->get_universe(s));            
-        }
+    mbqi::q_body* mbqi::specialize(quantifier* q) {
+        mbqi::q_body* result = nullptr;
         var_subst subst(m);
-        body = subst(body, vars);        
+        if (!m_q2body.find(q, result)) {
+            unsigned sz = q->get_num_decls();
+            result = alloc(q_body, m);
+            m_q2body.insert(q, result);
+            ctx.push(new_obj_trail<euf::solver, q_body>(result));
+            ctx.push(insert_obj_map<euf::solver, quantifier, q_body*>(m_q2body, q));
+            app_ref_vector& vars = result->vars;
+            vars.resize(sz, nullptr);
+            for (unsigned i = 0; i < sz; ++i) {
+                sort* s = q->get_decl_sort(i);
+                vars[i] = m.mk_fresh_const(q->get_decl_name(i), s, false);
+                if (m_model->has_uninterpreted_sort(s))
+                    restrict_to_universe(vars.get(i), m_model->get_universe(s));
+            }
+            result->vbody = subst(result->vbody, vars);
+        }
+        expr_ref& mbody = result->mbody;
+        unsigned sz = q->get_num_decls();
+        if (!m_model->eval_expr(q->get_expr(), mbody, true))
+            return nullptr;
+
+        mbody = subst(mbody, result->vars);        
         if (is_forall(q)) 
-            body = m.mk_not(body);        
-        return body;
+            mbody = m.mk_not(mbody);        
+        return result;
     }
 
     /**
@@ -180,14 +192,12 @@ namespace q {
         return subst(q->get_expr(), vals);   
     }
 
-    expr_ref mbqi::solver_project(model& mdl, quantifier* q, app_ref_vector& vars) {
-        SASSERT(is_forall(q));
-        var_subst vsubst(m);
-        for (app* v : vars)
+    expr_ref mbqi::solver_project(model& mdl, q_body& qb) {
+        for (app* v : qb.vars)
             m_model->register_decl(v->get_decl(), mdl(v));
-        expr_ref fml = vsubst(q->get_expr(), vars);
         expr_ref_vector fmls(m);
-        fmls.push_back(m.mk_not(fml));
+        app_ref_vector vars(qb.vars);
+        fmls.push_back(m.mk_not(qb.vbody));
         mbp::project_plugin proj(m);
         proj.purify(m_model_fixer, mdl, vars, fmls);
         for (unsigned i = 0; i < vars.size(); ++i) {

@@ -30,6 +30,13 @@ namespace q {
     class solver;
 
     class mbqi {
+        struct q_body {
+            app_ref_vector vars;
+            expr_ref       mbody;  // body specialized with respect to model
+            expr_ref       vbody;  // body specialized with respect to vars
+            q_body(ast_manager& m) : vars(m), mbody(m), vbody(m) {}
+        };
+
         euf::solver&                           ctx;
         solver&                                m_qs;
         ast_manager&                           m;
@@ -40,6 +47,7 @@ namespace q {
         scoped_ptr_vector<obj_hashtable<expr>> m_values;
         expr_ref_vector                        m_fresh_trail;
         scoped_ptr_vector<mbp::project_plugin> m_plugins;
+        obj_map<quantifier, q_body*>           m_q2body;
         unsigned                               m_max_cex{ 1 };
 
         void restrict_to_universe(expr * sk, ptr_vector<expr> const & universe);
@@ -47,9 +55,9 @@ namespace q {
         expr_ref replace_model_value(expr* e);
         expr_ref choose_term(euf::enode* r);
         lbool check_forall(quantifier* q);
-        expr_ref specialize(quantifier* q, app_ref_vector& vars);
+        q_body* specialize(quantifier* q);
         expr_ref basic_project(model& mdl, quantifier* q, app_ref_vector& vars);
-        expr_ref solver_project(model& mdl, quantifier* q, app_ref_vector& vars);
+        expr_ref solver_project(model& mdl, q_body& qb);
         expr_ref assign_value(model& mdl, app* v);
         void init_model();
         void init_solver();
