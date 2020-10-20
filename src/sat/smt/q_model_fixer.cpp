@@ -113,6 +113,7 @@ namespace q {
     void model_fixer::add_projection_functions(model& mdl, func_decl* f) {
         // update interpretation of f so that the graph of f is fully determined by the
         // ground values of its arguments.
+        std::cout << mdl << "\n";
         func_interp* fi = mdl.get_func_interp(f);
         if (!fi) 
             return;
@@ -133,6 +134,8 @@ namespace q {
         new_fi->set_else(m.mk_app(f_new, args));
         mdl.update_func_interp(f, new_fi);
         mdl.register_decl(f_new, fi);
+
+        std::cout << mdl << "\n";
     }
 
     expr_ref model_fixer::add_projection_function(model& mdl, func_decl* f, unsigned idx) {
@@ -162,6 +165,7 @@ namespace q {
             if (i == 0 || values.get(i-1) != values.get(i))
                 values[j++] = values.get(i);
         values.shrink(j);
+        std::cout << "values: " << values << "\n";
 
         m_projection_data.insert(indexed_decl(f, idx), md.get());
         m_projection_pinned.push_back(md.detach());
@@ -173,6 +177,7 @@ namespace q {
             expr* c = proj->mk_lt(var, values.get(i));
             pi = m.mk_ite(c, values.get(i - 1), pi);
         }
+        std::cout << "pi " << pi << "\n";
         func_interp* rpi = alloc(func_interp, m, 1);
         rpi->set_else(pi);
         func_decl * p = m.mk_fresh_func_decl(1, &srt, srt);
@@ -212,12 +217,16 @@ namespace q {
 
     expr* model_fixer::invert_app(app* t, expr* value) { 
         euf::enode* r = nullptr;
+        std::cout << "invert-app " << mk_pp(t, m) << " = " << mk_pp(value, m) << "\n";
+        if (ctx.values2root().find(value, r))
+            std::cout << "inverse " << mk_pp(r->get_expr(), m) << "\n";
         if (ctx.values2root().find(value, r))
             return r->get_expr();
         return value; 
     }
 
     expr* model_fixer::invert_arg(app* t, unsigned i, expr* value)  { 
+        std::cout << "invert-arg " << mk_pp(t, m) << " " << i << " " << mk_pp(value, m) << "\n";
         auto const* md = get_projection_data(t->get_decl(), i);
         if (!md)
             return m.mk_true();
@@ -243,6 +252,7 @@ namespace q {
         expr* result = m.mk_not(proj->mk_lt(arg, lo));
         if (j + 1 < md->values.size()) 
             result = m.mk_and(result, proj->mk_lt(arg, md->values[j + 1]));
+        std::cout << "invert-art: " << mk_pp(result, m) << "\n";
         return result;
     }
 }

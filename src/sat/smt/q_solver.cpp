@@ -27,14 +27,15 @@ namespace q {
     solver::solver(euf::solver& ctx, family_id fid) :
         th_euf_solver(ctx, ctx.get_manager().get_family_name(fid), fid),
         m_mbqi(ctx,  *this)
-    {}
+    {
+    }
 
     void solver::asserted(sat::literal l) {
         expr* e = bool_var2expr(l.var());
-        SASSERT(is_forall(e) || is_exists(e));
-        if (l.sign() == is_forall(e)) {
+        if (!is_forall(e) && !is_exists(e))
+            return;
+        if (l.sign() == is_forall(e)) 
             add_clause(~l, skolemize(to_quantifier(e)));
-        }
         else {            
             add_clause(~l, specialize(to_quantifier(e)));
             ctx.push_vec(m_universal, l);
@@ -45,7 +46,7 @@ namespace q {
     sat::check_result solver::check() {
         if (ctx.get_config().m_mbqi) {
             switch (m_mbqi()) {
-            case l_true: return sat::check_result::CR_DONE;
+            case l_true:  return sat::check_result::CR_DONE;
             case l_false: return sat::check_result::CR_CONTINUE;
             case l_undef: return sat::check_result::CR_GIVEUP;
             }
@@ -95,8 +96,8 @@ namespace q {
             vars[i] = mk_var(q_flat, i);        
         var_subst subst(m);
         expr_ref body = subst(q_flat->get_expr(), vars);
-        ctx.get_rewriter()(body);
-        return b_internalize(body);
+        rewrite(body);
+        return mk_literal(body);
     }
 
     sat::literal solver::skolemize(quantifier* q) {

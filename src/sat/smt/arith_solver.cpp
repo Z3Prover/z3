@@ -55,9 +55,13 @@ namespace arith {
         m_lia = alloc(lp::int_solver, *m_solver.get());
     }
 
-    solver::~solver() {}
+    solver::~solver() {
+        del_bounds(0);
+        std::for_each(m_internalize_states.begin(), m_internalize_states.end(), delete_proc<internalize_state>());
+    }
 
     void solver::asserted(literal l) {
+        force_push();
         m_asserted.push_back(l);
     }
 
@@ -70,11 +74,11 @@ namespace arith {
         result->m_bounds.resize(m_bounds.size());
         for (auto const& bounds : m_bounds) {            
             for (auto* b : bounds) {
-                auto* b2 = result->mk_var_bound(b->get_bv(), v, b->get_bound_kind(), b->get_value());
+                auto* b2 = result->mk_var_bound(b->get_lit(), v, b->get_bound_kind(), b->get_value());
                 result->m_bounds[v].push_back(b2);
                 result->m_bounds_trail.push_back(v);
                 result->updt_unassigned_bounds(v, +1);
-                result->m_bool_var2bound.insert(b->get_bv(), b2);
+                result->m_bool_var2bound.insert(b->get_lit().var(), b2);
                 result->m_new_bounds.push_back(b2);
             }
             ++v;
@@ -95,11 +99,10 @@ namespace arith {
         unsigned qhead = m_asserted_qhead;
         while (m_asserted_qhead < m_asserted.size() && !s().inconsistent() && m.inc()) {
             literal lit = m_asserted[m_asserted_qhead];
-            lp_api::bound* b = nullptr;
-            TRACE("arith", tout << "propagate: " << lit << "\n";);
+            api_bound* b = nullptr;
             CTRACE("arith", !m_bool_var2bound.contains(lit.var()), tout << "not found " << lit << "\n";);
             if (m_bool_var2bound.find(lit.var(), b)) 
-                assert_bound(!lit.sign(), *b);
+                assert_bound(lit.sign() == b->get_lit().sign(), *b);
             ++m_asserted_qhead;
         }
         if (s().inconsistent())
@@ -125,7 +128,7 @@ namespace arith {
     }
 
     void solver::propagate_basic_bounds(unsigned qhead) {
-        lp_api::bound* b = nullptr;
+        api_bound* b = nullptr;
         for (; qhead < m_asserted_qhead && !s().inconsistent(); ++qhead) {
             literal lit = m_asserted[qhead];
             if (m_bool_var2bound.find(lit.var(), b)) 
@@ -140,7 +143,7 @@ namespace arith {
     //   x <= hi -> x <= hi'
     //   x <= hi -> ~(x >= hi')
 
-    void solver::propagate_bound(literal lit1, lp_api::bound& b) {
+    void solver::propagate_bound(literal lit1, api_bound& b) {
         if (bound_prop_mode::BP_NONE == propagation_mode())
             return;
 
@@ -158,8 +161,8 @@ namespace arith {
         TRACE("arith", tout << "v" << v << " find_glb: " << find_glb << " is_true: " << is_true << " k: " << k << " is_lower: " << (k == lp_api::lower_t) << "\n";);
         if (find_glb) {
             rational glb;
-            lp_api::bound* lb = nullptr;
-            for (lp_api::bound* b2 : bounds) {
+            api_bound* lb = nullptr;
+            for (api_bound* b2 : bounds) {
                 if (b2 == &b) continue;
                 rational const& val2 = b2->get_value();
                 if (((is_true || v_is_int) ? val2 < val : val2 <= val) && (!lb || glb < val2)) {
@@ -169,12 +172,14 @@ namespace arith {
             }
             if (!lb) return;
             bool sign = lb->get_bound_kind() != lp_api::lower_t;
-            lit2 = literal(lb->get_bv(), sign);
+            lit2 = lb->get_lit();
+            if (sign)
+                lit2.neg();
         }
         else {
             rational lub;
-            lp_api::bound* ub = nullptr;
-            for (lp_api::bound* b2 : bounds) {
+            api_bound* ub = nullptr;
+            for (api_bound* b2 : bounds) {
                 if (b2 == &b) continue;
                 rational const& val2 = b2->get_value();
                 if (((is_true || v_is_int) ? val < val2 : val <= val2) && (!ub || val2 < lub)) {
@@ -184,7 +189,9 @@ namespace arith {
             }
             if (!ub) return;
             bool sign = ub->get_bound_kind() != lp_api::upper_t;
-            lit2 = literal(ub->get_bv(), sign);
+            lit2 = ub->get_lit();
+            if (sign)
+                lit2.neg();
         }
         updt_unassigned_bounds(v, -1);
         ++m_stats.m_bound_propagations2;
@@ -233,8 +240,8 @@ namespace arith {
         lp_bounds const& bounds = m_bounds[v];
         bool first = true;
         for (unsigned i = 0; i < bounds.size(); ++i) {
-            lp_api::bound* b = bounds[i];
-            if (s().value(b->get_bv()) != l_undef) {
+            api_bound* b = bounds[i];
+            if (s().value(b->get_lit()) != l_undef) {
                 continue;
             }
             literal lit = is_bound_implied(be.kind(), be.m_bound, *b);
@@ -252,7 +259,8 @@ namespace arith {
             }
             CTRACE("arith", m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
             updt_unassigned_bounds(v, -1);
-            DEBUG_CODE(for (auto& lit : m_core) { VERIFY(s().value(lit) == l_true); });
+            TRACE("arith", for (auto lit : m_core) tout << lit << ": " << s().value(lit) << "\n";);
+            DEBUG_CODE(for (auto lit : m_core) { VERIFY(s().value(lit) == l_true); });
             ++m_stats.m_bound_propagations1;
             assign(lit, m_core, m_eqs, m_params);
         }
@@ -261,30 +269,30 @@ namespace arith {
             refine_bound(v, be);
     }
 
-    literal solver::is_bound_implied(lp::lconstraint_kind k, rational const& value, lp_api::bound const& b) const {
+    literal solver::is_bound_implied(lp::lconstraint_kind k, rational const& value, api_bound const& b) const {
         if ((k == lp::LE || k == lp::LT) && b.get_bound_kind() == lp_api::upper_t && value <= b.get_value()) {
             TRACE("arith", tout << "v <= value <= b.get_value() => v <= b.get_value() \n";);
-            return literal(b.get_bv(), false);
+            return b.get_lit();  
         }
         if ((k == lp::GE || k == lp::GT) && b.get_bound_kind() == lp_api::lower_t && b.get_value() <= value) {
             TRACE("arith", tout << "b.get_value() <= value <= v => b.get_value() <= v \n";);
-            return literal(b.get_bv(), false);
+            return b.get_lit();
         }
         if (k == lp::LE && b.get_bound_kind() == lp_api::lower_t && value < b.get_value()) {
             TRACE("arith", tout << "v <= value < b.get_value() => v < b.get_value()\n";);
-            return literal(b.get_bv(), true);
+            return ~b.get_lit();
         }
         if (k == lp::LT && b.get_bound_kind() == lp_api::lower_t && value <= b.get_value()) {
             TRACE("arith", tout << "v < value <= b.get_value() => v < b.get_value()\n";);
-            return literal(b.get_bv(), true);
+            return ~b.get_lit();
         }
         if (k == lp::GE && b.get_bound_kind() == lp_api::upper_t && b.get_value() < value) {
             TRACE("arith", tout << "b.get_value() < value <= v => b.get_value() < v\n";);
-            return literal(b.get_bv(), true);
+            return ~b.get_lit();
         }
         if (k == lp::GT && b.get_bound_kind() == lp_api::upper_t && b.get_value() <= value) {
             TRACE("arith", tout << "b.get_value() <= value < v => b.get_value() < v\n";);
-            return literal(b.get_bv(), true);
+            return ~b.get_lit();
         }
         return sat::null_literal;
     }
@@ -324,8 +332,8 @@ namespace arith {
         if (m_bounds.size() <= static_cast<unsigned>(v) || m_unassigned_bounds[v] == 0)
             return false;
 
-        for (lp_api::bound* b : m_bounds[v])
-            if (s().value(b->get_bv()) == l_undef && sat::null_literal != is_bound_implied(kind, bval, *b))
+        for (api_bound* b : m_bounds[v])
+            if (s().value(b->get_lit()) == l_undef && sat::null_literal != is_bound_implied(kind, bval, *b))
                 return true;
 
         return false;
@@ -368,7 +376,7 @@ namespace arith {
     }
 
 
-    void solver::assert_bound(bool is_true, lp_api::bound& b) {
+    void solver::assert_bound(bool is_true, api_bound& b) {
         TRACE("arith", tout << b << "\n";);
         lp::constraint_index ci = b.get_constraint(is_true);
         lp().activate(ci);
@@ -393,7 +401,7 @@ namespace arith {
 
     }
 
-    void solver::propagate_eqs(lp::tv t, lp::constraint_index ci, lp::lconstraint_kind k, lp_api::bound& b, rational const& value) {
+    void solver::propagate_eqs(lp::tv t, lp::constraint_index ci, lp::lconstraint_kind k, api_bound& b, rational const& value) {
         if (k == lp::GE && set_lower_bound(t, ci, value) && has_upper_bound(t.index(), ci, value)) {
             fixed_var_eh(b.get_var(), value);
         }
@@ -421,7 +429,6 @@ namespace arith {
             return true;
         }
         else {
-            TRACE("arith", tout << "not a term " << tv.to_string() << "\n";);
             // m_solver already tracks bounds on proper variables, but not on terms.
             bool is_strict = false;
             rational b;
@@ -468,9 +475,9 @@ namespace arith {
             iterator lo_inf = begin1, lo_sup = begin1;
             iterator hi_inf = begin2, hi_sup = begin2;
             bool flo_inf, fhi_inf, flo_sup, fhi_sup;
-            ptr_addr_hashtable<lp_api::bound> visited;
+            ptr_addr_hashtable<api_bound> visited;
             for (unsigned i = 0; i < atoms.size(); ++i) {
-                lp_api::bound* a1 = atoms[i];
+                api_bound* a1 = atoms[i];
                 iterator lo_inf1 = next_inf(a1, lp_api::lower_t, lo_inf, end, flo_inf);
                 iterator hi_inf1 = next_inf(a1, lp_api::upper_t, hi_inf, end, fhi_inf);
                 iterator lo_sup1 = next_sup(a1, lp_api::lower_t, lo_sup, end, flo_sup);
@@ -497,14 +504,14 @@ namespace arith {
         iterator it,
         iterator end) {
         for (; it != end; ++it) {
-            lp_api::bound* a = *it;
+            api_bound* a = *it;
             if (a->get_bound_kind() == kind) return it;
         }
         return end;
     }
 
     lp_bounds::iterator solver::next_inf(
-        lp_api::bound* a1,
+        api_bound* a1,
         lp_api::bound_kind kind,
         iterator it,
         iterator end,
@@ -513,7 +520,7 @@ namespace arith {
         iterator result = end;
         found_compatible = false;
         for (; it != end; ++it) {
-            lp_api::bound* a2 = *it;
+            api_bound* a2 = *it;
             if (a1 == a2) continue;
             if (a2->get_bound_kind() != kind) continue;
             rational const& k2(a2->get_value());
@@ -529,7 +536,7 @@ namespace arith {
     }
 
     lp_bounds::iterator solver::next_sup(
-        lp_api::bound* a1,
+        api_bound* a1,
         lp_api::bound_kind kind,
         iterator it,
         iterator end,
@@ -537,7 +544,7 @@ namespace arith {
         rational const& k1(a1->get_value());
         found_compatible = false;
         for (; it != end; ++it) {
-            lp_api::bound* a2 = *it;
+            api_bound* a2 = *it;
             if (a1 == a2) continue;
             if (a2->get_bound_kind() != kind) continue;
             rational const& k2(a2->get_value());
@@ -547,6 +554,10 @@ namespace arith {
             }
         }
         return end;
+    }
+
+    void solver::init_model() {
+        init_variable_values();
     }
 
     void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {
@@ -607,7 +618,7 @@ namespace arith {
     void solver::del_bounds(unsigned old_size) {
         for (unsigned i = m_bounds_trail.size(); i-- > old_size; ) {
             unsigned v = m_bounds_trail[i];
-            lp_api::bound* b = m_bounds[v].back();
+            api_bound* b = m_bounds[v].back();
             // del_use_lists(b);
             dealloc(b);
             m_bounds[v].pop_back();
@@ -690,7 +701,7 @@ namespace arith {
     }
 
     void solver::updt_unassigned_bounds(theory_var v, int inc) {
-        TRACE("arith", tout << "v" << v << " " << m_unassigned_bounds[v] << " += " << inc << "\n";);
+        TRACE("arith_verbose", tout << "v" << v << " " << m_unassigned_bounds[v] << " += " << inc << "\n";);
         ctx.push(vector_value_trail<euf::solver, unsigned, false>(m_unassigned_bounds, v));
         m_unassigned_bounds[v] += inc;
     }
@@ -728,7 +739,7 @@ namespace arith {
     }
 
     lbool solver::get_phase(bool_var v) {
-        lp_api::bound* b;
+        api_bound* b;
         if (!m_bool_var2bound.find(v, b)) {
             return l_undef;
         }
@@ -763,6 +774,7 @@ namespace arith {
     }
 
     void solver::ensure_column(theory_var v) {
+        SASSERT(!is_bool(v));
         if (!lp().external_is_used(v))
             register_theory_var_in_lar_solver(v);
     }
@@ -841,6 +853,8 @@ namespace arith {
         svector<lpvar> vars;
         theory_var sz = static_cast<theory_var>(get_num_vars());
         for (theory_var v = 0; v < sz; ++v) {
+            if (is_bool(v))
+                continue;
             ensure_column(v);
             lp::column_index vj = lp().to_column_index(v);
             SASSERT(!vj.is_null());
@@ -870,6 +884,8 @@ namespace arith {
         int start = s().rand()();
         for (theory_var i = 0; i < sz; ++i) {
             theory_var v = (i + start) % sz;
+            if (is_bool(v))
+                continue;
             enode* n1 = var2enode(v);
             ensure_column(v);
             if (!can_get_ivalue(v))
@@ -944,7 +960,7 @@ namespace arith {
                 get_infeasibility_explanation_and_set_conflict();
                 return sat::check_result::CR_CONTINUE;
             case l_undef:
-                TRACE("arith", tout << "check feasiable is undef\n";);
+                TRACE("arith", tout << "check feasible is undef\n";);
                 return m.inc() ? sat::check_result::CR_CONTINUE : sat::check_result::CR_GIVEUP;
             case l_true:
                 break;
@@ -989,7 +1005,7 @@ namespace arith {
         }
         if (m_not_handled != nullptr) {
             TRACE("arith", tout << "unhandled operator " << mk_pp(m_not_handled, m) << "\n";);
-            st = sat::check_result::CR_GIVEUP;
+            return sat::check_result::CR_GIVEUP;
         }
         return st;
     }
@@ -1280,16 +1296,14 @@ namespace arith {
 
         app_ref atom(m);
         t = coeffs2app(coeffs, rational::zero(), is_int);
-        if (lower_bound) {
-            atom = a.mk_ge(t, a.mk_numeral(offset, is_int));
-        }
-        else {
-            atom = a.mk_le(t, a.mk_numeral(offset, is_int));
-        }
+        if (lower_bound) 
+            atom = a.mk_ge(t, a.mk_numeral(offset, is_int));        
+        else 
+            atom = a.mk_le(t, a.mk_numeral(offset, is_int));        
 
         TRACE("arith", tout << t << ": " << atom << "\n";
         lp().print_term(term, tout << "bound atom: ") << (lower_bound ? " >= " : " <= ") << k << "\n";);
-        b_internalize(atom);
+        mk_literal(atom);
         return atom;
     }
 

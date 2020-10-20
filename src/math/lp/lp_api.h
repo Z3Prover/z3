@@ -27,9 +27,10 @@ namespace lp_api {
         return out;
     }
 
+    template<typename Literal>
     class bound {
-        bool_var    m_bv;
-        theory_var  m_var;
+        Literal          m_bv;
+        theory_var       m_var;
         lp::lpvar        m_vi;
         bool             m_is_int;
         rational         m_value;
@@ -37,7 +38,7 @@ namespace lp_api {
         lp::constraint_index m_constraints[2];
 
     public:
-        bound(bool_var bv, theory_var v, lp::lpvar vi, bool is_int, rational const& val, bound_kind k, lp::constraint_index ct, lp::constraint_index cf) :
+        bound(Literal bv, theory_var v, lp::lpvar vi, bool is_int, rational const& val, bound_kind k, lp::constraint_index ct, lp::constraint_index cf) :
             m_bv(bv),
             m_var(v),
             m_vi(vi),
@@ -54,7 +55,7 @@ namespace lp_api {
 
         lp::tv tv() const { return lp::tv::raw(m_vi); }
 
-        bool_var get_bv() const { return m_bv; }
+        Literal get_lit() const { return m_bv; }        
 
         bound_kind get_bound_kind() const { return m_bound_kind; }
 
@@ -82,7 +83,8 @@ namespace lp_api {
         }
     };
 
-    inline std::ostream& operator<<(std::ostream& out, bound const& b) {
+    template<typename Literal>
+    inline std::ostream& operator<<(std::ostream& out, bound<Literal> const& b) {
         return b.display(out);
     }
 

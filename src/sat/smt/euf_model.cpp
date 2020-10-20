@@ -23,6 +23,8 @@ Author:
 namespace euf {
 
     void solver::update_model(model_ref& mdl) {
+        for (auto* mb : m_solvers)
+            mb->init_model();
         deps_t deps;
         m_values.reset();
         m_values2root.reset();

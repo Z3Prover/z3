@@ -168,28 +168,23 @@ namespace mbp {
             expr* t1, *t2, *t3;
             rational mul1;
             expr_ref val(m);
-            if (a.is_mul(t, t1, t2) && is_numeral(t1, mul1)) {
-                linearize(mbo, eval, mul* mul1, t2, c, fmls, ts, tids);
-            }
-            else if (a.is_mul(t, t1, t2) && is_numeral(t2, mul1)) {
-                linearize(mbo, eval, mul* mul1, t1, c, fmls, ts, tids);
-            }
+            if (a.is_mul(t, t1, t2) && is_numeral(t1, mul1)) 
+                linearize(mbo, eval, mul* mul1, t2, c, fmls, ts, tids);            
+            else if (a.is_mul(t, t1, t2) && is_numeral(t2, mul1)) 
+                linearize(mbo, eval, mul* mul1, t1, c, fmls, ts, tids);  
+            else if (a.is_uminus(t, t1))
+                linearize(mbo, eval, -mul, t1, c, fmls, ts, tids);
+            else if (a.is_numeral(t, mul1)) 
+                c += mul * mul1;            
             else if (a.is_add(t)) {
-                app* ap = to_app(t);
-                for (expr* arg : *ap) {
-                    linearize(mbo, eval, mul, arg, c, fmls, ts, tids);
-                }
+                for (expr* arg : *to_app(t)) 
+                    linearize(mbo, eval, mul, arg, c, fmls, ts, tids);                
             }
             else if (a.is_sub(t, t1, t2)) {
                 linearize(mbo, eval,  mul, t1, c, fmls, ts, tids);
                 linearize(mbo, eval, -mul, t2, c, fmls, ts, tids);
-            }
-            else if (a.is_uminus(t, t1)) {
-                linearize(mbo, eval, -mul, t1, c, fmls, ts, tids);
-            }
-            else if (a.is_numeral(t, mul1)) {
-                c += mul*mul1;
-            }
+            }          
+
             else if (m.is_ite(t, t1, t2, t3)) {
                 val = eval(t1);
                 SASSERT(m.is_true(val) || m.is_false(val));

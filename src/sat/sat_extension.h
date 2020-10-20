@@ -29,6 +29,14 @@ namespace sat {
         CR_DONE, CR_CONTINUE, CR_GIVEUP
     };
 
+    inline std::ostream& operator<<(std::ostream& out, check_result const& r) {
+        switch (r) {
+        case check_result::CR_DONE: return out << "done";
+        case check_result::CR_CONTINUE: return out << "continue";
+        default: return out << "giveup";
+        }
+    }
+
     class literal_occs_fun {
     public:
         virtual double operator()(literal l) = 0;        

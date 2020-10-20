@@ -79,6 +79,7 @@ namespace euf {
                 continue;
             expr* c = nullptr, *th = nullptr, *el = nullptr;
             if (m.is_ite(e, c, th, el)) {
+                std::cout << mk_pp(c, m) << "\n";
                 sat::literal lit = expr2literal(c);
                 todo.push_back(c);
                 switch (s().value(lit)) {

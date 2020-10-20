@@ -54,7 +54,9 @@ typedef lp::var_index lpvar;
 
 namespace smt {
 
-typedef ptr_vector<lp_api::bound> lp_bounds;
+    typedef lp_api::bound<literal> api_bound;
+
+    typedef ptr_vector<api_bound> lp_bounds;
     
 class theory_lra::imp {        
 
@@ -163,10 +165,10 @@ class theory_lra::imp {
     expr*                  m_not_handled;
     ptr_vector<app>        m_underspecified;
     ptr_vector<expr>       m_idiv_terms;
-    vector<ptr_vector<lp_api::bound> > m_use_list;        // bounds where variables are used.
+    vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
 
     // attributes for incremental version:
-    u_map<lp_api::bound*>      m_bool_var2bound;
+    u_map<api_bound*>      m_bool_var2bound;
     vector<lp_bounds>      m_bounds;
     unsigned_vector        m_unassigned_bounds;
     unsigned_vector        m_bounds_trail;
@@ -721,7 +723,7 @@ class theory_lra::imp {
     void del_bounds(unsigned old_size) {
         for (unsigned i = m_bounds_trail.size(); i-- > old_size; ) {
             unsigned v = m_bounds_trail[i];
-            lp_api::bound* b = m_bounds[v].back();
+            api_bound* b = m_bounds[v].back();
             // del_use_lists(b);
             dealloc(b);
             m_bounds[v].pop_back();                        
@@ -939,7 +941,7 @@ public:
         if (is_int(v) && !r.is_int()) {
             r = (k == lp_api::upper_t) ? floor(r) : ceil(r);
         }
-        lp_api::bound* b = mk_var_bound(bv, v, k, r);
+        api_bound* b = mk_var_bound(bv, v, k, r);
         m_bounds[v].push_back(b);
         updt_unassigned_bounds(v, +1);
         m_bounds_trail.push_back(v);
@@ -1000,7 +1002,7 @@ public:
     }
 
     lbool get_phase(bool_var v) {
-        lp_api::bound* b;
+        api_bound* b;
         if (!m_bool_var2bound.find(v, b)) {
             return l_undef;
         }
@@ -2152,7 +2154,7 @@ public:
             bool_var bv = m_asserted_atoms[m_asserted_qhead].m_bv;
             bool is_true = m_asserted_atoms[m_asserted_qhead].m_is_true;
             m_to_check.push_back(bv);
-            lp_api::bound* b = nullptr;
+            api_bound* b = nullptr;
             TRACE("arith", tout << "propagate: " << bv << "\n";);
             if (m_bool_var2bound.find(bv, b)) {
                 assert_bound(bv, is_true, *b);
@@ -2234,8 +2236,8 @@ public:
         if (m_bounds.size() <= static_cast<unsigned>(v) || m_unassigned_bounds[v] == 0) 
             return false;
 
-        for (lp_api::bound* b : m_bounds[v]) {
-            if (ctx().get_assignment(b->get_bv()) == l_undef &&
+        for (api_bound* b : m_bounds[v]) {
+            if (ctx().get_assignment(b->get_lit()) == l_undef &&
                 null_literal != is_bound_implied(kind, bval, *b)) {
                 return true;
             }
@@ -2261,8 +2263,8 @@ public:
         lp_bounds const& bounds = m_bounds[v];
         bool first = true;
         for (unsigned i = 0; i < bounds.size(); ++i) {
-            lp_api::bound* b = bounds[i];
-            if (ctx().get_assignment(b->get_bv()) != l_undef) {
+            api_bound* b = bounds[i];
+            if (ctx().get_assignment(b->get_lit()) != l_undef) {
                 continue;
             }
             literal lit = is_bound_implied(be.kind(), be.m_bound, *b);
@@ -2385,36 +2387,36 @@ public:
         }
     }
 
-    literal is_bound_implied(lp::lconstraint_kind k, rational const& value, lp_api::bound const& b) const {
+    literal is_bound_implied(lp::lconstraint_kind k, rational const& value, api_bound const& b) const {
         if ((k == lp::LE || k == lp::LT) && b.get_bound_kind() == lp_api::upper_t && value <= b.get_value()) {
             TRACE("arith", tout << "v <= value <= b.get_value() => v <= b.get_value() \n";);
-            return literal(b.get_bv(), false);
+            return b.get_lit();
         }
         if ((k == lp::GE || k == lp::GT) && b.get_bound_kind() == lp_api::lower_t && b.get_value() <= value) {
             TRACE("arith", tout << "b.get_value() <= value <= v => b.get_value() <= v \n";);
-            return literal(b.get_bv(), false);
+            return b.get_lit();
         }
         if (k == lp::LE && b.get_bound_kind() == lp_api::lower_t && value < b.get_value()) {
             TRACE("arith", tout << "v <= value < b.get_value() => v < b.get_value()\n";);
-            return literal(b.get_bv(), true);
+            return ~b.get_lit();
         }
         if (k == lp::LT && b.get_bound_kind() == lp_api::lower_t && value <= b.get_value()) {
             TRACE("arith", tout << "v < value <= b.get_value() => v < b.get_value()\n";);
-            return literal(b.get_bv(), true);
+            return ~b.get_lit();
         }
         if (k == lp::GE && b.get_bound_kind() == lp_api::upper_t && b.get_value() < value) {
             TRACE("arith", tout << "b.get_value() < value <= v => b.get_value() < v\n";);
-            return literal(b.get_bv(), true);
+            return ~b.get_lit();
         }
         if (k == lp::GT && b.get_bound_kind() == lp_api::upper_t && b.get_value() <= value) {
             TRACE("arith", tout << "b.get_value() <= value < v => b.get_value() < v\n";);
-            return literal(b.get_bv(), true);
+            return ~b.get_lit();
         }
 
         return null_literal;
     }
 
-    void mk_bound_axioms(lp_api::bound& b) {
+    void mk_bound_axioms(api_bound& b) {
         if (!ctx().is_searching()) {
             //
             // NB. We make an assumption that user push calls propagation 
@@ -2429,13 +2431,13 @@ public:
         rational const& k1 = b.get_value();
         lp_bounds & bounds = m_bounds[v];
 
-        lp_api::bound* end = nullptr;
-        lp_api::bound* lo_inf = end, *lo_sup = end;
-        lp_api::bound* hi_inf = end, *hi_sup = end;
+        api_bound* end = nullptr;
+        api_bound* lo_inf = end, *lo_sup = end;
+        api_bound* hi_inf = end, *hi_sup = end;
             
-        for (lp_api::bound* other : bounds) {
+        for (api_bound* other : bounds) {
             if (other == &b) continue;
-            if (b.get_bv() == other->get_bv()) continue;
+            if (b.get_lit() == other->get_lit()) continue;
             lp_api::bound_kind kind2 = other->get_bound_kind();
             rational const& k2 = other->get_value();
             if (k1 == k2 && kind1 == kind2) {
@@ -2470,9 +2472,9 @@ public:
     }
 
 
-    void mk_bound_axiom(lp_api::bound& b1, lp_api::bound& b2) {
-        literal   l1(b1.get_bv());
-        literal   l2(b2.get_bv());
+    void mk_bound_axiom(api_bound& b1, api_bound& b2) {
+        literal   l1 = b1.get_lit();
+        literal   l2 = b2.get_lit();
         rational const& k1 = b1.get_value();
         rational const& k2 = b2.get_value();
         lp_api::bound_kind kind1 = b1.get_bound_kind();
@@ -2570,9 +2572,9 @@ public:
             iterator lo_inf = begin1, lo_sup = begin1;
             iterator hi_inf = begin2, hi_sup = begin2;
             bool flo_inf, fhi_inf, flo_sup, fhi_sup;
-            ptr_addr_hashtable<lp_api::bound> visited;
+            ptr_addr_hashtable<api_bound> visited;
             for (unsigned i = 0; i < atoms.size(); ++i) {
-                lp_api::bound* a1 = atoms[i];
+                api_bound* a1 = atoms[i];
                 iterator lo_inf1 = next_inf(a1, lp_api::lower_t, lo_inf, end, flo_inf);
                 iterator hi_inf1 = next_inf(a1, lp_api::upper_t, hi_inf, end, fhi_inf);
                 iterator lo_sup1 = next_sup(a1, lp_api::lower_t, lo_sup, end, flo_sup);
@@ -2595,7 +2597,7 @@ public:
     }
 
     struct compare_bounds {
-        bool operator()(lp_api::bound* a1, lp_api::bound* a2) const { return a1->get_value() < a2->get_value(); }
+        bool operator()(api_bound* a1, api_bound* a2) const { return a1->get_value() < a2->get_value(); }
     };
 
 
@@ -2604,14 +2606,14 @@ public:
         iterator it, 
         iterator end) {
         for (; it != end; ++it) {
-            lp_api::bound* a = *it;
+            api_bound* a = *it;
             if (a->get_bound_kind() == kind) return it;
         }
         return end;
     }
 
     lp_bounds::iterator next_inf(
-        lp_api::bound* a1, 
+        api_bound* a1, 
         lp_api::bound_kind kind, 
         iterator it, 
         iterator end,
@@ -2620,7 +2622,7 @@ public:
         iterator result = end;
         found_compatible = false;
         for (; it != end; ++it) {
-            lp_api::bound * a2 = *it;            
+            api_bound * a2 = *it;            
             if (a1 == a2) continue;
             if (a2->get_bound_kind() != kind) continue;
             rational const & k2(a2->get_value());
@@ -2636,7 +2638,7 @@ public:
     }
 
     lp_bounds::iterator next_sup(
-        lp_api::bound* a1, 
+        api_bound* a1, 
         lp_api::bound_kind kind, 
         iterator it, 
         iterator end,
@@ -2644,7 +2646,7 @@ public:
         rational const & k1(a1->get_value());
         found_compatible = false;
         for (; it != end; ++it) {
-            lp_api::bound * a2 = *it;            
+            api_bound * a2 = *it;            
             if (a1 == a2) continue;
             if (a2->get_bound_kind() != kind) continue;
             rational const & k2(a2->get_value());
@@ -2658,7 +2660,7 @@ public:
 
     void propagate_basic_bounds() {
         for (auto const& bv : m_to_check) {
-            lp_api::bound* b = nullptr;
+            api_bound* b = nullptr;
             if (m_bool_var2bound.find(bv, b)) {
                 propagate_bound(bv, ctx().get_assignment(bv) == l_true, *b);
                 if (ctx().inconsistent()) break;
@@ -2674,7 +2676,7 @@ public:
     //   x <= hi -> x <= hi'
     //   x <= hi -> ~(x >= hi')
 
-    void propagate_bound(bool_var bv, bool is_true, lp_api::bound& b) {
+    void propagate_bound(bool_var bv, bool is_true, api_bound& b) {
         if (bound_prop_mode::BP_NONE == propagation_mode()) {
             return;
         }
@@ -2692,8 +2694,8 @@ public:
         TRACE("arith", tout << "v" << v << " find_glb: " << find_glb << " is_true: " << is_true << " k: " << k << " is_lower: " << (k == lp_api::lower_t) << "\n";);
         if (find_glb) {
             rational glb;
-            lp_api::bound* lb = nullptr;
-            for (lp_api::bound* b2 : bounds) {
+            api_bound* lb = nullptr;
+            for (api_bound* b2 : bounds) {
                 if (b2 == &b) continue;
                 rational const& val2 = b2->get_value();
                 if (((is_true || v_is_int) ? val2 < val : val2 <= val) && (!lb || glb < val2)) {
@@ -2703,12 +2705,14 @@ public:
             }
             if (!lb) return;
             bool sign = lb->get_bound_kind() != lp_api::lower_t;
-            lit2 = literal(lb->get_bv(), sign);                    
+            lit2 = lb->get_lit();
+            if (sign)
+                lit2.neg();                
         }
         else {
             rational lub;
-            lp_api::bound* ub = nullptr;
-            for (lp_api::bound* b2 : bounds) {
+            api_bound* ub = nullptr;
+            for (api_bound* b2 : bounds) {
                 if (b2 == &b) continue;
                 rational const& val2 = b2->get_value();
                 if (((is_true || v_is_int) ? val < val2 : val <= val2) && (!ub || val2 < lub)) {
@@ -2718,7 +2722,9 @@ public:
             }
             if (!ub) return;
             bool sign = ub->get_bound_kind() != lp_api::upper_t;
-            lit2 = literal(ub->get_bv(), sign);
+            lit2 = ub->get_lit();
+            if (sign)
+                lit2.neg();
         }
         TRACE("arith", 
               ctx().display_literal_verbose(tout, lit1);
@@ -2737,7 +2743,7 @@ public:
 
     svector<lp::tv> m_todo_vars;
 
-    void add_use_lists(lp_api::bound* b) {
+    void add_use_lists(api_bound* b) {
         theory_var v = b->get_var();
         lpvar vi = register_theory_var_in_lar_solver(v);
         if (!lp::tv::is_term(vi)) {
@@ -2756,14 +2762,14 @@ public:
                 }
                 else {
                     unsigned w = lp().local_to_external(wi.id());
-                    m_use_list.reserve(w + 1, ptr_vector<lp_api::bound>());
+                    m_use_list.reserve(w + 1, ptr_vector<api_bound>());
                     m_use_list[w].push_back(b);
                 }
             }
         }
     }
 
-    void del_use_lists(lp_api::bound* b) {
+    void del_use_lists(api_bound* b) {
         theory_var v = b->get_var();
         lpvar vi = get_lpvar(v);
         if (!lp::tv::is_term(vi)) {
@@ -2795,14 +2801,14 @@ public:
     // have been assigned we may know the truth value of the inequality by using simple
     // bounds propagation.
     // 
-    void propagate_bound_compound(bool_var bv, bool is_true, lp_api::bound& b) {
+    void propagate_bound_compound(bool_var bv, bool is_true, api_bound& b) {
         theory_var v = b.get_var();
         TRACE("arith", tout << mk_pp(get_owner(v), m) << "\n";);
         if (static_cast<unsigned>(v) >= m_use_list.size()) {
             return;
         }
         for (auto const& vb : m_use_list[v]) {
-            if (ctx().get_assignment(vb->get_bv()) != l_undef) {
+            if (ctx().get_assignment(vb->get_lit()) != l_undef) {
                 TRACE("arith_verbose", display_bound(tout << "assigned ", *vb) << "\n";);
                 continue;
             }
@@ -2813,18 +2819,18 @@ public:
             literal lit = null_literal;
             if (lp_api::lower_t == vb->get_bound_kind()) {
                 if (get_glb(*vb, r) && r >= vb->get_value()) {        // vb is assigned true
-                    lit = literal(vb->get_bv(), false);
+                    lit = vb->get_lit(); 
                 }
                 else if (get_lub(*vb, r) && r < vb->get_value()) {    // vb is assigned false
-                    lit = literal(vb->get_bv(), true);
+                    lit = ~vb->get_lit();
                 }
             }
             else {                     
                 if (get_glb(*vb, r) && r > vb->get_value()) {         // VB <= value < val(VB)
-                    lit = literal(vb->get_bv(), true);
+                    lit = ~vb->get_lit();
                 }
                 else if (get_lub(*vb, r) && r <= vb->get_value()) {   // val(VB) <= value
-                    lit = literal(vb->get_bv(), false);
+                    lit = vb->get_lit();
                 }
             }                
                 
@@ -2844,19 +2850,19 @@ public:
         }
     }
 
-    bool get_lub(lp_api::bound const& b, inf_rational& lub) {
+    bool get_lub(api_bound const& b, inf_rational& lub) {
         return get_bound(b, lub, true);
     }
 
-    bool get_glb(lp_api::bound const& b, inf_rational& glb) {
+    bool get_glb(api_bound const& b, inf_rational& glb) {
         return get_bound(b, glb, false);
     }
 
-    std::ostream& display_bound(std::ostream& out, lp_api::bound const& b) {
-        return out << mk_pp(ctx().bool_var2expr(b.get_bv()), m);
+    std::ostream& display_bound(std::ostream& out, api_bound const& b) {
+        return out << mk_pp(ctx().bool_var2expr(b.get_lit().var()), m);
     }
 
-    bool get_bound(lp_api::bound const& b, inf_rational& r, bool is_lub) {
+    bool get_bound(api_bound const& b, inf_rational& r, bool is_lub) {
         reset_evidence();
         r.reset();
         theory_var v = b.get_var();
@@ -2906,7 +2912,7 @@ public:
         return lp::EQ;
     }
 
-    void assert_bound(bool_var bv, bool is_true, lp_api::bound& b) {
+    void assert_bound(bool_var bv, bool is_true, api_bound& b) {
         TRACE("arith", tout << b << "\n";);
         lp::constraint_index ci = b.get_constraint(is_true);
         lp().activate(ci);
@@ -2930,7 +2936,7 @@ public:
 #endif
     }
 
-    lp_api::bound* mk_var_bound(bool_var bv, theory_var v, lp_api::bound_kind bk, rational const& bound) {
+    api_bound* mk_var_bound(bool_var bv, theory_var v, lp_api::bound_kind bk, rational const& bound) {
         scoped_internalize_state st(*this);
         st.vars().push_back(v);
         st.coeffs().push_back(rational::one());
@@ -2953,7 +2959,7 @@ public:
         add_ineq_constraint(cT, literal(bv, false));
         add_ineq_constraint(cF, literal(bv, true));
 
-        return alloc(lp_api::bound, bv, v, vi, v_is_int, bound, bk, cT, cF);
+        return alloc(api_bound, literal(bv, false), v, vi, v_is_int, bound, bk, cT, cF);
     }
 
     //
@@ -2967,7 +2973,7 @@ public:
     vector<constraint_bound>        m_lower_terms;
     vector<constraint_bound>        m_upper_terms;
 
-    void propagate_eqs(lp::tv t, lp::constraint_index ci, lp::lconstraint_kind k, lp_api::bound& b, rational const& value) {
+    void propagate_eqs(lp::tv t, lp::constraint_index ci, lp::lconstraint_kind k, api_bound& b, rational const& value) {
         if (k == lp::GE && set_lower_bound(t, ci, value) && has_upper_bound(t.index(), ci, value)) {
             fixed_var_eh(b.get_var(), value);
         }
@@ -3678,7 +3684,7 @@ public:
             // ctx().set_enode_flag(bv, true);
             lp_api::bound_kind bkind = lp_api::bound_kind::lower_t;
             if (is_strict) bkind = lp_api::bound_kind::upper_t;
-            lp_api::bound* a = mk_var_bound(bv, v, bkind, r);
+            api_bound* a = mk_var_bound(bv, v, bkind, r);
             mk_bound_axioms(*a);
             updt_unassigned_bounds(v, +1);
             m_bounds[v].push_back(a);

@@ -282,8 +282,6 @@ public:
         m_num_scopes -= n;
         // ? m_internalized_converted = false;
         m_has_uninterpreted.pop(n);
-        if (get_euf())
-            get_euf()->user_pop(n);
         while (n > 0) {
             m_mcs.pop_back();
             m_fmls_head = m_fmls_head_lim.back();
@@ -982,11 +980,11 @@ private:
         if (m_sat_mc) {
             (*m_sat_mc)(ll_m);
         }        
-        app_ref_vector var2expr(m);
+        expr_ref_vector var2expr(m);
         m_map.mk_var_inv(var2expr);
         
         for (unsigned v = 0; v < var2expr.size(); ++v) {
-            app * n = var2expr.get(v);
+            expr * n = var2expr.get(v);
             if (!n || !is_uninterp_const(n)) {
                 continue;
             }

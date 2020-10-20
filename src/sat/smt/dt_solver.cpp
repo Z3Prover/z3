@@ -187,7 +187,7 @@ namespace dt {
         ptr_vector<func_decl> const& accessors = *dt.get_constructor_accessors(con);
         app_ref rec_app(m.mk_app(rec, arg1), m);
         app_ref acc_app(m);
-        literal is_con = b_internalize(rec_app);
+        literal is_con = mk_literal(rec_app);
         for (func_decl* acc1 : accessors) {
             enode* arg;
             if (acc1 == acc) {
@@ -278,7 +278,7 @@ namespace dt {
         SASSERT(r != nullptr);
         app_ref r_app(m.mk_app(r, n->get_expr()), m);
         TRACE("dt", tout << "creating split: " << mk_pp(r_app, m) << "\n";);
-        b_internalize(r_app);
+        mk_literal(r_app);
     }
 
     void solver::apply_sort_cnstr(enode* n, sort* s) {
@@ -433,7 +433,7 @@ namespace dt {
                 ptr_vector<func_decl> const& constructors = *dt.get_datatype_constructors(srt);
                 func_decl* rec = dt.get_constructor_is(constructors[unassigned_idx]);
                 app_ref rec_app(m.mk_app(rec, n->get_expr()), m);
-                consequent = b_internalize(rec_app);
+                consequent = mk_literal(rec_app);
             }
             else
                 consequent = ctx.enode2literal(r);

@@ -405,7 +405,7 @@ namespace euf {
         for (auto* e : m_solvers)
             switch (e->check()) {
             case sat::check_result::CR_CONTINUE: cont = true; break;
-            case sat::check_result::CR_GIVEUP: give_up = true; break;
+            case sat::check_result::CR_GIVEUP: std::cout << e->get_id() << "\n";  give_up = true; break;
             default: break;
             }
         if (cont)

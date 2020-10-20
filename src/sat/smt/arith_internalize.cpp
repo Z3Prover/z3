@@ -31,7 +31,10 @@ namespace arith {
 
     void solver::internalize(expr* e, bool redundant) {
         flet<bool> _is_learned(m_is_redundant, redundant);
-        internalize_term(e);
+        if (m.is_bool(e))
+            internalize_atom(e);
+        else
+            internalize_term(e);
     }
 
     lpvar solver::get_one(bool is_int) {
@@ -284,30 +287,61 @@ namespace arith {
     bool solver::internalize_atom(expr* atom) {
         TRACE("arith", tout << mk_pp(atom, m) << "\n";);
         SASSERT(!ctx.get_enode(atom));
-        expr* n1, * n2;
+        expr* n1, *n2;
         rational r;
         lp_api::bound_kind k;
         theory_var v = euf::null_theory_var;
         bool_var bv = ctx.get_si().add_bool_var(atom);
         m_bool_var2bound.erase(bv);
-        ctx.attach_lit(literal(bv, false), atom);
+        literal lit(bv, false);
+        ctx.attach_lit(lit, atom);
 
-        if (a.is_le(atom, n1, n2) && a.is_extended_numeral(n2, r) && is_app(n1)) {
-            v = internalize_def(to_app(n1));
+        if (a.is_le(atom, n1, n2) && a.is_extended_numeral(n2, r)) {
+            v = internalize_def(n1);
             k = lp_api::upper_t;
         }
-        else if (a.is_ge(atom, n1, n2) && a.is_extended_numeral(n2, r) && is_app(n1)) {
-            v = internalize_def(to_app(n1));
+        else if (a.is_ge(atom, n1, n2) && a.is_extended_numeral(n2, r)) {
+            v = internalize_def(n1);
             k = lp_api::lower_t;
         }
-        else if (a.is_le(atom, n1, n2) && a.is_extended_numeral(n1, r) && is_app(n2)) {
-            v = internalize_def(to_app(n2));
+        else if (a.is_le(atom, n1, n2) && a.is_extended_numeral(n1, r)) {
+            v = internalize_def(n2);
             k = lp_api::lower_t;
         }
-        else if (a.is_ge(atom, n1, n2) && a.is_extended_numeral(n1, r) && is_app(n2)) {
-            v = internalize_def(to_app(n2));
+        else if (a.is_ge(atom, n1, n2) && a.is_extended_numeral(n1, r)) {
+            v = internalize_def(n2);
             k = lp_api::upper_t;
         }
+        else if (a.is_le(atom, n1, n2)) {
+            expr_ref n3(a.mk_sub(n1, n2), m);
+            rewrite(n3);
+            v = internalize_def(n3);
+            k = lp_api::lower_t;
+            r = 0;
+        }
+        else if (a.is_ge(atom, n1, n2)) {
+            expr_ref n3(a.mk_sub(n1, n2), m);
+            rewrite(n3);
+            v = internalize_def(n3);
+            k = lp_api::upper_t;
+            r = 0;
+        }
+        else if (a.is_lt(atom, n1, n2)) {
+            expr_ref n3(a.mk_sub(n1, n2), m);
+            rewrite(n3);
+            v = internalize_def(n3);
+            k = lp_api::lower_t;
+            r = 0;
+            lit.neg();
+        }
+        else if (a.is_gt(atom, n1, n2)) {
+            expr_ref n3(a.mk_sub(n1, n2), m);
+            rewrite(n3);
+            v = internalize_def(n3);
+            k = lp_api::upper_t;
+            r = 0;
+            lit.neg();
+        }        
         else if (a.is_is_int(atom)) {
             mk_is_int_axiom(atom);
             return true;
@@ -317,13 +351,16 @@ namespace arith {
             found_unsupported(atom);
             return true;
         }
-        enode* n = ctx.get_enode(atom);
-        ctx.attach_th_var(n, this, v);
 
-        if (is_int(v) && !r.is_int()) {
-            r = (k == lp_api::upper_t) ? floor(r) : ceil(r);
-        }
-        lp_api::bound* b = mk_var_bound(bv, v, k, r);
+        enode* n = ctx.get_enode(atom);
+        theory_var w = mk_var(n);
+        ctx.attach_th_var(n, this, w);
+        ctx.get_egraph().set_merge_enabled(n, false);
+        std::cout << "atom: " << w << " " << lit << " " << mk_pp(atom, m) << "\n";
+
+        if (is_int(v) && !r.is_int()) 
+            r = (k == lp_api::upper_t) ? floor(r) : ceil(r);        
+        api_bound* b = mk_var_bound(lit, v, k, r);
         m_bounds[v].push_back(b);
         updt_unassigned_bounds(v, +1);
         m_bounds_trail.push_back(v);
@@ -366,6 +403,8 @@ namespace arith {
     }
 
     void solver::internalize_args(app* t, bool force) {
+        SASSERT(!m.is_bool(t));
+        TRACE("arith", tout << mk_pp(t, m) << " " << force << " " << reflect(t) << "\n";);
         if (!force && !reflect(t))
             return;
         for (expr* arg : *t)
@@ -570,18 +609,17 @@ namespace arith {
     }
 
     /**
-   \brief We must redefine this method, because theory of arithmetic contains
-   underspecified operators such as division by 0.
-   (/ a b) is essentially an uninterpreted function when b = 0.
-   Thus, 'a' must be considered a shared var if it is the child of an underspecified operator.
+       \brief We must redefine this method, because theory of arithmetic contains
+        underspecified operators such as division by 0.
+        (/ a b) is essentially an uninterpreted function when b = 0.
+        Thus, 'a' must be considered a shared var if it is the child of an underspecified operator.
 
-   if merge(a / b, x + y) and a / b is root, then x + y become shared and all z + u in equivalence class of x + y.
+        if merge(a / b, x + y) and a / b is root, then x + y become shared and all z + u in equivalence class of x + y.
 
-
-   TBD: when the set of underspecified subterms is small, compute the shared variables below it.
-   Recompute the set if there are merges that invalidate it.
-   Use the set to determine if a variable is shared.
-*/
+        TBD: when the set of underspecified subterms is small, compute the shared variables below it.
+        Recompute the set if there are merges that invalidate it.
+        Use the set to determine if a variable is shared.
+    */
     bool solver::is_shared(theory_var v) const {
         if (m_underspecified.empty()) {
             return false;

@@ -75,7 +75,7 @@ namespace fpa {
         for (expr* arg : m_converter.m_extra_assertions) {
             ctx.get_rewriter()(arg, t);
             m_th_rw(t);
-            conds.push_back(b_internalize(t));
+            conds.push_back(mk_literal(t));
         }
         m_converter.m_extra_assertions.reset();
         return conds;
@@ -125,7 +125,7 @@ namespace fpa {
         if (m.is_bool(e)) {
             sat::literal atom(ctx.get_si().add_bool_var(e), false);
             atom = ctx.attach_lit(atom, e);
-            sat::literal bv_atom = b_internalize(m_rw.convert_atom(m_th_rw, e));
+            sat::literal bv_atom = mk_literal(m_rw.convert_atom(m_th_rw, e));
             sat::literal_vector conds = mk_side_conditions();
             conds.push_back(bv_atom);
             add_equiv_and(atom, conds);
@@ -143,8 +143,7 @@ namespace fpa {
             case OP_FPA_TO_REAL:
             case OP_FPA_TO_IEEE_BV: {
                 expr_ref conv = convert(e);
-                expr_ref eq = ctx.mk_eq(e, conv);
-                add_unit(b_internalize(eq));
+                add_unit(eq_internalize(e, conv));
                 add_units(mk_side_conditions());
                 break;
             }
@@ -174,7 +173,7 @@ namespace fpa {
             expr_ref valid(m), limit(m);
             limit = m_bv_util.mk_numeral(4, 3);
             valid = m_bv_util.mk_ule(m_converter.wrap(owner), limit);
-            add_unit(b_internalize(valid));
+            add_unit(mk_literal(valid));
         }
         activate(owner);
     }
@@ -193,21 +192,18 @@ namespace fpa {
                 if (m_fpa_util.is_rm_numeral(n, rm)) {
                     expr_ref rm_num(m);
                     rm_num = m_bv_util.mk_numeral(rm, 3);
-                    add_unit(b_internalize(ctx.mk_eq(wrapped, rm_num)));
+                    add_unit(eq_internalize(wrapped, rm_num)); 
                 }
                 else if (m_fpa_util.is_numeral(n, val)) {
                     expr_ref bv_val_e(convert(n), m);
                     VERIFY(m_fpa_util.is_fp(bv_val_e, a, b, c));
                     expr* args[] = { a, b, c };
                     expr_ref cc_args(m_bv_util.mk_concat(3, args), m);
-                    add_unit(b_internalize(ctx.mk_eq(wrapped, cc_args)));
+                    add_unit(eq_internalize(wrapped, cc_args));
                     add_units(mk_side_conditions());
                 }
-                else {
-                    expr_ref wu = ctx.mk_eq(m_converter.unwrap(wrapped, m.get_sort(n)), n);
-                    TRACE("t_fpa", tout << "w/u eq: " << std::endl << mk_ismt2_pp(wu, m) << std::endl;);
-                    add_unit(b_internalize(wu));
-                }
+                else 
+                    add_unit(eq_internalize(m_converter.unwrap(wrapped, m.get_sort(n)), n));                
             }
         }
         else if (is_app(n) && to_app(n)->get_family_id() == get_id()) {
@@ -252,8 +248,8 @@ namespace fpa {
 
         m_th_rw(c);
 
-        sat::literal eq1 = b_internalize(ctx.mk_eq(e_x, e_y));
-        sat::literal eq2 = b_internalize(c);
+        sat::literal eq1 = eq_internalize(xe, ye); 
+        sat::literal eq2 = mk_literal(c);
         add_equiv(eq1, eq2);
         add_units(mk_side_conditions());
     }
@@ -271,7 +267,7 @@ namespace fpa {
 
         TRACE("t_fpa", tout << "assign_eh for: " << l << "\n" << mk_ismt2_pp(e, m) << "\n";);
 
-        sat::literal c = b_internalize(convert(e));
+        sat::literal c = mk_literal(convert(e));
         sat::literal_vector conds = mk_side_conditions();
         conds.push_back(c);
         if (l.sign()) {

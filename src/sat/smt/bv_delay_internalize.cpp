@@ -131,7 +131,7 @@ namespace bv {
 
     bool solver::check_mul_invertibility(app* n, expr_ref_vector const& arg_values, expr* value) {
 
-        expr_ref inv(m), eq(m);
+        expr_ref inv(m);
 
         auto invert = [&](expr* s, expr* t) {
             return bv.mk_bv_and(bv.mk_bv_or(s, bv.mk_bv_neg(s)), t);
@@ -143,9 +143,8 @@ namespace bv {
         };
         auto add_inv = [&](expr* s) {
             inv = invert(s, n);
-            expr_ref eq(m.mk_eq(inv, n), m);
-            TRACE("bv", tout << "enforce " << eq << "\n";);
-            add_unit(b_internalize(eq));
+            TRACE("bv", tout << "enforce " << inv << "\n";);
+            add_unit(eq_internalize(inv, n));
         };
         bool ok = true;
         for (unsigned i = 0; i < arg_values.size(); ++i) {
@@ -177,10 +176,9 @@ namespace bv {
                 args[i] = arg_value;
                 expr_ref r(m.mk_app(n->get_decl(), args), m);
                 set_delay_internalize(r, internalize_mode::init_bits_only_i); // do not bit-blast this multiplier.
-                expr_ref eq(m.mk_eq(r, arg_value), m);
                 args[i] = n->get_arg(i);
-                std::cout << eq << "@" << s().scope_lvl() << "\n";
-                add_unit(b_internalize(eq));
+                std::cout << "@" << s().scope_lvl() << "\n";
+                add_unit(eq_internalize(r, arg_value));
             }
             return false;
         }
@@ -218,17 +216,15 @@ namespace bv {
         if (bv.is_one(arg_values[0])) {
             expr_ref mul1(m.mk_app(n->get_decl(), arg_values[0], n->get_arg(1)), m);
             set_delay_internalize(mul1, internalize_mode::init_bits_only_i);
-            expr_ref eq(m.mk_eq(mul1, n->get_arg(1)), m);
-            add_unit(b_internalize(eq));
-            TRACE("bv", tout << eq << "\n";);
+            add_unit(eq_internalize(mul1, n->get_arg(1)));
+            TRACE("bv", tout << mul1 << "\n";);
             return false;
         }
         if (bv.is_one(arg_values[1])) {
             expr_ref mul1(m.mk_app(n->get_decl(), n->get_arg(0), arg_values[1]), m);
             set_delay_internalize(mul1, internalize_mode::init_bits_only_i);
-            expr_ref eq(m.mk_eq(mul1, n->get_arg(0)), m);
-            add_unit(b_internalize(eq));
-            TRACE("bv", tout << eq << "\n";);
+            add_unit(eq_internalize(mul1, n->get_arg(0)));
+            TRACE("bv", tout << mul1 << "\n";);
             return false;
         }
         return true;
@@ -296,9 +292,8 @@ namespace bv {
         expr_ref lhs(extract_low_bits(n), m);
         expr_ref rhs(m.mk_app(n->get_decl(), args), m);
         set_delay_internalize(rhs, internalize_mode::no_delay_i);
-        expr_ref eq(m.mk_eq(lhs, rhs), m);
-        add_unit(b_internalize(eq));
-        TRACE("bv", tout << "low-bits: " << eq << "\n";);
+        add_unit(eq_internalize(lhs, rhs)); 
+        TRACE("bv", tout << "low-bits: " << mk_pp(lhs,m) << " " << mk_pp(rhs, m) << "\n";);
         std::cout << "low bits\n";
         return false;     
     }
@@ -320,10 +315,6 @@ namespace bv {
     };
 
     /**
-<<<<<<< HEAD
-
-=======
->>>>>>> 055902df2... bv
      * The i'th bit in xs is 1 if the least significant bit of x is i or lower.
      */
     void solver::encode_lsb_tail(expr* x, expr_ref_vector& xs) {
@@ -361,8 +352,8 @@ namespace bv {
             encode_msb_tail(n->get_arg(0), xs);
             encode_msb_tail(n->get_arg(1), ys);
             for (unsigned i = 1; i <= sz; ++i) {
-                sat::literal bit0 = b_internalize(xs.get(i - 1));
-                sat::literal bit1 = b_internalize(ys.get(sz - i));
+                sat::literal bit0 = mk_literal(xs.get(i - 1));
+                sat::literal bit1 = mk_literal(ys.get(sz - i));
                 add_clause(~no_overflow, ~bit0, ~bit1);
             }
             return false;
@@ -374,7 +365,7 @@ namespace bv {
             lits.push_back(expr2literal(n));
             for (unsigned i = 1; i < sz; ++i) {
                 expr_ref msb_ge_sz(m.mk_and(xs.get(i - 1), ys.get(sz - i - 1)), m);
-                lits.push_back(b_internalize(msb_ge_sz));
+                lits.push_back(mk_literal(msb_ge_sz));
             }
             add_clause(lits);
             return false;

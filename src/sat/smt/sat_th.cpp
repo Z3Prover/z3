@@ -200,9 +200,21 @@ namespace euf {
         return ctx.mk_eq(e1, e2); 
     }
 
+    sat::literal th_euf_solver::mk_literal(expr* e) const {
+        return ctx.mk_literal(e);
+    }
+
     sat::literal th_euf_solver::eq_internalize(expr* a, expr* b) { 
-        expr_ref eq(ctx.mk_eq(a, b), m);
-        return b_internalize(eq); 
+        return mk_literal(ctx.mk_eq(a, b)); 
+    }
+
+    euf::enode* th_euf_solver::e_internalize(expr* e) {
+        euf::enode* n = expr2enode(e);
+        if (!n) {
+            ctx.internalize(e, m_is_redundant);
+            n = expr2enode(e);
+        }
+        return n;
     }
 
     unsigned th_propagation::get_obj_size(unsigned num_lits, unsigned num_eqs) {

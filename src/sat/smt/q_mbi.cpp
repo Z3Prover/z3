@@ -95,14 +95,19 @@ namespace q {
     }
 
     lbool mbqi::check_forall(quantifier* q) {
-        init_solver();
-        ::solver::scoped_push _sp(*m_solver);
+
         quantifier* q_flat = m_qs.flatten(q);
         auto* qb = specialize(q_flat);
         if (!qb)
             return l_undef;
+        if (m.is_false(qb->mbody))
+            return l_true;
+        init_solver();
+        ::solver::scoped_push _sp(*m_solver);
         m_solver->assert_expr(qb->mbody);
+        // std::cout << "body: " << qb->mbody << "\n";
         lbool r = m_solver->check_sat(0, nullptr);
+        std::cout << "check result " << r << "\n";
         if (r == l_undef)
             return r;
         if (r == l_false)
@@ -118,7 +123,7 @@ namespace q {
             qlit.neg();
         ctx.get_rewriter()(proj);
         // TODO: add as top-level clause for relevancy
-        m_qs.add_clause(~qlit, ~ctx.b_internalize(proj));
+        m_qs.add_clause(~qlit, ~ctx.mk_literal(proj));
         return l_false;
     }
 
@@ -139,7 +144,7 @@ namespace q {
                 if (m_model->has_uninterpreted_sort(s))
                     restrict_to_universe(vars.get(i), m_model->get_universe(s));
             }
-            auto fml = subst(q->get_expr(), vars);
+            expr_ref fml = subst(q->get_expr(), vars);
             if (is_forall(q))
                 fml = m.mk_not(fml);
             flatten_and(fml, result->vbody);
@@ -149,9 +154,12 @@ namespace q {
         if (!m_model->eval_expr(q->get_expr(), mbody, true))
             return nullptr;
 
+        // std::cout << *m_model << "\n";
+
         mbody = subst(mbody, result->vars);
         if (is_forall(q))
-            mbody = m.mk_not(mbody);
+            mbody = mk_not(m, mbody);
+        std::cout << mbody << "\n";
         return result;
     }
 
