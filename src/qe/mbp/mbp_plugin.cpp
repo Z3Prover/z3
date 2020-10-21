@@ -336,10 +336,12 @@ namespace mbp {
         m_to_visit.reset();
         m_visited.reset();
         m_cache.reset();
+        m_pure_eqs.reset();
         for (expr* v : vars)
             m_non_ground.mark(v);
         for (unsigned i = 0; m.inc() && i < lits.size(); ++i) 
             lits[i] = purify(inv, eval, lits.get(i), lits); 
+        lits.append(m_pure_eqs);
         TRACE("mbp", tout << lits << "\n";);
     }
 
@@ -363,7 +365,10 @@ namespace mbp {
     void project_plugin::purify_app(euf_inverter& inv, model_evaluator& eval, app* t, expr_ref_vector& lits) {
         if (is_uninterp(t) && t->get_num_args() > 0) {
             expr_ref t_value = eval(t);
-            m_cache.setx(t->get_id(), inv.invert_app(t, t_value));
+            expr* s = inv.invert_app(t, t_value);
+            m_cache.setx(t->get_id(), s);
+            if (s != t)
+                m_pure_eqs.push_back(m.mk_eq(t, s));
             unsigned i = 0;
             for (expr* arg : *t) 
                 push_back(lits, inv.invert_arg(t, i++, eval(arg)));            

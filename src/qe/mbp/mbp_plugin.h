@@ -52,7 +52,7 @@ namespace mbp {
         ptr_vector<expr> m_to_visit;
         expr_mark        m_bool_visited;
         expr_mark        m_non_ground;
-        expr_ref_vector  m_cache, m_args;
+        expr_ref_vector  m_cache, m_args, m_pure_eqs;
 
         void extract_bools(model_evaluator& eval, expr_ref_vector& fmls, unsigned i, expr* fml, bool is_true);
         void visit_app(expr* e);
@@ -71,7 +71,7 @@ namespace mbp {
         void purify_app(euf_inverter& inv, model_evaluator& eval, app* t, expr_ref_vector& lits);
 
     public:
-        project_plugin(ast_manager& m) :m(m), m_cache(m), m_args(m) {}
+        project_plugin(ast_manager& m) :m(m), m_cache(m), m_args(m), m_pure_eqs(m) {}
         virtual ~project_plugin() {}
         virtual bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) { return false; }
         /**
