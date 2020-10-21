@@ -120,7 +120,7 @@ namespace euf {
                 }
                 if (is_app(e) && to_app(e)->get_family_id() == m.get_basic_family_id())
                     continue;
-                sat::bool_var v = si.to_bool_var(e);
+                sat::bool_var v = get_enode(e)->bool_var();
                 SASSERT(v != sat::null_bool_var);
                 switch (s().value(v)) {
                 case l_true:
@@ -134,7 +134,6 @@ namespace euf {
                 }
                 continue;
             }
-            TRACE("euf", tout << "value for " << mk_bounded_pp(e, m) << "\n";);
             sort* srt = m.get_sort(e);
             if (m.is_uninterp(srt)) 
                 user_sort.add(id, srt);            
@@ -193,8 +192,8 @@ namespace euf {
         if (!m_values2root.empty())
             return m_values2root;
         for (enode* n : m_egraph.nodes())
-            if (n->is_root())
-                m_values2root.insert(m_values.get(n->get_root_id()), n);
+            if (n->is_root() && m_values.get(n->get_expr_id()))
+                m_values2root.insert(m_values.get(n->get_expr_id()), n);
         return m_values2root;
     }
 

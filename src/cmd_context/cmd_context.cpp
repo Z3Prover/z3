@@ -1660,7 +1660,7 @@ void cmd_context::display_model(model_ref& mdl) {
             model_v2_pp(buffer, *mdl, false);
             regular_stream() << '"' << escaped(buffer.str(), true) << '"' << std::endl;
         } else {
-            regular_stream() << "(model " << std::endl;
+            regular_stream() << "( ";
             model_smt2_pp(regular_stream(), *this, *mdl, 2);
             regular_stream() << ")" << std::endl;
         }

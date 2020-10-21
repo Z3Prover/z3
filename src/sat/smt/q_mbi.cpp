@@ -37,7 +37,9 @@ namespace q {
         m_model_fixer(ctx, m_qs),
         m_fresh_trail(m)
     {
-        add_plugin(alloc(mbp::arith_project_plugin, m));
+        auto* ap = alloc(mbp::arith_project_plugin, m);
+        ap->set_check_purified(false);
+        add_plugin(ap);
         add_plugin(alloc(mbp::datatype_project_plugin, m));
         add_plugin(alloc(mbp::array_project_plugin, m));
     }
@@ -105,23 +107,21 @@ namespace q {
         init_solver();
         ::solver::scoped_push _sp(*m_solver);
         m_solver->assert_expr(qb->mbody);
-        // std::cout << "body: " << qb->mbody << "\n";
         lbool r = m_solver->check_sat(0, nullptr);
-        std::cout << "check result " << r << "\n";
         if (r == l_undef)
             return r;
         if (r == l_false)
             return l_true;
         model_ref mdl0;
         m_solver->get_model(mdl0);
-        expr_ref proj(m);
-        proj = solver_project(*mdl0, *qb);
+        expr_ref proj = solver_project(*mdl0, *qb);
         if (!proj)
             return l_undef;
         sat::literal qlit = ctx.expr2literal(q);
-        if (is_forall(q))
+        if (is_exists(q))
             qlit.neg();
         ctx.get_rewriter()(proj);
+        TRACE("q", tout << proj << "\n";);
         // TODO: add as top-level clause for relevancy
         m_qs.add_clause(~qlit, ~ctx.mk_literal(proj));
         return l_false;
@@ -154,12 +154,9 @@ namespace q {
         if (!m_model->eval_expr(q->get_expr(), mbody, true))
             return nullptr;
 
-        // std::cout << *m_model << "\n";
-
         mbody = subst(mbody, result->vars);
         if (is_forall(q))
             mbody = mk_not(m, mbody);
-        std::cout << mbody << "\n";
         return result;
     }
 
@@ -192,7 +189,7 @@ namespace q {
         expr_ref_vector fmls(qb.vbody);
         app_ref_vector vars(qb.vars);
         mbp::project_plugin proj(m);
-        proj.purify(m_model_fixer, mdl, vars, fmls);
+        proj.purify(m_model_fixer, *m_model, vars, fmls);
         for (unsigned i = 0; i < vars.size(); ++i) {
             app* v = vars.get(i);
             auto* p = get_plugin(v);

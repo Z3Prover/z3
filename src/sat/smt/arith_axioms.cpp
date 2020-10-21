@@ -297,19 +297,25 @@ namespace arith {
     }
 
     void solver::mk_eq_axiom(theory_var v1, theory_var v2) {
+        if (is_bool(v1))
+            return;
         expr* e1 = var2expr(v1);
         expr* e2 = var2expr(v2);
-        if (m.is_bool(e1))
-            return;
-        expr_ref diff(a.mk_sub(e1, e2), m);
-        expr_ref z(a.mk_numeral(rational(0), a.is_int(e1)), m);
-        rewrite(diff);
-        expr_ref lee(a.mk_le(diff, z), m);
-        expr_ref gee(a.mk_ge(diff, z), m);
-        std::cout << "eq-axiom:\n" << mk_pp(e1, m) << "\n" << mk_pp(e2, m) << "\n" << lee << "\n";
-        literal le = mk_literal(lee);
-        literal ge = mk_literal(gee);
+        literal le, ge;
         literal eq = eq_internalize(e1, e2);
+        if (a.is_numeral(e1))
+            std::swap(e1, e2);
+        if (a.is_numeral(e2)) {
+            le = mk_literal(a.mk_le(e1, e2));
+            ge = mk_literal(a.mk_ge(e1, e2));
+        }
+        else {
+            expr_ref diff(a.mk_sub(e1, e2), m);
+            expr_ref zero(a.mk_numeral(rational(0), a.is_int(e1)), m);
+            rewrite(diff);
+            le = mk_literal(a.mk_le(diff, zero));
+            ge = mk_literal(a.mk_ge(diff, zero));
+        }
         add_clause(~eq, le);
         add_clause(~eq, ge);
         add_clause(~le, ~ge, eq);

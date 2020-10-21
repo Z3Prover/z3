@@ -603,15 +603,21 @@ public:
         params_ref simp2_p = m_params;
         simp2_p.set_bool("flat", false);
 
-        m_preprocess =
-            and_then(mk_simplify_tactic(m),
-                     mk_propagate_values_tactic(m),
-                     mk_card2bv_tactic(m, m_params),                  // updates model converter
-                     using_params(mk_simplify_tactic(m), simp1_p),
-                     mk_max_bv_sharing_tactic(m),
-                     mk_bit_blaster_tactic(m, m_bb_rewriter.get()),
-                     using_params(mk_simplify_tactic(m), simp2_p)
-                     );
+        sat_params sp(m_params);
+        if (sp.euf()) 
+            m_preprocess =
+                and_then(mk_simplify_tactic(m),
+                         mk_propagate_values_tactic(m));
+        else 
+            m_preprocess =
+                and_then(mk_simplify_tactic(m),
+                         mk_propagate_values_tactic(m),
+                         mk_card2bv_tactic(m, m_params),                  // updates model converter
+                         using_params(mk_simplify_tactic(m), simp1_p),
+                         mk_max_bv_sharing_tactic(m),
+                         mk_bit_blaster_tactic(m, m_bb_rewriter.get()),
+                         using_params(mk_simplify_tactic(m), simp2_p)
+                         );
         while (m_bb_rewriter->get_num_scopes() < m_num_scopes) {
             m_bb_rewriter->push();
         }

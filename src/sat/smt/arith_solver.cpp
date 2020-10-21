@@ -595,11 +595,12 @@ namespace arith {
         lp().push();
         if (m_nla)
             m_nla->push();
-
+        th_euf_solver::push_core();
     }
 
     void solver::pop_core(unsigned num_scopes) {
         TRACE("arith", tout << "pop " << num_scopes << "\n";);
+        th_euf_solver::pop_core(num_scopes);
         unsigned old_size = m_scopes.size() - num_scopes;
         del_bounds(m_scopes[old_size].m_bounds_lim);
         m_idiv_terms.shrink(m_scopes[old_size].m_idiv_lim);
@@ -847,6 +848,7 @@ namespace arith {
     void solver::random_update() {
         if (m_nla)
             return;
+        TRACE("arith", tout << s().scope_lvl() << "\n"; tout.flush(););
         m_tmp_var_set.clear();
         m_tmp_var_set.resize(get_num_vars());
         m_model_eqs.reset();
@@ -949,6 +951,7 @@ namespace arith {
     }
 
     sat::check_result solver::check() {
+        force_push();
         flet<bool> _is_learned(m_is_redundant, true);
         reset_variable_values();
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");

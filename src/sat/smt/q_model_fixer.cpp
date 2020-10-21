@@ -41,20 +41,18 @@ namespace q {
     }
 
     class arith_projection : public projection_function {
-        ast_manager& m;
         arith_util   a;
     public:        
-        arith_projection(ast_manager& m): m(m), a(m) {}
+        arith_projection(ast_manager& m): projection_function(m), a(m) {}
         ~arith_projection() override {}
         bool operator()(expr* e1, expr* e2) const override { return lt(a, e1, e2); }
         expr* mk_lt(expr* x, expr* y) override { return a.mk_lt(x, y); }
     };
 
     class ubv_projection : public projection_function {
-        ast_manager& m;
         bv_util bvu;
     public:        
-        ubv_projection(ast_manager& m): m(m), bvu(m) {}
+        ubv_projection(ast_manager& m): projection_function(m), bvu(m) {}
         ~ubv_projection() override {}
         bool operator()(expr* e1, expr* e2) const override { return lt(bvu, e1, e2); }
         expr* mk_lt(expr* x, expr* y) override { return m.mk_not(bvu.mk_ule(y, x)); }        
@@ -113,7 +111,7 @@ namespace q {
     void model_fixer::add_projection_functions(model& mdl, func_decl* f) {
         // update interpretation of f so that the graph of f is fully determined by the
         // ground values of its arguments.
-        std::cout << mdl << "\n";
+        TRACE("q", tout << mdl << "\n";);
         func_interp* fi = mdl.get_func_interp(f);
         if (!fi) 
             return;
@@ -134,8 +132,7 @@ namespace q {
         new_fi->set_else(m.mk_app(f_new, args));
         mdl.update_func_interp(f, new_fi);
         mdl.register_decl(f_new, fi);
-
-        std::cout << mdl << "\n";
+        TRACE("q", tout << mdl << "\n";);
     }
 
     expr_ref model_fixer::add_projection_function(model& mdl, func_decl* f, unsigned idx) {
@@ -165,7 +162,6 @@ namespace q {
             if (i == 0 || values.get(i-1) != values.get(i))
                 values[j++] = values.get(i);
         values.shrink(j);
-        std::cout << "values: " << values << "\n";
 
         m_projection_data.insert(indexed_decl(f, idx), md.get());
         m_projection_pinned.push_back(md.detach());
@@ -177,7 +173,6 @@ namespace q {
             expr* c = proj->mk_lt(var, values.get(i));
             pi = m.mk_ite(c, values.get(i - 1), pi);
         }
-        std::cout << "pi " << pi << "\n";
         func_interp* rpi = alloc(func_interp, m, 1);
         rpi->set_else(pi);
         func_decl * p = m.mk_fresh_func_decl(1, &srt, srt);
@@ -217,16 +212,17 @@ namespace q {
 
     expr* model_fixer::invert_app(app* t, expr* value) { 
         euf::enode* r = nullptr;
-        std::cout << "invert-app " << mk_pp(t, m) << " = " << mk_pp(value, m) << "\n";
-        if (ctx.values2root().find(value, r))
-            std::cout << "inverse " << mk_pp(r->get_expr(), m) << "\n";
+        TRACE("q",
+            tout << "invert-app " << mk_pp(t, m) << " = " << mk_pp(value, m) << "\n";
+            if (ctx.values2root().find(value, r))
+                tout << "inverse " << mk_pp(r->get_expr(), m) << "\n";);
         if (ctx.values2root().find(value, r))
             return r->get_expr();
         return value; 
     }
 
     expr* model_fixer::invert_arg(app* t, unsigned i, expr* value)  { 
-        std::cout << "invert-arg " << mk_pp(t, m) << " " << i << " " << mk_pp(value, m) << "\n";
+        TRACE("q", tout << "invert-arg " << mk_pp(t, m) << " " << i << " " << mk_pp(value, m) << "\n";);
         auto const* md = get_projection_data(t->get_decl(), i);
         if (!md)
             return m.mk_true();
@@ -234,25 +230,34 @@ namespace q {
         if (!proj)
             return m.mk_true();
 
-        if (md->values.size() <= 1) 
+        unsigned sz = md->values.size();
+        if (sz <= 1) 
             return m.mk_true();
         
         //
         // md->values are sorted
+        // v1, v2, v3
+        // x < v2       => f(x) = f(v1), so x < t2, where M(v2) = t2
+        // v2 <= x < v3 => f(x) = f(v2), so t2 <= x < t3, where M(v3) = t3
+        // v3 <= x      => f(x) = f(v3)
         // 
-        unsigned j = 0;
-        for (expr* val : md->values) {
-            if ((*proj)(value, val))
-                ++j;
-            else
-                break;
-        }
-        expr* lo = md->values[j];
+        auto is_lt = [&](expr* val) { 
+            return (*proj)(value, val); 
+        };
+
+        auto term = [&](unsigned j) {
+            return md->v2t[md->values[j]];
+        };
+
         expr* arg = t->get_arg(i);
-        expr* result = m.mk_not(proj->mk_lt(arg, lo));
-        if (j + 1 < md->values.size()) 
-            result = m.mk_and(result, proj->mk_lt(arg, md->values[j + 1]));
-        std::cout << "invert-art: " << mk_pp(result, m) << "\n";
-        return result;
+
+        if (is_lt(md->values[1]))
+            return proj->mk_lt(arg, term(1));
+
+        for (unsigned j = 2; j < sz; ++j) 
+            if (is_lt(md->values[j]))
+                return m.mk_and(proj->mk_le(term(j-1), arg), proj->mk_lt(arg, term(j)));
+        
+        return proj->mk_le(term(sz-1), arg);
     }
 }

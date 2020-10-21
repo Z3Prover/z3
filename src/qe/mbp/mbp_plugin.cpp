@@ -326,7 +326,7 @@ namespace mbp {
     }
 
     void project_plugin::purify(euf_inverter& inv, model& mdl, app_ref_vector const& vars, expr_ref_vector& lits) {
-        TRACE("mbp", tout << lits << "\n";);
+        TRACE("mbp", tout << lits << "\n" << mdl << "\n";);
         extract_literals(mdl, vars, lits);
         if (!m.inc())
             return;

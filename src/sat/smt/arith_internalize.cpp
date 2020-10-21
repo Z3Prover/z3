@@ -316,14 +316,14 @@ namespace arith {
             expr_ref n3(a.mk_sub(n1, n2), m);
             rewrite(n3);
             v = internalize_def(n3);
-            k = lp_api::lower_t;
+            k = lp_api::upper_t;
             r = 0;
         }
         else if (a.is_ge(atom, n1, n2)) {
             expr_ref n3(a.mk_sub(n1, n2), m);
             rewrite(n3);
             v = internalize_def(n3);
-            k = lp_api::upper_t;
+            k = lp_api::lower_t;
             r = 0;
         }
         else if (a.is_lt(atom, n1, n2)) {
@@ -356,8 +356,6 @@ namespace arith {
         theory_var w = mk_var(n);
         ctx.attach_th_var(n, this, w);
         ctx.get_egraph().set_merge_enabled(n, false);
-        std::cout << "atom: " << w << " " << lit << " " << mk_pp(atom, m) << "\n";
-
         if (is_int(v) && !r.is_int()) 
             r = (k == lp_api::upper_t) ? floor(r) : ceil(r);        
         api_bound* b = mk_var_bound(lit, v, k, r);
