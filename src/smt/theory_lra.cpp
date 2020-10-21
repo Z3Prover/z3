@@ -1438,11 +1438,12 @@ public:
         if (v == null_theory_var || !lp().external_is_used(v)) {
             return rational::zero();
         }
-            
+
         auto t = get_tv(v);
-        if (m_variable_values.count(t.index()) > 0)
-            return m_variable_values[t.index()];
-        
+        auto I = m_variable_values.find(t.index());
+        if (I != m_variable_values.end())
+            return I->second;
+
         if (!t.is_term() && lp().is_fixed(t.id())) 
             return lp().column_lower_bound(t.id()).x;
         if (!t.is_term()) 
@@ -1458,8 +1459,9 @@ public:
                 const lp::lar_term& term = lp().get_term(t2);
                 for (const auto & i : term) {
                     auto tv = lp().column2tv(i.column());
-                    if (m_variable_values.count(tv.index()) > 0) {
-                        result += m_variable_values[tv.index()] * coeff * i.coeff();
+                    auto I = m_variable_values.find(tv.index());
+                    if (I != m_variable_values.end()) {
+                        result += I->second * coeff * i.coeff();
                     }
                     else {
                         m_todo_terms.push_back(std::make_pair(tv, coeff * i.coeff()));
@@ -1467,10 +1469,10 @@ public:
                 }                    
             }
             else {
-                result += m_variable_values[t2.index()] * coeff;
+                result += m_variable_values.at(t2.index()) * coeff;
             }
         }
-        m_variable_values[t.index()] = result;
+        m_variable_values.emplace(t.index(), result);
         return result;
     }    
     
