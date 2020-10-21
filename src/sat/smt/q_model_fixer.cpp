@@ -41,20 +41,18 @@ namespace q {
     }
 
     class arith_projection : public projection_function {
-        ast_manager& m;
         arith_util   a;
     public:        
-        arith_projection(ast_manager& m): m(m), a(m) {}
+        arith_projection(ast_manager& m): projection_function(m), a(m) {}
         ~arith_projection() override {}
         bool operator()(expr* e1, expr* e2) const override { return lt(a, e1, e2); }
         expr* mk_lt(expr* x, expr* y) override { return a.mk_lt(x, y); }
     };
 
     class ubv_projection : public projection_function {
-        ast_manager& m;
         bv_util bvu;
     public:        
-        ubv_projection(ast_manager& m): m(m), bvu(m) {}
+        ubv_projection(ast_manager& m): projection_function(m), bvu(m) {}
         ~ubv_projection() override {}
         bool operator()(expr* e1, expr* e2) const override { return lt(bvu, e1, e2); }
         expr* mk_lt(expr* x, expr* y) override { return m.mk_not(bvu.mk_ule(y, x)); }        
@@ -113,6 +111,7 @@ namespace q {
     void model_fixer::add_projection_functions(model& mdl, func_decl* f) {
         // update interpretation of f so that the graph of f is fully determined by the
         // ground values of its arguments.
+        TRACE("q", tout << mdl << "\n";);
         func_interp* fi = mdl.get_func_interp(f);
         if (!fi) 
             return;
@@ -133,6 +132,7 @@ namespace q {
         new_fi->set_else(m.mk_app(f_new, args));
         mdl.update_func_interp(f, new_fi);
         mdl.register_decl(f_new, fi);
+        TRACE("q", tout << mdl << "\n";);
     }
 
     expr_ref model_fixer::add_projection_function(model& mdl, func_decl* f, unsigned idx) {
@@ -208,5 +208,56 @@ namespace q {
                 if (is_uninterp(t) && !to_app(t)->is_ground())
                     fns.insert(to_app(t)->get_decl());           
         }
+    }
+
+    expr* model_fixer::invert_app(app* t, expr* value) { 
+        euf::enode* r = nullptr;
+        TRACE("q",
+            tout << "invert-app " << mk_pp(t, m) << " = " << mk_pp(value, m) << "\n";
+            if (ctx.values2root().find(value, r))
+                tout << "inverse " << mk_pp(r->get_expr(), m) << "\n";);
+        if (ctx.values2root().find(value, r))
+            return r->get_expr();
+        return value; 
+    }
+
+    expr* model_fixer::invert_arg(app* t, unsigned i, expr* value)  { 
+        TRACE("q", tout << "invert-arg " << mk_pp(t, m) << " " << i << " " << mk_pp(value, m) << "\n";);
+        auto const* md = get_projection_data(t->get_decl(), i);
+        if (!md)
+            return m.mk_true();
+        auto* proj = get_projection(t->get_decl()->get_domain(i));
+        if (!proj)
+            return m.mk_true();
+
+        unsigned sz = md->values.size();
+        if (sz <= 1) 
+            return m.mk_true();
+        
+        //
+        // md->values are sorted
+        // v1, v2, v3
+        // x < v2       => f(x) = f(v1), so x < t2, where M(v2) = t2
+        // v2 <= x < v3 => f(x) = f(v2), so t2 <= x < t3, where M(v3) = t3
+        // v3 <= x      => f(x) = f(v3)
+        // 
+        auto is_lt = [&](expr* val) { 
+            return (*proj)(value, val); 
+        };
+
+        auto term = [&](unsigned j) {
+            return md->v2t[md->values[j]];
+        };
+
+        expr* arg = t->get_arg(i);
+
+        if (is_lt(md->values[1]))
+            return proj->mk_lt(arg, term(1));
+
+        for (unsigned j = 2; j < sz; ++j) 
+            if (is_lt(md->values[j]))
+                return m.mk_and(proj->mk_le(term(j-1), arg), proj->mk_lt(arg, term(j)));
+        
+        return proj->mk_le(term(sz-1), arg);
     }
 }

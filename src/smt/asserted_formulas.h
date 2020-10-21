@@ -34,9 +34,9 @@ Revision History:
 #include "ast/macros/macro_finder.h"
 #include "ast/normal_forms/defined_names.h"
 #include "ast/normal_forms/pull_quant.h"
+#include "ast/normal_forms/elim_term_ite.h"
 #include "ast/pattern/pattern_inference.h"
 #include "smt/params/smt_params.h"
-#include "smt/elim_term_ite.h"
 
 
 class asserted_formulas {

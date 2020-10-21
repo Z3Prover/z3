@@ -277,16 +277,16 @@ struct goal2sat::imp : public sat::sat_internalizer {
             else if (m.is_false(t)) {
                 l = sign ? mk_true() : ~mk_true();
             }
-            else if (!is_app(t)) {
-                std::ostringstream strm;
-                strm << mk_ismt2_pp(t, m);
-                throw_op_not_handled(strm.str());
-            }
             else {                
                 if (!is_uninterp_const(t)) {
                     if (m_euf) {
                         convert_euf(t, root, sign);  
                         return;
+                    }
+                    else if (!is_app(t)) {
+                        std::ostringstream strm;
+                        strm << mk_ismt2_pp(t, m);
+                        throw_op_not_handled(strm.str());
                     }
                     else
                         m_unhandled_funs.push_back(to_app(t)->get_decl());
@@ -1054,7 +1054,7 @@ model_converter* sat2goal::mc::translate(ast_translation& translator) {
     mc* result = alloc(mc, translator.to());
     result->m_smc.copy(m_smc);
     result->m_gmc = m_gmc ? dynamic_cast<generic_model_converter*>(m_gmc->translate(translator)) : nullptr;
-    for (app* e : m_var2expr) {
+    for (expr* e : m_var2expr) {
         result->m_var2expr.push_back(translator(e));
     }
     return result;
@@ -1093,15 +1093,15 @@ void sat2goal::mc::operator()(expr_ref& fml) {
     if (m_gmc) (*m_gmc)(fml);
 }
 
-void sat2goal::mc::insert(sat::bool_var v, app * atom, bool aux) {
+void sat2goal::mc::insert(sat::bool_var v, expr * atom, bool aux) {
     SASSERT(!m_var2expr.get(v, nullptr));
     m_var2expr.reserve(v + 1);
     m_var2expr.set(v, atom);
     if (aux) {
-        SASSERT(is_uninterp_const(atom));
         SASSERT(m.is_bool(atom));
         if (!m_gmc) m_gmc = alloc(generic_model_converter, m, "sat2goal");
-        m_gmc->hide(atom->get_decl());
+        if (is_uninterp_const(atom))
+            m_gmc->hide(to_app(atom)->get_decl());
     }
     TRACE("sat_mc", tout << "insert " << v << "\n";);
 }
@@ -1151,7 +1151,7 @@ struct sat2goal::imp {
     expr * lit2expr(ref<mc>& mc, sat::literal l) {
         if (!m_lit2expr.get(l.index())) {
             SASSERT(m_lit2expr.get((~l).index()) == 0);
-            app* aux = mc ? mc->var2expr(l.var()) : nullptr;
+            expr* aux = mc ? mc->var2expr(l.var()) : nullptr;
             if (!aux) {
                 aux = m.mk_fresh_const(nullptr, m.mk_bool_sort());
                 if (mc) {

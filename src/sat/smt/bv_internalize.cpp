@@ -519,16 +519,14 @@ namespace bv {
         expr* arg1 = n->get_arg(0);
         expr* arg2 = n->get_arg(1);
         if (p.hi_div0()) {
-            expr_ref eq(m.mk_eq(n, bv.mk_bv_udiv_i(arg1, arg2)), m);
-            add_unit(b_internalize(eq));
+            add_unit(eq_internalize(n, bv.mk_bv_udiv_i(arg1, arg2)));
             return;
         }
         unsigned sz = bv.get_bv_size(n);
         expr_ref zero(bv.mk_numeral(0, sz), m);
         expr_ref eq(m.mk_eq(arg2, zero), m);
         expr_ref udiv(m.mk_ite(eq, bv.mk_bv_udiv0(arg1), bv.mk_bv_udiv_i(arg1, arg2)), m);
-        expr_ref eq2(m.mk_eq(n, udiv), m);
-        add_unit(b_internalize(eq2));
+        add_unit(eq_internalize(n, udiv));
     }
 
     void solver::internalize_unary(app* n, std::function<void(unsigned, expr* const*, expr_ref_vector&)>& fn) {

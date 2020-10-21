@@ -33,7 +33,7 @@ void expr_safe_replace::insert(expr* src, expr* dst) {
 void expr_safe_replace::operator()(expr_ref_vector& es) {
     expr_ref val(m);
     for (unsigned i = 0; i < es.size(); ++i) {
-        (*this)(es[i].get(), val);
+        (*this)(es.get(i), val);
         es[i] = val;
     }
 }

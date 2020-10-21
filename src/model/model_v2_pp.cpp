@@ -56,10 +56,8 @@ static void display_function(std::ostream & out, model_core const & md, func_dec
 
 static void display_functions(std::ostream & out, model_core const & md, bool partial) {
     unsigned sz = md.get_num_functions();
-    for (unsigned i = 0; i < sz; i++) {
-        func_decl * f = md.get_function(i);
-        display_function(out, md, f, partial);
-    }
+    for (unsigned i = 0; i < sz; i++) 
+        display_function(out, md, md.get_function(i), partial);
 }
 
 static void display_constants(std::ostream & out, model_core const & md) {

@@ -282,8 +282,6 @@ public:
         m_num_scopes -= n;
         // ? m_internalized_converted = false;
         m_has_uninterpreted.pop(n);
-        if (get_euf())
-            get_euf()->user_pop(n);
         while (n > 0) {
             m_mcs.pop_back();
             m_fmls_head = m_fmls_head_lim.back();
@@ -605,15 +603,21 @@ public:
         params_ref simp2_p = m_params;
         simp2_p.set_bool("flat", false);
 
-        m_preprocess =
-            and_then(mk_simplify_tactic(m),
-                     mk_propagate_values_tactic(m),
-                     mk_card2bv_tactic(m, m_params),                  // updates model converter
-                     using_params(mk_simplify_tactic(m), simp1_p),
-                     mk_max_bv_sharing_tactic(m),
-                     mk_bit_blaster_tactic(m, m_bb_rewriter.get()),
-                     using_params(mk_simplify_tactic(m), simp2_p)
-                     );
+        sat_params sp(m_params);
+        if (sp.euf()) 
+            m_preprocess =
+                and_then(mk_simplify_tactic(m),
+                         mk_propagate_values_tactic(m));
+        else 
+            m_preprocess =
+                and_then(mk_simplify_tactic(m),
+                         mk_propagate_values_tactic(m),
+                         mk_card2bv_tactic(m, m_params),                  // updates model converter
+                         using_params(mk_simplify_tactic(m), simp1_p),
+                         mk_max_bv_sharing_tactic(m),
+                         mk_bit_blaster_tactic(m, m_bb_rewriter.get()),
+                         using_params(mk_simplify_tactic(m), simp2_p)
+                         );
         while (m_bb_rewriter->get_num_scopes() < m_num_scopes) {
             m_bb_rewriter->push();
         }
@@ -982,11 +986,11 @@ private:
         if (m_sat_mc) {
             (*m_sat_mc)(ll_m);
         }        
-        app_ref_vector var2expr(m);
+        expr_ref_vector var2expr(m);
         m_map.mk_var_inv(var2expr);
         
         for (unsigned v = 0; v < var2expr.size(); ++v) {
-            app * n = var2expr.get(v);
+            expr * n = var2expr.get(v);
             if (!n || !is_uninterp_const(n)) {
                 continue;
             }

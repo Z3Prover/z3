@@ -296,6 +296,7 @@ namespace euf {
         // internalize
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool learned) override;
+        sat::literal mk_literal(expr* e);
         void attach_th_var(enode* n, th_solver* th, theory_var v) { m_egraph.add_th_var(n, v, th->get_id()); }
         void attach_node(euf::enode* n);
         expr_ref mk_eq(expr* e1, expr* e2);

@@ -2338,7 +2338,6 @@ namespace sat {
 
 
     lbool solver::resolve_conflict_core() {
-        TRACE("sat", tout << "**************************\n";);
         m_conflicts_since_init++;
         m_conflicts_since_restart++;
         m_conflicts_since_gc++;

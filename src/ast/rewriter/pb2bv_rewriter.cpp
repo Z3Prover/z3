@@ -17,16 +17,19 @@ Notes:
 
 --*/
 
-#include "ast/rewriter/rewriter.h"
-#include "ast/rewriter/rewriter_def.h"
 #include "util/statistics.h"
-#include "ast/rewriter/pb2bv_rewriter.h"
-#include "util/sorting_network.h"
-#include "ast/ast_util.h"
-#include "ast/ast_pp.h"
 #include "util/lbool.h"
 #include "util/uint_set.h"
 #include "util/gparams.h"
+#include "util/debug.h"
+
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/pb2bv_rewriter.h"
+#include "ast/ast_util.h"
+#include "ast/ast_pp.h"
+#include "util/sorting_network.h"
+
 
 static const unsigned g_primes[7] = { 2, 3, 5, 7, 11, 13, 17};
 
@@ -90,7 +93,7 @@ struct pb2bv_rewriter::imp {
         void sort_args() {
             vector<ca> cas;
             for (unsigned i = 0; i < m_args.size(); ++i) {
-                cas.push_back(std::make_pair(m_coeffs[i], expr_ref(m_args[i].get(), m)));
+                cas.push_back(std::make_pair(m_coeffs[i], expr_ref(m_args.get(i), m)));
             }
             std::sort(cas.begin(), cas.end(), compare_coeffs());
             m_coeffs.reset();
@@ -101,6 +104,38 @@ struct pb2bv_rewriter::imp {
             }
         }
 
+        template <lbool is_le>
+        void gcd_reduce(vector<rational>& coeffs, rational & k) {
+            rational g(0);
+            for (rational const& c : coeffs) {
+                if (!c.is_int())
+                    return;
+                g = gcd(g, c);
+                if (g.is_one())
+                    return;
+            }
+            switch (is_le) {
+            case l_undef:
+                if (!k.is_int())
+                    return;
+                g = gcd(k, g);
+                if (g.is_one() || g.is_zero())
+                    return;
+                k /= g;
+                break;
+            case l_true:
+                k /= g;
+                k = floor(k);
+                break;
+            case l_false:
+                k /= g;
+                k = ceil(k);
+                break;
+            }      
+            for (rational& c : coeffs)
+                c /= g;
+        }
+        
         // 
         // create a circuit of size sz*log(k) 
         // by forming a binary tree adding pairs of values that are assumed <= k, 
@@ -114,8 +149,10 @@ struct pb2bv_rewriter::imp {
         // is_le = l_false -  >= 
         //
         template<lbool is_le>
-        expr_ref mk_le_ge(rational const & k) {
+        expr_ref mk_le_ge(rational const & _k) {
+            rational k(_k);
             //sort_args();
+            gcd_reduce<is_le>(m_coeffs, k);
             unsigned sz = m_args.size();
             expr * const* args = m_args.c_ptr();
             TRACE("pb", 

@@ -6,7 +6,6 @@ z3_add_component(smt
     cached_var_subst.cpp
     cost_evaluator.cpp
     dyn_ack.cpp
-    elim_term_ite.cpp
     expr_context_simplifier.cpp
     fingerprints.cpp
     mam.cpp

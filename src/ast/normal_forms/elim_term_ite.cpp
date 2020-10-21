@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include "smt/elim_term_ite.h"
+#include "ast/normal_forms/elim_term_ite.h"
 #include "ast/ast_smt2_pp.h"
 
 br_status elim_term_ite_cfg::reduce_app(func_decl* f, unsigned n, expr * const* args, expr_ref& result, proof_ref& result_pr) {

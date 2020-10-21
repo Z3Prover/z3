@@ -42,8 +42,8 @@ namespace arith {
             expr_ref to_r(a.mk_to_real(n), m);
             expr_ref lo(a.mk_le(a.mk_sub(to_r, x), a.mk_real(0)), m);
             expr_ref hi(a.mk_ge(a.mk_sub(x, to_r), a.mk_real(1)), m);
-            literal llo = b_internalize(lo);
-            literal lhi = b_internalize(hi);
+            literal llo = mk_literal(lo);
+            literal lhi = mk_literal(hi);
             add_clause(llo);
             add_clause(~lhi);
         }
@@ -160,19 +160,19 @@ namespace arith {
         add_clause(dgez, neg);
     }
 
-    void solver::mk_bound_axioms(lp_api::bound& b) {
+    void solver::mk_bound_axioms(api_bound& b) {
         theory_var v = b.get_var();
         lp_api::bound_kind kind1 = b.get_bound_kind();
         rational const& k1 = b.get_value();
         lp_bounds& bounds = m_bounds[v];
 
-        lp_api::bound* end = nullptr;
-        lp_api::bound* lo_inf = end, * lo_sup = end;
-        lp_api::bound* hi_inf = end, * hi_sup = end;
+        api_bound* end = nullptr;
+        api_bound* lo_inf = end, * lo_sup = end;
+        api_bound* hi_inf = end, * hi_sup = end;
 
-        for (lp_api::bound* other : bounds) {
+        for (api_bound* other : bounds) {
             if (other == &b) continue;
-            if (b.get_bv() == other->get_bv()) continue;
+            if (b.get_lit() == other->get_lit()) continue;
             lp_api::bound_kind kind2 = other->get_bound_kind();
             rational const& k2 = other->get_value();
             if (k1 == k2 && kind1 == kind2) {
@@ -206,9 +206,9 @@ namespace arith {
         if (hi_sup != end) mk_bound_axiom(b, *hi_sup);
     }
 
-    void solver::mk_bound_axiom(lp_api::bound& b1, lp_api::bound& b2) {
-        literal   l1(b1.get_bv(), false);
-        literal   l2(b2.get_bv(), false);
+    void solver::mk_bound_axiom(api_bound& b1, api_bound& b2) {
+        literal   l1(b1.get_lit());
+        literal   l2(b2.get_lit());
         rational const& k1 = b1.get_value();
         rational const& k2 = b2.get_value();
         lp_api::bound_kind kind1 = b1.get_bound_kind();
@@ -259,7 +259,7 @@ namespace arith {
         }
     }
 
-    lp_api::bound* solver::mk_var_bound(bool_var bv, theory_var v, lp_api::bound_kind bk, rational const& bound) {
+    api_bound* solver::mk_var_bound(sat::literal lit, theory_var v, lp_api::bound_kind bk, rational const& bound) {
         scoped_internalize_state st(*this);
         st.vars().push_back(v);
         st.coeffs().push_back(rational::one());
@@ -279,10 +279,10 @@ namespace arith {
         else {
             cF = lp().mk_var_bound(vi, kF, bound);
         }
-        add_ineq_constraint(cT, literal(bv, false));
-        add_ineq_constraint(cF, literal(bv, true));
+        add_ineq_constraint(cT, lit);
+        add_ineq_constraint(cF, ~lit);
 
-        return alloc(lp_api::bound, bv, v, vi, v_is_int, bound, bk, cT, cF);
+        return alloc(api_bound, lit, v, vi, v_is_int, bound, bk, cT, cF);
     }
 
     lp::lconstraint_kind solver::bound2constraint_kind(bool is_int, lp_api::bound_kind bk, bool is_true) {
@@ -297,11 +297,25 @@ namespace arith {
     }
 
     void solver::mk_eq_axiom(theory_var v1, theory_var v2) {
+        if (is_bool(v1))
+            return;
         expr* e1 = var2expr(v1);
         expr* e2 = var2expr(v2);
-        literal le = b_internalize(a.mk_le(e1, e2));
-        literal ge = b_internalize(a.mk_le(e2, e1));
+        literal le, ge;
         literal eq = eq_internalize(e1, e2);
+        if (a.is_numeral(e1))
+            std::swap(e1, e2);
+        if (a.is_numeral(e2)) {
+            le = mk_literal(a.mk_le(e1, e2));
+            ge = mk_literal(a.mk_ge(e1, e2));
+        }
+        else {
+            expr_ref diff(a.mk_sub(e1, e2), m);
+            expr_ref zero(a.mk_numeral(rational(0), a.is_int(e1)), m);
+            rewrite(diff);
+            le = mk_literal(a.mk_le(diff, zero));
+            ge = mk_literal(a.mk_ge(diff, zero));
+        }
         add_clause(~eq, le);
         add_clause(~eq, ge);
         add_clause(~le, ~ge, eq);

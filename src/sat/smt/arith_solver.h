@@ -36,7 +36,7 @@ namespace euf {
 
 namespace arith {
 
-    typedef ptr_vector<lp_api::bound> lp_bounds;
+    typedef ptr_vector<lp_api::bound<sat::literal>> lp_bounds;
     typedef lp::var_index lpvar;
     typedef euf::theory_var theory_var;
     typedef euf::theory_id theory_id;
@@ -45,6 +45,7 @@ namespace arith {
     typedef sat::literal literal;
     typedef sat::bool_var bool_var;
     typedef sat::literal_vector literal_vector;
+    typedef lp_api::bound<sat::literal> api_bound;
 
     class solver : public euf::th_euf_solver {
 
@@ -168,10 +169,10 @@ namespace arith {
         expr* m_not_handled{ nullptr };
         ptr_vector<app>        m_underspecified;
         ptr_vector<expr>       m_idiv_terms;
-        vector<ptr_vector<lp_api::bound> > m_use_list;        // bounds where variables are used.
+        vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
 
         // attributes for incremental version:
-        u_map<lp_api::bound*>      m_bool_var2bound;
+        u_map<api_bound*>      m_bool_var2bound;
         vector<lp_bounds>      m_bounds;
         unsigned_vector        m_unassigned_bounds;
         unsigned_vector        m_bounds_trail;
@@ -215,6 +216,8 @@ namespace arith {
         bool is_int(euf::enode* n) const { return a.is_int(n->get_expr()); }
         bool is_real(theory_var v) const { return is_real(var2enode(v)); }
         bool is_real(euf::enode* n) const { return a.is_real(n->get_expr()); }
+        bool is_bool(theory_var v) const { return is_bool(var2enode(v)); }
+        bool is_bool(euf::enode* n) const { return m.is_bool(n->get_expr()); }
         
 
         // internalize
@@ -262,13 +265,13 @@ namespace arith {
         void mk_is_int_axiom(expr* n);
         void mk_idiv_mod_axioms(expr* p, expr* q);
         void mk_rem_axiom(expr* dividend, expr* divisor);
-        void mk_bound_axioms(lp_api::bound& b);
-        void mk_bound_axiom(lp_api::bound& b1, lp_api::bound& b2);
+        void mk_bound_axioms(api_bound& b);
+        void mk_bound_axiom(api_bound& b1, api_bound& b2);
         void flush_bound_axioms();
 
         // bounds
         struct compare_bounds {
-            bool operator()(lp_api::bound* a1, lp_api::bound* a2) const { return a1->get_value() < a2->get_value(); }
+            bool operator()(api_bound* a1, api_bound* a2) const { return a1->get_value() < a2->get_value(); }
         };
 
         typedef lp_bounds::iterator iterator;
@@ -279,30 +282,30 @@ namespace arith {
             iterator end);
 
         lp_bounds::iterator next_inf(
-            lp_api::bound* a1,
+            api_bound* a1,
             lp_api::bound_kind kind,
             iterator it,
             iterator end,
             bool& found_compatible);
 
         lp_bounds::iterator next_sup(
-            lp_api::bound* a1,
+            api_bound* a1,
             lp_api::bound_kind kind,
             iterator it,
             iterator end,
             bool& found_compatible);
 
-        void propagate_eqs(lp::tv t, lp::constraint_index ci, lp::lconstraint_kind k, lp_api::bound& b, rational const& value);
+        void propagate_eqs(lp::tv t, lp::constraint_index ci, lp::lconstraint_kind k, api_bound& b, rational const& value);
         void propagate_basic_bounds(unsigned qhead);
         void propagate_bounds_with_lp_solver();
-        void propagate_bound(literal lit, lp_api::bound& b);
+        void propagate_bound(literal lit, api_bound& b);
         void propagate_lp_solver_bound(const lp::implied_bound& be);
         void refine_bound(theory_var v, const lp::implied_bound& be);
-        literal is_bound_implied(lp::lconstraint_kind k, rational const& value, lp_api::bound const& b) const;
-        void assert_bound(bool is_true, lp_api::bound& b);
+        literal is_bound_implied(lp::lconstraint_kind k, rational const& value, api_bound const& b) const;
+        void assert_bound(bool is_true, api_bound& b);
         void mk_eq_axiom(theory_var v1, theory_var v2);
         void assert_idiv_mod_axioms(theory_var u, theory_var v, theory_var w, rational const& r);
-        lp_api::bound* mk_var_bound(bool_var bv, theory_var v, lp_api::bound_kind bk, rational const& bound);
+        api_bound* mk_var_bound(sat::literal lit, theory_var v, lp_api::bound_kind bk, rational const& bound);
         lp::lconstraint_kind bound2constraint_kind(bool is_int, lp_api::bound_kind bk, bool is_true);
         void fixed_var_eh(theory_var v1, rational const& bound) {}
         bool set_upper_bound(lp::tv t, lp::constraint_index ci, rational const& v) { return set_bound(t, ci, v, false); }
@@ -423,6 +426,7 @@ namespace arith {
         void new_eq_eh(euf::th_eq const& eq) override { mk_eq_axiom(eq.v1(), eq.v2()); }
         void new_diseq_eh(euf::th_eq const& de) override { mk_eq_axiom(de.v1(), de.v2()); }
         bool unit_propagate() override;
+        void init_model() override;
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool redundant) override;

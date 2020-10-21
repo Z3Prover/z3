@@ -165,7 +165,7 @@ namespace array {
         euf::enode* s2 = e_internalize(sel2);
         if (s1->get_root() == s2->get_root())
             return false;
-        sat::literal sel_eq = b_internalize(sel_eq_e);
+        sat::literal sel_eq = mk_literal(sel_eq_e);
         if (s().value(sel_eq) == l_true)
             return false;
         
@@ -182,7 +182,7 @@ namespace array {
                 add_clause(sel_eq);
                 break;
             }
-            sat::literal idx_eq = b_internalize(m.mk_eq(idx1, idx2));
+            sat::literal idx_eq = eq_internalize(idx1, idx2);
             if (add_clause(idx_eq, sel_eq))
                 new_prop = true;
         }
@@ -225,10 +225,8 @@ namespace array {
         }
         expr_ref sel1(a.mk_select(args1), m);
         expr_ref sel2(a.mk_select(args2), m);
-        expr_ref n1_eq_n2(m.mk_eq(e1, e2), m);
-        expr_ref sel1_eq_sel2(m.mk_eq(sel1, sel2), m);
-        literal lit1 = b_internalize(n1_eq_n2);
-        literal lit2 = b_internalize(sel1_eq_sel2);
+        literal lit1 = eq_internalize(e1, e2);
+        literal lit2 = eq_internalize(sel1, sel2);
         return add_clause(lit1, ~lit2);
     }
 
@@ -401,7 +399,6 @@ namespace array {
         ++m_stats.m_num_congruence_axiom;
         sort* srt         = m.get_sort(e1);
         unsigned dimension = get_array_arity(srt);
-        expr_ref n1_eq_n2(m.mk_eq(e1, e2), m);
         expr_ref_vector args1(m), args2(m);
         args1.push_back(e1);
         args2.push_back(e2);
@@ -420,9 +417,7 @@ namespace array {
         expr * eq = m.mk_eq(sel1, sel2);
         expr_ref q(m.mk_forall(dimension, sorts.c_ptr(), names.c_ptr(), eq), m);
         rewrite(q);
-        sat::literal fa_eq = b_internalize(q);
-        sat::literal neq = b_internalize(n1_eq_n2);        
-        return add_clause(~neq, fa_eq);
+        return add_clause(~eq_internalize(e1, e2), mk_literal(q));
     }
 
     bool solver::has_unitary_domain(app* array_term) {
@@ -511,9 +506,8 @@ namespace array {
                 if (have_different_model_values(v1, v2))
                     continue;
                 if (ctx.get_egraph().are_diseq(var2enode(v1), var2enode(v2)))
-                    continue;
-                expr_ref eq(m.mk_eq(e1, e2), m);                
-                sat::literal lit = b_internalize(eq);
+                    continue;              
+                sat::literal lit = eq_internalize(e1, e2);
                 if (s().value(lit) == l_undef) 
                     prop = true;
             }

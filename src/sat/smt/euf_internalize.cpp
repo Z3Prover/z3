@@ -33,6 +33,11 @@ namespace euf {
         SASSERT(m_egraph.find(e));
     }
 
+    sat::literal solver::mk_literal(expr* e) {
+        expr_ref _e(e, m);
+        return internalize(e, false, false, m_is_redundant);
+    }
+
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
         euf::enode* n = get_enode(e);
         if (n) {

@@ -45,9 +45,6 @@ namespace euf {
 
         virtual void internalize(expr* e, bool redundant) = 0;
 
-        sat::literal b_internalize(expr* e) { return internalize(e, false, false, m_is_redundant); }
-
-        sat::literal mk_literal(expr* e) { return b_internalize(e); }
 
         /**
            \brief Apply (interpreted) sort constraints on the given enode.
@@ -88,6 +85,11 @@ namespace euf {
            \brief should function be included in model.
         */
         virtual bool include_func_interp(func_decl* f) const { return false; }
+
+        /**
+          \brief initialize model building
+        */
+        virtual void init_model() {}
 
         /**
           \brief conclude model building
@@ -149,7 +151,7 @@ namespace euf {
 
         sat::literal eq_internalize(expr* a, expr* b);
 
-        euf::enode* e_internalize(expr* e) { internalize(e, m_is_redundant); return expr2enode(e); }
+        euf::enode* e_internalize(expr* e); 
         euf::enode* mk_enode(expr* e, bool suppress_args = false);
         expr_ref mk_eq(expr* e1, expr* e2);
         expr_ref mk_var_eq(theory_var v1, theory_var v2) { return mk_eq(var2expr(v1), var2expr(v2)); }
@@ -176,6 +178,7 @@ namespace euf {
         expr* bool_var2expr(sat::bool_var v) const;
         enode* bool_var2enode(sat::bool_var v) const { expr* e = bool_var2expr(v); return e ? expr2enode(e) : nullptr; }
         expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return lit.sign() ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }
+        sat::literal mk_literal(expr* e) const;
         theory_var get_th_var(enode* n) const { return n->get_th_var(get_id()); }
         theory_var get_th_var(expr* e) const;
         trail_stack<euf::solver>& get_trail_stack();

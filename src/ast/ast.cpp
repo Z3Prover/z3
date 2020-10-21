@@ -1794,6 +1794,7 @@ static void track_id(ast_manager& m, ast* n, unsigned id) {
     if (n->get_id() != id) return;
     ++s_count;
     TRACE("ast", tout << s_count << "\n";);
+//    SASSERT(s_count != 5);
 }
 #endif
 
@@ -1827,7 +1828,7 @@ ast * ast_manager::register_node_core(ast * n) {
 
     n->m_id = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();
 
-//  track_id(*this, n, 3);
+//    track_id(*this, n, 77);
     
 //    TRACE("ast", tout << (s_count++) << " Object " << n->m_id << " was created.\n";);
     TRACE("mk_var_bug", tout << "mk_ast: " << n->m_id << "\n";);
@@ -1912,9 +1913,9 @@ ast * ast_manager::register_node_core(ast * n) {
     default:
         break;
     }
-
     return n;
 }
+
 
 void ast_manager::delete_node(ast * n) {
     TRACE("delete_node_bug", tout << mk_ll_pp(n, *this) << "\n";);
