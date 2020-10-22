@@ -35,7 +35,6 @@ struct state {
     event_handler * eh;
     int work = 0;
     std::condition_variable_any cv;
-    std::mutex cv_lock;
 };
 
 /*
@@ -48,10 +47,10 @@ static std::vector<state *> available_workers;
 static std::mutex workers;
 
 static void thread_func(state *s) {
+    workers.lock();
     while (true) {
-        s->cv_lock.lock();
-        s->cv.wait(s->cv_lock, [=]{ return s->work > 0; });
-        s->cv_lock.unlock();
+        s->cv.wait(workers, [=]{ return s->work > 0; });
+        workers.unlock();
 
         auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(s->ms);
 
@@ -66,10 +65,8 @@ static void thread_func(state *s) {
 
     next:
         s->work = 0;
-        {
-            std::lock_guard<std::mutex> lock(workers);
-            available_workers.push_back(s);
-        }
+        workers.lock();
+        available_workers.push_back(s);
     }
 }
 
@@ -86,19 +83,17 @@ public:
         } else {
             s = available_workers.back();
             available_workers.pop_back();
-            workers.unlock();
         }
         s->ms = ms;
         s->eh = eh;
         s->m_mutex.lock();
-        s->cv_lock.lock();
         s->work = 1;
-        s->cv_lock.unlock();
         if (!s->m_thread) {
             s->m_thread = new std::thread(thread_func, s);
             s->m_thread->detach();
         } else {
             s->cv.notify_one();
+            workers.unlock();
         }
     }
 
