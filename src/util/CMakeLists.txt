@@ -65,6 +65,7 @@ z3_add_component(util
   MEMORY_INIT_FINALIZER_HEADERS
     debug.h
     gparams.h
+    scoped_timer.h
     prime_generator.h
     rational.h
     rlimit.h

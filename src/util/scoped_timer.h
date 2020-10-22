@@ -28,3 +28,8 @@ public:
     ~scoped_timer();
 };
 
+/*
+  ADD_FINALIZER('finalize_scoped_timer();')
+*/
+
+void finalize_scoped_timer();

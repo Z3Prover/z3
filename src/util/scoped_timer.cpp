@@ -21,19 +21,19 @@ Revision History:
 
 #include "util/scoped_timer.h"
 #include "util/util.h"
+#include "util/vector.h"
 #include <chrono>
 #include <climits>
 #include <condition_variable>
 #include <mutex>
 #include <thread>
-#include <vector>
 
 struct state {
-    std::thread * m_thread = nullptr;
+    std::thread * m_thread { nullptr };
     std::timed_mutex m_mutex;
-    unsigned ms;
-    event_handler * eh;
-    int work = 0;
+    unsigned ms { 0 };
+    event_handler * eh { nullptr };
+    int work { 0 };
     std::condition_variable_any cv;
 };
 
@@ -43,7 +43,7 @@ struct state {
  * destructing threads blocked on condition variables leads to
  * deadlock.
  */
-static std::vector<state *> available_workers;
+static ptr_vector<state> available_workers;
 static std::mutex workers;
 
 static void thread_func(state *s) {
@@ -80,7 +80,8 @@ public:
         if (available_workers.empty()) {
             workers.unlock();
             s = new state;
-        } else {
+        } 
+        else {
             s = available_workers.back();
             available_workers.pop_back();
             workers.unlock();
@@ -92,7 +93,8 @@ public:
         if (!s->m_thread) {
             s->m_thread = new std::thread(thread_func, s);
             s->m_thread->detach();
-        } else {
+        } 
+        else {
             s->cv.notify_one();
         }
     }
@@ -111,4 +113,10 @@ scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
     
 scoped_timer::~scoped_timer() {
     dealloc(m_imp);
+}
+
+void finalize_scoped_timer() {
+    // TODO: stub to collect idle allocated timers.
+    // if a timer is not idle, we treat this as abnormal
+    // termination and don't commit to collecting the state.
 }

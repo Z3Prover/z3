@@ -16,9 +16,6 @@ Author:
 Revision History:
 
 --*/
-#if 0
-  // include "util/new_symbol.h"
-#else
 #pragma once
 #include <climits>
 #include <string>
@@ -156,5 +153,4 @@ void finalize_symbols();
 // two non-numerical symbols are compared using string comparison.
 bool lt(symbol const & s1, symbol const & s2);
 
-#endif /* SYMBOL_H_ */
 
