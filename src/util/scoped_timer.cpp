@@ -20,6 +20,7 @@ Revision History:
 --*/
 
 #include "util/scoped_timer.h"
+#include "util/mutex.h"
 #include "util/util.h"
 #include <chrono>
 #include <climits>
@@ -38,6 +39,30 @@ struct state {
     std::mutex cv_lock;
 };
 
+static void thread_func(state *s) {
+    while (true) {
+        s->cv_lock.lock();
+        s->cv.wait(s->cv_lock, [=]{return s->work > 0;});
+        s->cv_lock.unlock();
+
+        auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(s->ms);
+
+        while (!s->m_mutex.try_lock_until(end)) {
+            if (std::chrono::steady_clock::now() >= end) {
+                s->eh->operator()(TIMEOUT_EH_CALLER);
+                goto next;
+            }
+        }
+
+        s->m_mutex.unlock();
+
+    next:
+        s->cv_lock.lock();
+        s->work--;
+        s->cv_lock.unlock();
+    }
+}
+
 /*
  * NOTE: this implementation deliberately leaks threads when Z3
  * exits. this is preferable to deallocating on exit, because
@@ -45,36 +70,10 @@ struct state {
  * deadlock.
  */
 static std::vector<state *> available_workers;
-static std::mutex workers;
+static mutex workers;
 
 struct scoped_timer::imp {
 private:
-
-    static void thread_func(state *s) {
-        while (true) {
-
-            s->cv_lock.lock();
-            s->cv.wait(s->cv_lock, [=]{return s->work > 0;});
-            s->cv_lock.unlock();
-
-            auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(s->ms);
-
-            while (!s->m_mutex.try_lock_until(end)) {
-                if (std::chrono::steady_clock::now() >= end) {
-                    s->eh->operator()(TIMEOUT_EH_CALLER);
-                    goto next;
-                }
-            }
-
-            s->m_mutex.unlock();
-
-        next:
-            s->cv_lock.lock();
-            s->work--;
-            s->cv_lock.unlock();
-        }
-    }
-
     state *s;
 
 public:
