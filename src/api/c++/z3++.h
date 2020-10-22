@@ -607,7 +607,7 @@ namespace z3 {
         unsigned id() const { unsigned r = Z3_get_sort_id(ctx(), *this); check_error(); return r; }
 
         /**
-           \brief Return true if this sort and \c s are equal.
+           \brief Assign sort s to this
         */
         sort & operator=(sort const & s) { return static_cast<sort&>(ast::operator=(s)); }
         /**
