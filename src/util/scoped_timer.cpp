@@ -22,6 +22,7 @@ Revision History:
 #include "util/scoped_timer.h"
 #include "util/util.h"
 #include "util/vector.h"
+#include <atomic>
 #include <chrono>
 #include <climits>
 #include <condition_variable>
@@ -34,24 +35,26 @@ struct state {
     std::timed_mutex m_mutex;
     unsigned ms { 0 };
     event_handler * eh { nullptr };
-    int work { 0 };
+    bool working { false };
     std::condition_variable_any cv;
 };
 
-/*
- * NOTE: this implementation deliberately leaks threads when Z3
- * exits. this is preferable to deallocating on exit, because
- * destructing threads blocked on condition variables leads to
- * deadlock.
- */
-static std::vector<state*> available_workers;
+static ptr_vector<state> available_workers;
+static ptr_vector<state> all_workers;
 static std::mutex workers;
+static std::atomic<int> thread_count;
+static std::atomic<bool> terminating;
 
 static void thread_func(state *s) {
     workers.lock();
     while (true) {
-        s->cv.wait(workers, [=]{ return s->work > 0; });
+        s->cv.wait(workers, [=]{ return terminating || s->working; });
         workers.unlock();
+
+        if (terminating) {
+            thread_count--;
+            return;
+        }
 
         auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(s->ms);
 
@@ -65,7 +68,7 @@ static void thread_func(state *s) {
         s->m_mutex.unlock();
 
     next:
-        s->work = 0;
+        s->working = false;
         workers.lock();
         available_workers.push_back(s);
     }
@@ -90,10 +93,14 @@ public:
         s->ms = ms;
         s->eh = eh;
         s->m_mutex.lock();
-        s->work = 1;
+        s->working = true;
         if (!s->m_thread) {
             s->m_thread = new std::thread(thread_func, s);
             s->m_thread->detach();
+            workers.lock();
+            all_workers.push_back(s);
+            workers.unlock();
+            thread_count++;
         } 
         else {
             s->cv.notify_one();
@@ -117,7 +124,17 @@ scoped_timer::~scoped_timer() {
 }
 
 void finalize_scoped_timer() {
-    // TODO: stub to collect idle allocated timers.
-    // if a timer is not idle, we treat this as abnormal
-    // termination and don't commit to collecting the state.
+    terminating = true;
+    // the outer loop is because a thread that is not blocked on its
+    // condition variable will miss our notification. we do not have
+    // the option of leaking these threads since they will end up
+    // deadlocking finalization.
+    while (thread_count > 0) {
+        for (auto t : all_workers)
+            t->cv.notify_one();
+        std::this_thread::yield();
+    }
+    available_workers.clear();
+    all_workers.clear();
+    terminating = false;
 }
