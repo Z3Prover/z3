@@ -27,6 +27,7 @@ Revision History:
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 struct state {
     std::thread * m_thread { nullptr };
@@ -43,7 +44,7 @@ struct state {
  * destructing threads blocked on condition variables leads to
  * deadlock.
  */
-static ptr_vector<state> available_workers;
+static std::vector<state*> available_workers;
 static std::mutex workers;
 
 static void thread_func(state *s) {
