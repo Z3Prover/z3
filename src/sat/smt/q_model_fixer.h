@@ -108,7 +108,7 @@ namespace q {
         quantifier_macro_info* operator()(quantifier* q) override;
 
         expr* invert_app(app* t, expr* value) override;
-        expr* invert_arg(app* t, unsigned i, expr* value) override;
+        void invert_arg(app* t, unsigned i, expr* value, expr_ref_vector& lits) override;
     };
 
 }

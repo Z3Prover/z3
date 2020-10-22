@@ -221,18 +221,18 @@ namespace q {
         return value; 
     }
 
-    expr* model_fixer::invert_arg(app* t, unsigned i, expr* value)  { 
+    void model_fixer::invert_arg(app* t, unsigned i, expr* value, expr_ref_vector& lits)  { 
         TRACE("q", tout << "invert-arg " << mk_pp(t, m) << " " << i << " " << mk_pp(value, m) << "\n";);
         auto const* md = get_projection_data(t->get_decl(), i);
         if (!md)
-            return m.mk_true();
+            return;
         auto* proj = get_projection(t->get_decl()->get_domain(i));
         if (!proj)
-            return m.mk_true();
+            return;
 
         unsigned sz = md->values.size();
         if (sz <= 1) 
-            return m.mk_true();
+            return;
         
         //
         // md->values are sorted
@@ -251,13 +251,18 @@ namespace q {
 
         expr* arg = t->get_arg(i);
 
-        if (is_lt(md->values[1]))
-            return proj->mk_lt(arg, term(1));
+        if (is_lt(md->values[1])) {
+            lits.push_back(proj->mk_lt(arg, term(1)));
+            return;
+        }
 
         for (unsigned j = 2; j < sz; ++j) 
-            if (is_lt(md->values[j]))
-                return m.mk_and(proj->mk_le(term(j-1), arg), proj->mk_lt(arg, term(j)));
-        
-        return proj->mk_le(term(sz-1), arg);
+            if (is_lt(md->values[j])) {
+                lits.push_back(proj->mk_le(term(j - 1), arg));
+                lits.push_back(proj->mk_lt(arg, term(j)));
+                return;
+            }
+
+        lits.push_back(proj->mk_le(term(sz-1), arg));
     }
 }

@@ -341,6 +341,7 @@ namespace mbp {
             m_non_ground.mark(v);
         for (unsigned i = 0; m.inc() && i < lits.size(); ++i) 
             lits[i] = purify(inv, eval, lits.get(i), lits); 
+        std::cout << m_pure_eqs << "\n";
         lits.append(m_pure_eqs);
         TRACE("mbp", tout << lits << "\n";);
     }
@@ -371,7 +372,7 @@ namespace mbp {
                 m_pure_eqs.push_back(m.mk_eq(t, s));
             unsigned i = 0;
             for (expr* arg : *t) 
-                push_back(lits, inv.invert_arg(t, i++, eval(arg)));            
+                inv.invert_arg(t, i++, eval(arg), lits);    
             m_to_visit.pop_back();
         }
         else 

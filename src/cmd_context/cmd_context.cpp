@@ -1674,7 +1674,7 @@ void cmd_context::add_declared_functions(model& mdl) {
             expr* val = mdl.get_some_value(f->get_range());
             if (f->get_arity() == 0) {
                 mdl.register_decl(f, val);
-                }
+            }
             else {
                 func_interp* fi = alloc(func_interp, m(), f->get_arity());
                 fi->set_else(val);

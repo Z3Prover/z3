@@ -43,7 +43,7 @@ namespace mbp {
     class euf_inverter {
     public:
         virtual expr* invert_app(app* t, expr* value) = 0;
-        virtual expr* invert_arg(app* t, unsigned i, expr* value) = 0;
+        virtual void invert_arg(app* t, unsigned i, expr* value, expr_ref_vector& lits) = 0;
     };
 
     class project_plugin {

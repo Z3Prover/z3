@@ -190,6 +190,7 @@ namespace q {
         app_ref_vector vars(qb.vars);
         mbp::project_plugin proj(m);
         proj.purify(m_model_fixer, *m_model, vars, fmls);
+        std::cout << "fmls\n" << fmls << "\n";
         for (unsigned i = 0; i < vars.size(); ++i) {
             app* v = vars.get(i);
             auto* p = get_plugin(v);

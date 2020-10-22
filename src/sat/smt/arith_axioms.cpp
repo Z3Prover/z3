@@ -301,10 +301,17 @@ namespace arith {
             return;
         expr* e1 = var2expr(v1);
         expr* e2 = var2expr(v2);
+        if (e1 == e2)
+            return;
         literal le, ge;
-        literal eq = eq_internalize(e1, e2);
         if (a.is_numeral(e1))
             std::swap(e1, e2);
+        if (a.is_numeral(e1)) {
+            add_unit(~mk_literal(m.mk_eq(e1, e2)));
+            std::cout << "two numerals\n";
+            return;
+        }
+        literal eq = eq_internalize(e1, e2);
         if (a.is_numeral(e2)) {
             le = mk_literal(a.mk_le(e1, e2));
             ge = mk_literal(a.mk_ge(e1, e2));
@@ -313,9 +320,19 @@ namespace arith {
             expr_ref diff(a.mk_sub(e1, e2), m);
             expr_ref zero(a.mk_numeral(rational(0), a.is_int(e1)), m);
             rewrite(diff);
+            if (a.is_numeral(diff)) {
+                std::cout << "diff " << diff << " " << mk_pp(e1, m) << " " << mk_pp(e2, m) << "\n";
+                if (zero == diff)
+                    add_unit(eq);
+                else 
+                    add_unit(~eq);
+                return;
+            }
             le = mk_literal(a.mk_le(diff, zero));
             ge = mk_literal(a.mk_ge(diff, zero));
         }
+        std::cout << mk_pp(e1, m) << " " << mk_pp(e2, m) << " ";
+        std::cout << le << " " << ge << "\n";
         add_clause(~eq, le);
         add_clause(~eq, ge);
         add_clause(~le, ~ge, eq);
