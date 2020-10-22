@@ -83,6 +83,7 @@ public:
         } else {
             s = available_workers.back();
             available_workers.pop_back();
+            workers.unlock();
         }
         s->ms = ms;
         s->eh = eh;
@@ -93,7 +94,6 @@ public:
             s->m_thread->detach();
         } else {
             s->cv.notify_one();
-            workers.unlock();
         }
     }
 
