@@ -41,9 +41,9 @@ void ast_pp_util::display_decls(std::ostream& out) {
     bool first = m_num_decls == 0;
     coll.order_deps(m_num_sorts);
     unsigned n = coll.get_num_sorts();
-    for (unsigned i = m_num_sorts; i < n; ++i) {
-        pp.display_ast_smt2(out, coll.get_sorts()[i], 0, 0, nullptr);
-    }
+    ast_mark seen;
+    for (unsigned i = m_num_sorts; i < n; ++i) 
+        pp.display_sort_decl(out, coll.get_sorts()[i], seen);
     m_num_sorts = n;
     n = coll.get_num_decls();
     for (unsigned i = m_num_decls; i < n; ++i) {

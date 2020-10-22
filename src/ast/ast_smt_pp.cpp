@@ -791,12 +791,18 @@ public:
         ptr_vector<datatype::def> defs;
         util.get_defs(s, defs);
 
+        unsigned j = 0;
         for (datatype::def* d : defs) {
             sort_ref sr = d->instantiate(ps);
-            if (mark.is_marked(sr)) return; // already processed
+            if (mark.is_marked(sr)) 
+                continue;
             mark.mark(sr, true);
+            defs[j++] = d;
         }
-
+        defs.shrink(j);
+        if (defs.empty())
+            return;
+        
         m_out << "(declare-datatypes (";
         bool first_def = true;
         for (datatype::def* d : defs) {
@@ -924,6 +930,14 @@ void ast_smt_pp::display_ast_smt2(std::ostream& strm, ast* a, unsigned indent, u
         p(to_sort(a));
     }
 }
+
+void ast_smt_pp::display_sort_decl(std::ostream& out, sort* s, ast_mark& seen) {
+    ptr_vector<quantifier> ql;
+    smt_renaming rn;
+    smt_printer p(out, m_manager, ql, rn, m_logic, false, m_simplify_implies, 0, 0, nullptr);
+    p.pp_sort_decl(seen, s);
+}
+
 
 
 void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
