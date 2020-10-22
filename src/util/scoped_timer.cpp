@@ -20,7 +20,6 @@ Revision History:
 --*/
 
 #include "util/scoped_timer.h"
-#include "util/mutex.h"
 #include "util/util.h"
 #include <chrono>
 #include <climits>
@@ -46,7 +45,7 @@ struct state {
  * deadlock.
  */
 static std::vector<state *> available_workers;
-static mutex workers;
+static std::mutex workers;
 
 static void thread_func(state *s) {
     while (true) {
@@ -68,7 +67,7 @@ static void thread_func(state *s) {
     next:
         s->work = 0;
         {
-            lock_guard lock(workers);
+            std::lock_guard<std::mutex> lock(workers);
             available_workers.push_back(s);
         }
     }
