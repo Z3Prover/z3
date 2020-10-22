@@ -68,7 +68,7 @@ static void thread_func(state *s) {
     next:
         s->work = 0;
         {
-            lock_guard(workers);
+            lock_guard lock(workers);
             available_workers.push_back(s);
         }
     }
