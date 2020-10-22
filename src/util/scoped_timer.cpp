@@ -39,10 +39,19 @@ struct state {
     std::mutex cv_lock;
 };
 
+/*
+ * NOTE: this implementation deliberately leaks threads when Z3
+ * exits. this is preferable to deallocating on exit, because
+ * destructing threads blocked on condition variables leads to
+ * deadlock.
+ */
+static std::vector<state *> available_workers;
+static mutex workers;
+
 static void thread_func(state *s) {
     while (true) {
         s->cv_lock.lock();
-        s->cv.wait(s->cv_lock, [=]{return s->work > 0;});
+        s->cv.wait(s->cv_lock, [=]{ return s->work > 0; });
         s->cv_lock.unlock();
 
         auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(s->ms);
@@ -57,27 +66,20 @@ static void thread_func(state *s) {
         s->m_mutex.unlock();
 
     next:
-        s->cv_lock.lock();
-        s->work--;
-        s->cv_lock.unlock();
+        s->work = 0;
+        {
+            lock_guard(workers);
+            available_workers.push_back(s);
+        }
     }
 }
-
-/*
- * NOTE: this implementation deliberately leaks threads when Z3
- * exits. this is preferable to deallocating on exit, because
- * destructing threads blocked on condition variables leads to
- * deadlock.
- */
-static std::vector<state *> available_workers;
-static mutex workers;
 
 struct scoped_timer::imp {
 private:
     state *s;
 
 public:
-    imp(unsigned _ms, event_handler * _eh) {
+    imp(unsigned ms, event_handler * eh) {
         workers.lock();
         if (available_workers.empty()) {
             workers.unlock();
@@ -87,25 +89,22 @@ public:
             available_workers.pop_back();
             workers.unlock();
         }
-        s->ms = _ms;
-        s->eh = _eh;
+        s->ms = ms;
+        s->eh = eh;
         s->m_mutex.lock();
         s->cv_lock.lock();
-        s->work++;
+        s->work = 1;
+        s->cv_lock.unlock();
         if (!s->m_thread) {
             s->m_thread = new std::thread(thread_func, s);
             s->m_thread->detach();
         } else {
             s->cv.notify_one();
         }
-        s->cv_lock.unlock();
     }
 
     ~imp() {
         s->m_mutex.unlock();
-        workers.lock();
-        available_workers.push_back(s);
-        workers.unlock();
     }
 };
 
