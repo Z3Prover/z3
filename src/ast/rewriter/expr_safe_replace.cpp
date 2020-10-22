@@ -73,7 +73,7 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
             }
             if (m_args.size() == n) {
                 if (arg_differs) {
-                    b = m.mk_app(c->get_decl(), m_args.size(), m_args.c_ptr());
+                    b = m.mk_app(c->get_decl(), m_args);
                     m_refs.push_back(b);
                     SASSERT(m.get_sort(a) == m.get_sort(b));
                 } else {
