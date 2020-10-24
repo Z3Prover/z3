@@ -1342,5 +1342,6 @@ int main() {
     catch (exception & ex) {
         std::cout << "unexpected error: " << ex << "\n";
     }
+    Z3_finalize_memory();
     return 0;
 }
