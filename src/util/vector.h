@@ -138,7 +138,7 @@ public:
     }
 
     void init(SZ s) {
-        SASSERT(m_data == nullptr;);
+        SASSERT(m_data == nullptr);
         if (s == 0) {
             return;
         }
