@@ -27,9 +27,3 @@ public:
     scoped_timer(unsigned ms, event_handler * eh);
     ~scoped_timer();
 };
-
-/*
-  ADD_FINALIZER('finalize_scoped_timer();')
-*/
-
-void finalize_scoped_timer();

@@ -55,7 +55,7 @@ public:
     static bool above_high_watermark();
     static void set_max_size(size_t max_size);
     static void set_max_alloc_count(size_t max_count);
-    static void finalize();
+    static void finalize(bool shutdown = true);
     static void display_max_usage(std::ostream& os);
     static void display_i_max_usage(std::ostream& os);
     static void deallocate(void* p);

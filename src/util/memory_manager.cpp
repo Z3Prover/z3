@@ -27,6 +27,7 @@ Copyright (c) 2015 Microsoft Corporation
 //    rational::finalize();
 void mem_initialize();
 void mem_finalize();
+void finalize_scoped_timer();
 
 // If PROFILE_MEMORY is defined, Z3 will display the amount of memory used, and the number of synchronization steps during finalization
 // #define PROFILE_MEMORY
@@ -130,7 +131,7 @@ void memory::set_max_alloc_count(size_t max_count) {
 
 static bool g_finalizing = false;
 
-void memory::finalize() {
+void memory::finalize(bool shutdown) {
     if (g_memory_initialized) {
         g_finalizing = true;
         mem_finalize();
@@ -139,6 +140,10 @@ void memory::finalize() {
         //delete g_memory_mux;
         g_memory_initialized = false;
         g_finalizing = false;
+
+        if (shutdown) {
+            finalize_scoped_timer();
+        }
     }
 }
 

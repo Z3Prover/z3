@@ -426,7 +426,7 @@ extern "C" {
 
     void Z3_API Z3_reset_memory(void) {
         LOG_Z3_reset_memory();
-        memory::finalize();
+        memory::finalize(false);
         memory::initialize(0);
     }
 
