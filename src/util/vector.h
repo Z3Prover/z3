@@ -133,8 +133,13 @@ public:
     }
 
     vector(SZ s) {
+        m_data = nullptr;
+        init(s);
+    }
+
+    void init(SZ s) {
+        SASSERT(m_data == nullptr;);
         if (s == 0) {
-            m_data = nullptr;
             return;
         }
         SZ * mem = reinterpret_cast<SZ*>(memory::allocate(sizeof(T) * s + sizeof(SZ) * 2));

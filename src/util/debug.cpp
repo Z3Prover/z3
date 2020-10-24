@@ -21,11 +21,12 @@ Revision History:
 #include<unistd.h>
 #endif
 #include<iostream>
+#include "util/mutex.h"
 #include "util/str_hashtable.h"
 #include "util/z3_exception.h"
 #include "util/z3_version.h"
 
-static volatile bool g_enable_assertions = true;
+static atomic<bool> g_enable_assertions(true);
 
 void enable_assertions(bool f) {
     g_enable_assertions = f;

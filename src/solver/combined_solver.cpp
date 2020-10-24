@@ -23,6 +23,7 @@ Notes:
 #include "ast/ast_pp.h"
 #include "solver/solver.h"
 #include "solver/combined_solver_params.hpp"
+#include <atomic>
 #define PS_VB_LVL 15
 
 /**
@@ -71,7 +72,7 @@ private:
 
     struct aux_timeout_eh : public event_handler {
         solver *        m_solver;
-        volatile bool   m_canceled;
+        std::atomic<bool> m_canceled;
         aux_timeout_eh(solver * s):m_solver(s), m_canceled(false) {}
         ~aux_timeout_eh() override {
             if (m_canceled) {                
