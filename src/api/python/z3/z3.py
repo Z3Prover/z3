@@ -6266,7 +6266,7 @@ class ModelRef(Z3PPObject):
         if z3_debug():
             _z3_assert(isinstance(target, Context), "argument must be a Z3 context")
         model = Z3_model_translate(self.ctx.ref(), self.model, target.ref())
-        return Model(model, target)
+        return ModelRef(model, target)
 
     def __copy__(self):
         return self.translate(self.ctx)
