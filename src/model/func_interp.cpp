@@ -215,6 +215,13 @@ void func_interp::insert_new_entry(expr * const * args, expr * r) {
     m_entries.push_back(new_entry);
 }
 
+void func_interp::del_entry(unsigned idx) {
+    auto* e = m_entries[idx];
+    m_entries[idx] = m_entries.back();
+    m_entries.pop_back();
+    e->deallocate(m(), m_arity);
+}
+
 bool func_interp::eval_else(expr * const * args, expr_ref & result) const {
     if (m_else == nullptr)
         return false;

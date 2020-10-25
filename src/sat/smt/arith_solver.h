@@ -303,7 +303,7 @@ namespace arith {
         void refine_bound(theory_var v, const lp::implied_bound& be);
         literal is_bound_implied(lp::lconstraint_kind k, rational const& value, api_bound const& b) const;
         void assert_bound(bool is_true, api_bound& b);
-        void mk_eq_axiom(theory_var v1, theory_var v2);
+        void mk_eq_axiom(bool is_eq, theory_var v1, theory_var v2);
         void assert_idiv_mod_axioms(theory_var u, theory_var v, theory_var w, rational const& r);
         api_bound* mk_var_bound(sat::literal lit, theory_var v, lp_api::bound_kind bk, rational const& bound);
         lp::lconstraint_kind bound2constraint_kind(bool is_int, lp_api::bound_kind bk, bool is_true);
@@ -423,8 +423,8 @@ namespace arith {
         void collect_statistics(statistics& st) const override;
         euf::th_solver* clone(euf::solver& ctx) override;
         bool use_diseqs() const override { return true; }
-        void new_eq_eh(euf::th_eq const& eq) override { mk_eq_axiom(eq.v1(), eq.v2()); }
-        void new_diseq_eh(euf::th_eq const& de) override { mk_eq_axiom(de.v1(), de.v2()); }
+        void new_eq_eh(euf::th_eq const& eq) override { mk_eq_axiom(true, eq.v1(), eq.v2()); }
+        void new_diseq_eh(euf::th_eq const& de) override { mk_eq_axiom(false, de.v1(), de.v2()); }
         bool unit_propagate() override;
         void init_model() override;
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;

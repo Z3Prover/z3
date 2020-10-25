@@ -327,10 +327,10 @@ namespace mbp {
 
     void project_plugin::purify(euf_inverter& inv, model& mdl, app_ref_vector const& vars, expr_ref_vector& lits) {
         TRACE("mbp", tout << lits << "\n" << mdl << "\n";);
+        model_evaluator eval(mdl);
         extract_literals(mdl, vars, lits);
         if (!m.inc())
             return;
-        model_evaluator eval(mdl);
         eval.set_expand_array_equalities(true);
         m_non_ground.reset();
         m_to_visit.reset();
@@ -341,7 +341,6 @@ namespace mbp {
             m_non_ground.mark(v);
         for (unsigned i = 0; m.inc() && i < lits.size(); ++i) 
             lits[i] = purify(inv, eval, lits.get(i), lits); 
-        std::cout << m_pure_eqs << "\n";
         lits.append(m_pure_eqs);
         TRACE("mbp", tout << lits << "\n";);
     }

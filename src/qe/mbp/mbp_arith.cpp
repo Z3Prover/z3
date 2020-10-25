@@ -37,7 +37,14 @@ namespace mbp {
 
         ast_manager&      m;
         arith_util        a;
-        bool              m_check_purified;  // check that variables are properly pure 
+        bool              m_check_purified { true };  // check that variables are properly pure 
+        bool              m_apply_projection { false };
+
+
+        imp(ast_manager& m) :
+            m(m), a(m) {}
+
+        ~imp() {}
 
         void insert_mul(expr* x, rational const& v, obj_map<expr, rational>& ts) {
             // TRACE("qe", tout << "Adding variable " << mk_pp(x, m) << " " << v << "\n";);
@@ -238,11 +245,6 @@ namespace mbp {
             return rational(b.is_pos()?-1:1);
         }
 
-        imp(ast_manager& m): 
-            m(m), a(m), m_check_purified(true) {}
-
-        ~imp() {}
-
         bool operator()(model& model, app* v, app_ref_vector& vars, expr_ref_vector& lits) {
             app_ref_vector vs(m);
             vs.push_back(v);
@@ -271,6 +273,7 @@ namespace mbp {
             model_evaluator eval(model);
             TRACE("qe", tout << model;);
             eval.set_model_completion(true);
+            compute_def |= m_apply_projection;
 
             opt::model_based_opt mbo;
             obj_map<expr, unsigned> tids;
@@ -341,15 +344,19 @@ namespace mbp {
                   for (unsigned v : real_vars) tout << "v" << v << " " << mk_pp(index2expr[v], m) << "\n";
                   mbo.display(tout););
             vector<opt::model_based_opt::def> defs = mbo.project(real_vars.size(), real_vars.c_ptr(), compute_def);
-            TRACE("qe", mbo.display(tout << "mbo result\n");
-                  for (auto const& d : defs) tout << "def: " << d << "\n";);
+
             vector<row> rows;
             mbo.get_live_rows(rows);
             rows2fmls(rows, index2expr, fmls);
+            TRACE("qe", mbo.display(tout << "mbo result\n");
+                  for (auto const& d : defs) tout << "def: " << d << "\n";
+                  tout << fmls << "\n";);
             
             vector<def> result;
             if (compute_def) 
-                optdefs2mbpdef(defs, index2expr, real_vars, result);            
+                optdefs2mbpdef(defs, index2expr, real_vars, result);     
+            if (m_apply_projection)
+                apply_projection(result, fmls);
             return result;
         }        
 
@@ -523,6 +530,20 @@ namespace mbp {
             }
         }
 
+        void apply_projection(vector<def>& defs, expr_ref_vector& fmls) {
+            if (fmls.empty() || defs.empty())
+                return;
+            expr_safe_replace subst(m);
+            for (auto const& d : defs) 
+                subst.insert(d.var, d.term);            
+            unsigned j = 0;
+            expr_ref tmp(m);
+            for (expr* fml : fmls) {
+                subst(fml, tmp);
+                fmls[j++] = tmp;
+            }
+        }
+
     };
 
     arith_project_plugin::arith_project_plugin(ast_manager& m):project_plugin(m) {
@@ -547,6 +568,10 @@ namespace mbp {
 
     void arith_project_plugin::set_check_purified(bool check_purified) {
         m_imp->m_check_purified = check_purified;
+    }
+
+    void arith_project_plugin::set_apply_projection(bool f) {
+        m_imp->m_apply_projection = f;
     }
 
     family_id arith_project_plugin::get_family_id() {

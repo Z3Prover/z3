@@ -39,6 +39,7 @@ namespace q {
     {
         auto* ap = alloc(mbp::arith_project_plugin, m);
         ap->set_check_purified(false);
+        ap->set_apply_projection(true);
         add_plugin(ap);
         add_plugin(alloc(mbp::datatype_project_plugin, m));
         add_plugin(alloc(mbp::array_project_plugin, m));
@@ -186,11 +187,13 @@ namespace q {
     expr_ref mbqi::solver_project(model& mdl, q_body& qb) {
         for (app* v : qb.vars)
             m_model->register_decl(v->get_decl(), mdl(v));
+        std::cout << "Project\n";
+        std::cout << *m_model << "\n";
+        std::cout << qb.vbody << "\n";
         expr_ref_vector fmls(qb.vbody);
         app_ref_vector vars(qb.vars);
         mbp::project_plugin proj(m);
         proj.purify(m_model_fixer, *m_model, vars, fmls);
-        std::cout << "fmls\n" << fmls << "\n";
         for (unsigned i = 0; i < vars.size(); ++i) {
             app* v = vars.get(i);
             auto* p = get_plugin(v);

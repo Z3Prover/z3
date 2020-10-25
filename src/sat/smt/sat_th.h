@@ -161,7 +161,7 @@ namespace euf {
         virtual void push_core();
         virtual void pop_core(unsigned n);
         void force_push() {
-            CTRACE("euf", m_num_scopes > 0, tout << "push-core " << m_num_scopes << "\n";);
+            CTRACE("euf_verbose", m_num_scopes > 0, tout << "push-core " << m_num_scopes << "\n";);
             for (; m_num_scopes > 0; --m_num_scopes) push_core();
         }
 
@@ -194,7 +194,7 @@ namespace euf {
         unsigned       m_num_eqs;
         sat::literal*  m_literals;
         enode_pair*    m_eqs;
-        static unsigned get_obj_size(unsigned num_lits, unsigned num_eqs);
+        static size_t get_obj_size(unsigned num_lits, unsigned num_eqs);
         th_propagation(unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs);
     public:
         static th_propagation* mk(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs);

@@ -590,32 +590,29 @@ public:
             return out;
         }
 
-        out << "[" << j << "]\t";
-            
+        out << "[" << j << "] " << std::setw(6) << " := " << m_x[j];
+        if (m_basis_heading[j] >= 0)
+            out << " base\t";
+        else 
+            out << "     \t";
         switch (m_column_types[j]) {
         case column_type::fixed:
         case column_type::boxed:
-            out << " [" << m_lower_bounds[j] << ", " << m_upper_bounds[j] << "]";
+            out << "[" << m_lower_bounds[j] << ", " << m_upper_bounds[j] << "]";
             break;
         case column_type::lower_bound:
-            out << " [" << m_lower_bounds[j] << "," << "oo" << "]";
+            out << "[" << m_lower_bounds[j] << ", oo" << "]";
             break;
         case column_type::upper_bound:
-            out << " [-oo, " << m_upper_bounds[j] << ']';
+            out << "[-oo, " << m_upper_bounds[j] << ']';
             break;
         case column_type::free_column:
-            out << " [-oo, oo]";
+            out << "[-oo, oo]";
             break;
         default:
             lp_assert(false);
         }
-        //        out << "basis heading = " << m_basis_heading[j] << std::endl;
-        out << "\tx = " << m_x[j];
-        if (m_basis_heading[j] >= 0)
-            out << " base\n";
-        else
-           out << " \n";
-        return out;
+        return out << "\n";
     }
 
     bool column_is_free(unsigned j) const { return this->m_column_types[j] == column_type::free_column; }

@@ -21,8 +21,32 @@ Revision History:
 #ifdef Z3DEBUG
 
 void region::display_mem_stats(std::ostream & out) const {
-    out << "num. objects:      " << m_chuncks.size() << "\n";
+    out << "num. objects:      " << m_chunks.size() << "\n";
 }
+
+void * region::allocate(size_t size) {
+    char * r = alloc_svect(char, size);
+    m_chunks.push_back(r);
+    return r;
+}
+
+void region::reset() {
+    for (auto* c : m_chunks)
+        dealloc_svect(c);
+    m_chunks.reset();
+    m_scopes.reset();
+}
+
+void region::pop_scope() {
+    unsigned old_size = m_scopes.back();
+    m_scopes.pop_back();
+    ptr_vector<char>::iterator it  = m_chunks.begin() + old_size;
+    ptr_vector<char>::iterator end = m_chunks.end();
+    for (; it != end; ++it) 
+        dealloc_svect(*it);    
+    m_chunks.shrink(old_size);
+}
+
 
 #else
 

@@ -41,6 +41,11 @@ namespace mbp {
          */
         void set_check_purified(bool check_purified);
 
+        /**
+        * \brief apply projection 
+        */
+        void set_apply_projection(bool apply_project);
+
     };
 
     bool arith_project(model& model, app* var, expr_ref_vector& lits);

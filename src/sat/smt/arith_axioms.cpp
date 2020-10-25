@@ -296,21 +296,19 @@ namespace arith {
         return lp::EQ;
     }
 
-    void solver::mk_eq_axiom(theory_var v1, theory_var v2) {
+    void solver::mk_eq_axiom(bool is_eq, theory_var v1, theory_var v2) {
         if (is_bool(v1))
             return;
         expr* e1 = var2expr(v1);
         expr* e2 = var2expr(v2);
-        if (e1 == e2)
+        if (is_eq && m.are_equal(e1, e2))
             return;
+        if (!is_eq && m.are_distinct(e1, e2))
+            return;       
         literal le, ge;
         if (a.is_numeral(e1))
             std::swap(e1, e2);
-        if (a.is_numeral(e1)) {
-            add_unit(~mk_literal(m.mk_eq(e1, e2)));
-            std::cout << "two numerals\n";
-            return;
-        }
+        SASSERT(!a.is_numeral(e1));
         literal eq = eq_internalize(e1, e2);
         if (a.is_numeral(e2)) {
             le = mk_literal(a.mk_le(e1, e2));
@@ -321,8 +319,11 @@ namespace arith {
             expr_ref zero(a.mk_numeral(rational(0), a.is_int(e1)), m);
             rewrite(diff);
             if (a.is_numeral(diff)) {
-                std::cout << "diff " << diff << " " << mk_pp(e1, m) << " " << mk_pp(e2, m) << "\n";
-                if (zero == diff)
+                if (is_eq && a.is_zero(diff))
+                    return;
+                if (!is_eq && !a.is_zero(diff))
+                    return;
+                if (a.is_zero(diff))
                     add_unit(eq);
                 else 
                     add_unit(~eq);
@@ -331,8 +332,8 @@ namespace arith {
             le = mk_literal(a.mk_le(diff, zero));
             ge = mk_literal(a.mk_ge(diff, zero));
         }
-        std::cout << mk_pp(e1, m) << " " << mk_pp(e2, m) << " ";
-        std::cout << le << " " << ge << "\n";
+        // std::cout << "eq " << mk_pp(e1, m) << " " << mk_pp(e2, m) << " ";
+        // std::cout << le << " " << ge << "\n";
         add_clause(~eq, le);
         add_clause(~eq, ge);
         add_clause(~le, ~ge, eq);

@@ -402,12 +402,15 @@ namespace euf {
         if (!init_relevancy())
             give_up = true;
 
-        for (auto* e : m_solvers)
+        for (auto* e : m_solvers) {
+            if (!m.inc())
+                return sat::check_result::CR_GIVEUP;
             switch (e->check()) {
             case sat::check_result::CR_CONTINUE: cont = true; break;
             case sat::check_result::CR_GIVEUP: give_up = true; break;
             default: break;
             }
+        }
         if (cont)
             return sat::check_result::CR_CONTINUE;
         if (give_up)

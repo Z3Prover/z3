@@ -103,15 +103,17 @@ namespace q {
 
     void model_fixer::add_projection_functions(model& mdl, ptr_vector<quantifier> const& qs) {
         func_decl_set fns;
+        TRACE("q", tout << mdl << "\n";);
         collect_partial_functions(qs, fns);
         for (func_decl* f : fns)
             add_projection_functions(mdl, f);
+        TRACE("q", tout << mdl << "\n";);
     }
 
     void model_fixer::add_projection_functions(model& mdl, func_decl* f) {
         // update interpretation of f so that the graph of f is fully determined by the
         // ground values of its arguments.
-        TRACE("q", tout << mdl << "\n";);
+
         func_interp* fi = mdl.get_func_interp(f);
         if (!fi) 
             return;
@@ -120,8 +122,12 @@ namespace q {
         expr_ref_vector args(m);
         for (unsigned i = 0; i < f->get_arity(); ++i) 
             args.push_back(add_projection_function(mdl, f, i));
-        if (!fi->get_else() && fi->num_entries() > 0)
-            fi->set_else(fi->get_entry(ctx.s().rand()(fi->num_entries()))->get_result());
+        if (!fi->get_else() && fi->num_entries() > 0) {
+            unsigned idx = ctx.s().rand()(fi->num_entries());
+            func_entry const* e = fi->get_entry(idx);
+            fi->set_else(e->get_result());
+            fi->del_entry(idx);
+        }
         bool has_projection = false;
         for (expr* arg : args)
             has_projection |= !is_var(arg);
@@ -132,7 +138,6 @@ namespace q {
         new_fi->set_else(m.mk_app(f_new, args));
         mdl.update_func_interp(f, new_fi);
         mdl.register_decl(f_new, fi);
-        TRACE("q", tout << mdl << "\n";);
     }
 
     expr_ref model_fixer::add_projection_function(model& mdl, func_decl* f, unsigned idx) {

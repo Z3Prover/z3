@@ -21,6 +21,7 @@ Author:
 namespace arith {
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool learned) {
+        force_push();
         flet<bool> _is_learned(m_is_redundant, learned);
         internalize_atom(e);
         literal lit = ctx.expr2literal(e);
@@ -30,6 +31,7 @@ namespace arith {
     }
 
     void solver::internalize(expr* e, bool redundant) {
+        force_push();
         flet<bool> _is_learned(m_is_redundant, redundant);
         if (m.is_bool(e))
             internalize_atom(e);

@@ -583,7 +583,7 @@ namespace arith {
     }
 
     void solver::push_core() {
-        TRACE("arith", tout << "push\n";);
+        TRACE("arith_verbose", tout << "push\n";);
         m_scopes.push_back(scope());
         scope& sc = m_scopes.back();
         sc.m_bounds_lim = m_bounds_trail.size();
@@ -596,11 +596,11 @@ namespace arith {
         if (m_nla)
             m_nla->push();
         th_euf_solver::push_core();
+
     }
 
     void solver::pop_core(unsigned num_scopes) {
         TRACE("arith", tout << "pop " << num_scopes << "\n";);
-        th_euf_solver::pop_core(num_scopes);
         unsigned old_size = m_scopes.size() - num_scopes;
         del_bounds(m_scopes[old_size].m_bounds_lim);
         m_idiv_terms.shrink(m_scopes[old_size].m_idiv_lim);
@@ -613,7 +613,8 @@ namespace arith {
         m_new_bounds.reset();
         if (m_nla)
             m_nla->pop(num_scopes);
-        TRACE("arith", tout << "num scopes: " << num_scopes << " new scope level: " << m_scopes.size() << "\n";);
+        TRACE("arith_verbose", tout << "num scopes: " << num_scopes << " new scope level: " << m_scopes.size() << "\n";);
+        th_euf_solver::pop_core(num_scopes);
     }
 
     void solver::del_bounds(unsigned old_size) {
@@ -964,7 +965,7 @@ namespace arith {
                 return sat::check_result::CR_CONTINUE;
             case l_undef:
                 TRACE("arith", tout << "check feasible is undef\n";);
-                return m.inc() ? sat::check_result::CR_CONTINUE : sat::check_result::CR_GIVEUP;
+                return sat::check_result::CR_CONTINUE;
             case l_true:
                 break;
             default:
