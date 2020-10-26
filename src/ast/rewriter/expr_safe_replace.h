@@ -28,9 +28,12 @@ class expr_safe_replace {
     expr_ref_vector m_src;
     expr_ref_vector m_dst;
     obj_map<expr, expr*> m_subst;
-    obj_map<expr,expr*> m_cache;
     ptr_vector<expr> m_todo, m_args;
     expr_ref_vector m_refs;
+    obj_map<expr,expr*> m_cache;
+
+    void cache_insert(expr* a, expr* b);
+    expr* cache_find(expr* a);
 
 public:
     expr_safe_replace(ast_manager& m): m(m), m_src(m), m_dst(m), m_refs(m) {}
