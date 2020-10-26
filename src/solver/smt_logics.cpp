@@ -148,7 +148,7 @@ bool smt_logics::logic_has_fpa(symbol const & s) {
 }
 
 bool smt_logics::logic_has_uf(symbol const & s) {
-    return s == "QF_UF" || s == "UF" || s == "QF_DT" || s == "SMTFD";
+    return s == "QF_UF" || s == "UF" || s == "QF_UFDT" || s == "SMTFD";
 }
 
 bool smt_logics::logic_has_horn(symbol const& s) {
