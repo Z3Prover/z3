@@ -71,6 +71,7 @@ namespace q {
         if (univ.empty())
             return;
 
+        TRACE("q", tout << "start: " << mdl << "\n";);
         m_dependencies.reset();
         m_projection_data.reset();
         m_projection_pinned.reset();
@@ -88,6 +89,7 @@ namespace q {
 
         univ.append(residue);
         add_projection_functions(mdl, univ);
+        TRACE("q", tout << "end: " << mdl << "\n";);
     }
 
     quantifier_macro_info* model_fixer::operator()(quantifier* q) {
@@ -103,11 +105,9 @@ namespace q {
 
     void model_fixer::add_projection_functions(model& mdl, ptr_vector<quantifier> const& qs) {
         func_decl_set fns;
-        TRACE("q", tout << mdl << "\n";);
         collect_partial_functions(qs, fns);
         for (func_decl* f : fns)
             add_projection_functions(mdl, f);
-        TRACE("q", tout << mdl << "\n";);
     }
 
     void model_fixer::add_projection_functions(model& mdl, func_decl* f) {

@@ -1437,13 +1437,15 @@ public:
     }
         
     rational get_value(theory_var v) const {
+        TRACE("arith", tout << "get_value v" << v << "\n";);
         if (v == null_theory_var || !lp().external_is_used(v)) {
             return rational::zero();
         }
 
         auto t = get_tv(v);
+        auto E = m_variable_values.end();
         auto I = m_variable_values.find(t.index());
-        if (I != m_variable_values.end())
+        if (I != E)
             return I->second;
 
         if (!t.is_term() && lp().is_fixed(t.id())) 
@@ -1462,7 +1464,7 @@ public:
                 for (const auto & i : term) {
                     auto tv = lp().column2tv(i.column());
                     auto I = m_variable_values.find(tv.index());
-                    if (I != m_variable_values.end()) {
+                    if (I != E) {
                         result += I->second * coeff * i.coeff();
                     }
                     else {
@@ -1471,7 +1473,9 @@ public:
                 }                    
             }
             else {
-                result += m_variable_values.at(t2.index()) * coeff;
+                auto I = m_variable_values.find(t2.index());
+                if (I != E)
+                    result += I->second * coeff;
             }
         }
         m_variable_values.emplace(t.index(), result);
@@ -1481,8 +1485,8 @@ public:
     void init_variable_values() {
         reset_variable_values();
         if (m.inc() && m_solver.get() && th.get_num_vars() > 0) {            
-            TRACE("arith", display(tout << "update variable values\n"););
             lp().get_model(m_variable_values);
+            TRACE("arith", display(tout << "update variable values " << m_variable_values.size() << "\n"););            
         }
     }
 
@@ -3698,8 +3702,7 @@ public:
             b = m.mk_not(b);
         }
         TRACE("arith", tout << b << "\n";);
-        return expr_ref(b, m);
-            
+        return expr_ref(b, m);            
     }
 
 

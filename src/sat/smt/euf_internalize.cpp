@@ -60,7 +60,6 @@ namespace euf {
         SASSERT(get_enode(e));
         if (m.is_bool(e))
             return literal(si.to_bool_var(e), sign);
-        std::cout << "internalize-non-bool\n";
         return sat::null_literal;
     }
 

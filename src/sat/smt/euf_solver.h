@@ -261,8 +261,8 @@ namespace euf {
         sat::check_result check() override;
         void push() override;
         void pop(unsigned n) override;
-        void user_push();
-        void user_pop(unsigned n);
+        void user_push() override;
+        void user_pop(unsigned n) override;
         void pre_simplify() override;
         void simplify() override;
         // have a way to replace l by r in all constraints

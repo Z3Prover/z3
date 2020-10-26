@@ -96,6 +96,8 @@ namespace sat {
         virtual void push() = 0;
         void push_scopes(unsigned n) { for (unsigned i = 0; i < n; ++i) push(); }
         virtual void pop(unsigned n) = 0;
+        virtual void user_push() { push(); }
+        virtual void user_pop(unsigned n) { pop(n); }
         virtual void pre_simplify() {}
         virtual void simplify() {}
         // have a way to replace l by r in all constraints

@@ -39,14 +39,27 @@ namespace arith {
             auto t = get_tv(v);
             auto vi = lp().external_to_column_index(v);
             out << "v" << v << " ";
-            if (t.is_null()) out << "null"; else out << (t.is_term() ? "t" : "j") << vi;
-            if (m_nla && m_nla->use_nra_model() && can_get_ivalue(v)) {
-                scoped_anum an(m_nla->am());
-                m_nla->am().display(out << " = ", nl_value(v, an));
+            if (is_bool(v)) {
+                euf::enode* n = var2enode(v);
+                api_bound* b = nullptr;
+                if (m_bool_var2bound.find(n->bool_var(), b)) {
+                    sat::literal lit = b->get_lit();
+                    out << lit << " " << s().value(lit);
+                }
             }
-            else if (can_get_value(v)) out << " = " << get_value(v);
-            if (is_int(v)) out << ", int";
-            if (ctx.is_shared(var2enode(v))) out << ", shared";
+            else {
+                if (t.is_null()) 
+                    out << "null"; 
+                else 
+                    out << (t.is_term() ? "t" : "j") << vi;
+                if (m_nla && m_nla->use_nra_model() && can_get_ivalue(v)) {
+                    scoped_anum an(m_nla->am());
+                    m_nla->am().display(out << " = ", nl_value(v, an));
+                }
+                else if (can_get_value(v)) out << " = " << get_value(v);
+                if (is_int(v)) out << ", int";
+                if (ctx.is_shared(var2enode(v))) out << ", shared";
+            }
             out << " := " << mk_bounded_pp(var2expr(v), m) << "\n";
         }
         return out; 

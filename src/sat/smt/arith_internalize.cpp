@@ -21,7 +21,7 @@ Author:
 namespace arith {
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool learned) {
-        force_push();
+        init_internalize();
         flet<bool> _is_learned(m_is_redundant, learned);
         internalize_atom(e);
         literal lit = ctx.expr2literal(e);
@@ -31,12 +31,25 @@ namespace arith {
     }
 
     void solver::internalize(expr* e, bool redundant) {
-        force_push();
+        init_internalize();
         flet<bool> _is_learned(m_is_redundant, redundant);
         if (m.is_bool(e))
             internalize_atom(e);
         else
             internalize_term(e);
+    }
+
+    void solver::init_internalize() {
+        force_push();
+        // initialize 0, 1 variables:
+        if (!m_internalize_initialized) {
+            get_one(true);
+            get_one(false);
+            get_zero(true);
+            get_zero(false);
+            ctx.push(value_trail<euf::solver, bool>(m_internalize_initialized));
+            m_internalize_initialized = true;
+        }
     }
 
     lpvar solver::get_one(bool is_int) {
@@ -113,11 +126,11 @@ namespace arith {
         if (var != UINT_MAX) {
             return var;
         }
+        ctx.push(value_trail<euf::solver, lpvar>(var));
         app_ref cnst(a.mk_numeral(rational(c), is_int), m);
         mk_enode(cnst);
         theory_var v = mk_evar(cnst);
         var = lp().add_var(v, is_int);
-        lp().push();
         add_def_constraint_and_equality(var, lp::GE, rational(c));
         add_def_constraint_and_equality(var, lp::LE, rational(c));
         TRACE("arith", tout << "add " << cnst << ", var = " << var << "\n";);
@@ -540,11 +553,15 @@ namespace arith {
         enode* n = ctx.get_enode(e);
         if (n)
             return n;
-        ptr_buffer<enode> args;
-        if (reflect(e))
-            for (expr* arg : *to_app(e))
-                args.push_back(e_internalize(arg));
-        n = ctx.mk_enode(e, args.size(), args.c_ptr());
+        if (!a.is_arith_expr(e))
+            n = e_internalize(e);
+        else {
+            ptr_buffer<enode> args;
+            if (reflect(e))
+                for (expr* arg : *to_app(e))
+                    args.push_back(e_internalize(arg));
+            n = ctx.mk_enode(e, args.size(), args.c_ptr());
+        }
         return n;
     }
 
@@ -597,7 +614,7 @@ namespace arith {
     }
 
     bool solver::reflect(expr* n) const {
-        return get_config().m_arith_reflect || a.is_underspecified(n);
+        return get_config().m_arith_reflect || a.is_underspecified(n) || !a.is_arith_expr(n);
     }
 
     lpvar solver::get_lpvar(theory_var v) const {

@@ -116,7 +116,7 @@ scoped_timer::~scoped_timer() {
     dealloc(m_imp);
 }
 
-void finalize_scoped_timer() {
+void scoped_timer::finalize() {
     unsigned deleted = 0;
 
     while (deleted < num_workers) {

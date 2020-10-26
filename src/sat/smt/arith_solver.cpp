@@ -32,11 +32,6 @@ namespace arith {
     {
         reset_variable_values();
         m_solver = alloc(lp::lar_solver);
-        // initialize 0, 1 variables:
-        get_one(true);
-        get_one(false);
-        get_zero(true);
-        get_zero(false);
 
         smt_params_helper lpar(ctx.s().params());
         lp().settings().set_resource_limit(m_resource_limit);
@@ -556,8 +551,35 @@ namespace arith {
         return end;
     }
 
-    void solver::init_model() {
-        init_variable_values();
+    void solver::dbg_finalize_model(model& mdl) {
+        bool found_bad = false;
+        for (unsigned v = 0; v < get_num_vars(); ++v) {
+            if (!is_bool(v))
+                continue;
+            euf::enode* n = var2enode(v);
+            api_bound* b = nullptr;
+            if (!m_bool_var2bound.find(n->bool_var(), b)) {
+                IF_VERBOSE(0, verbose_stream() << "no boolean variable\n";);
+                continue;
+            }
+            lbool value = n->value();
+            expr_ref eval = mdl(var2expr(v));
+            if (m.is_true(eval) && l_false == value)
+                found_bad = true;
+            if (m.is_false(eval) && l_true == value)
+                found_bad = true;
+
+            if (b->get_lit().sign())
+                value = ~value;
+            if (!found_bad && value == get_phase(n->bool_var()))
+                continue;
+            IF_VERBOSE(0, 
+                       verbose_stream() << eval << " " << value << " " << ctx.bpp(n) << "\n";
+                       verbose_stream() << n->bool_var() << " " << n->value() << " " << get_phase(n->bool_var()) << " " << ctx.bpp(n) << "\n";
+                       verbose_stream() << *b << "\n";);
+            IF_VERBOSE(0, ctx.display(verbose_stream()));
+            UNREACHABLE();
+        }
     }
 
     void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {

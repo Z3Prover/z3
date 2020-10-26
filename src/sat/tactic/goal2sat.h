@@ -69,6 +69,10 @@ public:
 
     void update_model(model_ref& mdl);
 
+    void user_push();
+    
+    void user_pop(unsigned n);
+
 };
 
 

@@ -126,7 +126,7 @@ namespace euf {
         if (use_drat())
             s().get_drat().add_theory(fid, th->name());
         th->set_solver(m_solver);
-        th->push_scopes(s().num_scopes());
+        th->push_scopes(s().num_scopes() + s().num_user_scopes());
         m_solvers.push_back(th);
         m_id2solver.setx(fid, th, nullptr);
         if (th->use_diseqs())
@@ -430,18 +430,6 @@ namespace euf {
         m_egraph.push();
     }
 
-    void solver::user_push() {
-        push();
-        if (m_dual_solver)
-            m_dual_solver->push();
-    }
-
-    void solver::user_pop(unsigned n) {
-        pop(n);
-        if (m_dual_solver)
-            m_dual_solver->pop(n);
-    }
-
     void solver::pop(unsigned n) {
         start_reinit(n);
         m_trail.pop_scope(n);
@@ -455,7 +443,19 @@ namespace euf {
         m_var_trail.shrink(s.m_var_lim);        
         m_scopes.shrink(m_scopes.size() - n);
         SASSERT(m_egraph.num_scopes() == m_scopes.size());
-        TRACE("euf", display(tout << "pop to: " << m_scopes.size() << "\n"););
+        TRACE("euf_verbose", display(tout << "pop to: " << m_scopes.size() << "\n"););
+    }
+
+    void solver::user_push() {
+        push();
+        if (m_dual_solver)
+            m_dual_solver->push();
+    }
+
+    void solver::user_pop(unsigned n) {
+        pop(n);
+        if (m_dual_solver)
+            m_dual_solver->pop(n);
     }
 
     void solver::start_reinit(unsigned n) {
@@ -487,6 +487,8 @@ namespace euf {
             }
         };
         scoped_set_replay replay(*this);
+        scoped_suspend_rlimit suspend_rlimit(m.limit());
+
         unsigned i = 0;
         for (sat::bool_var v : s().get_vars_to_reinit()) {
             expr* e = m_reinit_exprs.get(i++);
@@ -696,7 +698,7 @@ namespace euf {
     unsigned solver::max_var(unsigned w) const { 
         for (auto* e : m_solvers)
             w = e->max_var(w);
-        for (unsigned sz = m_bool_var2expr.size(); sz-- > 0; ) {
+        for (unsigned sz = m_bool_var2expr.size(); sz > w && sz-- > 0; ) {
             expr* n = m_bool_var2expr[sz];
             if (n && m.is_bool(n)) {
                 w = std::max(w, sz);

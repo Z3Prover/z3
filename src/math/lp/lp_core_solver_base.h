@@ -590,11 +590,16 @@ public:
             return out;
         }
 
-        out << "[" << j << "] " << std::setw(6) << " := " << m_x[j];
+        std::stringstream strm;
+        strm << m_x[j];
+        std::string j_val = strm.str();
+        out << "[" << j << "] " << std::setw(6) << " := " << j_val;
         if (m_basis_heading[j] >= 0)
-            out << " base\t";
+            out << " base ";
         else 
-            out << "     \t";
+            out << "      ";
+        for (auto k = j_val.size(); k < 15; ++k)
+            out << " ";
         switch (m_column_types[j]) {
         case column_type::fixed:
         case column_type::boxed:

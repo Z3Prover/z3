@@ -26,4 +26,5 @@ class scoped_timer {
 public:
     scoped_timer(unsigned ms, event_handler * eh);
     ~scoped_timer();
+    static void finalize();
 };

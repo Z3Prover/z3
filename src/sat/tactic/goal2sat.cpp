@@ -606,8 +606,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (!ext) {
             euf = alloc(euf::solver, m, *this);
             m_solver.set_extension(euf);
-            for (unsigned i = m_solver.num_scopes(); i-- > 0; )
-                euf->push();
 #if 0
             std::function<solver*(void)> mk_solver = [&]() {
                 return mk_inc_sat_solver(m, m_params, true);
@@ -911,6 +909,14 @@ struct goal2sat::imp : public sat::sat_internalizer {
             ext->update_model(mdl);
     }
 
+    void user_push() {
+        
+    }
+
+    void user_pop(unsigned n) {
+        m_true = sat::null_literal;
+    }
+
 };
 
 struct unsupported_bool_proc {
@@ -982,6 +988,16 @@ bool goal2sat::has_interpreted_funs() const {
 void goal2sat::update_model(model_ref& mdl) {
     if (m_imp) 
         m_imp->update_model(mdl);
+}
+
+void goal2sat::user_push() {
+    if (m_imp)
+        m_imp->user_push();
+}
+    
+void goal2sat::user_pop(unsigned n) {
+    if (m_imp)
+        m_imp->user_pop(n);
 }
 
 

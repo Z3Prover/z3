@@ -108,8 +108,11 @@ struct check_logic::imp {
             m_uf        = true;
             m_bvs       = true;
         }
-        else if (logic == "QF_DT") {
+        else if (logic == "QF_UFDT") {
             m_uf        = true;            
+            m_dt        = true;
+        }
+        else if (logic == "QF_DT") {
             m_dt        = true;
         }
         else if (logic == "QF_AUFLIA") {
@@ -505,7 +508,7 @@ struct check_logic::imp {
         try {
             unsigned arity = f->get_arity();
             if (arity > 0) {
-                if (!m_uf)
+                if (!m_uf && f->get_family_id() == null_family_id)
                     fail("logic does not support uninterpreted functions");
                 for (unsigned i = 0; i < arity; i++)
                     check_sort(f->get_domain(i));

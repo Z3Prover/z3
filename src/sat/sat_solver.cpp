@@ -109,7 +109,13 @@ namespace sat {
 
     void solver::set_extension(extension* ext) {
         m_ext = ext;
-        if (ext) ext->set_solver(this);
+        if (ext) {
+            ext->set_solver(this);
+            for (unsigned i = num_user_scopes(); i-- > 0;)
+                ext->user_push();
+            for (unsigned i = num_scopes(); i-- > 0;)
+                ext->push();
+        }
     }
 
     void solver::copy(solver const & src, bool copy_learned) {
@@ -3622,6 +3628,8 @@ namespace sat {
         lit = literal(new_v, false);
         m_user_scope_literals.push_back(lit);
         m_cut_simplifier = nullptr; // for simplicity, wipe it out
+        if (m_ext)
+            m_ext->user_push();
         TRACE("sat", tout << "user_push: " << lit << "\n";);
     }
 
@@ -3704,6 +3712,8 @@ namespace sat {
     void solver::user_pop(unsigned num_scopes) {
         pop_to_base_level();
         TRACE("sat", display(tout););
+        if (m_ext)
+            m_ext->user_pop(num_scopes);
         while (num_scopes > 0) {
             literal lit = m_user_scope_literals.back();
             m_user_scope_literals.pop_back();

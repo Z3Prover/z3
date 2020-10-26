@@ -158,6 +158,7 @@ namespace q {
         mbody = subst(mbody, result->vars);
         if (is_forall(q))
             mbody = mk_not(m, mbody);
+        TRACE("q", tout << "specialize " << mbody << "\n";);
         return result;
     }
 
@@ -187,9 +188,11 @@ namespace q {
     expr_ref mbqi::solver_project(model& mdl, q_body& qb) {
         for (app* v : qb.vars)
             m_model->register_decl(v->get_decl(), mdl(v));
-        std::cout << "Project\n";
-        std::cout << *m_model << "\n";
-        std::cout << qb.vbody << "\n";
+        TRACE("q",
+              tout << "Project\n";
+              tout << *m_model << "\n";
+              tout << qb.vbody << "\n";
+              tout << "model of projection\n" << mdl << "\n";);
         expr_ref_vector fmls(qb.vbody);
         app_ref_vector vars(qb.vars);
         mbp::project_plugin proj(m);

@@ -208,9 +208,7 @@ namespace arith {
         svector<enode_pair> m_eqs;
         vector<parameter>   m_params;
         nla::lemma          m_lemma;
-
-
-        arith_util        a;
+        arith_util          a;
 
         bool is_int(theory_var v) const { return is_int(var2enode(v)); }
         bool is_int(euf::enode* n) const { return a.is_int(n->get_expr()); }
@@ -221,6 +219,8 @@ namespace arith {
         
 
         // internalize
+        bool m_internalize_initialized { false };
+        void init_internalize();
         lpvar add_const(int c, lpvar& var, bool is_int);
         lpvar get_one(bool is_int);
         lpvar get_zero(bool is_int);
@@ -408,6 +408,7 @@ namespace arith {
         void assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs, vector<parameter> const& params);
 
         void false_case_of_check_nla(const nla::lemma& l);        
+        void dbg_finalize_model(model& mdl);
 
     public:
         solver(euf::solver& ctx, theory_id id);
@@ -426,7 +427,8 @@ namespace arith {
         void new_eq_eh(euf::th_eq const& eq) override { mk_eq_axiom(true, eq.v1(), eq.v2()); }
         void new_diseq_eh(euf::th_eq const& de) override { mk_eq_axiom(false, de.v1(), de.v2()); }
         bool unit_propagate() override;
-        void init_model() override;
+        void init_model() override { init_variable_values(); }
+        void finalize_model(model& mdl) override { DEBUG_CODE(dbg_finalize_model(mdl);); }
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool redundant) override;

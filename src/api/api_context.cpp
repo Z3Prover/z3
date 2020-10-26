@@ -18,8 +18,8 @@ Revision History:
 
 --*/
 #include<typeinfo>
-#include "api/api_context.h"
 #include "util/z3_version.h"
+#include "api/api_context.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "api/api_log_macros.h"
@@ -432,7 +432,7 @@ extern "C" {
 
     void Z3_API Z3_finalize_memory(void) {
         LOG_Z3_finalize_memory();
-        memory::finalize();
+        memory::finalize(true);
     }
 
     Z3_error_code Z3_API Z3_get_error_code(Z3_context c) {

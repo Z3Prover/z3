@@ -257,9 +257,8 @@ public:
     }
 
     void push_internal() {
+        m_goal2sat.user_push();
         m_solver.user_push();
-        if (get_euf())
-            get_euf()->user_push();
         ++m_num_scopes;
         m_mcs.push_back(m_mcs.back());
         m_fmls_lim.push_back(m_fmls.size());
@@ -279,6 +278,7 @@ public:
         m_map.pop(n);
         SASSERT(n <= m_num_scopes);
         m_solver.user_pop(n);
+        m_goal2sat.user_pop(n);
         m_num_scopes -= n;
         // ? m_internalized_converted = false;
         m_has_uninterpreted.pop(n);
@@ -339,12 +339,8 @@ public:
         m_params.set_sym("pb.solver", p1.pb_solver());
         m_solver.updt_params(m_params);
         m_solver.set_incremental(is_incremental() && !override_incremental());
-        if (p1.euf() && !get_euf()) {
-            ensure_euf();
-            for (unsigned i = 0; i < m_num_scopes; ++i)
-                get_euf()->user_push();
-        }
-
+        if (p1.euf() && !get_euf()) 
+            ensure_euf();        
     }
     void collect_statistics(statistics & st) const override {
         if (m_preprocess) m_preprocess->collect_statistics(st);

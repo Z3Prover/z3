@@ -31,8 +31,11 @@ namespace euf {
     }
 
     void solver::ensure_dual_solver() {
-        if (!m_dual_solver)
+        if (!m_dual_solver) {
             m_dual_solver = alloc(sat::dual_solver, s().rlimit());
+            for (unsigned i = s().num_user_scopes(); i-- > 0; )
+                m_dual_solver->push();
+        }
     }
 
     void solver::add_root(unsigned n, sat::literal const* lits) {
@@ -79,7 +82,6 @@ namespace euf {
                 continue;
             expr* c = nullptr, *th = nullptr, *el = nullptr;
             if (m.is_ite(e, c, th, el)) {
-                std::cout << mk_pp(c, m) << "\n";
                 sat::literal lit = expr2literal(c);
                 todo.push_back(c);
                 switch (s().value(lit)) {

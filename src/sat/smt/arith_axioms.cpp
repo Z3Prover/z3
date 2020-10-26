@@ -332,8 +332,6 @@ namespace arith {
             le = mk_literal(a.mk_le(diff, zero));
             ge = mk_literal(a.mk_ge(diff, zero));
         }
-        // std::cout << "eq " << mk_pp(e1, m) << " " << mk_pp(e2, m) << " ";
-        // std::cout << le << " " << ge << "\n";
         add_clause(~eq, le);
         add_clause(~eq, ge);
         add_clause(~le, ~ge, eq);
