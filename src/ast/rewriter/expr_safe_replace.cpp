@@ -27,9 +27,13 @@ Revision History:
 
 void expr_safe_replace::insert(expr* src, expr* dst) {
     SASSERT(m.get_sort(src) == m.get_sort(dst));
+#if ALIVE_OPT
+    cache_insert(src, dst);
+#else
     m_src.push_back(src);
     m_dst.push_back(dst);
     m_subst.insert(src, dst);
+#endif
 }
 
 void expr_safe_replace::operator()(expr_ref_vector& es) {
@@ -69,10 +73,12 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
         if (cache_find(a)) {
             m_todo.pop_back();
         }
+#if !ALIVE_OPT
         else if (m_subst.find(a, b)) {
             cache_insert(a, b);
             m_todo.pop_back();            
         }
+#endif
         else if (is_var(a)) {
             cache_insert(a, a);
             m_todo.pop_back();
@@ -150,6 +156,7 @@ void expr_safe_replace::reset() {
     m_src.reset();
     m_dst.reset();
     m_subst.reset();
+    m_refs.reset();
 }
 
 void expr_safe_replace::apply_substitution(expr* s, expr* def, expr_ref& t) {

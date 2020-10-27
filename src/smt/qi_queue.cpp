@@ -193,6 +193,9 @@ namespace smt {
     }
 
     void qi_queue::instantiate(entry & ent) {
+        // set temporary flag to enable quantifier-specific tracing in within smt_internalizer.
+        flet<bool> _coming_from_quant(m_context.m_coming_from_quant, true);
+
         fingerprint * f          = ent.m_qb;
         quantifier * q           = static_cast<quantifier*>(f->get_data());
         unsigned generation      = ent.m_generation;
@@ -200,12 +203,14 @@ namespace smt {
         enode * const * bindings = f->get_args();
 
         ent.m_instantiated = true;
-
+        
+        std::cout << mk_pp(q, m) << "\n";
+        for (unsigned i = 0; i < num_bindings; ++i)
+            std::cout << mk_pp(bindings[i]->get_owner(), m) << " ";
+        std::cout << "\n";
+        
         TRACE("qi_queue_profile", tout << q->get_qid() << ", gen: " << generation << " " << *f << " cost: " << ent.m_cost << "\n";);
-        // NEVER remove coming_from_quant
-        // "coming_from_quant" allows the logging of bindings and enodes
-        // only when they come from instantiations
-        enable_trace("coming_from_quant");
+
         quantifier_stat * stat = m_qm.get_stat(q);
 
         if (m_checker.is_sat(q->get_expr(), num_bindings, bindings)) {
@@ -216,7 +221,6 @@ namespace smt {
             // a dummy instantiation is still an instantiation.
             // in this way smt.qi.profile=true coincides with the axiom profiler
             stat->inc_num_instances_checker_sat();
-            disable_trace("coming_from_quant");
             return;
         }
 
@@ -241,7 +245,6 @@ namespace smt {
                 m.trace_stream() << "[end-of-instance]\n";
             }
 
-            disable_trace("coming_from_quant");
             return;
         }
         TRACE("qi_queue", tout << "simplified instance:\n" << s_instance << "\n";);
@@ -329,8 +332,6 @@ namespace smt {
         if (m.has_trace_stream())
             m.trace_stream() << "[end-of-instance]\n";
 
-        // NEVER remove coming_from_quant
-        disable_trace("coming_from_quant");
     }
 
     void qi_queue::push_scope() {

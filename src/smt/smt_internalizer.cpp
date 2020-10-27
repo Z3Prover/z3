@@ -1014,7 +1014,7 @@ namespace smt {
                   tout << "is_true_eq: " << e->is_true_eq() << " in cg_table: " << m_cg_table.contains_ptr(e) << " is_cgr: "
                        << e->is_cgr() << "\n";
               });
-        SCTRACE("causality", is_trace_enabled("coming_from_quant"), tout << "EN: #" << e->get_owner_id() << "\n";);
+        SCTRACE("causality", m_coming_from_quant, tout << "EN: #" << e->get_owner_id() << "\n";);
 
         if (m.has_trace_stream())
             m.trace_stream() << "[attach-enode] #" << n->get_id() << " " << m_generation << "\n";        

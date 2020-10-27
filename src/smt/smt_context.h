@@ -585,6 +585,12 @@ namespace smt {
             return get_bdata(v).get_theory();
         }
 
+        /** 
+         * flag to toggle quantifier tracing.
+         */
+        bool m_coming_from_quant { false };
+
+
         friend class set_var_theory_trail;
         void set_var_theory(bool_var v, theory_id tid);
 
