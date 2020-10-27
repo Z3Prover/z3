@@ -26,6 +26,7 @@ void preprocessor_params::updt_local_params(params_ref const & _p) {
     m_restricted_quasi_macros = p.restricted_quasi_macros();
     m_pull_nested_quantifiers = p.pull_nested_quantifiers();
     m_refine_inj_axiom        = p.refine_inj_axioms();
+    m_ng_lift_ite             = static_cast<lift_ite_kind>(p.q_lift_ite());
 }
 
 void preprocessor_params::updt_params(params_ref const & p) {
