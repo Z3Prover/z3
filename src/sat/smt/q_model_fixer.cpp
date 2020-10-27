@@ -21,6 +21,7 @@ Notes:
 
 
 #include "ast/for_each_expr.h"
+#include "ast/ast_util.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "model/model_macro_solver.h"
@@ -34,16 +35,16 @@ namespace q {
     template<typename U>
     static bool lt(U const& u, expr* x, expr* y) {
         rational v1, v2;
-        if (u.is_numeral(x, v1) && u.is_numeral(y, v2)) 
+        if (u.is_numeral(x, v1) && u.is_numeral(y, v2))
             return v1 < v2;
-        else 
-            return x->get_id() < y->get_id();                            
+        else
+            return x->get_id() < y->get_id();
     }
 
     class arith_projection : public projection_function {
         arith_util   a;
-    public:        
-        arith_projection(ast_manager& m): projection_function(m), a(m) {}
+    public:
+        arith_projection(ast_manager& m) : projection_function(m), a(m) {}
         ~arith_projection() override {}
         bool operator()(expr* e1, expr* e2) const override { return lt(a, e1, e2); }
         expr* mk_lt(expr* x, expr* y) override { return a.mk_lt(x, y); }
@@ -51,11 +52,11 @@ namespace q {
 
     class ubv_projection : public projection_function {
         bv_util bvu;
-    public:        
-        ubv_projection(ast_manager& m): projection_function(m), bvu(m) {}
+    public:
+        ubv_projection(ast_manager& m) : projection_function(m), bvu(m) {}
         ~ubv_projection() override {}
         bool operator()(expr* e1, expr* e2) const override { return lt(bvu, e1, e2); }
-        expr* mk_lt(expr* x, expr* y) override { return m.mk_not(bvu.mk_ule(y, x)); }        
+        expr* mk_lt(expr* x, expr* y) override { return m.mk_not(bvu.mk_ule(y, x)); }
     };
 
     model_fixer::model_fixer(euf::solver& ctx, q::solver& qs) :
@@ -75,8 +76,8 @@ namespace q {
         m_dependencies.reset();
         m_projection_data.reset();
         m_projection_pinned.reset();
-        ptr_vector<quantifier> residue;               
-        
+        ptr_vector<quantifier> residue;
+
         simple_macro_solver sms(m, *this);
         sms(mdl, univ, residue);
 
@@ -115,12 +116,12 @@ namespace q {
         // ground values of its arguments.
 
         func_interp* fi = mdl.get_func_interp(f);
-        if (!fi) 
+        if (!fi)
             return;
         if (fi->is_constant())
             return;
         expr_ref_vector args(m);
-        for (unsigned i = 0; i < f->get_arity(); ++i) 
+        for (unsigned i = 0; i < f->get_arity(); ++i)
             args.push_back(add_projection_function(mdl, f, i));
         if (!fi->get_else() && fi->num_entries() > 0) {
             unsigned idx = ctx.s().rand()(fi->num_entries());
@@ -163,8 +164,8 @@ namespace q {
         lt _lt(proj);
         std::sort(values.c_ptr(), values.c_ptr() + values.size(), _lt);
         unsigned j = 0;
-        for (unsigned i = 0; i < values.size(); ++i) 
-            if (i == 0 || values.get(i-1) != values.get(i))
+        for (unsigned i = 0; i < values.size(); ++i)
+            if (i == 0 || values.get(i - 1) != values.get(i))
                 values[j++] = values.get(i);
         values.shrink(j);
 
@@ -173,15 +174,15 @@ namespace q {
 
         unsigned sz = values.size();
         expr_ref var(m.mk_var(0, srt), m);
-        expr_ref pi(values.get(sz-1), m);
+        expr_ref pi(values.get(sz - 1), m);
         for (unsigned i = sz - 1; i >= 1; i--) {
             expr* c = proj->mk_lt(var, values.get(i));
             pi = m.mk_ite(c, values.get(i - 1), pi);
         }
         func_interp* rpi = alloc(func_interp, m, 1);
         rpi->set_else(pi);
-        func_decl * p = m.mk_fresh_func_decl(1, &srt, srt);
-        mdl.register_decl(p, rpi);       
+        func_decl* p = m.mk_fresh_func_decl(1, &srt, srt);
+        mdl.register_decl(p, rpi);
         return expr_ref(m.mk_app(p, m.mk_var(idx, srt)), m);
     }
 
@@ -209,24 +210,24 @@ namespace q {
             auto* info = (*this)(q);
             quantifier* flat_q = info->get_flat_q();
             expr_ref body(flat_q->get_expr(), m);
-            for (expr* t : subterms(body)) 
+            for (expr* t : subterms(body))
                 if (is_uninterp(t) && !to_app(t)->is_ground())
-                    fns.insert(to_app(t)->get_decl());           
+                    fns.insert(to_app(t)->get_decl());
         }
     }
 
-    expr* model_fixer::invert_app(app* t, expr* value) { 
+    expr* model_fixer::invert_app(app* t, expr* value) {
         euf::enode* r = nullptr;
         TRACE("q",
             tout << "invert-app " << mk_pp(t, m) << " = " << mk_pp(value, m) << "\n";
-            if (ctx.values2root().find(value, r))
-                tout << "inverse " << mk_pp(r->get_expr(), m) << "\n";);
+        if (ctx.values2root().find(value, r))
+            tout << "inverse " << mk_pp(r->get_expr(), m) << "\n";);
         if (ctx.values2root().find(value, r))
             return r->get_expr();
-        return value; 
+        return value;
     }
 
-    void model_fixer::invert_arg(app* t, unsigned i, expr* value, expr_ref_vector& lits)  { 
+    void model_fixer::invert_arg(app* t, unsigned i, expr* value, expr_ref_vector& lits) {
         TRACE("q", tout << "invert-arg " << mk_pp(t, m) << " " << i << " " << mk_pp(value, m) << "\n";);
         auto const* md = get_projection_data(t->get_decl(), i);
         if (!md)
@@ -236,9 +237,9 @@ namespace q {
             return;
 
         unsigned sz = md->values.size();
-        if (sz <= 1) 
+        if (sz <= 1)
             return;
-        
+
         //
         // md->values are sorted
         // v1, v2, v3
@@ -246,8 +247,8 @@ namespace q {
         // v2 <= x < v3 => f(x) = f(v2), so t2 <= x < t3, where M(v3) = t3
         // v3 <= x      => f(x) = f(v3)
         // 
-        auto is_lt = [&](expr* val) { 
-            return (*proj)(value, val); 
+        auto is_lt = [&](expr* val) {
+            return (*proj)(value, val);
         };
 
         auto term = [&](unsigned j) {
@@ -261,13 +262,31 @@ namespace q {
             return;
         }
 
-        for (unsigned j = 2; j < sz; ++j) 
+        for (unsigned j = 2; j < sz; ++j)
             if (is_lt(md->values[j])) {
                 lits.push_back(proj->mk_le(term(j - 1), arg));
                 lits.push_back(proj->mk_lt(arg, term(j)));
                 return;
             }
 
-        lits.push_back(proj->mk_le(term(sz-1), arg));
+        lits.push_back(proj->mk_le(term(sz - 1), arg));
+    }
+
+    /*
+    * restrict arg_i of t := f(...,arg_i,...) to be one of terms from the ground instantiations of f.
+    */
+    expr_ref model_fixer::restrict_arg(app* t, unsigned i) {
+        TRACE("q", tout << "restrict-arg " << mk_pp(t, m) << " " << i << "\n";);
+        auto const* md = get_projection_data(t->get_decl(), i);
+        if (!md)
+            return expr_ref(m.mk_true(), m);
+
+        expr* arg = t->get_arg(i);
+        expr_ref_vector eqs(m);
+        for (expr* v : md->values)
+            eqs.push_back(m.mk_eq(arg, md->v2t[v]));
+        if (eqs.empty())
+            return expr_ref(m.mk_true(), m);
+        return mk_or(eqs);
     }
 }

@@ -32,9 +32,11 @@ namespace q {
     class mbqi {
         struct q_body {
             app_ref_vector  vars;
-            expr_ref        mbody;  // body specialized with respect to model
-            expr_ref_vector vbody;  // (negation of) body specialized with respect to vars
-            q_body(ast_manager& m) : vars(m), mbody(m), vbody(m) {}
+            expr_ref        mbody;   // body specialized with respect to model
+            expr_ref_vector vbody;   // (negation of) body specialized with respect to vars
+            expr_ref_vector domain_eqs; // additional domain restrictions
+            svector<std::pair<app*, unsigned>> var_args; // (uninterpreted) functions in vbody that contain arguments with variables
+            q_body(ast_manager& m) : vars(m), mbody(m), vbody(m), domain_eqs(m) {}
         };
 
         euf::solver&                           ctx;
@@ -59,6 +61,8 @@ namespace q {
         expr_ref basic_project(model& mdl, quantifier* q, app_ref_vector& vars);
         expr_ref solver_project(model& mdl, q_body& qb);
         expr_ref assign_value(model& mdl, app* v);
+        void restrict_domains(model& mdl, q_body& qb);
+        void extract_var_args(expr* t, q_body& qb);
         void init_model();
         void init_solver();
         mbp::project_plugin* get_plugin(app* var);

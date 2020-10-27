@@ -114,6 +114,17 @@ namespace mbp {
 
         static void mark_rec(expr_mark& visited, expr* e);
         static void mark_rec(expr_mark& visited, expr_ref_vector const& es);
+
+        /**
+        * mark sub-terms in e whether they contain a variable from vars.
+        */
+        void mark_non_ground(app_ref_vector const& vars, expr* e) {
+            for (app* v : vars)
+                m_non_ground.mark(v);
+            mark_non_ground(e);
+        }
+
+        bool is_non_ground(expr* t) const { return m_non_ground.is_marked(t); }
     };
 }
 

@@ -107,6 +107,12 @@ namespace q {
 
         quantifier_macro_info* operator()(quantifier* q) override;
 
+        /*
+        * Create a constraint that restricts the possible values of t to a finite set of values.
+        * Add value constraints to solver?
+        */
+        expr_ref restrict_arg(app* t, unsigned i);
+
         expr* invert_app(app* t, expr* value) override;
         void invert_arg(app* t, unsigned i, expr* value, expr_ref_vector& lits) override;
     };

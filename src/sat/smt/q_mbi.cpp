@@ -17,6 +17,7 @@ Author:
 
 #include "ast/ast_trail.h"
 #include "ast/ast_util.h"
+#include "ast/for_each_expr.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "qe/mbp/mbp_arith.h"
@@ -98,7 +99,6 @@ namespace q {
     }
 
     lbool mbqi::check_forall(quantifier* q) {
-
         quantifier* q_flat = m_qs.flatten(q);
         auto* qb = specialize(q_flat);
         if (!qb)
@@ -113,18 +113,33 @@ namespace q {
             return r;
         if (r == l_false)
             return l_true;
-        model_ref mdl0;
+        model_ref mdl0, mdl1;
+        expr_ref proj(m);
         m_solver->get_model(mdl0);
-        expr_ref proj = solver_project(*mdl0, *qb);
-        if (!proj)
-            return l_undef;
         sat::literal qlit = ctx.expr2literal(q);
         if (is_exists(q))
             qlit.neg();
-        ctx.get_rewriter()(proj);
-        TRACE("q", tout << proj << "\n";);
-        // TODO: add as top-level clause for relevancy
-        m_qs.add_clause(~qlit, ~ctx.mk_literal(proj));
+        unsigned i = 0;
+        {
+            ::solver::scoped_push _sp(*m_solver);
+            restrict_domains(*mdl0, *qb);
+            for (; i < m_max_cex && l_true == m_solver->check_sat(0, nullptr); ++i) {
+                m_solver->get_model(mdl1);
+                proj = solver_project(*mdl1, *qb);
+                if (!proj)
+                    break;
+                m_qs.add_clause(~qlit, ~ctx.mk_literal(proj));
+                m_solver->assert_expr(m.mk_not(proj));
+            }
+        }
+        if (i == 0) {
+            qb->domain_eqs.reset();
+            proj = solver_project(*mdl0, *qb);
+            if (!proj)
+                return l_undef;
+            m_qs.add_clause(~qlit, ~ctx.mk_literal(proj));
+        }
+        // TODO: add as top-level clause for relevancy        
         return l_false;
     }
 
@@ -146,6 +161,7 @@ namespace q {
                     restrict_to_universe(vars.get(i), m_model->get_universe(s));
             }
             expr_ref fml = subst(q->get_expr(), vars);
+            extract_var_args(q->get_expr(), *result);
             if (is_forall(q))
                 fml = m.mk_not(fml);
             flatten_and(fml, result->vbody);
@@ -189,12 +205,13 @@ namespace q {
         for (app* v : qb.vars)
             m_model->register_decl(v->get_decl(), mdl(v));
         TRACE("q",
-              tout << "Project\n";
-              tout << *m_model << "\n";
-              tout << qb.vbody << "\n";
-              tout << "model of projection\n" << mdl << "\n";);
+            tout << "Project\n";
+        tout << *m_model << "\n";
+        tout << qb.vbody << "\n";
+        tout << "model of projection\n" << mdl << "\n";);
         expr_ref_vector fmls(qb.vbody);
         app_ref_vector vars(qb.vars);
+        fmls.append(qb.domain_eqs);
         mbp::project_plugin proj(m);
         proj.purify(m_model_fixer, *m_model, vars, fmls);
         for (unsigned i = 0; i < vars.size(); ++i) {
@@ -203,17 +220,58 @@ namespace q {
             if (p)
                 (*p)(*m_model, vars, fmls);
         }
-        if (!vars.empty()) {
-            expr_safe_replace esubst(m);
-            for (app* v : vars) {
-                expr_ref val = assign_value(*m_model, v);
-                if (!val)
-                    return expr_ref(m);
-                esubst.insert(v, val);
-            }
-            esubst(fmls);
+        expr_safe_replace esubst(m);
+        for (app* v : qb.vars) {
+            expr_ref val = assign_value(*m_model, v);
+            if (!val)
+                return expr_ref(m);
+            esubst.insert(v, val);
         }
+        esubst(fmls);
         return mk_and(fmls);
+    }
+
+    /**
+    * Add disjunctions to m_solver that restrict the possible values of 
+    * arguments to uninterpreted functions. The disjunctions added to the solver
+    * are specialized with respect to m_model.
+    * Add also disjunctions to the quantifier "domain_eqs", to track the constraints
+    * added to the solver.
+    */
+    void mbqi::restrict_domains(model& mdl, q_body& qb) {
+        qb.domain_eqs.reset();
+        var_subst subst(m);
+        for (auto p : qb.var_args) {
+            expr_ref bounds = m_model_fixer.restrict_arg(p.first, p.second);           
+            if (m.is_true(bounds))
+                continue;
+            expr_ref vbounds = subst(bounds, qb.vars);
+            expr_ref mbounds(m);
+            if (!m_model->eval_expr(bounds, mbounds, true))
+                return;
+            mbounds = subst(mbounds, qb.vars);
+            std::cout << "restrict with bounds " << mbounds << " " << vbounds << "\n";
+            m_solver->assert_expr(mbounds);
+            qb.domain_eqs.push_back(vbounds);
+        }
+    }
+
+    /*
+    * Add domain restrictions for every non-ground arguments to uninterpreted functions.
+    */
+    void mbqi::extract_var_args(expr* _t, q_body& qb) {
+        expr_ref t(_t, m);
+        for (expr* s : subterms(t)) {
+            if (is_ground(s))
+                continue;
+            if (is_uninterp(s) && to_app(s)->get_num_args() > 0) {
+                app* a = to_app(s);
+                for (unsigned i = 0; i < a->get_num_args(); ++i) {                    
+                    if (is_ground(a->get_arg(i)))
+                        qb.var_args.push_back(std::make_pair(a, i));
+                }
+            }
+        }
     }
 
     expr_ref mbqi::assign_value(model& mdl, app* v) {
