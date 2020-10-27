@@ -49,7 +49,7 @@ namespace smt {
                 }
             }
             if (!is_taut && nf > 0) {
-                score += pow(0.5, nu);
+                score += pow(0.5, static_cast<double>(nu));
             }
         }
         return score;

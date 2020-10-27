@@ -553,7 +553,7 @@ namespace sat {
                 }
             }
             unsigned len = n->size();
-            sum += pow(0.5, len) * to_add / len;            
+            sum += pow(0.5, static_cast<double>(len)) * to_add / len;
         }
         return sum;
     } 
@@ -575,7 +575,7 @@ namespace sat {
         unsigned sz = m_nary_count[(~l).index()];
         for (nary * n : m_nary[(~l).index()]) {
             if (sz-- == 0) break;
-            sum += pow(0.5, n->size());
+            sum += pow(0.5, static_cast<double>(n->size()));
         }
         return sum;
     }
@@ -1490,14 +1490,14 @@ namespace sat {
                             to_add += literal_occs(lit);
                         }                        
                     }
-                    m_lookahead_reward += pow(0.5, nonfixed) * to_add / nonfixed;                    
+                    m_lookahead_reward += pow(0.5, static_cast<double>(nonfixed)) * to_add / nonfixed;
                     break;
                 }
                 case heule_unit_reward:
-                    m_lookahead_reward += pow(0.5, nonfixed);
+                    m_lookahead_reward += pow(0.5, static_cast<double>(nonfixed));
                     break;
                 case march_cu_reward:
-                    m_lookahead_reward += nonfixed >= 2 ? 3.3 * pow(0.5, nonfixed - 2) : 0.0;
+                    m_lookahead_reward += nonfixed >= 2 ? 3.3 * pow(0.5, static_cast<double>(nonfixed - 2)) : 0.0;
                     break;
                 case ternary_reward:
                     UNREACHABLE();
@@ -1615,14 +1615,14 @@ namespace sat {
                     to_add += literal_occs(l);
                 } 
             }
-            m_lookahead_reward += pow(0.5, sz) * to_add / sz;
+            m_lookahead_reward += pow(0.5, static_cast<double>(sz)) * to_add / sz;
             break;
         }
         case heule_unit_reward:
-            m_lookahead_reward += pow(0.5, sz);
+            m_lookahead_reward += pow(0.5, static_cast<double>(sz));
             break;
         case march_cu_reward:
-            m_lookahead_reward += 3.3 * pow(0.5, sz - 2);
+            m_lookahead_reward += 3.3 * pow(0.5, static_cast<double>(sz - 2));
             break;
         case ternary_reward:
             m_lookahead_reward = (double)0.001;            
@@ -2125,7 +2125,7 @@ namespace sat {
             }
         }
         for (nary * n : m_nary_clauses) {
-            h += 1.0 / pow(m_config.m_cube_psat_clause_base, n->size() - 1);
+            h += 1.0 / pow(m_config.m_cube_psat_clause_base, static_cast<double>(n->size() - 1));
         }
         h /= pow(m_freevars.size(), m_config.m_cube_psat_var_exp);
         IF_VERBOSE(10, verbose_stream() << "(sat-cube-psat :val " << h << ")\n";);
@@ -2189,7 +2189,7 @@ namespace sat {
             backtrack_level = UINT_MAX;
             depth = m_cube_state.m_cube.size();
             if (should_cutoff(depth)) {
-                double dec = (1.0 - pow(m_config.m_cube_fraction, depth));
+                double dec = (1.0 - pow(m_config.m_cube_fraction, static_cast<double>(depth)));
                 m_cube_state.m_freevars_threshold *= dec;
                 m_cube_state.m_psat_threshold *= 2.0 - dec;
                 set_conflict();

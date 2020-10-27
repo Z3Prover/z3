@@ -78,7 +78,7 @@ namespace ba {
             }
         }
         if (k >= slack) return 1;
-        return pow(0.5, slack - k + 1) * to_add;
+        return pow(0.5, static_cast<double>(slack - k + 1)) * to_add;
     }
 
     std::ostream& card::display(std::ostream& out) const {
