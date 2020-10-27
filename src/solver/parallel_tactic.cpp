@@ -327,7 +327,7 @@ class parallel_tactic : public tactic {
             p.copy(m_params);
             double exp = pp.simplify_exp();
             exp = std::max(exp, 1.0);
-            unsigned mult = static_cast<unsigned>(pow(exp, m_depth - 1));
+            unsigned mult = static_cast<unsigned>(pow(exp, static_cast<double>(m_depth - 1)));
             unsigned max_conflicts = pp.simplify_max_conflicts();
             if (max_conflicts < 1000000)
                 max_conflicts *= std::max(m_depth, 1u);

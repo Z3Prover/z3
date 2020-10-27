@@ -958,7 +958,7 @@ namespace sat {
         if (m_config.m_anti_exploration) {
             uint64_t age = m_stats.m_conflict - m_canceled[v];
             if (age > 0) {
-                double decay = pow(0.95, age);
+                double decay = pow(0.95, static_cast<double>(age));
                 set_activity(v, static_cast<unsigned>(m_activity[v] * decay));
                 // NB. MapleSAT does not update canceled.
                 m_canceled[v] = m_stats.m_conflict;
@@ -1640,7 +1640,7 @@ namespace sat {
                 next = m_case_split_queue.min_var();
                 auto age = m_stats.m_conflict - m_canceled[next];
                 while (age > 0) {
-                    set_activity(next, static_cast<unsigned>(m_activity[next] * pow(0.95, age)));
+                    set_activity(next, static_cast<unsigned>(m_activity[next] * pow(0.95, static_cast<double>(age))));
                     m_canceled[next] = m_stats.m_conflict;
                     next = m_case_split_queue.min_var();
                     age = m_stats.m_conflict - m_canceled[next];                    

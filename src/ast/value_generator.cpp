@@ -31,7 +31,7 @@
   bigger (and only equal for values 0, 1).
 */
 static void inverse_cantor(unsigned z, unsigned& x, unsigned& y) {
-    unsigned w = ((unsigned)sqrt(8*z + 1) - 1)/2;
+    unsigned w = ((unsigned)sqrt(static_cast<double>(8*z + 1)) - 1)/2;
     unsigned t = (unsigned)(w*w + w)/2;
     y = z - t;
     x = w - y;
