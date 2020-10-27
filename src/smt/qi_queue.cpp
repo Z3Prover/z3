@@ -203,12 +203,7 @@ namespace smt {
         enode * const * bindings = f->get_args();
 
         ent.m_instantiated = true;
-        
-        std::cout << mk_pp(q, m) << "\n";
-        for (unsigned i = 0; i < num_bindings; ++i)
-            std::cout << mk_pp(bindings[i]->get_owner(), m) << " ";
-        std::cout << "\n";
-        
+                
         TRACE("qi_queue_profile", tout << q->get_qid() << ", gen: " << generation << " " << *f << " cost: " << ent.m_cost << "\n";);
 
         quantifier_stat * stat = m_qm.get_stat(q);
