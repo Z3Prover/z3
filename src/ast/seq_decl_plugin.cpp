@@ -1679,7 +1679,6 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
     lbool nullable(l_false);
     unsigned min_length(0), lower_bound(0), upper_bound(UINT_MAX);
     bool is_value(false);
-    bool normalized(false);
     if (e->get_family_id() == u.get_family_id()) {
         switch (e->get_decl()->get_decl_kind()) {
         case OP_RE_EMPTY_SET:

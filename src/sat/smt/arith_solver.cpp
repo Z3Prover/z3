@@ -911,7 +911,6 @@ namespace arith {
             theory_var v = (i + start) % sz;
             if (is_bool(v))
                 continue;
-            enode* n1 = var2enode(v);
             ensure_column(v);
             if (!can_get_ivalue(v))
                 continue;

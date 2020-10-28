@@ -789,8 +789,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
 };
 }
 
-template class rewriter_tpl<th_rewriter_cfg>;
-
 struct th_rewriter::imp : public rewriter_tpl<th_rewriter_cfg> {
     th_rewriter_cfg m_cfg;
     imp(ast_manager & m, params_ref const & p):

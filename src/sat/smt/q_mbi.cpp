@@ -167,7 +167,6 @@ namespace q {
             flatten_and(fml, result->vbody);
         }
         expr_ref& mbody = result->mbody;
-        unsigned sz = q->get_num_decls();
         if (!m_model->eval_expr(q->get_expr(), mbody, true))
             return nullptr;
 
@@ -188,7 +187,6 @@ namespace q {
     */
     expr_ref mbqi::basic_project(model& mdl, quantifier* q, app_ref_vector& vars) {
         unsigned sz = q->get_num_decls();
-        unsigned max_generation = 0;
         expr_ref_vector vals(m);
         vals.resize(sz, nullptr);
         for (unsigned i = 0; i < sz; ++i) {
