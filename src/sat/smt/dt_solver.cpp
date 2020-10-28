@@ -26,7 +26,7 @@ namespace euf {
 namespace dt {
 
     solver::solver(euf::solver& ctx, theory_id id) :
-        th_euf_solver(ctx, m.get_family_name(id), id),
+        th_euf_solver(ctx, ctx.get_manager().get_family_name(id), id),
         dt(m),
         m_autil(m),
         m_find(*this),
