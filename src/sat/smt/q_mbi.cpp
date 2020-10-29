@@ -36,8 +36,7 @@ namespace q {
         m_qs(s),
         m(s.get_manager()),
         m_model_fixer(ctx, m_qs),
-        m_fresh_trail(m)
-    {
+        m_fresh_trail(m) {
         auto* ap = alloc(mbp::arith_project_plugin, m);
         ap->set_check_purified(false);
         ap->set_apply_projection(true);
@@ -120,9 +119,9 @@ namespace q {
         if (is_exists(q))
             qlit.neg();
         unsigned i = 0;
-        {
+        if (!qb->var_args.empty()) {        
             ::solver::scoped_push _sp(*m_solver);
-            restrict_domains(*mdl0, *qb);
+            add_domain_eqs(*mdl0, *qb);
             for (; i < m_max_cex && l_true == m_solver->check_sat(0, nullptr); ++i) {
                 m_solver->get_model(mdl1);
                 proj = solver_project(*mdl1, *qb);
@@ -133,7 +132,7 @@ namespace q {
             }
         }
         if (i == 0) {
-            qb->domain_eqs.reset();
+            add_domain_bounds(*mdl0, *qb);
             proj = solver_project(*mdl0, *qb);
             if (!proj)
                 return l_undef;
@@ -212,14 +211,17 @@ namespace q {
         expr_ref_vector fmls(qb.vbody);
         app_ref_vector vars(qb.vars);
         fmls.append(qb.domain_eqs);
+        eliminate_nested_vars(fmls, qb);
         mbp::project_plugin proj(m);
-        proj.purify(m_model_fixer, *m_model, vars, fmls);
+        proj.extract_literals(*m_model, vars, fmls);
         for (unsigned i = 0; i < vars.size(); ++i) {
             app* v = vars.get(i);
             auto* p = get_plugin(v);
             if (p)
                 (*p)(*m_model, vars, fmls);
         }
+#if 0
+        // should be redundant
         expr_safe_replace esubst(m);
         for (app* v : qb.vars) {
             expr_ref val = assign_value(*m_model, v);
@@ -228,6 +230,7 @@ namespace q {
             esubst.insert(v, val);
         }
         esubst(fmls);
+#endif
         return mk_and(fmls);
     }
 
@@ -238,7 +241,7 @@ namespace q {
     * Add also disjunctions to the quantifier "domain_eqs", to track the constraints
     * added to the solver.
     */
-    void mbqi::restrict_domains(model& mdl, q_body& qb) {
+    void mbqi::add_domain_eqs(model& mdl, q_body& qb) {
         qb.domain_eqs.reset();
         var_subst subst(m);
         for (auto p : qb.var_args) {
@@ -256,6 +259,43 @@ namespace q {
         }
     }
 
+
+    /*
+    * Add bounds to sub-terms under uninterpreted functions for projection.
+    */
+    void mbqi::add_domain_bounds(model& mdl, q_body& qb) {
+        qb.domain_eqs.reset();
+        for (app* v : qb.vars)
+            m_model->register_decl(v->get_decl(), mdl(v));
+        if (qb.var_args.empty())
+            return;
+        var_subst subst(m);
+        for (auto p : qb.var_args) {
+            expr_ref _term = subst(p.first, qb.vars);
+            app_ref  term(to_app(_term), m);
+            expr_ref value = (*m_model)(term->get_arg(p.second));
+            m_model_fixer.invert_arg(term, p.second, value, qb.domain_eqs);
+        }
+    }
+
+    /*
+    * Remove occurrences of free functions that contain variables.
+    */
+    void mbqi::eliminate_nested_vars(expr_ref_vector& fmls, q_body& qb) {
+        if (qb.var_args.empty())
+            return;
+        expr_safe_replace rep(m);
+        var_subst subst(m);
+        for (auto p : qb.var_args) {
+            expr_ref _term = subst(p.first, qb.vars);
+            app_ref  term(to_app(_term), m);
+            expr_ref value = (*m_model)(term);
+            expr* s = m_model_fixer.invert_app(term, value);
+            rep.insert(term, s);
+        }
+        rep(fmls);
+    }
+
     /*
     * Add domain restrictions for every non-ground arguments to uninterpreted functions.
     */
@@ -265,10 +305,11 @@ namespace q {
             if (is_ground(s))
                 continue;
             if (is_uninterp(s) && to_app(s)->get_num_args() > 0) {
-                app* a = to_app(s);
-                for (unsigned i = 0; i < a->get_num_args(); ++i) {                    
-                    if (is_ground(a->get_arg(i)))
-                        qb.var_args.push_back(std::make_pair(a, i));
+                unsigned i = 0;
+                for (expr* arg : *to_app(s)) {
+                    if (!is_ground(arg) && !is_uninterp(arg))
+                        qb.var_args.push_back(std::make_pair(to_app(s), i));
+                    ++i;
                 }
             }
         }

@@ -61,7 +61,9 @@ namespace q {
         expr_ref basic_project(model& mdl, quantifier* q, app_ref_vector& vars);
         expr_ref solver_project(model& mdl, q_body& qb);
         expr_ref assign_value(model& mdl, app* v);
-        void restrict_domains(model& mdl, q_body& qb);
+        void add_domain_eqs(model& mdl, q_body& qb);
+        void add_domain_bounds(model& mdl, q_body& qb);
+        void eliminate_nested_vars(expr_ref_vector& fmls, q_body& qb);
         void extract_var_args(expr* t, q_body& qb);
         void init_model();
         void init_solver();

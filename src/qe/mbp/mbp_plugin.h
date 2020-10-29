@@ -35,17 +35,6 @@ namespace mbp {
         def(const expr_ref& v, expr_ref& t): var(v), term(t) {}
     };
 
-    /***
-    * An EUF inverter provides two services:
-    * 1. It inverts an uninterpreted function application f(s1,s2) with 'value' to a ground term evaluating to the same 
-    * 2. It adds constraints for arguments to s_i with 'value' to be within the bounds of the model value.
-    */
-    class euf_inverter {
-    public:
-        virtual expr* invert_app(app* t, expr* value) = 0;
-        virtual void invert_arg(app* t, unsigned i, expr* value, expr_ref_vector& lits) = 0;
-    };
-
     class project_plugin {
         ast_manager&     m;
         expr_mark        m_visited;
@@ -66,9 +55,6 @@ namespace mbp {
         void push_back(expr_ref_vector& lits, expr* lit);
 
         void mark_non_ground(expr* e);
-
-        expr* purify(euf_inverter& inv, model_evaluator& eval, expr* e, expr_ref_vector& lits);
-        void purify_app(euf_inverter& inv, model_evaluator& eval, app* t, expr_ref_vector& lits);
 
     public:
         project_plugin(ast_manager& m) :m(m), m_cache(m), m_args(m), m_pure_eqs(m) {}
@@ -103,12 +89,6 @@ namespace mbp {
         */
         void extract_literals(model& model, app_ref_vector const& vars, expr_ref_vector& fmls);
 
-        /*
-        * Purify literals into linear inequalities or constraints without arithmetic variables.
-        */
-
-        void purify(euf_inverter& inv, model& model, app_ref_vector const& vars, expr_ref_vector& fmls);
-
         static expr_ref pick_equality(ast_manager& m, model& model, expr* t);
         static void erase(expr_ref_vector& lits, unsigned& i);
 
@@ -125,6 +105,7 @@ namespace mbp {
         }
 
         bool is_non_ground(expr* t) const { return m_non_ground.is_marked(t); }
+
     };
 }
 

@@ -70,7 +70,7 @@ namespace q {
         struct eq { bool operator()(indexed_decl const& a, indexed_decl const& b) const { return a.idx == b.idx && a.f == b.f; } };
     };
 
-    class model_fixer : public quantifier2macro_infos, public mbp::euf_inverter {
+    class model_fixer : public quantifier2macro_infos {
         euf::solver& ctx;
         solver& m_qs;
         ast_manager& m;
@@ -113,8 +113,17 @@ namespace q {
         */
         expr_ref restrict_arg(app* t, unsigned i);
 
-        expr* invert_app(app* t, expr* value) override;
-        void invert_arg(app* t, unsigned i, expr* value, expr_ref_vector& lits) override;
+        /*
+        * Create inequality constraints for the i'th argument of t based on the current model.
+        */
+        void invert_arg(app* t, unsigned i, expr* value, expr_ref_vector& lits);
+
+        /*
+        * Replace term that contains uninterpreted function over free variables with a ground term.
+        */
+        expr* invert_app(app* t, expr* value);
+
+
     };
 
 }
