@@ -1420,6 +1420,8 @@ namespace smt {
                                           unsigned num_antecedent_eqs, enode_pair const * antecedent_eqs,
                                           literal consequent = false_literal, symbol const& logic = symbol::null) const;
 
+        std::string mk_lemma_name() const;
+
         void display_assignment_as_smtlib2(std::ostream& out, symbol const& logic = symbol::null) const;
 
         void display_normalized_enodes(std::ostream & out) const;

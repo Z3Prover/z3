@@ -430,14 +430,12 @@ namespace smt {
         out << "(check-sat)\n";
     }
 
+
     unsigned context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent, symbol const& logic) const {
-        std::stringstream strm;
-        std::thread::id this_id = std::this_thread::get_id();
-        strm << "lemma_" << this_id << "." << (++m_lemma_id) << ".smt2";
-        std::ofstream out(strm.str());
-        TRACE("lemma", tout << strm.str() << "\n";);
+        std::string name = mk_lemma_name();
+        std::ofstream out(name);
+        TRACE("lemma", tout << name << "\n";);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, consequent, logic);
-        TRACE("non_linear", display_lemma_as_smt_problem(tout, num_antecedents, antecedents, consequent, logic););
         out.close();
         return m_lemma_id;
     }
@@ -471,14 +469,20 @@ namespace smt {
         out << "(check-sat)\n";
     }
 
-    unsigned context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
-                                               unsigned num_eq_antecedents, enode_pair const * eq_antecedents,
-                                               literal consequent, symbol const& logic) const {
+    std::string context::mk_lemma_name() const {
         std::stringstream strm;
         std::thread::id this_id = std::this_thread::get_id();
         strm << "lemma_" << this_id << "." << (++m_lemma_id) << ".smt2";
-        std::ofstream out(strm.str());
-        TRACE("lemma", tout << strm.str() << "\n";
+        return strm.str();
+    }
+
+
+    unsigned context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
+                                               unsigned num_eq_antecedents, enode_pair const * eq_antecedents,
+                                               literal consequent, symbol const& logic) const {
+        std::string name = mk_lemma_name();
+        std::ofstream out(name);
+        TRACE("lemma", tout << name << "\n";
               display_lemma_as_smt_problem(tout, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
               );
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
