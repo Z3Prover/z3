@@ -1209,6 +1209,8 @@ typedef enum {
     // strings
     Z3_OP_STR_TO_INT,
     Z3_OP_INT_TO_STR,
+    Z3_OP_STRING_LT,
+    Z3_OP_STRING_LE,
 
     // regular expressions
     Z3_OP_RE_PLUS,

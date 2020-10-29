@@ -1202,6 +1202,8 @@ extern "C" {
 
             case OP_STRING_STOI: return Z3_OP_STR_TO_INT;
             case OP_STRING_ITOS: return Z3_OP_INT_TO_STR;
+            case OP_STRING_LT: return Z3_OP_STRING_LT;
+            case OP_STRING_LE: return Z3_OP_STRING_LE;
 
             case OP_RE_PLUS: return Z3_OP_RE_PLUS;
             case OP_RE_STAR: return Z3_OP_RE_STAR;
