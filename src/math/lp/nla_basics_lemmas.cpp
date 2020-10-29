@@ -586,11 +586,11 @@ bool basics::can_create_lemma_for_mon_neutral_from_factors_to_monic_model_based(
     for (auto j : f) {
         TRACE("nla_solver_bl", tout << "j = "; c().print_factor_with_vars(j, tout););
         auto v = val(j);
-        if (v == rational(1)) {
+
+        if (v.is_one()) 
             continue;
-        }
             
-        if (v == -rational(1)) { 
+        if (v.is_minus_one()) {
             sign = -sign;
             continue;
         } 
@@ -627,11 +627,18 @@ bool basics::can_create_lemma_for_mon_neutral_from_factors_to_monic_model_based(
     or 
     /\ f_j = val(f_j) => m = sign if all factors evaluate to +/- 1
 
+Note:
+   The routine can_create_lemma_for_mon_neutral_from_factors_to_monic_model_based does
+   not check the signs of factors. Factors have signs. It works assuming all factors have
+   positive signs. 
 */ 
 bool basics::basic_lemma_for_mon_neutral_from_factors_to_monic_model_based(const monic& m, const factorization& f) {
     lpvar not_one; rational sign;
     if (!can_create_lemma_for_mon_neutral_from_factors_to_monic_model_based(m, f, not_one, sign))
         return false;
+    for (auto j : f) 
+        if (j.sign())
+            return false;
     TRACE("nla_solver_bl", tout << "not_one = " << not_one << "\n";);
         
     new_lemma lemma(c(), __FUNCTION__);
