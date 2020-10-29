@@ -118,8 +118,8 @@ scoped_timer::~scoped_timer() {
 
 void scoped_timer::finalize() {
     unsigned deleted = 0;
-
-    while (deleted < num_workers) {
+    unsigned tries = 0;
+    while (deleted < num_workers && tries < 10) {
         workers.lock();
         for (auto w : available_workers) {
             w->work = 2;
@@ -135,5 +135,6 @@ void scoped_timer::finalize() {
             delete w->m_thread;
             delete w;
         }
+        ++tries;
     }
 }
