@@ -21,6 +21,9 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/ast_pp_util.h"
 #include "util/stats.h"
+#ifndef SINGLE_THREAD
+#include <thread>
+#endif
 
 namespace smt {
 
@@ -471,8 +474,12 @@ namespace smt {
 
     std::string context::mk_lemma_name() const {
         std::stringstream strm;
+#ifndef SINGLE_THREAD
         std::thread::id this_id = std::this_thread::get_id();
         strm << "lemma_" << this_id << "." << (++m_lemma_id) << ".smt2";
+#else
+        strm << "lemma_" << (++m_lemma_id) << ".smt2";
+#endif
         return strm.str();
     }
 
