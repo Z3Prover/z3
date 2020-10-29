@@ -1584,7 +1584,14 @@ extern "C" {
        \c Z3_solver, \c Z3_func_interp have to be managed by the caller.
        Their reference counts are not handled by the context.
 
-       Further remarks:
+       \remark Thread safety: objects created using a given context should not be 
+       accessed from different threads without synchronization. In other words, 
+       operations on a context are not thread safe. To use Z3 from different threads
+       create separate context objects. The \c Z3_translate, \c Z3_solver_translate, 
+       \c Z3_model_translate, \c Z3_goal_translate
+       methods are exposed to allow copying state from one context to another.
+
+       \remark
        - \c Z3_sort, \c Z3_func_decl, \c Z3_app, \c Z3_pattern are \c Z3_ast's.
        - Z3 uses hash-consing, i.e., when the same \c Z3_ast is created twice,
          Z3 will return the same pointer twice.
@@ -5234,6 +5241,10 @@ extern "C" {
 
     /**
        \brief translate model from context \c c to context \c dst.
+
+       \remark Use this method for cloning state between contexts. Note that 
+       operations on contexts are not thread safe and therefore all operations
+       that related to a given context have to be synchronized (or run in the same thread).
 
        def_API('Z3_model_translate', MODEL, (_in(CONTEXT), _in(MODEL), _in(CONTEXT)))
     */
