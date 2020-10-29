@@ -1136,7 +1136,7 @@ bool theory_arith<Ext>::get_polynomial_info(buffer<coeff_expr> const & p, sbuffe
         if (m_util.is_numeral(m)) {
             continue;
         }
-        else if (m_util.is_add(m)) 
+        else if (false && m_util.is_add(m)) // introduced by #4532, disabled for #4765
             return false;
         else if (ctx.e_internalized(m) && !is_pure_monomial(m))
             add_occ(m);

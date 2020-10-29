@@ -432,7 +432,8 @@ namespace smt {
 
     unsigned context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent, symbol const& logic) const {
         std::stringstream strm;
-        strm << "lemma_" << (++m_lemma_id) << ".smt2";
+        std::thread::id this_id = std::this_thread::get_id();
+        strm << "lemma_" << this_id << "." << (++m_lemma_id) << ".smt2";
         std::ofstream out(strm.str());
         TRACE("lemma", tout << strm.str() << "\n";);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, consequent, logic);
@@ -474,7 +475,8 @@ namespace smt {
                                                unsigned num_eq_antecedents, enode_pair const * eq_antecedents,
                                                literal consequent, symbol const& logic) const {
         std::stringstream strm;
-        strm << "lemma_" << (++m_lemma_id) << ".smt2";
+        std::thread::id this_id = std::this_thread::get_id();
+        strm << "lemma_" << this_id << "." << (++m_lemma_id) << ".smt2";
         std::ofstream out(strm.str());
         TRACE("lemma", tout << strm.str() << "\n";
               display_lemma_as_smt_problem(tout, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
