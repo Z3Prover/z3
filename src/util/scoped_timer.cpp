@@ -20,17 +20,19 @@ Revision History:
 --*/
 
 #include "util/scoped_timer.h"
-#include "util/mutex.h"
 #include "util/util.h"
-#include "util/vector.h"
 #include <chrono>
 #include <climits>
 #include <condition_variable>
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <atomic>
 
-struct state {
+
+
+
+struct scoped_timer_state {
     std::thread * m_thread { nullptr };
     std::timed_mutex m_mutex;
     event_handler * eh;
@@ -39,11 +41,11 @@ struct state {
     std::condition_variable_any cv;
 };
 
-static std::vector<state*> available_workers;
+static std::vector<scoped_timer_state*> available_workers;
 static std::mutex workers;
-static atomic<unsigned> num_workers(0);
+static std::atomic<unsigned> num_workers(0);
 
-static void thread_func(state *s) {
+static void thread_func(scoped_timer_state *s) {
     workers.lock();
     while (true) {
         s->cv.wait(workers, [=]{ return s->work > 0; });
@@ -71,16 +73,17 @@ static void thread_func(state *s) {
     }
 }
 
+
 struct scoped_timer::imp {
 private:
-    state *s;
+    scoped_timer_state *s;
 
 public:
     imp(unsigned ms, event_handler * eh) {
         workers.lock();
         if (available_workers.empty()) {
             workers.unlock();
-            s = new state;
+            s = new scoped_timer_state;
             ++num_workers;
         } 
         else {
