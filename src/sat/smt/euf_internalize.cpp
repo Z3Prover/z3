@@ -21,7 +21,6 @@ Author:
 namespace euf {
 
     void solver::internalize(expr* e, bool redundant) {
-        SASSERT(!get_enode(e) || get_enode(e)->bool_var() < UINT_MAX);
         if (get_enode(e))
             return;
         if (si.is_bool_op(e))

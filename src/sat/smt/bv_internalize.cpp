@@ -139,7 +139,7 @@ namespace bv {
             n = mk_enode(e, suppress_args);
 
         SASSERT(!n->is_attached_to(get_id()));
-        theory_var v = mk_var(n);
+        mk_var(n);
         SASSERT(n->is_attached_to(get_id()));
         if (internalize_mode::no_delay_i != get_internalize_mode(a)) 
             mk_bits(n->get_th_var(get_id()));
