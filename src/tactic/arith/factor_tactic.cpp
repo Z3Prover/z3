@@ -264,7 +264,7 @@ class factor_tactic : public tactic {
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);
             unsigned   size = g->size();
-            for (unsigned idx = 0; idx < size; idx++) {
+            for (unsigned idx = 0; !g->inconsistent() && idx < size; idx++) {
                 expr * curr = g->form(idx);
                 m_rw(curr, new_curr, new_pr);
                 if (produce_proofs) {
