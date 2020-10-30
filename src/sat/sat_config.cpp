@@ -192,7 +192,7 @@ namespace sat {
         m_drat_check_unsat  = p.drat_check_unsat();
         m_drat_check_sat  = p.drat_check_sat();
         m_drat_file       = p.drat_file();
-        m_drat            = (m_drat_check_unsat || m_drat_file != symbol("") || m_drat_check_sat) && p.threads() == 1;
+        m_drat            = (m_drat_check_unsat || m_drat_file.is_non_empty_string() || m_drat_check_sat) && p.threads() == 1;
         m_drat_binary     = p.drat_binary();
         m_drat_activity   = p.drat_activity();
         m_dyn_sub_res     = p.dyn_sub_res();

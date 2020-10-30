@@ -392,6 +392,8 @@ namespace sat {
     }
 
     void solver::drat_log_unit(literal lit, justification j) {
+        if (!m_ext)
+            return;
         extension::scoped_drating _sd(*m_ext.get());
         if (j.get_kind() == justification::EXT_JUSTIFICATION) 
             fill_ext_antecedents(lit, j, false);

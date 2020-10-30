@@ -127,6 +127,7 @@ namespace q {
                 proj = solver_project(*mdl1, *qb);
                 if (!proj)
                     break;
+                TRACE("q", tout << "project: " << proj << "\n";);
                 m_qs.add_clause(~qlit, ~ctx.mk_literal(proj));
                 m_solver->assert_expr(m.mk_not(proj));
             }
@@ -136,6 +137,7 @@ namespace q {
             proj = solver_project(*mdl0, *qb);
             if (!proj)
                 return l_undef;
+            TRACE("q", tout << "project-base: " << proj << "\n";);
             m_qs.add_clause(~qlit, ~ctx.mk_literal(proj));
         }
         // TODO: add as top-level clause for relevancy        
@@ -251,7 +253,6 @@ namespace q {
             if (!m_model->eval_expr(bounds, mbounds, true))
                 return;
             mbounds = subst(mbounds, qb.vars);
-            std::cout << "restrict with bounds " << mbounds << " " << vbounds << "\n";
             m_solver->assert_expr(mbounds);
             qb.domain_eqs.push_back(vbounds);
         }

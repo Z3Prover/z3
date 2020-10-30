@@ -18,9 +18,15 @@ Author:
 
 namespace sat {
 
+    dual_solver::no_drat_params::no_drat_params() {
+        set_sym("drat.file", symbol());
+    }
+
     dual_solver::dual_solver(reslimit& l):
-        m_solver(params_ref(), l)
-    {}
+        m_solver(m_params, l)
+    {
+        SASSERT(!m_solver.get_config().m_drat);
+    }
 
     void dual_solver::push() {
         m_solver.user_push(); 
