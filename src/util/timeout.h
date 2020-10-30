@@ -21,4 +21,5 @@ Revision History:
 void register_on_timeout_proc(void (*proc)());
 
 void set_timeout(long ms);
+void disable_timeout();
 

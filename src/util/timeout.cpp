@@ -47,8 +47,11 @@ static g_timeout_eh eh;
 
 void set_timeout(long ms) {
     SASSERT(!g_timeout);
-    // this is leaked, but since it's only used in the shell, it's ok
     g_timeout = new scoped_timer(ms, &eh);
+}
+
+void disable_timeout() {
+    delete g_timeout;
 }
 
 void register_on_timeout_proc(void (*proc)()) {

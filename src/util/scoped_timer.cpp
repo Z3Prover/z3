@@ -20,6 +20,7 @@ Revision History:
 --*/
 
 #include "util/scoped_timer.h"
+#include "util/mutex.h"
 #include "util/util.h"
 #include <chrono>
 #include <climits>
@@ -27,10 +28,6 @@ Revision History:
 #include <mutex>
 #include <thread>
 #include <vector>
-#include <atomic>
-
-
-
 
 struct scoped_timer_state {
     std::thread * m_thread { nullptr };
@@ -43,7 +40,7 @@ struct scoped_timer_state {
 
 static std::vector<scoped_timer_state*> available_workers;
 static std::mutex workers;
-static std::atomic<unsigned> num_workers(0);
+static atomic<unsigned> num_workers(0);
 
 static void thread_func(scoped_timer_state *s) {
     workers.lock();
@@ -121,8 +118,7 @@ scoped_timer::~scoped_timer() {
 
 void scoped_timer::finalize() {
     unsigned deleted = 0;
-    unsigned tries = 0;
-    while (deleted < num_workers && tries < 10) {
+    while (deleted < num_workers) {
         workers.lock();
         for (auto w : available_workers) {
             w->work = 2;
@@ -138,6 +134,5 @@ void scoped_timer::finalize() {
             delete w->m_thread;
             delete w;
         }
-        ++tries;
     }
 }

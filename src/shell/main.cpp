@@ -398,6 +398,7 @@ int STD_CALL main(int argc, char ** argv) {
         default:
             UNREACHABLE();
         }
+        disable_timeout();
         memory::finalize();
 #ifdef _WINDOWS
         _CrtDumpMemoryLeaks();
