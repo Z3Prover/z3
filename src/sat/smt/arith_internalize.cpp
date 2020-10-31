@@ -119,7 +119,6 @@ namespace arith {
             literal lit = eq_internalize(n, e);
             add_unit(lit);
         }
-
     }
 
     lpvar solver::add_const(int c, lpvar& var, bool is_int) {
@@ -297,6 +296,11 @@ namespace arith {
             }
         }
         st.to_ensure_var().reset();
+    }
+
+    void solver::eq_internalized(enode* n) {
+        internalize_term(n->get_arg(0)->get_expr());
+        internalize_term(n->get_arg(1)->get_expr());
     }
 
     bool solver::internalize_atom(expr* atom) {

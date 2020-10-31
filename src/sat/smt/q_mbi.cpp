@@ -203,14 +203,25 @@ namespace q {
     expr_ref mbqi::solver_project(model& mdl, q_body& qb) {
         for (app* v : qb.vars)
             m_model->register_decl(v->get_decl(), mdl(v));
-        TRACE("q",
-            tout << "Project\n";
-        tout << *m_model << "\n";
-        tout << qb.vbody << "\n";
-        tout << "model of projection\n" << mdl << "\n";);
         expr_ref_vector fmls(qb.vbody);
         app_ref_vector vars(qb.vars);
         fmls.append(qb.domain_eqs);
+        TRACE("q",
+            tout << "Project\n";
+        tout << *m_model << "\n";
+        tout << fmls << "\n";
+        tout << "model of projection\n" << mdl << "\n";
+        tout << "var args: " << qb.var_args.size() << "\n";
+        for (expr* f : fmls)
+            if (m_model->is_false(f))
+                tout << mk_pp(f, m) << " := false\n";
+        );
+        // 
+        // TBD: need to compute projection based on eliminate_nested_vars,
+        // but apply it based on original formulas, or add constraints that
+        // nested variable occurrences are equal to their subsitutions.
+        // The result may not be a proper projection.
+        // 
         eliminate_nested_vars(fmls, qb);
         mbp::project_plugin proj(m);
         proj.extract_literals(*m_model, vars, fmls);
@@ -220,17 +231,6 @@ namespace q {
             if (p)
                 (*p)(*m_model, vars, fmls);
         }
-#if 0
-        // should be redundant
-        expr_safe_replace esubst(m);
-        for (app* v : qb.vars) {
-            expr_ref val = assign_value(*m_model, v);
-            if (!val)
-                return expr_ref(m);
-            esubst.insert(v, val);
-        }
-        esubst(fmls);
-#endif
         return mk_and(fmls);
     }
 

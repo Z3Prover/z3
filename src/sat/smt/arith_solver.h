@@ -432,6 +432,7 @@ namespace arith {
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool redundant) override;
+        void eq_internalized(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode* n, sort* s) override {}
         bool is_shared(theory_var v) const override;
         lbool get_phase(bool_var v) override;
