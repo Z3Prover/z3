@@ -376,7 +376,6 @@ public:
 };
 
 
-
 template<typename Ctx, typename T>
 class remove_obj_trail : public trail<Ctx> {
     obj_hashtable<T>& m_table;

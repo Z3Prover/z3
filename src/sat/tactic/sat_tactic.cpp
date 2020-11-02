@@ -208,6 +208,7 @@ public:
         }
         catch (z3_exception& ex) {
             (void)ex;
+            proc.m_solver->collect_statistics(m_stats);
             TRACE("sat", tout << ex.msg() << "\n";);            
             throw;
         }

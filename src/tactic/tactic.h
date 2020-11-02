@@ -62,7 +62,7 @@ public:
     */
     virtual void operator()(goal_ref const & in, goal_ref_buffer& result) = 0;
 
-    virtual void collect_statistics(statistics & st) const {}
+    virtual void collect_statistics(statistics & st) const { }
     virtual void reset_statistics() {}
     virtual void cleanup() = 0;
     virtual void reset() { cleanup(); }

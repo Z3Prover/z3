@@ -83,6 +83,7 @@ namespace euf {
         if (ext)
             return ext;
         ext = alloc(q::solver, *this, fid);
+        m_qsolver = ext;
         add_solver(ext);
         return ext;
     }
@@ -364,11 +365,33 @@ namespace euf {
         }
     }
 
+    bool solver::is_self_propagated(th_eq const& e) {
+        if (!e.is_eq())
+            return false;
+        
+        m_egraph.begin_explain();
+        m_explain.reset();
+        m_egraph.explain_eq<size_t>(m_explain, e.child(), e.root());
+        m_egraph.end_explain();
+        for (auto p : m_explain) {
+            if (is_literal(p))
+                return false;
+
+            size_t idx = get_justification(p);
+            auto* ext = sat::constraint_base::to_extension(idx);                
+            if (ext->get_id() != e.id())
+                return false;
+        }
+        return true;
+    }
+
     void solver::propagate_th_eqs() {
         for (; m_egraph.has_th_eq() && !s().inconsistent() && !m_egraph.inconsistent(); m_egraph.next_th_eq()) {
             th_eq eq = m_egraph.get_th_eq();
-            if (eq.is_eq())
-                m_id2solver[eq.id()]->new_eq_eh(eq);    
+            if (eq.is_eq()) {
+                if (!is_self_propagated(eq))
+                    m_id2solver[eq.id()]->new_eq_eh(eq);    
+            }
             else
                 m_id2solver[eq.id()]->new_diseq_eh(eq);
         }
@@ -404,16 +427,22 @@ namespace euf {
         for (auto* e : m_solvers) {
             if (!m.inc())
                 return sat::check_result::CR_GIVEUP;
+            if (e == m_qsolver)
+                continue;
             switch (e->check()) {
             case sat::check_result::CR_CONTINUE: cont = true; break;
             case sat::check_result::CR_GIVEUP: give_up = true; break;
             default: break;
             }
+            if (s().inconsistent())
+                return sat::check_result::CR_CONTINUE;
         }
         if (cont)
             return sat::check_result::CR_CONTINUE;
         if (give_up)
             return sat::check_result::CR_GIVEUP;
+        if (m_qsolver)
+            return m_qsolver->check();
         TRACE("after_search", s().display(tout););
         return sat::check_result::CR_DONE;
     }

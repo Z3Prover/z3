@@ -150,6 +150,7 @@ namespace euf {
         bool is_true(sat::literal a, sat::literal b, sat::literal c, sat::literal d) { return is_true(a) || is_true(b, c, c); }
 
         sat::literal eq_internalize(expr* a, expr* b);
+        sat::literal eq_internalize(enode* a, enode* b) { return eq_internalize(a->get_expr(), b->get_expr()); }
 
         euf::enode* e_internalize(expr* e); 
         euf::enode* mk_enode(expr* e, bool suppress_args = false);

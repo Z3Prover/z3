@@ -424,6 +424,7 @@ namespace sat {
             }
         }       
 
+
         switch (num_lits) {
         case 0:
             set_conflict();

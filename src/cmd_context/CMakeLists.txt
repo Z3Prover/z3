@@ -1,7 +1,6 @@
 z3_add_component(cmd_context
   SOURCES
     basic_cmds.cpp
-    check_logic.cpp
     cmd_context.cpp
     cmd_context_to_goal.cpp
     cmd_util.cpp

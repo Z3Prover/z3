@@ -35,10 +35,10 @@ Notes:
 #include "ast/rewriter/seq_rewriter.h"
 #include "tactic/generic_model_converter.h"
 #include "solver/solver.h"
+#include "solver/check_logic.h"
 #include "solver/progress_callback.h"
 #include "cmd_context/pdecl.h"
 #include "cmd_context/tactic_manager.h"
-#include "cmd_context/check_logic.h"
 #include "params/context_params.h"
 
 

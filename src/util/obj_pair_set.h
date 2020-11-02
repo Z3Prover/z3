@@ -39,8 +39,9 @@ public:
     void insert(obj_pair const & p) { m_set.insert(p); }
     bool insert_if_not_there(T1 * t1, T2 * t2) { return m_set.insert_if_not_there2(obj_pair(t1, t2)); }
     bool insert_if_not_there(obj_pair const & p) { return m_set.insert_if_not_there2(p); }
-    void erase(T1 * t1, T2 * t2) { return m_set.erase(obj_pair(t1, t2)); }
-    void erase(obj_pair const & p) { return m_set.erase(p); }
+    void erase(T1 * t1, T2 * t2) { m_set.erase(obj_pair(t1, t2)); }
+    void erase(obj_pair const & p) { m_set.erase(p); }
+    void remove(obj_pair const & p) { erase(p); }
     bool contains(T1 * t1, T2 * t2) const { return m_set.contains(obj_pair(t1, t2)); }
     bool contains(obj_pair const & p) const { return m_set.contains(p); }
     void reset() { m_set.reset(); }

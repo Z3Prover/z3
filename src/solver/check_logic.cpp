@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include "cmd_context/check_logic.h"
+#include "solver/check_logic.h"
 #include "solver/smt_logics.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"

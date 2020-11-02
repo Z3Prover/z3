@@ -79,6 +79,8 @@ namespace q {
         void init_search();
 
         void finalize_model(model& mdl);
+
+        void collect_statistics(statistics& st) const;
     };
 
 }

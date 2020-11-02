@@ -118,7 +118,7 @@ namespace smt {
         // after n1 and n2 are marked as relevant.
         //
         data d;
-        if (m_already_processed.find(n1, n2, d))
+        if (m_already_processed.find(n1, n2, d)) 
             return;
         
         TRACE("arith_eq_adapter_profile", tout << "mk #" << n1->get_owner_id() << " #" << n2->get_owner_id() << " " <<

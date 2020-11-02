@@ -60,6 +60,7 @@ namespace q {
 
     void solver::collect_statistics(statistics& st) const {
         st.update("quantifier asserts", m_stats.m_num_quantifier_asserts);
+        m_mbqi.collect_statistics(st);
     }
 
     euf::th_solver* solver::clone(euf::solver& ctx) {

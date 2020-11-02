@@ -296,15 +296,34 @@ namespace arith {
         return lp::EQ;
     }
 
-    void solver::mk_eq_axiom(bool is_eq, theory_var v1, theory_var v2) {
+    void solver::mk_eq_axiom(bool is_eq, euf::th_eq const& e) {
+        theory_var v1 = e.v1();
+        theory_var v2 = e.v2();
         if (is_bool(v1))
             return;
+        force_push();
         expr* e1 = var2expr(v1);
         expr* e2 = var2expr(v2);
+        if (e1->get_id() > e2->get_id())
+            std::swap(e1, e2);
+            
         if (is_eq && m.are_equal(e1, e2))
             return;
         if (!is_eq && m.are_distinct(e1, e2))
             return;       
+
+        if (is_eq) {       
+            ++m_stats.m_assert_eq;
+            euf::enode* n1 = var2enode(v1);
+            euf::enode* n2 = var2enode(v2);
+            lpvar w1 = register_theory_var_in_lar_solver(v1);
+            lpvar w2 = register_theory_var_in_lar_solver(v2);
+            auto cs = lp().add_equality(w1, w2);            
+            add_eq_constraint(cs.first, n1, n2);
+            add_eq_constraint(cs.second, n1, n2);
+            m_new_eq = true;
+            return;
+        }
         literal le, ge;
         if (a.is_numeral(e1))
             std::swap(e1, e2);
@@ -332,6 +351,7 @@ namespace arith {
             le = mk_literal(a.mk_le(diff, zero));
             ge = mk_literal(a.mk_ge(diff, zero));
         }
+        ++m_stats.m_assert_diseq;  
         add_clause(~eq, le);
         add_clause(~eq, ge);
         add_clause(~le, ~ge, eq);

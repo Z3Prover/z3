@@ -1,6 +1,7 @@
 z3_add_component(solver
   SOURCES
     check_sat_result.cpp
+    check_logic.cpp
     combined_solver.cpp
     mus.cpp
     parallel_tactic.cpp

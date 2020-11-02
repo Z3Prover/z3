@@ -387,4 +387,9 @@ namespace q {
         m_plugins.set(fid, p);
     }
 
+    void mbqi::collect_statistics(statistics& st) const {
+        if (m_solver)
+            m_solver->collect_statistics(st);
+    }
+
 }

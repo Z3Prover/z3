@@ -279,19 +279,18 @@ public:
             display_child(n);
             return;
         }
-        if (to_app(n)->get_num_args() > depth && to_app(n)->get_num_args() > 16) {
-            display_child(n);
-            return;
-        }
         unsigned num_args = to_app(n)->get_num_args();
+        
         if (num_args > 0) 
             m_out << "(";
         display_name(to_app(n)->get_decl());
         display_params(to_app(n)->get_decl());
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args && i < 16; i++) {
             m_out << " ";
             display(to_app(n)->get_arg(i), depth-1);
         }
+        if (num_args >= 16) 
+            m_out << " ...";
         if (num_args > 0)
             m_out << ")";
     }

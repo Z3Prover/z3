@@ -93,6 +93,7 @@ namespace euf {
         scoped_ptr<euf::ackerman>   m_ackerman;
         scoped_ptr<sat::dual_solver> m_dual_solver;
         user::solver*          m_user_propagator{ nullptr };
+        th_solver*             m_qsolver { nullptr };
 
         ptr_vector<expr>                                m_bool_var2expr;
         ptr_vector<size_t>                              m_explain;
@@ -147,6 +148,7 @@ namespace euf {
         // solving
         void propagate_literals();
         void propagate_th_eqs();
+        bool is_self_propagated(th_eq const& e);
         void get_antecedents(literal l, constraint& j, literal_vector& r, bool probing);
         void new_diseq(enode* a, enode* b, literal lit);
 

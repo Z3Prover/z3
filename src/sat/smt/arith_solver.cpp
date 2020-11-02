@@ -86,9 +86,10 @@ namespace arith {
     }
 
     bool solver::unit_propagate() {
-        if (m_new_bounds.empty() && m_asserted_qhead == m_asserted.size())
+        if (!m_new_eq && m_new_bounds.empty() && m_asserted_qhead == m_asserted.size())
             return false;
 
+        m_new_eq = false;
         flush_bound_axioms();
 
         unsigned qhead = m_asserted_qhead;
@@ -911,6 +912,8 @@ namespace arith {
             theory_var v = (i + start) % sz;
             if (is_bool(v))
                 continue;
+            if (!ctx.is_shared(var2enode(v)))
+                continue;
             ensure_column(v);
             if (!can_get_ivalue(v))
                 continue;
@@ -945,7 +948,7 @@ namespace arith {
                 continue;
             if (n1->get_root() == n2->get_root())
                 continue;
-            literal eq = eq_internalize(n1->get_expr(), n2->get_expr());
+            literal eq = eq_internalize(n1, n2);
             if (s().value(eq) != l_true)
                 return true;
         }
@@ -1040,7 +1043,6 @@ namespace arith {
         SASSERT(m_nla->use_nra_model());
         auto t = get_tv(v);
         if (t.is_term()) {
-
             m_todo_terms.push_back(std::make_pair(t, rational::one()));
             TRACE("nl_value", tout << "v" << v << " " << t.to_string() << "\n";);
             TRACE("nl_value", tout << "v" << v << " := w" << t.to_string() << "\n";
@@ -1193,8 +1195,13 @@ namespace arith {
         TRACE("arith", display(tout << "is-conflict: " << is_conflict << "\n"););
         for (auto const& ev : m_explanation)
             set_evidence(ev.ci(), m_core, m_eqs);
+        DEBUG_CODE(
+            if (is_conflict) {
+                for (literal c : m_core) VERIFY(s().value(c) == l_false);
+                for (auto p : m_eqs) VERIFY(p.first->get_root() == p.second->get_root());
+            });
         for (auto const& eq : m_eqs)
-            m_core.push_back(eq_internalize(eq.first->get_expr(), eq.second->get_expr()));
+            m_core.push_back(eq_internalize(eq.first, eq.second));
         for (literal& c : m_core)
             c.neg();
         add_clause(m_core);

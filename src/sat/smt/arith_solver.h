@@ -16,8 +16,8 @@ Author:
 --*/
 #pragma once
 
+#include "util/obj_pair_set.h"
 #include "ast/ast_trail.h"
-#include "sat/smt/sat_th.h"
 #include "ast/arith_decl_plugin.h"
 #include "math/lp/lp_solver.h"
 #include "math/lp/lp_primal_simplex.h"
@@ -29,6 +29,7 @@ Author:
 #include "math/lp/lp_api.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/polynomial.h"
+#include "sat/smt/sat_th.h"
 
 namespace euf {
     class solver;
@@ -90,7 +91,7 @@ namespace arith {
         };
         int_hashtable<var_value_hash, var_value_eq>   m_model_eqs;
 
-
+        bool                m_new_eq { false };
 
 
         // temporary values kept during internalization
@@ -303,7 +304,7 @@ namespace arith {
         void refine_bound(theory_var v, const lp::implied_bound& be);
         literal is_bound_implied(lp::lconstraint_kind k, rational const& value, api_bound const& b) const;
         void assert_bound(bool is_true, api_bound& b);
-        void mk_eq_axiom(bool is_eq, theory_var v1, theory_var v2);
+        void mk_eq_axiom(bool is_eq, euf::th_eq const& eq);
         void assert_idiv_mod_axioms(theory_var u, theory_var v, theory_var w, rational const& r);
         api_bound* mk_var_bound(sat::literal lit, theory_var v, lp_api::bound_kind bk, rational const& bound);
         lp::lconstraint_kind bound2constraint_kind(bool is_int, lp_api::bound_kind bk, bool is_true);
@@ -424,8 +425,8 @@ namespace arith {
         void collect_statistics(statistics& st) const override;
         euf::th_solver* clone(euf::solver& ctx) override;
         bool use_diseqs() const override { return true; }
-        void new_eq_eh(euf::th_eq const& eq) override { mk_eq_axiom(true, eq.v1(), eq.v2()); }
-        void new_diseq_eh(euf::th_eq const& de) override { mk_eq_axiom(false, de.v1(), de.v2()); }
+        void new_eq_eh(euf::th_eq const& eq) override { mk_eq_axiom(true, eq); }
+        void new_diseq_eh(euf::th_eq const& de) override { mk_eq_axiom(false, de); }
         bool unit_propagate() override;
         void init_model() override { init_variable_values(); }
         void finalize_model(model& mdl) override { DEBUG_CODE(dbg_finalize_model(mdl);); }
