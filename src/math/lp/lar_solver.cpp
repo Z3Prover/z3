@@ -1180,7 +1180,7 @@ namespace lp {
 
     mpq lar_solver::get_value(tv const& t) const {
         if (t.is_var())
-            get_value(t.column());
+            return get_value(t.column());
         mpq r(0);
         for (const auto& p : get_term(t)) 
             r += p.coeff() * get_value(p.column());
@@ -1189,7 +1189,7 @@ namespace lp {
 
     impq lar_solver::get_ivalue(tv const& t) const {
         if (t.is_var())
-            get_ivalue(t.column());
+            return get_ivalue(t.column());
         impq r;
         for (const auto& p : get_term(t)) 
             r += p.coeff() * get_ivalue(p.column());
