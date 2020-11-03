@@ -52,13 +52,16 @@ namespace arith {
                     out << "null"; 
                 else 
                     out << (t.is_term() ? "t" : "j") << vi;
-                if (m_nla && m_nla->use_nra_model() && can_get_ivalue(v)) {
+                if (m_nla && m_nla->use_nra_model() && is_registered_var(v)) {
                     scoped_anum an(m_nla->am());
                     m_nla->am().display(out << " = ", nl_value(v, an));
                 }
-                else if (can_get_value(v)) out << " = " << get_value(v);
-                if (is_int(v)) out << ", int";
-                if (ctx.is_shared(var2enode(v))) out << ", shared";
+                else if (m_model_is_initialized && is_registered_var(v)) 
+                    out << " = " << get_value(v);
+                if (is_int(v)) 
+                    out << ", int";
+                if (ctx.is_shared(var2enode(v))) 
+                    out << ", shared";
             }
             out << " := " << mk_bounded_pp(var2expr(v), m) << "\n";
         }

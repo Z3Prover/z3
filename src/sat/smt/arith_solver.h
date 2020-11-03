@@ -149,7 +149,6 @@ namespace arith {
         vector<rational>         m_columns;
         var_coeffs               m_left_side;              // constraint left side
 
-        mutable std::unordered_map<lpvar, rational> m_variable_values; // current model
         lpvar m_one_var   { UINT_MAX };
         lpvar m_zero_var  { UINT_MAX };
         lpvar m_rone_var  { UINT_MAX };
@@ -332,12 +331,8 @@ namespace arith {
         bool all_zeros(vector<rational> const& v) const;
 
         bound_prop_mode propagation_mode() const;
-        void init_variable_values();
-        void reset_variable_values();
 
-        bool can_get_value(theory_var v) const;
-        bool can_get_bound(theory_var v) const;
-        bool can_get_ivalue(theory_var v) const;
+        bool is_registered_var(theory_var v) const;
         void ensure_column(theory_var v);
         lp::impq get_ivalue(theory_var v) const;
         rational get_value(theory_var v) const;
@@ -378,6 +373,7 @@ namespace arith {
 
         obj_map<expr, expr*>      m_predicate2term;
         obj_map<expr, bound_info> m_term2bound_info;
+        bool                      m_model_is_initialized{ false };
 
         bool use_bounded_expansion() const { return get_config().m_arith_bounded_expansion; }
         unsigned small_lemma_size() const { return get_config().m_arith_small_lemma_size; }
@@ -428,7 +424,7 @@ namespace arith {
         void new_eq_eh(euf::th_eq const& eq) override { mk_eq_axiom(true, eq); }
         void new_diseq_eh(euf::th_eq const& de) override { mk_eq_axiom(false, de); }
         bool unit_propagate() override;
-        void init_model() override { init_variable_values(); }
+        void init_model() override;
         void finalize_model(model& mdl) override { DEBUG_CODE(dbg_finalize_model(mdl);); }
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;

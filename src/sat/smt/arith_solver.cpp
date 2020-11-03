@@ -30,7 +30,6 @@ namespace arith {
         m_bound_terms(m),
         m_bound_predicate(m)
     {
-        reset_variable_values();
         m_solver = alloc(lp::lar_solver);
 
         smt_params_helper lpar(ctx.s().params());
@@ -751,16 +750,13 @@ namespace arith {
             bound_prop_mode::BP_NONE;
     }
 
-    void solver::init_variable_values() {
-        reset_variable_values();
+    void solver::init_model() {
         if (m.inc() && m_solver.get() && get_num_vars() > 0) {
             TRACE("arith", display(tout << "update variable values\n"););
-            lp().get_model(m_variable_values);
+            ctx.push(value_trail<euf::solver, bool>(m_model_is_initialized));
+            m_model_is_initialized = true;
+            lp().init_model();
         }
-    }
-
-    void solver::reset_variable_values() {
-        m_variable_values.clear();
     }
 
     lbool solver::get_phase(bool_var v) {
@@ -786,16 +782,8 @@ namespace arith {
         return lp().compare_values(vi, k, b->get_value()) ? l_true : l_false;
     }
 
-    bool solver::can_get_value(theory_var v) const {
-        return can_get_bound(v) && !m_variable_values.empty();
-    }
-
-    bool solver::can_get_bound(theory_var v) const {
+    bool solver::is_registered_var(theory_var v) const {
         return v != euf::null_theory_var && lp().external_is_used(v);
-    }
-
-    bool solver::can_get_ivalue(theory_var v) const {
-        return can_get_bound(v);
     }
 
     void solver::ensure_column(theory_var v) {
@@ -805,68 +793,14 @@ namespace arith {
     }
 
     lp::impq solver::get_ivalue(theory_var v) const {
-        SASSERT(can_get_ivalue(v));
-        auto t = get_tv(v);
-        if (!t.is_term())
-            return lp().get_column_value(t.id());
-        m_todo_terms.push_back(std::make_pair(t, rational::one()));
-        lp::impq result(0);
-        while (!m_todo_terms.empty()) {
-            t = m_todo_terms.back().first;
-            rational coeff = m_todo_terms.back().second;
-            m_todo_terms.pop_back();
-            if (t.is_term()) {
-                const lp::lar_term& term = lp().get_term(t);
-                for (const auto& i : term) {
-                    m_todo_terms.push_back(std::make_pair(lp().column2tv(i.column()), coeff * i.coeff()));
-                }
-            }
-            else {
-                result += lp().get_column_value(t.id()) * coeff;
-            }
-        }
-        return result;
+        SASSERT(is_registered_var(v));
+        return m_solver->get_ivalue(get_tv(v));
     }
 
     rational solver::get_value(theory_var v) const {
-        if (v == euf::null_theory_var || !lp().external_is_used(v)) {
+        if (v == euf::null_theory_var || !lp().external_is_used(v)) 
             return rational::zero();
-        }
-
-        auto t = get_tv(v);
-        if (m_variable_values.count(t.index()) > 0)
-            return m_variable_values[t.index()];
-
-        if (!t.is_term() && lp().is_fixed(t.id()))
-            return lp().column_lower_bound(t.id()).x;
-
-        if (!t.is_term())
-            return rational::zero();
-
-        m_todo_terms.push_back(std::make_pair(t, rational::one()));
-        rational result(0);
-        while (!m_todo_terms.empty()) {
-            auto t2 = m_todo_terms.back().first;
-            rational coeff = m_todo_terms.back().second;
-            m_todo_terms.pop_back();
-            if (t2.is_term()) {
-                const lp::lar_term& term = lp().get_term(t2);
-                for (const auto& i : term) {
-                    auto tv = lp().column2tv(i.column());
-                    if (m_variable_values.count(tv.index()) > 0) {
-                        result += m_variable_values[tv.index()] * coeff * i.coeff();
-                    }
-                    else {
-                        m_todo_terms.push_back(std::make_pair(tv, coeff * i.coeff()));
-                    }
-                }
-            }
-            else {
-                result += m_variable_values[t2.index()] * coeff;
-            }
-        }
-        m_variable_values[t.index()] = result;
-        return result;
+        return m_solver->get_value(get_tv(v));
     }
 
     void solver::random_update() {
@@ -915,7 +849,7 @@ namespace arith {
             if (!ctx.is_shared(var2enode(v)))
                 continue;
             ensure_column(v);
-            if (!can_get_ivalue(v))
+            if (!is_registered_var(v))
                 continue;
             theory_var other = m_model_eqs.insert_if_not_there(v);
             TRACE("arith", tout << "insert: v" << v << " := " << get_value(v) << " found: v" << other << "\n";);
@@ -977,8 +911,8 @@ namespace arith {
 
     sat::check_result solver::check() {
         force_push();
+        m_model_is_initialized = false;
         flet<bool> _is_learned(m_is_redundant, true);
-        reset_variable_values();
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         SASSERT(lp().ax_is_correct());
 

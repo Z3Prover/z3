@@ -399,7 +399,7 @@ namespace arith {
             theory_var v = mk_evar(n);
             theory_var v1 = mk_evar(p);
 
-            if (!can_get_ivalue(v1))
+            if (!is_registered_var(v1))
                 continue;
             lp::impq r1 = get_ivalue(v1);
             rational r2;
@@ -419,7 +419,7 @@ namespace arith {
                     TRACE("arith", tout << "unbounded " << expr_ref(n, m) << "\n";);
                     continue;
                 }
-                if (!can_get_ivalue(v))
+                if (!is_registered_var(v))
                     continue;
                 lp::impq val_v = get_ivalue(v);
                 if (val_v.y.is_zero() && val_v.x == div(r1.x, r2)) continue;
