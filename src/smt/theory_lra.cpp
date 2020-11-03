@@ -1409,11 +1409,11 @@ public:
  
     lp::impq get_ivalue(theory_var v) const {
         SASSERT(is_registered_var(v));       
-        return lp().get_ivalue(get_tv(v));
+        return lp().get_tv_ivalue(get_tv(v));
     }
         
     rational get_value(theory_var v) const {
-        return is_registered_var(v) ? lp().get_value(get_tv(v)) : rational::zero();        
+        return is_registered_var(v) ? lp().get_tv_value(get_tv(v)) : rational::zero();        
     }    
 
     bool m_model_is_initialized{ false };

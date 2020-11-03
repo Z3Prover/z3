@@ -1176,16 +1176,21 @@ namespace lp {
         return rp.x + m_delta * rp.y;        
     }
 
-    mpq lar_solver::get_value(tv const& t) const {
+    mpq lar_solver::get_tv_value(tv const& t) const {
         if (t.is_var())
             return get_value(t.column());
+#if 0
+        unsigned term_j = 0;
+        if (m_var_register.term_is_used(t.id(), term_j))
+            return get_value(column_index(term_j));
+#endif
         mpq r(0);
         for (const auto& p : get_term(t)) 
             r += p.coeff() * get_value(p.column());
         return r;
     }
 
-    impq lar_solver::get_ivalue(tv const& t) const {
+    impq lar_solver::get_tv_ivalue(tv const& t) const {
         if (t.is_var())
             return get_ivalue(t.column());
         impq r;

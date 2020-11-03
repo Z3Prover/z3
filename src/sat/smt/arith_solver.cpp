@@ -794,11 +794,11 @@ namespace arith {
 
     lp::impq solver::get_ivalue(theory_var v) const {
         SASSERT(is_registered_var(v));
-        return m_solver->get_ivalue(get_tv(v));
+        return m_solver->get_tv_ivalue(get_tv(v));
     }
 
     rational solver::get_value(theory_var v) const {
-        return is_registered_var(v) ? m_solver->get_value(get_tv(v)) : rational::zero();      
+        return is_registered_var(v) ? m_solver->get_tv_value(get_tv(v)) : rational::zero();      
     }
 
     void solver::random_update() {
