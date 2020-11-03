@@ -916,7 +916,7 @@ namespace arith {
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         SASSERT(lp().ax_is_correct());
 
-        if (lp().get_status() != lp::lp_status::OPTIMAL || lp().has_changed_columns()) {
+        if (lp().get_status() != lp::lp_status::OPTIMAL) {
             switch (make_feasible()) {
             case l_false:
                 get_infeasibility_explanation_and_set_conflict();

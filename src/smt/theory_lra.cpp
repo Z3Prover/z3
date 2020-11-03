@@ -688,7 +688,7 @@ class theory_lra::imp {
         if (vi_equal != lp::null_lpvar) {
             report_equality_of_fixed_vars(vi, vi_equal);
         }
-                         
+        m_new_def = true;
     }
     
     void internalize_eq(theory_var v1, theory_var v2) {  
@@ -1579,9 +1579,11 @@ public:
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         lbool is_sat = l_true;
         SASSERT(lp().ax_is_correct());
-        if (lp().get_status() != lp::lp_status::OPTIMAL || lp().has_changed_columns()) {
+        if (lp().get_status() != lp::lp_status::OPTIMAL) { // || lp().has_changed_columns()) {
             is_sat = make_feasible();
         }
+        else
+            SASSERT(!lp().has_changed_columns());
         final_check_status st = FC_DONE;
 
         switch (is_sat) {
@@ -2107,8 +2109,10 @@ public:
         return false;
     }
 
+    bool m_new_def{ false };
+
     bool can_propagate() {
-        return m_asserted_atoms.size() > m_asserted_qhead;
+        return m_asserted_atoms.size() > m_asserted_qhead || m_new_def;
     }
 
     void propagate() {
@@ -2116,6 +2120,7 @@ public:
         if (!can_propagate()) {
             return;
         }
+        m_new_def = false;
         while (m_asserted_qhead < m_asserted_atoms.size() && !ctx().inconsistent() && m.inc()) {
             bool_var bv = m_asserted_atoms[m_asserted_qhead].m_bv;
             bool is_true = m_asserted_atoms[m_asserted_qhead].m_is_true;

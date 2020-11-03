@@ -59,7 +59,6 @@ namespace user {
         vector<prop_info>      m_prop;
         unsigned_vector        m_prop_lim;
         vector<sat::literal_vector> m_id2justification;
-        unsigned               m_num_scopes { 0 };
         sat::literal_vector         m_lits;
         euf::enode_pair_vector      m_eqs;
         stats                  m_stats;
