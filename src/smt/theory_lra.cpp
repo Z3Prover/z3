@@ -1408,39 +1408,12 @@ public:
     mutable vector<std::pair<lp::tv, rational>> m_todo_terms;
  
     lp::impq get_ivalue(theory_var v) const {
-        SASSERT(is_registered_var(v));
-        auto t = get_tv(v);
-        return lp().get_ivalue(t);
-#if 0
-        if (!t.is_term()) 
-            return lp().get_column_value(t.id());
-        m_todo_terms.push_back(std::make_pair(t, rational::one()));
-        lp::impq result(0);
-        while (!m_todo_terms.empty()) {
-            t = m_todo_terms.back().first;
-            rational coeff = m_todo_terms.back().second;
-            m_todo_terms.pop_back();
-            if (t.is_term()) {
-                const lp::lar_term& term = lp().get_term(t);
-                for (const auto & i:  term) {
-                    m_todo_terms.push_back(std::make_pair(lp().column2tv(i.column()), coeff * i.coeff()));
-                }                    
-            }
-            else {
-                result += lp().get_column_value(t.id()) * coeff;
-            }
-        }
-        return result;
-#endif
+        SASSERT(is_registered_var(v));       
+        return lp().get_ivalue(get_tv(v));
     }
         
     rational get_value(theory_var v) const {
-        TRACE("arith", tout << "get_value v" << v << "\n";);
-        if (v == null_theory_var || !lp().external_is_used(v)) {
-            return rational::zero();
-        }
-
-        return lp().get_value(get_tv(v));
+        return is_registered_var(v) ? lp().get_value(get_tv(v)) : rational::zero();        
     }    
 
     bool m_model_is_initialized{ false };
