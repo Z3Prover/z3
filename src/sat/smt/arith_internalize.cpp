@@ -615,6 +615,7 @@ namespace arith {
         add_def_constraint(ci);
         if (vi_equal != lp::null_lpvar)
             report_equality_of_fixed_vars(vi, vi_equal);
+        m_new_eq = true;
     }
 
     bool solver::reflect(expr* n) const {

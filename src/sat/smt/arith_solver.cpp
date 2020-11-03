@@ -798,9 +798,7 @@ namespace arith {
     }
 
     rational solver::get_value(theory_var v) const {
-        if (v == euf::null_theory_var || !lp().external_is_used(v)) 
-            return rational::zero();
-        return m_solver->get_value(get_tv(v));
+        return is_registered_var(v) ? m_solver->get_value(get_tv(v)) : rational::zero();      
     }
 
     void solver::random_update() {

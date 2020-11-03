@@ -144,7 +144,6 @@ class theory_lra::imp {
     typedef vector<std::pair<rational, lpvar>> var_coeffs;
 
     var_coeffs               m_left_side;              // constraint left side
-    mutable std::unordered_map<lpvar, rational> m_variable_values; // current model
     lpvar m_one_var;
     lpvar m_zero_var;
     lpvar m_rone_var;
@@ -689,7 +688,7 @@ class theory_lra::imp {
         if (vi_equal != lp::null_lpvar) {
             report_equality_of_fixed_vars(vi, vi_equal);
         }
-                         
+        m_new_def = true;
     }
     
     void internalize_eq(theory_var v1, theory_var v2) {  
@@ -867,7 +866,7 @@ public:
     void init() {
         if (m_solver) return;
 
-        reset_variable_values();
+        m_model_is_initialized = false;
         m_solver = alloc(lp::lar_solver); 
         // initialize 0, 1 variables:
         get_one(true);
@@ -1393,15 +1392,11 @@ public:
     }
 
     bool can_get_value(theory_var v) const {
-        return can_get_bound(v) && !m_variable_values.empty();
+        return is_registered_var(v) && m_model_is_initialized;
     }
 
-    bool can_get_bound(theory_var v) const {
+    bool is_registered_var(theory_var v) const {
         return v != null_theory_var && lp().external_is_used(v);
-    }
-
-    bool can_get_ivalue(theory_var v) const {
-        return can_get_bound(v);
     }
 
     void ensure_column(theory_var v) {
@@ -1413,86 +1408,23 @@ public:
     mutable vector<std::pair<lp::tv, rational>> m_todo_terms;
  
     lp::impq get_ivalue(theory_var v) const {
-        SASSERT(can_get_ivalue(v));
-        auto t = get_tv(v);
-        if (!t.is_term()) 
-            return lp().get_column_value(t.id());
-        m_todo_terms.push_back(std::make_pair(t, rational::one()));
-        lp::impq result(0);
-        while (!m_todo_terms.empty()) {
-            t = m_todo_terms.back().first;
-            rational coeff = m_todo_terms.back().second;
-            m_todo_terms.pop_back();
-            if (t.is_term()) {
-                const lp::lar_term& term = lp().get_term(t);
-                for (const auto & i:  term) {
-                    m_todo_terms.push_back(std::make_pair(lp().column2tv(i.column()), coeff * i.coeff()));
-                }                    
-            }
-            else {
-                result += lp().get_column_value(t.id()) * coeff;
-            }
-        }
-        return result;
+        SASSERT(is_registered_var(v));       
+        return lp().get_ivalue(get_tv(v));
     }
         
     rational get_value(theory_var v) const {
-        TRACE("arith", tout << "get_value v" << v << "\n";);
-        if (v == null_theory_var || !lp().external_is_used(v)) {
-            return rational::zero();
-        }
-
-        auto t = get_tv(v);
-        auto E = m_variable_values.end();
-        auto I = m_variable_values.find(t.index());
-        if (I != E)
-            return I->second;
-
-        if (!t.is_term() && lp().is_fixed(t.id())) 
-            return lp().column_lower_bound(t.id()).x;
-        if (!t.is_term()) 
-            return rational::zero();
-        
-        m_todo_terms.push_back(std::make_pair(t, rational::one()));
-        rational result(0);
-        while (!m_todo_terms.empty()) {
-            auto t2 = m_todo_terms.back().first;
-            rational coeff = m_todo_terms.back().second;
-            m_todo_terms.pop_back();
-            if (t2.is_term()) {
-                const lp::lar_term& term = lp().get_term(t2);
-                for (const auto & i : term) {
-                    auto tv = lp().column2tv(i.column());
-                    auto I = m_variable_values.find(tv.index());
-                    if (I != E) {
-                        result += I->second * coeff * i.coeff();
-                    }
-                    else {
-                        m_todo_terms.push_back(std::make_pair(tv, coeff * i.coeff()));
-                    }
-                }                    
-            }
-            else {
-                auto I = m_variable_values.find(t2.index());
-                std::cout << (I == E) << "\n";
-                if (I != E)
-                    result += I->second * coeff;
-            }
-        }
-        m_variable_values.emplace(t.index(), result);
-        return result;
+        return is_registered_var(v) ? lp().get_value(get_tv(v)) : rational::zero();        
     }    
+
+    bool m_model_is_initialized{ false };
     
     void init_variable_values() {
-        reset_variable_values();
-        if (m.inc() && m_solver.get() && th.get_num_vars() > 0) {            
-            lp().get_model(m_variable_values);
-            TRACE("arith", display(tout << "update variable values " << m_variable_values.size() << "\n"););            
+        m_model_is_initialized = false;
+        if (m.inc() && m_solver.get() && th.get_num_vars() > 0) {   
+            ctx().push_trail(value_trail<smt::context, bool>(m_model_is_initialized));
+            m_model_is_initialized = lp().init_model();
+            TRACE("arith", display(tout << "update variable values " << m_model_is_initialized << "\n"););            
         }
-    }
-
-    void reset_variable_values() {
-        m_variable_values.clear();
     }
     
     void random_update() {
@@ -1556,7 +1488,7 @@ public:
                 continue;
             }
             ensure_column(v);
-            if (!can_get_ivalue(v))
+            if (!is_registered_var(v))
                 continue;
             theory_var other = m_model_eqs.insert_if_not_there(v);
             TRACE("arith", tout << "insert: v" << v << " := " << get_value(v) << " found: v" << other << "\n";);
@@ -1616,13 +1548,15 @@ public:
     }
 
     final_check_status final_check_eh() {
-        reset_variable_values();
+        m_model_is_initialized = false;
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         lbool is_sat = l_true;
         SASSERT(lp().ax_is_correct());
-        if (lp().get_status() != lp::lp_status::OPTIMAL || lp().has_changed_columns()) {
+        if (lp().get_status() != lp::lp_status::OPTIMAL) { // || lp().has_changed_columns()) {
             is_sat = make_feasible();
         }
+        else
+            SASSERT(!lp().has_changed_columns());
         final_check_status st = FC_DONE;
 
         switch (is_sat) {
@@ -1790,7 +1724,7 @@ public:
             theory_var v = mk_var(n);
             theory_var v1 = mk_var(p);
 
-            if (!can_get_ivalue(v1))
+            if (!is_registered_var(v1))
                 continue;
             lp::impq r1 = get_ivalue(v1);
             rational r2;
@@ -1810,7 +1744,7 @@ public:
                     TRACE("arith", tout << "unbounded " << expr_ref(n, m) << "\n";);
                     continue;
                 }
-                if (!can_get_ivalue(v))
+                if (!is_registered_var(v))
                     continue;
                 lp::impq val_v = get_ivalue(v);
                 if (val_v.y.is_zero() && val_v.x == div(r1.x, r2)) continue;
@@ -2148,8 +2082,10 @@ public:
         return false;
     }
 
+    bool m_new_def{ false };
+
     bool can_propagate() {
-        return m_asserted_atoms.size() > m_asserted_qhead;
+        return m_asserted_atoms.size() > m_asserted_qhead || m_new_def;
     }
 
     void propagate() {
@@ -2157,6 +2093,7 @@ public:
         if (!can_propagate()) {
             return;
         }
+        m_new_def = false;
         while (m_asserted_qhead < m_asserted_atoms.size() && !ctx().inconsistent() && m.inc()) {
             bool_var bv = m_asserted_atoms[m_asserted_qhead].m_bv;
             bool is_true = m_asserted_atoms[m_asserted_qhead].m_is_true;
@@ -3279,7 +3216,7 @@ public:
         m_scopes.reset();
         m_stats.reset();
         m_to_check.reset();
-        reset_variable_values();
+        m_model_is_initialized = false;
     }
 
     void init_model(model_generator & mg) {
@@ -3351,7 +3288,7 @@ public:
 
     bool get_value(enode* n, rational& val) {
         theory_var v = n->get_th_var(get_id());            
-        if (!can_get_bound(v)) return false;
+        if (!is_registered_var(v)) return false;
         lpvar vi = get_lpvar(v);
         if (lp().has_value(vi, val)) {
             TRACE("arith", tout << expr_ref(n->get_owner(), m) << " := " << val << "\n";);
@@ -3385,10 +3322,8 @@ public:
 
     bool get_lower(enode* n, rational& val, bool& is_strict) {
         theory_var v = n->get_th_var(get_id());
-        if (!can_get_bound(v)) {
-            TRACE("arith", tout << "cannot get lower for " << v << "\n";);
-            return false;
-        }
+        if (!is_registered_var(v)) 
+            return false;        
         lpvar vi = get_lpvar(v);
         lp::constraint_index ci;
         return lp().has_lower_bound(vi, ci, val, is_strict);
@@ -3406,7 +3341,7 @@ public:
 
     bool get_upper(enode* n, rational& val, bool& is_strict) {
         theory_var v = n->get_th_var(get_id());
-        if (!can_get_bound(v))
+        if (!is_registered_var(v))
             return false;
         lpvar vi = get_lpvar(v);
         lp::constraint_index ci;
@@ -3509,7 +3444,7 @@ public:
         if (has_int()) {
             lp().backup_x();
         }
-        if (!can_get_bound(v)) {
+        if (!is_registered_var(v)) {
             TRACE("arith", tout << "cannot get bound for v" << v << "\n";);
             st = lp::lp_status::UNBOUNDED;
         }
@@ -3727,7 +3662,7 @@ public:
             if (!ctx().is_relevant(get_enode(v))) out << "irr: ";
             out << "v" << v << " ";
             if (t.is_null()) out << "null"; else out << (t.is_term() ? "t":"j") << vi;
-            if (use_nra_model() && can_get_ivalue(v)) m_nla->am().display(out << " = ", nl_value(v, *m_a1));
+            if (use_nra_model() && is_registered_var(v)) m_nla->am().display(out << " = ", nl_value(v, *m_a1));
             else if (can_get_value(v)) out << " = " << get_value(v); 
             if (is_int(v)) out << ", int";
             if (ctx().is_shared(get_enode(v))) out << ", shared";

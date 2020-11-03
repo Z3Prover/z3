@@ -18,7 +18,6 @@ namespace lp {
         lp_assert(false); // not implemented
     }
 
-
     lar_solver::lar_solver() :
         m_status(lp_status::UNKNOWN),
         m_crossed_bounds_column(-1),
@@ -36,7 +35,6 @@ namespace lp {
     bool lar_solver::get_track_pivoted_rows() const {
         return m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows != nullptr;
     }
-
 
     lar_solver::~lar_solver() {
 
@@ -415,9 +413,8 @@ namespace lp {
                     at_l ? lcs.m_r_upper_bounds()[j] : lcs.m_r_lower_bounds()[j]);
                 return true;
             }
-        }
-
-                               break;
+            break;
+        }                               
         case column_type::lower_bound:
             if (val != lcs.m_r_lower_bounds()[j]) {
                 set_value_for_nbasic_column(j, lcs.m_r_lower_bounds()[j]);
@@ -1174,13 +1171,14 @@ namespace lp {
 
     mpq lar_solver::get_value(column_index const& j) const {
         SASSERT(get_status() == lp_status::OPTIMAL || get_status() == lp_status::FEASIBLE);
+        SASSERT(m_columns_with_changed_bounds.empty());
         numeric_pair<mpq> const& rp = get_column_value(j);
         return rp.x + m_delta * rp.y;        
     }
 
     mpq lar_solver::get_value(tv const& t) const {
         if (t.is_var())
-            get_value(t.column());
+            return get_value(t.column());
         mpq r(0);
         for (const auto& p : get_term(t)) 
             r += p.coeff() * get_value(p.column());
@@ -1189,7 +1187,7 @@ namespace lp {
 
     impq lar_solver::get_ivalue(tv const& t) const {
         if (t.is_var())
-            get_ivalue(t.column());
+            return get_ivalue(t.column());
         impq r;
         for (const auto& p : get_term(t)) 
             r += p.coeff() * get_ivalue(p.column());
