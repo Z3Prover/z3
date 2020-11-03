@@ -279,20 +279,31 @@ namespace q {
 
     /*
     * Remove occurrences of free functions that contain variables.
+    * Add top-level equalities for those occurrences.
+    * 
+    * F[g(t)] -> F[s] & g(t) = s
+    * 
+    * where 
+    * - eval(g(t)) = eval(s), 
+    * - t contains bound variables, 
+    * - s is ground.
     */
     void mbqi::eliminate_nested_vars(expr_ref_vector& fmls, q_body& qb) {
         if (qb.var_args.empty())
             return;
         expr_safe_replace rep(m);
         var_subst subst(m);
+        expr_ref_vector eqs(m);
         for (auto p : qb.var_args) {
             expr_ref _term = subst(p.first, qb.vars);
             app_ref  term(to_app(_term), m);
             expr_ref value = (*m_model)(term);
             expr* s = m_model_fixer.invert_app(term, value);
             rep.insert(term, s);
+            eqs.push_back(m.mk_eq(term, s));
         }
         rep(fmls);
+        fmls.append(eqs);
     }
 
     /*
