@@ -1474,6 +1474,7 @@ public:
             }
             else {
                 auto I = m_variable_values.find(t2.index());
+                std::cout << (I == E) << "\n";
                 if (I != E)
                     result += I->second * coeff;
             }
@@ -1619,7 +1620,7 @@ public:
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         lbool is_sat = l_true;
         SASSERT(lp().ax_is_correct());
-        if (lp().get_status() != lp::lp_status::OPTIMAL) {
+        if (lp().get_status() != lp::lp_status::OPTIMAL || lp().has_changed_columns()) {
             is_sat = make_feasible();
         }
         final_check_status st = FC_DONE;

@@ -137,11 +137,8 @@ class lar_solver : public column_namer {
 
     inline void clear_columns_with_changed_bounds() { m_columns_with_changed_bounds.clear(); }
     inline void increase_by_one_columns_with_changed_bounds() { m_columns_with_changed_bounds.increase_size_by_one(); }
-    inline void insert_to_columns_with_changed_bounds(unsigned j) {
-        m_columns_with_changed_bounds.insert(j);
-    }
+    inline void insert_to_columns_with_changed_bounds(unsigned j) { m_columns_with_changed_bounds.insert(j); }
     
-
     void update_column_type_and_bound_check_on_equal(unsigned j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index, unsigned&);
     void update_column_type_and_bound(unsigned j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
     void update_column_type_and_bound_with_ub(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
@@ -289,6 +286,11 @@ class lar_solver : public column_namer {
     void collect_rounded_rows_to_fix();
     void register_normalized_term(const lar_term&, lpvar);
     void deregister_normalized_term(const lar_term&);
+
+    mutable std::unordered_set<impq> m_set_of_different_pairs;
+    mutable std::unordered_set<mpq>  m_set_of_different_singles;
+    mutable mpq m_delta;
+
 public:
     const map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table_int() const {
         return m_fixed_var_table_int;
@@ -520,6 +522,10 @@ public:
     std::ostream& print_constraint_indices_only(const lar_base_constraint * c, std::ostream & out) const;
     std::ostream& print_implied_bound(const implied_bound& be, std::ostream & out) const;
     std::ostream& print_values(std::ostream& out) const;
+    bool init_model() const;
+    mpq get_value(column_index const& j) const;
+    mpq get_value(tv const& t) const;
+    impq get_ivalue(tv const& t) const;
     void get_model(std::unordered_map<var_index, mpq> & variable_values) const;
     void get_rid_of_inf_eps();
     void get_model_do_not_care_about_diff_vars(std::unordered_map<var_index, mpq> & variable_values) const;
@@ -615,6 +621,7 @@ public:
     inline const vector<unsigned> & r_nbasis() const { return m_mpq_lar_core_solver.r_nbasis(); }
     inline bool column_is_real(unsigned j) const { return !column_is_int(j); }	
     lp_status get_status() const;
+    bool has_changed_columns() const { return !m_columns_with_changed_bounds.empty();  }
     void set_status(lp_status s);
     lp_status solve();
     void fill_explanation_from_crossed_bounds_column(explanation & evidence) const;
@@ -631,8 +638,8 @@ public:
     inline const static_matrix<mpq, impq> & A_r() const { return m_mpq_lar_core_solver.m_r_A; }
     // columns
     bool column_is_int(column_index const& j) const { return column_is_int((unsigned)j); }
-    const impq& get_value(column_index const& j) const { return get_column_value(j); }
-    const impq& get_column_value(unsigned j) const { return m_mpq_lar_core_solver.m_r_x[j]; }
+    const impq& get_ivalue(column_index const& j) const { return get_column_value(j); }
+    const impq& get_column_value(column_index const& j) const { return m_mpq_lar_core_solver.m_r_x[j]; }
     inline
     var_index external_to_local(unsigned j) const {
         var_index local_j;

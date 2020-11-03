@@ -231,7 +231,6 @@ namespace euf {
         return true;
     }
 
-
     void solver::get_antecedents(literal l, constraint& j, literal_vector& r, bool probing) {
         expr* e = nullptr;
         euf::enode* n = nullptr;

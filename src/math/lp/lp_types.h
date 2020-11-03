@@ -36,6 +36,20 @@ typedef unsigned lpvar;
 const lpvar null_lpvar = UINT_MAX;
 const constraint_index null_ci = UINT_MAX;
 
+class column_index {
+    unsigned m_index;
+    friend class lar_solver;
+    friend class lar_term;
+    friend nla::core;
+
+    operator unsigned() const { return m_index; }
+    
+public:
+    column_index(unsigned j): m_index(j) {}    
+    unsigned index() const { return m_index; }
+    bool is_null() const { return m_index == null_lpvar; }
+};
+
 
 // index that comes from term or variable.
 class tv {
@@ -49,6 +63,7 @@ public:
 
     // retrieve the identifier associated with tv
     unsigned id() const { return unmask_term(m_index); }
+    column_index column() const { SASSERT(is_var()); return column_index(id()); }
 
     // retrieve the raw index.
     unsigned index() const { return m_index; }
@@ -72,20 +87,6 @@ public:
 
     bool is_null() const { return m_index == UINT_MAX; }
 
-};
-
-class column_index {
-    unsigned m_index;
-    friend class lar_solver;
-    friend class lar_term;
-    friend nla::core;
-
-    operator unsigned() const { return m_index; }
-    
-public:
-    column_index(unsigned j): m_index(j) {}    
-    unsigned index() const { return m_index; }
-    bool is_null() const { return m_index == null_lpvar; }
 };
 
 }
