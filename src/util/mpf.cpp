@@ -1309,7 +1309,7 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
     bool Q_sgn = x_div_y_sgn;
     mpf_exp_t Q_exp = x_div_y_exp;
     scoped_mpz Q_sig(m_mpz_manager), Q_rem(m_mpz_manager);
-    unsigned Q_shft = (sbits-1) + (sbits+3) -  (unsigned) (partial ? N :Q_exp);
+    unsigned Q_shft = (sbits-1) + (sbits+3) - (unsigned) (partial ? N : Q_exp);
     if (partial) {
         // Round according to MPF_ROUND_TOWARD_ZERO
         SASSERT(0 < N && N < Q_exp && Q_exp < INT_MAX);
