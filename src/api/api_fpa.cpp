@@ -1091,7 +1091,7 @@ extern "C" {
         if (biased) {
             exp = mpfm.is_zero(val) ? 0 :
                   mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
-                  mpfm.bias_exp(ebits, mpfm.exp(val));            
+                  mpfm.bias_exp(ebits, mpfm.exp(val));
         }
         else {
             exp = mpfm.is_zero(val) ? 0 :
@@ -1200,8 +1200,9 @@ extern "C" {
             RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
-        Z3_ast r = of_ast(ctx->fpautil().mk_to_ieee_bv(to_expr(t)));
-        RETURN_Z3(r);
+        expr * r = ctx->fpautil().mk_to_ieee_bv(to_expr(t));
+        ctx->save_ast_trail(r);
+        RETURN_Z3(of_expr(r));
         Z3_CATCH_RETURN(nullptr);
     }
 
