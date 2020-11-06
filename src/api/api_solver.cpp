@@ -367,22 +367,23 @@ extern "C" {
         LOG_Z3_solver_set_params(c, s, p);
         RESET_ERROR_CODE();
 
-        symbol logic = to_param_ref(p).get_sym("smt.logic", symbol::null);
+        auto &params = to_param_ref(p);
+        symbol logic = params.get_sym("smt.logic", symbol::null);
         if (logic != symbol::null) {
             to_solver(s)->m_logic = logic;
         }
         if (to_solver(s)->m_solver) {
             bool old_model = to_solver(s)->m_params.get_bool("model", true);
-            bool new_model = to_param_ref(p).get_bool("model", true);
+            bool new_model = params.get_bool("model", true);
             if (old_model != new_model)
                 to_solver_ref(s)->set_produce_models(new_model);
             param_descrs r;
             to_solver_ref(s)->collect_param_descrs(r);
             context_params::collect_solver_param_descrs(r);
-            to_param_ref(p).validate(r);
-            to_solver_ref(s)->updt_params(to_param_ref(p));
+            params.validate(r);
+            to_solver_ref(s)->updt_params(params);
         }
-        to_solver(s)->m_params.append(to_param_ref(p));
+        to_solver(s)->m_params.append(params);
 
         init_solver_log(c, s);
         

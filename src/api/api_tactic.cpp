@@ -226,8 +226,9 @@ extern "C" {
         RESET_ERROR_CODE();
         param_descrs r;
         to_tactic_ref(t)->collect_param_descrs(r);
-        to_param_ref(p).validate(r);
-        tactic * new_t = using_params(to_tactic_ref(t), to_param_ref(p));
+        auto &params = to_param_ref(p);
+        params.validate(r);
+        tactic * new_t = using_params(to_tactic_ref(t), params);
         RETURN_TACTIC(new_t);
         Z3_CATCH_RETURN(nullptr);
     }
@@ -456,8 +457,9 @@ extern "C" {
         RESET_ERROR_CODE();
         param_descrs pd;
         to_tactic_ref(t)->collect_param_descrs(pd);
-        to_param_ref(p).validate(pd);
-        Z3_apply_result r = _tactic_apply(c, t, g, to_param_ref(p));
+        auto &params = to_param_ref(p);
+        params.validate(pd);
+        Z3_apply_result r = _tactic_apply(c, t, g, params);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(nullptr);
     }
