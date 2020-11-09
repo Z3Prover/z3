@@ -1305,8 +1305,11 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
         }
     }
 
-    if (is_num_y && y.is_minus_one()) {
+    if (is_num_y && y.is_minus_one()) {        
         result = m_util.mk_div(m_util.mk_real(1), ensure_real(arg1));
+        result = m().mk_ite(m().mk_eq(arg1, m_util.mk_numeral(rational(0), m_util.is_int(arg1))),
+                            m_util.mk_real(0),
+                            result);        
         return BR_REWRITE2;
     }
 
