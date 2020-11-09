@@ -709,12 +709,6 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         result = m().update_quantifier(lam, quantifier_kind::forall_k, e);
         return BR_REWRITE2; 
     }
-    if (m_util.is_const(lhs, v) && m_util.is_store(rhs)) {
-        expr_ref eq1(m().mk_eq(v, to_app(rhs)->get_arg(to_app(rhs)->get_num_args()-1)), m());
-	expr_ref eq2(m().mk_eq(lhs, to_app(rhs)->get_arg(0)), m());
-	result = m().mk_and(eq1, eq2);
-	return BR_REWRITE3;
-    }
     expr_ref lh1(m()), rh1(m());
     if (m_expand_nested_stores) {
         if (is_expandable_store(lhs)) {
