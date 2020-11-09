@@ -1254,7 +1254,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
 
     TRACE("arith", tout << mk_pp(arg1, m()) << " " << mk_pp(arg2, m()) << "\n";);
     if (is_num_x && x.is_one()) {
-        result = m_util.mk_numeral(rational(0), false);
+        result = m_util.mk_numeral(x, false);
         return BR_DONE;
     }
 
