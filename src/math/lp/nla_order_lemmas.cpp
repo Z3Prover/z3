@@ -310,7 +310,11 @@ bool order::order_lemma_on_ac_and_bc_and_factors(const monic& ac,
     SASSERT(!val(c).is_zero());
     rational c_sign = rational(nla::rat_sign(val(c)));
     auto av_c_s = val(a) * c_sign;
-    auto bv_c_s = val(b) * c_sign;        
+    auto bv_c_s = val(b) * c_sign;      
+    if (b.sign() != a.sign())
+        return false;
+    if (bc.rsign() != ac.rsign())
+        return false;
     if ((var_val(ac) > var_val(bc) && av_c_s < bv_c_s) ||
         (var_val(ac) < var_val(bc) && av_c_s > bv_c_s)) {
         generate_ol(ac, a, c, bc, b);
