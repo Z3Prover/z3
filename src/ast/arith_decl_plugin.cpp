@@ -196,8 +196,9 @@ void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_is_int_decl = m->mk_func_decl(symbol("is_int"), r, m->mk_bool_sort(), func_decl_info(id, OP_IS_INT));
     m->inc_ref(m_is_int_decl);
 
+    m_i_power_decl = m->mk_func_decl(symbol("^"), i, i, r, func_decl_info(id, OP_POWER));
+    m->inc_ref(m_i_power_decl);
     MK_OP(m_r_power_decl, "^", OP_POWER, r);
-    MK_OP(m_i_power_decl, "^", OP_POWER, i);
 
     MK_UNARY(m_i_abs_decl, "abs", OP_ABS, i);
     MK_UNARY(m_r_abs_decl, "abs", OP_ABS, r);
