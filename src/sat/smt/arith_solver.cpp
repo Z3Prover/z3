@@ -51,7 +51,6 @@ namespace arith {
 
     solver::~solver() {
         del_bounds(0);
-        std::for_each(m_internalize_states.begin(), m_internalize_states.end(), delete_proc<internalize_state>());
     }
 
     void solver::asserted(literal l) {

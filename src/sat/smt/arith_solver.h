@@ -111,7 +111,7 @@ namespace arith {
                 m_to_ensure_var.reset();
             }
         };
-        ptr_vector<internalize_state> m_internalize_states;
+        scoped_ptr_vector<internalize_state> m_internalize_states;
         unsigned                      m_internalize_head{ 0 };
 
         class scoped_internalize_state {

@@ -133,6 +133,9 @@ namespace bv {
         euf::enode* n = expr2enode(e);
         app* a = to_app(e);
 
+        if (visited(e))
+            return true;
+
         SASSERT(!n || !n->is_attached_to(get_id()));
         bool suppress_args = !get_config().m_bv_reflect && !m.is_considered_uninterpreted(a->get_decl());
         if (!n)
@@ -294,26 +297,11 @@ namespace bv {
         atom* a = get_bv2a(bv);
         if (a)
             return a;
-        a = new (get_region()) atom();
+        a = new (get_region()) atom(bv);
         insert_bv2a(bv, a);
         ctx.push(mk_atom_trail(bv, *this));
         return a;        
     }
-
-#if 0
-    solver::eq_atom* solver::mk_eq_atom(sat::bool_var bv) {
-        atom* a = get_bv2a(bv);
-        if (a)
-            return a->is_eq() ? &a->to_eq() : nullptr;
-        else {
-            eq_atom* b = new (get_region()) eq_atom();
-            insert_bv2a(bv, b);
-            ctx.push(mk_atom_trail(bv, *this));
-            return b;
-        }
-    }
-#endif
-
 
     void solver::set_bit_eh(theory_var v, literal l, unsigned idx) {
         SASSERT(m_bits[v][idx] == l);
@@ -323,8 +311,7 @@ namespace bv {
             atom* b = mk_atom(l.var());
             if (b->m_occs)
                 find_new_diseq_axioms(*b, v, idx);
-            if (!b->is_fresh())
-                ctx.push(add_var_pos_trail(b));
+            ctx.push(add_var_pos_trail(b));
             b->m_occs = new (get_region()) var_pos_occ(v, idx, b->m_occs);
         }
     }
@@ -586,7 +573,7 @@ namespace bv {
     }
 
     void solver::add_def(sat::literal def, sat::literal l) {        
-        atom* a = new (get_region()) atom();
+        atom* a = new (get_region()) atom(l.var());
         a->m_var = l;
         a->m_def = def;
         insert_bv2a(l.var(), a);
@@ -648,7 +635,7 @@ namespace bv {
             m_bits[v_arg][idx] = lit;
             TRACE("bv", tout << "add-bit: " << lit << " " << literal2expr(lit) << "\n";);
             if (arg_sz > 1) {
-                atom* a = new (get_region()) atom();
+                atom* a = new (get_region()) atom(lit.var());
                 a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
                 insert_bv2a(lit.var(), a);
                 ctx.push(mk_atom_trail(lit.var(), *this));
@@ -713,20 +700,12 @@ namespace bv {
 
     void solver::eq_internalized(sat::bool_var b1, sat::bool_var b2, unsigned idx, theory_var v1, theory_var v2, literal lit, euf::enode* n) {
         atom* a = mk_atom(b1);
-//        eq_atom* b = mk_eq_atom(lit.var());
         if (a) {
-            if (!a->is_fresh()) 
-                ctx.push(add_eq_occurs_trail(a));            
+            ctx.push(add_eq_occurs_trail(a));            
             auto* next = a->m_eqs;
             a->m_eqs = new (get_region()) eq_occurs(b1, b2, idx, v1, v2, lit, n, next);
             if (next)
                 next->m_prev = a->m_eqs;
-#if 0
-            if (b) {
-                b->m_eqs.push_back(std::make_pair(a, a->m_eqs));
-                ctx.push(push_back_vector<euf::solver, svector<std::pair<bit_atom*,eq_occurs*>>>(b->m_eqs));
-            }
-#endif
         }        
     }
 

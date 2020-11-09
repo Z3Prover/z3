@@ -126,7 +126,7 @@ namespace bv {
             eq_occurs_it(eq_occurs* c) : m_first(c) {}
             eq_occurs operator*() { return *m_first; }
             eq_occurs_it& operator++() { m_first = m_first->m_next; return *this; }
-            eq_occurs_it operator++(int) { eq_occurs_it tmp = *this; ++* this; return tmp; }
+            eq_occurs_it operator++(int) { eq_occurs_it tmp = *this; ++*this; return tmp; }
             bool operator==(eq_occurs_it const& other) const { return m_first == other.m_first; }
             bool operator!=(eq_occurs_it const& other) const { return !(*this == other); }
         };
@@ -157,16 +157,16 @@ namespace bv {
         };
 
         struct atom {
+            bool_var      m_bv;
             eq_occurs*    m_eqs;
             var_pos_occ * m_occs;
             svector<std::pair<atom*, eq_occurs*>> m_bit2occ;
             literal    m_var { sat::null_literal };
             literal    m_def { sat::null_literal };
-            atom() :m_eqs(nullptr), m_occs(nullptr) {}
+            atom(bool_var b) :m_bv(b), m_eqs(nullptr), m_occs(nullptr) {}
             ~atom() { m_bit2occ.clear(); }
             var_pos_it begin() const { return var_pos_it(m_occs); }
             var_pos_it end() const { return var_pos_it(nullptr); }
-            bool is_fresh() const { return !m_occs && !m_eqs; }
             eqs_iterator eqs() const { return eqs_iterator(m_eqs); }  
         };
 

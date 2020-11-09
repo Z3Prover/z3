@@ -86,6 +86,7 @@ namespace array {
     }
 
     void solver::internalize_ext(euf::enode* n) {
+        SASSERT(is_array(n->get_arg(0)));
         push_axiom(extensionality_axiom(n->get_arg(0), n->get_arg(1)));
     }
 

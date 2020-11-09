@@ -176,10 +176,10 @@ namespace bv {
                 args[i] = arg_value;
                 expr_ref r(m.mk_app(n->get_decl(), args), m);
                 set_delay_internalize(r, internalize_mode::init_bits_only_i); // do not bit-blast this multiplier.
-                args[i] = n->get_arg(i);
-                std::cout << "@" << s().scope_lvl() << "\n";
+                args[i] = n->get_arg(i);                
                 add_unit(eq_internalize(r, arg_value));
             }
+            IF_VERBOSE(0, verbose_stream() << "delay internalize @" << s().scope_lvl() << "\n");
             return false;
         }
         if (bv.is_zero(mul_value)) {

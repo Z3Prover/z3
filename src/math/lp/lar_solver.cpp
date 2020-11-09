@@ -1192,10 +1192,10 @@ namespace lp {
 
     impq lar_solver::get_tv_ivalue(tv const& t) const {
         if (t.is_var())
-            return get_ivalue(t.column());
+            return get_column_value(t.column());
         impq r;
         for (const auto& p : get_term(t)) 
-            r += p.coeff() * get_ivalue(p.column());
+            r += p.coeff() * get_column_value(p.column());
         return r;
     }
 
@@ -1317,9 +1317,8 @@ namespace lp {
 
     void lar_solver::mark_rows_for_bound_prop(lpvar j) {
         auto& column = A_r().m_columns[j];
-        for (auto const& r : column) {
-            m_rows_with_changed_bounds.insert(r.var());
-        }
+        for (auto const& r : column) 
+            m_rows_with_changed_bounds.insert(r.var());        
     }
 
 

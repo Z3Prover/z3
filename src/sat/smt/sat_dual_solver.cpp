@@ -90,19 +90,42 @@ namespace sat {
     }
 
     bool dual_solver::operator()(solver const& s) {
+        m_core.reset();
+        m_core.append(m_units);
+        if (m_roots.empty())
+            return true;
         m_solver.user_push();
         m_solver.add_clause(m_roots.size(), m_roots.c_ptr(), status::input());
         m_lits.reset();
         for (bool_var v : m_tracked_vars)
             m_lits.push_back(literal(v, l_false == s.value(m_var2ext[v])));
         lbool is_sat = m_solver.check(m_lits.size(), m_lits.c_ptr());
-        m_core.reset();
-        m_core.append(m_units);
         if (is_sat == l_false) 
             for (literal lit : m_solver.get_core())
-                m_core.push_back(lit2ext(lit));
-        TRACE("euf", m_solver.display(tout << "is-sat: " << is_sat << " core: " << m_core << "\n"););
+                m_core.push_back(lit2ext(lit));        
+        if (is_sat == l_true) {
+            IF_VERBOSE(0, display(s, verbose_stream()));
+            UNREACHABLE();
+        }
+        TRACE("dual", m_solver.display(tout << "is-sat: " << is_sat << " core: " << m_core << "\n"););
         m_solver.user_pop(1);
         return is_sat == l_false;
+    }
+
+
+    std::ostream& dual_solver::display(solver const& s, std::ostream& out) const {
+        for (auto r : m_roots)
+            out << r << " " << m_solver.value(r) << "\n";
+        for (unsigned v = 0; v < m_solver.num_vars(); ++v) {
+            bool_var w = m_var2ext.get(v, null_bool_var);
+            if (w == null_bool_var)
+                continue;
+            lbool v1 = m_solver.value(v);
+            lbool v2 = s.value(w);
+            if (v1 == v2)
+                continue;
+            out << w << " " << v1 << " " << v2 << "\n";
+        }
+        return out;
     }
 }

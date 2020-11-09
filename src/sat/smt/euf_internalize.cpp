@@ -104,7 +104,7 @@ namespace euf {
         sat::literal lit;
         if (!m.is_bool(e))
             drat_log_node(e);
-        else
+        else 
             lit = attach_lit(literal(si.add_bool_var(e), false), e);
 
         if (!m.is_bool(e) && m.get_sort(e)->get_family_id() != null_family_id) {
@@ -153,6 +153,8 @@ namespace euf {
         m_egraph.set_bool_var(n, v);
         if (m.is_eq(e) || m.is_or(e) || m.is_and(e) || m.is_not(e))
             m_egraph.set_merge_enabled(n, false);
+        if (!si.is_bool_op(e))
+            track_relevancy(lit.var());
         return lit;
     }
 

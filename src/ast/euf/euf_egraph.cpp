@@ -95,7 +95,7 @@ unmerge(a,a')
 - n1 is reinserted. It used to be a root.
 
 
---*/
+*/
 
 #include "ast/euf/euf_egraph.h"
 #include "ast/ast_pp.h"
@@ -317,9 +317,20 @@ namespace euf {
 
     void egraph::set_merge_enabled(enode* n, bool enable_merge) {
         if (enable_merge != n->merge_enabled()) {
+            toggle_merge_enabled(n);
             m_updates.push_back(update_record(n, update_record::toggle_merge()));
-            n->set_merge_enabled(enable_merge);
         }
+    }
+
+    void egraph::toggle_merge_enabled(enode* n) {
+       bool enable_merge = !n->merge_enabled();
+       n->set_merge_enabled(enable_merge);         
+       if (n->num_args() > 0) {
+           if (enable_merge)
+               insert_table(n);
+           else
+               m_table.erase(n);
+       }
     }
 
     void egraph::set_value(enode* n, lbool value) {        
@@ -362,7 +373,7 @@ namespace euf {
                 undo_node();
                 break;
             case update_record::tag_t::is_toggle_merge:
-                p.r1->set_merge_enabled(!p.r1->merge_enabled());
+                toggle_merge_enabled(p.r1);
                 break;
             case update_record::tag_t::is_set_parent:
                 undo_eq(p.r1, p.n1, p.r2_num_parents);
@@ -519,6 +530,12 @@ namespace euf {
 
         for (enode* c : enode_class(r1))
             c->m_root = r1;
+
+        for (enode* p : enode_parents(r1)) 
+            if (p->merge_enabled() && !p->is_cgr() && !p->m_cg) {
+               std::cout << bpp(p) << "\n";
+SASSERT(false);
+        }
 
         for (enode* p : enode_parents(r1)) 
             if (p->merge_enabled() && (p->is_cgr() || !p->congruent(p->m_cg))) 

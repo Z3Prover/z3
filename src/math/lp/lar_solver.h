@@ -638,7 +638,7 @@ public:
     inline const static_matrix<mpq, impq> & A_r() const { return m_mpq_lar_core_solver.m_r_A; }
     // columns
     bool column_is_int(column_index const& j) const { return column_is_int((unsigned)j); }
-    const impq& get_ivalue(column_index const& j) const { return get_column_value(j); }
+//    const impq& get_ivalue(column_index const& j) const { return get_column_value(j); }
     const impq& get_column_value(column_index const& j) const { return m_mpq_lar_core_solver.m_r_x[j]; }
     inline
     var_index external_to_local(unsigned j) const {

@@ -40,6 +40,9 @@ namespace sat {
         bool_var var2ext(bool_var v);
         literal  ext2lit(literal lit);
         literal  lit2ext(literal lit);
+
+        std::ostream& display(solver const& s, std::ostream& out) const;
+
     public:
         dual_solver(reslimit& l);
         void push();

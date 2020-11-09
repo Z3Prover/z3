@@ -165,7 +165,10 @@ namespace array {
 
     void solver::new_diseq_eh(euf::th_eq const& eq) {
         force_push();
-        push_axiom(extensionality_axiom(var2enode(eq.v1()), var2enode(eq.v2())));
+        euf::enode* n1 = var2enode(eq.v1());
+        euf::enode* n2 = var2enode(eq.v2());
+        if (is_array(n1))
+            push_axiom(extensionality_axiom(n1, n2));
     }
 
     bool solver::unit_propagate() {

@@ -196,6 +196,7 @@ namespace euf {
         void push_to_lca(enode* a, enode* lca);
         void push_congruence(enode* n1, enode* n2, bool commutative);
         void push_todo(enode* n);
+        void toggle_merge_enabled(enode* n);
 
         enode_bool_pair insert_table(enode* p);
 

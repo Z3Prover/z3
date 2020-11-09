@@ -223,6 +223,9 @@ namespace array {
             args1.push_back(k);
             args2.push_back(k);
         }
+        std::cout << "e1: " << mk_pp(e1, m) << "\n";
+        std::cout << "e2: " << mk_pp(e2, m) << "\n";
+        std::cout << "funcs: " << funcs << "\n";
         expr_ref sel1(a.mk_select(args1), m);
         expr_ref sel2(a.mk_select(args2), m);
         literal lit1 = eq_internalize(e1, e2);
@@ -521,13 +524,11 @@ namespace array {
         for (unsigned i = 0; i < num_vars; i++) {
             euf::enode * n = var2enode(i);
             
-            if (!a.is_array(n->get_expr())) {
-                continue;
-            }
+            if (!is_array(n)) 
+                continue;            
             euf::enode * r = n->get_root();
-            if (r->is_marked1()) {
-                continue;
-            }
+            if (r->is_marked1()) 
+                continue;            
             // arrays used as indices in other arrays have to be treated as shared issue #3532, #3529            
             if (ctx.is_shared(r) || is_select_arg(r)) 
                 roots.push_back(r->get_th_var(get_id()));

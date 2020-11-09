@@ -245,7 +245,7 @@ public:
     bool is_unsigned(expr const * n, unsigned& u) const { 
         rational val;
         bool is_int = true;
-        return is_numeral(n, val, is_int) && is_int && val.is_unsigned(), u = val.get_unsigned(), true; 
+        return is_numeral(n, val, is_int) && is_int && val.is_unsigned() && (u = val.get_unsigned(), true); 
     }
     bool is_numeral(expr const * n, rational & val, bool & is_int) const;
     bool is_numeral(expr const * n, rational & val) const { bool is_int; return is_numeral(n, val, is_int); }

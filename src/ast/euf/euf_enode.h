@@ -138,7 +138,7 @@ namespace euf {
         bool is_cgr() const { return this == m_cg; }
         bool commutative() const { return m_commutative; }
         void mark_interpreted() { SASSERT(num_args() == 0); m_interpreted = true; }
-        bool merge_enabled() { return m_merge_enabled; }
+        bool merge_enabled() const { return m_merge_enabled; }
 
         enode* get_arg(unsigned i) const { SASSERT(i < num_args()); return m_args[i]; }        
         unsigned hash() const { return m_expr->hash(); }

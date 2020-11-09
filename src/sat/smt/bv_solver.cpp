@@ -44,7 +44,6 @@ namespace bv {
         bit_occs_trail(solver& s, atom& a): a(a), m_occs(a.m_occs) {}
         
         virtual void undo(euf::solver& euf) {
-            IF_VERBOSE(1, verbose_stream() << "add back occurrences " << & a << "\n");
             a.m_occs = m_occs;
         }
     };
@@ -400,20 +399,10 @@ namespace bv {
         for (; m_prop_queue_head < m_prop_queue.size() && !s().inconsistent(); ++m_prop_queue_head) {
             auto const p = m_prop_queue[m_prop_queue_head];
             if (p.m_atom) {
-                unsigned num_atoms = 0, num_eqs = 0, num_assigned = 0, num_eq_assigned = 0, num_lit_assigned = 0;
-                for (auto vp : *p.m_atom) {
-                    if (propagate_bits(vp))
-                        ++num_assigned;
-                    ++num_atoms;
-                }
-                for (auto const& eq : p.m_atom->eqs()) {
-                    ++num_eqs;
-                    if (s().value(eq.m_literal) != l_undef)
-                        ++num_lit_assigned;
-                    if (propagate_eq_occurs(eq)) {
-                        ++num_eq_assigned;
-                    }
-                }
+                for (auto vp : *p.m_atom)
+                    propagate_bits(vp);
+                for (auto const& eq : p.m_atom->eqs()) 
+                    propagate_eq_occurs(eq);                
             }
             else 
                 propagate_bits(p.m_vp);            
@@ -669,7 +658,7 @@ namespace bv {
             if (!a)
                 continue;
 
-            atom* new_a = new (result->get_region()) atom();
+            atom* new_a = new (result->get_region()) atom(i);
             m_bool_var2atom.setx(i, new_a, nullptr);
             for (auto vp : *a)
                 new_a->m_occs = new (result->get_region()) var_pos_occ(vp.first, vp.second, new_a->m_occs);
@@ -800,6 +789,7 @@ namespace bv {
                 find_wpos(v2);
             bool_var cv = consequent.var();
             atom* a = get_bv2a(cv);
+            force_push();
             if (a)
                 for (auto curr : *a)
                     if (propagate_eqc || find(curr.first) != find(v2) || curr.second != idx) 
