@@ -480,8 +480,6 @@ namespace smt {
 #else
         strm << "lemma_" << (++m_lemma_id) << ".smt2";
 #endif
-        SASSERT(m_lemma_id != 341);
-        VERIFY(m_lemma_id != 341);
         return strm.str();
     }
 
