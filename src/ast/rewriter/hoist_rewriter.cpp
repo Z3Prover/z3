@@ -20,12 +20,12 @@ Notes:
 
 #include "ast/rewriter/hoist_rewriter.h"
 #include "ast/ast_util.h"
-#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 
 
 hoist_rewriter::hoist_rewriter(ast_manager & m, params_ref const & p):
-    m_manager(m), m_args1(m), m_args2(m) { 
+    m_manager(m), m_args1(m), m_args2(m), m_subst(m) { 
     updt_params(p); 
 }
 
@@ -108,44 +108,37 @@ br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * es, expr_ref &
             while (u != v);
         }
         reset((*uf)[turn]);
-        for (auto const& p : m_eqs) {
+        for (auto const& p : m_eqs) 
             (*uf)[turn].merge(mk_var(p.first), mk_var(p.second));
-        }
-        if ((*preds)[turn].empty() && m_eqs.empty()) {
+        if ((*preds)[turn].empty() && m_eqs.empty()) 
             return BR_FAILED;
-        }
+    }
+    if (m_eqs.empty()) {
+        result = hoist_predicates((*preds)[turn], num_args, es);
+        return BR_DONE;
     }
     // p & eqs & (or fmls)
-    expr_ref_vector fmls(m()), ors(m());
-    expr_safe_replace subst(m());
+    expr_ref_vector fmls(m());
+    m_subst.reset();
     for (expr * p : (*preds)[turn]) {
         expr* q = nullptr;
         if (m().is_not(p, q)) {
-            subst.insert(q, m().mk_false());
+            m_subst.insert(q, m().mk_false());
         }
         else {
-            subst.insert(p, m().mk_true());
+            m_subst.insert(p, m().mk_true());
         }
         fmls.push_back(p);
     }
     for (auto const& p : m_eqs) {
-        subst.insert(p.first, p.second);
+        m_subst.insert(p.first, p.second);
         fmls.push_back(m().mk_eq(p.first, p.second));
-    }
-
-    for (unsigned i = 0; i < num_args; ++i) {
-        expr_ref tmp(m());
-        subst(es[i], tmp);
-        ors.push_back(tmp);
-    }
-    fmls.push_back(m().mk_or(ors.size(), ors.c_ptr()));
-    result = m().mk_and(fmls.size(), fmls.c_ptr());
-    TRACE("hoist", 
-          for (unsigned i = 0; i < num_args; ++i) {
-              tout << mk_pp(es[i], m()) << "\n";
-          }
-          tout << "=>\n";
-          tout << result << "\n";);
+    }    
+    expr_ref ors(::mk_or(m(), num_args, es), m());
+    m_subst(ors);
+    fmls.push_back(ors);
+    result = mk_and(fmls);
+    TRACE("hoist", tout << ors << " => " << result << "\n";);
     return BR_DONE;
 }
 
@@ -161,6 +154,27 @@ unsigned hoist_rewriter::mk_var(expr* e) {
     m_var2expr.push_back(e);
     return v;
 }
+
+expr_ref hoist_rewriter::hoist_predicates(obj_hashtable<expr> const& preds, unsigned num_args, expr* const* es) {
+    expr_ref result(m());
+    expr_ref_vector args(m()), fmls(m());
+    for (unsigned i = 0; i < num_args; ++i) {
+        VERIFY(is_and(es[i], &m_args1));
+        fmls.reset();
+        for (expr* e : m_args1) {
+            if (!preds.contains(e))
+                fmls.push_back(e);
+        }
+        args.push_back(::mk_and(fmls));
+    }
+    fmls.reset();
+    fmls.push_back(::mk_or(args));
+    for (auto* p : preds) 
+        fmls.push_back(p);
+    result = ::mk_and(fmls);
+    return result;
+}
+
 
 br_status hoist_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     switch (f->get_decl_kind()) {

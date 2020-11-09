@@ -20,6 +20,7 @@ Notes:
 
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "util/params.h"
 #include "util/union_find.h"
 #include "util/obj_hashtable.h"
@@ -32,6 +33,7 @@ class hoist_rewriter {
     ptr_vector<expr>                m_es;
     svector<std::pair<expr*,expr*>> m_eqs;
     u_map<expr*>                    m_roots;
+    expr_safe_replace               m_subst;
     obj_map<expr, unsigned> m_expr2var;
     ptr_vector<expr>        m_var2expr;
     expr_mark               m_mark;
@@ -45,6 +47,8 @@ class hoist_rewriter {
     unsigned mk_var(expr* e);
 
     void reset(basic_union_find& uf);
+
+    expr_ref hoist_predicates(obj_hashtable<expr> const& p, unsigned num_args, expr* const* args);
 
 public:
     hoist_rewriter(ast_manager & m, params_ref const & p = params_ref());

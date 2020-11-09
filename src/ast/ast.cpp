@@ -1826,7 +1826,7 @@ ast * ast_manager::register_node_core(ast * n) {
         SASSERT(m_ast_table.contains(n));
     }
 
-    n->m_id = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();
+    n->m_id = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();        
 
 //    track_id(*this, n, 77);
     

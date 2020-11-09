@@ -690,6 +690,7 @@ class solve_eqs_tactic : public tactic {
                 expr* f = g.form(idx);
                 proof_ref pr1(m()), pr2(m());
                 thrw(f, tmp, pr1);
+                tmp2 = tmp;
                 rw(tmp, tmp2, pr2);
                 TRACE("solve_eqs", tout << mk_pp(f, m()) << " " << tmp << "\n" << tmp2 
                       << "\n" << pr1 << "\n" << pr2 << "\n" << mk_pp(g.pr(idx), m()) << "\n";);
