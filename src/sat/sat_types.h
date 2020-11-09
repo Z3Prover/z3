@@ -259,7 +259,7 @@ namespace sat {
         st m_st;
         int m_orig;
     public:
-        status(enum st s, int o) : m_st(s), m_orig(o) {};
+        status(st s, int o) : m_st(s), m_orig(o) {};
         status(status const& s) : m_st(s.m_st), m_orig(s.m_orig) {}
         status(status&& s) noexcept { m_st = st::asserted; m_orig = -1; std::swap(m_st, s.m_st); std::swap(m_orig, s.m_orig); }
         status& operator=(status const& other) { m_st = other.m_st; m_orig = other.m_orig; return *this; }
