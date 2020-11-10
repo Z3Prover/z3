@@ -77,6 +77,8 @@ public:
     
     svector<lpvar>::const_iterator begin() const { return vars().begin(); }
     svector<lpvar>::const_iterator end() const { return vars().end(); }
+
+    rational rat_sign() const { return m_rsign ? rational(-1) : rational(1); }
 };
 
 inline std::ostream& operator<<(std::ostream& out, monic const& m) {

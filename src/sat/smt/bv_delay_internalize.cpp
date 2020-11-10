@@ -179,7 +179,7 @@ namespace bv {
                 args[i] = n->get_arg(i);                
                 add_unit(eq_internalize(r, arg_value));
             }
-            IF_VERBOSE(0, verbose_stream() << "delay internalize @" << s().scope_lvl() << "\n");
+            IF_VERBOSE(2, verbose_stream() << "delay internalize @" << s().scope_lvl() << "\n");
             return false;
         }
         if (bv.is_zero(mul_value)) {
