@@ -289,7 +289,12 @@ void order::generate_ol(const monic& ac,
     // c < 0 and ac <= bc => a >= b
     lemma |= ineq(c.var(), val(c.var()).is_neg() ? llc::GE : llc::LE, 0);
     lemma |= ineq(term(ac.var(), -rational(1), bc.var()), val(ac.var()) < val(bc.var()) ? llc::GT : llc::LT, 0);
-    lemma |= ineq(term(a.var(),  -rational(1), b.var()),  val(a.var())  < val(b.var())  ? llc::GE : llc::LE, 0);
+    // The value of factor k is k.rat_sign() * val(k.var())
+    // We need to use the term to use the factor sign, but the sign of the
+    // expression should be defined by the val(a) and val(b)
+    lemma |= ineq(term(a.rat_sign(), a.var(),
+                       - (b.rat_sign()), b.var()),
+                  val(a)  < val(b)  ? llc::GE : llc::LE, 0);
 
     lemma &= ac;
     lemma &= a;
@@ -311,10 +316,6 @@ bool order::order_lemma_on_ac_and_bc_and_factors(const monic& ac,
     rational c_sign = rational(nla::rat_sign(val(c)));
     auto av_c_s = val(a) * c_sign;
     auto bv_c_s = val(b) * c_sign;      
-    if (b.sign() != a.sign())
-        return false;
-    if (bc.rsign() != ac.rsign())
-        return false;
     if ((var_val(ac) > var_val(bc) && av_c_s < bv_c_s) ||
         (var_val(ac) < var_val(bc) && av_c_s > bv_c_s)) {
         generate_ol(ac, a, c, bc, b);
