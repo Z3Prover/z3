@@ -293,7 +293,7 @@ void order::generate_ol(const monic& ac,
     lemma |= ineq(term(rational(1), ac.var(), -rational(1), bc.var()), var_val(ac) < var_val(bc) ? llc::GT : llc::LT, 0);
     // The value of factor k is val(k) = k.rat_sign()*val(k.var()).
     // That is why we need to use the factor signs of a and b in the term,
-    // but the constraint of the term is defined by val(a) and val(b).
+    // but the constraint of the lemma is defined by val(a) and val(b).
     lemma |= ineq(term(a.rat_sign(), a.var(),  -b.rat_sign(), b.var()),  val(a)  < val(b)  ? llc::GE : llc::LE, 0);
 
     lemma &= ac;
