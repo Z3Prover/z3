@@ -143,6 +143,7 @@ def mk_build_dir(path, x64):
             opts.append('--git-describe')
         if PYTHON_ENABLED:
             opts.append('--python')
+        opts.append('--guardcf')
         if subprocess.call(opts) != 0:
             raise MKException("Failed to generate build directory at '%s'" % path)
 
@@ -214,12 +215,6 @@ def mk_dist_dir(x64):
         build_path = BUILD_X86_DIR
     dist_path = os.path.join(DIST_DIR, get_z3_name(x64))
     mk_dir(dist_path)
-    mk_util.DOTNET_CORE_ENABLED = True
-    mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
-    mk_util.JAVA_ENABLED = JAVA_ENABLED
-    mk_util.PYTHON_ENABLED = PYTHON_ENABLED
-    mk_util.GUARD_CF = True
-    mk_util.ALWAYS_DYNAMIC_BASE = True
     mk_win_dist(build_path, dist_path)
     if is_verbose():
         print("Generated %s distribution folder at '%s'" % (platform, dist_path))
@@ -304,6 +299,15 @@ def cp_licenses():
     cp_license(True)
     cp_license(False)
 
+def init_flags():
+    global DOTNET_KEY_FILE, JAVA_ENABLED, PYTHON_ENABLED
+    mk_util.DOTNET_CORE_ENABLED = True
+    mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
+    mk_util.JAVA_ENABLED = JAVA_ENABLED
+    mk_util.PYTHON_ENABLED = PYTHON_ENABLED
+    mk_util.ALWAYS_DYNAMIC_BASE = True
+
+
 # Entry point
 def main():
     if os.name != 'nt':
@@ -311,6 +315,7 @@ def main():
 
     parse_options()
     check_vc_cmd_prompt()
+    init_flags()
 
     if X86ONLY:
         mk_build_dir(BUILD_X86_DIR, False)
