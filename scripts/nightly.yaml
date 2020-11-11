@@ -35,7 +35,7 @@ jobs:
   displayName: "Manylinux build"
   pool:
     vmImage: "ubuntu-latest"
-  container: "rhelmot/manylinux1_x86_64:latest"
+  container: "quay.io/pypa/manylinux2010_x86_64"
   variables:
     python: "/opt/python/cp35-cp35m/bin/python"
   steps:
