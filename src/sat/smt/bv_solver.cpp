@@ -659,7 +659,7 @@ namespace bv {
                 continue;
 
             atom* new_a = new (result->get_region()) atom(i);
-            m_bool_var2atom.setx(i, new_a, nullptr);
+            result->m_bool_var2atom.setx(i, new_a, nullptr);
             for (auto vp : *a)
                 new_a->m_occs = new (result->get_region()) var_pos_occ(vp.first, vp.second, new_a->m_occs);
             for (auto const& occ : a->eqs()) {
@@ -670,7 +670,7 @@ namespace bv {
             }
             new_a->m_def = a->m_def;
             new_a->m_var = a->m_var;
-            validate_atoms();
+            // validate_atoms();
         }
         return result;
     }
