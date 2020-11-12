@@ -141,6 +141,8 @@ void asserted_formulas::set_eliminate_and(bool flag) {
     // seq theory solver keeps terms in normal form and has to interact with side-effect of rewriting
     m_params.set_bool("coalesce_chars", m_smt_params.m_string_solver != symbol("seq"));
     m_params.set_bool("som", true);
+    if (m_smt_params.m_arith_mode == arith_solver_id::AS_OLD_ARITH)
+        m_params.set_bool("flat", true);
     m_rewriter.updt_params(m_params);
     flush_cache();
 }
