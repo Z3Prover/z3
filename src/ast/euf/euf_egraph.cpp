@@ -735,7 +735,7 @@ SASSERT(false);
     }
 
     std::ostream& egraph::display(std::ostream& out, unsigned max_args, enode* n) const {
-        out << n->get_expr_id() << " := ";
+        out << "#" << n->get_expr_id() << " := ";
         expr* f = n->get_expr();
         if (is_app(f))
             out << mk_bounded_pp(f, m, 1) << " ";

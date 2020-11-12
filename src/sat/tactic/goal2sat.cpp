@@ -278,12 +278,12 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 l = sign ? mk_true() : ~mk_true();
             }
             else {                
+                if (m_euf) {
+                    convert_euf(t, root, sign);  
+                    return;
+                }
                 if (!is_uninterp_const(t)) {
-                    if (m_euf) {
-                        convert_euf(t, root, sign);  
-                        return;
-                    }
-                    else if (!is_app(t)) {
+                    if (!is_app(t)) {
                         std::ostringstream strm;
                         strm << mk_ismt2_pp(t, m);
                         throw_op_not_handled(strm.str());

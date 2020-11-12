@@ -149,6 +149,8 @@ namespace euf {
     }
 
     bool solver::is_external(bool_var v) {
+        if (s().is_external(v))
+            return true;
         if (nullptr != m_bool_var2expr.get(v, nullptr))
             return true;
         for (auto* s : m_solvers)
