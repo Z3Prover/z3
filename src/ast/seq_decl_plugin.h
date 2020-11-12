@@ -177,7 +177,7 @@ class seq_decl_plugin : public decl_plugin {
 
     void match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
-    void match_right_assoc(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
+    void match_assoc(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
     bool match(ptr_vector<sort>& binding, sort* s, sort* sP);
 
@@ -188,6 +188,9 @@ class seq_decl_plugin : public decl_plugin {
     func_decl* mk_seq_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_string);
     func_decl* mk_str_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_seq);
     func_decl* mk_assoc_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_string, decl_kind k_seq);
+    func_decl* mk_left_assoc_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_string, decl_kind k_seq);
+    func_decl* mk_assoc_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_string, decl_kind k_seq, bool is_right);
+
 
     void init();
 
