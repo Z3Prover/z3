@@ -368,7 +368,7 @@ public:
     check_sat_state cs_state() const;
     void complete_model(model_ref& mdl) const;
     void validate_model();
-    void analyze_failure(model_evaluator& ev, expr* e, bool expected_value);
+    void analyze_failure(expr_mark& seen, model_evaluator& ev, expr* e, bool expected_value);
     void display_detailed_analysis(std::ostream& out, model_evaluator& ev, expr* e);
     void display_model(model_ref& mdl);
 
