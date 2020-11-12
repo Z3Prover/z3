@@ -1980,15 +1980,16 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
         seq_value_proc* sv = alloc(seq_value_proc, *this, n, srt);
        
         unsigned end = m_concat.size();
-        TRACE("seq", tout << mk_pp(e, m) << "\n";);
+        TRACE("seq", tout << "sequence: " << start << " " << end << " " << mk_pp(e, m) << "\n";);
         for (unsigned i = start; i < end; ++i) {
             expr* c = m_concat[i];
             expr *c1;
-            TRACE("seq", tout << mk_pp(c, m) << "\n";);
+            TRACE("seq", tout << "elem: " << mk_pp(c, m) << "\n";);
             if (m_util.str.is_unit(c, c1)) {
-                if (ctx.e_internalized(c1)) {
+                if (ctx.e_internalized(c1)) 
                     sv->add_unit(ctx.get_enode(c1));
-                }
+                else if (m.is_value(c1))
+                    sv->add_string(c);
                 else {
                     TRACE("seq", tout << "not internalized " << mk_pp(c, m) << "\n";);
                 }
@@ -2005,7 +2006,7 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
                 sv->add_string(mk_value(to_app(c)));
             }
         }
-        m_concat.shrink(start);
+        m_concat.shrink(start);        
         return sv;
     }
     else {
