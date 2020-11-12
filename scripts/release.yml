@@ -75,8 +75,8 @@ stages:
   - job: ManyLinuxBuild
     displayName: "ManyLinux build"
     pool:
-      vmImage: "ubuntu-16.04"
-    container: "rhelmot/manylinux1_x86_64:latest"
+      vmImage: "ubuntu-latest"
+    container: "quay.io/pypa/manylinux2010_x86_64:latest"
     variables:
       python: "/opt/python/cp35-cp35m/bin/python"
     steps:
