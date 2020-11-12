@@ -34,6 +34,7 @@ namespace euf {
         values2model(deps, mdl);
         for (auto* mb : m_solvers)
             mb->finalize_model(*mdl);
+        // validate_model(*mdl);
     }
 
     bool solver::include_func_interp(func_decl* f) {
@@ -194,6 +195,20 @@ namespace euf {
             if (n->is_root() && m_values.get(n->get_expr_id()))
                 m_values2root.insert(m_values.get(n->get_expr_id()), n);
         return m_values2root;
+    }
+
+    void solver::validate_model(model& mdl) {
+        for (enode* n : m_egraph.nodes()) {
+            expr* e = n->get_expr();
+            if (!m.is_bool(e))
+                continue;
+            unsigned id = n->get_root_id();
+            bool tt = m.is_true(m_values.get(id));
+            if (mdl.is_true(e) != tt) {
+                IF_VERBOSE(0, verbose_stream() << "Failed to evaluate " << id << " " << mk_bounded_pp(e, m) << "\n");
+            }
+        }
+        
     }
 
 
