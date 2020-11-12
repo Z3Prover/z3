@@ -144,6 +144,7 @@ namespace euf {
         void dependencies2values(deps_t& deps, model_ref& mdl);
         void collect_dependencies(deps_t& deps);
         void values2model(deps_t const& deps, model_ref& mdl);
+        void validate_model(model& mdl);
 
         // solving
         void propagate_literals();
