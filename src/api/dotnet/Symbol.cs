@@ -102,7 +102,10 @@ namespace Microsoft.Z3
         /// <returns>A hash code</returns>
         public override int GetHashCode()
         {
-            return (int)NativeObject;
+            if (IsIntSymbol())
+                return ((IntSymbol)this).Int;
+            else 
+	        return ((StringSymbol)this).String.GetHashCode();
         }
 
 
