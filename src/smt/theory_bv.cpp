@@ -229,8 +229,8 @@ namespace smt {
         m_stats.m_num_diseq_static++;
         app * e1       = get_expr(v1);
         app * e2       = get_expr(v2);
-        literal l       = ~(mk_eq(e1, e2, true));
-        expr * eq       = ctx.bool_var2expr(l.var());
+        expr_ref eq(m.mk_eq(e1, e2), m);
+        literal l       = ~mk_literal(eq);
         std::function<expr*(void)> logfn = [&]() {
             return m.mk_implies(m.mk_eq(mk_bit2bool(e1, idx), m.mk_not(mk_bit2bool(e2, idx))), m.mk_not(eq));
         };
@@ -1191,7 +1191,7 @@ namespace smt {
 
     void theory_bv::assign_eh(bool_var v, bool is_true) {
         atom * a      = get_bv2a(v);
-        TRACE("bv", tout << "assert: p" << v << " #" << ctx.bool_var2expr(v)->get_id() << " is_true: " << is_true << "\n";);
+        TRACE("bv", tout << "assert: p" << v << " #" << ctx.bool_var2expr(v)->get_id() << " is_true: " << is_true << " " << ctx.inconsistent() << "\n";);
         if (a->is_bit()) {
             m_prop_queue.reset();
             bit_atom * b = static_cast<bit_atom*>(a);
@@ -1238,10 +1238,11 @@ namespace smt {
             while (v2 != v) {
                 literal_vector & bits2   = m_bits[v2];
                 literal bit2             = bits2[idx];
-                SASSERT(bit != ~bit2);
                 lbool   val2             = ctx.get_assignment(bit2);
                 TRACE("bv_bit_prop", tout << "propagating #" << get_enode(v2)->get_owner_id() << "[" << idx << "] = " << val2 << "\n";);
                 TRACE("bv", tout << bit << " -> " << bit2 << " " << val << " -> " << val2 << " " << ctx.get_scope_level() << "\n";);
+
+                SASSERT(bit != ~bit2);
                 
                 if (val != val2) {
                     literal consequent = bit2;
