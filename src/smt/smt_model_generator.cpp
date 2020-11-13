@@ -92,7 +92,7 @@ namespace smt {
     void model_generator::mk_value_procs(obj_map<enode, model_value_proc *> & root2proc, ptr_vector<enode> & roots, 
                                          ptr_vector<model_value_proc> & procs) {
         for (enode * r : m_context->enodes()) {
-            if (r == r->get_root() && m_context->is_relevant(r)) {
+            if (r == r->get_root() && (m_context->is_relevant(r) || m.is_value(r->get_expr()))) {
                 roots.push_back(r);
                 sort * s      = m.get_sort(r->get_owner());
                 model_value_proc * proc = nullptr;
@@ -105,6 +105,8 @@ namespace smt {
                     else
                         proc = alloc(expr_wrapper_proc, m.mk_false());
                 }
+                else if (m.is_value(r->get_expr()))
+                    proc = alloc(expr_wrapper_proc, r->get_expr());                    
                 else {
                     family_id fid = s->get_family_id();
                     theory * th   = m_context->get_theory(fid);
@@ -195,7 +197,7 @@ namespace smt {
         }
         
         SASSERT(!src.is_fresh_value());
-
+        
         enode * n = src.get_enode();
         SASSERT(n == n->get_root());
         bool visited = true;
