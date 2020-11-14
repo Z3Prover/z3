@@ -323,7 +323,8 @@ namespace smt {
                 literal is_nullable_lit = th.mk_literal(is_nullable);
                 ctx.mark_as_relevant(is_nullable_lit);
                 th.add_axiom(~lit, ~len_s_le_i, is_nullable_lit);
-                th.add_unhandled_expr(is_nullable);
+                if (str().is_in_re(is_nullable))
+                    th.add_unhandled_expr(is_nullable);
             }
         }
 
