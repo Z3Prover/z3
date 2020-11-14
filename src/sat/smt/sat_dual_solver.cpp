@@ -55,8 +55,8 @@ namespace sat {
         return w;
     }
 
-    void dual_solver::track_relevancy(bool_var v) {
-        v = ext2var(v);
+    void dual_solver::track_relevancy(bool_var w) {
+        bool_var v = ext2var(w);
         if (!m_is_tracked.get(v, false)) {
             m_is_tracked.setx(v, true, false);
             m_tracked_vars.push_back(v);
@@ -80,6 +80,8 @@ namespace sat {
         for (unsigned i = 0; i < sz; ++i)
             m_solver.mk_clause(root, ~ext2lit(clause[i]), status::input());
         m_roots.push_back(~root);
+        if (root.var() == 5350)
+            std::cout << "root clause " << literal_vector(sz, clause) << "\n";
     }
 
     void dual_solver::add_aux(unsigned sz, literal const* clause) {
@@ -114,7 +116,7 @@ namespace sat {
         return is_sat == l_false;
     }
 
-    std::ostream& dual_solver::display(solver const& s, std::ostream& out) const {
+    std::ostream& dual_solver::display(solver const& s, std::ostream& out) const {        
         for (unsigned v = 0; v < m_solver.num_vars(); ++v) {
             bool_var w = m_var2ext.get(v, null_bool_var);
             if (w == null_bool_var)
@@ -123,8 +125,18 @@ namespace sat {
             lbool v2 = s.value(w);
             if (v1 == v2 || v2 == l_undef)
                 continue;
-            out << w << " " << v1 << " " << v2 << "\n";
+            out << w << " " << v << " " << v1 << " " << v2 << "\n";
         }
+        literal_vector lits;
+        for (bool_var v : m_tracked_vars) 
+            lits.push_back(literal(m_var2ext[v], l_false == s.value(m_var2ext[v])));
+        out << "tracked: " << lits << "\n";  
+        lits.reset();
+        for (literal r : m_roots) 
+            if (m_solver.value(r) == l_true)
+                lits.push_back(r);
+        out << "roots: " << lits << "\n";
+
         return out;
     }
 }
