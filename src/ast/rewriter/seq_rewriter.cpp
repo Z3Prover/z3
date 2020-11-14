@@ -2302,17 +2302,17 @@ expr_ref seq_rewriter::is_nullable_rec(expr* r) {
 
 expr_ref seq_rewriter::is_nullable_symbolic_regex(expr* r, sort* seq_sort) {
     SASSERT(m_util.is_re(r));
-    expr* elem = nullptr, * r2 = nullptr, * s = nullptr;
+    expr* elem = nullptr, *r1 = r, * r2 = nullptr, * s = nullptr;
     expr_ref elems(str().mk_empty(seq_sort), m());
     expr_ref result(m());
-    while (re().is_derivative(r, elem, r2)) {
+    while (re().is_derivative(r1, elem, r2)) {
         if (str().is_empty(elems))
             elems = str().mk_unit(elem);
         else
             elems = str().mk_concat(str().mk_unit(elem), elems);
-        r = r2;
+        r1 = r2;
     }
-    if (re().is_to_re(r, s)) {
+    if (re().is_to_re(r1, s)) {
         // r is nullable  
         // iff after taking the derivatives the remaining sequence is empty 
         // iff the inner sequence equals to the sequence of derivative elements in reverse
