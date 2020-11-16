@@ -348,7 +348,10 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
         SASSERT(new_args.size() >= 2);
         result = mk_mul_app(new_args.size(), new_args.c_ptr());
         result = mk_mul_app(c, result);
-        TRACE("poly_rewriter", tout << "mk_nflat_mul_core result:\n" << mk_ismt2_pp(result, m()) << "\n";);
+        TRACE("poly_rewriter", 
+              for (unsigned i = 0; i < num_args; ++i)
+                  tout << mk_ismt2_pp(args[i], m()) << " ";
+              tout << "\nmk_nflat_mul_core result:\n" << mk_ismt2_pp(result, m()) << "\n";);
         return BR_DONE;
     }
 
