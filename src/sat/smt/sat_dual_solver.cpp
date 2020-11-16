@@ -72,6 +72,7 @@ namespace sat {
     }
 
     void dual_solver::add_root(unsigned sz, literal const* clause) {
+        TRACE("dual", tout << "root: " << literal_vector(sz, clause) << "\n";);
         if (sz == 1) {
             m_units.push_back(clause[0]);
             return;
@@ -80,11 +81,10 @@ namespace sat {
         for (unsigned i = 0; i < sz; ++i)
             m_solver.mk_clause(root, ~ext2lit(clause[i]), status::input());
         m_roots.push_back(~root);
-        if (root.var() == 5350)
-            std::cout << "root clause " << literal_vector(sz, clause) << "\n";
     }
 
     void dual_solver::add_aux(unsigned sz, literal const* clause) {
+        TRACE("dual", tout << "aux: " << literal_vector(sz, clause) << "\n";);
         m_lits.reset();
         for (unsigned i = 0; i < sz; ++i) 
             m_lits.push_back(ext2lit(clause[i]));
@@ -106,8 +106,8 @@ namespace sat {
             for (literal lit : m_solver.get_core())
                 m_core.push_back(lit2ext(lit));        
         if (is_sat == l_true) {
-            IF_VERBOSE(0, display(s, verbose_stream()));
-            s.display(verbose_stream());
+            TRACE("dual", display(s, tout); s.display(tout););
+            IF_VERBOSE(0, verbose_stream() << "unexpected SAT\n");
             UNREACHABLE();
             return false;
         }
@@ -125,7 +125,8 @@ namespace sat {
             lbool v2 = s.value(w);
             if (v1 == v2 || v2 == l_undef)
                 continue;
-            out << w << " " << v << " " << v1 << " " << v2 << "\n";
+            out << "ext: " << w << " " << v2 << "\n";
+            out << "int: " << v << " " << v1 << "\n";
         }
         literal_vector lits;
         for (bool_var v : m_tracked_vars) 
