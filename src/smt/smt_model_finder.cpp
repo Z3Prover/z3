@@ -2198,8 +2198,6 @@ namespace smt {
                     }
                     else {
                         SASSERT(is_quantifier(curr));
-                        SASSERT(is_lambda(curr));
-                        //UNREACHABLE(); // can't happen, the quantifier is supposed to be flat.
                     }
                 }
             }
