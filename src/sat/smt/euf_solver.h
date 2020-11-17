@@ -79,7 +79,8 @@ namespace euf {
             return reinterpret_cast<size_t>(UNTAG(size_t*, p));
         }
 
-        ast_manager& m;
+        std::function<::solver*(void)>   m_mk_solver;
+        ast_manager&                     m;
         sat::sat_internalizer& si;
         smt_params             m_config;
         euf::egraph            m_egraph;
@@ -102,7 +103,6 @@ namespace euf {
         svector<scope>                                  m_scopes;
         scoped_ptr_vector<th_solver>                    m_solvers;
         ptr_vector<th_solver>                           m_id2solver;
-        std::function<::solver*(void)>                  m_mk_solver;
 
         constraint* m_conflict{ nullptr };
         constraint* m_eq{ nullptr };
