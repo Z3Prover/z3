@@ -199,6 +199,7 @@ namespace euf {
         void toggle_merge_enabled(enode* n);
 
         enode_bool_pair insert_table(enode* p);
+        void erase_from_table(enode* p);
 
         template <typename T>
         void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b, justification const& j) {

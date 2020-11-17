@@ -14,88 +14,8 @@ Author:
     Nikolaj Bjorner (nbjorner) 2020-08-23
 
 Notes:
+--*/
 
-Each node has a congruence closure root, cg.
-cg is set to the representative in the cc table 
-(first insertion of congruent node).
-Each node n has a set of parents, denoted n.P.
-The table maintains the invariant
- - p.cg = find(p)
-
-Merge sets r2 to the root of r1 
-(r2 and r1 are both considered roots before the merge).
-The operation Unmerge reverses the effect of Merge.
-
-
-Merge(r1, r2)
--------------
-
-Erase:        for each p in r1.P such that p.cg == p:
-                 erase from table        
-Update root:  r1.root := r2
-Insert:       for each p in r1.P:
-                 p.cg = insert p in table
-                 if p.cg == p:
-                   append p to r2.P
-                 else 
-                   add (p.cg == p) to 'to_merge' 
-
-Unmerge(r1, r2)
----------------
-
-Erase:        for each p in r2.P added from r1.P:
-                 erase p from table 
-Revert root:  r1.root := r1
-Insert:       for each p in r1.P:
-                 insert p if n was cc root before merge
-
-condition for being cc root before merge:
-  p.cg == p or !congruent(p, p.cg)
-
-congruent(p,q) := roots of p.args = roots of q.args
-
-The algorithm orients r1, r2 such that class_size(r1) <= class_size(r2).
-With N nodes, there can be at most N calls to Merge.
-Each of the calls traverse r1.P from the smaller class size.
-Label a merge tree with nodes from the larger class size.
-In other words, if Merge(r2,r1); Merge(r3,r1) is a sequence
-of calls where r1 is selected root, then the merge tree is
-
-    r1 
-  /   \
- r1    r3  
-   \
-   r2
-
-Note that parent lists are re-examined only for nodes that join
-from right subtrees (with lesser class sizes).
-Claim: a node participates in a path along right adjoining sub-trees at most O(log(N)) times.
-Justification (very roughly): the size of a right adjoining subtree can at most 
-be equal to the left adjoining sub-tree. This entails a logarithmic number of 
-re-examinations from the right adjoining tree.
-(TBD check how Hopcroft's main argument is phrased)
-
-The parent lists are bounded by the maximal arity of functions.
-
-Example:
-
-Initially:
- n1 := f(a,b)  has root n1
- n2 := f(a',b) has root n2
- table = [f(a,b) |-> n1, f(a',b) |-> n2]
-
-merge(a,a') (a' becomes root)
- table = [f(a',b) |-> n2]
- n1.cg = n2
- a'.P = [n2]
- n1 is not added as parent because it is not a cc root after the assignment a.root := a'
-
-unmerge(a,a')
-- nothing is erased
-- n1 is reinserted. It used to be a root.
-
-
-*/
 
 #include "ast/euf/euf_egraph.h"
 #include "ast/ast_pp.h"
@@ -130,6 +50,10 @@ namespace euf {
         auto rc = m_table.insert(p);
         p->m_cg = rc.first;
         return rc;
+    }
+
+    void egraph::erase_from_table(enode* p) {
+        m_table.erase(p);
     }
 
     void egraph::reinsert_equality(enode* p) {
@@ -328,9 +252,10 @@ namespace euf {
        if (n->num_args() > 0) {
            if (enable_merge)
                insert_table(n);
-           else
-               m_table.erase(n);
+           else if (m_table.contains_ptr(n))
+               erase_from_table(n);
        }
+       VERIFY(n->num_args() == 0 || !n->merge_enabled() || m_table.contains(n));
     }
 
     void egraph::set_value(enode* n, lbool value) {        
@@ -357,7 +282,7 @@ namespace euf {
             enode* n = m_nodes.back();
             expr* e = m_exprs.back();
             if (n->num_args() > 0 && n->is_cgr()) 
-                m_table.erase(n);
+                erase_from_table(n);
             
             m_expr2enode[e->get_id()] = nullptr;
             n->~enode();
@@ -467,7 +392,7 @@ namespace euf {
                     continue;
                 SASSERT(m_table.contains_ptr(p));
                 p->mark1();
-                m_table.erase(p);
+                erase_from_table(p);
                 SASSERT(!m_table.contains_ptr(p));
             }
             else if (p->is_equality())
@@ -524,18 +449,12 @@ namespace euf {
             TRACE("euf", tout << "erase " << bpp(p) << "\n";);
             SASSERT(!p->merge_enabled() || m_table.contains_ptr(p));
             SASSERT(!p->merge_enabled() || p->is_cgr());
-            if (p->merge_enabled())                
-                m_table.erase(p);       
+            if (p->merge_enabled())
+                erase_from_table(p);
         }
 
         for (enode* c : enode_class(r1))
             c->m_root = r1;
-
-        for (enode* p : enode_parents(r1)) 
-            if (p->merge_enabled() && !p->is_cgr() && !p->m_cg) {
-               std::cout << bpp(p) << "\n";
-SASSERT(false);
-        }
 
         for (enode* p : enode_parents(r1)) 
             if (p->merge_enabled() && (p->is_cgr() || !p->congruent(p->m_cg))) 
@@ -548,12 +467,12 @@ SASSERT(false);
     bool egraph::propagate() {
         SASSERT(m_new_lits_qhead <= m_new_lits.size());
         SASSERT(m_num_scopes == 0 || m_to_merge.empty());
+        force_push();
         for (unsigned i = 0; i < m_to_merge.size() && m.limit().inc() && !inconsistent(); ++i) {
             auto const& w = m_to_merge[i];
             merge(w.a, w.b, justification::congruence(w.commutativity));                
         }
         m_to_merge.reset();
-        force_push();
         return 
             (m_new_lits_qhead < m_new_lits.size()) || 
             (m_new_th_eqs_qhead < m_new_th_eqs.size()) ||
@@ -826,3 +745,86 @@ template void euf::egraph::explain(ptr_vector<size_t>& justifications);
 template void euf::egraph::explain_todo(ptr_vector<size_t>& justifications);
 template void euf::egraph::explain_eq(ptr_vector<size_t>& justifications, enode* a, enode* b);
 
+
+
+#if 0
+Each node has a congruence closure root, cg.
+cg is set to the representative in the cc table 
+(first insertion of congruent node).
+Each node n has a set of parents, denoted n.P.
+The table maintains the invariant
+ - p.cg = find(p)
+
+Merge sets r2 to the root of r1 
+(r2 and r1 are both considered roots before the merge).
+The operation Unmerge reverses the effect of Merge.
+
+
+Merge(r1, r2)
+-------------
+
+Erase:        for each p in r1.P such that p.cg == p:
+                 erase from table        
+Update root:  r1.root := r2
+Insert:       for each p in r1.P:
+                 p.cg = insert p in table
+                 if p.cg == p:
+                   append p to r2.P
+                 else 
+                   add (p.cg == p) to 'to_merge' 
+
+Unmerge(r1, r2)
+---------------
+
+Erase:        for each p in r2.P added from r1.P:
+                 erase p from table 
+Revert root:  r1.root := r1
+Insert:       for each p in r1.P:
+                 insert p if n was cc root before merge
+
+condition for being cc root before merge:
+  p.cg == p or !congruent(p, p.cg)
+
+congruent(p,q) := roots of p.args = roots of q.args
+
+The algorithm orients r1, r2 such that class_size(r1) <= class_size(r2).
+With N nodes, there can be at most N calls to Merge.
+Each of the calls traverse r1.P from the smaller class size.
+Label a merge tree with nodes from the larger class size.
+In other words, if Merge(r2,r1); Merge(r3,r1) is a sequence
+of calls where r1 is selected root, then the merge tree is
+
+    r1 
+  /   \
+ r1    r3  
+   \
+   r2
+
+Note that parent lists are re-examined only for nodes that join
+from right subtrees (with lesser class sizes).
+Claim: a node participates in a path along right adjoining sub-trees at most O(log(N)) times.
+Justification (very roughly): the size of a right adjoining subtree can at most 
+be equal to the left adjoining sub-tree. This entails a logarithmic number of 
+re-examinations from the right adjoining tree.
+(TBD check how Hopcroft's main argument is phrased)
+
+The parent lists are bounded by the maximal arity of functions.
+
+Example:
+
+Initially:
+ n1 := f(a,b)  has root n1
+ n2 := f(a',b) has root n2
+ table = [f(a,b) |-> n1, f(a',b) |-> n2]
+
+merge(a,a') (a' becomes root)
+ table = [f(a',b) |-> n2]
+ n1.cg = n2
+ a'.P = [n2]
+ n1 is not added as parent because it is not a cc root after the assignment a.root := a'
+
+unmerge(a,a')
+- nothing is erased
+- n1 is reinserted. It used to be a root.
+
+#endif
