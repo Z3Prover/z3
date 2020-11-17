@@ -203,9 +203,11 @@ namespace euf {
             if (!m.is_bool(e))
                 continue;
             unsigned id = n->get_root_id();
+            if (!m_values.get(id))
+                continue;
             bool tt = m.is_true(m_values.get(id));
             if (mdl.is_true(e) != tt) {
-                IF_VERBOSE(0, verbose_stream() << "Failed to evaluate " << id << " " << mk_bounded_pp(e, m) << "\n");
+                IF_VERBOSE(0, verbose_stream() << "Failed to evaluate " << id << " " << mk_bounded_pp(e, m) << " " << mdl(e) << " " << mk_bounded_pp(m_values.get(id), m) << "\n");
             }
         }
         

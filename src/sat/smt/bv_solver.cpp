@@ -74,7 +74,6 @@ namespace bv {
             is_bv(v2) &&
             m_bits[v2].size() == sz &&
             get_fixed_value(v2, val2) && val1 == val2;
-
         if (!is_current)
             m_fixed_var_table.insert(key, v1);
         else if (n1->get_root() != var2enode(v2)->get_root()) {
@@ -380,11 +379,12 @@ namespace bv {
     }
 
     void solver::asserted(literal l) {
+        
         atom* a = get_bv2a(l.var());
         TRACE("bv", tout << "asserted: " << l << "\n";);
         if (a) {
             force_push();
-            m_prop_queue.push_back(propagation_item(a));
+            m_prop_queue.push_back(propagation_item(a));            
             for (auto p : a->m_bit2occ) {
                 del_eq_occurs(p.first, p.second);
             }
@@ -530,6 +530,7 @@ namespace bv {
     }
 
     bool solver::set_root(literal l, literal r) {
+        return false;
         atom* a = get_bv2a(l.var());
         if (!a)
             return true;
@@ -624,6 +625,16 @@ namespace bv {
         return out;
     }
 
+    std::ostream& solver::display(std::ostream& out, atom const& a) const {
+        out << a.m_bv << "\n";
+        for (auto vp : a) 
+            out << vp.first << "[" << vp.second << "]\n";
+        for (auto e : a.eqs())
+            out << e.m_bv1 << " " << e.m_bv2 << "\n";
+        return out;
+    }
+
+
     void solver::collect_statistics(statistics& st) const {
         st.update("bv conflicts", m_stats.m_num_conflicts);
         st.update("bv diseqs", m_stats.m_num_diseq_static);
@@ -680,6 +691,7 @@ namespace bv {
     void solver::init_use_list(sat::ext_use_list& ul) {}
     bool solver::is_blocked(literal l, sat::ext_constraint_idx) { return false; }
     bool solver::check_model(sat::model const& m) const { return true; }
+    void solver::finalize_model(model& mdl) {}
     unsigned solver::max_var(unsigned w) const { return w; }
 
     void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {

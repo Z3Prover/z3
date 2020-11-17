@@ -290,6 +290,10 @@ namespace bv {
         TRACE("bv", tout << "add-bit: v" << v << "[" << idx << "] " << l << " " << literal2expr(l) << "@" << s().scope_lvl() << "\n";);
         SASSERT(m_num_scopes == 0);
         s().set_external(l.var());
+        euf::enode* n = bool_var2enode(l.var());
+        if (!n->is_attached_to(get_id())) 
+            mk_var(n);
+
         set_bit_eh(v, l, idx);
     }
 
@@ -307,7 +311,7 @@ namespace bv {
         SASSERT(m_bits[v][idx] == l);
         if (s().value(l) != l_undef && s().lvl(l) == 0) 
             register_true_false_bit(v, idx);
-        else if (m_bits[v].size() > 1) {
+        else {
             atom* b = mk_atom(l.var());
             if (b->m_occs)
                 find_new_diseq_axioms(*b, v, idx);
@@ -613,7 +617,7 @@ namespace bv {
         SASSERT(hi - lo + 1 == get_bv_size(v));
         SASSERT(lo <= hi && hi < get_bv_size(arg_v));
         m_bits[v].reset();
-        for (unsigned i = lo; i <= hi; ++i)
+        for (unsigned i = lo; i <= hi; ++i) 
             add_bit(v, m_bits[arg_v][i]);
         find_wpos(v);
     }

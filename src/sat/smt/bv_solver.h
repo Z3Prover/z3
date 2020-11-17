@@ -175,6 +175,7 @@ namespace bv {
             atom* m_atom{ nullptr };
             explicit propagation_item(atom* a) : m_atom(a) {}
             explicit propagation_item(var_pos const& vp) : m_vp(vp) {}            
+            bool operator==(propagation_item const& other) const { if (m_atom) return m_atom == other.m_atom; return false; }
         };
 
 
@@ -300,6 +301,8 @@ namespace bv {
         bool check_zero_one_bits(theory_var v);
         void check_missing_propagation() const;
         void validate_atoms() const;
+        
+        std::ostream& display(std::ostream& out, atom const& a) const;
        
     public:
         solver(euf::solver& ctx, theory_id id);
@@ -332,6 +335,7 @@ namespace bv {
         void init_use_list(sat::ext_use_list& ul) override;
         bool is_blocked(literal l, sat::ext_constraint_idx) override;
         bool check_model(sat::model const& m) const override;
+        void finalize_model(model& mdl) override;
         unsigned max_var(unsigned w) const override;
 
         void new_eq_eh(euf::th_eq const& eq) override;

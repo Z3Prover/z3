@@ -81,16 +81,16 @@ namespace euf {
 
         ast_manager& m;
         sat::sat_internalizer& si;
-        smt_params            m_config;
-        euf::egraph           m_egraph;
-        euf_trail_stack       m_trail;
-        stats                 m_stats;
-        th_rewriter           m_rewriter;
-        func_decl_ref_vector  m_unhandled_functions;
-        sat::lookahead*       m_lookahead{ nullptr };
+        smt_params             m_config;
+        euf::egraph            m_egraph;
+        euf_trail_stack        m_trail;
+        stats                  m_stats;
+        th_rewriter            m_rewriter;
+        func_decl_ref_vector   m_unhandled_functions;
+        sat::lookahead*        m_lookahead{ nullptr };
         ast_manager*           m_to_m;
         sat::sat_internalizer* m_to_si;
-        scoped_ptr<euf::ackerman>   m_ackerman;
+        scoped_ptr<euf::ackerman>    m_ackerman;
         scoped_ptr<sat::dual_solver> m_dual_solver;
         user::solver*          m_user_propagator{ nullptr };
         th_solver*             m_qsolver { nullptr };
