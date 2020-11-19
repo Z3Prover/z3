@@ -22,6 +22,7 @@ Revision History:
 #include "util/scoped_timer.h"
 #include "util/mutex.h"
 #include "util/util.h"
+#include <atomic>
 #include <chrono>
 #include <climits>
 #include <condition_variable>
