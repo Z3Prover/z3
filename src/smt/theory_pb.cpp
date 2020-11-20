@@ -436,6 +436,7 @@ namespace smt {
     theory_pb::theory_pb(context& ctx):
         theory(ctx, ctx.get_manager().mk_family_id("pb")),
         m_params(ctx.get_fparams()),
+        m_mpz_trail(m_mpz_mgr),
         pb(ctx.get_manager()),
         m_restart_lim(3),
         m_restart_inc(0),
@@ -1106,8 +1107,10 @@ namespace smt {
        and/or relatively few compared to number of argumets.
      */
     void theory_pb::assign_ineq(ineq& c, bool is_true) {
-        ctx.push_trail(value_trail<context, scoped_mpz>(c.m_max_sum));
-        ctx.push_trail(value_trail<context, scoped_mpz>(c.m_min_sum));
+        m_mpz_trail.push_back(c.m_max_sum);
+        m_mpz_trail.push_back(c.m_min_sum);
+        ctx.push_trail(scoped_value_trail<context, scoped_mpz, scoped_mpz_vector>(c.m_max_sum, m_mpz_trail));
+        ctx.push_trail(scoped_value_trail<context, scoped_mpz, scoped_mpz_vector>(c.m_min_sum, m_mpz_trail));
         ctx.push_trail(value_trail<context, unsigned>(c.m_nfixed));
 
         SASSERT(c.is_ge());

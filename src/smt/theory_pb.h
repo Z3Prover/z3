@@ -271,6 +271,7 @@ namespace smt {
 
         svector<var_info>        m_var_infos; 
         mutable unsynch_mpz_manager      m_mpz_mgr;        // Simplex: manager mpz numerals
+        scoped_mpz_vector        m_mpz_trail;
         unsigned_vector          m_ineqs_trail;
         unsigned_vector          m_ineqs_lim;
         literal_vector           m_literals;    // temporary vector

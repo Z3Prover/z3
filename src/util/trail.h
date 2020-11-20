@@ -56,6 +56,29 @@ public:
     }
 };
 
+
+    
+template<typename Ctx, typename T, typename Ts>
+class scoped_value_trail : public trail<Ctx> {
+    T & m_value;
+    Ts & m_values;
+    
+public:
+    scoped_value_trail(T & value, Ts& values):
+        m_value(value),
+        m_values(values) {
+    }
+    
+    ~scoped_value_trail() override {
+    }
+    
+    void undo(Ctx & ctx) override {
+        m_value = m_values.back();
+        m_values.pop_back();
+    }
+};
+
+
 template<typename Ctx>
 class reset_flag_trail : public trail<Ctx> {
     bool & m_value;
