@@ -2616,6 +2616,11 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
         std::swap(lhs, rhs);
     }
 
+    if (!gcd_test(lhs, rhs)) {
+        result = m().mk_false();
+        return BR_DONE;
+    }        
+
     br_status st;
     if (m_bit2bool) {
         st = mk_bit2bool(lhs, rhs, result);
