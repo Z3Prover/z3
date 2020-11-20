@@ -413,6 +413,8 @@ namespace euf {
                     m_to_merge.push_back(to_merge(p_other, p, rc.second));
                 else
                     r2->m_parents.push_back(p);
+                if (p->is_equality())
+                    reinsert_equality(p);
             }
             else if (p->is_equality()) {
                 r2->m_parents.push_back(p);
@@ -633,7 +635,7 @@ namespace euf {
             enode* n = m_todo[i];
             if (n->m_target && !n->is_marked1()) {
                 n->mark1();
-                CTRACE("euf", m_display_justification, n->m_justification.display(tout << n->get_expr_id() << " = " << n->m_target->get_expr_id() << " ", m_display_justification) << "\n";);
+                CTRACE("euf_verbose", m_display_justification, n->m_justification.display(tout << n->get_expr_id() << " = " << n->m_target->get_expr_id() << " ", m_display_justification) << "\n";);
                 explain_eq(justifications, n, n->m_target, n->m_justification);
             }
         }
