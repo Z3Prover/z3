@@ -445,12 +445,48 @@ inline expr * poly_rewriter<Config>::get_power_product(expr * t, numeral & a) {
 }
 
 template<typename Config>
-bool poly_rewriter<Config>::is_mul(expr * t, numeral & c, expr * & pp) {
+bool poly_rewriter<Config>::is_mul(expr * t, numeral & c, expr * & pp) const {
     if (!is_mul(t) || to_app(t)->get_num_args() != 2)
         return false;
     if (!is_numeral(to_app(t)->get_arg(0), c))
         return false;
     pp = to_app(t)->get_arg(1);
+    return true;
+}
+
+template<typename Config>
+bool poly_rewriter<Config>::gcd_test(expr* lhs, expr* rhs) const {
+    numeral g(0), offset(0), c;
+    expr* t = nullptr;
+    unsigned sz = 0; 
+    expr* const* args = get_monomials(lhs, sz);
+    auto test = [&](bool side, expr* e) {
+        if (is_numeral(e, c)) {
+            if (!c.is_int())
+                return false;
+            if (side)                
+                offset += c;
+            else
+                offset -= c;
+            return true;
+        }
+        else if (is_mul(e, c, t)) {
+            if (!c.is_int() || c.is_zero())
+                return false;
+            g = gcd(abs(c), g);
+            return !g.is_one();
+        }
+        return false;
+    };
+    for (unsigned i = 0; i < sz; ++i) 
+        if (!test(true, args[i]))
+            return true;        
+    args = get_monomials(rhs, sz);
+    for (unsigned i = 0; i < sz; ++i) 
+        if (!test(false, args[i]))
+            return true;
+    if (!offset.is_zero() && !g.is_zero() && !divides(g, offset))
+        return false;
     return true;
 }
 

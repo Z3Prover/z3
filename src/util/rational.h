@@ -387,8 +387,11 @@ public:
     }
 
     friend inline std::ostream & operator<<(std::ostream & target, rational const & r) {
-        target << m().to_string(r.m_val);
-        return target;
+        return target << m().to_string(r.m_val);
+    }
+
+    friend inline bool divides(rational const& a, rational const& b) {
+        return m().divides(a.to_mpq(), b.to_mpq());
     }
 
     friend inline rational gcd(rational const & r1, rational const & r2);

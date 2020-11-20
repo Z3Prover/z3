@@ -65,7 +65,7 @@ protected:
 
     void set_curr_sort(sort * s) { m_curr_sort = s; }
 
-    expr * const * get_monomials(expr * & t, unsigned & sz) {
+    expr * const * get_monomials(expr * & t, unsigned & sz) const {
         if (is_add(t)) {
             sz = to_app(t)->get_num_args();
             return to_app(t)->get_args();
@@ -86,7 +86,7 @@ protected:
     bool hoist_multiplication(expr_ref& som);
     expr* merge_muls(expr* x, expr* y);
 
-    bool is_mul(expr * t, numeral & c, expr * & pp);
+    bool is_mul(expr * t, numeral & c, expr * & pp) const;
 
     class mon_lt {
         poly_rewriter& rw;
@@ -123,6 +123,8 @@ public:
     bool is_times_minus_one(expr * n, expr*& r) const;
     bool is_var_plus_ground(expr * n, bool & inv, var * & v, expr_ref & t);
     bool is_zero(expr* e) const;
+
+    bool gcd_test(expr* lhs, expr* rhs) const;
 
 
     br_status mk_mul_core(unsigned num_args, expr * const * args, expr_ref & result) {
