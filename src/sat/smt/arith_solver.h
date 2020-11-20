@@ -346,7 +346,6 @@ namespace arith {
         lbool make_feasible();
         lbool check_lia();
         lbool check_nla();
-        void add_variable_bound(expr* t, rational const& offset);
         bool is_infeasible() const;
 
         nlsat::anum const& nl_value(theory_var v, scoped_anum& r) const;
@@ -375,7 +374,6 @@ namespace arith {
         obj_map<expr, bound_info> m_term2bound_info;
         bool                      m_model_is_initialized{ false };
 
-        bool use_bounded_expansion() const { return get_config().m_arith_bounded_expansion; }
         unsigned small_lemma_size() const { return get_config().m_arith_small_lemma_size; }
         bool propagate_eqs() const { return get_config().m_arith_propagate_eqs && m_num_conflicts < get_config().m_arith_propagation_threshold; }
         bool should_propagate() const { return bound_prop_mode::BP_NONE != propagation_mode(); }

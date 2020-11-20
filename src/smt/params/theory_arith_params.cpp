@@ -38,7 +38,6 @@ void theory_arith_params::updt_params(params_ref const & _p) {
     m_arith_reflect = p.arith_reflect();
     m_arith_eager_eq_axioms = p.arith_eager_eq_axioms();
     m_arith_auto_config_simplex = p.arith_auto_config_simplex();
-    m_arith_bounded_expansion = p.arith_bounded_expansion();
 
     arith_rewriter_params ap(_p);
     m_arith_eq2ineq = ap.eq2ineq();
@@ -79,7 +78,6 @@ void theory_arith_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_arith_adaptive_gcd);
     DISPLAY_PARAM(m_arith_propagation_threshold);
     DISPLAY_PARAM(m_arith_pivot_strategy);
-    DISPLAY_PARAM(m_arith_bounded_expansion);
     DISPLAY_PARAM(m_arith_add_binary_bounds);
     DISPLAY_PARAM((unsigned)m_arith_propagation_strategy);
     DISPLAY_PARAM(m_arith_eq_bounds);

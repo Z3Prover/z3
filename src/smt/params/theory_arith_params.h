@@ -83,8 +83,6 @@ struct theory_arith_params {
     bool                    m_arith_adaptive_gcd;
     unsigned                m_arith_propagation_threshold;
 
-    bool                    m_arith_bounded_expansion;
-
     arith_pivot_strategy    m_arith_pivot_strategy;
 
     // used in diff-logic
@@ -142,7 +140,6 @@ struct theory_arith_params {
         m_arith_eager_gcd(false),
         m_arith_adaptive_gcd(false),
         m_arith_propagation_threshold(UINT_MAX),
-        m_arith_bounded_expansion(false),
         m_arith_pivot_strategy(arith_pivot_strategy::ARITH_PIVOT_SMALLEST),
         m_arith_add_binary_bounds(false),
         m_arith_propagation_strategy(arith_prop_strategy::ARITH_PROP_PROPORTIONAL),

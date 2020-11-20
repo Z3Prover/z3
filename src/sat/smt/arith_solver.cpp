@@ -1056,7 +1056,6 @@ namespace arith {
             // SAT core assigns a value to
             lia_check = l_false;
             ++m_stats.m_branch;
-            add_variable_bound(t, offset);
             break;
         }
         case lp::lia_move::cut: {
@@ -1167,27 +1166,6 @@ namespace arith {
         }
     }
 
-    void solver::add_variable_bound(expr* t, rational const& offset) {
-        if (!use_bounded_expansion())
-            return;
-        if (m_bounded_range_lit == sat::null_literal)
-            return;
-        // if term is not already bounded, add a range and assert max_bound => range
-        bound_info bi(offset, init_range());
-        if (m_term2bound_info.find(t, bi))
-            return;
-        expr_ref hi(a.mk_le(t, a.mk_int(offset + bi.m_range)), m);
-        expr_ref lo(a.mk_ge(t, a.mk_int(offset - bi.m_range)), m);
-        add_clause(~m_bounded_range_lit, mk_literal(hi));
-        add_clause(~m_bounded_range_lit, mk_literal(lo));
-        m_bound_terms.push_back(lo);
-        m_bound_terms.push_back(hi);
-        m_bound_terms.push_back(t);
-        m_predicate2term.insert(lo, t);
-        m_predicate2term.insert(hi, t);
-        m_term2bound_info.insert(t, bi);
-    }
-
     void solver::reset_evidence() {
         m_core.reset();
         m_eqs.reset();
@@ -1204,6 +1182,7 @@ namespace arith {
         app_ref s(a.mk_numeral(offset, isint), m);
         return eq_internalize(t, s);
     }
+
     // create a bound atom representing term >= k is lower_bound is true, and term <= k if it is false
     app_ref solver::mk_bound(lp::lar_term const& term, rational const& k, bool lower_bound) {
         rational offset;
