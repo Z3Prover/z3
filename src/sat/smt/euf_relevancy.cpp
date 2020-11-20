@@ -57,6 +57,8 @@ namespace euf {
         m_relevant_expr_ids.reset();
         bool_vector visited;
         ptr_vector<expr> todo;
+        if (!relevancy_enabled())
+            return true;
         if (!m_dual_solver)
             return true;
         if (!(*m_dual_solver)(s()))

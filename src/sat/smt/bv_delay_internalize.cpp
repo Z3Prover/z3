@@ -39,8 +39,18 @@ namespace bv {
         return true;
     }
 
-    bool solver::should_bit_blast(expr* e) {
-        return bv.get_bv_size(e) <= 12;
+    bool solver::should_bit_blast(app* e) {
+        if (bv.get_bv_size(e) <= 12)
+            return true;
+        unsigned num_vars = e->get_num_args();
+        for (expr* arg : *e) 
+            if (!m.is_value(arg))
+                --num_vars;
+        if (num_vars <= 1) 
+            return true;
+        if (bv.is_bv_add(e) && num_vars * bv.get_bv_size(e) <= 64)
+            return true;
+        return false;
     }
 
     expr_ref solver::eval_args(euf::enode* n, expr_ref_vector& args) {
@@ -80,12 +90,6 @@ namespace bv {
         // Add propagation axiom for arguments
         if (!check_mul_invertibility(e, args, r1))
             return false;
-
-        // check discrepancies in low-order bits
-        // Add axioms for multiplication when fixing high-order bits
-        if (!check_mul_low_bits(e, args, r1, r2))
-            return false;
-
 
         // Some other possible approaches:
         // algebraic rules:
@@ -230,73 +234,6 @@ namespace bv {
         return true;
     }
 
-    /**
-    * Check for discrepancies in low-order bits.
-    * Add bit-blasting axioms if there are discrepancies within low order bits.
-    */
-    bool solver::check_mul_low_bits(app* n, expr_ref_vector const& arg_values, expr* value1, expr* value2) {
-        rational v0, v1, two(2);
-        unsigned sz;
-        VERIFY(bv.is_numeral(value1, v0, sz));
-        VERIFY(bv.is_numeral(value2, v1));
-        unsigned num_bits = 10;
-        if (sz <= num_bits)
-            return true;
-        bool diff = false;
-        for (unsigned i = 0; !diff && i < num_bits; ++i) {
-            rational b0 = mod(v0, two);
-            rational b1 = mod(v1, two);
-            diff = b0 != b1;
-            div(v0, two, v0);
-            div(v1, two, v1);
-        }
-        if (!diff)
-            return true;
-
-        auto safe_for_fixing_bits = [&](expr* e) {
-            euf::enode* n = expr2enode(e);
-            theory_var v = n->get_th_var(get_id());
-            for (unsigned i = num_bits; i < sz; ++i) {
-                sat::literal lit = m_bits[v][i];
-                if (s().value(lit) == l_true && s().lvl(lit) > s().search_lvl())
-                    return false;
-            }
-            return true;
-        };
-        for (expr* arg : *n)
-            if (!safe_for_fixing_bits(arg))
-                return true;
-        if (!safe_for_fixing_bits(n))
-            return true;
-
-        auto value_for_bv = [&](expr* e) {
-            euf::enode* n = expr2enode(e);
-            theory_var v = n->get_th_var(get_id());
-            rational val(0);
-            for (unsigned i = num_bits; i < sz; ++i) {
-                sat::literal lit = m_bits[v][i];
-                if (s().value(lit) == l_true && s().lvl(lit) <= s().search_lvl())
-                    val += power2(i - num_bits);
-            }
-            return val;
-        };
-        auto extract_low_bits = [&](expr* e) {
-            rational val = value_for_bv(e);
-            expr_ref lo(bv.mk_extract(num_bits - 1, 0, e), m);
-            expr_ref hi(bv.mk_numeral(val, sz - num_bits), m);
-            return expr_ref(bv.mk_concat(lo, hi), m);
-        };
-        expr_ref_vector args(m);
-        for (expr* arg : *n) 
-            args.push_back(extract_low_bits(arg));
-        expr_ref lhs(extract_low_bits(n), m);
-        expr_ref rhs(m.mk_app(n->get_decl(), args), m);
-        set_delay_internalize(rhs, internalize_mode::no_delay_i);
-        add_unit(eq_internalize(lhs, rhs)); 
-        TRACE("bv", tout << "low-bits: " << mk_pp(lhs,m) << " " << mk_pp(rhs, m) << "\n";);
-        std::cout << "low bits\n";
-        return false;     
-    }
 
     /**
     * The i'th bit in xs is 1 if the most significant bit of x is i or higher.
@@ -430,7 +367,8 @@ namespace bv {
         case OP_BSREM_I:
         case OP_BUDIV_I:
         case OP_BSDIV_I: 
-            if (should_bit_blast(e))
+        case OP_BADD:
+            if (should_bit_blast(to_app(e)))
                 return internalize_mode::no_delay_i;
             mode = internalize_mode::delay_i;
             if (!m_delay_internalize.find(e, mode))
