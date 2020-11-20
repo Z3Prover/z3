@@ -2354,6 +2354,7 @@ namespace sat {
         if (m_step_size > m_config.m_step_size_min) {
             m_step_size -= m_config.m_step_size_dec;
         }
+
         bool unique_max;
         m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);        
         justification js = m_conflict;
@@ -2457,8 +2458,10 @@ namespace sat {
             }
             case justification::EXT_JUSTIFICATION: {
                 fill_ext_antecedents(consequent, js, false);
+                TRACE("sat", tout << "ext antecedents: " << m_ext_antecedents << "\n";);
                 for (literal l : m_ext_antecedents) 
                     process_antecedent(l, num_marks);
+                
 #if 0
                 if (m_ext_antecedents.size() <= 1) {
                     for (literal& l : m_ext_antecedents) 
@@ -2484,11 +2487,14 @@ namespace sat {
                     }
                     SASSERT(lvl(c_var) < m_conflict_lvl);
                 }
+                CTRACE("sat", idx == 0, 
+                       for (literal lit : m_trail)
+                           if (is_marked(lit.var()))
+                               tout << "missed " << lit << "@" << lvl(lit) << "\n";);
+                CTRACE("sat", idx == 0, display(tout););
                 if (idx == 0)
-                    for (literal lit : m_trail)
-                        if (is_marked(lit.var()))
-                            TRACE("sat", tout << "missed " << lit << "@" << lvl(lit) << "\n";);
-                SASSERT(idx > 0);
+                    IF_VERBOSE(0, verbose_stream() << "num-conflicts: " << m_stats.m_conflict << "\n");
+                VERIFY(idx > 0);
                 idx--;
             }
             SASSERT(lvl(consequent) == m_conflict_lvl);
@@ -2795,7 +2801,7 @@ namespace sat {
         bool_var var     = antecedent.var();
         unsigned var_lvl = lvl(var);
         SASSERT(var < num_vars());
-        TRACE("sat", tout << "process " << var << "@" << var_lvl << " marked " << is_marked(var) << " conflict " << m_conflict_lvl << "\n";);
+        TRACE("sat_verbose", tout << "process " << var << "@" << var_lvl << " marked " << is_marked(var) << " conflict " << m_conflict_lvl << "\n";);
         if (!is_marked(var) && var_lvl > 0) {
             mark(var);
             switch (m_config.m_branching_heuristic) {
@@ -3497,7 +3503,7 @@ namespace sat {
 
         auto cleanup_watch = [&](literal lit) {
             for (auto const& w : get_wlist(lit)) {
-                std::cout << "cleanup: " << lit << " " << w.is_binary_clause() << "\n";
+                IF_VERBOSE(0, verbose_stream() << "cleanup: " << lit << " " << w.is_binary_clause() << "\n");
             }
         };
         for (unsigned i = m_free_vars.size(); i-- > free_vars_head; ) {
@@ -3957,7 +3963,7 @@ namespace sat {
         }
         case justification::EXT_JUSTIFICATION:
             if (m_ext) 
-                m_ext->display_justification(out, js.get_ext_justification_idx());            
+                m_ext->display_justification(out << "ext ", js.get_ext_justification_idx());            
             break;
         default:
             break;

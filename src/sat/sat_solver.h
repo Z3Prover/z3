@@ -375,7 +375,7 @@ namespace sat {
             }
         }
         void update_assign(literal l, justification j) {
-            if (lvl(l) > j.level())
+            if (j.level() == 0) 
                 m_justification[l.var()] = j;
         }
         void assign_unit(literal l) { assign(l, justification(0)); }
