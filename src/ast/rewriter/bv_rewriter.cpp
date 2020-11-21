@@ -31,7 +31,6 @@ void bv_rewriter::updt_local_params(params_ref const & _p) {
     m_bit2bool = p.bit2bool();
     m_blast_eq_value = p.blast_eq_value();
     m_split_concat_eq = p.split_concat_eq();
-    m_bvnot2arith = p.bvnot2arith();
     m_bvnot_simpl = p.bv_not_simpl();
     m_bv_sort_ac = p.bv_sort_ac();
     m_mkbv2num = _p.get_bool("mkbv2num", false);
@@ -1984,14 +1983,6 @@ br_status bv_rewriter::mk_bv_not(expr * arg, expr_ref & result) {
         }
         result = m_util.mk_concat(new_args.size(), new_args.c_ptr());
         return BR_REWRITE2;
-    }
-
-    if (m_bvnot2arith) {
-        // (bvnot x) --> (bvsub -1 x)
-        bv_size = get_bv_size(arg);
-        rational minus_one = (rational::power_of_two(bv_size) - numeral(1));
-        result = m_util.mk_bv_sub(m_util.mk_numeral(minus_one, bv_size), arg);
-        return BR_REWRITE1;
     }
 
     if (m_bvnot_simpl) {
