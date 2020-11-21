@@ -23,6 +23,7 @@ Revision History:
 #include "util/stopwatch.h"
 #include "smt/params/smt_params.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/reg_decl_plugins.h"
 #include "muz/rel/dl_compiler.h"
 #include "muz/transforms/dl_mk_filter_rules.h"
 #include "muz/rel/dl_finite_product_relation.h"
@@ -122,6 +123,7 @@ unsigned read_datalog(char const * file) {
     IF_VERBOSE(1, verbose_stream() << "Z3 Datalog Engine\n";);
     smt_params     s_params;
     ast_manager m;
+    reg_decl_plugins(m);
     datalog::register_engine re;
     g_overall_time.start();
     register_on_timeout_proc(on_timeout);
