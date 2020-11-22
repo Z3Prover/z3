@@ -112,6 +112,11 @@ namespace sat {
             }
         }
 
+        if (n == 3 && c[0] == literal(9357, true) && c[1] == literal(25, true) && c[2] == literal(8691, false)) {
+            SASSERT(false);
+            UNREACHABLE();
+        }
+
         if (!st.is_sat()) {
             for (char ch : m_theory[st.get_th()])
                 buffer[len++] = ch;

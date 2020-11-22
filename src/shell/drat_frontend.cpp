@@ -188,6 +188,15 @@ public:
                     result = bvu.mk_numeral(val, n);
                     return;
                 }
+                if (name == "is" && sz == 3) {
+                    name = sexpr->get_child(2)->get_child(0)->get_symbol();
+                    f = ctx.find_func_decl(name, params.size(), params.c_ptr(), args.size(), sorts.c_ptr(), rng.get());
+                    if (!f)
+                        goto bail;
+                    datatype_util dtu(m);
+                    result = dtu.mk_is(f, args[0]);
+                    return;
+                }
                 for (unsigned i = 2; i < sz; ++i) {
                     auto* child = sexpr->get_child(i);
                     if (child->is_numeral() && child->get_numeral().is_unsigned())

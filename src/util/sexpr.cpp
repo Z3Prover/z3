@@ -194,6 +194,8 @@ void sexpr::display(std::ostream & out) const {
         sexpr_composite const * n = todo.back().first;
         unsigned & idx = todo.back().second;
         unsigned num = n->get_num_children();
+        if (num == 0)
+            out << "(";
         while (idx < num) {
             sexpr const * child = n->get_child(idx);
             if (idx == 0)

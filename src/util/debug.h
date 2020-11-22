@@ -64,9 +64,9 @@ bool is_debug_enabled(const char * tag);
 #define XASSERT(COND, EXTRA_CODE) DEBUG_CODE(if (assertions_enabled() && !(COND)) { notify_assertion_violation(__FILE__, __LINE__, #COND); { EXTRA_CODE } INVOKE_DEBUGGER(); })
 
 #ifdef Z3DEBUG
-# define UNREACHABLE() DEBUG_CODE(notify_assertion_violation(__FILE__, __LINE__, "UNREACHABLE CODE WAS REACHED."); INVOKE_DEBUGGER();)
+# define UNREACHABLE() DEBUG_CODE(notify_assertion_violation(__FILE__, __LINE__, "UNEXPECTED CODE WAS REACHED."); INVOKE_DEBUGGER();)
 #else
-# define UNREACHABLE() { notify_assertion_violation(__FILE__, __LINE__, "UNREACHABLE CODE WAS REACHED."); exit(ERR_UNREACHABLE); } ((void) 0)
+# define UNREACHABLE() { notify_assertion_violation(__FILE__, __LINE__, "UNEXPECTED CODE WAS REACHED."); exit(ERR_UNREACHABLE); } ((void) 0)
 #endif
 
 #ifdef Z3DEBUG

@@ -745,8 +745,7 @@ namespace dt {
         else if (is_recognizer(term)) {
             enode* arg = n->get_arg(0);
             theory_var v = mk_var(arg);
-            add_recognizer(v, n);
-            mk_var(n);
+            add_recognizer(v, n);           
         }
         else {
             SASSERT(is_accessor(term));

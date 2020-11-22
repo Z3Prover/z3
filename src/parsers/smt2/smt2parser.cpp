@@ -541,8 +541,6 @@ namespace smt2 {
                     unsigned epos = sexpr_stack().size();
                     SASSERT(epos >= spos);
                     unsigned num  = epos - spos;
-                    if (num == 0)
-                        throw parser_exception("invalid empty s-expression");
                     sexpr * r = sm().mk_composite(num, sexpr_stack().c_ptr() + spos, line, pos);
                     sexpr_stack().shrink(spos);
                     sexpr_stack().push_back(r);
