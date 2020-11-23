@@ -90,7 +90,7 @@ extern "C" {
         args.push_back(_a);
         domain.push_back(a_ty);
         for (unsigned i = 0; i < n; ++i) {
-            CHECK_IS_EXPR(idxs[i]);
+            CHECK_IS_EXPR(idxs[i], nullptr);
             args.push_back(to_expr(idxs[i]));
             domain.push_back(m.get_sort(to_expr(idxs[i])));
         }
