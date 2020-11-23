@@ -93,7 +93,7 @@ expr * poly_rewriter<Config>::mk_mul_app(unsigned num_args, expr * const * args)
                 if (k_prev.is_one())                                                           
                     new_args.push_back(prev);                                                   
                 else  
-                    new_args.push_back(mk_power(prev, k_prev));                                                                                            
+                    new_args.push_back(this->mk_power(prev, k_prev));                                                                                            
             };
  
             for (unsigned i = 1; i < num_args; i++) {
