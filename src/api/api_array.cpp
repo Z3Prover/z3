@@ -53,6 +53,8 @@ extern "C" {
         LOG_Z3_mk_select(c, a, i);
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
+        CHECK_IS_EXPR(a, nullptr);
+        CHECK_IS_EXPR(i, nullptr);
         expr * _a        = to_expr(a);
         expr * _i        = to_expr(i);
         sort * a_ty = m.get_sort(_a);
@@ -76,10 +78,9 @@ extern "C" {
         LOG_Z3_mk_select_n(c, a, n, idxs);
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
+        CHECK_IS_EXPR(a, nullptr);
         expr * _a        = to_expr(a);
-        // expr * _i        = to_expr(i);
         sort * a_ty = m.get_sort(_a);
-        // sort * i_ty = m.get_sort(_i);
         if (a_ty->get_family_id() != mk_c(c)->get_array_fid()) {
             SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
             RETURN_Z3(nullptr);
@@ -89,6 +90,7 @@ extern "C" {
         args.push_back(_a);
         domain.push_back(a_ty);
         for (unsigned i = 0; i < n; ++i) {
+            CHECK_IS_EXPR(idxs[i]);
             args.push_back(to_expr(idxs[i]));
             domain.push_back(m.get_sort(to_expr(idxs[i])));
         }
@@ -106,6 +108,9 @@ extern "C" {
         LOG_Z3_mk_store(c, a, i, v);
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
+        CHECK_IS_EXPR(a, nullptr);
+        CHECK_IS_EXPR(i, nullptr);
+        CHECK_IS_EXPR(v, nullptr);
         expr * _a        = to_expr(a);
         expr * _i        = to_expr(i);
         expr * _v        = to_expr(v);
