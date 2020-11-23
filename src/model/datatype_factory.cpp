@@ -151,9 +151,13 @@ expr * datatype_factory::get_fresh_value(sort * s) {
     // Traverse constructors, and try to invoke get_fresh_value of one of the 
     // arguments (if the argument is not a sibling datatype of s).
     // Two datatypes are siblings if they were defined together in the same mutually recursive definition.
-    ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(s);
+
+
+    ptr_vector<func_decl> const& constructors = *m_util.get_datatype_constructors(s);
     for (func_decl * constructor : constructors) {
+        retry_value:
         expr_ref_vector args(m_manager);
+        expr_ref new_value(m_manager);
         bool found_fresh_arg = false;
         unsigned num            = constructor->get_arity();
         for (unsigned i = 0; i < num; i++) {
@@ -169,10 +173,11 @@ expr * datatype_factory::get_fresh_value(sort * s) {
             expr * some_arg = m_model.get_some_value(s_arg);
             args.push_back(some_arg);
         }
-        expr_ref new_value(m_manager);
+
         new_value = m_manager.mk_app(constructor, args);
-        CTRACE("datatype", found_fresh_arg && set->contains(new_value), tout << mk_pp(new_value, m_manager) << "\n";);
-        SASSERT(!found_fresh_arg || !set->contains(new_value));
+        CTRACE("datatype", found_fresh_arg && set->contains(new_value), tout << "seen: " << new_value << "\n";);
+        if (found_fresh_arg && set->contains(new_value))
+            goto retry_value;
         if (!set->contains(new_value)) {
             register_value(new_value);
             if (m_util.is_recursive(s))
