@@ -44,6 +44,7 @@ protected:
     decl_kind mul_decl_kind() const { return OP_MUL; }
     bool use_power() const { return m_mul2power && !m_expand_power; }
     decl_kind power_decl_kind() const { return OP_POWER; }
+    app* mk_power(expr* x, rational const& r);
 public:
     arith_rewriter_core(ast_manager & m):m_util(m) {}
     bool is_zero(expr * n) const { return m_util.is_zero(n); }

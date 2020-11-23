@@ -483,7 +483,7 @@ expr * arith_rewriter::reduce_power(expr * arg, bool is_eq) {
                 new_args.push_back(arg0);
             }
             else {
-                new_args.push_back(m_util.mk_power(arg0, m_util.mk_numeral(rational(2), m_util.is_int(arg))));
+                new_args.push_back(mk_power(arg0, rational(2)));
             }
         }
         else {
@@ -1042,7 +1042,6 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
     } 
     return BR_FAILED;
 }
- 
 
 //  
 // implement div ab ac = floor( ab / ac) = floor (b / c) = div b c 
@@ -1246,6 +1245,15 @@ br_status arith_rewriter::mk_rem_core(expr * arg1, expr * arg2, expr_ref & resul
     return BR_FAILED;
 }
 
+app* arith_rewriter_core::mk_power(expr* x, rational const& r) { 
+    SASSERT(r.is_unsigned() && r.is_pos());
+    bool is_int = m_util.is_int(x);
+    app* y = m_util.mk_power(x, m_util.mk_numeral(r, is_int));
+    if (is_int) 
+        y = m_util.mk_to_int(y);
+    return y;
+}
+
 br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & result) {
     numeral x, y;
     bool is_num_x    = m_util.is_numeral(arg1, x);
@@ -1446,6 +1454,9 @@ br_status arith_rewriter::mk_to_int_core(expr * arg, expr_ref & result) {
                 real_args.push_back(c);
             }
         }
+        if (real_args.empty() && m_util.is_power(arg))
+            return BR_FAILED;
+        
         if (real_args.empty()) {
             result = m().mk_app(get_fid(), to_app(arg)->get_decl()->get_decl_kind(), int_args.size(), int_args.c_ptr());
             return BR_REWRITE1;

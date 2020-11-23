@@ -89,15 +89,12 @@ expr * poly_rewriter<Config>::mk_mul_app(unsigned num_args, expr * const * args)
             expr * prev = get_power_body(args[0], k_prev);
             rational k;
             ptr_buffer<expr> new_args;
-#define PUSH_POWER() {                                                                          \
-                if (k_prev.is_one()) {                                                          \
-                    new_args.push_back(prev);                                                   \
-                }                                                                               \
-                else {                                                                          \
-                    expr * pargs[2] = { prev, mk_numeral(k_prev) };                             \
-                    new_args.push_back(m().mk_app(get_fid(), power_decl_kind(), 2, pargs));     \
-                }                                                                               \
-            }
+            auto push_power = [&]() { 
+                if (k_prev.is_one())                                                           
+                    new_args.push_back(prev);                                                   
+                else  
+                    new_args.push_back(mk_power(prev, k_prev));                                                                                            
+            };
  
             for (unsigned i = 1; i < num_args; i++) {
                 expr * arg = get_power_body(args[i], k);
@@ -105,12 +102,12 @@ expr * poly_rewriter<Config>::mk_mul_app(unsigned num_args, expr * const * args)
                     k_prev += k;
                 }
                 else {
-                    PUSH_POWER();
+                    push_power();
                     prev   = arg;
                     k_prev = k;
                 }
             }
-            PUSH_POWER();
+            push_power();
             SASSERT(new_args.size() > 0);
             if (new_args.size() == 1) {
                 return new_args[0];
