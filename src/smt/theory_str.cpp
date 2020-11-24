@@ -6871,6 +6871,13 @@ namespace smt {
         family_id m_arith_fid = m.mk_family_id("arith");
         sort * int_sort = m.mk_sort(m_arith_fid, INT_SORT);
 
+        // reject unhandled expressions
+        if (u.str.is_replace_all(ex) || u.str.is_replace_re(ex) || u.str.is_replace_re_all(ex) || u.str.is_from_code(ex)
+            || u.str.is_to_code(ex) || u.str.is_is_digit(ex)) {
+            TRACE("str", tout << "ERROR: Z3str3 has encountered an unsupported operator. Aborting." << std::endl;);
+            m.raise_exception("Z3str3 encountered an unsupported operator.");
+        }
+
         if (ex_sort == str_sort) {
             TRACE("str", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) <<
                   ": expr is of sort String" << std::endl;);
