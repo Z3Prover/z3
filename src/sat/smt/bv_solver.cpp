@@ -341,18 +341,32 @@ namespace bv {
     void solver::log_drat(bv_justification const& c) {
         // introduce dummy literal for equality.
         sat::literal leq(s().num_vars() + 1, false);
-        expr* e1 = var2expr(c.m_v1);
-        expr* e2 = var2expr(c.m_v2);
-        expr_ref eq(m.mk_eq(e1, e2), m);
-        ctx.get_drat().def_begin('e', eq->get_id(), std::string("="));
-        ctx.get_drat().def_add_arg(e1->get_id());
-        ctx.get_drat().def_add_arg(e2->get_id());
-        ctx.get_drat().def_end();
-        ctx.get_drat().bool_def(leq.var(), eq->get_id());
+        if (c.m_kind != bv_justification::kind_t::bit2ne) {
+            expr* e1 = var2expr(c.m_v1);
+            expr* e2 = var2expr(c.m_v2);
+            expr_ref eq(m.mk_eq(e1, e2), m);
+            ctx.get_drat().def_begin('e', eq->get_id(), std::string("="));
+            ctx.get_drat().def_add_arg(e1->get_id());
+            ctx.get_drat().def_add_arg(e2->get_id());
+            ctx.get_drat().def_end();
+            ctx.get_drat().bool_def(leq.var(), eq->get_id());
+        }
+
+        static unsigned s_count = 0;
 
         sat::literal_vector lits;
         switch (c.m_kind) {
         case bv_justification::kind_t::eq2bit:
+            ++s_count;
+            std::cout << "eq2bit " << s_count << "\n";
+#if 0
+            if (s_count == 1899) {
+                std::cout << "eq2bit " << mk_pp(var2expr(c.m_v1), m) << " == " << mk_pp(var2expr(c.m_v2), m) << "\n";
+                std::cout << literal2expr(~c.m_antecedent) << "\n";
+                std::cout << literal2expr(c.m_consequent) << "\n";
+                INVOKE_DEBUGGER();
+            }
+#endif
             lits.push_back(~leq);
             lits.push_back(~c.m_antecedent);
             lits.push_back(c.m_consequent);

@@ -212,11 +212,11 @@ public:
             }
             switch (is_sat) {
             case l_true: 
-                CTRACE("opt", !m_model->is_true(m_asms), 
+                CTRACE("opt", m_model->is_false(m_asms), 
                        tout << *m_model << "assumptions: ";
                        for (expr* a : m_asms) tout << mk_pp(a, m) << " -> " << (*m_model)(a) << " ";
                        tout << "\n";);
-                SASSERT(m_model->is_true(m_asms) || m.limit().is_canceled());
+                SASSERT(!m_model->is_false(m_asms) || m.limit().is_canceled());
                 found_optimum();
                 return l_true;
             case l_false:

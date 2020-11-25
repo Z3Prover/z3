@@ -439,7 +439,6 @@ public class Context implements AutoCloseable {
      * Creates a new function declaration.
      **/
     public FuncDecl mkFuncDecl(Symbol name, Sort[] domain, Sort range)
-
     {
         checkContextMatch(name);
         checkContextMatch(domain);
@@ -482,6 +481,33 @@ public class Context implements AutoCloseable {
         Sort[] q = new Sort[] { domain };
         return new FuncDecl(this, mkSymbol(name), q, range);
     }
+
+    /**
+     * Creates a new recursive function declaration.
+     **/
+    public FuncDecl mkRecFuncDecl(Symbol name, Sort[] domain, Sort range)
+    {
+        checkContextMatch(name);
+        checkContextMatch(domain);
+        checkContextMatch(range);
+        return new FuncDecl(this, name, domain, range, true);
+    }
+
+
+    /**
+     * Bind a definition to a recursive function declaration.
+     * The function must have previously been created using
+     * MkRecFuncDecl. The body may contain recursive uses of the function or
+     * other mutually recursive functions. 
+     */
+    public void AddRecDef(FuncDecl f, Expr[] args, Expr body) 
+    {
+	checkContextMatch(f);
+	checkContextMatch(args);
+	checkContextMatch(body);
+	long[] argsNative = AST.arrayToNative(args);
+	Native.addRecDef(nCtx(), f.getNativeObject(), (uint)args.Length, argsNative, body.getNativeObject());
+    }	
 
     /**
      * Creates a fresh function declaration with a name prefixed with

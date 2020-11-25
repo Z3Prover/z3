@@ -336,9 +336,15 @@ public class FuncDecl extends AST
     }
 
     FuncDecl(Context ctx, Symbol name, Sort[] domain, Sort range)
-
     {
         super(ctx, Native.mkFuncDecl(ctx.nCtx(), name.getNativeObject(),
+                AST.arrayLength(domain), AST.arrayToNative(domain),
+                range.getNativeObject()));
+    }
+
+    FuncDecl(Context ctx, Symbol name, Sort[] domain, Sort range, bool is_rec)
+    {
+        super(ctx, Native.mkRecFuncDecl(ctx.nCtx(), name.getNativeObject(),
                 AST.arrayLength(domain), AST.arrayToNative(domain),
                 range.getNativeObject()));
 

@@ -165,6 +165,14 @@ void bit_blaster_tpl<Cfg>::mk_subtracter(unsigned sz, expr * const * a_bits, exp
         out_bits.push_back(out);
         cin = cout;
     }
+#if 0
+    for (unsigned j = 0; j < sz; ++j) {
+        std::cout << j << "\n";
+        std::cout << mk_pp(a_bits[j], m()) << "\n";
+        std::cout << mk_pp(b_bits[j], m()) << "\n";
+        std::cout << mk_pp(out_bits.get(j), m()) << "\n";
+    }
+#endif
     SASSERT(out_bits.size() == sz);
 }
 
