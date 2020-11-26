@@ -506,7 +506,7 @@ public class Context implements AutoCloseable {
 	checkContextMatch(args);
 	checkContextMatch(body);
 	long[] argsNative = AST.arrayToNative(args);
-	Native.addRecDef(nCtx(), f.getNativeObject(), (uint)args.Length, argsNative, body.getNativeObject());
+	Native.addRecDef(nCtx(), f.getNativeObject(), args.length, argsNative, body.getNativeObject());
     }	
 
     /**
