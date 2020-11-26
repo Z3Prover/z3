@@ -155,6 +155,9 @@ lia_move int_solver::check(lp::explanation * e) {
 
     check_return_helper pc(lra);
 
+    if (settings().get_cancel_flag())
+        return lia_move::undef;
+    
     ++m_number_of_calls;
     if (r == lia_move::undef && m_patcher.should_apply()) r = m_patcher();
     if (r == lia_move::undef && should_find_cube()) r = int_cube(*this)();
@@ -536,11 +539,14 @@ std::ostream& int_solver::display_row_info(std::ostream & out, unsigned row_inde
 bool int_solver::shift_var(unsigned j, unsigned range) {
     if (is_fixed(j) || is_base(j))
         return false;
-       
+    if (settings().get_cancel_flag())
+        return false;       
     bool inf_l = false, inf_u = false;
     impq l, u;
     mpq m;
-    VERIFY(get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m));
+    VERIFY(get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m) || settings().get_cancel_flag());
+    if (settings().get_cancel_flag())
+        return false;
     const impq & x = get_value(j);
     // x, the value of j column, might be shifted on a multiple of m
     if (inf_l && inf_u) {

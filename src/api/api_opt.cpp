@@ -166,7 +166,7 @@ extern "C" {
                     mk_c(c)->handle_exception(ex);
                 }
                 r = l_undef;
-                if (ex.msg() == std::string("canceled") && !mk_c(c)->m().inc()) {
+                if (!mk_c(c)->m().inc()) {
                     to_optimize_ptr(o)->set_reason_unknown(ex.msg());
                 }
                 else {
