@@ -85,15 +85,16 @@ expr * poly_rewriter<Config>::mk_mul_app(unsigned num_args, expr * const * args)
         return args[0];
     default: 
         if (use_power()) {
+            sort* s = m().get_sort(args[0]);
             rational k_prev;
             expr * prev = get_power_body(args[0], k_prev);
             rational k;
             ptr_buffer<expr> new_args;
             auto push_power = [&]() { 
                 if (k_prev.is_one())                                                           
-                    new_args.push_back(prev);                                                   
+                    new_args.push_back(this->coerce(prev, s));
                 else  
-                    new_args.push_back(this->mk_power(prev, k_prev));                                                                                            
+                    new_args.push_back(this->mk_power(prev, k_prev, s));
             };
  
             for (unsigned i = 1; i < num_args; i++) {

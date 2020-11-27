@@ -39,7 +39,8 @@ protected:
     decl_kind add_decl_kind() const { return OP_BADD; }
     decl_kind mul_decl_kind() const { return OP_BMUL; }
     bool use_power() const { return false; }
-    app* mk_power(expr* x, rational const& r) { UNREACHABLE(); return nullptr; }
+    app* mk_power(expr* x, rational const& r, sort* s) { UNREACHABLE(); return nullptr; }
+    expr* coerce(expr* x, sort* s) { UNREACHABLE(); return nullptr; }
     decl_kind power_decl_kind() const { UNREACHABLE(); return static_cast<decl_kind>(UINT_MAX); }
 
 public:

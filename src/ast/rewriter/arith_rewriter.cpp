@@ -480,10 +480,12 @@ expr * arith_rewriter::reduce_power(expr * arg, bool is_eq) {
         if (m_util.is_power(arg, arg0, arg1) && m_util.is_numeral(arg1, k) && k.is_int() &&
             ((is_eq && k > rational(1)) || (!is_eq && k > rational(2)))) {
             if (is_eq || !k.is_even()) {
+                if (m_util.is_int(arg0))
+                    arg0 = m_util.mk_to_real(arg0);
                 new_args.push_back(arg0);
             }
             else {
-                new_args.push_back(mk_power(arg0, rational(2)));
+                new_args.push_back(m_util.mk_power(arg0, m_util.mk_real(2)));
             }
         }
         else {
@@ -1245,11 +1247,19 @@ br_status arith_rewriter::mk_rem_core(expr * arg1, expr * arg2, expr_ref & resul
     return BR_FAILED;
 }
 
-app* arith_rewriter_core::mk_power(expr* x, rational const& r) { 
+expr* arith_rewriter_core::coerce(expr* x, sort* s) {
+    if (m_util.is_int(x) && m_util.is_real(s))
+        return m_util.mk_to_real(x);
+    if (m_util.is_real(x) && m_util.is_int(s))
+        return m_util.mk_to_int(x);
+    return x;
+}
+
+app* arith_rewriter_core::mk_power(expr* x, rational const& r, sort* s) { 
     SASSERT(r.is_unsigned() && r.is_pos());
     bool is_int = m_util.is_int(x);
     app* y = m_util.mk_power(x, m_util.mk_numeral(r, is_int));
-    if (is_int) 
+    if (m_util.is_int(s))
         y = m_util.mk_to_int(y);
     return y;
 }
