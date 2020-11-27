@@ -1477,9 +1477,9 @@ namespace smt {
                 lbool val1    = ctx.get_assignment(bit1);
                 lbool val2    = ctx.get_assignment(bit2);
                 TRACE("bv", tout << "merge v" << v1 << " " << bit1 << ":= " << val1 << " " << bit2 << ":= " << val2 << "\n";);
-                if (!ctx.is_relevant(bit1))
+                if (val1 == l_undef && !ctx.is_relevant(bit1))
                     ctx.mark_as_relevant(bit1);
-                if (!ctx.is_relevant(bit2))
+                if (val2 == l_undef && !ctx.is_relevant(bit2))
                     ctx.mark_as_relevant(bit2);
                 if (val1 == val2) 
                     continue;
