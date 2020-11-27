@@ -104,8 +104,7 @@ bool proof_checker::check(proof* p, expr_ref_vector& side_conditions) {
         m_todo.pop_back();
         result = check1(curr.get(), side_conditions);
         if (!result) {
-            IF_VERBOSE(0, ast_ll_pp(verbose_stream() << "Proof check failed\n", m, curr.get()););
-            UNREACHABLE();
+            IF_VERBOSE(1, ast_ll_pp(verbose_stream() << "Proof check failed\n", m, curr.get()););
         }
     }
 
@@ -1393,7 +1392,7 @@ bool proof_checker::check_arith_proof(proof* p) {
         }
     }
 
-    unsigned num_parents     = m.get_num_parents(p);
+    unsigned num_parents = m.get_num_parents(p);
     for (unsigned i = 0; i < num_parents; i++) {
         proof * a = m.get_parent(p, i);
         SASSERT(m.has_fact(a));
@@ -1401,6 +1400,11 @@ bool proof_checker::check_arith_proof(proof* p) {
             return false;
         }
     }
+    TRACE("proof_checker", 
+          for (unsigned i = 0; i < num_parents; i++) 
+              tout << coeffs[i] << " * " << mk_bounded_pp(m.get_fact(m.get_parent(p, i)), m) << "\n";
+          tout << "fact:" << mk_bounded_pp(fact, m) << "\n";);
+    
     if (m.is_or(fact)) {
         app* disj = to_app(fact);
         unsigned num_args = disj->get_num_args();
@@ -1435,7 +1439,7 @@ bool proof_checker::check_arith_proof(proof* p) {
     rw(sum);
 
     if (!m.is_false(sum)) {
-        IF_VERBOSE(0, verbose_stream() << "Arithmetic proof check failed: " << mk_pp(sum, m) << "\n";);
+        IF_VERBOSE(1, verbose_stream() << "Arithmetic proof check failed: " << mk_pp(sum, m) << "\n";);
         m_dump_lemmas = true;
         dump_proof(p);
         return false;

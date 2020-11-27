@@ -2534,7 +2534,8 @@ namespace smt {
         b1->push_justification(ante, numeral(1), coeffs_enabled());
         b2->push_justification(ante, numeral(1), coeffs_enabled());
         TRACE("arith_conflict", tout << "bound conflict v" << b1->get_var() << "\n";
-              tout << "bounds: " << b1 << " " << b2 << "\n";);
+              display_bound(tout, b1, 0);
+              display_bound(tout, b2, 0););
         set_conflict(ante, ante, "farkas");
     }
 

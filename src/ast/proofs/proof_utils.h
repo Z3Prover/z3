@@ -122,7 +122,7 @@ public:
     {
         DEBUG_CODE(proof_checker pc(m);
                    expr_ref_vector side(m);
-                   SASSERT(pc.check(pr, side));
+                   if (!pc.check(pr, side)) IF_VERBOSE(1, verbose_stream() << "check failed: " << mk_pp(pr, m) << "\n");
                   );
         obj_map<app, app*> cache;
         bool_rewriter brwr(m);
@@ -236,7 +236,7 @@ public:
         DEBUG_CODE(
             proof_checker pc(m);
             expr_ref_vector side(m);
-            SASSERT(pc.check(r, side));
+            if (!pc.check(r, side)) IF_VERBOSE(1, verbose_stream() << mk_pp(r, m) << "check failed\n");
         );
 
         res = r ;
