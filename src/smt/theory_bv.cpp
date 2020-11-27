@@ -277,6 +277,7 @@ namespace smt {
         }
         else {
             theory_id th_id       = ctx.get_var_theory(l.var());
+            TRACE("init_bits", tout << l << " " << th_id << "\n";);
             if (th_id == get_id()) {
                 atom * a     = get_bv2a(l.var());
                 SASSERT(a && a->is_bit());
@@ -318,7 +319,7 @@ namespace smt {
         for (unsigned i = 0; i < sz; i++) {
             expr * bit          = bits.get(i);
             literal l           = ctx.get_literal(bit);
-            TRACE("init_bits", tout << "bit " << i << " of #" << n->get_owner_id() << "\n" << mk_ll_pp(bit, m) << "\n";);
+            TRACE("init_bits", tout << "bit " << i << " of #" << n->get_owner_id() << "\n" << mk_bounded_pp(bit, m) << "\n";);
             add_bit(v, l);
         }
         find_wpos(v);
@@ -1476,7 +1477,11 @@ namespace smt {
                 lbool val1    = ctx.get_assignment(bit1);
                 lbool val2    = ctx.get_assignment(bit2);
                 TRACE("bv", tout << "merge v" << v1 << " " << bit1 << ":= " << val1 << " " << bit2 << ":= " << val2 << "\n";);
-                if (val1 == val2)
+                if (!ctx.is_relevant(bit1))
+                    ctx.mark_as_relevant(bit1);
+                if (!ctx.is_relevant(bit2))
+                    ctx.mark_as_relevant(bit2);
+                if (val1 == val2) 
                     continue;
                 changed = true;
                 if (val1 != l_undef && val2 != l_undef) {
