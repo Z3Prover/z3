@@ -451,8 +451,10 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
                 // only expand auxiliary definitions that occur once.
                 if (can_inline_def(ts, f)) {
                     fi = get_func_interp(f);
-                    new_t = fi->get_array_interp(f);
-                    TRACE("model", tout << "array interpretation:" << new_t << "\n";);
+                    if (fi) {
+                        new_t = fi->get_array_interp(f);
+                        TRACE("model", tout << "array interpretation:" << new_t << "\n";);
+                    }
                 }
             }
 
