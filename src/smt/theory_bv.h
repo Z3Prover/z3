@@ -125,7 +125,13 @@ namespace smt {
         mutable vector<rational>         m_power2;
         
         unsigned char            m_eq_activity[256];
-        svector<std::pair<theory_var, theory_var>> m_replay_diseq;
+        struct bv_diseq {
+            theory_var v1, v2;
+            unsigned idx;
+            bv_diseq(theory_var v1, theory_var v2, unsigned idx):v1(v1), v2(v2), idx(idx) {}
+        };
+        svector<bv_diseq> m_prop_diseqs;
+        unsigned          m_prop_diseqs_qhead { 0 };
         vector<vector<std::pair<theory_var, theory_var>>> m_diseq_watch;
         unsigned char            m_diseq_activity[256];
         svector<bool_var> m_diseq_watch_trail;
@@ -162,7 +168,8 @@ namespace smt {
         void get_arg_bits(app * n, unsigned idx, expr_ref_vector & r);
         friend class add_var_pos_trail;
         void simplify_bit(expr * s, expr_ref & r);
-        void mk_new_diseq_axiom(theory_var v1, theory_var v2, unsigned idx);
+        void add_new_diseq_axiom(theory_var v1, theory_var v2, unsigned idx);
+        void assert_new_diseq_axiom(theory_var v1, theory_var v2, unsigned idx);
         friend class register_true_false_bit_trail;
         void register_true_false_bit(theory_var v, unsigned idx);
         void find_new_diseq_axioms(var_pos_occ * occs, theory_var v, unsigned idx);
@@ -240,7 +247,7 @@ namespace smt {
         bool include_func_interp(func_decl* f) override;
         svector<theory_var>   m_merge_aux[2]; //!< auxiliary vector used in merge_zero_one_bits
         bool merge_zero_one_bits(theory_var r1, theory_var r2);
-        bool can_propagate() override { return !m_replay_diseq.empty(); }
+        bool can_propagate() override { return m_prop_diseqs_qhead < m_prop_diseqs.size(); }
         void propagate() override;
 
         // -----------------------------------
