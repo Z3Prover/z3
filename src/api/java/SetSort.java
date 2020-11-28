@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Set sorts.
  **/
-public class SetSort<D extends Sort> extends ArrayExpr<D, BoolSort>
+public class SetSort<D extends Sort> extends ArraySort<D, BoolSort>
 {
     SetSort(Context ctx, long obj)
     {
