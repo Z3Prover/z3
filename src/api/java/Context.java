@@ -998,7 +998,7 @@ public class Context implements AutoCloseable {
      * Remarks: The argument must have a bit-vector
      * sort.
      **/
-    public BitVecExpr mkBVNot(BitVecExpr t)
+    public BitVecExpr mkBVNot(Expr<BitVecSort> t)
     {
         checkContextMatch(t);
         return new BitVecExpr(this, Native.mkBvnot(nCtx(), t.getNativeObject()));
@@ -1009,7 +1009,7 @@ public class Context implements AutoCloseable {
      *
      * Remarks: The argument must have a bit-vector sort.
      **/
-    public BitVecExpr mkBVRedAND(BitVecExpr t)
+    public BitVecExpr mkBVRedAND(Expr<BitVecSort> t)
     {
         checkContextMatch(t);
         return new BitVecExpr(this, Native.mkBvredand(nCtx(),
@@ -1021,7 +1021,7 @@ public class Context implements AutoCloseable {
      *
      * Remarks: The argument must have a bit-vector sort.
      **/
-    public BitVecExpr mkBVRedOR(BitVecExpr t)
+    public BitVecExpr mkBVRedOR(Expr<BitVecSort> t)
     {
         checkContextMatch(t);
         return new BitVecExpr(this, Native.mkBvredor(nCtx(),
@@ -1033,7 +1033,7 @@ public class Context implements AutoCloseable {
      * Remarks: The arguments must have a bit-vector
      * sort.
      **/
-    public BitVecExpr mkBVAND(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVAND(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1046,7 +1046,7 @@ public class Context implements AutoCloseable {
      * Remarks: The arguments must have a bit-vector
      * sort.
      **/
-    public BitVecExpr mkBVOR(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVOR(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1059,7 +1059,7 @@ public class Context implements AutoCloseable {
      * Remarks: The arguments must have a bit-vector
      * sort.
      **/
-    public BitVecExpr mkBVXOR(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVXOR(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1072,7 +1072,7 @@ public class Context implements AutoCloseable {
      * Remarks: The arguments must have a bit-vector
      * sort.
      **/
-    public BitVecExpr mkBVNAND(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVNAND(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1085,7 +1085,7 @@ public class Context implements AutoCloseable {
      * Remarks: The arguments must have a bit-vector
      * sort.
      **/
-    public BitVecExpr mkBVNOR(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVNOR(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1098,7 +1098,7 @@ public class Context implements AutoCloseable {
      * Remarks: The arguments must have a bit-vector
      * sort.
      **/
-    public BitVecExpr mkBVXNOR(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVXNOR(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1111,7 +1111,7 @@ public class Context implements AutoCloseable {
      * Remarks: The arguments must have a
      * bit-vector sort.
      **/
-    public BitVecExpr mkBVNeg(BitVecExpr t)
+    public BitVecExpr mkBVNeg(Expr<BitVecSort> t)
     {
         checkContextMatch(t);
         return new BitVecExpr(this, Native.mkBvneg(nCtx(), t.getNativeObject()));
@@ -1122,7 +1122,7 @@ public class Context implements AutoCloseable {
      * Remarks: The arguments must have the same
      * bit-vector sort.
      **/
-    public BitVecExpr mkBVAdd(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVAdd(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1135,7 +1135,7 @@ public class Context implements AutoCloseable {
      * Remarks: The arguments must have the same
      * bit-vector sort.
      **/
-    public BitVecExpr mkBVSub(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVSub(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1148,7 +1148,7 @@ public class Context implements AutoCloseable {
      * Remarks: The arguments must have the
      * same bit-vector sort.
      **/
-    public BitVecExpr mkBVMul(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVMul(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1163,7 +1163,7 @@ public class Context implements AutoCloseable {
      * zero, then the result is undefined. The arguments must have the same
      * bit-vector sort. 
      **/
-    public BitVecExpr mkBVUDiv(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVUDiv(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1184,7 +1184,7 @@ public class Context implements AutoCloseable {
      * If {@code t2} is zero, then the result is undefined. The arguments
      * must have the same bit-vector sort. 
      **/
-    public BitVecExpr mkBVSDiv(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVSDiv(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1199,7 +1199,7 @@ public class Context implements AutoCloseable {
      * unsigned division. If {@code t2} is zero, then the result is
      * undefined. The arguments must have the same bit-vector sort. 
      **/
-    public BitVecExpr mkBVURem(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVURem(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1217,7 +1217,7 @@ public class Context implements AutoCloseable {
      * If {@code t2} is zero, then the result is undefined. The arguments
      * must have the same bit-vector sort. 
      **/
-    public BitVecExpr mkBVSRem(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVSRem(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1231,7 +1231,7 @@ public class Context implements AutoCloseable {
      * {@code t2} is zero, then the result is undefined. The arguments must
      * have the same bit-vector sort. 
      **/
-    public BitVecExpr mkBVSMod(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVSMod(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1244,7 +1244,7 @@ public class Context implements AutoCloseable {
      * Remarks:  The arguments must have the same bit-vector
      * sort. 
      **/
-    public BoolExpr mkBVULT(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVULT(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1257,7 +1257,7 @@ public class Context implements AutoCloseable {
      * Remarks:  The arguments must have the
      * same bit-vector sort. 
      **/
-    public BoolExpr mkBVSLT(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVSLT(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1270,7 +1270,7 @@ public class Context implements AutoCloseable {
      * Remarks:  The arguments must have the
      * same bit-vector sort. 
      **/
-    public BoolExpr mkBVULE(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVULE(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1283,7 +1283,7 @@ public class Context implements AutoCloseable {
      * Remarks:  The arguments
      * must have the same bit-vector sort. 
      **/
-    public BoolExpr mkBVSLE(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVSLE(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1296,7 +1296,7 @@ public class Context implements AutoCloseable {
      * Remarks:  The arguments must have the
      * same bit-vector sort. 
      **/
-    public BoolExpr mkBVUGE(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVUGE(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1309,7 +1309,7 @@ public class Context implements AutoCloseable {
      * Remarks:  The arguments
      * must have the same bit-vector sort. 
      **/
-    public BoolExpr mkBVSGE(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVSGE(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1322,7 +1322,7 @@ public class Context implements AutoCloseable {
      * Remarks:  The arguments must have the same
      * bit-vector sort. 
      **/
-    public BoolExpr mkBVUGT(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVUGT(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1335,7 +1335,7 @@ public class Context implements AutoCloseable {
      * Remarks:  The arguments must have
      * the same bit-vector sort. 
      **/
-    public BoolExpr mkBVSGT(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVSGT(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1353,7 +1353,7 @@ public class Context implements AutoCloseable {
      *         ({@code t2}).
      *
      **/
-    public BitVecExpr mkConcat(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkConcat(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1369,7 +1369,7 @@ public class Context implements AutoCloseable {
      * {@code n = high - low + 1}. The argument {@code t} must
      * have a bit-vector sort. 
      **/
-    public BitVecExpr mkExtract(int high, int low, BitVecExpr t)
+    public BitVecExpr mkExtract(int high, int low, Expr<BitVecSort> t)
 
     {
         checkContextMatch(t);
@@ -1384,7 +1384,7 @@ public class Context implements AutoCloseable {
      * the size of the given bit-vector. The argument {@code t} must
      * have a bit-vector sort. 
      **/
-    public BitVecExpr mkSignExt(int i, BitVecExpr t)
+    public BitVecExpr mkSignExt(int i, Expr<BitVecSort> t)
     {
         checkContextMatch(t);
         return new BitVecExpr(this, Native.mkSignExt(nCtx(), i,
@@ -1398,7 +1398,7 @@ public class Context implements AutoCloseable {
      * where \c m is the size of the given bit-vector. The argument {@code t}
      * must have a bit-vector sort. 
      **/
-    public BitVecExpr mkZeroExt(int i, BitVecExpr t)
+    public BitVecExpr mkZeroExt(int i, Expr<BitVecSort> t)
     {
         checkContextMatch(t);
         return new BitVecExpr(this, Native.mkZeroExt(nCtx(), i,
@@ -1410,7 +1410,7 @@ public class Context implements AutoCloseable {
      * Remarks:  The argument {@code t} must
      * have a bit-vector sort. 
      **/
-    public BitVecExpr mkRepeat(int i, BitVecExpr t)
+    public BitVecExpr mkRepeat(int i, Expr<BitVecSort> t)
     {
         checkContextMatch(t);
         return new BitVecExpr(this, Native.mkRepeat(nCtx(), i,
@@ -1428,7 +1428,7 @@ public class Context implements AutoCloseable {
      *
      * The arguments must have a bit-vector sort. 
      **/
-    public BitVecExpr mkBVSHL(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVSHL(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1447,7 +1447,7 @@ public class Context implements AutoCloseable {
      *
      * The arguments must have a bit-vector sort. 
      **/
-    public BitVecExpr mkBVLSHR(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVLSHR(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1467,7 +1467,7 @@ public class Context implements AutoCloseable {
      *
      * The arguments must have a bit-vector sort. 
      **/
-    public BitVecExpr mkBVASHR(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVASHR(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -1480,7 +1480,7 @@ public class Context implements AutoCloseable {
      * Remarks:  Rotate bits of \c t to the left \c i times. The
      * argument {@code t} must have a bit-vector sort. 
      **/
-    public BitVecExpr mkBVRotateLeft(int i, BitVecExpr t)
+    public BitVecExpr mkBVRotateLeft(int i, Expr<BitVecSort> t)
     {
         checkContextMatch(t);
         return new BitVecExpr(this, Native.mkRotateLeft(nCtx(), i,
@@ -1492,7 +1492,7 @@ public class Context implements AutoCloseable {
      * Remarks:  Rotate bits of \c t to the right \c i times. The
      * argument {@code t} must have a bit-vector sort. 
      **/
-    public BitVecExpr mkBVRotateRight(int i, BitVecExpr t)
+    public BitVecExpr mkBVRotateRight(int i, Expr<BitVecSort> t)
     {
         checkContextMatch(t);
         return new BitVecExpr(this, Native.mkRotateRight(nCtx(), i,
@@ -1505,7 +1505,7 @@ public class Context implements AutoCloseable {
      * {@code t2} times. The arguments must have the same bit-vector
      * sort. 
      **/
-    public BitVecExpr mkBVRotateLeft(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVRotateLeft(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
 
     {
         checkContextMatch(t1);
@@ -1520,7 +1520,7 @@ public class Context implements AutoCloseable {
      * right{@code t2} times. The arguments must have the same
      * bit-vector sort. 
      **/
-    public BitVecExpr mkBVRotateRight(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVRotateRight(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
 
     {
         checkContextMatch(t1);
@@ -1559,7 +1559,7 @@ public class Context implements AutoCloseable {
      *
      * The argument must be of bit-vector sort. 
      **/
-    public IntExpr mkBV2Int(BitVecExpr t, boolean signed)
+    public IntExpr mkBV2Int(Expr<BitVecSort> t, boolean signed)
     {
         checkContextMatch(t);
         return new IntExpr(this, Native.mkBv2int(nCtx(), t.getNativeObject(),
@@ -1571,7 +1571,7 @@ public class Context implements AutoCloseable {
      * overflow. 
      * Remarks:  The arguments must be of bit-vector sort. 
      **/
-    public BoolExpr mkBVAddNoOverflow(BitVecExpr t1, BitVecExpr t2,
+    public BoolExpr mkBVAddNoOverflow(Expr<BitVecSort> t1, Expr<BitVecSort> t2,
             boolean isSigned)
     {
         checkContextMatch(t1);
@@ -1585,7 +1585,7 @@ public class Context implements AutoCloseable {
      * underflow. 
      * Remarks:  The arguments must be of bit-vector sort. 
      **/
-    public BoolExpr mkBVAddNoUnderflow(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVAddNoUnderflow(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
 
     {
         checkContextMatch(t1);
@@ -1599,7 +1599,7 @@ public class Context implements AutoCloseable {
      * overflow. 
      * Remarks:  The arguments must be of bit-vector sort. 
      **/
-    public BoolExpr mkBVSubNoOverflow(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVSubNoOverflow(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
 
     {
         checkContextMatch(t1);
@@ -1613,7 +1613,7 @@ public class Context implements AutoCloseable {
      * underflow. 
      * Remarks:  The arguments must be of bit-vector sort. 
      **/
-    public BoolExpr mkBVSubNoUnderflow(BitVecExpr t1, BitVecExpr t2,
+    public BoolExpr mkBVSubNoUnderflow(Expr<BitVecSort> t1, Expr<BitVecSort> t2,
             boolean isSigned)
     {
         checkContextMatch(t1);
@@ -1627,7 +1627,7 @@ public class Context implements AutoCloseable {
      * overflow. 
      * Remarks:  The arguments must be of bit-vector sort. 
      **/
-    public BoolExpr mkBVSDivNoOverflow(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVSDivNoOverflow(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
 
     {
         checkContextMatch(t1);
@@ -1641,7 +1641,7 @@ public class Context implements AutoCloseable {
      * overflow. 
      * Remarks:  The arguments must be of bit-vector sort. 
      **/
-    public BoolExpr mkBVNegNoOverflow(BitVecExpr t)
+    public BoolExpr mkBVNegNoOverflow(Expr<BitVecSort> t)
     {
         checkContextMatch(t);
         return new BoolExpr(this, Native.mkBvnegNoOverflow(nCtx(),
@@ -1653,7 +1653,7 @@ public class Context implements AutoCloseable {
      * overflow. 
      * Remarks:  The arguments must be of bit-vector sort. 
      **/
-    public BoolExpr mkBVMulNoOverflow(BitVecExpr t1, BitVecExpr t2,
+    public BoolExpr mkBVMulNoOverflow(Expr<BitVecSort> t1, Expr<BitVecSort> t2,
             boolean isSigned)
     {
         checkContextMatch(t1);
@@ -1667,7 +1667,7 @@ public class Context implements AutoCloseable {
      * underflow. 
      * Remarks:  The arguments must be of bit-vector sort. 
      **/
-    public BoolExpr mkBVMulNoUnderflow(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVMulNoUnderflow(Expr<BitVecSort> t1, Expr<BitVecSort> t2)
 
     {
         checkContextMatch(t1);
@@ -3773,7 +3773,7 @@ public class Context implements AutoCloseable {
      * of the arguments.
      * @throws Z3Exception
      **/
-    public FPExpr mkFP(BitVecExpr sgn, BitVecExpr sig, BitVecExpr exp)
+    public FPExpr mkFP(Expr<BitVecSort> sgn, Expr<BitVecSort> sig, Expr<BitVecSort> exp)
     {
         return new FPExpr(this, Native.mkFpaFp(nCtx(), sgn.getNativeObject(), sig.getNativeObject(), exp.getNativeObject()));
     }
@@ -3789,7 +3789,7 @@ public class Context implements AutoCloseable {
      * IEEE 754-2008 interchange format.
      * @throws Z3Exception
      **/
-    public FPExpr mkFPToFP(BitVecExpr bv, FPSort s)
+    public FPExpr mkFPToFP(Expr<BitVecSort> bv, FPSort s)
     {
         return new FPExpr(this, Native.mkFpaToFpBv(nCtx(), bv.getNativeObject(), s.getNativeObject()));
     }
@@ -3839,7 +3839,7 @@ public class Context implements AutoCloseable {
      * result will be rounded according to rounding mode rm.
      * @throws Z3Exception
      **/
-    public FPExpr mkFPToFP(FPRMExpr rm, BitVecExpr t, FPSort s, boolean signed)
+    public FPExpr mkFPToFP(FPRMExpr rm, Expr<BitVecSort> t, FPSort s, boolean signed)
     {
         if (signed)
             return new FPExpr(this, Native.mkFpaToFpSigned(nCtx(), rm.getNativeObject(), t.getNativeObject(), s.getNativeObject()));
