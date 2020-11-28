@@ -1729,7 +1729,7 @@ public class Context implements AutoCloseable {
      * @see #mkArraySort
      * @see #mkStore
      **/
-    public <R extends Sort> Expr<R> mkSelect(ArrayExpr<?, R> a, Expr<?>[] args)
+    public <R extends Sort> Expr<R> mkSelect(Expr<ArraySort<?, R>> a, Expr<?>[] args)
     {
         checkContextMatch(a);
         checkContextMatch(args);
@@ -1779,7 +1779,7 @@ public class Context implements AutoCloseable {
      * @see #mkSelect
 
      **/
-    public <R extends Sort> ArrayExpr<?, R> mkStore(ArrayExpr<?, R> a, Expr<?>[] args, Expr<R> v)
+    public <R extends Sort> ArrayExpr<?, R> mkStore(Expr<ArraySort<?, R>> a, Expr<?>[] args, Expr<R> v)
     {
         checkContextMatch(a);
         checkContextMatch(args);
@@ -1818,7 +1818,7 @@ public class Context implements AutoCloseable {
      * @see #mkStore
 
      **/
-    public <D extends Sort, R1 extends Sort, R2 extends Sort> ArrayExpr<D, R2> mkMap(FuncDecl<R2> f, ArrayExpr<D, R1>... args)
+    public <D extends Sort, R1 extends Sort, R2 extends Sort> ArrayExpr<D, R2> mkMap(FuncDecl<R2> f, Expr<ArraySort<D, R1>>... args)
     {
         checkContextMatch(f);
         checkContextMatch(args);
@@ -1883,7 +1883,7 @@ public class Context implements AutoCloseable {
     /**
      * Add an element to the set.
      **/
-    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetAdd(ArrayExpr<D, BoolSort> set, Expr<D> element)
+    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetAdd(Expr<ArraySort<D, BoolSort>> set, Expr<D> element)
     {
         checkContextMatch(set);
         checkContextMatch(element);
@@ -1895,7 +1895,7 @@ public class Context implements AutoCloseable {
     /**
      * Remove an element from a set.
      **/
-    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetDel(ArrayExpr<D, BoolSort> set, Expr<D> element)
+    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetDel(Expr<ArraySort<D, BoolSort>> set, Expr<D> element)
     {
         checkContextMatch(set);
         checkContextMatch(element);
@@ -1907,7 +1907,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the union of a list of sets.
      **/
-    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetUnion(ArrayExpr<D, BoolSort>... args)
+    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetUnion(Expr<ArraySort<D, BoolSort>>... args)
     {
         checkContextMatch(args);
         return (ArrayExpr<D, BoolSort>)Expr.create(this,
@@ -1918,7 +1918,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the intersection of a list of sets.
      **/
-    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetIntersection(ArrayExpr<D, BoolSort>... args)
+    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetIntersection(Expr<ArraySort<D, BoolSort>>... args)
     {
         checkContextMatch(args);
         return (ArrayExpr<D, BoolSort>) Expr.create(this,
@@ -1929,7 +1929,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the difference between two sets.
      **/
-    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetDifference(ArrayExpr<D, BoolSort> arg1, ArrayExpr<D, BoolSort> arg2)
+    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetDifference(Expr<ArraySort<D, BoolSort>> arg1, Expr<ArraySort<D, BoolSort>> arg2)
     {
         checkContextMatch(arg1);
         checkContextMatch(arg2);
@@ -1941,7 +1941,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the complement of a set.
      **/
-    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetComplement(ArrayExpr<D, BoolSort> arg)
+    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetComplement(Expr<ArraySort<D, BoolSort>> arg)
     {
         checkContextMatch(arg);
         return (ArrayExpr<D, BoolSort>)Expr.create(this,
@@ -1951,7 +1951,7 @@ public class Context implements AutoCloseable {
     /**
      * Check for set membership.
      **/
-    public <D extends Sort> BoolExpr mkSetMembership(Expr<D> elem, ArrayExpr<D, BoolSort> set)
+    public <D extends Sort> BoolExpr mkSetMembership(Expr<D> elem, Expr<ArraySort<D, BoolSort>> set)
     {
         checkContextMatch(elem);
         checkContextMatch(set);
@@ -1963,7 +1963,7 @@ public class Context implements AutoCloseable {
     /**
      * Check for subsetness of sets.
      **/
-    public <D extends Sort> BoolExpr mkSetSubset(ArrayExpr<D, BoolSort> arg1, ArrayExpr<D, BoolSort> arg2)
+    public <D extends Sort> BoolExpr mkSetSubset(Expr<ArraySort<D, BoolSort>> arg1, Expr<ArraySort<D, BoolSort>> arg2)
     {
         checkContextMatch(arg1);
         checkContextMatch(arg2);
