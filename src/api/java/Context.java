@@ -255,9 +255,9 @@ public class Context implements AutoCloseable {
     /**
      * Create a new regular expression sort
      **/
-    public ReSort mkReSort(Sort s)
+    public ReSort<Sort> mkReSort(Sort s)
     {
-        return new ReSort(this, Native.mkReSort(nCtx(), s.getNativeObject()));
+        return new ReSort<Sort>(this, Native.mkReSort(nCtx(), s.getNativeObject()));
     }
 
 

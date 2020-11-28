@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * A Regular expression sort
  **/
-public class ReSort extends Sort
+public class ReSort<R extends Sort> extends Sort
 {
     ReSort(Context ctx, long obj)
     {
