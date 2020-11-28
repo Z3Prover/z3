@@ -387,7 +387,7 @@ public class Context implements AutoCloseable {
      * @param names names of datatype sorts 
      * @param c list of constructors, one list per sort.
      **/
-    public DatatypeSort<Sort>[] mkDatatypeSorts(Symbol[] names, Constructor[][] c)
+    public DatatypeSort<?>[] mkDatatypeSorts(Symbol[] names, Constructor[][] c)
 
     {
         checkContextMatch(names);
@@ -405,16 +405,16 @@ public class Context implements AutoCloseable {
         long[] n_res = new long[n];
         Native.mkDatatypes(nCtx(), n, Symbol.arrayToNative(names), n_res,
                 n_constr);
-        DatatypeSort<Sort>[] res = new DatatypeSort[n];
+        DatatypeSort<?>[] res = new DatatypeSort[n];
         for (int i = 0; i < n; i++)
-            res[i] = new DatatypeSort<Sort>(this, n_res[i]);
+            res[i] = new DatatypeSort<>(this, n_res[i]);
         return res;
     }
 
     /**
      * Create mutually recursive data-types. 
      **/
-    public DatatypeSort<Sort>[] mkDatatypeSorts(String[] names, Constructor[][] c)
+    public DatatypeSort<?>[] mkDatatypeSorts(String[] names, Constructor[][] c)
 
     {
         return mkDatatypeSorts(mkSymbols(names), c);
