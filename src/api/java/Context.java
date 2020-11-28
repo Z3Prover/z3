@@ -877,7 +877,7 @@ public class Context implements AutoCloseable {
      * Remarks: The
      * arguments must have int type.
      **/
-    public IntExpr mkMod(IntExpr t1, IntExpr t2)
+    public IntExpr mkMod(Expr<IntSort> t1, Expr<IntSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -890,7 +890,7 @@ public class Context implements AutoCloseable {
      * Remarks: The
      * arguments must have int type.
      **/
-    public IntExpr mkRem(IntExpr t1, IntExpr t2)
+    public IntExpr mkRem(Expr<IntSort> t1, Expr<IntSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -965,7 +965,7 @@ public class Context implements AutoCloseable {
      * {@code MakeInt2Real(k) &lt;= t1 &lt; MkInt2Real(k)+1}. The argument
      * must be of integer sort. 
      **/
-    public RealExpr mkInt2Real(IntExpr t)
+    public RealExpr mkInt2Real(Expr<IntSort> t)
     {
         checkContextMatch(t);
         return new RealExpr(this,
@@ -1538,7 +1538,7 @@ public class Context implements AutoCloseable {
      *
      * The argument must be of integer sort. 
      **/
-    public BitVecExpr mkInt2BV(int n, IntExpr t)
+    public BitVecExpr mkInt2BV(int n, Expr<IntSort> t)
     {
         checkContextMatch(t);
         return new BitVecExpr(this, Native.mkInt2bv(nCtx(), n,
@@ -2068,7 +2068,7 @@ public class Context implements AutoCloseable {
     /**
      * Retrieve sequence of length one at index.
      */
-    public <R extends Sort> SeqExpr<R> mkAt(SeqExpr<R> s, IntExpr index)
+    public <R extends Sort> SeqExpr<R> mkAt(SeqExpr<R> s, Expr<IntSort> index)
     {
         checkContextMatch(s, index);
         return (SeqExpr<R>) Expr.create(this, Native.mkSeqAt(nCtx(), s.getNativeObject(), index.getNativeObject()));
@@ -2077,7 +2077,7 @@ public class Context implements AutoCloseable {
     /**
      *  Retrieve element at index.
      */
-    public <R extends Sort> Expr<R> MkNth(SeqExpr<R> s, IntExpr index)
+    public <R extends Sort> Expr<R> MkNth(SeqExpr<R> s, Expr<IntSort> index)
     {
         checkContextMatch(s, index);
         return (Expr<R>) Expr.create(this, Native.mkSeqNth(nCtx(), s.getNativeObject(), index.getNativeObject()));
@@ -2087,7 +2087,7 @@ public class Context implements AutoCloseable {
     /**
      * Extract subsequence.
      */
-    public <R extends Sort> SeqExpr<R> mkExtract(SeqExpr<R> s, IntExpr offset, IntExpr length)
+    public <R extends Sort> SeqExpr<R> mkExtract(SeqExpr<R> s, Expr<IntSort> offset, Expr<IntSort> length)
     {
         checkContextMatch(s, offset, length);
         return (SeqExpr<R>) Expr.create(this, Native.mkSeqExtract(nCtx(), s.getNativeObject(), offset.getNativeObject(), length.getNativeObject()));
@@ -3924,7 +3924,7 @@ public class Context implements AutoCloseable {
      * @throws Z3Exception
      **/
 
-    public BitVecExpr mkFPToFP(Expr<FPRMSort> rm, IntExpr exp, RealExpr sig, FPSort s)
+    public BitVecExpr mkFPToFP(Expr<FPRMSort> rm, Expr<IntSort> exp, RealExpr sig, FPSort s)
     {
         return new BitVecExpr(this, Native.mkFpaToFpIntReal(nCtx(), rm.getNativeObject(), exp.getNativeObject(), sig.getNativeObject(), s.getNativeObject()));
     }
