@@ -426,7 +426,7 @@ public class Context implements AutoCloseable {
      * that is passed in as argument is updated with value v,
      * the remaining fields of t are unchanged.
      **/
-    public <R extends Sort> Expr<R> mkUpdateField(FuncDecl<?> field, Expr<R> t, Expr<R> v)
+    public <F extends Sort, R extends Sort> Expr<R> mkUpdateField(FuncDecl<F> field, Expr<R> t, Expr<F> v)
         throws Z3Exception
     {
         return (Expr<R>) Expr.create(this,
