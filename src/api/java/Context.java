@@ -3499,7 +3499,7 @@ public class Context implements AutoCloseable {
      * @param t floating-point term
      * @throws Z3Exception
      **/
-    public FPExpr mkFPAbs(FPExpr t)
+    public FPExpr mkFPAbs(Expr<FPSort> t)
     {
         return new FPExpr(this, Native.mkFpaAbs(nCtx(), t.getNativeObject()));
     }
@@ -3509,7 +3509,7 @@ public class Context implements AutoCloseable {
      * @param t floating-point term
      * @throws Z3Exception
      **/
-    public FPExpr mkFPNeg(FPExpr t)
+    public FPExpr mkFPNeg(Expr<FPSort> t)
     {
         return new FPExpr(this, Native.mkFpaNeg(nCtx(), t.getNativeObject()));
     }
@@ -3521,7 +3521,7 @@ public class Context implements AutoCloseable {
      * @param t2 floating-point term     
      * @throws Z3Exception
      **/
-    public FPExpr mkFPAdd(FPRMExpr rm, FPExpr t1, FPExpr t2)
+    public FPExpr mkFPAdd(FPRMExpr rm, Expr<FPSort> t1, Expr<FPSort> t2)
     {
         return new FPExpr(this, Native.mkFpaAdd(nCtx(), rm.getNativeObject(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3533,7 +3533,7 @@ public class Context implements AutoCloseable {
      * @param t2 floating-point term
      * @throws Z3Exception
      **/
-    public FPExpr mkFPSub(FPRMExpr rm, FPExpr t1, FPExpr t2)
+    public FPExpr mkFPSub(FPRMExpr rm, Expr<FPSort> t1, Expr<FPSort> t2)
     {
         return new FPExpr(this, Native.mkFpaSub(nCtx(), rm.getNativeObject(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3545,7 +3545,7 @@ public class Context implements AutoCloseable {
      * @param t2 floating-point term
      * @throws Z3Exception
      **/
-    public FPExpr mkFPMul(FPRMExpr rm, FPExpr t1, FPExpr t2)
+    public FPExpr mkFPMul(FPRMExpr rm, Expr<FPSort> t1, Expr<FPSort> t2)
     {
         return new FPExpr(this, Native.mkFpaMul(nCtx(), rm.getNativeObject(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3557,7 +3557,7 @@ public class Context implements AutoCloseable {
      * @param t2 floating-point term
      * @throws Z3Exception
      **/
-    public FPExpr mkFPDiv(FPRMExpr rm, FPExpr t1, FPExpr t2)
+    public FPExpr mkFPDiv(FPRMExpr rm, Expr<FPSort> t1, Expr<FPSort> t2)
     {
         return new FPExpr(this, Native.mkFpaDiv(nCtx(), rm.getNativeObject(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3572,7 +3572,7 @@ public class Context implements AutoCloseable {
      * The result is round((t1 * t2) + t3)
      * @throws Z3Exception
      **/
-    public FPExpr mkFPFMA(FPRMExpr rm, FPExpr t1, FPExpr t2, FPExpr t3)
+    public FPExpr mkFPFMA(FPRMExpr rm, Expr<FPSort> t1, Expr<FPSort> t2, Expr<FPSort> t3)
     {
         return new FPExpr(this, Native.mkFpaFma(nCtx(), rm.getNativeObject(), t1.getNativeObject(), t2.getNativeObject(), t3.getNativeObject()));
     }
@@ -3583,7 +3583,7 @@ public class Context implements AutoCloseable {
      * @param t floating-point term
      * @throws Z3Exception
      **/
-    public FPExpr mkFPSqrt(FPRMExpr rm, FPExpr t)
+    public FPExpr mkFPSqrt(FPRMExpr rm, Expr<FPSort> t)
     {
         return new FPExpr(this, Native.mkFpaSqrt(nCtx(), rm.getNativeObject(), t.getNativeObject()));
     }
@@ -3594,7 +3594,7 @@ public class Context implements AutoCloseable {
      * @param t2 floating-point term
      * @throws Z3Exception
      **/
-    public FPExpr mkFPRem(FPExpr t1, FPExpr t2)
+    public FPExpr mkFPRem(Expr<FPSort> t1, Expr<FPSort> t2)
     {
         return new FPExpr(this, Native.mkFpaRem(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3606,7 +3606,7 @@ public class Context implements AutoCloseable {
      * @param t floating-point term
      * @throws Z3Exception
      **/
-    public FPExpr mkFPRoundToIntegral(FPRMExpr rm, FPExpr t)
+    public FPExpr mkFPRoundToIntegral(FPRMExpr rm, Expr<FPSort> t)
     {
         return new FPExpr(this, Native.mkFpaRoundToIntegral(nCtx(), rm.getNativeObject(), t.getNativeObject()));
     }
@@ -3617,7 +3617,7 @@ public class Context implements AutoCloseable {
      * @param t2 floating-point term
      * @throws Z3Exception
      **/
-    public FPExpr mkFPMin(FPExpr t1, FPExpr t2)
+    public FPExpr mkFPMin(Expr<FPSort> t1, Expr<FPSort> t2)
     {
         return new FPExpr(this, Native.mkFpaMin(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3628,7 +3628,7 @@ public class Context implements AutoCloseable {
      * @param t2 floating-point term
      * @throws Z3Exception
      **/
-    public FPExpr mkFPMax(FPExpr t1, FPExpr t2)
+    public FPExpr mkFPMax(Expr<FPSort> t1, Expr<FPSort> t2)
     {
         return new FPExpr(this, Native.mkFpaMax(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3639,7 +3639,7 @@ public class Context implements AutoCloseable {
      * @param t2 floating-point term
      * @throws Z3Exception
      **/
-    public BoolExpr mkFPLEq(FPExpr t1, FPExpr t2)
+    public BoolExpr mkFPLEq(Expr<FPSort> t1, Expr<FPSort> t2)
     {
         return new BoolExpr(this, Native.mkFpaLeq(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3650,7 +3650,7 @@ public class Context implements AutoCloseable {
      * @param t2 floating-point term
      * @throws Z3Exception
      **/
-    public BoolExpr mkFPLt(FPExpr t1, FPExpr t2)
+    public BoolExpr mkFPLt(Expr<FPSort> t1, Expr<FPSort> t2)
     {
         return new BoolExpr(this, Native.mkFpaLt(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3661,7 +3661,7 @@ public class Context implements AutoCloseable {
      * @param t2 floating-point term
      * @throws Z3Exception
      **/
-    public BoolExpr mkFPGEq(FPExpr t1, FPExpr t2)
+    public BoolExpr mkFPGEq(Expr<FPSort> t1, Expr<FPSort> t2)
     {
         return new BoolExpr(this, Native.mkFpaGeq(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3672,7 +3672,7 @@ public class Context implements AutoCloseable {
      * @param t2 floating-point term
      * @throws Z3Exception
      **/
-    public BoolExpr mkFPGt(FPExpr t1, FPExpr t2)
+    public BoolExpr mkFPGt(Expr<FPSort> t1, Expr<FPSort> t2)
     {
         return new BoolExpr(this, Native.mkFpaGt(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3685,7 +3685,7 @@ public class Context implements AutoCloseable {
      * Note that this is IEEE 754 equality (as opposed to standard =).
      * @throws Z3Exception
      **/
-    public BoolExpr mkFPEq(FPExpr t1, FPExpr t2)
+    public BoolExpr mkFPEq(Expr<FPSort> t1, Expr<FPSort> t2)
     {
         return new BoolExpr(this, Native.mkFpaEq(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
     }
@@ -3695,7 +3695,7 @@ public class Context implements AutoCloseable {
      * @param t floating-point term
      * @throws Z3Exception
      **/
-    public BoolExpr mkFPIsNormal(FPExpr t)
+    public BoolExpr mkFPIsNormal(Expr<FPSort> t)
     {
         return new BoolExpr(this, Native.mkFpaIsNormal(nCtx(), t.getNativeObject()));
     }
@@ -3705,7 +3705,7 @@ public class Context implements AutoCloseable {
      * @param t floating-point term
      * @throws Z3Exception
      **/
-    public BoolExpr mkFPIsSubnormal(FPExpr t)
+    public BoolExpr mkFPIsSubnormal(Expr<FPSort> t)
     {
         return new BoolExpr(this, Native.mkFpaIsSubnormal(nCtx(), t.getNativeObject()));
     }
@@ -3715,7 +3715,7 @@ public class Context implements AutoCloseable {
      * @param t floating-point term
      * @throws Z3Exception
      **/
-    public BoolExpr mkFPIsZero(FPExpr t)
+    public BoolExpr mkFPIsZero(Expr<FPSort> t)
     {
         return new BoolExpr(this, Native.mkFpaIsZero(nCtx(), t.getNativeObject()));
     }
@@ -3725,7 +3725,7 @@ public class Context implements AutoCloseable {
      * @param t floating-point term
      * @throws Z3Exception
      **/
-    public BoolExpr mkFPIsInfinite(FPExpr t)
+    public BoolExpr mkFPIsInfinite(Expr<FPSort> t)
     {
         return new BoolExpr(this, Native.mkFpaIsInfinite(nCtx(), t.getNativeObject()));
     }
@@ -3735,7 +3735,7 @@ public class Context implements AutoCloseable {
      * @param t floating-point term
      * @throws Z3Exception
      **/
-    public BoolExpr mkFPIsNaN(FPExpr t)
+    public BoolExpr mkFPIsNaN(Expr<FPSort> t)
     {
         return new BoolExpr(this, Native.mkFpaIsNan(nCtx(), t.getNativeObject()));
     }
@@ -3745,7 +3745,7 @@ public class Context implements AutoCloseable {
      * @param t floating-point term
      * @throws Z3Exception
      **/
-    public BoolExpr mkFPIsNegative(FPExpr t)
+    public BoolExpr mkFPIsNegative(Expr<FPSort> t)
     {
         return new BoolExpr(this, Native.mkFpaIsNegative(nCtx(), t.getNativeObject()));
     }
@@ -3755,7 +3755,7 @@ public class Context implements AutoCloseable {
      * @param t floating-point term
      * @throws Z3Exception
      **/
-    public BoolExpr mkFPIsPositive(FPExpr t)
+    public BoolExpr mkFPIsPositive(Expr<FPSort> t)
     {
         return new BoolExpr(this, Native.mkFpaIsPositive(nCtx(), t.getNativeObject()));
     }
@@ -3805,7 +3805,7 @@ public class Context implements AutoCloseable {
      * to rounding mode rm.
      * @throws Z3Exception
      **/
-    public FPExpr mkFPToFP(FPRMExpr rm, FPExpr t, FPSort s)
+    public FPExpr mkFPToFP(FPRMExpr rm, Expr<FPSort> t, FPSort s)
     {
         return new FPExpr(this, Native.mkFpaToFpFloat(nCtx(), rm.getNativeObject(), t.getNativeObject(), s.getNativeObject()));
     }
@@ -3857,7 +3857,7 @@ public class Context implements AutoCloseable {
      * FloatingPoint sort s. If necessary, rounding according to rm is applied. 
      * @throws Z3Exception
      **/
-    public FPExpr mkFPToFP(FPSort s, FPRMExpr rm, FPExpr t)
+    public FPExpr mkFPToFP(FPSort s, FPRMExpr rm, Expr<FPSort> t)
     {
         return new FPExpr(this, Native.mkFpaToFpFloat(nCtx(), s.getNativeObject(), rm.getNativeObject(), t.getNativeObject()));
     }
@@ -3874,7 +3874,7 @@ public class Context implements AutoCloseable {
      * the result will be rounded according to rounding mode rm.        
      * @throws Z3Exception
      **/
-    public BitVecExpr mkFPToBV(FPRMExpr rm, FPExpr t, int sz, boolean signed)
+    public BitVecExpr mkFPToBV(FPRMExpr rm, Expr<FPSort> t, int sz, boolean signed)
     {
         if (signed)
             return new BitVecExpr(this, Native.mkFpaToSbv(nCtx(), rm.getNativeObject(), t.getNativeObject(), sz));
@@ -3891,7 +3891,7 @@ public class Context implements AutoCloseable {
      * constraints over real terms.
      * @throws Z3Exception
      **/
-    public RealExpr mkFPToReal(FPExpr t)
+    public RealExpr mkFPToReal(Expr<FPSort> t)
     {
         return new RealExpr(this, Native.mkFpaToReal(nCtx(), t.getNativeObject()));
     }
@@ -3906,7 +3906,7 @@ public class Context implements AutoCloseable {
      * that NaN. 
      * @throws Z3Exception
      **/
-    public BitVecExpr mkFPToIEEEBV(FPExpr t)
+    public BitVecExpr mkFPToIEEEBV(Expr<FPSort> t)
     {
         return new BitVecExpr(this, Native.mkFpaToIeeeBv(nCtx(), t.getNativeObject()));
     }
