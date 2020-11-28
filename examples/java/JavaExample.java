@@ -405,7 +405,7 @@ class JavaExample
         System.out.println("ArrayExample2");
         Log.append("ArrayExample2");
 
-        IntSort int_type = ctx.getIntSort();
+        Sort int_type = ctx.getIntSort();
         Sort array_type = ctx.mkArraySort(int_type, int_type);
 
         ArrayExpr a1 = (ArrayExpr) ctx.mkConst("a1", array_type);
