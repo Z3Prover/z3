@@ -2124,7 +2124,7 @@ public class Context implements AutoCloseable {
     /**
      * Check for regular expression membership.
      */
-    public <R extends Sort> BoolExpr mkInRe(SeqExpr<R> s, ReExpr<R> re)
+    public <R extends Sort> BoolExpr mkInRe(SeqExpr<R> s, Expr<ReSort<R>> re)
     {
         checkContextMatch(s, re);
         return (BoolExpr) Expr.create(this, Native.mkSeqInRe(nCtx(), s.getNativeObject(), re.getNativeObject()));
@@ -2133,7 +2133,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the Kleene star of a regular expression.
      */
-    public <R extends Sort> ReExpr<R> mkStar(ReExpr<R> re)
+    public <R extends Sort> ReExpr<R> mkStar(Expr<ReSort<R>> re)
     {
         checkContextMatch(re);
         return (ReExpr<R>) Expr.create(this, Native.mkReStar(nCtx(), re.getNativeObject()));
@@ -2142,7 +2142,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the lower and upper-bounded Kleene star of a regular expression.
      */
-    public <R extends Sort> ReExpr<R> mkLoop(ReExpr<R> re, int lo, int hi)
+    public <R extends Sort> ReExpr<R> mkLoop(Expr<ReSort<R>> re, int lo, int hi)
     {
         return (ReExpr<R>) Expr.create(this, Native.mkReLoop(nCtx(), re.getNativeObject(), lo, hi));
     }
@@ -2150,7 +2150,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the lower-bounded Kleene star of a regular expression.
      */
-    public <R extends Sort> ReExpr<R> mkLoop(ReExpr<R> re, int lo)
+    public <R extends Sort> ReExpr<R> mkLoop(Expr<ReSort<R>> re, int lo)
     {
         return (ReExpr<R>) Expr.create(this, Native.mkReLoop(nCtx(), re.getNativeObject(), lo, 0));
     }
@@ -2159,7 +2159,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the Kleene plus of a regular expression.
      */
-    public <R extends Sort> ReExpr<R> mkPlus(ReExpr<R> re)
+    public <R extends Sort> ReExpr<R> mkPlus(Expr<ReSort<R>> re)
     {
         checkContextMatch(re);
         return (ReExpr<R>) Expr.create(this, Native.mkRePlus(nCtx(), re.getNativeObject()));
@@ -2168,7 +2168,7 @@ public class Context implements AutoCloseable {
     /**
      * Create the optional regular expression.
      */
-    public <R extends Sort> ReExpr<R> mkOption(ReExpr<R> re)
+    public <R extends Sort> ReExpr<R> mkOption(Expr<ReSort<R>> re)
     {
         checkContextMatch(re);
         return (ReExpr<R>) Expr.create(this, Native.mkReOption(nCtx(), re.getNativeObject()));
@@ -2177,7 +2177,7 @@ public class Context implements AutoCloseable {
     /**
      * Create the complement regular expression.
      */
-    public <R extends Sort> ReExpr<R> mkComplement(ReExpr<R> re)
+    public <R extends Sort> ReExpr<R> mkComplement(Expr<ReSort<R>> re)
     {
         checkContextMatch(re);
         return (ReExpr<R>) Expr.create(this, Native.mkReComplement(nCtx(), re.getNativeObject()));
@@ -2186,7 +2186,7 @@ public class Context implements AutoCloseable {
     /**
      * Create the concatenation of regular languages.
      */
-    public <R extends Sort> ReExpr<R> mkConcat(ReExpr<R>... t)
+    public <R extends Sort> ReExpr<R> mkConcat(Expr<ReSort<R>>... t)
     {
         checkContextMatch(t);
         return (ReExpr<R>) Expr.create(this, Native.mkReConcat(nCtx(), t.length, AST.arrayToNative(t)));
@@ -2195,7 +2195,7 @@ public class Context implements AutoCloseable {
     /**
      * Create the union of regular languages.
      */
-    public <R extends Sort> ReExpr<R> mkUnion(ReExpr<R>... t)
+    public <R extends Sort> ReExpr<R> mkUnion(Expr<ReSort<R>>... t)
     {
         checkContextMatch(t);
         return (ReExpr<R>) Expr.create(this, Native.mkReUnion(nCtx(), t.length, AST.arrayToNative(t)));
@@ -2204,7 +2204,7 @@ public class Context implements AutoCloseable {
     /**
      * Create the intersection of regular languages.
      */
-    public <R extends Sort> ReExpr<R> mkIntersect(ReExpr<R>... t)
+    public <R extends Sort> ReExpr<R> mkIntersect(Expr<ReSort<R>>... t)
     {
         checkContextMatch(t);
         return (ReExpr<R>) Expr.create(this, Native.mkReIntersect(nCtx(), t.length, AST.arrayToNative(t)));
