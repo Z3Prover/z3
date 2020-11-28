@@ -824,7 +824,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t[0] + t[1] + ...}.
      **/
-    public <R extends ArithSort> ArithExpr<R> mkAdd(ArithExpr<R>... t)
+    public <R extends ArithSort> ArithExpr<R> mkAdd(Expr<R>... t)
     {
         checkContextMatch(t);
         return (ArithExpr<R>) Expr.create(this,
@@ -834,7 +834,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t[0] * t[1] * ...}.
      **/
-    public <R extends ArithSort> ArithExpr<R> mkMul(ArithExpr<R>... t)
+    public <R extends ArithSort> ArithExpr<R> mkMul(Expr<R>... t)
     {
         checkContextMatch(t);
         return (ArithExpr<R>) Expr.create(this,
@@ -844,7 +844,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t[0] - t[1] - ...}.
      **/
-    public <R extends ArithSort> ArithExpr<R> mkSub(ArithExpr<R>... t)
+    public <R extends ArithSort> ArithExpr<R> mkSub(Expr<R>... t)
     {
         checkContextMatch(t);
         return (ArithExpr<R>) Expr.create(this,
@@ -854,7 +854,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code -t}.
      **/
-    public <R extends ArithSort> ArithExpr<R> mkUnaryMinus(ArithExpr<R> t)
+    public <R extends ArithSort> ArithExpr<R> mkUnaryMinus(Expr<R> t)
     {
         checkContextMatch(t);
         return (ArithExpr<R>) Expr.create(this,
@@ -864,7 +864,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 / t2}.
      **/
-    public <R extends ArithSort> ArithExpr<R> mkDiv(ArithExpr<R> t1, ArithExpr<R> t2)
+    public <R extends ArithSort> ArithExpr<R> mkDiv(Expr<R> t1, Expr<R> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -901,7 +901,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 ^ t2}.
      **/
-    public <R extends ArithSort> ArithExpr<R> mkPower(ArithExpr<R> t1, ArithExpr<R> t2)
+    public <R extends ArithSort> ArithExpr<R> mkPower(Expr<R> t1, Expr<R> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -914,7 +914,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 &lt; t2}
      **/
-    public <R extends ArithSort> BoolExpr mkLt(ArithExpr<R> t1, ArithExpr<R> t2)
+    public <R extends ArithSort> BoolExpr mkLt(Expr<R> t1, Expr<R> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -925,7 +925,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 &lt;= t2}
      **/
-    public <R extends ArithSort> BoolExpr mkLe(ArithExpr<R> t1, ArithExpr<R> t2)
+    public <R extends ArithSort> BoolExpr mkLe(Expr<R> t1, Expr<R> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -936,7 +936,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 &gt; t2}
      **/
-    public <R extends ArithSort> BoolExpr mkGt(ArithExpr<R> t1, ArithExpr<R> t2)
+    public <R extends ArithSort> BoolExpr mkGt(Expr<R> t1, Expr<R> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -947,7 +947,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 &gt;= t2}
      **/
-    public <R extends ArithSort> BoolExpr mkGe(ArithExpr<R> t1, ArithExpr<R> t2)
+    public <R extends ArithSort> BoolExpr mkGe(Expr<R> t1, Expr<R> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -2096,7 +2096,7 @@ public class Context implements AutoCloseable {
     /**
      * Extract index of sub-string starting at offset.
      */
-    public <R extends Sort> IntExpr mkIndexOf(SeqExpr<R> s, SeqExpr<R> substr, ArithExpr<IntSort> offset)
+    public <R extends Sort> IntExpr mkIndexOf(SeqExpr<R> s, SeqExpr<R> substr, Expr<IntSort> offset)
     {
         checkContextMatch(s, substr, offset);
         return (IntExpr)Expr.create(this, Native.mkSeqIndex(nCtx(), s.getNativeObject(), substr.getNativeObject(), offset.getNativeObject()));
