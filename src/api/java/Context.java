@@ -3805,7 +3805,7 @@ public class Context implements AutoCloseable {
      * to rounding mode rm.
      * @throws Z3Exception
      **/
-    public FPExpr mkFPToFP(Expr<FPRMSort> rm, Expr<FPSort> t, FPSort s)
+    public FPExpr mkFPToFP(Expr<FPRMSort> rm, FPExpr t, FPSort s)
     {
         return new FPExpr(this, Native.mkFpaToFpFloat(nCtx(), rm.getNativeObject(), t.getNativeObject(), s.getNativeObject()));
     }
@@ -3821,7 +3821,7 @@ public class Context implements AutoCloseable {
      * to rounding mode rm.
      * @throws Z3Exception
      **/
-    public FPExpr mkFPToFP(Expr<FPRMSort> rm, Expr<RealSort> t, FPSort s)
+    public FPExpr mkFPToFP(Expr<FPRMSort> rm, RealExpr t, FPSort s)
     {
         return new FPExpr(this, Native.mkFpaToFpReal(nCtx(), rm.getNativeObject(), t.getNativeObject(), s.getNativeObject()));
     }
