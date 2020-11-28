@@ -62,10 +62,11 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void add(BoolExpr ... constraints)
+    @SafeVarargs
+    public final void add(Expr<BoolSort>... constraints)
     {
         getContext().checkContextMatch(constraints);
-        for (BoolExpr a : constraints)
+        for (Expr<BoolSort> a : constraints)
         {
             Native.fixedpointAssert(getContext().nCtx(), getNativeObject(),
                     a.getNativeObject());
@@ -91,7 +92,7 @@ public class Fixedpoint extends Z3Object
      * @param name Nullable rule name.
      * @throws Z3Exception
      **/
-    public void addRule(BoolExpr rule, Symbol name) {
+    public void addRule(Expr<BoolSort> rule, Symbol name) {
         getContext().checkContextMatch(rule);
         Native.fixedpointAddRule(getContext().nCtx(), getNativeObject(),
                 rule.getNativeObject(), AST.getNativeObject(name));
@@ -117,7 +118,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Status query(BoolExpr query) {
+    public Status query(Expr<BoolSort> query) {
         getContext().checkContextMatch(query);
         Z3_lbool r = Z3_lbool.fromInt(Native.fixedpointQuery(getContext().nCtx(),
                 getNativeObject(), query.getNativeObject()));
@@ -163,7 +164,7 @@ public class Fixedpoint extends Z3Object
      * @param name Nullable rule name.
      * @throws Z3Exception
      **/
-    public void updateRule(BoolExpr rule, Symbol name) {
+    public void updateRule(Expr<BoolSort> rule, Symbol name) {
         getContext().checkContextMatch(rule);
         Native.fixedpointUpdateRule(getContext().nCtx(), getNativeObject(),
                 rule.getNativeObject(), AST.getNativeObject(name));
@@ -247,7 +248,7 @@ public class Fixedpoint extends Z3Object
     /**
      * Convert benchmark given as set of axioms, rules and queries to a string.
      **/
-    public String toString(BoolExpr[] queries)
+    public String toString(Expr<BoolSort>[] queries)
     {
         return Native.fixedpointToString(getContext().nCtx(), getNativeObject(),
                 AST.arrayLength(queries), AST.arrayToNative(queries));

@@ -746,7 +746,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code not(a)}.
      **/
-    public BoolExpr mkNot(BoolExpr a)
+    public BoolExpr mkNot(Expr<BoolSort> a)
     {
         checkContextMatch(a);
         return new BoolExpr(this, Native.mkNot(nCtx(), a.getNativeObject()));
@@ -759,7 +759,7 @@ public class Context implements AutoCloseable {
      * @param t2 An expression  
      * @param t3 An expression with the same sort as {@code t2}
      **/
-    public <R extends Sort> Expr<R> mkITE(BoolExpr t1, Expr<R> t2, Expr<R> t3)
+    public <R extends Sort> Expr<R> mkITE(Expr<BoolSort> t1, Expr<R> t2, Expr<R> t3)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -771,7 +771,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 iff t2}.
      **/
-    public BoolExpr mkIff(BoolExpr t1, BoolExpr t2)
+    public BoolExpr mkIff(Expr<BoolSort> t1, Expr<BoolSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -782,7 +782,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 -> t2}.
      **/
-    public BoolExpr mkImplies(BoolExpr t1, BoolExpr t2)
+    public BoolExpr mkImplies(Expr<BoolSort> t1, Expr<BoolSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -793,7 +793,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 xor t2}.
      **/
-    public BoolExpr mkXor(BoolExpr t1, BoolExpr t2)
+    public BoolExpr mkXor(Expr<BoolSort> t1, Expr<BoolSort> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -804,7 +804,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t[0] and t[1] and ...}.
      **/
-    public BoolExpr mkAnd(BoolExpr... t)
+    public BoolExpr mkAnd(Expr<BoolSort>... t)
     {
         checkContextMatch(t);
         return new BoolExpr(this, Native.mkAnd(nCtx(), t.length,
@@ -814,7 +814,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t[0] or t[1] or ...}.
      **/
-    public BoolExpr mkOr(BoolExpr... t)
+    public BoolExpr mkOr(Expr<BoolSort>... t)
     {
         checkContextMatch(t);
         return new BoolExpr(this, Native.mkOr(nCtx(), t.length,
@@ -2630,8 +2630,8 @@ public class Context implements AutoCloseable {
      * @return A string representation of the benchmark.
      **/
     public String benchmarkToSMTString(String name, String logic,
-            String status, String attributes, BoolExpr[] assumptions,
-            BoolExpr formula)
+            String status, String attributes, Expr<BoolSort>[] assumptions,
+                                       Expr<BoolSort> formula)
     {
 
         return Native.benchmarkToSmtlibString(nCtx(), name, logic, status,

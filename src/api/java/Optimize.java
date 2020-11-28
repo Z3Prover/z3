@@ -56,10 +56,10 @@ public class Optimize extends Z3Object {
     /**
      * Assert a constraint (or multiple) into the optimize solver.
      **/
-    public void Assert(BoolExpr ... constraints)
+    public void Assert(Expr<BoolSort> ... constraints)
     {
         getContext().checkContextMatch(constraints);
-        for (BoolExpr a : constraints)
+        for (Expr<BoolSort> a : constraints)
         {
             Native.optimizeAssert(getContext().nCtx(), getNativeObject(), a.getNativeObject());
         }
@@ -68,7 +68,7 @@ public class Optimize extends Z3Object {
     /**
      * Alias for Assert.
      **/
-    public void Add(BoolExpr ... constraints)
+    public void Add(Expr<BoolSort> ... constraints)
     {
         Assert(constraints);
     }
@@ -150,7 +150,7 @@ public class Optimize extends Z3Object {
      * Return an objective which associates with the group of constraints.
      *
      **/
-    public Handle<?> AssertSoft(BoolExpr constraint, int weight, String group)
+    public Handle<?> AssertSoft(Expr<BoolSort> constraint, int weight, String group)
     {
         getContext().checkContextMatch(constraint);
         Symbol s = getContext().mkSymbol(group);
