@@ -2014,7 +2014,7 @@ public class Context implements AutoCloseable {
     /**
      * Convert an integer expression to a string.
      */
-    public IntExpr stringToInt(SeqExpr<BitVecSort> e)
+    public IntExpr stringToInt(Expr<SeqSort<BitVecSort>> e)
     {
 	return (IntExpr) Expr.create(this, Native.mkStrToInt(nCtx(), e.getNativeObject()));
     }
@@ -2022,7 +2022,7 @@ public class Context implements AutoCloseable {
     /**
      * Concatenate sequences.
      */
-    public <R extends Sort> SeqExpr<R> mkConcat(SeqExpr<R>... t)
+    public <R extends Sort> SeqExpr<R> mkConcat(SeqSort<R>... t)
     {
         checkContextMatch(t);
         return (SeqExpr<R>) Expr.create(this, Native.mkSeqConcat(nCtx(), t.length, AST.arrayToNative(t)));
@@ -2032,7 +2032,7 @@ public class Context implements AutoCloseable {
     /**
      * Retrieve the length of a given sequence.
      */
-    public <R extends Sort> IntExpr mkLength(SeqExpr<R> s)
+    public <R extends Sort> IntExpr mkLength(Expr<SeqSort<BitVecSort>> s)
     {
         checkContextMatch(s);
         return (IntExpr) Expr.create(this, Native.mkSeqLength(nCtx(), s.getNativeObject()));
@@ -2041,7 +2041,7 @@ public class Context implements AutoCloseable {
     /**
      * Check for sequence prefix.
      */
-    public <R extends Sort> BoolExpr mkPrefixOf(SeqExpr<R> s1, SeqExpr<R> s2)
+    public <R extends Sort> BoolExpr mkPrefixOf(Expr<SeqSort<BitVecSort>> s1, Expr<SeqSort<BitVecSort>> s2)
     {
         checkContextMatch(s1, s2);
         return (BoolExpr) Expr.create(this, Native.mkSeqPrefix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
@@ -2050,7 +2050,7 @@ public class Context implements AutoCloseable {
     /**
      * Check for sequence suffix.
      */
-    public <R extends Sort> BoolExpr mkSuffixOf(SeqExpr<R> s1, SeqExpr<R> s2)
+    public <R extends Sort> BoolExpr mkSuffixOf(Expr<SeqSort<BitVecSort>> s1, Expr<SeqSort<BitVecSort>> s2)
     {
         checkContextMatch(s1, s2);
         return (BoolExpr)Expr.create(this, Native.mkSeqSuffix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
@@ -2059,7 +2059,7 @@ public class Context implements AutoCloseable {
     /**
      * Check for sequence containment of s2 in s1.
      */
-    public <R extends Sort> BoolExpr mkContains(SeqExpr<R> s1, SeqExpr<R> s2)
+    public <R extends Sort> BoolExpr mkContains(Expr<SeqSort<BitVecSort>> s1, Expr<SeqSort<BitVecSort>> s2)
     {
         checkContextMatch(s1, s2);
         return (BoolExpr) Expr.create(this, Native.mkSeqContains(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
@@ -2068,7 +2068,7 @@ public class Context implements AutoCloseable {
     /**
      * Retrieve sequence of length one at index.
      */
-    public <R extends Sort> SeqExpr<R> mkAt(SeqExpr<R> s, Expr<IntSort> index)
+    public <R extends Sort> SeqExpr<R> mkAt(Expr<SeqSort<BitVecSort>> s, Expr<IntSort> index)
     {
         checkContextMatch(s, index);
         return (SeqExpr<R>) Expr.create(this, Native.mkSeqAt(nCtx(), s.getNativeObject(), index.getNativeObject()));
@@ -2077,7 +2077,7 @@ public class Context implements AutoCloseable {
     /**
      *  Retrieve element at index.
      */
-    public <R extends Sort> Expr<R> MkNth(SeqExpr<R> s, Expr<IntSort> index)
+    public <R extends Sort> Expr<R> MkNth(Expr<SeqSort<BitVecSort>> s, Expr<IntSort> index)
     {
         checkContextMatch(s, index);
         return (Expr<R>) Expr.create(this, Native.mkSeqNth(nCtx(), s.getNativeObject(), index.getNativeObject()));
@@ -2087,7 +2087,7 @@ public class Context implements AutoCloseable {
     /**
      * Extract subsequence.
      */
-    public <R extends Sort> SeqExpr<R> mkExtract(SeqExpr<R> s, Expr<IntSort> offset, Expr<IntSort> length)
+    public <R extends Sort> SeqExpr<R> mkExtract(Expr<SeqSort<BitVecSort>> s, Expr<IntSort> offset, Expr<IntSort> length)
     {
         checkContextMatch(s, offset, length);
         return (SeqExpr<R>) Expr.create(this, Native.mkSeqExtract(nCtx(), s.getNativeObject(), offset.getNativeObject(), length.getNativeObject()));
@@ -2096,7 +2096,7 @@ public class Context implements AutoCloseable {
     /**
      * Extract index of sub-string starting at offset.
      */
-    public <R extends Sort> IntExpr mkIndexOf(SeqExpr<R> s, SeqExpr<R> substr, Expr<IntSort> offset)
+    public <R extends Sort> IntExpr mkIndexOf(Expr<SeqSort<BitVecSort>> s, Expr<SeqSort<BitVecSort>> substr, Expr<IntSort> offset)
     {
         checkContextMatch(s, substr, offset);
         return (IntExpr)Expr.create(this, Native.mkSeqIndex(nCtx(), s.getNativeObject(), substr.getNativeObject(), offset.getNativeObject()));
@@ -2105,7 +2105,7 @@ public class Context implements AutoCloseable {
     /**
      * Replace the first occurrence of src by dst in s.
      */
-    public <R extends Sort> SeqExpr<R> mkReplace(SeqExpr<R> s, SeqExpr<R> src, SeqExpr<R> dst)
+    public <R extends Sort> SeqExpr<R> mkReplace(Expr<SeqSort<BitVecSort>> s, Expr<SeqSort<BitVecSort>> src, Expr<SeqSort<BitVecSort>> dst)
     {
         checkContextMatch(s, src, dst);
         return (SeqExpr<R>) Expr.create(this, Native.mkSeqReplace(nCtx(), s.getNativeObject(), src.getNativeObject(), dst.getNativeObject()));
@@ -2114,7 +2114,7 @@ public class Context implements AutoCloseable {
     /**
      * Convert a regular expression that accepts sequence s.
      */
-    public <R extends Sort> ReExpr<R> mkToRe(SeqExpr<R> s)
+    public <R extends Sort> ReExpr<R> mkToRe(Expr<SeqSort<BitVecSort>> s)
     {
         checkContextMatch(s);
         return (ReExpr<R>) Expr.create(this, Native.mkSeqToRe(nCtx(), s.getNativeObject()));
@@ -2124,7 +2124,7 @@ public class Context implements AutoCloseable {
     /**
      * Check for regular expression membership.
      */
-    public <R extends Sort> BoolExpr mkInRe(SeqExpr<R> s, Expr<ReSort<R>> re)
+    public <R extends Sort> BoolExpr mkInRe(Expr<SeqSort<BitVecSort>> s, Expr<ReSort<R>> re)
     {
         checkContextMatch(s, re);
         return (BoolExpr) Expr.create(this, Native.mkSeqInRe(nCtx(), s.getNativeObject(), re.getNativeObject()));
@@ -2186,7 +2186,7 @@ public class Context implements AutoCloseable {
     /**
      * Create the concatenation of regular languages.
      */
-    public <R extends Sort> ReExpr<R> mkConcat(Expr<ReSort<R>>... t)
+    public <R extends Sort> ReExpr<R> mkConcat(ReExpr<R>... t)
     {
         checkContextMatch(t);
         return (ReExpr<R>) Expr.create(this, Native.mkReConcat(nCtx(), t.length, AST.arrayToNative(t)));
@@ -2229,7 +2229,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a range expression.
      */
-    public <R extends Sort> ReExpr<R> mkRange(SeqExpr<R> lo, SeqExpr<R> hi)
+    public <R extends Sort> ReExpr<R> mkRange(Expr<SeqSort<BitVecSort>> lo, Expr<SeqSort<BitVecSort>> hi)
     {
         checkContextMatch(lo, hi);
         return (ReExpr<R>) Expr.create(this, Native.mkReRange(nCtx(), lo.getNativeObject(), hi.getNativeObject()));
