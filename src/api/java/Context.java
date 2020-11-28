@@ -978,7 +978,7 @@ public class Context implements AutoCloseable {
      * follows the SMT-LIB standard for the function to_int. The argument must
      * be of real sort. 
      **/
-    public IntExpr mkReal2Int(RealExpr t)
+    public IntExpr mkReal2Int(Expr<RealSort> t)
     {
         checkContextMatch(t);
         return new IntExpr(this, Native.mkReal2int(nCtx(), t.getNativeObject()));
@@ -987,7 +987,7 @@ public class Context implements AutoCloseable {
     /**
      * Creates an expression that checks whether a real number is an integer.
      **/
-    public BoolExpr mkIsInteger(RealExpr t)
+    public BoolExpr mkIsInteger(Expr<RealSort> t)
     {
         checkContextMatch(t);
         return new BoolExpr(this, Native.mkIsInt(nCtx(), t.getNativeObject()));
@@ -3821,7 +3821,7 @@ public class Context implements AutoCloseable {
      * to rounding mode rm.
      * @throws Z3Exception
      **/
-    public FPExpr mkFPToFP(Expr<FPRMSort> rm, RealExpr t, FPSort s)
+    public FPExpr mkFPToFP(Expr<FPRMSort> rm, Expr<RealSort> t, FPSort s)
     {
         return new FPExpr(this, Native.mkFpaToFpReal(nCtx(), rm.getNativeObject(), t.getNativeObject(), s.getNativeObject()));
     }
@@ -3924,7 +3924,7 @@ public class Context implements AutoCloseable {
      * @throws Z3Exception
      **/
 
-    public BitVecExpr mkFPToFP(Expr<FPRMSort> rm, Expr<IntSort> exp, RealExpr sig, FPSort s)
+    public BitVecExpr mkFPToFP(Expr<FPRMSort> rm, Expr<IntSort> exp, Expr<RealSort> sig, FPSort s)
     {
         return new BitVecExpr(this, Native.mkFpaToFpIntReal(nCtx(), rm.getNativeObject(), exp.getNativeObject(), sig.getNativeObject(), s.getNativeObject()));
     }
