@@ -150,11 +150,11 @@ public class Optimize extends Z3Object {
      * Return an objective which associates with the group of constraints.
      *
      **/
-    public Handle AssertSoft(BoolExpr constraint, int weight, String group)
+    public Handle<?> AssertSoft(BoolExpr constraint, int weight, String group)
     {
         getContext().checkContextMatch(constraint);
         Symbol s = getContext().mkSymbol(group);
-        return new Handle(this, Native.optimizeAssertSoft(getContext().nCtx(), getNativeObject(), constraint.getNativeObject(), Integer.toString(weight), s.getNativeObject()));
+        return new Handle<>(this, Native.optimizeAssertSoft(getContext().nCtx(), getNativeObject(), constraint.getNativeObject(), Integer.toString(weight), s.getNativeObject()));
     }
 
     /**
@@ -162,7 +162,7 @@ public class Optimize extends Z3Object {
      * Produce a model that (when the objectives are bounded and 
      * don't use strict inequalities) meets the objectives.
      **/
-    public Status Check(Expr... assumptions)
+    public Status Check(Expr<BoolSort>... assumptions)
     {
         Z3_lbool r;
         if (assumptions == null) {
