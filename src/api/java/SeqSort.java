@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * A Sequence sort
  **/
-public class SeqSort extends Sort
+public class SeqSort<R extends Sort> extends Sort
 {
     SeqSort(Context ctx, long obj)
     {

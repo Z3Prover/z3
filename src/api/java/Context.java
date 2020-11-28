@@ -120,7 +120,7 @@ public class Context implements AutoCloseable {
     private BoolSort m_boolSort = null;
     private IntSort m_intSort = null;
     private RealSort m_realSort = null;
-    private SeqSort m_stringSort = null;
+    private SeqSort<BitVecSort> m_stringSort = null;
 
     /**
      * Retrieves the Boolean sort of the context.
@@ -166,7 +166,7 @@ public class Context implements AutoCloseable {
     /**
      * Retrieves the Integer sort of the context.
      **/
-    public SeqSort getStringSort()
+    public SeqSort<BitVecSort> getStringSort()
     {
         if (m_stringSort == null) {
             m_stringSort = mkStringSort();
@@ -239,25 +239,25 @@ public class Context implements AutoCloseable {
     /**
      * Create a new string sort
      **/
-    public SeqSort mkStringSort()
+    public SeqSort<BitVecSort> mkStringSort()
     {
-        return new SeqSort(this, Native.mkStringSort(nCtx()));
+        return new SeqSort<>(this, Native.mkStringSort(nCtx()));
     }
 
     /**
      * Create a new sequence sort
      **/
-    public SeqSort mkSeqSort(Sort s)
+    public <R extends Sort> SeqSort<R> mkSeqSort(R s)
     {
-        return new SeqSort(this, Native.mkSeqSort(nCtx(), s.getNativeObject()));
+        return new SeqSort<>(this, Native.mkSeqSort(nCtx(), s.getNativeObject()));
     }
 
     /**
      * Create a new regular expression sort
      **/
-    public ReSort<Sort> mkReSort(Sort s)
+    public <R extends Sort> ReSort<R> mkReSort(R s)
     {
-        return new ReSort<Sort>(this, Native.mkReSort(nCtx(), s.getNativeObject()));
+        return new ReSort<>(this, Native.mkReSort(nCtx(), s.getNativeObject()));
     }
 
 
