@@ -24,6 +24,7 @@ import java.util.*;
 /**
  * Solvers.
  **/
+@SuppressWarnings("unchecked")
 public class Solver extends Z3Object {
     /**
      * A string that describes all available solver parameters.
@@ -229,7 +230,8 @@ public class Solver extends Z3Object {
      * @see #getUnsatCore
      * @see #getProof
      **/
-    public Status check(Expr... assumptions)
+    @SafeVarargs
+    public final Status check(Expr<BoolSort>... assumptions)
     {
         Z3_lbool r;
         if (assumptions == null) {
@@ -250,6 +252,7 @@ public class Solver extends Z3Object {
      * @see #getUnsatCore
      * @see #getProof
      **/
+    @SuppressWarnings("rawtypes")
     public Status check()
     {
         return check((Expr[]) null);
@@ -266,13 +269,13 @@ public class Solver extends Z3Object {
      * is fixed.
      *
      */
-    public Status getConsequences(BoolExpr[] assumptions, Expr[] variables, List<BoolExpr> consequences) 
+    public Status getConsequences(BoolExpr[] assumptions, Expr<?>[] variables, List<BoolExpr> consequences)
     {
 	ASTVector result = new ASTVector(getContext());
 	ASTVector asms = new ASTVector(getContext());
 	ASTVector vars = new ASTVector(getContext());
 	for (BoolExpr asm : assumptions) asms.push(asm);
-	for (Expr v : variables) vars.push(v);
+	for (Expr<?> v : variables) vars.push(v);
 	int r = Native.solverGetConsequences(getContext().nCtx(), getNativeObject(), asms.getNativeObject(), vars.getNativeObject(), result.getNativeObject());
         for (int i = 0; i < result.size(); ++i) consequences.add((BoolExpr) Expr.create(getContext(), result.get(i).getNativeObject()));
 	return lboolToStatus(Z3_lbool.fromInt(r));
@@ -307,7 +310,7 @@ public class Solver extends Z3Object {
      * 
      * @throws Z3Exception
      **/
-    public Expr getProof()
+    public Expr<?> getProof()
     {
         long x = Native.solverGetProof(getContext().nCtx(), getNativeObject());
         if (x == 0) {

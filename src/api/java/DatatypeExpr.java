@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Datatype expressions
  **/
-public class DatatypeExpr extends Expr
+public class DatatypeExpr<R extends Sort> extends Expr<DatatypeSort<R>>
 {
     /**
      * Constructor for DatatypeExpr

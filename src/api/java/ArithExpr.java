@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Arithmetic expressions (int/real)
  **/
-public class ArithExpr extends Expr
+public class ArithExpr<R extends ArithSort> extends Expr<R>
 {
     /**
      * Constructor for ArithExpr

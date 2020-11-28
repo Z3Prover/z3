@@ -204,7 +204,7 @@ public class AST extends Z3Object implements Comparable<AST>
         switch (Z3_ast_kind.fromInt(Native.getAstKind(ctx.nCtx(), obj)))
         {
         case Z3_FUNC_DECL_AST:
-            return new FuncDecl(ctx, obj);
+            return new FuncDecl<>(ctx, obj);
         case Z3_QUANTIFIER_AST:
             return new Quantifier(ctx, obj);
         case Z3_SORT_AST:

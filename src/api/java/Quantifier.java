@@ -139,9 +139,9 @@ public class Quantifier extends BoolExpr
      * 
      * @throws Z3Exception
      **/
-    public Expr getBody()
+    public BoolExpr getBody()
     {
-        return Expr.create(getContext(), Native.getQuantifierBody(getContext()
+        return (BoolExpr) Expr.create(getContext(), Native.getQuantifierBody(getContext()
                 .nCtx(), getNativeObject()));
     }
 
@@ -168,7 +168,7 @@ public class Quantifier extends BoolExpr
      */
     public static Quantifier of(
             Context ctx, boolean isForall, Sort[] sorts, Symbol[] names,
-            Expr body, int weight, Pattern[] patterns, Expr[] noPatterns,
+            Expr<BoolSort> body, int weight, Pattern[] patterns, Expr<?>[] noPatterns,
             Symbol quantifierID, Symbol skolemID) {
         ctx.checkContextMatch(patterns);
         ctx.checkContextMatch(noPatterns);
@@ -212,8 +212,8 @@ public class Quantifier extends BoolExpr
      * @param quantifierID Nullable quantifier identifier.
      * @param skolemID Nullable skolem identifier.
      */
-    public static Quantifier of(Context ctx, boolean isForall, Expr[] bound, Expr body,
-            int weight, Pattern[] patterns, Expr[] noPatterns,
+    public static Quantifier of(Context ctx, boolean isForall, Expr<?>[] bound, Expr<BoolSort> body,
+            int weight, Pattern[] patterns, Expr<?>[] noPatterns,
             Symbol quantifierID, Symbol skolemID) {
         ctx.checkContextMatch(noPatterns);
         ctx.checkContextMatch(patterns);

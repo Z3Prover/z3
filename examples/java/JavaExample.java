@@ -405,7 +405,7 @@ class JavaExample
         System.out.println("ArrayExample2");
         Log.append("ArrayExample2");
 
-        Sort int_type = ctx.getIntSort();
+        IntSort int_type = ctx.getIntSort();
         Sort array_type = ctx.mkArraySort(int_type, int_type);
 
         ArrayExpr a1 = (ArrayExpr) ctx.mkConst("a1", array_type);
@@ -599,7 +599,7 @@ class JavaExample
         System.out.println("QuantifierExample");
         Log.append("QuantifierExample");
 
-        Sort[] types = new Sort[3];
+        IntSort[] types = new IntSort[3];
         IntExpr[] xs = new IntExpr[3];
         Symbol[] names = new Symbol[3];
         IntExpr[] vars = new IntExpr[3];
@@ -1398,7 +1398,7 @@ class JavaExample
         System.out.println("BitvectorExample1");
         Log.append("BitvectorExample1");
 
-        Sort bv_type = ctx.mkBitVecSort(32);
+        BitVecSort bv_type = ctx.mkBitVecSort(32);
         BitVecExpr x = (BitVecExpr) ctx.mkConst("x", bv_type);
         BitVecNum zero = (BitVecNum) ctx.mkNumeral("0", bv_type);
         BitVecNum ten = ctx.mkBV(10, 32);
@@ -1420,7 +1420,7 @@ class JavaExample
         Log.append("BitvectorExample2");
 
         /* construct x ^ y - 103 == x * y */
-        Sort bv_type = ctx.mkBitVecSort(32);
+        BitVecSort bv_type = ctx.mkBitVecSort(32);
         BitVecExpr x = ctx.mkBVConst("x", 32);
         BitVecExpr y = ctx.mkBVConst("y", 32);
         BitVecExpr x_xor_y = ctx.mkBVXOR(x, y);

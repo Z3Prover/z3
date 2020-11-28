@@ -119,13 +119,13 @@ public class Sort extends AST
         switch (sk)
         {
         case Z3_ARRAY_SORT:
-            return new ArraySort(ctx, obj);
+            return new ArraySort<>(ctx, obj);
         case Z3_BOOL_SORT:
             return new BoolSort(ctx, obj);
         case Z3_BV_SORT:
             return new BitVecSort(ctx, obj);
         case Z3_DATATYPE_SORT:
-            return new DatatypeSort(ctx, obj);
+            return new DatatypeSort<>(ctx, obj);
         case Z3_INT_SORT:
             return new IntSort(ctx, obj);
         case Z3_REAL_SORT:

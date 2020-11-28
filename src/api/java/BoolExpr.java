@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Boolean expressions
  **/
-public class BoolExpr extends Expr {
+public class BoolExpr extends Expr<BoolSort> {
 
     /**
      * Constructor for BoolExpr

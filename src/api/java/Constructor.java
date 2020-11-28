@@ -44,13 +44,13 @@ public class Constructor extends Z3Object {
      * @throws Z3Exception 
      * @throws Z3Exception on error
      **/
-    public FuncDecl ConstructorDecl()
+    public FuncDecl<?> ConstructorDecl()
     {
         Native.LongPtr constructor = new Native.LongPtr();
         Native.LongPtr tester = new Native.LongPtr();
         long[] accessors = new long[n];
         Native.queryConstructor(getContext().nCtx(), getNativeObject(), n, constructor, tester, accessors);
-        return new FuncDecl(getContext(), constructor.value);         
+        return new FuncDecl<>(getContext(), constructor.value);
     }
 
     /**
@@ -58,13 +58,13 @@ public class Constructor extends Z3Object {
      * @throws Z3Exception 
      * @throws Z3Exception on error
      **/
-    public FuncDecl getTesterDecl()
+    public FuncDecl<BoolSort> getTesterDecl()
     {
         Native.LongPtr constructor = new Native.LongPtr();
         Native.LongPtr tester = new Native.LongPtr();
         long[] accessors = new long[n];
         Native.queryConstructor(getContext().nCtx(), getNativeObject(), n, constructor, tester, accessors);
-        return new FuncDecl(getContext(), tester.value);
+        return new FuncDecl<>(getContext(), tester.value);
     }
 
     /**
@@ -72,15 +72,15 @@ public class Constructor extends Z3Object {
      * @throws Z3Exception 
      * @throws Z3Exception on error
      **/
-    public FuncDecl[] getAccessorDecls()
+    public FuncDecl<?>[] getAccessorDecls()
     {
         Native.LongPtr constructor = new Native.LongPtr();
         Native.LongPtr tester = new Native.LongPtr();
         long[] accessors = new long[n];
         Native.queryConstructor(getContext().nCtx(), getNativeObject(), n, constructor, tester, accessors);
-        FuncDecl[] t = new FuncDecl[n];
+        FuncDecl<?>[] t = new FuncDecl[n];
         for (int i = 0; i < n; i++)
-            t[i] = new FuncDecl(getContext(), accessors[i]); 
+            t[i] = new FuncDecl<>(getContext(), accessors[i]);
         return t;
     }
 

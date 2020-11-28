@@ -24,7 +24,7 @@ import com.microsoft.z3.enumerations.Z3_parameter_kind;
 /**
  * Function declarations.
  **/
-public class FuncDecl extends AST
+public class FuncDecl<R extends Sort> extends AST
 {
     /**
      * Object comparison.
@@ -34,7 +34,7 @@ public class FuncDecl extends AST
     {
         if (o == this) return true;
         if (!(o instanceof FuncDecl)) return false;
-        FuncDecl other = (FuncDecl) o;
+        FuncDecl<?> other = (FuncDecl<?>) o;
 
         return
             (getContext().nCtx() == other.getContext().nCtx()) &&
@@ -66,9 +66,10 @@ public class FuncDecl extends AST
      * @return A copy of the function declaration which is associated with {@code ctx}
      * @throws Z3Exception on error
      **/
-    public FuncDecl translate(Context ctx)
+    @SuppressWarnings("unchecked")
+    public FuncDecl<R> translate(Context ctx)
     {
-        return (FuncDecl) super.translate(ctx);
+        return (FuncDecl<R>) super.translate(ctx);
     }
 
     /**
@@ -178,7 +179,7 @@ public class FuncDecl extends AST
                                 getNativeObject(), i)));
                 break;
             case Z3_PARAMETER_FUNC_DECL:
-                res[i] = new Parameter(k, new FuncDecl(getContext(),
+                res[i] = new Parameter(k, new FuncDecl<>(getContext(),
                         Native.getDeclFuncDeclParameter(getContext().nCtx(),
                                 getNativeObject(), i)));
                 break;
@@ -197,7 +198,7 @@ public class FuncDecl extends AST
     /**
      * Function declarations can have Parameters associated with them.
      **/
-    public class Parameter
+    public static class Parameter
     {
         private Z3_parameter_kind kind;
         private int i;
@@ -205,7 +206,7 @@ public class FuncDecl extends AST
         private Symbol sym;
         private Sort srt;
         private AST ast;
-        private FuncDecl fd;
+        private FuncDecl<?> fd;
         private String r;
 
         /**
@@ -261,7 +262,7 @@ public class FuncDecl extends AST
         /**
          * The FunctionDeclaration value of the parameter.
          **/
-        public FuncDecl getFuncDecl()
+        public FuncDecl<?> getFuncDecl()
         {
             if (getParameterKind() != Z3_parameter_kind.Z3_PARAMETER_FUNC_DECL)
                 throw new Z3Exception("parameter is not a function declaration");
@@ -316,7 +317,7 @@ public class FuncDecl extends AST
             this.ast = a;
         }
 
-        Parameter(Z3_parameter_kind k, FuncDecl fd)
+        Parameter(Z3_parameter_kind k, FuncDecl<?> fd)
         {
             this.kind = k;
             this.fd = fd;
@@ -335,14 +336,14 @@ public class FuncDecl extends AST
 
     }
 
-    FuncDecl(Context ctx, Symbol name, Sort[] domain, Sort range)
+    FuncDecl(Context ctx, Symbol name, Sort[] domain, R range)
     {
         super(ctx, Native.mkFuncDecl(ctx.nCtx(), name.getNativeObject(),
                 AST.arrayLength(domain), AST.arrayToNative(domain),
                 range.getNativeObject()));
     }
 
-    FuncDecl(Context ctx, Symbol name, Sort[] domain, Sort range, boolean is_rec)
+    FuncDecl(Context ctx, Symbol name, Sort[] domain, R range, boolean is_rec)
     {
         super(ctx, Native.mkRecFuncDecl(ctx.nCtx(), name.getNativeObject(),
                 AST.arrayLength(domain), AST.arrayToNative(domain),
@@ -350,8 +351,7 @@ public class FuncDecl extends AST
 
     }
 
-    FuncDecl(Context ctx, String prefix, Sort[] domain, Sort range)
-
+    FuncDecl(Context ctx, String prefix, Sort[] domain, R range)
     {
         super(ctx, Native.mkFreshFuncDecl(ctx.nCtx(), prefix,
                 AST.arrayLength(domain), AST.arrayToNative(domain),
@@ -371,7 +371,7 @@ public class FuncDecl extends AST
     /**
      * Create expression that applies function to arguments.
      **/
-    public Expr apply(Expr ... args)
+    public Expr<R> apply(Expr<?> ... args)
     {
         getContext().checkContextMatch(args);
         return Expr.create(getContext(), this, args);

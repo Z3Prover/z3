@@ -17,7 +17,7 @@ Notes:
 
 package com.microsoft.z3;
 
-class FuncInterpDecRefQueue extends IDecRefQueue<FuncInterp>
+class FuncInterpDecRefQueue extends IDecRefQueue<FuncInterp<?>>
 {
     public FuncInterpDecRefQueue() 
     {
