@@ -282,18 +282,21 @@ namespace smt {
         m_var2val.reset();
         m_var2orig.reset();
         m_assumption2orig.reset();
+        bool pushed = false;
         struct scoped_level {
             context& c;
             unsigned lvl;
-            scoped_level(context& c):
-                c(c), lvl(c.get_scope_level()) {}
+            bool& pushed;
+            scoped_level(context& c, bool& pushed):
+                c(c), pushed(pushed), lvl(c.get_scope_level()) {}
             ~scoped_level() {
-                if (c.get_scope_level() > lvl)
-                    c.pop_scope(c.get_scope_level() - lvl);
+                if (c.get_scope_level() > lvl + pushed) 
+                    c.pop_scope(c.get_scope_level() - lvl - pushed);
+                if (pushed)
+                    c.pop(1);
             }
         };
-        scoped_level _lvl(*this);
-        bool pushed = false;
+        scoped_level _lvl(*this, pushed);
 
         for (expr* v : vars0) {
             if (is_uninterp_const(v)) {
@@ -328,6 +331,7 @@ namespace smt {
         }
 
         lbool is_sat = check(assumptions.size(), assumptions.c_ptr());
+
         if (is_sat != l_true) {
             TRACE("context", tout << is_sat << "\n";);
             return is_sat;
