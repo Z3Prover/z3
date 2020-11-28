@@ -51,6 +51,8 @@ public:
     void reset();
     void cleanup();
 
+    obj_map<expr, expr*> const sub() const { return m_subst; }
+
     std::ostream& display(std::ostream& out);
 };
 
