@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Datatype sorts.
  **/
-public class DatatypeSort<R extends Sort> extends Sort
+public class DatatypeSort<R> extends Sort
 {
     /**
      * The number of constructors of the datatype sort.
@@ -40,10 +40,10 @@ public class DatatypeSort<R extends Sort> extends Sort
      * @throws Z3Exception on error
      **/
     @SuppressWarnings("unchecked")
-    public FuncDecl<R>[] getConstructors()
+    public FuncDecl<DatatypeSort<R>>[] getConstructors()
     {
         int n = getNumConstructors();
-        FuncDecl<R>[] res = new FuncDecl[n];
+        FuncDecl<DatatypeSort<R>>[] res = new FuncDecl[n];
         for (int i = 0; i < n; i++)
             res[i] = new FuncDecl<>(getContext(), Native.getDatatypeSortConstructor(
                     getContext().nCtx(), getNativeObject(), i));
@@ -99,7 +99,7 @@ public class DatatypeSort<R extends Sort> extends Sort
         super(ctx, obj);
     }
 
-    DatatypeSort(Context ctx, Symbol name, Constructor<DatatypeSort<R>>[] constructors)
+    DatatypeSort(Context ctx, Symbol name, Constructor<R>[] constructors)
            
     {
         super(ctx, Native.mkDatatype(ctx.nCtx(), name.getNativeObject(),

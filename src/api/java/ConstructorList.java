@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Lists of constructors
  **/
-public class ConstructorList<R extends DatatypeSort<?>> extends Z3Object {
+public class ConstructorList<R> extends Z3Object {
 
     ConstructorList(Context ctx, long obj)
     {

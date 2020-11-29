@@ -277,21 +277,21 @@ public class Context implements AutoCloseable {
     /**
      * Create a new enumeration sort.
      **/
-    public EnumSort mkEnumSort(Symbol name, Symbol... enumNames)
+    public <R> EnumSort<R> mkEnumSort(Symbol name, Symbol... enumNames)
 
     {
         checkContextMatch(name);
         checkContextMatch(enumNames);
-        return new EnumSort(this, name, enumNames);
+        return new EnumSort<>(this, name, enumNames);
     }
 
     /**
      * Create a new enumeration sort.
      **/
-    public EnumSort mkEnumSort(String name, String... enumNames)
+    public <R> EnumSort<R> mkEnumSort(String name, String... enumNames)
 
     {
-        return new EnumSort(this, mkSymbol(name), mkSymbols(enumNames));
+        return new EnumSort<>(this, mkSymbol(name), mkSymbols(enumNames));
     }
 
     /**
@@ -316,20 +316,20 @@ public class Context implements AutoCloseable {
     /**
      * Create a new finite domain sort.
      **/
-    public FiniteDomainSort mkFiniteDomainSort(Symbol name, long size)
+    public <R> FiniteDomainSort<R> mkFiniteDomainSort(Symbol name, long size)
 
     {
         checkContextMatch(name);
-        return new FiniteDomainSort(this, name, size);
+        return new FiniteDomainSort<>(this, name, size);
     }
 
     /**
      * Create a new finite domain sort.
      **/
-    public FiniteDomainSort mkFiniteDomainSort(String name, long size)
+    public <R> FiniteDomainSort<R> mkFiniteDomainSort(String name, long size)
 
     {
-        return new FiniteDomainSort(this, mkSymbol(name), size);
+        return new FiniteDomainSort<>(this, mkSymbol(name), size);
     }
 
     /**
@@ -343,29 +343,26 @@ public class Context implements AutoCloseable {
      * an index referring to one of the recursive datatypes that is
      * declared.
      **/
-    public Constructor<?> mkConstructor(Symbol name, Symbol recognizer,
+    public <R> Constructor<R> mkConstructor(Symbol name, Symbol recognizer,
             Symbol[] fieldNames, Sort[] sorts, int[] sortRefs)
 
     {
-        return of(this, name, recognizer, fieldNames, sorts,
-                sortRefs);
+        return of(this, name, recognizer, fieldNames, sorts, sortRefs);
     }
 
     /**
      * Create a datatype constructor. 
      **/
-    public Constructor<?> mkConstructor(String name, String recognizer,
+    public <R> Constructor<R> mkConstructor(String name, String recognizer,
             String[] fieldNames, Sort[] sorts, int[] sortRefs)
     {
-        return of(this, mkSymbol(name), mkSymbol(recognizer),
-                mkSymbols(fieldNames), sorts, sortRefs);
+        return of(this, mkSymbol(name), mkSymbol(recognizer), mkSymbols(fieldNames), sorts, sortRefs);
     }
 
     /**
      * Create a new datatype sort.
      **/
-    public <R extends Sort> DatatypeSort<R> mkDatatypeSort(Symbol name, Constructor<DatatypeSort<R>>[] constructors)
-
+    public <R> DatatypeSort<R> mkDatatypeSort(Symbol name, Constructor<R>[] constructors)
     {
         checkContextMatch(name);
         checkContextMatch(constructors);
@@ -375,7 +372,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a new datatype sort.
      **/
-    public <R extends Sort> DatatypeSort<R> mkDatatypeSort(String name, Constructor<DatatypeSort<R>>[] constructors)
+    public <R> DatatypeSort<R> mkDatatypeSort(String name, Constructor<R>[] constructors)
 
     {
         checkContextMatch(constructors);
@@ -387,16 +384,15 @@ public class Context implements AutoCloseable {
      * @param names names of datatype sorts 
      * @param c list of constructors, one list per sort.
      **/
-    public DatatypeSort<Sort>[] mkDatatypeSorts(Symbol[] names, Constructor<DatatypeSort<Sort>>[][] c)
-
+    public DatatypeSort<Object>[] mkDatatypeSorts(Symbol[] names, Constructor<Object>[][] c)
     {
         checkContextMatch(names);
         int n = names.length;
-        ConstructorList<DatatypeSort<Sort>>[] cla = new ConstructorList[n];
+        ConstructorList<Object>[] cla = new ConstructorList[n];
         long[] n_constr = new long[n];
         for (int i = 0; i < n; i++)
         {
-            Constructor<DatatypeSort<Sort>>[] constructor = c[i];
+            Constructor<Object>[] constructor = c[i];
 
             checkContextMatch(constructor);
             cla[i] = new ConstructorList<>(this, constructor);
@@ -405,7 +401,7 @@ public class Context implements AutoCloseable {
         long[] n_res = new long[n];
         Native.mkDatatypes(nCtx(), n, Symbol.arrayToNative(names), n_res,
                 n_constr);
-        DatatypeSort<Sort>[] res = new DatatypeSort[n];
+        DatatypeSort<Object>[] res = new DatatypeSort[n];
         for (int i = 0; i < n; i++)
             res[i] = new DatatypeSort<>(this, n_res[i]);
         return res;
@@ -414,7 +410,7 @@ public class Context implements AutoCloseable {
     /**
      * Create mutually recursive data-types. 
      **/
-    public DatatypeSort<Sort>[] mkDatatypeSorts(String[] names, Constructor<DatatypeSort<Sort>>[][] c)
+    public DatatypeSort<Object>[] mkDatatypeSorts(String[] names, Constructor<Object>[][] c)
 
     {
         return mkDatatypeSorts(mkSymbols(names), c);

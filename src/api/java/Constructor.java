@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Constructors are used for datatype sorts.
  **/
-public class Constructor<R extends DatatypeSort<?>> extends Z3Object {
+public class Constructor<R> extends Z3Object {
     private final int n;
 
     Constructor(Context ctx, int n, long nativeObj) {
@@ -44,7 +44,7 @@ public class Constructor<R extends DatatypeSort<?>> extends Z3Object {
      * @throws Z3Exception 
      * @throws Z3Exception on error
      **/
-    public FuncDecl<R> ConstructorDecl()
+    public FuncDecl<DatatypeSort<R>> ConstructorDecl()
     {
         Native.LongPtr constructor = new Native.LongPtr();
         Native.LongPtr tester = new Native.LongPtr();
@@ -94,7 +94,7 @@ public class Constructor<R extends DatatypeSort<?>> extends Z3Object {
         getContext().getConstructorDRQ().storeReference(getContext(), this);
     }
 
-    static Constructor<? extends DatatypeSort<?>> of(Context ctx, Symbol name, Symbol recognizer,
+    static <R> Constructor<R> of(Context ctx, Symbol name, Symbol recognizer,
             Symbol[] fieldNames, Sort[] sorts, int[] sortRefs) {
         int n = AST.arrayLength(fieldNames);
 

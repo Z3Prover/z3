@@ -20,24 +20,21 @@ Notes:
 import com.microsoft.z3.*;
 
 import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static java.util.stream.Stream.concat;
 
 class Java13Example
 {
     @SuppressWarnings("serial")
-    class TestFailedException extends Exception
+    static class TestFailedException extends Exception
     {
         public TestFailedException()
         {
             super("Check FAILED");
         }
-    };
+    }
 
     // / Create axiom: function f is injective in the i-th argument.
 
@@ -179,7 +176,8 @@ class Java13Example
         }
     }
 
-    Model check(Context ctx, BoolExpr f, Status sat) throws TestFailedException
+    @SuppressWarnings("unchecked")
+    Model check(Context ctx, Expr<BoolSort> f, Status sat) throws TestFailedException
     {
         Solver s = ctx.mkSolver();
         s.add(f);
@@ -234,22 +232,22 @@ class Java13Example
         return res;
     }
 
-    void prove(Context ctx, BoolExpr f, boolean useMBQI) throws TestFailedException
+    void prove(Context ctx, Expr<BoolSort> f, boolean useMBQI) throws TestFailedException
     {
         BoolExpr[] assumptions = new BoolExpr[0];
         prove(ctx, f, useMBQI, assumptions);
     }
 
-    void prove(Context ctx, BoolExpr f, boolean useMBQI,
-            BoolExpr... assumptions) throws TestFailedException
+    @SafeVarargs
+    final void prove(Context ctx, Expr<BoolSort> f, boolean useMBQI,
+                     Expr<BoolSort>... assumptions) throws TestFailedException
     {
         System.out.printf("Proving: %s%n", f);
         Solver s = ctx.mkSolver();
         Params p = ctx.mkParams();
         p.add("mbqi", useMBQI);
         s.setParameters(p);
-        for (BoolExpr a : assumptions)
-            s.add(a);
+        s.add(assumptions);
         s.add(ctx.mkNot(f));
         Status q = s.check();
 
@@ -266,23 +264,23 @@ class Java13Example
         }
     }
 
-    void disprove(Context ctx, BoolExpr f, boolean useMBQI)
+    void disprove(Context ctx, Expr<BoolSort> f, boolean useMBQI)
         throws TestFailedException
     {
         BoolExpr[] a = {};
         disprove(ctx, f, useMBQI, a);
     }
 
-    void disprove(Context ctx, BoolExpr f, boolean useMBQI,
-            BoolExpr... assumptions) throws TestFailedException
+    @SafeVarargs
+    final void disprove(Context ctx, Expr<BoolSort> f, boolean useMBQI,
+                        Expr<BoolSort>... assumptions) throws TestFailedException
     {
         System.out.printf("Disproving: %s%n", f);
         Solver s = ctx.mkSolver();
         Params p = ctx.mkParams();
         p.add("mbqi", useMBQI);
         s.setParameters(p);
-        for (BoolExpr a : assumptions)
-            s.add(a);
+        s.add(assumptions);
         s.add(ctx.mkNot(f));
         Status q = s.check();
 
@@ -438,7 +436,7 @@ class Java13Example
 
         for (int n = 2; n <= 5; n++)
         {
-            System.out.println("n = " + Integer.toString(n));
+            System.out.printf("n = %d%n", n);
 
             var bool_type = ctx.mkBoolSort();
             var array_type = ctx.mkArraySort(bool_type, bool_type);
@@ -464,7 +462,7 @@ class Java13Example
 
     // / Sudoku solving example.
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "CodeBlock2Expr"})
     void sudokuExample(Context ctx) throws TestFailedException
     {
         System.out.println("SudokuExample");
@@ -542,9 +540,9 @@ class Java13Example
         System.out.println("QuantifierExample");
         Log.append("QuantifierExample");
 
-        IntSort[] types = new IntSort[3];
+        var types = new IntSort[3];
         Arrays.fill(types, ctx.getIntSort());
-        Symbol[] names = IntStream.range(0, 3).mapToObj(j -> ctx.mkSymbol(String.format("x_%d", j))).toArray(Symbol[]::new);
+        var names = IntStream.range(0, 3).mapToObj(j -> ctx.mkSymbol(String.format("x_%d", j))).toArray(Symbol[]::new);
         var xs = IntStream.range(0, 3).mapToObj(j -> ctx.mkConst(names[j], types[j])).collect(Collectors.toList());
         var vars = IntStream.range(0, 3).mapToObj(j -> ctx.mkBound(2 - j, types[j])).collect(Collectors.toList());
 
@@ -784,7 +782,7 @@ class Java13Example
         if (!inum.toString().equals("42") || !iden.toString().equals("43"))
             throw new TestFailedException();
 
-        if (!rn.toDecimalString(3).toString().equals("0.976?"))
+        if (!rn.toDecimalString(3).equals("0.976?"))
             throw new TestFailedException();
 
         bigIntCheck(ctx, ctx.mkReal("-1231231232/234234333"));
@@ -809,199 +807,9 @@ class Java13Example
             @SuppressWarnings("unused")
             IntExpr i = ctx.mkInt("1/2");
             throw new TestFailedException(); // unreachable
-        } catch (Z3Exception e)
+        } catch (Z3Exception ignored)
         {
         }
-    }
-
-    // / Some basic expression casting tests.
-
-    void castingTest(Context ctx) throws TestFailedException
-    {
-        System.out.println("CastingTest");
-
-        Sort[] domain = { ctx.getBoolSort(), ctx.getBoolSort() };
-        FuncDecl f = ctx.mkFuncDecl("f", domain, ctx.getBoolSort());
-
-        AST upcast = ctx.mkFuncDecl(ctx.mkSymbol("q"), domain,
-                ctx.getBoolSort());
-
-        try
-        {
-            @SuppressWarnings("unused")
-            FuncDecl downcast = (FuncDecl) f; // OK
-        } catch (ClassCastException e)
-        {
-            throw new TestFailedException();
-        }
-
-        try
-        {
-            @SuppressWarnings("unused")
-            Expr uc = (Expr) upcast;
-            throw new TestFailedException(); // should not be reachable!
-        } catch (ClassCastException e)
-        {
-        }
-
-        Symbol s = ctx.mkSymbol(42);
-        IntSymbol si = (s.getClass() == IntSymbol.class) ? (IntSymbol) s : null;
-        if (si == null)
-            throw new TestFailedException();
-        try
-        {
-            @SuppressWarnings("unused")
-            IntSymbol si2 = (IntSymbol) s;
-        } catch (ClassCastException e)
-        {
-            throw new TestFailedException();
-        }
-
-        s = ctx.mkSymbol("abc");
-        StringSymbol ss = (s.getClass() == StringSymbol.class) ? (StringSymbol) s
-                : null;
-        if (ss == null)
-            throw new TestFailedException();
-        try
-        {
-            @SuppressWarnings("unused")
-            StringSymbol ss2 = (StringSymbol) s;
-        } catch (ClassCastException e)
-        {
-            throw new TestFailedException();
-        }
-        try
-        {
-            @SuppressWarnings("unused")
-            IntSymbol si2 = (IntSymbol) s;
-            throw new TestFailedException(); // unreachable
-        } catch (Exception e)
-        {
-        }
-
-        Sort srt = ctx.mkBitVecSort(32);
-        BitVecSort bvs = null;
-        try
-        {
-            bvs = (BitVecSort) srt;
-        } catch (ClassCastException e)
-        {
-            throw new TestFailedException();
-        }
-
-        if (bvs.getSize() != 32)
-            throw new TestFailedException();
-
-        Expr q = ctx.mkAdd(ctx.mkInt(1), ctx.mkInt(2));
-        Expr q2 = q.getArgs()[1];
-        Sort qs = q2.getSort();
-        if (qs.getClass() != IntSort.class)
-            throw new TestFailedException();
-        try
-        {
-            @SuppressWarnings("unused")
-            IntSort isrt = (IntSort) qs;
-        } catch (ClassCastException e)
-        {
-            throw new TestFailedException();
-        }
-
-        AST a = ctx.mkInt(42);
-
-        try
-        {
-            Expr.class.cast(a);
-        } catch (ClassCastException e)
-        {
-            throw new TestFailedException();
-        }
-
-        try
-        {
-            ArithExpr.class.cast(a);
-        } catch (ClassCastException e)
-        {
-            throw new TestFailedException();
-        }
-
-        try
-        {
-            IntExpr.class.cast(a);
-        } catch (ClassCastException e)
-        {
-            throw new TestFailedException();
-        }
-
-        try
-        {
-            IntNum.class.cast(a);
-        } catch (ClassCastException e)
-        {
-            throw new TestFailedException();
-        }
-
-        Expr[][] earr = new Expr[2][];
-        earr[0] = new Expr[2];
-        earr[1] = new Expr[2];
-        earr[0][0] = ctx.mkTrue();
-        earr[0][1] = ctx.mkTrue();
-        earr[1][0] = ctx.mkFalse();
-        earr[1][1] = ctx.mkFalse();
-        for (Expr[] ea : earr)
-            for (Expr e : ea)
-            {
-                try
-                {
-                    Expr ns = ctx.mkNot((BoolExpr) e);
-                    @SuppressWarnings("unused")
-                    BoolExpr ens = (BoolExpr) ns;
-                } catch (ClassCastException ex)
-                {
-                    throw new TestFailedException();
-                }
-            }
-    }
-
-
-    // / Shows how to read an SMT2 file.
-
-    void smt2FileTest(String filename)
-    {
-        Date before = new Date();
-
-        System.out.println("SMT2 File test ");
-        System.gc();
-
-        {
-            HashMap<String, String> cfg = new HashMap<String, String>();
-            cfg.put("model", "true");
-            Context ctx = new Context(cfg);
-            BoolExpr a = ctx.mkAnd(ctx.parseSMTLIB2File(filename, null, null, null, null));
-
-            long t_diff = ((new Date()).getTime() - before.getTime()) / 1000;
-
-            System.out.println("SMT2 file read time: " + t_diff + " sec");
-
-            // Iterate over the formula.
-
-            LinkedList<Expr> q = new LinkedList<Expr>();
-            q.add(a);
-            int cnt = 0;
-            while (q.size() > 0)
-            {
-                AST cur = (AST) q.removeFirst();
-                cnt++;
-
-                if (cur.getClass() == Expr.class)
-                    if (!(cur.isVar()))
-                        for (Expr c : ((Expr) cur).getArgs())
-                            q.add(c);
-            }
-            System.out.println(cnt + " ASTs");
-        }
-
-        long t_diff = ((new Date()).getTime() - before.getTime()) / 1000;
-        System.out.println("SMT2 file test took " + t_diff + " sec");
     }
 
     // / Shows how to use Solver(logic)
@@ -1014,16 +822,16 @@ class Java13Example
 
         Global.ToggleWarningMessages(true);
 
-        BitVecSort bvs = ctx.mkBitVecSort(32);
-        Expr x = ctx.mkConst("x", bvs);
-        Expr y = ctx.mkConst("y", bvs);
-        BoolExpr eq = ctx.mkEq(x, y);
+        var bvs = ctx.mkBitVecSort(32);
+        var x = ctx.mkConst("x", bvs);
+        var y = ctx.mkConst("y", bvs);
+        var eq = ctx.mkEq(x, y);
 
         // Use a solver for QF_BV
         Solver s = ctx.mkSolver("QF_BV");
         s.add(eq);
         Status res = s.check();
-        System.out.println("solver result: " + res);
+        System.out.printf("solver result: %s%n", res);
 
         // Or perhaps a tactic for QF_BV
         Goal g = ctx.mkGoal(true, false, false);
@@ -1031,7 +839,7 @@ class Java13Example
 
         Tactic t = ctx.mkTactic("qfbv");
         ApplyResult ar = t.apply(g);
-        System.out.println("tactic result: " + ar);
+        System.out.printf("tactic result: %s%n", ar);
 
         if (ar.getNumSubgoals() != 1 || !ar.getSubgoals()[0].isDecidedSat())
             throw new TestFailedException();
@@ -1044,10 +852,10 @@ class Java13Example
         System.out.println("ParOrExample");
         Log.append("ParOrExample");
 
-        BitVecSort bvs = ctx.mkBitVecSort(32);
-        Expr x = ctx.mkConst("x", bvs);
-        Expr y = ctx.mkConst("y", bvs);
-        BoolExpr q = ctx.mkEq(x, y);
+        var bvs = ctx.mkBitVecSort(32);
+        var x = ctx.mkConst("x", bvs);
+        var y = ctx.mkConst("y", bvs);
+        var q = ctx.mkEq(x, y);
 
         Goal g = ctx.mkGoal(true, false, false);
         g.add(q);
@@ -1064,8 +872,8 @@ class Java13Example
 
     void bigIntCheck(Context ctx, RatNum r)
     {
-        System.out.println("Num: " + r.getBigIntNumerator());
-        System.out.println("Den: " + r.getBigIntDenominator());
+        System.out.printf("Num: %s%n", r.getBigIntNumerator());
+        System.out.printf("Den: %s%n", r.getBigIntDenominator());
     }
 
     // / Find a model for <code>x xor y</code>.
@@ -1075,13 +883,12 @@ class Java13Example
         System.out.println("FindModelExample1");
         Log.append("FindModelExample1");
 
-        BoolExpr x = ctx.mkBoolConst("x");
-        BoolExpr y = ctx.mkBoolConst("y");
-        BoolExpr x_xor_y = ctx.mkXor(x, y);
+        var x = ctx.mkBoolConst("x");
+        var y = ctx.mkBoolConst("y");
+        var x_xor_y = ctx.mkXor(x, y);
 
         Model model = check(ctx, x_xor_y, Status.SATISFIABLE);
-        System.out.println("x = " + model.evaluate(x, false) + ", y = "
-                + model.evaluate(y, false));
+        System.out.printf("x = %s, y = %s%n", model.evaluate(x, false), model.evaluate(y, false));
     }
 
     // / Find a model for <tt>x < y + 1, x > 2</tt>.
@@ -1092,33 +899,31 @@ class Java13Example
         System.out.println("FindModelExample2");
         Log.append("FindModelExample2");
 
-        IntExpr x = ctx.mkIntConst("x");
-        IntExpr y = ctx.mkIntConst("y");
-        IntExpr one = ctx.mkInt(1);
-        IntExpr two = ctx.mkInt(2);
+        var x = ctx.mkIntConst("x");
+        var y = ctx.mkIntConst("y");
+        var one = ctx.mkInt(1);
+        var two = ctx.mkInt(2);
 
-        ArithExpr y_plus_one = ctx.mkAdd(y, one);
+        var y_plus_one = ctx.mkAdd(y, one);
 
-        BoolExpr c1 = ctx.mkLt(x, y_plus_one);
-        BoolExpr c2 = ctx.mkGt(x, two);
+        var c1 = ctx.mkLt(x, y_plus_one);
+        var c2 = ctx.mkGt(x, two);
 
-        BoolExpr q = ctx.mkAnd(c1, c2);
+        var q = ctx.mkAnd(c1, c2);
 
         System.out.println("model for: x < y + 1, x > 2");
         Model model = check(ctx, q, Status.SATISFIABLE);
-        System.out.println("x = " + model.evaluate(x, false) + ", y ="
-                + model.evaluate(y, false));
+        System.out.printf("x = %s, y =%s%n", model.evaluate(x, false), model.evaluate(y, false));
 
         /* assert not(x = y) */
-        BoolExpr x_eq_y = ctx.mkEq(x, y);
-        BoolExpr c3 = ctx.mkNot(x_eq_y);
+        var x_eq_y = ctx.mkEq(x, y);
+        var c3 = ctx.mkNot(x_eq_y);
 
         q = ctx.mkAnd(q, c3);
 
         System.out.println("model for: x < y + 1, x > 2, not(x = y)");
         model = check(ctx, q, Status.SATISFIABLE);
-        System.out.println("x = " + model.evaluate(x, false) + ", y = "
-                + model.evaluate(y, false));
+        System.out.printf("x = %s, y = %s%n", model.evaluate(x, false), model.evaluate(y, false));
     }
 
     // / Prove <tt>x = y implies g(x) = g(y)</tt>, and
@@ -1132,28 +937,28 @@ class Java13Example
         Log.append("ProveExample1");
 
         /* create uninterpreted type. */
-        Sort U = ctx.mkUninterpretedSort(ctx.mkSymbol("U"));
+        var U = ctx.mkUninterpretedSort(ctx.mkSymbol("U"));
 
         /* declare function g */
-        FuncDecl g = ctx.mkFuncDecl("g", U, U);
+        var g = ctx.mkFuncDecl("g", U, U);
 
         /* create x and y */
-        Expr x = ctx.mkConst("x", U);
-        Expr y = ctx.mkConst("y", U);
+        var x = ctx.mkConst("x", U);
+        var y = ctx.mkConst("y", U);
         /* create g(x), g(y) */
-        Expr gx = g.apply(x);
-        Expr gy = g.apply(y);
+        var gx = g.apply(x);
+        var gy = g.apply(y);
 
         /* assert x = y */
-        BoolExpr eq = ctx.mkEq(x, y);
+        var eq = ctx.mkEq(x, y);
 
         /* prove g(x) = g(y) */
-        BoolExpr f = ctx.mkEq(gx, gy);
+        var f = ctx.mkEq(gx, gy);
         System.out.println("prove: x = y implies g(x) = g(y)");
         prove(ctx, ctx.mkImplies(eq, f), false);
 
         /* create g(g(x)) */
-        Expr ggx = g.apply(gx);
+        var ggx = g.apply(gx);
 
         /* disprove g(g(x)) = g(y) */
         f = ctx.mkEq(ggx, gy);
@@ -1178,47 +983,45 @@ class Java13Example
         Log.append("ProveExample2");
 
         /* declare function g */
-        Sort I = ctx.getIntSort();
+        var I = ctx.getIntSort();
 
-        FuncDecl g = ctx.mkFuncDecl("g", I, I);
+        var g = ctx.mkFuncDecl("g", I, I);
 
         /* create x, y, and z */
-        IntExpr x = ctx.mkIntConst("x");
-        IntExpr y = ctx.mkIntConst("y");
-        IntExpr z = ctx.mkIntConst("z");
+        var x = ctx.mkIntConst("x");
+        var y = ctx.mkIntConst("y");
+        var z = ctx.mkIntConst("z");
 
         /* create gx, gy, gz */
-        Expr gx = ctx.mkApp(g, x);
-        Expr gy = ctx.mkApp(g, y);
-        Expr gz = ctx.mkApp(g, z);
+        var gx = ctx.mkApp(g, x);
+        var gy = ctx.mkApp(g, y);
+        var gz = ctx.mkApp(g, z);
 
         /* create zero */
-        IntExpr zero = ctx.mkInt(0);
+        var zero = ctx.mkInt(0);
 
         /* assert not(g(g(x) - g(y)) = g(z)) */
-        ArithExpr gx_gy = ctx.mkSub((IntExpr) gx, (IntExpr) gy);
-        Expr ggx_gy = ctx.mkApp(g, gx_gy);
-        BoolExpr eq = ctx.mkEq(ggx_gy, gz);
-        BoolExpr c1 = ctx.mkNot(eq);
+        var gx_gy = ctx.mkSub(gx, gy);
+        var ggx_gy = ctx.mkApp(g, gx_gy);
+        var eq = ctx.mkEq(ggx_gy, gz);
+        var c1 = ctx.mkNot(eq);
 
         /* assert x + z <= y */
-        ArithExpr x_plus_z = ctx.mkAdd(x, z);
-        BoolExpr c2 = ctx.mkLe(x_plus_z, y);
+        var x_plus_z = ctx.mkAdd(x, z);
+        var c2 = ctx.mkLe(x_plus_z, y);
 
         /* assert y <= x */
-        BoolExpr c3 = ctx.mkLe(y, x);
+        var c3 = ctx.mkLe(y, x);
 
         /* prove z < 0 */
-        BoolExpr f = ctx.mkLt(z, zero);
-        System.out
-                .println("prove: not(g(g(x) - g(y)) = g(z)), x + z <= y <= x implies z < 0");
+        var f = ctx.mkLt(z, zero);
+        System.out.println("prove: not(g(g(x) - g(y)) = g(z)), x + z <= y <= x implies z < 0");
         prove(ctx, f, false, c1, c2, c3);
 
         /* disprove z < -1 */
-        IntExpr minus_one = ctx.mkInt(-1);
+        var minus_one = ctx.mkInt(-1);
         f = ctx.mkLt(z, minus_one);
-        System.out
-                .println("disprove: not(g(g(x) - g(y)) = g(z)), x + z <= y <= x implies z < -1");
+        System.out.println("disprove: not(g(g(x) - g(y)) = g(z)), x + z <= y <= x implies z < -1");
         disprove(ctx, f, false, c1, c2, c3);
     }
 
@@ -1232,20 +1035,19 @@ class Java13Example
         Log.append("PushPopExample1");
 
         /* create a big number */
-        IntSort int_type = ctx.getIntSort();
-        IntExpr big_number = ctx
-                .mkInt("1000000000000000000000000000000000000000000000000000000");
+        var int_type = ctx.getIntSort();
+        var big_number = ctx.mkInt("1000000000000000000000000000000000000000000000000000000");
 
         /* create number 3 */
-        IntExpr three = (IntExpr) ctx.mkNumeral("3", int_type);
+        var three = (IntExpr) ctx.mkNumeral("3", int_type);
 
         /* create x */
-        IntExpr x = ctx.mkIntConst("x");
+        var x = ctx.mkIntConst("x");
 
         Solver solver = ctx.mkSolver();
 
         /* assert x >= "big number" */
-        BoolExpr c1 = ctx.mkGe(x, big_number);
+        var c1 = ctx.mkGe(x, big_number);
         System.out.println("assert: x >= 'big number'");
         solver.add(c1);
 
@@ -1254,7 +1056,7 @@ class Java13Example
         solver.push();
 
         /* assert x <= 3 */
-        BoolExpr c2 = ctx.mkLe(x, three);
+        var c2 = ctx.mkLe(x, three);
         System.out.println("assert: x <= 3");
         solver.add(c2);
 
@@ -1276,10 +1078,10 @@ class Java13Example
         /* new constraints can be asserted... */
 
         /* create y */
-        IntExpr y = ctx.mkIntConst("y");
+        var y = ctx.mkIntConst("y");
 
         /* assert y > x */
-        BoolExpr c3 = ctx.mkGt(y, x);
+        var c3 = ctx.mkGt(y, x);
         System.out.println("assert: y > x");
         solver.add(c3);
 
@@ -1297,8 +1099,8 @@ class Java13Example
         System.out.println("TupleExample");
         Log.append("TupleExample");
 
-        Sort int_type = ctx.getIntSort();
-        TupleSort tuple = ctx.mkTupleSort(ctx.mkSymbol("mk_tuple"), // name of
+        var int_type = ctx.getIntSort();
+        var tuple = ctx.mkTupleSort(ctx.mkSymbol("mk_tuple"), // name of
                                                                     // tuple
                                                                     // constructor
                 new Symbol[] { ctx.mkSymbol("first"), ctx.mkSymbol("second") }, // names
@@ -1308,16 +1110,18 @@ class Java13Example
                 new Sort[] { int_type, int_type } // types of projection
                                                   // operators
                 );
-        FuncDecl first = tuple.getFieldDecls()[0]; // declarations are for
+        // have to cast here because it is not possible to type a member of an array of mixed generics
+        @SuppressWarnings("unchecked")
+        var first = (FuncDecl<IntSort>) tuple.getFieldDecls()[0]; // declarations are for
                                                    // projections
         @SuppressWarnings("unused")
-        FuncDecl second = tuple.getFieldDecls()[1];
-        Expr x = ctx.mkConst("x", int_type);
-        Expr y = ctx.mkConst("y", int_type);
-        Expr n1 = tuple.mkDecl().apply(x, y);
-        Expr n2 = first.apply(n1);
+        var second = tuple.getFieldDecls()[1];
+        var x = ctx.mkConst("x", int_type);
+        var y = ctx.mkConst("y", int_type);
+        var n1 = tuple.mkDecl().apply(x, y);
+        var n2 = first.apply(n1);
         BoolExpr n3 = ctx.mkEq(x, n2);
-        System.out.println("Tuple example: " + n3);
+        System.out.printf("Tuple example: %s%n", n3);
         prove(ctx, n3, false);
     }
 
@@ -1332,17 +1136,16 @@ class Java13Example
         System.out.println("BitvectorExample1");
         Log.append("BitvectorExample1");
 
-        BitVecSort bv_type = ctx.mkBitVecSort(32);
-        BitVecExpr x = (BitVecExpr) ctx.mkConst("x", bv_type);
-        BitVecNum zero = (BitVecNum) ctx.mkNumeral("0", bv_type);
-        BitVecNum ten = ctx.mkBV(10, 32);
-        BitVecExpr x_minus_ten = ctx.mkBVSub(x, ten);
+        var bv_type = ctx.mkBitVecSort(32);
+        var x = ctx.mkConst("x", bv_type);
+        var zero = ctx.mkNumeral("0", bv_type);
+        var ten = ctx.mkBV(10, 32);
+        var x_minus_ten = ctx.mkBVSub(x, ten);
         /* bvsle is signed less than or equal to */
-        BoolExpr c1 = ctx.mkBVSLE(x, ten);
-        BoolExpr c2 = ctx.mkBVSLE(x_minus_ten, zero);
-        BoolExpr thm = ctx.mkIff(c1, c2);
-        System.out
-                .println("disprove: x - 10 <= 0 IFF x <= 10 for (32-bit) machine integers");
+        var c1 = ctx.mkBVSLE(x, ten);
+        var c2 = ctx.mkBVSLE(x_minus_ten, zero);
+        var thm = ctx.mkIff(c1, c2);
+        System.out.println("disprove: x - 10 <= 0 IFF x <= 10 for (32-bit) machine integers");
         disprove(ctx, thm, false);
     }
 
@@ -1354,17 +1157,16 @@ class Java13Example
         Log.append("BitvectorExample2");
 
         /* construct x ^ y - 103 == x * y */
-        BitVecSort bv_type = ctx.mkBitVecSort(32);
-        BitVecExpr x = ctx.mkBVConst("x", 32);
-        BitVecExpr y = ctx.mkBVConst("y", 32);
-        BitVecExpr x_xor_y = ctx.mkBVXOR(x, y);
-        BitVecExpr c103 = (BitVecNum) ctx.mkNumeral("103", bv_type);
-        BitVecExpr lhs = ctx.mkBVSub(x_xor_y, c103);
-        BitVecExpr rhs = ctx.mkBVMul(x, y);
-        BoolExpr ctr = ctx.mkEq(lhs, rhs);
+        var bv_type = ctx.mkBitVecSort(32);
+        var x = ctx.mkBVConst("x", 32);
+        var y = ctx.mkBVConst("y", 32);
+        var x_xor_y = ctx.mkBVXOR(x, y);
+        var c103 = ctx.mkNumeral("103", bv_type);
+        var lhs = ctx.mkBVSub(x_xor_y, c103);
+        var rhs = ctx.mkBVMul(x, y);
+        var ctr = ctx.mkEq(lhs, rhs);
 
-        System.out
-                .println("find values of x and y, such that x ^ y - 103 == x * y");
+        System.out.println("find values of x and y, such that x ^ y - 103 == x * y");
 
         /* find a model (i.e., values for x an y that satisfy the constraint */
         Model m = check(ctx, ctr, Status.SATISFIABLE);
@@ -1381,7 +1183,7 @@ class Java13Example
         BoolExpr f = ctx.parseSMTLIB2String(
                 "(declare-const x Int) (declare-const y Int) (assert (and (> x y) (> x 0)))",
                 null, null, null, null)[0];
-        System.out.println("formula " + f);
+        System.out.printf("formula %s%n", f);
 
         @SuppressWarnings("unused")
         Model m = check(ctx, f, Status.SATISFIABLE);
@@ -1395,13 +1197,12 @@ class Java13Example
         Log.append("ParserExample2");
 
         Symbol[] declNames = { ctx.mkSymbol("a"), ctx.mkSymbol("b") };
-        FuncDecl a = ctx.mkConstDecl(declNames[0], ctx.mkIntSort());
-        FuncDecl b = ctx.mkConstDecl(declNames[1], ctx.mkIntSort());
-        FuncDecl[] decls = new FuncDecl[] { a, b };
+        var a = ctx.mkConstDecl(declNames[0], ctx.mkIntSort());
+        var b = ctx.mkConstDecl(declNames[1], ctx.mkIntSort());
+        var decls = new FuncDecl[] { a, b };
 
-        BoolExpr f = ctx.parseSMTLIB2String("(assert (> a b))", null, null,
-                declNames, decls)[0];
-        System.out.println("formula: " + f);
+        var f = ctx.parseSMTLIB2String("(assert (> a b))", null, null, declNames, decls)[0];
+        System.out.printf("formula: %s%n", f);
         check(ctx, f, Status.SATISFIABLE);
     }
 
@@ -1413,16 +1214,16 @@ class Java13Example
         Log.append("ParserExample3");
 
         /* declare function g */
-        Sort I = ctx.mkIntSort();
-        FuncDecl g = ctx.mkFuncDecl("g", new Sort[] { I, I }, I);
+        var I = ctx.mkIntSort();
+        var g = ctx.mkFuncDecl("g", new Sort[] { I, I }, I);
 
-        BoolExpr ca = commAxiom(ctx, g);
+        var ca = commAxiom(ctx, g);
 
-        BoolExpr thm = ctx.parseSMTLIB2String(
+        var thm = ctx.parseSMTLIB2String(
                 "(declare-fun (Int Int) Int) (assert (forall ((x Int) (y Int)) (=> (= x y) (= (gg x 0) (gg 0 y)))))",
                 null, null, new Symbol[] { ctx.mkSymbol("gg") },
                 new FuncDecl[] { g })[0];
-        System.out.println("formula: " + thm);
+        System.out.printf("formula: %s%n", thm);
         prove(ctx, thm, false, ca);
     }
 
@@ -1446,7 +1247,7 @@ class Java13Example
                     null, null, null, null);
         } catch (Z3Exception e)
         {
-            System.out.println("Z3 error: " + e);
+            System.out.printf("Z3 error: %s%n", e);
         }
     }
 
@@ -1457,24 +1258,67 @@ class Java13Example
         System.out.println("ITEExample");
         Log.append("ITEExample");
 
-        BoolExpr f = ctx.mkFalse();
-        Expr one = ctx.mkInt(1);
-        Expr zero = ctx.mkInt(0);
-        Expr ite = ctx.mkITE(f, one, zero);
+        var f = ctx.mkFalse();
+        var one = ctx.mkInt(1);
+        var zero = ctx.mkInt(0);
+        var ite = ctx.mkITE(f, one, zero);
 
-        System.out.println("Expr: " + ite);
+        System.out.printf("Expr: %s%n", ite);
     }
 
     // / Create an enumeration data type.
 
-    public void enumExample(Context ctx) throws TestFailedException
+    public <T extends Sort> void enumExampleTyped(Context ctx) throws TestFailedException
     {
         System.out.println("EnumExample");
         Log.append("EnumExample");
 
         Symbol name = ctx.mkSymbol("fruit");
 
-        EnumSort fruit = ctx.mkEnumSort(name, ctx.mkSymbol("apple"),
+        EnumSort<T> fruit = ctx.mkEnumSort(name, ctx.mkSymbol("apple"),
+                ctx.mkSymbol("banana"), ctx.mkSymbol("orange"));
+
+        // helper function for consistent typing: https://docs.oracle.com/javase/tutorial/java/generics/capture.html
+        System.out.println((fruit.getConsts()[0]));
+        System.out.println((fruit.getConsts()[1]));
+        System.out.println((fruit.getConsts()[2]));
+
+        System.out.println((fruit.getTesterDecls()[0]));
+        System.out.println((fruit.getTesterDecls()[1]));
+        System.out.println((fruit.getTesterDecls()[2]));
+
+        var apple = fruit.getConsts()[0];
+        var banana = fruit.getConsts()[1];
+        var orange = fruit.getConsts()[2];
+
+        /* Apples are different from oranges */
+        prove(ctx, ctx.mkNot(ctx.mkEq(apple, orange)), false);
+
+        /* Apples pass the apple test */
+        prove(ctx, ctx.mkApp(fruit.getTesterDecls()[0], apple),
+                false);
+
+        /* Oranges fail the apple test */
+        disprove(ctx, ctx.mkApp(fruit.getTesterDecls()[0], orange), false);
+        prove(ctx, ctx.mkNot(ctx.mkApp(fruit.getTesterDecls()[0], orange)), false);
+
+        var fruity = ctx.mkConst("fruity", fruit);
+
+        /* If something is fruity, then it is an apple, banana, or orange */
+
+        prove(ctx, ctx.mkOr(ctx.mkEq(fruity, apple), ctx.mkEq(fruity, banana), ctx.mkEq(fruity, orange)), false);
+    }
+
+    // while you can do this untyped, it's safer to have a helper function -- this will prevent you from
+    // mixing up your enum types
+    public void enumExampleUntyped(Context ctx) throws TestFailedException
+    {
+        System.out.println("EnumExample");
+        Log.append("EnumExample");
+
+        Symbol name = ctx.mkSymbol("fruit");
+
+        EnumSort<Object> fruit = ctx.mkEnumSort(name, ctx.mkSymbol("apple"),
                 ctx.mkSymbol("banana"), ctx.mkSymbol("orange"));
 
         System.out.println((fruit.getConsts()[0]));
@@ -1485,52 +1329,43 @@ class Java13Example
         System.out.println((fruit.getTesterDecls()[1]));
         System.out.println((fruit.getTesterDecls()[2]));
 
-        Expr apple = fruit.getConsts()[0];
-        Expr banana = fruit.getConsts()[1];
-        Expr orange = fruit.getConsts()[2];
+        var apple = fruit.getConsts()[0];
+        var banana = fruit.getConsts()[1];
+        var orange = fruit.getConsts()[2];
 
         /* Apples are different from oranges */
         prove(ctx, ctx.mkNot(ctx.mkEq(apple, orange)), false);
 
         /* Apples pass the apple test */
-        prove(ctx, (BoolExpr) ctx.mkApp(fruit.getTesterDecls()[0], apple),
+        prove(ctx, ctx.mkApp(fruit.getTesterDecls()[0], apple),
                 false);
 
         /* Oranges fail the apple test */
-        disprove(ctx, (BoolExpr) ctx.mkApp(fruit.getTesterDecls()[0], orange),
-                false);
-        prove(ctx,
-                (BoolExpr) ctx.mkNot((BoolExpr) ctx.mkApp(
-                        fruit.getTesterDecls()[0], orange)), false);
+        disprove(ctx, ctx.mkApp(fruit.getTesterDecls()[0], orange), false);
+        prove(ctx, ctx.mkNot(ctx.mkApp(fruit.getTesterDecls()[0], orange)), false);
 
-        Expr fruity = ctx.mkConst("fruity", fruit);
+        var fruity = ctx.mkConst("fruity", fruit);
 
         /* If something is fruity, then it is an apple, banana, or orange */
 
-        prove(ctx,
-                ctx.mkOr(ctx.mkEq(fruity, apple), ctx.mkEq(fruity, banana),
-                        ctx.mkEq(fruity, orange)), false);
+        prove(ctx, ctx.mkOr(ctx.mkEq(fruity, apple), ctx.mkEq(fruity, banana), ctx.mkEq(fruity, orange)), false);
     }
 
     // / Create a list datatype.
 
+    @SuppressWarnings("unchecked")
     public void listExample(Context ctx) throws TestFailedException
     {
         System.out.println("ListExample");
         Log.append("ListExample");
 
-        Sort int_ty;
-        ListSort int_list;
-        Expr nil, l1, l2, x, y, u, v;
-        BoolExpr fml, fml1;
+        var int_ty = ctx.mkIntSort();
 
-        int_ty = ctx.mkIntSort();
+        var int_list = ctx.mkListSort(ctx.mkSymbol("int_list"), int_ty);
 
-        int_list = ctx.mkListSort(ctx.mkSymbol("int_list"), int_ty);
-
-        nil = ctx.mkConst(int_list.getNilDecl());
-        l1 = ctx.mkApp(int_list.getConsDecl(), ctx.mkInt(1), nil);
-        l2 = ctx.mkApp(int_list.getConsDecl(), ctx.mkInt(2), nil);
+        var nil = ctx.mkConst(int_list.getNilDecl());
+        var l1 = ctx.mkApp(int_list.getConsDecl(), ctx.mkInt(1), nil);
+        var l2 = ctx.mkApp(int_list.getConsDecl(), ctx.mkInt(2), nil);
 
         /* nil != cons(1, nil) */
         prove(ctx, ctx.mkNot(ctx.mkEq(nil, l1)), false);
@@ -1539,36 +1374,32 @@ class Java13Example
         prove(ctx, ctx.mkNot(ctx.mkEq(l1, l2)), false);
 
         /* cons(x,nil) = cons(y, nil) => x = y */
-        x = ctx.mkConst("x", int_ty);
-        y = ctx.mkConst("y", int_ty);
+        var x = ctx.mkConst("x", int_ty);
+        var y = ctx.mkConst("y", int_ty);
         l1 = ctx.mkApp(int_list.getConsDecl(), x, nil);
         l2 = ctx.mkApp(int_list.getConsDecl(), y, nil);
         prove(ctx, ctx.mkImplies(ctx.mkEq(l1, l2), ctx.mkEq(x, y)), false);
 
         /* cons(x,u) = cons(x, v) => u = v */
-        u = ctx.mkConst("u", int_list);
-        v = ctx.mkConst("v", int_list);
+        var u = ctx.mkConst("u", int_list);
+        var v = ctx.mkConst("v", int_list);
         l1 = ctx.mkApp(int_list.getConsDecl(), x, u);
         l2 = ctx.mkApp(int_list.getConsDecl(), y, v);
         prove(ctx, ctx.mkImplies(ctx.mkEq(l1, l2), ctx.mkEq(u, v)), false);
         prove(ctx, ctx.mkImplies(ctx.mkEq(l1, l2), ctx.mkEq(x, y)), false);
 
         /* is_nil(u) or is_cons(u) */
-        prove(ctx, ctx.mkOr((BoolExpr) ctx.mkApp(int_list.getIsNilDecl(), u),
-                (BoolExpr) ctx.mkApp(int_list.getIsConsDecl(), u)), false);
+        prove(ctx, ctx.mkOr(ctx.mkApp(int_list.getIsNilDecl(), u), ctx.mkApp(int_list.getIsConsDecl(), u)), false);
 
         /* occurs check u != cons(x,u) */
         prove(ctx, ctx.mkNot(ctx.mkEq(u, l1)), false);
 
         /* destructors: is_cons(u) => u = cons(head(u),tail(u)) */
-        fml1 = ctx.mkEq(
-                u,
-                ctx.mkApp(int_list.getConsDecl(),
+        var fml1 = ctx.mkEq(u, ctx.mkApp(int_list.getConsDecl(),
                         ctx.mkApp(int_list.getHeadDecl(), u),
                         ctx.mkApp(int_list.getTailDecl(), u)));
-        fml = ctx.mkImplies((BoolExpr) ctx.mkApp(int_list.getIsConsDecl(), u),
-                fml1);
-        System.out.println("Formula " + fml);
+        var fml = ctx.mkImplies(ctx.mkApp(int_list.getIsConsDecl(), u), fml1);
+        System.out.printf("Formula %s%n", fml);
 
         prove(ctx, fml, false);
 
@@ -1577,67 +1408,59 @@ class Java13Example
 
     // / Create a binary tree datatype.
 
-    public void treeExample(Context ctx) throws TestFailedException
+    @SuppressWarnings("unchecked")
+    public <Tree> void treeExample(Context ctx) throws TestFailedException
     {
         System.out.println("TreeExample");
         Log.append("TreeExample");
 
-        Sort cell;
-        FuncDecl nil_decl, is_nil_decl, cons_decl, is_cons_decl, car_decl, cdr_decl;
-        Expr nil, l1, l2, x, y, u, v;
-        BoolExpr fml, fml1;
         String[] head_tail = new String[] { "car", "cdr" };
         Sort[] sorts = new Sort[] { null, null };
         int[] sort_refs = new int[] { 0, 0 };
-        Constructor nil_con, cons_con;
+        Constructor<Tree> nil_con, cons_con;
 
         nil_con = ctx.mkConstructor("nil", "is_nil", null, null, null);
         cons_con = ctx.mkConstructor("cons", "is_cons", head_tail, sorts,
                 sort_refs);
-        Constructor[] constructors = new Constructor[] { nil_con, cons_con };
+        Constructor<Tree>[] constructors = new Constructor[] { nil_con, cons_con };
 
-        cell = ctx.mkDatatypeSort("cell", constructors);
+        var cell = ctx.mkDatatypeSort("cell", constructors);
 
-        nil_decl = nil_con.ConstructorDecl();
-        is_nil_decl = nil_con.getTesterDecl();
-        cons_decl = cons_con.ConstructorDecl();
-        is_cons_decl = cons_con.getTesterDecl();
-        FuncDecl[] cons_accessors = cons_con.getAccessorDecls();
-        car_decl = cons_accessors[0];
-        cdr_decl = cons_accessors[1];
+        var nil_decl = nil_con.ConstructorDecl();
+        var is_nil_decl = nil_con.getTesterDecl();
+        var cons_decl = cons_con.ConstructorDecl();
+        var is_cons_decl = cons_con.getTesterDecl();
+        var cons_accessors = cons_con.getAccessorDecls();
+        var car_decl = cons_accessors[0];
+        var cdr_decl = cons_accessors[1];
 
-        nil = ctx.mkConst(nil_decl);
-        l1 = ctx.mkApp(cons_decl, nil, nil);
-        l2 = ctx.mkApp(cons_decl, l1, nil);
+        var nil = ctx.mkConst(nil_decl);
+        var l1 = ctx.mkApp(cons_decl, nil, nil);
+        var l2 = ctx.mkApp(cons_decl, l1, nil);
 
         /* nil != cons(nil, nil) */
         prove(ctx, ctx.mkNot(ctx.mkEq(nil, l1)), false);
 
         /* cons(x,u) = cons(x, v) => u = v */
-        u = ctx.mkConst("u", cell);
-        v = ctx.mkConst("v", cell);
-        x = ctx.mkConst("x", cell);
-        y = ctx.mkConst("y", cell);
+        var u = ctx.mkConst("u", cell);
+        var v = ctx.mkConst("v", cell);
+        var x = ctx.mkConst("x", cell);
+        var y = ctx.mkConst("y", cell);
         l1 = ctx.mkApp(cons_decl, x, u);
         l2 = ctx.mkApp(cons_decl, y, v);
         prove(ctx, ctx.mkImplies(ctx.mkEq(l1, l2), ctx.mkEq(u, v)), false);
         prove(ctx, ctx.mkImplies(ctx.mkEq(l1, l2), ctx.mkEq(x, y)), false);
 
         /* is_nil(u) or is_cons(u) */
-        prove(ctx,
-                ctx.mkOr((BoolExpr) ctx.mkApp(is_nil_decl, u),
-                        (BoolExpr) ctx.mkApp(is_cons_decl, u)), false);
+        prove(ctx, ctx.mkOr(ctx.mkApp(is_nil_decl, u), ctx.mkApp(is_cons_decl, u)), false);
 
         /* occurs check u != cons(x,u) */
         prove(ctx, ctx.mkNot(ctx.mkEq(u, l1)), false);
 
         /* destructors: is_cons(u) => u = cons(car(u),cdr(u)) */
-        fml1 = ctx.mkEq(
-                u,
-                ctx.mkApp(cons_decl, ctx.mkApp(car_decl, u),
-                        ctx.mkApp(cdr_decl, u)));
-        fml = ctx.mkImplies((BoolExpr) ctx.mkApp(is_cons_decl, u), fml1);
-        System.out.println("Formula " + fml);
+        BoolExpr fml1 = ctx.mkEq(u, ctx.mkApp(cons_decl, ctx.mkApp(car_decl, u), ctx.mkApp(cdr_decl, u)));
+        BoolExpr fml = ctx.mkImplies(ctx.mkApp(is_cons_decl, u), fml1);
+        System.out.printf("Formula %s%n", fml);
         prove(ctx, fml, false);
 
         disprove(ctx, fml1, false);
@@ -1649,18 +1472,17 @@ class Java13Example
     // / forest ::= nil | cons(tree, forest)
     // / tree ::= nil | cons(forest, forest)
     // / </remarks>
-    public void forestExample(Context ctx) throws TestFailedException
+    @SuppressWarnings({"unchecked", "unused", "UnusedAssignment"})
+    public <Tree, Forest> void forestExample(Context ctx) throws TestFailedException
     {
         System.out.println("ForestExample");
         Log.append("ForestExample");
 
-        Sort tree, forest;
-        @SuppressWarnings("unused")
-        FuncDecl nil1_decl, is_nil1_decl, cons1_decl, is_cons1_decl, car1_decl, cdr1_decl;
-        @SuppressWarnings("unused")
-        FuncDecl nil2_decl, is_nil2_decl, cons2_decl, is_cons2_decl, car2_decl, cdr2_decl;
-        @SuppressWarnings("unused")
-        Expr nil1, nil2, t1, t2, t3, t4, f1, f2, f3, l1, l2, x, y, u, v;
+        DatatypeSort<Forest> forest;
+        DatatypeSort<Tree> tree;
+        FuncDecl<DatatypeSort<Forest>> nil1_decl, cons1_decl, cdr1_decl, car2_decl, cdr2_decl;
+        FuncDecl<DatatypeSort<Tree>> car1_decl, nil2_decl, cons2_decl;
+        FuncDecl<BoolSort> is_nil1_decl, is_nil2_decl, is_cons1_decl, is_cons2_decl;
 
         //
         // Declare the names of the accessors for cons.
@@ -1671,8 +1493,7 @@ class Java13Example
         // On the other hand, the sort_refs arrays contain the indices of the
         // two new sorts being declared. The first element in sort1_refs
         // points to 'tree', which has index 1, the second element in sort1_refs
-        // array
-        // points to 'forest', which has index 0.
+        // array points to 'forest', which has index 0.
         //
         Symbol[] head_tail1 = new Symbol[] { ctx.mkSymbol("head"),
                 ctx.mkSymbol("tail") };
@@ -1685,13 +1506,15 @@ class Java13Example
         Sort[] sorts2 = new Sort[] { null, null };
         int[] sort2_refs = new int[] { 0, 0 }; // both items point to the forest
                                                // datatype.
-        Constructor nil1_con, cons1_con, nil2_con, cons2_con;
-        Constructor[] constructors1 = new Constructor[2], constructors2 = new Constructor[2];
+        Constructor<Forest> nil1_con, cons1_con;
+        Constructor<Tree> nil2_con, cons2_con;
+        Constructor<Forest>[] constructors1 = new Constructor[2];
+        Constructor<Tree>[] constructors2 = new Constructor[2];
         Symbol[] sort_names = { ctx.mkSymbol("forest"), ctx.mkSymbol("tree") };
 
         /* build a forest */
-        nil1_con = ctx.mkConstructor(ctx.mkSymbol("nil"),
-                ctx.mkSymbol("is_nil"), null, null, null);
+        nil1_con = ctx.mkConstructor(ctx.mkSymbol("nil1"),
+                ctx.mkSymbol("is_nil1"), null, null, null);
         cons1_con = ctx.mkConstructor(ctx.mkSymbol("cons1"),
                 ctx.mkSymbol("is_cons1"), head_tail1, sorts1, sort1_refs);
         constructors1[0] = nil1_con;
@@ -1705,12 +1528,12 @@ class Java13Example
         constructors2[0] = nil2_con;
         constructors2[1] = cons2_con;
 
-        Constructor[][] clists = new Constructor[][] { constructors1,
+        Constructor<Object>[][] clists = new Constructor[][] { constructors1,
                 constructors2 };
 
         Sort[] sorts = ctx.mkDatatypeSorts(sort_names, clists);
-        forest = sorts[0];
-        tree = sorts[1];
+        forest = (DatatypeSort<Forest>) sorts[0];
+        tree = (DatatypeSort<Tree>) sorts[1];
 
         //
         // Now that the datatype has been created.
@@ -1721,46 +1544,44 @@ class Java13Example
         is_nil1_decl = nil1_con.getTesterDecl();
         cons1_decl = cons1_con.ConstructorDecl();
         is_cons1_decl = cons1_con.getTesterDecl();
-        FuncDecl[] cons1_accessors = cons1_con.getAccessorDecls();
-        car1_decl = cons1_accessors[0];
-        cdr1_decl = cons1_accessors[1];
+        FuncDecl<?>[] cons1_accessors = cons1_con.getAccessorDecls();
+        car1_decl = (FuncDecl<DatatypeSort<Tree>>) cons1_accessors[0];
+        cdr1_decl = (FuncDecl<DatatypeSort<Forest>>) cons1_accessors[1];
 
         nil2_decl = nil2_con.ConstructorDecl();
         is_nil2_decl = nil2_con.getTesterDecl();
         cons2_decl = cons2_con.ConstructorDecl();
         is_cons2_decl = cons2_con.getTesterDecl();
-        FuncDecl[] cons2_accessors = cons2_con.getAccessorDecls();
-        car2_decl = cons2_accessors[0];
-        cdr2_decl = cons2_accessors[1];
+        FuncDecl<?>[] cons2_accessors = cons2_con.getAccessorDecls();
+        car2_decl = (FuncDecl<DatatypeSort<Forest>>) cons2_accessors[0];
+        cdr2_decl = (FuncDecl<DatatypeSort<Forest>>) cons2_accessors[1];
 
-        nil1 = ctx.mkConst(nil1_decl);
-        nil2 = ctx.mkConst(nil2_decl);
-        f1 = ctx.mkApp(cons1_decl, nil2, nil1);
-        t1 = ctx.mkApp(cons2_decl, nil1, nil1);
-        t2 = ctx.mkApp(cons2_decl, f1, nil1);
-        t3 = ctx.mkApp(cons2_decl, f1, f1);
-        t4 = ctx.mkApp(cons2_decl, nil1, f1);
-        f2 = ctx.mkApp(cons1_decl, t1, nil1);
-        f3 = ctx.mkApp(cons1_decl, t1, f1);
+        var nil1 = ctx.mkConst(nil1_decl);
+        var nil2 = ctx.mkConst(nil2_decl);
+        var f1 = ctx.mkApp(cons1_decl, nil2, nil1);
+        var t1 = ctx.mkApp(cons2_decl, nil1, nil1);
+        var t2 = ctx.mkApp(cons2_decl, f1, nil1);
+        var t3 = ctx.mkApp(cons2_decl, f1, f1);
+        var t4 = ctx.mkApp(cons2_decl, nil1, f1);
+        var f2 = ctx.mkApp(cons1_decl, t1, nil1);
+        var f3 = ctx.mkApp(cons1_decl, t1, f1);
 
         /* nil != cons(nil,nil) */
         prove(ctx, ctx.mkNot(ctx.mkEq(nil1, f1)), false);
         prove(ctx, ctx.mkNot(ctx.mkEq(nil2, t1)), false);
 
         /* cons(x,u) = cons(x, v) => u = v */
-        u = ctx.mkConst("u", forest);
-        v = ctx.mkConst("v", forest);
-        x = ctx.mkConst("x", tree);
-        y = ctx.mkConst("y", tree);
-        l1 = ctx.mkApp(cons1_decl, x, u);
-        l2 = ctx.mkApp(cons1_decl, y, v);
+        var u = ctx.mkConst("u", forest);
+        var v = ctx.mkConst("v", forest);
+        var x = ctx.mkConst("x", tree);
+        var y = ctx.mkConst("y", tree);
+        var l1 = ctx.mkApp(cons1_decl, x, u);
+        var l2 = ctx.mkApp(cons1_decl, y, v);
         prove(ctx, ctx.mkImplies(ctx.mkEq(l1, l2), ctx.mkEq(u, v)), false);
         prove(ctx, ctx.mkImplies(ctx.mkEq(l1, l2), ctx.mkEq(x, y)), false);
 
         /* is_nil(u) or is_cons(u) */
-        prove(ctx,
-                ctx.mkOr((BoolExpr) ctx.mkApp(is_nil1_decl, u),
-                        (BoolExpr) ctx.mkApp(is_cons1_decl, u)), false);
+        prove(ctx, ctx.mkOr(ctx.mkApp(is_nil1_decl, u), ctx.mkApp(is_cons1_decl, u)), false);
 
         /* occurs check u != cons(x,u) */
         prove(ctx, ctx.mkNot(ctx.mkEq(u, l1)), false);
@@ -1773,9 +1594,9 @@ class Java13Example
         System.out.println("EvalExample1");
         Log.append("EvalExample1");
 
-        IntExpr x = ctx.mkIntConst("x");
-        IntExpr y = ctx.mkIntConst("y");
-        IntExpr two = ctx.mkInt(2);
+        var x = ctx.mkIntConst("x");
+        var y = ctx.mkIntConst("y");
+        var two = ctx.mkInt(2);
 
         Solver solver = ctx.mkSolver();
 
@@ -1792,10 +1613,10 @@ class Java13Example
             model = solver.getModel();
             System.out.println(model);
             System.out.println("\nevaluating x+y");
-            Expr v = model.evaluate(ctx.mkAdd(x, y), false);
+            var v = model.evaluate(ctx.mkAdd(x, y), false);
             if (v != null)
             {
-                System.out.println("result = " + (v));
+                System.out.printf("result = %s%n", v);
             } else
             {
                 System.out.println("Failed to evaluate: x+y");
@@ -1808,12 +1629,13 @@ class Java13Example
 
     // / Demonstrate how to use #Eval on tuples.
 
+    @SuppressWarnings("unchecked")
     public void evalExample2(Context ctx)
     {
         System.out.println("EvalExample2");
         Log.append("EvalExample2");
 
-        Sort int_type = ctx.getIntSort();
+        var int_type = ctx.getIntSort();
         TupleSort tuple = ctx.mkTupleSort(ctx.mkSymbol("mk_tuple"), // name of
                                                                     // tuple
                                                                     // constructor
@@ -1824,11 +1646,11 @@ class Java13Example
                 new Sort[] { int_type, int_type } // types of projection
                                                   // operators
                 );
-        FuncDecl first = tuple.getFieldDecls()[0]; // declarations are for
+        var first = (FuncDecl<IntSort>) tuple.getFieldDecls()[0]; // declarations are for
                                                    // projections
-        FuncDecl second = tuple.getFieldDecls()[1];
-        Expr tup1 = ctx.mkConst("t1", tuple);
-        Expr tup2 = ctx.mkConst("t2", tuple);
+        var second = (FuncDecl<IntSort>) tuple.getFieldDecls()[1];
+        var tup1 = ctx.mkConst("t1", tuple);
+        var tup2 = ctx.mkConst("t2", tuple);
 
         Solver solver = ctx.mkSolver();
 
@@ -1843,12 +1665,9 @@ class Java13Example
         {
             model = solver.getModel();
             System.out.println(model);
-            System.out.println("evaluating tup1 "
-                    + (model.evaluate(tup1, false)));
-            System.out.println("evaluating tup2 "
-                    + (model.evaluate(tup2, false)));
-            System.out.println("evaluating second(tup2) "
-                    + (model.evaluate(ctx.mkApp(second, tup2), false)));
+            System.out.printf("evaluating tup1 %s%n", model.evaluate(tup1, false));
+            System.out.printf("evaluating tup2 %s%n", model.evaluate(tup2, false));
+            System.out.printf("evaluating second(tup2) %s%n", model.evaluate(ctx.mkApp(second, tup2), false));
         } else
         {
             System.out.println("BUG, the constraints are satisfiable.");
@@ -1877,7 +1696,7 @@ class Java13Example
             solver.push();
 
             boolean check_is_sat = true;
-            while (check_is_sat && some_work)
+            while (some_work)
             {
                 // Assert all feasible bounds.
                 for (int i = 0; i < num_Exprs; ++i)
@@ -1900,13 +1719,15 @@ class Java13Example
                 // narrow the bounds based on the current model.
                 for (int i = 0; i < num_Exprs; ++i)
                 {
-                    Expr v = solver.getModel().evaluate(to_minimize[i], false);
+                    var v = solver.getModel().evaluate(to_minimize[i], false);
+                    // we still have to cast because we want to use a method in BitVecNum
+                    // however, we cannot cast to a type which doesn't match the generic, e.g. IntNum
                     int ui = ((BitVecNum) v).getInt();
                     if (ui < upper[i])
                     {
-                        upper[i] = (int) ui;
+                        upper[i] = ui;
                     }
-                    System.out.println(i + " " + lower[i] + " " + upper[i]);
+                    System.out.printf("%d %d %d%n", i, lower[i], upper[i]);
                 }
 
                 // find a new bound to add
@@ -1936,9 +1757,9 @@ class Java13Example
         System.out.println("FindSmallModelExample");
         Log.append("FindSmallModelExample");
 
-        BitVecExpr x = ctx.mkBVConst("x", 32);
-        BitVecExpr y = ctx.mkBVConst("y", 32);
-        BitVecExpr z = ctx.mkBVConst("z", 32);
+        var x = ctx.mkBVConst("x", 32);
+        var y = ctx.mkBVConst("y", 32);
+        var z = ctx.mkBVConst("z", 32);
 
         Solver solver = ctx.mkSolver();
 
@@ -1948,20 +1769,21 @@ class Java13Example
 
     // / Simplifier example.
 
+    @SuppressWarnings("unchecked")
     public void simplifierExample(Context ctx)
     {
         System.out.println("SimplifierExample");
         Log.append("SimplifierExample");
 
-        IntExpr x = ctx.mkIntConst("x");
-        IntExpr y = ctx.mkIntConst("y");
-        IntExpr z = ctx.mkIntConst("z");
+        var x = ctx.mkIntConst("x");
+        var y = ctx.mkIntConst("y");
+        var z = ctx.mkIntConst("z");
         @SuppressWarnings("unused")
-        IntExpr u = ctx.mkIntConst("u");
+        var u = ctx.mkIntConst("u");
 
-        Expr t1 = ctx.mkAdd(x, ctx.mkSub(y, ctx.mkAdd(x, z)));
-        Expr t2 = t1.simplify();
-        System.out.println((t1) + " -> " + (t2));
+        var t1 = ctx.mkAdd(x, ctx.mkSub(y, ctx.mkAdd(x, z)));
+        var t2 = t1.simplify();
+        System.out.printf("%s -> %s%n", t1, t2);
     }
 
     // / Extract unsatisfiable core example
@@ -1997,9 +1819,9 @@ class Java13Example
         if (result == Status.UNSATISFIABLE)
         {
             System.out.println("unsat");
-            System.out.println("proof: " + solver.getProof());
+            System.out.printf("proof: %s%n", solver.getProof());
             System.out.println("core: ");
-            for (Expr c : solver.getUnsatCore())
+            for (Expr<?> c : solver.getUnsatCore())
             {
                 System.out.println(c);
             }
@@ -2040,22 +1862,22 @@ class Java13Example
         {
             System.out.println("unsat");
             System.out.println("core: ");
-            for (Expr c : solver.getUnsatCore())
+            for (Expr<?> c : solver.getUnsatCore())
             {
                 System.out.println(c);
             }
         }
     }
 
-    public void finiteDomainExample(Context ctx)
+    public <S, T> void finiteDomainExample(Context ctx)
     {
         System.out.println("FiniteDomainExample");
         Log.append("FiniteDomainExample");
 
-        FiniteDomainSort s = ctx.mkFiniteDomainSort("S", 10);
-        FiniteDomainSort t = ctx.mkFiniteDomainSort("T", 10);
-        FiniteDomainNum s1 = (FiniteDomainNum)ctx.mkNumeral(1, s);
-        FiniteDomainNum t1 = (FiniteDomainNum)ctx.mkNumeral(1, t);
+        FiniteDomainSort<S> s = ctx.mkFiniteDomainSort("S", 10);
+        FiniteDomainSort<T> t = ctx.mkFiniteDomainSort("T", 10);
+        FiniteDomainNum<S> s1 = (FiniteDomainNum<S>) ctx.mkNumeral(1, s);
+        FiniteDomainNum<T> t1 = (FiniteDomainNum<T>) ctx.mkNumeral(1, t);
         System.out.println(s);
         System.out.println(t);
         System.out.println(s1);
@@ -2073,14 +1895,12 @@ class Java13Example
         Log.append("FloatingPointExample1");
 
         FPSort s = ctx.mkFPSort(11, 53);
-        System.out.println("Sort: " + s);
+        System.out.printf("Sort: %s%n", s);
 
         FPNum x = (FPNum)ctx.mkNumeral("-1e1", s); /* -1 * 10^1 = -10 */
         FPNum y = (FPNum)ctx.mkNumeral("-10", s); /* -10 */
         FPNum z = (FPNum)ctx.mkNumeral("-1.25p3", s); /* -1.25 * 2^3 = -1.25 * 8 = -10 */
-        System.out.println("x=" + x.toString()  +
-                           "; y=" + y.toString() +
-                           "; z=" + z.toString());
+        System.out.printf("x=%s; y=%s; z=%s%n", x.toString(), y.toString(), z.toString());
 
         BoolExpr a = ctx.mkAnd(ctx.mkFPEq(x, y), ctx.mkFPEq(y, z));
         check(ctx, ctx.mkNot(a), Status.UNSATISFIABLE);
@@ -2095,14 +1915,14 @@ class Java13Example
         slvr.add(ctx.mkFPEq(nan, k));
         if (slvr.check() != Status.UNSATISFIABLE)
             throw new TestFailedException();
-        System.out.println("OK, unsat:" + System.getProperty("line.separator") + slvr);
+        System.out.printf("OK, unsat:%n%s%n", slvr);
 
         /* NaN is equal to NaN according to normal equality. */
         slvr = ctx.mkSolver("QF_FP");
         slvr.add(ctx.mkEq(nan, nan));
         if (slvr.check() != Status.SATISFIABLE)
             throw new TestFailedException();
-        System.out.println("OK, sat:" + System.getProperty("line.separator")  + slvr);
+        System.out.printf("OK, sat:%n%s%n", slvr);
 
         /* Let's prove -1e1 * -1.25e3 == +100 */
         x = (FPNum)ctx.mkNumeral("-1e1", s);
@@ -2115,7 +1935,7 @@ class Java13Example
         slvr.add(ctx.mkNot(ctx.mkFPEq(x_plus_y, r)));
         if (slvr.check() != Status.UNSATISFIABLE)
             throw new TestFailedException();
-        System.out.println("OK, unsat:" + System.getProperty("line.separator")  + slvr);
+        System.out.printf("OK, unsat:%n%s%n", slvr);
     }
 
     public void floatingPointExample2(Context ctx) throws TestFailedException
@@ -2135,7 +1955,7 @@ class Java13Example
         BoolExpr c3 = ctx.mkEq(x, ctx.mkBV(42, 64));
         BoolExpr c4 = ctx.mkEq(ctx.mkNumeral(42, ctx.getRealSort()), ctx.mkFPToReal(fp_val));
         BoolExpr c5 = ctx.mkAnd(c1, c2, c3, c4);
-        System.out.println("c5 = " + c5);
+        System.out.printf("c5 = %s%n", c5);
 
         /* Generic solver */
         Solver s = ctx.mkSolver();
@@ -2144,9 +1964,10 @@ class Java13Example
         if (s.check() != Status.SATISFIABLE)
             throw new TestFailedException();
 
-        System.out.println("OK, model: " + s.getModel().toString());
+        System.out.printf("OK, model: %s%n", s.getModel());
     }
 
+    @SuppressWarnings("unchecked")
     public void optimizeExample(Context ctx)
     {
         System.out.println("Opt");
@@ -2162,8 +1983,8 @@ class Java13Example
                 ctx.mkGe(yExp, ctx.mkInt(0)));
 
         // Set objectives.
-        Optimize.Handle mx = opt.MkMaximize(xExp);
-        Optimize.Handle my = opt.MkMaximize(yExp);
+        var mx = opt.MkMaximize(xExp);
+        var my = opt.MkMaximize(yExp);
 
         System.out.println(opt.Check());
         System.out.println(mx);
@@ -2183,9 +2004,9 @@ class Java13Example
         System.out.println(s2.equals(s3));
         System.out.println(s1.equals(s3));
 
-        Expr e1 = ctx1.mkIntConst("e1");
-        Expr e2 = ctx2.mkIntConst("e1");
-        Expr e3 = e1.translate(ctx2);
+        var e1 = ctx1.mkIntConst("e1");
+        var e2 = ctx2.mkIntConst("e1");
+        var e3 = e1.translate(ctx2);
 
         System.out.println(e1 == e2);
         System.out.println(e1.equals(e2));
@@ -2211,13 +2032,12 @@ class Java13Example
             p.simpleExample();
 
             { // These examples need model generation turned on.
-                HashMap<String, String> cfg = new HashMap<String, String>();
+                HashMap<String, String> cfg = new HashMap<>();
                 cfg.put("model", "true");
                 Context ctx = new Context(cfg);
 
                 p.optimizeExample(ctx);
                 p.basicTests(ctx);
-                p.castingTest(ctx);
                 p.sudokuExample(ctx);
                 p.quantifierExample1(ctx);
                 p.quantifierExample2(ctx);
@@ -2244,7 +2064,7 @@ class Java13Example
             }
 
             { // These examples need proof generation turned on.
-                HashMap<String, String> cfg = new HashMap<String, String>();
+                HashMap<String, String> cfg = new HashMap<>();
                 cfg.put("proof", "true");
                 Context ctx = new Context(cfg);
                 p.proveExample1(ctx);
@@ -2252,7 +2072,8 @@ class Java13Example
                 p.arrayExample2(ctx);
                 p.tupleExample(ctx);
                 // throws p.parserExample3(ctx);
-                p.enumExample(ctx);
+                p.enumExampleTyped(ctx);
+                p.enumExampleUntyped(ctx);
                 p.listExample(ctx);
                 p.treeExample(ctx);
                 p.forestExample(ctx);
@@ -2262,7 +2083,7 @@ class Java13Example
 
             { // These examples need proof generation turned on and auto-config
               // set to false.
-                HashMap<String, String> cfg = new HashMap<String, String>();
+                HashMap<String, String> cfg = new HashMap<>();
                 cfg.put("proof", "true");
                 cfg.put("auto-config", "false");
                 Context ctx = new Context(cfg);
@@ -2277,17 +2098,17 @@ class Java13Example
                 System.out.println("Log is still open!");
         } catch (Z3Exception ex)
         {
-            System.out.println("Z3 Managed Exception: " + ex.getMessage());
+            System.out.printf("Z3 Managed Exception: %s%n", ex.getMessage());
             System.out.println("Stack trace: ");
             ex.printStackTrace(System.out);
         } catch (TestFailedException ex)
         {
-            System.out.println("TEST CASE FAILED: " + ex.getMessage());
+            System.out.printf("TEST CASE FAILED: %s%n", ex.getMessage());
             System.out.println("Stack trace: ");
             ex.printStackTrace(System.out);
         } catch (Exception ex)
         {
-            System.out.println("Unknown Exception: " + ex.getMessage());
+            System.out.printf("Unknown Exception: %s%n", ex.getMessage());
             System.out.println("Stack trace: ");
             ex.printStackTrace(System.out);
         }

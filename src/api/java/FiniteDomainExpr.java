@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Finite-domain expressions
  **/
-public class FiniteDomainExpr extends Expr<FiniteDomainSort>
+public class FiniteDomainExpr<R> extends Expr<FiniteDomainSort<R>>
 {
     /**
      * Constructor for FiniteDomainExpr
