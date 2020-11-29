@@ -74,12 +74,6 @@ static void thread_func(scoped_timer_state *s) {
     }
 }
 
-#ifndef _WINDOWS
-static bool pthread_atfork_set(false);
-static void atfork_prepare() {
-    scoped_timer::finalize();
-}
-#endif
 
 struct scoped_timer::imp {
 private:
@@ -89,12 +83,6 @@ public:
     imp(unsigned ms, event_handler * eh) {
         workers.lock();
         if (available_workers.empty()) {
-#ifndef _WINDOWS
-            if (!pthread_atfork_set) {
-                pthread_atfork(atfork_prepare, nullptr, nullptr);
-                pthread_atfork_set = true;
-            }
-#endif
             workers.unlock();
             s = new scoped_timer_state;
             ++num_workers;
@@ -134,6 +122,16 @@ scoped_timer::~scoped_timer() {
     dealloc(m_imp);
 }
 
+void scoped_timer::initialize() {
+#ifndef _WINDOWS
+    static bool pthread_atfork_set = false;
+    if (!pthread_atfork_set) {
+        pthread_atfork(finalize, nullptr, nullptr);
+        pthread_atfork_set = true;
+    }
+#endif
+}
+
 void scoped_timer::finalize() {
     unsigned deleted = 0;
     while (deleted < num_workers) {
@@ -153,5 +151,5 @@ void scoped_timer::finalize() {
             delete w;
         }
     }
-    num_workers -= deleted;
+    num_workers = 0;
 }
