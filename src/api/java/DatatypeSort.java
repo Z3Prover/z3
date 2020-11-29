@@ -99,7 +99,7 @@ public class DatatypeSort<R extends Sort> extends Sort
         super(ctx, obj);
     }
 
-    DatatypeSort(Context ctx, Symbol name, Constructor[] constructors)
+    DatatypeSort(Context ctx, Symbol name, Constructor<DatatypeSort<R>>[] constructors)
            
     {
         super(ctx, Native.mkDatatype(ctx.nCtx(), name.getNativeObject(),

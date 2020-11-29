@@ -364,22 +364,22 @@ public class Context implements AutoCloseable {
     /**
      * Create a new datatype sort.
      **/
-    public <R extends DatatypeSort<?>> R mkDatatypeSort(Symbol name, Constructor<R>[] constructors)
+    public <R extends Sort> DatatypeSort<R> mkDatatypeSort(Symbol name, Constructor<DatatypeSort<R>>[] constructors)
 
     {
         checkContextMatch(name);
         checkContextMatch(constructors);
-        return (R) new DatatypeSort<>(this, name, constructors);
+        return new DatatypeSort<>(this, name, constructors);
     }
 
     /**
      * Create a new datatype sort.
      **/
-    public <R extends DatatypeSort<?>> R mkDatatypeSort(String name, Constructor<R>[] constructors)
+    public <R extends Sort> DatatypeSort<R> mkDatatypeSort(String name, Constructor<DatatypeSort<R>>[] constructors)
 
     {
         checkContextMatch(constructors);
-        return (R) new DatatypeSort<>(this, mkSymbol(name), constructors);
+        return new DatatypeSort<>(this, mkSymbol(name), constructors);
     }
 
     /**
