@@ -107,10 +107,10 @@ public class FuncDecl<R extends Sort> extends AST
     /**
      * The range of the function declaration
      **/
-    public Sort getRange()
+    @SuppressWarnings("unchecked")
+    public R getRange()
     {
-
-        return Sort.create(getContext(),
+        return (R) Sort.create(getContext(),
                 Native.getRange(getContext().nCtx(), getNativeObject()));
     }
 

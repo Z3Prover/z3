@@ -233,9 +233,9 @@ public class Expr<R extends Sort> extends AST
      * @throws Z3Exception on error
      * @return a sort
      **/
-    public Sort getSort()
+    public R getSort()
     {
-        return Sort.create(getContext(),
+        return (R) Sort.create(getContext(),
                 Native.getSort(getContext().nCtx(), getNativeObject()));
     }
 
