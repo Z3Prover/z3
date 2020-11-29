@@ -94,7 +94,7 @@ public class Constructor<R extends DatatypeSort<?>> extends Z3Object {
         getContext().getConstructorDRQ().storeReference(getContext(), this);
     }
 
-    static Constructor<DatatypeSort<?>> of(Context ctx, Symbol name, Symbol recognizer,
+    static Constructor<? extends DatatypeSort<?>> of(Context ctx, Symbol name, Symbol recognizer,
             Symbol[] fieldNames, Sort[] sorts, int[] sortRefs) {
         int n = AST.arrayLength(fieldNames);
 
