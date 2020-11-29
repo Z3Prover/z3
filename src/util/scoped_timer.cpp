@@ -29,6 +29,9 @@ Revision History:
 #include <mutex>
 #include <thread>
 #include <vector>
+#ifndef _WINDOWS
+#include <pthread.h>
+#endif
 
 struct scoped_timer_state {
     std::thread * m_thread { nullptr };
@@ -119,6 +122,16 @@ scoped_timer::~scoped_timer() {
     dealloc(m_imp);
 }
 
+void scoped_timer::initialize() {
+#ifndef _WINDOWS
+    static bool pthread_atfork_set = false;
+    if (!pthread_atfork_set) {
+        pthread_atfork(finalize, nullptr, nullptr);
+        pthread_atfork_set = true;
+    }
+#endif
+}
+
 void scoped_timer::finalize() {
     unsigned deleted = 0;
     while (deleted < num_workers) {
@@ -138,4 +151,5 @@ void scoped_timer::finalize() {
             delete w;
         }
     }
+    num_workers = 0;
 }

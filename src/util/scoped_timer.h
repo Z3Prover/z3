@@ -26,5 +26,10 @@ class scoped_timer {
 public:
     scoped_timer(unsigned ms, event_handler * eh);
     ~scoped_timer();
+    static void initialize();
     static void finalize();
 };
+
+/*
+    ADD_INITIALIZER('scoped_timer::initialize();')
+*/
