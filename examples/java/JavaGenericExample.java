@@ -22,10 +22,11 @@ import com.microsoft.z3.*;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static java.util.stream.Stream.concat;
 
-class Java13Example
+class JavaGenericExample
 {
     @SuppressWarnings("serial")
     static class TestFailedException extends Exception
@@ -59,24 +60,24 @@ class Java13Example
         /* declare the i-th inverse of f: finv */
         Sort finv_domain = f.getRange();
         Sort finv_range = domain[i];
-        var finv = ctx.mkFuncDecl("f_fresh", finv_domain, finv_range);
+        FuncDecl<Sort> finv = ctx.mkFuncDecl("f_fresh", finv_domain, finv_range);
 
         /* allocate temporary arrays */
         /* fill types, names and xs */
         Sort[] types = domain.clone();
-        var xs = IntStream.range(0, sz).mapToObj(j -> ctx.mkBound(j, types[j])).collect(Collectors.toList());
+        List<Expr<Sort>> xs = IntStream.range(0, sz).mapToObj(j -> ctx.mkBound(j, types[j])).collect(Collectors.toList());
         Symbol[] names = IntStream.range(0, sz).mapToObj(j -> ctx.mkSymbol(String.format("x_%d", j))).toArray(Symbol[]::new);
 
-        var x_i = xs.get(i);
+        Expr<Sort> x_i = xs.get(i);
 
         /* create f(x_0, ..., x_i, ..., x_{n-1}) */
-        var fxs = f.apply(xs.toArray(Expr[]::new));
+        Expr<R> fxs = f.apply(xs.toArray(new Expr[0]));
 
         /* create f_inv(f(x_0, ..., x_i, ..., x_{n-1})) */
-        var finv_fxs = finv.apply(fxs);
+        Expr<Sort> finv_fxs = finv.apply(fxs);
 
         /* create finv(f(x_0, ..., x_i, ..., x_{n-1})) = x_i */
-        var eq = ctx.mkEq(finv_fxs, x_i);
+        BoolExpr eq = ctx.mkEq(finv_fxs, x_i);
 
         /* use f(x_0, ..., x_i, ..., x_{n-1}) as the pattern for the quantifier */
         Pattern p = ctx.mkPattern(fxs);
@@ -109,30 +110,30 @@ class Java13Example
         }
 
         /* declare the i-th inverse of f: finv */
-        var finv_domain = f.getRange();
-        var finv_range = domain[i];
-        var finv = ctx.mkFuncDecl("f_fresh", finv_domain, finv_range);
+        R finv_domain = f.getRange();
+        Sort finv_range = domain[i];
+        FuncDecl<Sort> finv = ctx.mkFuncDecl("f_fresh", finv_domain, finv_range);
 
         /* allocate temporary arrays */
-        var xs = IntStream.range(0, sz).mapToObj(j -> ctx.mkConst(String.format("x_%d", j), domain[j])).collect(Collectors.toList());
+        List<Expr<Sort>> xs = IntStream.range(0, sz).mapToObj(j -> ctx.mkConst(String.format("x_%d", j), domain[j])).collect(Collectors.toList());
 
         /* fill types, names and xs */
-        var x_i = xs.get(i);
+        Expr<Sort> x_i = xs.get(i);
 
         /* create f(x_0, ..., x_i, ..., x_{n-1}) */
-        var fxs = f.apply(xs.toArray(Expr[]::new));
+        Expr<R> fxs = f.apply(xs.toArray(new Expr[0]));
 
         /* create f_inv(f(x_0, ..., x_i, ..., x_{n-1})) */
-        var finv_fxs = finv.apply(fxs);
+        Expr<Sort> finv_fxs = finv.apply(fxs);
 
         /* create finv(f(x_0, ..., x_i, ..., x_{n-1})) = x_i */
-        var eq = ctx.mkEq(finv_fxs, x_i);
+        BoolExpr eq = ctx.mkEq(finv_fxs, x_i);
 
         /* use f(x_0, ..., x_i, ..., x_{n-1}) as the pattern for the quantifier */
         Pattern p = ctx.mkPattern(fxs);
 
         /* create & assert quantifier */
-        return ctx.mkForall(xs.toArray(Expr[]::new), /* types of quantified variables */
+        return ctx.mkForall(xs.toArray(new Expr[0]), /* types of quantified variables */
                 eq, /* names of quantified variables */
                 1, new Pattern[] { p } /* patterns */, null, null, null);
     }
@@ -145,8 +146,8 @@ class Java13Example
     // / </remarks>
     private <R extends Sort> BoolExpr commAxiom(Context ctx, FuncDecl<R> f) throws Exception
     {
-        var t = f.getRange();
-        var dom = f.getDomain();
+        R t = f.getRange();
+        Sort[] dom = f.getDomain();
 
         if (dom.length != 2 || !t.equals(dom[0]) || !t.equals(dom[1]))
         {
@@ -302,8 +303,8 @@ class Java13Example
     {
         System.out.println("ModelConverterTest");
 
-        var xr = ctx.mkConst(ctx.mkSymbol("x"), ctx.mkRealSort());
-        var yr = ctx.mkConst(ctx.mkSymbol("y"), ctx.mkRealSort());
+        Expr<RealSort> xr = ctx.mkConst(ctx.mkSymbol("x"), ctx.mkRealSort());
+        Expr<RealSort> yr = ctx.mkConst(ctx.mkSymbol("y"), ctx.mkRealSort());
         Goal g4 = ctx.mkGoal(true, false, false);
         g4.add(ctx.mkGt(xr, ctx.mkReal(10, 1)));
         g4.add(ctx.mkEq(yr, ctx.mkAdd(xr, ctx.mkReal(1, 1))));
@@ -341,19 +342,19 @@ class Java13Example
         Log.append("ArrayExample1");
 
         Goal g = ctx.mkGoal(true, false, false);
-        var asort = ctx.mkArraySort(ctx.getIntSort(),
+        ArraySort<IntSort, BitVecSort> asort = ctx.mkArraySort(ctx.getIntSort(),
                 ctx.mkBitVecSort(32));
-        var aex = ctx.mkConst(ctx.mkSymbol("MyArray"), asort);
-        var sel = ctx.mkSelect(aex, ctx.mkInt(0));
+        Expr<ArraySort<IntSort, BitVecSort>> aex = ctx.mkConst(ctx.mkSymbol("MyArray"), asort);
+        Expr<BitVecSort> sel = ctx.mkSelect(aex, ctx.mkInt(0));
         g.add(ctx.mkEq(sel, ctx.mkBV(42, 32)));
         Symbol xs = ctx.mkSymbol("x");
         IntExpr xc = (IntExpr) ctx.mkConst(xs, ctx.getIntSort());
 
         Symbol fname = ctx.mkSymbol("f");
         Sort[] domain = { ctx.getIntSort() };
-        var fd = ctx.mkFuncDecl(fname, domain, ctx.getIntSort());
+        FuncDecl<IntSort> fd = ctx.mkFuncDecl(fname, domain, ctx.getIntSort());
         Expr<?>[] fargs = { ctx.mkConst(xs, ctx.getIntSort()) };
-        var fapp = ctx.mkApp(fd, fargs);
+        Expr<IntSort> fapp = ctx.mkApp(fd, fargs);
 
         g.add(ctx.mkEq(ctx.mkAdd(xc, fapp), ctx.mkInt(123)));
 
@@ -386,37 +387,37 @@ class Java13Example
         System.out.println("ArrayExample2");
         Log.append("ArrayExample2");
 
-        var int_type = ctx.getIntSort();
-        var array_type = ctx.mkArraySort(int_type, int_type);
+        IntSort int_type = ctx.getIntSort();
+        ArraySort<IntSort, IntSort> array_type = ctx.mkArraySort(int_type, int_type);
 
-        var a1 = ctx.mkConst("a1", array_type);
-        var a2 = ctx.mkArrayConst("a2", int_type, int_type);
-        var i1 = ctx.mkConst("i1", int_type);
-        var i2 = ctx.mkConst("i2", int_type);
-        var i3 = ctx.mkConst("i3", int_type);
-        var v1 = ctx.mkConst("v1", int_type);
-        var v2 = ctx.mkConst("v2", int_type);
+        Expr<ArraySort<IntSort, IntSort>> a1 = ctx.mkConst("a1", array_type);
+        ArrayExpr<IntSort, IntSort> a2 = ctx.mkArrayConst("a2", int_type, int_type);
+        Expr<IntSort> i1 = ctx.mkConst("i1", int_type);
+        Expr<IntSort> i2 = ctx.mkConst("i2", int_type);
+        Expr<IntSort> i3 = ctx.mkConst("i3", int_type);
+        Expr<IntSort> v1 = ctx.mkConst("v1", int_type);
+        Expr<IntSort> v2 = ctx.mkConst("v2", int_type);
 
-        var st1 = ctx.mkStore(a1, i1, v1);
-        var st2 = ctx.mkStore(a2, i2, v2);
+        ArrayExpr<IntSort, IntSort> st1 = ctx.mkStore(a1, i1, v1);
+        ArrayExpr<IntSort, IntSort> st2 = ctx.mkStore(a2, i2, v2);
 
-        var sel1 = ctx.mkSelect(a1, i3);
-        var sel2 = ctx.mkSelect(a2, i3);
+        Expr<IntSort> sel1 = ctx.mkSelect(a1, i3);
+        Expr<IntSort> sel2 = ctx.mkSelect(a2, i3);
 
         /* create antecedent */
-        var antecedent = ctx.mkEq(st1, st2);
+        BoolExpr antecedent = ctx.mkEq(st1, st2);
 
         /*
          * create consequent: i1 = i3 or i2 = i3 or select(a1, i3) = select(a2,
          * i3)
          */
-        var consequent = ctx.mkOr(ctx.mkEq(i1, i3), ctx.mkEq(i2, i3), ctx.mkEq(sel1, sel2));
+        BoolExpr consequent = ctx.mkOr(ctx.mkEq(i1, i3), ctx.mkEq(i2, i3), ctx.mkEq(sel1, sel2));
 
         /*
          * prove store(a1, i1, v1) = store(a2, i2, v2) implies (i1 = i3 or i2 =
          * i3 or select(a1, i3) = select(a2, i3))
          */
-        var thm = ctx.mkImplies(antecedent, consequent);
+        BoolExpr thm = ctx.mkImplies(antecedent, consequent);
         System.out.println("prove: store(a1, i1, v1) = store(a2, i2, v2) implies (i1 = i3 or i2 = i3 or select(a1, i3) = select(a2, i3))");
         System.out.println(thm);
         prove(ctx, thm, false);
@@ -438,14 +439,14 @@ class Java13Example
         {
             System.out.printf("n = %d%n", n);
 
-            var bool_type = ctx.mkBoolSort();
-            var array_type = ctx.mkArraySort(bool_type, bool_type);
-            var a = IntStream.range(0, n).mapToObj(i -> ctx.mkConst(String.format("array_%d", i), array_type)).collect(Collectors.toList());
+            BoolSort bool_type = ctx.mkBoolSort();
+            ArraySort<BoolSort, BoolSort> array_type = ctx.mkArraySort(bool_type, bool_type);
+            List<Expr<ArraySort<BoolSort, BoolSort>>> a = IntStream.range(0, n).mapToObj(i -> ctx.mkConst(String.format("array_%d", i), array_type)).collect(Collectors.toList());
 
             /* create arrays */
 
             /* assert distinct(a[0], ..., a[n]) */
-            BoolExpr d = ctx.mkDistinct(a.toArray(Expr[]::new));
+            BoolExpr d = ctx.mkDistinct(a.toArray(new Expr[0]));
             System.out.println(d);
 
             /* context is satisfiable if n < 5 */
@@ -469,23 +470,23 @@ class Java13Example
         Log.append("SudokuExample");
 
         // 9x9 matrix of integer variables
-        var X = IntStream.range(0, 9).mapToObj(i -> IntStream.range(0, 9).mapToObj(j ->
+        List<List<Expr<IntSort>>> X = IntStream.range(0, 9).mapToObj(i -> IntStream.range(0, 9).mapToObj(j ->
                 ctx.mkConst(ctx.mkSymbol(String.format("x_%d_%d", i + 1, j + 1)), ctx.getIntSort()))
                 .collect(Collectors.toList())).collect(Collectors.toList());
 
         // each cell contains a value in {1, ..., 9}
-        var cells_c = X.stream().map(r -> r.stream().map(c ->
+        List<List<BoolExpr>> cells_c = X.stream().map(r -> r.stream().map(c ->
                 ctx.mkAnd(ctx.mkLe(ctx.mkInt(1), c), ctx.mkLe(c, ctx.mkInt(9))))
                 .collect(Collectors.toList())).collect(Collectors.toList());
 
         // each row contains a digit at most once
-        var rows_c = IntStream.range(0, 9).mapToObj(i -> ctx.mkDistinct(X.get(i).toArray(Expr[]::new))).collect(Collectors.toList());
+        List<BoolExpr> rows_c = IntStream.range(0, 9).mapToObj(i -> ctx.mkDistinct(X.get(i).toArray(new Expr[0]))).collect(Collectors.toList());
 
         // each column contains a digit at most once
-        var cols_c = IntStream.range(0, 9).mapToObj(j -> ctx.mkDistinct(X.stream().map(r -> r.get(j)).toArray(Expr[]::new))).collect(Collectors.toList());
+        List<BoolExpr> cols_c = IntStream.range(0, 9).mapToObj(j -> ctx.mkDistinct(X.stream().map(r -> r.get(j)).toArray(Expr[]::new))).collect(Collectors.toList());
 
         // each 3x3 square contains a digit at most once
-        var sq_c = IntStream.range(0, 3).mapToObj(i0 -> {
+        List<List<BoolExpr>> sq_c = IntStream.range(0, 3).mapToObj(i0 -> {
             return IntStream.range(0, 3).mapToObj(j0 -> {
                 return ctx.mkDistinct(IntStream.range(0, 3).boxed().flatMap(i -> {
                     return IntStream.range(0, 3).mapToObj(j -> X.get(3 * i0 + i).get(3 * j0 + j));
@@ -493,11 +494,11 @@ class Java13Example
             }).collect(Collectors.toList());
         }).collect(Collectors.toList());
 
-        var sudoku_s = cells_c.stream().flatMap(Collection::stream);
+        Stream<BoolExpr> sudoku_s = cells_c.stream().flatMap(Collection::stream);
         sudoku_s = concat(sudoku_s, rows_c.stream());
         sudoku_s = concat(sudoku_s, cols_c.stream());
         sudoku_s = concat(sudoku_s, sq_c.stream().flatMap(Collection::stream));
-        var sudoku_c = ctx.mkAnd(sudoku_s.toArray(BoolExpr[]::new));
+        BoolExpr sudoku_c = ctx.mkAnd(sudoku_s.toArray(BoolExpr[]::new));
 
         // sudoku instance, we use '0' for empty cells
         int[][] instance = {
@@ -522,7 +523,7 @@ class Java13Example
         if (s.check() == Status.SATISFIABLE)
         {
             Model m = s.getModel();
-            var R = X.stream().map(r -> r.stream().map(c -> m.eval(c, false)).collect(Collectors.toList())).collect(Collectors.toList());
+            List<List<Expr<IntSort>>> R = X.stream().map(r -> r.stream().map(c -> m.eval(c, false)).collect(Collectors.toList())).collect(Collectors.toList());
             System.out.println("Sudoku solution:");
             R.forEach(r -> System.out.println(r.stream().map(Objects::toString).collect(Collectors.joining(" "))));
         } else
@@ -540,27 +541,27 @@ class Java13Example
         System.out.println("QuantifierExample");
         Log.append("QuantifierExample");
 
-        var types = new IntSort[3];
+        IntSort[] types = new IntSort[3];
         Arrays.fill(types, ctx.getIntSort());
-        var names = IntStream.range(0, 3).mapToObj(j -> ctx.mkSymbol(String.format("x_%d", j))).toArray(Symbol[]::new);
-        var xs = IntStream.range(0, 3).mapToObj(j -> ctx.mkConst(names[j], types[j])).collect(Collectors.toList());
-        var vars = IntStream.range(0, 3).mapToObj(j -> ctx.mkBound(2 - j, types[j])).collect(Collectors.toList());
+        Symbol[] names = IntStream.range(0, 3).mapToObj(j -> ctx.mkSymbol(String.format("x_%d", j))).toArray(Symbol[]::new);
+        List<Expr<IntSort>> xs = IntStream.range(0, 3).mapToObj(j -> ctx.mkConst(names[j], types[j])).collect(Collectors.toList());
+        List<Expr<IntSort>> vars = IntStream.range(0, 3).mapToObj(j -> ctx.mkBound(2 - j, types[j])).collect(Collectors.toList());
 
-        var body_vars = ctx.mkAnd(
+        BoolExpr body_vars = ctx.mkAnd(
                 ctx.mkEq(ctx.mkAdd(vars.get(0), ctx.mkInt(1)), ctx.mkInt(2)),
                 ctx.mkEq(ctx.mkAdd(vars.get(1), ctx.mkInt(2)),
                         ctx.mkAdd(vars.get(2), ctx.mkInt(3))));
 
-        var body_const = ctx.mkAnd(
+        BoolExpr body_const = ctx.mkAnd(
                 ctx.mkEq(ctx.mkAdd(xs.get(0), ctx.mkInt(1)), ctx.mkInt(2)),
                 ctx.mkEq(ctx.mkAdd(xs.get(1), ctx.mkInt(2)),
                         ctx.mkAdd(xs.get(2), ctx.mkInt(3))));
 
-        var x = ctx.mkForall(types, names, body_vars, 1, null, null,
+        Quantifier x = ctx.mkForall(types, names, body_vars, 1, null, null,
                 ctx.mkSymbol("Q1"), ctx.mkSymbol("skid1"));
         System.out.printf("Quantifier X: %s%n", x.toString());
 
-        var y = ctx.mkForall(xs.toArray(Expr[]::new), body_const, 1, null, null,
+        Quantifier y = ctx.mkForall(xs.toArray(new Expr[0]), body_const, 1, null, null,
                 ctx.mkSymbol("Q2"), ctx.mkSymbol("skid2"));
         System.out.printf("Quantifier Y: %s%n", y.toString());
     }
@@ -572,21 +573,21 @@ class Java13Example
         Log.append("QuantifierExample2");
 
         Quantifier q1, q2;
-        var f = ctx.mkFuncDecl("f", ctx.getIntSort(), ctx.getIntSort());
-        var g = ctx.mkFuncDecl("g", ctx.getIntSort(), ctx.getIntSort());
+        FuncDecl<IntSort> f = ctx.mkFuncDecl("f", ctx.getIntSort(), ctx.getIntSort());
+        FuncDecl<IntSort> g = ctx.mkFuncDecl("g", ctx.getIntSort(), ctx.getIntSort());
 
         // Quantifier with Exprs as the bound variables.
         {
-            var x = ctx.mkConst("x", ctx.getIntSort());
-            var y = ctx.mkConst("y", ctx.getIntSort());
-            var f_x = ctx.mkApp(f, x);
-            var f_y = ctx.mkApp(f, y);
-            var g_y = ctx.mkApp(g, y);
+            Expr<IntSort> x = ctx.mkConst("x", ctx.getIntSort());
+            Expr<IntSort> y = ctx.mkConst("y", ctx.getIntSort());
+            Expr<IntSort> f_x = ctx.mkApp(f, x);
+            Expr<IntSort> f_y = ctx.mkApp(f, y);
+            Expr<IntSort> g_y = ctx.mkApp(g, y);
             @SuppressWarnings("unused")
             Pattern[] pats = new Pattern[] { ctx.mkPattern(f_x, g_y) };
-            var no_pats = new Expr[] { f_y };
-            var bound = new Expr[] { x, y };
-            var body = ctx.mkAnd(ctx.mkEq(f_x, f_y), ctx.mkEq(f_y, g_y));
+            Expr[] no_pats = new Expr[] { f_y };
+            Expr[] bound = new Expr[] { x, y };
+            BoolExpr body = ctx.mkAnd(ctx.mkEq(f_x, f_y), ctx.mkEq(f_y, g_y));
 
             q1 = ctx.mkForall(bound, body, 1, null, no_pats, ctx.mkSymbol("q"),
                     ctx.mkSymbol("sk"));
@@ -596,18 +597,18 @@ class Java13Example
 
         // Quantifier with de-Bruijn indices.
         {
-            var x = ctx.mkBound(1, ctx.getIntSort());
-            var y = ctx.mkBound(0, ctx.getIntSort());
-            var f_x = ctx.mkApp(f, x);
-            var f_y = ctx.mkApp(f, y);
-            var g_y = ctx.mkApp(g, y);
+            Expr<IntSort> x = ctx.mkBound(1, ctx.getIntSort());
+            Expr<IntSort> y = ctx.mkBound(0, ctx.getIntSort());
+            Expr<IntSort> f_x = ctx.mkApp(f, x);
+            Expr<IntSort> f_y = ctx.mkApp(f, y);
+            Expr<IntSort> g_y = ctx.mkApp(g, y);
             @SuppressWarnings("unused")
             Pattern[] pats = new Pattern[] { ctx.mkPattern(f_x, g_y) };
-            var no_pats = new Expr[] { f_y };
+            Expr[] no_pats = new Expr[] { f_y };
             Symbol[] names = new Symbol[] { ctx.mkSymbol("x"),
                     ctx.mkSymbol("y") };
             Sort[] sorts = new Sort[] { ctx.getIntSort(), ctx.getIntSort() };
-            var body = ctx.mkAnd(ctx.mkEq(f_x, f_y), ctx.mkEq(f_y, g_y));
+            BoolExpr body = ctx.mkAnd(ctx.mkEq(f_x, f_y), ctx.mkEq(f_y, g_y));
 
             q2 = ctx.mkForall(sorts, names, body, 1, null, // pats,
                     no_pats, ctx.mkSymbol("q"), ctx.mkSymbol("sk"));
@@ -632,29 +633,29 @@ class Java13Example
          */
 
         /* declare function f */
-        var I = ctx.getIntSort();
-        var f = ctx.mkFuncDecl("f", new Sort[] { I, I }, I);
+        IntSort I = ctx.getIntSort();
+        FuncDecl<IntSort> f = ctx.mkFuncDecl("f", new Sort[] { I, I }, I);
 
         /* f is injective in the second argument. */
-        var inj = injAxiom(ctx, f, 1);
+        BoolExpr inj = injAxiom(ctx, f, 1);
 
         /* create x, y, v, w, fxy, fwv */
-        var x = ctx.mkIntConst("x");
-        var y = ctx.mkIntConst("y");
-        var v = ctx.mkIntConst("v");
-        var w = ctx.mkIntConst("w");
-        var fxy = ctx.mkApp(f, x, y);
-        var fwv = ctx.mkApp(f, w, v);
+        IntExpr x = ctx.mkIntConst("x");
+        IntExpr y = ctx.mkIntConst("y");
+        IntExpr v = ctx.mkIntConst("v");
+        IntExpr w = ctx.mkIntConst("w");
+        Expr<IntSort> fxy = ctx.mkApp(f, x, y);
+        Expr<IntSort> fwv = ctx.mkApp(f, w, v);
 
         /* f(x, y) = f(w, v) */
-        var p1 = ctx.mkEq(fxy, fwv);
+        BoolExpr p1 = ctx.mkEq(fxy, fwv);
 
         /* prove f(x, y) = f(w, v) implies y = v */
-        var p2 = ctx.mkEq(y, v);
+        BoolExpr p2 = ctx.mkEq(y, v);
         prove(ctx, p2, false, inj, p1);
 
         /* disprove f(x, y) = f(w, v) implies x = w */
-        var p3 = ctx.mkEq(x, w);
+        BoolExpr p3 = ctx.mkEq(x, w);
         disprove(ctx, p3, false, inj, p1);
     }
 
@@ -673,29 +674,29 @@ class Java13Example
          */
 
         /* declare function f */
-        var I = ctx.getIntSort();
-        var f = ctx.mkFuncDecl("f", new Sort[] { I, I }, I);
+        IntSort I = ctx.getIntSort();
+        FuncDecl<IntSort> f = ctx.mkFuncDecl("f", new Sort[] { I, I }, I);
 
         /* f is injective in the second argument. */
-        var inj = injAxiomAbs(ctx, f, 1);
+        BoolExpr inj = injAxiomAbs(ctx, f, 1);
 
         /* create x, y, v, w, fxy, fwv */
-        var x = ctx.mkIntConst("x");
-        var y = ctx.mkIntConst("y");
-        var v = ctx.mkIntConst("v");
-        var w = ctx.mkIntConst("w");
-        var fxy = ctx.mkApp(f, x, y);
-        var fwv = ctx.mkApp(f, w, v);
+        IntExpr x = ctx.mkIntConst("x");
+        IntExpr y = ctx.mkIntConst("y");
+        IntExpr v = ctx.mkIntConst("v");
+        IntExpr w = ctx.mkIntConst("w");
+        Expr<IntSort> fxy = ctx.mkApp(f, x, y);
+        Expr<IntSort> fwv = ctx.mkApp(f, w, v);
 
         /* f(x, y) = f(w, v) */
-        var p1 = ctx.mkEq(fxy, fwv);
+        BoolExpr p1 = ctx.mkEq(fxy, fwv);
 
         /* prove f(x, y) = f(w, v) implies y = v */
-        var p2 = ctx.mkEq(y, v);
+        BoolExpr p2 = ctx.mkEq(y, v);
         prove(ctx, p2, false, inj, p1);
 
         /* disprove f(x, y) = f(w, v) implies x = w */
-        var p3 = ctx.mkEq(x, w);
+        BoolExpr p3 = ctx.mkEq(x, w);
         disprove(ctx, p3, false, inj, p1);
     }
 
@@ -709,18 +710,18 @@ class Java13Example
         Symbol x = ctx.mkSymbol("x");
         Symbol y = ctx.mkSymbol("y");
 
-        var bs = ctx.mkBoolSort();
+        BoolSort bs = ctx.mkBoolSort();
 
         Sort[] domain = { bs, bs };
-        var f = ctx.mkFuncDecl(fname, domain, bs);
-        var fapp = ctx.mkApp(f, ctx.mkConst(x, bs), ctx.mkConst(y, bs));
+        FuncDecl<BoolSort> f = ctx.mkFuncDecl(fname, domain, bs);
+        Expr<BoolSort> fapp = ctx.mkApp(f, ctx.mkConst(x, bs), ctx.mkConst(y, bs));
 
         Expr<?>[] fargs2 = { ctx.mkFreshConst("cp", bs) };
         Sort[] domain2 = { bs };
-        var fapp2 = ctx.mkApp(ctx.mkFreshFuncDecl("fp", domain2, bs), fargs2);
+        Expr<BoolSort> fapp2 = ctx.mkApp(ctx.mkFreshFuncDecl("fp", domain2, bs), fargs2);
 
-        var trivial_eq = ctx.mkEq(fapp, fapp);
-        var nontrivial_eq = ctx.mkEq(fapp, fapp2);
+        BoolExpr trivial_eq = ctx.mkEq(fapp, fapp);
+        BoolExpr nontrivial_eq = ctx.mkEq(fapp, fapp2);
 
         Goal g = ctx.mkGoal(true, false, false);
         g.add(trivial_eq);
@@ -762,8 +763,8 @@ class Java13Example
             throw new TestFailedException();
 
         Goal g3 = ctx.mkGoal(true, true, false);
-        var xc = ctx.mkConst(ctx.mkSymbol("x"), ctx.getIntSort());
-        var yc = ctx.mkConst(ctx.mkSymbol("y"), ctx.getIntSort());
+        Expr<IntSort> xc = ctx.mkConst(ctx.mkSymbol("x"), ctx.getIntSort());
+        Expr<IntSort> yc = ctx.mkConst(ctx.mkSymbol("y"), ctx.getIntSort());
         g3.add(ctx.mkEq(xc, ctx.mkNumeral(1, ctx.getIntSort())));
         g3.add(ctx.mkEq(yc, ctx.mkNumeral(2, ctx.getIntSort())));
         BoolExpr constr = ctx.mkEq(xc, yc);
@@ -776,8 +777,8 @@ class Java13Example
 
         // Real num/den test.
         RatNum rn = ctx.mkReal(42, 43);
-        var inum = rn.getNumerator();
-        var iden = rn.getDenominator();
+        IntNum inum = rn.getNumerator();
+        IntNum iden = rn.getDenominator();
         System.out.printf("Numerator: %s Denominator: %s%n", inum, iden);
         if (!inum.toString().equals("42") || !iden.toString().equals("43"))
             throw new TestFailedException();
@@ -822,10 +823,10 @@ class Java13Example
 
         Global.ToggleWarningMessages(true);
 
-        var bvs = ctx.mkBitVecSort(32);
-        var x = ctx.mkConst("x", bvs);
-        var y = ctx.mkConst("y", bvs);
-        var eq = ctx.mkEq(x, y);
+        BitVecSort bvs = ctx.mkBitVecSort(32);
+        Expr<BitVecSort> x = ctx.mkConst("x", bvs);
+        Expr<BitVecSort> y = ctx.mkConst("y", bvs);
+        BoolExpr eq = ctx.mkEq(x, y);
 
         // Use a solver for QF_BV
         Solver s = ctx.mkSolver("QF_BV");
@@ -852,10 +853,10 @@ class Java13Example
         System.out.println("ParOrExample");
         Log.append("ParOrExample");
 
-        var bvs = ctx.mkBitVecSort(32);
-        var x = ctx.mkConst("x", bvs);
-        var y = ctx.mkConst("y", bvs);
-        var q = ctx.mkEq(x, y);
+        BitVecSort bvs = ctx.mkBitVecSort(32);
+        Expr<BitVecSort> x = ctx.mkConst("x", bvs);
+        Expr<BitVecSort> y = ctx.mkConst("y", bvs);
+        BoolExpr q = ctx.mkEq(x, y);
 
         Goal g = ctx.mkGoal(true, false, false);
         g.add(q);
@@ -883,9 +884,9 @@ class Java13Example
         System.out.println("FindModelExample1");
         Log.append("FindModelExample1");
 
-        var x = ctx.mkBoolConst("x");
-        var y = ctx.mkBoolConst("y");
-        var x_xor_y = ctx.mkXor(x, y);
+        BoolExpr x = ctx.mkBoolConst("x");
+        BoolExpr y = ctx.mkBoolConst("y");
+        BoolExpr x_xor_y = ctx.mkXor(x, y);
 
         Model model = check(ctx, x_xor_y, Status.SATISFIABLE);
         System.out.printf("x = %s, y = %s%n", model.evaluate(x, false), model.evaluate(y, false));
@@ -899,25 +900,25 @@ class Java13Example
         System.out.println("FindModelExample2");
         Log.append("FindModelExample2");
 
-        var x = ctx.mkIntConst("x");
-        var y = ctx.mkIntConst("y");
-        var one = ctx.mkInt(1);
-        var two = ctx.mkInt(2);
+        IntExpr x = ctx.mkIntConst("x");
+        IntExpr y = ctx.mkIntConst("y");
+        IntNum one = ctx.mkInt(1);
+        IntNum two = ctx.mkInt(2);
 
-        var y_plus_one = ctx.mkAdd(y, one);
+        ArithExpr<IntSort> y_plus_one = ctx.mkAdd(y, one);
 
-        var c1 = ctx.mkLt(x, y_plus_one);
-        var c2 = ctx.mkGt(x, two);
+        BoolExpr c1 = ctx.mkLt(x, y_plus_one);
+        BoolExpr c2 = ctx.mkGt(x, two);
 
-        var q = ctx.mkAnd(c1, c2);
+        BoolExpr q = ctx.mkAnd(c1, c2);
 
         System.out.println("model for: x < y + 1, x > 2");
         Model model = check(ctx, q, Status.SATISFIABLE);
         System.out.printf("x = %s, y =%s%n", model.evaluate(x, false), model.evaluate(y, false));
 
         /* assert not(x = y) */
-        var x_eq_y = ctx.mkEq(x, y);
-        var c3 = ctx.mkNot(x_eq_y);
+        BoolExpr x_eq_y = ctx.mkEq(x, y);
+        BoolExpr c3 = ctx.mkNot(x_eq_y);
 
         q = ctx.mkAnd(q, c3);
 
@@ -937,28 +938,28 @@ class Java13Example
         Log.append("ProveExample1");
 
         /* create uninterpreted type. */
-        var U = ctx.mkUninterpretedSort(ctx.mkSymbol("U"));
+        UninterpretedSort U = ctx.mkUninterpretedSort(ctx.mkSymbol("U"));
 
         /* declare function g */
-        var g = ctx.mkFuncDecl("g", U, U);
+        FuncDecl<UninterpretedSort> g = ctx.mkFuncDecl("g", U, U);
 
         /* create x and y */
-        var x = ctx.mkConst("x", U);
-        var y = ctx.mkConst("y", U);
+        Expr<UninterpretedSort> x = ctx.mkConst("x", U);
+        Expr<UninterpretedSort> y = ctx.mkConst("y", U);
         /* create g(x), g(y) */
-        var gx = g.apply(x);
-        var gy = g.apply(y);
+        Expr<UninterpretedSort> gx = g.apply(x);
+        Expr<UninterpretedSort> gy = g.apply(y);
 
         /* assert x = y */
-        var eq = ctx.mkEq(x, y);
+        BoolExpr eq = ctx.mkEq(x, y);
 
         /* prove g(x) = g(y) */
-        var f = ctx.mkEq(gx, gy);
+        BoolExpr f = ctx.mkEq(gx, gy);
         System.out.println("prove: x = y implies g(x) = g(y)");
         prove(ctx, ctx.mkImplies(eq, f), false);
 
         /* create g(g(x)) */
-        var ggx = g.apply(gx);
+        Expr<UninterpretedSort> ggx = g.apply(gx);
 
         /* disprove g(g(x)) = g(y) */
         f = ctx.mkEq(ggx, gy);
@@ -983,43 +984,43 @@ class Java13Example
         Log.append("ProveExample2");
 
         /* declare function g */
-        var I = ctx.getIntSort();
+        IntSort I = ctx.getIntSort();
 
-        var g = ctx.mkFuncDecl("g", I, I);
+        FuncDecl<IntSort> g = ctx.mkFuncDecl("g", I, I);
 
         /* create x, y, and z */
-        var x = ctx.mkIntConst("x");
-        var y = ctx.mkIntConst("y");
-        var z = ctx.mkIntConst("z");
+        IntExpr x = ctx.mkIntConst("x");
+        IntExpr y = ctx.mkIntConst("y");
+        IntExpr z = ctx.mkIntConst("z");
 
         /* create gx, gy, gz */
-        var gx = ctx.mkApp(g, x);
-        var gy = ctx.mkApp(g, y);
-        var gz = ctx.mkApp(g, z);
+        Expr<IntSort> gx = ctx.mkApp(g, x);
+        Expr<IntSort> gy = ctx.mkApp(g, y);
+        Expr<IntSort> gz = ctx.mkApp(g, z);
 
         /* create zero */
-        var zero = ctx.mkInt(0);
+        IntNum zero = ctx.mkInt(0);
 
         /* assert not(g(g(x) - g(y)) = g(z)) */
-        var gx_gy = ctx.mkSub(gx, gy);
-        var ggx_gy = ctx.mkApp(g, gx_gy);
-        var eq = ctx.mkEq(ggx_gy, gz);
-        var c1 = ctx.mkNot(eq);
+        ArithExpr<IntSort> gx_gy = ctx.mkSub(gx, gy);
+        Expr<IntSort> ggx_gy = ctx.mkApp(g, gx_gy);
+        BoolExpr eq = ctx.mkEq(ggx_gy, gz);
+        BoolExpr c1 = ctx.mkNot(eq);
 
         /* assert x + z <= y */
-        var x_plus_z = ctx.mkAdd(x, z);
-        var c2 = ctx.mkLe(x_plus_z, y);
+        ArithExpr<IntSort> x_plus_z = ctx.mkAdd(x, z);
+        BoolExpr c2 = ctx.mkLe(x_plus_z, y);
 
         /* assert y <= x */
-        var c3 = ctx.mkLe(y, x);
+        BoolExpr c3 = ctx.mkLe(y, x);
 
         /* prove z < 0 */
-        var f = ctx.mkLt(z, zero);
+        BoolExpr f = ctx.mkLt(z, zero);
         System.out.println("prove: not(g(g(x) - g(y)) = g(z)), x + z <= y <= x implies z < 0");
         prove(ctx, f, false, c1, c2, c3);
 
         /* disprove z < -1 */
-        var minus_one = ctx.mkInt(-1);
+        IntNum minus_one = ctx.mkInt(-1);
         f = ctx.mkLt(z, minus_one);
         System.out.println("disprove: not(g(g(x) - g(y)) = g(z)), x + z <= y <= x implies z < -1");
         disprove(ctx, f, false, c1, c2, c3);
@@ -1035,19 +1036,19 @@ class Java13Example
         Log.append("PushPopExample1");
 
         /* create a big number */
-        var int_type = ctx.getIntSort();
-        var big_number = ctx.mkInt("1000000000000000000000000000000000000000000000000000000");
+        IntSort int_type = ctx.getIntSort();
+        IntNum big_number = ctx.mkInt("1000000000000000000000000000000000000000000000000000000");
 
         /* create number 3 */
-        var three = (IntExpr) ctx.mkNumeral("3", int_type);
+        IntExpr three = (IntExpr) ctx.mkNumeral("3", int_type);
 
         /* create x */
-        var x = ctx.mkIntConst("x");
+        IntExpr x = ctx.mkIntConst("x");
 
         Solver solver = ctx.mkSolver();
 
         /* assert x >= "big number" */
-        var c1 = ctx.mkGe(x, big_number);
+        BoolExpr c1 = ctx.mkGe(x, big_number);
         System.out.println("assert: x >= 'big number'");
         solver.add(c1);
 
@@ -1056,7 +1057,7 @@ class Java13Example
         solver.push();
 
         /* assert x <= 3 */
-        var c2 = ctx.mkLe(x, three);
+        BoolExpr c2 = ctx.mkLe(x, three);
         System.out.println("assert: x <= 3");
         solver.add(c2);
 
@@ -1078,10 +1079,10 @@ class Java13Example
         /* new constraints can be asserted... */
 
         /* create y */
-        var y = ctx.mkIntConst("y");
+        IntExpr y = ctx.mkIntConst("y");
 
         /* assert y > x */
-        var c3 = ctx.mkGt(y, x);
+        BoolExpr c3 = ctx.mkGt(y, x);
         System.out.println("assert: y > x");
         solver.add(c3);
 
@@ -1099,8 +1100,8 @@ class Java13Example
         System.out.println("TupleExample");
         Log.append("TupleExample");
 
-        var int_type = ctx.getIntSort();
-        var tuple = ctx.mkTupleSort(ctx.mkSymbol("mk_tuple"), // name of
+        IntSort int_type = ctx.getIntSort();
+        TupleSort tuple = ctx.mkTupleSort(ctx.mkSymbol("mk_tuple"), // name of
                                                                     // tuple
                                                                     // constructor
                 new Symbol[] { ctx.mkSymbol("first"), ctx.mkSymbol("second") }, // names
@@ -1112,14 +1113,14 @@ class Java13Example
                 );
         // have to cast here because it is not possible to type a member of an array of mixed generics
         @SuppressWarnings("unchecked")
-        var first = (FuncDecl<IntSort>) tuple.getFieldDecls()[0]; // declarations are for
+        FuncDecl<IntSort> first = (FuncDecl<IntSort>) tuple.getFieldDecls()[0]; // declarations are for
                                                    // projections
         @SuppressWarnings("unused")
-        var second = tuple.getFieldDecls()[1];
-        var x = ctx.mkConst("x", int_type);
-        var y = ctx.mkConst("y", int_type);
-        var n1 = tuple.mkDecl().apply(x, y);
-        var n2 = first.apply(n1);
+        FuncDecl<?> second = tuple.getFieldDecls()[1];
+        Expr<IntSort> x = ctx.mkConst("x", int_type);
+        Expr<IntSort> y = ctx.mkConst("y", int_type);
+        Expr<TupleSort> n1 = tuple.mkDecl().apply(x, y);
+        Expr<IntSort> n2 = first.apply(n1);
         BoolExpr n3 = ctx.mkEq(x, n2);
         System.out.printf("Tuple example: %s%n", n3);
         prove(ctx, n3, false);
@@ -1136,15 +1137,15 @@ class Java13Example
         System.out.println("BitvectorExample1");
         Log.append("BitvectorExample1");
 
-        var bv_type = ctx.mkBitVecSort(32);
-        var x = ctx.mkConst("x", bv_type);
-        var zero = ctx.mkNumeral("0", bv_type);
-        var ten = ctx.mkBV(10, 32);
-        var x_minus_ten = ctx.mkBVSub(x, ten);
+        BitVecSort bv_type = ctx.mkBitVecSort(32);
+        Expr<BitVecSort> x = ctx.mkConst("x", bv_type);
+        Expr<BitVecSort> zero = ctx.mkNumeral("0", bv_type);
+        BitVecNum ten = ctx.mkBV(10, 32);
+        BitVecExpr x_minus_ten = ctx.mkBVSub(x, ten);
         /* bvsle is signed less than or equal to */
-        var c1 = ctx.mkBVSLE(x, ten);
-        var c2 = ctx.mkBVSLE(x_minus_ten, zero);
-        var thm = ctx.mkIff(c1, c2);
+        BoolExpr c1 = ctx.mkBVSLE(x, ten);
+        BoolExpr c2 = ctx.mkBVSLE(x_minus_ten, zero);
+        BoolExpr thm = ctx.mkIff(c1, c2);
         System.out.println("disprove: x - 10 <= 0 IFF x <= 10 for (32-bit) machine integers");
         disprove(ctx, thm, false);
     }
@@ -1157,14 +1158,14 @@ class Java13Example
         Log.append("BitvectorExample2");
 
         /* construct x ^ y - 103 == x * y */
-        var bv_type = ctx.mkBitVecSort(32);
-        var x = ctx.mkBVConst("x", 32);
-        var y = ctx.mkBVConst("y", 32);
-        var x_xor_y = ctx.mkBVXOR(x, y);
-        var c103 = ctx.mkNumeral("103", bv_type);
-        var lhs = ctx.mkBVSub(x_xor_y, c103);
-        var rhs = ctx.mkBVMul(x, y);
-        var ctr = ctx.mkEq(lhs, rhs);
+        BitVecSort bv_type = ctx.mkBitVecSort(32);
+        BitVecExpr x = ctx.mkBVConst("x", 32);
+        BitVecExpr y = ctx.mkBVConst("y", 32);
+        BitVecExpr x_xor_y = ctx.mkBVXOR(x, y);
+        Expr<BitVecSort> c103 = ctx.mkNumeral("103", bv_type);
+        BitVecExpr lhs = ctx.mkBVSub(x_xor_y, c103);
+        BitVecExpr rhs = ctx.mkBVMul(x, y);
+        BoolExpr ctr = ctx.mkEq(lhs, rhs);
 
         System.out.println("find values of x and y, such that x ^ y - 103 == x * y");
 
@@ -1197,11 +1198,11 @@ class Java13Example
         Log.append("ParserExample2");
 
         Symbol[] declNames = { ctx.mkSymbol("a"), ctx.mkSymbol("b") };
-        var a = ctx.mkConstDecl(declNames[0], ctx.mkIntSort());
-        var b = ctx.mkConstDecl(declNames[1], ctx.mkIntSort());
-        var decls = new FuncDecl[] { a, b };
+        FuncDecl<IntSort> a = ctx.mkConstDecl(declNames[0], ctx.mkIntSort());
+        FuncDecl<IntSort> b = ctx.mkConstDecl(declNames[1], ctx.mkIntSort());
+        FuncDecl[] decls = new FuncDecl[] { a, b };
 
-        var f = ctx.parseSMTLIB2String("(assert (> a b))", null, null, declNames, decls)[0];
+        BoolExpr f = ctx.parseSMTLIB2String("(assert (> a b))", null, null, declNames, decls)[0];
         System.out.printf("formula: %s%n", f);
         check(ctx, f, Status.SATISFIABLE);
     }
@@ -1214,12 +1215,12 @@ class Java13Example
         Log.append("ParserExample3");
 
         /* declare function g */
-        var I = ctx.mkIntSort();
-        var g = ctx.mkFuncDecl("g", new Sort[] { I, I }, I);
+        IntSort I = ctx.mkIntSort();
+        FuncDecl<IntSort> g = ctx.mkFuncDecl("g", new Sort[] { I, I }, I);
 
-        var ca = commAxiom(ctx, g);
+        BoolExpr ca = commAxiom(ctx, g);
 
-        var thm = ctx.parseSMTLIB2String(
+        BoolExpr thm = ctx.parseSMTLIB2String(
                 "(declare-fun (Int Int) Int) (assert (forall ((x Int) (y Int)) (=> (= x y) (= (gg x 0) (gg 0 y)))))",
                 null, null, new Symbol[] { ctx.mkSymbol("gg") },
                 new FuncDecl[] { g })[0];
@@ -1258,10 +1259,10 @@ class Java13Example
         System.out.println("ITEExample");
         Log.append("ITEExample");
 
-        var f = ctx.mkFalse();
-        var one = ctx.mkInt(1);
-        var zero = ctx.mkInt(0);
-        var ite = ctx.mkITE(f, one, zero);
+        BoolExpr f = ctx.mkFalse();
+        IntNum one = ctx.mkInt(1);
+        IntNum zero = ctx.mkInt(0);
+        Expr<IntSort> ite = ctx.mkITE(f, one, zero);
 
         System.out.printf("Expr: %s%n", ite);
     }
@@ -1287,9 +1288,9 @@ class Java13Example
         System.out.println((fruit.getTesterDecls()[1]));
         System.out.println((fruit.getTesterDecls()[2]));
 
-        var apple = fruit.getConsts()[0];
-        var banana = fruit.getConsts()[1];
-        var orange = fruit.getConsts()[2];
+        Expr<EnumSort<T>> apple = fruit.getConsts()[0];
+        Expr<EnumSort<T>> banana = fruit.getConsts()[1];
+        Expr<EnumSort<T>> orange = fruit.getConsts()[2];
 
         /* Apples are different from oranges */
         prove(ctx, ctx.mkNot(ctx.mkEq(apple, orange)), false);
@@ -1302,7 +1303,7 @@ class Java13Example
         disprove(ctx, ctx.mkApp(fruit.getTesterDecls()[0], orange), false);
         prove(ctx, ctx.mkNot(ctx.mkApp(fruit.getTesterDecls()[0], orange)), false);
 
-        var fruity = ctx.mkConst("fruity", fruit);
+        Expr<EnumSort<T>> fruity = ctx.mkConst("fruity", fruit);
 
         /* If something is fruity, then it is an apple, banana, or orange */
 
@@ -1329,9 +1330,9 @@ class Java13Example
         System.out.println((fruit.getTesterDecls()[1]));
         System.out.println((fruit.getTesterDecls()[2]));
 
-        var apple = fruit.getConsts()[0];
-        var banana = fruit.getConsts()[1];
-        var orange = fruit.getConsts()[2];
+        Expr<EnumSort<Object>> apple = fruit.getConsts()[0];
+        Expr<EnumSort<Object>> banana = fruit.getConsts()[1];
+        Expr<EnumSort<Object>> orange = fruit.getConsts()[2];
 
         /* Apples are different from oranges */
         prove(ctx, ctx.mkNot(ctx.mkEq(apple, orange)), false);
@@ -1344,7 +1345,7 @@ class Java13Example
         disprove(ctx, ctx.mkApp(fruit.getTesterDecls()[0], orange), false);
         prove(ctx, ctx.mkNot(ctx.mkApp(fruit.getTesterDecls()[0], orange)), false);
 
-        var fruity = ctx.mkConst("fruity", fruit);
+        Expr<EnumSort<Object>> fruity = ctx.mkConst("fruity", fruit);
 
         /* If something is fruity, then it is an apple, banana, or orange */
 
@@ -1359,13 +1360,13 @@ class Java13Example
         System.out.println("ListExample");
         Log.append("ListExample");
 
-        var int_ty = ctx.mkIntSort();
+        IntSort int_ty = ctx.mkIntSort();
 
-        var int_list = ctx.mkListSort(ctx.mkSymbol("int_list"), int_ty);
+        ListSort<IntSort> int_list = ctx.mkListSort(ctx.mkSymbol("int_list"), int_ty);
 
-        var nil = ctx.mkConst(int_list.getNilDecl());
-        var l1 = ctx.mkApp(int_list.getConsDecl(), ctx.mkInt(1), nil);
-        var l2 = ctx.mkApp(int_list.getConsDecl(), ctx.mkInt(2), nil);
+        Expr<ListSort<IntSort>> nil = ctx.mkConst(int_list.getNilDecl());
+        Expr<ListSort<IntSort>> l1 = ctx.mkApp(int_list.getConsDecl(), ctx.mkInt(1), nil);
+        Expr<ListSort<IntSort>> l2 = ctx.mkApp(int_list.getConsDecl(), ctx.mkInt(2), nil);
 
         /* nil != cons(1, nil) */
         prove(ctx, ctx.mkNot(ctx.mkEq(nil, l1)), false);
@@ -1374,15 +1375,15 @@ class Java13Example
         prove(ctx, ctx.mkNot(ctx.mkEq(l1, l2)), false);
 
         /* cons(x,nil) = cons(y, nil) => x = y */
-        var x = ctx.mkConst("x", int_ty);
-        var y = ctx.mkConst("y", int_ty);
+        Expr<IntSort> x = ctx.mkConst("x", int_ty);
+        Expr<IntSort> y = ctx.mkConst("y", int_ty);
         l1 = ctx.mkApp(int_list.getConsDecl(), x, nil);
         l2 = ctx.mkApp(int_list.getConsDecl(), y, nil);
         prove(ctx, ctx.mkImplies(ctx.mkEq(l1, l2), ctx.mkEq(x, y)), false);
 
         /* cons(x,u) = cons(x, v) => u = v */
-        var u = ctx.mkConst("u", int_list);
-        var v = ctx.mkConst("v", int_list);
+        Expr<ListSort<IntSort>> u = ctx.mkConst("u", int_list);
+        Expr<ListSort<IntSort>> v = ctx.mkConst("v", int_list);
         l1 = ctx.mkApp(int_list.getConsDecl(), x, u);
         l2 = ctx.mkApp(int_list.getConsDecl(), y, v);
         prove(ctx, ctx.mkImplies(ctx.mkEq(l1, l2), ctx.mkEq(u, v)), false);
@@ -1395,10 +1396,10 @@ class Java13Example
         prove(ctx, ctx.mkNot(ctx.mkEq(u, l1)), false);
 
         /* destructors: is_cons(u) => u = cons(head(u),tail(u)) */
-        var fml1 = ctx.mkEq(u, ctx.mkApp(int_list.getConsDecl(),
+        BoolExpr fml1 = ctx.mkEq(u, ctx.mkApp(int_list.getConsDecl(),
                         ctx.mkApp(int_list.getHeadDecl(), u),
                         ctx.mkApp(int_list.getTailDecl(), u)));
-        var fml = ctx.mkImplies(ctx.mkApp(int_list.getIsConsDecl(), u), fml1);
+        BoolExpr fml = ctx.mkImplies(ctx.mkApp(int_list.getIsConsDecl(), u), fml1);
         System.out.printf("Formula %s%n", fml);
 
         prove(ctx, fml, false);
@@ -1424,28 +1425,28 @@ class Java13Example
                 sort_refs);
         Constructor<Tree>[] constructors = new Constructor[] { nil_con, cons_con };
 
-        var cell = ctx.mkDatatypeSort("cell", constructors);
+        DatatypeSort<Tree> cell = ctx.mkDatatypeSort("cell", constructors);
 
-        var nil_decl = nil_con.ConstructorDecl();
-        var is_nil_decl = nil_con.getTesterDecl();
-        var cons_decl = cons_con.ConstructorDecl();
-        var is_cons_decl = cons_con.getTesterDecl();
-        var cons_accessors = cons_con.getAccessorDecls();
-        var car_decl = cons_accessors[0];
-        var cdr_decl = cons_accessors[1];
+        FuncDecl<DatatypeSort<Tree>> nil_decl = nil_con.ConstructorDecl();
+        FuncDecl<BoolSort> is_nil_decl = nil_con.getTesterDecl();
+        FuncDecl<DatatypeSort<Tree>> cons_decl = cons_con.ConstructorDecl();
+        FuncDecl<BoolSort> is_cons_decl = cons_con.getTesterDecl();
+        FuncDecl<?>[] cons_accessors = cons_con.getAccessorDecls();
+        FuncDecl<?> car_decl = cons_accessors[0];
+        FuncDecl<?> cdr_decl = cons_accessors[1];
 
-        var nil = ctx.mkConst(nil_decl);
-        var l1 = ctx.mkApp(cons_decl, nil, nil);
-        var l2 = ctx.mkApp(cons_decl, l1, nil);
+        Expr<DatatypeSort<Tree>> nil = ctx.mkConst(nil_decl);
+        Expr<DatatypeSort<Tree>> l1 = ctx.mkApp(cons_decl, nil, nil);
+        Expr<DatatypeSort<Tree>> l2 = ctx.mkApp(cons_decl, l1, nil);
 
         /* nil != cons(nil, nil) */
         prove(ctx, ctx.mkNot(ctx.mkEq(nil, l1)), false);
 
         /* cons(x,u) = cons(x, v) => u = v */
-        var u = ctx.mkConst("u", cell);
-        var v = ctx.mkConst("v", cell);
-        var x = ctx.mkConst("x", cell);
-        var y = ctx.mkConst("y", cell);
+        Expr<DatatypeSort<Tree>> u = ctx.mkConst("u", cell);
+        Expr<DatatypeSort<Tree>> v = ctx.mkConst("v", cell);
+        Expr<DatatypeSort<Tree>> x = ctx.mkConst("x", cell);
+        Expr<DatatypeSort<Tree>> y = ctx.mkConst("y", cell);
         l1 = ctx.mkApp(cons_decl, x, u);
         l2 = ctx.mkApp(cons_decl, y, v);
         prove(ctx, ctx.mkImplies(ctx.mkEq(l1, l2), ctx.mkEq(u, v)), false);
@@ -1556,27 +1557,27 @@ class Java13Example
         car2_decl = (FuncDecl<DatatypeSort<Forest>>) cons2_accessors[0];
         cdr2_decl = (FuncDecl<DatatypeSort<Forest>>) cons2_accessors[1];
 
-        var nil1 = ctx.mkConst(nil1_decl);
-        var nil2 = ctx.mkConst(nil2_decl);
-        var f1 = ctx.mkApp(cons1_decl, nil2, nil1);
-        var t1 = ctx.mkApp(cons2_decl, nil1, nil1);
-        var t2 = ctx.mkApp(cons2_decl, f1, nil1);
-        var t3 = ctx.mkApp(cons2_decl, f1, f1);
-        var t4 = ctx.mkApp(cons2_decl, nil1, f1);
-        var f2 = ctx.mkApp(cons1_decl, t1, nil1);
-        var f3 = ctx.mkApp(cons1_decl, t1, f1);
+        Expr<DatatypeSort<Forest>> nil1 = ctx.mkConst(nil1_decl);
+        Expr<DatatypeSort<Tree>> nil2 = ctx.mkConst(nil2_decl);
+        Expr<DatatypeSort<Forest>> f1 = ctx.mkApp(cons1_decl, nil2, nil1);
+        Expr<DatatypeSort<Tree>> t1 = ctx.mkApp(cons2_decl, nil1, nil1);
+        Expr<DatatypeSort<Tree>> t2 = ctx.mkApp(cons2_decl, f1, nil1);
+        Expr<DatatypeSort<Tree>> t3 = ctx.mkApp(cons2_decl, f1, f1);
+        Expr<DatatypeSort<Tree>> t4 = ctx.mkApp(cons2_decl, nil1, f1);
+        Expr<DatatypeSort<Forest>> f2 = ctx.mkApp(cons1_decl, t1, nil1);
+        Expr<DatatypeSort<Forest>> f3 = ctx.mkApp(cons1_decl, t1, f1);
 
         /* nil != cons(nil,nil) */
         prove(ctx, ctx.mkNot(ctx.mkEq(nil1, f1)), false);
         prove(ctx, ctx.mkNot(ctx.mkEq(nil2, t1)), false);
 
         /* cons(x,u) = cons(x, v) => u = v */
-        var u = ctx.mkConst("u", forest);
-        var v = ctx.mkConst("v", forest);
-        var x = ctx.mkConst("x", tree);
-        var y = ctx.mkConst("y", tree);
-        var l1 = ctx.mkApp(cons1_decl, x, u);
-        var l2 = ctx.mkApp(cons1_decl, y, v);
+        Expr<DatatypeSort<Forest>> u = ctx.mkConst("u", forest);
+        Expr<DatatypeSort<Forest>> v = ctx.mkConst("v", forest);
+        Expr<DatatypeSort<Tree>> x = ctx.mkConst("x", tree);
+        Expr<DatatypeSort<Tree>> y = ctx.mkConst("y", tree);
+        Expr<DatatypeSort<Forest>> l1 = ctx.mkApp(cons1_decl, x, u);
+        Expr<DatatypeSort<Forest>> l2 = ctx.mkApp(cons1_decl, y, v);
         prove(ctx, ctx.mkImplies(ctx.mkEq(l1, l2), ctx.mkEq(u, v)), false);
         prove(ctx, ctx.mkImplies(ctx.mkEq(l1, l2), ctx.mkEq(x, y)), false);
 
@@ -1594,9 +1595,9 @@ class Java13Example
         System.out.println("EvalExample1");
         Log.append("EvalExample1");
 
-        var x = ctx.mkIntConst("x");
-        var y = ctx.mkIntConst("y");
-        var two = ctx.mkInt(2);
+        IntExpr x = ctx.mkIntConst("x");
+        IntExpr y = ctx.mkIntConst("y");
+        IntNum two = ctx.mkInt(2);
 
         Solver solver = ctx.mkSolver();
 
@@ -1613,7 +1614,7 @@ class Java13Example
             model = solver.getModel();
             System.out.println(model);
             System.out.println("\nevaluating x+y");
-            var v = model.evaluate(ctx.mkAdd(x, y), false);
+            Expr<IntSort> v = model.evaluate(ctx.mkAdd(x, y), false);
             if (v != null)
             {
                 System.out.printf("result = %s%n", v);
@@ -1635,7 +1636,7 @@ class Java13Example
         System.out.println("EvalExample2");
         Log.append("EvalExample2");
 
-        var int_type = ctx.getIntSort();
+        IntSort int_type = ctx.getIntSort();
         TupleSort tuple = ctx.mkTupleSort(ctx.mkSymbol("mk_tuple"), // name of
                                                                     // tuple
                                                                     // constructor
@@ -1646,11 +1647,11 @@ class Java13Example
                 new Sort[] { int_type, int_type } // types of projection
                                                   // operators
                 );
-        var first = (FuncDecl<IntSort>) tuple.getFieldDecls()[0]; // declarations are for
+        FuncDecl<IntSort> first = (FuncDecl<IntSort>) tuple.getFieldDecls()[0]; // declarations are for
                                                    // projections
-        var second = (FuncDecl<IntSort>) tuple.getFieldDecls()[1];
-        var tup1 = ctx.mkConst("t1", tuple);
-        var tup2 = ctx.mkConst("t2", tuple);
+        FuncDecl<IntSort> second = (FuncDecl<IntSort>) tuple.getFieldDecls()[1];
+        Expr<TupleSort> tup1 = ctx.mkConst("t1", tuple);
+        Expr<TupleSort> tup2 = ctx.mkConst("t2", tuple);
 
         Solver solver = ctx.mkSolver();
 
@@ -1719,7 +1720,7 @@ class Java13Example
                 // narrow the bounds based on the current model.
                 for (int i = 0; i < num_Exprs; ++i)
                 {
-                    var v = solver.getModel().evaluate(to_minimize[i], false);
+                    Expr<BitVecSort> v = solver.getModel().evaluate(to_minimize[i], false);
                     // we still have to cast because we want to use a method in BitVecNum
                     // however, we cannot cast to a type which doesn't match the generic, e.g. IntNum
                     int ui = ((BitVecNum) v).getInt();
@@ -1757,9 +1758,9 @@ class Java13Example
         System.out.println("FindSmallModelExample");
         Log.append("FindSmallModelExample");
 
-        var x = ctx.mkBVConst("x", 32);
-        var y = ctx.mkBVConst("y", 32);
-        var z = ctx.mkBVConst("z", 32);
+        BitVecExpr x = ctx.mkBVConst("x", 32);
+        BitVecExpr y = ctx.mkBVConst("y", 32);
+        BitVecExpr z = ctx.mkBVConst("z", 32);
 
         Solver solver = ctx.mkSolver();
 
@@ -1775,14 +1776,14 @@ class Java13Example
         System.out.println("SimplifierExample");
         Log.append("SimplifierExample");
 
-        var x = ctx.mkIntConst("x");
-        var y = ctx.mkIntConst("y");
-        var z = ctx.mkIntConst("z");
+        IntExpr x = ctx.mkIntConst("x");
+        IntExpr y = ctx.mkIntConst("y");
+        IntExpr z = ctx.mkIntConst("z");
         @SuppressWarnings("unused")
-        var u = ctx.mkIntConst("u");
+        IntExpr u = ctx.mkIntConst("u");
 
-        var t1 = ctx.mkAdd(x, ctx.mkSub(y, ctx.mkAdd(x, z)));
-        var t2 = t1.simplify();
+        ArithExpr<IntSort> t1 = ctx.mkAdd(x, ctx.mkSub(y, ctx.mkAdd(x, z)));
+        Expr<IntSort> t2 = t1.simplify();
         System.out.printf("%s -> %s%n", t1, t2);
     }
 
@@ -1983,8 +1984,8 @@ class Java13Example
                 ctx.mkGe(yExp, ctx.mkInt(0)));
 
         // Set objectives.
-        var mx = opt.MkMaximize(xExp);
-        var my = opt.MkMaximize(yExp);
+        Optimize.Handle<IntSort> mx = opt.MkMaximize(xExp);
+        Optimize.Handle<IntSort> my = opt.MkMaximize(yExp);
 
         System.out.println(opt.Check());
         System.out.println(mx);
@@ -2004,9 +2005,9 @@ class Java13Example
         System.out.println(s2.equals(s3));
         System.out.println(s1.equals(s3));
 
-        var e1 = ctx1.mkIntConst("e1");
-        var e2 = ctx2.mkIntConst("e1");
-        var e3 = e1.translate(ctx2);
+        IntExpr e1 = ctx1.mkIntConst("e1");
+        IntExpr e2 = ctx2.mkIntConst("e1");
+        Expr<IntSort> e3 = e1.translate(ctx2);
 
         System.out.println(e1 == e2);
         System.out.println(e1.equals(e2));
@@ -2016,7 +2017,7 @@ class Java13Example
 
     public static void main(String[] args)
     {
-        Java13Example p = new Java13Example();
+        JavaGenericExample p = new JavaGenericExample();
         try
         {
             Global.ToggleWarningMessages(true);
