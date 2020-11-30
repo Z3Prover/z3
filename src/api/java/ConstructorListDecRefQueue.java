@@ -1,6 +1,6 @@
 package com.microsoft.z3;
 
-public class ConstructorListDecRefQueue extends IDecRefQueue<ConstructorList> {
+public class ConstructorListDecRefQueue extends IDecRefQueue<ConstructorList<?>> {
     public ConstructorListDecRefQueue() {
         super();
     }

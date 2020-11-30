@@ -26,10 +26,10 @@ public class TupleSort extends Sort
      * The constructor function of the tuple.
      * @throws Z3Exception 
      **/
-    public FuncDecl mkDecl()
+    public FuncDecl<TupleSort> mkDecl()
     {
 
-        return new FuncDecl(getContext(), Native.getTupleSortMkDecl(getContext()
+        return new FuncDecl<>(getContext(), Native.getTupleSortMkDecl(getContext()
                 .nCtx(), getNativeObject()));
     }
 
@@ -45,13 +45,13 @@ public class TupleSort extends Sort
      * The field declarations.
      * @throws Z3Exception 
      **/
-    public FuncDecl[] getFieldDecls()
+    public FuncDecl<?>[] getFieldDecls()
     {
 
         int n = getNumFields();
-        FuncDecl[] res = new FuncDecl[n];
+        FuncDecl<?>[] res = new FuncDecl[n];
         for (int i = 0; i < n; i++)
-            res[i] = new FuncDecl(getContext(), Native.getTupleSortFieldDecl(
+            res[i] = new FuncDecl<>(getContext(), Native.getTupleSortFieldDecl(
                     getContext().nCtx(), getNativeObject(), i));
         return res;
     }

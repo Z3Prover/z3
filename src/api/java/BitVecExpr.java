@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Bit-vector expressions
  **/
-public class BitVecExpr extends Expr
+public class BitVecExpr extends Expr<BitVecSort>
 {
 
     /**

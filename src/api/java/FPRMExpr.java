@@ -19,7 +19,7 @@ package com.microsoft.z3;
 /**
  * FloatingPoint RoundingMode Expressions
  */
-public class FPRMExpr extends Expr
+public class FPRMExpr extends Expr<FPRMSort>
 {       
     public FPRMExpr(Context ctx, long obj)
     {

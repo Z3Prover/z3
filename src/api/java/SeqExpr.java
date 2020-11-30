@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Seq expressions
  **/
-public class SeqExpr extends Expr
+public class SeqExpr<R extends Sort> extends Expr<SeqSort<R>>
 {
     /**
      * Constructor for SeqExpr

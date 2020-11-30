@@ -36,11 +36,11 @@ public class Pattern extends AST
      * 
      * @throws Z3Exception
      **/
-    public Expr[] getTerms()
+    public Expr<?>[] getTerms()
     {
 
         int n = getNumTerms();
-        Expr[] res = new Expr[n];
+        Expr<?>[] res = new Expr[n];
         for (int i = 0; i < n; i++)
             res[i] = Expr.create(getContext(),
                     Native.getPattern(getContext().nCtx(), getNativeObject(), i));

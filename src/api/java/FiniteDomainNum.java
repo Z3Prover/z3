@@ -22,7 +22,7 @@ import java.math.BigInteger;
 /**
  * Finite-domain Numerals
  **/
-public class FiniteDomainNum extends FiniteDomainExpr
+public class FiniteDomainNum<R> extends FiniteDomainExpr<R>
 {
 
     FiniteDomainNum(Context ctx, long obj)

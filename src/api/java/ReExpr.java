@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Re expressions
  **/
-public class ReExpr extends Expr
+public class ReExpr<R extends Sort> extends Expr<ReSort<R>>
 {
     /**
      * Constructor for ReExpr

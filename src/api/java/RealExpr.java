@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Real expressions
  **/
-public class RealExpr extends ArithExpr
+public class RealExpr extends ArithExpr<RealSort>
 {
     /**
      * Constructor for RealExpr

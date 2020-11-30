@@ -19,12 +19,11 @@ Notes:
 
 package com.microsoft.z3;
 
-import com.microsoft.z3.enumerations.Z3_ast_kind;
-
 
 /**
  * Lambda expressions.
-*/public class Lambda extends ArrayExpr
+*/
+public class Lambda<R extends Sort> extends ArrayExpr<Sort, R>
 {
 
     /**
@@ -70,9 +69,10 @@ import com.microsoft.z3.enumerations.Z3_ast_kind;
      * 
      * @throws Z3Exception
      **/
-    public Expr getBody()
+    @SuppressWarnings("unchecked")
+    public Expr<R> getBody()
     {
-        return Expr.create(getContext(), Native.getQuantifierBody(getContext()
+        return (Expr<R>) Expr.create(getContext(), Native.getQuantifierBody(getContext()
                 .nCtx(), getNativeObject()));
     }
 
@@ -81,17 +81,17 @@ import com.microsoft.z3.enumerations.Z3_ast_kind;
      * Translates (copies) the quantifier to the Context {@code ctx}.
      * 
      * @param ctx A context
-     * 
+     *
      * @return A copy of the quantifier which is associated with {@code ctx}
      * @throws Z3Exception on error
      **/
-    public Lambda translate(Context ctx)
+    public Lambda<R> translate(Context ctx)
     {
-        return (Lambda) super.translate(ctx);
+        return (Lambda<R>) super.translate(ctx);
     }
     
        
-    public static Lambda of(Context ctx, Sort[] sorts, Symbol[] names, Expr body) 
+    public static <R extends Sort> Lambda<R> of(Context ctx, Sort[] sorts, Symbol[] names, Expr<R> body)
     {
         ctx.checkContextMatch(sorts);
         ctx.checkContextMatch(names);
@@ -106,7 +106,7 @@ import com.microsoft.z3.enumerations.Z3_ast_kind;
 					    Symbol.arrayToNative(names),
 					    body.getNativeObject());
 	
-        return new Lambda(ctx, nativeObject);
+        return new Lambda<>(ctx, nativeObject);
     }
 
     /**
@@ -115,14 +115,14 @@ import com.microsoft.z3.enumerations.Z3_ast_kind;
      * @param body Body of the lambda expression.
      */
 
-    public static Lambda of(Context ctx, Expr[] bound, Expr body) {
+    public static <R extends Sort> Lambda<R> of(Context ctx, Expr<?>[] bound, Expr<R> body) {
         ctx.checkContextMatch(body);
 
               
        long nativeObject = Native.mkLambdaConst(ctx.nCtx(),
 					   AST.arrayLength(bound), AST.arrayToNative(bound),
 					   body.getNativeObject());
-       return new Lambda(ctx, nativeObject);
+       return new Lambda<>(ctx, nativeObject);
    }
 
 

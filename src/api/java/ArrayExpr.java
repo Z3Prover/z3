@@ -21,7 +21,7 @@ package com.microsoft.z3;
 /**
  * Array expressions
  **/
-public class ArrayExpr extends Expr
+public class ArrayExpr<D extends Sort, R extends Sort> extends Expr<ArraySort<D, R>>
 {
     /**
      * Constructor for ArrayExpr

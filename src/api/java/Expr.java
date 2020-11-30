@@ -27,14 +27,15 @@ import com.microsoft.z3.enumerations.Z3_sort_kind;
 /**
  * Expressions are terms.
  **/
-public class Expr extends AST
+@SuppressWarnings("unchecked")
+public class Expr<R extends Sort> extends AST
 {
     /**
      * Returns a simplified version of the expression
      * @return Expr
      * @throws Z3Exception on error
      **/
-    public Expr simplify()
+    public Expr<R> simplify()
     {
         return simplify(null);
     }
@@ -48,15 +49,15 @@ public class Expr extends AST
      * @return an Expr
      * @throws Z3Exception on error
      **/
-    public Expr simplify(Params p)
+    public Expr<R> simplify(Params p)
     {
 
         if (p == null) {
-            return Expr.create(getContext(),
+            return (Expr<R>) Expr.create(getContext(),
                 Native.simplify(getContext().nCtx(), getNativeObject()));
         }
         else {
-            return Expr.create(
+            return (Expr<R>) Expr.create(
                 getContext(),
                 Native.simplifyEx(getContext().nCtx(), getNativeObject(),
                     p.getNativeObject()));
@@ -69,9 +70,9 @@ public class Expr extends AST
      * @return a FuncDecl
      * @throws Z3Exception on error 
      **/
-    public FuncDecl getFuncDecl()
+    public FuncDecl<R> getFuncDecl()
     {
-        return new FuncDecl(getContext(), Native.getAppDecl(getContext().nCtx(),
+        return new FuncDecl<>(getContext(), Native.getAppDecl(getContext().nCtx(),
                 getNativeObject()));
     }
 
@@ -102,10 +103,10 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return an Expr[]
      **/
-    public Expr[] getArgs()
+    public Expr<?>[] getArgs()
     {
         int n = getNumArgs();
-        Expr[] res = new Expr[n];
+        Expr<?>[] res = new Expr[n];
         for (int i = 0; i < n; i++) {
             res[i] = Expr.create(getContext(),
                 Native.getAppArg(getContext().nCtx(), getNativeObject(), i));
@@ -120,13 +121,13 @@ public class Expr extends AST
      * @param args arguments
      * @throws Z3Exception on error
      **/
-    public Expr update(Expr[] args)
+    public Expr<R> update(Expr<?>[] args)
     {
         getContext().checkContextMatch(args);
         if (isApp() && args.length != getNumArgs()) {
             throw new Z3Exception("Number of arguments does not match");
         }
-        return Expr.create(getContext(), Native.updateTerm(getContext().nCtx(), getNativeObject(),
+        return (Expr<R>) Expr.create(getContext(), Native.updateTerm(getContext().nCtx(), getNativeObject(),
                 args.length, Expr.arrayToNative(args)));
     }
 
@@ -142,14 +143,14 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return an Expr
      **/
-    public Expr substitute(Expr[] from, Expr[] to)
+    public Expr<R> substitute(Expr<?>[] from, Expr<?>[] to)
     {
         getContext().checkContextMatch(from);
         getContext().checkContextMatch(to);
         if (from.length != to.length) {
             throw new Z3Exception("Argument sizes do not match");
         }
-        return Expr.create(getContext(), Native.substitute(getContext().nCtx(),
+        return (Expr<R>) Expr.create(getContext(), Native.substitute(getContext().nCtx(),
                 getNativeObject(), from.length, Expr.arrayToNative(from),
                 Expr.arrayToNative(to)));
     }
@@ -161,7 +162,7 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return an Expr
      **/
-    public Expr substitute(Expr from, Expr to)
+    public Expr<R> substitute(Expr<?> from, Expr<?> to)
     {
         return substitute(new Expr[] { from }, new Expr[] { to });
     }
@@ -176,11 +177,11 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return an Expr
      **/
-    public Expr substituteVars(Expr[] to)
+    public Expr<R> substituteVars(Expr<?>[] to)
     {
 
         getContext().checkContextMatch(to);
-        return Expr.create(getContext(), Native.substituteVars(getContext().nCtx(),
+        return (Expr<R>) Expr.create(getContext(), Native.substituteVars(getContext().nCtx(),
                 getNativeObject(), to.length, Expr.arrayToNative(to)));
     }
 
@@ -192,9 +193,9 @@ public class Expr extends AST
      * @return A copy of the term which is associated with {@code ctx}
      * @throws Z3Exception on error
      **/
-    public Expr translate(Context ctx)
+    public Expr<R> translate(Context ctx)
     {
-        return (Expr) super.translate(ctx);
+        return (Expr<R>) super.translate(ctx);
     }
 
     /**
@@ -232,9 +233,9 @@ public class Expr extends AST
      * @throws Z3Exception on error
      * @return a sort
      **/
-    public Sort getSort()
+    public R getSort()
     {
-        return Sort.create(getContext(),
+        return (R) Sort.create(getContext(),
                 Native.getSort(getContext().nCtx(), getNativeObject()));
     }
 
@@ -1635,7 +1636,7 @@ public class Expr extends AST
 
     /**
      * Indicates whether the term is a proof by unit resolution 
-     * Remarks:  T1: * (or l_1 ... l_n l_1' ... l_m') T2: (not l_1) ... T(n+1): (not l_n) * [unit-resolution T1 ... T(n+1)]: (or l_1' ... l_m') 
+     * Remarks:  T1: * (or l_1 ... l_n l_1' ... l_m') T2: (not l_1) ... R(n+1): (not l_n) * [unit-resolution T1 ... R(n+1)]: (or l_1' ... l_m')
      * @throws Z3Exception on error
      * @return a boolean
      **/
@@ -1770,8 +1771,8 @@ public class Expr extends AST
      * The negation normal form steps NNF_POS and NNF_NEG are used in the
      * following cases: (a) When creating the NNF of a positive force
      * quantifier. The quantifier is retained (unless the bound variables are
-     * eliminated). Example T1: q ~ q_new [nnf-pos T1]: (~ (forall (x T) q)
-     * (forall (x T) q_new))
+     * eliminated). Example T1: q ~ q_new [nnf-pos T1]: (~ (forall (x R) q)
+     * (forall (x R) q_new))
      * 
      * (b) When recursively creating NNF over Boolean formulas, where the
      * top-level connective is changed during NNF conversion. The relevant
@@ -2107,15 +2108,15 @@ public class Expr extends AST
         super.checkNativeObject(obj);
     }
 
-    static Expr create(Context ctx, FuncDecl f, Expr ... arguments)
-           
+    static <U extends Sort> Expr<U> create(Context ctx, FuncDecl<U> f, Expr<?> ... arguments)
     {
         long obj = Native.mkApp(ctx.nCtx(), f.getNativeObject(),
                 AST.arrayLength(arguments), AST.arrayToNative(arguments));
-        return create(ctx, obj);
+        return (Expr<U>) create(ctx, obj);
     }
 
-    static Expr create(Context ctx, long obj)
+    // TODO generify, but it conflicts with AST.create
+    static Expr<?> create(Context ctx, long obj)
     {
         Z3_ast_kind k = Z3_ast_kind.fromInt(Native.getAstKind(ctx.nCtx(), obj));
         if (k == Z3_ast_kind.Z3_QUANTIFIER_AST)
@@ -2143,7 +2144,7 @@ public class Expr extends AST
                 return new FPRMNum(ctx, obj);
             case Z3_FINITE_DOMAIN_SORT:
                 return new FiniteDomainNum(ctx, obj);
-            default: ;
+            default:
             }
         }
 
@@ -2158,9 +2159,9 @@ public class Expr extends AST
         case Z3_BV_SORT:
             return new BitVecExpr(ctx, obj);
         case Z3_ARRAY_SORT:
-            return new ArrayExpr(ctx, obj);
+            return new ArrayExpr<>(ctx, obj);
         case Z3_DATATYPE_SORT:
-            return new DatatypeExpr(ctx, obj);
+            return new DatatypeExpr<>(ctx, obj);
         case Z3_FLOATING_POINT_SORT:
             return new FPExpr(ctx, obj);
         case Z3_ROUNDING_MODE_SORT:
@@ -2168,12 +2169,12 @@ public class Expr extends AST
         case Z3_FINITE_DOMAIN_SORT:
             return new FiniteDomainExpr(ctx, obj);
         case Z3_SEQ_SORT:
-            return new SeqExpr(ctx, obj);
+            return new SeqExpr<>(ctx, obj);
         case Z3_RE_SORT:
-            return new ReExpr(ctx, obj);
-        default: ;
+            return new ReExpr<>(ctx, obj);
+        default:
         }
 
-        return new Expr(ctx, obj);
+        return new Expr<>(ctx, obj);
     }
 }

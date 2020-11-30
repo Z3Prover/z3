@@ -19,7 +19,7 @@ package com.microsoft.z3;
 /**
  * FloatingPoint Expressions
  */
-public class FPExpr extends Expr
+public class FPExpr extends Expr<FPSort>
 {   
     /**
      * The number of exponent bits.

@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Constructors are used for datatype sorts.
  **/
-public class Constructor extends Z3Object {
+public class Constructor<R> extends Z3Object {
     private final int n;
 
     Constructor(Context ctx, int n, long nativeObj) {
@@ -44,13 +44,13 @@ public class Constructor extends Z3Object {
      * @throws Z3Exception 
      * @throws Z3Exception on error
      **/
-    public FuncDecl ConstructorDecl()
+    public FuncDecl<DatatypeSort<R>> ConstructorDecl()
     {
         Native.LongPtr constructor = new Native.LongPtr();
         Native.LongPtr tester = new Native.LongPtr();
         long[] accessors = new long[n];
         Native.queryConstructor(getContext().nCtx(), getNativeObject(), n, constructor, tester, accessors);
-        return new FuncDecl(getContext(), constructor.value);         
+        return new FuncDecl<>(getContext(), constructor.value);
     }
 
     /**
@@ -58,13 +58,13 @@ public class Constructor extends Z3Object {
      * @throws Z3Exception 
      * @throws Z3Exception on error
      **/
-    public FuncDecl getTesterDecl()
+    public FuncDecl<BoolSort> getTesterDecl()
     {
         Native.LongPtr constructor = new Native.LongPtr();
         Native.LongPtr tester = new Native.LongPtr();
         long[] accessors = new long[n];
         Native.queryConstructor(getContext().nCtx(), getNativeObject(), n, constructor, tester, accessors);
-        return new FuncDecl(getContext(), tester.value);
+        return new FuncDecl<>(getContext(), tester.value);
     }
 
     /**
@@ -72,15 +72,15 @@ public class Constructor extends Z3Object {
      * @throws Z3Exception 
      * @throws Z3Exception on error
      **/
-    public FuncDecl[] getAccessorDecls()
+    public FuncDecl<?>[] getAccessorDecls()
     {
         Native.LongPtr constructor = new Native.LongPtr();
         Native.LongPtr tester = new Native.LongPtr();
         long[] accessors = new long[n];
         Native.queryConstructor(getContext().nCtx(), getNativeObject(), n, constructor, tester, accessors);
-        FuncDecl[] t = new FuncDecl[n];
+        FuncDecl<?>[] t = new FuncDecl[n];
         for (int i = 0; i < n; i++)
-            t[i] = new FuncDecl(getContext(), accessors[i]); 
+            t[i] = new FuncDecl<>(getContext(), accessors[i]);
         return t;
     }
 
@@ -94,7 +94,7 @@ public class Constructor extends Z3Object {
         getContext().getConstructorDRQ().storeReference(getContext(), this);
     }
 
-    static Constructor of(Context ctx, Symbol name, Symbol recognizer,
+    static <R> Constructor<R> of(Context ctx, Symbol name, Symbol recognizer,
             Symbol[] fieldNames, Sort[] sorts, int[] sortRefs) {
         int n = AST.arrayLength(fieldNames);
 
@@ -111,7 +111,7 @@ public class Constructor extends Z3Object {
         long nativeObj = Native.mkConstructor(ctx.nCtx(), name.getNativeObject(),
                 recognizer.getNativeObject(), n, Symbol.arrayToNative(fieldNames),
                 Sort.arrayToNative(sorts), sortRefs);
-        return new Constructor(ctx, n, nativeObj);
+        return new Constructor<>(ctx, n, nativeObj);
 
     }
 }

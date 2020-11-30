@@ -62,10 +62,11 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void add(BoolExpr ... constraints)
+    @SafeVarargs
+    public final void add(Expr<BoolSort>... constraints)
     {
         getContext().checkContextMatch(constraints);
-        for (BoolExpr a : constraints)
+        for (Expr<BoolSort> a : constraints)
         {
             Native.fixedpointAssert(getContext().nCtx(), getNativeObject(),
                     a.getNativeObject());
@@ -77,9 +78,8 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void registerRelation(FuncDecl f)
+    public void registerRelation(FuncDecl<BoolSort> f)
     {
-
         getContext().checkContextMatch(f);
         Native.fixedpointRegisterRelation(getContext().nCtx(), getNativeObject(),
                 f.getNativeObject());
@@ -92,7 +92,7 @@ public class Fixedpoint extends Z3Object
      * @param name Nullable rule name.
      * @throws Z3Exception
      **/
-    public void addRule(BoolExpr rule, Symbol name) {
+    public void addRule(Expr<BoolSort> rule, Symbol name) {
         getContext().checkContextMatch(rule);
         Native.fixedpointAddRule(getContext().nCtx(), getNativeObject(),
                 rule.getNativeObject(), AST.getNativeObject(name));
@@ -103,7 +103,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void addFact(FuncDecl pred, int ... args) {
+    public void addFact(FuncDecl<BoolSort> pred, int ... args) {
         getContext().checkContextMatch(pred);
         Native.fixedpointAddFact(getContext().nCtx(), getNativeObject(),
                 pred.getNativeObject(), args.length, args);
@@ -118,7 +118,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Status query(BoolExpr query) {
+    public Status query(Expr<BoolSort> query) {
         getContext().checkContextMatch(query);
         Z3_lbool r = Z3_lbool.fromInt(Native.fixedpointQuery(getContext().nCtx(),
                 getNativeObject(), query.getNativeObject()));
@@ -141,7 +141,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Status query(FuncDecl[] relations) {
+    public Status query(FuncDecl<BoolSort>[] relations) {
         getContext().checkContextMatch(relations);
         Z3_lbool r = Z3_lbool.fromInt(Native.fixedpointQueryRelations(getContext()
                 .nCtx(), getNativeObject(), AST.arrayLength(relations), AST
@@ -164,7 +164,7 @@ public class Fixedpoint extends Z3Object
      * @param name Nullable rule name.
      * @throws Z3Exception
      **/
-    public void updateRule(BoolExpr rule, Symbol name) {
+    public void updateRule(Expr<BoolSort> rule, Symbol name) {
         getContext().checkContextMatch(rule);
         Native.fixedpointUpdateRule(getContext().nCtx(), getNativeObject(),
                 rule.getNativeObject(), AST.getNativeObject(name));
@@ -176,7 +176,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Expr getAnswer()
+    public Expr<?> getAnswer()
     {
         long ans = Native.fixedpointGetAnswer(getContext().nCtx(), getNativeObject());
         return (ans == 0) ? null : Expr.create(getContext(), ans);
@@ -194,7 +194,7 @@ public class Fixedpoint extends Z3Object
     /**
      * Retrieve the number of levels explored for a given predicate.
      **/
-    public int getNumLevels(FuncDecl predicate)
+    public int getNumLevels(FuncDecl<BoolSort> predicate)
     {
         return Native.fixedpointGetNumLevels(getContext().nCtx(), getNativeObject(),
                 predicate.getNativeObject());
@@ -205,7 +205,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Expr getCoverDelta(int level, FuncDecl predicate)
+    public Expr<?> getCoverDelta(int level, FuncDecl<BoolSort> predicate)
     {
         long res = Native.fixedpointGetCoverDelta(getContext().nCtx(),
                 getNativeObject(), level, predicate.getNativeObject());
@@ -216,7 +216,7 @@ public class Fixedpoint extends Z3Object
      * Add <tt>property</tt> about the <tt>predicate</tt>. The property is added
      * at <tt>level</tt>.
      **/
-    public void addCover(int level, FuncDecl predicate, Expr property)
+    public void addCover(int level, FuncDecl<BoolSort> predicate, Expr<?> property)
            
     {
         Native.fixedpointAddCover(getContext().nCtx(), getNativeObject(), level,
@@ -237,9 +237,8 @@ public class Fixedpoint extends Z3Object
      * Instrument the Datalog engine on which table representation to use for
      * recursive predicate.
      **/
-    public void setPredicateRepresentation(FuncDecl f, Symbol[] kinds)
+    public void setPredicateRepresentation(FuncDecl<BoolSort> f, Symbol[] kinds)
     {
-
         Native.fixedpointSetPredicateRepresentation(getContext().nCtx(),
                 getNativeObject(), f.getNativeObject(), AST.arrayLength(kinds),
                 Symbol.arrayToNative(kinds));
@@ -249,9 +248,8 @@ public class Fixedpoint extends Z3Object
     /**
      * Convert benchmark given as set of axioms, rules and queries to a string.
      **/
-    public String toString(BoolExpr[] queries)
+    public String toString(Expr<BoolSort>[] queries)
     {
-
         return Native.fixedpointToString(getContext().nCtx(), getNativeObject(),
                 AST.arrayLength(queries), AST.arrayToNative(queries));
     }

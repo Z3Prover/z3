@@ -20,14 +20,14 @@ package com.microsoft.z3;
 /**
  * Set sorts.
  **/
-public class SetSort extends Sort
+public class SetSort<D extends Sort> extends ArraySort<D, BoolSort>
 {
     SetSort(Context ctx, long obj)
     {
         super(ctx, obj);
     }
 
-    SetSort(Context ctx, Sort ty)
+    SetSort(Context ctx, D ty)
     {
         super(ctx, Native.mkSetSort(ctx.nCtx(), ty.getNativeObject()));
     }

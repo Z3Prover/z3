@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Datatype sorts.
  **/
-public class DatatypeSort extends Sort
+public class DatatypeSort<R> extends Sort
 {
     /**
      * The number of constructors of the datatype sort.
@@ -39,12 +39,13 @@ public class DatatypeSort extends Sort
      * @throws Z3Exception
      * @throws Z3Exception on error
      **/
-    public FuncDecl[] getConstructors()
+    @SuppressWarnings("unchecked")
+    public FuncDecl<DatatypeSort<R>>[] getConstructors()
     {
         int n = getNumConstructors();
-        FuncDecl[] res = new FuncDecl[n];
+        FuncDecl<DatatypeSort<R>>[] res = new FuncDecl[n];
         for (int i = 0; i < n; i++)
-            res[i] = new FuncDecl(getContext(), Native.getDatatypeSortConstructor(
+            res[i] = new FuncDecl<>(getContext(), Native.getDatatypeSortConstructor(
                     getContext().nCtx(), getNativeObject(), i));
         return res;
     }
@@ -55,12 +56,13 @@ public class DatatypeSort extends Sort
      * @throws Z3Exception
      * @throws Z3Exception on error
      **/
-    public FuncDecl[] getRecognizers()
+    @SuppressWarnings("unchecked")
+    public FuncDecl<BoolSort>[] getRecognizers()
     {
         int n = getNumConstructors();
-        FuncDecl[] res = new FuncDecl[n];
+        FuncDecl<BoolSort>[] res = new FuncDecl[n];
         for (int i = 0; i < n; i++)
-            res[i] = new FuncDecl(getContext(), Native.getDatatypeSortRecognizer(
+            res[i] = new FuncDecl<>(getContext(), Native.getDatatypeSortRecognizer(
                     getContext().nCtx(), getNativeObject(), i));
         return res;
     }
@@ -71,20 +73,20 @@ public class DatatypeSort extends Sort
      * @throws Z3Exception
      * @throws Z3Exception on error
      **/
-    public FuncDecl[][] getAccessors()
+    public FuncDecl<?>[][] getAccessors()
     {
 
         int n = getNumConstructors();
-        FuncDecl[][] res = new FuncDecl[n][];
+        FuncDecl<?>[][] res = new FuncDecl[n][];
         for (int i = 0; i < n; i++)
         {
-            FuncDecl fd = new FuncDecl(getContext(),
+            FuncDecl<?> fd = new FuncDecl<>(getContext(),
                     Native.getDatatypeSortConstructor(getContext().nCtx(),
                             getNativeObject(), i));
             int ds = fd.getDomainSize();
-            FuncDecl[] tmp = new FuncDecl[ds];
+            FuncDecl<?>[] tmp = new FuncDecl[ds];
             for (int j = 0; j < ds; j++)
-                tmp[j] = new FuncDecl(getContext(),
+                tmp[j] = new FuncDecl<>(getContext(),
                         Native.getDatatypeSortConstructorAccessor(getContext()
                                 .nCtx(), getNativeObject(), i, j));
             res[i] = tmp;
@@ -97,7 +99,7 @@ public class DatatypeSort extends Sort
         super(ctx, obj);
     }
 
-    DatatypeSort(Context ctx, Symbol name, Constructor[] constructors)
+    DatatypeSort(Context ctx, Symbol name, Constructor<R>[] constructors)
            
     {
         super(ctx, Native.mkDatatype(ctx.nCtx(), name.getNativeObject(),

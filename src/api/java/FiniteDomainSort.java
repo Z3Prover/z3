@@ -20,7 +20,7 @@ package com.microsoft.z3;
 /**
  * Finite domain sorts.
  **/
-public class FiniteDomainSort extends Sort
+public class FiniteDomainSort<R> extends Sort
 {
     /**
      * The size of the finite domain sort.
