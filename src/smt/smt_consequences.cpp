@@ -285,8 +285,8 @@ namespace smt {
         bool pushed = false;
         struct scoped_level {
             context& c;
-            unsigned lvl;
             bool& pushed;
+            unsigned lvl;
             scoped_level(context& c, bool& pushed):
                 c(c), pushed(pushed), lvl(c.get_scope_level()) {}
             ~scoped_level() {
