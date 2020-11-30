@@ -341,10 +341,11 @@ namespace bv {
     void solver::log_drat(bv_justification const& c) {
         // introduce dummy literal for equality.
         sat::literal leq(s().num_vars() + 1, false);
+        expr_ref eq(m);
         if (c.m_kind != bv_justification::kind_t::bit2ne) {
             expr* e1 = var2expr(c.m_v1);
             expr* e2 = var2expr(c.m_v2);
-            expr_ref eq(m.mk_eq(e1, e2), m);
+            eq = m.mk_eq(e1, e2);                                           
             ctx.get_drat().def_begin('e', eq->get_id(), std::string("="));
             ctx.get_drat().def_add_arg(e1->get_id());
             ctx.get_drat().def_add_arg(e2->get_id());
@@ -358,13 +359,19 @@ namespace bv {
         switch (c.m_kind) {
         case bv_justification::kind_t::eq2bit:
             ++s_count;
-            std::cout << "eq2bit " << s_count << "\n";
-#if 0
+//            std::cout << "eq2bit " << s_count << "\n";
+#if 1
             if (s_count == 1899) {
-                std::cout << "eq2bit " << mk_pp(var2expr(c.m_v1), m) << " == " << mk_pp(var2expr(c.m_v2), m) << "\n";
-                std::cout << literal2expr(~c.m_antecedent) << "\n";
-                std::cout << literal2expr(c.m_consequent) << "\n";
-                INVOKE_DEBUGGER();
+                std::cout << "eq2bit " << mk_bounded_pp(var2expr(c.m_v1), m) << " == " << mk_bounded_pp(var2expr(c.m_v2), m) << "\n";
+                std::cout << mk_bounded_pp(literal2expr(~c.m_antecedent), m, 2) << "\n";
+                std::cout << mk_bounded_pp(literal2expr(c.m_consequent), m, 2) << "\n";
+#if 0
+                solver_ref slv = mk_smt2_solver(m, ctx.s().params());
+                slv->assert_expr(eq);
+                slv->assert_expr(literal2expr(c.m_antecedent));
+                slv->assert_expr(literal2expr(~c.m_consequent));
+                slv->display(std::cout) << "(check-sat)\n";
+#endif
             }
 #endif
             lits.push_back(~leq);
@@ -772,6 +779,8 @@ namespace bv {
     }
 
     sat::justification solver::mk_eq2bit_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a) {
+        if (v1 == 3202 && v2 == 3404) std::cout << a << " -> " << c << "\n";
+        SASSERT(!(v1 == 3202 && v2 == 3404 && c.var() == 8691));
         void* mem = get_region().allocate(bv_justification::get_obj_size());
         sat::constraint_base::initialize(mem, this);
         auto* constraint = new (sat::constraint_base::ptr2mem(mem)) bv_justification(v1, v2, c, a);
