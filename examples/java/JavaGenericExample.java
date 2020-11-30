@@ -480,19 +480,37 @@ class JavaGenericExample
                 .collect(Collectors.toList())).collect(Collectors.toList());
 
         // each row contains a digit at most once
-        List<BoolExpr> rows_c = IntStream.range(0, 9).mapToObj(i -> ctx.mkDistinct(X.get(i).toArray(new Expr[0]))).collect(Collectors.toList());
+        List<BoolExpr> rows_c = new ArrayList<>();
+        for (int i1 = 0; i1 < 9; i1++) {
+            BoolExpr boolExpr = ctx.mkDistinct(X.get(i1).toArray(new Expr[0]));
+            rows_c.add(boolExpr);
+        }
 
         // each column contains a digit at most once
-        List<BoolExpr> cols_c = IntStream.range(0, 9).mapToObj(j -> ctx.mkDistinct(X.stream().map(r -> r.get(j)).toArray(Expr[]::new))).collect(Collectors.toList());
+        List<BoolExpr> cols_c = new ArrayList<>();
+        for (int idx = 0; idx < 9; idx++) {
+            int j1 = idx;
+            BoolExpr boolExpr = ctx.mkDistinct(X.stream().map(r -> r.get(j1)).toArray(Expr[]::new));
+            cols_c.add(boolExpr);
+        }
 
         // each 3x3 square contains a digit at most once
-        List<List<BoolExpr>> sq_c = IntStream.range(0, 3).mapToObj(i0 -> {
-            return IntStream.range(0, 3).mapToObj(j0 -> {
-                return ctx.mkDistinct(IntStream.range(0, 3).boxed().flatMap(i -> {
-                    return IntStream.range(0, 3).mapToObj(j -> X.get(3 * i0 + i).get(3 * j0 + j));
-                }).toArray(Expr[]::new));
-            }).collect(Collectors.toList());
-        }).collect(Collectors.toList());
+        List<List<BoolExpr>> sq_c = new ArrayList<>();
+        for (int i0 = 0; i0 < 3; i0++) {
+            List<BoolExpr> collect = new ArrayList<>();
+            for (int j0 = 0; j0 < 3; j0++) {
+                List<Expr<IntSort>> list = new ArrayList<>();
+                for (int i = 0; i < 3; i++) {
+                    for (int j = 0; j < 3; j++) {
+                        Expr<IntSort> intSortExpr = X.get(3 * i0 + i).get(3 * j0 + j);
+                        list.add(intSortExpr);
+                    }
+                }
+                BoolExpr boolExpr = ctx.mkDistinct(list.toArray(new Expr[0]));
+                collect.add(boolExpr);
+            }
+            sq_c.add(collect);
+        }
 
         Stream<BoolExpr> sudoku_s = cells_c.stream().flatMap(Collection::stream);
         sudoku_s = concat(sudoku_s, rows_c.stream());
