@@ -1483,8 +1483,10 @@ namespace smt {
             for (unsigned idx = 0; idx < sz; idx++) {
                 literal bit1  = m_bits[v1][idx];
                 literal bit2  = m_bits[v2][idx];
-                CTRACE("bv_bug", bit1 == ~bit2, display_var(tout, v1); display_var(tout, v2); tout << "idx: " << idx << "\n";);
-                SASSERT(bit1 != ~bit2);
+                if (bit1 == ~bit2) {
+                    add_new_diseq_axiom(v1, v2, idx);
+                    return;
+                }
                 lbool val1    = ctx.get_assignment(bit1);
                 lbool val2    = ctx.get_assignment(bit2);
                 TRACE("bv", tout << "merge v" << v1 << " " << bit1 << ":= " << val1 << " " << bit2 << ":= " << val2 << "\n";);
