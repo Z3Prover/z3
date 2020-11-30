@@ -2196,13 +2196,6 @@ static bool is_smt2_file(char const* filename) {
     return (len > 4 && !strcmp(filename + len - 5,".smt2"));    
 }
 
-static void check_error(z3::context& ctx) {
-    Z3_error_code e = Z3_get_error_code(ctx);
-    if (e != Z3_OK) {
-        std::cout << Z3_get_error_msg(ctx, e) << "\n";
-        exit(1);
-    }
-}
 
 static void display_tptp(std::ostream& out) {
     // run SMT2 parser, pretty print TFA format.

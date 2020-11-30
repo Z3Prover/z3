@@ -1057,6 +1057,8 @@ void opt_translate_example() {
     o1.add(x + y <= 11);
     optimize::handle h1 = o1.maximize(x);
     optimize::handle h2 = o1.maximize(y);
+    (void)h1;
+    (void)h2;
     optimize o2(c2, o1);
     expr z = c2.int_const("z");
     expr x2 = c2.int_const("x");
