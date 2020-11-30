@@ -1252,8 +1252,11 @@ namespace smt {
                 TRACE("bv_bit_prop", tout << "propagating #" << get_enode(v2)->get_owner_id() << "[" << idx << "] = " << val2 << "\n";);
                 TRACE("bv", tout << bit << " -> " << bit2 << " " << val << " -> " << val2 << " " << ctx.get_scope_level() << "\n";);
 
-                SASSERT(bit != ~bit2);
-                
+                if (bit == ~bit2) {
+                    add_new_diseq_axiom(v, v2, idx);
+                    return;
+                }
+
                 if (val != val2) {
                     literal consequent = bit2;
                     if (val == l_false) {
