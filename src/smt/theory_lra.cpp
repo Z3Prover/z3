@@ -3222,6 +3222,14 @@ public:
         init_variable_values();
         m_factory = alloc(arith_factory, m);
         mg.register_factory(m_factory);
+        if (m_model_is_initialized) {
+            expr_ref val(m);
+            unsigned nv = th.get_num_vars();
+            for (unsigned v = 0; v < nv; ++v) 
+                if (get_value(get_enode(v), val))
+                    m_factory->register_value(val);
+
+        }
         TRACE("arith", display(tout););
     }
 
