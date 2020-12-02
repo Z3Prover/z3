@@ -213,7 +213,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     sat::bool_var to_bool_var(expr* e) override {
         sat::literal l;
         sat::bool_var v = m_map.to_bool_var(e);
-        if (v != sat::null_bool_var)
+        if (v != sat::null_bool_var) 
             return v;
         if (is_app(e) && m_cache.find(to_app(e), l) && !l.sign()) 
             return l.var();

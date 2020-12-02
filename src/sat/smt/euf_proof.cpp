@@ -76,7 +76,8 @@ namespace euf {
         if (!use_drat())
             return;
         literal_vector lits;
-        for (literal lit : r) lits.push_back(~lit);
+        for (literal lit : r) 
+            lits.push_back(~lit);
         if (l != sat::null_literal)
             lits.push_back(l);
         get_drat().add(lits, sat::status::th(true, get_id()));

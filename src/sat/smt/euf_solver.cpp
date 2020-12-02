@@ -692,6 +692,13 @@ namespace euf {
         finish_reinit();
         for (auto* e : m_solvers)
             e->pop_reinit();
+
+#if 0
+        for (enode* n : m_egraph.nodes()) {
+            if (n->bool_var() != sat::null_bool_var && s().is_free(n->bool_var()))
+                std::cout << "has free " << n->bool_var() << "\n";
+        }
+#endif
     }
 
     bool solver::validate() { 

@@ -142,11 +142,6 @@ namespace sat {
         buffer[len++] = '\n';
         m_out->write(buffer, len);
 
-        if (n == 3 && c[0] == literal(9357, true) && c[1] == literal(25, true) && c[2] == literal(8691, false)) {
-            m_out->flush();
-            SASSERT(false);
-            UNREACHABLE();
-        }
     }
 
     void drat::dump_activity() {

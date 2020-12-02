@@ -360,11 +360,12 @@ namespace bv {
         case bv_justification::kind_t::eq2bit:
             ++s_count;
 //            std::cout << "eq2bit " << s_count << "\n";
-#if 1
+#if 0
             if (s_count == 1899) {
                 std::cout << "eq2bit " << mk_bounded_pp(var2expr(c.m_v1), m) << " == " << mk_bounded_pp(var2expr(c.m_v2), m) << "\n";
-                std::cout << mk_bounded_pp(literal2expr(~c.m_antecedent), m, 2) << "\n";
-                std::cout << mk_bounded_pp(literal2expr(c.m_consequent), m, 2) << "\n";
+                std::cout << mk_bounded_pp(literal2expr(~c.m_antecedent), m, 4) << "\n";
+                std::cout << mk_bounded_pp(literal2expr(c.m_consequent), m, 4) << "\n";
+                std::cout << literal2expr(c.m_consequent) << "\n";
 #if 0
                 solver_ref slv = mk_smt2_solver(m, ctx.s().params());
                 slv->assert_expr(eq);
@@ -779,8 +780,6 @@ namespace bv {
     }
 
     sat::justification solver::mk_eq2bit_justification(theory_var v1, theory_var v2, sat::literal c, sat::literal a) {
-        if (v1 == 3202 && v2 == 3404) std::cout << a << " -> " << c << "\n";
-        SASSERT(!(v1 == 3202 && v2 == 3404 && c.var() == 8691));
         void* mem = get_region().allocate(bv_justification::get_obj_size());
         sat::constraint_base::initialize(mem, this);
         auto* constraint = new (sat::constraint_base::ptr2mem(mem)) bv_justification(v1, v2, c, a);

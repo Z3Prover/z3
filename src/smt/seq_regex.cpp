@@ -278,12 +278,15 @@ namespace smt {
             return;
         }
 
-        update_state_graph(r);
-
-        if (m_state_graph.is_dead(get_state_id(r))) {
-            STRACE("seq_regex_brief", tout << "(dead) ";);
-            th.add_axiom(~lit);
-            return;
+        auto info = re().get_info(r);
+        if (info.interpreted) {
+            update_state_graph(r);
+            
+            if (m_state_graph.is_dead(get_state_id(r))) {
+                STRACE("seq_regex_brief", tout << "(dead) ";);
+                th.add_axiom(~lit);
+                return;
+            }
         }
 
         if (block_unfolding(lit, idx)) {

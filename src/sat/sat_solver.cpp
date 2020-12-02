@@ -3486,7 +3486,6 @@ namespace sat {
             return value(v) != l_undef && lvl(v) <= new_lvl;
         };
 
-               
         for (unsigned i = old_num_vars; i < sz; ++i) {
             bool_var v = m_active_vars[i];
             if (is_visited(v) || is_active(v)) {
@@ -3496,7 +3495,9 @@ namespace sat {
             }
             else {
                 set_eliminated(v, true);
-                m_free_vars.push_back(v);
+                if (!is_external(v) || true) {
+                    m_free_vars.push_back(v);
+                }
             }
         }
         m_active_vars.shrink(j);

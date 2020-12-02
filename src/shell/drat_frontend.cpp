@@ -71,10 +71,12 @@ class smt_checker {
 
     void add_units() {
         auto const& units = m_drat.units();
+#if 0
         for (unsigned i = m_units.size(); i < units.size(); ++i) {
             sat::literal lit = units[i];            
             m_lemma_solver->assert_expr(lit2expr(lit));
         }
+#endif
         m_units.append(units.size() - m_units.size(), units.c_ptr() + m_units.size());
     }
 
@@ -113,20 +115,22 @@ class smt_checker {
             std::cout << "drup\n";
             return;
         }
-        m_lemma_solver->push();
-        for (auto lit : drup_units)
-            m_lemma_solver->assert_expr(lit2expr(lit));
-        lbool is_sat = m_lemma_solver->check_sat();
+        m_input_solver->push();
+//        for (auto lit : drup_units)
+//            m_input_solver->assert_expr(lit2expr(lit));
+        for (auto lit : lits)
+            m_input_solver->assert_expr(lit2expr(~lit));
+        lbool is_sat = m_input_solver->check_sat();
         if (is_sat != l_false) {
             std::cout << "did not verify: " << lits << "\n";
             for (sat::literal lit : lits) {
                 std::cout << lit2expr(lit) << "\n";
             }
             std::cout << "\n";
-            m_lemma_solver->display(std::cout);
+            m_input_solver->display(std::cout);
             exit(0);
         }
-        m_lemma_solver->pop(1);
+        m_input_solver->pop(1);
         std::cout << "smt\n";
         // check_assertion_redundant(lits);
     }
@@ -280,8 +284,10 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
         switch (r.m_tag) {
         case dimacs::drat_record::tag_t::is_clause:
             checker.add(r.m_lits, r.m_status);
-            if (drat_checker.inconsistent()) 
-                std::cout << "inconsistent\n";            
+            if (drat_checker.inconsistent()) {
+                std::cout << "inconsistent\n";
+                return;
+            }            
             break;
         case dimacs::drat_record::tag_t::is_node: {
             expr_ref e(m);

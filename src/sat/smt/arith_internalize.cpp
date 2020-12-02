@@ -436,6 +436,7 @@ namespace arith {
         if (_has_var)
             return v;
         theory_var w = mk_evar(n);
+        internalize_term(n);
         svector<lpvar> vars;
         for (unsigned i = 0; i < p; ++i)
             vars.push_back(register_theory_var_in_lar_solver(w));
