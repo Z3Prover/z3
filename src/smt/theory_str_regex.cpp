@@ -611,7 +611,10 @@ namespace smt {
                       });
 
                 if (regex_get_counter(regex_length_attempt_count, aut.get_regex_term()) >= m_params.m_RegexAutomata_LengthAttemptThreshold) {
-                    unsigned intersectionDifficulty = estimate_automata_intersection_difficulty(aut_inter, aut.get_automaton());
+                    unsigned intersectionDifficulty = 0;
+                    if (aut_inter != nullptr) {
+                        intersectionDifficulty = estimate_automata_intersection_difficulty(aut_inter, aut.get_automaton());
+                    }
                     TRACE("str", tout << "intersection difficulty is " << intersectionDifficulty << std::endl;);
                     if (intersectionDifficulty <= m_params.m_RegexAutomata_IntersectionDifficultyThreshold
                             || regex_get_counter(regex_intersection_fail_count, aut.get_regex_term()) >= m_params.m_RegexAutomata_FailedIntersectionThreshold) {
