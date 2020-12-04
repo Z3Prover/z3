@@ -34,9 +34,15 @@ function(add_git_dir_dependency GIT_DOT_FILE SUCCESS_VAR)
       # Figure out where real git directory lives
       set(GIT_COMMON_DIR_FILE "${GIT_WORKTREE_DIR}/commondir")
       if (NOT EXISTS "${GIT_COMMON_DIR_FILE}")
-        # Z3 is a git submodule
-        set(GIT_HEAD_FILE "${CMAKE_SOURCE_DIR}/${GIT_HEAD_FILE}")
-        set(GIT_DIR "${CMAKE_SOURCE_DIR}/${GIT_WORKTREE_DIR}")
+        get_filename_component(GIT_WORKTREE_PARENT "${GIT_WORKTREE_DIR}" DIRECTORY)
+        get_filename_component(GIT_WORKTREE_PARENT "${GIT_WORKTREE_PARENT}" NAME)
+        if ("${GIT_WORKTREE_PARENT}" STREQUAL "modules")
+          # Z3 is a git submodule
+          set(GIT_HEAD_FILE "${CMAKE_SOURCE_DIR}/${GIT_HEAD_FILE}")
+          set(GIT_DIR "${CMAKE_SOURCE_DIR}/${GIT_WORKTREE_DIR}")
+        else()
+          message(FATAL_ERROR "Found git worktree dir but could not find \"${GIT_COMMON_DIR_FILE}\"")
+        endif()
       else()
         file(READ "${GIT_COMMON_DIR_FILE}" GIT_COMMON_DIR_FILE_DATA LIMIT 512)
         string(STRIP "${GIT_COMMON_DIR_FILE_DATA}" GIT_COMMON_DIR_FILE_DATA_STRIPPED)
