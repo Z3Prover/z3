@@ -474,25 +474,20 @@ public:
     
     explanation get_explanation_from_path(vector<edge>& path) const {
         explanation ex;
-        unsigned prev_row = UINT_MAX;
-        for (edge &e : path) {
-            unsigned row = e.row();
-            if (row == prev_row)
-                continue;
-            explain_fixed_in_row(prev_row = row, ex);
-        }
+        for (edge &e : path)
+            explain_fixed_in_row(e.row(), ex);
         return ex;
     }
 
     void explain_fixed_in_row(unsigned row, explanation& ex) const {
         for (const auto & c : lp().get_row(row)) {
             if (lp().is_fixed(c.var())) {
-                explain_fixed_column(ex, c.var());
+                explain_fixed_column(c.var(), ex);
             }
         }
     }
 
-    void explain_fixed_column(explanation & ex, unsigned j) const {
+    void explain_fixed_column(unsigned j, explanation & ex) const {
         SASSERT(column_is_fixed(j));
         constraint_index lc, uc;            
         lp().get_bound_constraint_witnesses_for_column(j, lc, uc);
