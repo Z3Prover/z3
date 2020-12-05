@@ -229,7 +229,7 @@ public class Context implements AutoCloseable {
     /**
      * Create a new array sort.
      **/
-    public <R extends Sort> ArraySort<?, R> mkArraySort(Sort[] domains, R range)
+    public <R extends Sort> ArraySort<Sort, R> mkArraySort(Sort[] domains, R range)
     {
         checkContextMatch(domains);
         checkContextMatch(range);
@@ -1725,7 +1725,7 @@ public class Context implements AutoCloseable {
      * @see #mkArraySort
      * @see #mkStore
      **/
-    public <R extends Sort> Expr<R> mkSelect(Expr<ArraySort<?, R>> a, Expr<?>[] args)
+    public <R extends Sort> Expr<R> mkSelect(Expr<ArraySort<Sort, R>> a, Expr<?>[] args)
     {
         checkContextMatch(a);
         checkContextMatch(args);
@@ -1775,7 +1775,7 @@ public class Context implements AutoCloseable {
      * @see #mkSelect
 
      **/
-    public <R extends Sort> ArrayExpr<?, R> mkStore(Expr<ArraySort<?, R>> a, Expr<?>[] args, Expr<R> v)
+    public <R extends Sort> ArrayExpr<Sort, R> mkStore(Expr<ArraySort<Sort, R>> a, Expr<?>[] args, Expr<R> v)
     {
         checkContextMatch(a);
         checkContextMatch(args);
