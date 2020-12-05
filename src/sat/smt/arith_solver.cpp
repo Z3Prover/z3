@@ -1127,7 +1127,7 @@ namespace arith {
             set_evidence(ev.ci(), m_core, m_eqs);
         DEBUG_CODE(
             if (is_conflict) {
-                for (literal c : m_core) VERIFY(s().value(c) == l_false);
+                for (literal c : m_core) VERIFY(s().value(c) == l_true);
                 for (auto p : m_eqs) VERIFY(p.first->get_root() == p.second->get_root());
             });
         for (auto const& eq : m_eqs)

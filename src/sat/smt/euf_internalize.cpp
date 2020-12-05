@@ -101,11 +101,8 @@ namespace euf {
 
     void solver::attach_node(euf::enode* n) {
         expr* e = n->get_expr();
-        sat::literal lit;
-        if (!m.is_bool(e))
-            drat_log_node(e);
-        else 
-            lit = attach_lit(literal(si.add_bool_var(e), false), e);
+        if (m.is_bool(e))
+            attach_lit(literal(si.add_bool_var(e), false), e);
 
         if (!m.is_bool(e) && m.get_sort(e)->get_family_id() != null_family_id) {
             auto* e_ext = expr2solver(e);

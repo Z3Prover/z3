@@ -267,6 +267,7 @@ namespace arith {
         void mk_rem_axiom(expr* dividend, expr* divisor);
         void mk_bound_axioms(api_bound& b);
         void mk_bound_axiom(api_bound& b1, api_bound& b2);
+        void mk_power0_axioms(app* t, app* n);
         void flush_bound_axioms();
 
         // bounds

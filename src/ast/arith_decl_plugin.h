@@ -294,6 +294,7 @@ public:
     bool is_to_int(expr const * n) const { return is_app_of(n, m_afid, OP_TO_INT); }
     bool is_is_int(expr const * n) const { return is_app_of(n, m_afid, OP_IS_INT); }
     bool is_power(expr const * n) const { return is_app_of(n, m_afid, OP_POWER); }
+    bool is_power0(expr const * n) const { return is_app_of(n, m_afid, OP_POWER0); }
 
     bool is_int(sort const * s) const { return is_sort_of(s, m_afid, INT_SORT); }
     bool is_int(expr const * n) const { return is_int(get_sort(n)); }

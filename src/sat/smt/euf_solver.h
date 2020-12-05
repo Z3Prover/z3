@@ -157,6 +157,9 @@ namespace euf {
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
         void log_antecedents(literal l, literal_vector const& r);
         void drat_log_decl(func_decl* f);
+        void drat_log_expr(expr* n);
+        void drat_log_expr1(expr* n);
+        ptr_vector<expr> m_drat_todo;
         obj_hashtable<ast> m_drat_asts;
         bool m_drat_initialized{ false };
         void init_drat();
@@ -289,6 +292,7 @@ namespace euf {
 
         bool use_drat() { return s().get_config().m_drat && (init_drat(), true); }
         sat::drat& get_drat() { return s().get_drat(); }
+        void drat_bool_def(sat::bool_var v, expr* n);
 
         // decompile
         bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
@@ -310,7 +314,6 @@ namespace euf {
         void unhandled_function(func_decl* f);
         th_rewriter& get_rewriter() { return m_rewriter; }
         bool is_shared(euf::enode* n) const;
-        void drat_log_node(expr* n);
 
         // relevancy
         bool relevancy_enabled() const { return get_config().m_relevancy_lvl > 0; }

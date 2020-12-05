@@ -58,7 +58,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
     };
     ast_manager &               m;
     pb_util                     pb;
-    sat::cut_simplifier*        m_aig;
     svector<frame>              m_frame_stack;
     svector<sat::literal>       m_result_stack;
     obj_map<app, sat::literal>  m_cache;
@@ -83,7 +82,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
     imp(ast_manager & _m, params_ref const & p, sat::solver_core & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
         m(_m),
         pb(m),
-        m_aig(nullptr),
         m_solver(s),
         m_map(map),
         m_dep2asm(dep2asm),
@@ -92,11 +90,15 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_default_external(default_external) {
         updt_params(p);
         m_true = sat::null_literal;
-        m_aig = s.get_cut_simplifier();
     }
 
     ~imp() override {}
         
+
+    sat::cut_simplifier* aig() {
+        return m_solver.get_cut_simplifier();
+    }
+
     void updt_params(params_ref const & p) {
         sat_params sp(p);
         m_ite_extra  = p.get_bool("ite_extra", true);
@@ -178,7 +180,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (m_expr2var_replay && m_expr2var_replay->find(n, v))
             return v;
         v = m_solver.add_var(is_ext);
-        log_node(n);
         log_def(v, n);
         if (top_level_relevant() && !is_bool_op(n))
             ensure_euf()->track_relevancy(v);
@@ -186,19 +187,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void log_def(sat::bool_var v, expr* n) {
-        if (m_drat && m_solver.get_drat_ptr()) 
-            m_solver.get_drat_ptr()->bool_def(v, n->get_id());
-    }
-
-    void log_node(expr* n) {
-        if (m_drat && m_solver.get_drat_ptr()) {
-            if (is_app(n)) {
-                for (expr* arg : *to_app(n))
-                    if (m.is_not(arg))
-                        log_node(arg);
-            }
-            ensure_euf()->drat_log_node(n);
-        }
+        if (m_drat && m_euf)
+            ensure_euf()->drat_bool_def(v, n);
     }
 
     sat::literal mk_true() {
@@ -413,15 +403,15 @@ struct goal2sat::imp : public sat::sat_internalizer {
                        
             m_result_stack.push_back(~l);
             lits = m_result_stack.end() - num - 1;
-            if (m_aig) {
+            if (aig()) {
                 aig_lits.reset();
                 aig_lits.append(num, lits);
             }
             // remark: mk_clause may perform destructive updated to lits.
             // I have to execute it after the binary mk_clause above.
             mk_clause(num+1, lits);
-            if (m_aig) 
-                m_aig->add_or(l, num, aig_lits.c_ptr());
+            if (aig()) 
+                aig()->add_or(l, num, aig_lits.c_ptr());
                         
             m_solver.set_phase(~l);               
             m_result_stack.shrink(old_sz);
@@ -468,13 +458,13 @@ struct goal2sat::imp : public sat::sat_internalizer {
             }
             m_result_stack.push_back(l);
             lits = m_result_stack.end() - num - 1;
-            if (m_aig) {
+            if (aig()) {
                 aig_lits.reset();
                 aig_lits.append(num, lits);
             }
             mk_clause(num+1, lits);
-            if (m_aig) {
-                m_aig->add_and(l, num, aig_lits.c_ptr());
+            if (aig()) {
+                aig()->add_and(l, num, aig_lits.c_ptr());
             }        
             m_solver.set_phase(l);               
             if (sign)
@@ -516,7 +506,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 mk_clause(~t, ~e, l);
                 mk_clause(t,  e, ~l);
             }
-            if (m_aig) m_aig->add_ite(l, c, t, e);
+            if (aig()) aig()->add_ite(l, c, t, e);
             if (sign)
                 l.neg();
 
@@ -581,7 +571,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             mk_clause(~l, ~l1, l2);
             mk_clause(l,  l1, l2);
             mk_clause(l, ~l1, ~l2);
-            if (m_aig) m_aig->add_iff(l, l1, l2);            
+            if (aig()) aig()->add_iff(l, l1, l2);            
             if (sign)
                 l.neg();
             m_result_stack.push_back(l);

@@ -28,13 +28,6 @@ namespace sat {
         eframe(expr* e) : m_e(e), m_idx(0) {}
     };
 
-    struct scoped_stack {
-        svector<eframe>& s;
-        unsigned sz;
-        scoped_stack(svector<eframe>& s):s(s), sz(s.size()) {}
-        ~scoped_stack() { s.shrink(sz); }
-    };
-
     class sat_internalizer {
     public:
         virtual ~sat_internalizer() {}

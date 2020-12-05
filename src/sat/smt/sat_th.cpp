@@ -24,7 +24,7 @@ namespace euf {
     bool th_internalizer::visit_rec(ast_manager& m, expr* a, bool sign, bool root, bool redundant) {
         IF_VERBOSE(110, verbose_stream() << "internalize: " << mk_pp(a, m) << "\n");
         flet<bool> _is_learned(m_is_redundant, redundant);
-        sat::scoped_stack _sc(m_stack);
+        svector<sat::eframe>::scoped_stack _sc(m_stack);
         unsigned sz = m_stack.size();
         visit(a);
         while (m_stack.size() > sz) {

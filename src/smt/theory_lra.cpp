@@ -384,7 +384,7 @@ class theory_lra::imp {
                 vars.push_back(v);
                 ++index;
             }
-            else if (a.is_power(n, n1, n2) && is_app(n1) && a.is_extended_numeral(n2, r) && r.is_unsigned() && r <= 10) {
+            else if (a.is_power(n, n1, n2) && is_app(n1) && a.is_extended_numeral(n2, r) && r.is_unsigned() && r.is_pos() && r <= 10) {
                 theory_var v = internalize_power(to_app(n), to_app(n1), r.get_unsigned());
                 coeffs[vars.size()] = coeffs[index];
                 vars.push_back(v);

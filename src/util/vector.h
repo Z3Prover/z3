@@ -596,6 +596,14 @@ public:
         if (s > size())
             resize(s);
     }
+
+    struct scoped_stack {
+        vector& s;
+        unsigned sz;
+        scoped_stack(vector& s):s(s), sz(s.size()) {}
+        ~scoped_stack() { s.shrink(sz); }
+    };
+
 };
 
 template<typename T>

@@ -265,7 +265,7 @@ namespace arith {
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);
                 }
-                else if (!a.is_div0(n) && !a.is_mod0(n) && !a.is_idiv0(n) && !a.is_rem0(n)) {
+                else if (!a.is_div0(n) && !a.is_mod0(n) && !a.is_idiv0(n) && !a.is_rem0(n) && !a.is_power0(n)) {
                     found_unsupported(n);
                 }
                 else {
@@ -437,12 +437,18 @@ namespace arith {
             return v;
         theory_var w = mk_evar(n);
         internalize_term(n);
-        svector<lpvar> vars;
-        for (unsigned i = 0; i < p; ++i)
-            vars.push_back(register_theory_var_in_lar_solver(w));
-        ensure_nla();
-        m_solver->register_existing_terms();
-        m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
+
+        if (p == 0) {
+            mk_power0_axioms(t, n);
+        }
+        else {
+            svector<lpvar> vars;
+            for (unsigned i = 0; i < p; ++i)
+                vars.push_back(register_theory_var_in_lar_solver(w));
+            ensure_nla();
+            m_solver->register_existing_terms();
+            m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
+        }
         return v;
     }
 
@@ -566,6 +572,7 @@ namespace arith {
                 for (expr* arg : *to_app(e))
                     args.push_back(e_internalize(arg));
             n = ctx.mk_enode(e, args.size(), args.c_ptr());
+            ctx.attach_node(n);
         }
         return n;
     }

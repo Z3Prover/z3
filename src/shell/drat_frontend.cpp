@@ -150,7 +150,7 @@ public:
             check_assertion_redundant(lits);
         else if (!st.is_sat() && !st.is_deleted()) 
             check_clause(lits);        
-        m_drat.add(lits, st);
+        // m_drat.add(lits, st);
     }    
 
     /**
@@ -199,6 +199,19 @@ public:
                         goto bail;
                     datatype_util dtu(m);
                     result = dtu.mk_is(f, args[0]);
+                    return;
+                }
+                if (name == "Real" && sz == 4) {
+                    arith_util au(m);
+                    rational num = sexpr->get_child(2)->get_numeral();
+                    rational den = sexpr->get_child(3)->get_numeral();
+                    result = au.mk_numeral(num/den, false);
+                    return;
+                }
+                if (name == "Int" && sz == 3) {
+                    arith_util au(m);
+                    rational num = sexpr->get_child(2)->get_numeral();
+                    result = au.mk_numeral(num, true);
                     return;
                 }
                 for (unsigned i = 2; i < sz; ++i) {

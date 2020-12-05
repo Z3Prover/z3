@@ -49,6 +49,14 @@ namespace arith {
         }
     }
 
+    // t = n^0
+    void solver::mk_power0_axioms(app* t, app* n) {
+        expr_ref p0(a.mk_power0(n, t->get_arg(1)), m);
+        literal eq = eq_internalize(n, a.mk_numeral(rational(0), a.is_int(n)));
+        add_clause(~eq, eq_internalize(t, p0));
+        add_clause(eq, eq_internalize(t, a.mk_numeral(rational(1), a.is_int(t))));
+    }
+
     // is_int(x) <=> to_real(to_int(x)) = x
     void solver::mk_is_int_axiom(expr* n) {
         expr* x = nullptr;

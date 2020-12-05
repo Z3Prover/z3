@@ -121,8 +121,12 @@ void user_propagator::propagate() {
             m_lits.append(m_id2justification[id]);
         for (auto const& p : prop.m_eqs)
             m_eqs.push_back(enode_pair(get_enode(p.first), get_enode(p.second)));
-        DEBUG_CODE(for (auto const& p : m_eqs) SASSERT(p.first->get_root() == p.second->get_root()););
-
+        DEBUG_CODE(for (auto const& p : m_eqs) VERIFY(p.first->get_root() == p.second->get_root()););
+        IF_VERBOSE(5, 
+                   for (auto lit : m_lits) 
+                       verbose_stream() << lit << ":" << ctx.get_assignment(lit) << " ";
+                   verbose_stream() << "\n";);
+        
         if (m.is_false(prop.m_conseq)) {
             js = ctx.mk_justification(
                 ext_theory_conflict_justification(
