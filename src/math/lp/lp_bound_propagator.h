@@ -39,7 +39,7 @@ class lp_bound_propagator {
         
         void add_child(int row, vertex* child) {
             SASSERT(*this != *child);
-            SASSERT(child->edge_from_parent().source() == nullptr);
+            SASSERT(child->parent() == nullptr);
             edge e = edge(this, child, row);
             m_edges.push_back(e);
             child->set_edge_from_parent(e);
@@ -265,7 +265,7 @@ public:
         m_pol.insert(j, pol_vert(p, v));
     }
 
-    void check_polarity(vertex* v, int polarity) {
+    void check_and_set_polarity(vertex* v, int polarity, unsigned row_index) {
         pol_vert prev_pol;
         if (!m_pol.find(v->column(), prev_pol)) {
             set_polarity(v, polarity);
@@ -279,6 +279,7 @@ public:
         vector<edge> path;
         find_path_on_tree(path, u, v);
         m_fixed_vertex_explanation = get_explanation_from_path(path);
+        explain_fixed_in_row(row_index, m_fixed_vertex_explanation);
         set_fixed_vertex(v);
         TRACE("cheap_eq", tout << "polarity switch between: v = "; print(tout , v) << "\nand u = "; print(tout, u) << "\n";);
         TRACE("cheap_eq", tout << "fixed vertex explanation\n";
@@ -315,17 +316,16 @@ public:
         }
         TRACE("cheap_eq", print_row(tout, row_index););
         m_root = alloc_v(x);
-        set_polarity(m_root, 1); // keep root in the positive table
-        explore_under(m_root);
+        set_polarity(m_root, 1); // keep m_root in the positive table
         if (not_set(y)) {
             set_fixed_vertex(m_root);
             explain_fixed_in_row(row_index, m_fixed_vertex_explanation);
-        } else {
-            vertex *v = alloc_v(y);
-            m_root->add_child(row_index, v);            
-            set_polarity(v, polarity);
-            explore_under(v);
+        } else {            
+            vertex *v = add_child_with_check(row_index, y, m_root, polarity);
+            if (v)
+                explore_under(v);
         }
+        explore_under(m_root);
     }
 
     unsigned column(unsigned row, unsigned index) {
@@ -338,7 +338,7 @@ public:
     
     // Returns the vertex to start exploration from, or nullptr.
     // It is assumed that parent->column() is present in the row
-    vertex* add_child_from_row(unsigned row_index, vertex* parent) {
+    vertex* get_child_from_row(unsigned row_index, vertex* parent) {
         TRACE("cheap_eq_det", print_row(tout, row_index););
         unsigned x, y; int row_polarity;
         if (!is_tree_offset_row(row_index, x, y, row_polarity)) {
@@ -346,32 +346,32 @@ public:
             return nullptr;
         }
         if (not_set(y)) { // there is only one fixed variable in the row
-            SASSERT(parent->column() == x);
-            vertex *v = alloc_v(x);
-            parent->add_child(row_index, v);
             if (!fixed_phase()) {
-                set_fixed_vertex(v);
+                set_fixed_vertex(parent);
                 explain_fixed_in_row(row_index, m_fixed_vertex_explanation);
             }
-            return v;
+            return nullptr;
         }
         
         SASSERT(is_set(x) && is_set(y));
         unsigned col = other(x, y, parent->column());
+        return add_child_with_check(row_index, col, parent, row_polarity);
+    }
+
+    vertex * add_child_with_check(unsigned row_index, unsigned col, vertex* parent, int row_polarity) {
         vertex* vy;
         if (m_vertices.find(col, vy)) {
             SASSERT(vy != nullptr);
             if (!fixed_phase()) {
-                check_polarity(vy, pol(parent) * row_polarity); 
+                check_and_set_polarity(vy, pol(parent) * row_polarity, row_index); 
             }
             return nullptr; // it is not a new vertex
-        } else {
-            vy = alloc_v(col);
-            parent->add_child(row_index, vy);
-            if (!fixed_phase())
-                check_polarity(vy, row_polarity * pol(parent));
-            return vy;
-        }
+        } 
+        vy = alloc_v(col);
+        parent->add_child(row_index, vy);
+        if (!fixed_phase())
+            check_and_set_polarity(vy, row_polarity * pol(parent), row_index);
+        return vy;        
     }
 
     bool is_equal(lpvar j, lpvar k) const {        
@@ -652,7 +652,7 @@ public:
             unsigned row_index = c.var();
             if (!check_insert(m_visited_rows, row_index))
                 continue;
-            vertex *u = add_child_from_row(row_index, v);
+            vertex *u = get_child_from_row(row_index, v);
             if (u) {
                 // debug
                 // if (verts_size() > 3) {
