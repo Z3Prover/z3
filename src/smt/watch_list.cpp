@@ -106,7 +106,8 @@ namespace smt {
             else 
                 *prev++ = *it;
         }
-        end_cls_core() -= num_deleted * sizeof(clause *);
+        if (num_deleted > 0)
+            end_cls_core() -= num_deleted * sizeof(clause *);
     }
     
     void watch_list::remove_literal(literal l) {
