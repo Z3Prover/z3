@@ -1759,6 +1759,8 @@ struct contains_underspecified_op_proc {
     void operator()(app * n)        {
         if (m_dt.is_accessor(n->get_decl())) 
             throw found();
+        if (m_dt.is_update_field(n->get_decl())) 
+            throw found();
         if (n->get_family_id() == m_seq_id && m_seq.is_re(n))
             throw found();
         if (m_arith.plugin().is_considered_uninterpreted(n->get_decl()))
