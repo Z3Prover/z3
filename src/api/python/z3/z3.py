@@ -10656,7 +10656,7 @@ class UserPropagateBase:
         return Z3_solver_propagate_register(self.ctx_ref(), self.solver.solver, e.ast)
 
     #
-    # Propagation can only be invoked as during a fixed-callback.
+    # Propagation can only be invoked as during a fixed or final callback.
     # 
     def propagate(self, e, ids, eqs = []):
         num_fixed = len(ids)

@@ -1823,8 +1823,9 @@ namespace lp {
             }
         }
 
-        SASSERT(column_is_fixed(k));
-        if (j != k) {
+        CTRACE("arith", !column_is_fixed(k), print_terms(tout););
+        // SASSERT(column_is_fixed(k));
+        if (j != k && column_is_fixed(k)) {
             SASSERT(column_is_int(j) == column_is_int(k));
             equal_to_j = column_to_reported_index(k);
             TRACE("lar_solver", tout << "found equal column k = " << k <<

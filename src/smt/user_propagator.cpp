@@ -69,9 +69,12 @@ theory * user_propagator::mk_fresh(context * new_ctx) {
 final_check_status user_propagator::final_check_eh() {
     if (!(bool)m_final_eh)
         return FC_DONE;
+    force_push();
     unsigned sz = m_prop.size();
     m_final_eh(m_user_context, this);
-    return sz == m_prop.size() ? FC_DONE : FC_CONTINUE;
+    propagate();
+    bool done = (sz == m_prop.size()) && !ctx.inconsistent();
+    return done ? FC_DONE : FC_CONTINUE;
 }
 
 void user_propagator::new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits) {
@@ -122,11 +125,7 @@ void user_propagator::propagate() {
         for (auto const& p : prop.m_eqs)
             m_eqs.push_back(enode_pair(get_enode(p.first), get_enode(p.second)));
         DEBUG_CODE(for (auto const& p : m_eqs) VERIFY(p.first->get_root() == p.second->get_root()););
-        IF_VERBOSE(5, 
-                   for (auto lit : m_lits) 
-                       verbose_stream() << lit << ":" << ctx.get_assignment(lit) << " ";
-                   verbose_stream() << "\n";);
-        
+
         if (m.is_false(prop.m_conseq)) {
             js = ctx.mk_justification(
                 ext_theory_conflict_justification(
