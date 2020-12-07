@@ -820,7 +820,14 @@ namespace opt {
                      mk_simplify_tactic(m));   
         opt_params optp(m_params);
         tactic_ref tac1, tac2, tac3, tac4;
-        if (optp.elim_01() && m_logic.is_null()) {
+        bool has_dep = false;
+        for (unsigned i = 0; !has_dep && i < g->size(); ++i) {
+            ptr_vector<expr> deps;
+            expr_dependency_ref core(g->dep(i), m);
+            m.linearize(core, deps);           
+            has_dep |= !deps.empty();
+        }
+        if (optp.elim_01() && m_logic.is_null() && !has_dep) {
             tac1 = mk_dt2bv_tactic(m);
             tac2 = mk_lia2card_tactic(m);
             tac3 = mk_eq2bv_tactic(m);
