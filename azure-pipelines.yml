@@ -234,7 +234,7 @@ jobs:
 - job: "MacOSCMake"
   displayName: "MacOS build with CMake"
   pool:
-    vmImage: "macOS-10.14"
+    vmImage: "macOS-latest"
   steps:
     - script: brew install ninja
     - script: brew cask install julia
