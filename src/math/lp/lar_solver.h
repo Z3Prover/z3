@@ -366,8 +366,8 @@ public:
         // these two loops should be run sequentially
         // since the first loop might change column bounds
         // and add fixed columns this way
-        bp.clear_for_eq();
         if (settings().cheap_eqs()) {
+            bp.clear_for_eq();
             for (unsigned i : m_rows_with_changed_bounds) {
                 calculate_cheap_eqs_for_row(i, bp);
                 if (settings().get_cancel_flag())
