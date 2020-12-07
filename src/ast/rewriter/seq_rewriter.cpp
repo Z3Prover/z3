@@ -673,6 +673,10 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 3);
         st = mk_seq_replace(args[0], args[1], args[2], result);
         break;
+    case OP_SEQ_REPLACE_ALL:
+        SASSERT(num_args == 3);
+        st = mk_seq_replace_all(args[0], args[1], args[2], result);
+        break;
     case OP_SEQ_TO_RE:
         SASSERT(num_args == 1);
         st = mk_str_to_regexp(args[0], result);
@@ -1677,6 +1681,33 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
 }
 
 br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& result) {
+    if (str().is_empty(b) || b == c) {
+        result = a;
+        return BR_DONE;
+    } 
+    if (a == b) {
+        result = m().mk_ite(str().mk_is_empty(b), str().mk_empty(m().get_sort(a)), c);
+        return BR_REWRITE1;
+    }
+    zstring s1, s2;
+    if (str().is_string(a, s1) && str().is_string(b, s2)) {
+        SASSERT(s2.length() > 0);
+        if (s1.length() < s2.length()) {
+            result = a;
+            return BR_DONE;
+        }
+        expr_ref_vector strs(m());
+        for (unsigned i = 0; i < s1.length() - s2.length(); ++i) {
+            if (s2 == s1.extract(0, s2.length()-1)) {
+                strs.push_back(c);
+                i += s2.length();
+            }
+            else 
+                strs.push_back(str().mk_unit(str().mk_char(s1, i)));
+        }
+        result = str().mk_concat(strs, m().get_sort(a));
+        return BR_REWRITE_FULL;
+    }
     return BR_FAILED;
 }
 
@@ -1809,7 +1840,6 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
         result = m().mk_true();
         return BR_DONE;
     }
-    zstring s1, s2;
     sort* sort_a = m().get_sort(a);
     if (str().is_empty(a)) {
         result = m().mk_true();
