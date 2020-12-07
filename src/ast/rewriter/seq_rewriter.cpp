@@ -1677,6 +1677,13 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
         return BR_REWRITE_FULL;        
     }
 
+    expr* a1 = nullptr, *b1 = nullptr, *c1 = nullptr;
+    if (str().is_replace(a, a1, b1, c1) && c1 == b && c1 != c) {
+        result = str().mk_replace(a1, b1, c);
+        result = str().mk_replace(result, b, c);
+        return BR_REWRITE2;
+    }
+
     return BR_FAILED;
 }
 
