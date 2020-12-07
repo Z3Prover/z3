@@ -293,25 +293,28 @@ namespace datalog {
         void register_rule(rule * r) {
             rule_counter counter;
             counter.count_rule_vars(r, 1);
-            TRACE("dl", tout << "counter: "; for (auto const& kv: counter) tout << kv.m_key << ": " << kv.m_value << " "; tout << "\n";);
-
+            TRACE("dl", tout << "counter: "; for (auto const& kv: counter) tout << kv.m_key << ": " << kv.m_value << " "; tout << "\n";);            
             ptr_vector<app> & rule_content = m_rules_content.insert_if_not_there(r, ptr_vector<app>());
             SASSERT(rule_content.empty());
-
+            
             TRACE("dl", r->display(m_context, tout << "register ");); 
-
+            
             unsigned pos_tail_size = r->get_positive_tail_size();
             for (unsigned i = 0; i < pos_tail_size; i++) {
-                rule_content.push_back(r->get_tail(i));
+                app* t = r->get_tail(i);
+                if (!rule_content.contains(t))
+                    rule_content.push_back(t);
+                else
+                    m_modified_rules = true;
             }
+            pos_tail_size = rule_content.size();
             for (unsigned i = 0; i+1 < pos_tail_size; i++) {
-                app * t1 = r->get_tail(i);
+                app * t1 = rule_content[i];
                 var_idx_set t1_vars = rm.collect_vars(t1);
                 counter.count_vars(t1, -1);  //temporarily remove t1 variables from counter
                 for (unsigned j = i+1; j < pos_tail_size; j++) {
-                    app * t2 = r->get_tail(j);
-                    if (t1 == t2)
-                        continue;
+                    app * t2 = rule_content[j];
+                    SASSERT(t1 != t2);
                     counter.count_vars(t2, -1);  //temporarily remove t2 variables from counter
                     var_idx_set t2_vars = rm.collect_vars(t2);
                     t2_vars |= t1_vars;
