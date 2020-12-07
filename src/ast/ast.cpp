@@ -1317,7 +1317,7 @@ func_decl * model_value_decl_plugin::mk_func_decl(decl_kind k, unsigned num_para
     int idx  = parameters[0].get_int();
     sort * s = to_sort(parameters[1].get_ast());
     string_buffer<64> buffer;
-    buffer << s->get_name().bare_str() << "!val!" << idx;
+    buffer << s->get_name().str() << "!val!" << idx;
     func_decl_info info(m_family_id, k, num_parameters, parameters);
     info.m_private_parameters = true;
     return m_manager->mk_func_decl(symbol(buffer.c_str()), 0, static_cast<sort * const *>(nullptr), s, info);
