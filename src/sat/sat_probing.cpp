@@ -170,8 +170,7 @@ namespace sat {
             unsigned sz = s.get_wlist(~l).size();
             for (unsigned i = 0; i < sz; ++i) {
                 watch_list& wlist = s.get_wlist(~l);
-                watched & w = wlist[i];
-                sz = wlist.size();
+                watched & w = wlist[i];                
                 if (!w.is_binary_clause())
                     continue;
                 literal l2 = w.get_literal();
@@ -185,6 +184,7 @@ namespace sat {
                     return;
                 if (s.inconsistent())
                     return;
+                sz = wlist.size();
             }
         }
     }
