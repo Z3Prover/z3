@@ -20,10 +20,10 @@ Revision History:
 #include<utility>
 #include<sstream>
 #include<limits>
-#include "muz/rel/dl_mk_simple_joins.h"
-#include "muz/rel/dl_relation_manager.h"
 #include "ast/ast_pp.h"
 #include "util/trace.h"
+#include "muz/rel/dl_mk_simple_joins.h"
+#include "muz/rel/dl_relation_manager.h"
 
 
 namespace datalog {
@@ -47,14 +47,14 @@ namespace datalog {
                being notified about it, it will surely see the decrease from length 3 to 2 which
                the threshold for rule being counted in this counter.
              */
-            unsigned    m_consumers;
-            bool        m_stratified;
-            unsigned    m_src_stratum;
+            unsigned    m_consumers { 0 };
+            bool        m_stratified { true };
+            unsigned    m_src_stratum { 0 };
         public:
             var_idx_set m_all_nonlocal_vars;
             rule_vector m_rules;
 
-            pair_info() : m_consumers(0), m_stratified(true), m_src_stratum(0) {}
+            pair_info() {}
 
             bool can_be_joined() const {
                 return m_consumers > 0;
@@ -246,7 +246,7 @@ namespace datalog {
 
             m_pinned.push_back(t1n);
             m_pinned.push_back(t2n);
-            TRACE("dl", tout << mk_pp(t1, m) << " " << mk_pp(t2, m) << " |-> " << t1n_ref << " " << t2n_ref << "\n";);
+            TRACE("dl_verbose", tout << mk_pp(t1, m) << " " << mk_pp(t2, m) << " |-> " << t1n_ref << " " << t2n_ref << "\n";);
             
             return app_pair(t1n, t2n);
         }
@@ -411,7 +411,7 @@ namespace datalog {
 
         void replace_edges(rule * r, const app_ref_vector & removed_tails, 
                            const app_ref_vector & added_tails0, const ptr_vector<app> & rule_content) {
-            SASSERT(removed_tails.size()>=added_tails0.size());
+            SASSERT(removed_tails.size() >= added_tails0.size());
             unsigned len = rule_content.size();
             unsigned original_len = len+removed_tails.size()-added_tails0.size();
             app_ref_vector added_tails(added_tails0); //we need a copy since we'll be modifying it
@@ -555,14 +555,27 @@ namespace datalog {
                         TRACE("dl", tout  << mk_pp(rt2, m) << " " << mk_pp(rt1, m) << " -> " << new_transf << "\n";);            
                     }
                     app * new_lit = to_app(new_transf);
-                    m_pinned.push_back(new_lit);
-                    rule_content[i1] = new_lit;
-                    rule_content[i2] = rule_content.back();
-                    rule_content.pop_back();
-                    len--;                                  //here the bound of both loops changes!!!
-                    removed_tails.push_back(rt1);
-                    removed_tails.push_back(rt2);
-                    added_tails.push_back(new_lit);
+                    if (added_tails.contains(new_lit)) {
+                        if (i1 < rule_content.size()) 
+                            rule_content[i1] = rule_content.back();
+                        rule_content.pop_back();
+                        if (i2 < rule_content.size()) 
+                            rule_content[i2] = rule_content.back();
+                        rule_content.pop_back();
+                        len -= 2;
+                        removed_tails.push_back(rt1);
+                        removed_tails.push_back(rt2);
+                    }
+                    else {
+                        m_pinned.push_back(new_lit);
+                        rule_content[i1] = new_lit;
+                        rule_content[i2] = rule_content.back();
+                        rule_content.pop_back();
+                        len--;                                  //here the bound of both loops changes!!!
+                        removed_tails.push_back(rt1);
+                        removed_tails.push_back(rt2);
+                        added_tails.push_back(new_lit);
+                    }
                     // this exits the inner loop, the outer one continues in case there will 
                     // be other matches
                     break;
@@ -657,10 +670,8 @@ namespace datalog {
 
 
         bool pick_best_pair(app_pair & p) {
-            app_pair best;
             bool found = false;
             cost best_cost;
-
             for (auto const& kv : m_costs) {
                 app_pair key = kv.m_key;
                 pair_info & inf = *kv.m_value;
@@ -671,14 +682,10 @@ namespace datalog {
                 if (!found || c < best_cost) {
                     found = true;
                     best_cost = c;
-                    best = key;
+                    p = key;
                 }
             }
-            if (!found) {
-                return false;
-            }
-            p = best;
-            return true;
+            return found;
         }
 
 
