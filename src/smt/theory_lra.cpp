@@ -1603,7 +1603,7 @@ public:
             get_infeasibility_explanation_and_set_conflict();
             return FC_CONTINUE;
         case l_undef:
-            TRACE("arith", tout << "check feasiable is undef\n";);
+            TRACE("arith", tout << "check feasible is undef\n";);
             return m.inc() ? FC_CONTINUE : FC_GIVEUP;
         default:
             UNREACHABLE();
