@@ -199,20 +199,21 @@ bool order::order_lemma_on_ac_and_bc(const monic& rm_ac,
 }
 
 
-// Here ab is a binary factorization of m.
+// Here m = ab, that is ab is binary factorization of m.
 // We try to find a monic n = cd, such that |b| = |d| 
-// and get a lemma m R n & |b| = |d| => ab/|b| R cd /|d|, where R is a relation
+// and get lemma m R n & |b| = |d| => ab/|b| R cd /|d|, where R is a relation
 void order::order_lemma_on_factorization(const monic& m, const factorization& ab) {
-    bool sign = m.rsign();
-    for (factor f: ab)
-        sign ^= _().canonize_sign(f);
+    bool sign = false;
+    for (factor f: ab)  
+        sign ^= f.sign();
     const rational rsign = sign_to_rat(sign);
     const rational fv = val(var(ab[0])) * val(var(ab[1]));
     const rational mv = rsign * var_val(m);
     TRACE("nla_solver",
           tout << "ab.size()=" << ab.size() << "\n";
-          tout << "we should have sign*var_val(m):" << mv << "=(" << rsign << ")*(" << var_val(m) <<") to be equal to " << " val(var(ab[0]))*val(var(ab[1])):" << fv << "\n";);
-    TRACE("nla_solver", tout << "m="; _().print_monic_with_vars(m, tout); tout << "\nfactorization="; _().print_factorization(ab, tout););
+          tout << "we should have mv =" << mv << " = " << fv << " = fv\n";
+          tout << "m = "; _().print_monic_with_vars(m, tout); tout << "\nab ="; _().print_factorization(ab, tout););
+
     if (mv != fv && !c().has_real(m)) {            
         bool gt = mv > fv;
         for (unsigned j = 0, k = 1; j < 2; j++, k--) {
