@@ -495,14 +495,16 @@ namespace datalog {
                 return;
             }
             TRACE("dl", 
-                  r->display(m_context, tout << "rule ");
                   tout << "pair: " << mk_pp(t1, m) << " " << mk_pp(t2, m) << "\n";
                   tout << mk_pp(t_new, m) << "\n";
                   tout << "all-non-local: " << m_costs[pair_key]->m_all_nonlocal_vars << "\n";
-                  for (app* a : rule_content) tout << mk_pp(a, m) << " "; tout << "\n";);
+                  tout << mk_pp(r->get_head(), m) << " :-\n";
+                  for (app* a : rule_content) tout << " " << mk_pp(a, m) << "\n";);
 
             rule_counter counter;
-            counter.count_rule_vars(r, 1);
+            for (app* t : rule_content)
+                counter.count_vars(t, +1);
+            counter.count_vars(r->get_head(), +1);
 
             func_decl * t1_pred = t1->get_decl();
             func_decl * t2_pred = t2->get_decl();
@@ -515,7 +517,6 @@ namespace datalog {
                 }
                 var_idx_set rt1_vars = rm.collect_vars(rt1);
                 counter.count_vars(rt1, -1);
-
 
                 var_idx_set t1_vars = rm.collect_vars(t1);
                 unsigned i2start = (t1_pred == t2_pred) ? (i1+1) : 0;
@@ -533,7 +534,6 @@ namespace datalog {
                     reverse_renaming(normalizer, denormalizer);
                     expr_ref new_transf(m);
                     new_transf = m_var_subst(t_new, denormalizer);
-                    var_idx_set transf_vars = rm.collect_vars(new_transf);
                     TRACE("dl", tout  << mk_pp(rt1, m) << " " << mk_pp(rt2, m) << " -> " << new_transf << "\n";);            
                     counter.count_vars(rt2, -1);
                     var_idx_set rt2_vars = rm.collect_vars(rt2);
@@ -551,11 +551,13 @@ namespace datalog {
                         denormalizer.reset();
                         reverse_renaming(normalizer2, denormalizer);
                         new_transf = m_var_subst(t_new, denormalizer);
-                        SASSERT(non_local_vars.subset_of(rm.collect_vars(new_transf)));
                         TRACE("dl", tout  << mk_pp(rt2, m) << " " << mk_pp(rt1, m) << " -> " << new_transf << "\n";);            
+                        SASSERT(non_local_vars.subset_of(rm.collect_vars(new_transf)));
                     }
                     app * new_lit = to_app(new_transf);
                     if (added_tails.contains(new_lit)) {
+                        if (i1 < i2)
+                            std::swap(i1, i2);
                         if (i1 < rule_content.size()) 
                             rule_content[i1] = rule_content.back();
                         rule_content.pop_back();
@@ -565,6 +567,7 @@ namespace datalog {
                         len -= 2;
                         removed_tails.push_back(rt1);
                         removed_tails.push_back(rt2);
+                        counter.count_vars(new_lit, -1);
                     }
                     else {
                         m_pinned.push_back(new_lit);
