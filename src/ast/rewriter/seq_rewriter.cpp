@@ -1428,6 +1428,7 @@ br_status seq_rewriter::mk_seq_last_index(expr* a, expr* b, expr_ref& result) {
    indexof("", b, r) -> if b = "" and r = 0 then 0 else -1
    indexof(unit(x)+a, b, r+1) -> indexof(a, b, r) 
    indexof(unit(x)+a, unit(y)+b, 0) -> indexof(a,unit(y)+b, 0) if x != y
+   indexof(substr(x,y,len1), z, len2) -> -1 if len2 > len1
 */
 br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result) {
     zstring s1, s2;
@@ -1467,6 +1468,13 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
             result = m().mk_ite(m().mk_eq(zero(), c), zero(), minus_one());
             return BR_REWRITE2;
         }
+    }
+    expr* x = nullptr, *y = nullptr, *len1 = nullptr;
+    rational r1, r2;
+    if (str().is_extract(a, x, y, len1) && m_autil.is_numeral(len1, r1) && 
+        m_autil.is_numeral(c, r2) && r2 > r1) {
+        result = minus_one();
+        return BR_DONE;
     }
 
     expr_ref_vector as(m()), bs(m());
