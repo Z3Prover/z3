@@ -1548,6 +1548,10 @@ void theory_seq::add_length(expr* e, expr* l) {
    Add length limit restrictions to sequence s.
  */
 void theory_seq::add_length_limit(expr* s, unsigned k, bool is_searching) {
+    if (m_sk.is_indexof_left(s))
+        return;
+    if (m_sk.is_indexof_right(s))
+        return;
 #if 0
     if (m_sk.is_skolem(s))
         return;
