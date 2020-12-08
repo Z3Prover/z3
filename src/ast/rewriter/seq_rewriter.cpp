@@ -1712,8 +1712,9 @@ br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& 
             return BR_DONE;
         }
         expr_ref_vector strs(m());
-        for (unsigned i = 0; i < s1.length() - s2.length(); ++i) {
-            if (s2 == s1.extract(0, s2.length()-1)) {
+        for (unsigned i = 0; i < s1.length(); ++i) {
+            if (s1.length() >= s2.length() + i && 
+                s2 == s1.extract(i, s2.length())) {
                 strs.push_back(c);
                 i += s2.length();
             }
