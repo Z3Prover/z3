@@ -2685,37 +2685,8 @@ bool theory_seq::upper_bound(expr* e, rational& hi) const {
 // we have to traverse the eqc to query for the better lower bound.
 bool theory_seq::lower_bound2(expr* _e, rational& lo) {
     expr_ref e = mk_len(_e);
-    expr_ref _lo(m);
-    theory_mi_arith* tha = get_th_arith<theory_mi_arith>(ctx, m_autil.get_family_id(), e);
-    if (!tha) {
-        theory_i_arith* thi = get_th_arith<theory_i_arith>(ctx, m_autil.get_family_id(), e);
-        if (!thi || !thi->get_lower(ctx.get_enode(e), _lo) || !m_autil.is_numeral(_lo, lo)) return false;
-    }
-    enode *ee = ctx.get_enode(e);
-    if (tha && (!tha->get_lower(ee, _lo) || m_autil.is_numeral(_lo, lo))) {
-        enode *next = ee->get_next();
-        bool flag = false;
-        while (next != ee) {
-            if (!m_autil.is_numeral(next->get_owner()) && !m_util.str.is_length(next->get_owner())) {
-                expr *var = next->get_owner();
-                TRACE("seq_verbose", tout << mk_pp(var, m) << "\n";);
-                expr_ref _lo2(m);
-                rational lo2;
-                if (tha->get_lower(next, _lo2) && m_autil.is_numeral(_lo2, lo2) && lo2>lo) {
-                    flag = true;
-                    lo = lo2;
-                    literal low(mk_literal(m_autil.mk_ge(var, _lo2)));
-                    add_axiom(~low, mk_literal(m_autil.mk_ge(e, _lo2)));
-                }
-            }
-            next = next->get_next();
-        }
-        if (flag)
-            return true;
-        if (!tha->get_lower(ee, _lo))
-            return false;
-    }
-    return true;
+    bool is_strict = false;
+    return m_arith_value.get_lo_equiv(e, lo, is_strict) && !is_strict;
 }
 
 bool theory_seq::get_length(expr* e, rational& val) {
