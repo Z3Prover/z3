@@ -6050,6 +6050,9 @@ namespace polynomial {
             SASSERT(m1 != 0);
             som_buffer & R = m_som_buffer;
             som_buffer & C = m_som_buffer2;
+            struct scoped_reset { som_buffer& b; scoped_reset(som_buffer& b) :b(b) {} ~scoped_reset() { b.reset(); } };
+            scoped_reset _rs1(R);
+            scoped_reset _rs2(C);
             R.reset();
             C.reset();
             numeral two;
@@ -6074,21 +6077,19 @@ namespace polynomial {
                 unsigned curr_max = C.graded_lex_max_pos();
                 if (curr_max == UINT_MAX) {
                     // C is empty
-                    C.reset();
                     r = R.mk();
                     return true;
                 }
                 monomial * m = C.m(curr_max);
                 monomial_ref m_i(pm());
-                if (!div(m, m1, m_i)) {
-                    // m1 does not divide maximal monomial of C.
-                    R.reset();
-                    C.reset();
+                // m1 does not divide maximal monomial of C.
+                if (!div(m, m1, m_i))                     
                     return false;
-                }
+                
                 // 2*a does not divide maximal coefficient of C
-                if (!m_manager.divides(two_a, C.a(curr_max)))
+                if (!m_manager.divides(two_a, C.a(curr_max))) 
                     return false;
+                
                 m_manager.div(C.a(curr_max), two_a, a_i);
 
                 // C  <- C - 2*R*a_i*m_i - a_i*a_i*m_i*m_i
@@ -6123,14 +6124,10 @@ namespace polynomial {
             mm().rename(sz, xs);
             // we must traverse the polynomial vector, and update the first monomial,
             // since it may not contain anymore the maximal variable with maximal degree.
-            polynomial_vector::iterator it2  = m_polynomials.begin();
-            polynomial_vector::iterator end2 = m_polynomials.end();
-            for (; it2 != end2; ++it2) {
-                polynomial * p = *it2;
-                if (p == nullptr)
-                    continue;
-                p->make_first_maximal();
-                SASSERT(p->size() <= 1 || !p->lex_sorted());
+            for (polynomial* p : m_polynomials) {
+                if (p != nullptr)
+                    p->make_first_maximal();
+                SASSERT(!p || p->size() <= 1 || !p->lex_sorted());
             }
             TRACE("rename",
                   tout << "polynomials after rename\n";
