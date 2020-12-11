@@ -256,7 +256,7 @@ namespace test_mapi
             s.Parameters = p;
             foreach (BoolExpr a in assumptions)
                 s.Assert(a);
-            s.Assert(ctx.MkNot(f));
+            s.Assert(f);
             Status q = s.Check();
 
             switch (q)
