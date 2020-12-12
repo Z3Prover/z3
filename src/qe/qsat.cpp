@@ -396,11 +396,11 @@ namespace qe {
 
     void pred_abs::mk_concrete(expr_ref_vector& fmls, obj_map<expr,expr*> const& map) {
         obj_map<expr,expr*> cache;
-        expr_ref_vector trail(m);
+        expr_ref_vector trail(fmls);
         expr* p;
         app_ref r(m);
         ptr_vector<expr> args;
-        unsigned sz0 = todo.size();
+        unsigned sz0 = todo.size();        
         todo.append(fmls.size(), (expr*const*)fmls.c_ptr());
         while (sz0 != todo.size()) {
             app* a = to_app(todo.back());
@@ -438,9 +438,8 @@ namespace qe {
                 todo.pop_back();
             }
         }
-        for (unsigned i = 0; i < fmls.size(); ++i) {
-            fmls[i] = to_app(cache.find(fmls[i].get()));
-        }        
+        for (unsigned i = 0; i < fmls.size(); ++i) 
+            fmls[i] = to_app(cache.find(fmls.get(i)));
     }
     
     void pred_abs::pred2lit(expr_ref_vector& fmls) {
