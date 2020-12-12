@@ -1321,17 +1321,20 @@ namespace smt {
             SASSERT(!inconsistent());
             literal  l = m_atom_propagation_queue[i];
             bool_var v = l.var();
-            bool_var_data & d = get_bdata(v);
             lbool val  = get_assignment(v);
-            TRACE("propagate_atoms", tout << "propagating atom, #" << bool_var2expr(v)->get_id() << ", is_enode(): " << d.is_enode()
-                  << " tag: " << (d.is_eq()?"eq":"") << (d.is_theory_atom()?"th":"") << (d.is_quantifier()?"q":"") << " " << l << "\n";);
+            TRACE("propagate_atoms", tout << "propagating atom, #" << bool_var2expr(v)->get_id() 
+                  << ", is_enode(): " << get_bdata(v).is_enode() << " tag: " 
+                  << (get_bdata(v).is_eq()?"eq":"") 
+                  << (get_bdata(v).is_theory_atom()?"th":"") 
+                  << (get_bdata(v).is_quantifier()?"q":"") << " " << l << "\n";);
             SASSERT(val != l_undef);
-            if (d.is_enode())
+            if (get_bdata(v).is_enode())
                 propagate_bool_var_enode(v);
             if (inconsistent())
                 return false;
+            bool_var_data & d = get_bdata(v);
             if (d.is_eq()) {
-                app * n   = to_app(m_bool_var2expr[v]);
+                app * n = to_app(m_bool_var2expr[v]);
                 SASSERT(m.is_eq(n));
                 expr * lhs = n->get_arg(0);
                 expr * rhs = n->get_arg(1);
