@@ -468,7 +468,7 @@ protected:
     typedef map<std::string, sort*,      std_string_hash_proc, default_eq<std::string> > str2sort;
 
     context&          m_context;
-    ast_manager&      m_manager;
+    ast_manager&      m;
 
     dlexer*           m_lexer;
     region            m_region;
@@ -488,7 +488,7 @@ protected:
 public:
     dparser(context& ctx, ast_manager& m):
         m_context(ctx),
-        m_manager(m),
+        m(m),
         m_decl_util(ctx.get_decl_util()),
         m_arith(m),
         m_num_vars(0),
@@ -693,7 +693,7 @@ protected:
         case TK_EOS:
             return tok;
         case TK_ID: {
-            app_ref pred(m_manager);
+            app_ref pred(m);
             symbol s(m_lexer->get_token_data());
             tok = m_lexer->next_token();
             bool is_predicate_declaration;
@@ -723,7 +723,7 @@ protected:
     }
 
     dtoken parse_body(app* head) {
-        app_ref_vector body(m_manager);
+        app_ref_vector body(m);
         bool_vector polarity_vect;
         dtoken tok = m_lexer->next_token();
         while (tok != TK_ERROR && tok != TK_EOS) {            
@@ -733,7 +733,7 @@ protected:
                 return m_lexer->next_token();
             }
             char const* td = m_lexer->get_token_data();
-            app_ref pred(m_manager);
+            app_ref pred(m);
             bool is_neg = false;
             if (tok == TK_NEG) {
                 tok = m_lexer->next_token();
@@ -778,7 +778,7 @@ protected:
     // 
     dtoken parse_infix(dtoken tok1, char const* td, app_ref& pred) {
         symbol td1(td);
-        expr_ref v1(m_manager), v2(m_manager);
+        expr_ref v1(m), v2(m);
         sort* s = nullptr;
         dtoken tok2 = m_lexer->next_token();
         if (tok2 != TK_NEQ && tok2 != TK_GT && tok2 != TK_LT && tok2 != TK_EQ) {
@@ -805,10 +805,10 @@ protected:
             return unexpected(tok3, "at least one argument should be a variable");
         }
         if (v1) {
-            s = m_manager.get_sort(v1);
+            s = m.get_sort(v1);
         }        
         else {
-            s = m_manager.get_sort(v2);
+            s = m.get_sort(v2);
         }
         if (!v1) {
             v1 = mk_const(td1, s);
@@ -819,10 +819,10 @@ protected:
 
         switch(tok2) {
         case TK_EQ:
-            pred = m_manager.mk_eq(v1,v2);
+            pred = m.mk_eq(v1,v2);
             break;
         case TK_NEQ:
-            pred = m_manager.mk_not(m_manager.mk_eq(v1,v2));
+            pred = m.mk_not(m.mk_eq(v1,v2));
             break;
         case TK_LT:
             pred = m_decl_util.mk_lt(v1, v2);
@@ -840,7 +840,7 @@ protected:
 
     dtoken parse_pred(dtoken tok, symbol const& s, app_ref& pred, bool & is_predicate_declaration) {
 
-        expr_ref_vector args(m_manager);        
+        expr_ref_vector args(m);        
         svector<symbol> arg_names;
         func_decl* f = m_context.try_get_predicate_decl(s);
         tok = parse_args(tok, f, args, arg_names);
@@ -850,9 +850,9 @@ protected:
             unsigned arity = args.size();
             ptr_vector<sort> domain;
             for (unsigned i = 0; i < arity; ++i) {
-                domain.push_back(m_manager.get_sort(args[i].get()));
+                domain.push_back(m.get_sort(args[i].get()));
             }
-            f = m_manager.mk_func_decl(s, domain.size(), domain.c_ptr(), m_manager.mk_bool_sort());
+            f = m.mk_func_decl(s, domain.size(), domain.c_ptr(), m.mk_bool_sort());
 
             m_context.register_predicate(f, true);
         
@@ -870,7 +870,7 @@ protected:
         }
         SASSERT(args.size()==f->get_arity());
         //TODO: we do not need to do the mk_app if we're in a declaration
-        pred = m_manager.mk_app(f, args.size(), args.c_ptr());
+        pred = m.mk_app(f, args.size(), args.c_ptr());
         return tok;
     }
 
@@ -912,7 +912,7 @@ protected:
                     return unexpected(TK_ID, "sort name");
                 }
                 sort* s = get_sort(sort_name.c_str());
-                args.push_back(m_manager.mk_var(m_num_vars, s));
+                args.push_back(m.mk_var(m_num_vars, s));
                 arg_names.push_back(var_symbol);
                 tok = m_lexer->next_token();
             }
@@ -946,7 +946,7 @@ protected:
     dtoken parse_arg(dtoken tok, sort* s, expr_ref_vector& args) {
         switch(tok) {
         case TK_WILD: {
-            args.push_back(m_manager.mk_var(m_num_vars++, s));
+            args.push_back(m.mk_var(m_num_vars++, s));
             break;
         }
         case TK_ID: {
@@ -956,12 +956,12 @@ protected:
                 expr* v = nullptr;
                 if (!m_vars.find(data.bare_str(), v)) {
                     idx = m_num_vars++;
-                    v = m_manager.mk_var(idx, s);
+                    v = m.mk_var(idx, s);
                     m_vars.insert(data.bare_str(), v);
                 }
-                else if (s != m_manager.get_sort(v)) {
+                else if (s != m.get_sort(v)) {
                     throw default_exception(default_exception::fmt(), "sort: %s expected, but got: %s\n",
-                        s->get_name().bare_str(), m_manager.get_sort(v)->get_name().bare_str());
+                        s->get_name().bare_str(), m.get_sort(v)->get_name().bare_str());
                 }
                 args.push_back(v);
             }
@@ -978,7 +978,7 @@ protected:
         case TK_NUM: {
             char const* data = m_lexer->get_token_data();
             rational num(data);
-            if(!num.is_uint64()) {
+            if (!num.is_uint64()) {
                 return unexpected(tok, "integer expected");
             }
             uint64_t int_num = num.get_uint64();
@@ -1105,7 +1105,7 @@ protected:
         app * res;
         if(m_arith.is_int(s)) {
             uint64_t val;
-            if(!string_to_uint64(name.bare_str(), val)) {
+            if (!string_to_uint64(name.bare_str(), val)) {
                 throw default_exception(default_exception::fmt(), "Invalid integer: \"%s\"", name.bare_str());
             }
             res = m_arith.mk_numeral(rational(val, rational::ui64()), s);
@@ -1120,15 +1120,18 @@ protected:
        \brief Make a constant for DK_SYMBOL sort out of an integer
      */
     app* mk_symbol_const(uint64_t el, sort* s) {
-        app * res;
-        if(m_arith.is_int(s)) {
-            res = m_arith.mk_numeral(rational(el, rational::ui64()), s);
+        uint64_t sz = 0;
+        if (m_arith.is_int(s)) 
+            return m_arith.mk_numeral(rational(el, rational::ui64()), s);
+        else if (m_decl_util.try_get_size(s, sz)) {
+            if (el >= sz)
+                throw default_exception("numeric value out of bounds of domain");
+            return m_decl_util.mk_numeral(el, s);
         }
         else {
-            unsigned idx = m_context.get_constant_number(s, symbol(to_string(el).c_str()));
-            res = m_decl_util.mk_numeral(idx, s);
+            unsigned idx = m_context.get_constant_number(s, el);
+            return m_decl_util.mk_numeral(idx, s);
         }
-        return res;
     }
     app* mk_const(uint64_t el, sort* s) {
         unsigned idx = m_context.get_constant_number(s, el);

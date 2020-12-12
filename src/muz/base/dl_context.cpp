@@ -368,10 +368,14 @@ namespace datalog {
     }
 
     context::finite_element context::get_constant_number(relation_sort srt, uint64_t el) {
-        sort_domain & dom0 = get_sort_domain(srt);
-        SASSERT(dom0.get_kind()==SK_UINT64);
-        uint64_sort_domain & dom = static_cast<uint64_sort_domain &>(dom0);
-        return dom.get_number(el);
+        
+        sort_domain & dom0 = get_sort_domain(srt);     
+        if (dom0.get_kind() == SK_SYMBOL) 
+            return (finite_element)(el);
+        else {
+            uint64_sort_domain & dom = static_cast<uint64_sort_domain &>(dom0);
+            return dom.get_number(el);
+        }
     }
 
     void context::print_constant_name(relation_sort srt, uint64_t num, std::ostream & out)
