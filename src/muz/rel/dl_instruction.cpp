@@ -581,6 +581,7 @@ namespace datalog {
         bool perform(execution_context & ctx) override {
             log_verbose(ctx);            
             if (!ctx.reg(m_src)) {
+                std::cout << "not " << m_src << "\n";
                 ctx.make_empty(m_res);
                 return true;
             }
@@ -590,6 +591,7 @@ namespace datalog {
             relation_base & reg = *ctx.reg(m_src);
             TRACE("dl_verbose", reg.display(tout <<"pre-filter-interpreted-and-project:\n"););
             if (!find_fn(reg, fn)) {
+                std::cout << m_cond << "\n";
                 fn = reg.get_manager().mk_filter_interpreted_and_project_fn(reg, m_cond, m_cols.size(), m_cols.c_ptr());
                 if (!fn) {
                     throw default_exception(default_exception::fmt(), 
@@ -602,6 +604,7 @@ namespace datalog {
             ctx.set_reg(m_res, (*fn)(reg));
 
             if (ctx.reg(m_res)->fast_empty()) {
+                std::cout << "fast empty\n";
                 ctx.make_empty(m_res);
             }
             // TRACE("dl_verbose", reg.display(tout << "post-filter-interpreted-and-project:\n"););

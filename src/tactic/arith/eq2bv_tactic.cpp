@@ -278,14 +278,11 @@ public:
     void cleanup_fd(ref<bvmc>& mc) {
         SASSERT(m_fd.empty());
         ptr_vector<expr> rm;
-        for (auto& kv : m_max) {
-            if (m_nonfd.is_marked(kv.m_key)) {
+        for (auto& kv : m_max) 
+            if (m_nonfd.is_marked(kv.m_key)) 
                 rm.push_back(kv.m_key);
-            }
-        }
-        for (unsigned i = 0; i < rm.size(); ++i) {
-            m_max.erase(rm[i]);
-        }
+        for (expr* r : rm)
+            m_max.erase(r);
         for (auto& kv : m_max) {
             // ensure there are enough elements.
             bool strict;
@@ -305,6 +302,7 @@ public:
             if (p <= 1) p = 2;
             if (kv.m_value == p) p *= 2;
             unsigned n = log2(p);
+            SASSERT(p >= kv.m_value);
             app* z = m.mk_fresh_const("z", bv.mk_sort(n));
             m_trail.push_back(z);
             m_fd.insert(kv.m_key, z);
@@ -391,6 +389,8 @@ public:
         rational r;
         if (is_uninterp_const(v) && a.is_numeral(c, r) && !m_nonfd.is_marked(v) && a.is_int(v) && r.is_unsigned()) {
             val = r.get_unsigned();
+            if (val > UINT_MAX/4)
+                return false;
             add_fd(v, val);
             return true;
         }
