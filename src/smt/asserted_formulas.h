@@ -88,7 +88,7 @@ class asserted_formulas {
     public:
         find_macros_fn(asserted_formulas& af): simplify_fmls(af, "find-macros") {}
         void operator()() override { af.find_macros_core(); }
-        bool should_apply() const override { return af.m_smt_params.m_macro_finder && af.has_quantifiers(); }
+        bool should_apply() const override { return (af.m_smt_params.m_quasi_macros || af.m_smt_params.m_macro_finder) && af.has_quantifiers(); }
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { UNREACHABLE(); }
     };
 
