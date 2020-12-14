@@ -231,7 +231,8 @@ struct purify_arith_proc {
                 void operator()(app* a) {
                     for (expr* arg : *a) {
                         if (!is_ground(arg)) {
-                            o.m_cannot_purify.insert(a->get_decl());
+                            auto* f = a->get_decl();
+                            o.m_cannot_purify.insert(f);
                             break;
                         }
                     }
@@ -694,9 +695,13 @@ struct purify_arith_proc {
                 process_div(f, num, args, result, result_pr);
                 return BR_DONE;
             case OP_IDIV: 
+                if (!m_cannot_purify.empty())
+                    return BR_FAILED;
                 process_idiv(f, num, args, result, result_pr);
                 return BR_DONE;
             case OP_MOD:
+                if (!m_cannot_purify.empty())
+                    return BR_FAILED;
                 process_mod(f, num, args, result, result_pr);                
                 return BR_DONE;
             case OP_TO_INT:

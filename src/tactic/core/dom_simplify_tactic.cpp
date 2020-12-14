@@ -209,23 +209,22 @@ expr_ref dom_simplify_tactic::simplify_ite(app * ite) {
         r = simplify_arg(e);
     }
     else {
-        for (expr * child : tree(ite)) {
-            if (is_subexpr(child, t) && !is_subexpr(child, e)) {
-                simplify_rec(child);
-            }
-        }
+        for (expr * child : tree(ite)) 
+            if (is_subexpr(child, t) && !is_subexpr(child, e)) 
+                simplify_rec(child);            
+        
         pop(scope_level() - old_lvl);
         expr_ref new_t = simplify_arg(t);
+        reset_cache();
         if (!assert_expr(new_c, true)) {
             return new_t;
         }
-        for (expr * child : tree(ite)) {
-            if (is_subexpr(child, e) && !is_subexpr(child, t)) {
+        for (expr * child : tree(ite)) 
+            if (is_subexpr(child, e) && !is_subexpr(child, t)) 
                 simplify_rec(child);
-            }
-        }
         pop(scope_level() - old_lvl);
         expr_ref new_e = simplify_arg(e);
+
         if (c == new_c && t == new_t && e == new_e) {
             r = ite;
         }
@@ -278,7 +277,8 @@ expr_ref dom_simplify_tactic::simplify_rec(expr * e0) {
     }
     else {
         for (expr * child : tree(e)) {
-            simplify_rec(child);
+            if (child != e)
+               simplify_rec(child);
         }
         if (is_app(e)) {
             m_args.reset();
@@ -382,9 +382,11 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
 
     SASSERT(scope_level() == 0);
     bool change = true;
+    unsigned n  = 0;
     m_depth = 0;
-    while (change) {
+    while (change && n < 10) {
         change = false;
+        ++n;
 
         // go forwards
         m_forward = true;
