@@ -81,6 +81,10 @@ namespace euf {
         return ctx.bool_var2expr(v);
     }
 
+    expr_ref th_euf_solver::literal2expr(sat::literal lit) const { 
+        return ctx.literal2expr(lit);
+    }
+
     theory_var th_euf_solver::mk_var(enode * n) {
         force_push();
         SASSERT(!is_attached_to_var(n));

@@ -177,8 +177,8 @@ namespace euf {
         enode* var2enode(theory_var v) const { return m_var2enode[v]; }
         expr* var2expr(theory_var v) const { return var2enode(v)->get_expr(); }
         expr* bool_var2expr(sat::bool_var v) const;
+        expr_ref literal2expr(sat::literal lit) const;
         enode* bool_var2enode(sat::bool_var v) const { expr* e = bool_var2expr(v); return e ? expr2enode(e) : nullptr; }
-        expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return lit.sign() ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }
         sat::literal mk_literal(expr* e) const;
         theory_var get_th_var(enode* n) const { return n->get_th_var(get_id()); }
         theory_var get_th_var(expr* e) const;

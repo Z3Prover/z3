@@ -166,30 +166,33 @@ namespace euf {
         }
     }
 
-    void ackerman::add_cc(expr* _a, expr* _b) {        
+    void ackerman::add_cc(expr* _a, expr* _b) {     
+        flet<bool> _is_redundant(s.m_is_redundant, true);
         app* a = to_app(_a);
         app* b = to_app(_b);
         TRACE("ack", tout << mk_pp(a, m) << " " << mk_pp(b, m) << "\n";);
         sat::literal_vector lits;
         unsigned sz = a->get_num_args();
+        
         for (unsigned i = 0; i < sz; ++i) {
             expr_ref eq(m.mk_eq(a->get_arg(i), b->get_arg(i)), m);
-            lits.push_back(s.internalize(eq, true, false, true));
+            lits.push_back(~s.mk_literal(eq));
         }
         expr_ref eq(m.mk_eq(a, b), m);
-        lits.push_back(s.internalize(eq, false, false, true));
+        lits.push_back(s.mk_literal(eq));
         s.s().mk_clause(lits, sat::status::th(true, m.get_basic_family_id()));
     }
 
     void ackerman::add_eq(expr* a, expr* b, expr* c) {
+        flet<bool> _is_redundant(s.m_is_redundant, true);
         sat::literal lits[3];
         expr_ref eq1(m.mk_eq(a, c), m);
         expr_ref eq2(m.mk_eq(b, c), m);
         expr_ref eq3(m.mk_eq(a, b), m);
         TRACE("ack", tout << mk_pp(a, m) << " " << mk_pp(b, m) << " " << mk_pp(c, m) << "\n";);
-        lits[0] = s.internalize(eq1, true, false, true);
-        lits[1] = s.internalize(eq2, true, false, true);
-        lits[2] = s.internalize(eq3, false, false, true);
+        lits[0] = ~s.mk_literal(eq1);
+        lits[1] = ~s.mk_literal(eq2);
+        lits[2] = s.mk_literal(eq3);
         s.s().mk_clause(3, lits, sat::status::th(true, m.get_basic_family_id()));
     }
 }

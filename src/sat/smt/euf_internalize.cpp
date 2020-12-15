@@ -41,15 +41,19 @@ namespace euf {
         euf::enode* n = get_enode(e);
         if (n) {
             if (m.is_bool(e)) {
-                VERIFY(!s().was_eliminated(n->bool_var()));
+                SASSERT(!s().was_eliminated(n->bool_var()));
                 SASSERT(n->bool_var() != UINT_MAX);
                 return literal(n->bool_var(), sign);
             }
             TRACE("euf", tout << "non-bool\n";);
             return sat::null_literal;
         }
-        if (si.is_bool_op(e))
-            return attach_lit(si.internalize(e, redundant), e);
+        if (si.is_bool_op(e)) {
+            sat::literal lit = attach_lit(si.internalize(e, redundant), e);
+            if (sign) 
+                lit.neg();
+            return lit;
+        }
         if (auto* ext = expr2solver(e))
             return ext->internalize(e, sign, root, redundant);
         if (!visit_rec(m, e, sign, root, redundant)) {
@@ -180,7 +184,7 @@ namespace euf {
             for (unsigned i = 0; i < sz; ++i) {
                 for (unsigned j = i + 1; j < sz; ++j) {
                     expr_ref eq = mk_eq(args[i]->get_expr(), args[j]->get_expr());
-                    sat::literal lit = internalize(eq, false, false, m_is_redundant);
+                    sat::literal lit = mk_literal(eq);
                     lits.push_back(lit);
                 }
             }
@@ -203,7 +207,7 @@ namespace euf {
                 expr_ref fapp(m.mk_app(f, arg), m);
                 expr_ref gapp(m.mk_app(g, fapp.get()), m);
                 expr_ref eq = mk_eq(gapp, arg);
-                sat::literal lit = internalize(eq, false, false, m_is_redundant);
+                sat::literal lit = mk_literal(eq);
                 s().add_clause(1, &lit, st);
                 eqs.push_back(mk_eq(fapp, a));
             }
@@ -229,7 +233,7 @@ namespace euf {
             for (unsigned i = 0; i < sz; ++i) {
                 for (unsigned j = i + 1; j < sz; ++j) {
                     expr_ref eq = mk_eq(args[i]->get_expr(), args[j]->get_expr());
-                    sat::literal lit = internalize(eq, true, false, m_is_redundant);
+                    sat::literal lit = ~mk_literal(eq);
                     s().add_clause(1, &lit, st);
                     if (relevancy_enabled())
                         add_root(1, &lit);
@@ -248,7 +252,7 @@ namespace euf {
                 enode* n = m_egraph.mk(fresh, 0, nullptr);
                 n->mark_interpreted();
                 expr_ref eq = mk_eq(fapp, fresh);
-                sat::literal lit = internalize(eq, false, false, m_is_redundant);
+                sat::literal lit = mk_literal(eq);
                 s().add_clause(1, &lit, st);
                 if (relevancy_enabled())
                     add_root(1, &lit);
@@ -263,7 +267,7 @@ namespace euf {
         if (!m.is_bool(e) && m.is_ite(e, c, th, el)) {
             app* a = to_app(e);
             expr_ref eq_th = mk_eq(a, th);
-            sat::literal lit_th = internalize(eq_th, false, false, m_is_redundant);
+            sat::literal lit_th = mk_literal(eq_th);
             if (th == el) {
                 s().add_clause(1, &lit_th, st);
             }
@@ -273,7 +277,7 @@ namespace euf {
 
                 expr_ref eq_el = mk_eq(a, el);
 
-                sat::literal lit_el = internalize(eq_el, false, false, m_is_redundant);
+                sat::literal lit_el = mk_literal(eq_el);
                 literal lits1[2] = { literal(v, true),  lit_th };
                 literal lits2[2] = { literal(v, false), lit_el };
                 s().add_clause(2, lits1, st);
