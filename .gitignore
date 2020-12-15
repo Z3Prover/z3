@@ -24,6 +24,7 @@ release/*
 build/*
 build-dist/*
 dist/*
+src/out/*
 doc/html/*
 # GTAGS generated files
 src/GPATH
