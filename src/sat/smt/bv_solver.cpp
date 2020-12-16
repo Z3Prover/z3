@@ -345,12 +345,8 @@ namespace bv {
         if (c.m_kind != bv_justification::kind_t::bit2ne) {
             expr* e1 = var2expr(c.m_v1);
             expr* e2 = var2expr(c.m_v2);
-            eq = m.mk_eq(e1, e2);                                           
-            ctx.get_drat().def_begin('e', eq->get_id(), std::string("="));
-            ctx.get_drat().def_add_arg(e1->get_id());
-            ctx.get_drat().def_add_arg(e2->get_id());
-            ctx.get_drat().def_end();
-            ctx.get_drat().bool_def(leq.var(), eq->get_id());
+            eq = m.mk_eq(e1, e2);       
+            ctx.drat_eq_def(leq, eq);
         }
 
         static unsigned s_count = 0;

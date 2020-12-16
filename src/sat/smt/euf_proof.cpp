@@ -126,5 +126,32 @@ namespace euf {
         }
     }
 
+    void solver::log_justification(literal l, th_propagation const& jst) {
+        literal_vector lits;
+        for (auto lit : euf::th_propagation::lits(jst))
+            lits.push_back(~lit);
+        lits.push_back(l);
+        unsigned nv = s().num_vars();
+        expr_ref_vector eqs(m);
+        for (auto eq : euf::th_propagation::eqs(jst)) {
+            ++nv;
+            literal lit(nv, false);
+            eqs.push_back(m.mk_eq(eq.first->get_expr(), eq.second->get_expr()));
+            drat_eq_def(lit, eqs.back());            
+            lits.push_back(lit);
+        }
+        
+        get_drat().add(lits, sat::status::th(m_is_redundant, jst.ext().get_id()));
+    }
+
+    void solver::drat_eq_def(literal lit, expr* eq) {
+        expr *a = nullptr, *b = nullptr;
+        VERIFY(m.is_eq(eq, a, b));
+        get_drat().def_begin('e', eq->get_id(), std::string("="));
+        get_drat().def_add_arg(a->get_id());
+        get_drat().def_add_arg(b->get_id());
+        get_drat().def_end();
+        get_drat().bool_def(lit.var(), eq->get_id());
+    }
 
 }

@@ -203,12 +203,12 @@ public:
                 }
                 if (name == "Real" && sz == 4) {
                     arith_util au(m);
-                    rational num = sexpr->get_child(2)->get_numeral();
-                    rational den = sexpr->get_child(3)->get_numeral();
-                    result = au.mk_numeral(num/den, false);
+                    rational r = sexpr->get_child(2)->get_numeral();
+                    // rational den = sexpr->get_child(3)->get_numeral();
+                    result = au.mk_numeral(r, false);
                     return;
                 }
-                if (name == "Int" && sz == 3) {
+                if (name == "Int" && sz == 4) {
                     arith_util au(m);
                     rational num = sexpr->get_child(2)->get_numeral();
                     result = au.mk_numeral(num, true);

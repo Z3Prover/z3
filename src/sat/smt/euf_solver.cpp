@@ -211,15 +211,8 @@ namespace euf {
         for (auto eq : euf::th_propagation::eqs(jst))
             add_antecedent(eq.first, eq.second);
 
-        if (!probing && use_drat()) {
-            literal_vector lits;
-            for (auto lit : euf::th_propagation::lits(jst))
-                lits.push_back(~lit);
-            lits.push_back(l);
-            get_drat().add(lits, sat::status::th(m_is_redundant, jst.ext().get_id()));
-            for (auto eq : euf::th_propagation::eqs(jst))
-                IF_VERBOSE(0, verbose_stream() << "drat-log with equalities is TBD " << eq.first->get_expr_id() << "\n");
-        }
+        if (!probing && use_drat()) 
+            log_justification(l, jst);
     }
 
     void solver::add_antecedent(enode* a, enode* b) {

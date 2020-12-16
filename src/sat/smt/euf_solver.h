@@ -156,6 +156,7 @@ namespace euf {
         // proofs
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
         void log_antecedents(literal l, literal_vector const& r);
+        void log_justification(literal l, th_propagation const& jst);
         void drat_log_decl(func_decl* f);
         void drat_log_expr(expr* n);
         void drat_log_expr1(expr* n);
@@ -293,6 +294,7 @@ namespace euf {
         bool use_drat() { return s().get_config().m_drat && (init_drat(), true); }
         sat::drat& get_drat() { return s().get_drat(); }
         void drat_bool_def(sat::bool_var v, expr* n);
+        void drat_eq_def(sat::literal lit, expr* eq);
 
         // decompile
         bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,

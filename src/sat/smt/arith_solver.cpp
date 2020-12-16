@@ -1120,9 +1120,12 @@ namespace arith {
     void solver::set_conflict_or_lemma(literal_vector const& core, bool is_conflict) {
         reset_evidence();
         m_core.append(core);
+        TRACE("arith", 
+              tout << "Core - " << is_conflict << "\n";
+              for (literal c : m_core) tout << literal2expr(c) << "\n";);
+
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
-        TRACE("arith", display(tout << "is-conflict: " << is_conflict << "\n"););
         for (auto const& ev : m_explanation)
             set_evidence(ev.ci(), m_core, m_eqs);
         DEBUG_CODE(
@@ -1134,6 +1137,11 @@ namespace arith {
             m_core.push_back(eq_internalize(eq.first, eq.second));
         for (literal& c : m_core)
             c.neg();
+        TRACE("arith", display(tout << "is-conflict: " << is_conflict << "\n");
+              tout << "Clause\n";
+              for (literal c : m_core) tout << literal2expr(c) << "\n";              
+              );
+
         add_clause(m_core);
     }
 
@@ -1322,25 +1330,23 @@ namespace arith {
         for (auto const& ineq : m_lemma.ineqs()) {
             bool is_lower = true, pos = true, is_eq = false;
             switch (ineq.cmp()) {
-            case lp::LE: is_lower = false; pos = false;  break;
-            case lp::LT: is_lower = true;  pos = true; break;
-            case lp::GE: is_lower = true;  pos = false;  break;
-            case lp::GT: is_lower = false; pos = true; break;
-            case lp::EQ: is_eq = true; pos = false; break;
-            case lp::NE: is_eq = true; pos = true; break;
+            case lp::LE: is_lower = false; pos = false; break;
+            case lp::LT: is_lower = true;  pos = true;  break;
+            case lp::GE: is_lower = true;  pos = false; break;
+            case lp::GT: is_lower = false; pos = true;  break;
+            case lp::EQ: is_eq = true;     pos = false; break;
+            case lp::NE: is_eq = true;     pos = true;  break;
             default: UNREACHABLE();
             }
             TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
-            app_ref atom(m);
             // TBD utility: lp::lar_term term = mk_term(ineq.m_poly);
             // then term is used instead of ineq.m_term
-            if (is_eq) {
-                core.push_back(~mk_eq(ineq.term(), ineq.rs()));
-            }
-            else {
-                // create term >= 0 (or term <= 0)
-                core.push_back(~ctx.expr2literal(mk_bound(ineq.term(), ineq.rs(), is_lower)));
-            }
+            sat::literal lit;
+            if (is_eq) 
+                lit = mk_eq(ineq.term(), ineq.rs());
+            else 
+                lit = ctx.expr2literal(mk_bound(ineq.term(), ineq.rs(), is_lower));
+            core.push_back(pos ? lit : ~lit);
         }
         set_conflict_or_lemma(core, false);
     }
