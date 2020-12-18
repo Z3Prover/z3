@@ -311,7 +311,6 @@ void cmd_context::insert_macro(symbol const& s, unsigned arity, sort*const* doma
 }
 
 void cmd_context::erase_macro(symbol const& s) {
-    std::cout << "erase " << s << "\n";
     macro_decls decls;
     VERIFY(m_macros.find(s, decls));
     decls.erase_last(m());
