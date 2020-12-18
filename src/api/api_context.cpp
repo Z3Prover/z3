@@ -196,6 +196,11 @@ namespace api {
             }
             e = m_datalog_util.mk_numeral(n.get_uint64(), s);
         }
+        else if (fid == m_fpa_fid) {
+            scoped_mpf tmp(fpautil().fm());
+            fpautil().fm().set(tmp, fpautil().get_ebits(s), fpautil().get_sbits(s), n.get_double());
+            e = fpautil().mk_value(tmp);
+        }
         else {
             invoke_error_handler(Z3_INVALID_ARG);
         }
