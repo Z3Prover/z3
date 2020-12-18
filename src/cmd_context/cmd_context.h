@@ -84,6 +84,7 @@ public:
     bool empty() const { return !m_decls || m_decls->empty(); }
     expr* find(unsigned arity, sort *const* domain) const;
     void erase_last(ast_manager& m);
+    macro_decl const& last() const { return m_decls->back(); }
     vector<macro_decl>::iterator begin() const { return m_decls->begin(); }
     vector<macro_decl>::iterator end() const { return m_decls->end(); }
 };
@@ -197,7 +198,8 @@ protected:
 
     static std::ostringstream    g_error_stream;
 
-    generic_model_converter_ref  m_mc0;
+    generic_model_converter* mc0() { return m_mcs.back(); }
+    sref_vector<generic_model_converter> m_mcs;
     ast_manager *                m_manager;
     bool                         m_own_manager;
     bool                         m_manager_initialized;
@@ -449,7 +451,7 @@ public:
 
     dictionary<macro_decls> const & get_macros() const { return m_macros; }
 
-    model_converter* get_model_converter() { return m_mc0.get(); }
+    model_converter* get_model_converter() { return mc0(); }
 
     bool is_model_available(model_ref& md) const;
 

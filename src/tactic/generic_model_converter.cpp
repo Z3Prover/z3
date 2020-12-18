@@ -104,7 +104,7 @@ void generic_model_converter::display(std::ostream & out) {
     }
 }
 
-model_converter * generic_model_converter::translate(ast_translation & translator) {
+generic_model_converter * generic_model_converter::copy(ast_translation & translator) {
     ast_manager& to = translator.to();
     generic_model_converter * res = alloc(generic_model_converter, to, m_orig.c_str());
     for (entry const& e : m_entries) {
@@ -122,6 +122,7 @@ model_converter * generic_model_converter::translate(ast_translation & translato
     }
     return res;
 }
+
 
 void generic_model_converter::set_env(ast_pp_util* visitor) { 
     if (!visitor) {

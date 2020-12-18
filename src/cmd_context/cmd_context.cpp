@@ -311,6 +311,7 @@ void cmd_context::insert_macro(symbol const& s, unsigned arity, sort*const* doma
 }
 
 void cmd_context::erase_macro(symbol const& s) {
+    std::cout << "erase " << s << "\n";
     macro_decls decls;
     VERIFY(m_macros.find(s, decls));
     decls.erase_last(m());
@@ -501,6 +502,7 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     install_basic_cmds(*this);
     install_ext_basic_cmds(*this);
     install_core_tactic_cmds(*this);
+    m_mcs.push_back(nullptr);
     SASSERT(m != 0 || !has_manager());
     if (m_main_ctx) {
         set_verbose_stream(diagnostic_stream());
@@ -516,7 +518,7 @@ cmd_context::~cmd_context() {
     finalize_tactic_cmds();
     finalize_probes();
     reset(true);
-    m_mc0 = nullptr;
+    m_mcs.reset();
     m_solver = nullptr;
     m_check_sat_result = nullptr;
 }
@@ -889,21 +891,22 @@ void cmd_context::insert(symbol const & s, object_ref * r) {
 }
 
 void cmd_context::model_add(symbol const & s, unsigned arity, sort *const* domain, expr * t) {
-    if (!m_mc0.get()) m_mc0 = alloc(generic_model_converter, m(), "cmd_context");
-    if (m_solver.get() && !m_solver->mc0()) m_solver->set_model_converter(m_mc0.get()); 
+    if (!mc0()) m_mcs.set(m_mcs.size()-1, alloc(generic_model_converter, m(), "cmd_context"));
+    if (m_solver.get() && !m_solver->mc0()) m_solver->set_model_converter(mc0()); 
     func_decl_ref fn(m().mk_func_decl(s, arity, domain, m().get_sort(t)), m());
     func_decls & fs = m_func_decls.insert_if_not_there(s, func_decls());
     fs.insert(m(), fn);
     VERIFY(fn->get_range() == m().get_sort(t));
-    m_mc0->add(fn, t);
+    mc0()->add(fn, t);
     if (!m_global_decls)
         m_func_decls_stack.push_back(sf_pair(s, fn));
 }
 
+
 void cmd_context::model_del(func_decl* f) {
-    if (!m_mc0.get()) m_mc0 = alloc(generic_model_converter, m(), "cmd_context");
-    if (m_solver.get() && !m_solver->mc0()) m_solver->set_model_converter(m_mc0.get()); 
-    m_mc0->hide(f);
+    if (!mc0()) m_mcs.set(m_mcs.size() - 1, alloc(generic_model_converter, m(), "cmd_context"));
+    if (m_solver.get() && !m_solver->mc0()) m_solver->set_model_converter(mc0());
+    mc0()->hide(f);
 }
 
 
@@ -1295,7 +1298,7 @@ void cmd_context::reset(bool finalize) {
     reset_func_decls();
     restore_assertions(0);
     m_solver = nullptr;
-    m_mc0 = nullptr;
+    m_mcs.reset();
     m_scopes.reset();
     m_opt = nullptr;
     m_pp_env = nullptr;
@@ -1369,6 +1372,8 @@ void cmd_context::push() {
     s.m_assertions_lim         = m_assertions.size();
     if (!m_global_decls)
         pm().push();
+    ast_translation tr(m(), m());
+    m_mcs.push_back(m_mcs.back() ? m_mcs.back()->copy(tr) : nullptr);
     unsigned timeout = m_params.m_timeout;
     m().limit().push(m_params.rlimit());
     cancel_eh<reslimit> eh(m().limit());
@@ -1494,6 +1499,7 @@ void cmd_context::pop(unsigned n) {
     restore_aux_pdecls(s.m_aux_pdecls_lim);
     restore_assertions(s.m_assertions_lim);
     restore_psort_inst(s.m_psort_inst_stack_lim);
+    m_mcs.shrink(m_mcs.size() - n);
     m_scopes.shrink(new_lvl);
     if (!m_global_decls)
         pm().pop(n);
@@ -1655,7 +1661,7 @@ void cmd_context::display_dimacs() {
 
 void cmd_context::display_model(model_ref& mdl) {
     if (mdl) {
-        if (m_mc0) (*m_mc0)(mdl);
+        if (mc0()) (*mc0())(mdl);
         model_params p;
         if (p.compact()) mdl->compress();
         add_declared_functions(*mdl);

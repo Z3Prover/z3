@@ -58,7 +58,9 @@ public:
 
     void display(std::ostream & out) override;
 
-    model_converter * translate(ast_translation & translator) override;
+    model_converter * translate(ast_translation & translator) override { return copy(translator); }
+
+    generic_model_converter* copy(ast_translation & translator);
 
     void set_env(ast_pp_util* visitor) override;
 
