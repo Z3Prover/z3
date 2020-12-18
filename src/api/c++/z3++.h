@@ -1477,8 +1477,11 @@ namespace z3 {
         a.check_error();
         return expr(a.ctx(), r);
     }
-    inline expr operator!=(expr const & a, int b) { assert(a.is_arith() || a.is_bv() || a.is_fpa()); return a != a.ctx().num_val(b, a.get_sort()); }
-    inline expr operator!=(int a, expr const & b) { assert(b.is_arith() || b.is_bv() || b.is_fpa()); return b.ctx().num_val(a, b.get_sort()) != b; }
+    inline expr operator!=(expr const & a, int b) { assert(a.is_arith() || a.is_bv()); return a != a.ctx().num_val(b, a.get_sort()); }
+    inline expr operator!=(int a, expr const & b) { assert(b.is_arith() || b.is_bv()); return b.ctx().num_val(a, b.get_sort()) != b; }
+
+    inline expr operator!=(expr const & a, double b) { assert(a.is_fpa()); return a != a.ctx().fpa_val(b); }
+    inline expr operator!=(double a, expr const & b) { assert(b.is_fpa()); return b.ctx().fpa_val(a) != b; }
 
     inline expr operator+(expr const & a, expr const & b) {
         check_context(a, b);
