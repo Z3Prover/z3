@@ -339,7 +339,7 @@ private:
                 ++sh;
             }
             if (r.is_pos() && sh > 0) {
-                new_v = m_bv.mk_concat(m_bv.mk_extract(sz-1, sh, v), m_bv.mk_numeral(0, sh));
+                new_v = m_bv.mk_concat(m_bv.mk_extract(sz-sh-1, 0, v), m_bv.mk_numeral(0, sh));
             }
             if (mc && !r.is_zero()) {
                 ensure_mc(mc);
