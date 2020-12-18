@@ -825,6 +825,12 @@ namespace datalog {
         else if (e == symbol("ddnf")) {
             m_engine_type = DDNF_ENGINE;
         }
+        else if (e == symbol("auto-config")) {
+            
+        }
+        else {
+            throw default_exception("unsupported datalog engine type");
+        }
 
         if (m_engine_type == LAST_ENGINE) {
             expr_fast_mark1 mark;
