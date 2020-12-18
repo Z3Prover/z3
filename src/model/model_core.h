@@ -24,7 +24,9 @@ Revision History:
 
 class model_core {
 protected:
-    typedef obj_map<func_decl, expr *>       decl2expr;
+    typedef std::pair<unsigned, expr*> i_expr;
+    typedef std::pair<unsigned, func_interp*> i_interp;
+    typedef obj_map<func_decl, i_expr>       decl2expr;
     typedef obj_map<func_decl, func_interp*> decl2finterp;
     ast_manager &                 m;
     unsigned                      m_ref_count;
@@ -43,7 +45,7 @@ public:
     unsigned get_num_decls() const { return m_decls.size(); }
     func_decl * get_decl(unsigned i) const { return m_decls[i]; }
     bool has_interpretation(func_decl * d) const { return m_interp.contains(d) || m_finterp.contains(d); }
-    expr * get_const_interp(func_decl * d) const { expr * v; return m_interp.find(d, v) ? v : nullptr; }
+    expr * get_const_interp(func_decl * d) const { i_expr v; return m_interp.find(d, v) ? v.second : nullptr; }
     func_interp * get_func_interp(func_decl * d) const { func_interp * fi; return m_finterp.find(d, fi) ? fi : nullptr; }
 
     bool eval(func_decl * f, expr_ref & r) const;

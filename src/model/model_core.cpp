@@ -22,7 +22,7 @@ Revision History:
 model_core::~model_core() {
     for (auto & kv : m_interp) {
         m.dec_ref(kv.m_key);
-        m.dec_ref(kv.m_value);
+        m.dec_ref(kv.m_value.second);
     }
 
     for (auto & kv : m_finterp) {
@@ -56,20 +56,22 @@ void model_core::register_decl(func_decl * d, expr * v) {
     TRACE("model", tout << "register " << d->get_name() << "\n";
           if (v) tout << mk_pp(v, m) << "\n";
           );
-    auto& value = m_interp.insert_if_not_there(d, nullptr);
-    if (value == nullptr) {
+    i_expr v0(0, nullptr);
+    auto& value = m_interp.insert_if_not_there(d, v0);
+    if (value == v0) {
         // new entry
-        m_decls.push_back(d);
-        m_const_decls.push_back(d);
         m.inc_ref(d);
         m.inc_ref(v);
-        value = v;
+        value.second = v;
+        value.first = m_const_decls.size();
+        m_decls.push_back(d);
+        m_const_decls.push_back(d);
     }
     else {
         // replacing entry
         m.inc_ref(v);
-        m.dec_ref(value);
-        value = v;
+        m.dec_ref(value.second);
+        value.second = v;
     }
 }
 
@@ -104,10 +106,12 @@ void model_core::unregister_decl(func_decl * d) {
     if (ec) {
         auto k = ec->get_data().m_key;
         auto v = ec->get_data().m_value;
+        m_const_decls[v.first] = m_const_decls.back();
+        m_interp[m_const_decls.back()].first = v.first;
+        m_const_decls.pop_back();
         m_interp.remove(d);
-        m_const_decls.erase(d);
         m.dec_ref(k);
-        m.dec_ref(v);
+        m.dec_ref(v.second);
         return;
     }
 

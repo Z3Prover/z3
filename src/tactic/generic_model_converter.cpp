@@ -108,7 +108,17 @@ model_converter * generic_model_converter::translate(ast_translation & translato
     ast_manager& to = translator.to();
     generic_model_converter * res = alloc(generic_model_converter, to, m_orig.c_str());
     for (entry const& e : m_entries) {
-        res->m_entries.push_back(entry(translator(e.m_f.get()), translator(e.m_def.get()), to, e.m_instruction));
+        func_decl_ref d(translator(e.m_f.get()), to);
+        switch (e.m_instruction) {
+        case instruction::HIDE: 
+            res->hide(d);
+            break;        
+        case instruction::ADD: {
+            expr_ref def(translator(e.m_def.get()), to);            
+            res->add(d, def);
+            break;
+        }
+        }
     }
     return res;
 }

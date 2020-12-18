@@ -220,7 +220,7 @@ void proto_model::cleanup() {
     }
     for (unsigned i = 0; i < m_const_decls.size(); ++i) {
         func_decl* d = m_const_decls[i];
-        expr* e = m_interp[d];
+        expr* e = m_interp[d].second;
         expr* r = cleanup_expr(trail, e, found_aux_fs);
         if (e != r) {
             register_decl(d, r);
@@ -385,7 +385,7 @@ model * proto_model::mk_model() {
     model * mdl = alloc(model, m);
 
     for (auto const& kv : m_interp) {
-        mdl->register_decl(kv.m_key, kv.m_value);
+        mdl->register_decl(kv.m_key, kv.m_value.second);
     }
 
     for (auto const& kv : m_finterp) {

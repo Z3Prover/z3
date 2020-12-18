@@ -63,7 +63,7 @@ void model::updt_params(params_ref const & p) {
 
 void model::copy_const_interps(model const & source) {
     for (auto const& kv : source.m_interp) 
-        register_decl(kv.m_key, kv.m_value);
+        register_decl(kv.m_key, kv.m_value.second);
 }
 
 void model::copy_func_interps(model const & source) {
@@ -168,12 +168,14 @@ model * model::translate(ast_translation & translator) const {
 
     // Translate const interps
     for (auto const& kv : m_interp) {
-        res->register_decl(translator(kv.m_key), translator(kv.m_value));
+        func_decl_ref d(translator(kv.m_key), translator.to());
+        expr_ref v(translator(kv.m_value.second), translator.to());
+        res->register_decl(d, v);
     }
     // Translate func interps
     for (auto const& kv : m_finterp) {
-        func_interp * fi = kv.m_value;
-        res->register_decl(translator(kv.m_key), fi->translate(translator));
+        func_interp* fi = kv.m_value->translate(translator);
+        res->register_decl(translator(kv.m_key), fi);
     }
 
     // Translate usort interps
@@ -265,7 +267,7 @@ void model::collect_deps(top_sort& ts) {
         ts.insert(kv.m_key, collect_deps(ts, kv.m_value));
     }
     for (auto const& kv : m_interp) {
-        ts.insert(kv.m_key, collect_deps(ts, kv.m_value));
+        ts.insert(kv.m_key, collect_deps(ts, kv.m_value.second));
     }
 }
 
