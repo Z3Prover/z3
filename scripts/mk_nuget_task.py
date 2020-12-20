@@ -57,17 +57,17 @@ def unpack(packages):
             zip_ref = zipfile.ZipFile(path, 'r')
             zip_ref.extract(f"{package_dir}/bin/libz3.{ext}", "tmp")
             mk_dir(f"out/runtimes/{dst}/native")
-            shutil.remove(f"out/runtimes/{dst}/native/libz3.{ext}")
+            os.remove(f"out/runtimes/{dst}/native/libz3.{ext}")
             shutil.move(f"tmp/{package_dir}/bin/libz3.{ext}", f"out/runtimes/{dst}/native/.")            
             if "x64-win" in f:
                 zip_ref.extract(f"{package_dir}/bin/libz3.pdb", "tmp")
                 mk_dir(f"out/runtimes/{dst}/native")
-                shutil.remove(f"out/runtimes/{dst}/native/libz3.pdb")
+                os.remove(f"out/runtimes/{dst}/native/libz3.pdb")
                 shutil.move(f"tmp/{package_dir}/bin/libz3.pdb", f"out/runtimes/{dst}/native/.")            
                 mk_dir("out/lib/netstandard1.4/")
                 for b in ["Microsoft.Z3.dll", "Microsoft.Z3.pdb"]:
                     zip_ref.extract(f"{package_dir}/bin/{b}", "tmp")
-                    shutil.remove(f"out/lib/netstandard1.4/{b}")
+                    os.remove(f"out/lib/netstandard1.4/{b}")
                     shutil.move(f"tmp/{package_dir}/bin/{b}", f"out/lib/netstandard1.4/{b}")
 
 def mk_targets(source_root):
