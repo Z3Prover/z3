@@ -122,40 +122,40 @@ jobs:
        cd scripts 
        python mk_nuget_task.py ../tmp $(z3Version) $(Build.SourceVersion)
        cd ..
-    - task: PythonScript@0
-      displayName: 'Python: assemble files'
-      inputs:
-        scriptSource: 'filepath'
-        scriptPath: scripts\mk_nuget_task.py
-        workingDirectory: $(Agent.TempDirectory)\package
-        arguments:
-          $(Agent.TempDirectory)\package
-          $(ReleaseVersion)
-          $(Build.Repository.Uri)
-          $(Build.SourceBranchName)
-          $(Build.SourceVersion)
-          $(Build.SourcesDirectory)
-    - task: NuGetToolInstaller@0
-      inputs:
-        versionSpec: 5.x
-        checkLatest: false
-    - task: NugetCommand@2
-      displayName: 'NuGet Pack'
-      inputs:
-        command: pack
-        packagesToPack: $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.nuspec
-        basePath: $(Agent.TempDirectory)\package\out
-        packDestination: $(Build.ArtifactStagingDirectory)
-        verbosityPack: detailed
-    - task: NugetCommand@2
-      displayName: 'NuGet Pack Symbols'
-      inputs:
-        command: pack
-        packagesToPack: $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.nuspec
-        basePath: $(Agent.TempDirectory)\package\out
-        packDestination: $(Build.ArtifactStagingDirectory)
-        verbosityPack: detailed
-        includeSymbols: true
+  - task: PythonScript@0
+    displayName: 'Python: assemble files'
+    inputs:
+      scriptSource: 'filepath'
+      scriptPath: scripts\mk_nuget_task.py
+      workingDirectory: $(Agent.TempDirectory)\package
+      arguments:
+        $(Agent.TempDirectory)\package
+        $(ReleaseVersion)
+        $(Build.Repository.Uri)
+        $(Build.SourceBranchName)
+        $(Build.SourceVersion)
+        $(Build.SourcesDirectory)
+  - task: NuGetToolInstaller@0
+    inputs:
+      versionSpec: 5.x
+      checkLatest: false
+  - task: NugetCommand@2
+    displayName: 'NuGet Pack'
+    inputs:
+      command: pack
+      packagesToPack: $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.nuspec
+      basePath: $(Agent.TempDirectory)\package\out
+      packDestination: $(Build.ArtifactStagingDirectory)
+      verbosityPack: detailed
+  - task: NugetCommand@2
+    displayName: 'NuGet Pack Symbols'
+    inputs:
+      command: pack
+      packagesToPack: $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.nuspec
+      basePath: $(Agent.TempDirectory)\package\out
+      packDestination: $(Build.ArtifactStagingDirectory)
+      verbosityPack: detailed
+      includeSymbols: true
 
 # Not available as a task?
 #  - script: | 
