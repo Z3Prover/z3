@@ -37,7 +37,12 @@ def classify_package(f):
             return os_name, f[:-4], ext, dst
     return None
 
-
+def replace(src, dst):
+    try:
+        os.remove(dst)
+    except:
+        shutil.move(src, dst)
+    
 def unpack(packages):
     # unzip files in packages
     # out
@@ -57,18 +62,15 @@ def unpack(packages):
             zip_ref = zipfile.ZipFile(path, 'r')
             zip_ref.extract(f"{package_dir}/bin/libz3.{ext}", "tmp")
             mk_dir(f"out/runtimes/{dst}/native")
-            os.remove(f"out/runtimes/{dst}/native/libz3.{ext}")
-            shutil.move(f"tmp/{package_dir}/bin/libz3.{ext}", f"out/runtimes/{dst}/native/.")            
+            replace(f"tmp/{package_dir}/bin/libz3.{ext}", f"out/runtimes/{dst}/native/libz3.{ext}")            
             if "x64-win" in f:
                 zip_ref.extract(f"{package_dir}/bin/libz3.pdb", "tmp")
                 mk_dir(f"out/runtimes/{dst}/native")
-                os.remove(f"out/runtimes/{dst}/native/libz3.pdb")
-                shutil.move(f"tmp/{package_dir}/bin/libz3.pdb", f"out/runtimes/{dst}/native/.")            
+                replace(f"tmp/{package_dir}/bin/libz3.pdb", f"out/runtimes/{dst}/native/libz3.pdb")            
                 mk_dir("out/lib/netstandard1.4/")
                 for b in ["Microsoft.Z3.dll", "Microsoft.Z3.pdb"]:
                     zip_ref.extract(f"{package_dir}/bin/{b}", "tmp")
-                    os.remove(f"out/lib/netstandard1.4/{b}")
-                    shutil.move(f"tmp/{package_dir}/bin/{b}", f"out/lib/netstandard1.4/{b}")
+                    replace(f"tmp/{package_dir}/bin/{b}", f"out/lib/netstandard1.4/{b}")
 
 def mk_targets(source_root):
     mk_dir("out/build")
