@@ -97,6 +97,12 @@ jobs:
 
 - job: NuGet
   displayName: "NuGet packaging"
+  dependsOn:
+  - Mac
+  - Ubuntu
+  - Windows32
+  - Windows64
+  - NuGet
   pool:
     vmImage: "windows-latest"
   steps:
@@ -109,17 +115,17 @@ jobs:
   - task: DownloadPipelineArtifact@2
     displayName: 'Download Win64 Build'
     inputs:
-      artifact: 'WindowsBuild-x64'
+      artifact: 'Windows64'
       path: $(Agent.TempDirectory)\package
   - task: DownloadPipelineArtifact@2
     displayName: 'Download Ubuntu Build'
     inputs:
-      artifact: 'UbuntuBuild'
+      artifact: 'Ubuntu'
       path: $(Agent.TempDirectory)\package
   - task: DownloadPipelineArtifact@2
     displayName: 'Download macOS Build'
     inputs:
-      artifact: 'macOSBuild'
+      artifact: 'Mac'
       path: $(Agent.TempDirectory)\package
   - task: PythonScript@0
     displayName: 'Python: assemble files'
@@ -155,12 +161,6 @@ jobs:
       packDestination: $(Build.ArtifactStagingDirectory)
       verbosityPack: detailed
       includeSymbols: true
-
-# Not available as a task?
-#  - script: | 
-#      cd scripts
-#      EsprClient.exe sign -a authorization.json -p policy.json -i out/nuget_sign_input.json -o out/diagnostics.json       
-#      cd ..
 
 - job: Python
   displayName: "Python packaging"
