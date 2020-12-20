@@ -100,11 +100,6 @@ stages:
   jobs:
   - job: NuGet
     displayName: "NuGet packaging"
-    dependsOn:
-    - Mac
-    - Ubuntu
-    - Windows32
-    - Windows64
     pool:
       vmImage: "windows-latest"
     steps:
@@ -166,11 +161,6 @@ stages:
 
   - job: Python
     displayName: "Python packaging"
-    dependsOn:
-    - Manylinux
-    - Windows32
-    - Windows64
-    - Mac
     pool:
       vmImage: "ubuntu-latest"
     steps:
@@ -210,13 +200,6 @@ stages:
   jobs:
   - job: Deploy
     displayName: "Deploy into GitHub"
-    dependsOn: 
-    - Mac
-    - Ubuntu
-    - Windows32
-    - Windows64
-    - Python
-    - NuGet
     steps:
     - task: DownloadPipelineArtifact@0
       inputs:
