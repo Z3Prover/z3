@@ -57,10 +57,13 @@ def unpack(packages):
             zip_ref = zipfile.ZipFile(path, 'r')
             zip_ref.extract("%s/bin/libz3.%s" % (package_dir, ext), "tmp")
             mk_dir("out/runtimes/%s/native" % dst)
-            shutil.move("tmp/%s/bin/libz3.%s" % (package_dir, ext), "out/runtimes/%s/native/." % dst)
+            shutil.move("tmp/%s/bin/libz3.%s" % (package_dir, ext), "out/runtimes/%s/native/." % dst)            
             if "x64-win" in f:
+                zip_ref.extract("%s/bin/libz3.%s" % (package_dir, "pdb"), "tmp")
+                mk_dir("out/runtimes/%s/native" % dst)
+                shutil.move("tmp/%s/bin/libz3.%s" % (package_dir, "pdb"), "out/runtimes/%s/native/." % dst)            
                 mk_dir("out/lib/netstandard1.4/")
-                for b in ["Microsoft.Z3.dll"]:
+                for b in ["Microsoft.Z3.dll", "Microsoft.Z3.pdb"]:
                     zip_ref.extract("%s/bin/%s" % (package_dir, b), "tmp")
                     shutil.move("tmp/%s/bin/%s" % (package_dir, b), "out/lib/netstandard1.4/%s" % b)
 
