@@ -118,10 +118,6 @@ jobs:
     inputs:
      artifactName: 'Ubuntu'
      targetPath: tmp
-  - script: |
-       cd scripts 
-       python mk_nuget_task.py ../tmp $(z3Version) $(Build.SourceVersion)
-       cd ..
   - task: PythonScript@0
     displayName: 'Python: assemble files'
     inputs:
