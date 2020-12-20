@@ -1298,6 +1298,7 @@ void cmd_context::reset(bool finalize) {
     restore_assertions(0);
     m_solver = nullptr;
     m_mcs.reset();
+    m_mcs.push_back(nullptr);
     m_scopes.reset();
     m_opt = nullptr;
     m_pp_env = nullptr;
