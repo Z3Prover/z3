@@ -114,6 +114,8 @@ struct pb2bv_rewriter::imp {
                 if (g.is_one())
                     return;
             }
+            if (g.is_zero())
+                return;
             switch (is_le) {
             case l_undef:
                 if (!k.is_int())
@@ -123,7 +125,7 @@ struct pb2bv_rewriter::imp {
                     return;
                 k /= g;
                 break;
-            case l_true:
+            case l_true:              
                 k /= g;
                 k = floor(k);
                 break;
