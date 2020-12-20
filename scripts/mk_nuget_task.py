@@ -62,7 +62,7 @@ def unpack(packages):
             if "x64-win" in f:
                 zip_ref.extract(f"{package_dir}/bin/libz3.pdb", "tmp")
                 mk_dir(f"out/runtimes/{dst}/native")
-                shutil.remove("out/runtimes/{dst}/native/libz3.pdb")
+                shutil.remove(f"out/runtimes/{dst}/native/libz3.pdb")
                 shutil.move(f"tmp/{package_dir}/bin/libz3.pdb", f"out/runtimes/{dst}/native/.")            
                 mk_dir("out/lib/netstandard1.4/")
                 for b in ["Microsoft.Z3.dll", "Microsoft.Z3.pdb"]:
