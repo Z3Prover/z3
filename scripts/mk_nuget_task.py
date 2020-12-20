@@ -75,9 +75,6 @@ def mk_icon(source_root):
     mk_dir("out/content")
     shutil.copy("{}/resources/icon.jpg".format(source_root), "out/content/icon.jpg")
 
-def mk_license(source_root):
-    mk_dir("out/content")
-    shutil.copy("{}/LICENSE.txt".format(source_root), "out/content/LICENSE.txt")
     
 def create_nuget_spec(version, repo, branch, commit):
     contents = """<?xml version="1.0" encoding="utf-8"?>
@@ -96,7 +93,7 @@ Linux Dependencies:
         <tags>smt constraint solver theorem prover</tags>
         <icon>content/icon.jpg</icon>
         <projectUrl>https://github.com/Z3Prover/z3</projectUrl>
-        <license type="file">content/LICENSE.txt</license>
+        <license type="expression">MIT</license>
         <repository type="git" url="{1}" branch="{2}" commit="{3}" />
         <requireLicenseAcceptance>true</requireLicenseAcceptance>
         <language>en</language>
@@ -121,7 +118,6 @@ def main():
     unpack(packages)
     mk_targets(source_root)
     mk_icon(source_root)
-    mk_license(source_root)
     create_nuget_spec(version, repo, branch, commit)
 
 main()
