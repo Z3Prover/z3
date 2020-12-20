@@ -94,30 +94,33 @@ jobs:
       targetPath: $(Build.ArtifactStagingDirectory)
       artifactName: 'Windows64'
 
+
 - job: NuGet
-  displayName: "Create Nuget Package"
-  dependsOn:
-  - Mac
-  - Ubuntu
-  - Windows32
-  - Windows64
+  displayName: "NuGet packaging"
+  pool:
+    vmImage: "windows-latest"
   steps:
-  - task: DownloadPipelineArtifact@0
+  - powershell: write-host $(System.DefinitionId)
+    displayName: 'System.DefinitionId'
+  - powershell: write-host $(Build.BuildId)
+    displayName: 'Build.BuildId'
+  - powershell: write-host $(System.TeamProjectId)
+    displayName: 'System.TeamProjectId'
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download Win64 Build'
     inputs:
-     artifactName: 'Windows32'
-     targetPath: tmp
-  - task: DownloadPipelineArtifact@0
+      artifact: 'WindowsBuild-x64'
+      path: $(Agent.TempDirectory)\package
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download Ubuntu Build'
     inputs:
-     artifactName: 'Windows64'
-     targetPath: tmp
-  - task: DownloadPipelineArtifact@0
+      artifact: 'UbuntuBuild'
+      path: $(Agent.TempDirectory)\package
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download macOS Build'
     inputs:
-     artifactName: 'Mac'
-     targetPath: tmp
-  - task: DownloadPipelineArtifact@0
-    inputs:
-     artifactName: 'Ubuntu'
-     targetPath: tmp
+      artifact: 'macOSBuild'
+      path: $(Agent.TempDirectory)\package
   - task: PythonScript@0
     displayName: 'Python: assemble files'
     inputs:
