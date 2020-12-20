@@ -69,11 +69,12 @@ def unpack(packages):
 
 def mk_targets(source_root):
     mk_dir("out/build")
-    shutil.copy("{}/src/api/dotnet/Microsoft.Z3.targets.in".format(source_root), "out/build/Microsoft.Z3.x64.targets")
+    shutil.copy(f"{source_root}/src/api/dotnet/Microsoft.Z3.targets.in", "out/build/Microsoft.Z3.x64.targets")
 
 def mk_icon(source_root):
     mk_dir("out/content")
-    shutil.copy("{}/resources/icon.jpg".format(source_root), "out/content/icon.jpg")
+    print(f"{source_root}/resources/icon.jpg")
+    print(shutil.copy(f"{source_root}/resources/icon.jpg", "out/content/icon.jpg"))
 
     
 def create_nuget_spec(version, repo, branch, commit):
