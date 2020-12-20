@@ -102,7 +102,6 @@ jobs:
   - Ubuntu
   - Windows32
   - Windows64
-  - NuGet
   pool:
     vmImage: "windows-latest"
   steps:
