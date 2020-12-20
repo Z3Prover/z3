@@ -566,12 +566,12 @@ struct goal2sat::imp : public sat::sat_internalizer {
         else {
             sat::bool_var k = add_var(false, t);
             sat::literal  l(k, false);
-            m_cache.insert(t, l);
             mk_clause(~l, l1, ~l2);
             mk_clause(~l, ~l1, l2);
             mk_clause(l,  l1, l2);
             mk_clause(l, ~l1, ~l2);
             if (aig()) aig()->add_iff(l, l1, l2);            
+            m_cache.insert(t, m.is_xor(t) ? ~l : l);
             if (sign)
                 l.neg();
             m_result_stack.push_back(l);
