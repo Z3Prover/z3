@@ -1,5 +1,5 @@
 variables:
-  z3Version: '4.9.10'
+  ReleaseVersion: '4.8.10'
 
 jobs:
 
