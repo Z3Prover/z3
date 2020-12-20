@@ -687,7 +687,7 @@ class solve_eqs_tactic : public tactic {
             th_rewriter thrw(m());
             expr_ref tmp(m()), tmp2(m());
             
-            // TRACE("solve_eqs", g.display(tout););
+            TRACE("solve_eqs", g.display(tout););
             for (unsigned idx = 0; !g.inconsistent() && idx < size; idx++) {
                 checkpoint();
                 if (g.is_decided_unsat()) break;
@@ -695,7 +695,7 @@ class solve_eqs_tactic : public tactic {
                 proof_ref pr1(m()), pr2(m());
                 thrw(f, tmp, pr1);
                 rw(tmp, tmp2, pr2);
-                TRACE("solve_eqs", tout << mk_pp(f, m()) << " " << tmp << "\n" << tmp2 
+                TRACE("solve_eqs", tout << mk_pp(f, m()) << "\n->\n" << tmp << "\n->\n" << tmp2 
                       << "\n" << pr1 << "\n" << pr2 << "\n" << mk_pp(g.pr(idx), m()) << "\n";);
                 pr1 = m().mk_transitivity(pr1, pr2);
                 if (!pr1) pr1 = g.pr(idx); else pr1 = m().mk_modus_ponens(g.pr(idx), pr1);

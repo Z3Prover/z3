@@ -130,7 +130,9 @@ br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * es, expr_ref &
         }
         fmls.push_back(p);
     }
-    for (auto const& p : m_eqs) {
+    for (auto& p : m_eqs) {
+        if (m().is_value(p.first))
+            std::swap(p.first, p.second);
         m_subst.insert(p.first, p.second);
         fmls.push_back(m().mk_eq(p.first, p.second));
     }    
