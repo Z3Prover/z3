@@ -207,6 +207,7 @@ stages:
         targetPath: src/api/python/dist
 
 - stage: Deployment
+  jobs:
   - job: Deploy
     displayName: "Deploy into GitHub"
     dependsOn: 
