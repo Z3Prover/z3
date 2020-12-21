@@ -149,6 +149,10 @@ stages:
         basePath: $(Agent.TempDirectory)\package\out
         packDestination: $(Build.ArtifactStagingDirectory)
         verbosityPack: detailed
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)
+        artifactName: 'NuGet'
     - task: PythonScript@0
       displayName: 'Python: assemble files'
       inputs:
@@ -167,6 +171,11 @@ stages:
       inputs:
         command: custom
         arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.nuspec -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)
+        artifactName: 'SNuGet'
+
 
   - job: Python
     displayName: "Python packaging"
