@@ -81,8 +81,7 @@ def mk_targets(source_root):
 
 def mk_icon(source_root):
     mk_dir("out/content")
-    print(f"{source_root}/resources/icon.jpg")
-    print(shutil.copy(f"{source_root}/resources/icon.jpg", "out/content/icon.jpg"))
+    shutil.copy(f"{source_root}/resources/icon.jpg", "out/content/icon.jpg")
 
     
 def create_nuget_spec(version, repo, branch, commit, symbols):
@@ -112,10 +111,10 @@ Linux Dependencies:
     </metadata>
 </package>""".format(version, repo, branch, commit)
     print(contents)
-    prefix = ""
+    sym = ""
     if symbols:
-        prefix = "s"
-    with open("out/Microsoft.Z3.x64.{prefix}nuspec", 'w') as f:
+        sym = "s"
+    with open("out/Microsoft.Z3.x64.{sym}.nuspec", 'w') as f:
         f.write(contents)
         
 def main():
