@@ -14,7 +14,7 @@ stages:
     - script: git clone https://github.com/z3prover/z3test z3test
     - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
     - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
-    - task: PublishPipelineArtifact@2
+    - task: PublishPipelineArtifact@1
       inputs:
         artifactName: 'Mac'
         targetPath: $(Build.ArtifactStagingDirectory)
