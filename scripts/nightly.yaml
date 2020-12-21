@@ -243,6 +243,10 @@ stages:
       inputs:
         artifactName: 'NuGet'
         targetPath: tmp
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        artifactName: 'SNuGet'
+        targetPath: tmp
     - task: GitHubRelease@0
       inputs:
         gitHubConnection: Z3GitHub
