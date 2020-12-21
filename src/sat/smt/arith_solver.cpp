@@ -41,7 +41,7 @@ namespace arith {
         lp().set_track_pivoted_rows(lpar.arith_bprop_on_pivoted_rows());
         lp().settings().report_frequency = lpar.arith_rep_freq();
         lp().settings().print_statistics = lpar.arith_print_stats();
-        lp().settings().cheap_eqs() = lpar.arith_cheap_eqs();
+        lp().settings().cheap_eqs() = lpar.arith_propagate_eqs();
         lp().set_cut_strategy(get_config().m_arith_branch_cut_ratio);
         lp().settings().int_run_gcd_test() = get_config().m_arith_gcd_test;
         lp().settings().set_random_seed(get_config().m_random_seed);

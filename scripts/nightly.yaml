@@ -14,7 +14,7 @@ stages:
     - script: git clone https://github.com/z3prover/z3test z3test
     - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
     - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
-    - task: PublishPipelineArtifact@0
+    - task: PublishPipelineArtifact@2
       inputs:
         artifactName: 'Mac'
         targetPath: $(Build.ArtifactStagingDirectory)
@@ -175,19 +175,19 @@ stages:
     pool:
       vmImage: "ubuntu-latest"
     steps:
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: 'Windows32'
         targetPath: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: 'Windows64'
         targetPath: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: 'Manylinux'
         targetPath: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: 'Mac'
         targetPath: $(Agent.TempDirectory)
@@ -212,27 +212,27 @@ stages:
   - job: Deploy
     displayName: "Deploy into GitHub"
     steps:
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: 'Windows32'
         targetPath: tmp
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: 'Windows64'
         targetPath: tmp
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: 'Mac'
         targetPath: tmp
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: 'Ubuntu'
         targetPath: tmp
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: 'Python packages'
         targetPath: tmp
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: 'NuGet'
         targetPath: tmp
