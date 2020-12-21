@@ -66,7 +66,8 @@ void order::order_lemma_on_binomial(const monic& ac) {
         order_lemma_on_binomial_sign(ac, ac.vars()[k], ac.vars()[!k], gt? 1: -1);
         order_lemma_on_factor_binomial_explore(ac, k);
         k = !k; 
-    } while (k);
+    } 
+    while (k);
 }
 
 
@@ -101,9 +102,8 @@ void order::order_lemma_on_factor_binomial_explore(const monic& ac, bool k) {
             continue;
         TRACE("nla_solver", tout << "bd = " << pp_mon_with_vars(_(), bd););
         order_lemma_on_factor_binomial_rm(ac, k, bd);
-        if (done()) {
+        if (done()) 
             break;
-        }
     }
 }
 

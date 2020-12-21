@@ -1478,16 +1478,15 @@ lbool core::check(vector<lemma>& l_vec) {
     if (l_vec.empty() && !done() && need_run_horner()) 
         m_horner.horner_lemmas();
 
-    if (l_vec.empty() && !done() && need_run_grobner()) {
+    if (l_vec.empty() && !done() && need_run_grobner()) 
         run_grobner();                
-    }
 
     if (l_vec.empty() && !done()) 
         m_basics.basic_lemma(true);    
 
     if (l_vec.empty() && !done()) 
         m_basics.basic_lemma(false);
-    
+
     if (l_vec.empty() && !done()) 
         m_order.order_lemma();    
 

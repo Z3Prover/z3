@@ -166,9 +166,7 @@ stages:
       displayName: 'NuGet Pack Symbols'
       inputs:
         command: custom
-        arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.nuspec -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out'
-        packDestination: $(Build.ArtifactStagingDirectory)
-        verbosityPack: detailed
+        arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.nuspec -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
 
   - job: Python
     displayName: "Python packaging"
