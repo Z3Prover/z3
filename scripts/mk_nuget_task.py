@@ -43,7 +43,7 @@ def replace(src, dst):
     except:
         shutil.move(src, dst)
     
-def unpack(packages):
+def unpack(packages, symbols):
     # unzip files in packages
     # out
     # +- runtimes
@@ -64,11 +64,14 @@ def unpack(packages):
             mk_dir(f"out/runtimes/{dst}/native")
             replace(f"tmp/{package_dir}/bin/libz3.{ext}", f"out/runtimes/{dst}/native/libz3.{ext}")            
             if "x64-win" in f:
-                zip_ref.extract(f"{package_dir}/bin/libz3.pdb", "tmp")
-                mk_dir(f"out/runtimes/{dst}/native")
-                replace(f"tmp/{package_dir}/bin/libz3.pdb", f"out/runtimes/{dst}/native/libz3.pdb")            
                 mk_dir("out/lib/netstandard1.4/")
-                for b in ["Microsoft.Z3.dll", "Microsoft.Z3.pdb"]:
+                if symbols:
+                    zip_ref.extract(f"{package_dir}/bin/libz3.pdb", "tmp")
+                    replace(f"tmp/{package_dir}/bin/libz3.pdb", f"out/runtimes/{dst}/native/libz3.pdb") 
+                files = ["Microsoft.Z3.dll"]                
+                if symbols:
+                    files += ["Microsoft.Z3.pdb"]
+                for b in files:
                     zip_ref.extract(f"{package_dir}/bin/{b}", "tmp")
                     replace(f"tmp/{package_dir}/bin/{b}", f"out/lib/netstandard1.4/{b}")
 
@@ -82,7 +85,7 @@ def mk_icon(source_root):
     print(shutil.copy(f"{source_root}/resources/icon.jpg", "out/content/icon.jpg"))
 
     
-def create_nuget_spec(version, repo, branch, commit):
+def create_nuget_spec(version, repo, branch, commit, symbols):
     contents = """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
@@ -109,7 +112,10 @@ Linux Dependencies:
     </metadata>
 </package>""".format(version, repo, branch, commit)
     print(contents)
-    with open("out/Microsoft.Z3.x64.nuspec", 'w') as f:
+    prefix = ""
+    if symbols:
+        prefix = "s"
+    with open("out/Microsoft.Z3.x64.{prefix}nuspec", 'w') as f:
         f.write(contents)
         
 def main():
@@ -119,11 +125,14 @@ def main():
     branch = sys.argv[4]
     commit = sys.argv[5]
     source_root = sys.argv[6]
+    symbols = False
+    if len(sys.argv) > 7 and "symbols" == sys.argv[7]:
+        symbols = True
     print(packages)
     mk_dir(packages)
-    unpack(packages)
+    unpack(packages, symbols)
     mk_targets(source_root)
     mk_icon(source_root)
-    create_nuget_spec(version, repo, branch, commit)
+    create_nuget_spec(version, repo, branch, commit, symbols)
 
 main()

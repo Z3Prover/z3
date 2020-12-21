@@ -137,6 +137,7 @@ stages:
           $(Build.SourceBranchName)
           $(Build.SourceVersion)
           $(Build.SourcesDirectory)
+          nosymbols
     - task: NuGetToolInstaller@0
       inputs:
         versionSpec: 5.x
@@ -166,11 +167,12 @@ stages:
           $(Build.SourceBranchName)
           $(Build.SourceVersion)
           $(Build.SourcesDirectory)
+          symbols
     - task: NugetCommand@2
       displayName: 'NuGet Pack Symbols'
       inputs:
         command: custom
-        arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.nuspec -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
+        arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.snuspec -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
