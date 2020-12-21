@@ -166,7 +166,7 @@ stages:
       displayName: 'NuGet Pack Symbols'
       inputs:
         command: custom
-        arguments: nuget pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.nuspec -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out
+        arguments: 'nuget pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.nuspec -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out'
         packDestination: $(Build.ArtifactStagingDirectory)
         verbosityPack: detailed
 
