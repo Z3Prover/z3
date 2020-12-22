@@ -150,10 +150,6 @@ stages:
         basePath: $(Agent.TempDirectory)\package\out
         packDestination: $(Build.ArtifactStagingDirectory)
         verbosityPack: detailed
-    - task: PublishPipelineArtifact@1
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)
-        artifactName: 'NuGet'
     - task: PythonScript@0
       displayName: 'Python: assemble files'
       inputs:
@@ -176,7 +172,7 @@ stages:
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
-        artifactName: 'SNuGet'
+        artifactName: 'NuGet'
 
 
   - job: Python
@@ -250,11 +246,6 @@ stages:
       displayName: "Download NuGet"
       inputs:
         artifactName: 'NuGet'
-        targetPath: tmp
-    - task: DownloadPipelineArtifact@2
-      displayName: "Download SNuGet - with symbols"
-      inputs:
-        artifactName: 'SNuGet'
         targetPath: tmp
     - task: GitHubRelease@0
       inputs:
