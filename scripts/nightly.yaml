@@ -124,6 +124,10 @@ stages:
       inputs:
         artifact: 'Mac'
         path: $(Agent.TempDirectory)\package
+    - task: NuGetToolInstaller@0
+      inputs:
+        versionSpec: 5.x
+        checkLatest: false        
     - task: PythonScript@0
       displayName: 'Python: assemble files'
       inputs:
@@ -143,32 +147,28 @@ stages:
       inputs:
         command: custom
         arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.sym.nuspec -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
-    - task: PythonScript@0
-      displayName: 'Python: assemble files'
-      inputs:
-        scriptSource: 'filepath'
-        scriptPath: scripts\mk_nuget_task.py
-        workingDirectory: $(Agent.TempDirectory)\package
-        arguments:
-          $(Agent.TempDirectory)\package
-          $(ReleaseVersion)
-          $(Build.Repository.Uri)
-          $(Build.SourceBranchName)
-          $(Build.SourceVersion)
-          $(Build.SourcesDirectory)
-          nosymbols
-    - task: NuGetToolInstaller@0
-      inputs:
-        versionSpec: 5.x
-        checkLatest: false
-    - task: NugetCommand@2
-      displayName: 'NuGet Pack'
-      inputs:
-        command: pack
-        packagesToPack: $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.nuspec
-        basePath: $(Agent.TempDirectory)\package\out
-        packDestination: $(Build.ArtifactStagingDirectory)
-        verbosityPack: detailed
+#    - task: PythonScript@0
+#      displayName: 'Python: assemble files'
+#      inputs:
+#        scriptSource: 'filepath'
+#        scriptPath: scripts\mk_nuget_task.py
+#        workingDirectory: $(Agent.TempDirectory)\package
+#        arguments:
+#          $(Agent.TempDirectory)\package
+#          $(ReleaseVersion)
+#          $(Build.Repository.Uri)
+#          $(Build.SourceBranchName)
+#          $(Build.SourceVersion)
+#          $(Build.SourcesDirectory)
+#          nosymbols
+#    - task: NugetCommand@2
+#      displayName: 'NuGet Pack'
+#      inputs:
+#        command: pack
+#        packagesToPack: $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.nuspec
+#        basePath: $(Agent.TempDirectory)\package\out
+#        packDestination: $(Build.ArtifactStagingDirectory)
+#        verbosityPack: detailed
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
