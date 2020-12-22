@@ -54,26 +54,27 @@ def unpack(packages, symbols):
     #    +- debian.8-x64
     #    +- macos
     # +
+    tmp = "tmp" if not symbols else "tmpsym"
     for f in os.listdir(packages):
         print(f)
         if f.endswith(".zip") and classify_package(f):
             os_name, package_dir, ext, dst = classify_package(f)
             path = os.path.abspath(os.path.join(packages, f))
             zip_ref = zipfile.ZipFile(path, 'r')
-            zip_ref.extract(f"{package_dir}/bin/libz3.{ext}", "tmp")
+            zip_ref.extract(f"{package_dir}/bin/libz3.{ext}", f"{tmp}")
             mk_dir(f"out/runtimes/{dst}/native")
-            replace(f"tmp/{package_dir}/bin/libz3.{ext}", f"out/runtimes/{dst}/native/libz3.{ext}")            
+            replace(f"{tmp}/{package_dir}/bin/libz3.{ext}", f"out/runtimes/{dst}/native/libz3.{ext}")            
             if "x64-win" in f:
                 mk_dir("out/lib/netstandard1.4/")
                 if symbols:
-                    zip_ref.extract(f"{package_dir}/bin/libz3.pdb", "tmp")
-                    replace(f"tmp/{package_dir}/bin/libz3.pdb", f"out/runtimes/{dst}/native/libz3.pdb") 
+                    zip_ref.extract(f"{package_dir}/bin/libz3.pdb", f"{tmp}")
+                    replace(f"{tmp}/{package_dir}/bin/libz3.pdb", f"out/runtimes/{dst}/native/libz3.pdb") 
                 files = ["Microsoft.Z3.dll"]                
                 if symbols:
                     files += ["Microsoft.Z3.pdb"]
                 for b in files:
-                    zip_ref.extract(f"{package_dir}/bin/{b}", "tmp")
-                    replace(f"tmp/{package_dir}/bin/{b}", f"out/lib/netstandard1.4/{b}")
+                    zip_ref.extract(f"{package_dir}/bin/{b}", f"{tmp}")
+                    replace(f"{tmp}/{package_dir}/bin/{b}", f"out/lib/netstandard1.4/{b}")
 
 def mk_targets(source_root):
     mk_dir("out/build")
@@ -111,9 +112,7 @@ Linux Dependencies:
     </metadata>
 </package>""".format(version, repo, branch, commit)
     print(contents)
-    sym = ""
-    if symbols:
-        sym = "sym."
+    sym = "sym." if symbols else ""
     file = f"out/Microsoft.Z3.x64.{sym}nuspec"
     print(file)
     with open(file, 'w') as f:
@@ -131,7 +130,6 @@ def main():
         print(sys.argv[7])
     if len(sys.argv) > 7 and "symbols" == sys.argv[7]:
         symbols = True
-    print(symbols)
     print(packages)
     mk_dir(packages)
     unpack(packages, symbols)

@@ -222,30 +222,37 @@ stages:
     displayName: "Deploy into GitHub"
     steps:
     - task: DownloadPipelineArtifact@2
+      displayName: "Download windows32"
       inputs:
         artifactName: 'Windows32'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
+      displayName: "Download windows64"
       inputs:
         artifactName: 'Windows64'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
+      displayName: "Download Mac"
       inputs:
         artifactName: 'Mac'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
+      displayName: "Download Ubuntu"
       inputs:
         artifactName: 'Ubuntu'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
+      displayName: "Download Python"
       inputs:
         artifactName: 'Python packages'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
+      displayName: "Download NuGet"
       inputs:
         artifactName: 'NuGet'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
+      displayName: "Download SNuGet - with symbols"
       inputs:
         artifactName: 'SNuGet'
         targetPath: tmp
