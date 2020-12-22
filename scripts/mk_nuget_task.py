@@ -23,7 +23,8 @@ def mk_dir(d):
 
 
 os_info = {"z64-ubuntu-14" : ('so', 'ubuntu.14.04-x64'),
-           'ubuntu-16' : ('so', 'ubuntu-x64'),
+           'ubuntu-18' : ('so', 'ubuntu-x64'),
+           'ubuntu-20' : ('so', 'ubuntu-x64'),
            'x64-win' : ('dll', 'win-x64'),
 # Skip x86 as I can't get dotnet build to produce AnyCPU TargetPlatform           
 #          'x86-win' : ('dll', 'win-x86'),
