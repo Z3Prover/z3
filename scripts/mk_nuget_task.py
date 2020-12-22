@@ -114,7 +114,7 @@ Linux Dependencies:
     sym = ""
     if symbols:
         sym = "s"
-    with open("out/Microsoft.Z3.x64.{sym}.nuspec", 'w') as f:
+    with open(f"out/Microsoft.Z3.x64.{sym}.nuspec", 'w') as f:
         f.write(contents)
         
 def main():
