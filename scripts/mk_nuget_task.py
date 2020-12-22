@@ -113,8 +113,10 @@ Linux Dependencies:
     print(contents)
     sym = ""
     if symbols:
-        sym = "s"
-    with open(f"out/Microsoft.Z3.x64.{sym}.nuspec", 'w') as f:
+        sym = "sym."
+    file = f"out/Microsoft.Z3.x64.{sym}nuspec"
+    print(file)
+    with open(file, 'w') as f:
         f.write(contents)
         
 def main():
@@ -125,8 +127,11 @@ def main():
     commit = sys.argv[5]
     source_root = sys.argv[6]
     symbols = False
+    if len(sys.argv) > 7:
+        print(sys.argv[7])
     if len(sys.argv) > 7 and "symbols" == sys.argv[7]:
         symbols = True
+    print(symbols)
     print(packages)
     mk_dir(packages)
     unpack(packages, symbols)

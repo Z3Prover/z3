@@ -338,9 +338,8 @@ namespace smt {
     }
 
     void context::ensure_internalized(expr* e) {
-        if (!e_internalized(e)) {
+        if (!e_internalized(e)) 
             internalize(e, false);
-        }
     }
 
     /**

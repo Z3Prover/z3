@@ -203,6 +203,7 @@ struct model::top_sort : public ::top_sort<func_decl> {
     {
         params_ref p;
         p.set_bool("elim_ite", false);
+        p.set_bool("ite_extra_rules", true);
         m_rewrite.updt_params(p);
     }
 
@@ -483,6 +484,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
             }
             
             if (t != new_t.get()) trail.push_back(new_t);
+            CTRACE("model", (t != new_t.get()), tout << mk_bounded_pp(t, m) << " " << new_t << "\n";);
             todo.pop_back();
             cache.insert(t, new_t);
             break;
