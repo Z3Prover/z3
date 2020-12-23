@@ -549,12 +549,19 @@ class solve_eqs_tactic : public tactic {
 
         bool is_path_compatible(expr_mark& occ, svector<lbool>& cache, vector<nnf_context> const & path, expr* v, expr* eq) {
             bool all_e = true;
+            auto is_marked = [&](expr* e) {
+                if (occ.is_marked(e))
+                    return true;
+                if (m().is_not(e, e) && occ.is_marked(e))
+                    return true;
+                return false;
+            };
             for (unsigned i = path.size(); i-- > 0; ) {
                 auto const& p = path[i];
                 auto const& args = p.m_args;
                 if (p.m_is_and && !all_e) {
                     for (unsigned j = 0; j < args.size(); ++j) {
-                        if (j != p.m_index && occ.is_marked(args[j])) {
+                        if (j != p.m_index && is_marked(args[j])) {
                             TRACE("solve_eqs", tout << "occurs and " << mk_pp(eq, m()) << " " << mk_pp(args[j], m()) << "\n";);
                             return false;
                         }
