@@ -1470,7 +1470,7 @@ void core::check_weighted(unsigned sz, std::pair<unsigned, std::function<void(vo
             if (n < checks[i].first) {
                 seen.insert(i);
                 checks[i].second();
-                bound -= n;
+                bound -= checks[i].first;
                 break;
             }
             n -= checks[i].first;
@@ -1523,9 +1523,14 @@ lbool core::check(vector<lemma>& l_vec) {
               { 2, check2 }, 
               { 1, check3 }};
         check_weighted(3, checks);
+
+        if (!conflict_found() && m_nla_settings.run_nra() && random() % 30 == 0) {
+            ret = m_nra.check();
+            m_stats.m_nra_calls++;
+        }
     }
 
-    if (l_vec.empty() && !done() && m_nla_settings.run_nra()) {
+    if (l_vec.empty() && !done() && m_nla_settings.run_nra() && ret == l_undef) {
         ret = m_nra.check();
         m_stats.m_nra_calls++;
     }
