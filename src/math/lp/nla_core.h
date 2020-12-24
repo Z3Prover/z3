@@ -178,6 +178,9 @@ private:
     bool                     m_cautious_patching;
     lpvar                    m_patched_var;
     monic const*             m_patched_monic;      
+
+    void check_weighted(unsigned sz, std::pair<unsigned, std::function<void(void)>>* checks);
+
 public:    
     void insert_to_refine(lpvar j);
     void erase_from_to_refine(lpvar j);
