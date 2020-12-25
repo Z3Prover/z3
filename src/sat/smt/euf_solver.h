@@ -141,8 +141,8 @@ namespace euf {
         obj_map<expr, enode*> m_values2root;
         bool include_func_interp(func_decl* f);
         void register_macros(model& mdl);
-        void dependencies2values(deps_t& deps, model_ref& mdl);
-        void collect_dependencies(deps_t& deps);
+        void dependencies2values(user_sort& us, deps_t& deps, model_ref& mdl);
+        void collect_dependencies(user_sort& us, deps_t& deps);
         void values2model(deps_t const& deps, model_ref& mdl);
         void validate_model(model& mdl);
 

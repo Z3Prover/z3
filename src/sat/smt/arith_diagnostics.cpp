@@ -56,7 +56,7 @@ namespace arith {
                     scoped_anum an(m_nla->am());
                     m_nla->am().display(out << " = ", nl_value(v, an));
                 }
-                else if (m_model_is_initialized && is_registered_var(v)) 
+                else if (can_get_value(v))  
                     out << " = " << get_value(v);
                 if (is_int(v)) 
                     out << ", int";

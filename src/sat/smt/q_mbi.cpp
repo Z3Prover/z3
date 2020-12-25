@@ -99,13 +99,13 @@ namespace q {
 
     lbool mbqi::check_forall(quantifier* q) {
         quantifier* q_flat = m_qs.flatten(q);
+        init_solver();
+        ::solver::scoped_push _sp(*m_solver);
         auto* qb = specialize(q_flat);
         if (!qb)
             return l_undef;
         if (m.is_false(qb->mbody))
             return l_true;
-        init_solver();
-        ::solver::scoped_push _sp(*m_solver);
         m_solver->assert_expr(qb->mbody);
         lbool r = m_solver->check_sat(0, nullptr);
         if (r == l_undef)

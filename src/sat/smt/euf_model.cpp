@@ -22,15 +22,49 @@ Author:
 
 namespace euf {
 
+    class solver::user_sort {
+        ast_manager& m;
+        model_ref& mdl;
+        expr_ref_vector& values;
+        user_sort_factory factory;
+        scoped_ptr_vector<expr_ref_vector> sort_values;
+        obj_map<sort, expr_ref_vector*>    sort2values;
+    public:
+        user_sort(solver& s, expr_ref_vector& values, model_ref& mdl) :
+            m(s.m), mdl(mdl), values(values), factory(m) {}
+
+        ~user_sort() {
+            for (auto kv : sort2values)
+                mdl->register_usort(kv.m_key, kv.m_value->size(), kv.m_value->c_ptr());
+        }
+
+        void add(unsigned id, sort* srt) {
+            expr_ref value(factory.get_fresh_value(srt), m);
+            values.set(id, value);
+            expr_ref_vector* vals = nullptr;
+            if (!sort2values.find(srt, vals)) {
+                vals = alloc(expr_ref_vector, m);
+                sort2values.insert(srt, vals);
+                sort_values.push_back(vals);
+            }
+            vals->push_back(value);
+        }
+
+        void register_value(expr* val) {
+            factory.register_value(val);
+        }
+    };
+
     void solver::update_model(model_ref& mdl) {
         for (auto* mb : m_solvers)
             mb->init_model();
         deps_t deps;
         m_values.reset();
         m_values2root.reset();
-        collect_dependencies(deps);
+        user_sort us(*this, m_values, mdl);
+        collect_dependencies(us, deps);
         deps.topological_sort();
-        dependencies2values(deps, mdl);
+        dependencies2values(us, deps, mdl);
         values2model(deps, mdl);
         for (auto* mb : m_solvers)
             mb->finalize_model(*mdl);
@@ -48,13 +82,17 @@ namespace euf {
         return mb && mb->include_func_interp(f);
     }
 
-    void solver::collect_dependencies(deps_t& deps) {
+    void solver::collect_dependencies(user_sort& us, deps_t& deps) {
         for (enode* n : m_egraph.nodes()) {
-            auto* mb = sort2solver(m.get_sort(n->get_expr()));
+            expr* e = n->get_expr();
+            sort* srt = m.get_sort(e);
+            auto* mb = sort2solver(srt);
             if (mb)
                 mb->add_dep(n, deps);
             else
                 deps.insert(n, nullptr);
+            if (n->is_root() && m.is_uninterp(srt) && m.is_value(e))
+                us.register_value(e);
         }
 
         TRACE("euf",
@@ -67,37 +105,7 @@ namespace euf {
               );
     }
 
-    class solver::user_sort {
-        ast_manager&      m;
-        model_ref&        mdl;
-        expr_ref_vector&  values;
-        user_sort_factory factory;
-        scoped_ptr_vector<expr_ref_vector> sort_values;
-        obj_map<sort, expr_ref_vector*>    sort2values;
-    public:
-        user_sort(solver& s, expr_ref_vector& values, model_ref& mdl): 
-            m(s.m), mdl(mdl), values(values), factory(m) {}
-
-        ~user_sort() {
-            for (auto kv : sort2values) 
-                mdl->register_usort(kv.m_key, kv.m_value->size(), kv.m_value->c_ptr());
-        }
-
-        void add(unsigned id, sort* srt) {
-            expr_ref value(factory.get_fresh_value(srt), m);
-            values.set(id, value);     
-            expr_ref_vector* vals = nullptr;
-            if (!sort2values.find(srt, vals)) {
-                vals = alloc(expr_ref_vector, m);
-                sort2values.insert(srt, vals);
-                sort_values.push_back(vals);
-            }
-            vals->push_back(value);            
-        }        
-    };
-
-    void solver::dependencies2values(deps_t& deps, model_ref& mdl) {
-        user_sort user_sort(*this, m_values, mdl);
+    void solver::dependencies2values(user_sort& us, deps_t& deps, model_ref& mdl) {
         for (enode* n : deps.top_sorted()) {
             unsigned id = n->get_root_id();
             if (m_values.get(id, nullptr))
@@ -134,9 +142,13 @@ namespace euf {
                 }
                 continue;
             }
+            if (m.is_value(n->get_root()->get_expr())) {
+                m_values.set(id, n->get_root()->get_expr());
+                continue;
+            }
             sort* srt = m.get_sort(e);
             if (m.is_uninterp(srt)) 
-                user_sort.add(id, srt);            
+                us.add(id, srt);            
             else if (auto* mbS = sort2solver(srt))
                 mbS->add_value(n, *mdl, m_values);
             else if (auto* mbE = expr2solver(e))

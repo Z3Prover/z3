@@ -34,6 +34,7 @@ namespace sat {
         bool_var_vector m_is_tracked;
         unsigned_vector m_ext2var;
         unsigned_vector m_var2ext;
+        lim_svector<unsigned> m_vars;
         void add_literal(literal lit);
 
         bool_var ext2var(bool_var v);

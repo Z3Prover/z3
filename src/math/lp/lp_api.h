@@ -74,7 +74,7 @@ namespace lp_api {
                 return inf_rational(m_value + offset); // v <= value - 1 or v >= value + 1
             }
             else {
-                return inf_rational(m_value, m_bound_kind != lower_t);  // v <= value - epsilon or v >= value + epsilon                                                                        
+                return inf_rational(m_value, m_bound_kind != lower_t);  // v <= value - epsilon or v >= value + epsilon
             }
         }
 

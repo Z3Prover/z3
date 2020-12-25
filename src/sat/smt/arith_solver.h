@@ -318,6 +318,9 @@ namespace arith {
         vector<constraint_bound>        m_upper_terms;
         vector<constraint_bound>        m_history;
 
+        bool can_get_value(theory_var v) const {
+            return is_registered_var(v) && m_model_is_initialized;
+        }
 
         // solving
         void report_equality_of_fixed_vars(unsigned vi1, unsigned vi2);

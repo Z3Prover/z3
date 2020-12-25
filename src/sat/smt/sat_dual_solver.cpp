@@ -33,6 +33,7 @@ namespace sat {
         m_roots.push_scope();
         m_tracked_vars.push_scope();
         m_units.push_scope();
+        m_vars.push_scope();
     }
 
     void dual_solver::pop(unsigned num_scopes) {
@@ -40,6 +41,14 @@ namespace sat {
         unsigned old_sz = m_tracked_vars.old_size(num_scopes);
         for (unsigned i = m_tracked_vars.size(); i-- > old_sz; )
             m_is_tracked[m_tracked_vars[i]] = false; 
+        old_sz = m_vars.old_size(num_scopes);
+        for (unsigned i = m_vars.size(); i-- > old_sz; ) {
+            unsigned v = m_vars[i];
+            unsigned w = m_ext2var[v];
+            m_ext2var[v] = null_bool_var;
+            m_var2ext[w] = null_bool_var;
+        }
+        m_vars.pop_scope(num_scopes);
         m_units.pop_scope(num_scopes);
         m_roots.pop_scope(num_scopes);
         m_tracked_vars.pop_scope(num_scopes);
@@ -51,6 +60,7 @@ namespace sat {
             w = m_solver.mk_var();
             m_ext2var.setx(v, w, null_bool_var);
             m_var2ext.setx(w, v, null_bool_var);
+            m_vars.push_back(v);
         }
         return w;
     }

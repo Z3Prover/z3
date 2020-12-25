@@ -1462,7 +1462,6 @@ void core::check_weighted(unsigned sz, std::pair<unsigned, std::function<void(vo
         bound += checks[i].first;
     uint_set seen;
     while (bound > 0 && !done() && m_lemma_vec->empty()) {
-        SASSERT(bound > 0);
         unsigned n = random() % bound;
         for (unsigned i = 0; i < sz; ++i) {
             if (seen.contains(i))

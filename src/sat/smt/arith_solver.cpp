@@ -84,6 +84,7 @@ namespace arith {
     }
 
     bool solver::unit_propagate() {
+        m_model_is_initialized = false;
         if (!m_new_eq && m_new_bounds.empty() && m_asserted_qhead == m_asserted.size())
             return false;
 
@@ -572,6 +573,10 @@ namespace arith {
                 value = ~value;
             if (!found_bad && value == get_phase(n->bool_var()))
                 continue;
+            TRACE("arith",
+                tout << eval << " " << value << " " << ctx.bpp(n) << "\n";
+                tout << mdl << "\n";
+                s().display(tout););
             IF_VERBOSE(0, 
                        verbose_stream() << eval << " " << value << " " << ctx.bpp(n) << "\n";
                        verbose_stream() << n->bool_var() << " " << n->value() << " " << get_phase(n->bool_var()) << " " << ctx.bpp(n) << "\n";
@@ -642,6 +647,7 @@ namespace arith {
         for (unsigned i = m_bounds_trail.size(); i-- > old_size; ) {
             unsigned v = m_bounds_trail[i];
             api_bound* b = m_bounds[v].back();
+            m_bool_var2bound.erase(b->get_lit().var());
             // del_use_lists(b);
             dealloc(b);
             m_bounds[v].pop_back();
