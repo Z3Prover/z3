@@ -141,7 +141,7 @@ inline app_ref mk_not(const app_ref& e) { return app_ref(e.m().mk_not(e), e.m())
 /**
    Negate and push over conjunction or disjunction.
  */
-expr_ref push_not(const expr_ref& arg);
+expr_ref push_not(const expr_ref& arg, unsigned limit = 8);
 
 /**
    Return the expression (and (not (= args[0] args[1])) (not (= args[0] args[2])) ... (not (= args[num_args-2] args[num_args-1])))

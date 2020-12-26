@@ -201,10 +201,10 @@ expr_ref mk_not(const expr_ref& e) {
 }
 
 
-expr_ref push_not(const expr_ref& e) {
+expr_ref push_not(const expr_ref& e, unsigned limit) {
     ast_manager& m = e.get_manager();
-    if (!is_app(e)) {
-        return expr_ref(m.mk_not(e), m);
+    if (!is_app(e) || limit == 0) {
+        return mk_not(e);
     }
     app* a = to_app(e);
     if (m.is_and(a)) {
@@ -213,7 +213,7 @@ expr_ref push_not(const expr_ref& e) {
         }
         expr_ref_vector args(m);
         for (expr* arg : *a) {
-            args.push_back(push_not(expr_ref(arg, m)));
+            args.push_back(push_not(expr_ref(arg, m), limit-1));
         }
         return mk_or(args);
     }
@@ -223,11 +223,11 @@ expr_ref push_not(const expr_ref& e) {
         }
         expr_ref_vector args(m);
         for (expr* arg : *a) {
-            args.push_back(push_not(expr_ref(arg, m)));
+            args.push_back(push_not(expr_ref(arg, m), limit-1));
         }
         return mk_and(args);
     }
-    return expr_ref(mk_not(m, e), m);
+    return mk_not(e);
 }
 
 expr * expand_distinct(ast_manager & m, unsigned num_args, expr * const * args) {
