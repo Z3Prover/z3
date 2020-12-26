@@ -3523,6 +3523,12 @@ namespace sat {
     }
 
     void solver::shrink_vars(unsigned v) {
+        unsigned j = 0; 
+        for (bool_var w : m_free_vars) 
+            if (w < v)
+                m_free_vars[j++] = w;
+        m_free_vars.shrink(j);
+
         for (bool_var i = v; i < m_justification.size(); ++i) {
             m_case_split_queue.del_var_eh(i);
             m_probing.reset_cache(literal(i, true));

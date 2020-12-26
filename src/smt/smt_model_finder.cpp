@@ -63,9 +63,9 @@ namespace smt {
            \brief Instantiation sets are the S_{k,j} sets in the Complete quantifier instantiation paper.
         */
         class instantiation_set {
-            ast_manager& m;
+            ast_manager&            m;
             obj_map<expr, unsigned> m_elems; // and the associated generation
-            obj_map<expr, expr*>   m_inv;
+            obj_map<expr, expr*>    m_inv;
             expr_mark               m_visited;
         public:
             instantiation_set(ast_manager& m) :m(m) {}
@@ -252,11 +252,9 @@ namespace smt {
                 if (r1->m_eqc_size > r2->m_eqc_size)
                     std::swap(r1, r2);
                 r1->m_find = r2;
-                r2->m_eqc_size += r1->m_eqc_size;
-                if (r1->m_mono_proj)
-                    r2->m_mono_proj = true;
-                if (r1->m_signed_proj)
-                    r2->m_signed_proj = true;
+                r2->m_eqc_size    += r1->m_eqc_size;
+                r2->m_mono_proj   |= r1->m_mono_proj;
+                r2->m_signed_proj |= r1->m_signed_proj;
                 dappend(r2->m_avoid_set, r1->m_avoid_set);
                 dappend(r2->m_exceptions, r1->m_exceptions);
             }
@@ -393,17 +391,17 @@ namespace smt {
             // This auxiliary constant is used as a "witness" that is asserted as different from a
             // finite number of terms.
             // It is only safe to use this constant for infinite sorts.
-            obj_map<sort, app*>      m_sort2k;
+            obj_map<sort, app*>       m_sort2k;
             expr_ref_vector           m_ks; // range of m_sort2k
 
             // Support for evaluating expressions in the current model.
-            proto_model* m_model{ nullptr };
-            obj_map<expr, expr*>     m_eval_cache[2];
+            proto_model*              m_model{ nullptr };
+            obj_map<expr, expr*>      m_eval_cache[2];
             expr_ref_vector           m_eval_cache_range;
 
             ptr_vector<node>          m_root_nodes;
 
-            expr_ref_vector* m_new_constraints{ nullptr };
+            expr_ref_vector*          m_new_constraints{ nullptr };
             random_gen                m_rand;
 
 

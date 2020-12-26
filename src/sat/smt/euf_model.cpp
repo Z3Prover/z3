@@ -38,8 +38,13 @@ namespace euf {
                 mdl->register_usort(kv.m_key, kv.m_value->size(), kv.m_value->c_ptr());
         }
 
-        void add(unsigned id, sort* srt) {
-            expr_ref value(factory.get_fresh_value(srt), m);
+        void add(enode* r, sort* srt) {
+            unsigned id = r->get_expr_id();
+            expr_ref value(m);
+            if (m.is_value(r->get_expr())) 
+                value = r->get_expr();
+            else 
+                value = factory.get_fresh_value(srt);
             values.set(id, value);
             expr_ref_vector* vals = nullptr;
             if (!sort2values.find(srt, vals)) {
@@ -58,9 +63,9 @@ namespace euf {
     void solver::update_model(model_ref& mdl) {
         for (auto* mb : m_solvers)
             mb->init_model();
-        deps_t deps;
         m_values.reset();
         m_values2root.reset();
+        deps_t deps;
         user_sort us(*this, m_values, mdl);
         collect_dependencies(us, deps);
         deps.topological_sort();
@@ -142,13 +147,9 @@ namespace euf {
                 }
                 continue;
             }
-            if (m.is_value(n->get_root()->get_expr())) {
-                m_values.set(id, n->get_root()->get_expr());
-                continue;
-            }
             sort* srt = m.get_sort(e);
             if (m.is_uninterp(srt)) 
-                us.add(id, srt);            
+                us.add(n->get_root(), srt);
             else if (auto* mbS = sort2solver(srt))
                 mbS->add_value(n, *mdl, m_values);
             else if (auto* mbE = expr2solver(e))

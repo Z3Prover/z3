@@ -30,6 +30,15 @@ namespace q {
     class solver;
 
     class mbqi {
+        struct stats {
+            unsigned m_num_instantiations;
+            
+            stats() { reset(); }
+
+            void reset() {
+                memset(this, 0, sizeof(*this));
+            }
+        };
         struct q_body {
             app_ref_vector  vars;
             expr_ref        mbody;   // body specialized with respect to model
@@ -42,25 +51,22 @@ namespace q {
         euf::solver&                           ctx;
         solver&                                m_qs;
         ast_manager&                           m;
+        stats                                  m_stats;
         model_fixer                            m_model_fixer;
         model_ref                              m_model;
         ref<::solver>                          m_solver;
-        obj_map<sort, obj_hashtable<expr>*>    m_fresh;
         scoped_ptr_vector<obj_hashtable<expr>> m_values;
-        expr_ref_vector                        m_fresh_trail;
         scoped_ptr_vector<mbp::project_plugin> m_plugins;
         obj_map<quantifier, q_body*>           m_q2body;
         unsigned                               m_max_cex{ 1 };
 
         void restrict_to_universe(expr * sk, ptr_vector<expr> const & universe);
-        void register_value(expr* e);
+        // void register_value(expr* e);
         expr_ref replace_model_value(expr* e);
         expr_ref choose_term(euf::enode* r);
         lbool check_forall(quantifier* q);
         q_body* specialize(quantifier* q);
-        expr_ref basic_project(model& mdl, quantifier* q, app_ref_vector& vars);
         expr_ref solver_project(model& mdl, q_body& qb);
-        expr_ref assign_value(model& mdl, app* v);
         void add_domain_eqs(model& mdl, q_body& qb);
         void add_domain_bounds(model& mdl, q_body& qb);
         void eliminate_nested_vars(expr_ref_vector& fmls, q_body& qb);

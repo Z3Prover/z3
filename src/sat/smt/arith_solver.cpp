@@ -1126,27 +1126,24 @@ namespace arith {
     void solver::set_conflict_or_lemma(literal_vector const& core, bool is_conflict) {
         reset_evidence();
         m_core.append(core);
-        TRACE("arith", 
-              tout << "Core - " << is_conflict << "\n";
-              for (literal c : m_core) tout << literal2expr(c) << "\n";);
 
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
         for (auto const& ev : m_explanation)
             set_evidence(ev.ci(), m_core, m_eqs);
+        TRACE("arith",
+            tout << "Lemma - " << (is_conflict ? "conflict" : "propagation") << "\n";
+            for (literal c : m_core) tout << literal2expr(c) << "\n";
+            for (auto p : m_eqs) tout << ctx.bpp(p.first) << " == " << ctx.bpp(p.second) << "\n";);
         DEBUG_CODE(
             if (is_conflict) {
                 for (literal c : m_core) VERIFY(s().value(c) == l_true);
                 for (auto p : m_eqs) VERIFY(p.first->get_root() == p.second->get_root());
             });
         for (auto const& eq : m_eqs)
-            m_core.push_back(eq_internalize(eq.first, eq.second));
+            m_core.push_back(ctx.mk_literal(m.mk_eq(eq.first->get_expr(), eq.second->get_expr())));
         for (literal& c : m_core)
             c.neg();
-        TRACE("arith", display(tout << "is-conflict: " << is_conflict << "\n");
-              tout << "Clause\n";
-              for (literal c : m_core) tout << literal2expr(c) << "\n";              
-              );
 
         add_clause(m_core);
     }

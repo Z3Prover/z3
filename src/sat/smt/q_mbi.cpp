@@ -35,8 +35,7 @@ namespace q {
         ctx(ctx),
         m_qs(s),
         m(s.get_manager()),
-        m_model_fixer(ctx, m_qs),
-        m_fresh_trail(m) {
+        m_model_fixer(ctx, m_qs) {
         auto* ap = alloc(mbp::arith_project_plugin, m);
         ap->set_check_purified(false);
         ap->set_apply_projection(true);
@@ -50,34 +49,16 @@ namespace q {
         expr_ref_vector eqs(m);
         for (expr* e : universe)
             eqs.push_back(m.mk_eq(sk, e));
-        expr_ref fml(m.mk_or(eqs), m);
+        expr_ref fml = mk_or(eqs);
+        std::cout << "restrict to universe " << fml << "\n";
         m_solver->assert_expr(fml);
     }
 
-    void mbqi::register_value(expr* e) {
-        sort* s = m.get_sort(e);
-        obj_hashtable<expr>* values = nullptr;
-        if (!m_fresh.find(s, values)) {
-            values = alloc(obj_hashtable<expr>);
-            m_fresh.insert(s, values);
-            m_values.push_back(values);
-        }
-        if (!values->contains(e)) {
-            for (expr* b : *values)
-                m_qs.add_unit(~m_qs.eq_internalize(e, b));
-            values->insert(e);
-            m_fresh_trail.push_back(e);
-        }
-    }
-
-    // sort -> [ value -> expr ]
-    // for fixed value return expr
-    // new fixed value is distinct from other expr
     expr_ref mbqi::replace_model_value(expr* e) {
-        if (m.is_model_value(e)) {
-            register_value(e);
-            return expr_ref(e, m);
-        }
+        auto const& v2r = ctx.values2root();
+        euf::enode* r = nullptr;
+        if (v2r.find(e, r))
+            return choose_term(r);        
         if (is_app(e) && to_app(e)->get_num_args() > 0) {
             expr_ref_vector args(m);
             for (expr* arg : *to_app(e))
@@ -101,11 +82,14 @@ namespace q {
         quantifier* q_flat = m_qs.flatten(q);
         init_solver();
         ::solver::scoped_push _sp(*m_solver);
+        std::cout << "quantifier\n" << mk_pp(q, m, 4) << "\n";
+        // std::cout << *m_model << "\n";
         auto* qb = specialize(q_flat);
         if (!qb)
             return l_undef;
         if (m.is_false(qb->mbody))
             return l_true;
+        std::cout << "body\n" << qb->mbody << "\n";
         m_solver->assert_expr(qb->mbody);
         lbool r = m_solver->check_sat(0, nullptr);
         if (r == l_undef)
@@ -122,12 +106,21 @@ namespace q {
         if (!qb->var_args.empty()) {        
             ::solver::scoped_push _sp(*m_solver);
             add_domain_eqs(*mdl0, *qb);
+            std::cout << "check\n";
             for (; i < m_max_cex && l_true == m_solver->check_sat(0, nullptr); ++i) {
                 m_solver->get_model(mdl1);
                 proj = solver_project(*mdl1, *qb);
                 if (!proj)
                     break;
                 TRACE("q", tout << "project: " << proj << "\n";);
+                std::cout << "project\n" << proj << "\n";
+                std::cout << *m_model << "\n";
+
+                static unsigned s_count = 0;
+                ++s_count;
+                if (s_count == 3)
+                    exit(0);
+                ++m_stats.m_num_instantiations;
                 m_qs.add_clause(~qlit, ~ctx.mk_literal(proj));
                 m_solver->assert_expr(m.mk_not(proj));
             }
@@ -137,7 +130,9 @@ namespace q {
             proj = solver_project(*mdl0, *qb);
             if (!proj)
                 return l_undef;
+            std::cout << "project-base\n" << proj << "\n";
             TRACE("q", tout << "project-base: " << proj << "\n";);
+            ++m_stats.m_num_instantiations;
             m_qs.add_clause(~qlit, ~ctx.mk_literal(proj));
         }
         // TODO: add as top-level clause for relevancy        
@@ -178,59 +173,48 @@ namespace q {
         return result;
     }
 
-    /**
-    * A most rudimentary projection operator that only tries to find proxy terms from the set of existing terms.
-    * Refinements:
-    * - grammar based from MBQI paper
-    * - quantifier elimination based on projection operators defined in qe.
-    *
-    * - eliminate as-array terms, use lambda
-    */
-    expr_ref mbqi::basic_project(model& mdl, quantifier* q, app_ref_vector& vars) {
-        unsigned sz = q->get_num_decls();
-        expr_ref_vector vals(m);
-        vals.resize(sz, nullptr);
-        for (unsigned i = 0; i < sz; ++i) {
-            app* v = vars.get(i);
-            vals[i] = assign_value(mdl, v);
-            if (!vals.get(i))
-                return expr_ref(m);
-        }
-        var_subst subst(m);
-        return subst(q->get_expr(), vals);
-    }
-
     expr_ref mbqi::solver_project(model& mdl, q_body& qb) {
+        model::scoped_model_completion _sc(mdl, true);
         for (app* v : qb.vars)
             m_model->register_decl(v->get_decl(), mdl(v));
         expr_ref_vector fmls(qb.vbody);
         app_ref_vector vars(qb.vars);
-        fmls.append(qb.domain_eqs);
+        bool fmls_extracted = false;
         TRACE("q",
-            tout << "Project\n";
-        tout << *m_model << "\n";
-        tout << fmls << "\n";
-        tout << "model of projection\n" << mdl << "\n";
-        tout << "var args: " << qb.var_args.size() << "\n";
-        for (expr* f : fmls)
-            if (m_model->is_false(f))
-                tout << mk_pp(f, m) << " := false\n";
-        );
-        // 
-        // TBD: need to compute projection based on eliminate_nested_vars,
-        // but apply it based on original formulas, or add constraints that
-        // nested variable occurrences are equal to their subsitutions.
-        // The result may not be a proper projection.
-        // 
-        eliminate_nested_vars(fmls, qb);
-        mbp::project_plugin proj(m);
-        proj.extract_literals(*m_model, vars, fmls);
+              tout << "Project\n";
+              tout << *m_model << "\n";
+              tout << fmls << "\n";
+              tout << "model of projection\n" << mdl << "\n";
+              tout << "var args: " << qb.var_args.size() << "\n";
+              for (expr* f : fmls)
+                  if (m_model->is_false(f))
+                      tout << mk_pp(f, m) << " := false\n";
+              tout << "vars: " << vars << "\n";);
+           
+        expr_safe_replace rep(m);
         for (unsigned i = 0; i < vars.size(); ++i) {
             app* v = vars.get(i);
             auto* p = get_plugin(v);
+            if (p && !fmls_extracted) {
+                fmls.append(qb.domain_eqs);
+                eliminate_nested_vars(fmls, qb);
+                mbp::project_plugin proj(m);
+                proj.extract_literals(*m_model, vars, fmls);
+                fmls_extracted = true;
+            }
             if (p)
                 (*p)(*m_model, vars, fmls);
         }
+        for (app* v : vars) {
+            expr_ref term(m);
+            expr_ref val = (*m_model)(v);
+            val = m_model->unfold_as_array(val);
+            term = replace_model_value(val);
+            rep.insert(v, term);        
+            if (val != term)
+                rep.insert(val, term);
+        }
+        rep(fmls);
         return mk_and(fmls);
     }
 
@@ -253,6 +237,7 @@ namespace q {
             if (!m_model->eval_expr(bounds, mbounds, true))
                 return;
             mbounds = subst(mbounds, qb.vars);
+            std::cout << "domain eqs " << mbounds << "\n";
             m_solver->assert_expr(mbounds);
             qb.domain_eqs.push_back(vbounds);
         }
@@ -325,23 +310,6 @@ namespace q {
         }
     }
 
-    expr_ref mbqi::assign_value(model& mdl, app* v) {
-        func_decl* f = v->get_decl();
-        expr_ref val(mdl.get_some_const_interp(f), m);
-        if (!val)
-            return expr_ref(m);
-        val = mdl.unfold_as_array(val);
-        if (!val)
-            return expr_ref(m);
-        euf::enode* r = nullptr;
-        auto const& v2r = ctx.values2root();
-        if (v2r.find(val, r))
-            val = choose_term(r);
-        else
-            val = replace_model_value(val);
-        return val;
-    }
-
     lbool mbqi::operator()() {
         lbool result = l_true;
         m_model = nullptr;
@@ -401,6 +369,7 @@ namespace q {
     void mbqi::collect_statistics(statistics& st) const {
         if (m_solver)
             m_solver->collect_statistics(st);
+        st.update("q-num-instantiations", m_stats.m_num_instantiations);
     }
 
 }

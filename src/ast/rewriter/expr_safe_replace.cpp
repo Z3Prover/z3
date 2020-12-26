@@ -37,6 +37,8 @@ void expr_safe_replace::insert(expr* src, expr* dst) {
 }
 
 void expr_safe_replace::operator()(expr_ref_vector& es) {
+    if (empty())
+        return;
     expr_ref val(m);
     for (unsigned i = 0; i < es.size(); ++i) {
         (*this)(es.get(i), val);
@@ -65,6 +67,10 @@ expr* expr_safe_replace::cache_find(expr* a) {
 
 
 void expr_safe_replace::operator()(expr* e, expr_ref& res) {
+    if (empty()) {
+        res = e;
+        return;
+    }
     m_todo.push_back(e);
     expr* a, *b;
     

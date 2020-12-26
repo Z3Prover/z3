@@ -35,9 +35,9 @@ namespace q {
         if (!is_forall(e) && !is_exists(e))
             return;
         if (l.sign() == is_forall(e)) 
-            add_clause(~l, skolemize(to_quantifier(e)));
+            add_clause(~l, skolemize(to_quantifier(e)));        
         else {            
-            add_clause(~l, specialize(to_quantifier(e)));
+            // add_clause(~l, specialize(to_quantifier(e)));
             ctx.push_vec(m_universal, l);
         }
         m_stats.m_num_quantifier_asserts++;
