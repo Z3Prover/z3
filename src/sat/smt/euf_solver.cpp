@@ -41,7 +41,6 @@ namespace euf {
         m_lookahead(nullptr),
         m_to_m(&m),
         m_to_si(&si),
-        m_reinit_exprs(m),
         m_values(m)
     {
         updt_params(p);
@@ -95,6 +94,8 @@ namespace euf {
         if (ext)
             return ext;
         if (fid == m.get_basic_family_id())
+            return nullptr;
+        if (fid == m.get_user_sort_family_id())
             return nullptr;
         pb_util pb(m);
         bv_util bvu(m);
@@ -369,6 +370,8 @@ namespace euf {
         m_explain.reset();
         m_egraph.explain_eq<size_t>(m_explain, e.child(), e.root());
         m_egraph.end_explain();
+        if (m_egraph.uses_congruence())
+            return false;
         for (auto p : m_explain) {
             if (is_literal(p))
                 return false;
@@ -483,10 +486,11 @@ namespace euf {
     }
 
     void solver::start_reinit(unsigned n) {
-        m_reinit_exprs.reset();
+        m_reinit.reset();
         for (sat::bool_var v : s().get_vars_to_reinit()) {
             expr* e = bool_var2expr(v);
-            m_reinit_exprs.push_back(e);
+            if (e)
+                m_reinit.push_back(reinit_t(expr_ref(e, m), get_enode(e)?get_enode(e)->generation():0, v));
         }
     }
 
@@ -496,8 +500,7 @@ namespace euf {
     * and replaying internalization.
     */
     void solver::finish_reinit() {
-        SASSERT(s().get_vars_to_reinit().size() == m_reinit_exprs.size());
-        if (s().get_vars_to_reinit().empty())
+        if (m_reinit.empty())
             return;
 
         struct scoped_set_replay {
@@ -513,26 +516,23 @@ namespace euf {
         scoped_set_replay replay(*this);
         scoped_suspend_rlimit suspend_rlimit(m.limit());
 
-        unsigned i = 0;
-        for (sat::bool_var v : s().get_vars_to_reinit()) {
-            expr* e = m_reinit_exprs.get(i++);
-            if (e)
-                replay.m.insert(e, v);
-        }
-        if (replay.m.empty())
-            return;
+        for (auto const& t : m_reinit) 
+            replay.m.insert(std::get<0>(t), std::get<2>(t));
         
         TRACE("euf", for (auto const& kv : replay.m) tout << kv.m_value << "\n";);
-        for (auto const& kv : replay.m) {
-            TRACE("euf", tout << "replay: " << kv.m_value << " " << mk_bounded_pp(kv.m_key, m) << "\n";);
+        for (auto const& t : m_reinit) {
+            expr_ref e          = std::get<0>(t);
+            unsigned generation = std::get<1>(t);
+            sat::bool_var v     = std::get<2>(t);
+            scoped_generation _sg(*this, generation);
+            TRACE("euf", tout << "replay: " << v << " " << mk_bounded_pp(e, m) << "\n";);
             sat::literal lit;
-            expr* e = kv.m_key;
             if (si.is_bool_op(e)) 
                 lit = literal(replay.m[e], false);
             else 
-                lit = si.internalize(kv.m_key, true);
-            VERIFY(lit.var() == kv.m_value);
-            attach_lit(lit, kv.m_key);            
+                lit = si.internalize(e, true);
+            VERIFY(lit.var() == v);
+            attach_lit(lit, e);            
         }
         TRACE("euf", display(tout << "replay done\n"););
     }

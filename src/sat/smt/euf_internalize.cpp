@@ -81,7 +81,7 @@ namespace euf {
         if (auto* s = expr2solver(e))
             s->internalize(e, m_is_redundant);            
         else 
-            attach_node(m_egraph.mk(e, 0, nullptr));        
+            attach_node(m_egraph.mk(e, m_generation, 0, nullptr));        
         return true;
     }
 
@@ -95,7 +95,7 @@ namespace euf {
         if (auto* s = expr2solver(e)) 
             s->internalize(e, m_is_redundant);        
         else 
-            attach_node(m_egraph.mk(e, num, m_args.c_ptr()));        
+            attach_node(m_egraph.mk(e, m_generation, num, m_args.c_ptr()));        
         return true;
     }
 
@@ -149,7 +149,7 @@ namespace euf {
         m_var_trail.push_back(v);
         enode* n = m_egraph.find(e);
         if (!n) 
-            n = m_egraph.mk(e, 0, nullptr); 
+            n = m_egraph.mk(e, m_generation, 0, nullptr); 
         SASSERT(n->bool_var() == UINT_MAX || n->bool_var() == v);
         m_egraph.set_bool_var(n, v);
         if (m.is_eq(e) || m.is_or(e) || m.is_and(e) || m.is_not(e))
@@ -249,7 +249,7 @@ namespace euf {
             for (unsigned i = 0; i < sz; ++i) {
                 expr_ref fapp(m.mk_app(f, e->get_arg(i)), m);
                 expr_ref fresh(m.mk_fresh_const("dist-value", u), m);
-                enode* n = m_egraph.mk(fresh, 0, nullptr);
+                enode* n = m_egraph.mk(fresh, m_generation, 0, nullptr);
                 n->mark_interpreted();
                 expr_ref eq = mk_eq(fapp, fresh);
                 sat::literal lit = mk_literal(eq);

@@ -590,14 +590,17 @@ namespace arith {
         theory_var v = n->get_th_var(get_id());
         expr* o = n->get_expr();
         expr_ref value(m);
-        if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
+        if (m.is_value(n->get_root()->get_expr())) {
+            value = n->get_root()->get_expr();
+        }
+        else if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
             anum const& an = nl_value(v, *m_a1);
             if (a.is_int(o) && !m_nla->am().is_int(an))
                 value = a.mk_numeral(rational::zero(), a.is_int(o));
             else
                 value = a.mk_numeral(m_nla->am(), nl_value(v, *m_a1), a.is_int(o));
         }
-        else {
+        else if (v != euf::null_theory_var) {
             rational r = get_value(v);
             TRACE("arith", tout << mk_pp(o, m) << " v" << v << " := " << r << "\n";);
             SASSERT("integer variables should have integer values: " && (!a.is_int(o) || r.is_int() || m.limit().is_canceled()));
@@ -605,7 +608,32 @@ namespace arith {
                 r = floor(r);
             value = a.mk_numeral(r, m.get_sort(o));
         }
+        else if (a.is_arith_expr(o)) {
+            expr_ref_vector args(m);
+            for (auto* arg : euf::enode_args(n)) {
+                if (m.is_value(arg->get_expr()))
+                    args.push_back(arg->get_expr());
+                else 
+                    args.push_back(values.get(arg->get_root_id()));
+            }
+            value = m.mk_app(to_app(o)->get_decl(), args.size(), args.c_ptr());
+            ctx.get_rewriter()(value);
+        }
+        else {
+            UNREACHABLE();
+        }
         values.set(n->get_root_id(), value);
+    }
+
+    void solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
+        expr* e = n->get_expr();
+        if (a.is_arith_expr(e) && to_app(e)->get_num_args() > 0) {
+            for (auto* arg : euf::enode_args(n))
+                dep.add(n, arg);
+        }
+        else {
+            dep.insert(n, nullptr); 
+        }
     }
 
     void solver::push_core() {

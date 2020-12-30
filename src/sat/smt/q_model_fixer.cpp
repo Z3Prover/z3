@@ -220,8 +220,10 @@ namespace q {
         euf::enode* r = nullptr;
         TRACE("q",
             tout << "invert-app " << mk_pp(t, m) << " = " << mk_pp(value, m) << "\n";
-        if (ctx.values2root().find(value, r))
-            tout << "inverse " << mk_pp(r->get_expr(), m) << "\n";);
+              if (ctx.values2root().find(value, r)) 
+                  tout << "inverse " << mk_pp(r->get_expr(), m) << "\n";
+              ctx.display(tout);
+              );
         if (ctx.values2root().find(value, r))
             return r->get_expr();
         return value;

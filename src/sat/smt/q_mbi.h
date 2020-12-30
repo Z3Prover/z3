@@ -44,6 +44,7 @@ namespace q {
             expr_ref        mbody;   // body specialized with respect to model
             expr_ref_vector vbody;   // (negation of) body specialized with respect to vars
             expr_ref_vector domain_eqs; // additional domain restrictions
+            svector<std::pair<app*,func_decl*>> var_diff; // variable differences
             svector<std::pair<app*, unsigned>> var_args; // (uninterpreted) functions in vbody that contain arguments with variables
             q_body(ast_manager& m) : vars(m), mbody(m), vbody(m), domain_eqs(m) {}
         };
@@ -59,6 +60,7 @@ namespace q {
         scoped_ptr_vector<mbp::project_plugin> m_plugins;
         obj_map<quantifier, q_body*>           m_q2body;
         unsigned                               m_max_cex{ 1 };
+        vector<std::pair<sat::literal, expr_ref>> m_instantiations;
 
         void restrict_to_universe(expr * sk, ptr_vector<expr> const & universe);
         // void register_value(expr* e);
@@ -66,7 +68,7 @@ namespace q {
         expr_ref choose_term(euf::enode* r);
         lbool check_forall(quantifier* q);
         q_body* specialize(quantifier* q);
-        expr_ref solver_project(model& mdl, q_body& qb);
+        expr_ref solver_project(model& mdl, q_body& qb, expr_ref_vector& eqs, bool use_inst);
         void add_domain_eqs(model& mdl, q_body& qb);
         void add_domain_bounds(model& mdl, q_body& qb);
         void eliminate_nested_vars(expr_ref_vector& fmls, q_body& qb);
@@ -75,6 +77,11 @@ namespace q {
         void init_solver();
         mbp::project_plugin* get_plugin(app* var);
         void add_plugin(mbp::project_plugin* p);
+        void add_instantiation(sat::literal qlit, expr_ref& proj) {
+            TRACE("q", tout << "project: " << proj << "\n";);
+            ++m_stats.m_num_instantiations;
+            m_instantiations.push_back(std::make_pair(qlit, proj));
+        }
 
     public:
 

@@ -23,8 +23,8 @@ Notes:
 
 namespace euf {
 
-    enode* egraph::mk_enode(expr* f, unsigned num_args, enode * const* args) {
-        enode* n = enode::mk(m_region, f, num_args, args);
+    enode* egraph::mk_enode(expr* f, unsigned generation, unsigned num_args, enode * const* args) {
+        enode* n = enode::mk(m_region, f, generation, num_args, args);
         m_nodes.push_back(n);
         m_exprs.push_back(f);
         if (is_app(f) && num_args > 0) {
@@ -83,10 +83,10 @@ namespace euf {
         n->set_update_children();            
     }
 
-    enode* egraph::mk(expr* f, unsigned num_args, enode *const* args) {
+    enode* egraph::mk(expr* f, unsigned generation, unsigned num_args, enode *const* args) {
         SASSERT(!find(f));
         force_push();
-        enode *n = mk_enode(f, num_args, args);
+        enode *n = mk_enode(f, generation, num_args, args);
         SASSERT(n->class_size() == 1);        
         if (num_args == 0 && m.is_unique_value(f))
             n->mark_interpreted();
@@ -552,6 +552,7 @@ namespace euf {
     void egraph::push_congruence(enode* n1, enode* n2, bool comm) {
         SASSERT(is_app(n1->get_expr()));
         SASSERT(n1->get_decl() == n2->get_decl());
+        m_uses_congruence = true;
         if (m_used_cc && !comm) { 
             m_used_cc(to_app(n1->get_expr()), to_app(n2->get_expr()));
         }
@@ -598,6 +599,7 @@ namespace euf {
 
     void egraph::begin_explain() {
         SASSERT(m_todo.empty());
+        m_uses_congruence = false;
     }
 
     void egraph::end_explain() {
@@ -672,15 +674,16 @@ namespace euf {
                 out << " " << p->get_expr_id();
             out << "] ";
         }
-        if (n->value() != l_undef) {
+        if (n->value() != l_undef) 
             out << "[v" << n->bool_var() << " := " << (n->value() == l_true ? "T":"F") << "] ";
-        }
         if (n->has_th_vars()) {
             out << "[t";
             for (auto v : enode_th_vars(n))
                 out << " " << v.get_id() << ":" << v.get_var();
             out << "] ";
         }
+        if (n->generation() > 0)
+            out << "[g " << n->generation() << "] ";
         if (n->m_target && m_display_justification)
             n->m_justification.display(out << "[j " << n->m_target->get_expr_id() << " ", m_display_justification) << "] ";
         out << "\n";
@@ -722,7 +725,7 @@ namespace euf {
             for (unsigned j = 0; j < n1->num_args(); ++j) 
                 args.push_back(old_expr2new_enode[n1->get_arg(j)->get_expr_id()]);
             expr*  e2 = tr(e1);
-            enode* n2 = mk(e2, args.size(), args.c_ptr());
+            enode* n2 = mk(e2, n1->generation(), args.size(), args.c_ptr());
             old_expr2new_enode.setx(e1->get_id(), n2, nullptr);
             n2->set_value(n2->value());
             n2->m_bool_var = n1->m_bool_var;

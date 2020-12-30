@@ -312,6 +312,7 @@ namespace arith {
         force_push();
         expr* e1 = var2expr(v1);
         expr* e2 = var2expr(v2);
+        TRACE("arith", tout << "new eq: v" << v1 << " v" << v2 << "\n";);
         if (e1->get_id() > e2->get_id())
             std::swap(e1, e2);
             

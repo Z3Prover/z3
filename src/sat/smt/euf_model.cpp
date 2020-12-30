@@ -112,6 +112,7 @@ namespace euf {
 
     void solver::dependencies2values(user_sort& us, deps_t& deps, model_ref& mdl) {
         for (enode* n : deps.top_sorted()) {
+            
             unsigned id = n->get_root_id();
             if (m_values.get(id, nullptr))
                 continue;
@@ -181,15 +182,14 @@ namespace euf {
                 mdl->register_decl(f, v);
             else {
                 auto* fi = mdl->get_func_interp(f);
-                if (!fi) {                    
+                if (!fi) {
                     fi = alloc(func_interp, m, arity);
                     mdl->register_decl(f, fi);
                 }
-                args.reset();
-                for (enode* arg : enode_args(n)) {
-                    args.push_back(m_values.get(arg->get_root_id()));
-                    SASSERT(args.back());
-                }
+                args.reset();                
+                for (enode* arg : enode_args(n)) 
+                    args.push_back(m_values.get(arg->get_root_id()));                
+                DEBUG_CODE(for (expr* arg : args) VERIFY(arg););
                 SASSERT(args.size() == arity);
                 if (!fi->get_entry(args.c_ptr()))
                     fi->insert_new_entry(args.c_ptr(), v);
@@ -207,6 +207,11 @@ namespace euf {
         for (enode* n : m_egraph.nodes())
             if (n->is_root() && m_values.get(n->get_expr_id()))
                 m_values2root.insert(m_values.get(n->get_expr_id()), n);
+#if 0
+        for (auto kv : m_values2root) {
+            std::cout << mk_pp(kv.m_key, m) << " -> " << bpp(kv.m_value) << "\n";
+        }
+#endif
         return m_values2root;
     }
 

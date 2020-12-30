@@ -164,6 +164,7 @@ namespace euf {
         bool_vector            m_th_propagates_diseqs;
         enode_vector           m_todo;
         stats                  m_stats;
+        bool                   m_uses_congruence { false };
         std::function<void(expr*,expr*,expr*)> m_used_eq;
         std::function<void(app*,app*)>         m_used_cc;  
         std::function<void(std::ostream&, void*)>   m_display_justification;
@@ -180,7 +181,7 @@ namespace euf {
         void add_literal(enode* n, bool is_eq);
         void undo_eq(enode* r1, enode* n1, unsigned r2_num_parents);
         void undo_add_th_var(enode* n, theory_id id);
-        enode* mk_enode(expr* f, unsigned num_args, enode * const* args);
+        enode* mk_enode(expr* f, unsigned generation, unsigned num_args, enode * const* args);
         void force_push();
         void set_conflict(enode* n1, enode* n2, justification j);
         void merge(enode* n1, enode* n2, justification j);
@@ -217,7 +218,7 @@ namespace euf {
         egraph(ast_manager& m);
         ~egraph();
         enode* find(expr* f) const { return m_expr2enode.get(f->get_id(), nullptr); }
-        enode* mk(expr* f, unsigned n, enode *const* args);
+        enode* mk(expr* f, unsigned generation, unsigned n, enode *const* args);
         enode_vector const& enodes_of(func_decl* f);
         void push() { ++m_num_scopes; }
         void pop(unsigned num_scopes);
@@ -272,6 +273,7 @@ namespace euf {
         
         void begin_explain();
         void end_explain();
+        bool uses_congruence() const { return m_uses_congruence; }
         template <typename T>
         void explain(ptr_vector<T>& justifications);
         template <typename T>

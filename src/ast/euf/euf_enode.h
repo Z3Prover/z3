@@ -45,17 +45,18 @@ namespace euf {
         bool          m_commutative{ false };
         bool          m_update_children{ false };
         bool          m_interpreted{ false };
-        bool          m_merge_enabled{ true };
-        bool          m_is_equality{ false };
-        lbool         m_value;
-        unsigned      m_bool_var { UINT_MAX };
-        unsigned      m_class_size{ 1 };
-        unsigned      m_table_id{ UINT_MAX };        
+        bool          m_merge_enabled{ true }; 
+        bool          m_is_equality{ false };   // Does the expression represent an equality
+        lbool         m_value;                  // Assignment by SAT solver for Boolean node
+        unsigned      m_bool_var { UINT_MAX };  // SAT solver variable associated with Boolean node
+        unsigned      m_class_size{ 1 };        // Size of the equivalence class if the enode is the root.
+        unsigned      m_table_id{ UINT_MAX };       
+        unsigned      m_generation { 0 };       // Tracks how many quantifier instantiation rounds were needed to generate this enode.
         enode_vector  m_parents;
-        enode* m_next{ nullptr };
-        enode* m_root{ nullptr };
-        enode* m_target{ nullptr };
-        enode* m_cg { nullptr };
+        enode* m_next   { nullptr };
+        enode* m_root   { nullptr };
+        enode* m_target { nullptr };
+        enode* m_cg     { nullptr };
         th_var_list   m_th_vars;
         justification m_justification;
         unsigned      m_num_args{ 0 };
@@ -72,13 +73,14 @@ namespace euf {
             return sizeof(enode) + num_args * sizeof(enode*);
         }
 
-        static enode* mk(region& r, expr* f, unsigned num_args, enode* const* args) {
+        static enode* mk(region& r, expr* f, unsigned generation, unsigned num_args, enode* const* args) {
             SASSERT(num_args <= (is_app(f) ? to_app(f)->get_num_args() : 0));
             void* mem = r.allocate(get_enode_size(num_args));
             enode* n = new (mem) enode();
             n->m_expr = f;
             n->m_next = n;
             n->m_root = n;
+            n->m_generation = generation, 
             n->m_commutative = num_args == 2 && is_app(f) && to_app(f)->get_decl()->is_commutative();
             n->m_num_args = num_args;
             n->m_merge_enabled = true;
@@ -142,8 +144,11 @@ namespace euf {
 
         enode* get_arg(unsigned i) const { SASSERT(i < num_args()); return m_args[i]; }        
         unsigned hash() const { return m_expr->hash(); }
+
         unsigned get_table_id() const { return m_table_id; }
         void     set_table_id(unsigned t) { m_table_id = t; }
+
+        unsigned generation() const { return m_generation; }
 
         void mark1() { m_mark1 = true; }
         void unmark1() { m_mark1 = false; }
