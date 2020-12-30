@@ -72,7 +72,8 @@ public:
     }
 
     void updt_params_core(params_ref const & p) {
-        m_candidate_models     = p.get_bool("candidate_models", false);
+        smt_params_helper _p(p);
+        m_candidate_models     = _p.candidate_models();
         m_fail_if_inconclusive = p.get_bool("fail_if_inconclusive", true);
     }
 
@@ -89,7 +90,6 @@ public:
     }
 
     void collect_param_descrs(param_descrs & r) override {
-        r.insert("candidate_models", CPK_BOOL, "(default: false) create candidate models even when quantifier or theory reasoning is incomplete.");
         r.insert("fail_if_inconclusive", CPK_BOOL, "(default: true) fail if found unsat (sat) for under (over) approximated goal.");
         smt_params_helper::collect_param_descrs(r);
     }
