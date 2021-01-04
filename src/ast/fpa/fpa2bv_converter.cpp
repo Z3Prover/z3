@@ -2958,18 +2958,13 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     unsigned bv_sz = m_bv_util.get_bv_size(x);
     SASSERT(m_bv_util.get_bv_size(rm) == 3);
 
-    expr_ref bv0_1(m), bv1_1(m), bv0_sz(m), bv1_sz(m);
-    bv0_1 = m_bv_util.mk_numeral(0, 1);
+    expr_ref bv1_1(m), bv0_sz(m);
     bv1_1 = m_bv_util.mk_numeral(1, 1);
     bv0_sz = m_bv_util.mk_numeral(0, bv_sz);
-    bv1_sz = m_bv_util.mk_numeral(1, bv_sz);
 
-    expr_ref is_zero(m), nzero(m), pzero(m), ninf(m), pinf(m);
+    expr_ref is_zero(m), pzero(m);
     is_zero = m.mk_eq(x, bv0_sz);
-    mk_nzero(f, nzero);
     mk_pzero(f, pzero);
-    mk_ninf(f, ninf);
-    mk_pinf(f, pinf);
 
     // Special case: x == 0 -> p/n zero
     expr_ref c1(m), v1(m);
@@ -2988,11 +2983,9 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
     // x_abs is [bv_sz-1, bv_sz-2] . [bv_sz-3 ... 0] * 2^(bv_sz-2)
     // bv_sz-2 is the "1.0" bit for the rounder.
 
-    expr_ref lz(m), e_bv_sz(m), e_rest_sz(m);
+    expr_ref lz(m);
     mk_leading_zeros(x_abs, bv_sz, lz);
-    e_bv_sz = m_bv_util.mk_numeral(bv_sz, bv_sz);
-    e_rest_sz = m_bv_util.mk_bv_sub(e_bv_sz, lz);
-    SASSERT(m_bv_util.get_bv_size(lz) == m_bv_util.get_bv_size(e_bv_sz));
+    SASSERT(m_bv_util.get_bv_size(lz) == bv_sz);
     dbg_decouple("fpa2bv_to_fp_signed_lz", lz);
     expr_ref shifted_sig(m);
     shifted_sig = m_bv_util.mk_bv_shl(x_abs, lz);
@@ -3101,18 +3094,13 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
     unsigned bv_sz = m_bv_util.get_bv_size(x);
     SASSERT(m_bv_util.get_bv_size(rm) == 3);
 
-    expr_ref bv0_1(m), bv1_1(m), bv0_sz(m), bv1_sz(m);
+    expr_ref bv0_1(m), bv0_sz(m);
     bv0_1 = m_bv_util.mk_numeral(0, 1);
-    bv1_1 = m_bv_util.mk_numeral(1, 1);
     bv0_sz = m_bv_util.mk_numeral(0, bv_sz);
-    bv1_sz = m_bv_util.mk_numeral(1, bv_sz);
 
-    expr_ref is_zero(m), nzero(m), pzero(m), ninf(m), pinf(m);
+    expr_ref is_zero(m), pzero(m);
     is_zero = m.mk_eq(x, bv0_sz);
-    mk_nzero(f, nzero);
     mk_pzero(f, pzero);
-    mk_ninf(f, ninf);
-    mk_pinf(f, pinf);
 
     // Special case: x == 0 -> p/n zero
     expr_ref c1(m), v1(m);
@@ -3124,11 +3112,9 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
     // x is [bv_sz-1] . [bv_sz-2 ... 0] * 2^(bv_sz-1)
     // bv_sz-1 is the "1.0" bit for the rounder.
 
-    expr_ref lz(m), e_bv_sz(m), e_rest_sz(m);
+    expr_ref lz(m);
     mk_leading_zeros(x, bv_sz, lz);
-    e_bv_sz = m_bv_util.mk_numeral(bv_sz, bv_sz);
-    e_rest_sz = m_bv_util.mk_bv_sub(e_bv_sz, lz);
-    SASSERT(m_bv_util.get_bv_size(lz) == m_bv_util.get_bv_size(e_bv_sz));
+    SASSERT(m_bv_util.get_bv_size(lz) == bv_sz);
     dbg_decouple("fpa2bv_to_fp_unsigned_lz", lz);
     expr_ref shifted_sig(m);
     shifted_sig = m_bv_util.mk_bv_shl(x, lz);
