@@ -149,6 +149,7 @@ namespace euf {
         void     set_table_id(unsigned t) { m_table_id = t; }
 
         unsigned generation() const { return m_generation; }
+        unsigned class_generation();
 
         void mark1() { m_mark1 = true; }
         void unmark1() { m_mark1 = false; }

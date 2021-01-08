@@ -221,6 +221,10 @@ namespace euf {
         return n;
     }
 
+    unsigned th_euf_solver::random() {
+        return ctx.s().rand()();
+    }
+
     size_t th_propagation::get_obj_size(unsigned num_lits, unsigned num_eqs) {
         return sat::constraint_base::obj_size(sizeof(th_propagation) + sizeof(sat::literal) * num_lits + sizeof(enode_pair) * num_eqs);
     }

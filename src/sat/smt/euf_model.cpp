@@ -215,6 +215,10 @@ namespace euf {
         return m_values2root;
     }
 
+    expr* solver::node2value(enode* n) const {
+        return m_values.get(n->get_root_id(), nullptr);
+    }
+
     void solver::validate_model(model& mdl) {
         for (enode* n : m_egraph.nodes()) {
             expr* e = n->get_expr();

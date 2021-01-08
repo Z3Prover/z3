@@ -44,6 +44,7 @@ namespace q {
         flat_table             m_flat;
         sat::literal_vector    m_universal;
         obj_map<sort, expr*>   m_unit_table;
+        mutable ptr_vector<expr> m_todo;
 
         sat::literal instantiate(quantifier* q, bool negate, std::function<expr* (quantifier*, unsigned)>& mk_var);
         sat::literal skolemize(quantifier* q);
@@ -75,5 +76,7 @@ namespace q {
         ast_manager& get_manager() { return m; }
         sat::literal_vector const& universal() const { return m_universal; }
         quantifier* flatten(quantifier* q);
+
+        unsigned get_max_generation(expr* e) const;
     };
 }

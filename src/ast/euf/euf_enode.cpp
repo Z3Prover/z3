@@ -142,4 +142,13 @@ namespace euf {
                 return false;
         return true;
     }
+
+    unsigned enode::class_generation() {
+        unsigned gen = m_generation;
+        
+        for (enode* n : enode_class(this)) 
+            gen = std::min(n->generation(), gen);
+        return gen;
+    }
+
 }

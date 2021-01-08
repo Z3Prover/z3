@@ -187,6 +187,8 @@ namespace euf {
         bool is_root(theory_var v) const { return var2enode(v)->is_root(); }
         void push() override { m_num_scopes++; }
         void pop(unsigned n) override;
+
+        unsigned random();
     };
 
 

@@ -306,6 +306,7 @@ namespace euf {
         bool check_model(sat::model const& m) const override;
         unsigned max_var(unsigned w) const override;
 
+        // proof
         bool use_drat() { return s().get_config().m_drat && (init_drat(), true); }
         sat::drat& get_drat() { return s().get_drat(); }
         void drat_bool_def(sat::bool_var v, expr* n);
@@ -345,6 +346,7 @@ namespace euf {
         // model construction
         void update_model(model_ref& mdl);
         obj_map<expr, enode*> const& values2root();
+        expr* node2value(enode* n) const;
 
         // diagnostics
         func_decl_ref_vector const& unhandled_functions() { return m_unhandled_functions; }
