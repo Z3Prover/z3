@@ -196,16 +196,16 @@ namespace mbp {
             expr_mark visited;
             expr_mark has_var;
             bool inserted = false;
-            for (unsigned i = 0; i < vars.size(); ++i) { 
-                if (m.is_bool(vars[i])) continue;
-                if (dt.is_datatype(m.get_sort(vars[i]))) continue;
+            for (app* v : vars) {
+                if (m.is_bool(v)) continue;
+                if (dt.is_datatype(m.get_sort(v))) continue;
                 inserted = true;
-                has_var.mark(vars[i]);
-                visited.mark(vars[i]);
+                has_var.mark(v);
+                visited.mark(v);
             }
             if (inserted) {
                 for (unsigned i = 0; i < lits.size(); ++i) {
-                    expr* e = lits[i].get(), *l, *r;
+                    expr* e = lits.get(i), *l, *r;
                     if (m.is_eq(e, l, r) && reduce_eq(visited, has_var, l, r, lits)) {
                         project_plugin::erase(lits, i);
                         reduced = true;
@@ -258,8 +258,7 @@ namespace mbp {
                 }
                 app* f = to_app(_f);
                 bool has_new = false, has_v = false;
-                for (unsigned i = 0; i < f->get_num_args(); ++i) {
-                    expr* arg = f->get_arg(i);
+                for (expr* arg : *f) {
                     if (!visited.is_marked(arg)) {
                         todo.push_back(arg);
                         has_new = true;
