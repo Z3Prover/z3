@@ -3028,9 +3028,11 @@ void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
     if (n1 != n2 && m_util.is_seq(e1)) {
         theory_var v1 = n1->get_th_var(get_id());
         theory_var v2 = n2->get_th_var(get_id());
-        if (m_find.find(v1) == m_find.find(v2)) {
+        if (v1 == null_theory_var || v2 == null_theory_var)
             return;
-        }
+        if (m_find.find(v1) == m_find.find(v2)) 
+            return;
+        
         m_find.merge(v1, v2);
         expr_ref o1(e1, m);
         expr_ref o2(e2, m);
@@ -3049,7 +3051,8 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
     enode* n2 = get_enode(v2);    
     expr_ref e1(n1->get_owner(), m);
     expr_ref e2(n2->get_owner(), m);
-    SASSERT(n1->get_root() != n2->get_root());
+    if (n1->get_root() == n2->get_root())
+        return;
     if (m_util.is_re(n1->get_owner())) {        
         m_regex.propagate_ne(e1, e2);
         return;

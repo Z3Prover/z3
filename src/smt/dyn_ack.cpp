@@ -80,8 +80,8 @@ namespace smt {
                 expr * arg2   = m_app2->get_arg(i);
                 if (arg1 != arg2) {
                     app * eq  = ctx.mk_eq_atom(arg1, arg2);
-                    app * neq = m.mk_not(eq);
-                    if (std::find(lits.begin(), lits.end(), neq) == lits.end()) {
+                    app_ref neq(m.mk_not(eq), m);
+                    if (std::find(lits.begin(), lits.end(), neq.get()) == lits.end()) {
                         lits.push_back(neq);
                         prs.push_back(mk_hypothesis(m, eq, false, arg1, arg2));
                     }
@@ -398,7 +398,7 @@ namespace smt {
     }
 
     literal dyn_ack_manager::mk_eq(expr * n1, expr * n2) {
-		app_ref eq(m_context.mk_eq_atom(n1, n2), m);
+		app_ref eq(m.mk_eq(n1, n2), m);
         m_context.internalize(eq, true);
         literal l = m_context.get_literal(eq);
         TRACE("dyn_ack", tout << "eq:\n" << mk_pp(eq, m) << "\nliteral: "; 
