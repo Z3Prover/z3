@@ -839,8 +839,7 @@ namespace smt {
         unsigned num_args;
         switch (js.get_kind()) {
         case eq_justification::AXIOM:
-            UNREACHABLE();
-            return nullptr;
+            return m.mk_hypothesis(m.mk_eq(n1->get_expr(), n2->get_expr()));
         case eq_justification::EQUATION:
             TRACE("proof_gen_bug", tout << js.get_literal() << "\n"; m_ctx.display_literal_info(tout, js.get_literal()););
             return norm_eq_proof(n1, n2, get_proof(js.get_literal()));
@@ -1137,9 +1136,8 @@ namespace smt {
         while (lhs != rhs) {
             eq_justification js = lhs->m_trans.m_justification;
             switch (js.get_kind()) {
-            case eq_justification::AXIOM:
-                UNREACHABLE();
-                break;
+            case eq_justification::AXIOM: 
+                break;            
             case eq_justification::EQUATION:
                 if (get_proof(js.get_literal()) == nullptr)
                     visited = false;
