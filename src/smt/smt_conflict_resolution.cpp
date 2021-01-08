@@ -1256,8 +1256,7 @@ namespace smt {
 
     void conflict_resolution::mk_conflict_proof(b_justification conflict, literal not_l) {
         SASSERT(conflict.get_kind() != b_justification::BIN_CLAUSE);
-        SASSERT(conflict.get_kind() != b_justification::AXIOM);
-        SASSERT(not_l == null_literal || conflict.get_kind() == b_justification::JUSTIFICATION);
+        SASSERT(not_l == null_literal || conflict.get_kind() == b_justification::AXIOM || conflict.get_kind() == b_justification::JUSTIFICATION);
         TRACE("mk_conflict_proof", m_ctx.display_literals(tout << "lemma literals:", m_lemma) << "\n";);
 
         reset();
@@ -1350,6 +1349,7 @@ namespace smt {
             m_lemma_proof = pr;
         else
             m_lemma_proof = m.mk_lemma(pr, fact);
+        TRACE("mk_conflict_proof", tout << mk_pp(m_lemma_proof, m) << "\n";);
         m_new_proofs.reset();
         reset();
     }

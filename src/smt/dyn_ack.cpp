@@ -79,7 +79,7 @@ namespace smt {
                 expr * arg1   = m_app1->get_arg(i);
                 expr * arg2   = m_app2->get_arg(i);
                 if (arg1 != arg2) {
-                    app * eq  = ctx.mk_eq_atom(arg1, arg2);
+                    app * eq  = m.mk_eq(arg1, arg2);
                     app_ref neq(m.mk_not(eq), m);
                     if (std::find(lits.begin(), lits.end(), neq.get()) == lits.end()) {
                         lits.push_back(neq);
@@ -89,7 +89,7 @@ namespace smt {
             }
             proof * antecedents[2];
             antecedents[0]   = m.mk_congruence(m_app1, m_app2, prs.size(), prs.c_ptr());
-            app * eq         = ctx.mk_eq_atom(m_app1, m_app2);
+            app * eq         = m.mk_eq(m_app1, m_app2);
             antecedents[1]   = mk_hypothesis(m, eq, true, m_app1, m_app2);
             proof * false_pr = m.mk_unit_resolution(2, antecedents);
             lits.push_back(eq);
@@ -485,9 +485,9 @@ namespace smt {
         justification * js = nullptr;
         if (m.proofs_enabled()) {
             js = alloc(dyn_ack_eq_justification, n1, n2, r, 
-                       to_app(ctx.bool_var2expr(eq1.var())), 
-                       to_app(ctx.bool_var2expr(eq2.var())),
-                       to_app(ctx.bool_var2expr(eq3.var())));
+                       m.mk_eq(n1, r),
+                       m.mk_eq(n2, r),
+                       m.mk_eq(n1, n2));
         }
         clause * cls = ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, del_eh);
         if (!cls) {
