@@ -193,9 +193,6 @@ private:
         switch (f->get_decl_kind()) {
         case OP_BADD:
         case OP_BSUB:
-        case OP_BSHL:
-        case OP_BASHR:
-        case OP_BLSHR:
             model = rational::zero();
             return true;
 

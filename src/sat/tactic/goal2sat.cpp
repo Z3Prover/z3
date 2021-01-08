@@ -1019,6 +1019,7 @@ void sat2goal::mc::flush_gmc() {
     sat::literal_vector clause;
     expr_ref_vector tail(m);
     expr_ref def(m);
+    auto is_literal = [&](expr* e) { expr* r; return is_uninterp_const(e) || (m.is_not(e, r) && is_uninterp_const(r)); };
     for (unsigned i = 0; i < updates.size(); ++i) {
         sat::literal l = updates[i];
         if (l == sat::null_literal) {
@@ -1032,8 +1033,7 @@ void sat2goal::mc::flush_gmc() {
                 def = m.mk_not(def);
             }
             expr_ref e = lit2expr(lit0);
-            expr* r = nullptr;
-            if (is_uninterp_const(e) || (m.is_not(e, r) && is_uninterp_const(r)))
+            if (is_literal(e))
                 m_gmc->add(e, def);
             clause.reset();
             tail.reset();
@@ -1050,7 +1050,10 @@ void sat2goal::mc::flush_gmc() {
                 l.neg(); 
                 r.neg(); 
             }
-            m_gmc->add(lit2expr(l), lit2expr(r));
+            
+            expr* a = lit2expr(l);
+            if (is_literal(a))
+                m_gmc->add(a, lit2expr(r));
             i += 5;
         }
         else {
