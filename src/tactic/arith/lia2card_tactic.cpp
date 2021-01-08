@@ -192,7 +192,7 @@ public:
                 expr_ref b = mk_bounded(axioms, to_app(x), lo.get_unsigned(), hi.get_unsigned());
                 rep.insert(x, b);
                 m_bounds.insert(x, bound(lo.get_unsigned(), hi.get_unsigned(), b));
-                TRACE("pb", tout << "add bound " << mk_pp(x, m) << "\n";);
+                TRACE("pb", tout << "add bound " << lo << " " << hi << ": " << mk_pp(x, m) << "\n";);
             }
         }
         for (unsigned i = 0; !g->inconsistent() && i < g->size(); i++) {
