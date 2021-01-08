@@ -61,13 +61,18 @@ namespace ba {
 
     void pb::negate() {
         m_lit.neg();
-        unsigned w = 0;
+        unsigned w = 0, m = 0;
         for (unsigned i = 0; i < m_size; ++i) {
             m_wlits[i].second.neg();
             VERIFY(w + m_wlits[i].first >= w);
             w += m_wlits[i].first;
+            m = std::max(m, m_wlits[i].first);
         }
         m_k = w - m_k + 1;
+        if (m > m_k)  
+            for (unsigned i = 0; i < m_size; ++i) 
+                m_wlits[i].first = std::min(m_k, m_wlits[i].first);
+                       
         VERIFY(w >= m_k && m_k > 0);
     }
 
@@ -121,6 +126,7 @@ namespace ba {
 
     // watch a prefix of literals, such that the slack of these is >= k
     bool pb::init_watch(solver_interface& s) {
+        SASSERT(well_formed());
         auto& p = *this;
         clear_watch(s);
         if (lit() != sat::null_literal && s.value(p.lit()) == l_false) {
@@ -177,6 +183,7 @@ namespace ba {
             // SASSERT(validate_watch(p, sat::null_literal));
 
             TRACE("ba", display(tout << "init watch: ", s, true););
+
 
             // slack is tight:
             if (slack + slack1 == bound) {
