@@ -41,12 +41,16 @@ namespace q {
         };
         struct q_body {
             app_ref_vector  vars;
-            expr_ref        mbody;   // body specialized with respect to model
-            expr_ref_vector vbody;   // (negation of) body specialized with respect to vars
+            bool_vector     free_vars;  // variables that occur in positive equalities
+            expr_ref        mbody;      // body specialized with respect to model
+            expr_ref_vector vbody;      // (negation of) body specialized with respect to vars
             expr_ref_vector domain_eqs; // additional domain restrictions
-            svector<std::pair<app*,func_decl*>> var_diff; // variable differences
-            svector<std::pair<app*, unsigned>> var_args; // (uninterpreted) functions in vbody that contain arguments with variables
+
+            svector<std::pair<app*, unsigned>> var_args;   // (uninterpreted) functions in vbody that contain arguments with variables
             q_body(ast_manager& m) : vars(m), mbody(m), vbody(m), domain_eqs(m) {}
+            void set_free(unsigned idx) { free_vars.setx(idx, true, false); }
+            bool is_free(unsigned idx) const { return free_vars.get(idx, false); }
+            bool is_free(expr* e) const { return is_var(e) && is_free(to_var(e)->get_idx()); }
         };
 
         euf::solver&                           ctx;
@@ -60,7 +64,11 @@ namespace q {
         scoped_ptr_vector<mbp::project_plugin> m_plugins;
         obj_map<quantifier, q_body*>           m_q2body;
         unsigned                               m_max_cex{ 1 };
-        vector<std::pair<sat::literal, expr_ref>> m_instantiations;
+        unsigned                               m_max_choose_candidates { 10 };
+        unsigned                               m_generation_bound{ UINT_MAX };
+        unsigned                               m_generation_max { UINT_MAX };
+        typedef std::tuple<sat::literal, expr_ref, unsigned> instantiation_t;
+        vector<instantiation_t> m_instantiations;
 
         void restrict_to_universe(expr * sk, ptr_vector<expr> const & universe);
         // void register_value(expr* e);
@@ -68,20 +76,22 @@ namespace q {
         expr_ref choose_term(euf::enode* r);
         lbool check_forall(quantifier* q);
         q_body* specialize(quantifier* q);
+        q_body* q2body(quantifier* q);
         expr_ref solver_project(model& mdl, q_body& qb, expr_ref_vector& eqs, bool use_inst);
         void add_domain_eqs(model& mdl, q_body& qb);
         void add_domain_bounds(model& mdl, q_body& qb);
         void eliminate_nested_vars(expr_ref_vector& fmls, q_body& qb);
         void extract_var_args(expr* t, q_body& qb);
+        void extract_free_vars(quantifier* q, q_body& qb);
         void init_model();
         void init_solver();
         mbp::project_plugin* get_plugin(app* var);
         void add_plugin(mbp::project_plugin* p);
-        void add_instantiation(sat::literal qlit, expr_ref& proj) {
-            TRACE("q", tout << "project: " << proj << "\n";);
-            ++m_stats.m_num_instantiations;
-            m_instantiations.push_back(std::make_pair(qlit, proj));
-        }
+        void add_instantiation(quantifier* q, expr_ref& proj);
+
+        bool quick_check(quantifier* q, q_body& qb);
+        bool next_binding(unsigned_vector& offsets, app_ref_vector const& vars, expr_ref_vector& binding);
+        bool first_offset(unsigned_vector& offsets, app_ref_vector const& vars);
 
     public:
 
