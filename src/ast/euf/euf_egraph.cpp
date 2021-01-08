@@ -67,12 +67,13 @@ namespace euf {
         if (m_num_scopes == 0)
             return;
         // DEBUG_CODE(invariant(););
+
         for (; m_num_scopes > 0; --m_num_scopes) {
             m_scopes.push_back(m_updates.size());
             m_region.push_scope();
+            m_updates.push_back(update_record(m_new_th_eqs_qhead, update_record::new_th_eq_qhead()));
+            m_updates.push_back(update_record(m_new_lits_qhead, update_record::new_lits_qhead()));
         }
-        m_updates.push_back(update_record(m_new_th_eqs_qhead, update_record::new_th_eq_qhead()));
-        m_updates.push_back(update_record(m_new_lits_qhead, update_record::new_lits_qhead()));
         SASSERT(m_new_lits_qhead <= m_new_lits.size());
         SASSERT(m_new_th_eqs_qhead <= m_new_th_eqs.size());
     }
@@ -109,7 +110,6 @@ namespace euf {
 
     egraph::egraph(ast_manager& m) : m(m), m_table(m), m_exprs(m) {
         m_tmp_eq = enode::mk_tmp(m_region, 2);
-        // m_updates.reserve(10000, update_record(nullptr));
     }
 
     egraph::~egraph() {
@@ -274,7 +274,6 @@ namespace euf {
         num_scopes -= m_num_scopes;
         m_num_scopes = 0;
 
-        
         SASSERT(m_new_lits_qhead <= m_new_lits.size());
         unsigned old_lim = m_scopes.size() - num_scopes;
         unsigned num_updates = m_scopes[old_lim];
@@ -339,8 +338,10 @@ namespace euf {
         m_scopes.shrink(old_lim);        
         m_region.pop_scope(num_scopes);  
         m_to_merge.reset();
+
         SASSERT(m_new_lits_qhead <= m_new_lits.size());
         SASSERT(m_new_th_eqs_qhead <= m_new_th_eqs.size());
+
         // DEBUG_CODE(invariant(););
     }
 
