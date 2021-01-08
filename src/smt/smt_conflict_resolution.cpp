@@ -794,6 +794,11 @@ namespace smt {
         if (is_eq && is_quantifier(f2)) {
             f2 = m_ctx.get_enode(f2)->get_owner();
         }
+        if (m.is_false(fact) && !m_ctx.is_true(n2) && !m_ctx.is_false(n2)) {          
+            pr = m.mk_hypothesis(m.mk_eq(n1_owner, n2_owner));
+            m_new_proofs.push_back(pr);
+            return pr;
+        }
         if (!is_eq || (f1 != n2_owner && f2 != n2_owner)) {
             CTRACE("norm_eq_proof_bug", !m_ctx.is_true(n2) && !m_ctx.is_false(n2),
                    tout << "n1: #" << n1->get_owner_id() << ", n2: #" << n2->get_owner_id() << "\n";
