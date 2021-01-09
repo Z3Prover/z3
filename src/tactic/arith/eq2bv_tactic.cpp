@@ -151,7 +151,7 @@ public:
     expr_ref_vector                  m_trail;
     bound_manager                    m_bounds;
     obj_map<expr, expr*>             m_fd;
-    obj_map<expr, unsigned>          m_max;
+    obj_map<expr, rational>          m_max;
     expr_mark                        m_nonfd;
     expr_mark                        m_has_eq;
     ptr_vector<expr>                 m_todo;
@@ -278,32 +278,34 @@ public:
     void cleanup_fd(ref<bvmc>& mc) {
         SASSERT(m_fd.empty());
         ptr_vector<expr> rm;
-        for (auto& kv : m_max) 
-            if (m_nonfd.is_marked(kv.m_key)) 
-                rm.push_back(kv.m_key);
-        for (expr* r : rm)
-            m_max.erase(r);
         for (auto& kv : m_max) {
+            expr* key = kv.m_key;
+            rational& value = kv.m_value;
+            if (m_nonfd.is_marked(key)) {
+                rm.push_back(key);
+                continue;
+            }
             // ensure there are enough elements.
             bool strict;
-            rational val;
-            if (m_bounds.has_upper(kv.m_key, val, strict)) {
-                SASSERT(!strict);
-                if (val.get_unsigned() > kv.m_value) kv.m_value = val.get_unsigned();
-            }
-            else {
-                ++kv.m_value; 
-            }
-            if (m_bounds.has_lower(kv.m_key, val, strict)) {
-                SASSERT(!strict);
-                if (val.get_unsigned() > kv.m_value) kv.m_value = val.get_unsigned();
-            }
-            unsigned p = next_power_of_two(kv.m_value);            
+            rational bound;            
+            
+            if (m_bounds.has_upper(key, bound, strict))
+                value = std::max(value, bound);            
+            else 
+                ++value;
+            
+            if (m_bounds.has_lower(key, bound, strict))               
+                value = std::max(value, bound);
+            
+            ++value;
+        }
+        for (expr* r : rm)
+            m_max.erase(r);
+
+        for (auto& kv : m_max) {
+            unsigned p = kv.m_value.get_num_bits();      
             if (p <= 1) p = 2;
-            if (kv.m_value == p) p *= 2;
-            unsigned n = log2(p);
-            SASSERT(p >= kv.m_value);
-            app* z = m.mk_fresh_const("z", bv.mk_sort(n));
+            app* z = m.mk_fresh_const("z", bv.mk_sort(p));
             m_trail.push_back(z);
             m_fd.insert(kv.m_key, z);
             mc->insert(z->get_decl(), to_app(kv.m_key)->get_decl());
@@ -385,20 +387,16 @@ public:
     }
 
     bool is_fd(expr* v, expr* c) {
-        unsigned val;
         rational r;
         if (is_uninterp_const(v) && a.is_numeral(c, r) && !m_nonfd.is_marked(v) && a.is_int(v) && r.is_unsigned()) {
-            val = r.get_unsigned();
-            if (val > UINT_MAX/4)
-                return false;
-            add_fd(v, val);
+            add_fd(v, r);
             return true;
         }
         return false;
     }
 
-    void add_fd(expr* c, unsigned val) {
-        unsigned val2;
+    void add_fd(expr* c, rational val) {
+        rational val2;
         if (!m_max.find(c, val2) || val2 < val) {
             m_max.insert(c, val);
         }
