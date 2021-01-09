@@ -278,13 +278,17 @@ public:
     void cleanup_fd(ref<bvmc>& mc) {
         SASSERT(m_fd.empty());
         ptr_vector<expr> rm;
+        for (auto& kv : m_max) 
+            if (m_nonfd.is_marked(kv.m_key))
+                rm.push_back(kv.m_key);
+        
+        for (expr* r : rm)
+            m_max.erase(r);
+
         for (auto& kv : m_max) {
             expr* key = kv.m_key;
             rational& value = kv.m_value;
-            if (m_nonfd.is_marked(key)) {
-                rm.push_back(key);
-                continue;
-            }
+
             // ensure there are enough elements.
             bool strict;
             rational bound;            
@@ -298,17 +302,13 @@ public:
                 value = std::max(value, bound);
             
             ++value;
-        }
-        for (expr* r : rm)
-            m_max.erase(r);
 
-        for (auto& kv : m_max) {
-            unsigned p = kv.m_value.get_num_bits();      
+            unsigned p = value.get_num_bits();      
             if (p <= 1) p = 2;
             app* z = m.mk_fresh_const("z", bv.mk_sort(p));
             m_trail.push_back(z);
-            m_fd.insert(kv.m_key, z);
-            mc->insert(z->get_decl(), to_app(kv.m_key)->get_decl());
+            m_fd.insert(key, z);
+            mc->insert(z->get_decl(), to_app(key)->get_decl());
         }
     }
 

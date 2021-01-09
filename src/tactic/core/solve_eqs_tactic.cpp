@@ -338,7 +338,7 @@ class solve_eqs_tactic : public tactic {
             // solve lhs mod r1 = r2
             // as lhs = r1*mod!1 + r2
             // 
-            if (m_a_util.is_numeral(rhs, r2) && r2 < r1) {
+            if (m_a_util.is_numeral(rhs, r2) && !r2.is_neg() && r2 < r1) {
                 expr_ref def0(m());
                 def0 = add(mk_int(r2), mul(fresh(), mk_int(r1)));
                 return solve_eq(lhs, def0, eq, var, def, pr);
