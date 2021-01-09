@@ -451,9 +451,7 @@ typedef enum
        }
 
    - Z3_OP_PR_TRANSITIVITY_STAR: Condensed transitivity proof. 
-     It combines several symmetry and transitivity proofs.
-
-          Example:
+     It combines several symmetry and transitivity proofs. Example:
           \nicebox{
           T1: (R a b)
           T2: (R c b)
@@ -479,25 +477,27 @@ typedef enum
           That is, reflexivity proofs are suppressed to save space.
 
    - Z3_OP_PR_QUANT_INTRO: Given a proof for (~ p q), produces a proof for (~ (forall (x) p) (forall (x) q)).
-
+       \nicebox{
        T1: (~ p q)
        [quant-intro T1]: (~ (forall (x) p) (forall (x) q))
-
+       }
    - Z3_OP_PR_BIND: Given a proof p, produces a proof of lambda x . p, where x are free variables in p.
+       \nicebox{
        T1: f
        [proof-bind T1] forall (x) f
+       }
 
    - Z3_OP_PR_DISTRIBUTIVITY: Distributivity proof object.
           Given that f (= or) distributes over g (= and), produces a proof for
-
+          \nicebox{
           (= (f a (g c d))
              (g (f a c) (f a d)))
-
+          }
           If f and g are associative, this proof also justifies the following equality:
-
+          \nicebox{
           (= (f (g a b) (g c d))
              (g (f a c) (f a d) (f b c) (f b d)))
-
+          }
           where each f and g can have arbitrary number of arguments.
 
           This proof object has no antecedents.
@@ -505,13 +505,11 @@ typedef enum
           instantiated by f = or, and g = and.
 
    - Z3_OP_PR_AND_ELIM: Given a proof for (and l_1 ... l_n), produces a proof for l_i
-
        \nicebox{
        T1: (and l_1 ... l_n)
        [and-elim T1]: l_i
        }
    - Z3_OP_PR_NOT_OR_ELIM: Given a proof for (not (or l_1 ... l_n)), produces a proof for (not l_i).
-
        \nicebox{
        T1: (not (or l_1 ... l_n))
        [not-or-elim T1]: (not l_i)
@@ -524,8 +522,6 @@ typedef enum
           The conclusion of a rewrite rule is either an equality (= t s),
           an equivalence (iff t s), or equi-satisfiability (~ t s).
           Remark: if f is bool, then = is iff.
-
-
           Examples:
           \nicebox{
           (= (+ x 0) x)
@@ -543,7 +539,6 @@ typedef enum
    - Z3_OP_PR_PULL_QUANT: A proof for (iff (f (forall (x) q(x)) r) (forall (x) (f (q x) r))). This proof object has no antecedents.
 
    - Z3_OP_PR_PUSH_QUANT: A proof for:
-
        \nicebox{
           (iff (forall (x_1 ... x_m) (and p_1[x_1 ... x_m] ... p_n[x_1 ... x_m]))
                (and (forall (x_1 ... x_m) p_1[x_1 ... x_m])
@@ -615,7 +610,6 @@ typedef enum
           Remark: if f is bool, then = is iff.
 
    - Z3_OP_PR_DEF_AXIOM: Proof object used to justify Tseitin's like axioms:
-
           \nicebox{
           (or (not (and p q)) p)
           (or (not (and p q)) q)
