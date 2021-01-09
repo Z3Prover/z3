@@ -702,6 +702,8 @@ namespace smt {
     }
 
     void theory_pb::unwatch_literal(literal lit, ineq* c) {
+        if (static_cast<unsigned>(lit.var()) >= m_var_infos.size())
+            return;
         ptr_vector<ineq>* ineqs = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
         if (ineqs) {
             remove(*ineqs, c);        
