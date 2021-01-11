@@ -116,7 +116,10 @@ static solver* mk_special_solver_for_logic(ast_manager & m, params_ref const & p
 static solver* mk_solver_for_logic(ast_manager & m, params_ref const & p, symbol const& logic) {
     bv_rewriter rw(m);
     solver* s = mk_special_solver_for_logic(m, p, logic);
+    tactic_params tp;
     if (!s && logic == "QF_BV" && rw.hi_div0()) 
+        s = mk_inc_sat_solver(m, p);
+    if (!s && tp.default_tactic() == "sat")
         s = mk_inc_sat_solver(m, p);
     if (!s) 
         s = mk_smt_solver(m, p, logic);
