@@ -738,26 +738,24 @@ typedef enum
           T2: (~ p q)
           [mp~ T1 T2]: q
 
-    - Z3_OP_PR_TH_LEMMA: Generic proof for theory lemmas.
-
-         The theory lemma function comes with one or more parameters.
-         The first parameter indicates the name of the theory.
-         For the theory of arithmetic, additional parameters provide hints for
-         checking the theory lemma.
-         The hints for arithmetic are:
+   - Z3_OP_PR_TH_LEMMA: Generic proof for theory lemmas.
+     The theory lemma function comes with one or more parameters.
+     The first parameter indicates the name of the theory.
+     For the theory of arithmetic, additional parameters provide hints for
+     checking the theory lemma.
+     The hints for arithmetic are:
 
          - farkas - followed by rational coefficients. Multiply the coefficients to the
            inequalities in the lemma, add the (negated) inequalities and obtain a contradiction.
 
          - triangle-eq - Indicates a lemma related to the equivalence:
-         \nicebox{
+
             (iff (= t1 t2) (and (<= t1 t2) (<= t2 t1)))
-         }
 
          - gcd-test - Indicates an integer linear arithmetic lemma that uses a gcd test.
 
 
-    - Z3_OP_PR_HYPER_RESOLVE: Hyper-resolution rule.
+   - Z3_OP_PR_HYPER_RESOLVE: Hyper-resolution rule.
 
         The premises of the rules is a sequence of clauses.
         The first clause argument is the main clause of the rule.
@@ -797,32 +795,32 @@ typedef enum
         of literal positions from the main clause and side clause.
 
 
-      - Z3_OP_RA_STORE: Insert a record into a relation.
+   - Z3_OP_RA_STORE: Insert a record into a relation.
         The function takes \c n+1 arguments, where the first argument is the relation and the remaining \c n elements
         correspond to the \c n columns of the relation.
 
-      - Z3_OP_RA_EMPTY: Creates the empty relation.
+   - Z3_OP_RA_EMPTY: Creates the empty relation.
 
-      - Z3_OP_RA_IS_EMPTY: Tests if the relation is empty.
+   - Z3_OP_RA_IS_EMPTY: Tests if the relation is empty.
 
-      - Z3_OP_RA_JOIN: Create the relational join.
+   - Z3_OP_RA_JOIN: Create the relational join.
 
-      - Z3_OP_RA_UNION: Create the union or convex hull of two relations.
+   - Z3_OP_RA_UNION: Create the union or convex hull of two relations.
         The function takes two arguments.
 
-      - Z3_OP_RA_WIDEN: Widen two relations.
+   - Z3_OP_RA_WIDEN: Widen two relations.
         The function takes two arguments.
 
-      - Z3_OP_RA_PROJECT: Project the columns (provided as numbers in the parameters).
+   - Z3_OP_RA_PROJECT: Project the columns (provided as numbers in the parameters).
         The function takes one argument.
 
-      - Z3_OP_RA_FILTER: Filter (restrict) a relation with respect to a predicate.
+   - Z3_OP_RA_FILTER: Filter (restrict) a relation with respect to a predicate.
         The first argument is a relation.
         The second argument is a predicate with free de-Bruijn indices
         corresponding to the columns of the relation.
         So the first column in the relation has index 0.
 
-      - Z3_OP_RA_NEGATION_FILTER: Intersect the first relation with respect to negation
+   - Z3_OP_RA_NEGATION_FILTER: Intersect the first relation with respect to negation
         of the second relation (the function takes two arguments).
         Logically, the specification can be described by a function
 
@@ -833,157 +831,157 @@ typedef enum
         x on the columns c1, d1, .., cN, dN.
 
 
-      - Z3_OP_RA_RENAME: rename columns in the relation.
+   - Z3_OP_RA_RENAME: rename columns in the relation.
         The function takes one argument.
         The parameters contain the renaming as a cycle.
 
-      - Z3_OP_RA_COMPLEMENT: Complement the relation.
+   - Z3_OP_RA_COMPLEMENT: Complement the relation.
 
-      - Z3_OP_RA_SELECT: Check if a record is an element of the relation.
+   - Z3_OP_RA_SELECT: Check if a record is an element of the relation.
         The function takes \c n+1 arguments, where the first argument is a relation,
         and the remaining \c n arguments correspond to a record.
 
-      - Z3_OP_RA_CLONE: Create a fresh copy (clone) of a relation.
+   - Z3_OP_RA_CLONE: Create a fresh copy (clone) of a relation.
         The function is logically the identity, but
         in the context of a register machine allows
         for #Z3_OP_RA_UNION to perform destructive updates to the first argument.
 
 
-      - Z3_OP_FD_LT: A less than predicate over the finite domain Z3_FINITE_DOMAIN_SORT.
+   - Z3_OP_FD_LT: A less than predicate over the finite domain Z3_FINITE_DOMAIN_SORT.
 
-      - Z3_OP_LABEL: A label (used by the Boogie Verification condition generator).
+   - Z3_OP_LABEL: A label (used by the Boogie Verification condition generator).
                      The label has two parameters, a string and a Boolean polarity.
                      It takes one argument, a formula.
 
-      - Z3_OP_LABEL_LIT: A label literal (used by the Boogie Verification condition generator).
+   - Z3_OP_LABEL_LIT: A label literal (used by the Boogie Verification condition generator).
                      A label literal has a set of string parameters. It takes no arguments.
 
-      - Z3_OP_DT_CONSTRUCTOR: datatype constructor.
+   - Z3_OP_DT_CONSTRUCTOR: datatype constructor.
 
-      - Z3_OP_DT_RECOGNISER: datatype recognizer.
+   - Z3_OP_DT_RECOGNISER: datatype recognizer.
 
-      - Z3_OP_DT_IS: datatype recognizer.
+   - Z3_OP_DT_IS: datatype recognizer.
 
-      - Z3_OP_DT_ACCESSOR: datatype accessor.
+   - Z3_OP_DT_ACCESSOR: datatype accessor.
 
-      - Z3_OP_DT_UPDATE_FIELD: datatype field update.
+   - Z3_OP_DT_UPDATE_FIELD: datatype field update.
 
-      - Z3_OP_PB_AT_MOST: Cardinality constraint.
+   - Z3_OP_PB_AT_MOST: Cardinality constraint.
               E.g., x + y + z <= 2
 
-      - Z3_OP_PB_AT_LEAST: Cardinality constraint.
+   - Z3_OP_PB_AT_LEAST: Cardinality constraint.
               E.g., x + y + z >= 2
 
-      - Z3_OP_PB_LE: Generalized Pseudo-Boolean cardinality constraint.
+   - Z3_OP_PB_LE: Generalized Pseudo-Boolean cardinality constraint.
               Example  2*x + 3*y <= 4
 
-      - Z3_OP_PB_GE: Generalized Pseudo-Boolean cardinality constraint.
+   - Z3_OP_PB_GE: Generalized Pseudo-Boolean cardinality constraint.
               Example  2*x + 3*y + 2*z >= 4
 
-      - Z3_OP_PB_EQ: Generalized Pseudo-Boolean equality constraint.
+   - Z3_OP_PB_EQ: Generalized Pseudo-Boolean equality constraint.
               Example  2*x + 1*y + 2*z + 1*u = 4
 
-      - Z3_OP_SPECIAL_RELATION_LO: A relation that is a total linear order
+   - Z3_OP_SPECIAL_RELATION_LO: A relation that is a total linear order
 
-      - Z3_OP_SPECIAL_RELATION_PO: A relation that is a partial order
+   - Z3_OP_SPECIAL_RELATION_PO: A relation that is a partial order
 
-      - Z3_OP_SPECIAL_RELATION_PLO: A relation that is a piecewise linear order
+   - Z3_OP_SPECIAL_RELATION_PLO: A relation that is a piecewise linear order
 
-      - Z3_OP_SPECIAL_RELATION_TO: A relation that is a tree order
+   - Z3_OP_SPECIAL_RELATION_TO: A relation that is a tree order
 
-      - Z3_OP_SPECIAL_RELATION_TC: Transitive closure of a relation
+   - Z3_OP_SPECIAL_RELATION_TC: Transitive closure of a relation
 
-      - Z3_OP_SPECIAL_RELATION_TRC: Transitive reflexive closure of a relation
+   - Z3_OP_SPECIAL_RELATION_TRC: Transitive reflexive closure of a relation
 
-      - Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN: Floating-point rounding mode RNE
+   - Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN: Floating-point rounding mode RNE
 
-      - Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY: Floating-point rounding mode RNA
+   - Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY: Floating-point rounding mode RNA
 
-      - Z3_OP_FPA_RM_TOWARD_POSITIVE: Floating-point rounding mode RTP
+   - Z3_OP_FPA_RM_TOWARD_POSITIVE: Floating-point rounding mode RTP
 
-      - Z3_OP_FPA_RM_TOWARD_NEGATIVE: Floating-point rounding mode RTN
+   - Z3_OP_FPA_RM_TOWARD_NEGATIVE: Floating-point rounding mode RTN
 
-      - Z3_OP_FPA_RM_TOWARD_ZERO: Floating-point rounding mode RTZ
+   - Z3_OP_FPA_RM_TOWARD_ZERO: Floating-point rounding mode RTZ
 
-      - Z3_OP_FPA_NUM: Floating-point value
+   - Z3_OP_FPA_NUM: Floating-point value
 
-      - Z3_OP_FPA_PLUS_INF: Floating-point +oo
+   - Z3_OP_FPA_PLUS_INF: Floating-point +oo
 
-      - Z3_OP_FPA_MINUS_INF: Floating-point -oo
+   - Z3_OP_FPA_MINUS_INF: Floating-point -oo
 
-      - Z3_OP_FPA_NAN: Floating-point NaN
+   - Z3_OP_FPA_NAN: Floating-point NaN
 
-      - Z3_OP_FPA_PLUS_ZERO: Floating-point +zero
+   - Z3_OP_FPA_PLUS_ZERO: Floating-point +zero
 
-      - Z3_OP_FPA_MINUS_ZERO: Floating-point -zero
+   - Z3_OP_FPA_MINUS_ZERO: Floating-point -zero
 
-      - Z3_OP_FPA_ADD: Floating-point addition
+   - Z3_OP_FPA_ADD: Floating-point addition
 
-      - Z3_OP_FPA_SUB: Floating-point subtraction
+   - Z3_OP_FPA_SUB: Floating-point subtraction
 
-      - Z3_OP_FPA_NEG: Floating-point negation
+   - Z3_OP_FPA_NEG: Floating-point negation
 
-      - Z3_OP_FPA_MUL: Floating-point multiplication
+   - Z3_OP_FPA_MUL: Floating-point multiplication
 
-      - Z3_OP_FPA_DIV: Floating-point division
+   - Z3_OP_FPA_DIV: Floating-point division
 
-      - Z3_OP_FPA_REM: Floating-point remainder
+   - Z3_OP_FPA_REM: Floating-point remainder
 
-      - Z3_OP_FPA_ABS: Floating-point absolute value
+   - Z3_OP_FPA_ABS: Floating-point absolute value
 
-      - Z3_OP_FPA_MIN: Floating-point minimum
+   - Z3_OP_FPA_MIN: Floating-point minimum
 
-      - Z3_OP_FPA_MAX: Floating-point maximum
+   - Z3_OP_FPA_MAX: Floating-point maximum
 
-      - Z3_OP_FPA_FMA: Floating-point fused multiply-add
+   - Z3_OP_FPA_FMA: Floating-point fused multiply-add
 
-      - Z3_OP_FPA_SQRT: Floating-point square root
+   - Z3_OP_FPA_SQRT: Floating-point square root
 
-      - Z3_OP_FPA_ROUND_TO_INTEGRAL: Floating-point round to integral
+   - Z3_OP_FPA_ROUND_TO_INTEGRAL: Floating-point round to integral
 
-      - Z3_OP_FPA_EQ: Floating-point equality
+   - Z3_OP_FPA_EQ: Floating-point equality
 
-      - Z3_OP_FPA_LT: Floating-point less than
+   - Z3_OP_FPA_LT: Floating-point less than
 
-      - Z3_OP_FPA_GT: Floating-point greater than
+   - Z3_OP_FPA_GT: Floating-point greater than
 
-      - Z3_OP_FPA_LE: Floating-point less than or equal
+   - Z3_OP_FPA_LE: Floating-point less than or equal
 
-      - Z3_OP_FPA_GE: Floating-point greater than or equal
+   - Z3_OP_FPA_GE: Floating-point greater than or equal
 
-      - Z3_OP_FPA_IS_NAN: Floating-point isNaN
+   - Z3_OP_FPA_IS_NAN: Floating-point isNaN
 
-      - Z3_OP_FPA_IS_INF: Floating-point isInfinite
+   - Z3_OP_FPA_IS_INF: Floating-point isInfinite
 
-      - Z3_OP_FPA_IS_ZERO: Floating-point isZero
+   - Z3_OP_FPA_IS_ZERO: Floating-point isZero
 
-      - Z3_OP_FPA_IS_NORMAL: Floating-point isNormal
+   - Z3_OP_FPA_IS_NORMAL: Floating-point isNormal
 
-      - Z3_OP_FPA_IS_SUBNORMAL: Floating-point isSubnormal
+   - Z3_OP_FPA_IS_SUBNORMAL: Floating-point isSubnormal
 
-      - Z3_OP_FPA_IS_NEGATIVE: Floating-point isNegative
+   - Z3_OP_FPA_IS_NEGATIVE: Floating-point isNegative
 
-      - Z3_OP_FPA_IS_POSITIVE: Floating-point isPositive
+   - Z3_OP_FPA_IS_POSITIVE: Floating-point isPositive
 
-      - Z3_OP_FPA_FP: Floating-point constructor from 3 bit-vectors
+   - Z3_OP_FPA_FP: Floating-point constructor from 3 bit-vectors
 
-      - Z3_OP_FPA_TO_FP: Floating-point conversion (various)
+   - Z3_OP_FPA_TO_FP: Floating-point conversion (various)
 
-      - Z3_OP_FPA_TO_FP_UNSIGNED: Floating-point conversion from unsigned bit-vector
+   - Z3_OP_FPA_TO_FP_UNSIGNED: Floating-point conversion from unsigned bit-vector
 
-      - Z3_OP_FPA_TO_UBV: Floating-point conversion to unsigned bit-vector
+   - Z3_OP_FPA_TO_UBV: Floating-point conversion to unsigned bit-vector
 
-      - Z3_OP_FPA_TO_SBV: Floating-point conversion to signed bit-vector
+   - Z3_OP_FPA_TO_SBV: Floating-point conversion to signed bit-vector
 
-      - Z3_OP_FPA_TO_REAL: Floating-point conversion to real number
+   - Z3_OP_FPA_TO_REAL: Floating-point conversion to real number
 
-      - Z3_OP_FPA_TO_IEEE_BV: Floating-point conversion to IEEE-754 bit-vector
+   - Z3_OP_FPA_TO_IEEE_BV: Floating-point conversion to IEEE-754 bit-vector
 
-      - Z3_OP_FPA_BVWRAP: (Implicitly) represents the internal bitvector-
+   - Z3_OP_FPA_BVWRAP: (Implicitly) represents the internal bitvector-
         representation of a floating-point term (used for the lazy encoding
         of non-relevant terms in theory_fpa)
 
-      - Z3_OP_FPA_BV2RM: Conversion of a 3-bit bit-vector term to a
+   - Z3_OP_FPA_BV2RM: Conversion of a 3-bit bit-vector term to a
         floating-point rounding-mode term
 
         The conversion uses the following values:
@@ -993,11 +991,11 @@ typedef enum
             3 = 011 = Z3_OP_FPA_RM_TOWARD_NEGATIVE,
             4 = 100 = Z3_OP_FPA_RM_TOWARD_ZERO.
 
-      - Z3_OP_INTERNAL: internal (often interpreted) symbol, but no additional
+   - Z3_OP_INTERNAL: internal (often interpreted) symbol, but no additional
         information is exposed. Tools may use the string representation of the
         function declaration to obtain more information.
 
-      - Z3_OP_UNINTERPRETED: kind used for uninterpreted symbols.
+   - Z3_OP_UNINTERPRETED: kind used for uninterpreted symbols.
 */
 typedef enum {
     // Basic

@@ -225,6 +225,15 @@ try:
 
     website_dox_substitutions = {}
     bullet_point_prefix='\n   - '
+    website_dox_substitutions['CPP_API'] = (
+            '{prefix}<a class="el" href="namespacez3.html">C++ API</a> '
+            ).format(
+                prefix=bullet_point_prefix)
+    website_dox_substitutions['C_API'] = (
+            '{prefix}<a class="el" href="z3__api_8h.html">C API</a> '
+            ).format(
+                prefix=bullet_point_prefix)
+    
     if Z3PY_ENABLED:
         print("Python documentation enabled")
         website_dox_substitutions['PYTHON_API'] = (
