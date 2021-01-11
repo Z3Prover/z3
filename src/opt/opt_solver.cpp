@@ -245,41 +245,45 @@ namespace opt {
         inf_eps val2;
         m_valid_objectives[i] = true;
         has_shared = true;
-        TRACE("opt", tout << (has_shared?"has shared":"non-shared") << " " << val << " " << blocker << "\n";);
+        TRACE("opt", tout << (has_shared?"has shared":"non-shared") << " " << val << " " << blocker << "\n";
+              if (m_last_model) tout << *m_last_model << "\n";);
         if (!m_models[i]) 
             m_models.set(i, m_last_model.get());
-                         
+                        
+        auto decrement = [&]() {
+            SASSERT(has_shared);
+            if (l_true != decrement_value(i, val)) {
+                if (l_true != m_context.check(0, nullptr))  
+                    throw default_exception("maximization suspended");
+                m_context.get_model(m_last_model);
+            }
+        };
+
         if (!val.is_finite()) {
             // skip model updates
         }
         else if (m_context.get_context().update_model(has_shared)) {
+            TRACE("opt", tout << "updated\n";);
             m_last_model = nullptr;
             m_context.get_model(m_last_model);
             if (has_shared && val != current_objective_value(i)) {
-                decrement_value(i, val);
-                m_last_model = nullptr;
-                if (l_true != m_context.check(0, nullptr)) 
-                    throw default_exception("maximization suspended");
-                m_context.get_model(m_last_model);
+                decrement();
             }
             else {
                 m_models.set(i, m_last_model.get());
             }
         }
         else {
-            m_last_model = nullptr;
-            SASSERT(has_shared);
-            decrement_value(i, val);            
-            if (l_true != m_context.check(0, nullptr)) 
-                throw default_exception("maximization suspended");
-            m_context.get_model(m_last_model);
+            decrement();
         }
         m_objective_values[i] = val;
         TRACE("opt", { 
                 tout << "objective:     " << mk_pp(m_objective_terms[i].get(), m) << "\n";
                 tout << "maximal value: " << val << "\n"; 
                 tout << "new condition: " << blocker << "\n";
-                if (m_models[i]) model_smt2_pp(tout << "update model:\n", m, *m_models[i], 0); });
+                if (m_models[i]) model_smt2_pp(tout << "update model:\n", m, *m_models[i], 0); 
+                if (m_last_model) model_smt2_pp(tout << "last model:\n", m, *m_last_model, 0);
+            });
     }
 
     lbool opt_solver::decrement_value(unsigned i, inf_eps& val) {
@@ -326,7 +330,8 @@ namespace opt {
     }
 
     void opt_solver::get_model_core(model_ref & m) {  
-        for (auto* mdl : m_models) {
+        for (unsigned i = m_models.size(); i-- > 0; ) {
+            auto* mdl = m_models[i];
             if (mdl) {
                 m = mdl;
                 return;
