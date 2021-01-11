@@ -39,9 +39,11 @@ DEFINE_TYPE(Z3_rcf_num);
 /** \defgroup capi C API */
 /*@{*/
 
-/** @name Types
-    @{
+/** @name Types */
 
+///@{
+
+/**
    Most of the types in the C API are opaque pointers.
 
    - \c Z3_config: configuration object used to initialize logical contexts.
@@ -423,12 +425,12 @@ typedef enum
    - Z3_OP_PR_GOAL: Proof for a fact (tagged as goal) asserted by the user.
 
    - Z3_OP_PR_MODUS_PONENS: Given a proof for p and a proof for (implies p q), produces a proof for q.
-       \nicebox{
+
           T1: p
           T2: (implies p q)
           [mp T1 T2]: q
-          }
-          The second antecedents may also be a proof for (iff p q).
+
+     The second antecedents may also be a proof for (iff p q).
 
    - Z3_OP_PR_REFLEXIVITY: A proof for (R t t), where R is a reflexive relation. This proof object has no antecedents.
         The only reflexive relations that are used are
@@ -467,25 +469,24 @@ typedef enum
           antecedent (R a b) as an edge between a and b.
 
    - Z3_OP_PR_MONOTONICITY: Monotonicity proof object.
-          \nicebox{
+
           T1: (R t_1 s_1)
           ...
           Tn: (R t_n s_n)
           [monotonicity T1 ... Tn]: (R (f t_1 ... t_n) (f s_1 ... s_n))
-          }
-          Remark: if t_i == s_i, then the antecedent Ti is suppressed.
-          That is, reflexivity proofs are suppressed to save space.
+
+     Remark: if t_i == s_i, then the antecedent Ti is suppressed.
+     That is, reflexivity proofs are suppressed to save space.
 
    - Z3_OP_PR_QUANT_INTRO: Given a proof for (~ p q), produces a proof for (~ (forall (x) p) (forall (x) q)).
-       \nicebox{
-       T1: (~ p q)
-       [quant-intro T1]: (~ (forall (x) p) (forall (x) q))
-       }
+
+         T1: (~ p q)
+        [quant-intro T1]: (~ (forall (x) p) (forall (x) q))
+
    - Z3_OP_PR_BIND: Given a proof p, produces a proof of lambda x . p, where x are free variables in p.
-       \nicebox{
-       T1: f
-       [proof-bind T1] forall (x) f
-       }
+
+          T1: f
+         [proof-bind T1] forall (x) f
 
    - Z3_OP_PR_DISTRIBUTIVITY: Distributivity proof object.
           Given that f (= or) distributes over g (= and), produces a proof for
@@ -505,15 +506,14 @@ typedef enum
           instantiated by f = or, and g = and.
 
    - Z3_OP_PR_AND_ELIM: Given a proof for (and l_1 ... l_n), produces a proof for l_i
-       \nicebox{
-       T1: (and l_1 ... l_n)
-       [and-elim T1]: l_i
-       }
+
+        T1: (and l_1 ... l_n)
+        [and-elim T1]: l_i
+
    - Z3_OP_PR_NOT_OR_ELIM: Given a proof for (not (or l_1 ... l_n)), produces a proof for (not l_i).
-       \nicebox{
-       T1: (not (or l_1 ... l_n))
-       [not-or-elim T1]: (not l_i)
-       }
+
+         T1: (not (or l_1 ... l_n))
+         [not-or-elim T1]: (not l_i)
 
    - Z3_OP_PR_REWRITE: A proof for a local rewriting step (= t s).
           The head function symbol of t is interpreted.
@@ -568,16 +568,15 @@ typedef enum
 
    - Z3_OP_PR_LEMMA:
 
-       \nicebox{
           T1: false
           [lemma T1]: (or (not l_1) ... (not l_n))
-          }
-          This proof object has one antecedent: a hypothetical proof for false.
-          It converts the proof in a proof for (or (not l_1) ... (not l_n)),
-          when T1 contains the open hypotheses: l_1, ..., l_n.
-          The hypotheses are closed after an application of a lemma.
-          Furthermore, there are no other open hypotheses in the subtree covered by
-          the lemma.
+
+      This proof object has one antecedent: a hypothetical proof for false.
+      It converts the proof in a proof for (or (not l_1) ... (not l_n)),
+      when T1 contains the open hypotheses: l_1, ..., l_n.
+      The hypotheses are closed after an application of a lemma.
+      Furthermore, there are no other open hypotheses in the subtree covered by
+      the lemma.
 
    - Z3_OP_PR_UNIT_RESOLUTION:
        \nicebox{
@@ -669,31 +668,33 @@ typedef enum
        [def-intro]: (= n e)
 
    - Z3_OP_PR_APPLY_DEF:
-       [apply-def T1]: F ~ n
-       F is 'equivalent' to n, given that T1 is a proof that
-       n is a name for F.
+
+        [apply-def T1]: F ~ n
+
+     F is 'equivalent' to n, given that T1 is a proof that
+     n is a name for F.
 
    - Z3_OP_PR_IFF_OEQ:
+
        T1: (iff p q)
        [iff~ T1]: (~ p q)
 
    - Z3_OP_PR_NNF_POS: Proof for a (positive) NNF step. Example:
-       \nicebox{
+
           T1: (not s_1) ~ r_1
           T2: (not s_2) ~ r_2
           T3: s_1 ~ r_1'
           T4: s_2 ~ r_2'
-          [nnf-pos T1 T2 T3 T4]: (~ (iff s_1 s_2)
-                                    (and (or r_1 r_2') (or r_1' r_2)))
-          }
+          [nnf-pos T1 T2 T3 T4]: (~ (iff s_1 s_2) (and (or r_1 r_2') (or r_1' r_2)))
+
        The negation normal form steps NNF_POS and NNF_NEG are used in the following cases:
        (a) When creating the NNF of a positive force quantifier.
-        The quantifier is retained (unless the bound variables are eliminated).
-        Example
-        \nicebox{
-           T1: q ~ q_new
-           [nnf-pos T1]: (~ (forall (x T) q) (forall (x T) q_new))
-        }
+       The quantifier is retained (unless the bound variables are eliminated).
+       Example
+
+            T1: q ~ q_new
+            [nnf-pos T1]: (~ (forall (x T) q) (forall (x T) q_new))
+
        (b) When recursively creating NNF over Boolean formulas, where the top-level
        connective is changed during NNF conversion. The relevant Boolean connectives
        for NNF_POS are 'implies', 'iff', 'xor', 'ite'.
@@ -702,40 +703,40 @@ typedef enum
 
 
    - Z3_OP_PR_NNF_NEG: Proof for a (negative) NNF step. Examples:
-          \nicebox{
+
           T1: (not s_1) ~ r_1
           ...
           Tn: (not s_n) ~ r_n
-         [nnf-neg T1 ... Tn]: (not (and s_1 ... s_n)) ~ (or r_1 ... r_n)
-      and
+          [nnf-neg T1 ... Tn]: (not (and s_1 ... s_n)) ~ (or r_1 ... r_n)
+
+          and
+
           T1: (not s_1) ~ r_1
           ...
           Tn: (not s_n) ~ r_n
-         [nnf-neg T1 ... Tn]: (not (or s_1 ... s_n)) ~ (and r_1 ... r_n)
-      and
+          [nnf-neg T1 ... Tn]: (not (or s_1 ... s_n)) ~ (and r_1 ... r_n)
+
+          and
+
           T1: (not s_1) ~ r_1
           T2: (not s_2) ~ r_2
           T3: s_1 ~ r_1'
           T4: s_2 ~ r_2'
-         [nnf-neg T1 T2 T3 T4]: (~ (not (iff s_1 s_2))
+          [nnf-neg T1 T2 T3 T4]: (~ (not (iff s_1 s_2))
                                    (and (or r_1 r_2) (or r_1' r_2')))
-       }
 
    - Z3_OP_PR_SKOLEMIZE: Proof for:
 
-          \nicebox{
           [sk]: (~ (not (forall x (p x y))) (not (p (sk y) y)))
           [sk]: (~ (exists x (p x y)) (p (sk y) y))
-          }
 
-          This proof object has no antecedents.
+     This proof object has no antecedents.
 
    - Z3_OP_PR_MODUS_PONENS_OEQ: Modus ponens style rule for equi-satisfiability.
-       \nicebox{
+
           T1: p
           T2: (~ p q)
           [mp~ T1 T2]: q
-          }
 
     - Z3_OP_PR_TH_LEMMA: Generic proof for theory lemmas.
 
@@ -882,17 +883,17 @@ typedef enum
       - Z3_OP_PB_EQ: Generalized Pseudo-Boolean equality constraint.
               Example  2*x + 1*y + 2*z + 1*u = 4
 
-       - Z3_OP_SPECIAL_RELATION_LO: A relation that is a total linear order
+      - Z3_OP_SPECIAL_RELATION_LO: A relation that is a total linear order
 
-       - Z3_OP_SPECIAL_RELATION_PO: A relation that is a partial order
+      - Z3_OP_SPECIAL_RELATION_PO: A relation that is a partial order
 
-       - Z3_OP_SPECIAL_RELATION_PLO: A relation that is a piecewise linear order
+      - Z3_OP_SPECIAL_RELATION_PLO: A relation that is a piecewise linear order
 
-       - Z3_OP_SPECIAL_RELATION_TO: A relation that is a tree order
+      - Z3_OP_SPECIAL_RELATION_TO: A relation that is a tree order
 
-       - Z3_OP_SPECIAL_RELATION_TC: Transitive closure of a relation
+      - Z3_OP_SPECIAL_RELATION_TC: Transitive closure of a relation
 
-       - Z3_OP_SPECIAL_RELATION_TRC: Transitive reflexive closure of a relation
+      - Z3_OP_SPECIAL_RELATION_TRC: Transitive reflexive closure of a relation
 
       - Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN: Floating-point rounding mode RNE
 
@@ -1439,7 +1440,7 @@ typedef enum
     Z3_GOAL_UNDER_OVER
 } Z3_goal_prec;
 
-/*@}*/
+///@}
 
 #ifdef __cplusplus
 extern "C" {
@@ -1447,7 +1448,7 @@ extern "C" {
 
     /** @name Global Parameters */
 
-    /*@{*/
+    /**@{*/
     /**
        \brief Set a global (or module) parameter.
        This setting is shared by all Z3 contexts.
@@ -1501,7 +1502,7 @@ extern "C" {
     */
     Z3_bool_opt Z3_API Z3_global_param_get(Z3_string param_id, Z3_string_ptr param_value);
 
-    /*@}*/
+    /**@}*/
 
     /** @name Create configuration */
     /*@{*/
@@ -6820,6 +6821,5 @@ extern "C" {
 }
 #endif // __cplusplus
 
-/**
-@}*/
+/*@}*/
 
