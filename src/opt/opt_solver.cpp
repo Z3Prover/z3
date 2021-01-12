@@ -252,11 +252,10 @@ namespace opt {
                         
         auto decrement = [&]() {
             SASSERT(has_shared);
-            if (l_true != decrement_value(i, val)) {
-                if (l_true != m_context.check(0, nullptr))  
-                    throw default_exception("maximization suspended");
-                m_context.get_model(m_last_model);
-            }
+            decrement_value(i, val);
+            if (l_true != m_context.check(0, nullptr))  
+                throw default_exception("maximization suspended");
+            m_context.get_model(m_last_model);            
         };
 
         if (!val.is_finite()) {

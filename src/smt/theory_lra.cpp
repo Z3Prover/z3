@@ -3459,7 +3459,11 @@ public:
             st = lp::lp_status::UNBOUNDED;
         }
         else {
+            if (lp().get_status() != lp::lp_status::OPTIMAL || lp().has_changed_columns()) 
+                make_feasible();
+            
             vi = get_lpvar(v);
+            
             st = lp().maximize_term(vi, term_max);
             if (has_int() && lp().has_inf_int()) {
                 st = lp::lp_status::FEASIBLE;
@@ -3483,6 +3487,7 @@ public:
             return inf_eps(rational::zero(), val);
         }
         default:
+            std::cout << st << "\n";
             SASSERT(st == lp::lp_status::UNBOUNDED);
             TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
             has_shared = false;
