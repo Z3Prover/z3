@@ -3487,7 +3487,6 @@ public:
             return inf_eps(rational::zero(), val);
         }
         default:
-            std::cout << st << "\n";
             SASSERT(st == lp::lp_status::UNBOUNDED);
             TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
             has_shared = false;

@@ -75,32 +75,32 @@ namespace q {
         return result;
     }
 
+    /**
+     * 
+     */
+
     void mbqi::restrict_to_universe(expr* sk, ptr_vector<expr> const& universe) {
         SASSERT(!universe.empty());
         expr_ref_vector eqs(m);
+        euf::enode* n = nullptr;
         unsigned generation_min = UINT_MAX;
         for (expr* e : universe) {
-            euf::enode* n = nullptr;
             if (ctx.values2root().find(e, n)) {
                 unsigned g = n->class_generation();
+                generation_min = std::min(generation_min, g);
+                m_generation_max = std::max(m_generation_max, g);
                 if (g > m_generation_bound) {
                     std::cout << "SKIP\n";
                     continue;
                 }
-#if 1
-                if (g < generation_min) {
-                    std::cout << "RESET\n";
-                    eqs.reset();
-                }
-#endif
-                m_generation_max = std::max(m_generation_max, g);
-                generation_min = std::min(generation_min, g);
-
-                eqs.push_back(m.mk_eq(sk, e));
                 std::cout << mk_pp(e, m) << ": " << ctx.bpp(n) << " gen: " << n->generation() << " " << n->class_generation() << " class-size: " << n->get_root()->class_size() << "\n";
             }
-            else 
-                eqs.push_back(m.mk_eq(sk, e));            
+            eqs.push_back(m.mk_eq(sk, e));
+        }
+        if (eqs.empty()) {
+            for (expr* e : universe) 
+                if (ctx.values2root().find(e, n) && n->class_generation() <= generation_min)
+                    eqs.push_back(m.mk_eq(sk, e));
         }
         m_solver->assert_expr(mk_or(eqs));
     }
@@ -134,12 +134,16 @@ namespace q {
             if (count > m_max_choose_candidates)
                 break;
         }
+        std::cout << "choose " << r->class_size() << " " << expr_ref(r->get_expr(), m) << "\n";
         return expr_ref(r->get_expr(), m);
     }
 
     lbool mbqi::check_forall(quantifier* q) {
         quantifier* q_flat = m_qs.flatten(q);
         init_solver();
+        
+        m_generation_bound = 1;
+        m_generation_max = 0;
         ::solver::scoped_push _sp(*m_solver);
         std::cout << mk_pp(q, m, 4) << "\n";
         auto* qb = specialize(q_flat);
@@ -147,6 +151,12 @@ namespace q {
             return l_undef;
         if (m.is_false(qb->mbody))
             return l_true;
+
+        if (!qb->free_vars.empty())
+            quick_check(q, *qb);
+        
+        add_universe_restriction(q, *qb);
+        std::cout << "gen-max: " << m_generation_max << "\n";
 #if 0
         if (quick_check(q, *qb)) {
 
@@ -159,36 +169,46 @@ namespace q {
             return r;
         if (r == l_false)
             return l_true;
-        model_ref mdl0, mdl1;
+        model_ref mdl;
         expr_ref proj(m);
-        m_solver->get_model(mdl0);
-        unsigned i = 0;
+        m_solver->get_model(mdl);
+        if (check_forall_subst(q, *qb, *mdl))
+            return l_false;
+        else 
+            return check_forall_default(q, *qb, *mdl);
+    }
+
+    lbool mbqi::check_forall_default(quantifier* q, q_body& qb, model& mdl) {
         expr_ref_vector eqs(m);
-        if (!qb->var_args.empty()) {        
-            ::solver::scoped_push _sp(*m_solver);
-            add_domain_eqs(*mdl0, *qb);
-            for (; i < m_max_cex && l_true == m_solver->check_sat(0, nullptr); ++i) {
-                m_solver->get_model(mdl1);
-                proj = solver_project(*mdl1, *qb, eqs, true);
-                if (!proj)
-                    break;
-                std::cout << "project\n" << proj << "\n";
-                std::cout << "eqs: " << eqs << "\n";
-                add_instantiation(q, proj);
-                m_solver->assert_expr(m.mk_not(mk_and(eqs)));
-                std::cout << "solve again " << i << "\n";
-            }
-        }
-        if (i == 0) {
-            add_domain_bounds(*mdl0, *qb);
-            proj = solver_project(*mdl0, *qb, eqs, false);
-            if (!proj)
-                return l_undef;
-            std::cout << "project-base\n" << proj << "\n";            
-            add_instantiation(q, proj);
-        }
-        // TODO: add as top-level clause for relevancy        
+        add_domain_bounds(mdl, qb);
+        auto proj = solver_project(mdl, qb, eqs, false);
+        if (!proj)
+            return l_undef;
+        std::cout << "project-base\n" << proj << "\n";            
+        add_instantiation(q, proj);
         return l_false;
+    }
+
+    bool mbqi::check_forall_subst(quantifier* q, q_body& qb, model& mdl0) {
+        if (qb.var_args.empty())
+            return false;
+        model_ref mdl1;
+        expr_ref_vector eqs(m);
+        unsigned i = 0;
+        ::solver::scoped_push _sp(*m_solver);
+        add_domain_eqs(mdl0, qb);
+        for (; i < m_max_cex && l_true == m_solver->check_sat(0, nullptr); ++i) {
+            m_solver->get_model(mdl1);
+            auto proj = solver_project(*mdl1, qb, eqs, true);
+            if (!proj)
+                break;
+            std::cout << "project\n" << proj << "\n";
+            std::cout << "eqs: " << eqs << "\n";
+            add_instantiation(q, proj);
+            m_solver->assert_expr(m.mk_not(mk_and(eqs)));
+            std::cout << "solve again " << i << "\n";
+        }
+        return i > 0;
     }
 
     void mbqi::add_instantiation(quantifier* q, expr_ref& proj) {
@@ -201,6 +221,15 @@ namespace q {
         m_instantiations.push_back(instantiation_t(qlit, proj, generation));
     }
 
+    void mbqi::add_universe_restriction(quantifier* q, q_body& qb) {
+        unsigned sz = q->get_num_decls();
+        for (unsigned i = 0; i < sz; ++i) {
+            sort* s = q->get_decl_sort(i);
+            if (m_model->has_uninterpreted_sort(s))
+                restrict_to_universe(qb.vars.get(i), m_model->get_universe(s));
+        }
+    }
+
     mbqi::q_body* mbqi::specialize(quantifier* q) {
         var_subst subst(m);
         q_body* result = q2body(q);
@@ -208,12 +237,6 @@ namespace q {
         if (!m_model->eval_expr(q->get_expr(), mbody, true))
             return nullptr;
 
-        unsigned sz = q->get_num_decls();
-        for (unsigned i = 0; i < sz; ++i) {
-            sort* s = q->get_decl_sort(i);
-            if (m_model->has_uninterpreted_sort(s))
-                restrict_to_universe(result->vars.get(i), m_model->get_universe(s));
-        }
 
         mbody = subst(mbody, result->vars);
         if (is_forall(q))
@@ -452,7 +475,8 @@ namespace q {
     }
 
     bool mbqi::quick_check(quantifier* q, q_body& qb) {
-        unsigned max_rounds = 10;
+        std::cout << "QUICK-CHECK\n";
+        unsigned max_rounds = 100;
         unsigned_vector offsets;
         if (!first_offset(offsets, qb.vars))
             return false;
@@ -460,70 +484,78 @@ namespace q {
         unsigned bindings = 0;
         expr_ref_vector binding(m);
         for (unsigned i = 0; i < max_rounds && bindings < m_max_cex; ++i) {
-            if (!next_binding(offsets, qb.vars, binding))
-                break;            
+            set_binding(offsets, qb.vars, binding);
+            std::cout << "binding " << binding << "\n";
             if (m_model->is_true(qb.vbody)) {
                 expr_ref body(q->get_expr(), m);
                 body = subst(q->get_expr(), binding);
                 if (is_forall(q))
                     body = ::mk_not(m, body);
-                sat::literal qlit = ctx.expr2literal(q);
                 std::cout << "instantiate " << mk_pp(q, m) << "\n";
                 std::cout << "binding:\n" << binding << "\n";
                 std::cout << "body:\n" << body << "\n";
                 add_instantiation(q, body);
                 ++bindings;
             }                
+            if (!next_offset(offsets, qb.vars))
+                break;            
         }
         return bindings > 0;
     }
 
-    bool mbqi::first_offset(unsigned_vector& offsets, app_ref_vector const& vars) {
-        offsets.reset();
-        unsigned index = 0;
+    bool mbqi::next_offset(unsigned_vector& offsets, app_ref_vector const& vars, unsigned index, unsigned start) {
+        auto* v = vars[index];
+        sort* srt = m.get_sort(v);
         auto const& nodes = ctx.get_egraph().nodes();
         unsigned sz = nodes.size();
+        for (unsigned i = start; i < sz; ++i) {            
+            expr* e = nodes[i]->get_expr();
+            if (m.get_sort(e) == srt && !m.is_value(e)) {
+                offsets[index] = i;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool mbqi::first_offset(unsigned_vector& offsets, app_ref_vector const& vars) {
+        offsets.reset();
         for (app* v : vars) 
             offsets.push_back(0);
-        for (auto* v : vars) {
-            sort* srt = m.get_sort(v);
-            bool found = false;
-            unsigned i = offsets[index];
-            for (; i < sz; ++i) {
-                expr* e = nodes[i]->get_expr();
-                if (m.get_sort(e) == srt && !m.is_value(e)) {
-                    offsets[index] = i;
-                    break;
-                }
-            }
-            ++index;
-            if (i == sz)
+        for (unsigned i = 0; i < vars.size(); ++i) 
+            if (!next_offset(offsets, vars, i, 0))
                 return false;
-        }
         return true;
     }
 
-    bool mbqi::next_binding(unsigned_vector& offsets, app_ref_vector const& vars, expr_ref_vector& binding) {
-        auto const& nodes = ctx.get_egraph().nodes();
-        unsigned index = m_qs.random() % offsets.size();
-        unsigned i = offsets[index] + 1;
-        sort* srt = m.get_sort(vars[index]);
-        unsigned sz = nodes.size();
-        while (i < sz && m.get_sort(nodes[i]->get_expr()) != srt)
-            ++i;
-        if (i == sz)
-            return false;
-        if (nodes[i]->generation() > 0)
-            return false;
+    void mbqi::set_binding(unsigned_vector const& offsets, app_ref_vector const& vars, expr_ref_vector& binding) {
         binding.reset();
+        auto const& nodes = ctx.get_egraph().nodes();
         m_model->reset_eval_cache();
         for (unsigned j = 0; j < offsets.size(); ++j) {
             unsigned offset = offsets[j];
             binding.push_back(nodes[offset]->get_expr());
             m_model->register_decl(vars[j]->get_decl(), (*m_model)(binding.get(j)));
         }
-        offsets[index] = i;
+    }
+
+    bool mbqi::next_offset(unsigned_vector& offsets, app_ref_vector const& vars) {
+        for (unsigned i = 0; i < vars.size(); ++i) {
+            if (next_offset(offsets, vars, i, offsets[i] + 1))
+                return true;
+            if (!next_offset(offsets, vars, i, 0))
+                return false;
+        }
+        return false;
+#if 0
+        auto const& nodes = ctx.get_egraph().nodes();
+        unsigned index = m_qs.random() % offsets.size();
+        if (!next_offset(offsets, vars, index, offsets[index] + 1))
+            return false;
+        if (nodes[offsets[index]]->generation() > 1)
+            return false;
         return true;
+#endif
     }
 
     void mbqi::init_model() {

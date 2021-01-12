@@ -78,6 +78,7 @@ namespace q {
         q_body* specialize(quantifier* q);
         q_body* q2body(quantifier* q);
         expr_ref solver_project(model& mdl, q_body& qb, expr_ref_vector& eqs, bool use_inst);
+        void add_universe_restriction(quantifier* q, q_body& qb);
         void add_domain_eqs(model& mdl, q_body& qb);
         void add_domain_bounds(model& mdl, q_body& qb);
         void eliminate_nested_vars(expr_ref_vector& fmls, q_body& qb);
@@ -89,9 +90,14 @@ namespace q {
         void add_plugin(mbp::project_plugin* p);
         void add_instantiation(quantifier* q, expr_ref& proj);
 
+        lbool check_forall_default(quantifier* q, q_body& qb, model& mdl);
+        bool  check_forall_subst(quantifier* q, q_body& qb, model& mdl);
+
         bool quick_check(quantifier* q, q_body& qb);
-        bool next_binding(unsigned_vector& offsets, app_ref_vector const& vars, expr_ref_vector& binding);
+        bool next_offset(unsigned_vector& offsets, app_ref_vector const& vars);
         bool first_offset(unsigned_vector& offsets, app_ref_vector const& vars);
+        bool next_offset(unsigned_vector& offsets, app_ref_vector const& vars, unsigned i, unsigned start);
+        void set_binding(unsigned_vector const& offsets, app_ref_vector const& vars, expr_ref_vector& binding);
 
     public:
 
