@@ -72,7 +72,7 @@ def unpack(packages, symbols):
                     replace(f"{tmp}/{package_dir}/bin/libz3.pdb", f"out/runtimes/{dst}/native/libz3.pdb") 
                 files = ["Microsoft.Z3.dll"]                
                 if symbols:
-                    files += ["Microsoft.Z3.pdb"]
+                    files += ["Microsoft.Z3.pdb", "Microsoft.Z3.xml"]
                 for b in files:
                     zip_ref.extract(f"{package_dir}/bin/{b}", f"{tmp}")
                     replace(f"{tmp}/{package_dir}/bin/{b}", f"out/lib/netstandard1.4/{b}")
