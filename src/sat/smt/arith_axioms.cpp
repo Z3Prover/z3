@@ -323,6 +323,7 @@ namespace arith {
 
         if (is_eq) {       
             ++m_stats.m_assert_eq;
+            m_new_eq = true;
             euf::enode* n1 = var2enode(v1);
             euf::enode* n2 = var2enode(v2);
             lpvar w1 = register_theory_var_in_lar_solver(v1);
@@ -330,7 +331,6 @@ namespace arith {
             auto cs = lp().add_equality(w1, w2);            
             add_eq_constraint(cs.first, n1, n2);
             add_eq_constraint(cs.second, n1, n2);
-            m_new_eq = true;
             return;
         }
         literal le, ge;
