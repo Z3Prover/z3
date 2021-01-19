@@ -32,6 +32,7 @@ namespace q {
     class mbqi {
         struct stats {
             unsigned m_num_instantiations;
+            unsigned m_num_checks;
             
             stats() { reset(); }
 
@@ -90,7 +91,7 @@ namespace q {
         void add_plugin(mbp::project_plugin* p);
         void add_instantiation(quantifier* q, expr_ref& proj);
 
-        lbool check_forall_default(quantifier* q, q_body& qb, model& mdl);
+        bool check_forall_default(quantifier* q, q_body& qb, model& mdl);
         bool  check_forall_subst(quantifier* q, q_body& qb, model& mdl);
 
         bool quick_check(quantifier* q, q_body& qb);

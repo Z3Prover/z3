@@ -89,10 +89,8 @@ namespace q {
                 unsigned g = n->class_generation();
                 generation_min = std::min(generation_min, g);
                 m_generation_max = std::max(m_generation_max, g);
-                if (g > m_generation_bound) {
-                    std::cout << "SKIP\n";
+                if (g > m_generation_bound) 
                     continue;
-                }
                 std::cout << mk_pp(e, m) << ": " << ctx.bpp(n) << " gen: " << n->generation() << " " << n->class_generation() << " class-size: " << n->get_root()->class_size() << "\n";
             }
             eqs.push_back(m.mk_eq(sk, e));
@@ -134,7 +132,7 @@ namespace q {
             if (count > m_max_choose_candidates)
                 break;
         }
-        std::cout << "choose " << r->class_size() << " " << expr_ref(r->get_expr(), m) << "\n";
+        std::cout << "choose " << count << " " << r->class_size() << " " << gen << " " << expr_ref(r->get_expr(), m) << "\n";
         return expr_ref(r->get_expr(), m);
     }
 
@@ -142,9 +140,6 @@ namespace q {
         quantifier* q_flat = m_qs.flatten(q);
         init_solver();
         
-        m_generation_bound = 1;
-        m_generation_max = 0;
-        ::solver::scoped_push _sp(*m_solver);
         std::cout << mk_pp(q, m, 4) << "\n";
         auto* qb = specialize(q_flat);
         if (!qb)
@@ -152,41 +147,49 @@ namespace q {
         if (m.is_false(qb->mbody))
             return l_true;
 
+#if 0
         if (!qb->free_vars.empty())
             quick_check(q, *qb);
-        
-        add_universe_restriction(q, *qb);
-        std::cout << "gen-max: " << m_generation_max << "\n";
-#if 0
-        if (quick_check(q, *qb)) {
-
-            // return l_false;
-        }
 #endif
-        m_solver->assert_expr(qb->mbody);
-        lbool r = m_solver->check_sat(0, nullptr);
-        if (r == l_undef)
-            return r;
-        if (r == l_false)
-            return l_true;
-        model_ref mdl;
-        expr_ref proj(m);
-        m_solver->get_model(mdl);
-        if (check_forall_subst(q, *qb, *mdl))
-            return l_false;
-        else 
-            return check_forall_default(q, *qb, *mdl);
+
+        m_generation_bound = 0;
+        m_generation_max = 0;
+        while (true) {
+            ::solver::scoped_push _sp(*m_solver);
+            add_universe_restriction(q, *qb);
+            std::cout << "gen-max: " << m_generation_max << "\n";
+            m_solver->assert_expr(qb->mbody);
+            ++m_stats.m_num_checks;
+            lbool r = m_solver->check_sat(0, nullptr);
+            if (r == l_undef)
+                return r;
+            if (r == l_true) {
+                model_ref mdl;
+                expr_ref proj(m);
+                m_solver->get_model(mdl);
+                if (check_forall_subst(q, *qb, *mdl))
+                    return l_false;
+                if (check_forall_default(q, *qb, *mdl))
+                    return l_false;
+            }
+            if (m_generation_bound >= m_generation_max)
+                return l_true;
+            m_generation_bound += 1;
+            m_generation_bound *= 3;
+            m_generation_bound /= 2;
+        }
+        return l_true;
     }
 
-    lbool mbqi::check_forall_default(quantifier* q, q_body& qb, model& mdl) {
+    bool mbqi::check_forall_default(quantifier* q, q_body& qb, model& mdl) {
         expr_ref_vector eqs(m);
         add_domain_bounds(mdl, qb);
         auto proj = solver_project(mdl, qb, eqs, false);
         if (!proj)
-            return l_undef;
+            return false;
         std::cout << "project-base\n" << proj << "\n";            
         add_instantiation(q, proj);
-        return l_false;
+        return true;
     }
 
     bool mbqi::check_forall_subst(quantifier* q, q_body& qb, model& mdl0) {
@@ -197,7 +200,10 @@ namespace q {
         unsigned i = 0;
         ::solver::scoped_push _sp(*m_solver);
         add_domain_eqs(mdl0, qb);
-        for (; i < m_max_cex && l_true == m_solver->check_sat(0, nullptr); ++i) {
+        for (; i < m_max_cex; ++i) {
+            ++m_stats.m_num_checks;
+            if (l_true != m_solver->check_sat(0, nullptr))
+                break;
             m_solver->get_model(mdl1);
             auto proj = solver_project(*mdl1, qb, eqs, true);
             if (!proj)
@@ -475,7 +481,6 @@ namespace q {
     }
 
     bool mbqi::quick_check(quantifier* q, q_body& qb) {
-        std::cout << "QUICK-CHECK\n";
         unsigned max_rounds = 100;
         unsigned_vector offsets;
         if (!first_offset(offsets, qb.vars))
@@ -485,12 +490,13 @@ namespace q {
         expr_ref_vector binding(m);
         for (unsigned i = 0; i < max_rounds && bindings < m_max_cex; ++i) {
             set_binding(offsets, qb.vars, binding);
-            std::cout << "binding " << binding << "\n";
+            // std::cout << "binding " << binding << "\n";
             if (m_model->is_true(qb.vbody)) {
                 expr_ref body(q->get_expr(), m);
                 body = subst(q->get_expr(), binding);
                 if (is_forall(q))
                     body = ::mk_not(m, body);
+                std::cout << "QUICK-CHECK\n";
                 std::cout << "instantiate " << mk_pp(q, m) << "\n";
                 std::cout << "binding:\n" << binding << "\n";
                 std::cout << "body:\n" << body << "\n";
@@ -594,6 +600,7 @@ namespace q {
         if (m_solver)
             m_solver->collect_statistics(st);
         st.update("q-num-instantiations", m_stats.m_num_instantiations);
+        st.update("q-num-checks", m_stats.m_num_checks);
     }
 
 }
