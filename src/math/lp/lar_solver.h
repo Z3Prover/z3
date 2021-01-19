@@ -94,6 +94,8 @@ class lar_solver : public column_namer {
     // these are basic columns with the value changed, so the the corresponding row in the tableau
     // does not sum to zero anymore
     u_set                                               m_incorrect_columns;
+    // copy of m_r_solver.inf_set()
+    unsigned_vector                                     m_inf_index_copy;
     stacked_value<unsigned>                             m_term_count;
     vector<lar_term*>                                   m_terms;
     indexed_vector<mpq>                                 m_column_buffer;
