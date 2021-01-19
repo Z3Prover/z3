@@ -1863,16 +1863,6 @@ namespace sat {
         c.set_psm(r);
     }
     
-    unsigned ba_solver::max_var(unsigned w) const {
-        for (constraint* cp : m_constraints) {
-            w = cp->fold_max_var(w);
-        }
-        for (constraint* cp : m_learned) {
-            w = cp->fold_max_var(w);
-        }
-        return w;
-    }
-
     void ba_solver::gc() {
         if (m_learned.size() >= 2 * m_constraints.size() && 
             (s().at_search_lvl() || s().at_base_lvl())) {

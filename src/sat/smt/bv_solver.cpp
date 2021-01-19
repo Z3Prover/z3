@@ -710,7 +710,6 @@ namespace bv {
     bool solver::is_blocked(literal l, sat::ext_constraint_idx) { return false; }
     bool solver::check_model(sat::model const& m) const { return true; }
     void solver::finalize_model(model& mdl) {}
-    unsigned solver::max_var(unsigned w) const { return w; }
 
     void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {
         SASSERT(bv.is_bv(n->get_expr()));

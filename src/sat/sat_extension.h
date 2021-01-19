@@ -117,7 +117,6 @@ namespace sat {
         virtual void init_use_list(ext_use_list& ul) {}
         virtual bool is_blocked(literal l, ext_constraint_idx) { return false; }
         virtual bool check_model(model const& m) const { return true; }
-        virtual unsigned max_var(unsigned w) const { return w; }
 
         virtual bool extract_pb(std::function<void(unsigned sz, literal const* c, unsigned k)>& card,
                                 std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) {                                

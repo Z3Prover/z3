@@ -335,7 +335,6 @@ namespace bv {
         bool is_blocked(literal l, sat::ext_constraint_idx) override;
         bool check_model(sat::model const& m) const override;
         void finalize_model(model& mdl) override;
-        unsigned max_var(unsigned w) const override;
 
         void new_eq_eh(euf::th_eq const& eq) override;
         void new_diseq_eh(euf::th_eq const& ne) override;

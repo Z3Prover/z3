@@ -464,10 +464,13 @@ namespace euf {
             e->pop(n);
         si.pop(n);
         m_egraph.pop(n);
-        scope const & s = m_scopes[m_scopes.size() - n];
-        for (unsigned i = m_var_trail.size(); i-- > s.m_var_lim; )
-            m_bool_var2expr[m_var_trail[i]] = nullptr;
-        m_var_trail.shrink(s.m_var_lim);        
+        scope const & sc = m_scopes[m_scopes.size() - n];
+        for (unsigned i = m_var_trail.size(); i-- > sc.m_var_lim; ) {
+            bool_var v = m_var_trail[i];
+            m_bool_var2expr[v] = nullptr;
+            s().set_non_external(v);
+        }
+        m_var_trail.shrink(sc.m_var_lim);        
         m_scopes.shrink(m_scopes.size() - n);
         SASSERT(m_egraph.num_scopes() == m_scopes.size());
         TRACE("euf_verbose", display(tout << "pop to: " << m_scopes.size() << "\n"););
@@ -476,7 +479,7 @@ namespace euf {
     void solver::user_push() {
         push();
         if (m_dual_solver)
-            m_dual_solver->push();
+            m_dual_solver->push();        
     }
 
     void solver::user_pop(unsigned n) {
@@ -725,20 +728,7 @@ namespace euf {
                 return false;
         return true;
     }
-
-    unsigned solver::max_var(unsigned w) const { 
-        for (auto* e : m_solvers)
-            w = e->max_var(w);
-        for (unsigned sz = m_bool_var2expr.size(); sz > w && sz-- > 0; ) {
-            expr* n = m_bool_var2expr[sz];
-            if (n && m.is_bool(n)) {
-                w = std::max(w, sz);
-                break;
-            }           
-        }
-        return w; 
-    }
-
+    
     double solver::get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const {
         auto* ext = sat::constraint_base::to_extension(idx);
         SASSERT(ext);        
