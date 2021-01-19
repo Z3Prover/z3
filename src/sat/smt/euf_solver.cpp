@@ -728,6 +728,11 @@ namespace euf {
                 return false;
         return true;
     }
+
+    void solver::gc_vars(unsigned num_vars) {
+        for (auto* e : m_solvers)
+            e->gc_vars(num_vars);
+    }
     
     double solver::get_reward(literal l, ext_constraint_idx idx, sat::literal_occs_fun& occs) const {
         auto* ext = sat::constraint_base::to_extension(idx);

@@ -187,6 +187,7 @@ namespace sat {
         void cleanup_constraints();
         void cleanup_constraints(ptr_vector<constraint>& cs, bool learned);
         void remove_constraint(constraint& c, char const* reason);
+        void gc_vars(unsigned num_vars, ptr_vector<constraint>& cs);
 
         // constraints
         constraint& index2constraint(size_t idx) const { return *reinterpret_cast<constraint*>(constraint_base::from_index(idx)->mem()); }
@@ -424,6 +425,7 @@ namespace sat {
         void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) override;
         void pop_reinit() override;
         void gc() override;
+        void gc_vars(unsigned num_vars) override;
         bool is_extended_binary(ext_justification_idx idx, literal_vector & r) override;
         void init_use_list(ext_use_list& ul) override;
         bool is_blocked(literal l, ext_constraint_idx idx) override;

@@ -470,6 +470,9 @@ namespace sat {
         };
         gc_clauses(m_learned);
         gc_clauses(m_clauses);
+
+        if (m_ext)
+            m_ext->gc_vars(max_var);
         
         unsigned j = 0;
         for (literal lit : m_trail) {

@@ -304,6 +304,7 @@ namespace euf {
         void init_use_list(sat::ext_use_list& ul) override;
         bool is_blocked(literal l, ext_constraint_idx) override;
         bool check_model(sat::model const& m) const override;
+        void gc_vars(unsigned num_vars) override;
 
         // proof
         bool use_drat() { return s().get_config().m_drat && (init_drat(), true); }
