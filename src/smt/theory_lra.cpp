@@ -2289,8 +2289,15 @@ public:
         theory_var vv = lp().local_to_external(v); // so maybe better to have them already transformed to external form
         enode* n1 = get_enode(uv);
         enode* n2 = get_enode(vv);
-        if (n1->get_root() == n2->get_root() ||
-            m.get_sort(n1->get_owner()) != m.get_sort(n2->get_owner()))
+        if (n1->get_root() == n2->get_root())
+            return;
+        if (!ctx().is_shared(n1) || !ctx().is_shared(n2))
+            return;
+        expr* e1 = n1->get_owner();
+        expr* e2 = n2->get_owner();
+        if (m.get_sort(e1) != m.get_sort(e2))
+            return;
+        if (m.is_ite(e1) || m.is_ite(e2))
             return;
         reset_evidence();
         for (auto const& ev : e) 
@@ -2299,7 +2306,7 @@ public:
             ext_theory_eq_propagation_justification(
                 get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), n1, n2));
         
-        std::function<expr*(void)> fn = [&]() { return m.mk_eq(n1->get_owner(), n2->get_owner()); };
+        std::function<expr*(void)> fn = [&]() { return m.mk_eq(e1, e2); };
         scoped_trace_stream _sts(th, fn);
         ctx().assign_eq(n1, n2, eq_justification(js));        
     }
