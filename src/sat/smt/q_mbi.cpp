@@ -91,7 +91,7 @@ namespace q {
                 m_generation_max = std::max(m_generation_max, g);
                 if (g > m_generation_bound) 
                     continue;
-                std::cout << mk_pp(e, m) << ": " << ctx.bpp(n) << " gen: " << n->generation() << " " << n->class_generation() << " class-size: " << n->get_root()->class_size() << "\n";
+                // std::cout << mk_pp(e, m) << ": " << ctx.bpp(n) << " gen: " << n->generation() << " " << n->class_generation() << " class-size: " << n->get_root()->class_size() << "\n";
             }
             eqs.push_back(m.mk_eq(sk, e));
         }
@@ -132,7 +132,7 @@ namespace q {
             if (count > m_max_choose_candidates)
                 break;
         }
-        std::cout << "choose " << count << " " << r->class_size() << " " << gen << " " << expr_ref(r->get_expr(), m) << "\n";
+        // std::cout << "choose " << count << " " << r->class_size() << " " << gen << " " << expr_ref(r->get_expr(), m) << "\n";
         return expr_ref(r->get_expr(), m);
     }
 
@@ -140,24 +140,22 @@ namespace q {
         quantifier* q_flat = m_qs.flatten(q);
         init_solver();
         
-        std::cout << mk_pp(q, m, 4) << "\n";
+        // std::cout << mk_pp(q, m, 4) << "\n";
         auto* qb = specialize(q_flat);
         if (!qb)
             return l_undef;
         if (m.is_false(qb->mbody))
             return l_true;
-
-#if 0
-        if (!qb->free_vars.empty())
-            quick_check(q, *qb);
-#endif
+        if (quick_check(q, *qb))
+            return l_false;
 
         m_generation_bound = 0;
         m_generation_max = 0;
+        unsigned inc = 1;
         while (true) {
             ::solver::scoped_push _sp(*m_solver);
             add_universe_restriction(q, *qb);
-            std::cout << "gen-max: " << m_generation_max << "\n";
+            // std::cout << "gen-max: " << m_generation_max << "\n";
             m_solver->assert_expr(qb->mbody);
             ++m_stats.m_num_checks;
             lbool r = m_solver->check_sat(0, nullptr);
@@ -174,9 +172,8 @@ namespace q {
             }
             if (m_generation_bound >= m_generation_max)
                 return l_true;
-            m_generation_bound += 1;
-            m_generation_bound *= 3;
-            m_generation_bound /= 2;
+            m_generation_bound += inc;
+            inc += 1;
         }
         return l_true;
     }
@@ -187,7 +184,6 @@ namespace q {
         auto proj = solver_project(mdl, qb, eqs, false);
         if (!proj)
             return false;
-        std::cout << "project-base\n" << proj << "\n";            
         add_instantiation(q, proj);
         return true;
     }
@@ -208,11 +204,8 @@ namespace q {
             auto proj = solver_project(*mdl1, qb, eqs, true);
             if (!proj)
                 break;
-            std::cout << "project\n" << proj << "\n";
-            std::cout << "eqs: " << eqs << "\n";
             add_instantiation(q, proj);
             m_solver->assert_expr(m.mk_not(mk_and(eqs)));
-            std::cout << "solve again " << i << "\n";
         }
         return i > 0;
     }
@@ -343,10 +336,12 @@ namespace q {
             if (!m_model->eval_expr(bounds, mbounds, true))
                 return;
             mbounds = subst(mbounds, qb.vars);
+#if 0
             std::cout << "bounds: " << mk_pp(p.first, m) << " @ " << p.second << " - " << bounds << "\n";
             std::cout << "domain eqs " << mbounds << "\n";
             std::cout << "vbounds " << vbounds << "\n";
             std::cout << *m_model << "\n";
+#endif
             m_solver->assert_expr(mbounds);
             qb.domain_eqs.push_back(vbounds);
         }
@@ -369,7 +364,6 @@ namespace q {
                 expr* e = n->get_expr();
                 expr* val = ctx.node2value(n);                
                 if (val && m.get_sort(e) == srt && !m.is_value(e)) {
-                    std::cout << "g: " << n->generation() << "\n";
                     veqs.push_back(m.mk_eq(v, e));
                     meqs.push_back(m.mk_eq(v, val));
                     --bound;
@@ -379,8 +373,8 @@ namespace q {
             }
             if (veqs.empty())
                 continue;
-            std::cout << veqs << "\n";
-            std::cout << meqs << "\n";
+//            std::cout << veqs << "\n";
+//            std::cout << meqs << "\n";
             expr_ref meq = mk_or(meqs);
             expr_ref veq = mk_or(veqs);
             m_solver->assert_expr(meq);
@@ -496,10 +490,12 @@ namespace q {
                 body = subst(q->get_expr(), binding);
                 if (is_forall(q))
                     body = ::mk_not(m, body);
+#if 0
                 std::cout << "QUICK-CHECK\n";
                 std::cout << "instantiate " << mk_pp(q, m) << "\n";
                 std::cout << "binding:\n" << binding << "\n";
                 std::cout << "body:\n" << body << "\n";
+#endif
                 add_instantiation(q, body);
                 ++bindings;
             }                
@@ -515,23 +511,16 @@ namespace q {
         auto const& nodes = ctx.get_egraph().nodes();
         unsigned sz = nodes.size();
         for (unsigned i = start; i < sz; ++i) {            
-            expr* e = nodes[i]->get_expr();
+            euf::enode* n = nodes[i];
+            if (n->generation() > 0)
+                return false;
+            expr* e = n->get_expr();
             if (m.get_sort(e) == srt && !m.is_value(e)) {
                 offsets[index] = i;
                 return true;
             }
         }
         return false;
-    }
-
-    bool mbqi::first_offset(unsigned_vector& offsets, app_ref_vector const& vars) {
-        offsets.reset();
-        for (app* v : vars) 
-            offsets.push_back(0);
-        for (unsigned i = 0; i < vars.size(); ++i) 
-            if (!next_offset(offsets, vars, i, 0))
-                return false;
-        return true;
     }
 
     void mbqi::set_binding(unsigned_vector const& offsets, app_ref_vector const& vars, expr_ref_vector& binding) {
@@ -545,23 +534,25 @@ namespace q {
         }
     }
 
+    bool mbqi::first_offset(unsigned_vector& offsets, app_ref_vector const& vars) {
+        offsets.reset();
+        for (app* v : vars) 
+            offsets.push_back(0);
+        for (unsigned i = 0; i < vars.size(); ++i) 
+            if (!next_offset(offsets, vars, i, 0))
+                return false;
+        return true;
+    }
+
     bool mbqi::next_offset(unsigned_vector& offsets, app_ref_vector const& vars) {
         for (unsigned i = 0; i < vars.size(); ++i) {
             if (next_offset(offsets, vars, i, offsets[i] + 1))
                 return true;
-            if (!next_offset(offsets, vars, i, 0))
-                return false;
+            for (unsigned j = 0; j <= i; ++j)
+                if (!next_offset(offsets, vars, j, 0))
+                    return false;
         }
         return false;
-#if 0
-        auto const& nodes = ctx.get_egraph().nodes();
-        unsigned index = m_qs.random() % offsets.size();
-        if (!next_offset(offsets, vars, index, offsets[index] + 1))
-            return false;
-        if (nodes[offsets[index]]->generation() > 1)
-            return false;
-        return true;
-#endif
     }
 
     void mbqi::init_model() {
