@@ -423,6 +423,64 @@ namespace sat {
         return true;
     }
 
+    void solver::gc_vars(bool_var max_var) {
+        init_visited();
+        m_aux_literals.reset();
+        auto gc_watch = [&](literal lit) {
+            auto& wl1 = get_wlist(lit);
+            for (auto w : get_wlist(lit)) {
+                if (w.is_binary_clause() && w.get_literal().var() < max_var && !is_visited(w.get_literal())) {
+                    m_aux_literals.push_back(w.get_literal());
+                    mark_visited(w.get_literal());
+                }
+            }
+            wl1.reset();
+        };
+        for (unsigned v = max_var; v < num_vars(); ++v) {
+            gc_watch(literal(v, false));
+            gc_watch(literal(v, true));
+        }
+
+        for (literal lit : m_aux_literals) {
+            auto& wl2 = get_wlist(~lit);
+            unsigned j = 0;
+            for (auto w2 : wl2) 
+                if (!w2.is_binary_clause() || w2.get_literal().var() < max_var)
+                    wl2[j++] = w2;
+            wl2.shrink(j);                        
+        }
+        m_aux_literals.reset();
+
+        auto gc_clauses = [&](ptr_vector<clause>& clauses) {
+            unsigned j = 0;
+            for (clause* c : clauses) {
+                bool should_remove = false;
+                for (auto lit : *c) 
+                    should_remove |= lit.var() >= max_var;
+                if (should_remove) {
+                    SASSERT(!c->on_reinit_stack());
+                    detach_clause(*c);
+                    del_clause(*c);
+                }
+                else {
+                    clauses[j++] = c;
+                }
+            }
+            clauses.shrink(j);
+        };
+        gc_clauses(m_learned);
+        gc_clauses(m_clauses);
+        
+        unsigned j = 0;
+        for (literal lit : m_trail) {
+            SASSERT(lvl(lit) == 0);
+            if (lit.var() < max_var)
+                m_trail[j++] = lit;
+        }
+        m_trail.shrink(j);
+        shrink_vars(max_var);
+    }
+
 #if 0
     void solver::gc_reinit_stack(unsigned num_scopes) {
         SASSERT (!at_base_lvl());

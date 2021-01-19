@@ -287,6 +287,7 @@ namespace sat {
         bool propagate_bin_clause(literal l1, literal l2);
         clause * mk_ter_clause(literal * lits, status st);
         bool attach_ter_clause(clause & c, status st);
+        bool propagate_ter_clause(clause& c);
         clause * mk_nary_clause(unsigned num_lits, literal * lits, status st);
         bool has_variables_to_reinit(clause const& c) const;
         bool has_variables_to_reinit(literal l1, literal l2) const;
@@ -651,14 +652,11 @@ namespace sat {
         void reinit_clauses(unsigned old_sz);
 
         literal_vector m_user_scope_literals;
+        vector<svector<bool_var>> m_free_var_freeze;
         literal_vector m_aux_literals;
         svector<bin_clause> m_user_bin_clauses;
-        void gc_lit(clause_vector& clauses, literal lit);
-        void gc_bin(literal lit);
-        void gc_var(bool_var v);
 
-        bool_var max_var(clause_vector& clauses, bool_var v);
-        bool_var max_var(bool learned, bool_var v);
+        void gc_vars(bool_var max_var);
 
         // -----------------------
         //
