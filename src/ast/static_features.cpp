@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "ast/static_features.h"
 #include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
 
 static_features::static_features(ast_manager & m):
     m(m),
@@ -301,7 +302,6 @@ void static_features::update_core(expr * e) {
                 m_num_interpreted_constants++;
         }
         if (fid == m_afid) {
-            // std::cout << mk_pp(e, m) << "\n";
             switch (to_app(e)->get_decl_kind()) {
             case OP_MUL:
                 if (!is_numeral(to_app(e)->get_arg(0)) || to_app(e)->get_num_args() > 2) {
@@ -405,11 +405,13 @@ void static_features::process(expr * e, bool form_ctx, bool or_and_ctx, bool ite
         return;
     }    
     if (stack_depth > m_max_stack_depth) {
+        for (expr* arg : subterms(expr_ref(e, m))) 
+            if (get_depth(arg) <= 3 || is_quantifier(arg)) 
+                process(arg, form_ctx, or_and_ctx, ite_ctx, stack_depth-10);
         return;
     }
     mark(e);
     update_core(e);
-
 
     if (is_quantifier(e)) {
         expr * body = to_quantifier(e)->get_expr();
@@ -444,11 +446,8 @@ void static_features::process(expr * e, bool form_ctx, bool or_and_ctx, bool ite
     unsigned or_and_depth = 0;
     unsigned ite_depth = 0;
 
-    unsigned num_args = to_app(e)->get_num_args();
-    for (unsigned i = 0; i < num_args; i++) {
-        expr * arg = to_app(e)->get_arg(i);
-        if (m.is_not(arg))
-            arg = to_app(arg)->get_arg(0);
+    for (expr* arg : *to_app(e)) {
+        m.is_not(arg, arg);
         process(arg, form_ctx_new, or_and_ctx_new, ite_ctx_new, stack_depth+1);
         depth        = std::max(depth, get_depth(arg));
         if (form_ctx_new)
