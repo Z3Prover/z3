@@ -226,7 +226,7 @@ stages:
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
-        artifactName: 'NuGet'
+        artifactName: 'NuGetPackage'
 
   - job: PythonPackage
     displayName: "Python packaging"
