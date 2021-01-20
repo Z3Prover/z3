@@ -65,7 +65,7 @@ bool has_skolem_functions(expr * n) {
 }
 
 subterms::subterms(expr_ref_vector const& es): m_es(es) {}
-subterms::subterms(expr_ref& e) : m_es(e.m()) { m_es.push_back(e); }
+subterms::subterms(const expr_ref& e) : m_es(e.m()) { m_es.push_back(e); }
 subterms::iterator subterms::begin() { return iterator(*this, true); }
 subterms::iterator subterms::end() { return iterator(*this, false); }
 subterms::iterator::iterator(subterms& f, bool start): m_es(f.m_es) {

@@ -182,7 +182,7 @@ public:
         bool operator!=(iterator const& other) const;
     };
     subterms(expr_ref_vector const& es);
-    subterms(expr_ref& e);
+    subterms(const expr_ref& e);
     iterator begin();
     iterator end();
 };
