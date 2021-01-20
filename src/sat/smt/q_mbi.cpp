@@ -76,9 +76,10 @@ namespace q {
     }
 
     /**
-     * 
+     * Restrict solutions to sk to be among a finite set of expressions drawn from
+     * 'universe'. Include only expressions that are equal to some term created
+     * using at most 'm_generation_bound' quantifier instantiations.
      */
-
     void mbqi::restrict_to_universe(expr* sk, ptr_vector<expr> const& universe) {
         SASSERT(!universe.empty());
         expr_ref_vector eqs(m);
@@ -91,7 +92,6 @@ namespace q {
                 m_generation_max = std::max(m_generation_max, g);
                 if (g > m_generation_bound) 
                     continue;
-                // std::cout << mk_pp(e, m) << ": " << ctx.bpp(n) << " gen: " << n->generation() << " " << n->class_generation() << " class-size: " << n->get_root()->class_size() << "\n";
             }
             eqs.push_back(m.mk_eq(sk, e));
         }
@@ -132,7 +132,6 @@ namespace q {
             if (count > m_max_choose_candidates)
                 break;
         }
-        // std::cout << "choose " << count << " " << r->class_size() << " " << gen << " " << expr_ref(r->get_expr(), m) << "\n";
         return expr_ref(r->get_expr(), m);
     }
 
@@ -140,7 +139,6 @@ namespace q {
         quantifier* q_flat = m_qs.flatten(q);
         init_solver();
         
-        // std::cout << mk_pp(q, m, 4) << "\n";
         auto* qb = specialize(q_flat);
         if (!qb)
             return l_undef;
@@ -155,7 +153,6 @@ namespace q {
         while (true) {
             ::solver::scoped_push _sp(*m_solver);
             add_universe_restriction(q, *qb);
-            // std::cout << "gen-max: " << m_generation_max << "\n";
             m_solver->assert_expr(qb->mbody);
             ++m_stats.m_num_checks;
             lbool r = m_solver->check_sat(0, nullptr);
@@ -235,7 +232,6 @@ namespace q {
         expr_ref& mbody = result->mbody;
         if (!m_model->eval_expr(q->get_expr(), mbody, true))
             return nullptr;
-
 
         mbody = subst(mbody, result->vars);
         if (is_forall(q))
@@ -336,12 +332,6 @@ namespace q {
             if (!m_model->eval_expr(bounds, mbounds, true))
                 return;
             mbounds = subst(mbounds, qb.vars);
-#if 0
-            std::cout << "bounds: " << mk_pp(p.first, m) << " @ " << p.second << " - " << bounds << "\n";
-            std::cout << "domain eqs " << mbounds << "\n";
-            std::cout << "vbounds " << vbounds << "\n";
-            std::cout << *m_model << "\n";
-#endif
             m_solver->assert_expr(mbounds);
             qb.domain_eqs.push_back(vbounds);
         }
@@ -355,26 +345,21 @@ namespace q {
             expr_ref_vector veqs(m), meqs(m);
             auto const& nodes = ctx.get_egraph().nodes();
             unsigned sz = nodes.size();
-            unsigned bound = 10;
-            unsigned start = m_qs.random() % sz;
-            start = 0;
-            for (unsigned i = 0; i < sz; ++i) {
-                unsigned j = (i + start) % sz;
-                auto* n = nodes[j];
+            unsigned bound = m_max_unbounded_equalities;
+            expr_mark visited;
+            for (unsigned i = 0; i < sz && 0 < bound; ++i) {
+                auto* n = nodes[i];
                 expr* e = n->get_expr();
                 expr* val = ctx.node2value(n);                
-                if (val && m.get_sort(e) == srt && !m.is_value(e)) {
+                if (val && m.get_sort(e) == srt && !m.is_value(e) && !visited.is_marked(val)) {
+                    visited.mark(val);
                     veqs.push_back(m.mk_eq(v, e));
                     meqs.push_back(m.mk_eq(v, val));
                     --bound;
-                    if (bound == 0)
-                        break;
                 }
             }
             if (veqs.empty())
                 continue;
-//            std::cout << veqs << "\n";
-//            std::cout << meqs << "\n";
             expr_ref meq = mk_or(meqs);
             expr_ref veq = mk_or(veqs);
             m_solver->assert_expr(meq);
@@ -475,34 +460,26 @@ namespace q {
     }
 
     bool mbqi::quick_check(quantifier* q, q_body& qb) {
-        unsigned max_rounds = 100;
         unsigned_vector offsets;
         if (!first_offset(offsets, qb.vars))
             return false;
         var_subst subst(m);
-        unsigned bindings = 0;
+        unsigned max_rounds = m_max_quick_check_rounds;
+        unsigned num_bindings = 0;
         expr_ref_vector binding(m);
-        for (unsigned i = 0; i < max_rounds && bindings < m_max_cex; ++i) {
+        for (unsigned i = 0; i < max_rounds && num_bindings < m_max_cex; ++i) {
             set_binding(offsets, qb.vars, binding);
-            // std::cout << "binding " << binding << "\n";
             if (m_model->is_true(qb.vbody)) {
-                expr_ref body(q->get_expr(), m);
-                body = subst(q->get_expr(), binding);
+                expr_ref body = subst(q->get_expr(), binding);
                 if (is_forall(q))
                     body = ::mk_not(m, body);
-#if 0
-                std::cout << "QUICK-CHECK\n";
-                std::cout << "instantiate " << mk_pp(q, m) << "\n";
-                std::cout << "binding:\n" << binding << "\n";
-                std::cout << "body:\n" << body << "\n";
-#endif
                 add_instantiation(q, body);
-                ++bindings;
+                ++num_bindings;
             }                
             if (!next_offset(offsets, qb.vars))
                 break;            
         }
-        return bindings > 0;
+        return num_bindings > 0;
     }
 
     bool mbqi::next_offset(unsigned_vector& offsets, app_ref_vector const& vars, unsigned index, unsigned start) {

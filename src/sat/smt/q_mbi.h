@@ -65,6 +65,8 @@ namespace q {
         scoped_ptr_vector<mbp::project_plugin> m_plugins;
         obj_map<quantifier, q_body*>           m_q2body;
         unsigned                               m_max_cex{ 1 };
+        unsigned                               m_max_quick_check_rounds { 100 };
+        unsigned                               m_max_unbounded_equalities { 10 };
         unsigned                               m_max_choose_candidates { 10 };
         unsigned                               m_generation_bound{ UINT_MAX };
         unsigned                               m_generation_max { UINT_MAX };
@@ -92,7 +94,7 @@ namespace q {
         void add_instantiation(quantifier* q, expr_ref& proj);
 
         bool check_forall_default(quantifier* q, q_body& qb, model& mdl);
-        bool  check_forall_subst(quantifier* q, q_body& qb, model& mdl);
+        bool check_forall_subst(quantifier* q, q_body& qb, model& mdl);
 
         bool quick_check(quantifier* q, q_body& qb);
         bool next_offset(unsigned_vector& offsets, app_ref_vector const& vars);
