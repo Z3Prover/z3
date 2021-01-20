@@ -415,7 +415,7 @@ namespace qe {
         expr_ref_vector  m_trail;          // trail for generated terms
         expr_ref_vector  m_args; 
         ptr_vector<expr> m_todo;           // stack of formulas to visit
-        bool_vector    m_pols;           // stack of polarities
+        bool_vector      m_pols;           // stack of polarities
         bool_rewriter    m_rewriter;
         
     public:
@@ -553,8 +553,7 @@ namespace qe {
             unsigned num_args = a->get_num_args();
             expr_ref tmp(m);
             bool visited = true;
-            for (unsigned i = 0; i < num_args; ++i) {
-                expr* arg = a->get_arg(i);
+            for (expr* arg : *a) {
                 expr* r = lookup(arg, p);
                 if (r) {
                     m_args.push_back(r);
@@ -565,12 +564,10 @@ namespace qe {
             }
             if (visited) {
                 pop();
-                if ((p && is_and) || (!p && !is_and)) {
-                    m_rewriter.mk_and(num_args, m_args.c_ptr(), tmp);
-                }
-                else {
-                    m_rewriter.mk_or(num_args, m_args.c_ptr(), tmp);
-                }
+                if (p == is_and) 
+                    tmp = mk_and(m_args);
+                else
+                    tmp = mk_or(m_args);
                 insert(a, p, tmp);
             }
         }
@@ -693,13 +690,13 @@ namespace qe {
             }
             else if (m.is_and(e) || m.is_or(e)) {
                 m_args.reset();
-                for (unsigned i = 0; i < e->get_num_args(); ++i) {
-                    if (m_cache.find(e->get_arg(i), f)) {
+                for (expr* arg : *e) {
+                    if (m_cache.find(arg, f)) {
                         m_args.push_back(f);
                     }
                     else {
                         all_visit = false;
-                        m_todo.push_back(e->get_arg(i));
+                        m_todo.push_back(arg);
                     }
                 }
                 if (all_visit) {
@@ -817,18 +814,15 @@ namespace qe {
             while (!m_todo.empty()) {
                 expr* e = m_todo.back();
                 m_todo.pop_back();
-                if (m_visited.is_marked(e)) {
+                if (m_visited.is_marked(e)) 
                     continue;
-                }
                 m_visited.mark(e, true);
-                if (!is_app(e) || !m_is_relevant(e)) {
+                if (!is_app(e) || !m_is_relevant(e)) 
                     continue;
-                }
                 app* a = to_app(e);
                 if (m.is_and(a) || m.is_or(a)) {
-                    for (unsigned i = 0; i < a->get_num_args(); ++i) {
-                        m_todo.push_back(a->get_arg(i));
-                    }
+                    for (expr* arg : *a)
+                        m_todo.push_back(arg);
                 }
                 else if (m.is_not(a, e) && is_app(e)) {
                     neg.insert(to_app(e));
