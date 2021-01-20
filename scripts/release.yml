@@ -17,7 +17,7 @@ stages:
   - job: MacBuild
     displayName: "macOS Build"
     pool:
-      vmImage: "macOS-10.14"
+      vmImage: "macOS-latest"
     steps:
     - task: PythonScript@0
       displayName: Build
