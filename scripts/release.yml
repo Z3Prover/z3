@@ -294,6 +294,11 @@ stages:
         artifact: 'WindowsBuild-x86'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
+      displayName: "Download Python"
+      inputs:
+        artifactName: 'PythonPackage'
+        path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
       displayName: 'Download Win64 Build'
       inputs:
         artifact: 'WindowsBuild-x64'

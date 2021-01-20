@@ -3,7 +3,6 @@ RELEASE NOTES
 Version 4.8.next
 ================
 - Planned features
-  - rewritten arithmetic solver replacing legacy arithmetic solver and on by default
   - self-contained character theory, direct support for UTF8, Unicode character sets
   - specialized solver support for QF_ABV and ABV based on lazy SMT and dual reduction
     - the smtfd solver and tactic implement this strategy, but is not prime for users.
@@ -11,6 +10,10 @@ Version 4.8.next
   - circuit optimization techniques for BV in-processing are available as the sat.cut
     option, but at this point does not translate into benefits. It is currently 
     turned off by default.
+
+Version 4.8.10
+==============
+  - rewritten arithmetic solver replacing legacy arithmetic solver and on by default
 
 Version 4.8.9
 =============
