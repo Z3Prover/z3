@@ -102,7 +102,6 @@ namespace sat {
         for (; it != end; ++it) {
             clause & c     = *(*it);
             TRACE("sats", tout << "processing: " << c << "\n";);
-            TRACE("scc_details", m_solver.display_watches(tout););
             unsigned sz    = c.size();
             unsigned i;
             for (i = 0; i < sz; i++) {
