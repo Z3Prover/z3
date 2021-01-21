@@ -21,7 +21,7 @@ jobs:
 - job: "LinuxPythonDebug"
   displayName: "Ubuntu build - python make - debug"
   pool:
-    vmImage: "Ubuntu-16.04"
+    vmImage: "Ubuntu-latest"
   strategy:
     matrix:
       MT:
@@ -70,7 +70,7 @@ jobs:
   displayName: "Ubuntu build - cmake"
   condition: eq(0,1) 
   pool:
-    vmImage: "Ubuntu-16.04"
+    vmImage: "Ubuntu-latest"
   strategy:
     matrix:
       msanClang:
@@ -103,7 +103,7 @@ jobs:
 - job: "Ubuntu16CMake"
   displayName: "Ubuntu build - cmake"
   pool:
-    vmImage: "Ubuntu-16.04"
+    vmImage: "Ubuntu-latest"
   strategy:
     matrix:
       releaseClang:
