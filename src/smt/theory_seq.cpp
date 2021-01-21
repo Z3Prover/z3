@@ -354,7 +354,7 @@ final_check_status theory_seq::final_check_eh() {
         TRACEFIN("zero_length");
         return FC_CONTINUE;
     }
-    if (ctx.get_fparams().m_seq_use_unicode && !m_unicode.final_check()) {
+    if (m_unicode.enabled() && !m_unicode.final_check()) {
         return FC_CONTINUE;
     }
     if (get_fparams().m_split_w_len && len_based_split()) {
@@ -737,7 +737,6 @@ void theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits
         set_conflict(dep, lits);
         return;
     }
-
     ctx.mark_as_relevant(lit);
     enode_pair_vector eqs;
     linearize(dep, eqs, lits);
@@ -1519,6 +1518,11 @@ bool theory_seq::internalize_term(app* term) {
         bool_var bv = ctx.mk_bool_var(term);
         ctx.set_var_theory(bv, get_id());
         ctx.mark_as_relevant(bv);
+        if (m_util.is_char_le(term) && m_unicode.enabled()) {
+            mk_var(ensure_enode(term->get_arg(0)));
+            mk_var(ensure_enode(term->get_arg(1)));
+            m_unicode.internalize_le(literal(bv, false), term);
+        }
     }
 
     enode* e = nullptr;
@@ -1528,10 +1532,15 @@ bool theory_seq::internalize_term(app* term) {
     else {
         e = ctx.mk_enode(term, false, m.is_bool(term), true);
     }
-    mk_var(e);
+    theory_var v = mk_var(e);
     if (!ctx.relevancy()) {
         relevant_eh(term);
     }
+
+    unsigned c = 0;
+    if (m_unicode.enabled() && m_util.is_const_char(term, c))
+        m_unicode.new_const_char(v, c);
+    
     return true;
 }
 
@@ -2015,6 +2024,10 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
         m_concat.shrink(start);        
         return sv;
     }
+    else if (m_unicode.enabled() && m_util.is_char(e)) {
+        unsigned ch = m_unicode.get_value(n->get_th_var(get_id()));
+        return alloc(expr_wrapper_proc, m_util.str.mk_char(ch));
+    }
     else {
         return alloc(expr_wrapper_proc, mk_value(e));
     }
@@ -2319,7 +2332,7 @@ void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector cons
 theory_var theory_seq::mk_var(enode* n) {
     expr* o = n->get_owner();
 
-    if (!m_util.is_seq(o) && !m_util.is_re(o))
+    if (!m_util.is_seq(o) && !m_util.is_re(o) && (!m_unicode.enabled() || !m_util.is_char(o)))
         return null_theory_var;
 
     if (is_attached_to_var(n)) 
@@ -2333,7 +2346,7 @@ theory_var theory_seq::mk_var(enode* n) {
 }
 
 bool theory_seq::can_propagate() {
-    return m_axioms_head < m_axioms.size() || !m_replay.empty() || m_new_solution || m_unicode.can_propagate() || m_regex.can_propagate();
+    return m_axioms_head < m_axioms.size() || !m_replay.empty() || m_new_solution || m_regex.can_propagate();
 }
 
 bool theory_seq::canonize(expr* e, dependency*& eqs, expr_ref& result) {
@@ -2525,8 +2538,6 @@ void theory_seq::add_dependency(dependency*& dep, enode* a, enode* b) {
 
 
 void theory_seq::propagate() {
-    if (ctx.get_fparams().m_seq_use_unicode)
-        m_unicode.propagate();
     if (m_regex.can_propagate())
         m_regex.propagate();
     while (m_axioms_head < m_axioms.size() && !ctx.inconsistent()) {
@@ -2980,13 +2991,8 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     else if (m_util.str.is_nth_i(e) || m_util.str.is_nth_u(e)) {
         // no-op
     }
-    else if (ctx.get_fparams().m_seq_use_unicode && m_util.is_char_le(e, e1, e2)) {
-        theory_var v1 = get_th_var(ctx.get_enode(e1));
-        theory_var v2 = get_th_var(ctx.get_enode(e2));
-        if (is_true) 
-            m_unicode.assign_le(v1, v2, lit);
-        else
-            m_unicode.assign_lt(v2, v1, lit);
+    else if (m_unicode.enabled() && m_util.is_char_le(e)) {
+        // no-op
     }
     else if (m_util.is_skolem(e)) {
         
@@ -3006,7 +3012,7 @@ void theory_seq::new_eq_eh(theory_var v1, theory_var v2) {
     enode* n2 = get_enode(v2);
     expr* o1 = n1->get_owner();
     expr* o2 = n2->get_owner();
-    if (ctx.get_fparams().m_seq_use_unicode && m_util.is_char(o1)) {
+    if (m_unicode.enabled() && m_util.is_char(o1)) {
         m_unicode.new_eq_eh(v1, v2);
         return;
     }
@@ -3057,7 +3063,7 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
         m_regex.propagate_ne(e1, e2);
         return;
     }
-    if (ctx.get_fparams().m_seq_use_unicode && m_util.is_char(n1->get_owner())) {
+    if (m_unicode.enabled() && m_util.is_char(n1->get_owner())) {
         m_unicode.new_diseq_eh(v1, v2);
         return;
     }

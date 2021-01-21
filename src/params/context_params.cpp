@@ -114,6 +114,9 @@ void context_params::set(char const * param, char const * value) {
     else if (p == "smtlib2_compliant") {
         set_bool(m_smtlib2_compliant, param, value);
     }
+    else if (p == "unicode") {
+        set_bool(m_unicode, param, value);
+    }
     else {
         param_descrs d;
         collect_param_descrs(d);
@@ -145,6 +148,7 @@ void context_params::updt_params(params_ref const & p) {
     m_debug_ref_count   = p.get_bool("debug_ref_count", m_debug_ref_count);
     m_smtlib2_compliant = p.get_bool("smtlib2_compliant", m_smtlib2_compliant);
     m_statistics        = p.get_bool("stats", m_statistics);
+    m_unicode           = p.get_bool("unicode", m_unicode);
 }
 
 void context_params::collect_param_descrs(param_descrs & d) {
@@ -161,6 +165,7 @@ void context_params::collect_param_descrs(param_descrs & d) {
     d.insert("debug_ref_count", CPK_BOOL, "debug support for AST reference counting", "false");
     d.insert("smtlib2_compliant", CPK_BOOL, "enable/disable SMT-LIB 2.0 compliance", "false");
     d.insert("stats", CPK_BOOL, "enable/disable statistics", "false");
+    d.insert("unicode", CPK_BOOL, "use unicode strings instead of ASCII strings");
     // statistics are hidden as they are controlled by the /st option.
     collect_solver_param_descrs(d);
 }

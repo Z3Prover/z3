@@ -44,6 +44,7 @@ public:
     bool        m_smtlib2_compliant { false }; // it must be here because it enable/disable the use of coercions in the ast_manager.
     unsigned    m_timeout { UINT_MAX } ;
     bool        m_statistics { false };
+    bool        m_unicode { false };
 
     unsigned rlimit() const { return m_rlimit; }
     context_params();

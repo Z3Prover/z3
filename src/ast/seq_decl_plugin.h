@@ -27,14 +27,11 @@ Revision History:
 #include <string>
 #include "util/lbool.h"
 
-#define Z3_USE_UNICODE 0
 
 enum seq_sort_kind {
     SEQ_SORT,
     RE_SORT,
-#if Z3_USE_UNICODE
     _CHAR_SORT,     // internal only
-#endif
     _STRING_SORT,  
     _REGLAN_SORT
 };
@@ -90,10 +87,8 @@ enum seq_op_kind {
     OP_STRING_TO_CODE,
     OP_STRING_FROM_CODE,
 
-#if Z3_USE_UNICODE
     OP_CHAR_CONST,    // constant character
     OP_CHAR_LE,       // Unicode comparison
-#endif
     // internal only operators. Converted to SEQ variants.
     _OP_STRING_FROM_CHAR,
     _OP_STRING_STRREPL,
@@ -120,13 +115,15 @@ class zstring {
 private:
     buffer<unsigned> m_buffer;
     bool well_formed() const;
+    bool uses_unicode() const;
+    bool is_escape_char(char const *& s, unsigned& result);
 public:
     static unsigned max_char() { return 196607; }
+    static unsigned num_bits() { return 16; }
     zstring() {}
     zstring(char const* s);
     zstring(const std::string &str) : zstring(str.c_str()) {}
     zstring(unsigned sz, unsigned const* s) { m_buffer.append(sz, s); SASSERT(well_formed()); }
-    zstring(unsigned num_bits, bool const* ch);
     zstring(unsigned ch);
     zstring replace(zstring const& src, zstring const& dst) const;
     zstring reverse() const;
@@ -174,6 +171,7 @@ class seq_decl_plugin : public decl_plugin {
     sort*            m_reglan;
     bool             m_has_re;
     bool             m_has_seq;
+    bool             m_unicode { false };
 
     void match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
@@ -201,6 +199,8 @@ public:
 
     ~seq_decl_plugin() override {}
     void finalize() override;
+
+    bool unicode() const { return m_unicode; }
 
     decl_plugin * mk_fresh() override { return alloc(seq_decl_plugin); }
 
@@ -260,14 +260,12 @@ public:
     bool is_re(expr* e, sort*& seq) const { return is_re(m.get_sort(e), seq); }
     bool is_char(expr* e) const { return is_char(m.get_sort(e)); }
     bool is_const_char(expr* e, unsigned& c) const;
-#if Z3_USE_UNICODE
-    bool is_char_le(expr const* e) const { return is_app_of(e, m_fid, OP_CHAR_LE); }
-#else
-    bool is_char_le(expr const* e) const { return bv().is_bv_ule(e) && is_char(to_app(e)->get_arg(0)); }
-#endif
+    bool is_const_char(expr* e) const { unsigned c; return is_const_char(e, c); }
+    bool is_char_le(expr const* e) const;
+    app* mk_char_bit(expr* e, unsigned i);
     app* mk_char(unsigned ch) const;
     app* mk_le(expr* ch1, expr* ch2) const;
-    app* mk_lt(expr* ch1, expr* ch2) const;
+    app* mk_lt(expr* ch1, expr* ch2) const;    
 
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
@@ -317,6 +315,7 @@ public:
         app* mk_replace(expr* a, expr* b, expr* c) const { expr* es[3] = { a, b, c}; return m.mk_app(m_fid, OP_SEQ_REPLACE, 3, es); }
         app* mk_unit(expr* u) const { return m.mk_app(m_fid, OP_SEQ_UNIT, 1, &u); }
         app* mk_char(zstring const& s, unsigned idx) const;
+        app* mk_char_bit(expr* e, unsigned i);
         app* mk_itos(expr* i) const { return m.mk_app(m_fid, OP_STRING_ITOS, 1, &i); }
         app* mk_stoi(expr* s) const { return m.mk_app(m_fid, OP_STRING_STOI, 1, &s); }
         app* mk_is_empty(expr* s) const;

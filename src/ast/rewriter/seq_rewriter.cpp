@@ -719,6 +719,9 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 1);
         st = mk_str_stoi(args[0], result);
         break;
+    case OP_CHAR_LE:
+    case OP_CHAR_CONST:
+        break;
     case _OP_STRING_CONCAT:
     case _OP_STRING_PREFIX:
     case _OP_STRING_SUFFIX:
