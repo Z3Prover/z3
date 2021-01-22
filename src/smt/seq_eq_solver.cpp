@@ -663,7 +663,7 @@ bool theory_seq::branch_binary_variable(eq const& e) {
     if (lenX + rational(xs.size()) != lenY + rational(ys.size())) {
         // |x| - |y| = |ys| - |xs|
         expr_ref a(mk_sub(mk_len(x), mk_len(y)), m);
-        expr_ref b(m_autil.mk_int(ys.size()-xs.size()), m);
+        expr_ref b(m_autil.mk_int(rational(ys.size())-rational(xs.size())), m);
         propagate_lit(e.dep(), 0, nullptr, mk_eq(a, b, false));
         return true;
     }
@@ -792,7 +792,7 @@ bool theory_seq::can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector c
             // ls = x ++ rs ++ y, diff = |x|
             else {
                 unsigned diff = (i + 1) - rs.size();
-                for (unsigned j = 0; same && j < rs.size()-1; ++j) {
+                for (unsigned j = 0; same && j + 1 < rs.size(); ++j) {
                     same = !m.are_distinct(ls[diff + j], rs[j]);
                 }
                 if (same) {

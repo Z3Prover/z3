@@ -1267,18 +1267,11 @@ bool theory_seq::solve_nc(unsigned idx) {
     nc const& n = m_ncs[idx];
     literal len_gt = n.len_gt();
     expr_ref c(m);
-#if 1
     expr* a = nullptr, *b = nullptr;
     VERIFY(m_util.str.is_contains(n.contains(), a, b));
     literal pre, cnt, ctail, emp;
     lbool is_gt = ctx.get_assignment(len_gt);
     TRACE("seq", ctx.display_literal_smt2(tout << len_gt << " := " << is_gt << "\n", len_gt) << "\n";);
-
-#if 0
-    if (canonizes(false, n.contains())) {
-        return true;
-    }
-#endif
     
     switch (is_gt) {
     case l_true:
@@ -1292,30 +1285,8 @@ bool theory_seq::solve_nc(unsigned idx) {
     case l_false: 
         break;
     }
-#if 0
-    expr_ref a1(m), b1(m);
-    dependency* deps = n.deps();    
-    if (!canonize(a, deps, a1)) {
-        return false;
-    }
-    if (!canonize(b, deps, b1)) {
-        return false;
-    }
-    if (a != a1 || b != b1) {
-        literal_vector lits;
-        expr_ref c(m_util.str.mk_contains(a1, b1), m);
-        propagate_eq(deps, lits, c, n.contains(), false);
-        m_ncs.push_back(nc(c, len_gt, deps));       
-        m_new_propagation = true;
-        return true;
-    }
-    IF_VERBOSE(0, verbose_stream() << n.contains() << "\n");
-#endif    
     m_ax.unroll_not_contains(n.contains());
-    return true;
-    
-#endif    
-    return false;
+    return true;   
 }
 
 theory_seq::cell* theory_seq::mk_cell(cell* p, expr* e, dependency* d) {
@@ -1561,10 +1532,6 @@ void theory_seq::add_length_limit(expr* s, unsigned k, bool is_searching) {
         return;
     if (m_sk.is_indexof_right(s))
         return;
-#if 0
-    if (m_sk.is_skolem(s))
-        return;
-#endif
     expr_ref lim_e = m_ax.add_length_limit(s, k);
     unsigned k0 = 0;
     if (m_length_limit_map.find(s, k0)) {
@@ -3182,16 +3149,16 @@ void theory_seq::add_theory_assumptions(expr_ref_vector & assumptions) {
         m_max_unfolding_lit = mk_literal(dlimit);        
         assumptions.push_back(dlimit);
         for (auto const& kv : m_length_limit_map) {
-            assumptions.push_back(m_sk.mk_length_limit(kv.m_key, kv.m_value));
+            if (kv.m_value > 0)
+                assumptions.push_back(m_sk.mk_length_limit(kv.m_key, kv.m_value));
         }
     }
 }
 
 bool theory_seq::should_research(expr_ref_vector & unsat_core) {
     TRACE("seq", tout << unsat_core << " " << m_util.has_re() << "\n";);
-    if (!m_has_seq) {
+    if (!m_has_seq) 
         return false;
-    }
     unsigned k_min = UINT_MAX, k = 0, n = 0;
     expr* s_min = nullptr, *s = nullptr;
     bool has_max_unfolding = false;
@@ -3210,7 +3177,8 @@ bool theory_seq::should_research(expr_ref_vector & unsat_core) {
             }
         }
     }
-    if (k_min < UINT_MAX) {
+
+    if (k_min < UINT_MAX/4) {
         m_max_unfolding_depth++;
         k_min *= 2;
         if (m_util.is_seq(s_min))
@@ -3224,6 +3192,10 @@ bool theory_seq::should_research(expr_ref_vector & unsat_core) {
         IF_VERBOSE(1, verbose_stream() << "(smt.seq :increase-depth " << m_max_unfolding_depth << ")\n");
         return true;
     }
+    else if (k_min >= UINT_MAX/4) {
+        throw default_exception("reached max unfolding");
+    }
+
     return false;
 }
 
