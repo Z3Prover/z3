@@ -337,7 +337,7 @@ def Z3_set_error_handler(ctx, hndlr, _elems=Elementaries(_lib.Z3_set_error_handl
   _elems.Check(ctx)
   return ceh
 
-def Z3_solver_propagate_init(ctx, s, user_ctx, push_eh, pop_eh, fresh_eh, _elems = Elementaries(_lib.Z3_solver_propagate_init)):    
+def Z3_solver_propagate_init(ctx, s, user_ctx, push_eh, pop_eh, fresh_eh, _elems = Elementaries(_lib.Z3_solver_propagate_init)):
     _elems.f(ctx, s, user_ctx, push_eh, pop_eh, fresh_eh)
     _elems.Check(ctx)
 
@@ -806,7 +806,7 @@ def mk_js(js_output_dir):
            ous.write("    {\n")
            ous.write("       \"name\": \"%s\",\n" % name)
            ous.write("       \"c_type\": \"%s\",\n" % Type2Str[result])
-           ous.write("       \"napi_type\": \"%s\",\n" % type2napi(result))                       
+           ous.write("       \"napi_type\": \"%s\",\n" % type2napi(result))
            ous.write("       \"arg_list\": [")
            first = True
            for p in params:
@@ -819,7 +819,7 @@ def mk_js(js_output_dir):
                k = t
                ous.write("            \"name\": \"%s\",\n" % "")                        # TBD
                ous.write("            \"c_type\": \"%s\",\n" % type2str(t))
-               ous.write("            \"napi_type\": \"%s\",\n" % type2napi(t))        
+               ous.write("            \"napi_type\": \"%s\",\n" % type2napi(t))
                ous.write("            \"napi_builder\": \"%s\"\n" % type2napibuilder(t))
                ous.write(  "         }")
            ous.write("],\n")
@@ -995,7 +995,7 @@ def def_API(name, result, params):
                 exe_c.write("in.get_bool(%s)" % i)
             elif ty == VOID_PTR:
                 log_c.write("  P(0);\n")
-                exe_c.write("in.get_obj_addr(%s)" % i)                
+                exe_c.write("in.get_obj_addr(%s)" % i)
             elif ty == PRINT_MODE or ty == ERROR_CODE:
                 log_c.write("  U(static_cast<unsigned>(a%s));\n" % i)
                 exe_c.write("static_cast<%s>(in.get_uint(%s))" % (type2str(ty), i))
@@ -1748,7 +1748,7 @@ del _default_dirs
 del _all_dirs
 del _ext
 """)
-    
+
 def write_core_py_preamble(core_py):
   core_py.write(
 """
@@ -1819,25 +1819,33 @@ if _lib is None:
     print("    builtins.Z3_LIB_DIRS = [ '/path/to/libz3.%s' ] " % _ext)
   raise Z3Exception("libz3.%s not found." % _ext)
 
-def _str_to_bytes(s):
-  if isinstance(s, str):
-    try: 
-      return s.encode('latin-1')
-    except:
-      # kick the bucket down the road.  :-J
-      return s
-  else:
-    return s
+# def _str_to_bytes(s):
+#   if isinstance(s, str):
+#     try:
+#       return s.encode('latin-1')
+#     except:
+#       # kick the bucket down the road.  :-J
+#       return s
+#   else:
+#     return s
 
 if sys.version < '3':
+  def _str_to_bytes(s):
+    return s
   def _to_pystr(s):
      return s
 else:
+  def _str_to_bytes(s):
+    if isinstance(s, str):
+        enc = sys.stdout.encoding
+        return s.encode(enc if enc != None else 'latin-1')
+    else:
+      return s
+
   def _to_pystr(s):
      if s != None:
         enc = sys.stdout.encoding
-        if enc != None: return s.decode(enc)
-        else: return s.decode('latin-1')
+        return s.decode(enc if enc != None else 'latin-1')
      else:
         return ""
 
@@ -1959,7 +1967,7 @@ def generate_files(api_files,
       mk_dotnet_wrappers(dotnet_file)
       if mk_util.is_verbose():
         print("Generated '{}'".format(dotnet_file.name))
-        
+
   if java_output_dir:
     mk_java(java_output_dir, java_package_name)
 
