@@ -25,16 +25,25 @@ namespace smt {
 
     class seq_unicode {
 
+
+        struct stats {
+            unsigned m_num_ackerman;
+            unsigned m_num_bounds;
+            unsigned m_num_blast;
+            stats() { reset(); }
+            void reset() { memset(this, 0, sizeof(*this)); }
+        };
+
         theory&          th;
         ast_manager&     m;
         seq_util         seq;
-        bv_util          bv;
         vector<literal_vector>  m_bits;
         vector<expr_ref_vector> m_ebits;
         unsigned_vector  m_var2value;
         svector<theory_var> m_value2var;
         bool             m_enabled { false };
         bit_blaster      m_bb;
+        stats            m_stats;
 
         struct reset_bits;
 
@@ -82,6 +91,8 @@ namespace smt {
         unsigned get_value(theory_var v);
 
         void internalize_le(literal lit, app* term);
+
+        void collect_statistics(::statistics& st) const;
         
     };
 

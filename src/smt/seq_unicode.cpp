@@ -24,7 +24,6 @@ namespace smt {
         th(th),
         m(th.get_manager()),
         seq(m),
-        bv(m),
         m_bb(m, ctx().get_fparams())
     {
         m_enabled = gparams::get_value("unicode") == "true";
@@ -67,6 +66,7 @@ namespace smt {
             bits.push_back(literal(ctx().get_bool_var(arg)));            
         for (literal bit : bits)
             ctx().mark_as_relevant(bit);
+        ++m_stats.m_num_blast;
     }
 
     void seq_unicode::internalize_le(literal lit, app* term) {
@@ -164,7 +164,6 @@ namespace smt {
         // extract the initial set of constants.
         uint_set values;
         unsigned c = 0, d = 0;
-        bool requires_fix = false;
         for (unsigned v = th.get_num_vars(); v-- > 0; ) {
             expr* e = th.get_expr(v);
             if (seq.is_char(e) && m_var2value[v] == UINT_MAX && get_value(v, c)) {
@@ -174,20 +173,19 @@ namespace smt {
                 theory_var u = m_value2var[c];
                 if (u != null_theory_var && r != th.get_enode(u)->get_root()) {
                     enforce_ackerman(u, v);
-                    requires_fix = true;
-                    continue;
+                    return false;
                 }
                 if (c >= zstring::max_char()) {
                     enforce_value_bound(v);
-                    requires_fix = true;
-                    continue;
+                    return false;
                 }
                 for (enode* n : *r) {
                     u = n->get_th_var(th.get_id());
+                    if (u == null_theory_var)
+                        continue;
                     if (get_value(u, d) && d != c) {
                         enforce_ackerman(u, v);
-                        requires_fix = true;
-                        break;
+                        return false;
                     }
                     m_var2value[u] = c;
                 }
@@ -195,8 +193,6 @@ namespace smt {
                 m_value2var[c] = v;
             }
         }
-        if (requires_fix)
-            return false;
         
         // assign values to other unassigned nodes
         c = 'a';
@@ -241,6 +237,7 @@ namespace smt {
         expr_ref le(m);
         m_bb.mk_ule(bits.size(), bits.c_ptr(), mbits.c_ptr(), le);
         ctx().assign(th.mk_literal(le), nullptr);
+        ++m_stats.m_num_bounds;
     }
 
     void seq_unicode::enforce_ackerman(theory_var v, theory_var w) {
@@ -262,6 +259,7 @@ namespace smt {
         // a = b => eq
         lits.push_back(eq);
         ctx().mk_th_axiom(th.get_id(), lits.size(), lits.c_ptr());
+        ++m_stats.m_num_ackerman;
     }
     
     unsigned seq_unicode::get_value(theory_var v) {
@@ -280,6 +278,12 @@ namespace smt {
             p *= 2;
         }
         return true;
+    }
+
+    void seq_unicode::collect_statistics(::statistics& st) const {
+        st.update("seq char ackerman", m_stats.m_num_ackerman);
+        st.update("seq char bounds",   m_stats.m_num_bounds);
+        st.update("seq char2bit",    m_stats.m_num_blast);
     }
 }
 

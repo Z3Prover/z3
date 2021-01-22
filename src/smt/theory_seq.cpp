@@ -1769,6 +1769,7 @@ void theory_seq::collect_statistics(::statistics & st) const {
     st.update("seq extensionality", m_stats.m_extensionality);
     st.update("seq fixed length", m_stats.m_fixed_length);
     st.update("seq int.to.str", m_stats.m_int_string);
+    m_unicode.collect_statistics(st);
 }
 
 void theory_seq::init_search_eh() {
