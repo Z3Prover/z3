@@ -1049,18 +1049,23 @@ bool seq_decl_plugin::is_considered_uninterpreted(func_decl * f) {
     return util.str.is_nth_u(f);
 }
 
+bool seq_decl_plugin::is_unique_value(app* e) const {
+    if (is_app_of(e, m_family_id, OP_CHAR_CONST))
+        return true;
+    return false;
+}
+
 bool seq_decl_plugin::is_value(app* e) const {
     while (true) {
-        if (is_app_of(e, m_family_id, OP_SEQ_EMPTY)) {
+        if (is_app_of(e, m_family_id, OP_SEQ_EMPTY)) 
             return true;
-        }
-        if (is_app_of(e, m_family_id, OP_STRING_CONST)) {
+        if (is_app_of(e, m_family_id, OP_STRING_CONST)) 
             return true;
-        }
+        if (is_app_of(e, m_family_id, OP_CHAR_CONST))
+            return true;
         if (is_app_of(e, m_family_id, OP_SEQ_UNIT) &&
-            m_manager->is_value(e->get_arg(0))) {
+            m_manager->is_value(e->get_arg(0))) 
             return true;
-        }
         if (is_app_of(e, m_family_id, OP_SEQ_CONCAT)) {
             bool first = true;
             for (expr* arg : *e) {
@@ -1086,29 +1091,23 @@ bool seq_decl_plugin::are_equal(app* a, app* b) const {
 }
 
 bool seq_decl_plugin::are_distinct(app* a, app* b) const {
-    if (a == b) {
+    if (a == b) 
         return false;
-    }
     if (is_app_of(a, m_family_id, OP_STRING_CONST) &&
-        is_app_of(b, m_family_id, OP_STRING_CONST)) {
+        is_app_of(b, m_family_id, OP_STRING_CONST)) 
         return true;
-    }
+    if (is_app_of(a, m_family_id, OP_CHAR_CONST) && 
+        is_app_of(b, m_family_id, OP_CHAR_CONST)) 
+        return true;
     if (is_app_of(a, m_family_id, OP_SEQ_UNIT) && 
-        is_app_of(b, m_family_id, OP_SEQ_UNIT)) {
+        is_app_of(b, m_family_id, OP_SEQ_UNIT)) 
         return m_manager->are_distinct(a->get_arg(0), b->get_arg(0));
-    }
     if (is_app_of(a, m_family_id, OP_SEQ_EMPTY) && 
-        is_app_of(b, m_family_id, OP_SEQ_UNIT)) {
+        is_app_of(b, m_family_id, OP_SEQ_UNIT)) 
         return true;
-    }
     if (is_app_of(b, m_family_id, OP_SEQ_EMPTY) && 
-        is_app_of(a, m_family_id, OP_SEQ_UNIT)) {
+        is_app_of(a, m_family_id, OP_SEQ_UNIT)) 
         return true;
-    }        
-    if (unicode() && is_app_of(a, m_family_id, OP_CHAR_CONST) && 
-        is_app_of(b, m_family_id, OP_CHAR_CONST)) {
-        return true;
-    }
     return false;
 }
 

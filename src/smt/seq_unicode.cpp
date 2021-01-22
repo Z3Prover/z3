@@ -67,6 +67,8 @@ namespace smt {
         ctx().internalize(ebits.c_ptr(), ebits.size(), true);
         for (expr* arg : ebits)
             bits.push_back(literal(ctx().get_bool_var(arg)));            
+        for (literal bit : bits)
+            ctx().mark_as_relevant(bit);
     }
 
     void seq_unicode::internalize_le(literal lit, app* term) {
@@ -102,7 +104,7 @@ namespace smt {
             literal _eq = null_literal;
             auto eq = [&]() {
                 if (_eq == null_literal) 
-                    _eq = th.mk_eq(th.get_expr(v), th.get_expr(w), false);
+                    _eq = th.mk_literal(m.mk_eq(th.get_expr(v), th.get_expr(w)));
                 return _eq;
             };
             for (; i-- > 0; ) {
@@ -158,7 +160,7 @@ namespace smt {
      */
     bool seq_unicode::final_check() {   
         m_var2value.reset();
-        m_var2value.resize(th.get_num_vars(), 0);
+        m_var2value.resize(th.get_num_vars(), UINT_MAX);
         m_value2var.reset();
 
         // extract the initial set of constants.
@@ -167,61 +169,58 @@ namespace smt {
         bool requires_fix = false;
         for (unsigned v = th.get_num_vars(); v-- > 0; ) {
             expr* e = th.get_expr(v);
-            if (seq.is_char(e) && th.get_enode(v)->is_root() && get_value(v, c)) {
+            if (seq.is_char(e) && m_var2value[v] == UINT_MAX && get_value(v, c)) {
+                CTRACE("seq", seq.is_char(e), tout << mk_pp(e, m) << " root: " << th.get_enode(v)->is_root() << " is_value: " << get_value(v, c) << "\n";);
+                enode* r = th.get_enode(v)->get_root();
+                m_value2var.reserve(c + 1, null_theory_var);
+                theory_var u = m_value2var[c];
+                if (u != null_theory_var && r != th.get_enode(u)->get_root()) {
+                    enforce_ackerman(u, v);
+                    requires_fix = true;
+                    continue;
+                }
                 if (c >= zstring::max_char()) {
                     enforce_value_bound(v);
                     requires_fix = true;
                     continue;
                 }
-                values.insert(c);
-                m_var2value[v] = c;
-                m_value2var.reserve(c + 1, null_theory_var);
-                theory_var w = m_value2var[c];
-                if (w != null_theory_var && th.get_enode(v)->get_root() != th.get_enode(w)->get_root()) {
-                    enforce_ackerman(v, w);
-                    requires_fix = true;
-                }
-                else {
-                    m_value2var[c] = v;
-                }
-                for (enode* n : *th.get_enode(v)) {
-                    theory_var w = n->get_th_var(th.get_id());
-                    if (v != w && get_value(w, d) && d != c) {
-                        enforce_ackerman(v, w);
+
+                for (enode* n : *r) {
+                    u = n->get_th_var(th.get_id());
+                    if (get_value(u, d) && d != c) {
+                        enforce_ackerman(u, v);
                         requires_fix = true;
                         break;
                     }
+                    m_var2value[u] = c;
                 }
+                values.insert(c);
+                m_value2var[c] = v;
             }
         }
         if (requires_fix)
             return false;
         
-        // assign values to roots
+        // assign values to other unassigned nodes
         c = 'a';
         for (unsigned v = th.get_num_vars(); v-- > 0; ) {
             expr* e = th.get_expr(v);
-            if (!seq.is_char(e) || !th.get_enode(v)->is_root() || get_value(v, d))
-                continue;
-                       
-            d = c;
-            while (values.contains(c)) {
-                c = (c + 1) % zstring::max_char();
-                if (d == c) {
-                    enforce_bits();
-                    return false;
-                }                    
-            }
-            m_var2value[v] = c;
-            values.insert(c);
-        }
-        for (unsigned v = th.get_num_vars(); v-- > 0; ) {
-            expr* e = th.get_expr(v);
-            if (seq.is_char(e) && !th.get_enode(v)->is_root() && !get_value(v, d)) {
-                theory_var w = th.get_enode(v)->get_root()->get_th_var(th.get_id());
-                SASSERT(w != v && w != null_theory_var);
-                m_var2value[v] = m_var2value[w];
-            }     
+            if (seq.is_char(e) && m_var2value[v] == UINT_MAX) {
+                d = c;
+                while (values.contains(c)) {
+                    c = (c + 1) % zstring::max_char();
+                    if (d == c) {
+                        enforce_bits();
+                        return false;
+                    }                    
+                }
+                TRACE("seq", tout << "fresh: " << mk_pp(e, m) << " := " << c << "\n";);
+                for (enode* n : *th.get_enode(v)) 
+                    m_var2value[n->get_th_var(th.get_id())] = c;
+                m_value2var.reserve(c + 1, null_theory_var);
+                m_value2var[c] = v;
+                values.insert(c);
+            }                       
         }
         return true;
     }
@@ -249,12 +248,14 @@ namespace smt {
 
     void seq_unicode::enforce_ackerman(theory_var v, theory_var w) {
         TRACE("seq", tout << "enforce ackerman " << v << " " << w << "\n";);
-        literal eq = th.mk_eq(th.get_expr(v), th.get_expr(w), false);
+        literal eq = th.mk_literal(m.mk_eq(th.get_expr(v), th.get_expr(w)));
+        ctx().mark_as_relevant(eq);
         literal_vector lits;
         auto& a = get_ebits(v);
         auto& b = get_ebits(w);
         for (unsigned i = a.size(); i-- > 0; ) {
             literal beq = th.mk_eq(a[i], b[i], false);
+            ctx().mark_as_relevant(beq);
             lits.push_back(~beq);
             // eq => a = b
             ctx().mk_th_axiom(th.get_id(), ~eq, beq);

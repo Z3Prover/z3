@@ -3192,7 +3192,7 @@ bool theory_seq::should_research(expr_ref_vector & unsat_core) {
         IF_VERBOSE(1, verbose_stream() << "(smt.seq :increase-depth " << m_max_unfolding_depth << ")\n");
         return true;
     }
-    else if (k_min >= UINT_MAX/4) {
+    else if (k_min != UINT_MAX && k_min >= UINT_MAX/4) {
         throw default_exception("reached max unfolding");
     }
 
