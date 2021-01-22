@@ -1819,15 +1819,6 @@ if _lib is None:
     print("    builtins.Z3_LIB_DIRS = [ '/path/to/libz3.%s' ] " % _ext)
   raise Z3Exception("libz3.%s not found." % _ext)
 
-# def _str_to_bytes(s):
-#   if isinstance(s, str):
-#     try:
-#       return s.encode('latin-1')
-#     except:
-#       # kick the bucket down the road.  :-J
-#       return s
-#   else:
-#     return s
 
 if sys.version < '3':
   def _str_to_bytes(s):
@@ -1840,7 +1831,7 @@ else:
         enc = sys.stdout.encoding
         return s.encode(enc if enc != None else 'latin-1')
     else:
-      return s
+        return s
 
   def _to_pystr(s):
      if s != None:
