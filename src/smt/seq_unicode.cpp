@@ -30,7 +30,6 @@ namespace smt {
         m_enabled = gparams::get_value("unicode") == "true";
     }
 
-
     struct seq_unicode::reset_bits : public trail<context> {
         seq_unicode& s;
         unsigned idx;
