@@ -17,7 +17,6 @@ Author:
 
 #include "smt/seq_unicode.h"
 #include "smt/smt_context.h"
-#include "util/trail.h"
 
 namespace smt {
 
@@ -81,6 +80,7 @@ namespace smt {
         expr_ref e(m);
         m_bb.mk_ule(b1.size(), b1.c_ptr(), b2.c_ptr(), e);
         literal le = th.mk_literal(e);
+        ctx().mark_as_relevant(le);
         ctx().mk_th_axiom(th.get_id(), ~lit, le);
         ctx().mk_th_axiom(th.get_id(), lit, ~le);
     }
@@ -99,15 +99,16 @@ namespace smt {
     void seq_unicode::new_eq_eh(theory_var v, theory_var w) {  
         if (has_bits(v) && has_bits(w)) {
             auto& a = get_bits(v);
-            auto& b = get_bits(w);
-            unsigned i = a.size();
+            auto& b = get_bits(w);            
             literal _eq = null_literal;
             auto eq = [&]() {
-                if (_eq == null_literal) 
+                if (_eq == null_literal) {
                     _eq = th.mk_literal(m.mk_eq(th.get_expr(v), th.get_expr(w)));
+                    ctx().mark_as_relevant(_eq);
+                }
                 return _eq;
             };
-            for (; i-- > 0; ) {
+            for (unsigned i = a.size(); i-- > 0; ) {
                 lbool v1 = ctx().get_assignment(a[i]);
                 lbool v2 = ctx().get_assignment(b[i]);
                 if (v1 != l_undef && v2 != l_undef && v1 != v2) {
@@ -151,12 +152,10 @@ namespace smt {
     }
 
     /**
-     * 1. Extract values of roots.
-     *    Check that values of roots are unique.
-     *    Check that values assigned to non-roots align with root values.
-     *    Enforce that values of roots are within max_char.
-     * 2. Assign values to other roots that haven't been assigned.
-     * 3. Assign values to non-roots using values of roots.
+     * 1. Check that values of classes are unique.
+     *    Check that values within each class is the same. 
+     *    Enforce that values are within max_char.
+     * 2. Assign values to characters that haven't been assigned.
      */
     bool seq_unicode::final_check() {   
         m_var2value.reset();
@@ -184,7 +183,6 @@ namespace smt {
                     requires_fix = true;
                     continue;
                 }
-
                 for (enode* n : *r) {
                     u = n->get_th_var(th.get_id());
                     if (get_value(u, d) && d != c) {
@@ -247,6 +245,8 @@ namespace smt {
     }
 
     void seq_unicode::enforce_ackerman(theory_var v, theory_var w) {
+        if (v > w) 
+            std::swap(v, w);
         TRACE("seq", tout << "enforce ackerman " << v << " " << w << "\n";);
         literal eq = th.mk_literal(m.mk_eq(th.get_expr(v), th.get_expr(w)));
         ctx().mark_as_relevant(eq);
@@ -254,10 +254,10 @@ namespace smt {
         auto& a = get_ebits(v);
         auto& b = get_ebits(w);
         for (unsigned i = a.size(); i-- > 0; ) {
-            literal beq = th.mk_eq(a[i], b[i], false);
-            ctx().mark_as_relevant(beq);
-            lits.push_back(~beq);
             // eq => a = b
+            literal beq = th.mk_eq(a[i], b[i], false);
+            lits.push_back(~beq);
+            ctx().mark_as_relevant(beq);
             ctx().mk_th_axiom(th.get_id(), ~eq, beq);
         }        
         // a = b => eq
