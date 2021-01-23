@@ -1994,7 +1994,9 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
     }
     else if (m_unicode.enabled() && m_util.is_char(e)) {
         unsigned ch = m_unicode.get_value(n->get_th_var(get_id()));
-        return alloc(expr_wrapper_proc, m_util.str.mk_char(ch));
+        app* val = m_util.str.mk_char(ch);
+        m_factory->add_trail(val);
+        return alloc(expr_wrapper_proc, val);
     }
     else {
         return alloc(expr_wrapper_proc, mk_value(e));
