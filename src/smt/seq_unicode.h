@@ -44,6 +44,7 @@ namespace smt {
         bool             m_enabled { false };
         bit_blaster      m_bb;
         stats            m_stats;
+        symbol           m_bits2char;
 
         struct reset_bits;
 

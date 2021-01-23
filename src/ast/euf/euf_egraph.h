@@ -247,6 +247,8 @@ namespace euf {
         */
         bool are_diseq(enode* a, enode* b) const;
 
+        enode * get_enode_eq_to(func_decl * f, unsigned num_args, enode * const * args) { UNREACHABLE(); return nullptr; }
+
         /**
            \brief Maintain and update cursor into propagated consequences.
            The result of get_literal() is a pair (n, is_eq)
@@ -279,6 +281,11 @@ namespace euf {
         template <typename T>
         void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b);
         enode_vector const& nodes() const { return m_nodes; }
+
+        ast_manager& get_manager() { return m; }
+        bool is_relevant(enode* n) const { return true; } // TODO
+        bool resource_limits_exceeded() const { return false; } // TODO
+
         void invariant();
         void copy_from(egraph const& src, std::function<void*(void*)>& copy_justification);
         struct e_pp {

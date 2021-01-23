@@ -27,6 +27,7 @@ namespace smt {
         m_bb(m, ctx().get_fparams())
     {
         m_enabled = gparams::get_value("unicode") == "true";
+        m_bits2char = symbol("bits2char");
     }
 
     struct seq_unicode::reset_bits : public trail<context> {
@@ -48,24 +49,52 @@ namespace smt {
         return (m_bits.size() > (unsigned)v) && !m_bits[v].empty();
     }
 
+    /**
+     * Initialize bits associated with theory variable v.
+     * add also the equality bits2char(char2bit(e, 0),..., char2bit(e, 15)) = e
+     * to have congruence closure propagate equalities when the bits of two vectors
+     * end up having the same values. This, together with congruence closure over char2bit 
+     * should ensure that two characters have the same bit-vector assignments if and only
+     * if they are equal. Nevertheless, the code also checks for these constraints
+     * independently and adds Ackerman axioms on demand.
+     */
+
     void seq_unicode::init_bits(theory_var v) {
         if (has_bits(v))
             return;
+
+        expr* e = th.get_expr(v);
         m_bits.reserve(v + 1);
         auto& bits = m_bits[v];
-        expr* e = th.get_expr(v);
         while ((unsigned) v >= m_ebits.size())
             m_ebits.push_back(expr_ref_vector(m));
+        
         ctx().push_trail(reset_bits(*this, v));
         auto& ebits = m_ebits[v];
         SASSERT(ebits.empty());
-        for (unsigned i = 0; i < zstring::num_bits(); ++i) 
-            ebits.push_back(seq.mk_char_bit(e, i));
-        ctx().internalize(ebits.c_ptr(), ebits.size(), true);
-        for (expr* arg : ebits)
-            bits.push_back(literal(ctx().get_bool_var(arg)));            
-        for (literal bit : bits)
-            ctx().mark_as_relevant(bit);
+
+        bool is_bits2char = seq.is_skolem(e) && to_app(e)->get_decl()->get_parameter(0).get_symbol() == m_bits2char;
+        if (is_bits2char) {
+            for (expr* arg : *to_app(e)) {
+                ebits.push_back(arg);
+                bits.push_back(literal(ctx().get_bool_var(arg)));
+            }            
+        }
+        else {            
+            for (unsigned i = 0; i < zstring::num_bits(); ++i) 
+                ebits.push_back(seq.mk_char_bit(e, i));
+            ctx().internalize(ebits.c_ptr(), ebits.size(), true);
+            for (expr* arg : ebits)
+                bits.push_back(literal(ctx().get_bool_var(arg)));            
+            for (literal bit : bits)
+                ctx().mark_as_relevant(bit);
+            expr_ref bits2char(seq.mk_skolem(m_bits2char, ebits.size(), ebits.c_ptr(), m.get_sort(e)), m);
+            ctx().mark_as_relevant(bits2char);
+            enode* n1 = th.ensure_enode(e);
+            enode* n2 = th.ensure_enode(bits2char);
+            justification* j = ctx().mk_justification(ext_theory_eq_propagation_justification(th.get_id(), ctx().get_region(), 0, nullptr, 0, nullptr, n1, n2));
+            ctx().assign_eq(n1, n2, eq_justification(j));
+        }
         ++m_stats.m_num_blast;
     }
 
@@ -74,6 +103,8 @@ namespace smt {
         VERIFY(seq.is_char_le(term, x, y));
         theory_var v1 = ctx().get_enode(x)->get_th_var(th.get_id());
         theory_var v2 = ctx().get_enode(y)->get_th_var(th.get_id());
+        init_bits(v1);
+        init_bits(v2);
         auto const& b1 = get_ebits(v1);
         auto const& b2 = get_ebits(v2);
         expr_ref e(m);
@@ -232,6 +263,7 @@ namespace smt {
         enode* n = th.ensure_enode(seq.mk_char(zstring::max_char()));
         theory_var w = n->get_th_var(th.get_id());                    
         SASSERT(has_bits(w));
+        init_bits(v);
         auto const& mbits = get_ebits(w);
         auto const& bits = get_ebits(v);
         expr_ref le(m);
@@ -247,6 +279,8 @@ namespace smt {
         literal eq = th.mk_literal(m.mk_eq(th.get_expr(v), th.get_expr(w)));
         ctx().mark_as_relevant(eq);
         literal_vector lits;
+        init_bits(v);
+        init_bits(w);
         auto& a = get_ebits(v);
         auto& b = get_ebits(w);
         for (unsigned i = a.size(); i-- > 0; ) {

@@ -3,7 +3,7 @@ Copyright (c) 2020 Microsoft Corporation
 
 Module Name:
 
-    a_solver.cpp
+    q_solver.cpp
 
 Abstract:
 
@@ -15,18 +15,21 @@ Author:
 
 --*/
 
+#include "ast/ast_util.h"
+#include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/normal_forms/pull_quant.h"
 #include "sat/smt/q_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/sat_th.h"
-#include "ast/normal_forms/pull_quant.h"
-#include "ast/well_sorted.h"
+
 
 namespace q {
 
     solver::solver(euf::solver& ctx, family_id fid) :
         th_euf_solver(ctx, ctx.get_manager().get_family_name(fid), fid),
-        m_mbqi(ctx,  *this)
+        m_mbqi(ctx,  *this),
+        m_expanded(ctx.get_manager())
     {
     }
 
@@ -34,12 +37,19 @@ namespace q {
         expr* e = bool_var2expr(l.var());
         if (!is_forall(e) && !is_exists(e))
             return;
-        if (l.sign() == is_forall(e)) 
-            add_clause(~l, skolemize(to_quantifier(e)));        
-        else {            
-            // add_clause(~l, specialize(to_quantifier(e)));
-            ctx.push_vec(m_universal, l);
+        quantifier* q = to_quantifier(e);
+
+        auto const& exp = expand(q);
+        if (exp.size() > 1) {
+            for (expr* e : exp) 
+                add_clause(~l, ctx.internalize(e, l.sign(), false, false));                    
+            return;
         }
+
+        if (l.sign() == is_forall(e)) 
+            add_clause(~l, skolemize(q));
+        else 
+            ctx.push_vec(m_universal, l);
         m_stats.m_num_quantifier_asserts++;
     }
 
@@ -202,6 +212,28 @@ namespace q {
                     m_todo.push_back(arg);
         }
         return g;
+    }
+
+    expr_ref_vector const& solver::expand(quantifier* q) {
+        m_expanded.reset();
+        if (is_forall(q)) 
+            flatten_and(q->get_expr(), m_expanded);
+        else if (is_exists(q)) 
+            flatten_or(q->get_expr(), m_expanded);
+        else
+            UNREACHABLE();
+
+        if (m_expanded.size() > 1) {
+            for (unsigned i = m_expanded.size(); i-- > 0; ) {
+                expr_ref tmp(m.update_quantifier(q, m_expanded.get(i)), m);
+                ctx.get_rewriter()(tmp);
+                m_expanded[i] = tmp;
+            }
+            return m_expanded;
+        }
+        m_expanded.reset();
+        m_expanded.push_back(q);
+        return m_expanded;
     }
 
 }

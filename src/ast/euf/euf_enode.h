@@ -18,6 +18,7 @@ Author:
 #include "util/vector.h"
 #include "util/id_var_list.h"
 #include "util/lbool.h"
+#include "util/approx_set.h"
 #include "ast/ast.h"
 #include "ast/euf/euf_justification.h"
 
@@ -60,6 +61,9 @@ namespace euf {
         th_var_list   m_th_vars;
         justification m_justification;
         unsigned      m_num_args{ 0 };
+        signed char         m_lbl_hash { -1 };  // It is different from -1, if enode is used in a pattern
+        approx_set          m_lbls;
+        approx_set          m_plbls;
         enode* m_args[0];
 
         friend class enode_args;
@@ -138,6 +142,7 @@ namespace euf {
         lbool value() const { return m_value;  }
         unsigned bool_var() const { return m_bool_var; }
         bool is_cgr() const { return this == m_cg; }
+        enode* get_cg() const { return m_cg; }
         bool commutative() const { return m_commutative; }
         void mark_interpreted() { SASSERT(num_args() == 0); m_interpreted = true; }
         bool merge_enabled() const { return m_merge_enabled; }
@@ -183,6 +188,16 @@ namespace euf {
         unsigned get_expr_id() const { return m_expr->get_id(); }
         unsigned get_root_id() const { return m_root->m_expr->get_id(); }
         bool children_are_roots() const;
+        enode* get_next() const { return m_next; }
+
+        bool has_lbl_hash() const { UNREACHABLE(); return false; } // TODO
+        unsigned char get_lbl_hash() const { UNREACHABLE(); return 0; } // TOD0
+        void set_lbl_hash(egraph& e) { UNREACHABLE(); }
+        approx_set & get_lbls() { return m_lbls; }        
+        approx_set & get_plbls() { return m_plbls; }        
+        const approx_set & get_lbls() const { return m_lbls; }        
+        const approx_set & get_plbls() const { return m_plbls; }
+
 
         theory_var get_th_var(theory_id id) const { return m_th_vars.find(id); }
         theory_var get_closest_th_var(theory_id id) const;
