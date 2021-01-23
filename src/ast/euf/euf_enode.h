@@ -27,6 +27,7 @@ Author:
 namespace euf {
 
     class enode;
+    class egraph;
 
     typedef ptr_vector<enode> enode_vector;
     typedef std::pair<enode*,enode*> enode_pair;
