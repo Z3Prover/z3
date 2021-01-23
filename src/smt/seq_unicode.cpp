@@ -89,7 +89,7 @@ namespace smt {
             for (literal bit : bits)
                 ctx().mark_as_relevant(bit);
             expr_ref bits2char(seq.mk_skolem(m_bits2char, ebits.size(), ebits.c_ptr(), m.get_sort(e)), m);
-            ctx().mark_as_relevant(bits2char);
+            ctx().mark_as_relevant(bits2char.get());
             enode* n1 = th.ensure_enode(e);
             enode* n2 = th.ensure_enode(bits2char);
             justification* j = ctx().mk_justification(ext_theory_eq_propagation_justification(th.get_id(), ctx().get_region(), 0, nullptr, 0, nullptr, n1, n2));
