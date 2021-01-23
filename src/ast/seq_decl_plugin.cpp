@@ -1037,8 +1037,8 @@ app* seq_decl_plugin::mk_char(unsigned u) {
         return m_manager->mk_const(f);
     }
     else {
-        UNREACHABLE();
-        return nullptr;
+        bv_util bv(*m_manager);
+        return bv.mk_numeral(rational(u), 8);
     }
 }
 
@@ -1123,6 +1123,7 @@ expr* seq_decl_plugin::get_some_value(sort* s) {
     UNREACHABLE();
     return nullptr;
 }
+
 
 app* seq_util::mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range) {
     SASSERT(range);    

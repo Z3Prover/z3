@@ -619,9 +619,6 @@ namespace smt {
 
         ast_manager & sub_m = subsolver.m();
 
-        bv_util bv(m);
-        sort * bv8_sort = bv.mk_sort(8);
-
         expr * arg0;
         expr * arg1;
         expr * arg2;
@@ -646,7 +643,7 @@ namespace smt {
                 ptr_vector<expr> new_chars;
                 for (rational i = rational::zero(); i < varLen_value; ++i) {
                     // TODO we can probably name these better for the sake of debugging
-                    expr_ref ch(mk_fresh_const("char", bv8_sort), m);
+                    expr_ref ch(mk_fresh_const("char", u.mk_char_sort()), m);
                     new_chars.push_back(ch);
                     fixed_length_subterm_trail.push_back(ch);
                 }
@@ -791,7 +788,7 @@ namespace smt {
                 TRACE("str_fl", tout << "creating character terms for uninterpreted function " << mk_pp(term, m) << ", length = " << ufLen_value << std::endl;);
                 ptr_vector<expr> new_chars;
                 for (rational i = rational::zero(); i < ufLen_value; ++i) {
-                    expr_ref ch(mk_fresh_const("char", bv8_sort), m);
+                    expr_ref ch(mk_fresh_const("char", u.mk_char_sort()), m);
                     new_chars.push_back(ch);
                     fixed_length_subterm_trail.push_back(ch);
                 }
@@ -888,11 +885,8 @@ namespace smt {
         ast_manager & m = get_manager();
 
         if (bitvector_character_constants.empty()) {
-            bv_util bv(m);
-            sort * bv8_sort = bv.mk_sort(8);
-            for (unsigned i = 0; i < 256; ++i) {
-                rational ch(i);
-                expr_ref chTerm(bv.mk_numeral(ch, bv8_sort), m);
+            for (unsigned i = 0; i <= u.max_char(); ++i) {
+                expr_ref chTerm(u.mk_char(i), m);
                 bitvector_character_constants.push_back(chTerm);
                 fixed_length_subterm_trail.push_back(chTerm);
             }
@@ -1232,7 +1226,6 @@ namespace smt {
         lbool subproblem_status = subsolver.check(fixed_length_assumptions);
 
         if (subproblem_status == l_true) {
-            bv_util bv(m);
             TRACE("str_fl", tout << "subsolver found SAT; reconstructing model" << std::endl;);
             model_ref subModel;
             subsolver.get_model(subModel);
@@ -1246,9 +1239,9 @@ namespace smt {
                 ptr_vector<expr> char_subterms(entry.m_value);
                 for (expr * chExpr : char_subterms) {
                     expr_ref chAssignment(subModel->get_const_interp(to_app(chExpr)->get_decl()), m);
-                    rational n;
-                    if (chAssignment != nullptr && bv.is_numeral(chAssignment, n) && n.is_unsigned()) {
-                        assignment.push_back(n.get_unsigned());
+                    unsigned n = 0;
+                    if (chAssignment != nullptr && u.is_const_char(chAssignment, n)) {
+                        assignment.push_back(n);
                     } else {
                         assignment.push_back((unsigned)'?');
                     }
@@ -1268,9 +1261,9 @@ namespace smt {
                 ptr_vector<expr> char_subterms(entry.m_value);
                 for (expr * chExpr : char_subterms) {
                     expr_ref chAssignment(subModel->get_const_interp(to_app(chExpr)->get_decl()), m);
-                    rational n;
-                    if (chAssignment != nullptr && bv.is_numeral(chAssignment, n) && n.is_unsigned()) {
-                        assignment.push_back(n.get_unsigned());
+                    unsigned n = 0;
+                    if (chAssignment != nullptr && u.is_const_char(chAssignment, n)) {
+                        assignment.push_back(n);
                     } else {
                         assignment.push_back((unsigned)'?');
                     }

@@ -238,6 +238,9 @@ public:
     bool has_seq() const { return m_has_seq; }
 
     bool is_considered_uninterpreted(func_decl * f) override;
+
+    sort* char_sort() const { return m_char; }
+    sort* string_sort() const { return m_string; }
 };
 
 class seq_util {
@@ -253,6 +256,9 @@ public:
     unsigned max_mul(unsigned x, unsigned y) const;
 
     ast_manager& get_manager() const { return m; }
+
+    sort* mk_char_sort() const { return seq.char_sort(); }
+    sort* mk_string_sort() const { return seq.string_sort(); }
 
     bool is_char(sort* s) const { return seq.is_char(s); }
     bool is_string(sort* s) const { return is_seq(s) && seq.is_char(s->get_parameter(0).get_ast()); }
