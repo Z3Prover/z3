@@ -3,11 +3,11 @@ Copyright (c) 2011 Microsoft Corporation
 
 Module Name:
 
-    seq_unicode.h
+    seq_char.h
 
 Abstract:
 
-    Solver for unicode characters
+    Solver for characters
 
 Author:
 
@@ -23,7 +23,7 @@ Author:
 
 namespace smt {
 
-    class seq_unicode {
+    class seq_char {
 
 
         struct stats {
@@ -68,7 +68,7 @@ namespace smt {
 
     public:
 
-        seq_unicode(theory& th);
+        seq_char(theory& th);
 
         bool enabled() const { return m_enabled; }
 

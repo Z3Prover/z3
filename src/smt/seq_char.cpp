@@ -3,11 +3,11 @@ Copyright (c) 2011 Microsoft Corporation
 
 Module Name:
 
-    seq_unicode.cpp
+    seq_char.cpp
 
 Abstract:
 
-    Solver for unicode characters
+    Solver for characters
 
 Author:
 
@@ -15,26 +15,29 @@ Author:
 
 --*/
 
-#include "smt/seq_unicode.h"
+#include "ast/bv_decl_plugin.h"
+#include "smt/seq_char.h"
 #include "smt/smt_context.h"
 
 namespace smt {
 
-    seq_unicode::seq_unicode(theory& th):
+    seq_char::seq_char(theory& th):
         th(th),
         m(th.get_manager()),
         seq(m),
         m_bb(m, ctx().get_fparams())
     {
-        m_enabled = gparams::get_value("unicode") == "true";
+        bv_util bv(m);
+        sort_ref b8(bv.mk_sort(8), m);
+        m_enabled = seq.is_char(b8);
         m_bits2char = symbol("bits2char");
     }
 
-    struct seq_unicode::reset_bits : public trail<context> {
-        seq_unicode& s;
+    struct seq_char::reset_bits : public trail<context> {
+        seq_char& s;
         unsigned idx;
 
-        reset_bits(seq_unicode& s, unsigned idx):
+        reset_bits(seq_char& s, unsigned idx):
             s(s),
             idx(idx)
         {}
@@ -45,7 +48,7 @@ namespace smt {
         }
     };
 
-    bool seq_unicode::has_bits(theory_var v) const {
+    bool seq_char::has_bits(theory_var v) const {
         return (m_bits.size() > (unsigned)v) && !m_bits[v].empty();
     }
 
@@ -59,7 +62,7 @@ namespace smt {
      * independently and adds Ackerman axioms on demand.
      */
 
-    void seq_unicode::init_bits(theory_var v) {
+    void seq_char::init_bits(theory_var v) {
         if (has_bits(v))
             return;
 
@@ -100,7 +103,7 @@ namespace smt {
         ++m_stats.m_num_blast;
     }
 
-    void seq_unicode::internalize_le(literal lit, app* term) {
+    void seq_char::internalize_le(literal lit, app* term) {
         expr* x = nullptr, *y = nullptr;
         VERIFY(seq.is_char_le(term, x, y));
         theory_var v1 = ctx().get_enode(x)->get_th_var(th.get_id());
@@ -117,18 +120,18 @@ namespace smt {
         ctx().mk_th_axiom(th.get_id(), lit, ~le);
     }
 
-    literal_vector const& seq_unicode::get_bits(theory_var v) {
+    literal_vector const& seq_char::get_bits(theory_var v) {
         init_bits(v);
         return m_bits[v];
     }
 
-    expr_ref_vector const& seq_unicode::get_ebits(theory_var v) {
+    expr_ref_vector const& seq_char::get_ebits(theory_var v) {
         init_bits(v);
         return m_ebits[v];
     }
         
     // = on characters
-    void seq_unicode::new_eq_eh(theory_var v, theory_var w) {  
+    void seq_char::new_eq_eh(theory_var v, theory_var w) {  
         if (has_bits(v) && has_bits(w)) {
             auto& a = get_bits(v);
             auto& b = get_bits(w);            
@@ -160,7 +163,7 @@ namespace smt {
     }
 
     // != on characters
-    void seq_unicode::new_diseq_eh(theory_var v, theory_var w) {  
+    void seq_char::new_diseq_eh(theory_var v, theory_var w) {  
         if (has_bits(v) && has_bits(w)) {
             auto& a = get_bits(v);
             auto& b = get_bits(w);
@@ -174,7 +177,7 @@ namespace smt {
         }
     }
 
-    void seq_unicode::new_const_char(theory_var v, unsigned c) {
+    void seq_char::new_const_char(theory_var v, unsigned c) {
         auto& bits = get_bits(v);
         for (auto b : bits) {
             bool bit = (0 != (c & 1));
@@ -189,7 +192,7 @@ namespace smt {
      *    Enforce that values are within max_char.
      * 2. Assign values to characters that haven't been assigned.
      */
-    bool seq_unicode::final_check() {   
+    bool seq_char::final_check() {   
         m_var2value.reset();
         m_var2value.resize(th.get_num_vars(), UINT_MAX);
         m_value2var.reset();
@@ -251,7 +254,7 @@ namespace smt {
         return true;
     }
 
-    void seq_unicode::enforce_bits() {
+    void seq_char::enforce_bits() {
         TRACE("seq", tout << "enforce bits\n";);
         for (unsigned v = th.get_num_vars(); v-- > 0; ) {
             expr* e = th.get_expr(v);
@@ -260,7 +263,7 @@ namespace smt {
         }        
     }
 
-    void seq_unicode::enforce_value_bound(theory_var v) {
+    void seq_char::enforce_value_bound(theory_var v) {
         TRACE("seq", tout << "enforce bound " << v << "\n";);
         enode* n = th.ensure_enode(seq.mk_char(seq.max_char()));
         theory_var w = n->get_th_var(th.get_id());                    
@@ -274,7 +277,7 @@ namespace smt {
         ++m_stats.m_num_bounds;
     }
 
-    void seq_unicode::enforce_ackerman(theory_var v, theory_var w) {
+    void seq_char::enforce_ackerman(theory_var v, theory_var w) {
         if (v > w) 
             std::swap(v, w);
         TRACE("seq", tout << "enforce ackerman " << v << " " << w << "\n";);
@@ -298,11 +301,11 @@ namespace smt {
         ++m_stats.m_num_ackerman;
     }
     
-    unsigned seq_unicode::get_value(theory_var v) {
+    unsigned seq_char::get_value(theory_var v) {
         return m_var2value[v];
     }
 
-    bool seq_unicode::get_value(theory_var v, unsigned& c) {
+    bool seq_char::get_value(theory_var v, unsigned& c) {
         if (!has_bits(v))
             return false;
         auto const & b = get_bits(v);
@@ -316,7 +319,7 @@ namespace smt {
         return true;
     }
 
-    void seq_unicode::collect_statistics(::statistics& st) const {
+    void seq_char::collect_statistics(::statistics& st) const {
         st.update("seq char ackerman", m_stats.m_num_ackerman);
         st.update("seq char bounds",   m_stats.m_num_bounds);
         st.update("seq char2bit",      m_stats.m_num_blast);
