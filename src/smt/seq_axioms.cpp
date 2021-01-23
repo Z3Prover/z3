@@ -811,7 +811,7 @@ void seq_axioms::add_str_to_code_axiom(expr* n) {
     VERIFY(seq.str.is_to_code(n, e)); 
     literal len_is1 = mk_eq(mk_len(e), a.mk_int(1));
     add_axiom(~len_is1, mk_ge(n, 0)); 
-    add_axiom(~len_is1, mk_le(n, zstring::max_char()));
+    add_axiom(~len_is1, mk_le(n, seq.max_char()));
     add_axiom(len_is1, mk_eq(n, a.mk_int(-1)));
 }
 
@@ -824,7 +824,7 @@ void seq_axioms::add_str_from_code_axiom(expr* n) {
     expr* e = nullptr;
     VERIFY(seq.str.is_from_code(n, e)); 
     literal ge = mk_ge(e, 0);
-    literal le = mk_le(e, zstring::max_char());
+    literal le = mk_le(e, seq.max_char());
     literal emp = mk_literal(seq.str.mk_is_empty(n));
     add_axiom(~ge, ~le, mk_eq(mk_len(n), a.mk_int(1)));
     add_axiom(~ge, ~le, mk_eq(seq.str.mk_to_code(n), e));

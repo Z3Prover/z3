@@ -373,6 +373,12 @@ namespace smt {
             unsigned num_params = 0, parameter* params = nullptr):
             ext_theory_simple_justification(fid, r, num_lits, lits, num_eqs, eqs, num_params, params), m_lhs(lhs), m_rhs(rhs) {}
 
+        ext_theory_eq_propagation_justification(
+            family_id fid, region & r, 
+            enode * lhs, enode * rhs):
+            ext_theory_simple_justification(fid, r, 0, nullptr, 0, nullptr, 0, nullptr), m_lhs(lhs), m_rhs(rhs) {}
+
+        
         proof * mk_proof(conflict_resolution & cr) override;
 
         char const * get_name() const override { return "ext-theory-eq-propagation"; }

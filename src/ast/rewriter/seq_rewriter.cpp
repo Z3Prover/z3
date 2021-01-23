@@ -1950,7 +1950,7 @@ br_status seq_rewriter::mk_str_lt(expr* a, expr* b, expr_ref& result) {
 br_status seq_rewriter::mk_str_from_code(expr* a, expr_ref& result) {
     rational r;
     if (m_autil.is_numeral(a, r)) {
-        if (r.is_neg() || r > zstring::max_char()) {
+        if (r.is_neg() || r > u().max_char()) {
             result = str().mk_string(symbol(""));
         }
         else {
@@ -3979,19 +3979,19 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
     if (u().is_char(elem)) {
         unsigned ch = 0;
         svector<std::pair<unsigned, unsigned>> ranges, ranges1;
-        ranges.push_back(std::make_pair(0, zstring::max_char()));
+        ranges.push_back(std::make_pair(0, u().max_char()));
         auto exclude_char = [&](unsigned ch) {
             if (ch == 0) {
-                intersect(1, zstring::max_char(), ranges);
+                intersect(1, u().max_char(), ranges);
             }
-            else if (ch == zstring::max_char()) {
+            else if (ch == u().max_char()) {
                 intersect(0, ch-1, ranges);
             }
             else {
                 ranges1.reset();
                 ranges1.append(ranges);
                 intersect(0, ch - 1, ranges);
-                intersect(ch + 1, zstring::max_char(), ranges1);
+                intersect(ch + 1, u().max_char(), ranges1);
                 ranges.append(ranges1);
             }
         };
@@ -4007,7 +4007,7 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
                 intersect(0, ch, ranges);
             }
             else if (u().is_char_le(e, lhs, rhs) && elem == rhs && u().is_const_char(lhs, ch)) {
-                intersect(ch, zstring::max_char(), ranges);
+                intersect(ch, u().max_char(), ranges);
             }
             else if (m().is_not(e, e1) && m().is_eq(e1, lhs, rhs) && elem == lhs && u().is_const_char(rhs, ch)) {
                 exclude_char(ch);
@@ -4017,10 +4017,10 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
             }
             else if (m().is_not(e, e1) && u().is_char_le(e1, lhs, rhs) && elem == lhs && u().is_const_char(rhs, ch)) {
                 // not (e <= ch)
-                if (ch == zstring::max_char()) 
+                if (ch == u().max_char()) 
                     ranges.reset();
                 else 
-                    intersect(ch+1, zstring::max_char(), ranges);
+                    intersect(ch+1, u().max_char(), ranges);
             }
             else if (m().is_not(e, e1) && u().is_char_le(e1, lhs, rhs) && elem == rhs && u().is_const_char(lhs, ch)) {
                 // not (ch <= e)

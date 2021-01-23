@@ -118,8 +118,10 @@ private:
     bool uses_unicode() const;
     bool is_escape_char(char const *& s, unsigned& result);
 public:
-    static unsigned max_char() { return 196607; }
-    static unsigned num_bits() { return 16; }
+    static unsigned unicode_max_char() { return 196607; }
+    static unsigned unicode_num_bits() { return 18; }
+    static unsigned ascii_max_char() { return 255; }
+    static unsigned ascii_num_bits() { return 8; }
     zstring() {}
     zstring(char const* s);
     zstring(const std::string &str) : zstring(str.c_str()) {}
@@ -225,6 +227,9 @@ public:
 
     bool is_char(ast* a) const { return a == m_char; }
 
+    unsigned max_char() const { return m_unicode ? zstring::unicode_max_char() : zstring::ascii_max_char(); }
+    unsigned num_bits() const { return m_unicode ? zstring::unicode_num_bits() : zstring::ascii_num_bits(); }
+
     app* mk_string(symbol const& s);
     app* mk_string(zstring const& s);
     app* mk_char(unsigned ch);
@@ -266,6 +271,8 @@ public:
     app* mk_char(unsigned ch) const;
     app* mk_le(expr* ch1, expr* ch2) const;
     app* mk_lt(expr* ch1, expr* ch2) const;    
+    unsigned max_char() const { return seq.max_char(); }
+    unsigned num_bits() const { return seq.num_bits(); }
 
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }

@@ -180,7 +180,7 @@ bool zstring::uses_unicode() const {
 
 bool zstring::well_formed() const {
     for (unsigned ch : m_buffer) {
-        if (ch > max_char())
+        if (ch > unicode_max_char())
             return false;
     }
     return true;
@@ -398,9 +398,8 @@ seq_decl_plugin::seq_decl_plugin(): m_init(false),
 }
 
 void seq_decl_plugin::finalize() {
-    for (psig* s : m_sigs) {
+    for (psig* s : m_sigs) 
         dealloc(s);
-    }
     m_manager->dec_ref(m_string);
     m_manager->dec_ref(m_char);
     m_manager->dec_ref(m_reglan);
@@ -938,7 +937,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         if (!(num_parameters == 1 && arity == 0 && 
               parameters[0].is_int() && 
               0 <= parameters[0].get_int() && 
-              parameters[0].get_int() < static_cast<int>(zstring::max_char()))) {
+              parameters[0].get_int() < static_cast<int>(max_char()))) {
             m.raise_exception("invalid character declaration");
         }
         return m.mk_const_decl(m_charc_sym, m_char, func_decl_info(m_family_id, OP_CHAR_CONST, num_parameters, parameters));

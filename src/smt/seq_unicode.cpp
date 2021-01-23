@@ -81,7 +81,7 @@ namespace smt {
             }            
         }
         else {            
-            for (unsigned i = 0; i < zstring::num_bits(); ++i) 
+            for (unsigned i = 0; i < seq.num_bits(); ++i) 
                 ebits.push_back(seq.mk_char_bit(e, i));
             ctx().internalize(ebits.c_ptr(), ebits.size(), true);
             for (expr* arg : ebits)
@@ -92,7 +92,9 @@ namespace smt {
             ctx().mark_as_relevant(bits2char);
             enode* n1 = th.ensure_enode(e);
             enode* n2 = th.ensure_enode(bits2char);
-            justification* j = ctx().mk_justification(ext_theory_eq_propagation_justification(th.get_id(), ctx().get_region(), 0, nullptr, 0, nullptr, n1, n2));
+            justification* j = 
+                ctx().mk_justification(
+                    ext_theory_eq_propagation_justification(th.get_id(), ctx().get_region(), n1, n2));
             ctx().assign_eq(n1, n2, eq_justification(j));
         }
         ++m_stats.m_num_blast;
@@ -206,7 +208,7 @@ namespace smt {
                     enforce_ackerman(u, v);
                     return false;
                 }
-                if (c >= zstring::max_char()) {
+                if (c >= seq.max_char()) {
                     enforce_value_bound(v);
                     return false;
                 }
@@ -232,7 +234,7 @@ namespace smt {
             if (seq.is_char(e) && m_var2value[v] == UINT_MAX) {
                 d = c;
                 while (values.contains(c)) {
-                    c = (c + 1) % zstring::max_char();
+                    c = (c + 1) % seq.max_char();
                     if (d == c) {
                         enforce_bits();
                         return false;
@@ -260,7 +262,7 @@ namespace smt {
 
     void seq_unicode::enforce_value_bound(theory_var v) {
         TRACE("seq", tout << "enforce bound " << v << "\n";);
-        enode* n = th.ensure_enode(seq.mk_char(zstring::max_char()));
+        enode* n = th.ensure_enode(seq.mk_char(seq.max_char()));
         theory_var w = n->get_th_var(th.get_id());                    
         SASSERT(has_bits(w));
         init_bits(v);
@@ -317,7 +319,7 @@ namespace smt {
     void seq_unicode::collect_statistics(::statistics& st) const {
         st.update("seq char ackerman", m_stats.m_num_ackerman);
         st.update("seq char bounds",   m_stats.m_num_bounds);
-        st.update("seq char2bit",    m_stats.m_num_blast);
+        st.update("seq char2bit",      m_stats.m_num_blast);
     }
 }
 
