@@ -29,7 +29,7 @@ namespace smt {
     {
         bv_util bv(m);
         sort_ref b8(bv.mk_sort(8), m);
-        m_enabled = seq.is_char(b8);
+        m_enabled = !seq.is_char(b8);
         m_bits2char = symbol("bits2char");
     }
 
