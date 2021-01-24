@@ -1844,79 +1844,97 @@ namespace algebraic_numbers {
                 }
             }
 
-           // EXPENSIVE CASE
-           // Let seq be the Sturm-Tarski sequence for
-           //       p_a, p_a' * p_b
-           // Let s_l be the number of sign variations at a_lower.
-           // Let s_u be the number of sign variations at a_upper.
-           // By Sturm-Tarski Theorem, we have that
-           // V = s_l - s_u = #(p_b(r) > 0) - #(p_b(r) < 0) at roots r of p_a
-           // Since there is only one root of p_a in (a_lower, b_lower),
-           // we are evaluating the sign of p_b at a.
-           // That is V is the sign of p_b at a.
-           //
-           // We have
-           //    V <  0 -> p_b(a) < 0  -> if p_b(b_lower) < 0 then b > a else b < a
-           //    V == 0 -> p_b(a) == 0 -> a = b
-           //    V >  0 -> p_b(a) > 0  -> if p_b(b_lower) > 0 then b > a else b < a
-           //    Simplifying we have:
-           //       V == 0 -->  a = b
-           //       if (V < 0) == (p_b(b_lower) < 0) then b > a else b < a
-           //
+            // workaround: Sturm sequences are buggy as exemplified by several open github issues
+            // instead of relying on Sturm check if a simple interval expansion allows to separate
+            // a and b.
+            scoped_mpbq la(bqm()), ua(bqm());
+            scoped_mpbq lb(bqm()), ub(bqm());
+            unsigned precision = 10;
+            if (get_interval(a, la, ua, precision) && 
+                get_interval(b, lb, ub, precision)) { 
+                IF_VERBOSE(9, verbose_stream() << "sturm 0\n");
+                if (la > ub) 
+                    return sign_pos;
+                if (ua < lb)
+                    return sign_neg;
+            }
+            IF_VERBOSE(9, verbose_stream() << "sturm 1\n");
 
-           m_compare_sturm++;
-           upolynomial::scoped_upolynomial_sequence seq(upm());
-           upm().sturm_tarski_seq(cell_a->m_p_sz, cell_a->m_p, cell_b->m_p_sz, cell_b->m_p, seq);
-           unsigned V1 = upm().sign_variations_at(seq, a_lower);
-           unsigned V2 = upm().sign_variations_at(seq, a_upper); 
-           int V =  V1 - V2;
-           TRACE("algebraic", tout << "comparing using sturm\n"; 
-                 display_interval(tout, a) << "\n"; 
-                 display_interval(tout, b) << "\n";
-                 tout << "V: " << V << " V1 " << V1 << " V2 " << V2 
-                 << ", sign_lower(a): " << sign_lower(cell_a) 
-                 << ", sign_lower(b): " << sign_lower(cell_b) << "\n";
-                 /*upm().display(tout << "sequence: ", seq);*/
-                 );
-           if (V == 0)
-               return sign_zero;
-           if ((V < 0) == (sign_lower(cell_b) < 0))
-               return sign_neg;
-           else
-               return sign_pos;
+            // 
+            // EXPENSIVE CASE
+            // Let seq be the Sturm-Tarski sequence for
+            //       p_a, p_a' * p_b
+            // Let s_l be the number of sign variations at a_lower.
+            // Let s_u be the number of sign variations at a_upper.
+            // By Sturm-Tarski Theorem, we have that
+            // V = s_l - s_u = #(p_b(r) > 0) - #(p_b(r) < 0) at roots r of p_a
+            // Since there is only one root of p_a in (a_lower, b_lower),
+            // we are evaluating the sign of p_b at a.
+            // That is V is the sign of p_b at a.
+            //
+            // We have
+            //    V <  0 -> p_b(a) < 0  -> if p_b(b_lower) < 0 then b > a else b < a
+            //    V == 0 -> p_b(a) == 0 -> a = b
+            //    V >  0 -> p_b(a) > 0  -> if p_b(b_lower) > 0 then b > a else b < a
+            //    Simplifying we have:
+            //       V == 0 -->  a = b
+            //       if (V < 0) == (p_b(b_lower) < 0) then b > a else b < a
+            //
 
-           // Here is an unexplored option for comparing numbers.
-           //
-           // The isolating intervals of a and b are still overlapping
-           // Then we compute
-           //    r(x) = Resultant(x - y1 + y2, p1(y1), p2(y2))
-           //    where p1(y1) and p2(y2) are the polynomials defining a and b.
-           // Remarks:
-           //    1) The resultant r(x) must not be the zero polynomial,
-           //       since the polynomial x - y1 + y2 does not vanish in any of the roots of p1(y1) and p2(y2)
-           //
-           //    2) By resultant calculus, If alpha, beta1, beta2 are roots of x - y1 + y2, p1(y1), p2(y2)
-           //       then alpha is a root of r(x).
-           //       Thus, we have that a - b is a root of r(x)
-           //
-           //    3) If 0 is not a root of r(x), then a != b (by remark 2)
-           //
-           //    4) Let (l1, u1) and (l2, u2) be the intervals of a and b.
-           //       Then, a - b must be in (l1 - u2, u1 - l2)
-           //
-           //    5) Assume a != b, then if we keep refining the isolating intervals for a and b,
-           //       then eventually, (l1, u1) and (l2, u2) will not overlap.
-           //       Thus, if 0 is not a root of r(x), we can keep refining until
-           //       the intervals do not overlap.
-           //
-           //    6) If 0 is a root of r(x), we have two possibilities:
-           //       a) Isolate roots of r(x) in the interval (l1 - u2, u1 - l2),
-           //          and then keep refining (l1, u1) and (l2, u2) until they
-           //          (l1 - u2, u1 - l2) "convers" only one root.
-           //
-           //       b) Compute the sturm sequence for r(x),
-           //          keep refining the (l1, u1) and (l2, u2) until
-           //          (l1 - u2, u1 - l2) contains only one root of r(x)
+
+            m_compare_sturm++;
+            upolynomial::scoped_upolynomial_sequence seq(upm());
+            upm().sturm_tarski_seq(cell_a->m_p_sz, cell_a->m_p, cell_b->m_p_sz, cell_b->m_p, seq);
+            unsigned V1 = upm().sign_variations_at(seq, a_lower);
+            unsigned V2 = upm().sign_variations_at(seq, a_upper);            
+            int V =  V1 - V2;
+            TRACE("algebraic", tout << "comparing using sturm\n"; 
+                  display_interval(tout, a) << "\n"; 
+                  display_interval(tout, b) << "\n";
+                  tout << "V: " << V << " V1 " << V1 << " V2 " << V2 
+                  << ", sign_lower(a): " << sign_lower(cell_a) 
+                  << ", sign_lower(b): " << sign_lower(cell_b) << "\n";
+                  /*upm().display(tout << "sequence: ", seq);*/
+                  );
+            if (V == 0)
+                return sign_zero;
+            if ((V < 0) == (sign_lower(cell_b) < 0))
+                return sign_neg;
+            else
+                return sign_pos;
+            
+            // Here is an unexplored option for comparing numbers.
+            //
+            // The isolating intervals of a and b are still overlapping
+            // Then we compute
+            //    r(x) = Resultant(x - y1 + y2, p1(y1), p2(y2))
+            //    where p1(y1) and p2(y2) are the polynomials defining a and b.
+            // Remarks:
+            //    1) The resultant r(x) must not be the zero polynomial,
+            //       since the polynomial x - y1 + y2 does not vanish in any of the roots of p1(y1) and p2(y2)
+            //
+            //    2) By resultant calculus, If alpha, beta1, beta2 are roots of x - y1 + y2, p1(y1), p2(y2)
+            //       then alpha is a root of r(x).
+            //       Thus, we have that a - b is a root of r(x)
+            //
+            //    3) If 0 is not a root of r(x), then a != b (by remark 2)
+            //
+            //    4) Let (l1, u1) and (l2, u2) be the intervals of a and b.
+            //       Then, a - b must be in (l1 - u2, u1 - l2)
+            //
+            //    5) Assume a != b, then if we keep refining the isolating intervals for a and b,
+            //       then eventually, (l1, u1) and (l2, u2) will not overlap.
+            //       Thus, if 0 is not a root of r(x), we can keep refining until
+            //       the intervals do not overlap.
+            //
+            //    6) If 0 is a root of r(x), we have two possibilities:
+            //       a) Isolate roots of r(x) in the interval (l1 - u2, u1 - l2),
+            //          and then keep refining (l1, u1) and (l2, u2) until they
+            //          (l1 - u2, u1 - l2) "convers" only one root.
+            //
+            //       b) Compute the sturm sequence for r(x),
+            //          keep refining the (l1, u1) and (l2, u2) until
+            //          (l1 - u2, u1 - l2) contains only one root of r(x)
         }
 
         ::sign compare(numeral & a, numeral & b) {
