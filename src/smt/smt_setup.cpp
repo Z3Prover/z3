@@ -542,6 +542,8 @@ namespace smt {
         if (st.m_has_real)
             throw default_exception("Benchmark has real variables but it is marked as QF_UFLIA (uninterpreted functions and linear integer arithmetic).");
         setup_QF_UFLIA();
+        if (st.m_has_bv) 
+            setup_QF_BV();
     }
 
     void setup::setup_QF_UFLRA() {
