@@ -509,10 +509,6 @@ protected:
 
     obj_map<expr, ptr_vector<expr> > string_chars; // S --> [S_0, S_1, ...] for character terms S_i
 
-    svector<char> char_set;
-    std::map<char, int>  charSetLookupTable;
-    int           charSetSize;
-
     obj_pair_map<expr, expr, expr*> concat_astNode_map;
 
     // all (str.to-int) and (int.to-str) terms
@@ -766,7 +762,6 @@ protected:
     bool fixed_length_reduce_regex_membership(smt::kernel & subsolver, expr_ref f, expr_ref & cex, bool polarity);
 
     void dump_assignments();
-    void initialize_charset();
 
     void check_variable_scope();
     void recursive_check_variable_scope(expr * ex);
