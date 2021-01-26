@@ -1,0 +1,445 @@
+/*++
+Copyright (c) 2020 Microsoft Corporation
+
+Module Name:
+
+    q_ematch.cpp
+
+Abstract:
+
+    E-matching quantifier instantiation plugin
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2021-01-24
+
+Todo:
+
+- clausify
+- propagate without instantiations, produce explanations for eval
+- generations
+- insert instantiations into priority queue 
+- cache instantiations and substitutions
+- nested quantifiers
+- non-cnf quantifiers
+
+--*/
+
+#include "ast/rewriter/var_subst.h"
+#include "solver/solver.h"
+#include "sat/smt/sat_th.h"
+#include "sat/smt/euf_solver.h"
+#include "sat/smt/q_solver.h"
+#include "sat/smt/q_mam.h"
+#include "sat/smt/q_ematch.h"
+
+
+namespace q {
+
+    ematch::ematch(euf::solver& ctx, solver& s):
+        ctx(ctx),
+        m_qs(s),
+        m(ctx.get_manager())
+    {
+        std::function<void(euf::enode*, euf::enode*)> _on_merge = 
+            [&](euf::enode* root, euf::enode* other) { 
+            on_merge(root, other); 
+        };
+        ctx.get_egraph().set_on_merge(_on_merge);
+        m_mam = mam::mk(ctx, *this);
+    }
+
+    void ematch::ensure_ground_enodes(expr* e) {
+        mam::ground_subterms(e, m_ground);
+        for (expr* g : m_ground) 
+            m_qs.e_internalize(g);
+    }
+
+    void ematch::ensure_ground_enodes(clause const& c) {
+        quantifier* q = c.m_q;
+        unsigned num_patterns = q->get_num_patterns();
+        for (unsigned i = 0; i < num_patterns; i++) 
+            ensure_ground_enodes(q->get_pattern(i));
+        for (auto lit : c.m_lits) {
+            ensure_ground_enodes(lit.lhs);
+            ensure_ground_enodes(lit.rhs);
+        }
+    }
+
+    struct restore_watch : public trail<euf::solver> {
+        vector<unsigned_vector>& v;
+        unsigned idx, offset;
+        restore_watch(vector<unsigned_vector>& v, unsigned idx):
+            v(v), idx(idx), offset(v[idx].size()) {}
+        void undo(euf::solver& ctx) override {
+            v[idx].shrink(offset);
+        }
+    };
+
+    void ematch::on_merge(euf::enode* root, euf::enode* other) {
+        SASSERT(root->get_root() == other->get_root());
+        unsigned root_id = root->get_expr_id();
+        unsigned other_id = other->get_expr_id();
+        m_watch.reserve(std::max(root_id, other_id) + 1);
+
+        insert_to_propagate(root_id);
+        insert_to_propagate(other_id);
+
+        if (!m_watch[other_id].empty()) {        
+            ctx.push(restore_watch(m_watch, root_id));
+            m_watch[root_id].append(m_watch[other_id]);
+        }
+   
+        m_mam->on_merge(root, other);
+        if (m_lazy_mam)
+            m_lazy_mam->on_merge(root, other);
+    }
+
+    // watch only nodes introduced in bindings or ground arguments of functions
+    // or functions that have been inserted.
+
+    void ematch::add_watch(euf::enode* n, unsigned idx) {
+        unsigned root_id = n->get_root_id();
+        m_watch.reserve(root_id + 1);
+        ctx.push(restore_watch(m_watch, root_id));
+        m_watch[root_id].push_back(idx);
+    }
+
+    void ematch::init_watch(expr* e, unsigned clause_idx) {
+        ptr_buffer<expr> todo;
+        m_mark.reset();
+        todo.push_back(e);
+        while (!todo.empty()) {
+            expr* t = todo.back();
+            if (m_mark.is_marked(t))
+                continue;
+            todo.pop_back();
+            m_mark.mark(t);
+            if (is_ground(t)) {
+                add_watch(ctx.get_egraph().find(t), clause_idx);
+                continue;
+            }
+            if (!is_app(t))
+                continue;
+            for (expr* arg : *to_app(t))
+                todo.push_back(arg);
+        }
+    }
+
+    void ematch::init_watch(clause& c, unsigned idx) {
+        for (auto lit : c.m_lits) {
+            if (!is_ground(lit.lhs))
+                init_watch(lit.lhs, idx);
+            if (!is_ground(lit.rhs))
+                init_watch(lit.rhs, idx);
+        }
+    }
+
+    ematch::binding* ematch::alloc_binding(unsigned n) {
+        unsigned sz = sizeof(binding) + sizeof(euf::enode* const*)*n;
+        void* mem = ctx.get_region().allocate(sz);
+        return new (mem) binding();
+    }
+
+    void ematch::on_binding(quantifier* q, app* pat, euf::enode* const* _binding) {
+        clause& c = *m_clauses[m_q2clauses[q]];
+        if (propagate(_binding, c))
+            return;
+        unsigned n = q->get_num_decls();
+        binding* b = alloc_binding(n);
+        b->m_propagated = false;
+        for (unsigned i = 0; i < n; ++i)
+            b->m_nodes[i] = _binding[i];
+        c.m_bindings.push_back(b);
+        ctx.push(push_back_vector<euf::solver, ptr_vector<binding>>(c.m_bindings));
+    }
+
+    bool ematch::propagate(euf::enode* const* binding, clause& c) {
+        unsigned clause_idx = m_q2clauses[c.m_q];
+        struct scoped_reset {
+            ematch& e;
+            scoped_reset(ematch& e): e(e) { e.m_mark.reset(); }
+            ~scoped_reset() { e.m_mark.reset(); }
+        };
+        scoped_reset _sr(*this);
+
+        unsigned idx = UINT_MAX;
+        for (unsigned i = c.m_lits.size(); i-- > 0; ) {
+            lit l = c.m_lits[i];
+            m_indirect_nodes.reset();
+            lbool cmp = compare(binding, l.lhs, l.rhs);
+            switch (cmp) {
+            case l_false:
+                if (l.sign) {
+                    if (i > 0)
+                        std::swap(c.m_lits[0], c.m_lits[i]);
+                    return true;
+                }
+                break;
+            case l_true:
+                if (!l.sign) {
+                    if (i > 0)
+                        std::swap(c.m_lits[0], c.m_lits[i]);
+                    return true;
+                }
+                break;
+            case l_undef:
+                if (idx == 0) {
+                    // attach bindings and indirect nodes
+                    // to watch
+                    for (euf::enode* n : m_indirect_nodes)
+                        add_watch(n, clause_idx);
+                    for (unsigned j = c.m_q->get_num_decls(); j-- > 0; )
+                        add_watch(binding[j], clause_idx);
+                    if (i > 1) 
+                        std::swap(c.m_lits[1], c.m_lits[i]);
+                    return false;
+                }
+                else if (i > 0) {
+                    std::swap(c.m_lits[0], c.m_lits[i]);
+                    idx = 0;
+                }
+                break;
+            }
+        }
+        if (idx == UINT_MAX) {
+            std::cout << "clause is false\n";
+        }
+        else {
+            std::cout << "unit propagate\n";
+        }
+        instantiate(binding, c);
+        return true;
+    }
+
+    // vanilla instantiation method.
+    void ematch::instantiate(euf::enode* const* binding, clause& c) {
+        expr_ref_vector _binding(m);
+        quantifier* q = c.m_q;
+        for (unsigned i = 0; i < q->get_num_decls(); ++i)
+            _binding.push_back(binding[i]->get_expr());
+        var_subst subst(m);
+        expr_ref result = subst(q->get_expr(), _binding);
+        if (is_forall(q)) 
+            m_qs.add_clause(~ctx.mk_literal(q), ctx.mk_literal(result));
+        else
+            m_qs.add_clause(ctx.mk_literal(q), ~ctx.mk_literal(result));
+    }
+
+    lbool ematch::compare(euf::enode* const* binding, expr* s, expr* t) {
+        euf::enode* sn = eval(binding, s);
+        euf::enode* tn = eval(binding, t);
+        lbool c;
+        if (sn && sn == tn)
+            return l_true;
+        if (sn && tn && ctx.get_egraph().are_diseq(sn, tn))
+            return l_false;
+        if (sn && tn)
+            return l_undef;
+        if (!sn && !tn) 
+            return compare_rec(binding, s, t);
+        if (!sn && tn) 
+            for (euf::enode* t1 : euf::enode_class(tn)) 
+                if (c = compare_rec(binding, s, t1->get_expr()), c != l_undef)
+                    return c;
+        if (sn && !tn) 
+            for (euf::enode* s1 : euf::enode_class(sn)) 
+                if (c = compare_rec(binding, t, s1->get_expr()), c != l_undef)
+                    return c;
+        return l_undef;
+    }
+
+    // f(p1) = f(p2)  if p1 = p2
+    // f(p1) != f(p2) if p1 != p2 and f is injective
+    lbool ematch::compare_rec(euf::enode* const* binding, expr* s, expr* t) {
+        if (m.are_equal(s, t))
+            return l_true;
+        if (m.are_distinct(s, t))
+            return l_false;
+        if (!is_app(s) || !is_app(t))
+            return l_undef;
+        if (to_app(s)->get_decl() != to_app(t)->get_decl())
+            return l_undef;
+        if (to_app(s)->get_num_args() != to_app(t)->get_num_args())
+            return l_undef;
+        bool is_injective = to_app(s)->get_decl()->is_injective();
+        bool has_undef = false;
+        for (unsigned i = to_app(s)->get_num_args(); i-- > 0; ) {
+            switch (compare(binding, to_app(s)->get_arg(i), to_app(t)->get_arg(i))) {
+            case l_true:
+                break;
+            case l_false:
+                if (is_injective)
+                    return l_false;
+                return l_undef;
+            case l_undef:
+                if (!is_injective)
+                    return l_undef;
+                has_undef = true;
+                break;
+            }
+        }
+        return has_undef ? l_undef : l_true;
+    }
+
+    euf::enode* ematch::eval(euf::enode* const* binding, expr* e) {
+        if (is_ground(e))
+            ctx.get_egraph().find(e)->get_root();
+        if (m_mark.is_marked(e))
+            return m_eval[e->get_id()];
+        ptr_buffer<expr> todo;
+        ptr_buffer<euf::enode> args;
+        todo.push_back(e);
+        while (!todo.empty()) {
+            expr* t = todo.back();
+            SASSERT(!is_ground(t) || ctx.get_egraph().find(t));
+            if (is_ground(t)) {
+                m_eval.setx(t->get_id(), ctx.get_egraph().find(t), nullptr);
+                SASSERT(m_eval[t->get_id()]);
+                todo.pop_back();
+                continue;
+            }
+            if (m_mark.is_marked(t)) {
+                todo.pop_back();
+                continue;
+            }
+            if (is_var(t)) {
+                m_mark.mark(t);
+                m_eval.setx(t->get_id(), binding[to_var(t)->get_idx()], nullptr);
+                todo.pop_back();
+                continue;
+            }
+            if (!is_app(t))
+                return nullptr;
+            args.reset();
+            for (expr* arg : *to_app(t)) {
+                if (m_mark.is_marked(arg))
+                    args.push_back(m_eval[t->get_id()]);
+                else
+                    todo.push_back(arg);
+            }
+            if (args.size() == to_app(t)->get_num_args()) {
+                euf::enode* n = ctx.get_egraph().find(t, args.size(), args.c_ptr());
+                if (!n)
+                    return nullptr;
+                m_indirect_nodes.push_back(n);
+                m_eval.setx(t->get_id(), n->get_root(), nullptr);
+                m_mark.mark(t);
+                todo.pop_back();
+            }
+        }
+        return m_eval[e->get_id()]->get_root();
+    }
+
+    void ematch::insert_to_propagate(unsigned node_id) {
+        if (m_node_in_queue.contains(node_id))
+            return;
+        m_node_in_queue.insert(node_id);
+        for (unsigned idx : m_watch[node_id]) {
+            if (!m_clause_in_queue.contains(idx)) {
+                m_clause_in_queue.insert(idx);
+                m_queue.push_back(idx);
+            }
+        }
+    }
+
+    bool ematch::propagate() {
+        m_mam->propagate();
+        if (m_qhead >= m_queue.size())
+            return false;
+        bool propagated = false;
+        ctx.push(value_trail<euf::solver, unsigned>(m_qhead));
+        for (; m_qhead < m_queue.size(); ++m_qhead) {
+            unsigned idx = m_queue[m_qhead];
+            clause& c = *m_clauses[idx];
+            for (auto& b : c.bindings()) {
+                if (!b->propagated() && propagate(b->m_nodes, c)) {
+                    ctx.push(value_trail<euf::solver, bool>(b->m_propagated));
+                    b->set_propagated(true);
+                    propagated = true;
+                }
+            }
+        }
+        m_clause_in_queue.reset();
+        m_node_in_queue.reset();
+        return propagated;
+    }
+
+    ematch::clause* ematch::clausify(quantifier* q) {
+        NOT_IMPLEMENTED_YET();
+        return nullptr;
+    }
+
+    /**
+     * Attach ground subterms of patterns so they appear shared.
+     */
+    void ematch::attach_ground_pattern_terms(expr* pat) {
+        mam::ground_subterms(pat, m_ground);
+        for (expr* g : m_ground) { 
+            euf::enode* n = ctx.get_egraph().find(g);
+            if (!n->is_attached_to(m_qs.get_id())) {
+                euf::theory_var v = m_qs.mk_var(n);
+                ctx.get_egraph().add_th_var(n, v, m_qs.get_id());
+            }
+        }
+    }
+
+    struct ematch::pop_clause : public trail<euf::solver> {
+        ematch& em;
+        pop_clause(ematch& em): em(em) {}
+        void undo(euf::solver& ctx) override {
+            em.m_q2clauses.remove(em.m_clauses.back()->m_q);
+            em.m_clauses.pop_back();
+        }
+    };
+
+    void ematch::add(quantifier* q) {
+        clause* c = clausify(q);
+        ensure_ground_enodes(*c);
+        unsigned idx = m_clauses.size();
+        m_clauses.push_back(c);
+        m_q2clauses.insert(q, idx);
+        ctx.push(pop_clause(*this));
+        init_watch(*c, idx);
+        
+        bool has_unary_pattern = false;
+        unsigned num_patterns = q->get_num_patterns();
+        for (unsigned i = 0; i < num_patterns && !has_unary_pattern; i++) 
+            has_unary_pattern = (1 == to_app(q->get_pattern(i))->get_num_args());
+        unsigned num_eager_multi_patterns = ctx.get_config().m_qi_max_eager_multipatterns;
+        if (!has_unary_pattern)
+            num_eager_multi_patterns++;
+        for (unsigned i = 0, j = 0; i < num_patterns; i++) {
+            app * mp = to_app(q->get_pattern(i));
+            SASSERT(m.is_pattern(mp));
+            bool unary = (mp->get_num_args() == 1);
+            TRACE("quantifier", tout << "adding:\n" << expr_ref(mp, m) << "\n";);
+            if (!unary && j >= num_eager_multi_patterns) {
+                TRACE("quantifier", tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m) << "\n";);
+                if (!m_lazy_mam)
+                    m_lazy_mam = mam::mk(ctx, *this);
+                m_lazy_mam->add_pattern(q, mp);
+            }
+            else 
+                m_mam->add_pattern(q, mp);
+
+            attach_ground_pattern_terms(mp);
+
+            if (!unary)
+                j++;
+        }
+    }
+
+    bool ematch::operator()() {
+        if (m_lazy_mam)
+            m_lazy_mam->propagate();
+        if (propagate())
+            return true;
+        // 
+        // TODO: loop over pending bindings and instantiate them
+        // 
+        NOT_IMPLEMENTED_YET();
+        return false;
+    }
+
+}

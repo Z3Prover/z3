@@ -148,6 +148,8 @@ namespace euf {
         unsigned_vector        m_scopes;
         enode_vector           m_expr2enode;
         enode*                 m_tmp_eq { nullptr };
+        enode*                 m_tmp_node { nullptr };
+        unsigned               m_tmp_node_capacity { 0 };
         enode_vector           m_nodes;
         expr_ref_vector        m_exprs;
         vector<enode_vector>   m_decl2enodes;
@@ -165,6 +167,7 @@ namespace euf {
         enode_vector           m_todo;
         stats                  m_stats;
         bool                   m_uses_congruence { false };
+        std::function<void(enode*,enode*)>     m_on_merge;
         std::function<void(expr*,expr*,expr*)> m_used_eq;
         std::function<void(app*,app*)>         m_used_cc;  
         std::function<void(std::ostream&, void*)>   m_display_justification;
@@ -218,6 +221,7 @@ namespace euf {
         egraph(ast_manager& m);
         ~egraph();
         enode* find(expr* f) const { return m_expr2enode.get(f->get_id(), nullptr); }
+        enode* find(expr* f, unsigned n, enode* const* args);
         enode* mk(expr* f, unsigned generation, unsigned n, enode *const* args);
         enode_vector const& enodes_of(func_decl* f);
         void push() { ++m_num_scopes; }
@@ -269,6 +273,7 @@ namespace euf {
         void set_value(enode* n, lbool value);
         void set_bool_var(enode* n, unsigned v) { n->set_bool_var(v); }
 
+        void set_on_merge(std::function<void(enode* root,enode* other)>& on_merge) { m_on_merge = on_merge; }
         void set_used_eq(std::function<void(expr*,expr*,expr*)>& used_eq) { m_used_eq = used_eq; }
         void set_used_cc(std::function<void(app*,app*)>& used_cc) { m_used_cc = used_cc; }
         void set_display_justification(std::function<void (std::ostream&, void*)> & d) { m_display_justification = d; }

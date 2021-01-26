@@ -39,6 +39,23 @@ namespace euf {
         return n;
     }
 
+    enode* egraph::find(expr* e, unsigned n, enode* const* args) {
+        if (m_tmp_node && m_tmp_node_capacity < n) {
+            memory::deallocate(m_tmp_node);
+            m_tmp_node = nullptr;
+        }
+        if (!m_tmp_node) {
+            m_tmp_node = enode::mk_tmp(n);
+            m_tmp_node_capacity = n;
+        }
+        for (unsigned i = 0; i < n; ++i) 
+            m_tmp_node->m_args[i] = args[i];
+        m_tmp_node->m_num_args = n;
+        m_tmp_node->m_expr = e;
+        return m_table.find(m_tmp_node);
+    }
+
+
     enode_vector const& egraph::enodes_of(func_decl* f) {
         unsigned id = f->get_decl_id();
         if (id < m_decl2enodes.size())
@@ -115,6 +132,8 @@ namespace euf {
     egraph::~egraph() {
         for (enode* n : m_nodes) 
             n->m_parents.finalize();
+        if (m_tmp_node)
+            memory::deallocate(m_tmp_node);
     }
 
     void egraph::add_th_eq(theory_id id, theory_var v1, theory_var v2, enode* c, enode* r) {
@@ -382,6 +401,8 @@ namespace euf {
         r2->inc_class_size(r1->class_size());   
         merge_th_eq(r1, r2);
         reinsert_parents(r1, r2);
+        if (m_on_merge)
+            m_on_merge(r2, r1);
     }
 
     void egraph::remove_parents(enode* r1, enode* r2) {

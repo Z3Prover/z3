@@ -28,9 +28,11 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_smt2_pp.h"
-#include "ast/euf/euf_mam.h"
 #include "ast/euf/euf_enode.h"
 #include "ast/euf/euf_egraph.h"
+#include "sat/smt/q_mam.h"
+#include "sat/smt/q_ematch.h"
+#include "sat/smt/euf_solver.h"
 
 
 
@@ -60,7 +62,7 @@ Revision History:
 
 #define IS_CGR_SUPPORT true
 
-namespace euf {
+namespace q {
     // ------------------------------------
     //
     // Trail
@@ -71,12 +73,11 @@ namespace euf {
 
     typedef trail_stack<mam_impl> mam_trail_stack;
 
-    typedef trail<mam_impl> mam_trail;
 
     template<typename T>
-    class mam_value_trail : public value_trail<mam_impl, T> {
+    class mam_value_trail : public value_trail<euf::solver, T> {
     public:
-        mam_value_trail(T & value):value_trail<mam_impl, T>(value) {}
+        mam_value_trail(T & value):value_trail<euf::solver, T>(value) {}
     };
 
     unsigned get_max_generation(unsigned n, enode* const* nodes) {
@@ -458,7 +459,7 @@ namespace euf {
         }
 
         void display_label_hashes_core(std::ostream & out, app * p) const {
-            if (p->is_ground()) {
+            if (is_ground(p)) {
                 enode * e = get_enode(*m_egraph, p);
                 SASSERT(e->has_lbl_hash());
                 out << "#" << e->get_expr_id() << ":" << e->get_lbl_hash() << " ";
@@ -606,8 +607,8 @@ namespace euf {
     // ------------------------------------
 
     class code_tree_manager {
+        euf::solver &     ctx;
         label_hasher &    m_lbl_hasher;
-        mam_trail_stack & m_trail_stack;
         region &          m_region;
 
         template<typename OP>
@@ -640,10 +641,10 @@ namespace euf {
         }
 
     public:
-        code_tree_manager(label_hasher & h, mam_trail_stack & s):
+        code_tree_manager(label_hasher & h, euf::solver& ctx):
+            ctx(ctx),
             m_lbl_hasher(h),
-            m_trail_stack(s),
-            m_region(s.get_region()) {
+            m_region(ctx.get_region()) {
         }
 
         code_tree * mk_code_tree(func_decl * lbl, unsigned short num_args, bool filter_candidates) {
@@ -765,20 +766,20 @@ namespace euf {
         }
 
         void set_next(instruction * instr, instruction * new_next) {
-            m_trail_stack.push(mam_value_trail<instruction*>(instr->m_next));
+            ctx.push(mam_value_trail<instruction*>(instr->m_next));
             instr->m_next = new_next;
         }
 
         void save_num_regs(code_tree * tree) {
-            m_trail_stack.push(mam_value_trail<unsigned>(tree->m_num_regs));
+            ctx.push(mam_value_trail<unsigned>(tree->m_num_regs));
         }
 
         void save_num_choices(code_tree * tree) {
-            m_trail_stack.push(mam_value_trail<unsigned>(tree->m_num_choices));
+            ctx.push(mam_value_trail<unsigned>(tree->m_num_choices));
         }
 
         void insert_new_lbl_hash(filter * instr, unsigned h) {
-            m_trail_stack.push(mam_value_trail<approx_set>(instr->m_lbl_set));
+            ctx.push(mam_value_trail<approx_set>(instr->m_lbl_set));
             instr->m_lbl_set.insert(h);
         }
     };
@@ -947,7 +948,7 @@ namespace euf {
                 if (to_app(p)->is_ground()) {
                     // ground applications are viewed as constants, and eagerly
                     // converted into enodes.
-                    enode * e = mk_enode(m_egraph, m_qa, to_app(p));
+                    enode * e = m_egraph.find(p);
                     m_seq.push_back(m_ct_manager.mk_check(reg, e));
                     set_check_mark(reg, NOT_CHECKED); // reset mark, register was fully processed.
                     continue;
@@ -1071,7 +1072,7 @@ namespace euf {
             if (is_ground(n)) {
                 unsigned oreg        = m_tree->m_num_regs;
                 m_tree->m_num_regs  += 1;
-                enode * e = mk_enode(m_egraph, m_qa, n);
+                enode * e = m_egraph.find(n);
                 m_seq.push_back(m_ct_manager.mk_get_enode(oreg, e));
                 return oreg;
             }
@@ -1168,8 +1169,8 @@ namespace euf {
 
                             SASSERT(is_app(curr));
 
-                            if (to_app(curr)->is_ground()) {
-                                enode * e = mk_enode(m_egraph, m_qa, to_app(curr));
+                            if (is_ground(curr)) {
+                                enode * e = m_egraph.find(curr);
                                 joints.push_back(TAG(enode *, e, GROUND_TERM_TAG));
                                 continue;
                             }
@@ -1310,20 +1311,20 @@ namespace euf {
             unsigned reg1 = instr->m_reg1;
             unsigned reg2 = instr->m_reg2;
             return
-                m_registers[reg1] != 0 &&
+                m_registers[reg1] != nullptr &&
                 m_registers[reg1] == m_registers[reg2];
         }
 
         bool is_compatible(check * instr) const {
             unsigned reg  = instr->m_reg;
             enode *  n    = instr->m_enode;
-            if (m_registers[reg] == 0)
+            if (!m_registers[reg])
                 return false;
             if (!is_app(m_registers[reg]))
                 return false;
             if (!to_app(m_registers[reg])->is_ground())
                 return false;
-            enode * n_prime = mk_enode(m_egraph, m_qa, to_app(m_registers[reg]));
+            enode * n_prime = m_egraph.find(m_registers[reg]);
             // it is safe to compare the roots because the modifications
             // on the code tree are chronological.
             return n->get_root() == n_prime->get_root();
@@ -1341,7 +1342,7 @@ namespace euf {
             SASSERT(is_app(m_registers[reg]));
             app * p = to_app(m_registers[reg]);
             if (p->is_ground()) {
-                enode * e = mk_enode(m_egraph, m_qa, p);
+                enode * e = m_egraph.find(p);
                 if (!e->has_lbl_hash())
                     e->set_lbl_hash(m_egraph);
                 return e->get_lbl_hash();
@@ -1887,7 +1888,7 @@ namespace euf {
         // We have to provide the number of expected arguments because we have flat-assoc applications such as +.
         // Flat-assoc applications may have arbitrary number of arguments.
         enode * get_first_f_app(func_decl * lbl, unsigned num_expected_args, enode * first) {
-            for (enode* curr : enode_class(first)) {
+            for (enode* curr : euf::enode_class(first)) {
                 if (curr->get_decl() == lbl && curr->is_cgr() && curr->num_args() == num_expected_args) {
                     update_max_generation(curr, first);
                     return curr;
@@ -1919,7 +1920,7 @@ namespace euf {
             switch (num_args) {
             case 1:
                 m_args[0] = m_registers[pc->m_iregs[0]]->get_root();
-                for (enode* n : enode_class(r)) {
+                for (enode* n : euf::enode_class(r)) {
                     if (n->get_decl() == f &&
                         n->get_arg(0)->get_root() == m_args[0]) {
                         update_max_generation(n, r);
@@ -1930,7 +1931,7 @@ namespace euf {
             case 2:
                 m_args[0] = m_registers[pc->m_iregs[0]]->get_root();
                 m_args[1] = m_registers[pc->m_iregs[1]]->get_root();
-                for (enode* n : enode_class(r)) {
+                for (enode* n : euf::enode_class(r)) {
                     if (n->get_decl() == f &&
                         n->get_arg(0)->get_root() == m_args[0] &&
                         n->get_arg(1)->get_root() == m_args[1]) {
@@ -1943,7 +1944,7 @@ namespace euf {
                 m_args.reserve(num_args+1, 0);
                 for (unsigned i = 0; i < num_args; i++)
                     m_args[i] = m_registers[pc->m_iregs[i]]->get_root();
-                for (enode* n : enode_class(r)) {
+                for (enode* n : euf::enode_class(r)) {
                     if (n->get_decl() == f) {
                         unsigned i = 0;
                         for (; i < num_args; i++) {
@@ -2055,17 +2056,13 @@ namespace euf {
     enode_vector * interpreter::mk_depth1_vector(enode * n, func_decl * f, unsigned i) {
         enode_vector * v = mk_enode_vector();
         n = n->get_root();
-        enode_vector::const_iterator it  = n->begin_parents();
-        enode_vector::const_iterator end = n->end_parents();
-        for (; it != end; ++it) {
-            enode * p = *it;
+        for (enode* p : euf::enode_parents(n)) {
             if (p->get_decl() == f  && 
                 i < p->num_args() && 
                 m_egraph.is_relevant(p)  &&
                 p->is_cgr() &&
-                p->get_arg(i)->get_root() == n) {
+                p->get_arg(i)->get_root() == n) 
                 v->push_back(p);
-            }
         }
         return v;
     }
@@ -2081,10 +2078,7 @@ namespace euf {
             return nullptr;
         unsigned num_args = n->num_args();
         enode_vector * v  = mk_enode_vector();
-        enode_vector::const_iterator it1  = n->begin_parents();
-        enode_vector::const_iterator end1 = n->end_parents();
-        for (; it1 != end1; ++it1) {
-            enode * p = *it1;
+        for (enode* p : euf::enode_parents(n)) {
             if (p->get_decl() == j2->m_decl &&
                 m_egraph.is_relevant(p) &&
                 p->num_args() > j2->m_arg_pos && 
@@ -2092,10 +2086,7 @@ namespace euf {
                 p->get_arg(j2->m_arg_pos)->get_root() == n) {
                 // p is in joint2
                 p = p->get_root();
-                enode_vector::const_iterator it2  = p->begin_parents();
-                enode_vector::const_iterator end2 = p->end_parents();
-                for (; it2 != end2; ++it2) {
-                    enode * p2 = *it2;
+                for (enode* p2 : euf::enode_parents(p)) {
                     if (p2->get_decl() == f &&
                         num_args == n->num_args() && 
                         num_args == p2->num_args() &&
@@ -2816,27 +2807,27 @@ namespace euf {
         ast_manager &               m;
         compiler &                  m_compiler;
         ptr_vector<code_tree>       m_trees;       // mapping: func_label -> tree
-        mam_trail_stack &           m_trail_stack;
+        euf::solver&                ctx;
 #ifdef Z3DEBUG
         egraph *                   m_egraph;
 #endif
 
-        class mk_tree_trail : public mam_trail {
+        class mk_tree_trail : public trail<euf::solver> {
             ptr_vector<code_tree> & m_trees;
             unsigned                m_lbl_id;
         public:
             mk_tree_trail(ptr_vector<code_tree> & t, unsigned id):m_trees(t), m_lbl_id(id) {}
-            void undo(mam_impl & m) override {
+            void undo(euf::solver & m) override {
                 dealloc(m_trees[m_lbl_id]);
                 m_trees[m_lbl_id] = nullptr;
             }
         };
 
     public:
-        code_tree_map(ast_manager & m, compiler & c, mam_trail_stack & s):
+        code_tree_map(ast_manager & m, compiler & c, euf::solver& ctx):
             m(m),
             m_compiler(c),
-            m_trail_stack(s) {
+            ctx(ctx) {
         }
 
 #ifdef Z3DEBUG
@@ -2867,7 +2858,7 @@ namespace euf {
                 m_trees[lbl_id] = m_compiler.mk_tree(qa, mp, first_idx, false);
                 SASSERT(m_trees[lbl_id]->expected_num_args() == p->get_num_args());
                 DEBUG_CODE(m_trees[lbl_id]->set_egraph(m_egraph););
-                m_trail_stack.push(mk_tree_trail(m_trees, lbl_id));
+                ctx.push(mk_tree_trail(m_trees, lbl_id));
             }
             else {
                 code_tree * tree = m_trees[lbl_id];
@@ -2880,7 +2871,7 @@ namespace euf {
                 }
             }
             DEBUG_CODE(m_trees[lbl_id]->get_patterns().push_back(mp);
-                       m_trail_stack.push(push_back_trail<mam_impl, app*, false>(m_trees[lbl_id]->get_patterns())););
+                       ctx.push(push_back_trail<euf::solver, app*, false>(m_trees[lbl_id]->get_patterns())););
             TRACE("trigger_bug", tout << "after add_pattern, first_idx: " << first_idx << "\n"; m_trees[lbl_id]->display(tout););
         }
 
@@ -3033,11 +3024,11 @@ namespace euf {
     //
     // ------------------------------------
     class mam_impl : public mam {
+        euf::solver&                ctx;
         egraph &                    m_egraph;
-        std::function<void(quantifier*, app*, unsigned, enode* const*, unsigned)> m_add_instance;
+        ematch &                    m_ematch;
         ast_manager &               m;
         bool                        m_use_filters;
-        mam_trail_stack             m_trail_stack;
         label_hasher                m_lbl_hasher;
         code_tree_manager           m_ct_manager;
         compiler                    m_compiler;
@@ -3072,23 +3063,31 @@ namespace euf {
         // temporary field used to collect candidates
         ptr_vector<path_tree>       m_todo;
 
-        obj_hashtable<enode>        m_shared_enodes; // ground terms that appear in patterns.
+        enode *                     m_root { nullptr };  // temp field
+        enode *                     m_other { nullptr }; // temp field
+        bool                        m_check_missing_instances { false };
 
-        enode *                     m_r1; // temp field
-        enode *                     m_r2; // temp field
-
-        class add_shared_enode_trail;
-        friend class add_shared_enode_trail;
-
-        class add_shared_enode_trail : public mam_trail {
-            enode * m_enode;
+        class reset_to_match : public trail<euf::solver> {
+            mam_impl& i;
         public:
-            add_shared_enode_trail(enode * n):m_enode(n) {}
-            void undo(mam_impl & m) override { m.m_shared_enodes.erase(m_enode); }
+            reset_to_match(mam_impl& i):i(i) {}
+            void undo(euf::solver& ctx) override {
+                if (i.m_to_match.empty())
+                    return;
+                for (code_tree* t : i.m_to_match) 
+                    t->reset_candidates();
+                i.m_to_match.reset();
+            }
         };
-
-
-        bool                        m_check_missing_instances{ false };
+        
+        class reset_new_patterns : public trail<euf::solver> {
+            mam_impl& i;
+        public:
+            reset_new_patterns(mam_impl& i):i(i) {}
+            void undo(euf::solver& ctx) override {
+                i.m_new_patterns.reset();
+            }
+        };
 
         enode_vector * mk_tmp_vector() {
             enode_vector * r = m_pool.mk();
@@ -3103,8 +3102,10 @@ namespace euf {
         void add_candidate(code_tree * t, enode * app) {
             if (t != nullptr) {
                 TRACE("mam_candidate", tout << "adding candidate:\n" << mk_ll_pp(app->get_expr(), m););
-                if (!t->has_candidates())
+                if (!t->has_candidates()) {
                     m_to_match.push_back(t);
+                    ctx.push(reset_to_match(*this));
+                }
                 t->add_candidate(app);
             }
         }
@@ -3126,7 +3127,7 @@ namespace euf {
         void update_lbls(enode * n, unsigned elem) {
             approx_set & r_lbls = n->get_root()->get_lbls();
             if (!r_lbls.may_contain(elem)) {
-                m_trail_stack.push(mam_value_trail<approx_set>(r_lbls));
+                ctx.push(mam_value_trail<approx_set>(r_lbls));
                 r_lbls.insert(elem);
             }
         }
@@ -3138,7 +3139,7 @@ namespace euf {
             TRACE("mam_bug", tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
             if (m_is_clbl[lbl_id])
                 return;
-            m_trail_stack.push(set_bitvector_trail<mam_impl>(m_is_clbl, lbl_id));
+            ctx.push(set_bitvector_trail<euf::solver>(m_is_clbl, lbl_id));
             SASSERT(m_is_clbl[lbl_id]);
             unsigned h = m_lbl_hasher(lbl);
             for (enode* app : m_egraph.enodes_of(lbl)) {
@@ -3158,7 +3159,7 @@ namespace euf {
                 enode * c            = app->get_arg(i);
                 approx_set & r_plbls = c->get_root()->get_plbls();
                 if (!r_plbls.may_contain(elem)) {
-                    m_trail_stack.push(mam_value_trail<approx_set>(r_plbls));
+                    ctx.push(mam_value_trail<approx_set>(r_plbls));
                     r_plbls.insert(elem);
                     TRACE("trigger_bug", tout << "updating plabels of:\n" << mk_ismt2_pp(c->get_root()->get_expr(), m) << "\n";
                           tout << "new_elem: " << static_cast<unsigned>(elem) << "\n";
@@ -3179,7 +3180,7 @@ namespace euf {
             TRACE("mam_bug", tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << "\n";);
             if (m_is_plbl[lbl_id])
                 return;
-            m_trail_stack.push(set_bitvector_trail<mam_impl>(m_is_plbl, lbl_id));
+            ctx.push(set_bitvector_trail<euf::solver>(m_is_plbl, lbl_id));
             SASSERT(m_is_plbl[lbl_id]);
             SASSERT(is_plbl(lbl));
             unsigned h = m_lbl_hasher(lbl);
@@ -3226,7 +3227,7 @@ namespace euf {
                 p = p->m_child;
             }
             curr->m_code = mk_code(qa, mp, pat_idx);
-            m_trail_stack.push(new_obj_trail<mam_impl, code_tree>(curr->m_code));
+            ctx.push(new_obj_trail<euf::solver, code_tree>(curr->m_code));
             return head;
         }
 
@@ -3249,7 +3250,7 @@ namespace euf {
                                 insert_code(t, qa, mp, p->m_pattern_idx);
                             }
                             else {
-                                m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(t->m_first_child));
+                                ctx.push(set_ptr_trail<euf::solver, path_tree>(t->m_first_child));
                                 t->m_first_child = mk_path_tree(p->m_child, qa, mp);
                             }
                         }
@@ -3259,9 +3260,9 @@ namespace euf {
                                     insert_code(t, qa, mp, p->m_pattern_idx);
                                 }
                                 else {
-                                    m_trail_stack.push(set_ptr_trail<mam_impl, code_tree>(t->m_code));
+                                    ctx.push(set_ptr_trail<euf::solver, code_tree>(t->m_code));
                                     t->m_code = mk_code(qa, mp, p->m_pattern_idx);
-                                    m_trail_stack.push(new_obj_trail<mam_impl, code_tree>(t->m_code));
+                                    ctx.push(new_obj_trail<euf::solver, code_tree>(t->m_code));
                                 }
                             }
                             else {
@@ -3274,10 +3275,10 @@ namespace euf {
                 prev_sibling = t;
                 t = t->m_sibling;
             }
-            m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(prev_sibling->m_sibling));
+            ctx.push(set_ptr_trail<euf::solver, path_tree>(prev_sibling->m_sibling));
             prev_sibling->m_sibling = mk_path_tree(p, qa, mp);
             if (!found_label) {
-                m_trail_stack.push(value_trail<mam_impl, approx_set>(head->m_filter));
+                ctx.push(value_trail<euf::solver, approx_set>(head->m_filter));
                 head->m_filter.insert(m_lbl_hasher(p->m_label));
             }
         }
@@ -3287,7 +3288,7 @@ namespace euf {
                 insert(m_pc[h1][h2], p, qa, mp);
             }
             else {
-                m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(m_pc[h1][h2]));
+                ctx.push(set_ptr_trail<euf::solver, path_tree>(m_pc[h1][h2]));
                 m_pc[h1][h2] = mk_path_tree(p, qa, mp);
             }
             TRACE("mam_path_tree_updt",
@@ -3304,7 +3305,7 @@ namespace euf {
                         insert(m_pp[h1][h2].first, p2, qa, mp);
                 }
                 else {
-                    m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(m_pp[h1][h2].first));
+                    ctx.push(set_ptr_trail<euf::solver, path_tree>(m_pp[h1][h2].first));
                     m_pp[h1][h2].first = mk_path_tree(p1, qa, mp);
                     insert(m_pp[h1][h2].first, p2, qa, mp);
                 }
@@ -3321,9 +3322,9 @@ namespace euf {
                     insert(m_pp[h1][h2].second, p2, qa, mp);
                 }
                 else {
-                    SASSERT(m_pp[h1][h2].second == 0);
-                    m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(m_pp[h1][h2].first));
-                    m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(m_pp[h1][h2].second));
+                    SASSERT(m_pp[h1][h2].second == nullptr);
+                    ctx.push(set_ptr_trail<euf::solver, path_tree>(m_pp[h1][h2].first));
+                    ctx.push(set_ptr_trail<euf::solver, path_tree>(m_pp[h1][h2].second));
                     m_pp[h1][h2].first  = mk_path_tree(p1, qa, mp);
                     m_pp[h1][h2].second = mk_path_tree(p2, qa, mp);
                 }
@@ -3360,7 +3361,7 @@ namespace euf {
                 expr * arg = pat->get_arg(i);
                 if (is_ground(arg)) {
                     pos = i;
-                    return mk_enode(m_egraph, qa, to_app(arg));
+                    return m_egraph.find(arg);
                 }
             }
             return nullptr;
@@ -3388,7 +3389,7 @@ namespace euf {
                 SASSERT(is_app(child));
 
                 if (to_app(child)->is_ground()) {
-                    enode * n = mk_enode(m_egraph, qa, to_app(child));
+                    enode * n = m_egraph.find(child);
                     update_plbls(plbl);
                     if (!n->has_lbl_hash())
                         n->set_lbl_hash(m_egraph);
@@ -3458,8 +3459,8 @@ namespace euf {
         bool is_eq(enode * n1, enode * n2) {
             return
                 n1->get_root() == n2->get_root() ||
-                (n1->get_root() == m_r1 && n2->get_root() == m_r2) ||
-                (n2->get_root() == m_r1 && n1->get_root() == m_r2);
+                (n1->get_root() == m_other && n2->get_root() == m_root) ||
+                (n2->get_root() == m_other && n1->get_root() == m_root);
         }
 
         /**
@@ -3532,7 +3533,7 @@ namespace euf {
 #endif
 
                     TRACE("mam_path_tree", tout << "processing: #" << curr_child->get_expr_id() << "\n";);
-                    for (enode* curr_parent : enode_parents(curr_child)) {
+                    for (enode* curr_parent : euf::enode_parents(curr_child)) {
 #ifdef _PROFILE_PATH_TREE
                         if (curr_parent->is_equality())
                             t->m_num_eq_visited++;
@@ -3682,9 +3683,8 @@ namespace euf {
             TRACE("mam_new_pat", tout << "matching new patterns:\n";);
             m_tmp_trees_to_delete.reset();
             for (auto const& kv : m_new_patterns) {
-                if (!m.inc()) {
+                if (!m.inc()) 
                     break;
-                }
                 quantifier * qa    = kv.first;
                 app *        mp    = kv.second;
                 SASSERT(m.is_pattern(mp));
@@ -3712,62 +3712,30 @@ namespace euf {
                 for (enode * app : m_egraph.enodes_of(lbl)) 
                     if (m_egraph.is_relevant(app))
                         m_interpreter.execute_core(tmp_tree, app);
-                m_tmp_trees[lbl_id] = 0;
+                m_tmp_trees[lbl_id] = nullptr;
                 dealloc(tmp_tree);
             }
             m_new_patterns.reset();
         }
 
-        void collect_ground_exprs(quantifier * qa, app * mp) {
-            ptr_buffer<app> todo;
-            unsigned num_patterns = mp->get_num_args();
-            for (unsigned i = 0; i < num_patterns; i++) {
-                app * pat = to_app(mp->get_arg(i));
-                TRACE("mam_pat", tout << mk_ismt2_pp(qa, m) << "\npat:\n" << mk_ismt2_pp(pat, m) << "\n";);
-                SASSERT(!pat->is_ground());
-                todo.push_back(pat);
-            }
-            while (!todo.empty()) {
-                app * n = todo.back();
-                todo.pop_back();
-                if (n->is_ground()) {
-                    enode * e = mk_enode(m_egraph, qa, n);
-                    m_trail_stack.push(add_shared_enode_trail(e));
-                    m_shared_enodes.insert(e);
-                }
-                else {
-                    unsigned num_args = n->get_num_args();
-                    for (unsigned i = 0; i < num_args; i++) {
-                        expr * arg = n->get_arg(i);
-                        if (is_app(arg))
-                            todo.push_back(to_app(arg));
-                    }
-                }
-            }
-        }
-
-
     public:
-        mam_impl(egraph & ctx, std::function<void(quantifier*, app*, unsigned, enode* const*, unsigned)>& add_instance, bool use_filters):
-            m_egraph(ctx),
-            m_add_instance(add_instance),
+        mam_impl(euf::solver & ctx, ematch& ematch, bool use_filters):
+            ctx(ctx),
+            m_egraph(ctx.get_egraph()),
+            m_ematch(ematch),
             m(ctx.get_manager()),
             m_use_filters(use_filters),
-            m_trail_stack(*this),
-            m_ct_manager(m_lbl_hasher, m_trail_stack),
-            m_compiler(ctx, m_ct_manager, m_lbl_hasher, use_filters),
-            m_interpreter(ctx, *this, use_filters),
-            m_trees(m, m_compiler, m_trail_stack),
-            m_region(m_trail_stack.get_region()),
-            m_r1(nullptr),
-            m_r2(nullptr) {
-            DEBUG_CODE(m_trees.set_egraph(&ctx););
+            m_ct_manager(m_lbl_hasher, ctx),
+            m_compiler(m_egraph, m_ct_manager, m_lbl_hasher, use_filters),
+            m_interpreter(m_egraph, *this, use_filters),
+            m_trees(m, m_compiler, ctx),
+            m_region(ctx.get_region()) {
+            DEBUG_CODE(m_trees.set_egraph(&m_egraph););
             DEBUG_CODE(m_check_missing_instances = false;);
             reset_pp_pc();
         }
 
         ~mam_impl() override {
-            m_trail_stack.reset();
         }
 
         void add_pattern(quantifier * qa, app * mp) override {
@@ -3778,38 +3746,21 @@ namespace euf {
             // Ground patterns are discarded.
             // However, the simplifier may turn a non-ground pattern into a ground one.
             // So, we should check it again here.
-            unsigned num_patterns = mp->get_num_args();
-            for (unsigned i = 0; i < num_patterns; i++)
-                if (is_ground(mp->get_arg(i)))
+            for (expr* arg : *mp)
+                if (is_ground(arg))
                     return; // ignore multi-pattern containing ground pattern.
             update_filters(qa, mp);
-            collect_ground_exprs(qa, mp);
             m_new_patterns.push_back(qp_pair(qa, mp));
+            ctx.push(reset_new_patterns(*this));
             // The matching abstract machine implements incremental
             // e-matching. So, for a multi-pattern [ p_1, ..., p_n ],
             // we have to make n insertions. In the i-th insertion,
             // the pattern p_i is assumed to be the first one.
-            for (unsigned i = 0; i < num_patterns; i++)
+            for (unsigned i = 0; i < mp->get_num_args(); i++)
                 m_trees.add_pattern(qa, mp, i);
         }
 
-        void push_scope() override {
-            m_trail_stack.push_scope();
-        }
-
-        void pop_scope(unsigned num_scopes) override {
-            if (!m_to_match.empty()) {
-                for (code_tree* t : m_to_match) {
-                    t->reset_candidates();
-                }
-                m_to_match.reset();
-            }
-            m_new_patterns.reset();
-            m_trail_stack.pop_scope(num_scopes);
-        }
-
         void reset() override {
-            m_trail_stack.reset();
             m_trees.reset();
             m_to_match.reset();
             m_new_patterns.reset();
@@ -3828,7 +3779,7 @@ namespace euf {
             return out;
         }
 
-        void match() override {
+        void propagate() override {
             TRACE("trigger_bug", tout << "match\n"; display(tout););
             for (code_tree* t : m_to_match) {
                 SASSERT(t->has_candidates());
@@ -3887,12 +3838,9 @@ namespace euf {
             unsigned min_gen = 0, max_gen = 0;
             m_interpreter.get_min_max_top_generation(min_gen, max_gen);
             UNREACHABLE();
-//          m_add_instance(qa, pat, num_bindings, bindings, nullptr, max_generation, min_gen, max_gen);
+            // m_ematch.on_binding(qa, pat, bindings); // max_generation); // , min_gen, max_gen;
         }
 
-        bool is_shared(enode * n) const override {
-            return !m_shared_enodes.empty() && m_shared_enodes.contains(n);
-        }
 
         // This method is invoked when n becomes relevant.
         // If lazy == true, then n is not added to the list of candidate enodes for matching. That is, the method just updates the lbls.
@@ -3919,49 +3867,71 @@ namespace euf {
             }
         }
 
-        bool has_work() const override {
+        bool can_propagate() const override {
             return !m_to_match.empty() || !m_new_patterns.empty();
         }
 
-        void add_eq_eh(enode * r1, enode * r2) override {
-            flet<enode *> l1(m_r1, r1);
-            flet<enode *> l2(m_r2, r2);
+        void on_merge(enode * root, enode * other) override {            
+            flet<enode *> l1(m_other, other);
+            flet<enode *> l2(m_root, root);
 
-            TRACE("mam", tout << "add_eq_eh: #" << r1->get_expr_id() << " #" << r2->get_expr_id() << "\n";);
+            TRACE("mam", tout << "add_eq_eh: #" << other->get_expr_id() << " #" << root->get_expr_id() << "\n";);
             TRACE("mam_inc_bug_detail", m_egraph.display(tout););
             TRACE("mam_inc_bug",
-                  tout << "before:\n#" << r1->get_expr_id() << " #" << r2->get_expr_id() << "\n";
-                  tout << "r1.lbls:  " << r1->get_lbls() << "\n";
-                  tout << "r2.lbls:  " << r2->get_lbls() << "\n";
-                  tout << "r1.plbls: " << r1->get_plbls() << "\n";
-                  tout << "r2.plbls: " << r2->get_plbls() << "\n";);
+                  tout << "before:\n#" << other->get_expr_id() << " #" << root->get_expr_id() << "\n";
+                  tout << "other.lbls:  " << other->get_lbls() << "\n";
+                  tout << "root.lbls:  " << root->get_lbls() << "\n";
+                  tout << "other.plbls: " << other->get_plbls() << "\n";
+                  tout << "root.plbls: " << root->get_plbls() << "\n";);
 
-            process_pc(r1, r2);
-            process_pc(r2, r1);
-            process_pp(r1, r2);
+            process_pc(other, root);
+            process_pc(root, other);
+            process_pp(other, root);
 
-            approx_set   r1_plbls = r1->get_plbls();
-            approx_set & r2_plbls = r2->get_plbls();
-            approx_set   r1_lbls  = r1->get_lbls();
-            approx_set & r2_lbls  = r2->get_lbls();
+            approx_set   other_plbls = other->get_plbls();
+            approx_set & root_plbls = root->get_plbls();
+            approx_set   other_lbls  = other->get_lbls();
+            approx_set & root_lbls  = root->get_lbls();
 
-            m_trail_stack.push(mam_value_trail<approx_set>(r2_lbls));
-            m_trail_stack.push(mam_value_trail<approx_set>(r2_plbls));
-            r2_lbls  |= r1_lbls;
-            r2_plbls |= r1_plbls;
+            ctx.push(mam_value_trail<approx_set>(root_lbls));
+            ctx.push(mam_value_trail<approx_set>(root_plbls));
+            root_lbls  |= other_lbls;
+            root_plbls |= other_plbls;
             TRACE("mam_inc_bug",
                   tout << "after:\n";
-                  tout << "r1.lbls:  " << r1->get_lbls() << "\n";
-                  tout << "r2.lbls:  " << r2->get_lbls() << "\n";
-                  tout << "r1.plbls: " << r1->get_plbls() << "\n";
-                  tout << "r2.plbls: " << r2->get_plbls() << "\n";);
-            SASSERT(approx_subset(r1->get_plbls(), r2->get_plbls()));
-            SASSERT(approx_subset(r1->get_lbls(), r2->get_lbls()));
+                  tout << "other.lbls:  " << other->get_lbls() << "\n";
+                  tout << "root.lbls:  " << root->get_lbls() << "\n";
+                  tout << "other.plbls: " << other->get_plbls() << "\n";
+                  tout << "root.plbls: " << root->get_plbls() << "\n";);
+            SASSERT(approx_subset(other->get_plbls(), root->get_plbls()));
+            SASSERT(approx_subset(other->get_lbls(), root->get_lbls()));
         }
     };
 
-    mam* mam::mk(egraph& ctx, std::function<void(quantifier*, app*, unsigned, enode* const*, unsigned)>& add_instance) {
-        return alloc(mam_impl, ctx, add_instance, true);
+    void mam::ground_subterms(expr* e, ptr_vector<app>& ground) {
+        ground.reset();
+        expr_fast_mark1 mark;
+        ptr_buffer<app> todo;
+        if (is_app(e))
+            todo.push_back(to_app(e));
+        while (!todo.empty()) {
+            app * n = todo.back();
+            todo.pop_back();
+            if (mark.is_marked(n))
+                continue;
+            mark.mark(n);
+            if (n->is_ground()) 
+                ground.push_back(n);
+            else {
+                for (expr* arg : *n) 
+                    if (is_app(arg))
+                        todo.push_back(to_app(arg));
+            }
+        }
+    }
+
+    mam* mam::mk(euf::solver& ctx, ematch& em) {
+        return alloc(mam_impl, ctx, em, true);
     }
 
 }

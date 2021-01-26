@@ -152,7 +152,6 @@ namespace euf {
         sat::literal eq_internalize(expr* a, expr* b);
         sat::literal eq_internalize(enode* a, enode* b) { return eq_internalize(a->get_expr(), b->get_expr()); }
 
-        euf::enode* e_internalize(expr* e); 
         euf::enode* mk_enode(expr* e, bool suppress_args = false);
         expr_ref mk_eq(expr* e1, expr* e2);
         expr_ref mk_var_eq(theory_var v1, theory_var v2) { return mk_eq(var2expr(v1), var2expr(v2)); }
@@ -173,6 +172,7 @@ namespace euf {
         virtual ~th_euf_solver() {}
         virtual theory_var mk_var(enode* n);
         unsigned get_num_vars() const { return m_var2enode.size(); }
+        euf::enode* e_internalize(expr* e); 
         enode* expr2enode(expr* e) const;
         enode* var2enode(theory_var v) const { return m_var2enode[v]; }
         expr* var2expr(theory_var v) const { return var2enode(v)->get_expr(); }

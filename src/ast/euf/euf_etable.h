@@ -83,7 +83,7 @@ namespace euf {
         
         struct cg_comm_eq {
             bool & m_commutativity;
-            cg_comm_eq( bool & c): m_commutativity(c) {}
+            cg_comm_eq(bool & c): m_commutativity(c) {}
             bool operator()(enode * n1, enode * n2) const {
                 SASSERT(n1->num_args() == 2);
                 SASSERT(n2->num_args() == 2);

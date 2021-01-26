@@ -55,6 +55,8 @@ namespace q {
         
         expr_ref_vector const& expand(quantifier* q);
 
+        friend class ematch;
+
     public:
 
         solver(euf::solver& ctx, family_id fid);
@@ -75,6 +77,7 @@ namespace q {
         euf::theory_var mk_var(euf::enode* n) override;
         void init_search() override;
         void finalize_model(model& mdl) override;
+        bool is_shared(euf::theory_var v) const override { return true; }
 
         ast_manager& get_manager() { return m; }
         sat::literal_vector const& universal() const { return m_universal; }

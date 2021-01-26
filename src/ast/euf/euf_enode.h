@@ -109,6 +109,20 @@ namespace euf {
                 n->m_args[i] = nullptr;            
             return n;
         }    
+
+        static enode* mk_tmp(unsigned num_args) {
+            void* mem = memory::allocate(get_enode_size(num_args));
+            enode* n = new (mem) enode();
+            n->m_expr = nullptr;
+            n->m_next = n;
+            n->m_root = n;
+            n->m_commutative = true;
+            n->m_num_args = 2;
+            n->m_merge_enabled = true;
+            for (unsigned i = 0; i < num_args; ++i) 
+                n->m_args[i] = nullptr;            
+            return n;
+        }    
         
         void set_update_children() { m_update_children = true; }
 

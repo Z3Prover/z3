@@ -29,6 +29,8 @@ z3_add_component(sat_smt
     euf_relevancy.cpp
     euf_solver.cpp
     fpa_solver.cpp
+    q_ematch.cpp
+    q_mam.cpp
     q_mbi.cpp
     q_model_fixer.cpp
     q_solver.cpp
