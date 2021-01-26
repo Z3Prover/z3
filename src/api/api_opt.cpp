@@ -105,7 +105,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_optimize_maximize(c, o, t);
         RESET_ERROR_CODE();
-        CHECK_VALID_AST(t,0);        
+        CHECK_VALID_AST(t, 0);        
+        CHECK_IS_EXPR(t, 0);
         return to_optimize_ptr(o)->add_objective(to_app(t), true);
         Z3_CATCH_RETURN(0);
     }
@@ -114,7 +115,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_optimize_minimize(c, o, t);
         RESET_ERROR_CODE();
-        CHECK_VALID_AST(t,0);        
+        CHECK_VALID_AST(t, 0);  
+        CHECK_IS_EXPR(t, 0);      
         return to_optimize_ptr(o)->add_objective(to_app(t), false);
         Z3_CATCH_RETURN(0);
     }
