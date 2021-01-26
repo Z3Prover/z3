@@ -56,7 +56,7 @@ namespace smt {
 
         void init_bits(theory_var v);
 
-        bool get_value(theory_var v, unsigned& c);
+        bool get_char_value(theory_var v, unsigned& c);
         
         void enforce_ackerman(theory_var v, theory_var w);
 
@@ -87,7 +87,7 @@ namespace smt {
         void assign_le(theory_var v1, theory_var v2, literal lit);
         void assign_lt(theory_var v1, theory_var v2, literal lit);
         void new_const_char(theory_var v, unsigned c);
-        unsigned get_value(theory_var v);
+        unsigned get_char_value(theory_var v);
 
         void internalize_le(literal lit, app* term);        
     };

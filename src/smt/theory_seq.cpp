@@ -1992,7 +1992,7 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
         return sv;
     }
     else if (m_char.enabled() && m_util.is_char(e)) {
-        unsigned ch = m_char.get_value(n->get_th_var(get_id()));
+        unsigned ch = m_char.get_char_value(n->get_th_var(get_id()));
         app* val = m_util.str.mk_char(ch);
         m_factory->add_trail(val);
         return alloc(expr_wrapper_proc, val);

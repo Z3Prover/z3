@@ -224,8 +224,8 @@ namespace smt {
         unsigned c = 0, d = 0;
         for (unsigned v = get_num_vars(); v-- > 0; ) {
             expr* e = get_expr(v);
-            if (seq.is_char(e) && m_var2value[v] == UINT_MAX && get_value(v, c)) {
-                CTRACE("seq", seq.is_char(e), tout << mk_pp(e, m) << " root: " << get_enode(v)->is_root() << " is_value: " << get_value(v, c) << "\n";);
+            if (seq.is_char(e) && m_var2value[v] == UINT_MAX && get_char_value(v, c)) {
+                CTRACE("seq", seq.is_char(e), tout << mk_pp(e, m) << " root: " << get_enode(v)->is_root() << " is_value: " << get_char_value(v, c) << "\n";);
                 enode* r = get_enode(v)->get_root();
                 m_value2var.reserve(c + 1, null_theory_var);
                 theory_var u = m_value2var[c];
@@ -241,7 +241,7 @@ namespace smt {
                     u = n->get_th_var(get_id());
                     if (u == null_theory_var)
                         continue;
-                    if (get_value(u, d) && d != c) {
+                    if (get_char_value(u, d) && d != c) {
                         enforce_ackerman(u, v);
                         return false;
                     }
@@ -323,11 +323,11 @@ namespace smt {
         ++m_stats.m_num_ackerman;
     }
     
-    unsigned theory_char::get_value(theory_var v) {
+    unsigned theory_char::get_char_value(theory_var v) {
         return m_var2value[v];
     }
 
-    bool theory_char::get_value(theory_var v, unsigned& c) {
+    bool theory_char::get_char_value(theory_var v, unsigned& c) {
         if (!has_bits(v))
             return false;
         auto const & b = get_bits(v);
@@ -348,7 +348,7 @@ namespace smt {
     }
 
     model_value_proc * theory_char::mk_value(enode * n, model_generator & mg) {
-        unsigned ch = get_value(n->get_th_var(get_id()));
+        unsigned ch = get_char_value(n->get_th_var(get_id()));
         app* val = seq.str.mk_char(ch);
         m_factory->add_trail(val);
         return alloc(expr_wrapper_proc, val);
