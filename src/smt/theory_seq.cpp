@@ -272,7 +272,7 @@ theory_seq::theory_seq(context& ctx):
     m_autil(m),
     m_sk(m, m_rewrite),
     m_ax(*this, m_rewrite),
-    m_char(*this),
+    m_char(ctx, get_family_id()),
     m_regex(*this),
     m_arith_value(m),
     m_trail_stack(*this),
@@ -1811,7 +1811,6 @@ void theory_seq::init_model(model_generator & mg) {
         }
     }
 }
-
 
 class theory_seq::seq_value_proc : public model_value_proc {
     enum source_t { unit_source, int_source, string_source };

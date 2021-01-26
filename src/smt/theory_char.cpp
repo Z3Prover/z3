@@ -16,16 +16,16 @@ Author:
 --*/
 
 #include "ast/bv_decl_plugin.h"
-#include "smt/seq_char.h"
+#include "smt/theory_char.h"
 #include "smt/smt_context.h"
+#include "smt/smt_model_generator.h"
 
 namespace smt {
-
-    seq_char::seq_char(theory& th):
-        th(th),
-        m(th.get_manager()),
+    
+    theory_char::theory_char(context& ctx, family_id fid):
+        theory(ctx, fid),
         seq(m),
-        m_bb(m, ctx().get_fparams())
+        m_bb(m, ctx.get_fparams())
     {
         bv_util bv(m);
         sort_ref b8(bv.mk_sort(8), m);
@@ -33,11 +33,11 @@ namespace smt {
         m_bits2char = symbol("bits2char");
     }
 
-    struct seq_char::reset_bits : public trail<context> {
-        seq_char& s;
+    struct theory_char::reset_bits : public trail<context> {
+        theory_char& s;
         unsigned idx;
 
-        reset_bits(seq_char& s, unsigned idx):
+        reset_bits(theory_char& s, unsigned idx):
             s(s),
             idx(idx)
         {}
@@ -48,8 +48,30 @@ namespace smt {
         }
     };
 
-    bool seq_char::has_bits(theory_var v) const {
+    bool theory_char::has_bits(theory_var v) const {
         return (m_bits.size() > (unsigned)v) && !m_bits[v].empty();
+    }
+
+    bool theory_char::internalize_atom(app * term, bool gate_ctx) { 
+        for (auto arg : *term)         
+            mk_var(ensure_enode(arg));
+        bool_var bv = ctx.mk_bool_var(term);
+        ctx.set_var_theory(bv, get_id());
+        ctx.mark_as_relevant(bv);
+        if (seq.is_char_le(term)) 
+            internalize_le(literal(bv, false), term);
+        return true;
+    }
+
+    bool theory_char::internalize_term(app * term) { 
+        for (auto arg : *term)         
+            mk_var(ensure_enode(arg));
+
+        theory_var v = mk_var(ensure_enode(term));
+        unsigned c = 0;
+        if (seq.is_const_char(term, c))
+            new_const_char(v, c);
+        return true;
     }
 
     /**
@@ -62,17 +84,17 @@ namespace smt {
      * independently and adds Ackerman axioms on demand.
      */
 
-    void seq_char::init_bits(theory_var v) {
+    void theory_char::init_bits(theory_var v) {
         if (has_bits(v))
             return;
 
-        expr* e = th.get_expr(v);
+        expr* e = get_expr(v);
         m_bits.reserve(v + 1);
         auto& bits = m_bits[v];
         while ((unsigned) v >= m_ebits.size())
             m_ebits.push_back(expr_ref_vector(m));
         
-        ctx().push_trail(reset_bits(*this, v));
+        ctx.push_trail(reset_bits(*this, v));
         auto& ebits = m_ebits[v];
         SASSERT(ebits.empty());
 
@@ -80,96 +102,96 @@ namespace smt {
         if (is_bits2char) {
             for (expr* arg : *to_app(e)) {
                 ebits.push_back(arg);
-                bits.push_back(literal(ctx().get_bool_var(arg)));
+                bits.push_back(literal(ctx.get_bool_var(arg)));
             }            
         }
         else {            
             for (unsigned i = 0; i < seq.num_bits(); ++i) 
                 ebits.push_back(seq.mk_char_bit(e, i));
-            ctx().internalize(ebits.c_ptr(), ebits.size(), true);
+            ctx.internalize(ebits.c_ptr(), ebits.size(), true);
             for (expr* arg : ebits)
-                bits.push_back(literal(ctx().get_bool_var(arg)));            
+                bits.push_back(literal(ctx.get_bool_var(arg)));            
             for (literal bit : bits)
-                ctx().mark_as_relevant(bit);
+                ctx.mark_as_relevant(bit);
             expr_ref bits2char(seq.mk_skolem(m_bits2char, ebits.size(), ebits.c_ptr(), m.get_sort(e)), m);
-            ctx().mark_as_relevant(bits2char.get());
-            enode* n1 = th.ensure_enode(e);
-            enode* n2 = th.ensure_enode(bits2char);
+            ctx.mark_as_relevant(bits2char.get());
+            enode* n1 = ensure_enode(e);
+            enode* n2 = ensure_enode(bits2char);
             justification* j = 
-                ctx().mk_justification(
-                    ext_theory_eq_propagation_justification(th.get_id(), ctx().get_region(), n1, n2));
-            ctx().assign_eq(n1, n2, eq_justification(j));
+                ctx.mk_justification(
+                    ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), n1, n2));
+            ctx.assign_eq(n1, n2, eq_justification(j));
         }
         ++m_stats.m_num_blast;
     }
 
-    void seq_char::internalize_le(literal lit, app* term) {
+    void theory_char::internalize_le(literal lit, app* term) {
         expr* x = nullptr, *y = nullptr;
         VERIFY(seq.is_char_le(term, x, y));
-        theory_var v1 = ctx().get_enode(x)->get_th_var(th.get_id());
-        theory_var v2 = ctx().get_enode(y)->get_th_var(th.get_id());
+        theory_var v1 = ctx.get_enode(x)->get_th_var(get_id());
+        theory_var v2 = ctx.get_enode(y)->get_th_var(get_id());
         init_bits(v1);
         init_bits(v2);
         auto const& b1 = get_ebits(v1);
         auto const& b2 = get_ebits(v2);
         expr_ref e(m);
         m_bb.mk_ule(b1.size(), b1.c_ptr(), b2.c_ptr(), e);
-        literal le = th.mk_literal(e);
-        ctx().mark_as_relevant(le);
-        ctx().mk_th_axiom(th.get_id(), ~lit, le);
-        ctx().mk_th_axiom(th.get_id(), lit, ~le);
+        literal le = mk_literal(e);
+        ctx.mark_as_relevant(le);
+        ctx.mk_th_axiom(get_id(), ~lit, le);
+        ctx.mk_th_axiom(get_id(), lit, ~le);
     }
 
-    literal_vector const& seq_char::get_bits(theory_var v) {
+    literal_vector const& theory_char::get_bits(theory_var v) {
         init_bits(v);
         return m_bits[v];
     }
 
-    expr_ref_vector const& seq_char::get_ebits(theory_var v) {
+    expr_ref_vector const& theory_char::get_ebits(theory_var v) {
         init_bits(v);
         return m_ebits[v];
     }
         
     // = on characters
-    void seq_char::new_eq_eh(theory_var v, theory_var w) {  
+    void theory_char::new_eq_eh(theory_var v, theory_var w) {  
         if (has_bits(v) && has_bits(w)) {
             auto& a = get_bits(v);
             auto& b = get_bits(w);            
             literal _eq = null_literal;
             auto eq = [&]() {
                 if (_eq == null_literal) {
-                    _eq = th.mk_literal(m.mk_eq(th.get_expr(v), th.get_expr(w)));
-                    ctx().mark_as_relevant(_eq);
+                    _eq = mk_literal(m.mk_eq(get_expr(v), get_expr(w)));
+                    ctx.mark_as_relevant(_eq);
                 }
                 return _eq;
             };
             for (unsigned i = a.size(); i-- > 0; ) {
-                lbool v1 = ctx().get_assignment(a[i]);
-                lbool v2 = ctx().get_assignment(b[i]);
+                lbool v1 = ctx.get_assignment(a[i]);
+                lbool v2 = ctx.get_assignment(b[i]);
                 if (v1 != l_undef && v2 != l_undef && v1 != v2) {
                     enforce_ackerman(v, w);
                     return;
                 }
                 if (v1 == l_true) 
-                    ctx().mk_th_axiom(th.get_id(), ~eq(), ~a[i], b[i]);
+                    ctx.mk_th_axiom(get_id(), ~eq(), ~a[i], b[i]);
                 if (v1 == l_false) 
-                    ctx().mk_th_axiom(th.get_id(), ~eq(), a[i], ~b[i]);
+                    ctx.mk_th_axiom(get_id(), ~eq(), a[i], ~b[i]);
                 if (v2 == l_true) 
-                    ctx().mk_th_axiom(th.get_id(), ~eq(), a[i], ~b[i]);
+                    ctx.mk_th_axiom(get_id(), ~eq(), a[i], ~b[i]);
                 if (v2 == l_false) 
-                    ctx().mk_th_axiom(th.get_id(), ~eq(), ~a[i], b[i]);
+                    ctx.mk_th_axiom(get_id(), ~eq(), ~a[i], b[i]);
             }            
         }
     }
 
     // != on characters
-    void seq_char::new_diseq_eh(theory_var v, theory_var w) {  
+    void theory_char::new_diseq_eh(theory_var v, theory_var w) {  
         if (has_bits(v) && has_bits(w)) {
             auto& a = get_bits(v);
             auto& b = get_bits(w);
             for (unsigned i = a.size(); i-- > 0; ) {
-                lbool v1 = ctx().get_assignment(a[i]);
-                lbool v2 = ctx().get_assignment(b[i]);
+                lbool v1 = ctx.get_assignment(a[i]);
+                lbool v2 = ctx.get_assignment(b[i]);
                 if (v1 == l_undef || v2 == l_undef || v1 != v2)
                     return;
             }
@@ -177,11 +199,11 @@ namespace smt {
         }
     }
 
-    void seq_char::new_const_char(theory_var v, unsigned c) {
+    void theory_char::new_const_char(theory_var v, unsigned c) {
         auto& bits = get_bits(v);
         for (auto b : bits) {
             bool bit = (0 != (c & 1));
-            ctx().assign(bit ? b : ~b, nullptr);
+            ctx.assign(bit ? b : ~b, nullptr);
             c >>= 1;                
         }
     }
@@ -192,22 +214,22 @@ namespace smt {
      *    Enforce that values are within max_char.
      * 2. Assign values to characters that haven't been assigned.
      */
-    bool seq_char::final_check() {   
+    bool theory_char::final_check() {   
         m_var2value.reset();
-        m_var2value.resize(th.get_num_vars(), UINT_MAX);
+        m_var2value.resize(get_num_vars(), UINT_MAX);
         m_value2var.reset();
 
         // extract the initial set of constants.
         uint_set values;
         unsigned c = 0, d = 0;
-        for (unsigned v = th.get_num_vars(); v-- > 0; ) {
-            expr* e = th.get_expr(v);
+        for (unsigned v = get_num_vars(); v-- > 0; ) {
+            expr* e = get_expr(v);
             if (seq.is_char(e) && m_var2value[v] == UINT_MAX && get_value(v, c)) {
-                CTRACE("seq", seq.is_char(e), tout << mk_pp(e, m) << " root: " << th.get_enode(v)->is_root() << " is_value: " << get_value(v, c) << "\n";);
-                enode* r = th.get_enode(v)->get_root();
+                CTRACE("seq", seq.is_char(e), tout << mk_pp(e, m) << " root: " << get_enode(v)->is_root() << " is_value: " << get_value(v, c) << "\n";);
+                enode* r = get_enode(v)->get_root();
                 m_value2var.reserve(c + 1, null_theory_var);
                 theory_var u = m_value2var[c];
-                if (u != null_theory_var && r != th.get_enode(u)->get_root()) {
+                if (u != null_theory_var && r != get_enode(u)->get_root()) {
                     enforce_ackerman(u, v);
                     return false;
                 }
@@ -216,7 +238,7 @@ namespace smt {
                     return false;
                 }
                 for (enode* n : *r) {
-                    u = n->get_th_var(th.get_id());
+                    u = n->get_th_var(get_id());
                     if (u == null_theory_var)
                         continue;
                     if (get_value(u, d) && d != c) {
@@ -231,9 +253,9 @@ namespace smt {
         }
         
         // assign values to other unassigned nodes
-        c = 'a';
-        for (unsigned v = th.get_num_vars(); v-- > 0; ) {
-            expr* e = th.get_expr(v);
+        c = 'A';
+        for (unsigned v = get_num_vars(); v-- > 0; ) {
+            expr* e = get_expr(v);
             if (seq.is_char(e) && m_var2value[v] == UINT_MAX) {
                 d = c;
                 while (values.contains(c)) {
@@ -244,8 +266,8 @@ namespace smt {
                     }                    
                 }
                 TRACE("seq", tout << "fresh: " << mk_pp(e, m) << " := " << c << "\n";);
-                for (enode* n : *th.get_enode(v)) 
-                    m_var2value[n->get_th_var(th.get_id())] = c;
+                for (enode* n : *get_enode(v)) 
+                    m_var2value[n->get_th_var(get_id())] = c;
                 m_value2var.reserve(c + 1, null_theory_var);
                 m_value2var[c] = v;
                 values.insert(c);
@@ -254,35 +276,35 @@ namespace smt {
         return true;
     }
 
-    void seq_char::enforce_bits() {
+    void theory_char::enforce_bits() {
         TRACE("seq", tout << "enforce bits\n";);
-        for (unsigned v = th.get_num_vars(); v-- > 0; ) {
-            expr* e = th.get_expr(v);
-            if (seq.is_char(e) && th.get_enode(v)->is_root() && !has_bits(v))
+        for (unsigned v = get_num_vars(); v-- > 0; ) {
+            expr* e = get_expr(v);
+            if (seq.is_char(e) && get_enode(v)->is_root() && !has_bits(v))
                 init_bits(v);
         }        
     }
 
-    void seq_char::enforce_value_bound(theory_var v) {
+    void theory_char::enforce_value_bound(theory_var v) {
         TRACE("seq", tout << "enforce bound " << v << "\n";);
-        enode* n = th.ensure_enode(seq.mk_char(seq.max_char()));
-        theory_var w = n->get_th_var(th.get_id());                    
+        enode* n = ensure_enode(seq.mk_char(seq.max_char()));
+        theory_var w = n->get_th_var(get_id());                    
         SASSERT(has_bits(w));
         init_bits(v);
         auto const& mbits = get_ebits(w);
         auto const& bits = get_ebits(v);
         expr_ref le(m);
         m_bb.mk_ule(bits.size(), bits.c_ptr(), mbits.c_ptr(), le);
-        ctx().assign(th.mk_literal(le), nullptr);
+        ctx.assign(mk_literal(le), nullptr);
         ++m_stats.m_num_bounds;
     }
 
-    void seq_char::enforce_ackerman(theory_var v, theory_var w) {
+    void theory_char::enforce_ackerman(theory_var v, theory_var w) {
         if (v > w) 
             std::swap(v, w);
         TRACE("seq", tout << "enforce ackerman " << v << " " << w << "\n";);
-        literal eq = th.mk_literal(m.mk_eq(th.get_expr(v), th.get_expr(w)));
-        ctx().mark_as_relevant(eq);
+        literal eq = mk_literal(m.mk_eq(get_expr(v), get_expr(w)));
+        ctx.mark_as_relevant(eq);
         literal_vector lits;
         init_bits(v);
         init_bits(w);
@@ -290,36 +312,49 @@ namespace smt {
         auto& b = get_ebits(w);
         for (unsigned i = a.size(); i-- > 0; ) {
             // eq => a = b
-            literal beq = th.mk_eq(a[i], b[i], false);
+            literal beq = mk_eq(a[i], b[i], false);
             lits.push_back(~beq);
-            ctx().mark_as_relevant(beq);
-            ctx().mk_th_axiom(th.get_id(), ~eq, beq);
+            ctx.mark_as_relevant(beq);
+            ctx.mk_th_axiom(get_id(), ~eq, beq);
         }        
         // a = b => eq
         lits.push_back(eq);
-        ctx().mk_th_axiom(th.get_id(), lits.size(), lits.c_ptr());
+        ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
         ++m_stats.m_num_ackerman;
     }
     
-    unsigned seq_char::get_value(theory_var v) {
+    unsigned theory_char::get_value(theory_var v) {
         return m_var2value[v];
     }
 
-    bool seq_char::get_value(theory_var v, unsigned& c) {
+    bool theory_char::get_value(theory_var v, unsigned& c) {
         if (!has_bits(v))
             return false;
         auto const & b = get_bits(v);
         c = 0;
         unsigned p = 1;
         for (literal lit : b) {
-            if (ctx().get_assignment(lit) == l_true)
+            if (ctx.get_assignment(lit) == l_true)
                 c += p;
             p *= 2;
         }
         return true;
     }
 
-    void seq_char::collect_statistics(::statistics& st) const {
+    // TBD: seq_factory needs to be replaced by a "char_factory" in the case where theory_char is
+    // a stand-alone theory.
+    void theory_char::init_model(model_generator & mg) {
+        m_factory = alloc(seq_factory, get_manager(), get_family_id(), mg.get_model());
+    }
+
+    model_value_proc * theory_char::mk_value(enode * n, model_generator & mg) {
+        unsigned ch = get_value(n->get_th_var(get_id()));
+        app* val = seq.str.mk_char(ch);
+        m_factory->add_trail(val);
+        return alloc(expr_wrapper_proc, val);
+    }
+         
+    void theory_char::collect_statistics(::statistics& st) const {
         st.update("seq char ackerman", m_stats.m_num_ackerman);
         st.update("seq char bounds",   m_stats.m_num_bounds);
         st.update("seq char2bit",      m_stats.m_num_blast);

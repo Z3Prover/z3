@@ -17,7 +17,6 @@ z3_add_component(smt
     seq_offset_eq.cpp
     seq_regex.cpp
     seq_skolem.cpp
-    seq_char.cpp
     smt_almost_cg_table.cpp
     smt_arith_value.cpp
     smt_case_split_queue.cpp
@@ -61,6 +60,7 @@ z3_add_component(smt
     theory_array.cpp
     theory_array_full.cpp
     theory_bv.cpp
+    theory_char.cpp
     theory_datatype.cpp
     theory_dense_diff_logic.cpp
     theory_diff_logic.cpp

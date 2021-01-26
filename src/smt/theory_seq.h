@@ -28,10 +28,10 @@ Revision History:
 #include "util/obj_ref_hashtable.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"
+#include "smt/theory_char.h"
 #include "smt/theory_seq_empty.h"
 #include "smt/seq_skolem.h"
 #include "smt/seq_axioms.h"
-#include "smt/seq_char.h"
 #include "smt/seq_regex.h"
 #include "smt/seq_offset_eq.h"
 
@@ -356,7 +356,7 @@ namespace smt {
         arith_util       m_autil;
         seq_skolem       m_sk;
         seq_axioms       m_ax;
-        seq_char         m_char;
+        theory_char      m_char;
         seq_regex        m_regex;
         arith_value      m_arith_value;
         th_trail_stack   m_trail_stack;

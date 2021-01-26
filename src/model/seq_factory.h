@@ -20,6 +20,7 @@ Revision History:
 
 #include "ast/seq_decl_plugin.h"
 #include "model/model_core.h"
+#include "model/value_factory.h"
 
 class seq_factory : public value_factory {
     typedef hashtable<symbol, symbol_hash_proc, symbol_eq_proc> symbol_set;

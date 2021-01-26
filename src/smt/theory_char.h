@@ -19,12 +19,12 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/bit_blaster/bit_blaster.h"
+#include "model/seq_factory.h"
 #include "smt/smt_theory.h"
 
 namespace smt {
 
-    class seq_char {
-
+    class theory_char : public theory {
 
         struct stats {
             unsigned m_num_ackerman;
@@ -34,8 +34,6 @@ namespace smt {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
 
-        theory&          th;
-        ast_manager&     m;
         seq_util         seq;
         vector<literal_vector>  m_bits;
         vector<expr_ref_vector> m_ebits;
@@ -45,10 +43,10 @@ namespace smt {
         bit_blaster      m_bb;
         stats            m_stats;
         symbol           m_bits2char;
+        seq_factory*     m_factory { nullptr };
 
         struct reset_bits;
 
-        context& ctx() const { return th.get_context(); }
 
         literal_vector const& get_bits(theory_var v);
 
@@ -68,33 +66,30 @@ namespace smt {
 
     public:
 
-        seq_char(theory& th);
+        theory_char(context& ctx, family_id fid);
+        
+        void new_eq_eh(theory_var v1, theory_var v2) override;
+        void new_diseq_eh(theory_var v1, theory_var v2) override;
+        theory * mk_fresh(context * new_ctx) override { return alloc(theory_char, *new_ctx, get_family_id()); }
+        bool internalize_atom(app * atom, bool gate_ctx) override;
+        bool internalize_term(app * term) override;
+        void display(std::ostream& out) const override {}
+        final_check_status final_check_eh() override { return final_check() ? FC_DONE : FC_CONTINUE; }
+        void init_model(model_generator & mg) override;
+        model_value_proc * mk_value(enode * n, model_generator & mg) override;
+        void collect_statistics(::statistics& st) const override;
 
+        // Methods exposed when theory_char is a sub-theory of seq and not a stand-alone theory
+        // ensure coherence for character codes and equalities of shared symbols.
         bool enabled() const { return m_enabled; }
-
+        bool final_check();
         // <= atomic constraints on characters
         void assign_le(theory_var v1, theory_var v2, literal lit);
-
-        // < atomic constraint on characters
         void assign_lt(theory_var v1, theory_var v2, literal lit);
-
         void new_const_char(theory_var v, unsigned c);
-        
-        // = on characters
-        void new_eq_eh(theory_var v1, theory_var v2);
-
-        // != on characters
-        void new_diseq_eh(theory_var v1, theory_var v2);
-
-        // ensure coherence for character codes and equalities of shared symbols.
-        bool final_check();
-
         unsigned get_value(theory_var v);
 
-        void internalize_le(literal lit, app* term);
-
-        void collect_statistics(::statistics& st) const;
-        
+        void internalize_le(literal lit, app* term);        
     };
 
 }
