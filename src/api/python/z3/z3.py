@@ -7490,13 +7490,12 @@ class Optimize(Z3PPObject):
         if id is None:
             id = ""
         id = to_symbol(id, self.ctx)
+        def asoft(a):
+            v = Z3_optimize_assert_soft(self.ctx.ref(), self.optimize, a.as_ast(), weight, id)
+            return OptimizeObjective(self, v, False)
         if isinstance(arg, iterable):
-            for a in arg:
-                v = Z3_optimize_assert_soft(self.ctx.ref(), self.optimize, a.as_ast(), weight, id)
-                yield OptimizeObjective(self, v, False)
-            return
-        v = Z3_optimize_assert_soft(self.ctx.ref(), self.optimize, arg.as_ast(), weight, id)
-        return OptimizeObjective(self, v, False)
+            return [asoft(a) for a in arg]
+        return asoft(arg)
 
     def maximize(self, arg):
         """Add objective function to maximize."""
