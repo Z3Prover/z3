@@ -1100,6 +1100,10 @@ def _coerce_expr_merge(s, a):
             if z3_debug():
                 _z3_assert(s1.ctx == s.ctx, "context mismatch")
                 _z3_assert(False, "sort mismatch")
+    elif s:
+        return s
+    elif isinstance(a, str):
+        return StringSort()
     else:
         return s
 
@@ -1107,6 +1111,10 @@ def _coerce_exprs(a, b, ctx=None):
     if not is_expr(a) and not is_expr(b):
         a = _py2expr(a, ctx)
         b = _py2expr(b, ctx)
+    if isinstance(a, str):
+        a = StringVal(a, ctx)
+    if isinstance(b, str):
+        b = StringVal(b, ctx)
     s = None
     s = _coerce_expr_merge(s, a)
     s = _coerce_expr_merge(s, b)
@@ -2934,6 +2942,8 @@ def _py2expr(a, ctx=None):
         return IntVal(a, ctx)
     if isinstance(a, float):
         return RealVal(a, ctx)
+    if isinstance(a, str):
+        return StringVal(a, ctx)
     if is_expr(a):
         return a
     if z3_debug():

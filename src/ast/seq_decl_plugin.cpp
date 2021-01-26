@@ -180,8 +180,10 @@ bool zstring::uses_unicode() const {
 
 bool zstring::well_formed() const {
     for (unsigned ch : m_buffer) {
-        if (ch > unicode_max_char())
+        if (ch > unicode_max_char()) {
+            IF_VERBOSE(0, verbose_stream() << "large character: " << ch << "\n";);
             return false;
+        }
     }
     return true;
 }
