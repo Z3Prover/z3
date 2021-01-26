@@ -61,7 +61,7 @@ extern "C" {
         LOG_Z3_mk_string(c, str);
         RESET_ERROR_CODE();
         unsigned_vector chs;
-        for (unsigned i = 0; i < sz; ++i) chs.push_back(str[i]);
+        for (unsigned i = 0; i < sz; ++i) chs.push_back((unsigned char)str[i]);
         zstring s(sz, chs.c_ptr());
         app* a = mk_c(c)->sutil().str.mk_string(s);
         mk_c(c)->save_ast_trail(a);
