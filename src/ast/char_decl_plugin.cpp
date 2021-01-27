@@ -20,7 +20,12 @@ Author:
 #include "util/zstring.h"
 #include "ast/char_decl_plugin.h"
 
-char_decl_plugin::char_decl_plugin() : m_charc_sym("Char") {
+char_decl_plugin::char_decl_plugin(): 
+    m_charc_sym("Char") {
+}
+
+char_decl_plugin::~char_decl_plugin() {
+    m_manager->dec_ref(m_char);
 }
 
 func_decl* char_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const* parameters,
@@ -52,7 +57,8 @@ void char_decl_plugin::set_manager(ast_manager * m, family_id id) {
 }
 
 void char_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const& logic) {
-    op_names.push_back(builtin_name("char.<=", OP_CHAR_LE));
+    // TODO: enable when character theory is turned on:
+    // op_names.push_back(builtin_name("char.<=", OP_CHAR_LE));
 }
 
 void char_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const& logic) {

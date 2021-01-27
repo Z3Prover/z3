@@ -33,6 +33,7 @@ Revision History:
 #include "smt/theory_dl.h"
 #include "smt/theory_seq_empty.h"
 #include "smt/theory_seq.h"
+#include "smt/theory_char.h"
 #include "smt/theory_special_relations.h"
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
@@ -227,7 +228,7 @@ namespace smt {
     void setup::setup_QF_BVRE() {
         setup_QF_BV();
         setup_QF_LIA();
-        m_context.register_plugin(alloc(theory_seq, m_context));
+        setup_seq();
     }
 
     void setup::setup_QF_UF(static_features const & st) {        
@@ -725,7 +726,7 @@ namespace smt {
         }
  
         else if (m_params.m_string_solver == "empty") {
-            m_context.register_plugin(alloc(smt::theory_seq_empty, m_context));
+            setup_seq();
         }
         else if (m_params.m_string_solver == "none") {
             // don't register any solver.
@@ -895,7 +896,7 @@ namespace smt {
             setup_seq();
         } 
         else if (m_params.m_string_solver == "empty") {
-            m_context.register_plugin(alloc(smt::theory_seq_empty, m_context));
+            setup_seq();
         }
         else if (m_params.m_string_solver == "none") {
             // don't register any solver.
@@ -929,6 +930,18 @@ namespace smt {
 
     void setup::setup_seq() {
         m_context.register_plugin(alloc(smt::theory_seq, m_context));
+        setup_char();
+    }
+
+    void setup::setup_char() {
+        // temporary: enable only char theory if it is used in seq
+        seq_util seq(m_manager);
+        sort* ch = seq.mk_char_sort();
+        sort* s  = seq.mk_string_sort();
+        family_id ch_fid = ch->get_family_id();
+        if (s->get_family_id() != ch_fid)
+            m_context.register_plugin(alloc(smt::theory_char, m_context, ch_fid));
+
     }
 
     void setup::setup_special_relations() {

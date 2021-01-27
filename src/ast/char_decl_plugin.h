@@ -44,7 +44,7 @@ class char_decl_plugin : public decl_plugin {
 public:
     char_decl_plugin();
 
-    ~char_decl_plugin() override {}
+    ~char_decl_plugin() override;
 
     void finalize() override {}
 
