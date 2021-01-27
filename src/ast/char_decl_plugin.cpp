@@ -93,3 +93,8 @@ app* char_decl_plugin::mk_char(unsigned u) {
 expr* char_decl_plugin::get_some_value(sort* s) {
     return mk_char(0);
 }
+
+app* char_decl_plugin::mk_le(expr* a, expr* b) {
+    expr* es[2] = { a, b};
+    return m_manager->mk_app(m_family_id, OP_CHAR_LE, 2, es);    
+}

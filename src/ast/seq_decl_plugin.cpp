@@ -24,6 +24,8 @@ Revision History:
 #include "ast/bv_decl_plugin.h"
 #include <sstream>
 
+#define _USE_CHAR_PLUGIN 1
+
 
 seq_decl_plugin::seq_decl_plugin(): m_init(false),
                                     m_stringc_sym("String"),
@@ -283,8 +285,12 @@ void seq_decl_plugin::init() {
 void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
     decl_plugin::set_manager(m, id);
     bv_util bv(*m);
-    if (unicode()) 
-        m_char = m->mk_sort(symbol("Unicode"), sort_info(m_family_id, _CHAR_SORT, 0, nullptr));
+    if (unicode())
+#if _USE_CHAR_PLUGIN 
+        m_char = get_char_plugin().char_sort();
+#else
+    m_char = m->mk_sort(symbol("Unicode"), sort_info(m_family_id, _CHAR_SORT, 0, nullptr));
+#endif
     else
         m_char = bv.mk_sort(8);
     m->inc_ref(m_char);
@@ -641,9 +647,6 @@ void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol 
     sort_names.push_back(builtin_name("Seq",   SEQ_SORT));
     sort_names.push_back(builtin_name("RegEx", RE_SORT));
 
-    // TBD:
-    // sort_names.push_back(builtin_name("Unicode",  CHAR_SORT));
-
     // SMTLIB 2.6 RegLan, String
     sort_names.push_back(builtin_name("RegLan", _REGLAN_SORT));
     sort_names.push_back(builtin_name("String", _STRING_SORT));
@@ -671,9 +674,13 @@ app* seq_decl_plugin::mk_string(zstring const& s) {
 
 app* seq_decl_plugin::mk_char(unsigned u) {
     if (unicode()) {
+#if _USE_CHAR_PLUGIN
+        return get_char_plugin().mk_char(u);
+#else
         parameter param(u);
         func_decl* f = m_manager->mk_const_decl(m_charc_sym, m_char, func_decl_info(m_family_id, _OP_CHAR_CONST, 1, &param));
         return m_manager->mk_const(f);
+#endif
     }
     else {
         bv_util bv(*m_manager);
@@ -813,7 +820,11 @@ unsigned seq_util::max_mul(unsigned x, unsigned y) const {
 
 bool seq_util::is_const_char(expr* e, unsigned& c) const {
     if (seq.unicode()) {
+#if _USE_CHAR_PLUGIN
+        return ch.is_const_char(e, c);
+#else
         return is_app_of(e, m_fid, _OP_CHAR_CONST) && (c = to_app(e)->get_parameter(0).get_int(), true);
+#endif
     }
     else {
         rational r;    
@@ -824,7 +835,11 @@ bool seq_util::is_const_char(expr* e, unsigned& c) const {
 
 bool seq_util::is_char_le(expr const* e) const {
     if (seq.unicode()) 
+#if _USE_CHAR_PLUGIN
+        return ch.is_le(e);
+#else
         return is_app_of(e, m_fid, _OP_CHAR_LE); 
+#endif
     else 
         return bv().is_bv_ule(e) && is_char(to_app(e)->get_arg(0)); 
 }
@@ -840,8 +855,12 @@ app* seq_util::mk_le(expr* ch1, expr* ch2) const {
     expr_ref _ch1(ch1, m), _ch2(ch2, m);
 
     if (seq.unicode()) {
+#if _USE_CHAR_PLUGIN
+        return ch.mk_le(ch1, ch2);
+#else
         expr* es[2] = { ch1, ch2 };
         return m.mk_app(m_fid, _OP_CHAR_LE, 2, es);
+#endif
     }
     else {
         rational r1, r2;

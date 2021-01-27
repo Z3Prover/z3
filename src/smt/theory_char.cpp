@@ -22,15 +22,18 @@ Author:
 
 namespace smt {
     
-    theory_char::theory_char(context& ctx, family_id fid):
+    theory_char::theory_char(context& ctx, family_id fid, theory* th):
         theory(ctx, fid),
         seq(m),
-        m_bb(m, ctx.get_fparams())
+        m_bb(m, ctx.get_fparams()),
+        m_th(th)
     {
         bv_util bv(m);
         sort_ref b8(bv.mk_sort(8), m);
         m_enabled = !seq.is_char(b8);
         m_bits2char = symbol("bits2char");
+        if (!m_th)
+            m_th = this;
     }
 
     struct theory_char::reset_bits : public trail<context> {
@@ -215,21 +218,22 @@ namespace smt {
      * 2. Assign values to characters that haven't been assigned.
      */
     bool theory_char::final_check() {   
+        TRACE("seq", tout << "final check " << m_th->get_num_vars() << "\n";);
         m_var2value.reset();
-        m_var2value.resize(get_num_vars(), UINT_MAX);
+        m_var2value.resize(m_th->get_num_vars(), UINT_MAX);
         m_value2var.reset();
 
         // extract the initial set of constants.
         uint_set values;
         unsigned c = 0, d = 0;
-        for (unsigned v = get_num_vars(); v-- > 0; ) {
-            expr* e = get_expr(v);
+        for (unsigned v = m_th->get_num_vars(); v-- > 0; ) {
+            expr* e = m_th->get_expr(v);
             if (seq.is_char(e) && m_var2value[v] == UINT_MAX && get_char_value(v, c)) {
-                CTRACE("seq", seq.is_char(e), tout << mk_pp(e, m) << " root: " << get_enode(v)->is_root() << " is_value: " << get_char_value(v, c) << "\n";);
-                enode* r = get_enode(v)->get_root();
+                CTRACE("seq", seq.is_char(e), tout << mk_pp(e, m) << " root: " << m_th->get_enode(v)->is_root() << " is_value: " << get_char_value(v, c) << "\n";);
+                enode* r = m_th->get_enode(v)->get_root();
                 m_value2var.reserve(c + 1, null_theory_var);
                 theory_var u = m_value2var[c];
-                if (u != null_theory_var && r != get_enode(u)->get_root()) {
+                if (u != null_theory_var && r != m_th->get_enode(u)->get_root()) {
                     enforce_ackerman(u, v);
                     return false;
                 }
@@ -254,8 +258,8 @@ namespace smt {
         
         // assign values to other unassigned nodes
         c = 'A';
-        for (unsigned v = get_num_vars(); v-- > 0; ) {
-            expr* e = get_expr(v);
+        for (unsigned v = m_th->get_num_vars(); v-- > 0; ) {
+            expr* e = m_th->get_expr(v);
             if (seq.is_char(e) && m_var2value[v] == UINT_MAX) {
                 d = c;
                 while (values.contains(c)) {
@@ -266,7 +270,7 @@ namespace smt {
                     }                    
                 }
                 TRACE("seq", tout << "fresh: " << mk_pp(e, m) << " := " << c << "\n";);
-                for (enode* n : *get_enode(v)) 
+                for (enode* n : *m_th->get_enode(v)) 
                     m_var2value[n->get_th_var(get_id())] = c;
                 m_value2var.reserve(c + 1, null_theory_var);
                 m_value2var[c] = v;
@@ -278,9 +282,9 @@ namespace smt {
 
     void theory_char::enforce_bits() {
         TRACE("seq", tout << "enforce bits\n";);
-        for (unsigned v = get_num_vars(); v-- > 0; ) {
+        for (unsigned v = m_th->get_num_vars(); v-- > 0; ) {
             expr* e = get_expr(v);
-            if (seq.is_char(e) && get_enode(v)->is_root() && !has_bits(v))
+            if (seq.is_char(e) && m_th->get_enode(v)->is_root() && !has_bits(v))
                 init_bits(v);
         }        
     }
@@ -344,6 +348,10 @@ namespace smt {
     // a stand-alone theory.
     void theory_char::init_model(model_generator & mg) {
         m_factory = alloc(char_factory, get_manager(), get_family_id(), mg.get_model());
+        mg.register_factory(m_factory);
+        for (auto val : m_var2value) 
+            if (val != UINT_MAX)
+                m_factory->register_value(val);
     }
 
     model_value_proc * theory_char::mk_value(enode * n, model_generator & mg) {

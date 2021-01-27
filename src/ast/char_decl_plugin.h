@@ -23,7 +23,6 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
-#include "ast/bv_decl_plugin.h"
 #include <string>
 
 enum char_sort_kind {
@@ -67,7 +66,21 @@ public:
 
     bool are_distinct(app* a, app* b) const override;
 
+    expr* get_some_value(sort* s) override;
+
+    sort* char_sort() const { return m_char; }
+
     app* mk_char(unsigned u);
 
-    expr* get_some_value(sort* s) override;
+    app* mk_le(expr* a, expr* b);
+
+    bool is_le(expr const* e) const { return is_app_of(e, m_family_id, OP_CHAR_LE); }
+
+    bool is_const_char(expr const* e, unsigned& c) const { 
+        return is_app_of(e, m_family_id, OP_CHAR_CONST) && (c = to_app(e)->get_parameter(0).get_int(), true);
+    }
+
+    
+
+
 };

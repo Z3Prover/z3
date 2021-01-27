@@ -49,11 +49,11 @@ void reg_decl_plugins(ast_manager & m) {
     if (!m.get_plugin(m.mk_family_id(symbol("datalog_relation")))) {
         m.register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin));
     }
-    if (!m.get_plugin(m.mk_family_id(symbol("seq")))) {
-        m.register_plugin(symbol("seq"), alloc(seq_decl_plugin));
-    }
     if (!m.get_plugin(m.mk_family_id(symbol("char")))) {
         m.register_plugin(symbol("char"), alloc(char_decl_plugin));
+    }
+    if (!m.get_plugin(m.mk_family_id(symbol("seq")))) {
+        m.register_plugin(symbol("seq"), alloc(seq_decl_plugin));
     }
     if (!m.get_plugin(m.mk_family_id(symbol("fpa")))) {
         m.register_plugin(symbol("fpa"), alloc(fpa_decl_plugin));

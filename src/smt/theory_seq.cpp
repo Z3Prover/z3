@@ -108,6 +108,8 @@ Outline:
 #include "smt/theory_lra.h"
 #include "smt/smt_kernel.h"
 
+#define _USE_CHAR (false && m_char.enabled())
+
 using namespace smt;
 
 void theory_seq::solution_map::update(expr* e, expr* r, dependency* d) {
@@ -272,7 +274,7 @@ theory_seq::theory_seq(context& ctx):
     m_autil(m),
     m_sk(m, m_rewrite),
     m_ax(*this, m_rewrite),
-    m_char(ctx, get_family_id()),
+    m_char(ctx, get_family_id(), this),
     m_regex(*this),
     m_arith_value(m),
     m_trail_stack(*this),
@@ -354,7 +356,7 @@ final_check_status theory_seq::final_check_eh() {
         TRACEFIN("zero_length");
         return FC_CONTINUE;
     }
-    if (m_char.enabled() && !m_char.final_check()) {
+    if (_USE_CHAR && !m_char.final_check()) {
         return FC_CONTINUE;
     }
     if (get_fparams().m_split_w_len && len_based_split()) {
@@ -1489,7 +1491,7 @@ bool theory_seq::internalize_term(app* term) {
         bool_var bv = ctx.mk_bool_var(term);
         ctx.set_var_theory(bv, get_id());
         ctx.mark_as_relevant(bv);
-        if (m_util.is_char_le(term) && m_char.enabled()) {
+        if (m_util.is_char_le(term) && _USE_CHAR) {
             mk_var(ensure_enode(term->get_arg(0)));
             mk_var(ensure_enode(term->get_arg(1)));
             m_char.internalize_le(literal(bv, false), term);
@@ -1509,7 +1511,7 @@ bool theory_seq::internalize_term(app* term) {
     }
 
     unsigned c = 0;
-    if (m_char.enabled() && m_util.is_const_char(term, c))
+    if (_USE_CHAR && m_util.is_const_char(term, c))
         m_char.new_const_char(v, c);
     
     return true;
@@ -1854,6 +1856,7 @@ public:
         rational val;
         bool is_string = th.m_util.is_string(m_sort);
         expr_ref result(th.m);
+
         if (is_string) {
             unsigned_vector sbuffer;
             unsigned ch;
@@ -1991,7 +1994,7 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
         m_concat.shrink(start);        
         return sv;
     }
-    else if (m_char.enabled() && m_util.is_char(e)) {
+    else if (_USE_CHAR && m_util.is_char(e)) {
         unsigned ch = m_char.get_char_value(n->get_th_var(get_id()));
         app* val = m_util.str.mk_char(ch);
         m_factory->add_trail(val);
@@ -2301,7 +2304,7 @@ void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector cons
 theory_var theory_seq::mk_var(enode* n) {
     expr* o = n->get_owner();
 
-    if (!m_util.is_seq(o) && !m_util.is_re(o) && (!m_char.enabled() || !m_util.is_char(o)))
+    if (!m_util.is_seq(o) && !m_util.is_re(o) && (!_USE_CHAR || !m_util.is_char(o)))
         return null_theory_var;
 
     if (is_attached_to_var(n)) 
@@ -2960,7 +2963,7 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     else if (m_util.str.is_nth_i(e) || m_util.str.is_nth_u(e)) {
         // no-op
     }
-    else if (m_char.enabled() && m_util.is_char_le(e)) {
+    else if (_USE_CHAR && m_util.is_char_le(e)) {
         // no-op
     }
     else if (m_util.is_skolem(e)) {
@@ -2981,7 +2984,7 @@ void theory_seq::new_eq_eh(theory_var v1, theory_var v2) {
     enode* n2 = get_enode(v2);
     expr* o1 = n1->get_owner();
     expr* o2 = n2->get_owner();
-    if (m_char.enabled() && m_util.is_char(o1)) {
+    if (_USE_CHAR && m_util.is_char(o1)) {
         m_char.new_eq_eh(v1, v2);
         return;
     }
@@ -3032,7 +3035,7 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
         m_regex.propagate_ne(e1, e2);
         return;
     }
-    if (m_char.enabled() && m_util.is_char(n1->get_owner())) {
+    if (_USE_CHAR && m_util.is_char(n1->get_owner())) {
         m_char.new_diseq_eh(v1, v2);
         return;
     }

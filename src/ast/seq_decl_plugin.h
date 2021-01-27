@@ -24,6 +24,7 @@ Revision History:
 
 #include "ast/ast.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/char_decl_plugin.h"
 #include "util/lbool.h"
 #include "util/zstring.h"
 
@@ -204,11 +205,15 @@ public:
 
     sort* char_sort() const { return m_char; }
     sort* string_sort() const { return m_string; }
+
+    char_decl_plugin& get_char_plugin() { return *static_cast<char_decl_plugin*>(m_manager->get_plugin(m_manager->mk_family_id("char"))); }
+
 };
 
 class seq_util {
     ast_manager& m;
     seq_decl_plugin& seq;
+    char_decl_plugin& ch;
     family_id m_fid;
     mutable scoped_ptr<bv_util> m_bv;
     bv_util& bv() const;
@@ -571,6 +576,7 @@ public:
     seq_util(ast_manager& m):
         m(m),
         seq(*static_cast<seq_decl_plugin*>(m.get_plugin(m.mk_family_id("seq")))),
+        ch(seq.get_char_plugin()),
         m_fid(seq.get_family_id()),
         str(*this),
         re(*this) {

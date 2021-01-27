@@ -67,6 +67,10 @@ public:
             m_chars.insert(ch);
     }
 
+    void register_value(unsigned u) {
+        m_chars.insert(u);
+    }
+
     void add_trail(expr* e) {
         m_trail.push_back(e);
     }    

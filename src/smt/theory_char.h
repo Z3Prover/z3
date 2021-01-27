@@ -44,6 +44,7 @@ namespace smt {
         stats                   m_stats;
         symbol                  m_bits2char;
         char_factory*           m_factory { nullptr };
+        theory*                 m_th;
 
         struct reset_bits;
 
@@ -58,11 +59,11 @@ namespace smt {
 
     public:
 
-        theory_char(context& ctx, family_id fid);
+        theory_char(context& ctx, family_id fid, theory * th);
         
         void new_eq_eh(theory_var v1, theory_var v2) override;
         void new_diseq_eh(theory_var v1, theory_var v2) override;
-        theory * mk_fresh(context * new_ctx) override { return alloc(theory_char, *new_ctx, get_family_id()); }
+        theory * mk_fresh(context * new_ctx) override { return alloc(theory_char, *new_ctx, get_family_id(), nullptr); }
         bool internalize_atom(app * atom, bool gate_ctx) override;
         bool internalize_term(app * term) override;
         void display(std::ostream& out) const override {}

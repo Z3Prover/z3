@@ -57,13 +57,13 @@ public:
     }
     
     expr* get_some_value(sort* s) override {
-        if (u.is_seq(s)) {
-            return u.str.mk_empty(s);
-        }
         sort* seq = nullptr;
-        if (u.is_re(s, seq)) {
+        if (u.is_seq(s)) 
+            return u.str.mk_empty(s);
+        if (u.is_re(s, seq)) 
             return u.re.mk_to_re(u.str.mk_empty(seq));
-        }
+        if (u.is_char(s))
+            return u.mk_char('A');
         UNREACHABLE();
         return nullptr;
     }
@@ -84,7 +84,11 @@ public:
                 return false;
             }
         }
-        NOT_IMPLEMENTED_YET();
+        if (u.is_char(s)) {
+            v1 = u.mk_char('a');
+            v2 = u.mk_char('b');
+            return true;
+        }
         return false; 
     }
     expr* get_fresh_value(sort* s) override {
@@ -104,9 +108,7 @@ public:
             return u.re.mk_to_re(v0);
         }
         if (u.is_char(s)) {
-            //char s[2] = { ++m_char, 0 };
-            //return u.str.mk_char(zstring(s), 0);
-            return u.str.mk_char(zstring("a"), 0);
+            return u.mk_char('a');
         }
         if (u.is_seq(s, ch)) {
             expr* v = m_model.get_fresh_value(ch);
@@ -134,23 +136,19 @@ public:
         symbol sym;
         if (u.str.is_string(n, sym)) {
             m_strings.insert(sym);
-            if (sym.str().find(m_unique_delim) != std::string::npos) {
+            if (sym.str().find(m_unique_delim) != std::string::npos) 
                 add_new_delim();
-            }
         }
     }
+
 private:
     
     void add_new_delim() {
-        bool found = true;
-        while (found) {
-            found = false;
-            m_unique_delim += "!";
-            symbol_set::iterator it = m_strings.begin(), end = m_strings.end();
-            for (; it != end && !found; ++it) {
-                found = it->str().find(m_unique_delim) != std::string::npos;                    
-            }
-        }
+    try_again:
+        m_unique_delim += "!";
+        for (auto const& s : m_strings) 
+            if (s.str().find(m_unique_delim) != std::string::npos)
+                goto try_again;
     }
 };
 
