@@ -22,8 +22,8 @@ Author:
 
 namespace smt {
     
-    theory_char::theory_char(context& ctx, family_id fid):
-        theory(ctx, fid),
+    theory_char::theory_char(context& ctx):
+        theory(ctx, ctx.get_manager().mk_family_id("char")),
         seq(m),
         m_bb(m, ctx.get_fparams())
     {

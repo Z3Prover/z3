@@ -934,14 +934,7 @@ namespace smt {
     }
 
     void setup::setup_char() {
-        // temporary: enable only char theory if it is used in seq
-        seq_util seq(m_manager);
-        sort* ch = seq.mk_char_sort();
-        sort* s  = seq.mk_string_sort();
-        family_id ch_fid = ch->get_family_id();
-        if (s->get_family_id() != ch_fid)
-            m_context.register_plugin(alloc(smt::theory_char, m_context, ch_fid));
-        
+        m_context.register_plugin(alloc(smt::theory_char, m_context));        
     }
 
     void setup::setup_special_relations() {

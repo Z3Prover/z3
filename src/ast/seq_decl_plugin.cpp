@@ -26,7 +26,6 @@ Revision History:
 
 seq_decl_plugin::seq_decl_plugin(): m_init(false),
                                     m_stringc_sym("String"),
-                                    m_charc_sym("Char"),
                                     m_string(nullptr),
                                     m_char(nullptr),
                                     m_reglan(nullptr),
@@ -1408,8 +1407,8 @@ seq_util::rex::info seq_util::rex::info::plus() const {
 }
 
 seq_util::rex::info seq_util::rex::info::opt() const {
-    //if is_known() is false then all mentioned properties will remain false
-    //optional construct never occurs in a normalized regex
+    // if is_known() is false then all mentioned properties will remain false
+    // optional construct never occurs in a normalized regex
     return seq_util::rex::info(classical, classical, interpreted, nonbranching, false, monadic, false, l_true, 0, star_height);
 }
 
@@ -1512,7 +1511,7 @@ seq_util::rex::info seq_util::rex::info::orelse(seq_util::rex::info const& i) co
         if (i.is_known()) {
             // unsigned ite_min_length = std::min(min_length, i.min_length);
             // lbool ite_nullable = (nullable == i.nullable ? nullable : l_undef);
-            //TBD: whether ite is interpreted or not depends on whether the condition is interpreted and both branches are interpreted
+            // TBD: whether ite is interpreted or not depends on whether the condition is interpreted and both branches are interpreted
             return info(false, false, false, false, normalized && i.normalized, monadic && i.monadic, singleton && i.singleton, nullable, min_length, std::max(star_height, i.star_height));
         }
         else
@@ -1529,16 +1528,16 @@ seq_util::rex::info seq_util::rex::info::loop(unsigned lower, unsigned upper) co
             m = UINT_MAX;
         lbool loop_nullable = (nullable == l_true || lower == 0 ? l_true : nullable);
         if (upper == UINT_MAX) {
-            //this means the loop is r{lower,*} and is therefore not normalized
-            //normalized regex would be r{lower,lower}r* and would in particular not use r{0,} for r*
+            // this means the loop is r{lower,*} and is therefore not normalized
+            // normalized regex would be r{lower,lower}r* and would in particular not use r{0,} for r*
             return info(classical, classical, interpreted, nonbranching, false, singleton, false, loop_nullable, m, star_height + 1);
         }
         else {
             bool loop_normalized = normalized;
-            //r{lower,upper} is not normalized if r is nullable but lower > 0
-            //r{0,1} is not normalized: it should be ()|r
-            //r{1,1} is not normalized: it should be r
-            //r{lower,upper} is not normalized if lower > upper it should then be [] (empty)
+            // r{lower,upper} is not normalized if r is nullable but lower > 0
+            // r{0,1} is not normalized: it should be ()|r
+            // r{1,1} is not normalized: it should be r
+            // r{lower,upper} is not normalized if lower > upper it should then be [] (empty)
             if ((nullable == l_true && lower > 0) || upper == 1 || lower > upper)
                 loop_normalized = false;
             return info(classical, classical, interpreted, nonbranching, loop_normalized, singleton, false, loop_nullable, m, star_height);
