@@ -110,6 +110,10 @@ expr* char_decl_plugin::get_some_value(sort* s) {
 }
 
 app* char_decl_plugin::mk_le(expr* a, expr* b) {
-    expr* es[2] = { a, b};
+    expr_ref _ch1(a, *m_manager), _ch2(b, *m_manager);
+    unsigned v1 = 0, v2 = 0;
+    if (is_const_char(a, v1) && is_const_char(b, v2))
+        return m_manager->mk_bool_val(v1 <= v2);
+    expr* es[2] = { a, b };
     return m_manager->mk_app(m_family_id, OP_CHAR_LE, 2, es);    
 }
