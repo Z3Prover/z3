@@ -341,10 +341,9 @@ namespace smt {
         return true;
     }
 
-    // TBD: seq_factory needs to be replaced by a "char_factory" in the case where theory_char is
     // a stand-alone theory.
     void theory_char::init_model(model_generator & mg) {
-        m_factory = alloc(seq_factory, get_manager(), get_family_id(), mg.get_model());
+        m_factory = alloc(char_factory, get_manager(), get_family_id(), mg.get_model());
     }
 
     model_value_proc * theory_char::mk_value(enode * n, model_generator & mg) {

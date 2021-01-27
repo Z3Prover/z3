@@ -3,17 +3,11 @@ Copyright (c) 2011 Microsoft Corporation
 
 Module Name:
 
-    theory_seq_empty.h
-
-Abstract:
-
-    <abstract>
+    seq_factory.h
 
 Author:
 
     Nikolaj Bjorner (nbjorner) 2011-14-11
-
-Revision History:
 
 --*/
 #pragma once

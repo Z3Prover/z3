@@ -19,7 +19,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/bit_blaster/bit_blaster.h"
-#include "model/seq_factory.h"
+#include "model/char_factory.h"
 #include "smt/smt_theory.h"
 
 namespace smt {
@@ -43,7 +43,7 @@ namespace smt {
         bit_blaster             m_bb;
         stats                   m_stats;
         symbol                  m_bits2char;
-        seq_factory*            m_factory { nullptr };
+        char_factory*           m_factory { nullptr };
 
         struct reset_bits;
 
