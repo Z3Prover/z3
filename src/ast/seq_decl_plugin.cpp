@@ -24,8 +24,6 @@ Revision History:
 #include "ast/bv_decl_plugin.h"
 #include <sstream>
 
-#define _USE_CHAR_PLUGIN 1
-
 
 seq_decl_plugin::seq_decl_plugin(): m_init(false),
                                     m_stringc_sym("String"),
@@ -256,12 +254,6 @@ void seq_decl_plugin::init() {
     m_sigs[OP_SEQ_REPLACE_RE]    = alloc(psig, m, "str.replace_re", 1, 3, seqAreAseqA, seqA);
     m_sigs[OP_SEQ_REPLACE_ALL]   = alloc(psig, m, "str.replace_all", 1, 3, seqAseqAseqA, seqA);
     m_sigs[OP_STRING_CONST]      = nullptr;
-    m_sigs[_OP_CHAR_CONST]        = nullptr;
-    m_sigs[_OP_CHAR_LE]           = nullptr;
-    if (unicode() && !_USE_CHAR_PLUGIN) {
-        sort* charTcharT[2] = { m_char, m_char };
-        m_sigs[_OP_CHAR_LE]           = alloc(psig, m, "char.<=", 0, 2, charTcharT, boolT);
-    }
     m_sigs[_OP_STRING_STRIDOF]   = alloc(psig, m, "str.indexof", 0, 3, str2TintT, intT);
     m_sigs[_OP_STRING_STRREPL]   = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
     m_sigs[_OP_STRING_FROM_CHAR] = alloc(psig, m, "char", 1, 0, nullptr, strT);
@@ -289,11 +281,7 @@ void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
     decl_plugin::set_manager(m, id);
     bv_util bv(*m);
     if (unicode())
-#if _USE_CHAR_PLUGIN 
         m_char = get_char_plugin().char_sort();
-#else
-    m_char = m->mk_sort(symbol("Unicode"), sort_info(m_family_id, _CHAR_SORT, 0, nullptr));
-#endif
     else
         m_char = bv.mk_sort(8);
     m->inc_ref(m_char);
@@ -329,8 +317,6 @@ sort * seq_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter 
         }
         return m.mk_sort(symbol("RegEx"), sort_info(m_family_id, RE_SORT, num_parameters, parameters));
     }
-    case _CHAR_SORT:
-        return m_char;
     case _STRING_SORT:
         return m_string;
     case _REGLAN_SORT:
@@ -576,20 +562,6 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         m_has_re = true;
         return mk_str_fun(k, arity, domain, range, OP_SEQ_TO_RE);
 
-    case _OP_CHAR_LE:
-        if (arity == 2 && domain[0] == m_char && domain[1] == m_char) {
-            return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, m.mk_bool_sort(), func_decl_info(m_family_id, k, 0, nullptr));
-        }
-        m.raise_exception("Incorrect parameters passed to character comparison");
-    case _OP_CHAR_CONST:
-        if (!(num_parameters == 1 && arity == 0 && 
-              parameters[0].is_int() && 
-              0 <= parameters[0].get_int() && 
-              parameters[0].get_int() < static_cast<int>(max_char()))) {
-            m.raise_exception("invalid character declaration");
-        }
-        return m.mk_const_decl(m_charc_sym, m_char, func_decl_info(m_family_id, _OP_CHAR_CONST, num_parameters, parameters));
-
     case OP_SEQ_IN_RE:
         m_has_re = true;
         return mk_seq_fun(k, arity, domain, range, _OP_STRING_IN_REGEXP);
@@ -677,13 +649,7 @@ app* seq_decl_plugin::mk_string(zstring const& s) {
 
 app* seq_decl_plugin::mk_char(unsigned u) {
     if (unicode()) {
-#if _USE_CHAR_PLUGIN
         return get_char_plugin().mk_char(u);
-#else
-        parameter param(u);
-        func_decl* f = m_manager->mk_const_decl(m_charc_sym, m_char, func_decl_info(m_family_id, _OP_CHAR_CONST, 1, &param));
-        return m_manager->mk_const(f);
-#endif
     }
     else {
         bv_util bv(*m_manager);
@@ -698,8 +664,6 @@ bool seq_decl_plugin::is_considered_uninterpreted(func_decl * f) {
 }
 
 bool seq_decl_plugin::is_unique_value(app* e) const {
-    if (is_app_of(e, m_family_id, _OP_CHAR_CONST))
-        return true;
     return false;
 }
 
@@ -708,8 +672,6 @@ bool seq_decl_plugin::is_value(app* e) const {
         if (is_app_of(e, m_family_id, OP_SEQ_EMPTY)) 
             return true;
         if (is_app_of(e, m_family_id, OP_STRING_CONST)) 
-            return true;
-        if (is_app_of(e, m_family_id, _OP_CHAR_CONST))
             return true;
         if (is_app_of(e, m_family_id, OP_SEQ_UNIT) &&
             m_manager->is_value(e->get_arg(0))) 
@@ -743,9 +705,6 @@ bool seq_decl_plugin::are_distinct(app* a, app* b) const {
         return false;
     if (is_app_of(a, m_family_id, OP_STRING_CONST) &&
         is_app_of(b, m_family_id, OP_STRING_CONST)) 
-        return true;
-    if (is_app_of(a, m_family_id, _OP_CHAR_CONST) && 
-        is_app_of(b, m_family_id, _OP_CHAR_CONST)) 
         return true;
     if (is_app_of(a, m_family_id, OP_SEQ_UNIT) && 
         is_app_of(b, m_family_id, OP_SEQ_UNIT)) 
@@ -823,11 +782,7 @@ unsigned seq_util::max_mul(unsigned x, unsigned y) const {
 
 bool seq_util::is_const_char(expr* e, unsigned& c) const {
     if (seq.unicode()) {
-#if _USE_CHAR_PLUGIN
         return ch.is_const_char(e, c);
-#else
-        return is_app_of(e, m_fid, _OP_CHAR_CONST) && (c = to_app(e)->get_parameter(0).get_int(), true);
-#endif
     }
     else {
         rational r;    
@@ -838,11 +793,7 @@ bool seq_util::is_const_char(expr* e, unsigned& c) const {
 
 bool seq_util::is_char_le(expr const* e) const {
     if (seq.unicode()) 
-#if _USE_CHAR_PLUGIN
         return ch.is_le(e);
-#else
-        return is_app_of(e, m_fid, _OP_CHAR_LE); 
-#endif
     else 
         return bv().is_bv_ule(e) && is_char(to_app(e)->get_arg(0)); 
 }
@@ -858,12 +809,7 @@ app* seq_util::mk_le(expr* ch1, expr* ch2) const {
     expr_ref _ch1(ch1, m), _ch2(ch2, m);
 
     if (seq.unicode()) {
-#if _USE_CHAR_PLUGIN
         return ch.mk_le(ch1, ch2);
-#else
-        expr* es[2] = { ch1, ch2 };
-        return m.mk_app(m_fid, _OP_CHAR_LE, 2, es);
-#endif
     }
     else {
         rational r1, r2;

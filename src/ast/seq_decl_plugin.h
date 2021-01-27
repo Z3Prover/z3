@@ -31,7 +31,6 @@ Revision History:
 enum seq_sort_kind {
     SEQ_SORT,
     RE_SORT,
-    _CHAR_SORT,     // internal only
     _STRING_SORT,  
     _REGLAN_SORT
 };
@@ -87,8 +86,6 @@ enum seq_op_kind {
     OP_STRING_TO_CODE,
     OP_STRING_FROM_CODE,
 
-    _OP_CHAR_CONST,    // constant character
-    _OP_CHAR_LE,       // Unicode comparison
     // internal only operators. Converted to SEQ variants.
     _OP_STRING_FROM_CHAR,
     _OP_STRING_STRREPL,
