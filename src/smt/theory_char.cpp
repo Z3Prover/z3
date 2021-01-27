@@ -55,6 +55,15 @@ namespace smt {
         return (m_bits.size() > (unsigned)v) && !m_bits[v].empty();
     }
 
+    theory_var theory_char::mk_var(enode* n) {
+        if (is_attached_to_var(n)) 
+            return n->get_th_var(get_id());
+        theory_var v = theory::mk_var(n);
+        ctx.attach_th_var(n, this, v);
+        ctx.mark_as_relevant(n);
+        return v;    
+    }
+
     bool theory_char::internalize_atom(app * term, bool gate_ctx) { 
         for (auto arg : *term)         
             mk_var(ensure_enode(arg));
@@ -70,7 +79,9 @@ namespace smt {
         for (auto arg : *term)         
             mk_var(ensure_enode(arg));
 
-        theory_var v = mk_var(ensure_enode(term));
+        enode* e = ctx.e_internalized(term) ? ctx.get_enode(term) : ctx.mk_enode(term, false, m.is_bool(term), true);
+        
+        theory_var v = mk_var(e);
         unsigned c = 0;
         if (seq.is_const_char(term, c))
             new_const_char(v, c);
@@ -91,7 +102,7 @@ namespace smt {
         if (has_bits(v))
             return;
 
-        expr* e = get_expr(v);
+        expr* e = m_th->get_expr(v);
         m_bits.reserve(v + 1);
         auto& bits = m_bits[v];
         while ((unsigned) v >= m_ebits.size())
@@ -131,8 +142,8 @@ namespace smt {
     void theory_char::internalize_le(literal lit, app* term) {
         expr* x = nullptr, *y = nullptr;
         VERIFY(seq.is_char_le(term, x, y));
-        theory_var v1 = ctx.get_enode(x)->get_th_var(get_id());
-        theory_var v2 = ctx.get_enode(y)->get_th_var(get_id());
+        theory_var v1 = ctx.get_enode(x)->get_th_var(m_th->get_id());
+        theory_var v2 = ctx.get_enode(y)->get_th_var(m_th->get_id());
         init_bits(v1);
         init_bits(v2);
         auto const& b1 = get_ebits(v1);

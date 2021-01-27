@@ -257,8 +257,11 @@ void seq_decl_plugin::init() {
     m_sigs[OP_SEQ_REPLACE_ALL]   = alloc(psig, m, "str.replace_all", 1, 3, seqAseqAseqA, seqA);
     m_sigs[OP_STRING_CONST]      = nullptr;
     m_sigs[_OP_CHAR_CONST]        = nullptr;
-    sort* charTcharT[2] = { m_char, m_char };
-    m_sigs[_OP_CHAR_LE]           = unicode() ? alloc(psig, m, "char.<=", 0, 2, charTcharT, boolT) : nullptr;    
+    m_sigs[_OP_CHAR_LE]           = nullptr;
+    if (unicode() && !_USE_CHAR_PLUGIN) {
+        sort* charTcharT[2] = { m_char, m_char };
+        m_sigs[_OP_CHAR_LE]           = alloc(psig, m, "char.<=", 0, 2, charTcharT, boolT);
+    }
     m_sigs[_OP_STRING_STRIDOF]   = alloc(psig, m, "str.indexof", 0, 3, str2TintT, intT);
     m_sigs[_OP_STRING_STRREPL]   = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
     m_sigs[_OP_STRING_FROM_CHAR] = alloc(psig, m, "char", 1, 0, nullptr, strT);

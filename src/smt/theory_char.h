@@ -57,6 +57,8 @@ namespace smt {
         void enforce_value_bound(theory_var v);
         void enforce_bits();
 
+        theory_var mk_var(enode* n) override;
+
     public:
 
         theory_char(context& ctx, family_id fid, theory * th);

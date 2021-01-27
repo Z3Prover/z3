@@ -19,6 +19,7 @@ Author:
 
 #include "util/zstring.h"
 #include "ast/char_decl_plugin.h"
+#include "ast/ast_pp.h"
 
 char_decl_plugin::char_decl_plugin(): 
     m_charc_sym("Char") {
@@ -31,19 +32,33 @@ char_decl_plugin::~char_decl_plugin() {
 func_decl* char_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const* parameters,
                         unsigned arity, sort* const* domain, sort* range) {
     ast_manager& m = *m_manager;
+    std::stringstream msg;
     switch (k) {
     case OP_CHAR_LE:
-        if (arity == 2 && domain[0] == m_char && domain[1] == m_char) 
+        if (arity != 2)
+            msg << "incorrect number of arguments passed. Expected 2, received " << arity;
+        else if(domain[0] != m_char)
+            msg << "incorrect first argument type " << mk_pp(domain[0], *m_manager);
+        else if (domain[1] != m_char)
+            msg << "incorrect second argument type " << mk_pp(domain[1], *m_manager);     
+        else             
             return m.mk_func_decl(symbol("char.<="), arity, domain, m.mk_bool_sort(), func_decl_info(m_family_id, k, 0, nullptr));
-        m.raise_exception("Incorrect parameters passed to character comparison");
+        m.raise_exception(msg.str());
+
     case OP_CHAR_CONST:
-        if (num_parameters == 1 && 
-            arity == 0 && 
-            parameters[0].is_int() && 
-            0 <= parameters[0].get_int() && 
-            parameters[0].get_int() < static_cast<int>(zstring::unicode_max_char()))
+        if (num_parameters != 1)
+            msg << "incorrect number of parameters passed. Expected 1, recieved " << num_parameters;
+        else if (arity != 0)
+            msg << "incorrect number of arguments passed. Expected 1, received " << arity;
+        else if (!parameters[0].is_int())
+            msg << "integer parameter expected";
+        else if (parameters[0].get_int() < 0)
+            msg << "non-negative parameter expected";
+        else if (parameters[0].get_int() > static_cast<int>(zstring::unicode_max_char()))
+            msg << "parameter expected within character range";
+        else
             return m.mk_const_decl(m_charc_sym, m_char, func_decl_info(m_family_id, OP_CHAR_CONST, num_parameters, parameters));
-        m.raise_exception("invalid character declaration");
+        m.raise_exception(msg.str());
     default:
         UNREACHABLE();
     }    
@@ -57,8 +72,7 @@ void char_decl_plugin::set_manager(ast_manager * m, family_id id) {
 }
 
 void char_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const& logic) {
-    // TODO: enable when character theory is turned on:
-    // op_names.push_back(builtin_name("char.<=", OP_CHAR_LE));
+    op_names.push_back(builtin_name("char.<=", OP_CHAR_LE));
 }
 
 void char_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const& logic) {
@@ -91,7 +105,7 @@ app* char_decl_plugin::mk_char(unsigned u) {
 }
 
 expr* char_decl_plugin::get_some_value(sort* s) {
-    return mk_char(0);
+    return mk_char('A');
 }
 
 app* char_decl_plugin::mk_le(expr* a, expr* b) {
