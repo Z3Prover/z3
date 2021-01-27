@@ -76,7 +76,7 @@ void char_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol cons
 }
 
 void char_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const& logic) {
-    sort_names.push_back(builtin_name("Unicode",  CHAR_SORT));
+    sort_names.push_back(builtin_name("Unicode", CHAR_SORT));
 }
 
 bool char_decl_plugin::is_value(app* e) const {
@@ -99,6 +99,7 @@ bool char_decl_plugin::are_distinct(app* a, app* b) const {
 }
 
 app* char_decl_plugin::mk_char(unsigned u) {
+    SASSERT(u <= zstring::unicode_max_char());
     parameter param(u);
     func_decl* f = m_manager->mk_const_decl(m_charc_sym, m_char, func_decl_info(m_family_id, OP_CHAR_CONST, 1, &param));
     return m_manager->mk_const(f);

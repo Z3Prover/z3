@@ -22,18 +22,12 @@ Author:
 
 namespace smt {
     
-    theory_char::theory_char(context& ctx, family_id fid, theory* th):
+    theory_char::theory_char(context& ctx, family_id fid):
         theory(ctx, fid),
         seq(m),
-        m_bb(m, ctx.get_fparams()),
-        m_th(th)
+        m_bb(m, ctx.get_fparams())
     {
-        bv_util bv(m);
-        sort_ref b8(bv.mk_sort(8), m);
-        m_enabled = !seq.is_char(b8);
         m_bits2char = symbol("bits2char");
-        if (!m_th)
-            m_th = this;
     }
 
     struct theory_char::reset_bits : public trail<context> {
@@ -102,7 +96,7 @@ namespace smt {
         if (has_bits(v))
             return;
 
-        expr* e = m_th->get_expr(v);
+        expr* e = get_expr(v);
         m_bits.reserve(v + 1);
         auto& bits = m_bits[v];
         while ((unsigned) v >= m_ebits.size())
@@ -142,8 +136,8 @@ namespace smt {
     void theory_char::internalize_le(literal lit, app* term) {
         expr* x = nullptr, *y = nullptr;
         VERIFY(seq.is_char_le(term, x, y));
-        theory_var v1 = ctx.get_enode(x)->get_th_var(m_th->get_id());
-        theory_var v2 = ctx.get_enode(y)->get_th_var(m_th->get_id());
+        theory_var v1 = ctx.get_enode(x)->get_th_var(get_id());
+        theory_var v2 = ctx.get_enode(y)->get_th_var(get_id());
         init_bits(v1);
         init_bits(v2);
         auto const& b1 = get_ebits(v1);
@@ -229,22 +223,22 @@ namespace smt {
      * 2. Assign values to characters that haven't been assigned.
      */
     bool theory_char::final_check() {   
-        TRACE("seq", tout << "final check " << m_th->get_num_vars() << "\n";);
+        TRACE("seq", tout << "final check " << get_num_vars() << "\n";);
         m_var2value.reset();
-        m_var2value.resize(m_th->get_num_vars(), UINT_MAX);
+        m_var2value.resize(get_num_vars(), UINT_MAX);
         m_value2var.reset();
 
         // extract the initial set of constants.
         uint_set values;
         unsigned c = 0, d = 0;
-        for (unsigned v = m_th->get_num_vars(); v-- > 0; ) {
-            expr* e = m_th->get_expr(v);
+        for (unsigned v = get_num_vars(); v-- > 0; ) {
+            expr* e = get_expr(v);
             if (seq.is_char(e) && m_var2value[v] == UINT_MAX && get_char_value(v, c)) {
-                CTRACE("seq", seq.is_char(e), tout << mk_pp(e, m) << " root: " << m_th->get_enode(v)->is_root() << " is_value: " << get_char_value(v, c) << "\n";);
-                enode* r = m_th->get_enode(v)->get_root();
+                CTRACE("seq", seq.is_char(e), tout << mk_pp(e, m) << " root: " << get_enode(v)->is_root() << " is_value: " << get_char_value(v, c) << "\n";);
+                enode* r = get_enode(v)->get_root();
                 m_value2var.reserve(c + 1, null_theory_var);
                 theory_var u = m_value2var[c];
-                if (u != null_theory_var && r != m_th->get_enode(u)->get_root()) {
+                if (u != null_theory_var && r != get_enode(u)->get_root()) {
                     enforce_ackerman(u, v);
                     return false;
                 }
@@ -269,8 +263,8 @@ namespace smt {
         
         // assign values to other unassigned nodes
         c = 'A';
-        for (unsigned v = m_th->get_num_vars(); v-- > 0; ) {
-            expr* e = m_th->get_expr(v);
+        for (unsigned v = get_num_vars(); v-- > 0; ) {
+            expr* e = get_expr(v);
             if (seq.is_char(e) && m_var2value[v] == UINT_MAX) {
                 d = c;
                 while (values.contains(c)) {
@@ -281,7 +275,7 @@ namespace smt {
                     }                    
                 }
                 TRACE("seq", tout << "fresh: " << mk_pp(e, m) << " := " << c << "\n";);
-                for (enode* n : *m_th->get_enode(v)) 
+                for (enode* n : *get_enode(v)) 
                     m_var2value[n->get_th_var(get_id())] = c;
                 m_value2var.reserve(c + 1, null_theory_var);
                 m_value2var[c] = v;
@@ -293,9 +287,9 @@ namespace smt {
 
     void theory_char::enforce_bits() {
         TRACE("seq", tout << "enforce bits\n";);
-        for (unsigned v = m_th->get_num_vars(); v-- > 0; ) {
+        for (unsigned v = get_num_vars(); v-- > 0; ) {
             expr* e = get_expr(v);
-            if (seq.is_char(e) && m_th->get_enode(v)->is_root() && !has_bits(v))
+            if (seq.is_char(e) && get_enode(v)->is_root() && !has_bits(v))
                 init_bits(v);
         }        
     }

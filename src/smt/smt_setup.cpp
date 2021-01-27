@@ -940,7 +940,7 @@ namespace smt {
         sort* s  = seq.mk_string_sort();
         family_id ch_fid = ch->get_family_id();
         if (s->get_family_id() != ch_fid)
-            m_context.register_plugin(alloc(smt::theory_char, m_context, ch_fid, nullptr));
+            m_context.register_plugin(alloc(smt::theory_char, m_context, ch_fid));
         
     }
 

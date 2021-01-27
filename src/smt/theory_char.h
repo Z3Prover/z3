@@ -16,8 +16,7 @@ Author:
 --*/
 #pragma once
 
-#include "ast/seq_decl_plugin.h"
-#include "ast/bv_decl_plugin.h"
+#include "ast/char_decl_plugin.h"
 #include "ast/rewriter/bit_blaster/bit_blaster.h"
 #include "model/char_factory.h"
 #include "smt/smt_theory.h"
@@ -44,7 +43,6 @@ namespace smt {
         stats                   m_stats;
         symbol                  m_bits2char;
         char_factory*           m_factory { nullptr };
-        theory*                 m_th;
 
         struct reset_bits;
 
@@ -57,15 +55,20 @@ namespace smt {
         void enforce_value_bound(theory_var v);
         void enforce_bits();
 
+        bool final_check();
+        void new_const_char(theory_var v, unsigned c);
+        unsigned get_char_value(theory_var v);
+        void internalize_le(literal lit, app* term);        
+
         theory_var mk_var(enode* n) override;
 
     public:
 
-        theory_char(context& ctx, family_id fid, theory * th);
+        theory_char(context& ctx, family_id fid);
         
         void new_eq_eh(theory_var v1, theory_var v2) override;
         void new_diseq_eh(theory_var v1, theory_var v2) override;
-        theory * mk_fresh(context * new_ctx) override { return alloc(theory_char, *new_ctx, get_family_id(), nullptr); }
+        theory * mk_fresh(context * new_ctx) override { return alloc(theory_char, *new_ctx, get_family_id()); }
         bool internalize_atom(app * atom, bool gate_ctx) override;
         bool internalize_term(app * term) override;
         void display(std::ostream& out) const override {}
@@ -74,14 +77,6 @@ namespace smt {
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
         void collect_statistics(::statistics& st) const override;
 
-        // Methods exposed when theory_char is a sub-theory of seq and not a stand-alone theory
-        // ensure coherence for character codes and equalities of shared symbols.
-        bool enabled() const { return m_enabled; }
-        bool final_check();
-        void new_const_char(theory_var v, unsigned c);
-        unsigned get_char_value(theory_var v);
-
-        void internalize_le(literal lit, app* term);        
     };
 
 }
