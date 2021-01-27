@@ -22,6 +22,7 @@ Revision History:
 --*/
 #pragma once
 
+#include "util/zstring.h"
 #include "ast/ast.h"
 #include <string>
 
@@ -37,6 +38,7 @@ enum char_op_kind {
 class char_decl_plugin : public decl_plugin {
     sort* m_char { nullptr };
     symbol m_charc_sym;
+    bool m_unicode { true };
 
     void set_manager(ast_manager * m, family_id id) override;
 
@@ -80,7 +82,8 @@ public:
         return is_app_of(e, m_family_id, OP_CHAR_CONST) && (c = to_app(e)->get_parameter(0).get_int(), true);
     }
 
-    
-
+    bool unicode() const { return m_unicode; }
+    unsigned max_char() const { return m_unicode ? zstring::unicode_max_char() : zstring::ascii_max_char(); }
+    unsigned num_bits() const { return m_unicode ? zstring::unicode_num_bits() : zstring::ascii_num_bits(); }
 
 };

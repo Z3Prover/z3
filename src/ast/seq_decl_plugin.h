@@ -134,7 +134,7 @@ class seq_decl_plugin : public decl_plugin {
     sort*            m_reglan;
     bool             m_has_re;
     bool             m_has_seq;
-    bool             m_unicode { false };
+    char_decl_plugin* m_char_plugin { nullptr };
 
     void match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
@@ -163,7 +163,7 @@ public:
     ~seq_decl_plugin() override {}
     void finalize() override;
 
-    bool unicode() const { return m_unicode; }
+    bool unicode() const { return get_char_plugin().unicode(); }
 
     decl_plugin * mk_fresh() override { return alloc(seq_decl_plugin); }
 
@@ -188,8 +188,8 @@ public:
 
     bool is_char(ast* a) const { return a == m_char; }
 
-    unsigned max_char() const { return m_unicode ? zstring::unicode_max_char() : zstring::ascii_max_char(); }
-    unsigned num_bits() const { return m_unicode ? zstring::unicode_num_bits() : zstring::ascii_num_bits(); }
+    unsigned max_char() const { return get_char_plugin().max_char(); }
+    unsigned num_bits() const { return get_char_plugin().num_bits(); }
 
     app* mk_string(symbol const& s);
     app* mk_string(zstring const& s);
@@ -203,7 +203,7 @@ public:
     sort* char_sort() const { return m_char; }
     sort* string_sort() const { return m_string; }
 
-    char_decl_plugin& get_char_plugin() { return *static_cast<char_decl_plugin*>(m_manager->get_plugin(m_manager->mk_family_id("char"))); }
+    char_decl_plugin& get_char_plugin() const { return *m_char_plugin; }
 
 };
 

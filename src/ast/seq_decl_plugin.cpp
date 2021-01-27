@@ -16,7 +16,6 @@ Author:
 Revision History:
 
 --*/
-#include "util/gparams.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
@@ -33,7 +32,6 @@ seq_decl_plugin::seq_decl_plugin(): m_init(false),
                                     m_reglan(nullptr),
                                     m_has_re(false),
                                     m_has_seq(false) {
-    m_unicode = gparams::get_value("unicode") == "true";
 }
 
 void seq_decl_plugin::finalize() {
@@ -280,6 +278,7 @@ void seq_decl_plugin::init() {
 void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
     decl_plugin::set_manager(m, id);
     bv_util bv(*m);
+    m_char_plugin = static_cast<char_decl_plugin*>(m_manager->get_plugin(m_manager->mk_family_id("char")));
     if (unicode())
         m_char = get_char_plugin().char_sort();
     else

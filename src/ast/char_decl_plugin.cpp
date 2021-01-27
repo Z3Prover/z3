@@ -17,12 +17,13 @@ Author:
 --*/
 #pragma once
 
-#include "util/zstring.h"
+#include "util/gparams.h"
 #include "ast/char_decl_plugin.h"
 #include "ast/ast_pp.h"
 
 char_decl_plugin::char_decl_plugin(): 
     m_charc_sym("Char") {
+    m_unicode = gparams::get_value("unicode") == "true";
 }
 
 char_decl_plugin::~char_decl_plugin() {
@@ -54,7 +55,7 @@ func_decl* char_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             msg << "integer parameter expected";
         else if (parameters[0].get_int() < 0)
             msg << "non-negative parameter expected";
-        else if (parameters[0].get_int() > static_cast<int>(zstring::unicode_max_char()))
+        else if (parameters[0].get_int() > static_cast<int>(max_char()))
             msg << "parameter expected within character range";
         else
             return m.mk_const_decl(m_charc_sym, m_char, func_decl_info(m_family_id, OP_CHAR_CONST, num_parameters, parameters));
@@ -99,7 +100,7 @@ bool char_decl_plugin::are_distinct(app* a, app* b) const {
 }
 
 app* char_decl_plugin::mk_char(unsigned u) {
-    SASSERT(u <= zstring::unicode_max_char());
+    SASSERT(u <= max_char());
     parameter param(u);
     func_decl* f = m_manager->mk_const_decl(m_charc_sym, m_char, func_decl_info(m_family_id, OP_CHAR_CONST, 1, &param));
     return m_manager->mk_const(f);
