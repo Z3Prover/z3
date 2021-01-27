@@ -34,34 +34,26 @@ namespace smt {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
 
-        seq_util         seq;
+        seq_util                seq;
         vector<literal_vector>  m_bits;
         vector<expr_ref_vector> m_ebits;
-        unsigned_vector  m_var2value;
-        svector<theory_var> m_value2var;
-        bool             m_enabled { false };
-        bit_blaster      m_bb;
-        stats            m_stats;
-        symbol           m_bits2char;
-        seq_factory*     m_factory { nullptr };
+        unsigned_vector         m_var2value;
+        svector<theory_var>     m_value2var;
+        bool                    m_enabled { false };
+        bit_blaster             m_bb;
+        stats                   m_stats;
+        symbol                  m_bits2char;
+        seq_factory*            m_factory { nullptr };
 
         struct reset_bits;
 
-
         literal_vector const& get_bits(theory_var v);
-
         expr_ref_vector const& get_ebits(theory_var v);
-
         bool has_bits(theory_var v) const;
-
         void init_bits(theory_var v);
-
-        bool get_char_value(theory_var v, unsigned& c);
-        
+        bool get_char_value(theory_var v, unsigned& c);        
         void enforce_ackerman(theory_var v, theory_var w);
-
         void enforce_value_bound(theory_var v);
-
         void enforce_bits();
 
     public:
@@ -83,9 +75,6 @@ namespace smt {
         // ensure coherence for character codes and equalities of shared symbols.
         bool enabled() const { return m_enabled; }
         bool final_check();
-        // <= atomic constraints on characters
-        void assign_le(theory_var v1, theory_var v2, literal lit);
-        void assign_lt(theory_var v1, theory_var v2, literal lit);
         void new_const_char(theory_var v, unsigned c);
         unsigned get_char_value(theory_var v);
 
