@@ -235,10 +235,6 @@ std::string zstring::encode() const {
             _flush();
             strm << esc_table[ch];
         }
-        else if (ch == '\\') {
-            _flush();
-            strm << "\\\\";
-        }
         else if (ch >= 256) {
             _flush();
             strm << "\\u{" << std::hex << ch << std::dec << "}";
@@ -248,9 +244,8 @@ std::string zstring::encode() const {
             strm << "\\x" << std::hex << ch << std::dec; 
         }
         else {
-            if (offset == 99) { 
+            if (offset == 99)  
                 _flush();
-            }
             buffer[offset++] = (char)ch;
         }
     }
