@@ -2597,11 +2597,8 @@ public:
     }
 
     void reset() {
-        ast * const * it  = m_to_unmark.c_ptr();
-        ast * const * end = it + m_to_unmark.size();
-        for (; it != end; ++it) {
-            reset_mark(*it);
-        }
+        for (ast * a : m_to_unmark) 
+            reset_mark(a);
         m_to_unmark.reset();
     }
 

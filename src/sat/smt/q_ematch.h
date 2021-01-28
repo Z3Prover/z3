@@ -69,7 +69,10 @@ namespace q {
             ptr_vector<binding> m_bindings;
 
             ptr_vector<binding> const& bindings() { return m_bindings; }
+            std::ostream& display(std::ostream& out) const;
+
         };
+
 
         struct pop_clause;
         
@@ -82,6 +85,8 @@ namespace q {
         vector<unsigned_vector>                m_watch;     // expr_id -> clause-index*
         stats                                  m_stats;
         expr_fast_mark1                        m_mark;
+
+        struct scoped_mark_reset;
 
         nat_set         m_node_in_queue;
         nat_set         m_clause_in_queue;

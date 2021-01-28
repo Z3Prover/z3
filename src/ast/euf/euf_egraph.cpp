@@ -52,6 +52,7 @@ namespace euf {
             m_tmp_node->m_args[i] = args[i];
         m_tmp_node->m_num_args = n;
         m_tmp_node->m_expr = e;
+        m_tmp_node->m_table_id = UINT_MAX;
         return m_table.find(m_tmp_node);
     }
 

@@ -37,6 +37,12 @@ Todo:
 
 namespace q {
 
+    struct ematch::scoped_mark_reset {
+        ematch& e;
+        scoped_mark_reset(ematch& e): e(e) {}
+        ~scoped_mark_reset() { e.m_mark.reset(); }
+    };
+
     ematch::ematch(euf::solver& ctx, solver& s):
         ctx(ctx),
         m_qs(s),
@@ -108,7 +114,7 @@ namespace q {
 
     void ematch::init_watch(expr* e, unsigned clause_idx) {
         ptr_buffer<expr> todo;
-        m_mark.reset();
+        scoped_mark_reset _sr(*this);
         todo.push_back(e);
         while (!todo.empty()) {
             expr* t = todo.back();
@@ -155,17 +161,21 @@ namespace q {
         ctx.push(push_back_vector<euf::solver, ptr_vector<binding>>(c.m_bindings));
     }
 
+    std::ostream& ematch::clause::display(std::ostream& out) const {
+        out << "clause:\n";
+        for (auto const& lit : m_lits)
+            out << lit.lhs << (lit.sign ? " != " : " == ") << lit.rhs << "\n";
+        return out;
+    }
+
     bool ematch::propagate(euf::enode* const* binding, clause& c) {
+        TRACE("q", c.display(tout) << "\n";);
         unsigned clause_idx = m_q2clauses[c.m_q];
-        struct scoped_reset {
-            ematch& e;
-            scoped_reset(ematch& e): e(e) { e.m_mark.reset(); }
-            ~scoped_reset() { e.m_mark.reset(); }
-        };
-        scoped_reset _sr(*this);
+        scoped_mark_reset _sr(*this);
 
         unsigned idx = UINT_MAX;
-        for (unsigned i = c.m_lits.size(); i-- > 0; ) {
+        unsigned sz = c.m_lits.size();
+        for (unsigned i = 0; i < sz; ++i) {
             lit l = c.m_lits[i];
             m_indirect_nodes.reset();
             lbool cmp = compare(binding, l.lhs, l.rhs);
@@ -185,6 +195,7 @@ namespace q {
                 }
                 break;
             case l_undef:
+                TRACE("q", tout << l.lhs << " ~~ " << l.rhs << " is undef\n";);
                 if (idx == 0) {
                     // attach bindings and indirect nodes
                     // to watch
@@ -228,6 +239,7 @@ namespace q {
     }
 
     lbool ematch::compare(euf::enode* const* binding, expr* s, expr* t) {
+        TRACE("q", tout << mk_pp(s, m) << " ~~ " << mk_pp(t, m) << "\n";);
         euf::enode* sn = eval(binding, s);
         euf::enode* tn = eval(binding, t);
         lbool c;
@@ -284,8 +296,9 @@ namespace q {
     }
 
     euf::enode* ematch::eval(euf::enode* const* binding, expr* e) {
+        TRACE("q", tout << mk_pp(e, m) << "\n";);
         if (is_ground(e))
-            ctx.get_egraph().find(e)->get_root();
+            return ctx.get_egraph().find(e)->get_root();
         if (m_mark.is_marked(e))
             return m_eval[e->get_id()];
         ptr_buffer<expr> todo;
@@ -315,7 +328,7 @@ namespace q {
             args.reset();
             for (expr* arg : *to_app(t)) {
                 if (m_mark.is_marked(arg))
-                    args.push_back(m_eval[t->get_id()]);
+                    args.push_back(m_eval[arg->get_id()]);
                 else
                     todo.push_back(arg);
             }
@@ -333,10 +346,12 @@ namespace q {
     }
 
     void ematch::insert_to_propagate(unsigned node_id) {
+        m_node_in_queue.assure_domain(node_id);
         if (m_node_in_queue.contains(node_id))
             return;
         m_node_in_queue.insert(node_id);
         for (unsigned idx : m_watch[node_id]) {
+            m_clause_in_queue.assure_domain(idx);
             if (!m_clause_in_queue.contains(idx)) {
                 m_clause_in_queue.insert(idx);
                 m_queue.push_back(idx);
@@ -418,6 +433,7 @@ namespace q {
     };
 
     void ematch::add(quantifier* q) {
+        TRACE("q", tout << "add " << mk_pp(q, m) << "\n";);
         clause* c = clausify(q);
         ensure_ground_enodes(*c);
         unsigned idx = m_clauses.size();
@@ -437,9 +453,9 @@ namespace q {
             app * mp = to_app(q->get_pattern(i));
             SASSERT(m.is_pattern(mp));
             bool unary = (mp->get_num_args() == 1);
-            TRACE("quantifier", tout << "adding:\n" << expr_ref(mp, m) << "\n";);
+            TRACE("q", tout << "adding:\n" << expr_ref(mp, m) << "\n";);
             if (!unary && j >= num_eager_multi_patterns) {
-                TRACE("quantifier", tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m) << "\n";);
+                TRACE("q", tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m) << "\n";);
                 if (!m_lazy_mam)
                     m_lazy_mam = mam::mk(ctx, *this);
                 m_lazy_mam->add_pattern(q, mp);
@@ -462,8 +478,8 @@ namespace q {
         // 
         // TODO: loop over pending bindings and instantiate them
         // 
-        NOT_IMPLEMENTED_YET();
-        return false;
+        // NOT_IMPLEMENTED_YET();
+        return true;
     }
 
 }

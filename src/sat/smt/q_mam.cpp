@@ -415,7 +415,7 @@ namespace q {
         instruction *              m_root;
         enode_vector               m_candidates;
 #ifdef Z3DEBUG
-        egraph *                  m_egraph;
+        egraph *                   m_egraph;
         ptr_vector<app>            m_patterns;
 #endif
 #ifdef _PROFILE_MAM
@@ -3837,8 +3837,7 @@ namespace q {
 #endif
             unsigned min_gen = 0, max_gen = 0;
             m_interpreter.get_min_max_top_generation(min_gen, max_gen);
-            UNREACHABLE();
-            // m_ematch.on_binding(qa, pat, bindings); // max_generation); // , min_gen, max_gen;
+            m_ematch.on_binding(qa, pat, bindings); // max_generation); // , min_gen, max_gen;
         }
 
 
