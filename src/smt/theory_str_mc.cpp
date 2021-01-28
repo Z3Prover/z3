@@ -628,6 +628,7 @@ namespace smt {
             for (unsigned i = 0; i < strConst.length(); ++i) {
                 expr_ref chTerm(u.mk_char(strConst[i]), m);
                 eqc_chars.push_back(chTerm);
+                fixed_length_subterm_trail.push_back(chTerm);
             }
         } else if (to_app(term)->get_num_args() == 0 && !u.str.is_string(term)) {
             // this is a variable; get its length and create/reuse character terms
@@ -909,7 +910,6 @@ namespace smt {
         smt_params subsolver_params;
         smt::kernel subsolver(m, subsolver_params);
         subsolver.set_logic(symbol("QF_S"));
-
         sort * str_sort = u.str.mk_string_sort();
         sort * bool_sort = m.mk_bool_sort();
 
@@ -1195,7 +1195,7 @@ namespace smt {
         }
 
         TRACE("str_fl",
-            tout << "formulas asserted  subsolver:" << std::endl;
+            tout << "formulas asserted to subsolver:" << std::endl;
             for (auto e : fixed_length_assumptions) {
                 tout << mk_pp(e, subsolver.m()) << std::endl;
             }
