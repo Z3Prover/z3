@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include "smt/smt_quantifier_stat.h"
+#include "ast/quantifier_stat.h"
 
-namespace smt {
+namespace q {
 
     quantifier_stat::quantifier_stat(unsigned generation):
         m_size(0),

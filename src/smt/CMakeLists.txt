@@ -3,7 +3,6 @@ z3_add_component(smt
     arith_eq_adapter.cpp
     arith_eq_solver.cpp
     asserted_formulas.cpp
-    cached_var_subst.cpp
     cost_evaluator.cpp
     dyn_ack.cpp
     expr_context_simplifier.cpp
@@ -45,7 +44,6 @@ z3_add_component(smt
     smt_model_generator.cpp
     smt_parallel.cpp
     smt_quantifier.cpp
-    smt_quantifier_stat.cpp
     smt_quick_checker.cpp
     smt_relevancy.cpp
     smt_setup.cpp

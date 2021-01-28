@@ -20,7 +20,6 @@ Revision History:
 
 #include "ast/rewriter/var_subst.h"
 #include "util/map.h"
-#include "smt/smt_enode.h"
 
 class cached_var_subst {
     struct key {
@@ -37,14 +36,17 @@ class cached_var_subst {
         bool operator()(key * k1, key * k2) const;
     };
     typedef map<key *, expr *, key_hash_proc, key_eq_proc> instances;
+    ast_manager&     m;
     var_subst        m_proc;
     expr_ref_vector  m_refs;
     instances        m_instances;
     region           m_region;
     ptr_vector<key>  m_new_keys; // mapping from num_bindings -> next key
+    key*             m_key { nullptr };
 public:
     cached_var_subst(ast_manager & m);
-    void operator()(quantifier * qa, unsigned num_bindings, smt::enode * const * bindings, expr_ref & result);
+    expr** operator()(quantifier * qa, unsigned num_bindings);
+    expr_ref operator()();
     void reset();
 };
 

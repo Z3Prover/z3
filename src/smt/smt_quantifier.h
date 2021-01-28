@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
+#include "ast/quantifier_stat.h"
 #include "util/statistics.h"
 #include "util/params.h"
 #include "smt/smt_types.h"
@@ -50,7 +51,7 @@ namespace smt {
 
         bool is_shared(enode * n) const;
 
-        quantifier_stat * get_stat(quantifier * q) const;
+        q::quantifier_stat * get_stat(quantifier * q) const;
         unsigned get_generation(quantifier * q) const;
 
         static void log_justification_to_root(std::ostream & log, enode *en, obj_hashtable<enode> &already_visited, context &ctx, ast_manager &m);

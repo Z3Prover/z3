@@ -3,7 +3,7 @@ Copyright (c) 2006 Microsoft Corporation
 
 Module Name:
 
-    smt_quantifier_stat.h
+    quantifier_stat.h
 
 Abstract:
 
@@ -23,7 +23,7 @@ Revision History:
 #include "util/approx_nat.h"
 #include "util/region.h"
 
-namespace smt {
+namespace q {
     
     /**
        \brief Store statistics for quantifiers. This information is

@@ -18,6 +18,7 @@ Revision History:
 --*/
 #pragma once
 
+#include "ast/quantifier_stat.h"
 #include "smt/smt_clause.h"
 #include "smt/smt_setup.h"
 #include "smt/smt_enode.h"
@@ -29,7 +30,6 @@ Revision History:
 #include "smt/smt_clause_proof.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_quantifier.h"
-#include "smt/smt_quantifier_stat.h"
 #include "smt/smt_statistics.h"
 #include "smt/smt_conflict_resolution.h"
 #include "smt/smt_relevancy.h"
