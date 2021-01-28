@@ -52,7 +52,7 @@ stages:
         ./ml_example
         cd ..
     - template: generate-doc.yml
-    - script: zip -r html.zip doc/api/. 
+    - script: zip -r api.zip doc/api 
     - script: cp html.zip $(Build.ArtifactStagingDirectory)/.
     - task: PublishPipelineArtifact@0
       inputs:
