@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include "ast/cached_var_subst.h"
+#include "ast/rewriter/cached_var_subst.h"
 #include "ast/rewriter/rewriter_def.h"
 
 bool cached_var_subst::key_eq_proc::operator()(cached_var_subst::key * k1, cached_var_subst::key * k2) const {

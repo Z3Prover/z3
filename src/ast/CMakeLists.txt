@@ -14,7 +14,6 @@ z3_add_component(ast
     ast_translation.cpp
     ast_util.cpp
     bv_decl_plugin.cpp
-    cached_var_subst.cpp
     char_decl_plugin.cpp
     datatype_decl_plugin.cpp
     decl_collector.cpp
