@@ -17,6 +17,7 @@ Author:
 #pragma once
 
 #include "util/nat_set.h"
+#include "util/dlist.h"
 #include "solver/solver.h"
 #include "sat/smt/sat_th.h"
 #include "sat/smt/q_mam.h"
@@ -50,15 +51,16 @@ namespace q {
             
         };
 
-        struct binding {
-            bool               m_propagated { false };
+        struct remove_binding;
+        struct insert_binding;
+
+        struct binding : public dll_base<binding> {
             euf::enode*        m_nodes[0];
 
             binding() {}
 
-            bool propagated() const { return m_propagated; }
-            void set_propagated(bool b) { m_propagated = b; }
             euf::enode* const* nodes() { return m_nodes; }
+
         };
 
         binding* alloc_binding(unsigned n);
@@ -66,10 +68,10 @@ namespace q {
         struct clause {
             vector<lit>         m_lits;
             quantifier*         m_q;
-            ptr_vector<binding> m_bindings;
+            binding*            m_bindings { nullptr };
 
-            ptr_vector<binding> const& bindings() { return m_bindings; }
-            std::ostream& display(std::ostream& out) const;
+            void add_binding(ematch& em, euf::enode* const* b);
+            std::ostream& display(euf::solver& ctx, std::ostream& out) const;
 
         };
 
@@ -98,10 +100,10 @@ namespace q {
         void ensure_ground_enodes(clause const& c);
 
         // compare s, t modulo sign under binding
-        lbool compare(euf::enode* const* binding, expr* s, expr* t);
-        lbool compare_rec(euf::enode* const* binding, expr* s, expr* t);
+        lbool compare(unsigned n, euf::enode* const* binding, expr* s, expr* t);
+        lbool compare_rec(unsigned n, euf::enode* const* binding, expr* s, expr* t);
         euf::enode_vector m_eval, m_indirect_nodes;
-        euf::enode* eval(euf::enode* const* binding, expr* e);
+        euf::enode* eval(unsigned n, euf::enode* const* binding, expr* e);
 
         bool propagate(euf::enode* const* binding, clause& c);
         void instantiate(euf::enode* const* binding, clause& c);
@@ -137,6 +139,8 @@ namespace q {
 
         // callback from mam
         void on_binding(quantifier* q, app* pat, euf::enode* const* binding);
+
+        std::ostream& display(std::ostream& out) const;
 
     };
 

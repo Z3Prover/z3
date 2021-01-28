@@ -304,7 +304,7 @@ namespace euf {
             egraph const& g;
             enode* n;
             b_pp(egraph const& g, enode* n) : g(g), n(n) {}
-            std::ostream& display(std::ostream& out) const { return out << n->get_expr_id() << ": " << mk_bounded_pp(n->get_expr(), g.m); }
+            std::ostream& display(std::ostream& out) const { return n ? (out << n->get_expr_id() << ": " << mk_bounded_pp(n->get_expr(), g.m)) : out << "null"; }
         };
         b_pp bpp(enode* n) const { return b_pp(*this, n); }
         std::ostream& display(std::ostream& out) const; 

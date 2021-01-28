@@ -58,9 +58,8 @@ namespace q {
     }
 
     sat::check_result solver::check() {
-        if (ctx.get_config().m_ematching) 
-            if (!m_ematch())
-                return sat::check_result::CR_CONTINUE;
+        if (ctx.get_config().m_ematching && m_ematch())
+            return sat::check_result::CR_CONTINUE;
 
         if (ctx.get_config().m_mbqi) {
             switch (m_mbqi()) {
@@ -73,6 +72,7 @@ namespace q {
     }
 
     std::ostream& solver::display(std::ostream& out) const {
+        m_ematch.display(out);
         return out;
     }
 
