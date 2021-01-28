@@ -926,6 +926,7 @@ namespace smt {
     void setup::setup_str() {
         setup_arith();
         m_context.register_plugin(alloc(theory_str, m_context, m_manager, m_params));
+        setup_char();
     }
 
     void setup::setup_seq() {
