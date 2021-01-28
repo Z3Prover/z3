@@ -10138,6 +10138,7 @@ def is_string_value(a):
 
 def StringVal(s, ctx=None):
     """create a string expression"""
+    s = "".join(str(ch) if ord(ch) < 128 else "\\u{%x}" % (ord(ch)) for ch in s)
     ctx = _get_ctx(ctx)
     return SeqRef(Z3_mk_lstring(ctx.ref(), len(s), s), ctx)
 
