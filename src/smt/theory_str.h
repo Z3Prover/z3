@@ -541,8 +541,6 @@ protected:
     obj_map<expr, std::tuple<rational, expr*, expr*>> fixed_length_lesson; //keep track of information for the lesson
     unsigned preprocessing_iteration_count; // number of attempts we've made to solve by preprocessing length information
     obj_map<expr, zstring> candidate_model;
-
-    expr_ref_vector bitvector_character_constants; // array-indexed map of bv.mk_numeral terms
     
     stats m_stats;
 

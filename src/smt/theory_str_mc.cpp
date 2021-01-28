@@ -626,7 +626,7 @@ namespace smt {
         zstring strConst;
         if (u.str.is_string(term, strConst)) {
             for (unsigned i = 0; i < strConst.length(); ++i) {
-                expr_ref chTerm(bitvector_character_constants.get(strConst[i]), m);
+                expr_ref chTerm(u.mk_char(strConst[i]), m);
                 eqc_chars.push_back(chTerm);
             }
         } else if (to_app(term)->get_num_args() == 0 && !u.str.is_string(term)) {
@@ -770,7 +770,7 @@ namespace smt {
                 // convert iValue to a constant
                 zstring iValue_str(iValue.to_string());
                 for (unsigned idx = 0; idx < iValue_str.length(); ++idx) {
-                    expr_ref chTerm(bitvector_character_constants.get(iValue_str[idx]), sub_m);
+                    expr_ref chTerm(u.mk_char(iValue_str[idx]), sub_m);
                     eqc_chars.push_back(chTerm);
                 }
                 return true;
@@ -884,14 +884,6 @@ namespace smt {
 
         ast_manager & m = get_manager();
 
-        if (bitvector_character_constants.empty()) {
-            for (unsigned i = 0; i <= u.max_char(); ++i) {
-                expr_ref chTerm(u.mk_char(i), m);
-                bitvector_character_constants.push_back(chTerm);
-                fixed_length_subterm_trail.push_back(chTerm);
-            }
-        }
-
         TRACE("str",
             ast_manager & m = get_manager();
             tout << "dumping all formulas:" << std::endl;
@@ -916,7 +908,7 @@ namespace smt {
 
         smt_params subsolver_params;
         smt::kernel subsolver(m, subsolver_params);
-        subsolver.set_logic(symbol("QF_BV"));
+        subsolver.set_logic(symbol("ALL"));
 
         sort * str_sort = u.str.mk_string_sort();
         sort * bool_sort = m.mk_bool_sort();

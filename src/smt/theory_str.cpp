@@ -89,8 +89,7 @@ namespace smt {
         m_library_aware_trail_stack(*this),
         m_find(*this),
         fixed_length_subterm_trail(m),
-        fixed_length_assumptions(m),
-        bitvector_character_constants(m)
+        fixed_length_assumptions(m)
     {
     }
 
@@ -167,7 +166,6 @@ namespace smt {
         uninterpreted_to_char_subterm_map.reset();
         fixed_length_lesson.reset();
         candidate_model.reset();
-        bitvector_character_constants.reset();
     }
 
     expr * theory_str::mk_string(zstring const& str) {
