@@ -909,7 +909,7 @@ namespace smt {
 
         smt_params subsolver_params;
         smt::kernel subsolver(m, subsolver_params);
-        subsolver.set_logic(symbol("QF_BV"));
+        subsolver.set_logic(symbol("QF_CHAR"));
 
         sort * str_sort = u.str.mk_string_sort();
         sort * bool_sort = m.mk_bool_sort();
