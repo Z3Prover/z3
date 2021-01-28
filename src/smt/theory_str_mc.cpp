@@ -884,7 +884,6 @@ namespace smt {
 
         ast_manager & m = get_manager();
 
-
         TRACE("str",
             ast_manager & m = get_manager();
             tout << "dumping all formulas:" << std::endl;
