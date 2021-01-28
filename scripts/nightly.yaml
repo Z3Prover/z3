@@ -28,7 +28,7 @@ stages:
     - script: git clone https://github.com/z3prover/z3test z3test
     - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
     - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
-    - template: scripts/generate-doc.yml
+    - template: generate-doc.yml
     - script: zip api.zip doc/api/. 
     - script: cp api.zip $(Build.ArtifactStagingDirectory)/.
     - task: PublishPipelineArtifact@0
