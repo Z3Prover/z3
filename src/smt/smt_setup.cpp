@@ -129,6 +129,8 @@ namespace smt {
             setup_QF_FPBV();
         else if (m_logic == "QF_S" || m_logic == "QF_SLIA")
             setup_QF_S();
+        else if (m_logic == "QF_CHAR")
+            setup_QF_CHAR();
         else if (m_logic == "QF_DT")
             setup_QF_DT();
         else
@@ -177,6 +179,8 @@ namespace smt {
                 setup_QF_AUFLIA(st);
             else if (m_logic == "QF_S" || m_logic == "QF_SLIA")
                 setup_QF_S();
+            else if (m_logic == "QF_CHAR")
+                setup_QF_CHAR();
             else if (m_logic == "AUFLIA")
                 setup_AUFLIA(st);
             else if (m_logic == "AUFLIRA")
@@ -734,6 +738,11 @@ namespace smt {
         else {
             throw default_exception("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'");
         }
+    }
+
+    void setup::setup_QF_CHAR() {
+        setup_QF_BV();
+        setup_char();
     }
 
     bool is_arith(static_features const & st) {

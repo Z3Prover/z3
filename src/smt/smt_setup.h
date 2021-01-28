@@ -79,6 +79,7 @@ namespace smt {
         void setup_QF_FP();
         void setup_QF_FPBV();
         void setup_QF_S();
+        void setup_QF_CHAR();
         void setup_LRA();
         void setup_CSP();
         void setup_special_relations();
