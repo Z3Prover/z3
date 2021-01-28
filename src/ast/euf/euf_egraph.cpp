@@ -801,7 +801,7 @@ Insert:       for each p in r1.P:
                  if p.cg == p:
                    append p to r2.P
                  else 
-                   add (p.cg == p) to 'to_merge' 
+                   add (p.cg == p) to "to_merge" 
 
 Unmerge(r1, r2)
 ---------------
@@ -836,7 +836,6 @@ Claim: a node participates in a path along right adjoining sub-trees at most O(l
 Justification (very roughly): the size of a right adjoining subtree can at most 
 be equal to the left adjoining sub-tree. This entails a logarithmic number of 
 re-examinations from the right adjoining tree.
-(TBD check how Hopcroft's main argument is phrased)
 
 The parent lists are bounded by the maximal arity of functions.
 
@@ -844,16 +843,16 @@ Example:
 
 Initially:
  n1 := f(a,b)  has root n1
- n2 := f(a',b) has root n2
- table = [f(a,b) |-> n1, f(a',b) |-> n2]
+ n2 := f(a1,b) has root n2
+ table = [f(a,b) |-> n1, f(a1,b) |-> n2]
 
-merge(a,a') (a' becomes root)
- table = [f(a',b) |-> n2]
+merge(a,a1) (a1 becomes root)
+ table = [f(a1,b) |-> n2]
  n1.cg = n2
- a'.P = [n2]
- n1 is not added as parent because it is not a cc root after the assignment a.root := a'
+ a1.P = [n2]
+ n1 is not added as parent because it is not a cc root after the assignment a.root := a1
 
-unmerge(a,a')
+unmerge(a,a1)
 - nothing is erased
 - n1 is reinserted. It used to be a root.
 

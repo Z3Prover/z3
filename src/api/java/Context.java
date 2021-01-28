@@ -2487,7 +2487,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Creates a universal quantifier using a list of constants that will form the set of bound variables. 
-     * @see #mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
+     * @see #mkForall(Sort[],Symbol[],Expr<BoolSort>,int,Pattern[],Expr<?>[],Symbol,Symbol)
      **/
     public Quantifier mkForall(Expr<?>[] boundConstants, Expr<BoolSort> body, int weight,
                                Pattern[] patterns, Expr<?>[] noPatterns, Symbol quantifierID,
@@ -2500,7 +2500,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Creates an existential quantifier using de-Bruijn indexed variables.
-     * @see #mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
+     * @see #mkForall(Sort[],Symbol[],Expr<BoolSort>,int,Pattern[],Expr<?>[],Symbol,Symbol)
      **/
     public Quantifier mkExists(Sort[] sorts, Symbol[] names, Expr<BoolSort> body,
                                int weight, Pattern[] patterns, Expr<?>[] noPatterns,
@@ -2513,7 +2513,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Creates an existential quantifier using a list of constants that will form the set of bound variables. 
-     * @see #mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
+     * @see #mkForall(Sort[],Symbol[],Expr<BoolSort>,int,Pattern[],Expr<?>[],Symbol,Symbol)
      **/
     public Quantifier mkExists(Expr<?>[] boundConstants, Expr<BoolSort> body, int weight,
                                Pattern[] patterns, Expr<?>[] noPatterns, Symbol quantifierID,
@@ -2526,7 +2526,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a Quantifier.
-     * @see #mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
+     * @see #mkForall(Sort[],Symbol[],Expr<BoolSort>,int,Pattern[],Expr<?>[],Symbol,Symbol)
      **/
     public Quantifier mkQuantifier(boolean universal, Sort[] sorts,
                                    Symbol[] names, Expr<BoolSort> body, int weight, Pattern[] patterns,
@@ -2544,7 +2544,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a Quantifier
-     * @see #mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
+     * @see #mkForall(Sort[],Symbol[],Expr<BoolSort>,int,Pattern[],Expr<?>[],Symbol,Symbol)
      **/
     public Quantifier mkQuantifier(boolean universal, Expr<?>[] boundConstants,
                                    Expr<BoolSort> body, int weight, Pattern[] patterns, Expr<?>[] noPatterns,
