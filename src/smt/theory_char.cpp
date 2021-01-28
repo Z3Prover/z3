@@ -15,7 +15,6 @@ Author:
 
 --*/
 
-#include "ast/bv_decl_plugin.h"
 #include "smt/theory_char.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"

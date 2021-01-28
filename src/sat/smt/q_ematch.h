@@ -45,7 +45,7 @@ namespace q {
             expr_ref lhs;
             expr_ref rhs;
             bool     sign;
-            lit(expr_ref& lhs, expr_ref& rhs, bool sign):
+            lit(expr_ref const& lhs, expr_ref const& rhs, bool sign):
                 lhs(lhs), rhs(rhs), sign(sign) {}
             
         };

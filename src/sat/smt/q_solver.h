@@ -20,6 +20,7 @@ Author:
 #include "ast/ast_trail.h"
 #include "sat/smt/sat_th.h"
 #include "sat/smt/q_mbi.h"
+#include "sat/smt/q_ematch.h"
 
 namespace euf {
     class solver;
@@ -40,6 +41,7 @@ namespace q {
 
         stats                  m_stats;
         mbqi                   m_mbqi;
+        ematch                 m_ematch;
 
         flat_table             m_flat;
         sat::literal_vector    m_universal;

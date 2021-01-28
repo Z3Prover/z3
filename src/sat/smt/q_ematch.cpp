@@ -21,10 +21,11 @@ Todo:
 - insert instantiations into priority queue 
 - cache instantiations and substitutions
 - nested quantifiers
-- non-cnf quantifiers
+- non-cnf quantifiers (handled in q_solver)
 
 --*/
 
+#include "ast/ast_util.h"
 #include "ast/rewriter/var_subst.h"
 #include "solver/solver.h"
 #include "sat/smt/sat_th.h"
@@ -365,9 +366,31 @@ namespace q {
         return propagated;
     }
 
+    /**
+     * basic clausifier, assumes q has been normalized.
+     */
     ematch::clause* ematch::clausify(quantifier* q) {
-        NOT_IMPLEMENTED_YET();
-        return nullptr;
+        clause* cl = alloc(clause);
+        expr_ref_vector ors(m);        
+        if (is_forall(q)) 
+            flatten_or(q->get_expr(), ors);
+        else {
+            flatten_and(q->get_expr(), ors);
+            for (unsigned i = 0; i < ors.size(); ++i)
+                ors[i] = mk_not(m, ors.get(i));
+        }
+        for (expr* arg : ors) {
+            bool sign = m.is_not(arg, arg);
+            expr* l, *r;
+            if (!m.is_eq(arg, l, r) || is_ground(arg)) {
+                l = arg;
+                r = sign ? m.mk_false() : m.mk_true();
+                sign = false;
+            }
+            cl->m_lits.push_back(lit(expr_ref(l, m), expr_ref(r, m), sign));
+        }
+        cl->m_q = q;
+        return cl;
     }
 
     /**
@@ -389,6 +412,7 @@ namespace q {
         pop_clause(ematch& em): em(em) {}
         void undo(euf::solver& ctx) override {
             em.m_q2clauses.remove(em.m_clauses.back()->m_q);
+            dealloc(em.m_clauses.back());
             em.m_clauses.pop_back();
         }
     };

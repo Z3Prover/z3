@@ -29,6 +29,7 @@ namespace q {
     solver::solver(euf::solver& ctx, family_id fid) :
         th_euf_solver(ctx, ctx.get_manager().get_family_name(fid), fid),
         m_mbqi(ctx,  *this),
+        m_ematch(ctx, *this),
         m_expanded(ctx.get_manager())
     {
     }
@@ -48,17 +49,24 @@ namespace q {
 
         if (l.sign() == is_forall(e)) 
             add_clause(~l, skolemize(q));
-        else 
+        else {
             ctx.push_vec(m_universal, l);
+            if (ctx.get_config().m_ematching)
+                m_ematch.add(q);
+        }
         m_stats.m_num_quantifier_asserts++;
     }
 
     sat::check_result solver::check() {
+        if (ctx.get_config().m_ematching) 
+            if (!m_ematch())
+                return sat::check_result::CR_CONTINUE;
+
         if (ctx.get_config().m_mbqi) {
             switch (m_mbqi()) {
             case l_true:  return sat::check_result::CR_DONE;
             case l_false: return sat::check_result::CR_CONTINUE;
-            case l_undef: return sat::check_result::CR_GIVEUP;
+            case l_undef: break;
             }
         }
         return sat::check_result::CR_GIVEUP;
@@ -79,7 +87,7 @@ namespace q {
     }
 
     bool solver::unit_propagate() {
-        return false;
+        return ctx.get_config().m_ematching && m_ematch.propagate();
     }
 
     euf::theory_var solver::mk_var(euf::enode* n) {
@@ -231,6 +239,42 @@ namespace q {
             }
             return m_expanded;
         }
+
+#if 0
+        m_expanded.reset();
+        m_expanded2.reset();
+        if (is_forall(q)) 
+            flatten_or(q->get_expr(), m_expanded2);
+        else if (is_exists(q)) 
+            flatten_and(q->get_expr(), m_expanded2);
+        else
+            UNREACHABLE();
+        for (unsigned i = m_expanded2.size(); i-- > 0; ) {
+            expr* lit = m_expanded2.get(i);
+            if (!is_ground(lit) && is_and(lit) && is_forall(q)) {
+
+                // get free vars of lit
+                // create fresh predicate over free vars
+                // replace in expanded, pack and push on m_expanded
+                
+                expr_ref p(m);
+                // TODO introduce fresh p.
+                flatten_and(lit, m_expanded);
+                for (unsigned i = m_expanded.size(); i-- > 0; ) {
+                    tmp = m.mk_or(m.mk_not(p), m_expanded.get(i));
+                    expr_ref tmp(m.update_quantifier(q, tmp), m);
+                    ctx.get_rewriter()(tmp);
+                    m_expanded[i] = tmp;
+                }
+                m_expanded2[i] = p;
+                tmp = m.mk_or(m_expanded2);
+                expr_ref tmp(m.update_quantifier(q, tmp), m);
+                ctx.get_rewriter()(tmp);                
+                m_expanded.push_back(tmp);
+                return m_expanded;
+            }
+        }
+#endif
         m_expanded.reset();
         m_expanded.push_back(q);
         return m_expanded;
