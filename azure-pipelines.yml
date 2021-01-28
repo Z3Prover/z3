@@ -42,7 +42,6 @@ jobs:
     - template: scripts/test-z3.yml
     - ${{if eq(variables['runRegressions'], 'True')}}:
       - template: scripts/test-regressions.yml
-    - template: scripts/generate-doc.yml
 
 - job: "Ubuntu18Python"
   displayName: "Ubuntu 18 with ocaml"
@@ -64,6 +63,7 @@ jobs:
         cd ..
     - template: scripts/test-z3.yml
     - template: scripts/test-regressions.yml
+    - template: scripts/generate-doc.yml
 
 
 - job: "LinuxMSan"
