@@ -509,9 +509,6 @@ protected:
 
     obj_map<expr, ptr_vector<expr> > string_chars; // S --> [S_0, S_1, ...] for character terms S_i
 
-    svector<char> char_set;
-    std::map<char, int>  charSetLookupTable;
-    int           charSetSize;
 
     obj_pair_map<expr, expr, expr*> concat_astNode_map;
 
@@ -545,8 +542,6 @@ protected:
     obj_map<expr, std::tuple<rational, expr*, expr*>> fixed_length_lesson; //keep track of information for the lesson
     unsigned preprocessing_iteration_count; // number of attempts we've made to solve by preprocessing length information
     obj_map<expr, zstring> candidate_model;
-
-    expr_ref_vector bitvector_character_constants; // array-indexed map of bv.mk_numeral terms
     
     stats m_stats;
 
@@ -766,7 +761,6 @@ protected:
     bool fixed_length_reduce_regex_membership(smt::kernel & subsolver, expr_ref f, expr_ref & cex, bool polarity);
 
     void dump_assignments();
-    void initialize_charset();
 
     void check_variable_scope();
     void recursive_check_variable_scope(expr * ex);
