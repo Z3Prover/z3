@@ -99,6 +99,8 @@ namespace smt {
             dealloc(aut);
         }
         regex_automata.clear();
+        for (auto& kv: var_to_char_subterm_map) dealloc(kv.m_value);
+        for (auto& kv: uninterpreted_to_char_subterm_map) dealloc(kv.m_value);
     }
 
     void theory_str::init() {
@@ -162,7 +164,10 @@ namespace smt {
         fixed_length_subterm_trail.reset();
         fixed_length_assumptions.reset();
         fixed_length_used_len_terms.reset();
+
+        for (auto& kv: var_to_char_subterm_map) dealloc(kv.m_value);
         var_to_char_subterm_map.reset();
+        for (auto& kv: uninterpreted_to_char_subterm_map) dealloc(kv.m_value);
         uninterpreted_to_char_subterm_map.reset();
         fixed_length_lesson.reset();
         candidate_model.reset();

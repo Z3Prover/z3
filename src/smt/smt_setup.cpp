@@ -735,6 +735,10 @@ namespace smt {
         else if (m_params.m_string_solver == "none") {
             // don't register any solver.
         }
+        else if (m_params.m_string_solver == "char") {
+            setup_QF_BV();
+            setup_char();
+        }
         else {
             throw default_exception("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'");
         }
@@ -930,7 +934,6 @@ namespace smt {
     void setup::setup_str() {
         setup_arith();
         m_context.register_plugin(alloc(theory_str, m_context, m_manager, m_params));
-        setup_char();
     }
 
     void setup::setup_seq() {
