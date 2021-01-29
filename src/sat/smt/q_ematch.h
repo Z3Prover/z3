@@ -72,6 +72,9 @@ namespace q {
 
             void add_binding(ematch& em, euf::enode* const* b);
             std::ostream& display(euf::solver& ctx, std::ostream& out) const;
+            lit const& operator[](unsigned i) const { return m_lits[i]; }
+            lit& operator[](unsigned i) { return m_lits[i]; }
+            unsigned size() const { return m_lits.size(); }
 
         };
 
@@ -117,7 +120,10 @@ namespace q {
         void init_watch(clause& c, unsigned idx);
 
         // extract explanation
-        void get_antecedents(euf::enode* const* binding, unsigned clause_idx, bool probing);
+        ptr_vector<size_t> m_explain;
+        void explain(clause& c, unsigned literal_idx, binding& b);
+        void explain_eq(clause& c, binding& b, expr* a, expr* b);
+        void explain_diseq(clause& c, binding& b, expr* a, expr* b);
 
         void attach_ground_pattern_terms(expr* pat);
         clause* clausify(quantifier* q);

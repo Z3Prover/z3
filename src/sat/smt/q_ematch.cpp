@@ -73,6 +73,92 @@ namespace q {
         }
     }
 
+    void ematch::explain(clause& c, unsigned literal_idx, binding& b) {
+        ctx.get_egraph().begin_explain();
+        m_explain.reset();
+        unsigned n = c.m_q->get_num_decls();
+        for (unsigned i = c.size(); i-- > 0; ) {
+            if (i == literal_idx) 
+                continue;
+            auto const& lit = c[i];
+            lit.sign;
+            lit.lhs;
+            lit.rhs;
+            if (lit.sign) {
+                SASSERT(l_true == compare(n, b.m_nodes, l.lhs, l.rhs));
+                explain_eq(c, b, lit.lhs, lit.rhs);
+            }
+            else {
+                SASSERT(l_false == compare(n, b.m_nodes, l.lhs, l.rhs));
+                explain_diseq(c, b, lit.lhs, lit.rhs);
+            }
+        }
+        ctx.get_egraph().end_explain();
+    }
+
+    void ematch::explain_eq(unsigned n, euf::enode* const* binding, expr* s, expr* t) {
+        if (s == t)
+            return;
+        euf::enode* sn = eval(n, binding, s);
+        euf::enode* tn = eval(n, binding, t);
+        if (sn && tn) {
+            SASSERT(sn->get_root() == tn->get_root());
+            ctx.add_antecedent(sn, tn);
+            return;
+        }
+        if (!sn && tn) {
+            std::swap(sn, tn);
+            std::swap(s, t);
+        }
+        if (sn && !tn) {
+            ctx.add_antecedent(sn, sn->get_root());
+            for (euf::enode* s1 : euf::enode_class(sn)) {
+                if (l_true == compare_rec(n, binding, t, s1->get_expr())) {
+                    explain_eq(n, binding, t, s1->get_expr());
+                    return;
+                }
+            }
+            UNREACHABLE();
+        }
+        SASSERT(is_app(s) && is_app(t) && to_app(s)->get_decl() == to_app(t)->get_decl());
+        for (unsigned i = to_app(s)->get_num_args(); i-- > 0; ) 
+            explain_eq(n, binding, to_app(s)->get_arg(i), to_app(t)->get_arg(i));
+    }
+
+    void ematch::explain_diseq(clause& c, binding& b, expr* a, expr* b) {
+        if (m.are_diseq(s, t))
+            return;
+        euf::enode* sn = eval(n, binding, s);
+        euf::enode* tn = eval(n, binding, t);
+        if (sn && tn) {
+            SASSERT(sn->get_root() == tn->get_root());
+            ctx.add_antecedent(sn, tn);
+            return;
+        }
+        if (!sn && tn) {
+            std::swap(sn, tn);
+            std::swap(s, t);
+        }
+        if (sn && !tn) {
+            ctx.add_antecedent(sn, sn->get_root());
+            for (euf::enode* s1 : euf::enode_class(sn)) {
+                if (l_false == compare_rec(n, binding, t, s1->get_expr())) {
+                    explain_diseq(n, binding, t, s1->get_expr());
+                    return;
+                }
+            }
+            UNREACHABLE();
+        }
+        SASSERT(is_app(s) && is_app(t) && to_app(s)->get_decl() == to_app(t)->get_decl());
+        for (unsigned i = to_app(s)->get_num_args(); i-- > 0; ) {
+            if (l_false == compare_rec(n, binding, to_app(s)->get_arg(i), to_app(t)->get_arg(i))) {                
+                explain_eq(n, binding, to_app(s)->get_arg(i), to_app(t)->get_arg(i));
+                return;
+            }
+        }
+        UNREACHABLE();
+    }
+
     struct restore_watch : public trail<euf::solver> {
         vector<unsigned_vector>& v;
         unsigned idx, offset;
@@ -170,8 +256,7 @@ namespace q {
         unsigned n = m_q->get_num_decls();
         binding* b = em.alloc_binding(n);
         for (unsigned i = 0; i < n; ++i)
-            b->m_nodes[i] = _binding[i];
-        
+            b->m_nodes[i] = _binding[i];        
         binding::push_to_front(m_bindings, b);
         em.ctx.push(remove_binding(*this, b));
     }
@@ -211,7 +296,7 @@ namespace q {
         unsigned sz = c.m_lits.size();
         unsigned n = c.m_q->get_num_decls();
         for (unsigned i = 0; i < sz; ++i) {
-            lit l = c.m_lits[i];
+            lit l = c[i];
             m_indirect_nodes.reset();
             lbool cmp = compare(n, binding, l.lhs, l.rhs);
             switch (cmp) {
@@ -219,13 +304,13 @@ namespace q {
                 if (!l.sign)
                     break;
                 if (i > 0)
-                    std::swap(c.m_lits[0], c.m_lits[i]);
+                    std::swap(c[0], c[i]);
                 return true;
             case l_true:
                 if (l.sign)
                     break;
                 if (i > 0)
-                    std::swap(c.m_lits[0], c.m_lits[i]);
+                    std::swap(c[0], c[i]);
                 return true;
             case l_undef:
                 TRACE("q", tout << l.lhs << " ~~ " << l.rhs << " is undef\n";);
@@ -237,11 +322,11 @@ namespace q {
                     for (unsigned j = c.m_q->get_num_decls(); j-- > 0; )
                         add_watch(binding[j], clause_idx);
                     if (i > 1) 
-                        std::swap(c.m_lits[1], c.m_lits[i]);
+                        std::swap(c[1], c[i]);
                     return false;
                 }
                 else if (i > 0) 
-                    std::swap(c.m_lits[0], c.m_lits[i]);
+                    std::swap(c[0], c[i]);
                 idx = 0;
                 break;
             }
@@ -268,6 +353,8 @@ namespace q {
     lbool ematch::compare(unsigned n, euf::enode* const* binding, expr* s, expr* t) {
         euf::enode* sn = eval(n, binding, s);
         euf::enode* tn = eval(n, binding, t);
+        if (sn) sn = sn->get_root();
+        if (tn) tn = tn->get_root();
         TRACE("q", tout << mk_pp(s, m) << " ~~ " << mk_pp(t, m) << "\n";
               tout << ctx.bpp(sn) << " " << ctx.bpp(tn) << "\n";);
 
@@ -326,7 +413,7 @@ namespace q {
 
     euf::enode* ematch::eval(unsigned n, euf::enode* const* binding, expr* e) {
         if (is_ground(e))
-            return ctx.get_egraph().find(e)->get_root();
+            return ctx.get_egraph().find(e);
         if (m_mark.is_marked(e))
             return m_eval[e->get_id()];
         ptr_buffer<expr> todo;
@@ -365,12 +452,12 @@ namespace q {
                 if (!n)
                     return nullptr;
                 m_indirect_nodes.push_back(n);
-                m_eval.setx(t->get_id(), n->get_root(), nullptr);
+                m_eval.setx(t->get_id(), n, nullptr);
                 m_mark.mark(t);
                 todo.pop_back();
             }
         }
-        return m_eval[e->get_id()]->get_root();
+        return m_eval[e->get_id()];
     }
 
     void ematch::insert_to_propagate(unsigned node_id) {
