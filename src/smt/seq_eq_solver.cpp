@@ -1577,6 +1577,16 @@ bool theory_seq::is_ternary_eq_lhs(expr_ref_vector const& ls, expr_ref_vector co
     return false;
 }
 
+struct remove_obj_pair_map : public trail<context> {
+    obj_pair_hashtable<expr, expr> & m_map;
+    expr* a, *b;
+    remove_obj_pair_map(obj_pair_hashtable<expr, expr> & map, expr* a, expr* b):
+        m_map(map), a(a), b(b) {}
+    void undo(context& ctx) override {
+        m_map.erase(std::make_pair(a, b));
+    }
+};
+
 /**
    nth(x,idx) = rhs => 
    x = pre(x, idx) ++ unit(rhs) ++ post(x, idx + 1)
@@ -1591,6 +1601,10 @@ bool theory_seq::solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const&
         expr_ref idx1(m_autil.mk_add(idx, m_autil.mk_int(1)), m);
         m_rewrite(idx1);
         expr_ref rhs = mk_concat(rs.size(), rs.c_ptr(), m.get_sort(ls[0]));
+        if (m_nth_eq2_cache.contains(std::make_pair(rhs, ls[0])))
+            return false;
+        m_nth_eq2_cache.insert(std::make_pair(rhs, ls[0]));
+        ctx.push_trail(remove_obj_pair_map(m_nth_eq2_cache, rhs, ls[0]));
         ls1.push_back(s);        
         if (!idx_is_zero) rs1.push_back(m_sk.mk_pre(s, idx)); 
         rs1.push_back(m_util.str.mk_unit(rhs)); 

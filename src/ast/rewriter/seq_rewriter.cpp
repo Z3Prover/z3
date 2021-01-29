@@ -1383,6 +1383,12 @@ br_status seq_rewriter::mk_seq_nth_i(expr* a, expr* b, expr_ref& result) {
     }
     unsigned len = r.get_unsigned();
 
+    expr* a2, *i2;
+    if (len == 0 && str().is_at(a, a2, i2) && m_autil.is_numeral(i2, r) && r.is_zero()) {
+        result = str().mk_nth_i(a2, i2);
+        return BR_REWRITE1;
+    }
+
     expr_ref_vector as(m());
     str().get_concat_units(a, as);
 
