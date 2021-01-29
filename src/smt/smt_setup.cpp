@@ -721,6 +721,10 @@ namespace smt {
         else if (m_params.m_string_solver == "seq") {
             setup_unknown();
         }
+        else if (m_params.m_string_solver == "char") {
+            setup_QF_BV();
+            setup_char();
+        }
         else if (m_params.m_string_solver == "auto") {
             setup_unknown();
         }

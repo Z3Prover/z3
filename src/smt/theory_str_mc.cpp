@@ -908,7 +908,7 @@ namespace smt {
         expr_ref_vector abstracted_boolean_formulas(m);
 
         smt_params subsolver_params;
-        subsolver_params.m_string_solver=symbol("char");
+        subsolver_params.m_string_solver = symbol("char");
         smt::kernel subsolver(m, subsolver_params);
         subsolver.set_logic(symbol("QF_S"));
         sort * str_sort = u.str.mk_string_sort();
