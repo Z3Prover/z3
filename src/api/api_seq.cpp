@@ -49,7 +49,6 @@ extern "C" {
         LOG_Z3_mk_string(c, str);
         RESET_ERROR_CODE();
         zstring s(str);
-        std::cout << "mk-string " << str << "\n";
         app* a = mk_c(c)->sutil().str.mk_string(s);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
