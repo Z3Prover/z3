@@ -39,6 +39,8 @@ stages:
       vmImage: "ubuntu-latest"
     steps:
     - script: sudo apt-get install ocaml opam libgmp-dev
+    - script: sudo apt-get install doxygen
+    - script: sudo apt-get install graphviz
     - script: opam init -y
     - script: eval `opam config env`; opam install zarith ocamlfind -y
     - script: python scripts/mk_make.py --ml --staticlib
@@ -51,7 +53,9 @@ stages:
         make -j3 test-z3
         ./ml_example
         cd ..
-    - template: generate-doc.yml
+        cd doc
+        python mk_api_doc.py --ml --z3py-package-path=../build/python/z3
+        cd ..
     - script: zip -r api.zip doc/api
     - script: cp api.zip $(Build.ArtifactStagingDirectory)/.
     - task: PublishPipelineArtifact@0
