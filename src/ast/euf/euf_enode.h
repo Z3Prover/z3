@@ -205,9 +205,11 @@ namespace euf {
         bool children_are_roots() const;
         enode* get_next() const { return m_next; }
 
-        bool has_lbl_hash() const { UNREACHABLE(); return false; } // TODO
-        unsigned char get_lbl_hash() const { UNREACHABLE(); return 0; } // TOD0
-        void set_lbl_hash(egraph& e) { UNREACHABLE(); }
+        bool has_lbl_hash() const { return m_lbl_hash >= 0; }
+        unsigned char get_lbl_hash() const { 
+            SASSERT(m_lbl_hash >= 0 && static_cast<unsigned>(m_lbl_hash) < approx_set_traits<unsigned long long>::capacity);
+            return static_cast<unsigned char>(m_lbl_hash);
+        }
         approx_set & get_lbls() { return m_lbls; }        
         approx_set & get_plbls() { return m_plbls; }        
         const approx_set & get_lbls() const { return m_lbls; }        

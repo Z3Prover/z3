@@ -286,6 +286,10 @@ namespace euf {
         m_updates.push_back(update_record(n, update_record::value_assignment()));
     }
 
+    void egraph::set_lbl_hash(enode* n) {
+        NOT_IMPLEMENTED_YET();
+    }
+
     void egraph::pop(unsigned num_scopes) {
         if (num_scopes <= m_num_scopes) {
             m_num_scopes -= num_scopes;
@@ -655,6 +659,27 @@ namespace euf {
     }
 
     template <typename T>
+    unsigned egraph::explain_diseq(ptr_vector<T>& justifications, enode* a, enode* b) {
+        enode* ra = a->get_root(), * rb = b->get_root();
+        SASSERT(ra != rb);
+        if (ra->interpreted() && rb->interpreted()) {
+            explain_eq(justifications, a, ra);
+            explain_eq(justifications, b, rb);
+            return UINT_MAX;
+        }
+        expr_ref eq(m.mk_eq(a->get_expr(), b->get_expr()), m);
+        m_tmp_eq->m_args[0] = a;
+        m_tmp_eq->m_args[1] = b;
+        m_tmp_eq->m_expr = eq;
+        SASSERT(m_tmp_eq->num_args() == 2);
+        enode* r = m_table.find(m_tmp_eq);
+        SASSERT(r && r->get_root()->value() == l_false);
+        explain_eq(justifications, r, r->get_root());
+        return r->get_root()->bool_var();
+    }
+
+
+    template <typename T>
     void egraph::explain_todo(ptr_vector<T>& justifications) {
         for (unsigned i = 0; i < m_todo.size(); ++i) {
             enode* n = m_todo[i];
@@ -771,10 +796,12 @@ namespace euf {
 template void euf::egraph::explain(ptr_vector<int>& justifications);
 template void euf::egraph::explain_todo(ptr_vector<int>& justifications);
 template void euf::egraph::explain_eq(ptr_vector<int>& justifications, enode* a, enode* b);
+template unsigned euf::egraph::explain_diseq(ptr_vector<int>& justifications, enode* a, enode* b);
 
 template void euf::egraph::explain(ptr_vector<size_t>& justifications);
 template void euf::egraph::explain_todo(ptr_vector<size_t>& justifications);
 template void euf::egraph::explain_eq(ptr_vector<size_t>& justifications, enode* a, enode* b);
+template unsigned euf::egraph::explain_diseq(ptr_vector<size_t>& justifications, enode* a, enode* b);
 
 
 

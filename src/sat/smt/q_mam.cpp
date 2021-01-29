@@ -1344,7 +1344,7 @@ namespace q {
             if (p->is_ground()) {
                 enode * e = m_egraph.find(p);
                 if (!e->has_lbl_hash())
-                    e->set_lbl_hash(m_egraph);
+                    m_egraph.set_lbl_hash(e);
                 return e->get_lbl_hash();
             }
             else {
@@ -1365,7 +1365,7 @@ namespace q {
         bool is_semi_compatible(check * instr) const {
             unsigned reg  = instr->m_reg;
             if (instr->m_enode && !instr->m_enode->has_lbl_hash())
-                instr->m_enode->set_lbl_hash(m_egraph);
+                m_egraph.set_lbl_hash(instr->m_enode);
             return
                 m_registers[reg] != 0 &&
                 // if the register was already checked by another filter, then it doesn't make sense
@@ -1551,7 +1551,7 @@ namespace q {
                             // So, when the pattern (f (g b) x) is compiled a check instruction
                             // is created for a ground subterm b of the maximal ground term (g b).
                             if (!n1->has_lbl_hash())
-                                n1->set_lbl_hash(m_egraph);
+                                m_egraph.set_lbl_hash(n1);
                             unsigned  h1 = n1->get_lbl_hash();
                             unsigned  h2 = get_pat_lbl_hash(reg);
                             approx_set s(h1);
@@ -3103,9 +3103,9 @@ namespace q {
             if (t != nullptr) {
                 TRACE("mam_candidate", tout << "adding candidate:\n" << mk_ll_pp(app->get_expr(), m););
                 if (!t->has_candidates()) {
-                    m_to_match.push_back(t);
                     ctx.push(reset_to_match(*this));
                 }
+                m_to_match.push_back(t);
                 t->add_candidate(app);
             }
         }
@@ -3392,7 +3392,7 @@ namespace q {
                     enode * n = m_egraph.find(child);
                     update_plbls(plbl);
                     if (!n->has_lbl_hash())
-                        n->set_lbl_hash(m_egraph);
+                        m_egraph.set_lbl_hash(n);
                     TRACE("mam_bug",
                           tout << "updating pc labels " << plbl->get_name() << " " <<
                           static_cast<unsigned>(n->get_lbl_hash()) << "\n";
@@ -3467,6 +3467,7 @@ namespace q {
            \brief Collect new E-matching candidates using the inverted path index t.
         */
         void collect_parents(enode * r, path_tree * t) {
+            TRACE("mam", tout << ctx.bpp(r) << " " << t << "\n";);
             if (t == nullptr)
                 return;
 #ifdef _PROFILE_PATH_TREE
@@ -3817,29 +3818,10 @@ namespace q {
 
         void on_match(quantifier * qa, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation) override {
             TRACE("trigger_bug", tout << "found match " << mk_pp(qa, m) << "\n";);
-#ifdef Z3DEBUG
-            if (m_check_missing_instances) {
-#if 0
-                if (!m_egraph.slow_contains_instance(qa, num_bindings, bindings)) {
-                    TRACE("missing_instance",
-                          tout << "qa:\n" << mk_ll_pp(qa, m) << "\npat:\n" << mk_ll_pp(pat, m);
-                          for (unsigned i = 0; i < num_bindings; i++)
-                              tout << "#" << bindings[i]->get_expr_id() << "\n" << mk_ll_pp(bindings[i]->get_expr(), m) << "\n";
-                          );
-                    UNREACHABLE();
-                }
-#endif
-                return;
-            }
-            for (unsigned i = 0; i < num_bindings; i++) {
-                SASSERT(bindings[i]->generation() <= max_generation);
-            }
-#endif
             unsigned min_gen = 0, max_gen = 0;
             m_interpreter.get_min_max_top_generation(min_gen, max_gen);
             m_ematch.on_binding(qa, pat, bindings); // max_generation); // , min_gen, max_gen;
         }
-
 
         // This method is invoked when n becomes relevant.
         // If lazy == true, then n is not added to the list of candidate enodes for matching. That is, the method just updates the lbls.
@@ -3874,7 +3856,7 @@ namespace q {
             flet<enode *> l1(m_other, other);
             flet<enode *> l2(m_root, root);
 
-            TRACE("mam", tout << "add_eq_eh: #" << other->get_expr_id() << " #" << root->get_expr_id() << "\n";);
+            TRACE("mam", tout << "on_merge: #" << other->get_expr_id() << " #" << root->get_expr_id() << "\n";);
             TRACE("mam_inc_bug_detail", m_egraph.display(tout););
             TRACE("mam_inc_bug",
                   tout << "before:\n#" << other->get_expr_id() << " #" << root->get_expr_id() << "\n";

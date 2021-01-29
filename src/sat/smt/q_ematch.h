@@ -18,6 +18,7 @@ Author:
 
 #include "util/nat_set.h"
 #include "util/dlist.h"
+#include "ast/pattern/pattern_inference.h"
 #include "solver/solver.h"
 #include "sat/smt/sat_th.h"
 #include "sat/smt/q_mam.h"
@@ -48,7 +49,7 @@ namespace q {
             bool     sign;
             lit(expr_ref const& lhs, expr_ref const& rhs, bool sign):
                 lhs(lhs), rhs(rhs), sign(sign) {}
-            
+            std::ostream& display(std::ostream& out) const;
         };
 
         struct remove_binding;
@@ -67,23 +68,43 @@ namespace q {
         
         struct clause {
             vector<lit>         m_lits;
-            quantifier*         m_q;
+            quantifier_ref      m_q;
+            sat::literal        m_literal;
             binding*            m_bindings { nullptr };
+
+            clause(ast_manager& m): m_q(m) {}
 
             void add_binding(ematch& em, euf::enode* const* b);
             std::ostream& display(euf::solver& ctx, std::ostream& out) const;
             lit const& operator[](unsigned i) const { return m_lits[i]; }
             lit& operator[](unsigned i) { return m_lits[i]; }
             unsigned size() const { return m_lits.size(); }
-
+            unsigned num_decls() const { return m_q->get_num_decls(); }
         };
 
+        struct justification {
+            expr*     m_lhs, *m_rhs;
+            bool      m_sign;
+            clause&   m_clause;
+            euf::enode* const* m_binding;
+        justification(lit const& l, clause& c, euf::enode* const* b):
+        m_lhs(l.lhs), m_rhs(l.rhs), m_sign(l.sign), m_clause(c), m_binding(b) {}
+            sat::ext_constraint_idx to_index() const { 
+                return sat::constraint_base::mem2base(this); 
+            }
+            static justification& from_index(size_t idx) {
+                return *reinterpret_cast<justification*>(sat::constraint_base::from_index(idx)->mem());
+            }
+            static size_t get_obj_size() { return sat::constraint_base::obj_size(sizeof(justification)); }
+        };
+        sat::ext_justification_idx mk_justification(unsigned idx, clause& c, euf::enode* const* b);
 
         struct pop_clause;
         
         euf::solver&                           ctx;
         solver&                                m_qs;
         ast_manager&                           m;
+        pattern_inference_rw                   m_infer_patterns;
         scoped_ptr<q::mam>                     m_mam, m_lazy_mam;
         ptr_vector<clause>                     m_clauses;
         obj_map<quantifier, unsigned>          m_q2clauses;
@@ -110,6 +131,7 @@ namespace q {
 
         bool propagate(euf::enode* const* binding, clause& c);
         void instantiate(euf::enode* const* binding, clause& c);
+        sat::literal instantiate(clause& c, euf::enode* const* binding, lit const& l);
 
         // register as callback into egraph.
         void on_merge(euf::enode* root, euf::enode* other);          
@@ -121,7 +143,7 @@ namespace q {
 
         // extract explanation
         ptr_vector<size_t> m_explain;
-        void explain(clause& c, unsigned literal_idx, binding& b);
+        void explain(clause& c, unsigned literal_idx, euf::enode* const* binding);
         void explain_eq(unsigned n, euf::enode* const* binding, expr* s, expr* t);
         void explain_diseq(unsigned n, euf::enode* const* binding, expr* s, expr* t);
 
@@ -143,10 +165,13 @@ namespace q {
 
         void collect_statistics(statistics& st) const;
 
+        void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing);
+
         // callback from mam
         void on_binding(quantifier* q, app* pat, euf::enode* const* binding);
 
         std::ostream& display(std::ostream& out) const;
+        std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const;
 
     };
 

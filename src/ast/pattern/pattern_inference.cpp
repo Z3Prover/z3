@@ -101,7 +101,7 @@ static void dump_app_vector(std::ostream & out, ptr_vector<app> const & v, ast_m
 #include "ast/pattern/database.h"
 
 
-pattern_inference_cfg::pattern_inference_cfg(ast_manager & m, pattern_inference_params & params):
+pattern_inference_cfg::pattern_inference_cfg(ast_manager & m, pattern_inference_params const & params):
     m(m),
     m_params(params),
     m_bfid(m.get_basic_family_id()),
@@ -724,7 +724,7 @@ bool pattern_inference_cfg::reduce_quantifier(
     return true;
 }
 
-pattern_inference_rw::pattern_inference_rw(ast_manager& m, pattern_inference_params & params):
+pattern_inference_rw::pattern_inference_rw(ast_manager& m, pattern_inference_params const & params):
     rewriter_tpl<pattern_inference_cfg>(m, m.proofs_enabled(), m_cfg),
     m_cfg(m, params)
 {}    

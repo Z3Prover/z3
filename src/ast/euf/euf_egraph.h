@@ -267,6 +267,9 @@ namespace euf {
         void       next_literal() { force_push();  SASSERT(m_new_lits_qhead < m_new_lits.size()); m_new_lits_qhead++; }
         void       next_th_eq() { force_push(); SASSERT(m_new_th_eqs_qhead < m_new_th_eqs.size()); m_new_th_eqs_qhead++; }
 
+        void set_lbl_hash(enode* n);
+
+
         void add_th_var(enode* n, theory_var v, theory_id id);
         void set_th_propagates_diseqs(theory_id id);
         void set_merge_enabled(enode* n, bool enable_merge);
@@ -285,6 +288,8 @@ namespace euf {
         void explain(ptr_vector<T>& justifications);
         template <typename T>
         void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b);
+        template <typename T>
+        unsigned explain_diseq(ptr_vector<T>& justifications, enode* a, enode* b);
         enode_vector const& nodes() const { return m_nodes; }
 
         ast_manager& get_manager() { return m; }

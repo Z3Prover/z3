@@ -222,6 +222,13 @@ namespace euf {
         m_egraph.explain_eq<size_t>(m_explain, a, b);
     }
 
+    void solver::add_diseq_antecedent(enode* a, enode* b) {
+        sat::bool_var v = get_egraph().explain_diseq(m_explain, a, b);
+        SASSERT(v == sat::null_bool_var || s().value(v) == l_false);
+        if (v != sat::null_bool_var) 
+            m_explain.push_back(to_ptr(sat::literal(v, false)));
+    }
+
     bool solver::propagate(enode* a, enode* b, ext_justification_idx idx) {
         if (a->get_root() == b->get_root())
             return false;

@@ -76,6 +76,10 @@ namespace q {
         return out;
     }
 
+    std::ostream& solver::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const {
+        return m_ematch.display_constraint(out, idx);
+    }    
+
     void solver::collect_statistics(statistics& st) const {
         st.update("quantifier asserts", m_stats.m_num_quantifier_asserts);
         m_mbqi.collect_statistics(st);
@@ -87,7 +91,6 @@ namespace q {
     }
 
     bool solver::unit_propagate() {
-        TRACE("q", tout << "propagate\n";);
         return ctx.get_config().m_ematching && m_ematch.propagate();
     }
 
@@ -279,6 +282,10 @@ namespace q {
         m_expanded.reset();
         m_expanded.push_back(q);
         return m_expanded;
+    }
+
+    void solver::get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) {
+        m_ematch.get_antecedents(l, idx, r, probing);
     }
 
 }

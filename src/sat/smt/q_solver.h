@@ -64,13 +64,13 @@ namespace q {
         solver(euf::solver& ctx, family_id fid);
         ~solver() override {}
         bool is_external(sat::bool_var v) override { return false; }
-        void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) override {}
+        void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) override;
         void asserted(sat::literal l) override;
         sat::check_result check() override;
 
         std::ostream& display(std::ostream& out) const override;
-        std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override { UNREACHABLE(); return out; }
-        std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override { UNREACHABLE(); return out; }
+        std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override { return display_constraint(out, idx); }
+        std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
         void collect_statistics(statistics& st) const override;
         euf::th_solver* clone(euf::solver& ctx) override;
         bool unit_propagate() override;
