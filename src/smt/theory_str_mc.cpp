@@ -771,7 +771,7 @@ namespace smt {
                 // convert iValue to a constant
                 zstring iValue_str(iValue.to_string());
                 for (unsigned idx = 0; idx < iValue_str.length(); ++idx) {
-                    expr_ref chTerm(u.mk_char(iValue_str[idx]), sub_m);
+                    expr_ref chTerm(u.mk_char(iValue_str[idx]), m);
                     eqc_chars.push_back(chTerm);
                 }
                 return true;
