@@ -42,45 +42,12 @@ static bool is_octal_digit(char ch, unsigned& d) {
 }
 
 bool zstring::is_escape_char(char const *& s, unsigned& result) {
-    unsigned d1, d2, d3;
-    if (*s != '\\' || *(s + 1) == 0) {
-        return false;
-    }
-    if (*(s + 1) == 'x' &&
-        is_hex_digit(*(s + 2), d1) && is_hex_digit(*(s + 3), d2)) {
-        result = d1*16 + d2;
-        s += 4;
-        return true;
-    }
-    /* C-standard octal escapes: either 1, 2, or 3 octal digits,
-     * stopping either at 3 digits or at the first non-digit character.
-     */
-    /* 1 octal digit */
-    if (is_octal_digit(*(s + 1), d1) && !is_octal_digit(*(s + 2), d2)) {
-        result = d1;
-        s += 2;
-        return true;
-    }
-    /* 2 octal digits */
-    if (is_octal_digit(*(s + 1), d1) && is_octal_digit(*(s + 2), d2) &&
-        !is_octal_digit(*(s + 3), d3)) {
-        result = d1 * 8 + d2;
-        s += 3;
-        return true;
-    }
-    /* 3 octal digits */
-    if (is_octal_digit(*(s + 1), d1) && is_octal_digit(*(s + 2), d2) &&
-        is_octal_digit(*(s + 3), d3)) {
-        result = d1*64 + d2*8 + d3;
-        s += 4;
-        return true;
-    }
-
-    if (*(s+1) == 'u' && *(s+2) == '{') {
+    unsigned d;
+    if (*s == '\\' && *(s+1) == 'u' && *(s+2) == '{') {
         result = 0;
         for (unsigned i = 0; i < 5; ++i) {
-            if (is_hex_digit(*(s+3+i), d1)) {
-                result = 16*result + d1;
+            if (is_hex_digit(*(s+3+i), d)) {
+                result = 16*result + d;
             }
             else if (*(s+3+i) == '}') {
                 if (result > 255 && !uses_unicode())
@@ -92,63 +59,6 @@ bool zstring::is_escape_char(char const *& s, unsigned& result) {
                 break;
             }
         }
-        return false;
-    }
-    if (*(s+1) == 'u' && is_hex_digit(*(s+2), d1)) {
-        result = d1;
-        unsigned i = 0;
-        for (; i < 4; ++i) {
-            if (is_hex_digit(*(s+3+i), d1)) {
-                result = 16*result + d1;
-            }
-            else {
-                break;
-            }
-        }
-        if (result > 255 && !uses_unicode())
-            throw default_exception("unicode characters outside of byte range are not supported");
-        s += 3 + i;
-        return true;
-    }
-    switch (*(s + 1)) {
-    case 'a':
-        result = '\a';
-        s += 2;
-        return true;
-    case 'b':
-        result = '\b';
-        s += 2;
-        return true;
-#if 0
-    case 'e':
-        result = '\e';
-        s += 2;
-        return true;
-#endif
-    case 'f':
-        result = '\f';
-        s += 2;
-        return true;
-    case 'n':
-        result = '\n';
-        s += 2;
-        return true;
-    case 'r':
-        result = '\r';
-        s += 2;
-        return true;
-    case 't':
-        result = '\t';
-        s += 2;
-        return true;
-    case 'v':
-        result = '\v';
-        s += 2;
-        return true;
-    default:
-        result = *(s + 1);
-        s += 2;
-        return true;
     }
     return false;
 }
@@ -231,17 +141,9 @@ std::string zstring::encode() const {
 #define _flush() if (offset > 0) { buffer[offset] = 0; strm << buffer; offset = 0; }
     for (unsigned i = 0; i < m_buffer.size(); ++i) {
         unsigned ch = m_buffer[i];
-        if (0 <= ch && ch < 32) {
-            _flush();
-            strm << esc_table[ch];
-        }
-        else if (ch >= 256) {
+        if (ch >= 128) {
             _flush();
             strm << "\\u{" << std::hex << ch << std::dec << "}";
-        }
-        else if (ch >= 128) {
-            _flush();
-            strm << "\\x" << std::hex << ch << std::dec; 
         }
         else {
             if (offset == 99)  
