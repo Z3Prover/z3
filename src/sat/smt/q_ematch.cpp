@@ -85,12 +85,12 @@ namespace q {
             lit.lhs;
             lit.rhs;
             if (lit.sign) {
-                SASSERT(l_true == compare(n, b.m_nodes, l.lhs, l.rhs));
-                explain_eq(c, b, lit.lhs, lit.rhs);
+                SASSERT(l_true == compare(n, b.m_nodes, lit.lhs, lit.rhs));
+                explain_eq(n, b.m_nodes, lit.lhs, lit.rhs);
             }
             else {
-                SASSERT(l_false == compare(n, b.m_nodes, l.lhs, l.rhs));
-                explain_diseq(c, b, lit.lhs, lit.rhs);
+                SASSERT(l_false == compare(n, b.m_nodes, lit.lhs, lit.rhs));
+                explain_diseq(n, b.m_nodes, lit.lhs, lit.rhs);
             }
         }
         ctx.get_egraph().end_explain();
@@ -125,8 +125,8 @@ namespace q {
             explain_eq(n, binding, to_app(s)->get_arg(i), to_app(t)->get_arg(i));
     }
 
-    void ematch::explain_diseq(clause& c, binding& b, expr* a, expr* b) {
-        if (m.are_diseq(s, t))
+    void ematch::explain_diseq(unsigned n, euf::enode* const* binding, expr* s, expr* t) {
+        if (m.are_distinct(s, t))
             return;
         euf::enode* sn = eval(n, binding, s);
         euf::enode* tn = eval(n, binding, t);

@@ -1205,24 +1205,24 @@ namespace smt {
         }
 
         TRACE("str_fl",
-            tout << "formulas asserted to subsolver:" << std::endl;
-            for (auto e : fixed_length_assumptions) {
-                tout << mk_pp(e, subsolver.m()) << std::endl;
-            }
-            tout << "variable to character mappings:" << std::endl;
-            for (auto &entry : var_to_char_subterm_map) {
-                tout << mk_pp(entry.m_key, get_manager()) << ":";
-                for (auto e : entry.m_value) {
-                    tout << " " << mk_pp(e, subsolver.m());
-                }
-                tout << std::endl;
-            }
-            tout << "reduced boolean formulas:" << std::endl;
-              for (auto e : fixed_length_reduced_boolean_formulas) {
+              tout << "formulas asserted to subsolver:" << std::endl;
+              for (auto e : fixed_length_assumptions) {
+                  tout << mk_pp(e, subsolver.m()) << std::endl;
+              }
+              tout << "variable to character mappings:" << std::endl;
+              for (auto &entry : var_to_char_subterm_map) {
+                  tout << mk_pp(entry.m_key, get_manager()) << ":";
+                  for (auto e : *entry.m_value) {
+                      tout << " " << mk_pp(e, subsolver.m());
+                  }
+                  tout << std::endl;
+              }
+              tout << "reduced boolean formulas:" << std::endl;
+              for (expr* e : fixed_length_reduced_boolean_formulas) {
                   tout << mk_pp(e, m) << std::endl;
               }
-        );
-
+              );
+        
         TRACE("str_fl", tout << "calling subsolver" << std::endl;);
 
         lbool subproblem_status = subsolver.check(fixed_length_assumptions);

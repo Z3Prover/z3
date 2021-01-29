@@ -122,8 +122,8 @@ namespace q {
         // extract explanation
         ptr_vector<size_t> m_explain;
         void explain(clause& c, unsigned literal_idx, binding& b);
-        void explain_eq(clause& c, binding& b, expr* a, expr* b);
-        void explain_diseq(clause& c, binding& b, expr* a, expr* b);
+        void explain_eq(unsigned n, euf::enode* const* binding, expr* s, expr* t);
+        void explain_diseq(unsigned n, euf::enode* const* binding, expr* s, expr* t);
 
         void attach_ground_pattern_terms(expr* pat);
         clause* clausify(quantifier* q);
