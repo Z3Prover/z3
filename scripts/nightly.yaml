@@ -53,8 +53,11 @@ stages:
         make -j3 test-z3
         ./ml_example
         cd ..
+    - script: |
+        set -e
         cd doc
         python mk_api_doc.py --z3py-package-path=../build/python/z3
+        eval `opam config env` 
         ocamldoc -html -d api/html/ml -sort -hide Z3 -I +zarith -I ../build/api/ml ../build/api/ml/z3enums.mli ../build/api/ml/z3.mli
         cd ..
     - script: zip -r api.zip doc/api
