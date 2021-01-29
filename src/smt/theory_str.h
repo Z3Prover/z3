@@ -536,8 +536,8 @@ protected:
     expr_ref_vector fixed_length_subterm_trail; // trail for subterms generated *in the subsolver*
     expr_ref_vector fixed_length_assumptions; // cache of boolean terms to assert *into the subsolver*, unsat core is a subset of these
     obj_map<expr, rational> fixed_length_used_len_terms; // constraints used in generating fixed length model
-    obj_map<expr, ptr_vector<expr> > var_to_char_subterm_map; // maps a var to a list of character terms *in the subsolver*
-    obj_map<expr, ptr_vector<expr> > uninterpreted_to_char_subterm_map; // maps an "uninterpreted" string term to a list of character terms *in the subsolver*
+    obj_map<expr, expr_ref_vector* > var_to_char_subterm_map; // maps a var to a list of character terms *in the subsolver*
+    obj_map<expr, expr_ref_vector* > uninterpreted_to_char_subterm_map; // maps an "uninterpreted" string term to a list of character terms *in the subsolver*
     obj_map<expr, std::tuple<rational, expr*, expr*>> fixed_length_lesson; //keep track of information for the lesson
     unsigned preprocessing_iteration_count; // number of attempts we've made to solve by preprocessing length information
     obj_map<expr, zstring> candidate_model;
@@ -747,7 +747,7 @@ protected:
     lbool fixed_length_model_construction(expr_ref_vector formulas, expr_ref_vector &precondition,
             expr_ref_vector& free_variables,
             obj_map<expr, zstring> &model, expr_ref_vector &cex);
-    bool fixed_length_reduce_string_term(smt::kernel & subsolver, expr * term, ptr_vector<expr> & term_chars, expr_ref & cex);
+    bool fixed_length_reduce_string_term(smt::kernel & subsolver, expr * term, expr_ref_vector & term_chars, expr_ref & cex);
     bool fixed_length_get_len_value(expr * e, rational & val);
     bool fixed_length_reduce_eq(smt::kernel & subsolver, expr_ref lhs, expr_ref rhs, expr_ref & cex);
     bool fixed_length_reduce_diseq(smt::kernel & subsolver, expr_ref lhs, expr_ref rhs, expr_ref & cex);
