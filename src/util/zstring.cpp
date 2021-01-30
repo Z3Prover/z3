@@ -129,11 +129,6 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
     return result;
 }
 
-static const char esc_table[32][6] =
-    { "\\x00", "\\x01", "\\x02", "\\x03", "\\x04", "\\x05", "\\x06", "\\x07", "\\x08", "\\x09", "\\n",   "\\v",   "\\f",   "\\r",   "\\x0E", "\\x0F",
-      "\\x10", "\\x11", "\\x12", "\\x13", "\\x14", "\\x15", "\\x16", "\\x17", "\\x18", "\\x19", "\\x1A", "\\x1B", "\\x1C", "\\x1D", "\\x1E", "\\x1F"
-};
-
 std::string zstring::encode() const {
     std::ostringstream strm;
     char buffer[100];
@@ -141,7 +136,7 @@ std::string zstring::encode() const {
 #define _flush() if (offset > 0) { buffer[offset] = 0; strm << buffer; offset = 0; }
     for (unsigned i = 0; i < m_buffer.size(); ++i) {
         unsigned ch = m_buffer[i];
-        if (ch >= 128) {
+        if (ch < 32 || ch >= 128) {
             _flush();
             strm << "\\u{" << std::hex << ch << std::dec << "}";
         }
