@@ -30,6 +30,7 @@ Done:
 
 #include "ast/ast_util.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/rewriter_def.h"
 #include "solver/solver.h"
 #include "sat/smt/sat_th.h"
 #include "sat/smt/euf_solver.h"
