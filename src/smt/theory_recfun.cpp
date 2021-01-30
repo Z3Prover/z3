@@ -296,9 +296,12 @@ namespace smt {
     }
         
     literal theory_recfun::mk_literal(expr* e) {
+        bool is_not = m.is_not(e, e);
         ctx.internalize(e, false);
         literal lit = ctx.get_literal(e);
         ctx.mark_as_relevant(lit);
+        if (is_not)
+            lit.neg();
         return lit;
     }
 

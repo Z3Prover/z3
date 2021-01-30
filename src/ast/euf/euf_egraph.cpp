@@ -106,10 +106,13 @@ namespace euf {
         SASSERT(!find(f));
         force_push();
         enode *n = mk_enode(f, generation, num_args, args);
+        
         SASSERT(n->class_size() == 1);        
         if (num_args == 0 && m.is_unique_value(f))
             n->mark_interpreted();
-        if (num_args == 0) 
+        if (m_on_make)
+            m_on_make(n);
+        if (num_args == 0)             
             return n;
         if (m.is_eq(f)) {
             n->set_is_equality();

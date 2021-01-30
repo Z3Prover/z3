@@ -16,7 +16,6 @@ Author:
 --*/
 #include "util/gparams.h"
 #include "util/zstring.h"
-#include "util/trace.h"
 
 static bool is_hex_digit(char ch, unsigned& d) {
     if ('0' <= ch && ch <= '9') {
@@ -148,7 +147,6 @@ std::string zstring::encode() const {
         }
     }
     _flush();
-    TRACE("seq", tout << "encode " << strm.str() << "\n";);
     return strm.str();
 }
 

@@ -57,7 +57,12 @@ namespace q {
             [&](euf::enode* root, euf::enode* other) { 
             on_merge(root, other); 
         };
+        std::function<void(euf::enode*)> _on_make = 
+            [&](euf::enode* n) {
+            m_mam->relevant_eh(n, false);
+        };
         ctx.get_egraph().set_on_merge(_on_merge);
+        ctx.get_egraph().set_on_make(_on_make);
         m_mam = mam::mk(ctx, *this);
     }
 
@@ -230,7 +235,6 @@ namespace q {
         m_mam->on_merge(root, other);
         if (m_lazy_mam)
             m_lazy_mam->on_merge(root, other);
-        m_mam->relevant_eh(other, false);
     }
 
     // watch only nodes introduced in bindings or ground arguments of functions
