@@ -229,6 +229,7 @@ namespace q {
         m_mam->on_merge(root, other);
         if (m_lazy_mam)
             m_lazy_mam->on_merge(root, other);
+        m_mam->relevant_eh(other, false);
     }
 
     // watch only nodes introduced in bindings or ground arguments of functions

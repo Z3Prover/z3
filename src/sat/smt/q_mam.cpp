@@ -3102,10 +3102,10 @@ namespace q {
         void add_candidate(code_tree * t, enode * app) {
             if (t != nullptr) {
                 TRACE("mam_candidate", tout << "adding candidate:\n" << mk_ll_pp(app->get_expr(), m););
-                if (!t->has_candidates()) {
+                if (m_to_match.empty()) 
                     ctx.push(reset_to_match(*this));
-                }
-                m_to_match.push_back(t);
+                if (!t->has_candidates()) 
+                    m_to_match.push_back(t);
                 t->add_candidate(app);
             }
         }
@@ -3783,6 +3783,7 @@ namespace q {
         void propagate() override {
             TRACE("trigger_bug", tout << "match\n"; display(tout););
             for (code_tree* t : m_to_match) {
+                std::cout << t << "\n";
                 SASSERT(t->has_candidates());
                 m_interpreter.execute(t);
                 t->reset_candidates();
@@ -3824,8 +3825,9 @@ namespace q {
         }
 
         // This method is invoked when n becomes relevant.
-        // If lazy == true, then n is not added to the list of candidate enodes for matching. That is, the method just updates the lbls.
-        void relevant_eh(enode * n, bool lazy) {
+        // If lazy == true, then n is not added to the list of 
+        // candidate enodes for matching. That is, the method just updates the lbls.
+        void relevant_eh(enode * n, bool lazy) override {
             TRACE("trigger_bug", tout << "relevant_eh:\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";
                   tout << "mam: " << this << "\n";);
             TRACE("mam", tout << "relevant_eh: #" << n->get_expr_id() << "\n";);

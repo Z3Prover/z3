@@ -49,6 +49,8 @@ namespace q {
         
         virtual void add_pattern(quantifier * q, app * mp) = 0;
 
+        virtual void relevant_eh(enode * n, bool lazy) = 0;
+
         virtual void propagate() = 0;
 
         virtual bool can_propagate() const = 0;
