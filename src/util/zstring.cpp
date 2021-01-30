@@ -137,7 +137,7 @@ std::string zstring::encode() const {
 #define _flush() if (offset > 0) { buffer[offset] = 0; strm << buffer; offset = 0; }
     for (unsigned i = 0; i < m_buffer.size(); ++i) {
         unsigned ch = m_buffer[i];
-        if (ch < 32 || ch >= 128) {
+        if (ch < 32 || ch >= 128 || ch == '\\') {
             _flush();
             strm << "\\u{" << std::hex << ch << std::dec << "}";
         }
