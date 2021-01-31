@@ -78,7 +78,7 @@ zstring::zstring(char const* s) {
 }
 
 bool zstring::uses_unicode() const {
-    return gparams::get_value("unicode") == "true";
+    return gparams::get_value("unicode") != "false";
 }
 
 bool zstring::well_formed() const {

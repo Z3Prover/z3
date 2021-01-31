@@ -23,7 +23,8 @@ Author:
 
 char_decl_plugin::char_decl_plugin(): 
     m_charc_sym("Char") {
-    m_unicode = gparams::get_value("unicode") == "true";
+    std::cout << gparams::get_value("unicode") << "\n";
+    m_unicode = gparams::get_value("unicode") != "false";
 }
 
 char_decl_plugin::~char_decl_plugin() {
