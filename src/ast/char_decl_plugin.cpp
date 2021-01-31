@@ -114,6 +114,8 @@ expr* char_decl_plugin::get_some_value(sort* s) {
 app* char_decl_plugin::mk_le(expr* a, expr* b) {
     expr_ref _ch1(a, *m_manager), _ch2(b, *m_manager);
     unsigned v1 = 0, v2 = 0;
+    if (a == b)
+        return m_manager->mk_true();
     bool c1 = is_const_char(a, v1);
     bool c2 = is_const_char(b, v2);
     if (c1 && c2)
