@@ -3821,13 +3821,13 @@ namespace q {
             TRACE("trigger_bug", tout << "found match " << mk_pp(qa, m) << "\n";);
             unsigned min_gen = 0, max_gen = 0;
             m_interpreter.get_min_max_top_generation(min_gen, max_gen);
-            m_ematch.on_binding(qa, pat, bindings); // max_generation); // , min_gen, max_gen;
+            m_ematch.on_binding(qa, pat, bindings, max_generation, min_gen, max_gen);
         }
 
         // This method is invoked when n becomes relevant.
         // If lazy == true, then n is not added to the list of 
         // candidate enodes for matching. That is, the method just updates the lbls.
-        void relevant_eh(enode * n, bool lazy) override {
+        void add_node(enode * n, bool lazy) override {
             TRACE("trigger_bug", tout << "relevant_eh:\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";
                   tout << "mam: " << this << "\n";);
             TRACE("mam", tout << "relevant_eh: #" << n->get_expr_id() << "\n";);

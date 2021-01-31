@@ -49,7 +49,7 @@ namespace q {
         
         virtual void add_pattern(quantifier * q, app * mp) = 0;
 
-        virtual void relevant_eh(enode * n, bool lazy) = 0;
+        virtual void add_node(enode * n, bool lazy) = 0;
 
         virtual void propagate() = 0;
 
@@ -59,15 +59,16 @@ namespace q {
         
         virtual void on_merge(enode * root, enode * other) = 0;
 
+        virtual void on_match(quantifier * qa, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation) = 0;
+
         virtual void reset() = 0;
 
         virtual std::ostream& display(std::ostream& out) = 0;
                 
         virtual bool check_missing_instances() = 0;
 
-        virtual void on_match(quantifier * qa, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation) = 0;
-
         static void ground_subterms(expr* e, ptr_vector<app>& ground);
+
     };
 };
 

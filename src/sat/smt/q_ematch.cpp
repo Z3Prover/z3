@@ -47,11 +47,23 @@ namespace q {
         ~scoped_mark_reset() { e.m_mark.reset(); }
     };
 
+    unsigned ematch::fingerprint::hash() const {
+        NOT_IMPLEMENTED_YET();
+        return 0;
+    }
+
+    bool ematch::fingerprint::eq(fingerprint const& other) const {
+        NOT_IMPLEMENTED_YET();
+        return false;
+    }
+
+
     ematch::ematch(euf::solver& ctx, solver& s):
         ctx(ctx),
         m_qs(s),
         m(ctx.get_manager()),
-        m_infer_patterns(m, ctx.get_config())
+        m_infer_patterns(m, ctx.get_config()),
+        m_qstat_gen(m, ctx.get_region())
     {
         std::function<void(euf::enode*, euf::enode*)> _on_merge = 
             [&](euf::enode* root, euf::enode* other) { 
@@ -59,7 +71,7 @@ namespace q {
         };
         std::function<void(euf::enode*)> _on_make = 
             [&](euf::enode* n) {
-            m_mam->relevant_eh(n, false);
+            m_mam->add_node(n, false);
         };
         ctx.get_egraph().set_on_merge(_on_merge);
         ctx.get_egraph().set_on_make(_on_make);
@@ -295,10 +307,10 @@ namespace q {
         }
     };
 
-    ematch::binding* ematch::alloc_binding(unsigned n) {
+    ematch::binding* ematch::alloc_binding(unsigned n, unsigned max_generation, unsigned min_top, unsigned max_top) {
         unsigned sz = sizeof(binding) + sizeof(euf::enode* const*)*n;
         void* mem = ctx.get_region().allocate(sz);
-        return new (mem) binding();
+        return new (mem) binding(max_generation, min_top, max_top);
     }
 
     std::ostream& ematch::lit::display(std::ostream& out) const {
@@ -313,10 +325,9 @@ namespace q {
                 << mk_bounded_pp(rhs, rhs.m(), 2);
     }
 
-
-    void ematch::clause::add_binding(ematch& em, euf::enode* const* _binding) {
+    void ematch::clause::add_binding(ematch& em, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top) {
         unsigned n = num_decls();
-        binding* b = em.alloc_binding(n);
+        binding* b = em.alloc_binding(n, max_generation, min_top, max_top);
         b->init(b);
         for (unsigned i = 0; i < n; ++i)
             b->m_nodes[i] = _binding[i];        
@@ -324,11 +335,11 @@ namespace q {
         em.ctx.push(remove_binding(*this, b));
     }
 
-    void ematch::on_binding(quantifier* q, app* pat, euf::enode* const* _binding) {
+    void ematch::on_binding(quantifier* q, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_gen, unsigned max_gen) {
         TRACE("q", tout << "on-binding " << mk_pp(q, m) << "\n";);
         clause& c = *m_clauses[m_q2clauses[q]];
         if (!propagate(_binding, c))
-            c.add_binding(*this, _binding);
+            c.add_binding(*this, _binding, max_generation, min_gen, max_gen);
     }
 
     std::ostream& ematch::clause::display(euf::solver& ctx, std::ostream& out) const {
@@ -397,30 +408,47 @@ namespace q {
         }
         TRACE("q", tout << "instantiate " << (idx == UINT_MAX ? "clause is false":"unit propagate") << "\n";);
 
-#if 1
         auto j_idx = mk_justification(idx, c, binding);
         if (idx == UINT_MAX) 
             ctx.set_conflict(j_idx);
         else 
             ctx.propagate(instantiate(c, binding, c[idx]), j_idx);
-#else
-        instantiate(c, binding);
-#endif
         return true;
     }
 
     // vanilla instantiation method.
-    void ematch::instantiate(euf::enode* const* binding, clause& c) {
-        expr_ref_vector _binding(m);
-        quantifier* q = c.m_q;
+    void ematch::instantiate(binding& b, clause& c) {
+        expr_ref_vector _nodes(m);
+        quantifier* q = c.m_q;       
+        if (m_stats.m_num_instantiations > ctx.get_config().m_qi_max_instances) 
+            return;
+        unsigned max_generation = b.m_max_generation;
+        max_generation = std::max(max_generation, c.m_stat->get_generation());
+        c.m_stat->update_max_generation(max_generation);
+#if 0
+        fingerprint * f = add_fingerprint(c, b, max_generation);
+        if (f) {
+            m_queue.insert(f, max_generation);
+            m_stats.m_num_instantiations++;
+        }
+        return;
+#endif
+        
+        m_stats.m_num_instantiations++;
+
         for (unsigned i = 0; i < c.num_decls(); ++i)
-            _binding.push_back(binding[i]->get_expr());
+            _nodes.push_back(b.m_nodes[i]->get_expr());
         var_subst subst(m);
-        expr_ref result = subst(q->get_expr(), _binding);
+        expr_ref result = subst(q->get_expr(), _nodes);
         sat::literal result_l = ctx.mk_literal(result);
         if (is_exists(q))
             result_l.neg();
         m_qs.add_clause(c.m_literal, result_l);
+    }
+
+    ematch::fingerprint* ematch::add_fingerprint(clause& c, binding& b, unsigned max_generation) {
+        NOT_IMPLEMENTED_YET();
+        return nullptr;
     }
 
     sat::literal ematch::instantiate(clause& c, euf::enode* const* binding, lit const& l) {
@@ -443,6 +471,11 @@ namespace q {
     }
 
     lbool ematch::compare(unsigned n, euf::enode* const* binding, expr* s, expr* t) {
+        if (s == t)
+            return l_true;
+        if (m.are_distinct(s, t))
+            return l_false;
+
         euf::enode* sn = eval(n, binding, s);
         euf::enode* tn = eval(n, binding, t);
         if (sn) sn = sn->get_root();
@@ -459,8 +492,6 @@ namespace q {
             return l_undef;
         if (!sn && !tn) 
             return compare_rec(n, binding, s, t);
-        if (!tn && !sn)
-            return l_undef;
         if (!tn && sn) {
             std::swap(tn, sn);
             std::swap(t, s);
@@ -628,6 +659,14 @@ namespace q {
             q = to_quantifier(tmp);
         }
         cl->m_q = q;
+        unsigned generation    = ctx.generation();
+#if 0
+        unsigned _generation;
+        if (!m_cached_generation.empty() && m_cached_generation.find(q, _generation)) {
+            generation = _generation;
+        }
+#endif
+        cl->m_stat = m_qstat_gen(_q, generation);
         SASSERT(ctx.s().value(cl->m_literal) == l_true);
         return cl;
     }
@@ -714,7 +753,7 @@ namespace q {
                 continue;
             instantiated = true;
             do {
-                instantiate(b->m_nodes, *c);
+                instantiate(*b, *c);
                 b = b->next();
             }
             while (b != c->m_bindings);

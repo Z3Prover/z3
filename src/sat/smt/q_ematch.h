@@ -18,6 +18,7 @@ Author:
 
 #include "util/nat_set.h"
 #include "util/dlist.h"
+#include "ast/quantifier_stat.h"
 #include "ast/pattern/pattern_inference.h"
 #include "solver/solver.h"
 #include "sat/smt/sat_th.h"
@@ -56,31 +57,56 @@ namespace q {
         struct insert_binding;
 
         struct binding : public dll_base<binding> {
+            unsigned           m_max_generation;
+            unsigned           m_min_top_generation;
+            unsigned           m_max_top_generation;
             euf::enode*        m_nodes[0];
 
-            binding() {}
+            binding(unsigned max_generation, unsigned min_top, unsigned max_top):
+                m_max_generation(max_generation),
+                m_min_top_generation(min_top),
+                m_max_top_generation(max_top) {}
 
             euf::enode* const* nodes() { return m_nodes; }
 
         };
 
-        binding* alloc_binding(unsigned n);
+        binding* alloc_binding(unsigned n, unsigned max_generation, unsigned min_top, unsigned max_top);
         
         struct clause {
             vector<lit>         m_lits;
             quantifier_ref      m_q;
             sat::literal        m_literal;
+            q::quantifier_stat* m_stat { nullptr };
             binding*            m_bindings { nullptr };
 
             clause(ast_manager& m): m_q(m) {}
 
-            void add_binding(ematch& em, euf::enode* const* b);
+            void add_binding(ematch& em, euf::enode* const* b, unsigned max_generation, unsigned min_top, unsigned max_top);
             std::ostream& display(euf::solver& ctx, std::ostream& out) const;
             lit const& operator[](unsigned i) const { return m_lits[i]; }
             lit& operator[](unsigned i) { return m_lits[i]; }
             unsigned size() const { return m_lits.size(); }
             unsigned num_decls() const { return m_q->get_num_decls(); }
         };
+
+        struct fingerprint {
+            clause&  c;
+            binding& b;
+            unsigned max_generation;
+            fingerprint(clause& c, binding& b, unsigned max_generation):
+                c(c), b(b), max_generation(max_generation) {}
+            unsigned hash() const;
+            bool eq(fingerprint const& other) const;
+        };
+
+        struct fingerprint_hash_proc {
+            bool operator()(fingerprint const* f) const { return f->hash(); }
+        };
+        struct fingerprint_eq_proc {
+            bool operator()(fingerprint const* a, fingerprint const* b) const { return a->eq(*b); }
+        };
+        typedef ptr_hashtable<fingerprint, fingerprint_hash_proc, fingerprint_eq_proc> fingerprints;    
 
         struct justification {
             expr*     m_lhs, *m_rhs;
@@ -104,6 +130,8 @@ namespace q {
         euf::solver&                           ctx;
         solver&                                m_qs;
         ast_manager&                           m;
+        q::quantifier_stat_gen                 m_qstat_gen;
+        fingerprints                           m_fingerprints;
         pattern_inference_rw                   m_infer_patterns;
         scoped_ptr<q::mam>                     m_mam, m_lazy_mam;
         ptr_vector<clause>                     m_clauses;
@@ -130,7 +158,7 @@ namespace q {
         euf::enode* eval(unsigned n, euf::enode* const* binding, expr* e);
 
         bool propagate(euf::enode* const* binding, clause& c);
-        void instantiate(euf::enode* const* binding, clause& c);
+        void instantiate(binding& b, clause& c);
         sat::literal instantiate(clause& c, euf::enode* const* binding, lit const& l);
 
         // register as callback into egraph.
@@ -150,6 +178,8 @@ namespace q {
         void attach_ground_pattern_terms(expr* pat);
         clause* clausify(quantifier* q);
 
+        fingerprint* add_fingerprint(clause& c, binding& b, unsigned max_generation);
+
 
     public:
         
@@ -168,7 +198,7 @@ namespace q {
         void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing);
 
         // callback from mam
-        void on_binding(quantifier* q, app* pat, euf::enode* const* binding);
+        void on_binding(quantifier* q, app* pat, euf::enode* const* binding, unsigned max_generation, unsigned min_gen, unsigned max_gen);
 
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const;
