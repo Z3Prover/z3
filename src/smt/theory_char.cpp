@@ -15,6 +15,7 @@ Author:
 
 --*/
 
+#include "ast/ast_ll_pp.h"
 #include "smt/theory_char.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
@@ -241,7 +242,7 @@ namespace smt {
                     enforce_ackerman(u, v);
                     return false;
                 }
-                if (c >= seq.max_char()) {
+                if (c > seq.max_char()) {
                     enforce_value_bound(v);
                     return false;
                 }

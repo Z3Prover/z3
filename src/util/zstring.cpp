@@ -45,7 +45,7 @@ bool zstring::is_escape_char(char const *& s, unsigned& result) {
     unsigned d;
     if (*s == '\\' && *(s+1) == 'u' && *(s+2) == '{') {
         result = 0;
-        for (unsigned i = 0; i < 5; ++i) {
+        for (unsigned i = 0; i < 6; ++i) {
             if (is_hex_digit(*(s+3+i), d)) {
                 result = 16*result + d;
             }

@@ -74,6 +74,7 @@ void char_decl_plugin::set_manager(ast_manager * m, family_id id) {
 
 void char_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const& logic) {
     op_names.push_back(builtin_name("char.<=", OP_CHAR_LE));
+    op_names.push_back(builtin_name("Char", OP_CHAR_CONST));
 }
 
 void char_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const& logic) {
@@ -113,8 +114,14 @@ expr* char_decl_plugin::get_some_value(sort* s) {
 app* char_decl_plugin::mk_le(expr* a, expr* b) {
     expr_ref _ch1(a, *m_manager), _ch2(b, *m_manager);
     unsigned v1 = 0, v2 = 0;
-    if (is_const_char(a, v1) && is_const_char(b, v2))
+    bool c1 = is_const_char(a, v1);
+    bool c2 = is_const_char(b, v2);
+    if (c1 && c2)
         return m_manager->mk_bool_val(v1 <= v2);
+    if (c1 && v1 == 0)
+        return m_manager->mk_true();
+    if (c2 && v2 == max_char())
+        return m_manager->mk_true();
     expr* es[2] = { a, b };
     return m_manager->mk_app(m_family_id, OP_CHAR_LE, 2, es);    
 }
