@@ -61,7 +61,7 @@ stages:
         mkdir api/html/ml
         ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build/api/ml ../build/api/ml/z3enums.mli ../build/api/ml/z3.mli
         cd ..
-    - script: zip -r doc.zip z3doc/api
+    - script: zip -r z3doc.zip doc/api
     - script: cp z3doc.zip $(Build.ArtifactStagingDirectory)/.
     - task: PublishPipelineArtifact@0
       inputs:
