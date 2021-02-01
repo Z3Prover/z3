@@ -86,11 +86,9 @@ namespace q {
         quantifier_stat * stat  = f.c->m_stat;
         quantifier* q = f.q();
         app* pat = f.b->m_pattern;
-        unsigned min_top_generation = f.b->m_min_top_generation;
-        unsigned max_top_generation = f.b->m_max_top_generation;
         m_vals[COST]               = cost;
-        m_vals[MIN_TOP_GENERATION] = static_cast<float>(min_top_generation);
-        m_vals[MAX_TOP_GENERATION] = static_cast<float>(max_top_generation);
+        m_vals[MIN_TOP_GENERATION] = static_cast<float>(f.b->m_min_top_generation);
+        m_vals[MAX_TOP_GENERATION] = static_cast<float>(f.b->m_max_top_generation);
         m_vals[INSTANCES]          = static_cast<float>(stat->get_num_instances_curr_branch());
         m_vals[SIZE]               = static_cast<float>(stat->get_size());
         m_vals[DEPTH]              = static_cast<float>(stat->get_depth());
@@ -138,18 +136,17 @@ namespace q {
         fingerprint & f          = *ent.m_qb;
         quantifier * q           = f.q();
         unsigned num_bindings    = f.size();
-        euf::enode * const * bindings = f.nodes();
-        q::quantifier_stat * stat = f.c->m_stat;
+        quantifier_stat * stat   = f.c->m_stat;
 
         ent.m_instantiated = true;
                 
         unsigned gen = get_new_gen(f, ent.m_cost);
-        if (em.propagate(bindings, gen, *f.c))
+        if (em.propagate(f.nodes(), gen, *f.c))
             return;
 
         auto* ebindings = m_subst(q, num_bindings);
         for (unsigned i = 0; i < num_bindings; ++i)
-            ebindings[i] = bindings[i]->get_expr();
+            ebindings[i] = f.nodes()[i]->get_expr();
         expr_ref instance = m_subst();
         ctx.get_rewriter()(instance);
         if (m.is_true(instance)) {
@@ -176,7 +173,7 @@ namespace q {
             if (0 == since_last_check && ctx.resource_limits_exceeded()) 
                 break;
 
-            fingerprint& f    = *curr.m_qb;
+            fingerprint& f = *curr.m_qb;
 
             if (curr.m_cost <= m_eager_cost_threshold) 
                 instantiate(curr);

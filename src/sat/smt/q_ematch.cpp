@@ -52,9 +52,9 @@ namespace q {
         m_qs(s),
         m(ctx.get_manager()),
         m_eval(ctx),
-        m_infer_patterns(m, ctx.get_config()),
+        m_qstat_gen(m, ctx.get_region()),
         m_inst_queue(*this, ctx),
-        m_qstat_gen(m, ctx.get_region())        
+        m_infer_patterns(m, ctx.get_config())       
     {
         std::function<void(euf::enode*, euf::enode*)> _on_merge = 
             [&](euf::enode* root, euf::enode* other) { 
@@ -229,10 +229,8 @@ namespace q {
         TRACE("q", tout << "on-binding " << mk_pp(q, m) << "\n";);
         unsigned idx = m_q2clauses[q];
         clause& c = *m_clauses[idx];
-        if (!propagate(_binding, max_generation, c)) {
+        if (!propagate(_binding, max_generation, c)) 
             add_binding(c, pat, _binding, max_generation, min_gen, max_gen);
-            insert_clause_in_queue(idx);
-        }
     }
 
     bool ematch::propagate(euf::enode* const* binding, unsigned max_generation, clause& c) {
@@ -314,7 +312,6 @@ namespace q {
 
     sat::literal ematch::instantiate(clause& c, euf::enode* const* binding, lit const& l) {
         expr_ref_vector _binding(m);
-        quantifier* q = c.q();
         for (unsigned i = 0; i < c.num_decls(); ++i)
             _binding.push_back(binding[i]->get_expr());
         var_subst subst(m);
@@ -348,7 +345,6 @@ namespace q {
             ctx.push(push_back_vector<euf::solver, unsigned_vector>(m_clause_queue));
         }
     }
-
 
     /**
      * basic clausifier, assumes q has been normalized.

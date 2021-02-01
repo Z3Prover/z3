@@ -14,7 +14,6 @@ Author:
     Nikolaj Bjorner (nbjorner) 2021-01-24
 
 --*/
-#pragma once
 
 #include "sat/smt/q_eval.h"
 #include "sat/smt/euf_solver.h"
