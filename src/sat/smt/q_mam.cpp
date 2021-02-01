@@ -1843,7 +1843,7 @@ namespace q {
     typedef svector<backtrack_point> backtrack_stack;
 
     class interpreter {
-        egraph &            m_egraph;
+        euf::solver&        ctx;
         ast_manager &       m;
         mam &               m_mam;
         bool                m_use_filters;
@@ -1976,8 +1976,8 @@ namespace q {
 #define INIT_ARGS_SIZE 16
 
     public:
-        interpreter(egraph & ctx, mam & ma, bool use_filters):
-            m_egraph(ctx),
+        interpreter(euf::solver& ctx, mam & ma, bool use_filters):
+            ctx(ctx),
             m(ctx.get_manager()),
             m_mam(ma),
             m_use_filters(use_filters) {
@@ -2002,7 +2002,7 @@ namespace q {
                 for (enode* app : t->get_candidates()) {
                     TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_expr(), m) << "\n";);
                     if (!app->is_marked1() && app->is_cgr()) {
-                        if (m_egraph.resource_limits_exceeded() || !execute_core(t, app))
+                        if (ctx.resource_limits_exceeded() || !execute_core(t, app))
                             return;
                         app->mark1();
                     }
@@ -2017,7 +2017,7 @@ namespace q {
                     TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_expr(), m) << "\n";);
                     if (app->is_cgr()) {
                         TRACE("trigger_bug", tout << "is_cgr\n";);
-                        if (m_egraph.resource_limits_exceeded() || !execute_core(t, app))
+                        if (ctx.resource_limits_exceeded() || !execute_core(t, app))
                             return;
                     }
                 }
@@ -2059,7 +2059,7 @@ namespace q {
         for (enode* p : euf::enode_parents(n)) {
             if (p->get_decl() == f  && 
                 i < p->num_args() && 
-                m_egraph.is_relevant(p)  &&
+                ctx.is_relevant(p)  &&
                 p->is_cgr() &&
                 p->get_arg(i)->get_root() == n) 
                 v->push_back(p);
@@ -2080,7 +2080,7 @@ namespace q {
         enode_vector * v  = mk_enode_vector();
         for (enode* p : euf::enode_parents(n)) {
             if (p->get_decl() == j2->m_decl &&
-                m_egraph.is_relevant(p) &&
+                ctx.is_relevant(p) &&
                 p->num_args() > j2->m_arg_pos && 
                 p->is_cgr() &&
                 p->get_arg(j2->m_arg_pos)->get_root() == n) {
@@ -2090,7 +2090,7 @@ namespace q {
                     if (p2->get_decl() == f &&
                         num_args == n->num_args() && 
                         num_args == p2->num_args() &&
-                        m_egraph.is_relevant(p2) &&
+                        ctx.is_relevant(p2) &&
                         p2->is_cgr() &&
                         i < num_args && 
                         p2->get_arg(i)->get_root() == p) {
@@ -2104,7 +2104,7 @@ namespace q {
 
     enode * interpreter::init_continue(cont const * c, unsigned expected_num_args) {
         func_decl * lbl         = c->m_label;
-        unsigned min_sz         = m_egraph.enodes_of(lbl).size();
+        unsigned min_sz         = ctx.get_egraph().enodes_of(lbl).size();
         unsigned short num_args = c->m_num_args;
         enode * r;
         // quick filter... check if any of the joint points have zero parents...
@@ -2172,8 +2172,8 @@ namespace q {
             TRACE("mam_bug", tout << "m_top: " << m_top << ", m_backtrack_stack.size(): " << m_backtrack_stack.size() << "\n";
                   tout << *c << "\n";);
             bp.m_to_recycle           = nullptr;
-            bp.m_it                   = m_egraph.enodes_of(lbl).begin();
-            bp.m_end                  = m_egraph.enodes_of(lbl).end();
+            bp.m_it                   = ctx.get_egraph().enodes_of(lbl).begin();
+            bp.m_end                  = ctx.get_egraph().enodes_of(lbl).end();
         }
         else {
             SASSERT(!best_v->empty());
@@ -2184,7 +2184,7 @@ namespace q {
         // find application with the right number of arguments
         for (; bp.m_it != bp.m_end; ++bp.m_it) {
             enode * curr = *bp.m_it;
-            if (curr->num_args() == expected_num_args && m_egraph.is_relevant(curr))
+            if (curr->num_args() == expected_num_args && ctx.is_relevant(curr))
                 break;
         }
         if (bp.m_it == bp.m_end)
@@ -2262,7 +2262,7 @@ namespace q {
 #endif
         // It doesn't make sense to process an irrelevant enode.
         TRACE("mam_execute_core", tout << "EXEC " << t->get_root_lbl()->get_name() << "\n";);
-        SASSERT(m_egraph.is_relevant(n));
+        SASSERT(ctx.is_relevant(n));
         m_pattern_instances.reset();
         m_min_top_generation.reset();
         m_max_top_generation.reset();
@@ -2623,8 +2623,8 @@ namespace q {
         goto backtrack;
 
     cgr_common:
-        m_n1 = m_egraph.get_enode_eq_to(static_cast<const get_cgr *>(m_pc)->m_label, static_cast<const get_cgr *>(m_pc)->m_num_args, m_args.c_ptr()); 
-        if (!m_n1 || !m_egraph.is_relevant(m_n1))                                                                                                              
+        m_n1 = ctx.get_egraph().get_enode_eq_to(static_cast<const get_cgr *>(m_pc)->m_label, static_cast<const get_cgr *>(m_pc)->m_num_args, m_args.c_ptr()); 
+        if (!m_n1 || !ctx.is_relevant(m_n1))                                                                                                              
             goto backtrack;                                                                                                                                    
         update_max_generation(m_n1, nullptr);                                                                                                                  
         m_registers[static_cast<const get_cgr *>(m_pc)->m_oreg] = m_n1;                                                                                        
@@ -2652,7 +2652,7 @@ namespace q {
 
         if (since_last_check++ > 100) {
             since_last_check = 0;
-            if (m_egraph.resource_limits_exceeded()) {
+            if (ctx.resource_limits_exceeded()) {
                 // Soft timeout...
                 // Cleanup before exiting
                 while (m_top != 0) {
@@ -2752,8 +2752,8 @@ namespace q {
                 const cont * c = static_cast<const cont*>(bp.m_instr);
                 // bp.m_it may reference an enode in [begin_enodes_of(lbl), end_enodes_of(lbl))
                 // This enodes are not necessarily relevant.
-                // So, we must check whether m_egraph.is_relevant(m_app) is true or not.
-                if (m_app->num_args() == c->m_num_args && m_egraph.is_relevant(m_app)) {
+                // So, we must check whether ctx.is_relevant(m_app) is true or not.
+                if (m_app->num_args() == c->m_num_args && ctx.is_relevant(m_app)) {
                     // update the pattern instance
                     SASSERT(!m_pattern_instances.empty());
                     if (m_pattern_instances.size() == m_max_top_generation.size()) {
@@ -3143,7 +3143,7 @@ namespace q {
             SASSERT(m_is_clbl[lbl_id]);
             unsigned h = m_lbl_hasher(lbl);
             for (enode* app : m_egraph.enodes_of(lbl)) {
-                if (m_egraph.is_relevant(app)) {
+                if (ctx.is_relevant(app)) {
                     update_lbls(app, h);
                     TRACE("mam_bug", tout << "updating labels of: #" << app->get_expr_id() << "\n";
                           tout << "new_elem: " << h << "\n";
@@ -3185,7 +3185,7 @@ namespace q {
             SASSERT(is_plbl(lbl));
             unsigned h = m_lbl_hasher(lbl);
             for (enode * app : m_egraph.enodes_of(lbl)) {
-                if (m_egraph.is_relevant(app))
+                if (ctx.is_relevant(app))
                     update_children_plbls(app, h);
             }
         }
@@ -3397,7 +3397,7 @@ namespace q {
                           tout << "updating pc labels " << plbl->get_name() << " " <<
                           static_cast<unsigned>(n->get_lbl_hash()) << "\n";
                           tout << "#" << n->get_expr_id() << " " << n->get_root()->get_lbls() << "\n";
-                          tout << "relevant: " << m_egraph.is_relevant(n) << "\n";);
+                          tout << "relevant: " << ctx.is_relevant(n) << "\n";);
                     update_pc(m_lbl_hasher(plbl), n->get_lbl_hash(), new_path, qa, mp);
                     continue;
                 }
@@ -3553,7 +3553,7 @@ namespace q {
                         if (filter.may_contain(m_lbl_hasher(lbl)) &&
                             !curr_parent->is_marked1() &&
                             (curr_parent_cg == curr_parent || !is_eq(curr_parent_cg, curr_parent_root)) &&
-                            m_egraph.is_relevant(curr_parent)
+                            ctx.is_relevant(curr_parent)
                             ) {
                             path_tree * curr_tree = t;
                             while (curr_tree) {
@@ -3711,7 +3711,7 @@ namespace q {
                 SASSERT(!m_egraph.enodes_of(lbl).empty());
                 m_interpreter.init(tmp_tree);
                 for (enode * app : m_egraph.enodes_of(lbl)) 
-                    if (m_egraph.is_relevant(app))
+                    if (ctx.is_relevant(app))
                         m_interpreter.execute_core(tmp_tree, app);
                 m_tmp_trees[lbl_id] = nullptr;
                 dealloc(tmp_tree);
@@ -3728,7 +3728,7 @@ namespace q {
             m_use_filters(use_filters),
             m_ct_manager(m_lbl_hasher, ctx),
             m_compiler(m_egraph, m_ct_manager, m_lbl_hasher, use_filters),
-            m_interpreter(m_egraph, *this, use_filters),
+            m_interpreter(ctx, *this, use_filters),
             m_trees(m, m_compiler, ctx),
             m_region(ctx.get_region()) {
             DEBUG_CODE(m_trees.set_egraph(&m_egraph););
@@ -3802,7 +3802,7 @@ namespace q {
                     m_interpreter.init(t);
                     func_decl * lbl = t->get_root_lbl();
                     for (enode * curr : m_egraph.enodes_of(lbl)) {
-                        if (use_irrelevant || m_egraph.is_relevant(curr))
+                        if (use_irrelevant || ctx.is_relevant(curr))
                             m_interpreter.execute_core(t, curr);
                     }
                 }

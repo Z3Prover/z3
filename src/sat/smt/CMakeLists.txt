@@ -29,10 +29,13 @@ z3_add_component(sat_smt
     euf_relevancy.cpp
     euf_solver.cpp
     fpa_solver.cpp
+    q_clause.cpp
     q_ematch.cpp
+    q_eval.cpp
     q_mam.cpp
     q_mbi.cpp
     q_model_fixer.cpp
+    q_queue.cpp
     q_solver.cpp
     sat_dual_solver.cpp
     sat_th.cpp

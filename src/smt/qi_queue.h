@@ -26,7 +26,7 @@ Revision History:
 #include "smt/smt_quantifier.h"
 #include "smt/fingerprints.h"
 #include "smt/params/qi_params.h"
-#include "smt/cost_evaluator.h"
+#include "ast/cost_evaluator.h"
 #include "util/statistics.h"
 
 namespace smt {

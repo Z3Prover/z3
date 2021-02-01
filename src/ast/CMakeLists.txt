@@ -15,6 +15,7 @@ z3_add_component(ast
     ast_util.cpp
     bv_decl_plugin.cpp
     char_decl_plugin.cpp
+    cost_evaluator.cpp
     datatype_decl_plugin.cpp
     decl_collector.cpp
     display_dimacs.cpp

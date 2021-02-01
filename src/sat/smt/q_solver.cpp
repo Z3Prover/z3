@@ -91,7 +91,7 @@ namespace q {
     }
 
     bool solver::unit_propagate() {
-        return ctx.get_config().m_ematching && m_ematch.propagate();
+        return ctx.get_config().m_ematching && m_ematch.propagate(false);
     }
 
     euf::theory_var solver::mk_var(euf::enode* n) {

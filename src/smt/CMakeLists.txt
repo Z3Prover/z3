@@ -3,7 +3,6 @@ z3_add_component(smt
     arith_eq_adapter.cpp
     arith_eq_solver.cpp
     asserted_formulas.cpp
-    cost_evaluator.cpp
     dyn_ack.cpp
     expr_context_simplifier.cpp
     fingerprints.cpp

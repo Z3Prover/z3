@@ -295,8 +295,6 @@ namespace euf {
         enode_vector const& nodes() const { return m_nodes; }
 
         ast_manager& get_manager() { return m; }
-        bool is_relevant(enode* n) const { return true; } // TODO
-        bool resource_limits_exceeded() const { return false; } // TODO
 
         void invariant();
         void copy_from(egraph const& src, std::function<void*(void*)>& copy_justification);

@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include "smt/cost_evaluator.h"
+#include "ast/cost_evaluator.h"
 #include "util/warning.h"
 
 cost_evaluator::cost_evaluator(ast_manager & m):

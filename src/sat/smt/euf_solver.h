@@ -306,6 +306,8 @@ namespace euf {
         bool is_blocked(literal l, ext_constraint_idx) override;
         bool check_model(sat::model const& m) const override;
         void gc_vars(unsigned num_vars) override;
+        bool resource_limits_exceeded() const { return false; } // TODO
+
 
         // proof
         bool use_drat() { return s().get_config().m_drat && (init_drat(), true); }
@@ -344,6 +346,7 @@ namespace euf {
         void track_relevancy(sat::bool_var v);
         bool is_relevant(expr* e) const;
         bool is_relevant(enode* n) const;
+
 
         // model construction
         void update_model(model_ref& mdl);
