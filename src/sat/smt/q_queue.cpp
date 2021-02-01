@@ -34,7 +34,11 @@ namespace q {
         m_parser(m),
         m_evaluator(m),
         m_subst(m)
-    {}
+    {
+        init_parser_vars();
+        m_vals.resize(15, 0.0f);
+        setup();
+    }
 
     void queue::setup() {
         TRACE("q", tout << "qi_cost: " << m_params.m_qi_cost << "\n";);

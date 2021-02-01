@@ -497,7 +497,7 @@ namespace q {
             m_num_regs(num_args + 1),
             m_num_choices(0),
             m_root(nullptr) {
-            DEBUG_CODE(m_egraph = 0;);
+            DEBUG_CODE(m_egraph = nullptr;);
 #ifdef _PROFILE_MAM
             m_counter = 0;
 #endif
@@ -566,7 +566,7 @@ namespace q {
 
 #ifdef Z3DEBUG
         void set_egraph(egraph * ctx) {
-            SASSERT(m_egraph == 0);
+            SASSERT(m_egraph == nullptr);
             m_egraph = ctx;
         }
 
@@ -3772,8 +3772,7 @@ namespace q {
         }
 
         std::ostream& display(std::ostream& out) override {
-            out << "mam:\n";
-            m_lbl_hasher.display(out);
+            m_lbl_hasher.display(out << "mam:\n");
             for (auto* t : m_trees) 
                 if (t)
                     t->display(out);            
@@ -3783,7 +3782,6 @@ namespace q {
         void propagate() override {
             TRACE("trigger_bug", tout << "match\n"; display(tout););
             for (code_tree* t : m_to_match) {
-                std::cout << t << "\n";
                 SASSERT(t->has_candidates());
                 m_interpreter.execute(t);
                 t->reset_candidates();

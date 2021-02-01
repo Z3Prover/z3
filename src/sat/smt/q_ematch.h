@@ -51,41 +51,38 @@ namespace q {
 
         struct remove_binding;
         struct insert_binding;
-
-        binding* alloc_binding(unsigned n, app* pat, unsigned max_generation, unsigned min_top, unsigned max_top);
-        void add_binding(clause& c, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top);
-        
-        sat::ext_justification_idx mk_justification(unsigned idx, clause& c, euf::enode* const* b);
-
         struct pop_clause;
         struct scoped_mark_reset;
 
         
-        euf::solver&                           ctx;
-        solver&                                m_qs;
-        ast_manager&                           m;
-        eval                                   m_eval;
-        quantifier_stat_gen                    m_qstat_gen;
-        fingerprints                           m_fingerprints;
-        scoped_ptr<binding>                    m_tmp_binding;
-        unsigned                               m_tmp_binding_capacity { 0 };
-        queue                                  m_inst_queue;
-        pattern_inference_rw                   m_infer_patterns;
-        scoped_ptr<q::mam>                     m_mam, m_lazy_mam;
-        ptr_vector<clause>                     m_clauses;
-        obj_map<quantifier, unsigned>          m_q2clauses;
-        vector<unsigned_vector>                m_watch;     // expr_id -> clause-index*
-        stats                                  m_stats;
-        expr_fast_mark1                        m_mark;
-        unsigned                               m_generation_propagation_threshold{ 3 };
+        euf::solver&                  ctx;
+        solver&                       m_qs;
+        ast_manager&                  m;
+        eval                          m_eval;
+        quantifier_stat_gen           m_qstat_gen;
+        fingerprints                  m_fingerprints;
+        scoped_ptr<binding>           m_tmp_binding;
+        unsigned                      m_tmp_binding_capacity { 0 };
+        queue                         m_inst_queue;
+        pattern_inference_rw          m_infer_patterns;
+        scoped_ptr<q::mam>            m_mam, m_lazy_mam;
+        ptr_vector<clause>            m_clauses;
+        obj_map<quantifier, unsigned> m_q2clauses;
+        vector<unsigned_vector>       m_watch;     // expr_id -> clause-index*
+        stats                         m_stats;
+        expr_fast_mark1               m_mark;
+        unsigned                      m_generation_propagation_threshold{ 3 };
+        ptr_vector<app>               m_ground;
+        nat_set                       m_node_in_queue;
+        nat_set                       m_clause_in_queue;
+        unsigned                      m_qhead { 0 };
+        unsigned_vector               m_clause_queue;
 
+        binding* alloc_binding(unsigned n, app* pat, unsigned max_generation, unsigned min_top, unsigned max_top);
+        void add_binding(clause& c, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top);
 
-        nat_set         m_node_in_queue;
-        nat_set         m_clause_in_queue;
-        unsigned        m_qhead { 0 };
-        unsigned_vector m_clause_queue;
+        sat::ext_justification_idx mk_justification(unsigned idx, clause& c, euf::enode* const* b);
 
-        ptr_vector<app> m_ground;
         void ensure_ground_enodes(expr* e);
         void ensure_ground_enodes(clause const& c);
 
@@ -126,12 +123,15 @@ namespace q {
         // callback from mam
         void on_binding(quantifier* q, app* pat, euf::enode* const* binding, unsigned max_generation, unsigned min_gen, unsigned max_gen);
 
-        // callback from queue
+        // callbacks from queue
         lbool evaluate(euf::enode* const* binding, clause& c) { return m_eval(binding, c); }
+
         void add_instantiation(clause& c, binding& b, sat::literal lit);
+
         bool propagate(euf::enode* const* binding, unsigned max_generation, clause& c);
 
         std::ostream& display(std::ostream& out) const;
+
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const;
 
     };
