@@ -23,13 +23,13 @@ namespace q {
     std::ostream& lit::display(std::ostream& out) const {
         ast_manager& m = lhs.m();
         if (m.is_true(rhs) && !sign) 
-            return out << lhs;
+            return out << mk_bounded_pp(lhs, m, 2);
         if (m.is_false(rhs) && !sign) 
-            return out << "(not " << lhs << ")";
+            return out << "(not " << mk_bounded_pp(lhs, m, 2) << ")";
         return 
-            out << mk_bounded_pp(lhs, lhs.m(), 2) 
+            out << mk_bounded_pp(lhs, m, 2) 
                 << (sign ? " != " : " == ") 
-                << mk_bounded_pp(rhs, rhs.m(), 2);
+                << mk_bounded_pp(rhs, m, 2);
     }
 
     std::ostream& clause::display(euf::solver& ctx, std::ostream& out) const {

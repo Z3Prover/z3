@@ -53,6 +53,7 @@ namespace q {
         struct insert_binding;
         struct pop_clause;
         struct scoped_mark_reset;
+        struct reset_in_queue;
 
         
         euf::solver&                  ctx;
@@ -73,6 +74,7 @@ namespace q {
         expr_fast_mark1               m_mark;
         unsigned                      m_generation_propagation_threshold{ 3 };
         ptr_vector<app>               m_ground;
+        bool                          m_in_queue_set{ false };
         nat_set                       m_node_in_queue;
         nat_set                       m_clause_in_queue;
         unsigned                      m_qhead { 0 };

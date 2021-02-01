@@ -1936,5 +1936,3 @@ void core::collect_statistics(::statistics & st) {
 
 } // end of nla
 
-template void nla::intervals::set_var_interval<dd::w_dep::without_deps>(lpvar v, nla::intervals::interval& b);
-template void nla::intervals::set_var_interval<dd::w_dep::with_deps>(lpvar v, nla::intervals::interval& b);

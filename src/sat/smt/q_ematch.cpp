@@ -328,7 +328,26 @@ namespace q {
         return l.sign ? ~ctx.mk_literal(fml) : ctx.mk_literal(fml);
     }
 
+    struct ematch::reset_in_queue : public trail<euf::solver> {
+        ematch& e;
+        reset_in_queue(ematch& e) :e(e) {}
+
+        void undo(euf::solver& ctx) override {
+            e.m_node_in_queue.reset();
+            e.m_clause_in_queue.reset();
+            e.m_in_queue_set = false;
+        }
+
+        static void insert(ematch& e) {
+            if (!e.m_in_queue_set) {
+                e.m_in_queue_set = true;
+                e.ctx.push(reset_in_queue(e));
+            }
+        }
+    };
+
     void ematch::insert_to_propagate(unsigned node_id) {
+        reset_in_queue::insert(*this);
         m_node_in_queue.assure_domain(node_id);
         if (m_node_in_queue.contains(node_id))
             return;
@@ -338,6 +357,7 @@ namespace q {
     }
 
     void ematch::insert_clause_in_queue(unsigned idx) {
+        reset_in_queue::insert(*this);
         m_clause_in_queue.assure_domain(idx);
         if (!m_clause_in_queue.contains(idx)) {
             m_clause_in_queue.insert(idx);
@@ -482,6 +502,7 @@ namespace q {
         }
         m_clause_in_queue.reset();
         m_node_in_queue.reset();
+        m_in_queue_set = true;
         if (m_inst_queue.propagate())
             propagated = true;
         return propagated;

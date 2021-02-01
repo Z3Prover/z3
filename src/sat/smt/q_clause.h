@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Clause and literals
+    Literals, clauses, justifications for quantifier instantiation
 
 Author:
 
@@ -49,7 +49,6 @@ namespace q {
         euf::enode* const* nodes() { return m_nodes; }
 
         euf::enode* operator[](unsigned i) const { return m_nodes[i]; }
-
     };
 
     struct clause {
