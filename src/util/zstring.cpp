@@ -33,14 +33,6 @@ static bool is_hex_digit(char ch, unsigned& d) {
     return false;
 }
 
-static bool is_octal_digit(char ch, unsigned& d) {
-    if ('0' <= ch && ch <= '7') {
-        d = ch - '0';
-        return true;
-    }
-    return false;
-}
-
 bool zstring::is_escape_char(char const *& s, unsigned& result) {
     unsigned d;
     if (*s == '\\' && *(s+1) == 'u' && *(s+2) == '{') {

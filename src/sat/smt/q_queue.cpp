@@ -137,7 +137,6 @@ namespace q {
     void queue::instantiate(entry& ent) {
         fingerprint & f          = *ent.m_qb;
         quantifier * q           = f.q();
-        unsigned generation      = f.m_max_generation;
         unsigned num_bindings    = f.size();
         euf::enode * const * bindings = f.nodes();
         q::quantifier_stat * stat = f.c->m_stat;
@@ -181,7 +180,7 @@ namespace q {
 
             if (curr.m_cost <= m_eager_cost_threshold) 
                 instantiate(curr);
-            else if (m_params.m_qi_promote_unsat && l_false == em.eval(f.nodes(), *f.c)) {
+            else if (m_params.m_qi_promote_unsat && l_false == em.evaluate(f.nodes(), *f.c)) {
                 // do not delay instances that produce a conflict.
                 TRACE("q", tout << "promoting instance that produces a conflict\n" << mk_pp(f.q(), m) << "\n";);
                 instantiate(curr);

@@ -127,7 +127,7 @@ namespace q {
         void on_binding(quantifier* q, app* pat, euf::enode* const* binding, unsigned max_generation, unsigned min_gen, unsigned max_gen);
 
         // callback from queue
-        lbool eval(euf::enode* const* binding, clause& c) { return m_eval(binding, c); }
+        lbool evaluate(euf::enode* const* binding, clause& c) { return m_eval(binding, c); }
         void add_instantiation(clause& c, binding& b, sat::literal lit);
         bool propagate(euf::enode* const* binding, unsigned max_generation, clause& c);
 
