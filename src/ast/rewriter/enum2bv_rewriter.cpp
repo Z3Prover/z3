@@ -99,7 +99,7 @@ struct enum2bv_rewriter::imp {
             }
             else if (m_dt.is_recognizer(f) && reduce_arg(args[0], a0)) {
                 unsigned idx = m_dt.get_recognizer_constructor_idx(f);
-                a1 = value2bv(idx, a0->get_sort());
+                a1 = value2bv(idx, args[0]->get_sort());
                 result = m.mk_eq(a0, a1);
                 return BR_DONE;
             }
