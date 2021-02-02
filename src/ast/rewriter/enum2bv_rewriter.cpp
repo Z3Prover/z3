@@ -69,18 +69,18 @@ struct enum2bv_rewriter::imp {
                 return m_bv.mk_numeral(rational(idx), bv_sort.get());
         }
 
-        void constrain_domain(expr* x, sort* s, sort* bv_sort) {
+        void constrain_domain(expr_ref_vector& bounds, expr* x, sort* s, sort* bv_sort) {
             unsigned domain_size = m_dt.get_datatype_num_constructors(s);
             if (is_unate(s)) {
                 expr_ref one(m_bv.mk_numeral(rational::one(), 1), m);
                 for (unsigned i = 0; i + 2 < domain_size; ++i) {                    
-                    m_imp.m_bounds.push_back(m.mk_implies(m.mk_eq(one, m_bv.mk_extract(i + 1, i + 1, x)),
+                    bounds.push_back(m.mk_implies(m.mk_eq(one, m_bv.mk_extract(i + 1, i + 1, x)),
                                                           m.mk_eq(one, m_bv.mk_extract(i, i, x))));
                 }
             }
             else {
                 if (!is_power_of_two(domain_size) || domain_size == 1) {
-                    m_imp.m_bounds.push_back(m_bv.mk_ule(x, value2bv(domain_size - 1, s)));
+                    bounds.push_back(m_bv.mk_ule(x, value2bv(domain_size - 1, s)));
                 }             
             }   
         }
@@ -162,7 +162,7 @@ struct enum2bv_rewriter::imp {
                 unsigned nc = m_dt.get_datatype_num_constructors(s);
                 result = m.mk_fresh_const(f->get_name(), bv_sort);
                 f_fresh = to_app(result)->get_decl();
-                constrain_domain(result, s, bv_sort);
+                constrain_domain(m_imp.m_bounds, result, s, bv_sort);
                 expr_ref f_def(m);
                 ptr_vector<func_decl> const& cs = *m_dt.get_datatype_constructors(s);
                 f_def = m.mk_const(cs[nc-1]);
@@ -204,7 +204,7 @@ struct enum2bv_rewriter::imp {
                     sort* bv_sort = m_bv.mk_sort(bv_size);
                     m_sorts.push_back(bv_sort);
                     expr_ref var(m.mk_var(q->get_num_decls()-i-1, bv_sort), m);
-                    constrain_domain(var, s, bv_sort);
+                    constrain_domain(bounds, var, s, bv_sort);
                     found = true;
                 }
                 else {
