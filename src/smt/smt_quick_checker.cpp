@@ -186,7 +186,7 @@ namespace smt {
             m_candidate_vectors[i].reset();
             sort * s = q->get_decl_sort(i);
             for (unsigned j = 0; j < num_candidates; j++) {
-                if (m_manager.get_sort(candidates[j]) == s) {
+                if (candidates[j]->get_sort() == s) {
                     expr * n = candidates[j];
                     m_context.internalize(n, false);
                     enode * e = m_context.get_enode(n);

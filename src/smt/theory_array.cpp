@@ -72,7 +72,7 @@ namespace smt {
               ", is_store: " << is_store(n) << "\n";);
         d->m_is_array  = is_array_sort(n);
         if (d->m_is_array) 
-            register_sort(m.get_sort(n->get_owner()));
+            register_sort(n->get_owner()->get_sort());
         d->m_is_select = is_select(n);        
         if (is_store(n))
             d->m_stores.push_back(n);

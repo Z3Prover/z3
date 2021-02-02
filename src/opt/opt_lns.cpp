@@ -65,6 +65,12 @@ namespace opt {
     void lns::setup_assumptions(model_ref& mdl, expr_ref_vector const& asms) {
         m_hardened.reset();
         m_soft.reset();
+        std::cout << "disjoint cores: " << m_cores.size() << "\n";
+        for (auto const& c : m_cores)
+            std::cout << c.size() << "\n";
+        m_was_flipped.reset();
+        m_in_core.reset();
+        m_cores.reset();
         for (expr* a : asms) {
             if (mdl->is_true(a))
                 m_hardened.push_back(a);
@@ -118,6 +124,7 @@ namespace opt {
                 m_hardened.push_back(m.mk_not(soft(i)));
                 for (unsigned k = i; k + 1 < m_soft.size(); ++k) 
                     m_soft[k] = soft(k + 1);
+                m_was_flipped.mark(m_hardened.back());
                 m_soft.pop_back();
                 --i;
                 break;
@@ -157,9 +164,14 @@ namespace opt {
         if (r == l_false) {
             expr_ref_vector core(m);
             s.get_unsat_core(core);
-            std::cout << "core size " << core.size() << "\n";
-            if (core.size() == 4)
-                std::cout << core << "\n";
+            bool was_flipped = false;
+            for (expr* c : core) 
+                was_flipped |= m_was_flipped.is_marked(c);
+            if (!was_flipped) {
+                for (expr* c : core) 
+                    m_in_core.mark(c, true);
+                m_cores.push_back(core);
+            }
         }
 #endif
         return r;

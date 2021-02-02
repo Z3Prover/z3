@@ -553,7 +553,7 @@ namespace q {
     }
 
     mbp::project_plugin* mbqi::get_plugin(app* var) {
-        family_id fid = m.get_sort(var)->get_family_id();
+        family_id fid = var->get_sort()->get_family_id();
         return m_plugins.get(fid, nullptr);
     }
 

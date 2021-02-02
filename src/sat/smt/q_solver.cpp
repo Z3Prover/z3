@@ -181,7 +181,7 @@ namespace q {
         if (!m_unit_table.empty())
             return;
         for (euf::enode* n : ctx.get_egraph().nodes()) {
-            if (!n->interpreted() && !m.is_uninterp(m.get_sort(n->get_expr())))
+            if (!n->interpreted() && !m.is_uninterp(n->get_expr()->get_sort()))
                 continue;
             expr* e = n->get_expr();
             sort* s = e->get_sort();

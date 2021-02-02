@@ -327,7 +327,7 @@ bool cmd_context::macros_find(symbol const& s, unsigned n, expr*const* args, exp
         bool eq = true;
         coerced_args.reset();
         for (unsigned i = 0; eq && i < n; ++i) {
-            if (d.m_domain[i] == m().get_sort(args[i])) {
+            if (d.m_domain[i] == args[i]->get_sort()) {
                 coerced_args.push_back(args[i]);
                 continue;
             }
@@ -1132,7 +1132,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
             bool first = true;
             for (unsigned i = 0; i < num_args; ++i, first = false) {
                 if (!first) buffer << " ";
-                buffer << mk_pp(m().get_sort(args[i]), m());
+                buffer << mk_pp(args[i]->get_sort(), m());
             }            
             buffer << ") ";
             if (range) buffer << mk_pp(range, m()) << " ";

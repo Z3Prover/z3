@@ -64,9 +64,9 @@ struct enum2bv_rewriter::imp {
             unsigned bv_size = get_bv_size(s);
             sort_ref bv_sort(m_bv.mk_sort(bv_size), m);
             if (is_unate(s))
-                return m_bv.mk_numeral(rational((1 << idx) - 1), bv_sort);
+                return m_bv.mk_numeral(rational((1 << idx) - 1), bv_sort.get());
             else 
-                return m_bv.mk_numeral(rational(idx), bv_sort);
+                return m_bv.mk_numeral(rational(idx), bv_sort.get());
         }
 
         void constrain_domain(expr* x, sort* s, sort* bv_sort) {

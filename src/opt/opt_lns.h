@@ -33,6 +33,11 @@ namespace opt {
         expr_ref_vector  m_soft;
         unsigned         m_max_conflicts { 1000 };
         unsigned         m_num_improves { 0 };
+
+        vector<expr_ref_vector> m_cores;
+        expr_mark               m_in_core;
+        expr_mark               m_was_flipped;
+
         std::function<void(model_ref& m)> m_update_model;
 
         expr* soft(unsigned i) const { return m_soft[i]; }

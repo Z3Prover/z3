@@ -116,12 +116,12 @@ namespace qe {
     private:
 
         bool is_small_domain(contains_app& x, eq_atoms& eqs, uint64_t& domain_size) {
-            VERIFY(m_util.try_get_size(m.get_sort(x.x()), domain_size));
+            VERIFY(m_util.try_get_size(x.x()->get_sort(), domain_size));
             return domain_size < eqs.num_eqs() + eqs.num_neqs();
         }
 
         void assign_small_domain(contains_app & x,eq_atoms& eqs, unsigned value) {
-            expr_ref vl(m_util.mk_numeral(value, m.get_sort(x.x())), m);
+            expr_ref vl(m_util.mk_numeral(value, x.x()->get_sort()), m);
             expr_ref eq(m.mk_eq(x.x(), vl), m);
             m_ctx.add_constraint(true, eq);
         }
@@ -145,7 +145,7 @@ namespace qe {
         }
 
         void subst_small_domain(contains_app & x,eq_atoms& eqs, unsigned v,expr_ref & fml) {
-            expr_ref vl(m_util.mk_numeral(v, m.get_sort(x.x())), m);
+            expr_ref vl(m_util.mk_numeral(v, x.x()->get_sort()), m);
             m_replace.apply_substitution(x.x(), vl, fml);
         }
 

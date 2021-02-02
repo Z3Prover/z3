@@ -82,7 +82,7 @@ namespace smt {
 
         expr_ref mk_tail(expr* s, expr* i) { return mk(m_tail, s, i); }
         expr_ref mk_post(expr* s, expr* i) { return mk(m_post, s, i); }
-        expr_ref mk_ite(expr* c, expr* t, expr* e) { return mk(symbol("seq.if"), c, t, e, nullptr, m.get_sort(t)); }
+        expr_ref mk_ite(expr* c, expr* t, expr* e) { return mk(symbol("seq.if"), c, t, e, nullptr, t->get_sort()); }
         expr_ref mk_last(expr* s);
         expr_ref mk_first(expr* s);
         expr_ref mk_pre(expr* s, expr* i) { return mk(m_pre, s, i); }

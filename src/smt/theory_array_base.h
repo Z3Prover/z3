@@ -46,7 +46,7 @@ namespace smt {
         bool is_array_ext(app const * n) const { return n->is_app_of(get_id(), OP_ARRAY_EXT); }
         bool is_as_array(app const * n) const { return n->is_app_of(get_id(), OP_AS_ARRAY); }
         bool is_array_sort(sort const* s) const { return s->is_sort_of(get_id(), ARRAY_SORT); }
-        bool is_array_sort(app const* n) const { return is_array_sort(get_manager().get_sort(n)); }
+        bool is_array_sort(app const* n) const { return is_array_sort(n->get_sort()); }
         bool is_set_has_size(app const* n) const { return n->is_app_of(get_id(), OP_SET_HAS_SIZE); }
         bool is_set_card(app const* n) const { return n->is_app_of(get_id(), OP_SET_CARD); }
 

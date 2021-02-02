@@ -144,7 +144,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
             func_decl_ref f_t(mk_uf_for_array(args[0]), m_manager);
             func_decl_ref f_s(mk_uf_for_array(args[1]), m_manager);
 
-            sort * sorts[1] = { get_index_sort(m_manager.get_sort(args[0])) };
+            sort * sorts[1] = { get_index_sort(args[0]->get_sort()) };
             symbol names[1] = { symbol("x") };
             var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
 
@@ -167,7 +167,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
         TRACE("bvarray2uf_rw", tout << "(ite " << c << ", " << f_t->get_name()
             << ", " << f_f->get_name() << ")" << std::endl;);
 
-        sort * sorts[1] = { get_index_sort(m_manager.get_sort(args[1])) };
+        sort * sorts[1] = { get_index_sort(args[1]->get_sort()) };
         symbol names[1] = { symbol("x") };
         var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
 

@@ -92,7 +92,7 @@ namespace qe {
                 for (unsigned i = 0; i < sz; ++i) {
                     expr_ref save(m);
                     save = lhs = args[i].get();                    
-                    args[i] = arith.mk_numeral(rational(0), m.get_sort(lhs));
+                    args[i] = arith.mk_numeral(rational(0), lhs->get_sort());
                     rhs = arith.mk_uminus(arith.mk_add(args.size(), args.c_ptr()));
                     if (arith.is_mul(lhs, e1, e2) && 
                         arith.is_numeral(e1, r) &&
@@ -165,7 +165,7 @@ namespace qe {
                 expr_ref store_B_i_t(m);
 
                 unsigned num_args = args[0].size();
-                B = m.mk_fresh_const("B", m.get_sort(A));
+                B = m.mk_fresh_const("B", A->get_sort());
                 ptr_buffer<expr> args2;
                 args2.push_back(B);
                 for (unsigned i = 0; i < num_args; ++i) {
@@ -232,7 +232,7 @@ namespace qe {
                 for (unsigned i = args.size(); i > 0; ) {
                     --i;
                     args2.reset();
-                    w = m.mk_fresh_const("w", m.get_sort(args[i].back()));
+                    w = m.mk_fresh_const("w", args[i].back()->get_sort());
                     args2.push_back(store_T);
                     args2.append(args[i]);
                     

@@ -2075,7 +2075,7 @@ namespace qe {
                 for (unsigned i = 0; i < num_vars; ++i) {
                     contains_app contains_x(m, vars[i]);
                     if (contains_x(fml)) {
-                        sorts.push_back(m.get_sort(vars[i]));
+                        sorts.push_back(vars[i]->get_sort());
                         names.push_back(vars[i]->get_decl()->get_name());
                         free_vars.push_back(vars[i]);
                     }

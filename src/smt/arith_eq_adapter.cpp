@@ -170,7 +170,7 @@ namespace smt {
             ge = m_util.mk_ge(t1, t2);
         }        
         else {
-            sort * st       = m.get_sort(t1);
+            sort * st       = t1->get_sort();
             app_ref minus_one(m_util.mk_numeral(rational::minus_one(), st), m);
             app_ref zero(m_util.mk_numeral(rational::zero(), st), m);
             app_ref t3(m_util.mk_mul(minus_one, t2), m);

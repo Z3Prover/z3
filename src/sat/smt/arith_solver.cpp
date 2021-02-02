@@ -313,7 +313,7 @@ namespace arith {
         expr* e2 = n2->get_expr();
         if (m.is_ite(e1) || m.is_ite(e2))
             return;
-        if (e1->get_sort() != m.get_sort(e2))
+        if (e1->get_sort() != e2->get_sort())
             return;
         reset_evidence();
         for (auto const& ev : e)
@@ -612,7 +612,7 @@ namespace arith {
             SASSERT("integer variables should have integer values: " && (!a.is_int(o) || r.is_int() || m.limit().is_canceled()));
             if (a.is_int(o) && !r.is_int()) 
                 r = floor(r);
-            value = a.mk_numeral(r, m.get_sort(o));
+            value = a.mk_numeral(r, o->get_sort());
         }
         else if (a.is_arith_expr(o)) {
             expr_ref_vector args(m);

@@ -136,7 +136,7 @@ bool induction_lemmas::viable_induction_children(enode* n) {
 
 bool induction_lemmas::viable_induction_term(enode* p, enode* n) {
     return 
-        viable_induction_sort(m.get_sort(n->get_owner())) &&
+        viable_induction_sort(n->get_owner()->get_sort()) &&
         viable_induction_parent(p, n) &&
         viable_induction_children(n);
 }
@@ -281,7 +281,7 @@ void induction_lemmas::mk_hypothesis_substs(unsigned depth, expr* x, cond_substs
 }
 
 void induction_lemmas::mk_hypothesis_substs_rec(unsigned depth, sort* s, expr* y, expr_ref_vector& conds, cond_substs_t& subst) {
-    sort* ys = m.get_sort(y);
+    sort* ys = y->get_sort();
     for (func_decl* c : *m_dt.get_datatype_constructors(ys)) {
         func_decl* is_c = m_dt.get_constructor_recognizer(c);
         conds.push_back(m.mk_app(is_c, y));
@@ -417,7 +417,7 @@ bool induction_lemmas::operator()(literal lit) {
     for (enode* n : induction_positions(r)) {
         expr* t = n->get_owner();
         if (is_uninterp_const(t)) { // for now, to avoid overlapping terms
-            sort* s = m.get_sort(t);
+            sort* s = t->get_sort();
             expr_ref sk(m.mk_fresh_const("sk", s), m);
             sks.push_back(sk);
             rep.insert(t, sk);
@@ -460,7 +460,7 @@ void induction_lemmas::apply_induction(literal lit, induction_positions_t const 
         if (term2skolem.contains(t))
             continue;
         if (i == sks.size()) {
-            sk = m.mk_fresh_const("sk", m.get_sort(t));
+            sk = m.mk_fresh_const("sk", t->get_sort());
             sks.push_back(sk);
         }
         else {

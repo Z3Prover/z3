@@ -654,7 +654,7 @@ namespace smt {
                Remark: this method uses get_fresh_value, so it may fail.
             */
             expr* get_k_interp(app* k) {
-                sort* s = m.get_sort(k);
+                sort* s = k->get_sort();
                 SASSERT(is_infinite(s));
                 func_decl* k_decl = k->get_decl();
                 expr* r = m_model->get_const_interp(k_decl);
@@ -1914,7 +1914,7 @@ namespace smt {
                         if (is_var_and_ground(to_app(atom)->get_arg(0), to_app(atom)->get_arg(1), v, tmp, inv)) {
                             if (inv)
                                 le = !le;
-                            sort* s = m.get_sort(tmp);
+                            sort* s = tmp->get_sort();
                             expr_ref one(m);
                             one = mk_one(s);
                             if (le)

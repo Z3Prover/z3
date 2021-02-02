@@ -67,7 +67,7 @@ namespace nlarith {
             ast_manager& m = m_lits.get_manager();
             std::string name = m_x->get_decl()->get_name().str();
             name += suffix;
-            sort* r = m.get_sort(m_x);
+            sort* r = m_x->get_sort();
             v= m.mk_const(symbol(name.c_str()), r);
         }
     };

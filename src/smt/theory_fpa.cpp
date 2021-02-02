@@ -533,7 +533,7 @@ namespace smt {
 
     model_value_proc * theory_fpa::mk_value(enode * n, model_generator & mg) {
         TRACE("t_fpa", tout << "mk_value for: " << mk_ismt2_pp(n->get_owner(), m) <<
-                            " (sort " << mk_ismt2_pp(m.get_sort(n->get_owner()), m) << ")\n";);
+                            " (sort " << mk_ismt2_pp(n->get_owner()->get_sort(), m) << ")\n";);
 
         app_ref owner(m);
         owner = get_ite_value(n->get_owner());

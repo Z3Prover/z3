@@ -1444,7 +1444,7 @@ namespace smt2 {
         // compute match condition and substitution
         // t is shifted by size of subst.
         expr_ref bind_match(expr* t, expr* pattern, expr_ref_vector& subst) {
-            if (t->get_sort() != m().get_sort(pattern)) {
+            if (t->get_sort() != pattern->get_sort()) {
                 std::ostringstream str;
                 str << "sorts of pattern " << expr_ref(pattern, m()) << " and term " 
                     << expr_ref(t, m()) << " are not aligned";
@@ -2271,7 +2271,7 @@ namespace smt2 {
             unsigned num_vars  = parse_sorted_vars();
             parse_sort("Invalid function definition");
             parse_expr();
-            if (m().get_sort(expr_stack().back()) != sort_stack().back())
+            if (expr_stack().back()->get_sort() != sort_stack().back())
                 throw parser_exception("invalid function/constant definition, sort mismatch");
             sort* const* sorts = sort_stack().c_ptr() + sort_spos;
             expr* t = expr_stack().back();
@@ -2427,11 +2427,11 @@ namespace smt2 {
             symbol_stack().shrink(sym_spos);
             m_env.end_scope();
             m_num_bindings = 0;
-            if (m().get_sort(body) != f->get_range()) {
+            if (body->get_sort() != f->get_range()) {
                 std::ostringstream buffer;
                 buffer << "invalid function definition, sort mismatch. Expcected "
                        << mk_pp(f->get_range(), m()) << " but function body has sort "
-                       << mk_pp(m().get_sort(body), m());
+                       << mk_pp(body->get_sort(), m());
                 throw parser_exception(buffer.str());
             }
             m_ctx.insert_rec_fun(f, bindings, ids, body);
@@ -2448,7 +2448,7 @@ namespace smt2 {
             next();
             parse_sort("Invalid constant definition");
             parse_expr();
-            if (m().get_sort(expr_stack().back()) != sort_stack().back())
+            if (expr_stack().back()->get_sort() != sort_stack().back())
                 throw parser_exception("invalid constant definition, sort mismatch");
             m_ctx.insert(id, 0, nullptr, expr_stack().back());
             check_rparen("invalid constant definition, ')' expected");

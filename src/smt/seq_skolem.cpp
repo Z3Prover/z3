@@ -169,7 +169,7 @@ bool seq_skolem::is_post(expr* e, expr*& s, expr*& start) {
 expr_ref seq_skolem::mk_unit_inv(expr* n) {
     expr* u = nullptr;
     VERIFY(seq.str.is_unit(n, u));
-    sort* s = m.get_sort(u);
+    sort* s = u->get_sort();
     return mk(symbol("seq.unit-inv"), n, s);
 }
 
@@ -180,7 +180,7 @@ expr_ref seq_skolem::mk_last(expr* s) {
         return expr_ref(seq.str.mk_char(str, str.length()-1), m);
     }
     sort* char_sort = nullptr;
-    VERIFY(seq.is_seq(m.get_sort(s), char_sort));
+    VERIFY(seq.is_seq(s->get_sort(), char_sort));
     return mk(m_seq_last, s, char_sort);
 }
 

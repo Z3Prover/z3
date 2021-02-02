@@ -511,7 +511,7 @@ namespace dt {
         };
         for (enode* arg : euf::enode_args(parentc)) {
             add(arg);
-            sort* s = m.get_sort(arg->get_expr());
+            sort* s = arg->get_expr()->get_sort();
             if (m_autil.is_array(s) && dt.is_datatype(get_array_range(s)))
                 for (enode* aarg : get_array_args(arg))
                     add(aarg);

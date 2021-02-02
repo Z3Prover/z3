@@ -147,7 +147,7 @@ namespace smt {
         unsigned get_bv_size(app const * n) const { return m_util.get_bv_size(n); }
         unsigned get_bv_size(enode const * n) const { return m_util.get_bv_size(n->get_owner()); }
         unsigned get_bv_size(theory_var v) const { return get_bv_size(get_enode(v)); }
-        bool is_bv(app const* n) const { return m_util.is_bv_sort(get_manager().get_sort(n)); }
+        bool is_bv(app const* n) const { return m_util.is_bv_sort(n->get_sort()); }
         bool is_bv(enode const* n) const { return is_bv(n->get_owner()); }
         bool is_bv(theory_var v) const { return is_bv(get_enode(v)); }
         region & get_region() { return m_trail_stack.get_region(); }

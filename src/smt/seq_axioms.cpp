@@ -870,7 +870,7 @@ void seq_axioms::add_suffix_axiom(expr* e) {
     add_axiom(lit, s_gt_t, ~mk_eq(y, s));    
 #else
     sort* char_sort = nullptr;
-    VERIFY(seq.is_seq(m.get_sort(s), char_sort));
+    VERIFY(seq.is_seq(s->get_sort(), char_sort));
     expr_ref x = m_sk.mk("seq.suffix.x", s, t);
     expr_ref y = m_sk.mk("seq.suffix.y", s, t);
     expr_ref z = m_sk.mk("seq.suffix.z", s, t);
@@ -899,7 +899,7 @@ void seq_axioms::add_prefix_axiom(expr* e) {
 
 #else
     sort* char_sort = nullptr;
-    VERIFY(seq.is_seq(m.get_sort(s), char_sort));
+    VERIFY(seq.is_seq(s->get_sort(), char_sort));
     expr_ref x = m_sk.mk("seq.prefix.x", s, t);
     expr_ref y = m_sk.mk("seq.prefix.y", s, t);
     expr_ref z = m_sk.mk("seq.prefix.z", s, t);

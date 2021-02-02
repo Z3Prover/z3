@@ -2415,7 +2415,7 @@ void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args
     }
     else if (num == 2 &&
         m_util.is_rm(args[0]) &&
-        m_util.is_float(m.get_sort(args[1]))) {
+        m_util.is_float(args[1]->get_sort())) {
         // rm + float -> float
         mk_to_fp_float(f, f->get_range(), args[0], args[1], result);
     }
@@ -3223,7 +3223,7 @@ void fpa2bv_converter::mk_to_ieee_bv_unspecified(func_decl * f, unsigned num, ex
     else {
         expr_ref nw = nan_wrap(args[0]);
 
-        sort * domain[1] = { m.get_sort(nw) };
+        sort * domain[1] = { nw->get_sort() };
         func_decl * f_bv = mk_bv_uf(f, domain, f->get_range());
         result = m.mk_app(f_bv, nw);
 
@@ -3439,7 +3439,7 @@ void fpa2bv_converter::mk_to_bv_unspecified(func_decl * f, unsigned num, expr * 
     else {
         expr * rm_bv = to_app(args[0])->get_arg(0);
         expr_ref nw = nan_wrap(args[1]);
-        sort * domain[2] = { m.get_sort(rm_bv), m.get_sort(nw) };
+        sort * domain[2] = { rm_bv->get_sort(), nw->get_sort() };
         func_decl * f_bv = mk_bv_uf(f, domain, f->get_range());
         result = m.mk_app(f_bv, rm_bv, nw);
     }
@@ -3456,7 +3456,7 @@ void fpa2bv_converter::mk_to_real_unspecified(func_decl * f, unsigned num, expr 
     else {
         expr * n = args[0];
         expr_ref nw = nan_wrap(n);
-        sort * domain[1] = { m.get_sort(nw) };
+        sort * domain[1] = { nw->get_sort() };
         func_decl * f_bv = mk_bv_uf(f, domain, f->get_range());
         result = m.mk_app(f_bv, nw);
     }

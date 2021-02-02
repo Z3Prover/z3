@@ -59,7 +59,7 @@ namespace smt {
     }
 
     app * theory_array_base::mk_default(expr * a) {
-        sort * s = m.get_sort(a);
+        sort * s = a->get_sort();
         unsigned num_params = get_dimension(s);
         parameter const* params = s->get_info()->get_parameters();
         return m.mk_app(get_family_id(), OP_ARRAY_DEFAULT, num_params, params, 1, & a);
@@ -564,13 +564,13 @@ namespace smt {
             TRACE("array_bug", tout << "mk_interface_eqs: processing: v" << *it1 << "\n";);
             theory_var  v1 = *it1;
             enode *     n1 = get_enode(v1);
-            sort *      s1 = m.get_sort(n1->get_owner());
+            sort *      s1 = n1->get_owner()->get_sort();
             sbuffer<theory_var>::iterator it2 = it1;
             ++it2;
             for (; it2 != end1; ++it2) {
                 theory_var v2 = *it2;
                 enode *    n2 = get_enode(v2);
-                sort *     s2 = m.get_sort(n2->get_owner());
+                sort *     s2 = n2->get_owner()->get_sort();
                 if (s1 == s2 && !ctx.is_diseq(n1, n2)) {
                     app * eq  = mk_eq_atom(n1->get_owner(), n2->get_owner());
                     if (!ctx.b_internalized(eq) || !ctx.is_relevant(eq)) {
@@ -983,7 +983,7 @@ namespace smt {
         SASSERT(ctx.is_relevant(n));
         theory_var v       = n->get_th_var(get_id());
         SASSERT(v != null_theory_var);
-        sort * s           = m.get_sort(n->get_owner());
+        sort * s           = n->get_owner()->get_sort();
         enode * else_val_n = get_default(v);
         array_value_proc * result = nullptr;
 

@@ -293,7 +293,7 @@ public:
             throw cmd_exception("invalid command, mismatch between the number of quantified variables and the number of arguments.");
         unsigned i = num;
         while (i-- > 0) {
-            sort * s = ctx.m().get_sort(ts[i]);
+            sort * s = ts[i]->get_sort();
             if (s != m_q->get_decl_sort(i)) {
                 std::ostringstream buffer;
                 buffer << "invalid command, sort mismatch at position " << i;

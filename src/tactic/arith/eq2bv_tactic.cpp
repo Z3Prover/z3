@@ -35,7 +35,7 @@ class eq2bv_tactic : public tactic {
             expr* z;
             rational r;
             if (t.m_fd.find(x, z) && t.a.is_numeral(y, r)) {
-                result = m.mk_eq(z, t.bv.mk_numeral(r, m.get_sort(z)));
+                result = m.mk_eq(z, t.bv.mk_numeral(r, z->get_sort()));
                 return true;
             }
             else {
@@ -249,13 +249,13 @@ public:
             if (m_bounds.has_lower(c, r, strict) && !r.is_neg()) {
                 SASSERT(!strict);
                 expr* d = m_fd.find(c);
-                fml = bv.mk_ule(bv.mk_numeral(r, m.get_sort(d)), d);
+                fml = bv.mk_ule(bv.mk_numeral(r, d->get_sort()), d);
                 g->assert_expr(fml, m_bounds.lower_dep(c));
             }
             if (m_bounds.has_upper(c, r, strict) && !r.is_neg()) {
                 SASSERT(!strict);
                 expr* d = m_fd.find(c);
-                fml = bv.mk_ule(d, bv.mk_numeral(r, m.get_sort(d)));
+                fml = bv.mk_ule(d, bv.mk_numeral(r, d->get_sort()));
                 g->assert_expr(fml, m_bounds.upper_dep(c));
             }
         }        

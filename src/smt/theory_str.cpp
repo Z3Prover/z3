@@ -319,7 +319,7 @@ namespace smt {
     theory_var theory_str::mk_var(enode* n) {
         TRACE("str", tout << "mk_var for " << mk_pp(n->get_owner(), get_manager()) << std::endl;);
         ast_manager & m = get_manager();
-        if (!(m.get_sort(n->get_owner()) == u.str.mk_string_sort())) {
+        if (!(n->get_owner()->get_sort() == u.str.mk_string_sort())) {
             return null_theory_var;
         }
         if (is_attached_to_var(n)) {

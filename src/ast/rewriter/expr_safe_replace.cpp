@@ -99,7 +99,7 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
                 if (d) {
                     m_args.push_back(d);
                     arg_differs |= arg != d;
-                    SASSERT(arg->get_sort() == m.get_sort(d));
+                    SASSERT(arg->get_sort() == d->get_sort());
                 }
                 else {
                     m_todo.push_back(arg);

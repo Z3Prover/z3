@@ -315,7 +315,7 @@ namespace smt {
             assert_default(n, pr);
             return;
         }
-        sort * s = m.get_sort(n->get_arg(0));
+        sort * s = n->get_arg(0)->get_sort();
         sort_ref u(m.mk_fresh_sort("distinct-elems"), m);
         func_decl_ref f(m.mk_fresh_func_decl("distinct-aux-f", "", 1, &s, u), m);
         for (expr * arg : *n) {
@@ -448,7 +448,7 @@ namespace smt {
         d.set_eq_flag();
         TRACE("internalize", tout << mk_pp(n, m) << " " << literal(v, false) << "\n";);
         
-        sort * s    = m.get_sort(n->get_arg(0));
+        sort * s    = n->get_arg(0)->get_sort();
         theory * th = m_theories.get_plugin(s->get_family_id());
         if (th)
             th->internalize_eq_eh(n, v);
@@ -582,7 +582,7 @@ namespace smt {
         if (e_internalized(q)) {
             return;
         }
-        app_ref lam_name(m.mk_fresh_const("lambda", m.get_sort(q)), m);
+        app_ref lam_name(m.mk_fresh_const("lambda", q->get_sort()), m);
         app_ref eq(m), lam_app(m);
         expr_ref_vector vars(m);
         vars.push_back(lam_name);

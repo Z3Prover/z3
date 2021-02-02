@@ -325,7 +325,7 @@ private:
             if (k == OP_EQ) {
                 // theory dispatch for =
                 SASSERT(num == 2);
-                family_id s_fid = m.get_sort(values.get(0))->get_family_id();
+                family_id s_fid = values[0]->get_sort()->get_family_id();
                 if (s_fid == m_bv_rw.get_fid())
                     m_bv_rw.mk_eq_core(values.get(0), values.get(1), result);
             } else {

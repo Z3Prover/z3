@@ -4487,7 +4487,7 @@ namespace smt {
     }
 
     bool context::get_value(enode * n, expr_ref & value) {
-        sort * s      = m.get_sort(n->get_owner());
+        sort * s      = n->get_owner()->get_sort();
         family_id fid = s->get_family_id();
         theory * th   = get_theory(fid);
         if (th == nullptr)

@@ -804,7 +804,7 @@ namespace smt {
             enode * n = get_enode(v);
             if (m_autil.is_zero(n->get_owner()) && !m_assignment[v].is_zero()) {
                 numeral val = m_assignment[v];
-                sort * s = m.get_sort(n->get_owner());
+                sort * s = n->get_owner()->get_sort();
                 // adjust the value of all variables that have the same sort.
                 for (int v2 = 0; v2 < num_vars; ++v2) {
                     enode * n2 = get_enode(v2);

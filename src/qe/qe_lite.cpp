@@ -2307,7 +2307,7 @@ public:
         ptr_vector<sort> sorts;
         svector<symbol> names;
         for (unsigned i = 0; i < vars.size(); ++i) {
-            sorts.push_back(m.get_sort(vars[i].get()));
+            sorts.push_back(vars[i]->get_sort());
             names.push_back(vars[i]->get_decl()->get_name());
         }
         q = m.mk_exists(vars.size(), sorts.c_ptr(), names.c_ptr(), tmp, 1, qe_lite);

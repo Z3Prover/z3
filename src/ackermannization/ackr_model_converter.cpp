@@ -133,7 +133,7 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
     app* A = to_app(term->get_arg(0));
     expr * e = nullptr, *c = nullptr;
     if (!array_interpretations.find(A, e)) {
-        e = autil.mk_const_array(m.get_sort(A), value);
+        e = autil.mk_const_array(A->get_sort(), value);
     }
     else {
         // avoid storing the same as the default value.

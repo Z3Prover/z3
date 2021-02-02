@@ -1037,7 +1037,7 @@ namespace qe {
             app_ref x(m_ctx.get_var(index-1), m);
             app_ref z(m);
             expr_ref p1(m);
-            sort* s = m.get_sort(p);
+            sort* s = p->get_sort();
             if (is_aux) {
                 // An auxiliary variable was introduced in lieu of 'x'.
                 // it has coefficient 'm' = values[index].

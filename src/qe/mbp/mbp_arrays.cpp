@@ -1257,7 +1257,7 @@ namespace mbp {
             if (s == m_var->x()) {
                 expr_ref result(t, m);
                 expr_ref_vector args(m);
-                sort* range = get_array_range(m.get_sort(s));
+                sort* range = get_array_range(s->get_sort());
                 for (unsigned i = 0; i < idxs.size(); ++i) {
                     app_ref var(m), sel(m);
                     expr_ref val(m);
@@ -1559,7 +1559,7 @@ namespace mbp {
                 lits.push_back(m.mk_eq(a1, a2));
             }
             else {
-                sort* s = m.get_sort(store->get_arg(indices.size() + 1));
+                sort* s = store->get_arg(indices.size() + 1)->get_sort();
                 for (app* idx : *m_indices[s]) {
                     indices.push_back(idx);
                     assert_store_select(indices, store, mdl, tg, lits);

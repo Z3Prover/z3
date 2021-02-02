@@ -258,7 +258,7 @@ private:
           m_manager(m), m_app2sortid(app2sort), m_max_id(0) {}
 
         void operator()(app* n) {
-            sort* s = m_manager.get_sort(n);
+            sort* s = n->get_sort();
             unsigned id;
             if (!m_sort2id.find(s, id)) {
                 id = m_max_id++;

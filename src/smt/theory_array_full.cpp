@@ -579,7 +579,7 @@ namespace smt {
 
     bool theory_array_full::has_unitary_domain(app* array_term) {
         SASSERT(is_array_sort(array_term));
-        sort* s = m.get_sort(array_term);
+        sort* s = array_term->get_sort();
         unsigned dim = get_dimension(s);
         parameter const * params = s->get_info()->get_parameters();
         for (unsigned i = 0; i < dim; ++i) {
@@ -593,7 +593,7 @@ namespace smt {
 
    bool theory_array_full::has_large_domain(app* array_term) {
         SASSERT(is_array_sort(array_term));
-        sort* s = m.get_sort(array_term);
+        sort* s = array_term->get_sort();
         unsigned dim = get_dimension(s);
         parameter const *  params = s->get_info()->get_parameters();
         rational sz(1);

@@ -425,7 +425,7 @@ namespace array {
 
     bool solver::has_unitary_domain(app* array_term) {
         SASSERT(a.is_array(array_term));
-        sort* s = m.get_sort(array_term);
+        sort* s = array_term->get_sort();
         unsigned dim = get_array_arity(s);
         for (unsigned i = 0; i < dim; ++i) {
             sort* d = get_array_domain(s, i);
@@ -437,7 +437,7 @@ namespace array {
 
     bool solver::has_large_domain(expr* array_term) {
         SASSERT(a.is_array(array_term));
-        sort* s = m.get_sort(array_term);
+        sort* s = array_term->get_sort();
         unsigned dim = get_array_arity(s);
         rational sz(1);
         for (unsigned i = 0; i < dim; ++i) {
@@ -504,7 +504,7 @@ namespace array {
             for (unsigned j = i; j-- > 0; ) {
                 theory_var v2 = roots[j];
                 expr* e2 = var2expr(v2);
-                if (e1->get_sort() != m.get_sort(e2))
+                if (e1->get_sort() != e2->get_sort())
                     continue;
                 if (have_different_model_values(v1, v2))
                     continue;

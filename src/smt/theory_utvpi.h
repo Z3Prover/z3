@@ -328,7 +328,7 @@ namespace smt {
 
         th_var get_zero(sort* s) { return a.is_int(s) ? m_izero : m_rzero; }
 
-        th_var get_zero(expr* e) { return get_zero(get_manager().get_sort(e)); }
+        th_var get_zero(expr* e) { return get_zero(e->get_sort()); }
 
         void init_zero();
 

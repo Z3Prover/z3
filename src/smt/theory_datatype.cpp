@@ -274,7 +274,7 @@ namespace smt {
             assert_update_field_axioms(n);
         }
         else {
-            sort * s      = m.get_sort(n->get_owner());
+            sort * s      = n->get_owner()->get_sort();
             if (m_util.get_datatype_num_constructors(s) == 1) {
                 func_decl * c = m_util.get_datatype_constructors(s)->get(0);
                 assert_is_constructor_axiom(n, c, null_literal);
@@ -333,7 +333,7 @@ namespace smt {
             //
             for (unsigned i = 0; i < num_args; i++) {
                 enode * arg = e->get_arg(i);
-                sort * s    = m.get_sort(arg->get_owner());
+                sort * s    = arg->get_owner()->get_sort();
                 if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
                     app_ref def(m_autil.mk_default(arg->get_owner()), m);
                     if (!ctx.e_internalized(def)) {
@@ -528,7 +528,7 @@ namespace smt {
                 }
                 found = true;
             }
-            sort * s = m.get_sort(arg->get_owner());
+            sort * s = arg->get_owner()->get_sort();
             if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
                 for (enode* aarg : get_array_args(arg)) {
                     if (aarg->get_root() == child->get_root()) {
@@ -864,7 +864,7 @@ namespace smt {
         unsigned num_unassigned  = 0;
         unsigned unassigned_idx  = UINT_MAX;
         enode * n       = get_enode(v);
-        sort * dt       = m.get_sort(n->get_owner());
+        sort * dt       = n->get_owner()->get_sort();
         var_data * d    = m_var_data[v];
         if (d->m_recognizers.empty()) {
             theory_var w = recognizer->get_arg(0)->get_th_var(get_id());
@@ -947,7 +947,7 @@ namespace smt {
     void theory_datatype::mk_split(theory_var v) {
         v                     = m_find.find(v);
         enode * n             = get_enode(v);
-        sort * s              = m.get_sort(n->get_owner());
+        sort * s              = n->get_owner()->get_sort();
         func_decl * non_rec_c = m_util.get_non_rec_constructor(s); 
         unsigned non_rec_idx  = m_util.get_constructor_idx(non_rec_c);
         var_data * d          = m_var_data[v];
