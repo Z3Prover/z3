@@ -118,7 +118,7 @@ expr * user_sort_factory::get_fresh_value(sort * s) {
 }
 
 void user_sort_factory::register_value(expr * n) {
-    SASSERT(!is_finite(m_manager.get_sort(n)));
+    SASSERT(!is_finite(n->get_sort()));
     simple_factory<unsigned>::register_value(n);
 }
 

@@ -393,7 +393,7 @@ namespace bv {
     void solver::assert_bv2int_axiom(app* n) {
         expr* k = nullptr;        
         VERIFY(bv.is_bv2int(n, k));
-        SASSERT(bv.is_bv_sort(m.get_sort(k)));
+        SASSERT(bv.is_bv_sort(k->get_sort()));
         expr_ref_vector k_bits(m);
         euf::enode* k_enode = expr2enode(k);
         get_bits(k_enode, k_bits);

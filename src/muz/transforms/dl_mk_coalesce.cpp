@@ -48,10 +48,10 @@ namespace datalog {
         for (unsigned i = 0; i < sz; ++i) {
             expr* a = p1->get_arg(i);
             expr* b = p2->get_arg(i);
-            SASSERT(m.get_sort(a) == m.get_sort(b));
+            SASSERT(a->get_sort() == b->get_sort());
             m_sub1.push_back(a);
             m_sub2.push_back(b);
-            args.push_back(m.mk_var(m_idx++, m.get_sort(a)));
+            args.push_back(m.mk_var(m_idx++, a->get_sort()));
         }
         pred = m.mk_app(p1->get_decl(), args.size(), args.c_ptr());
     }
@@ -80,14 +80,14 @@ namespace datalog {
                     }
                     else {
                         SASSERT(revsub[v].get());
-                        SASSERT(m.get_sort(revsub[v].get()) == s);
+                        SASSERT(revsub[v]->get_sort() == s);
                         conjs.push_back(m.mk_eq(revsub[v].get(), w));    
                     }
                 }
             }
             else {
                 SASSERT(m.is_value(e));
-                SASSERT(e->get_sort() == m.get_sort(w));
+                SASSERT(e->get_sort() == w->get_sort());
                 conjs.push_back(m.mk_eq(e, w));
             }
         }

@@ -185,7 +185,7 @@ namespace datalog {
 
         void to_formula(expr_ref& fml) const override {
             ast_manager& m = fml.get_manager();
-            fml = m.mk_eq(m.mk_var(0, m.get_sort(m_data[0])), m_data[0]);
+            fml = m.mk_eq(m.mk_var(0, m_data[0]->get_sort()), m_data[0]);
         }
 
         bool is_undefined(unsigned col_idx) const {

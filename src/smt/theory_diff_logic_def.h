@@ -1036,7 +1036,7 @@ void theory_diff_logic<Ext>::new_eq_or_diseq(bool is_eq, theory_var v1, theory_v
         app* s1 = get_enode(s)->get_owner();
         app* t1 = get_enode(t)->get_owner();
         s2 = m_util.mk_sub(t1, s1);
-        t2 = m_util.mk_numeral(k, m.get_sort(s2.get()));
+        t2 = m_util.mk_numeral(k, s2->get_sort());
         // t1 - s1 = k
         eq = m.mk_eq(s2.get(), t2.get());
         if (m.has_trace_stream()) {
@@ -1370,7 +1370,7 @@ expr_ref theory_diff_logic<Ext>::mk_ineq(theory_var v, inf_eps const& val, bool 
     }
 
     inf_eps new_val = val; // - inf_rational(m_objective_consts[v]);
-    e = m_util.mk_numeral(new_val.get_rational(), m.get_sort(f));
+    e = m_util.mk_numeral(new_val.get_rational(), f->get_sort());
     
     if (new_val.get_infinitesimal().is_neg()) {
         if (is_strict) {

@@ -723,7 +723,7 @@ namespace datalog {
             func_decl* d = p->get_decl();
             SASSERT(d->get_family_id() == null_family_id);
             for (unsigned i = 0; i < p->get_num_args(); ++i) {
-                domain.push_back(compile_sort(m.get_sort(p->get_arg(i))));
+                domain.push_back(compile_sort(p->get_arg(i)->get_sort()));
             }
             func_decl_ref fn(m);
             fn = m.mk_func_decl(d->get_name(), domain.size(), domain.c_ptr(), m.mk_bool_sort());
@@ -850,7 +850,7 @@ namespace datalog {
             ddnf_nodes const& ns = m_ddnfs.lookup(num_bits, *t);
             ddnf_nodes::iterator it = ns.begin(), end = ns.end();
             expr_ref_vector eqs(m);
-            sort* s = m.get_sort(w);
+            sort* s = w->get_sort();
             for (; it != end; ++it) {
                 eqs.push_back(m.mk_eq(w, bv.mk_numeral(rational((*it)->get_id()), s)));
             }

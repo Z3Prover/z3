@@ -53,7 +53,7 @@ expr_ref func_decl_replace::operator()(expr* e) {
                 if (arg_differs) {
                     b = m.mk_app(c->get_decl(), m_args.size(), m_args.c_ptr());
                     m_refs.push_back(b);
-                    SASSERT(m.get_sort(a) == m.get_sort(b));
+                    SASSERT(a->get_sort() == b->get_sort());
                 } else {
                     b = a;
                 }

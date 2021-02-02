@@ -566,7 +566,7 @@ bool theory_seq::check_extensionality() {
             for (theory_var v : seqs) {
                 enode* n2 = get_enode(v);
                 expr* o2 = n2->get_owner();
-                if (m.get_sort(o1) != m.get_sort(o2)) {
+                if (o1->get_sort() != o2->get_sort()) {
                     continue;
                 }
                 if (ctx.is_diseq(n1, n2) || m_exclude.contains(o1, o2)) {
@@ -1773,7 +1773,7 @@ void theory_seq::init_model(expr_ref_vector const& es) {
         expr_ref s(m);
         if (!canonize(e, eqs, s)) s = e;
         if (is_var(s)) {
-            new_s = m_factory->get_fresh_value(m.get_sort(s));
+            new_s = m_factory->get_fresh_value(s->get_sort());
             m_rep.update(s, new_s, eqs);
         }
     }
@@ -1993,7 +1993,7 @@ app* theory_seq::mk_value(app* e) {
     if (is_var(result)) {
         SASSERT(m_factory);
         expr_ref val(m);
-        val = m_factory->get_fresh_value(m.get_sort(result));
+        val = m_factory->get_fresh_value(result->get_sort());
         if (val) {
             result = val;
         }
@@ -2013,7 +2013,7 @@ void theory_seq::validate_model(model& mdl) {
     for (auto const& eq : m_eqs) {
         expr_ref_vector ls = eq.ls();
         expr_ref_vector rs = eq.rs();
-        sort* srt = m.get_sort(ls.get(0));
+        sort* srt = ls[0]->get_sort();
         expr_ref l(m_util.str.mk_concat(ls, srt), m);
         expr_ref r(m_util.str.mk_concat(rs, srt), m);
         if (!mdl.are_equal(l, r)) {
@@ -2719,7 +2719,7 @@ void theory_seq::ensure_nth(literal lit, expr* s, expr* idx) {
         s2 = tail;
     }
     elems.push_back(s2);
-    conc = mk_concat(elems, m.get_sort(s));
+    conc = mk_concat(elems, s->get_sort());
     propagate_eq(lit, s, conc, true);
 }
 

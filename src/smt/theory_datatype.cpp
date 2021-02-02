@@ -596,7 +596,7 @@ namespace smt {
             }
             // explore `arg` (with parent)
             expr* earg = arg->get_owner();
-            sort* s = m.get_sort(earg);
+            sort* s = earg->get_sort();
             if (m_util.is_datatype(s)) {
                 m_parent.insert(arg->get_root(), parent);
                 oc_push_stack(arg);
@@ -610,7 +610,7 @@ namespace smt {
                         occurs_check_explain(parent, aarg);
                         return true;
                     }
-                    if (m_util.is_datatype(m.get_sort(aarg->get_owner()))) {
+                    if (m_util.is_datatype(aarg->get_owner()->get_sort())) {
                         m_parent.insert(aarg->get_root(), parent);
                         oc_push_stack(aarg);
                     }

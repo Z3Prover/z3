@@ -92,7 +92,7 @@ namespace {
                     if (j < i && non_values.contains(j)) continue;
                     if (found_root_value && !non_values.contains(j)) continue;
                     expr* s = terms[j].term;
-                    SASSERT(m.get_sort(t) == m.get_sort(s));
+                    SASSERT(t->get_sort() == s->get_sort());
                     ++m_stats_calls;
                     m_solver.push();
                     m_solver.assert_expr(m.mk_not(m.mk_eq(s, t)));
@@ -118,7 +118,7 @@ namespace {
                 expr* t = terms[i].term;
                 for (unsigned j = 0; j < i; ++j) {
                     expr* s = terms[j].term;
-                    SASSERT(m.get_sort(t) == m.get_sort(s));
+                    SASSERT(t->get_sort() == s->get_sort());
                     ++m_stats_calls;
                     m_stats_timer.start();
                     m_solver.push();

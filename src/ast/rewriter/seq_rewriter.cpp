@@ -47,7 +47,7 @@ expr_ref sym_expr::accept(expr* e) {
         result = m.mk_not(result);
         break;
     case t_char:
-        SASSERT(e->get_sort() == m.get_sort(m_t));
+        SASSERT(e->get_sort() == m_t->get_sort());
         SASSERT(e->get_sort() == m_sort);
         result = m.mk_eq(e, m_t);
         break;
@@ -736,7 +736,7 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         st = lift_ites_throttled(f, num_args, args, result);
     }
     CTRACE("seq_verbose", st != BR_FAILED, tout << expr_ref(m().mk_app(f, num_args, args), m()) << " -> " << result << "\n";);
-    SASSERT(st == BR_FAILED || m().get_sort(result) == f->get_range());
+    SASSERT(st == BR_FAILED || result->get_sort() == f->get_range());
     return st;
 }
 
@@ -2907,7 +2907,7 @@ expr_ref seq_rewriter::mk_der_cond(expr* cond, expr* ele, sort* seq_sort) {
         <<  mk_pp(cond, m()) << ", " << mk_pp(ele, m()) << std::endl;);
     sort *ele_sort = nullptr;
     VERIFY(u().is_seq(seq_sort, ele_sort));
-    SASSERT(ele_sort == m().get_sort(ele));
+    SASSERT(ele_sort == ele->get_sort());
     expr *c1 = nullptr, *c2 = nullptr, *ch1 = nullptr, *ch2 = nullptr;
     unsigned ch = 0;
     expr_ref result(m()), r1(m()), r2(m());
@@ -2959,7 +2959,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
     sort* seq_sort = nullptr, *ele_sort = nullptr;
     VERIFY(m_util.is_re(r, seq_sort));
     VERIFY(m_util.is_seq(seq_sort, ele_sort));
-    SASSERT(ele_sort == m().get_sort(ele));
+    SASSERT(ele_sort == ele->get_sort());
     expr* r1 = nullptr, *r2 = nullptr, *p = nullptr;
     auto mk_empty = [&]() { return expr_ref(re().mk_empty(r->get_sort()), m()); };
     unsigned lo = 0, hi = 0;
@@ -4214,7 +4214,7 @@ bool seq_rewriter::reduce_back(expr_ref_vector& ls, expr_ref_vector& rs, expr_re
             SASSERT(s.length() > 0);
             
             app_ref ch(str().mk_char(s, s.length()-1), m());
-            SASSERT(m().get_sort(ch) == a->get_sort());
+            SASSERT(ch->get_sort() == a->get_sort());
             new_eqs.push_back(ch, a);
             ls.pop_back();
             if (s.length() == 1) {
@@ -4281,7 +4281,7 @@ bool seq_rewriter::reduce_front(expr_ref_vector& ls, expr_ref_vector& rs, expr_r
         else if (str().is_unit(l, a) && str().is_string(r, s)) {
             SASSERT(s.length() > 0);
             app* ch = str().mk_char(s, 0);
-            SASSERT(m().get_sort(ch) == a->get_sort());
+            SASSERT(ch->get_sort() == a->get_sort());
             new_eqs.push_back(ch, a);
             ++head1;
             if (s.length() == 1) {

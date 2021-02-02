@@ -259,7 +259,7 @@ namespace smt {
        See comments in theory::mk_eq_atom
     */
     app * context::mk_eq_atom(expr * lhs, expr * rhs) {
-        family_id fid = m.get_sort(lhs)->get_family_id();
+        family_id fid = lhs->get_sort()->get_family_id();
         theory * th   = get_theory(fid);
         if (th)
             return th->mk_eq_atom(lhs, rhs);
@@ -474,7 +474,7 @@ namespace smt {
             TRACE("add_eq", tout << "assigning: #" << n1->get_owner_id() << " = #" << n2->get_owner_id() << "\n";);
             TRACE("add_eq_detail", tout << "assigning\n" << enode_pp(n1, *this) << "\n" << enode_pp(n2, *this) << "\n";
                   tout << "kind: " << js.get_kind() << "\n";);
-            SASSERT(m.get_sort(n1->get_owner()) == m.get_sort(n2->get_owner()));
+            SASSERT(n1->get_owner()->get_sort() == n2->get_owner()->get_sort());
 
             m_stats.m_num_add_eq++;
             enode * r1 = n1->get_root();
@@ -1115,14 +1115,14 @@ namespace smt {
        context.
     */
     bool context::is_diseq(enode * n1, enode * n2) const {
-        SASSERT(m.get_sort(n1->get_owner()) == m.get_sort(n2->get_owner()));
+        SASSERT(n1->get_owner()->get_sort() == n2->get_owner()->get_sort());
         context * _this = const_cast<context*>(this);
         if (!m_is_diseq_tmp) {
             app * eq       = m.mk_eq(n1->get_owner(), n2->get_owner());
             m.inc_ref(eq);
             _this->m_is_diseq_tmp = enode::mk_dummy(m, m_app2enode, eq);
         }
-        else if (m.get_sort(m_is_diseq_tmp->get_owner()->get_arg(0)) != m.get_sort(n1->get_owner())) {
+        else if (m_is_diseq_tmp->get_owner()->get_arg(0)->get_sort() != n1->get_owner()->get_sort()) {
             m.dec_ref(m_is_diseq_tmp->get_owner());
             app * eq = m.mk_eq(n1->get_owner(), n2->get_owner());
             m.inc_ref(eq);
@@ -4388,7 +4388,7 @@ namespace smt {
                 bool_var_data & d = get_bdata(v);
                 d.set_eq_flag();
                 set_true_first_flag(v);
-                sort * s    = m.get_sort(to_app(eq)->get_arg(0));
+                sort * s    = to_app(eq)->get_arg(0)->get_sort();
                 theory * th = m_theories.get_plugin(s->get_family_id());
                 if (th)
                     th->internalize_eq_eh(to_app(eq), v);

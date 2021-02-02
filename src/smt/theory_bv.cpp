@@ -604,7 +604,7 @@ namespace smt {
         TRACE("bv2int_bug", tout << "bv2int:\n" << mk_pp(n, m) << "\n";);
         sort * int_sort = n->get_sort();
         app * k = to_app(n->get_arg(0));
-        SASSERT(m_util.is_bv_sort(m.get_sort(k)));
+        SASSERT(m_util.is_bv_sort(k->get_sort()));
         expr_ref_vector k_bits(m);
         enode * k_enode = mk_enode(k);
         get_bits(k_enode, k_bits);

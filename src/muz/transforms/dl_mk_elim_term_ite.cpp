@@ -95,7 +95,7 @@ namespace datalog {
                 continue;
             if (!m_ground.get(i))
                 m_ground[i] = m.mk_fresh_const("c", fv[i]);
-            SASSERT(m.get_sort(m_ground.get(i)) == fv[i]);
+            SASSERT(m_ground[i]->get_sort() == fv[i]);
         }
         var_subst vsub(m, false);
         return vsub(e, m_ground);

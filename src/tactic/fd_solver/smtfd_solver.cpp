@@ -1736,7 +1736,7 @@ namespace smtfd {
                   for (expr* a : subterms(terms)) {
                       expr_ref val0 = (*m_model)(a);
                       expr_ref val1 = (*m_model)(abs(a));
-                      if (is_ground(a) && val0 != val1 && m.get_sort(val0) == m.get_sort(val1)) {
+                      if (is_ground(a) && val0 != val1 && val0->get_sort() == val1->get_sort()) {
                           tout << mk_bounded_pp(a, m, 2) << " := " << val0 << " " << val1 << "\n";
                       }
                       if (!is_forall(a) && !is_exists(a) && (!m_context.term_covered(a) || !m_context.sort_covered(a->get_sort()))) {
@@ -1753,7 +1753,7 @@ namespace smtfd {
                 for (expr* a : subterms(core)) {
                     expr_ref val0 = (*m_model)(a);
                     expr_ref val1 = (*m_model)(abs(a));
-                    if (is_ground(a) && val0 != val1 && m.get_sort(val0) == m.get_sort(val1)) {
+                    if (is_ground(a) && val0 != val1 && val0->get_sort() == val1->get_sort()) {
                         std::cout << mk_bounded_pp(a, m, 2) << " := " << val0 << " " << val1 << "\n";
                         found_bad = true;
                     }

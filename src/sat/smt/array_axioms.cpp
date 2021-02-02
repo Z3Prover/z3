@@ -385,7 +385,7 @@ namespace array {
         ++m_stats.m_num_select_lambda_axiom;
         SASSERT(is_lambda(lambda));
         SASSERT(a.is_select(select));
-        SASSERT(m.get_sort(lambda) == m.get_sort(select->get_arg(0)));
+        SASSERT(lambda->get_sort() == select->get_arg(0)->get_sort());
         ptr_vector<expr> args(select->get_num_args(), select->get_args());
         args[0] = lambda;
         expr_ref alpha(a.mk_select(args), m);

@@ -322,7 +322,7 @@ namespace smt {
         if (is_equal(x, y))
             return;
         // I doesn't make sense to propagate an equality (to the core) of variables of different sort.
-        if (m.get_sort(var2expr(x)) != m.get_sort(var2expr(y))) {
+        if (var2expr(x)->get_sort() != var2expr(y)->get_sort()) {
             TRACE("arith", tout << mk_pp(var2expr(x), m) << " = " << mk_pp(var2expr(y), m) << "\n";);
             return;
         }

@@ -26,7 +26,7 @@ Revision History:
 
 
 void expr_safe_replace::insert(expr* src, expr* dst) {
-    SASSERT(m.get_sort(src) == m.get_sort(dst));
+    SASSERT(src->get_sort() == dst->get_sort());
     m_src.push_back(src);
     m_dst.push_back(dst);
 #if ALIVE_OPT
@@ -111,7 +111,7 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
 #if !ALIVE_OPT
                     m_refs.push_back(b);
 #endif
-                    SASSERT(m.get_sort(a) == m.get_sort(b));
+                    SASSERT(a->get_sort() == b->get_sort());
                 } else {
                     b = a;
                 }

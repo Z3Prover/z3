@@ -1216,9 +1216,9 @@ namespace tb {
             func_decl_ref delta(m);
             sort_ref_vector dom(m);
             for (unsigned j = 0; j < 1; ++j) {
-                for (unsigned i = 0; i < zs.size(); ++i) {
-                    dom.push_back(m.get_sort(zs[i].get()));
-                    zszs.push_back(zs[i].get());
+                for (expr* arg : zs) {
+                    dom.push_back(arg->get_sort());
+                    zszs.push_back(arg);
                 }
             }
             app_ref_vector preds(m);
@@ -1282,7 +1282,7 @@ namespace tb {
             app* p = g.get_head();
             unsigned num_vars = g.get_num_vars();
             for (unsigned i = 0; i < p->get_num_args(); ++i) {
-                result.push_back(m.mk_var(num_vars+i, m.get_sort(p->get_arg(i))));
+                result.push_back(m.mk_var(num_vars+i, p->get_arg(i)->get_sort()));
             }
             return result;
         }

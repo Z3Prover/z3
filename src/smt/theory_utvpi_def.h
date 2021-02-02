@@ -173,7 +173,7 @@ namespace smt {
             app* s1 = get_enode(s)->get_owner();
             app* t1 = get_enode(t)->get_owner();
             s2 = a.mk_sub(t1, s1);
-            t2 = a.mk_numeral(k, m.get_sort(s2.get()));
+            t2 = a.mk_numeral(k, s2->get_sort());
             eq = m.mk_eq(s2.get(), t2.get());
             
             TRACE("utvpi", tout << v1 << " .. " << v2 << "\n" << eq << "\n";);

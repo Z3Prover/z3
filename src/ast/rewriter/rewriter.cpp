@@ -65,7 +65,7 @@ void rewriter_core::cache_shifted_result(expr * k, unsigned offset, expr * v) {
     
     TRACE("rewriter_cache_result", tout << mk_ismt2_pp(k, m()) << "\n--->\n" << mk_ismt2_pp(v, m()) << "\n";);
 
-    SASSERT(m().get_sort(k) == m().get_sort(v));
+    SASSERT(k->get_sort() == v->get_sort());
 
     m_cache->insert(k, offset, v);
 #if 0

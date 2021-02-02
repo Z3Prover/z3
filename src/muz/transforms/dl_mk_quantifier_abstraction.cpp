@@ -95,7 +95,7 @@ namespace datalog {
                 //    the original predicate.
                 expr_safe_replace rep(m);
                 for (unsigned i = 0; i < sub.size(); ++i) {
-                    rep.insert(m.mk_var(i, m.get_sort(sub[i])), sub[i]);
+                    rep.insert(m.mk_var(i, sub[i]->get_sort()), sub[i]);
                 }
                 rep(body);
                 rep.reset();
@@ -130,7 +130,7 @@ namespace datalog {
                 // 4. replace remaining constants by variables.
                 unsigned j = 0;
                 for (expr* f : _free) {
-                    rep.insert(f, m.mk_var(j++, m.get_sort(f)));
+                    rep.insert(f, m.mk_var(j++, f->get_sort()));
                 }
                 rep(body);
 

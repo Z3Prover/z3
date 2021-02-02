@@ -396,7 +396,7 @@ namespace datalog {
                 m_args.push_back(e);
             }
             else {
-                var* v = m.mk_var(num_bound++, m.get_sort(b));
+                var* v = m.mk_var(num_bound++, b->get_sort());
                 m_args.push_back(v);
                 body.push_back(m.mk_eq(v, b));
             }

@@ -94,11 +94,11 @@ namespace smt {
             }
 
             for (expr* f : m_fresh_exprs) {
-                if (m.get_sort(f) == m.get_sort(val)) {
+                if (f->get_sort() == val->get_sort()) {
                     return f;
                 }
             }
-            fresh_term = m.mk_fresh_const("sk", m.get_sort(val));
+            fresh_term = m.mk_fresh_const("sk", val->get_sort());
         }
         m_fresh_exprs.push_back(fresh_term);
         m_context->ensure_internalized(fresh_term);

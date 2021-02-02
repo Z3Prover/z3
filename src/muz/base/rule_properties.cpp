@@ -216,7 +216,7 @@ void rule_properties::operator()(app* n) {
         m_uninterp_funs.insert(f, m_rule);
     }
     else if (m_dt.is_accessor(n)) {
-        sort* s = m.get_sort(n->get_arg(0));
+        sort* s = n->get_arg(0)->get_sort();
         SASSERT(m_dt.is_datatype(s));
         if (m_dt.get_datatype_constructors(s)->size() > 1) {
             bool found = false;

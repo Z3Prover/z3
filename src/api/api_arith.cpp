@@ -71,7 +71,7 @@ extern "C" {
         LOG_Z3_mk_div(c, n1, n2);
         RESET_ERROR_CODE();
         decl_kind k = OP_IDIV;
-        sort* ty = mk_c(c)->m().get_sort(to_expr(n1));
+        sort* ty = to_expr(n1)->get_sort();
         sort* real_ty = mk_c(c)->m().mk_sort(mk_c(c)->get_arith_fid(), REAL_SORT);
         if (ty == real_ty) {
             k = OP_DIV;

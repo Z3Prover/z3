@@ -224,7 +224,7 @@ expr_ref bv2fpa_converter::rebuild_floats(model_core * mc, sort * s, expr * e) {
     else if (is_var(e)) {
         result = e;
     }
-    SASSERT(!result || m.get_sort(result) == s);
+    SASSERT(!result || result->get_sort() == s);
     return result;
 }
 

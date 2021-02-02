@@ -66,7 +66,7 @@ static void test(app* var, expr_ref& fml) {
     params.m_model = true;
 
     symbol x_name(var->get_decl()->get_name());   
-    sort* x_sort = m.get_sort(var);
+    sort* x_sort = var->get_sort();
 
     expr_ref pr(m);
     expr_ref_vector lits(m);
@@ -259,7 +259,7 @@ static void test2(char const *ex) {
     for (unsigned i = 0; i < vars.size(); ++i) {
         bound.push_back(vars[i].get());
         names.push_back(vars[i]->get_decl()->get_name());
-        sorts.push_back(m.get_sort(vars[i].get()));
+        sorts.push_back(vars[i]->get_sort());
     }
     expr_abstract(m, 0, bound.size(), bound.c_ptr(), fml, fml2);
     fml2 = m.mk_exists(bound.size(), sorts.c_ptr(), names.c_ptr(), fml2);

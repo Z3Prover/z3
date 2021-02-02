@@ -114,10 +114,10 @@ bool theory_seq::solve_unit_eq(expr* l, expr* r, dependency* deps) {
 }
 
 bool theory_seq::solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* deps) {
-    if (l.size() == 1 && is_var(l[0]) && !occurs(l[0], r) && add_solution(l[0], mk_concat(r, m.get_sort(l[0])), deps)) {
+    if (l.size() == 1 && is_var(l[0]) && !occurs(l[0], r) && add_solution(l[0], mk_concat(r, l[0]->get_sort()), deps)) {
         return true;
     }
-    if (r.size() == 1 && is_var(r[0]) && !occurs(r[0], l) && add_solution(r[0], mk_concat(l, m.get_sort(r[0])), deps)) {
+    if (r.size() == 1 && is_var(r[0]) && !occurs(r[0], l) && add_solution(r[0], mk_concat(l, r[0]->get_sort()), deps)) {
         return true;
     }
     return false;
@@ -410,7 +410,7 @@ bool theory_seq::len_based_split(eq const& e) {
         
     TRACE("seq", tout << "split based on length\n";);
     TRACE("seq", display_equation(tout, e););
-    sort* srt = m.get_sort(ls[0]);
+    sort* srt = ls[0]->get_sort();
     expr_ref x11 = expr_ref(ls[0], m);
     expr_ref x12 = mk_concat(ls.size()-1, ls.c_ptr()+1, srt);
     expr_ref y11 = expr_ref(rs[0], m);
@@ -604,7 +604,7 @@ bool theory_seq::split_lengths(dependency* dep,
     else if (m_util.str.is_unit(Y)) {
         SASSERT(lenB == lenX);
         bs.push_back(Y);
-        expr_ref bY = mk_concat(bs, m.get_sort(Y));
+        expr_ref bY = mk_concat(bs, Y->get_sort());
         propagate_eq(dep, lits, X, bY, true);
     }
     else {
@@ -1172,7 +1172,7 @@ bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_re
     TRACE("seq", tout << mk_pp(l, m) << ": " << ctx.get_scope_level() << " - start:" << start << "\n";);
 
     expr_ref v0(m);
-    v0 = m_util.str.mk_empty(m.get_sort(l));
+    v0 = m_util.str.mk_empty(l->get_sort());
     if (can_be_equal(ls.size() - 1, ls.c_ptr() + 1, rs.size(), rs.c_ptr())) {
         if (assume_equality(l, v0)) {
             TRACE("seq", tout << mk_pp(l, m) << " " << v0 << "\n";);
@@ -1467,7 +1467,7 @@ bool theory_seq::is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs
     if (ls.size() > 1 && is_var(ls[0]) && is_var(ls.back()) &&
         rs.size() > 1 && is_var(rs[0]) && is_var(rs.back())) {
         unsigned l_start = 1;
-        sort* srt = m.get_sort(ls[0]);
+        sort* srt = ls[0]->get_sort();
         for (; l_start < ls.size()-1; ++l_start) {
             if (m_util.str.is_unit(ls[l_start])) break;
         }
@@ -1510,7 +1510,7 @@ bool theory_seq::is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs
 bool theory_seq::is_ternary_eq_rhs(expr_ref_vector const& ls, expr_ref_vector const& rs, 
                                expr_ref& x, expr_ref_vector& xs, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2) {
     if (ls.size() > 1 && rs.size() > 1 && is_var(rs[0]) && is_var(rs.back())) {
-        sort* srt = m.get_sort(ls[0]);
+        sort* srt = ls[0]->get_sort();
         unsigned l_start = ls.size()-1;
         for (; l_start > 0; --l_start) {
             if (!m_util.str.is_unit(ls[l_start])) break;
@@ -1548,7 +1548,7 @@ bool theory_seq::is_ternary_eq_rhs(expr_ref_vector const& ls, expr_ref_vector co
 bool theory_seq::is_ternary_eq_lhs(expr_ref_vector const& ls, expr_ref_vector const& rs, 
                                 expr_ref_vector& xs, expr_ref& x, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2) {
     if (ls.size() > 1 && rs.size() > 1 && is_var(rs[0]) && is_var(rs.back())) {
-        sort* srt = m.get_sort(ls[0]);
+        sort* srt = ls[0]->get_sort();
         unsigned l_start = 0;
         for (; l_start < ls.size()-1; ++l_start) {
             if (!m_util.str.is_unit(ls[l_start])) break;
@@ -1600,7 +1600,7 @@ bool theory_seq::solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const&
         expr_ref_vector ls1(m), rs1(m); 
         expr_ref idx1(m_autil.mk_add(idx, m_autil.mk_int(1)), m);
         m_rewrite(idx1);
-        expr_ref rhs = mk_concat(rs.size(), rs.c_ptr(), m.get_sort(ls[0]));
+        expr_ref rhs = mk_concat(rs.size(), rs.c_ptr(), ls[0]->get_sort());
         if (m_nth_eq2_cache.contains(std::make_pair(rhs, ls[0])))
             return false;
         m_nth_eq2_cache.insert(std::make_pair(rhs, ls[0]));
@@ -1641,7 +1641,7 @@ bool theory_seq::solve_nth_eq1(expr_ref_vector const& ls, expr_ref_vector const&
         }
         return false;
     }
-    add_solution(l, mk_concat(rs, m.get_sort(l)), dep);
+    add_solution(l, mk_concat(rs, l->get_sort()), dep);
     return true;
 }
 

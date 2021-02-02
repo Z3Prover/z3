@@ -2405,7 +2405,7 @@ var * ast_manager::mk_var(unsigned idx, sort * s) {
 
 app * ast_manager::mk_label(bool pos, unsigned num_names, symbol const * names, expr * n) {
     SASSERT(num_names > 0);
-    SASSERT(get_sort(n) == m_bool_sort);
+    SASSERT(n->get_sort() == m_bool_sort);
     buffer<parameter> p;
     p.push_back(parameter(static_cast<int>(pos)));
     for (unsigned i = 0; i < num_names; i++)
@@ -2798,7 +2798,7 @@ proof * ast_manager::mk_true_proof() {
 }
 
 proof * ast_manager::mk_asserted(expr * f) {
-    CTRACE("mk_asserted_bug", !is_bool(f), tout << mk_ismt2_pp(f, *this) << "\nsort: " << mk_ismt2_pp(get_sort(f), *this) << "\n";);
+    CTRACE("mk_asserted_bug", !is_bool(f), tout << mk_ismt2_pp(f, *this) << "\nsort: " << mk_ismt2_pp(f->get_sort(), *this) << "\n";);
     SASSERT(is_bool(f));
     return mk_proof(m_basic_family_id, PR_ASSERTED, f);
 }
@@ -2958,14 +2958,14 @@ proof * ast_manager::mk_monotonicity(func_decl * R, app * f1, app * f2, unsigned
 }
 
 proof * ast_manager::mk_congruence(app * f1, app * f2, unsigned num_proofs, proof * const * proofs) {
-    SASSERT(get_sort(f1) == get_sort(f2));
+    SASSERT(f1->get_sort() == f2->get_sort());
     sort * s    = f1->get_sort();
     sort * d[2] = { s, s };
     return mk_monotonicity(mk_func_decl(m_basic_family_id, get_eq_op(f1), 0, nullptr, 2, d), f1, f2, num_proofs, proofs);
 }
 
 proof * ast_manager::mk_oeq_congruence(app * f1, app * f2, unsigned num_proofs, proof * const * proofs) {
-    SASSERT(get_sort(f1) == get_sort(f2));
+    SASSERT(f1->get_sort() == f2->get_sort());
     sort * s    = f1->get_sort();
     sort * d[2] = { s, s };
     return mk_monotonicity(mk_func_decl(m_basic_family_id, OP_OEQ, 0, nullptr, 2, d), f1, f2, num_proofs, proofs);

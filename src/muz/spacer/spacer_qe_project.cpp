@@ -101,7 +101,7 @@ peq::peq (app* p, ast_manager& m):
     VERIFY (is_partial_eq (p));
     SASSERT (m_arr_u.is_array (m_lhs) &&
              m_arr_u.is_array (m_rhs) &&
-             ast_eq_proc() (m.get_sort (m_lhs), m.get_sort (m_rhs)));
+             ast_eq_proc() (m_lhs->get_sort (), m_rhs->get_sort ()));
     for (unsigned i = 2; i < p->get_num_args (); i++) {
         m_diff_indices.push_back (p->get_arg (i));
     }
@@ -120,12 +120,12 @@ peq::peq (expr* lhs, expr* rhs, unsigned num_indices, expr * const * diff_indice
 {
     SASSERT (m_arr_u.is_array (lhs) &&
              m_arr_u.is_array (rhs) &&
-             ast_eq_proc() (m.get_sort (lhs), m.get_sort (rhs)));
+             ast_eq_proc() (lhs->get_sort (), rhs->get_sort ()));
     ptr_vector<sort> sorts;
-    sorts.push_back (m.get_sort (m_lhs));
-    sorts.push_back (m.get_sort (m_rhs));
+    sorts.push_back (m_lhs->get_sort ());
+    sorts.push_back (m_rhs->get_sort ());
     for (unsigned i = 0; i < num_indices; i++) {
-        sorts.push_back (m.get_sort (diff_indices [i]));
+        sorts.push_back (diff_indices[i]->get_sort ());
         m_diff_indices.push_back (diff_indices [i]);
     }
     m_decl = m.mk_func_decl (symbol (PARTIAL_EQ), sorts.size (), sorts.c_ptr (), m.mk_bool_sort ());
@@ -161,7 +161,7 @@ void peq::mk_eq (app_ref_vector& aux_consts, app_ref& result, bool stores_on_rhs
             std::swap (lhs, rhs);
         }
         // lhs = (...(store (store rhs i0 v0) i1 v1)...)
-        sort* val_sort = get_array_range (m.get_sort (lhs));
+        sort* val_sort = get_array_range (lhs->get_sort ());
         expr_ref_vector::iterator end = m_diff_indices.end ();
         for (expr_ref_vector::iterator it = m_diff_indices.begin ();
                 it != end; it++) {
@@ -241,7 +241,7 @@ namespace spacer_qe {
                 res = is_linear(-mul, t1, c, ts);
             }
             else if (a.is_numeral(t, mul1)) {
-                ts.push_back(a.mk_numeral(mul*mul1, m.get_sort(t)));
+                ts.push_back(a.mk_numeral(mul*mul1, t->get_sort()));
             }
             else if ((*m_var)(t)) {
                 IF_VERBOSE(2, verbose_stream() << "can't project:" << mk_pp(t, m) << "\n";);
@@ -252,7 +252,7 @@ namespace spacer_qe {
                 ts.push_back(t);
             }
             else {
-                ts.push_back(a.mk_mul(a.mk_numeral(mul, m.get_sort(t)), t));
+                ts.push_back(a.mk_mul(a.mk_numeral(mul, t->get_sort()), t));
             }
             return res;
         }
@@ -411,7 +411,7 @@ namespace spacer_qe {
                     expr_ref cx (m), cxt (m), z (m), result (m);
                     cx = mk_mul (m_coeffs[i], eq_term);
                     cxt = mk_add (cx, m_terms.get(i));
-                    z = a.mk_numeral(rational(0), m.get_sort(eq_term));
+                    z = a.mk_numeral(rational(0), eq_term->get_sort());
                     if (m_eq[i]) {
                         // c*x + t = 0
                         result = a.mk_eq (cxt, z);
@@ -842,7 +842,7 @@ namespace spacer_qe {
             bt = mk_mul(abs(bc), t);
             as = mk_mul(abs(ac), s);
             ts = mk_add(bt, as);
-            z  = a.mk_numeral(rational(0), m.get_sort(t));
+            z  = a.mk_numeral(rational(0), t->get_sort());
             expr_ref result1(m), result2(m);
             if (m_strict[i] || m_strict[j]) {
                 result1 = a.mk_lt(ts, z);
@@ -898,7 +898,7 @@ namespace spacer_qe {
             return a.mk_add(t1, t2);
         }
         expr* mk_mul(rational const& r, expr* t2) {
-            expr* t1 = a.mk_numeral(r, m.get_sort(t2));
+            expr* t1 = a.mk_numeral(r, t2->get_sort());
             return a.mk_mul(t1, t2);
         }
 
@@ -1407,7 +1407,7 @@ namespace spacer_qe {
                 // if a_new is select on m_v, introduce new constant
                 if (m_arr_u.is_select (a) &&
                         (args.get (0) == m_v || m_has_stores_v.is_marked (args.get (0)))) {
-                    sort* val_sort = get_array_range (m.get_sort (m_v));
+                    sort* val_sort = get_array_range (m_v->get_sort());
                     app_ref val_const (m.mk_fresh_const ("sel", val_sort), m);
                     m_aux_vars.push_back (val_const);
                     // extend M to include val_const
@@ -2073,7 +2073,7 @@ namespace spacer_qe {
             if (sel_terms.empty ()) return;
 
             expr* v = sel_terms.get (0)->get_arg (0); // array variable
-            sort* v_sort = m.get_sort (v);
+            sort* v_sort = v->get_sort ();
             sort* val_sort = get_array_range (v_sort);
             sort* idx_sort = get_array_domain (v_sort, 0);
             (void) idx_sort;

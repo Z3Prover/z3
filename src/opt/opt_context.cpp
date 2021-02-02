@@ -1187,7 +1187,7 @@ namespace opt {
     app* context::purify(generic_model_converter_ref& fm, expr* term) {
        std::ostringstream out;
        out << mk_pp(term, m);
-       app* q = m.mk_fresh_const(out.str(), m.get_sort(term));
+       app* q = m.mk_fresh_const(out.str(), term->get_sort());
        if (!fm) fm = alloc(generic_model_converter, m, "opt");
        if (m_arith.is_int_real(term)) {
            m_hard_constraints.push_back(m_arith.mk_ge(q, term));

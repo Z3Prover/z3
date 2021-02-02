@@ -72,7 +72,7 @@ namespace {
             VERIFY (is_partial_eq (p));
             SASSERT (m_arr_u.is_array (m_lhs) &&
                      m_arr_u.is_array (m_rhs) &&
-                     m.get_sort(m_lhs) == m.get_sort(m_rhs));
+                m_lhs->get_sort() == m_rhs->get_sort());
             unsigned arity = get_array_arity(m_lhs->get_sort());
             for (unsigned i = 2; i < p->get_num_args (); i += arity) {
                 SASSERT(arity + i <= p->get_num_args());
@@ -93,12 +93,12 @@ namespace {
             m_arr_u (m) {
             SASSERT (m_arr_u.is_array (lhs) &&
                      m_arr_u.is_array (rhs) &&
-                     m.get_sort(lhs) == m.get_sort(rhs));
+                     lhs->get_sort() == rhs->get_sort());
             ptr_vector<sort> sorts;
             sorts.push_back (m_lhs->get_sort ());
             sorts.push_back (m_rhs->get_sort ());
             for (auto const& v : diff_indices) {
-                SASSERT(v.size() == get_array_arity(m.get_sort(m_lhs)));
+                SASSERT(v.size() == get_array_arity(m_lhs->get_sort()));
                 for (expr* e : v)
                     sorts.push_back (e->get_sort());
             }

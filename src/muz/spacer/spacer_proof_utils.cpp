@@ -124,7 +124,7 @@ namespace spacer {
                 return false;
             }
             SASSERT(lit->get_num_args() == 2);
-            sort* s = m.get_sort(lit->get_arg(0));
+            sort* s = lit->get_arg(0)->get_sort();
             bool is_int = m_arith.is_int(s);
             if (!is_int && m_arith.is_int_expr(lit->get_arg(0))) {
                 is_int = true;

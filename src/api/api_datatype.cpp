@@ -578,7 +578,7 @@ extern "C" {
         expr* _t = to_expr(t);
         expr* _v = to_expr(v);
         expr* args[2] = { _t, _v };
-        sort* domain[2] = { m.get_sort(_t), m.get_sort(_v) };
+        sort* domain[2] = { _t->get_sort(), _v->get_sort() };
         parameter param(_f);
         func_decl * d = m.mk_func_decl(mk_c(c)->get_dt_fid(), OP_DT_UPDATE_FIELD, 1, &param, 2, domain);
         app* r = m.mk_app(d, 2, args);

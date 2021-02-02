@@ -207,7 +207,7 @@ class injectivity_tactic : public tactic {
             if (!inj_map.contains(a->get_decl()))
                 return BR_FAILED;
 
-            SASSERT(m().get_sort(a->get_arg(0)) == m().get_sort(b->get_arg(0)));
+            SASSERT(a->get_arg(0)->get_sort() == b->get_arg(0)->get_sort());
             TRACE("injectivity", tout << "Rewriting (= " << mk_ismt2_pp(args[0], m()) <<
                                               " " << mk_ismt2_pp(args[1], m()) << ")" << std::endl;);
             result = m().mk_eq(a->get_arg(0), b->get_arg(0));

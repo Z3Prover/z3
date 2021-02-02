@@ -805,10 +805,10 @@ protected:
             return unexpected(tok3, "at least one argument should be a variable");
         }
         if (v1) {
-            s = m.get_sort(v1);
+            s = v1->get_sort();
         }        
         else {
-            s = m.get_sort(v2);
+            s = v2->get_sort();
         }
         if (!v1) {
             v1 = mk_const(td1, s);
@@ -850,7 +850,7 @@ protected:
             unsigned arity = args.size();
             ptr_vector<sort> domain;
             for (unsigned i = 0; i < arity; ++i) {
-                domain.push_back(m.get_sort(args[i].get()));
+                domain.push_back(args[i]->get_sort());
             }
             f = m.mk_func_decl(s, domain.size(), domain.c_ptr(), m.mk_bool_sort());
 

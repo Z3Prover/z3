@@ -2295,7 +2295,7 @@ public:
             return;
         expr* e1 = n1->get_owner();
         expr* e2 = n2->get_owner();
-        if (e1->get_sort() != m.get_sort(e2))
+        if (e1->get_sort() != e2->get_sort())
             return;
         if (m.is_ite(e1) || m.is_ite(e2))
             return;
@@ -3296,7 +3296,7 @@ public:
             TRACE("arith", tout << mk_pp(o, m) << " v" << v << " := " << r << "\n";);
             SASSERT("integer variables should have integer values: " && (!a.is_int(o) || r.is_int() || m.limit().is_canceled()));
             if (a.is_int(o) && !r.is_int()) r = floor(r);
-            return alloc(expr_wrapper_proc, m_factory->mk_value(r,  m.get_sort(o)));
+            return alloc(expr_wrapper_proc, m_factory->mk_value(r,  o->get_sort()));
         }
     }
 
@@ -3507,18 +3507,18 @@ public:
         expr* obj = get_enode(v)->get_owner();
         rational r = val.x;
         expr_ref e(m);
-        if (a.is_int(m.get_sort(obj))) {
+        if (a.is_int(obj->get_sort())) {
             if (r.is_int()) {
                 r += rational::one();
             }
             else {
                 r = ceil(r);
             }
-            e = a.mk_numeral(r, m.get_sort(obj));
+            e = a.mk_numeral(r, obj->get_sort());
             e = a.mk_ge(obj, e);
         }
         else {
-            e = a.mk_numeral(r, m.get_sort(obj));
+            e = a.mk_numeral(r, obj->get_sort());
             if (val.y.is_neg()) {
                 e = a.mk_ge(obj, e);
             }

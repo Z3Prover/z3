@@ -808,7 +808,7 @@ namespace smt {
                 // adjust the value of all variables that have the same sort.
                 for (int v2 = 0; v2 < num_vars; ++v2) {
                     enode * n2 = get_enode(v2);
-                    if (m.get_sort(n2->get_owner()) == s) {
+                    if (n2->get_owner()->get_sort() == s) {
                         m_assignment[v2] -= val;
                     }
                 }
@@ -1106,7 +1106,7 @@ namespace smt {
             return f;
         }
         
-        e = m_autil.mk_numeral(val.get_rational(), m.get_sort(f));
+        e = m_autil.mk_numeral(val.get_rational(), f->get_sort());
         
         if (val.get_infinitesimal().is_neg()) {
             if (is_strict) {

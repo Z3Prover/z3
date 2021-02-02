@@ -84,7 +84,7 @@ namespace datalog {
         ast_manager& m = m_rel.get_manager();
         family_id fid = get_plugin().get_family_id();
         expr* rel = m_rel.get();
-        expr_ref res(m.mk_fresh_const("T", m.get_sort(rel)), m);
+        expr_ref res(m.mk_fresh_const("T", rel->get_sort()), m);
         expr* rel_out = res.get();
         func_decl_ref fn(m.mk_func_decl(fid, OP_RA_CLONE,0,nullptr, 1, &rel), m);
         get_plugin().reduce_assign(fn, 1, &rel, 1, &rel_out);

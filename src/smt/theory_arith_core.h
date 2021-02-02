@@ -1376,7 +1376,7 @@ namespace smt {
             else {
                 if (n1->get_owner_id() > n2->get_owner_id())
                     std::swap(n1, n2);
-                sort * st       = m.get_sort(n1->get_owner());
+                sort * st       = n1->get_owner()->get_sort();
                 app * minus_one = m_util.mk_numeral(rational::minus_one(), st);
                 app * s         = m_util.mk_add(n1->get_owner(), m_util.mk_mul(minus_one, n2->get_owner()));
                 ctx.internalize(s, false);

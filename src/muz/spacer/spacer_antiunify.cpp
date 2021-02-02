@@ -91,7 +91,7 @@ struct var_abs_rewriter : public default_rewriter_cfg {
 
     bool get_subst(expr * s, expr * & t, proof * & t_pr) {
         if (m_util.is_numeral(s)) {
-            t = m.mk_var(m_var_index++, m.get_sort(s));
+            t = m.mk_var(m_var_index++, s->get_sort());
             m_substitution.insert(t, s);
             m_pinned.push_back(t);
             m_has_num.mark(s, true);
@@ -396,7 +396,7 @@ struct mk_num_pat_rewriter : public default_rewriter_cfg {
 
     bool get_subst(expr * s, expr * & t, proof * & t_pr) {
         if (m_arith.is_numeral(s)) {
-            t = m.mk_var(m_subs.size(), m.get_sort(s));
+            t = m.mk_var(m_subs.size(), s->get_sort());
             m_pinned.push_back(t);
             m_subs.push_back(to_app(s));
 

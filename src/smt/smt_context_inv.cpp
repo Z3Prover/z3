@@ -279,7 +279,7 @@ namespace smt {
                     if (lhs == rhs)
                         continue;
                     TRACE("check_th_diseq_propagation", tout << "num. theory_vars: " << lhs->get_num_th_vars() << " " 
-                          << mk_pp(m.get_sort(lhs->get_owner()), m) << "\n";);
+                          << mk_pp(lhs->get_owner()->get_sort(), m) << "\n";);
                     theory_var_list * l = lhs->get_th_var_list();
                     while (l) {
                         theory_id th_id = l->get_id();

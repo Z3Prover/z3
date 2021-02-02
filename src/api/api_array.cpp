@@ -57,8 +57,8 @@ extern "C" {
         CHECK_IS_EXPR(i, nullptr);
         expr * _a        = to_expr(a);
         expr * _i        = to_expr(i);
-        sort * a_ty = m.get_sort(_a);
-        sort * i_ty = m.get_sort(_i);
+        sort * a_ty = _a->get_sort();
+        sort * i_ty = _i->get_sort();
         if (a_ty->get_family_id() != mk_c(c)->get_array_fid()) {
             SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
             RETURN_Z3(nullptr);
@@ -80,7 +80,7 @@ extern "C" {
         ast_manager & m = mk_c(c)->m();
         CHECK_IS_EXPR(a, nullptr);
         expr * _a        = to_expr(a);
-        sort * a_ty = m.get_sort(_a);
+        sort * a_ty = _a->get_sort();
         if (a_ty->get_family_id() != mk_c(c)->get_array_fid()) {
             SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
             RETURN_Z3(nullptr);
@@ -92,7 +92,7 @@ extern "C" {
         for (unsigned i = 0; i < n; ++i) {
             CHECK_IS_EXPR(idxs[i], nullptr);
             args.push_back(to_expr(idxs[i]));
-            domain.push_back(m.get_sort(to_expr(idxs[i])));
+            domain.push_back(to_expr(idxs[i])->get_sort());
         }
         func_decl * d   = m.mk_func_decl(mk_c(c)->get_array_fid(), OP_SELECT, 2, a_ty->get_parameters(), domain.size(), domain.c_ptr());
         app * r        = m.mk_app(d, args.size(), args.c_ptr());
@@ -114,9 +114,9 @@ extern "C" {
         expr * _a        = to_expr(a);
         expr * _i        = to_expr(i);
         expr * _v        = to_expr(v);
-        sort * a_ty = m.get_sort(_a);
-        sort * i_ty = m.get_sort(_i);
-        sort * v_ty = m.get_sort(_v);
+        sort * a_ty = _a->get_sort();
+        sort * i_ty = _i->get_sort();
+        sort * v_ty = _v->get_sort();
         if (a_ty->get_family_id() != mk_c(c)->get_array_fid()) {
             SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
             RETURN_Z3(nullptr);
@@ -138,8 +138,8 @@ extern "C" {
         ast_manager & m = mk_c(c)->m();
         expr * _a        = to_expr(a);
         expr * _v        = to_expr(v);
-        sort * a_ty = m.get_sort(_a);
-        sort * v_ty = m.get_sort(_v);
+        sort * a_ty = _a->get_sort();
+        sort * v_ty = _v->get_sort();
         if (a_ty->get_family_id() != mk_c(c)->get_array_fid()) {
             SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
             RETURN_Z3(nullptr);
@@ -150,7 +150,7 @@ extern "C" {
         domain.push_back(a_ty);
         for (unsigned i = 0; i < n; ++i) {
             args.push_back(to_expr(idxs[i]));
-            domain.push_back(m.get_sort(to_expr(idxs[i])));
+            domain.push_back(to_expr(idxs[i])->get_sort());
         }
         args.push_back(_v);
         domain.push_back(v_ty);
@@ -177,7 +177,7 @@ extern "C" {
 
         ptr_vector<sort> domain;
         for (unsigned i = 0; i < n; ++i) {
-            domain.push_back(m.get_sort(_args[i]));
+            domain.push_back(_args[i]->get_sort());
         }
         parameter param(_f);
         func_decl * d = m.mk_func_decl(mk_c(c)->get_array_fid(), OP_ARRAY_MAP, 1, &param, n, domain.c_ptr());
@@ -194,7 +194,7 @@ extern "C" {
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         expr * _v        = to_expr(v);
-        sort * _range = m.get_sort(_v);
+        sort * _range = _v->get_sort();
         sort * _domain = to_sort(domain);
         parameter params[2]  = { parameter(_domain), parameter(_range) };
         sort * a_ty    = mk_c(c)->m().mk_sort(mk_c(c)->get_array_fid(), ARRAY_SORT, 2, params);
@@ -226,7 +226,7 @@ extern "C" {
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         expr * _v        = to_expr(v);
-        sort * _range = m.get_sort(_v);
+        sort * _range = _v->get_sort();
         sort * _domain = to_sort(domain);
         parameter params[2]  = { parameter(_domain), parameter(_range) };
         sort * a_ty    = mk_c(c)->m().mk_sort(mk_c(c)->get_array_fid(), ARRAY_SORT, 2, params);

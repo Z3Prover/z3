@@ -111,6 +111,8 @@ public:
         for (expr* e : ts) assert_expr(e);
     }
 
+//    void set_phase(expr* e) = 0;
+
     void assert_expr(ptr_vector<expr> const& ts) { 
         for (expr* e : ts) assert_expr(e);
     }

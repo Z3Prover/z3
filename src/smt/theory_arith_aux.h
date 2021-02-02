@@ -1089,19 +1089,19 @@ namespace smt {
         expr* obj = get_enode(v)->get_owner();
         expr_ref e(m);
         rational r = val.get_rational();
-        if (m_util.is_int(m.get_sort(obj))) {
+        if (m_util.is_int(obj->get_sort())) {
             if (r.is_int()) {
                 r += rational::one();
             }
             else {
                 r = ceil(r);
             }
-            e = m_util.mk_numeral(r, m.get_sort(obj));
+            e = m_util.mk_numeral(r, obj->get_sort());
             e = m_util.mk_ge(obj, e);
         }
         else {
             // obj is over the reals.
-            e = m_util.mk_numeral(r, m.get_sort(obj));
+            e = m_util.mk_numeral(r, obj->get_sort());
             
             if (val.get_infinitesimal().is_neg()) {
                 e = m_util.mk_ge(obj, e);

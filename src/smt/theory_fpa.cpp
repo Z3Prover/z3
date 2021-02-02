@@ -564,8 +564,8 @@ namespace smt {
             a0 = to_app(owner->get_arg(0));
             a1 = to_app(owner->get_arg(1));
             a2 = to_app(owner->get_arg(2));
-            unsigned ebits = m_fpa_util.get_ebits(m.get_sort(owner));
-            unsigned sbits = m_fpa_util.get_sbits(m.get_sort(owner));
+            unsigned ebits = m_fpa_util.get_ebits(owner->get_sort());
+            unsigned sbits = m_fpa_util.get_sbits(owner->get_sort());
             fpa_value_proc * vp = alloc(fpa_value_proc, this, ebits, sbits);
             vp->add_dependency(ctx.get_enode(a0));
             vp->add_dependency(ctx.get_enode(a1));
@@ -593,8 +593,8 @@ namespace smt {
                 res = vp;
             }
             else if (m_fpa_util.is_float(owner)) {
-                unsigned ebits = m_fpa_util.get_ebits(m.get_sort(owner));
-                unsigned sbits = m_fpa_util.get_sbits(m.get_sort(owner));
+                unsigned ebits = m_fpa_util.get_ebits(owner->get_sort());
+                unsigned sbits = m_fpa_util.get_sbits(owner->get_sort());
                 fpa_value_proc * vp = alloc(fpa_value_proc, this, ebits, sbits);
                 enode * en = ctx.get_enode(wrapped);
                 vp->add_dependency(en);
@@ -603,8 +603,8 @@ namespace smt {
             }
         }
         else {
-            unsigned ebits = m_fpa_util.get_ebits(m.get_sort(owner));
-            unsigned sbits = m_fpa_util.get_sbits(m.get_sort(owner));
+            unsigned ebits = m_fpa_util.get_ebits(owner->get_sort());
+            unsigned sbits = m_fpa_util.get_sbits(owner->get_sort());
             return alloc(expr_wrapper_proc, m_fpa_util.mk_pzero(ebits, sbits));
         }
 

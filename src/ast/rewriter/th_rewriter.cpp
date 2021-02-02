@@ -749,7 +749,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 p1 = m().mk_rewrite(old_q, q1);
             }
         }
-        SASSERT(m().get_sort(old_q) == m().get_sort(q1));
+        SASSERT(old_q->get_sort() == q1->get_sort());
         result = elim_unused_vars(m(), q1, params_ref());
 
 
@@ -762,7 +762,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 p2 = m().mk_elim_unused_vars(q1, result);
             result_pr = m().mk_transitivity(p1, p2);
         }
-        SASSERT(m().get_sort(old_q) == m().get_sort(result));
+        SASSERT(old_q->get_sort() == result->get_sort());
         return true;
     }
 

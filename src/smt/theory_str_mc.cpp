@@ -958,14 +958,14 @@ namespace smt {
                 }
             }
             // reduce string formulas only. ignore others
-            sort * fSort = m.get_sort(f);
+            sort * fSort = f->get_sort();
             if (fSort == bool_sort && !is_quantifier(f)) {
                 // extracted terms
                 expr * subterm;
                 expr * lhs;
                 expr * rhs;
                 if (m.is_eq(f, lhs, rhs)) {
-                    sort * lhs_sort = m.get_sort(lhs);
+                    sort * lhs_sort = lhs->get_sort();
                     if (lhs_sort == str_sort) {
                         TRACE("str_fl", tout << "reduce string equality: " << mk_pp(lhs, m) << " == " << mk_pp(rhs, m) << std::endl;);
                         expr_ref cex(m);
@@ -1031,7 +1031,7 @@ namespace smt {
                 }else if (m.is_not(f, subterm)) {
                     // if subterm is a string formula such as an equality, reduce it as a disequality
                     if (m.is_eq(subterm, lhs, rhs)) {
-                        sort * lhs_sort = m.get_sort(lhs);
+                        sort * lhs_sort = lhs->get_sort();
                         if (lhs_sort == str_sort) {
                             TRACE("str_fl", tout << "reduce string disequality: " << mk_pp(lhs, m) << " != " << mk_pp(rhs, m) << std::endl;);
                             expr_ref cex(m);

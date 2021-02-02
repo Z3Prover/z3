@@ -979,7 +979,7 @@ namespace smt {
         TRACE("str", tout << "set up basic string axioms on " << mk_pp(str->get_owner(), m) << std::endl;);
 
         {
-            sort * a_sort = m.get_sort(str->get_owner());
+            sort * a_sort = str->get_owner()->get_sort();
             sort * str_sort = u.str.mk_string_sort();
             if (a_sort != str_sort) {
                 TRACE("str", tout << "WARNING: not setting up string axioms on non-string term " << mk_pp(str->get_owner(), m) << std::endl;);
@@ -6545,8 +6545,8 @@ namespace smt {
     void theory_str::handle_equality(expr * lhs, expr * rhs) {
         ast_manager & m = get_manager();
         // both terms must be of sort String
-        sort * lhs_sort = m.get_sort(lhs);
-        sort * rhs_sort = m.get_sort(rhs);
+        sort * lhs_sort = lhs->get_sort();
+        sort * rhs_sort = rhs->get_sort();
         sort * str_sort = u.str.mk_string_sort();
 
         // Pick up new terms added during the search (e.g. recursive function expansion).
@@ -6793,7 +6793,7 @@ namespace smt {
         // expression throughout the lifetime of theory_str
         m_trail.push_back(ex);
 
-        sort * ex_sort = m.get_sort(ex);
+        sort * ex_sort = ex->get_sort();
         sort * str_sort = u.str.mk_string_sort();
         sort * bool_sort = m.mk_bool_sort();
 
@@ -7123,7 +7123,7 @@ namespace smt {
             app * a = to_app(ex);
             if (a->get_num_args() == 0) {
                 // we only care about string variables
-                sort * s = m.get_sort(ex);
+                sort * s = ex->get_sort();
                 sort * string_sort = u.str.mk_string_sort();
                 if (s != string_sort) {
                     return;
@@ -7339,7 +7339,7 @@ namespace smt {
             if (m.is_eq(argAst)) {
                 TRACE("str", tout
                       << "eq ast " << mk_pp(argAst, m) << " is between args of sort "
-                      << m.get_sort(to_app(argAst)->get_arg(0))->get_name()
+                      << to_app(argAst)->get_arg(0)->get_sort()->get_name()
                       << std::endl;);
                 classify_ast_by_type(argAst, varMap, concatMap, unrollMap);
             }
@@ -8454,7 +8454,7 @@ namespace smt {
             for (std::set<enode*>::iterator it = eqc_roots.begin(); it != eqc_roots.end(); ++it) {
                 enode * e = *it;
                 app * a = e->get_owner();
-                if (!(m.get_sort(a) == u.str.mk_string_sort())) {
+                if (!(a->get_sort() == u.str.mk_string_sort())) {
                     TRACE("str", tout << "EQC root " << mk_pp(a, m) << " not a string term; skipping" << std::endl;);
                 } else {
                     TRACE("str", tout << "EQC root " << mk_pp(a, m) << " is a string term. Checking this EQC" << std::endl;);
@@ -8950,7 +8950,7 @@ namespace smt {
 
     model_value_proc * theory_str::mk_value(enode * n, model_generator & mg) {
         TRACE("str", tout << "mk_value for: " << mk_ismt2_pp(n->get_owner(), get_manager()) <<
-              " (sort " << mk_ismt2_pp(get_manager().get_sort(n->get_owner()), get_manager()) << ")" << std::endl;);
+              " (sort " << mk_ismt2_pp(n->get_owner()->get_sort(), get_manager()) << ")" << std::endl;);
         ast_manager & m = get_manager();
         app_ref owner(m);
         owner = n->get_owner();
@@ -9208,13 +9208,13 @@ namespace smt {
         ast_manager & m = get_manager();
         // TRACE("str", tout << "ex " << mk_pp(ex, m)  << " target " << target << " length " << length << " sublen " << mk_pp(sublen, m) << " extra " << mk_pp(extra, m) << std::endl;);
 
-        sort * ex_sort = m.get_sort(ex);
+        sort * ex_sort = ex->get_sort();
         sort * str_sort = u.str.mk_string_sort();
 
         if (ex_sort == str_sort) {
             if (is_app(ex)) {
                 app * ap = to_app(ex);
-                if(u.str.is_concat(ap)){
+                if(u.str.is_concat(ap)) {
                     unsigned num_args = ap->get_num_args();
                     bool success = true;
                     for (unsigned i = 0; i < num_args; i++) {

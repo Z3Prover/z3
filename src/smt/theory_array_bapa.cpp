@@ -229,7 +229,7 @@ namespace smt {
             SASSERT(i2.m_is_leaf);
             expr* s = sz1->get_arg(0);
             expr* t = sz2->get_arg(0);
-            if (m.get_sort(s) != m.get_sort(t)) {
+            if (s->get_sort() != t->get_sort()) {
                 return true;
             }
             enode* r1 = get_root(s);
@@ -369,7 +369,7 @@ namespace smt {
         // create skolem function that is injective on integers (ensures uniqueness).
         expr_ref mk_index_skolem(app* sz, expr* a, unsigned n) {
             func_decls fg;
-            sort* s = m.get_sort(a);
+            sort* s = a->get_sort();
             if (!m_index_skolems.find(s, fg)) {
                 sort* idx_sort = get_array_domain(s, 0);
                 sort* dom1[2] = { s, m_arith.mk_int() };
@@ -500,7 +500,7 @@ namespace smt {
             expr* s = term->get_arg(0);
             expr* n = term->get_arg(1);
             mk_th_axiom(~lit, mk_literal(m_arith.mk_ge(n, m_arith.mk_int(0))));
-            sort_size const& sz = m.get_sort(s)->get_num_elements();
+            sort_size const& sz = s->get_sort()->get_num_elements();
             if (sz.is_infinite()) {
                 mk_th_axiom(~lit, mk_eq(th.mk_default(s), m.mk_false()));
             }
@@ -585,7 +585,7 @@ namespace smt {
         
         bool is_size_limit(app* e, expr*& set, expr*& sz) {
             func_decl* d = nullptr;
-            if (e->get_num_args() > 0 && m_size_limit_sort2skolems.find(m.get_sort(e->get_arg(0)), d) && d == e->get_decl()) {
+            if (e->get_num_args() > 0 && m_size_limit_sort2skolems.find(e->get_arg(0)->get_sort(), d) && d == e->get_decl()) {
                 set = e->get_arg(0);
                 sz  = e->get_arg(1);
                 return true;
@@ -599,7 +599,7 @@ namespace smt {
 
         app_ref mk_size_limit(expr* set, expr* sz) {
             func_decl* sk = nullptr;
-            sort* s = m.get_sort(set);
+            sort* s = set->get_sort();
             if (!m_size_limit_sort2skolems.find(s, sk)) {
                 sort* dom[3] = { s, m_arith.mk_int(), m_arith.mk_int() };
                 sk = m.mk_fresh_func_decl("value-limit", "", 3, dom, m.mk_bool_sort());

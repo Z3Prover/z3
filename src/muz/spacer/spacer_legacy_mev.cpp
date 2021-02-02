@@ -467,7 +467,7 @@ void model_evaluator::eval_array_eq(app* e, expr* arg1, expr* arg2)
         set_true(e);
         return;
     }
-    sort* s = m.get_sort(arg1);
+    sort* s = arg1->get_sort();
     sort* r = get_array_range(s);
     // give up evaluating finite domain/range arrays
     if (!r->is_infinite() && !r->is_very_big() && !s->is_infinite() && !s->is_very_big()) {

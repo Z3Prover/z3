@@ -300,7 +300,7 @@ namespace api {
                 if (a->get_num_args() > 1) buffer << "\n";
                 for (unsigned i = 0; i < a->get_num_args(); ++i) {
                     buffer << mk_bounded_pp(a->get_arg(i), m(), 3) << " of sort ";
-                    buffer << mk_pp(m().get_sort(a->get_arg(i)), m()) << "\n";
+                    buffer << mk_pp(a->get_arg(i)->get_sort(), m()) << "\n";
                 }
                 auto str = buffer.str();
                 warning_msg("%s", str.c_str());
