@@ -398,7 +398,7 @@ public:
         SASSERT(is_bv_sort(s));
         return static_cast<unsigned>(s->get_parameter(0).get_int());
     }
-    unsigned get_bv_size(expr const * n) const { return get_bv_size(m_manager.get_sort(n)); }
+    unsigned get_bv_size(expr const * n) const { return get_bv_size(n->get_sort()); }
     unsigned get_int2bv_size(parameter const& p);
 
 

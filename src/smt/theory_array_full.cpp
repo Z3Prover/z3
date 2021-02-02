@@ -720,7 +720,7 @@ namespace smt {
 
             for (unsigned i = 1; i + 1 < num_args; ++i) {
                 expr* arg = store_app->get_arg(i);
-                sort* srt = m.get_sort(arg);
+                sort* srt = arg->get_sort();
                 auto ep = mk_epsilon(srt);
                 eqs.push_back(m.mk_eq(ep.first, arg));
                 args1.push_back(m.mk_app(ep.second, arg));

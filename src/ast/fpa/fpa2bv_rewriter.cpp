@@ -73,7 +73,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         SASSERT(num == 2);
         TRACE("fpa2bv_rw", tout << "(= " << mk_ismt2_pp(args[0], m()) << " " <<
             mk_ismt2_pp(args[1], m()) << ")" << std::endl;);
-        SASSERT(m().get_sort(args[0]) == m().get_sort(args[1]));
+        SASSERT(args[0]->get_sort() == args[1]->get_sort());
         sort * ds = f->get_domain()[0];
         if (m_conv.is_float(ds)) {
             m_conv.mk_eq(args[0], args[1], result);

@@ -185,7 +185,7 @@ extern "C" {
             app* a = to_app(vars[i]);
             _names.push_back(to_app(a)->get_decl()->get_name());
             _args.push_back(a);
-            _vars.push_back(mk_c(c)->m().get_sort(a));
+            _vars.push_back(a->get_sort());
         }
         expr_ref result(mk_c(c)->m());        
         expr_abstract(mk_c(c)->m(), 0, num_decls, _args.c_ptr(), to_expr(body), result);
@@ -232,7 +232,7 @@ extern "C" {
             }
             symbol s(to_app(a)->get_decl()->get_name());
             names.push_back(of_symbol(s));
-            types.push_back(of_sort(mk_c(c)->m().get_sort(a)));
+            types.push_back(of_sort(a->get_sort()));
             bound_asts.push_back(a);
             if (a->get_family_id() != null_family_id || a->get_num_args() != 0) {
                 SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);

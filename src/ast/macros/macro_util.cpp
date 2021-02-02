@@ -307,7 +307,7 @@ bool macro_util::is_pseudo_head(expr * n, unsigned num_decls, app_ref & head, ap
         return false;
     if (!is_ground(lhs) && !is_ground(rhs))
         return false;
-    sort * s = m_manager.get_sort(lhs);
+    sort * s = lhs->get_sort();
     if (m_manager.is_uninterp(s))
         return false;
     sort_size sz = s->get_num_elements();
@@ -448,7 +448,7 @@ void macro_util::quasi_macro_head_to_macro_head(app * qhead, unsigned & num_decl
                 continue;
             }
         }
-        var * new_var   = m_manager.mk_var(next_var_idx, m_manager.get_sort(arg));
+        var * new_var   = m_manager.mk_var(next_var_idx, arg->get_sort());
         next_var_idx++;
         expr * new_cond = m_manager.mk_eq(new_var, arg);
         new_args.push_back(new_var);
@@ -609,7 +609,7 @@ void hint_to_macro_head(ast_manager & m, app * head, unsigned & num_decls, app_r
                 continue;
             }
         }
-        var * new_var   = m.mk_var(next_var_idx, m.get_sort(arg));
+        var * new_var   = m.mk_var(next_var_idx, arg->get_sort());
         next_var_idx++;
         new_args.push_back(new_var);
     }
@@ -820,7 +820,7 @@ void macro_util::collect_arith_macro_candidates(expr * lhs, expr * rhs, expr * a
         if (_is_arith_macro || _is_poly_hint) {
             collect_poly_args(lhs, arg, args);
             expr_ref rest(m_manager);
-            mk_add(args.size(), args.c_ptr(), m_manager.get_sort(arg), rest);
+            mk_add(args.size(), args.c_ptr(), arg->get_sort(), rest);
             expr_ref def(m_manager);
             mk_sub(rhs, rest, def);
             // If is_poly_hint, rhs may contain variables that do not occur in to_app(arg).
@@ -841,7 +841,7 @@ void macro_util::collect_arith_macro_candidates(expr * lhs, expr * rhs, expr * a
             if (_is_arith_macro || _is_poly_hint) {
                 collect_poly_args(lhs, arg, args);
                 expr_ref rest(m_manager);
-                mk_add(args.size(), args.c_ptr(), m_manager.get_sort(arg), rest);
+                mk_add(args.size(), args.c_ptr(), arg->get_sort(), rest);
                 expr_ref def(m_manager);
                 mk_sub(rest, rhs, def);
                 // If is_poly_hint, rhs may contain variables that do not occur in to_app(neg_arg).

@@ -53,7 +53,7 @@ public:
     // generic method for setting unique sequences
     void set_prefix(expr* uniq) {
         m_trail.push_back(uniq);
-        m_unique_sequences.insert(m.get_sort(uniq), uniq);
+        m_unique_sequences.insert(uniq->get_sort(), uniq);
     }
     
     expr* get_some_value(sort* s) override {

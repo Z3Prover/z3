@@ -165,8 +165,8 @@ namespace bv {
             return;
         if (!s.var2enode(v1) || !s.var2enode(v2))
             return;
-        sort* s1 = s.m.get_sort(s.var2expr(v1));
-        sort* s2 = s.m.get_sort(s.var2expr(v2));
+        sort* s1 = s.var2expr(v1)->get_sort();
+        sort* s2 = s.var2expr(v2)->get_sort();
         if (s1 != s2 || !s.bv.is_bv_sort(s1))
             return;
         // IF_VERBOSE(0, verbose_stream() << "assert ackerman " << v1 << " " << v2 << "\n");

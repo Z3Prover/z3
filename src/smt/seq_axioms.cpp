@@ -481,7 +481,7 @@ void seq_axioms::add_at_axiom(expr* e) {
     m_rewrite(i);
     expr_ref zero(a.mk_int(0), m);
     expr_ref one(a.mk_int(1), m);
-    expr_ref emp(seq.str.mk_empty(m.get_sort(e)), m);
+    expr_ref emp(seq.str.mk_empty(e->get_sort()), m);
     expr_ref len_s = mk_len(s);
     literal i_ge_0 = mk_ge(i, 0);
     literal i_ge_len_s = mk_ge(mk_sub(i, mk_len(s)), 0);
@@ -497,7 +497,7 @@ void seq_axioms::add_at_axiom(expr* e) {
         }
         nth = es.back();
         es.push_back(m_sk.mk_tail(s, i));
-        add_axiom(~i_ge_0, i_ge_len_s, mk_seq_eq(s, seq.str.mk_concat(es, m.get_sort(e))));
+        add_axiom(~i_ge_0, i_ge_len_s, mk_seq_eq(s, seq.str.mk_concat(es, e->get_sort())));
         add_axiom(~i_ge_0, i_ge_len_s, mk_seq_eq(nth, e));                
     }
     else {
@@ -746,7 +746,7 @@ void seq_axioms::add_lt_axiom(expr* n) {
     expr_ref e1(_e1, m), e2(_e2, m);
     m_rewrite(e1);
     m_rewrite(e2);
-    sort* s = m.get_sort(e1);
+    sort* s = e1->get_sort();
     sort* char_sort = nullptr;
     VERIFY(seq.is_seq(s, char_sort));
     literal lt = mk_literal(n);

@@ -2311,7 +2311,7 @@ public:
     bool has_fact(proof const * p) const {
         SASSERT(is_proof(p));
         unsigned n = p->get_num_args();
-        return n > 0 && get_sort(p->get_arg(n - 1)) != m_proof_sort;
+        return n > 0 && p->get_arg(n - 1)->get_sort() != m_proof_sort;
     }
     expr * get_fact(proof const * p) const { SASSERT(is_proof(p)); SASSERT(has_fact(p)); return p->get_arg(p->get_num_args() - 1); }
     

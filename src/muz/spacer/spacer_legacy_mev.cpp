@@ -363,7 +363,7 @@ void model_evaluator::inherit_value(expr* e, expr* v)
 {
     expr* w;
     SASSERT(!is_unknown(v));
-    SASSERT(m.get_sort(e) == m.get_sort(v));
+    SASSERT(e->get_sort() == v->get_sort());
     if (is_x(v)) {
         set_x(e);
     } else if (m.is_bool(e)) {
@@ -807,7 +807,7 @@ expr_ref model_evaluator::eval(const model_ref& model, expr* e){
         expr_ref_vector args(m);
         expr_ref else_case(m);
         if (extract_array_func_interp(result, stores, else_case)) {
-            result = m_array.mk_const_array(m.get_sort(e), else_case);
+            result = m_array.mk_const_array(e->get_sort(), else_case);
             while (!stores.empty() && stores.back().back() == else_case) {
                 stores.pop_back();
             }

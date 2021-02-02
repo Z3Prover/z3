@@ -802,7 +802,7 @@ class fm_tactic : public tactic {
             forbidden_proc(imp & o):m_owner(o) {}
             void operator()(::var * n) {}
             void operator()(app * n) {
-                if (is_uninterp_const(n) && m_owner.m.get_sort(n)->get_family_id() == m_owner.m_util.get_family_id()) {
+                if (is_uninterp_const(n) && n->get_sort()->get_family_id() == m_owner.m_util.get_family_id()) {
                     m_owner.m_forbidden_set.insert(n->get_decl());
                 }
             }

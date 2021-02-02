@@ -459,7 +459,7 @@ namespace smt {
                 }
                 else {
                     expr_ref wu(m);
-                    wu = m.mk_eq(m_converter.unwrap(wrapped, m.get_sort(n)), n);
+                    wu = m.mk_eq(m_converter.unwrap(wrapped, n->get_sort()), n);
                     TRACE("t_fpa", tout << "w/u eq: " << std::endl << mk_ismt2_pp(wu, m) << std::endl;);
                     assert_cnstr(wu);
                 }

@@ -959,9 +959,9 @@ protected:
                     v = m.mk_var(idx, s);
                     m_vars.insert(data.bare_str(), v);
                 }
-                else if (s != m.get_sort(v)) {
+                else if (s != v->get_sort()) {
                     throw default_exception(default_exception::fmt(), "sort: %s expected, but got: %s\n",
-                        s->get_name().bare_str(), m.get_sort(v)->get_name().bare_str());
+                        s->get_name().bare_str(), v->get_sort()->get_name().bare_str());
                 }
                 args.push_back(v);
             }

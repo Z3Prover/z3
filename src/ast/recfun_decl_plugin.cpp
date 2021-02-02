@@ -501,7 +501,7 @@ namespace recfun {
                 }
                                 
                 symbol fresh_name(m().mk_fresh_id()); 
-                auto pd = mk_def(fresh_name, n, domain.c_ptr(), m().get_sort(max_expr));
+                auto pd = mk_def(fresh_name, n, domain.c_ptr(), max_expr->get_sort());
                 func_decl* f = pd.get_def()->get_decl();
                 expr_ref new_body(m().mk_app(f, n, args.c_ptr()), m());
                 set_definition(subst, pd, n, vars, max_expr);

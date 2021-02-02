@@ -221,7 +221,7 @@ func_decl * func_decls::find(ast_manager & m, unsigned num_args, expr * const * 
         first();
     ptr_buffer<sort> sorts;
     for (unsigned i = 0; i < num_args; i++)
-        sorts.push_back(m.get_sort(args[i]));
+        sorts.push_back(args[i]->get_sort());
     return find(num_args, sorts.c_ptr(), range);
 }
 
@@ -853,7 +853,7 @@ void cmd_context::insert(symbol const & s, unsigned arity, sort *const* domain, 
     if (contains_macro(s, arity, domain)) {
         throw cmd_exception("named expression already defined");
     }
-    if (contains_func_decl(s, arity, domain, m().get_sort(t))) {
+    if (contains_func_decl(s, arity, domain, t->get_sort())) {
         throw cmd_exception("invalid named expression, declaration already defined with this name ", s);
     }
     TRACE("insert_macro", tout << "new macro " << arity << "\n" << mk_pp(t, m()) << "\n";);
@@ -895,10 +895,10 @@ void cmd_context::insert(symbol const & s, object_ref * r) {
 void cmd_context::model_add(symbol const & s, unsigned arity, sort *const* domain, expr * t) {
     if (!mc0()) m_mcs.set(m_mcs.size()-1, alloc(generic_model_converter, m(), "cmd_context"));
     if (m_solver.get() && !m_solver->mc0()) m_solver->set_model_converter(mc0()); 
-    func_decl_ref fn(m().mk_func_decl(s, arity, domain, m().get_sort(t)), m());
+    func_decl_ref fn(m().mk_func_decl(s, arity, domain, t->get_sort()), m());
     func_decls & fs = m_func_decls.insert_if_not_there(s, func_decls());
     fs.insert(m(), fn);
-    VERIFY(fn->get_range() == m().get_sort(t));
+    VERIFY(fn->get_range() == t->get_sort());
     mc0()->add(fn, t);
     if (!m_global_decls)
         m_func_decls_stack.push_back(sf_pair(s, fn));
@@ -1084,7 +1084,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
             decl_kind k   = d.m_decl;
             // Hack: if d.m_next != 0, we use the sort of args[0] (if available) to decide which plugin we use.
             if (d.m_decl != 0 && num_args > 0) {
-                builtin_decl const & d2 = peek_builtin_decl(d, m().get_sort(args[0])->get_family_id());
+                builtin_decl const & d2 = peek_builtin_decl(d, args[0]->get_sort()->get_family_id());
                 fid = d2.m_fid;
                 k   = d2.m_decl;
             }

@@ -273,13 +273,13 @@ namespace spacer_qe {
             if (a.is_le(lit, e1, e2) || a.is_ge(lit, e2, e1)) {
                 if (!is_linear( mul, e1, c, ts) || !is_linear(-mul, e2, c, ts))
                     return false;
-                s = m.get_sort(e1);
+                s = e1->get_sort();
                 is_strict = is_not;
             }
             else if (a.is_lt(lit, e1, e2) || a.is_gt(lit, e2, e1)) {
                 if (!is_linear( mul, e1, c, ts) || !is_linear(-mul, e2, c, ts))
                     return false;
-                s = m.get_sort(e1);
+                s = e1->get_sort();
                 is_strict = !is_not;
             }
             else if (m.is_eq(lit, e1, e2) && a.is_int_real (e1)) {
@@ -311,7 +311,7 @@ namespace spacer_qe {
                     if (is_not) is_diseq = true;
                     else is_eq = true;
                 }
-                s = m.get_sort(e1);
+                s = e1->get_sort();
             }
             else {
                 IF_VERBOSE(2, verbose_stream() << "can't project:" << mk_pp(lit, m) << "\n";);

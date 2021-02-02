@@ -794,7 +794,7 @@ namespace qe {
 
         void filter_vars(app_ref_vector const& vars) {
             for (app* v : vars) m_pred_abs.fmc()->hide(v);
-            for (app* v : vars) check_sort(m.get_sort(v));
+            for (app* v : vars) check_sort(v->get_sort());
         }        
 
         void initialize_levels() {

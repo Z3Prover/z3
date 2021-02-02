@@ -1009,7 +1009,7 @@ namespace opt {
     expr* context::mk_objective_fn(unsigned index, objective_t ty, unsigned sz, expr*const* args) {
         ptr_vector<sort> domain;
         for (unsigned i = 0; i < sz; ++i) {
-            domain.push_back(m.get_sort(args[i]));
+            domain.push_back(args[i]->get_sort());
         }
         char const* name = "";
         switch(ty) {

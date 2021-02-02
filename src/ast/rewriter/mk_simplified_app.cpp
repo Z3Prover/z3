@@ -53,7 +53,7 @@ struct mk_simplified_app::imp {
             if (k == OP_EQ) {
                 // theory dispatch for =
                 SASSERT(num == 2);
-                family_id s_fid = m.get_sort(args[0])->get_family_id();
+                family_id s_fid = args[0]->get_sort()->get_family_id();
                 if (s_fid == m_a_rw.get_fid())
                     st = m_a_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_bv_rw.get_fid())

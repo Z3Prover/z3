@@ -2475,8 +2475,8 @@ void fpa2bv_converter::mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr *
 }
 
 void fpa2bv_converter::mk_to_fp_float(sort * to_srt, expr * rm, expr * x, expr_ref & result) {
-    unsigned from_sbits = m_util.get_sbits(m.get_sort(x));
-    unsigned from_ebits = m_util.get_ebits(m.get_sort(x));
+    unsigned from_sbits = m_util.get_sbits(x->get_sort());
+    unsigned from_ebits = m_util.get_ebits(x->get_sort());
     unsigned to_sbits = m_util.get_sbits(to_srt);
     unsigned to_ebits = m_util.get_ebits(to_srt);
 
@@ -2844,7 +2844,7 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
     SASSERT(is_app_of(args[0], m_plugin->get_family_id(), OP_FPA_FP));
 
     expr * x = args[0];
-    sort * s = m.get_sort(x);
+    sort * s = x->get_sort();
     unsigned ebits = m_util.get_ebits(s);
     unsigned sbits = m_util.get_sbits(s);
 
@@ -3252,7 +3252,7 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
 
     expr * rm = to_app(args[0])->get_arg(0);
     expr * x = args[1];
-    sort * xs = m.get_sort(x);
+    sort * xs = x->get_sort();
     sort * bv_srt = f->get_range();
 
     expr_ref sgn(m), sig(m), exp(m), lz(m);
@@ -3421,7 +3421,7 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
 expr_ref fpa2bv_converter::nan_wrap(expr * n) {
     expr_ref n_bv(m), arg_is_nan(m), nan(m), nan_bv(m), res(m);
     mk_is_nan(n, arg_is_nan);
-    mk_nan(m.get_sort(n), nan);
+    mk_nan(n->get_sort(), nan);
     join_fp(nan, nan_bv);
     join_fp(n, n_bv);
     res = expr_ref(m.mk_ite(arg_is_nan, nan_bv, n_bv), m);
@@ -3845,7 +3845,7 @@ void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {
     }
     else {
         expr_ref new_e(m), new_e_eq_e(m);
-        new_e = m.mk_fresh_const(prefix, m.get_sort(e));
+        new_e = m.mk_fresh_const(prefix, e->get_sort());
         new_e_eq_e = m.mk_eq(new_e, e);
         m_extra_assertions.push_back(new_e_eq_e);
         e = new_e;
@@ -4279,7 +4279,7 @@ app_ref fpa2bv_converter_wrapped::wrap(expr* e) {
         res = to_app(tmp);
     }
     else {
-        sort* es = m.get_sort(e);
+        sort* es = e->get_sort();
 
         sort_ref bv_srt(m);
         if (is_rm(es))

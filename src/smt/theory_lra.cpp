@@ -2295,7 +2295,7 @@ public:
             return;
         expr* e1 = n1->get_owner();
         expr* e2 = n2->get_owner();
-        if (m.get_sort(e1) != m.get_sort(e2))
+        if (e1->get_sort() != m.get_sort(e2))
             return;
         if (m.is_ite(e1) || m.is_ite(e2))
             return;

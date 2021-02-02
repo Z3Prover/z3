@@ -217,7 +217,7 @@ expr_ref bv2fpa_converter::rebuild_floats(model_core * mc, sort * s, expr * e) {
         app * a = to_app(e);
         expr_ref_vector new_args(m);
         for (expr* arg : *a) {
-            new_args.push_back(rebuild_floats(mc, m.get_sort(arg), arg));
+            new_args.push_back(rebuild_floats(mc, arg->get_sort(), arg));
         }
         result = m.mk_app(a->get_decl(), new_args.size(), new_args.c_ptr());
     }

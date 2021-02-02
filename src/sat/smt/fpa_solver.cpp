@@ -203,7 +203,7 @@ namespace fpa {
                     add_units(mk_side_conditions());
                 }
                 else 
-                    add_unit(eq_internalize(m_converter.unwrap(wrapped, m.get_sort(n)), n));                
+                    add_unit(eq_internalize(m_converter.unwrap(wrapped, n->get_sort()), n));                
             }
         }
         else if (is_app(n) && to_app(n)->get_family_id() == get_id()) {
@@ -295,7 +295,7 @@ namespace fpa {
             expr* a = values.get(n->get_arg(0)->get_root_id());
             expr* b = values.get(n->get_arg(1)->get_root_id());
             expr* c = values.get(n->get_arg(2)->get_root_id());
-            value = m_converter.bv2fpa_value(m.get_sort(e), a, b, c);
+            value = m_converter.bv2fpa_value(e->get_sort(), a, b, c);
         }
         else if (m_fpa_util.is_bv2rm(e)) {
             SASSERT(n->num_args() == 1);
@@ -307,12 +307,12 @@ namespace fpa {
             value = m_fpa_util.mk_round_toward_zero();
         else if (m_fpa_util.is_float(e) && is_wrapped()) {
             expr* a = values.get(expr2enode(wrapped)->get_root_id());
-            value = m_converter.bv2fpa_value(m.get_sort(e), a);
+            value = m_converter.bv2fpa_value(e->get_sort(), a);
         }
         else {
             SASSERT(m_fpa_util.is_float(e));
-            unsigned ebits = m_fpa_util.get_ebits(m.get_sort(e));
-            unsigned sbits = m_fpa_util.get_sbits(m.get_sort(e));
+            unsigned ebits = m_fpa_util.get_ebits(e->get_sort());
+            unsigned sbits = m_fpa_util.get_sbits(e->get_sort());
             value = m_fpa_util.mk_pzero(ebits, sbits);
         }
         values.set(n->get_root_id(), value);

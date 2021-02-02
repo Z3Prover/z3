@@ -326,7 +326,7 @@ namespace datalog {
         for (unsigned i = 0; i < f.size(); ++i) {
             app_ref eq(m);
             expr* e = f[i];
-            eq = m.mk_eq(m.mk_var(i, m.get_sort(e)), e);
+            eq = m.mk_eq(m.mk_var(i, e->get_sort()), e);
             r.filter_interpreted(eq.get());
         }            
         mk_union(r, nullptr, false);

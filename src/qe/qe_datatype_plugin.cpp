@@ -732,7 +732,7 @@ namespace qe {
                     m_replace.apply_substitution(eqs.neq_atom(i), m.mk_false(), fml);
                 }
                 if (def) {
-                    sort* s = m.get_sort(x);
+                    sort* s = x->get_sort();
                     ptr_vector<sort> sorts;
                     sorts.resize(eqs.num_neq_terms(), s);
                     func_decl* diag = m.mk_func_decl(symbol("diag"), sorts.size(), sorts.c_ptr(), s);

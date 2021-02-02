@@ -297,7 +297,7 @@ void func_interp::compress() {
         }
         m_entries.reset();
         reset_interp_cache();
-        expr_ref new_else(m().mk_var(0, m().get_sort(m_else)), m());
+        expr_ref new_else(m().mk_var(0, m_else->get_sort()), m());
         m().inc_ref(new_else);
         m().dec_ref(m_else);
         m_else = new_else;
@@ -318,7 +318,7 @@ bool func_interp::is_identity() const {
     }    
     if (is_var(m_else)) return true;
     if (!m().is_value(m_else)) return false;    
-    sort_size const& sz = m().get_sort(m_else)->get_num_elements();
+    sort_size const& sz = m_else->get_sort()->get_num_elements();
     if (!sz.is_finite()) return false;
 
     //
@@ -340,7 +340,7 @@ expr * func_interp::get_interp_core() const {
         }
         if (vars.empty()) {
             for (unsigned i = 0; i < m_arity; i++) {
-                vars.push_back(m().mk_var(i, m().get_sort(curr->get_arg(i))));
+                vars.push_back(m().mk_var(i, curr->get_arg(i)->get_sort()));
             }
         }
         ptr_buffer<expr> eqs;
@@ -399,7 +399,7 @@ expr_ref func_interp::get_array_interp_core(func_decl * f) const {
 
     expr_ref_vector args(m());
     array_util autil(m());
-    sort_ref A(autil.mk_array_sort(domain.size(), domain.c_ptr(), m().get_sort(m_else)), m());
+    sort_ref A(autil.mk_array_sort(domain.size(), domain.c_ptr(), m_else->get_sort()), m());
     r = autil.mk_const_array(A, m_else);
     for (func_entry * curr : m_entries) {
         expr * res = curr->get_result();

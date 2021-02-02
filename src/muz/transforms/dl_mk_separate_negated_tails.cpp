@@ -64,7 +64,7 @@ namespace datalog {
             expr* arg = p->get_arg(i);
             if (!m_vars.contains(arg)) {
                 args.push_back(arg);
-                sorts.push_back(m.get_sort(arg));
+                sorts.push_back(arg->get_sort());
             }
         }
         fn = m.mk_fresh_func_decl(p->get_decl()->get_name(), symbol("N"), sorts.size(), sorts.c_ptr(), m.mk_bool_sort());

@@ -53,7 +53,7 @@ namespace mbp {
 
 
             try {
-                if (dt.is_recursive(m.get_sort(var))) {
+                if (dt.is_recursive(var->get_sort())) {
                     project_rec(model, vars, lits);
                 }
                 else {
@@ -198,7 +198,7 @@ namespace mbp {
             bool inserted = false;
             for (app* v : vars) {
                 if (m.is_bool(v)) continue;
-                if (dt.is_datatype(m.get_sort(v))) continue;
+                if (dt.is_datatype(v->get_sort())) continue;
                 inserted = true;
                 has_var.mark(v);
                 visited.mark(v);

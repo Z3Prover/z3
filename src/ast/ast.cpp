@@ -689,7 +689,7 @@ func_decl * decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, para
                                         unsigned num_args, expr * const * args, sort * range) {
     ptr_buffer<sort> sorts;
     for (unsigned i = 0; i < num_args; i++) {
-        sorts.push_back(m_manager->get_sort(args[i]));
+        sorts.push_back(args[i]->get_sort());
     }
     return mk_func_decl(k, num_parameters, parameters, num_args, sorts.c_ptr(), range);
 }
@@ -769,11 +769,11 @@ bool basic_decl_plugin::check_proof_args(basic_op_kind k, unsigned num_args, exp
         return false;
     else {
         for (unsigned i = 0; i < num_args - 1; i++)
-            if (m_manager->get_sort(args[i]) != m_proof_sort)
+            if (args[i]->get_sort() != m_proof_sort)
                 return false;
         return
-            m_manager->get_sort(args[num_args - 1]) == m_bool_sort ||
-            m_manager->get_sort(args[num_args - 1]) == m_proof_sort || 
+            args[num_args - 1]->get_sort() == m_bool_sort ||
+            args[num_args - 1]->get_sort() == m_proof_sort ||
             is_lambda(args[num_args-1]);
     }
 }
@@ -1098,11 +1098,11 @@ sort* basic_decl_plugin::join(unsigned n, sort* const* srts) {
 
 sort* basic_decl_plugin::join(unsigned n, expr* const* es) {
     SASSERT(n > 0);
-    sort* s = m_manager->get_sort(*es);
+    sort* s = es[0]->get_sort();
     while (n > 1) {
         ++es;
         --n;
-        s = join(s, m_manager->get_sort(*es));
+        s = join(s, (*es)->get_sort());
     }
     return s;
 }
@@ -1179,7 +1179,7 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_NOT:     return m_not_decl;
     case OP_IMPLIES: return m_implies_decl;
     case OP_XOR:     return m_xor_decl;
-    case OP_ITE:     return num_args == 3 ? mk_ite_decl(join(m_manager->get_sort(args[1]), m_manager->get_sort(args[2]))): nullptr;
+    case OP_ITE:     return num_args == 3 ? mk_ite_decl(join(args[1]->get_sort(), args[2]->get_sort())): nullptr;
         // eq and oeq must have at least two arguments, they can have more since they are chainable
     case OP_EQ:      return num_args >= 2 ? mk_eq_decl_core("=", OP_EQ, join(num_args, args), m_eq_decls) : nullptr;
     case OP_OEQ:     return num_args >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(num_args, args), m_oeq_decls) : nullptr;
@@ -1187,7 +1187,7 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return decl_plugin::mk_func_decl(k, num_parameters, parameters, num_args, args, range);
     case PR_BIND: {
         ptr_buffer<sort> sorts;
-        for (unsigned i = 0; i < num_args; ++i) sorts.push_back(m_manager->get_sort(args[i]));
+        for (unsigned i = 0; i < num_args; ++i) sorts.push_back(args[i]->get_sort());
         return mk_func_decl(k, num_parameters, parameters, num_args, sorts.c_ptr(), range);
     }
     default:
@@ -1763,7 +1763,7 @@ void ast_manager::register_plugin(family_id id, decl_plugin * plugin) {
 }
 
 bool ast_manager::is_bool(expr const * n) const {
-    return get_sort(n) == m_bool_sort;
+    return n->get_sort() == m_bool_sort;
 }
 
 #ifdef Z3DEBUG
@@ -2106,7 +2106,7 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
     if (decl->is_associative()) {
         sort * expected = decl->get_domain(0);
         for (unsigned i = 0; i < num_args; i++) {
-            sort * given = get_sort(args[i]);
+            sort * given = args[i]->get_sort();
             if (!compatible_sorts(expected, given)) {
                 std::ostringstream buff;
                 buff << "invalid function application for " << decl->get_name() << ", ";
@@ -2122,7 +2122,7 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
         }
         for (unsigned i = 0; i < num_args; i++) {
             sort * expected = decl->get_domain(i);
-            sort * given    = get_sort(args[i]);
+            sort * given    = args[i]->get_sort();
             if (!compatible_sorts(expected, given)) {
                 std::ostringstream buff;
                 buff << "invalid function application for " << decl->get_name() << ", ";
@@ -2186,7 +2186,7 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
         sort * d = decl->get_domain(0);
         if (d->get_family_id() == m_arith_family_id) {
             for (unsigned i = 0; i < num_args; i++) {
-                if (d != get_sort(args[i]))
+                if (d != args[i]->get_sort())
                     return true;
             }
         }
@@ -2199,7 +2199,7 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
         }
         for (unsigned i = 0; i < num_args; i++) {
             sort * d = decl->get_domain(i);
-            if (d->get_family_id() == m_arith_family_id && d != get_sort(args[i]))
+            if (d->get_family_id() == m_arith_family_id && d != args[i]->get_sort())
                 return true;
         }
     }
@@ -2207,7 +2207,7 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
 }
 
 expr* ast_manager::coerce_to(expr* e, sort* s) {
-    sort* se = get_sort(e);
+    sort* se = e->get_sort();
     if (s != se && s->get_family_id() == m_arith_family_id && se->get_family_id() == m_arith_family_id) {
         if (s->get_decl_kind() == REAL_SORT) {
             return mk_app(m_arith_family_id, OP_TO_REAL, e);
@@ -2277,7 +2277,7 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
 
 void ast_manager::check_args(func_decl* f, unsigned n, expr* const* es) {
     for (unsigned i = 0; i < n; i++) {
-        sort * actual_sort   = get_sort(es[i]);
+        sort * actual_sort   = es[i]->get_sort();
         sort * expected_sort = f->is_associative() ? f->get_domain(0) : f->get_domain(i);
         if (expected_sort != actual_sort) {
             std::ostringstream buffer;
@@ -2959,14 +2959,14 @@ proof * ast_manager::mk_monotonicity(func_decl * R, app * f1, app * f2, unsigned
 
 proof * ast_manager::mk_congruence(app * f1, app * f2, unsigned num_proofs, proof * const * proofs) {
     SASSERT(get_sort(f1) == get_sort(f2));
-    sort * s    = get_sort(f1);
+    sort * s    = f1->get_sort();
     sort * d[2] = { s, s };
     return mk_monotonicity(mk_func_decl(m_basic_family_id, get_eq_op(f1), 0, nullptr, 2, d), f1, f2, num_proofs, proofs);
 }
 
 proof * ast_manager::mk_oeq_congruence(app * f1, app * f2, unsigned num_proofs, proof * const * proofs) {
     SASSERT(get_sort(f1) == get_sort(f2));
-    sort * s    = get_sort(f1);
+    sort * s    = f1->get_sort();
     sort * d[2] = { s, s };
     return mk_monotonicity(mk_func_decl(m_basic_family_id, OP_OEQ, 0, nullptr, 2, d), f1, f2, num_proofs, proofs);
 }

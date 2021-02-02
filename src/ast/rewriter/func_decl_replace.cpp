@@ -43,7 +43,7 @@ expr_ref func_decl_replace::operator()(expr* e) {
                 if (m_cache.find(arg, d)) {
                     m_args.push_back(d);
                     arg_differs |= arg != d;
-                    SASSERT(m.get_sort(arg) == m.get_sort(d));
+                    SASSERT(arg->get_sort() == m.get_sort(d));
                 }
                 else {
                     m_todo.push_back(arg);

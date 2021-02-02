@@ -198,7 +198,7 @@ void model_evaluator_array_util::eval(model& mdl, expr* e, expr_ref& r, bool mod
         expr_ref_vector args(m);
         expr_ref else_case(m);
         if (extract_array_func_interp(mdl, r, stores, else_case)) {
-            r = m_array.mk_const_array(m.get_sort(e), else_case);
+            r = m_array.mk_const_array(e->get_sort(), else_case);
             while (!stores.empty() && stores.back().back() == else_case) {
                 stores.pop_back();
             }

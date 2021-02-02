@@ -70,7 +70,7 @@ static void mk_entry_cond(unsigned arity, func_entry const* entry, expr_ref& res
             // no-op
         }
         else {
-            conjs.push_back(m.mk_eq(m.mk_var(i, m.get_sort(e)), e));
+            conjs.push_back(m.mk_eq(m.mk_var(i, e->get_sort()), e));
         }
     }
     bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), result);        

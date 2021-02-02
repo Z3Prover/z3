@@ -104,7 +104,7 @@ class normalize_bounds_tactic : public tactic {
             for (expr * x : m_bm) {
                 if (is_target(x, val)) {
                     num_norm_bounds++;
-                    sort * s = m.get_sort(x);
+                    sort * s = x->get_sort();
                     app * x_prime = m.mk_fresh_const(nullptr, s);
                     expr * def = m_util.mk_add(x_prime, m_util.mk_numeral(val, s));
                     subst.insert(x, def);

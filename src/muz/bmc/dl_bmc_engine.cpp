@@ -435,7 +435,7 @@ namespace datalog {
                             rule_vars[to_var(arg)->get_idx()] = 0;
                         }
                         else {
-                            sort* srt = m.get_sort(arg);
+                            sort* srt = arg->get_sort();
                             args.push_back(m.mk_var(rule_vars.size()+num_vars, srt));
                             conjs.push_back(m.mk_eq(args.back(), arg));
                             ++num_vars;
@@ -604,7 +604,7 @@ namespace datalog {
             expr_ref_vector binding(m);
             ptr_vector<sort> arg_sorts;
             for (unsigned i = 0; i < args.size(); ++i) {
-                arg_sorts.push_back(m.get_sort(args[i]));
+                arg_sorts.push_back(args[i]->get_sort());
             }
             for (unsigned i = 0; i < vars.size(); ++i) {
                 if (vars[i]) {

@@ -305,7 +305,7 @@ namespace smt {
             }
             else {
                 if (!pushed) pushed = true, push();                
-                expr_ref c(m.mk_fresh_const("v", m.get_sort(v)), m);
+                expr_ref c(m.mk_fresh_const("v", v->get_sort()), m);
                 expr_ref eq(m.mk_eq(c, v), m);
                 assert_expr(eq);
                 vars.push_back(c);

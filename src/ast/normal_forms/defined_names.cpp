@@ -119,7 +119,7 @@ app * defined_names::impl::gen_name(expr * e, sort_ref_buffer & var_sorts, buffe
         var_names.push_back(symbol(i));
     }
 
-    sort * range = m.get_sort(e);
+    sort * range = e->get_sort();
     func_decl * new_skolem_decl = m.mk_fresh_func_decl(m_z3name, symbol::null, domain.size(), domain.c_ptr(), range);
     app * n = m.mk_app(new_skolem_decl, new_args.size(), new_args.c_ptr());
     if (is_lambda(e)) {

@@ -113,9 +113,9 @@ public:
                 bound_names.push_back(v->get_decl()->get_name());
             }                
             if (sorts) {
-                bound_sorts.push_back(m.get_sort(v));
+                bound_sorts.push_back(v->get_sort());
             }
-            rep.insert(v, m.mk_var(index++, m.get_sort(v)));
+            rep.insert(v, m.mk_var(index++, v->get_sort()));
         }
         if (names && !bound_names.empty()) {
             bound_names.reverse();

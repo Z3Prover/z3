@@ -560,7 +560,7 @@ namespace euf {
             return false;
         if (ra->interpreted() && rb->interpreted())
             return true;
-        if (m.get_sort(ra->get_expr()) != m.get_sort(rb->get_expr()))
+        if (ra->get_expr()->get_sort() != rb->get_expr()->get_sort())
             return true;
         expr_ref eq(m.mk_eq(a->get_expr(), b->get_expr()), m);
         m_tmp_eq->m_args[0] = a;

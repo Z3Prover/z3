@@ -496,7 +496,7 @@ static bool has_real_arg(unsigned arity, sort * const * domain, sort * real_sort
 
 static bool has_real_arg(ast_manager * m, unsigned num_args, expr * const * args, sort * real_sort) {
     for (unsigned i = 0; i < num_args; i++)
-        if (m->get_sort(args[i]) == real_sort)
+        if (args[i]->get_sort() == real_sort)
             return true;
     return false;
 }
@@ -543,7 +543,7 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return nullptr;
     }
     if (k == OP_IDIVIDES) {
-        if (num_args != 1 || m_manager->get_sort(args[0]) != m_int_decl || num_parameters != 1 || !parameters[0].is_int()) {
+        if (num_args != 1 || args[0]->get_sort() != m_int_decl || num_parameters != 1 || !parameters[0].is_int()) {
             m_manager->raise_exception("invalid divides application. Expects integer parameter and one argument of sort integer");
         }
         return m_manager->mk_func_decl(symbol("divisible"), 1, &m_int_decl, m_manager->mk_bool_sort(), 
@@ -553,7 +553,7 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return mk_func_decl(fix_kind(k, num_args), has_real_arg(m_manager, num_args, args, m_real_decl));
     }
     else {
-        bool is_real = num_args > 0 && m_manager->get_sort(args[0]) == m_real_decl;
+        bool is_real = num_args > 0 && args[0]->get_sort() == m_real_decl;
         return mk_func_decl(fix_kind(k, num_args), is_real);
     }
 }

@@ -326,7 +326,7 @@ expr * proto_model::get_fresh_value(sort * s) {
 }
 
 void proto_model::register_value(expr * n) {
-    sort * s = m.get_sort(n);
+    sort * s = n->get_sort();
     if (m.is_uninterp(s)) {
         m_user_sort_factory->register_value(n);
     }

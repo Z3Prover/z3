@@ -186,7 +186,7 @@ namespace datalog {
                 }
                 else {
                     m_args.push_back(arg);
-                    m_f_vars.push_back(m.mk_var(idx++, m.get_sort(arg)));
+                    m_f_vars.push_back(m.mk_var(idx++, arg->get_sort()));
                     m_g_vars.push_back(m_f_vars.back());
                 }
             }
@@ -200,7 +200,7 @@ namespace datalog {
 
                 ptr_vector<sort> domain;
                 for (expr* arg : m_args) {
-                    domain.push_back(m.get_sort(arg));
+                    domain.push_back(arg->get_sort());
                 }
                 g = m_context.mk_fresh_head_predicate(f->get_name(), symbol("bv"), m_args.size(), domain.c_ptr(), f);
                 m_old_funcs.push_back(f);

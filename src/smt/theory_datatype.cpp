@@ -142,9 +142,9 @@ namespace smt {
             << mk_pp(c, m) << " " << mk_pp(e, m) << "\n";);
         m_stats.m_assert_cnstr++;
         SASSERT(m_util.is_constructor(c));
-        SASSERT(m_util.is_datatype(m.get_sort(e)));
+        SASSERT(m_util.is_datatype(e->get_sort()));
 
-        SASSERT(c->get_range() == m.get_sort(e));
+        SASSERT(c->get_range() == e->get_sort());
         ptr_vector<expr> args;
         ptr_vector<func_decl> const & accessors = *m_util.get_constructor_accessors(c);
         SASSERT(c->get_arity() == accessors.size());

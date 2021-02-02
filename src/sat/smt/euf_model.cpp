@@ -90,7 +90,7 @@ namespace euf {
     void solver::collect_dependencies(user_sort& us, deps_t& deps) {
         for (enode* n : m_egraph.nodes()) {
             expr* e = n->get_expr();
-            sort* srt = m.get_sort(e);
+            sort* srt = e->get_sort();
             auto* mb = sort2solver(srt);
             if (mb)
                 mb->add_dep(n, deps);
@@ -148,7 +148,7 @@ namespace euf {
                 }
                 continue;
             }
-            sort* srt = m.get_sort(e);
+            sort* srt = e->get_sort();
             if (m.is_uninterp(srt)) 
                 us.add(n->get_root(), srt);
             else if (auto* mbS = sort2solver(srt))

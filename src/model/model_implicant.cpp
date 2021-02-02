@@ -436,7 +436,7 @@ void model_implicant::eval_arith(app* e) {
 void model_implicant::inherit_value(expr* e, expr* v) {
     expr* w;
     SASSERT(!is_unknown(v));
-    SASSERT(m.get_sort(e) == m.get_sort(v));
+    SASSERT(e->get_sort() == v->get_sort());
     if (is_x(v)) {
         set_x(e);
     }
@@ -541,7 +541,7 @@ void model_implicant::eval_array_eq(app* e, expr* arg1, expr* arg2) {
         set_true(e);
         return;
     }
-    sort* s = m.get_sort(arg1);
+    sort* s = arg1->get_sort();
     sort* r = get_array_range(s);
     // give up evaluating finite domain/range arrays
     if (!r->is_infinite() && !r->is_very_big() && !s->is_infinite() && !s->is_very_big()) {
@@ -888,7 +888,7 @@ expr_ref model_implicant::eval(model_ref& model, expr* e) {
         expr_ref_vector args(m);
         expr_ref else_case(m);
         if (extract_array_func_interp(result, stores, else_case)) {
-            result = m_array.mk_const_array(m.get_sort(e), else_case);
+            result = m_array.mk_const_array(e->get_sort(), else_case);
             while (!stores.empty() && stores.back().back() == else_case) {
                 stores.pop_back();
             }

@@ -175,7 +175,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             if (k == OP_EQ) {
                 // theory dispatch for =
                 SASSERT(num == 2);
-                family_id s_fid = m().get_sort(args[0])->get_family_id();
+                family_id s_fid = args[0]->get_sort()->get_family_id();
                 if (s_fid == m_a_rw.get_fid())
                     st = m_a_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_bv_rw.get_fid())
@@ -199,7 +199,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             }
             if (k == OP_ITE) {
                 SASSERT(num == 3);
-                family_id s_fid = m().get_sort(args[1])->get_family_id();
+                family_id s_fid = args[1]->get_sort()->get_family_id();
                 if (s_fid == m_bv_rw.get_fid())
                     st = m_bv_rw.mk_ite_core(args[0], args[1], args[2], result);
                 if (st != BR_FAILED)
@@ -348,16 +348,16 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         family_id fid = t->get_family_id();
         if (fid == m_a_rw.get_fid()) {
             switch (t->get_decl_kind()) {
-            case OP_ADD: n = m_a_util.mk_numeral(rational::zero(), m().get_sort(t)); return true;
-            case OP_MUL: n = m_a_util.mk_numeral(rational::one(), m().get_sort(t)); return true;
+            case OP_ADD: n = m_a_util.mk_numeral(rational::zero(), t->get_sort()); return true;
+            case OP_MUL: n = m_a_util.mk_numeral(rational::one(), t->get_sort()); return true;
             default:
                 return false;
             }
         }
         if (fid == m_bv_rw.get_fid()) {
             switch (t->get_decl_kind()) {
-            case OP_BADD: n = m_bv_util.mk_numeral(rational::zero(), m().get_sort(t)); return true;
-            case OP_BMUL: n = m_bv_util.mk_numeral(rational::one(), m().get_sort(t)); return true;
+            case OP_BADD: n = m_bv_util.mk_numeral(rational::zero(), t->get_sort()); return true;
+            case OP_BMUL: n = m_bv_util.mk_numeral(rational::one(), t->get_sort()); return true;
             default:
                 return false;
             }
@@ -588,11 +588,11 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             decl_kind k = f->get_decl_kind();
             if (k == OP_EQ) {
                 SASSERT(num == 2);
-                fid = m().get_sort(args[0])->get_family_id();
+                fid = args[0]->get_sort()->get_family_id();
             }
             else if (k == OP_ITE) {
                 SASSERT(num == 3);
-                fid = m().get_sort(args[1])->get_family_id();
+                fid = args[1]->get_sort()->get_family_id();
             }
         }
         app_ref tmp(m());

@@ -184,7 +184,7 @@ namespace q {
             if (!n->interpreted() && !m.is_uninterp(m.get_sort(n->get_expr())))
                 continue;
             expr* e = n->get_expr();
-            sort* s = m.get_sort(e);
+            sort* s = e->get_sort();
             if (m_unit_table.contains(s))
                 continue;
             m_unit_table.insert(s, e);

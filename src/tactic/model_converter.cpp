@@ -27,7 +27,7 @@ void model_converter::display_add(std::ostream& out, ast_manager& m, func_decl* 
     VERIFY(e);
     smt2_pp_environment_dbg env(m);
     smt2_pp_environment* _env = m_env ? m_env : &env;
-    VERIFY(f->get_range() == m.get_sort(e));
+    VERIFY(f->get_range() == e->get_sort());
     ast_smt2_pp(out, f, e, *_env, params_ref(), 0, "model-add") << "\n";
 }
 

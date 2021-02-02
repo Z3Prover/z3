@@ -482,7 +482,7 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
     expr_ref seq(e, m), head(m), tail(m);
 
     if (lo.is_zero()) {
-        seq = m_util.str.mk_empty(m.get_sort(e));
+        seq = m_util.str.mk_empty(e->get_sort());
     }
     else if (!is_zero) {
         unsigned _lo = lo.get_unsigned();
@@ -1934,7 +1934,7 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
     expr* x = nullptr, *y = nullptr, *z = nullptr;
     if (false && m_util.str.is_concat(e, x, y) && m_util.str.is_unit(x, z) && 
         ctx.e_internalized(z) && ctx.e_internalized(y)) {
-        sort* srt = m.get_sort(e);
+        sort* srt = e->get_sort();
         seq_value_proc* sv = alloc(seq_value_proc, *this, n, srt);
         sv->add_unit(ctx.get_enode(z));
         sv->add_string(y);
@@ -1946,7 +1946,7 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
         SASSERT(m_todo.empty());
         m_todo.push_back(e);
         get_ite_concat(m_concat, m_todo);
-        sort* srt = m.get_sort(e);
+        sort* srt = e->get_sort();
         seq_value_proc* sv = alloc(seq_value_proc, *this, n, srt);
        
         unsigned end = m_concat.size();
@@ -2753,7 +2753,7 @@ literal theory_seq::mk_eq_empty(expr* _e, bool phase) {
             return false_literal;
         }
     }
-    emp = m_util.str.mk_empty(m.get_sort(e));
+    emp = m_util.str.mk_empty(e->get_sort());
 
     literal lit = mk_eq(e, emp, false);
     ctx.force_phase(phase?lit:~lit);

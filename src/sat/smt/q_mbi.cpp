@@ -341,7 +341,7 @@ namespace q {
             if (!qb.is_free(idx))
                 continue;
             expr* v = qb.vars.get(qb.vars.size() - idx - 1);
-            sort* srt = m.get_sort(v);
+            sort* srt = v->get_sort();
             expr_ref_vector veqs(m), meqs(m);
             auto const& nodes = ctx.get_egraph().nodes();
             unsigned sz = nodes.size();
@@ -351,7 +351,7 @@ namespace q {
                 auto* n = nodes[i];
                 expr* e = n->get_expr();
                 expr* val = ctx.node2value(n);                
-                if (val && m.get_sort(e) == srt && !m.is_value(e) && !visited.is_marked(val)) {
+                if (val && e->get_sort() == srt && !m.is_value(e) && !visited.is_marked(val)) {
                     visited.mark(val);
                     veqs.push_back(m.mk_eq(v, e));
                     meqs.push_back(m.mk_eq(v, val));
@@ -484,7 +484,7 @@ namespace q {
 
     bool mbqi::next_offset(unsigned_vector& offsets, app_ref_vector const& vars, unsigned index, unsigned start) {
         auto* v = vars[index];
-        sort* srt = m.get_sort(v);
+        sort* srt = v->get_sort();
         auto const& nodes = ctx.get_egraph().nodes();
         unsigned sz = nodes.size();
         for (unsigned i = start; i < sz; ++i) {            
@@ -492,7 +492,7 @@ namespace q {
             if (n->generation() > 0)
                 return false;
             expr* e = n->get_expr();
-            if (m.get_sort(e) == srt && !m.is_value(e)) {
+            if (e->get_sort() == srt && !m.is_value(e)) {
                 offsets[index] = i;
                 return true;
             }

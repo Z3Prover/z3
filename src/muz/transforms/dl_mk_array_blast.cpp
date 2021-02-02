@@ -91,7 +91,7 @@ namespace datalog {
                 r.get_vars(m, vars);
                 m_next_var = vars.size() + 1;
             }
-            v = m.mk_var(m_next_var, m.get_sort(e));
+            v = m.mk_var(m_next_var, e->get_sort());
             m_defs.insert(e, v);
             ++m_next_var;
         }

@@ -1348,7 +1348,7 @@ namespace smt2 {
             expr_ref t(expr_stack().back(), m());
             expr_stack().pop_back();
             expr_ref_vector patterns(m()), cases(m());
-            sort* srt = m().get_sort(t);
+            sort* srt = t->get_sort();
 
             check_lparen_next("pattern bindings should be enclosed in a parenthesis");
             if (curr_id_is_case()) {
@@ -1400,7 +1400,7 @@ namespace smt2 {
             expr_ref result(m());
             var_subst sub(m(), false);
             TRACE("parse_expr", tout << "term\n" << expr_ref(t, m()) << "\npatterns\n" << patterns << "\ncases\n" << cases << "\n";);
-            check_patterns(patterns, m().get_sort(t));
+            check_patterns(patterns, t->get_sort());
             for (unsigned i = patterns.size(); i > 0; ) {
                 --i;
                 expr_ref_vector subst(m());
@@ -1444,7 +1444,7 @@ namespace smt2 {
         // compute match condition and substitution
         // t is shifted by size of subst.
         expr_ref bind_match(expr* t, expr* pattern, expr_ref_vector& subst) {
-            if (m().get_sort(t) != m().get_sort(pattern)) {
+            if (t->get_sort() != m().get_sort(pattern)) {
                 std::ostringstream str;
                 str << "sorts of pattern " << expr_ref(pattern, m()) << " and term " 
                     << expr_ref(t, m()) << " are not aligned";
@@ -1767,7 +1767,7 @@ namespace smt2 {
         void check_qualifier(expr * t, bool has_as) {
             if (has_as) {
                 sort * s = sort_stack().back();
-                if (s != m().get_sort(t))
+                if (s != t->get_sort())
                     throw parser_exception("invalid qualified identifier, sort mismatch");
                 sort_stack().pop_back();
             }

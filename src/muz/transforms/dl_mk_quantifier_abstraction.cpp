@@ -228,7 +228,7 @@ namespace datalog {
         unsigned sz = p->get_num_args();
         for (unsigned i = 0; i < sz; ++i) {
             arg = p->get_arg(i);
-            sort* s = m.get_sort(arg);
+            sort* s = arg->get_sort();
             while (a.is_array(s)) {
                 unsigned arity = get_array_arity(s);
                 for (unsigned j = 0; j < arity; ++j) {
@@ -268,7 +268,7 @@ namespace datalog {
         unsigned sz = p->get_num_args();
         for (unsigned i = 0; i < sz; ++i) {
             arg = ps->get_arg(i);
-            sort* s = m.get_sort(arg);
+            sort* s = arg->get_sort();
             bool is_pattern = false;
             while (a.is_array(s)) {
                 is_pattern = true;

@@ -73,7 +73,7 @@ void substitution_tree::linearize(svector<subst> & result) {
     for (unsigned i = 0; i < m_todo.size(); i++) {
         unsigned ireg_idx = m_todo[i];
         expr * n          = get_reg_value(ireg_idx);
-        var * ireg        = m_manager.mk_var(ireg_idx, m_manager.get_sort(n));
+        var * ireg        = m_manager.mk_var(ireg_idx, n->get_sort());
         if (is_var(n))
             push(result, subst(ireg, n));
         else {
@@ -87,7 +87,7 @@ void substitution_tree::linearize(svector<subst> & result) {
                     unsigned oreg     = next_reg();
                     set_reg_value(oreg, to_app(n)->get_arg(j));
                     m_todo.push_back(oreg);
-                    sort * s          = m_manager.get_sort(get_reg_value(oreg));
+                    sort * s          = get_reg_value(oreg)->get_sort();
                     new_args.push_back(m_manager.mk_var(oreg, s));
                 }
                 new_app = m_manager.mk_app(to_app(n)->get_decl(), new_args.size(), new_args.c_ptr());
@@ -731,7 +731,7 @@ template<substitution_tree::st_visit_mode Mode>
 bool substitution_tree::visit_vars(expr * e, st_visitor & st) {
     if (m_vars.empty())
         return true; // continue
-    sort * s      = m_manager.get_sort(e);
+    sort * s      = e->get_sort();
     unsigned s_id = s->get_decl_id();
     if (s_id < m_vars.size()) {
         var_ref_vector * v = m_vars[s_id];

@@ -45,7 +45,7 @@ namespace smt {
 
     template<typename Ext>
     inline app * theory_dense_diff_logic<Ext>::mk_zero_for(expr * n) {
-        return m_autil.mk_numeral(rational(0), m.get_sort(n));
+        return m_autil.mk_numeral(rational(0), n->get_sort());
     }
 
     template<typename Ext>

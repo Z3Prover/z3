@@ -317,7 +317,7 @@ namespace smt {
         app * e2        = n2->get_owner();
 
         func_decl_ref_vector * funcs = nullptr;
-        sort *                     s = m.get_sort(e1);
+        sort *                     s = e1->get_sort();
 
         VERIFY(m_sort2skolem.find(s, funcs));
 
@@ -353,7 +353,7 @@ namespace smt {
     void theory_array_base::assert_congruent_core(enode * n1, enode * n2) {
         app * e1        = n1->get_owner();
         app * e2        = n2->get_owner();
-        sort* s         = m.get_sort(e1);
+        sort* s         = e1->get_sort();
         unsigned dimension = get_array_arity(s);
         literal n1_eq_n2 = mk_eq(e1, e2, true);
         ctx.mark_as_relevant(n1_eq_n2);

@@ -602,7 +602,7 @@ namespace smt {
         SASSERT(ctx.e_internalized(n));
         SASSERT(m_util.is_bv2int(n));
         TRACE("bv2int_bug", tout << "bv2int:\n" << mk_pp(n, m) << "\n";);
-        sort * int_sort = m.get_sort(n);
+        sort * int_sort = n->get_sort();
         app * k = to_app(n->get_arg(0));
         SASSERT(m_util.is_bv_sort(m.get_sort(k)));
         expr_ref_vector k_bits(m);
@@ -1086,7 +1086,7 @@ namespace smt {
         unsigned num_args = n->get_num_args();
         for (unsigned i = 0; i <= num_args; i++) {
             expr* arg = (i == num_args)?n:n->get_arg(i);
-            sort* s = m.get_sort(arg);
+            sort* s = arg->get_sort();
             if (m_util.is_bv_sort(s) && m_util.get_bv_size(arg) > params().m_bv_blast_max_size) {                
                 if (!m_approximates_large_bvs) {
                     TRACE("bv", tout << "found large size bit-vector:\n" << mk_pp(n, m) << "\n";);

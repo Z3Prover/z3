@@ -430,7 +430,7 @@ class num_consts_probe : public probe {
                             m_counter++;
                     }
                     else {
-                        if (m.get_sort(n)->get_family_id() == m_fid)
+                        if (n->get_sort()->get_family_id() == m_fid)
                             m_counter++;
                     }
                 }

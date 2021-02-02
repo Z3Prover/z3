@@ -1044,7 +1044,7 @@ namespace mbp {
             expr_ref_vector result(m);
             for (term *t : m_tg.m_terms) {
                 expr* e = t->get_expr();
-                if (m.get_sort(e)->get_family_id() != fid) continue;
+                if (e->get_sort()->get_family_id() != fid) continue;
                 for (term * p : term::parents(t->get_root())) {
                     expr* pe = p->get_expr();
                     if (!is_app(pe)) continue;

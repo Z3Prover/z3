@@ -134,7 +134,7 @@ class lia2pb_tactic : public tactic {
                     }
                 }
                 else {
-                    sort * s = m_owner.m.get_sort(n);
+                    sort * s = n->get_sort();
                     if (s->get_family_id() == m_owner.m_util.get_family_id())
                         throw_failed(n);
                 }

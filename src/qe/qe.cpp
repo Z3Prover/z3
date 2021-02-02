@@ -1161,7 +1161,7 @@ namespace qe {
             expr* y = x;
             expr_abstract(m, 0, 1, &y, fml, result);            
             symbol X(x->get_decl()->get_name());
-            sort* s = m.get_sort(x);
+            sort* s = x->get_sort();
             result = m.mk_exists(1, &s, &X, result);
             return result;
         }
@@ -1273,7 +1273,7 @@ namespace qe {
 
     bool i_solver_context::has_plugin(app* x) {
         ast_manager& m = get_manager();
-        family_id fid = m.get_sort(x)->get_family_id();
+        family_id fid = x->get_sort()->get_family_id();
         return 
             0 <= fid && 
             fid < static_cast<int>(m_plugins.size()) &&
@@ -1283,7 +1283,7 @@ namespace qe {
     qe_solver_plugin& i_solver_context::plugin(app* x) {
         ast_manager& m = get_manager();
         SASSERT(has_plugin(x));
-        return *(m_plugins[m.get_sort(x)->get_family_id()]);               
+        return *(m_plugins[x->get_sort()->get_family_id()]);               
     }
 
     void i_solver_context::mk_atom(expr* e, bool p, expr_ref& result) {

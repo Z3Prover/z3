@@ -121,7 +121,7 @@ namespace dt {
         m_stats.m_assert_cnstr++;
         SASSERT(dt.is_constructor(c));
         SASSERT(is_datatype(e));
-        SASSERT(c->get_range() == m.get_sort(e));
+        SASSERT(c->get_range() == e->get_sort());
         m_args.reset();
         ptr_vector<func_decl> const& accessors = *dt.get_constructor_accessors(c);
         SASSERT(c->get_arity() == accessors.size());
@@ -223,7 +223,7 @@ namespace dt {
             assert_update_field_axioms(n);
         }
         else {
-            sort* s = m.get_sort(n->get_expr());
+            sort* s = n->get_expr()->get_sort();
             if (dt.get_datatype_num_constructors(s) == 1)
                 assert_is_constructor_axiom(n, dt.get_datatype_constructors(s)->get(0));
             else if (get_config().m_dt_lazy_splits == 0 || (get_config().m_dt_lazy_splits == 1 && !s->is_infinite()))
@@ -242,7 +242,7 @@ namespace dt {
 
         v = m_find.find(v);
         enode* n = var2enode(v);
-        sort* srt = m.get_sort(n->get_expr());
+        sort* srt = n->get_expr()->get_sort();
         func_decl* non_rec_c = dt.get_non_rec_constructor(srt);
         unsigned non_rec_idx = dt.get_constructor_idx(non_rec_c);
         var_data* d = m_var_data[v];
@@ -388,7 +388,7 @@ namespace dt {
         unsigned num_unassigned = 0;
         unsigned unassigned_idx = UINT_MAX;
         enode* n = var2enode(v);
-        sort* srt = m.get_sort(n->get_expr());
+        sort* srt = n->get_expr()->get_sort();
         var_data* d = m_var_data[v];
         if (d->m_recognizers.empty()) {
             theory_var w = recognizer->get_arg(0)->get_th_var(get_id());
@@ -565,7 +565,7 @@ namespace dt {
             }
             // explore `arg` (with parent)
             expr* earg = arg->get_expr();
-            sort* s = m.get_sort(earg);
+            sort* s = earg->get_sort();
             if (dt.is_datatype(s)) {
                 m_parent.insert(arg->get_root(), parent);
                 oc_push_stack(arg);
@@ -732,7 +732,7 @@ namespace dt {
         SASSERT(!n->is_attached_to(get_id()));
         if (is_constructor(term) || is_update_field(term)) {
             for (enode* arg : euf::enode_args(n)) {
-                sort* s = m.get_sort(arg->get_expr());
+                sort* s = arg->get_expr()->get_sort();
                 if (dt.is_datatype(s))
                     mk_var(arg);
                 else if (m_autil.is_array(s) && dt.is_datatype(get_array_range(s))) {

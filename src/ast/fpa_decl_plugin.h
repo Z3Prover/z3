@@ -223,8 +223,8 @@ public:
     sort * mk_rm_sort() { return m().mk_sort(m_fid, ROUNDING_MODE_SORT); }
     bool is_float(sort * s) const { return is_sort_of(s, m_fid, FLOATING_POINT_SORT); }
     bool is_rm(sort * s) const { return is_sort_of(s, m_fid, ROUNDING_MODE_SORT); }
-    bool is_float(expr * e) const { return is_float(m_manager.get_sort(e)); }
-    bool is_rm(expr * e) const { return is_rm(m_manager.get_sort(e)); }
+    bool is_float(expr * e) const { return is_float(e->get_sort()); }
+    bool is_rm(expr * e) const { return is_rm(e->get_sort()); }
     bool is_fp(expr const * e) const { return is_app_of(e, m_fid, OP_FPA_FP); }
     unsigned get_ebits(sort * s) const;
     unsigned get_sbits(sort * s) const;

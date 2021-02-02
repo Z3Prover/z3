@@ -782,13 +782,13 @@ namespace datalog {
             else if (is_var(e) && m.is_bool(e)) {
                 m_engine_type = SPACER_ENGINE;
             }
-            else if (dt.is_datatype(m.get_sort(e))) {
+            else if (dt.is_datatype(e->get_sort())) {
                 m_engine_type = SPACER_ENGINE;
             }
-            else if (is_large_bv(m.get_sort(e))) {
+            else if (is_large_bv(e->get_sort())) {
                 m_engine_type = SPACER_ENGINE;
             }
-            else if (!m.get_sort(e)->get_num_elements().is_finite()) {
+            else if (!e->get_sort()->get_num_elements().is_finite()) {
                 m_engine_type = SPACER_ENGINE;
             }
             else if (ar.is_array(e)) {

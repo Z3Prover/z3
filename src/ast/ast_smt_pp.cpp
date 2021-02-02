@@ -197,7 +197,7 @@ class smt_printer {
     }
 
     bool is_bool(expr* e) {
-        return is_bool(m_manager.get_sort(e));
+        return is_bool(e->get_sort());
     }
 
     bool is_proof(sort* s) {
@@ -207,7 +207,7 @@ class smt_printer {
     }
 
     bool is_proof(expr* e) {
-        return is_proof(m_manager.get_sort(e));
+        return is_proof(e->get_sort());
     }
 
     void pp_id(expr* n) {
@@ -450,11 +450,11 @@ class smt_printer {
                 while (idx < args.size() && !args[idx])
                     idx++;
                 if (idx >= args.size()) break;
-                sort *   s = m_manager.get_sort(args[idx]);
+                sort *   s = args[idx]->get_sort();
                 unsigned next = idx + 1;
 
                 // check if there is only a single one
-                while (next < args.size() && (!args[next] || m_manager.get_sort(args[next]) != s))
+                while (next < args.size() && (!args[next] || args[next]->get_sort() != s))
                     next++;
                 if (next >= args.size()) {
                     args[idx] = 0;
@@ -465,7 +465,7 @@ class smt_printer {
                 // otherwise print all of the relevant sort
                 m_out << " (distinct";
                 for (unsigned i = idx; i < args.size(); ++i) {
-                    if (args[i] && s == m_manager.get_sort(args[i])) {
+                    if (args[i] && s == args[i]->get_sort()) {
                         m_out << " ";
                         pp_marked_expr(args[i]);
                         args[i] = 0;

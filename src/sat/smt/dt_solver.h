@@ -77,7 +77,7 @@ namespace dt {
         bool is_accessor(enode * n) const { return is_accessor(n->get_expr()); }
         bool is_update_field(enode * n) const { return dt.is_update_field(n->get_expr()); }
 
-        bool is_datatype(expr* e) const { return dt.is_datatype(m.get_sort(e)); }
+        bool is_datatype(expr* e) const { return dt.is_datatype(e->get_sort()); }
         bool is_datatype(enode* n) const { return is_datatype(n->get_expr()); }
 
         void assert_eq_axiom(enode * lhs, expr * rhs, literal antecedent = sat::null_literal);

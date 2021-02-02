@@ -85,7 +85,7 @@ expr * poly_rewriter<Config>::mk_mul_app(unsigned num_args, expr * const * args)
         return args[0];
     default: 
         if (use_power()) {
-            sort* s = m().get_sort(args[0]);
+            sort* s = args[0]->get_sort();
             rational k_prev;
             expr * prev = get_power_body(args[0], k_prev);
             rational k;
@@ -668,7 +668,7 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
 template<typename Config>
 br_status poly_rewriter<Config>::mk_uminus(expr * arg, expr_ref & result) {
     numeral a;
-    set_curr_sort(m().get_sort(arg));
+    set_curr_sort(arg->get_sort());
     if (is_numeral(arg, a)) {
         a.neg();
         normalize(a);
@@ -688,7 +688,7 @@ br_status poly_rewriter<Config>::mk_sub(unsigned num_args, expr * const * args, 
         result = args[0];
         return BR_DONE;
     }
-    set_curr_sort(m().get_sort(args[0]));
+    set_curr_sort(args[0]->get_sort());
     expr_ref minus_one(mk_numeral(numeral(-1)), m());
     expr_ref_buffer new_args(m());
     new_args.push_back(args[0]);
@@ -708,7 +708,7 @@ br_status poly_rewriter<Config>::mk_sub(unsigned num_args, expr * const * args, 
 */
 template<typename Config>
 br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool move, expr_ref & lhs_result, expr_ref & rhs_result) {
-    set_curr_sort(m().get_sort(lhs));
+    set_curr_sort(lhs->get_sort());
     mon_lt lt(*this);
     unsigned lhs_sz;
     expr * const * lhs_monomials = get_monomials(lhs, lhs_sz);
@@ -921,7 +921,7 @@ bool poly_rewriter<Config>::hoist_multiplication(expr_ref& som) {
                 continue;
             }
             if (mul_map.find(e, j) && valid[j] && j != k) {
-                m_curr_sort = m().get_sort(adds[k]);
+                m_curr_sort = adds[k]->get_sort();
                 adds[j]  = merge_muls(adds[j], adds[k]);
                 adds[k]  = mk_numeral(rational(0)); 
                 valid[j] = false;
@@ -964,7 +964,7 @@ expr* poly_rewriter<Config>::merge_muls(expr* x, expr* y) {
             ++k;
         }
     }
-    m_curr_sort = m().get_sort(x);
+    m_curr_sort = x->get_sort();
     SASSERT(k > 0);
     SASSERT(m1.size() >= k); 
     SASSERT(m2.size() >= k);

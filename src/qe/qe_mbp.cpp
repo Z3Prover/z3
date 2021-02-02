@@ -168,7 +168,7 @@ class mbproj::impl {
             expr* e1, * e2;
             if (m_array.is_select(n)) {
                 for (expr* arg : *n) {
-                    if (m.get_sort(arg) == m.get_sort(m_var) && arg != m_var)
+                    if (arg->get_sort() == m.get_sort(m_var) && arg != m_var)
                         m_res.push_back(arg);
                 }
             }

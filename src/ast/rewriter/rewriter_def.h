@@ -90,10 +90,10 @@ bool rewriter_tpl<Config>::process_const(app * t0) {
           if (m_pr) tout << mk_bounded_pp(m_pr, m()) << "\n";
           );
     CTRACE("reduce_app", 
-           st != BR_FAILED && m().get_sort(m_r) != m().get_sort(t),
-           tout << mk_pp(m().get_sort(t), m()) << ": " << mk_pp(t, m()) << "\n";
+           st != BR_FAILED && m().get_sort(m_r) != t->get_sort(),
+           tout << mk_pp(t->get_sort(), m()) << ": " << mk_pp(t, m()) << "\n";
            tout << m_r->get_id() << " " << mk_pp(m().get_sort(m_r), m()) << ": " << m_r << "\n";);
-    SASSERT(st != BR_DONE || m().get_sort(m_r) == m().get_sort(t));
+    SASSERT(st != BR_DONE || m().get_sort(m_r) == t->get_sort());
     switch (st) {
     case BR_FAILED:
         if (!retried) {
@@ -144,7 +144,7 @@ bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
     proof * new_t_pr = nullptr;
     if (m_cfg.get_subst(t, new_t, new_t_pr)) {
         TRACE("rewriter_subst", tout << "subst\n" << mk_ismt2_pp(t, m()) << "\n---->\n" << mk_ismt2_pp(new_t, m()) << "\n";);
-        SASSERT(m().get_sort(t) == m().get_sort(new_t));
+        SASSERT(t->get_sort() == m().get_sort(new_t));
         result_stack().push_back(new_t);
         set_new_child_flag(t, new_t);
         SASSERT(rewrites_from(t, new_t_pr));
@@ -171,7 +171,7 @@ bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
 #endif
         expr * r = get_cached(t);
         if (r) {
-            SASSERT(m().get_sort(r) == m().get_sort(t));
+            SASSERT(m().get_sort(r) == t->get_sort());
             result_stack().push_back(r);
             set_new_child_flag(t, r);
             if (ProofGen) {
@@ -312,10 +312,10 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
               );
         SASSERT(st == BR_FAILED || rewrites_to(m_r, m_pr2));
         SASSERT(st == BR_FAILED || rewrites_from(new_t, m_pr2));
-        SASSERT(st != BR_DONE || m().get_sort(m_r) == m().get_sort(t));
+        SASSERT(st != BR_DONE || m().get_sort(m_r) == t->get_sort());
         if (st != BR_FAILED) {
             result_stack().shrink(fr.m_spos);
-            SASSERT(m().get_sort(m_r) == m().get_sort(t));
+            SASSERT(m().get_sort(m_r) == t->get_sort());
             result_stack().push_back(m_r);
             if (ProofGen) {
                 result_pr_stack().shrink(fr.m_spos);
@@ -393,7 +393,7 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
         if (get_macro(f, def, def_pr)) {
             SASSERT(!f->is_associative() || !flat_assoc(f));
             SASSERT(new_num_args == t->get_num_args());
-            SASSERT(m().get_sort(def) == m().get_sort(t));
+            SASSERT(m().get_sort(def) == t->get_sort());
             if (is_ground(def) && !m_cfg.reduce_macro()) {
                 m_r = def;
                 if (ProofGen) {
@@ -759,7 +759,7 @@ void rewriter_tpl<Config>::resume_core(expr_ref & result, proof_ref & result_pr)
         if (first_visit(fr) && fr.m_cache_result) {
             expr * r = get_cached(t);
             if (r) {
-                SASSERT(m().get_sort(r) == m().get_sort(t));
+                SASSERT(m().get_sort(r) == t->get_sort());
                 result_stack().push_back(r);
                 if (ProofGen) {
                     proof * pr = get_cached_pr(t);

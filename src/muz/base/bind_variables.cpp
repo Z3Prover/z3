@@ -89,7 +89,7 @@ expr_ref bind_variables::abstract(expr* term, cache_t& cache, unsigned scope) {
                     cache.insert(e, v);
                 }
                 else {
-                    var* v1 = m.mk_var(scope + v->get_idx(), m.get_sort(v));
+                    var* v1 = m.mk_var(scope + v->get_idx(), v->get_sort());
                     m_pinned.push_back(v1);
                     cache.insert(e, v1);
                 }

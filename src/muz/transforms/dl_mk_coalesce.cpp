@@ -67,7 +67,7 @@ namespace datalog {
         bool_vector valid(sorts.size(), true);
         for (unsigned i = 0; i < sub.size(); ++i) {
             expr* e = sub[i];
-            sort* s = m.get_sort(e);
+            sort* s = e->get_sort();
             expr_ref w(m.mk_var(i, s), m);
             if (is_var(e)) {
                 unsigned v = to_var(e)->get_idx();
@@ -87,7 +87,7 @@ namespace datalog {
             }
             else {
                 SASSERT(m.is_value(e));
-                SASSERT(m.get_sort(e) == m.get_sort(w));
+                SASSERT(e->get_sort() == m.get_sort(w));
                 conjs.push_back(m.mk_eq(e, w));
             }
         }

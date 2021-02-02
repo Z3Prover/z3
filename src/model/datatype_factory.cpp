@@ -63,7 +63,7 @@ expr * datatype_factory::get_last_fresh_value(sort * s) {
 
 bool datatype_factory::is_subterm_of_last_value(app* e) {
     expr* last;
-    if (!m_last_fresh_value.find(m_manager.get_sort(e), last)) {
+    if (!m_last_fresh_value.find(e->get_sort(), last)) {
         return false;
     }
     contains_app contains(m_manager, e);

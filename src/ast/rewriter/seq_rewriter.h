@@ -55,10 +55,10 @@ class sym_expr {
 public:
     ~sym_expr() { if (m_expr) m_expr->dec_ref(); }
     expr_ref accept(expr* e);
-    static sym_expr* mk_char(expr_ref& t) { return alloc(sym_expr, t_char, t, t, t.get_manager().get_sort(t), nullptr); }
+    static sym_expr* mk_char(expr_ref& t) { return alloc(sym_expr, t_char, t, t, t->get_sort(), nullptr); }
     static sym_expr* mk_char(ast_manager& m, expr* t) { expr_ref tr(t, m); return mk_char(tr); }
     static sym_expr* mk_pred(expr_ref& t, sort* s) { return alloc(sym_expr, t_pred, t, t, s, nullptr); }
-    static sym_expr* mk_range(expr_ref& lo, expr_ref& hi) { return alloc(sym_expr, t_range, lo, hi, lo.get_manager().get_sort(hi), nullptr); }
+    static sym_expr* mk_range(expr_ref& lo, expr_ref& hi) { return alloc(sym_expr, t_range, lo, hi, hi->get_sort(), nullptr); }
     static sym_expr* mk_not(ast_manager& m, sym_expr* e) { expr_ref f(m); e->inc_ref(); return alloc(sym_expr, t_not, f, f, e->get_sort(), e); }
     void inc_ref() { ++m_ref;  }
     void dec_ref() { --m_ref; if (m_ref == 0) dealloc(this); }

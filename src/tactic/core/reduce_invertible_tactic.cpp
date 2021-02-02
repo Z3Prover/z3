@@ -409,7 +409,7 @@ private:
                 // diagonal functions for other types depend on theory.
                 return false;
             }
-            else if (is_var(v) && is_non_singleton_sort(m.get_sort(v))) {
+            else if (is_var(v) && is_non_singleton_sort(v->get_sort())) {
                 new_v = m.mk_var(to_var(v)->get_idx(), m.mk_bool_sort());
                 return true;
             }
@@ -484,7 +484,7 @@ private:
                     TRACE("invertible_tactic", tout << mk_pp(v, m) << " " << mk_pp(p, m) << "\n";);
                     t.mark_inverted(p);
                     sub.insert(p, new_v);
-                    new_sorts[i] = m.get_sort(new_v);
+                    new_sorts[i] = new_v->get_sort();
                     has_new_var |= new_v != v;
                 }
             }

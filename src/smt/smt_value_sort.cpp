@@ -68,7 +68,7 @@ namespace smt {
     }
 
     bool is_value_sort(ast_manager& m, expr* e) {
-        return is_value_sort(m, m.get_sort(e));
+        return is_value_sort(m, e->get_sort());
     }
 
 }

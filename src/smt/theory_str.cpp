@@ -311,7 +311,7 @@ namespace smt {
         enode * en = ensure_enode(e);
         theory_var v = mk_var(en); (void)v;
         TRACE("str", tout << "refresh " << mk_pp(e, get_manager()) << ": v#" << v << std::endl;);
-        if (m.get_sort(e) == u.str.mk_string_sort()) {
+        if (e->get_sort() == u.str.mk_string_sort()) {
             m_basicstr_axiom_todo.push_back(en);
         }
     }
@@ -6771,7 +6771,7 @@ namespace smt {
 
     bool theory_str::is_var(expr * e) const {
         ast_manager & m = get_manager();
-        sort * ex_sort = m.get_sort(e);
+        sort * ex_sort = e->get_sort();
         sort * str_sort = u.str.mk_string_sort();
         // non-string-sort terms cannot be string variables
         if (ex_sort != str_sort) return false;

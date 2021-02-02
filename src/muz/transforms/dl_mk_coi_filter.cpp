@@ -149,7 +149,7 @@ namespace datalog {
                     for (unsigned j = 0; j < head->get_num_args(); ++j) {
                         expr* arg = head->get_arg(j);
                         if (!is_var(arg)) {
-                            conj.push_back(m.mk_eq(m.mk_var(j, m.get_sort(arg)), arg));
+                            conj.push_back(m.mk_eq(m.mk_var(j, arg->get_sort()), arg));
                         }
                     }
                     fmls.push_back(mk_and(conj));

@@ -230,7 +230,7 @@ protected:
                     }
                 }
                 else if (!n2 && !m.is_value(arg)) {
-                    n2 = mk_fresh(id, m.get_sort(arg));
+                    n2 = mk_fresh(id, arg->get_sort());
                     trail.push_back(n2);
                     todo.push_back(expr_pos(self_pos, ++child_id, i, arg));
                     names.push_back(n2);

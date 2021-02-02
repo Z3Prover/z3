@@ -73,7 +73,7 @@ bool horn_subsume_model_converter::mk_horn(
     for (unsigned i = 0; i < arity; ++i) {
         expr* arg = head->get_arg(i);
         var_ref v(m);
-        v = m.mk_var(fv.size()+i, m.get_sort(arg));
+        v = m.mk_var(fv.size()+i, arg->get_sort());
         
         if (is_var(arg)) {
             unsigned w = to_var(arg)->get_idx();

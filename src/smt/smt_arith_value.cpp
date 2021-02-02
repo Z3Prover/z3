@@ -134,7 +134,7 @@ namespace smt {
         rational lo;
         bool s = false;
         if ((a.is_int_real(e) || b.is_bv(e)) && get_lo(e, lo, s) && !s) {
-            return expr_ref(a.mk_numeral(lo, m.get_sort(e)), m);
+            return expr_ref(a.mk_numeral(lo, e->get_sort()), m);
         }
         return expr_ref(e, m);
     }
@@ -143,7 +143,7 @@ namespace smt {
         rational up;
         bool s = false;
         if ((a.is_int_real(e) || b.is_bv(e)) && get_up(e, up, s) && !s) {
-            return expr_ref(a.mk_numeral(up, m.get_sort(e)), m);
+            return expr_ref(a.mk_numeral(up, e->get_sort()), m);
         }
         return expr_ref(e, m);
     }
@@ -152,7 +152,7 @@ namespace smt {
         rational lo, up;
         bool s = false;
         if (a.is_int_real(e) && get_lo(e, lo, s) && !s && get_up(e, up, s) && !s && lo == up) {
-            return expr_ref(a.mk_numeral(lo, m.get_sort(e)), m);
+            return expr_ref(a.mk_numeral(lo, e->get_sort()), m);
         }
         return expr_ref(e, m);
     }    

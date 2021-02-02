@@ -33,7 +33,7 @@ class smt_checker {
         m_fresh_exprs.reserve(i + 1);
         expr* r = m_fresh_exprs.get(i);
         if (!r) {
-            r = m.mk_fresh_const("sk", m.get_sort(e));
+            r = m.mk_fresh_const("sk", e->get_sort());
             m_fresh_exprs[i] = r;
         }
         return r;
@@ -175,7 +175,7 @@ public:
         params.reset();
         sorts.reset();
         for (expr* arg : args) 
-            sorts.push_back(m.get_sort(arg));
+            sorts.push_back(arg->get_sort());
         sort_ref rng(m);
         func_decl* f = nullptr;
         switch (sexpr->get_kind()) {

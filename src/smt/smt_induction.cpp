@@ -277,7 +277,7 @@ bool induction_lemmas::positions_dont_overlap(induction_positions_t const& posit
  */
 void induction_lemmas::mk_hypothesis_substs(unsigned depth, expr* x, cond_substs_t& subst) {
     expr_ref_vector conds(m);
-    mk_hypothesis_substs_rec(depth, m.get_sort(x), x, conds, subst);
+    mk_hypothesis_substs_rec(depth, x->get_sort(), x, conds, subst);
 }
 
 void induction_lemmas::mk_hypothesis_substs_rec(unsigned depth, sort* s, expr* y, expr_ref_vector& conds, cond_substs_t& subst) {

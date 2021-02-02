@@ -162,7 +162,7 @@ namespace datalog {
             for (expr* arg : *t) {
                 unsigned var_idx = to_var(arg)->get_idx();
                 if (!result.get(res_ofs - var_idx)) {
-                    result[res_ofs - var_idx] = m.mk_var(next_var++, m.get_sort(arg));
+                    result[res_ofs - var_idx] = m.mk_var(next_var++, arg->get_sort());
                 }
             }
         }
@@ -335,7 +335,7 @@ namespace datalog {
                 var * v = to_var(arg);
                 if (v->get_idx() == var_idx) {
                     args.push_back(v);
-                    domain.push_back(m.get_sort(v));
+                    domain.push_back(v->get_sort());
                     return true;
                 }
             }
@@ -594,7 +594,7 @@ namespace datalog {
 
 
         cost get_domain_size(expr* e) const {
-            return get_domain_size(m.get_sort(e));
+            return get_domain_size(e->get_sort());
         }
 
         cost get_domain_size(sort* s) const {

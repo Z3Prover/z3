@@ -108,15 +108,15 @@ namespace euf {
         if (m.is_bool(e))
             attach_lit(literal(si.add_bool_var(e), false), e);
 
-        if (!m.is_bool(e) && m.get_sort(e)->get_family_id() != null_family_id) {
+        if (!m.is_bool(e) && e->get_sort()->get_family_id() != null_family_id) {
             auto* e_ext = expr2solver(e);
-            auto* s_ext = sort2solver(m.get_sort(e));
+            auto* s_ext = sort2solver(e->get_sort());
             if (s_ext && s_ext != e_ext)
-                s_ext->apply_sort_cnstr(n, m.get_sort(e));
+                s_ext->apply_sort_cnstr(n, e->get_sort());
         }
         expr* a = nullptr, * b = nullptr;                   
-        if (m.is_eq(e, a, b) && m.get_sort(a)->get_family_id() != null_family_id) {
-            auto* s_ext = sort2solver(m.get_sort(a));
+        if (m.is_eq(e, a, b) && a->get_sort()->get_family_id() != null_family_id) {
+            auto* s_ext = sort2solver(a->get_sort());
             if (s_ext)
                 s_ext->eq_internalized(n);
         }
@@ -195,7 +195,7 @@ namespace euf {
         else {
             // g(f(x_i)) = x_i
             // f(x_1) = a + .... + f(x_n) = a >= 2
-            sort* srt = m.get_sort(e->get_arg(0));
+            sort* srt = e->get_arg(0)->get_sort();
             SASSERT(!m.is_bool(srt));
             sort_ref u(m.mk_fresh_sort("distinct-elems"), m);
             sort* u_ptr = u.get();
@@ -242,7 +242,7 @@ namespace euf {
         }
         else {
             // dist-f(x_1) = v_1 & ... & dist-f(x_n) = v_n
-            sort* srt = m.get_sort(e->get_arg(0));
+            sort* srt = e->get_arg(0)->get_sort();
             SASSERT(!m.is_bool(srt));
             sort_ref u(m.mk_fresh_sort("distinct-elems"), m);
             func_decl_ref f(m.mk_fresh_func_decl("dist-f", "", 1, &srt, u), m);

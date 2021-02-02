@@ -297,7 +297,7 @@ namespace datalog {
                     m_manager->raise_exception("illegal index");
                     return nullptr;
                 }
-                if (sorts[idx] != m.get_sort(e)) {
+                if (sorts[idx] != e->get_sort()) {
                     m_manager->raise_exception("sort mismatch in filter");
                     return nullptr;
                 }
@@ -766,7 +766,7 @@ namespace datalog {
     app* dl_decl_util::mk_rule(symbol const& name, unsigned num_args, expr* const* args) {
         ptr_buffer<sort> sorts;
         for (unsigned i = 0; i < num_args; ++i) {
-            sorts.push_back(m.get_sort(args[i]));
+            sorts.push_back(args[i]->get_sort());
         }
         func_decl* f = m.mk_func_decl(name, num_args, sorts.c_ptr(), mk_rule_sort());
         return m.mk_app(f, num_args, args);

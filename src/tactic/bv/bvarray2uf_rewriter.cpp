@@ -55,7 +55,7 @@ bvarray2uf_rewriter_cfg::~bvarray2uf_rewriter_cfg() {
 void bvarray2uf_rewriter_cfg::reset() {}
 
 sort * bvarray2uf_rewriter_cfg::get_index_sort(expr * e) {
-    return get_index_sort(m_manager.get_sort(e));
+    return get_index_sort(e->get_sort());
 }
 
 sort * bvarray2uf_rewriter_cfg::get_index_sort(sort * s) {
@@ -71,7 +71,7 @@ sort * bvarray2uf_rewriter_cfg::get_index_sort(sort * s) {
 }
 
 sort * bvarray2uf_rewriter_cfg::get_value_sort(expr * e) {
-    return get_value_sort(m_manager.get_sort(e));
+    return get_value_sort(e->get_sort());
 }
 
 sort * bvarray2uf_rewriter_cfg::get_value_sort(sort * s) {
@@ -82,7 +82,7 @@ sort * bvarray2uf_rewriter_cfg::get_value_sort(sort * s) {
 }
 
 bool bvarray2uf_rewriter_cfg::is_bv_array(expr * e) {
-    return is_bv_array(m_manager.get_sort(e));
+    return is_bv_array(e->get_sort());
 }
 
 bool bvarray2uf_rewriter_cfg::is_bv_array(sort * s) {

@@ -582,7 +582,7 @@ bool theory_seq::split_lengths(dependency* dep,
     if (lenY.is_zero()) {
         return set_empty(Y);
     }
-    b = mk_concat(bs, m.get_sort(X));
+    b = mk_concat(bs, X->get_sort());
 
     SASSERT(X != Y);
 
@@ -738,7 +738,7 @@ bool theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector 
     literal lit = mk_eq(m_autil.mk_int(lX), mk_len(X), false);
     switch (ctx.get_assignment(lit)) {
     case l_true: {
-        expr_ref R = mk_concat(lX, units.c_ptr(), m.get_sort(X));     
+        expr_ref R = mk_concat(lX, units.c_ptr(), X->get_sort());     
         return propagate_eq(dep, lit, X, R);
     }
     case l_undef: 
@@ -1314,7 +1314,7 @@ bool theory_seq::propagate_length_coherence(expr* e) {
         elems.push_back(head);
         seq = tail;
     }
-    expr_ref emp(m_util.str.mk_empty(m.get_sort(e)), m);
+    expr_ref emp(m_util.str.mk_empty(e->get_sort()), m);
     elems.push_back(seq);
     tail = mk_concat(elems.size(), elems.c_ptr());
     // len(e) >= low => e = tail;
@@ -1344,7 +1344,7 @@ bool theory_seq::propagate_length_coherence(expr* e) {
 bool theory_seq::check_length_coherence(expr* e) {
     if (is_var(e) && m_rep.is_root(e)) {
         if (!check_length_coherence0(e)) {
-            expr_ref emp(m_util.str.mk_empty(m.get_sort(e)), m);
+            expr_ref emp(m_util.str.mk_empty(e->get_sort()), m);
             expr_ref head(m), tail(m);
             // e = emp \/ e = unit(head.elem(e))*tail(e)
             m_sk.decompose(e, head, tail);
@@ -1360,7 +1360,7 @@ bool theory_seq::check_length_coherence(expr* e) {
 
 bool theory_seq::check_length_coherence0(expr* e) {
     if (is_var(e) && m_rep.is_root(e)) {
-        expr_ref emp(m_util.str.mk_empty(m.get_sort(e)), m);
+        expr_ref emp(m_util.str.mk_empty(e->get_sort()), m);
         bool p = propagate_length_coherence(e);
 
         if (p || assume_equality(e, emp)) {

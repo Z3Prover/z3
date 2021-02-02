@@ -902,7 +902,7 @@ namespace datalog {
             expr* e = it->m_value;
             if (!pos_vars.contains(v)) {
                 single_res_expr.push_back(e);
-                make_add_unbound_column(r, v, pred, single_res, m.get_sort(e), single_res, dealloc, acc);
+                make_add_unbound_column(r, v, pred, single_res, e->get_sort(), single_res, dealloc, acc);
                 TRACE("dl", tout << "Adding unbound column: " << mk_pp(e, m) << "\n";);
             }
         }

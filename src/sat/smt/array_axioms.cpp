@@ -214,7 +214,7 @@ namespace array {
     bool solver::assert_extensionality(expr* e1, expr* e2) {
         TRACE("array", tout << "extensionality-axiom: " << mk_bounded_pp(e1, m) << " == " << mk_bounded_pp(e2, m) << "\n";);
         ++m_stats.m_num_extensionality_axiom;
-        func_decl_ref_vector const& funcs = sort2diff(m.get_sort(e1));
+        func_decl_ref_vector const& funcs = sort2diff(e1->get_sort());
         expr_ref_vector args1(m), args2(m);
         args1.push_back(e1);
         args2.push_back(e2);
@@ -359,7 +359,7 @@ namespace array {
 
             for (unsigned i = 1; i + 1 < num_args; ++i) {
                 expr* arg = store->get_arg(i);
-                sort* srt = m.get_sort(arg);
+                sort* srt = arg->get_sort();
                 auto ep = mk_epsilon(srt);
                 eqs.push_back(m.mk_eq(ep.first, arg));
                 args1.push_back(m.mk_app(ep.second, arg));
@@ -400,7 +400,7 @@ namespace array {
     bool solver::assert_congruent_axiom(expr* e1, expr* e2) {
         TRACE("array", tout << "congruence-axiom: " << mk_bounded_pp(e1, m) << " " << mk_bounded_pp(e2, m) << "\n";);
         ++m_stats.m_num_congruence_axiom;
-        sort* srt         = m.get_sort(e1);
+        sort* srt         = e1->get_sort();
         unsigned dimension = get_array_arity(srt);
         expr_ref_vector args1(m), args2(m);
         args1.push_back(e1);
@@ -504,7 +504,7 @@ namespace array {
             for (unsigned j = i; j-- > 0; ) {
                 theory_var v2 = roots[j];
                 expr* e2 = var2expr(v2);
-                if (m.get_sort(e1) != m.get_sort(e2))
+                if (e1->get_sort() != m.get_sort(e2))
                     continue;
                 if (have_different_model_values(v1, v2))
                     continue;

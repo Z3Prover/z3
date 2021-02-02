@@ -1278,7 +1278,7 @@ bool proof_checker::check_arith_literal(bool is_pos, app* lit0, rational const& 
         return false;
     }
     SASSERT(lit->get_num_args() == 2);
-    sort* s = m.get_sort(lit->get_arg(0));
+    sort* s = lit->get_arg(0)->get_sort();
     bool is_int = a.is_int(s);
     if (!is_int && a.is_int_expr(lit->get_arg(0))) {
         is_int = true;
@@ -1425,7 +1425,7 @@ bool proof_checker::check_arith_proof(proof* p) {
         return false;
     }
 
-    sort* s = m.get_sort(sum);
+    sort* s = sum->get_sort();
 
 
     if (is_strict) {

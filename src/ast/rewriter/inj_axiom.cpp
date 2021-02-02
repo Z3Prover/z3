@@ -112,7 +112,7 @@ bool simplify_inj_axiom(ast_manager & m, quantifier * q, expr_ref & result) {
                     ptr_vector<sort>  domain;
                     inv_vars.push_back(f);
                     for (unsigned i = 0; i < inv_vars.size(); ++i) {
-                        domain.push_back(m.get_sort(inv_vars[i]));
+                        domain.push_back(inv_vars[i]->get_sort());
                     }
                     sort * d              = decl->get_domain(idx);
                     func_decl * inv_decl  = m.mk_fresh_func_decl("inj", domain.size(), domain.c_ptr(), d);

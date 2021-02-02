@@ -825,7 +825,7 @@ private:
             SASSERT(value.size() == 1);
             val = value[0].sign() ? m.mk_not(v) : v;
         }
-        else if (is_uninterp_const(v) && bvutil.is_bv_sort(m.get_sort(v))) {
+        else if (is_uninterp_const(v) && bvutil.is_bv_sort(v->get_sort())) {
             SASSERT(value.size() == bvutil.get_bv_size(v));
             if (m_exps.empty()) {
                 m_exps.push_back(rational::one());

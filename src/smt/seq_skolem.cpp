@@ -44,7 +44,7 @@ expr_ref seq_skolem::mk(symbol const& s, expr* e1, expr* e2, expr* e3, expr* e4,
     expr* es[4] = { e1, e2, e3, e4 };
     unsigned len = e4?4:(e3?3:(e2?2:(e1?1:0)));
     if (!range) {
-        range = m.get_sort(e1);
+        range = e1->get_sort();
     }
     expr_ref result(seq.mk_skolem(s, len, es, range), m);
     if (rw) 
@@ -93,7 +93,7 @@ decompose_main:
     }
     else if (seq.str.is_unit(e)) {
         head = e;        
-        tail = seq.str.mk_empty(m.get_sort(e));
+        tail = seq.str.mk_empty(e->get_sort());
         m_rewrite(head);
     }
     else if (seq.str.is_concat(e, e1, e2) && seq.str.is_empty(e1)) {

@@ -365,7 +365,7 @@ extern "C" {
         case AST_APP: {
             expr * e = to_expr(_a);
             // Real algebraic numbers are not considered Z3_NUMERAL_AST
-            if (is_numeral_sort(c, of_sort(mk_c(c)->m().get_sort(e))) && mk_c(c)->m().is_unique_value(e))
+            if (is_numeral_sort(c, of_sort(e->get_sort())) && mk_c(c)->m().is_unique_value(e))
                 return Z3_NUMERAL_AST;
             return Z3_APP_AST;
         }

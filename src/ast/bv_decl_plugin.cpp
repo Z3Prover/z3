@@ -350,7 +350,7 @@ inline bool bv_decl_plugin::get_bv_size(sort * s, int & result) {
 }
 
 inline bool bv_decl_plugin::get_bv_size(expr * t, int & result) {
-    return get_bv_size(m_manager->get_sort(t), result);
+    return get_bv_size(t->get_sort(), result);
 }
 
 bool bv_decl_plugin::get_concat_size(unsigned arity, sort * const * domain, int & result) {
@@ -604,7 +604,7 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
             if (r->get_info()->is_associative()) {
                 sort * fs = r->get_domain(0);
                 for (unsigned i = 0; i < num_args; ++i) {
-                    if (m.get_sort(args[i]) != fs) {
+                    if (args[i]->get_sort() != fs) {
                         m_manager->raise_exception("declared sorts do not match supplied sorts");
                         return nullptr;
                     }
@@ -617,7 +617,7 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
             }
         }
         for (unsigned i = 0; i < num_args; ++i) {
-            if (m.get_sort(args[i]) != r->get_domain(i)) {
+            if (args[i]->get_sort() != r->get_domain(i)) {
                 std::ostringstream buffer;
                 buffer << "Argument " << mk_pp(args[i], m) << " at position " << i << " does not match declaration " << mk_pp(r, m);
                 m.raise_exception(buffer.str());

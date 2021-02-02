@@ -342,7 +342,7 @@ br_status arith_rewriter::is_separated(expr* arg1, expr* arg2, op_kind kind, exp
     }
 
     SASSERT(r1 == r2);
-    expr_ref zero(m_util.mk_numeral(rational(0), m().get_sort(arg1)), m());
+    expr_ref zero(m_util.mk_numeral(rational(0), arg1->get_sort()), m());
 
     if (r1.is_zero() && m_util.is_mul(arg1)) {
         expr_ref_buffer eqs(m());
@@ -931,7 +931,7 @@ br_status arith_rewriter::mk_div_core(expr * arg1, expr * arg2, expr_ref & resul
         if (m_util.is_irrational_algebraic_numeral(arg2) && m_util.is_numeral(arg1))
             return mk_div_rat_irrat(arg1, arg2, result);
     }
-    set_curr_sort(m().get_sort(arg1));
+    set_curr_sort(arg1->get_sort());
     numeral v1, v2;
     bool is_int;
     if (m_util.is_numeral(arg2, v2, is_int)) {
@@ -992,7 +992,7 @@ br_status arith_rewriter::mk_idivides(unsigned k, expr * arg, expr_ref & result)
 }
 
 br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & result) {
-    set_curr_sort(m().get_sort(arg1));
+    set_curr_sort(arg1->get_sort());
     numeral v1, v2;
     bool is_int;
     if (m_util.is_numeral(arg1, v1, is_int) && m_util.is_numeral(arg2, v2, is_int) && !v2.is_zero()) {
@@ -1142,7 +1142,7 @@ static rational symmod(rational const& a, rational const& b) {
 }
     
 br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & result) {
-    set_curr_sort(m().get_sort(arg1));
+    set_curr_sort(arg1->get_sort());
     numeral v1, v2;
     bool is_int;
     if (m_util.is_numeral(arg1, v1, is_int) && m_util.is_numeral(arg2, v2, is_int) && !v2.is_zero()) {
@@ -1203,7 +1203,7 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
 }
 
 br_status arith_rewriter::mk_rem_core(expr * arg1, expr * arg2, expr_ref & result) {
-    set_curr_sort(m().get_sort(arg1));
+    set_curr_sort(arg1->get_sort());
     numeral v1, v2;
     bool is_int;
     if (m_util.is_numeral(arg1, v1, is_int) && m_util.is_numeral(arg2, v2, is_int) && !v2.is_zero()) {

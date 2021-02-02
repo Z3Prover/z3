@@ -1019,7 +1019,7 @@ namespace smtfd {
             expr_ref vA = eval_abs(arg);
 
             table& tT = ast2table(vT, m.get_sort(t)); // select table of t
-            table& tA = ast2table(vA, m.get_sort(arg)); // select table of arg
+            table& tA = ast2table(vA, arg->get_sort()); // select table of arg
 
             if (vT == vA) {                
                 return;
@@ -1380,7 +1380,7 @@ namespace smtfd {
         }
 
         void register_value(expr* e) {
-            sort* s = m.get_sort(e);
+            sort* s = e->get_sort();
             obj_hashtable<expr>* values = nullptr;
             if (!m_fresh.find(s, values)) {
                 values = alloc(obj_hashtable<expr>);
@@ -1478,7 +1478,7 @@ namespace smtfd {
                         break;
                     }                    
                     expr* t = nullptr;
-                    if (m_val2term.find(val, m.get_sort(v), t)) {
+                    if (m_val2term.find(val, v->get_sort(), t)) {
                         val = t;
                     }
                     else {

@@ -121,7 +121,7 @@ namespace smt {
                 bits.push_back(literal(ctx.get_bool_var(arg)));            
             for (literal bit : bits)
                 ctx.mark_as_relevant(bit);
-            expr_ref bits2char(seq.mk_skolem(m_bits2char, ebits.size(), ebits.c_ptr(), m.get_sort(e)), m);
+            expr_ref bits2char(seq.mk_skolem(m_bits2char, ebits.size(), ebits.c_ptr(), e->get_sort()), m);
             ctx.mark_as_relevant(bits2char.get());
             enode* n1 = ensure_enode(e);
             enode* n2 = ensure_enode(bits2char);
