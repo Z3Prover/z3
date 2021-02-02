@@ -17,6 +17,7 @@ Author:
 
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
+#include "ast/pb_decl_plugin.h"
 #include "opt/maxsmt.h"
 #include "opt/opt_lns.h"
 #include "sat/sat_params.hpp"
@@ -38,6 +39,7 @@ namespace opt {
         p.set_uint("restart.initial", 1000000);
         p.set_uint("max_conflicts", m_max_conflicts);    
         p.set_uint("simplify.delay", 1000000);
+//       p.set_bool("gc.burst", true);
         s.updt_params(p);
     }
 
@@ -47,6 +49,7 @@ namespace opt {
         p.set_uint("restart.initial", sp.restart_initial());
         p.set_uint("max_conflicts", sp.max_conflicts());
         p.set_uint("simplify.delay", sp.simplify_delay());
+        p.set_uint("gc.burst", sp.gc_burst());
     }
 
     unsigned lns::climb(model_ref& mdl, expr_ref_vector const& asms) {
@@ -56,22 +59,63 @@ namespace opt {
         set_lns_params();
         setup_assumptions(mdl, asms);
         unsigned num_improved = improve_linear(mdl);
-//      num_improved += improve_rotate(mdl, asms);
+        // num_improved += improve_rotate(mdl, asms);
         s.updt_params(old_p);
         IF_VERBOSE(1, verbose_stream() << "(opt.lns :num-improves " << m_num_improves << " :remaining-soft " << m_soft.size() << ")\n");
         return num_improved;
     }
 
+    struct lns::scoped_bounding {
+        lns& m_lns;
+        bool m_cores_are_valid { true };
+
+        scoped_bounding(lns& l):m_lns(l) {
+            if (!m_lns.m_enable_scoped_bounding) 
+                return;
+            m_cores_are_valid = m_lns.m_cores_are_valid;
+            m_lns.m_cores_are_valid = false;
+            m_lns.s.push();
+            pb_util pb(m_lns.m);
+            // TBD: bound should to be adjusted for current best solution, not number of soft constraints left.
+            expr_ref bound(pb.mk_at_most_k(m_lns.m_soft, m_lns.m_soft.size() - 1), m_lns.m);
+            m_lns.s.assert_expr(bound);
+        }
+        ~scoped_bounding() {
+            if (!m_lns.m_enable_scoped_bounding)
+                return;
+            m_lns.m_cores_are_valid = m_cores_are_valid;
+            m_lns.s.pop(1);
+        }
+    };
+
+    void lns::relax_cores() {
+        if (!m_cores.empty() && m_relax_cores && m_cores_are_valid) {
+            std::sort(m_cores.begin(), m_cores.end(), [&](expr_ref_vector const& a, expr_ref_vector const& b) { return a.size() < b.size(); });
+            unsigned num_disjoint = 0;
+            vector<expr_ref_vector> new_cores;
+            for (auto const& c : m_cores) {
+                bool in_core = false;
+                for (auto* e : c)
+                    in_core |= m_in_core.is_marked(e);
+                if (in_core)
+                    continue;
+                for (auto* e : c)
+                    m_in_core.mark(e);
+                new_cores.push_back(c);
+                ++num_disjoint;
+            }
+            m_relax_cores(new_cores);
+        }
+        m_in_core.reset();
+        m_is_assumption.reset();
+        m_cores.reset();
+    }
+
     void lns::setup_assumptions(model_ref& mdl, expr_ref_vector const& asms) {
         m_hardened.reset();
         m_soft.reset();
-        std::cout << "disjoint cores: " << m_cores.size() << "\n";
-        for (auto const& c : m_cores)
-            std::cout << c.size() << "\n";
-        m_was_flipped.reset();
-        m_in_core.reset();
-        m_cores.reset();
         for (expr* a : asms) {
+            m_is_assumption.mark(a);
             if (mdl->is_true(a))
                 m_hardened.push_back(a);
             else
@@ -98,9 +142,11 @@ namespace opt {
     }
 
     unsigned lns::improve_linear(model_ref& mdl) {
+        scoped_bounding _scoped_bouding(*this);
         unsigned num_improved = 0;
         unsigned max_conflicts = m_max_conflicts;
         while (m.inc()) {
+            unsigned hard = m_hardened.size();
             unsigned reward = improve_step(mdl);
             if (reward == 0)
                 break;
@@ -110,6 +156,7 @@ namespace opt {
             set_lns_params();
         }
         m_max_conflicts = max_conflicts;
+        relax_cores();
         return num_improved;
     }
 
@@ -124,7 +171,6 @@ namespace opt {
                 m_hardened.push_back(m.mk_not(soft(i)));
                 for (unsigned k = i; k + 1 < m_soft.size(); ++k) 
                     m_soft[k] = soft(k + 1);
-                m_was_flipped.mark(m_hardened.back());
                 m_soft.pop_back();
                 --i;
                 break;
@@ -160,20 +206,16 @@ namespace opt {
         m_hardened.pop_back();
         if (r == l_true) 
             s.get_model(mdl);
-#if 0
         if (r == l_false) {
             expr_ref_vector core(m);
             s.get_unsat_core(core);
-            bool was_flipped = false;
+            bool all_assumed = true;
             for (expr* c : core) 
-                was_flipped |= m_was_flipped.is_marked(c);
-            if (!was_flipped) {
-                for (expr* c : core) 
-                    m_in_core.mark(c, true);
+                all_assumed &= m_is_assumption.is_marked(c);
+            if (all_assumed) {
                 m_cores.push_back(core);
             }
         }
-#endif
         return r;
     } 
 

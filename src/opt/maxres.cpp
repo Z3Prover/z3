@@ -502,6 +502,7 @@ public:
         for (auto const & c : cores) {
             process_unsat(c.m_core, c.m_weight);
         }
+        improve_model(m_model);
     }
 
     void update_model(expr* def, expr* value) {
@@ -748,10 +749,27 @@ public:
         std::function<void(model_ref&)> update_model = [&](model_ref& mdl) {
             update_assignment(mdl);
         };
+        std::function<void(vector<expr_ref_vector> const&)> _relax_cores = [&](vector<expr_ref_vector> const& cores) {
+            relax_cores(cores);
+        };
+
         lns lns(s(), update_model);
         lns.set_conflicts(m_lns_conflicts);
+        lns.set_relax(_relax_cores);
         lns.climb(mdl, m_asms);
     }
+
+    void relax_cores(vector<expr_ref_vector> const& cores) {
+        vector<weighted_core> wcores;
+        for (auto & core : cores) {
+            exprs _core(core.size(), core.c_ptr());
+            wcores.push_back(weighted_core(_core, core_weight(_core)));
+            remove_soft(_core, m_asms);
+            split_core(_core);  
+        }
+        process_unsat(wcores);
+    }
+
 
     void update_assignment(model_ref & mdl) {
         improve_model(mdl);
