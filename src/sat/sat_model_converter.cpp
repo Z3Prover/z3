@@ -222,7 +222,6 @@ namespace sat {
         e.m_clause.append(c.size(), c.begin());
     }
 
-
     void model_converter::insert(entry & e, clause const & c) {
         SASSERT(c.contains(e.var()));
         SASSERT(m_entries.begin() <= &e);
@@ -345,7 +344,7 @@ namespace sat {
     void model_converter::flush(model_converter & src) {
         VERIFY(this != &src);
         m_entries.append(src.m_entries);
-        m_exposed_lim = src.m_exposed_lim;
+        m_exposed_lim += src.m_exposed_lim;
         src.m_entries.reset();
         src.m_exposed_lim = 0;
     }

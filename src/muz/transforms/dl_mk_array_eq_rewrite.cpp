@@ -65,7 +65,7 @@ namespace datalog {
         for(unsigned i = nb_predicates; i < tail_size; i++) {
             expr* cond = r.get_tail(i);
             expr* e1, *e2;
-            if (m.is_eq(cond, e1, e2) && m_a.is_array(get_sort(e1))) {
+            if (m.is_eq(cond, e1, e2) && m_a.is_array(e1->get_sort())) {
                 array_eq_classes.merge(e1, e2);
             }
             else {

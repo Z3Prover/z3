@@ -297,11 +297,11 @@ public:
     bool is_power0(expr const * n) const { return is_app_of(n, m_afid, OP_POWER0); }
 
     bool is_int(sort const * s) const { return is_sort_of(s, m_afid, INT_SORT); }
-    bool is_int(expr const * n) const { return is_int(get_sort(n)); }
+    bool is_int(expr const * n) const { return is_int(n->get_sort()); }
     bool is_real(sort const * s) const { return is_sort_of(s, m_afid, REAL_SORT); }
-    bool is_real(expr const * n) const { return is_real(get_sort(n)); }
+    bool is_real(expr const * n) const { return is_real(n->get_sort()); }
     bool is_int_real(sort const * s) const { return s->get_family_id() == m_afid; }
-    bool is_int_real(expr const * n) const { return is_int_real(get_sort(n)); }
+    bool is_int_real(expr const * n) const { return is_int_real(n->get_sort()); }
 
     bool is_sin(expr const* n) const { return is_app_of(n, m_afid, OP_SIN); }
     bool is_cos(expr const* n) const { return is_app_of(n, m_afid, OP_COS); }

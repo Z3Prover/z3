@@ -1437,6 +1437,10 @@ namespace sat {
 
 
     bool ba_solver::init_watch(constraint& c) {
+        if (c.is_xr()) {
+            std::cout << c.is_xr() << "\n";
+        }
+
         return !inconsistent() && c.init_watch(*this);
     }
 
@@ -2064,14 +2068,18 @@ namespace sat {
             for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) subsumption(*m_constraints[i]);
             for (unsigned sz = m_learned.size(), i = 0; i < sz; ++i) subsumption(*m_learned[i]);    
             unit_strengthen();
-            extract_xor();
-            merge_xor();
+            if (s().get_config().m_xor_solver) {
+                extract_xor();
+                merge_xor();
+            }
             cleanup_clauses();
             cleanup_constraints();
             update_pure();
             count++;
         }        
         while (count < 10 && (m_simplify_change || trail_sz < s().init_trail_size()));
+
+        gc();
 
         // validate_eliminated();
 

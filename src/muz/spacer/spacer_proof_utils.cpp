@@ -230,7 +230,7 @@ namespace spacer {
             if (a.is_numeral(e)) return false;
             if (!var || var == e) {
                 var = e;
-                val = a.mk_numeral(rational(1), get_sort(e));
+                val = a.mk_numeral(rational(1), e->get_sort());
                 return true;
             }
             return false;

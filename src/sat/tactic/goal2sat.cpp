@@ -72,7 +72,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     expr_ref_vector             m_trail;
     func_decl_ref_vector        m_unhandled_funs;
     bool                        m_default_external;
-    bool                        m_xor_solver;
+    bool                        m_xor_solver { false };
     bool                        m_euf { false };
     bool                        m_drat { false };
     bool                        m_is_redundant { false };
@@ -1020,6 +1020,7 @@ void sat2goal::mc::flush_gmc() {
     expr_ref_vector tail(m);
     expr_ref def(m);
     auto is_literal = [&](expr* e) { expr* r; return is_uninterp_const(e) || (m.is_not(e, r) && is_uninterp_const(r)); };
+    
     for (unsigned i = 0; i < updates.size(); ++i) {
         sat::literal l = updates[i];
         if (l == sat::null_literal) {

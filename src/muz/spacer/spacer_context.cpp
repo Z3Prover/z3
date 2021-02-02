@@ -119,7 +119,7 @@ void pob::get_skolems(app_ref_vector &v) {
     for (unsigned i = 0, sz = m_binding.size(); i < sz; ++i) {
         expr* e;
         e = m_binding.get(i);
-        v.push_back (mk_zk_const (get_ast_manager(), i, get_sort(e)));
+        v.push_back (mk_zk_const (get_ast_manager(), i, e->get_sort()));
     }
 }
 
@@ -237,7 +237,7 @@ void derivation::exist_skolemize(expr* fml, app_ref_vector& vars, expr_ref& res)
     expr_safe_replace sub(m);
     for (unsigned i = 0, sz = vars.size(); i < sz; ++i) {
         expr* e = vars.get(i);
-        sub.insert(e, mk_zk_const(m, i, get_sort(e)));
+        sub.insert(e, mk_zk_const(m, i, e->get_sort()));
     }
     sub(fml, res);
 }
@@ -541,7 +541,7 @@ void lemma::mk_expr_core() {
         ptr_buffer<sort> sorts;
         svector<symbol> names;
         for (app* z : zks) {
-            sorts.push_back(get_sort(z));
+            sorts.push_back(z->get_sort());
             names.push_back(z->get_decl()->get_name());
         }
         m_body = m.mk_quantifier(forall_k, zks.size(),

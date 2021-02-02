@@ -420,14 +420,14 @@ quantifier::quantifier(unsigned num_decls, sort * const * decl_sorts, symbol con
 //
 // -----------------------------------
 
-sort * get_sort(expr const * n) {
-    switch(n->get_kind()) {
+sort* expr::get_sort() const {
+    switch (get_kind()) {
     case AST_APP:
-        return to_app(n)->get_decl()->get_range();
+        return to_app(this)->get_decl()->get_range();
     case AST_VAR:
-        return to_var(n)->get_sort();
+        return to_var(this)->_get_sort();
     case AST_QUANTIFIER:
-        return to_quantifier(n)->get_sort();
+        return to_quantifier(this)->_get_sort();
     default:
         UNREACHABLE();
         return nullptr;
@@ -2513,7 +2513,7 @@ quantifier * ast_manager::mk_quantifier(quantifier_kind k, unsigned num_decls, s
     sort* s = nullptr;
     if (k == lambda_k) {
         array_util autil(*this);
-        s = autil.mk_array_sort(num_decls, decl_sorts, ::get_sort(body));
+        s = autil.mk_array_sort(num_decls, decl_sorts, body->get_sort());
     }
     else {
         s = mk_bool_sort();
@@ -2541,7 +2541,7 @@ quantifier * ast_manager::mk_lambda(unsigned num_decls, sort * const * decl_sort
     unsigned sz               = quantifier::get_obj_size(num_decls, 0, 0);
     void * mem                = allocate_node(sz);
     array_util autil(*this);
-    sort* s = autil.mk_array_sort(num_decls, decl_sorts, ::get_sort(body));
+    sort* s = autil.mk_array_sort(num_decls, decl_sorts, body->get_sort());
     quantifier * new_node = new (mem) quantifier(num_decls, decl_sorts, decl_names, body, s);
     quantifier * r = register_node(new_node);
     if (m_trace_stream && r == new_node) {

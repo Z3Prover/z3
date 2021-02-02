@@ -242,7 +242,7 @@ private:
 
         if (mc) {
             ensure_mc(mc);
-            expr_ref num(m_bv.mk_numeral(mdl, get_sort(fst_arg)), m);
+            expr_ref num(m_bv.mk_numeral(mdl, fst_arg->get_sort()), m);
             for (unsigned i = 1, n = a->get_num_args(); i != n; ++i) {
                 (*mc)->add(a->get_arg(i), num);
             }

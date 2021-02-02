@@ -1682,6 +1682,9 @@ namespace sat {
             case PS_BASIC_CACHING:
                 phase = m_phase[next];
                 break;
+            case PS_FROZEN:
+                phase = m_best_phase[next];
+                break;
             case PS_SAT_CACHING:
                 if (m_search_state == s_unsat) {
                     phase = m_phase[next];
@@ -2071,6 +2074,7 @@ namespace sat {
             if (!was_eliminated(v)) {
                 m_model[v] = value(v);
                 m_phase[v] = value(v) == l_true;
+                m_best_phase[v] = value(v) == l_true;
             }
         }
         TRACE("sat_mc_bug", m_mc.display(tout););
@@ -2847,6 +2851,8 @@ namespace sat {
     }
 
     void solver::updt_phase_of_vars() {
+        if (m_config.m_phase == PS_FROZEN)
+            return;
         unsigned from_lvl = m_conflict_lvl;
         unsigned head = from_lvl == 0 ? 0 : m_scopes[from_lvl - 1].m_trail_lim;
         unsigned sz   = m_trail.size();
@@ -2911,6 +2917,8 @@ namespace sat {
             break;
         case PS_ALWAYS_FALSE:
             for (auto& p : m_phase) p = false;
+            break;
+        case PS_FROZEN:
             break;
         case PS_BASIC_CACHING:
             switch (m_rephase_lim % 4) {

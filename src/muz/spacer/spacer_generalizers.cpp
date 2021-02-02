@@ -195,8 +195,8 @@ public:
     void operator()(app* a)
     {
         if (a->get_family_id() == null_family_id && m_au.is_array(a)) {
-            if (m_sort && m_sort != get_sort(a)) { return; }
-            if (!m_sort) { m_sort = get_sort(a); }
+            if (m_sort && m_sort != a->get_sort()) { return; }
+            if (!m_sort) { m_sort = a->get_sort(); }
             m_symbs.insert(a->get_decl());
         }
     }

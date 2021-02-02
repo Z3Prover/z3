@@ -291,9 +291,9 @@ namespace qel {
             if (m.is_eq(e, lhs, rhs) && trivial_solve(lhs, rhs, e, vs, ts)) {
                 return true;
             }
-            family_id fid = get_sort(e)->get_family_id();
+            family_id fid = e->get_sort()->get_family_id();
             if (m.is_eq(e, lhs, rhs)) {
-                fid = get_sort(lhs)->get_family_id();
+                fid = lhs->get_sort()->get_family_id();
             }
             auto* p = m_solvers.get_plugin(fid);
             if (p) {

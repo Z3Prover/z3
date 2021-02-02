@@ -300,7 +300,7 @@ public:
     bool is_zero(expr const * e) const;
     bool is_one(expr const* e) const;
     bool is_bv_sort(sort const * s) const;
-    bool is_bv(expr const* e) const {  return is_bv_sort(get_sort(e)); }
+    bool is_bv(expr const* e) const {  return is_bv_sort(e->get_sort()); }
 
     bool is_concat(expr const * e) const { return is_app_of(e, get_fid(), OP_CONCAT); }
     bool is_extract(func_decl const * f) const { return is_decl_of(f, get_fid(), OP_EXTRACT); }

@@ -18,6 +18,7 @@ Notes:
 
 --*/
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/ast_util.h"
 #include "ast/occurs.h"
@@ -30,6 +31,7 @@ Notes:
 
 generic_model_converter::~generic_model_converter() {
 }
+
 
 void generic_model_converter::add(func_decl * d, expr* e) {
     VERIFY(e);

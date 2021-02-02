@@ -144,7 +144,7 @@ public:
     array_recognizers(family_id fid):m_fid(fid) {}
     family_id get_family_id() const { return m_fid; }
     bool is_array(sort* s) const { return is_sort_of(s, m_fid, ARRAY_SORT);}
-    bool is_array(expr* n) const { return is_array(get_sort(n)); }
+    bool is_array(expr* n) const { return is_array(n->get_sort()); }
     bool is_select(expr* n) const { return is_app_of(n, m_fid, OP_SELECT); }
     bool is_store(expr* n) const { return is_app_of(n, m_fid, OP_STORE); }
     bool is_const(expr* n) const { return is_app_of(n, m_fid, OP_CONST_ARRAY); }

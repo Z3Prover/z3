@@ -73,9 +73,6 @@ namespace opt {
         rational         m_upper;
         model_ref        m_model;
         svector<symbol>  m_labels;
-        //const expr_ref_vector  m_soft;
-        //vector<rational> m_weights;
-        //bool_vector    m_assignment;       // truth assignment to soft constraints
         params_ref       m_params;           // config
 
     public:

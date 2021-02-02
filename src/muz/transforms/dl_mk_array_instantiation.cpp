@@ -103,12 +103,12 @@ namespace datalog {
         expr_ref_vector new_args(m);
         for(unsigned i=0;i<old_head->get_num_args();i++) {
             expr*arg = old_head->get_arg(i);
-            if(m_a.is_array(get_sort(arg))) {
+            if(m_a.is_array(arg->get_sort())) {
                 for(unsigned k=0; k< m_ctx.get_params().xform_instantiate_arrays_nb_quantifier();k++)  {
                     expr_ref_vector dummy_args(m);
                     dummy_args.push_back(arg);
-                    for(unsigned i=0;i<get_array_arity(get_sort(arg));i++) {
-                        dummy_args.push_back(m.mk_var(cnt, get_array_domain(get_sort(arg), i)));
+                    for(unsigned i=0;i<get_array_arity(arg->get_sort());i++) {
+                        dummy_args.push_back(m.mk_var(cnt, get_array_domain(arg->get_sort(), i)));
                         cnt++;
                     }
                     expr_ref select(m);
@@ -140,7 +140,7 @@ namespace datalog {
         }
         //If it is a select, then add it to selects
         if(m_a.is_select(f)) {
-            SASSERT(!m_a.is_array(get_sort(e)));
+            SASSERT(!m_a.is_array(e->get_sort()));
             selects.insert_if_not_there(f->get_arg(0), ptr_vector<expr>());
             selects[f->get_arg(0)].push_back(e);
         }
@@ -148,7 +148,7 @@ namespace datalog {
         if(m_a.is_store(f)) {
             eq_classes.merge(e, f->get_arg(0));
         }
-        else if(m.is_eq(f) && m_a.is_array(get_sort(f->get_arg(0)))) {
+        else if(m.is_eq(f) && m_a.is_array(f->get_arg(0)->get_sort())) {
             eq_classes.merge(f->get_arg(0), f->get_arg(1));
         }
     }
@@ -180,7 +180,7 @@ namespace datalog {
         }
         sort_ref_vector new_sorts(m);
         for(unsigned i=0;i<new_args.size();i++)
-            new_sorts.push_back(get_sort(new_args[i].get()));
+            new_sorts.push_back(new_args.get(i)->get_sort());
         expr_ref res(m);
         func_decl_ref fun_decl(m);
         fun_decl = m.mk_func_decl(symbol((old_pred->get_decl()->get_name().str()+"!inst").c_str()), new_sorts.size(), new_sorts.c_ptr(), old_pred->get_decl()->get_range());
@@ -196,7 +196,7 @@ namespace datalog {
         var*result;
         if(!done_selects.find(select, result)) {
             ownership.push_back(select);
-            result = m.mk_var(cnt, get_sort(select));
+            result = m.mk_var(cnt, select->get_sort());
             cnt++;
             done_selects.insert(select, result);
         }
@@ -230,8 +230,8 @@ namespace datalog {
         if(all_selects.empty()) {
             expr_ref_vector dummy_args(m);
             dummy_args.push_back(array);
-            for(unsigned i=0;i<get_array_arity(get_sort(array));i++) {
-                dummy_args.push_back(m.mk_var(cnt, get_array_domain(get_sort(array), i)));
+            for(unsigned i=0;i<get_array_arity(array->get_sort());i++) {
+                dummy_args.push_back(m.mk_var(cnt, get_array_domain(array->get_sort(), i)));
                 cnt++;
             }
             all_selects.push_back(m_a.mk_select(dummy_args.size(), dummy_args.c_ptr()));
@@ -247,7 +247,7 @@ namespace datalog {
         vector<expr_ref_vector> arg_correspondance;
         for(unsigned i=0;i<nb_old_args;i++) {
             expr_ref arg(old_pred->get_arg(i), m);
-            if(m_a.is_array(get_sort(arg))) {
+            if(m_a.is_array(arg->get_sort())) {
                 vector<expr_ref_vector> arg_possibilities(m_ctx.get_params().xform_instantiate_arrays_nb_quantifier(), retrieve_all_selects(arg));
                 arg_correspondance.append(arg_possibilities);
                 if(!m_ctx.get_params().xform_instantiate_arrays_enforce()) {

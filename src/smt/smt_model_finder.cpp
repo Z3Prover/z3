@@ -1558,7 +1558,7 @@ namespace smt {
                     // See Section 4.1 in the paper "Complete Quantifier Instantiation"
                     node* S_q_i = slv.get_uvar(q, m_var_i);
                     for (enode* n : ctx->enodes()) {
-                        if (ctx->is_relevant(n) && get_sort(n->get_owner()) == s) {
+                        if (ctx->is_relevant(n) && n->get_owner()->get_sort() == s) {
                             S_q_i->insert(n->get_owner(), n->get_generation());
                         }
                     }

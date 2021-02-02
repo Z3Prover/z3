@@ -226,7 +226,7 @@ expr* times_minus_one(expr *e, arith_util &arith) {
     expr *r;
     if (arith.is_times_minus_one (e, r)) { return r; }
 
-    return arith.mk_mul(arith.mk_numeral(rational(-1), arith.is_int(get_sort(e))), e);
+    return arith.mk_mul(arith.mk_numeral(rational(-1), arith.is_int(e->get_sort())), e);
 }
 }
 
@@ -502,7 +502,7 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
     expr_ref_vector abs_cube(m);
 
     var_ref var(m);
-    var = m.mk_var (m_offset, get_sort(term));
+    var = m.mk_var (m_offset, term->get_sort());
 
     mk_abs_cube(lemma, term, var, gnd_cube, abs_cube, lb, ub, stride);
     if (abs_cube.empty()) {return false;}

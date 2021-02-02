@@ -62,6 +62,7 @@ Notes:
 #include "smt/smt_solver.h"
 #include "opt/opt_context.h"
 #include "opt/opt_params.hpp"
+#include "opt/opt_lns.h"
 #include "opt/maxsmt.h"
 #include "opt/maxres.h"
 
@@ -107,9 +108,9 @@ private:
                                                // this option is disabled if SAT core is used.
     bool             m_pivot_on_cs;            // prefer smaller correction set to core.
     bool             m_dump_benchmarks;        // display benchmarks (into wcnf format)
-
+    bool             m_enable_lns { false };   // enable LNS improvements
+    unsigned         m_lns_conflicts { 1000 }; // number of conflicts used for LNS improvement
     
-
     std::string      m_trace_id;
     typedef ptr_vector<expr> exprs;
 
@@ -201,6 +202,7 @@ public:
         if (!init()) return l_undef;
         is_sat = init_local();
         trace();
+        improve_model();
         if (is_sat != l_true) return is_sat;
         while (m_lower < m_upper) {
             TRACE("opt_verbose", 
@@ -730,7 +732,29 @@ public:
         add(fml);
     }
 
+    void improve_model() {
+        if (!m_enable_lns)
+            return;
+        model_ref mdl;
+        s().get_model(mdl);
+        if (mdl)
+            update_assignment(mdl);
+    }
+
+    void improve_model(model_ref& mdl) {
+        if (!m_enable_lns) 
+            return;
+        flet<bool> _disable_lns(m_enable_lns, false);
+        std::function<void(model_ref&)> update_model = [&](model_ref& mdl) {
+            update_assignment(mdl);
+        };
+        lns lns(s(), update_model);
+        lns.set_conflicts(m_lns_conflicts);
+        lns.climb(mdl, m_asms);
+    }
+
     void update_assignment(model_ref & mdl) {
+        improve_model(mdl);
         mdl->set_model_completion(true);
         unsigned correction_set_size = 0;
         for (expr* a : m_asms) {
@@ -818,6 +842,8 @@ public:
         m_pivot_on_cs =             p.maxres_pivot_on_correction_set();
         m_wmax =                    p.maxres_wmax();
         m_dump_benchmarks =         p.dump_benchmarks();
+        m_enable_lns =              p.enable_lns() && m_c.sat_enabled();
+        m_lns_conflicts =           p.lns_conflicts();
     }
 
     lbool init_local() {
