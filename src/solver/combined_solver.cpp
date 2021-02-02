@@ -135,6 +135,8 @@ public:
         return r;
     }
 
+    void set_phase(expr* e) override { m_solver1->set_phase(e); m_solver2->set_phase(e); }
+
     void updt_params(params_ref const & p) override {
         solver::updt_params(p);
         m_solver1->updt_params(p);

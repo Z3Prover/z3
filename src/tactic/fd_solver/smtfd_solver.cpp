@@ -2031,6 +2031,8 @@ namespace smtfd {
             return r;
         }
 
+        void set_phase(expr* e) override {}
+
         void updt_params(params_ref const & p) override { 
             ::solver::updt_params(p); 
             if (m_fd_sat_solver) {

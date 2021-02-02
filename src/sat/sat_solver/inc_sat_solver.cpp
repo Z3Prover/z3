@@ -294,6 +294,13 @@ public:
         }
     }
 
+    void set_phase(expr* e) override { 
+        bool is_not = m.is_not(e, e);
+        sat::bool_var b = m_map.to_bool_var(e);
+        if (b != sat::null_bool_var)
+            m_solver.set_phase(b, is_not);
+    }
+
     unsigned get_scope_level() const override {
         return m_num_scopes;
     }

@@ -89,6 +89,7 @@ public:
     void set_progress_callback(progress_callback * callback) override { m_solver->set_progress_callback(callback);  }
     void collect_statistics(statistics & st) const override { m_solver->collect_statistics(st); }
     void get_unsat_core(expr_ref_vector & r) override { m_solver->get_unsat_core(r); }
+    void set_phase(expr* e) override { m_solver->set_phase(e); }
     void get_model_core(model_ref & mdl) override { 
         m_solver->get_model(mdl);
         if (mdl) {

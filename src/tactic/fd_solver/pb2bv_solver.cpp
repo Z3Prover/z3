@@ -96,6 +96,7 @@ public:
             if (mc) (*mc)(mdl);
         }
     } 
+    void set_phase(expr* e) override { m_solver->set_phase(e); }
 
     void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
         m_solver->get_levels(vars, depth);

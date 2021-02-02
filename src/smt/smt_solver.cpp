@@ -158,6 +158,9 @@ namespace {
         void assert_expr_core(expr * t) override {
             m_context.assert_expr(t);
         }
+        void set_phase(expr* e) override { 
+            NOT_IMPLEMENTED_YET();
+        }
 
         void assert_expr_core2(expr * t, expr * a) override {
             if (m_name2assertion.contains(a)) {
