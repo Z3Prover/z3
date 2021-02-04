@@ -80,6 +80,9 @@ public:
     unsigned get_num_assertions() const override;
     expr * get_assertion(unsigned idx) const override;
     void set_phase(expr* e) override { }
+    phase* get_phase() override { return nullptr; }
+    void set_phase(phase* p) override { }
+    void move_to_front(expr* e) override { }
 
 
     expr_ref_vector cube(expr_ref_vector& vars, unsigned ) override {

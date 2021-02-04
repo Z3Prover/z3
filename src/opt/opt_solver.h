@@ -110,7 +110,10 @@ namespace opt {
         void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override; 
         expr_ref_vector get_trail() override { return m_context.get_trail(); }
         expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
-        void set_phase(expr* e) override { NOT_IMPLEMENTED_YET(); }
+        void set_phase(expr* e) override { m_context.set_phase(e); }
+        phase* get_phase() override { return m_context.get_phase(); }
+        void set_phase(phase* p) override { m_context.set_phase(p); }
+        void move_to_front(expr* e) override { m_context.move_to_front(e); }
 
         void set_logic(symbol const& logic);
 

@@ -2032,6 +2032,9 @@ namespace smtfd {
         }
 
         void set_phase(expr* e) override {}
+        phase* get_phase() override { return nullptr; }
+        void set_phase(phase* p) override { }
+        void move_to_front(expr* e) override { }
 
         void updt_params(params_ref const & p) override { 
             ::solver::updt_params(p); 

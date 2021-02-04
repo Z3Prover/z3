@@ -26,39 +26,55 @@ Author:
 
 namespace opt {
 
+    class lns_context {
+    public:
+        virtual ~lns_context() {}
+        virtual void update_model(model_ref& mdl) = 0;
+        virtual void relax_cores(vector<expr_ref_vector> const& cores) = 0;
+        virtual rational cost(model& mdl) = 0;
+        virtual rational weight(expr* e) = 0;
+        virtual expr_ref_vector const& soft() = 0;
+    };
+
     class lns {
         ast_manager&     m;
         solver&          s;
+        lns_context&     ctx;
+        random_gen       m_rand;
         expr_ref_vector  m_hardened;
-        expr_ref_vector  m_soft;
-        unsigned         m_max_conflicts { 1000 };
+        expr_ref_vector  m_unprocessed;
+        unsigned         m_max_conflicts { 10000 };
         unsigned         m_num_improves { 0 };
         bool             m_cores_are_valid { true };
         bool             m_enable_scoped_bounding { false };
+        unsigned         m_best_bound { 0 };
 
+        rational         m_best_cost;
+        model_ref        m_best_model;
+        scoped_ptr<solver::phase> m_best_phase;
+        
         vector<expr_ref_vector> m_cores;
         expr_mark               m_in_core;
         expr_mark               m_is_assumption;
 
         struct scoped_bounding;
 
-        std::function<void(model_ref& m)> m_update_model;
-        std::function<void(vector<expr_ref_vector> const&)> m_relax_cores;
+        void update_best_model(model_ref& mdl);
+        void improve_bs();
+        void improve_bs1();
+        void apply_best_model();
 
-        expr* soft(unsigned i) const { return m_soft[i]; }
+        expr* unprocessed(unsigned i) const { return m_unprocessed[i]; }
         void  set_lns_params();
         void  save_defaults(params_ref& p);
         unsigned improve_step(model_ref& mdl);
         lbool improve_step(model_ref& mdl, expr* e);
         void relax_cores();
         unsigned improve_linear(model_ref& mdl);
-        unsigned improve_rotate(model_ref& mdl, expr_ref_vector const& asms);
-        void  setup_assumptions(model_ref& mdl, expr_ref_vector const& asms);
 
     public:
-        lns(solver& s, std::function<void(model_ref&)>& update_model);
-        void set_relax(std::function<void(vector<expr_ref_vector> const&)>& rc) { m_relax_cores = rc; }
+        lns(solver& s, lns_context& ctx);
         void set_conflicts(unsigned c) { m_max_conflicts = c; }
-        unsigned climb(model_ref& mdl, expr_ref_vector const& asms);
+        unsigned climb(model_ref& mdl);
     };
 };

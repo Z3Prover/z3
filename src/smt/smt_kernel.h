@@ -150,6 +150,11 @@ namespace smt {
         */
         lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores);
 
+        void set_phase(expr * e) { NOT_IMPLEMENTED_YET(); }
+        solver::phase* get_phase() { NOT_IMPLEMENTED_YET();  return nullptr; }
+        void set_phase(solver::phase* p) { NOT_IMPLEMENTED_YET(); }
+        void move_to_front(expr* e) { NOT_IMPLEMENTED_YET(); }
+
         /**
            \brief Return the model associated with the last check command.
         */

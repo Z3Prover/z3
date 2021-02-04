@@ -298,7 +298,27 @@ public:
         bool is_not = m.is_not(e, e);
         sat::bool_var b = m_map.to_bool_var(e);
         if (b != sat::null_bool_var)
-            m_solver.set_phase(b, is_not);
+            m_solver.set_phase(sat::literal(b, is_not));
+    }
+
+    class sat_phase : public phase, public sat::literal_vector {};
+
+    phase* get_phase() override { 
+        sat_phase* p = alloc(sat_phase);
+        for (unsigned v = m_solver.num_vars(); v-- > 0; ) {
+            p->push_back(sat::literal(v, !m_solver.get_phase(v)));
+        }
+        return p;
+    }
+    void set_phase(phase* p) override { 
+        for (auto lit : *static_cast<sat_phase*>(p))
+            m_solver.set_phase(lit);
+    }
+    void move_to_front(expr* e) override { 
+        bool is_not = m.is_not(e, e);
+        sat::bool_var b = m_map.to_bool_var(e);
+        if (b != sat::null_bool_var)
+            m_solver.move_to_front(b);
     }
 
     unsigned get_scope_level() const override {

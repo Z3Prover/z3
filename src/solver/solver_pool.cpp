@@ -69,6 +69,9 @@ public:
 
     solver* base_solver() { return m_base.get(); }
     void set_phase(expr* e) override { m_base->set_phase(e); }
+    phase* get_phase() override { return m_base->get_phase(); }
+    void set_phase(phase* p) override { m_base->set_phase(p); }
+    void move_to_front(expr* e) override { m_base->move_to_front(e); }
 
     solver* translate(ast_manager& m, params_ref const& p) override { UNREACHABLE(); return nullptr; }
     void updt_params(params_ref const& p) override {

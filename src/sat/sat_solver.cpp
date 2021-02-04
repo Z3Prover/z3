@@ -1914,7 +1914,8 @@ namespace sat {
         m_next_simplify           = m_config.m_simplify_delay;
         m_min_d_tk                = 1.0;
         m_search_lvl              = 0;
-        m_conflicts_since_gc      = 0;
+        if (m_learned.size() <= 2*m_clauses.size())
+            m_conflicts_since_gc      = 0;
         m_restart_next_out        = 0;
         m_asymm_branch.init_search();
         m_stopwatch.reset();
@@ -3782,6 +3783,14 @@ namespace sat {
             auto activity = m_activity[v];
             set_activity(v, static_cast<unsigned>(m_step_size * reward + ((1.0 - m_step_size) * activity)));
         }
+    }
+
+    void solver::move_to_front(bool_var b) {
+        if (b >= num_vars())
+            return;
+        bool_var next = m_case_split_queue.min_var();
+        auto next_act = m_activity[next];
+        set_activity(b, next_act + 1);
     }
 
     // -----------------------

@@ -25,12 +25,12 @@ Author:
 
 namespace opt {
 
-    lns::lns(solver& s, std::function<void(model_ref& mdl)>& update_model)
+    lns::lns(solver& s, lns_context& ctx)
         : m(s.get_manager()),
           s(s),
+          ctx(ctx),
           m_hardened(m),
-          m_soft(m),
-          m_update_model(update_model)
+          m_unprocessed(m)
     {}
 
     void lns::set_lns_params() {
@@ -39,7 +39,7 @@ namespace opt {
         p.set_uint("restart.initial", 1000000);
         p.set_uint("max_conflicts", m_max_conflicts);    
         p.set_uint("simplify.delay", 1000000);
-//       p.set_bool("gc.burst", true);
+  //      p.set_bool("gc.burst", true);
         s.updt_params(p);
     }
 
@@ -52,17 +52,99 @@ namespace opt {
         p.set_uint("gc.burst", sp.gc_burst());
     }
 
-    unsigned lns::climb(model_ref& mdl, expr_ref_vector const& asms) {
+    unsigned lns::climb(model_ref& mdl) {
+        IF_VERBOSE(1, verbose_stream() << "(opt.lns :climb)\n");
         m_num_improves = 0;
         params_ref old_p(s.get_params());
         save_defaults(old_p);
         set_lns_params();
-        setup_assumptions(mdl, asms);
-        unsigned num_improved = improve_linear(mdl);
-        // num_improved += improve_rotate(mdl, asms);
+        update_best_model(mdl);
+        for (unsigned i = 0; i < 2; ++i)
+            improve_bs();
+        IF_VERBOSE(1, verbose_stream() << "(opt.lns :relax-cores " << m_cores.size() << ")\n");
+        relax_cores();
         s.updt_params(old_p);
-        IF_VERBOSE(1, verbose_stream() << "(opt.lns :num-improves " << m_num_improves << " :remaining-soft " << m_soft.size() << ")\n");
-        return num_improved;
+        IF_VERBOSE(1, verbose_stream() << "(opt.lns :num-improves " << m_num_improves << ")\n");
+        return m_num_improves;
+    }
+
+    void lns::update_best_model(model_ref& mdl) {
+        rational cost = ctx.cost(*mdl);
+        if (m_best_cost.is_zero() || m_best_cost >= cost) {
+            m_best_cost = cost;
+            m_best_model = mdl;
+            m_best_phase = s.get_phase();
+            m_best_bound = 0;
+            for (expr* e : ctx.soft()) 
+                if (!mdl->is_true(e))
+                    m_best_bound += 1;
+        }
+    }
+
+    void lns::apply_best_model() {
+        s.set_phase(m_best_phase.get());
+        for (expr* e : m_unprocessed) {
+            s.move_to_front(e);
+            s.set_phase(e);
+        }
+    }
+
+    void lns::improve_bs() {
+        m_unprocessed.reset();
+        m_unprocessed.append(ctx.soft());
+
+        m_hardened.reset();
+        for (expr* a : ctx.soft())
+            m_is_assumption.mark(a);
+        shuffle(m_unprocessed.size(), m_unprocessed.c_ptr(), m_rand);
+        
+        model_ref mdl = m_best_model->copy();
+        unsigned j = 0;
+        for (unsigned i = 0; i < m_unprocessed.size(); ++i) {
+            if (mdl->is_false(unprocessed(i))) {
+                expr_ref tmp(m_unprocessed.get(j), m);
+                m_unprocessed[j++] = m_unprocessed[i];
+                m_unprocessed[i] = tmp;
+                break;
+            }
+        }
+        for (unsigned i = j; i < m_unprocessed.size(); ++i) {
+            if (mdl->is_true(unprocessed(i))) {
+                expr_ref tmp(m_unprocessed.get(j), m);
+                m_unprocessed[j++] = m_unprocessed[i];
+                m_unprocessed[i] = tmp;
+            }
+        }
+        for (unsigned i = 0; i < 3 && !m_unprocessed.empty(); ++i)
+            improve_bs1();
+    }
+
+    void lns::improve_bs1() {
+        model_ref mdl = m_best_model->copy();
+        unsigned j = 0;
+        for (expr* e : m_unprocessed) {
+            if (!m.inc())
+                return;
+            if (mdl->is_true(e))
+                m_hardened.push_back(e);
+            else {
+                apply_best_model();
+                switch (improve_step(mdl, e)) {
+                case l_true:
+                    m_hardened.push_back(e);
+                    ctx.update_model(mdl);
+                    update_best_model(mdl);
+                    break;
+                case l_false:
+                    m_hardened.push_back(m.mk_not(e));
+                    break;
+                case l_undef:
+                    m_unprocessed[j++] = e;
+                    break;
+                }
+            }
+        }
+        m_unprocessed.shrink(j);
     }
 
     struct lns::scoped_bounding {
@@ -72,12 +154,13 @@ namespace opt {
         scoped_bounding(lns& l):m_lns(l) {
             if (!m_lns.m_enable_scoped_bounding) 
                 return;
+            if (m_lns.m_best_bound == 0)
+                return;
             m_cores_are_valid = m_lns.m_cores_are_valid;
             m_lns.m_cores_are_valid = false;
             m_lns.s.push();
             pb_util pb(m_lns.m);
-            // TBD: bound should to be adjusted for current best solution, not number of soft constraints left.
-            expr_ref bound(pb.mk_at_most_k(m_lns.m_soft, m_lns.m_soft.size() - 1), m_lns.m);
+            expr_ref bound(pb.mk_at_most_k(m_lns.ctx.soft(), m_lns.m_best_bound - 1), m_lns.m);
             m_lns.s.assert_expr(bound);
         }
         ~scoped_bounding() {
@@ -89,7 +172,7 @@ namespace opt {
     };
 
     void lns::relax_cores() {
-        if (!m_cores.empty() && m_relax_cores && m_cores_are_valid) {
+        if (!m_cores.empty() && m_cores_are_valid) {
             std::sort(m_cores.begin(), m_cores.end(), [&](expr_ref_vector const& a, expr_ref_vector const& b) { return a.size() < b.size(); });
             unsigned num_disjoint = 0;
             vector<expr_ref_vector> new_cores;
@@ -104,41 +187,12 @@ namespace opt {
                 new_cores.push_back(c);
                 ++num_disjoint;
             }
-            m_relax_cores(new_cores);
+            IF_VERBOSE(2, verbose_stream() << "num cores: " << m_cores.size() << " new cores: " << new_cores.size() << "\n");
+            ctx.relax_cores(new_cores);
         }
         m_in_core.reset();
         m_is_assumption.reset();
         m_cores.reset();
-    }
-
-    void lns::setup_assumptions(model_ref& mdl, expr_ref_vector const& asms) {
-        m_hardened.reset();
-        m_soft.reset();
-        for (expr* a : asms) {
-            m_is_assumption.mark(a);
-            if (mdl->is_true(a))
-                m_hardened.push_back(a);
-            else
-                m_soft.push_back(a);
-        }
-    }
-
-    unsigned lns::improve_rotate(model_ref& mdl, expr_ref_vector const& asms) {
-        unsigned num_improved = 0;
-    repeat:
-        setup_assumptions(mdl, asms);
-        unsigned sz = m_hardened.size();
-        for (unsigned i = 0; i < sz; ++i) {
-            expr_ref tmp(m_hardened.get(i), m);
-            m_hardened[i] = m.mk_not(tmp);
-            unsigned reward = improve_linear(mdl);
-            if (reward > 1) {
-                num_improved += (reward - 1);
-                goto repeat;
-            }
-            setup_assumptions(mdl, asms);
-        }
-        return num_improved;
     }
 
     unsigned lns::improve_linear(model_ref& mdl) {
@@ -156,43 +210,42 @@ namespace opt {
             set_lns_params();
         }
         m_max_conflicts = max_conflicts;
-        relax_cores();
         return num_improved;
     }
 
     unsigned lns::improve_step(model_ref& mdl) {
         unsigned num_improved = 0;
-        for (unsigned i = 0; m.inc() && i < m_soft.size(); ++i) {
-            switch (improve_step(mdl, soft(i))) {
+        for (unsigned i = 0; m.inc() && i < m_unprocessed.size(); ++i) {
+            switch (improve_step(mdl, unprocessed(i))) {
             case l_undef:
                 break;
             case l_false:
-                TRACE("opt", tout << "pruned " << mk_bounded_pp(soft(i), m) << "\n";);
-                m_hardened.push_back(m.mk_not(soft(i)));
-                for (unsigned k = i; k + 1 < m_soft.size(); ++k) 
-                    m_soft[k] = soft(k + 1);
-                m_soft.pop_back();
+                TRACE("opt", tout << "pruned " << mk_bounded_pp(unprocessed(i), m) << "\n";);
+                m_hardened.push_back(m.mk_not(unprocessed(i)));
+                for (unsigned k = i; k + 1 < m_unprocessed.size(); ++k) 
+                    m_unprocessed[k] = unprocessed(k + 1);
+                m_unprocessed.pop_back();
                 --i;
                 break;
             case l_true: {
                 unsigned k = 0, offset = 0;
-                for (unsigned j = 0; j < m_soft.size(); ++j) {
-                    if (mdl->is_true(soft(j))) {
+                for (unsigned j = 0; j < m_unprocessed.size(); ++j) {
+                    if (mdl->is_true(unprocessed(j))) {
                         if (j <= i)
                             ++offset;
                         ++m_num_improves;                        
-                        TRACE("opt", tout << "improved " << mk_bounded_pp(soft(j), m) << "\n";);
-                        m_hardened.push_back(soft(j));
+                        TRACE("opt", tout << "improved " << mk_bounded_pp(unprocessed(j), m) << "\n";);
+                        m_hardened.push_back(unprocessed(j));
                         ++num_improved;
                     }
                     else {
-                        m_soft[k++] = soft(j);
+                        m_unprocessed[k++] = unprocessed(j);
                     }
                 }
-                m_soft.shrink(k);
+                m_unprocessed.shrink(k);
                 i -= offset;
-                IF_VERBOSE(1, verbose_stream() << "(opt.lns :num-improves " << m_num_improves << " :remaining-soft " << m_soft.size() << ")\n");
-                m_update_model(mdl);
+                IF_VERBOSE(1, verbose_stream() << "(opt.lns :num-improves " << m_num_improves << " :remaining-soft " << m_unprocessed.size() << ")\n");
+                ctx.update_model(mdl);
                 break;
             }       
             }
@@ -209,12 +262,12 @@ namespace opt {
         if (r == l_false) {
             expr_ref_vector core(m);
             s.get_unsat_core(core);
-            bool all_assumed = true;
+            bool all_assumed = true;            
             for (expr* c : core) 
                 all_assumed &= m_is_assumption.is_marked(c);
-            if (all_assumed) {
-                m_cores.push_back(core);
-            }
+            IF_VERBOSE(2, verbose_stream() << "core " << all_assumed << " - " << core.size() << "\n");
+            if (all_assumed) 
+                m_cores.push_back(core);            
         }
         return r;
     } 
