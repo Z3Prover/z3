@@ -2018,7 +2018,7 @@ public class Context implements AutoCloseable {
     /**
      * Concatenate sequences.
      */
-    public <R extends Sort> SeqExpr<R> mkConcat(SeqSort<R>... t)
+    public <R extends Sort> SeqExpr<R> mkConcat(Expr<SeqSort<R>>... t)
     {
         checkContextMatch(t);
         return (SeqExpr<R>) Expr.create(this, Native.mkSeqConcat(nCtx(), t.length, AST.arrayToNative(t)));
