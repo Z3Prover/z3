@@ -1100,10 +1100,6 @@ def _coerce_expr_merge(s, a):
             if z3_debug():
                 _z3_assert(s1.ctx == s.ctx, "context mismatch")
                 _z3_assert(False, "sort mismatch")
-    elif s is not None:
-        return s
-    elif isinstance(a, str):
-        return StringSort()
     else:
         return s
 
