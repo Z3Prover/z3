@@ -50,6 +50,7 @@ import sys
 import io
 import math
 import copy
+import collections
 
 Z3_DEBUG = __debug__
 
@@ -7499,7 +7500,7 @@ class Optimize(Z3PPObject):
         def asoft(a):
             v = Z3_optimize_assert_soft(self.ctx.ref(), self.optimize, a.as_ast(), weight, id)
             return OptimizeObjective(self, v, False)
-        if isinstance(arg, Iterable):
+        if isinstance(arg, collections.Iterable):
             return [asoft(a) for a in arg]
         return asoft(arg)
 
