@@ -103,7 +103,7 @@ namespace opt {
         for (unsigned i = 0; i < m_unprocessed.size(); ++i) {
             if (mdl->is_false(unprocessed(i))) {
                 expr_ref tmp(m_unprocessed.get(j), m);
-                m_unprocessed[j++] = m_unprocessed[i];
+                m_unprocessed[j++] = m_unprocessed.get(i);
                 m_unprocessed[i] = tmp;
                 break;
             }
@@ -111,7 +111,7 @@ namespace opt {
         for (unsigned i = j; i < m_unprocessed.size(); ++i) {
             if (mdl->is_true(unprocessed(i))) {
                 expr_ref tmp(m_unprocessed.get(j), m);
-                m_unprocessed[j++] = m_unprocessed[i];
+                m_unprocessed[j++] = m_unprocessed.get(i);
                 m_unprocessed[i] = tmp;
             }
         }
@@ -200,7 +200,6 @@ namespace opt {
         unsigned num_improved = 0;
         unsigned max_conflicts = m_max_conflicts;
         while (m.inc()) {
-            unsigned hard = m_hardened.size();
             unsigned reward = improve_step(mdl);
             if (reward == 0)
                 break;
