@@ -8469,7 +8469,7 @@ def PbEq(args, k, ctx = None):
     return BoolRef(Z3_mk_pbeq(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
 
-def solve(*args, show=False, **keywords):
+def solve(*args, **keywords):
     """Solve the constraints `*args`.
 
     This is a simple function for creating demonstrations. It creates a solver,
@@ -8480,6 +8480,7 @@ def solve(*args, show=False, **keywords):
     >>> solve(a > 0, a < 2)
     [a = 1]
     """
+    show = keywords.pop("show")
     s = Solver()
     s.set(**keywords)
     s.add(*args)
@@ -8497,7 +8498,7 @@ def solve(*args, show=False, **keywords):
     else:
         print(s.model())
 
-def solve_using(s, *args, show=False, **keywords):
+def solve_using(s, *args, **keywords):
     """Solve the constraints `*args` using solver `s`.
 
     This is a simple function for creating demonstrations. It is similar to `solve`,
@@ -8505,6 +8506,7 @@ def solve_using(s, *args, show=False, **keywords):
     It configures solver `s` using the options in `keywords`, adds the constraints
     in `args`, and invokes check.
     """
+    show = keywords.pop("show")
     if z3_debug():
         _z3_assert(isinstance(s, Solver), "Solver object expected")
     s.set(**keywords)
@@ -8553,8 +8555,9 @@ def prove(claim, show=False, **keywords):
         print("counterexample")
         print(s.model())
 
-def _solve_html(*args, show=False, **keywords):
+def _solve_html(*args, **keywords):
     """Version of function `solve` used in RiSE4Fun."""
+    show = keywords.pop("show")
     s = Solver()
     s.set(**keywords)
     s.add(*args)
@@ -8575,8 +8578,9 @@ def _solve_html(*args, show=False, **keywords):
             print("<b>Solution:</b>")
         print(s.model())
 
-def _solve_using_html(s, *args, show=False, **keywords):
+def _solve_using_html(s, *args, **keywords):
     """Version of function `solve_using` used in RiSE4Fun."""
+    show = keywords.pop("show")
     if z3_debug():
         _z3_assert(isinstance(s, Solver), "Solver object expected")
     s.set(**keywords)
