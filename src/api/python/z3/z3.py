@@ -8480,7 +8480,7 @@ def solve(*args, **keywords):
     >>> solve(a > 0, a < 2)
     [a = 1]
     """
-    show = keywords.pop("show")
+    show = keywords.pop("show", False)
     s = Solver()
     s.set(**keywords)
     s.add(*args)
@@ -8506,7 +8506,7 @@ def solve_using(s, *args, **keywords):
     It configures solver `s` using the options in `keywords`, adds the constraints
     in `args`, and invokes check.
     """
-    show = keywords.pop("show")
+    show = keywords.pop("show", False)
     if z3_debug():
         _z3_assert(isinstance(s, Solver), "Solver object expected")
     s.set(**keywords)
@@ -8557,7 +8557,7 @@ def prove(claim, show=False, **keywords):
 
 def _solve_html(*args, **keywords):
     """Version of function `solve` used in RiSE4Fun."""
-    show = keywords.pop("show")
+    show = keywords.pop("show", False)
     s = Solver()
     s.set(**keywords)
     s.add(*args)
@@ -8580,7 +8580,7 @@ def _solve_html(*args, **keywords):
 
 def _solve_using_html(s, *args, **keywords):
     """Version of function `solve_using` used in RiSE4Fun."""
-    show = keywords.pop("show")
+    show = keywords.pop("show", False)
     if z3_debug():
         _z3_assert(isinstance(s, Solver), "Solver object expected")
     s.set(**keywords)
