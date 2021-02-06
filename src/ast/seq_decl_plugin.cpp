@@ -20,7 +20,6 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
-#include "ast/bv_decl_plugin.h"
 #include <sstream>
 
 
@@ -276,7 +275,6 @@ void seq_decl_plugin::init() {
 
 void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
     decl_plugin::set_manager(m, id);
-    bv_util bv(*m);
     m_char_plugin = static_cast<char_decl_plugin*>(m_manager->get_plugin(m_manager->mk_family_id("char")));
     m_char = get_char_plugin().char_sort();
     m->inc_ref(m_char);
