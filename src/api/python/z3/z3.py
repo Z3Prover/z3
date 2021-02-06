@@ -6281,6 +6281,7 @@ class ModelRef(Z3PPObject):
     def __deepcopy__(self, memo={}):
         return self.translate(self.ctx)
 
+
 def Model(ctx = None):
     ctx = _get_ctx(ctx)
     return ModelRef(Z3_mk_model(ctx.ref()), ctx)
@@ -7403,12 +7404,22 @@ class OptimizeObjective:
         return "%s:%s" % (self._value, self._is_max)
 
 
+
+_on_models = {}
+
+def _global_on_model(ctx):
+    (opt, mdl) = _on_models[ctx]
+    opt.on_model(mdl)
+    
+_on_model_eh = on_model_eh_type(_global_on_model)
+
 class Optimize(Z3PPObject):
     """Optimize API provides methods for solving using objective functions and weighted soft constraints"""
 
     def __init__(self, ctx=None):
         self.ctx    = _get_ctx(ctx)
         self.optimize = Z3_mk_optimize(self.ctx.ref())
+        self._on_models_id = None
         Z3_optimize_inc_ref(self.ctx.ref(), self.optimize)
 
     def __deepcopy__(self, memo={}):
@@ -7417,6 +7428,8 @@ class Optimize(Z3PPObject):
     def __del__(self):
         if self.optimize is not None and self.ctx.ref() is not None:
             Z3_optimize_dec_ref(self.ctx.ref(), self.optimize)
+        if self._on_models_id is not None:
+            del _on_models[self._on_models_id]
 
     def set(self, *args, **keys):
         """Set a configuration option. The method `help()` return a string containing all available options.
@@ -7593,7 +7606,15 @@ class Optimize(Z3PPObject):
         """
         return Statistics(Z3_optimize_get_statistics(self.ctx.ref(), self.optimize), self.ctx)
 
+    def on_model(self, m):
+        self._on_model(m)
 
+    def set_on_model(self, on_model):
+        self._on_model = on_model
+        id  = len(_on_models) + 41
+        mdl = Model(self.ctx)
+        _on_models[id] = (self, mdl)
+        Z3_optimize_register_model_eh(self.ctx.ref(), self.optimize, mdl.model, ctypes.c_void_p(id), _on_model_eh)
 
 
 #########################################

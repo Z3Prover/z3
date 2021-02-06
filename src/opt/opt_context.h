@@ -66,6 +66,14 @@ namespace opt {
        It handles combinations of objectives.
     */
 
+    struct on_model_t {
+        void* c;
+        void* m;
+        void* user_context;
+        void* on_model;
+    };
+
+
     class context : 
         public opt_wrapper, 
         public pareto_callback,
@@ -143,6 +151,8 @@ namespace opt {
         };
 
         ast_manager&        m;
+        on_model_t          m_on_model_ctx;
+        std::function<void(on_model_t&, model_ref&)> m_on_model_eh;
         arith_util          m_arith;
         bv_util             m_bv;
         expr_ref_vector     m_hard_constraints;
@@ -244,6 +254,11 @@ namespace opt {
         bool verify_model(unsigned id, model* mdl, rational const& v) override;
         
         void model_updated(model* mdl) override;
+
+        void register_on_model(on_model_t& ctx, std::function<void(on_model_t&, model_ref&)>& on_model) { 
+            m_on_model_ctx = ctx; 
+            m_on_model_eh  = on_model; 
+        }
 
     private:
         lbool execute(objective const& obj, bool committed, bool scoped);

@@ -382,6 +382,13 @@ namespace opt {
             model_ref md = m->copy();
             fix_model(md);
         }
+        if (m_on_model_eh && m) {
+            model_ref md = m->copy();
+            if (!m_model_fixed.contains(md.get()))
+                fix_model(md);
+            m_on_model_eh(m_on_model_ctx, md);
+            m_model_fixed.pop_back();
+        }
     }
 
 

@@ -357,6 +357,9 @@ def Z3_solver_propagate_diseq(ctx, s, diseq_eh, _elems = Elementaries(_lib.Z3_so
     _elems.f(ctx, s, diseq_eh)
     _elems.Check(ctx)
 
+def Z3_optimize_register_model_eh(ctx, o, m, user_ctx, on_model_eh, _elems = Elementaries(_lib.Z3_optimize_register_model_eh)):
+    _elems.f(ctx, o, m, user_ctx, on_model_eh)
+    _elems.Check(ctx)
 
 """)
 
@@ -1868,6 +1871,9 @@ _lib.Z3_solver_propagate_eq.argtypes = [ContextObj, SolverObj, eq_eh_type]
 _lib.Z3_solver_propagate_diseq.restype = None
 _lib.Z3_solver_propagate_diseq.argtypes = [ContextObj, SolverObj, eq_eh_type]
 
+on_model_eh_type = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
+_lib.Z3_optimize_register_model_eh.restype = None
+_lib.Z3_optimize_register_model_eh.argtypes = [ContextObj, OptimizeObj, ModelObj, ctypes.c_void_p, on_model_eh_type]
 
 """
   )

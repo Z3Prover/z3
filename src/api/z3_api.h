@@ -1382,7 +1382,7 @@ typedef enum
   def_Type('SORT',             'Z3_sort',             'Sort')
   def_Type('FUNC_DECL',        'Z3_func_decl',        'FuncDecl')
   def_Type('PATTERN',          'Z3_pattern',          'Pattern')
-  def_Type('MODEL',            'Z3_model',            'Model')
+  def_Type('MODEL',            'Z3_model',            'ModelObj')
   def_Type('LITERALS',         'Z3_literals',         'Literals')
   def_Type('CONSTRUCTOR',      'Z3_constructor',      'Constructor')
   def_Type('CONSTRUCTOR_LIST', 'Z3_constructor_list', 'ConstructorList')
@@ -1419,6 +1419,7 @@ typedef void* Z3_fresh_eh(void* ctx, Z3_context new_context);
 typedef void Z3_fixed_eh(void* ctx, Z3_solver_callback cb, unsigned id, Z3_ast value);
 typedef void Z3_eq_eh(void* ctx, Z3_solver_callback cb, unsigned x, unsigned y);
 typedef void Z3_final_eh(void* ctx, Z3_solver_callback cb);
+
 
 /**
    \brief A Goal is essentially a set of formulas.

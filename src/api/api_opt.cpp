@@ -435,6 +435,32 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+    static void optimize_on_model(opt::on_model_t& o, model_ref& m) {
+        Z3_context c = (Z3_context) o.c;
+        auto model_eh = (void(*)(void*)) o.on_model;
+        Z3_model_ref * m_ref = (Z3_model_ref*) o.m;
+        m_ref->m_model = m.get();
+        model_eh(o.user_context);
+    }
+
+    void Z3_API Z3_optimize_register_model_eh(
+        Z3_context   c, 
+        Z3_optimize  o, 
+        Z3_model     m,
+        void*        user_context,
+        Z3_model_eh  model_eh) {
+        Z3_TRY;
+
+        std::function<void(opt::on_model_t&, model_ref&)> _model_eh = optimize_on_model;
+        opt::on_model_t ctx;
+        ctx.c = c;
+        ctx.m = m;
+        ctx.user_context = user_context;
+        ctx.on_model = model_eh;
+        to_optimize_ptr(o)->register_on_model(ctx, _model_eh);
+        Z3_CATCH;
+    }
+
 
 
 };
