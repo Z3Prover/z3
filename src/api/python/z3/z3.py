@@ -7408,8 +7408,8 @@ class OptimizeObjective:
 _on_models = {}
 
 def _global_on_model(ctx):
-    (opt, mdl) = _on_models[ctx]
-    opt.on_model(mdl)
+    (fn, mdl) = _on_models[ctx]
+    fn(mdl)
     
 _on_model_eh = on_model_eh_type(_global_on_model)
 
@@ -7606,14 +7606,11 @@ class Optimize(Z3PPObject):
         """
         return Statistics(Z3_optimize_get_statistics(self.ctx.ref(), self.optimize), self.ctx)
 
-    def on_model(self, m):
-        self._on_model(m)
-
     def set_on_model(self, on_model):
-        self._on_model = on_model
         id  = len(_on_models) + 41
         mdl = Model(self.ctx)
-        _on_models[id] = (self, mdl)
+        _on_models[id] = (on_model, mdl)
+        self._on_models_id = id
         Z3_optimize_register_model_eh(self.ctx.ref(), self.optimize, mdl.model, ctypes.c_void_p(id), _on_model_eh)
 
 

@@ -456,7 +456,7 @@ extern "C" {
         ctx.c = c;
         ctx.m = m;
         ctx.user_context = user_context;
-        ctx.on_model = model_eh;
+        ctx.on_model = (void*)model_eh;
         to_optimize_ptr(o)->register_on_model(ctx, _model_eh);
         Z3_CATCH;
     }
