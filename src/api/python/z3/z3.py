@@ -8526,7 +8526,7 @@ def solve_using(s, *args, **keywords):
             print("Solution:")
         print(s.model())
 
-def prove(claim, **keywords):
+def prove(claim, show=False, **keywords):
     """Try to prove the given claim.
 
     This is a simple function for creating demonstrations.  It tries to prove
@@ -8541,7 +8541,7 @@ def prove(claim, **keywords):
     s = Solver()
     s.set(**keywords)
     s.add(Not(claim))
-    if keywords.get('show', False):
+    if show:
         print(s)
     r = s.check()
     if r == unsat:
@@ -8598,14 +8598,14 @@ def _solve_using_html(s, *args, **keywords):
             print("<b>Solution:</b>")
         print(s.model())
 
-def _prove_html(claim, **keywords):
+def _prove_html(claim, show=False, **keywords):
     """Version of function `prove` used in RiSE4Fun."""
     if z3_debug():
         _z3_assert(is_bool(claim), "Z3 Boolean expression expected")
     s = Solver()
     s.set(**keywords)
     s.add(Not(claim))
-    if keywords.get('show', False):
+    if show:
         print(s)
     r = s.check()
     if r == unsat:
