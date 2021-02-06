@@ -23,7 +23,6 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
-#include "ast/bv_decl_plugin.h"
 #include "ast/char_decl_plugin.h"
 #include "util/lbool.h"
 #include "util/zstring.h"
@@ -211,8 +210,6 @@ class seq_util {
     seq_decl_plugin& seq;
     char_decl_plugin& ch;
     family_id m_fid;
-    mutable scoped_ptr<bv_util> m_bv;
-    bv_util& bv() const;
 
 public:
 

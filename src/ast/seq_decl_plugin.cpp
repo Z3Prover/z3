@@ -278,10 +278,7 @@ void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
     decl_plugin::set_manager(m, id);
     bv_util bv(*m);
     m_char_plugin = static_cast<char_decl_plugin*>(m_manager->get_plugin(m_manager->mk_family_id("char")));
-    if (unicode())
-        m_char = get_char_plugin().char_sort();
-    else
-        m_char = bv.mk_sort(8);
+    m_char = get_char_plugin().char_sort();
     m->inc_ref(m_char);
     parameter param(m_char);
     m_string = m->mk_sort(symbol("String"), sort_info(m_family_id, SEQ_SORT, 1, &param));
@@ -644,15 +641,8 @@ app* seq_decl_plugin::mk_string(zstring const& s) {
 }
 
 app* seq_decl_plugin::mk_char(unsigned u) {
-    if (unicode()) {
-        return get_char_plugin().mk_char(u);
-    }
-    else {
-        bv_util bv(*m_manager);
-        return bv.mk_numeral(rational(u), 8);
-    }
+    return get_char_plugin().mk_char(u);
 }
-
 
 bool seq_decl_plugin::is_considered_uninterpreted(func_decl * f) {
     seq_util util(*m_manager);
@@ -759,11 +749,6 @@ app* seq_util::mk_char_bit(expr* e, unsigned i) {
     return m.mk_app(f, 1, &e);
 }
 
-bv_util& seq_util::bv() const {
-    if (!m_bv) m_bv = alloc(bv_util, m);
-    return *m_bv.get();
-}
-
 unsigned seq_util::max_plus(unsigned x, unsigned y) const {
     if (x + y < x || x + y < y)
         return UINT_MAX;
@@ -777,43 +762,19 @@ unsigned seq_util::max_mul(unsigned x, unsigned y) const {
 
 
 bool seq_util::is_const_char(expr* e, unsigned& c) const {
-    if (seq.unicode()) {
-        return ch.is_const_char(e, c);
-    }
-    else {
-        rational r;    
-        unsigned sz;
-        return bv().is_numeral(e, r, sz) && sz == 8 && r.is_unsigned() && (c = r.get_unsigned(), true);
-    }
+    return ch.is_const_char(e, c);
 }
 
 bool seq_util::is_char_le(expr const* e) const {
-    if (seq.unicode()) 
-        return ch.is_le(e);
-    else 
-        return bv().is_bv_ule(e) && is_char(to_app(e)->get_arg(0)); 
+    return ch.is_le(e);
 }
 
 app* seq_util::mk_char(unsigned ch) const {
-    if (seq.unicode())
-        return seq.mk_char(ch);
-    else 
-        return bv().mk_numeral(rational(ch), 8);
+    return seq.mk_char(ch);
 }
 
 app* seq_util::mk_le(expr* ch1, expr* ch2) const {
-    expr_ref _ch1(ch1, m), _ch2(ch2, m);
-
-    if (seq.unicode()) {
-        return ch.mk_le(ch1, ch2);
-    }
-    else {
-        rational r1, r2;
-        if (bv().is_numeral(ch1, r1) && bv().is_numeral(ch2, r2)) {
-            return m.mk_bool_val(r1 <= r2);
-        }
-        return bv().mk_ule(ch1, ch2);
-    }
+    return ch.mk_le(ch1, ch2);
 }
 
 app* seq_util::mk_lt(expr* ch1, expr* ch2) const {

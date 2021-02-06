@@ -7610,6 +7610,11 @@ class Optimize(Z3PPObject):
         return Statistics(Z3_optimize_get_statistics(self.ctx.ref(), self.optimize), self.ctx)
 
     def set_on_model(self, on_model):
+        """Register a callback that is invoked with every incremental improvement to
+        objective values. The callback takes a model as argument.
+        The life-time of the model is limited to the callback so the
+        model has to be (deep) copied if it is to be used after the callback
+        """
         id  = len(_on_models) + 41
         mdl = Model(self.ctx)
         _on_models[id] = (on_model, mdl)
