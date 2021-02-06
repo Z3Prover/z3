@@ -8469,7 +8469,7 @@ def PbEq(args, k, ctx = None):
     return BoolRef(Z3_mk_pbeq(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
 
-def solve(*args, **keywords):
+def solve(*args, show=False, **keywords):
     """Solve the constraints `*args`.
 
     This is a simple function for creating demonstrations. It creates a solver,
@@ -8483,7 +8483,7 @@ def solve(*args, **keywords):
     s = Solver()
     s.set(**keywords)
     s.add(*args)
-    if keywords.get('show', False):
+    if show:
         print(s)
     r = s.check()
     if r == unsat:
@@ -8497,7 +8497,7 @@ def solve(*args, **keywords):
     else:
         print(s.model())
 
-def solve_using(s, *args, **keywords):
+def solve_using(s, *args, show=False, **keywords):
     """Solve the constraints `*args` using solver `s`.
 
     This is a simple function for creating demonstrations. It is similar to `solve`,
@@ -8509,7 +8509,7 @@ def solve_using(s, *args, **keywords):
         _z3_assert(isinstance(s, Solver), "Solver object expected")
     s.set(**keywords)
     s.add(*args)
-    if keywords.get('show', False):
+    if show:
         print("Problem:")
         print(s)
     r = s.check()
@@ -8522,7 +8522,7 @@ def solve_using(s, *args, **keywords):
         except Z3Exception:
             return
     else:
-        if keywords.get('show', False):
+        if show:
             print("Solution:")
         print(s.model())
 
@@ -8553,12 +8553,12 @@ def prove(claim, show=False, **keywords):
         print("counterexample")
         print(s.model())
 
-def _solve_html(*args, **keywords):
+def _solve_html(*args, show=False, **keywords):
     """Version of function `solve` used in RiSE4Fun."""
     s = Solver()
     s.set(**keywords)
     s.add(*args)
-    if keywords.get('show', False):
+    if show:
         print("<b>Problem:</b>")
         print(s)
     r = s.check()
@@ -8571,17 +8571,17 @@ def _solve_html(*args, **keywords):
         except Z3Exception:
             return
     else:
-        if keywords.get('show', False):
+        if show:
             print("<b>Solution:</b>")
         print(s.model())
 
-def _solve_using_html(s, *args, **keywords):
+def _solve_using_html(s, *args, show=False, **keywords):
     """Version of function `solve_using` used in RiSE4Fun."""
     if z3_debug():
         _z3_assert(isinstance(s, Solver), "Solver object expected")
     s.set(**keywords)
     s.add(*args)
-    if keywords.get('show', False):
+    if show:
         print("<b>Problem:</b>")
         print(s)
     r = s.check()
@@ -8594,7 +8594,7 @@ def _solve_using_html(s, *args, **keywords):
         except Z3Exception:
             return
     else:
-        if keywords.get('show', False):
+        if show:
             print("<b>Solution:</b>")
         print(s.model())
 
