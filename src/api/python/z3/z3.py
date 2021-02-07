@@ -8480,10 +8480,11 @@ def solve(*args, **keywords):
     >>> solve(a > 0, a < 2)
     [a = 1]
     """
+    show = keywords.pop("show", False)
     s = Solver()
     s.set(**keywords)
     s.add(*args)
-    if keywords.get('show', False):
+    if show:
         print(s)
     r = s.check()
     if r == unsat:
@@ -8505,11 +8506,12 @@ def solve_using(s, *args, **keywords):
     It configures solver `s` using the options in `keywords`, adds the constraints
     in `args`, and invokes check.
     """
+    show = keywords.pop("show", False)
     if z3_debug():
         _z3_assert(isinstance(s, Solver), "Solver object expected")
     s.set(**keywords)
     s.add(*args)
-    if keywords.get('show', False):
+    if show:
         print("Problem:")
         print(s)
     r = s.check()
@@ -8522,11 +8524,11 @@ def solve_using(s, *args, **keywords):
         except Z3Exception:
             return
     else:
-        if keywords.get('show', False):
+        if show:
             print("Solution:")
         print(s.model())
 
-def prove(claim, **keywords):
+def prove(claim, show=False, **keywords):
     """Try to prove the given claim.
 
     This is a simple function for creating demonstrations.  It tries to prove
@@ -8541,7 +8543,7 @@ def prove(claim, **keywords):
     s = Solver()
     s.set(**keywords)
     s.add(Not(claim))
-    if keywords.get('show', False):
+    if show:
         print(s)
     r = s.check()
     if r == unsat:
@@ -8555,10 +8557,11 @@ def prove(claim, **keywords):
 
 def _solve_html(*args, **keywords):
     """Version of function `solve` used in RiSE4Fun."""
+    show = keywords.pop("show", False)
     s = Solver()
     s.set(**keywords)
     s.add(*args)
-    if keywords.get('show', False):
+    if show:
         print("<b>Problem:</b>")
         print(s)
     r = s.check()
@@ -8571,17 +8574,18 @@ def _solve_html(*args, **keywords):
         except Z3Exception:
             return
     else:
-        if keywords.get('show', False):
+        if show:
             print("<b>Solution:</b>")
         print(s.model())
 
 def _solve_using_html(s, *args, **keywords):
     """Version of function `solve_using` used in RiSE4Fun."""
+    show = keywords.pop("show", False)
     if z3_debug():
         _z3_assert(isinstance(s, Solver), "Solver object expected")
     s.set(**keywords)
     s.add(*args)
-    if keywords.get('show', False):
+    if show:
         print("<b>Problem:</b>")
         print(s)
     r = s.check()
@@ -8594,18 +8598,18 @@ def _solve_using_html(s, *args, **keywords):
         except Z3Exception:
             return
     else:
-        if keywords.get('show', False):
+        if show:
             print("<b>Solution:</b>")
         print(s.model())
 
-def _prove_html(claim, **keywords):
+def _prove_html(claim, show=False, **keywords):
     """Version of function `prove` used in RiSE4Fun."""
     if z3_debug():
         _z3_assert(is_bool(claim), "Z3 Boolean expression expected")
     s = Solver()
     s.set(**keywords)
     s.add(Not(claim))
-    if keywords.get('show', False):
+    if show:
         print(s)
     r = s.check()
     if r == unsat:
