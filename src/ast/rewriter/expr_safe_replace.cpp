@@ -27,7 +27,6 @@ void expr_safe_replace::insert(expr* src, expr* dst) {
     SASSERT(src->get_sort() == dst->get_sort());
     m_src.push_back(src);
     m_dst.push_back(dst);
-    m_subst.insert(src, dst);
 }
 
 void expr_safe_replace::operator()(expr_ref_vector& es) {
@@ -40,24 +39,14 @@ void expr_safe_replace::operator()(expr_ref_vector& es) {
     }
 }
 
-void expr_safe_replace::cache_insert(expr* a, expr* b) {
-    m_cache.emplace(a, b);
-}
-
-expr* expr_safe_replace::cache_find(expr* a) {
-    auto I = m_cache.find(a);
-    return I != m_cache.end() ? I->second : nullptr;
-}
-
-
 void expr_safe_replace::operator()(expr* e, expr_ref& res) {
     if (empty()) {
         res = e;
         return;
     }
 
-    for (auto &[src,dst] : m_subst) {
-        cache_insert(src, dst);
+    for (unsigned i = 0, e = m_src.size(); i < e; ++i) {
+        m_cache.emplace(m_src.get(i), m_dst.get(i));
     }
 
     m_todo.push_back(e);
@@ -65,30 +54,34 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
     
     while (!m_todo.empty()) {
         a = m_todo.back();
-        if (cache_find(a)) {
+        auto &cached = m_cache[a];
+        if (cached) {
             m_todo.pop_back();
         }
         else if (is_var(a)) {
-            cache_insert(a, a);
+            cached = a;
             m_todo.pop_back();
         }
         else if (is_app(a)) {
             app* c = to_app(a);
             unsigned n = c->get_num_args();
             m_args.reset();
-            bool arg_differs = false;
+            bool arg_differs = false, has_all_args = true;
             for (expr* arg : *c) {
-                expr* d = cache_find(arg);
+                expr* d = m_cache[arg];
                 if (d) {
-                    m_args.push_back(d);
-                    arg_differs |= arg != d;
-                    SASSERT(arg->get_sort() == d->get_sort());
+                    if (has_all_args) {
+                        m_args.push_back(d);
+                        arg_differs |= arg != d;
+                        SASSERT(arg->get_sort() == d->get_sort());
+                    }
                 }
                 else {
                     m_todo.push_back(arg);
+                    has_all_args = false;
                 }
             }
-            if (m_args.size() == n) {
+            if (has_all_args) {
                 if (arg_differs) {
                     b = m.mk_app(c->get_decl(), m_args);
                     m_refs.push_back(b);
@@ -96,7 +89,7 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
                 } else {
                     b = a;
                 }
-                cache_insert(a, b);
+                cached = b;
                 m_todo.pop_back();
             }
         }
@@ -126,11 +119,11 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
             replace(q->get_expr(), new_body);
             b = m.update_quantifier(q, pats.size(), pats.c_ptr(), nopats.size(), nopats.c_ptr(), new_body);
             m_refs.push_back(b);
-            cache_insert(a, b);
+            cached = b;
             m_todo.pop_back();
         }        
     }
-    res = cache_find(e);
+    res = m_cache.at(e);
     m_cache.clear();
     m_todo.reset();
     m_args.reset();
@@ -140,7 +133,6 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
 void expr_safe_replace::reset() {
     m_src.reset();
     m_dst.reset();
-    m_subst.reset();
     m_refs.finalize();
     m_cache.clear();
 }
