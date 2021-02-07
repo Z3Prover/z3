@@ -89,7 +89,6 @@ extern "C" {
         CHECK_NON_NULL(m, nullptr);
         func_interp * _fi       = to_model_ref(m)->get_func_interp(to_func_decl(f));
         if (!_fi) {
-            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         Z3_func_interp_ref * fi = alloc(Z3_func_interp_ref, *mk_c(c), to_model_ref(m));
