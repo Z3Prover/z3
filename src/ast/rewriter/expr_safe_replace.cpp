@@ -22,18 +22,12 @@ Revision History:
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_pp.h"
 
-#define ALIVE_OPT 0
-
 
 void expr_safe_replace::insert(expr* src, expr* dst) {
     SASSERT(src->get_sort() == dst->get_sort());
     m_src.push_back(src);
     m_dst.push_back(dst);
-#if ALIVE_OPT
-    cache_insert(src, dst);
-#else
     m_subst.insert(src, dst);
-#endif
 }
 
 void expr_safe_replace::operator()(expr_ref_vector& es) {
@@ -47,22 +41,12 @@ void expr_safe_replace::operator()(expr_ref_vector& es) {
 }
 
 void expr_safe_replace::cache_insert(expr* a, expr* b) {
-#if ALIVE_OPT
-    m_refs.reserve(a->get_id() + 1);
-    m_refs[a->get_id()] = b;
-#else
-    m_cache.insert(a, b);
-#endif
+    m_cache.emplace(a, b);
 }
 
 expr* expr_safe_replace::cache_find(expr* a) {
-#if ALIVE_OPT
-    return m_refs.get(a->get_id(), nullptr);
-#else
-    expr* b = nullptr;
-    m_cache.find(a, b);
-    return b;
-#endif
+    auto I = m_cache.find(a);
+    return I != m_cache.end() ? I->second : nullptr;
 }
 
 
@@ -71,6 +55,11 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
         res = e;
         return;
     }
+
+    for (auto &[src,dst] : m_subst) {
+        cache_insert(src, dst);
+    }
+
     m_todo.push_back(e);
     expr* a, *b;
     
@@ -79,12 +68,6 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
         if (cache_find(a)) {
             m_todo.pop_back();
         }
-#if !ALIVE_OPT
-        else if (m_subst.find(a, b)) {
-            cache_insert(a, b);
-            m_todo.pop_back();            
-        }
-#endif
         else if (is_var(a)) {
             cache_insert(a, a);
             m_todo.pop_back();
@@ -108,9 +91,7 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
             if (m_args.size() == n) {
                 if (arg_differs) {
                     b = m.mk_app(c->get_decl(), m_args);
-#if !ALIVE_OPT
                     m_refs.push_back(b);
-#endif
                     SASSERT(a->get_sort() == b->get_sort());
                 } else {
                     b = a;
@@ -144,20 +125,16 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
             }
             replace(q->get_expr(), new_body);
             b = m.update_quantifier(q, pats.size(), pats.c_ptr(), nopats.size(), nopats.c_ptr(), new_body);
-#if !ALIVE_OPT
             m_refs.push_back(b);
-#endif
             cache_insert(a, b);
             m_todo.pop_back();
         }        
     }
     res = cache_find(e);
-    m_cache.reset();
+    m_cache.clear();
     m_todo.reset();
     m_args.reset();
-#if !ALIVE_OPT
     m_refs.reset();    
-#endif
 }
 
 void expr_safe_replace::reset() {
@@ -165,7 +142,7 @@ void expr_safe_replace::reset() {
     m_dst.reset();
     m_subst.reset();
     m_refs.finalize();
-    m_cache.reset();
+    m_cache.clear();
 }
 
 void expr_safe_replace::apply_substitution(expr* s, expr* def, expr_ref& t) {

@@ -22,6 +22,7 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
+#include <unordered_map>
 
 class expr_safe_replace {
     ast_manager& m;
@@ -30,7 +31,7 @@ class expr_safe_replace {
     obj_map<expr, expr*> m_subst;
     ptr_vector<expr> m_todo, m_args;
     expr_ref_vector m_refs;
-    obj_map<expr,expr*> m_cache;
+    std::unordered_map<expr*,expr*> m_cache;
 
     void cache_insert(expr* a, expr* b);
     expr* cache_find(expr* a);
