@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    install|upgrade)
+        # dpkg does not replace directories with symlinks.
+        if dpkg --compare-versions "$2" lt "4.4.0-3" ; then
+          rm -rf /usr/share/doc/libz3-jni
+        fi
+    ;;
+    abort-upgrade)
+    ;;
+    *)
+        echo "preinst called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
+
+#DEBHELPER#
+
+exit 0

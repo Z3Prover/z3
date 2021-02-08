@@ -1,0 +1,6 @@
+Tests: import-z3-test include-z3-test run-z3-test pkg-config-test
+Depends: z3, libz3-dev, python3-z3, build-essential, python3, pkg-config
+Restrictions: superficial
+
+Tests: z3-int-logic-test python3-z3-int-logic-test
+Depends: z3, libz3-dev, python3-z3, build-essential, python3

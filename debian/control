@@ -1,0 +1,97 @@
+Source: z3
+Section: science
+Priority: optional
+Maintainer: LLVM Packaging Team <pkg-llvm-team@lists.alioth.debian.org>
+Uploaders: Fabian Wolff <fabi.wolff@arcor.de>
+Build-Depends: debhelper-compat (= 13),
+               dh-python, python3, cmake,
+               javahelper [!hppa !hurd-i386 !m68k !sh4] <!nojava>,
+               default-jdk [!hppa !hurd-i386 !m68k !sh4] <!nojava>
+Standards-Version: 4.5.1
+Homepage: https://github.com/Z3Prover/z3
+Vcs-Git: https://salsa.debian.org/pkg-llvm-team/z3.git
+Vcs-Browser: https://salsa.debian.org/pkg-llvm-team/z3
+
+Package: z3
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: theorem prover from Microsoft Research
+ Z3 is a state-of-the art theorem prover from Microsoft Research. It can be
+ used to check the satisfiability of logical formulas over one or more
+ theories. Z3 offers a compelling match for software analysis and verification
+ tools, since several common software constructs map directly into supported
+ theories.
+ .
+ The Z3 input format is an extension of the one defined by the SMT-LIB 2.0
+ standard.
+
+Package: libz3-4
+Architecture: any
+Multi-Arch: same
+Section: libs
+Depends: ${shlibs:Depends},
+         ${misc:Depends}
+Breaks: libz3-dev (<< 4.4.1)
+Replaces: libz3-dev (<< 4.4.1)
+Description: theorem prover from Microsoft Research - runtime libraries
+ Z3 is a state-of-the art theorem prover from Microsoft Research. It can be
+ used to check the satisfiability of logical formulas over one or more
+ theories. Z3 offers a compelling match for software analysis and verification
+ tools, since several common software constructs map directly into supported
+ theories.
+ .
+ This package contains runtime libraries. You shouldn't have to install it
+ manually.
+
+Package: libz3-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends: libz3-4 (= ${binary:Version}), ${misc:Depends}
+Description: theorem prover from Microsoft Research - development files
+ Z3 is a state-of-the art theorem prover from Microsoft Research. It can be
+ used to check the satisfiability of logical formulas over one or more
+ theories. Z3 offers a compelling match for software analysis and verification
+ tools, since several common software constructs map directly into supported
+ theories.
+ .
+ This package can be used to invoke Z3 via its C++ API.
+
+Package: python3-z3
+Section: python
+Architecture: any
+Pre-Depends: ${misc:Pre-Depends}
+Depends: libz3-dev (= ${binary:Version}),
+         python3-pkg-resources,
+         ${misc:Depends},
+         ${python3:Depends},
+         ${shlibs:Depends}
+Description: theorem prover from Microsoft Research - Python 3 bindings
+ Z3 is a state-of-the art theorem prover from Microsoft Research. See the z3
+ package for a detailed description.
+ .
+ This package can be used to invoke Z3 via its Python 3 API.
+
+Package: libz3-java
+Build-Profiles: <!nojava>
+Section: java
+Architecture: amd64 arm64 armel armhf i386 mips mips64el mipsel powerpc ppc64el s390x alpha kfreebsd-amd64 kfreebsd-i386 powerpcspe riscv64 sparc64 x32
+Depends: libz3-jni (>= ${binary:Version}), libz3-jni (<< ${source:Version}.1~), libz3-dev, ${misc:Depends}, ${java:Depends}
+Description: theorem prover from Microsoft Research - java bindings
+ Z3 is a state-of-the art theorem prover from Microsoft Research. See the z3
+ package for a detailed description.
+ .
+ This package can be used to invoke Z3 via its Java API.
+
+Package: libz3-jni
+Build-Profiles: <!nojava>
+Section: java
+Architecture: amd64 arm64 armel armhf i386 mips mips64el mipsel powerpc ppc64el s390x alpha kfreebsd-amd64 kfreebsd-i386 powerpcspe riscv64 sparc64 x32
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends: libz3-dev (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
+Description: theorem prover from Microsoft Research - JNI library
+ Z3 is a state-of-the art theorem prover from Microsoft Research. See the z3
+ package for a detailed description.
+ .
+ This package provides the JNI library to invoke Z3 via its Java API.

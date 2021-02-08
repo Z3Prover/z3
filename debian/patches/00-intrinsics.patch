@@ -1,0 +1,71 @@
+Description: INTRINSICS are not universally available
+Author: Michael Tautschnig <mt@debian.org>
+Author: Fabian Wolff <fabi.wolff@arcor.de>
+Forwarded: https://github.com/Z3Prover/z3/pull/4504
+Last-Update: 2020-06-06
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/src/util/hwf.cpp
++++ b/src/util/hwf.cpp
+@@ -48,7 +48,7 @@
+ // clear to the compiler what instructions should be used. E.g., for sqrt(), the Windows compiler selects
+ // the x87 FPU, even when /arch:SSE2 is on.
+ // Luckily, these are kind of standardized, at least for Windows/Linux/macOS.
+-#if defined(__clang__) || defined(_M_ARM) && defined(_M_ARM64)
++#if defined(__clang__) || (defined(__GNUC__) && !defined(__SSE2__)) || defined(_M_ARM) && defined(_M_ARM64)
+ #undef USE_INTRINSICS
+ #endif
+ 
+--- a/src/util/mpz.cpp
++++ b/src/util/mpz.cpp
+@@ -49,17 +49,21 @@
+ 
+ 
+ #if defined(_WINDOWS) && !defined(_M_ARM) && !defined(_M_ARM64)
+-// This is needed for _tzcnt_u32 and friends.
+-#include <immintrin.h>
+-#define _trailing_zeros32(X) _tzcnt_u32(X)
+-#endif
+-
+-#if defined(__GNUC__)
+-#define _trailing_zeros32(X) __builtin_ctz(X)
++ // This is needed for _tzcnt_u32 and friends.
++ #include <immintrin.h>
++ #define _trailing_zeros32(X) _tzcnt_u32(X)
++#elif defined(__GNUC__) || defined(__clang__)
++ #define _trailing_zeros32(X) __builtin_ctz(X)
++#else
++inline uint32_t _trailing_zeros32(uint32_t x) {
++    uint32_t r = 0;
++    for (; 0 == (x & 1) && r < 32; ++r, x >>= 1);
++    return r;
++}
+ #endif
+ 
+ #if (defined(__LP64__) || defined(_WIN64)) && !defined(_M_ARM) && !defined(_M_ARM64)
+- #if defined(__GNUC__)
++ #if defined(__GNUC__) || defined(__clang__)
+  #define _trailing_zeros64(X) __builtin_ctzll(X)
+  #else
+  #define _trailing_zeros64(X) _tzcnt_u64(X)
+@@ -70,20 +74,7 @@
+     for (; 0 == (x & 1) && r < 64; ++r, x >>= 1);
+     return r;
+ }
+-
+-#if defined(_WINDOWS) && !defined(_M_ARM) && !defined(_M_ARM64)
+-// _trailing_zeros32 already defined using intrinsics
+-#elif defined(__GNUC__)
+-// _trailing_zeros32 already defined using intrinsics
+-#else
+-inline uint32_t _trailing_zeros32(uint32_t x) {
+-    uint32_t r = 0;
+-    for (; 0 == (x & 1) && r < 32; ++r, x >>= 1);
+-    return r;
+-}
+ #endif
+-#endif
+-
+ 
+ #define _bit_min(x, y) (y + ((x - y) & ((int)(x - y) >> 31)))
+ #define _bit_max(x, y) (x - ((x - y) & ((int)(x - y) >> 31)))

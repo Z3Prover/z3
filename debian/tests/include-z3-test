@@ -1,0 +1,54 @@
+#!/bin/sh
+
+# This is a relatively superficial test that checks that one can
+# include and compile with the z3.h (C) and z3++.h (C++) header files,
+# and link with -lz3, to produce working executables.
+
+set -e
+
+TMPDIR=$(mktemp -d)
+trap "rm -rf $TMPDIR" EXIT
+cd $TMPDIR
+
+cat <<EOF > test-include-z3-h.c
+#include <z3.h>
+int main ()
+{
+    Z3_config cfg;
+    Z3_context ctx;
+
+    cfg = Z3_mk_config ();
+    ctx = Z3_mk_context (cfg);
+    Z3_del_config (cfg);
+
+    return 0;
+}
+EOF
+
+cat <<EOF > test-include-z3pp-h.cc
+#include <z3++.h>
+
+using namespace z3;
+
+int main ()
+{
+    context c;
+
+    expr x = c.bool_const("x");
+    expr y = c.bool_const("y");
+    expr conj = (!(x && y)) == (!x || !y);
+
+    solver s(c);
+    s.add(!conj);
+
+    return 0;
+}
+EOF
+
+cc -o test-include-z3-h test-include-z3-h.c -lz3
+[ -x test-include-z3-h ]
+./test-include-z3-h
+
+c++ -o test-include-z3pp-h test-include-z3pp-h.cc -lz3
+[ -x test-include-z3pp-h ]
+./test-include-z3pp-h

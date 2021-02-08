@@ -1,0 +1,37 @@
+#!/usr/bin/make -f
+
+# Uncomment this to turn on verbose mode.
+# export DH_VERBOSE=1
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+export DEB_CXXFLAGS_MAINT_APPEND = -fPIC
+
+DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+
+ifneq (,$(shell dh_listpackages -a | grep libz3-jni))
+    WITH_JAVA ?= ON
+    WITH_JAVAHELPER ?= ,javahelper
+else
+    WITH_JAVA ?= OFF
+    WITH_JAVAHELPER ?=
+endif
+
+export CCACHE_BASEDIR = $(shell pwd)
+
+%:
+	dh $@ --with python3$(WITH_JAVAHELPER)
+
+override_dh_auto_configure:
+	dh_auto_configure --buildsystem=cmake+makefile -- \
+		-DCMAKE_INSTALL_PYTHON_PKG_DIR=lib/python3/dist-packages \
+		-DCMAKE_BUILD_TYPE=RelWithDebInfo \
+		-DZ3_BUILD_PYTHON_BINDINGS=ON \
+		-DZ3_BUILD_DOTNET_BINDINGS=OFF \
+		-DZ3_BUILD_JAVA_BINDINGS=$(WITH_JAVA)
+
+override_dh_installchangelogs:
+	dh_installchangelogs RELEASE_NOTES
+	for p in python3-z3 libz3-java libz3-jni ; do \
+		$(RM) -rf debian/$$p/usr/share/doc/$$p/ ; \
+		ln -s libz3-dev debian/$$p/usr/share/doc/$$p || true ; \
+	done

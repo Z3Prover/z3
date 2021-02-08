@@ -1,0 +1,40 @@
+#!/bin/sh
+
+# This is a test that checks that the z3 executable is installed
+# properly, and that one can execute a simple SMT-LIBv2 script
+# involving some integer logic with the expected output.
+
+set -e
+
+TMPDIR=$(mktemp -d)
+trap "rm -rf $TMPDIR" EXIT
+cd $TMPDIR
+
+cat <<EOF > test-sat.smt2
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(assert (> x 0))
+(assert (> y x))
+(assert (> y 0))
+(check-sat)
+EOF
+
+cat <<EOF > test-unsat.smt2
+(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(assert (> x 0))
+(assert (> y x))
+(assert (< y 0))
+(check-sat)
+EOF
+
+echo "sat" > sat.txt
+echo "unsat" > unsat.txt
+
+z3 test-sat.smt2 > out-sat.txt
+diff out-sat.txt sat.txt
+
+z3 test-unsat.smt2 > out-unsat.txt
+diff out-unsat.txt unsat.txt

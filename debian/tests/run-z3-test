@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# This is a superficial test that checks that the z3 executable is
+# installed properly, and that one can execute a simple SMT-LIBv2
+# script with it.
+
+set -e
+
+TMPDIR=$(mktemp -d)
+trap "rm -rf $TMPDIR" EXIT
+cd $TMPDIR
+
+# Check that z3 runs at all
+z3 --version > /dev/null
+
+cat <<EOF > test.smt2
+(echo "Hello, world!")
+(exit)
+EOF
+
+z3 test.smt2 > out.txt
+echo "Hello, world!" > expected.txt
+diff out.txt expected.txt

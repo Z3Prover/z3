@@ -1,0 +1,270 @@
+z3 (4.8.10-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Update Standards-Version to 4.5.1.
+  * Update patches:
+     - Refresh 01-soname.patch.
+     - Drop 02-pkgconfig.patch (fixed upstream).
+
+ -- Fabian Wolff <fabi.wolff@arcor.de>  Fri, 29 Jan 2021 17:44:09 +0100
+
+z3 (4.8.9-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Upgrade to debhelper compat level 13.
+  * Update patches:
+     - Refresh 00-intrinsics.patch.
+     - Drop 01-reproducibility.patch (fixed upstream).
+     - Refresh 02-soname.patch and rename it to 01-soname.patch.
+     - Drop 03-pthread.patch (fixed upstream).
+     - Add 02-pkgconfig.patch to correct the new z3.pc file.
+  * Add the superficial pkg-config-test autopkgtest to check whether
+    the new z3.pc file is installed properly and usable.
+
+ -- Fabian Wolff <fabi.wolff@arcor.de>  Mon, 21 Sep 2020 12:55:45 +0200
+
+z3 (4.8.8-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Add nojava build profile to make building the Java bindings optional
+    (Closes: #948894).
+  * Remove erroneous Multi-Arch: foreign from libz3-java in debian/control
+    (see the discussion in #948894 for details).
+  * Refresh/update patches.
+  * Upgrade to Standards-Version 4.5.0 (no changes).
+  * Forward patches to upstream.
+
+ -- Fabian Wolff <fabi.wolff@arcor.de>  Sat, 06 Jun 2020 16:32:57 +0200
+
+z3 (4.8.7-4) unstable; urgency=medium
+
+  * Remove all :all and :native annotations from the build dependencies in
+    debian/control (Closes: #948763).
+
+ -- Fabian Wolff <fabi.wolff@arcor.de>  Mon, 13 Jan 2020 22:55:52 +0100
+
+z3 (4.8.7-3) unstable; urgency=medium
+
+  * Use the CMake build system instead of upstream's custom Python build
+    scripts.
+  * Drop libz3-ocaml-dev package (this package is currently broken, can't
+    be built with CMake and causes lots of maintenance effort while having
+    no reverse dependencies (or users, for that matter, who would have had
+    to notice that the package doesn't actually work).
+  * Update patches:
+    - Drop 00-avoid-ocamlopt.patch (no longer needed since we removed
+      OCaml support).
+    - Drop 02-hardening.patch (no longer needed because it applies to the
+      old build system).
+    - Drop 03-kfreebsd.patch (also applies to the old build system).
+    - Renumber remaining patches:
+      + 01-intrinsics.patch -> 00-intrinsics.patch
+      + 05-reproducibility.patch -> 01-reproducibility.patch
+      + 04-soname.patch -> 02-soname.patch
+        (updated for the CMake build system)
+    - Add new 03-pthread.patch (thanks to Aurelien Jarno for this!)
+      (Closes: #948109).
+  * Build Java bindings on riscv64.
+  * Upgrade watch file to version 4 format (no changes).
+  * Drop Michael Tautschnig <mt@debian.org> from Uploaders (he hasn't done
+    an upload for this package in over four years and never responded to
+    any of my emails to him).
+
+ -- Fabian Wolff <fabi.wolff@arcor.de>  Fri, 10 Jan 2020 16:35:48 +0100
+
+z3 (4.8.7-2) unstable; urgency=medium
+
+  * Adjust 01-intrinsics.patch to try to fix build failures on many
+    32-bit architectures (patch tested on i386) (Closes: #946448).
+
+ -- Fabian Wolff <fabi.wolff@arcor.de>  Mon, 09 Dec 2019 13:39:38 +0100
+
+z3 (4.8.7-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Refresh patches.
+  * Replace libnum-ocaml-dev build dependency with libzarith-ocaml-dev
+    and add ocaml-findlib.
+  * Use ocamlopt when available (instead of disabling it for all
+    architectures).
+
+ -- Fabian Wolff <fabi.wolff@arcor.de>  Sun, 08 Dec 2019 21:59:24 +0100
+
+z3 (4.8.6-2) unstable; urgency=medium
+
+  * Source-only reupload after the package has been in the NEW queue
+    (due to python3-z3).
+  * Update debian/copyright (Closes: #942154).
+  * Upgrade to Standards-Version 4.4.1 (no changes).
+
+ -- Fabian Wolff <fabi.wolff@arcor.de>  Tue, 15 Oct 2019 00:29:22 +0200
+
+z3 (4.8.6-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Make watch file more robust (match (z3|Z3) instead of just z3).
+  * Add myself to Uploaders in debian/control.
+  * Drop the libz3-cil package (not all build dependencies are available
+    in Debian; also see the discussion in #886590).
+  * Update/refresh patches.
+  * Drop python-z3 package and replace it with python3-z3
+    (Closes: #886590, #938876).
+  * Enable autopkgtest package testing and add several superficial and
+    non-superficial test cases.
+  * Add -fPIC to DEB_CXXFLAGS_MAINT_APPEND in an attempt to fix #940266.
+  * Try to make the build more reproducible.
+
+ -- Fabian Wolff <fabi.wolff@arcor.de>  Sun, 29 Sep 2019 18:21:54 +0200
+
+z3 (4.8.4-1) unstable; urgency=medium
+
+  [ Gianfranco Costamagna ]
+  * Team upload.
+  * Honour nocheck option to not run testsuite
+
+  [ Fabian Wolff ]
+  * New upstream release (Closes: #909494).
+  * Add debian/gbp.conf.
+  * Update and reorganize patches.
+  * Upgrade to debhelper compat level 12.
+  * Upgrade to Standards-Version 4.4.0 (no changes).
+  * Remove trailing whitespace from debian/control.
+  * Build-Depend on libnum-ocaml-dev (Closes: #934048).
+
+ -- Fabian Wolff <fabi.wolff@arcor.de>  Tue, 27 Aug 2019 14:30:11 +0200
+
+z3 (4.4.1-1) unstable; urgency=medium
+
+  [ Gianfranco Costamagna ]
+  * Team Upload
+  * Upload to unstable
+
+  [ Andreas Beckmann ]
+  * Do not set the SONAME of libz3java.so to libz3.so.4.  (Closes: #842892)
+
+ -- Gianfranco Costamagna <locutusofborg@debian.org>  Sat, 17 Aug 2019 11:05:53 +0200
+
+z3 (4.4.1-0.5~exp1) experimental; urgency=medium
+
+  * Package moved to salsa (Closes: #926939)
+  * Standards-Version updated to 4.2.1
+  * Fix priority-extra-is-replaced-by-priority-optional warning
+  * Moved under the llvm umbrella
+
+ -- Sylvestre Ledru <sylvestre@debian.org>  Tue, 16 Apr 2019 14:30:31 +0200
+
+z3 (4.4.1-0.4) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Remove the incorrect Multi-Arch: same of python-z3,
+    thanks to Helmut Grohne. (Closes: #874237)
+
+ -- Adrian Bunk <bunk@debian.org>  Sun, 09 Sep 2018 22:28:32 +0300
+
+z3 (4.4.1-0.3) unstable; urgency=medium
+
+  * Non-maintainer upload.
+
+  [ Fabian Wolff ]
+  * debian/patches/f02d273ee39ae047222e362c37213d29135dc661.patch:
+    Fix build failure with new gnu++14 standard. (Closes: #835754)
+  * debian/patches/27399309009314f56cdfbd8333f287b1a9b7a3a6.patch:
+    Fix build failure with new compiler and clang. (Closes: #835743)
+
+  [ Gianfranco Costamagna ]
+  * debian/patches/fix-build.patch: tweak the casts a little bit
+    more to really fix 835743.
+
+ -- Gianfranco Costamagna <locutusofborg@debian.org>  Sun, 25 Sep 2016 23:06:24 +0200
+
+z3 (4.4.1-0.2) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Add patch kfreebsd.patch to attempt to fix a FTBFS on kfreebsd-*.
+  * Adjust avoid-ocamlopt.patch to remove all calls to ocamlopt.
+  * Build libz3-cil only where Mono is available.
+  * Build libz3-jni and libz3-java only where Java is available.
+  * Remove enable-dotnet.patch and recreate its effect with sed in
+    debian/rules depending on whether Mono is available or not.
+  * Disable some tests that might fail on some platforms.
+    Forwarded: https://github.com/Z3Prover/z3/issues/687
+  * Enable hardening flags for libz3-ocaml-dev.
+
+ -- Fabian Wolff <fabi.wolff@arcor.de>  Tue, 19 Jul 2016 23:02:19 +0200
+
+z3 (4.4.1-0.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * New upstream release.
+  * Remove patches that were fixed upstream:
+     - signed_char01
+     - signed_char02
+     - signed_char03
+     - signed_char04
+     - disable_test
+     - disable_test2
+     - disable_test3
+     - disable_test4 (upstream issue has been closed:
+        https://github.com/Z3Prover/z3/issues/210)
+     - fix_conflict
+  * Migrate remaining patches to DEP-3 format.
+  * Rewrite typos.patch to apply to new version of z3.
+  * Add patch fix-dotnet-version.patch to fix a FTBFS with Mono caused
+    by an apparently unsupported version of the .NET framework
+    (Closes: #808695).
+  * Add patch disable-tests.patch to disable three potentially failing
+    tests in src/test/main.cpp.
+  * Install shared libraries into new libz3-4 package (Closes: #819884).
+  * Remove ${shlibs:Depends} and ${misc:Pre-Depends} substitution
+    variables from libz3-dev entry in debian/control.
+  * Install python files directly into /usr/lib/python2.7/dist-packages/
+    (Closes: #802272).
+  * Clean up debian/rules.
+  * Remove unnecessary version restriction of build dependency
+    cli-common-dev.
+  * Fix debian/copyright: Change MIT to Expat and delete file block that
+    no longer applies (copyright of hamiltonian.py changed).
+  * Move libz3-ocaml-dev into section ocaml.
+  * Add preinst scripts to remove directories from older versions to allow
+    debhelper to install symlinks (Closes: #823573).
+  * Enable hardening flags in debian/rules.
+
+ -- Fabian Wolff <fabi.wolff@arcor.de>  Wed, 13 Jul 2016 17:33:19 +0200
+
+z3 (4.4.0-5) unstable; urgency=low
+
+  * Add fixes for tests previously failing on ARM, PowerPC
+
+ -- Michael Tautschnig <mt@debian.org>  Sun, 04 Oct 2015 10:57:27 +0100
+
+z3 (4.4.0-4) unstable; urgency=low
+
+  * Add libz3-jni package to split out arch-specific files from java package.
+    (Closes: #797515)
+  * Don't claim multi-arch compatibilty of libz3-cil. (Closes: #797514)
+  * ocamlopt isn't universally available, and never actually used in the build
+    process.
+
+ -- Michael Tautschnig <mt@debian.org>  Fri, 04 Sep 2015 13:55:20 +0100
+
+z3 (4.4.0-3) unstable; urgency=low
+
+  * De-duplicate files in python-z3, depend on libz3-dev instead
+  * Added bindings for java, OCaml, and .NET
+  * Use multi-arch library locations
+
+ -- Michael Tautschnig <mt@debian.org>  Thu, 27 Aug 2015 15:18:46 +0100
+
+z3 (4.4.0-2) unstable; urgency=low
+
+  * Added __init__.py. Thanks Andrea Villa for the hints. (Closes: #791604)
+  * Use emmintrin.h conditionally only (Closes: #789881)
+
+ -- Michael Tautschnig <mt@debian.org>  Tue, 07 Jul 2015 08:08:48 +0100
+
+z3 (4.4.0-1) unstable; urgency=low
+
+  * Initial release (Closes: #786807)
+  * Includes patches from unstable branch up to 6a50f10b8b
+
+ -- Michael Tautschnig <mt@debian.org>  Wed, 17 Jun 2015 21:40:44 +0100

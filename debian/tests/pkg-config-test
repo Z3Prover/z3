@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# This test is very similar to include-z3-test, only that we're
+# testing whether z3.pc is set up correctly for use with pkg-config.
+
+set -e
+
+TMPDIR=$(mktemp -d)
+trap "rm -rf $TMPDIR" EXIT
+cd $TMPDIR
+
+cat <<EOF > test-include-z3-h.c
+#include <z3.h>
+int main ()
+{
+    Z3_config cfg;
+    Z3_context ctx;
+
+    cfg = Z3_mk_config ();
+    ctx = Z3_mk_context (cfg);
+    Z3_del_config (cfg);
+
+    return 0;
+}
+EOF
+
+ARGS=$(pkg-config --cflags --libs z3)
+cc -o test-include-z3-h test-include-z3-h.c $ARGS
+[ -x test-include-z3-h ]
+./test-include-z3-h

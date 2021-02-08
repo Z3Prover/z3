@@ -1,0 +1,3 @@
+usr/include/*
+usr/lib/*/libz3.so
+usr/lib/*/pkgconfig/z3.pc

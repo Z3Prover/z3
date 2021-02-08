@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+
+# This is a superficial test that checks that the Python 3 module can
+# actually be imported.
+
+import z3

@@ -1,0 +1,114 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" other parameters are allowed: see man(7), man(1)
+.TH Z3 1 "May 25, 2015"
+.\" Please adjust this date whenever revising the manpage.
+.\"
+.\" Some roff macros, for reference:
+.\" .nh        disable hyphenation
+.\" .hy        enable hyphenation
+.\" .ad l      left justify
+.\" .ad b      justify to both left and right margins
+.\" .nf        disable filling
+.\" .fi        enable filling
+.\" .br        insert line break
+.\" .sp <n>    insert n+1 empty lines
+.\" for manpage-specific macros, see man(7)
+.SH NAME
+z3 \- a state-of-the art theorem prover from Microsoft Research
+.SH SYNOPSIS
+.B z3
+.RI [ options ]
+.RI [\-file:]file
+.SH DESCRIPTION
+This manual page documents briefly the
+.B z3
+command.
+.PP
+.\" TeX users may be more comfortable with the \fB<whatever>\fP and
+.\" \fI<whatever>\fP escape sequences to invode bold face and italics,
+.\" respectively.
+\fBz3\fP Z3 is a state-of-the art theorem prover from Microsoft Research. It can
+be used to check the satisfiability of logical formulas over one or more
+theories. Z3 offers a compelling match for software analysis and verification
+tools, since several common software constructs map directly into supported
+theories.
+.SH Input format
+.TP
+.B \-smt
+Use parser for SMT input format.
+.TP
+.B \-smt2
+Use parser for SMT 2 input format.
+.TP
+.B \-dl
+Use parser for Datalog input format.
+.TP
+.B \-dimacs
+Use parser for DIMACS input format.
+.TP
+.B \-log
+Use parser for Z3 log input format.
+.TP
+.B \-in
+Read formula from standard input.
+.SH Miscellaneous
+.TP
+.B \-h | -?
+Prints the usage information.
+.TP
+.B \-version
+Prints version number of Z3.
+.TP
+.B \-v:level
+Be verbose, where <level> is the verbosity level.
+.TP
+.B \-nw
+Disable warning messages.
+.TP
+.B \-p
+Display Z3 global (and module) parameters.
+.TP
+.B \-pd
+Display Z3 global (and module) parameter descriptions.
+.TP
+.B \-pm:name
+Display Z3 module <name> parameters.
+.TP
+.B \-pp:name
+Display Z3 parameter description, if <name> is not provided, then all module
+names are listed.
+.TP
+.B \-\-
+All remaining arguments are assumed to be part of the input file name. This
+option allows Z3 to read files with strange names such as: \-foo.smt2.
+.SH Resources
+.TP
+.B \-T:timeout
+Set the timeout (in seconds).
+.TP
+.B \-t:timeout
+Set the soft timeout (in milli seconds). It only kills the current query.
+.TP
+.B \-memory:Megabytes
+Set a limit for virtual memory consumption.
+.SH Output
+.TP
+.B \-st
+Display statistics.
+.SH Parameter setting
+Global and module parameters can be set in the command line.
+Use 'z3 \-p' for the complete list of global and module parameters.
+.TP
+.B param_name=value
+For setting global parameters.
+.TP
+.B module_name.param_name=value
+For setting module parameters.
+.SH AUTHOR
+Z3 Copyright 2006-2014 Microsoft Corp.
+.PP
+This manual page was written by Michael Tautschnig <mt@debian.org>,
+for the Debian project (and may be used by others).
+
