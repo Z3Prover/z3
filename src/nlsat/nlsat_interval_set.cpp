@@ -92,6 +92,7 @@ namespace nlsat {
         CTRACE("nlsat", s > 0, display(tout, am, curr); tout << "  "; display(tout, am, next); tout << "\n";);
         SASSERT(s <= 0);
         SASSERT(!is_zero(s) || curr.m_upper_open || next.m_lower_open);        
+        (void)s;
         return true;
     }
     
