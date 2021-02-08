@@ -22,18 +22,11 @@ Revision History:
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_pp.h"
 
-#define ALIVE_OPT 0
-
 
 void expr_safe_replace::insert(expr* src, expr* dst) {
     SASSERT(src->get_sort() == dst->get_sort());
     m_src.push_back(src);
     m_dst.push_back(dst);
-#if ALIVE_OPT
-    cache_insert(src, dst);
-#else
-    m_subst.insert(src, dst);
-#endif
 }
 
 void expr_safe_replace::operator()(expr_ref_vector& es) {
@@ -46,76 +39,57 @@ void expr_safe_replace::operator()(expr_ref_vector& es) {
     }
 }
 
-void expr_safe_replace::cache_insert(expr* a, expr* b) {
-#if ALIVE_OPT
-    m_refs.reserve(a->get_id() + 1);
-    m_refs[a->get_id()] = b;
-#else
-    m_cache.insert(a, b);
-#endif
-}
-
-expr* expr_safe_replace::cache_find(expr* a) {
-#if ALIVE_OPT
-    return m_refs.get(a->get_id(), nullptr);
-#else
-    expr* b = nullptr;
-    m_cache.find(a, b);
-    return b;
-#endif
-}
-
-
 void expr_safe_replace::operator()(expr* e, expr_ref& res) {
     if (empty()) {
         res = e;
         return;
     }
+
+    for (unsigned i = 0, e = m_src.size(); i < e; ++i) {
+        m_cache.emplace(m_src.get(i), m_dst.get(i));
+    }
+
     m_todo.push_back(e);
     expr* a, *b;
     
     while (!m_todo.empty()) {
         a = m_todo.back();
-        if (cache_find(a)) {
+        auto &cached = m_cache[a];
+        if (cached) {
             m_todo.pop_back();
         }
-#if !ALIVE_OPT
-        else if (m_subst.find(a, b)) {
-            cache_insert(a, b);
-            m_todo.pop_back();            
-        }
-#endif
         else if (is_var(a)) {
-            cache_insert(a, a);
+            cached = a;
             m_todo.pop_back();
         }
         else if (is_app(a)) {
             app* c = to_app(a);
             unsigned n = c->get_num_args();
             m_args.reset();
-            bool arg_differs = false;
+            bool arg_differs = false, has_all_args = true;
             for (expr* arg : *c) {
-                expr* d = cache_find(arg);
+                expr* d = m_cache[arg];
                 if (d) {
-                    m_args.push_back(d);
-                    arg_differs |= arg != d;
-                    SASSERT(arg->get_sort() == d->get_sort());
+                    if (has_all_args) {
+                        m_args.push_back(d);
+                        arg_differs |= arg != d;
+                        SASSERT(arg->get_sort() == d->get_sort());
+                    }
                 }
                 else {
                     m_todo.push_back(arg);
+                    has_all_args = false;
                 }
             }
-            if (m_args.size() == n) {
+            if (has_all_args) {
                 if (arg_differs) {
                     b = m.mk_app(c->get_decl(), m_args);
-#if !ALIVE_OPT
                     m_refs.push_back(b);
-#endif
                     SASSERT(a->get_sort() == b->get_sort());
                 } else {
                     b = a;
                 }
-                cache_insert(a, b);
+                cached = b;
                 m_todo.pop_back();
             }
         }
@@ -144,28 +118,23 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
             }
             replace(q->get_expr(), new_body);
             b = m.update_quantifier(q, pats.size(), pats.c_ptr(), nopats.size(), nopats.c_ptr(), new_body);
-#if !ALIVE_OPT
             m_refs.push_back(b);
-#endif
-            cache_insert(a, b);
+            cached = b;
             m_todo.pop_back();
         }        
     }
-    res = cache_find(e);
-    m_cache.reset();
+    res = m_cache.at(e);
+    m_cache.clear();
     m_todo.reset();
     m_args.reset();
-#if !ALIVE_OPT
     m_refs.reset();    
-#endif
 }
 
 void expr_safe_replace::reset() {
     m_src.reset();
     m_dst.reset();
-    m_subst.reset();
     m_refs.finalize();
-    m_cache.reset();
+    m_cache.clear();
 }
 
 void expr_safe_replace::apply_substitution(expr* s, expr* def, expr_ref& t) {
