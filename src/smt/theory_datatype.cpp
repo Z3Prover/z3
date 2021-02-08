@@ -794,7 +794,7 @@ namespace smt {
                 ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), r, 0, nullptr, 1, &p)));
             }
             if (d1->m_constructor == nullptr) {
-                m_trail_stack.push(set_ptr_trail<theory_datatype, enode>(d1->m_constructor)); 
+                m_trail_stack.push(set_ptr_trail<enode>(d1->m_constructor)); 
                 // check whether there is a recognizer in d1 that conflicts with d2->m_constructor;
                 if (!d1->m_recognizers.empty()) {
                     unsigned c_idx = m_util.get_constructor_idx(d2->m_constructor->get_decl());
@@ -847,7 +847,7 @@ namespace smt {
             }
             SASSERT(val == l_undef || (val == l_false && d->m_constructor == 0));
             d->m_recognizers[c_idx] = recognizer;
-            m_trail_stack.push(set_vector_idx_trail<theory_datatype, enode>(d->m_recognizers, c_idx));
+            m_trail_stack.push(set_vector_idx_trail<enode>(d->m_recognizers, c_idx));
             if (val == l_false) {
                 propagate_recognizer(v, recognizer);
             }

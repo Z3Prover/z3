@@ -107,7 +107,7 @@ namespace smt {
                     }
 
                     regex_terms_with_length_constraints.insert(str_in_re);
-                    m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_length_constraints, str_in_re));
+                    m_trail_stack.push(insert_obj_trail<expr>(regex_terms_with_length_constraints, str_in_re));
                     regex_axiom_add = true;
                 }
             } // re not in regex_terms_with_length_constraints
@@ -179,7 +179,7 @@ namespace smt {
                             expr_ref rhs(ctx.mk_eq_atom(str, mk_string("")), m);
                             assert_implication(lhs, rhs);
                             regex_terms_with_path_constraints.insert(str_in_re);
-                            m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_path_constraints, str_in_re));
+                            m_trail_stack.push(insert_obj_trail<expr>(regex_terms_with_path_constraints, str_in_re));
                         } else {
                             TRACE("str", tout << "zero-length solution not admitted by this automaton -- asserting conflict clause" << std::endl;);
                             expr_ref_vector lhs_terms(m);

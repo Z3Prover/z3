@@ -28,14 +28,14 @@ namespace array {
         if (m_axioms.contains(idx))
             m_axiom_trail.pop_back();
         else
-            ctx.push(push_back_vector<euf::solver, svector<axiom_record>>(m_axiom_trail));
+            ctx.push(push_back_vector<svector<axiom_record>>(m_axiom_trail));
     }
 
     bool solver::propagate_axiom(unsigned idx) {
         if (m_axioms.contains(idx))
             return false;
         m_axioms.insert(idx);
-        ctx.push(insert_map<euf::solver, axiom_table_t, unsigned>(m_axioms, idx));
+        ctx.push(insert_map<axiom_table_t, unsigned>(m_axioms, idx));
         return assert_axiom(idx);
     }
 
@@ -75,11 +75,11 @@ namespace array {
             return false;                
     }
 
-    struct solver::set_delay_bit : trail<euf::solver> {
+    struct solver::set_delay_bit : trail {
         solver& s;
         unsigned m_idx;
         set_delay_bit(solver& s, unsigned idx) : s(s), m_idx(idx) {}
-        void undo(euf::solver& euf) override {
+        void undo(/*euf::solver& euf*/) override {
             s.m_axiom_trail[m_idx].m_delayed = false;
         }
     };
@@ -458,11 +458,11 @@ namespace array {
         func_decl* diag = nullptr;
         if (!m_sort2epsilon.find(s, eps)) {
             eps = m.mk_fresh_const("epsilon", s);
-            ctx.push(ast2ast_trail<euf::solver, sort, app>(m_sort2epsilon, s, eps));
+            ctx.push(ast2ast_trail<sort, app>(m_sort2epsilon, s, eps));
         }
         if (!m_sort2diag.find(s, diag)) {
             diag = m.mk_fresh_func_decl("diag", 1, &s, s);
-            ctx.push(ast2ast_trail<euf::solver, sort, func_decl>(m_sort2diag, s, diag));
+            ctx.push(ast2ast_trail<sort, func_decl>(m_sort2diag, s, diag));
         }
         return std::make_pair(eps, diag);
     }

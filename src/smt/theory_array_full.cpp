@@ -54,7 +54,7 @@ namespace smt {
         //       instead apply stratified filter.
         set_prop_upward(v,d);
         d_full->m_maps.push_back(s);
-        m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d_full->m_maps));
+        m_trail_stack.push(push_back_trail<enode *, false>(d_full->m_maps));
         for (unsigned i = 0; i < d->m_parent_selects.size(); ++i) {
             enode* n = d->m_parent_selects[i];
             SASSERT(is_select(n));
@@ -88,7 +88,7 @@ namespace smt {
         var_data * d     = m_var_data[v];
         var_data_full * d_full     = m_var_data_full[v];
         d_full->m_parent_maps.push_back(s);
-        m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d_full->m_parent_maps));
+        m_trail_stack.push(push_back_trail<enode *, false>(d_full->m_parent_maps));
         if (!m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
             for (unsigned i = 0; i < d->m_parent_selects.size(); ++i) {
                 enode * n = d->m_parent_selects[i];
@@ -110,7 +110,7 @@ namespace smt {
                 add_weak_var(v);
                 return;
             }
-            m_trail_stack.push(reset_flag_trail<theory_array>(d->m_prop_upward));
+            m_trail_stack.push(reset_flag_trail(d->m_prop_upward));
             d->m_prop_upward = true;
             TRACE("array", tout << "#" << v << "\n";);
             if (!m_params.m_array_delay_exp_axiom) {
@@ -171,7 +171,7 @@ namespace smt {
             set_prop_upward(v, d);
         }
         ptr_vector<enode> & consts = m_var_data_full[v]->m_consts;
-        m_trail_stack.push(push_back_trail<theory_array, enode *, false>(consts));
+        m_trail_stack.push(push_back_trail<enode *, false>(consts));
         consts.push_back(cnst);
         instantiate_default_const_axiom(cnst);
         for (unsigned i = 0; i < d->m_parent_selects.size(); ++i) {
@@ -188,7 +188,7 @@ namespace smt {
             set_prop_upward(v, d);
         }
         ptr_vector<enode> & as_arrays = m_var_data_full[v]->m_as_arrays;
-        m_trail_stack.push(push_back_trail<theory_array, enode *, false>(as_arrays));
+        m_trail_stack.push(push_back_trail<enode *, false>(as_arrays));
         as_arrays.push_back(arr);
         instantiate_default_as_array_axiom(arr);        
         for (unsigned i = 0; i < d->m_parent_selects.size(); ++i) {
@@ -744,11 +744,11 @@ namespace smt {
         func_decl* diag = nullptr;
         if (!m_sort2epsilon.find(s, eps)) {
             eps = m.mk_fresh_const("epsilon", s);
-            m_trail_stack.push(ast2ast_trail<theory_array, sort, app>(m_sort2epsilon, s, eps));   
+            m_trail_stack.push(ast2ast_trail<sort, app>(m_sort2epsilon, s, eps));   
         }
         if (!m_sort2diag.find(s, diag)) {
             diag = m.mk_fresh_func_decl("diag", 1, &s, s);
-            m_trail_stack.push(ast2ast_trail<theory_array, sort, func_decl>(m_sort2diag, s, diag));   
+            m_trail_stack.push(ast2ast_trail<sort, func_decl>(m_sort2diag, s, diag));   
         }
         return std::make_pair(eps, diag);
     }

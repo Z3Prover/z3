@@ -74,7 +74,7 @@ namespace euf {
     
     class egraph {        
 
-        typedef ptr_vector<trail<egraph> > trail_stack;
+        typedef ptr_vector<trail> trail_stack;
 
         struct to_merge {
             enode* a, * b;

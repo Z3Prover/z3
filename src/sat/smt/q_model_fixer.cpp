@@ -98,8 +98,8 @@ namespace q {
         if (!m_q2info.find(q, info)) {
             info = alloc(quantifier_macro_info, m, m_qs.flatten(q));
             m_q2info.insert(q, info);
-            ctx.push(new_obj_trail<euf::solver, quantifier_macro_info>(info));
-            ctx.push(insert_obj_map<euf::solver, quantifier, quantifier_macro_info*>(m_q2info, q));
+            ctx.push(new_obj_trail<quantifier_macro_info>(info));
+            ctx.push(insert_obj_map<quantifier, quantifier_macro_info*>(m_q2info, q));
         }
         return info;
     }
@@ -200,8 +200,8 @@ namespace q {
         if (!proj)
             return nullptr;
         m_projections.insert(srt, proj);
-        ctx.push(new_obj_trail<euf::solver, projection_function>(proj));
-        ctx.push(insert_obj_map<euf::solver, sort, projection_function*>(m_projections, srt));
+        ctx.push(new_obj_trail<projection_function>(proj));
+        ctx.push(insert_obj_map<sort, projection_function*>(m_projections, srt));
         return proj;
     }
 

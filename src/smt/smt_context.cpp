@@ -66,19 +66,8 @@ namespace smt {
         m_e_internalized_stack(m),
         m_l_internalized_stack(m),
         m_final_check_idx(0),
-        m_is_auxiliary(false),
-        m_par(nullptr),
-        m_par_index(0),
         m_cg_table(m),
-        m_is_diseq_tmp(nullptr),
         m_units_to_reassert(m),
-        m_qhead(0),
-        m_simp_qhead(0),
-        m_simp_counter(0),
-        m_bvar_inc(1.0),
-        m_phase_cache_on(true),
-        m_phase_counter(0),
-        m_phase_default(false),
         m_conflict(null_b_justification),
         m_not_l(null_literal),
         m_conflict_resolution(mk_conflict_resolution(m, *this, m_dyn_ack_manager, p, m_assigned_literals, m_watches)),
@@ -86,16 +75,9 @@ namespace smt {
         m_dyn_ack_manager(*this, p),
         m_unknown("unknown"),
         m_unsat_core(m),
-#ifdef Z3DEBUG
-        m_trail_enabled(true),
-#endif
-        m_scope_lvl(0),
-        m_base_lvl(0),
-        m_search_lvl(0),
-        m_generation(0),
-        m_last_search_result(l_undef),
-        m_last_search_failure(UNKNOWN),
-        m_searching(false) {
+        m_mk_bool_var_trail(*this),
+        m_mk_enode_trail(*this),
+        m_mk_lambda_trail(*this) {
 
         SASSERT(m_scope_lvl == 0);
         SASSERT(m_base_lvl == 0);
@@ -447,18 +429,20 @@ namespace smt {
         m_th_diseq_propagation_queue.push_back(new_th_eq(th, lhs, rhs));
     }
 
-    class add_eq_trail : public trail<context> {
+    class add_eq_trail : public trail {
+        context& ctx;
         enode * m_r1;
         enode * m_n1;
         unsigned m_r2_num_parents;
     public:
-        add_eq_trail(enode * r1, enode * n1, unsigned r2_num_parents):
+        add_eq_trail(context& ctx, enode * r1, enode * n1, unsigned r2_num_parents):
+            ctx(ctx),
             m_r1(r1),
             m_n1(n1),
             m_r2_num_parents(r2_num_parents) {
         }
 
-        void undo(context & ctx) override {
+        void undo() override {
             ctx.undo_add_eq(m_r1, m_n1, m_r2_num_parents);
         }
     };
@@ -526,7 +510,7 @@ namespace smt {
                 mark_as_relevant(r1);
             }
 
-            push_trail(add_eq_trail(r1, n1, r2->get_num_parents()));
+            push_trail(add_eq_trail(*this, r1, n1, r2->get_num_parents()));
 
             m_qmanager->add_eq_eh(r1, r2);
 
@@ -1064,7 +1048,7 @@ namespace smt {
               );
 
         DEBUG_CODE(
-            push_trail(push_back_trail<context, enode_pair, false>(m_diseq_vector));
+            push_trail(push_back_trail<enode_pair, false>(m_diseq_vector));
             m_diseq_vector.push_back(enode_pair(n1, n2)););
 
         if (r1 == r2) {
@@ -1379,11 +1363,12 @@ namespace smt {
         return true;
     }
 
-    class set_var_theory_trail : public trail<context> {
+    class set_var_theory_trail : public trail {
+        context& ctx;
         bool_var m_var;
     public:
-        set_var_theory_trail(bool_var v):m_var(v) {}
-        void undo(context & ctx) override {
+        set_var_theory_trail(context& ctx, bool_var v): ctx(ctx), m_var(v) {}
+        void undo() override {
             bool_var_data & d = ctx.m_bdata[m_var];
             d.reset_notify_theory();
         }
@@ -1394,7 +1379,7 @@ namespace smt {
         SASSERT(tid > 0 && tid <= 255);
         SASSERT(get_intern_level(v) <= m_scope_lvl);
         if (m_scope_lvl > get_intern_level(v))
-            push_trail(set_var_theory_trail(v));
+            push_trail(set_var_theory_trail(*this, v));
         bool_var_data & d = m_bdata[v];
         d.set_notify_theory(tid);
     }
@@ -1642,7 +1627,7 @@ namespace smt {
             SASSERT(th);
             th->new_eq_eh(curr.m_lhs, curr.m_rhs);
             DEBUG_CODE(
-                push_trail(push_back_trail<context, new_th_eq, false>(m_propagated_th_eqs));
+                push_trail(push_back_trail<new_th_eq, false>(m_propagated_th_eqs));
                 m_propagated_th_eqs.push_back(curr););
         }
         m_th_eq_propagation_queue.reset();
@@ -1655,7 +1640,7 @@ namespace smt {
             SASSERT(th);
             th->new_diseq_eh(curr.m_lhs, curr.m_rhs);
             DEBUG_CODE(
-                push_trail(push_back_trail<context, new_th_eq, false>(m_propagated_th_diseqs));
+                push_trail(push_back_trail<new_th_eq, false>(m_propagated_th_diseqs));
                 m_propagated_th_diseqs.push_back(curr););
         }
         m_th_diseq_propagation_queue.reset();
@@ -2997,13 +2982,15 @@ namespace smt {
         assert_expr_core(e, pr);
     }
 
-    class case_split_insert_trail : public trail<context> {
+    class case_split_insert_trail : public trail {
+        context& ctx;
         literal l;
     public:
-        case_split_insert_trail(literal l):
+        case_split_insert_trail(context& ctx, literal l):
+            ctx(ctx),
             l(l) {
         }
-        void undo(context & ctx) override {
+        void undo() override {
             ctx.undo_th_case_split(l);
         }
     };
@@ -3029,11 +3016,11 @@ namespace smt {
                 literal l = lits[i];
                 SASSERT(!m_all_th_case_split_literals.contains(l.index()));
                 m_all_th_case_split_literals.insert(l.index());
-                push_trail(case_split_insert_trail(l));
+                push_trail(case_split_insert_trail(*this, l));
                 new_case_split.push_back(l);
             }
             m_th_case_split_sets.push_back(new_case_split);
-            push_trail(push_back_vector<context, vector<literal_vector> >(m_th_case_split_sets));
+            push_trail(push_back_vector<vector<literal_vector> >(m_th_case_split_sets));
             for (unsigned i = 0; i < num_lits; ++i) {
                 literal l = lits[i];
                 if (!m_literal2casesplitsets.contains(l.index())) {
@@ -4348,17 +4335,18 @@ namespace smt {
     /**
        \brief Undo object for bool var m_true_first field update.
     */
-    class set_true_first_trail : public trail<context> {
+    class set_true_first_trail : public trail {
+        context& ctx;
         bool_var m_var;
     public:
-        set_true_first_trail(bool_var v):m_var(v) {}
-        void undo(context & ctx) override {
+        set_true_first_trail(context& ctx, bool_var v): ctx(ctx), m_var(v) {}
+        void undo() override {
             ctx.m_bdata[m_var].reset_true_first_flag();
         }
     };
 
     void context::set_true_first_flag(bool_var v) {
-        push_trail(set_true_first_trail(v));
+        push_trail(set_true_first_trail(*this, v));
         bool_var_data & d = m_bdata[v];
         d.set_true_first_flag();
     }

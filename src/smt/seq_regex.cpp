@@ -379,7 +379,7 @@ namespace smt {
             if (entry.m_re == regex) 
                 continue;
 
-            th.m_trail_stack.push(vector_value_trail<theory_seq, s_in_re, true>(m_s_in_re, i));
+            th.m_trail_stack.push(vector_value_trail<s_in_re, true>(m_s_in_re, i));
             m_s_in_re[i].m_active = false;
             IF_VERBOSE(11, verbose_stream() << "Intersect " << regex << " " << 
                        mk_pp(entry.m_re, m) << " " << mk_pp(s, m) << " " << mk_pp(entry.m_s, m) << std::endl;);
@@ -390,7 +390,7 @@ namespace smt {
                 lits.push_back(~th.mk_eq(n1->get_owner(), n2->get_owner(), false));
         }
         m_s_in_re.push_back(s_in_re(lit, s, regex));
-        th.get_trail_stack().push(push_back_vector<theory_seq, vector<s_in_re>>(m_s_in_re));
+        th.get_trail_stack().push(push_back_vector<vector<s_in_re>>(m_s_in_re));
         if (lits.empty())
             return false;
         lits.push_back(~lit);

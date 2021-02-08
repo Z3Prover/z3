@@ -190,7 +190,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_utvpi<Ext>::inc_conflicts() {
-        ctx.push_trail(value_trail<context, bool>(m_consistent));
+        ctx.push_trail(value_trail<bool>(m_consistent));
         m_consistent = false;
         m_stats.m_num_conflicts++;   
         if (m_params.m_arith_adaptive) {
@@ -238,7 +238,7 @@ namespace smt {
         auto str = msg.str();
         TRACE("utvpi", tout << str;);
         warning_msg("%s", str.c_str());
-        ctx.push_trail(value_trail<context, bool>(m_non_utvpi_exprs));
+        ctx.push_trail(value_trail<bool>(m_non_utvpi_exprs));
         m_non_utvpi_exprs = true;        
     }
 

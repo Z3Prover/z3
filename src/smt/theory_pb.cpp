@@ -1093,11 +1093,11 @@ namespace smt {
         return lits;
     }
 
-    class theory_pb::negate_ineq : public trail<context> {
+    class theory_pb::negate_ineq : public trail {
         ineq& c;
     public:
         negate_ineq(ineq& c): c(c) {}
-        void undo(context& ctx) override {
+        void undo() override {
             c.negate();
         }
     };
@@ -1111,9 +1111,9 @@ namespace smt {
     void theory_pb::assign_ineq(ineq& c, bool is_true) {
         m_mpz_trail.push_back(c.m_max_sum);
         m_mpz_trail.push_back(c.m_min_sum);
-        ctx.push_trail(scoped_value_trail<context, scoped_mpz, scoped_mpz_vector>(c.m_max_sum, m_mpz_trail));
-        ctx.push_trail(scoped_value_trail<context, scoped_mpz, scoped_mpz_vector>(c.m_min_sum, m_mpz_trail));
-        ctx.push_trail(value_trail<context, unsigned>(c.m_nfixed));
+        ctx.push_trail(scoped_value_trail<scoped_mpz, scoped_mpz_vector>(c.m_max_sum, m_mpz_trail));
+        ctx.push_trail(scoped_value_trail<scoped_mpz, scoped_mpz_vector>(c.m_min_sum, m_mpz_trail));
+        ctx.push_trail(value_trail<unsigned>(c.m_nfixed));
 
         SASSERT(c.is_ge());
         unsigned sz = c.size();
@@ -1437,13 +1437,13 @@ namespace smt {
         c.m_min_sum.reset();
     }
 
-    class theory_pb::unwatch_ge : public trail<context> {
+    class theory_pb::unwatch_ge : public trail {
         theory_pb& pb;
         ineq&      c;
     public:
         unwatch_ge(theory_pb& p, ineq& c): pb(p), c(c) {}
         
-        void undo(context& ctx) override {
+        void undo() override {
             for (unsigned i = 0; i < c.watch_size(); ++i) {
                 pb.unwatch_literal(c.lit(i), &c);
             }

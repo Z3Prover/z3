@@ -30,7 +30,7 @@ namespace smt {
         m_bits2char = symbol("bits2char");
     }
 
-    struct theory_char::reset_bits : public trail<context> {
+    struct theory_char::reset_bits : public trail {
         theory_char& s;
         unsigned idx;
 
@@ -39,7 +39,7 @@ namespace smt {
             idx(idx)
         {}
 
-        void undo(context& ctx) override {
+        void undo() override {
             s.m_bits[idx].reset();
             s.m_ebits[idx].reset();
         }

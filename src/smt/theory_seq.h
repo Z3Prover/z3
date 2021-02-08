@@ -281,20 +281,22 @@ namespace smt {
             }
         };
 
-        class push_replay : public trail<theory_seq> {
+        class push_replay : public trail {
+            theory_seq& th;
             apply* m_apply;
         public:
-            push_replay(apply* app): m_apply(app) {}
-            void undo(theory_seq& th) override {
+            push_replay(theory_seq& th, apply* app): th(th), m_apply(app) {}
+            void undo() override {
                 th.m_replay.push_back(m_apply);
             }
         };
 
-        class pop_branch : public trail<theory_seq> {
+        class pop_branch : public trail {
+            theory_seq& th;
             unsigned k;
         public:
-            pop_branch(unsigned k): k(k) {}
-            void undo(theory_seq& th) override {
+            pop_branch(theory_seq& th, unsigned k): th(th), k(k) {}
+            void undo() override {
                 th.m_branch_start.erase(k);
             }
         };

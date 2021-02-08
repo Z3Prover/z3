@@ -719,7 +719,7 @@ void seq_axioms::ensure_digit_axiom() {
             expr_ref cnst(seq.mk_char('0'+i), m);
             add_axiom(mk_eq(m_sk.mk_digit2int(cnst), a.mk_int(i)));
         }
-        ctx().push_trail(value_trail<context, bool>(m_digits_initialized));
+        ctx().push_trail(value_trail<bool>(m_digits_initialized));
         m_digits_initialized = true;
     }
 }

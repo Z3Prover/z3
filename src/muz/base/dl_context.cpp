@@ -148,36 +148,37 @@ namespace datalog {
     //
     // -----------------------------------
 
-    class context::restore_rules : public trail<context> {
+    class context::restore_rules : public trail {
+        context& ctx;
         rule_set* m_old_rules;
         void reset() {
             dealloc(m_old_rules);
             m_old_rules = nullptr;
         }
     public:
-        restore_rules(rule_set& r): m_old_rules(alloc(rule_set, r)) {}
+        restore_rules(context& ctx, rule_set& r): ctx(ctx), m_old_rules(alloc(rule_set, r)) {}
 
         ~restore_rules() override {}
 
-        void undo(context& ctx) override {
+        void undo() override {
             ctx.replace_rules(*m_old_rules);
             reset();
         }
     };
 
     template<typename Ctx, typename Vec>
-    class restore_vec_size_trail : public trail<Ctx> {
+    class restore_vec_size_trail : public trail {
         Vec& m_vector;
         unsigned m_old_size;
     public:
         restore_vec_size_trail(Vec& v): m_vector(v), m_old_size(v.size()) {}
         ~restore_vec_size_trail() override {}
-        void undo(Ctx& ctx) override { m_vector.shrink(m_old_size); }
+        void undo() override { m_vector.shrink(m_old_size); }
     };
 
     void context::push() {
         m_trail.push_scope();
-        m_trail.push(restore_rules(m_rule_set));
+        m_trail.push(restore_rules(*this, m_rule_set));
         m_trail.push(restore_vec_size_trail<context,expr_ref_vector>(m_rule_fmls));
         m_trail.push(restore_vec_size_trail<context,expr_ref_vector>(m_background));
     }

@@ -64,7 +64,7 @@ namespace fpa {
             m.inc_ref(e);
             m.inc_ref(res);
 
-            ctx.push(insert_ref2_map<euf::solver, ast_manager, expr, expr>(m, m_conversions, e, res.get()));
+            ctx.push(insert_ref2_map<ast_manager, expr, expr>(m, m_conversions, e, res.get()));
         }
         return res;
     }

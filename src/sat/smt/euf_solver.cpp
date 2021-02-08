@@ -141,7 +141,7 @@ namespace euf {
         if (m.is_model_value(f))
             return;
         m_unhandled_functions.push_back(f);
-        m_trail.push(push_back_vector<solver, func_decl_ref_vector>(m_unhandled_functions));
+        m_trail.push(push_back_vector<func_decl_ref_vector>(m_unhandled_functions));
         IF_VERBOSE(0, verbose_stream() << mk_pp(f, m) << " not handled\n");
     }
 

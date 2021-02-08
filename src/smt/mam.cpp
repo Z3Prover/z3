@@ -66,12 +66,12 @@ namespace {
 
     typedef trail_stack<mam_impl> mam_trail_stack;
 
-    typedef trail<mam_impl> mam_trail;
+    typedef trail mam_trail;
 
     template<typename T>
-    class mam_value_trail : public value_trail<mam_impl, T> {
+    class mam_value_trail : public value_trail<T> {
     public:
-        mam_value_trail(T & value):value_trail<mam_impl, T>(value) {}
+        mam_value_trail(T & value):value_trail<T>(value) {}
     };
 
 
@@ -2883,7 +2883,7 @@ namespace {
             unsigned                m_lbl_id;
         public:
             mk_tree_trail(ptr_vector<code_tree> & t, unsigned id):m_trees(t), m_lbl_id(id) {}
-            void undo(mam_impl & m) override {
+            void undo() override {
                 dealloc(m_trees[m_lbl_id]);
                 m_trees[m_lbl_id] = nullptr;
             }
@@ -2936,7 +2936,7 @@ namespace {
                 }
             }
             DEBUG_CODE(m_trees[lbl_id]->get_patterns().push_back(mp);
-                       m_trail_stack.push(push_back_trail<mam_impl, app*, false>(m_trees[lbl_id]->get_patterns())););
+                       m_trail_stack.push(push_back_trail<app*, false>(m_trees[lbl_id]->get_patterns())););
             TRACE("trigger_bug", tout << "after add_pattern, first_idx: " << first_idx << "\n"; m_trees[lbl_id]->display(tout););
         }
 
@@ -3140,10 +3140,11 @@ namespace {
         friend class add_shared_enode_trail;
 
         class add_shared_enode_trail : public mam_trail {
+            mam_impl& m;
             enode * m_enode;
         public:
-            add_shared_enode_trail(enode * n):m_enode(n) {}
-            void undo(mam_impl & m) override { m.m_shared_enodes.erase(m_enode); }
+            add_shared_enode_trail(mam_impl& m, enode * n):m(m), m_enode(n) {}
+            void undo() override { m.m_shared_enodes.erase(m_enode); }
         };
 
 #ifdef Z3DEBUG
@@ -3198,7 +3199,7 @@ namespace {
             TRACE("mam_bug", tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
             if (m_is_clbl[lbl_id])
                 return;
-            m_trail_stack.push(set_bitvector_trail<mam_impl>(m_is_clbl, lbl_id));
+            m_trail_stack.push(set_bitvector_trail(m_is_clbl, lbl_id));
             SASSERT(m_is_clbl[lbl_id]);
             unsigned h = m_lbl_hasher(lbl);
             for (enode* app : m_context.enodes_of(lbl)) {
@@ -3239,7 +3240,7 @@ namespace {
             TRACE("mam_bug", tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << "\n";);
             if (m_is_plbl[lbl_id])
                 return;
-            m_trail_stack.push(set_bitvector_trail<mam_impl>(m_is_plbl, lbl_id));
+            m_trail_stack.push(set_bitvector_trail(m_is_plbl, lbl_id));
             SASSERT(m_is_plbl[lbl_id]);
             SASSERT(is_plbl(lbl));
             unsigned h = m_lbl_hasher(lbl);
@@ -3286,7 +3287,7 @@ namespace {
                 p = p->m_child;
             }
             curr->m_code = mk_code(qa, mp, pat_idx);
-            m_trail_stack.push(new_obj_trail<mam_impl, code_tree>(curr->m_code));
+            m_trail_stack.push(new_obj_trail<code_tree>(curr->m_code));
             return head;
         }
 
@@ -3309,7 +3310,7 @@ namespace {
                                 insert_code(t, qa, mp, p->m_pattern_idx);
                             }
                             else {
-                                m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(t->m_first_child));
+                                m_trail_stack.push(set_ptr_trail<path_tree>(t->m_first_child));
                                 t->m_first_child = mk_path_tree(p->m_child, qa, mp);
                             }
                         }
@@ -3319,9 +3320,9 @@ namespace {
                                     insert_code(t, qa, mp, p->m_pattern_idx);
                                 }
                                 else {
-                                    m_trail_stack.push(set_ptr_trail<mam_impl, code_tree>(t->m_code));
+                                    m_trail_stack.push(set_ptr_trail<code_tree>(t->m_code));
                                     t->m_code = mk_code(qa, mp, p->m_pattern_idx);
-                                    m_trail_stack.push(new_obj_trail<mam_impl, code_tree>(t->m_code));
+                                    m_trail_stack.push(new_obj_trail< code_tree>(t->m_code));
                                 }
                             }
                             else {
@@ -3334,10 +3335,10 @@ namespace {
                 prev_sibling = t;
                 t = t->m_sibling;
             }
-            m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(prev_sibling->m_sibling));
+            m_trail_stack.push(set_ptr_trail<path_tree>(prev_sibling->m_sibling));
             prev_sibling->m_sibling = mk_path_tree(p, qa, mp);
             if (!found_label) {
-                m_trail_stack.push(value_trail<mam_impl, approx_set>(head->m_filter));
+                m_trail_stack.push(value_trail<approx_set>(head->m_filter));
                 head->m_filter.insert(m_lbl_hasher(p->m_label));
             }
         }
@@ -3347,7 +3348,7 @@ namespace {
                 insert(m_pc[h1][h2], p, qa, mp);
             }
             else {
-                m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(m_pc[h1][h2]));
+                m_trail_stack.push(set_ptr_trail<path_tree>(m_pc[h1][h2]));
                 m_pc[h1][h2] = mk_path_tree(p, qa, mp);
             }
             TRACE("mam_path_tree_updt",
@@ -3364,7 +3365,7 @@ namespace {
                         insert(m_pp[h1][h2].first, p2, qa, mp);
                 }
                 else {
-                    m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(m_pp[h1][h2].first));
+                    m_trail_stack.push(set_ptr_trail<path_tree>(m_pp[h1][h2].first));
                     m_pp[h1][h2].first = mk_path_tree(p1, qa, mp);
                     insert(m_pp[h1][h2].first, p2, qa, mp);
                 }
@@ -3382,8 +3383,8 @@ namespace {
                 }
                 else {
                     SASSERT(m_pp[h1][h2].second == 0);
-                    m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(m_pp[h1][h2].first));
-                    m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(m_pp[h1][h2].second));
+                    m_trail_stack.push(set_ptr_trail<path_tree>(m_pp[h1][h2].first));
+                    m_trail_stack.push(set_ptr_trail<path_tree>(m_pp[h1][h2].second));
                     m_pp[h1][h2].first  = mk_path_tree(p1, qa, mp);
                     m_pp[h1][h2].second = mk_path_tree(p2, qa, mp);
                 }
@@ -3796,7 +3797,7 @@ namespace {
                 todo.pop_back();
                 if (n->is_ground()) {
                     enode * e = mk_enode(m_context, qa, n);
-                    m_trail_stack.push(add_shared_enode_trail(e));
+                    m_trail_stack.push(add_shared_enode_trail(*this, e));
                     m_shared_enodes.insert(e);
                 }
                 else {

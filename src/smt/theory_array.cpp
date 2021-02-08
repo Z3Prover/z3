@@ -90,7 +90,7 @@ namespace smt {
         var_data * d     = m_var_data[v];
         d->m_parent_selects.push_back(s);
         TRACE("array", tout << v << " " << mk_pp(s->get_owner(), m) << " " << mk_pp(get_enode(v)->get_owner(), m) << "\n";);
-        m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d->m_parent_selects));
+        m_trail_stack.push(push_back_trail<enode *, false>(d->m_parent_selects));
         for (enode* n : d->m_stores) {
             instantiate_axiom2a(s, n);
         }
@@ -111,7 +111,7 @@ namespace smt {
         v                = find(v);
         var_data * d     = m_var_data[v];
         d->m_parent_stores.push_back(s);
-        m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d->m_parent_stores));
+        m_trail_stack.push(push_back_trail<enode *, false>(d->m_parent_stores));
         if (d->m_prop_upward && !m_params.m_array_delay_exp_axiom) {
             for (enode* n : d->m_parent_selects) {
                 if (!m_params.m_array_cg || n->is_cgr()) {
@@ -143,7 +143,7 @@ namespace smt {
                 return;
             }
             TRACE("array", tout << "#" << v << "\n";);
-            m_trail_stack.push(reset_flag_trail<theory_array>(d->m_prop_upward));
+            m_trail_stack.push(reset_flag_trail(d->m_prop_upward));
             d->m_prop_upward = true;
             if (!m_params.m_array_delay_exp_axiom) 
                 instantiate_axiom2b_for(v);
@@ -186,7 +186,7 @@ namespace smt {
             set_prop_upward(v, d);
         }
         d->m_stores.push_back(s);
-        m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d->m_stores));
+        m_trail_stack.push(push_back_trail<enode *, false>(d->m_stores));
         for (enode * n : d->m_parent_selects) {
             SASSERT(is_select(n));
             instantiate_axiom2a(n, s);

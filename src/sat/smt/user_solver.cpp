@@ -92,7 +92,7 @@ namespace user {
         if (m_qhead == m_prop.size())
             return false;
         force_push();
-        ctx.push(value_trail<euf::solver, unsigned>(m_qhead));
+        ctx.push(value_trail<unsigned>(m_qhead));
         unsigned np = m_stats.m_num_propagations;
         for (; m_qhead < m_prop.size() && !s().inconsistent(); ++m_qhead) {
             auto const& prop = m_prop[m_qhead];

@@ -26,7 +26,7 @@ Revision History:
 
 namespace smt {
 
-    class already_processed_trail : public trail<context> {
+    class already_processed_trail : public trail {
         // Remark: it is safer to use a trail object, because it guarantees that the enodes
         // are still alive when the undo operation is performed.
         //
@@ -42,7 +42,7 @@ namespace smt {
             m_n2(n2) {
         }
         
-        void undo(context & ctx) override {
+        void undo() override {
             m_already_processed.erase(m_n1, m_n2);
             TRACE("arith_eq_adapter_profile", tout << "del #" << m_n1->get_owner_id() << " #" << m_n2->get_owner_id() << "\n";);
         }

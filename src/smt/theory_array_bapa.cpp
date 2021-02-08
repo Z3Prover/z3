@@ -278,8 +278,8 @@ namespace smt {
             if (tns == sz2) {
                 std::cout << "SEEN " << smt << "\n";                
             }
-            ctx().push_trail(value_trail<context, bool>(i1.m_is_leaf, false));
-            ctx().push_trail(value_trail<context, bool>(i2.m_is_leaf, false));
+            ctx().push_trail(value_trail<bool>(i1.m_is_leaf, false));
+            ctx().push_trail(value_trail<bool>(i2.m_is_leaf, false));
             expr_ref k1(m), k2(m), k3(m);
             expr_ref sz_tms(m), sz_tns(m), sz_smt(m);
             k1 = m_autil.mk_card(tms);
@@ -332,7 +332,7 @@ namespace smt {
                     }  
                     literal lit = mk_eq(sz, m_arith.mk_int(value));
                     if (lit != true_literal && is_true(lit)) {
-                        ctx().push_trail(value_trail<context, rational>(i.m_size, value));
+                        ctx().push_trail(value_trail<rational>(i.m_size, value));
                         continue;
                     }
                     ctx().set_true_first_flag(lit.var());
@@ -442,14 +442,14 @@ namespace smt {
             return l_true;
         }
 
-        class remove_sz : public trail<context> {
+        class remove_sz : public trail {
             ast_manager& m;
             obj_map<app, sz_info*> & m_table;
             app*                     m_obj;
         public:
             remove_sz(ast_manager& m, obj_map<app, sz_info*>& tab, app* t): m(m), m_table(tab), m_obj(t) { }
             ~remove_sz() override {}
-            void undo(context& ctx) override { m.dec_ref(m_obj); dealloc(m_table[m_obj]); m_table.remove(m_obj); }
+            void undo() override { m.dec_ref(m_obj); dealloc(m_table[m_obj]); m_table.remove(m_obj); }
         };
 
         std::ostream& display(std::ostream& out) {

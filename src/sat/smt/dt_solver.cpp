@@ -372,7 +372,7 @@ namespace dt {
             }
             SASSERT(val == l_undef || (val == l_false && d->m_constructor == nullptr));
             d->m_recognizers[c_idx] = recognizer;
-            ctx.push(set_vector_idx_trail<euf::solver, enode>(d->m_recognizers, c_idx));
+            ctx.push(set_vector_idx_trail<enode>(d->m_recognizers, c_idx));
             if (val == l_false)
                 propagate_recognizer(v, recognizer);
         }
@@ -455,7 +455,7 @@ namespace dt {
         auto* con2 = d2->m_constructor;
         if (con2 != nullptr) {
             if (con1 == nullptr) {
-                ctx.push(set_ptr_trail<euf::solver, enode>(con1));
+                ctx.push(set_ptr_trail<enode>(con1));
                 // check whether there is a recognizer in d1 that conflicts with con2;
                 if (!d1->m_recognizers.empty()) {
                     unsigned c_idx = dt.get_constructor_idx(con2->get_decl());

@@ -2228,7 +2228,7 @@ namespace smt {
         }
 
         if (result)
-            ctx.push_trail(restore_size_trail<context, std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
+            ctx.push_trail(restore_size_trail<std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
         return delayed_assume_eqs();
     }
 
@@ -2237,7 +2237,7 @@ namespace smt {
         if (m_assume_eq_head == m_assume_eq_candidates.size())
             return false;
 
-        ctx.push_trail(value_trail<context, unsigned>(m_assume_eq_head));
+        ctx.push_trail(value_trail<unsigned>(m_assume_eq_head));
         while (m_assume_eq_head < m_assume_eq_candidates.size()) {
             std::pair<theory_var, theory_var> const & p = m_assume_eq_candidates[m_assume_eq_head];
             theory_var v1 = p.first;
