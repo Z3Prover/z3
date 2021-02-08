@@ -907,9 +907,9 @@ namespace nlsat {
             TRACE("nlsat_explain", tout << "adding literals for "; display_var(tout, y); tout << " -> ";
                   m_am.display_decimal(tout, y_val); tout << "\n";);
             polynomial_ref p_lower(m_pm);
-            unsigned i_lower;
+            unsigned i_lower = UINT_MAX;
             polynomial_ref p_upper(m_pm);
-            unsigned i_upper;
+            unsigned i_upper = UINT_MAX;
             polynomial_ref p(m_pm);
             unsigned sz = ps.size();
             for (unsigned k = 0; k < sz; k++) {

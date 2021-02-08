@@ -78,6 +78,7 @@ namespace nlsat {
             auto s = am.compare(i.m_lower, i.m_upper);
             TRACE("nlsat_interval", tout << "lower: "; am.display_decimal(tout, i.m_lower); tout << ", upper: "; am.display_decimal(tout, i.m_upper);
                   tout << "\ns: " << s << "\n";);
+            (void)s;
             SASSERT(s <= 0);
             SASSERT(!is_zero(s) || !i.m_lower_open && !i.m_upper_open);            
         }
