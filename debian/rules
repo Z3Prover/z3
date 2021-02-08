@@ -6,6 +6,9 @@
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 export DEB_CXXFLAGS_MAINT_APPEND = -fPIC
 
+export CC=/usr/lib/gcc-snapshot/bin/gcc
+export CXX=/usr/lib/gcc-snapshot/bin/g++
+
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
 ifneq (,$(shell dh_listpackages -a | grep libz3-jni))
