@@ -31,7 +31,7 @@ namespace bv {
     public:
         bit_trail(solver& s, var_pos vp) : s(s), vp(vp), lit(s.m_bits[vp.first][vp.second]) {}
 
-        virtual void undo(euf::solver& euf) {
+        void undo() override {
             s.m_bits[vp.first][vp.second] = lit;
         }
     };
@@ -43,7 +43,7 @@ namespace bv {
     public:
         bit_occs_trail(solver& s, atom& a): a(a), m_occs(a.m_occs) {}
         
-        virtual void undo() {
+        void undo() override {
             a.m_occs = m_occs;
         }
     };

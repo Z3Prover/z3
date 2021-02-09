@@ -315,7 +315,7 @@ public:
             m_solver.set_phase(lit);
     }
     void move_to_front(expr* e) override { 
-        bool is_not = m.is_not(e, e);
+        m.is_not(e, e);
         sat::bool_var b = m_map.to_bool_var(e);
         if (b != sat::null_bool_var)
             m_solver.move_to_front(b);
