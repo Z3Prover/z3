@@ -288,11 +288,15 @@ class parallel_tactic : public tactic {
         }
 
         bool giveup() {
+            if (m_giveup)
+                return m_giveup;
             std::string r = get_solver().reason_unknown(); 
             std::string inc("(incomplete");
             m_giveup |= r.compare(0, inc.size(), inc) == 0;
             inc = "(sat.giveup";
             m_giveup |= r.compare(0, inc.size(), inc) == 0;
+            if (m_giveup)
+                IF_VERBOSE(0, verbose_stream() << r << "\n");
             return m_giveup;
         }
 
