@@ -179,7 +179,8 @@ def mk_var(name, vsort):
     elif vsort.kind() == Z3_DATATYPE_SORT:
         v = Const(name, vsort)
     else:
-        raise TypeError(f"Cannot handle this sort (s: {vsort}id: {vsort.kind()})")
+        raise TypeError('Cannot handle this sort (s: %sid: %d)' %(vsort,vsort.kind()))
+    
     return v
 
 
