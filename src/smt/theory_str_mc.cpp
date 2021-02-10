@@ -1152,6 +1152,30 @@ namespace smt {
                         TRACE("str_fl", tout << "integer theory has no assignment for " << mk_pp(e, get_manager()) << std::endl;);
                         // consistency needs to be checked after the string is assigned
                     }
+                } else if (u.str.is_to_code(e, _arg)) {
+                    expr_ref arg(_arg, m);
+                    rational ival;
+                    if (v.get_value(e, ival)) {
+                        TRACE("str_fl", tout << "integer theory assigns " << ival << " to " << mk_pp(e, m) << std::endl;);
+                        if (ival >= rational::zero() && ival <= rational(u.max_char())) {
+                            zstring ival_str(ival.get_unsigned());
+                            expr_ref arg_char_expr(mk_string(ival_str), m);
+                            expr_ref stoi_cex(m);
+                            // Add (e == ival) as a precondition
+                            precondition.push_back(m.mk_eq(e, mk_int(ival)));
+                            if (!fixed_length_reduce_eq(subsolver, arg, arg_char_expr, stoi_cex)) {
+                                // Counterexample: (str.to_code arg) == ival AND arg == arg_char_expr cannot both be true.
+                                stoi_cex = expr_ref(m.mk_not(m.mk_and(m.mk_eq(e, mk_int(ival)), m.mk_eq(arg, arg_char_expr))), m);
+                                assert_axiom(stoi_cex);
+                                add_persisted_axiom(stoi_cex);
+                                return l_undef;
+                            }
+                            fixed_length_reduced_boolean_formulas.push_back(m.mk_eq(e, mk_int(ival)));
+                        }
+                    } else {
+                        TRACE("str_fl", tout << "integer theory has no assignment for " << mk_pp(e, m) << std::endl;);
+                        // consistency needs to be checked after the string is assigned
+                    }
                 } else if (u.str.is_itos(e, _arg)) {
                     expr_ref arg(_arg, m);
                     rational slen;
@@ -1194,6 +1218,9 @@ namespace smt {
                         TRACE("str_fl", tout << "integer theory has no assignment for " << mk_pp(arg, get_manager()) << std::endl;);
                         // consistency needs to be checked after the string is assigned
                     }
+                } else if (u.str.is_from_code(e, _arg)) {
+                    expr_ref arg(_arg, m);
+                    NOT_IMPLEMENTED_YET();
                 }
             }
         }
@@ -1312,6 +1339,36 @@ namespace smt {
                                 }
                             }
                         }
+                    } else if (u.str.is_to_code(e, _arg)) {
+                        expr_ref arg(_arg, m);
+                        rational ival;
+                        if (v.get_value(e, ival)) {
+                            expr_ref arg_subst(arg, m);
+                            (*replacer)(arg, arg_subst);
+                            rw(arg_subst);
+                            TRACE("str_fl", tout << "ival = " << ival << ", string arg evaluates to " << mk_pp(arg_subst, m) << std::endl;);
+                            symbol arg_str;
+                            if (u.str.is_string(arg_subst, arg_str)) {
+                                zstring arg_zstr(arg_str.bare_str());
+                                if (ival >= rational::zero() && ival <= rational(u.max_char())) {
+                                    // check that arg_subst has length 1 and that the codepoints are the same
+                                    if (arg_zstr.length() != 1 || rational(arg_zstr[0]) != ival) {
+                                        // contradiction
+                                        expr_ref cex(m.mk_not(m.mk_and(ctx.mk_eq_atom(arg, mk_string(arg_zstr)), ctx.mk_eq_atom(e, mk_int(ival)))), m);
+                                        assert_axiom(cex);
+                                        return l_undef;
+                                    }
+                                } else {
+                                    // arg_subst must not be a singleton char
+                                    if (arg_zstr.length() == 1) {
+                                        // contradiction
+                                        expr_ref cex(m.mk_not(m.mk_and(ctx.mk_eq_atom(arg, mk_string(arg_zstr)), ctx.mk_eq_atom(e, mk_int(ival)))), m);
+                                        assert_axiom(cex);
+                                        return l_undef;
+                                    }
+                                }
+                            }
+                        }
                     } else if (u.str.is_itos(e, _arg)) {
                         expr_ref arg(_arg, m);
                         rational ival;
@@ -1353,6 +1410,9 @@ namespace smt {
                                 }
                             }
                         }
+                    } else if (u.str.is_from_code(e, _arg)) {
+                        expr_ref arg(_arg, m);
+                        NOT_IMPLEMENTED_YET();
                     }
                 }
             }

@@ -8701,8 +8701,6 @@ namespace smt {
                     if (axiomAdd) {
                         addedStrIntAxioms = true;
                     }
-                } else {
-                    UNREACHABLE();
                 }
             }
             if (addedStrIntAxioms) {
