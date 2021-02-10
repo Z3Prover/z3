@@ -1843,17 +1843,24 @@ namespace smt {
 
         expr * arg;
         u.str.is_from_code(ex, arg);
-        // (str.from_code N) == "" if N is not in the range [0, 196607].
+        // (str.from_code N) == "" if N is not in the range [0, max_char].
         {
-	  expr_ref premise(m.mk_or(m_autil.mk_le(ex, mk_int(-1)), m_autil.mk_ge(ex, mk_int(u.max_char() + 1))), m);
+	        expr_ref premise(m.mk_or(m_autil.mk_le(arg, mk_int(-1)), m_autil.mk_ge(arg, mk_int(u.max_char() + 1))), m);
             expr_ref conclusion(ctx.mk_eq_atom(ex, mk_string("")), m);
             expr_ref axiom(rewrite_implication(premise, conclusion), m);
             assert_axiom_rw(axiom);
         }
-        // len (str.from_code N) == 1 if N is in the range [0, 196607].
+        // len (str.from_code N) == 1 if N is in the range [0, max_char].
         {
-	  expr_ref premise(m.mk_and(m_autil.mk_ge(ex, mk_int(0)), m_autil.mk_le(ex, mk_int(u.max_char() + 1))), m);
+	        expr_ref premise(m.mk_and(m_autil.mk_ge(arg, mk_int(0)), m_autil.mk_le(arg, mk_int(u.max_char() + 1))), m);
             expr_ref conclusion(ctx.mk_eq_atom(mk_strlen(ex), mk_int(1)), m);
+            expr_ref axiom(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(axiom);
+        }
+        // If N is in the range [0, max_char], then to_code(from_code(e)) == e.
+        {
+            expr_ref premise(m.mk_and(m_autil.mk_ge(arg, mk_int(0)), m_autil.mk_le(arg, mk_int(u.max_char() + 1))), m);
+            expr_ref conclusion(ctx.mk_eq_atom(u.str.mk_to_code(ex), arg), m);
             expr_ref axiom(rewrite_implication(premise, conclusion), m);
             assert_axiom_rw(axiom);
         }
@@ -1879,7 +1886,7 @@ namespace smt {
             expr_ref axiom(rewrite_implication(premise, conclusion), m);
             assert_axiom_rw(axiom);
         }
-        // (str.to_code S) is in [0, 196607] if len(S) == 1.
+        // (str.to_code S) is in [0, max_char] if len(S) == 1.
         {
             expr_ref premise(ctx.mk_eq_atom(mk_strlen(arg), mk_int(1)), m);
             expr_ref conclusion(m.mk_and(m_autil.mk_ge(ex, mk_int(0)), m_autil.mk_le(ex, mk_int(u.max_char()))), m);
