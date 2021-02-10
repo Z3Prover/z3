@@ -1220,7 +1220,29 @@ namespace smt {
                     }
                 } else if (u.str.is_from_code(e, _arg)) {
                     expr_ref arg(_arg, m);
-                    NOT_IMPLEMENTED_YET();
+                    rational ival;
+                    if (v.get_value(arg, ival)) {
+                        TRACE("str_fl", tout << "integer theory assigns " << ival << " to " << mk_pp(arg, m) << std::endl;);
+                        if (ival >= rational::zero() && ival <= rational(u.max_char())) {
+                            zstring ival_str(ival.get_unsigned());
+                            expr_ref arg_char_expr(mk_string(ival_str), m);
+                            expr_ref itos_cex(m);
+                            // Add (arg == ival) as a precondition
+                            precondition.push_back(m.mk_eq(arg, mk_int(ival)));
+                            expr_ref _e(e, m);
+                            if (!fixed_length_reduce_eq(subsolver, _e, arg_char_expr, itos_cex)) {
+                                // Counterexample: (str.from_code arg) == arg_char AND arg == ival cannot both be true.
+                                itos_cex = expr_ref(m.mk_not(m.mk_and(m.mk_eq(arg, mk_int(ival)), m.mk_eq(e, arg_char_expr))), m);
+                                assert_axiom(itos_cex);
+                                add_persisted_axiom(itos_cex);
+                                return l_undef;
+                            }
+                            fixed_length_reduced_boolean_formulas.push_back(m.mk_eq(e, mk_int(ival)));
+                        }
+                    } else {
+                        TRACE("str_fl", tout << "integer theory has no assignment for " << mk_pp(arg, m) << std::endl;);
+                        // consistency needs to be checked after the string is assigned
+                    }
                 }
             }
         }
@@ -1412,7 +1434,39 @@ namespace smt {
                         }
                     } else if (u.str.is_from_code(e, _arg)) {
                         expr_ref arg(_arg, m);
-                        NOT_IMPLEMENTED_YET();
+                        rational ival;
+                        if (v.get_value(arg, ival)) {
+                            expr_ref e_subst(e, m);
+                            (*replacer)(e, e_subst);
+                            rw(e_subst);
+                            TRACE("str_fl", tout << "ival = " << ival << ", string arg evaluates to " << mk_pp(e_subst, m) << std::endl;);
+                            symbol e_str;
+                            if (u.str.is_string(e_subst, e_str)) {
+                                zstring e_zstr(e_str.bare_str());
+                                // if arg is out of range, e must be empty
+                                // if arg is in range, e must be valid
+                                if (ival <= rational::zero() || ival >= rational(u.max_char())) {
+                                    if (!e_zstr.empty()) {
+                                        // contradiction
+                                        expr_ref cex(ctx.mk_eq_atom(
+                                            m.mk_or(m_autil.mk_le(arg, mk_int(0)), m_autil.mk_ge(arg, mk_int(u.max_char() + 1))),
+                                            ctx.mk_eq_atom(e, mk_string(""))
+                                        ), m);
+                                        assert_axiom(cex);
+                                        return l_undef;
+                                    }
+                                } else {
+                                    if (e_zstr.length() != 1 || e_zstr[0] != ival.get_unsigned()) {
+                                        // contradiction
+                                        expr_ref premise(ctx.mk_eq_atom(arg, mk_int(ival)), m);
+                                        expr_ref conclusion(ctx.mk_eq_atom(e, mk_string(zstring(ival.get_unsigned()))), m);
+                                        expr_ref cex(rewrite_implication(premise, conclusion), m);
+                                        assert_axiom(cex);
+                                        return l_undef;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
