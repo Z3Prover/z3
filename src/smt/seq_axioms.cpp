@@ -804,6 +804,7 @@ void seq_axioms::add_is_digit_axiom(expr* n) {
 
 /**
    len(e) = 1 => 0 <= to_code(e) <= max_code
+   len(e) = 1 => from_code(to_code(e)) = e
    len(e) != 1 => to_code(e) = -1
  */
 void seq_axioms::add_str_to_code_axiom(expr* n) {
@@ -812,6 +813,8 @@ void seq_axioms::add_str_to_code_axiom(expr* n) {
     literal len_is1 = mk_eq(mk_len(e), a.mk_int(1));
     add_axiom(~len_is1, mk_ge(n, 0)); 
     add_axiom(~len_is1, mk_le(n, seq.max_char()));
+    if (!seq.str.is_from_code(e))
+        add_axiom(~len_is1, mk_eq(e, seq.str.mk_from_code(n)));
     add_axiom(len_is1, mk_eq(n, a.mk_int(-1)));
 }
 
@@ -827,7 +830,8 @@ void seq_axioms::add_str_from_code_axiom(expr* n) {
     literal le = mk_le(e, seq.max_char());
     literal emp = mk_literal(seq.str.mk_is_empty(n));
     add_axiom(~ge, ~le, mk_eq(mk_len(n), a.mk_int(1)));
-    add_axiom(~ge, ~le, mk_eq(seq.str.mk_to_code(n), e));
+    if (!seq.str.is_to_code(e))
+        add_axiom(~ge, ~le, mk_eq(seq.str.mk_to_code(n), e));
     add_axiom(ge, emp);
     add_axiom(le, emp);
 }
