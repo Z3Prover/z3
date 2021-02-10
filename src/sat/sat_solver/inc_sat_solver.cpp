@@ -215,9 +215,11 @@ public:
             r = m_solver.check(m_asms.size(), m_asms.c_ptr());
         }
         catch (z3_exception& ex) {
-            IF_VERBOSE(10, verbose_stream() << "exception: " << ex.msg() << "\n";);
-            reason_set = true;
-            set_reason_unknown(std::string("(sat.giveup ") + ex.msg() + ')');
+            IF_VERBOSE(1, verbose_stream() << "exception: " << ex.msg() << "\n";);
+            if (m.inc()) {
+                reason_set = true;
+                set_reason_unknown(std::string("(sat.giveup ") + ex.msg() + ')');
+            }
             r = l_undef;            
         }
         switch (r) {
@@ -315,7 +317,7 @@ public:
             m_solver.set_phase(lit);
     }
     void move_to_front(expr* e) override { 
-        bool is_not = m.is_not(e, e);
+        m.is_not(e, e);
         sat::bool_var b = m_map.to_bool_var(e);
         if (b != sat::null_bool_var)
             m_solver.move_to_front(b);

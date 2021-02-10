@@ -34,14 +34,14 @@ namespace smt {
     }
 
     void theory_array_base::add_weak_var(theory_var v) {
-        ctx.push_trail(push_back_vector<context, svector<theory_var>>(m_array_weak_trail));
+        ctx.push_trail(push_back_vector<svector<theory_var>>(m_array_weak_trail));
         m_array_weak_trail.push_back(v);
     }
 
     void theory_array_base::found_unsupported_op(expr * n) {
         if (!ctx.get_fparams().m_array_fake_support && !m_found_unsupported_op) {
             TRACE("array", tout << mk_ll_pp(n, m) << "\n";);            
-            ctx.push_trail(value_trail<context, bool>(m_found_unsupported_op));
+            ctx.push_trail(value_trail<bool>(m_found_unsupported_op));
             m_found_unsupported_op = true;
         }
     }
@@ -430,7 +430,7 @@ namespace smt {
             m_extensionality_todo.reset();
             m_congruent_todo.reset();
             if (!ctx.get_fparams().m_array_weak && has_propagate_up_trail()) {
-                ctx.push_trail(value_trail<context, unsigned>(m_array_weak_head));
+                ctx.push_trail(value_trail<unsigned>(m_array_weak_head));
                 for (; m_array_weak_head < m_array_weak_trail.size(); ++m_array_weak_head) {
                     set_prop_upward(m_array_weak_trail[m_array_weak_head]);
                 }                

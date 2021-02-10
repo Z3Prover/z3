@@ -75,9 +75,9 @@ namespace q {
 
 
     template<typename T>
-    class mam_value_trail : public value_trail<euf::solver, T> {
+    class mam_value_trail : public value_trail<T> {
     public:
-        mam_value_trail(T & value):value_trail<euf::solver, T>(value) {}
+        mam_value_trail(T & value):value_trail<T>(value) {}
     };
 
     unsigned get_max_generation(unsigned n, enode* const* nodes) {
@@ -2812,12 +2812,12 @@ namespace q {
         egraph *                   m_egraph;
 #endif
 
-        class mk_tree_trail : public trail<euf::solver> {
+        class mk_tree_trail : public trail {
             ptr_vector<code_tree> & m_trees;
             unsigned                m_lbl_id;
         public:
             mk_tree_trail(ptr_vector<code_tree> & t, unsigned id):m_trees(t), m_lbl_id(id) {}
-            void undo(euf::solver & m) override {
+            void undo() override {
                 dealloc(m_trees[m_lbl_id]);
                 m_trees[m_lbl_id] = nullptr;
             }
@@ -2871,7 +2871,7 @@ namespace q {
                 }
             }
             DEBUG_CODE(m_trees[lbl_id]->get_patterns().push_back(mp);
-                       ctx.push(push_back_trail<euf::solver, app*, false>(m_trees[lbl_id]->get_patterns())););
+                       ctx.push(push_back_trail<app*, false>(m_trees[lbl_id]->get_patterns())););
             TRACE("trigger_bug", tout << "after add_pattern, first_idx: " << first_idx << "\n"; m_trees[lbl_id]->display(tout););
         }
 
@@ -3067,11 +3067,11 @@ namespace q {
         enode *                     m_other { nullptr }; // temp field
         bool                        m_check_missing_instances { false };
 
-        class reset_to_match : public trail<euf::solver> {
+        class reset_to_match : public trail {
             mam_impl& i;
         public:
             reset_to_match(mam_impl& i):i(i) {}
-            void undo(euf::solver& ctx) override {
+            void undo() override {
                 if (i.m_to_match.empty())
                     return;
                 for (code_tree* t : i.m_to_match) 
@@ -3080,11 +3080,11 @@ namespace q {
             }
         };
         
-        class reset_new_patterns : public trail<euf::solver> {
+        class reset_new_patterns : public trail {
             mam_impl& i;
         public:
             reset_new_patterns(mam_impl& i):i(i) {}
-            void undo(euf::solver& ctx) override {
+            void undo() override {
                 i.m_new_patterns.reset();
             }
         };
@@ -3139,7 +3139,7 @@ namespace q {
             TRACE("mam_bug", tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
             if (m_is_clbl[lbl_id])
                 return;
-            ctx.push(set_bitvector_trail<euf::solver>(m_is_clbl, lbl_id));
+            ctx.push(set_bitvector_trail(m_is_clbl, lbl_id));
             SASSERT(m_is_clbl[lbl_id]);
             unsigned h = m_lbl_hasher(lbl);
             for (enode* app : m_egraph.enodes_of(lbl)) {
@@ -3180,7 +3180,7 @@ namespace q {
             TRACE("mam_bug", tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << "\n";);
             if (m_is_plbl[lbl_id])
                 return;
-            ctx.push(set_bitvector_trail<euf::solver>(m_is_plbl, lbl_id));
+            ctx.push(set_bitvector_trail(m_is_plbl, lbl_id));
             SASSERT(m_is_plbl[lbl_id]);
             SASSERT(is_plbl(lbl));
             unsigned h = m_lbl_hasher(lbl);
@@ -3227,7 +3227,7 @@ namespace q {
                 p = p->m_child;
             }
             curr->m_code = mk_code(qa, mp, pat_idx);
-            ctx.push(new_obj_trail<euf::solver, code_tree>(curr->m_code));
+            ctx.push(new_obj_trail<code_tree>(curr->m_code));
             return head;
         }
 
@@ -3250,7 +3250,7 @@ namespace q {
                                 insert_code(t, qa, mp, p->m_pattern_idx);
                             }
                             else {
-                                ctx.push(set_ptr_trail<euf::solver, path_tree>(t->m_first_child));
+                                ctx.push(set_ptr_trail<path_tree>(t->m_first_child));
                                 t->m_first_child = mk_path_tree(p->m_child, qa, mp);
                             }
                         }
@@ -3260,9 +3260,9 @@ namespace q {
                                     insert_code(t, qa, mp, p->m_pattern_idx);
                                 }
                                 else {
-                                    ctx.push(set_ptr_trail<euf::solver, code_tree>(t->m_code));
+                                    ctx.push(set_ptr_trail<code_tree>(t->m_code));
                                     t->m_code = mk_code(qa, mp, p->m_pattern_idx);
-                                    ctx.push(new_obj_trail<euf::solver, code_tree>(t->m_code));
+                                    ctx.push(new_obj_trail<code_tree>(t->m_code));
                                 }
                             }
                             else {
@@ -3275,10 +3275,10 @@ namespace q {
                 prev_sibling = t;
                 t = t->m_sibling;
             }
-            ctx.push(set_ptr_trail<euf::solver, path_tree>(prev_sibling->m_sibling));
+            ctx.push(set_ptr_trail<path_tree>(prev_sibling->m_sibling));
             prev_sibling->m_sibling = mk_path_tree(p, qa, mp);
             if (!found_label) {
-                ctx.push(value_trail<euf::solver, approx_set>(head->m_filter));
+                ctx.push(value_trail<approx_set>(head->m_filter));
                 head->m_filter.insert(m_lbl_hasher(p->m_label));
             }
         }
@@ -3288,7 +3288,7 @@ namespace q {
                 insert(m_pc[h1][h2], p, qa, mp);
             }
             else {
-                ctx.push(set_ptr_trail<euf::solver, path_tree>(m_pc[h1][h2]));
+                ctx.push(set_ptr_trail<path_tree>(m_pc[h1][h2]));
                 m_pc[h1][h2] = mk_path_tree(p, qa, mp);
             }
             TRACE("mam_path_tree_updt",
@@ -3305,7 +3305,7 @@ namespace q {
                         insert(m_pp[h1][h2].first, p2, qa, mp);
                 }
                 else {
-                    ctx.push(set_ptr_trail<euf::solver, path_tree>(m_pp[h1][h2].first));
+                    ctx.push(set_ptr_trail<path_tree>(m_pp[h1][h2].first));
                     m_pp[h1][h2].first = mk_path_tree(p1, qa, mp);
                     insert(m_pp[h1][h2].first, p2, qa, mp);
                 }
@@ -3323,8 +3323,8 @@ namespace q {
                 }
                 else {
                     SASSERT(m_pp[h1][h2].second == nullptr);
-                    ctx.push(set_ptr_trail<euf::solver, path_tree>(m_pp[h1][h2].first));
-                    ctx.push(set_ptr_trail<euf::solver, path_tree>(m_pp[h1][h2].second));
+                    ctx.push(set_ptr_trail<path_tree>(m_pp[h1][h2].first));
+                    ctx.push(set_ptr_trail<path_tree>(m_pp[h1][h2].second));
                     m_pp[h1][h2].first  = mk_path_tree(p1, qa, mp);
                     m_pp[h1][h2].second = mk_path_tree(p2, qa, mp);
                 }

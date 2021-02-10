@@ -121,10 +121,10 @@ namespace q {
         return std::max(f.m_max_generation + 1, static_cast<unsigned>(r));
     }
 
-    struct queue::reset_new_entries : public trail<euf::solver> {
+    struct queue::reset_new_entries : public trail {
         svector<entry>& m_entries;
         reset_new_entries(svector<entry>& e): m_entries(e) {}
-        void undo(euf::solver& ctx) override {
+        void undo() override {
             m_entries.reset();
         }
     };
@@ -189,18 +189,18 @@ namespace q {
             else {
                 TRACE("q", tout << "delaying quantifier instantiation... " << f << "\n" << mk_pp(f.q(), m) << "\ncost: " << curr.m_cost << "\n";);
                 m_delayed_entries.push_back(curr);
-                ctx.push(push_back_vector<euf::solver,svector<entry>>(m_delayed_entries));
+                ctx.push(push_back_vector<svector<entry>>(m_delayed_entries));
             }
         }
         m_new_entries.reset();
         return true;
     }    
 
-    struct queue::reset_instantiated : public trail<euf::solver> {
+    struct queue::reset_instantiated : public trail {
         queue& q;
         unsigned idx;
         reset_instantiated(queue& q, unsigned idx): q(q), idx(idx) {}
-        void undo(euf::solver& ctx) override {
+        void undo() override {
             q.m_delayed_entries[idx].m_instantiated = false;
         }
     };

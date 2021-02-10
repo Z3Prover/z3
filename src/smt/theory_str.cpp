@@ -6895,17 +6895,17 @@ namespace smt {
                     m_concat_eval_todo.push_back(n);
                 } else if (u.str.is_at(ap) || u.str.is_extract(ap) || u.str.is_replace(ap)) {
                     m_library_aware_axiom_todo.push_back(n);
-                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
+                    m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
                 } else if (u.str.is_itos(ap)) {
                     TRACE("str", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
                     string_int_conversion_terms.push_back(ap);
                     m_library_aware_axiom_todo.push_back(n);
-                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
+                    m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
                 } else if (u.str.is_from_code(ap)) {
                     TRACE("str", tout << "found string-codepoint conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
                     string_int_conversion_terms.push_back(ap);
                     m_library_aware_axiom_todo.push_back(n);
-                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
+                    m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
                 } else if (is_var(ex)) {
                     // if ex is a variable, add it to our list of variables
                     TRACE("str", tout << "tracking variable " << mk_ismt2_pp(ap, get_manager()) << std::endl;);
@@ -6931,7 +6931,7 @@ namespace smt {
                     app * ap = to_app(ex);
                     if (u.str.is_prefix(ap) || u.str.is_suffix(ap) || u.str.is_contains(ap) || u.str.is_in_re(ap)) {
                         m_library_aware_axiom_todo.push_back(n);
-                        m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
+                        m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
                     }
                 }
             } else {
@@ -6951,17 +6951,17 @@ namespace smt {
                 app * ap = to_app(ex);
                 if (u.str.is_index(ap)) {
                     m_library_aware_axiom_todo.push_back(n);
-                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
+                    m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
                 } else if (u.str.is_stoi(ap)) {
                     TRACE("str", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
                     string_int_conversion_terms.push_back(ap);
                     m_library_aware_axiom_todo.push_back(n);
-                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
+                    m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
                 } else if (u.str.is_to_code(ex)) {
                     TRACE("str", tout << "found string-codepoint conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
                     string_int_conversion_terms.push_back(ap);
                     m_library_aware_axiom_todo.push_back(n);
-                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
+                    m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
                 }
             }
         } else {
@@ -8229,7 +8229,7 @@ namespace smt {
                         if (!string_int_axioms.contains(axiom)) {
                             string_int_axioms.insert(axiom);
                             assert_axiom(axiom);
-                            m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
+                            m_trail_stack.push(insert_obj_trail<expr>(string_int_axioms, axiom));
                             axiomAdd = true;
                         }
                     } else {
@@ -8263,7 +8263,7 @@ namespace smt {
                 if (!string_int_axioms.contains(axiom)) {
                     string_int_axioms.insert(axiom);
                     assert_axiom(axiom);
-                    m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
+                    m_trail_stack.push(insert_obj_trail<expr>(string_int_axioms, axiom));
                     axiomAdd = true;
                 }
             } else {
@@ -8273,7 +8273,7 @@ namespace smt {
                 if (!string_int_axioms.contains(axiom)) {
                     string_int_axioms.insert(axiom);
                     assert_axiom(axiom);
-                    m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
+                    m_trail_stack.push(insert_obj_trail<expr>(string_int_axioms, axiom));
                     axiomAdd = true;
                 }
             }
@@ -8317,7 +8317,7 @@ namespace smt {
                     if (!string_int_axioms.contains(axiom)) {
                         string_int_axioms.insert(axiom);
                         assert_axiom(axiom);
-                        m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
+                        m_trail_stack.push(insert_obj_trail<expr>(string_int_axioms, axiom));
                         axiomAdd = true;
                     }
                 } else {

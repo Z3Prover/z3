@@ -72,11 +72,12 @@ namespace smt {
 
     }
 
-    class mk_atom_trail : public trail<theory_bv> {
+    class mk_atom_trail : public trail {
+        theory_bv& th;
         bool_var m_var;
     public:
-        mk_atom_trail(bool_var v):m_var(v) {}
-        void undo(theory_bv & th) override {
+        mk_atom_trail(theory_bv& th, bool_var v):th(th), m_var(v) {}
+        void undo() override {
             theory_bv::atom * a = th.get_bv2a(m_var);
             a->~atom();
             th.erase_bv2a(m_var);
@@ -123,7 +124,7 @@ namespace smt {
             ctx.set_var_theory(bv, get_id());
             bit_atom * a     = new (get_region()) bit_atom();
             insert_bv2a(bv, a);
-            m_trail_stack.push(mk_atom_trail(bv));
+            m_trail_stack.push(mk_atom_trail(*this, bv));
             unsigned idx     = n->get_decl()->get_parameter(0).get_int();
             SASSERT(a->m_occs == 0);
             a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
@@ -212,11 +213,11 @@ namespace smt {
         get_bits(ctx.get_enode(arg), r);
     }
     
-    class add_var_pos_trail : public trail<theory_bv> {
+    class add_var_pos_trail : public trail {
         theory_bv::bit_atom * m_atom;
     public:
         add_var_pos_trail(theory_bv::bit_atom * a):m_atom(a) {}
-        void undo(theory_bv & th) override {
+        void undo() override {
             SASSERT(m_atom->m_occs);
             m_atom->m_occs = m_atom->m_occs->m_next;
         }
@@ -226,7 +227,7 @@ namespace smt {
         if (!params().m_bv_eq_axioms)
             return;
         m_prop_diseqs.push_back(bv_diseq(v1, v2, idx));
-        ctx.push_trail(push_back_vector<context, svector<bv_diseq>>(m_prop_diseqs));
+        ctx.push_trail(push_back_vector<svector<bv_diseq>>(m_prop_diseqs));
     }
 
     /**
@@ -302,7 +303,7 @@ namespace smt {
                 SASSERT(ctx.get_var_theory(l.var()) == get_id());
                 bit_atom * b = new (get_region()) bit_atom();
                 insert_bv2a(l.var(), b);
-                m_trail_stack.push(mk_atom_trail(l.var()));
+                m_trail_stack.push(mk_atom_trail(*this, l.var()));
                 SASSERT(b->m_occs == 0);
                 b->m_occs = new (get_region()) var_pos_occ(v, idx);
             }
@@ -947,7 +948,7 @@ namespace smt {
         ctx.set_var_theory(l.var(), get_id());                                                                  \
         le_atom * a     = new (get_region()) le_atom(l, def); /* abuse le_atom */                               \
         insert_bv2a(l.var(), a);                                                                                \
-        m_trail_stack.push(mk_atom_trail(l.var()));                                                             \
+        m_trail_stack.push(mk_atom_trail(*this, l.var()));                                                             \
         /* smul_no_overflow and umul_no_overflow are using the le_atom (THIS IS A BIG HACK)... */               \
         /* the connection between the l and def was never realized when                        */               \
         /* relevancy() is true and m_bv_lazy_le is false (the default configuration).          */               \
@@ -983,7 +984,7 @@ namespace smt {
         ctx.set_var_theory(l.var(), get_id());
         le_atom * a     = new (get_region()) le_atom(l, def);
         insert_bv2a(l.var(), a);
-        m_trail_stack.push(mk_atom_trail(l.var()));
+        m_trail_stack.push(mk_atom_trail(*this, l.var()));
         if (!ctx.relevancy() || !params().m_bv_lazy_le) {
             ctx.mk_th_axiom(get_id(),  l, ~def);
             ctx.mk_th_axiom(get_id(), ~l,  def);
@@ -1090,7 +1091,7 @@ namespace smt {
             if (m_util.is_bv_sort(s) && m_util.get_bv_size(arg) > params().m_bv_blast_max_size) {                
                 if (!m_approximates_large_bvs) {
                     TRACE("bv", tout << "found large size bit-vector:\n" << mk_pp(n, m) << "\n";);
-                    ctx.push_trail(value_trail<context, bool>(m_approximates_large_bvs));
+                    ctx.push_trail(value_trail<bool>(m_approximates_large_bvs));
                     m_approximates_large_bvs = true;
                 }
                 return true;
@@ -1577,7 +1578,7 @@ namespace smt {
     void theory_bv::propagate() {
         if (!can_propagate())
             return;
-        ctx.push_trail(value_trail<context, unsigned>(m_prop_diseqs_qhead));
+        ctx.push_trail(value_trail<unsigned>(m_prop_diseqs_qhead));
         for (; m_prop_diseqs_qhead < m_prop_diseqs.size() && !ctx.inconsistent(); ++m_prop_diseqs_qhead) {
             auto p = m_prop_diseqs[m_prop_diseqs_qhead];
             assert_new_diseq_axiom(p.v1, p.v2, p.idx);

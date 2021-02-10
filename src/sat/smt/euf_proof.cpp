@@ -42,7 +42,7 @@ namespace euf {
                 get_drat().def_add_arg(arg->get_id());
             get_drat().def_end();
             m_drat_asts.insert(e);
-            push(insert_obj_trail<solver, ast>(m_drat_asts, e));
+            push(insert_obj_trail<ast>(m_drat_asts, e));
         }
         else {
             IF_VERBOSE(0, verbose_stream() << "logging binders is TBD\n");
@@ -82,7 +82,7 @@ namespace euf {
         if (m_drat_asts.contains(f))
             return;
         m_drat_asts.insert(f);
-        push(insert_obj_trail<solver, ast>(m_drat_asts, f));
+        push(insert_obj_trail< ast>(m_drat_asts, f));
         std::ostringstream strm;
         smt2_pp_environment_dbg env(m);
         ast_smt2_pp(strm, f, env);

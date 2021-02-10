@@ -754,7 +754,7 @@ namespace smt {
                 ptr_vector<enode>::const_iterator end = m_context->end_enodes();
                 unsigned sz = static_cast<unsigned>(end - it);
                 if (sz > m_new_enode_qhead) {
-                    m_context->push_trail(value_trail<context, unsigned>(m_new_enode_qhead));
+                    m_context->push_trail(value_trail<unsigned>(m_new_enode_qhead));
                     it += m_new_enode_qhead;
                     while (m_new_enode_qhead < sz) {
                         enode * e = *it;
@@ -799,7 +799,7 @@ namespace smt {
             if (use_ematching()) {
                 if (m_lazy_matching_idx < m_fparams->m_qi_max_lazy_multipattern_matching) {
                     m_lazy_mam->rematch();
-                    m_context->push_trail(value_trail<context, unsigned>(m_lazy_matching_idx));
+                    m_context->push_trail(value_trail<unsigned>(m_lazy_matching_idx));
                     m_lazy_matching_idx++;
                 }
             }

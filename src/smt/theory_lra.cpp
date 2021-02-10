@@ -298,7 +298,7 @@ class theory_lra::imp {
     }
 
     void found_unsupported(expr* n) {
-        ctx().push_trail(value_trail<context, expr*>(m_not_handled));
+        ctx().push_trail(value_trail<expr*>(m_not_handled));
         TRACE("arith", tout << "unsupported " << mk_pp(n, m) << "\n";);
         m_not_handled = n;    
     }
@@ -733,7 +733,7 @@ class theory_lra::imp {
 
     void updt_unassigned_bounds(theory_var v, int inc) {
         TRACE("arith", tout << "v" << v << " " << m_unassigned_bounds[v] << " += " << inc << "\n";);
-        ctx().push_trail(vector_value_trail<smt::context, unsigned, false>(m_unassigned_bounds, v));
+        ctx().push_trail(vector_value_trail<unsigned, false>(m_unassigned_bounds, v));
         m_unassigned_bounds[v] += inc;            
     }
        
@@ -1422,7 +1422,7 @@ public:
     void init_variable_values() {
         m_model_is_initialized = false;
         if (m.inc() && m_solver.get() && th.get_num_vars() > 0) {   
-            ctx().push_trail(value_trail<smt::context, bool>(m_model_is_initialized));
+            ctx().push_trail(value_trail<bool>(m_model_is_initialized));
             m_model_is_initialized = lp().init_model();
             TRACE("arith", display(tout << "update variable values " << m_model_is_initialized << "\n"););            
         }
@@ -1507,7 +1507,7 @@ public:
         }
             
         if (num_candidates > 0) {
-            ctx().push_trail(restore_size_trail<context, std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
+            ctx().push_trail(restore_size_trail<std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
         }
 
         return delayed_assume_eqs();
@@ -1517,7 +1517,7 @@ public:
         if (m_assume_eq_head == m_assume_eq_candidates.size())
             return false;
             
-        ctx().push_trail(value_trail<context, unsigned>(m_assume_eq_head));
+        ctx().push_trail(value_trail<unsigned>(m_assume_eq_head));
         while (m_assume_eq_head < m_assume_eq_candidates.size()) {
             std::pair<theory_var, theory_var> const & p = m_assume_eq_candidates[m_assume_eq_head];
             theory_var v1 = p.first;
@@ -2960,7 +2960,7 @@ public:
             if (b.first == UINT_MAX || (is_lower? b.second < v : b.second > v)) {
                 TRACE("arith", tout << "tighter bound " << tv.to_string() << "\n";);
                 m_history.push_back(vec[ti]);
-                ctx().push_trail(history_trail<context, constraint_bound>(vec, ti, m_history));
+                ctx().push_trail(history_trail<constraint_bound>(vec, ti, m_history));
                 b.first = ci;
                 b.second = v;
             }

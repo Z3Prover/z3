@@ -120,12 +120,12 @@ namespace q {
         return out;
     }
 
-    struct restore_watch : public trail<euf::solver> {
+    struct restore_watch : public trail {
         vector<unsigned_vector>& v;
         unsigned idx, offset;
         restore_watch(vector<unsigned_vector>& v, unsigned idx):
             v(v), idx(idx), offset(v[idx].size()) {}
-        void undo(euf::solver& ctx) override {
+        void undo() override {
             v[idx].shrink(offset);
         }
     };
@@ -191,20 +191,20 @@ namespace q {
         }
     }
 
-    struct ematch::remove_binding : public trail<euf::solver> {
+    struct ematch::remove_binding : public trail {
         clause& c;
         binding* b;
         remove_binding(clause& c, binding* b): c(c), b(b) {}
-        void undo(euf::solver& ctx) override {
+        void undo() override {
             binding::remove_from(c.m_bindings, b);
         }        
     };
 
-    struct ematch::insert_binding : public trail<euf::solver> {
+    struct ematch::insert_binding : public trail {
         clause& c;
         binding* b;
         insert_binding(clause& c, binding* b): c(c), b(b) {}
-        void undo(euf::solver& ctx) override {
+        void undo() override {
             binding::push_to_front(c.m_bindings, b);
         }
     };
@@ -306,7 +306,7 @@ namespace q {
             return nullptr;
         fingerprint* f = new (ctx.get_region()) fingerprint(c, b, max_generation);
         m_fingerprints.insert(f);
-        ctx.push(insert_map<euf::solver, fingerprints, fingerprint*>(m_fingerprints, f));
+        ctx.push(insert_map<fingerprints, fingerprint*>(m_fingerprints, f));
         return f;
     }
 
@@ -328,11 +328,11 @@ namespace q {
         return l.sign ? ~ctx.mk_literal(fml) : ctx.mk_literal(fml);
     }
 
-    struct ematch::reset_in_queue : public trail<euf::solver> {
+    struct ematch::reset_in_queue : public trail {
         ematch& e;
         reset_in_queue(ematch& e) :e(e) {}
 
-        void undo(euf::solver& ctx) override {
+        void undo() override {
             e.m_node_in_queue.reset();
             e.m_clause_in_queue.reset();
             e.m_in_queue_set = false;
@@ -362,7 +362,7 @@ namespace q {
         if (!m_clause_in_queue.contains(idx)) {
             m_clause_in_queue.insert(idx);
             m_clause_queue.push_back(idx);
-            ctx.push(push_back_vector<euf::solver, unsigned_vector>(m_clause_queue));
+            ctx.push(push_back_vector<unsigned_vector>(m_clause_queue));
         }
     }
 
@@ -418,10 +418,10 @@ namespace q {
         }
     }
 
-    struct ematch::pop_clause : public trail<euf::solver> {
+    struct ematch::pop_clause : public trail {
         ematch& em;
         pop_clause(ematch& em): em(em) {}
-        void undo(euf::solver& ctx) override {
+        void undo() override {
             em.m_q2clauses.remove(em.m_clauses.back()->q());
             dealloc(em.m_clauses.back());
             em.m_clauses.pop_back();
@@ -472,7 +472,7 @@ namespace q {
         bool propagated = false;
         if (m_qhead >= m_clause_queue.size())
             return m_inst_queue.propagate();
-        ctx.push(value_trail<euf::solver, unsigned>(m_qhead));
+        ctx.push(value_trail<unsigned>(m_qhead));
         ptr_buffer<binding> to_remove;
         for (; m_qhead < m_clause_queue.size(); ++m_qhead) {
             unsigned idx = m_clause_queue[m_qhead];

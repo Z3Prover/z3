@@ -31,7 +31,7 @@ namespace smt {
     void theory_arith<Ext>::found_unsupported_op(app * n) {
         if (!m_found_unsupported_op) {
             TRACE("arith", tout << "found non supported expression:\n" << mk_pp(n, m) << "\n";);
-            ctx.push_trail(value_trail<context, bool>(m_found_unsupported_op));
+            ctx.push_trail(value_trail<bool>(m_found_unsupported_op));
             m_found_unsupported_op = true;
         }
     }
@@ -39,10 +39,10 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::found_underspecified_op(app * n) {
         m_underspecified_ops.push_back(n);
-        ctx.push_trail(push_back_vector<context, ptr_vector<app>>(m_underspecified_ops));
+        ctx.push_trail(push_back_vector<ptr_vector<app>>(m_underspecified_ops));
         if (!m_found_underspecified_op) {
             TRACE("arith", tout << "found underspecified expression:\n" << mk_pp(n, m) << "\n";);
-            ctx.push_trail(value_trail<context, bool>(m_found_underspecified_op));
+            ctx.push_trail(value_trail<bool>(m_found_underspecified_op));
             m_found_underspecified_op = true;
         }
 
@@ -1492,7 +1492,7 @@ namespace smt {
             return FC_CONTINUE;
         if (delayed_assume_eqs())
             return FC_CONTINUE;
-        ctx.push_trail(value_trail<context, unsigned>(m_final_check_idx));
+        ctx.push_trail(value_trail<unsigned>(m_final_check_idx));
         m_liberal_final_check = true;
         m_changed_assignment  = false;
         final_check_status result = final_check_core();

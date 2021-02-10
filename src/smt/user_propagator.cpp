@@ -84,7 +84,7 @@ void user_propagator::new_fixed_eh(theory_var v, expr* value, unsigned num_lits,
     if (m_fixed.contains(v))
         return;
     m_fixed.insert(v);
-    ctx.push_trail(insert_map<context, uint_set, unsigned>(m_fixed, v));
+    ctx.push_trail(insert_map<uint_set, unsigned>(m_fixed, v));
     m_id2justification.setx(v, literal_vector(num_lits, jlits), literal_vector());
     m_fixed_eh(m_user_context, this, v, value);
 }
@@ -142,7 +142,7 @@ void user_propagator::propagate() {
         ++m_stats.m_num_propagations;
         ++qhead;
     }
-    ctx.push_trail(value_trail<context, unsigned>(m_qhead));
+    ctx.push_trail(value_trail<unsigned>(m_qhead));
     m_qhead = qhead;
 }
 

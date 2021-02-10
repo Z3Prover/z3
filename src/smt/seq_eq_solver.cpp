@@ -1148,7 +1148,7 @@ bool theory_seq::branch_variable_eq(eq const& e) {
 
 void theory_seq::insert_branch_start(unsigned k, unsigned s) {
     m_branch_start.insert(k, s);
-    m_trail_stack.push(pop_branch(k));
+    m_trail_stack.push(pop_branch(*this, k));
 }
 
 unsigned theory_seq::find_branch_start(unsigned k) {
@@ -1365,7 +1365,7 @@ bool theory_seq::check_length_coherence0(expr* e) {
 
         if (p || assume_equality(e, emp)) {
             if (!ctx.at_base_level()) {
-                m_trail_stack.push(push_replay(alloc(replay_length_coherence, m, e)));
+                m_trail_stack.push(push_replay(*this, alloc(replay_length_coherence, m, e)));
             }
             return true;
         }
@@ -1577,12 +1577,12 @@ bool theory_seq::is_ternary_eq_lhs(expr_ref_vector const& ls, expr_ref_vector co
     return false;
 }
 
-struct remove_obj_pair_map : public trail<context> {
+struct remove_obj_pair_map : public trail {
     obj_pair_hashtable<expr, expr> & m_map;
     expr* a, *b;
     remove_obj_pair_map(obj_pair_hashtable<expr, expr> & map, expr* a, expr* b):
         m_map(map), a(a), b(b) {}
-    void undo(context& ctx) override {
+    void undo() override {
         m_map.erase(std::make_pair(a, b));
     }
 };

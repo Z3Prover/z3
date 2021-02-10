@@ -23,21 +23,21 @@ Author:
 
 namespace bv {
 
-    class solver::add_var_pos_trail : public trail<euf::solver> {
+    class solver::add_var_pos_trail : public trail {
         solver::atom* m_atom;
     public:
         add_var_pos_trail(solver::atom* a) :m_atom(a) {}
-        void undo(euf::solver& euf) override {
+        void undo() override {
             SASSERT(m_atom->m_occs);
             m_atom->m_occs = m_atom->m_occs->m_next;
         }
     };
 
-    class solver::add_eq_occurs_trail : public trail<euf::solver> {
+    class solver::add_eq_occurs_trail : public trail {
         atom* m_atom;
     public:
         add_eq_occurs_trail(atom* a) :m_atom(a) {}
-        void undo(euf::solver& euf) override {
+        void undo() override {
             SASSERT(m_atom->m_eqs);
             m_atom->m_eqs = m_atom->m_eqs->m_next;
             if (m_atom->m_eqs)  
@@ -45,12 +45,12 @@ namespace bv {
         }
     };    
 
-    class solver::del_eq_occurs_trail : public trail<euf::solver> {
+    class solver::del_eq_occurs_trail : public trail {
         atom* m_atom;
         eq_occurs* m_node;
     public:
         del_eq_occurs_trail(atom* a, eq_occurs* n) : m_atom(a), m_node(n) {}
-        void undo(euf::solver& euf) override {
+        void undo() override {
             if (m_node->m_next)
                 m_node->m_next->m_prev = m_node;
             if (m_node->m_prev) 
@@ -71,12 +71,12 @@ namespace bv {
         ctx.push(del_eq_occurs_trail(a, occ));
     }
 
-    class solver::mk_atom_trail : public trail<euf::solver> {
+    class solver::mk_atom_trail : public trail {
         solver& th;
         sat::bool_var m_var;
     public:
         mk_atom_trail(sat::bool_var v, solver& th) : th(th), m_var(v) {}
-        void undo(euf::solver& euf) override {
+        void undo() override {
             solver::atom* a = th.get_bv2a(m_var);
             a->~atom();
             th.erase_bv2a(m_var);

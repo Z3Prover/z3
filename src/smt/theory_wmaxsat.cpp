@@ -161,8 +161,8 @@ namespace smt {
             scoped_mpz w(m_mpz);
             w = m_zweights[tv];
             ctx.push_trail(numeral_trail(m_zcost, m_old_values));
-            ctx.push_trail(push_back_vector<context, svector<theory_var> >(m_costs));
-            ctx.push_trail(value_trail<context, bool>(m_assigned[tv]));
+            ctx.push_trail(push_back_vector<svector<theory_var> >(m_costs));
+            ctx.push_trail(value_trail<bool>(m_assigned[tv]));
             m_zcost += w;
             TRACE("opt", tout << "Assign v" << tv << " weight: " << w << " cost: " << m_zcost << " " << mk_pp(m_vars[m_bool2var[v]].get(), get_manager()) << "\n";);
             m_costs.push_back(tv);
@@ -299,7 +299,7 @@ namespace smt {
         }
         // 
         if (max_unassigned > m_max_unassigned_index) {
-            ctx.push_trail(value_trail<context, unsigned>(m_max_unassigned_index));
+            ctx.push_trail(value_trail<unsigned>(m_max_unassigned_index));
             m_max_unassigned_index = max_unassigned;
         }
         if (max_unassigned < m_sorted_vars.size() && 

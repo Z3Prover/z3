@@ -1795,7 +1795,7 @@ namespace nlsat {
         }
 
         void resolve_clause(bool_var b, clause const & c) {
-            TRACE("nlsat_resolve", tout << "resolving clause for b: " << b << "\n";);
+            TRACE("nlsat_resolve", tout << "resolving clause for b: " << b << "\n"; display(tout, c) << "\n";);
             resolve_clause(b, c.size(), c.c_ptr());
             m_lemma_assumptions = m_asm.mk_join(static_cast<_assumption_set>(c.assumptions()), m_lemma_assumptions);
         }

@@ -476,7 +476,7 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
         return false;
     }
     
-    m_trail_stack.push(insert_obj_trail<theory_seq, expr>(m_fixed, e));
+    m_trail_stack.push(insert_obj_trail<expr>(m_fixed, e));
     m_fixed.insert(e);
 
     expr_ref seq(e, m), head(m), tail(m);
@@ -501,7 +501,7 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
         return false;
     add_axiom(~a, b);
     if (!ctx.at_base_level()) {
-        m_trail_stack.push(push_replay(alloc(replay_fixed_length, m, len_e)));
+        m_trail_stack.push(push_replay(*this, alloc(replay_fixed_length, m, len_e)));
     }
     return true;
 }
@@ -620,7 +620,7 @@ bool theory_seq::check_lts() {
         return false;
     }
     unsigned sz = m_lts.size();
-    m_trail_stack.push(value_trail<theory_seq, bool>(m_lts_checked));
+    m_trail_stack.push(value_trail<bool>(m_lts_checked));
     m_lts_checked = true;
     expr* a = nullptr, *b = nullptr, *c = nullptr, *d = nullptr;
     bool is_strict1, is_strict2;
@@ -941,7 +941,7 @@ bool theory_seq::solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep)
     for (expr* r : rs) {
         if (m_util.str.is_unit(r, u) && !m_is_digit.contains(u)) {
             m_is_digit.insert(u);
-            m_trail_stack.push(insert_obj_trail<theory_seq, expr>(m_is_digit, u));
+            m_trail_stack.push(insert_obj_trail<expr>(m_is_digit, u));
             literal is_digit = m_ax.is_digit(u);
             if (ctx.get_assignment(is_digit) != l_true) {
                 propagate_lit(dep, 0, nullptr, is_digit);
@@ -1508,8 +1508,8 @@ void theory_seq::add_length(expr* e, expr* l) {
     SASSERT(!m_has_length.contains(l));
     m_length.push_back(l);
     m_has_length.insert(e);
-    m_trail_stack.push(insert_obj_trail<theory_seq, expr>(m_has_length, e));
-    m_trail_stack.push(push_back_vector<theory_seq, expr_ref_vector>(m_length));
+    m_trail_stack.push(insert_obj_trail<expr>(m_has_length, e));
+    m_trail_stack.push(push_back_vector<expr_ref_vector>(m_length));
 }
 
 /**
@@ -1529,11 +1529,11 @@ void theory_seq::add_length_limit(expr* s, unsigned k, bool is_searching) {
     }
     m_length_limit_map.insert(s, k);
     m_length_limit.push_back(lim_e);    
-    m_trail_stack.push(push_back_vector<theory_seq, expr_ref_vector>(m_length_limit));    
+    m_trail_stack.push(push_back_vector<expr_ref_vector>(m_length_limit));    
     if (k0 != 0) {
-        m_trail_stack.push(remove_obj_map<theory_seq, expr, unsigned>(m_length_limit_map, s, k0));
+        m_trail_stack.push(remove_obj_map<expr, unsigned>(m_length_limit_map, s, k0));
     }
-    m_trail_stack.push(insert_obj_map<theory_seq, expr, unsigned>(m_length_limit_map, s));
+    m_trail_stack.push(insert_obj_map<expr, unsigned>(m_length_limit_map, s));
     if (is_searching) {
         expr_ref dlimit = m_sk.mk_max_unfolding_depth(m_max_unfolding_depth);
         add_axiom(~mk_literal(dlimit), mk_literal(lim_e));
@@ -1564,7 +1564,7 @@ bool theory_seq::add_length_to_eqc(expr* e) {
 
 void theory_seq::add_int_string(expr* e) {
     m_int_string.push_back(e);
-    m_trail_stack.push(push_back_vector<theory_seq, expr_ref_vector>(m_int_string));
+    m_trail_stack.push(push_back_vector<expr_ref_vector>(m_int_string));
 }
 
 bool theory_seq::check_int_string() {
@@ -2514,8 +2514,8 @@ void theory_seq::enque_axiom(expr* e) {
         TRACE("seq", tout << "add axiom " << mk_bounded_pp(e, m) << "\n";);
         m_axioms.push_back(e);
         m_axiom_set.insert(e);
-        m_trail_stack.push(push_back_vector<theory_seq, expr_ref_vector>(m_axioms));
-        m_trail_stack.push(insert_obj_trail<theory_seq, expr>(m_axiom_set, e));;
+        m_trail_stack.push(push_back_vector<expr_ref_vector>(m_axioms));
+        m_trail_stack.push(insert_obj_trail<expr>(m_axiom_set, e));;
     }
 }
 
@@ -2524,7 +2524,7 @@ void theory_seq::deque_axiom(expr* n) {
     if (m_util.str.is_length(n)) {
         m_ax.add_length_axiom(n);
         if (!ctx.at_base_level()) {
-            m_trail_stack.push(push_replay(alloc(replay_axiom, m, n)));
+            m_trail_stack.push(push_replay(*this, alloc(replay_axiom, m, n)));
         }
     }
     else if (m_util.str.is_empty(n) && !has_length(n) && !m_has_length.empty()) {
@@ -3034,7 +3034,7 @@ void theory_seq::push_scope_eh() {
     m_exclude.push_scope();
     m_dm.push_scope();
     m_trail_stack.push_scope();
-    m_trail_stack.push(value_trail<theory_seq, unsigned>(m_axioms_head));
+    m_trail_stack.push(value_trail<unsigned>(m_axioms_head));
     m_eqs.push_scope();
     m_nqs.push_scope();
     m_ncs.push_scope();
@@ -3099,8 +3099,8 @@ void theory_seq::relevant_eh(app* n) {
     if (m_util.str.is_replace_all(n) ||
         m_util.str.is_replace_re(n) ||
         m_util.str.is_replace_re_all(n) ||
-        m_util.str.is_from_code(n) ||
-        m_util.str.is_to_code(n) ||
+        // m_util.str.is_from_code(n) ||
+        // m_util.str.is_to_code(n) ||
         m_util.str.is_is_digit(n)) {
         add_unhandled_expr(n);
     }
@@ -3108,7 +3108,7 @@ void theory_seq::relevant_eh(app* n) {
 
 void theory_seq::add_unhandled_expr(expr* n) {
     if (!m_unhandled_expr) {
-        ctx.push_trail(value_trail<context, expr*>(m_unhandled_expr));
+        ctx.push_trail(value_trail<expr*>(m_unhandled_expr));
         m_unhandled_expr = n;
     }
 }
@@ -3118,7 +3118,7 @@ void theory_seq::add_theory_assumptions(expr_ref_vector & assumptions) {
     if (m_has_seq) {
         TRACE("seq", tout << "add_theory_assumption\n";);
         expr_ref dlimit = m_sk.mk_max_unfolding_depth(m_max_unfolding_depth);
-        m_trail_stack.push(value_trail<theory_seq, literal>(m_max_unfolding_lit));
+        m_trail_stack.push(value_trail<literal>(m_max_unfolding_lit));
         m_max_unfolding_lit = mk_literal(dlimit);        
         assumptions.push_back(dlimit);
         for (auto const& kv : m_length_limit_map) {

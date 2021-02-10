@@ -173,7 +173,7 @@ namespace q {
         m.inc_ref(q_flat);
         m.inc_ref(q);
         m_flat.insert(q, q_flat);
-        ctx.push(insert_ref2_map<euf::solver, ast_manager, quantifier, quantifier>(m, m_flat, q, q_flat));
+        ctx.push(insert_ref2_map<ast_manager, quantifier, quantifier>(m, m_flat, q, q_flat));
         return q_flat;
     }
 
@@ -188,7 +188,7 @@ namespace q {
             if (m_unit_table.contains(s))
                 continue;
             m_unit_table.insert(s, e);
-            ctx.push(insert_map<euf::solver, obj_map<sort, expr*>, sort*>(m_unit_table, s));
+            ctx.push(insert_map<obj_map<sort, expr*>, sort*>(m_unit_table, s));
         }
     }
 
@@ -203,7 +203,7 @@ namespace q {
         expr* val = mdl.get_some_value(s);
         m.inc_ref(val);
         m.inc_ref(s);
-        ctx.push(insert_ref2_map<euf::solver, ast_manager, sort, expr>(m, m_unit_table, s, val));
+        ctx.push(insert_ref2_map<ast_manager, sort, expr>(m, m_unit_table, s, val));
         return val;
     }
 

@@ -24,26 +24,26 @@ Author:
 
 namespace bv {
 
-    class solver::bit_trail : public trail<euf::solver> {
+    class solver::bit_trail : public trail {
         solver& s;
         solver::var_pos vp;
         sat::literal lit;
     public:
         bit_trail(solver& s, var_pos vp) : s(s), vp(vp), lit(s.m_bits[vp.first][vp.second]) {}
 
-        virtual void undo(euf::solver& euf) {
+        void undo() override {
             s.m_bits[vp.first][vp.second] = lit;
         }
     };
 
-    class solver::bit_occs_trail : public trail<euf::solver> {
+    class solver::bit_occs_trail : public trail {
         atom& a;
         var_pos_occ* m_occs;
 
     public:
         bit_occs_trail(solver& s, atom& a): a(a), m_occs(a.m_occs) {}
         
-        virtual void undo(euf::solver& euf) {
+        void undo() override {
             a.m_occs = m_occs;
         }
     };
@@ -413,7 +413,7 @@ namespace bv {
         if (m_prop_queue_head == m_prop_queue.size())
             return false;
         force_push();
-        ctx.push(value_trail<euf::solver, unsigned>(m_prop_queue_head));
+        ctx.push(value_trail<unsigned>(m_prop_queue_head));
         for (; m_prop_queue_head < m_prop_queue.size() && !s().inconsistent(); ++m_prop_queue_head) {
             auto const p = m_prop_queue[m_prop_queue_head];
             if (p.m_atom) {
@@ -559,7 +559,7 @@ namespace bv {
             SASSERT(l2.var() == l.var());
             VERIFY(l2.var() == l.var());
             sat::literal r2 = (l.sign() == l2.sign()) ? r : ~r;
-            ctx.push(vector2_value_trail<euf::solver, bits_vector, sat::literal>(m_bits, vp.first, vp.second));
+            ctx.push(vector2_value_trail<bits_vector, sat::literal>(m_bits, vp.first, vp.second));
             m_bits[vp.first][vp.second] = r2;
             set_bit_eh(vp.first, r2, vp.second);
         }

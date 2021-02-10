@@ -64,7 +64,7 @@ namespace smt {
         rational get_cost();
         void init_min_cost(rational const& r);
 
-        class numeral_trail : public trail<context> {
+        class numeral_trail : public trail {
             typedef scoped_mpz T;
             T & m_value;
             scoped_mpz_vector&  m_old_values;            
@@ -78,7 +78,7 @@ namespace smt {
             ~numeral_trail() override {
             }
             
-            void undo(context & ctx) override {
+            void undo() override {
                 m_value = m_old_values.back();
                 m_old_values.shrink(m_old_values.size() - 1);
             }

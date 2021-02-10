@@ -11,6 +11,7 @@ Usage:
 import common_z3 as CM_Z3
 """
 
+import ctypes
 from .z3 import *
 
 def vset(seq, idfun=None, as_list=True):
@@ -52,8 +53,8 @@ def get_z3_version(as_str=False):
     minor = ctypes.c_uint(0)
     build = ctypes.c_uint(0)
     rev   = ctypes.c_uint(0)
-    Z3_get_version(major,minor,build,rev)
-    rs = map(int,(major.value,minor.value,build.value,rev.value))
+    Z3_get_version(major,minor, build, rev)
+    rs = map(int, (major.value, minor.value, build.value, rev.value))
     if as_str:
         return "{}.{}.{}.{}".format(*rs)
     else:
@@ -69,7 +70,7 @@ def ehash(v):
     Note: the following doctests will fail with Python 2.x as the
     default formatting doesn't match that of 3.x.
     >>> x1 = Bool('x'); x2 = Bool('x'); x3 = Int('x')
-    >>> print(x1.hash(),x2.hash(),x3.hash()) #BAD: all same hash values
+    >>> print(x1.hash(), x2.hash(), x3.hash()) #BAD: all same hash values
     783810685 783810685 783810685
     >>> print(ehash(x1), ehash(x2), ehash(x3))
     x_783810685_1 x_783810685_1 x_783810685_2
@@ -78,7 +79,7 @@ def ehash(v):
     if z3_debug():
         assert is_expr(v)
 
-    return "{}_{}_{}".format(str(v),v.hash(),v.sort_kind())
+    return "{}_{}_{}".format(str(v), v.hash(), v.sort_kind())
 
 
 """
@@ -140,7 +141,7 @@ def is_expr_val(v):
 
 
 
-def get_vars(f,rs=[]):
+def get_vars(f, rs = None):
     """
     >>> x,y = Ints('x y')
     >>> a,b = Bools('a b')
@@ -148,6 +149,9 @@ def get_vars(f,rs=[]):
     [x, y, a, b]
 
     """
+    if rs is None:
+        rs = []
+        
     if z3_debug():
         assert is_expr(f)
 
@@ -159,13 +163,13 @@ def get_vars(f,rs=[]):
 
     else:
         for f_ in f.children():
-            rs = get_vars(f_,rs)
+            rs = get_vars(f_, rs)
 
-        return vset(rs,str)
+        return vset(rs, str)
 
 
 
-def mk_var(name,vsort):
+def mk_var(name, vsort):
     if vsort.kind() == Z3_INT_SORT:
         v = Int(name)
     elif vsort.kind() == Z3_REAL_SORT:
@@ -173,12 +177,10 @@ def mk_var(name,vsort):
     elif vsort.kind() == Z3_BOOL_SORT:
         v = Bool(name)
     elif vsort.kind() == Z3_DATATYPE_SORT:
-        v = Const(name,vsort)
-
+        v = Const(name, vsort)
     else:
-        assert False, 'Cannot handle this sort (s: %sid: %d)'\
-            %(vsort,vsort.kind())
-
+        raise TypeError('Cannot handle this sort (s: %sid: %d)' %(vsort,vsort.kind()))
+    
     return v
 
 
@@ -231,7 +233,6 @@ def prove(claim,assume=None,verbose=0):
     if z3_debug():
         assert not assume or is_expr(assume)
 
-
     to_prove = claim
     if assume:
         if z3_debug():
@@ -246,8 +247,6 @@ def prove(claim,assume=None,verbose=0):
             assert is_proved==False, _f()
 
         to_prove = Implies(assume,to_prove)
-
-
 
     if verbose >= 2:
         print('assume: ')
@@ -314,10 +313,8 @@ def get_models(f,k):
 
     if z3_debug():
         assert is_expr(f)
-        assert k>=1
+        assert k >= 1
     
-
-
     s = Solver()
     s.add(f)
 
@@ -325,12 +322,9 @@ def get_models(f,k):
     i = 0
     while s.check() == sat and i < k:
         i = i + 1
-
         m = s.model()
-
         if not m: #if m == []
             break
-
         models.append(m)
 
 
@@ -341,7 +335,7 @@ def get_models(f,k):
     
     if s.check() == unknown:
         return None
-    elif s.check() == unsat and i==0:
+    elif s.check() == unsat and i == 0:
         return False
     else:
         return models
@@ -461,26 +455,26 @@ def myBinOp(op,*L):
     if L:
         if len(L)==1:
             return L[0]
-        else:
-            if op ==  Z3_OP_OR:
-                return Or(L)
-            elif op == Z3_OP_AND:
-                return And(L)
-            else:   #IMPLIES
-                return Implies(L[0],L[1])
+        if op ==  Z3_OP_OR:
+            return Or(L)
+        if op == Z3_OP_AND:
+            return And(L)        
+        return Implies(L[0],L[1])
     else:
         return None
 
 
-def myAnd(*L): return myBinOp(Z3_OP_AND,*L)
-def myOr(*L): return myBinOp(Z3_OP_OR,*L)
-def myImplies(a,b):return myBinOp(Z3_OP_IMPLIES,[a,b])
+def myAnd(*L):
+    return myBinOp(Z3_OP_AND,*L)
+
+def myOr(*L):
+    return myBinOp(Z3_OP_OR,*L)
+
+def myImplies(a,b):
+    return myBinOp(Z3_OP_IMPLIES,[a,b])
     
 
-
 Iff = lambda f: And(Implies(f[0],f[1]),Implies(f[1],f[0]))
-
-
 
 def model_str(m,as_str=True):
     """

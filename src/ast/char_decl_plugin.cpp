@@ -15,8 +15,6 @@ Author:
 
 
 --*/
-#pragma once
-
 #include "util/gparams.h"
 #include "ast/char_decl_plugin.h"
 #include "ast/ast_pp.h"

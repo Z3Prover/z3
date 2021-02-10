@@ -247,8 +247,8 @@ namespace q {
             var_subst subst(m);
             result = alloc(q_body, m);
             m_q2body.insert(q, result);
-            ctx.push(new_obj_trail<euf::solver, q_body>(result));
-            ctx.push(insert_obj_map<euf::solver, quantifier, q_body*>(m_q2body, q));
+            ctx.push(new_obj_trail<q_body>(result));
+            ctx.push(insert_obj_map<quantifier, q_body*>(m_q2body, q));
             app_ref_vector& vars = result->vars;
             vars.resize(sz, nullptr);
             for (unsigned i = 0; i < sz; ++i) {

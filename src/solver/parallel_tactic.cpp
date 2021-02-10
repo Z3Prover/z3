@@ -288,11 +288,15 @@ class parallel_tactic : public tactic {
         }
 
         bool giveup() {
+            if (m_giveup)
+                return m_giveup;
             std::string r = get_solver().reason_unknown(); 
             std::string inc("(incomplete");
             m_giveup |= r.compare(0, inc.size(), inc) == 0;
             inc = "(sat.giveup";
             m_giveup |= r.compare(0, inc.size(), inc) == 0;
+            if (m_giveup)
+                IF_VERBOSE(0, verbose_stream() << r << "\n");
             return m_giveup;
         }
 
@@ -372,6 +376,7 @@ private:
     unsigned      m_last_depth;
     int           m_exn_code;
     std::string   m_exn_msg;
+    std::string   m_reason_undef;
 
     void init() {
         parallel_params pp(m_params);
@@ -448,7 +453,10 @@ private:
             m_models.push_back(mdl.get());
         }
         else if (m_models.empty()) {
-            m_has_undef = true;
+            if (!m_has_undef) {
+                m_has_undef = true;
+                m_reason_undef = "incomplete";
+            }
         }
         if (!m_allsat) {
             m_queue.shutdown();
@@ -471,8 +479,14 @@ private:
         }
     }
         
-    void report_undef(solver_state& s) {
-        m_has_undef = true;
+    void report_undef(solver_state& s, std::string const& reason) {
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (!m_has_undef) {
+                m_has_undef = true;
+                m_reason_undef = reason;
+            }
+        }
         close_branch(s, l_undef);
     }
 
@@ -508,7 +522,7 @@ private:
         case l_false: report_unsat(s); return;                
         }
         if (canceled(s)) return;
-        if (s.giveup()) { report_undef(s); return; }
+        if (s.giveup()) { report_undef(s, s.get_solver().reason_unknown()); return; }
         
         if (memory_pressure()) {
             goto simplify_again;
@@ -525,7 +539,7 @@ private:
             expr_ref_vector c = s.get_solver().cube(vars, cutoff);
             if (c.empty() || (cube.size() == 1 && m.is_true(c.back()))) {
                 if (num_simplifications > 1) {
-                    report_undef(s); 
+                    report_undef(s, std::string("cube simplifications exceeded")); 
                     return;
                 }
                 goto simplify_again;
@@ -773,9 +787,10 @@ public:
             g->assert_expr(m.mk_false(), pr, lcore);            
             break;
         case l_undef:
-            if (!m.inc()) {
+            if (!m.inc()) 
                 throw tactic_exception(Z3_CANCELED_MSG);
-            }
+            if (m_has_undef)
+                throw tactic_exception(m_reason_undef.c_str());
             break;
         }
         result.push_back(g.get());
@@ -812,6 +827,7 @@ public:
     void reset_statistics() override {
         m_stats.reset();
     }
+
 };
 
 

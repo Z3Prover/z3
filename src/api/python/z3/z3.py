@@ -50,7 +50,10 @@ import sys
 import io
 import math
 import copy
-from typing import Iterable
+if sys.version < '3':
+    pass
+else:
+    from typing import Iterable
 
 Z3_DEBUG = __debug__
 
@@ -7513,7 +7516,7 @@ class Optimize(Z3PPObject):
         def asoft(a):
             v = Z3_optimize_assert_soft(self.ctx.ref(), self.optimize, a.as_ast(), weight, id)
             return OptimizeObjective(self, v, False)
-        if isinstance(arg, Iterable):
+        if sys.version >= '3' and isinstance(arg, Iterable):
             return [asoft(a) for a in arg]
         return asoft(arg)
 
@@ -7607,6 +7610,11 @@ class Optimize(Z3PPObject):
         return Statistics(Z3_optimize_get_statistics(self.ctx.ref(), self.optimize), self.ctx)
 
     def set_on_model(self, on_model):
+        """Register a callback that is invoked with every incremental improvement to
+        objective values. The callback takes a model as argument.
+        The life-time of the model is limited to the callback so the
+        model has to be (deep) copied if it is to be used after the callback
+        """
         id  = len(_on_models) + 41
         mdl = Model(self.ctx)
         _on_models[id] = (on_model, mdl)

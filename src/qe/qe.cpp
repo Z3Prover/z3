@@ -1310,7 +1310,7 @@ namespace qe {
     typedef ref_vector_ptr_hash<expr, ast_manager> expr_ref_vector_hash;
     typedef ref_vector_ptr_eq<expr, ast_manager>   expr_ref_vector_eq;
     typedef hashtable<expr_ref_vector*, expr_ref_vector_hash, expr_ref_vector_eq> clause_table;
-    typedef value_trail<smt::context, unsigned> _value_trail;
+    typedef value_trail<unsigned> _value_trail;
 
 
     class quant_elim_plugin : public i_solver_context {

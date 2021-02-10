@@ -209,8 +209,8 @@ namespace smt {
                 m_vals.insert(s, v);
                 add_trail(r);
                 add_trail(v);
-                ctx.push_trail(insert_obj_map<context,sort,func_decl*>(m_reps, s));
-                ctx.push_trail(insert_obj_map<context,sort,func_decl*>(m_vals, s));
+                ctx.push_trail(insert_obj_map<sort,func_decl*>(m_reps, s));
+                ctx.push_trail(insert_obj_map<sort,func_decl*>(m_vals, s));
             }
         }
 
@@ -283,7 +283,7 @@ namespace smt {
 
         void add_trail(ast* a) {
             m_trail.push_back(a);
-            ctx.push_trail(push_back_vector<context,ast_ref_vector>(m_trail));
+            ctx.push_trail(push_back_vector<ast_ref_vector>(m_trail));
         }
                 
     };

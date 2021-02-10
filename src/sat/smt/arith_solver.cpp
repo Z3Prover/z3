@@ -423,7 +423,7 @@ namespace arith {
             if (b.first == UINT_MAX || (is_lower ? b.second < v : b.second > v)) {
                 TRACE("arith", tout << "tighter bound " << tv.to_string() << "\n";);
                 m_history.push_back(vec[ti]);
-                ctx.push(history_trail<euf::solver, constraint_bound>(vec, ti, m_history));
+                ctx.push(history_trail<constraint_bound>(vec, ti, m_history));
                 b.first = ci;
                 b.second = v;
             }
@@ -765,7 +765,7 @@ namespace arith {
 
     void solver::updt_unassigned_bounds(theory_var v, int inc) {
         TRACE("arith_verbose", tout << "v" << v << " " << m_unassigned_bounds[v] << " += " << inc << "\n";);
-        ctx.push(vector_value_trail<euf::solver, unsigned, false>(m_unassigned_bounds, v));
+        ctx.push(vector_value_trail<unsigned, false>(m_unassigned_bounds, v));
         m_unassigned_bounds[v] += inc;
     }
 
@@ -792,7 +792,7 @@ namespace arith {
     void solver::init_model() {
         if (m.inc() && m_solver.get() && get_num_vars() > 0) {
             TRACE("arith", display(tout << "update variable values\n"););
-            ctx.push(value_trail<euf::solver, bool>(m_model_is_initialized));
+            ctx.push(value_trail<bool>(m_model_is_initialized));
             m_model_is_initialized = true;
             lp().init_model();
         }
@@ -895,7 +895,7 @@ namespace arith {
         }
 
         if (m_assume_eq_candidates.size() > old_sz)
-            ctx.push(restore_size_trail<euf::solver, std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
+            ctx.push(restore_size_trail<std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
 
         return delayed_assume_eqs();
     }
@@ -904,7 +904,7 @@ namespace arith {
         if (m_assume_eq_head == m_assume_eq_candidates.size())
             return false;
 
-        ctx.push(value_trail<euf::solver, unsigned>(m_assume_eq_head));
+        ctx.push(value_trail<unsigned>(m_assume_eq_head));
         while (m_assume_eq_head < m_assume_eq_candidates.size()) {
             std::pair<theory_var, theory_var> const& p = m_assume_eq_candidates[m_assume_eq_head];
             theory_var v1 = p.first;

@@ -2138,7 +2138,7 @@ void theory_arith<Ext>::update_statistics(grobner & gb) {
 template<typename Ext>
 void theory_arith<Ext>::set_gb_exhausted() {
     IF_VERBOSE(3, verbose_stream() << "Grobner basis computation interrupted. Increase threshold using NL_ARITH_GB_THRESHOLD=<limit>\n";);
-    ctx.push_trail(value_trail<context, bool>(m_nl_gb_exhausted));
+    ctx.push_trail(value_trail<bool>(m_nl_gb_exhausted));
     m_nl_gb_exhausted = true;
 }
 
@@ -2314,7 +2314,7 @@ final_check_status theory_arith<Ext>::process_non_linear() {
         return FC_GIVEUP;
     }
 
-    ctx.push_trail(value_trail<context, unsigned>(m_nl_rounds));
+    ctx.push_trail(value_trail<unsigned>(m_nl_rounds));
     m_nl_rounds++;
 
     elim_quasi_base_rows();
@@ -2338,7 +2338,7 @@ final_check_status theory_arith<Ext>::process_non_linear() {
 
     bool progress;
     unsigned old_idx = m_nl_strategy_idx;
-    ctx.push_trail(value_trail<context, unsigned>(m_nl_strategy_idx));
+    ctx.push_trail(value_trail<unsigned>(m_nl_strategy_idx));
 
     do {
         progress = false;

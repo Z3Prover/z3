@@ -99,7 +99,7 @@ struct dl_context {
     void register_predicate(func_decl* pred, unsigned num_kinds, symbol const* kinds) {
         if (m_collected_cmds) {
             m_collected_cmds->m_rels.push_back(pred);
-            m_trail.push(push_back_vector<dl_context, func_decl_ref_vector>(m_collected_cmds->m_rels));
+            m_trail.push(push_back_vector<func_decl_ref_vector>(m_collected_cmds->m_rels));
         }
         dlctx().register_predicate(pred, false);
         dlctx().set_predicate_representation(pred, num_kinds, kinds);
@@ -111,8 +111,8 @@ struct dl_context {
             expr_ref rl = m_context->bind_vars(rule, true);
             m_collected_cmds->m_rules.push_back(rl);
             m_collected_cmds->m_names.push_back(name);
-            m_trail.push(push_back_vector<dl_context, expr_ref_vector>(m_collected_cmds->m_rules));
-            m_trail.push(push_back_vector<dl_context, svector<symbol> >(m_collected_cmds->m_names));
+            m_trail.push(push_back_vector<expr_ref_vector>(m_collected_cmds->m_rules));
+            m_trail.push(push_back_vector<svector<symbol> >(m_collected_cmds->m_names));
         }
         else {
         m_context->add_rule(rule, name, bound);
@@ -130,7 +130,7 @@ struct dl_context {
             qr = m.mk_app(q, args.size(), args.c_ptr());
             qr = m_context->bind_vars(qr, false);
             m_collected_cmds->m_queries.push_back(qr);
-            m_trail.push(push_back_vector<dl_context, expr_ref_vector>(m_collected_cmds->m_queries));
+            m_trail.push(push_back_vector<expr_ref_vector>(m_collected_cmds->m_queries));
             return true;
         }
         else {

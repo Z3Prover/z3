@@ -345,9 +345,9 @@ namespace bv {
 
     void solver::set_delay_internalize(expr* e, internalize_mode mode) {
         if (!m_delay_internalize.contains(e))
-            ctx.push(insert_obj_map<euf::solver, expr, internalize_mode>(m_delay_internalize, e));
+            ctx.push(insert_obj_map<expr, internalize_mode>(m_delay_internalize, e));
         else 
-            ctx.push(remove_obj_map<euf::solver, expr, internalize_mode>(m_delay_internalize, e, m_delay_internalize[e]));
+            ctx.push(remove_obj_map<expr, internalize_mode>(m_delay_internalize, e, m_delay_internalize[e]));
         m_delay_internalize.insert(e, mode);
     }
 

@@ -86,14 +86,14 @@ public:
 class theory_str_contain_pair_bool_map_t : public obj_pair_map<expr, expr, expr*> {};
 
 template<typename Ctx>
-class binary_search_trail : public trail<Ctx> {
+class binary_search_trail : public trail {
     obj_map<expr, ptr_vector<expr> > & target;
     expr * entry;
 public:
     binary_search_trail(obj_map<expr, ptr_vector<expr> > & target, expr * entry) :
         target(target), entry(entry) {}
     ~binary_search_trail() override {}
-    void undo(Ctx & ctx) override {
+    void undo() override {
         TRACE("t_str_binary_search", tout << "in binary_search_trail::undo()" << std::endl;);
         if (target.contains(entry)) {
             if (!target[entry].empty()) {

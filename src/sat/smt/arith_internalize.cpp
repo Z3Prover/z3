@@ -47,7 +47,7 @@ namespace arith {
             get_one(false);
             get_zero(true);
             get_zero(false);
-            ctx.push(value_trail<euf::solver, bool>(m_internalize_initialized));
+            ctx.push(value_trail<bool>(m_internalize_initialized));
             m_internalize_initialized = true;
         }
     }
@@ -89,7 +89,7 @@ namespace arith {
     }
 
     void solver::found_unsupported(expr* n) {
-        ctx.push(value_trail<euf::solver, expr*>(m_not_handled));
+        ctx.push(value_trail<expr*>(m_not_handled));
         TRACE("arith", tout << "unsupported " << mk_pp(n, m) << "\n";);
         m_not_handled = n;
     }
@@ -125,7 +125,7 @@ namespace arith {
         if (var != UINT_MAX) {
             return var;
         }
-        ctx.push(value_trail<euf::solver, lpvar>(var));
+        ctx.push(value_trail<lpvar>(var));
         app_ref cnst(a.mk_numeral(rational(c), is_int), m);
         mk_enode(cnst);
         theory_var v = mk_evar(cnst);

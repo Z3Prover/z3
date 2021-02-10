@@ -247,12 +247,12 @@ namespace euf {
         template <typename V>
         void push_vec(ptr_vector<V>& vec, V* val) {
             vec.push_back(val);
-            push(push_back_trail<solver, V*, false>(vec));
+            push(push_back_trail< V*, false>(vec));
         }
         template <typename V>
         void push_vec(svector<V>& vec, V val) {
             vec.push_back(val);
-            push(push_back_trail<solver, V, false>(vec));
+            push(push_back_trail< V, false>(vec));
         }
         euf_trail_stack& get_trail_stack() { return m_trail; }
 

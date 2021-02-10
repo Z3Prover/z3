@@ -58,7 +58,7 @@ literal_vector collect_induction_literals::pre_select() {
     }
     TRACE("induction", ctx.display(tout << "literal index: " << m_literal_index << "\n" << result << "\n"););
 
-    ctx.push_trail(value_trail<context, unsigned>(m_literal_index));
+    ctx.push_trail(value_trail<unsigned>(m_literal_index));
     m_literal_index = ctx.assigned_literals().size();
     return result;
 }
