@@ -48,7 +48,7 @@ addons:
       - default-jdk
 
 before_install:
-  - if [ ${TRAVIS_OS_NAME} = "linux" ]; then sudo apt-get update -qq; sudo apt-get install gcc-snapshot fakeroot debhelper dh-python python3 cmake javahelper default-jdk; fi
+  - if [ ${TRAVIS_OS_NAME} = "linux" ]; then sudo apt-get update -qq; sudo apt-get install gcc-10 g++-10 fakeroot debhelper dh-python python3 cmake javahelper default-jdk; fi
 
 script:
   - fakeroot ./debian/rules clean build install binary

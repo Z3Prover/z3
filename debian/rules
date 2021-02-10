@@ -6,8 +6,8 @@
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 export DEB_CXXFLAGS_MAINT_APPEND = -fPIC
 
-export CC=/usr/lib/gcc-snapshot/bin/gcc
-export CXX=/usr/lib/gcc-snapshot/bin/g++
+export CC=gcc-10
+export CXX=g++-10
 export DEB_BUILD_OPTIONS=parallel=2
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
