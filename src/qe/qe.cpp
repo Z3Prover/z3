@@ -1656,10 +1656,9 @@ namespace qe {
                 return false;
             }
 
-            unsigned_vector& vec = m_partition.back();;
-            for (unsigned i = 0; i < vec.size(); ++i) {
-                vars.push_back(m_current->free_var(vec[i]));
-            }
+            unsigned_vector& vec = m_partition.back();
+            for (auto v : vec)
+                vars.push_back(m_current->free_var(v));
             m_partition.pop_back();
             return true;
         }

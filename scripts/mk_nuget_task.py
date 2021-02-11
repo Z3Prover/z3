@@ -25,6 +25,7 @@ def mk_dir(d):
 os_info = {"z64-ubuntu-14" : ('so', 'ubuntu.14.04-x64'),
            'ubuntu-18' : ('so', 'ubuntu-x64'),
            'ubuntu-20' : ('so', 'ubuntu-x64'),
+           'glibc-2.31' : ('so', 'glibc-x64'),
            'x64-win' : ('dll', 'win-x64'),
            'x86-win' : ('dll', 'win-x86'),
            'osx' : ('dylib', 'macos'),
@@ -35,6 +36,7 @@ def classify_package(f):
         if os_name in f:
             ext, dst = os_info[os_name]
             return os_name, f[:-4], ext, dst
+    print("Could not classify", f)
     return None
 
 def replace(src, dst):
@@ -49,9 +51,7 @@ def unpack(packages, symbols):
     # +- runtimes
     #    +- win-x64
     #    +- win-x86
-    #    +- ubuntu.16.04-x64
-    #    +- ubuntu.14.04-x64
-    #    +- debian.8-x64
+    #    +- ubuntu-x64
     #    +- macos
     # +
     tmp = "tmp" if not symbols else "tmpsym"

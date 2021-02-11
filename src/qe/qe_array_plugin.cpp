@@ -264,21 +264,16 @@ namespace qe {
         bool is_array_app_of(app* a, unsigned& idx, expr* t, decl_kind k, vector<ptr_vector<expr> >& args) {
             if (m_ctx.is_var(a, idx)) {
                 contains_app& contains_v = m_ctx.contains(idx);
-                if (args.empty() || contains_v(t)) {
+                if (args.empty() || contains_v(t)) 
                     return false;
-                }
-                for (unsigned i = 0; i < args.size(); ++i) {
-                    for (unsigned j = 0; j < args[i].size(); ++j) {
-                        if (contains_v(args[i][j])) {
+                for (auto const& vs : args)
+                    for (auto v : vs)
+                        if (contains_v(v))
                             return false;
-                        }
-                    }
-                }
                 return true;
             }            
-            if (!is_app_of(a, m_fid, k)) {
+            if (!is_app_of(a, m_fid, k)) 
                 return false;
-            }
             args.push_back(ptr_vector<expr>());
             for (unsigned i = 1; i < a->get_num_args(); ++i) {
                 args.back().push_back(a->get_arg(i));
