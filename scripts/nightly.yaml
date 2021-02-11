@@ -71,7 +71,7 @@ stages:
   - job: Manylinux
     displayName: "Manylinux build"
     pool:
-      vmImage: "ubuntu-latest"
+      vmImage: "Ubuntu-18.04"
     container: "quay.io/pypa/manylinux2010_x86_64:latest"
     variables:
       python: "/opt/python/cp35-cp35m/bin/python"
