@@ -94,7 +94,7 @@ def create_nuget_spec():
     contents = """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
-        <id>Microsoft.Z3.x64</id>
+        <id>Microsoft.Z3</id>
         <version>{0}</version>
         <authors>Microsoft</authors>
         <description>
@@ -119,7 +119,7 @@ Linux Dependencies:
     </metadata>
 </package>""".format(release_version, release_commit)
 
-    with open("out/Microsoft.Z3.x64.nuspec", 'w') as f:
+    with open("out/Microsoft.Z3.nuspec", 'w') as f:
         f.write(contents)
         
 def create_nuget_package():
