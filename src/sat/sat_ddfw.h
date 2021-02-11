@@ -107,12 +107,7 @@ namespace sat {
             use_list(ddfw& p, literal lit):
                 p(p), i(lit.index()) {}
             unsigned const* begin() { return p.m_flat_use_list.c_ptr() + p.m_use_list_index[i]; }
-            unsigned const* end() {
-                if (p.m_use_list_index.size() <= i + 1) { 
-                    std::cout << "out of bounds\n"; 
-                } 
-                VERIFY(p.m_use_list_index.size() > i + 1);  return p.m_flat_use_list.c_ptr() + p.m_use_list_index[i + 1];
-            }
+            unsigned const* end() { return p.m_flat_use_list.c_ptr() + p.m_use_list_index[i + 1]; }
         };
 
         void flatten_use_list(); 

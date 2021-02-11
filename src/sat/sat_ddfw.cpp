@@ -224,7 +224,6 @@ namespace sat {
             m_flat_use_list.append(ul);
         }
         m_use_list_index.push_back(m_flat_use_list.size());
-//        m_use_list_index.push_back(m_flat_use_list.size());
     }
 
 
