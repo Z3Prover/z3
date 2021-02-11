@@ -168,13 +168,13 @@ stages:
       displayName: 'NuGet Pack Symbols'
       inputs:
         command: custom
-        arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.sym.nuspec -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
+        arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.sym.nuspec -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
     - task: EsrpCodeSigning@1
       displayName: 'Sign Package'
       inputs:
         ConnectedServiceName: 'z3-esrp-signing'
         FolderPath: $(Build.ArtifactStagingDirectory)
-        Pattern: Microsoft.Z3.x64.$(ReleaseVersion).nupkg
+        Pattern: Microsoft.Z3.$(ReleaseVersion).nupkg
         signConfigType: 'inlineSignParams'
         inlineOperation: |
           [
@@ -201,7 +201,7 @@ stages:
       inputs:
         ConnectedServiceName: 'z3-esrp-signing'
         FolderPath: $(Build.ArtifactStagingDirectory)
-        Pattern: Microsoft.Z3.x64.$(ReleaseVersion).snupkg
+        Pattern: Microsoft.Z3.$(ReleaseVersion).snupkg
         signConfigType: 'inlineSignParams'
         inlineOperation: |
           [
