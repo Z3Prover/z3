@@ -2157,11 +2157,17 @@ class DotNetExampleComponent(ExampleComponent):
 
             mk_dir(os.path.join(BUILD_DIR, 'dotnet_example'))
             csproj = os.path.join('dotnet_example', proj_name)
+            if VS_X64:
+                platform = 'x64'
+            elif VS_ARM:
+                platform = 'ARM'
+            else:
+                platform = 'x86'
 
             dotnet_proj_str = """<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\%s/*.cs" />
@@ -2169,7 +2175,7 @@ class DotNetExampleComponent(ExampleComponent):
       <HintPath>..\Microsoft.Z3.dll</HintPath>
     </Reference>
   </ItemGroup>
-</Project>""" % (self.to_ex_dir)
+</Project>""" % (platform, self.to_ex_dir)
 
             with open(os.path.join(BUILD_DIR, csproj), 'w') as ous:
                 ous.write(dotnet_proj_str)
