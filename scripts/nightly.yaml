@@ -36,7 +36,7 @@ stages:
   - job: UbuntoDoc
     displayName: "Ubuntu Doc build"
     pool:
-      vmImage: "ubuntu-latest"
+      vmImage: "Ubuntu-18.04"
     steps:
     - script: sudo apt-get install ocaml opam libgmp-dev
     - script: sudo apt-get install doxygen
