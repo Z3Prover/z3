@@ -234,7 +234,7 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
         distos = RELEASE_METADATA[2]
         if distos in ('debian', 'ubuntu') or 'linux' in distos:
             raise Exception("Linux binary distributions must be built on centos to conform to PEP 513")
-        elif distos == 'libc':
+        elif distos == 'glibc':
             if arch == 'x64':
                 plat_name = 'manylinux1_x86_64'
             else:
@@ -251,7 +251,7 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
             if arch == 'x64':
                 plat_name ='macosx_%s_x86_64' % osver.replace('.', '_')
             else:
-                raise Exception(f"idk how os {distos} {osvar} works. what goes here?")
+                raise Exception(f"idk how os {distos} {osver} works. what goes here?")
         else:
             raise Exception(f"idk how to translate between this z3 release os {distos} and the python naming scheme")
 
