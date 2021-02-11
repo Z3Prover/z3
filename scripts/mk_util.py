@@ -2168,6 +2168,7 @@ class DotNetExampleComponent(ExampleComponent):
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
+    <PlatformTarget>%s</PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\%s/*.cs" />
