@@ -148,8 +148,8 @@ def get_os_name():
     import platform
     basic = os.uname()[0].lower()
     if basic == 'linux':
-        dist = platform.linux_distribution()
-        if len(dist) == 3 and len(dist[0]) > 0 and len(dist[1]) > 0:
+        dist = platform.libc_ver()
+        if len(dist) == 2 and len(dist[0]) > 0 and len(dist[1]) > 0:
             return '%s-%s' % (dist[0].lower(), dist[1].lower())
         else:
             return basic
