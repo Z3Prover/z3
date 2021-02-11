@@ -33,7 +33,7 @@ stages:
         artifactName: 'Ubuntu'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-  - job: UbuntoDoc
+  - job: UbuntuDoc
     displayName: "Ubuntu Doc build"
     pool:
       vmImage: "Ubuntu-18.04"
