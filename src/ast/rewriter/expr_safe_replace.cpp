@@ -64,7 +64,6 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
         }
         else if (is_app(a)) {
             app* c = to_app(a);
-            unsigned n = c->get_num_args();
             m_args.reset();
             bool arg_differs = false, has_all_args = true;
             for (expr* arg : *c) {

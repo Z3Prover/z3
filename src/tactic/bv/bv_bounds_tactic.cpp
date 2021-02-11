@@ -163,9 +163,9 @@ namespace {
 
 
     struct undo_bound {
-        expr* e;
+        expr* e { nullptr };
         interval b;
-        bool fresh;
+        bool fresh { false };
         undo_bound(expr* e, const interval& b, bool fresh) : e(e), b(b), fresh(fresh) {}
     };
 

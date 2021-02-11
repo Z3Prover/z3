@@ -307,7 +307,6 @@ namespace smt {
     }
 
     void theory_str::refresh_theory_var(expr * e) {
-        ast_manager & m = get_manager();
         enode * en = ensure_enode(e);
         theory_var v = mk_var(en); (void)v;
         TRACE("str", tout << "refresh " << mk_pp(e, get_manager()) << ": v#" << v << std::endl;);
@@ -318,7 +317,6 @@ namespace smt {
 
     theory_var theory_str::mk_var(enode* n) {
         TRACE("str", tout << "mk_var for " << mk_pp(n->get_owner(), get_manager()) << std::endl;);
-        ast_manager & m = get_manager();
         if (!(n->get_owner()->get_sort() == u.str.mk_string_sort())) {
             return null_theory_var;
         }
@@ -6543,7 +6541,6 @@ namespace smt {
     }
 
     void theory_str::handle_equality(expr * lhs, expr * rhs) {
-        ast_manager & m = get_manager();
         // both terms must be of sort String
         sort * lhs_sort = lhs->get_sort();
         sort * rhs_sort = rhs->get_sort();
@@ -7117,7 +7114,6 @@ namespace smt {
     }
 
     void theory_str::recursive_check_variable_scope(expr * ex) {
-        ast_manager & m = get_manager();
 
         if (is_app(ex)) {
             app * a = to_app(ex);
@@ -9205,8 +9201,6 @@ namespace smt {
     }
 
     bool theory_str::flatten(expr* ex, expr_ref_vector & flat) {
-        ast_manager & m = get_manager();
-        // TRACE("str", tout << "ex " << mk_pp(ex, m)  << " target " << target << " length " << length << " sublen " << mk_pp(sublen, m) << " extra " << mk_pp(extra, m) << std::endl;);
 
         sort * ex_sort = ex->get_sort();
         sort * str_sort = u.str.mk_string_sort();

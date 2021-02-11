@@ -1494,7 +1494,7 @@ bool theory_seq::internalize_term(app* term) {
     else {
         e = ctx.mk_enode(term, false, m.is_bool(term), true);
     }
-    theory_var v = mk_var(e);
+    mk_var(e);
     if (!ctx.relevancy()) {
         relevant_eh(term);
     }

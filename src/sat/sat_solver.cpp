@@ -3588,7 +3588,6 @@ namespace sat {
     void solver::unassign_vars(unsigned old_sz, unsigned new_lvl) {
         SASSERT(old_sz <= m_trail.size());
         SASSERT(m_replay_assign.empty());
-        unsigned i = m_trail.size();
         for (unsigned i = m_trail.size(); i-- > old_sz; ) {
             literal l  = m_trail[i];
             bool_var v = l.var();

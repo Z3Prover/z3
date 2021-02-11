@@ -550,7 +550,6 @@ namespace qe {
 
         void nnf_and_or(bool is_and, app* a, bool p) {
             m_args.reset();
-            unsigned num_args = a->get_num_args();
             expr_ref tmp(m);
             bool visited = true;
             for (expr* arg : *a) {
@@ -1272,7 +1271,6 @@ namespace qe {
     }
 
     bool i_solver_context::has_plugin(app* x) {
-        ast_manager& m = get_manager();
         family_id fid = x->get_sort()->get_family_id();
         return 
             0 <= fid && 
@@ -1281,7 +1279,6 @@ namespace qe {
     }
     
     qe_solver_plugin& i_solver_context::plugin(app* x) {
-        ast_manager& m = get_manager();
         SASSERT(has_plugin(x));
         return *(m_plugins[x->get_sort()->get_family_id()]);               
     }

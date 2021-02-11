@@ -71,7 +71,6 @@ namespace smt {
 
         proof * mk_proof(conflict_resolution & cr) override {
             ast_manager & m   = cr.get_manager();
-            context & ctx     = cr.get_context();
             unsigned num_args = m_app1->get_num_args();
             proof_ref_vector prs(m);
             expr_ref_vector lits(m);

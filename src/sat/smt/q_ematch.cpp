@@ -264,7 +264,6 @@ namespace q {
     }
 
     void ematch::instantiate(binding& b, clause& c) {
-        quantifier* q = c.q();       
         if (m_stats.m_num_instantiations > ctx.get_config().m_qi_max_instances) 
             return;
         unsigned max_generation = b.m_max_generation;
