@@ -37,6 +37,7 @@ z3_add_component(sat_smt
     q_model_fixer.cpp
     q_queue.cpp
     q_solver.cpp
+    recfun_solver.cpp
     sat_dual_solver.cpp
     sat_th.cpp
     user_solver.cpp
