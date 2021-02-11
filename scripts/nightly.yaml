@@ -150,6 +150,11 @@ stages:
         artifact: 'Windows64'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
+      displayName: 'Download Win32 Build'
+      inputs:
+        artifact: 'Windows32'
+        path: $(Agent.TempDirectory)\package
+    - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu Build'
       inputs:
         artifact: 'Ubuntu'
