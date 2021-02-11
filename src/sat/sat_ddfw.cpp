@@ -131,7 +131,7 @@ namespace sat {
         unsigned idx = m_clauses.size();
         m_clauses.push_back(clause_info(cls, m_config.m_init_clause_weight));
         for (literal lit : *cls) {
-            m_use_list.reserve(lit.index()+1);
+            m_use_list.reserve(2*(lit.var()+1));
             m_vars.reserve(lit.var()+1);
             m_use_list[lit.index()].push_back(idx);
         }
@@ -224,6 +224,7 @@ namespace sat {
             m_flat_use_list.append(ul);
         }
         m_use_list_index.push_back(m_flat_use_list.size());
+//        m_use_list_index.push_back(m_flat_use_list.size());
     }
 
 
