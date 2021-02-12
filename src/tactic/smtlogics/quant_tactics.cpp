@@ -21,7 +21,6 @@ Revision History:
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"
 #include "tactic/core/elim_uncnstr_tactic.h"
-#include "qe/qe_tactic.h"
 #include "qe/qe_lite.h"
 #include "qe/qsat.h"
 #include "tactic/core/ctx_simplify_tactic.h"
@@ -108,8 +107,7 @@ tactic * mk_lra_tactic(ast_manager & m, params_ref const & p) {
                            mk_qe_lite_tactic(m, p),
                            cond(mk_has_quantifier_probe(), 
                                 cond(mk_is_lira_probe(),
-                                     or_else(mk_qsat_tactic(m, p),
-                                             and_then(mk_qe_tactic(m), mk_smt_tactic(m))),
+                                     mk_qsat_tactic(m, p),
                                      mk_smt_tactic(m)),
                                 mk_smt_tactic(m)));
     st->updt_params(p);
