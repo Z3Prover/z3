@@ -739,7 +739,8 @@ namespace smt {
     bool theory_special_relations::disconnected(graph const& g, dl_var u, dl_var v) const {
         s_integer val_u = g.get_assignment(u);
         s_integer val_v = g.get_assignment(v);
-        if (val_u == val_v) return u != v;
+        if (val_u == val_v) 
+            return u != v;
         if (val_u < val_v) {
             std::swap(u, v);
             std::swap(val_u, val_v);
@@ -1015,7 +1016,7 @@ namespace smt {
 
         return
             g.is_enabled(edge) &&
-            g.get_assignment(g.get_source(edge)) + s_integer(1) == g.get_assignment(g.get_target(edge));
+            g.get_assignment(g.get_source(edge)) - s_integer(1) == g.get_assignment(g.get_target(edge));
     }
 
     bool theory_special_relations::is_strict_neighbour_edge(graph const& g, edge_id e) const {
