@@ -1682,9 +1682,9 @@ double mpz_manager<SYNCH>::get_double(mpz const & a) const {
     for (unsigned i = 0; i < sz; i++) {
         r += d * static_cast<double>(digits(a)[i]);
         if (sizeof(digit_t) == sizeof(uint64_t))
-            d *= static_cast<double>(UINT64_MAX); // 64-bit version
+            d *= (1.0 + static_cast<double>(UINT64_MAX)); // 64-bit version, multiply by 2^64
         else
-            d *= static_cast<double>(UINT_MAX);   // 32-bit version
+            d *= (1.0 + static_cast<double>(UINT_MAX));   // 32-bit version, multiply by 2^32
     }
     if (!(r >= 0.0)) {
         r = static_cast<double>(UINT64_MAX); // some large number

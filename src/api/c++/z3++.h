@@ -825,6 +825,11 @@ namespace z3 {
         bool is_numeral(double& d) const { if (!is_numeral()) return false; d = Z3_get_numeral_double(ctx(), m_ast); check_error(); return true; }
         bool as_binary(std::string& s) const { if (!is_numeral()) return false; s = Z3_get_numeral_binary_string(ctx(), m_ast); check_error(); return true; }
 
+        double as_double() const { double d = 0; is_numeral(d); return d; }
+        uint64_t as_uint64() const { uint64_t r = 0; is_numeral_u64(r); return r; }
+        uint64_t as_int64() const { int64_t r = 0; is_numeral_i64(r); return r; }
+        
+
         /**
            \brief Return true if this expression is an application.
         */
