@@ -216,8 +216,8 @@ def mk_dist_dir(x64):
     mk_dir(dist_path)
     mk_win_dist(build_path, dist_path)
     if is_verbose():
-        print("Generated %s distribution folder at '%s'" % (platform, dist_path))
-
+        print(f"Generated {platform} distribution folder at '{dist_path}'")
+        
 def mk_dist_dirs():
     mk_dist_dir(False)
     mk_dist_dir(True)
