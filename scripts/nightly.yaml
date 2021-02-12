@@ -88,7 +88,7 @@ stages:
   - job: Windows32
     displayName: "Windows 32-bit build"
     pool:
-      vmImage: "vs2017-win2016"
+      vmImage: "windows-latest"
     steps:
     - task: CmdLine@2
       inputs:
@@ -111,7 +111,7 @@ stages:
   - job: Windows64
     displayName: "Windows 64-bit build"
     pool:
-      vmImage: "vs2017-win2016"
+      vmImage: "windows-latest"
     steps:
     - task: CmdLine@2
       inputs:
