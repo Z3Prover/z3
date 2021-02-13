@@ -1260,6 +1260,8 @@ struct
   let mk_seq_length = Z3native.mk_seq_length
   let mk_seq_index = Z3native.mk_seq_index
   let mk_str_to_int = Z3native.mk_str_to_int
+  let mk_str_le = Z3native.mk_str_le
+  let mk_str_lt = Z3native.mk_str_lt
   let mk_int_to_str = Z3native.mk_int_to_str
   let mk_seq_to_re = Z3native.mk_seq_to_re
   let mk_seq_in_re = Z3native.mk_seq_in_re

@@ -1913,6 +1913,12 @@ sig
   (* retrieve integer expression encoded in string *)
   val mk_str_to_int : context -> Expr.expr -> Expr.expr
 
+  (* compare strings less-than-or-equal *)
+  val mk_str_le : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (* compare strings less-than *)
+  val mk_str_lt : context -> Expr.expr -> Expr.expr -> Expr.expr
+
   (* convert an integer expression to a string *)
   val mk_int_to_str : context -> Expr.expr -> Expr.expr 
 
