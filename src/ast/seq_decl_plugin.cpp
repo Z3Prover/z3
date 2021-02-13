@@ -767,6 +767,10 @@ bool seq_util::is_char_le(expr const* e) const {
     return ch.is_le(e);
 }
 
+bool seq_util::is_char2int(expr const* e) const {
+    return ch.is_to_int(e);
+}
+
 app* seq_util::mk_char(unsigned ch) const {
     return seq.mk_char(ch);
 }

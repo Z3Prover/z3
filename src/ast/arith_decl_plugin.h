@@ -432,6 +432,7 @@ public:
     app * mk_add(unsigned num_args, expr * const * args) const { return num_args == 1 && is_app(args[0]) ? to_app(args[0]) : m_manager.mk_app(m_afid, OP_ADD, num_args, args); }
     app * mk_add(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_ADD, arg1, arg2); }
     app * mk_add(expr * arg1, expr * arg2, expr* arg3) const { return m_manager.mk_app(m_afid, OP_ADD, arg1, arg2, arg3); }
+    app * mk_add(expr_ref_vector const& args) const { return mk_add(args.size(), args.c_ptr()); }
 
     app * mk_sub(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_SUB, arg1, arg2); }
     app * mk_sub(unsigned num_args, expr * const * args) const { return m_manager.mk_app(m_afid, OP_SUB, num_args, args); }

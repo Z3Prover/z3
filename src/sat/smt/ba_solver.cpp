@@ -1437,10 +1437,6 @@ namespace sat {
 
 
     bool ba_solver::init_watch(constraint& c) {
-        if (c.is_xr()) {
-            std::cout << c.is_xr() << "\n";
-        }
-
         return !inconsistent() && c.init_watch(*this);
     }
 

@@ -17,6 +17,7 @@ Author:
 --*/
 #include "util/gparams.h"
 #include "ast/char_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 
 char_decl_plugin::char_decl_plugin(): 
@@ -46,7 +47,7 @@ func_decl* char_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
 
     case OP_CHAR_CONST:
         if (num_parameters != 1)
-            msg << "incorrect number of parameters passed. Expected 1, recieved " << num_parameters;
+            msg << "incorrect number of parameters passed. Expected 1, received " << num_parameters;
         else if (arity != 0)
             msg << "incorrect number of arguments passed. Expected 1, received " << arity;
         else if (!parameters[0].is_int())
@@ -57,6 +58,16 @@ func_decl* char_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             msg << "parameter expected within character range";
         else
             return m.mk_const_decl(m_charc_sym, m_char, func_decl_info(m_family_id, OP_CHAR_CONST, num_parameters, parameters));
+        m.raise_exception(msg.str());
+    case OP_CHAR_TO_INT:
+        if (num_parameters != 0)
+            msg << "incorrect number of parameters passed. Expected 0, received " << num_parameters;
+        else if (arity != 1)
+            msg << "incorrect number of arguments passed. Expected one character, received " << arity;
+        else {
+            arith_util a(m);
+            return m.mk_func_decl(symbol("char.to_int"), arity, domain, a.mk_int(), func_decl_info(m_family_id, k, 0, nullptr));
+        }
         m.raise_exception(msg.str());
     default:
         UNREACHABLE();
@@ -73,6 +84,7 @@ void char_decl_plugin::set_manager(ast_manager * m, family_id id) {
 void char_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const& logic) {
     op_names.push_back(builtin_name("char.<=", OP_CHAR_LE));
     op_names.push_back(builtin_name("Char", OP_CHAR_CONST));
+    op_names.push_back(builtin_name("char.to_int", OP_CHAR_TO_INT));
 }
 
 void char_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const& logic) {

@@ -79,6 +79,9 @@ namespace smt {
         unsigned c = 0;
         if (seq.is_const_char(term, c))
             new_const_char(v, c);
+        expr* n = nullptr;
+        if (seq.is_char2int(term, n)) 
+            new_char2int(v, n);
         return true;
     }
 
@@ -215,6 +218,27 @@ namespace smt {
             c >>= 1;                
         }
     }
+
+    void theory_char::new_char2int(theory_var v, expr* c) {
+        theory_var w = ctx.get_enode(c)->get_th_var(get_id());
+        init_bits(w);
+        auto const& bits = get_ebits(w);
+        expr_ref_vector sum(m);
+        unsigned p = 0;
+        arith_util a(m);
+        for (auto b : bits) {
+            sum.push_back(m.mk_ite(b, a.mk_int(1 << p), a.mk_int(0)));
+            p++;
+        }
+        expr_ref sum_bits(a.mk_add(sum), m);
+        enode* n1 = get_enode(v);
+        enode* n2 = ensure_enode(sum_bits);
+        justification* j = 
+            ctx.mk_justification(
+                ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), n1, n2));
+        ctx.assign_eq(n1, n2, eq_justification(j));
+    }
+
 
     /**
      * 1. Check that values of classes are unique.

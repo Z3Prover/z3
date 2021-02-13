@@ -234,10 +234,12 @@ public:
     bool is_const_char(expr* e, unsigned& c) const;
     bool is_const_char(expr* e) const { unsigned c; return is_const_char(e, c); }
     bool is_char_le(expr const* e) const;
+    bool is_char2int(expr const* e) const;
     app* mk_char_bit(expr* e, unsigned i);
     app* mk_char(unsigned ch) const;
     app* mk_le(expr* ch1, expr* ch2) const;
     app* mk_lt(expr* ch1, expr* ch2) const;    
+    app* mk_char2int(expr* e) { return ch.mk_to_int(e); }
     unsigned max_char() const { return seq.max_char(); }
     unsigned num_bits() const { return seq.num_bits(); }
 
@@ -245,6 +247,7 @@ public:
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
 
     MATCH_BINARY(is_char_le);
+    MATCH_UNARY(is_char2int);
 
     bool has_re() const { return seq.has_re(); }
     bool has_seq() const { return seq.has_seq(); }

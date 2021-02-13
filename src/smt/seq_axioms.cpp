@@ -813,6 +813,7 @@ void seq_axioms::add_str_to_code_axiom(expr* n) {
     literal len_is1 = mk_eq(mk_len(e), a.mk_int(1));
     add_axiom(~len_is1, mk_ge(n, 0)); 
     add_axiom(~len_is1, mk_le(n, seq.max_char()));
+    add_axiom(~len_is1, mk_eq(n, seq.mk_char2int(mk_nth(e, 0))));
     if (!seq.str.is_from_code(e))
         add_axiom(~len_is1, mk_eq(e, seq.str.mk_from_code(n)));
     add_axiom(len_is1, mk_eq(n, a.mk_int(-1)));

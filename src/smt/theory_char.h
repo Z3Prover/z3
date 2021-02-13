@@ -57,6 +57,7 @@ namespace smt {
 
         bool final_check();
         void new_const_char(theory_var v, unsigned c);
+        void new_char2int(theory_var v, expr* c);
         unsigned get_char_value(theory_var v);
         void internalize_le(literal lit, app* term);        
 
