@@ -387,4 +387,25 @@ namespace euf {
             r = m.mk_eq(e1, e2);
         return r;
     }
+
+    unsigned solver::get_max_generation(expr* e) const {
+        unsigned g = 0;
+        expr_fast_mark1 mark;
+        m_todo.push_back(e);
+        while (!m_todo.empty()) {
+            e = m_todo.back();
+            m_todo.pop_back();
+            if (mark.is_marked(e))
+                continue;
+            mark.mark(e);
+            euf::enode* n = m_egraph.find(e);
+            if (n) 
+                g = std::max(g, n->generation());
+            else if (is_app(e)) 
+                for (expr* arg : *to_app(e))
+                    m_todo.push_back(arg);
+        }
+        return g;
+    }
+
 }

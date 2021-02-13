@@ -34,10 +34,8 @@ namespace smt {
           m_disabled_guards(m),
           m_enabled_guards(m),
           m_preds(m),
-          m_num_rounds(0),
           m_q_case_expand(), 
           m_q_body_expand() {
-        m_num_rounds = 0;
         }
 
     theory_recfun::~theory_recfun() {
@@ -54,7 +52,6 @@ namespace smt {
     }
 
     bool theory_recfun::internalize_atom(app * atom, bool gate_ctx) {
-        force_push();
         TRACEFN(mk_pp(atom, m));
         if (!u().has_defs()) {
             return false;
@@ -70,13 +67,12 @@ namespace smt {
             ctx.set_var_theory(v, get_id());
         }
         if (!ctx.relevancy() && u().is_defined(atom)) {
-            push_case_expand(alloc(case_expansion, u(), atom));
+            push_case_expand(alloc(recfun::case_expansion, u(), atom));
         }
         return true;
     }
 
     bool theory_recfun::internalize_term(app * term) {
-        force_push();
         if (!u().has_defs()) {
             return false;
         }
@@ -87,7 +83,7 @@ namespace smt {
         if (!ctx.e_internalized(term)) {            
             ctx.mk_enode(term, false, false, true);
             if (!ctx.relevancy() && u().is_defined(term)) {
-                push_case_expand(alloc(case_expansion, u(), term));
+                push_case_expand(alloc(recfun::case_expansion, u(), term));
             }
         }
 
@@ -128,20 +124,16 @@ namespace smt {
         SASSERT(ctx.relevancy());
         TRACEFN("relevant_eh: (defined) " <<  u().is_defined(n) << " " << mk_pp(n, m));        
         if (u().is_defined(n) && u().has_defs()) {
-            push_case_expand(alloc(case_expansion, u(), n));
+            push_case_expand(alloc(recfun::case_expansion, u(), n));
         }
     }
 
     void theory_recfun::push_scope_eh() {
-        if (lazy_push())
-            return;
         theory::push_scope_eh();
         m_preds_lim.push_back(m_preds.size());
     }
 
     void theory_recfun::pop_scope_eh(unsigned num_scopes) {
-        if (lazy_pop(num_scopes))
-            return;
         theory::pop_scope_eh(num_scopes);
         reset_queues();
         
@@ -189,7 +181,7 @@ namespace smt {
         m_q_clauses.clear();
  		
         for (unsigned i = 0; i < m_q_case_expand.size(); ++i) {
-            case_expansion* e = m_q_case_expand[i];
+            recfun::case_expansion* e = m_q_case_expand[i];
             if (e->m_def->is_fun_macro()) {
                 // body expand immediately
                 assert_macro_axiom(*e);
@@ -276,7 +268,7 @@ namespace smt {
         if (is_true && u().is_case_pred(e)) {
             TRACEFN("assign_case_pred_true " << mk_pp(e, m));
             // body-expand
-            push_body_expand(alloc(body_expansion, u(), to_app(e)));            
+            push_body_expand(alloc(recfun::body_expansion, u(), to_app(e)));            
         }
     }
 
@@ -284,12 +276,12 @@ namespace smt {
     expr_ref theory_recfun::apply_args(
         unsigned depth,
         recfun::vars const & vars,
-        ptr_vector<expr> const & args,
+        expr_ref_vector const & args,
         expr * e) {
         SASSERT(is_standard_order(vars));
         var_subst subst(m, true);
         expr_ref new_body(m);
-        new_body = subst(e, args.size(), args.c_ptr());
+        new_body = subst(e, args);
         ctx.get_rewriter()(new_body); // simplify
         set_depth_rec(depth + 1, new_body);
         return new_body;
@@ -329,9 +321,9 @@ namespace smt {
      * 1. substitute `e.args` for `vs` into the macro rhs
      * 2. add unit clause `f(args) = rhs`
      */
-    void theory_recfun::assert_macro_axiom(case_expansion & e) {
+    void theory_recfun::assert_macro_axiom(recfun::case_expansion & e) {
         m_stats.m_macro_expansions++;
-        TRACEFN("case expansion " << pp_case_expansion(e, m));
+        TRACEFN("case expansion " << e);
         SASSERT(e.m_def->is_fun_macro());
         auto & vars = e.m_def->get_vars();
         expr_ref lhs(e.m_lhs, m);
@@ -351,8 +343,8 @@ namespace smt {
      *
      * also body-expand paths that do not depend on any defined fun
      */
-    void theory_recfun::assert_case_axioms(case_expansion & e) {
-        TRACEFN("assert_case_axioms "<< pp_case_expansion(e,m)
+    void theory_recfun::assert_case_axioms(recfun::case_expansion & e) {
+        TRACEFN("assert_case_axioms " << e
                 << " with " << e.m_def->get_cases().size() << " cases");
         SASSERT(e.m_def->is_fun_defined());
         // add case-axioms for all case-paths
@@ -375,7 +367,7 @@ namespace smt {
                 guards.push_back(apply_args(depth, vars, e.m_args, g));
             }
             if (c.is_immediate()) {
-                body_expansion be(pred_applied, c, e.m_args);
+                recfun::body_expansion be(pred_applied, c, e.m_args);
                 assert_body_axiom(be);            
             }
             else if (!is_enabled_guard(pred_applied)) {
@@ -392,13 +384,6 @@ namespace smt {
             ctx.mk_th_axiom(get_id(), preds);
         }
         (void)max_depth;
-        // add_induction_lemmas(max_depth);
-    }
-
-    void theory_recfun::add_induction_lemmas(unsigned depth) {
-        if (depth > 4 && ctx.get_fparams().m_induction && induction::should_try(ctx)) {
-            ctx.get_induction()();
-        }
     }
 
     void theory_recfun::activate_guard(expr* pred_applied, expr_ref_vector const& guards) {
@@ -426,7 +411,7 @@ namespace smt {
      * add axiom guards[args/vars] => f(args) = rhs[args/vars]
      *
      */
-    void theory_recfun::assert_body_axiom(body_expansion & e) {
+    void theory_recfun::assert_body_axiom(recfun::body_expansion & e) {
         recfun::def & d = *e.m_cdef->get_def();
         auto & vars = d.get_vars();
         auto & args = e.m_args;
@@ -439,7 +424,7 @@ namespace smt {
             expr_ref guard = apply_args(depth, vars, args, g);
             clause.push_back(~mk_literal(guard));
             if (clause.back() == true_literal) {
-                TRACEFN("body " << pp_body_expansion(e,m) << "\n" << clause << "\n" << guard);
+                TRACEFN("body " << e << "\n" << clause << "\n" << guard);
                 return;
             }
             if (clause.back() == false_literal) {
@@ -450,7 +435,7 @@ namespace smt {
         std::function<literal_vector(void)> fn = [&]() { return clause; };
         scoped_trace_stream _tr(*this, fn);
         ctx.mk_th_axiom(get_id(), clause);
-        TRACEFN("body " << pp_body_expansion(e,m));
+        TRACEFN("body " << e);
         TRACEFN(pp_lits(ctx, clause));
     }
     
@@ -521,15 +506,4 @@ namespace smt {
         st.update("recfun body expansion", m_stats.m_body_expansions);
     }
 
-    std::ostream& operator<<(std::ostream & out, theory_recfun::pp_case_expansion const & e) {
-        return out << "case_exp(" << mk_pp(e.e.m_lhs, e.m) << ")";
-    }
-
-    std::ostream& operator<<(std::ostream & out, theory_recfun::pp_body_expansion const & e) {
-        out << "body_exp(" << e.e.m_cdef->get_decl()->get_name();
-        for (auto* t : e.e.m_args) {
-            out << " " << mk_pp(t,e.m);
-        }
-        return out << ")";
-    }
 }

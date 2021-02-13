@@ -213,7 +213,7 @@ namespace q {
             qlit.neg();
         TRACE("q", tout << "project: " << proj << "\n";);
         ++m_stats.m_num_instantiations;        
-        unsigned generation = m_qs.get_max_generation(proj);    
+        unsigned generation = ctx.get_max_generation(proj);    
         m_instantiations.push_back(instantiation_t(qlit, proj, generation));
     }
 

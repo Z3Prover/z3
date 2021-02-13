@@ -96,6 +96,7 @@ namespace euf {
         user::solver*          m_user_propagator{ nullptr };
         th_solver*             m_qsolver { nullptr };
         unsigned               m_generation { 0 };
+        mutable ptr_vector<expr> m_todo;
 
         ptr_vector<expr>                                m_bool_var2expr;
         ptr_vector<size_t>                              m_explain;
@@ -228,6 +229,7 @@ namespace euf {
                 s.m_generation = m_g;
             }
         };
+        unsigned get_max_generation(expr* e) const;
 
         // accessors
         

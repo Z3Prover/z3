@@ -20,6 +20,7 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
+#include "ast/ast_pp.h"
 #include "util/obj_hashtable.h"
 
 namespace recfun {
@@ -74,7 +75,7 @@ namespace recfun {
     public:
         func_decl* get_decl() const { return m_pred; }
 
-        app_ref apply_case_predicate(ptr_vector<expr> const & args) const {
+        app_ref apply_case_predicate(expr_ref_vector const & args) const {
             ast_manager& m = m_pred.get_manager();
             return app_ref(m.mk_app(m_pred, args.size(), args.c_ptr()), m);
         }
@@ -258,6 +259,10 @@ namespace recfun {
             return mk_fun_defined(d, args.size(), args.c_ptr());
         }
 
+        app* mk_fun_defined(def const & d, expr_ref_vector const & args) {
+            return mk_fun_defined(d, args.size(), args.c_ptr());
+        }
+
         func_decl_ref_vector get_rec_funs() {
             return m_plugin->get_rec_funs();
         }
@@ -265,5 +270,50 @@ namespace recfun {
         app_ref mk_num_rounds_pred(unsigned d);
 
     };
+
+    
+    // one case-expansion of `f(t1...tn)`
+    struct case_expansion {
+        app_ref             m_lhs; // the term to expand
+        recfun::def *       m_def;
+        expr_ref_vector     m_args;
+        case_expansion(recfun::util& u, app * n);
+        case_expansion(case_expansion const & from);
+        case_expansion(case_expansion && from);
+        std::ostream& display(std::ostream& out) const;
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, case_expansion const & e) {
+        return e.display(out);
+    }
+
+    // one body-expansion of `f(t1...tn)` using a `C_f_i(t1...tn)`
+    struct body_expansion {
+        app_ref                  m_pred;
+        recfun::case_def const * m_cdef;
+        expr_ref_vector          m_args;
+        
+        body_expansion(recfun::util& u, app * n) : 
+            m_pred(n, u.m()), m_cdef(nullptr), m_args(u.m()) {
+            m_cdef = &u.get_case_def(n);
+            m_args.append(n->get_num_args(), n->get_args());
+        }
+        body_expansion(app_ref & pred, recfun::case_def const & d, expr_ref_vector & args) : 
+            m_pred(pred), m_cdef(&d), m_args(args) {}
+        body_expansion(body_expansion const & from): 
+            m_pred(from.m_pred), m_cdef(from.m_cdef), m_args(from.m_args) {}
+        body_expansion(body_expansion && from) : 
+            m_pred(from.m_pred), m_cdef(from.m_cdef), m_args(std::move(from.m_args)) {}
+
+        std::ostream& display(std::ostream& out) const;
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, body_expansion const& e) {
+        return e.display(out);
+    }
+
+
+
 }
+
 
