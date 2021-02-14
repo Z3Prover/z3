@@ -29,7 +29,7 @@ Revision History:
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"
 #include "smt/theory_seq_empty.h"
-#include "smt/seq_skolem.h"
+#include "ast/rewriter/seq_skolem.h"
 #include "smt/seq_axioms.h"
 #include "smt/seq_regex.h"
 #include "smt/seq_offset_eq.h"

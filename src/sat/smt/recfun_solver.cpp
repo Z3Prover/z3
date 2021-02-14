@@ -149,7 +149,7 @@ namespace recfun {
             m_guard2pending.insert(guard, alloc(expr_ref_vector, guards));
         }
         TRACEFN("add clause\n" << core);
-        push_core(core);
+        push_c(core);
     }
 
     /**
@@ -228,7 +228,7 @@ namespace recfun {
         return true;
     }
 
-    void solver::push(propagation_item* p) {
+    void solver::push_prop(propagation_item* p) {
         m_propagation_queue.push_back(p);         
         ctx.push(push_back_vector<scoped_ptr_vector<propagation_item>>(m_propagation_queue));        
     }

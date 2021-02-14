@@ -22,8 +22,8 @@ Revision History:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/seq_skolem.h"
 #include "smt/smt_theory.h"
-#include "smt/seq_skolem.h"
 
 namespace smt {
 

@@ -52,11 +52,11 @@ namespace recfun {
         scoped_ptr_vector<propagation_item> m_propagation_queue;
         unsigned                            m_qhead { 0 };
 
-        void push_body_expand(expr* e) { push(alloc(propagation_item, alloc(body_expansion, u(), to_app(e)))); }
-        void push_case_expand(expr* e) { push(alloc(propagation_item, alloc(case_expansion, u(), to_app(e)))); }
-        void push_guard(expr* e) { push(alloc(propagation_item, e)); }
-        void push_core(expr_ref_vector const& core) { push(alloc(propagation_item, core)); }
-        void push(propagation_item* p);
+        void push_body_expand(expr* e) { push_prop(alloc(propagation_item, alloc(body_expansion, u(), to_app(e)))); }
+        void push_case_expand(expr* e) { push_prop(alloc(propagation_item, alloc(case_expansion, u(), to_app(e)))); }
+        void push_guard(expr* e) { push_prop(alloc(propagation_item, e)); }
+        void push_c(expr_ref_vector const& core) { push_prop(alloc(propagation_item, core)); }
+        void push_prop(propagation_item* p);
 
         bool is_enabled_guard(expr* guard) { return m_enabled_guards.contains(guard); }
         bool is_disabled_guard(expr* guard) { return m_disabled_guards.contains(guard); }

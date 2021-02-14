@@ -33,6 +33,7 @@ z3_add_component(rewriter
     recfun_rewriter.cpp
     rewriter.cpp
     seq_rewriter.cpp
+    seq_skolem.cpp
     th_rewriter.cpp
     value_sweep.cpp
     var_subst.cpp
