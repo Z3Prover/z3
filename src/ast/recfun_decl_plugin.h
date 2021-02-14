@@ -312,7 +312,41 @@ namespace recfun {
         return e.display(out);
     }
 
+    struct propagation_item {
+        case_expansion*            m_case { nullptr };
+        body_expansion*            m_body { nullptr };
+        expr_ref_vector*           m_core { nullptr };
+        expr*                      m_guard { nullptr };
+        
+        ~propagation_item() {
+            dealloc(m_case);
+            dealloc(m_body);
+            dealloc(m_core);
+        }
+        
+        propagation_item(expr* guard):
+            m_guard(guard) {}
+        
+        propagation_item(expr_ref_vector const& core):
+            m_core(alloc(expr_ref_vector, core)) {
+        }
 
+        propagation_item(body_expansion* b):
+            m_body(b) {}
+        
+        propagation_item(case_expansion* c):
+            m_case(c) {}
+        
+        bool is_guard() const { return m_guard != nullptr; }
+        bool is_core() const { return m_core != nullptr; }
+        bool is_case() const { return m_case != nullptr; }
+        bool is_body() const { return m_body != nullptr; }            
+
+        expr_ref_vector const& core() const { SASSERT(is_core()); return *m_core; }
+        body_expansion & body() const { SASSERT(is_body()); return *m_body; }
+        case_expansion & case_ex() const { SASSERT(is_case()); return *m_case; }
+        expr* guard() const { SASSERT(is_guard()); return m_guard; }
+    };
 
 }
 

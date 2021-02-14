@@ -1342,17 +1342,8 @@ namespace sat {
                 m_conflicts_since_restart = 0;
                 m_restart_threshold = m_config.m_restart_initial;
             }
-            lbool is_sat = l_undef;
-            while (is_sat == l_undef && !should_cancel()) {
-                if (inconsistent()) is_sat = resolve_conflict_core();
-                else if (should_propagate()) propagate(true);
-                else if (do_cleanup(false)) continue;
-                else if (should_gc()) do_gc();
-                else if (should_rephase()) do_rephase();
-                else if (should_restart()) do_restart(!m_config.m_restart_fast);
-                else if (should_simplify()) do_simplify();
-                else if (!decide()) is_sat = final_check();
-            }
+
+            lbool is_sat = search();
             log_stats();
             return is_sat;
         }
@@ -1710,6 +1701,12 @@ namespace sat {
     }
 
     lbool solver::bounded_search() {
+        flet<bool> _disable_simplify(m_simplify_enabled, false);
+        flet<bool> _restart_enabled(m_restart_enabled, false);
+        return search();
+    }
+
+    lbool solver::basic_search() {
         lbool is_sat = l_undef;
         while (is_sat == l_undef && !should_cancel()) {
             if (inconsistent()) is_sat = resolve_conflict_core();
@@ -1717,16 +1714,30 @@ namespace sat {
             else if (do_cleanup(false)) continue;
             else if (should_gc()) do_gc();
             else if (should_rephase()) do_rephase();
-            else if (should_restart()) return l_undef;
+            else if (should_restart()) { if (!m_restart_enabled) return l_undef; do_restart(!m_config.m_restart_fast); }
+            else if (should_simplify()) do_simplify();
             else if (!decide()) is_sat = final_check();
         }
         return is_sat;
     }
 
+    lbool solver::search() {
+        if (!m_ext || !m_ext->tracking_assumptions())
+            return basic_search();
+        while (true) {
+            pop_to_base_level();
+            reinit_assumptions();
+            lbool r = basic_search();
+            if (r != l_false) 
+                return r;
+            if (!m_ext->should_research(m_core))
+                return r;
+        }
+    }
+
     bool solver::should_propagate() const {        
         return !inconsistent() && m_qhead < m_trail.size();
     }
-
 
     lbool solver::final_check() {
         if (m_ext) {
@@ -1796,6 +1807,7 @@ namespace sat {
             add_assumption(lit);
             assign_scoped(lit);
         }
+
         m_search_lvl = scope_lvl(); 
         SASSERT(m_search_lvl == 1);
     }
@@ -1811,17 +1823,13 @@ namespace sat {
     void solver::reset_assumptions() {
         m_assumptions.reset();
         m_assumption_set.reset();
+        m_ext_assumption_set.reset();
     }
 
     void solver::add_assumption(literal lit) {
         m_assumption_set.insert(lit);
         m_assumptions.push_back(lit);
         set_external(lit.var());
-    }
-
-    void solver::pop_assumption() {
-        VERIFY(m_assumptions.back() == m_assumption_set.pop());
-        m_assumptions.pop_back();
     }
 
     void solver::reassert_min_core() {
@@ -1852,7 +1860,10 @@ namespace sat {
                 if (inconsistent()) break;
                 assign_scoped(lit);
             }
-            if (!inconsistent()) propagate(false);
+            init_ext_assumptions();
+
+            if (!inconsistent()) 
+                propagate(false);
             TRACE("sat",
                   tout << "consistent: " << !inconsistent() << "\n";
                   for (literal a : m_assumptions) {
@@ -1868,12 +1879,23 @@ namespace sat {
         }
     }
 
+    void solver::init_ext_assumptions() {
+        if (m_ext && m_ext->tracking_assumptions()) {
+            m_ext_assumption_set.reset();
+            unsigned trail_size = m_trail.size();
+            if (!inconsistent())
+                m_ext->add_assumptions();
+            for (unsigned i = trail_size; i < m_trail.size(); ++i)
+                m_ext_assumption_set.insert(m_trail[i]);
+        }
+    }
+
     bool solver::tracking_assumptions() const {
-        return !m_assumptions.empty() || !m_user_scope_literals.empty();
+        return !m_assumptions.empty() || !m_user_scope_literals.empty() || (m_ext && m_ext->tracking_assumptions());
     }
 
     bool solver::is_assumption(literal l) const {
-        return tracking_assumptions() && m_assumption_set.contains(l);
+        return tracking_assumptions() && (m_assumption_set.contains(l) || m_ext_assumption_set.contains(l));
     }
 
     void solver::set_activity(bool_var v, unsigned new_act) {
@@ -1931,7 +1953,7 @@ namespace sat {
     }
 
     bool solver::should_simplify() const {
-        return m_conflicts_since_init >= m_next_simplify;
+        return m_conflicts_since_init >= m_next_simplify && m_simplify_enabled;
     }
     /**
        \brief Apply all simplifications.
@@ -2278,7 +2300,7 @@ namespace sat {
         IF_VERBOSE(30, display_status(verbose_stream()););
         TRACE("sat", tout << "restart " << restart_level(to_base) << "\n";);
         pop_reinit(restart_level(to_base));
-        set_next_restart();
+        set_next_restart();        
     }
 
     unsigned solver::restart_level(bool to_base) {

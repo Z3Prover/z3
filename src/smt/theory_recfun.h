@@ -45,12 +45,18 @@ namespace smt {
         unsigned_vector          m_preds_lim;
         unsigned                 m_num_rounds { 0 };
 
-        ptr_vector<recfun::case_expansion> m_q_case_expand;
-        ptr_vector<recfun::body_expansion> m_q_body_expand;
-        vector<literal_vector>     m_q_clauses;
-        ptr_vector<expr>           m_q_guards;
+        typedef recfun::propagation_item propagation_item;
 
-        bool is_enabled_guard(expr* guard) { expr_ref ng(m.mk_not(guard), m); return m_enabled_guards.contains(ng); }
+        scoped_ptr_vector<propagation_item> m_propagation_queue;
+        unsigned                            m_qhead { 0 };
+
+        void push_body_expand(expr* e) { push(alloc(propagation_item, alloc(recfun::body_expansion, u(), to_app(e)))); }
+        void push_case_expand(expr* e) { push(alloc(propagation_item, alloc(recfun::case_expansion, u(), to_app(e)))); }
+        void push_guard(expr* e) { push(alloc(propagation_item, e)); }
+        void push_core(expr_ref_vector const& core) { push(alloc(propagation_item, core)); }
+        void push(propagation_item* p);
+
+        bool is_enabled_guard(expr* guard) { return m_enabled_guards.contains(guard); }
         bool is_disabled_guard(expr* guard) { return m_disabled_guards.contains(guard); }
 
         recfun::util & u() const { return m_util; }
@@ -62,11 +68,11 @@ namespace smt {
 
         void activate_guard(expr* guard, expr_ref_vector const& guards);
 
-        void reset_queues();
         expr_ref apply_args(unsigned depth, recfun::vars const & vars, expr_ref_vector const & args, expr * e); //!< substitute variables by args
         void assert_macro_axiom(recfun::case_expansion & e);
         void assert_case_axioms(recfun::case_expansion & e);
         void assert_body_axiom(recfun::body_expansion & e);
+        void block_core(expr_ref_vector const& core);
         literal mk_literal(expr* e);
 
         void disable_guard(expr* guard, expr_ref_vector const& guards);
@@ -79,8 +85,6 @@ namespace smt {
             return vars.empty() || vars[vars.size()-1]->get_idx() == 0;
         }
     protected:
-        void push_case_expand(recfun::case_expansion* e) { m_q_case_expand.push_back(e); }
-        void push_body_expand(recfun::body_expansion* e) { m_q_body_expand.push_back(e); }
 
         bool internalize_atom(app * atom, bool gate_ctx) override;
         bool internalize_term(app * term) override;
@@ -91,7 +95,6 @@ namespace smt {
         void assign_eh(bool_var v, bool is_true) override;
         void push_scope_eh() override;
         void pop_scope_eh(unsigned num_scopes) override;
-        void restart_eh() override;
         bool can_propagate() override;
         void propagate() override;
         bool should_research(expr_ref_vector &) override;
@@ -104,7 +107,6 @@ namespace smt {
         theory_recfun(context& ctx);
         ~theory_recfun() override;
         theory * mk_fresh(context * new_ctx) override;
-        void init_search_eh() override;
         void display(std::ostream & out) const override;
         void collect_statistics(::statistics & st) const override;
     };

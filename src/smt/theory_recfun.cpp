@@ -19,6 +19,7 @@ Revision History:
 
 #include "util/stats.h"
 #include "ast/ast_util.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/for_each_expr.h"
 #include "smt/theory_recfun.h"
 
@@ -33,9 +34,7 @@ namespace smt {
           m_util(m_plugin.u()), 
           m_disabled_guards(m),
           m_enabled_guards(m),
-          m_preds(m),
-          m_q_case_expand(), 
-          m_q_body_expand() {
+          m_preds(m) {
         }
 
     theory_recfun::~theory_recfun() {
@@ -48,11 +47,7 @@ namespace smt {
         return alloc(theory_recfun, *new_ctx);
     }
 
-    void theory_recfun::init_search_eh() {
-    }
-
     bool theory_recfun::internalize_atom(app * atom, bool gate_ctx) {
-        TRACEFN(mk_pp(atom, m));
         if (!u().has_defs()) {
             return false;
         }
@@ -67,7 +62,7 @@ namespace smt {
             ctx.set_var_theory(v, get_id());
         }
         if (!ctx.relevancy() && u().is_defined(atom)) {
-            push_case_expand(alloc(recfun::case_expansion, u(), atom));
+            push_case_expand(atom);
         }
         return true;
     }
@@ -79,39 +74,23 @@ namespace smt {
         for (expr* e : *term) {
             ctx.internalize(e, false);
         }
-        // the internalization of the arguments may have triggered the internalization of term.
         if (!ctx.e_internalized(term)) {            
             ctx.mk_enode(term, false, false, true);
-            if (!ctx.relevancy() && u().is_defined(term)) {
-                push_case_expand(alloc(recfun::case_expansion, u(), term));
-            }
         }
-
+        if (!ctx.relevancy() && u().is_defined(term)) {
+            push_case_expand(term);
+        }
         return true; 
     }
 
-    void theory_recfun::reset_queues() {
-        for (auto* e : m_q_case_expand) {
-            dealloc(e);
-        }
-        m_q_case_expand.reset();
-        for (auto* e : m_q_body_expand) {
-            dealloc(e);
-        }
-        m_q_body_expand.reset();
-        m_q_clauses.clear();        
-    }
 
     void theory_recfun::reset_eh() {
-        reset_queues();   
         m_stats.reset();
         theory::reset_eh();
         m_disabled_guards.reset();
         m_enabled_guards.reset();
-        m_q_guards.reset();
-        for (auto & kv : m_guard2pending) {
+        for (auto & kv : m_guard2pending) 
             dealloc(kv.m_value);
-        }
         m_guard2pending.reset();
     }
 
@@ -122,9 +101,9 @@ namespace smt {
      */
     void theory_recfun::relevant_eh(app * n) {
         SASSERT(ctx.relevancy());
-        TRACEFN("relevant_eh: (defined) " <<  u().is_defined(n) << " " << mk_pp(n, m));        
+        // TRACEFN("relevant_eh: (defined) " <<  u().is_defined(n) << " " << mk_pp(n, m));        
         if (u().is_defined(n) && u().has_defs()) {
-            push_case_expand(alloc(recfun::case_expansion, u(), n));
+            push_case_expand(n);
         }
     }
 
@@ -135,7 +114,6 @@ namespace smt {
 
     void theory_recfun::pop_scope_eh(unsigned num_scopes) {
         theory::pop_scope_eh(num_scopes);
-        reset_queues();
         
         // restore depth book-keeping
         unsigned new_lim = m_preds_lim.size()-num_scopes;
@@ -150,80 +128,50 @@ namespace smt {
 #endif
         m_preds_lim.shrink(new_lim);
     }
-    
-    void theory_recfun::restart_eh() {
-        TRACEFN("restart");
-        reset_queues();
-        theory::restart_eh();
-    }
-     
+         
     bool theory_recfun::can_propagate() {
-        return 
-            !m_q_case_expand.empty() ||
-            !m_q_body_expand.empty() ||
-            !m_q_clauses.empty() ||
-            !m_q_guards.empty();
+        return m_qhead < m_propagation_queue.size();
     }
     
     void theory_recfun::propagate() {
-
-        for (expr* g : m_q_guards) {
-            expr* ng = nullptr;
-            VERIFY(m.is_not(g, ng));
-            activate_guard(ng, *m_guard2pending[g]);
+        if (m_qhead == m_propagation_queue.size())
+            return;
+        ctx.push_trail(value_trail<unsigned>(m_qhead));
+        for (; m_qhead < m_propagation_queue.size() && !ctx.inconsistent(); ++m_qhead) {
+            auto& p = *m_propagation_queue[m_qhead];
+            if (p.is_guard()) 
+                activate_guard(p.guard(), *m_guard2pending[p.guard()]);
+            else if (p.is_core()) 
+                block_core(p.core());
+            else if (p.is_case()) 
+                assert_case_axioms(p.case_ex());
+            else 
+                assert_body_axiom(p.body());
         }
-        m_q_guards.reset();
-
-        for (literal_vector & c : m_q_clauses) {
-            TRACEFN("add axiom " << pp_lits(ctx, c));
-            ctx.mk_th_axiom(get_id(), c);
-        }
-        m_q_clauses.clear();
- 		
-        for (unsigned i = 0; i < m_q_case_expand.size(); ++i) {
-            recfun::case_expansion* e = m_q_case_expand[i];
-            if (e->m_def->is_fun_macro()) {
-                // body expand immediately
-                assert_macro_axiom(*e);
-            }
-            else {
-                // case expand
-                SASSERT(e->m_def->is_fun_defined());
-                assert_case_axioms(*e);                
-            }
-            dealloc(e);
-            m_q_case_expand[i] = nullptr;
-        }
-        m_stats.m_case_expansions += m_q_case_expand.size();
-        m_q_case_expand.reset();
-
-        for (unsigned i = 0; i < m_q_body_expand.size(); ++i) {
-            assert_body_axiom(*m_q_body_expand[i]);
-            dealloc(m_q_body_expand[i]);
-            m_q_body_expand[i] = nullptr;
-        }
-        m_stats.m_body_expansions += m_q_body_expand.size();
-        m_q_body_expand.reset();
     }
+
+    void theory_recfun::push(propagation_item* p) {
+        m_propagation_queue.push_back(p);         
+        ctx.push_trail(push_back_vector<scoped_ptr_vector<propagation_item>>(m_propagation_queue));        
+    }
+
 
     /**
      * make clause `depth_limit => ~guard`
      * the guard appears at a depth below the current cutoff.
      */
     void theory_recfun::disable_guard(expr* guard, expr_ref_vector const& guards) {
-        expr_ref nguard(m.mk_not(guard), m);
-        if (is_disabled_guard(nguard)) 
-            return;
-        SASSERT(!is_enabled_guard(nguard));
-        literal_vector c;
+        SASSERT(!is_enabled_guard(guard));
         app_ref dlimit = m_util.mk_num_rounds_pred(m_num_rounds);
-        c.push_back(~mk_literal(dlimit));
-        c.push_back(~mk_literal(guard)); 
-        m_disabled_guards.push_back(nguard);
-        SASSERT(!m_guard2pending.contains(nguard));
-        m_guard2pending.insert(nguard, alloc(expr_ref_vector, guards));
-        TRACEFN("add clause\n" << pp_lits(ctx, c));
-        m_q_clauses.push_back(std::move(c));
+        expr_ref_vector core(m);
+        core.push_back(dlimit);
+        core.push_back(guard);
+        if (!m_guard2pending.contains(guard)) {
+            m_disabled_guards.push_back(guard);
+            m_guard2pending.insert(guard, alloc(expr_ref_vector, guards));
+        }
+        TRACEFN("add core: " << core);
+        push_core(core);
     }
 
     /**
@@ -268,7 +216,7 @@ namespace smt {
         if (is_true && u().is_case_pred(e)) {
             TRACEFN("assign_case_pred_true " << mk_pp(e, m));
             // body-expand
-            push_body_expand(alloc(recfun::body_expansion, u(), to_app(e)));            
+            push_body_expand(e);
         }
     }
 
@@ -280,8 +228,7 @@ namespace smt {
         expr * e) {
         SASSERT(is_standard_order(vars));
         var_subst subst(m, true);
-        expr_ref new_body(m);
-        new_body = subst(e, args);
+        expr_ref new_body = subst(e, args);
         ctx.get_rewriter()(new_body); // simplify
         set_depth_rec(depth + 1, new_body);
         return new_body;
@@ -315,6 +262,13 @@ namespace smt {
         return lit;
     }
 
+    void theory_recfun::block_core(expr_ref_vector const& core) {
+        literal_vector clause;
+        for (expr* e : core)
+            clause.push_back(~mk_literal(e));
+        ctx.mk_th_axiom(get_id(), clause);
+    }
+
     /**
      * For functions f(args) that are given as macros f(vs) = rhs
      * 
@@ -344,6 +298,13 @@ namespace smt {
      * also body-expand paths that do not depend on any defined fun
      */
     void theory_recfun::assert_case_axioms(recfun::case_expansion & e) {
+
+        if (e.m_def->is_fun_macro()) {
+            assert_macro_axiom(e);
+            return;
+        }
+
+        ++m_stats.m_case_expansions;
         TRACEFN("assert_case_axioms " << e
                 << " with " << e.m_def->get_cases().size() << " cases");
         SASSERT(e.m_def->is_fun_defined());
@@ -352,7 +313,6 @@ namespace smt {
         literal_vector preds;
         auto & vars = e.m_def->get_vars();
             
-        unsigned max_depth = 0;
         for (recfun::case_def const & c : e.m_def->get_cases()) {
             // applied predicate to `args`
             app_ref pred_applied = c.apply_case_predicate(e.m_args);
@@ -372,18 +332,16 @@ namespace smt {
             }
             else if (!is_enabled_guard(pred_applied)) {
                 disable_guard(pred_applied, guards);
-                max_depth = std::max(depth, max_depth);
                 continue;
             }
             activate_guard(pred_applied, guards);
         }
+
         // the disjunction of branches is asserted
         // to close the available cases. 
-        {
-            scoped_trace_stream _tr2(*this, preds);
-            ctx.mk_th_axiom(get_id(), preds);
-        }
-        (void)max_depth;
+
+        scoped_trace_stream _tr(*this, preds);
+        ctx.mk_th_axiom(get_id(), preds);       
     }
 
     void theory_recfun::activate_guard(expr* pred_applied, expr_ref_vector const& guards) {
@@ -393,13 +351,10 @@ namespace smt {
         for (expr* ga : guards) {
             literal guard = mk_literal(ga);
             lguards.push_back(~guard);
-            literal c[2] = {~concl, guard};
-            std::function<literal_vector(void)> fn = [&]() { return literal_vector(2, c); };
-            scoped_trace_stream _tr(*this, fn);
-            ctx.mk_th_axiom(get_id(), 2, c);
+            scoped_trace_stream _tr1(*this, ~concl, guard);
+            ctx.mk_th_axiom(get_id(), ~concl, guard);
         }
-        std::function<literal_vector(void)> fn1 = [&]() { return lguards; };
-        scoped_trace_stream _tr1(*this, fn1);
+        scoped_trace_stream _tr2(*this, lguards);
         ctx.mk_th_axiom(get_id(), lguards);        
     }
 
@@ -412,6 +367,7 @@ namespace smt {
      *
      */
     void theory_recfun::assert_body_axiom(recfun::body_expansion & e) {
+        ++m_stats.m_body_expansions;
         recfun::def & d = *e.m_cdef->get_def();
         auto & vars = d.get_vars();
         auto & args = e.m_args;
@@ -432,16 +388,15 @@ namespace smt {
             }
         }        
         clause.push_back(mk_eq_lit(lhs, rhs));
+        TRACEFN(e << "\n" << pp_lits(ctx, clause));
         std::function<literal_vector(void)> fn = [&]() { return clause; };
         scoped_trace_stream _tr(*this, fn);
         ctx.mk_th_axiom(get_id(), clause);
-        TRACEFN("body " << e);
-        TRACEFN(pp_lits(ctx, clause));
     }
     
     final_check_status theory_recfun::final_check_eh() {
-        TRACEFN("final\n");
         if (can_propagate()) {
+            TRACEFN("final\n");
             propagate();
             return FC_CONTINUE;
         }
@@ -453,7 +408,8 @@ namespace smt {
             app_ref dlimit = m_util.mk_num_rounds_pred(m_num_rounds);
             TRACEFN("add_theory_assumption " << dlimit);
             assumptions.push_back(dlimit);
-            assumptions.append(m_disabled_guards);
+            for (expr* e : m_disabled_guards)
+                assumptions.push_back(m.mk_not(e));
         }
     }
 
@@ -463,41 +419,42 @@ namespace smt {
         expr* to_delete = nullptr;
         unsigned n = 0;
         unsigned current_depth = UINT_MAX;
-        for (auto & e : unsat_core) {
-            if (is_disabled_guard(e)) {
+        for (auto * ne : unsat_core) {
+            expr* e = nullptr;
+            if (m.is_not(ne, e) && is_disabled_guard(e)) {
                 found = true;
-                expr* ne = nullptr;
-                VERIFY(m.is_not(e, ne)); 
-                unsigned depth = get_depth(ne);
-                if (depth < current_depth)
+                unsigned depth = get_depth(e);
+                if (depth < current_depth) 
                     n = 0;
                 if (depth <= current_depth && (ctx.get_random_value() % (++n)) == 0) {
                     to_delete = e;
                     current_depth = depth;
                 }
             }
-            else if (u().is_num_rounds(e)) {
+            else if (u().is_num_rounds(ne)) 
                 found = true;
-            }
         }
         if (found) {
             m_num_rounds++;
             if (to_delete) {
                 m_disabled_guards.erase(to_delete);
                 m_enabled_guards.push_back(to_delete);
-                m_q_guards.push_back(to_delete);
-                IF_VERBOSE(1, verbose_stream() << "(smt.recfun :enable-guard " << mk_pp(to_delete, m) << ")\n");
+                IF_VERBOSE(2, verbose_stream() << "(smt.recfun :enable-guard " << mk_pp(to_delete, m) << ")\n");
             }
             else {
-                IF_VERBOSE(1, verbose_stream() << "(smt.recfun :increment-round)\n");
+                IF_VERBOSE(2, verbose_stream() << "(smt.recfun :increment-round)\n");
             }
+            for (expr* g : m_enabled_guards)
+                push_guard(g);
         }
+        TRACEFN("should research " << found);
         return found;
     }
 
     void theory_recfun::display(std::ostream & out) const {
         out << "recfun\n";
         out << "disabled guards:\n" << m_disabled_guards << "\n";
+        out << "enabled guards:\n" << m_enabled_guards << "\n";
     }
 
     void theory_recfun::collect_statistics(::statistics & st) const {

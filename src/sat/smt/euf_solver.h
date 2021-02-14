@@ -51,6 +51,14 @@ namespace euf {
         size_t to_index() const { return sat::constraint_base::mem2base(this); }
     };
 
+    class clause_pp {
+        solver& s;
+        sat::literal_vector const& lits;
+    public:
+        clause_pp(solver& s, sat::literal_vector const& lits):s(s), lits(lits) {}
+        std::ostream& display(std::ostream& out) const;
+    };
+
     class solver : public sat::extension, public th_internalizer, public th_decompile {
         typedef top_sort<euf::enode> deps_t;
         friend class ackerman;
@@ -266,6 +274,9 @@ namespace euf {
         bool is_external(bool_var v) override;
         bool propagated(literal l, ext_constraint_idx idx) override;
         bool unit_propagate() override;
+        bool should_research(sat::literal_vector const& core) override;
+        void add_assumptions() override;
+        bool tracking_assumptions() override;
 
         void propagate(literal lit, ext_justification_idx idx);
         bool propagate(enode* a, enode* b, ext_justification_idx idx);
@@ -297,6 +308,7 @@ namespace euf {
         std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, ext_constraint_idx idx) const override;
         euf::egraph::b_pp bpp(enode* n) { return m_egraph.bpp(n); }
+        clause_pp pp(literal_vector const& lits) { return clause_pp(*this, lits); }
         void collect_statistics(statistics& st) const override;
         extension* copy(sat::solver* s) override;
         enode* copy(solver& dst_ctx, enode* src_n);
@@ -396,8 +408,14 @@ namespace euf {
 
 
     };
+
+    inline std::ostream& operator<<(std::ostream& out, clause_pp const& p) {
+        return p.display(out);
+    }
+
 };
 
 inline std::ostream& operator<<(std::ostream& out, euf::solver const& s) {
     return s.display(out);
 }
+

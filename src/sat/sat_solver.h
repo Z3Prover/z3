@@ -182,6 +182,7 @@ namespace sat {
         scoped_ptr<solver>      m_clone; // for debugging purposes
         literal_vector          m_assumptions;      // additional assumptions during check
         literal_set             m_assumption_set;   // set of enabled assumptions
+        literal_set             m_ext_assumption_set;   // set of enabled assumptions
         literal_vector          m_core;             // unsat core
 
         unsigned                m_par_id;        
@@ -497,9 +498,13 @@ namespace sat {
         unsigned m_num_checkpoints { 0 };
         double   m_min_d_tk { 0 } ;
         unsigned m_next_simplify { 0 };
+        bool     m_simplify_enabled { true };
+        bool     m_restart_enabled { true };
         bool decide();
         bool_var next_var();
         lbool bounded_search();
+        lbool basic_search();
+        lbool search();
         lbool final_check();
         void init_search();
         
@@ -512,8 +517,8 @@ namespace sat {
         void resolve_weighted();
         void reset_assumptions();
         void add_assumption(literal lit);
-        void pop_assumption();
         void reinit_assumptions();
+        void init_ext_assumptions();
         bool tracking_assumptions() const;
         bool is_assumption(literal l) const;
         bool should_simplify() const;

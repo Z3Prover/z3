@@ -27,8 +27,15 @@ Author:
 #include "sat/smt/q_solver.h"
 #include "sat/smt/fpa_solver.h"
 #include "sat/smt/dt_solver.h"
+#include "sat/smt/recfun_solver.h"
 
 namespace euf {
+
+    std::ostream& clause_pp::display(std::ostream& out) const {
+        for (auto lit : lits)
+            out << s.literal2expr(lit) << " ";
+        return out;
+    }
 
     solver::solver(ast_manager& m, sat::sat_internalizer& si, params_ref const& p) :
         extension(symbol("euf"), m.mk_family_id("euf")),
@@ -103,6 +110,7 @@ namespace euf {
         fpa_util fpa(m);
         arith_util arith(m);
         datatype_util dt(m);
+        recfun::util rf(m);
         if (pb.get_family_id() == fid)
             ext = alloc(sat::ba_solver, *this, fid);
         else if (bvu.get_family_id() == fid)
@@ -115,6 +123,8 @@ namespace euf {
             ext = alloc(arith::solver, *this, fid);
         else if (dt.get_family_id() == fid)
             ext = alloc(dt::solver, *this, fid);
+        else if (rf.get_family_id() == fid)
+            ext = alloc(recfun::solver, *this);
         
         if (ext) 
             add_solver(ext);        
@@ -430,6 +440,7 @@ namespace euf {
         if (!init_relevancy())
             give_up = true;
 
+
         for (auto* e : m_solvers) {
             if (!m.inc())
                 return sat::check_result::CR_GIVEUP;
@@ -557,6 +568,26 @@ namespace euf {
             e->simplify();
         if (m_ackerman)
             m_ackerman->propagate();
+    }
+    
+    bool solver::should_research(sat::literal_vector const& core) {
+        bool result = false;
+        for (auto* e : m_solvers)
+            if (e->should_research(core))
+                result = true;
+        return result;
+    }
+
+    void solver::add_assumptions() {
+        for (auto* e : m_solvers)
+            e->add_assumptions();
+    }
+
+    bool solver::tracking_assumptions() {
+        for (auto* e : m_solvers)
+            if (e->tracking_assumptions())
+                return true;
+        return false;
     }
 
     void solver::clauses_modifed() {

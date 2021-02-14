@@ -20,6 +20,7 @@ Revision History:
 #include<iostream>
 #include "ast/for_each_ast.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
 
 // #define AST_LL_PP_SHOW_FAMILY_NAME
 
@@ -30,6 +31,7 @@ class ll_printer {
     bool           m_only_exprs;
     bool           m_compact;
     arith_util     m_autil;
+    datatype_util  m_dt;
 
     void display_def_header(ast * n) {
         if (n != m_root) {
@@ -114,6 +116,10 @@ class ll_printer {
             }
             m_out << "]";
         }
+        else if (is_func_decl(d) && m_dt.is_is(to_func_decl(d))) {
+            func_decl* fd = m_dt.get_recognizer_constructor(to_func_decl(d));
+            m_out << " " << fd->get_name();
+        }
     }
 
 public:
@@ -124,7 +130,8 @@ public:
         m_root(n),
         m_only_exprs(only_exprs),
         m_compact(compact),
-        m_autil(m) {
+        m_autil(m),
+        m_dt(m) {
     }
 
     void pp(ast* n) {

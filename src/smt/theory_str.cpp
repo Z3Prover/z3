@@ -7553,8 +7553,6 @@ namespace smt {
         // the thing we iterate over should just be variable_set - internal_variable_set
         // so we avoid computing the set difference (but this might be slower)
         for (expr* var : variable_set) {
-        //for(obj_hashtable<expr>::iterator it = variable_set.begin(); it != variable_set.end(); ++it) {
-            //expr* var = *it;
             if (internal_variable_set.find(var) == internal_variable_set.end()) {
                 TRACE("str", tout << "new variable: " << mk_pp(var, m) << std::endl;);
                 strVarMap[var] = 1;

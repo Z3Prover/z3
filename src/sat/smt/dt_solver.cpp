@@ -222,6 +222,8 @@ namespace dt {
         else if (is_update_field(n)) {
             assert_update_field_axioms(n);
         }
+        else if (is_recognizer(n))
+            ;
         else {
             sort* s = n->get_expr()->get_sort();
             if (dt.get_datatype_num_constructors(s) == 1)
@@ -251,7 +253,9 @@ namespace dt {
 
         TRACE("dt", tout << "non_rec_c: " << non_rec_c->get_name() << " #rec: " << d->m_recognizers.size() << "\n";);
 
+
         enode* recognizer = d->m_recognizers.get(non_rec_idx, nullptr);
+                               
         if (recognizer == nullptr)
             r = dt.get_constructor_is(non_rec_c);
         else if (ctx.value(recognizer) != l_false)
@@ -263,13 +267,15 @@ namespace dt {
             unsigned idx = 0;
             ptr_vector<func_decl> const& constructors = *dt.get_datatype_constructors(srt);
             for (enode* curr : d->m_recognizers) {
+
                 if (curr == nullptr) {
                     // found empty slot...
                     r = dt.get_constructor_is(constructors[idx]);
                     break;
                 }
-                else if (ctx.value(curr) != l_false)
+                else if (ctx.value(curr) != l_false) {
                     return;
+                }
                 ++idx;
             }
             if (r == nullptr)
@@ -342,6 +348,7 @@ namespace dt {
     }
 
     void solver::add_recognizer(theory_var v, enode* recognizer) {
+        TRACE("dt", tout << "add recognizer " << v << " " << mk_pp(recognizer->get_expr(), m) << "\n";);
         SASSERT(is_recognizer(recognizer));
         v = m_find.find(v);
         var_data* d = m_var_data[v];
@@ -596,7 +603,7 @@ namespace dt {
        a3 = cons(v3, a1)
     */
     bool solver::occurs_check(enode* n) {
-        TRACE("dt", tout << "occurs check: " << ctx.bpp(n) << "\n";);
+        TRACE("dt_verbose", tout << "occurs check: " << ctx.bpp(n) << "\n";);
         m_stats.m_occurs_check++;
 
         bool res = false;
@@ -611,7 +618,7 @@ namespace dt {
             if (oc_cycle_free(app))
                 continue;
 
-            TRACE("dt", tout << "occurs check loop: " << ctx.bpp(app) << (op == ENTER ? " enter" : " exit") << "\n";);
+            TRACE("dt_verbose", tout << "occurs check loop: " << ctx.bpp(app) << (op == ENTER ? " enter" : " exit") << "\n";);
 
             switch (op) {
             case ENTER:
@@ -627,6 +634,7 @@ namespace dt {
         if (res) {
             clear_mark();
             ctx.set_conflict(euf::th_propagation::mk(*this, m_used_eqs));
+            TRACE("dt", tout << "occurs check conflict: " << ctx.bpp(n) << "\n";);
         }
         return res;
     }
@@ -741,17 +749,21 @@ namespace dt {
                 }
             }
             mk_var(n);
+            
         }
         else if (is_recognizer(term)) {
+            mk_var(n);
             enode* arg = n->get_arg(0);
             theory_var v = mk_var(arg);
-            add_recognizer(v, n);           
+            add_recognizer(v, n);   
+            
         }
         else {
             SASSERT(is_accessor(term));
             SASSERT(n->num_args() == 1);
             mk_var(n->get_arg(0));
         }
+       
         return true;
     }
 
