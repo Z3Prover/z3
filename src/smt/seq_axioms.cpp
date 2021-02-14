@@ -202,9 +202,10 @@ bool seq_axioms::is_extract_suffix(expr* s, expr* i, expr* l) {
 }
 
 /*
-  0 <= l <= len(s) => s = ey & l = len(e)
-  len(s) < l => s = e
-  l < 0 => e = empty
+  s = ey
+  l <= 0 => e = empty
+  0 <= l <= len(s) => len(e) = l
+  len(s) < l => len(e) = len(s)
  */
 void seq_axioms::add_extract_prefix_axiom(expr* e, expr* s, expr* l) {
     TRACE("seq", tout << "prefix " << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << " " << mk_bounded_pp(l, m, 2) << "\n";);
@@ -214,13 +215,11 @@ void seq_axioms::add_extract_prefix_axiom(expr* e, expr* s, expr* l) {
     expr_ref zero(a.mk_int(0), m);
     expr_ref y = m_sk.mk_post(s, l);
     expr_ref ey = mk_concat(e, y);
-    literal l_ge_0 = mk_ge(l, 0);
     literal l_le_s = mk_le(mk_sub(l, ls), 0);
-    add_axiom(~l_ge_0, ~l_le_s, mk_seq_eq(s, ey));
-    add_axiom(~l_ge_0, ~l_le_s, mk_eq(l, le));
-    add_axiom(~l_ge_0, ~l_le_s, mk_eq(ls_minus_l, mk_len(y)));
+    add_axiom(mk_seq_eq(s, ey));
+    add_axiom(~mk_le(l, 0), mk_eq_empty(e));
+    add_axiom(~mk_ge(l, 0), ~l_le_s, mk_eq(le, l));
     add_axiom(l_le_s, mk_eq(e, s));
-    add_axiom(l_ge_0, mk_eq_empty(e));
 }
 
 /*
