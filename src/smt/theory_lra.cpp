@@ -550,6 +550,9 @@ class theory_lra::imp {
             return get_enode(n);
         }
         else {
+            if (reflect(n))
+                for (expr* arg : *n)
+                    th.ensure_enode(arg);
             return ctx().mk_enode(n, !reflect(n), false, enable_cgc_for(n));       
         }
     }
