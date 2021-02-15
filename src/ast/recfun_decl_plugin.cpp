@@ -496,6 +496,7 @@ namespace recfun {
                 if (max_score <= 4) 
                     break;
 
+
                 ptr_vector<sort> domain;
                 ptr_vector<expr> args;
                 for (unsigned i = 0; i < n; ++i) {
@@ -508,9 +509,10 @@ namespace recfun {
                 func_decl* f = pd.get_def()->get_decl();
                 expr_ref new_body(m().mk_app(f, n, args.c_ptr()), m());
                 set_definition(subst, pd, n, vars, max_expr);
+                subst.reset();
                 subst.insert(max_expr, new_body);
                 result = subst(result);                
-                TRACEFN("substituted\n" << mk_pp(max_expr, m()) << "\n->\n" << new_body << "\n" << result);
+                TRACEFN("substituted\n" << mk_pp(max_expr, m()) << "\n->\n" << new_body << "\n-result->\n" << result);
             }
             return result;
         }

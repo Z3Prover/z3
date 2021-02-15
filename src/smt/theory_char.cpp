@@ -258,7 +258,7 @@ namespace smt {
         for (unsigned v = get_num_vars(); v-- > 0; ) {
             expr* e = get_expr(v);
             if (seq.is_char(e) && m_var2value[v] == UINT_MAX && get_char_value(v, c)) {
-                CTRACE("seq", seq.is_char(e), tout << mk_pp(e, m) << " root: " << get_enode(v)->is_root() << " is_value: " << get_char_value(v, c) << "\n";);
+                CTRACE("seq_verbose", seq.is_char(e), tout << mk_pp(e, m) << " root: " << get_enode(v)->is_root() << " is_value: " << get_char_value(v, c) << "\n";);
                 enode* r = get_enode(v)->get_root();
                 m_value2var.reserve(c + 1, null_theory_var);
                 theory_var u = m_value2var[c];

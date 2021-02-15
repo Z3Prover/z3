@@ -2453,6 +2453,12 @@ typedef obj_ref<app, ast_manager>        app_ref;
 typedef obj_ref<var,ast_manager>         var_ref;
 typedef app_ref proof_ref;
 
+inline expr_ref operator~(expr_ref const & e) {
+    if (e.m().is_not(e))
+        return expr_ref(to_app(e)->get_arg(0), e.m());
+    return expr_ref(e.m().mk_not(e), e.m());
+}
+
 // -----------------------------------
 //
 // ast_vector (smart pointer vector)
