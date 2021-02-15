@@ -35,7 +35,7 @@ static bool is_hex_digit(char ch, unsigned& d) {
 
 bool zstring::is_escape_char(char const *& s, unsigned& result) {
     unsigned d;
-    if (*s == '\\' && *(s+1) == 'u' && *(s+2) == '{') {
+    if (*s == '\\' && s[1] == 'u' && s[2] == '{' && s[3] != '}') {
         result = 0;
         for (unsigned i = 0; i < 6; ++i) {
             if (is_hex_digit(*(s+3+i), d)) {
