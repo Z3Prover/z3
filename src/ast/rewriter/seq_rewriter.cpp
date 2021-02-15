@@ -4514,6 +4514,14 @@ bool seq_rewriter::is_string(unsigned n, expr* const* es, zstring& s) const {
     return true;
 }
 
+expr_ref seq_rewriter::mk_length(expr* s) {
+    expr_ref result(m());
+    if (BR_FAILED == mk_seq_length(s, result))
+        result = str().mk_length(s);
+    return result;
+}
+
+
 /**
  * itos(n) = <numeric string> -> n = numeric
  */

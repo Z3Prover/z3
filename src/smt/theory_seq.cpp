@@ -2493,14 +2493,14 @@ void theory_seq::propagate() {
         m_regex.propagate();
     while (m_axioms_head < m_axioms.size() && !ctx.inconsistent()) {
         expr_ref e(m);
-        e = m_axioms[m_axioms_head].get();
+        e = m_axioms.get(m_axioms_head);
         deque_axiom(e);
         ++m_axioms_head;
     }
     while (!m_replay.empty() && !ctx.inconsistent()) {
-        apply* app = m_replay[m_replay.size() - 1];
         TRACE("seq", tout << "replay at level: " << ctx.get_scope_level() << "\n";);
-        (*app)(*this);
+        apply& app = *m_replay[m_replay.size() - 1];
+        app(*this);
         m_replay.pop_back();
     }
     if (m_new_solution) {
@@ -2540,7 +2540,7 @@ void theory_seq::deque_axiom(expr* n) {
         m_ax.add_replace_axiom(n);
     }
     else if (m_util.str.is_extract(n)) {
-        m_ax.add_extract_axiom(n);
+        m_ax.add_extract_axiom(purify(n));
     }
     else if (m_util.str.is_at(n)) {
         m_ax.add_at_axiom(n);
@@ -2579,6 +2579,32 @@ void theory_seq::deque_axiom(expr* n) {
     }
 }
 
+expr_ref theory_seq::purify(expr* e) {
+    app* a = to_app(e);
+    expr_ref_vector args(m);
+    bool has_fresh = false;
+    for (expr* arg : *a) {
+        expr_ref tmp(m);
+        m_rewrite(arg, tmp);
+        if (arg != tmp) {
+            has_fresh = true;
+            tmp = m.mk_fresh_const("purify", arg->get_sort());
+            enode* n1 = ctx.get_enode(arg);
+            enode* n2 = ensure_enode(tmp);
+            justification* js = ctx.mk_justification(
+                ext_theory_eq_propagation_justification(
+                    get_id(), ctx.get_region(), 0, nullptr, 0, nullptr, n1, n2));
+            ctx.assign_eq(n1, n2, eq_justification(js));
+        }
+        args.push_back(tmp);
+    }
+
+    if (has_fresh)
+        return expr_ref(m.mk_app(a->get_decl(), args), m);
+    
+    return expr_ref(a, m);
+}
+
 expr_ref theory_seq::add_elim_string_axiom(expr* n) {
     zstring s;
     TRACE("seq", tout << mk_pp(n, m) << "\n";);
@@ -2609,9 +2635,7 @@ expr_ref theory_seq::mk_add(expr* a, expr* b) {
 }
 
 expr_ref theory_seq::mk_len(expr* s) {
-    expr_ref result(m_util.str.mk_length(s), m); 
-    m_rewrite(result);
-    return result;
+    return m_seq_rewrite.mk_length(s);
 }
 
 

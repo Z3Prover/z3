@@ -20,6 +20,7 @@ Revision History:
 
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/seq_skolem.h"
 #include "ast/ast_trail.h"
 #include "util/scoped_vector.h"
 #include "util/scoped_ptr_vector.h"
@@ -29,7 +30,6 @@ Revision History:
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"
 #include "smt/theory_seq_empty.h"
-#include "ast/rewriter/seq_skolem.h"
 #include "smt/seq_axioms.h"
 #include "smt/seq_regex.h"
 #include "smt/seq_offset_eq.h"
@@ -496,6 +496,7 @@ namespace smt {
         bool reduce_ne(unsigned idx);
         bool branch_nqs();
         lbool branch_nq(ne const& n);
+        expr_ref purify(expr* e);
 
         struct cell {
             cell*       m_parent;
