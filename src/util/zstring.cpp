@@ -51,6 +51,20 @@ bool zstring::is_escape_char(char const *& s, unsigned& result) {
                 break;
             }
         }
+        return false;
+    }
+    unsigned d1, d2, d3, d4;
+    if (*s == '\\' && s[1] == 'u' && 
+        is_hex_digit(s[2], d1) &&
+        is_hex_digit(s[3], d2) &&
+        is_hex_digit(s[4], d3) &&
+        is_hex_digit(s[5], d4)) {
+        result = d1;
+        result = 16*result + d2;
+        result = 16*result + d3;
+        result = 16*result + d4;
+        s += 6;
+        return true;
     }
     return false;
 }
