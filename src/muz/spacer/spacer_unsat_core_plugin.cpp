@@ -396,8 +396,8 @@ namespace spacer {
                 matrix.set(i, map[pair.second], pair.first);
             }
         }
-        matrix.print_matrix();
 
+        IF_VERBOSE(10, matrix.display(verbose_stream()););
         // 3. normalize matrix to integer values
         matrix.normalize();
 
