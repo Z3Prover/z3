@@ -23,6 +23,7 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
+#include "ast/rewriter/seq_axioms.h"
 #include "smt/smt_theory.h"
 
 namespace smt {
@@ -33,8 +34,10 @@ namespace smt {
         ast_manager&   m;
         arith_util     a;
         seq_util       seq;
-        seq::skolem     m_sk;
+        seq::skolem    m_sk;
+        seq::axioms    m_ax;
         bool           m_digits_initialized;
+        bool           m_use_new_axioms { false };
 
         literal mk_eq_empty(expr* e, bool phase = true) { return mk_eq_empty2(e, phase); }
         context& ctx() { return th.get_context(); }
@@ -60,6 +63,7 @@ namespace smt {
         void add_extract_prefix_axiom(expr* e, expr* s, expr* l);
         void tightest_prefix(expr* s, expr* x);
         void ensure_digit_axiom();
+        void add_clause(expr_ref_vector const& lits);
     public:
 
         seq_axioms(theory& th, th_rewriter& r);
@@ -80,12 +84,12 @@ namespace smt {
         void add_stoi_axiom(expr* n);
         void add_stoi_axiom(expr* e, unsigned k);
         void add_itos_axiom(expr* s, unsigned k);
-        void add_lt_axiom(expr* n);
-        void add_le_axiom(expr* n);
+        void add_lt_axiom(expr* n) { m_ax.lt_axiom(n); }
+        void add_le_axiom(expr* n) { m_ax.le_axiom(n); }
         void add_is_digit_axiom(expr* n);
         void add_str_to_code_axiom(expr* n);
         void add_str_from_code_axiom(expr* n);
-        void add_unit_axiom(expr* n);
+        void add_unit_axiom(expr* n) { m_ax.unit_axiom(n); }
         void add_length_axiom(expr* n);
         void unroll_not_contains(expr* n);
 

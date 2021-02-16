@@ -32,6 +32,7 @@ z3_add_component(rewriter
     quant_hoist.cpp
     recfun_rewriter.cpp
     rewriter.cpp
+    seq_axioms.cpp
     seq_rewriter.cpp
     seq_skolem.cpp
     th_rewriter.cpp
