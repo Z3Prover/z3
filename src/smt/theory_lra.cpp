@@ -546,13 +546,14 @@ class theory_lra::imp {
 
     enode * mk_enode(app * n) {
         TRACE("arith", tout << expr_ref(n, m) << " internalized: " << ctx().e_internalized(n) << "\n";);
+        if (reflect(n))
+            for (expr* arg : *n)
+                if (!ctx().e_internalized(arg))
+                    th.ensure_enode(arg);
         if (ctx().e_internalized(n)) {
             return get_enode(n);
         }
         else {
-            if (reflect(n))
-                for (expr* arg : *n)
-                    th.ensure_enode(arg);
             return ctx().mk_enode(n, !reflect(n), false, enable_cgc_for(n));       
         }
     }

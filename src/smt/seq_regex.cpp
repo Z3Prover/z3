@@ -32,7 +32,7 @@ namespace smt {
     class seq_util::rex& seq_regex::re() { return th.m_util.re; }
     class seq_util::str& seq_regex::str() { return th.m_util.str; }
     seq_rewriter& seq_regex::seq_rw() { return th.m_seq_rewrite; }
-    seq_skolem& seq_regex::sk() { return th.m_sk; }
+    seq::skolem& seq_regex::sk() { return th.m_sk; }
     arith_util& seq_regex::a() { return th.m_autil; }
     void seq_regex::rewrite(expr_ref& e) { th.m_rewrite(e); }
 

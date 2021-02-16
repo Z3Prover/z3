@@ -137,7 +137,7 @@ namespace smt {
         class seq_util::rex& re();
         class seq_util::str& str();
         seq_rewriter& seq_rw();
-        seq_skolem& sk();
+        seq::skolem& sk();
         arith_util& a();
 
         bool is_string_equality(literal lit);

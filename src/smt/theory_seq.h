@@ -355,7 +355,7 @@ namespace smt {
         seq_rewriter     m_seq_rewrite;
         seq_util         m_util;
         arith_util       m_autil;
-        seq_skolem       m_sk;
+        seq::skolem      m_sk;
         seq_axioms       m_ax;
         seq_regex        m_regex;
         arith_value      m_arith_value;

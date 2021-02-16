@@ -22,9 +22,9 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
 
-namespace smt {
+namespace seq {
 
-    class seq_skolem {
+    class skolem {
         ast_manager&   m;
         th_rewriter&   m_rewrite; // NB: would be nicer not to have this dependency
         seq_util       seq;
@@ -43,7 +43,7 @@ namespace smt {
 
     public:
 
-        seq_skolem(ast_manager& m, th_rewriter& r);
+        skolem(ast_manager& m, th_rewriter& r);
 
         expr_ref mk(symbol const& s, sort* range) { return mk(s, nullptr, nullptr, nullptr, nullptr, range); }
         expr_ref mk(symbol const& s, expr* e, sort* range) { return mk(s, e, nullptr, nullptr, nullptr, range); }

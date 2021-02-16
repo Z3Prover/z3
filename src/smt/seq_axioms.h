@@ -33,7 +33,7 @@ namespace smt {
         ast_manager&   m;
         arith_util     a;
         seq_util       seq;
-        seq_skolem     m_sk;
+        seq::skolem     m_sk;
         bool           m_digits_initialized;
 
         literal mk_eq_empty(expr* e, bool phase = true) { return mk_eq_empty2(e, phase); }
