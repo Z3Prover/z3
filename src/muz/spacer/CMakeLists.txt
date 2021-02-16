@@ -32,6 +32,7 @@ z3_add_component(spacer
   spacer_sat_answer.cpp
   spacer_concretize.cpp
   spacer_convex_closure.cpp
+  spacer_conjecture.cpp
   spacer_arith_kernel.cpp
   spacer_arith_kernel_sage.cpp
   COMPONENT_DEPENDENCIES

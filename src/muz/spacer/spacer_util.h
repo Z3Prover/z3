@@ -155,12 +155,12 @@ bool is_mono_var(expr *lit, ast_manager &m, arith_util &a_util);
 
 // a mono_var_pattern has only one variable in the whole expression and is
 // linear. lit is the literal with the variable
-bool should_conjecture(const expr_ref &p, expr_ref &lit);
+bool find_unique_mono_var_lit(const expr_ref &p, expr_ref &lit);
 
 /// Drop all literals that numerically match \p lit, from \p fml_vec.
 ///
 /// \p abs_fml holds the result. Returns true if any literal has been dropped
-bool drop_lit(expr_ref_vector &in, expr_ref &lit, expr_ref_vector &out);
+bool filter_out_lit(const expr_ref_vector &in, const expr_ref &lit, expr_ref_vector &out);
 
 /// Returns true if range of s is numeric
 bool is_numeric_sub(const substitution &s);
