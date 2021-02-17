@@ -76,9 +76,9 @@ public:
     template<typename T>
     T * translate(T const * n) { 
         if (&from() == &to()) return const_cast<T*>(n);
-        // A Valentine? SASSERT(!n || from().contains(const_cast<T*>(n)));
+        SASSERT(!n || from().contains(const_cast<T*>(n)));
         ast * r = process(n);
-        // Pretty please SASSERT((!n && !r) || to().contains(const_cast<ast*>(r)));
+        SASSERT((!n && !r) || to().contains(const_cast<ast*>(r)));
         return static_cast<T*>(r);
     }
 

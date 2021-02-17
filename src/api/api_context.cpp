@@ -224,7 +224,7 @@ namespace api {
 
 
     void context::save_ast_trail(ast * n) {
-        // cherry on top? SASSERT(m().contains(n));
+        SASSERT(m().contains(n));
         if (m_user_ref_count) {
             // Corner case bug: n may be in m_last_result, and this is the only reference to n.
             // When, we execute reset() it is deleted

@@ -1323,7 +1323,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
-        // yo! SASSERT(mk_c(c)->m().contains(to_ast(a)));
+        SASSERT(mk_c(c)->m().contains(to_ast(a)));
         ast_translation translator(mk_c(c)->m(), mk_c(target)->m());
         ast * _result = translator(to_ast(a));
         mk_c(target)->save_ast_trail(_result);

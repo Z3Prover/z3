@@ -1667,6 +1667,8 @@ public:
     bool are_equal(expr * a, expr * b) const;
 
     bool are_distinct(expr * a, expr * b) const;
+
+    bool contains(ast * a) const { return m_ast_table.contains(a); }
     
     bool is_lambda_def(quantifier* q) const { return q->get_qid() == m_lambda_def; }
     void add_lambda_def(func_decl* f, quantifier* q);
