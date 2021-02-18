@@ -139,9 +139,13 @@ namespace seq {
             extract_prefix_axiom(e, s, l);
             return;
         }
+#if 0
         if (is_extract_suffix(s, _i, _l)) {
+            extract_suffix_axiom(e, s, i);
             return;
         }
+#endif
+        TRACE("seq", tout << s << " " << i << " " << l << "\n";);
         expr_ref x = m_sk.mk_pre(s, i);
         expr_ref ls = mk_len(_s);
         expr_ref lx = mk_len(x);

@@ -1917,11 +1917,11 @@ class MLComponent(Component):
             src_dir = self.to_src_dir
             mk_dir(os.path.join(BUILD_DIR, self.sub_dir))
             api_src = get_component(API_COMPONENT).to_src_dir
-            # remove /GL and -std=c++11; the ocaml tools don't like them.
-            if IS_WINDOWS:                
+            # remove /GL and -std=c++17; the ocaml tools don't like them.
+            if IS_WINDOWS:
                 out.write('CXXFLAGS_OCAML=$(CXXFLAGS:/GL=)\n')
             else:
-                out.write('CXXFLAGS_OCAML=$(subst -std=c++11,,$(CXXFLAGS))\n')
+                out.write('CXXFLAGS_OCAML=$(subst -std=c++17,,$(CXXFLAGS))\n')
 
             substitutions = { 'VERSION': "{}.{}.{}.{}".format(VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK) }
 
@@ -2476,7 +2476,7 @@ def mk_config():
             CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
         if GIT_HASH:
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
-        CXXFLAGS = '%s -std=c++11' % CXXFLAGS
+        CXXFLAGS = '%s -std=c++17' % CXXFLAGS
         CXXFLAGS = '%s -fvisibility=hidden -c' % CXXFLAGS
         FPMATH = test_fpmath(CXX)
         CXXFLAGS = '%s %s' % (CXXFLAGS, FPMATH_FLAGS)
@@ -2568,7 +2568,7 @@ def mk_config():
         config.write('CC=%s\n' % CC)
         config.write('CXX=%s\n' % CXX)
         config.write('CXXFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS))
-        config.write('CFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS.replace('-std=c++11', '')))
+        config.write('CFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS.replace('-std=c++17', '')))
         config.write('EXAMP_DEBUG_FLAG=%s\n' % EXAMP_DEBUG_FLAG)
         config.write('CXX_OUT_FLAG=-o \n')
         config.write('C_OUT_FLAG=-o \n')

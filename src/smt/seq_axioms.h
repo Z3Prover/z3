@@ -60,7 +60,9 @@ namespace smt {
         bool is_drop_last(expr* s, expr* i, expr* l);
         bool is_tail(expr* s, expr* i, expr* l);
         bool is_extract_prefix0(expr* s, expr* i, expr* l);
+        bool is_extract_suffix(expr* s, expr* i, expr* l);
         void add_extract_prefix_axiom(expr* e, expr* s, expr* l);
+        void add_extract_suffix_axiom(expr* e, expr* s, expr* i);
         void tightest_prefix(expr* s, expr* x);
         void ensure_digit_axiom();
         void add_clause(expr_ref_vector const& lits);

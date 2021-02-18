@@ -833,6 +833,10 @@ namespace smt {
                         instantiate_axiom_RegexIn(e);
                     } else if (u.str.is_is_digit(a)) {
                         instantiate_axiom_is_digit(e);
+                    } else if (u.str.is_from_code(a)) {
+                        instantiate_axiom_str_from_code(e);
+                    } else if (u.str.is_to_code(a)) {
+                        instantiate_axiom_str_to_code(e);
                     } else {
                         TRACE("str", tout << "BUG: unhandled library-aware term " << mk_pp(e->get_owner(), get_manager()) << std::endl;);
                         NOT_IMPLEMENTED_YET();
@@ -1852,6 +1856,71 @@ namespace smt {
         expr_ref rhs(mk_or(rhs_terms), m);
         expr_ref axiom(ctx.mk_eq_atom(ex, rhs), m);
         assert_axiom_rw(axiom);
+    }
+    
+    void theory_str::instantiate_axiom_str_from_code(enode * e) {
+        ast_manager & m = get_manager();
+
+        app * ex = e->get_owner();
+        if (axiomatized_terms.contains(ex)) {
+            TRACE("str", tout << "already set up str.from_code axiom for " << mk_pp(ex, m) << std::endl;);
+            return;
+        }
+        axiomatized_terms.insert(ex);
+        TRACE("str", tout << "instantiate str.from_code axiom for " << mk_pp(ex, m) << std::endl;);
+
+        expr * arg;
+        u.str.is_from_code(ex, arg);
+        // (str.from_code N) == "" if N is not in the range [0, max_char].
+        {
+	        expr_ref premise(m.mk_or(m_autil.mk_le(arg, mk_int(-1)), m_autil.mk_ge(arg, mk_int(u.max_char() + 1))), m);
+            expr_ref conclusion(ctx.mk_eq_atom(ex, mk_string("")), m);
+            expr_ref axiom(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(axiom);
+        }
+        // len (str.from_code N) == 1 if N is in the range [0, max_char].
+        {
+	        expr_ref premise(m.mk_and(m_autil.mk_ge(arg, mk_int(0)), m_autil.mk_le(arg, mk_int(u.max_char() + 1))), m);
+            expr_ref conclusion(ctx.mk_eq_atom(mk_strlen(ex), mk_int(1)), m);
+            expr_ref axiom(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(axiom);
+        }
+        // If N is in the range [0, max_char], then to_code(from_code(e)) == e.
+        {
+            expr_ref premise(m.mk_and(m_autil.mk_ge(arg, mk_int(0)), m_autil.mk_le(arg, mk_int(u.max_char() + 1))), m);
+            expr_ref conclusion(ctx.mk_eq_atom(u.str.mk_to_code(ex), arg), m);
+            expr_ref axiom(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(axiom);
+        }
+    }
+
+    void theory_str::instantiate_axiom_str_to_code(enode * e) {
+        ast_manager & m = get_manager();
+
+        app * ex = e->get_owner();
+        if (axiomatized_terms.contains(ex)) {
+            TRACE("str", tout << "already set up str.to_code axiom for " << mk_pp(ex, m) << std::endl;);
+            return;
+        }
+        axiomatized_terms.insert(ex);
+        TRACE("str", tout << "instantiate str.to_code axiom for " << mk_pp(ex, m) << std::endl;);
+
+        expr * arg;
+        u.str.is_to_code(ex, arg);
+        // (str.to_code S) == -1 if len(S) != 1.
+        {
+            expr_ref premise(m.mk_not(ctx.mk_eq_atom(mk_strlen(arg), mk_int(1))), m);
+            expr_ref conclusion(ctx.mk_eq_atom(ex, mk_int(-1)), m);
+            expr_ref axiom(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(axiom);
+        }
+        // (str.to_code S) is in [0, max_char] if len(S) == 1.
+        {
+            expr_ref premise(ctx.mk_eq_atom(mk_strlen(arg), mk_int(1)), m);
+            expr_ref conclusion(m.mk_and(m_autil.mk_ge(ex, mk_int(0)), m_autil.mk_le(ex, mk_int(u.max_char()))), m);
+            expr_ref axiom(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(axiom);
+        }
     }
 
     expr * theory_str::mk_RegexIn(expr * str, expr * regexp) {
@@ -6804,7 +6873,7 @@ namespace smt {
         if (ex_sort != str_sort) return false;
         // string constants cannot be variables
         if (u.str.is_string(e)) return false;
-        if (u.str.is_concat(e) || u.str.is_at(e) || u.str.is_extract(e) || u.str.is_replace(e) || u.str.is_itos(e))
+        if (u.str.is_concat(e) || u.str.is_at(e) || u.str.is_extract(e) || u.str.is_replace(e) || u.str.is_itos(e) || u.str.is_from_code(e))
             return false;
         if (m.is_ite(e))
             return false;
@@ -6828,8 +6897,7 @@ namespace smt {
         sort * int_sort = m.mk_sort(m_arith_fid, INT_SORT);
 
         // reject unhandled expressions
-        if (u.str.is_replace_all(ex) || u.str.is_replace_re(ex) || u.str.is_replace_re_all(ex) || u.str.is_from_code(ex)
-            || u.str.is_to_code(ex)) {
+        if (u.str.is_replace_all(ex) || u.str.is_replace_re(ex) || u.str.is_replace_re_all(ex)) {
             TRACE("str", tout << "ERROR: Z3str3 has encountered an unsupported operator. Aborting." << std::endl;);
             m.raise_exception("Z3str3 encountered an unsupported operator.");
         }
@@ -6857,6 +6925,11 @@ namespace smt {
                     m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
                 } else if (u.str.is_itos(ap)) {
                     TRACE("str", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
+                    string_int_conversion_terms.push_back(ap);
+                    m_library_aware_axiom_todo.push_back(n);
+                    m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
+                } else if (u.str.is_from_code(ap)) {
+                    TRACE("str", tout << "found string-codepoint conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
                     string_int_conversion_terms.push_back(ap);
                     m_library_aware_axiom_todo.push_back(n);
                     m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
@@ -6908,6 +6981,11 @@ namespace smt {
                     m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
                 } else if (u.str.is_stoi(ap)) {
                     TRACE("str", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
+                    string_int_conversion_terms.push_back(ap);
+                    m_library_aware_axiom_todo.push_back(n);
+                    m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
+                } else if (u.str.is_to_code(ex)) {
+                    TRACE("str", tout << "found string-codepoint conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
                     string_int_conversion_terms.push_back(ap);
                     m_library_aware_axiom_todo.push_back(n);
                     m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
@@ -8647,8 +8725,6 @@ namespace smt {
                     if (axiomAdd) {
                         addedStrIntAxioms = true;
                     }
-                } else {
-                    UNREACHABLE();
                 }
             }
             if (addedStrIntAxioms) {
