@@ -500,7 +500,16 @@ inline bool operator>(int a, rational const & b) {
 }
 
 
-inline bool operator!=(rational const & a, int b) {
+inline bool operator>=(rational const& a, int b) {
+    return a >= rational(b);
+}
+
+inline bool operator>=(int a, rational const& b) {
+    return rational(a) >= b;
+}
+
+
+inline bool operator!=(rational const& a, int b) {
     return !(a == rational(b));
 }
 

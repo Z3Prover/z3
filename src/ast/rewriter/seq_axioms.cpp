@@ -127,31 +127,34 @@ namespace seq {
         auto s = purify(_s);
         auto i = purify(_i);
         auto l = purify(_l);
-        if (is_tail(s, i, l)) {
+        if (is_tail(s, _i, _l)) {
             tail_axiom(e, s);
             return;
         }
-        if (is_drop_last(s, i, l)) {
+        if (is_drop_last(s, _i, _l)) {
             drop_last_axiom(e, s);
             return;
         }
-        if (is_extract_prefix0(s, i, l)) {
+        if (is_extract_prefix0(s, _i, _l)) {
             extract_prefix_axiom(e, s, l);
             return;
         }
+        if (is_extract_suffix(s, _i, _l)) {
+            return;
+        }
         expr_ref x = m_sk.mk_pre(s, i);
-        expr_ref ls = mk_len(s);
+        expr_ref ls = mk_len(_s);
         expr_ref lx = mk_len(x);
         expr_ref le = mk_len(e);
-        expr_ref ls_minus_i_l(mk_sub(mk_sub(ls, i), l), m);
+        expr_ref ls_minus_i_l(mk_sub(mk_sub(ls, _i), _l), m);
         expr_ref y = m_sk.mk_post(s, a.mk_add(i, l));
         expr_ref xe = mk_concat(x, e);
         expr_ref xey = mk_concat(x, e, y);
         expr_ref zero(a.mk_int(0), m);
 
-        expr_ref i_ge_0    = mk_ge(i, 0);
-        expr_ref i_le_ls   = mk_le(mk_sub(i, ls), 0);
-        expr_ref ls_le_i   = mk_le(mk_sub(ls, i), 0);
+        expr_ref i_ge_0    = mk_ge(_i, 0);
+        expr_ref i_le_ls   = mk_le(mk_sub(_i, ls), 0);
+        expr_ref ls_le_i   = mk_le(mk_sub(ls, _i), 0);
         expr_ref ls_ge_li  = mk_ge(ls_minus_i_l, 0);
         expr_ref l_ge_0    = mk_ge(l, 0);
         expr_ref l_le_0    = mk_le(l, 0);
@@ -224,6 +227,13 @@ namespace seq {
         return a.is_numeral(i, i1) && i1.is_zero();    
     }
 
+    bool axioms::is_extract_suffix(expr* s, expr* i, expr* l) {
+        expr_ref len(a.mk_add(l, i), m);
+        m_rewrite(len);
+        return seq.str.is_length(len, l) && l == s;
+    }
+
+
     /*
       s = ey
       l <= 0 => e = empty
@@ -231,6 +241,7 @@ namespace seq {
       len(s) < l => e = s
     */
     void axioms::extract_prefix_axiom(expr* e, expr* s, expr* l) {
+        
         TRACE("seq", tout << "prefix " << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << " " << mk_bounded_pp(l, m, 2) << "\n";);
         expr_ref le = mk_len(e);
         expr_ref ls = mk_len(s);
@@ -243,6 +254,28 @@ namespace seq {
         add_clause(~mk_ge(l, 0), ~l_le_s, mk_eq(le, l));
         add_clause(l_le_s, mk_eq(e, s));
     }
+
+    /*
+      s = xe
+      0 <= i <= len(s) => i = len(x)    
+      i < 0 => e = empty
+      i > len(s) => e = empty
+    */
+    void axioms::extract_suffix_axiom(expr* e, expr* s, expr* i) {
+        TRACE("seq", tout << "suffix " << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << "\n";);
+        expr_ref x = m_sk.mk_pre(s, i);
+        expr_ref lx = mk_len(x);
+        expr_ref ls = mk_len(s);
+        expr_ref xe = mk_concat(x, e);
+        expr_ref emp = mk_eq_empty(e);
+        expr_ref i_ge_0 = mk_ge(i, 0);
+        expr_ref i_le_s = mk_le(mk_sub(i, ls), 0);
+        add_clause(mk_eq(s, xe));
+        add_clause(~i_ge_0, ~i_le_s, mk_eq(i, lx));
+        add_clause(i_ge_0, emp);
+        add_clause(i_le_s, emp);
+    }        
+    
 
     /*
       encode that s is not contained in of xs1

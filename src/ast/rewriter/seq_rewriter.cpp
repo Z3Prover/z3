@@ -966,7 +966,6 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     bool constantBase = str().is_string(a, s);
     bool constantPos = m_autil.is_numeral(b, pos);
     bool constantLen = m_autil.is_numeral(c, len);
-    bool lengthPos   = str().is_length(b) || m_autil.is_add(b);
     sort* a_sort = a->get_sort();
 
     sign sg;
@@ -984,6 +983,12 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     // case 1.1: pos >= length(base)
     // rewrite to ""
     if (constantPos && constantBase && pos >= rational(s.length())) {
+        result = str().mk_empty(a_sort);
+        return BR_DONE;
+    }
+
+    unsigned len_a;
+    if (constantPos && max_length(a, len_a) && rational(len_a) <= pos) {
         result = str().mk_empty(a_sort);
         return BR_DONE;
     }
@@ -1013,20 +1018,21 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         return BR_DONE;
     }
 
+    auto reassemble = [&](rational const& p, expr_ref_vector const& xs) {
+        expr_ref r(m_autil.mk_int(p), m());
+        for (expr* e : xs)
+            r = m_autil.mk_add(r, str().mk_length(e));
+        return r;
+    };
+
     // extract(a + b + c, len(a + b), s) -> extract(c, 0, s)
     // extract(a + b + c, len(a) + len(b), s) -> extract(c, 0, s)
-    if (lengthPos) {
-        
-        m_lhs.reset();
-        expr_ref_vector lens(m());
-        str().get_concat(a, m_lhs);
-        TRACE("seq", tout << m_lhs << " " << pos << " " << lens << "\n";);
-        if (!get_lengths(b, lens, pos) || pos.is_neg()) {
-            return BR_FAILED;
-        }
+
+    expr_ref_vector lens(m());       
+    if (get_lengths(b, lens, pos) && pos >= 0) {
         unsigned i = 0;
-        for (; i < m_lhs.size(); ++i) {
-            expr* lhs = m_lhs.get(i);
+        for (; i < as.size(); ++i) {
+            expr* lhs = as.get(i);
             if (lens.contains(lhs)) {
                 lens.erase(lhs);
             }
@@ -1037,31 +1043,53 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
                 break;
             }
         }
-        if (i == 0) return BR_FAILED;
-        expr_ref t1(m()), t2(m());
-        t1 = str().mk_concat(m_lhs.size() - i, m_lhs.c_ptr() + i, a->get_sort());        
-        t2 = m_autil.mk_int(pos);
-        for (expr* rhs : lens) {
-            t2 = m_autil.mk_add(t2, str().mk_length(rhs));
+        if (i != 0) {
+            expr_ref t1(m());
+            t1 = str().mk_concat(as.size() - i, as.c_ptr() + i, a->get_sort());        
+            expr_ref t2 = reassemble(pos, lens);
+            result = str().mk_substr(t1, t2, c);
+            TRACE("seq", tout << result << "\n";);
+            return BR_REWRITE2;
         }
-        result = str().mk_substr(t1, t2, c);
-        TRACE("seq", tout << result << "\n";);
-        return BR_REWRITE2;
     }
+
 
     if (!constantPos) {
         return BR_FAILED;
     }
     unsigned _pos = pos.get_unsigned();
 
-    // (extract s 0 (len s)) = s 
-    expr* a2 = nullptr;
-    if (_pos == 0 && str().is_length(c, a2)) {
-        m_lhs.reset();
-        str().get_concat(a, m_lhs);
-        if (!m_lhs.empty() && m_lhs.get(0) == a2) {
-            result = a2;
+    // extract(a + b + c, 0, len(a) + len(b)) -> c
+    if (pos.is_zero()) {
+        lens.reset();
+        if (!get_lengths(c, lens, pos) || pos.is_neg()) 
+            return BR_FAILED;
+        unsigned i = 0;
+        for (; i < as.size(); ++i) {
+            expr* lhs = as.get(i);
+            if (lens.contains(lhs)) {
+                lens.erase(lhs);
+            }
+            else if (str().is_unit(lhs) && pos.is_pos()) {
+                pos -= rational(1);
+            }
+            else {
+                break;
+            }
+        }
+        if (i == as.size()) {
+            result = a;
             return BR_DONE;
+        }
+        else if (i != 0) {
+            expr_ref t1(m()), t2(m());
+            t1 = str().mk_concat(as.size() - i, as.c_ptr() + i, a->get_sort());  
+            t2 = reassemble(pos, lens);
+            result = str().mk_substr(t1, b, t2);
+            as[i] = result;
+            result = str().mk_concat(i + 1, as.c_ptr(), a->get_sort());
+            TRACE("seq", tout << result << "\n";);
+            return BR_REWRITE2;
         }
     }
 
@@ -1123,15 +1151,22 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
 }
 
 bool seq_rewriter::get_lengths(expr* e, expr_ref_vector& lens, rational& pos) {
-    expr* arg = nullptr;
+    expr* arg = nullptr, *e1 = nullptr, *e2 = nullptr;
     rational pos1;
     if (m_autil.is_add(e)) {
         for (expr* arg1 : *to_app(e)) {
-            if (!get_lengths(arg1, lens, pos)) return false;
+            if (!get_lengths(arg1, lens, pos)) 
+                return false;
         }
     }
     else if (str().is_length(e, arg)) {
         lens.push_back(arg);
+    }
+    else if (m_autil.is_mul(e, e1, e2) && m_autil.is_numeral(e1, pos1) && str().is_length(e2, arg) && pos1 <= 10) {
+        while (pos1 > 0) {
+            lens.push_back(arg);
+            pos1 -= rational(1);
+        }
     }
     else if (m_autil.is_numeral(e, pos1)) {
         pos += pos1;
@@ -4494,6 +4529,37 @@ bool seq_rewriter::min_length(expr_ref_vector const& es, unsigned& len) {
         }
     }
     return bounded;
+}
+
+bool seq_rewriter::max_length(expr* e, unsigned& len) {
+    if (str().is_unit(e)) {
+        len = 1;
+        return true;
+    }
+    if (str().is_at(e)) {
+        len = 1;
+        return true;
+    }
+    zstring s;
+    if (str().is_string(e, s)) {
+        len = s.length();
+        return true;
+    }
+    if (str().is_empty(e)) {
+        len = 0;
+        return true;
+    }
+    if (str().is_concat(e)) {
+        unsigned l = 0;
+        len = 0;
+        for (expr* arg : *to_app(e)) {
+            if (!max_length(arg, l))
+                return false;
+            len += l;
+        }
+        return true;
+    }
+    return false;
 }
 
 bool seq_rewriter::is_string(unsigned n, expr* const* es, zstring& s) const {

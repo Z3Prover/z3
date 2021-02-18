@@ -282,6 +282,7 @@ class seq_rewriter {
     bool reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
     bool reduce_eq_empty(expr* l, expr* r, expr_ref& result);    
     bool min_length(expr_ref_vector const& es, unsigned& len);
+    bool max_length(expr* e, unsigned& len);
     expr* concat_non_empty(expr_ref_vector& es);
 
     bool is_string(unsigned n, expr* const* es, zstring& s) const;
