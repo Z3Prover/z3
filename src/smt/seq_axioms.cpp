@@ -128,6 +128,10 @@ void seq_axioms::add_extract_axiom(expr* e) {
         add_extract_prefix_axiom(e, s, l);
         return;
     }
+    if (is_extract_suffix(s, i, l)) {
+        add_extract_suffix_axiom(e, s, i);
+        return;
+    }
     expr_ref x = m_sk.mk_pre(s, i);
     expr_ref ls = mk_len(s);
     expr_ref lx = mk_len(x);
@@ -213,6 +217,12 @@ bool seq_axioms::is_extract_prefix0(expr* s, expr* i, expr* l) {
     return a.is_numeral(i, i1) && i1.is_zero();    
 }
 
+bool seq_axioms::is_extract_suffix(expr* s, expr* i, expr* l) {
+    expr_ref len(a.mk_add(l, i), m);
+    m_rewrite(len);
+    return seq.str.is_length(len, l) && l == s;
+}
+
 
 /*
   s = ey
@@ -233,6 +243,28 @@ void seq_axioms::add_extract_prefix_axiom(expr* e, expr* s, expr* l) {
     add_axiom(~mk_ge(l, 0), ~l_le_s, mk_eq(le, l));
     add_axiom(l_le_s, mk_eq(e, s));
 }
+
+
+/*
+  s = xe
+  0 <= i <= len(s) => i = len(x)    
+  i < 0 => e = empty
+  i > len(s) => e = empty
+*/
+void seq_axioms::add_extract_suffix_axiom(expr* e, expr* s, expr* i) {
+    TRACE("seq", tout << "suffix " << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << "\n";);
+    expr_ref x = m_sk.mk_pre(s, i);
+    expr_ref lx = mk_len(x);
+    expr_ref ls = mk_len(s);
+    expr_ref xe = mk_concat(x, e);
+    literal emp = mk_eq_empty(e);
+    literal i_ge_0 = mk_ge(i, 0);
+    literal i_le_s = mk_le(mk_sub(i, ls), 0);
+    add_axiom(mk_eq(s, xe));
+    add_axiom(~i_ge_0, ~i_le_s, mk_eq(i, lx));
+    add_axiom(i_ge_0, emp);
+    add_axiom(i_le_s, emp);
+}        
 
 
 /*
