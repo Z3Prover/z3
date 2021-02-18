@@ -79,11 +79,7 @@ class vector {
                 throw default_exception("Overflow encountered when expanding vector");
             }
             SZ *mem, *old_mem = reinterpret_cast<SZ*>(m_data) - 2;
-#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 5
-            if (__has_trivial_copy(T)) {
-#else
             if (std::is_trivially_copyable<T>::value) {
-#endif
                 mem = (SZ*)memory::reallocate(old_mem, new_capacity_T);
                 m_data = reinterpret_cast<T *>(mem + 2);
             } else {

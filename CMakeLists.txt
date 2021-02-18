@@ -188,7 +188,7 @@ include(${PROJECT_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
 ################################################################################
 # C++ language version
 ################################################################################
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ################################################################################
