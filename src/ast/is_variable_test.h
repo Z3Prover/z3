@@ -21,12 +21,12 @@ Revision History:
 #include "ast/ast.h"
 #include "util/uint_set.h"
 
-class is_variable_proc : public std::unary_function<expr*,bool> {
+class is_variable_proc {
 public:
     virtual bool operator()(const expr* e) const = 0;
 };
 
-class is_variable_test : public is_variable_proc {
+class is_variable_test final : public is_variable_proc {
     enum is_var_kind { BY_VAR_SET, BY_VAR_SET_COMPLEMENT, BY_NUM_DECLS };
     uint_set m_var_set;
     unsigned m_num_decls;
