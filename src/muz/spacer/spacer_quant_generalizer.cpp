@@ -36,7 +36,7 @@ Revision History:
 using namespace spacer;
 
 namespace {
-    struct index_lt_proc : public std::function<bool(app*, app *)> {
+struct index_lt_proc {
     arith_util m_arith;
     index_lt_proc(ast_manager &m) : m_arith(m) {}
     bool operator() (app *a, app *b) {
