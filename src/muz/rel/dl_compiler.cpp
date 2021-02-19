@@ -868,7 +868,6 @@ namespace datalog {
                                                     bool & dealloc, instruction_block & acc) {
         uint_set pos_vars;
         u_map<expr*> neg_vars;
-        ast_manager& m = m_context.get_manager();
         unsigned pt_len = r->get_positive_tail_size();
         unsigned ut_len = r->get_uninterpreted_tail_size();
 
@@ -903,7 +902,7 @@ namespace datalog {
             if (!pos_vars.contains(v)) {
                 single_res_expr.push_back(e);
                 make_add_unbound_column(r, v, pred, single_res, e->get_sort(), single_res, dealloc, acc);
-                TRACE("dl", tout << "Adding unbound column: " << mk_pp(e, m) << "\n";);
+                TRACE("dl", tout << "Adding unbound column: " << mk_pp(e, m_context.get_manager()) << "\n";);
             }
         }
     }

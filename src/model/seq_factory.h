@@ -19,7 +19,6 @@ Author:
 class seq_factory : public value_factory {
     typedef hashtable<symbol, symbol_hash_proc, symbol_eq_proc> symbol_set;
     model_core& m_model;
-    ast_manager& m;
     seq_util     u;
     symbol_set   m_strings;
     unsigned     m_next;
@@ -31,7 +30,6 @@ public:
     seq_factory(ast_manager & m, family_id fid, model_core& md):
         value_factory(m, fid),
         m_model(md),
-        m(m),
         u(m),
         m_next(0),
         m_unique_delim("!"),
@@ -151,4 +149,3 @@ private:
                 goto try_again;
     }
 };
-

@@ -248,14 +248,12 @@ private:
     }
 
     class sort_colors {
-        ast_manager& m_manager;
         app_map& m_app2sortid;
         obj_map<sort,unsigned>  m_sort2id;
         unsigned m_max_id;
 
     public:
-        sort_colors(ast_manager& m, app_map& app2sort): 
-          m_manager(m), m_app2sortid(app2sort), m_max_id(0) {}
+        sort_colors(app_map& app2sort) : m_app2sortid(app2sort), m_max_id(0) {}
 
         void operator()(app* n) {
             sort* s = n->get_sort();
@@ -273,7 +271,7 @@ private:
 
     void compute_sort_colors(expr* fml, app_map& app2sortId) {
         app2sortId.reset();
-        sort_colors sc(m(), app2sortId);
+        sort_colors sc(app2sortId);
         for_each_expr(sc, fml);
     }
 

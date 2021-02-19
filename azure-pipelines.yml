@@ -214,7 +214,7 @@ jobs:
 - job: "MacOSPython"
   displayName: "MacOS build"
   pool:
-    vmImage: "macOS-10.14"
+    vmImage: "macOS-latest"
   steps:
     - script: python scripts/mk_make.py -d --java --dotnet
     - script: |
@@ -244,7 +244,7 @@ jobs:
         set -e
         mkdir build
         cd build
-        CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir $(cmakeJulia) $(cmakeJava) $(cmakePy) -DZ3_BUILD_DOTNET_BINDINGS=False -G "Ninja" ../
+        cmake -DJlCxx_DIR=$JlCxxDir $(cmakeJulia) $(cmakeJava) $(cmakePy) -DZ3_BUILD_DOTNET_BINDINGS=False -G "Ninja" ../
         ninja
         ninja test-z3
         cd ..

@@ -38,7 +38,6 @@ namespace smt {
         vector<expr_ref_vector> m_ebits;
         unsigned_vector         m_var2value;
         svector<theory_var>     m_value2var;
-        bool                    m_enabled { false };
         bit_blaster             m_bb;
         stats                   m_stats;
         symbol                  m_bits2char;
