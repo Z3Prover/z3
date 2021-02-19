@@ -909,6 +909,18 @@ bool seq_rewriter::is_suffix(expr* s, expr* offset, expr* len) {
          lens.contains(s));
 }
 
+bool seq_rewriter::is_prefix(expr* s, expr* offset, expr* len) {
+    expr_ref_vector lens(m());
+    rational a, b;
+    return 
+        get_lengths(len, lens, a) &&
+        a < 0 && 
+        m_autil.is_numeral(offset, b) && 
+        b == 0 && 
+        lens.size() == 1 && 
+        lens.contains(s);
+}
+
 bool seq_rewriter::sign_is_determined(expr* e, sign& s) {
     s = sign_zero;
     if (m_autil.is_add(e)) {
@@ -963,6 +975,27 @@ expr_ref seq_rewriter::mk_len(rational const& p, expr_ref_vector const& xs) {
     for (expr* e : xs)
         r = m_autil.mk_add(r, str().mk_length(e));
     return r;
+}
+
+bool seq_rewriter::extract_pop_suffix(expr_ref_vector const& as, expr* b, expr* c, expr_ref& result) {
+    unsigned len_a1 = 0, len_a2 = 0;
+    min_length(as, len_a1);
+    rational pos, len;
+    if (!as.empty() && m_autil.is_numeral(b, pos) && 
+        m_autil.is_numeral(c, len) && len_a1 >= pos + len && pos >= 0 && len >= 0) {
+        unsigned i = 0;
+        len_a1 = 0;
+        for ( ; i < as.size() && len_a1 < pos + len; ++i) {
+            min_length(as.get(i), len_a2);
+            len_a1 += len_a2;
+        }
+        if (i < as.size()) {
+            expr* a = str().mk_concat(i, as.c_ptr(), as[0]->get_sort());
+            result = str().mk_substr(a, b, c);
+            return true;
+        }
+    }
+    return false;
 }
 
 
@@ -1049,7 +1082,7 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         return BR_DONE;
     }
     
-    // case 1: pos<0 or len<=0
+    // case 1: pos < 0 or len <= 0
     // rewrite to ""
     if ( (constantPos && pos.is_neg()) || (constantLen && !len.is_pos()) ) {
         result = str().mk_empty(a_sort);
@@ -1057,41 +1090,40 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     }
     // case 1.1: pos >= length(base)
     // rewrite to ""
-    if (constantPos && constantBase && pos >= rational(s.length())) {
+    if (constantPos && constantBase && pos >= s.length()) {
         result = str().mk_empty(a_sort);
         return BR_DONE;
     }
 
     rational len_a;
-    if (constantPos && max_length(a, len_a) && rational(len_a) <= pos) {
+    if (constantPos && max_length(a, len_a) && len_a <= pos) {
         result = str().mk_empty(a_sort);
         return BR_DONE;
     }
-
+    
     constantPos &= pos.is_unsigned();
     constantLen &= len.is_unsigned();
 
     if (constantPos && constantLen && constantBase) {
         unsigned _pos = pos.get_unsigned();
         unsigned _len = len.get_unsigned();
-        if (_pos + _len >= s.length()) {
-            // case 2: pos+len goes past the end of the string
-            unsigned _len = s.length() - _pos + 1;
+        if (pos + len >= s.length()) 
+            result = str().mk_string(s.extract(_pos, s.length()));
+        else 
             result = str().mk_string(s.extract(_pos, _len));
-        } else {
-            // case 3: pos+len still within string
-            result = str().mk_string(s.extract(_pos, _len));
-        }
         return BR_DONE;
     }
 
 
-    expr_ref_vector as(m()), bs(m());
+    expr_ref_vector as(m());
     str().get_concat_units(a, as);
     if (as.empty()) {
         result = str().mk_empty(a->get_sort());
         return BR_DONE;
     }
+
+    if (extract_pop_suffix(as, b, c, result))
+        return BR_REWRITE1;
 
     // extract(a + b + c, len(a + b), s) -> extract(c, 0, s)
     // extract(a + b + c, len(a) + len(b), s) -> extract(c, 0, s)
@@ -1106,6 +1138,12 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     if (str().is_extract(a, a1, b1, c1) && 
         is_suffix(a1, b1, c1) && is_suffix(a, b, c)) {
         result = str().mk_substr(a1, m_autil.mk_add(b1, b), m_autil.mk_sub(c1, b));
+        return BR_REWRITE3;
+    }
+
+    if (str().is_extract(a, a1, b1, c1) && 
+        is_prefix(a1, b1, c1) && is_prefix(a, b, c)) {
+        result = str().mk_substr(a1, b, m_autil.mk_sub(c1, m_autil.mk_sub(str().mk_length(a), c)));
         return BR_REWRITE3;
     }
 
@@ -4522,23 +4560,42 @@ bool seq_rewriter::set_empty(unsigned sz, expr* const* es, bool all, expr_ref_pa
     maximal length (the sequence is bounded).
 */
 
-bool seq_rewriter::min_length(expr_ref_vector const& es, unsigned& len) {
+bool seq_rewriter::min_length(expr* e, unsigned& len) {
     zstring s;
+    len = 0;
+    if (str().is_unit(e)) {
+        len = 1;
+        return true;
+    }
+    else if (str().is_empty(e)) {
+        len = 0;
+        return true;
+    }
+    else if (str().is_string(e, s)) {
+        len = s.length();
+        return true;
+    }
+    else if (str().is_concat(e)) {
+        unsigned min_l = 0;
+        bool bounded = true;
+        for (expr* arg : *to_app(e)) {
+            if (!min_length(arg, min_l))
+                bounded = false;
+            len += min_l;
+        }
+        return bounded;
+    }
+    return false;
+}
+
+bool seq_rewriter::min_length(expr_ref_vector const& es, unsigned& len) {
+    unsigned min_l = 0;
     bool bounded = true;
     len = 0;
-    for (expr* e : es) {
-        if (str().is_unit(e)) {
-            ++len;
-        }
-        else if (str().is_empty(e)) {
-            continue;
-        }
-        else if (str().is_string(e, s)) {
-            len += s.length();
-        }
-        else {
+    for (expr* arg : es) {
+        if (!min_length(arg, min_l))
             bounded = false;
-        }
+        len += min_l;
     }
     return bounded;
 }

@@ -69,6 +69,17 @@ literal seq_axioms::mk_literal(expr* _e) {
 }
 
 void seq_axioms::add_clause(expr_ref_vector const& clause) {
+    expr* a = nullptr, *b = nullptr;
+    if (clause.size() == 1 && m.is_eq(clause[0], a, b)) {
+        enode* n1 = th.ensure_enode(a);
+        enode* n2 = th.ensure_enode(b);
+        justification* js =
+            ctx().mk_justification(
+                ext_theory_eq_propagation_justification(
+                    th.get_id(), ctx().get_region(), 0, nullptr, 0, nullptr, n1, n2));
+        ctx().assign_eq(n1, n2, eq_justification(js));
+        return;
+    }
     literal lits[5] = { null_literal, null_literal, null_literal, null_literal, null_literal };
     unsigned idx = 0;
     for (expr* e : clause) {

@@ -210,6 +210,7 @@ class seq_rewriter {
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_length(expr* a, expr_ref& result);
     expr_ref mk_len(rational const& offset, expr_ref_vector const& xs);
+    bool extract_pop_suffix(expr_ref_vector const& as, expr* b, expr* c, expr_ref& result);
     bool extract_push_offset(expr_ref_vector const& as, expr* b, expr* c, expr_ref& result);
     bool extract_push_length(expr_ref_vector& as, expr* b, expr* c, expr_ref& result);
     br_status mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& result);
@@ -276,6 +277,7 @@ class seq_rewriter {
     expr_ref minus_one() { return expr_ref(m_autil.mk_int(-1), m()); }
 
     bool is_suffix(expr* s, expr* offset, expr* len);
+    bool is_prefix(expr* s, expr* offset, expr* len);
     bool sign_is_determined(expr* len, sign& s);
 
     bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_pair_vector& eqs);
@@ -285,6 +287,7 @@ class seq_rewriter {
     bool reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_pair_vector& eqs);
     bool reduce_eq_empty(expr* l, expr* r, expr_ref& result);    
     bool min_length(expr_ref_vector const& es, unsigned& len);
+    bool min_length(expr* e, unsigned& len);
     bool max_length(expr* e, rational& len);
     expr* concat_non_empty(expr_ref_vector& es);
 
