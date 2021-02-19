@@ -436,7 +436,6 @@ extern "C" {
     }
 
     static void optimize_on_model(opt::on_model_t& o, model_ref& m) {
-        Z3_context c = (Z3_context) o.c;
         auto model_eh = (void(*)(void*)) o.on_model;
         Z3_model_ref * m_ref = (Z3_model_ref*) o.m;
         m_ref->m_model = m.get();

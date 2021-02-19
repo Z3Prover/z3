@@ -26,8 +26,8 @@ Revision History:
 namespace seq {
 
     axioms::axioms(th_rewriter& r):
-        m_rewrite(r),
         m(r.m()),
+        m_rewrite(r),
         a(m),
         seq(m),
         m_sk(m, r),
