@@ -70,7 +70,7 @@ literal seq_axioms::mk_literal(expr* _e) {
 
 void seq_axioms::add_clause(expr_ref_vector const& clause) {
     expr* a = nullptr, *b = nullptr;
-    if (clause.size() == 1 && m.is_eq(clause[0], a, b)) {
+    if (false && clause.size() == 1 && m.is_eq(clause[0], a, b)) {
         enode* n1 = th.ensure_enode(a);
         enode* n2 = th.ensure_enode(b);
         justification* js =
