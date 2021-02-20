@@ -141,9 +141,9 @@ if [ -n "${Z3_WARNINGS_AS_ERRORS}" ]; then
 fi
 
 case ${LINUX_BASE} in
-  ubuntu_18.04)
-    BASE_DOCKER_FILE="${DOCKER_FILE_DIR}/z3_base_ubuntu_18.04.Dockerfile"
-    BASE_DOCKER_IMAGE_NAME="z3_base_ubuntu:18.04"
+  ubuntu_20.04)
+    BASE_DOCKER_FILE="${DOCKER_FILE_DIR}/z3_base_ubuntu_20.04.Dockerfile"
+    BASE_DOCKER_IMAGE_NAME="z3_base_ubuntu:20.04"
     ;;
   *)
     echo "Unknown Linux base ${LINUX_BASE}"

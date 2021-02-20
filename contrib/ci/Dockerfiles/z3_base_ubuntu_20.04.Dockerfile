@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 RUN apt-get update && \
     apt-get -y --no-install-recommends install \
@@ -14,11 +14,9 @@ RUN apt-get update && \
         graphviz \
         python3 \
         python3-setuptools \
-        python2.7 \
-        python-setuptools \
         sudo
 
-RUN curl -SL https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb --output packages-microsoft-prod.deb && \
+RUN curl -SL https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb --output packages-microsoft-prod.deb && \
     dpkg -i packages-microsoft-prod.deb && \
     apt-get update && \
     apt-get -y --no-install-recommends install dotnet-sdk-2.1
@@ -31,4 +29,4 @@ RUN useradd -m user && \
     echo 'user  ALL=(root) NOPASSWD: ALL' >> /etc/sudoers
 USER user
 WORKDIR /home/user
-ENV ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-7/bin/llvm-symbolizer
+#ENV ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-7/bin/llvm-symbolizer
