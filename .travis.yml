@@ -51,4 +51,5 @@ env:
 script:
   # Use `travis_wait` when building because some configurations don't produce an
   # output for a long time (linking & testing)
-  - travis_wait 55 contrib/ci/scripts/travis_ci_entry_point.sh || exit 1;
+  #- travis_wait 55 contrib/ci/scripts/travis_ci_entry_point.sh || exit 1;
+  - contrib/ci/scripts/travis_ci_entry_point.sh || exit 1;
