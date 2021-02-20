@@ -21,7 +21,9 @@ void tst_smt_context()
     app_ref c1(m.mk_const(symbol("c"), m.mk_bool_sort()), m);
     app_ref na1(m.mk_not(a1), m);
     ctx.assert_expr(na1);
-    ctx.assert_expr(m.mk_or(c1.get(), b1.get()));
+
+    app_ref b_or_c(m.mk_or(c1.get(), b1.get()), m);
+    ctx.assert_expr(b_or_c);
 
     {
         app_ref nc(m.mk_not(c1), m);
