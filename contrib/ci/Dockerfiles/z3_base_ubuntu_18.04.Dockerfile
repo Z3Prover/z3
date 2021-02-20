@@ -14,6 +14,8 @@ RUN apt-get update && \
         graphviz \
         python3 \
         python3-setuptools \
+        python2.7 \
+        python-setuptools \
         sudo
 
 RUN curl -SL https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb --output packages-microsoft-prod.deb && \
