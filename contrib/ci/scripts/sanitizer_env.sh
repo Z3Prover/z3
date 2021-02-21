@@ -23,7 +23,7 @@ if [ "X${ASAN_BUILD}" = "X1" ]; then
     export ASAN_OPTIONS="${ASAN_OPTIONS},print_suppressions=0"
   fi
 
-  : ${ASAN_SYMBOLIZER_PATH?"ASAN_SYMBOLIZER_PATH must be specified"}
+  #: ${ASAN_SYMBOLIZER_PATH?"ASAN_SYMBOLIZER_PATH must be specified"}
 
   # Run command without checking for leaks
   function run_no_lsan() {

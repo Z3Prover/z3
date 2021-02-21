@@ -1,5 +1,6 @@
 FROM ubuntu:20.04
 
+ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get -y --no-install-recommends install \
         cmake \
@@ -14,6 +15,7 @@ RUN apt-get update && \
         graphviz \
         python3 \
         python3-setuptools \
+        python-is-python3 \
         sudo
 
 RUN curl -SL https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb --output packages-microsoft-prod.deb && \
