@@ -65,13 +65,13 @@ def process_model(s, xij, n):
 def all_models(n):
     count = 0
     s, xij = ais(n)
-    start = time.clock()
+    start = time.time()
     while sat == s.check():
         block = process_model(s, xij, n)
         s.add(Not(And(block)))
         count += 1
     print(s.statistics())
-    print(time.clock() - start)
+    print(time.time() - start)
     print(count)
 
 set_option(verbose=1)  
