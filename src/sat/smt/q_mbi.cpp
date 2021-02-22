@@ -513,8 +513,7 @@ namespace q {
 
     bool mbqi::first_offset(unsigned_vector& offsets, app_ref_vector const& vars) {
         offsets.reset();
-        for (app* _ : vars) 
-            offsets.push_back(0);
+        offsets.resize(vars.size(), 0);
         for (unsigned i = 0; i < vars.size(); ++i) 
             if (!next_offset(offsets, vars, i, 0))
                 return false;

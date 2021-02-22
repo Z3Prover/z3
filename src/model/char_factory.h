@@ -20,9 +20,7 @@ Revision History:
 #include "model/model_core.h"
 #include "model/value_factory.h"
 
-class char_factory : public value_factory {
-    model_core&  m_model;
-    ast_manager& m;
+class char_factory final : public value_factory {
     seq_util     u;
     uint_set     m_chars;
     unsigned     m_next { 'A' };
@@ -30,10 +28,8 @@ class char_factory : public value_factory {
 
 public:
     
-    char_factory(ast_manager & m, family_id fid, model_core& md):
+    char_factory(ast_manager & m, family_id fid):
         value_factory(m, fid),
-        m_model(md),
-        m(m),
         u(m),
         m_trail(m)
     {
@@ -76,4 +72,3 @@ public:
     }    
 
 };
-

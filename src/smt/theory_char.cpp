@@ -376,7 +376,7 @@ namespace smt {
 
     // a stand-alone theory.
     void theory_char::init_model(model_generator & mg) {
-        m_factory = alloc(char_factory, get_manager(), get_family_id(), mg.get_model());
+        m_factory = alloc(char_factory, get_manager(), get_family_id());
         mg.register_factory(m_factory);
         for (auto val : m_var2value) 
             if (val != UINT_MAX)

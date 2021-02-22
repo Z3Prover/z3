@@ -583,7 +583,6 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
         result_pr_stack().push_back(m_pr);
     }
     else {
-        expr_ref tmp(m());
         TRACE("reduce_quantifier_bug", tout << mk_ismt2_pp(q, m()) << " " << mk_ismt2_pp(new_body, m()) << "\n";);
         if (!m_cfg.reduce_quantifier(q, new_body, new_pats.c_ptr(), new_no_pats.c_ptr(), m_r, m_pr)) {
             if (fr.m_new_child) {

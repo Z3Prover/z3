@@ -37,7 +37,7 @@ namespace smt {
         seq::skolem    m_sk;
         seq::axioms    m_ax;
         bool           m_digits_initialized;
-        bool           m_use_new_axioms { false };
+        bool           m_use_new_axioms { true };
 
         literal mk_eq_empty(expr* e, bool phase = true) { return mk_eq_empty2(e, phase); }
         context& ctx() { return th.get_context(); }
@@ -55,14 +55,6 @@ namespace smt {
         void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, 
                        literal l4 = null_literal, literal l5 = null_literal) { add_axiom5(l1, l2, l3, l4, l5); }
 
-        void add_tail_axiom(expr* e, expr* s);
-        void add_drop_last_axiom(expr* e, expr* s);
-        bool is_drop_last(expr* s, expr* i, expr* l);
-        bool is_tail(expr* s, expr* i, expr* l);
-        bool is_extract_prefix0(expr* s, expr* i, expr* l);
-        bool is_extract_suffix(expr* s, expr* i, expr* l);
-        void add_extract_prefix_axiom(expr* e, expr* s, expr* l);
-        void add_extract_suffix_axiom(expr* e, expr* s, expr* i);
         void tightest_prefix(expr* s, expr* x);
         void ensure_digit_axiom();
         void add_clause(expr_ref_vector const& lits);
@@ -74,9 +66,9 @@ namespace smt {
         std::function<void(literal l1, literal l2, literal l3, literal l4, literal l5)> add_axiom5;
         std::function<literal(expr*,bool)> mk_eq_empty2;
 
-        void add_suffix_axiom(expr* n);
-        void add_prefix_axiom(expr* n);
-        void add_extract_axiom(expr* n);
+        void add_suffix_axiom(expr* n) { m_ax.suffix_axiom(n); }
+        void add_prefix_axiom(expr* n) { m_ax.prefix_axiom(n); }
+        void add_extract_axiom(expr* n) { m_ax.extract_axiom(n); }
         void add_indexof_axiom(expr* n);
         void add_last_indexof_axiom(expr* n);
         void add_replace_axiom(expr* n);
@@ -89,11 +81,11 @@ namespace smt {
         void add_lt_axiom(expr* n) { m_ax.lt_axiom(n); }
         void add_le_axiom(expr* n) { m_ax.le_axiom(n); }
         void add_is_digit_axiom(expr* n);
-        void add_str_to_code_axiom(expr* n);
-        void add_str_from_code_axiom(expr* n);
+        void add_str_to_code_axiom(expr* n) { m_ax.str_to_code_axiom(n); }
+        void add_str_from_code_axiom(expr* n) { m_ax.str_from_code_axiom(n); }
         void add_unit_axiom(expr* n) { m_ax.unit_axiom(n); }
-        void add_length_axiom(expr* n);
-        void unroll_not_contains(expr* n);
+        void add_length_axiom(expr* n) { m_ax.length_axiom(n); }
+        void unroll_not_contains(expr* n) { m_ax.unroll_not_contains(n); }
 
         literal is_digit(expr* ch);
         literal mk_ge(expr* e, int k) { return mk_ge_e(e, a.mk_int(k)); }
