@@ -33,6 +33,8 @@ namespace seq {
         seq_util        seq;
         skolem          m_sk;
         expr_ref_vector m_clause;
+        expr_ref_vector m_trail;
+        obj_map<expr, expr*> m_purified;
         std::function<void(expr_ref_vector const&)> m_add_clause;
 
         expr_ref mk_len(expr* s);
@@ -49,6 +51,8 @@ namespace seq {
         expr_ref mk_ge(expr* x, rational const& n) { return expr_ref(a.mk_ge(x, a.mk_int(n)), m); }
         expr_ref mk_le(expr* x, rational const& n) { return expr_ref(a.mk_le(x, a.mk_int(n)), m); }
 
+        void gc_purify();
+
         expr_ref is_digit(expr* ch);
         expr_ref purify(expr* e);
         expr_ref mk_digit2int(expr* ch);
@@ -61,7 +65,7 @@ namespace seq {
 
         bool is_drop_last(expr* s, expr* i, expr* l);
         bool is_tail(expr* s, expr* i, expr* l);
-        bool is_extract_prefix0(expr* s, expr* i, expr* l);
+        bool is_extract_prefix(expr* s, expr* i, expr* l);
         bool is_extract_suffix(expr* s, expr* i, expr* l);
 
         void tail_axiom(expr* e, expr* s);

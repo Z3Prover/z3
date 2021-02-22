@@ -11,7 +11,8 @@ if [ "X${ASAN_BUILD}" = "X1" ]; then
   # NOTE: If you get bad stacktraces try using `fast_unwind_on_malloc=0`
   # NOTE: `malloc_context_size` controls size of recorded stacktrace for allocations.
   #       If the reported stacktraces appear incomplete try increasing the value.
-  export ASAN_OPTIONS="malloc_context_size=100,suppressions=${Z3_SRC_DIR}/contrib/suppressions/sanitizers/asan.txt"
+  # leak checking disabled because it doesn't work on unpriviledged docker
+  export ASAN_OPTIONS="malloc_context_size=100,detect_leaks=0,suppressions=${Z3_SRC_DIR}/contrib/suppressions/sanitizers/asan.txt"
 
   : ${SANITIZER_PRINT_SUPPRESSIONS?"SANITIZER_PRINT_SUPPRESSIONS must be specified"}
   if [ "X${SANITIZER_PRINT_SUPPRESSIONS}" = "X1" ]; then
@@ -22,7 +23,7 @@ if [ "X${ASAN_BUILD}" = "X1" ]; then
     export ASAN_OPTIONS="${ASAN_OPTIONS},print_suppressions=0"
   fi
 
-  : ${ASAN_SYMBOLIZER_PATH?"ASAN_SYMBOLIZER_PATH must be specified"}
+  #: ${ASAN_SYMBOLIZER_PATH?"ASAN_SYMBOLIZER_PATH must be specified"}
 
   # Run command without checking for leaks
   function run_no_lsan() {

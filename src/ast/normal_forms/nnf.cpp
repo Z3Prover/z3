@@ -27,6 +27,7 @@ Notes:
 #include "ast/rewriter/var_subst.h"
 #include "ast/normal_forms/name_exprs.h"
 #include "ast/ast_smt2_pp.h"
+#include <array>
 
 /**
    \brief NNF translation mode.  The cheapest mode is NNF_SKOLEM, and
@@ -234,7 +235,7 @@ struct nnf::imp {
     expr_ref_vector        m_result_stack;
 
     typedef act_cache      cache;
-    cache *                m_cache[4];
+    std::array<cache, 4>   m_cache;
 
     expr_ref_vector        m_todo_defs;
     proof_ref_vector       m_todo_proofs;
@@ -259,13 +260,13 @@ struct nnf::imp {
     imp(ast_manager & m, defined_names & n, params_ref const & p):
         m(m),
         m_result_stack(m),
+        m_cache{m, m, m, m},
         m_todo_defs(m),
         m_todo_proofs(m),
         m_result_pr_stack(m),
         m_skolemizer(m) {
         updt_params(p);
         for (unsigned i = 0; i < 4; i++) {
-            m_cache[i] = alloc(act_cache, m);
             if (proofs_enabled())
                 m_cache_pr[i] = alloc(act_cache, m);
         }
@@ -277,7 +278,6 @@ struct nnf::imp {
 
     ~imp() {
         for (unsigned i = 0; i < 4; i++) {
-            dealloc(m_cache[i]);
             if (proofs_enabled())
                 dealloc(m_cache_pr[i]);
         }
@@ -318,7 +318,7 @@ struct nnf::imp {
 
     void reset_cache() {
         for (unsigned i = 0; i < 4; i++) {
-            m_cache[i]->reset();
+            m_cache[i].reset();
             if (proofs_enabled())
                 m_cache_pr[i]->reset();
         }
@@ -334,13 +334,13 @@ struct nnf::imp {
 
     void cache_result(expr * t, bool pol, bool in_q, expr * v, proof * pr) {
         unsigned idx = get_cache_idx(pol, in_q);
-        m_cache[idx]->insert(t, v);
+        m_cache[idx].insert(t, v);
         if (proofs_enabled())
             m_cache_pr[idx]->insert(t, pr);
     }
 
-    expr * get_cached(expr * t, bool pol, bool in_q) const {
-        return m_cache[get_cache_idx(pol, in_q)]->find(t);
+    expr * get_cached(expr * t, bool pol, bool in_q) {
+        return m_cache[get_cache_idx(pol, in_q)].find(t);
     }
 
     proof * get_cached_pr(expr * t, bool pol, bool in_q) const {

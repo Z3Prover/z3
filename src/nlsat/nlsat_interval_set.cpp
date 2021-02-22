@@ -80,7 +80,7 @@ namespace nlsat {
             TRACE("nlsat_interval", tout << "lower: "; am.display_decimal(tout, i.m_lower); tout << ", upper: "; am.display_decimal(tout, i.m_upper);
                   tout << "\ns: " << s << "\n";);
             SASSERT(s <= 0);
-            SASSERT(!is_zero(s) || !i.m_lower_open && !i.m_upper_open);            
+            SASSERT(!is_zero(s) || (!i.m_lower_open && !i.m_upper_open));
         }
         return true;
     }
