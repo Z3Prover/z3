@@ -44,6 +44,8 @@ bool zstring::is_escape_char(char const *& s, unsigned& result) {
             else if (*(s+3+i) == '}') {
                 if (result > 255 && !uses_unicode())
                     throw default_exception("unicode characters outside of byte range are not supported");
+                if (result > unicode_max_char()) 
+                    throw default_exception("unicode characters outside of byte range are not supported");
                 s += 4 + i;
                 return true;                
             }
@@ -63,6 +65,8 @@ bool zstring::is_escape_char(char const *& s, unsigned& result) {
         result = 16*result + d2;
         result = 16*result + d3;
         result = 16*result + d4;
+        if (result > unicode_max_char()) 
+            throw default_exception("unicode characters outside of byte range are not supported");
         s += 6;
         return true;
     }
