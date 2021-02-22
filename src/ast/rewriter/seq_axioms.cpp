@@ -31,7 +31,8 @@ namespace seq {
         a(m),
         seq(m),
         m_sk(m, r),
-        m_clause(m)
+        m_clause(m),
+        m_trail(m)
     {}
         
     expr_ref axioms::mk_sub(expr* x, expr* y) {
@@ -45,9 +46,33 @@ namespace seq {
             return expr_ref(m);
         if (get_depth(e) == 1)
             return expr_ref(e, m);
-        expr_ref p = expr_ref(m.mk_fresh_const("seq.purify", e->get_sort()), m);
+        if (m.is_value(e))
+            return expr_ref(e, m);
+        expr_ref p(m);
+        expr* r = nullptr;
+        if (m_purified.find(e, r)) 
+            p = r;
+        else {
+            gc_purify();
+            p = expr_ref(m.mk_fresh_const("seq.purify", e->get_sort()), m);
+            m_purified.insert(e, p);
+            m_trail.push_back(e);
+            m_trail.push_back(p);
+        }
         add_clause(mk_eq(p, e));
         return expr_ref(p, m);
+    }
+
+    void axioms::gc_purify() {
+        if (m_trail.size() != 4000)
+            return;
+        unsigned new_size = 2000;
+        expr_ref_vector new_trail(m, new_size, m_trail.c_ptr() + new_size);
+        m_purified.reset();
+        for (unsigned i = 0; i < new_size; i += 2) 
+            m_purified.insert(new_trail.get(i), new_trail.get(i + 1));
+        m_trail.reset();
+        m_trail.append(new_trail);
     }
     
     expr_ref axioms::mk_len(expr* s) {
@@ -135,16 +160,14 @@ namespace seq {
             drop_last_axiom(e, s);
             return;
         }
-        if (is_extract_prefix0(s, _i, _l)) {
+        if (is_extract_prefix(s, _i, _l)) {
             extract_prefix_axiom(e, s, l);
             return;
         }
-#if 0
         if (is_extract_suffix(s, _i, _l)) {
             extract_suffix_axiom(e, s, i);
             return;
         }
-#endif
         TRACE("seq", tout << s << " " << i << " " << l << "\n";);
         expr_ref x = m_sk.mk_pre(s, i);
         expr_ref ls = mk_len(_s);
@@ -226,7 +249,7 @@ namespace seq {
         return l1 == l2;
     }
 
-    bool axioms::is_extract_prefix0(expr* s, expr* i, expr* l) {
+    bool axioms::is_extract_prefix(expr* s, expr* i, expr* l) {
         rational i1;
         return a.is_numeral(i, i1) && i1.is_zero();    
     }

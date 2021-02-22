@@ -1147,6 +1147,13 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         return BR_REWRITE3;
     }
 
+    // extract(extract(a, 3, 6), 1, len(extract(a, 3, 6)) - 1) -> extract(a, 4, 5)
+    if (str().is_extract(a, a1, b1, c1) && is_suffix(a, b, c) && 
+        m_autil.is_numeral(c1) && m_autil.is_numeral(b1)) {
+        result = str().mk_substr(a1, m_autil.mk_add(b, b1), m_autil.mk_sub(c1, b));
+        return BR_REWRITE2;
+    }
+
     if (!constantPos) 
         return BR_FAILED;
 
@@ -1933,6 +1940,19 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE3;
     }
 
+    expr* a2 = nullptr, *a3 = nullptr;    
+    if (str().is_replace(a, a1, a2, a3) && a1 == a3 && a2 == b) {
+        // TBD: generalize to when a1 is a prefix of a3?
+        result = str().mk_prefix(a1, b);
+        return BR_DONE;
+    }
+
+    expr* b2 = nullptr, *b3 = nullptr;    
+    if (str().is_replace(b, b1, b2, b3) && b2 == a1 && str().is_empty(b3)) {
+        result = str().mk_prefix(str().mk_concat(a1, a1), b1);
+        return BR_REWRITE2;
+    }
+
     return BR_FAILED;    
 }
 
@@ -1994,6 +2014,14 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
         TRACE("seq", tout << result << "\n";);
         return BR_REWRITE3;
     }
+
+    expr* a1 = nullptr, *a2 = nullptr, *a3 = nullptr;    
+    if (str().is_replace(a, a1, a2, a3) && a1 == a3 && a2 == b) {
+        // TBD: generalize to when a1 is a prefix of a3?
+        result = str().mk_suffix(a1, b);
+        return BR_DONE;
+    }
+
 
     return BR_FAILED;
 }
@@ -2171,6 +2199,14 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
                             tail);
         result = m().mk_ite(str().mk_is_empty(head), 
                             tail,
+                            result);
+        return BR_REWRITE_FULL;
+    }
+    if (str().is_unit(as.get(0), u) && m_util.is_const_char(u, ch) && '0' == ch) {
+        result = str().mk_concat(as.size() - 1, as.c_ptr() + 1, as[0]->get_sort());
+        result = str().mk_stoi(result);
+        result = m().mk_ite(m_autil.mk_lt(result, m_autil.mk_int(0)),
+                            m_autil.mk_int(0),
                             result);
         return BR_REWRITE_FULL;
     }
