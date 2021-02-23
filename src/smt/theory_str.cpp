@@ -237,6 +237,7 @@ namespace smt {
         ast_manager & m = get_manager();
         expr_ref _e(e, m);
         ctx.get_rewriter()(_e);
+        if (m.is_true(_e)) return;
         assert_axiom(_e);
     }
 
