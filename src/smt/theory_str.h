@@ -606,6 +606,7 @@ protected:
     void instantiate_axiom_Replace(enode * e);
     void instantiate_axiom_str_to_int(enode * e);
     void instantiate_axiom_int_to_str(enode * e);
+    void instantiate_axiom_is_digit(enode * e);
     void instantiate_axiom_str_to_code(enode * e);
     void instantiate_axiom_str_from_code(enode * e);
 

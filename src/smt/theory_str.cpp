@@ -831,6 +831,8 @@ namespace smt {
                         instantiate_axiom_Replace(e);
                     } else if (u.str.is_in_re(a)) {
                         instantiate_axiom_RegexIn(e);
+                    } else if (u.str.is_is_digit(a)) {
+                        instantiate_axiom_is_digit(e);
                     } else if (u.str.is_from_code(a)) {
                         instantiate_axiom_str_from_code(e);
                     } else if (u.str.is_to_code(a)) {
@@ -1828,6 +1830,34 @@ namespace smt {
         }
     }
 
+    void theory_str::instantiate_axiom_is_digit(enode * e) {
+        ast_manager & m = get_manager();
+
+        app * ex = e->get_owner();
+        if (axiomatized_terms.contains(ex)) {
+            TRACE("str", tout << "already set up str.is_digit axiom for " << mk_pp(ex, m) << std::endl;);
+            return;
+        }
+        axiomatized_terms.insert(ex);
+
+        TRACE("str", tout << "instantiate str.is_digit axiom for " << mk_pp(ex, m) << std::endl;);
+        expr * string_term = nullptr;
+        u.str.is_is_digit(ex, string_term);
+        SASSERT(string_term);
+
+        expr_ref_vector rhs_terms(m);
+
+        for (unsigned c = 0x30; c <= 0x39; ++c) {
+            zstring ch(c);
+            expr_ref rhs_term(ctx.mk_eq_atom(string_term, mk_string(ch)), m);
+            rhs_terms.push_back(rhs_term);
+        }
+
+        expr_ref rhs(mk_or(rhs_terms), m);
+        expr_ref axiom(ctx.mk_eq_atom(ex, rhs), m);
+        assert_axiom_rw(axiom);
+    }
+    
     void theory_str::instantiate_axiom_str_from_code(enode * e) {
         ast_manager & m = get_manager();
 
@@ -6867,7 +6897,7 @@ namespace smt {
         sort * int_sort = m.mk_sort(m_arith_fid, INT_SORT);
 
         // reject unhandled expressions
-        if (u.str.is_replace_all(ex) || u.str.is_replace_re(ex) || u.str.is_replace_re_all(ex) || u.str.is_is_digit(ex)) {
+        if (u.str.is_replace_all(ex) || u.str.is_replace_re(ex) || u.str.is_replace_re_all(ex)) {
             TRACE("str", tout << "ERROR: Z3str3 has encountered an unsupported operator. Aborting." << std::endl;);
             m.raise_exception("Z3str3 encountered an unsupported operator.");
         }
@@ -6926,7 +6956,7 @@ namespace smt {
 
                 if (is_app(ex)) {
                     app * ap = to_app(ex);
-                    if (u.str.is_prefix(ap) || u.str.is_suffix(ap) || u.str.is_contains(ap) || u.str.is_in_re(ap)) {
+                    if (u.str.is_prefix(ap) || u.str.is_suffix(ap) || u.str.is_contains(ap) || u.str.is_in_re(ap) || u.str.is_is_digit(ap)) {
                         m_library_aware_axiom_todo.push_back(n);
                         m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
                     }
