@@ -214,8 +214,6 @@ namespace smt {
         if (m.is_true(_e)) return;
         TRACE("str", tout << "asserting " << mk_ismt2_pp(_e, m) << std::endl;);
         expr_ref e(_e, m);
-        //th_rewriter rw(m);
-        //rw(e);
         if (!ctx.b_internalized(e)) {
             ctx.internalize(e, false);
         }
@@ -1329,8 +1327,7 @@ namespace smt {
         SASSERT(elseBranch);
 
         expr_ref breakdownAssert(m.mk_ite(condAst, thenBranch, elseBranch), m);
-        rw(breakdownAssert);
-        assert_axiom(breakdownAssert);
+        assert_axiom_rw(breakdownAssert);
 
         {
             // heuristic: integrate with str.contains information
@@ -1387,7 +1384,8 @@ namespace smt {
         {
             expr_ref premise(m_autil.mk_le(i, minus_one), m);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
-            assert_implication(premise, conclusion);
+            expr_ref ax(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(ax);
         }
 
         // case 1.1: N == "" and i out of range
@@ -1400,8 +1398,7 @@ namespace smt {
             expr_ref premise(m.mk_and(premiseNEmpty, m.mk_not(premiseRange)), m);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
             expr_ref finalAxiom(rewrite_implication(premise, conclusion), m);
-            rw(finalAxiom);
-            assert_axiom(finalAxiom);
+            assert_axiom_rw(finalAxiom);
         }
 
         // case 1.2: N == "" and i within range
@@ -1414,8 +1411,7 @@ namespace smt {
             expr_ref premise(m.mk_and(premiseNEmpty, premiseRange), m);
             expr_ref conclusion(ctx.mk_eq_atom(e, i), m);
             expr_ref finalAxiom(rewrite_implication(premise, conclusion), m);
-            rw(finalAxiom);
-            assert_axiom(finalAxiom);
+            assert_axiom_rw(finalAxiom);
         }
 
         // case 2: i = 0
@@ -1423,30 +1419,26 @@ namespace smt {
             expr_ref premise1(ctx.mk_eq_atom(i, zero), m);
             expr_ref premise2(m.mk_not(ctx.mk_eq_atom(N, empty_string)), m);
             expr_ref premise(m.mk_and(premise1, premise2), m);
-            rw(premise);
             // reduction to simpler case
             expr_ref conclusion(ctx.mk_eq_atom(e, mk_indexof(H, N)), m);
-            assert_implication(premise, conclusion);
+            expr_ref ax(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(ax);
         }
         // case 3: i >= len(H)
         {
-            //expr_ref _premise(m_autil.mk_ge(i, mk_strlen(H)), m);
-            //expr_ref premise(_premise);
-            //th_rewriter rw(m);
-            //rw(premise);
             expr_ref premise1(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero), m);
             expr_ref premise2(m.mk_not(ctx.mk_eq_atom(N, empty_string)), m);
             expr_ref premise(m.mk_and(premise1, premise2), m);
-            rw(premise);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
-            assert_implication(premise, conclusion);
+            expr_ref ax(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(ax);
         }
         // case 3.5: H doesn't contain N
         {
             expr_ref premise(m.mk_not(u.str.mk_contains(H, N)), m);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
-            rw(premise);
-            assert_implication(premise, conclusion);
+            expr_ref ax(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(ax);
         }
         // case 4: 0 < i < len(H), N non-empty, and H contains N
         {
@@ -1461,9 +1453,7 @@ namespace smt {
             premises.push_back(premise2);
             premises.push_back(premise3);
             premises.push_back(premise4);
-            expr_ref _premise(mk_and(premises), m);
-            expr_ref premise(_premise);
-            rw(premise);
+            expr_ref premise(mk_and(premises), m);
 
             expr_ref hd(mk_str_var("hd"), m);
             expr_ref tl(mk_str_var("tl"), m);
@@ -1475,7 +1465,8 @@ namespace smt {
             conclusion_terms.push_back(ctx.mk_eq_atom(e, m_autil.mk_add(i, mk_indexof(tl, N))));
 
             expr_ref conclusion(mk_and(conclusion_terms), m);
-            assert_implication(premise, conclusion);
+            expr_ref ax(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(ax);
         }
 
         {
@@ -1565,7 +1556,7 @@ namespace smt {
 
         expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToIndex), m);
         SASSERT(finalAxiom);
-        assert_axiom(finalAxiom);
+        assert_axiom_rw(finalAxiom);
     }
 
     void theory_str::instantiate_axiom_Substr(enode * e) {
@@ -1640,21 +1631,9 @@ namespace smt {
         expr_ref case3_conclusion(mk_and(case3_conclusion_terms), m);
         expr_ref case3(m.mk_implies(m.mk_and(argumentsValid, m.mk_not(lenOutOfBounds)), case3_conclusion), m);
 
-        {
-            th_rewriter rw(m);
-
-            expr_ref case1_rw(case1, m);
-            rw(case1_rw);
-            assert_axiom(case1_rw);
-
-            expr_ref case2_rw(case2, m);
-            rw(case2_rw);
-            assert_axiom(case2_rw);
-
-            expr_ref case3_rw(case3, m);
-            rw(case3_rw);
-            assert_axiom(case3_rw);
-        }
+        assert_axiom_rw(case1);
+        assert_axiom_rw(case2);
+        assert_axiom_rw(case3);
 
         // Auxiliary axioms
         {
@@ -1732,18 +1711,14 @@ namespace smt {
         // false branch
         expr_ref elseBranch(ctx.mk_eq_atom(result, ex->get_arg(0)), m);
 
-        th_rewriter rw(m);
-
         expr_ref breakdownAssert(m.mk_ite(emptySrcAst, prependTPrimeToS,
                 m.mk_ite(condAst, mk_and(thenItems), elseBranch)), m);
         expr_ref breakdownAssert_rw(breakdownAssert, m);
-        rw(breakdownAssert_rw);
-        assert_axiom(breakdownAssert_rw);
+        assert_axiom_rw(breakdownAssert_rw);
 
         expr_ref reduceToResult(ctx.mk_eq_atom(ex, result), m);
         expr_ref reduceToResult_rw(reduceToResult, m);
-        rw(reduceToResult_rw);
-        assert_axiom(reduceToResult_rw);
+        assert_axiom_rw(reduceToResult_rw);
     }
 
     void theory_str::instantiate_axiom_str_to_int(enode * e) {
