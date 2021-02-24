@@ -1155,8 +1155,6 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     if (str().is_extract(a, a1, b1, c1) &&
         is_prefix(a, b, c) && is_suffix(a1, b1, c1)) {
         expr_ref q(m_autil.mk_sub(c, str().mk_length(a)), m());
-        std::cout << "prefix-suffix " << mk_pp(a, m()) << " " << mk_pp(b, m()) << " " << mk_pp(c, m()) << "\n";
-        std::cout << q << "\n";
         result = str().mk_substr(a1, b1, m_autil.mk_add(c1, q));
         return BR_REWRITE3;
     }
