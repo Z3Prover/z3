@@ -724,14 +724,17 @@ void theory_seq::linearize(dependency* dep, enode_pair_vector& eqs, literal_vect
 
 
 
-void theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits, literal lit) {
-    if (lit == true_literal) return;
-
+bool theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits, literal lit) {
+    if (lit == true_literal) 
+        return false;
+    if (ctx.get_assignment(lit) == l_true)
+        return false;
+    
     literal_vector lits(n, _lits);
 
     if (lit == false_literal) {
         set_conflict(dep, lits);
-        return;
+        return true;
     }
     ctx.mark_as_relevant(lit);
     enode_pair_vector eqs;
@@ -750,6 +753,7 @@ void theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits
     m_new_propagation = true;
     ctx.assign(lit, js);
     validate_assign(lit, eqs, lits);
+    return true;
 }
 
 void theory_seq::set_conflict(dependency* dep, literal_vector const& _lits) {

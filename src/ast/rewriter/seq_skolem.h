@@ -133,6 +133,8 @@ namespace seq {
                 a.is_unsigned(i, idx);
         }
         bool is_align(expr const* e) const { return is_skolem(symbol("seq.align.m"), e); }
+        bool is_align_l(expr const* e) const { return is_skolem(symbol("seq.align.l"), e); }
+        bool is_align_r(expr const* e) const { return is_skolem(symbol("seq.align.r"), e); }
         MATCH_BINARY(is_align);
         bool is_post(expr* e, expr*& s, expr*& start);
         bool is_pre(expr* e, expr*& s, expr*& i);

@@ -234,9 +234,12 @@ public:
     bool is_const_char(expr* e, unsigned& c) const;
     bool is_const_char(expr* e) const { unsigned c; return is_const_char(e, c); }
     bool is_char_le(expr const* e) const;
+    bool is_char_is_digit(expr const* e, expr*& d) const { return ch.is_is_digit(e, d); }
+    bool is_char_is_digit(expr const* e) const { return ch.is_is_digit(e); }
     bool is_char2int(expr const* e) const;
     app* mk_char_bit(expr* e, unsigned i);
     app* mk_char(unsigned ch) const;
+    app* mk_char_is_digit(expr* e) { return ch.mk_is_digit(e); }
     app* mk_le(expr* ch1, expr* ch2) const;
     app* mk_lt(expr* ch1, expr* ch2) const;    
     app* mk_char2int(expr* e) { return ch.mk_to_int(e); }

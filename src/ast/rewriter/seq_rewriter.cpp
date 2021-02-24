@@ -833,6 +833,11 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         result = m_autil.mk_add(es.size(), es.c_ptr());
         return BR_REWRITE2;
     }
+    expr* x = nullptr, *y = nullptr, *z = nullptr;
+    if (str().is_replace(a, x, y, z) && l_true == eq_length(y, z)) {
+        result = str().mk_length(x);
+        return BR_REWRITE1;
+    }
 #if 0
     expr* s = nullptr, *offset = nullptr, *length = nullptr;
     if (str().is_extract(a, s, offset, length)) {
@@ -1147,12 +1152,23 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         return BR_REWRITE3;
     }
 
+    if (str().is_extract(a, a1, b1, c1) &&
+        is_prefix(a, b, c) && is_suffix(a1, b1, c1)) {
+        expr_ref q(m_autil.mk_sub(c, str().mk_length(a)), m());
+        std::cout << "prefix-suffix " << mk_pp(a, m()) << " " << mk_pp(b, m()) << " " << mk_pp(c, m()) << "\n";
+        std::cout << q << "\n";
+        result = str().mk_substr(a1, b1, m_autil.mk_add(c1, q));
+        return BR_REWRITE3;
+    }
+
+
     // extract(extract(a, 3, 6), 1, len(extract(a, 3, 6)) - 1) -> extract(a, 4, 5)
     if (str().is_extract(a, a1, b1, c1) && is_suffix(a, b, c) && 
         m_autil.is_numeral(c1) && m_autil.is_numeral(b1)) {
         result = str().mk_substr(a1, m_autil.mk_add(b, b1), m_autil.mk_sub(c1, b));
         return BR_REWRITE2;
     }
+ 
 
     if (!constantPos) 
         return BR_FAILED;
@@ -1365,10 +1381,50 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
         result = ::mk_or(ors);
         return BR_REWRITE_FULL;
     }
-
-
+    
+    expr_ref ra(a, m());
+    if (is_unit(b) && m().is_value(b) && 
+        reduce_by_char(ra, b, 4)) {
+        result = str().mk_contains(ra, b);
+        return BR_REWRITE1;
+    }
     return BR_FAILED;
 }
+
+bool seq_rewriter::reduce_by_char(expr_ref& r, expr* ch, unsigned depth) {
+    expr* x = nullptr, *y = nullptr, *z = nullptr;
+    if (str().is_replace(r, x, y, z) && 
+        str().is_unit(y) && m().is_value(y) &&
+        str().is_unit(z) && m().is_value(z) && 
+        ch != y && ch != z) {
+        r = x;
+        if (depth > 0)
+            reduce_by_char(r, ch, depth - 1);
+        return true;
+    }
+    if (depth > 0 && str().is_concat(r)) {
+        bool reduced = false;
+        expr_ref_vector args(m());
+        for (expr* e : *to_app(r)) {
+            expr_ref tmp(e, m());
+            if (reduce_by_char(tmp, ch, depth - 1))
+                reduced = true;
+            args.push_back(tmp);
+        }
+        if (reduced) 
+            r = str().mk_concat(args, args.get(0)->get_sort());
+        return reduced;
+    }
+    if (depth > 0 && str().is_extract(r, x, y, z)) {
+        expr_ref tmp(x, m());
+        if (reduce_by_char(tmp, ch, depth - 1)) {
+            r = str().mk_substr(tmp, y, z);
+            return true;
+        }        
+    }        
+    return false;
+}
+
 
 /*
  * (str.at s i), constants s/i, i < 0 or i >= |s| ==> (str.at s i) = ""
@@ -1632,6 +1688,13 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
                             m().mk_ite(m_autil.mk_ge(b1, zero()), m_autil.mk_add(one(), b1), minus_one()));
         return BR_REWRITE3;
     }
+    expr_ref ra(a, m());
+    if (str().is_unit(b) && m().is_value(b) && 
+        reduce_by_char(ra, b, 4)) {
+        result = str().mk_index(ra, b, c);
+        return BR_REWRITE1;
+    }
+
     // Enhancement: walk segments of a, determine which segments must overlap, must not overlap, may overlap.
     return BR_FAILED;
 }
@@ -1953,6 +2016,16 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE2;
     }
 
+    unsigned len_a;
+    rational len_b;
+    if (max_length(b, len_b)) {
+        min_length(a, len_a);
+        if (len_b <= len_a) {
+            result = m().mk_eq(a, b);
+            return BR_REWRITE1;
+        }
+    }
+
     return BR_FAILED;    
 }
 
@@ -2021,7 +2094,15 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
         result = str().mk_suffix(a1, b);
         return BR_DONE;
     }
-
+    unsigned len_a;
+    rational len_b;
+    if (max_length(b, len_b)) {
+        min_length(a, len_a);
+        if (len_b <= len_a) {
+            result = m().mk_eq(a, b);
+            return BR_REWRITE1;
+        }
+    }
 
     return BR_FAILED;
 }
@@ -4588,6 +4669,13 @@ bool seq_rewriter::set_empty(unsigned sz, expr* const* es, bool all, expr_ref_pa
         }
     }
     return true;
+}
+
+lbool seq_rewriter::eq_length(expr* x, expr* y) {
+    unsigned xl = 0, yl = 0;
+    if (min_length(x, xl) && min_length(y, yl))
+        return xl == yl ? l_true : l_false;
+    return l_undef;
 }
 
 /***

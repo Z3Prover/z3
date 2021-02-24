@@ -36,6 +36,8 @@ namespace seq {
         expr_ref_vector m_trail;
         obj_map<expr, expr*> m_purified;
         std::function<void(expr_ref_vector const&)> m_add_clause;
+        std::function<void(expr*)> m_set_phase;
+        std::function<void(void)>  m_ensure_digits;
 
         expr_ref mk_len(expr* s);
         expr_ref mk_sub(expr* x, expr* y);
@@ -43,17 +45,19 @@ namespace seq {
         expr_ref mk_concat(expr* e1, expr* e2) { return expr_ref(seq.str.mk_concat(e1, e2), m); }
         expr_ref mk_nth(expr* e, unsigned i) { return expr_ref(seq.str.mk_nth_i(e, a.mk_int(i)), m); }
         expr_ref mk_eq(expr* a, expr* b) { return expr_ref(m.mk_eq(a, b), m); }
-        expr_ref mk_seq_eq(expr* a, expr* b) { SASSERT(seq.is_seq(a) && seq.is_seq(b)); return expr_ref(m_sk.mk_eq(a, b), m); }
-        expr_ref mk_eq_empty(expr* e) { return expr_ref(m.mk_eq(seq.str.mk_empty(e->get_sort()), e), m); }
+        expr_ref mk_seq_eq(expr* a, expr* b);
+        expr_ref mk_eq_empty(expr* e);
 
-        expr_ref mk_ge(expr* x, unsigned n) { return expr_ref(a.mk_ge(x, a.mk_int(n)), m); }
-        expr_ref mk_le(expr* x, unsigned n) { return expr_ref(a.mk_le(x, a.mk_int(n)), m); }
-        expr_ref mk_ge(expr* x, rational const& n) { return expr_ref(a.mk_ge(x, a.mk_int(n)), m); }
-        expr_ref mk_le(expr* x, rational const& n) { return expr_ref(a.mk_le(x, a.mk_int(n)), m); }
+        expr_ref mk_ge(expr* x, int n) { return mk_ge_e(x, a.mk_int(n)); }
+        expr_ref mk_le(expr* x, int n) { return mk_le_e(x, a.mk_int(n)); }
+        expr_ref mk_ge(expr* x, rational const& n) { return mk_ge_e(x, a.mk_int(n)); }
+        expr_ref mk_le(expr* x, rational const& n) { return mk_le_e(x, a.mk_int(n)); }
+
+        expr_ref mk_ge_e(expr* x, expr* y);
+        expr_ref mk_le_e(expr* x, expr* y);
 
         void gc_purify();
 
-        expr_ref is_digit(expr* ch);
         expr_ref purify(expr* e);
         expr_ref mk_digit2int(expr* ch);
 
@@ -70,6 +74,7 @@ namespace seq {
 
         void tail_axiom(expr* e, expr* s);
         void drop_last_axiom(expr* e, expr* s);
+        bool small_segment_axiom(expr* e, expr* s, expr* i, expr* l);
         void extract_prefix_axiom(expr* e, expr* s, expr* l);
         void extract_suffix_axiom(expr* e, expr* s, expr* l);
         void tightest_prefix(expr* s, expr* x);
@@ -79,6 +84,8 @@ namespace seq {
         axioms(th_rewriter& rw);
 
         void set_add_clause(std::function<void(expr_ref_vector const&)>& ac) { m_add_clause = ac; }
+        void set_phase(std::function<void(expr*)>& sp) { m_set_phase = sp; }
+        void set_ensure_digits(std::function<void(void)>& ed) { m_ensure_digits = ed; }
 
         void suffix_axiom(expr* n);
         void prefix_axiom(expr* n);
@@ -102,6 +109,8 @@ namespace seq {
         void unroll_not_contains(expr* e);
 
         expr_ref length_limit(expr* s, unsigned k);
+        expr_ref is_digit(expr* ch);
+
     };
 
 };

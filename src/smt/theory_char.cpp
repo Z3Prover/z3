@@ -66,6 +66,8 @@ namespace smt {
         ctx.mark_as_relevant(bv);
         if (seq.is_char_le(term)) 
             internalize_le(literal(bv, false), term);
+        if (seq.is_char_is_digit(term))
+            internalize_is_digit(literal(bv, false), term);
         return true;
     }
 
@@ -151,6 +153,30 @@ namespace smt {
         ctx.mark_as_relevant(le);
         ctx.mk_th_axiom(get_id(), ~lit, le);
         ctx.mk_th_axiom(get_id(), lit, ~le);
+    }
+
+    void theory_char::internalize_is_digit(literal lit, app* term) {
+        expr* x = nullptr;
+        VERIFY(seq.is_char_is_digit(term, x));
+        enode* zero = ensure_enode(seq.mk_char('0'));
+        enode* nine = ensure_enode(seq.mk_char('9'));
+        theory_var v = ctx.get_enode(x)->get_th_var(get_id());        
+        theory_var z = zero->get_th_var(get_id());
+        theory_var n = nine->get_th_var(get_id());
+        init_bits(v);
+        init_bits(z);
+        init_bits(n);
+        auto const& bv = get_ebits(v);
+        auto const& zv = get_ebits(z);
+        auto const& nv = get_ebits(n);
+        expr_ref le1(m), le2(m);
+        m_bb.mk_ule(bv.size(), zv.c_ptr(), bv.c_ptr(), le1);
+        m_bb.mk_ule(bv.size(), bv.c_ptr(), nv.c_ptr(), le2);
+        literal lit1 = mk_literal(le1);
+        literal lit2 = mk_literal(le2);
+        ctx.mk_th_axiom(get_id(), ~lit, lit1);
+        ctx.mk_th_axiom(get_id(), ~lit, lit2);
+        ctx.mk_th_axiom(get_id(), ~lit1, ~lit2, lit);
     }
 
     literal_vector const& theory_char::get_bits(theory_var v) {

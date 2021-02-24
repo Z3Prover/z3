@@ -33,7 +33,8 @@ enum char_sort_kind {
 enum char_op_kind {
     OP_CHAR_CONST,
     OP_CHAR_LE,
-    OP_CHAR_TO_INT
+    OP_CHAR_TO_INT,
+    OP_CHAR_IS_DIGIT
 };
 
 class char_decl_plugin : public decl_plugin {
@@ -79,6 +80,8 @@ public:
 
     app* mk_to_int(expr* a) { return m_manager->mk_app(m_family_id, OP_CHAR_TO_INT, 1, &a); }
 
+    app* mk_is_digit(expr* a) { return m_manager->mk_app(m_family_id, OP_CHAR_IS_DIGIT, 1, &a); }
+
     bool is_le(expr const* e) const { return is_app_of(e, m_family_id, OP_CHAR_LE); }
 
     bool is_const_char(expr const* e, unsigned& c) const { 
@@ -86,6 +89,12 @@ public:
     }
 
     bool is_to_int(expr const* e) const { return is_app_of(e, m_family_id, OP_CHAR_TO_INT); }
+
+    bool is_is_digit(expr const* e) const { return is_app_of(e, m_family_id, OP_CHAR_IS_DIGIT); }
+
+    MATCH_UNARY(is_is_digit);
+    MATCH_UNARY(is_to_int);
+    MATCH_BINARY(is_le);
 
     bool unicode() const { return m_unicode; }
     unsigned max_char() const { return m_unicode ? zstring::unicode_max_char() : zstring::ascii_max_char(); }

@@ -41,6 +41,30 @@ namespace seq {
         return result;
     }
 
+    expr_ref axioms::mk_ge_e(expr* x, expr* y) {
+        expr_ref ge(a.mk_ge(x, y), m);
+        m_rewrite(ge);
+        return ge;
+    }
+
+    expr_ref axioms::mk_le_e(expr* x, expr* y) {
+        expr_ref le(a.mk_le(x, y), m);
+        m_rewrite(le);
+        return le;
+    }
+
+    expr_ref axioms::mk_seq_eq(expr* a, expr* b) { 
+        SASSERT(seq.is_seq(a) && seq.is_seq(b)); 
+        expr_ref result(m_sk.mk_eq(a, b), m);
+        m_set_phase(result);
+        return result;
+    }
+
+
+    expr_ref axioms::mk_eq_empty(expr* e) { 
+        return mk_seq_eq(seq.str.mk_empty(e->get_sort()), e);
+    }
+
     expr_ref axioms::purify(expr* e) { 
         if (!e)
             return expr_ref(m);
@@ -48,7 +72,12 @@ namespace seq {
             return expr_ref(e, m);
         if (m.is_value(e))
             return expr_ref(e, m);
-        expr_ref p(m);
+
+        expr_ref p(e, m);
+        m_rewrite(p);
+        if (p == e)
+            return p;
+
         expr* r = nullptr;
         if (m_purified.find(e, r)) 
             p = r;
@@ -152,6 +181,9 @@ namespace seq {
         auto s = purify(_s);
         auto i = purify(_i);
         auto l = purify(_l);
+        if (small_segment_axiom(e, _s, _i, _l)) 
+            return;
+
         if (is_tail(s, _i, _l)) {
             tail_axiom(e, s);
             return;
@@ -237,11 +269,24 @@ namespace seq {
         return l1 == l2;
     }
 
+    bool axioms::small_segment_axiom(expr* s, expr* e, expr* i, expr* l) {
+        rational ln;
+        if (a.is_numeral(i, ln) && ln >= 0 && a.is_numeral(l, ln) && ln <= 5) {
+            expr_ref_vector es(m);
+            for (unsigned j = 0; j < ln; ++j) 
+                es.push_back(seq.str.mk_at(e, a.mk_add(i, a.mk_int(j))));
+            expr_ref r(seq.str.mk_concat(es, e->get_sort()), m);
+            add_clause(mk_seq_eq(r, s));
+            return true;
+        }
+        return false;
+    }
+
+
     bool axioms::is_tail(expr* s, expr* i, expr* l) {
         rational i1;
-        if (!a.is_numeral(i, i1) || !i1.is_one()) {
+        if (!a.is_numeral(i, i1) || !i1.is_one()) 
             return false;
-        }
         expr_ref l2(m), l1(l, m);
         l2 = mk_sub(mk_len(s), a.mk_int(1));
         m_rewrite(l1);
@@ -617,7 +662,9 @@ namespace seq {
     
         // n >= 0 => stoi(itos(n)) = n
         app_ref stoi(seq.str.mk_stoi(e), m);
-        add_clause(~ge0, mk_eq(stoi, n));
+        expr_ref eq = mk_eq(stoi, n);
+        add_clause(~ge0, eq);
+        m_set_phase(eq);
 
         // itos(n) does not start with "0" when n > 0
         // n = 0 or at(itos(n),0) != "0"
@@ -750,17 +797,12 @@ namespace seq {
     }
 
     expr_ref axioms::is_digit(expr* ch) {
-        expr_ref isd = expr_ref(m_sk.mk_is_digit(ch), m);
-        expr_ref lo(seq.mk_le(seq.mk_char('0'), ch), m);
-        expr_ref hi(seq.mk_le(ch, seq.mk_char('9')), m);
-        add_clause(~lo, ~hi, isd);
-        add_clause(~isd, lo);
-        add_clause(~isd, hi);
-        return isd;
+        return expr_ref(seq.mk_char_is_digit(ch), m);
     }
 
     expr_ref axioms::mk_digit2int(expr* ch) {
-        return expr_ref(a.mk_add(seq.mk_char2int(ch), a.mk_int(-((int)'0'))), m);;
+        m_ensure_digits();
+        return expr_ref(m_sk.mk_digit2int(ch), m);
     }
 
     /**

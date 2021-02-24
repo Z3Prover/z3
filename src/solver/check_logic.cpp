@@ -191,7 +191,7 @@ struct check_logic::imp {
             m_ints        = true;
             m_arrays      = true;
             m_reals       = true;
-            // m_quantifiers = false; // some QF_SLIA benchmarks are miss-classified
+            m_quantifiers = true; // some QF_SLIA benchmarks are miss-classified
         }
         else if (logic == "QF_FD") {
             m_bvs         = true;

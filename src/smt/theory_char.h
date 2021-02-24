@@ -59,6 +59,7 @@ namespace smt {
         void new_char2int(theory_var v, expr* c);
         unsigned get_char_value(theory_var v);
         void internalize_le(literal lit, app* term);        
+        void internalize_is_digit(literal lit, app* term);        
 
         theory_var mk_var(enode* n) override;
 

@@ -289,7 +289,9 @@ class seq_rewriter {
     bool min_length(expr_ref_vector const& es, unsigned& len);
     bool min_length(expr* e, unsigned& len);
     bool max_length(expr* e, rational& len);
+    lbool eq_length(expr* x, expr* y);
     expr* concat_non_empty(expr_ref_vector& es);
+    bool reduce_by_char(expr_ref& r, expr* ch, unsigned depth);
 
     bool is_string(unsigned n, expr* const* es, zstring& s) const;
 

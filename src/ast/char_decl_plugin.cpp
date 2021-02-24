@@ -69,6 +69,15 @@ func_decl* char_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             return m.mk_func_decl(symbol("char.to_int"), arity, domain, a.mk_int(), func_decl_info(m_family_id, k, 0, nullptr));
         }
         m.raise_exception(msg.str());
+    case OP_CHAR_IS_DIGIT:
+        if (num_parameters != 0)
+            msg << "incorrect number of parameters passed. Expected 0, received " << num_parameters;
+        else if (arity != 1)
+            msg << "incorrect number of arguments passed. Expected one character, received " << arity;
+        else {
+            return m.mk_func_decl(symbol("char.is_digit"), arity, domain, m.mk_bool_sort(), func_decl_info(m_family_id, k, 0, nullptr));
+        }
+        m.raise_exception(msg.str());
     default:
         UNREACHABLE();
     }    
@@ -85,6 +94,7 @@ void char_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol cons
     op_names.push_back(builtin_name("char.<=", OP_CHAR_LE));
     op_names.push_back(builtin_name("Char", OP_CHAR_CONST));
     op_names.push_back(builtin_name("char.to_int", OP_CHAR_TO_INT));
+    op_names.push_back(builtin_name("char.is_digit", OP_CHAR_IS_DIGIT));
 }
 
 void char_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const& logic) {
