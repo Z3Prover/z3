@@ -2544,7 +2544,7 @@ void theory_seq::deque_axiom(expr* n) {
         m_ax.add_replace_axiom(n);
     }
     else if (m_util.str.is_extract(n)) {
-        m_ax.add_extract_axiom(purify(n));
+        m_ax.add_extract_axiom(n);
     }
     else if (m_util.str.is_at(n)) {
         m_ax.add_at_axiom(n);
@@ -2581,32 +2581,6 @@ void theory_seq::deque_axiom(expr* n) {
     else if (m_util.str.is_to_code(n)) {
         m_ax.add_str_to_code_axiom(n);        
     }
-}
-
-expr_ref theory_seq::purify(expr* e) {
-    app* a = to_app(e);
-    expr_ref_vector args(m);
-    bool has_fresh = false;
-    for (expr* arg : *a) {
-        expr_ref tmp(m);
-        m_rewrite(arg, tmp);
-        if (arg != tmp) {
-            has_fresh = true;
-            tmp = m.mk_fresh_const("purify", arg->get_sort());
-            enode* n1 = ctx.get_enode(arg);
-            enode* n2 = ensure_enode(tmp);
-            justification* js = ctx.mk_justification(
-                ext_theory_eq_propagation_justification(
-                    get_id(), ctx.get_region(), 0, nullptr, 0, nullptr, n1, n2));
-            ctx.assign_eq(n1, n2, eq_justification(js));
-        }
-        args.push_back(tmp);
-    }
-
-    if (has_fresh)
-        return expr_ref(m.mk_app(a->get_decl(), args), m);
-    
-    return expr_ref(a, m);
 }
 
 expr_ref theory_seq::add_elim_string_axiom(expr* n) {

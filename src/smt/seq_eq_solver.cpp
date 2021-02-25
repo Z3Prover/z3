@@ -467,7 +467,7 @@ bool theory_seq::branch_variable() {
         return true;
     }
 
-    unsigned turn = ctx.get_random_value() % 2 == 0;
+    bool turn = ctx.get_random_value() % 2 == 0;
     for (unsigned i = 0; i < 2; ++i, turn = !turn) {
         if (turn && branch_variable_mb()) {
             TRACE("seq", tout << "branch_variable_mb\n";);
@@ -880,27 +880,26 @@ bool theory_seq::branch_ternary_variable_rhs(eq const& e) {
         add_length_to_eqc(y2);
 
     SASSERT(!xs.empty() && !ys.empty());
-    if (!can_align_from_lhs(xs, ys)) {
-        expr_ref xsE = mk_concat(xs);
-        expr_ref ysE = mk_concat(ys);
-        expr_ref y1ys = mk_concat(y1, ysE);
-        expr_ref Z = m_sk.mk_align_r(xsE, y1, ysE, y2);
-        expr_ref ZxsE = mk_concat(Z, xsE);
-        expr_ref y1ysZ = mk_concat(y1ys, Z);
-
-        dependency* dep = e.dep();
-        bool propagated = false;
-        if (propagate_lit(dep, 0, nullptr, m_ax.mk_ge(mk_len(y2), xs.size())))
-            propagated = true;
-        if (propagate_lit(dep, 0, nullptr, m_ax.mk_ge(mk_sub(mk_len(x), mk_len(y1)), ys.size())))
-            propagated = true;
-        if (propagate_eq(dep, x, y1ysZ, true))
-            propagated = true;
-        if (propagate_eq(dep, y2, ZxsE, true))
-            propagated = true;
-        return propagated;
-    }
-    return false;
+    if (can_align_from_lhs(xs, ys)) 
+        return false;
+    expr_ref xsE = mk_concat(xs);
+    expr_ref ysE = mk_concat(ys);
+    expr_ref y1ys = mk_concat(y1, ysE);
+    expr_ref Z = m_sk.mk_align_r(xsE, y1, ysE, y2);
+    expr_ref ZxsE = mk_concat(Z, xsE);
+    expr_ref y1ysZ = mk_concat(y1ys, Z);
+    
+    dependency* dep = e.dep();
+    bool propagated = false;
+    if (propagate_lit(dep, 0, nullptr, m_ax.mk_ge(mk_len(y2), xs.size())))
+        propagated = true;
+    if (propagate_lit(dep, 0, nullptr, m_ax.mk_ge(mk_sub(mk_len(x), mk_len(y1)), ys.size())))
+        propagated = true;
+    if (propagate_eq(dep, x, y1ysZ, true))
+        propagated = true;
+    if (propagate_eq(dep, y2, ZxsE, true))
+        propagated = true;
+    return propagated;
 }
 
 // Equation is of the form xs ++ x = y1 ++ ys ++ y2 where xs, ys are units.
@@ -924,27 +923,26 @@ bool theory_seq::branch_ternary_variable_lhs(eq const& e) {
         add_length_to_eqc(y2);
     SASSERT(!xs.empty() && !ys.empty());
 
-    if (!can_align_from_rhs(xs, ys)) {
-        expr_ref xsE = mk_concat(xs);
-        expr_ref ysE = mk_concat(ys);
-        expr_ref ysy2 = mk_concat(ysE, y2);
-        expr_ref Z = m_sk.mk_align_l(xsE, y1, ysE, y2);
-        expr_ref xsZ = mk_concat(xsE, Z);
-        expr_ref Zysy2 = mk_concat(Z, ysy2);
-
-        dependency* dep = e.dep();
-        bool propagated = false;
-        if (propagate_lit(dep, 0, nullptr, m_ax.mk_ge(mk_len(y1), xs.size())))
-            propagated = true;
-        if (propagate_lit(dep, 0, nullptr, m_ax.mk_ge(mk_sub(mk_len(x), mk_len(y2)), ys.size())))
-            propagated = true;
-        if (propagate_eq(dep, x, Zysy2, true))
-            propagated = true;
-        if (propagate_eq(dep, y1, xsZ, true))
-            propagated = true;
-        return true;
-    }
-    return false;
+    if (can_align_from_rhs(xs, ys)) 
+        return false;
+    expr_ref xsE = mk_concat(xs);
+    expr_ref ysE = mk_concat(ys);
+    expr_ref ysy2 = mk_concat(ysE, y2);
+    expr_ref Z = m_sk.mk_align_l(xsE, y1, ysE, y2);
+    expr_ref xsZ = mk_concat(xsE, Z);
+    expr_ref Zysy2 = mk_concat(Z, ysy2);
+    
+    dependency* dep = e.dep();
+    bool propagated = false;
+    if (propagate_lit(dep, 0, nullptr, m_ax.mk_ge(mk_len(y1), xs.size())))
+        propagated = true;
+    if (propagate_lit(dep, 0, nullptr, m_ax.mk_ge(mk_sub(mk_len(x), mk_len(y2)), ys.size())))
+        propagated = true;
+    if (propagate_eq(dep, x, Zysy2, true))
+        propagated = true;
+    if (propagate_eq(dep, y1, xsZ, true))
+        propagated = true;
+    return propagated;
 }
 
 bool theory_seq::branch_quat_variable() {
@@ -1082,26 +1080,22 @@ bool theory_seq::branch_quat_variable(eq const& e) {
         if (ctx.get_assignment(lit1) == l_false && ctx.get_assignment(lit2) == l_true) {
             lits.push_back(~lit1);
             lits.push_back(lit2);
-            propagate_lit(nullptr, lits.size(), lits.c_ptr(), false_literal);
-            return true;
+            return propagate_lit(nullptr, lits.size(), lits.c_ptr(), false_literal);
         }
         if (ctx.get_assignment(lit1) == l_true && ctx.get_assignment(lit3) == l_true) {
             lits.push_back(lit1);
             lits.push_back(lit3);
-            propagate_lit(nullptr, lits.size(), lits.c_ptr(), false_literal);
-            return true;
+            return propagate_lit(nullptr, lits.size(), lits.c_ptr(), false_literal);
         }
         if (ctx.get_assignment(lit1) == l_true && ctx.get_assignment(lit2) == l_false) {
             lits.push_back(lit1);
             lits.push_back(~lit2);
-            propagate_lit(dep, lits.size(), lits.c_ptr(), false_literal);
-            return true;
+            return propagate_lit(dep, lits.size(), lits.c_ptr(), false_literal);
         }
         if (ctx.get_assignment(lit1) == l_false && ctx.get_assignment(lit3) == l_false) {
             lits.push_back(~lit1);
             lits.push_back(~lit3);
-            propagate_lit(dep, lits.size(), lits.c_ptr(), false_literal);
-            return true;
+            return propagate_lit(dep, lits.size(), lits.c_ptr(), false_literal);
         }
         UNREACHABLE();
     }

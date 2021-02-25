@@ -496,7 +496,6 @@ namespace smt {
         bool reduce_ne(unsigned idx);
         bool branch_nqs();
         lbool branch_nq(ne const& n);
-        expr_ref purify(expr* e);
 
         struct cell {
             cell*       m_parent;
