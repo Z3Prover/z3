@@ -151,6 +151,7 @@ namespace dt {
         euf::theory_var mk_var(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode* n, sort* s) override;
         bool is_shared(theory_var v) const override { return false; }
+        lbool get_phase(bool_var v) override { return l_true; }
 
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}

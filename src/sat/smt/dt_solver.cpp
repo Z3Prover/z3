@@ -99,15 +99,14 @@ namespace dt {
        \brief Assert the axiom (antecedent => lhs = rhs)
        antecedent may be null_literal
     */
-    void solver::assert_eq_axiom(enode* lhs, expr* rhs, literal antecedent) {
+    void solver::assert_eq_axiom(enode* n1, expr* e2, literal antecedent) {
+        expr* e1 = n1->get_expr();
         if (antecedent == sat::null_literal)
-            add_unit(eq_internalize(lhs->get_expr(), rhs));
-        else if (s().value(antecedent) == l_true) {
-            euf::th_propagation* jst = euf::th_propagation::mk(*this, antecedent);
-            ctx.propagate(lhs, e_internalize(rhs), jst);
-        }
-        else
-            add_clause(~antecedent, eq_internalize(lhs->get_expr(), rhs));
+            add_unit(eq_internalize(e1, e2));
+        else if (s().value(antecedent) == l_true) 
+            ctx.propagate(n1, e_internalize(e2), euf::th_propagation::mk(*this, antecedent));
+        else 
+            add_clause(~antecedent, eq_internalize(e1, e2));
     }
 
     /**
@@ -129,6 +128,10 @@ namespace dt {
             m_args.push_back(m.mk_app(d, e));
         expr_ref con(m.mk_app(c, m_args), m);
         assert_eq_axiom(n, con, antecedent);
+        enode* n2 = e_internalize(con);
+        theory_var v1 = n->get_th_var(get_id());
+        theory_var v2 = n2->get_th_var(get_id());
+        m_find.merge(v1, v2);
     }
 
     /**
@@ -239,7 +242,7 @@ namespace dt {
        \brief Create a new case split for v. That is, create the atom (is_mk v) and mark it as relevant.
        If first is true, it means that v does not have recognizer yet.
     */
-    void solver::mk_split(theory_var v) {
+    void solver::mk_split(theory_var v) {        
         m_stats.m_splits++;
 
         v = m_find.find(v);
@@ -258,10 +261,11 @@ namespace dt {
                                
         if (recognizer == nullptr)
             r = dt.get_constructor_is(non_rec_c);
-        else if (ctx.value(recognizer) != l_false)
+        else if (ctx.value(recognizer) != l_false) {
             // if is l_true, then we are done
             // otherwise wait for recognizer to be assigned.
             return;
+        }
         else {
             // look for a slot of d->m_recognizers that is 0, or it is not marked as relevant and is unassigned.
             unsigned idx = 0;
@@ -284,7 +288,8 @@ namespace dt {
         SASSERT(r != nullptr);
         app_ref r_app(m.mk_app(r, n->get_expr()), m);
         TRACE("dt", tout << "creating split: " << mk_pp(r_app, m) << "\n";);
-        mk_literal(r_app);
+        sat::literal lit = mk_literal(r_app);
+        s().set_phase(lit);
     }
 
     void solver::apply_sort_cnstr(enode* n, sort* s) {
@@ -695,8 +700,13 @@ namespace dt {
 
     void solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
         theory_var v = n->get_th_var(get_id());
-        for (enode* arg : euf::enode_args(m_var_data[m_find.find(v)]->m_constructor))
-            dep.add(n, arg);
+        if (!is_datatype(n->get_expr()))
+            return;
+        euf::enode* con = m_var_data[m_find.find(v)]->m_constructor;
+        if (con->num_args() == 0)
+            dep.insert(n, nullptr);                
+        for (enode* arg : euf::enode_args(con))
+            dep.add(n, arg->get_root());
     }
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {

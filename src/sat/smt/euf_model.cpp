@@ -103,16 +103,15 @@ namespace euf {
         TRACE("euf",
               for (auto const& d : deps.deps()) 
                   if (d.m_value) {
-                      tout << mk_bounded_pp(d.m_key->get_expr(), m) << ":\n";
+                      tout << bpp(d.m_key) << ":\n";
                       for (auto* n : *d.m_value)
-                          tout << "   " << mk_bounded_pp(n->get_expr(), m) << "\n";
+                          tout << "   " << bpp(n) << "\n";
                   }
               );
     }
 
     void solver::dependencies2values(user_sort& us, deps_t& deps, model_ref& mdl) {
         for (enode* n : deps.top_sorted()) {
-            
             unsigned id = n->get_root_id();
             if (m_values.get(id, nullptr))
                 continue;
