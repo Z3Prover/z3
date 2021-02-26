@@ -322,7 +322,7 @@ namespace opt {
 
         std::string to_string(bool is_internal, expr_ref_vector const& hard, vector<objective> const& objectives) const;
         std::string to_string_internal() const;
-
+        std::string to_wcnf();
 
         void validate_lex();
         void validate_maxsat(symbol const& id);

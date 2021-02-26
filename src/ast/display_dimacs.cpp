@@ -123,3 +123,8 @@ std::ostream& display_dimacs(std::ostream& out, expr_ref_vector const& fmls, boo
     }
     return out;
 }
+
+std::ostream& display_wcnf(std::ostream& out, expr_ref_vector const& fmls, vector<std::pair<expr*,unsigned>> const& soft, bool include_names) {
+    NOT_IMPLEMENTED_YET();
+    return out;
+}

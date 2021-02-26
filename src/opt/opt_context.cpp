@@ -1550,6 +1550,27 @@ namespace opt {
         return to_string(true, m_hard_constraints, m_objectives);
     }
 
+    std::string context::to_wcnf() {
+        import_scoped_state(); 
+        expr_ref_vector asms(m);
+        normalize(asms);
+        auto const& objectives = m_objectives;
+        if (objectives.size() > 1)
+            throw default_exception("only single objective weighted MaxSAT wcnf output is supported");
+        if (objectives.size() == 1) {
+            auto const& obj = objectives[0];
+            if (obj.m_type != O_MAXSMT)
+                throw default_exception("only single objective weighted MaxSAT wcnf output is supported");
+            for (unsigned j = 0; j < obj.m_terms.size(); ++j) {
+                rational w = obj.m_weights[j];
+                if (!w.is_unsigned())
+                    throw default_exception("only single objective weighted MaxSAT wcnf output is supported");
+            }
+        }
+        NOT_IMPLEMENTED_YET();
+        return std::string("");
+    }
+
     std::string context::to_string(bool is_internal, expr_ref_vector const& hard, vector<objective> const& objectives) const {
         smt2_pp_environment_dbg env(m);
         ast_pp_util visitor(m);
