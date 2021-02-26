@@ -567,7 +567,7 @@ public class Context implements AutoCloseable {
      * Create a quantifier pattern.
      **/
     @SafeVarargs
-    public Pattern mkPattern(Expr<?>... terms)
+    public final Pattern mkPattern(Expr<?>... terms)
     {
         if (terms.length == 0)
             throw new Z3Exception("Cannot create a pattern from zero terms");
@@ -689,7 +689,7 @@ public class Context implements AutoCloseable {
      * Create a new function application.
      **/
     @SafeVarargs
-    public <R extends Sort> Expr<R> mkApp(FuncDecl<R> f, Expr<?>... args)
+    public final <R extends Sort> Expr<R> mkApp(FuncDecl<R> f, Expr<?>... args)
     {
         checkContextMatch(f);
         checkContextMatch(args);
@@ -735,7 +735,7 @@ public class Context implements AutoCloseable {
      * Creates a {@code distinct} term.
      **/
     @SafeVarargs
-    public <R extends Sort> BoolExpr mkDistinct(Expr<R>... args)
+    public final <R extends Sort> BoolExpr mkDistinct(Expr<R>... args)
     {
         checkContextMatch(args);
         return new BoolExpr(this, Native.mkDistinct(nCtx(), args.length,
@@ -804,7 +804,7 @@ public class Context implements AutoCloseable {
      * Create an expression representing {@code t[0] and t[1] and ...}.
      **/
     @SafeVarargs
-    public BoolExpr mkAnd(Expr<BoolSort>... t)
+    public final BoolExpr mkAnd(Expr<BoolSort>... t)
     {
         checkContextMatch(t);
         return new BoolExpr(this, Native.mkAnd(nCtx(), t.length,
@@ -815,7 +815,7 @@ public class Context implements AutoCloseable {
      * Create an expression representing {@code t[0] or t[1] or ...}.
      **/
     @SafeVarargs
-    public BoolExpr mkOr(Expr<BoolSort>... t)
+    public final BoolExpr mkOr(Expr<BoolSort>... t)
     {
         checkContextMatch(t);
         return new BoolExpr(this, Native.mkOr(nCtx(), t.length,
@@ -826,7 +826,7 @@ public class Context implements AutoCloseable {
      * Create an expression representing {@code t[0] + t[1] + ...}.
      **/
     @SafeVarargs
-    public <R extends ArithSort> ArithExpr<R> mkAdd(Expr<R>... t)
+    public final <R extends ArithSort> ArithExpr<R> mkAdd(Expr<R>... t)
     {
         checkContextMatch(t);
         return (ArithExpr<R>) Expr.create(this,
@@ -837,7 +837,7 @@ public class Context implements AutoCloseable {
      * Create an expression representing {@code t[0] * t[1] * ...}.
      **/
     @SafeVarargs
-    public <R extends ArithSort> ArithExpr<R> mkMul(Expr<R>... t)
+    public final <R extends ArithSort> ArithExpr<R> mkMul(Expr<R>... t)
     {
         checkContextMatch(t);
         return (ArithExpr<R>) Expr.create(this,
@@ -848,7 +848,7 @@ public class Context implements AutoCloseable {
      * Create an expression representing {@code t[0] - t[1] - ...}.
      **/
     @SafeVarargs
-    public <R extends ArithSort> ArithExpr<R> mkSub(Expr<R>... t)
+    public final <R extends ArithSort> ArithExpr<R> mkSub(Expr<R>... t)
     {
         checkContextMatch(t);
         return (ArithExpr<R>) Expr.create(this,
@@ -1823,7 +1823,7 @@ public class Context implements AutoCloseable {
 
      **/
     @SafeVarargs
-    public <D extends Sort, R1 extends Sort, R2 extends Sort> ArrayExpr<D, R2> mkMap(FuncDecl<R2> f, Expr<ArraySort<D, R1>>... args)
+    public final <D extends Sort, R1 extends Sort, R2 extends Sort> ArrayExpr<D, R2> mkMap(FuncDecl<R2> f, Expr<ArraySort<D, R1>>... args)
     {
         checkContextMatch(f);
         checkContextMatch(args);
@@ -1913,7 +1913,7 @@ public class Context implements AutoCloseable {
      * Take the union of a list of sets.
      **/
     @SafeVarargs
-    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetUnion(Expr<ArraySort<D, BoolSort>>... args)
+    public final <D extends Sort> ArrayExpr<D, BoolSort> mkSetUnion(Expr<ArraySort<D, BoolSort>>... args)
     {
         checkContextMatch(args);
         return (ArrayExpr<D, BoolSort>)Expr.create(this,
@@ -1925,7 +1925,7 @@ public class Context implements AutoCloseable {
      * Take the intersection of a list of sets.
      **/
     @SafeVarargs
-    public <D extends Sort> ArrayExpr<D, BoolSort> mkSetIntersection(Expr<ArraySort<D, BoolSort>>... args)
+    public final <D extends Sort> ArrayExpr<D, BoolSort> mkSetIntersection(Expr<ArraySort<D, BoolSort>>... args)
     {
         checkContextMatch(args);
         return (ArrayExpr<D, BoolSort>) Expr.create(this,
@@ -2030,7 +2030,7 @@ public class Context implements AutoCloseable {
      * Concatenate sequences.
      */
     @SafeVarargs
-    public <R extends Sort> SeqExpr<R> mkConcat(Expr<SeqSort<R>>... t)
+    public final <R extends Sort> SeqExpr<R> mkConcat(Expr<SeqSort<R>>... t)
     {
         checkContextMatch(t);
         return (SeqExpr<R>) Expr.create(this, Native.mkSeqConcat(nCtx(), t.length, AST.arrayToNative(t)));
@@ -2195,7 +2195,7 @@ public class Context implements AutoCloseable {
      * Create the concatenation of regular languages.
      */
     @SafeVarargs
-    public <R extends Sort> ReExpr<R> mkConcat(ReExpr<R>... t)
+    public final <R extends Sort> ReExpr<R> mkConcat(ReExpr<R>... t)
     {
         checkContextMatch(t);
         return (ReExpr<R>) Expr.create(this, Native.mkReConcat(nCtx(), t.length, AST.arrayToNative(t)));
@@ -2205,7 +2205,7 @@ public class Context implements AutoCloseable {
      * Create the union of regular languages.
      */
     @SafeVarargs
-    public <R extends Sort> ReExpr<R> mkUnion(Expr<ReSort<R>>... t)
+    public final <R extends Sort> ReExpr<R> mkUnion(Expr<ReSort<R>>... t)
     {
         checkContextMatch(t);
         return (ReExpr<R>) Expr.create(this, Native.mkReUnion(nCtx(), t.length, AST.arrayToNative(t)));
@@ -2215,7 +2215,7 @@ public class Context implements AutoCloseable {
      * Create the intersection of regular languages.
      */
     @SafeVarargs
-    public <R extends Sort> ReExpr<R> mkIntersect(Expr<ReSort<R>>... t)
+    public final <R extends Sort> ReExpr<R> mkIntersect(Expr<ReSort<R>>... t)
     {
         checkContextMatch(t);
         return (ReExpr<R>) Expr.create(this, Native.mkReIntersect(nCtx(), t.length, AST.arrayToNative(t)));
