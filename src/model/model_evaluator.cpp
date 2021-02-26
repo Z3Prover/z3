@@ -54,6 +54,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     array_util                      m_ar;
     arith_util                      m_au;
     fpa_util                        m_fpau;
+    datatype::util                  m_dt;
     unsigned long long              m_max_memory;
     unsigned                        m_max_steps;
     bool                            m_model_completion;
@@ -80,6 +81,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_ar(m),
         m_au(m),
         m_fpau(m),
+        m_dt(m),
         m_pinned(m) {
         bool flat = true;
         m_b_rw.set_flat(flat);
@@ -147,9 +149,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
         auto st = reduce_app_core(f, num, args, result, result_pr);
         CTRACE("model_evaluator", st != BR_FAILED, 
-               tout << f->get_name() << " ";
-               for (unsigned i = 0; i < num; ++i) tout << mk_pp(args[i], m) << " ";
-               tout << "\n";
+               tout << f->get_name() << "\n";
+               for (unsigned i = 0; i < num; ++i) tout << mk_pp(args[i], m) << "\n";
                tout << result << "\n";);
                
         return st;
@@ -352,6 +353,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             if (f_ui) {
                 fi = m_model.get_func_interp(f_ui); 
             }
+
             if (!fi) {
                 result = m_au.mk_numeral(rational(0), f->get_range());
                 return BR_DONE;

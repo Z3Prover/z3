@@ -640,6 +640,16 @@ namespace datatype {
         return result;
     }
 
+    bool util::is_considered_uninterpreted(func_decl * f, unsigned n, expr* const* args) {
+        if (is_accessor(f)) {
+            func_decl* c = get_accessor_constructor(f);
+            SASSERT(n == 1);
+            if (is_constructor(args[0])) 
+                return to_app(args[0])->get_decl() != c;
+            return false;
+        }
+        return false;
+    }
 
     bool util::is_fully_interp(sort * s) const {
         SASSERT(is_datatype(s));

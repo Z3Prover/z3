@@ -693,7 +693,7 @@ namespace dt {
         enode* con = m_var_data[v]->m_constructor;
         func_decl* c_decl = con->get_decl();
         m_args.reset();
-        for (enode* arg : euf::enode_args(m_var_data[v]->m_constructor))
+        for (enode* arg : euf::enode_args(con))
             m_args.push_back(values.get(arg->get_root_id()));
         values.set(n->get_root_id(), m.mk_app(c_decl, m_args));
     }
@@ -765,8 +765,7 @@ namespace dt {
             mk_var(n);
             enode* arg = n->get_arg(0);
             theory_var v = mk_var(arg);
-            add_recognizer(v, n);   
-            
+            add_recognizer(v, n);               
         }
         else {
             SASSERT(is_accessor(term));

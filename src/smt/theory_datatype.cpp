@@ -736,6 +736,14 @@ namespace smt {
     }
 
     bool theory_datatype::include_func_interp(func_decl* f) {
+        if (!m_util.is_accessor(f))
+            return false;
+        func_decl* con = m_util.get_accessor_constructor(f);
+        for (enode* app : ctx.enodes_of(f)) {
+            enode* arg = app->get_arg(0)->get_root();
+            if (is_constructor(arg) && arg->get_decl() != con) 
+                return true;
+        }
         return false; 
     }
 
