@@ -235,6 +235,11 @@ struct solver::imp {
         return m_nlsat->am();
     }
 
+    void updt_params(params_ref& p) {
+        m_params.append(p);
+    }
+
+
     std::ostream& display(std::ostream& out) const {
         for (auto m : m_nla_core.emons()) {
             out << "j" << m.var() << " = ";
@@ -274,6 +279,10 @@ nlsat::anum const& solver::value(lp::var_index v) const {
 
 nlsat::anum_manager& solver::am() {
     return m_imp->am();
+}
+
+void solver::updt_params(params_ref& p) {
+    m_imp->updt_params(p);
 }
 
 }

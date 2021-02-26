@@ -48,6 +48,7 @@ namespace nra {
 
         nlsat::anum_manager& am();        
 
+        void updt_params(params_ref& p);
 
         /*
           \brief display state

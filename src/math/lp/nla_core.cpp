@@ -1523,8 +1523,14 @@ lbool core::check(vector<lemma>& l_vec) {
               { 1, check3 }};
         check_weighted(3, checks);
 
-        if (!conflict_found() && m_nla_settings.run_nra() && random() % 30 == 0) {
-            ret = m_nra.check();
+        if (!conflict_found() && m_nla_settings.run_nra() && random() % 50 == 0 && 
+            lp_settings().stats().m_nla_calls > 500) {
+            params_ref p;
+            p.set_uint("max_conflicts", 100);
+            m_nra.updt_params(p);
+            ret = m_nra.check(); 
+            p.set_uint("max_conflicts", UINT_MAX);           
+            m_nra.updt_params(p);
             m_stats.m_nra_calls++;
         }
     }
