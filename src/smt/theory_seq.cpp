@@ -496,8 +496,10 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
     }
     TRACE("seq", tout << "Fixed: " << mk_bounded_pp(e, m, 2) << " " << lo << "\n";);
     literal a = mk_eq(len_e, m_autil.mk_numeral(lo, true), false);
+    if (ctx.get_assignment(a) == l_false)
+        return false;
     literal b = mk_seq_eq(seq, e);
-    if (ctx.get_assignment(a) == l_false || ctx.get_assignment(b) == l_true)
+    if (ctx.get_assignment(b) == l_true)
         return false;
     add_axiom(~a, b);
     if (!ctx.at_base_level()) {
