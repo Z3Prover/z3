@@ -171,13 +171,10 @@ namespace smt {
         unsigned get_owner_id() const { return m_owner->get_id(); }
         unsigned get_expr_id() const { return m_owner->get_id(); }
 
-        func_decl * get_decl() const {
-            return m_owner->get_decl();
-        }
+        func_decl * get_decl() const { return m_owner->get_decl(); }
+        unsigned get_decl_id() const { return m_owner->get_decl()->get_decl_id(); }
 
-        unsigned get_decl_id() const {
-            return m_owner->get_decl()->get_decl_id();
-        }
+        sort* get_sort() const { return m_owner->get_sort(); }
 
         unsigned hash() const {
             return m_owner->hash();

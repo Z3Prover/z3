@@ -206,7 +206,7 @@ namespace array {
 
     void solver::add_parent_select(theory_var v_child, euf::enode* select) {
         SASSERT(a.is_select(select->get_expr()));
-        SASSERT(select->get_arg(0)->get_expr()->get_sort() == var2expr(v_child)->get_sort());
+        SASSERT(select->get_arg(0)->get_sort() == var2expr(v_child)->get_sort());
 
         v_child = find(v_child);
         ctx.push_vec(get_var_data(v_child).m_parent_selects, select);

@@ -193,19 +193,27 @@ namespace euf {
 
 
     class th_propagation {
+        sat::literal   m_consequent { sat::null_literal };
+        enode_pair     m_eq { enode_pair() };
         unsigned       m_num_literals;
-        unsigned       m_num_eqs;
+        unsigned       m_num_eqs;        
         sat::literal*  m_literals;
         enode_pair*    m_eqs;
         static size_t get_obj_size(unsigned num_lits, unsigned num_eqs);
-        th_propagation(unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs);
+        th_propagation(unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs, sat::literal c, enode_pair const& eq);
+        static th_propagation* mk(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs, sat::literal c, enode* x, enode* y);
+
     public:
-        static th_propagation* mk(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs);
-        static th_propagation* mk(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs);
-        static th_propagation* mk(th_euf_solver& th, enode_pair_vector const& eqs);
-        static th_propagation* mk(th_euf_solver& th, sat::literal lit);
-        static th_propagation* mk(th_euf_solver& th, sat::literal lit, euf::enode* x, euf::enode* y);
-        static th_propagation* mk(th_euf_solver& th, euf::enode* x, euf::enode* y);
+        static th_propagation* conflict(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs);
+        static th_propagation* conflict(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs);
+        static th_propagation* conflict(th_euf_solver& th, enode_pair_vector const& eqs);
+        static th_propagation* conflict(th_euf_solver& th, sat::literal lit);
+        static th_propagation* conflict(th_euf_solver& th, sat::literal lit, euf::enode* x, euf::enode* y);
+        static th_propagation* conflict(th_euf_solver& th, euf::enode* x, euf::enode* y);
+        static th_propagation* propagate(th_euf_solver& th, sat::literal lit, euf::enode* x, euf::enode* y);
+        static th_propagation* propagate(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs, sat::literal consequent);
+        static th_propagation* propagate(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs, sat::literal consequent);
+        static th_propagation* propagate(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs, euf::enode* x, euf::enode* y);
 
         sat::ext_constraint_idx to_index() const {
             return sat::constraint_base::mem2base(this);
@@ -235,6 +243,10 @@ namespace euf {
             enode_pair const* begin() const { return th.m_eqs; }
             enode_pair const* end() const { return th.m_eqs + th.m_num_eqs; }
         };
+
+        sat::literal lit_consequent() const { return m_consequent; }
+
+        enode_pair eq_consequent() const { return m_eq; }
 
     };
 

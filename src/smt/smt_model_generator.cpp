@@ -94,7 +94,7 @@ namespace smt {
         for (enode * r : m_context->enodes()) {
             if (r == r->get_root() && (m_context->is_relevant(r) || m.is_value(r->get_expr()))) {
                 roots.push_back(r);
-                sort * s      = r->get_owner()->get_sort();
+                sort * s      = r->get_sort();
                 model_value_proc * proc = nullptr;
                 if (m.is_bool(s)) {
                     CTRACE("model", m_context->get_assignment(r) == l_undef, 
@@ -117,7 +117,7 @@ namespace smt {
                         }
                         else {
                             TRACE("model", tout << "creating fresh value for #" << r->get_owner_id() << "\n";);
-                            proc = alloc(fresh_value_proc, mk_extra_fresh_value(r->get_owner()->get_sort()));
+                            proc = alloc(fresh_value_proc, mk_extra_fresh_value(r->get_sort()));
                         }
                     }
                     else {
@@ -136,7 +136,7 @@ namespace smt {
         SASSERT(r == r->get_root());
         expr * n = r->get_owner();
         if (!m.is_model_value(n)) {
-            sort * s = r->get_owner()->get_sort();
+            sort * s = r->get_sort();
             n = m_model->get_fresh_value(s);
             CTRACE("model", n == 0, 
                    tout << mk_pp(r->get_owner(), m) << "\nsort:\n" << mk_pp(s, m) << "\n";
@@ -183,12 +183,12 @@ namespace smt {
                 return true;
             bool visited = true;
             for (enode * r : roots) {
-                if (r->get_owner()->get_sort() != s)
+                if (r->get_sort() != s)
                     continue;
                 SASSERT(r == r->get_root());
                 if (root2proc[r]->is_fresh()) 
                     continue; // r is associated with a fresh value...
-                TRACE("mg_top_sort", tout << "fresh!" << src.get_value()->get_idx() << " -> #" << r->get_owner_id() << " " << mk_pp(r->get_owner()->get_sort(), m) << "\n";);
+                TRACE("mg_top_sort", tout << "fresh!" << src.get_value()->get_idx() << " -> #" << r->get_owner_id() << " " << mk_pp(r->get_sort(), m) << "\n";);
                 visit_child(source(r), colors, todo, visited);
                 TRACE("mg_top_sort", tout << "visited: " << visited << ", todo.size(): " << todo.size() << "\n";);
             }
@@ -307,7 +307,7 @@ namespace smt {
                       enode * n = curr.get_enode();
                       SASSERT(n->get_root() == n);
                       tout << mk_pp(n->get_owner(), m) << "\n";
-                      sort * s = n->get_owner()->get_sort();
+                      sort * s = n->get_sort();
                       tout << curr << " " << mk_pp(s, m);
                       tout << " is_fresh: " << root2proc[n]->is_fresh() << "\n";
                   }

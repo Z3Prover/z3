@@ -2640,7 +2640,7 @@ namespace sat {
     unsigned ba_solver::set_non_external() {
         // set variables to be non-external if they are not used in theory constraints.
         unsigned ext = 0;
-        if (!incremental_mode()) {
+        if (!incremental_mode() && s().get_extension() == this) {
             for (unsigned v = 0; v < s().num_vars(); ++v) {
                 literal lit(v, false);
                 if (s().is_external(v) && 

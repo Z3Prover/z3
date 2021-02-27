@@ -397,6 +397,8 @@ namespace euf {
             auto* ext = sat::constraint_base::to_extension(idx);                
             if (ext->get_id() != e.id())
                 return false;
+            if (ext->enable_self_propagate())
+                return false;
         }
         return true;
     }

@@ -376,7 +376,7 @@ namespace euf {
 
         if (!n1->merge_enabled() && !n2->merge_enabled())
             return;
-        SASSERT(n1->get_expr()->get_sort() == n2->get_expr()->get_sort());
+        SASSERT(n1->get_sort() == n2->get_sort());
         enode* r1 = n1->get_root();
         enode* r2 = n2->get_root();
         if (r1 == r2)
@@ -560,7 +560,7 @@ namespace euf {
             return false;
         if (ra->interpreted() && rb->interpreted())
             return true;
-        if (ra->get_expr()->get_sort() != rb->get_expr()->get_sort())
+        if (ra->get_sort() != rb->get_sort())
             return true;
         expr_ref eq(m.mk_eq(a->get_expr(), b->get_expr()), m);
         m_tmp_eq->m_args[0] = a;
@@ -787,8 +787,8 @@ namespace euf {
             enode* n2 = m_nodes[i];
             enode* n2t = n1t ? old_expr2new_enode[n1->get_expr_id()] : nullptr;
             SASSERT(!n1t || n2t);
-            SASSERT(!n1t || n1->get_expr()->get_sort() == n1t->get_expr()->get_sort());
-            SASSERT(!n1t || n2->get_expr()->get_sort() == n2t->get_expr()->get_sort());
+            SASSERT(!n1t || n1->get_sort() == n1t->get_sort());
+            SASSERT(!n1t || n2->get_sort() == n2t->get_sort());
             if (n1t && n2->get_root() != n2t->get_root()) 
                 merge(n2, n2t, n1->m_justification.copy(copy_justification));
         }

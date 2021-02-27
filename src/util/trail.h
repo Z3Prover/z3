@@ -254,7 +254,7 @@ public:
     }
 
     void undo() override {
-        m_vector[m_idx] = 0;
+        m_vector[m_idx] = nullptr;
     }
 };
 

@@ -31,11 +31,11 @@ namespace euf {
         if (is_app(e)) {
             app* a = to_app(e);
             drat_log_decl(a->get_decl());
+            std::stringstream strm;
+            strm << mk_ismt2_func(a->get_decl(), m);
             if (a->get_num_parameters() == 0)
-                get_drat().def_begin('e', e->get_id(), a->get_decl()->get_name().str());
+                get_drat().def_begin('e', e->get_id(), strm.str());
             else {
-                std::stringstream strm;
-                strm << mk_ismt2_func(a->get_decl(), m);
                 get_drat().def_begin('e', e->get_id(), strm.str());
             }
             for (expr* arg : *a)
@@ -128,19 +128,26 @@ namespace euf {
 
     void solver::log_justification(literal l, th_propagation const& jst) {
         literal_vector lits;
-        for (auto lit : euf::th_propagation::lits(jst))
-            lits.push_back(~lit);
-        lits.push_back(l);
         unsigned nv = s().num_vars();
         expr_ref_vector eqs(m);
-        for (auto eq : euf::th_propagation::eqs(jst)) {
+        auto add_lit = [&](enode_pair const& eq) {
             ++nv;
             literal lit(nv, false);
             eqs.push_back(m.mk_eq(eq.first->get_expr(), eq.second->get_expr()));
             drat_eq_def(lit, eqs.back());            
-            lits.push_back(lit);
-        }
-        
+            return lit;
+        };
+
+        for (auto lit : euf::th_propagation::lits(jst))
+            lits.push_back(~lit);
+        if (l != sat::null_literal)
+            lits.push_back(l);
+        for (auto eq : euf::th_propagation::eqs(jst)) 
+            lits.push_back(~add_lit(eq));
+        if (jst.lit_consequent() != sat::null_literal && jst.lit_consequent() != l) 
+            lits.push_back(jst.lit_consequent());
+        if (jst.eq_consequent().first != nullptr) 
+            lits.push_back(add_lit(jst.eq_consequent()));
         get_drat().add(lits, sat::status::th(m_is_redundant, jst.ext().get_id()));
     }
 

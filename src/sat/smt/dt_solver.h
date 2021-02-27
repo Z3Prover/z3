@@ -118,7 +118,7 @@ namespace dt {
         void occurs_check_explain(enode * top, enode * root);
         void explain_is_child(enode* parent, enode* child);
 
-        void mk_split(theory_var v);
+        void mk_split(theory_var v, bool is_final);
 
         void display_var(std::ostream & out, theory_var v) const;
 
@@ -152,6 +152,7 @@ namespace dt {
         void apply_sort_cnstr(euf::enode* n, sort* s) override;
         bool is_shared(theory_var v) const override { return false; }
         lbool get_phase(bool_var v) override { return l_true; }
+        bool enable_self_propagate() const override { return true; }
 
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}

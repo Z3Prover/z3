@@ -84,6 +84,7 @@ namespace dimacs {
 
         char const* parse_sexpr();
         char const* parse_identifier();
+        char const* parse_quoted_symbol();
         int read_theory_id();
         bool next();
 

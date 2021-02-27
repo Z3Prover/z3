@@ -458,7 +458,7 @@ namespace smt {
             TRACE("add_eq", tout << "assigning: #" << n1->get_owner_id() << " = #" << n2->get_owner_id() << "\n";);
             TRACE("add_eq_detail", tout << "assigning\n" << enode_pp(n1, *this) << "\n" << enode_pp(n2, *this) << "\n";
                   tout << "kind: " << js.get_kind() << "\n";);
-            SASSERT(n1->get_owner()->get_sort() == n2->get_owner()->get_sort());
+            SASSERT(n1->get_sort() == n2->get_sort());
 
             m_stats.m_num_add_eq++;
             enode * r1 = n1->get_root();
@@ -1099,14 +1099,14 @@ namespace smt {
        context.
     */
     bool context::is_diseq(enode * n1, enode * n2) const {
-        SASSERT(n1->get_owner()->get_sort() == n2->get_owner()->get_sort());
+        SASSERT(n1->get_sort() == n2->get_sort());
         context * _this = const_cast<context*>(this);
         if (!m_is_diseq_tmp) {
             app * eq       = m.mk_eq(n1->get_owner(), n2->get_owner());
             m.inc_ref(eq);
             _this->m_is_diseq_tmp = enode::mk_dummy(m, m_app2enode, eq);
         }
-        else if (m_is_diseq_tmp->get_owner()->get_arg(0)->get_sort() != n1->get_owner()->get_sort()) {
+        else if (m_is_diseq_tmp->get_owner()->get_arg(0)->get_sort() != n1->get_sort()) {
             m.dec_ref(m_is_diseq_tmp->get_owner());
             app * eq = m.mk_eq(n1->get_owner(), n2->get_owner());
             m.inc_ref(eq);
@@ -4475,7 +4475,7 @@ namespace smt {
     }
 
     bool context::get_value(enode * n, expr_ref & value) {
-        sort * s      = n->get_owner()->get_sort();
+        sort * s      = n->get_sort();
         family_id fid = s->get_family_id();
         theory * th   = get_theory(fid);
         if (th == nullptr)

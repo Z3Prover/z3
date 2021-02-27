@@ -179,7 +179,33 @@ namespace dimacs {
         return m_buffer.c_ptr();
     }
 
+    char const* drat_parser::parse_quoted_symbol() {
+        SASSERT(*in == '|');
+        m_buffer.reset();
+        m_buffer.push_back(*in);
+        bool escape = false;
+        ++in;
+        while (true) {
+            auto c = *in;
+            if (c == EOF) 
+                throw lex_error();
+            else if (c == '\n') 
+                ;
+            else if (c == '|' && !escape) {
+                ++in;
+                m_buffer.push_back(c);
+                m_buffer.push_back(0);
+                return m_buffer.c_ptr();
+            }
+            escape = (c == '\\');
+            m_buffer.push_back(c);
+            ++in;
+        }
+    }
+
     char const* drat_parser::parse_sexpr() {
+        if (*in == '|')
+            return parse_quoted_symbol();
         m_buffer.reset();
         unsigned lp = 0;
         while (!is_whitespace(in) || lp > 0) {
