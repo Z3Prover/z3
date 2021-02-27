@@ -4808,16 +4808,6 @@ namespace Microsoft.Z3
         {
             // Console.WriteLine("Context Finalizer from " + System.Threading.Thread.CurrentThread.ManagedThreadId);
             Dispose();
-
-            if (refCount == 0 && m_ctx != IntPtr.Zero)
-            {
-                m_n_err_handler = null;
-                IntPtr ctx = m_ctx;
-                m_ctx = IntPtr.Zero;
-                Native.Z3_del_context(ctx);
-            }
-            else
-                GC.ReRegisterForFinalize(this);
         }
 
         /// <summary>
@@ -4847,6 +4837,15 @@ namespace Microsoft.Z3
             m_intSort = null;
             m_realSort = null;
             m_stringSort = null;
+            if (refCount == 0 && m_ctx != IntPtr.Zero)
+            {
+                m_n_err_handler = null;
+                IntPtr ctx = m_ctx;
+                m_ctx = IntPtr.Zero;
+                Native.Z3_del_context(ctx);
+            }
+            else 
+                GC.ReRegisterForFinalize(this);
         }
         #endregion
     }
