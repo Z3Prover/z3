@@ -3198,15 +3198,15 @@ namespace pb {
     }
 
     void solver::collect_statistics(statistics& st) const {
-        st.update("ba propagations", m_stats.m_num_propagations);
-        st.update("ba conflicts", m_stats.m_num_conflicts);
-        st.update("ba resolves", m_stats.m_num_resolves);
-        st.update("ba cuts", m_stats.m_num_cut);
-        st.update("ba gc", m_stats.m_num_gc);
-        st.update("ba overflow", m_stats.m_num_overflow);
-        st.update("ba big strengthenings", m_stats.m_num_big_strengthenings);
-        st.update("ba lemmas", m_stats.m_num_lemmas);
-        st.update("ba subsumes", m_stats.m_num_bin_subsumes + m_stats.m_num_clause_subsumes + m_stats.m_num_pb_subsumes);
+        st.update("pb propagations", m_stats.m_num_propagations);
+        st.update("pb conflicts", m_stats.m_num_conflicts);
+        st.update("pb resolves", m_stats.m_num_resolves);
+        st.update("pb cuts", m_stats.m_num_cut);
+        st.update("pb gc", m_stats.m_num_gc);
+        st.update("pb overflow", m_stats.m_num_overflow);
+        st.update("pb big strengthenings", m_stats.m_num_big_strengthenings);
+        st.update("pb lemmas", m_stats.m_num_lemmas);
+        st.update("pb subsumes", m_stats.m_num_bin_subsumes + m_stats.m_num_clause_subsumes + m_stats.m_num_pb_subsumes);
     }
 
 
@@ -3331,7 +3331,7 @@ namespace pb {
     }
 
     constraint* solver::active2lemma() {
-        switch (s().m_config.m_pb_lemma_format) {
+        switch (get_config().m_pb_lemma_format) {
         case sat::PB_LEMMA_CARDINALITY:
             return active2card();
         case sat::PB_LEMMA_PB:
