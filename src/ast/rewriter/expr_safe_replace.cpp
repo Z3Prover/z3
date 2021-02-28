@@ -95,27 +95,72 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
         else {
             SASSERT(is_quantifier(a));
             quantifier* q = to_quantifier(a);
-            expr_safe_replace replace(m);
-            var_shifter shift(m);
-            expr_ref new_body(m), src(m), dst(m), tmp(m);
+            expr_ref new_body(m);
             expr_ref_vector pats(m), nopats(m);
-            unsigned num_decls = q->get_num_decls();
-            for (unsigned i = 0; i < m_src.size(); ++i) {
-                shift(m_src.get(i), num_decls, src);
-                shift(m_dst.get(i), num_decls, dst);
-                replace.insert(src, dst);
+
+            // fast-path for when all src/dst rewrite patterns are ground
+            bool all_repls_ground = true;
+            for (unsigned i = 0, e = m_src.size(); all_repls_ground && i < e; ++i) {
+                all_repls_ground &= is_ground(m_src.get(i));
+                all_repls_ground &= is_ground(m_dst.get(i));
             }
-            unsigned np = q->get_num_patterns();
-            for (unsigned i = 0; i < np; ++i) {
-                replace(q->get_pattern(i), tmp);
-                pats.push_back(tmp);
+
+            if (all_repls_ground) {
+                bool has_all_data = true;
+                new_body = m_cache[q->get_expr()];
+                if (!new_body) {
+                    m_todo.push_back(q->get_expr());
+                    has_all_data = false;
+                }
+
+                unsigned np = q->get_num_patterns();
+                for (unsigned i = 0; i < np; ++i) {
+                    if (has_all_data) {
+                        if (expr * p = m_cache[q->get_pattern(i)]) {
+                            pats.push_back(p);
+                            continue;
+                        }
+                    }
+                    m_todo.push_back(q->get_pattern(i));
+                    has_all_data = false;
+                }
+                np = q->get_num_no_patterns();
+                for (unsigned i = 0; i < np; ++i) {
+                    if (has_all_data) {
+                        if (expr * p = m_cache[q->get_no_pattern(i)]) {
+                            nopats.push_back(p);
+                            continue;
+                        }
+                    }
+                    m_todo.push_back(q->get_no_pattern(i));
+                    has_all_data = false;
+                }
+
+                if (!has_all_data)
+                    continue;
             }
-            np = q->get_num_no_patterns();
-            for (unsigned i = 0; i < np; ++i) {
-                replace(q->get_no_pattern(i), tmp);
-                nopats.push_back(tmp);
+            else {
+                expr_safe_replace replace(m);
+                var_shifter shift(m);
+                expr_ref src(m), dst(m), tmp(m);
+                unsigned num_decls = q->get_num_decls();
+                for (unsigned i = 0; i < m_src.size(); ++i) {
+                    shift(m_src.get(i), num_decls, src);
+                    shift(m_dst.get(i), num_decls, dst);
+                    replace.insert(src, dst);
+                }
+                unsigned np = q->get_num_patterns();
+                for (unsigned i = 0; i < np; ++i) {
+                    replace(q->get_pattern(i), tmp);
+                    pats.push_back(tmp);
+                }
+                np = q->get_num_no_patterns();
+                for (unsigned i = 0; i < np; ++i) {
+                    replace(q->get_no_pattern(i), tmp);
+                    nopats.push_back(tmp);
+                }
+                replace(q->get_expr(), new_body);
             }
-            replace(q->get_expr(), new_body);
             b = m.update_quantifier(q, pats.size(), pats.c_ptr(), nopats.size(), nopats.c_ptr(), new_body);
             m_refs.push_back(b);
             cached = b;
