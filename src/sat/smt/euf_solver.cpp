@@ -218,10 +218,10 @@ namespace euf {
             log_antecedents(l, r);
     }
 
-    void solver::get_antecedents(literal l, th_propagation& jst, literal_vector& r, bool probing) {
-        for (auto lit : euf::th_propagation::lits(jst))
+    void solver::get_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing) {
+        for (auto lit : euf::th_explain::lits(jst))
             r.push_back(lit);
-        for (auto eq : euf::th_propagation::eqs(jst))
+        for (auto eq : euf::th_explain::eqs(jst))
             add_antecedent(eq.first, eq.second);
 
         if (!probing && use_drat()) 

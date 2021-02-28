@@ -318,7 +318,7 @@ namespace arith {
         reset_evidence();
         for (auto const& ev : e)
             set_evidence(ev.ci(), m_core, m_eqs);
-        auto* jst = euf::th_propagation::propagate(*this, m_core, m_eqs, n1, n2);
+        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, n1, n2);
         ctx.propagate(n1, n2, jst->to_index());
     }
 
@@ -718,7 +718,7 @@ namespace arith {
         set_evidence(ci4, m_core, m_eqs);
         enode* x = var2enode(v1);
         enode* y = var2enode(v2);
-        auto* jst = euf::th_propagation::propagate(*this, m_core, m_eqs, x, y);
+        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, x, y);
         ctx.propagate(x, y, jst->to_index());
     }
 
@@ -1141,7 +1141,7 @@ namespace arith {
             add_clause(m_core2);
         }
         else {
-            auto* jst = euf::th_propagation::propagate(*this, core, eqs, lit);
+            auto* jst = euf::th_explain::propagate(*this, core, eqs, lit);
             ctx.propagate(lit, jst->to_index());
         }
     }
@@ -1419,7 +1419,7 @@ namespace arith {
     }
 
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
-        auto& jst = euf::th_propagation::from_index(idx);
+        auto& jst = euf::th_explain::from_index(idx);
         ctx.get_antecedents(l, jst, r, probing);
     }
 

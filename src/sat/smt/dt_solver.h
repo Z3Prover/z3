@@ -140,7 +140,7 @@ namespace dt {
         sat::check_result check() override;
 
         std::ostream& display(std::ostream& out) const override;
-        std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override { return euf::th_propagation::from_index(idx).display(out); }
+        std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override { return euf::th_explain::from_index(idx).display(out); }
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override { return display_justification(out, idx); }
         void collect_statistics(statistics& st) const override;
         euf::th_solver* clone(euf::solver& ctx) override;

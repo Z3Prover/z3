@@ -69,7 +69,7 @@ namespace arith {
     }
 
     std::ostream& solver::display_justification(std::ostream& out, sat::ext_justification_idx idx) const { 
-        return euf::th_propagation::from_index(idx).display(out);
+        return euf::th_explain::from_index(idx).display(out);
     }
 
     std::ostream& solver::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const { 

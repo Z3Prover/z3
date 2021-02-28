@@ -126,7 +126,7 @@ namespace euf {
         }
     }
 
-    void solver::log_justification(literal l, th_propagation const& jst) {
+    void solver::log_justification(literal l, th_explain const& jst) {
         literal_vector lits;
         unsigned nv = s().num_vars();
         expr_ref_vector eqs(m);
@@ -138,11 +138,11 @@ namespace euf {
             return lit;
         };
 
-        for (auto lit : euf::th_propagation::lits(jst))
+        for (auto lit : euf::th_explain::lits(jst))
             lits.push_back(~lit);
         if (l != sat::null_literal)
             lits.push_back(l);
-        for (auto eq : euf::th_propagation::eqs(jst)) 
+        for (auto eq : euf::th_explain::eqs(jst)) 
             lits.push_back(~add_lit(eq));
         if (jst.lit_consequent() != sat::null_literal && jst.lit_consequent() != l) 
             lits.push_back(jst.lit_consequent());

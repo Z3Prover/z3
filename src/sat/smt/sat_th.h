@@ -165,7 +165,7 @@ namespace euf {
             for (; m_num_scopes > 0; --m_num_scopes) push_core();
         }
 
-        friend class th_propagation;
+        friend class th_explain;
 
     public:
         th_euf_solver(euf::solver& ctx, symbol const& name, euf::theory_id id);
@@ -191,36 +191,41 @@ namespace euf {
         unsigned random();
     };
 
-
-    class th_propagation {
-        sat::literal   m_consequent { sat::null_literal };
-        enode_pair     m_eq { enode_pair() };
+    /**
+    * General purpose, eager explanation object. Explanations are conjunctions of literals and equalities.
+    * Used literals and equalities are stored in the object and retrieved on demand for conflict resolution
+    * It is "eager" in the sense that relevant literals are accumulated when the explanation is created.
+    * This is not a real problem for conflicts, but a theory has an option to implement custom lazy explanations
+    * that retrieve literals on demand.
+    */
+    class th_explain {
+        sat::literal   m_consequent { sat::null_literal }; // literal consequent for propagations
+        enode_pair     m_eq { enode_pair() };              // equality consequent for propagations
         unsigned       m_num_literals;
         unsigned       m_num_eqs;        
         sat::literal*  m_literals;
         enode_pair*    m_eqs;
         static size_t get_obj_size(unsigned num_lits, unsigned num_eqs);
-        th_propagation(unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs, sat::literal c, enode_pair const& eq);
-        static th_propagation* mk(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs, sat::literal c, enode* x, enode* y);
+        th_explain(unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs, sat::literal c, enode_pair const& eq);
+        static th_explain* mk(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs, sat::literal c, enode* x, enode* y);
 
     public:
-        static th_propagation* conflict(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs);
-        static th_propagation* conflict(th_euf_solver& th, sat::literal_vector const& lits) { return conflict(th, lits.size(), lits.c_ptr(), 0, nullptr); }
-        static th_propagation* conflict(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs);
-        static th_propagation* conflict(th_euf_solver& th, enode_pair_vector const& eqs);
-        static th_propagation* conflict(th_euf_solver& th, sat::literal lit);
-        static th_propagation* conflict(th_euf_solver& th, sat::literal lit, euf::enode* x, euf::enode* y);
-        static th_propagation* conflict(th_euf_solver& th, euf::enode* x, euf::enode* y);
-        static th_propagation* propagate(th_euf_solver& th, sat::literal lit, euf::enode* x, euf::enode* y);
-        static th_propagation* propagate(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs, sat::literal consequent);
-        static th_propagation* propagate(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs, sat::literal consequent);
-        static th_propagation* propagate(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs, euf::enode* x, euf::enode* y);
+        static th_explain* conflict(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs);
+        static th_explain* conflict(th_euf_solver& th, sat::literal_vector const& lits) { return conflict(th, lits.size(), lits.c_ptr(), 0, nullptr); }
+        static th_explain* conflict(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs);
+        static th_explain* conflict(th_euf_solver& th, enode_pair_vector const& eqs);
+        static th_explain* conflict(th_euf_solver& th, sat::literal lit);
+        static th_explain* conflict(th_euf_solver& th, sat::literal lit, euf::enode* x, euf::enode* y);
+        static th_explain* conflict(th_euf_solver& th, euf::enode* x, euf::enode* y);
+        static th_explain* propagate(th_euf_solver& th, sat::literal lit, euf::enode* x, euf::enode* y);
+        static th_explain* propagate(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs, sat::literal consequent);
+        static th_explain* propagate(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs, euf::enode* x, euf::enode* y);
 
         sat::ext_constraint_idx to_index() const {
             return sat::constraint_base::mem2base(this);
         }
-        static th_propagation& from_index(size_t idx) {
-            return *reinterpret_cast<th_propagation*>(sat::constraint_base::from_index(idx)->mem());
+        static th_explain& from_index(size_t idx) {
+            return *reinterpret_cast<th_explain*>(sat::constraint_base::from_index(idx)->mem());
         }
 
         sat::extension& ext() const {
@@ -230,17 +235,17 @@ namespace euf {
         std::ostream& display(std::ostream& out) const;
 
         class lits {
-            th_propagation const& th;
+            th_explain const& th;
         public:
-            lits(th_propagation const& th) : th(th) {}
+            lits(th_explain const& th) : th(th) {}
             sat::literal const* begin() const { return th.m_literals; }
             sat::literal const* end() const { return th.m_literals + th.m_num_literals; }
         };
 
         class eqs {
-            th_propagation const& th;
+            th_explain const& th;
         public:
-            eqs(th_propagation const& th) : th(th) {}
+            eqs(th_explain const& th) : th(th) {}
             enode_pair const* begin() const { return th.m_eqs; }
             enode_pair const* end() const { return th.m_eqs + th.m_num_eqs; }
         };

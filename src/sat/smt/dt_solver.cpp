@@ -105,7 +105,7 @@ namespace dt {
             add_unit(eq_internalize(e1, e2));
         else if (s().value(antecedent) == l_true) {
             euf::enode* n2 = e_internalize(e2);
-            ctx.propagate(n1, n2, euf::th_propagation::propagate(*this, antecedent, n1, n2));
+            ctx.propagate(n1, n2, euf::th_explain::propagate(*this, antecedent, n1, n2));
         }
         else
             add_clause(~antecedent, eq_internalize(e1, e2));
@@ -160,7 +160,7 @@ namespace dt {
         literal l = ctx.enode2literal(r);
         SASSERT(s().value(l) == l_false);
         clear_mark();
-        ctx.set_conflict(euf::th_propagation::conflict(*this, ~l, c, r->get_arg(0)));
+        ctx.set_conflict(euf::th_explain::conflict(*this, ~l, c, r->get_arg(0)));
     }
 
     /**
@@ -315,7 +315,7 @@ namespace dt {
                 break;
             }
         }
-        ctx.set_conflict(euf::th_propagation::conflict(*this, m_lits));
+        ctx.set_conflict(euf::th_explain::conflict(*this, m_lits));
     }
 
 
@@ -462,7 +462,7 @@ namespace dt {
         }
         TRACE("dt", tout << "propagate " << num_unassigned << " eqs: " << eqs.size() << "\n";);
         if (num_unassigned == 0)
-            ctx.set_conflict(euf::th_propagation::conflict(*this, m_lits, eqs));
+            ctx.set_conflict(euf::th_explain::conflict(*this, m_lits, eqs));
         else if (num_unassigned == 1) {
             // propagate remaining recognizer
             SASSERT(!m_lits.empty());
@@ -476,7 +476,7 @@ namespace dt {
                 app_ref rec_app(m.mk_app(rec, n->get_expr()), m);
                 consequent = mk_literal(rec_app);
             }
-            ctx.propagate(consequent, euf::th_propagation::propagate(*this, m_lits, eqs, consequent));
+            ctx.propagate(consequent, euf::th_explain::propagate(*this, m_lits, eqs, consequent));
         }
         else if (get_config().m_dt_lazy_splits == 0 || (!srt->is_infinite() && get_config().m_dt_lazy_splits == 1))
             // there are more than 2 unassigned recognizers...
@@ -493,7 +493,7 @@ namespace dt {
         auto* con1 = d1->m_constructor;
         auto* con2 = d2->m_constructor;
         if (con1 && con2 && con1->get_decl() != con2->get_decl())
-            ctx.set_conflict(euf::th_propagation::conflict(*this, con1, con2));
+            ctx.set_conflict(euf::th_explain::conflict(*this, con1, con2));
         else if (con2 && !con1) {
             ctx.push(set_ptr_trail<enode>(d1->m_constructor));
             // check whether there is a recognizer in d1 that conflicts with con2;
@@ -663,7 +663,7 @@ namespace dt {
 
         if (res) {
             clear_mark();
-            ctx.set_conflict(euf::th_propagation::conflict(*this, m_used_eqs));
+            ctx.set_conflict(euf::th_explain::conflict(*this, m_used_eqs));
             TRACE("dt", tout << "occurs check conflict: " << ctx.bpp(n) << "\n";);
         }
         return res;
@@ -704,7 +704,7 @@ namespace dt {
     }
 
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
-        auto& jst = euf::th_propagation::from_index(idx);
+        auto& jst = euf::th_explain::from_index(idx);
         ctx.get_antecedents(l, jst, r, probing);
     }
 
