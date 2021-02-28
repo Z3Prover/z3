@@ -239,12 +239,12 @@ class theory_lra::imp {
     theory_id get_id() const { return th.get_id(); }
     theory_arith_params const& params() const { return ctx().get_fparams(); }
     bool is_int(theory_var v) const {  return is_int(get_enode(v));  }
-    bool is_int(enode* n) const { return a.is_int(n->get_owner()); }
+    bool is_int(enode* n) const { return a.is_int(n->get_expr()); }
     bool is_real(theory_var v) const {  return is_real(get_enode(v));  }
-    bool is_real(enode* n) const { return a.is_real(n->get_owner()); }
+    bool is_real(enode* n) const { return a.is_real(n->get_expr()); }
     enode* get_enode(theory_var v) const { return th.get_enode(v); }
     enode* get_enode(expr* e) const { return ctx().get_enode(e); }
-    expr*  get_owner(theory_var v) const { return get_enode(v)->get_owner(); }    
+    expr*  get_owner(theory_var v) const { return get_enode(v)->get_expr(); }    
 
     lpvar add_const(int c, lpvar& var, bool is_int) {
         if (var != UINT_MAX) {
@@ -717,8 +717,8 @@ class theory_lra::imp {
         }
         TRACE("arith", 
               {
-                  expr*  o1 = get_enode(v1)->get_owner();
-                  expr*  o2 = get_enode(v2)->get_owner();                  
+                  expr*  o1 = get_enode(v1)->get_expr();
+                  expr*  o2 = get_enode(v2)->get_expr();                  
                   tout << "v" << v1 << " = " << "v" << v2 << ": "
                        << mk_pp(o1, m) << " = " << mk_pp(o2, m) << "\n";
               });
@@ -1046,7 +1046,7 @@ public:
     }
 
     void apply_sort_cnstr(enode* n, sort*) {
-        TRACE("arith", tout << "sort constraint: " << mk_pp(n->get_owner(), m) << "\n";);
+        TRACE("arith", tout << "sort constraint: " << pp(n, m) << "\n";);
 #if 0
         if (!th.is_attached_to_var(n)) {
             mk_var(n->get_owner());
@@ -1201,9 +1201,9 @@ public:
     ///   abs(r) > r >= 0
     void assert_idiv_mod_axioms(theory_var u, theory_var v, theory_var w, rational const& r) {
         app_ref term(m);
-        term = a.mk_mul(a.mk_numeral(r, true), get_enode(w)->get_owner());
-        term = a.mk_add(get_enode(v)->get_owner(), term);
-        term = a.mk_sub(get_enode(u)->get_owner(), term);
+        term = a.mk_mul(a.mk_numeral(r, true), get_enode(w)->get_expr());
+        term = a.mk_add(get_enode(v)->get_expr(), term);
+        term = a.mk_sub(get_enode(u)->get_expr(), term);
         theory_var z = internalize_def(term);
         lpvar zi = register_theory_var_in_lar_solver(z);
         lpvar vi = register_theory_var_in_lar_solver(v);
@@ -1502,8 +1502,8 @@ public:
             }
             enode* n2 = get_enode(other);
             if (n1->get_root() != n2->get_root()) {
-                TRACE("arith", tout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";
-                      tout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";
+                TRACE("arith", tout << pp(n1, m) << " = " << pp(n2, m) << "\n";
+                      tout << pp(n1, m) << " = " << pp(n2, m) << "\n";
                       tout << "v" << v << " = " << "v" << other << "\n";);
                 m_assume_eq_candidates.push_back(std::make_pair(v, other));
                 num_candidates++;
@@ -1650,7 +1650,7 @@ public:
         rational lc = denominator(k);
         for (auto const& kv : coeffs) {
             theory_var w = kv.m_key;
-            expr* o = get_enode(w)->get_owner();
+            expr* o = get_enode(w)->get_expr();
             is_int = a.is_int(o);
             if (!is_int) break;
             lc = lcm(lc, denominator(kv.m_value));
@@ -2076,7 +2076,7 @@ public:
         }
         else {
             for (enode * parent : r->get_const_parents()) {
-                if (a.is_underspecified(parent->get_owner())) {
+                if (a.is_underspecified(parent->get_expr())) {
                     return true;
                 }
             }
@@ -2253,7 +2253,7 @@ public:
         lpvar vi = be.m_j;
         if (lp::tv::is_term(vi))
             return;
-        expr_ref w(get_enode(v)->get_owner(), m);
+        expr_ref w(get_enode(v)->get_expr(), m);
         if (a.is_add(w) || a.is_numeral(w) || m.is_ite(w))
             return;
         literal bound = null_literal;
@@ -2297,8 +2297,8 @@ public:
             return;
         if (!ctx().is_shared(n1) || !ctx().is_shared(n2))
             return;
-        expr* e1 = n1->get_owner();
-        expr* e2 = n2->get_owner();
+        expr* e1 = n1->get_expr();
+        expr* e2 = n2->get_expr();
         if (e1->get_sort() != e2->get_sort())
             return;
         if (m.is_ite(e1) || m.is_ite(e2))
@@ -3077,9 +3077,9 @@ public:
               for (auto c : m_core) 
                   ctx().display_detailed_literal(tout, c) << "\n";              
               for (auto e : m_eqs) 
-                  tout << mk_pp(e.first->get_owner(), m) << " = " << mk_pp(e.second->get_owner(), m) << "\n";              
+                  tout << pp(e.first, m) << " = " << pp(e.second, m) << "\n";
               tout << " ==> ";
-              tout << mk_pp(x->get_owner(), m) << " = " << mk_pp(y->get_owner(), m) << "\n";
+              tout << pp(x, m) << " = " << pp(y, m) << "\n";
               );
         
         // parameters are TBD.
@@ -3189,7 +3189,7 @@ public:
         }
         else {
             for (auto const& eq : m_eqs) {
-                m_core.push_back(th.mk_eq(eq.first->get_owner(), eq.second->get_owner(), false));
+                m_core.push_back(th.mk_eq(eq.first->get_expr(), eq.second->get_expr(), false));
             }
             for (literal & c : m_core) {
                 c.neg();
@@ -3287,7 +3287,7 @@ public:
 
     model_value_proc * mk_value(enode * n, model_generator & mg) {
         theory_var v = n->get_th_var(get_id());
-        expr* o = n->get_owner();
+        expr* o = n->get_expr();
         if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
             anum const& an = nl_value(v, *m_a1);
             if (a.is_int(o) && !m_nla->am().is_int(an)) {
@@ -3309,7 +3309,7 @@ public:
         if (!is_registered_var(v)) return false;
         lpvar vi = get_lpvar(v);
         if (lp().has_value(vi, val)) {
-            TRACE("arith", tout << expr_ref(n->get_owner(), m) << " := " << val << "\n";);
+            TRACE("arith", tout << expr_ref(n->get_expr(), m) << " := " << val << "\n";);
             if (is_int(n) && !val.is_int()) return false;
             return true;
         }
@@ -3433,7 +3433,7 @@ public:
         if (params().m_arith_mode == arith_solver_id::AS_NEW_ARITH) return true;
         context nctx(m, ctx().get_fparams(), ctx().get_params());
         add_background(nctx);
-        nctx.assert_expr(m.mk_not(m.mk_eq(x->get_owner(), y->get_owner())));
+        nctx.assert_expr(m.mk_not(m.mk_eq(x->get_expr(), y->get_expr())));
         cancel_eh<reslimit> eh(m.limit());
         scoped_timer timer(1000, &eh);
         return l_true != nctx.check();
@@ -3446,7 +3446,7 @@ public:
             nctx.assert_expr(tmp);
         }
         for (auto const& eq : m_eqs) {
-            nctx.assert_expr(m.mk_eq(eq.first->get_owner(), eq.second->get_owner()));
+            nctx.assert_expr(m.mk_eq(eq.first->get_expr(), eq.second->get_expr()));
         }
     }        
 
@@ -3508,7 +3508,7 @@ public:
 
     expr_ref mk_gt(theory_var v) {
         lp::impq val = get_ivalue(v);
-        expr* obj = get_enode(v)->get_owner();
+        expr* obj = get_enode(v)->get_expr();
         rational r = val.x;
         expr_ref e(m);
         if (a.is_int(obj->get_sort())) {
@@ -3571,7 +3571,7 @@ public:
         expr_ref_vector args(m);
         for (auto const& kv : coeffs) {
             theory_var w = kv.m_key;
-            expr* o = get_enode(w)->get_owner();
+            expr* o = get_enode(w)->get_expr();
             if (kv.m_value.is_zero()) {
                 // continue
             }
@@ -3618,13 +3618,13 @@ public:
 
     app_ref mk_obj(theory_var v) {
         auto t = get_tv(v);
-        bool is_int = a.is_int(get_enode(v)->get_owner());
+        bool is_int = a.is_int(get_enode(v)->get_expr());
         if (t.is_term()) {
             return mk_term(lp().get_term(t), is_int);
         }
         else {
             // theory_var w = lp().external_to_local(vi);
-            return app_ref(get_enode(v)->get_owner(), m);
+            return app_ref(get_enode(v)->get_expr(), m);
         }
     }
 
@@ -3632,7 +3632,7 @@ public:
         rational r = val.get_rational();
         bool is_strict =  val.get_infinitesimal().is_pos();
         app_ref b(m);
-        bool is_int = a.is_int(get_enode(v)->get_owner());
+        bool is_int = a.is_int(get_enode(v)->get_expr());
         TRACE("arith", display(tout << "v" << v << "\n"););
         if (is_strict) {
             b = a.mk_le(mk_obj(v), a.mk_numeral(r, is_int));
@@ -3708,13 +3708,13 @@ public:
                 break;
             }
             case equality_source: 
-                out << mk_pp(m_equalities[idx].first->get_owner(), m) << " = " 
-                    << mk_pp(m_equalities[idx].second->get_owner(), m) << "\n"; 
+                out << pp(m_equalities[idx].first, m) << " = " 
+                    << pp(m_equalities[idx].second, m) << "\n"; 
                 break;
             case definition_source: {
                 theory_var v = m_definitions[idx];
                 if (v != null_theory_var) 
-                    out << "def: v" << v << " := " << mk_pp(th.get_enode(v)->get_owner(), m) << "\n";
+                    out << "def: v" << v << " := " << pp(th.get_enode(v), m) << "\n";
                 break;
             }
             case null_source:                    

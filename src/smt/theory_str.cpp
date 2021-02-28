@@ -315,8 +315,8 @@ namespace smt {
     }
 
     theory_var theory_str::mk_var(enode* n) {
-        TRACE("str", tout << "mk_var for " << mk_pp(n->get_owner(), get_manager()) << std::endl;);
-        if (!(n->get_owner()->get_sort() == u.str.mk_string_sort())) {
+        TRACE("str", tout << "mk_var for " << mk_pp(n->get_expr(), get_manager()) << std::endl;);
+        if (!(n->get_expr()->get_sort() == u.str.mk_string_sort())) {
             return null_theory_var;
         }
         if (is_attached_to_var(n)) {
@@ -809,7 +809,7 @@ namespace smt {
                 unsigned start_count = m_library_aware_axiom_todo.size();
                 ptr_vector<enode> axioms_tmp(m_library_aware_axiom_todo);
                 for (auto const& e : axioms_tmp) {
-                    app * a = e->get_owner();
+                    app * a = e->get_expr();
                     if (u.str.is_stoi(a)) {
                         instantiate_axiom_str_to_int(e);
                     } else if (u.str.is_itos(a)) {
@@ -837,7 +837,7 @@ namespace smt {
                     } else if (u.str.is_to_code(a)) {
                         instantiate_axiom_str_to_code(e);
                     } else {
-                        TRACE("str", tout << "BUG: unhandled library-aware term " << mk_pp(e->get_owner(), get_manager()) << std::endl;);
+                        TRACE("str", tout << "BUG: unhandled library-aware term " << mk_pp(e->get_expr(), get_manager()) << std::endl;);
                         NOT_IMPLEMENTED_YET();
                     }
                 }
@@ -884,7 +884,7 @@ namespace smt {
      */
 
     void theory_str::try_eval_concat(enode * cat) {
-        app * a_cat = cat->get_owner();
+        app * a_cat = cat->get_expr();
         SASSERT(u.str.is_concat(a_cat));
 
         ast_manager & m = get_manager();
@@ -934,7 +934,7 @@ namespace smt {
      */
     void theory_str::instantiate_concat_axiom(enode * cat) {
         ast_manager & m = get_manager();
-        app * a_cat = cat->get_owner();
+        app * a_cat = cat->get_expr();
         TRACE("str", tout << "instantiating concat axiom for " << mk_ismt2_pp(a_cat, m) << std::endl;);
         if (!u.str.is_concat(a_cat)) {
             return;
@@ -979,13 +979,13 @@ namespace smt {
     void theory_str::instantiate_basic_string_axioms(enode * str) {
         ast_manager & m = get_manager();
 
-        TRACE("str", tout << "set up basic string axioms on " << mk_pp(str->get_owner(), m) << std::endl;);
+        TRACE("str", tout << "set up basic string axioms on " << mk_pp(str->get_expr(), m) << std::endl;);
 
         {
-            sort * a_sort = str->get_owner()->get_sort();
+            sort * a_sort = str->get_expr()->get_sort();
             sort * str_sort = u.str.mk_string_sort();
             if (a_sort != str_sort) {
-                TRACE("str", tout << "WARNING: not setting up string axioms on non-string term " << mk_pp(str->get_owner(), m) << std::endl;);
+                TRACE("str", tout << "WARNING: not setting up string axioms on non-string term " << mk_pp(str->get_expr(), m) << std::endl;);
                 return;
             }
         }
@@ -997,7 +997,7 @@ namespace smt {
         }
 
         // generate a stronger axiom for constant strings
-        app * a_str = str->get_owner();
+        app * a_str = str->get_expr();
 
         if (u.str.is_string(a_str)) {
             expr_ref len_str(m);
@@ -1005,7 +1005,7 @@ namespace smt {
             SASSERT(len_str);
 
             zstring strconst;
-            u.str.is_string(str->get_owner(), strconst);
+            u.str.is_string(str->get_expr(), strconst);
             TRACE("str", tout << "instantiating constant string axioms for \"" << strconst.encode() << '"' << std::endl;);
             unsigned int l = strconst.length();
             expr_ref len(m_autil.mk_numeral(rational(l), true), m);
@@ -1071,8 +1071,8 @@ namespace smt {
     void theory_str::instantiate_str_eq_length_axiom(enode * lhs, enode * rhs) {
         ast_manager & m = get_manager();
 
-        app * a_lhs = lhs->get_owner();
-        app * a_rhs = rhs->get_owner();
+        app * a_lhs = lhs->get_expr();
+        app * a_rhs = rhs->get_expr();
 
         // build premise: (lhs == rhs)
         expr_ref premise(ctx.mk_eq_atom(a_lhs, a_rhs), m);
@@ -1092,7 +1092,7 @@ namespace smt {
     void theory_str::instantiate_axiom_CharAt(enode * e) {
         ast_manager & m = get_manager();
         expr* arg0, *arg1;
-        app * expr = e->get_owner();
+        app * expr = e->get_expr();
         if (axiomatized_terms.contains(expr)) {
             TRACE("str", tout << "already set up CharAt axiom for " << mk_pp(expr, m) << std::endl;);
             return;
@@ -1127,7 +1127,7 @@ namespace smt {
     void theory_str::instantiate_axiom_prefixof(enode * e) {
         ast_manager & m = get_manager();
 
-        app * expr = e->get_owner();
+        app * expr = e->get_expr();
         if (axiomatized_terms.contains(expr)) {
             TRACE("str", tout << "already set up prefixof axiom for " << mk_pp(expr, m) << std::endl;);
             return;
@@ -1163,7 +1163,7 @@ namespace smt {
     void theory_str::instantiate_axiom_suffixof(enode * e) {
         ast_manager & m = get_manager();
 
-        app * expr = e->get_owner();
+        app * expr = e->get_expr();
         if (axiomatized_terms.contains(expr)) {
             TRACE("str", tout << "already set up suffixof axiom for " << mk_pp(expr, m) << std::endl;);
             return;
@@ -1199,7 +1199,7 @@ namespace smt {
     void theory_str::instantiate_axiom_Contains(enode * e) {
         ast_manager & m = get_manager();
 
-        app * ex = e->get_owner();
+        app * ex = e->get_expr();
         if (axiomatized_terms.contains(ex)) {
             TRACE("str", tout << "already set up Contains axiom for " << mk_pp(ex, m) << std::endl;);
             return;
@@ -1249,7 +1249,7 @@ namespace smt {
         th_rewriter & rw = ctx.get_rewriter();
         ast_manager & m = get_manager();
 
-        app * ex = e->get_owner();
+        app * ex = e->get_expr();
         if (axiomatized_terms.contains(ex)) {
             TRACE("str", tout << "already set up str.indexof axiom for " << mk_pp(ex, m) << std::endl;);
             return;
@@ -1350,7 +1350,7 @@ namespace smt {
         th_rewriter & rw = ctx.get_rewriter();
         ast_manager & m = get_manager();
 
-        app * e = _e->get_owner();
+        app * e = _e->get_expr();
         if (axiomatized_terms.contains(e)) {
             TRACE("str", tout << "already set up extended str.indexof axiom for " << mk_pp(e, m) << std::endl;);
             return;
@@ -1494,7 +1494,7 @@ namespace smt {
     void theory_str::instantiate_axiom_LastIndexof(enode * e) {
         ast_manager & m = get_manager();
 
-        app * expr = e->get_owner();
+        app * expr = e->get_expr();
         if (axiomatized_terms.contains(expr)) {
             TRACE("str", tout << "already set up LastIndexof axiom for " << mk_pp(expr, m) << std::endl;);
             return;
@@ -1565,7 +1565,7 @@ namespace smt {
         expr* substrPos = nullptr;
         expr* substrLen = nullptr;
 
-        app * expr = e->get_owner();
+        app * expr = e->get_expr();
         if (axiomatized_terms.contains(expr)) {
             TRACE("str", tout << "already set up Substr axiom for " << mk_pp(expr, m) << std::endl;);
             return;
@@ -1667,7 +1667,7 @@ namespace smt {
     void theory_str::instantiate_axiom_Replace(enode * e) {
         ast_manager & m = get_manager();
 
-        app * ex = e->get_owner();
+        app * ex = e->get_expr();
         if (axiomatized_terms.contains(ex)) {
             TRACE("str", tout << "already set up Replace axiom for " << mk_pp(ex, m) << std::endl;);
             return;
@@ -1724,7 +1724,7 @@ namespace smt {
     void theory_str::instantiate_axiom_str_to_int(enode * e) {
         ast_manager & m = get_manager();
 
-        app * ex = e->get_owner();
+        app * ex = e->get_expr();
         if (axiomatized_terms.contains(ex)) {
             TRACE("str", tout << "already set up str.to-int axiom for " << mk_pp(ex, m) << std::endl;);
             return;
@@ -1774,7 +1774,7 @@ namespace smt {
     void theory_str::instantiate_axiom_int_to_str(enode * e) {
         ast_manager & m = get_manager();
 
-        app * ex = e->get_owner();
+        app * ex = e->get_expr();
         if (axiomatized_terms.contains(ex)) {
             TRACE("str", tout << "already set up str.from-int axiom for " << mk_pp(ex, m) << std::endl;);
             return;
@@ -1809,7 +1809,7 @@ namespace smt {
     void theory_str::instantiate_axiom_is_digit(enode * e) {
         ast_manager & m = get_manager();
 
-        app * ex = e->get_owner();
+        app * ex = e->get_expr();
         if (axiomatized_terms.contains(ex)) {
             TRACE("str", tout << "already set up str.is_digit axiom for " << mk_pp(ex, m) << std::endl;);
             return;
@@ -1837,7 +1837,7 @@ namespace smt {
     void theory_str::instantiate_axiom_str_from_code(enode * e) {
         ast_manager & m = get_manager();
 
-        app * ex = e->get_owner();
+        app * ex = e->get_expr();
         if (axiomatized_terms.contains(ex)) {
             TRACE("str", tout << "already set up str.from_code axiom for " << mk_pp(ex, m) << std::endl;);
             return;
@@ -1873,7 +1873,7 @@ namespace smt {
     void theory_str::instantiate_axiom_str_to_code(enode * e) {
         ast_manager & m = get_manager();
 
-        app * ex = e->get_owner();
+        app * ex = e->get_expr();
         if (axiomatized_terms.contains(ex)) {
             TRACE("str", tout << "already set up str.to_code axiom for " << mk_pp(ex, m) << std::endl;);
             return;
@@ -1910,7 +1910,7 @@ namespace smt {
     void theory_str::instantiate_axiom_RegexIn(enode * e) {
         ast_manager & m = get_manager();
 
-        app * ex = e->get_owner();
+        app * ex = e->get_expr();
         if (axiomatized_terms.contains(ex)) {
             TRACE("str", tout << "already set up RegexIn axiom for " << mk_pp(ex, m) << std::endl;);
             return;
@@ -1931,7 +1931,7 @@ namespace smt {
     void theory_str::attach_new_th_var(enode * n) {
         theory_var v = mk_var(n);
         ctx.attach_th_var(n, this, v);
-        TRACE("str", tout << "new theory var: " << mk_ismt2_pp(n->get_owner(), get_manager()) << " := v#" << v << std::endl;);
+        TRACE("str", tout << "new theory var: " << mk_ismt2_pp(n->get_expr(), get_manager()) << " := v#" << v << std::endl;);
     }
 
     void theory_str::reset_eh() {
@@ -2006,7 +2006,7 @@ namespace smt {
     // support for user_smt_theory-style EQC handling
 
     app * theory_str::get_ast(theory_var v) {
-        return get_enode(v)->get_owner();
+        return get_enode(v)->get_expr();
     }
 
     theory_var theory_str::get_var(expr * n) const {
@@ -2150,7 +2150,7 @@ namespace smt {
             for (auto &e_parent : current_parents) {
                 SASSERT(e_parent != nullptr);
 
-                app * a_parent = e_parent->get_owner();
+                app * a_parent = e_parent->get_expr();
                 TRACE("str", tout << "considering parent " << mk_ismt2_pp(a_parent, m) << std::endl;);
 
                 if (u.str.is_concat(a_parent)) {
@@ -2160,7 +2160,7 @@ namespace smt {
                     rational parentLen;
                     bool parentLen_exists = get_len_value(a_parent, parentLen);
 
-                    if (arg0 == n_eq_enode->get_owner()) {
+                    if (arg0 == n_eq_enode->get_expr()) {
                         rational arg0Len, arg1Len;
                         bool arg0Len_exists = get_len_value(eq_str, arg0Len);
                         bool arg1Len_exists = get_len_value(arg1, arg1Len);
@@ -2229,9 +2229,9 @@ namespace smt {
                                 assert_implication(implyL, implyR);
                             }
                         }
-                    } // if (arg0 == n_eq_enode->get_owner())
+                    } // if (arg0 == n_eq_enode->get_expr())
 
-                    if (arg1 == n_eq_enode->get_owner()) {
+                    if (arg1 == n_eq_enode->get_expr()) {
                         rational arg0Len, arg1Len;
                         bool arg0Len_exists = get_len_value(arg0, arg0Len);
                         bool arg1Len_exists = get_len_value(eq_str, arg1Len);
@@ -2355,7 +2355,7 @@ namespace smt {
                     if (arg1 == n_eqNode) {
                         expr_ref_vector concat_parents(m);
                         for (auto& e_concat_parent : e_parent->get_parents()) {
-                            concat_parents.push_back(e_concat_parent->get_owner());
+                            concat_parents.push_back(e_concat_parent->get_expr());
                         }
                         for (auto& _concat_parent : concat_parents) {
                             app* concat_parent = to_app(_concat_parent);
@@ -2383,7 +2383,7 @@ namespace smt {
                     if (arg0 == n_eqNode) {
                         expr_ref_vector concat_parents(m);
                         for (auto& e_concat_parent : e_parent->get_parents()) {
-                            concat_parents.push_back(e_concat_parent->get_owner());
+                            concat_parents.push_back(e_concat_parent->get_expr());
                         }
                         for (auto& _concat_parent : concat_parents) {
                             app* concat_parent = to_app(_concat_parent);
@@ -4607,8 +4607,8 @@ namespace smt {
          // if an integer constant exists in the eqc, it should be the root
          enode * en_e = ctx.get_enode(e);
          enode * root_e = en_e->get_root();
-         if (m_autil.is_numeral(root_e->get_owner(), val) && val.is_int()) {
-             TRACE("str", tout << mk_pp(e, get_manager()) << " ~= " << mk_pp(root_e->get_owner(), get_manager()) << std::endl;);
+         if (m_autil.is_numeral(root_e->get_expr(), val) && val.is_int()) {
+             TRACE("str", tout << mk_pp(e, get_manager()) << " ~= " << mk_pp(root_e->get_expr(), get_manager()) << std::endl;);
              return true;
          } else {
              TRACE("str", tout << "root of eqc of " << mk_pp(e, get_manager()) << " is not a numeral" << std::endl;);
@@ -4691,7 +4691,7 @@ namespace smt {
                                 enode * nNode = ctx.get_enode(len);
                                 enode * eqcNode = nNode;
                                 do {
-                                    app * ast = eqcNode->get_owner();
+                                    app * ast = eqcNode->get_expr();
                                     tout << mk_pp(ast, get_manager()) << std::endl;
                                     eqcNode = eqcNode->get_next();
                                 } while (eqcNode != nNode);
@@ -7052,8 +7052,8 @@ namespace smt {
 
     void theory_str::new_eq_eh(theory_var x, theory_var y) {
         //TRACE("str", tout << "new eq: v#" << x << " = v#" << y << std::endl;);
-        TRACE("str", tout << "new eq: " << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " = " <<
-              mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
+        TRACE("str", tout << "new eq: " << mk_ismt2_pp(get_enode(x)->get_expr(), get_manager()) << " = " <<
+              mk_ismt2_pp(get_enode(y)->get_expr(), get_manager()) << std::endl;);
         candidate_model.reset();
 
         /*
@@ -7061,7 +7061,7 @@ namespace smt {
           return;
           }
         */
-        handle_equality(get_enode(x)->get_owner(), get_enode(y)->get_owner());
+        handle_equality(get_enode(x)->get_expr(), get_enode(y)->get_expr());
 
         // replicate Z3str2 behaviour: merge eqc **AFTER** handle_equality
         m_find.merge(x, y);
@@ -7069,8 +7069,8 @@ namespace smt {
 
     void theory_str::new_diseq_eh(theory_var x, theory_var y) {
         //TRACE("str", tout << "new diseq: v#" << x << " != v#" << y << std::endl;);
-        TRACE("str", tout << "new diseq: " << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " != " <<
-              mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
+        TRACE("str", tout << "new diseq: " << mk_ismt2_pp(get_enode(x)->get_expr(), get_manager()) << " != " <<
+              mk_ismt2_pp(get_enode(y)->get_expr(), get_manager()) << std::endl;);
         candidate_model.reset();
     }
 
@@ -7294,7 +7294,7 @@ namespace smt {
         ptr_vector<enode> new_m_basicstr;
         for (ptr_vector<enode>::iterator it = m_basicstr_axiom_todo.begin(); it != m_basicstr_axiom_todo.end(); ++it) {
             enode * e = *it;
-            TRACE("str", tout << "consider deleting " << mk_pp(e->get_owner(), get_manager())
+            TRACE("str", tout << "consider deleting " << mk_pp(e->get_expr(), get_manager())
                   << ", enode scope level is " << e->get_iscope_lvl()
                   << std::endl;);
             if (e->get_iscope_lvl() <= (unsigned)sLevel) {
@@ -7587,7 +7587,7 @@ namespace smt {
                 enode * e_curr = ctx.get_enode(unroll);
                 enode * e_curr_end = e_curr;
                 do {
-                    app * curr = e_curr->get_owner();
+                    app * curr = e_curr->get_expr();
                     if (u.str.is_concat(curr)) {
                         tout << "      >>> " << mk_pp(curr, mgr) << std::endl;
                     }
@@ -8531,7 +8531,7 @@ namespace smt {
 
             for (std::set<enode*>::iterator it = eqc_roots.begin(); it != eqc_roots.end(); ++it) {
                 enode * e = *it;
-                app * a = e->get_owner();
+                app * a = e->get_expr();
                 if (!(a->get_sort() == u.str.mk_string_sort())) {
                     TRACE("str", tout << "EQC root " << mk_pp(a, m) << " not a string term; skipping" << std::endl;);
                 } else {
@@ -8540,9 +8540,9 @@ namespace smt {
                     enode * e_it = e;
                     enode * e_root = e_it;
                     do {
-                        bool status = check_concat_len_in_eqc(e_it->get_owner());
+                        bool status = check_concat_len_in_eqc(e_it->get_expr());
                         if (!status) {
-                            TRACE("str", tout << "concat-len check asserted an axiom on " << mk_pp(e_it->get_owner(), m) << std::endl;);
+                            TRACE("str", tout << "concat-len check asserted an axiom on " << mk_pp(e_it->get_expr(), m) << std::endl;);
                             found_inconsistency = true;
                         }
                         e_it = e_it->get_next();
@@ -8552,8 +8552,8 @@ namespace smt {
                     enode * e1 = e;
                     enode * e2 = e1->get_next();
                     if (e1 != e2) {
-                        TRACE("str", tout << "deferred new_eq_check() over EQC of " << mk_pp(e1->get_owner(), m) << " and " << mk_pp(e2->get_owner(), m) << std::endl;);
-                        bool result = new_eq_check(e1->get_owner(), e2->get_owner());
+                        TRACE("str", tout << "deferred new_eq_check() over EQC of " << mk_pp(e1->get_expr(), m) << " and " << mk_pp(e2->get_expr(), m) << std::endl;);
+                        bool result = new_eq_check(e1->get_expr(), e2->get_expr());
                         if (!result) {
                             TRACE("str", tout << "new_eq_check found inconsistencies" << std::endl;);
                             found_inconsistency = true;
@@ -8813,7 +8813,7 @@ namespace smt {
                     concatEqUnrollsMap[curr].insert(unrollGroup_map[unroll].begin(), unrollGroup_map[unroll].end());
                 }
                 enode * e_curr = ctx.get_enode(curr);
-                curr = e_curr->get_next()->get_owner();
+                curr = e_curr->get_next()->get_expr();
                 // curr = get_eqc_next(curr);
             } while (curr != unroll);
         }
@@ -9025,11 +9025,11 @@ namespace smt {
     }
 
     model_value_proc * theory_str::mk_value(enode * n, model_generator & mg) {
-        TRACE("str", tout << "mk_value for: " << mk_ismt2_pp(n->get_owner(), get_manager()) <<
-              " (sort " << mk_ismt2_pp(n->get_owner()->get_sort(), get_manager()) << ")" << std::endl;);
+        TRACE("str", tout << "mk_value for: " << mk_ismt2_pp(n->get_expr(), get_manager()) <<
+              " (sort " << mk_ismt2_pp(n->get_expr()->get_sort(), get_manager()) << ")" << std::endl;);
         ast_manager & m = get_manager();
         app_ref owner(m);
-        owner = n->get_owner();
+        owner = n->get_expr();
 
         // If the owner is not internalized, it doesn't have an enode associated.
         SASSERT(ctx.e_internalized(owner));

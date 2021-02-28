@@ -139,8 +139,8 @@ namespace smt {
         if (!visited)
             return nullptr;
         
-        expr * lhs = m_node1->get_root()->get_owner();
-        expr * rhs = m_node2->get_root()->get_owner();
+        expr * lhs = m_node1->get_root()->get_expr();
+        expr * rhs = m_node2->get_root()->get_expr();
         proof * pr1 = m.mk_transitivity(prs.size(), prs.c_ptr(), lhs, rhs);
         proof * pr2 = m.mk_rewrite(m.mk_eq(lhs, rhs), m.mk_false());
         return m.mk_modus_ponens(pr1, pr2);
@@ -152,8 +152,8 @@ namespace smt {
 
     proof * eq_root_propagation_justification::mk_proof(conflict_resolution & cr) {
         ast_manager & m = cr.get_manager();
-        expr * var = m_node->get_owner();
-        expr * val = m_node->get_root()->get_owner();
+        expr * var = m_node->get_expr();
+        expr * val = m_node->get_root()->get_expr();
         SASSERT(m.is_true(val) || m.is_false(val));
         proof * pr1 = cr.get_proof(m_node, m_node->get_root());
         if (pr1) {
@@ -191,7 +191,7 @@ namespace smt {
     proof * mp_iff_justification::mk_proof(conflict_resolution & cr) {
         ast_manager& m = cr.get_manager();
         if (m_node1 == m_node2)
-            return m.mk_reflexivity(m_node1->get_owner());
+            return m.mk_reflexivity(m_node1->get_expr());
         proof * pr1   = cr.get_proof(m_node1, m_node2);
         context & ctx = cr.get_context();
         bool_var v    = ctx.enode2bool_var(m_node1);
@@ -357,7 +357,7 @@ namespace smt {
             return nullptr;
         ast_manager & m = cr.get_manager();
         context & ctx   = cr.get_context();
-        expr * fact     = ctx.mk_eq_atom(m_lhs->get_owner(), m_rhs->get_owner());
+        expr * fact     = ctx.mk_eq_atom(m_lhs->get_expr(), m_rhs->get_expr());
         return m.mk_th_lemma(m_th_id, fact, prs.size(), prs.c_ptr(), m_params.size(), m_params.c_ptr());
     }
 

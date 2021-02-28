@@ -1110,7 +1110,7 @@ int theory_seq::find_fst_non_empty_idx(expr_ref_vector const& xs) {
         if (ctx.e_internalized(e)) {
             enode* root = ctx.get_enode(e)->get_root();
             rational val;
-            if (m_autil.is_numeral(root->get_owner(), val) && val.is_zero()) {
+            if (m_autil.is_numeral(root->get_expr(), val) && val.is_zero()) {
                 continue;
             }
         }
@@ -1414,7 +1414,7 @@ bool theory_seq::check_length_coherence() {
         }
         enode* n = ensure_enode(e);
         enode* r = n->get_root();
-        if (r != n && has_length(r->get_owner())) {
+        if (r != n && has_length(r->get_expr())) {
             continue;
         }
         if (add_length_to_eqc(e)) {

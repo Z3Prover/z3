@@ -160,7 +160,7 @@ namespace smt {
                     if (n->is_true_eq() && n2->is_true_eq())
                         continue;
                     CTRACE("missing_propagation", congruent(n, n2),
-                           tout << mk_pp(n->get_owner(), m) << "\n" << mk_pp(n2->get_owner(), m) << "\n";
+                           tout << mk_pp(n->get_expr(), m) << "\n" << mk_pp(n2->get_expr(), m) << "\n";
                            display(tout););
                     SASSERT(!congruent(n, n2));
                 }
@@ -171,12 +171,12 @@ namespace smt {
 
     bool context::check_missing_bool_enode_propagation() const {
         for (enode* n : m_enodes) {
-            if (m.is_bool(n->get_owner()) && get_assignment(n) == l_undef) {
+            if (m.is_bool(n->get_expr()) && get_assignment(n) == l_undef) {
                 enode * first = n;
                 do {
                     CTRACE("missing_propagation", get_assignment(n) != l_undef,
-                           tout << mk_pp(first->get_owner(), m) << "\nassignment: " << get_assignment(first) << "\n" 
-                           << mk_pp(n->get_owner(), m) << "\nassignment: " << get_assignment(n) << "\n";);
+                           tout << mk_pp(first->get_expr(), m) << "\nassignment: " << get_assignment(first) << "\n" 
+                           << mk_pp(n->get_expr(), m) << "\nassignment: " << get_assignment(n) << "\n";);
                     SASSERT(get_assignment(n) == l_undef);
                     n = n->get_next();
                 }
@@ -232,11 +232,11 @@ namespace smt {
     */
     bool context::check_eqc_bool_assignment() const {
         for (enode* e : m_enodes) {
-            if (m.is_bool(e->get_owner())) {
+            if (m.is_bool(e->get_expr())) {
                 enode * r = e->get_root();
                 CTRACE("eqc_bool", get_assignment(e) != get_assignment(r), 
-                       tout << "#" << e->get_expr_id() << "\n" << mk_pp(e->get_owner(), m) << "\n";
-                       tout << "#" << r->get_expr_id() << "\n" << mk_pp(r->get_owner(), m) << "\n";
+                       tout << "#" << e->get_expr_id() << "\n" << mk_pp(e->get_expr(), m) << "\n";
+                       tout << "#" << r->get_expr_id() << "\n" << mk_pp(r->get_expr(), m) << "\n";
                        tout << "assignments: " << get_assignment(e) << " " << get_assignment(r) << "\n";
                        display(tout););
                 SASSERT(get_assignment(e) == get_assignment(r));
@@ -270,8 +270,8 @@ namespace smt {
         for (bool_var v = 0; v < num; v++) {
             if (has_enode(v)) {
                 enode * n = bool_var2enode(v);
-                if (n->is_eq() && is_relevant(n) && get_assignment(v) == l_false && !m.is_iff(n->get_owner())) {
-                    TRACE("check_th_diseq_propagation", tout << "checking: #" << n->get_expr_id() << " " << mk_bounded_pp(n->get_owner(), m) << "\n";);
+                if (n->is_eq() && is_relevant(n) && get_assignment(v) == l_false && !m.is_iff(n->get_expr())) {
+                    TRACE("check_th_diseq_propagation", tout << "checking: #" << n->get_expr_id() << " " << mk_bounded_pp(n->get_expr(), m) << "\n";);
                     enode * lhs = n->get_arg(0)->get_root();
                     enode * rhs = n->get_arg(1)->get_root();
                     if (rhs->is_interpreted() && lhs->is_interpreted())
@@ -279,7 +279,7 @@ namespace smt {
                     if (lhs == rhs)
                         continue;
                     TRACE("check_th_diseq_propagation", tout << "num. theory_vars: " << lhs->get_num_th_vars() << " " 
-                          << mk_pp(lhs->get_owner()->get_sort(), m) << "\n";);
+                          << mk_pp(lhs->get_expr()->get_sort(), m) << "\n";);
                     theory_var_list * l = lhs->get_th_var_list();
                     while (l) {
                         theory_id th_id = l->get_id();
@@ -306,9 +306,9 @@ namespace smt {
                                    tout 
                                    << "checking theory: " << m.get_family_name(th_id) << "\n"
                                    << "root: #" << n->get_root()->get_expr_id() << " node: #" << n->get_expr_id() << "\n"
-                                   << mk_pp(n->get_owner(), m) << "\n"
+                                   << mk_pp(n->get_expr(), m) << "\n"
                                    << "lhs: #" << lhs->get_expr_id() << ", rhs: #" << rhs->get_expr_id() << "\n"
-                                   << mk_bounded_pp(lhs->get_owner(), m) << " " << mk_bounded_pp(rhs->get_owner(), m) << "\n";);
+                                   << mk_bounded_pp(lhs->get_expr(), m) << " " << mk_bounded_pp(rhs->get_expr(), m) << "\n";);
                             VERIFY(found);
                         }
                         l = l->get_next();

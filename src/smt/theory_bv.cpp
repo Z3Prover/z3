@@ -45,7 +45,7 @@ namespace smt {
     
     void theory_bv::mk_bits(theory_var v) {
         enode * n             = get_enode(v);
-        app * owner           = n->get_owner();
+        app * owner           = n->get_expr();
         unsigned bv_size      = get_bv_size(n);
         bool is_relevant      = ctx.is_relevant(n);
         literal_vector & bits = m_bits[v];
@@ -180,7 +180,7 @@ namespace smt {
             return n->get_arg(idx);
         }
         else {
-            app * arg     = to_app(n->get_owner()->get_arg(idx));
+            app * arg     = to_app(n->get_expr()->get_arg(idx));
             SASSERT(ctx.e_internalized(arg));
             return ctx.get_enode(arg);
         }
@@ -418,7 +418,7 @@ namespace smt {
             }
             if (!visited)
                 return nullptr;
-            expr * fact     = ctx.mk_eq_atom(m_th.get_enode(m_var1)->get_owner(), m_th.get_enode(m_var2)->get_owner());
+            expr * fact     = ctx.mk_eq_atom(m_th.get_enode(m_var1)->get_expr(), m_th.get_enode(m_var2)->get_expr());
             ast_manager & m = ctx.get_manager();
             return m.mk_th_lemma(get_from_theory(), fact, prs.size(), prs.c_ptr());
         }
@@ -444,8 +444,8 @@ namespace smt {
             return;
         }
         ++m_stats.m_num_eq_dynamic;
-        app* o1 = get_enode(v1)->get_owner();
-        app* o2 = get_enode(v2)->get_owner();
+        app* o1 = get_enode(v1)->get_expr();
+        app* o2 = get_enode(v2)->get_expr();
         literal oeq = mk_eq(o1, o2, true);
         unsigned sz = get_bv_size(v1);
         TRACE("bv", 
@@ -479,7 +479,7 @@ namespace smt {
         VERIFY(get_fixed_value(v, val));
         enode* n = get_enode(v);
         if (ctx.watches_fixed(n)) {
-            expr_ref num(m_util.mk_numeral(val, n->get_owner()->get_sort()), m);
+            expr_ref num(m_util.mk_numeral(val, n->get_expr()->get_sort()), m);
             literal_vector& lits = m_tmp_literals;
             lits.reset();
             for (literal b : m_bits[v]) {
@@ -1101,16 +1101,16 @@ namespace smt {
     }
 
     void theory_bv::apply_sort_cnstr(enode * n, sort * s) {
-        if (!is_attached_to_var(n) && !approximate_term(n->get_owner())) {
+        if (!is_attached_to_var(n) && !approximate_term(n->get_expr())) {
             mk_bits(mk_var(n));
             if (ctx.is_relevant(n)) {
-                relevant_eh(n->get_owner());
+                relevant_eh(n->get_expr());
             }
         }
     }
     
     void theory_bv::new_eq_eh(theory_var v1, theory_var v2) {
-        TRACE("bv_eq", tout << "new_eq: " << mk_pp(get_enode(v1)->get_owner(), m) << " = " << mk_pp(get_enode(v2)->get_owner(), m) << "\n";);
+        TRACE("bv_eq", tout << "new_eq: " << mk_pp(get_enode(v1)->get_expr(), m) << " = " << mk_pp(get_enode(v2)->get_expr(), m) << "\n";);
         TRACE("bv", tout << "new_eq_eh v" << v1 << " = v" << v2 << " @ " << ctx.get_scope_level() << 
               " relevant1: " << ctx.is_relevant(get_enode(v1)) << 
               " relevant2: " << ctx.is_relevant(get_enode(v2)) << "\n";);
@@ -1176,7 +1176,7 @@ namespace smt {
 
         literal_vector & lits = m_tmp_literals;
         lits.reset();
-        literal eq = mk_eq(get_enode(v1)->get_owner(), get_enode(v2)->get_owner(), true);
+        literal eq = mk_eq(get_enode(v1)->get_expr(), get_enode(v2)->get_expr(), true);
         lits.push_back(eq);
         it1 = bits1.begin();
         it2 = bits2.begin();
@@ -1190,7 +1190,7 @@ namespace smt {
             lits.push_back(arg);
         }
         TRACE("bv", 
-              tout << mk_pp(get_enode(v1)->get_owner(), m) << " = " << mk_pp(get_enode(v2)->get_owner(), m) << " " 
+              tout << mk_pp(get_enode(v1)->get_expr(), m) << " = " << mk_pp(get_enode(v2)->get_expr(), m) << " " 
               << ctx.get_scope_level() 
               << "\n";
               ctx.display_literals_smt2(tout, lits););

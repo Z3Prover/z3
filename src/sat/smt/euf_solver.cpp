@@ -19,7 +19,7 @@ Author:
 #include "ast/ast_ll_pp.h"
 #include "sat/sat_solver.h"
 #include "sat/smt/sat_smt.h"
-#include "sat/smt/ba_solver.h"
+#include "sat/smt/pb_solver.h"
 #include "sat/smt/bv_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/array_solver.h"
@@ -112,7 +112,7 @@ namespace euf {
         datatype_util dt(m);
         recfun::util rf(m);
         if (pb.get_family_id() == fid)
-            ext = alloc(sat::ba_solver, *this, fid);
+            ext = alloc(pb::solver, *this, fid);
         else if (bvu.get_family_id() == fid)
             ext = alloc(bv::solver, *this, fid);
         else if (au.get_family_id() == fid)

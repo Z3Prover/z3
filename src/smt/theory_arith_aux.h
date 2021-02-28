@@ -430,8 +430,8 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::eq_bound::display(theory_arith<Ext> const& th, std::ostream& out) const {        
         ast_manager& m = th.get_manager();
-        out << "#" << m_lhs->get_owner_id() << " " << mk_pp(m_lhs->get_owner(), m) << " = "
-            << "#" << m_rhs->get_owner_id() << " " << mk_pp(m_rhs->get_owner(), m);
+        out << "#" << m_lhs->get_owner_id() << " " << mk_pp(m_lhs->get_expr(), m) << " = "
+            << "#" << m_rhs->get_owner_id() << " " << mk_pp(m_rhs->get_expr(), m);
     }
 
     // -----------------------------------
@@ -761,8 +761,8 @@ namespace smt {
             enode* a = e.first;
             enode* b = e.second;
             out << " ";
-            out << "#" << a->get_owner_id() << " " << mk_pp(a->get_owner(), m) << " = "
-                << "#" << b->get_owner_id() << " " << mk_pp(b->get_owner(), m) << "\n";
+            out << "#" << a->get_owner_id() << " " << mk_pp(a->get_expr(), m) << " = "
+                << "#" << b->get_owner_id() << " " << mk_pp(b->get_expr(), m) << "\n";
         }
         for (literal l : m_lits) {
             out << l << ":"; th.ctx.display_detailed_literal(out, l) << "\n";           
@@ -1086,7 +1086,7 @@ namespace smt {
     expr_ref theory_arith<Ext>::mk_gt(theory_var v) {
         ast_manager& m = get_manager();
         inf_numeral const& val = get_value(v);
-        expr* obj = get_enode(v)->get_owner();
+        expr* obj = get_enode(v)->get_expr();
         expr_ref e(m);
         rational r = val.get_rational();
         if (m_util.is_int(obj->get_sort())) {
@@ -1124,7 +1124,7 @@ namespace smt {
     expr_ref theory_arith<Ext>::mk_ge(generic_model_converter& fm, theory_var v, inf_numeral const& val) {
         ast_manager& m = get_manager();
         std::ostringstream strm;
-        strm << val << " <= " << mk_pp(get_enode(v)->get_owner(), get_manager());
+        strm << val << " <= " << mk_pp(get_enode(v)->get_expr(), get_manager());
         app* b = m.mk_const(symbol(strm.str()), m.mk_bool_sort());
         expr_ref result(b, m);
         TRACE("opt", tout << result << "\n";);
@@ -1205,8 +1205,8 @@ namespace smt {
         }
         for (unsigned i = 0; i < num_eqs; ++i) {
             enode_pair const& p = eqs[i];
-            x = p.first->get_owner();
-            y = p.second->get_owner();
+            x = p.first->get_expr();
+            y = p.second->get_expr();
             tmp = m.mk_eq(x,y);
         }
 
@@ -1228,8 +1228,8 @@ namespace smt {
         }
         for (unsigned i = 0; i < num_eqs; ++i) {
             enode_pair const& p = eqs[i];
-            x = p.first->get_owner();
-            y = p.second->get_owner();
+            x = p.first->get_expr();
+            y = p.second->get_expr();
             tmp = m.mk_eq(x,y);
             parameter const& pa = params[1 + num_lits + i];
             SASSERT(pa.is_rational());
@@ -1798,7 +1798,7 @@ namespace smt {
     */
     template<typename Ext>
    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min(theory_var v, bool max, bool maintain_integrality, bool& has_shared) {
-        expr* e = get_enode(v)->get_owner();
+        expr* e = get_enode(v)->get_expr();
         (void)e;
         SASSERT(!maintain_integrality || valid_assignment());
         SASSERT(satisfy_bounds());
@@ -2179,7 +2179,7 @@ namespace smt {
         TRACE("shared", tout << ctx.get_scope_level() << " " <<  v << " " << r->get_num_parents() << "\n";);
         for (; it != end; ++it) {
             enode * parent = *it;
-            app *   o = parent->get_owner();
+            app *   o = parent->get_expr();
             if (o->get_family_id() == get_id()) {
                 switch (o->get_decl_kind()) {
                 case OP_DIV:
@@ -2209,7 +2209,7 @@ namespace smt {
         int num       = get_num_vars();
         for (theory_var v = 0; v < num; v++) {
             enode * n        = get_enode(v);
-            TRACE("func_interp_bug", tout << mk_pp(n->get_owner(), get_manager()) << " -> " << m_value[v] << " root #" << n->get_root()->get_owner_id() << " " << is_relevant_and_shared(n) << "\n";);
+            TRACE("func_interp_bug", tout << mk_pp(n->get_expr(), get_manager()) << " -> " << m_value[v] << " root #" << n->get_root()->get_owner_id() << " " << is_relevant_and_shared(n) << "\n";);
             if (!is_relevant_and_shared(n)) {
                 continue;
             }

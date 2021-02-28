@@ -102,7 +102,7 @@ namespace smt {
         }
         enode * e = get_enode_eq_to(a);
         if (e && e->is_bool() && m_context.is_relevant(e)) {
-            lbool val = m_context.get_assignment(e->get_owner());
+            lbool val = m_context.get_assignment(e->get_expr());
             return val != l_undef && is_true == (val == l_true);
         }
         return false;

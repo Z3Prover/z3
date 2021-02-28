@@ -248,7 +248,7 @@ namespace smt {
             TRACE("opt",
                   tout << "costs: ";
                   for (unsigned i = 0; i < m_costs.size(); ++i) {
-                      tout << mk_pp(get_enode(m_costs[i])->get_owner(), get_manager()) << " ";
+                      tout << pp(get_enode(m_costs[i]), get_manager()) << " ";
                   }
                   tout << "\n";
                   //ctx.display(tout);                      

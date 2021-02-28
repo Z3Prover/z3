@@ -404,7 +404,7 @@ namespace smt {
         }
 
         app * get_expr(theory_var v) const {
-            return get_enode(v)->get_owner();
+            return get_enode(v)->get_expr();
         }
 
         /**
@@ -447,9 +447,9 @@ namespace smt {
         
         std::ostream& display_flat_app(std::ostream & out, app * n) const;
         
-        std::ostream& display_var_def(std::ostream & out, theory_var v) const { return display_app(out, get_enode(v)->get_owner()); }
+        std::ostream& display_var_def(std::ostream & out, theory_var v) const { return display_app(out, get_enode(v)->get_expr()); }
         
-        std::ostream& display_var_flat_def(std::ostream & out, theory_var v) const { return display_flat_app(out, get_enode(v)->get_owner());  }
+        std::ostream& display_var_flat_def(std::ostream & out, theory_var v) const { return display_flat_app(out, get_enode(v)->get_expr());  }
 
     protected:
         void log_axiom_instantiation(app * r, unsigned axiom_id = UINT_MAX, unsigned num_bindings = 0, 

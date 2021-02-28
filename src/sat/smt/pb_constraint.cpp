@@ -15,9 +15,9 @@ Author:
 
 --*/
 
-#include "sat/smt/ba_constraint.h"
+#include "sat/smt/pb_constraint.h"
 
-namespace ba {
+namespace pb {
 
     unsigned constraint::fold_max_var(unsigned w) const {
         if (lit() != sat::null_literal) w = std::max(w, lit().var());
@@ -54,5 +54,18 @@ namespace ba {
             nullify_literal();
         }
     }
+
+    bool constraint::well_formed() const {
+        uint_set vars;
+        if (lit() != sat::null_literal) vars.insert(lit().var());
+        for (unsigned i = 0; i < size(); ++i) {
+            bool_var v = get_lit(i).var();
+            if (vars.contains(v)) return false;
+            if (get_coeff(i) > k()) return false;
+            vars.insert(v);
+        }
+        return true;
+    }
+
 
 }

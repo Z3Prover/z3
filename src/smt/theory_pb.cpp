@@ -2355,7 +2355,7 @@ namespace smt {
     }
 
     model_value_proc * theory_pb::mk_value(enode * n, model_generator & mg) {
-        app* a = n->get_owner();
+        app* a = n->get_expr();
         pb_model_value_proc* p = alloc(pb_model_value_proc, a);
         for (unsigned i = 0; i < a->get_num_args(); ++i) {
             p->add(ctx.get_enode(a->get_arg(i)));

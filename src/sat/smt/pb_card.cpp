@@ -15,33 +15,14 @@ Author:
 
 --*/
 
-#include "sat/smt/ba_card.h"
-#include "sat/smt/ba_solver.h"
+#include "sat/smt/pb_card.h"
+#include "sat/smt/pb_solver.h"
 #include "sat/sat_simplifier.h"
 
-namespace ba {
-
-    // -----------------------
-    // pb_base
-
-    bool pb_base::well_formed() const {
-        uint_set vars;
-        if (lit() != sat::null_literal) vars.insert(lit().var());
-        for (unsigned i = 0; i < size(); ++i) {
-            bool_var v = get_lit(i).var();
-            if (vars.contains(v)) return false;
-            if (get_coeff(i) > k()) return false;
-            vars.insert(v);
-        }
-        return true;
-    }
-
-
-    // ----------------------
-    // card
+namespace pb {
 
     card::card(unsigned id, literal lit, literal_vector const& lits, unsigned k) :
-        pb_base(tag_t::card_t, id, lit, lits.size(), get_obj_size(lits.size()), k) {
+        constraint(tag_t::card_t, id, lit, lits.size(), get_obj_size(lits.size()), k) {
         for (unsigned i = 0; i < size(); ++i) {
             m_lits[i] = lits[i];
         }
@@ -64,7 +45,7 @@ namespace ba {
         return false;
     }
 
-    double card::get_reward(ba::solver_interface const& s, sat::literal_occs_fun& literal_occs) const {
+    double card::get_reward(solver_interface const& s, sat::literal_occs_fun& literal_occs) const {
         unsigned k = this->k(), slack = 0;
         bool do_add = s.get_config().m_lookahead_reward == sat::heule_schur_reward;
         double to_add = do_add ? 0 : 1;
@@ -262,7 +243,7 @@ namespace ba {
     lbool card::eval(sat::model const& m) const {
         unsigned trues = 0, undefs = 0;
         for (literal l : *this) {
-            switch (ba::value(m, l)) {
+            switch (pb::value(m, l)) {
             case l_true: trues++; break;
             case l_undef: undefs++; break;
             default: break;

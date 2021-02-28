@@ -3,7 +3,7 @@ Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
-    ba_pb.cpp
+    pb_pb.cpp
 
 Abstract:
  
@@ -15,30 +15,25 @@ Author:
 
 --*/
 
-#include "sat/smt/ba_pb.h"
+#include "sat/smt/pb_pb.h"
 
-namespace ba {
+namespace pb {
 
-    pb& constraint::to_pb() {
+    pbc& constraint::to_pb() {
         SASSERT(is_pb());
-        return static_cast<pb&>(*this);
+        return static_cast<pbc&>(*this);
     }
 
-    pb const& constraint::to_pb() const {
+    pbc const& constraint::to_pb() const {
         SASSERT(is_pb());
-        return static_cast<pb const&>(*this);
-    }
-
-    pb_base const& constraint::to_pb_base() const {
-        SASSERT(is_pb() || is_card());
-        return static_cast<pb_base const&>(*this);
+        return static_cast<pbc const&>(*this);
     }
 
     // -----------------------------------
     // pb
 
-    pb::pb(unsigned id, literal lit, svector<wliteral> const& wlits, unsigned k) :
-        pb_base(tag_t::pb_t, id, lit, wlits.size(), get_obj_size(wlits.size()), k),
+    pbc::pbc(unsigned id, literal lit, svector<wliteral> const& wlits, unsigned k) :
+        constraint(tag_t::pb_t, id, lit, wlits.size(), get_obj_size(wlits.size()), k),
         m_slack(0),
         m_num_watch(0),
         m_max_sum(0) {
@@ -48,7 +43,7 @@ namespace ba {
         update_max_sum();
     }
 
-    void pb::update_max_sum() {
+    void pbc::update_max_sum() {
         m_max_sum = 0;
         for (unsigned i = 0; i < size(); ++i) {
             m_wlits[i].first = std::min(k(), m_wlits[i].first);
@@ -59,7 +54,7 @@ namespace ba {
         }
     }
 
-    void pb::negate() {
+    void pbc::negate() {
         m_lit.neg();
         unsigned w = 0, m = 0;
         for (unsigned i = 0; i < m_size; ++i) {
@@ -76,21 +71,21 @@ namespace ba {
         VERIFY(w >= m_k && m_k > 0);
     }
 
-    bool pb::is_watching(literal l) const {
+    bool pbc::is_watching(literal l) const {
         for (unsigned i = 0; i < m_num_watch; ++i) {
             if ((*this)[i].second == l) return true;
         }
         return false;
     }
 
-    bool pb::is_cardinality() const {
+    bool pbc::is_cardinality() const {
         if (size() == 0) return false;
         unsigned w = (*this)[0].first;
         for (wliteral wl : *this) if (w != wl.first) return false;
         return true;
     }
 
-    double pb::get_reward(ba::solver_interface const& s, sat::literal_occs_fun& occs) const {
+    double pbc::get_reward(solver_interface const& s, sat::literal_occs_fun& occs) const {
         unsigned k = this->k(), slack = 0;
         bool do_add = s.get_config().m_lookahead_reward == sat::heule_schur_reward;
         double to_add = do_add ? 0 : 1;
@@ -114,7 +109,7 @@ namespace ba {
     }
 
 
-    void pb::clear_watch(solver_interface& s) {
+    void pbc::clear_watch(solver_interface& s) {
         reset_watch();
         for (unsigned i = 0; i < num_watch(); ++i) {
             unwatch_literal(s, (*this)[i].second);
@@ -125,7 +120,7 @@ namespace ba {
 
 
     // watch a prefix of literals, such that the slack of these is >= k
-    bool pb::init_watch(solver_interface& s) {
+    bool pbc::init_watch(solver_interface& s) {
         SASSERT(well_formed());
         auto& p = *this;
         clear_watch(s);
@@ -198,7 +193,7 @@ namespace ba {
     }
 
 
-    std::ostream& pb::display(std::ostream& out) const {
+    std::ostream& pbc::display(std::ostream& out) const {
         bool first = true;
         for (wliteral wl : *this) {
             if (!first) out << "+ ";
@@ -209,7 +204,7 @@ namespace ba {
         return out << " >= " << k();
     }
 
-    std::ostream& pb::display(std::ostream& out, solver_interface const& s, bool values) const {
+    std::ostream& pbc::display(std::ostream& out, solver_interface const& s, bool values) const {
         auto const& p = *this;
         if (p.lit() != sat::null_literal) out << p.lit() << " == ";
         if (values) {
@@ -244,7 +239,7 @@ namespace ba {
         return out << ">= " << p.k() << "\n";
     }
 
-    bool pb::validate_unit_propagation(solver_interface const& s, literal alit) const { 
+    bool pbc::validate_unit_propagation(solver_interface const& s, literal alit) const { 
         if (lit() != sat::null_literal && s.value(lit()) != l_true)             
             return false;
 
@@ -260,11 +255,11 @@ namespace ba {
         return sum < k();
     }
 
-    lbool pb::eval(sat::model const& m) const {
+    lbool pbc::eval(sat::model const& m) const {
         auto const& p = *this;
         unsigned trues = 0, undefs = 0;
         for (wliteral wl : p) {
-            switch (ba::value(m, wl.second)) {
+            switch (pb::value(m, wl.second)) {
             case l_true: trues += wl.first; break;
             case l_undef: undefs += wl.first; break;
             default: break;
@@ -275,7 +270,7 @@ namespace ba {
         return l_undef;        
     }
 
-    lbool pb::eval(solver_interface const& s) const {
+    lbool pbc::eval(solver_interface const& s) const {
         auto const& p = *this;        
         unsigned trues = 0, undefs = 0;
         for (wliteral wl : p) {
@@ -290,13 +285,13 @@ namespace ba {
         return l_undef;        
     }
 
-    void pb::init_use_list(sat::ext_use_list& ul) const {
+    void pbc::init_use_list(sat::ext_use_list& ul) const {
         auto idx = cindex();
         for (auto l : *this)
             ul.insert(l.second, idx);
     }
 
-    bool pb::is_blocked(sat::simplifier& sim, literal lit) const {
+    bool pbc::is_blocked(sat::simplifier& sim, literal lit) const {
         unsigned weight = 0, offset = 0;
         for (wliteral l2 : *this) {
             if (~l2.second == lit) {

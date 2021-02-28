@@ -86,11 +86,11 @@ namespace smt {
             return;
         ast_manager & m = get_manager();
         TRACE("arith_eq_adapter_mk_axioms", tout << "#" << n1->get_owner_id() << " #" << n2->get_owner_id() << "\n";
-              tout << mk_ismt2_pp(n1->get_owner(), m) << "\n" << mk_ismt2_pp(n2->get_owner(), m) << "\n";);
+              tout << mk_ismt2_pp(n1->get_expr(), m) << "\n" << mk_ismt2_pp(n2->get_expr(), m) << "\n";);
         if (n1->get_owner_id() > n2->get_owner_id())
             std::swap(n1, n2);
-        app * t1        = n1->get_owner();
-        app * t2        = n2->get_owner();
+        app * t1        = n1->get_expr();
+        app * t2        = n2->get_expr();
         if (m.are_distinct(t1, t2)) {
             expr_ref eq(m.mk_eq(t1, t2), m);
             ctx.internalize(eq, true);
@@ -110,8 +110,8 @@ namespace smt {
         CTRACE("arith_eq_adapter_relevancy", !(ctx.is_relevant(n1) && ctx.is_relevant(n2)),
                tout << "is_relevant(n1): #" << n1->get_owner_id() << " " << ctx.is_relevant(n1) << "\n";
                tout << "is_relevant(n2): #" << n2->get_owner_id() << " " << ctx.is_relevant(n2) << "\n";
-               tout << mk_pp(n1->get_owner(), get_manager()) << "\n";
-               tout << mk_pp(n2->get_owner(), get_manager()) << "\n";
+               tout << pp(n1, get_manager()) << "\n";
+               tout << pp(n2, get_manager()) << "\n";
                ctx.display(tout););
         //
         // The atoms d.m_t1_eq_t2, d.m_le, and d.m_ge should only be marked as relevant
@@ -127,8 +127,8 @@ namespace smt {
         m_stats.m_num_eq_axioms++;
         
         TRACE("arith_eq_adapter_profile_detail", 
-              tout << "mk_detail " << mk_bounded_pp(n1->get_owner(), m, 5) << " " << 
-              mk_bounded_pp(n2->get_owner(), m, 5) << "\n";);
+              tout << "mk_detail " << mk_bounded_pp(n1->get_expr(), m, 5) << " " << 
+              mk_bounded_pp(n2->get_expr(), m, 5) << "\n";);
         
         app_ref t1_eq_t2(m);        
         t1_eq_t2 = ctx.mk_eq_atom(t1, t2);
@@ -222,9 +222,9 @@ namespace smt {
             ctx.mk_th_axiom(tid, le_lit, ge_lit, m_proof_hint.size(), m_proof_hint.c_ptr());
         }
         if (ctx.relevancy()) {
-            relevancy_eh * eh = ctx.mk_relevancy_eh(arith_eq_relevancy_eh(n1->get_owner(), n2->get_owner(), t1_eq_t2, le, ge));
-            ctx.add_relevancy_eh(n1->get_owner(), eh);
-            ctx.add_relevancy_eh(n2->get_owner(), eh);
+            relevancy_eh * eh = ctx.mk_relevancy_eh(arith_eq_relevancy_eh(n1->get_expr(), n2->get_expr(), t1_eq_t2, le, ge));
+            ctx.add_relevancy_eh(n1->get_expr(), eh);
+            ctx.add_relevancy_eh(n2->get_expr(), eh);
         }
         if (!m_owner.get_fparams().m_arith_lazy_adapter && !ctx.at_base_level() && 
             n1->get_iscope_lvl() <= ctx.get_base_level() && n2->get_iscope_lvl() <= ctx.get_base_level()) {
@@ -235,7 +235,7 @@ namespace smt {
 
     void arith_eq_adapter::new_eq_eh(theory_var v1, theory_var v2) {
         TRACE("arith_eq_adapter", tout << "v" << v1 << " = v" << v2 << " #" << get_enode(v1)->get_owner_id() << " = #" << get_enode(v2)->get_owner_id() << "\n";);
-        TRACE("arith_eq_adapter_bug", tout << mk_bounded_pp(get_enode(v1)->get_owner(), get_manager()) << "\n" << mk_bounded_pp(get_enode(v2)->get_owner(), get_manager()) << "\n";);
+        TRACE("arith_eq_adapter_bug", tout << mk_bounded_pp(get_enode(v1)->get_expr(), get_manager()) << "\n" << mk_bounded_pp(get_enode(v2)->get_expr(), get_manager()) << "\n";);
         mk_axioms(get_enode(v1), get_enode(v2));
     }
 

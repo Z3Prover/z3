@@ -140,7 +140,7 @@ namespace smt {
               tout << "new instance of " << q->get_qid() << ", weight " << q->get_weight()
               << ", generation: " << generation << ", scope_level: " << m_context.get_scope_level() << ", cost: " << cost << "\n";
               for (unsigned i = 0; i < f->get_num_args(); i++) {
-                  tout << "#" << f->get_arg(i)->get_owner_id() << " d:" << f->get_arg(i)->get_owner()->get_depth() << " ";
+                  tout << "#" << f->get_arg(i)->get_expr_id() << " d:" << f->get_arg(i)->get_expr()->get_depth() << " ";
               }
               tout << "\n";);
         TRACE("new_entries_bug", tout << "[qi:insert]\n";);
@@ -223,7 +223,7 @@ namespace smt {
 
         auto* ebindings = m_subst(q, num_bindings);
         for (unsigned i = 0; i < num_bindings; ++i)
-            ebindings[i] = bindings[i]->get_owner();
+            ebindings[i] = bindings[i]->get_expr();
         expr_ref instance = m_subst();
 
         TRACE("qi_queue", tout << "new instance:\n" << mk_pp(instance, m) << "\n";);
@@ -271,7 +271,7 @@ namespace smt {
         if (m.proofs_enabled()) {
             expr_ref_vector bindings_e(m);
             for (unsigned i = 0; i < num_bindings; ++i) {
-                bindings_e.push_back(bindings[i]->get_owner());
+                bindings_e.push_back(bindings[i]->get_expr());
             }
             app * bare_lemma    = m.mk_or(m.mk_not(q), instance);
             proof * qi_pr       = m.mk_quant_inst(bare_lemma, num_bindings, bindings_e.c_ptr());

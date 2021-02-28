@@ -660,7 +660,7 @@ theory_var theory_arith<Ext>::find_nl_var_for_branching() {
         bool computed_epsilon = false;
         bool r = check_monomial_assignment(v, computed_epsilon);
         if (!r) {
-            expr * m = get_enode(v)->get_owner();
+            expr * m = get_enode(v)->get_expr();
             SASSERT(is_pure_monomial(m));
             for (expr * arg : *to_app(m)) {
                 theory_var curr = ctx.get_enode(arg)->get_th_var(get_id());

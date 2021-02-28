@@ -58,10 +58,10 @@ namespace smt {
         bool is_accessor(app * f) const { return m_util.is_accessor(f); }
         bool is_update_field(app * f) const { return m_util.is_update_field(f); }
 
-        bool is_constructor(enode * n) const { return is_constructor(n->get_owner()); }
-        bool is_recognizer(enode * n) const { return is_recognizer(n->get_owner()); }
-        bool is_accessor(enode * n) const { return is_accessor(n->get_owner()); }
-        bool is_update_field(enode * n) const { return m_util.is_update_field(n->get_owner()); }
+        bool is_constructor(enode * n) const { return is_constructor(n->get_expr()); }
+        bool is_recognizer(enode * n) const { return is_recognizer(n->get_expr()); }
+        bool is_accessor(enode * n) const { return is_accessor(n->get_expr()); }
+        bool is_update_field(enode * n) const { return m_util.is_update_field(n->get_expr()); }
 
         void assert_eq_axiom(enode * lhs, expr * rhs, literal antecedent);
         void assert_is_constructor_axiom(enode * n, func_decl * c, literal antecedent);

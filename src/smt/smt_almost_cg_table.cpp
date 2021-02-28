@@ -77,7 +77,7 @@ namespace smt {
     }
 
     bool almost_cg_table::cg_eq::operator()(enode * n1, enode * n2) const {
-        if (n1->get_owner()->get_decl() != n2->get_owner()->get_decl())
+        if (n1->get_expr()->get_decl() != n2->get_expr()->get_decl())
             return false;
         unsigned num_args = n1->get_num_args();
         if (num_args != n2->get_num_args())

@@ -43,7 +43,7 @@ namespace smt {
         // v1 is the new root
         TRACE("array", 
               tout << "merging v" << v1 << " v" << v2 << "\n"; display_var(tout, v1);
-              tout << mk_pp(get_enode(v1)->get_owner(), m) << " <- " << mk_pp(get_enode(v2)->get_owner(), m) << "\n";);
+              tout << mk_pp(get_enode(v1)->get_expr(), m) << " <- " << mk_pp(get_enode(v2)->get_expr(), m) << "\n";);
         SASSERT(v1 == find(v1));
         var_data * d1 = m_var_data[v1];
         var_data * d2 = m_var_data[v2];
@@ -68,11 +68,11 @@ namespace smt {
         SASSERT(r == static_cast<int>(m_var_data.size()));
         m_var_data.push_back(alloc(var_data));
         var_data * d  = m_var_data[r];
-        TRACE("array", tout << mk_bounded_pp(n->get_owner(), m) << "\nis_array: " << is_array_sort(n) << ", is_select: " << is_select(n) <<
+        TRACE("array", tout << mk_bounded_pp(n->get_expr(), m) << "\nis_array: " << is_array_sort(n) << ", is_select: " << is_select(n) <<
               ", is_store: " << is_store(n) << "\n";);
         d->m_is_array  = is_array_sort(n);
         if (d->m_is_array) 
-            register_sort(n->get_owner()->get_sort());
+            register_sort(n->get_expr()->get_sort());
         d->m_is_select = is_select(n);        
         if (is_store(n))
             d->m_stores.push_back(n);
@@ -89,7 +89,7 @@ namespace smt {
         v                = find(v);
         var_data * d     = m_var_data[v];
         d->m_parent_selects.push_back(s);
-        TRACE("array", tout << v << " " << mk_pp(s->get_owner(), m) << " " << mk_pp(get_enode(v)->get_owner(), m) << "\n";);
+        TRACE("array", tout << v << " " << mk_pp(s->get_expr(), m) << " " << mk_pp(get_enode(v)->get_expr(), m) << "\n";);
         m_trail_stack.push(push_back_trail<enode *, false>(d->m_parent_selects));
         for (enode* n : d->m_stores) {
             instantiate_axiom2a(s, n);
@@ -196,7 +196,7 @@ namespace smt {
     }
 
     void theory_array::instantiate_axiom1(enode * store) {
-        TRACE("array", tout << "axiom 1:\n" << mk_bounded_pp(store->get_owner(), m) << "\n";);
+        TRACE("array", tout << "axiom 1:\n" << mk_bounded_pp(store->get_expr(), m) << "\n";);
         SASSERT(is_store(store));
         m_stats.m_num_axiom1++;
         assert_store_axiom1(store);
@@ -296,8 +296,8 @@ namespace smt {
     void theory_array::new_eq_eh(theory_var v1, theory_var v2) {
         m_find.merge(v1, v2);
         enode* n1 = get_enode(v1), *n2 = get_enode(v2);
-        if (n1->get_owner()->get_decl()->is_lambda() ||
-            n2->get_owner()->get_decl()->is_lambda()) {
+        if (n1->get_expr()->get_decl()->is_lambda() ||
+            n2->get_expr()->get_decl()->is_lambda()) {
             assert_congruent(n1, n2);
         }
     }
@@ -307,8 +307,8 @@ namespace smt {
         v2 = find(v2);        
         var_data * d1 = m_var_data[v1];
         TRACE("ext", tout << "extensionality: " << d1->m_is_array << "\n" 
-              << mk_bounded_pp(get_enode(v1)->get_owner(), m, 5) << "\n" 
-              << mk_bounded_pp(get_enode(v2)->get_owner(), m, 5) << "\n";);
+              << mk_bounded_pp(get_enode(v1)->get_expr(), m, 5) << "\n" 
+              << mk_bounded_pp(get_enode(v2)->get_expr(), m, 5) << "\n";);
         
         if (d1->m_is_array) {
             SASSERT(m_var_data[v2]->m_is_array);

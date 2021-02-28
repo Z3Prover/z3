@@ -422,8 +422,8 @@ namespace smt {
         if (!lits().empty()) out << "\n";
         ast_manager& m = th.get_manager();
         for (auto const& e : m_eqs) {
-            out << mk_pp(e.first->get_owner(), m) << " ";
-            out << mk_pp(e.second->get_owner(), m) << "\n";            
+            out << mk_pp(e.first->get_expr(), m) << " ";
+            out << mk_pp(e.second->get_expr(), m) << "\n";            
         }
         return out;
     }
@@ -508,7 +508,7 @@ namespace smt {
         pp.set_benchmark_name("lemma");
         int n = get_num_vars();
         for (theory_var v = 0; v < n; v++) {
-            expr * n = get_enode(v)->get_owner();
+            expr * n = get_enode(v)->get_expr();
             if (is_fixed(v)) {
                 inf_numeral k_inf = lower_bound(v);
                 rational k = k_inf.get_rational().to_rational();

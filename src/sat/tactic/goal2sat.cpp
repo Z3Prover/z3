@@ -41,7 +41,7 @@ Notes:
 #include "sat/sat_cut_simplifier.h"
 #include "sat/sat_drat.h"
 #include "sat/tactic/goal2sat.h"
-#include "sat/smt/ba_solver.h"
+#include "sat/smt/pb_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/sat_th.h"
 #include "sat/sat_params.hpp"
@@ -635,10 +635,10 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     void convert_ba(app* t, bool root, bool sign) {
         SASSERT(!m_euf);
-        sat::extension* ext = dynamic_cast<sat::ba_solver*>(m_solver.get_extension());
+        sat::extension* ext = dynamic_cast<pb::solver*>(m_solver.get_extension());
         euf::th_solver* th = nullptr;
         if (!ext) {
-            th = alloc(sat::ba_solver, m, *this, pb.get_family_id());
+            th = alloc(pb::solver, m, *this, pb.get_family_id());
             m_solver.set_extension(th);
             th->push_scopes(m_solver.num_scopes());
         }
@@ -1227,7 +1227,7 @@ struct sat2goal::imp {
                 return expr_ref(lit2expr(mc, lit), m);
             };
             expr_ref_vector fmls(m);
-            sat::ba_solver* ba = dynamic_cast<sat::ba_solver*>(ext);
+            pb::solver* ba = dynamic_cast<pb::solver*>(ext);
             if (ba) {                
                 ba->to_formulas(l2e, fmls);
             }

@@ -387,7 +387,7 @@ namespace smt {
             rewrite(regex);
             lits.push_back(~entry.m_lit);
             if (n1 != n2) 
-                lits.push_back(~th.mk_eq(n1->get_owner(), n2->get_owner(), false));
+                lits.push_back(~th.mk_eq(n1->get_expr(), n2->get_expr(), false));
         }
         m_s_in_re.push_back(s_in_re(lit, s, regex));
         th.get_trail_stack().push(push_back_vector<vector<s_in_re>>(m_s_in_re));

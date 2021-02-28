@@ -103,8 +103,8 @@ namespace smt {
         theory_var r = theory::mk_var(n);
         SASSERT(r == static_cast<int>(m_columns.size()));
         SASSERT(check_vector_sizes());
-        bool is_int  = is_int_expr(n->get_owner());
-        TRACE("mk_arith_var", tout << mk_pp(n->get_owner(), m) << " is_int: " << is_int << "\n";);
+        bool is_int  = is_int_expr(n->get_expr());
+        TRACE("mk_arith_var", tout << mk_pp(n->get_expr(), m) << " is_int: " << is_int << "\n";);
         m_columns          .push_back(column());
         m_data             .push_back(var_data(is_int));
         if (random_initial_value()) {
@@ -127,12 +127,12 @@ namespace smt {
         m_in_update_trail_stack.assure_domain(r);
         m_left_basis.assure_domain(r);
         m_in_to_check.assure_domain(r);
-        if (is_pure_monomial(n->get_owner()))
+        if (is_pure_monomial(n->get_expr()))
             m_nl_monomials.push_back(r);
         SASSERT(check_vector_sizes());
         SASSERT(m_var_occs[r].empty());
         TRACE("mk_arith_var",
-              tout << "#" << n->get_owner_id() << " :=\n" << mk_ll_pp(n->get_owner(), m) << "\n";
+              tout << "#" << n->get_owner_id() << " :=\n" << mk_ll_pp(n->get_expr(), m) << "\n";
               tout << "is_attached_to_var: " << is_attached_to_var(n) << ", var: " << n->get_th_var(get_id()) << "\n";);
         ctx.attach_th_var(n, this, r);
         SASSERT(m_var_occs.back().empty());
@@ -1349,26 +1349,26 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::new_eq_eh(theory_var v1, theory_var v2) {
         TRACE("arith_new_eq_eh", tout << "#" << get_enode(v1)->get_owner_id() << " = #" << get_enode(v2)->get_owner_id() << "\n";);
-        TRACE("arith_new_eq_eh_detail", tout << mk_pp(get_enode(v1)->get_owner(), m) << "\n" <<
-              mk_pp(get_enode(v2)->get_owner(), m) << "\n";);
+        TRACE("arith_new_eq_eh_detail", tout << mk_pp(get_enode(v1)->get_expr(), m) << "\n" <<
+              mk_pp(get_enode(v2)->get_expr(), m) << "\n";);
 
         enode * n1 = get_enode(v1);
 
-        if (!m_util.is_int(n1->get_owner()) &&
-            !m_util.is_real(n1->get_owner())) {
+        if (!m_util.is_int(n1->get_expr()) &&
+            !m_util.is_real(n1->get_expr())) {
             return;
         }
         if (m_params.m_arith_eq_bounds) {
             enode * n2 = get_enode(v2);
             SASSERT(n1->get_root() == n2->get_root());
-            if (m_util.is_numeral(n1->get_owner())) {
+            if (m_util.is_numeral(n1->get_expr())) {
                 std::swap(v1, v2);
                 std::swap(n1, n2);
             }
             rational k;
             bound * b1 = nullptr;
             bound * b2 = nullptr;
-            if (m_util.is_numeral(n2->get_owner(), k)) {
+            if (m_util.is_numeral(n2->get_expr(), k)) {
                 inf_numeral val(k);
                 b1 = alloc(eq_bound, v1, val, B_LOWER, n1, n2);
                 b2 = alloc(eq_bound, v1, val, B_UPPER, n1, n2);
@@ -1376,9 +1376,9 @@ namespace smt {
             else {
                 if (n1->get_owner_id() > n2->get_owner_id())
                     std::swap(n1, n2);
-                sort * st       = n1->get_owner()->get_sort();
+                sort * st       = n1->get_expr()->get_sort();
                 app * minus_one = m_util.mk_numeral(rational::minus_one(), st);
-                app * s         = m_util.mk_add(n1->get_owner(), m_util.mk_mul(minus_one, n2->get_owner()));
+                app * s         = m_util.mk_add(n1->get_expr(), m_util.mk_mul(minus_one, n2->get_expr()));
                 ctx.internalize(s, false);
                 enode * e_s     = ctx.get_enode(s);
                 ctx.mark_as_relevant(e_s);
@@ -1404,8 +1404,8 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::new_diseq_eh(theory_var v1, theory_var v2) {
-        TRACE("arith_new_diseq_eh", tout << mk_bounded_pp(get_enode(v1)->get_owner(), m) << "\n" <<
-              mk_bounded_pp(get_enode(v2)->get_owner(), m) << "\n";);
+        TRACE("arith_new_diseq_eh", tout << mk_bounded_pp(get_enode(v1)->get_expr(), m) << "\n" <<
+              mk_bounded_pp(get_enode(v2)->get_expr(), m) << "\n";);
         m_stats.m_assert_diseq++;
         m_arith_eq_adapter.new_diseq_eh(v1, v2);
     }

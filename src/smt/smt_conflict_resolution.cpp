@@ -107,7 +107,7 @@ namespace smt {
         SASSERT(m_antecedents);
         TRACE("conflict_",
               ast_manager& m = get_manager();
-              tout << mk_pp(lhs->get_owner(), m) << " = " << mk_pp(rhs->get_owner(), m);
+              tout << mk_pp(lhs->get_expr(), m) << " = " << mk_pp(rhs->get_expr(), m);
               switch (js.get_kind()) {
               case eq_justification::AXIOM: tout << " axiom\n";  break;
               case eq_justification::EQUATION:
@@ -129,7 +129,7 @@ namespace smt {
             break;
         case eq_justification::CONGRUENCE: {
             CTRACE("dyn_ack_target", !lhs->is_eq(), tout << "dyn_ack_target2: " << lhs->get_owner_id() << " " << rhs->get_owner_id() << "\n";);
-            m_dyn_ack_manager.used_cg_eh(lhs->get_owner(), rhs->get_owner());
+            m_dyn_ack_manager.used_cg_eh(lhs->get_expr(), rhs->get_expr());
             unsigned num_args = lhs->get_num_args();
             SASSERT(num_args == rhs->get_num_args());
             if (js.used_commutativity()) {
@@ -177,7 +177,7 @@ namespace smt {
         enode * c = find_common_ancestor(n1, n2);
         eq_branch2literals(n1, c);
         eq_branch2literals(n2, c);
-        m_dyn_ack_manager.used_eq_eh(n1->get_owner(), n2->get_owner(), c->get_owner());
+        m_dyn_ack_manager.used_eq_eh(n1->get_expr(), n2->get_expr(), c->get_expr());
     }
 
     /**
@@ -785,14 +785,14 @@ namespace smt {
         SASSERT(m.has_fact(pr));
         expr* f1 = nullptr, *f2 = nullptr;
         app * fact     = to_app(m.get_fact(pr));
-        app * n1_owner = n1->get_owner();
-        app * n2_owner = n2->get_owner();
+        app * n1_owner = n1->get_expr();
+        app * n2_owner = n2->get_expr();
         bool is_eq = m.is_eq(fact, f1, f2);
         if (is_eq && is_quantifier(f1)) {
-            f1 = m_ctx.get_enode(f1)->get_owner();
+            f1 = m_ctx.get_enode(f1)->get_expr();
         }
         if (is_eq && is_quantifier(f2)) {
-            f2 = m_ctx.get_enode(f2)->get_owner();
+            f2 = m_ctx.get_enode(f2)->get_expr();
         }
         if (m.is_false(fact) && !m_ctx.is_true(n2) && !m_ctx.is_false(n2)) {          
             pr = m.mk_hypothesis(m.mk_eq(n1_owner, n2_owner));
@@ -853,7 +853,7 @@ namespace smt {
         case eq_justification::CONGRUENCE:
             num_args = n1->get_num_args();
             SASSERT(num_args == n2->get_num_args());
-            SASSERT(n1->get_owner()->get_decl() == n2->get_owner()->get_decl());
+            SASSERT(n1->get_expr()->get_decl() == n2->get_expr()->get_decl());
             if (js.used_commutativity()) {
                 bool visited = true;
                 SASSERT(num_args == 2);
@@ -876,8 +876,8 @@ namespace smt {
                 }
                 if (!visited)
                     return nullptr;
-                app * e1 = n1->get_owner();
-                app * e2 = n2->get_owner();
+                app * e1 = n1->get_expr();
+                app * e2 = n2->get_expr();
                 app * e2_prime = m.mk_app(e2->get_decl(), e2->get_arg(1), e2->get_arg(0));
                 proof * pr1 = nullptr;
                 if (!prs.empty()) {
@@ -908,7 +908,7 @@ namespace smt {
                 }
                 if (!visited)
                     return nullptr;
-                proof * pr = m.mk_congruence(n1->get_owner(), n2->get_owner(), prs.size(), prs.c_ptr());
+                proof * pr = m.mk_congruence(n1->get_expr(), n2->get_expr(), prs.size(), prs.c_ptr());
                 m_new_proofs.push_back(pr);
                 return pr;
             }
@@ -1218,7 +1218,7 @@ namespace smt {
     void conflict_resolution::mk_proof(enode * lhs, enode * rhs) {
         SASSERT(!m_eq2proof.contains(lhs, rhs));
         if (lhs == rhs) {
-            proof* pr = m.mk_reflexivity(lhs->get_owner());
+            proof* pr = m.mk_reflexivity(lhs->get_expr());
             m_new_proofs.push_back(pr);
             m_eq2proof.insert(lhs, rhs, pr);
             return;
@@ -1250,7 +1250,7 @@ namespace smt {
                   for (unsigned i = 0; i < sz; i++) {
                       tout << mk_ll_pp(prs1[i], m) << "\n";
                   });
-            pr = m.mk_transitivity(prs1.size(), prs1.c_ptr(), lhs->get_owner(), rhs->get_owner());
+            pr = m.mk_transitivity(prs1.size(), prs1.c_ptr(), lhs->get_expr(), rhs->get_expr());
         }
         m_new_proofs.push_back(pr);
         TRACE("proof_gen_bug", tout << "eq2pr_saved: #" << lhs->get_owner_id() << " #" << rhs->get_owner_id() << "\n";);

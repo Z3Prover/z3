@@ -69,7 +69,7 @@ namespace smt {
             unsigned operator()(induction_term_and_position_t const& t) const {
                 unsigned a = get_node_hash(t.m_term);
                 for (auto const& p : t.m_positions) {
-                    a = mk_mix(a, p.second, get_node_hash(p.first->get_owner()));
+                    a = mk_mix(a, p.second, get_node_hash(p.first->get_expr()));
                 }
                 return a;
             }

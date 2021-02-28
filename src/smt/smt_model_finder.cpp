@@ -1177,7 +1177,7 @@ namespace smt {
                         // So, using n->get_arg(m_arg_i)->get_root(), we may miss
                         // a necessary instantiation.
                         enode* e_arg = n->get_arg(m_arg_i);
-                        expr* arg = e_arg->get_owner();
+                        expr* arg = e_arg->get_expr();
                         A_f_i->insert(arg, e_arg->get_generation());
                     }
                 }
@@ -1195,7 +1195,7 @@ namespace smt {
                 for (enode* n : ctx->enodes_of(m_f)) {
                     if (ctx->is_relevant(n)) {
                         enode* e_arg = n->get_arg(m_arg_i);
-                        expr* arg = e_arg->get_owner();
+                        expr* arg = e_arg->get_expr();
                         s->insert(arg, e_arg->get_generation());
                     }
                 }
@@ -1247,7 +1247,7 @@ namespace smt {
                             bv_util bv(m);
                             bv_rewriter bv_rw(m);
                             enode* e_arg = n->get_arg(m_arg_i);
-                            expr* arg = e_arg->get_owner();
+                            expr* arg = e_arg->get_expr();
                             expr_ref arg_minus_k(m);
                             if (bv.is_bv(arg))
                                 bv_rw.mk_sub(arg, m_offset, arg_minus_k);
@@ -1348,7 +1348,7 @@ namespace smt {
                     enode_vector::iterator end2 = curr->end_parents();
                     for (; it2 != end2; ++it2) {
                         enode* p = *it2;
-                        if (ctx->is_relevant(p) && p->get_owner()->get_decl() == auf_arr->get_decl()) {
+                        if (ctx->is_relevant(p) && p->get_expr()->get_decl() == auf_arr->get_decl()) {
                             arrays.push_back(p);
                         }
                     }
@@ -1398,11 +1398,11 @@ namespace smt {
                 TRACE("select_var",
                     tout << "enodes matching: "; display(tout); tout << "\n";
                 for (enode* n : arrays) {
-                    tout << "#" << n->get_owner()->get_id() << "\n" << mk_pp(n->get_owner(), m) << "\n";
+                    tout << "#" << n->get_expr_id() << "\n" << mk_pp(n->get_expr(), m) << "\n";
                 });
                 node* n1 = s.get_uvar(q, m_var_j);
                 for (enode* n : arrays) {
-                    app* ground_array = n->get_owner();
+                    app* ground_array = n->get_expr();
                     func_decl* f = get_array_func_decl(ground_array, s);
                     if (f) {
                         SASSERT(m_arg_i >= 1);
@@ -1416,7 +1416,7 @@ namespace smt {
                 ptr_buffer<enode> arrays;
                 get_auf_arrays(get_array(), ctx, arrays);
                 for (enode* curr : arrays) {
-                    app* ground_array = curr->get_owner();
+                    app* ground_array = curr->get_expr();
                     func_decl* f = get_array_func_decl(ground_array, s);
                     if (f) {
                         node* A_f_i = s.get_A_f_i(f, m_arg_i - 1);
@@ -1424,10 +1424,10 @@ namespace smt {
                         enode_vector::iterator end2 = curr->end_parents();
                         for (; it2 != end2; ++it2) {
                             enode* p = *it2;
-                            if (ctx->is_relevant(p) && p->get_owner()->get_decl() == m_select->get_decl()) {
-                                SASSERT(m_arg_i < p->get_owner()->get_num_args());
+                            if (ctx->is_relevant(p) && p->get_expr()->get_decl() == m_select->get_decl()) {
+                                SASSERT(m_arg_i < p->get_expr()->get_num_args());
                                 enode* e_arg = p->get_arg(m_arg_i);
-                                A_f_i->insert(e_arg->get_owner(), e_arg->get_generation());
+                                A_f_i->insert(e_arg->get_expr(), e_arg->get_generation());
                             }
                         }
                     }
@@ -1558,8 +1558,8 @@ namespace smt {
                     // See Section 4.1 in the paper "Complete Quantifier Instantiation"
                     node* S_q_i = slv.get_uvar(q, m_var_i);
                     for (enode* n : ctx->enodes()) {
-                        if (ctx->is_relevant(n) && n->get_owner()->get_sort() == s) {
-                            S_q_i->insert(n->get_owner(), n->get_generation());
+                        if (ctx->is_relevant(n) && n->get_expr()->get_sort() == s) {
+                            S_q_i->insert(n->get_expr(), n->get_generation());
                         }
                     }
                 }

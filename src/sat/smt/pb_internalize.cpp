@@ -16,24 +16,24 @@ Author:
 --*/
 
 
-#include "sat/smt/ba_solver.h"
+#include "sat/smt/pb_solver.h"
 #include "ast/pb_decl_plugin.h"
 
-namespace sat {
+namespace pb {
 
-    void ba_solver::internalize(expr* e, bool redundant) {
+    void solver::internalize(expr* e, bool redundant) {
         internalize(e, false, false, redundant);
     }
 
-    literal ba_solver::internalize(expr* e, bool sign, bool root, bool redundant) {
+    literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
         flet<bool> _redundant(m_is_redundant, redundant);
         if (m_pb.is_pb(e)) 
             return internalize_pb(e, sign, root);
         UNREACHABLE();
-        return null_literal;
+        return sat::null_literal;
     }
 
-    literal ba_solver::internalize_pb(expr* e, bool sign, bool root) {
+    literal solver::internalize_pb(expr* e, bool sign, bool root) {
         SASSERT(m_pb.is_pb(e));
         app* t = to_app(e);
         rational k = m_pb.get_k(t);
@@ -60,16 +60,16 @@ namespace sat {
         default:
             UNREACHABLE();
         }
-        return null_literal;
+        return sat::null_literal;
     }
 
-    void ba_solver::check_unsigned(rational const& c) {
+    void solver::check_unsigned(rational const& c) {
         if (!c.is_unsigned()) {
             throw default_exception("unsigned coefficient expected");
         }
     }
 
-    void ba_solver::convert_to_wlits(app* t, sat::literal_vector const& lits, svector<wliteral>& wlits) {
+    void solver::convert_to_wlits(app* t, sat::literal_vector const& lits, svector<wliteral>& wlits) {
         for (unsigned i = 0; i < lits.size(); ++i) {
             rational c = m_pb.get_coeff(t, i);
             check_unsigned(c);
@@ -77,20 +77,20 @@ namespace sat {
         }
     }
 
-    void ba_solver::convert_pb_args(app* t, literal_vector& lits) {
+    void solver::convert_pb_args(app* t, literal_vector& lits) {
         for (expr* arg : *t) {
             lits.push_back(si.internalize(arg, m_is_redundant));
             s().set_external(lits.back().var());
         }
     }
 
-    void ba_solver::convert_pb_args(app* t, svector<wliteral>& wlits) {
+    void solver::convert_pb_args(app* t, svector<wliteral>& wlits) {
         sat::literal_vector lits;
         convert_pb_args(t, lits);    
         convert_to_wlits(t, lits, wlits);
     }
 
-    literal ba_solver::convert_pb_le(app* t, bool root, bool sign) {
+    literal solver::convert_pb_le(app* t, bool root, bool sign) {
         rational k = m_pb.get_k(t);
         k.neg();
         svector<wliteral> wlits;
@@ -109,8 +109,8 @@ namespace sat {
                     k1 += wl.first;
                 }
             }
-            add_pb_ge(null_bool_var, wlits, k1);
-            return null_literal;
+            add_pb_ge(sat::null_bool_var, wlits, k1);
+            return sat::null_literal;
         }
         else {
             bool_var v = s().add_var(true);
@@ -122,7 +122,7 @@ namespace sat {
     }
 
 
-    literal ba_solver::convert_pb_ge(app* t, bool root, bool sign) {
+    literal solver::convert_pb_ge(app* t, bool root, bool sign) {
         rational k = m_pb.get_k(t);
         check_unsigned(k);
         svector<wliteral> wlits;
@@ -137,7 +137,7 @@ namespace sat {
                 }
             }
             add_pb_ge(sat::null_bool_var, wlits, k1);
-            return null_literal;
+            return sat::null_literal;
         }
         else {
             sat::bool_var v = s().add_var(true);
@@ -148,14 +148,14 @@ namespace sat {
         }
     }
 
-    literal ba_solver::convert_pb_eq(app* t, bool root, bool sign) {
+    literal solver::convert_pb_eq(app* t, bool root, bool sign) {
         rational k = m_pb.get_k(t);
         SASSERT(k.is_unsigned());
         svector<wliteral> wlits;
         convert_pb_args(t, wlits);
         bool base_assert = (root && !sign && s().num_user_scopes() == 0);
-        bool_var v1 = base_assert ? null_bool_var : s().add_var(true);
-        bool_var v2 = base_assert ? null_bool_var : s().add_var(true);
+        bool_var v1 = base_assert ? sat::null_bool_var : s().add_var(true);
+        bool_var v2 = base_assert ? sat::null_bool_var : s().add_var(true);
         add_pb_ge(v1, wlits, k.get_unsigned());
         k.neg();
         for (wliteral& wl : wlits) {
@@ -165,7 +165,7 @@ namespace sat {
         check_unsigned(k);
         add_pb_ge(v2, wlits, k.get_unsigned());
         if (base_assert) {
-            return null_literal;
+            return sat::null_literal;
         }
         else {
             literal l1(v1, false), l2(v2, false);
@@ -180,7 +180,7 @@ namespace sat {
         }
     }
 
-    literal ba_solver::convert_at_least_k(app* t, rational const& k, bool root, bool sign) {
+    literal solver::convert_at_least_k(app* t, rational const& k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
         literal_vector lits;
         convert_pb_args(t, lits);
@@ -190,8 +190,8 @@ namespace sat {
                 for (literal& l : lits) l.neg();
                 k2 = lits.size() + 1 - k2;
             }
-            add_at_least(null_bool_var, lits, k2);
-            return null_literal;
+            add_at_least(sat::null_bool_var, lits, k2);
+            return sat::null_literal;
         }
         else {
             bool_var v = s().add_var(true);
@@ -204,7 +204,7 @@ namespace sat {
         }
     }
 
-    literal ba_solver::convert_at_most_k(app* t, rational const& k, bool root, bool sign) {
+    literal solver::convert_at_most_k(app* t, rational const& k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
         literal_vector lits;
         convert_pb_args(t, lits);
@@ -217,8 +217,8 @@ namespace sat {
                 for (literal& l : lits) l.neg();
                 k2 = lits.size() + 1 - k2;
             }
-            add_at_least(null_bool_var, lits, k2);
-            return null_literal;
+            add_at_least(sat::null_bool_var, lits, k2);
+            return sat::null_literal;
         }
         else {
             bool_var v = s().add_var(true);
@@ -230,12 +230,12 @@ namespace sat {
         }
     }
 
-    literal ba_solver::convert_eq_k(app* t, rational const& k, bool root, bool sign) {
+    literal solver::convert_eq_k(app* t, rational const& k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
         literal_vector lits;
         convert_pb_args(t, lits);
-        bool_var v1 = (root && !sign) ? null_bool_var : s().add_var(true);
-        bool_var v2 = (root && !sign) ? null_bool_var : s().add_var(true);
+        bool_var v1 = (root && !sign) ? sat::null_bool_var : s().add_var(true);
+        bool_var v2 = (root && !sign) ? sat::null_bool_var : s().add_var(true);
         add_at_least(v1, lits, k.get_unsigned());
         for (literal& l : lits) {
             l.neg();
@@ -254,11 +254,11 @@ namespace sat {
             return l;
         }
         else {
-            return null_literal;
+            return sat::null_literal;
         }
     }
 
-    expr_ref ba_solver::get_card(std::function<expr_ref(sat::literal)>& lit2expr, ba::card const& c) {
+    expr_ref solver::get_card(std::function<expr_ref(sat::literal)>& lit2expr, card const& c) {
         ptr_buffer<expr> lits;
         for (sat::literal l : c) {
             lits.push_back(lit2expr(l));
@@ -271,7 +271,7 @@ namespace sat {
         return fml;
     }
 
-    expr_ref ba_solver::get_pb(std::function<expr_ref(sat::literal)>& lit2expr, pb const& p)  {
+    expr_ref solver::get_pb(std::function<expr_ref(sat::literal)>& lit2expr, pbc const& p)  {
         ptr_buffer<expr> lits;
         vector<rational> coeffs;
         for (auto const& wl : p) {
@@ -287,13 +287,13 @@ namespace sat {
         return fml;
     }
 
-    bool ba_solver::to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) {
+    bool solver::to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) {
         for (auto* c : constraints()) {
             switch (c->tag()) {
-            case ba::tag_t::card_t:
+            case pb::tag_t::card_t:
                 fmls.push_back(get_card(l2e, c->to_card()));
                 break;
-            case ba::tag_t::pb_t:
+            case pb::tag_t::pb_t:
                 fmls.push_back(get_pb(l2e, c->to_pb()));
                 break;
             }

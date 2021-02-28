@@ -194,7 +194,7 @@ namespace smt {
                     break;
                 }
             }
-            else if (e_internalized(k) && m.are_distinct(v, get_enode(k)->get_root()->get_owner())) {
+            else if (e_internalized(k) && m.are_distinct(v, get_enode(k)->get_root()->get_expr())) {
                 to_delete.push_back(k);
             }
             else if (get_assignment(mk_diseq(k, v)) == l_true) {

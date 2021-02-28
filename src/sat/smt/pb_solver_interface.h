@@ -3,7 +3,7 @@ Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
-    ba_solver_interface.h
+    pb_solver_interface.h
 
 Abstract:
  
@@ -25,7 +25,7 @@ Revision History:
 #include "sat/smt/sat_smt.h"
 
 
-namespace ba {
+namespace pb {
 
     typedef sat::literal literal;
     typedef sat::bool_var bool_var;

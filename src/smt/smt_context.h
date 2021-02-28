@@ -297,7 +297,7 @@ namespace smt {
         }
 
         bool_var get_bool_var(enode const * n) const {
-            return get_bool_var(n->get_owner());
+            return get_bool_var(n->get_expr());
         }
 
         bool_var get_bool_var_of_id(unsigned id) const {
@@ -1084,7 +1084,7 @@ namespace smt {
 
         void push_eq(enode * lhs, enode * rhs, eq_justification const & js) {
             if (lhs->get_root() != rhs->get_root()) {
-                SASSERT(lhs->get_owner()->get_sort() == rhs->get_owner()->get_sort());
+                SASSERT(lhs->get_expr()->get_sort() == rhs->get_expr()->get_sort());
                 m_eq_propagation_queue.push_back(new_eq(lhs, rhs, js));
             }
         }
@@ -1269,7 +1269,7 @@ namespace smt {
         }
 
         bool is_relevant(enode * n) const {
-            return is_relevant(n->get_owner());
+            return is_relevant(n->get_expr());
         }
 
         bool is_relevant(bool_var v) const {
@@ -1287,7 +1287,7 @@ namespace smt {
 
         void mark_as_relevant(expr * n) { m_relevancy_propagator->mark_as_relevant(n); m_relevancy_propagator->propagate(); }
 
-        void mark_as_relevant(enode * n) { mark_as_relevant(n->get_owner()); }
+        void mark_as_relevant(enode * n) { mark_as_relevant(n->get_expr()); }
 
         void mark_as_relevant(bool_var v) { mark_as_relevant(bool_var2expr(v)); }
 

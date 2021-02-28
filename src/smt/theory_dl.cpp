@@ -79,12 +79,12 @@ namespace smt {
             app * mk_value(smt::model_generator & mg, expr_ref_vector const & ) override {
                 smt::context& ctx = m_th.get_context();
                 app* result = nullptr;
-                expr* n = m_node->get_owner();
+                expr* n = m_node->get_expr();
                 sort* s = n->get_sort();
                 func_decl* r, *v;
                 m_th.get_rep(s, r, v);
                 app_ref rep_of(m_th.m());
-                rep_of = m_th.m().mk_app(r, m_node->get_owner());
+                rep_of = m_th.m().mk_app(r, m_node->get_expr());
                 theory_id bv_id = m_th.m().mk_family_id("bv");
                 theory_bv* th_bv = dynamic_cast<theory_bv*>(ctx.get_theory(bv_id));
                 SASSERT(th_bv);
@@ -166,7 +166,7 @@ namespace smt {
         }
 
         void apply_sort_cnstr(enode * n, sort * s) override {
-            app* term = n->get_owner();
+            app* term = n->get_expr();
             if (u().is_finite_sort(term)) {
                 mk_rep(term);
             }

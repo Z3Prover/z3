@@ -333,7 +333,7 @@ namespace smt {
                 if (e != nullptr) {
                     enode * curr = e;
                     do {
-                        set_relevant(curr->get_owner());
+                        set_relevant(curr->get_expr());
                         curr = curr->get_next();
                     }
                     while (curr != e);
@@ -625,7 +625,7 @@ namespace smt {
                         if (n0 != 0) {
                             enode * n = n0->get_next();
                             while (n0 != n) {
-                                SASSERT(is_relevant(n->get_owner()));
+                                SASSERT(is_relevant(n->get_expr()));
                                 n = n->get_next();
                             }
                         }

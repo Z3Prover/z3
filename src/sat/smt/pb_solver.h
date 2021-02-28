@@ -25,23 +25,22 @@ Revision History:
 #include "sat/sat_big.h"
 #include "sat/smt/sat_smt.h"
 #include "sat/smt/sat_th.h"
-#include "sat/smt/ba_constraint.h"
-#include "sat/smt/ba_card.h"
-#include "sat/smt/ba_pb.h"
+#include "sat/smt/pb_constraint.h"
+#include "sat/smt/pb_card.h"
+#include "sat/smt/pb_pb.h"
 #include "util/small_object_allocator.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/sorting_network.h"
 #include "ast/pb_decl_plugin.h"
 
-namespace sat {
+namespace pb {
 
-    typedef ba::constraint constraint;
-    typedef ba::wliteral wliteral;
-    typedef ba::card card;
-    typedef ba::pb_base pb_base;
-    typedef ba::pb pb;
+    typedef pb::constraint constraint;
+    typedef pb::wliteral wliteral;
+    typedef pb::card card;
+    typedef pb::pbc pbc;
     
-    class ba_solver : public euf::th_solver, public ba::solver_interface {
+    class solver : public euf::th_solver, public pb::solver_interface {
 
         friend class local_search;
 
@@ -78,16 +77,16 @@ namespace sat {
             bool contains(literal l) const { for (auto wl : m_wlits) if (wl.second == l) return true; return false; }
         };
 
-        sat_internalizer&      si;
+        sat::sat_internalizer&      si;
         pb_util                m_pb;
 
-        lookahead*             m_lookahead{ nullptr };
+        sat::lookahead*        m_lookahead{ nullptr };
         stats                  m_stats; 
         small_object_allocator m_allocator;
        
-        ptr_vector<ba::constraint> m_constraints;
-        ptr_vector<ba::constraint> m_learned;
-        ptr_vector<ba::constraint> m_constraint_to_reinit;
+        ptr_vector<constraint> m_constraints;
+        ptr_vector<constraint> m_learned;
+        ptr_vector<constraint> m_constraint_to_reinit;
         unsigned_vector        m_constraint_to_reinit_lim;
         unsigned               m_constraint_to_reinit_last_sz{ 0 };
         unsigned               m_constraint_id{ 0 };
@@ -111,12 +110,12 @@ namespace sat {
             typedef sat::literal pliteral;
             typedef sat::literal_vector pliteral_vector;
 
-            ba_solver& s;
+            solver& s;
             pliteral m_true;
             pliteral_vector m_lits;
             
 
-            ba_sort(ba_solver& s): s(s), m_true(null_literal) {}
+            ba_sort(solver& s): s(s), m_true(sat::null_literal) {}
             pliteral mk_false();
             pliteral mk_true();
             pliteral mk_not(pliteral l);
@@ -137,7 +136,7 @@ namespace sat {
         // simplification routines
 
         vector<svector<constraint*>>    m_cnstr_use_list;
-        use_list                  m_clause_use_list;
+        sat::use_list             m_clause_use_list;
         bool                      m_simplify_change{ false };
         bool                      m_clause_removed{ false };
         bool                      m_constraint_removed{ false };
@@ -149,13 +148,13 @@ namespace sat {
         euf::th_solver* clone_aux(ast_manager& m, sat::solver& s, sat::sat_internalizer& si, euf::theory_id id);
 
         bool subsumes(card& c1, card& c2, literal_vector& comp);
-        bool subsumes(card& c1, clause& c2, bool& self);
+        bool subsumes(card& c1, sat::clause& c2, bool& self);
         bool subsumed(card& c1, literal l1, literal l2);
-        bool subsumes(pb const& p1, pb_base const& p2);
-        void subsumes(pb& p1, literal lit);
-        void subsumption(pb& p1);
+        bool subsumes(pbc const& p1, constraint const& p2);
+        void subsumes(pbc& p1, literal lit);
+        void subsumption(pbc& p1);
         void binary_subsumption(card& c1, literal lit);
-        void clause_subsumption(card& c1, literal lit, clause_vector& removed_clauses);
+        void clause_subsumption(card& c1, literal lit, sat::clause_vector& removed_clauses);
         void card_subsumption(card& c1, literal lit);
         unsigned get_num_unblocked_bin(literal l);
         literal get_min_occurrence_literal(card const& c);
@@ -165,9 +164,8 @@ namespace sat {
         unsigned elim_pure();
         bool elim_pure(literal lit);
         void unit_strengthen();
-        void unit_strengthen(big& big, ba::constraint& cs);
-        void unit_strengthen(big& big, pb_base& p);
-        void subsumption(ba::constraint& c1);
+        void unit_strengthen(sat::big& big, constraint& cs);
+        void subsumption(pb::constraint& c1);
         void subsumption(card& c1);
         void gc_half(char const* _method);
         void update_psm(constraint& c) const;
@@ -178,23 +176,21 @@ namespace sat {
         unsigned use_count(literal lit) const { return m_cnstr_use_list[lit.index()].size() + m_clause_use_list.get(lit).size(); }
 
         void cleanup_clauses();
-        void cleanup_clauses(clause_vector& clauses);
+        void cleanup_clauses(sat::clause_vector& clauses);
         void cleanup_constraints();
         void cleanup_constraints(ptr_vector<constraint>& cs, bool learned);
         void remove_constraint(constraint& c, char const* reason);
         void gc_vars(unsigned num_vars, ptr_vector<constraint>& cs);
 
         // constraints
-        constraint& index2constraint(size_t idx) const { return *reinterpret_cast<constraint*>(constraint_base::from_index(idx)->mem()); }
+        constraint& index2constraint(size_t idx) const { return *reinterpret_cast<constraint*>(sat::constraint_base::from_index(idx)->mem()); }
         void pop_constraint();
-        // void watch_literal(wliteral w, pb& p);
         void add_constraint(constraint* c);
         bool init_watch(constraint& c);
         void init_watch(bool_var v);
         void clear_watch(constraint& c);
         lbool add_assign(constraint& c, literal l);
         bool incremental_mode() const;
-        void simplify(constraint& c);
         void set_conflict(constraint& c, literal lit) override;
         void assign(constraint& c, literal lit) override;
         bool assigned_above(literal above, literal below);
@@ -206,7 +202,7 @@ namespace sat {
         void attach_constraint(constraint const& c);
         void detach_constraint(constraint const& c);
         lbool eval(constraint const& c) const;
-        lbool eval(model const& m, constraint const& c) const;
+        lbool eval(sat::model const& m, constraint const& c) const;
         lbool eval(lbool a, lbool b) const;
         void assert_unconstrained(literal lit, literal_vector const& lits);
         void flush_roots(constraint& c);
@@ -214,7 +210,7 @@ namespace sat {
         void split_root(constraint& c);
         unsigned next_id() { return m_constraint_id++; }
         void set_non_learned(constraint& c);
-        double get_reward(literal l, ext_justification_idx idx, literal_occs_fun& occs) const override;
+        double get_reward(literal l, sat::ext_justification_idx idx, sat::literal_occs_fun& occs) const override;
 
         // cardinality
         lbool add_assign(card& c, literal lit);
@@ -225,25 +221,24 @@ namespace sat {
         void recompile(card& c);
         bool clausify(card& c);
         bool clausify(literal lit, unsigned n, literal const* lits, unsigned k);
+
         lbool eval(card const& c) const;
-        lbool eval(model const& m, card const& c) const;
 
         
         // pb functionality
         unsigned m_a_max{ 0 };
-        lbool add_assign(pb& p, literal alit);
-        void add_index(pb& p, unsigned index, literal lit);
-        void get_antecedents(literal l, pb const& p, literal_vector & r);
-        void split_root(pb_base& p);
-        void simplify(pb_base& p);
-        void simplify2(pb& p);
-        bool is_cardinality(pb const& p);
-        void flush_roots(pb& p);
-        void recompile(pb& p);
-        bool clausify(pb& p);
-        bool is_cardinality(pb const& p, literal_vector& lits);
-        lbool eval(pb const& p) const;
-        lbool eval(model const& m, pb const& p) const;
+        lbool add_assign(pbc& p, literal alit);
+        void add_index(pbc& p, unsigned index, literal lit);
+        void get_antecedents(literal l, pbc const& p, literal_vector & r);
+        void simplify(constraint& p);
+        void simplify2(pbc& p);
+        bool is_cardinality(pbc const& p);
+        void flush_roots(pbc& p);
+        void recompile(pbc& p);
+        bool clausify(pbc& p);
+        bool is_cardinality(pbc const& p, literal_vector& lits);
+        lbool eval(pbc const& p) const;
+        lbool eval(model const& m, constraint const& p) const;
 
         // RoundingPb conflict resolution
         lbool resolve_conflict_rs();
@@ -275,17 +270,17 @@ namespace sat {
             if (m_lookahead) return m_lookahead->inconsistent(); 
             return m_solver->inconsistent(); 
         }
-        inline watch_list& get_wlist(literal l) override { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
-        inline watch_list const& get_wlist(literal l) const override { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
-        inline void assign(literal l, justification j) override { 
+        inline sat::watch_list& get_wlist(literal l) override { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
+        inline sat:: watch_list const& get_wlist(literal l) const override { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
+        inline void assign(literal l, sat::justification j) override { 
             if (m_lookahead) m_lookahead->assign(l); 
             else m_solver->assign(l, j);
         }
-        inline void set_conflict(justification j, literal l) override { 
+        inline void set_conflict(sat::justification j, literal l) override { 
             if (m_lookahead) m_lookahead->set_conflict(); 
             else m_solver->set_conflict(j, l); 
         }
-        inline config const& get_config() const override { 
+        inline sat::config const& get_config() const override { 
             return m_lookahead ? m_lookahead->get_config() : m_solver->get_config(); 
         }
 
@@ -311,20 +306,20 @@ namespace sat {
 
         // validation utilities
         bool validate_conflict(card const& c) const;
-        bool validate_conflict(pb const& p) const;
+        bool validate_conflict(pbc const& p) const;
         bool validate_assign(literal_vector const& lits, literal lit);
         bool validate_lemma();
         bool validate_ineq(ineq const& ineq) const;
-        bool validate_unit_propagation(pb const& p, literal_vector const& r, literal alit) const;
+        bool validate_unit_propagation(pbc const& p, literal_vector const& r, literal alit) const;
         bool validate_conflict(literal_vector const& lits, ineq& p);
         bool validate_watch_literals() const;
         bool validate_watch_literal(literal lit) const;
         bool validate_watched_constraint(constraint const& c) const;
-        bool validate_watch(pb const& p, literal alit) const;
+        bool validate_watch(pbc const& p, literal alit) const;
         bool is_watching(literal lit, constraint const& c) const;
-        literal translate_to_sat(solver& s, u_map<bool_var>& translation, ineq const& pb);
-        literal translate_to_sat(solver& s, u_map<bool_var>& translation, ineq& a, ineq& b);
-        literal translate_to_sat(solver& s, u_map<bool_var>& translation, literal lit);
+        literal translate_to_sat(sat::solver& s, u_map<bool_var>& translation, ineq const& pb);
+        literal translate_to_sat(sat::solver& s, u_map<bool_var>& translation, ineq& a, ineq& b);
+        literal translate_to_sat(sat::solver& s, u_map<bool_var>& translation, literal lit);
         ineq negate(ineq const& a) const;
         void push_lit(literal_vector& lits, literal lit);
 
@@ -335,7 +330,7 @@ namespace sat {
         constraint* active2card();
         void active2wlits();
         void active2wlits(svector<wliteral>& wlits);
-        void justification2pb(justification const& j, literal lit, unsigned offset, ineq& p);
+        void justification2pb(sat::justification const& j, literal lit, unsigned offset, ineq& p);
         void constraint2pb(constraint& cnstr, literal lit, unsigned offset, ineq& p);
         bool validate_resolvent();
         unsigned get_coeff(ineq const& pb, literal lit);
@@ -346,10 +341,10 @@ namespace sat {
         constraint* add_at_least(literal l, literal_vector const& lits, unsigned k, bool learned);
         constraint* add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k, bool learned);
         bool        all_distinct(literal_vector const& lits);
-        bool        all_distinct(clause const& c);
+        bool        all_distinct(sat::clause const& c);
 
-        void copy_core(ba_solver* result, bool learned);
-        void copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints);
+        void copy_core(solver* result, bool learned);
+        void copy_constraints(solver* result, ptr_vector<constraint> const& constraints);
 
         // Internalize
         literal convert_eq_k(app* t, rational const& k, bool root, bool sign);
@@ -366,23 +361,23 @@ namespace sat {
         literal internalize_pb(expr* e, bool sign, bool root);
         // Decompile
         expr_ref get_card(std::function<expr_ref(sat::literal)>& l2e, card const& c);
-        expr_ref get_pb(std::function<expr_ref(sat::literal)>& l2e, pb const& p);
+        expr_ref get_pb(std::function<expr_ref(sat::literal)>& l2e, pbc const& p);
 
     public:
-        ba_solver(euf::solver& ctx, euf::theory_id id);
-        ba_solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id);
-        ~ba_solver() override;
-        void set_lookahead(lookahead* l) override { m_lookahead = l; }
+        solver(euf::solver& ctx, euf::theory_id id);
+        solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id);
+        ~solver() override;
+        void set_lookahead(sat::lookahead* l) override { m_lookahead = l; }
         void add_at_least(bool_var v, literal_vector const& lits, unsigned k);
         void add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
 
         bool is_external(bool_var v) override;
-        bool propagated(literal l, ext_constraint_idx idx) override;
+        bool propagated(literal l, sat::ext_constraint_idx idx) override;
         bool unit_propagate() override { return false; }
         lbool resolve_conflict() override;
-        void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r, bool probing) override;
+        void get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector & r, bool probing) override;
         void asserted(literal l) override;
-        check_result check() override;
+        sat::check_result check() override;
         void push() override;
         void pop(unsigned n) override;
         void pre_simplify() override {}
@@ -392,18 +387,18 @@ namespace sat {
         bool set_root(literal l, literal r) override;
         void flush_roots() override;
         std::ostream& display(std::ostream& out) const override;
-        std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const override;
-        std::ostream& display_constraint(std::ostream& out, ext_constraint_idx idx) const override;
+        std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override;
+        std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override;
         void collect_statistics(statistics& st) const override;
-        extension* copy(solver* s) override;
+        extension* copy(sat::solver* s) override;
         void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) override;
         void pop_reinit() override;
         void gc() override;
         void gc_vars(unsigned num_vars) override;
-        bool is_extended_binary(ext_justification_idx idx, literal_vector & r) override;
-        void init_use_list(ext_use_list& ul) override;
-        bool is_blocked(literal l, ext_constraint_idx idx) override;
-        bool check_model(model const& m) const override;
+        bool is_extended_binary(sat::ext_justification_idx idx, literal_vector & r) override;
+        void init_use_list(sat::ext_use_list& ul) override;
+        bool is_blocked(literal l, sat::ext_constraint_idx idx) override;
+        bool check_model(sat::model const& m) const override;
 
         literal internalize(expr* e, bool sign, bool root, bool redundant) override;
         void internalize(expr* e, bool redundant) override;

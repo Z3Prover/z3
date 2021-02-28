@@ -47,6 +47,10 @@ Revision History:
 #include "util/scoped_ptr_vector.h"
 #include "util/scoped_limit_trail.h"
 
+namespace pb {
+    class solver;
+};
+
 namespace sat {
 
     /**
@@ -210,7 +214,7 @@ namespace sat {
         friend class probing;
         friend class simplifier;
         friend class scc;
-        friend class ba_solver;
+        friend class pb::solver;
         friend class anf_simplifier;
         friend class cut_simplifier;
         friend class parallel;

@@ -112,7 +112,7 @@ namespace smt {
                 enode * n   = kv.m_key;
                 expr  * val = kv.m_value;
                 n = n->get_eq_enode_with_min_gen();
-                m_value2expr.insert(val, n->get_owner());
+                m_value2expr.insert(val, n->get_expr());
             }
         }
     }

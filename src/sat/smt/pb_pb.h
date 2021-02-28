@@ -3,7 +3,7 @@ Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
-    ba_pb.h
+    pb_pb.h
 
 Abstract:
  
@@ -18,19 +18,19 @@ Author:
 #pragma once 
 
 #include "sat/sat_types.h"
-#include "sat/smt/ba_card.h"
+#include "sat/smt/pb_card.h"
 
 
-namespace ba {
+namespace pb {
 
-    class pb : public pb_base {
+    class pbc : public constraint {
         unsigned       m_slack;
         unsigned       m_num_watch;
         unsigned       m_max_sum;
         wliteral       m_wlits[0];
     public:
-        static size_t get_obj_size(unsigned num_lits) { return sat::constraint_base::obj_size(sizeof(pb) + num_lits * sizeof(wliteral)); }
-        pb(unsigned id, literal lit, svector<wliteral> const& wlits, unsigned k);
+        static size_t get_obj_size(unsigned num_lits) { return sat::constraint_base::obj_size(sizeof(pbc) + num_lits * sizeof(wliteral)); }
+        pbc(unsigned id, literal lit, svector<wliteral> const& wlits, unsigned k);
         literal lit() const { return m_lit; }
         wliteral operator[](unsigned i) const { return m_wlits[i]; }
         wliteral& operator[](unsigned i) { return m_wlits[i]; }
@@ -52,7 +52,7 @@ namespace ba {
         literal get_lit(unsigned i) const override { return m_wlits[i].second; }
         void set_lit(unsigned i, literal l) override { m_wlits[i].second = l; }
         unsigned get_coeff(unsigned i) const override { return m_wlits[i].first; }
-        double get_reward(ba::solver_interface const& s, sat::literal_occs_fun& occs) const override;
+        double get_reward(solver_interface const& s, sat::literal_occs_fun& occs) const override;
         void clear_watch(solver_interface& s) override;
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display(std::ostream& out, solver_interface const& s, bool values) const override;

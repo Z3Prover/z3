@@ -277,7 +277,7 @@ namespace smt {
 
     bool congruent(enode * n1, enode * n2, bool & comm) {
         comm          = false;
-        if (n1->get_owner()->get_decl() != n2->get_owner()->get_decl())
+        if (n1->get_expr()->get_decl() != n2->get_expr()->get_decl())
             return false;
         unsigned num_args = n1->get_num_args();
         if (num_args != n2->get_num_args())

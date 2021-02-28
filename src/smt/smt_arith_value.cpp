@@ -119,7 +119,7 @@ namespace smt {
         expr_ref _val(m);
         enode* next = m_ctx->get_enode(e), *n = next;
         do { 
-            e = next->get_owner();
+            e = next->get_expr();
             if (m_tha && m_tha->get_value(next, _val) && a.is_numeral(_val, val)) return true;
             if (m_thi && m_thi->get_value(next, _val) && a.is_numeral(_val, val)) return true;
             if (m_thr && m_thr->get_value(next, val)) return true;

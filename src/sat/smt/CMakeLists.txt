@@ -9,11 +9,6 @@ z3_add_component(sat_smt
     array_model.cpp
     array_solver.cpp
     atom2bool_var.cpp
-    ba_card.cpp
-    ba_constraint.cpp
-    ba_internalize.cpp
-    ba_pb.cpp
-    ba_solver.cpp
     bv_ackerman.cpp
     bv_delay_internalize.cpp
     bv_internalize.cpp
@@ -28,6 +23,11 @@ z3_add_component(sat_smt
     euf_relevancy.cpp
     euf_solver.cpp
     fpa_solver.cpp
+    pb_card.cpp
+    pb_constraint.cpp
+    pb_internalize.cpp
+    pb_pb.cpp
+    pb_solver.cpp
     q_clause.cpp
     q_ematch.cpp
     q_eval.cpp

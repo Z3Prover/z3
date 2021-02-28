@@ -3,7 +3,7 @@ Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
-    ba_constraint.h
+    pb_constraint.h
 
 Abstract:
  
@@ -18,9 +18,9 @@ Revision History:
 --*/
 
 #pragma once 
-#include "sat/smt/ba_solver_interface.h"
+#include "sat/smt/pb_solver_interface.h"
 
-namespace ba {
+namespace pb {
 
     enum class tag_t {
         card_t,
@@ -28,29 +28,30 @@ namespace ba {
     };
 
     class card;
-    class pb;
-    class pb_base;
+    class pbc;
 
     inline lbool value(sat::model const& m, literal l) { return l.sign() ? ~m[l.var()] : m[l.var()]; }
     
     class constraint {
     protected:
         tag_t          m_tag;
-        bool           m_removed;
+        bool           m_removed { false };
         literal        m_lit;
-        literal        m_watch;
-        unsigned       m_glue;
-        unsigned       m_psm;
+        literal        m_watch { sat::null_literal };
+        unsigned       m_glue { 0 };
+        unsigned       m_psm { 0 };
         unsigned       m_size;
         size_t         m_obj_size;
-        bool           m_learned;
+        bool           m_learned { false };
         unsigned       m_id;
-        bool           m_pure;        // is the constraint pure (only positive occurrences)
+        bool           m_pure { false };    // is the constraint pure (only positive occurrences)
+        unsigned       m_k;
 
         void display_lit(std::ostream& out, solver_interface const& s, literal lit, unsigned sz, bool values) const;
     public:
-        constraint(tag_t t, unsigned id, literal l, unsigned sz, size_t osz): 
-            m_tag(t), m_removed(false), m_lit(l), m_watch(sat::null_literal), m_glue(0), m_psm(0), m_size(sz), m_obj_size(osz), m_learned(false), m_id(id), m_pure(false) {
+        constraint(tag_t t, unsigned id, literal l, unsigned sz, size_t osz, unsigned k): 
+            m_tag(t), m_lit(l), m_size(sz), m_obj_size(osz), m_id(id), m_k(k) {
+            VERIFY(k < 400000000);
         }
         sat::ext_constraint_idx cindex() const { return sat::constraint_base::mem2base(this); }
         void deallocate(small_object_allocator& a) { a.deallocate(obj_size(), sat::constraint_base::mem2base_ptr(this)); }
@@ -79,10 +80,9 @@ namespace ba {
         
         size_t obj_size() const { return m_obj_size; }
         card& to_card();
-        pb&  to_pb();
+        pbc&  to_pb();
         card const& to_card() const;
-        pb const&  to_pb() const;
-        pb_base const& to_pb_base() const; 
+        pbc const&  to_pb() const;
         bool is_card() const { return m_tag == tag_t::card_t; }
         bool is_pb() const { return m_tag == tag_t::pb_t; }
 
@@ -103,7 +103,6 @@ namespace ba {
         virtual void swap(unsigned i, unsigned j) { UNREACHABLE(); }
         virtual literal get_lit(unsigned i) const { UNREACHABLE(); return sat::null_literal; }
         virtual void set_lit(unsigned i, literal l) { UNREACHABLE(); }
-        virtual bool well_formed() const { return true; }
         virtual void negate() { UNREACHABLE(); }
         virtual bool is_extended_binary(literal_vector& r) const { return false; }
         
@@ -111,7 +110,12 @@ namespace ba {
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual std::ostream& display(std::ostream& out, solver_interface const& s, bool values) const = 0;
         virtual void init_use_list(sat::ext_use_list& ul) const = 0;
-        
+
+        virtual void set_k(unsigned k) { VERIFY(k < 4000000000);  m_k = k; }
+        virtual unsigned get_coeff(unsigned i) const { UNREACHABLE(); return 0; }
+        unsigned k() const { return m_k; }
+        bool well_formed() const;
+       
         class iterator {
             constraint const& c;
             unsigned idx;

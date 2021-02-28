@@ -145,14 +145,14 @@ namespace smt {
         theory_var next(theory_var v) const { return m_find.next(v); }
         bool is_root(theory_var v) const { return m_find.is_root(v); }
         unsigned get_bv_size(app const * n) const { return m_util.get_bv_size(n); }
-        unsigned get_bv_size(enode const * n) const { return m_util.get_bv_size(n->get_owner()); }
+        unsigned get_bv_size(enode const * n) const { return m_util.get_bv_size(n->get_expr()); }
         unsigned get_bv_size(theory_var v) const { return get_bv_size(get_enode(v)); }
         bool is_bv(app const* n) const { return m_util.is_bv_sort(n->get_sort()); }
-        bool is_bv(enode const* n) const { return is_bv(n->get_owner()); }
+        bool is_bv(enode const* n) const { return is_bv(n->get_expr()); }
         bool is_bv(theory_var v) const { return is_bv(get_enode(v)); }
         region & get_region() { return m_trail_stack.get_region(); }
 
-        bool is_numeral(theory_var v) const { return m_util.is_numeral(get_enode(v)->get_owner()); }
+        bool is_numeral(theory_var v) const { return m_util.is_numeral(get_enode(v)->get_expr()); }
         app * mk_bit2bool(app * bv, unsigned idx);
         void mk_bits(theory_var v);
         friend class mk_atom_trail;

@@ -35,8 +35,8 @@ namespace smt {
         void add_weak_var(theory_var v);
         virtual void set_prop_upward(theory_var v) {}
         void found_unsupported_op(expr * n);
-        void found_unsupported_op(enode* n) { found_unsupported_op(n->get_owner()); }
-        void found_unsupported_op(theory_var v) { found_unsupported_op(get_enode(v)->get_owner()); }
+        void found_unsupported_op(enode* n) { found_unsupported_op(n->get_expr()); }
+        void found_unsupported_op(theory_var v) { found_unsupported_op(get_enode(v)->get_expr()); }
         
         bool is_store(app const* n) const { return n->is_app_of(get_id(), OP_STORE); }
         bool is_map(app const* n) const { return n->is_app_of(get_id(), OP_ARRAY_MAP); }
@@ -50,15 +50,15 @@ namespace smt {
         bool is_set_has_size(app const* n) const { return n->is_app_of(get_id(), OP_SET_HAS_SIZE); }
         bool is_set_card(app const* n) const { return n->is_app_of(get_id(), OP_SET_CARD); }
 
-        bool is_store(enode const * n) const { return is_store(n->get_owner()); }
-        bool is_map(enode const* n) const { return is_map(n->get_owner()); }
-        bool is_select(enode const* n) const { return is_select(n->get_owner()); }
-        bool is_const(enode const* n) const { return is_const(n->get_owner()); }
-        bool is_as_array(enode const * n) const { return is_as_array(n->get_owner()); }
-        bool is_default(enode const* n) const { return is_default(n->get_owner()); }
-        bool is_array_sort(enode const* n) const { return is_array_sort(n->get_owner()); }
-        bool is_set_has_size(enode const* n) const { return is_set_has_size(n->get_owner()); }
-        bool is_set_carde(enode const* n) const { return is_set_card(n->get_owner()); }
+        bool is_store(enode const * n) const { return is_store(n->get_expr()); }
+        bool is_map(enode const* n) const { return is_map(n->get_expr()); }
+        bool is_select(enode const* n) const { return is_select(n->get_expr()); }
+        bool is_const(enode const* n) const { return is_const(n->get_expr()); }
+        bool is_as_array(enode const * n) const { return is_as_array(n->get_expr()); }
+        bool is_default(enode const* n) const { return is_default(n->get_expr()); }
+        bool is_array_sort(enode const* n) const { return is_array_sort(n->get_expr()); }
+        bool is_set_has_size(enode const* n) const { return is_set_has_size(n->get_expr()); }
+        bool is_set_carde(enode const* n) const { return is_set_card(n->get_expr()); }
         bool is_select_arg(enode* r);
 
         app * mk_select(unsigned num_args, expr * const * args);

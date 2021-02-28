@@ -469,7 +469,7 @@ namespace smt {
                 TRACE("add_eq", tout << "redundant constraint.\n";);
                 return;
             }
-            IF_VERBOSE(20, verbose_stream() << "merge " << mk_bounded_pp(n1->get_owner(), m) << " " << mk_bounded_pp(n2->get_owner(), m) << "\n");
+            IF_VERBOSE(20, verbose_stream() << "merge " << mk_bounded_pp(n1->get_expr(), m) << " " << mk_bounded_pp(n2->get_expr(), m) << "\n");
 
             if (r1->is_interpreted() && r2->is_interpreted()) {
                 TRACE("add_eq", tout << "interpreted roots conflict.\n";);
@@ -627,7 +627,7 @@ namespace smt {
                     lbool val  = get_assignment(v);
                     if (val != l_true) {
                         if (val == l_false && js.get_kind() == eq_justification::CONGRUENCE)
-                            m_dyn_ack_manager.cg_conflict_eh(n1->get_owner(), n2->get_owner());
+                            m_dyn_ack_manager.cg_conflict_eh(n1->get_expr(), n2->get_expr());
 
                         assign(literal(v), mk_justification(eq_propagation_justification(lhs, rhs)));
                     }
@@ -755,7 +755,7 @@ namespace smt {
         enode * r2 = n2->get_root();
         enode * r1 = n1->get_root();
         if (!r1->has_th_vars() && !r2->has_th_vars()) {
-            TRACE("merge_theory_vars", tout << "Neither have theory vars #" << n1->get_owner()->get_id() << " #" << n2->get_owner()->get_id() << "\n";);
+            TRACE("merge_theory_vars", tout << "Neither have theory vars #" << n1->get_expr()->get_id() << " #" << n2->get_expr()->get_id() << "\n";);
             return;
         }
 
@@ -891,7 +891,7 @@ namespace smt {
             lbool val2  = get_assignment(v2);
             if (val2 != val) {
                 if (val2 != l_undef && congruent(source, target) && source->get_num_args() > 0)
-                    m_dyn_ack_manager.cg_conflict_eh(source->get_owner(), target->get_owner());
+                    m_dyn_ack_manager.cg_conflict_eh(source->get_expr(), target->get_expr());
                 assign(literal(v2, sign), mk_justification(mp_iff_justification(source, target)));
             }
             target = target->get_next();
@@ -1041,10 +1041,10 @@ namespace smt {
         enode * r1 = n1->get_root();
         enode * r2 = n2->get_root();
         TRACE("add_diseq", tout << "assigning: #" << n1->get_owner_id() << " != #" << n2->get_owner_id() << "\n";
-              tout << mk_ll_pp(n1->get_owner(), m) << " != ";
-              tout << mk_ll_pp(n2->get_owner(), m) << "\n";
-              tout << mk_ll_pp(r1->get_owner(), m) << " != ";
-              tout << mk_ll_pp(r2->get_owner(), m) << "\n";
+              tout << mk_ll_pp(n1->get_expr(), m) << " != ";
+              tout << mk_ll_pp(n2->get_expr(), m) << "\n";
+              tout << mk_ll_pp(r1->get_expr(), m) << " != ";
+              tout << mk_ll_pp(r2->get_expr(), m) << "\n";
               );
 
         DEBUG_CODE(
@@ -1102,13 +1102,13 @@ namespace smt {
         SASSERT(n1->get_sort() == n2->get_sort());
         context * _this = const_cast<context*>(this);
         if (!m_is_diseq_tmp) {
-            app * eq       = m.mk_eq(n1->get_owner(), n2->get_owner());
+            app * eq       = m.mk_eq(n1->get_expr(), n2->get_expr());
             m.inc_ref(eq);
             _this->m_is_diseq_tmp = enode::mk_dummy(m, m_app2enode, eq);
         }
-        else if (m_is_diseq_tmp->get_owner()->get_arg(0)->get_sort() != n1->get_sort()) {
-            m.dec_ref(m_is_diseq_tmp->get_owner());
-            app * eq = m.mk_eq(n1->get_owner(), n2->get_owner());
+        else if (m_is_diseq_tmp->get_expr()->get_arg(0)->get_sort() != n1->get_sort()) {
+            m.dec_ref(m_is_diseq_tmp->get_expr());
+            app * eq = m.mk_eq(n1->get_expr(), n2->get_expr());
             m.inc_ref(eq);
             m_is_diseq_tmp->m_func_decl_id = UINT_MAX;
             m_is_diseq_tmp->m_owner = eq;
@@ -1136,7 +1136,7 @@ namespace smt {
         if (n1->get_num_parents() > n2->get_num_parents())
             std::swap(n1, n2);
         for (enode * parent : enode::parents(n1)) {
-            if (parent->is_eq() && is_relevant(parent->get_owner()) && get_assignment(enode2bool_var(parent)) == l_false &&
+            if (parent->is_eq() && is_relevant(parent->get_expr()) && get_assignment(enode2bool_var(parent)) == l_false &&
                 ((parent->get_arg(0)->get_root() == n1->get_root() && parent->get_arg(1)->get_root() == n2->get_root()) ||
                  (parent->get_arg(1)->get_root() == n1->get_root() && parent->get_arg(0)->get_root() == n2->get_root()))) {
                 TRACE("is_diseq_bug", tout << "parent: #" << parent->get_owner_id() << ", parent->root: #" <<
@@ -1253,14 +1253,14 @@ namespace smt {
         enode * r   = m_cg_table.find(tmp);
 #ifdef Z3DEBUG
         if (r != nullptr) {
-            SASSERT(r->get_owner()->get_decl() == f);
+            SASSERT(r->get_expr()->get_decl() == f);
             SASSERT(r->get_num_args() == num_args);
             if (r->is_commutative()) {
                 // TODO
             }
             else {
                 for (unsigned i = 0; i < num_args; i++) {
-                    expr * arg   = r->get_owner()->get_arg(i);
+                    expr * arg   = r->get_expr()->get_arg(i);
                     SASSERT(e_internalized(arg));
                     enode * _arg = get_enode(arg);
                     CTRACE("eq_to_bug", args[i]->get_root() != _arg->get_root(),
@@ -1434,7 +1434,7 @@ namespace smt {
             return;
         }
         theory_id th_id = th->get_id();
-        TRACE("push_new_th_diseqs", tout << "#" << r->get_owner_id() << " " << mk_bounded_pp(r->get_owner(), m) << " v" << v << " th: " << th_id << "\n";);
+        TRACE("push_new_th_diseqs", tout << "#" << r->get_owner_id() << " " << mk_bounded_pp(r->get_expr(), m) << " v" << v << " th: " << th_id << "\n";);
         for (enode * parent : r->get_parents()) {
             CTRACE("parent_bug", parent == 0, tout << "#" << r->get_owner_id() << ", num_parents: " << r->get_num_parents() << "\n"; display(tout););
             if (parent->is_eq()) {
@@ -1518,7 +1518,7 @@ namespace smt {
        If the enode is not boolean, then return l_undef.
     */
     lbool context::get_assignment(enode * n) const {
-        expr * owner = n->get_owner();
+        expr * owner = n->get_expr();
         if (!m.is_bool(owner))
             return l_undef;
         if (n == m_false_enode)
@@ -2953,7 +2953,7 @@ namespace smt {
         m_qmanager = nullptr;
         if (m_is_diseq_tmp) {
             m_is_diseq_tmp->del_eh(m, false);
-            m.dec_ref(m_is_diseq_tmp->get_owner());
+            m.dec_ref(m_is_diseq_tmp->get_expr());
             enode::del_dummy(m_is_diseq_tmp);
             m_is_diseq_tmp = nullptr;
         }
@@ -4354,8 +4354,8 @@ namespace smt {
     bool context::assume_eq(enode * lhs, enode * rhs) {
         if (lhs->get_root() == rhs->get_root())
             return false; // it is not necessary to assume the eq.
-        expr * _lhs = lhs->get_owner();
-        expr * _rhs = rhs->get_owner();
+        expr * _lhs = lhs->get_expr();
+        expr * _rhs = rhs->get_expr();
         expr * eq = mk_eq_atom(_lhs, _rhs);
         TRACE("assume_eq", tout << "creating interface eq:\n" << mk_pp(eq, m) << "\n";);
         if (m.is_false(eq)) {
@@ -4412,7 +4412,7 @@ namespace smt {
     bool context::is_shared(enode * n) const {
         n = n->get_root();
         unsigned num_th_vars = n->get_num_th_vars();
-        if (m.is_ite(n->get_owner())) {
+        if (m.is_ite(n->get_expr())) {
             return true;
         }
         switch (num_th_vars) {
@@ -4431,7 +4431,7 @@ namespace smt {
             theory_id th_id     = l->get_id();
 
             for (enode * parent : enode::parents(n)) {
-                app* p = parent->get_owner();
+                app* p = parent->get_expr();
                 family_id fid = p->get_family_id();
                 if (fid != th_id && fid != m.get_basic_family_id()) {
                     TRACE("is_shared", tout << enode_pp(n, *this) 

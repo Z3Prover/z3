@@ -358,10 +358,10 @@ namespace smt {
             if (idx >= m_num_bindings)
                 return n;
             // VAR 0 is stored in the last position of m_bindings
-            return m_bindings[m_num_bindings - idx - 1]->get_root()->get_owner();
+            return m_bindings[m_num_bindings - idx - 1]->get_root()->get_expr();
         }
         if (m_context.e_internalized(n))
-            return m_context.get_enode(n)->get_root()->get_owner();
+            return m_context.get_enode(n)->get_root()->get_expr();
         if (!is_app(n) || to_app(n)->get_num_args() == 0)
             return n;
         expr * r;
@@ -382,8 +382,8 @@ namespace smt {
         if (has_arg_enodes) {
             enode * e = m_context.get_enode_eq_to(to_app(n)->get_decl(), num_args, new_arg_enodes.c_ptr());
             if (e) {
-                m_canonize_cache.insert(n, e->get_root()->get_owner());
-                return e->get_root()->get_owner();
+                m_canonize_cache.insert(n, e->get_root()->get_expr());
+                return e->get_root()->get_expr();
             }
         }
         // substitute by values in the model
