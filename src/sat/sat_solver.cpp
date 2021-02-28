@@ -4002,17 +4002,18 @@ namespace sat {
 
     void solver::display_wcnf(std::ostream & out, unsigned sz, literal const* lits, unsigned const* weights) const {
         unsigned max_weight = 0;
-        for (unsigned i = 0; i < sz; ++i) {
-            max_weight = std::max(max_weight, weights[i]);
-        }
+        for (unsigned i = 0; i < sz; ++i) 
+            max_weight += weights[i];
         ++max_weight;
+
+        if (m_ext)
+            throw default_exception("wcnf is only supported for pure CNF problems");
 
         out << "p wcnf " << num_vars() << " " << num_clauses() + sz << " " << max_weight << "\n";
         out << "c soft " << sz << "\n";
 
-        for (literal lit : m_trail) {
+        for (literal lit : m_trail) 
             out << max_weight << " " << dimacs_lit(lit) << " 0\n";
-        }
         unsigned l_idx = 0;
         for (watch_list const& wlist : m_watches) {
             literal l = ~to_literal(l_idx);

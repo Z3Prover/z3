@@ -179,10 +179,11 @@ namespace opt {
         func_decl_ref_vector         m_objective_refs;
         expr_ref_vector              m_core;
         tactic_ref                   m_simplify;
-        bool                         m_enable_sat;
-        bool                         m_enable_sls;
-        bool                         m_is_clausal;
-        bool                         m_pp_neat;
+        bool                         m_enable_sat { true } ;
+        bool                         m_enable_sls { false };
+        bool                         m_is_clausal { false };
+        bool                         m_pp_neat { true };
+        bool                         m_pp_wcnf { false };
         symbol                       m_maxsat_engine;
         symbol                       m_logic;
         svector<symbol>              m_labels;
@@ -232,7 +233,7 @@ namespace opt {
         void get_lower(unsigned idx, expr_ref_vector& es) { to_exprs(get_lower_as_num(idx), es); }
         void get_upper(unsigned idx, expr_ref_vector& es) { to_exprs(get_upper_as_num(idx), es); }
 
-        std::string to_string() const;
+        std::string to_string();
 
 
         unsigned num_objectives() override { return m_scoped_state.m_objectives.size(); }

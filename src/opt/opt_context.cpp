@@ -24,6 +24,7 @@ Notes:
 #include "ast/pb_decl_plugin.h"
 #include "ast/ast_smt_pp.h"
 #include "ast/ast_pp_util.h"
+#include "ast/display_dimacs.h"
 #include "model/model_smt2_pp.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
@@ -1540,9 +1541,12 @@ namespace opt {
         m_enable_sls = _p.enable_sls();
         m_maxsat_engine = _p.maxsat_engine();
         m_pp_neat = _p.pp_neat();
+        m_pp_wcnf = _p.pp_wcnf();
     }
 
-    std::string context::to_string() const {
+    std::string context::to_string()  {
+        if (m_pp_wcnf)
+            return to_wcnf();
         return to_string(false, m_scoped_state.m_hard, m_scoped_state.m_objectives);
     }
 
@@ -1557,6 +1561,9 @@ namespace opt {
         auto const& objectives = m_objectives;
         if (objectives.size() > 1)
             throw default_exception("only single objective weighted MaxSAT wcnf output is supported");
+        ptr_vector<expr> soft_f;
+        vector<rational> soft_w;
+        svector<std::pair<expr*, unsigned>> soft;
         if (objectives.size() == 1) {
             auto const& obj = objectives[0];
             if (obj.m_type != O_MAXSMT)
@@ -1565,10 +1572,15 @@ namespace opt {
                 rational w = obj.m_weights[j];
                 if (!w.is_unsigned())
                     throw default_exception("only single objective weighted MaxSAT wcnf output is supported");
+                soft_f.push_back(obj.m_terms[j]);
+                soft_w.push_back(w);
             }
         }
-        NOT_IMPLEMENTED_YET();
-        return std::string("");
+        std::ostringstream strm;
+        m_sat_solver = mk_inc_sat_solver(m, m_params);
+        m_sat_solver->assert_expr(m_hard_constraints);
+        inc_sat_display(strm, *m_sat_solver.get(), soft_f.size(), soft_f.c_ptr(), soft_w.c_ptr());
+        return strm.str();
     }
 
     std::string context::to_string(bool is_internal, expr_ref_vector const& hard, vector<objective> const& objectives) const {
