@@ -205,6 +205,7 @@ namespace euf {
 
     public:
         static th_propagation* conflict(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs);
+        static th_propagation* conflict(th_euf_solver& th, sat::literal_vector const& lits) { return conflict(th, lits.size(), lits.c_ptr(), 0, nullptr); }
         static th_propagation* conflict(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs);
         static th_propagation* conflict(th_euf_solver& th, enode_pair_vector const& eqs);
         static th_propagation* conflict(th_euf_solver& th, sat::literal lit);

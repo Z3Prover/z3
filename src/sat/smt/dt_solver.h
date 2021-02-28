@@ -97,6 +97,7 @@ namespace dt {
         enode_pair_vector     m_used_eqs; // conflict, if any
         parent_tbl            m_parent; // parent explanation for occurs_check
         svector<stack_entry>  m_dfs; // stack for DFS for occurs_check
+        sat::literal_vector   m_lits;
 
         void clear_mark();
 
@@ -119,6 +120,7 @@ namespace dt {
         void explain_is_child(enode* parent, enode* child);
 
         void mk_split(theory_var v, bool is_final);
+        void mk_enum_split(theory_var v);
 
         void display_var(std::ostream & out, theory_var v) const;
 

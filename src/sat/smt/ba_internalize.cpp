@@ -29,34 +29,8 @@ namespace sat {
         flet<bool> _redundant(m_is_redundant, redundant);
         if (m_pb.is_pb(e)) 
             return internalize_pb(e, sign, root);
-        if (m.is_xor(e))
-            return internalize_xor(e, sign, root);
         UNREACHABLE();
         return null_literal;
-    }
-
-    literal ba_solver::internalize_xor(expr* e, bool sign, bool root) {
-        sat::literal_vector lits;
-        sat::bool_var v = s().add_var(true);
-        lits.push_back(literal(v, true));
-        auto add_expr = [&](expr* a) {
-            literal lit = si.internalize(a, m_is_redundant);
-            s().set_external(lit.var());
-            lits.push_back(lit);
-        };
-        expr* e1 = nullptr;
-        while (m.is_iff(e, e1, e))
-            add_expr(e1);
-        add_expr(e);
-        // ensure that = is converted to xor
-        for (unsigned i = 1; i + 1 < lits.size(); ++i) {
-            lits[i].neg();
-        }
-        add_xr(lits, m_is_redundant);
-        auto* aig = s().get_cut_simplifier();
-        if (aig) aig->add_xor(~lits.back(), lits.size() - 1, lits.c_ptr() + 1);
-        sat::literal lit(v, sign);
-        return literal(v, sign);
     }
 
     literal ba_solver::internalize_pb(expr* e, bool sign, bool root) {
@@ -313,19 +287,6 @@ namespace sat {
         return fml;
     }
 
-    expr_ref ba_solver::get_xor(std::function<expr_ref(sat::literal)>& lit2expr, xr const& x) {
-        ptr_buffer<expr> lits;
-        for (sat::literal l : x) {
-            lits.push_back(lit2expr(l));
-        }
-        expr_ref fml(m.mk_xor(x.size(), lits.c_ptr()), m);
-
-        if (x.lit() != sat::null_literal) {
-            fml = m.mk_eq(lit2expr(x.lit()), fml);
-        }
-        return fml;
-    }
-
     bool ba_solver::to_formulas(std::function<expr_ref(sat::literal)>& l2e, expr_ref_vector& fmls) {
         for (auto* c : constraints()) {
             switch (c->tag()) {
@@ -334,9 +295,6 @@ namespace sat {
                 break;
             case ba::tag_t::pb_t:
                 fmls.push_back(get_pb(l2e, c->to_pb()));
-                break;
-            case ba::tag_t::xr_t:
-                fmls.push_back(get_xor(l2e, c->to_xr()));
                 break;
             }
         }

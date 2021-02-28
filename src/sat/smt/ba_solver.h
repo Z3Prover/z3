@@ -9,7 +9,6 @@ Abstract:
 
     Cardinality extensions, 
     Pseudo Booleans, 
-    Xors
 
 Author:
 
@@ -29,7 +28,6 @@ Revision History:
 #include "sat/smt/ba_constraint.h"
 #include "sat/smt/ba_card.h"
 #include "sat/smt/ba_pb.h"
-#include "sat/smt/ba_xor.h"
 #include "util/small_object_allocator.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/sorting_network.h"
@@ -40,11 +38,8 @@ namespace sat {
     typedef ba::constraint constraint;
     typedef ba::wliteral wliteral;
     typedef ba::card card;
-    typedef ba::xr xr;
     typedef ba::pb_base pb_base;
     typedef ba::pb pb;
-
-    class xor_finder;
     
     class ba_solver : public euf::th_solver, public ba::solver_interface {
 
@@ -200,7 +195,6 @@ namespace sat {
         lbool add_assign(constraint& c, literal l);
         bool incremental_mode() const;
         void simplify(constraint& c);
-        void pre_simplify(xor_finder& xu, constraint& c);
         void set_conflict(constraint& c, literal lit) override;
         void assign(constraint& c, literal lit) override;
         bool assigned_above(literal above, literal below);
@@ -234,18 +228,6 @@ namespace sat {
         lbool eval(card const& c) const;
         lbool eval(model const& m, card const& c) const;
 
-
-        // xr specific functionality
-        lbool add_assign(xr& x, literal alit);
-        void get_xr_antecedents(literal l, unsigned index, justification js, literal_vector& r);
-        void get_antecedents(literal l, xr const& x, literal_vector & r);
-        void simplify(xr& x);
-        void extract_xor();
-        void merge_xor();
-        bool clausify(xr& x);
-        void flush_roots(xr& x);
-        lbool eval(xr const& x) const;
-        lbool eval(model const& m, xr const& x) const;
         
         // pb functionality
         unsigned m_a_max{ 0 };
@@ -329,7 +311,6 @@ namespace sat {
 
         // validation utilities
         bool validate_conflict(card const& c) const;
-        bool validate_conflict(xr const& x) const;
         bool validate_conflict(pb const& p) const;
         bool validate_assign(literal_vector const& lits, literal lit);
         bool validate_lemma();
@@ -364,11 +345,8 @@ namespace sat {
 
         constraint* add_at_least(literal l, literal_vector const& lits, unsigned k, bool learned);
         constraint* add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k, bool learned);
-        constraint* add_xr(literal_vector const& lits, bool learned);
-        literal     add_xor_def(literal_vector& lits, bool learned = false);
         bool        all_distinct(literal_vector const& lits);
         bool        all_distinct(clause const& c);
-        bool        all_distinct(xr const& x);
 
         void copy_core(ba_solver* result, bool learned);
         void copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints);
@@ -386,12 +364,9 @@ namespace sat {
         void convert_pb_args(app* t, literal_vector& lits);
         bool m_is_redundant{ false };
         literal internalize_pb(expr* e, bool sign, bool root);
-        literal internalize_xor(expr* e, bool sign, bool root);
-
         // Decompile
         expr_ref get_card(std::function<expr_ref(sat::literal)>& l2e, card const& c);
         expr_ref get_pb(std::function<expr_ref(sat::literal)>& l2e, pb const& p);
-        expr_ref get_xor(std::function<expr_ref(sat::literal)>& l2e, xr const& x);
 
     public:
         ba_solver(euf::solver& ctx, euf::theory_id id);
@@ -400,7 +375,6 @@ namespace sat {
         void set_lookahead(lookahead* l) override { m_lookahead = l; }
         void add_at_least(bool_var v, literal_vector const& lits, unsigned k);
         void add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
-        void add_xr(literal_vector const& lits);
 
         bool is_external(bool_var v) override;
         bool propagated(literal l, ext_constraint_idx idx) override;
@@ -411,7 +385,7 @@ namespace sat {
         check_result check() override;
         void push() override;
         void pop(unsigned n) override;
-        void pre_simplify() override;
+        void pre_simplify() override {}
         void simplify() override;
         void clauses_modifed() override;
         lbool get_phase(bool_var v) override;

@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Extension for cardinality and xor reasoning.
+    Extension for cardinality reasoning.
 
 Author:
 
@@ -21,7 +21,6 @@ Author:
 #include "sat/smt/ba_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/sat_simplifier_params.hpp"
-#include "sat/sat_xor_finder.h"
 
 namespace sat {
 
@@ -40,7 +39,6 @@ namespace sat {
             UNREACHABLE();
         }
         SASSERT(validate_conflict(c));
-        if (c.is_xr() && value(lit) == l_true) lit.neg();
         SASSERT(value(lit) == l_false);
         set_conflict(justification::mk_ext_justification(s().scope_lvl(), c.cindex()), ~lit);
         SASSERT(inconsistent());
@@ -749,16 +747,6 @@ namespace sat {
                     for (literal l : m_lemma) process_antecedent(~l, offset);
                     break;
                 }
-                case ba::tag_t::xr_t: {
-                    // jus.push_back(js);
-                    m_lemma.reset();
-                    inc_bound(offset);
-                    inc_coeff(consequent, offset);
-                    get_xr_antecedents(consequent, idx, js, m_lemma);
-                    for (literal l : m_lemma) 
-                        process_antecedent(~l, offset);
-                    break;
-                }
                 default:
                     UNREACHABLE();
                     break;
@@ -1444,7 +1432,6 @@ namespace sat {
         switch (c.tag()) {
         case ba::tag_t::card_t: return add_assign(c.to_card(), l);
         case ba::tag_t::pb_t: return add_assign(c.to_pb(), l);
-        case ba::tag_t::xr_t: return add_assign(c.to_xr(), l);
         }
         UNREACHABLE();
         return l_undef;
@@ -1683,7 +1670,6 @@ namespace sat {
         switch (c.tag()) {
         case ba::tag_t::card_t: get_antecedents(l, c.to_card(), r); break;
         case ba::tag_t::pb_t: get_antecedents(l, c.to_pb(), r); break;
-        case ba::tag_t::xr_t: get_antecedents(l, c.to_xr(), r); break;
         default: UNREACHABLE(); break;            
         }
         if (get_config().m_drat && m_solver && !probing) {
@@ -2036,9 +2022,6 @@ namespace sat {
         case ba::tag_t::pb_t:
             simplify(c.to_pb());
             break;
-        case ba::tag_t::xr_t:
-            simplify(c.to_xr());
-            break;
         default:
             UNREACHABLE();
         }                
@@ -2064,10 +2047,6 @@ namespace sat {
             for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) subsumption(*m_constraints[i]);
             for (unsigned sz = m_learned.size(), i = 0; i < sz; ++i) subsumption(*m_learned[i]);    
             unit_strengthen();
-            if (s().get_config().m_xor_solver) {
-                extract_xor();
-                merge_xor();
-            }
             cleanup_clauses();
             cleanup_constraints();
             update_pure();
@@ -2290,10 +2269,6 @@ namespace sat {
         case ba::tag_t::pb_t:
             recompile(c.to_pb());
             break;
-        case ba::tag_t::xr_t:
-            add_xr(c.to_xr().literals(), c.learned());
-            remove_constraint(c, "recompile xor");
-            break;
         default:
             UNREACHABLE();
         }                
@@ -2495,7 +2470,6 @@ namespace sat {
         switch (c.tag()) {
         case ba::tag_t::card_t: split_root(c.to_card()); break;
         case ba::tag_t::pb_t: split_root(c.to_pb()); break;
-        case ba::tag_t::xr_t: NOT_IMPLEMENTED_YET(); break;
         }
     }
 
@@ -2594,12 +2568,6 @@ namespace sat {
                     m_cnstr_use_list[l.index()].push_back(cp);
                     if (lit != null_literal) m_cnstr_use_list[(~l).index()].push_back(cp);
                 }  
-                break;            
-            case ba::tag_t::xr_t: 
-                for (literal l : cp->to_xr()) {
-                    m_cnstr_use_list[l.index()].push_back(cp);
-                    m_cnstr_use_list[(~l).index()].push_back(cp);
-                }             
                 break;            
             }
         }
@@ -3188,13 +3156,6 @@ namespace sat {
                 result->add_pb_ge(p.lit(), wlits, p.k(), p.learned());
                 break;
             }
-            case ba::tag_t::xr_t: {
-                xr const& x = cp->to_xr();
-                lits.reset();
-                for (literal l : x) lits.push_back(l);
-                result->add_xr(lits, x.learned());        
-                break;
-            }
             default:
                 UNREACHABLE();
             }                
@@ -3607,17 +3568,6 @@ namespace sat {
             if (p.lit() != null_literal) ineq.push(~p.lit(), offset * p.k());
             break;
         }
-        case ba::tag_t::xr_t: {
-            xr& x = cnstr.to_xr();
-            literal_vector ls;
-            SASSERT(lit != null_literal);
-            get_antecedents(lit, x, ls);                
-            ineq.reset(offset);
-            for (literal l : ls) ineq.push(~l, offset);
-            literal lxr = x.lit();                
-            if (lxr != null_literal) ineq.push(~lxr, offset);
-            break;
-        }
         default:
             UNREACHABLE();
             break;
@@ -3860,7 +3810,7 @@ namespace sat {
                 card const& c = cp->to_card();
                 unsigned n = c.size();
                 unsigned k = c.k();
-                
+
                 if (c.lit() == null_literal) {
                     //    c.lits() >= k 
                     // <=> 
@@ -3885,7 +3835,7 @@ namespace sat {
                     for (literal l : c) lits.push_back(l), coeffs.push_back(1);
                     lits.push_back(~c.lit()); coeffs.push_back(n - k + 1);
                     add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), n);
-                    
+
                     lits.reset();
                     coeffs.reset();
                     for (literal l : c) lits.push_back(~l), coeffs.push_back(1);
@@ -3900,7 +3850,7 @@ namespace sat {
                 coeffs.reset();
                 unsigned sum = 0;
                 for (wliteral wl : p) sum += wl.first;
-                
+
                 if (p.lit() == null_literal) {
                     //   w1 + .. + w_n >= k
                     // <=> 
@@ -3919,7 +3869,7 @@ namespace sat {
                     lits.push_back(p.lit()), coeffs.push_back(p.k());
                     for (wliteral wl : p) lits.push_back(~(wl.second)), coeffs.push_back(wl.first);
                     add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), sum);
-                    
+
                     lits.reset();
                     coeffs.reset();
                     lits.push_back(~p.lit()), coeffs.push_back(sum + 1 - p.k());
@@ -3928,8 +3878,6 @@ namespace sat {
                 }
                 break;
             }
-            case ba::tag_t::xr_t:
-                return false;
             }
         }
         return true;

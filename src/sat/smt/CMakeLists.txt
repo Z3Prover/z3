@@ -14,7 +14,6 @@ z3_add_component(sat_smt
     ba_internalize.cpp
     ba_pb.cpp
     ba_solver.cpp
-    ba_xor.cpp
     bv_ackerman.cpp
     bv_delay_internalize.cpp
     bv_internalize.cpp
@@ -41,7 +40,6 @@ z3_add_component(sat_smt
     sat_dual_solver.cpp
     sat_th.cpp
     user_solver.cpp
-    xor_solver.cpp
   COMPONENT_DEPENDENCIES
     sat
     ast

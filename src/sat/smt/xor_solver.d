@@ -416,3 +416,24 @@ namespace sat {
 
 
 }
+
+
+        // xr specific functionality
+        lbool add_assign(xr& x, literal alit);
+        void get_xr_antecedents(literal l, unsigned index, justification js, literal_vector& r);
+        void get_antecedents(literal l, xr const& x, literal_vector & r);
+        void simplify(xr& x);
+        void extract_xor();
+        void merge_xor();
+        bool clausify(xr& x);
+        void flush_roots(xr& x);
+        lbool eval(xr const& x) const;
+        lbool eval(model const& m, xr const& x) const;
+        bool validate_conflict(xr const& x) const;
+        constraint* add_xr(literal_vector const& lits, bool learned);
+        literal     add_xor_def(literal_vector& lits, bool learned = false);
+        bool        all_distinct(xr const& x);
+        expr_ref get_xor(std::function<expr_ref(sat::literal)>& l2e, xr const& x);
+        void add_xr(literal_vector const& lits);
+
+#include "sat/sat_xor_finder.h"

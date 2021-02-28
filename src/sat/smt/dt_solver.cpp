@@ -236,10 +236,14 @@ namespace dt {
     */
     void solver::mk_split(theory_var v, bool is_final) {
         m_stats.m_splits++;
-
         v = m_find.find(v);
         enode* n = var2enode(v);
         sort* srt = n->get_sort();
+        if (dt.is_enum_sort(srt)) {
+            mk_enum_split(v);
+            return;
+        }
+                    
         func_decl* non_rec_c = dt.get_non_rec_constructor(srt);
         unsigned non_rec_idx = dt.get_constructor_idx(non_rec_c);
         var_data* d = m_var_data[v];
@@ -288,6 +292,32 @@ namespace dt {
         sat::literal lit = mk_literal(r_app);
         s().set_phase(lit);
     }
+
+    void solver::mk_enum_split(theory_var v) {
+        enode* n = var2enode(v);
+        var_data* d = m_var_data[v];
+        sort* srt = n->get_sort();
+        auto const& constructors = *dt.get_datatype_constructors(srt);
+        unsigned sz = constructors.size();
+        int start = s().rand()();
+        m_lits.reset();
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned j = (i + start) % sz;
+            sat::literal lit = eq_internalize(n->get_expr(), m.mk_const(constructors[j]));
+            switch (s().value(lit)) {
+            case l_undef:
+                s().set_phase(lit);
+                return;
+            case l_true:
+                return;
+            case l_false:
+                m_lits.push_back(~lit);
+                break;
+            }
+        }
+        ctx.set_conflict(euf::th_propagation::conflict(*this, m_lits));
+    }
+
 
     void solver::apply_sort_cnstr(enode* n, sort* s) {
         force_push();
@@ -406,7 +436,7 @@ namespace dt {
 
         CTRACE("dt", d->m_recognizers.empty(), ctx.display(tout););
         SASSERT(!d->m_recognizers.empty());
-        literal_vector lits;
+        m_lits.reset();
         enode_pair_vector eqs;
         unsigned idx = 0;
         for (enode* r : d->m_recognizers) {
@@ -414,7 +444,7 @@ namespace dt {
                 return; // nothing to be propagated
             if (r && ctx.value(r) == l_false) {
                 SASSERT(r->num_args() == 1);
-                lits.push_back(~ctx.enode2literal(r));
+                m_lits.push_back(~ctx.enode2literal(r));
                 if (n != r->get_arg(0)) {
                     // Argument of the current recognizer is not necessarily equal to n.
                     // This can happen when n and r->get_arg(0) are in the same equivalence class.
@@ -432,10 +462,10 @@ namespace dt {
         }
         TRACE("dt", tout << "propagate " << num_unassigned << " eqs: " << eqs.size() << "\n";);
         if (num_unassigned == 0)
-            ctx.set_conflict(euf::th_propagation::conflict(*this, lits, eqs));
+            ctx.set_conflict(euf::th_propagation::conflict(*this, m_lits, eqs));
         else if (num_unassigned == 1) {
             // propagate remaining recognizer
-            SASSERT(!lits.empty());
+            SASSERT(!m_lits.empty());
             enode* r = d->m_recognizers[unassigned_idx];
             literal consequent;
             if (r)
@@ -446,7 +476,7 @@ namespace dt {
                 app_ref rec_app(m.mk_app(rec, n->get_expr()), m);
                 consequent = mk_literal(rec_app);
             }
-            ctx.propagate(consequent, euf::th_propagation::propagate(*this, lits, eqs, consequent));
+            ctx.propagate(consequent, euf::th_propagation::propagate(*this, m_lits, eqs, consequent));
         }
         else if (get_config().m_dt_lazy_splits == 0 || (!srt->is_infinite() && get_config().m_dt_lazy_splits == 1))
             // there are more than 2 unassigned recognizers...

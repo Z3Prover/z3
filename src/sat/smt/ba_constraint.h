@@ -24,13 +24,11 @@ namespace ba {
 
     enum class tag_t {
         card_t,
-        pb_t,
-        xr_t
+        pb_t
     };
 
     class card;
     class pb;
-    class xr;
     class pb_base;
 
     inline lbool value(sat::model const& m, literal l) { return l.sign() ? ~m[l.var()] : m[l.var()]; }
@@ -82,14 +80,11 @@ namespace ba {
         size_t obj_size() const { return m_obj_size; }
         card& to_card();
         pb&  to_pb();
-        xr& to_xr();
         card const& to_card() const;
         pb const&  to_pb() const;
-        xr const& to_xr() const;
         pb_base const& to_pb_base() const; 
         bool is_card() const { return m_tag == tag_t::card_t; }
         bool is_pb() const { return m_tag == tag_t::pb_t; }
-        bool is_xr() const { return m_tag == tag_t::xr_t; }
 
         bool is_watched(solver_interface const& s, literal lit) const;
         void unwatch_literal(solver_interface& s, literal lit);
