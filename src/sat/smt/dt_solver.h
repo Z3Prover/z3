@@ -129,6 +129,8 @@ namespace dt {
         bool visited(expr* e) override;
         bool post_visit(expr* e, bool sign, bool root) override;
         void clone_var(solver& src, theory_var v);
+
+        sat::literal mk_recognizer_constructor_literal(func_decl* c, euf::enode* n);
         
     public:
         solver(euf::solver& ctx, theory_id id);

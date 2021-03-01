@@ -80,6 +80,7 @@ namespace smt {
         enode_pair_vector     m_used_eqs; // conflict, if any
         parent_tbl            m_parent; // parent explanation for occurs_check
         svector<stack_entry>  m_stack; // stack for DFS for occurs_check
+        literal_vector        m_lits;
 
         void clear_mark();
 
@@ -108,6 +109,8 @@ namespace smt {
         void explain_is_child(enode* parent, enode* child);
 
         void mk_split(theory_var v);
+        literal mk_recognizer_constructor_literal(func_decl* c, enode* n);
+        void mk_enum_split(theory_var v);
 
         void display_var(std::ostream & out, theory_var v) const;
 

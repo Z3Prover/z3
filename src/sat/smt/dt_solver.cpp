@@ -135,13 +135,13 @@ namespace dt {
        ...
        (= (acc_m n) a_m)
     */
-    void solver::assert_accessor_axioms(enode* n) {
-        m_stats.m_assert_accessor++;
+    void solver::assert_accessor_axioms(enode* n) {        
         SASSERT(is_constructor(n));
         expr* e = n->get_expr();
         func_decl* d = n->get_decl();
         unsigned i = 0;
         for (func_decl* acc : *dt.get_constructor_accessors(d)) {
+            m_stats.m_assert_accessor++;
             app_ref acc_app(m.mk_app(acc, e), m);
             assert_eq_axiom(n->get_arg(i), acc_app);
             ++i;
@@ -214,12 +214,9 @@ namespace dt {
             d->m_constructor = n;
             assert_accessor_axioms(n);
         }
-        else if (is_update_field(n)) {
-            assert_update_field_axioms(n);
-        }
-        else if (is_recognizer(n))
-            ;
-        else {
+        else if (is_update_field(n)) 
+            assert_update_field_axioms(n);        
+        else if (!is_recognizer(n)) {
             sort* s = n->get_sort();
             if (dt.get_datatype_num_constructors(s) == 1)
                 assert_is_constructor_axiom(n, dt.get_datatype_constructors(s)->get(0));
@@ -245,52 +242,33 @@ namespace dt {
         }
                     
         func_decl* non_rec_c = dt.get_non_rec_constructor(srt);
-        unsigned non_rec_idx = dt.get_constructor_idx(non_rec_c);
+        unsigned non_rec_idx = dt.get_constructor_idx(non_rec_c);        
         var_data* d = m_var_data[v];
-        SASSERT(d->m_constructor == nullptr);
+        enode* recognizer = d->m_recognizers.get(non_rec_idx, nullptr);
         func_decl* r = nullptr;
-
+        SASSERT(!d->m_constructor);
+        SASSERT(!recognizer || ctx.value(recognizer) == l_false || !is_final);
+        
         TRACE("dt", tout << "non_rec_c: " << non_rec_c->get_name() << " #rec: " << d->m_recognizers.size() << "\n";);
 
-
-        enode* recognizer = d->m_recognizers.get(non_rec_idx, nullptr);
-
-        if (recognizer == nullptr)
-            r = dt.get_constructor_is(non_rec_c);
-        else if (ctx.value(recognizer) != l_false) {
-            // if is l_true, then we are done
-            // otherwise wait for recognizer to be assigned.
-            if (is_final) s().display(std::cout);
-            VERIFY(!is_final);
-            return;
+        if (!recognizer && non_rec_c->get_arity() == 0) {
+            sat::literal eq = eq_internalize(n->get_expr(), m.mk_const(non_rec_c));
+            s().set_phase(eq);
+            if (s().value(eq) == l_false)
+                mk_enum_split(v);
         }
-        else {
-            // look for a slot of d->m_recognizers that is 0, or it is not marked as relevant and is unassigned.
-            unsigned idx = 0;
-            auto const& constructors = *dt.get_datatype_constructors(srt);
+        else if (!recognizer) 
+            mk_recognizer_constructor_literal(non_rec_c, n);        
+        else if (ctx.value(recognizer) == l_false) 
+            mk_enum_split(v);
+    }
 
-            for (enode* curr : d->m_recognizers) {
-                if (curr == nullptr) {
-                    // found empty slot...
-                    r = dt.get_constructor_is(constructors[idx]);
-                    break;
-                }
-                else if (ctx.value(curr) != l_false) {
-                    VERIFY(!is_final);
-                    return;
-                }
-                ++idx;
-            }
-            if (r == nullptr) {
-                VERIFY(!is_final);
-                return; // all recognizers are asserted to false... conflict will be detected...
-            }
-        }
-        SASSERT(r != nullptr);
+    sat::literal solver::mk_recognizer_constructor_literal(func_decl* c, euf::enode* n) {
+        func_decl* r = dt.get_constructor_is(c);
         app_ref r_app(m.mk_app(r, n->get_expr()), m);
-        TRACE("dt", tout << "creating split: " << mk_pp(r_app, m) << "\n";);
         sat::literal lit = mk_literal(r_app);
         s().set_phase(lit);
+        return lit;
     }
 
     void solver::mk_enum_split(theory_var v) {
@@ -301,53 +279,58 @@ namespace dt {
         unsigned sz = constructors.size();
         int start = s().rand()();
         m_lits.reset();
+        sat::literal lit;
         for (unsigned i = 0; i < sz; ++i) {
             unsigned j = (i + start) % sz;
-            sat::literal lit = eq_internalize(n->get_expr(), m.mk_const(constructors[j]));
-            switch (s().value(lit)) {
-            case l_undef:
-                s().set_phase(lit);
-                return;
-            case l_true:
-                return;
-            case l_false:
+            func_decl* c = constructors[j];
+            if (c->get_arity() > 0) {
+                enode* curr = d->m_recognizers.get(j, nullptr);
+                if (curr && ctx.value(curr) != l_false)
+                    return;
+                lit = mk_recognizer_constructor_literal(c, n);
+                if (!curr)                     
+                    return;               
+                if (s().value(lit) != l_false)
+                    return;
                 m_lits.push_back(~lit);
-                break;
+            }
+            else {
+                lit = eq_internalize(n->get_expr(), m.mk_const(c));
+                switch (s().value(lit)) {
+                case l_undef:
+                    s().set_phase(lit);
+                    return;
+                case l_true:
+                    return;
+                case l_false:
+                    m_lits.push_back(~lit);
+                    break;
+                }
             }
         }
         ctx.set_conflict(euf::th_explain::conflict(*this, m_lits));
     }
 
-
+    /**
+     * Remark: If s is an infinite sort, then it is not necessary to create
+     * a theory variable. 
+     * 
+     * Actually, when the logical context has quantifiers, it is better to 
+     * disable this optimization.
+     * Example:
+     *
+     *   (forall (l list) (a Int) (= (len (cons a l)) (+ (len l) 1)))
+     *   (assert (> (len a) 1)
+     *   
+     * If the theory variable is not created for 'a', then a wrong model will be generated.
+     * 
+     */
     void solver::apply_sort_cnstr(enode* n, sort* s) {
+        TRACE("dt", tout << "apply_sort_cnstr: #" << ctx.bpp(n) << "\n";);
         force_push();
-        // Remark: If s is an infinite sort, then it is not necessary to create
-        // a theory variable. 
-        // 
-        // Actually, when the logical context has quantifiers, it is better to 
-        // disable this optimization.
-        // Example:
-        // 
-        //   (forall (l list) (a Int) (= (len (cons a l)) (+ (len l) 1)))
-        //   (assert (> (len a) 1)
-        //   
-        // If the theory variable is not created for 'a', then a wrong model will be generated.
-        TRACE("dt", tout << "apply_sort_cnstr: #" << n->get_expr_id() << " " << mk_pp(n->get_expr(), m) << "\n";);
-        TRACE("dt_bug",
-            tout << "apply_sort_cnstr:\n" << mk_pp(n->get_expr(), m) << " ";
-        tout << dt.is_datatype(s) << " ";
-        if (dt.is_datatype(s)) tout << "is-infinite: " << s->is_infinite() << " ";
-        if (dt.is_datatype(s)) tout << "attached: " << is_attached_to_var(n) << " ";
-        tout << "\n";);
-
-        if (!is_attached_to_var(n) &&
-            (/*ctx.has_quantifiers()*/ true ||
-                (dt.is_datatype(s) && dt.has_nested_arrays()) ||
-                (dt.is_datatype(s) && !s->is_infinite()))) {
-            mk_var(n);
-        }
+        if (!is_attached_to_var(n))
+            mk_var(n);        
     }
-
 
     void solver::new_eq_eh(euf::th_eq const& eq) {
         force_push();
