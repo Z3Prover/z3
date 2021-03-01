@@ -956,10 +956,6 @@ namespace smt {
         v                     = m_find.find(v);
         enode * n             = get_enode(v);
         sort * s              = n->get_sort();
-        if (m_util.is_enum_sort(s)) {
-            mk_enum_split(v);
-            return;
-        }
         func_decl * non_rec_c = m_util.get_non_rec_constructor(s); 
         unsigned non_rec_idx  = m_util.get_constructor_idx(non_rec_c);
         var_data * d          = m_var_data[v];
@@ -1019,55 +1015,5 @@ namespace smt {
         ctx.mark_as_relevant(bv);
     }
 
-    literal theory_datatype::mk_recognizer_constructor_literal(func_decl* c, enode* n) {
-        func_decl* r = m_util.get_constructor_is(c);
-        app_ref r_app(m.mk_app(r, n->get_expr()), m);
-        bool_var bv     = ctx.get_bool_var(r_app);
-        ctx.set_true_first_flag(bv);
-        ctx.mark_as_relevant(bv);
-        return literal(bv, false);
-    }
-
-
-    void theory_datatype::mk_enum_split(theory_var v) {
-        enode* n = get_enode(v);
-        var_data* d = m_var_data[v];
-        sort* srt = n->get_sort();
-        auto const& constructors = *m_util.get_datatype_constructors(srt);
-        unsigned sz = constructors.size();
-        int start = ctx.get_random_value();
-        m_lits.reset();
-        literal lit;
-        for (unsigned i = 0; i < sz; ++i) {
-            unsigned j = (i + start) % sz;
-            func_decl* c = constructors[j];
-            if (c->get_arity() > 0) {
-                enode* curr = d->m_recognizers.get(j, nullptr);
-                if (curr && ctx.get_assignment(curr) != l_false)
-                    return;
-                lit = mk_recognizer_constructor_literal(c, n);
-                if (!curr)                     
-                    return;               
-                if (ctx.get_assignment(lit) != l_false)
-                    return;
-                m_lits.push_back(~lit);
-            }
-            else {
-                lit = mk_eq(n->get_expr(), m.mk_const(c), false);
-                switch (ctx.get_assignment(lit)) {
-                case l_undef:
-                    ctx.set_true_first_flag(lit.var());
-                    return;
-                case l_true:
-                    return;
-                case l_false:
-                    m_lits.push_back(~lit);
-                    break;
-                }
-            }
-        }
-        region& reg = ctx.get_region();
-        ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), reg, m_lits.size(), m_lits.c_ptr(), 0, nullptr)));
-    }
 
 };

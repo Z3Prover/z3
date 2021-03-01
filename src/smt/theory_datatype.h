@@ -109,8 +109,6 @@ namespace smt {
         void explain_is_child(enode* parent, enode* child);
 
         void mk_split(theory_var v);
-        literal mk_recognizer_constructor_literal(func_decl* c, enode* n);
-        void mk_enum_split(theory_var v);
 
         void display_var(std::ostream & out, theory_var v) const;
 
