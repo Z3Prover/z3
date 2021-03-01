@@ -67,18 +67,16 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
             m_args.reset();
             bool arg_differs = false, has_all_args = true;
             for (expr* arg : *c) {
-                expr* d = m_cache[arg];
-                if (d) {
-                    if (has_all_args) {
+                if (has_all_args) {
+                    if (expr* d = m_cache[arg]) {
                         m_args.push_back(d);
                         arg_differs |= arg != d;
                         SASSERT(arg->get_sort() == d->get_sort());
+                        continue;
                     }
                 }
-                else {
-                    m_todo.push_back(arg);
-                    has_all_args = false;
-                }
+                m_todo.push_back(arg);
+                has_all_args = false;
             }
             if (has_all_args) {
                 if (arg_differs) {
