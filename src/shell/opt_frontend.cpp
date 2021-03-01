@@ -84,7 +84,7 @@ static void STD_CALL on_ctrl_c(int) {
 
 static void on_timeout() {
     display_statistics();
-    exit(0);
+    _Exit(0);
 }
 
 static unsigned parse_opt(std::istream& in, opt_format f) {
