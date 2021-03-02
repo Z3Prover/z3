@@ -83,7 +83,7 @@ namespace euf {
             if (!is_app(e))
                 continue;
             expr* c = nullptr, *th = nullptr, *el = nullptr;
-            if (m.is_ite(e, c, th, el)) {
+            if (m.is_ite(e, c, th, el) && get_enode(c)) {
                 sat::literal lit = expr2literal(c);
                 todo.push_back(c);
                 switch (s().value(lit)) {
