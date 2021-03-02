@@ -25,9 +25,8 @@ Notes:
 #include "tactic/bv/bv_size_reduction_tactic.h"
 #include "tactic/core/ctx_simplify_tactic.h"
 #include "tactic/smtlogics/qfbv_tactic.h"
-#include "tactic/smtlogics/smt_tactic_select.h"
+#include "tactic/smtlogics/smt_tactic.h"
 #include "ackermannization/ackermannize_bv_tactic.h"
-#include "smt/tactic/smt_tactic.h"
 
 static tactic * mk_qfaufbv_preamble(ast_manager & m, params_ref const & p) {
 
@@ -60,7 +59,7 @@ tactic * mk_qfaufbv_tactic(ast_manager & m, params_ref const & p) {
 
     tactic * st = using_params(
         and_then(preamble_st, 
-                 cond(mk_is_qfbv_probe(), mk_qfbv_tactic(m), mk_smt_tactic_select(m, p))), main_p);
+                 cond(mk_is_qfbv_probe(), mk_qfbv_tactic(m), mk_smt_tactic(m, p))), main_p);
     
     st->updt_params(p);
     return st;

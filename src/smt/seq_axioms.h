@@ -97,6 +97,8 @@ namespace smt {
         literal mk_ge(expr* e, rational const& k) { return mk_ge_e(e, a.mk_int(k)); }
         literal mk_le(expr* e, rational const& k) { return mk_le_e(e, a.mk_int(k)); }
 
+        seq::axioms& ax() { return m_ax; }
+
     };
 
 };

@@ -272,6 +272,7 @@ theory_seq::theory_seq(context& ctx):
     m_autil(m),
     m_sk(m, m_rewrite),
     m_ax(*this, m_rewrite),
+    m_eq(m, m_ax.ax()),
     m_regex(*this),
     m_arith_value(m),
     m_trail_stack(*this),
@@ -285,6 +286,12 @@ theory_seq::theory_seq(context& ctx):
     m_new_solution(false),
     m_new_propagation(false) {
 
+    std::function<void(bool, expr_ref_vector const&)> _add_consequence = 
+        [&](bool uses_eq, expr_ref_vector const& clause) { 
+        add_consequence(uses_eq, clause);
+    };
+
+    m_eq.set_add_consequence(_add_consequence);
 }
 
 theory_seq::~theory_seq() {
@@ -674,8 +681,8 @@ bool theory_seq::check_lts() {
 
 bool theory_seq::is_solved() {
     if (!m_eqs.empty()) {
-        TRACE("seq", tout << "(seq.giveup " << m_eqs[0].ls() << " = " << m_eqs[0].rs() << " is unsolved)\n";);
-        IF_VERBOSE(10, verbose_stream() << "(seq.giveup " << m_eqs[0].ls() << " = " << m_eqs[0].rs() << " is unsolved)\n";);
+        TRACE("seq", tout << "(seq.giveup " << m_eqs[0].ls << " = " << m_eqs[0].rs << " is unsolved)\n";);
+        IF_VERBOSE(10, verbose_stream() << "(seq.giveup " << m_eqs[0].ls << " = " << m_eqs[0].rs << " is unsolved)\n";);
         return false;
     }
     if (!m_ncs.empty()) {
@@ -1053,7 +1060,7 @@ bool theory_seq::reduce_length_eq(expr_ref_vector const& ls, expr_ref_vector con
         rhs.append(rs.size()-1, rs.c_ptr() + 1);
         SASSERT(!lhs.empty() || !rhs.empty());
         deps = mk_join(deps, lits);
-        m_eqs.push_back(eq(m_eq_id++, lhs, rhs, deps));
+        m_eqs.push_back(depeq(m_eq_id++, lhs, rhs, deps));
         TRACE("seq", tout << "Propagate equal lengths " << l << " " << r << "\n";);
         propagate_eq(deps, lits, l, r, true);
         return true;
@@ -1067,7 +1074,7 @@ bool theory_seq::reduce_length_eq(expr_ref_vector const& ls, expr_ref_vector con
         SASSERT(!lhs.empty() || !rhs.empty());
         deps = mk_join(deps, lits);
         TRACE("seq", tout << "Propagate equal lengths " << l << " " << r << "\n" << "ls: " << ls << "\nrs: " << rs << "\n";);
-        m_eqs.push_back(eq(m_eq_id++, lhs, rhs, deps));
+        m_eqs.push_back(depeq(m_eq_id++, lhs, rhs, deps));
         propagate_eq(deps, lits, l, r, true);
         return true;
     }
@@ -1145,12 +1152,12 @@ bool theory_seq::reduce_length(unsigned i, unsigned j, bool front, expr_ref_vect
         lhs.append(l2, ls2);
         rhs.append(r2, rs2);
         for (auto const& e : m_eqs) {
-            if (e.ls() == lhs && e.rs() == rhs) {
+            if (e.ls == lhs && e.rs == rhs) {
                 return false;
             }
         }
         deps = mk_join(deps, lit);                
-        m_eqs.push_back(eq(m_eq_id++, lhs, rhs, deps));
+        m_eqs.push_back(depeq(m_eq_id++, lhs, rhs, deps));
         propagate_eq(deps, l, r, true);
         TRACE("seq", tout << "propagate eq\n" << m_eqs.size() << "\nlhs: " << lhs << "\nrhs: " << rhs << "\n";);
         return true;
@@ -1653,11 +1660,11 @@ std::ostream& theory_seq::display_equations(std::ostream& out) const {
     return out;
 }
 
-std::ostream& theory_seq::display_equation(std::ostream& out, eq const& e) const {
+std::ostream& theory_seq::display_equation(std::ostream& out, depeq const& e) const {
     bool first = true;
-    for (expr* a : e.ls()) { if (first) first = false; else out << "\n"; out << mk_bounded_pp(a, m, 2); }
+    for (expr* a : e.ls) { if (first) first = false; else out << "\n"; out << mk_bounded_pp(a, m, 2); }
     out << " = ";
-    for (expr* a : e.rs()) { if (first) first = false; else out << "\n"; out << mk_bounded_pp(a, m, 2); }
+    for (expr* a : e.rs) { if (first) first = false; else out << "\n"; out << mk_bounded_pp(a, m, 2); }
     out << " <- \n";
     return display_deps(out, e.dep());    
 }
@@ -2017,11 +2024,9 @@ app* theory_seq::mk_value(app* e) {
 void theory_seq::validate_model(model& mdl) {
     return;
     for (auto const& eq : m_eqs) {
-        expr_ref_vector ls = eq.ls();
-        expr_ref_vector rs = eq.rs();
-        sort* srt = ls[0]->get_sort();
-        expr_ref l(m_util.str.mk_concat(ls, srt), m);
-        expr_ref r(m_util.str.mk_concat(rs, srt), m);
+        sort* srt = eq.ls[0]->get_sort();
+        expr_ref l(m_util.str.mk_concat(eq.ls, srt), m);
+        expr_ref r(m_util.str.mk_concat(eq.rs, srt), m);
         if (!mdl.are_equal(l, r)) {
             IF_VERBOSE(0, verbose_stream() << "equality failed: " << l << " = " << r << "\nbut\n" << mdl(l) << " != " << mdl(r) << "\n");
         }

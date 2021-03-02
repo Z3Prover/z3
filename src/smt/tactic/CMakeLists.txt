@@ -1,12 +1,12 @@
 z3_add_component(smt_tactic
   SOURCES
     ctx_solver_simplify_tactic.cpp
-    smt_tactic.cpp
+    smt_tactic_core.cpp
     unit_subsumption_tactic.cpp
   COMPONENT_DEPENDENCIES
     smt
   TACTIC_HEADERS
     ctx_solver_simplify_tactic.h
-    smt_tactic.h
+    smt_tactic_core.h
     unit_subsumption_tactic.h
 )

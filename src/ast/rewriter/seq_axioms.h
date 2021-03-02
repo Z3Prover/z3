@@ -48,11 +48,6 @@ namespace seq {
         expr_ref mk_seq_eq(expr* a, expr* b);
         expr_ref mk_eq_empty(expr* e);
 
-        expr_ref mk_ge(expr* x, int n) { return mk_ge_e(x, a.mk_int(n)); }
-        expr_ref mk_le(expr* x, int n) { return mk_le_e(x, a.mk_int(n)); }
-        expr_ref mk_ge(expr* x, rational const& n) { return mk_ge_e(x, a.mk_int(n)); }
-        expr_ref mk_le(expr* x, rational const& n) { return mk_le_e(x, a.mk_int(n)); }
-
         expr_ref mk_ge_e(expr* x, expr* y);
         expr_ref mk_le_e(expr* x, expr* y);
 
@@ -110,6 +105,11 @@ namespace seq {
 
         expr_ref length_limit(expr* s, unsigned k);
         expr_ref is_digit(expr* ch);
+
+        expr_ref mk_ge(expr* x, int n) { return mk_ge_e(x, a.mk_int(n)); }
+        expr_ref mk_le(expr* x, int n) { return mk_le_e(x, a.mk_int(n)); }
+        expr_ref mk_ge(expr* x, rational const& n) { return mk_ge_e(x, a.mk_int(n)); }
+        expr_ref mk_le(expr* x, rational const& n) { return mk_le_e(x, a.mk_int(n)); }
 
     };
 

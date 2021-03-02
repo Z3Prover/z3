@@ -25,7 +25,7 @@ Notes:
 #include "tactic/smtlogics/qfnra_tactic.h"
 #include "sat/tactic/sat_tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
-#include "smt/tactic/smt_tactic.h"
+#include "tactic/smtlogics/smt_tactic.h"
 #include "ackermannization/ackermannize_bv_tactic.h"
 
 #include "tactic/fpa/qffp_tactic.h"

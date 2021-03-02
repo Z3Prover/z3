@@ -24,9 +24,9 @@ Revision History:
 #include "qe/qe_lite.h"
 #include "qe/qsat.h"
 #include "tactic/core/ctx_simplify_tactic.h"
-#include "smt/tactic/smt_tactic.h"
 #include "tactic/core/elim_term_ite_tactic.h"
 #include "tactic/arith/probe_arith.h"
+#include "tactic/smtlogics/smt_tactic.h"
 
 static tactic * mk_quant_preprocessor(ast_manager & m, bool disable_gaussian = false) {
     params_ref pull_ite_p;

@@ -21,6 +21,7 @@ Revision History:
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
+#include "ast/rewriter/seq_eq_solver.h"
 #include "ast/ast_trail.h"
 #include "util/scoped_vector.h"
 #include "util/scoped_ptr_vector.h"
@@ -146,26 +147,21 @@ namespace smt {
         };
 
         // Asserted or derived equality with dependencies
-        class eq {
+        class depeq : public seq::eq {
             unsigned         m_id;
-            expr_ref_vector  m_lhs;
-            expr_ref_vector  m_rhs;
             dependency*      m_dep;
-        public:
-            
-            eq(unsigned id, expr_ref_vector& l, expr_ref_vector& r, dependency* d):
-                m_id(id), m_lhs(l), m_rhs(r), m_dep(d) {}
-            expr_ref_vector const& ls() const { return m_lhs; }
-            expr_ref_vector const& rs() const { return m_rhs; }
+        public:            
+            depeq(unsigned id, expr_ref_vector& l, expr_ref_vector& r, dependency* d):
+                eq(l, r), m_id(id), m_dep(d) {}
             dependency* dep() const { return m_dep; }
             unsigned id() const { return m_id; }
         };
 
-        eq mk_eqdep(expr* l, expr* r, dependency* dep) {
+        depeq mk_eqdep(expr* l, expr* r, dependency* dep) {
             expr_ref_vector ls(m), rs(m);
             m_util.str.get_concat_units(l, ls);
             m_util.str.get_concat_units(r, rs);
-            return eq(m_eq_id++, ls, rs, dep);
+            return depeq(m_eq_id++, ls, rs, dep);
         }        
 
         // equalities that are decomposed by conacatenations
@@ -324,7 +320,7 @@ namespace smt {
 
         dependency_manager         m_dm;
         solution_map               m_rep;        // unification representative.
-        scoped_vector<eq>          m_eqs;        // set of current equations.
+        scoped_vector<depeq>       m_eqs;        // set of current equations.
         scoped_vector<ne>          m_nqs;        // set of current disequalities.
         scoped_vector<nc>          m_ncs;        // set of non-contains constraints.
         scoped_vector<expr*>       m_lts;        // set of asserted str.<, str.<= literals
@@ -357,6 +353,7 @@ namespace smt {
         arith_util       m_autil;
         seq::skolem      m_sk;
         seq_axioms       m_ax;
+        seq::eq_solver   m_eq;
         seq_regex        m_regex;
         arith_value      m_arith_value;
         th_trail_stack   m_trail_stack;
@@ -432,28 +429,29 @@ namespace smt {
         bool fixed_length(bool is_zero = false);
         bool fixed_length(expr* e, bool is_zero);
         bool branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units);
-        bool branch_variable_eq(eq const& e);
-        bool branch_binary_variable(eq const& e);
+        bool branch_variable_eq(depeq const& e);
+        bool branch_binary_variable(depeq const& e);
         bool can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector const& rs);
         bool can_align_from_rhs(expr_ref_vector const& ls, expr_ref_vector const& rs);
-        bool branch_ternary_variable_rhs(eq const& e);
-        bool branch_ternary_variable_lhs(eq const& e);
+        bool branch_ternary_variable_rhs(depeq const& e);
+        bool branch_ternary_variable_lhs(depeq const& e);
         literal mk_alignment(expr* e1, expr* e2);
-        bool branch_quat_variable(eq const& e);
-        bool len_based_split(eq const& e);
+        bool branch_quat_variable(depeq const& e);
+        bool len_based_split(depeq const& e);
         bool is_unit_eq(expr_ref_vector const& ls, expr_ref_vector const& rs);
         bool propagate_length_coherence(expr* e);  
         bool split_lengths(dependency* dep,
                            expr_ref_vector const& ls, expr_ref_vector const& rs, 
                            vector<rational> const& ll, vector<rational> const& rl);
         bool set_empty(expr* x);
-        bool is_complex(eq const& e);
+        bool is_complex(depeq const& e);
         lbool regex_are_equal(expr* r1, expr* r2);
         void add_unhandled_expr(expr* e);
 
         bool check_extensionality();
         bool check_contains();
         bool check_lts();
+        dependency* m_eq_deps { nullptr };
         bool solve_eqs(unsigned start);
         bool solve_eq(unsigned idx);
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);
@@ -560,6 +558,7 @@ namespace smt {
         void deque_axiom(expr* e);
         void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, literal l4 = null_literal, literal l5 = null_literal);        
         void add_axiom(literal_vector& lits);
+        void add_consequence(bool uses_eq, expr_ref_vector const& clause);
         
         bool has_length(expr *e) const { return m_has_length.contains(e); }
         void add_length(expr* e, expr* l);
@@ -613,7 +612,7 @@ namespace smt {
 
         // diagnostics
         std::ostream& display_equations(std::ostream& out) const;
-        std::ostream& display_equation(std::ostream& out, eq const& e) const;
+        std::ostream& display_equation(std::ostream& out, depeq const& e) const;
         std::ostream& display_disequations(std::ostream& out) const;
         std::ostream& display_disequation(std::ostream& out, ne const& e) const;
         std::ostream& display_deps(std::ostream& out, dependency* deps) const;
