@@ -302,8 +302,8 @@ namespace opt {
         inf_eps get_upper_as_num(unsigned idx);
 
 
-        struct is_bv;
-        bool probe_bv();
+        struct is_fd;
+        bool probe_fd();
 
         struct is_propositional_fn;
         bool is_propositional(expr* e);

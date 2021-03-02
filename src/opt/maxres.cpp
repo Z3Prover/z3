@@ -869,7 +869,7 @@ public:
         m_pivot_on_cs =             p.maxres_pivot_on_correction_set();
         m_wmax =                    p.maxres_wmax();
         m_dump_benchmarks =         p.dump_benchmarks();
-        m_enable_lns =              p.enable_lns() && m_c.sat_enabled();
+        m_enable_lns =              p.enable_lns(); 
         m_lns_conflicts =           p.lns_conflicts();
     }
 

@@ -41,7 +41,7 @@ Notes:
 #include "tactic/generic_model_converter.h"
 #include "ackermannization/ackermannize_bv_tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
-#include "qe/qsat.h"
+#include "sat/sat_params.hpp"
 #include "opt/opt_context.h"
 #include "opt/opt_solver.h"
 #include "opt/opt_params.hpp"
@@ -680,20 +680,23 @@ namespace opt {
     }
 
     void context::update_solver() {
-        if (!m_enable_sat || !probe_bv()) {
-            return;
-        }
-        if (m_maxsat_engine != symbol("maxres") &&
-            m_maxsat_engine != symbol("pd-maxres") &&
-            m_maxsat_engine != symbol("bcd2") &&
-            m_maxsat_engine != symbol("sls")) {
-            return;
-        }
-        if (opt_params(m_params).priority() == symbol("pareto")) {
-            return;
-        }
-        if (m.proofs_enabled()) {
-            return;
+        sat_params p(m_params);
+        if (!p.euf()) {
+            if (!m_enable_sat || !probe_fd()) {
+                return;
+            }
+            if (m_maxsat_engine != symbol("maxres") &&
+                m_maxsat_engine != symbol("pd-maxres") &&
+                m_maxsat_engine != symbol("bcd2") &&
+                m_maxsat_engine != symbol("sls")) {
+                return;
+            }
+            if (opt_params(m_params).priority() == symbol("pareto")) {
+                return;
+            }
+            if (m.proofs_enabled()) {
+                return;
+            }
         }
         m_params.set_bool("minimize_core_partial", true);
         m_params.set_bool("minimize_core", true);
@@ -711,28 +714,28 @@ namespace opt {
         }
     }
 
-    struct context::is_bv {
-        struct found {};
+    struct context::is_fd {
+        struct found_fd {};
         ast_manager& m;
         pb_util      pb;
         bv_util      bv;
-        is_bv(ast_manager& m): m(m), pb(m), bv(m) {}
-        void operator()(var *) { throw found(); }
-        void operator()(quantifier *) { throw found(); }
+        is_fd(ast_manager& m): m(m), pb(m), bv(m) {}
+        void operator()(var *) { throw found_fd(); }
+        void operator()(quantifier *) { throw found_fd(); }
         void operator()(app *n) {
             family_id fid = n->get_family_id();
             if (fid != m.get_basic_family_id() &&
                 fid != pb.get_family_id() &&
                 fid != bv.get_family_id() &&
                 (!is_uninterp_const(n) || (!m.is_bool(n) && !bv.is_bv(n)))) {
-                throw found();
+                throw found_fd();
             }
         }        
     };
 
-    bool context::probe_bv() {
+    bool context::probe_fd() {
         expr_fast_mark1 visited;
-        is_bv proc(m);
+        is_fd proc(m);
         try {
             for (objective& obj : m_objectives) {
                 if (obj.m_type != O_MAXSMT) return false;
@@ -749,7 +752,7 @@ namespace opt {
                 quick_for_each_expr(proc, visited, f);
             }
         }
-        catch (const is_bv::found &) {
+        catch (const is_fd::found_fd &) {
             return false;
         }
         return true;
