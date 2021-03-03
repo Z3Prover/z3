@@ -525,6 +525,8 @@ void asserted_formulas::commit(unsigned new_qhead) {
 }
 
 void asserted_formulas::propagate_values() {
+    if (m.proofs_enabled())
+        return;
     flush_cache();
 
     unsigned num_prop = 0;
