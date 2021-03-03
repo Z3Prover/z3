@@ -293,6 +293,7 @@ namespace euf {
         void get_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing);
         void add_antecedent(enode* a, enode* b);
         void add_diseq_antecedent(enode* a, enode* b);
+        void set_eliminated(bool_var v) override;
         void asserted(literal l) override;
         sat::check_result check() override;
         void push() override;

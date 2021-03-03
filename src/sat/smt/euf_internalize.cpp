@@ -128,6 +128,7 @@ namespace euf {
         s().set_external(v);
         s().set_eliminated(v, false);   
 
+
         if (lit.sign()) {
             v = si.add_bool_var(e);
             s().set_external(v);
@@ -265,17 +266,18 @@ namespace euf {
         sat::status st = sat::status::th(m_is_redundant, m.get_basic_family_id());
         expr* c = nullptr, * th = nullptr, * el = nullptr;
         if (!m.is_bool(e) && m.is_ite(e, c, th, el)) {
-            app* a = to_app(e);
-            expr_ref eq_th = mk_eq(a, th);
+            expr_ref eq_th = mk_eq(e, th);
             sat::literal lit_th = mk_literal(eq_th);
             if (th == el) {
                 s().add_clause(1, &lit_th, st);
             }
             else {
                 sat::bool_var v = si.to_bool_var(c);
+                VERIFY(v != sat::null_bool_var);
+                VERIFY(s().is_external(v));
                 SASSERT(v != sat::null_bool_var);
-
-                expr_ref eq_el = mk_eq(a, el);
+                VERIFY(!s().was_eliminated(v));
+                expr_ref eq_el = mk_eq(e, el);
 
                 sat::literal lit_el = mk_literal(eq_el);
                 literal lits1[2] = { literal(v, true),  lit_th };

@@ -328,14 +328,19 @@ namespace sat {
     }
 
     void solver::set_eliminated(bool_var v, bool f) { 
-        if (m_eliminated[v] && !f) 
+        if (m_eliminated[v] == f)
+            return;
+        if (!f) 
             reset_var(v, m_external[v], m_decision[v]);
+        else if (f && m_ext)
+            m_ext->set_eliminated(v);
         m_eliminated[v] = f; 
     }
 
 
     clause* solver::mk_clause(unsigned num_lits, literal * lits, sat::status st) {
         m_model_is_current = false;
+            
         for (unsigned i = 0; i < num_lits; i++) 
             VERIFY(!was_eliminated(lits[i]));
         

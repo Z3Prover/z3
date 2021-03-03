@@ -91,6 +91,7 @@ namespace sat {
         virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r, bool probing) = 0;
         virtual bool is_extended_binary(ext_justification_idx idx, literal_vector & r) { return false; }
         virtual void asserted(literal l) {};
+        virtual void set_eliminated(bool_var v) {};
         virtual check_result check() = 0;
         virtual lbool resolve_conflict() { return l_undef; } // stores result in sat::solver::m_lemma
         virtual void push() = 0;

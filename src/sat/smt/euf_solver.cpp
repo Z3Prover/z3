@@ -279,6 +279,11 @@ namespace euf {
         }
     }
 
+    void solver::set_eliminated(bool_var v) {
+        si.uncache(literal(v, false));
+        si.uncache(literal(v, true));
+    }
+
     void solver::asserted(literal l) {
         expr* e = m_bool_var2expr.get(l.var(), nullptr);
         if (!e) {
