@@ -280,7 +280,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
 
     void cache(app* t, sat::literal l) override {
-        SASSERT(m_num_scopes == 0);
+        force_push();
         SASSERT(!m_app2lit.contains(t));
         SASSERT(!m_lit2app.contains(l.index()));
         m_app2lit.insert(t, l);
@@ -817,6 +817,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         sat::literal result = m_result_stack.back();
         m_result_stack.pop_back();
         if (!result.sign() && m_map.to_bool_var(n) == sat::null_bool_var) {
+            force_push();
             m_map.insert(n, result.var());    
             m_solver.set_external(result.var());
         }
