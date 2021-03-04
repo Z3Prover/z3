@@ -2201,6 +2201,20 @@ br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {
         }
         return BR_DONE;
     }
+    // itos(stoi(s)) -> if s = '0' or .... or s = '9' then s else ""
+    // when |s| <= 1
+    expr* b = nullptr;
+    
+    if (str().is_stoi(a, b) && max_length(b, r) && r <= 1) {
+        expr_ref_vector eqs(m());
+        for (unsigned i = 0; i < 10; ++i) {
+            zstring s('0' + i);
+            eqs.push_back(m().mk_eq(b, str().mk_string(s)));
+        }
+        result = m().mk_or(eqs);
+        result = m().mk_ite(result, b, str().mk_string(symbol("")));
+        return BR_REWRITE2;
+    }
     return BR_FAILED;
 }
 
