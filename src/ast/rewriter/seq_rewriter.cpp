@@ -1869,7 +1869,7 @@ br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& 
             if (s1.length() >= s2.length() + i && 
                 s2 == s1.extract(i, s2.length())) {
                 strs.push_back(c);
-                i += s2.length();
+                i += s2.length() - 1;
             }
             else 
                 strs.push_back(str().mk_unit(str().mk_char(s1, i)));
