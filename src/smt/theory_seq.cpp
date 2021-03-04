@@ -272,7 +272,7 @@ theory_seq::theory_seq(context& ctx):
     m_autil(m),
     m_sk(m, m_rewrite),
     m_ax(*this, m_rewrite),
-    m_eq(m, m_ax.ax()),
+    m_eq(m, *this, m_ax.ax()),
     m_regex(*this),
     m_arith_value(m),
     m_trail_stack(*this),
@@ -285,13 +285,6 @@ theory_seq::theory_seq(context& ctx):
     m_has_seq(m_util.has_seq()),
     m_new_solution(false),
     m_new_propagation(false) {
-
-    std::function<void(bool, expr_ref_vector const&)> _add_consequence = 
-        [&](bool uses_eq, expr_ref_vector const& clause) { 
-        add_consequence(uses_eq, clause);
-    };
-
-    m_eq.set_add_consequence(_add_consequence);
 }
 
 theory_seq::~theory_seq() {
@@ -913,8 +906,12 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
             break;
         expr_ref li(p.first, m);
         expr_ref ri(p.second, m);
-        if (solve_unit_eq(li, ri, deps)) {
-            // no-op
+        seq::eq_ptr r;
+        m_eq_deps = deps;
+        if (m_eq.reduce(li, ri, r)) {
+            if (r) {
+                m_eqs.push_back(mk_eqdep(r->ls, r->rs, deps));
+            }
         }
         else if (m_util.is_seq(li) || m_util.is_re(li)) {
             TRACE("seq_verbose", tout << "inserting " << li << " = " << ri << "\n";);
@@ -1000,15 +997,7 @@ bool theory_seq::reduce_length(expr* l, expr* r, literal_vector& lits) {
 
 
 bool theory_seq::is_var(expr* a) const {
-    return
-        m_util.is_seq(a) &&
-        !m_util.str.is_concat(a) &&
-        !m_util.str.is_empty(a)  &&
-        !m_util.str.is_string(a) &&
-        !m_util.str.is_unit(a) &&
-        !m_util.str.is_itos(a) &&
-        !m_util.str.is_nth_i(a) && 
-        !m.is_ite(a);
+    return m_eq.is_var(a);
 }
 
 

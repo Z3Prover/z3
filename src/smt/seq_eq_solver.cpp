@@ -60,34 +60,26 @@ bool theory_seq::solve_eq(unsigned idx) {
         TRACE("seq", tout << "simplified\n";);
         return true;
     }
+
     if (!ctx.inconsistent() && lift_ite(ls, rs, deps)) {
         return true;
     }
+    seq::eq_ptr r;
+    m_eq_deps = deps;
+    seq::eqr er(ls, rs);
+    if (!ctx.inconsistent() && m_eq.reduce(er, r)) {
+        if (!r) 
+            return true;
+        m_eqs.set(idx, depeq(m_eq_id++, r->ls, r->rs, deps));
+        return false;
+    }
+
     TRACE("seq_verbose", tout << ls << " = " << rs << "\n";);
-    if (ls.empty() && rs.empty()) {
-        return true;
-    }
-    if (!ctx.inconsistent() && solve_unit_eq(ls, rs, deps)) {
-        TRACE("seq", tout << "unit\n";);
-        return true;
-    }
-    if (!ctx.inconsistent() && solve_binary_eq(ls, rs, deps)) {
-        TRACE("seq", tout << "binary\n";);
-        return true;
-    }
     if (!ctx.inconsistent() && solve_nth_eq1(ls, rs, deps)) {
         return true;
     }
     if (!ctx.inconsistent() && solve_nth_eq1(rs, ls, deps)) {
         return true;
-    }
-    seq::eq_ptr r;
-    m_eq_deps = deps;
-    if (!ctx.inconsistent() && m_eq.solve(e, r)) {
-        if (!r) 
-            return true;
-        m_eqs.set(idx, depeq(m_eq_id++, r->ls, r->rs, deps));
-        return false;
     }
     if (!ctx.inconsistent() && solve_itos(rs, ls, deps)) {
         return true;
@@ -95,21 +87,14 @@ bool theory_seq::solve_eq(unsigned idx) {
     if (!ctx.inconsistent() && change) {
         // The propagation step from arithmetic state (e.g. length offset) to length constraints
         TRACE("seq", tout << "inserting equality\n";);
-        expr_ref_vector new_ls(m);
-        if (!m_offset_eq.empty() && find_better_rep(ls, rs, idx, deps, new_ls)) {
-            // Find a better equivalent term for lhs of an equation based on length constraints            
-            m_eqs.push_back(depeq(m_eq_id++, new_ls, rs, deps));
-            return true;
-        }
-        else {
-            m_eqs.set(idx, depeq(m_eq_id++, ls, rs, deps));
-        }
+        m_eqs.set(idx, depeq(m_eq_id++, ls, rs, deps));        
     }
     return false;
 }
 
 void theory_seq::add_consequence(bool uses_eq, expr_ref_vector const& clause) {
     dependency* dep = uses_eq ? m_eq_deps : nullptr;
+    m_new_propagation = true;
     if (clause.size() == 1) {
         propagate_lit(dep, 0, nullptr, mk_literal(clause[0]));
         return;
@@ -126,117 +111,23 @@ void theory_seq::add_consequence(bool uses_eq, expr_ref_vector const& clause) {
     add_axiom(lits);
 }
 
-bool theory_seq::solve_unit_eq(expr* l, expr* r, dependency* deps) {
-    if (l == r) {
-        return true;
-    }
-    if (is_var(l) && !occurs(l, r) && add_solution(l, r, deps)) {
-        return true;
-    }
-    if (is_var(r) && !occurs(r, l) && add_solution(r, l, deps)) {
-        return true;
-    }
-    return false;
-}
-
-bool theory_seq::solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* deps) {
-    if (l.size() == 1 && is_var(l[0]) && !occurs(l[0], r) && add_solution(l[0], mk_concat(r, l[0]->get_sort()), deps)) {
-        return true;
-    }
-    if (r.size() == 1 && is_var(r[0]) && !occurs(r[0], l) && add_solution(r[0], mk_concat(l, r[0]->get_sort()), deps)) {
-        return true;
-    }
-    return false;
-}
-
-bool theory_seq::solve_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep) {
-    ptr_vector<expr> xs, ys;
-    expr_ref x(m), y(m);
-    if (!is_binary_eq(ls, rs, x, xs, ys, y) &&
-        !is_binary_eq(rs, ls, x, xs, ys, y)) {
-        return false;
-    }
-    // Equation is of the form x ++ xs = ys ++ y
-    // where xs, ys are units.
-    if (x != y) {
-        return false;
-    }
-    if (xs.size() != ys.size()) {
-        TRACE("seq", tout << "binary conflict\n";);
-        set_conflict(dep);
-        return false;
-    }
-    if (xs.empty()) {
-        // this should have been solved already
-        UNREACHABLE();
-        return false;
-    }
-
-    // Equation is of the form x ++ xs = ys ++ x
-    // where |xs| = |ys| are units of same length
-    // then xs is a wrap-around of ys
-    // x ++ ab = ba ++ x
-    // 
-    if (xs.size() == 1) {
-        enode* n1 = ensure_enode(xs[0]);
-        enode* n2 = ensure_enode(ys[0]);
-        if (n1->get_root() == n2->get_root()) {
-            return false;
-        }
-        literal eq = mk_eq(xs[0], ys[0], false);
-        switch (ctx.get_assignment(eq)) {
-        case l_false: {
-            literal_vector conflict;
-            conflict.push_back(~eq);
-            TRACE("seq", tout << conflict << "\n";);
-            set_conflict(dep, conflict);
-            break;
-        }
+expr* theory_seq::expr2rep(expr* e) { 
+    if (m.is_bool(e) && ctx.b_internalized(e)) {
+        bool_var b = ctx.get_bool_var(e);
+        switch (ctx.get_assignment(b)) {
         case l_true:
+            return m.mk_true();
+        case l_false:
+            return m.mk_false();
+        default:
             break;
-        case l_undef: 
-            propagate_lit(dep, 0, nullptr, eq);
-            m_new_propagation = true;
-            break;
         }
-    }
-    return false;
+    }        
+    if (!ctx.e_internalized(e))
+        return e;
+    return ctx.get_enode(e)->get_root()->get_expr();
 }
 
-
-bool theory_seq::occurs(expr* a, expr_ref_vector const& b) {
-    for (auto const& elem : b) {
-        if (a == elem || m.is_ite(elem)) return true;
-    }
-    return false;
-}
-
-bool theory_seq::occurs(expr* a, expr* b) {
-     // true if a occurs under an interpreted function or under left/right selector.
-    SASSERT(is_var(a));
-    SASSERT(m_todo.empty());
-    expr* e1 = nullptr, *e2 = nullptr;
-    m_todo.push_back(b);
-    while (!m_todo.empty()) {
-        b = m_todo.back();
-        if (a == b || m.is_ite(b)) {
-            m_todo.reset();
-            return true;
-        }
-        m_todo.pop_back();
-        if (m_util.str.is_concat(b, e1, e2)) {
-            m_todo.push_back(e1);
-            m_todo.push_back(e2);
-        }
-        else if (m_util.str.is_unit(b, e1)) {
-            m_todo.push_back(e1);
-        }
-        else if (m_util.str.is_nth_i(b, e1, e2)) {
-            m_todo.push_back(e1);
-        }
-    }
-    return false;
-}
 
 /**
    \brief
@@ -270,6 +161,7 @@ bool theory_seq::occurs(expr* a, expr* b) {
    TODO: propagate length offsets for last vars
 
 */
+#if 0
 bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector const& rs, unsigned idx,
                                  dependency*& deps, expr_ref_vector & res) {
 
@@ -346,6 +238,7 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
     }
     return false;
 }
+#endif
 
 bool theory_seq::has_len_offset(expr_ref_vector const& ls, expr_ref_vector const& rs, int & offset) {
 
@@ -380,29 +273,9 @@ bool theory_seq::has_len_offset(expr_ref_vector const& ls, expr_ref_vector const
 }
 
 bool theory_seq::len_based_split() {
-
-    if (false && m_offset_eq.propagate() && !m_offset_eq.empty()) {
-        // NB: disabled until find_better_rep is handled.
-#if 0
-        for (unsigned i = m_eqs.size(); i-- > 0; ) {
-            eq const& e = m_eqs[i];
-            expr_ref_vector new_ls(m);
-            dependency *deps = e.dep();
-            if (find_better_rep(e.ls, e.rs, i, deps, new_ls)) {
-                expr_ref_vector rs(m);
-                rs.append(e.rs);
-                m_eqs.set(i, eq(m_eq_id++, new_ls, rs, deps));
-                TRACE("seq", display_equation(tout, m_eqs[i]););
-            }
-        }
-#endif
-    }
-
-    for (auto const& e : m_eqs) {
-        if (len_based_split(e)) {
+    for (auto const& e : m_eqs) 
+        if (len_based_split(e)) 
             return true;
-        }
-    }
     return false;
 }
 
@@ -670,8 +543,8 @@ bool theory_seq::branch_binary_variable(depeq const& e) {
     }
     ptr_vector<expr> xs, ys;
     expr_ref x(m), y(m);
-    if (!is_binary_eq(e.ls, e.rs, x, xs, ys, y) &&
-        !is_binary_eq(e.rs, e.ls, x, xs, ys, y))
+    if (!m_eq.match_binary_eq(e.ls, e.rs, x, xs, ys, y) &&
+        !m_eq.match_binary_eq(e.rs, e.ls, x, xs, ys, y))
         return false;
     if (x == y) {
         return false;
@@ -889,10 +762,8 @@ bool theory_seq::can_align_from_rhs(expr_ref_vector const& ls, expr_ref_vector c
 bool theory_seq::branch_ternary_variable_rhs(depeq const& e) {
     expr_ref_vector xs(m), ys(m);
     expr_ref x(m), y1(m), y2(m);
-    if (!is_ternary_eq_rhs(e.ls, e.rs, x, xs, y1, ys, y2) &&
-        !is_ternary_eq_rhs(e.rs, e.ls, x, xs, y1, ys, y2)) {
+    if (!m_eq.match_ternary_eq_rhs(e.ls, e.rs, x, xs, y1, ys, y2))
         return false;
-    }
     if (m_sk.is_align_l(y1) || m_sk.is_align_r(y1))
         return false;
 
@@ -933,8 +804,7 @@ bool theory_seq::branch_ternary_variable_rhs(depeq const& e) {
 bool theory_seq::branch_ternary_variable_lhs(depeq const& e) {
     expr_ref_vector xs(m), ys(m);
     expr_ref x(m), y1(m), y2(m);
-    if (!is_ternary_eq_lhs(e.ls, e.rs, xs, x, y1, ys, y2) &&
-        !is_ternary_eq_lhs(e.rs, e.ls, xs, x, y1, ys, y2))
+    if (!m_eq.match_ternary_eq_lhs(e.ls, e.rs, xs, x, y1, ys, y2))
         return false;
     if (m_sk.is_align_l(y1) || m_sk.is_align_r(y1))
         return false;
@@ -998,7 +868,7 @@ literal theory_seq::mk_alignment(expr* e1, expr* e2) {
 bool theory_seq::branch_quat_variable(depeq const& e) {
     expr_ref_vector xs(m), ys(m);
     expr_ref x1(m), x2(m), y1(m), y2(m);
-    if (!is_quat_eq(e.ls, e.rs, x1, xs, x2, y1, ys, y2))
+    if (!m_eq.match_quat_eq(e.ls, e.rs, x1, xs, x2, y1, ys, y2))
         return false;
     dependency* dep = e.dep();
 
@@ -1478,150 +1348,7 @@ bool theory_seq::is_unit_eq(expr_ref_vector const& ls, expr_ref_vector const& rs
     }
     return true;
 }
-
-/**
-   match X abc = defg Y, for abc, defg non-empty
-*/
-
-bool theory_seq::is_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x, ptr_vector<expr>& xs, ptr_vector<expr>& ys, expr_ref& y) {
-    if (ls.size() > 1 && is_var(ls[0]) &&
-        rs.size() > 1 && is_var(rs.back())) {
-        xs.reset();
-        ys.reset();
-        x = ls[0];
-        y = rs.back();
-        for (unsigned i = 1; i < ls.size(); ++i) {
-            if (!m_util.str.is_unit(ls[i])) return false;
-        }
-        for (unsigned i = 0; i < rs.size()-1; ++i) {
-            if (!m_util.str.is_unit(rs[i])) return false;
-        }
-        xs.append(ls.size()-1, ls.c_ptr() + 1);
-        ys.append(rs.size()-1, rs.c_ptr());
-        return true;
-    }
-    return false;
-}
-
-/*
-  match: X abc Y..Y' = Z def T..T', where X,Z are variables or concatenation of variables
-*/
-
-bool theory_seq::is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs,
-                            expr_ref& x1, expr_ref_vector& xs, expr_ref& x2,
-                            expr_ref& y1, expr_ref_vector& ys, expr_ref& y2) {
-    if (ls.size() > 1 && is_var(ls[0]) && is_var(ls.back()) &&
-        rs.size() > 1 && is_var(rs[0]) && is_var(rs.back())) {
-        unsigned l_start = 1;
-        sort* srt = ls[0]->get_sort();
-        for (; l_start < ls.size()-1; ++l_start) {
-            if (m_util.str.is_unit(ls[l_start])) break;
-        }
-        if (l_start == ls.size()-1) return false;
-        unsigned l_end = l_start;
-        for (; l_end < ls.size()-1; ++l_end) {
-            if (!m_util.str.is_unit(ls[l_end])) break;
-        }
-        --l_end;
-        if (l_end < l_start) return false;
-        unsigned r_start = 1;
-        for (; r_start < rs.size()-1; ++r_start) {
-            if (m_util.str.is_unit(rs[r_start])) break;
-        }
-        if (r_start == rs.size()-1) return false;
-        unsigned r_end = r_start;
-        for (; r_end < rs.size()-1; ++r_end) {
-            if (!m_util.str.is_unit(rs[r_end])) break;
-        }
-        --r_end;
-        if (r_end < r_start) return false;
-        xs.reset();
-        xs.append(l_end-l_start+1, ls.c_ptr()+l_start);
-        x1 = mk_concat(l_start, ls.c_ptr(), srt);
-        x2 = mk_concat(ls.size()-l_end-1, ls.c_ptr()+l_end+1, srt);
-        ys.reset();
-        ys.append(r_end-r_start+1, rs.c_ptr()+r_start);
-        y1 = mk_concat(r_start, rs.c_ptr(), srt);
-        y2 = mk_concat(rs.size()-r_end-1, rs.c_ptr()+r_end+1, srt);
-        return true;
-    }
-    return false;
-}
-
-/*
-  match: .. X abc  = .. Y def Z
-         where Z is a variable or concatenation of variables
-*/
-
-bool theory_seq::is_ternary_eq_rhs(expr_ref_vector const& ls, expr_ref_vector const& rs, 
-                               expr_ref& x, expr_ref_vector& xs, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2) {
-    if (ls.size() > 1 && rs.size() > 1 && is_var(rs[0]) && is_var(rs.back())) {
-        sort* srt = ls[0]->get_sort();
-        unsigned l_start = ls.size()-1;
-        for (; l_start > 0; --l_start) {
-            if (!m_util.str.is_unit(ls[l_start])) break;
-        }
-        if (l_start == ls.size()-1) return false;
-        ++l_start;
-        unsigned r_end = rs.size()-2;
-        for (; r_end > 0; --r_end) {
-            if (m_util.str.is_unit(rs[r_end])) break;
-        }
-        if (r_end == 0) return false;
-        unsigned r_start = r_end;
-        for (; r_start > 0; --r_start) {
-            if (!m_util.str.is_unit(rs[r_start])) break;
-        }
-        ++r_start;
-
-        xs.reset();
-        xs.append(ls.size()-l_start, ls.c_ptr()+l_start);
-        x = mk_concat(l_start, ls.c_ptr(), srt);
-        ys.reset();
-        ys.append(r_end-r_start+1, rs.c_ptr()+r_start);
-        y1 = mk_concat(r_start, rs.c_ptr(), srt);
-        y2 = mk_concat(rs.size()-r_end-1, rs.c_ptr()+r_end+1, srt);
-        return true;
-    }
-    return false;
-}
-
-/*
-  match: abc X ..  = Y def Z ..
-         where Y is a variable or concatenation of variables
-*/
-
-bool theory_seq::is_ternary_eq_lhs(expr_ref_vector const& ls, expr_ref_vector const& rs, 
-                                expr_ref_vector& xs, expr_ref& x, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2) {
-    if (ls.size() > 1 && rs.size() > 1 && is_var(rs[0]) && is_var(rs.back())) {
-        sort* srt = ls[0]->get_sort();
-        unsigned l_start = 0;
-        for (; l_start < ls.size()-1; ++l_start) {
-            if (!m_util.str.is_unit(ls[l_start])) break;
-        }
-        if (l_start == 0) return false;
-        unsigned r_start = 1;
-        for (; r_start < rs.size()-1; ++r_start) {
-            if (m_util.str.is_unit(rs[r_start])) break;
-        }
-        if (r_start == rs.size()-1) return false;
-        unsigned r_end = r_start;
-        for (; r_end < rs.size()-1; ++r_end) {
-            if (!m_util.str.is_unit(rs[r_end])) break;
-        }
-        --r_end;
-
-        xs.reset();
-        xs.append(l_start, ls.c_ptr());
-        x = mk_concat(ls.size()-l_start, ls.c_ptr()+l_start, srt);
-        ys.reset();
-        ys.append(r_end-r_start+1, rs.c_ptr()+r_start);
-        y1 = mk_concat(r_start, rs.c_ptr(), srt);
-        y2 = mk_concat(rs.size()-r_end-1, rs.c_ptr()+r_end+1, srt);
-        return true;
-    }
-    return false;
-}
+ 
 
 struct remove_obj_pair_map : public trail {
     obj_pair_hashtable<expr, expr> & m_map;

@@ -257,8 +257,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_num_scopes = 0;
         m_map.pop(n);
         unsigned k = m_cache_lim[m_cache_lim.size() - n];
-        for (; k-- > m_cache_trail.size(); ) {
-            app* t = m_cache_trail[k];
+        for (unsigned i = m_cache_trail.size(); i-- > k; ) {
+            app* t = m_cache_trail[i];
             sat::literal lit;
             if (m_app2lit.find(t, lit)) {
                 m_app2lit.remove(t);

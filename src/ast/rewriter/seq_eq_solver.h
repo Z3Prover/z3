@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Solver-agnostic equality solving routines for sequences
+    Solver core-agnostic equality inference routines for sequences
     
 Author:
 
@@ -27,23 +27,73 @@ namespace seq {
             ls(l), rs(r) {}
     };
 
+    struct eqr {
+        expr_ref_vector const& ls;
+        expr_ref_vector const& rs;
+        eqr(expr_ref_vector const& l, expr_ref_vector const& r):
+            ls(l), rs(r) {}
+    };
+
     typedef scoped_ptr<eq> eq_ptr;
+
+    class eq_solver_context {
+    public:
+        virtual void  add_consequence(bool uses_dep, expr_ref_vector const& clause) = 0;
+        virtual void  add_solution(expr* var, expr* term) = 0;
+        virtual expr* expr2rep(expr* e) = 0;
+        virtual bool  get_length(expr* e, rational& r) = 0;
+    };
         
     class eq_solver {
-        ast_manager& m;
-        axioms&      m_ax;
-        seq_util     seq;
-        expr_ref_vector                        m_clause;
-        std::function<expr*(expr*)>            m_value;
-        std::function<bool(expr*, rational&)>  m_int_value;
-        std::function<void(bool, expr_ref_vector const&)>  m_add_consequence;
+        ast_manager&       m;
+        eq_solver_context& ctx;
+        axioms&            m_ax;
+        seq_util           seq;
+        expr_ref_vector    m_clause;
 
-        bool match_itos1(eq const& e, expr*& s, expr*& t);
-        bool solve_itos1(eq const& e, eq_ptr& r);
+        bool reduce_unit(eqr const& e, eq_ptr& r);
 
-        bool match_itos2(eq const& e, expr*& s);
-        bool solve_itos2(eq const& e, eq_ptr& r);
+        bool match_itos1(eqr const& e, expr*& s, expr*& t);
+        bool reduce_itos1(eqr const& e, eq_ptr& r);
 
+        bool match_itos2(eqr const& e, expr*& s);
+        bool reduce_itos2(eqr const& e, eq_ptr& r);
+
+        bool match_binary_eq(eqr const& e, expr_ref& x, ptr_vector<expr>& xs, ptr_vector<expr>& ys, expr_ref& y);
+        bool reduce_binary_eq(eqr const& e, eq_ptr& r);
+
+        bool match_ternary_eq_r(expr_ref_vector const& ls, expr_ref_vector const& rs,
+                                expr_ref& x, expr_ref_vector& xs, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
+
+        bool match_ternary_eq_l(expr_ref_vector const& ls, expr_ref_vector const& rs,
+                                expr_ref_vector& xs, expr_ref& x, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
+
+
+        /**
+         * count unit or non-unit entries left-to-right or right-to-left starting at, and including offset.
+         */
+        unsigned count_units_l2r(expr_ref_vector const& es, unsigned offset) const;
+        unsigned count_units_r2l(expr_ref_vector const& es, unsigned offset) const;
+        unsigned count_non_units_l2r(expr_ref_vector const& es, unsigned offset) const;
+        unsigned count_non_units_r2l(expr_ref_vector const& es, unsigned offset) const;
+
+        void set_prefix(expr_ref& x, expr_ref_vector const& xs, unsigned sz) const;
+        void set_suffix(expr_ref& x, expr_ref_vector const& xs, unsigned sz) const;
+
+        template<typename V>
+        void set_prefix(V& dst, expr_ref_vector const& xs, unsigned sz) const { set_extract(dst, xs, 0, sz); }
+
+        template<typename V>
+        void set_suffix(V& dst, expr_ref_vector const& xs, unsigned sz) const { set_extract(dst, xs, xs.size() - sz, sz); }
+
+        template<typename V> 
+        void set_extract(V& dst, expr_ref_vector const& xs, unsigned offset, unsigned sz) const {
+            SASSERT(offset + sz <= xs.size());
+            dst.reset();
+            dst.append(sz, xs.c_ptr() + offset);
+        }
+
+        void set_conflict();
         void add_consequence(expr_ref const& a);
         void add_consequence(expr_ref const& a, expr_ref const& b);
 
@@ -53,21 +103,40 @@ namespace seq {
         expr_ref mk_ge(expr* x, rational const& n) { return m_ax.mk_ge(x, n); }
         expr_ref mk_le(expr* x, rational const& n) { return m_ax.mk_le(x, n); }
 
+        ptr_vector<expr> m_todo;
+        bool occurs(expr* a, expr_ref_vector const& b);
+        bool occurs(expr* a, expr* b);
+
+        bool all_units(expr_ref_vector const& es, unsigned start, unsigned end) const;
+
     public:
         
-        eq_solver(ast_manager& m, axioms& ax):
+        eq_solver(ast_manager& m, eq_solver_context& ctx, axioms& ax):
             m(m),
+            ctx(ctx),
             m_ax(ax),
             seq(m),
             m_clause(m)
         {}
 
-        void set_value(std::function<expr*(expr*)>& v) { m_value = v; }
-        void set_int_value(std::function<bool(expr*,rational&)>& iv) { m_int_value = iv; }
-        void set_add_consequence(std::function<void(bool, expr_ref_vector const&)>& ac) { m_add_consequence = ac; }
+        bool reduce(eqr const& e, eq_ptr& r);
 
-        bool solve(eq const& e, eq_ptr& r);
+        bool reduce(expr* s, expr* t, eq_ptr& r);
 
+        bool is_var(expr* a) const;
+
+        bool match_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, 
+                             expr_ref& x, ptr_vector<expr>& xs, ptr_vector<expr>& ys, expr_ref& y);
+
+        bool match_ternary_eq_rhs(expr_ref_vector const& ls, expr_ref_vector const& rs,
+                                  expr_ref& x, expr_ref_vector& xs, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
+
+        bool match_ternary_eq_lhs(expr_ref_vector const& ls, expr_ref_vector const& rs,
+                                  expr_ref_vector& xs, expr_ref& x, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
+
+        bool match_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs,
+                           expr_ref& x1, expr_ref_vector& xs, expr_ref& x2,
+                           expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
         
     };
 

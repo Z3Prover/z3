@@ -37,7 +37,7 @@ Revision History:
 
 namespace smt {
 
-    class theory_seq : public theory {
+    class theory_seq : public theory, public seq::eq_solver_context {
         friend class seq_regex;
 
         struct assumption {
@@ -161,6 +161,15 @@ namespace smt {
             expr_ref_vector ls(m), rs(m);
             m_util.str.get_concat_units(l, ls);
             m_util.str.get_concat_units(r, rs);
+            return depeq(m_eq_id++, ls, rs, dep);
+        }        
+
+        depeq mk_eqdep(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep) {
+            expr_ref_vector ls(m), rs(m);
+            for (expr* e : l)
+                m_util.str.get_concat_units(e, ls);
+            for (expr* e : r)
+                m_util.str.get_concat_units(e, rs);
             return depeq(m_eq_id++, ls, rs, dep);
         }        
 
@@ -409,7 +418,6 @@ namespace smt {
         int find_fst_non_empty_idx(expr_ref_vector const& x);
         expr* find_fst_non_empty_var(expr_ref_vector const& x);
         bool has_len_offset(expr_ref_vector const& ls, expr_ref_vector const& rs, int & diff);
-        bool find_better_rep(expr_ref_vector const& ls, expr_ref_vector const& rs, unsigned idx, dependency*& deps, expr_ref_vector & res);
         
         // final check 
         bool simplify_and_solve_eqs();   // solve unitary equalities
@@ -456,17 +464,11 @@ namespace smt {
         bool solve_eq(unsigned idx);
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);
         bool lift_ite(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
-        bool solve_unit_eq(expr* l, expr* r, dependency* dep);
-        bool solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool solve_nth_eq1(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
         obj_pair_hashtable<expr, expr> m_nth_eq2_cache;
         bool solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
         bool solve_itos(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
         bool solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep);
-        bool is_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, expr_ref& x, ptr_vector<expr>& xunits, ptr_vector<expr>& yunits, expr_ref& y);
-        bool is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x1, expr_ref_vector& xs, expr_ref& x2, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
-        bool is_ternary_eq_rhs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x, expr_ref_vector& xs, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
-        bool is_ternary_eq_lhs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_vector& xs, expr_ref& x, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
 
         bool solve_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool propagate_max_length(expr* l, expr* r, dependency* dep);
@@ -538,8 +540,6 @@ namespace smt {
         bool assume_equality(expr* l, expr* r);
 
         // variable solving utilities
-        bool occurs(expr* a, expr* b);
-        bool occurs(expr* a, expr_ref_vector const& b);
         bool is_var(expr* b) const;
         bool add_solution(expr* l, expr* r, dependency* dep);
         bool is_unit_nth(expr* a) const;
@@ -558,7 +558,6 @@ namespace smt {
         void deque_axiom(expr* e);
         void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, literal l4 = null_literal, literal l5 = null_literal);        
         void add_axiom(literal_vector& lits);
-        void add_consequence(bool uses_eq, expr_ref_vector const& clause);
         
         bool has_length(expr *e) const { return m_has_length.contains(e); }
         void add_length(expr* e, expr* l);
@@ -591,7 +590,6 @@ namespace smt {
         bool lower_bound(expr* s, rational& lo) const;
         bool lower_bound2(expr* s, rational& lo);
         bool upper_bound(expr* s, rational& hi) const;
-        bool get_length(expr* s, rational& val);
 
         void mk_decompose(expr* e, expr_ref& head, expr_ref& tail);
 
@@ -633,6 +631,11 @@ namespace smt {
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { }
         void unmerge_eh(theory_var v1, theory_var v2) {}
 
+        // eq_solver callbacks
+        void add_consequence(bool uses_eq, expr_ref_vector const& clause) override;
+        void  add_solution(expr* var, expr* term) override { SASSERT(var != term); add_solution(var, term, m_eq_deps); }
+        expr* expr2rep(expr* e) override;
+        bool  get_length(expr* e, rational& r) override;
     };
 };
 
