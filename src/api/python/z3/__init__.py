@@ -1,4 +1,5 @@
-from .z3 import *
+from . import z3
+from z3 import *
 
 from . import z3num
 from . import z3poly
