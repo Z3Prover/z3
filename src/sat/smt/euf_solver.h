@@ -66,6 +66,7 @@ namespace euf {
         // friend class sat::ba_solver;
         struct stats {
             unsigned m_ackerman;
+            unsigned m_final_checks;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };

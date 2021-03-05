@@ -440,6 +440,7 @@ namespace euf {
     }
 
     sat::check_result solver::check() { 
+        ++m_stats.m_final_checks;
         TRACE("euf", s().display(tout););
         bool give_up = false;
         bool cont = false;
@@ -686,6 +687,7 @@ namespace euf {
         for (auto* e : m_solvers)
             e->collect_statistics(st);
         st.update("euf ackerman", m_stats.m_ackerman);
+        st.update("euf final check", m_stats.m_final_checks);
     }
 
     enode* solver::copy(solver& dst_ctx, enode* src_n) {
