@@ -464,7 +464,6 @@ namespace smt {
             enode * r1 = n1->get_root();
             enode * r2 = n2->get_root();
 
-
             if (r1 == r2) {
                 TRACE("add_eq", tout << "redundant constraint.\n";);
                 return;
@@ -755,7 +754,8 @@ namespace smt {
         enode * r2 = n2->get_root();
         enode * r1 = n1->get_root();
         if (!r1->has_th_vars() && !r2->has_th_vars()) {
-            TRACE("merge_theory_vars", tout << "Neither have theory vars #" << n1->get_expr()->get_id() << " #" << n2->get_expr()->get_id() << "\n";);
+            TRACE("merge_theory_vars", tout << "Neither have theory vars #" 
+                  << mk_bounded_pp(n1->get_expr(), m) << " #" << mk_bounded_pp(n2->get_expr(), m) << "\n";);
             return;
         }
 
