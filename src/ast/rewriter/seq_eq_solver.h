@@ -16,6 +16,7 @@ Author:
 --*/
 #pragma once
 
+#include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/seq_axioms.h"
 
 namespace seq {
@@ -48,6 +49,7 @@ namespace seq {
         ast_manager&       m;
         eq_solver_context& ctx;
         axioms&            m_ax;
+        arith_util         a;
         seq_util           seq;
         expr_ref_vector    m_clause;
 
@@ -59,14 +61,25 @@ namespace seq {
         bool match_itos2(eqr const& e, expr*& s);
         bool reduce_itos2(eqr const& e, eq_ptr& r);
 
+        bool reduce_itos3(eqr const& e, eq_ptr& r);
+        bool match_itos3(eqr const& e, expr*& n, expr_ref_vector const* & es);
+
         bool match_binary_eq(eqr const& e, expr_ref& x, ptr_vector<expr>& xs, ptr_vector<expr>& ys, expr_ref& y);
         bool reduce_binary_eq(eqr const& e, eq_ptr& r);
+
+        bool reduce_nth_solved(eqr const& e, eq_ptr& r);
+        bool match_nth_solved(eqr const& e, expr_ref& x, expr_ref& y);
+        bool match_nth_solved_aux(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x, expr_ref& y);
 
         bool match_ternary_eq_r(expr_ref_vector const& ls, expr_ref_vector const& rs,
                                 expr_ref& x, expr_ref_vector& xs, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
 
         bool match_ternary_eq_l(expr_ref_vector const& ls, expr_ref_vector const& rs,
                                 expr_ref_vector& xs, expr_ref& x, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
+
+
+        bool branch_unit_variable(eqr const& e);
+        bool branch_unit_variable(expr* X, expr_ref_vector const& units);
 
 
         /**
@@ -115,6 +128,7 @@ namespace seq {
             m(m),
             ctx(ctx),
             m_ax(ax),
+            a(m),
             seq(m),
             m_clause(m)
         {}
@@ -122,6 +136,8 @@ namespace seq {
         bool reduce(eqr const& e, eq_ptr& r);
 
         bool reduce(expr* s, expr* t, eq_ptr& r);
+
+        bool branch(unsigned priority, eqr const& e);
 
         bool is_var(expr* a) const;
 
@@ -137,6 +153,9 @@ namespace seq {
         bool match_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs,
                            expr_ref& x1, expr_ref_vector& xs, expr_ref& x2,
                            expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
+
+        bool can_align_from_lhs_aux(expr_ref_vector const& ls, expr_ref_vector const& rs);
+        bool can_align_from_rhs_aux(expr_ref_vector const& ls, expr_ref_vector const& rs);
         
     };
 

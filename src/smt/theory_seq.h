@@ -464,11 +464,8 @@ namespace smt {
         bool solve_eq(unsigned idx);
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);
         bool lift_ite(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
-        bool solve_nth_eq1(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
         obj_pair_hashtable<expr, expr> m_nth_eq2_cache;
-        bool solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
-        bool solve_itos(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
-        bool solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep);
+        bool solve_nth_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
 
         bool solve_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool propagate_max_length(expr* l, expr* r, dependency* dep);

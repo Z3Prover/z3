@@ -97,7 +97,7 @@ public:
 
     void add(T* t, T* s) {
         T_set* tb = nullptr;
-        if (!m_deps.find(t, tb)) {
+        if (!m_deps.find(t, tb) || !tb) {
             tb = alloc(T_set);
             insert(t, tb);
         }

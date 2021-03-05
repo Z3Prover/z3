@@ -64,7 +64,7 @@ namespace fpa {
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override { UNREACHABLE(); return out; }
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override { UNREACHABLE(); return out; }
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
-        void add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
+        bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
         void finalize_model(model& mdl) override;
 
         bool unit_propagate() override { return false; }

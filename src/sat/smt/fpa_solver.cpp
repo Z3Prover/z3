@@ -318,22 +318,27 @@ namespace fpa {
         values.set(n->get_root_id(), value);
     }
 
-    void solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
+    bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
         expr* e = n->get_expr();
         if (m_fpa_util.is_fp(e)) {
             SASSERT(n->num_args() == 3);
             for (enode* arg : euf::enode_args(n))
                 dep.add(n, arg);
+            return true;
         }
         else if (m_fpa_util.is_bv2rm(e)) {
             SASSERT(n->num_args() == 1);
             dep.add(n, n->get_arg(0));
+            return true;
         }
         else if (m_fpa_util.is_rm(e) || m_fpa_util.is_float(e)) {
             euf::enode* wrapped = expr2enode(m_converter.wrap(e));
             if (wrapped)
                 dep.add(n, wrapped);
+            return nullptr != wrapped;
         }
+        else 
+            return false;
     }
 
     std::ostream& solver::display(std::ostream& out) const {

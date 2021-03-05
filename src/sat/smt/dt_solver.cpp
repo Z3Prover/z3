@@ -703,15 +703,16 @@ namespace dt {
         values.set(n->get_root_id(), m.mk_app(c_decl, m_args));
     }
 
-    void solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
+    bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
         theory_var v = n->get_th_var(get_id());
         if (!is_datatype(n->get_expr()))
-            return;
+            return true;
         euf::enode* con = m_var_data[m_find.find(v)]->m_constructor;
         if (con->num_args() == 0)
             dep.insert(n, nullptr);
         for (enode* arg : euf::enode_args(con))
             dep.add(n, arg->get_root());
+        return true;
     }
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {

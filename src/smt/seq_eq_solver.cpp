@@ -75,13 +75,10 @@ bool theory_seq::solve_eq(unsigned idx) {
     }
 
     TRACE("seq_verbose", tout << ls << " = " << rs << "\n";);
-    if (!ctx.inconsistent() && solve_nth_eq1(ls, rs, deps)) {
+    if (!ctx.inconsistent() && solve_nth_eq(ls, rs, deps)) {
         return true;
     }
-    if (!ctx.inconsistent() && solve_nth_eq1(rs, ls, deps)) {
-        return true;
-    }
-    if (!ctx.inconsistent() && solve_itos(rs, ls, deps)) {
+    if (!ctx.inconsistent() && solve_nth_eq(rs, ls, deps)) {
         return true;
     }
     if (!ctx.inconsistent() && change) {
@@ -674,42 +671,11 @@ bool theory_seq::can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector c
     expr_ref r = mk_concat(rs);
     expr_ref pair(m.mk_eq(l,r), m);
     bool result;
-    if (m_overlap_lhs.find(pair, result)) {
-        return result;
+    if (!m_overlap_lhs.find(pair, result)) {
+        result = m_eq.can_align_from_lhs_aux(ls, rs);
+        m_overlap_lhs.insert(pair, result);
     }
-    for (unsigned i = 0; i < ls.size(); ++i) {
-        if (!m.are_distinct(ls[i], rs.back())) {
-            bool same = true;
-            if (i == 0) {
-                m_overlap_lhs.insert(pair, true);
-                return true;
-            }
-            // ls = rs' ++ y && rs = x ++ rs', diff = |x|
-            if (rs.size() > i) {
-                unsigned diff = rs.size() - (i + 1);
-                for (unsigned j = 0; same && j < i; ++j) {
-                    same = !m.are_distinct(ls[j], rs[diff + j]);
-                }
-                if (same) {
-                    m_overlap_lhs.insert(pair, true);
-                    return true;
-                }
-            }
-            // ls = x ++ rs ++ y, diff = |x|
-            else {
-                unsigned diff = (i + 1) - rs.size();
-                for (unsigned j = 0; same && j + 1 < rs.size(); ++j) {
-                    same = !m.are_distinct(ls[diff + j], rs[j]);
-                }
-                if (same) {
-                    m_overlap_lhs.insert(pair, true);
-                    return true;
-                }
-            }
-        }
-    }
-    m_overlap_lhs.insert(pair, false);
-    return false;
+    return result;
 }
 
 // exists x, y, rs' != empty s.t.  (ls = x ++ rs ++ y) || (ls = x ++ rs' && rs = rs' ++ y)
@@ -717,44 +683,15 @@ bool theory_seq::can_align_from_rhs(expr_ref_vector const& ls, expr_ref_vector c
     SASSERT(!ls.empty() && !rs.empty());
     expr_ref l = mk_concat(ls);
     expr_ref r = mk_concat(rs);
-    expr_ref pair(m.mk_eq(l,r), m);
+    expr_ref pair(m.mk_eq(l, r), m);
     bool result;
-    if (m_overlap_rhs.find(pair, result)) {
-        return result;
+    if (!m_overlap_rhs.find(pair, result)) {
+        result = m_eq.can_align_from_rhs_aux(ls, rs);
+        m_overlap_rhs.insert(pair, result);
     }
-    for (unsigned i = 0; i < ls.size(); ++i) {
-        unsigned diff = ls.size()-1-i;
-        if (!m.are_distinct(ls[diff], rs[0])) {
-            bool same = true;
-            if (i == 0) {
-                m_overlap_rhs.insert(pair, true);
-                return true;
-            }
-            // ls = x ++ rs' && rs = rs' ++ y, diff = |x|
-            if (rs.size() > i) {
-                for (unsigned j = 1; same && j <= i; ++j) {
-                    same = !m.are_distinct(ls[diff+j], rs[j]);
-                }
-                if (same) {
-                    m_overlap_rhs.insert(pair, true);
-                    return true;
-                }
-            }
-            // ls = x ++ rs ++ y, diff = |x|
-            else {
-                for (unsigned j = 1; same && j < rs.size(); ++j) {
-                    same = !m.are_distinct(ls[diff + j], rs[j]);
-                }
-                if (same) {
-                    m_overlap_rhs.insert(pair, true);
-                    return true;
-                }
-            }
-        }
-    }
-    m_overlap_rhs.insert(pair, false);
-    return false;
+    return result;
 }
+
 
 // Equation is of the form x ++ xs = y1 ++ ys ++ y2 where xs, ys are units.
 // If xs and ys cannot align then
@@ -1365,7 +1302,7 @@ struct remove_obj_pair_map : public trail {
    x = pre(x, idx) ++ unit(rhs) ++ post(x, idx + 1)
    NB: need 0 <= idx < len(rhs)   
 */
-bool theory_seq::solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps) {
+bool theory_seq::solve_nth_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps) {
     expr* s = nullptr, *idx = nullptr;
     if (ls.size() == 1 && m_util.str.is_nth_i(ls[0], s, idx)) {
         rational r;
@@ -1389,32 +1326,4 @@ bool theory_seq::solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const&
     return false;
 }
 
-/**
-   match 
-   x = unit(nth_i(x,0)) + unit(nth_i(x,1)) + .. + unit(nth_i(x,k-1))
- */
-
-bool theory_seq::solve_nth_eq1(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep) {
-    if (solve_nth_eq2(ls, rs, dep)) {
-        return true;
-    }
-    if (ls.size() != 1 || rs.size() <= 1) {
-        return false;
-    }
-    expr* l = ls.get(0);
-    rational val;
-    if (!get_length(l, val) || val != rational(rs.size())) {
-        return false;
-    }
-    for (unsigned i = 0; i < rs.size(); ++i) {
-        unsigned k = 0;
-        expr* ru = nullptr, *r = nullptr;
-        if (m_util.str.is_unit(rs.get(i), ru) && m_util.str.is_nth_i(ru, r, k) && k == i && r == l) {
-            continue;
-        }
-        return false;
-    }
-    add_solution(l, mk_concat(rs, l->get_sort()), dep);
-    return true;
-}
 

@@ -429,7 +429,7 @@ namespace arith {
         void init_model() override;
         void finalize_model(model& mdl) override { DEBUG_CODE(dbg_finalize_model(mdl);); }
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
-        void add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
+        bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool redundant) override;
         void eq_internalized(euf::enode* n) override;

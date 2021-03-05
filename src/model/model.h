@@ -70,6 +70,7 @@ public:
 
     expr * get_some_value(sort * s) override;
     expr * get_fresh_value(sort * s) override;
+    void register_value(expr* n);
     bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override;
 
     ptr_vector<expr> const & get_universe(sort * s) const override;

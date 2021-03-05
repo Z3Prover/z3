@@ -1029,7 +1029,7 @@ namespace sat {
                     return false;
             } while (m_qhead < m_trail.size());
 
-            if (m_ext) 
+            if (m_ext && !is_probing()) 
                 m_ext->unit_propagate();            
         }
         if (m_inconsistent)

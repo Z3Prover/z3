@@ -931,57 +931,6 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
     return true;
 }
 
-bool theory_seq::solve_itos(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep) {
-    expr* e = nullptr;
-    
-    if (rs.size() == 1 && m_util.str.is_itos(rs[0], e) && solve_itos(e, ls, dep))
-        return true;
-    if (ls.size() == 1 && m_util.str.is_itos(ls[0], e) && solve_itos(e, rs, dep)) 
-        return true;
-    return false;
-}
-
-bool theory_seq::solve_itos(expr* n, expr_ref_vector const& rs, dependency* dep) {
-    if (rs.empty()) {
-        literal lit = m_ax.mk_le(n, -1);
-        propagate_lit(dep, 0, nullptr, lit);
-        return true;
-    }
-    expr* u = nullptr;
-    for (expr* r : rs) {
-        if (m_util.str.is_unit(r, u) && !m_is_digit.contains(u)) {
-            m_is_digit.insert(u);
-            m_trail_stack.push(insert_obj_trail<expr>(m_is_digit, u));
-            literal is_digit = m_ax.is_digit(u);
-            if (ctx.get_assignment(is_digit) != l_true) {
-                propagate_lit(dep, 0, nullptr, is_digit);
-            }
-        }
-    }
-
-    expr_ref num(m), digit(m);
-    for (expr* r : rs) {
-        if (!m_util.str.is_unit(r, u))
-            return false;
-        digit = m_sk.mk_digit2int(u);
-        if (!num) {
-            num = digit;
-        }
-        else {
-            num = m_autil.mk_add(m_autil.mk_mul(m_autil.mk_int(10), num), digit);
-        }
-    }
-
-    propagate_lit(dep, 0, nullptr, mk_simplified_literal(m.mk_eq(n, num)));
-    if (rs.size() > 1) {
-        VERIFY (m_util.str.is_unit(rs[0], u));
-        digit = m_sk.mk_digit2int(u);
-        propagate_lit(dep, 0, nullptr, m_ax.mk_ge(digit, 1));
-    }
-    return true;
-}
-
-
 
 bool theory_seq::reduce_length(expr* l, expr* r, literal_vector& lits) {
     expr_ref len1(m), len2(m);

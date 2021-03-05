@@ -207,7 +207,7 @@ namespace array {
         void new_diseq_eh(euf::th_eq const& eq) override;
         bool unit_propagate() override;
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
-        void add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
+        bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool redundant) override;
         euf::theory_var mk_var(euf::enode* n) override;

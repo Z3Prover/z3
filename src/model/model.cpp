@@ -125,6 +125,10 @@ expr * model::get_fresh_value(sort * s) {
     return get_factory(s)->get_fresh_value(s);
 }
 
+void model::register_value(expr* e) {
+    get_factory(e->get_sort())->register_value(e);
+}
+
 bool model::get_some_values(sort * s, expr_ref& v1, expr_ref& v2) {
     return get_factory(s)->get_some_values(s, v1, v2);
 }

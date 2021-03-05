@@ -111,6 +111,9 @@ namespace seq {
         expr_ref mk_ge(expr* x, rational const& n) { return mk_ge_e(x, a.mk_int(n)); }
         expr_ref mk_le(expr* x, rational const& n) { return mk_le_e(x, a.mk_int(n)); }
 
+        void rewrite(expr_ref& e) { m_rewrite(e); }
+        skolem& sk() { return m_sk; }
+
     };
 
 };

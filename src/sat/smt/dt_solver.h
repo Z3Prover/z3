@@ -149,7 +149,7 @@ namespace dt {
         void new_eq_eh(euf::th_eq const& eq) override;
         bool unit_propagate() override { return false; }
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
-        void add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
+        bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
         sat::literal internalize(expr* e, bool sign, bool root, bool redundant) override;
         void internalize(expr* e, bool redundant) override;
         euf::theory_var mk_var(euf::enode* n) override;

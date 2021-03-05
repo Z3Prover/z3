@@ -88,18 +88,31 @@ namespace euf {
     }
 
     void solver::collect_dependencies(user_sort& us, deps_t& deps) {
+        ptr_buffer<enode> fresh_values;
         for (enode* n : m_egraph.nodes()) {
             expr* e = n->get_expr();
             sort* srt = e->get_sort();
             auto* mb = sort2solver(srt);
-            if (mb)
-                mb->add_dep(n, deps);
-            else
+            if (!mb) 
                 deps.insert(n, nullptr);
+            else if (!mb->add_dep(n, deps))
+                fresh_values.push_back(n);
             if (n->is_root() && m.is_uninterp(srt) && m.is_value(e))
                 us.register_value(e);
         }
 
+        // fresh values depend on all non-fresh values of the same sort
+        for (enode* n : fresh_values) {
+            n->mark1();
+            deps.insert(n, nullptr);
+        }
+        for (enode* n : fresh_values)
+            for (enode* r : m_egraph.nodes())
+                if (r->is_root() && r->get_sort() == n->get_sort() && !r->is_marked1())
+                    deps.add(n, r);
+        for (enode* n : fresh_values)
+            n->unmark1();
+        
         TRACE("euf",
               for (auto const& d : deps.deps()) 
                   if (d.m_value) {

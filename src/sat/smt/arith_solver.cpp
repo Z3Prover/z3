@@ -626,12 +626,16 @@ namespace arith {
             ctx.get_rewriter()(value);
         }
         else {
-            UNREACHABLE();
+            value = mdl.get_fresh_value(o->get_sort());
         }
+        mdl.register_value(value);
         values.set(n->get_root_id(), value);
     }
 
-    void solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
+    bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
+        theory_var v = n->get_th_var(get_id());
+        if (v == euf::null_theory_var && !a.is_arith_expr(n->get_expr()))
+            return false;
         expr* e = n->get_expr();
         if (a.is_arith_expr(e) && to_app(e)->get_num_args() > 0) {
             for (auto* arg : euf::enode_args(n))
@@ -640,6 +644,7 @@ namespace arith {
         else {
             dep.insert(n, nullptr); 
         }
+        return true;
     }
 
     void solver::push_core() {

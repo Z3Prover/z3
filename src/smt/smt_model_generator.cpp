@@ -116,7 +116,7 @@ namespace smt {
                             SASSERT(proc);
                         }
                         else {
-                            TRACE("model", tout << "creating fresh value for #" << r->get_owner_id() << "\n";);
+                            TRACE("model", tout << "creating fresh value for #" << mk_pp(r->get_expr(), m) << "\n";);
                             proc = alloc(fresh_value_proc, mk_extra_fresh_value(r->get_sort()));
                         }
                     }
