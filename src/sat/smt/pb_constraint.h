@@ -51,7 +51,6 @@ namespace pb {
     public:
         constraint(tag_t t, unsigned id, literal l, unsigned sz, size_t osz, unsigned k): 
             m_tag(t), m_lit(l), m_size(sz), m_obj_size(osz), m_id(id), m_k(k) {
-            VERIFY(k < 400000000);
         }
         sat::ext_constraint_idx cindex() const { return sat::constraint_base::mem2base(this); }
         void deallocate(small_object_allocator& a) { a.deallocate(obj_size(), sat::constraint_base::mem2base_ptr(this)); }
