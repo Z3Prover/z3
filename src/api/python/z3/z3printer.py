@@ -5,7 +5,19 @@
 #
 # Author: Leonardo de Moura (leonardo)
 ############################################
-import sys, io, z3
+import sys, io
+
+# We want to import submodule z3 here, but there's no way
+# to do that that works correctly on both Python 2 and 3.
+if sys.version < '3':
+    # In Python 2: an implicit-relative import of submodule z3.
+    # In Python 3: an undesirable import of global package z3.
+    import z3
+else:
+    # In Python 2: an illegal circular import.
+    # In Python 3: an explicit-relative import of submodule z3.
+    from . import z3
+
 from .z3consts import *
 from .z3core import *
 from ctypes import *
