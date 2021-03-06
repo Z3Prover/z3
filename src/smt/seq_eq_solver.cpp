@@ -126,6 +126,8 @@ expr* theory_seq::expr2rep(expr* e) {
 }
 
 
+#if 0
+
 /**
    \brief
 
@@ -158,7 +160,6 @@ expr* theory_seq::expr2rep(expr* e) {
    TODO: propagate length offsets for last vars
 
 */
-#if 0
 bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector const& rs, unsigned idx,
                                  dependency*& deps, expr_ref_vector & res) {
 
@@ -235,6 +236,32 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
     }
     return false;
 }
+
+int theory_seq::find_fst_non_empty_idx(expr_ref_vector const& xs) {
+    for (unsigned i = 0; i < xs.size(); ++i) {
+        expr* x = xs[i];
+        if (!is_var(x)) 
+            return -1;
+        expr_ref e = mk_len(x);
+        if (ctx.e_internalized(e)) {
+            enode* root = ctx.get_enode(e)->get_root();
+            rational val;
+            if (m_autil.is_numeral(root->get_expr(), val) && val.is_zero()) {
+                continue;
+            }
+        }
+        return i;
+    }
+    return -1;
+}
+
+expr* theory_seq::find_fst_non_empty_var(expr_ref_vector const& x) {
+    int i = find_fst_non_empty_idx(x);
+    if (i >= 0)
+        return x[i];
+    return nullptr;
+}
+
 #endif
 
 bool theory_seq::has_len_offset(expr_ref_vector const& ls, expr_ref_vector const& rs, int & offset) {
@@ -399,20 +426,17 @@ bool theory_seq::branch_variable_mb() {
         rational l1, l2;
         for (const auto& elem : len1) l1 += elem;
         for (const auto& elem : len2) l2 += elem;
-        if (l1 != l2) {
-            expr_ref l = mk_concat(e.ls);
-            expr_ref r = mk_concat(e.rs);
-            expr_ref lnl = mk_len(l), lnr = mk_len(r);
-            if (propagate_eq(e.dep(), lnl, lnr, false)) {
-                change = true;
-            }
-            continue;
-        }
-        if (split_lengths(e.dep(), e.ls, e.rs, len1, len2)) {
+        if (l1 == l2 && split_lengths(e.dep(), e.ls, e.rs, len1, len2)) {
             TRACE("seq", tout << "split lengths\n";);
             change = true;
             break;
         }
+
+        expr_ref l = mk_concat(e.ls);
+        expr_ref r = mk_concat(e.rs);
+        expr_ref lnl = mk_len(l), lnr = mk_len(r);
+        if (propagate_eq(e.dep(), lnl, lnr, false)) 
+            change = true;
     }
     return change;
 }
@@ -601,6 +625,14 @@ bool theory_seq::branch_binary_variable(depeq const& e) {
 bool theory_seq::branch_unit_variable() {
     bool result = false;
     for (auto const& e : m_eqs) {
+#if 0
+        eqr er(e.ls, e.rs);
+        m_eq_deps = e.deps;
+        if (m_eq.branch(0, er)) {
+            result = true;
+            break;
+        }
+#else
         if (is_unit_eq(e.ls, e.rs) && 
             branch_unit_variable(e.dep(), e.ls[0], e.rs)) {
             result = true;
@@ -611,6 +643,7 @@ bool theory_seq::branch_unit_variable() {
             result = true;
             break;
         }
+#endif
     }
     CTRACE("seq", result, tout << "branch unit variable\n";);
     return result;
@@ -842,121 +875,98 @@ bool theory_seq::branch_quat_variable(depeq const& e) {
     else if (!can_align_from_lhs(xs, ys) && !can_align_from_rhs(xs, ys))
         cond = true;
 
-    if (cond) {
-        literal_vector lits;
-        if (xs == ys) {
-            literal lit = mk_eq(mk_len(x1), mk_len(y1), false);
-            if (ctx.get_assignment(lit) == l_undef) {
-                TRACE("seq", tout << mk_pp(x1, m) << " = " << mk_pp(y1, m) << "?\n";);
-                ctx.mark_as_relevant(lit);
-                return true;
-            }
-            else if (ctx.get_assignment(lit) == l_true) {
-                TRACE("seq", tout << mk_pp(x1, m) << " = " << mk_pp(y1, m) << "\n";);
-                propagate_eq(dep, lit, x1, y1, true);
-                propagate_eq(dep, lit, x2, y2, true);
-                return true;
-            }
-            TRACE("seq", tout << mk_pp(x1, m) << " != " << mk_pp(y1, m) << "\n";);
-            lits.push_back(~lit);
-        }
-
-        literal lit1 = mk_alignment(x1, y1);
-        literal lit2 = m_ax.mk_ge(mk_sub(mk_len(y1), mk_len(x1)), xs.size());
-        literal lit3 = m_ax.mk_ge(mk_sub(mk_len(x1), mk_len(y1)), ys.size());
-        if (ctx.get_assignment(lit1) == l_undef) {
-            TRACE("seq", tout << mk_pp(x1, m) << " <= " << mk_pp(y1, m) << "?\n";);
-            ctx.mark_as_relevant(lit1);
+    if (!cond)
+        return false;
+    
+    literal_vector lits;
+    if (xs == ys) {
+        literal lit = mk_eq(mk_len(x1), mk_len(y1), false);
+        if (ctx.get_assignment(lit) == l_undef) {
+            TRACE("seq", tout << mk_pp(x1, m) << " = " << mk_pp(y1, m) << "?\n";);
+            ctx.mark_as_relevant(lit);
             return true;
         }
-        if (ctx.get_assignment(lit1) == l_true) {
-            TRACE("seq", tout << mk_pp(x1, m) << " <= " << mk_pp(y1, m) << "\n";);
-            if (ctx.get_assignment(lit2) == l_undef) {
-                ctx.mark_as_relevant(lit2);
-                return true;
-            }
-        }
-        else {
-            TRACE("seq", tout << mk_pp(x1, m) << " > " << mk_pp(y1, m) << "\n";);
-            if (ctx.get_assignment(lit3) == l_undef) {
-                ctx.mark_as_relevant(lit3);
-                return true;
-            }
-        }
-
-        expr_ref xsE = mk_concat(xs);
-        expr_ref ysE = mk_concat(ys);
-        expr_ref x1xs = mk_concat(x1, xsE);
-        expr_ref y1ys = mk_concat(y1, ysE);
-        expr_ref xsx2 = mk_concat(xsE, x2);
-        expr_ref ysy2 = mk_concat(ysE, y2);
-        if (ctx.get_assignment(lit1) == l_true && ctx.get_assignment(lit2) == l_true) {
-            // |x1++xs| <= |y1| => x1 ++ xs ++ z2 = y1, x2 = z2 ++ ys ++ y2
-            expr_ref Z2 = m_sk.mk_align_m(y1, x1, xsE, x2);
-            expr_ref x1xsZ2 = mk_concat(x1xs, Z2);
-            expr_ref Z2ysy2 = mk_concat(Z2, ysy2);
-            propagate_eq(dep, lit2, x1xsZ2, y1, true);
-            propagate_eq(dep, lit2, x2, Z2ysy2, true);
+        else if (ctx.get_assignment(lit) == l_true) {
+            TRACE("seq", tout << mk_pp(x1, m) << " = " << mk_pp(y1, m) << "\n";);
+            propagate_eq(dep, lit, x1, y1, true);
+            propagate_eq(dep, lit, x2, y2, true);
             return true;
         }
-        if (ctx.get_assignment(lit1) == l_false && ctx.get_assignment(lit3) == l_true) {
-            // |x1| >= |y1++ys| => x1 = y1 ++ ys ++ z1, z1 ++ xs ++ x2 = y2
-            expr_ref Z1 = m_sk.mk_align_m(x1, y1, ysE, y2);
-            expr_ref y1ysZ1 = mk_concat(y1ys, Z1);
-            expr_ref Z1xsx2 = mk_concat(Z1, xsx2);
-            propagate_eq(dep, lit3, x1, y1ysZ1, true);
-            propagate_eq(dep, lit3, Z1xsx2, y2, true);
-            return true;
-        }
-        // Infeasible cases because xs and ys cannot align
-        if (ctx.get_assignment(lit1) == l_false && ctx.get_assignment(lit2) == l_true) {
-            lits.push_back(~lit1);
-            lits.push_back(lit2);
-            return propagate_lit(nullptr, lits.size(), lits.c_ptr(), false_literal);
-        }
-        if (ctx.get_assignment(lit1) == l_true && ctx.get_assignment(lit3) == l_true) {
-            lits.push_back(lit1);
-            lits.push_back(lit3);
-            return propagate_lit(nullptr, lits.size(), lits.c_ptr(), false_literal);
-        }
-        if (ctx.get_assignment(lit1) == l_true && ctx.get_assignment(lit2) == l_false) {
-            lits.push_back(lit1);
-            lits.push_back(~lit2);
-            return propagate_lit(dep, lits.size(), lits.c_ptr(), false_literal);
-        }
-        if (ctx.get_assignment(lit1) == l_false && ctx.get_assignment(lit3) == l_false) {
-            lits.push_back(~lit1);
-            lits.push_back(~lit3);
-            return propagate_lit(dep, lits.size(), lits.c_ptr(), false_literal);
-        }
-        UNREACHABLE();
+        TRACE("seq", tout << mk_pp(x1, m) << " != " << mk_pp(y1, m) << "\n";);
+        lits.push_back(~lit);
     }
-    return false;
-}
-
-int theory_seq::find_fst_non_empty_idx(expr_ref_vector const& xs) {
-    for (unsigned i = 0; i < xs.size(); ++i) {
-        expr* x = xs[i];
-        if (!is_var(x)) return -1;
-        expr_ref e = mk_len(x);
-        if (ctx.e_internalized(e)) {
-            enode* root = ctx.get_enode(e)->get_root();
-            rational val;
-            if (m_autil.is_numeral(root->get_expr(), val) && val.is_zero()) {
-                continue;
-            }
-        }
-        return i;
+    
+    literal lit1 = mk_alignment(x1, y1);
+    literal lit2 = m_ax.mk_ge(mk_sub(mk_len(y1), mk_len(x1)), xs.size());
+    literal lit3 = m_ax.mk_ge(mk_sub(mk_len(x1), mk_len(y1)), ys.size());
+    if (ctx.get_assignment(lit1) == l_undef) {
+        TRACE("seq", tout << mk_pp(x1, m) << " <= " << mk_pp(y1, m) << "?\n";);
+        ctx.mark_as_relevant(lit1);
+        return true;
     }
-    return -1;
+    if (ctx.get_assignment(lit1) == l_true) {
+        TRACE("seq", tout << mk_pp(x1, m) << " <= " << mk_pp(y1, m) << "\n";);
+        if (ctx.get_assignment(lit2) == l_undef) {
+            ctx.mark_as_relevant(lit2);
+            return true;
+        }
+    }
+    else {
+        TRACE("seq", tout << mk_pp(x1, m) << " > " << mk_pp(y1, m) << "\n";);
+        if (ctx.get_assignment(lit3) == l_undef) {
+            ctx.mark_as_relevant(lit3);
+            return true;
+        }
+    }
+    
+    expr_ref xsE = mk_concat(xs);
+    expr_ref ysE = mk_concat(ys);
+    expr_ref x1xs = mk_concat(x1, xsE);
+    expr_ref y1ys = mk_concat(y1, ysE);
+    expr_ref xsx2 = mk_concat(xsE, x2);
+    expr_ref ysy2 = mk_concat(ysE, y2);
+    if (ctx.get_assignment(lit1) == l_true && ctx.get_assignment(lit2) == l_true) {
+        // |x1++xs| <= |y1| => x1 ++ xs ++ z2 = y1, x2 = z2 ++ ys ++ y2
+        expr_ref Z2 = m_sk.mk_align_m(y1, x1, xsE, x2);
+        expr_ref x1xsZ2 = mk_concat(x1xs, Z2);
+        expr_ref Z2ysy2 = mk_concat(Z2, ysy2);
+        propagate_eq(dep, lit2, x1xsZ2, y1, true);
+        propagate_eq(dep, lit2, x2, Z2ysy2, true);
+        return true;
+    }
+    if (ctx.get_assignment(lit1) == l_false && ctx.get_assignment(lit3) == l_true) {
+        // |x1| >= |y1++ys| => x1 = y1 ++ ys ++ z1, z1 ++ xs ++ x2 = y2
+        expr_ref Z1 = m_sk.mk_align_m(x1, y1, ysE, y2);
+        expr_ref y1ysZ1 = mk_concat(y1ys, Z1);
+        expr_ref Z1xsx2 = mk_concat(Z1, xsx2);
+        propagate_eq(dep, lit3, x1, y1ysZ1, true);
+        propagate_eq(dep, lit3, Z1xsx2, y2, true);
+        return true;
+    }
+    // Infeasible cases because xs and ys cannot align
+    if (ctx.get_assignment(lit1) == l_false && ctx.get_assignment(lit2) == l_true) {
+        lits.push_back(~lit1);
+        lits.push_back(lit2);
+        return propagate_lit(nullptr, lits.size(), lits.c_ptr(), false_literal);
+    }
+    if (ctx.get_assignment(lit1) == l_true && ctx.get_assignment(lit3) == l_true) {
+        lits.push_back(lit1);
+        lits.push_back(lit3);
+        return propagate_lit(nullptr, lits.size(), lits.c_ptr(), false_literal);
+    }
+    if (ctx.get_assignment(lit1) == l_true && ctx.get_assignment(lit2) == l_false) {
+        lits.push_back(lit1);
+        lits.push_back(~lit2);
+        return propagate_lit(dep, lits.size(), lits.c_ptr(), false_literal);
+    }
+    if (ctx.get_assignment(lit1) == l_false && ctx.get_assignment(lit3) == l_false) {
+        lits.push_back(~lit1);
+        lits.push_back(~lit3);
+        return propagate_lit(dep, lits.size(), lits.c_ptr(), false_literal);
+    }
+    UNREACHABLE();
 }
 
-expr* theory_seq::find_fst_non_empty_var(expr_ref_vector const& x) {
-    int i = find_fst_non_empty_idx(x);
-    if (i >= 0)
-        return x[i];
-    return nullptr;
-}
 
 bool theory_seq::branch_variable_eq() {
     unsigned sz = m_eqs.size();
