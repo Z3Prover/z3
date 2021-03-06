@@ -420,7 +420,7 @@ namespace seq {
         expr_ref cnt(seq.str.mk_contains(t, s), m);
         expr_ref i_eq_m1 = mk_eq(i, minus_one);
         expr_ref i_eq_0 = mk_eq(i, zero);
-        expr_ref s_eq_empty = mk_eq_empty(s);
+        expr_ref s_eq_empty = mk_eq(s, seq.str.mk_empty(s->get_sort()));
         expr_ref t_eq_empty = mk_eq_empty(t);
 
         // |t| = 0 => |s| = 0 or indexof(t,s,offset) = -1

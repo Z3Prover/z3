@@ -1578,6 +1578,7 @@ br_status seq_rewriter::mk_seq_last_index(expr* a, expr* b, expr_ref& result) {
    indexof(s, b, c) -> -1 if c < 0
    indexof(a, "", 0) -> if a = "" then 0 else -1
    indexof("", b, r) -> if b = "" and r = 0 then 0 else -1
+   indexof(a, "", x) -> if 0 <= x <= len(a) then x else - 1
    indexof(unit(x)+a, b, r+1) -> indexof(a, b, r) 
    indexof(unit(x)+a, unit(y)+b, 0) -> indexof(a,unit(y)+b, 0) if x != y
    indexof(substr(x,y,len1), z, len2) -> -1 if len2 > len1
@@ -1591,17 +1592,25 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
 
     if (isc1 && isc2 && m_autil.is_numeral(c, r) && r.is_unsigned()) {
         int idx = s1.indexofu(s2, r.get_unsigned());
-        result = m_autil.mk_numeral(rational(idx), true);
+        result = m_autil.mk_int(idx);
         return BR_DONE;
     }
     if (m_autil.is_numeral(c, r) && r.is_neg()) {
-        result = m_autil.mk_numeral(rational(-1), true);
+        result = m_autil.mk_int(-1);
         return BR_DONE;
     }
     
     if (str().is_empty(b) && m_autil.is_numeral(c, r) && r.is_zero()) {
         result = c;
         return BR_DONE;
+    }
+
+    if (str().is_empty(b)) {
+        result = m().mk_ite(m().mk_and(m_autil.mk_le(m_autil.mk_int(0), c),
+                                       m_autil.mk_le(c, str().mk_length(a))),
+                            c,
+                            m_autil.mk_int(-1));
+        return BR_REWRITE2;
     }
 
     
