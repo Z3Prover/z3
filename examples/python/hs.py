@@ -37,12 +37,10 @@ def improve(hi, mdl, new_model, soft):
 #
 def pick_hs_(K, lo, soft):
     hs = set()
-    for k in K:
-        ks = set(k)
-        if len(ks & hs) > 0:
-            continue
-        h = random.choice([h for h in k])
-        hs = hs | { h }
+    for ks in K:
+        if not any(k in ks for k in hs):
+            h = random.choice([h for h in ks])
+            hs = hs | { h }
     print("approximate hitting set", len(hs), "smallest possible size", lo)
     return hs, lo
 
@@ -77,8 +75,8 @@ def pick_hs(K, lo, soft):
 
 
 
-def local_mss(hi, mdl, s, soft):
-    mss = { f for f in soft.formulas if is_true(mdl.eval(f)) }
+def local_mss(hi, mdl, new_model, s, soft):
+    mss = { f for f in soft.formulas if is_true(new_model.eval(f)) }
     ps = set(soft.formulas) - mss
     backbones = set()
     qs = set()
@@ -123,7 +121,7 @@ def get_cores(hi, hs, mdl, s, soft):
             cores += [core]
             remaining = remaining - set(core)
         elif sat == is_sat and num_cores == len(cores):
-            hi, mdl = local_mss(hi, s.model(), s, soft)
+            hi, mdl = local_mss(hi, mdl, s.model(), s, soft)
             break
         elif sat == is_sat:
             hi, mdl = improve(hi, mdl, s.model(), soft)
@@ -152,8 +150,7 @@ def hs(lo, hi, mdl, K, s, soft):
         hi, mdl = improve(hi, mdl, s.model(), soft)
     elif is_sat == unsat:
         hi, mdl, cores = get_cores(hi, hs, mdl, s, soft)
-        K +=  [set(core) for core in cores]
-        hi, mdl = local_mss(hi, mdl, s, soft)
+        K += [set(core) for core in cores]
         print("total number of cores", len(K))
     else:
         print("unknown")
