@@ -60,7 +60,20 @@ namespace seq {
         return result;
     }
 
-
+    /**
+     * Create a special equality predicate for sequences.
+     * The sequence solver ignores the predicate when it
+     * is assigned to false. If the predicate is assigned
+     * to true it enforces the equality.
+     * 
+     * This is intended to save the solver from satisfying disequality
+     * constraints that are not relevant. The use of this predicate
+     * needs some care because it can lead to incompleteness.
+     * The clauses where this predicate are used have to ensure
+     * that whenever it is assigned false, the clause
+     * is satisfied by a solution where the equality is either false
+     * or irrelevant. 
+     */
     expr_ref axioms::mk_eq_empty(expr* e) { 
         return mk_seq_eq(seq.str.mk_empty(e->get_sort()), e);
     }
