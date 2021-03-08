@@ -79,7 +79,6 @@ namespace seq {
 
 
         bool branch_unit_variable(eqr const& e);
-        bool branch_unit_variable(expr* X, expr_ref_vector const& units);
 
 
         /**
@@ -156,6 +155,8 @@ namespace seq {
 
         bool can_align_from_lhs_aux(expr_ref_vector const& ls, expr_ref_vector const& rs);
         bool can_align_from_rhs_aux(expr_ref_vector const& ls, expr_ref_vector const& rs);
+
+        bool branch_unit_variable(expr* X, expr_ref_vector const& units);
         
     };
 

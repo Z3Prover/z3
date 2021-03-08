@@ -8,9 +8,12 @@
 from z3 import *
 import random
 
+counter = 0
 
 def add_def(s, fml):
-    name = Bool(f"f{fml}")
+    global counter
+    name = Bool(f"def-{counter}")
+    counter += 1
     s.add(name == fml)
     return name
 
@@ -52,7 +55,8 @@ def count_sets_by_size(sets):
                 
 class Soft:
     def __init__(self, soft):
-        self.formulas = soft
+        self.formulas = set(soft)
+        self.original_soft = soft.copy()
         self.offset = 0
         self.init_names()
 
@@ -60,6 +64,11 @@ class Soft:
         self.name2formula = { Bool(f"s{s}") : s for s in self.formulas }
         self.formula2name = { s : v for (v, s) in self.name2formula.items() }
 
+#
+# TODO: try to replace this by a recursive invocation of HsMaxSAT
+# such that the invocation is incremental with respect to adding constraints
+# and has resource bounded invocation.
+# 
 class HsPicker:
     def __init__(self, soft):
         self.soft = soft
@@ -75,7 +84,7 @@ class HsPicker:
                 hs = hs | { h }
         print("approximate hitting set", len(hs), "smallest possible size", lo)
         return hs, lo
-
+    
     #
     # This can improve lower bound, but is expensive.
     # Note that Z3 does not work well for hitting set optimization.
@@ -86,6 +95,8 @@ class HsPicker:
     #
 
     def pick_hs(self, Ks, lo):
+        if len(Ks) == 0:
+            return set(), lo
         if self.opt_backoff_count < self.opt_backoff_limit:
             self.opt_backoff_count += 1
             return self.pick_hs_(Ks, lo)
@@ -100,7 +111,7 @@ class HsPicker:
         if is_sat == sat:
             mdl = opt.model()
             hs = [self.soft.name2formula[n] for n in self.soft.formula2name.values() if is_true(mdl.eval(n))]
-            return hs, lo
+            return set(hs), lo
         else:
             print("Timeout", self.timeout_value, "lo", lo, "limit", self.opt_backoff_limit)
             self.opt_backoff_limit += 1
@@ -113,17 +124,18 @@ class HsMaxSAT:
         
     def __init__(self, soft, s):
         self.s = s                    # solver object
-        self.original_soft = soft
         self.soft = Soft(soft)        # Soft constraints
         self.hs = HsPicker(self.soft) # Pick a hitting set
-        self.mdl = None               # Current best model
+        self.model = None               # Current best model
         self.lo = 0                   # Current lower bound
         self.hi = len(soft)           # Current upper bound
         self.Ks = []                  # Set of Cores
         self.Cs = []                  # Set of correction sets
         self.small_set_size = 6
-        self.small_set_threshold = 2
-        self.num_max_res_failures = 0        
+        self.small_set_threshold = 1
+        self.num_max_res_failures = 0
+        self.corr_set_enabled = True
+        self.patterns = []
 
     def has_many_small_sets(self, sets):
         small_count = len([c for c in sets if len(c) <= self.small_set_size])
@@ -149,7 +161,6 @@ class HsMaxSAT:
         self.Ks = []
         self.Cs = []
         self.lo -= num_cores_relaxed
-        self.hi -= num_cores_relaxed
         print("New offset", self.soft.offset)
                 
     def maxres(self):
@@ -160,26 +171,33 @@ class HsMaxSAT:
         if self.has_many_small_sets(self.Ks):
             self.num_max_res_failures = 0
             cores = self.get_small_disjoint_sets(self.Ks)
-            self.soft.formulas = set(self.soft.formulas)
             for core in cores:
-                self.small_set_size = min(self.small_set_size, len(core) - 2)
+                self.small_set_size = max(4, min(self.small_set_size, len(core) - 2))
                 relax_core(self.s, core, self.soft.formulas)
             self.reinit_soft(len(cores))
+            self.corr_set_enabled = True
             return
         #
         # If there are sufficiently many small correction sets, then
         # we reduce the soft constraints by dual maxres (IJCAI 2014)
+        #
+        # TODO: the heuristic for when to invoking correction set restriction
+        # needs fine-tuning. For example, the if min(Ks)*optimality_gap < min(Cs)*(max(SS))
+        # we might want to prioritize core relaxation to make progress with less overhead.
+        # here: max(SS) = |Soft|-min(Cs) is the size of the maximal satisfying subset
+        # the optimality gap is self.hi - self.offset
+        # which is a bound on how many cores have to be relaxed before determining optimality.
         # 
-        if self.has_many_small_sets(self.Cs):
+        if self.corr_set_enabled and self.has_many_small_sets(self.Cs):
             self.num_max_res_failures = 0
             cs = self.get_small_disjoint_sets(self.Cs)
-            self.soft.formulas = set(self.soft.formulas)            
             for corr_set in cs:
                 print("restrict cs", len(corr_set))
-                self.small_set_size = min(self.small_set_size, len(corr_set) - 2)
+                self.small_set_size = max(4, min(self.small_set_size, len(corr_set) - 2))
                 restrict_cs(self.s, corr_set, self.soft.formulas)
-                s.add(Or(corr_set))
+                self.s.add(Or(corr_set))
             self.reinit_soft(0)
+            self.corr_set_enabled = False
             return
         #
         # Increment the failure count. If the failure count reaches a threshold
@@ -197,34 +215,55 @@ class HsMaxSAT:
     def save_model(self):
         # 
         # You can save a model here.
-        # For example, add the string: self.mdl.sexpr()
+        # For example, add the string: self.model.sexpr()
         # to a file, or print bounds in custom format.
         #
         # print(f"Bound: {self.lo}")
-        # for f in self.original_soft:
-        #     print(f"{f} := {self.mdl.eval(f)}")
+        # for f in self.soft.original_soft:
+        #     print(f"{f} := {self.model.eval(f)}")
         pass
+
+    def add_pattern(self, orig_cs):
+        named = { f"{f}" : f for f in self.soft.original_soft }
+        sorted_names = sorted(named.keys())
+        sorted_soft = [named[f] for f in sorted_names]
+        bits = [1 if f not in orig_cs else 0 for f in sorted_soft]
+        def eq_bits(b1, b2):
+            return all(b1[i] == b2[i] for i in range(len(b1)))
+        def num_overlaps(b1, b2):
+            return sum(b1[i] == b2[i] for i in range(len(b1)))
+        
+        if not any(eq_bits(b, bits) for b in self.patterns):
+            if len(self.patterns) > 0:
+                print(num_overlaps(bits, self.patterns[-1]), len(bits), bits)
+            self.patterns += [bits]
+            counts = [sum(b[i] for b in self.patterns) for i in range(len(bits))]
+            print(counts)
+                
 
     def improve(self, new_model):
         mss = { f for f in self.soft.formulas if is_true(new_model.eval(f)) }
-        cs = set(self.soft.formulas) - mss
+        cs = self.soft.formulas - mss
         self.Cs += [cs]
-        cost = len(cs)
-        if self.mdl is None:
-            self.mdl = new_model
+        orig_cs = { f for f in self.soft.original_soft if not is_true(new_model.eval(f)) }
+        cost = len(orig_cs) 
+        if self.model is None:
+            self.model = new_model
         if cost <= self.hi:
+            self.add_pattern(orig_cs)
             print("improve", self.hi, cost)
-            self.mdl = new_model
+            self.model = new_model
             self.save_model()
         if cost < self.hi:
             self.hi = cost
-        assert self.mdl
+        assert self.model
 
-    def local_mss(self, hi, new_model):
+    def local_mss(self, new_model):
         mss = { f for f in self.soft.formulas if is_true(new_model.eval(f)) }
-        ps = set(self.soft.formulas) - mss
+        ps = self.soft.formulas - mss
         backbones = set()
         qs = set()
+        backbone2core = {}
         while len(ps) > 0:
             p = random.choice([p for p in ps])
             ps = ps - { p }
@@ -249,30 +288,43 @@ class HsMaxSAT:
                 qs = qs - rs
                 self.improve(mdl)
             elif is_sat == unsat:
+                core = set()
+                for c in self.s.unsat_core():
+                    if c in backbone2core:
+                        core = core | backbone2core[c]
+                    elif not p.eq(c):
+                        core = core | { c }
+                self.Ks += [core]
+                backbone2core[Not(p)] = core
                 backbones = backbones | { Not(p) }
             else:
                 qs = qs | { p }
         if len(qs) > 0:
             print("Number undetermined", len(qs))
+        
 
     def get_cores(self, hs):
         core = self.s.unsat_core()
-        remaining = set(self.soft.formulas) - set(core) - set(hs)
+        remaining = self.soft.formulas - hs
         num_cores = 0
         cores = [core]
         if len(core) == 0:
-            self.lo = self.hi
-            return []
+            self.lo = self.hi - self.soft.offset
+            return
         print("new core of size", len(core))    
         while True:        
             is_sat = self.s.check(remaining)
             if unsat == is_sat:
                 core = self.s.unsat_core()
                 print("new core of size", len(core))
+                if len(core) == 0:
+                    self.lo = self.hi - self.soft.offset
+                    return
                 cores += [core]
-                remaining = remaining - set(core)
+                h = random.choice([c for c in core])                
+                remaining = remaining - { h }
             elif sat == is_sat and num_cores == len(cores):
-                self.local_mss(self.hi, self.s.model())
+                self.local_mss(self.s.model())
                 break
             elif sat == is_sat:
                 self.improve(self.s.model())
@@ -283,37 +335,33 @@ class HsMaxSAT:
                 # The new hitting set contains at least one new element
                 # from the original cores
                 #
-                hs = set(hs)
-                for i in range(num_cores, len(cores)):
-                    h = random.choice([c for c in cores[i]])
-                    hs = hs | { h }
-                remaining = set(self.soft.formulas) - set(core) - set(hs)
+                hs = hs | { random.choice([c for c in cores[i]]) for i in range(num_cores, len(cores)) }
+                remaining = self.soft.formulas - hs
                 num_cores = len(cores)
             else:
                 print(is_sat)
                 break
-        return cores
+        self.Ks += [set(core) for core in cores]
+        print("total number of cores", len(self.Ks))
+        print("total number of correction sets", len(self.Cs))
 
     def step(self):
         soft = self.soft
         hs = self.pick_hs()
-        is_sat = self.s.check(set(soft.formulas) - set(hs))    
+        is_sat = self.s.check(soft.formulas - set(hs))    
         if is_sat == sat:
             self.improve(self.s.model())
         elif is_sat == unsat:
-            cores = self.get_cores(hs)            
-            self.Ks += [set(core) for core in cores]
-            print("total number of cores", len(self.Ks))
-            print("total number of correction sets", len(self.Cs))
+            self.get_cores(hs)            
         else:
             print("unknown")
-        print("maxsat [", self.lo + soft.offset, ", ", self.hi + soft.offset, "]","offset", soft.offset)
+        print("maxsat [", self.lo + soft.offset, ", ", self.hi, "]","offset", soft.offset)
         count_sets_by_size(self.Ks)
         count_sets_by_size(self.Cs)
         self.maxres()
 
     def run(self):
-        while self.lo < self.hi:
+        while self.lo + self.soft.offset < self.hi:
             self.step()
 
                 

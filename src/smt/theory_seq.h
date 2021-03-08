@@ -436,7 +436,6 @@ namespace smt {
         bool check_length_coherence(expr* e);
         bool fixed_length(bool is_zero = false);
         bool fixed_length(expr* e, bool is_zero);
-        bool branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units);
         bool branch_variable_eq(depeq const& e);
         bool branch_binary_variable(depeq const& e);
         bool can_align_from_lhs(expr_ref_vector const& ls, expr_ref_vector const& rs);
