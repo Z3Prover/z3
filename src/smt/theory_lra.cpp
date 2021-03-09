@@ -1819,7 +1819,7 @@ public:
     expr_ref term2expr(lp::lar_term const& term) {
         expr_ref t(m);
         expr_ref_vector ts(m);
-        for (auto const& p : term) {
+        for (lp::lar_term::ival p : term) {
             auto ti = lp().column2tv(p.column());
             if (ti.is_term()) {
                 ts.push_back(multerm(p.coeff(), term2expr(lp().get_term(ti))));
@@ -3265,7 +3265,7 @@ public:
                 rational c1(0);
                 m_nla->am().set(r1, c1.to_mpq());
                 m_nla->am().add(r, r1, r);                
-                for (auto const & arg : term) {
+                for (lp::lar_term::ival arg : term) {
                     auto wi = lp().column2tv(arg.column());
                     c1 = arg.coeff() * wcoeff;
                     if (wi.is_term()) {
@@ -3547,7 +3547,7 @@ public:
 
     void term2coeffs(lp::lar_term const& term, u_map<rational>& coeffs, rational const& coeff) {
         TRACE("arith", lp().print_term(term, tout) << "\n";);
-        for (const auto & ti : term) {
+        for (lp::lar_term::ival ti : term) {
             theory_var w;
             auto tv = lp().column2tv(ti.column());
             if (tv.is_term()) {
@@ -3693,7 +3693,7 @@ public:
     }
 
     void display_evidence(std::ostream& out, lp::explanation const& evidence) {
-        for (auto const& ev : evidence) {
+        for (auto ev : evidence) {
             expr_ref e(m);
             SASSERT(!ev.coeff().is_zero()); 
             if (ev.coeff().is_zero()) { 
@@ -3725,7 +3725,7 @@ public:
                 break; 
             }
         }
-        for (auto const& ev : evidence) {
+        for (lp::explanation::cimpq ev : evidence) {
             lp().constraints().display(out << ev.coeff() << ": ", ev.ci()); 
         }
     }
