@@ -124,7 +124,7 @@ namespace bv {
             eq_occurs* m_first;
         public:
             eq_occurs_it(eq_occurs* c) : m_first(c) {}
-            eq_occurs operator*() { return *m_first; }
+            eq_occurs const& operator*() { return *m_first; }
             eq_occurs_it& operator++() { m_first = m_first->m_next; return *this; }
             eq_occurs_it operator++(int) { eq_occurs_it tmp = *this; ++*this; return tmp; }
             bool operator==(eq_occurs_it const& other) const { return m_first == other.m_first; }
