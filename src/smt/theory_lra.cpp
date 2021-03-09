@@ -1861,7 +1861,7 @@ public:
     void dump_cut_lemma(std::ostream& out, lp::lar_term const& term, lp::mpq const& k, lp::explanation const& ex, bool upper) {
         lp().print_term(term, out << "bound: "); 
         out << (upper?" <= ":" >= ") << k << "\n";
-        for (auto const& p : term) {
+        for (lp::lar_term::ival p : term) {
             auto ti = lp().column2tv(p.column());
             out << p.coeff() << " * ";
             if (ti.is_term()) {
@@ -1871,11 +1871,11 @@ public:
                 out << "v" << lp().local_to_external(ti.id()) << "\n";
             }
         }
-        for (auto const& ev : ex) {
+        for (auto ev : ex) {
             lp().constraints().display(out << ev.coeff() << ": ", ev.ci());
         }
         expr_ref_vector fmls(m);
-        for (auto const& ev : ex) {
+        for (auto ev : ex) {
             fmls.push_back(constraint2fml(ev.ci()));
         }        
         expr_ref t(term2expr(term), m);
@@ -1936,7 +1936,7 @@ public:
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
             reset_evidence();
-            for (auto const& ev : m_explanation) {
+            for (auto ev : m_explanation) {
                 set_evidence(ev.ci(), m_core, m_eqs);
             }
             // The call mk_bound() can set the m_infeasible_column in lar_solver
@@ -2304,7 +2304,7 @@ public:
         if (m.is_ite(e1) || m.is_ite(e2))
             return;
         reset_evidence();
-        for (auto const& ev : e) 
+        for (auto ev : e) 
             set_evidence(ev.ci(), m_core, m_eqs);
         justification* js = ctx().mk_justification(
             ext_theory_eq_propagation_justification(
@@ -2709,7 +2709,7 @@ public:
             SASSERT(ti.is_term());
             m_todo_vars.pop_back();
             lp::lar_term const& term = lp().get_term(ti);
-            for (auto const& p : term) {
+            for (auto p : term) {
                 lp::tv wi = lp().column2tv(p.column());
                 if (wi.is_term()) {
                     m_todo_vars.push_back(wi);
@@ -2735,7 +2735,7 @@ public:
             SASSERT(ti.is_term());
             m_todo_vars.pop_back();
             lp::lar_term const& term = lp().get_term(ti);
-            for (auto const& coeff : term) {
+            for (auto coeff : term) {
                 auto wi = lp().column2tv(coeff.column());
                 if (wi.is_term()) {
                     m_todo_vars.push_back(wi);
@@ -3174,7 +3174,7 @@ public:
         ++m_stats.m_conflicts;
         TRACE("arith", tout << "scope: " << ctx().get_scope_level() << "\n"; display_evidence(tout, m_explanation); );
         TRACE("arith", display(tout << "is-conflict: " << is_conflict << "\n"););
-        for (auto const& ev : m_explanation) {
+        for (auto ev : m_explanation) {
             set_evidence(ev.ci(), m_core, m_eqs);
         }
         // SASSERT(validate_conflict(m_core, m_eqs));

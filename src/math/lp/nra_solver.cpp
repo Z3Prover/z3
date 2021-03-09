@@ -204,7 +204,7 @@ struct solver::imp {
         // variable representing the term.
         svector<polynomial::var> vars;
         rational den(1);
-        for (const auto& kv : t) {
+        for (lp::lar_term::ival kv : t) {
             vars.push_back(lp2nl(kv.column().index()));
             den = lcm(den, denominator(kv.coeff()));
         }

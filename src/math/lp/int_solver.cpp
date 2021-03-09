@@ -189,7 +189,7 @@ std::ostream& int_solver::display_inf_rows(std::ostream& out) const {
 }
 
 bool int_solver::cut_indices_are_columns() const {
-    for (const auto & p: m_t) {
+    for (lar_term::ival p : m_t) {
         if (p.column().index() >= lra.A_r().column_count())
             return false;
     }
@@ -347,7 +347,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
     lp_assert(settings().use_tableau());
     const auto & A = lra.A_r();
     unsigned rounds = 0;
-    for (const auto &c : A.column(j)) {
+    for (auto c : A.column(j)) {
         row_index = c.var();
         const mpq & a = c.coeff();        
         unsigned i = lrac.m_r_basis[row_index];
@@ -357,7 +357,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
     }
     TRACE("random_update", tout <<  "m = " << m << "\n";);
     
-    for (const auto &c : A.column(j)) {
+    for (auto c : A.column(j)) {
         if (!inf_l && !inf_u && l >= u) break;       
         row_index = c.var();
         const mpq & a = c.coeff();        

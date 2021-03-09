@@ -49,7 +49,7 @@ namespace lp  {
         
         m_constraints_for_explanation.push_back(ci);
        
-        for (const auto &p : *t) {
+        for (lar_term::ival p : *t) {
             m_var_register.add_var(p.column().index(), true); // hnf only deals with integral variables for now
             mpq t = abs(ceil(p.coeff()));
             if (t > m_abs_max)

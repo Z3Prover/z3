@@ -55,7 +55,7 @@ bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const 
 
 rational core::value(const lp::lar_term& r) const {
     rational ret(0);
-    for (const auto & t : r) {
+    for (lp::lar_term::ival t : r) {
         ret += t.coeff() * val(t.column());
     }
     return ret;
@@ -63,7 +63,7 @@ rational core::value(const lp::lar_term& r) const {
 
 lp::lar_term core::subs_terms_to_columns(const lp::lar_term& t) const {
     lp::lar_term r;
-    for (const auto& p : t) {
+    for (lp::lar_term::ival p : t) {
         lpvar j = p.column();
         if (lp::tv::is_term(j))
             j = m_lar_solver.map_term_index_to_column_index(j);
@@ -288,7 +288,7 @@ bool core::explain_upper_bound(const lp::lar_term& t, const rational& rs, lp::ex
 }
 bool core::explain_lower_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const {
     rational b(0); // the bound
-    for (const auto& p : t) {
+    for (lp::lar_term::ival p : t) {
         rational pb;
         if (explain_coeff_lower_bound(p, pb, e)) {
             b += pb;
@@ -587,7 +587,7 @@ std::ostream & core::print_ineqs(const lemma& l, std::ostream & out) const {
             auto & in = l.ineqs()[i]; 
             print_ineq(in, out);
             if (i + 1 < l.ineqs().size()) out << " or ";
-            for (const auto & p: in.term())
+            for (lp::lar_term::ival p: in.term())
                 vars.insert(p.column());
         }
         out << std::endl;
@@ -708,7 +708,7 @@ bool core::is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &
     bool seen_minus = false;
     bool seen_plus = false;
     i = null_lpvar;
-    for(const auto & p : t) {
+    for(lp::lar_term::ival p : t) {
         const auto & c = p.coeff();
         if (c == 1) {
             seen_plus = true;
@@ -851,11 +851,11 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
     };
     
     for (const auto& i : l.ineqs()) {
-        for (const auto& p : i.term()) {                
+        for (lp::lar_term::ival p : i.term()) {                
             insert_j(p.column());
         }
     }
-    for (const auto& p : l.expl()) {
+    for (auto p : l.expl()) {
         const auto& c = m_lar_solver.constraints()[p.ci()];
         for (const auto& r : c.coeffs()) {
             insert_j(r.second);

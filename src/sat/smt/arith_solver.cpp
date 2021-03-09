@@ -316,7 +316,7 @@ namespace arith {
         if (e1->get_sort() != e2->get_sort())
             return;
         reset_evidence();
-        for (auto const& ev : e)
+        for (auto ev : e)
             set_evidence(ev.ci(), m_core, m_eqs);
         auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, n1, n2);
         ctx.propagate(n1, n2, jst->to_index());
@@ -1035,7 +1035,7 @@ namespace arith {
                 rational c1(0);
                 m_nla->am().set(r1, c1.to_mpq());
                 m_nla->am().add(r, r1, r);
-                for (auto const& arg : term) {
+                for (lp::lar_term::ival arg : term) {
                     auto wi = lp().column2tv(arg.column());
                     c1 = arg.coeff() * wcoeff;
                     if (wi.is_term()) {
@@ -1108,7 +1108,7 @@ namespace arith {
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
             reset_evidence();
-            for (auto const& ev : m_explanation)
+            for (auto ev : m_explanation)
                 set_evidence(ev.ci(), m_core, m_eqs);
             // The call mk_bound() can set the m_infeasible_column in lar_solver
             // so the explanation is safer to take before this call.
@@ -1168,7 +1168,7 @@ namespace arith {
 
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
-        for (auto const& ev : m_explanation)
+        for (auto ev : m_explanation)
             set_evidence(ev.ci(), m_core, m_eqs);
         TRACE("arith",
             tout << "Lemma - " << (is_conflict ? "conflict" : "propagation") << "\n";
@@ -1305,7 +1305,7 @@ namespace arith {
 
     void solver::term2coeffs(lp::lar_term const& term, u_map<rational>& coeffs, rational const& coeff) {
         TRACE("arith", lp().print_term(term, tout) << "\n";);
-        for (const auto& ti : term) {
+        for (lp::lar_term::ival ti : term) {
             theory_var w;
             auto tv = lp().column2tv(ti.column());
             if (tv.is_term()) {
