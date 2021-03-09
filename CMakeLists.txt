@@ -140,7 +140,7 @@ else()
   if(NOT CMAKE_BUILD_TYPE)
     message(STATUS "CMAKE_BUILD_TYPE is not set. Setting default")
     message(STATUS "The available build types are: ${available_build_types}")
-    set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE String
+    set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING
         "Options are ${available_build_types}"
         FORCE)
     # Provide drop down menu options in cmake-gui
