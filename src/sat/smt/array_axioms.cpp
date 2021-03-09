@@ -223,9 +223,6 @@ namespace array {
             args1.push_back(k);
             args2.push_back(k);
         }
-        std::cout << "e1: " << mk_pp(e1, m) << "\n";
-        std::cout << "e2: " << mk_pp(e2, m) << "\n";
-        std::cout << "funcs: " << funcs << "\n";
         expr_ref sel1(a.mk_select(args1), m);
         expr_ref sel2(a.mk_select(args2), m);
         literal lit1 = eq_internalize(e1, e2);

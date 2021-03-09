@@ -777,6 +777,7 @@ bool theory_seq::branch_quat_variable(depeq const& e) {
         return propagate_lit(dep, lits.size(), lits.c_ptr(), false_literal);
     }
     UNREACHABLE();
+    return false;
 }
 
 

@@ -466,7 +466,7 @@ public:
             return false;
         TRACE("nla_solver", tout << "j" << j << " not blocked\n";);
         impq delta = get_column_value(j) - ival;
-        for (const auto &c : A_r().column(j)) {
+        for (auto c : A_r().column(j)) {
             unsigned row_index = c.var();
             const mpq & a = c.coeff();        
             unsigned rj = m_mpq_lar_core_solver.m_r_basis[row_index];      

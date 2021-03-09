@@ -158,13 +158,13 @@ public:
     bool is_normalized() const {
         lpvar min_var = -1;
         mpq c;
-        for (const auto & p : *this) {
+        for (ival p : *this) {
             if (p.column() < min_var) {
                 min_var = p.column();
             }
         }
         lar_term r;
-        for (const auto & p : *this) {
+        for (ival p : *this) {
             if (p.column() == min_var) {
                 return p.coeff().is_one();
             }

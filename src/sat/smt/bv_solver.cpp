@@ -419,7 +419,7 @@ namespace bv {
             if (p.m_atom) {
                 for (auto vp : *p.m_atom)
                     propagate_bits(vp);
-                for (auto const& eq : p.m_atom->eqs()) 
+                for (eq_occurs const& eq : p.m_atom->eqs()) 
                     propagate_eq_occurs(eq);                
             }
             else 
@@ -691,7 +691,7 @@ namespace bv {
             result->m_bool_var2atom.setx(i, new_a, nullptr);
             for (auto vp : *a)
                 new_a->m_occs = new (result->get_region()) var_pos_occ(vp.first, vp.second, new_a->m_occs);
-            for (auto const& occ : a->eqs()) {
+            for (eq_occurs const& occ : a->eqs()) {
                 expr* e = occ.m_node->get_expr();
                 expr_ref e2(tr(e), tr.to());
                 euf::enode* n = ctx.get_enode(e2);

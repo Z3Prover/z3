@@ -30,7 +30,7 @@ Revision History:
 template<class Set1, class Set2>
 void set_intersection(Set1 & tgt, const Set2 & src) {
     svector<typename Set1::data> to_remove;
-    for (auto const& itm : tgt) 
+    for (typename Set1::data const& itm : tgt) 
         if (!src.contains(itm)) 
             to_remove.push_back(itm);
     while (!to_remove.empty()) {

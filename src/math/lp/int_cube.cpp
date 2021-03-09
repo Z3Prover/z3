@@ -103,7 +103,7 @@ namespace lp {
         }
     usual_delta:
         mpq delta = zero_of_type<mpq>();
-        for (const auto & p : t)
+        for (lar_term::ival p : t)
             if (lia.column_is_int(p.column()))
                 delta += abs(p.coeff());
         

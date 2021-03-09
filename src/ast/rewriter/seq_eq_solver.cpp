@@ -422,7 +422,6 @@ namespace seq {
             unsigned num_ls_units = count_units_r2l(ls, ls.size() - 1);
             if (num_ls_units == 0 || num_ls_units == ls.size())
                 return false;
-            unsigned ls_units_offset = ls.size() - num_ls_units;
             unsigned num_rs_non_units = count_non_units_r2l(rs, rs.size() - 1);
             if (num_rs_non_units == rs.size())
                 return false;

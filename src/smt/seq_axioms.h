@@ -37,7 +37,6 @@ namespace smt {
         seq::skolem    m_sk;
         seq::axioms    m_ax;
         bool           m_digits_initialized;
-        bool           m_use_new_axioms { true };
 
         literal mk_eq_empty(expr* e, bool phase = true) { return mk_eq_empty2(e, phase); }
         context& ctx() { return th.get_context(); }

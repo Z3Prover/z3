@@ -245,7 +245,6 @@ namespace dt {
         unsigned non_rec_idx = dt.get_constructor_idx(non_rec_c);        
         var_data* d = m_var_data[v];
         enode* recognizer = d->m_recognizers.get(non_rec_idx, nullptr);
-        func_decl* r = nullptr;
         SASSERT(!d->m_constructor);
         SASSERT(!recognizer || ctx.value(recognizer) == l_false || !is_final);
         
