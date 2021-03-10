@@ -840,12 +840,20 @@ class JavaGenericExample
         var mixedDivision1 = ctx.mkDiv(ctx.mkReal(1), ctx.mkInt(2));
         Expr<ArithSort> tmp = mixedDivision1;
         // the return type is a Expr<ArithSort> here but since we know it is a
-        // real we can declare that.
-        Expr<RealSort> mixedDivision2 = ctx.mkDiv(ctx.mkReal(1), ctx.mkInt(2));
+        // real view it as such.
+        Expr<RealSort> mixedDivision2 = mixedDivision1.distillSort(RealSort.class);
         System.out.printf("%s -> %s%n", mixedDivision2, mixedDivision2.simplify()); // (/ 1.0 (to_real 2)) -> 1/2
 
-        // this does work but should not be done
-        Expr<IntSort> mixedDivision3 = ctx.mkDiv(ctx.mkReal(1), ctx.mkInt(2));
+        // empty distillSort
+        mixedDivision1.distillSort(ArithSort.class);
+
+        try {
+            mixedDivision1.distillSort(IntSort.class);
+            throw new TestFailedException(); // unreachable
+        } catch (Z3Exception exception) {
+            System.out.println(exception); // com.microsoft.z3.Z3Exception: Cannot cast expression of sort
+                                           // com.microsoft.z3.RealSort to com.microsoft.z3.IntSort.
+        }
         
         Expr<BoolSort> eq1 = ctx.mkEq(realDivision, integerDivision);
         System.out.printf("%s -> %s%n", eq1, eq1.simplify()); // (= (/ 1.0 2.0) (to_real (div 1 2))) -> false

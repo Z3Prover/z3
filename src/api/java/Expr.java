@@ -17,6 +17,9 @@ Notes:
 
 package com.microsoft.z3;
 
+import java.lang.reflect.Type;
+import java.lang.reflect.ParameterizedType;
+
 import com.microsoft.z3.enumerations.Z3_ast_kind;
 import com.microsoft.z3.enumerations.Z3_decl_kind;
 import com.microsoft.z3.enumerations.Z3_lbool;
@@ -2090,12 +2093,38 @@ public class Expr<R extends Sort> extends AST
         return Native.getIndexValue(getContext().nCtx(), getNativeObject());
     }
 
+    private Class sort = null;
+
+    /**
+     * Downcast sort of this expression. {@code 
+     * Expr<ArithSort> mixedExpr = ctx.mkDiv(ctx.mkReal(1), ctx.mkInt(2));
+     * Expr<RealSort> realExpr = mixedExpr.distillSort(RealSort.class)
+     * }
+     * 
+     * @throws Z3Exception if sort is not compatible with expr.
+     **/
+    public <S extends R> Expr<S> distillSort(Class<S> newSort) {
+        if (sort != null && !newSort.isAssignableFrom(sort)) {
+            throw new Z3Exception(
+                    String.format("Cannot distill expression of sort %s to %s.", sort.getName(), newSort.getName()));
+        }
+
+        return (Expr<S>) ((Expr<?>) this);
+    }
+
     /**
      * Constructor for Expr
      * @throws Z3Exception on error
      **/
     protected Expr(Context ctx, long obj) {
         super(ctx, obj);
+        Type superclass = getClass().getGenericSuperclass();
+        if (superclass instanceof ParameterizedType) {
+            Type argType = ((ParameterizedType) superclass).getActualTypeArguments()[0];
+            if (argType instanceof Class) {
+                this.sort = (Class) argType;
+            }
+        }
     }
 
     @Override
