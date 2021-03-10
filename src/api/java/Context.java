@@ -723,7 +723,7 @@ public class Context implements AutoCloseable {
     /**
      * Creates the equality {@code x = y}
      **/
-    public <R extends Sort> BoolExpr mkEq(Expr<R> x, Expr<R> y)
+    public BoolExpr mkEq(Expr<?> x, Expr<?> y)
     {
         checkContextMatch(x);
         checkContextMatch(y);
@@ -735,7 +735,7 @@ public class Context implements AutoCloseable {
      * Creates a {@code distinct} term.
      **/
     @SafeVarargs
-    public final <R extends Sort> BoolExpr mkDistinct(Expr<R>... args)
+    public final BoolExpr mkDistinct(Expr<?>... args)
     {
         checkContextMatch(args);
         return new BoolExpr(this, Native.mkDistinct(nCtx(), args.length,
@@ -758,7 +758,7 @@ public class Context implements AutoCloseable {
      * @param t2 An expression  
      * @param t3 An expression with the same sort as {@code t2}
      **/
-    public <R extends Sort> Expr<R> mkITE(Expr<BoolSort> t1, Expr<R> t2, Expr<R> t3)
+    public <R extends Sort> Expr<R> mkITE(Expr<BoolSort> t1, Expr<? extends R> t2, Expr<? extends R> t3)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -826,10 +826,10 @@ public class Context implements AutoCloseable {
      * Create an expression representing {@code t[0] + t[1] + ...}.
      **/
     @SafeVarargs
-    public final <R extends ArithSort> ArithExpr<R> mkAdd(Expr<R>... t)
+    public final <R extends ArithSort, R1 extends R> ArithExpr<R1> mkAdd(Expr<? extends R>... t)
     {
         checkContextMatch(t);
-        return (ArithExpr<R>) Expr.create(this,
+        return (ArithExpr<R1>) Expr.create(this,
                 Native.mkAdd(nCtx(), t.length, AST.arrayToNative(t)));
     }
 
@@ -837,10 +837,10 @@ public class Context implements AutoCloseable {
      * Create an expression representing {@code t[0] * t[1] * ...}.
      **/
     @SafeVarargs
-    public final <R extends ArithSort> ArithExpr<R> mkMul(Expr<R>... t)
+    public final <R extends ArithSort, R1 extends R> ArithExpr<R1> mkMul(Expr<? extends R>... t)
     {
         checkContextMatch(t);
-        return (ArithExpr<R>) Expr.create(this,
+        return (ArithExpr<R1>) Expr.create(this,
                 Native.mkMul(nCtx(), t.length, AST.arrayToNative(t)));
     }
 
@@ -848,10 +848,10 @@ public class Context implements AutoCloseable {
      * Create an expression representing {@code t[0] - t[1] - ...}.
      **/
     @SafeVarargs
-    public final <R extends ArithSort> ArithExpr<R> mkSub(Expr<R>... t)
+    public final <R extends ArithSort, R1 extends R> ArithExpr<R1> mkSub(Expr<? extends R>... t)
     {
         checkContextMatch(t);
-        return (ArithExpr<R>) Expr.create(this,
+        return (ArithExpr<R1>) Expr.create(this,
                 Native.mkSub(nCtx(), t.length, AST.arrayToNative(t)));
     }
 
@@ -868,11 +868,11 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 / t2}.
      **/
-    public <R extends ArithSort> ArithExpr<R> mkDiv(Expr<R> t1, Expr<R> t2)
+    public <R extends ArithSort, R1 extends R> ArithExpr<R1> mkDiv(Expr<? extends R> t1, Expr<? extends R> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
-        return (ArithExpr<R>) Expr.create(this, Native.mkDiv(nCtx(),
+        return (ArithExpr<R1>) Expr.create(this, Native.mkDiv(nCtx(),
                 t1.getNativeObject(), t2.getNativeObject()));
     }
 
@@ -905,11 +905,12 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 ^ t2}.
      **/
-    public <R extends ArithSort> ArithExpr<R> mkPower(Expr<R> t1, Expr<R> t2)
+    public <R extends ArithSort, R1 extends ArithSort> ArithExpr<R1> mkPower(Expr<? extends R> t1,
+            Expr<? extends R> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
-        return (ArithExpr<R>) Expr.create(
+        return (ArithExpr<R1>) Expr.create(
                 this,
                 Native.mkPower(nCtx(), t1.getNativeObject(),
                         t2.getNativeObject()));
@@ -918,7 +919,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 &lt; t2}
      **/
-    public <R extends ArithSort> BoolExpr mkLt(Expr<R> t1, Expr<R> t2)
+    public <R extends ArithSort> BoolExpr mkLt(Expr<? extends R> t1, Expr<? extends R> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -929,7 +930,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 &lt;= t2}
      **/
-    public <R extends ArithSort> BoolExpr mkLe(Expr<R> t1, Expr<R> t2)
+    public <R extends ArithSort> BoolExpr mkLe(Expr<? extends R> t1, Expr<? extends R> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -940,7 +941,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 &gt; t2}
      **/
-    public <R extends ArithSort> BoolExpr mkGt(Expr<R> t1, Expr<R> t2)
+    public <R extends ArithSort> BoolExpr mkGt(Expr<? extends R> t1, Expr<? extends R> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);
@@ -951,7 +952,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an expression representing {@code t1 &gt;= t2}
      **/
-    public <R extends ArithSort> BoolExpr mkGe(Expr<R> t1, Expr<R> t2)
+    public <R extends ArithSort> BoolExpr mkGe(Expr<? extends R> t1, Expr<? extends R> t2)
     {
         checkContextMatch(t1);
         checkContextMatch(t2);

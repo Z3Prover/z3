@@ -829,6 +829,29 @@ class JavaGenericExample
         } catch (Z3Exception ignored)
         {
         }
+
+        // Coercing type change in Z3
+        Expr<IntSort> integerDivision = ctx.mkDiv(ctx.mkInt(1), ctx.mkInt(2));
+        System.out.printf("%s -> %s%n", integerDivision, integerDivision.simplify()); // (div 1 2) -> 0
+
+        Expr<RealSort> realDivision = ctx.mkDiv(ctx.mkReal(1), ctx.mkReal(2));
+        System.out.printf("%s -> %s%n", realDivision, realDivision.simplify()); // (/ 1.0 2.0) -> 1/2
+
+        var mixedDivision1 = ctx.mkDiv(ctx.mkReal(1), ctx.mkInt(2));
+        Expr<ArithSort> tmp = mixedDivision1;
+        // the return type is a Expr<ArithSort> here but since we know it is a
+        // real we can declare that.
+        Expr<RealSort> mixedDivision2 = ctx.mkDiv(ctx.mkReal(1), ctx.mkInt(2));
+        System.out.printf("%s -> %s%n", mixedDivision2, mixedDivision2.simplify()); // (/ 1.0 (to_real 2)) -> 1/2
+
+        // this does work but should not be done
+        Expr<IntSort> mixedDivision3 = ctx.mkDiv(ctx.mkReal(1), ctx.mkInt(2));
+        
+        Expr<BoolSort> eq1 = ctx.mkEq(realDivision, integerDivision);
+        System.out.printf("%s -> %s%n", eq1, eq1.simplify()); // (= (/ 1.0 2.0) (to_real (div 1 2))) -> false
+
+        Expr<BoolSort> eq2 = ctx.mkEq(realDivision, mixedDivision2);
+        System.out.printf("%s -> %s%n", eq2, eq2.simplify()); // (= (/ 1.0 2.0) (/ 1.0 (to_real 2))) -> true
     }
 
     // / Shows how to use Solver(logic)
