@@ -271,7 +271,7 @@ std::ostream& core::print_explanation(const lp::explanation& exp, std::ostream& 
 
 bool core::explain_upper_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const {
     rational b(0); // the bound
-    for (const auto& p : t) {
+    for (lp::lar_term::ival p : t) {
         rational pb;
         if (explain_coeff_upper_bound(p, pb, e)) {
             b += pb;

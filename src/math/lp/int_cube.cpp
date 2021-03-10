@@ -85,7 +85,7 @@ namespace lp {
         if (t.size() == 2) {
             bool seen_minus = false;
             bool seen_plus = false;
-            for(const auto & p : t) {
+            for(lar_term::ival p : t) {
                 if (!lia.column_is_int(p.column()))
                     goto usual_delta;
                 const mpq & c = p.coeff();

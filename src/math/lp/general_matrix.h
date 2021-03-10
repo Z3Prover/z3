@@ -108,7 +108,7 @@ public:
     void init_row_from_container(int i, const T & c, std::function<unsigned (unsigned)> column_fix, const mpq& sign) {
         auto & row = m_data[adjust_row(i)];
         lp_assert(row_is_initialized_correctly(row));
-        for (const auto & p : c) {
+        for (lp::lar_term::ival p : c) {
             unsigned j = adjust_column(column_fix(p.column().index()));
             row[j] = sign * p.coeff();
         }
