@@ -78,7 +78,7 @@ namespace arith {
         }
 
         // clone rows into m_solver, m_nla, m_lia
-        NOT_IMPLEMENTED_YET();
+        // NOT_IMPLEMENTED_YET();
 
         return result;        
     }

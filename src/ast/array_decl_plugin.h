@@ -182,30 +182,31 @@ public:
 
     bool is_as_array_tree(expr * n);
 
-    app * mk_store(unsigned num_args, expr * const * args) {
+    app * mk_store(unsigned num_args, expr * const * args) const {
         return m_manager.mk_app(m_fid, OP_STORE, 0, nullptr, num_args, args);
     }
 
-    app * mk_store(expr_ref_vector const& args) {
-        return mk_store(args.size(), args.c_ptr());
-    }
-    app * mk_store(ptr_vector<expr> const& args) {
+    app * mk_store(expr_ref_vector const& args) const {
         return mk_store(args.size(), args.c_ptr());
     }
 
-    app * mk_select(unsigned num_args, expr * const * args) {
+    app * mk_store(ptr_vector<expr> const& args) const {
+        return mk_store(args.size(), args.c_ptr());
+    }
+
+    app * mk_select(unsigned num_args, expr * const * args) const {
         return m_manager.mk_app(m_fid, OP_SELECT, 0, nullptr, num_args, args);
     }
 
-    app * mk_select(ptr_vector<expr> const& args) {
+    app * mk_select(ptr_vector<expr> const& args) const {
         return mk_select(args.size(), args.c_ptr());
     }
 
-    app * mk_select(ptr_buffer<expr> const& args) {
+    app * mk_select(ptr_buffer<expr> const& args) const {
         return mk_select(args.size(), args.c_ptr());
     }
 
-    app * mk_select(expr_ref_vector const& args) {
+    app * mk_select(expr_ref_vector const& args) const {
         return mk_select(args.size(), args.c_ptr());
     }
 

@@ -96,6 +96,8 @@ namespace array {
             bool        m_delayed { false };
             axiom_record(kind_t k, euf::enode* n, euf::enode* select = nullptr) : m_kind(k), n(n), select(select) {}
 
+            bool is_delayed() const { return m_delayed; }
+
             struct hash {
                 solver& s;
                 hash(solver& s) :s(s) {}
@@ -122,12 +124,14 @@ namespace array {
         svector<axiom_record> m_axiom_trail;
         unsigned              m_qhead { 0 };
         unsigned              m_delay_qhead { 0 };
+        bool                  m_enable_delay { true };
         struct set_delay_bit;
         void push_axiom(axiom_record const& r);
         bool propagate_axiom(unsigned idx);
         bool assert_axiom(unsigned idx);
         bool assert_select(unsigned idx, axiom_record & r);
         bool assert_default(axiom_record & r);
+        bool is_relevant(axiom_record const& r) const;
 
         axiom_record select_axiom(euf::enode* s, euf::enode* n) { return axiom_record(axiom_record::kind_t::is_select, n, s); }
         axiom_record default_axiom(euf::enode* n) { return axiom_record(axiom_record::kind_t::is_default, n); }
@@ -188,7 +192,11 @@ namespace array {
         bool have_different_model_values(theory_var v1, theory_var v2);
 
         // diagnostics
-        std::ostream& display_info(std::ostream& out, char const* id, euf::enode_vector const& v) const;
+        std::ostream& display_info(std::ostream& out, char const* id, euf::enode_vector const& v) const; 
+        std::ostream& display(std::ostream& out, axiom_record const& r) const;
+        void validate_check() const;
+        void validate_select_store(euf::enode* n) const;
+        void validate_extensionality(euf::enode* s, euf::enode* t) const;
     public:
         solver(euf::solver& ctx, theory_id id);
         ~solver() override;

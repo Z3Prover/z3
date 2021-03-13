@@ -359,6 +359,7 @@ namespace euf {
         bool relevancy_enabled() const { return get_config().m_relevancy_lvl > 0; }
         void add_root(unsigned n, sat::literal const* lits);
         void add_aux(unsigned n, sat::literal const* lits);
+        void add_aux(sat::literal a, sat::literal b) { sat::literal lits[2] = {a, b}; add_aux(2, lits); }
         void track_relevancy(sat::bool_var v);
         bool is_relevant(expr* e) const;
         bool is_relevant(enode* n) const;

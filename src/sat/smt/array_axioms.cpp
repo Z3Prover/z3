@@ -25,22 +25,27 @@ namespace array {
     void solver::push_axiom(axiom_record const& r) { 
         unsigned idx = m_axiom_trail.size();
         m_axiom_trail.push_back(r); 
+        TRACE("array", display(tout, r) << " " << m_axioms.contains(idx) << "\n";);
         if (m_axioms.contains(idx))
             m_axiom_trail.pop_back();
         else
             ctx.push(push_back_vector<svector<axiom_record>>(m_axiom_trail));
     }
 
-    bool solver::propagate_axiom(unsigned idx) {
-        if (m_axioms.contains(idx))
+    bool solver::propagate_axiom(unsigned idx) {        
+        if (!m_axioms.contains(idx)) {
+            m_axioms.insert(idx);
+            ctx.push(insert_map<axiom_table_t, unsigned>(m_axioms, idx));
+        }
+        else if (!m_axiom_trail[idx].is_delayed())
             return false;
-        m_axioms.insert(idx);
-        ctx.push(insert_map<axiom_table_t, unsigned>(m_axioms, idx));
         return assert_axiom(idx);
     }
 
     bool solver::assert_axiom(unsigned idx) {
         axiom_record& r = m_axiom_trail[idx];
+        if (!is_relevant(r))
+            return false;
         switch (r.m_kind) {
         case axiom_record::kind_t::is_store:
             return assert_store_axiom(to_app(r.n->get_expr()));
@@ -62,8 +67,7 @@ namespace array {
     bool solver::assert_default(axiom_record& r) {
         expr* child = r.n->get_expr();
         SASSERT(can_beta_reduce(r.n));
-        if (!ctx.is_relevant(child))
-            return false;
+            
         TRACE("array", tout << "default-axiom: " << mk_bounded_pp(child, m, 2) << "\n";);
         if (a.is_const(child))
             return assert_default_const_axiom(to_app(child));
@@ -79,30 +83,47 @@ namespace array {
         solver& s;
         unsigned m_idx;
         set_delay_bit(solver& s, unsigned idx) : s(s), m_idx(idx) {}
-        void undo(/*euf::solver& euf*/) override {
+        void undo() override {
             s.m_axiom_trail[m_idx].m_delayed = false;
         }
     };
+
+    bool solver::is_relevant(axiom_record const& r) const {
+        return true;
+#if 0
+        // relevancy propagation is currently incomplete on terms
+
+        expr* child = r.n->get_expr();
+        switch (r.m_kind) {
+        case axiom_record::kind_t::is_select: {
+            app* select = r.select->get_app();
+            for (unsigned i = 1; i < select->get_num_args(); ++i)
+                if (!ctx.is_relevant(select->get_arg(i)))
+                    return false;
+            return ctx.is_relevant(child);            
+        }
+        case axiom_record::kind_t::is_default:
+            return ctx.is_relevant(child);            
+        default:
+            return true;
+        }
+#endif
+    }
 
     bool solver::assert_select(unsigned idx, axiom_record& r) {
         expr* child = r.n->get_expr();
         app* select = r.select->get_app();
         SASSERT(a.is_select(select));
         SASSERT(can_beta_reduce(r.n));
-        if (!ctx.is_relevant(child))
-            return false;
-        for (unsigned i = 1; i < select->get_num_args(); ++i)
-            if (!ctx.is_relevant(select->get_arg(i)))
-                return false;
-        TRACE("array", tout << "select-axiom: " << mk_bounded_pp(select, m, 2) << " " << mk_bounded_pp(child, m, 2) << "\n";);
-        if (get_config().m_array_delay_exp_axiom && r.select->get_arg(0)->get_root() != r.n->get_root() && !r.m_delayed) {
+        TRACE("array", display(tout << "select-axiom: ", r) << "\n";);
+
+        if (get_config().m_array_delay_exp_axiom && r.select->get_arg(0)->get_root() != r.n->get_root() && !r.m_delayed && m_enable_delay) {
             IF_VERBOSE(11, verbose_stream() << "delay: " << mk_bounded_pp(child, m) << " " << mk_bounded_pp(select, m) << "\n");
             ctx.push(set_delay_bit(*this, idx));
             r.m_delayed = true;
             return false;
         }
-        if (r.select->get_arg(0)->get_root() != r.n->get_root() && r.m_delayed)
-            return false;
+        r.m_delayed = false;
         if (a.is_const(child))
             return assert_select_const_axiom(select, to_app(child));
         else if (a.is_as_array(child))
@@ -163,8 +184,13 @@ namespace array {
         expr_ref sel_eq_e(m.mk_eq(sel1, sel2), m);
         euf::enode* s1 = e_internalize(sel1);
         euf::enode* s2 = e_internalize(sel2);
+        TRACE("array", 
+              tout << "select-store " << ctx.bpp(s1) << " " << ctx.bpp(s1->get_root()) << "\n";
+              tout << "select-store " << ctx.bpp(s2) << " " << ctx.bpp(s2->get_root()) << "\n";);
+
         if (s1->get_root() == s2->get_root())
             return false;
+
         sat::literal sel_eq = mk_literal(sel_eq_e);
         if (s().value(sel_eq) == l_true)
             return false;
@@ -173,8 +199,8 @@ namespace array {
         for (unsigned i = 1; i < num_args; i++) {
             expr* idx1 = store->get_arg(i);
             expr* idx2 = select->get_arg(i);
-            euf::enode* r1 = expr2enode(idx1)->get_root();
-            euf::enode* r2 = expr2enode(idx2)->get_root();
+            euf::enode* r1 = expr2enode(idx1);
+            euf::enode* r2 = expr2enode(idx2);
             if (r1 == r2)
                 continue;
             if (m.are_distinct(r1->get_expr(), r2->get_expr())) {
@@ -186,6 +212,7 @@ namespace array {
             if (add_clause(idx_eq, sel_eq))
                 new_prop = true;
         }
+        TRACE("array", tout << "select-stored " << new_prop << "\n";);
         return new_prop;
     }
 
@@ -483,9 +510,11 @@ namespace array {
         bool change = false;
         unsigned sz = m_axiom_trail.size();
         m_delay_qhead = 0;
+        
         for (; m_delay_qhead < sz; ++m_delay_qhead) 
-            if (m_axiom_trail[m_delay_qhead].m_delayed && assert_axiom(m_delay_qhead))
-                change = true;        
+            if (m_axiom_trail[m_delay_qhead].is_delayed() && assert_axiom(m_delay_qhead))
+                change = true;  
+        flet<bool> _enable_delay(m_enable_delay, false);
         if (unit_propagate())
             change = true;
         return change;

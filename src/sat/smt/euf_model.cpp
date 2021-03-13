@@ -236,13 +236,16 @@ namespace euf {
             expr* e = n->get_expr();
             if (!m.is_bool(e))
                 continue;
-            unsigned id = n->get_root_id();
-            if (!m_values.get(id))
+            if (!is_relevant(n))
                 continue;
-            bool tt = m.is_true(m_values.get(id));
-            if (mdl.is_true(e) != tt) {
-                IF_VERBOSE(0, verbose_stream() << "Failed to evaluate " << id << " " << mk_bounded_pp(e, m) << " " << mdl(e) << " " << mk_bounded_pp(m_values.get(id), m) << "\n");
+            bool tt = l_true == s().value(n->bool_var());
+            if (tt && mdl.is_false(e)) {
+                IF_VERBOSE(0, verbose_stream() << "Failed to validate " << bpp(n) << " " << mdl(e) << "\n");
+                for (auto* arg : euf::enode_args(n))
+                    IF_VERBOSE(0, verbose_stream() << bpp(arg) << "\n" << mdl(arg->get_expr()) << "\n");
             }
+            if (!tt && mdl.is_true(e))
+                IF_VERBOSE(0, verbose_stream() << "Failed to validate " << bpp(n) << " " << mdl(e) << "\n");
         }
         
     }
