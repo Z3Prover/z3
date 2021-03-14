@@ -51,6 +51,7 @@ z3_add_component(lp
     util
     polynomial
     nlsat
+    smt_params
 )
 
 include_directories(${src_SOURCE_DIR})

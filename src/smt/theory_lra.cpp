@@ -879,16 +879,9 @@ public:
         get_zero(true);
         get_zero(false);
 
-        smt_params_helper lpar(ctx().get_params());
+        lp().updt_params(ctx().get_params());
         lp().settings().set_resource_limit(m_resource_limit);
-        lp().settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lpar.arith_simplex_strategy());
         lp().settings().bound_propagation() = bound_prop_mode::BP_NONE != propagation_mode();
-        lp().settings().enable_hnf() = lpar.arith_enable_hnf();
-        lp().settings().print_external_var_name() = lpar.arith_print_ext_var_names();
-        lp().set_track_pivoted_rows(lpar.arith_bprop_on_pivoted_rows());
-        lp().settings().report_frequency = lpar.arith_rep_freq();
-        lp().settings().print_statistics = lpar.arith_print_stats();
-        lp().settings().cheap_eqs() = lpar.arith_propagate_eqs();
 
         // todo : do not use m_arith_branch_cut_ratio for deciding on cheap cuts
         unsigned branch_cut_ratio = ctx().get_fparams().m_arith_branch_cut_ratio;

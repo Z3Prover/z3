@@ -1,4 +1,6 @@
 #include "math/lp/lar_solver.h"
+#include "smt/params/smt_params_helper.hpp"
+
 /*
   Copyright (c) 2017 Microsoft Corporation
   Author: Nikolaj Bjorner, Lev Nachmanson
@@ -13,6 +15,14 @@ namespace lp {
     lp_settings& lar_solver::settings() { return m_settings; }
 
     lp_settings const& lar_solver::settings() const { return m_settings; }
+
+    void lar_solver::updt_params(params_ref const& _p) {
+        smt_params_helper p(_p);
+        set_track_pivoted_rows(p.arith_bprop_on_pivoted_rows());
+        set_cut_strategy(p.arith_branch_cut_ratio());
+        m_settings.updt_params(_p);
+    }
+
 
     void clear() {
         lp_assert(false); // not implemented

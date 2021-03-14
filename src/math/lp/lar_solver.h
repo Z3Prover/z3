@@ -515,6 +515,7 @@ public:
     unsigned column_to_reported_index(unsigned j) const;
     lp_settings & settings();
     lp_settings const & settings() const;
+    void updt_params(params_ref const& p);
     column_type get_column_type(unsigned j) const { return m_mpq_lar_core_solver.m_column_types()[j]; }
     const impq & get_lower_bound(unsigned j) const { return m_mpq_lar_core_solver.m_r_lower_bounds()[j]; }
     const impq & get_upper_bound(unsigned j) const { return m_mpq_lar_core_solver.m_r_upper_bounds()[j]; }

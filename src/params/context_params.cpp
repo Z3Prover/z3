@@ -187,9 +187,9 @@ params_ref context_params::merge_default_params(params_ref const & p) {
     }
 }
 
-void context_params::get_solver_params(ast_manager const & m, params_ref & p, bool & proofs_enabled, bool & models_enabled, bool & unsat_core_enabled) {
-    proofs_enabled     = m.proofs_enabled() && p.get_bool("proof", m_proof);
-    models_enabled     = p.get_bool("model", m_model);
+void context_params::get_solver_params(params_ref & p, bool & proofs_enabled, bool & models_enabled, bool & unsat_core_enabled) {
+    proofs_enabled     &= p.get_bool("proof", m_proof);
+    models_enabled     &= p.get_bool("model", m_model);
     unsat_core_enabled = m_unsat_core || p.get_bool("unsat_core", false);
     p = merge_default_params(p);
 }

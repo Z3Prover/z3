@@ -276,7 +276,9 @@ namespace bv {
 
     void solver::register_true_false_bit(theory_var v, unsigned idx) {
         SASSERT(s().value(m_bits[v][idx]) != l_undef);
-        bool is_true = (s().value(m_bits[v][idx]) == l_true);
+        sat::literal l = m_bits[v][idx];
+        SASSERT(l == mk_true() || ~l == mk_true());
+        bool is_true = l == mk_true();
         zero_one_bits& bits = m_zero_one_bits[v];
         bits.push_back(zero_one_bit(v, idx, is_true));
     }
@@ -309,7 +311,7 @@ namespace bv {
 
     void solver::set_bit_eh(theory_var v, literal l, unsigned idx) {
         SASSERT(m_bits[v][idx] == l);
-        if (s().value(l) != l_undef && s().lvl(l) == 0) 
+        if (l.var() == mk_true().var()) 
             register_true_false_bit(v, idx);
         else {
             atom* b = mk_atom(l.var());
@@ -354,6 +356,14 @@ namespace bv {
         return get_bv_size(var2enode(v));
     }
 
+    sat::literal solver::mk_true() {
+        if (m_true == sat::null_literal) {
+            ctx.push(value_trail<sat::literal>(m_true));
+            m_true = ctx.internalize(m.mk_true(), false, false, false);
+        }
+        return m_true;
+    }
+
     void solver::internalize_num(app* a) {
         numeral val;
         unsigned sz = 0;
@@ -365,7 +375,7 @@ namespace bv {
         m_bb.num2bits(val, sz, bits);
         SASSERT(bits.size() == sz);
         SASSERT(m_bits[v].empty());
-        sat::literal true_literal = ctx.internalize(m.mk_true(), false, false, false);
+        sat::literal true_literal = mk_true();
         for (unsigned i = 0; i < sz; i++) {
             expr* l = bits.get(i);
             SASSERT(m.is_true(l) || m.is_false(l));

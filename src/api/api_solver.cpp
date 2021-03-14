@@ -140,9 +140,9 @@ extern "C" {
 
     static void init_solver_core(Z3_context c, Z3_solver _s) {
         Z3_solver_ref * s = to_solver(_s);
-        bool proofs_enabled, models_enabled, unsat_core_enabled;
+        bool proofs_enabled = true, models_enabled = true, unsat_core_enabled = false;
         params_ref p = s->m_params;
-        mk_c(c)->params().get_solver_params(mk_c(c)->m(), p, proofs_enabled, models_enabled, unsat_core_enabled);
+        mk_c(c)->params().get_solver_params(p, proofs_enabled, models_enabled, unsat_core_enabled);
         s->m_solver = (*(s->m_solver_factory))(mk_c(c)->m(), p, proofs_enabled, models_enabled, unsat_core_enabled, s->m_logic);
         
         param_descrs r;

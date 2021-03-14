@@ -1992,9 +1992,9 @@ void cmd_context::display_detailed_analysis(std::ostream& out, model_evaluator& 
 }
 
 void cmd_context::mk_solver() {
-    bool proofs_enabled, models_enabled, unsat_core_enabled;
+    bool proofs_enabled = m().proofs_enabled(), models_enabled = true, unsat_core_enabled = true;
     params_ref p;
-    m_params.get_solver_params(m(), p, proofs_enabled, models_enabled, unsat_core_enabled);
+    m_params.get_solver_params(p, proofs_enabled, models_enabled, unsat_core_enabled);
     m_solver = (*m_solver_factory)(m(), p, proofs_enabled, models_enabled, unsat_core_enabled, m_logic);
 }
 

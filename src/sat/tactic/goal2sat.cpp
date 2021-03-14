@@ -63,7 +63,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     obj_map<app, sat::literal>  m_app2lit;
     u_map<app*>                 m_lit2app;
     unsigned_vector             m_cache_lim;
-    ptr_vector<app>             m_cache_trail;
+    app_ref_vector              m_cache_trail;
     obj_hashtable<expr>         m_interface_vars;
     sat::solver_core &          m_solver;
     atom2bool_var &             m_map;
@@ -85,6 +85,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     imp(ast_manager & _m, params_ref const & p, sat::solver_core & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
         m(_m),
         pb(m),
+        m_cache_trail(m),
         m_solver(s),
         m_map(map),
         m_dep2asm(dep2asm),
@@ -95,7 +96,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_true = sat::null_literal;
     }
 
-    ~imp() override {}
+    ~imp() override {
+    }
         
 
     sat::cut_simplifier* aig() {
@@ -258,7 +260,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_map.pop(n);
         unsigned k = m_cache_lim[m_cache_lim.size() - n];
         for (unsigned i = m_cache_trail.size(); i-- > k; ) {
-            app* t = m_cache_trail[i];
+            app* t = m_cache_trail.get(i);
             sat::literal lit;
             if (m_app2lit.find(t, lit)) {
                 m_app2lit.remove(t);

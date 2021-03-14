@@ -204,6 +204,7 @@ namespace bv {
         svector<propagation_item>  m_prop_queue;
         unsigned_vector            m_prop_queue_lim;
         unsigned                   m_prop_queue_head { 0 };
+        sat::literal               m_true { sat::null_literal };
 
         // internalize
         void insert_bv2a(bool_var bv, atom * a) { m_bool_var2atom.setx(bv, a, 0); }
@@ -294,6 +295,7 @@ namespace bv {
         bool propagate_bits(var_pos entry);
         bool propagate_eq_occurs(eq_occurs const& occ);
         numeral const& power2(unsigned i) const;
+        sat::literal mk_true();
 
 
         // invariants

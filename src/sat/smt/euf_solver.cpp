@@ -308,7 +308,7 @@ namespace euf {
             euf::enode* nb = n->get_arg(1);
             m_egraph.merge(na, nb, c);
         }
-        else if (n->merge_enabled()) {
+        else if (n->merge_enabled() && n->num_parents() > 0) {
             euf::enode* nb = sign ? mk_false() : mk_true();
             m_egraph.merge(n, nb, c);
         }

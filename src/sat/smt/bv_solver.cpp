@@ -354,23 +354,6 @@ namespace bv {
         sat::literal_vector lits;
         switch (c.m_kind) {
         case bv_justification::kind_t::eq2bit:
-            ++s_count;
-//            std::cout << "eq2bit " << s_count << "\n";
-#if 0
-            if (s_count == 1899) {
-                std::cout << "eq2bit " << mk_bounded_pp(var2expr(c.m_v1), m) << " == " << mk_bounded_pp(var2expr(c.m_v2), m) << "\n";
-                std::cout << mk_bounded_pp(literal2expr(~c.m_antecedent), m, 4) << "\n";
-                std::cout << mk_bounded_pp(literal2expr(c.m_consequent), m, 4) << "\n";
-                std::cout << literal2expr(c.m_consequent) << "\n";
-#if 0
-                solver_ref slv = mk_smt2_solver(m, ctx.s().params());
-                slv->assert_expr(eq);
-                slv->assert_expr(literal2expr(c.m_antecedent));
-                slv->assert_expr(literal2expr(~c.m_consequent));
-                slv->display(std::cout) << "(check-sat)\n";
-#endif
-            }
-#endif
             lits.push_back(~leq);
             lits.push_back(~c.m_antecedent);
             lits.push_back(c.m_consequent);

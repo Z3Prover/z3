@@ -32,20 +32,12 @@ namespace arith {
     {
         m_solver = alloc(lp::lar_solver);
 
-        smt_params_helper lpar(ctx.s().params());
+        lp().updt_params(ctx.s().params());
         lp().settings().set_resource_limit(m_resource_limit);
-        lp().settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lpar.arith_simplex_strategy());
         lp().settings().bound_propagation() = bound_prop_mode::BP_NONE != propagation_mode();
-        lp().settings().enable_hnf() = lpar.arith_enable_hnf();
-        lp().settings().print_external_var_name() = lpar.arith_print_ext_var_names();
-        lp().set_track_pivoted_rows(lpar.arith_bprop_on_pivoted_rows());
-        lp().settings().report_frequency = lpar.arith_rep_freq();
-        lp().settings().print_statistics = lpar.arith_print_stats();
-        lp().settings().cheap_eqs() = lpar.arith_propagate_eqs();
-        lp().set_cut_strategy(get_config().m_arith_branch_cut_ratio);
         lp().settings().int_run_gcd_test() = get_config().m_arith_gcd_test;
         lp().settings().set_random_seed(get_config().m_random_seed);
-
+        
         m_lia = alloc(lp::int_solver, *m_solver.get());
     }
 

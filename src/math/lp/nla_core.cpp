@@ -37,7 +37,9 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_reslim(lim),
     m_use_nra_model(false),
     m_nra(s, lim, *this)
-{}
+{
+    m_nlsat_delay = lp_settings().nlsat_delay();
+}
     
 bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const {
     switch(cmp) {
@@ -1507,10 +1509,14 @@ lbool core::check(vector<lemma>& l_vec) {
         run_grobner();                
 
     if (l_vec.empty() && !done()) 
-        m_basics.basic_lemma(true);    
+        m_basics.basic_lemma(true); 
 
     if (l_vec.empty() && !done()) 
         m_basics.basic_lemma(false);
+
+    if (!conflict_found() && !done() && should_run_bounded_nlsat())
+        ret = bounded_nlsat();
+    
 
     if (l_vec.empty() && !done()) {
         std::function<void(void)> check1 = [&]() { m_order.order_lemma(); };
@@ -1523,15 +1529,9 @@ lbool core::check(vector<lemma>& l_vec) {
               { 1, check3 }};
         check_weighted(3, checks);
 
-        if (!conflict_found() && m_nla_settings.run_nra() && random() % 50 == 0 && 
+        if (!conflict_found() && m_nla_settings.run_nra() && should_run_bounded_nlsat() && 
             lp_settings().stats().m_nla_calls > 500) {
-            params_ref p;
-            p.set_uint("max_conflicts", 100);
-            m_nra.updt_params(p);
-            ret = m_nra.check(); 
-            p.set_uint("max_conflicts", UINT_MAX);           
-            m_nra.updt_params(p);
-            m_stats.m_nra_calls++;
+            ret = bounded_nlsat();
         }
     }
 
@@ -1551,6 +1551,30 @@ lbool core::check(vector<lemma>& l_vec) {
     TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << l_vec.size() << "\n";);
     IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monics(verbose_stream());});
     CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monics(tout););
+    return ret;
+}
+
+bool core::should_run_bounded_nlsat() {
+    if (m_nlsat_delay > m_nlsat_fails)
+        ++m_nlsat_fails;
+    return m_nlsat_delay <= m_nlsat_fails;
+}
+
+lbool core::bounded_nlsat() {
+    params_ref p;
+    p.set_uint("max_conflicts", 100);
+    scoped_rlimit sr(m_reslim, 100000);
+    m_nra.updt_params(p);
+    lbool ret = m_nra.check(); 
+    p.set_uint("max_conflicts", UINT_MAX);           
+    m_nra.updt_params(p);
+    m_stats.m_nra_calls++;
+    if (ret == l_undef) 
+        ++m_nlsat_delay;
+    else { 
+        m_nlsat_fails = 0;
+        m_nlsat_delay /= 2;
+    }
     return ret;
 }
 
