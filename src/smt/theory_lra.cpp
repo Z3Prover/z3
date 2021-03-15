@@ -3659,13 +3659,7 @@ public:
 
     void display(std::ostream & out) {
         if (m_solver) {
-            out << lp().constraints();
-            lp().print_terms(out);
-            // the tableau
-            lp().pp(out).print();
-            for (unsigned j = 0; j < lp().number_of_vars(); j++) {
-                lp().print_column_info(j, out);
-            }
+            m_solver->display(out);
         }
         if (m_nla) {
             m_nla->display(out);

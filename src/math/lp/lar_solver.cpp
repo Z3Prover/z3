@@ -1252,6 +1252,15 @@ namespace lp {
 
     // ********** print region start
 
+    std::ostream& lar_solver::display(std::ostream& out) const {
+        out << constraints();
+        print_terms(out);
+        pp(out).print();
+        for (unsigned j = 0; j < number_of_vars(); j++) 
+            print_column_info(j, out);
+        return out;
+    }
+
     std::ostream& lar_solver::print_terms(std::ostream& out) const {
         for (auto it : m_terms) {
             print_term(*it, out) << "\n";

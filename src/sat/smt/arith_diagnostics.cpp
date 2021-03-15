@@ -23,13 +23,7 @@ namespace arith {
 
     
     std::ostream& solver::display(std::ostream& out) const { 
-            out << lp().constraints();
-            lp().print_terms(out);
-            // the tableau
-            lp().pp(out).print();
-            for (unsigned j = 0; j < lp().number_of_vars(); j++) {
-                lp().print_column_info(j, out);
-            }
+        lp().display(out);
         
         if (m_nla) {
             m_nla->display(out);

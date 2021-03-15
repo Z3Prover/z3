@@ -525,6 +525,8 @@ public:
     std::ostream& print_constraint_indices_only(const lar_base_constraint * c, std::ostream & out) const;
     std::ostream& print_implied_bound(const implied_bound& be, std::ostream & out) const;
     std::ostream& print_values(std::ostream& out) const;
+    std::ostream& display(std::ostream& out) const;
+
     bool init_model() const;
     mpq get_value(column_index const& j) const;
     mpq get_tv_value(tv const& t) const;
