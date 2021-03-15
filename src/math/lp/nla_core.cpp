@@ -1518,7 +1518,7 @@ lbool core::check(vector<lemma>& l_vec) {
         ret = bounded_nlsat();
     
 
-    if (l_vec.empty() && !done()) {
+    if (l_vec.empty() && !done() && ret == l_undef) {
         std::function<void(void)> check1 = [&]() { m_order.order_lemma(); };
         std::function<void(void)> check2 = [&]() { m_monotone.monotonicity_lemma(); };
         std::function<void(void)> check3 = [&]() { m_tangents.tangent_lemma(); };
@@ -1529,10 +1529,9 @@ lbool core::check(vector<lemma>& l_vec) {
               { 1, check3 }};
         check_weighted(3, checks);
 
-        if (!conflict_found() && m_nla_settings.run_nra() && should_run_bounded_nlsat() && 
-            lp_settings().stats().m_nla_calls > 500) {
+        unsigned num_calls = lp_settings().stats().m_nla_calls;
+        if (!conflict_found() && m_nla_settings.run_nra() && num_calls % 50 == 0 && num_calls > 500) 
             ret = bounded_nlsat();
-        }
     }
 
     if (l_vec.empty() && !done() && m_nla_settings.run_nra() && ret == l_undef) {
@@ -1555,6 +1554,8 @@ lbool core::check(vector<lemma>& l_vec) {
 }
 
 bool core::should_run_bounded_nlsat() {
+    if (!m_nla_settings.run_nra())
+        return false;
     if (m_nlsat_delay > m_nlsat_fails)
         ++m_nlsat_fails;
     return m_nlsat_delay <= m_nlsat_fails;
@@ -1570,10 +1571,13 @@ lbool core::bounded_nlsat() {
     m_nra.updt_params(p);
     m_stats.m_nra_calls++;
     if (ret == l_undef) 
-        ++m_nlsat_delay;
+        ++m_nlsat_delay;    
     else { 
         m_nlsat_fails = 0;
         m_nlsat_delay /= 2;
+    }
+    if (ret == l_true) {
+        m_lemma_vec->reset();
     }
     return ret;
 }
