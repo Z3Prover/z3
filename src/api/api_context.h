@@ -36,7 +36,6 @@ Revision History:
 #include "smt/smt_kernel.h"
 #include "smt/smt_solver.h"
 #include "cmd_context/tactic_manager.h"
-#include "params/context_params.h"
 #include "cmd_context/cmd_context.h"
 #include "solver/solver.h"
 #include "api/z3.h"
@@ -74,7 +73,7 @@ namespace api {
 
     class context : public tactic_manager {
         struct add_plugins {  add_plugins(ast_manager & m); };
-        context_params             m_params;
+        ast_context                m_params;
         bool                       m_user_ref_count; //!< if true, the user is responsible for managing reference counters.
         scoped_ptr<ast_manager>    m_manager;
         scoped_ptr<cmd_context>    m_cmd;
@@ -136,11 +135,11 @@ namespace api {
         //
         // ------------------------
         
-        context(context_params * p, bool user_ref_count = false);
+        context(ast_context * p, bool user_ref_count = false);
         ~context();
         ast_manager & m() const { return *(m_manager.get()); }
 
-        context_params & params() { m_params.updt_params(); return m_params; }
+        ast_context & params() { m_params.updt_params(); return m_params; }
         scoped_ptr<cmd_context>& cmd() { return m_cmd; }
         bool produce_proofs() const { return m().proofs_enabled(); }
         bool produce_models() const { return m_params.m_model; }

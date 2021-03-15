@@ -128,7 +128,6 @@ namespace array {
             r.set_delayed();
             return false;
         }
-        r.set_applied();
         if (a.is_const(child))
             return assert_select_const_axiom(select, to_app(child));
         else if (a.is_as_array(child))
@@ -205,12 +204,6 @@ namespace array {
         if (s().value(sel_eq) == l_true)
             return false;
 
-#if 0
-        static unsigned count = 0;
-        ++count;
-        std::cout << count << " " << sel_eq << "\n";
-#endif
-
         bool new_prop = false;
         for (unsigned i = 1; i < num_args; i++) {
             expr* idx1 = store->get_arg(i);
@@ -238,6 +231,7 @@ namespace array {
      *    select(const(v), i) = v
      */
     bool solver::assert_select_const_axiom(app* select, app* cnst) {
+        
         ++m_stats.m_num_select_const_axiom;
         expr* val = nullptr;
         VERIFY(a.is_const(cnst, val));

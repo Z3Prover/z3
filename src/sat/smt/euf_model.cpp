@@ -73,7 +73,7 @@ namespace euf {
         values2model(deps, mdl);
         for (auto* mb : m_solvers)
             mb->finalize_model(*mdl);
-        // validate_model(*mdl);
+        validate_model(*mdl);
     }
 
     bool solver::include_func_interp(func_decl* f) {

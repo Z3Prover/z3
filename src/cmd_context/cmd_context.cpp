@@ -280,6 +280,20 @@ void macro_decls::erase_last(ast_manager& m) {
     m_decls->pop_back();
 }
 
+ast_manager * ast_context::mk_ast_manager() {
+    if (m_manager)
+        return m_manager;
+    ast_manager * r = alloc(ast_manager,
+                            m_proof ? PGM_ENABLED : PGM_DISABLED,
+                            m_trace ? m_trace_file_name.c_str() : nullptr);
+    if (m_smtlib2_compliant)
+        r->enable_int_real_coercions(false);
+    if (m_debug_ref_count)
+        r->debug_ref_count();
+    return r;
+}
+
+
 bool cmd_context::contains_func_decl(symbol const& s, unsigned n, sort* const* domain, sort* range) const {
     func_decls fs;
     return m_func_decls.find(s, fs) && fs.contains(n, domain, range);
@@ -1889,6 +1903,8 @@ void cmd_context::validate_model() {
                 if (m().is_true(r))
                     continue;
 
+                TRACE("model_validate", tout << *md << "\n";);
+
                 // The evaluator for array expressions is not complete
                 // If r contains as_array/store/map/const expressions, then we do not generate the error.
                 // TODO: improve evaluator for model expressions.
@@ -1897,7 +1913,8 @@ void cmd_context::validate_model() {
                     continue;
                 }
                 try {
-                    for_each_expr(contains_underspecified, a);
+                    if (!m().is_false(r))
+                        for_each_expr(contains_underspecified, a);
                     for_each_expr(contains_underspecified, r);
                 }
                 catch (const contains_underspecified_op_proc::found &) {

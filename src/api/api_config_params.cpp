@@ -24,7 +24,6 @@ Revision History:
 #include "util/symbol.h"
 #include "util/gparams.h"
 #include "util/env_params.h"
-#include "params/context_params.h"
 
 extern "C" {
     void Z3_API Z3_global_param_set(Z3_string param_id, Z3_string param_value) {
@@ -71,7 +70,7 @@ extern "C" {
         try {
             memory::initialize(UINT_MAX);
             LOG_Z3_mk_config();
-            Z3_config r = reinterpret_cast<Z3_config>(alloc(context_params));
+            Z3_config r = reinterpret_cast<Z3_config>(alloc(ast_context));
             RETURN_Z3(r);
         } catch (z3_exception & ex) {
             // The error handler is only available for contexts
@@ -83,13 +82,13 @@ extern "C" {
     
     void Z3_API Z3_del_config(Z3_config c) {
         LOG_Z3_del_config(c);
-        dealloc((reinterpret_cast<context_params*>(c)));
+        dealloc((reinterpret_cast<ast_context*>(c)));
     }
     
     void Z3_API Z3_set_param_value(Z3_config c, char const * param_id, char const * param_value) {
         LOG_Z3_set_param_value(c, param_id, param_value);
         try {
-            context_params * p = reinterpret_cast<context_params*>(c);
+            ast_context * p = reinterpret_cast<ast_context*>(c);
             p->set(param_id, param_value);
         }
         catch (z3_exception & ex) {
