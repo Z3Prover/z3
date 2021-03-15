@@ -693,7 +693,8 @@ namespace seq {
     /**
        stoi(s) >= -1
        stoi("") = -1
-       stoi(s) >= 0 => is_digit(nth(s,0))
+       stoi(s) >= 0 => is_digit(nth(s,0)) 
+       stoi(s) >= 0 => len(s) >= 1
     */
     void axioms::stoi_axiom(expr* e) {
         TRACE("seq", tout << mk_pp(e, m) << "\n";);
@@ -701,8 +702,10 @@ namespace seq {
         expr* s = nullptr;
         VERIFY (seq.str.is_stoi(e, s));    
         add_clause(mk_ge(e, -1));                             // stoi(s) >= -1
-        add_clause(~mk_eq_empty(s), mk_eq(e, a.mk_int(-1)));  // s = "" => stoi(s) = -1
+        add_clause(mk_eq(seq.str.mk_stoi(seq.str.mk_empty(s->get_sort())), a.mk_int(-1)));
+//      add_clause(~mk_eq_empty(s), mk_eq(e, a.mk_int(-1)));  // s = "" => stoi(s) = -1
         add_clause(~ge0, is_digit(mk_nth(s, 0)));             // stoi(s) >= 0 => is_digit(nth(s,0))
+        add_clause(~ge0, mk_ge(mk_len(s), 1));                // stoi(s) >= 0 => len(s) >= 1
     }
 
 
