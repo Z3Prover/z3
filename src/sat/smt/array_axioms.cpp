@@ -22,24 +22,37 @@ Author:
 
 namespace array {
 
+    struct solver::reset_new : trail {
+        solver& s;
+        unsigned m_idx;
+        reset_new(solver& s, unsigned idx) : s(s), m_idx(idx) {}
+        void undo() override {
+            s.m_axiom_trail[m_idx].set_new();
+        }
+    };
+
     void solver::push_axiom(axiom_record const& r) { 
         unsigned idx = m_axiom_trail.size();
         m_axiom_trail.push_back(r); 
         TRACE("array", display(tout, r) << " " << m_axioms.contains(idx) << "\n";);
         if (m_axioms.contains(idx))
             m_axiom_trail.pop_back();
-        else
+        else {
+            m_axioms.insert(idx);
             ctx.push(push_back_vector<svector<axiom_record>>(m_axiom_trail));
+            ctx.push(insert_map<axiom_table_t, unsigned>(m_axioms, idx));
+        }
     }
 
     bool solver::propagate_axiom(unsigned idx) {        
-        if (!m_axioms.contains(idx)) {
-            m_axioms.insert(idx);
-            ctx.push(insert_map<axiom_table_t, unsigned>(m_axioms, idx));
-        }
-        else if (!m_axiom_trail[idx].is_delayed())
+        if (is_applied(idx))
             return false;
-        return assert_axiom(idx);
+        bool st = assert_axiom(idx);
+        if (!is_delayed(idx)) {
+            ctx.push(reset_new(*this, idx));
+            set_applied(idx);
+        }
+        return st;
     }
 
     bool solver::assert_axiom(unsigned idx) {
@@ -79,14 +92,6 @@ namespace array {
             return false;                
     }
 
-    struct solver::set_delay_bit : trail {
-        solver& s;
-        unsigned m_idx;
-        set_delay_bit(solver& s, unsigned idx) : s(s), m_idx(idx) {}
-        void undo() override {
-            s.m_axiom_trail[m_idx].m_delayed = false;
-        }
-    };
 
     bool solver::is_relevant(axiom_record const& r) const {
         return true;
@@ -117,13 +122,13 @@ namespace array {
         SASSERT(can_beta_reduce(r.n));
         TRACE("array", display(tout << "select-axiom: ", r) << "\n";);
 
-        if (get_config().m_array_delay_exp_axiom && r.select->get_arg(0)->get_root() != r.n->get_root() && !r.m_delayed && m_enable_delay) {
+        if (get_config().m_array_delay_exp_axiom && r.select->get_arg(0)->get_root() != r.n->get_root() && !r.is_delayed() && m_enable_delay) {
             IF_VERBOSE(11, verbose_stream() << "delay: " << mk_bounded_pp(child, m) << " " << mk_bounded_pp(select, m) << "\n");
-            ctx.push(set_delay_bit(*this, idx));
-            r.m_delayed = true;
+            ctx.push(reset_new(*this, idx));
+            r.set_delayed();
             return false;
         }
-        r.m_delayed = false;
+        r.set_applied();
         if (a.is_const(child))
             return assert_select_const_axiom(select, to_app(child));
         else if (a.is_as_array(child))
@@ -165,7 +170,6 @@ namespace array {
      * where i = (i_1, ..., i_n), j = (j_1, .., j_n), k in 1..n
      */
     bool solver::assert_select_store_axiom(app* select, app* store) {
-        ++m_stats.m_num_select_store_axiom;
         SASSERT(a.is_store(store));
         SASSERT(a.is_select(select));
         SASSERT(store->get_num_args() == 1 + select->get_num_args());
@@ -174,11 +178,17 @@ namespace array {
         sel1_args.push_back(store);
         sel2_args.push_back(store->get_arg(0));
 
+        bool has_diff = false;
+        for (unsigned i = 1; i < num_args; i++) 
+            has_diff |= expr2enode(select->get_arg(i))->get_root() != expr2enode(store->get_arg(i))->get_root();
+        if (!has_diff)
+            return false;
+        
         for (unsigned i = 1; i < num_args; i++) {
             sel1_args.push_back(select->get_arg(i));
             sel2_args.push_back(select->get_arg(i));
         }
-
+   
         expr_ref sel1(a.mk_select(sel1_args), m);
         expr_ref sel2(a.mk_select(sel2_args), m);
         expr_ref sel_eq_e(m.mk_eq(sel1, sel2), m);
@@ -194,7 +204,13 @@ namespace array {
         sat::literal sel_eq = mk_literal(sel_eq_e);
         if (s().value(sel_eq) == l_true)
             return false;
-        
+
+#if 0
+        static unsigned count = 0;
+        ++count;
+        std::cout << count << " " << sel_eq << "\n";
+#endif
+
         bool new_prop = false;
         for (unsigned i = 1; i < num_args; i++) {
             expr* idx1 = store->get_arg(i);
@@ -212,6 +228,7 @@ namespace array {
             if (add_clause(idx_eq, sel_eq))
                 new_prop = true;
         }
+        ++m_stats.m_num_select_store_axiom;
         TRACE("array", tout << "select-stored " << new_prop << "\n";);
         return new_prop;
     }

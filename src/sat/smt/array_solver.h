@@ -90,19 +90,34 @@ namespace array {
                 is_default,
                 is_congruence
             };
+            enum class state_t {
+                is_new,
+                is_delayed,
+                is_applied
+            };
             kind_t      m_kind;
+            state_t     m_state { state_t::is_new };
             euf::enode* n;
             euf::enode* select;
-            bool        m_delayed { false };
             axiom_record(kind_t k, euf::enode* n, euf::enode* select = nullptr) : m_kind(k), n(n), select(select) {}
 
-            bool is_delayed() const { return m_delayed; }
+            bool is_delayed() const { return m_state == state_t::is_delayed; }
+            bool is_applied() const { return m_state == state_t::is_applied; }
+            void set_new() { m_state = state_t::is_new; }
+            void set_applied() { m_state = state_t::is_applied; }
+            void set_delayed() { m_state = state_t::is_delayed; }
 
             struct hash {
                 solver& s;
                 hash(solver& s) :s(s) {}
                 unsigned operator()(unsigned idx) const {
                     auto const& r = s.m_axiom_trail[idx];
+                    if (r.m_kind == kind_t::is_select) {
+                        unsigned h = mk_mix(r.n->get_expr_id(), (unsigned)r.m_kind, r.select->get_arg(1)->get_expr_id());
+                        for (unsigned i = 2; i < r.select->num_args(); ++i)
+                            h = mk_mix(h, 1, r.select->get_arg(i)->get_expr_id());
+                        return h;
+                    }
                     return mk_mix(r.n->get_expr_id(), (unsigned)r.m_kind, r.select ? r.select->get_expr_id() : 1);
                 }
             };
@@ -113,7 +128,14 @@ namespace array {
                 unsigned operator()(unsigned a, unsigned b) const {
                     auto const& p = s.m_axiom_trail[a];
                     auto const& r = s.m_axiom_trail[b];
-                    return p.n == r.n && p.select == r.select && p.m_kind == r.m_kind;
+                    if (p.m_kind != r.m_kind || p.n != r.n)
+                        return false;
+                    if (p.m_kind != kind_t::is_select)                        
+                        return p.select == r.select;
+                    for (unsigned i = p.select->num_args(); i-- > 1; )
+                        if (p.select->get_arg(i) != r.select->get_arg(i))
+                            return false;
+                    return true;
                 }
             };
         };
@@ -125,13 +147,16 @@ namespace array {
         unsigned              m_qhead { 0 };
         unsigned              m_delay_qhead { 0 };
         bool                  m_enable_delay { true };
-        struct set_delay_bit;
+        struct reset_new;
         void push_axiom(axiom_record const& r);
         bool propagate_axiom(unsigned idx);
         bool assert_axiom(unsigned idx);
         bool assert_select(unsigned idx, axiom_record & r);
         bool assert_default(axiom_record & r);
         bool is_relevant(axiom_record const& r) const;
+        void set_applied(unsigned idx) { m_axiom_trail[idx].set_applied(); }
+        bool is_applied(unsigned idx) const { return m_axiom_trail[idx].is_applied(); }
+        bool is_delayed(unsigned idx) const { return m_axiom_trail[idx].is_delayed(); }
 
         axiom_record select_axiom(euf::enode* s, euf::enode* n) { return axiom_record(axiom_record::kind_t::is_select, n, s); }
         axiom_record default_axiom(euf::enode* n) { return axiom_record(axiom_record::kind_t::is_default, n); }
