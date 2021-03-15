@@ -2193,6 +2193,9 @@ public:
     app * mk_xor(expr * lhs, expr * rhs) { return mk_app(m_basic_family_id, OP_XOR, lhs, rhs); }
     app * mk_ite(expr * c, expr * t, expr * e) { return mk_app(m_basic_family_id, OP_ITE, c, t, e); }
     app * mk_xor(unsigned num_args, expr * const * args) { return mk_app(m_basic_family_id, OP_XOR, num_args, args); }
+    app * mk_xor(ptr_buffer<expr> const& args) { return mk_xor(args.size(), args.c_ptr()); }
+    app * mk_xor(ptr_vector<expr> const& args) { return mk_xor(args.size(), args.c_ptr()); }
+    app * mk_xor(ref_buffer<expr, ast_manager> const& args) { return mk_xor(args.size(), args.c_ptr()); }
     app * mk_or(unsigned num_args, expr * const * args) { return mk_app(m_basic_family_id, OP_OR, num_args, args); }
     app * mk_and(unsigned num_args, expr * const * args) { return mk_app(m_basic_family_id, OP_AND, num_args, args); }
     app * mk_or(expr * arg1, expr * arg2) { return mk_app(m_basic_family_id, OP_OR, arg1, arg2); }

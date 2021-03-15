@@ -436,13 +436,15 @@ namespace smt {
         }
         if (found) {
             m_num_rounds++;
+            if (!to_delete && !m_disabled_guards.empty()) 
+                to_delete = m_disabled_guards.back();
             if (to_delete) {
                 m_disabled_guards.erase(to_delete);
                 m_enabled_guards.push_back(to_delete);
                 IF_VERBOSE(2, verbose_stream() << "(smt.recfun :enable-guard " << mk_pp(to_delete, m) << ")\n");
             }
             else {
-                IF_VERBOSE(2, verbose_stream() << "(smt.recfun :increment-round)\n");
+                IF_VERBOSE(2, verbose_stream() << "(smt.recfun :increment-round " << m_num_rounds << ")\n");
             }
             for (expr* g : m_enabled_guards)
                 push_guard(g);

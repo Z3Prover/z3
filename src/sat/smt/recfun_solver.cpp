@@ -312,6 +312,8 @@ namespace recfun {
         }
         if (found) {
             ++m_num_rounds;
+            if (!to_delete && !m_disabled_guards.empty())
+                to_delete = m_disabled_guards.back();
             if (to_delete) {
                 m_disabled_guards.erase(to_delete);
                 m_enabled_guards.push_back(to_delete);

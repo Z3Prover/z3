@@ -110,14 +110,16 @@ namespace array {
             struct hash {
                 solver& s;
                 hash(solver& s) :s(s) {}
+                unsigned hash_select(axiom_record const& r) const {
+                    unsigned h = mk_mix(r.n->get_expr_id(), (unsigned)r.m_kind, r.select->get_arg(1)->get_expr_id());
+                    for (unsigned i = 2; i < r.select->num_args(); ++i)
+                        h = mk_mix(h, h, r.select->get_arg(i)->get_expr_id());
+                    return h;
+                }
                 unsigned operator()(unsigned idx) const {
                     auto const& r = s.m_axiom_trail[idx];
-                    if (r.m_kind == kind_t::is_select) {
-                        unsigned h = mk_mix(r.n->get_expr_id(), (unsigned)r.m_kind, r.select->get_arg(1)->get_expr_id());
-                        for (unsigned i = 2; i < r.select->num_args(); ++i)
-                            h = mk_mix(h, 1, r.select->get_arg(i)->get_expr_id());
-                        return h;
-                    }
+                    if (r.m_kind == kind_t::is_select) 
+                        return hash_select(r);
                     return mk_mix(r.n->get_expr_id(), (unsigned)r.m_kind, r.select ? r.select->get_expr_id() : 1);
                 }
             };
@@ -125,17 +127,20 @@ namespace array {
             struct eq {
                 solver& s;
                 eq(solver& s) :s(s) {}
-                unsigned operator()(unsigned a, unsigned b) const {
-                    auto const& p = s.m_axiom_trail[a];
-                    auto const& r = s.m_axiom_trail[b];
+                bool eq_select(axiom_record const& p, axiom_record const& r) const {
                     if (p.m_kind != r.m_kind || p.n != r.n)
                         return false;
-                    if (p.m_kind != kind_t::is_select)                        
-                        return p.select == r.select;
                     for (unsigned i = p.select->num_args(); i-- > 1; )
                         if (p.select->get_arg(i) != r.select->get_arg(i))
                             return false;
-                    return true;
+                    return true;                    
+                }
+                unsigned operator()(unsigned a, unsigned b) const {
+                    auto const& p = s.m_axiom_trail[a];
+                    auto const& r = s.m_axiom_trail[b];
+                    if (p.m_kind == kind_t::is_select)
+                        return eq_select(p, r);
+                    return p.m_kind == r.m_kind && p.n == r.n && p.select == r.select;
                 }
             };
         };
