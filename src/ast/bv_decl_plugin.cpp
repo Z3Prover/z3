@@ -44,9 +44,9 @@ bv_decl_plugin::bv_decl_plugin():
 void bv_decl_plugin::set_manager(ast_manager * m, family_id id) {
     decl_plugin::set_manager(m, id);
 
-    for (unsigned i = 1; i <= 64; i++) {
+    for (unsigned i = 1; i <= 64; i++) 
         mk_bv_sort(i);
-    }
+
     m_bit0 = m->mk_const_decl(symbol("bit0"), get_bv_sort(1), func_decl_info(m_family_id, OP_BIT0));
     m_bit1 = m->mk_const_decl(symbol("bit1"), get_bv_sort(1), func_decl_info(m_family_id, OP_BIT1));
     m->inc_ref(m_bit0);
@@ -138,7 +138,7 @@ void bv_decl_plugin::finalize() {
 
 void bv_decl_plugin::mk_bv_sort(unsigned bv_size) {
     force_ptr_array_size(m_bv_sorts, bv_size + 1);
-    if (m_bv_sorts[bv_size] == 0) {
+    if (!m_bv_sorts[bv_size]) {
         parameter p(bv_size);
         sort_size sz;
         if (sort_size::is_very_big_base2(bv_size)) {
@@ -155,7 +155,7 @@ void bv_decl_plugin::mk_bv_sort(unsigned bv_size) {
 inline sort * bv_decl_plugin::get_bv_sort(unsigned bv_size) {
     if (bv_size < (1 << 12)) {
         mk_bv_sort(bv_size);
-            return m_bv_sorts[bv_size];
+        return m_bv_sorts[bv_size];
     }
     parameter p(bv_size);
     sort_size sz(sort_size::mk_very_big());

@@ -155,6 +155,8 @@ class seq_decl_plugin : public decl_plugin {
 
     void set_manager(ast_manager * m, family_id id) override;
 
+    sort* mk_reglan();
+
 public:
     seq_decl_plugin();
 

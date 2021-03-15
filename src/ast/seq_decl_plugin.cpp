@@ -172,7 +172,7 @@ sort* seq_decl_plugin::apply_binding(ptr_vector<sort> const& binding, sort* s) {
         if (p == m_char && s->get_decl_kind() == SEQ_SORT)
             return m_string;
         if (p == m_string && s->get_decl_kind() == RE_SORT)
-            return m_reglan;
+            return mk_reglan();
         return mk_sort(s->get_decl_kind(), 1, &param);
     }
     return s;
@@ -273,6 +273,16 @@ void seq_decl_plugin::init() {
     m_sigs[_OP_STRING_SUBSTR]     = alloc(psig, m, "str.substr", 0, 3, strTint2T, strT);
 }
 
+sort* seq_decl_plugin::mk_reglan() {
+    if (!m_reglan) {
+        ast_manager& m = *m_manager;
+        parameter paramS(m_string);
+        m_reglan = m.mk_sort(symbol("RegEx"), sort_info(m_family_id, RE_SORT, 1, &paramS));
+        m.inc_ref(m_reglan);
+    }
+    return m_reglan;
+}
+
 void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
     decl_plugin::set_manager(m, id);
     m_char_plugin = static_cast<char_decl_plugin*>(m_manager->get_plugin(m_manager->mk_family_id("char")));
@@ -281,9 +291,6 @@ void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
     parameter param(m_char);
     m_string = m->mk_sort(symbol("String"), sort_info(m_family_id, SEQ_SORT, 1, &param));
     m->inc_ref(m_string);
-    parameter paramS(m_string);
-    m_reglan = m->mk_sort(m_family_id, RE_SORT, 1, &paramS);
-    m->inc_ref(m_reglan);
 }
 
 sort * seq_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
@@ -313,7 +320,7 @@ sort * seq_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter 
     case _STRING_SORT:
         return m_string;
     case _REGLAN_SORT:
-        return m_reglan;
+        return mk_reglan();
     default:
         UNREACHABLE();
         return nullptr;
@@ -403,14 +410,14 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         
     case _OP_REGEXP_FULL_CHAR:
         m_has_re = true;
-        if (!range) range = m_reglan;
+        if (!range) range = mk_reglan();
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(symbol("re.allchar"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_FULL_CHAR_SET));
 
     case OP_RE_FULL_CHAR_SET:
         m_has_re = true;
-        if (!range) range = m_reglan;
-        if (range == m_reglan) {
+        if (!range) range = mk_reglan();
+        if (range == mk_reglan()) {
             match(*m_sigs[k], arity, domain, range, rng);
             return m.mk_func_decl(symbol("re.allchar"), arity, domain, rng, func_decl_info(m_family_id, k));
         }
@@ -418,19 +425,19 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
 
     case OP_RE_FULL_SEQ_SET:
         m_has_re = true;
-        if (!range) range = m_reglan;
+        if (!range) range = mk_reglan();
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, range, func_decl_info(m_family_id, k));        
 
     case _OP_REGEXP_EMPTY:
         m_has_re = true;
-        if (!range) range = m_reglan;
+        if (!range) range = mk_reglan();
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(symbol("re.none"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_EMPTY_SET));
 
     case OP_RE_EMPTY_SET:
         m_has_re = true;
-        if (!range) range = m_reglan;
-        if (range == m_reglan) {
+        if (!range) range = mk_reglan();
+        if (range == mk_reglan()) {
             match(*m_sigs[k], arity, domain, range, rng);
             return m.mk_func_decl(symbol("re.none"), arity, domain, rng, func_decl_info(m_family_id, k));
         }
@@ -446,12 +453,12 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             }
             return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k, num_parameters, parameters));
         case 2:
-            if (m_reglan != domain[0] || !arith_util(m).is_int(domain[1])) {
+            if (mk_reglan() != domain[0] || !arith_util(m).is_int(domain[1])) {
                 m.raise_exception("Incorrect type of arguments passed to re.loop. Expecting regular expression and two integer parameters");
             }
             return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, domain[0], func_decl_info(m_family_id, k, num_parameters, parameters));
         case 3:
-            if (m_reglan != domain[0] || !arith_util(m).is_int(domain[1]) || !arith_util(m).is_int(domain[2])) {
+            if (mk_reglan() != domain[0] || !arith_util(m).is_int(domain[1]) || !arith_util(m).is_int(domain[2])) {
                 m.raise_exception("Incorrect type of arguments passed to re.loop. Expecting regular expression and two integer parameters");
             }
             return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, domain[0], func_decl_info(m_family_id, k, num_parameters, parameters));

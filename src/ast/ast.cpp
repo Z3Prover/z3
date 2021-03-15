@@ -1941,7 +1941,7 @@ void ast_manager::delete_node(ast * n) {
 #endif
         switch (n->get_kind()) {
         case AST_SORT:
-            if (to_sort(n)->m_info != nullptr && !m_debug_ref_count) {
+            if (to_sort(n)->m_info != nullptr) {
                 sort_info * info = to_sort(n)->get_info();
                 info->del_eh(*this);
                 dealloc(info);
@@ -1949,7 +1949,7 @@ void ast_manager::delete_node(ast * n) {
             break;
         case AST_FUNC_DECL: {
             func_decl* f = to_func_decl(n);
-            if (f->m_info != nullptr && !m_debug_ref_count) {
+            if (f->m_info != nullptr) {
                 func_decl_info * info = f->get_info();
                 if (info->is_lambda()) {
                     push_dec_ref(m_lambda_defs[f]);
