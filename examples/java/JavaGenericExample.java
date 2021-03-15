@@ -837,7 +837,7 @@ class JavaGenericExample
         Expr<RealSort> realDivision = ctx.mkDiv(ctx.mkReal(1), ctx.mkReal(2));
         System.out.printf("%s -> %s%n", realDivision, realDivision.simplify()); // (/ 1.0 2.0) -> 1/2
 
-        var mixedDivision1 = ctx.mkDiv(ctx.mkReal(1), ctx.mkInt(2));
+        Expr<ArithSort> mixedDivision1 = ctx.mkDiv(ctx.mkReal(1), ctx.mkInt(2));
         Expr<ArithSort> tmp = mixedDivision1;
         // the return type is a Expr<ArithSort> here but since we know it is a
         // real view it as such.
