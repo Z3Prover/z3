@@ -45,7 +45,7 @@ namespace euf {
                 if (!visit(arg))
                     goto loop;
             }
-            if (!post_visit(e, sign, root && a == e))
+            if (!visited(e) && !post_visit(e, sign, root && a == e))
                 return false;
             m_stack.pop_back();
         }

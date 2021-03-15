@@ -92,6 +92,7 @@ namespace euf {
             m_args.push_back(m_egraph.find(to_app(e)->get_arg(i)));
         if (root && internalize_root(to_app(e), sign, m_args))
             return false;
+        SASSERT(!get_enode(e));
         if (auto* s = expr2solver(e)) 
             s->internalize(e, m_is_redundant);        
         else 
