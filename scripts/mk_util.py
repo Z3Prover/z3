@@ -974,7 +974,7 @@ class Component:
     # Find fname in the include paths for the given component.
     # ownerfile is only used for creating error messages.
     # That is, we were looking for fname when processing ownerfile
-    def find_file(self, fname, ownerfile, orig_path=None):
+    def find_file(self, fname, ownerfile, orig_include=None):
         full_fname = os.path.join(self.src_dir, fname)
 
         # Store all our possible locations
@@ -999,10 +999,10 @@ class Component:
             if len(possibilities) > 1:
 
                 # We expect orig_path to be non-None here, so we can disambiguate
-                assert orig_path is not None
+                assert orig_include is not None
 
                 # Get the original directory name
-                orig_dir = os.path.dirname(orig_path)
+                orig_dir = os.path.dirname(orig_include)
 
                 # Iterate through all of the possibilities
                 for possibility in possibilities:
@@ -1026,17 +1026,16 @@ class Component:
     def add_cpp_h_deps(self, out, basename):
         includes = extract_c_includes(os.path.join(self.src_dir, basename))
         out.write(os.path.join(self.to_src_dir, basename))
-        for include in includes:
-            orig_path = includes[include]
-            owner = self.find_file(include, basename, orig_path)
+        for include, orig_include in includes.items():
+            owner = self.find_file(include, basename, orig_include)
             out.write(' %s.node' % os.path.join(owner.build_dir, include))
 
     # Add a rule for each #include directive in the file basename located at the current component.
     def add_rule_for_each_include(self, out, basename):
         fullname = os.path.join(self.src_dir, basename)
         includes = extract_c_includes(fullname)
-        for include, orig_name in includes.items():
-            owner = self.find_file(include, fullname, orig_name)
+        for include, orig_include in includes.items():
+            owner = self.find_file(include, fullname, orig_include)
             owner.add_h_rule(out, include)
 
     # Display a Makefile rule for an include file located in the given component directory.
