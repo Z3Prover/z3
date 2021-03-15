@@ -70,8 +70,8 @@ namespace api {
     //
     // ------------------------
 
-    context::context(ast_context * p, bool user_ref_count):
-        m_params(p != nullptr ? *p : ast_context()),
+    context::context(ast_context_params * p, bool user_ref_count):
+        m_params(p != nullptr ? *p : ast_context_params()),
         m_user_ref_count(user_ref_count),
         m_manager(m_params.mk_ast_manager()),
         m_plugins(m()),
@@ -343,7 +343,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_context(c);
         memory::initialize(UINT_MAX);
-        Z3_context r = reinterpret_cast<Z3_context>(alloc(api::context, reinterpret_cast<ast_context*>(c), false));
+        Z3_context r = reinterpret_cast<Z3_context>(alloc(api::context, reinterpret_cast<ast_context_params*>(c), false));
         RETURN_Z3(r);
         Z3_CATCH_RETURN_NO_HANDLE(nullptr);
     }
@@ -352,7 +352,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_context_rc(c);
         memory::initialize(UINT_MAX);
-        Z3_context r = reinterpret_cast<Z3_context>(alloc(api::context, reinterpret_cast<ast_context*>(c), true));
+        Z3_context r = reinterpret_cast<Z3_context>(alloc(api::context, reinterpret_cast<ast_context_params*>(c), true));
         RETURN_Z3(r);
         Z3_CATCH_RETURN_NO_HANDLE(nullptr);
     }

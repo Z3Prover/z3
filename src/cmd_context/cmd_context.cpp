@@ -280,7 +280,7 @@ void macro_decls::erase_last(ast_manager& m) {
     m_decls->pop_back();
 }
 
-ast_manager * ast_context::mk_ast_manager() {
+ast_manager * ast_context_params::mk_ast_manager() {
     if (m_manager)
         return m_manager;
     ast_manager * r = alloc(ast_manager,

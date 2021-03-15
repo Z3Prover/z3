@@ -160,7 +160,7 @@ public:
     virtual void updt_params(params_ref const& p) = 0;
 };
 
-class ast_context : public context_params { 
+class ast_context_params : public context_params { 
     ast_manager* m_manager { nullptr };
 public:
     /**
@@ -194,7 +194,7 @@ public:
     
 
 protected:
-    ast_context                  m_params;
+    ast_context_params                  m_params;
     bool                         m_main_ctx;
     symbol                       m_logic;
     bool                         m_interactive_mode;

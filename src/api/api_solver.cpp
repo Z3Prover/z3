@@ -876,7 +876,7 @@ extern "C" {
         solver::push_eh_t _push = push_eh;
         solver::pop_eh_t _pop = pop_eh;
         solver::fresh_eh_t _fresh = [&](void * user_ctx, ast_manager& m, solver::context_obj*& _ctx) {
-            ast_context params;
+            ast_context_params params;
             params.set_foreign_manager(&m);
             auto* ctx = alloc(api::context, &params, false);
             _ctx = alloc(api_context_obj, ctx);
