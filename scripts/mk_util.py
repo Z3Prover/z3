@@ -976,9 +976,17 @@ class Component:
     # That is, we were looking for fname when processing ownerfile
     def find_file(self, fname, ownerfile, orig_path=None):
         full_fname = os.path.join(self.src_dir, fname)
+
+        # Store all our possible locations
         possibilities = set()
+
+        # If the our file exists in the current directory, then we store it
         if os.path.exists(full_fname):
-            return self
+
+            # We cannot return here, as we might have files with the same
+            # basename, but different include paths
+            possibilities.add(self)
+
         for dep in self.deps:
             c_dep = get_component(dep)
             full_fname = os.path.join(c_dep.src_dir, fname)
@@ -1005,8 +1013,10 @@ class Component:
                         # ... use our new match
                         return possibility
 
-            # This means we didn't make an exact match, but we're no worse than
-            # before
+            # This means we didn't make an exact match ...
+            #
+            # We return any one possibility, just to ensure we don't break Z3's
+            # builds
             return possibilities.pop()
 
         raise MKException("Failed to find include file '%s' for '%s' when processing '%s'." % (fname, ownerfile, self.name))
