@@ -773,7 +773,12 @@ namespace smt {
                 for (auto const& kv : elems) {
                     expr* t = kv.m_key;
                     expr* t_val = eval(t, true);
-                    if (t_val && !already_found.contains(t_val)) {
+                    bool found = false;
+                    if (t_val && !m.is_unique_value(t_val))                         
+                        for (expr* v : values)
+                            found |= m.are_equal(v, t_val);
+                    
+                    if (t_val && !found && !already_found.contains(t_val)) {
                         values.push_back(t_val);
                         already_found.insert(t_val);
                     }
@@ -875,9 +880,9 @@ namespace smt {
                     if (else_val)
                         pi->set_else(else_val);
                 }
-                for (expr* v : values) {
+                for (expr* v : values) 
                     pi->insert_new_entry(&v, v);
-                }
+                
                 n->set_proj(p);
                 TRACE("model_finder", n->display(tout << p->get_name() << "\n", m););
             }
