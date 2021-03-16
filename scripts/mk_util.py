@@ -769,7 +769,7 @@ def parse_options():
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
 def extract_c_includes(fname):
-    result = []
+    result = {}
     # We look for well behaved #include directives
     std_inc_pat     = re.compile("[ \t]*#include[ \t]*\"(.*)\"[ \t]*")
     system_inc_pat  = re.compile("[ \t]*#include[ \t]*\<.*\>[ \t]*")
@@ -786,7 +786,7 @@ def extract_c_includes(fname):
             if slash_pos >= 0  and root_file_name.find("..") < 0 : #it is a hack for lp include files that behave as continued from "src"
                 # print(root_file_name)
                 root_file_name = root_file_name[slash_pos+1:]
-            result.append(root_file_name)
+            result[root_file_name] = m1.group(1)
         elif not system_inc_pat.match(line) and non_std_inc_pat.match(line):
             raise MKException("Invalid #include directive at '%s':%s" % (fname, line))
         linenum = linenum + 1
@@ -974,15 +974,51 @@ class Component:
     # Find fname in the include paths for the given component.
     # ownerfile is only used for creating error messages.
     # That is, we were looking for fname when processing ownerfile
-    def find_file(self, fname, ownerfile):
+    def find_file(self, fname, ownerfile, orig_include=None):
         full_fname = os.path.join(self.src_dir, fname)
+
+        # Store all our possible locations
+        possibilities = set()
+
+        # If the our file exists in the current directory, then we store it
         if os.path.exists(full_fname):
-            return self
+
+            # We cannot return here, as we might have files with the same
+            # basename, but different include paths
+            possibilities.add(self)
+
         for dep in self.deps:
             c_dep = get_component(dep)
             full_fname = os.path.join(c_dep.src_dir, fname)
             if os.path.exists(full_fname):
-                return c_dep
+                possibilities.add(c_dep)
+
+        if possibilities:
+
+            # We have ambiguity
+            if len(possibilities) > 1:
+
+                # We expect orig_path to be non-None here, so we can disambiguate
+                assert orig_include is not None
+
+                # Get the original directory name
+                orig_dir = os.path.dirname(orig_include)
+
+                # Iterate through all of the possibilities
+                for possibility in possibilities:
+
+                    # If we match the suffix of the path ...
+                    if possibility.path.endswith(orig_dir):
+
+                        # ... use our new match
+                        return possibility
+
+            # This means we didn't make an exact match ...
+            #
+            # We return any one possibility, just to ensure we don't break Z3's
+            # builds
+            return possibilities.pop()
+
         raise MKException("Failed to find include file '%s' for '%s' when processing '%s'." % (fname, ownerfile, self.name))
 
     # Display all dependencies of file basename located in the given component directory.
@@ -990,16 +1026,16 @@ class Component:
     def add_cpp_h_deps(self, out, basename):
         includes = extract_c_includes(os.path.join(self.src_dir, basename))
         out.write(os.path.join(self.to_src_dir, basename))
-        for include in includes:
-            owner = self.find_file(include, basename)
+        for include, orig_include in includes.items():
+            owner = self.find_file(include, basename, orig_include)
             out.write(' %s.node' % os.path.join(owner.build_dir, include))
 
     # Add a rule for each #include directive in the file basename located at the current component.
     def add_rule_for_each_include(self, out, basename):
         fullname = os.path.join(self.src_dir, basename)
         includes = extract_c_includes(fullname)
-        for include in includes:
-            owner = self.find_file(include, fullname)
+        for include, orig_include in includes.items():
+            owner = self.find_file(include, fullname, orig_include)
             owner.add_h_rule(out, include)
 
     # Display a Makefile rule for an include file located in the given component directory.
