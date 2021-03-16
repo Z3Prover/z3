@@ -340,7 +340,7 @@ namespace smt {
     void context::ensure_internalized(expr* e) {
         if (!e_internalized(e)) 
             internalize(e, false);
-        if (is_app(e))
+        if (is_app(e) && !m.is_bool(e))
             internalize_term(to_app(e));
     }
 
