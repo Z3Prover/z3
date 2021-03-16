@@ -2306,10 +2306,9 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
     }
     if (str().is_unit(as.get(0), u) && m_util.is_const_char(u, ch) && '0' == ch) {
         result = str().mk_concat(as.size() - 1, as.c_ptr() + 1, as[0]->get_sort());
-        result = str().mk_stoi(result);
-        result = m().mk_ite(m_autil.mk_lt(result, m_autil.mk_int(0)),
+        result = m().mk_ite(str().mk_is_empty(result),
                             m_autil.mk_int(0),
-                            result);
+                            str().mk_stoi(result));
         return BR_REWRITE_FULL;
     }
 
