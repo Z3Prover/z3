@@ -161,6 +161,7 @@ namespace euf {
         bool commutative() const { return m_commutative; }
         void mark_interpreted() { SASSERT(num_args() == 0); m_interpreted = true; }
         bool merge_enabled() const { return m_merge_enabled; }
+        bool merge_tf() const { return merge_enabled() && (class_size() > 1 || num_parents() > 0 || num_args() > 0); }
 
         enode* get_arg(unsigned i) const { SASSERT(i < num_args()); return m_args[i]; }        
         unsigned hash() const { return m_expr->hash(); }
