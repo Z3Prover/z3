@@ -60,8 +60,6 @@ void tst_model_evaluator() {
     {
         fi->set_else(m.mk_app(F, vI0p, vB1p));
         gi->set_else(m.mk_app(G, vI0p, vB1p));
-        mdl.register_decl(g, gi);
-        mdl.register_decl(h, hi);
         model_pp(std::cout, mdl);
         e = m.mk_app(h, vI0p, vB1p);
         eval(e, v);
