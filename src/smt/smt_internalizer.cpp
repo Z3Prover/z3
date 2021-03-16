@@ -340,6 +340,8 @@ namespace smt {
     void context::ensure_internalized(expr* e) {
         if (!e_internalized(e)) 
             internalize(e, false);
+        if (is_app(e))
+            internalize_term(to_app(e));
     }
 
     /**
@@ -354,9 +356,8 @@ namespace smt {
 
     void context::internalize(expr* const* exprs, unsigned num_exprs, bool gate_ctx) {
         internalize_deep(exprs, num_exprs);
-        for (unsigned i = 0; i < num_exprs; ++i) {
+        for (unsigned i = 0; i < num_exprs; ++i) 
             internalize_rec(exprs[i], gate_ctx);
-        }
     }
 
     void context::internalize_rec(expr * n, bool gate_ctx) {

@@ -161,9 +161,9 @@ namespace smt {
     }
 
     enode* theory::ensure_enode(expr* e) {
-        if (!ctx.e_internalized(e)) {
+        if (!ctx.e_internalized(e)) 
             ctx.internalize(e, is_quantifier(e));
-        }
+        ctx.ensure_internalized(e); // make sure theory variables are attached.
         enode* n = ctx.get_enode(e);
         ctx.mark_as_relevant(n);
         return n;
