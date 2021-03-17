@@ -969,6 +969,9 @@ namespace arith {
 
         TRACE("arith", ctx.display(tout););
 
+        if (!check_delayed_eqs()) 
+            return sat::check_result::CR_CONTINUE;
+
         switch (check_lia()) {
         case l_true:
             break;
@@ -1062,6 +1065,19 @@ namespace arith {
             TRACE("arith", tout << "status treated as inconclusive: " << status << "\n";);
             return l_undef;
         }
+    }
+
+    bool solver::check_delayed_eqs() {
+        for (auto p : m_delayed_eqs) {
+            auto const& e = p.first;
+            if (p.second)
+                new_eq_eh(e);
+            else if (is_eq(e.v1(), e.v2())) {
+                mk_diseq_axiom(e);
+                return false;
+            }
+        }
+        return true;
     }
 
     lbool solver::check_lia() {
