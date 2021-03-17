@@ -38,7 +38,7 @@ def init_project_def():
     add_lib('substitution', ['ast', 'rewriter'], 'ast/substitution')
     add_lib('parser_util', ['ast'], 'parsers/util')
     add_lib('proofs', ['rewriter', 'util'], 'ast/proofs')
-    add_lib('solver', ['model', 'tactic', 'proofs', 'smt_params'])
+    add_lib('solver', ['model', 'tactic', 'proofs', 'smt_params', 'normal_forms'])
     add_lib('cmd_context', ['solver', 'rewriter', 'params'])
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
     add_lib('aig_tactic', ['tactic'], 'tactic/aig')
