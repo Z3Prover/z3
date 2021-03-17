@@ -37,7 +37,6 @@ Revision History:
 #include "smt/smt_case_split_queue.h"
 #include "smt/smt_almost_cg_table.h"
 #include "smt/smt_failure.h"
-#include "smt/asserted_formulas.h"
 #include "smt/smt_types.h"
 #include "smt/dyn_ack.h"
 #include "ast/ast_smt_pp.h"
@@ -51,6 +50,7 @@ Revision History:
 #include "smt/user_propagator.h"
 #include "model/model.h"
 #include "solver/progress_callback.h"
+#include "solver/asserted_formulas.h"
 #include <tuple>
 
 // there is a significant space overhead with allocating 1000+ contexts in

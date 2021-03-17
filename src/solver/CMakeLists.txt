@@ -1,5 +1,6 @@
 z3_add_component(solver
   SOURCES
+    asserted_formulas.cpp
     check_sat_result.cpp
     check_logic.cpp
     combined_solver.cpp
@@ -14,6 +15,7 @@ z3_add_component(solver
   COMPONENT_DEPENDENCIES
     model
     tactic
+    smt_params
   PYG_FILES
     combined_solver_params.pyg
     parallel_params.pyg
