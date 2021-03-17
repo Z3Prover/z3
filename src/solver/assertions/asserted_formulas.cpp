@@ -26,7 +26,8 @@ Revision History:
 #include "ast/pattern/pattern_inference.h"
 #include "ast/macros/quasi_macros.h"
 #include "ast/occurs.h"
-#include "solver/asserted_formulas.h"
+#include "solver/assertions/asserted_formulas.h"
+
 
 asserted_formulas::asserted_formulas(ast_manager & m, smt_params & sp, params_ref const& p):
     m(m),
