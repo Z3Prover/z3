@@ -42,7 +42,7 @@ def init_project_def():
     add_lib('cmd_context', ['solver', 'rewriter', 'params'])
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
     add_lib('pattern', ['normal_forms', 'smt2parser', 'rewriter'], 'ast/pattern')
-    add_lib('solver_assertions', ['pattern'], 'solver/assertions')
+    add_lib('solver_assertions', ['pattern','smt_params','cmd_context'], 'solver/assertions')
     add_lib('aig_tactic', ['tactic'], 'tactic/aig')
     add_lib('ackermannization', ['model', 'rewriter', 'ast', 'solver', 'tactic'], 'ackermannization')
     add_lib('fpa', ['ast', 'util', 'rewriter', 'model'], 'ast/fpa')
@@ -56,7 +56,7 @@ def init_project_def():
     add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'math/subpaving/tactic')
 
     add_lib('proto_model', ['model', 'rewriter', 'smt_params'], 'smt/proto_model')
-    add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model',
+    add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model', 'solver_assertions',
                     'substitution', 'grobner', 'simplex', 'proofs', 'pattern', 'parser_util', 'fpa', 'lp'])
     add_lib('bv_tactics', ['tactic', 'bit_blaster', 'core_tactics'], 'tactic/bv')
     add_lib('fuzzing', ['ast'], 'test/fuzzing')
