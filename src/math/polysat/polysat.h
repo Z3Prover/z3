@@ -23,13 +23,19 @@ Author:
 
 namespace polysat {
 
+    class solver;
+
     class poly {
+        solver&  s;
         pdd      m_pdd;
         unsigned m_lidx { UINT_MAX };
     public:
-        poly(pdd const& p): m_pdd(p) {}
-        poly(pdd const& p, unsigned lidx): m_pdd(p), m_lidx(lidx) {}
+        poly(solver& s, pdd const& p): s(s), m_pdd(p) {}
+        poly(solver& s, pdd const& p, unsigned lidx): s(s), m_pdd(p), m_lidx(lidx) {}
+        std::ostream& display(std::ostream& out) const;
     };
+
+    inline std::ostream& operator<<(std::ostream& out, poly const& p) { return p.display(p); }
 
     enum ckind_t { eq_t, ule_t, sle_t };
 
@@ -45,7 +51,10 @@ namespace polysat {
         poly const &  p() const { return m_poly; }
         poly const &  lhs() const { return m_poly; }
         poly const &  rhs() const { return m_other; }
+        std::ostream& display(std::ostream& out) const;
     };
+
+    inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
 
     /**
      * linear term is has an offset and is linear addition of variables.
@@ -55,7 +64,10 @@ namespace polysat {
     public:
         linear(rational const& offset): m_offset(offset) {}
         rational const& offset() const { return m_offset; }
+        std::ostream& display(std::ostream& out) const;
     };
+
+    inline std::ostream& operator<<(std::ostream& out, linear const& l) { return l.display(out); }
 
     /**
      * monomial is a list of variables and coefficient.
@@ -65,9 +77,31 @@ namespace polysat {
     public:
         linear(rational const& coeff): m_coeff(coeff) {}
         rational const& coeff() const { return m_coeff; }
+        std::ostream& display(std::ostream& out) const;
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, mono const& m) { return m.display(out); }
+
+    /**
+     * Justification kind for a variable assignment.
+     */
+    enum justification_k { unassigned, decision, propagation };
+
+    class justification {
+        justification_k m_kind;
+        unsigned        m_idx;
+        justification(justification_k k, unsigned constraint_idx): m_kind(k), m_idx(constraint_idx) {}
+    public:
+        justification(): m_kind(justification_k::unassigned), m_idx(0) {}
+        static justification unassigned() { return justification(justification_k::unassigned, 0); }
+        static justification decision() { return justification(justification_k::decision, 0); }
+        static justification propagation(unsigned idx) { return justification(justification_k::propagation, idx); }
+        justification_k kind() const { return m_kind; }
+        unsigned constraint_index() const { return m_idx; }
     };
 
     class solver {
+        friend class poly;
 
         trail_stack&         m_trail;
         region&              m_region;
@@ -90,9 +124,32 @@ namespace polysat {
         vector<u_dependency>     m_vdeps;    // dependencies for viable values
         vector<vector<poly>>     m_pdeps;    // dependencies in polynomial form
         vector<rational>         m_value;    // assigned value
-        bool_vector              m_assigned; // whether variable is assigned
+        vector<justification>    m_justification; // justification for variable assignment
         vector<unsigned_vector>  m_watch;    // watch list datastructure into constraints.
-        
+
+        /**
+         * retrieve bit-size associated with polynomial.
+         */
+        unsigned poly2size(poly const& p) const;
+
+        /**
+         * check if value is viable according to m_viable.
+         */
+        bool is_viable(unsigned var, rational const& val) const;
+
+        /**
+         * undo trail operations for backtracking.
+         * Each struct is a subclass of trail and implements undo().
+         */
+        struct del_var;
+        struct del_constraint;
+        struct var_unassign;
+
+        /**
+         * push / pop are used only in self-contained mode from check_sat.
+         */
+        void push();
+        void pop(unsigned n);
 
     public:
 
@@ -109,9 +166,6 @@ namespace polysat {
          * Main mode is to have external solver drive state machine.
          */
         lbool check_sat();
-
-        void push();
-        void pop(unsigned n);
         
         /**
          * Add variable with bit-size. 
@@ -134,12 +188,13 @@ namespace polysat {
         /**
          * Add polynomial constraints
          * Each constraint is tracked by a dependency.
+         * assign sets the 'index'th bit of var.
          */
         void add_eq(poly const& p, unsigned dep);
         void add_diseq(poly const& p, unsigned dep);
         void add_ule(poly const& p, poly const& q, unsigned dep);
         void add_sle(poly const& p, poly const& q, unsigned dep);
-        
+        void assign(unsigned var, unsigned index, bool value, unsigned dep);        
 
         /**
          * main state transitions.
@@ -151,7 +206,7 @@ namespace polysat {
         void decide(rational & val, unsigned& var);
         void assign(unsigned var, rational const& val);
         
-        bool is_confict();
+        bool is_conflict();
         /**
          * Return number of scopes to backtrack and core in the shape of dependencies
          * TBD: External vs. internal mode may need different signatures.
@@ -162,12 +217,12 @@ namespace polysat {
         void learn(constraint& c, unsigned_vector& deps); 
         void learn(vector<constraint>& cs, unsigned_vector& deps); 
 
-
-        std::ostream& display(std::ostream& out);
-
-
+        std::ostream& display(std::ostream& out) const;
 
     };
+
+    inline std::ostream& operator<<(std::ostream& out, solver const& s) { return s.display(out); }
+
 }
 
 
