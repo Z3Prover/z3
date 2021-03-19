@@ -447,11 +447,6 @@ namespace smt {
 
         ast_manager & sub_m = subsolver.m();
 
-        // NSB code review: to remove dependencies on subsolver.get_context(). 
-        // It uses a method that should be removed from smt_kernel.
-        // currently sub_ctx is used to retrieve a rewriter. Theory_str already has a rewriter attahed.
-        context & sub_ctx = subsolver.get_context();
-
         expr * str = nullptr, *re = nullptr;
         VERIFY(u.str.is_in_re(f, str, re));
 
@@ -554,7 +549,8 @@ namespace smt {
                 }
             }
             expr_ref result(mk_or(ors), sub_m);
-            sub_ctx.get_rewriter()(result);
+            th_rewriter rw(sub_m);
+            rw(result);
             TRACE("str_fl", tout << "regex path constraint: " << mk_pp(result, sub_m) << std::endl;);
 
             if (sub_m.is_false(result)) {
