@@ -1503,7 +1503,7 @@ bool theory_seq::add_length_to_eqc(expr* e) {
         expr* o = n->get_expr();
         if (!has_length(o)) {
             expr_ref len(m_util.str.mk_length(o), m);
-            enque_axiom(len);
+            ensure_enode(len);
             add_length(o, len);
             change = true;
         }
@@ -3028,6 +3028,7 @@ void theory_seq::relevant_eh(app* n) {
         m_util.str.is_from_code(n) ||
         m_util.str.is_to_code(n) ||
         m_util.str.is_unit(n) ||
+        m_util.str.is_length(n) || 
         m_util.str.is_le(n)) {
         enque_axiom(n);
     }
