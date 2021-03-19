@@ -14,8 +14,8 @@
 
 namespace lp {
 
-int_solver::patcher::patcher(int_solver& lia): 
-    lia(lia), 
+int_solver::patcher::patcher(int_solver& lia):
+    lia(lia),
     lra(lia.lra),
     lrac(lia.lrac),
     m_num_nbasic_patches(0),
@@ -23,7 +23,7 @@ int_solver::patcher::patcher(int_solver& lia):
     m_next_patch(0),
     m_delay(0)
 {}
-    
+
 bool int_solver::patcher::should_apply() {
 #if 1
     return true;
@@ -35,7 +35,7 @@ bool int_solver::patcher::should_apply() {
     return false;
 #endif
 }
-    
+
 lia_move int_solver::patcher::operator()() {
     return patch_nbasic_columns();
 }
@@ -70,7 +70,7 @@ void int_solver::patcher::patch_nbasic_column(unsigned j) {
     bool inf_l, inf_u;
     impq l, u;
     mpq m;
-    bool has_free = lia.get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m);    
+    bool has_free = lia.get_freedom_interval_for_column(j, inf_l, l, inf_u, u, m);
     m_patch_cost += lra.A_r().number_of_non_zeroes_in_column(j);
     if (!has_free) {
         return;
@@ -113,7 +113,7 @@ void int_solver::patcher::patch_nbasic_column(unsigned j) {
         TRACE("patch_int", tout << "patching with 0\n";);
     }
     ++m_num_nbasic_patches;
-}    
+}
 
 int_solver::int_solver(lar_solver& lar_slv) :
     lra(lar_slv),
@@ -157,7 +157,7 @@ lia_move int_solver::check(lp::explanation * e) {
 
     if (settings().get_cancel_flag())
         return lia_move::undef;
-    
+
     ++m_number_of_calls;
     if (r == lia_move::undef && m_patcher.should_apply()) r = m_patcher();
     if (r == lia_move::undef && should_find_cube()) r = int_cube(*this)();
@@ -174,7 +174,7 @@ std::ostream& int_solver::display_inf_rows(std::ostream& out) const {
             display_column(out, v);
         }
     }
-    
+
     num = 0;
     for (unsigned i = 0; i < lra.A_r().row_count(); i++) {
         unsigned j = lrac.m_r_basis[i];
@@ -224,12 +224,12 @@ unsigned int_solver::row_of_basic_column(unsigned j) const {
     return lra.row_of_basic_column(j);
 }
 
-lp_settings& int_solver::settings() {  
-    return lra.settings(); 
+lp_settings& int_solver::settings() {
+    return lra.settings();
 }
 
-const lp_settings& int_solver::settings() const { 
-    return lra.settings(); 
+const lp_settings& int_solver::settings() const {
+    return lra.settings();
 }
 
 bool int_solver::column_is_int(column_index const& j) const {
@@ -242,7 +242,7 @@ bool int_solver::is_real(unsigned j) const {
 
 bool int_solver::value_is_int(unsigned j) const {
     return lra.column_value_is_int(j);
-}    
+}
 
 unsigned int_solver::random() {
     return settings().random_next();
@@ -260,8 +260,8 @@ bool int_solver::is_term(unsigned j) const {
     return lra.column_corresponds_to_term(j);
 }
 
-unsigned int_solver::column_count() const  { 
-    return lra.column_count(); 
+unsigned int_solver::column_count() const  {
+    return lra.column_count();
 }
 
 bool int_solver::should_find_cube() {
@@ -325,12 +325,12 @@ static void set_upper(impq & u, bool & inf_u, impq const & v) {
 }
 
 bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m) {
-    if (lrac.m_r_heading[j] >= 0) // the basic var 
+    if (lrac.m_r_heading[j] >= 0) // the basic var
         return false;
 
     TRACE("random_update", display_column(tout, j) << ", is_int = " << column_is_int(j) << "\n";);
     impq const & xj = get_value(j);
-    
+
     inf_l = true;
     inf_u = true;
     l = u = zero_of_type<impq>();
@@ -349,18 +349,18 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
     unsigned rounds = 0;
     for (auto c : A.column(j)) {
         row_index = c.var();
-        const mpq & a = c.coeff();        
+        const mpq & a = c.coeff();
         unsigned i = lrac.m_r_basis[row_index];
-        TRACE("random_update", tout << "i = " << i << ", a = " << a << "\n";); 
+        TRACE("random_update", tout << "i = " << i << ", a = " << a << "\n";);
         if (column_is_int(i) && !a.is_int())
             m = lcm(m, denominator(a));
     }
     TRACE("random_update", tout <<  "m = " << m << "\n";);
-    
+
     for (auto c : A.column(j)) {
-        if (!inf_l && !inf_u && l >= u) break;       
+        if (!inf_l && !inf_u && l >= u) break;
         row_index = c.var();
-        const mpq & a = c.coeff();        
+        const mpq & a = c.coeff();
         unsigned i = lrac.m_r_basis[row_index];
         impq const & xi = get_value(i);
 
@@ -374,7 +374,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
         else                                                            \
             {  _fn_(a, b, (y - z)/x);  }   \
 
-        
+
         if (a.is_neg()) {
             if (has_lower(i)) {
                 SET_BOUND(set_lower, l, inf_l, a, xi, lrac.m_r_lower_bounds()[i]);
@@ -488,59 +488,74 @@ bool int_solver::at_upper(unsigned j) const {
     }
 }
 
-std::ostream& int_solver::display_row_info(std::ostream & out, unsigned row_index) const  {
+std::ostream & int_solver::display_row(std::ostream & out, lp::row_strip<rational> const & row) const {
+bool first = true;
     auto & rslv = lrac.m_r_solver;
-    bool first = true;
-    for (const auto &c: rslv.m_A.m_rows[row_index]) {
-        if (is_fixed(c.var())) {
-            if (!get_value(c.var()).is_zero()) {
-                impq val = get_value(c.var())*c.coeff();
+for (const auto &c : row)
+    {
+        if (is_fixed(c.var()))
+        {
+            if (!get_value(c.var()).is_zero())
+            {
+                impq val = get_value(c.var()) * c.coeff();
                 if (!first && val.is_pos())
                     out << "+";
                 if (val.y.is_zero())
                     out << val.x << " ";
-                else 
+                else
                     out << val << " ";
             }
             first = false;
             continue;
         }
-        if (c.coeff().is_one()) {
+        if (c.coeff().is_one())
+        {
             if (!first)
                 out << "+";
         }
         else if (c.coeff().is_minus_one())
-            out << "-";                     
-        else {
-            if (c.coeff().is_pos()) {
+            out << "-";
+        else
+        {
+            if (c.coeff().is_pos())
+            {
                 if (!first)
                     out << "+";
             }
-            if (c.coeff().is_big()) {
+            if (c.coeff().is_big())
+            {
                 out << " b*";
             }
-            else 
+            else
                 out << c.coeff();
         }
         out << rslv.column_name(c.var()) << " ";
         first = false;
     }
     out << "\n";
-    for (const auto& c: rslv.m_A.m_rows[row_index]) {
+    for (const auto &c : row)
+    {
         if (is_fixed(c.var()))
             continue;
         rslv.print_column_info(c.var(), out);
-        if (is_base(c.var())) out << "j" << c.var() << " base\n";
+        if (is_base(c.var()))
+            out << "j" << c.var() << " base\n";
     }
     return out;
 }
+std::ostream& int_solver::display_row_info(std::ostream & out, unsigned row_index) const  {    
+    auto & rslv = lrac.m_r_solver;
+    auto row = rslv.m_A.m_rows[row_index];
+    return display_row(out, row);
+}
+
 
 
 bool int_solver::shift_var(unsigned j, unsigned range) {
     if (is_fixed(j) || is_base(j))
         return false;
     if (settings().get_cancel_flag())
-        return false;       
+        return false;
     bool inf_l = false, inf_u = false;
     impq l, u;
     mpq m;
@@ -592,7 +607,7 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     TRACE("int_solver", tout << "a = " << a << ", b = " << b << ", r = " << r<< ", m = " << m << "\n";);
     if (r < mpq(range))
         range = static_cast<unsigned>(r.get_uint64());
-    
+
     mpq s = b + mpq(random() % (range + 1));
     impq new_val = x + m * impq(s);
     TRACE("int_solver", tout << "new_val = " << new_val << "\n";);

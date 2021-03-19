@@ -215,6 +215,7 @@ namespace lp {
         
         if (u1 < l1) {
             fill_explanation_from_fixed_columns(row);
+            TRACE("gcd_test", tout << "row failed the GCD test:\n"; lia.display_row(tout, row););
             return false;
         }        
         return true;
