@@ -18,12 +18,15 @@ Author:
 
 #include "util/dependency.h"
 #include "util/trail.h"
-#include "util/math/dd_pdd.h"
-#include "util/math/dd_bdd.h"
+#include "util/lbool.h"
+#include "math/dd/dd_pdd.h"
+#include "math/dd/dd_bdd.h"
 
 namespace polysat {
 
     class solver;
+    typedef dd::pdd pdd;
+    typedef dd::bdd bdd;
 
     class poly {
         solver&  s;
@@ -35,7 +38,7 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const;
     };
 
-    inline std::ostream& operator<<(std::ostream& out, poly const& p) { return p.display(p); }
+    inline std::ostream& operator<<(std::ostream& out, poly const& p) { return p.display(out); }
 
     enum ckind_t { eq_t, ule_t, sle_t };
 
@@ -72,10 +75,10 @@ namespace polysat {
     /**
      * monomial is a list of variables and coefficient.
      */
-    clas mono : public unsigned_vector {
+    class mono : public unsigned_vector {
         rational m_coeff;
     public:
-        linear(rational const& coeff): m_coeff(coeff) {}
+        mono(rational const& coeff): m_coeff(coeff) {}
         rational const& coeff() const { return m_coeff; }
         std::ostream& display(std::ostream& out) const;
     };
@@ -117,10 +120,10 @@ namespace polysat {
 
         // Per constraint state
         vector<u_dependency>     m_cdeps;   // each constraint has set of dependencies
-        vector<constraint>       m_constraints
+        vector<constraint>       m_constraints;
 
         // Per variable information
-        vector<dd::bdd>          m_viable;   // set of viable values.
+        vector<bdd>              m_viable;   // set of viable values.
         vector<u_dependency>     m_vdeps;    // dependencies for viable values
         vector<vector<poly>>     m_pdeps;    // dependencies in polynomial form
         vector<rational>         m_value;    // assigned value
@@ -176,7 +179,7 @@ namespace polysat {
          * Create polynomial terms
          */
         poly var(unsigned v);
-        poly mul(rational cons& r, poly const& p);
+        poly mul(rational const& r, poly const& p);
         poly num(rational const& r, unsigned sz);
         poly add(poly const& p, poly const& q);
 
