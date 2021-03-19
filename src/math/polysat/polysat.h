@@ -19,6 +19,7 @@ Author:
 #include "util/dependency.h"
 #include "util/trail.h"
 #include "util/lbool.h"
+#include "util/var_queue.h"
 #include "math/dd/dd_pdd.h"
 #include "math/dd/dd_bdd.h"
 
@@ -29,13 +30,18 @@ namespace polysat {
     typedef dd::bdd bdd;
 
     class poly {
+        friend class solver;
         solver&  s;
         pdd      m_pdd;
-        unsigned m_lidx { UINT_MAX };
     public:
         poly(solver& s, pdd const& p): s(s), m_pdd(p) {}
-        poly(solver& s, pdd const& p, unsigned lidx): s(s), m_pdd(p), m_lidx(lidx) {}
+        poly(solver& s, rational const& r, unsigned sz);
         std::ostream& display(std::ostream& out) const;
+        unsigned size() const { throw default_exception("nyi query pdd for size"); }
+        
+        poly operator*(rational const& r);
+        poly operator+(poly const& other) { return poly(s, m_pdd + other.m_pdd); }
+        poly operator*(poly const& other) { return poly(s, m_pdd * other.m_pdd); }
     };
 
     inline std::ostream& operator<<(std::ostream& out, poly const& p) { return p.display(out); }
@@ -101,16 +107,20 @@ namespace polysat {
         static justification propagation(unsigned idx) { return justification(justification_k::propagation, idx); }
         justification_k kind() const { return m_kind; }
         unsigned constraint_index() const { return m_idx; }
+        std::ostream& display(std::ostream& out) const;
     };
+
+    inline std::ostream& operator<<(std::ostream& out, justification const& j) { return j.display(out); }
 
     class solver {
         friend class poly;
 
-        trail_stack&         m_trail;
-        region&              m_region;
-        dd::pdd_manager      m_pdd;
-        dd::bdd_manager      m_bdd;
-        u_dependency_manager m_dep_manager;
+        trail_stack&             m_trail;
+        region&                  m_region;
+        dd::pdd_manager          m_pdd;
+        dd::bdd_manager          m_bdd;
+        u_dependency_manager     m_dep_manager;
+        var_queue                m_free_vars;
 
         /**
          * store of linear polynomials. The l_idx points to linear monomials.
@@ -119,16 +129,22 @@ namespace polysat {
         vector<linear>           m_linear; 
 
         // Per constraint state
-        vector<u_dependency>     m_cdeps;   // each constraint has set of dependencies
+        ptr_vector<u_dependency> m_cdeps;   // each constraint has set of dependencies
         vector<constraint>       m_constraints;
 
         // Per variable information
         vector<bdd>              m_viable;   // set of viable values.
-        vector<u_dependency>     m_vdeps;    // dependencies for viable values
+        ptr_vector<u_dependency> m_vdeps;    // dependencies for viable values
         vector<vector<poly>>     m_pdeps;    // dependencies in polynomial form
         vector<rational>         m_value;    // assigned value
         vector<justification>    m_justification; // justification for variable assignment
         vector<unsigned_vector>  m_watch;    // watch list datastructure into constraints.
+        unsigned_vector          m_activity; 
+        vector<pdd>              m_vars;
+
+        // search state that lists assigned variables
+        unsigned_vector          m_search;
+        unsigned                 m_qhead { 0 };
 
         /**
          * retrieve bit-size associated with polynomial.
@@ -148,11 +164,15 @@ namespace polysat {
         struct del_constraint;
         struct var_unassign;
 
+        void do_del_var();
+        void do_del_constraint();
+        void do_var_unassign();
+
         /**
          * push / pop are used only in self-contained mode from check_sat.
          */
-        void push();
-        void pop(unsigned n);
+        void push() { m_trail.push_scope(); }
+        void pop(unsigned n) { m_trail.pop_scope(n); }
 
     public:
 
@@ -162,7 +182,7 @@ namespace polysat {
          * by pushing an undo action on the trail stack.
          */
         solver(trail_stack& s);
-        ~solver() {}
+        ~solver();
 
         /**
          * Self-contained satisfiability checker.
@@ -179,9 +199,6 @@ namespace polysat {
          * Create polynomial terms
          */
         poly var(unsigned v);
-        poly mul(rational const& r, poly const& p);
-        poly num(rational const& r, unsigned sz);
-        poly add(poly const& p, poly const& q);
 
         /**
          * deconstruct polynomials into sum of monomials.

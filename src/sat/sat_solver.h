@@ -19,11 +19,19 @@ Revision History:
 #pragma once
 
 #include <cmath>
+#include "util/var_queue.h"
+#include "util/params.h"
+#include "util/statistics.h"
+#include "util/stopwatch.h"
+#include "util/ema.h"
+#include "util/trace.h"
+#include "util/rlimit.h"
+#include "util/scoped_ptr_vector.h"
+#include "util/scoped_limit_trail.h"
 #include "sat/sat_types.h"
 #include "sat/sat_clause.h"
 #include "sat/sat_watched.h"
 #include "sat/sat_justification.h"
-#include "sat/sat_var_queue.h"
 #include "sat/sat_extension.h"
 #include "sat/sat_config.h"
 #include "sat/sat_cleaner.h"
@@ -38,14 +46,6 @@ Revision History:
 #include "sat/sat_parallel.h"
 #include "sat/sat_local_search.h"
 #include "sat/sat_solver_core.h"
-#include "util/params.h"
-#include "util/statistics.h"
-#include "util/stopwatch.h"
-#include "util/ema.h"
-#include "util/trace.h"
-#include "util/rlimit.h"
-#include "util/scoped_ptr_vector.h"
-#include "util/scoped_limit_trail.h"
 
 namespace pb {
     class solver;
