@@ -37,7 +37,6 @@ namespace smt {
 
     class theory_bv : public theory {
         typedef rational numeral;
-        typedef trail_stack<theory_bv> th_trail_stack;
         typedef union_find<theory_bv>  th_union_find;
         typedef std::pair<theory_var, unsigned> var_pos;
 
@@ -108,7 +107,7 @@ namespace smt {
         bv_util                  m_util;
         arith_util               m_autil;
         bit_blaster              m_bb;
-        th_trail_stack           m_trail_stack;
+        trail_stack              m_trail_stack;
         th_union_find            m_find;
         vector<literal_vector>   m_bits;     // per var, the bits of a given variable.
         ptr_vector<expr>         m_bits_expr;
@@ -268,7 +267,7 @@ namespace smt {
 
         char const * get_name() const override { return "bit-vector"; }
 
-        th_trail_stack & get_trail_stack() { return m_trail_stack; }
+        trail_stack & get_trail_stack() { return m_trail_stack; }
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { SASSERT(check_zero_one_bits(r1)); }
         void unmerge_eh(theory_var v1, theory_var v2);

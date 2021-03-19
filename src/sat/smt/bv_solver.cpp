@@ -716,7 +716,7 @@ namespace bv {
         values[n->get_root_id()] = bv.mk_numeral(val, m_bits[v].size());
     }
 
-    trail_stack<euf::solver>& solver::get_trail_stack() {
+    trail_stack& solver::get_trail_stack() {
         return ctx.get_trail_stack();
     }
 

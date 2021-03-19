@@ -1941,7 +1941,7 @@ namespace smt {
        \brief Execute generic undo-objects.
     */
     void context::undo_trail_stack(unsigned old_size) {
-        ::undo_trail_stack(*this, m_trail_stack, old_size);
+        ::undo_trail_stack(m_trail_stack, old_size);
     }
 
     /**

@@ -359,7 +359,7 @@ namespace bv {
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { SASSERT(check_zero_one_bits(r1)); }
         void unmerge_eh(theory_var v1, theory_var v2);
-        trail_stack<euf::solver>& get_trail_stack();
+        trail_stack& get_trail_stack();
 
         // diagnostics
         std::ostream& display(std::ostream& out, theory_var v) const;        

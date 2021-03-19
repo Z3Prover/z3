@@ -275,7 +275,7 @@ theory_seq::theory_seq(context& ctx):
     m_eq(m, *this, m_ax.ax()),
     m_regex(*this),
     m_arith_value(m),
-    m_trail_stack(*this),
+    m_trail_stack(),
     m_ls(m), m_rs(m),
     m_lhs(m), m_rhs(m),
     m_new_eqs(m),

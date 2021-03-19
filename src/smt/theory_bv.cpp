@@ -1442,7 +1442,7 @@ namespace smt {
         m_util(ctx.get_manager()),
         m_autil(ctx.get_manager()),
         m_bb(ctx.get_manager(), ctx.get_fparams()),
-        m_trail_stack(*this),
+        m_trail_stack(),
         m_find(*this),
         m_approximates_large_bvs(false) {
         memset(m_eq_activity, 0, sizeof(m_eq_activity));

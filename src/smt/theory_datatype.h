@@ -27,7 +27,6 @@ Revision History:
 
 namespace smt {
     class theory_datatype : public theory {
-        typedef trail_stack<theory_datatype> th_trail_stack;
         typedef union_find<theory_datatype>  th_union_find;
 
         struct var_data {
@@ -49,7 +48,7 @@ namespace smt {
         array_util                m_autil;
         ptr_vector<var_data>      m_var_data;
         th_union_find             m_find;
-        th_trail_stack            m_trail_stack;
+        trail_stack               m_trail_stack;
         datatype_factory *        m_factory;
         stats                     m_stats;
 
@@ -137,7 +136,7 @@ namespace smt {
         void collect_statistics(::statistics & st) const override;
         void init_model(model_generator & m) override;
         model_value_proc * mk_value(enode * n, model_generator & m) override;
-        th_trail_stack & get_trail_stack() { return m_trail_stack; }
+        trail_stack & get_trail_stack() { return m_trail_stack; }
         virtual void merge_eh(theory_var v1, theory_var v2, theory_var, theory_var);
         static void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}
         void unmerge_eh(theory_var v1, theory_var v2);

@@ -23,8 +23,8 @@ Revision History:
 
 class union_find_default_ctx {
 public:
-    typedef trail_stack<union_find_default_ctx> _trail_stack;
-    union_find_default_ctx() : m_stack(*this) {}
+    typedef trail_stack _trail_stack;
+    union_find_default_ctx() : m_stack() {}
        
     void unmerge_eh(unsigned, unsigned) {}
     void merge_eh(unsigned, unsigned, unsigned, unsigned) {}
@@ -39,7 +39,7 @@ private:
 template<typename Ctx = union_find_default_ctx, typename StackCtx = Ctx>
 class union_find {
     Ctx &                         m_ctx;
-    trail_stack<StackCtx> &       m_trail_stack;
+    trail_stack &                 m_trail_stack;
     svector<unsigned>             m_find;
     svector<unsigned>             m_size;
     svector<unsigned>             m_next;

@@ -42,7 +42,7 @@ namespace euf {
         m(m),
         si(si),
         m_egraph(m),
-        m_trail(*this),
+        m_trail(),
         m_rewriter(m),
         m_unhandled_functions(m),
         m_lookahead(nullptr),

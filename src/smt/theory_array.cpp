@@ -28,7 +28,7 @@ namespace smt {
         theory_array_base(ctx), 
         m_params(ctx.get_fparams()),
         m_find(*this),
-        m_trail_stack(*this),
+        m_trail_stack(),
         m_final_check_idx(0) {
         if (!ctx.relevancy())
             m_params.m_array_laziness = 0;

@@ -64,7 +64,7 @@ namespace {
 
     class mam_impl;
 
-    typedef trail_stack<mam_impl> mam_trail_stack;
+    typedef trail_stack mam_trail_stack;
 
     typedef trail mam_trail;
 
@@ -3816,7 +3816,7 @@ namespace {
             mam(ctx),
             m(ctx.get_manager()),
             m_use_filters(use_filters),
-            m_trail_stack(*this),
+            m_trail_stack(),
             m_ct_manager(m_lbl_hasher, m_trail_stack),
             m_compiler(ctx, m_ct_manager, m_lbl_hasher, use_filters),
             m_interpreter(ctx, *this, use_filters),

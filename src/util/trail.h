@@ -409,8 +409,7 @@ public:
 };
 
 
-template<typename Ctx>
-void undo_trail_stack(Ctx & ctx, ptr_vector<trail> & s, unsigned old_size) {
+inline void undo_trail_stack(ptr_vector<trail> & s, unsigned old_size) {
     SASSERT(old_size <= s.size());
     typename ptr_vector<trail >::iterator begin = s.begin() + old_size;
     typename ptr_vector<trail >::iterator it    = s.end();
@@ -421,14 +420,12 @@ void undo_trail_stack(Ctx & ctx, ptr_vector<trail> & s, unsigned old_size) {
     s.shrink(old_size);
 }
 
-template<typename Ctx>
 class trail_stack {
-    Ctx &                   m_ctx;
     ptr_vector<trail>       m_trail_stack;
     unsigned_vector         m_scopes;
     region                  m_region;
 public:
-    trail_stack(Ctx & c):m_ctx(c) {}
+    trail_stack() {}
 
     ~trail_stack() {}
 
@@ -437,7 +434,7 @@ public:
     void reset() {
         pop_scope(m_scopes.size());
         // Undo trail objects stored at lvl 0 (avoid memory leaks if lvl 0 contains new_obj_trail objects).
-        undo_trail_stack(m_ctx, m_trail_stack, 0);
+        undo_trail_stack(m_trail_stack, 0);
     }
 
     void push_ptr(trail * t) { m_trail_stack.push_back(t); }
@@ -455,7 +452,7 @@ public:
         SASSERT(num_scopes <= lvl);
         unsigned new_lvl  = lvl - num_scopes;
         unsigned old_size = m_scopes[new_lvl];
-        undo_trail_stack(m_ctx, m_trail_stack, old_size);
+        undo_trail_stack(m_trail_stack, old_size);
         m_scopes.shrink(new_lvl);
         m_region.pop_scope(num_scopes);
     }

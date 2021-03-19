@@ -44,7 +44,7 @@ struct dl_context {
     unsigned                      m_ref_count;
     datalog::dl_decl_plugin*      m_decl_plugin;
     scoped_ptr<datalog::context>  m_context;
-    trail_stack<dl_context>       m_trail;
+    trail_stack                   m_trail;
 
     fp_params const& get_params() {
         init();
@@ -57,7 +57,7 @@ struct dl_context {
         m_collected_cmds(collected_cmds),
         m_ref_count(0),
         m_decl_plugin(nullptr),
-        m_trail(*this) {}
+        m_trail() {}
 
     void inc_ref() {
         ++m_ref_count;

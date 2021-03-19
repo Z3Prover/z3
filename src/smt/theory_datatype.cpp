@@ -701,7 +701,7 @@ namespace smt {
         m_util(m),
         m_autil(m),
         m_find(*this),
-        m_trail_stack(*this) {
+        m_trail_stack() {
     }
 
     theory_datatype::~theory_datatype() {

@@ -176,7 +176,7 @@ namespace datalog {
         contains_pred      m_contains_p;
         rule_properties    m_rule_properties;
         rule_transformer   m_transf;
-        trail_stack<context> m_trail;
+        trail_stack        m_trail;
         ast_ref_vector     m_pinned;
         bind_variables     m_bind_variables;
         sort_domain_map    m_sorts;

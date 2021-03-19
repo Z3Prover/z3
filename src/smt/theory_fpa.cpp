@@ -30,7 +30,7 @@ namespace smt {
         m_th_rw(ctx.get_manager()),
         m_converter(ctx.get_manager(), m_th_rw),
         m_rw(ctx.get_manager(), m_converter, params_ref()),
-        m_trail_stack(*this),
+        m_trail_stack(),
         m_fpa_util(m_converter.fu()),
         m_bv_util(m_converter.bu()),
         m_arith_util(m_converter.au()),

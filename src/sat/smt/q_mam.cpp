@@ -71,8 +71,6 @@ namespace q {
 
     class mam_impl;
 
-    typedef trail_stack<mam_impl> mam_trail_stack;
-
 
     template<typename T>
     class mam_value_trail : public value_trail<T> {

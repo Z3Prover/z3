@@ -332,7 +332,6 @@ class theory_str : public theory {
         }
     };
 
-    typedef trail_stack<theory_str> th_trail_stack;
     typedef union_find<theory_str> th_union_find;
 
     typedef map<rational, expr*, obj_hash<rational>, default_eq<rational> > rational_map;
@@ -525,8 +524,8 @@ protected:
     // cache mapping each string S to Length(S)
     obj_map<expr, app*> length_ast_map;
 
-    th_trail_stack m_trail_stack;
-    th_trail_stack m_library_aware_trail_stack;
+    trail_stack m_trail_stack;
+    trail_stack m_library_aware_trail_stack;
     th_union_find m_find;
     theory_var get_var(expr * n) const;
     expr * get_eqc_next(expr * n);
@@ -792,7 +791,7 @@ public:
 
     bool overlapping_variables_detected() const { return loopDetected; }
 
-    th_trail_stack& get_trail_stack() { return m_trail_stack; }
+    trail_stack& get_trail_stack() { return m_trail_stack; }
     void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2) {}
     void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { }
     void unmerge_eh(theory_var v1, theory_var v2) {}

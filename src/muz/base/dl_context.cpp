@@ -210,7 +210,7 @@ namespace datalog {
         m_contains_p(*this),
         m_rule_properties(m, m_rule_manager, *this, m_contains_p),
         m_transf(*this),
-        m_trail(*this),
+        m_trail(),
         m_pinned(m),
         m_bind_variables(m),
         m_rule_set(*this),

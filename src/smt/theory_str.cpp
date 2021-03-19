@@ -85,8 +85,8 @@ namespace smt {
         cacheHitCount(0),
         cacheMissCount(0),
         m_fresh_id(0),
-        m_trail_stack(*this),
-        m_library_aware_trail_stack(*this),
+        m_trail_stack(),
+        m_library_aware_trail_stack(),
         m_find(*this),
         fixed_length_subterm_trail(m),
         fixed_length_assumptions(m)

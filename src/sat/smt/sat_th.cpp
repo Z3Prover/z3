@@ -65,7 +65,7 @@ namespace euf {
         return ctx.get_region();
     }
 
-    trail_stack<euf::solver>& th_euf_solver::get_trail_stack() {
+    trail_stack& th_euf_solver::get_trail_stack() {
         return ctx.get_trail_stack();
     }
 

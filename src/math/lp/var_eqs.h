@@ -72,7 +72,7 @@ class var_eqs {
 	                                  m_trail;
     vector<svector<eq_edge>>          m_eqs;    // signed_var.index() -> the edges adjacent to signed_var.index()
 
-    trail_stack<var_eqs>              m_stack;
+    trail_stack                       m_stack;
     mutable svector<var_frame>        m_todo;
     mutable bool_vector             m_marked;
     mutable unsigned_vector           m_marked_trail;
@@ -80,7 +80,7 @@ class var_eqs {
         
     mutable stats m_stats;
 public:    
-    var_eqs(): m_merge_handler(nullptr), m_uf(*this), m_stack(*this) {}    
+    var_eqs(): m_merge_handler(nullptr), m_uf(*this), m_stack() {}    
     /**
        \brief push a scope    */
     void push() {
@@ -328,7 +328,7 @@ public:
     // union find event handlers
     void set_merge_handler(T* mh) { m_merge_handler = mh; }
     // this method is required by union_find
-    trail_stack<var_eqs> & get_trail_stack() { return m_stack; }
+    trail_stack & get_trail_stack() { return m_stack; }
 
     void unmerge_eh(unsigned i, unsigned j) { 
         if (m_merge_handler) {
