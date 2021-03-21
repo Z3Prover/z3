@@ -19,28 +19,30 @@ Author:
 
 namespace polysat {
 
-    std::ostream& poly::display(std::ostream& out) const {
-        return out;
-    }
-
     std::ostream& constraint::display(std::ostream& out) const {
-        return out;
+        return out << "constraint";
     }
     
     std::ostream& linear::display(std::ostream& out) const {
-        return out;
+        return out << "linear";
     }
 
     std::ostream& mono::display(std::ostream& out) const {
-        return out;
+        return out << "mono";
     }
 
-    unsigned solver::poly2size(poly const& p) const {
-        return 0;
+    dd::pdd_manager& solver::sz2pdd(unsigned sz) {
+        m_pdd.reserve(sz + 1);
+        if (!m_pdd[sz])
+            m_pdd.set(sz, alloc(dd::pdd_manager, 1000));
+        return *m_pdd[sz];
     }
 
-    bool solver::is_viable(unsigned var, rational const& val) const {
-        return false;
+    bool solver::is_viable(unsigned var, rational const& val) {
+        bdd b = m_viable[var];
+        for (unsigned k = size(var); k-- > 0 && !b.is_false(); ) 
+            b &= val.get_bit(k) ? m_bdd.mk_var(k) : m_bdd.mk_nvar(k);
+        return !b.is_false();
     }
 
     struct solver::del_var : public trail {
@@ -60,11 +62,10 @@ namespace polysat {
         var_unassign(solver& s): s(s) {}
         void undo() override { s.do_var_unassign(); }
     };
+
     
     solver::solver(trail_stack& s): 
         m_trail(s),
-        m_region(s.get_region()),
-        m_pdd(1000),
         m_bdd(1000),
         m_free_vars(m_activity) {
     }
@@ -77,20 +78,21 @@ namespace polysat {
         
     unsigned solver::add_var(unsigned sz) {
         unsigned v = m_viable.size();
-        // TODO: set var size sz into m_pdd.
         m_value.push_back(rational::zero());
         m_justification.push_back(justification::unassigned());
         m_viable.push_back(m_bdd.mk_true());
         m_vdeps.push_back(m_dep_manager.mk_empty());
-        m_pdeps.push_back(vector<poly>());
-        m_watch.push_back(unsigned_vector());
+        m_pdeps.push_back(vector<pdd>());
+        m_watch.push_back(ptr_vector<constraint>());
         m_activity.push_back(0);
-        m_vars.push_back(m_pdd.mk_var(v));
+        m_vars.push_back(sz2pdd(sz).mk_var(v));
+        m_size.push_back(sz);
         m_trail.push(del_var(*this));
         return v;
     }
 
     void solver::do_del_var() {
+        // TODO also remove v from all learned constraints.
         unsigned v = m_viable.size() - 1;
         m_free_vars.del_var_eh(v);
         m_viable.pop_back();
@@ -101,34 +103,42 @@ namespace polysat {
         m_watch.pop_back();
         m_activity.pop_back();
         m_vars.pop_back();
+        m_size.pop_back();
     }
 
     void solver::do_del_constraint() {
-        // TODO remove variables from watch lists
+        // TODO rewrite to allow for learned constraints
+        // so have to gc these.
+        constraint& c = *m_constraints.back();
+        if (c.vars().size() > 0)
+            erase_watch(c.vars()[0], c);
+        if (c.vars().size() > 1)
+            erase_watch(c.vars()[1], c);
         m_constraints.pop_back();
-        m_cdeps.pop_back();
     }
 
     void solver::do_var_unassign() {
-
+        unsigned v = m_search.back();
+        m_justification[v] = justification::unassigned();
+        m_free_vars.unassign_var_eh(v);
     }
 
-    poly solver::var(unsigned v) {
-        return poly(*this, m_vars[v]);
-    }
-
-    vector<mono> solver::poly2monos(poly const& p) const {
-        return vector<mono>();
-    }
-
-    void solver::add_eq(poly const& p, unsigned dep) {
-        m_constraints.push_back(constraint::eq(p));
-        m_cdeps.push_back(m_dep_manager.mk_leaf(dep));
-        // TODO init watch list
+    void solver::add_eq(pdd const& p, unsigned dep) {
+        //
+        // TODO reduce p using assignment (at current level, 
+        // assuming constraint is removed also at current level).
+        // 
+        constraint* c = constraint::eq(p, m_dep_manager.mk_leaf(dep));
+        m_constraints.push_back(c);
+        auto const& vars = c->vars();
+        if (vars.size() > 0) 
+            m_watch[vars[0]].push_back(c);
+        if (vars.size() > 1) 
+            m_watch[vars[1]].push_back(c);
         m_trail.push(del_constraint(*this));
     }
 
-    void solver::add_diseq(poly const& p, unsigned dep) {
+    void solver::add_diseq(pdd const& p, unsigned dep) {
 #if 0
         // Basically: 
         auto slack = add_var(p.size());
@@ -138,40 +148,175 @@ namespace polysat {
 #endif
     }
 
-    void solver::add_ule(poly const& p, poly const& q, unsigned dep) {
+    void solver::add_ule(pdd const& p, pdd const& q, unsigned dep) {
         // save for later
     }
 
-    void solver::add_sle(poly const& p, poly const& q, unsigned dep) {
+    void solver::add_sle(pdd const& p, pdd const& q, unsigned dep) {
         // save for later
     }
 
     void solver::assign(unsigned var, unsigned index, bool value, unsigned dep) {
-
+        m_viable[var] &= value ? m_bdd.mk_var(index) : m_bdd.mk_nvar(index);
+        m_trail.push(vector_value_trail<u_dependency*, false>(m_vdeps, var));
+        m_vdeps[var] = m_dep_manager.mk_join(m_vdeps[var], m_dep_manager.mk_leaf(dep));
+        if (m_viable[var].is_false()) {
+            // TBD: set conflict
+        }
     }
 
-    bool  solver::can_propagate() {
+    bool solver::can_propagate() {
+        return m_qhead < m_search.size() && !is_conflict();
+    }
+
+    void solver::propagate() {
+        m_trail.push(value_trail(m_qhead));
+        while (can_propagate()) 
+            propagate(m_search[m_qhead++]);
+    }
+
+    void solver::propagate(unsigned v) {
+        auto& wlist = m_watch[v];
+        unsigned i = 0, j = 0, sz = wlist.size();
+        for (; i < sz && !is_conflict(); ++i) 
+            if (!propagate(v, *wlist[i]))
+                wlist[j++] = wlist[i];
+        for (; i < sz; ++i)
+            wlist[j++] = wlist[i];
+        wlist.shrink(j);
+    }
+
+    bool solver::propagate(unsigned v, constraint& c) {
+        switch (c.kind()) {
+        case ckind_t::eq_t:
+            return propagate_eq(v, c);
+        case ckind_t::ule_t:
+        case ckind_t::sle_t:
+            NOT_IMPLEMENTED_YET();
+            return false;
+        }
+        UNREACHABLE();
         return false;
     }
 
-    lbool solver::propagate() {
-        return l_false;
+    bool solver::propagate_eq(unsigned v, constraint& c) {
+        SASSERT(c.kind() == ckind_t::eq_t);
+        SSSERT(!c.vars().empty());
+        auto var = m_vars[v].var();
+        auto& vars = c.vars();
+        unsigned idx = 0;
+        if (vars[idx] != v)
+            idx = 1;
+        SASSERT(v == vars[idx]);
+        // find other watch variable.
+        for (unsigned i = var.size(); i-- > 2; ) {
+            if (!is_assigned(vars[i])) {
+                std::swap(vars[idx], vars[i]);
+                return true;
+            }
+        }        
+
+        vector<std::pair<unsigned, rational>> sub;
+        for (auto w : vars) 
+            if (is_assigned(w))
+                sub.push_back(std::make_pair(w, m_value[w]));
+
+        auto p = c.p().subst_val(sub);
+        if (p.is_zero()) 
+            return false;
+        if (p.is_non_zero()) {
+            // we could tag constraint to allow early substitution before 
+            // swapping watch variable in case we can detect conflict earlier.
+            set_conflict(v, c);
+            return false;
+        }
+
+        // one variable remains unassigned.
+        auto other_var = vars[1 - idx];
+        SASSERT(!is_assigned(other_var));
+
+        // Detect and apply unit propagation.
+            
+        if (!p.is_linear())
+            return false;
+
+        // a*x + b == 0
+        rational a = p.hi().val();
+        rational b = p.lo().val();
+        rational inv_a;
+        if (p.lo().val().is_odd()) {
+            // v1 = -b * inverse(a)
+            unsigned sz = p.power_of_2();
+            VERIFY(a.mult_inverse(sz, inv_a)); 
+            rational val = mod(inv_a * -b, rational::power_of_two(sz));
+            assign(other_var, val, justification::propagation(m_level, &c));
+            return false;
+        }
+
+        // TBD
+        // constrain viable using condition on x
+        // 2*x + 2 == 0 mod 4 => x is odd
+        
+        return false;
+    }
+
+    void solver::inc_level() {
+        m_trail.push(value_trail(m_level));
+        ++m_level;
+    }
+
+    void solver::erase_watch(unsigned v, constraint& c) {
+        if (v == UINT_MAX)
+            return;
+        auto& wlist = m_watch[v];
+        unsigned sz = wlist.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            if (&c == wlist[i]) {
+                wlist[i] = wlist.back();
+                wlist.pop_back();
+                return;
+            }
+        }
     }
 
     bool solver::can_decide() {
-        return false;
+        return !m_free_vars.empty();
     }
 
     void solver::decide(rational & val, unsigned& var) {
-
+        SASSERT(can_decide());
+        inc_level();
+        var = m_free_vars.next_var();
+        auto viable = m_viable[var];
+        SASSERT(!viable.is_false());
+        // TBD, choose some value from viable and construct val.
+        assign_core(var, val, justification::decision(m_level));
     }
 
-    void solver::assign(unsigned var, rational const& val) {
+    void solver::assign(unsigned var, rational const& val, justification const& j) {
+        if (is_viable(var, val)) 
+            assign_core(var, val, j);        
+        else {
+            SASSERT(!j.is_decision());
+            // TBD: set conflict, assumes justification is a propagation.
+        }
+    }
 
+    void solver::assign_core(unsigned var, rational const& val, justification const& j) {
+        SASSERT(is_viable(var, val));
+        m_trail.push(var_unassign(*this));
+        m_search.push_back(var);
+        m_value[var] = val;
+        m_justification[var] = j; 
     }
         
     bool solver::is_conflict() {
-        return false;
+        return m_conflict != nullptr;
+    }
+
+    void solver::set_conflict(unsigned v, constraint& c) {
+        m_conflict = &c;
+        m_conflict_var = v;
     }
 
     unsigned resolve_conflict(unsigned_vector& deps) {

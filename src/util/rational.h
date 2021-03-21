@@ -308,6 +308,10 @@ public:
     bool is_even() const {
         return m().is_even(m_val);
     }
+
+    bool is_odd() const { 
+        return !is_even(); 
+    }
     
     friend inline rational floor(rational const & r) {
         rational f;
@@ -332,6 +336,8 @@ public:
     bool is_power_of_two(unsigned & shift) {
         return m().is_power_of_two(m_val, shift);
     }
+
+    bool mult_inverse(unsigned num_bits, rational & result);
 
     static rational const & zero() {
         return m_zero;
@@ -457,6 +463,18 @@ public:
 
     unsigned get_num_decimal() const {
         return get_num_digits(rational(10));
+    }
+
+    bool get_bit(unsigned index) const {
+        return m().get_bit(m_val, index);
+    }
+
+    unsigned trailing_zeros() const {
+        if (is_zero())
+            return 0;
+        unsigned k = 0;
+        for (; !get_bit(k); ++k); 
+        return k;
     }
 
     static bool limit_denominator(rational &num, rational const& limit);

@@ -2470,6 +2470,33 @@ bool mpz_manager<SYNCH>::decompose(mpz const & a, svector<digit_t> & digits) {
 }
 
 template<bool SYNCH>
+bool mpz_manager<SYNCH>::get_bit(mpz const & a, unsigned index) {
+    if (is_small(a)) {
+        SASSERT(a.m_val >= 0);
+        if (index >= 8*sizeof(digit_t))
+            return false;
+        return 0 != (a.m_val & (1ull << (digit_t)index));
+    }
+    unsigned i = index / (sizeof(digit_t)*8);
+    unsigned o = index % (sizeof(digit_t)*8);
+
+#ifndef _MP_GMP
+    mpz_cell * cell_a = a.m_ptr;
+    unsigned sz = cell_a->m_size;
+    if (sz*sizeof(digit_t)*8 <= index)
+        return false;
+    return 0 != (cell_a->m_digits[i] & (1ull << (digit_t)o));
+#else
+    SASSERT(!is_neg(a));
+    svector<digit_t> digits;
+    decompose(a, digits);
+    if (digits.size()*sizeof(digit_t)*8 <= index)
+        return false;
+    return 0 != (digits[i] & (1ull << (digit_t)o));    
+#endif
+}
+
+template<bool SYNCH>
 bool mpz_manager<SYNCH>::divides(mpz const & a, mpz const & b) {
     _scoped_numeral<mpz_manager<SYNCH> > tmp(*this);
     bool r;

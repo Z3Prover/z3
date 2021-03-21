@@ -470,7 +470,7 @@ class elim_uncnstr_tactic : public tactic {
             if (num == 2 && 
                 uncnstr(args[1]) && 
                 m_bv_util.is_numeral(args[0], val, bv_size) &&
-                m_bv_util.mult_inverse(val, bv_size, inv)) {
+                val.mult_inverse(bv_size, inv)) {
                 app * r;
                 if (!mk_fresh_uncnstr_var_for(f, num, args, r))
                     return r;

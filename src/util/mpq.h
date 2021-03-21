@@ -800,6 +800,8 @@ public:
     unsigned storage_size(mpz const & a) { return mpz_manager<SYNCH>::size_info(a); }
     unsigned storage_size(mpq const & a) { return mpz_manager<SYNCH>::size_info(a.m_num) + mpz_manager<SYNCH>::size_info(a.m_den); }
 
+    bool get_bit(mpq const& a, unsigned index) { SASSERT(is_int(a) && !is_neg(a)); return mpz_manager<SYNCH>::get_bit(a.m_num, index); }
+
     /**
        \brief Return true if the number is a perfect square, and 
        store the square root in 'root'.

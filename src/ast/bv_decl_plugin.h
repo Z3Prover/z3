@@ -379,7 +379,6 @@ public:
     rational norm(rational const & val, unsigned bv_size, bool is_signed) const ;
     rational norm(rational const & val, unsigned bv_size) const { return norm(val, bv_size, false); }
     bool has_sign_bit(rational const & n, unsigned bv_size) const;
-    bool mult_inverse(rational const & n, unsigned bv_size, rational & result);
 };
 
 class bv_util : public bv_recognizers {

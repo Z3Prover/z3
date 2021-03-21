@@ -19,6 +19,7 @@ Author:
 #include "util/dependency.h"
 #include "util/trail.h"
 #include "util/lbool.h"
+#include "util/scoped_ptr_vector.h"
 #include "util/var_queue.h"
 #include "math/dd/dd_pdd.h"
 #include "math/dd/dd_bdd.h"
@@ -29,38 +30,33 @@ namespace polysat {
     typedef dd::pdd pdd;
     typedef dd::bdd bdd;
 
-    class poly {
-        friend class solver;
-        solver&  s;
-        pdd      m_pdd;
-    public:
-        poly(solver& s, pdd const& p): s(s), m_pdd(p) {}
-        poly(solver& s, rational const& r, unsigned sz);
-        std::ostream& display(std::ostream& out) const;
-        unsigned size() const { throw default_exception("nyi query pdd for size"); }
-        
-        poly operator*(rational const& r);
-        poly operator+(poly const& other) { return poly(s, m_pdd + other.m_pdd); }
-        poly operator*(poly const& other) { return poly(s, m_pdd * other.m_pdd); }
-    };
-
-    inline std::ostream& operator<<(std::ostream& out, poly const& p) { return p.display(out); }
-
     enum ckind_t { eq_t, ule_t, sle_t };
 
     class constraint {
         ckind_t m_kind;
-        poly    m_poly;
-        poly    m_other;
-        constraint(poly const& p, poly const& q, ckind_t k): m_kind(k), m_poly(p), m_other(q) {}
+        unsigned m_v1, m_v2;
+        pdd    m_poly;
+        pdd    m_other;
+        u_dependency* m_dep;
+        unsigned_vector m_vars;
+        constraint(pdd const& p, pdd const& q, u_dependency* dep, ckind_t k): 
+            m_kind(k), m_v1(UINT_MAX), m_v2(UINT_MAX), m_poly(p), m_other(q), m_dep(dep) {
+            m_vars.append(p.free_vars());
+            if (q != p) 
+                for (auto v : q.free_vars())
+                    m_vars.insert(v);                
+        }
     public:
-        static constraint eq(poly const& p) { return constraint(p, p, ckind_t::eq_t); }
-        static constraint ule(poly const& p, poly const& q) { return constraint(p, q, ckind_t::ule_t); }
+        static constraint* eq(pdd const& p, u_dependency* d) { return alloc(constraint, p, p, d, ckind_t::eq_t); }
+        static constraint* ule(pdd const& p, pdd const& q, u_dependency* d) { return alloc(constraint, p, q, d, ckind_t::ule_t); }
         ckind_t kind() const { return m_kind; }
-        poly const &  p() const { return m_poly; }
-        poly const &  lhs() const { return m_poly; }
-        poly const &  rhs() const { return m_other; }
+        pdd const &  p() const { return m_poly; }
+        pdd const &  lhs() const { return m_poly; }
+        pdd const &  rhs() const { return m_other; }
         std::ostream& display(std::ostream& out) const;
+        void set_poly(pdd const& p) { m_poly = p; }
+        u_dependency* dep() const { return m_dep; }
+        unsigned_vector& vars() { return m_vars; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
@@ -98,63 +94,61 @@ namespace polysat {
 
     class justification {
         justification_k m_kind;
-        unsigned        m_idx;
-        justification(justification_k k, unsigned constraint_idx): m_kind(k), m_idx(constraint_idx) {}
+        constraint*     m_c { nullptr };
+        unsigned        m_level;
+        justification(justification_k k, unsigned lvl, constraint* c): m_kind(k), m_c(c), m_level(lvl) {}
     public:
-        justification(): m_kind(justification_k::unassigned), m_idx(0) {}
-        static justification unassigned() { return justification(justification_k::unassigned, 0); }
-        static justification decision() { return justification(justification_k::decision, 0); }
-        static justification propagation(unsigned idx) { return justification(justification_k::propagation, idx); }
+        justification(): m_kind(justification_k::unassigned), m_c(nullptr) {}
+        static justification unassigned() { return justification(justification_k::unassigned, 0, nullptr); }
+        static justification decision(unsigned lvl) { return justification(justification_k::decision, lvl, nullptr); }
+        static justification propagation(unsigned lvl, constraint* c) { return justification(justification_k::propagation, lvl, c); }
+        bool is_decision() const { return m_kind == justification_k::decision; }
+        bool is_unassigned() const { return m_kind == justification_k::unassigned; }
         justification_k kind() const { return m_kind; }
-        unsigned constraint_index() const { return m_idx; }
+        constraint& get_constraint() const { return *m_c; }
+        unsigned level() const { return m_level; }
         std::ostream& display(std::ostream& out) const;
     };
 
     inline std::ostream& operator<<(std::ostream& out, justification const& j) { return j.display(out); }
 
     class solver {
-        friend class poly;
 
         trail_stack&             m_trail;
-        region&                  m_region;
-        dd::pdd_manager          m_pdd;
+        scoped_ptr_vector<dd::pdd_manager> m_pdd;
         dd::bdd_manager          m_bdd;
         u_dependency_manager     m_dep_manager;
         var_queue                m_free_vars;
 
-        /**
-         * store of linear polynomials. The l_idx points to linear monomials.
-         * could also just use pdds.
-         */
-        vector<linear>           m_linear; 
-
         // Per constraint state
-        ptr_vector<u_dependency> m_cdeps;   // each constraint has set of dependencies
-        vector<constraint>       m_constraints;
+        scoped_ptr_vector<constraint>   m_constraints;
+        // TODO: vector<constraint> m_redundant; // learned constraints
 
         // Per variable information
         vector<bdd>              m_viable;   // set of viable values.
         ptr_vector<u_dependency> m_vdeps;    // dependencies for viable values
-        vector<vector<poly>>     m_pdeps;    // dependencies in polynomial form
+        vector<vector<pdd>>      m_pdeps;    // dependencies in polynomial form
         vector<rational>         m_value;    // assigned value
         vector<justification>    m_justification; // justification for variable assignment
-        vector<unsigned_vector>  m_watch;    // watch list datastructure into constraints.
+        vector<ptr_vector<constraint>>  m_watch;    // watch list datastructure into constraints.
         unsigned_vector          m_activity; 
         vector<pdd>              m_vars;
+        unsigned_vector          m_size;     // store size of variables.
 
         // search state that lists assigned variables
         unsigned_vector          m_search;
         unsigned                 m_qhead { 0 };
+        unsigned                 m_level { 0 };
 
-        /**
-         * retrieve bit-size associated with polynomial.
-         */
-        unsigned poly2size(poly const& p) const;
+        // conflict state
+        unsigned    m_conflict_var { UINT_MAX };
+        constraint* m_conflict { nullptr };
 
+        unsigned size(unsigned var) const { return m_size[var]; }
         /**
          * check if value is viable according to m_viable.
          */
-        bool is_viable(unsigned var, rational const& val) const;
+        bool is_viable(unsigned var, rational const& val);
 
         /**
          * undo trail operations for backtracking.
@@ -167,6 +161,23 @@ namespace polysat {
         void do_del_var();
         void do_del_constraint();
         void do_var_unassign();
+
+        dd::pdd_manager& sz2pdd(unsigned sz);
+
+        void inc_level();
+
+        void assign(unsigned var, rational const& val, justification const& j);
+        void assign_core(unsigned var, rational const& val, justification const& j);
+
+        bool is_assigned(unsigned var) const { return !m_justification[var].is_unassigned(); }
+
+        void propagate(unsigned v);
+        bool propagate(unsigned v, constraint& c);
+        bool propagate_eq(unsigned v, constraint& c);
+        void erase_watch(unsigned v, constraint& c);
+
+        void set_conflict(unsigned v, constraint& c);
+        void clear_conflict() { m_conflict = nullptr; m_conflict_var = UINT_MAX; }
 
         /**
          * push / pop are used only in self-contained mode from check_sat.
@@ -198,33 +209,33 @@ namespace polysat {
         /**
          * Create polynomial terms
          */
-        poly var(unsigned v);
+        pdd var(unsigned v) { return m_vars[v]; }
 
-        /**
-         * deconstruct polynomials into sum of monomials.
-         */
-        vector<mono> poly2monos(poly const& p) const;        
 
         /**
          * Add polynomial constraints
          * Each constraint is tracked by a dependency.
          * assign sets the 'index'th bit of var.
          */
-        void add_eq(poly const& p, unsigned dep);
-        void add_diseq(poly const& p, unsigned dep);
-        void add_ule(poly const& p, poly const& q, unsigned dep);
-        void add_sle(poly const& p, poly const& q, unsigned dep);
+        void add_eq(pdd const& p, unsigned dep);
+        void add_diseq(pdd const& p, unsigned dep);
+        void add_ule(pdd const& p, pdd const& q, unsigned dep);
+        void add_sle(pdd const& p, pdd const& q, unsigned dep);
         void assign(unsigned var, unsigned index, bool value, unsigned dep);        
 
         /**
          * main state transitions.
          */
-        bool  can_propagate();
-        lbool propagate();
+        bool can_propagate();
+        void propagate();
 
         bool can_decide();
         void decide(rational & val, unsigned& var);
-        void assign(unsigned var, rational const& val);
+        
+        /**
+         * external decision
+         */
+        void assign(unsigned var, rational const& val) { inc_level(); assign(var, val, justification::decision(m_level)); }
         
         bool is_conflict();
         /**

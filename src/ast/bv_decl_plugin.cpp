@@ -841,28 +841,6 @@ bool bv_recognizers::is_bit2bool(expr* e, expr*& bv, unsigned& idx) const {
     return true;
 }
 
-bool bv_recognizers::mult_inverse(rational const & n, unsigned bv_size, rational & result) {
-    if (n.is_one()) {
-        result = n;
-        return true;
-    }
-
-    if (!mod(n, rational(2)).is_one()) {
-        return false;
-    }
-
-    rational g;
-    rational x;
-    rational y;
-    g = gcd(n, rational::power_of_two(bv_size), x, y);
-    if (x.is_neg()) {
-        x = mod(x, rational::power_of_two(bv_size));
-    }
-    SASSERT(x.is_pos());
-    SASSERT(mod(x * n, rational::power_of_two(bv_size)).is_one());
-    result = x;
-    return true;
-}
 
 bv_util::bv_util(ast_manager & m):
     bv_recognizers(m.mk_family_id(symbol("bv"))),

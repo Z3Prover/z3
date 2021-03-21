@@ -621,6 +621,7 @@ public:
     */
     void display_bin(std::ostream & out, mpz const & a, unsigned num_bits) const;
 
+
     static unsigned hash(mpz const & a);
 
     static bool is_one(mpz const & a) {
@@ -718,6 +719,8 @@ public:
     
     // Store the digits of n into digits, and return the sign.
     bool decompose(mpz const & n, svector<digit_t> & digits);
+
+    bool get_bit(mpz const& a, unsigned bit);
 
 };
 

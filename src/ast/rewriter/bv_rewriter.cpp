@@ -2520,7 +2520,7 @@ br_status bv_rewriter::mk_mul_eq(expr * lhs, expr * rhs, expr_ref & result) {
     unsigned sz;
     if (m_util.is_bv_mul(lhs, c, x) &&
         m_util.is_numeral(c, c_val, sz) &&
-        m_util.mult_inverse(c_val, sz, c_inv_val)) {
+        c_val.mult_inverse(sz, c_inv_val)) {
 
         SASSERT(m_util.norm(c_val * c_inv_val, sz).is_one());
 
@@ -2562,7 +2562,7 @@ br_status bv_rewriter::mk_mul_eq(expr * lhs, expr * rhs, expr_ref & result) {
         for (; !found && i < num_args; ++i) {
             expr* arg = to_app(rhs)->get_arg(i);
             if (m_util.is_bv_mul(arg, c2, x2) && m_util.is_numeral(c2, c2_val, sz) &&
-                m_util.mult_inverse(c2_val, sz, c2_inv_val)) {
+                c2_val.mult_inverse(sz, c2_inv_val)) {
                 found = true;
             }
         }

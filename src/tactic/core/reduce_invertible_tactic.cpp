@@ -342,7 +342,7 @@ private:
                 ensure_mc(mc);
                 expr_ref def(m);
                 rational inv_r;
-                VERIFY(m_bv.mult_inverse(r, sz, inv_r));
+                VERIFY(r.mult_inverse(sz, inv_r));
                 def = m_bv.mk_bv_mul(m_bv.mk_numeral(inv_r, sz), v);
                 (*mc)->add(v, def);
                 TRACE("invertible_tactic", tout << def << "\n";);

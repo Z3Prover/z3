@@ -130,3 +130,26 @@ bool rational::limit_denominator(rational &num, rational const& limit) {
     return false;
 }
 
+bool rational::mult_inverse(unsigned num_bits, rational & result) {
+    rational const& n = *this;
+    if (n.is_one()) {
+        result = n;
+        return true;
+    }
+    
+    if (n.is_even())
+        return false;
+    
+    rational g;
+    rational x;
+    rational y;
+    g = gcd(n, rational::power_of_two(num_bits), x, y);
+    if (x.is_neg()) {
+        x = mod(x, rational::power_of_two(num_bits));
+    }
+    SASSERT(x.is_pos());
+    SASSERT(mod(x * n, rational::power_of_two(num_bits)).is_one());
+    result = x;
+    return true;
+}
+
