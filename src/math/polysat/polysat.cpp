@@ -201,7 +201,7 @@ namespace polysat {
 
     bool solver::propagate_eq(unsigned v, constraint& c) {
         SASSERT(c.kind() == ckind_t::eq_t);
-        SSSERT(!c.vars().empty());
+        SASSERT(!c.vars().empty());
         auto var = m_vars[v].var();
         auto& vars = c.vars();
         unsigned idx = 0;
@@ -209,7 +209,7 @@ namespace polysat {
             idx = 1;
         SASSERT(v == vars[idx]);
         // find other watch variable.
-        for (unsigned i = var.size(); i-- > 2; ) {
+        for (unsigned i = vars.size(); i-- > 2; ) {
             if (!is_assigned(vars[i])) {
                 std::swap(vars[idx], vars[i]);
                 return true;

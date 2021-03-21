@@ -34,13 +34,12 @@ namespace polysat {
 
     class constraint {
         ckind_t m_kind;
-        unsigned m_v1, m_v2;
         pdd    m_poly;
         pdd    m_other;
         u_dependency* m_dep;
         unsigned_vector m_vars;
         constraint(pdd const& p, pdd const& q, u_dependency* dep, ckind_t k): 
-            m_kind(k), m_v1(UINT_MAX), m_v2(UINT_MAX), m_poly(p), m_other(q), m_dep(dep) {
+            m_kind(k), m_poly(p), m_other(q), m_dep(dep) {
             m_vars.append(p.free_vars());
             if (q != p) 
                 for (auto v : q.free_vars())
@@ -54,7 +53,6 @@ namespace polysat {
         pdd const &  lhs() const { return m_poly; }
         pdd const &  rhs() const { return m_other; }
         std::ostream& display(std::ostream& out) const;
-        void set_poly(pdd const& p) { m_poly = p; }
         u_dependency* dep() const { return m_dep; }
         unsigned_vector& vars() { return m_vars; }
     };
