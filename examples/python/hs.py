@@ -51,6 +51,8 @@ def count_sets_by_size(sets):
 
 #set_param("sat.euf", True)
 #set_param("tactic.default_tactic","sat")
+#set_param("sat.cardinality.solver",False)
+#set_param("sat.cardinality.encoding", "circuit")
 #set_param(verbose=1)
                 
 class Soft:
@@ -108,14 +110,17 @@ class HsPicker:
         opt.set("timeout", self.timeout_value)
         is_sat = opt.check()
         lo = max(lo, opt.lower(obj).as_long())
+        self.opt_backoff_count = 0
         if is_sat == sat:
+            if self.opt_backoff_limit > 1:
+                self.opt_backoff_limit -= 1
+                self.timeout_value += 500
             mdl = opt.model()
             hs = [self.soft.name2formula[n] for n in self.soft.formula2name.values() if is_true(mdl.eval(n))]
             return set(hs), lo
         else:
             print("Timeout", self.timeout_value, "lo", lo, "limit", self.opt_backoff_limit)
             self.opt_backoff_limit += 1
-            self.opt_backoff_count = 0
             self.timeout_value += 500
             return self.pick_hs_(Ks, lo)
 
@@ -147,11 +152,11 @@ class HsMaxSAT:
         min_size = min(len(s) for s in sets)
         def insert(bound, sets, hs, result):            
             for s in sets:
-                if len(s) <= bound and not any(c in hs for c in s):
+                if len(s) == bound and not any(c in hs for c in s):
                     result += [s]
                     hs = hs | set(s)
             return hs, result
-        for sz in range(min_size, self.small_set_size + 1):
+        for sz in range(min_size, min_size + 3):
             hs, result = insert(sz, sets, hs, result)
         return result
 
@@ -168,7 +173,7 @@ class HsMaxSAT:
         # If there are sufficiently many small cores, then
         # we reduce the soft constraints by maxres.
         #
-        if self.has_many_small_sets(self.Ks):
+        if self.has_many_small_sets(self.Ks) or (not self.corr_set_enabled and not self.has_many_small_sets(self.Cs) and self.num_max_res_failures > 0):
             self.num_max_res_failures = 0
             cores = self.get_small_disjoint_sets(self.Ks)
             for core in cores:
@@ -179,7 +184,7 @@ class HsMaxSAT:
             return
         #
         # If there are sufficiently many small correction sets, then
-        # we reduce the soft constraints by dual maxres (IJCAI 2014)
+        # we reduce the soft constraints by dual maxres (IJCAI 2015)
         #
         # TODO: the heuristic for when to invoking correction set restriction
         # needs fine-tuning. For example, the if min(Ks)*optimality_gap < min(Cs)*(max(SS))
@@ -193,7 +198,7 @@ class HsMaxSAT:
             cs = self.get_small_disjoint_sets(self.Cs)
             for corr_set in cs:
                 print("restrict cs", len(corr_set))
-                self.small_set_size = max(4, min(self.small_set_size, len(corr_set) - 2))
+                # self.small_set_size = max(4, min(self.small_set_size, len(corr_set) - 2))
                 restrict_cs(self.s, corr_set, self.soft.formulas)
                 self.s.add(Or(corr_set))
             self.reinit_soft(0)
@@ -204,9 +209,10 @@ class HsMaxSAT:
         # then increment the lower bounds for performing maxres or dual maxres
         # 
         self.num_max_res_failures += 1
-        if self.num_max_res_failures > 6:
+        print("Small set size", self.small_set_size, "num skips", self.num_max_res_failures)
+        if self.num_max_res_failures > 3:
             self.num_max_res_failures = 0
-            self.small_set_size += 2
+            self.small_set_size += 100
 
     def pick_hs(self):
         hs, self.lo = self.hs.pick_hs(self.Ks, self.lo)
@@ -239,8 +245,36 @@ class HsMaxSAT:
             self.patterns += [bits]
             counts = [sum(b[i] for b in self.patterns) for i in range(len(bits))]
             print(counts)
-                
 
+    #
+    # Crude, quick core reduction attempt
+    # 
+    def reduce_core(self, core):
+        s = self.s        
+        if len(core) <= 4:
+            return core
+
+        s.set("timeout", 200)
+        i = 0
+        num_undef = 0
+        orig_len = len(core)
+        core = list(core)
+        while i < len(core):
+            is_sat = s.check([core[j] for j in range(len(core)) if j != i])
+            if is_sat == unsat:
+                core = s.unsat_core()
+            elif is_sat == sat:
+                self.improve(s.model())
+                bound = self.hi - self.soft.offset - 1
+            else:
+                num_undef += 1
+                if num_undef > 3:
+                    break
+            i += 1
+        print("Reduce", orig_len, "->", len(core), "iterations", i, "unknown", num_undef)
+        s.set("timeout", 100000000)
+        return core
+                
     def improve(self, new_model):
         mss = { f for f in self.soft.formulas if is_true(new_model.eval(f)) }
         cs = self.soft.formulas - mss
@@ -254,12 +288,82 @@ class HsMaxSAT:
             print("improve", self.hi, cost)
             self.model = new_model
             self.save_model()
+        assert self.model            
         if cost < self.hi:
             self.hi = cost
-        assert self.model
+            return True
+        return False
+
+    def try_rotate(self, mss):
+        backbones = set()
+        backbone2core = {}
+        ps = self.soft.formulas - mss
+        num_sat = 0
+        num_unsat = 0
+        improved = False
+        while len(ps) > 0:
+            p = random.choice([p for p in ps])
+            ps = ps - { p }
+            is_sat = self.s.check(mss | backbones | { p })
+            if is_sat == sat:
+                mdl = self.s.model()
+                mss = mss | {p}
+                ps = ps - {p}
+                if self.improve(mdl):
+                    improved = True
+                num_sat += 1
+            elif is_sat == unsat:
+                backbones = backbones | { Not(p) }
+                core = set()
+                for c in self.s.unsat_core():
+                    if c in backbone2core:
+                        core = core | backbone2core[c]
+                    else:
+                        core = core | { c }
+                if len(core) < 20:
+                    self.Ks += [core]
+                backbone2core[Not(p)] = set(core) - { p }
+                num_unsat += 1
+            else:
+                print("unknown")
+        print("rotate-1 done, sat", num_sat, "unsat", num_unsat)
+        if improved:
+            self.mss_rotate(mss, backbone2core)
+        return improved
+
+    def mss_rotate(self, mss, backbone2core):
+        counts = { c : 0 for c in mss }
+        max_count = 0
+        max_val = None
+        for core in backbone2core.values():
+            for c in core:
+                assert c in mss
+                counts[c] += 1
+                if max_count < counts[c]:
+                    max_count = counts[c]
+                    max_val = c
+        print("rotate max-count", max_count, "num occurrences", len({c for c in counts if counts[c] == max_count}))
+        print("Number of plateaus", len({ c for c in counts if counts[c] <= 1 }))
+        for c in counts:
+            if counts[c] > 1:
+                print("try-rotate", counts[c])
+                if self.try_rotate(mss - { c }):
+                    break
+
 
     def local_mss(self, new_model):
         mss = { f for f in self.soft.formulas if is_true(new_model.eval(f)) }
+
+        ########################################
+        # test effect of random sub-sampling
+        #
+        #mss = list(mss)
+        #ms = set()
+        #for i in range(len(mss)//2):
+        #    ms = ms | { random.choice([p for p in mss]) }
+        #mss = ms
+        ####
+        
         ps = self.soft.formulas - mss
         backbones = set()
         qs = set()
@@ -286,37 +390,40 @@ class HsMaxSAT:
                 mss = mss | rs
                 ps = ps - rs 
                 qs = qs - rs
-                self.improve(mdl)
+                if self.improve(mdl):
+                    self.mss_rotate(mss, backbone2core)
             elif is_sat == unsat:
                 core = set()
                 for c in self.s.unsat_core():
                     if c in backbone2core:
                         core = core | backbone2core[c]
-                    elif not p.eq(c):
+                    else:
                         core = core | { c }
+                core = self.reduce_core(core)
                 self.Ks += [core]
-                backbone2core[Not(p)] = core
+                backbone2core[Not(p)] = set(core) - { p }
                 backbones = backbones | { Not(p) }
             else:
                 qs = qs | { p }
         if len(qs) > 0:
             print("Number undetermined", len(qs))
-        
 
-    def get_cores(self, hs):
+    def unsat_core(self):
         core = self.s.unsat_core()
+        return self.reduce_core(core)
+        
+    def get_cores(self, hs):
+        core = self.unsat_core()
         remaining = self.soft.formulas - hs
         num_cores = 0
         cores = [core]
         if len(core) == 0:
             self.lo = self.hi - self.soft.offset
             return
-        print("new core of size", len(core))    
         while True:        
             is_sat = self.s.check(remaining)
             if unsat == is_sat:
-                core = self.s.unsat_core()
-                print("new core of size", len(core))
+                core = self.unsat_core()
                 if len(core) == 0:
                     self.lo = self.hi - self.soft.offset
                     return
