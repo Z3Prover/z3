@@ -82,7 +82,7 @@ namespace polysat {
         m_justification.push_back(justification::unassigned());
         m_viable.push_back(m_bdd.mk_true());
         m_vdeps.push_back(m_dep_manager.mk_empty());
-        m_pdeps.push_back(vector<pdd>());
+        m_cjust.push_back(constraints());
         m_watch.push_back(ptr_vector<constraint>());
         m_activity.push_back(0);
         m_vars.push_back(sz2pdd(sz).mk_var(v));
@@ -97,7 +97,7 @@ namespace polysat {
         m_free_vars.del_var_eh(v);
         m_viable.pop_back();
         m_vdeps.pop_back();
-        m_pdeps.pop_back();
+        m_cjust.pop_back();
         m_value.pop_back();
         m_justification.pop_back();
         m_watch.pop_back();
@@ -227,7 +227,7 @@ namespace polysat {
         if (p.is_non_zero()) {
             // we could tag constraint to allow early substitution before 
             // swapping watch variable in case we can detect conflict earlier.
-            set_conflict(v, c);
+            set_conflict(c);
             return false;
         }
 
@@ -249,7 +249,9 @@ namespace polysat {
             unsigned sz = p.power_of_2();
             VERIFY(a.mult_inverse(sz, inv_a)); 
             rational val = mod(inv_a * -b, rational::power_of_two(sz));
-            assign(other_var, val, justification::propagation(m_level, &c));
+            m_cjust[other_var].push_back(&c);
+            m_trail.push(push_back_vector(m_cjust[other_var]));
+            propagate(other_var, val, justification::propagation(m_level));
             return false;
         }
 
@@ -259,6 +261,14 @@ namespace polysat {
         
         return false;
     }
+
+    void solver::propagate(unsigned var, rational const& val, justification const& j) {
+        SASSERT(j.is_propagation());
+        if (is_viable(var, val)) 
+            assign_core(var, val, j);        
+        else 
+            set_conflict(*m_cjust[var].back());
+}
 
     void solver::inc_level() {
         m_trail.push(value_trail(m_level));
@@ -279,10 +289,6 @@ namespace polysat {
         }
     }
 
-    bool solver::can_decide() {
-        return !m_free_vars.empty();
-    }
-
     void solver::decide(rational & val, unsigned& var) {
         SASSERT(can_decide());
         inc_level();
@@ -293,15 +299,6 @@ namespace polysat {
         assign_core(var, val, justification::decision(m_level));
     }
 
-    void solver::assign(unsigned var, rational const& val, justification const& j) {
-        if (is_viable(var, val)) 
-            assign_core(var, val, j);        
-        else {
-            SASSERT(!j.is_decision());
-            // TBD: set conflict, assumes justification is a propagation.
-        }
-    }
-
     void solver::assign_core(unsigned var, rational const& val, justification const& j) {
         SASSERT(is_viable(var, val));
         m_trail.push(var_unassign(*this));
@@ -310,17 +307,107 @@ namespace polysat {
         m_justification[var] = j; 
     }
         
-    bool solver::is_conflict() {
-        return m_conflict != nullptr;
-    }
+    /**
+     * Conflict resolution.
+     * - m_conflict is a constraint infeasible in the current assignment.
+     * 1. walk m_search from top down until last variable in m_conflict.
+     * 2. resolve constraints in m_cjust to isolate lowest degree polynomials
+     *    using variable.
+     *    Use Olm-Seidl division by powers of 2 to preserve invertibility.
+     * 3. resolve conflict with result of resolution.
+     * 4. If the resulting equality is still infeasible continue, otherwise bail out
+     *    and undo the last assignment by accumulating conflict trail (but without resolution).
+     * 5. When hitting the last decision, determine whether conflict polynomial is asserting,
+     *    If so, apply propagation.
+     * 6. Otherwise, add accumulated constraints to explanation for the next viable solution, prune
+     *    viable solutions by excluding the previous guess.
+     */
+    unsigned solver::resolve_conflict(unsigned_vector& deps) {
+        SASSERT(m_conflict);
+        constraint& c = *m_conflict;
+        m_conflict = nullptr;
+        pdd p = c.p();
+        reset_marks();
+        for (auto v : c.vars())
+            set_mark(v);
+        unsigned v = UINT_MAX;
+        unsigned i = m_search.size();
+        vector<std::pair<unsigned, rational>> sub;
+        for (auto w : m_search) 
+            sub.push_back(std::make_pair(w, m_value[w]));
 
-    void solver::set_conflict(unsigned v, constraint& c) {
-        m_conflict = &c;
-        m_conflict_var = v;
-    }
-
-    unsigned resolve_conflict(unsigned_vector& deps) {
+        for (; i-- > 0; ) {
+            v = m_search[i];
+            if (!is_marked(v))
+                continue;
+            pdd q = isolate(v);
+            pdd r = resolve(v, q, p);
+            pdd rval = r.subst_val(sub);
+            if (!rval.is_non_zero())
+                goto backtrack;
+            if (r.is_val()) {
+                SASSERT(!r.is_zero());
+                // TBD: UNSAT, set conflict
+                return 0;
+            }
+            justification& j = m_justification[v];
+            if (j.is_decision()) {
+                // TBD: revert value and add constraint
+                // propagate if new value is given uniquely
+                // set conflict if viable set is empty
+                // adding r and reverting last decision.
+                break;
+            }
+            SASSERT(j.is_propagation());
+            for (auto w : r.free_vars())
+                set_mark(w);
+            p = r;
+        }
+        UNREACHABLE();
+        
+    backtrack:
+        do {
+            v = m_search[i];
+            justification& j = m_justification[v];
+            if (j.is_decision()) {
+                // TBD: flip last decision.
+            }
+        }
+        while (i-- > 0);
+        
         return 0;
+    }
+    
+    /**
+     * resolve polynomials associated with unit propagating on v
+     * producing polynomial that isolates v to lowest degree
+     * and lowest power of 2.     
+     */
+    pdd solver::isolate(unsigned v) {
+        if (m_cjust[v].empty()) 
+            return sz2pdd(m_size[v]).zero();
+        pdd p = m_cjust[v][0]->p();
+        for (unsigned i = m_cjust[v].size(); i-- > 1; ) {
+            // TBD reduce with respect to v
+        }
+        return p;
+    }
+    
+    /**
+     * Return residue of superposing p and q with respect to v.
+     */
+    pdd solver::resolve(unsigned v, pdd const& p, pdd const& q) {
+        // TBD remove as much trace of v as possible.
+        return p;
+    }
+    
+    void solver::reset_marks() {
+        m_marks.reserve(m_vars.size());
+        m_clock++;
+        if (m_clock != 0)
+            return;
+        m_clock++;
+        m_marks.fill(0);        
     }
         
     bool solver::can_learn() {

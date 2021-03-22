@@ -92,18 +92,17 @@ namespace polysat {
 
     class justification {
         justification_k m_kind;
-        constraint*     m_c { nullptr };
         unsigned        m_level;
-        justification(justification_k k, unsigned lvl, constraint* c): m_kind(k), m_c(c), m_level(lvl) {}
+        justification(justification_k k, unsigned lvl): m_kind(k), m_level(lvl) {}
     public:
-        justification(): m_kind(justification_k::unassigned), m_c(nullptr) {}
-        static justification unassigned() { return justification(justification_k::unassigned, 0, nullptr); }
-        static justification decision(unsigned lvl) { return justification(justification_k::decision, lvl, nullptr); }
-        static justification propagation(unsigned lvl, constraint* c) { return justification(justification_k::propagation, lvl, c); }
+        justification(): m_kind(justification_k::unassigned) {}
+        static justification unassigned() { return justification(justification_k::unassigned, 0); }
+        static justification decision(unsigned lvl) { return justification(justification_k::decision, lvl); }
+        static justification propagation(unsigned lvl) { return justification(justification_k::propagation, lvl); }
         bool is_decision() const { return m_kind == justification_k::decision; }
         bool is_unassigned() const { return m_kind == justification_k::unassigned; }
+        bool is_propagation() const { return m_kind == justification_k::propagation; }
         justification_k kind() const { return m_kind; }
-        constraint& get_constraint() const { return *m_c; }
         unsigned level() const { return m_level; }
         std::ostream& display(std::ostream& out) const;
     };
@@ -111,6 +110,8 @@ namespace polysat {
     inline std::ostream& operator<<(std::ostream& out, justification const& j) { return j.display(out); }
 
     class solver {
+
+        typedef ptr_vector<constraint> constraints;
 
         trail_stack&             m_trail;
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
@@ -125,10 +126,10 @@ namespace polysat {
         // Per variable information
         vector<bdd>              m_viable;   // set of viable values.
         ptr_vector<u_dependency> m_vdeps;    // dependencies for viable values
-        vector<vector<pdd>>      m_pdeps;    // dependencies in polynomial form
         vector<rational>         m_value;    // assigned value
         vector<justification>    m_justification; // justification for variable assignment
-        vector<ptr_vector<constraint>>  m_watch;    // watch list datastructure into constraints.
+        vector<constraints>      m_cjust;    // constraints used for justification
+        vector<constraints>      m_watch;    // watch list datastructure into constraints.
         unsigned_vector          m_activity; 
         vector<pdd>              m_vars;
         unsigned_vector          m_size;     // store size of variables.
@@ -139,7 +140,6 @@ namespace polysat {
         unsigned                 m_level { 0 };
 
         // conflict state
-        unsigned    m_conflict_var { UINT_MAX };
         constraint* m_conflict { nullptr };
 
         unsigned size(unsigned var) const { return m_size[var]; }
@@ -164,7 +164,6 @@ namespace polysat {
 
         void inc_level();
 
-        void assign(unsigned var, rational const& val, justification const& j);
         void assign_core(unsigned var, rational const& val, justification const& j);
 
         bool is_assigned(unsigned var) const { return !m_justification[var].is_unassigned(); }
@@ -172,10 +171,20 @@ namespace polysat {
         void propagate(unsigned v);
         bool propagate(unsigned v, constraint& c);
         bool propagate_eq(unsigned v, constraint& c);
+        void propagate(unsigned var, rational const& val, justification const& j);
         void erase_watch(unsigned v, constraint& c);
 
-        void set_conflict(unsigned v, constraint& c);
-        void clear_conflict() { m_conflict = nullptr; m_conflict_var = UINT_MAX; }
+        void set_conflict(constraint& c) { m_conflict = &c; }
+        void clear_conflict() { m_conflict = nullptr; }
+
+        unsigned_vector m_marks;
+        unsigned        m_clock { 0 };
+        void reset_marks();
+        bool is_marked(unsigned v) const { return m_clock == m_marks[v]; }
+        void set_mark(unsigned v) { m_marks[v] = m_clock; }
+
+        pdd isolate(unsigned v);
+        pdd resolve(unsigned v, pdd const& p, pdd const& q);
 
         /**
          * push / pop are used only in self-contained mode from check_sat.
@@ -227,15 +236,10 @@ namespace polysat {
         bool can_propagate();
         void propagate();
 
-        bool can_decide();
+        bool can_decide() const { return !m_free_vars.empty(); }
         void decide(rational & val, unsigned& var);
-        
-        /**
-         * external decision
-         */
-        void assign(unsigned var, rational const& val) { inc_level(); assign(var, val, justification::decision(m_level)); }
-        
-        bool is_conflict();
+
+        bool is_conflict() const { return nullptr != m_conflict; }
         /**
          * Return number of scopes to backtrack and core in the shape of dependencies
          * TBD: External vs. internal mode may need different signatures.
