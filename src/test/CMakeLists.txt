@@ -129,6 +129,7 @@ add_executable(test-z3
   vector.cpp
   lp/lp.cpp
   lp/nla_solver_test.cpp
+  zstring.cpp
   ${z3_test_extra_object_files}
 )
 z3_add_install_tactic_rule(${z3_test_deps})
