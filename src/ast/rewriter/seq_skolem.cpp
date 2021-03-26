@@ -112,7 +112,7 @@ decompose_main:
     }
     else if (is_skolem(m_tail, e) && a.is_numeral(to_app(e)->get_arg(1), r)) {        
         expr* s = to_app(e)->get_arg(0);        
-        expr* idx = a.mk_int(r.get_unsigned() + 1);
+        expr* idx = a.mk_int(r + 1);
         head = seq.str.mk_unit(seq.str.mk_nth_i(s, idx));
         tail = mk(m_tail, s, idx);
         m_rewrite(head);
