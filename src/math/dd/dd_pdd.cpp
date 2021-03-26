@@ -30,6 +30,8 @@ namespace dd {
         m_dmark_level = 0;
         m_disable_gc = false;
         m_is_new_node = false;
+        if (s == mod2N_e && power_of_2 == 1)
+            s = mod2_e;
         m_semantics = s;
         m_mod2N = rational::power_of_two(power_of_2);
         m_power_of_2 = power_of_2;
@@ -685,12 +687,61 @@ namespace dd {
         return p;
     }
 
+    /**
+     * factor p into lc*v^degree + rest
+     * such that degree(rest, v) < degree
+     * Initial implementation is very naive
+     * - memoize intermediary results
+     */
+    void pdd_manager::factor(pdd const& p, unsigned v, unsigned degree, pdd& lc, pdd& rest) {
+        unsigned level_v = m_var2level[v];
+        if (degree == 0) {
+            lc = p;
+            rest = zero();
+        }
+        else if (level(p.root) < level_v) {
+            lc = zero();
+            rest = p;
+        }
+        else if (level(p.root) > level_v) {
+            pdd lc1 = zero(), rest1 = zero();
+            pdd vv = mk_var(p.var());
+            factor(p.hi(), v, degree, lc,  rest);
+            factor(p.lo(), v, degree, lc1, rest1);
+            lc   += lc1;
+            rest += rest1;
+            lc   *= vv;
+            rest *= vv;
+        }
+        else {
+            unsigned d = 0;
+            pdd r = p;
+            while (d < degree && !r.is_val() && level(r.root) == level_v) {
+                d++;
+                r = r.hi();
+            }
+            if (d == degree) {
+                lc = r;
+                r = p;
+                rest = zero();
+                pdd pow = one();
+                for (unsigned i = 0; i < degree; r = r.hi(), pow *= mk_var(v), ++i) 
+                    rest += pow * r.lo();
+            }
+            else {
+                lc = zero();
+                rest = p;
+            }
+        }
+    }
+
+
     bool pdd_manager::is_linear(pdd const& p) { 
         return is_linear(p.root); 
     }
 
     /*
-      Determine whether p is a binary polynomials 
+      Determine whether p is a binary polynomial 
       of the form v1, x*v1 + v2, or x*v1 + y*v2 + v3
       where v1, v2 are values.      
      */
@@ -951,6 +1002,35 @@ namespace dd {
         }
         return m_degree[p];
     }
+
+    unsigned pdd_manager::degree(PDD p, unsigned v) {
+        init_mark();
+        unsigned level_v = level(v);
+        unsigned max_d = 0, d = 0;
+        m_todo.push_back(p);
+        while (!m_todo.empty()) {
+            PDD r = m_todo.back();
+            if (is_marked(r)) 
+                m_todo.pop_back();
+            else if (is_val(r))
+                m_todo.pop_back();
+            else if (level(r) < level_v)
+                m_todo.pop_back();
+            else if (level(r) == level_v) {
+                d = 1;
+                while (!is_val(hi(r)) && level(hi(r)) == level_v) {
+                    ++d;
+                    r = hi(r);
+                }
+                max_d = std::max(d, max_d);
+                m_todo.pop_back();
+            }
+            else 
+                m_todo.push_back(lo(r)).push_back(hi(r));                
+        }
+        return max_d;
+    }
+
 
 
     double pdd_manager::tree_size(pdd const& p) {

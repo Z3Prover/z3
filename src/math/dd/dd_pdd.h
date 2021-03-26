@@ -225,6 +225,9 @@ namespace dd {
         bool is_dmarked(unsigned i) const { return m_dmark[i] == m_dmark_level; }
         unsigned degree(pdd const& p) const;
         unsigned degree(PDD p) const;
+        unsigned degree(PDD p, unsigned v);
+
+        void factor(pdd const& p, unsigned v, unsigned degree, pdd& lc, pdd& rest);
 
         bool var_is_leaf(PDD p, unsigned v);
 
@@ -358,6 +361,7 @@ namespace dd {
         pdd rev_sub(rational const& r) const { return m.sub(m.mk_val(r), *this); }
         pdd reduce(pdd const& other) const { return m.reduce(*this, other); }
         bool different_leading_term(pdd const& other) const { return m.different_leading_term(*this, other); }
+        void factor(unsigned v, unsigned degree, pdd& lc, pdd& rest) { m.factor(*this, v, degree, lc, rest); }
 
         pdd subst_val(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val(*this, s); }
         pdd subst_val(unsigned v, rational const& val) const { return m.subst_val(*this, v, val); }
@@ -371,6 +375,7 @@ namespace dd {
         unsigned dag_size() const { return m.dag_size(*this); }
         double tree_size() const { return m.tree_size(*this); }
         unsigned degree() const { return m.degree(*this); }
+        unsigned degree(unsigned v) const { return m.degree(root, v); }
         unsigned_vector const& free_vars() const { return m.free_vars(*this); }
 
 
