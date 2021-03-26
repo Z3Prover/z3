@@ -1236,6 +1236,7 @@ public:
             mk_axiom(q_le_0, m_le_0);
             return;
         }
+        expr_ref mod_r(a.mk_add(a.mk_mul(q, div), mod), m);
 #if 0
         expr_ref eqr(m.mk_eq(a.mk_add(a.mk_mul(q, div), mod), p), m);
         ctx().get_rewriter()(eqr);

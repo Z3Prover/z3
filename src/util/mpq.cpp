@@ -185,8 +185,9 @@ void mpq_manager<SYNCH>::display_decimal(std::ostream & out, mpq const & a, unsi
 template<bool SYNCH>
 void mpq_manager<SYNCH>::set(mpq & a, char const * val) {
     reset(a.m_num);
-    mpz ten(10);
-    _scoped_numeral<mpz_manager<SYNCH> > tmp(*this);
+    _scoped_numeral<mpz_manager<SYNCH>> _zten(*this);
+    _scoped_numeral<mpz_manager<SYNCH>> tmp(*this);
+    set(_zten, 10);
     char const * str = val;
     bool sign = false;
     while (str[0] == ' ') ++str;
@@ -195,7 +196,7 @@ void mpq_manager<SYNCH>::set(mpq & a, char const * val) {
     while (str[0] && (str[0] != '/') && (str[0] != '.') && (str[0] != 'e') && (str[0] != 'E')) {
         if ('0' <= str[0] && str[0] <= '9') {
             SASSERT(str[0] - '0' <= 9);
-            mul(a.m_num, ten, tmp);
+            mul(a.m_num, _zten, tmp);
             add(tmp, this->mk_z(str[0] - '0'), a.m_num); 
         }
         ++str;
@@ -212,10 +213,10 @@ void mpq_manager<SYNCH>::set(mpq & a, char const * val) {
             reset(a.m_den);
             while (str[0] && (str[0] != 'e') && (str[0] != 'E')) {
                 if ('0' <= str[0] && str[0] <= '9') {
-                    mul(a.m_den, ten, tmp);
+                    mul(a.m_den, _zten, tmp);
                     add(tmp, this->mk_z(str[0] - '0'), a.m_den); 
                     if (!is_rat) 
-                        mul(tmp2, ten, tmp2);
+                        mul(tmp2, _zten, tmp2);
                 }
                 ++str;
             }
@@ -250,17 +251,16 @@ void mpq_manager<SYNCH>::set(mpq & a, char const * val) {
             // a <- a.m_num + a.m_den/tmp2
             if (exp > static_cast<unsigned long long>(UINT_MAX))
                 throw default_exception("exponent is too big");
-            _scoped_numeral<mpq_manager<SYNCH> > b(*this);
+            _scoped_numeral<mpq_manager<SYNCH>> b(*this);
             if (has_den) {
                 set(b, a.m_den, tmp2);
                 set(a.m_den, 1);
                 add(a, b, a);
             }
             if (exp > 0) {
-                _scoped_numeral<mpq_manager<SYNCH> > _exp(*this);
-                _scoped_numeral<mpq_manager<SYNCH> > _ten(*this);
-                set(_ten, 10);
-                power(_ten, static_cast<unsigned>(exp), _exp);
+                _scoped_numeral<mpq_manager<SYNCH>> _exp(*this);
+                _scoped_numeral<mpq_manager<SYNCH>> _qten(*this);
+                power(_qten, static_cast<unsigned>(exp), _exp);
                 TRACE("mpq_set", tout << "a: " << to_string(a) << ", exp_sign:" << exp_sign << ", exp: " << exp << " " << to_string(_exp) << std::endl;);
                 if (exp_sign)
                     div(a, _exp, a);
