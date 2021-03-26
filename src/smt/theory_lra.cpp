@@ -183,7 +183,7 @@ class theory_lra::imp {
 
     // non-linear arithmetic
     scoped_ptr<nla::solver>  m_nla;
-    scoped_ptr<scoped_anum>  m_a1, m_a2;
+    mutable scoped_ptr<scoped_anum>  m_a1, m_a2;
 
     // integer arithmetic
     scoped_ptr<lp::int_solver> m_lia;
@@ -200,7 +200,7 @@ class theory_lra::imp {
         }
     };
 
-    bool use_nra_model() {
+    bool use_nra_model() const {
         if (m_nla && m_nla->use_nra_model()) {
             if (!m_a1) {
                 m_a1 = alloc(scoped_anum, m_nla->am());
@@ -1237,12 +1237,13 @@ public:
             return;
         }
         expr_ref mod_r(a.mk_add(a.mk_mul(q, div), mod), m);
+
 #if 0
-        expr_ref eqr(m.mk_eq(a.mk_add(a.mk_mul(q, div), mod), p), m);
+        expr_ref eqr(m.mk_eq(mod_r, p), m);
         ctx().get_rewriter()(eqr);
         literal eq = mk_literal(eqr);
 #else
-        literal eq         = th.mk_eq(a.mk_add(a.mk_mul(q, div), mod), p, false);
+        literal eq         = th.mk_eq(mod_r, p, false);
 #endif
         literal mod_ge_0   = mk_literal(a.mk_ge(mod, zero));
 
@@ -2195,7 +2196,6 @@ public:
         TRACE("arith", tout << "v" << v << " " << be.kind() << " " << be.m_bound << "\n";);
 
         reserve_bounds(v);
-
             
         if (m_unassigned_bounds[v] == 0 && !should_refine_bounds()) {
             TRACE("arith", tout << "return\n";);
@@ -3238,7 +3238,7 @@ public:
         TRACE("arith", display(tout););
     }
 
-    nlsat::anum const& nl_value(theory_var v, scoped_anum& r) {
+    nlsat::anum const& nl_value(theory_var v, scoped_anum& r) const {
         SASSERT(use_nra_model());
         auto t = get_tv(v);
         if (t.is_term()) {
@@ -3658,7 +3658,7 @@ public:
     }
 
 
-    void display(std::ostream & out) {
+    void display(std::ostream & out) const {
         if (m_solver) {
             m_solver->display(out);
         }
