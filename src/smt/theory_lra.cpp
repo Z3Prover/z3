@@ -570,7 +570,6 @@ class theory_lra::imp {
     }
 
     void mk_clause(literal l1, literal l2, literal l3, unsigned num_params, parameter * params) {
-        TRACE("arith", literal lits[3]; lits[0] = l1; lits[1] = l2; lits[2] = l3; ctx().display_literals_verbose(tout, 3, lits); tout << "\n";);
         ctx().mk_th_axiom(get_id(), l1, l2, l3, num_params, params);
     }
 
