@@ -704,9 +704,9 @@ namespace smt {
         for (unsigned i = 0; i < sz; ++i) {
             numeral div = power(numeral(2), i);
             mod = numeral(2);
-            rhs = m_autil.mk_idiv(e, m_autil.mk_numeral(div,true));
+            rhs = (i == 0) ? e : m_autil.mk_idiv(e, m_autil.mk_numeral(div, true));
             rhs = m_autil.mk_mod(rhs, m_autil.mk_numeral(mod, true));
-            rhs = m.mk_eq(rhs, m_autil.mk_numeral(rational(1), true));
+            rhs = ctx.mk_eq_atom(rhs, m_autil.mk_int(1));
             lhs = n_bits.get(i);
             TRACE("bv", tout << mk_pp(lhs, m) << " == " << mk_pp(rhs, m) << "\n";);
             l = literal(mk_eq(lhs, rhs, false));
@@ -1342,6 +1342,7 @@ namespace smt {
     }
 
     void theory_bv::relevant_eh(app * n) {
+        TRACE("arith", tout << "relevant: #" << n->get_id() << " " << ctx.e_internalized(n) << ": " << mk_pp(n, m) << "\n";);
         TRACE("bv", tout << "relevant: #" << n->get_id() << " " << ctx.e_internalized(n) << ": " << mk_pp(n, m) << "\n";);
         if (m.is_bool(n)) {
             bool_var v = ctx.get_bool_var(n);
