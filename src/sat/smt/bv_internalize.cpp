@@ -453,7 +453,7 @@ namespace bv {
 
         for (unsigned i = 0; i < sz; ++i) {
             numeral div = power2(i);
-            rhs = m_autil.mk_idiv(e, m_autil.mk_int(div));
+            rhs = (i == 0) ? e : m_autil.mk_idiv(e, m_autil.mk_int(div));
             rhs = m_autil.mk_mod(rhs, m_autil.mk_int(2));
             rhs = mk_eq(rhs, m_autil.mk_int(1));
             lhs = n_bits.get(i);

@@ -310,7 +310,7 @@ namespace arith {
         void assert_idiv_mod_axioms(theory_var u, theory_var v, theory_var w, rational const& r);
         api_bound* mk_var_bound(sat::literal lit, theory_var v, lp_api::bound_kind bk, rational const& bound);
         lp::lconstraint_kind bound2constraint_kind(bool is_int, lp_api::bound_kind bk, bool is_true);
-        void fixed_var_eh(theory_var v1, rational const& bound) {}
+        void fixed_var_eh(theory_var v1, lp::constraint_index ci1, lp::constraint_index ci2, rational const& bound);
         bool set_upper_bound(lp::tv t, lp::constraint_index ci, rational const& v) { return set_bound(t, ci, v, false); }
         bool set_lower_bound(lp::tv t, lp::constraint_index ci, rational const& v) { return set_bound(t, ci, v, true); }
         bool set_bound(lp::tv tv, lp::constraint_index ci, rational const& v, bool is_lower);
@@ -323,6 +323,11 @@ namespace arith {
         bool can_get_value(theory_var v) const {
             return is_registered_var(v) && m_model_is_initialized;
         }
+
+        vector<rational>     m_fixed_values;
+        map<rational, theory_var, rational::hash_proc, rational::eq_proc> m_value2var;
+        struct undo_value;
+        void register_fixed_var(theory_var v, rational const& value);
 
         // solving
         void report_equality_of_fixed_vars(unsigned vi1, unsigned vi2);

@@ -496,6 +496,7 @@ namespace arith {
                     vi = lp().add_var(v, a.is_int(term));
                     add_def_constraint_and_equality(vi, lp::GE, st.offset());
                     add_def_constraint_and_equality(vi, lp::LE, st.offset());
+                    register_fixed_var(v, st.offset());
                     return v;
                 }
                 if (!st.offset().is_zero()) {
@@ -673,6 +674,25 @@ namespace arith {
         }
         return false;
     }
+
+    struct solver::undo_value : public trail {
+        solver& s;
+        undo_value(solver& s):s(s) {}
+        void undo() override {
+            s.m_value2var.erase(s.m_fixed_values.back());
+            s.m_fixed_values.pop_back();
+        }
+    };
+
+
+    void solver::register_fixed_var(theory_var v, rational const& value) {
+        if (m_value2var.contains(value)) 
+            return;
+        m_fixed_values.push_back(value);
+        m_value2var.insert(value, v);
+        ctx.push(undo_value(*this));
+    }
+
 
 }
 

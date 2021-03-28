@@ -299,8 +299,6 @@ namespace arith {
             return;
         enode* n1 = var2enode(uv);
         enode* n2 = var2enode(vv);
-        if (!ctx.is_shared(n1) || !ctx.is_shared(n2))
-            return;
         expr* e1 = n1->get_expr();
         expr* e2 = n2->get_expr();
         if (m.is_ite(e1) || m.is_ite(e2))
@@ -394,12 +392,13 @@ namespace arith {
 
     }
 
-    void solver::propagate_eqs(lp::tv t, lp::constraint_index ci, lp::lconstraint_kind k, api_bound& b, rational const& value) {
-        if (k == lp::GE && set_lower_bound(t, ci, value) && has_upper_bound(t.index(), ci, value)) {
-            fixed_var_eh(b.get_var(), value);
+    void solver::propagate_eqs(lp::tv t, lp::constraint_index ci1, lp::lconstraint_kind k, api_bound& b, rational const& value) {
+        lp::constraint_index ci2;
+        if (k == lp::GE && set_lower_bound(t, ci1, value) && has_upper_bound(t.index(), ci2, value)) {
+            fixed_var_eh(b.get_var(), ci1, ci2, value);
         }
-        else if (k == lp::LE && set_upper_bound(t, ci, value) && has_lower_bound(t.index(), ci, value)) {
-            fixed_var_eh(b.get_var(), value);
+        else if (k == lp::LE && set_upper_bound(t, ci1, value) && has_lower_bound(t.index(), ci2, value)) {
+            fixed_var_eh(b.get_var(), ci1, ci2, value);
         }
     }
 
