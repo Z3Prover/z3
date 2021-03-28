@@ -38,6 +38,7 @@ Notes:
 class goal2sat {
     struct imp;
     imp *  m_imp;
+    unsigned m_scopes { 0 };
 
 public:
     goal2sat();

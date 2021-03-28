@@ -888,6 +888,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             ~scoped_reset() {
                 i.m_interface_vars.reset();
                 i.m_app2lit.reset();
+                i.m_lit2app.reset();
             }
         };
         scoped_reset _reset(*this);
@@ -937,11 +938,14 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void user_push() {
-        
+        push();
+        force_push();
     }
 
     void user_pop(unsigned n) {
         m_true = sat::null_literal;
+        pop(n);
+        
     }
 
 };
@@ -990,22 +994,25 @@ void goal2sat::collect_param_descrs(param_descrs & r) {
 
 
 void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver_core & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external) {
-    if (!m_imp) 
+    if (!m_imp) {
         m_imp = alloc(imp, g.m(), p, t, m, dep2asm, default_external);
-        
+        for (unsigned i = 0; i < m_scopes; ++i)
+            m_imp->user_push();
+    }
     (*m_imp)(g);
     
     if (!t.get_extension() && m_imp->interpreted_funs().empty()) {
         dealloc(m_imp);
         m_imp = nullptr;
     }
+    else 
+        m_scopes = 0;
 
 }
 
 void goal2sat::get_interpreted_funs(func_decl_ref_vector& funs) {
-    if (m_imp) {
+    if (m_imp) 
         funs.append(m_imp->interpreted_funs());
-    }
 }
 
 bool goal2sat::has_interpreted_funs() const {
@@ -1020,11 +1027,15 @@ void goal2sat::update_model(model_ref& mdl) {
 void goal2sat::user_push() {
     if (m_imp)
         m_imp->user_push();
+    else 
+        m_scopes++;
 }
     
 void goal2sat::user_pop(unsigned n) {
     if (m_imp)
         m_imp->user_pop(n);
+    else
+        m_scopes -= n;
 }
 
 
