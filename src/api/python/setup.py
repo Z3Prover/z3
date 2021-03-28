@@ -99,12 +99,39 @@ def _configure_z3():
     # bail out early if we don't need to do this - it forces a rebuild every time otherwise
     if os.path.exists(BUILD_DIR):
         return
-    args = [sys.executable, os.path.join(SRC_DIR, 'scripts', 'mk_make.py')]
-
-    if sys.platform == 'win32' and platform.architecture()[0] == '64bit':
-        args += ['-x']
-
-    if subprocess.call(args, env=build_env, cwd=SRC_DIR) != 0:
+    else:
+        os.mkdir(BUILD_DIR)
+    # Config options
+    cmake_options = {
+        # Config Options
+        'Z3_SINGLE_THREADED' : False,
+        'Z3_BUILD_PYTHON_BINDINGS' : True,
+        # Build Options
+        'CMAKE_BUILD_TYPE' : 'Release',
+        'Z3_BUILD_EXECUTABLE' : True,
+        'Z3_BUILD_LIBZ3_SHARED' : True,
+        'Z3_LINK_TIME_OPTIMIZATION' : True,
+        'WARNINGS_AS_ERRORS' : 'SERIOUS_ONLY',
+        # Disable Unwanted Options
+        'Z3_USE_LIB_GMP' : False, # Is default false in python build
+        'Z3_INCLUDE_GIT_HASH' : False, # Can be changed if we bundle the .git as well
+        'Z3_INCLUDE_GIT_DESCRIBE' : False,
+        'Z3_SAVE_CLANG_OPTIMIZATION_RECORDS' : False,
+        'Z3_ENABLE_TRACING_FOR_NON_DEBUG' : False,
+        'Z3_ENABLE_EXAMPLE_TARGETS' : False,
+        'Z3_ENABLE_CFI' : False,
+        'Z3_BUILD_DOCUMENTATION' : False,
+        'Z3_BUILD_TEST_EXECUTABLES' : False,
+        'Z3_BUILD_DOTNET_BINDINGS' : False,
+        'Z3_BUILD_JAVA_BINDINGS' : False
+    }
+    # Convert cmake options to CLI arguments
+    for key, val in cmake_options.items():
+        if type(val) is bool:
+            cmake_options[key] = str(val).upper()
+    cmake_args = [ '-D' + key + '=' + value for key,value in cmake_options.items() ]
+    args = [ 'cmake', *cmake_args, SRC_DIR ]
+    if subprocess.call(args, env=build_env, cwd=BUILD_DIR) != 0:
         raise LibError("Unable to configure Z3.")
 
 def _build_z3():
@@ -114,7 +141,7 @@ def _build_z3():
             raise LibError("Unable to build Z3.")
     else:   # linux and macOS
         if subprocess.call(['make', '-j', str(multiprocessing.cpu_count())],
-                    env=build_env, cwd=BUILD_DIR) != 0:
+                env=build_env, cwd=BUILD_DIR) != 0:
             raise LibError("Unable to build Z3.")
 
 
@@ -133,8 +160,10 @@ def _copy_bins():
     elif SRC_DIR == SRC_DIR_LOCAL:
         python_dir = os.path.join(SRC_DIR, 'src', 'api', 'python')
     if python_dir is not None:
-        shutil.copy(os.path.join(python_dir, 'z3', 'z3core.py'), os.path.join(ROOT_DIR, 'z3'))
-        shutil.copy(os.path.join(python_dir, 'z3', 'z3consts.py'), os.path.join(ROOT_DIR, 'z3'))
+        py_z3_build_dir = os.path.join(BUILD_DIR, 'python', 'z3')
+        root_z3_dir = os.path.join(ROOT_DIR, 'z3')
+        shutil.copy(os.path.join(py_z3_build_dir, 'z3core.py'), root_z3_dir)
+        shutil.copy(os.path.join(py_z3_build_dir, 'z3consts.py'), root_z3_dir)
 
     # STEP 2: Copy the shared library, the executable and the headers
 
@@ -164,16 +193,18 @@ def _copy_sources():
     os.mkdir(SRC_DIR_LOCAL)
 
     shutil.copy(os.path.join(SRC_DIR_REPO, 'LICENSE.txt'), SRC_DIR_LOCAL)
+    shutil.copy(os.path.join(SRC_DIR_REPO, 'z3.pc.cmake.in'), SRC_DIR_LOCAL)
+    shutil.copy(os.path.join(SRC_DIR_REPO, 'CMakeLists.txt'), SRC_DIR_LOCAL)
+    shutil.copytree(os.path.join(SRC_DIR_REPO, 'cmake'), os.path.join(SRC_DIR_LOCAL, 'cmake'))
     shutil.copytree(os.path.join(SRC_DIR_REPO, 'scripts'), os.path.join(SRC_DIR_LOCAL, 'scripts'))
-    shutil.copytree(os.path.join(SRC_DIR_REPO, 'examples'), os.path.join(SRC_DIR_LOCAL, 'examples'))
-    shutil.copytree(os.path.join(SRC_DIR_REPO, 'src'), os.path.join(SRC_DIR_LOCAL, 'src'),
-            ignore=lambda src, names: ['python'] if 'api' in src else [])
 
-    # stub python dir to make build happy
-    os.mkdir(os.path.join(SRC_DIR_LOCAL, 'src', 'api', 'python'))
-    os.mkdir(os.path.join(SRC_DIR_LOCAL, 'src', 'api', 'python', 'z3'))
-    open(os.path.join(SRC_DIR_LOCAL, 'src', 'api', 'python', 'z3', '.placeholder'), 'w').close()
-    open(os.path.join(SRC_DIR_LOCAL, 'src', 'api', 'python', 'z3test.py'), 'w').close()
+    # Copy in src, but avoid recursion
+    def ignore_python_setup_files(src, _):
+        if os.path.normpath(src).endswith('api/python'):
+            return ['core', 'dist', 'MANIFEST', 'MANIFEST.in', 'setup.py', 'z3_solver.egg-info']
+        return []
+    shutil.copytree(os.path.join(SRC_DIR_REPO, 'src'), os.path.join(SRC_DIR_LOCAL, 'src'),
+            ignore=ignore_python_setup_files)
 
 class build(_build):
     def run(self):
