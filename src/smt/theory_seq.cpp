@@ -1454,9 +1454,12 @@ bool theory_seq::internalize_term(app* term) {
     return true;
 }
 
-void theory_seq::add_length(expr* e, expr* l) {
+void theory_seq::add_length(expr* l) {
+    expr* e = nullptr;
+    VERIFY(m_util.str.is_length(l, e));
+    if (has_length(e))
+        return;
     TRACE("seq", tout << mk_bounded_pp(e, m, 2) << "\n";);
-    SASSERT(!m_has_length.contains(l));
     m_length.push_back(l);
     m_has_length.insert(e);
     m_trail_stack.push(insert_obj_trail<expr>(m_has_length, e));
@@ -1504,7 +1507,7 @@ bool theory_seq::add_length_to_eqc(expr* e) {
         if (!has_length(o)) {
             expr_ref len(m_util.str.mk_length(o), m);
             ensure_enode(len);
-            add_length(o, len);
+            add_length(len);
             change = true;
         }
         n = n->get_next();
@@ -2471,6 +2474,7 @@ void theory_seq::enque_axiom(expr* e) {
 void theory_seq::deque_axiom(expr* n) {
     TRACE("seq", tout << "deque: " << mk_bounded_pp(n, m, 2) << "\n";);
     if (m_util.str.is_length(n)) {
+        add_length(n);
         m_ax.add_length_axiom(n);
         if (!ctx.at_base_level()) {
             m_trail_stack.push(push_replay(*this, alloc(replay_axiom, m, n)));
