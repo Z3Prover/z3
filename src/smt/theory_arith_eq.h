@@ -344,16 +344,12 @@ namespace smt {
         TRACE("arith_eq", tout << "detected equality: #" << _x->get_owner_id() << " = #" << _y->get_owner_id() << "\n";
               display_var(tout, x);
               display_var(tout, y); 
-              for (literal lit : lits) {
-                  ctx.display_detailed_literal(tout, lit);
-                  tout << "\n";
-              } 
-              for (auto const& p : eqs) {
-                  tout << mk_pp(p.first->get_expr(), m) << " = " << mk_pp(p.second->get_expr(), m) << "\n";
-              } 
+              for (literal lit : lits) 
+                  ctx.display_detailed_literal(tout, lit) << "\n";
+              for (auto const& p : eqs) 
+                  tout << pp(p.first, m) << " = " << pp(p.second, m) << "\n";
               tout << " ==> ";
-              tout << mk_pp(_x->get_expr(), m) << " = " << mk_pp(_y->get_expr(), m) << "\n";
-              );
+              tout << pp(_x, m) << " = " << pp(_y, m) << "\n";);
         ctx.assign_eq(_x, _y, eq_justification(js));
     }
 };
