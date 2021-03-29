@@ -4136,6 +4136,30 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
  * (re.range c_1 c_n) 
  */
 br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
+    zstring s;
+    unsigned len = 0;
+    rational rlen;
+    bool is_empty = false;
+    if (str().is_string(lo, s) && s.length() != 1) 
+        is_empty = true;
+    if (str().is_string(hi, s) && s.length() != 1) 
+        is_empty = true;
+    min_length(lo, len);
+    if (len > 1)
+        is_empty = true;
+    min_length(hi, len);
+    if (len > 1)
+        is_empty = true;
+    if (max_length(lo, rlen) && rlen == 0)
+        is_empty = true;
+    if (max_length(hi, rlen) && rlen == 0)
+        is_empty = true;
+    if (is_empty) {
+        sort* srt = re().mk_re(lo->get_sort());
+        result = re().mk_empty(srt);
+        return BR_DONE;
+    }
+
     return BR_FAILED;
 }
 

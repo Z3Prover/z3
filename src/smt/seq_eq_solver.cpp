@@ -1067,6 +1067,8 @@ bool theory_seq::check_length_coherence() {
         if (check_length_coherence(e)) {
             return true;
         }
+        if (!ctx.e_internalized(e))
+            change = true;
         enode* n = ensure_enode(e);
         enode* r = n->get_root();
         if (r != n && has_length(r->get_expr())) {

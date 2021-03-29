@@ -403,7 +403,10 @@ final_check_status theory_seq::final_check_eh() {
         TRACEFIN("branch_ne");
         return FC_CONTINUE;
     }
+
     if (m_unhandled_expr) {
+        TRACEFIN("give_up");
+        TRACE("seq", tout << "unhandled: " << mk_pp(m_unhandled_expr, m) << "\n";);
         return FC_GIVEUP;
     }
     if (is_solved()) {
@@ -1412,26 +1415,29 @@ bool theory_seq::internalize_atom(app* a, bool) {
 
 bool theory_seq::internalize_term(app* term) {
     m_has_seq = true;
+
+    if (m_util.str.is_in_re(term)) 
+        mk_var(ensure_enode(term->get_arg(0)));
+
+    if (m_util.str.is_length(term))
+        mk_var(ensure_enode(term->get_arg(0)));
+    
     if (ctx.e_internalized(term)) {
-        enode* e = ctx.get_enode(term);
-        mk_var(e);
+        mk_var(ctx.get_enode(term));
         return true;
-    }
+    }    
 
     if (m.is_bool(term) && 
         (m_util.str.is_in_re(term) || m_sk.is_skolem(term))) {
-        if (m_util.str.is_in_re(term)) {
-            mk_var(ensure_enode(term->get_arg(0)));
-        }
         bool_var bv = ctx.mk_bool_var(term);
         ctx.set_var_theory(bv, get_id());
         ctx.mark_as_relevant(bv);
         return true;
     }
 
-    for (auto arg : *term) {        
+    for (auto arg : *term)         
         mk_var(ensure_enode(arg));
-    }
+
     if (m.is_bool(term)) {
         bool_var bv = ctx.mk_bool_var(term);
         ctx.set_var_theory(bv, get_id());
