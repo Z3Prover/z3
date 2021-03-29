@@ -4094,6 +4094,10 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
         result = re().mk_to_re(str().mk_empty(seq_sort));
         return BR_DONE;
     }
+    if (re().is_to_re(a, b) && str().is_empty(b)) {
+        result = a;
+        return BR_DONE;
+    }
     if (re().is_plus(a, b)) {
         result = re().mk_star(b);
         return BR_DONE;
