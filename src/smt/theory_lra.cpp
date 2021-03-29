@@ -3072,7 +3072,6 @@ public:
             return;
         if (x->get_root() == y->get_root())
             return;
-        SASSERT(a.is_numeral(y->get_expr()));
         reset_evidence();
         set_evidence(ci1, m_core, m_eqs);
         set_evidence(ci2, m_core, m_eqs);
