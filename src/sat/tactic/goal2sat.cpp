@@ -305,7 +305,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 if (m_euf) {
                     convert_euf(t, root, sign);  
                     return;
-                }
+                } 
                 if (!is_uninterp_const(t)) {
                     if (!is_app(t)) {
                         std::ostringstream strm;
@@ -938,14 +938,10 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void user_push() {
-        push();
-        force_push();
     }
 
     void user_pop(unsigned n) {
-        m_true = sat::null_literal;
-        pop(n);
-        
+        m_true = sat::null_literal;   
     }
 
 };
