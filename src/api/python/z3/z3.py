@@ -6566,16 +6566,16 @@ class Solver(Z3PPObject):
 
         >>> s = Solver()
         >>> s.num_scopes()
-        0L
+        0
         >>> s.push()
         >>> s.num_scopes()
-        1L
+        1
         >>> s.push()
         >>> s.num_scopes()
-        2L
+        2
         >>> s.pop()
         >>> s.num_scopes()
-        1L
+        1
         """
         return Z3_solver_get_num_scopes(self.ctx.ref(), self.solver)
 
