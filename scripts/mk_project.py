@@ -80,12 +80,13 @@ def init_project_def():
     add_lib('fpa_tactics', ['fpa', 'core_tactics', 'bv_tactics', 'sat_tactic', 'smt_tactic', 'arith_tactics', 'smtlogic_tactics'], 'tactic/fpa')
     add_lib('portfolio', ['smtlogic_tactics', 'sat_solver', 'ufbv_tactic', 'fpa_tactics', 'aig_tactic', 'fp',  'fd_solver', 'qe', 'sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')
     add_lib('opt', ['smt', 'smtlogic_tactics', 'sls_tactic', 'sat_solver'], 'opt')
+    add_lib('polysat', ['util','dd'],'math/polysat')
     API_files = ['z3_api.h', 'z3_ast_containers.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_fixedpoint.h', 'z3_optimization.h', 'z3_fpa.h', 'z3_spacer.h']
     add_lib('api', ['portfolio',  'realclosure', 'opt'],
             includes2install=['z3.h', 'z3_v1.h', 'z3_macros.h'] + API_files)
     add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'qe', 'arith_tactics'], 'cmd_context/extra_cmds')
     add_exe('shell', ['api', 'sat', 'extra_cmds', 'opt'], exe_name='z3')
-    add_exe('test', ['api', 'fuzzing', 'simplex', 'sat_smt'], exe_name='test-z3', install=False)
+    add_exe('test', ['polysat','api', 'fuzzing', 'simplex', 'sat_smt'], exe_name='test-z3', install=False)
     _libz3Component = add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll',
                               reexports=['api'],
                               dll_name='libz3',
