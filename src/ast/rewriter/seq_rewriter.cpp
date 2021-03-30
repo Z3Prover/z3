@@ -2017,11 +2017,6 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;
     }
 
-    expr* b2 = nullptr, *b3 = nullptr;    
-    if (str().is_replace(b, b1, b2, b3) && b2 == a && str().is_empty(b3)) {
-        result = str().mk_prefix(str().mk_concat(a, a), b1);
-        return BR_REWRITE2;
-    }
 
     unsigned len_a;
     rational len_b;
