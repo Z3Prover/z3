@@ -89,6 +89,7 @@ add_executable(test-z3
   permutation.cpp
   polynomial.cpp
   polynorm.cpp
+  polysat.cpp
   prime_generator.cpp
   proof_checker.cpp
   qe_arith.cpp
