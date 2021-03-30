@@ -262,4 +262,5 @@ int main(int argc, char ** argv) {
     TST(solver_pool);
     //TST_ARGV(hs);
     TST(finder);
+    TST(polysat);
 }
