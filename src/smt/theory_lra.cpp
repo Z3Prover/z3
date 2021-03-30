@@ -438,7 +438,7 @@ class theory_lra::imp {
                 }
                 else if (a.is_mod(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
-                    if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);           
+                    if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);    
                 }
                 else if (a.is_rem(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
@@ -450,7 +450,11 @@ class theory_lra::imp {
                     st.to_ensure_var().push_back(n1);
                     st.to_ensure_var().push_back(n2);
                 }
-                else if (!a.is_div0(n) && !a.is_mod0(n) && !a.is_idiv0(n) && !a.is_rem0(n)) {
+                if (a.is_idiv0(n, n1, n2) || a.is_mod0(n, n1, n2) || a.is_rem0(n, n1, n2)) {
+                    st.to_ensure_var().push_back(n1);
+                    st.to_ensure_var().push_back(n2);       
+                }
+                else if (!a.is_div0(n)) {
                     found_unsupported(n);
                 }
                 else {
