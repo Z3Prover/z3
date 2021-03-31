@@ -182,6 +182,7 @@ namespace polysat {
          * by pushing an undo action on the trail stack.
          */
         solver(trail_stack& s);
+
         ~solver();
 
         /**
@@ -206,10 +207,13 @@ namespace polysat {
          * Each constraint is tracked by a dependency.
          * assign sets the 'index'th bit of var.
          */
-        void add_eq(pdd const& p, unsigned dep);
-        void add_diseq(pdd const& p, unsigned dep);
-        void add_ule(pdd const& p, pdd const& q, unsigned dep);
-        void add_sle(pdd const& p, pdd const& q, unsigned dep);
+        void add_eq(pdd const& p, unsigned dep = 0);
+        void add_diseq(pdd const& p, unsigned dep = 0);
+        void add_ule(pdd const& p, pdd const& q, unsigned dep = 0);
+        void add_ult(pdd const& p, pdd const& q, unsigned dep = 0);
+        void add_sle(pdd const& p, pdd const& q, unsigned dep = 0);
+        void add_slt(pdd const& p, pdd const& q, unsigned dep = 0);
+        
         void assign(unsigned var, unsigned index, bool value, unsigned dep);        
 
         /**
