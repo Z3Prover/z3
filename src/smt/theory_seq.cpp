@@ -2733,7 +2733,7 @@ void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, liter
 }
 
 void theory_seq::add_axiom(literal_vector & lits) {
-    TRACE("seq", ctx.display_literals_verbose(tout << "assert:", lits) << "\n";);
+    TRACE("seq", ctx.display_literals_smt2(tout << "assert:", lits) << "\n";);
     for (literal lit : lits)
         ctx.mark_as_relevant(lit);
 
