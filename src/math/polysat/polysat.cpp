@@ -102,10 +102,6 @@ namespace polysat {
     }
 
     void solver::add_eq(pdd const& p, unsigned dep) {
-        //
-        // TODO reduce p using assignment (at current level, 
-        // assuming constraint is removed also at current level).
-        // 
         constraint* c = constraint::eq(m_level, p, m_dep_manager.mk_leaf(dep));
         m_constraints.push_back(c);
         add_watch(*c);
@@ -370,8 +366,7 @@ namespace polysat {
             v = m_search[i];
             if (!is_marked(v))
                 continue;
-            pdd q = isolate(v);
-            pdd r = resolve(v, q, p);
+            pdd r = resolve(v, p);
             pdd rval = r.subst_val(sub);
             if (!rval.is_non_zero())
                 goto backtrack;
@@ -426,8 +421,9 @@ namespace polysat {
     pdd solver::isolate(unsigned v) {
         if (m_cjust[v].empty()) 
             return sz2pdd(m_size[v]).zero();
-        pdd p = m_cjust[v][0]->p();
-        for (unsigned i = m_cjust[v].size(); i-- > 1; ) {
+        auto const& cs = m_cjust[v];
+        pdd p = cs[0]->p();
+        for (unsigned i = cs.size(); i-- > 1; ) {
             // TBD reduce with respect to v
         }
         return p;
@@ -436,9 +432,20 @@ namespace polysat {
     /**
      * Return residue of superposing p and q with respect to v.
      */
-    pdd solver::resolve(unsigned v, pdd const& p, pdd const& q) {
-        // TBD remove as much trace of v as possible.
-        return p;
+    pdd solver::resolve(unsigned v, pdd const& p) {
+        auto degree = p.degree(v);
+        auto const& cs = m_cjust[v];
+        pdd r = p;
+        while (degree > 0) {
+            for (auto * c : cs) {
+                if (degree >= c->p().degree(v)) {
+                    // TODO binary resolve, update r using result
+                    // add parity condition to presere falsification
+                    degree = r.degree(v);
+                }
+            }
+        }
+        return r;
     }
     
     void solver::reset_marks() {

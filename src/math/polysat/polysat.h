@@ -167,7 +167,7 @@ namespace polysat {
         void set_mark(unsigned v) { m_marks[v] = m_clock; }
 
         pdd isolate(unsigned v);
-        pdd resolve(unsigned v, pdd const& p, pdd const& q);
+        pdd resolve(unsigned v, pdd const& p);
         void decide();
         void resolve_conflict_core();            
 
