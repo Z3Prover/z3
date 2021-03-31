@@ -33,21 +33,26 @@ namespace polysat {
     enum ckind_t { eq_t, ule_t, sle_t };
 
     class constraint {
+        unsigned m_level;
         ckind_t m_kind;
         pdd    m_poly;
         pdd    m_other;
         u_dependency* m_dep;
         unsigned_vector m_vars;
-        constraint(pdd const& p, pdd const& q, u_dependency* dep, ckind_t k): 
-            m_kind(k), m_poly(p), m_other(q), m_dep(dep) {
+        constraint(unsigned lvl, pdd const& p, pdd const& q, u_dependency* dep, ckind_t k): 
+            m_level(lvl), m_kind(k), m_poly(p), m_other(q), m_dep(dep) {
             m_vars.append(p.free_vars());
             if (q != p) 
                 for (auto v : q.free_vars())
                     m_vars.insert(v);                
         }
     public:
-        static constraint* eq(pdd const& p, u_dependency* d) { return alloc(constraint, p, p, d, ckind_t::eq_t); }
-        static constraint* ule(pdd const& p, pdd const& q, u_dependency* d) { return alloc(constraint, p, q, d, ckind_t::ule_t); }
+        static constraint* eq(unsigned lvl, pdd const& p, u_dependency* d) { 
+            return alloc(constraint, lvl, p, p, d, ckind_t::eq_t); 
+        }
+        static constraint* ule(unsigned lvl, pdd const& p, pdd const& q, u_dependency* d) { 
+            return alloc(constraint, lvl, p, q, d, ckind_t::ule_t); 
+        }
         ckind_t kind() const { return m_kind; }
         pdd const &  p() const { return m_poly; }
         pdd const &  lhs() const { return m_poly; }
@@ -55,35 +60,11 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const;
         u_dependency* dep() const { return m_dep; }
         unsigned_vector& vars() { return m_vars; }
+        unsigned level() const { return m_level; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
 
-    /**
-     * linear term is has an offset and is linear addition of variables.
-     */
-    class linear : public vector<std::pair<unsigned, rational>> {
-        rational m_offset;
-    public:
-        linear(rational const& offset): m_offset(offset) {}
-        rational const& offset() const { return m_offset; }
-        std::ostream& display(std::ostream& out) const;
-    };
-
-    inline std::ostream& operator<<(std::ostream& out, linear const& l) { return l.display(out); }
-
-    /**
-     * monomial is a list of variables and coefficient.
-     */
-    class mono : public unsigned_vector {
-        rational m_coeff;
-    public:
-        mono(rational const& coeff): m_coeff(coeff) {}
-        rational const& coeff() const { return m_coeff; }
-        std::ostream& display(std::ostream& out) const;
-    };
-
-    inline std::ostream& operator<<(std::ostream& out, mono const& m) { return m.display(out); }
 
     /**
      * Justification kind for a variable assignment.

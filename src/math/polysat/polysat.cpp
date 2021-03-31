@@ -20,17 +20,17 @@ Author:
 namespace polysat {
 
     std::ostream& constraint::display(std::ostream& out) const {
-        return out << "constraint";
+        switch (kind()) {
+        case ckind_t::eq_t:
+            return out << p() << " == 0";
+        case ckind_t::ule_t:
+            return out << lhs() << " <=u " << rhs();
+        case ckind_t::sle_t:
+            return out << lhs() << " <=s " << rhs();
+        }
+        return out;
     }
     
-    std::ostream& linear::display(std::ostream& out) const {
-        return out << "linear";
-    }
-
-    std::ostream& mono::display(std::ostream& out) const {
-        return out << "mono";
-    }
-
     dd::pdd_manager& solver::sz2pdd(unsigned sz) {
         m_pdd.reserve(sz + 1);
         if (!m_pdd[sz])
@@ -128,7 +128,7 @@ namespace polysat {
         // TODO reduce p using assignment (at current level, 
         // assuming constraint is removed also at current level).
         // 
-        constraint* c = constraint::eq(p, m_dep_manager.mk_leaf(dep));
+        constraint* c = constraint::eq(m_level, p, m_dep_manager.mk_leaf(dep));
         m_constraints.push_back(c);
         auto const& vars = c->vars();
         if (vars.size() > 0) 
@@ -348,7 +348,7 @@ namespace polysat {
             if (r.is_val()) {
                 SASSERT(!r.is_zero());
                 // TBD: UNSAT, set conflict
-                return 0;
+                return i;
             }
             justification& j = m_justification[v];
             if (j.is_decision()) {
@@ -356,7 +356,7 @@ namespace polysat {
                 // propagate if new value is given uniquely
                 // set conflict if viable set is empty
                 // adding r and reverting last decision.
-                break;
+                break;                
             }
             SASSERT(j.is_propagation());
             for (auto w : r.free_vars())
@@ -423,6 +423,8 @@ namespace polysat {
     }
 
     std::ostream& solver::display(std::ostream& out) const {
+        for (auto* c : m_constraints)
+            out << *c << "\n";
         return out;
     }
 
