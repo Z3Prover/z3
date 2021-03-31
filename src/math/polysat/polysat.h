@@ -102,7 +102,7 @@ namespace polysat {
 
         // Per constraint state
         scoped_ptr_vector<constraint>   m_constraints;
-        // TODO: vector<constraint> m_redundant; // learned constraints
+        scoped_ptr_vector<constraint>   m_redundant;
 
         // Per variable information
         vector<bdd>              m_viable;   // set of viable values.
@@ -119,6 +119,7 @@ namespace polysat {
         unsigned_vector          m_search;
         unsigned                 m_qhead { 0 };
         unsigned                 m_level { 0 };
+
 
         // conflict state
         constraint* m_conflict { nullptr };
@@ -141,6 +142,8 @@ namespace polysat {
 
         void push_level();
         void pop_levels(unsigned num_levels);
+        void pop_assignment();
+        void pop_constraints(scoped_ptr_vector<constraint>& cs);
 
         void assign_core(unsigned var, rational const& val, justification const& j);
 
@@ -168,11 +171,9 @@ namespace polysat {
         void decide();
         void resolve_conflict_core();            
 
-        /**
-         * push / pop are used only in self-contained mode from check_sat.
-         */
-        void push() { m_trail.push_scope(); }
-        void pop(unsigned n) { m_trail.pop_scope(n); }
+
+        bool invariant();
+        bool invariant(scoped_ptr_vector<constraint> const& cs);
 
     public:
 
