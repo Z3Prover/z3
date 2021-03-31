@@ -257,12 +257,24 @@ namespace polysat {
 
     void solver::pop_levels(unsigned num_levels) {
         m_level -= num_levels;
-        while (!m_constraints.empty() && m_constraints.back()->level() > m_level) {
-            erase_watch(*m_constraints.back());
-            m_constraints.pop_back();
+        pop_constraints(m_constraints);
+        pop_constraints(m_redundant);
+        pop_assignment();
+    }
+
+    void solver::pop_constraints(scoped_ptr_vector<constraint>& cs) {
+        VERIFY(invariant(cs));
+        while (!cs.empty() && cs.back()->level() > m_level) {
+            erase_watch(*cs.back());
+            cs.pop_back();
         }        
-        // TBD: rewrite for proper backtracking where variable levels don't follow scope level.
-        // use a marker into m_search for level as in SAT solver.
+    }
+
+    /**
+     * TBD: rewrite for proper backtracking where variable levels don't follow scope level.
+     * use a marker into m_search for level as in SAT solver.
+     */
+    void solver::pop_assignment() {
         while (!m_search.empty() && m_justification[m_search.back()].level() > m_level) {
             auto v = m_search.back();
             m_justification[v] = justification::unassigned();
@@ -302,6 +314,7 @@ namespace polysat {
     }
 
     void solver::decide() {
+        m_trail.push_scope();
         rational val;
         unsigned var;
         decide(val, var);
@@ -397,7 +410,11 @@ namespace polysat {
 
     void solver::resolve_conflict_core() {
         unsigned new_level = resolve_conflict();
-        // TBD: backtrack to new level.
+        unsigned num_levels = m_level - new_level;
+        SASSERT(num_levels > 0);
+        pop_levels(num_levels);
+        m_trail.pop_scope(num_levels);
+        // TBD: add new constraints & lemmas.
     }
 
     
@@ -448,9 +465,26 @@ namespace polysat {
     std::ostream& solver::display(std::ostream& out) const {
         for (auto* c : m_constraints)
             out << *c << "\n";
+        for (auto* c : m_redundant)
+            out << *c << "\n";
         return out;
     }
 
+    bool solver::invariant() {
+        invariant(m_constraints);
+        invariant(m_redundant);
+        return true;
+    }
+
+    /**
+     * constraints are sorted by levels so they can be removed when levels are popped.
+     */
+    bool solver::invariant(scoped_ptr_vector<constraint> const& cs) {
+        unsigned sz = cs.size();
+        for (unsigned i = 0; i + 1 < sz; ++i) 
+            VERIFY(cs[i]->level() <= cs[i + 1]->level());
+        return true;
+    }
 
 }
 
