@@ -45,22 +45,10 @@ namespace polysat {
         return !b.is_false();
     }
 
-    struct solver::del_var : public trail {
+    struct solver::t_del_var : public trail {
         solver& s;
-        del_var(solver& s): s(s) {}
-        void undo() override { s.do_del_var(); }
-    };
-
-    struct solver::del_constraint : public trail {
-        solver& s;
-        del_constraint(solver& s): s(s) {}
-        void undo() override { s.do_del_constraint(); }
-    };
-
-    struct solver::var_unassign : public trail {
-        solver& s;
-        var_unassign(solver& s): s(s) {}
-        void undo() override { s.do_var_unassign(); }
+        t_del_var(solver& s): s(s) {}
+        void undo() override { s.del_var(); }
     };
 
     
@@ -73,6 +61,13 @@ namespace polysat {
     solver::~solver() {}
     
     lbool solver::check_sat() { 
+        while (true) {
+            if (is_conflict() && m_level == 0) return l_false;
+            else if (is_conflict()) resolve_conflict_core();
+            else if (can_propagate()) propagate();
+            else if (!can_decide()) return l_true;
+            else decide();
+        }
         return l_undef;
     }
         
@@ -87,11 +82,11 @@ namespace polysat {
         m_activity.push_back(0);
         m_vars.push_back(sz2pdd(sz).mk_var(v));
         m_size.push_back(sz);
-        m_trail.push(del_var(*this));
+        m_trail.push(t_del_var(*this));
         return v;
     }
 
-    void solver::do_del_var() {
+    void solver::del_var() {
         // TODO also remove v from all learned constraints.
         unsigned v = m_viable.size() - 1;
         m_free_vars.del_var_eh(v);
@@ -106,23 +101,6 @@ namespace polysat {
         m_size.pop_back();
     }
 
-    void solver::do_del_constraint() {
-        // TODO rewrite to allow for learned constraints
-        // so have to gc these.
-        constraint& c = *m_constraints.back();
-        if (c.vars().size() > 0)
-            erase_watch(c.vars()[0], c);
-        if (c.vars().size() > 1)
-            erase_watch(c.vars()[1], c);
-        m_constraints.pop_back();
-    }
-
-    void solver::do_var_unassign() {
-        unsigned v = m_search.back();
-        m_justification[v] = justification::unassigned();
-        m_free_vars.unassign_var_eh(v);
-    }
-
     void solver::add_eq(pdd const& p, unsigned dep) {
         //
         // TODO reduce p using assignment (at current level, 
@@ -130,12 +108,7 @@ namespace polysat {
         // 
         constraint* c = constraint::eq(m_level, p, m_dep_manager.mk_leaf(dep));
         m_constraints.push_back(c);
-        auto const& vars = c->vars();
-        if (vars.size() > 0) 
-            m_watch[vars[0]].push_back(c);
-        if (vars.size() > 1) 
-            m_watch[vars[1]].push_back(c);
-        m_trail.push(del_constraint(*this));
+        add_watch(*c);
     }
 
     void solver::add_diseq(pdd const& p, unsigned dep) {
@@ -268,11 +241,42 @@ namespace polysat {
             assign_core(var, val, j);        
         else 
             set_conflict(*m_cjust[var].back());
-}
+    }
 
-    void solver::inc_level() {
-        m_trail.push(value_trail(m_level));
+    void solver::push_level() {
         ++m_level;
+    }
+
+    void solver::pop_levels(unsigned num_levels) {
+        m_level -= num_levels;
+        while (!m_constraints.empty() && m_constraints.back()->level() > m_level) {
+            erase_watch(*m_constraints.back());
+            m_constraints.pop_back();
+        }        
+        // TBD: rewrite for proper backtracking where variable levels don't follow scope level.
+        // use a marker into m_search for level as in SAT solver.
+        while (!m_search.empty() && m_justification[m_search.back()].level() > m_level) {
+            auto v = m_search.back();
+            m_justification[v] = justification::unassigned();
+            m_free_vars.unassign_var_eh(v);
+            m_search.pop_back();
+        }
+    }
+
+    void solver::add_watch(constraint& c) {
+        auto const& vars = c.vars();
+        if (vars.size() > 0) 
+            m_watch[vars[0]].push_back(&c);
+        if (vars.size() > 1) 
+            m_watch[vars[1]].push_back(&c);
+    }
+
+    void solver::erase_watch(constraint& c) {
+        auto const& vars = c.vars();
+        if (vars.size() > 0)
+            erase_watch(vars[0], c);
+        if (vars.size() > 1)
+            erase_watch(vars[1], c);
     }
 
     void solver::erase_watch(unsigned v, constraint& c) {
@@ -289,9 +293,15 @@ namespace polysat {
         }
     }
 
+    void solver::decide() {
+        rational val;
+        unsigned var;
+        decide(val, var);
+    }
+
     void solver::decide(rational & val, unsigned& var) {
         SASSERT(can_decide());
-        inc_level();
+        push_level();
         var = m_free_vars.next_var();
         auto viable = m_viable[var];
         SASSERT(!viable.is_false());
@@ -301,7 +311,6 @@ namespace polysat {
 
     void solver::assign_core(unsigned var, rational const& val, justification const& j) {
         SASSERT(is_viable(var, val));
-        m_trail.push(var_unassign(*this));
         m_search.push_back(var);
         m_value[var] = val;
         m_justification[var] = j; 
@@ -322,7 +331,7 @@ namespace polysat {
      * 6. Otherwise, add accumulated constraints to explanation for the next viable solution, prune
      *    viable solutions by excluding the previous guess.
      */
-    unsigned solver::resolve_conflict(unsigned_vector& deps) {
+    unsigned solver::resolve_conflict() {
         SASSERT(m_conflict);
         constraint& c = *m_conflict;
         m_conflict = nullptr;
@@ -377,6 +386,12 @@ namespace polysat {
         
         return 0;
     }
+
+    void solver::resolve_conflict_core() {
+        unsigned new_level = resolve_conflict();
+        // TBD: backtrack to new level.
+    }
+
     
     /**
      * resolve polynomials associated with unit propagating on v

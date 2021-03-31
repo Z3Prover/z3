@@ -133,17 +133,14 @@ namespace polysat {
          * undo trail operations for backtracking.
          * Each struct is a subclass of trail and implements undo().
          */
-        struct del_var;
-        struct del_constraint;
-        struct var_unassign;
+        struct t_del_var;
 
-        void do_del_var();
-        void do_del_constraint();
-        void do_var_unassign();
+        void del_var();
 
         dd::pdd_manager& sz2pdd(unsigned sz);
 
-        void inc_level();
+        void push_level();
+        void pop_levels(unsigned num_levels);
 
         void assign_core(unsigned var, rational const& val, justification const& j);
 
@@ -154,6 +151,8 @@ namespace polysat {
         bool propagate_eq(unsigned v, constraint& c);
         void propagate(unsigned var, rational const& val, justification const& j);
         void erase_watch(unsigned v, constraint& c);
+        void erase_watch(constraint& c);
+        void add_watch(constraint& c);
 
         void set_conflict(constraint& c) { m_conflict = &c; }
         void clear_conflict() { m_conflict = nullptr; }
@@ -166,6 +165,8 @@ namespace polysat {
 
         pdd isolate(unsigned v);
         pdd resolve(unsigned v, pdd const& p, pdd const& q);
+        void decide();
+        void resolve_conflict_core();            
 
         /**
          * push / pop are used only in self-contained mode from check_sat.
@@ -225,7 +226,7 @@ namespace polysat {
          * Return number of scopes to backtrack and core in the shape of dependencies
          * TBD: External vs. internal mode may need different signatures.
          */
-        unsigned resolve_conflict(unsigned_vector& deps);            
+        unsigned resolve_conflict();            
         
         bool can_learn();
         void learn(constraint& c, unsigned_vector& deps); 
