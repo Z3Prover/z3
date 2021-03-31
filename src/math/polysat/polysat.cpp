@@ -156,6 +156,14 @@ namespace polysat {
         // save for later
     }
 
+    void solver::add_ult(pdd const& p, pdd const& q, unsigned dep) {
+        // save for later
+    }
+
+    void solver::add_slt(pdd const& p, pdd const& q, unsigned dep) {
+        // save for later
+    }
+
     void solver::assign(unsigned var, unsigned index, bool value, unsigned dep) {
         m_viable[var] &= value ? m_bdd.mk_var(index) : m_bdd.mk_nvar(index);
         m_trail.push(vector_value_trail<u_dependency*, false>(m_vdeps, var));
