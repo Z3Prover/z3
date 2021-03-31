@@ -602,6 +602,9 @@ namespace smt {
         m_app2enode.setx(q->get_id(), get_enode(lam_name), nullptr);
         m_l_internalized_stack.push_back(q);
         m_trail_stack.push_back(&m_mk_lambda_trail);
+        bool_var bv = get_bool_var(fa);
+        assign(literal(bv, false), nullptr);
+        mark_as_relevant(bv);
     }
 
     /**
