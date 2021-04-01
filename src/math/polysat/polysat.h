@@ -120,7 +120,7 @@ namespace polysat {
         unsigned                 m_qhead { 0 };
         unsigned                 m_level { 0 };
 
-        unsigned_vector          m_scopes;   // user-scopes. External clients can push/pop scope
+        unsigned_vector          m_scopes;   // user-scopes. External clients can push/pop scope. 
 
 
         // conflict state
@@ -174,9 +174,12 @@ namespace polysat {
 
         bool is_conflict() const { return nullptr != m_conflict; }
         bool at_base_level() const;
+        unsigned base_level() const;
 
         void resolve_conflict();            
-        void backtrack();
+        void backtrack(unsigned i);
+        void report_unsat();
+        void revert_decision(unsigned i);
         void learn_and_backjump(pdd const& lemma, unsigned new_level);
 
         bool can_decide() const { return !m_free_vars.empty(); }

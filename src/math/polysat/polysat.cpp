@@ -366,25 +366,23 @@ namespace polysat {
             v = m_search[i];
             if (!is_marked(v))
                 continue;
+            justification& j = m_justification[v];
+            if (j.level() <= base_level()) {
+                report_unsat();
+                return;
+            }
             pdd r = resolve(v, p);
             pdd rval = r.subst_val(sub);
             if (!rval.is_non_zero()) {
-                backtrack();
+                backtrack(i);
                 return;
             }
             if (r.is_val()) {
-                // TBD: UNSAT, set conflict
-                SASSERT(!r.is_zero());
-                // learn_lemma(r, deps);
+                report_unsat();
                 return;
             }
-            justification& j = m_justification[v];
             if (j.is_decision()) {
-                // TBD: revert value and add constraint
-                // propagate if new value is given uniquely
-                // set conflict if viable set is empty
-                // adding r and reverting last decision.
-                // m_search.size() - i;
+                revert_decision(i);
                 return;
             }
             SASSERT(j.is_propagation());
@@ -393,14 +391,15 @@ namespace polysat {
                 set_mark(w);
             p = r;
         }
-        UNREACHABLE();
+        report_unsat();
     }
 
-    void solver::backtrack() {
-        unsigned i = m_search.size();
+    void solver::backtrack(unsigned i) {
         do {
             auto v = m_search[i];
             justification& j = m_justification[v];
+            if (j.level() <= base_level()) 
+                break;
             if (j.is_decision()) {
                 // TBD: flip last decision.
                 // subtract value from viable
@@ -414,17 +413,25 @@ namespace polysat {
             }
         }
         while (i-- > 0);
-
-        // unsat
-        // r = 1;        
-        // learn_and_backjump(r, m_search.size());        
+        
+        report_unsat();
     }
+
+    void solver::report_unsat() {
+        // dependencies for variables that are currently marked and below base level
+        // are in the unsat core that is produced as a side-effect        
+    }
+
+   void solver::revert_decision(unsigned i) {
+
+   }
 
     void solver::learn_and_backjump(pdd const& lemma, unsigned new_level) {
         unsigned num_levels = m_level - new_level;
         SASSERT(num_levels > 0);
         pop_levels(num_levels);
         m_trail.pop_scope(num_levels);
+        
         // TBD: add new constraints & lemmas.
     }
 
@@ -489,7 +496,11 @@ namespace polysat {
     }
 
     bool solver::at_base_level() const {
-        return m_level == 0 || (!m_scopes.empty() && m_level == m_scopes.back());
+        return m_level == base_level();
+    }
+    
+    unsigned solver::base_level() const {
+        return m_scopes.empty() ? 0 : m_scopes.back();
     }
         
     std::ostream& solver::display(std::ostream& out) const {
