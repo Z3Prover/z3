@@ -63,7 +63,7 @@ namespace polysat {
     lbool solver::check_sat() { 
         while (true) {
             if (is_conflict() && m_level == 0) return l_false;
-            else if (is_conflict()) resolve_conflict_core();
+            else if (is_conflict()) resolve_conflict();
             else if (can_propagate()) propagate();
             else if (!can_decide()) return l_true;
             else decide();
@@ -348,7 +348,7 @@ namespace polysat {
      * 6. Otherwise, add accumulated constraints to explanation for the next viable solution, prune
      *    viable solutions by excluding the previous guess.
      */
-    unsigned solver::resolve_conflict() {
+    void solver::resolve_conflict() {
         SASSERT(m_conflict);
         constraint& c = *m_conflict;
         m_conflict = nullptr;
@@ -368,12 +368,15 @@ namespace polysat {
                 continue;
             pdd r = resolve(v, p);
             pdd rval = r.subst_val(sub);
-            if (!rval.is_non_zero())
-                goto backtrack;
+            if (!rval.is_non_zero()) {
+                backtrack();
+                return;
+            }
             if (r.is_val()) {
-                SASSERT(!r.is_zero());
                 // TBD: UNSAT, set conflict
-                return i;
+                SASSERT(!r.is_zero());
+                // learn_lemma(r, deps);
+                return;
             }
             justification& j = m_justification[v];
             if (j.is_decision()) {
@@ -381,36 +384,50 @@ namespace polysat {
                 // propagate if new value is given uniquely
                 // set conflict if viable set is empty
                 // adding r and reverting last decision.
-                break;                
+                // m_search.size() - i;
+                return;
             }
             SASSERT(j.is_propagation());
+            reset_marks();
             for (auto w : r.free_vars())
                 set_mark(w);
             p = r;
         }
         UNREACHABLE();
-        
-    backtrack:
+    }
+
+    void solver::backtrack() {
+        unsigned i = m_search.size();
         do {
-            v = m_search[i];
+            auto v = m_search[i];
             justification& j = m_justification[v];
             if (j.is_decision()) {
                 // TBD: flip last decision.
+                // subtract value from viable
+                // m_viable[v] -= m_value[v];
+                if (m_viable[v].is_false()) 
+                    continue;
+                // 
+                // pop levels to i
+                // choose a new value for v as a decision.
+                // 
             }
         }
         while (i-- > 0);
-        
-        return 0;
+
+        // unsat
+        // r = 1;        
+        // learn_and_backjump(r, m_search.size());        
     }
 
-    void solver::resolve_conflict_core() {
-        unsigned new_level = resolve_conflict();
+    void solver::learn_and_backjump(pdd const& lemma, unsigned new_level) {
         unsigned num_levels = m_level - new_level;
         SASSERT(num_levels > 0);
         pop_levels(num_levels);
         m_trail.pop_scope(num_levels);
         // TBD: add new constraints & lemmas.
     }
+
 
     
     /**
@@ -431,6 +448,10 @@ namespace polysat {
     
     /**
      * Return residue of superposing p and q with respect to v.
+     * 
+     * TBD: should also collect dependencies (deps)
+     * and maximal level of constraints so learned lemma
+     * is given the appropriate level.
      */
     pdd solver::resolve(unsigned v, pdd const& p) {
         auto degree = p.degree(v);
@@ -456,19 +477,21 @@ namespace polysat {
         m_clock++;
         m_marks.fill(0);        
     }
+
+    void solver::push() {
+        push_level();
+        m_scopes.push_back(m_level);
+    }
+
+    void solver::pop(unsigned num_scopes) {
+        unsigned base_level = m_scopes[m_scopes.size() - num_scopes];
+        pop_levels(m_level - base_level - 1);
+    }
+
+    bool solver::at_base_level() const {
+        return m_level == 0 || (!m_scopes.empty() && m_level == m_scopes.back());
+    }
         
-    bool solver::can_learn() {
-        return false;
-    }
-
-    void solver::learn(constraint& c, unsigned_vector& deps) {
-
-    } 
-
-    void solver::learn(vector<constraint>& cs, unsigned_vector& deps) {
-
-    }
-
     std::ostream& solver::display(std::ostream& out) const {
         for (auto* c : m_constraints)
             out << *c << "\n";
