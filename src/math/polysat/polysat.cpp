@@ -373,16 +373,16 @@ namespace polysat {
             }
             pdd r = resolve(v, p);
             pdd rval = r.subst_val(sub);
-            if (!rval.is_non_zero()) {
-                backtrack(i);
-                return;
-            }
-            if (r.is_val()) {
+            if (r.is_val() && rval.is_non_zero()) {
                 report_unsat();
                 return;
             }
             if (j.is_decision()) {
-                revert_decision(i);
+                revert_decision(p, i);
+                return;
+            }
+            if (!rval.is_non_zero()) {
+                backtrack(i);
                 return;
             }
             SASSERT(j.is_propagation());
@@ -422,20 +422,40 @@ namespace polysat {
         // are in the unsat core that is produced as a side-effect        
     }
 
-   void solver::revert_decision(unsigned i) {
+    void solver::revert_decision(pdd const& p, unsigned i) {
+        auto v = m_search[i];
+        SASSERT(m_justification[v].is_decision());
+        // 
+        // TBD: compute level and dependencies for p
+        // Dependencies should be accumulated during resolve_conflict
+        // the level is computed from the free variables in p (except v)
+        // it should correspond to the implication level.
+        // 
+        unsigned level = 0;
+        u_dependency* deps = nullptr; 
+        constraint* c = constraint::eq(level, p, deps);
+        m_cjust[v].push_back(c);        
+        m_redundant.push_back(c);
+        add_watch(*c);
+        SASSERT(invariant(m_redundant)); // TBD enforce level invariant
+        //
+        // TBD: remove current value from viable
+        // m_values[v]
+        // 
+        // 1. undo levels until i
+        // 2. find a new decision if there is one, 
+        //    propagate if decision is singular,
+        //    otherwise if there are no viable decisions, learn_and_backjump
+        //    and set a new conflict.
+        // 
+    }
 
-   }
-
-    void solver::learn_and_backjump(pdd const& lemma, unsigned new_level) {
+    void solver::backjump(unsigned new_level) {
         unsigned num_levels = m_level - new_level;
         SASSERT(num_levels > 0);
         pop_levels(num_levels);
-        m_trail.pop_scope(num_levels);
-        
-        // TBD: add new constraints & lemmas.
+        m_trail.pop_scope(num_levels);        
     }
-
-
     
     /**
      * resolve polynomials associated with unit propagating on v

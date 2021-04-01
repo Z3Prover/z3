@@ -179,8 +179,8 @@ namespace polysat {
         void resolve_conflict();            
         void backtrack(unsigned i);
         void report_unsat();
-        void revert_decision(unsigned i);
-        void learn_and_backjump(pdd const& lemma, unsigned new_level);
+        void revert_decision(pdd const& p, unsigned i);
+        void backjump(unsigned new_level);
 
         bool can_decide() const { return !m_free_vars.empty(); }
         void decide(rational & val, unsigned& var);
@@ -201,8 +201,7 @@ namespace polysat {
         ~solver();
 
         /**
-         * Self-contained satisfiability checker.
-         * Main mode is to have external solver drive state machine.
+         * End-game satisfiability checker.
          */
         lbool check_sat();
         
@@ -215,7 +214,6 @@ namespace polysat {
          * Create polynomial terms
          */
         pdd var(unsigned v) { return m_vars[v]; }
-
 
         /**
          * Add polynomial constraints
@@ -237,6 +235,10 @@ namespace polysat {
         bool can_propagate();
         void propagate();
 
+        /**
+         * External context managment.
+         * Adds so-called user-scope.
+         */
         void push();
         void pop(unsigned num_scopes);
        
