@@ -120,6 +120,8 @@ namespace polysat {
         unsigned                 m_qhead { 0 };
         unsigned                 m_level { 0 };
 
+        unsigned_vector          m_scopes;   // user-scopes. External clients can push/pop scope
+
 
         // conflict state
         constraint* m_conflict { nullptr };
@@ -169,7 +171,16 @@ namespace polysat {
         pdd isolate(unsigned v);
         pdd resolve(unsigned v, pdd const& p);
         void decide();
-        void resolve_conflict_core();            
+
+        bool is_conflict() const { return nullptr != m_conflict; }
+        bool at_base_level() const;
+
+        void resolve_conflict();            
+        void backtrack();
+        void learn_and_backjump(pdd const& lemma, unsigned new_level);
+
+        bool can_decide() const { return !m_free_vars.empty(); }
+        void decide(rational & val, unsigned& var);
 
 
         bool invariant();
@@ -223,20 +234,9 @@ namespace polysat {
         bool can_propagate();
         void propagate();
 
-        bool can_decide() const { return !m_free_vars.empty(); }
-        void decide(rational & val, unsigned& var);
-
-        bool is_conflict() const { return nullptr != m_conflict; }
-        /**
-         * Return number of scopes to backtrack and core in the shape of dependencies
-         * TBD: External vs. internal mode may need different signatures.
-         */
-        unsigned resolve_conflict();            
-        
-        bool can_learn();
-        void learn(constraint& c, unsigned_vector& deps); 
-        void learn(vector<constraint>& cs, unsigned_vector& deps); 
-
+        void push();
+        void pop(unsigned num_scopes);
+       
         std::ostream& display(std::ostream& out) const;
 
     };
