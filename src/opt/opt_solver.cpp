@@ -191,6 +191,8 @@ namespace opt {
         r = adjust_result(r);
         if (r == l_true) {
             m_context.get_model(m_last_model);
+            if (m_models.size() == 1)
+                m_models.set(0, m_last_model.get());
         }
         m_first = false;
         if (dump_benchmarks()) {
