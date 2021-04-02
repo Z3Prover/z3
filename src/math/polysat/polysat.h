@@ -168,8 +168,11 @@ namespace polysat {
         bool is_marked(unsigned v) const { return m_clock == m_marks[v]; }
         void set_mark(unsigned v) { m_marks[v] = m_clock; }
 
+        unsigned                 m_lemma_level { 0 };
+        ptr_vector<u_dependency> m_lemma_deps;
+
         pdd isolate(unsigned v);
-        pdd resolve(unsigned v, pdd const& p);
+        pdd resolve(unsigned v, pdd const& p, unsigned& resolve_level);
         void decide();
 
         bool is_conflict() const { return nullptr != m_conflict; }
@@ -181,6 +184,7 @@ namespace polysat {
         void report_unsat();
         void revert_decision(pdd const& p, unsigned i);
         void backjump(unsigned new_level);
+        void add_lemma(constraint* c);
 
         bool can_decide() const { return !m_free_vars.empty(); }
         void decide(rational & val, unsigned& var);

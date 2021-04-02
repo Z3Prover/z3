@@ -39,6 +39,7 @@ public:
         dealloc(m_vector[idx]); 
         m_vector[idx] = ptr; 
     }
+    void swap(unsigned i, unsigned j) { std::swap(m_vector[i], m_vector[j]); }
     unsigned size() const { return m_vector.size(); }
     bool empty() const { return m_vector.empty(); }
     void resize(unsigned sz) { 

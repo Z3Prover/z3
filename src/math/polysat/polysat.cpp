@@ -347,12 +347,19 @@ namespace polysat {
      *    If so, apply propagation.
      * 6. Otherwise, add accumulated constraints to explanation for the next viable solution, prune
      *    viable solutions by excluding the previous guess.
+     *
+     * todos: replace accumulation of sub by something more incremental.
+     * 
      */
     void solver::resolve_conflict() {
         SASSERT(m_conflict);
         constraint& c = *m_conflict;
         m_conflict = nullptr;
         pdd p = c.p();
+        m_lemma_level = c.level();        
+        m_lemma_deps.reset();
+        m_lemma_deps.push_back(c.dep());
+        unsigned new_lemma_level = 0;
         reset_marks();
         for (auto v : c.vars())
             set_mark(v);
@@ -371,7 +378,7 @@ namespace polysat {
                 report_unsat();
                 return;
             }
-            pdd r = resolve(v, p);
+            pdd r = resolve(v, p, new_lemma_level);
             pdd rval = r.subst_val(sub);
             if (r.is_val() && rval.is_non_zero()) {
                 report_unsat();
@@ -390,6 +397,7 @@ namespace polysat {
             for (auto w : r.free_vars())
                 set_mark(w);
             p = r;
+            m_lemma_level = new_lemma_level;
         }
         report_unsat();
     }
@@ -422,22 +430,29 @@ namespace polysat {
         // are in the unsat core that is produced as a side-effect        
     }
 
+    /**
+     * variable v was assigned by a decision at position i in the search stack.
+     * The polynomial p encodes an equality that the decision was infeasible.
+     * The effect of this function is that the assignment to v is undone and replaced 
+     * by a new decision or unit propagation or conflict.
+     * We add 'p == 0' as a lemma. The lemma depends on the dependencies used
+     * to derive p, and the level of the lemma is the maximal level of the dependencies.
+     */
     void solver::revert_decision(pdd const& p, unsigned i) {
         auto v = m_search[i];
         SASSERT(m_justification[v].is_decision());
+        SASSERT(m_lemma_level <= m_justification[v].level());
         // 
-        // TBD: compute level and dependencies for p
-        // Dependencies should be accumulated during resolve_conflict
-        // the level is computed from the free variables in p (except v)
-        // it should correspond to the implication level.
+        // TBD: convert m_lemma_deps into deps.
+        // the scope of the new constraint should be confined to 
+        // m_lemma_level so could be below the current user scope.
+        // What to do in this case is TBD.
         // 
-        unsigned level = 0;
+        unsigned level = m_lemma_level;
         u_dependency* deps = nullptr; 
         constraint* c = constraint::eq(level, p, deps);
         m_cjust[v].push_back(c);        
-        m_redundant.push_back(c);
-        add_watch(*c);
-        SASSERT(invariant(m_redundant)); // TBD enforce level invariant
+        add_lemma(c);
         //
         // TBD: remove current value from viable
         // m_values[v]
@@ -445,7 +460,7 @@ namespace polysat {
         // 1. undo levels until i
         // 2. find a new decision if there is one, 
         //    propagate if decision is singular,
-        //    otherwise if there are no viable decisions, learn_and_backjump
+        //    otherwise if there are no viable decisions, backjump
         //    and set a new conflict.
         // 
     }
@@ -480,7 +495,8 @@ namespace polysat {
      * and maximal level of constraints so learned lemma
      * is given the appropriate level.
      */
-    pdd solver::resolve(unsigned v, pdd const& p) {
+    pdd solver::resolve(unsigned v, pdd const& p, unsigned& resolve_level) {
+        resolve_level = 0;
         auto degree = p.degree(v);
         auto const& cs = m_cjust[v];
         pdd r = p;
@@ -490,10 +506,25 @@ namespace polysat {
                     // TODO binary resolve, update r using result
                     // add parity condition to presere falsification
                     degree = r.degree(v);
+                    resolve_level = std::max(resolve_level, c->level());
+                    m_lemma_deps.push_back(c->dep());
                 }
             }
         }
         return r;
+    }
+
+    void solver::add_lemma(constraint* c) {
+        add_watch(*c);
+        m_redundant.push_back(c);
+        for (unsigned i = m_redundant.size() - 1; i-- > 0; ) {
+            auto* c1 = m_redundant[i + 1];
+            auto* c2 = m_redundant[i];
+            if (c1->level() >= c2->level())
+                break;
+            m_redundant.swap(i, i + 1);
+        }
+        SASSERT(invariant(m_redundant)); 
     }
     
     void solver::reset_marks() {
@@ -507,12 +538,14 @@ namespace polysat {
 
     void solver::push() {
         push_level();
+        m_dep_manager.push_scope();
         m_scopes.push_back(m_level);
     }
 
     void solver::pop(unsigned num_scopes) {
         unsigned base_level = m_scopes[m_scopes.size() - num_scopes];
         pop_levels(m_level - base_level - 1);
+        m_dep_manager.pop_scope(num_scopes);
     }
 
     bool solver::at_base_level() const {
