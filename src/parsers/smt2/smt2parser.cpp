@@ -2276,7 +2276,17 @@ namespace smt2 {
             sort* const* sorts = sort_stack().c_ptr() + sort_spos;
             expr* t = expr_stack().back();
             if (is_fun) {
-                m_ctx.insert(id, num_vars, sorts, t);
+                expr_ref _t(t, m());
+                if (num_vars > 1) {
+                    // variable ordering in macros follow non-standard ordering
+                    // we have to reverse the ordering used by the parser.
+                    var_subst sub(m(), true);
+                    expr_ref_vector vars(m());
+                    for (unsigned i = 0; i < num_vars; ++i)
+                        vars.push_back(m().mk_var(i, sorts[i]));
+                    _t = sub(_t, vars);
+                }
+                m_ctx.insert(id, num_vars, sorts, _t);
             }
             else {
                 m_ctx.model_add(id, num_vars, sorts, t);

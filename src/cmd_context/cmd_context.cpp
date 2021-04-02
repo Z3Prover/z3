@@ -1082,7 +1082,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
               tout << "s: " << s << "\n";
               tout << "body:\n" << mk_ismt2_pp(_t, m()) << "\n";
               tout << "args:\n"; for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m()) << "\n" << mk_pp(args[i]->get_sort(), m()) << "\n";);
-        var_subst subst(m());
+        var_subst subst(m(), false);
         scoped_rlimit no_limit(m().limit(), 0);
         result = subst(_t, coerced_args);
         if (well_sorted_check_enabled() && !is_well_sorted(m(), result))
