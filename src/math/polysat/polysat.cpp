@@ -45,6 +45,18 @@ namespace polysat {
         return !b.is_false();
     }
 
+    void solver::add_non_viable(unsigned var, rational const& val) {
+        bdd value = m_bdd.mk_true();
+        for (unsigned k = size(var); k-- > 0; ) 
+            value &= val.get_bit(k) ? m_bdd.mk_var(k) : m_bdd.mk_nvar(k);
+        m_viable[var] &= !value;        
+    }
+
+    lbool solver::find_viable(unsigned var, rational & val) {
+        return l_false;
+    }
+
+
     struct solver::t_del_var : public trail {
         solver& s;
         t_del_var(solver& s): s(s) {}
@@ -55,6 +67,8 @@ namespace polysat {
     solver::solver(trail_stack& s): 
         m_trail(s),
         m_bdd(1000),
+        m_dep_manager(m_value_manager, m_alloc),
+        m_lemma_dep(nullptr, m_dep_manager),
         m_free_vars(m_activity) {
     }
 
@@ -102,7 +116,8 @@ namespace polysat {
     }
 
     void solver::add_eq(pdd const& p, unsigned dep) {
-        constraint* c = constraint::eq(m_level, p, m_dep_manager.mk_leaf(dep));
+        p_dependency_ref d(m_dep_manager.mk_leaf(dep), m_dep_manager);
+        constraint* c = constraint::eq(m_level, p, d);
         m_constraints.push_back(c);
         add_watch(*c);
     }
@@ -135,7 +150,7 @@ namespace polysat {
 
     void solver::assign(unsigned var, unsigned index, bool value, unsigned dep) {
         m_viable[var] &= value ? m_bdd.mk_var(index) : m_bdd.mk_nvar(index);
-        m_trail.push(vector_value_trail<u_dependency*, false>(m_vdeps, var));
+        m_trail.push(vector_value_trail<p_dependency*, false>(m_vdeps, var));
         m_vdeps[var] = m_dep_manager.mk_join(m_vdeps[var], m_dep_manager.mk_leaf(dep));
         if (m_viable[var].is_false()) {
             // TBD: set conflict
@@ -357,8 +372,7 @@ namespace polysat {
         m_conflict = nullptr;
         pdd p = c.p();
         m_lemma_level = c.level();        
-        m_lemma_deps.reset();
-        m_lemma_deps.push_back(c.dep());
+        m_lemma_dep = c.dep();
         unsigned new_lemma_level = 0;
         reset_marks();
         for (auto v : c.vars())
@@ -442,29 +456,34 @@ namespace polysat {
         auto v = m_search[i];
         SASSERT(m_justification[v].is_decision());
         SASSERT(m_lemma_level <= m_justification[v].level());
-        // 
-        // TBD: convert m_lemma_deps into deps.
-        // the scope of the new constraint should be confined to 
-        // m_lemma_level so could be below the current user scope.
-        // What to do in this case is TBD.
-        // 
-        unsigned level = m_lemma_level;
-        u_dependency* deps = nullptr; 
-        constraint* c = constraint::eq(level, p, deps);
+        constraint* c = constraint::eq(m_lemma_level, p, m_lemma_dep);
         m_cjust[v].push_back(c);        
         add_lemma(c);
-        //
-        // TBD: remove current value from viable
-        // m_values[v]
-        // 
-        // 1. undo levels until i
-        // 2. find a new decision if there is one, 
-        //    propagate if decision is singular,
-        //    otherwise if there are no viable decisions, backjump
-        //    and set a new conflict.
-        // 
-    }
+        add_non_viable(v, m_value[v]);
 
+        // TBD conditions for when backjumping applies to be clarified.
+        unsigned new_level = m_justification[v].level();
+        backjump(new_level);
+        // 
+        // find a new decision if there is one, 
+        // propagate if decision is singular,
+        // otherwise if there are no viable decisions, backjump
+        //  and set a new conflict.
+        // 
+        rational value;
+        switch (find_viable(v, value)) {
+        case l_true:
+            // unit propagation
+            break;
+        case l_undef:
+            // branch
+            break;
+        case l_false:
+            // no viable.
+            break;
+        }
+    }
+    
     void solver::backjump(unsigned new_level) {
         unsigned num_levels = m_level - new_level;
         SASSERT(num_levels > 0);
@@ -490,10 +509,6 @@ namespace polysat {
     
     /**
      * Return residue of superposing p and q with respect to v.
-     * 
-     * TBD: should also collect dependencies (deps)
-     * and maximal level of constraints so learned lemma
-     * is given the appropriate level.
      */
     pdd solver::resolve(unsigned v, pdd const& p, unsigned& resolve_level) {
         resolve_level = 0;
@@ -507,7 +522,7 @@ namespace polysat {
                     // add parity condition to presere falsification
                     degree = r.degree(v);
                     resolve_level = std::max(resolve_level, c->level());
-                    m_lemma_deps.push_back(c->dep());
+                    m_lemma_dep = m_dep_manager.mk_join(m_lemma_dep.get(), c->dep());
                 }
             }
         }
@@ -538,14 +553,12 @@ namespace polysat {
 
     void solver::push() {
         push_level();
-        m_dep_manager.push_scope();
         m_scopes.push_back(m_level);
     }
 
     void solver::pop(unsigned num_scopes) {
         unsigned base_level = m_scopes[m_scopes.size() - num_scopes];
         pop_levels(m_level - base_level - 1);
-        m_dep_manager.pop_scope(num_scopes);
     }
 
     bool solver::at_base_level() const {
