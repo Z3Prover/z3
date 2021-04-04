@@ -19,6 +19,7 @@ Author:
 #include "util/dependency.h"
 #include "util/trail.h"
 #include "util/lbool.h"
+#include "util/rlimit.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/var_queue.h"
 #include "math/dd/dd_pdd.h"
@@ -114,6 +115,7 @@ namespace polysat {
         typedef ptr_vector<constraint> constraints;
 
         trail_stack&             m_trail;
+        reslimit&                m_lim;
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
         dd::bdd_manager          m_bdd;
         dep_value_manager        m_value_manager;
@@ -142,7 +144,7 @@ namespace polysat {
         unsigned                 m_qhead { 0 };
         unsigned                 m_level { 0 };
 
-        unsigned_vector          m_scopes;   // user-scopes. External clients can push/pop scope. 
+        unsigned_vector          m_base_levels;  // External clients can push/pop scope. 
 
 
         // conflict state
@@ -158,6 +160,11 @@ namespace polysat {
          * register that val is non-viable for var.
          */
         void add_non_viable(unsigned var, rational const& val);
+
+        /**
+         * Add dependency for variable viable range.
+         */
+        void add_viable_dep(unsigned var, p_dependency* dep);
 
         
         /**
@@ -206,8 +213,10 @@ namespace polysat {
 
         unsigned                 m_conflict_level { 0 };
 
-        pdd isolate(unsigned v);
-        pdd resolve(unsigned v, pdd const& p, unsigned& resolve_level);
+        pdd isolate(unsigned v, vector<pdd> const& ps);
+        pdd resolve(unsigned v, vector<pdd> const& ps);
+
+        bool can_decide() const { return !m_free_vars.empty(); }
         void decide();
 
         p_dependency* mk_dep(unsigned dep) { return dep == null_dependency ? nullptr : m_dep_manager.mk_leaf(dep); }
@@ -216,16 +225,16 @@ namespace polysat {
         bool at_base_level() const;
         unsigned base_level() const;
 
+        vector<pdd>  init_conflict();
         void resolve_conflict();            
         void backtrack(unsigned i);
         void report_unsat();
         void revert_decision(unsigned i);
         void learn_lemma(unsigned v, pdd const& p);
         void backjump(unsigned new_level);
+        void undo_var(unsigned v);
         void add_lemma(constraint* c);
 
-        bool can_decide() const { return !m_free_vars.empty(); }
-        void decide(rational & val, unsigned& var);
 
 
         bool invariant();
@@ -238,7 +247,7 @@ namespace polysat {
          * every update to the solver is going to be retractable
          * by pushing an undo action on the trail stack.
          */
-        solver(trail_stack& s);
+        solver(trail_stack& s, reslimit& lim);
 
         ~solver();
 

@@ -5,14 +5,21 @@ namespace polysat {
     // test resolve, factoring routines
     // auxiliary 
 
+    struct solver_scope {
+        reslimit lim;
+        trail_stack stack;        
+    };
+
+    struct scoped_solver : public solver_scope, public solver {
+        scoped_solver(): solver(stack, lim) {}
+    };
     
     /**
      * This one is unsat because a*a*(a*a - 1)
      * is 0 for all values of a.
      */
     static void test_eq1() {
-        trail_stack stack;
-        solver s(stack);
+        scoped_solver s;
         auto a = s.var(s.add_var(2));
         auto p = a*a*(a*a - 1) + 1;
         s.add_eq(p);
@@ -23,8 +30,7 @@ namespace polysat {
      * has solution a = 3
      */
     static void test_eq2() {
-        trail_stack stack;
-        solver s(stack);
+        scoped_solver s;
         auto a = s.var(s.add_var(2));
         auto p = a*(a-1) + 2;
         s.add_eq(p);
@@ -38,8 +44,7 @@ namespace polysat {
      * v*q > u
      */
     static void test_ineq1() {
-        trail_stack stack;
-        solver s(stack);
+        scoped_solver s;
         auto u = s.var(s.add_var(5));
         auto v = s.var(s.add_var(5));
         auto q = s.var(s.add_var(5));
@@ -57,8 +62,7 @@ namespace polysat {
      * n > r2 > 0
      */
     static void test_ineq2() {
-        trail_stack stack;
-        solver s(stack);
+        scoped_solver s;
         auto n = s.var(s.add_var(5));
         auto q1 = s.var(s.add_var(5));
         auto a = s.var(s.add_var(5));
