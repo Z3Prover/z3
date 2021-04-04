@@ -235,8 +235,6 @@ public:
 
 re2automaton::re2automaton(ast_manager& m): m(m), u(m), m_ba(nullptr), m_sa(nullptr) {}
 
-re2automaton::~re2automaton() {}
-
 void re2automaton::set_solver(expr_solver* solver) {
     m_solver = solver;
     m_ba = alloc(sym_expr_boolean_algebra, m, *solver);

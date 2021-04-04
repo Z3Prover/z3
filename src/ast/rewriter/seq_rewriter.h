@@ -103,7 +103,6 @@ class re2automaton {
     eautomaton* seq2aut(expr* e);
 public:
     re2automaton(ast_manager& m);
-    ~re2automaton();
     eautomaton* operator()(expr* e);
     void set_solver(expr_solver* solver);
     bool has_solver() const { return m_solver; }

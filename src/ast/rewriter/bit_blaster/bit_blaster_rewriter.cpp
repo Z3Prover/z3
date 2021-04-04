@@ -127,9 +127,6 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
         updt_params(p);
     }
 
-    ~blaster_rewriter_cfg() {
-    }
-
     void updt_params(params_ref const & p) {
         m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_max_steps      = p.get_uint("max_steps", UINT_MAX);

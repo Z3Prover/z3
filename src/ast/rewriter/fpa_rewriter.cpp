@@ -27,9 +27,6 @@ fpa_rewriter::fpa_rewriter(ast_manager & m, params_ref const & p) :
     updt_params(p);
 }
 
-fpa_rewriter::~fpa_rewriter() {
-}
-
 void fpa_rewriter::updt_params(params_ref const & _p) {
     fpa_rewriter_params p(_p);
     m_hi_fp_unspecified = p.hi_fp_unspecified();

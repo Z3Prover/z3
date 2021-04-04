@@ -39,8 +39,6 @@ public:
         SASSERT(m_t2);
     }
     
-    ~binary_tactical() override { }
-    
     void updt_params(params_ref const & p) override {
         m_t1->updt_params(p);
         m_t2->updt_params(p);
@@ -101,7 +99,6 @@ struct false_pred {
 class and_then_tactical : public binary_tactical {
 public:
     and_then_tactical(tactic * t1, tactic * t2):binary_tactical(t1, t2) {}
-    ~and_then_tactical() override {}
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override { 
 
@@ -232,8 +229,6 @@ public:
         }
     }
 
-    ~nary_tactical() override { }
-
     void updt_params(params_ref const & p) override {
         TRACE("nary_tactical_updt_params", tout << "updt_params: " << p << "\n";);
         for (tactic* t : m_ts) t->updt_params(p);
@@ -283,8 +278,6 @@ protected:
 class or_else_tactical : public nary_tactical {
 public:
     or_else_tactical(unsigned num, tactic * const * ts):nary_tactical(num, ts) { SASSERT(num > 0); }
-
-    ~or_else_tactical() override {}
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         goal orig(*(in.get()));
@@ -386,9 +379,6 @@ public:
     par_tactical(unsigned num, tactic * const * ts):or_else_tactical(num, ts) {
 		error_code = 0;
 	}
-    ~par_tactical() override {}
-
-    
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         bool use_seq;
@@ -525,7 +515,6 @@ tactic * par_and_then(tactic * t1, tactic * t2) {
 class par_and_then_tactical : public and_then_tactical {
 public:
     par_and_then_tactical(tactic * t1, tactic * t2):and_then_tactical(t1, t2) {}
-    ~par_and_then_tactical() override {}
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         bool use_seq;
@@ -780,9 +769,7 @@ public:
     unary_tactical(tactic * t): 
         m_t(t) {
         SASSERT(t);  
-    }    
-
-    ~unary_tactical() override { }
+    }
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override { 
         m_t->operator()(in, result);
@@ -1007,7 +994,7 @@ tactic * using_params(tactic * t, params_ref const & p) {
 class annotate_tactical : public unary_tactical {
     std::string m_name;
     struct scope {
-        std::string m_name;
+        const std::string &m_name;
         scope(std::string const& name) : m_name(name) {
             IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(" << m_name << " start)\n";);
         }
@@ -1043,8 +1030,6 @@ public:
         m_p(p) { 
         SASSERT(m_p);
     }
-
-    ~cond_tactical() override {}
     
     void operator()(goal_ref const & in, goal_ref_buffer & result) override {
         if (m_p->operator()(*(in.get())).is_true()) 
@@ -1075,8 +1060,6 @@ public:
         m_p(p) { 
         SASSERT(m_p);
     }
-    
-    ~fail_if_tactic() override {}
 
     void cleanup() override {}
 

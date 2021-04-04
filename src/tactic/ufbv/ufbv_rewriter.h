@@ -91,7 +91,7 @@ The code in spc_rewriter.* does something like that. We cannot reuse this code d
 for the superposion engine in Z3, but we can adapt it for our needs in the preprocessor.
    
 */
-class ufbv_rewriter {
+class ufbv_rewriter final {
     class rewrite_proc;
     class add_back_idx_proc;
     class remove_back_idx_proc;
@@ -185,17 +185,16 @@ class ufbv_rewriter {
     void reschedule_processed(func_decl * f);
     void reschedule_demodulators(func_decl * f, expr * np);
     unsigned max_var_id(expr * e);
-    
-protected:    
+
     // is_smaller returns -1 for e1<e2, 0 for e1==e2 and +1 for e1>e2.
-    virtual int is_smaller(expr * e1, expr * e2) const; 
+    int is_smaller(expr * e1, expr * e2) const;
 
     // is_subset returns -1 for e1 subset e2, +1 for e2 subset e1, 0 else.
-    virtual int is_subset(expr * e1, expr * e2) const; 
+    int is_subset(expr * e1, expr * e2) const;
 
 public:
     ufbv_rewriter(ast_manager & m);
-    virtual ~ufbv_rewriter();
+    ~ufbv_rewriter();
     
     void operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
 

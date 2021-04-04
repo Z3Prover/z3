@@ -221,8 +221,6 @@ struct model::top_sort : public ::top_sort<func_decl> {
         m_occur_count.find(f, count);
         return count;
     }
-
-    ~top_sort() override {}
 };
 
 void model::compress() {
