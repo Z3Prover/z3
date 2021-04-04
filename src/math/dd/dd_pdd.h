@@ -206,7 +206,7 @@ namespace dd {
         inline bool is_one(PDD p) const { return p == one_pdd; } 
         inline bool is_val(PDD p) const { return m_nodes[p].is_val(); }
         inline bool is_internal(PDD p) const { return m_nodes[p].is_internal(); }
-        bool is_non_zero(PDD p);
+        bool is_never_zero(PDD p);
         inline unsigned level(PDD p) const { return m_nodes[p].m_level; }
         inline unsigned var(PDD p) const { return m_level2var[level(p)]; }
         inline PDD lo(PDD p) const { return m_nodes[p].m_lo; }
@@ -343,7 +343,7 @@ namespace dd {
         bool is_unary() const { return !is_val() && lo().is_zero() && hi().is_val(); } 
         bool is_binary() const { return m.is_binary(root); }
         bool is_monomial() const { return m.is_monomial(root); }
-        bool is_non_zero() const { return m.is_non_zero(root); }
+        bool is_never_zero() const { return m.is_never_zero(root); }
         bool var_is_leaf(unsigned v) const { return m.var_is_leaf(root, v); }
 
         pdd operator-() const { return m.minus(*this); }

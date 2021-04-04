@@ -32,6 +32,7 @@ namespace polysat {
     typedef dd::bdd bdd;
 
     const unsigned null_dependency = UINT_MAX;
+    const unsigned null_var = UINT_MAX;
 
     struct dep_value_manager {
         void inc_ref(unsigned) {}
@@ -120,9 +121,10 @@ namespace polysat {
         dd::bdd_manager          m_bdd;
         dep_value_manager        m_value_manager;
         small_object_allocator   m_alloc;
-        poly_dep_manager         m_dep_manager;
-        p_dependency_ref         m_conflict_dep;
+        poly_dep_manager         m_dm;
         var_queue                m_free_vars;
+        p_dependency_ref         m_conflict_dep;
+        ptr_vector<constraint>   m_conflict_cs;
 
         // Per constraint state
         scoped_ptr_vector<constraint>   m_constraints;
@@ -133,7 +135,7 @@ namespace polysat {
         ptr_vector<p_dependency> m_vdeps;    // dependencies for viable values
         vector<rational>         m_value;    // assigned value
         vector<justification>    m_justification; // justification for variable assignment
-        vector<constraints>      m_cjust;    // constraints used for justification
+        vector<constraints>      m_cjust;    // constraints justifying variable range.
         vector<constraints>      m_watch;    // watch list datastructure into constraints.
         unsigned_vector          m_activity; 
         vector<pdd>              m_vars;
@@ -141,6 +143,8 @@ namespace polysat {
 
         // search state that lists assigned variables
         unsigned_vector          m_search;
+        vector<std::pair<unsigned, rational>> m_sub;
+
         unsigned                 m_qhead { 0 };
         unsigned                 m_level { 0 };
 
@@ -190,6 +194,9 @@ namespace polysat {
         void pop_assignment();
         void pop_constraints(scoped_ptr_vector<constraint>& cs);
 
+        void push_search(unsigned v, rational const& val);
+        void pop_search();
+
         void assign_core(unsigned var, rational const& val, justification const& j);
 
         bool is_assigned(unsigned var) const { return !m_justification[var].is_unassigned(); }
@@ -197,13 +204,13 @@ namespace polysat {
         void propagate(unsigned v);
         bool propagate(unsigned v, constraint& c);
         bool propagate_eq(unsigned v, constraint& c);
-        void propagate(unsigned var, rational const& val, justification const& j);
+        void propagate(unsigned var, rational const& val, constraint& c);
         void erase_watch(unsigned v, constraint& c);
         void erase_watch(constraint& c);
         void add_watch(constraint& c);
 
-        void set_conflict(constraint& c) { m_conflict.push_back(&c); }
-        void set_conflict(ptr_vector<constraint>& cs) { m_conflict.append(cs); }
+        void set_conflict(constraint& c);
+        void set_conflict(unsigned v);
 
         unsigned_vector m_marks;
         unsigned        m_clock { 0 };
@@ -219,7 +226,7 @@ namespace polysat {
         bool can_decide() const { return !m_free_vars.empty(); }
         void decide();
 
-        p_dependency* mk_dep(unsigned dep) { return dep == null_dependency ? nullptr : m_dep_manager.mk_leaf(dep); }
+        p_dependency* mk_dep(unsigned dep) { return dep == null_dependency ? nullptr : m_dm.mk_leaf(dep); }
 
         bool is_conflict() const { return !m_conflict.empty(); }
         bool at_base_level() const;
