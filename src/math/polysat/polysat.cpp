@@ -53,7 +53,24 @@ namespace polysat {
     }
 
     lbool solver::find_viable(unsigned var, rational & val) {
-        return l_false;
+        val = 0;
+        bdd viable = m_viable[var];
+        if (viable.is_false())
+            return l_false;
+        unsigned num_vars = 0;
+        while (!viable.is_true()) {
+            unsigned k = viable.var();
+            if (viable.lo().is_false()) {
+                val += rational::power_of_two(k);
+                viable = viable.hi();
+            }
+            else 
+                viable = viable.lo();
+            ++num_vars;
+        }
+        if (num_vars == size(var))
+            return l_true;
+        return l_undef;
     }
 
 
@@ -68,7 +85,7 @@ namespace polysat {
         m_trail(s),
         m_bdd(1000),
         m_dep_manager(m_value_manager, m_alloc),
-        m_lemma_dep(nullptr, m_dep_manager),
+        m_conflict_dep(nullptr, m_dep_manager),
         m_free_vars(m_activity) {
     }
 
@@ -76,7 +93,7 @@ namespace polysat {
     
     lbool solver::check_sat() { 
         while (true) {
-            if (is_conflict() && m_level == 0) return l_false;
+            if (is_conflict() && at_base_level()) return l_false;
             else if (is_conflict()) resolve_conflict();
             else if (can_propagate()) propagate();
             else if (!can_decide()) return l_true;
@@ -116,7 +133,7 @@ namespace polysat {
     }
 
     void solver::add_eq(pdd const& p, unsigned dep) {
-        p_dependency_ref d(m_dep_manager.mk_leaf(dep), m_dep_manager);
+        p_dependency_ref d(mk_dep(dep), m_dep_manager);
         constraint* c = constraint::eq(m_level, p, d);
         m_constraints.push_back(c);
         add_watch(*c);
@@ -242,7 +259,6 @@ namespace polysat {
             VERIFY(a.mult_inverse(sz, inv_a)); 
             rational val = mod(inv_a * -b, rational::power_of_two(sz));
             m_cjust[other_var].push_back(&c);
-            m_trail.push(push_back_vector(m_cjust[other_var]));
             propagate(other_var, val, justification::propagation(m_level));
             return false;
         }
@@ -290,6 +306,8 @@ namespace polysat {
             auto v = m_search.back();
             m_justification[v] = justification::unassigned();
             m_free_vars.unassign_var_eh(v);
+            m_cjust[v].reset();
+            m_viable[v] = m_bdd.mk_true();
             m_search.pop_back();
         }
     }
@@ -367,16 +385,23 @@ namespace polysat {
      * 
      */
     void solver::resolve_conflict() {
-        SASSERT(m_conflict);
-        constraint& c = *m_conflict;
-        m_conflict = nullptr;
-        pdd p = c.p();
-        m_lemma_level = c.level();        
-        m_lemma_dep = c.dep();
-        unsigned new_lemma_level = 0;
+        SASSERT(!m_conflict.empty());
         reset_marks();
-        for (auto v : c.vars())
-            set_mark(v);
+        m_conflict_level = 0;
+        m_conflict_dep = nullptr;
+        pdd p = m_conflict[0]->p();
+        for (constraint* c : m_conflict) {
+            for (auto v : c->vars())
+                set_mark(v);
+            pdd p = c->p();
+            m_conflict_level = std::max(m_conflict_level, c->level());        
+            m_conflict_dep = m_dep_manager.mk_join(m_conflict_dep, c->dep());
+        }
+        // TBD: deal with case of multiple constaints
+        // to obtain single p or delay extracting p until resolution.
+        // 
+        m_conflict.reset();
+        unsigned new_lemma_level = 0;
         unsigned v = UINT_MAX;
         unsigned i = m_search.size();
         vector<std::pair<unsigned, rational>> sub;
@@ -392,14 +417,15 @@ namespace polysat {
                 report_unsat();
                 return;
             }
+            if (j.is_decision()) {
+                learn_lemma(v, p);
+                revert_decision(i);
+                return;
+            }
             pdd r = resolve(v, p, new_lemma_level);
             pdd rval = r.subst_val(sub);
             if (r.is_val() && rval.is_non_zero()) {
                 report_unsat();
-                return;
-            }
-            if (j.is_decision()) {
-                revert_decision(p, i);
                 return;
             }
             if (!rval.is_non_zero()) {
@@ -411,11 +437,17 @@ namespace polysat {
             for (auto w : r.free_vars())
                 set_mark(w);
             p = r;
-            m_lemma_level = new_lemma_level;
+            m_conflict_level = new_lemma_level;
         }
         report_unsat();
     }
 
+    /**
+     * TBD: m_conflict_dep is a justification that m_value[v] is not viable.
+     * it is currently not yet being accounted for.
+     * A more general data-structure could be to maintain a p_dependency
+     * with each variable state. The dependencies are augmented on backtracking.
+     */
     void solver::backtrack(unsigned i) {
         do {
             auto v = m_search[i];
@@ -423,72 +455,78 @@ namespace polysat {
             if (j.level() <= base_level()) 
                 break;
             if (j.is_decision()) {
-                // TBD: flip last decision.
-                // subtract value from viable
-                // m_viable[v] -= m_value[v];
-                if (m_viable[v].is_false()) 
-                    continue;
-                // 
-                // pop levels to i
-                // choose a new value for v as a decision.
-                // 
+                revert_decision(i);
+                return;
             }
         }
-        while (i-- > 0);
-        
+        while (i-- > 0);        
         report_unsat();
     }
 
     void solver::report_unsat() {
-        // dependencies for variables that are currently marked and below base level
-        // are in the unsat core that is produced as a side-effect        
+        backjump(base_level());
+        m_conflict.push_back(nullptr);
     }
 
+    void solver::unsat_core(unsigned_vector& deps) {
+        deps.reset();
+        for (auto* c : m_conflict) {
+            if (c)
+                m_conflict_dep = m_dep_manager.mk_join(c->dep(), m_conflict_dep);
+        }
+        m_dep_manager.linearize(m_conflict_dep, deps);
+    }
+
+
     /**
-     * variable v was assigned by a decision at position i in the search stack.
      * The polynomial p encodes an equality that the decision was infeasible.
      * The effect of this function is that the assignment to v is undone and replaced 
      * by a new decision or unit propagation or conflict.
      * We add 'p == 0' as a lemma. The lemma depends on the dependencies used
      * to derive p, and the level of the lemma is the maximal level of the dependencies.
      */
-    void solver::revert_decision(pdd const& p, unsigned i) {
-        auto v = m_search[i];
-        SASSERT(m_justification[v].is_decision());
-        SASSERT(m_lemma_level <= m_justification[v].level());
-        constraint* c = constraint::eq(m_lemma_level, p, m_lemma_dep);
+    void solver::learn_lemma(unsigned v, pdd const& p) {
+        SASSERT(m_conflict_level <= m_justification[v].level());
+        constraint* c = constraint::eq(m_conflict_level, p, m_conflict_dep);
         m_cjust[v].push_back(c);        
         add_lemma(c);
+    }
+
+    /**
+     * variable v was assigned by a decision at position i in the search stack.
+     */
+    void solver::revert_decision(unsigned i) {
+        auto v = m_search[i];
+        SASSERT(m_justification[v].is_decision());
         add_non_viable(v, m_value[v]);
 
-        // TBD conditions for when backjumping applies to be clarified.
+        // TBD how much to backjump to be clarified
+        // everything before v is reverted, but not assignment
+        // to v. This is different from propositional CDCL
+        // where decision on v is also reverted.
         unsigned new_level = m_justification[v].level();
         backjump(new_level);
-        // 
-        // find a new decision if there is one, 
-        // propagate if decision is singular,
-        // otherwise if there are no viable decisions, backjump
-        //  and set a new conflict.
-        // 
         rational value;
+        m_conflict_dep = nullptr;
         switch (find_viable(v, value)) {
-        case l_true:
-            // unit propagation
+        case l_true: 
+            assign_core(v, value, justification::propagation(new_level));
             break;
         case l_undef:
-            // branch
+            assign_core(v, value, justification::decision(new_level));
             break;
         case l_false:
-            // no viable.
+            set_conflict(m_cjust[v]);
             break;
         }
     }
     
     void solver::backjump(unsigned new_level) {
         unsigned num_levels = m_level - new_level;
-        SASSERT(num_levels > 0);
-        pop_levels(num_levels);
-        m_trail.pop_scope(num_levels);        
+        if (num_levels > 0) {
+            pop_levels(num_levels);
+            m_trail.pop_scope(num_levels);        
+        }
     }
     
     /**
@@ -522,7 +560,7 @@ namespace polysat {
                     // add parity condition to presere falsification
                     degree = r.degree(v);
                     resolve_level = std::max(resolve_level, c->level());
-                    m_lemma_dep = m_dep_manager.mk_join(m_lemma_dep.get(), c->dep());
+                    m_conflict_dep = m_dep_manager.mk_join(m_conflict_dep.get(), c->dep());
                 }
             }
         }
