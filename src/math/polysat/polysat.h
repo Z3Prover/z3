@@ -30,6 +30,8 @@ namespace polysat {
     typedef dd::pdd pdd;
     typedef dd::bdd bdd;
 
+    const unsigned null_dependency = UINT_MAX;
+
     struct dep_value_manager {
         void inc_ref(unsigned) {}
         void dec_ref(unsigned) {}
@@ -117,7 +119,7 @@ namespace polysat {
         dep_value_manager        m_value_manager;
         small_object_allocator   m_alloc;
         poly_dep_manager         m_dep_manager;
-        p_dependency_ref         m_lemma_dep;
+        p_dependency_ref         m_conflict_dep;
         var_queue                m_free_vars;
 
         // Per constraint state
@@ -144,7 +146,7 @@ namespace polysat {
 
 
         // conflict state
-        constraint* m_conflict { nullptr };
+        ptr_vector<constraint> m_conflict;
 
         unsigned size(unsigned var) const { return m_size[var]; }
         /**
@@ -193,8 +195,8 @@ namespace polysat {
         void erase_watch(constraint& c);
         void add_watch(constraint& c);
 
-        void set_conflict(constraint& c) { m_conflict = &c; }
-        void clear_conflict() { m_conflict = nullptr; }
+        void set_conflict(constraint& c) { m_conflict.push_back(&c); }
+        void set_conflict(ptr_vector<constraint>& cs) { m_conflict.append(cs); }
 
         unsigned_vector m_marks;
         unsigned        m_clock { 0 };
@@ -202,20 +204,23 @@ namespace polysat {
         bool is_marked(unsigned v) const { return m_clock == m_marks[v]; }
         void set_mark(unsigned v) { m_marks[v] = m_clock; }
 
-        unsigned                 m_lemma_level { 0 };
+        unsigned                 m_conflict_level { 0 };
 
         pdd isolate(unsigned v);
         pdd resolve(unsigned v, pdd const& p, unsigned& resolve_level);
         void decide();
 
-        bool is_conflict() const { return nullptr != m_conflict; }
+        p_dependency* mk_dep(unsigned dep) { return dep == null_dependency ? nullptr : m_dep_manager.mk_leaf(dep); }
+
+        bool is_conflict() const { return !m_conflict.empty(); }
         bool at_base_level() const;
         unsigned base_level() const;
 
         void resolve_conflict();            
         void backtrack(unsigned i);
         void report_unsat();
-        void revert_decision(pdd const& p, unsigned i);
+        void revert_decision(unsigned i);
+        void learn_lemma(unsigned v, pdd const& p);
         void backjump(unsigned new_level);
         void add_lemma(constraint* c);
 
@@ -241,6 +246,11 @@ namespace polysat {
          * End-game satisfiability checker.
          */
         lbool check_sat();
+
+        /**
+         * retrieve unsat core dependencies
+         */
+        void unsat_core(unsigned_vector& deps);
         
         /**
          * Add variable with bit-size. 
@@ -257,12 +267,12 @@ namespace polysat {
          * Each constraint is tracked by a dependency.
          * assign sets the 'index'th bit of var.
          */
-        void add_eq(pdd const& p, unsigned dep = 0);
-        void add_diseq(pdd const& p, unsigned dep = 0);
-        void add_ule(pdd const& p, pdd const& q, unsigned dep = 0);
-        void add_ult(pdd const& p, pdd const& q, unsigned dep = 0);
-        void add_sle(pdd const& p, pdd const& q, unsigned dep = 0);
-        void add_slt(pdd const& p, pdd const& q, unsigned dep = 0);
+        void add_eq(pdd const& p, unsigned dep = null_dependency);
+        void add_diseq(pdd const& p, unsigned dep = null_dependency);
+        void add_ule(pdd const& p, pdd const& q, unsigned dep = null_dependency);
+        void add_ult(pdd const& p, pdd const& q, unsigned dep = null_dependency);
+        void add_sle(pdd const& p, pdd const& q, unsigned dep = null_dependency);
+        void add_slt(pdd const& p, pdd const& q, unsigned dep = null_dependency);
         
         void assign(unsigned var, unsigned index, bool value, unsigned dep);        
 
