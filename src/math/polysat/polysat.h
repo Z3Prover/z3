@@ -30,6 +30,23 @@ namespace polysat {
     typedef dd::pdd pdd;
     typedef dd::bdd bdd;
 
+    struct dep_value_manager {
+        void inc_ref(unsigned) {}
+        void dec_ref(unsigned) {}
+    };
+
+    struct dep_config {
+        typedef dep_value_manager value_manager;
+        typedef unsigned value;
+        typedef small_object_allocator allocator;
+        static const bool ref_count = false;
+    };
+
+    typedef dependency_manager<dep_config> poly_dep_manager;
+    typedef poly_dep_manager::dependency p_dependency;
+
+    typedef obj_ref<p_dependency, poly_dep_manager> p_dependency_ref; 
+
     enum ckind_t { eq_t, ule_t, sle_t };
 
     class constraint {
@@ -37,20 +54,20 @@ namespace polysat {
         ckind_t m_kind;
         pdd    m_poly;
         pdd    m_other;
-        u_dependency* m_dep;
+        p_dependency_ref m_dep;
         unsigned_vector m_vars;
-        constraint(unsigned lvl, pdd const& p, pdd const& q, u_dependency* dep, ckind_t k): 
+        constraint(unsigned lvl, pdd const& p, pdd const& q, p_dependency_ref& dep, ckind_t k): 
             m_level(lvl), m_kind(k), m_poly(p), m_other(q), m_dep(dep) {
             m_vars.append(p.free_vars());
             if (q != p) 
                 for (auto v : q.free_vars())
-                    m_vars.insert(v);                
-        }
+                    m_vars.insert(v);            
+            }
     public:
-        static constraint* eq(unsigned lvl, pdd const& p, u_dependency* d) { 
+        static constraint* eq(unsigned lvl, pdd const& p, p_dependency_ref& d) { 
             return alloc(constraint, lvl, p, p, d, ckind_t::eq_t); 
         }
-        static constraint* ule(unsigned lvl, pdd const& p, pdd const& q, u_dependency* d) { 
+        static constraint* ule(unsigned lvl, pdd const& p, pdd const& q, p_dependency_ref& d) { 
             return alloc(constraint, lvl, p, q, d, ckind_t::ule_t); 
         }
         ckind_t kind() const { return m_kind; }
@@ -58,7 +75,7 @@ namespace polysat {
         pdd const &  lhs() const { return m_poly; }
         pdd const &  rhs() const { return m_other; }
         std::ostream& display(std::ostream& out) const;
-        u_dependency* dep() const { return m_dep; }
+        p_dependency* dep() const { return m_dep; }
         unsigned_vector& vars() { return m_vars; }
         unsigned level() const { return m_level; }
     };
@@ -97,7 +114,10 @@ namespace polysat {
         trail_stack&             m_trail;
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
         dd::bdd_manager          m_bdd;
-        u_dependency_manager     m_dep_manager;
+        dep_value_manager        m_value_manager;
+        small_object_allocator   m_alloc;
+        poly_dep_manager         m_dep_manager;
+        p_dependency_ref         m_lemma_dep;
         var_queue                m_free_vars;
 
         // Per constraint state
@@ -106,7 +126,7 @@ namespace polysat {
 
         // Per variable information
         vector<bdd>              m_viable;   // set of viable values.
-        ptr_vector<u_dependency> m_vdeps;    // dependencies for viable values
+        ptr_vector<p_dependency> m_vdeps;    // dependencies for viable values
         vector<rational>         m_value;    // assigned value
         vector<justification>    m_justification; // justification for variable assignment
         vector<constraints>      m_cjust;    // constraints used for justification
@@ -131,6 +151,20 @@ namespace polysat {
          * check if value is viable according to m_viable.
          */
         bool is_viable(unsigned var, rational const& val);
+
+        /**
+         * register that val is non-viable for var.
+         */
+        void add_non_viable(unsigned var, rational const& val);
+
+        
+        /**
+         * Find a next viable value for varible.
+         * l_false - there are no viable values.
+         * l_true  - there is only one viable value left.
+         * l_undef - there are multiple viable values, return a guess
+         */
+        lbool find_viable(unsigned var, rational & val);
 
         /**
          * undo trail operations for backtracking.
@@ -169,7 +203,6 @@ namespace polysat {
         void set_mark(unsigned v) { m_marks[v] = m_clock; }
 
         unsigned                 m_lemma_level { 0 };
-        ptr_vector<u_dependency> m_lemma_deps;
 
         pdd isolate(unsigned v);
         pdd resolve(unsigned v, pdd const& p, unsigned& resolve_level);

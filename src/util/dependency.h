@@ -107,11 +107,8 @@ private:
     }
 
     void unmark_todo() {
-        typename ptr_vector<dependency>::iterator it  = m_todo.begin();
-        typename ptr_vector<dependency>::iterator end = m_todo.end();
-        for (; it != end; ++it) {
-            (*it)->unmark();
-        }
+        for (auto* d : m_todo) 
+            d->unmark();
         m_todo.reset();
     }
 
@@ -193,30 +190,47 @@ public:
         return false;
     }
 
-    void linearize(dependency * d, vector<value, false> & vs) {
-        if (d) {
-            m_todo.reset();
-            d->mark();
-            m_todo.push_back(d);
-            unsigned qhead = 0;
-            while (qhead < m_todo.size()) {
-                d = m_todo[qhead];
-                qhead++;
-                if (d->is_leaf()) {
-                    vs.push_back(to_leaf(d)->m_value);
-                }
-                else {
-                    for (unsigned i = 0; i < 2; i++) {
-                        dependency * child = to_join(d)->m_children[i];
-                        if (!child->is_marked()) {
-                            m_todo.push_back(child);
-                            child->mark();
-                        }
+    void linearize(vector<value, false>& vs) {
+        unsigned qhead = 0;
+        while (qhead < m_todo.size()) {
+            dependency * d = m_todo[qhead];
+            qhead++;
+            if (d->is_leaf()) {
+                vs.push_back(to_leaf(d)->m_value);
+            }
+            else {
+                for (unsigned i = 0; i < 2; i++) {
+                    dependency * child = to_join(d)->m_children[i];
+                    if (!child->is_marked()) {
+                        m_todo.push_back(child);
+                        child->mark();
                     }
                 }
             }
-            unmark_todo();
         }
+        unmark_todo();
+    }
+
+    void linearize(dependency * d, vector<value, false> & vs) {
+        if (!d) 
+            return;
+        m_todo.reset();
+        d->mark();
+        m_todo.push_back(d);
+        linearize(vs);
+    }
+
+    void linearize(ptr_vector<dependency>& deps, vector<value, false> & vs) {
+        if (deps.empty())
+            return;
+        m_todo.reset();
+        for (auto* d : deps) {
+            if (d && !d->is_marked()) {
+                d->mark();
+                m_todo.push_back(d);
+            }
+        }
+        linearize(vs);
     }
 };
 
@@ -301,6 +315,10 @@ public:
     }
 
     void linearize(dependency * d, vector<value, false> & vs) {
+        return m_dep_manager.linearize(d, vs);
+    }    
+
+    void linearize(ptr_vector<dependency>& d, vector<value, false> & vs) {
         return m_dep_manager.linearize(d, vs);
     }    
     
