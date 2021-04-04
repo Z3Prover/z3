@@ -126,7 +126,7 @@ namespace dd {
      * Example: 2^4*x + 2 is non-zero for every x.
      */
 
-    bool pdd_manager::is_non_zero(PDD p) {
+    bool pdd_manager::is_never_zero(PDD p) {
         if (is_val(p))
             return !is_zero(p);
         if (m_semantics != mod2N_e)

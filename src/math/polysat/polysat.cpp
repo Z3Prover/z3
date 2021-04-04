@@ -73,20 +73,18 @@ namespace polysat {
         return l_undef;
     }
 
-
     struct solver::t_del_var : public trail {
         solver& s;
         t_del_var(solver& s): s(s) {}
         void undo() override { s.del_var(); }
     };
-
     
     solver::solver(trail_stack& s, reslimit& lim): 
         m_trail(s),
         m_lim(lim),
         m_bdd(1000),
-        m_dep_manager(m_value_manager, m_alloc),
-        m_conflict_dep(nullptr, m_dep_manager),
+        m_dm(m_value_manager, m_alloc),
+        m_conflict_dep(nullptr, m_dm),
         m_free_vars(m_activity) {
     }
 
@@ -108,7 +106,7 @@ namespace polysat {
         m_value.push_back(rational::zero());
         m_justification.push_back(justification::unassigned());
         m_viable.push_back(m_bdd.mk_true());
-        m_vdeps.push_back(m_dep_manager.mk_empty());
+        m_vdeps.push_back(m_dm.mk_empty());
         m_cjust.push_back(constraints());
         m_watch.push_back(ptr_vector<constraint>());
         m_activity.push_back(0);
@@ -134,7 +132,7 @@ namespace polysat {
     }
 
     void solver::add_eq(pdd const& p, unsigned dep) {
-        p_dependency_ref d(mk_dep(dep), m_dep_manager);
+        p_dependency_ref d(mk_dep(dep), m_dm);
         constraint* c = constraint::eq(m_level, p, d);
         m_constraints.push_back(c);
         add_watch(*c);
@@ -178,7 +176,7 @@ namespace polysat {
         if (!dep)
             return;
         m_trail.push(vector_value_trail<p_dependency*, false>(m_vdeps, var));
-        m_vdeps[var] = m_dep_manager.mk_join(m_vdeps[var], dep);
+        m_vdeps[var] = m_dm.mk_join(m_vdeps[var], dep);
     }
 
     bool solver::can_propagate() {
@@ -232,15 +230,11 @@ namespace polysat {
             }
         }        
 
-        vector<std::pair<unsigned, rational>> sub;
-        for (auto w : vars) 
-            if (is_assigned(w))
-                sub.push_back(std::make_pair(w, m_value[w]));
 
-        auto p = c.p().subst_val(sub);
+        auto p = c.p().subst_val(m_sub);
         if (p.is_zero()) 
             return false;
-        if (p.is_non_zero()) {
+        if (p.is_never_zero()) {
             // we could tag constraint to allow early substitution before 
             // swapping watch variable in case we can detect conflict earlier.
             set_conflict(c);
@@ -266,7 +260,7 @@ namespace polysat {
             VERIFY(a.mult_inverse(sz, inv_a)); 
             rational val = mod(inv_a * -b, rational::power_of_two(sz));
             m_cjust[other_var].push_back(&c);
-            propagate(other_var, val, justification::propagation(m_level));
+            propagate(other_var, val, c);
             return false;
         }
 
@@ -277,12 +271,11 @@ namespace polysat {
         return false;
     }
 
-    void solver::propagate(unsigned var, rational const& val, justification const& j) {
-        SASSERT(j.is_propagation());
+    void solver::propagate(unsigned var, rational const& val, constraint& c) {
         if (is_viable(var, val)) 
-            assign_core(var, val, j);        
+            assign_core(var, val, justification::propagation(m_level));        
         else 
-            set_conflict(*m_cjust[var].back());
+            set_conflict(c);
     }
 
     void solver::push_level() {
@@ -312,9 +305,8 @@ namespace polysat {
      */
     void solver::pop_assignment() {
         while (!m_search.empty() && m_justification[m_search.back()].level() > m_level) {
-            auto v = m_search.back();
             undo_var(m_search.back());
-            m_search.pop_back();
+            pop_search();
         }
     }
     
@@ -322,7 +314,18 @@ namespace polysat {
         m_justification[v] = justification::unassigned();
         m_free_vars.unassign_var_eh(v);
         m_cjust[v].reset();
-        m_viable[v] = m_bdd.mk_true();
+        m_viable[v] = m_bdd.mk_true(); // TBD does not work with external bit-assignments
+    }
+
+    void solver::pop_search() {
+        m_search.pop_back();
+        m_sub.pop_back();
+    }
+
+    void solver::push_search(unsigned var, rational const& val) {
+        m_search.push_back(var);
+        m_value[var] = val;
+        m_sub.push_back(std::make_pair(var, val));
     }
 
     void solver::add_watch(constraint& c) {
@@ -361,7 +364,7 @@ namespace polysat {
         unsigned var = m_free_vars.next_var();
         switch (find_viable(var, val)) {
         case l_false:
-            set_conflict(m_cjust[var]);
+            set_conflict(var);
             break;
         case l_true:
             assign_core(var, val, justification::propagation(m_level));
@@ -375,15 +378,30 @@ namespace polysat {
 
     void solver::assign_core(unsigned var, rational const& val, justification const& j) {
         SASSERT(is_viable(var, val));
-        m_search.push_back(var);
-        m_value[var] = val;
+        push_search(var, val);
         m_justification[var] = j; 
     }
+
+    void solver::set_conflict(constraint& c) { 
+        SASSERT(m_conflict_cs.empty());
+        m_conflict_cs.push_back(&c); 
+        m_conflict_dep = nullptr;
+    }
+
+    void solver::set_conflict(unsigned v) {
+        SASSERT(m_conflict_cs.empty());
+        m_conflict_cs.append(m_cjust[v]);
+        m_conflict_dep = m_vdeps[v];
+        if (m_cjust[v].empty())
+            m_conflict_cs.push_back(nullptr);
+    }
+
         
     /**
      * Conflict resolution.
-     * - m_conflict are constraints that are infeasible in the current assignment.
-     * 1. walk m_search from top down until last variable in m_conflict.
+     * - m_conflict_cs are constraints that are infeasible in the current assignment.
+     * - m_conflict_dep are dependencies for infeasibility
+     * 1. walk m_search from top down until last variable in m_conflict_cs.
      * 2. resolve constraints in m_cjust to isolate lowest degree polynomials
      *    using variable.
      *    Use Olm-Seidl division by powers of 2 to preserve invertibility.
@@ -399,12 +417,10 @@ namespace polysat {
      * 
      */
     void solver::resolve_conflict() {
+
         vector<pdd> ps = init_conflict();
         unsigned v = UINT_MAX;
         unsigned i = m_search.size();
-        vector<std::pair<unsigned, rational>> sub;
-        for (auto w : m_search) 
-            sub.push_back(std::make_pair(w, m_value[w]));
 
         for (; i-- > 0; ) {
             v = m_search[i];
@@ -422,12 +438,12 @@ namespace polysat {
                 return;
             }
             pdd r = resolve(v, ps);
-            pdd rval = r.subst_val(sub);
-            if (r.is_val() && rval.is_non_zero()) {
+            pdd rval = r.subst_val(m_sub);
+            if (r.is_val() && rval.is_never_zero()) {
                 report_unsat();
                 return;
             }
-            if (!rval.is_non_zero()) {
+            if (!rval.is_never_zero()) {
                 backtrack(i);
                 return;
             }
@@ -442,28 +458,23 @@ namespace polysat {
     }
 
     vector<pdd> solver::init_conflict() {
-        SASSERT(!m_conflict.empty());
+        SASSERT(!m_conflict_cs.empty());
+        m_conflict_level = 0;
         vector<pdd> ps;
         reset_marks();
-        m_conflict_level = 0;
-        m_conflict_dep = nullptr;
-        for (auto* c : m_conflict) {
+        for (auto* c : m_conflict_cs) {
+            if (!c)
+                continue;
             for (auto v : c->vars())
                 set_mark(v);
             ps.push_back(c->p());
             m_conflict_level = std::max(m_conflict_level, c->level());        
-            m_conflict_dep = m_dep_manager.mk_join(m_conflict_dep, c->dep());
+            m_conflict_dep = m_dm.mk_join(m_conflict_dep, c->dep());
         }
-        m_conflict.reset();
+        m_conflict_cs.reset();
         return ps;
     }
 
-    /**
-     * TBD: m_conflict_dep is a justification that m_value[v] is not viable.
-     * it is currently not yet being accounted for.
-     * A more general data-structure could be to maintain a p_dependency
-     * with each variable state. The dependencies are augmented on backtracking.
-     */
     void solver::backtrack(unsigned i) {
         do {
             auto v = m_search[i];
@@ -481,16 +492,17 @@ namespace polysat {
 
     void solver::report_unsat() {
         backjump(base_level());
-        m_conflict.push_back(nullptr);
+        SASSERT(m_conflict_cs.empty());
+        m_conflict_cs.push_back(nullptr);
     }
 
     void solver::unsat_core(unsigned_vector& deps) {
         deps.reset();
-        for (auto* c : m_conflict) {
+        for (auto* c : m_conflict_cs) {
             if (c)
-                m_conflict_dep = m_dep_manager.mk_join(c->dep(), m_conflict_dep);
+                m_conflict_dep = m_dm.mk_join(c->dep(), m_conflict_dep);
         }
-        m_dep_manager.linearize(m_conflict_dep, deps);
+        m_dm.linearize(m_conflict_dep, deps);
     }
 
 
@@ -520,16 +532,15 @@ namespace polysat {
             backjump(new_level + 1);        
         while (m_search.back() != v) {
             undo_var(m_search.back());
-            m_search.pop_back();
+            pop_search();
         }
         SASSERT(!m_search.empty());
         SASSERT(m_search.back() == v);
-        m_search.pop_back();
+        pop_search();
         add_non_viable(v, m_value[v]);
         add_viable_dep(v, m_conflict_dep);
         m_qhead = m_search.size();
         rational value;
-        m_conflict_dep = nullptr;
         switch (find_viable(v, value)) {
         case l_true: 
             assign_core(v, value, justification::propagation(new_level));
@@ -538,7 +549,7 @@ namespace polysat {
             assign_core(v, value, justification::decision(new_level));
             break;
         case l_false:
-            set_conflict(m_cjust[v]);
+            set_conflict(v);
             break;
         }
     }
@@ -569,6 +580,7 @@ namespace polysat {
         auto const& cs = m_cjust[v];
         pdd r = isolate(v, ps);
         auto degree = r.degree(v);
+        m_conflict_dep = m_dm.mk_join(m_conflict_dep, m_vdeps[v]);
         while (degree > 0) {
             for (auto * c : cs) {
                 if (degree >= c->p().degree(v)) {
@@ -576,7 +588,7 @@ namespace polysat {
                     // add parity condition to presere falsification
                     degree = r.degree(v);
                     m_conflict_level = std::max(m_conflict_level, c->level());
-                    m_conflict_dep = m_dep_manager.mk_join(m_conflict_dep.get(), c->dep());
+                    m_conflict_dep = m_dm.mk_join(m_conflict_dep.get(), c->dep());
                 }
             }
         }
@@ -624,6 +636,10 @@ namespace polysat {
     }
         
     std::ostream& solver::display(std::ostream& out) const {
+        for (auto v : m_search) {
+            out << "v" << v << " := " << m_value[v] << "\n";
+            out << m_viable[v] << "\n";
+        }
         for (auto* c : m_constraints)
             out << *c << "\n";
         for (auto* c : m_redundant)

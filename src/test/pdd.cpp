@@ -314,12 +314,12 @@ public :
         std::cout << "sub 2 " << p.subst_val(sub2) << "\n";
         std::cout << "sub 3 " << p.subst_val(sub3) << "\n";
 
-        std::cout << "expect 1 " << (2*a + 1).is_non_zero() << "\n";
-        std::cout << "expect 1 " << (2*a*b + 2*b + 1).is_non_zero() << "\n";
-        std::cout << "expect 0 " << (2*a + 2).is_non_zero() << "\n";
-        SASSERT((2*a + 1).is_non_zero());
-        SASSERT((2*a + 2*b + 1).is_non_zero());
-        SASSERT(!(2*a*b + 3*b + 2).is_non_zero());
+        std::cout << "expect 1 " << (2*a + 1).is_never_zero() << "\n";
+        std::cout << "expect 1 " << (2*a*b + 2*b + 1).is_never_zero() << "\n";
+        std::cout << "expect 0 " << (2*a + 2).is_never_zero() << "\n";
+        SASSERT((2*a + 1).is_never_zero());
+        SASSERT((2*a + 2*b + 1).is_never_zero());
+        SASSERT(!(2*a*b + 3*b + 2).is_never_zero());
     }
 
 };
