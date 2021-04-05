@@ -186,7 +186,7 @@ namespace polysat {
     void solver::propagate() {
         m_trail.push(value_trail(m_qhead));
         while (can_propagate()) 
-            propagate(m_search[m_qhead++]);
+            propagate(m_search[m_qhead++].first);
     }
 
     void solver::propagate(pvar v) {
@@ -231,7 +231,7 @@ namespace polysat {
         }        
 
 
-        auto p = c.p().subst_val(m_sub);
+        auto p = c.p().subst_val(m_search);
         if (p.is_zero()) 
             return false;
         if (p.is_never_zero()) {
@@ -304,10 +304,9 @@ namespace polysat {
      * use a marker into m_search for level as in SAT solver.
      */
     void solver::pop_assignment() {
-        while (!m_search.empty() && m_justification[m_search.back()].level() > m_level) {
-            undo_var(m_search.back());
+        while (!m_search.empty() && m_justification[m_search.back().first].level() > m_level) {
+            undo_var(m_search.back().first);
             m_search.pop_back();
-            m_sub.pop_back();
         }
     }
     
@@ -373,9 +372,8 @@ namespace polysat {
 
     void solver::assign_core(pvar v, rational const& val, justification const& j) {
         SASSERT(is_viable(v, val));
-        m_search.push_back(v);
         m_value[v] = val;
-        m_sub.push_back(std::make_pair(v, val));
+        m_search.push_back(std::make_pair(v, val));
         m_justification[v] = j; 
     }
 
@@ -418,7 +416,7 @@ namespace polysat {
         vector<pdd> ps = init_conflict();
 
         for (unsigned i = m_search.size(); i-- > 0; ) {
-            pvar v = m_search[i];
+            pvar v = m_search[i].first;
             if (!is_marked(v))
                 continue;
             justification& j = m_justification[v];
@@ -433,7 +431,7 @@ namespace polysat {
                 return;
             }
             pdd r = resolve(v, ps);
-            pdd rval = r.subst_val(m_sub);
+            pdd rval = r.subst_val(m_search);
             if (r.is_val() && rval.is_never_zero()) {
                 report_unsat();
                 return;
@@ -472,7 +470,7 @@ namespace polysat {
 
     void solver::backtrack(unsigned i) {
         do {
-            auto v = m_search[i];
+            auto v = m_search[i].first;
             justification& j = m_justification[v];
             if (j.level() <= base_level()) 
                 break;
@@ -519,7 +517,7 @@ namespace polysat {
      * variable v was assigned by a decision at position i in the search stack.
      */
     void solver::revert_decision(unsigned i) {
-        auto v = m_search[i];
+        auto v = m_search[i].first;
         SASSERT(m_justification[v].is_decision());
         stash_deps(v);
         backjump(m_justification[v].level()-1);
@@ -621,9 +619,9 @@ namespace polysat {
     }
         
     std::ostream& solver::display(std::ostream& out) const {
-        for (auto v : m_search) {
-            out << "v" << v << " := " << m_value[v] << "\n";
-            out << m_viable[v] << "\n";
+        for (auto p : m_search) {
+            out << "v" << p.first << " := " << p.second << "\n";
+            out << m_viable[p.first] << "\n";
         }
         for (auto* c : m_constraints)
             out << *c << "\n";
