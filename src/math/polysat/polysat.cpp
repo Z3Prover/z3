@@ -38,23 +38,23 @@ namespace polysat {
         return *m_pdd[sz];
     }
 
-    bool solver::is_viable(unsigned var, rational const& val) {
-        bdd b = m_viable[var];
-        for (unsigned k = size(var); k-- > 0 && !b.is_false(); ) 
+    bool solver::is_viable(pvar v, rational const& val) {
+        bdd b = m_viable[v];
+        for (unsigned k = size(v); k-- > 0 && !b.is_false(); ) 
             b &= val.get_bit(k) ? m_bdd.mk_var(k) : m_bdd.mk_nvar(k);
         return !b.is_false();
     }
 
-    void solver::add_non_viable(unsigned var, rational const& val) {
+    void solver::add_non_viable(pvar v, rational const& val) {
         bdd value = m_bdd.mk_true();
-        for (unsigned k = size(var); k-- > 0; ) 
+        for (unsigned k = size(v); k-- > 0; ) 
             value &= val.get_bit(k) ? m_bdd.mk_var(k) : m_bdd.mk_nvar(k);
-        m_viable[var] &= !value;        
+        m_viable[v] &= !value;        
     }
 
-    lbool solver::find_viable(unsigned var, rational & val) {
+    lbool solver::find_viable(pvar v, rational & val) {
         val = 0;
-        bdd viable = m_viable[var];
+        bdd viable = m_viable[v];
         if (viable.is_false())
             return l_false;
         unsigned num_vars = 0;
@@ -68,7 +68,7 @@ namespace polysat {
                 viable = viable.lo();
             ++num_vars;
         }
-        if (num_vars == size(var))
+        if (num_vars == size(v))
             return l_true;
         return l_undef;
     }
@@ -86,6 +86,7 @@ namespace polysat {
         m_dm(m_value_manager, m_alloc),
         m_vdeps(m_dm),
         m_conflict_dep(nullptr, m_dm),
+        m_stash_dep(nullptr, m_dm),
         m_free_vars(m_activity) {
     }
 
@@ -103,7 +104,7 @@ namespace polysat {
     }
         
     unsigned solver::add_var(unsigned sz) {
-        unsigned v = m_viable.size();
+        pvar v = m_viable.size();
         m_value.push_back(rational::zero());
         m_justification.push_back(justification::unassigned());
         m_viable.push_back(m_bdd.mk_true());
@@ -119,7 +120,7 @@ namespace polysat {
 
     void solver::del_var() {
         // TODO also remove v from all learned constraints.
-        unsigned v = m_viable.size() - 1;
+        pvar v = m_viable.size() - 1;
         m_free_vars.del_var_eh(v);
         m_viable.pop_back();
         m_vdeps.pop_back();
@@ -165,18 +166,17 @@ namespace polysat {
         // save for later
     }
 
-    void solver::assign(unsigned var, unsigned index, bool value, unsigned dep) {
-        m_viable[var] &= value ? m_bdd.mk_var(index) : m_bdd.mk_nvar(index);
-        add_viable_dep(var, mk_dep(dep));
-        if (m_viable[var].is_false()) {
+    void solver::assign(pvar v, unsigned index, bool value, unsigned dep) {
+        m_viable[v] &= value ? m_bdd.mk_var(index) : m_bdd.mk_nvar(index);
+        add_viable_dep(v, mk_dep(dep));
+        if (m_viable[v].is_false()) {
             // TBD: set conflict
         }
     }
 
-    void solver::add_viable_dep(unsigned var, p_dependency* dep) {
-        if (!dep)
-            return;
-        m_vdeps[var] = m_dm.mk_join(m_vdeps.get(var), dep);
+    void solver::add_viable_dep(pvar v, p_dependency* dep) {
+        if (dep)
+            m_vdeps[v] = m_dm.mk_join(m_vdeps.get(v), dep);
     }
 
     bool solver::can_propagate() {
@@ -189,7 +189,7 @@ namespace polysat {
             propagate(m_search[m_qhead++]);
     }
 
-    void solver::propagate(unsigned v) {
+    void solver::propagate(pvar v) {
         auto& wlist = m_watch[v];
         unsigned i = 0, j = 0, sz = wlist.size();
         for (; i < sz && !is_conflict(); ++i) 
@@ -200,7 +200,7 @@ namespace polysat {
         wlist.shrink(j);
     }
 
-    bool solver::propagate(unsigned v, constraint& c) {
+    bool solver::propagate(pvar v, constraint& c) {
         switch (c.kind()) {
         case ckind_t::eq_t:
             return propagate_eq(v, c);
@@ -213,7 +213,7 @@ namespace polysat {
         return false;
     }
 
-    bool solver::propagate_eq(unsigned v, constraint& c) {
+    bool solver::propagate_eq(pvar v, constraint& c) {
         SASSERT(c.kind() == ckind_t::eq_t);
         SASSERT(!c.vars().empty());
         auto var = m_vars[v].var();
@@ -271,9 +271,9 @@ namespace polysat {
         return false;
     }
 
-    void solver::propagate(unsigned var, rational const& val, constraint& c) {
-        if (is_viable(var, val)) 
-            assign_core(var, val, justification::propagation(m_level));        
+    void solver::propagate(pvar v, rational const& val, constraint& c) {
+        if (is_viable(v, val)) 
+            assign_core(v, val, justification::propagation(m_level));        
         else 
             set_conflict(c);
     }
@@ -306,11 +306,12 @@ namespace polysat {
     void solver::pop_assignment() {
         while (!m_search.empty() && m_justification[m_search.back()].level() > m_level) {
             undo_var(m_search.back());
-            pop_search();
+            m_search.pop_back();
+            m_sub.pop_back();
         }
     }
     
-    void solver::undo_var(unsigned v) {
+    void solver::undo_var(pvar v) {
         m_justification[v] = justification::unassigned();
         m_free_vars.unassign_var_eh(v);
         m_cjust[v].reset();
@@ -318,16 +319,6 @@ namespace polysat {
         m_viable[v] = m_bdd.mk_true(); // TBD does not work with external bit-assignments
     }
 
-    void solver::pop_search() {
-        m_search.pop_back();
-        m_sub.pop_back();
-    }
-
-    void solver::push_search(unsigned var, rational const& val) {
-        m_search.push_back(var);
-        m_value[var] = val;
-        m_sub.push_back(std::make_pair(var, val));
-    }
 
     void solver::add_watch(constraint& c) {
         auto const& vars = c.vars();
@@ -345,7 +336,7 @@ namespace polysat {
             erase_watch(vars[1], c);
     }
 
-    void solver::erase_watch(unsigned v, constraint& c) {
+    void solver::erase_watch(pvar v, constraint& c) {
         if (v == null_var)
             return;
         auto& wlist = m_watch[v];
@@ -360,27 +351,32 @@ namespace polysat {
     }
 
     void solver::decide() {
-        rational val;
         SASSERT(can_decide());
-        unsigned var = m_free_vars.next_var();
-        switch (find_viable(var, val)) {
+        decide(m_free_vars.next_var());
+    }
+
+    void solver::decide(pvar v) {
+        rational val;
+        switch (find_viable(v, val)) {
         case l_false:
-            set_conflict(var);
+            set_conflict(v);
             break;
         case l_true:
-            assign_core(var, val, justification::propagation(m_level));
+            assign_core(v, val, justification::propagation(m_level));
             break;
         case l_undef:
             push_level();
-            assign_core(var, val, justification::decision(m_level));
+            assign_core(v, val, justification::decision(m_level));
             break;
         }
     }
 
-    void solver::assign_core(unsigned var, rational const& val, justification const& j) {
-        SASSERT(is_viable(var, val));
-        push_search(var, val);
-        m_justification[var] = j; 
+    void solver::assign_core(pvar v, rational const& val, justification const& j) {
+        SASSERT(is_viable(v, val));
+        m_search.push_back(v);
+        m_value[v] = val;
+        m_sub.push_back(std::make_pair(v, val));
+        m_justification[v] = j; 
     }
 
     void solver::set_conflict(constraint& c) { 
@@ -389,7 +385,7 @@ namespace polysat {
         m_conflict_dep = nullptr;
     }
 
-    void solver::set_conflict(unsigned v) {
+    void solver::set_conflict(pvar v) {
         SASSERT(m_conflict_cs.empty());
         m_conflict_cs.append(m_cjust[v]);
         m_conflict_dep = m_vdeps.get(v);
@@ -422,7 +418,7 @@ namespace polysat {
         vector<pdd> ps = init_conflict();
 
         for (unsigned i = m_search.size(); i-- > 0; ) {
-            unsigned v = m_search[i];
+            pvar v = m_search[i];
             if (!is_marked(v))
                 continue;
             justification& j = m_justification[v];
@@ -512,7 +508,7 @@ namespace polysat {
      * We add 'p == 0' as a lemma. The lemma depends on the dependencies used
      * to derive p, and the level of the lemma is the maximal level of the dependencies.
      */
-    void solver::learn_lemma(unsigned v, pdd const& p) {
+    void solver::learn_lemma(pvar v, pdd const& p) {
         SASSERT(m_conflict_level <= m_justification[v].level());
         constraint* c = constraint::eq(m_conflict_level, p, m_conflict_dep);
         m_cjust[v].push_back(c);        
@@ -530,28 +526,17 @@ namespace polysat {
         unstash_deps(v);
         add_non_viable(v, m_value[v]);
         add_viable_dep(v, m_conflict_dep);
-        rational value;
-        switch (find_viable(v, value)) {
-        case l_true: 
-            assign_core(v, value, justification::propagation(m_level));
-            break;
-        case l_undef:
-            push_level();
-            assign_core(v, value, justification::decision(m_level));
-            break;
-        case l_false:
-            set_conflict(v);
-            break;
-        }
+        decide(v);
     }
 
-    void solver::stash_deps(unsigned v) {
-        // save vdeps[v] and cjust[v] aside
-        // they are removed by backtracking
+    void solver::stash_deps(pvar v) {
+        m_stash_dep = m_vdeps.get(v);
+        std::swap(m_stash_just, m_cjust[v]);
     }
 
-    void solver::unstash_deps(unsigned v) {
-        // retrieve saved vdeps[v] and cjust[v] 
+    void solver::unstash_deps(pvar v) {
+        m_vdeps[v] = m_stash_dep;
+        std::swap(m_stash_just, m_cjust[v]);
     }
     
     void solver::backjump(unsigned new_level) {
@@ -565,7 +550,7 @@ namespace polysat {
      * producing polynomial that isolates v to lowest degree
      * and lowest power of 2.     
      */
-    pdd solver::isolate(unsigned v, vector<pdd> const& ps) {
+    pdd solver::isolate(pvar v, vector<pdd> const& ps) {
         pdd p = ps[0];
         for (unsigned i = ps.size(); i-- > 1; ) {
             // TBD reduce with respect to v
@@ -576,7 +561,7 @@ namespace polysat {
     /**
      * Return residue of superposing p and q with respect to v.
      */
-    pdd solver::resolve(unsigned v, vector<pdd> const& ps) {
+    pdd solver::resolve(pvar v, vector<pdd> const& ps) {
         auto const& cs = m_cjust[v];
         pdd r = isolate(v, ps);
         auto degree = r.degree(v);

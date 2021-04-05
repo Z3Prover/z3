@@ -31,9 +31,10 @@ namespace polysat {
     class solver;
     typedef dd::pdd pdd;
     typedef dd::bdd bdd;
+    typedef unsigned pvar;
 
     const unsigned null_dependency = UINT_MAX;
-    const unsigned null_var = UINT_MAX;
+    const pvar null_var = UINT_MAX;
 
     struct dep_value_manager {
         void inc_ref(unsigned) {}
@@ -124,9 +125,11 @@ namespace polysat {
         dep_value_manager        m_value_manager;
         small_object_allocator   m_alloc;
         poly_dep_manager         m_dm;
-        var_queue                m_free_vars;
         p_dependency_ref         m_conflict_dep;
         ptr_vector<constraint>   m_conflict_cs;
+        p_dependency_ref         m_stash_dep;
+        constraints              m_stash_just;
+        var_queue                m_free_vars;
 
         // Per constraint state
         scoped_ptr_vector<constraint>   m_constraints;
@@ -145,7 +148,7 @@ namespace polysat {
 
         // search state that lists assigned variables
         unsigned_vector          m_search;
-        vector<std::pair<unsigned, rational>> m_sub;
+        vector<std::pair<pvar, rational>> m_sub;
 
         unsigned                 m_qhead { 0 };
         unsigned                 m_level { 0 };
@@ -156,21 +159,21 @@ namespace polysat {
         // conflict state
         ptr_vector<constraint> m_conflict;
 
-        unsigned size(unsigned var) const { return m_size[var]; }
+        unsigned size(pvar v) const { return m_size[v]; }
         /**
          * check if value is viable according to m_viable.
          */
-        bool is_viable(unsigned var, rational const& val);
+        bool is_viable(pvar v, rational const& val);
 
         /**
          * register that val is non-viable for var.
          */
-        void add_non_viable(unsigned var, rational const& val);
+        void add_non_viable(pvar v, rational const& val);
 
         /**
          * Add dependency for variable viable range.
          */
-        void add_viable_dep(unsigned var, p_dependency* dep);
+        void add_viable_dep(pvar v, p_dependency* dep);
 
         
         /**
@@ -179,7 +182,7 @@ namespace polysat {
          * l_true  - there is only one viable value left.
          * l_undef - there are multiple viable values, return a guess
          */
-        lbool find_viable(unsigned var, rational & val);
+        lbool find_viable(pvar v, rational & val);
 
         /**
          * undo trail operations for backtracking.
@@ -196,40 +199,38 @@ namespace polysat {
         void pop_assignment();
         void pop_constraints(scoped_ptr_vector<constraint>& cs);
 
-        void push_search(unsigned v, rational const& val);
-        void pop_search();
+        void assign_core(pvar v, rational const& val, justification const& j);
 
-        void assign_core(unsigned var, rational const& val, justification const& j);
+        bool is_assigned(pvar v) const { return !m_justification[v].is_unassigned(); }
 
-        bool is_assigned(unsigned var) const { return !m_justification[var].is_unassigned(); }
-
-        void propagate(unsigned v);
-        bool propagate(unsigned v, constraint& c);
-        bool propagate_eq(unsigned v, constraint& c);
-        void propagate(unsigned var, rational const& val, constraint& c);
-        void erase_watch(unsigned v, constraint& c);
+        void propagate(pvar v);
+        bool propagate(pvar v, constraint& c);
+        bool propagate_eq(pvar v, constraint& c);
+        void propagate(pvar v, rational const& val, constraint& c);
+        void erase_watch(pvar v, constraint& c);
         void erase_watch(constraint& c);
         void add_watch(constraint& c);
 
         void set_conflict(constraint& c);
-        void set_conflict(unsigned v);
+        void set_conflict(pvar v);
 
         unsigned_vector m_marks;
         unsigned        m_clock { 0 };
         void reset_marks();
-        bool is_marked(unsigned v) const { return m_clock == m_marks[v]; }
-        void set_mark(unsigned v) { m_marks[v] = m_clock; }
+        bool is_marked(pvar v) const { return m_clock == m_marks[v]; }
+        void set_mark(pvar v) { m_marks[v] = m_clock; }
 
         unsigned                 m_conflict_level { 0 };
 
-        pdd isolate(unsigned v, vector<pdd> const& ps);
-        pdd resolve(unsigned v, vector<pdd> const& ps);
+        pdd isolate(pvar v, vector<pdd> const& ps);
+        pdd resolve(pvar v, vector<pdd> const& ps);
 
         bool can_decide() const { return !m_free_vars.empty(); }
         void decide();
+        void decide(pvar v);
 
-        void stash_deps(unsigned v);
-        void unstash_deps(unsigned v);
+        void stash_deps(pvar v);
+        void unstash_deps(pvar v);
 
         p_dependency* mk_dep(unsigned dep) { return dep == null_dependency ? nullptr : m_dm.mk_leaf(dep); }
 
@@ -242,9 +243,9 @@ namespace polysat {
         void backtrack(unsigned i);
         void report_unsat();
         void revert_decision(unsigned i);
-        void learn_lemma(unsigned v, pdd const& p);
+        void learn_lemma(pvar v, pdd const& p);
         void backjump(unsigned new_level);
-        void undo_var(unsigned v);
+        void undo_var(pvar v);
         void add_lemma(constraint* c);
 
 
@@ -276,12 +277,12 @@ namespace polysat {
         /**
          * Add variable with bit-size. 
          */
-        unsigned add_var(unsigned sz);
+        pvar add_var(unsigned sz);
 
         /**
          * Create polynomial terms
          */
-        pdd var(unsigned v) { return m_vars[v]; }
+        pdd var(pvar v) { return m_vars[v]; }
 
         /**
          * Add polynomial constraints
@@ -295,7 +296,7 @@ namespace polysat {
         void add_sle(pdd const& p, pdd const& q, unsigned dep = null_dependency);
         void add_slt(pdd const& p, pdd const& q, unsigned dep = null_dependency);
         
-        void assign(unsigned var, unsigned index, bool value, unsigned dep);        
+        void assign(pvar v, unsigned index, bool value, unsigned dep);        
 
         /**
          * main state transitions.
