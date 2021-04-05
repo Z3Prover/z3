@@ -22,6 +22,7 @@ Author:
 #include "util/rlimit.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/var_queue.h"
+#include "util/ref_vector.h"
 #include "math/dd/dd_pdd.h"
 #include "math/dd/dd_bdd.h"
 
@@ -50,6 +51,7 @@ namespace polysat {
     typedef poly_dep_manager::dependency p_dependency;
 
     typedef obj_ref<p_dependency, poly_dep_manager> p_dependency_ref; 
+    typedef ref_vector<p_dependency, poly_dep_manager> p_dependency_refv;
 
     enum ckind_t { eq_t, ule_t, sle_t };
 
@@ -132,7 +134,7 @@ namespace polysat {
 
         // Per variable information
         vector<bdd>              m_viable;   // set of viable values.
-        ptr_vector<p_dependency> m_vdeps;    // dependencies for viable values
+        p_dependency_refv        m_vdeps;    // dependencies for viable values
         vector<rational>         m_value;    // assigned value
         vector<justification>    m_justification; // justification for variable assignment
         vector<constraints>      m_cjust;    // constraints justifying variable range.
@@ -225,6 +227,9 @@ namespace polysat {
 
         bool can_decide() const { return !m_free_vars.empty(); }
         void decide();
+
+        void stash_deps(unsigned v);
+        void unstash_deps(unsigned v);
 
         p_dependency* mk_dep(unsigned dep) { return dep == null_dependency ? nullptr : m_dm.mk_leaf(dep); }
 
