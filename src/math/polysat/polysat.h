@@ -147,8 +147,7 @@ namespace polysat {
         unsigned_vector          m_size;     // store size of variables.
 
         // search state that lists assigned variables
-        unsigned_vector          m_search;
-        vector<std::pair<pvar, rational>> m_sub;
+        vector<std::pair<pvar, rational>> m_search;
 
         unsigned                 m_qhead { 0 };
         unsigned                 m_level { 0 };
