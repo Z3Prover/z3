@@ -1705,8 +1705,8 @@ public:
             expr* n = m_idiv_terms[i];
             expr* p = nullptr, *q = nullptr;
             VERIFY(a.is_idiv(n, p, q));
-            theory_var v = mk_var(n);
-            theory_var v1 = mk_var(p);
+            theory_var v = internalize_def(to_app(n));
+            theory_var v1 = internalize_def(to_app(p));
 
             if (!is_registered_var(v1))
                 continue;

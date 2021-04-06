@@ -415,15 +415,7 @@ namespace arith {
             expr* n = m_idiv_terms[i];
             expr* p = nullptr, * q = nullptr;
             VERIFY(a.is_idiv(n, p, q));
-            euf::enode* np = ctx.get_enode(p);
-            euf::enode* nn = ctx.get_enode(n);
-            if (!np || !np->is_attached_to(get_id()))
-                continue;
-            if (!nn || !nn->is_attached_to(get_id()))
-                continue;
-            theory_var v1 = mk_evar(p);
-            if (!is_registered_var(v1))
-                continue;
+            theory_var v1 = internalize_def(p);
             lp::impq r1 = get_ivalue(v1);
             rational r2;
 
@@ -442,9 +434,7 @@ namespace arith {
                     TRACE("arith", tout << "unbounded " << expr_ref(n, m) << "\n";);
                     continue;
                 }
-                theory_var v = mk_evar(n);
-                if (!is_registered_var(v))
-                    continue;
+                theory_var v = internalize_def(n);
                 lp::impq val_v = get_ivalue(v);
                 if (val_v.y.is_zero() && val_v.x == div(r1.x, r2)) continue;
 
