@@ -56,23 +56,8 @@ using namespace smt;
 #define IS_CGR_SUPPORT true
 
 namespace {
-    // ------------------------------------
-    //
-    // Trail
-    //
-    // ------------------------------------
 
     class mam_impl;
-
-    typedef trail_stack mam_trail_stack;
-
-    typedef trail mam_trail;
-
-    template<typename T>
-    class mam_value_trail : public value_trail<T> {
-    public:
-        mam_value_trail(T & value):value_trail<T>(value) {}
-    };
 
 
     // ------------------------------------
@@ -603,7 +588,7 @@ namespace {
 
     class code_tree_manager {
         label_hasher &    m_lbl_hasher;
-        mam_trail_stack & m_trail_stack;
+        trail_stack &     m_trail_stack;
         region &          m_region;
 
         template<typename OP>
@@ -636,7 +621,7 @@ namespace {
         }
 
     public:
-        code_tree_manager(label_hasher & h, mam_trail_stack & s):
+        code_tree_manager(label_hasher & h, trail_stack & s):
             m_lbl_hasher(h),
             m_trail_stack(s),
             m_region(s.get_region()) {
@@ -761,20 +746,20 @@ namespace {
         }
 
         void set_next(instruction * instr, instruction * new_next) {
-            m_trail_stack.push(mam_value_trail<instruction*>(instr->m_next));
+            m_trail_stack.push(value_trail<instruction*>(instr->m_next));
             instr->m_next = new_next;
         }
 
         void save_num_regs(code_tree * tree) {
-            m_trail_stack.push(mam_value_trail<unsigned>(tree->m_num_regs));
+            m_trail_stack.push(value_trail<unsigned>(tree->m_num_regs));
         }
 
         void save_num_choices(code_tree * tree) {
-            m_trail_stack.push(mam_value_trail<unsigned>(tree->m_num_choices));
+            m_trail_stack.push(value_trail<unsigned>(tree->m_num_choices));
         }
 
         void insert_new_lbl_hash(filter * instr, unsigned h) {
-            m_trail_stack.push(mam_value_trail<approx_set>(instr->m_lbl_set));
+            m_trail_stack.push(value_trail<approx_set>(instr->m_lbl_set));
             instr->m_lbl_set.insert(h);
         }
     };
@@ -2873,12 +2858,12 @@ namespace {
         ast_manager &               m;
         compiler &                  m_compiler;
         ptr_vector<code_tree>       m_trees;       // mapping: func_label -> tree
-        mam_trail_stack &           m_trail_stack;
+        trail_stack &               m_trail_stack;
 #ifdef Z3DEBUG
         context *                   m_context;
 #endif
 
-        class mk_tree_trail : public mam_trail {
+        class mk_tree_trail : public trail {
             ptr_vector<code_tree> & m_trees;
             unsigned                m_lbl_id;
         public:
@@ -2890,7 +2875,7 @@ namespace {
         };
 
     public:
-        code_tree_map(ast_manager & m, compiler & c, mam_trail_stack & s):
+        code_tree_map(ast_manager & m, compiler & c, trail_stack & s):
             m(m),
             m_compiler(c),
             m_trail_stack(s) {
@@ -3096,7 +3081,7 @@ namespace {
     protected:
         ast_manager &               m;
         bool                        m_use_filters;
-        mam_trail_stack             m_trail_stack;
+        trail_stack                 m_trail_stack;
         label_hasher                m_lbl_hasher;
         code_tree_manager           m_ct_manager;
         compiler                    m_compiler;
@@ -3139,7 +3124,7 @@ namespace {
         class add_shared_enode_trail;
         friend class add_shared_enode_trail;
 
-        class add_shared_enode_trail : public mam_trail {
+        class add_shared_enode_trail : public trail {
             mam_impl& m;
             enode * m_enode;
         public:
@@ -3187,7 +3172,7 @@ namespace {
         void update_lbls(enode * n, unsigned elem) {
             approx_set & r_lbls = n->get_root()->get_lbls();
             if (!r_lbls.may_contain(elem)) {
-                m_trail_stack.push(mam_value_trail<approx_set>(r_lbls));
+                m_trail_stack.push(value_trail<approx_set>(r_lbls));
                 r_lbls.insert(elem);
             }
         }
@@ -3219,7 +3204,7 @@ namespace {
                 enode * c            = app->get_arg(i);
                 approx_set & r_plbls = c->get_root()->get_plbls();
                 if (!r_plbls.may_contain(elem)) {
-                    m_trail_stack.push(mam_value_trail<approx_set>(r_plbls));
+                    m_trail_stack.push(value_trail<approx_set>(r_plbls));
                     r_plbls.insert(elem);
                     TRACE("trigger_bug", tout << "updating plabels of:\n" << mk_ismt2_pp(c->get_root()->get_expr(), m) << "\n";
                           tout << "new_elem: " << static_cast<unsigned>(elem) << "\n";
@@ -3797,7 +3782,7 @@ namespace {
                 todo.pop_back();
                 if (n->is_ground()) {
                     enode * e = mk_enode(m_context, qa, n);
-                    m_trail_stack.push(add_shared_enode_trail(*this, e));
+                    m_context.push_trail(add_shared_enode_trail(*this, e));
                     m_shared_enodes.insert(e);
                 }
                 else {
@@ -4011,8 +3996,8 @@ namespace {
             approx_set   r1_lbls  = r1->get_lbls();
             approx_set & r2_lbls  = r2->get_lbls();
 
-            m_trail_stack.push(mam_value_trail<approx_set>(r2_lbls));
-            m_trail_stack.push(mam_value_trail<approx_set>(r2_plbls));
+            m_trail_stack.push(value_trail<approx_set>(r2_lbls));
+            m_trail_stack.push(value_trail<approx_set>(r2_plbls));
             r2_lbls  |= r1_lbls;
             r2_plbls |= r1_plbls;
             TRACE("mam_inc_bug",
