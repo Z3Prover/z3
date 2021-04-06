@@ -46,7 +46,7 @@ struct pull_quant::imp {
             if (m.is_not(d)) {
                 SASSERT(num_children == 1);
                 expr * child = children[0];
-                if (is_quantifier(child)) {
+                if (is_quantifier(child) && (is_forall(child) || is_exists(child))) {
                     quantifier * q = to_quantifier(child);
                     expr * body = q->get_expr();
                     quantifier_kind k = q->get_kind() == forall_k ? exists_k : forall_k;
@@ -65,14 +65,12 @@ struct pull_quant::imp {
                 expr * child = children[i];
                 if (is_quantifier(child)) {
                     
-                    if (!found_quantifier) {
+                    if (!found_quantifier && (is_forall(child) || is_exists(child))) {
                         found_quantifier = true;
-                        forall_children  = is_forall(child);
+                        forall_children = is_forall(child);
                     }
-                    else {
-                        // Since the initial formula was in SNF, all children must be EXISTS or FORALL.
-                        SASSERT(forall_children == is_forall(child));
-                    }
+                    else if (forall_children != is_forall(child))
+                        return false;
                     
                     quantifier * nested_q = to_quantifier(child);
                     if (var_sorts.empty()) {
