@@ -373,6 +373,12 @@ public :
             pdd p = (b+c)*(a*a*a);
             SASSERT(p.degree(va) == 3);
         }
+
+        {
+            // check that skipping marked nodes works (3)
+            pdd p = a*a*a*b*b*b*c + a*a*a*b*b*b;
+            SASSERT(p.degree(va) == 3);
+        }
     }
 
 };
