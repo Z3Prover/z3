@@ -87,9 +87,9 @@ namespace z3 {
     public:
         exception(char const * msg):m_msg(msg) {}
 		exception(exception const &) = default;
-		exception(exception &&) = default;
+		exception(exception &&) noexcept = default;
 		exception & operator=(exception const &) = default;
-		exception & operator=(exception &&) = default;
+		exception & operator=(exception &&) noexcept = default;
         virtual ~exception() throw() {}
         char const * msg() const { return m_msg.c_str(); }
         char const * what() const throw() { return m_msg.c_str(); }
@@ -111,17 +111,17 @@ namespace z3 {
     class config {
         Z3_config    m_cfg;
         config(config const &) = default;
-        config(config && s) noexcept : m_cfg{std::move(s.m_cfg)} {
 			s.m_cfg = nullptr;
 		}
         config & operator=(config const &) = default;
+    public:
+        config() { m_cfg = Z3_mk_config(); }
+        config(config && s) noexcept : m_cfg{std::move(s.m_cfg)} {
         config & operator=(config && s) noexcept {
 			m_cfg = std::move(s.m_cfg);
 			s.m_cfg = nullptr;
 			return *this;
 		}
-    public:
-        config() { m_cfg = Z3_mk_config(); }
         ~config() {
 			if (m_cfg != nullptr) {
 				Z3_del_config(m_cfg);
@@ -185,21 +185,8 @@ namespace z3 {
             Z3_set_ast_print_mode(m_ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
         }
 
-        context(context const &) = default;
-        context(context && s) noexcept :    
-			m_enable_exceptions{ s.m_enable_exceptions },
-			rounding_mode { s.rounding_mode },
-			m_ctx { std::move(s.m_ctx) } {
-			s.m_ctx = nullptr;
-		}
-        context & operator=(context const &) = default;
-        context & operator=(context && s) noexcept {
-			m_enable_exceptions = s.m_enable_exceptions;
-			rounding_mode = s.rounding_mode;
-			m_ctx = std::move(s.m_ctx);
-			s.m_ctx = nullptr;
-			return *this;
-		}
+        context(context const &) = delete;
+        context & operator=(context const &) = delete;
 
         friend class scoped_context;
         context(Z3_context c) { set_context(c); }
@@ -207,6 +194,17 @@ namespace z3 {
     public:
         context() { config c; init(c); }
         context(config & c) { init(c); }
+        context(context && s) noexcept : m_enable_exceptions{ s.m_enable_exceptions },
+			rounding_mode { s.rounding_mode }, m_ctx { std::move(s.m_ctx) } {
+			s.m_ctx = nullptr;
+		}
+        context & operator=(context && s) noexcept {
+			m_enable_exceptions = s.m_enable_exceptions;
+			rounding_mode = s.rounding_mode;
+			m_ctx = std::move(s.m_ctx);
+			s.m_ctx = nullptr;
+			return *this;
+		}
         ~context() { if (m_ctx) Z3_del_context(m_ctx); }
         operator Z3_context() const { return m_ctx; }
 
@@ -428,18 +426,18 @@ namespace z3 {
         T *      m_array;
         unsigned m_size;
         array(array const &) = default
+        array & operator=(array const &) = default;
+    public:
+        array(unsigned sz):m_size(sz) { m_array = new T[sz]; }
         array(array && s) noexcept : m_array{s.m_array}, m_size{s.m_size} {
 			s.m_array = nullptr;
 		}
-        array & operator=(array const &) = default;
         array & operator=(array && s) noexcept {
         	m_array = s.m_array;
 			m_size = s.m_size;
 			s.m_array = nullptr;
 			return *this;
 		}
-    public:
-        array(unsigned sz):m_size(sz) { m_array = new T[sz]; }
         template<typename T2>
         array(ast_vector_tpl<T2> const & v);
         ~array() { if(m_array != nullptr) delete[] m_array; }
@@ -484,6 +482,7 @@ namespace z3 {
         symbol & operator=(symbol && s) noexcept {
 			object::operator=(std::forward<object>(s));
 			m_sym = s.m_sym;
+			s.m_sym = nullptr;
 			return *this;
 		}
         operator Z3_symbol() const { return m_sym; }
@@ -521,6 +520,7 @@ namespace z3 {
 			object::operator=(std::forward<object>(o));
 		 	m_descrs = o.m_descrs;
 			o.m_descrs = nullptr;
+            return *this;
 		}
         ~param_descrs() { if(m_descrs != nullptr) Z3_param_descrs_dec_ref(ctx(), m_descrs); }
         static param_descrs simplify_param_descrs(context& c) { return param_descrs(c, Z3_simplify_get_param_descrs(c)); }
@@ -552,6 +552,7 @@ namespace z3 {
         params & operator=(params && s) noexcept {
 			object::operator=(std::forward<object>(s));
             m_params = s.m_params;
+            s.m_params = nullptr;
             return *this;
         }
         void set(char const * k, bool b) { Z3_params_set_bool(ctx(), m_params, ctx().str_symbol(k), b); }
@@ -578,7 +579,7 @@ namespace z3 {
         operator Z3_ast() const { return m_ast; }
         operator bool() const { return m_ast != 0; }
         ast & operator=(ast const & s) { Z3_inc_ref(s.ctx(), s.m_ast); if (m_ast) Z3_dec_ref(ctx(), m_ast); m_ast = s.m_ast; object::operator=(s); return *this; }
-        ast & operator=(ast && s) noexcept { object::operator=(std::forward<object>(s)); m_ast = s.m_ast; return *this; }
+        ast & operator=(ast && s) noexcept { object::operator=(std::forward<object>(s)); m_ast = s.m_ast; s.m_ast = nullptr; return *this; }
 
         Z3_ast_kind kind() const { Z3_ast_kind r = Z3_get_ast_kind(ctx(), m_ast); check_error(); return r; }
         unsigned hash() const { unsigned r = Z3_get_ast_hash(ctx(), m_ast); check_error(); return r; }
@@ -2995,6 +2996,7 @@ namespace z3 {
         optimize& operator=(optimize && o) noexcept {
 			object::operator=(std::forward<object>(o));
             m_opt = o.m_opt;
+			o.m_opt = nullptr;
             return *this;
         }
         ~optimize() { if(m_opt != nullptr) Z3_optimize_dec_ref(ctx(), m_opt); }
@@ -3077,11 +3079,26 @@ namespace z3 {
         Z3_fixedpoint m_fp;
     public:
         fixedpoint(context& c):object(c) { m_fp = Z3_mk_fixedpoint(c); Z3_fixedpoint_inc_ref(c, m_fp); }
-		fixedpoint(fixedpoint const &) = default;
-		fixedpoint(fixedpoint &&) = default;
-		operator=(fixedpoint const &) = default;
-		operator=(fixedpoint &&) = default;
-        ~fixedpoint() { Z3_fixedpoint_dec_ref(ctx(), m_fp); }
+		fixedpoint(fixedpoint const & o) : object{o}, m_fp{o.m_fp} {
+        	Z3_fixedpoint_inc_ref(ctx(), m_fp);
+		}
+		fixedpoint(fixedpoint && o) noexcept : object{std::forward<object>(o)}, m_fp{o.m_fp} {
+			o.m_fp = nullptr;
+		}
+		operator=(fixedpoint const & o) {
+        	Z3_fixedpoint_inc_ref(o.ctx(), o.m_fp);
+        	Z3_fixedpoint_inc_ref(ctx(), m_fp);
+			m_fp = o.m_fp;
+			object::operator=(o);
+			return *this;
+		}
+		operator=(fixedpoint && o) noexcept {
+			object::operator=(std::forward<object>(o));
+			m_fp = o.m_fp;
+			o.m_fp = nullptr;
+			return *this;
+		}
+        ~fixedpoint() { if (m_fp != nullptr) Z3_fixedpoint_dec_ref(ctx(), m_fp); }
         operator Z3_fixedpoint() const { return m_fp; }
         void from_string(char const* s) { Z3_fixedpoint_from_string(ctx(), m_fp, s); check_error(); }
         void from_file(char const* s) { Z3_fixedpoint_from_file(ctx(), m_fp, s); check_error(); }
@@ -3761,17 +3778,10 @@ namespace z3 {
             return c ? c : (Z3_context)s->ctx();
         }
 
-        struct scoped_cb {
+        struct scoped_cb final {
             user_propagator_base* p;
             scoped_cb(void* _p, Z3_solver_callback cb):p(static_cast<user_propagator_base*>(_p)) {
                 p->cb = cb;
-            }
-			scoped_cb(scoped_cb const &) = default;
-			scoped_cb(scoped_cb &&) = default;
-			scoped_cb & operator=(scoped_cb const &) = default;
-			scoped_cb & operator=(scoped_cb &&) = default;
-            ~scoped_cb() { 
-                p->cb = nullptr; 
             }
         };
 
