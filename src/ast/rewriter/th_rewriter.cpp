@@ -176,10 +176,11 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 // theory dispatch for =
                 SASSERT(num == 2);
                 family_id s_fid = args[0]->get_sort()->get_family_id();
-                family_id op_fid = s_fid;
-            try_mk_eq:
-                if (s_fid == m_a_rw.get_fid())
+                if (s_fid == m_a_rw.get_fid()) {
                     st = m_a_rw.mk_eq_core(args[0], args[1], result);
+                    if (st == BR_FAILED && is_app(args[0]) && to_app(args[0])->get_family_id() == m_seq_rw.get_fid())
+                        st = m_seq_rw.mk_eq_core(args[0], args[1], result);
+                }
                 else if (s_fid == m_bv_rw.get_fid())
                     st = m_bv_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_dt_rw.get_fid())
@@ -191,14 +192,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 else if (s_fid == m_seq_rw.get_fid())
                     st = m_seq_rw.mk_eq_core(args[0], args[1], result);
                 if (st != BR_FAILED)
-                    return st;
-                op_fid = s_fid;
-                if (is_app(args[0])) 
-                    op_fid = to_app(args[0])->get_family_id();
-                if (op_fid != s_fid) {
-                    s_fid = op_fid;
-                    goto try_mk_eq;
-                }                    
+                    return st;     
             }
             if (k == OP_EQ) {
                 SASSERT(num == 2);
