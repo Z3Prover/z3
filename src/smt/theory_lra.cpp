@@ -989,7 +989,7 @@ public:
     }
 
     void assign_eh(bool_var v, bool is_true) {
-        TRACE("arith", tout << mk_pp(ctx().bool_var2expr(v), m) << " " << (is_true?"true":"false") << "\n";);
+        TRACE("arith", tout << mk_pp(ctx().bool_var2expr(v), m) << " " << (literal(v, !is_true)) << "\n";);
         m_asserted_atoms.push_back(delayed_atom(v, is_true));
     }
 
@@ -2270,7 +2270,7 @@ public:
         theory_var vv = lp().local_to_external(v); // so maybe better to have them already transformed to external form
         enode* n1 = get_enode(uv);
         enode* n2 = get_enode(vv);
-        TRACE("arith", tout << "add-eq " << mk_pp(n1->get_expr(), m) << " == " << mk_pp(n2->get_expr(), m) << "\n";);
+        TRACE("arith", tout << "add-eq " << mk_pp(n1->get_expr(), m) << " == " << mk_pp(n2->get_expr(), m) << " " << n1->get_expr_id() << " == " << n2->get_expr_id() << "\n";);
         if (n1->get_root() == n2->get_root())
             return;
         expr* e1 = n1->get_expr();
@@ -2313,27 +2313,21 @@ public:
 
     literal is_bound_implied(lp::lconstraint_kind k, rational const& value, api_bound const& b) const {
         if ((k == lp::LE || k == lp::LT) && b.get_bound_kind() == lp_api::upper_t && value <= b.get_value()) {
-            TRACE("arith", tout << "v <= value <= b.get_value() => v <= b.get_value() \n";);
             return b.get_lit();
         }
         if ((k == lp::GE || k == lp::GT) && b.get_bound_kind() == lp_api::lower_t && b.get_value() <= value) {
-            TRACE("arith", tout << "b.get_value() <= value <= v => b.get_value() <= v \n";);
             return b.get_lit();
         }
         if (k == lp::LE && b.get_bound_kind() == lp_api::lower_t && value < b.get_value()) {
-            TRACE("arith", tout << "v <= value < b.get_value() => v < b.get_value()\n";);
             return ~b.get_lit();
         }
         if (k == lp::LT && b.get_bound_kind() == lp_api::lower_t && value <= b.get_value()) {
-            TRACE("arith", tout << "v < value <= b.get_value() => v < b.get_value()\n";);
             return ~b.get_lit();
         }
         if (k == lp::GE && b.get_bound_kind() == lp_api::upper_t && b.get_value() < value) {
-            TRACE("arith", tout << "b.get_value() < value <= v => b.get_value() < v\n";);
             return ~b.get_lit();
         }
         if (k == lp::GT && b.get_bound_kind() == lp_api::upper_t && b.get_value() <= value) {
-            TRACE("arith", tout << "b.get_value() <= value < v => b.get_value() < v\n";);
             return ~b.get_lit();
         }
 
@@ -3047,7 +3041,7 @@ public:
         
         TRACE("arith",
               for (auto c : m_core) 
-                  ctx().display_detailed_literal(tout, c) << "\n";              
+                  ctx().display_detailed_literal(tout << ctx().get_assign_level(c.var()) << " " << c << " ", c) << "\n";              
               for (auto e : m_eqs) 
                   tout << pp(e.first, m) << " = " << pp(e.second, m) << "\n";
               tout << " ==> ";
@@ -3057,8 +3051,8 @@ public:
         std::function<expr*(void)> fn = [&]() { return m.mk_eq(x->get_expr(), y->get_expr()); };
         scoped_trace_stream _sts(th, fn);
 
-        // parameters are TBD.
-        //                    SASSERT(validate_eq(x, y));
+       
+        // SASSERT(validate_eq(x, y));
         ctx().assign_eq(x, y, eq_justification(js));
     }
     
@@ -3422,13 +3416,22 @@ public:
     }
 
     bool validate_eq(enode* x, enode* y) {
-        if (params().m_arith_mode == arith_solver_id::AS_NEW_ARITH) return true;
+        static bool s_validating = false;
+        static unsigned s_count = 0;
+        if (s_validating)
+            return true;
+        ++s_count;
+        flet<bool> _svalid(s_validating, true);
         context nctx(m, ctx().get_fparams(), ctx().get_params());
         add_background(nctx);
         nctx.assert_expr(m.mk_not(m.mk_eq(x->get_expr(), y->get_expr())));
         cancel_eh<reslimit> eh(m.limit());
         scoped_timer timer(1000, &eh);
-        return l_true != nctx.check();
+        lbool r = nctx.check();
+        if (r == l_true) {
+            nctx.display_asserted_formulas(std::cout);
+        }
+        return l_true != r;
     }
 
     void add_background(context& nctx) {

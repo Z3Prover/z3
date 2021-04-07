@@ -4853,7 +4853,17 @@ bool seq_rewriter::reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs,
 
 bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
     if (str().is_empty(r))
-        std::swap(l,r);
+        std::swap(l, r);
+    if (str().is_length(r))
+        std::swap(l, r);
+#if 0
+    rational n;
+    if (str().is_length(l) && m_autil.is_numeral(r, n) && n.is_zero()) {
+        VERIFY(str().is_length(l, l));
+        result = m().mk_eq(l, str().mk_empty(l->get_sort()));
+        return true;
+    }
+#endif
     if (!str().is_empty(l))
         return false;
     expr* s = nullptr, *offset = nullptr, *len = nullptr;
