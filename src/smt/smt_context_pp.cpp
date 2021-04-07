@@ -220,12 +220,22 @@ namespace smt {
     void context::display_assignment(std::ostream & out) const {
         if (!m_assigned_literals.empty()) {
             out << "current assignment:\n";
+            unsigned level = 0;
             for (literal lit : m_assigned_literals) {
-                display_literal(out, lit);
+                if (level < get_assign_level(lit.var())) {
+                    level = get_assign_level(lit.var());
+                    out << "level " << level << "\n";
+                }
+                display_literal(out << lit << " ", lit);
                 if (!is_relevant(lit)) out << " n ";
                 out << ": ";
                 display_verbose(out, m, 1, &lit, m_bool_var2expr.c_ptr());
-                out << "\n";
+                if (level > 0) {
+                    auto j = get_justification(lit.var());
+                    display(out << " ", j);
+                }
+                else 
+                    out << "\n";
             }
         }
     }

@@ -214,7 +214,7 @@ public:
         unsigned j = null_lpvar;
         if (!lp().find_in_fixed_tables(val(v_j), is_int(v_j), j)) 
             return;
-        TRACE("cheap_eq", tout << "found j=" << j << " for v=";
+        TRACE("cheap_eq", tout << "found j = " << j << " v_j = " << v_j << " for v = ";
               print(tout, v) << "\n in lp.fixed tables\n";);
         vector<edge> path;
         find_path_on_tree(path, v, m_fixed_vertex);
@@ -281,11 +281,11 @@ public:
         m_fixed_vertex_explanation = get_explanation_from_path(path);
         explain_fixed_in_row(row_index, m_fixed_vertex_explanation);
         set_fixed_vertex(v);
-        TRACE("cheap_eq", tout << "polarity switch between: v = "; print(tout , v) << "\nand u = "; print(tout, u) << "\n";);
-        TRACE("cheap_eq", tout << "fixed vertex explanation\n";
-              for (auto p : m_fixed_vertex_explanation) {
-                  lp().constraints().display(tout, [this](lpvar j) { return lp().get_variable_name(j);}, p.ci());
-              });
+        TRACE("cheap_eq", 
+              tout << "polarity switch: " << polarity << "\nv = "; print(tout , v) << "\nu = "; print(tout, u) << "\n";
+              tout << "fixed vertex explanation\n";
+              for (auto p : m_fixed_vertex_explanation) 
+                  lp().constraints().display(tout, [this](lpvar j) { return lp().get_variable_name(j);}, p.ci()););
 
     }
     
@@ -379,7 +379,7 @@ public:
     }
 
     void check_for_eq_and_add_to_val_table(vertex* v,  map<mpq, const vertex*, obj_hash<mpq>, default_eq<mpq>>& table) {
-        TRACE("cheap_eq", tout << "v="; print(tout, v) << "\n";);
+        TRACE("cheap_eq", tout << "v = "; print(tout, v) << "\n";);
         const vertex *k; // the other vertex
         if (table.find(val(v), k)) {
             TRACE("cheap_eq", tout << "found k " ; print(tout, k) << "\n";);
@@ -447,7 +447,9 @@ public:
         SASSERT(j != k);
         unsigned je = lp().column_to_reported_index(j);
         unsigned ke = lp().column_to_reported_index(k);
-        TRACE("cheap_eq", tout << "reporting eq " << j << ", " << k << "\n";
+        TRACE("cheap_eq", 
+              tout << "reporting eq " << j  << ", " << k << "\n";
+              tout << "reported idx " << je << ", " << ke << "\n";
               for (auto p : exp) {
                   lp().constraints().display(tout, [this](lpvar j) { return lp().get_variable_name(j);}, p.ci());
               }

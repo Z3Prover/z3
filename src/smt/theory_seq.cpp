@@ -2811,6 +2811,7 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     expr_ref f(m);
     literal lit(v, !is_true);
     TRACE("seq", tout << (is_true?"":"not ") << mk_bounded_pp(e, m) << "\n";);
+    TRACE("seq", tout << (is_true?"":"not ") << mk_bounded_pp(e, m) << " " << ctx.get_scope_level() << " " << lit << "\n";);
 
     if (m_util.str.is_prefix(e, e1, e2)) {
         if (is_true) {
