@@ -322,6 +322,65 @@ public :
         SASSERT(!(2*a*b + 3*b + 2).is_never_zero());
     }
 
+    static void degree_of_variables() {
+        std::cout << "degree of variables\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 3);
+        unsigned va = 0;
+        unsigned vb = 1;
+        unsigned vc = 2;
+        pdd a = m.mk_var(va);
+        pdd b = m.mk_var(vb);
+        pdd c = m.mk_var(vc);
+
+        SASSERT(a.var() == va);
+        SASSERT(b.var() == vb);
+
+        SASSERT(a.degree(va) == 1);
+        SASSERT(a.degree(vb) == 0);
+        SASSERT(a.degree(vc) == 0);
+        SASSERT(c.degree(vc) == 1);
+        SASSERT(c.degree(vb) == 0);
+        SASSERT(c.degree(va) == 0);
+
+        {
+            pdd p = a * a * a;
+            SASSERT(p.degree(va) == 3);
+            SASSERT(p.degree(vb) == 0);
+        }
+
+        {
+            pdd p = b * a;
+            SASSERT(p.degree(va) == 1);
+            SASSERT(p.degree(vb) == 1);
+            SASSERT(p.degree(vc) == 0);
+        }
+
+        {
+            pdd p = (a*a*b + b*a*b + b + a*c)*a + b*b*c;
+            SASSERT(p.degree(va) == 3);
+            SASSERT(p.degree(vb) == 2);
+            SASSERT(p.degree(vc) == 1);
+        }
+
+        {
+            // check that skipping marked nodes works (1)
+            pdd p = b*a + c*a*a*a;
+            SASSERT(p.degree(va) == 3);
+        }
+
+        {
+            // check that skipping marked nodes works (2)
+            pdd p = (b+c)*(a*a*a);
+            SASSERT(p.degree(va) == 3);
+        }
+
+        {
+            // check that skipping marked nodes works (3)
+            pdd p = a*a*a*b*b*b*c + a*a*a*b*b*b;
+            SASSERT(p.degree(va) == 3);
+        }
+    }
+
 };
 
 }
@@ -336,4 +395,5 @@ void tst_pdd() {
     dd::test::order();
     dd::test::order_lm();
     dd::test::mod4_operations();
+    dd::test::degree_of_variables();
 }
