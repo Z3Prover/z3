@@ -760,6 +760,10 @@ void cmd_context::init_manager_core(bool new_manager) {
     m_check_logic.set_logic(m(), m_logic);
 }
 
+void cmd_context::register_plist() {
+    insert(pm().mk_plist_decl());
+}
+
 void cmd_context::init_manager() {
     if (m_manager_initialized) {
         // no-op
