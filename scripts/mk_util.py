@@ -1081,8 +1081,8 @@ class Component:
                 dependencies.add(os.path.join(self.to_src_dir, cppfile))
                 self.add_rule_for_each_include(out, cppfile)
                 includes = extract_c_includes(os.path.join(self.src_dir, cppfile))
-                for include in includes:
-                    owner = self.find_file(include, cppfile)
+                for include, orig_include in includes.items():
+                    owner = self.find_file(include, cppfile, orig_include)
                     dependencies.add('%s.node' % os.path.join(owner.build_dir, include))
             for cppfile in cppfiles:
                 out.write('%s$(OBJ_EXT) ' % os.path.join(self.build_dir, os.path.splitext(cppfile)[0]))
