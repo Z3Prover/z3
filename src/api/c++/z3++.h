@@ -3766,6 +3766,10 @@ namespace z3 {
             scoped_cb(void* _p, Z3_solver_callback cb):p(static_cast<user_propagator_base*>(_p)) {
                 p->cb = cb;
             }
+			scoped_cb(scoped_cb const &) = default;
+			scoped_cb(scoped_cb &&) = default;
+			scoped_cb & operator=(scoped_cb const &) = default;
+			scoped_cb & operator=(scoped_cb &&) = default;
             ~scoped_cb() { 
                 p->cb = nullptr; 
             }
