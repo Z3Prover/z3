@@ -1005,28 +1005,31 @@ namespace dd {
 
     unsigned pdd_manager::degree(PDD p, unsigned v) {
         init_mark();
-        unsigned level_v = level(v);
+        unsigned level_v = m_var2level[v];
         unsigned max_d = 0, d = 0;
         m_todo.push_back(p);
         while (!m_todo.empty()) {
             PDD r = m_todo.back();
-            if (is_marked(r)) 
+            if (is_marked(r))
                 m_todo.pop_back();
             else if (is_val(r))
                 m_todo.pop_back();
             else if (level(r) < level_v)
                 m_todo.pop_back();
             else if (level(r) == level_v) {
-                d = 1;
-                while (!is_val(hi(r)) && level(hi(r)) == level_v) {
+                d = 0;
+                do {
                     ++d;
+                    set_mark(r);
                     r = hi(r);
-                }
+                } while (!is_val(r) && level(r) == level_v);
                 max_d = std::max(d, max_d);
                 m_todo.pop_back();
             }
-            else 
-                m_todo.push_back(lo(r)).push_back(hi(r));                
+            else {
+                m_todo.pop_back();
+                m_todo.push_back(lo(r)).push_back(hi(r));
+            }
         }
         return max_d;
     }
