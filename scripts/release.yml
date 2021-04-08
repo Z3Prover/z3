@@ -172,7 +172,7 @@ stages:
     - task: EsrpCodeSigning@1
       displayName: 'Sign Package'
       inputs:
-        ConnectedServiceName: 'z3-esrp-signing'
+        ConnectedServiceName: 'z3-esrp-signing-2'
         FolderPath: $(Build.ArtifactStagingDirectory)
         Pattern: Microsoft.Z3.$(ReleaseVersion).nupkg
         signConfigType: 'inlineSignParams'
@@ -199,7 +199,7 @@ stages:
     - task: EsrpCodeSigning@1
       displayName: 'Sign Symbol Package'
       inputs:
-        ConnectedServiceName: 'z3-esrp-signing'
+        ConnectedServiceName: 'z3-esrp-signing-2'
         FolderPath: $(Build.ArtifactStagingDirectory)
         Pattern: Microsoft.Z3.$(ReleaseVersion).snupkg
         signConfigType: 'inlineSignParams'
