@@ -708,10 +708,10 @@ namespace dd {
             pdd vv = mk_var(p.var());
             factor(p.hi(), v, degree, lc,  rest);
             factor(p.lo(), v, degree, lc1, rest1);
-            lc   += lc1;
-            rest += rest1;
             lc   *= vv;
             rest *= vv;
+            lc   += lc1;
+            rest += rest1;
         }
         else {
             unsigned d = 0;
