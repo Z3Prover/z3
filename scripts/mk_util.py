@@ -1007,8 +1007,9 @@ class Component:
                 # Iterate through all of the possibilities
                 for possibility in possibilities:
 
+                    path = possibility.path.replace("\\","/")
                     # If we match the suffix of the path ...
-                    if possibility.path.endswith(orig_dir):
+                    if path.endswith(orig_dir):
 
                         # ... use our new match
                         return possibility
