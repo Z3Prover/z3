@@ -49,7 +49,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_stats_dec_ref(c, s);
         RESET_ERROR_CODE();
-        to_stats(s)->dec_ref();
+        if (s)
+            to_stats(s)->dec_ref();
         Z3_CATCH;
     }
     

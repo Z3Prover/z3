@@ -68,7 +68,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_optimize_dec_ref(c, o);
         RESET_ERROR_CODE();
-        to_optimize(o)->dec_ref();
+        if (o)
+            to_optimize(o)->dec_ref();
         Z3_CATCH;
     }
     
