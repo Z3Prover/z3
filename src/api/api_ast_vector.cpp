@@ -48,7 +48,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_ast_vector_dec_ref(c, v);
         RESET_ERROR_CODE();
-        to_ast_vector(v)->dec_ref();
+        if (v) 
+            to_ast_vector(v)->dec_ref();
         Z3_CATCH;
     }
     
