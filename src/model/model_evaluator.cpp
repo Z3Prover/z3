@@ -363,12 +363,17 @@ struct evaluator_cfg : public default_rewriter_cfg {
             result = m.get_some_value(f->get_range());
             return BR_DONE;
         }
+        else if (m_dt.is_accessor(f) && !is_ground(args[0])) {
+            result = m.mk_app(f, num, args);
+            return BR_DONE;            
+        }
         if (fi) {
             if (fi->is_partial())
                 fi->set_else(m.get_some_value(f->get_range()));
 
             var_subst vs(m, false);
             result = vs(fi->get_interp(), num, args);
+            std::cout << result << "\n";
             return BR_REWRITE_FULL;
         }
 
