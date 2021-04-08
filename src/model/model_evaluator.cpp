@@ -373,7 +373,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
             var_subst vs(m, false);
             result = vs(fi->get_interp(), num, args);
-            std::cout << result << "\n";
             return BR_REWRITE_FULL;
         }
 
