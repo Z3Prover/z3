@@ -675,7 +675,7 @@ namespace z3 {
     /**
        \brief A Z3 sort (aka type). Every expression (i.e., formula or term) in Z3 has a sort.
     */
-    class sort final : public ast {
+    class sort : public ast {
     public:
         sort(context & c):ast(c) {}
         sort(context & c, Z3_sort s):ast(c, reinterpret_cast<Z3_ast>(s)) {}
@@ -772,7 +772,7 @@ namespace z3 {
        \brief Function declaration (aka function definition). It is the signature of interpreted and uninterpreted functions in Z3.
        The basic building block in Z3 is the function application.
     */
-    class func_decl final : public ast {
+    class func_decl : public ast {
     public:
         func_decl(context & c):ast(c) {}
         func_decl(context & c, Z3_func_decl n):ast(c, reinterpret_cast<Z3_ast>(n)) {}
@@ -818,7 +818,7 @@ namespace z3 {
        \brief A Z3 expression is used to represent formulas and terms. For Z3, a formula is any expression of sort Boolean.
        Every expression has a sort.
     */
-    class expr final : public ast {
+    class expr : public ast {
     public:
         expr(context & c):ast(c) {}
         expr(context & c, Z3_ast n):ast(c, reinterpret_cast<Z3_ast>(n)) {}
@@ -2601,7 +2601,7 @@ namespace z3 {
             return expr_vector(ctx(), r);
         }
 
-        class cube_iterator final {
+        class cube_iterator {
             solver&      m_solver;
             unsigned&    m_cutoff;
             expr_vector& m_vars;
@@ -2657,7 +2657,7 @@ namespace z3 {
 
         };
 
-        class cube_generator final {
+        class cube_generator {
             solver&      m_solver;
             unsigned     m_cutoff;
             expr_vector  m_default_vars;
@@ -3866,7 +3866,7 @@ namespace z3 {
            for the propagator to implement branch and bound optimization. 
         */
 
-        void final(final_eh_t& f) { 
+        void final_(final_eh_t& f) {
             assert(s);
             m_final_eh = f; 
             Z3_solver_propagate_final(ctx(), *s, final_eh); 
