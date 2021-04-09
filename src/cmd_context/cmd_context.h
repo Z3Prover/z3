@@ -62,6 +62,7 @@ public:
     func_decl * find(ast_manager & m, unsigned num_args, expr * const * args, sort * range) const;
     unsigned get_num_entries() const;
     func_decl * get_entry(unsigned inx);
+    bool check_signature(func_decl* f, unsigned arityh, sort * const* domain, sort * range) const;
 };
 
 struct macro_decl {
@@ -417,6 +418,13 @@ public:
     void mk_const(symbol const & s, expr_ref & result) const;
     void mk_app(symbol const & s, unsigned num_args, expr * const * args, unsigned num_indices, parameter const * indices, sort * range,
                 expr_ref & r) const;
+    bool try_mk_macro_app(symbol const & s, unsigned num_args, expr * const * args, unsigned num_indices, parameter const * indices, sort * range,
+                expr_ref & r) const;
+    bool try_mk_builtin_app(symbol const & s, unsigned num_args, expr * const * args, unsigned num_indices, parameter const * indices, sort * range,
+                expr_ref & r) const;
+    bool try_mk_declared_app(symbol const & s, unsigned num_args, expr * const * args, 
+                             unsigned num_indices, parameter const * indices, sort * range,
+                             func_decls& fs, expr_ref & result) const;
     void erase_cmd(symbol const & s);
     void erase_func_decl(symbol const & s);
     void erase_func_decl(symbol const & s, func_decl * f);

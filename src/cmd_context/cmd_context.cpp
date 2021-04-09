@@ -196,21 +196,29 @@ func_decl * func_decls::first() const {
     return *(fs->begin());
 }
 
+bool func_decls::check_signature(func_decl* f, unsigned arity, sort * const* domain, sort* range) const {
+    if (range != nullptr && f->get_range() != range)
+        return false;
+    if (f->get_arity() != arity)
+        return false;
+    unsigned i = 0;
+    for (i = 0; domain && i < arity; i++) {
+        if (f->get_domain(i) != domain[i])
+            return false;
+    }
+    return i == arity || !domain;
+}
+
 func_decl * func_decls::find(unsigned arity, sort * const * domain, sort * range) const {
-    if (!more_than_one())
-        return first();
+    if (!more_than_one()) {
+        func_decl* f = first();
+        if (check_signature(f, arity, domain, range))
+            return f;
+        return nullptr;
+    }
     func_decl_set * fs = UNTAG(func_decl_set *, m_decls);
     for (func_decl * f : *fs) {
-        if (range != nullptr && f->get_range() != range)
-            continue;
-        if (f->get_arity() != arity)
-            continue;
-        unsigned i = 0;
-        for (i = 0; domain && i < arity; i++) {
-            if (f->get_domain(i) != domain[i])
-                break;
-        }
-        if (i == arity || !domain)
+        if (check_signature(f, arity, domain, range))
             return f;
     }
     return nullptr;
@@ -333,9 +341,8 @@ void cmd_context::erase_macro(symbol const& s) {
 
 bool cmd_context::macros_find(symbol const& s, unsigned n, expr*const* args, expr_ref_vector& coerced_args, expr*& t) const {
     macro_decls decls;
-    if (!m_macros.find(s, decls)) {
+    if (!m_macros.find(s, decls)) 
         return false;
-    }
     for (macro_decl const& d : decls) {
         if (d.m_domain.size() != n) continue;
         bool eq = true;
@@ -674,8 +681,6 @@ bool cmd_context::logic_has_arith() const {
     return !has_logic() || smt_logics::logic_has_arith(m_logic);
 }
 
-
-
 bool cmd_context::logic_has_bv() const {
     return !has_logic() || smt_logics::logic_has_bv(m_logic);
 }
@@ -1011,12 +1016,10 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
 
     func_decl * f = nullptr;
     func_decls fs;
-    if (num_indices == 0 && m_func_decls.find(s, fs)) {
+    if (num_indices == 0 && m_func_decls.find(s, fs)) 
         f = fs.find(arity, domain, range);
-    }
-    if (f) {
+    if (f) 
         return f;
-    }
     builtin_decl d;
     if (domain && m_builtin_decls.find(s, d)) {
         family_id fid = d.m_fid;
@@ -1076,7 +1079,58 @@ void cmd_context::mk_const(symbol const & s, expr_ref & result) const {
     mk_app(s, 0, nullptr, 0, nullptr, nullptr, result);
 }
 
-void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * args, 
+bool cmd_context::try_mk_builtin_app(symbol const & s, unsigned num_args, expr * const * args, 
+                         unsigned num_indices, parameter const * indices, sort * range,
+                         expr_ref & result) const {
+    builtin_decl d;
+    if (!m_builtin_decls.find(s, d)) 
+        return false;
+    family_id fid = d.m_fid;
+    decl_kind k   = d.m_decl;
+    // Hack: if d.m_next != 0, we use the sort of args[0] (if available) to decide which plugin we use.
+    if (d.m_decl != 0 && num_args > 0) {
+        builtin_decl const & d2 = peek_builtin_decl(d, args[0]->get_sort()->get_family_id());
+        fid = d2.m_fid;
+        k   = d2.m_decl;
+    }
+    if (num_indices == 0) {
+        result = m().mk_app(fid, k, 0, nullptr, num_args, args, range);
+    }
+    else {
+        result = m().mk_app(fid, k, num_indices, indices, num_args, args, range);
+    }
+    CHECK_SORT(result.get());
+    return true;
+}
+
+bool cmd_context::try_mk_declared_app(symbol const & s, unsigned num_args, expr * const * args, 
+                                      unsigned num_indices, parameter const * indices, sort * range,
+                                      func_decls& fs, expr_ref & result) const {
+    if (!m_func_decls.find(s, fs))
+        return false;
+
+    if (num_args == 0 && !range) {
+        if (fs.more_than_one())
+            throw cmd_exception("ambiguous constant reference, more than one constant with the same sort, use a qualified expression (as <symbol> <sort>) to disambiguate ", s);
+        func_decl * f = fs.first();
+        if (!f)
+            return false;
+        if (f->get_arity() != 0) 
+            result = array_util(m()).mk_as_array(f);
+        else 
+            result = m().mk_const(f);
+        return true;
+    }
+    func_decl * f = fs.find(m(), num_args, args, range);
+    if (!f) 
+        return false;
+    if (well_sorted_check_enabled())
+        m().check_sort(f, num_args, args);
+    result = m().mk_app(f, num_args, args);
+    return true;
+}
+
+bool cmd_context::try_mk_macro_app(symbol const & s, unsigned num_args, expr * const * args, 
                          unsigned num_indices, parameter const * indices, sort * range,
                          expr_ref & result) const {
     expr* _t;
@@ -1091,78 +1145,35 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
         result = subst(_t, coerced_args);
         if (well_sorted_check_enabled() && !is_well_sorted(m(), result))
             throw cmd_exception("invalid macro application, sort mismatch ", s);
-        return;
+        return true;
     }
+    return false;
+}
+
+void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * args, 
+                         unsigned num_indices, parameter const * indices, sort * range,
+                         expr_ref & result) const {
 
     func_decls fs;
-    if (!m_func_decls.find(s, fs)) {
-        builtin_decl d;
-        if (m_builtin_decls.find(s, d)) {
-            family_id fid = d.m_fid;
-            decl_kind k   = d.m_decl;
-            // Hack: if d.m_next != 0, we use the sort of args[0] (if available) to decide which plugin we use.
-            if (d.m_decl != 0 && num_args > 0) {
-                builtin_decl const & d2 = peek_builtin_decl(d, args[0]->get_sort()->get_family_id());
-                fid = d2.m_fid;
-                k   = d2.m_decl;
-            }
-            if (num_indices == 0) {
-                result = m().mk_app(fid, k, 0, nullptr, num_args, args, range);
-            }
-            else {
-                result = m().mk_app(fid, k, num_indices, indices, num_args, args, range);
-        }
-            if (result.get() == nullptr)
-                throw cmd_exception("invalid builtin application ", s);
-            CHECK_SORT(result.get());
-            return;
-        }
-        if (num_indices > 0)
-            throw cmd_exception("invalid use of indexed identifier, unknown builtin function ", s);
-        
-        if (num_args == 0) {
-            throw cmd_exception("unknown constant ", s);
-        }
-        else
-            throw cmd_exception("unknown function/constant ", s);
-    }
 
-    if (num_args == 0 && range == nullptr) {
-        if (fs.more_than_one())
-            throw cmd_exception("ambiguous constant reference, more than one constant with the same sort, use a qualified expression (as <symbol> <sort>) to disambiguate ", s);
-        func_decl * f = fs.first();
-        if (f == nullptr) {
-            throw cmd_exception("unknown constant ", s);
-        }
-        if (f->get_arity() != 0) {
-            result = array_util(m()).mk_as_array(f);
-        }
-        else {
-            result = m().mk_const(f);
-        }
-    }
-    else {
-        func_decl * f = fs.find(m(), num_args, args, range);
-        if (f == nullptr) {
-            std::ostringstream buffer;
-            buffer << "unknown constant " << s << " ";
-            buffer << " (";
-            bool first = true;
-            for (unsigned i = 0; i < num_args; ++i, first = false) {
-                if (!first) buffer << " ";
-                buffer << mk_pp(args[i]->get_sort(), m());
-            }            
-            buffer << ") ";
-            if (range) buffer << mk_pp(range, m()) << " ";
-            for (unsigned i = 0; i < fs.get_num_entries(); ++i) {
-                buffer << "\ndeclared: " << mk_pp(fs.get_entry(i), m()) << " ";
-            }
-            throw cmd_exception(buffer.str());
-        }
-        if (well_sorted_check_enabled())
-            m().check_sort(f, num_args, args);
-        result = m().mk_app(f, num_args, args);
-    }
+    if (try_mk_macro_app(s, num_args, args, num_indices, indices, range, result))
+        return;
+    if (try_mk_declared_app(s, num_args, args, num_indices, indices, range, fs, result))
+        return;    
+    if (try_mk_builtin_app(s, num_args, args, num_indices, indices, range, result)) 
+        return;
+
+    std::ostringstream buffer;
+    buffer << "unknown constant " << s << " ";
+    buffer << " (";
+    for (unsigned i = 0; i < num_args; ++i) 
+        buffer << ((i > 0)?" ":"") << mk_pp(args[i]->get_sort(), m());
+    buffer << ") ";
+    if (range) 
+        buffer << mk_pp(range, m()) << " ";
+    for (unsigned i = 0; i < fs.get_num_entries(); ++i) 
+        buffer << "\ndeclared: " << mk_pp(fs.get_entry(i), m()) << " ";
+    throw cmd_exception(buffer.str());
 }
 
 void cmd_context::erase_func_decl(symbol const & s) {
