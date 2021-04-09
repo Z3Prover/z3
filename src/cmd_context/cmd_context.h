@@ -43,7 +43,6 @@ Notes:
 
 
 class func_decls {
-    ast_manager* m { nullptr };
     func_decl * m_decls { nullptr };
     bool signatures_collide(func_decl* f, func_decl* g) const;
     bool signatures_collide(unsigned n, sort*const* domain, sort* range, func_decl* g) const;
@@ -59,11 +58,11 @@ public:
     bool clash(func_decl * f) const;
     bool empty() const { return m_decls == nullptr; }
     func_decl * first() const;
-    func_decl * find(unsigned arity, sort * const * domain, sort * range) const;
-    func_decl * find(ast_manager & m, unsigned num_args, expr * const * args, sort * range) const;
+    func_decl * find(ast_manager & m, unsigned arity, sort * const * domain, sort * range) const;
+    func_decl * find(ast_manager & m, unsigned arity, expr * const * args, sort * range) const;
     unsigned get_num_entries() const;
     func_decl * get_entry(unsigned inx);
-    bool check_signature(func_decl* f, unsigned arityh, sort * const* domain, sort * range) const;
+    bool check_signature(ast_manager& m, func_decl* f, unsigned arityh, sort * const* domain, sort * range, bool& coerced) const;
 };
 
 struct macro_decl {

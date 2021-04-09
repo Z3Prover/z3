@@ -52,10 +52,9 @@ Notes:
 #include "cmd_context/basic_cmds.h"
 #include "cmd_context/cmd_context.h"
 
-func_decls::func_decls(ast_manager & _m, func_decl * f):
-    m(&_m),
+func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
-    _m.inc_ref(f);
+    m.inc_ref(f);
 }
 
 void func_decls::finalize(ast_manager & m) {
@@ -80,11 +79,13 @@ bool func_decls::signatures_collide(func_decl* f, func_decl* g) const {
 }
 
 bool func_decls::signatures_collide(unsigned n, sort* const* domain, sort* range, func_decl* g) const {
-    if (g->get_range() != range) return false;
-    if (n != g->get_arity()) return false;
-    for (unsigned i = 0; i < n; ++i) {
-        if (domain[i] != g->get_domain(i)) return false;
-    }
+    if (g->get_range() != range) 
+        return false;
+    if (n != g->get_arity()) 
+        return false;
+    for (unsigned i = 0; i < n; ++i) 
+        if (domain[i] != g->get_domain(i)) 
+            return false;
     return true;
 }
 
@@ -197,42 +198,49 @@ func_decl * func_decls::first() const {
     return *(fs->begin());
 }
 
-bool func_decls::check_signature(func_decl* f, unsigned arity, sort * const* domain, sort* range) const {
+bool func_decls::check_signature(ast_manager& m, func_decl* f, unsigned arity, sort * const* domain, sort* range, bool& coerced) const {
     if (range != nullptr && f->get_range() != range)
         return false;
     if (f->get_arity() != arity)
         return false;
-    unsigned i = 0;
-    for (i = 0; domain && i < arity; i++) {
+    if (!domain)
+        return true;
+    coerced = false;
+    for (unsigned i = 0; i < arity; i++) {
         sort* s1 = f->get_domain(i);
         sort* s2 = domain[i];
-        if (s1 != s2)
+        if (s1 == s2)
             continue;
-        if (!m)
-            return false;
-        arith_util au(*m);
+        coerced = true;
+        arith_util au(m);
         if (au.is_real(s1) && au.is_int(s2))
             continue;
         if (au.is_real(s2) && au.is_int(s1))
             continue;
         return false;
     }
-    return i == arity || !domain;
+    return true;
 }
 
-func_decl * func_decls::find(unsigned arity, sort * const * domain, sort * range) const {
+func_decl * func_decls::find(ast_manager& m, unsigned arity, sort * const * domain, sort * range) const {
+    bool coerced = false;
     if (!more_than_one()) {
         func_decl* f = first();
-        if (check_signature(f, arity, domain, range))
+        if (check_signature(m, f, arity, domain, range, coerced))
             return f;
         return nullptr;
     }
     func_decl_set * fs = UNTAG(func_decl_set *, m_decls);
+    func_decl* best_f = nullptr;
     for (func_decl * f : *fs) {
-        if (check_signature(f, arity, domain, range))
-            return f;
+        if (check_signature(m, f, arity, domain, range, coerced)) {
+            if (coerced)
+                best_f = f;
+            else
+                return f;
+        }
     }
-    return nullptr;
+    return best_f;
 }
 
 func_decl * func_decls::find(ast_manager & m, unsigned num_args, expr * const * args, sort * range) const {
@@ -241,7 +249,7 @@ func_decl * func_decls::find(ast_manager & m, unsigned num_args, expr * const * 
     ptr_buffer<sort> sorts;
     for (unsigned i = 0; i < num_args; i++)
         sorts.push_back(args[i]->get_sort());
-    return find(num_args, sorts.c_ptr(), range);
+    return find(m, num_args, sorts.c_ptr(), range);
 }
 
 unsigned func_decls::get_num_entries() const {
@@ -1028,7 +1036,7 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
     func_decl * f = nullptr;
     func_decls fs;
     if (num_indices == 0 && m_func_decls.find(s, fs)) 
-        f = fs.find(arity, domain, range);
+        f = fs.find(m(), arity, domain, range);
     if (f) 
         return f;
     builtin_decl d;
