@@ -427,6 +427,26 @@ public :
         test_multiple( (a + b) * (b + c) * (c + d) * (d + a) );
     }
 
+    static void max_pow2_divisor() {
+        std::cout << "max_pow2_divisor\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 256);
+
+        unsigned const va = 0;
+        unsigned const vb = 1;
+        pdd const a = m.mk_var(va);
+        pdd const b = m.mk_var(vb);
+
+        SASSERT(m.zero().max_pow2_divisor() == UINT_MAX);
+        SASSERT(m.one().max_pow2_divisor() == 0);
+        pdd p = (1 << 20) * a * b + 1024 * b * b * b;
+        std::cout << p << " divided by 2^" << p.max_pow2_divisor() << "\n";
+        SASSERT(p.max_pow2_divisor() == 10);
+        SASSERT((p + p).max_pow2_divisor() == 11);
+        SASSERT((p * p).max_pow2_divisor() == 20);
+        SASSERT((p + 2*b).max_pow2_divisor() == 1);
+        SASSERT((p + b*b*b).max_pow2_divisor() == 0);
+    }
+
 };
 
 }
@@ -443,4 +463,5 @@ void tst_pdd() {
     dd::test::mod4_operations();
     dd::test::degree_of_variables();
     dd::test::factor();
+    dd::test::max_pow2_divisor();
 }

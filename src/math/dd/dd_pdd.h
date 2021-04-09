@@ -261,6 +261,8 @@ namespace dd {
         unsigned degree(pdd const& p) const;
         unsigned degree(PDD p) const;
         unsigned degree(PDD p, unsigned v);
+        unsigned max_pow2_divisor(PDD p);
+        unsigned max_pow2_divisor(pdd const& p);
 
         void factor(pdd const& p, unsigned v, unsigned degree, pdd& lc, pdd& rest);
 
@@ -411,6 +413,7 @@ namespace dd {
         double tree_size() const { return m.tree_size(*this); }
         unsigned degree() const { return m.degree(*this); }
         unsigned degree(unsigned v) const { return m.degree(root, v); }
+        unsigned max_pow2_divisor() const { return m.max_pow2_divisor(root); }
         unsigned_vector const& free_vars() const { return m.free_vars(*this); }
 
 

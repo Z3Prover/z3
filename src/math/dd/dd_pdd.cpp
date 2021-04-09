@@ -748,6 +748,47 @@ namespace dd {
     }
 
 
+    /**
+     * Returns the largest j such that 2^j divides p.
+     */
+    unsigned pdd_manager::max_pow2_divisor(PDD p)
+    {
+        init_mark();
+        unsigned min_j = UINT_MAX;
+        m_todo.push_back(p);
+        while (!m_todo.empty()) {
+            PDD r = m_todo.back();
+            m_todo.pop_back();
+            if (is_marked(r)) {
+                continue;
+            }
+            set_mark(r);
+            if (is_zero(r)) {
+                // skip
+            }
+            else if (is_val(r)) {
+                rational const& c = val(r);
+                if (c.is_odd()) {
+                    m_todo.reset();
+                    return 0;
+                } else {
+                    unsigned j = c.trailing_zeros();
+                    min_j = std::min(j, min_j);
+                }
+            }
+            else {
+                m_todo.push_back(lo(r));
+                m_todo.push_back(hi(r));
+            }
+        }
+        return min_j;
+    }
+
+    unsigned pdd_manager::max_pow2_divisor(pdd const& p)
+    {
+        return max_pow2_divisor(p.root);
+    }
+
     bool pdd_manager::is_linear(pdd const& p) { 
         return is_linear(p.root); 
     }
