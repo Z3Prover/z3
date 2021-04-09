@@ -412,9 +412,9 @@ namespace z3 {
         context m_ctx;
     public:
         scoped_context(Z3_context c): m_ctx(c) {}
-        scoped_context(scoped_context const &) = default;
+        scoped_context(scoped_context const &) = delete;
         scoped_context(scoped_context &&) noexcept = default;
-        scoped_context & operator=(scoped_context const &) = default;
+        scoped_context & operator=(scoped_context const &) = delete;
         scoped_context & operator=(scoped_context &&) noexcept = default;
         ~scoped_context() { m_ctx.detach(); }
         context& operator()() { return m_ctx; }
@@ -453,17 +453,6 @@ namespace z3 {
     protected:
         context * m_ctx;
     public:
-        object(context & c):m_ctx(&c) {}
-        object(object const &) = default;
-        object(object && s) noexcept : m_ctx{s.m_ctx} {
-            s.m_ctx = nullptr;
-        }
-        object & operator=(object const &) = default;
-        object & operator=(object && s) noexcept {
-            m_ctx = s.m_ctx;
-            s.m_ctx = nullptr;
-            return *this;
-        }
         context & ctx() const { return *m_ctx; }
         Z3_error_code check_error() const { return m_ctx->check_error(); }
         friend void check_context(object const & a, object const & b);
