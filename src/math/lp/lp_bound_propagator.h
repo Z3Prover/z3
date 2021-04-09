@@ -208,16 +208,12 @@ public:
     }
     
     void try_add_equation_with_lp_fixed_tables(const vertex *v) {
-        static int count = 0;
-        std::cout << ++count << std::endl;
-        if (count == 21)
-            enable_trace("cheap_eq");
         SASSERT(m_fixed_vertex);
         unsigned v_j = v->column();
         unsigned j = null_lpvar;
         if (!lp().find_in_fixed_tables(val(v_j), is_int(v_j), j)) 
             return;
-
+       
         TRACE("cheap_eq", tout << "v_j = "; lp().print_column_info(v_j, tout) << std::endl;);
         TRACE("cheap_eq", tout << "v = "; print_vert(tout, v) << std::endl;);        
         TRACE("cheap_eq", tout << "found j " << j << std::endl;
@@ -225,12 +221,8 @@ public:
         TRACE("cheap_eq", tout << "found j = " << j << std::endl;);
         vector<edge> path = connect_u_v_in_tree(v, m_fixed_vertex);
         explanation ex = get_explanation_from_path(path);
-        TRACE("cheap_eq", tout << "path expl = \n"; print_expl(tout, ex) << std::endl;);
-        TRACE("cheap_eq", tout << "fixed vert= \n";   print_vert(tout, m_fixed_vertex) << std::endl;);
-        TRACE("cheap_eq", tout << "fix vert expl = \n"; print_expl(tout, m_fixed_vertex_explanation) << std::endl;);
         ex.add_expl(m_fixed_vertex_explanation);
         explain_fixed_column(j, ex);
-        TRACE("cheap_eq", tout << "full expl = \n"; print_expl(tout, ex) << std::endl;);
         add_eq_on_columns(ex, j, v->column());
         
     }
@@ -276,7 +268,7 @@ public:
         m_pol.insert(j, pol_vert(p, v));
     }
 
-    void check_and_set_polarity(vertex* v, int polarity, unsigned row_index) {
+    void check_and_set_polarity(vertex* v, int polarity, unsigned row_index, vertex*v_parent) {
         pol_vert prev_pol;
         if (!m_pol.find(v->column(), prev_pol)) {
             set_polarity(v, polarity);
@@ -287,7 +279,7 @@ public:
         const vertex *u = prev_pol.v();
         // we have a path L between u and v with p(L) = -1, that means we can
         // create an equality of the form x + x = a, where x = v->column() = u->column()
-        vector<edge> path = connect_u_v_in_tree(u, v);
+        vector<edge> path = connect_u_v_in_tree(u, v_parent);
         m_fixed_vertex_explanation = get_explanation_from_path(path);
         explain_fixed_in_row(row_index, m_fixed_vertex_explanation);
         set_fixed_vertex(v);
@@ -373,14 +365,14 @@ public:
         if (m_vertices.find(col, vy)) {
             SASSERT(vy != nullptr);
             if (!fixed_phase()) {
-                check_and_set_polarity(vy, pol(parent) * row_polarity, row_index); 
+                check_and_set_polarity(vy, pol(parent) * row_polarity, row_index, parent); 
             }
             return nullptr; // it is not a new vertex
         } 
         vy = alloc_v(col);
         parent->add_child(row_index, vy);
         if (!fixed_phase())
-            check_and_set_polarity(vy, row_polarity * pol(parent), row_index);
+            check_and_set_polarity(vy, row_polarity * pol(parent), row_index, parent);
         return vy;        
     }
 
