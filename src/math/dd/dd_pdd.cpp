@@ -747,6 +747,69 @@ namespace dd {
         e.m_rest = rest.root;
     }
 
+    template <class Fn>
+    pdd pdd_manager::map_coefficients(pdd const& p, Fn f)
+    {
+        if (p.is_val()) {
+            return mk_val(rational(f(p.val())));
+        } else {
+            pdd x = mk_var(p.var());
+            pdd lo = map_coefficients(p.lo(), f);
+            pdd hi = map_coefficients(p.hi(), f);
+            return x*hi + lo;
+        }
+    }
+
+    /**
+     * Perform S-polynomial reduction on p by q,
+     * treating monomial with v as leading.
+     *
+     * p = a v^l + b = a' 2^j v^l + b
+     * q = c v^m + d = c' 2^j v^m + d
+     * such that
+     *      deg(v, p) = l, i.e., v does not divide a and there is no v^l in b
+     *      deg(v, q) = m, i.e., v does not divide c and there is no v^m in d
+     *      l >= m
+     *      j maximal, i.e., not both of a', c' are divisible by 2
+     *
+     * Then we reduce p by q:
+     *
+     *      r = c' p - a' v^(l-m) q
+     *        = b c' - a' d v^(l-m)
+     */
+    bool pdd_manager::resolve(unsigned v, pdd const& p, pdd const& q, pdd& r)
+    {
+        unsigned const l = p.degree(v);
+        unsigned const m = q.degree(v);
+        if (l < m) {
+            // no reduction
+            return false;
+        }
+        if (l == 0) {
+            return false;
+        }
+        pdd a = zero();
+        pdd b = zero();
+        pdd c = zero();
+        pdd d = zero();
+        p.factor(v, l, a, b);
+        q.factor(v, m, c, d);
+        unsigned const j = std::min(max_pow2_divisor(a), max_pow2_divisor(c));
+        rational const pow2j = rational::power_of_two(j);
+        auto div_pow2j = [&pow2j](rational const& r) -> rational {
+            rational result = r / pow2j;
+            SASSERT(result.is_int());
+            return result;
+        };
+        pdd aa = map_coefficients(a, div_pow2j);
+        pdd cc = map_coefficients(c, div_pow2j);
+        pdd vv = one();
+        for (unsigned deg = l - m; deg > 0; --deg) {
+            vv *= mk_var(v);
+        }
+        r = b * cc - aa * d * vv;
+        return true;
+    }
 
     /**
      * Returns the largest j such that 2^j divides p.

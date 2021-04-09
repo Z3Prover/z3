@@ -263,6 +263,7 @@ namespace dd {
         unsigned degree(PDD p, unsigned v);
         unsigned max_pow2_divisor(PDD p);
         unsigned max_pow2_divisor(pdd const& p);
+        template <class Fn> pdd map_coefficients(pdd const& p, Fn f);
 
         void factor(pdd const& p, unsigned v, unsigned degree, pdd& lc, pdd& rest);
 
@@ -322,6 +323,7 @@ namespace dd {
         pdd reduce(pdd const& a, pdd const& b);
         pdd subst_val(pdd const& a, vector<std::pair<unsigned, rational>> const& s);
         pdd subst_val(pdd const& a, unsigned v, rational const& val);
+        bool resolve(unsigned v, pdd const& p, pdd const& q, pdd& r);
 
         bool is_linear(PDD p) { return degree(p) == 1; }
         bool is_linear(pdd const& p);
