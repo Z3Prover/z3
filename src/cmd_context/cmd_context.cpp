@@ -247,8 +247,11 @@ func_decl * func_decls::find(ast_manager & m, unsigned num_args, expr * const * 
     if (!more_than_one())
         first();
     ptr_buffer<sort> sorts;
-    for (unsigned i = 0; i < num_args; i++)
+    for (unsigned i = 0; i < num_args; i++) {
+        if (!args[i])
+            return nullptr;
         sorts.push_back(args[i]->get_sort());
+    }
     return find(m, num_args, sorts.c_ptr(), range);
 }
 
@@ -1183,15 +1186,19 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
         return;
 
     std::ostringstream buffer;
-    buffer << "unknown constant " << s << " ";
-    buffer << " (";
-    for (unsigned i = 0; i < num_args; ++i) 
-        buffer << ((i > 0)?" ":"") << mk_pp(args[i]->get_sort(), m());
-    buffer << ") ";
+    buffer << "unknown constant " << s;
+    if (num_args > 0) {
+        buffer << " (";
+        for (unsigned i = 0; i < num_args; ++i) 
+            if (args[i])
+                buffer << ((i > 0)?" ":"") << mk_pp(args[i]->get_sort(), m());
+        buffer << ") ";
+    }
     if (range) 
         buffer << mk_pp(range, m()) << " ";
     for (unsigned i = 0; i < fs.get_num_entries(); ++i) 
-        buffer << "\ndeclared: " << mk_pp(fs.get_entry(i), m()) << " ";
+        if (fs.get_entry(i))
+            buffer << "\ndeclared: " << mk_pp(fs.get_entry(i), m()) << " ";
     throw cmd_exception(buffer.str());
 }
 
