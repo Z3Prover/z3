@@ -463,17 +463,6 @@ namespace z3 {
         Z3_symbol m_sym;
     public:
         symbol(context & c, Z3_symbol s):object(c), m_sym(s) {}
-        symbol(symbol const & s) = default;
-        symbol(symbol && s) noexcept : object{std::forward<object>(s)}, m_sym{std::move(s.m_sym)} {
-            m_sym = nullptr;
-        }
-        symbol & operator=(symbol const & s) = default;
-        symbol & operator=(symbol && s) noexcept {
-            object::operator=(std::forward<object>(s));
-            m_sym = s.m_sym;
-            s.m_sym = nullptr;
-            return *this;
-        }
         operator Z3_symbol() const { return m_sym; }
         Z3_symbol_kind kind() const { return Z3_get_symbol_kind(ctx(), m_sym); }
         std::string str() const { assert(kind() == Z3_STRING_SYMBOL); return Z3_get_symbol_string(ctx(), m_sym); }
