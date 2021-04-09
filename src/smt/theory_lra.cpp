@@ -3052,7 +3052,7 @@ public:
         scoped_trace_stream _sts(th, fn);
 
        
-        SASSERT(validate_eq(x, y));
+        // SASSERT(validate_eq(x, y));
         ctx().assign_eq(x, y, eq_justification(js));
     }
     
