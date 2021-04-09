@@ -43,11 +43,12 @@ Notes:
 
 
 class func_decls {
-    func_decl * m_decls;
+    ast_manager* m { nullptr };
+    func_decl * m_decls { nullptr };
     bool signatures_collide(func_decl* f, func_decl* g) const;
     bool signatures_collide(unsigned n, sort*const* domain, sort* range, func_decl* g) const;
 public:
-    func_decls():m_decls(nullptr) {}
+    func_decls() {}
     func_decls(ast_manager & m, func_decl * f);
     void finalize(ast_manager & m);
     bool contains(func_decl * f) const;

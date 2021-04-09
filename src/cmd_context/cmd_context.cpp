@@ -52,9 +52,10 @@ Notes:
 #include "cmd_context/basic_cmds.h"
 #include "cmd_context/cmd_context.h"
 
-func_decls::func_decls(ast_manager & m, func_decl * f):
+func_decls::func_decls(ast_manager & _m, func_decl * f):
+    m(&_m),
     m_decls(TAG(func_decl*, f, 0)) {
-    m.inc_ref(f);
+    _m.inc_ref(f);
 }
 
 void func_decls::finalize(ast_manager & m) {
@@ -94,9 +95,9 @@ bool func_decls::contains(func_decl * f) const {
     }
     else {
         func_decl_set * fs = UNTAG(func_decl_set *, m_decls);
-        for (func_decl* g : *fs) {
-            if (signatures_collide(f, g)) return true;
-        }
+        for (func_decl* g : *fs) 
+            if (signatures_collide(f, g)) 
+                return true;
     }
     return false;
 }
@@ -203,8 +204,18 @@ bool func_decls::check_signature(func_decl* f, unsigned arity, sort * const* dom
         return false;
     unsigned i = 0;
     for (i = 0; domain && i < arity; i++) {
-        if (f->get_domain(i) != domain[i])
+        sort* s1 = f->get_domain(i);
+        sort* s2 = domain[i];
+        if (s1 != s2)
+            continue;
+        if (!m)
             return false;
+        arith_util au(*m);
+        if (au.is_real(s1) && au.is_int(s2))
+            continue;
+        if (au.is_real(s2) && au.is_int(s1))
+            continue;
+        return false;
     }
     return i == arity || !domain;
 }
