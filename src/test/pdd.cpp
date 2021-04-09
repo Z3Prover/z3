@@ -411,7 +411,7 @@ public :
             SASSERT( d != 0 || rest.is_zero() );
         };
 
-        auto test_multiple = [&test_one](pdd const& p) {
+        auto test_multiple = [=](pdd const& p) {
             for (auto v : {va, vb, vc, vd}) {
                 for (unsigned d = 0; d <= 5; ++d) {
                     test_one(p, v, d);
