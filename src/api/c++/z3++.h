@@ -110,8 +110,8 @@ namespace z3 {
     */
     class config {
         Z3_config    m_cfg;
-        config(config const &) = default;
-        config & operator=(config const &) = default;
+        config(config const &) = delete;
+        config & operator=(config const &) = delete;
     public:
         config() { m_cfg = Z3_mk_config(); }
         config(config && s) noexcept : m_cfg{std::move(s.m_cfg)} {
@@ -425,8 +425,8 @@ namespace z3 {
     class array {
         T *      m_array;
         unsigned m_size;
-        array(array const &) = default;
-        array & operator=(array const &) = default;
+        array(array const &) = delete;
+        array & operator=(array const &) = delete;
     public:
         array(unsigned sz):m_size(sz) { m_array = new T[sz]; }
         array(array && s) noexcept : m_array{s.m_array}, m_size{s.m_size} {
@@ -440,7 +440,7 @@ namespace z3 {
         }
         template<typename T2>
         array(ast_vector_tpl<T2> const & v);
-        ~array() { if(m_array != nullptr) delete[] m_array; }
+        ~array() { delete[] m_array; }
         void resize(unsigned sz) { delete[] m_array; m_size = sz; m_array = new T[sz]; }
         unsigned size() const { return m_size; }
         T & operator[](int i) { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
@@ -518,7 +518,7 @@ namespace z3 {
         }
         param_descrs& operator=(param_descrs && o) noexcept {
             object::operator=(std::forward<object>(o));
-             m_descrs = o.m_descrs;
+            m_descrs = o.m_descrs;
             o.m_descrs = nullptr;
             return *this;
         }
