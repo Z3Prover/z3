@@ -101,15 +101,7 @@ class lp_bound_propagator {
     map<mpq, const vertex*, obj_hash<mpq>, default_eq<mpq>>  m_vals_to_verts_neg;
     // x[m_root->column()] - m_pol[j].pol()*x[j] == const;
     // to bind polarity and the vertex in the table
-    struct pol_vert {
-        int m_polarity;
-        const vertex* m_v;
-        pol_vert() {}
-        pol_vert(int p, const vertex* v): m_polarity(p), m_v(v) {}
-        int pol() const { return m_polarity; }
-        const vertex* v() const { return m_v; }
-    };
-    u_map<pol_vert>                                     m_pol; 
+    u_map<int>                                m_pol; 
     // if m_pos.contains(j) then  x[j] = x[m_root->column()] + o
     uint_set                                  m_pos;
     
@@ -260,32 +252,30 @@ public:
 
     // pol for polarity
     int pol(const vertex* v) const { return pol(v->column()); }
-    int pol(unsigned j) const { return m_pol[j].pol(); }
+    int pol(unsigned j) const { return m_pol[j]; }
     void set_polarity(const vertex* v, int p) {
         SASSERT(p == 1 || p == -1);
         unsigned j = v->column();
         SASSERT(!m_pol.contains(j));
-        m_pol.insert(j, pol_vert(p, v));
+        m_pol.insert(j, p);
     }
 
     void check_and_set_polarity(vertex* v, int polarity, unsigned row_index, vertex*v_parent) {
-        pol_vert prev_pol;
+        int prev_pol;
         if (!m_pol.find(v->column(), prev_pol)) {
             set_polarity(v, polarity);
             return;
         }
-        if (prev_pol.pol() == polarity)
+        if (prev_pol == polarity)
             return;
-        const vertex *u = prev_pol.v();
-        // we have a path L between u and v with p(L) = -1, that means we can
+        // we have a path L between v and parent with p(L) = -1, that means we can
         // create an equality of the form x + x = a, where x = v->column() = u->column()
-        vector<edge> path = connect_u_v_in_tree(u, v_parent);
+        vector<edge> path = connect_u_v_in_tree(v, v_parent);
         m_fixed_vertex_explanation = get_explanation_from_path(path);
         explain_fixed_in_row(row_index, m_fixed_vertex_explanation);
         set_fixed_vertex(v);
         TRACE("cheap_eq", 
-              tout << "polarity switch: " << polarity << "\nv = "; print_vert(tout , v) << "\nu = "; print_vert(tout, u) << "\n";
-              tout << "fixed vertex explanation\n";
+              tout << "polarity switch: " << polarity << "\nv = "; print_vert(tout , v) << "\nu = ";        tout << "fixed vertex explanation\n";
               for (auto p : m_fixed_vertex_explanation) 
                   lp().constraints().display(tout, [this](lpvar j) { return lp().get_variable_name(j);}, p.ci()););
 
