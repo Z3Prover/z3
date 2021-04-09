@@ -381,6 +381,52 @@ public :
         }
     }
 
+    static void factor() {
+        std::cout << "factor\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 3);
+
+        unsigned const va = 0;
+        unsigned const vb = 1;
+        unsigned const vc = 2;
+        unsigned const vd = 3;
+        pdd const a = m.mk_var(va);
+        pdd const b = m.mk_var(vb);
+        pdd const c = m.mk_var(vc);
+        pdd const d = m.mk_var(vd);
+
+        auto test_one = [&m](pdd const& p, unsigned v, unsigned d) {
+            pdd lc = m.zero();
+            pdd rest = m.zero();
+            std::cout << "Factoring p = " << p << " by v" << v << "^" << d << "\n";
+            p.factor(v, d, lc, rest);
+            std::cout << "  lc = " << lc << "\n";
+            std::cout << "  rest = " << rest << "\n";
+            pdd x = m.mk_var(v);
+            pdd x_pow_d = m.one();
+            for (unsigned i = 0; i < d; ++i) {
+                x_pow_d *= x;
+            }
+            SASSERT( p == lc * x_pow_d + rest );
+            SASSERT( d == 0 || rest.degree(v) < d );
+            SASSERT( d != 0 || rest.is_zero() );
+        };
+
+        auto test_multiple = [=](pdd const& p) {
+            for (auto v : {va, vb, vc, vd}) {
+                for (unsigned d = 0; d <= 5; ++d) {
+                    test_one(p, v, d);
+                }
+            }
+        };
+
+        test_multiple( b );
+        test_multiple( b*b*b );
+        test_multiple( b + c );
+        test_multiple( a*a*a*a*a + a*a*a*b + a*a*b*b + c );
+        test_multiple( c*c*c*c*c + b*b*b*c + 3*b*c*c + a );
+        test_multiple( (a + b) * (b + c) * (c + d) * (d + a) );
+    }
+
 };
 
 }
@@ -396,4 +442,5 @@ void tst_pdd() {
     dd::test::order_lm();
     dd::test::mod4_operations();
     dd::test::degree_of_variables();
+    dd::test::factor();
 }

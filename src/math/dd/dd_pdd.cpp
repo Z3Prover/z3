@@ -50,6 +50,7 @@ namespace dd {
 
     void pdd_manager::reset(unsigned_vector const& level2var) {
         reset_op_cache();
+        m_factor_cache.reset();
         m_node_table.reset();
         m_nodes.reset();
         m_free_nodes.reset();
@@ -691,27 +692,36 @@ namespace dd {
      * factor p into lc*v^degree + rest
      * such that degree(rest, v) < degree
      * Initial implementation is very naive
-     * - memoize intermediary results
      */
     void pdd_manager::factor(pdd const& p, unsigned v, unsigned degree, pdd& lc, pdd& rest) {
         unsigned level_v = m_var2level[v];
         if (degree == 0) {
             lc = p;
             rest = zero();
+            return;
         }
-        else if (level(p.root) < level_v) {
+        if (level(p.root) < level_v) {
             lc = zero();
             rest = p;
+            return;
         }
-        else if (level(p.root) > level_v) {
+        // Memoize nontrivial cases
+        auto* et = m_factor_cache.insert_if_not_there2({p.root, v, degree});
+        factor_entry& e = et->get_data();
+        if (e.is_valid()) {
+            lc = pdd(e.m_lc, this);
+            rest = pdd(e.m_rest, this);
+            return;
+        }
+        if (level(p.root) > level_v) {
             pdd lc1 = zero(), rest1 = zero();
             pdd vv = mk_var(p.var());
             factor(p.hi(), v, degree, lc,  rest);
             factor(p.lo(), v, degree, lc1, rest1);
-            lc   += lc1;
-            rest += rest1;
             lc   *= vv;
             rest *= vv;
+            lc   += lc1;
+            rest += rest1;
         }
         else {
             unsigned d = 0;
@@ -733,6 +743,8 @@ namespace dd {
                 rest = p;
             }
         }
+        e.m_lc = lc.root;
+        e.m_rest = rest.root;
     }
 
 
@@ -1168,6 +1180,8 @@ namespace dd {
         for (op_entry* e : to_keep) {
             m_op_cache.insert(e);
         }
+
+        m_factor_cache.reset();
 
         m_node_table.reset();
         // re-populate node cache

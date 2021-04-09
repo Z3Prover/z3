@@ -140,9 +140,44 @@ namespace dd {
 
         typedef ptr_hashtable<op_entry, hash_entry, eq_entry> op_table;
 
+        struct factor_entry {
+            factor_entry(PDD p, unsigned v, unsigned degree):
+                m_p(p),
+                m_v(v),
+                m_degree(degree),
+                m_lc(UINT_MAX),
+                m_rest(UINT_MAX)
+            {}
+
+            factor_entry(): m_p(0), m_v(0), m_degree(0), m_lc(UINT_MAX), m_rest(UINT_MAX) {}
+
+            PDD m_p;            // input
+            unsigned m_v;       // input
+            unsigned m_degree;  // input
+            PDD m_lc;           // output
+            PDD m_rest;         // output
+
+            bool is_valid() { return m_lc != UINT_MAX; }
+
+            unsigned hash() const { return mk_mix(m_p, m_v, m_degree); }
+        };
+
+        struct hash_factor_entry {
+            unsigned operator()(factor_entry const& e) const { return e.hash(); }
+        };
+
+        struct eq_factor_entry {
+            bool operator()(factor_entry const& a, factor_entry const& b) const {
+                return a.m_p == b.m_p && a.m_v == b.m_v && a.m_degree == b.m_degree;
+            }
+        };
+
+        typedef hashtable<factor_entry, hash_factor_entry, eq_factor_entry> factor_table;
+
         svector<node>              m_nodes;
         vector<rational>           m_values;
         op_table                   m_op_cache;
+        factor_table               m_factor_cache;
         node_table                 m_node_table;
         mpq_table                  m_mpq_table;
         svector<PDD>               m_pdd_stack;
@@ -361,7 +396,7 @@ namespace dd {
         pdd rev_sub(rational const& r) const { return m.sub(m.mk_val(r), *this); }
         pdd reduce(pdd const& other) const { return m.reduce(*this, other); }
         bool different_leading_term(pdd const& other) const { return m.different_leading_term(*this, other); }
-        void factor(unsigned v, unsigned degree, pdd& lc, pdd& rest) { m.factor(*this, v, degree, lc, rest); }
+        void factor(unsigned v, unsigned degree, pdd& lc, pdd& rest) const { m.factor(*this, v, degree, lc, rest); }
 
         pdd subst_val(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val(*this, s); }
         pdd subst_val(unsigned v, rational const& val) const { return m.subst_val(*this, v, val); }
