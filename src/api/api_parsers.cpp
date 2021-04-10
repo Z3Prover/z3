@@ -42,6 +42,7 @@ extern "C" {
         Z3_TRY;
         ast_manager& m = mk_c(c)->m();
         scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(m));
+        ctx->register_plist();
         ctx->set_ignore_check(true);
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
         

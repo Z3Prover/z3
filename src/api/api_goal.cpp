@@ -53,7 +53,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_goal_dec_ref(c, g);
         RESET_ERROR_CODE();
-        to_goal(g)->dec_ref();
+        if (g)
+            to_goal(g)->dec_ref();
         Z3_CATCH;
     }
 

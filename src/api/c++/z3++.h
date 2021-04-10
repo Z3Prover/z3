@@ -3752,13 +3752,13 @@ namespace z3 {
             return c ? c : (Z3_context)s->ctx();
         }
 
-        struct scoped_cb final {
-            user_propagator_base* p;
-            scoped_cb(void* _p, Z3_solver_callback cb):p(static_cast<user_propagator_base*>(_p)) {
-                p->cb = cb;
+        struct scoped_cb {
+            user_propagator_base& p;
+            scoped_cb(void* _p, Z3_solver_callback cb):p(*static_cast<user_propagator_base*>(_p)) {
+                p.cb = cb;
             }
-            ~scoped_cb() {
-                if (p != nullptr) p->cb = nullptr;
+            ~scoped_cb() { 
+                p.cb = nullptr; 
             }
         };
 

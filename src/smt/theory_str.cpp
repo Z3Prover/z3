@@ -7275,7 +7275,6 @@ namespace smt {
         m_basicstr_axiom_todo.reset();
         m_concat_axiom_todo.reset();
         m_concat_eval_todo.reset();
-        m_library_aware_axiom_todo.reset();
         m_delayed_axiom_setup_terms.reset();
         m_delayed_assertions_todo.reset();
         
@@ -7299,17 +7298,11 @@ namespace smt {
             varItor++;
         }
 
-        if (!cutvarmap_removes.empty()) {
-            ptr_vector<expr>::iterator it = cutvarmap_removes.begin();
-            for (; it != cutvarmap_removes.end(); ++it) {
-                expr * ex = *it;
-                cut_var_map.remove(ex);
-            }
-        }
+        for (expr* ex : cutvarmap_removes)
+            cut_var_map.remove(ex);
 
         ptr_vector<enode> new_m_basicstr;
-        for (ptr_vector<enode>::iterator it = m_basicstr_axiom_todo.begin(); it != m_basicstr_axiom_todo.end(); ++it) {
-            enode * e = *it;
+        for (enode* e : m_basicstr_axiom_todo) {
             TRACE("str", tout << "consider deleting " << mk_pp(e->get_expr(), get_manager())
                   << ", enode scope level is " << e->get_iscope_lvl()
                   << std::endl;);
@@ -7328,6 +7321,8 @@ namespace smt {
         }
 
         m_trail_stack.pop_scope(num_scopes);
+        // m_library_aware_trail_stack owns m_library_aware_todo vector.
+        // the vector cannot be reset outside.
         m_library_aware_trail_stack.pop_scope(num_scopes);
         theory::pop_scope_eh(num_scopes);
 

@@ -166,13 +166,14 @@ namespace sat {
 
 
     bool big::in_del(literal u, literal v) const {
-        if (u.index() > v.index()) std::swap(u, v);
+        if (u.index() > v.index()) 
+            std::swap(u, v);
         return m_del_bin[u.index()].contains(v);
     }
 
     void big::add_del(literal u, literal v) {
-        if (u.index() > v.index()) std::swap(u, v);
-		
+        if (u.index() > v.index()) 
+            std::swap(u, v);		
         m_del_bin[u.index()].push_back(v);
     }
 
@@ -182,19 +183,19 @@ namespace sat {
         m_del_bin.reset();
         m_del_bin.reserve(s.m_watches.size());
         for (watch_list & wlist : s.m_watches) {
-            if (s.inconsistent()) break;
+            if (s.inconsistent()) 
+                break;
             literal u = to_literal(idx++);
-            watch_list::iterator it     = wlist.begin();
-            watch_list::iterator itprev = it;
-            watch_list::iterator end    = wlist.end();
-            for (; it != end; ++it) {
-                watched& w = *it;
+            unsigned j = 0, sz = wlist.size();            
+            for (unsigned i = 0; i < sz; ++i) {
+                watched& w = wlist[i];
                 if (learned() ? w.is_binary_learned_clause() : w.is_binary_clause()) {
                     literal v = w.get_literal();
                     if (u != get_parent(v) && ~u != get_parent(v) && safe_reach(u, v)) {
                         ++elim;
                         add_del(~u, v);
-                        if (s.get_config().m_drat) s.m_drat.del(~u, v);
+                        if (s.get_config().m_drat) 
+                            s.m_drat.del(~u, v);
                         s.m_mc.stackv().reset(); // TBD: brittle code
                         s.add_ate(~u, v);
                         if (find_binary_watch(wlist, ~v)) {
@@ -206,22 +207,24 @@ namespace sat {
                         continue;
                     }
                 }
-                *itprev = *it;
-                itprev++;
+                wlist[j++] = wlist[i];
             }
-            wlist.set_end(itprev);
+            wlist.shrink(j);
         }        
         s.propagate(false);
         return elim;
     }
 
     bool big::safe_reach(literal u, literal v) {
-        if (!reaches(u, v)) return false;
+        if (!reaches(u, v)) 
+            return false;
         while (u != v) {
             literal w = next(u, v);
-            if (in_del(~u, w)) {
+            if (in_del(~u, w)) 
                 return false;
-            }
+            // ~u is a unit. removing binary clause destroy's property
+            if (w == ~v)
+                return false;
             u = w;
         }
         return true;
@@ -267,12 +270,10 @@ namespace sat {
         for (auto& next : m_dag) {
             if (!next.empty()) {
                 out << to_literal(idx) << " : " << m_left[idx] << ":" << m_right[idx] << " -> " << next << "\n";
-#if 1
                 for (literal n : next) {
                     out << n << "[" << m_left[n.index()] << ":" << m_right[n.index()] << "] ";
                 }
                 out << "\n";
-#endif
             }
             ++idx;
         }

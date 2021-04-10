@@ -641,13 +641,13 @@ namespace datatype {
     }
 
     bool util::is_considered_uninterpreted(func_decl * f, unsigned n, expr* const* args) {
-        if (is_accessor(f)) {
-            func_decl* c = get_accessor_constructor(f);
-            SASSERT(n == 1);
-            if (is_constructor(args[0])) 
-                return to_app(args[0])->get_decl() != c;
+        if (!is_accessor(f)) 
             return false;
-        }
+        func_decl* c = get_accessor_constructor(f);
+        SASSERT(n == 1);
+        std::cout << f->get_name() << " " << mk_pp(args[0], m) << "\n";
+        if (is_constructor(args[0])) 
+            return to_app(args[0])->get_decl() != c;
         return false;
     }
 

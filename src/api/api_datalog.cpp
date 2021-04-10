@@ -243,7 +243,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_fixedpoint_dec_ref(c, s);
         RESET_ERROR_CODE();
-        to_fixedpoint(s)->dec_ref();
+        if (s)
+            to_fixedpoint(s)->dec_ref();
         Z3_CATCH;
     }
 

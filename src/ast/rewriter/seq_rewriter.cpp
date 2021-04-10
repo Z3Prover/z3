@@ -4006,12 +4006,16 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
         np = f->get_num_parameters();
         lo2 = np > 0 ? f->get_parameter(0).get_int() : 0;
         hi2 = np > 1 ? f->get_parameter(1).get_int() : lo2;
-        // (loop a 0 0) = ""
-        if  (np == 2 && lo2 > hi2) {
+        if  (np == 2 && (lo2 > hi2 || hi2 < 0)) {
             result = re().mk_empty(args[0]->get_sort());
             return BR_DONE;
         }
-        if (np == 2 && hi2 == 0) {
+        if (np == 1 && lo2 < 0) {
+            result = re().mk_empty(args[0]->get_sort());
+            return BR_DONE;
+        }
+        // (loop a 0 0) = ""
+        if (np == 2 && lo2 == 0 && hi2 == 0) {
             result = re().mk_to_re(str().mk_empty(re().to_seq(args[0]->get_sort())));
             return BR_DONE;
         }
@@ -4040,6 +4044,10 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
         if (m_autil.is_numeral(args[1], n1) && n1.is_unsigned()) {
             result = re().mk_loop(args[0], n1.get_unsigned());
             return BR_REWRITE1;
+        }
+        if (m_autil.is_numeral(args[1], n1) && n1 < 0) {
+            result = re().mk_empty(args[0]->get_sort());
+            return BR_DONE;
         }
         break;
     case 3:
