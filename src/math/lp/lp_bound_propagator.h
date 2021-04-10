@@ -211,7 +211,7 @@ public:
         TRACE("cheap_eq", tout << "found j " << j << std::endl;
               lp().print_column_info(j, tout)<< std::endl;);
         TRACE("cheap_eq", tout << "found j = " << j << std::endl;);
-        vector<edge> path = connect_u_v_in_tree(v, m_fixed_vertex);
+        vector<edge> path = connect_in_tree(v, m_fixed_vertex);
         explanation ex = get_explanation_from_path(path);
         ex.add_expl(m_fixed_vertex_explanation);
         explain_fixed_column(j, ex);
@@ -233,7 +233,7 @@ public:
     
         TRACE("cheap_eq", tout << "found j=" << j << " for v=";
               print_vert(tout, v) << "\n in m_vals_to_verts\n";);
-        vector<edge> path = connect_u_v_in_tree(u, v);
+        vector<edge> path = connect_in_tree(u, v);
         explanation ex = get_explanation_from_path(path);
         ex.add_expl(m_fixed_vertex_explanation);
         add_eq_on_columns(ex, j, v_j);
@@ -270,7 +270,7 @@ public:
             return;
         // we have a path L between v and parent with p(L) = -1, that means we can
         // create an equality of the form x + x = a, where x = v->column() = u->column()
-        vector<edge> path = connect_u_v_in_tree(v, v_parent);
+        vector<edge> path = connect_in_tree(v, v_parent);
         m_fixed_vertex_explanation = get_explanation_from_path(path);
         explain_fixed_in_row(row_index, m_fixed_vertex_explanation);
         set_fixed_vertex(v);
@@ -428,7 +428,7 @@ public:
               print_vert(tout, v_i) << "\nv = "; print_vert(tout, v_j) <<"\n";
               );
         
-        vector<edge> path = connect_u_v_in_tree(v_i, v_j);
+        vector<edge> path = connect_in_tree(v_i, v_j);
         lp::explanation exp = get_explanation_from_path(path);
         add_eq_on_columns(exp, v_i->column(), v_j->column());
         
@@ -496,7 +496,7 @@ public:
         ex.push_back(uc);        
     }
     
-    vector<edge> connect_u_v_in_tree(const vertex* u, const vertex* v) const {
+    vector<edge> connect_in_tree(const vertex* u, const vertex* v) const {
         vector<edge> path;
         TRACE("cheap_eq_details", tout << "u = " ; print_vert(tout, u); tout << "\nv = ";print_vert(tout, v) << "\n";); 
         vector<edge> v_branch;
