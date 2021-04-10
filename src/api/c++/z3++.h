@@ -86,11 +86,6 @@ namespace z3 {
         std::string m_msg;
     public:
         exception(char const * msg):m_msg(msg) {}
-        exception(exception const &) = default;
-        exception(exception &&) noexcept = default;
-        exception & operator=(exception const &) = default;
-        exception & operator=(exception &&) noexcept = default;
-        virtual ~exception() throw() {}
         char const * msg() const { return m_msg.c_str(); }
         char const * what() const throw() { return m_msg.c_str(); }
         friend std::ostream & operator<<(std::ostream & out, exception const & e);
