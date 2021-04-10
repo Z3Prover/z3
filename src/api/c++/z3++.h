@@ -3616,12 +3616,12 @@ namespace z3 {
         }
 
         struct scoped_cb {
-            user_propagator_base* p;
-            scoped_cb(void* _p, Z3_solver_callback cb):p(static_cast<user_propagator_base*>(_p)) {
-                p->cb = cb;
+            user_propagator_base& p;
+            scoped_cb(void* _p, Z3_solver_callback cb):p(*static_cast<user_propagator_base*>(_p)) {
+                p.cb = cb;
             }
             ~scoped_cb() { 
-                p->cb = nullptr; 
+                p.cb = nullptr; 
             }
         };
 
