@@ -301,7 +301,7 @@ namespace z3 {
         /**
            \brief Return a floating point sort.
            \c ebits is a number of exponent bits,
-           \c sbits    is a number of significand bits,
+           \c sbits is a number of significand bits,
            \pre where ebits must be larger than 1 and sbits must be larger than 2.
          */
         sort fpa_sort(unsigned ebits, unsigned sbits);
@@ -3762,10 +3762,6 @@ namespace z3 {
             scoped_cb(void* _p, Z3_solver_callback cb):p(static_cast<user_propagator_base*>(_p)) {
                 p->cb = cb;
             }
-            scoped_cb(scoped_cb const &) = default;
-            scoped_cb(scoped_cb && s) noexcept : p{s.p} { s.p = nullptr; }
-            scoped_cb & operator=(scoped_cb const &) = default;
-            scoped_cb & operator=(scoped_cb && s) noexcept { p = s.p; s.p = nullptr; return *this; }
             ~scoped_cb() {
                 if (p != nullptr) p->cb = nullptr;
             }
