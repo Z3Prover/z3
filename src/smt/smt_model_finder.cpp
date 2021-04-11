@@ -83,7 +83,6 @@ namespace smt {
                 if (m_elems.contains(n) || contains_model_value(n)) {
                     return;
                 }
-                TRACE("model_finder", tout << mk_pp(n, m) << "\n";);
                 m.inc_ref(n);
                 m_elems.insert(n, generation);
                 SASSERT(!m.is_model_value(n));
@@ -522,6 +521,38 @@ namespace smt {
             // For each instantiation_set, remove entries that do not evaluate to values.
             ptr_vector<expr> to_delete;
 
+            bool should_cleanup(expr* e) {
+                if (!e)
+                    return true;
+                if (m.is_value(e))
+                    return false;
+                if (m_array.is_array(e))
+                    return false;
+                if (!is_app(e))
+                    return true;
+                if (to_app(e)->get_num_args() == 0)
+                    return true;
+                return !contains_array(e);
+            }
+
+            struct found_array {};
+            expr_mark m_visited;
+            void operator()(expr* n) {
+                if (m_array.is_array(n))
+                    throw found_array();
+            }
+            bool contains_array(expr* e) {
+                m_visited.reset();
+                try {
+                    for_each_expr(*this, m_visited, e);
+                }
+                catch (const found_array&) {
+                    return true;
+                }
+                return false;                
+            }
+
+           
             void cleanup_instantiation_sets() {
                 for (node* curr : m_nodes) {
                     if (curr->is_root()) {
@@ -531,7 +562,8 @@ namespace smt {
                         for (auto const& kv : elems) {
                             expr* n = kv.m_key;
                             expr* n_val = eval(n, true);
-                            if (!n_val || (!m.is_value(n_val) && !m_array.is_array(n_val))) {
+                            if (should_cleanup(n_val)) {
+                                TRACE("model_finder", tout << "cleanup " << s << " " << mk_pp(n, m) << " " << mk_pp(n_val, m) << "\n";);
                                 to_delete.push_back(n);
                             }
                         }
