@@ -403,14 +403,10 @@ namespace z3 {
         expr_vector parse_file(char const* s, sort_vector const& sorts, func_decl_vector const& decls);
     };
 
-    class scoped_context {
+    class scoped_context final {
         context m_ctx;
     public:
         scoped_context(Z3_context c): m_ctx(c) {}
-        scoped_context(scoped_context const &) = delete;
-        scoped_context(scoped_context &&) noexcept = default;
-        scoped_context & operator=(scoped_context const &) = delete;
-        scoped_context & operator=(scoped_context &&) noexcept = default;
         ~scoped_context() { m_ctx.detach(); }
         context& operator()() { return m_ctx; }
     };
@@ -418,30 +414,29 @@ namespace z3 {
 
     template<typename T>
     class array {
-        T *      m_array;
+        std::unique_ptr<T[]> m_array;
         unsigned m_size;
         array(array const &) = delete;
         array & operator=(array const &) = delete;
     public:
-        array(unsigned sz):m_size(sz) { m_array = new T[sz]; }
+        array(unsigned sz) : m_array{new T[sz]} , m_size(sz) {}
         array(array && s) noexcept : m_array{s.m_array}, m_size{s.m_size} {
-            s.m_array = nullptr;
+            s.m_array.release();
         }
         array & operator=(array && s) noexcept {
             m_array = s.m_array;
             m_size = s.m_size;
-            s.m_array = nullptr;
+            s.m_array.release();
             return *this;
         }
         template<typename T2>
         array(ast_vector_tpl<T2> const & v);
-        ~array() { delete[] m_array; }
-        void resize(unsigned sz) { delete[] m_array; m_size = sz; m_array = new T[sz]; }
+        void resize(unsigned sz) { m_array.reset(new T[sz]); m_size = sz; }
         unsigned size() const { return m_size; }
         T & operator[](int i) { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
         T const & operator[](int i) const { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
-        T const * ptr() const { return m_array; }
-        T * ptr() { return m_array; }
+        T const * ptr() const { return & m_array[0]; }
+        T * ptr() { return & m_array[0]; }
     };
 
     class object {
@@ -2038,9 +2033,7 @@ namespace z3 {
 
     template<typename T>
     template<typename T2>
-    array<T>::array(ast_vector_tpl<T2> const & v) {
-        m_array = new T[v.size()];
-        m_size  = v.size();
+    array<T>::array(ast_vector_tpl<T2> const & v) : m_array{new T[v.size()]}, m_size{v.size()} {
         for (unsigned i = 0; i < m_size; i++) {
             m_array[i] = v[i];
         }
