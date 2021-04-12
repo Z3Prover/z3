@@ -549,7 +549,6 @@ namespace z3 {
         operator Z3_ast() const { return m_ast; }
         operator bool() const { return m_ast != 0; }
         ast & operator=(ast && s) noexcept { object::operator=(std::forward<object>(s)); m_ast = s.m_ast; s.m_ast = nullptr; return *this; }
-
         ast & operator=(ast const & s) {
             Z3_inc_ref(s.ctx(), s.m_ast);
             if (m_ast)
