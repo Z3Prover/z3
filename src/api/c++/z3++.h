@@ -405,8 +405,8 @@ namespace z3 {
         unsigned size() const { return m_size; }
         T & operator[](int i) { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
         T const & operator[](int i) const { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
-        T const * ptr() const { return & m_array[0]; }
-        T * ptr() { return & m_array[0]; }
+        T const * ptr() const { return m_array.get(); }
+        T * ptr() { return m_array.get(); }
     };
 
     class object {
