@@ -2039,7 +2039,7 @@ namespace z3 {
 
     template<typename T>
     template<typename T2>
-    array<T>::array(ast_vector_tpl<T2> const & v) : m_array(new T[v.size()]), m_size{v.size()} {
+    array<T>::array(ast_vector_tpl<T2> const & v) : m_array(new T[v.size()]), m_size(v.size()) {
         for (unsigned i = 0; i < m_size; i++) {
             m_array[i] = v[i];
         }
@@ -2248,7 +2248,7 @@ namespace z3 {
         func_entry(func_entry && s) noexcept : object(std::forward<object>(s)), m_entry{s.m_entry} { s.m_entry = nullptr; }
         ~func_entry() { if (m_entry != nullptr) Z3_func_entry_dec_ref(ctx(), m_entry); }
         operator Z3_func_entry() const { return m_entry; }
-        func_entry & operator=(func_entry const & s) noexcept {
+        func_entry & operator=(func_entry const & s) {
             Z3_func_entry_inc_ref(s.ctx(), s.m_entry);
             Z3_func_entry_dec_ref(ctx(), m_entry);
             object::operator=(s);
@@ -2595,7 +2595,7 @@ namespace z3 {
                 }
             }
         public:
-            cube_iterator(solver& s, expr_vector& vars, unsigned& cutoff, bool end) :
+            cube_iterator(solver& s, expr_vector& vars, unsigned& cutoff, bool end):
                 m_solver(s),
                 m_cutoff(cutoff),
                 m_vars(vars),
