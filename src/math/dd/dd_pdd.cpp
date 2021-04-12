@@ -756,8 +756,7 @@ namespace dd {
     }
 
     template <class Fn>
-    pdd pdd_manager::map_coefficients(pdd const& p, Fn f)
-    {
+    pdd pdd_manager::map_coefficients(pdd const& p, Fn f) {
         if (p.is_val()) {
             return mk_val(rational(f(p.val())));
         } else {
@@ -785,8 +784,7 @@ namespace dd {
      *      r = c' p - a' v^(l-m) q
      *        = b c' - a' d v^(l-m)
      */
-    bool pdd_manager::resolve(unsigned v, pdd const& p, pdd const& q, pdd& r)
-    {
+    bool pdd_manager::resolve(unsigned v, pdd const& p, pdd const& q, pdd& r) {
         unsigned const l = p.degree(v);
         unsigned const m = q.degree(v);
         if (l < m) {
@@ -814,7 +812,7 @@ namespace dd {
         pdd aa = map_coefficients(a, div_pow2j);
         pdd cc = map_coefficients(c, div_pow2j);
         pdd vv = one();
-        for (unsigned deg = l - m; deg > 0; --deg) {
+        for (unsigned deg = l - m; deg-- > 0; ) {
             vv *= mk_var(v);
         }
         r = b * cc - aa * d * vv;
@@ -824,8 +822,7 @@ namespace dd {
     /**
      * Returns the largest j such that 2^j divides p.
      */
-    unsigned pdd_manager::max_pow2_divisor(PDD p)
-    {
+    unsigned pdd_manager::max_pow2_divisor(PDD p) {
         init_mark();
         unsigned min_j = UINT_MAX;
         m_todo.push_back(p);
@@ -857,8 +854,7 @@ namespace dd {
         return min_j;
     }
 
-    unsigned pdd_manager::max_pow2_divisor(pdd const& p)
-    {
+    unsigned pdd_manager::max_pow2_divisor(pdd const& p) {
         return max_pow2_divisor(p.root);
     }
 
