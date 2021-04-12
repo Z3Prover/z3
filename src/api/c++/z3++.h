@@ -85,7 +85,6 @@ namespace z3 {
         std::string m_msg;
     public:
         exception(char const * msg):m_msg(msg) {}
-        virtual ~exception() throw() {}
         char const * msg() const { return m_msg.c_str(); }
         char const * what() const throw() { return m_msg.c_str(); }
         friend std::ostream & operator<<(std::ostream & out, exception const & e);
@@ -381,7 +380,7 @@ namespace z3 {
         expr_vector parse_file(char const* s, sort_vector const& sorts, func_decl_vector const& decls);
     };
 
-    class scoped_context {
+    class scoped_context final {
         context m_ctx;
     public:
         scoped_context(Z3_context c): m_ctx(c) {}
@@ -414,7 +413,6 @@ namespace z3 {
         context * m_ctx;
     public:
         object(context & c):m_ctx(&c) {}
-        object(object const & s):m_ctx(s.m_ctx) {}
         context & ctx() const { return *m_ctx; }
         Z3_error_code check_error() const { return m_ctx->check_error(); }
         friend void check_context(object const & a, object const & b);
@@ -425,8 +423,6 @@ namespace z3 {
         Z3_symbol m_sym;
     public:
         symbol(context & c, Z3_symbol s):object(c), m_sym(s) {}
-        symbol(symbol const & s):object(s), m_sym(s.m_sym) {}
-        symbol & operator=(symbol const & s) { m_ctx = s.m_ctx; m_sym = s.m_sym; return *this; }
         operator Z3_symbol() const { return m_sym; }
         Z3_symbol_kind kind() const { return Z3_get_symbol_kind(ctx(), m_sym); }
         std::string str() const { assert(kind() == Z3_STRING_SYMBOL); return Z3_get_symbol_string(ctx(), m_sym); }
@@ -559,7 +555,7 @@ namespace z3 {
         }
         */
 
-        class iterator {
+        class iterator final {
             ast_vector_tpl const* m_vector;
             unsigned m_index;
         public:
@@ -567,24 +563,24 @@ namespace z3 {
             iterator(iterator const& other): m_vector(other.m_vector), m_index(other.m_index) {}
             iterator operator=(iterator const& other) { m_vector = other.m_vector; m_index = other.m_index; return *this; }
 
-            bool operator==(iterator const& other) const {
+            bool operator==(iterator const& other) const noexcept {
                 return other.m_index == m_index;
             };
-            bool operator!=(iterator const& other) const {
+            bool operator!=(iterator const& other) const noexcept {
                 return other.m_index != m_index;
             };
-            iterator& operator++() {
+            iterator& operator++() noexcept {
                 ++m_index;
                 return *this;
             }
             void set(T& arg) {
                 Z3_ast_vector_set(m_vector->ctx(), *m_vector, m_index, arg);
             }
-            iterator operator++(int) { iterator tmp = *this; ++m_index; return tmp; }
+            iterator operator++(int) noexcept { iterator tmp = *this; ++m_index; return tmp; }
             T * operator->() const { return &(operator*()); }
             T operator*() const { return (*m_vector)[m_index]; }
         };
-        iterator begin() const { return iterator(this, 0); }
+        iterator begin() const noexcept { return iterator(this, 0); }
         iterator end() const { return iterator(this, size()); }
         friend std::ostream & operator<<(std::ostream & out, ast_vector_tpl const & v) { out << Z3_ast_vector_to_string(v.ctx(), v); return out; }
     };
@@ -598,7 +594,6 @@ namespace z3 {
         sort(context & c):ast(c) {}
         sort(context & c, Z3_sort s):ast(c, reinterpret_cast<Z3_ast>(s)) {}
         sort(context & c, Z3_ast a):ast(c, a) {}
-        sort(sort const & s):ast(s) {}
         operator Z3_sort() const { return reinterpret_cast<Z3_sort>(m_ast); }
 
         /**
@@ -606,10 +601,6 @@ namespace z3 {
          */
         unsigned id() const { unsigned r = Z3_get_sort_id(ctx(), *this); check_error(); return r; }
 
-        /**
-           \brief Assign sort s to this
-        */
-        sort & operator=(sort const & s) { return static_cast<sort&>(ast::operator=(s)); }
         /**
            \brief Return the internal sort kind.
         */
@@ -699,9 +690,7 @@ namespace z3 {
     public:
         func_decl(context & c):ast(c) {}
         func_decl(context & c, Z3_func_decl n):ast(c, reinterpret_cast<Z3_ast>(n)) {}
-        func_decl(func_decl const & s):ast(s) {}
         operator Z3_func_decl() const { return reinterpret_cast<Z3_func_decl>(m_ast); }
-        func_decl & operator=(func_decl const & s) { return static_cast<func_decl&>(ast::operator=(s)); }
 
         /**
            \brief retrieve unique identifier for func_decl.
@@ -747,8 +736,6 @@ namespace z3 {
     public:
         expr(context & c):ast(c) {}
         expr(context & c, Z3_ast n):ast(c, reinterpret_cast<Z3_ast>(n)) {}
-        expr(expr const & n):ast(n) {}
-        expr & operator=(expr const & n) { return static_cast<expr&>(ast::operator=(n)); }
 
         /**
            \brief Return the sort of this expression.
@@ -2538,12 +2525,12 @@ namespace z3 {
             }
             cube_iterator operator++(int) { assert(false); return *this; }
             expr_vector const * operator->() const { return &(operator*()); }
-            expr_vector const& operator*() const { return m_cube; }
+            expr_vector const& operator*() const noexcept { return m_cube; }
 
-            bool operator==(cube_iterator const& other) {
+            bool operator==(cube_iterator const& other) noexcept {
                 return other.m_end == m_end;
             };
-            bool operator!=(cube_iterator const& other) {
+            bool operator!=(cube_iterator const& other) noexcept {
                 return other.m_end != m_end;
             };
 
@@ -2571,7 +2558,7 @@ namespace z3 {
 
             cube_iterator begin() { return cube_iterator(m_solver, m_vars, m_cutoff, false); }
             cube_iterator end() { return cube_iterator(m_solver, m_vars, m_cutoff, true); }
-            void set_cutoff(unsigned c) { m_cutoff = c; }
+            void set_cutoff(unsigned c) noexcept { m_cutoff = c; }
         };
 
         cube_generator cubes() { return cube_generator(*this); }
@@ -2830,7 +2817,7 @@ namespace z3 {
         Z3_optimize m_opt;
 
     public:
-        class handle {
+        class handle final {
             unsigned m_h;
         public:
             handle(unsigned h): m_h(h) {}
