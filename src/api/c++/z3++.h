@@ -1991,8 +1991,7 @@ namespace z3 {
 
     template<typename T>
     template<typename T2>
-    array<T>::array(ast_vector_tpl<T2> const & v) {
-        m_array.reset(new T[v.size()]);
+    array<T>::array(ast_vector_tpl<T2> const & v):m_array(new T[v.size()]) {
         m_size  = v.size();
         for (unsigned i = 0; i < m_size; i++) {
             m_array[i] = v[i];
