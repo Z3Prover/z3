@@ -110,11 +110,11 @@ namespace z3 {
         config & operator=(config const &) = delete;
     public:
         config() { m_cfg = Z3_mk_config(); }
-        config(config && s) noexcept : m_cfg{std::move(s.m_cfg)} {
+        config(config && s) noexcept : m_cfg(s.m_cfg) {
             s.m_cfg = nullptr;
         }
         config & operator=(config && s) noexcept {
-            m_cfg = std::move(s.m_cfg);
+            m_cfg = s.m_cfg;
             s.m_cfg = nullptr;
             return *this;
         }
@@ -190,14 +190,14 @@ namespace z3 {
     public:
         context() { config c; init(c); }
         context(config & c) { init(c); }
-        context(context && s) noexcept : m_enable_exceptions{ s.m_enable_exceptions },
-            m_rounding_mode { s.m_rounding_mode }, m_ctx { std::move(s.m_ctx) } {
+        context(context && s) noexcept : m_enable_exceptions(s.m_enable_exceptions),
+            m_rounding_mode(s.m_rounding_mode), m_ctx(s.m_ctx) {
             s.m_ctx = nullptr;
         }
         context & operator=(context && s) noexcept {
             m_enable_exceptions = s.m_enable_exceptions;
             m_rounding_mode = s.m_rounding_mode;
-            m_ctx = std::move(s.m_ctx);
+            m_ctx = s.m_ctx;
             s.m_ctx = nullptr;
             return *this;
         }
@@ -421,7 +421,7 @@ namespace z3 {
         array & operator=(array const &) = delete;
     public:
         array(unsigned sz) : m_array(new T[sz]), m_size(sz) {}
-        array(array && s) noexcept : m_array{s.m_array}, m_size{s.m_size} {
+        array(array && s) noexcept : m_array(s.m_array), m_size(s.m_size) {
             s.m_array.release();
         }
         array & operator=(array && s) noexcept {
@@ -476,7 +476,7 @@ namespace z3 {
     public:
         param_descrs(context& c, Z3_param_descrs d): object(c), m_descrs(d) { Z3_param_descrs_inc_ref(c, d); }
         param_descrs(param_descrs const& o): object(o.ctx()), m_descrs(o.m_descrs) { Z3_param_descrs_inc_ref(ctx(), m_descrs); }
-        param_descrs(param_descrs && o) noexcept : object{std::forward<object>(o)}, m_descrs{o.m_descrs} {
+        param_descrs(param_descrs && o) noexcept : object(std::forward<object>(o)), m_descrs(o.m_descrs) {
             o.m_descrs = nullptr;
         }
         param_descrs& operator=(param_descrs const& o) {
@@ -509,7 +509,7 @@ namespace z3 {
     public:
         params(context & c):object(c) { m_params = Z3_mk_params(c); Z3_params_inc_ref(ctx(), m_params); }
         params(params const & s):object(s), m_params(s.m_params) { Z3_params_inc_ref(ctx(), m_params); }
-        params(params && s) noexcept : object{std::forward<object>(s)}, m_params{s.m_params} { s.m_params = nullptr; }
+        params(params && s) noexcept : object(std::forward<object>(s)), m_params(s.m_params) { s.m_params = nullptr; }
         ~params() { if(m_params != nullptr) Z3_params_dec_ref(ctx(), m_params); }
         operator Z3_params() const { return m_params; }
         params & operator=(params const & s) {
@@ -544,7 +544,7 @@ namespace z3 {
         ast(context & c):object(c), m_ast(0) {}
         ast(context & c, Z3_ast n):object(c), m_ast(n) { Z3_inc_ref(ctx(), m_ast); }
         ast(ast const & s):object(s), m_ast(s.m_ast) { Z3_inc_ref(ctx(), m_ast); }
-        ast(ast && s) noexcept : object{std::forward<object>(s)}, m_ast{s.m_ast} { s.m_ast = nullptr; }
+        ast(ast && s) noexcept : object(std::forward<object>(s)), m_ast(s.m_ast) { s.m_ast = nullptr; }
         ~ast() { if (m_ast) Z3_dec_ref(*m_ctx, m_ast); }
         operator Z3_ast() const { return m_ast; }
         operator bool() const { return m_ast != 0; }
@@ -582,7 +582,7 @@ namespace z3 {
         ast_vector_tpl(context & c):object(c) { init(Z3_mk_ast_vector(c)); }
         ast_vector_tpl(context & c, Z3_ast_vector v):object(c) { init(v); }
         ast_vector_tpl(ast_vector_tpl const & s):object(s), m_vector(s.m_vector) { Z3_ast_vector_inc_ref(ctx(), m_vector); }
-        ast_vector_tpl(ast_vector_tpl && s) noexcept : object{std::forward<object>(s)}, m_vector{s.m_vector} { s.m_vector = nullptr; }
+        ast_vector_tpl(ast_vector_tpl && s) noexcept : object(std::forward<object>(s)), m_vector(s.m_vector) { s.m_vector = nullptr; }
         ast_vector_tpl(context& c, ast_vector_tpl const& src): object(c) { init(Z3_ast_vector_translate(src.ctx(), src, c)); }
 
         ~ast_vector_tpl() { if(m_vector != nullptr) Z3_ast_vector_dec_ref(ctx(), m_vector); }
@@ -2316,7 +2316,7 @@ namespace z3 {
         model(context & c):object(c) { init(Z3_mk_model(c)); }
         model(context & c, Z3_model m):object(c) { init(m); }
         model(model const & s):object(s) { init(s.m_model); }
-        model(model && s) noexcept : object{std::forward<object>(s)}, m_model{s.m_model} { s.m_model = nullptr; }
+        model(model && s) noexcept : object(std::forward<object>(s)), m_model(s.m_model) { s.m_model = nullptr; }
         model(model& src, context& dst, translate) : object(dst) { init(Z3_model_translate(src.ctx(), src, dst)); }
         ~model() { if(m_model != nullptr) Z3_model_dec_ref(ctx(), m_model); }
         operator Z3_model() const { return m_model; }
@@ -2404,7 +2404,7 @@ namespace z3 {
         stats(context & c):object(c), m_stats(0) {}
         stats(context & c, Z3_stats e):object(c) { init(e); }
         stats(stats const & s):object(s) { init(s.m_stats); }
-        stats(stats && s) noexcept : object{std::forward<object>(s)}, m_stats{s.m_stats} { s.m_stats = nullptr; }
+        stats(stats && s) noexcept : object(std::forward<object>(s)), m_stats(s.m_stats) { s.m_stats = nullptr; }
         ~stats() { if (m_stats) Z3_stats_dec_ref(ctx(), m_stats); }
         operator Z3_stats() const { return m_stats; }
         stats & operator=(stats const & s) {
@@ -2454,7 +2454,7 @@ namespace z3 {
         solver(context & c, char const * logic):object(c) { init(Z3_mk_solver_for_logic(c, c.str_symbol(logic))); }
         solver(context & c, solver const& src, translate): object(c) { init(Z3_solver_translate(src.ctx(), src, c)); }
         solver(solver const & s):object(s) { init(s.m_solver); }
-        solver(solver && s) noexcept : object{std::forward<object>(s)}, m_solver{s.m_solver} { s.m_solver = nullptr; }
+        solver(solver && s) noexcept : object(std::forward<object>(s)), m_solver(s.m_solver) { s.m_solver = nullptr; }
         ~solver() { if(m_solver != nullptr) Z3_solver_dec_ref(ctx(), m_solver); }
         operator Z3_solver() const { return m_solver; }
         solver & operator=(solver const & s) {
@@ -2672,7 +2672,7 @@ namespace z3 {
         goal(context & c, bool models=true, bool unsat_cores=false, bool proofs=false):object(c) { init(Z3_mk_goal(c, models, unsat_cores, proofs)); }
         goal(context & c, Z3_goal s):object(c) { init(s); }
         goal(goal const & s):object(s) { init(s.m_goal); }
-        goal(goal && s) noexcept : object{std::forward<object>(s)}, m_goal{s.m_goal} { s.m_goal = nullptr; }
+        goal(goal && s) noexcept : object(std::forward<object>(s)), m_goal(s.m_goal) { s.m_goal = nullptr; }
         ~goal() { if(m_goal != nullptr) Z3_goal_dec_ref(ctx(), m_goal); }
         operator Z3_goal() const { return m_goal; }
         goal & operator=(goal const & s) {
@@ -2737,7 +2737,7 @@ namespace z3 {
     public:
         apply_result(context & c, Z3_apply_result s):object(c) { init(s); }
         apply_result(apply_result const & s):object(s) { init(s.m_apply_result); }
-        apply_result(apply_result && s) noexcept : object{std::forward<object>(s)}, m_apply_result{s.m_apply_result} { s.m_apply_result = nullptr; }
+        apply_result(apply_result && s) noexcept : object(std::forward<object>(s)), m_apply_result(s.m_apply_result) { s.m_apply_result = nullptr; }
         ~apply_result() { if(m_apply_result != nullptr) Z3_apply_result_dec_ref(ctx(), m_apply_result); }
         operator Z3_apply_result() const { return m_apply_result; }
         apply_result & operator=(apply_result const & s) {
@@ -2769,7 +2769,7 @@ namespace z3 {
         tactic(context & c, char const * name):object(c) { Z3_tactic r = Z3_mk_tactic(c, name); check_error(); init(r); }
         tactic(context & c, Z3_tactic s):object(c) { init(s); }
         tactic(tactic const & s):object(s) { init(s.m_tactic); }
-        tactic(tactic && s) noexcept : object{std::forward<object>(s)}, m_tactic{s.m_tactic} { s.m_tactic = nullptr; }
+        tactic(tactic && s) noexcept : object(std::forward<object>(s)), m_tactic(s.m_tactic) { s.m_tactic = nullptr; }
         ~tactic() { if(m_tactic != nullptr) Z3_tactic_dec_ref(ctx(), m_tactic); }
         operator Z3_tactic() const { return m_tactic; }
         tactic & operator=(tactic const & s) {
@@ -2863,7 +2863,7 @@ namespace z3 {
         probe(context & c, double val):object(c) { Z3_probe r = Z3_probe_const(c, val); check_error(); init(r); }
         probe(context & c, Z3_probe s):object(c) { init(s); }
         probe(probe const & s):object(s) { init(s.m_probe); }
-        probe(probe && s) noexcept : object{std::forward<object>(s)}, m_probe{s.m_probe} { s.m_probe = nullptr; }
+        probe(probe && s) noexcept : object(std::forward<object>(s)), m_probe(s.m_probe) { s.m_probe = nullptr; }
         ~probe() { if(m_probe != nullptr) Z3_probe_dec_ref(ctx(), m_probe); }
         operator Z3_probe() const { return m_probe; }
         probe & operator=(probe const & s) {
@@ -2950,7 +2950,7 @@ namespace z3 {
         optimize(optimize const & o):object(o), m_opt(o.m_opt) {
             Z3_optimize_inc_ref(o.ctx(), o.m_opt);
         }
-        optimize(optimize && o) noexcept : object{std::forward<object>(o)}, m_opt(o.m_opt) {
+        optimize(optimize && o) noexcept : object(std::forward<object>(o)), m_opt(o.m_opt) {
             o.m_opt = nullptr;
         }
         optimize(context& c, optimize& src):object(c) {
@@ -3054,7 +3054,7 @@ namespace z3 {
     public:
         fixedpoint(context& c):object(c) { m_fp = Z3_mk_fixedpoint(c); Z3_fixedpoint_inc_ref(c, m_fp); }
         fixedpoint(fixedpoint const & o):object(o), m_fp(o.m_fp) { Z3_fixedpoint_inc_ref(ctx(), m_fp); }
-        fixedpoint(fixedpoint && o) noexcept : object{std::forward<object>(o)}, m_fp{o.m_fp} {
+        fixedpoint(fixedpoint && o) noexcept : object(std::forward<object>(o)), m_fp(o.m_fp) {
             o.m_fp = nullptr;
         }
         fixedpoint & operator=(fixedpoint const & o) {
