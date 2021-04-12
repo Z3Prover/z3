@@ -474,7 +474,7 @@ namespace z3 {
         params & operator=(params const & s) {
             Z3_params_inc_ref(s.ctx(), s.m_params);
             Z3_params_dec_ref(ctx(), m_params);
-            object::operator=(o);
+            object::operator=(s);
             m_params = s.m_params;
             return *this;
         }
@@ -2844,7 +2844,7 @@ namespace z3 {
             Z3_optimize_inc_ref(o.ctx(), o.m_opt);
             Z3_optimize_dec_ref(ctx(), m_opt);
             m_opt = o.m_opt;
-            object::operator=(s);
+            object::operator=(o);
             return *this;
         }
         ~optimize() { Z3_optimize_dec_ref(ctx(), m_opt); }
