@@ -1350,12 +1350,25 @@ namespace dd {
                 out << c;
                 if (!m.second.empty()) out << "*";
             }
-            bool f = true;
+            unsigned v_prev = UINT_MAX;
+            unsigned pow = 0;
             for (unsigned v : m.second) {
-                if (!f) out << "*";
-                f = false;
-                out << "v" << v;
+                if (v == v_prev) {
+                    pow++;
+                    continue;
+                }
+                if (v_prev != UINT_MAX) {
+                    out << "v" << v_prev;
+                    if (pow > 1)
+                        out << "^" << pow;
+                    out << "*";
+                }
+                pow = 1;
+                v_prev = v;
             }
+            out << "v" << v_prev;
+            if (pow > 1)
+                out << "^" << pow;
         }
         if (first) out << "0";
         return out;
