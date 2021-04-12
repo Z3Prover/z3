@@ -696,8 +696,8 @@ namespace dd {
     void pdd_manager::factor(pdd const& p, unsigned v, unsigned degree, pdd& lc, pdd& rest) {
         unsigned level_v = m_var2level[v];
         if (degree == 0) {
-            lc = p;
-            rest = zero();
+            lc = zero();
+            rest = p;
             return;
         }
         if (level(p.root) < level_v) {
@@ -785,7 +785,8 @@ namespace dd {
             // no reduction
             return false;
         }
-        if (l == 0) {
+        if (m == 0) {
+            // no reduction (result would still contain v^l)
             return false;
         }
         pdd a = zero();
@@ -795,6 +796,7 @@ namespace dd {
         p.factor(v, l, a, b);
         q.factor(v, m, c, d);
         unsigned const j = std::min(max_pow2_divisor(a), max_pow2_divisor(c));
+        SASSERT(j != UINT_MAX);  // should only be possible when both l and m are 0
         rational const pow2j = rational::power_of_two(j);
         auto div_pow2j = [&pow2j](rational const& r) -> rational {
             rational result = r / pow2j;

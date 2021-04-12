@@ -408,7 +408,7 @@ public :
             }
             SASSERT( p == lc * x_pow_d + rest );
             SASSERT( d == 0 || rest.degree(v) < d );
-            SASSERT( d != 0 || rest.is_zero() );
+            SASSERT( d != 0 || lc.is_zero() );
         };
 
         auto test_multiple = [=](pdd const& p) {
@@ -447,6 +447,51 @@ public :
         SASSERT((p + b*b*b).max_pow2_divisor() == 0);
     }
 
+    static void binary_resolve() {
+        std::cout << "binary resolve\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 4);
+
+        unsigned const va = 0;
+        unsigned const vb = 1;
+        unsigned const vc = 2;
+        pdd const a = m.mk_var(va);
+        pdd const b = m.mk_var(vb);
+        pdd const c = m.mk_var(vc);
+
+        pdd r = m.zero();
+
+        pdd p = a*a*b - a*a;
+        pdd q = a*b*b - b*b;
+        SASSERT(m.resolve(va, p, q, r));
+        SASSERT(r == a*b*b*b - a*b*b);
+        SASSERT(!m.resolve(va, q, p, r));
+        SASSERT(!m.resolve(vb, p, q, r));
+        SASSERT(m.resolve(vb, q, p, r));
+        SASSERT(r == a*a*a*b - a*a*b);
+        SASSERT(!m.resolve(vc, p, q, r));
+
+        p = 2*a*a*b + 13*a*a;
+        q = 6*a*b*b*b + 14*b*b*b;
+        SASSERT(m.resolve(va, p, q, r));
+        SASSERT(r == (2*b+13)*2*b*b*b*a);
+        SASSERT(!m.resolve(va, q, p, r));
+        SASSERT(!m.resolve(vb, p, q, r));
+        SASSERT(m.resolve(vb, q, p, r));
+        SASSERT(r == 9*a*a*a*b*b + 5*a*a*b*b);
+
+        p = a*a*b - a*a + 4*a*c + 2;
+        q = 3*b*b - b*b*b + 8*b*c;
+        SASSERT(!m.resolve(va, p, q, r));
+        SASSERT(!m.resolve(va, q, p, r));
+        SASSERT(!m.resolve(vb, p, q, r));
+        SASSERT(m.resolve(vb, q, p, r));
+        SASSERT(r == 2*a*a*b*b + 8*a*a*b*c + 4*a*b*b*c + 2*b*b);
+        SASSERT(m.resolve(vc, p, q, r));
+        SASSERT(r == 2*a*a*b*b - 2*a*a*b - 3*a*b*b + a*b*b*b + 4*b);
+        SASSERT(m.resolve(vc, q, p, r));
+        SASSERT(r == -(2*a*a*b*b - 2*a*a*b - 3*a*b*b + a*b*b*b + 4*b));
+    }
+
 };
 
 }
@@ -464,4 +509,5 @@ void tst_pdd() {
     dd::test::degree_of_variables();
     dd::test::factor();
     dd::test::max_pow2_divisor();
+    dd::test::binary_resolve();
 }
