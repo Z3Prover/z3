@@ -106,8 +106,8 @@ namespace z3 {
     */
     class config {
         Z3_config    m_cfg;
-        config(config const & s);
-        config & operator=(config const & s);
+        config(config const & s) = delete;
+        config & operator=(config const & s) = delete;
     public:
         config() { m_cfg = Z3_mk_config(); }
         ~config() { Z3_del_config(m_cfg); }
@@ -170,8 +170,8 @@ namespace z3 {
         }
 
 
-        context(context const & s);
-        context & operator=(context const & s);
+        context(context const & s) = delete;
+        context & operator=(context const & s) = delete;
 
         friend class scoped_context;
         context(Z3_context c) { set_context(c); }
