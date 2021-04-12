@@ -3053,7 +3053,7 @@ namespace z3 {
         }
         fixedpoint & operator=(fixedpoint const & o) {
             Z3_fixedpoint_inc_ref(o.ctx(), o.m_fp);
-            Z3_fixedpoint_inc_ref(ctx(), m_fp);
+            Z3_fixedpoint_dec_ref(ctx(), m_fp);
             m_fp = o.m_fp;
             object::operator=(o);
             return *this;
