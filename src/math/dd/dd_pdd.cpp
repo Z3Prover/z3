@@ -696,8 +696,8 @@ namespace dd {
     void pdd_manager::factor(pdd const& p, unsigned v, unsigned degree, pdd& lc, pdd& rest) {
         unsigned level_v = m_var2level[v];
         if (degree == 0) {
-            lc = p;
-            rest = zero();
+            lc = zero();
+            rest = p;
             return;
         }
         if (level(p.root) < level_v) {
@@ -707,12 +707,13 @@ namespace dd {
         }
         // Memoize nontrivial cases
         auto* et = m_factor_cache.insert_if_not_there2({p.root, v, degree});
-        factor_entry& e = et->get_data();
-        if (e.is_valid()) {
-            lc = pdd(e.m_lc, this);
-            rest = pdd(e.m_rest, this);
+        factor_entry* e = &et->get_data();
+        if (e->is_valid()) {
+            lc = pdd(e->m_lc, this);
+            rest = pdd(e->m_rest, this);
             return;
         }
+        unsigned const gc_generation = m_gc_generation;
         if (level(p.root) > level_v) {
             pdd lc1 = zero(), rest1 = zero();
             pdd vv = mk_var(p.var());
@@ -743,10 +744,118 @@ namespace dd {
                 rest = p;
             }
         }
-        e.m_lc = lc.root;
-        e.m_rest = rest.root;
+        if (gc_generation != m_gc_generation) {
+            // Cache was reset while factoring (due to GC),
+            // which means the old entry has been removed and we need to insert it again.
+            auto* et = m_factor_cache.insert_if_not_there2({p.root, v, degree});
+            e = &et->get_data();
+        }
+        e->m_lc = lc.root;
+        e->m_rest = rest.root;
     }
 
+    template <class Fn>
+    pdd pdd_manager::map_coefficients(pdd const& p, Fn f) {
+        if (p.is_val()) {
+            return mk_val(rational(f(p.val())));
+        } else {
+            pdd x = mk_var(p.var());
+            pdd lo = map_coefficients(p.lo(), f);
+            pdd hi = map_coefficients(p.hi(), f);
+            return x*hi + lo;
+        }
+    }
+
+    /**
+     * Perform S-polynomial reduction on p by q,
+     * treating monomial with v as leading.
+     *
+     * p = a v^l + b = a' 2^j v^l + b
+     * q = c v^m + d = c' 2^j v^m + d
+     * such that
+     *      deg(v, p) = l, i.e., v does not divide a and there is no v^l in b
+     *      deg(v, q) = m, i.e., v does not divide c and there is no v^m in d
+     *      l >= m
+     *      j maximal, i.e., not both of a', c' are divisible by 2
+     *
+     * Then we reduce p by q:
+     *
+     *      r = c' p - a' v^(l-m) q
+     *        = b c' - a' d v^(l-m)
+     */
+    bool pdd_manager::resolve(unsigned v, pdd const& p, pdd const& q, pdd& r) {
+        unsigned const l = p.degree(v);
+        unsigned const m = q.degree(v);
+        if (l < m) {
+            // no reduction
+            return false;
+        }
+        if (m == 0) {
+            // no reduction (result would still contain v^l)
+            return false;
+        }
+        pdd a = zero();
+        pdd b = zero();
+        pdd c = zero();
+        pdd d = zero();
+        p.factor(v, l, a, b);
+        q.factor(v, m, c, d);
+        unsigned const j = std::min(max_pow2_divisor(a), max_pow2_divisor(c));
+        SASSERT(j != UINT_MAX);  // should only be possible when both l and m are 0
+        rational const pow2j = rational::power_of_two(j);
+        auto div_pow2j = [&pow2j](rational const& r) -> rational {
+            rational result = r / pow2j;
+            SASSERT(result.is_int());
+            return result;
+        };
+        pdd aa = map_coefficients(a, div_pow2j);
+        pdd cc = map_coefficients(c, div_pow2j);
+        pdd vv = one();
+        for (unsigned deg = l - m; deg-- > 0; ) {
+            vv *= mk_var(v);
+        }
+        r = b * cc - aa * d * vv;
+        return true;
+    }
+
+    /**
+     * Returns the largest j such that 2^j divides p.
+     */
+    unsigned pdd_manager::max_pow2_divisor(PDD p) {
+        init_mark();
+        unsigned min_j = UINT_MAX;
+        m_todo.push_back(p);
+        while (!m_todo.empty()) {
+            PDD r = m_todo.back();
+            m_todo.pop_back();
+            if (is_marked(r)) {
+                continue;
+            }
+            set_mark(r);
+            if (is_zero(r)) {
+                // skip
+            }
+            else if (is_val(r)) {
+                rational const& c = val(r);
+                if (c.is_odd()) {
+                    m_todo.reset();
+                    return 0;
+                } else {
+                    unsigned j = c.trailing_zeros();
+                    min_j = std::min(j, min_j);
+                }
+            }
+            else {
+                m_todo.push_back(lo(r));
+                m_todo.push_back(hi(r));
+            }
+        }
+        return min_j;
+    }
+
+    unsigned pdd_manager::max_pow2_divisor(pdd const& p) {
+        return max_pow2_divisor(p.root);
+    }
 
     bool pdd_manager::is_linear(pdd const& p) { 
         return is_linear(p.root); 
@@ -1142,6 +1251,7 @@ namespace dd {
     }
 
     void pdd_manager::gc() {
+        m_gc_generation++;
         init_dmark();
         m_free_nodes.reset();
         SASSERT(well_formed());
