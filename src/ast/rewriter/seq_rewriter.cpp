@@ -4395,6 +4395,8 @@ br_status seq_rewriter::reduce_re_eq(expr* l, expr* r, expr_ref& result) {
 
 br_status seq_rewriter::mk_le_core(expr * l, expr * r, expr_ref & result) {
 
+    return BR_FAILED;
+
     // k <= len(x) -> true  if k <= 0
     rational n;
     if (str().is_length(r) && m_autil.is_numeral(l, n) && n <= 0) {
