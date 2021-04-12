@@ -24,6 +24,7 @@ Notes:
 #include<iostream>
 #include<string>
 #include<sstream>
+#include<memory>
 #include<z3.h>
 #include<limits.h>
 #include<functional>
@@ -392,21 +393,20 @@ namespace z3 {
 
     template<typename T>
     class array {
-        T *      m_array;
+        std::unique_ptr<T[]> m_array;
         unsigned m_size;
-        array(array const & s);
-        array & operator=(array const & s);
+        array(array const & s) = delete;
+        array & operator=(array const & s) = delete;
     public:
-        array(unsigned sz):m_size(sz) { m_array = new T[sz]; }
+        array(unsigned sz):m_array(new T[sz]),m_size(sz) {}
         template<typename T2>
         array(ast_vector_tpl<T2> const & v);
-        ~array() { delete[] m_array; }
-        void resize(unsigned sz) { delete[] m_array; m_size = sz; m_array = new T[sz]; }
+        void resize(unsigned sz) { m_array.reset(new T[sz]); m_size = sz; }
         unsigned size() const { return m_size; }
         T & operator[](int i) { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
         T const & operator[](int i) const { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
-        T const * ptr() const { return m_array; }
-        T * ptr() { return m_array; }
+        T const * ptr() const { return & m_array[0]; }
+        T * ptr() { return & m_array[0]; }
     };
 
     class object {
@@ -1992,7 +1992,7 @@ namespace z3 {
     template<typename T>
     template<typename T2>
     array<T>::array(ast_vector_tpl<T2> const & v) {
-        m_array = new T[v.size()];
+        m_array.reset(new T[v.size()]);
         m_size  = v.size();
         for (unsigned i = 0; i < m_size; i++) {
             m_array[i] = v[i];
