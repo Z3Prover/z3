@@ -1933,7 +1933,9 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
                 sv->add_string(c);
             }
             else {
-                sv->add_string(mk_value(to_app(c)));
+                app_ref val(mk_value(to_app(c)), m);
+                TRACE("seq", tout << "WARNING: " << val << " is prone to result in incorrect model\n";);
+                sv->add_string(val);
             }
         }
         m_concat.shrink(start);        
@@ -2777,6 +2779,7 @@ bool theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, exp
     literal_vector lits(_lits);
     enode_pair_vector eqs;
     linearize(deps, eqs, lits);
+
     if (add_to_eqs) {
         deps = mk_join(deps, _lits);
         new_eq_eh(deps, n1, n2);
@@ -3219,6 +3222,7 @@ void theory_seq::get_ite_concat(ptr_vector<expr>& concats, ptr_vector<expr>& tod
         todo.pop_back();
         e = m_rep.find(e);
         e = get_ite_value(e);
+        e = m_rep.find(e);
         if (m_util.str.is_concat(e, e1, e2)) {
             todo.push_back(e2, e1);
         }        

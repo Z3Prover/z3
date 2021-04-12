@@ -330,6 +330,7 @@ public:
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
+    br_status mk_le_core(expr* lhs, expr* rhs, expr_ref& result);
     br_status mk_bool_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
 
     expr_ref mk_app(func_decl* f, expr_ref_vector const& args) { return mk_app(f, args.size(), args.c_ptr()); }
