@@ -515,8 +515,8 @@ namespace z3 {
         params & operator=(params const & s) {
             Z3_params_inc_ref(s.ctx(), s.m_params);
             Z3_params_dec_ref(ctx(), m_params);
-            m_params = s.m_params;
             object::operator=(s);
+            m_params = s.m_params;
             return *this;
         }
         params & operator=(params && s) noexcept {
@@ -548,9 +548,16 @@ namespace z3 {
         ~ast() { if (m_ast) Z3_dec_ref(*m_ctx, m_ast); }
         operator Z3_ast() const { return m_ast; }
         operator bool() const { return m_ast != 0; }
-        ast & operator=(ast const & s) { Z3_inc_ref(s.ctx(), s.m_ast); if (m_ast) Z3_dec_ref(ctx(), m_ast); m_ast = s.m_ast; object::operator=(s); return *this; }
         ast & operator=(ast && s) noexcept { object::operator=(std::forward<object>(s)); m_ast = s.m_ast; s.m_ast = nullptr; return *this; }
 
+        ast & operator=(ast const & s) {
+            Z3_inc_ref(s.ctx(), s.m_ast);
+            if (m_ast)
+                Z3_dec_ref(ctx(), m_ast);
+            object::operator=(s);
+            m_ast = s.m_ast;
+            return *this;
+        }
         Z3_ast_kind kind() const { Z3_ast_kind r = Z3_get_ast_kind(ctx(), m_ast); check_error(); return r; }
         unsigned hash() const { unsigned r = Z3_get_ast_hash(ctx(), m_ast); check_error(); return r; }
         friend std::ostream & operator<<(std::ostream & out, ast const & n);
@@ -591,8 +598,8 @@ namespace z3 {
         ast_vector_tpl & operator=(ast_vector_tpl const & s) {
             Z3_ast_vector_inc_ref(s.ctx(), s.m_vector);
             Z3_ast_vector_dec_ref(ctx(), m_vector);
-            m_vector = s.m_vector;
             object::operator=(s);
+            m_vector = s.m_vector;
             return *this;
         }
         ast_vector_tpl & operator=(ast_vector_tpl && s) noexcept {
@@ -2246,8 +2253,8 @@ namespace z3 {
         func_entry & operator=(func_entry const & s) noexcept {
             Z3_func_entry_inc_ref(s.ctx(), s.m_entry);
             Z3_func_entry_dec_ref(ctx(), m_entry);
-            m_entry = s.m_entry;
             object::operator=(s);
+            m_entry = s.m_entry;
             return *this;
         }
         func_entry & operator=(func_entry && s) noexcept {
@@ -2276,8 +2283,8 @@ namespace z3 {
         func_interp & operator=(func_interp const & s) {
             Z3_func_interp_inc_ref(s.ctx(), s.m_interp);
             Z3_func_interp_dec_ref(ctx(), m_interp);
-            m_interp = s.m_interp;
             object::operator=(s);
+            m_interp = s.m_interp;
             return *this;
         }
         func_interp & operator=(func_interp && s) noexcept {
@@ -2317,8 +2324,8 @@ namespace z3 {
         model & operator=(model const & s) {
             Z3_model_inc_ref(s.ctx(), s.m_model);
             Z3_model_dec_ref(ctx(), m_model);
-            m_model = s.m_model;
             object::operator=(s);
+            m_model = s.m_model;
             return *this;
         }
         model & operator=(model && s) noexcept {
@@ -2404,8 +2411,8 @@ namespace z3 {
         stats & operator=(stats const & s) {
             Z3_stats_inc_ref(s.ctx(), s.m_stats);
             if (m_stats) Z3_stats_dec_ref(ctx(), m_stats);
-            m_stats = s.m_stats;
             object::operator=(s);
+            m_stats = s.m_stats;
             return *this;
         }
         stats & operator=(stats && s) noexcept {
@@ -2454,8 +2461,8 @@ namespace z3 {
         solver & operator=(solver const & s) {
             Z3_solver_inc_ref(s.ctx(), s.m_solver);
             Z3_solver_dec_ref(ctx(), m_solver);
-            m_solver = s.m_solver;
             object::operator=(s);
+            m_solver = s.m_solver;
             return *this;
         }
         solver & operator=(solver && s) noexcept {
@@ -2672,8 +2679,8 @@ namespace z3 {
         goal & operator=(goal const & s) {
             Z3_goal_inc_ref(s.ctx(), s.m_goal);
             Z3_goal_dec_ref(ctx(), m_goal);
-            m_goal = s.m_goal;
             object::operator=(s);
+            m_goal = s.m_goal;
             return *this;
         }
         goal & operator=(goal && s) noexcept {
@@ -2737,8 +2744,8 @@ namespace z3 {
         apply_result & operator=(apply_result const & s) {
             Z3_apply_result_inc_ref(s.ctx(), s.m_apply_result);
             Z3_apply_result_dec_ref(ctx(), m_apply_result);
-            m_apply_result = s.m_apply_result;
             object::operator=(s);
+            m_apply_result = s.m_apply_result;
             return *this;
         }
         apply_result & operator=(apply_result && s) noexcept {
@@ -2769,8 +2776,8 @@ namespace z3 {
         tactic & operator=(tactic const & s) {
             Z3_tactic_inc_ref(s.ctx(), s.m_tactic);
             Z3_tactic_dec_ref(ctx(), m_tactic);
-            m_tactic = s.m_tactic;
             object::operator=(s);
+            m_tactic = s.m_tactic;
             return *this;
         }
         tactic & operator=(tactic && s) noexcept {
@@ -2863,8 +2870,8 @@ namespace z3 {
         probe & operator=(probe const & s) {
             Z3_probe_inc_ref(s.ctx(), s.m_probe);
             Z3_probe_dec_ref(ctx(), m_probe);
-            m_probe = s.m_probe;
             object::operator=(s);
+            m_probe = s.m_probe;
             return *this;
         }
         probe & operator=(probe && s) noexcept {
