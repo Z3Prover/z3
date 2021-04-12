@@ -83,7 +83,7 @@ namespace z3 {
     /**
        \brief Exception used to sign API usage errors.
     */
-    class exception : public std::exception {
+    class exception final : public std::exception {
         std::string m_msg;
     public:
         exception(char const * msg):m_msg(msg) {}
@@ -444,7 +444,7 @@ namespace z3 {
     protected:
         context * m_ctx;
     public:
-        object(context & c) : m_ctx{&c} {}
+        object(context & c):m_ctx(&c) {}
         context & ctx() const { return *m_ctx; }
         Z3_error_code check_error() const { return m_ctx->check_error(); }
         friend void check_context(object const & a, object const & b);
@@ -454,7 +454,7 @@ namespace z3 {
     class symbol : public object {
         Z3_symbol m_sym;
     public:
-        symbol(context & c, Z3_symbol s):object{c}, m_sym(s) {}
+        symbol(context & c, Z3_symbol s):object(c), m_sym(s) {}
         operator Z3_symbol() const { return m_sym; }
         Z3_symbol_kind kind() const { return Z3_get_symbol_kind(ctx(), m_sym); }
         std::string str() const { assert(kind() == Z3_STRING_SYMBOL); return Z3_get_symbol_string(ctx(), m_sym); }
