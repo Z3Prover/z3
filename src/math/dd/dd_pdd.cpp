@@ -51,6 +51,7 @@ namespace dd {
     void pdd_manager::reset(unsigned_vector const& level2var) {
         reset_op_cache();
         m_factor_cache.reset();
+        m_factor_cache_generation++;
         m_node_table.reset();
         m_nodes.reset();
         m_free_nodes.reset();
@@ -707,12 +708,13 @@ namespace dd {
         }
         // Memoize nontrivial cases
         auto* et = m_factor_cache.insert_if_not_there2({p.root, v, degree});
-        factor_entry& e = et->get_data();
-        if (e.is_valid()) {
-            lc = pdd(e.m_lc, this);
-            rest = pdd(e.m_rest, this);
+        factor_entry* e = &et->get_data();
+        if (e->is_valid()) {
+            lc = pdd(e->m_lc, this);
+            rest = pdd(e->m_rest, this);
             return;
         }
+        unsigned const cache_generation = m_factor_cache_generation;
         if (level(p.root) > level_v) {
             pdd lc1 = zero(), rest1 = zero();
             pdd vv = mk_var(p.var());
@@ -743,8 +745,14 @@ namespace dd {
                 rest = p;
             }
         }
-        e.m_lc = lc.root;
-        e.m_rest = rest.root;
+        if (cache_generation != m_factor_cache_generation) {
+            // Cache was reset while factoring (due to GC),
+            // which means the old entry has been removed and we need to insert it again.
+            auto* et = m_factor_cache.insert_if_not_there2({p.root, v, degree});
+            e = &et->get_data();
+        }
+        e->m_lc = lc.root;
+        e->m_rest = rest.root;
     }
 
     template <class Fn>
@@ -1288,6 +1296,7 @@ namespace dd {
         }
 
         m_factor_cache.reset();
+        m_factor_cache_generation++;
 
         m_node_table.reset();
         // re-populate node cache

@@ -200,6 +200,7 @@ namespace dd {
         rational                   m_freeze_value;
         rational                   m_mod2N;
         unsigned                   m_power_of_2 { 0 };
+        unsigned                   m_factor_cache_generation { 0 };  ///< will be incremented whenever m_factor_cache is reset
 
         void reset_op_cache();
         void init_nodes(unsigned_vector const& l2v);
