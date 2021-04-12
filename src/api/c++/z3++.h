@@ -274,7 +274,7 @@ namespace z3 {
         /**
            \brief Return a floating point sort.
            \c ebits is a number of exponent bits,
-           \c sbits	is a number of significand bits,
+           \c sbits is a number of significand bits,
            \pre where ebits must be larger than 1 and sbits must be larger than 2.
          */
         sort fpa_sort(unsigned ebits, unsigned sbits);
@@ -2934,7 +2934,7 @@ namespace z3 {
         Z3_fixedpoint m_fp;
     public:
         fixedpoint(context& c):object(c) { m_fp = Z3_mk_fixedpoint(c); Z3_fixedpoint_inc_ref(c, m_fp); }
-		fixedpoint(fixedpoint const & o):object(o), m_fp(o.m_fp) { Z3_fixedpoint_inc_ref(ctx(), m_fp); }
+        fixedpoint(fixedpoint const & o):object(o), m_fp(o.m_fp) { Z3_fixedpoint_inc_ref(ctx(), m_fp); }
         ~fixedpoint() { Z3_fixedpoint_dec_ref(ctx(), m_fp); }
         fixedpoint & operator=(fixedpoint const & o) {
             Z3_fixedpoint_inc_ref(o.ctx(), o.m_fp);
