@@ -176,11 +176,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 // theory dispatch for =
                 SASSERT(num == 2);
                 family_id s_fid = args[0]->get_sort()->get_family_id();
-                if (s_fid == m_a_rw.get_fid()) {
+                if (s_fid == m_a_rw.get_fid()) 
                     st = m_a_rw.mk_eq_core(args[0], args[1], result);
-                    if (st == BR_FAILED && is_app(args[0]) && to_app(args[0])->get_family_id() == m_seq_rw.get_fid())
-                        st = m_seq_rw.mk_eq_core(args[0], args[1], result);
-                }
                 else if (s_fid == m_bv_rw.get_fid())
                     st = m_bv_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_dt_rw.get_fid())
@@ -208,12 +205,29 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 if (st != BR_FAILED)
                     return st;
             }
-            if ((k == OP_AND || k == OP_OR /*|| k == OP_EQ*/) && m_seq_rw.u().has_re()) {
+            if ((k == OP_AND || k == OP_OR) && m_seq_rw.u().has_re()) {
                 st = m_seq_rw.mk_bool_app(f, num, args, result); 
                 if (st != BR_FAILED)
                     return st;
             }
+            if (k == OP_EQ && m_seq_rw.u().has_seq() && is_app(args[0]) && 
+                to_app(args[0])->get_family_id() == m_seq_rw.get_fid()) {
+                st = m_seq_rw.mk_eq_core(args[0], args[1], result);
+                if (st != BR_FAILED)
+                    return st;
+            }
+
             return m_b_rw.mk_app_core(f, num, args, result);
+        }
+        if (fid == m_a_rw.get_fid() && OP_LE == f->get_decl_kind() && m_seq_rw.u().has_seq()) {
+            st = m_seq_rw.mk_le_core(args[0], args[1], result);
+            if (st != BR_FAILED)
+                return st;
+        }
+        if (fid == m_a_rw.get_fid() && OP_GE == f->get_decl_kind() && m_seq_rw.u().has_seq()) {
+            st = m_seq_rw.mk_le_core(args[1], args[0], result);
+            if (st != BR_FAILED)
+                return st;
         }
         if (fid == m_a_rw.get_fid())
             return m_a_rw.mk_app_core(f, num, args, result);

@@ -1157,6 +1157,17 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         return BR_REWRITE3;
     }
 
+    // (extract (extract a p l) 0 (len a)) -> (extract a p l)
+    if (str().is_extract(a, a1, b1, c1) && constantPos && pos == 0 && str().is_length(c, b1) && a1 == b1) {
+        result = a;
+        return BR_DONE;
+    }
+
+    // (extract (extract a p l) 0 l) -> (extract a p l)
+    if (str().is_extract(a, a1, b1, c1) && constantPos && pos == 0 && c == c1) {
+        result = a;
+        return BR_DONE;
+    }
 
     // extract(extract(a, 3, 6), 1, len(extract(a, 3, 6)) - 1) -> extract(a, 4, 5)
     if (str().is_extract(a, a1, b1, c1) && is_suffix(a, b, c) && 
@@ -4379,6 +4390,31 @@ br_status seq_rewriter::reduce_re_eq(expr* l, expr* r, expr_ref& result) {
     if (re().is_empty(r)) {
         return reduce_re_is_empty(l, result);
     }
+    return BR_FAILED;
+}
+
+br_status seq_rewriter::mk_le_core(expr * l, expr * r, expr_ref & result) {
+
+    return BR_FAILED;
+
+    // k <= len(x) -> true  if k <= 0
+    rational n;
+    if (str().is_length(r) && m_autil.is_numeral(l, n) && n <= 0) {
+        result = m().mk_true();
+        return BR_DONE;
+    } 
+    // len(x) <= 0 -> x = ""
+    // len(x) <= k -> false if k < 0
+    expr* e = nullptr;
+    if (str().is_length(l, e) && m_autil.is_numeral(r, n)) {
+        if (n == 0)
+            result = str().mk_is_empty(e);
+        else if (n < 0)
+            result = m().mk_false();
+        else
+            return BR_FAILED;
+        return BR_REWRITE1;
+    } 
     return BR_FAILED;
 }
 

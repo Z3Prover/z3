@@ -25,6 +25,7 @@ Notes:
 #include<iostream>
 #include<string>
 #include<sstream>
+#include<memory>
 #include<z3.h>
 #include<limits.h>
 #include<functional>
@@ -419,7 +420,7 @@ namespace z3 {
         array(array const &) = delete;
         array & operator=(array const &) = delete;
     public:
-        array(unsigned sz) : m_array{new T[sz]} , m_size(sz) {}
+        array(unsigned sz) : m_array(new T[sz]), m_size(sz) {}
         array(array && s) noexcept : m_array{s.m_array}, m_size{s.m_size} {
             s.m_array.release();
         }
@@ -435,8 +436,8 @@ namespace z3 {
         unsigned size() const { return m_size; }
         T & operator[](int i) { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
         T const & operator[](int i) const { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
-        T const * ptr() const { return & m_array[0]; }
-        T * ptr() { return & m_array[0]; }
+        T const * ptr() const { return m_array.get(); }
+        T * ptr() { return m_array.get(); }
     };
 
     class object {
@@ -2033,7 +2034,7 @@ namespace z3 {
 
     template<typename T>
     template<typename T2>
-    array<T>::array(ast_vector_tpl<T2> const & v) : m_array{new T[v.size()]}, m_size{v.size()} {
+    array<T>::array(ast_vector_tpl<T2> const & v) : m_array(new T[v.size()]), m_size{v.size()} {
         for (unsigned i = 0; i < m_size; i++) {
             m_array[i] = v[i];
         }
@@ -2940,7 +2941,7 @@ namespace z3 {
             unsigned h() const { return m_h; }
         };
         optimize(context& c):object(c) { m_opt = Z3_mk_optimize(c); Z3_optimize_inc_ref(c, m_opt); }
-        optimize(optimize const& o) : object{o}, m_opt{o.m_opt}  {
+        optimize(optimize const & o):object(o), m_opt(o.m_opt) {
             Z3_optimize_inc_ref(o.ctx(), o.m_opt);
         }
         optimize(optimize && o) noexcept : object{std::forward<object>(o)}, m_opt(o.m_opt) {
@@ -3046,9 +3047,7 @@ namespace z3 {
         Z3_fixedpoint m_fp;
     public:
         fixedpoint(context& c):object(c) { m_fp = Z3_mk_fixedpoint(c); Z3_fixedpoint_inc_ref(c, m_fp); }
-        fixedpoint(fixedpoint const & o) : object{o}, m_fp{o.m_fp} {
-            Z3_fixedpoint_inc_ref(ctx(), m_fp);
-        }
+        fixedpoint(fixedpoint const & o):object(o), m_fp(o.m_fp) { Z3_fixedpoint_inc_ref(ctx(), m_fp); }
         fixedpoint(fixedpoint && o) noexcept : object{std::forward<object>(o)}, m_fp{o.m_fp} {
             o.m_fp = nullptr;
         }
@@ -3829,7 +3828,7 @@ namespace z3 {
            for the propagator to implement branch and bound optimization. 
         */
 
-        void register_final(final_eh_t& f) {
+        void register_final(final_eh_t& f) { 
             assert(s);
             m_final_eh = f; 
             Z3_solver_propagate_final(ctx(), *s, final_eh); 
