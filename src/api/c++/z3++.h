@@ -24,6 +24,7 @@ Notes:
 #include<iostream>
 #include<string>
 #include<sstream>
+#include<memory>
 #include<z3.h>
 #include<limits.h>
 #include<functional>
@@ -104,8 +105,8 @@ namespace z3 {
     */
     class config {
         Z3_config    m_cfg;
-        config(config const & s);
-        config & operator=(config const & s);
+        config(config const & s) = delete;
+        config & operator=(config const & s) = delete;
     public:
         config() { m_cfg = Z3_mk_config(); }
         ~config() { Z3_del_config(m_cfg); }
@@ -168,8 +169,8 @@ namespace z3 {
         }
 
 
-        context(context const & s);
-        context & operator=(context const & s);
+        context(context const & s) = delete;
+        context & operator=(context const & s) = delete;
 
         friend class scoped_context;
         context(Z3_context c) { set_context(c); }
@@ -273,7 +274,7 @@ namespace z3 {
         /**
            \brief Return a floating point sort.
            \c ebits is a number of exponent bits,
-           \c sbits	is a number of significand bits,
+           \c sbits is a number of significand bits,
            \pre where ebits must be larger than 1 and sbits must be larger than 2.
          */
         sort fpa_sort(unsigned ebits, unsigned sbits);
@@ -391,21 +392,20 @@ namespace z3 {
 
     template<typename T>
     class array {
-        T *      m_array;
+        std::unique_ptr<T[]> m_array;
         unsigned m_size;
-        array(array const & s);
-        array & operator=(array const & s);
+        array(array const & s) = delete;
+        array & operator=(array const & s) = delete;
     public:
-        array(unsigned sz):m_size(sz) { m_array = new T[sz]; }
+        array(unsigned sz):m_array(new T[sz]),m_size(sz) {}
         template<typename T2>
         array(ast_vector_tpl<T2> const & v);
-        ~array() { delete[] m_array; }
-        void resize(unsigned sz) { delete[] m_array; m_size = sz; m_array = new T[sz]; }
+        void resize(unsigned sz) { m_array.reset(new T[sz]); m_size = sz; }
         unsigned size() const { return m_size; }
         T & operator[](int i) { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
         T const & operator[](int i) const { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
-        T const * ptr() const { return m_array; }
-        T * ptr() { return m_array; }
+        T const * ptr() const { return m_array.get(); }
+        T * ptr() { return m_array.get(); }
     };
 
     class object {
@@ -1978,8 +1978,7 @@ namespace z3 {
 
     template<typename T>
     template<typename T2>
-    array<T>::array(ast_vector_tpl<T2> const & v) {
-        m_array = new T[v.size()];
+    array<T>::array(ast_vector_tpl<T2> const & v):m_array(new T[v.size()]) {
         m_size  = v.size();
         for (unsigned i = 0; i < m_size; i++) {
             m_array[i] = v[i];
@@ -2824,9 +2823,8 @@ namespace z3 {
             unsigned h() const { return m_h; }
         };
         optimize(context& c):object(c) { m_opt = Z3_mk_optimize(c); Z3_optimize_inc_ref(c, m_opt); }
-        optimize(optimize& o):object(o)  {
+        optimize(optimize const & o):object(o), m_opt(o.m_opt) {
             Z3_optimize_inc_ref(o.ctx(), o.m_opt);
-            m_opt = o.m_opt;
         }
         optimize(context& c, optimize& src):object(c) {
             m_opt = Z3_mk_optimize(c); 
@@ -2922,7 +2920,15 @@ namespace z3 {
         Z3_fixedpoint m_fp;
     public:
         fixedpoint(context& c):object(c) { m_fp = Z3_mk_fixedpoint(c); Z3_fixedpoint_inc_ref(c, m_fp); }
+        fixedpoint(fixedpoint const & o):object(o), m_fp(o.m_fp) { Z3_fixedpoint_inc_ref(ctx(), m_fp); }
         ~fixedpoint() { Z3_fixedpoint_dec_ref(ctx(), m_fp); }
+        fixedpoint & operator=(fixedpoint const & o) {
+            Z3_fixedpoint_inc_ref(o.ctx(), o.m_fp);
+            Z3_fixedpoint_dec_ref(ctx(), m_fp);
+            m_fp = o.m_fp;
+            object::operator=(o);
+            return *this;
+        }
         operator Z3_fixedpoint() const { return m_fp; }
         void from_string(char const* s) { Z3_fixedpoint_from_string(ctx(), m_fp, s); check_error(); }
         void from_file(char const* s) { Z3_fixedpoint_from_file(ctx(), m_fp, s); check_error(); }
@@ -3686,7 +3692,7 @@ namespace z3 {
            for the propagator to implement branch and bound optimization. 
         */
 
-        void final(final_eh_t& f) { 
+        void register_final(final_eh_t& f) { 
             assert(s);
             m_final_eh = f; 
             Z3_solver_propagate_final(ctx(), *s, final_eh); 
