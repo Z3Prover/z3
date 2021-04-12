@@ -3705,7 +3705,7 @@ namespace z3 {
            for the propagator to implement branch and bound optimization. 
         */
 
-        void final(final_eh_t& f) { 
+        void register_final(final_eh_t& f) { 
             assert(s);
             m_final_eh = f; 
             Z3_solver_propagate_final(ctx(), *s, final_eh); 
