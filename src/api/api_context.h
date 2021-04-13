@@ -97,9 +97,7 @@ namespace api {
         u_map<api::object*>        m_allocated_objects; // !< table containing current set of allocated API objects
         unsigned_vector            m_free_object_ids;   // !< free list of identifiers available for allocated objects.
 
-        family_id                  m_basic_fid;
         family_id                  m_array_fid;
-        family_id                  m_arith_fid;
         family_id                  m_bv_fid;
         family_id                  m_dt_fid;
         family_id                  m_datalog_fid;
@@ -152,9 +150,9 @@ namespace api {
         datatype_util& dtutil() { return m_dt_plugin->u(); }
         seq_util& sutil() { return m_sutil; }
         recfun::util& recfun() { return m_recfun; }
-        family_id get_basic_fid() const { return m_basic_fid; }
+        family_id get_basic_fid() const { return basic_family_id; }
         family_id get_array_fid() const { return m_array_fid; }
-        family_id get_arith_fid() const { return m_arith_fid; }
+        family_id get_arith_fid() const { return arith_family_id; }
         family_id get_bv_fid() const { return m_bv_fid; }
         family_id get_dt_fid() const { return m_dt_fid; }
         family_id get_datalog_fid() const { return m_datalog_fid; }

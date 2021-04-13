@@ -91,8 +91,6 @@ namespace api {
         m_interruptable = nullptr;
         m_error_handler = &default_error_handler;
 
-        m_basic_fid = m().get_basic_family_id();
-        m_arith_fid = m().mk_family_id("arith");
         m_bv_fid    = m().mk_family_id("bv");
         m_pb_fid    = m().mk_family_id("pb");
         m_array_fid = m().mk_family_id("array");
@@ -174,7 +172,7 @@ namespace api {
     expr * context::mk_numeral_core(rational const & n, sort * s) {
         expr* e = nullptr;
         family_id fid  = s->get_family_id();
-        if (fid == m_arith_fid) {
+        if (fid == arith_family_id) {
             e = m_arith_util.mk_numeral(n, s);
         }
         else if (fid == m_bv_fid) {
