@@ -128,7 +128,7 @@ namespace polysat {
         dep_value_manager        m_value_manager;
         small_object_allocator   m_alloc;
         poly_dep_manager         m_dm;
-        constraints              m_conflict_cs;
+        constraints              m_conflict;
         constraints              m_stash_just;
         var_queue                m_free_vars;
 
@@ -154,9 +154,6 @@ namespace polysat {
 
         unsigned_vector          m_base_levels;  // External clients can push/pop scope. 
 
-
-        // conflict state
-        ptr_vector<constraint> m_conflict;
 
         unsigned size(pvar v) const { return m_size[v]; }
         /**
@@ -221,14 +218,11 @@ namespace polysat {
 
         unsigned                 m_conflict_level { 0 };
 
-        constraint* resolve(pvar v, constraint* c);
+        constraint* resolve(pvar v);
 
         bool can_decide() const { return !m_free_vars.empty(); }
         void decide();
         void decide(pvar v);
-
-        void stash_deps(pvar v);
-        void unstash_deps(pvar v);
 
         p_dependency* mk_dep(unsigned dep) { return dep == null_dependency ? nullptr : m_dm.mk_leaf(dep); }
 
@@ -237,13 +231,15 @@ namespace polysat {
         unsigned base_level() const;
 
         void resolve_conflict();            
-        void backtrack(unsigned i);
+        void backtrack(unsigned i, scoped_ptr<constraint>& lemma);
         void report_unsat();
-        void revert_decision(unsigned i);
+        void revert_decision(pvar v);
         void learn_lemma(pvar v, constraint* c);
         void backjump(unsigned new_level);
         void undo_var(pvar v);
         void add_lemma(constraint* c);
+        bool is_always_false(constraint& c);
+        bool eval_to_false(constraint& c);
 
 
 
