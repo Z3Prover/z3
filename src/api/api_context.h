@@ -91,8 +91,7 @@ namespace api {
         smt_params                 m_fparams;
         // -------------------------------
 
-        ast_ref_vector             m_last_result; //!< used when m_user_ref_count == true
-        ast_ref_vector             m_ast_trail;   //!< used when m_user_ref_count == false
+        ast_ref_vector             m_ast_trail;
 
         ref<api::object>           m_last_obj; //!< reference to the last API object returned by the APIs
         u_map<api::object*>        m_allocated_objects; // !< table containing current set of allocated API objects

@@ -81,7 +81,6 @@ namespace api {
         m_fpa_util(m()),
         m_sutil(m()),
         m_recfun(m()),
-        m_last_result(m()),
         m_ast_trail(m()),
         m_pmanager(m_limit) {
 
@@ -226,12 +225,12 @@ namespace api {
     void context::save_ast_trail(ast * n) {
         SASSERT(m().contains(n));
         if (m_user_ref_count) {
-            // Corner case bug: n may be in m_last_result, and this is the only reference to n.
+            // Corner case bug: n may be in m_ast_trail, and this is the only reference to n.
             // When, we execute reset() it is deleted
-            // To avoid this bug, I bump the reference counter before resetting m_last_result
+            // To avoid this bug, I bump the reference counter before resetting m_ast_trail
             ast_ref node(n, m());
-            m_last_result.reset();
-            m_last_result.push_back(std::move(node));
+            m_ast_trail.reset();
+            m_ast_trail.push_back(std::move(node));
         }
         else {
             m_ast_trail.push_back(n);
@@ -239,15 +238,12 @@ namespace api {
     }
 
     void context::save_multiple_ast_trail(ast * n) {
-        if (m_user_ref_count)
-            m_last_result.push_back(n);
-        else
-            m_ast_trail.push_back(n);
+        m_ast_trail.push_back(n);
     }
 
     void context::reset_last_result() {
         if (m_user_ref_count)
-            m_last_result.reset();
+            m_ast_trail.reset();
         m_last_obj = nullptr;
     }
 
