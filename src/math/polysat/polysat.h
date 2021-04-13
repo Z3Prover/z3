@@ -57,12 +57,12 @@ namespace polysat {
     enum ckind_t { eq_t, ule_t, sle_t };
 
     class constraint {
-        unsigned m_level;
-        ckind_t m_kind;
-        pdd    m_poly;
-        pdd    m_other;
+        unsigned         m_level;
+        ckind_t          m_kind;
+        pdd              m_poly;
+        pdd              m_other;
         p_dependency_ref m_dep;
-        unsigned_vector m_vars;
+        unsigned_vector  m_vars;
         constraint(unsigned lvl, pdd const& p, pdd const& q, p_dependency_ref& dep, ckind_t k): 
             m_level(lvl), m_kind(k), m_poly(p), m_other(q), m_dep(dep) {
             m_vars.append(p.free_vars());
@@ -77,6 +77,9 @@ namespace polysat {
         static constraint* ule(unsigned lvl, pdd const& p, pdd const& q, p_dependency_ref& d) { 
             return alloc(constraint, lvl, p, q, d, ckind_t::ule_t); 
         }
+        bool is_eq() const { return m_kind == ckind_t::eq_t; }
+        bool is_ule() const { return m_kind == ckind_t::ule_t; }
+        bool is_sle() const { return m_kind == ckind_t::sle_t; }
         ckind_t kind() const { return m_kind; }
         pdd const &  p() const { return m_poly; }
         pdd const &  lhs() const { return m_poly; }
@@ -125,9 +128,7 @@ namespace polysat {
         dep_value_manager        m_value_manager;
         small_object_allocator   m_alloc;
         poly_dep_manager         m_dm;
-        p_dependency_ref         m_conflict_dep;
-        ptr_vector<constraint>   m_conflict_cs;
-        p_dependency_ref         m_stash_dep;
+        constraints              m_conflict_cs;
         constraints              m_stash_just;
         var_queue                m_free_vars;
 
@@ -137,7 +138,6 @@ namespace polysat {
 
         // Per variable information
         vector<bdd>              m_viable;   // set of viable values.
-        p_dependency_refv        m_vdeps;    // dependencies for viable values
         vector<rational>         m_value;    // assigned value
         vector<justification>    m_justification; // justification for variable assignment
         vector<constraints>      m_cjust;    // constraints justifying variable range.
@@ -221,8 +221,7 @@ namespace polysat {
 
         unsigned                 m_conflict_level { 0 };
 
-        pdd isolate(pvar v, vector<pdd> const& ps);
-        pdd resolve(pvar v, vector<pdd> const& ps);
+        constraint* resolve(pvar v, constraint* c);
 
         bool can_decide() const { return !m_free_vars.empty(); }
         void decide();
@@ -237,12 +236,11 @@ namespace polysat {
         bool at_base_level() const;
         unsigned base_level() const;
 
-        vector<pdd>  init_conflict();
         void resolve_conflict();            
         void backtrack(unsigned i);
         void report_unsat();
         void revert_decision(unsigned i);
-        void learn_lemma(pvar v, pdd const& p);
+        void learn_lemma(pvar v, constraint* c);
         void backjump(unsigned new_level);
         void undo_var(pvar v);
         void add_lemma(constraint* c);
@@ -295,7 +293,6 @@ namespace polysat {
         void add_sle(pdd const& p, pdd const& q, unsigned dep = null_dependency);
         void add_slt(pdd const& p, pdd const& q, unsigned dep = null_dependency);
         
-        void assign(pvar v, unsigned index, bool value, unsigned dep);        
 
         /**
          * main state transitions.
