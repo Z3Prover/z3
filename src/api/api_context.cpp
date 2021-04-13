@@ -86,7 +86,6 @@ namespace api {
 
         m_error_code = Z3_OK;
         m_print_mode = Z3_PRINT_SMTLIB_FULL;
-        m_searching  = false;
         
 
         m_interruptable = nullptr;
@@ -154,12 +153,6 @@ namespace api {
             m_exception_msg = std::move(opt_msg);
             invoke_error_handler(err);
         }
-    }
-
-    void context::check_searching() {
-        if (m_searching) { 
-            set_error_code(Z3_INVALID_USAGE, "cannot use function while searching"); // TBD: error code could be fixed.
-        } 
     }
 
     char * context::mk_external_string(char const * str) {

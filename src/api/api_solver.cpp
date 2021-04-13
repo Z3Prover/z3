@@ -736,7 +736,6 @@ extern "C" {
         LOG_Z3_get_implied_equalities(c, s, num_terms, terms, class_ids);
         ast_manager& m = mk_c(c)->m();
         RESET_ERROR_CODE();
-        CHECK_SEARCHING(c);
         init_solver(c, s);
         lbool result = smt::implied_equalities(m, *to_solver_ref(s), num_terms, to_exprs(num_terms, terms), class_ids);
         return static_cast<Z3_lbool>(result); 
@@ -752,7 +751,6 @@ extern "C" {
         LOG_Z3_solver_get_consequences(c, s, assumptions, variables, consequences);
         ast_manager& m = mk_c(c)->m();
         RESET_ERROR_CODE();
-        CHECK_SEARCHING(c);
         init_solver(c, s);
         expr_ref_vector _assumptions(m), _consequences(m), _variables(m);
         ast_ref_vector const& __assumptions = to_ast_vector_ref(assumptions);
