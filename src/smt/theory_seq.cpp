@@ -495,7 +495,7 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
             elems.push_back(head);
             seq = tail;
         }
-        seq = mk_concat(elems.size(), elems.c_ptr());
+        seq = mk_concat(elems.size(), elems.data());
     }
     TRACE("seq", tout << "Fixed: " << mk_bounded_pp(e, m, 2) << " " << lo << "\n";);
     literal a = mk_eq(len_e, m_autil.mk_numeral(lo, true), false);
@@ -753,7 +753,7 @@ bool theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits
     justification* js =
         ctx.mk_justification(
             ext_theory_propagation_justification(
-                get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), lit));
+                get_id(), ctx.get_region(), lits.size(), lits.data(), eqs.size(), eqs.data(), lit));
 
     m_new_propagation = true;
     ctx.assign(lit, js);
@@ -774,7 +774,7 @@ void theory_seq::set_conflict(enode_pair_vector const& eqs, literal_vector const
     ctx.set_conflict(
         ctx.mk_justification(
             ext_theory_conflict_justification(
-                get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), 0, nullptr)));
+                get_id(), ctx.get_region(), lits.size(), lits.data(), eqs.size(), eqs.data(), 0, nullptr)));
     validate_conflict(eqs, lits);
 }
 
@@ -799,7 +799,7 @@ bool theory_seq::propagate_eq(dependency* dep, enode* n1, enode* n2) {
 
     justification* js = ctx.mk_justification(
         ext_theory_eq_propagation_justification(
-            get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), n1, n2));
+            get_id(), ctx.get_region(), lits.size(), lits.data(), eqs.size(), eqs.data(), n1, n2));
     
     {
         std::function<expr*(void)> fn = [&]() { return m.mk_eq(n1->get_expr(), n2->get_expr()); };
@@ -997,8 +997,8 @@ bool theory_seq::reduce_length_eq(expr_ref_vector const& ls, expr_ref_vector con
     expr_ref l(ls[0], m), r(rs[0], m);
     if (reduce_length(l, r, lits)) {
         expr_ref_vector lhs(m), rhs(m);
-        lhs.append(ls.size()-1, ls.c_ptr() + 1);
-        rhs.append(rs.size()-1, rs.c_ptr() + 1);
+        lhs.append(ls.size()-1, ls.data() + 1);
+        rhs.append(rs.size()-1, rs.data() + 1);
         SASSERT(!lhs.empty() || !rhs.empty());
         deps = mk_join(deps, lits);
         m_eqs.push_back(depeq(m_eq_id++, lhs, rhs, deps));
@@ -1010,8 +1010,8 @@ bool theory_seq::reduce_length_eq(expr_ref_vector const& ls, expr_ref_vector con
     l = ls.back(); r = rs.back();
     if (reduce_length(l, r, lits)) {
         expr_ref_vector lhs(m), rhs(m);
-        lhs.append(ls.size()-1, ls.c_ptr());
-        rhs.append(rs.size()-1, rs.c_ptr());
+        lhs.append(ls.size()-1, ls.data());
+        rhs.append(rs.size()-1, rs.data());
         SASSERT(!lhs.empty() || !rhs.empty());
         deps = mk_join(deps, lits);
         TRACE("seq", tout << "Propagate equal lengths " << l << " " << r << "\n" << "ls: " << ls << "\nrs: " << rs << "\n";);
@@ -1065,10 +1065,10 @@ bool theory_seq::reduce_length_eq(expr_ref_vector const& ls, expr_ref_vector con
 }
 
 bool theory_seq::reduce_length(unsigned i, unsigned j, bool front, expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps) {   
-    expr* const* ls1 = ls.c_ptr();
-    expr* const* ls2 = ls.c_ptr()+i;
-    expr* const* rs1 = rs.c_ptr();
-    expr* const* rs2 = rs.c_ptr()+j;
+    expr* const* ls1 = ls.data();
+    expr* const* ls2 = ls.data()+i;
+    expr* const* rs1 = rs.data();
+    expr* const* rs2 = rs.data()+j;
     unsigned l1 = i;
     unsigned l2 = ls.size()-i;
     unsigned r1 = j;
@@ -1785,7 +1785,7 @@ public:
         m_source.push_back(string_source);
     }
     void get_dependencies(buffer<model_value_dependency> & result) override {
-        result.append(m_dependencies.size(), m_dependencies.c_ptr());
+        result.append(m_dependencies.size(), m_dependencies.data());
     }
 
     void add_buffer(svector<unsigned>& sbuffer, zstring const& zs) {
@@ -1845,7 +1845,7 @@ public:
                 }
                 // TRACE("seq", tout << src << " " << sbuffer << "\n";);
             }
-            result = th.m_util.str.mk_string(zstring(sbuffer.size(), sbuffer.c_ptr()));
+            result = th.m_util.str.mk_string(zstring(sbuffer.size(), sbuffer.data()));
         }
         else {
             for (source_t src : m_source) {
@@ -2745,7 +2745,7 @@ void theory_seq::add_axiom(literal_vector & lits) {
     
     scoped_trace_stream _sts(*this, lits);
     validate_axiom(lits);
-    ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());    
+    ctx.mk_th_axiom(get_id(), lits.size(), lits.data());    
 }
 
 
@@ -2797,7 +2797,7 @@ bool theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, exp
     justification* js =
         ctx.mk_justification(
             ext_theory_eq_propagation_justification(
-                get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), n1, n2));
+                get_id(), ctx.get_region(), lits.size(), lits.data(), eqs.size(), eqs.data(), n1, n2));
 
     m_new_propagation = true;
     

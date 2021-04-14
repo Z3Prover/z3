@@ -40,18 +40,11 @@ void context_params::set_bool(bool & opt, char const * param, char const * value
 }
 
 void context_params::set_uint(unsigned & opt, char const * param, char const * value) {
-    bool is_uint = true;
-    size_t sz = strlen(value);
-    for (unsigned i = 0; i < sz; i++) {
-        if (!(value[i] >= '0' && value[i] <= '9'))
-            is_uint = false;
-    }
+    char *endptr;
+    long val = strtol(value, &endptr, 10);
+    opt = static_cast<unsigned>(val);
 
-    if (is_uint) {
-        long val = strtol(value, nullptr, 10);
-        opt = static_cast<unsigned>(val);
-    }
-    else {
+    if (!*value || *endptr) {
         std::stringstream strm;
         strm << "invalid value '" << value << "' for unsigned int parameter '" << param << "'";
         throw default_exception(strm.str());

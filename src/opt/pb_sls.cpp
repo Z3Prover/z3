@@ -663,7 +663,7 @@ namespace smt {
                     coeffs.push_back(pb.get_coeff(f2, i));
                     k += pb.get_coeff(f2, i);
                 }
-                tmp = pb.mk_ge(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), k);
+                tmp = pb.mk_ge(coeffs.size(), coeffs.data(), args.data(), k);
                 return compile_clause(tmp, cls);
             }
             else if (pb.is_ge(f) || pb.is_eq(f)) {

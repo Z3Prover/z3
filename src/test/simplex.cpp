@@ -88,7 +88,7 @@ void add_row(Simplex& S, vector<R> const& _v, R const& _b, bool is_eq = false) {
     if (is_eq) S.set_upper(nv, zero);
     S.set_lower(nv+1, one);
     S.set_upper(nv+1, one);
-    S.add_row(nv, coeffs.size(), vars.c_ptr(), coeffs.c_ptr());
+    S.add_row(nv, coeffs.size(), vars.data(), coeffs.data());
 }
 
 static void feas(Simplex& S) {

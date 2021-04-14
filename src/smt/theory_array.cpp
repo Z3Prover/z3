@@ -454,11 +454,11 @@ namespace smt {
         out << std::right;
         out << " is_array: " << d->m_is_array  << " is_select: " << d->m_is_select << " upward: " << d->m_prop_upward;
         out << " stores: {";
-        display_ids(out, d->m_stores.size(), d->m_stores.c_ptr());
+        display_ids(out, d->m_stores.size(), d->m_stores.data());
         out << "} p_stores: {";
-        display_ids(out, d->m_parent_stores.size(), d->m_parent_stores.c_ptr());
+        display_ids(out, d->m_parent_stores.size(), d->m_parent_stores.data());
         out << "} p_selects: {";
-        display_ids(out, d->m_parent_selects.size(), d->m_parent_selects.c_ptr());
+        display_ids(out, d->m_parent_selects.size(), d->m_parent_selects.data());
         out << "}";
         out << "\n";
      }

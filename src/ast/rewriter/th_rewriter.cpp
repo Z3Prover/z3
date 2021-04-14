@@ -511,7 +511,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         if (args.size() == 1)
             c = args[0];
         else
-            c = m_a_util.mk_add(args.size(), args.c_ptr());
+            c = m_a_util.mk_add(args.size(), args.data());
         return true;
     }
 
@@ -722,8 +722,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
 
             q1 = m().mk_quantifier(old_q->get_kind(),
                                    sorts.size(),
-                                   sorts.c_ptr(),
-                                   names.c_ptr(),
+                                   sorts.data(),
+                                   names.data(),
                                    nested_q->get_expr(),
                                    std::min(old_q->get_weight(), nested_q->get_weight()),
                                    old_q->get_qid(),
@@ -757,7 +757,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             apply_subst(new_patterns_buf);
 
             q1 = m().update_quantifier(old_q,
-                                       new_patterns_buf.size(), new_patterns_buf.c_ptr(), new_no_patterns_buf.size(), new_no_patterns_buf.c_ptr(),
+                                       new_patterns_buf.size(), new_patterns_buf.data(), new_no_patterns_buf.size(), new_no_patterns_buf.data(),
                                        new_body);
             m_pinned.reset();
             TRACE("reduce_quantifier", tout << mk_ismt2_pp(old_q, m()) << "\n----->\n" << mk_ismt2_pp(q1, m()) << "\n";);

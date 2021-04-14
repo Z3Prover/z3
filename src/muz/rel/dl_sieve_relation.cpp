@@ -63,14 +63,14 @@ namespace datalog {
 
     sieve_relation * sieve_relation::clone() const {
         relation_base * new_inner = get_inner().clone();
-        return get_plugin().mk_from_inner(get_signature(), m_inner_cols.c_ptr(), new_inner);
+        return get_plugin().mk_from_inner(get_signature(), m_inner_cols.data(), new_inner);
     }
 
     relation_base * sieve_relation::complement(func_decl* p) const {
         //this is not precisely a complement, because we still treat the ignored columns as
         //full, but it should give reasonable results inside the product relation
         relation_base * new_inner = get_inner().complement(p);
-        return get_plugin().mk_from_inner(get_signature(), m_inner_cols.c_ptr(), new_inner);
+        return get_plugin().mk_from_inner(get_signature(), m_inner_cols.data(), new_inner);
     }
 
     void sieve_relation::to_formula(expr_ref& fml) const {
@@ -85,7 +85,7 @@ namespace datalog {
             s.push_back(m.mk_var(idx, sig[i]));
         }
         get_inner().to_formula(tmp);
-        fml = get_plugin().get_context().get_var_subst()(tmp, sz, s.c_ptr());
+        fml = get_plugin().get_context().get_var_subst()(tmp, sz, s.data());
     }
 
 
@@ -220,7 +220,7 @@ namespace datalog {
         relation_signature inner_sig;
         collect_inner_signature(s, spec.m_inner_cols, inner_sig);
         relation_base * inner = get_manager().mk_empty_relation(inner_sig, spec.m_inner_kind);               
-        return mk_from_inner(s, spec.m_inner_cols.c_ptr(), inner);
+        return mk_from_inner(s, spec.m_inner_cols.data(), inner);
     }
 
 
@@ -305,7 +305,7 @@ namespace datalog {
 
             relation_base * inner_res = (*m_inner_join_fun)(inner1, inner2);
 
-            return m_plugin.mk_from_inner(get_result_signature(), m_result_inner_cols.c_ptr(), inner_res);
+            return m_plugin.mk_from_inner(get_result_signature(), m_result_inner_cols.data(), inner_res);
         }
     };
 
@@ -364,7 +364,7 @@ namespace datalog {
 
             relation_base * inner_res = (*m_inner_fun)(r.get_inner());
 
-            return plugin.mk_from_inner(get_result_signature(), m_result_inner_cols.c_ptr(), inner_res);
+            return plugin.mk_from_inner(get_result_signature(), m_result_inner_cols.data(), inner_res);
         }
     };
 
@@ -400,7 +400,7 @@ namespace datalog {
         if(!inner_fun) {
             return nullptr;
         }
-        return alloc(transformer_fn, inner_fun, result_sig, result_inner_cols.c_ptr());
+        return alloc(transformer_fn, inner_fun, result_sig, result_inner_cols.data());
     }
 
     relation_transformer_fn * sieve_relation_plugin::mk_rename_fn(const relation_base & r0, 
@@ -430,7 +430,7 @@ namespace datalog {
         if(!inner_fun) {
             return nullptr;
         }
-        return alloc(transformer_fn, inner_fun, result_sig, result_inner_cols.c_ptr());
+        return alloc(transformer_fn, inner_fun, result_sig, result_inner_cols.data());
     }
 
 
@@ -584,7 +584,7 @@ namespace datalog {
             }
             subst_vect[subst_ofs-i] = m.mk_var(r.m_sig2inner[i], sig[i]);
         }
-        expr_ref inner_cond = get_context().get_var_subst()(condition, subst_vect.size(), subst_vect.c_ptr());
+        expr_ref inner_cond = get_context().get_var_subst()(condition, subst_vect.size(), subst_vect.data());
 
         relation_mutator_fn * inner_fun = get_manager().mk_filter_interpreted_fn(r.get_inner(), to_app(inner_cond));
         if(!inner_fun) {

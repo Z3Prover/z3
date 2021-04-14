@@ -296,7 +296,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
 
                     expr_ref body(m_manager);
                     body = m_manager.mk_eq(m_manager.mk_app(f_t, x.get()),
-                                           m_manager.mk_app(map_f, num, new_args.c_ptr()));
+                                           m_manager.mk_app(map_f, num, new_args.data()));
 
                     expr_ref frllx(m_manager.mk_forall(1, sorts, names, body), m_manager);
                     extra_assertions.push_back(frllx);

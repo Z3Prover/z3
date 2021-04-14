@@ -244,7 +244,7 @@ namespace datalog {
             ps.push_back(parameter(sorts[j]));
         }
         SASSERT(ps.size() + num_params == sorts.size());
-        sort* r2 = m.mk_sort(m_family_id, DL_RELATION_SORT, ps.size(), ps.c_ptr());        
+        sort* r2 = m.mk_sort(m_family_id, DL_RELATION_SORT, ps.size(), ps.data());        
         func_decl_info info(m_family_id, OP_RA_PROJECT, num_params, params);            
         return m.mk_func_decl(m_project_sym, 1, &r, r2, info);
     }
@@ -353,7 +353,7 @@ namespace datalog {
         for (unsigned i = 0; i < sorts.size(); ++i) {
             params2.push_back(parameter(sorts[i]));
         }
-        sort* rng = m_manager->mk_sort(m_family_id, DL_RELATION_SORT, params2.size(), params2.c_ptr());
+        sort* rng = m_manager->mk_sort(m_family_id, DL_RELATION_SORT, params2.size(), params2.data());
         func_decl_info info(m_family_id, OP_RA_RENAME, num_params, params);            
         return m_manager->mk_func_decl(m_rename_sym, 1, &r, rng, info);
     }
@@ -396,7 +396,7 @@ namespace datalog {
             }
         }
         sort* args[2] = { r1, r2 };
-        sort* rng = m_manager->mk_sort(m_family_id, DL_RELATION_SORT, params2.size(), params2.c_ptr());
+        sort* rng = m_manager->mk_sort(m_family_id, DL_RELATION_SORT, params2.size(), params2.data());
         func_decl_info info(m_family_id, OP_RA_JOIN, num_params, params);            
         return m_manager->mk_func_decl(m_join_sym, 2, args, rng, info);
     }
@@ -768,7 +768,7 @@ namespace datalog {
         for (unsigned i = 0; i < num_args; ++i) {
             sorts.push_back(args[i]->get_sort());
         }
-        func_decl* f = m.mk_func_decl(name, num_args, sorts.c_ptr(), mk_rule_sort());
+        func_decl* f = m.mk_func_decl(name, num_args, sorts.data(), mk_rule_sort());
         return m.mk_app(f, num_args, args);
     }
 

@@ -234,7 +234,7 @@ namespace sat {
     }
 
     inline std::ostream & operator<<(std::ostream & out, literal_vector const & ls) {
-        return out << mk_lits_pp(ls.size(), ls.c_ptr());
+        return out << mk_lits_pp(ls.size(), ls.data());
     }
 
     class i_local_search {

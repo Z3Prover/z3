@@ -30,7 +30,7 @@ void tst_smt_context()
         ptr_vector<expr> assumptions;
         assumptions.push_back(nc.get());
 
-        ctx.check(assumptions.size(), assumptions.c_ptr());
+        ctx.check(assumptions.size(), assumptions.data());
     }
 
     ctx.check();

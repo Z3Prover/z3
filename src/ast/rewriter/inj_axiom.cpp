@@ -107,7 +107,7 @@ bool simplify_inj_axiom(ast_manager & m, quantifier * q, expr_ref & result) {
                         }
                     }
                     SASSERT(var != 0);
-                    app * f    = m.mk_app(decl, f_args.size(), f_args.c_ptr());
+                    app * f    = m.mk_app(decl, f_args.size(), f_args.data());
 
                     ptr_vector<sort>  domain;
                     inv_vars.push_back(f);
@@ -115,9 +115,9 @@ bool simplify_inj_axiom(ast_manager & m, quantifier * q, expr_ref & result) {
                         domain.push_back(inv_vars[i]->get_sort());
                     }
                     sort * d              = decl->get_domain(idx);
-                    func_decl * inv_decl  = m.mk_fresh_func_decl("inj", domain.size(), domain.c_ptr(), d);
+                    func_decl * inv_decl  = m.mk_fresh_func_decl("inj", domain.size(), domain.data(), d);
                     
-                    expr * proj = m.mk_app(inv_decl, inv_vars.size(), inv_vars.c_ptr());
+                    expr * proj = m.mk_app(inv_decl, inv_vars.size(), inv_vars.data());
                     expr * eq   = m.mk_eq(proj, var);
                     expr * p    = m.mk_pattern(f);
                     
@@ -125,7 +125,7 @@ bool simplify_inj_axiom(ast_manager & m, quantifier * q, expr_ref & result) {
                     // Remark: the sort of the var 0 must be in the last position.
                     std::reverse(decls.begin(), decls.end());
                     
-                    result = m.mk_forall(decls.size(), decls.c_ptr(), names.c_ptr(), eq,
+                    result = m.mk_forall(decls.size(), decls.data(), names.data(), eq,
                                          0, symbol(), symbol(), 1, &p);
                     TRACE("inj_axiom", tout << "new axiom:\n" << mk_pp(result, m) << "\n";);
                     SASSERT(is_well_sorted(m, result));

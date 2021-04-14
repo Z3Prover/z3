@@ -51,7 +51,7 @@ namespace sat {
                     s.m_ext->is_extended_binary(w.get_ext_constraint_idx(), r)) {
                     seen_idx.insert(w.get_ext_constraint_idx(), true);
                     for (unsigned i = 0; i < std::min(4u, r.size()); ++i) {
-                        shuffle<literal>(r.size(), r.c_ptr(), m_rand);
+                        shuffle<literal>(r.size(), r.data(), m_rand);
                         literal u = r[0];
                         for (unsigned j = 1; j < r.size(); ++j) {
                             literal v = ~r[j];
@@ -91,7 +91,7 @@ namespace sat {
 
     void big::done_adding_edges() {
         for (auto& edges : m_dag) {
-            shuffle<literal>(edges.size(), edges.c_ptr(), m_rand);
+            shuffle<literal>(edges.size(), edges.data(), m_rand);
         }
         init_dfs_num();
     }
@@ -128,7 +128,7 @@ namespace sat {
                 todo.push_back(pframe(null_literal, u));
             }
         }
-        shuffle<pframe>(todo.size(), todo.c_ptr(), m_rand);
+        shuffle<pframe>(todo.size(), todo.data(), m_rand);
         int dfs_num = 0;
         while (!todo.empty()) {
             literal u = todo.back().child();

@@ -750,7 +750,7 @@ namespace smt {
             for (auto el : childrenVector) {
                 items.push_back(mk_strlen(el));
             }
-            expr_ref lenAssert(ctx.mk_eq_atom(concat_length, m_autil.mk_add(items.size(), items.c_ptr())), m);
+            expr_ref lenAssert(ctx.mk_eq_atom(concat_length, m_autil.mk_add(items.size(), items.data())), m);
             assert_axiom(lenAssert);
         }
         return concatAst;
@@ -1143,7 +1143,7 @@ namespace smt {
         innerItems.push_back(ctx.mk_eq_atom(expr->get_arg(1), mk_concat(ts0, ts1)));
         innerItems.push_back(ctx.mk_eq_atom(mk_strlen(ts0), mk_strlen(expr->get_arg(0))));
         innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts0, expr->get_arg(0)), expr, mk_not(m, expr)));
-        expr_ref then1(m.mk_and(innerItems.size(), innerItems.c_ptr()), m);
+        expr_ref then1(m.mk_and(innerItems.size(), innerItems.data()), m);
         SASSERT(then1);
 
         // the top-level condition is Length(arg0) >= Length(arg1)
@@ -1179,7 +1179,7 @@ namespace smt {
         innerItems.push_back(ctx.mk_eq_atom(expr->get_arg(1), mk_concat(ts0, ts1)));
         innerItems.push_back(ctx.mk_eq_atom(mk_strlen(ts1), mk_strlen(expr->get_arg(0))));
         innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts1, expr->get_arg(0)), expr, mk_not(m, expr)));
-        expr_ref then1(m.mk_and(innerItems.size(), innerItems.c_ptr()), m);
+        expr_ref then1(m.mk_and(innerItems.size(), innerItems.data()), m);
         SASSERT(then1);
 
         // the top-level condition is Length(arg0) >= Length(arg1)
@@ -1546,9 +1546,9 @@ namespace smt {
         expr_ref_vector elseItems(m);
         elseItems.push_back(ctx.mk_eq_atom(indexAst, mk_int(-1)));
 
-        items.push_back(m.mk_ite(condAst, m.mk_and(thenItems.size(), thenItems.c_ptr()), m.mk_and(elseItems.size(), elseItems.c_ptr())));
+        items.push_back(m.mk_ite(condAst, m.mk_and(thenItems.size(), thenItems.data()), m.mk_and(elseItems.size(), elseItems.data())));
 
-        expr_ref breakdownAssert(m.mk_and(items.size(), items.c_ptr()), m);
+        expr_ref breakdownAssert(m.mk_and(items.size(), items.data()), m);
         SASSERT(breakdownAssert);
 
         expr_ref reduceToIndex(ctx.mk_eq_atom(expr, indexAst), m);
@@ -2503,7 +2503,7 @@ namespace smt {
                 l_items.push_back(ctx.mk_eq_atom(mk_strlen(arg1), mk_int(arg1_len)));
             }
 
-            expr_ref axl(m.mk_and(l_items.size(), l_items.c_ptr()), m);
+            expr_ref axl(m.mk_and(l_items.size(), l_items.data()), m);
             rational nnLen = arg0_len + arg1_len;
             expr_ref axr(ctx.mk_eq_atom(mk_strlen(n), mk_int(nnLen)), m);
             TRACE("str", tout << "inferred (Length " << mk_pp(n, m) << ") = " << nnLen << std::endl;);
@@ -2564,7 +2564,7 @@ namespace smt {
         }
 
         if (axr) {
-            expr_ref axl(m.mk_and(l_items.size(), l_items.c_ptr()), m);
+            expr_ref axl(m.mk_and(l_items.size(), l_items.data()), m);
             assert_implication(axl, axr);
         }
     }
@@ -2640,7 +2640,7 @@ namespace smt {
             literal l = ctx.get_literal(e);
             ls.push_back(l);
         }
-        ctx.mk_th_case_split(ls.size(), ls.c_ptr());
+        ctx.mk_th_case_split(ls.size(), ls.data());
     }
 
     void theory_str::print_cut_var(expr * node, std::ofstream & xout) {
@@ -3960,7 +3960,7 @@ namespace smt {
             zstring suffixStr = strValue.extract(prefixLen.get_unsigned(), str_sub_prefix.get_unsigned());
             expr_ref prefixAst(mk_string(prefixStr), mgr);
             expr_ref suffixAst(mk_string(suffixStr), mgr);
-            expr_ref ax_l(mgr.mk_and(litems.size(), litems.c_ptr()), mgr);
+            expr_ref ax_l(mgr.mk_and(litems.size(), litems.data()), mgr);
 
             expr_ref suf_n_concat(mk_concat(suffixAst, n), mgr);
             if (can_two_nodes_eq(x, prefixAst) && can_two_nodes_eq(y, suf_n_concat)) {
@@ -4009,7 +4009,7 @@ namespace smt {
                 tmpLen = x_len - str_len;
                 litems.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len)));
             }
-            expr_ref ax_l(mgr.mk_and(litems.size(), litems.c_ptr()), mgr);
+            expr_ref ax_l(mgr.mk_and(litems.size(), litems.data()), mgr);
 
             expr_ref str_temp1(mk_concat(strAst, temp1), mgr);
             expr_ref temp1_y(mk_concat(temp1, y), mgr);
@@ -8421,7 +8421,7 @@ namespace smt {
                 expr_ref lenEqNum(ctx.mk_eq_atom(nodeWithLenExpr, varLenExpr), m);
                 l_items.push_back(lenEqNum);
 
-                expr_ref axl(m.mk_and(l_items.size(), l_items.c_ptr()), m);
+                expr_ref axl(m.mk_and(l_items.size(), l_items.data()), m);
                 expr_ref varLen(mk_strlen(var), m);
                 expr_ref axr(ctx.mk_eq_atom(varLen, mk_int(varLen)), m);
                 assert_implication(axl, axr);
@@ -8474,7 +8474,7 @@ namespace smt {
                         }
                     }
                     if (allLeafResolved) {
-                        expr_ref axl(m.mk_and(l_items.size(), l_items.c_ptr()), m);
+                        expr_ref axl(m.mk_and(l_items.size(), l_items.data()), m);
                         expr_ref lenValueExpr (mk_int(lenValue), m);
                         expr_ref axr(ctx.mk_eq_atom(concatlenExpr, lenValueExpr), m);
                         assert_implication(axl, axr);
@@ -9268,10 +9268,10 @@ namespace smt {
             diseqs.push_back(extra_right_cond);
         }
         if (extra_deps.size() > 0) {
-            diseqs.push_back(m.mk_and(extra_deps.size(), extra_deps.c_ptr()));
+            diseqs.push_back(m.mk_and(extra_deps.size(), extra_deps.data()));
             TRACE("str", tout << "extra_deps " << mk_pp(diseqs.get(diseqs.size()-1), m) << std::endl;);
         }
-        expr* final_diseq = m.mk_and(diseqs.size(), diseqs.c_ptr());
+        expr* final_diseq = m.mk_and(diseqs.size(), diseqs.data());
         TRACE("str", tout << "learning not " << mk_pp(final_diseq, m) << std::endl;);
         return final_diseq;
     }

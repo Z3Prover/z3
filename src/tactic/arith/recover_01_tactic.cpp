@@ -281,7 +281,7 @@ class recover_01_tactic : public tactic {
             if (def_args.size() == 1)
                 x_def = def_args[0];
             else
-                x_def = m_util.mk_add(def_args.size(), def_args.c_ptr());
+                x_def = m_util.mk_add(def_args.size(), def_args.data());
             
             TRACE("recover_01", tout << x->get_name() << " --> " << mk_ismt2_pp(x_def, m) << "\n";);
             subst->insert(m.mk_const(x), x_def);

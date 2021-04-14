@@ -50,8 +50,8 @@ namespace smt {
     }
 
     void theory_datatype::clear_mark() {
-        unmark_enodes(m_to_unmark.size(), m_to_unmark.c_ptr());
-        unmark_enodes2(m_to_unmark2.size(), m_to_unmark2.c_ptr());
+        unmark_enodes(m_to_unmark.size(), m_to_unmark.data());
+        unmark_enodes2(m_to_unmark2.size(), m_to_unmark2.data());
         m_to_unmark.reset();
         m_to_unmark2.reset();
     }
@@ -185,7 +185,7 @@ namespace smt {
             std::function<void(void)> fn = [&]() {
                 app_ref body(m);
                 body = m.mk_eq(arg->get_expr(), acc_app);
-                log_axiom_instantiation(body, base_id + 3*i, bindings.size(), bindings.c_ptr(), base_id - 3, used_enodes);
+                log_axiom_instantiation(body, base_id + 3*i, bindings.size(), bindings.data(), base_id - 3, used_enodes);
             };
             scoped_trace_stream _st(m, fn);
             assert_eq_axiom(arg, acc_app, null_literal);
@@ -670,7 +670,7 @@ namespace smt {
             // m_used_eqs should contain conflict
             region & r    = ctx.get_region();
             clear_mark();
-            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), r, 0, nullptr, m_used_eqs.size(), m_used_eqs.c_ptr())));
+            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), r, 0, nullptr, m_used_eqs.size(), m_used_eqs.data())));
         }
         return res;
     }
@@ -760,11 +760,11 @@ namespace smt {
         void add_dependency(enode * n) { m_dependencies.push_back(model_value_dependency(n)); }
         ~datatype_value_proc() override {}
         void get_dependencies(buffer<model_value_dependency> & result) override {
-            result.append(m_dependencies.size(), m_dependencies.c_ptr());
+            result.append(m_dependencies.size(), m_dependencies.data());
         }
         app * mk_value(model_generator & mg, expr_ref_vector const & values) override {
             SASSERT(values.size() == m_dependencies.size());
-            return mg.get_manager().mk_app(m_constructor, values.size(), values.c_ptr());
+            return mg.get_manager().mk_app(m_constructor, values.size(), values.data());
         }
     };
 
@@ -917,7 +917,7 @@ namespace smt {
                   for (auto const& p : eqs) {
                       tout << enode_eq_pp(p, ctx);
                   });
-            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), reg, lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr())));
+            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), reg, lits.size(), lits.data(), eqs.size(), eqs.data())));
         }
         else if (num_unassigned == 1) {
             // propagate remaining recognizer
@@ -937,8 +937,8 @@ namespace smt {
             ctx.mark_as_relevant(consequent);
             region & reg = ctx.get_region();
             ctx.assign(consequent, 
-                       ctx.mk_justification(ext_theory_propagation_justification(get_id(), reg, lits.size(), lits.c_ptr(), 
-                                                                                 eqs.size(), eqs.c_ptr(), consequent)));
+                       ctx.mk_justification(ext_theory_propagation_justification(get_id(), reg, lits.size(), lits.data(), 
+                                                                                 eqs.size(), eqs.data(), consequent)));
         }
         else {
             // there are more than 2 unassigned recognizers...

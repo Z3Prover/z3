@@ -14,7 +14,7 @@ void expr_delta::assert_cnstr(expr* n) {
 }
 
 bool expr_delta::delta_dfs(unsigned n, expr_ref_vector& result) {
-    return delta_dfs(n, m_exprs.size(), m_exprs.c_ptr(), result);
+    return delta_dfs(n, m_exprs.size(), m_exprs.data(), result);
 }
 
 bool expr_delta::delta_dfs(unsigned& n, unsigned sz, expr* const* exprs, expr_ref_vector& result) {
@@ -38,7 +38,7 @@ bool expr_delta::delta_dfs(unsigned& n, unsigned sz, expr* const* exprs, expr_re
 bool expr_delta::delta_dfs(unsigned& n, app* a, expr_ref& result) {
     expr_ref_vector args(m_manager);
     if (delta_dfs(n, a->get_num_args(), a->get_args(), args)) {
-        result = m_manager.mk_app(a->get_decl(), args.size(), args.c_ptr());
+        result = m_manager.mk_app(a->get_decl(), args.size(), args.data());
         return true;
     }
     else {

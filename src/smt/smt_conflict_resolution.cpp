@@ -881,7 +881,7 @@ namespace smt {
                 app * e2_prime = m.mk_app(e2->get_decl(), e2->get_arg(1), e2->get_arg(0));
                 proof * pr1 = nullptr;
                 if (!prs.empty()) {
-                    pr1 = m.mk_congruence(e1, e2_prime, prs.size(), prs.c_ptr());
+                    pr1 = m.mk_congruence(e1, e2_prime, prs.size(), prs.data());
                     m_new_proofs.push_back(pr1);
                 }
                 else {
@@ -908,7 +908,7 @@ namespace smt {
                 }
                 if (!visited)
                     return nullptr;
-                proof * pr = m.mk_congruence(n1->get_expr(), n2->get_expr(), prs.size(), prs.c_ptr());
+                proof * pr = m.mk_congruence(n1->get_expr(), n2->get_expr(), prs.size(), prs.data());
                 m_new_proofs.push_back(pr);
                 return pr;
             }
@@ -1042,7 +1042,7 @@ namespace smt {
                        tout << l.index() << " " << true_literal.index() << " " << false_literal.index() << " ";
                        m_ctx.display_literal(tout, l); tout << " --->\n";
                        tout << mk_ll_pp(l_exr, m););
-                pr = m.mk_unit_resolution(prs.size(), prs.c_ptr(), l_exr);
+                pr = m.mk_unit_resolution(prs.size(), prs.data(), l_exr);
                 m_new_proofs.push_back(pr);
                 return pr;
             }
@@ -1250,7 +1250,7 @@ namespace smt {
                   for (unsigned i = 0; i < sz; i++) {
                       tout << mk_ll_pp(prs1[i], m) << "\n";
                   });
-            pr = m.mk_transitivity(prs1.size(), prs1.c_ptr(), lhs->get_expr(), rhs->get_expr());
+            pr = m.mk_transitivity(prs1.size(), prs1.data(), lhs->get_expr(), rhs->get_expr());
         }
         m_new_proofs.push_back(pr);
         TRACE("proof_gen_bug", tout << "eq2pr_saved: #" << lhs->get_owner_id() << " #" << rhs->get_owner_id() << "\n";);
@@ -1346,7 +1346,7 @@ namespace smt {
         switch (lits.size()) {
         case 0:  fact = nullptr; break;
         case 1:  fact = lits[0]; break;
-        default: fact = m.mk_or(lits.size(), lits.c_ptr());
+        default: fact = m.mk_or(lits.size(), lits.data());
         }
         if (fact == nullptr)
             m_lemma_proof = pr;

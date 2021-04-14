@@ -151,8 +151,8 @@ void model_evaluator_array_util::eval_array_eq(model& mdl, app* e, expr* arg1, e
     for (unsigned i = 0; i < store.size(); ++i) {
         args1.resize(1);
         args2.resize(1);
-        args1.append(store[i].size()-1, store[i].c_ptr());
-        args2.append(store[i].size()-1, store[i].c_ptr());
+        args1.append(store[i].size()-1, store[i].data());
+        args2.append(store[i].size()-1, store[i].data());
         s1 = m_array.mk_select(args1);
         s2 = m_array.mk_select(args2);
         eval (mdl, s1, w1);

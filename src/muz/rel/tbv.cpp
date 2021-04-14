@@ -317,7 +317,7 @@ expr_ref tbv_manager::to_formula(ast_manager& m, tbv const& src) {
             break;
         }
     }
-    result = mk_and(m, conj.size(), conj.c_ptr());
+    result = mk_and(m, conj.size(), conj.data());
     return result;
 }
 

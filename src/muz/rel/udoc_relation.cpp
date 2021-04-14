@@ -109,7 +109,7 @@ namespace datalog {
         for (unsigned i = 0; i < m_elems.size(); ++i) {
             disj.push_back(to_formula(m_elems[i]));
         }
-        fml = mk_or(m, disj.size(), disj.c_ptr());
+        fml = mk_or(m, disj.size(), disj.data());
     }
     expr_ref udoc_relation::to_formula(doc const& d) const {
         ast_manager& m = get_plugin().get_ast_manager();
@@ -119,7 +119,7 @@ namespace datalog {
         for (unsigned i = 0; i < d.neg().size(); ++i) {
             conjs.push_back(m.mk_not(to_formula(d.neg()[i])));
         }
-        result = mk_and(m, conjs.size(), conjs.c_ptr());
+        result = mk_and(m, conjs.size(), conjs.data());
         return result;
     }
     expr_ref udoc_relation::to_formula(tbv const& t) const {
@@ -168,7 +168,7 @@ namespace datalog {
                 }
             }
         }
-        result = mk_and(m, conjs.size(), conjs.c_ptr());
+        result = mk_and(m, conjs.size(), conjs.data());
         return result;
     }
 
@@ -472,7 +472,7 @@ namespace datalog {
             doc_manager& dm = r.get_dm();
             SASSERT(&result->get_dm() == &dm);
             for (unsigned i = 0; i < src.size(); ++i) {
-                dst.push_back(dm.allocate(src[i], m_permutation.c_ptr()));
+                dst.push_back(dm.allocate(src[i], m_permutation.data()));
             }
             TRACE("doc", result->display(tout << "result:\n"););
             SASSERT(dst.well_formed(dm));
@@ -657,8 +657,8 @@ namespace datalog {
                 rests.push_back(g);
             }
         }
-        guard = mk_and(m, guards.size(), guards.c_ptr());
-        rest  = mk_and(m, rests.size(),  rests.c_ptr());        
+        guard = mk_and(m, guards.size(), guards.data());
+        rest  = mk_and(m, rests.size(),  rests.data());        
     }
     void udoc_relation::extract_equalities(expr* g, expr_ref& rest, subset_ints& equalities,
                                            unsigned_vector& roots) const {
@@ -676,7 +676,7 @@ namespace datalog {
                 conds.pop_back();
             }
         }
-        rest = mk_and(m, conds.size(), conds.c_ptr());
+        rest = mk_and(m, conds.size(), conds.data());
     }
 
     void udoc_relation::extract_equalities(
@@ -1105,7 +1105,7 @@ namespace datalog {
               m_neg_cols(joined_col_cnt, neg_cols),
               m_mk_remove_cols(t, neg, m_remove_cols),
               m_join_project(t, neg, joined_col_cnt, t_cols, neg_cols, 
-                             m_remove_cols.size(), m_remove_cols.c_ptr()),
+                             m_remove_cols.size(), m_remove_cols.data()),
               m_is_subtract(false)//,
               /*m_is_aliased(true) */{
             SASSERT(joined_col_cnt > 0 || neg.get_signature().size() == 0);

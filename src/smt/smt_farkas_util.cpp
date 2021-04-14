@@ -347,7 +347,7 @@ namespace smt {
                 lits.push_back(extract_consequence(lo, hi));
                 lo = hi;
             }
-            bool_rewriter(m).mk_or(lits.size(), lits.c_ptr(), res);
+            bool_rewriter(m).mk_or(lits.size(), lits.data(), res);
             IF_VERBOSE(2, { if (lits.size() > 1) { verbose_stream() << "combined lemma: " << res << "\n"; } });
         }
         else {

@@ -212,7 +212,7 @@ struct expr2subpaving::imp {
         else if (pws.size() == 1 && pws[0].degree() == 1)
             x = pws[0].get_var();
         else
-            x = s().mk_monomial(pws.size(), pws.c_ptr());
+            x = s().mk_monomial(pws.size(), pws.data());
         cache_result(t, x, n, d);
         return x;
     }
@@ -258,7 +258,7 @@ struct expr2subpaving::imp {
             x = subpaving::null_var;
         }
         else {
-            x = s().mk_sum(sum_c, sz, ns.c_ptr(), xs.c_ptr());
+            x = s().mk_sum(sum_c, sz, ns.data(), xs.data());
             qm().set(n, 1);
         }
         cache_result(t, x, n, d);

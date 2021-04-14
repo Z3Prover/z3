@@ -1314,7 +1314,7 @@ namespace smt {
                 SASSERT(new_arg);
                 rewritten_args.push_back(new_arg);
             }
-            retval = m.mk_app(a_cond->get_decl(), rewritten_args.c_ptr());
+            retval = m.mk_app(a_cond->get_decl(), rewritten_args.data());
             TRACE("str", tout << "final rewritten term is " << mk_pp(retval, m) << std::endl;);
             return retval;
         } else {

@@ -153,7 +153,7 @@ namespace datalog {
             unsigned n=get_signature().size();
             SASSERT(f.size()==n);
             m_data.reset();
-            m_data.append(n, f.c_ptr());
+            m_data.append(n, f.data());
         }
         void set_undefined() {
             m_empty = false;
@@ -476,7 +476,7 @@ namespace datalog {
                     not_handled();
                 subst_arg[ofs-i] = r.m_data.get(i);
             }
-            expr_ref res = m_subst(m_new_rule, subst_arg.size(), subst_arg.c_ptr());
+            expr_ref res = m_subst(m_new_rule, subst_arg.size(), subst_arg.data());
             r.m_data[m_col_idx] = to_app(res);
         }
     };
@@ -682,7 +682,7 @@ namespace datalog {
             e_domain.append(orig_decl->get_arity(), orig_decl->get_domain());
             e_domain.push_back(m_e_sort);
             func_decl * new_decl = m_context.mk_fresh_head_predicate(orig_decl->get_name(), symbol("expl"), 
-                e_domain.size(), e_domain.c_ptr(), orig_decl);
+                e_domain.size(), e_domain.data(), orig_decl);
             m_pinned.push_back(new_decl);
             value = new_decl;
 
@@ -698,7 +698,7 @@ namespace datalog {
         func_decl * e_decl = get_e_decl(lit->get_decl());
         args.append(lit->get_num_args(), lit->get_args());
         args.push_back(m_manager.mk_var(e_var_idx, m_e_sort));
-        return m_manager.mk_app(e_decl, args.c_ptr());
+        return m_manager.mk_app(e_decl, args.data());
     }
 
     symbol mk_explanations::get_rule_symbol(rule * r) {
@@ -753,14 +753,14 @@ namespace datalog {
         }
         //rule_expr contains rule function with string representation of the rule as symbol and
         //for each positive uninterpreted tail it contains its argument values and its explanation term
-        expr * rule_expr = m_decl_util.mk_rule(rule_repr, rule_expr_args.size(), rule_expr_args.c_ptr());
+        expr * rule_expr = m_decl_util.mk_rule(rule_repr, rule_expr_args.size(), rule_expr_args.data());
 
         app_ref e_record(m_manager.mk_eq(m_manager.mk_var(head_var, m_e_sort), rule_expr), m_manager);
         e_tail.push_back(e_record);
         neg_flags.push_back(false);
         SASSERT(e_tail.size()==neg_flags.size());
 
-        return m_context.get_rule_manager().mk(e_head, e_tail.size(), e_tail.c_ptr(), neg_flags.c_ptr());
+        return m_context.get_rule_manager().mk(e_head, e_tail.size(), e_tail.data(), neg_flags.data());
     }
 
     void mk_explanations::transform_rules(const rule_set & src, rule_set & dst) {
@@ -784,7 +784,7 @@ namespace datalog {
             for (unsigned i=0; i<arity; i++) {
                 lit_args.push_back(m_manager.mk_var(i, orig_decl->get_domain(i)));
             }
-            app_ref orig_lit(m_manager.mk_app(orig_decl, lit_args.c_ptr()), m_manager);
+            app_ref orig_lit(m_manager.mk_app(orig_decl, lit_args.data()), m_manager);
             app_ref e_lit(get_e_lit(orig_lit, arity), m_manager);
             app * tail[] = { e_lit.get() };
             dst.add_rule(m_context.get_rule_manager().mk(orig_lit, 1, tail, nullptr));

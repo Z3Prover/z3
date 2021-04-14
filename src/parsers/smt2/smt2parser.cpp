@@ -541,7 +541,7 @@ namespace smt2 {
                     unsigned epos = sexpr_stack().size();
                     SASSERT(epos >= spos);
                     unsigned num  = epos - spos;
-                    sexpr * r = sm().mk_composite(num, sexpr_stack().c_ptr() + spos, line, pos);
+                    sexpr * r = sm().mk_composite(num, sexpr_stack().data() + spos, line, pos);
                     sexpr_stack().shrink(spos);
                     sexpr_stack().push_back(r);
                     m_stack.deallocate(fr);
@@ -632,7 +632,7 @@ namespace smt2 {
                 args.push_back(u);
                 next();
             }
-            sort * r = d->instantiate(pm(), args.size(), args.c_ptr());
+            sort * r = d->instantiate(pm(), args.size(), args.data());
             if (r == nullptr)
                 throw parser_exception("invalid sort application");
             next();
@@ -664,7 +664,7 @@ namespace smt2 {
                 throw parser_exception("invalid number of parameters to sort constructor");
             }
 
-            psort * r = pm().mk_psort_app(m_sort_id2param_idx.size(), d, num, psort_stack().c_ptr() + spos);
+            psort * r = pm().mk_psort_app(m_sort_id2param_idx.size(), d, num, psort_stack().data() + spos);
             psort_stack().shrink(spos);
             psort_stack().push_back(r);
             m_stack.deallocate(fr);
@@ -725,7 +725,7 @@ namespace smt2 {
                 TRACE("smt2parser", tout << "num: " << num << ", d->get_num_params(): " << d->get_num_params() << "\n";);
                 throw parser_exception("invalid number of parameters to sort constructor");
             }
-            sort * r = d->instantiate(pm(), num, sort_stack().c_ptr() + spos);
+            sort * r = d->instantiate(pm(), num, sort_stack().data() + spos);
             if (r == nullptr)
                 throw parser_exception("invalid sort application");
             sort_stack().shrink(spos);
@@ -849,7 +849,7 @@ namespace smt2 {
                     next();
                     paccessor_decl_ref_buffer new_a_decls(pm());
                     parse_accessor_decls(new_a_decls);
-                    ct_decls.push_back(pm().mk_pconstructor_decl(m_sort_id2param_idx.size(), ct_name, r_name, new_a_decls.size(), new_a_decls.c_ptr()));
+                    ct_decls.push_back(pm().mk_pconstructor_decl(m_sort_id2param_idx.size(), ct_name, r_name, new_a_decls.size(), new_a_decls.data()));
                     check_rparen_next("invalid constructor declaration, ')' expected");
                 }
             }
@@ -877,14 +877,14 @@ namespace smt2 {
                     }
                     symbol dt_name = m_dt_names[i];
                     parse_datatype_dec(nullptr, new_ct_decls);
-                    d = pm().mk_pdatatype_decl(m_dt_name2arity.find(dt_name), dt_name, new_ct_decls.size(), new_ct_decls.c_ptr());
+                    d = pm().mk_pdatatype_decl(m_dt_name2arity.find(dt_name), dt_name, new_ct_decls.size(), new_ct_decls.data());
                 }
                 else {
                     check_lparen_next("invalid datatype declaration, '(' or ')' expected");
                     symbol dt_name = check_identifier_next("invalid datatype declaration, symbol (datatype name) expected");
                     m_dt_name2idx.insert(dt_name, i);
                     parse_constructor_decls(new_ct_decls);
-                    d = pm().mk_pdatatype_decl(m_sort_id2param_idx.size(), dt_name, new_ct_decls.size(), new_ct_decls.c_ptr());
+                    d = pm().mk_pdatatype_decl(m_sort_id2param_idx.size(), dt_name, new_ct_decls.size(), new_ct_decls.data());
                     check_rparen_next("invalid datatype declaration, ')' expected");
                 }
                 new_dt_decls.push_back(d);
@@ -908,7 +908,7 @@ namespace smt2 {
             else {
                 SASSERT(sz > 1);
                 pdatatypes_decl_ref dts(pm());
-                dts = pm().mk_pdatatypes_decl(m_sort_id2param_idx.size(), sz, new_dt_decls.c_ptr());
+                dts = pm().mk_pdatatypes_decl(m_sort_id2param_idx.size(), sz, new_dt_decls.data());
                 symbol missing;
                 if (!pm().fix_missing_refs(dts, missing)) {
                     std::string err_msg = "invalid datatype declaration, unknown sort '";
@@ -952,7 +952,7 @@ namespace smt2 {
             pdatatype_decl_ref d(pm());                
             pconstructor_decl_ref_buffer new_ct_decls(pm());
             parse_datatype_dec(&dt_name, new_ct_decls);
-            d = pm().mk_pdatatype_decl(m_sort_id2param_idx.size(), dt_name, new_ct_decls.size(), new_ct_decls.c_ptr());
+            d = pm().mk_pdatatype_decl(m_sort_id2param_idx.size(), dt_name, new_ct_decls.size(), new_ct_decls.data());
             
             check_missing(d, line, pos);
             check_duplicate(d, line, pos);
@@ -1277,8 +1277,8 @@ namespace smt2 {
             }
             next();
             TRACE("parse_sorted_vars", tout << "[after] symbol_stack().size(): " << symbol_stack().size() << "\n";);
-            symbol const * sym_it  = symbol_stack().c_ptr() + sym_spos;
-            sort * const * sort_it = sort_stack().c_ptr() + sort_spos;
+            symbol const * sym_it  = symbol_stack().data() + sym_spos;
+            sort * const * sort_it = sort_stack().data() + sort_spos;
             m_num_bindings += num;
             unsigned i = num;
             while (i > 0) {
@@ -1410,7 +1410,7 @@ namespace smt2 {
                     new_case = cases[i];
                 }
                 else {
-                    new_case = sub(cases[i], subst.size(), subst.c_ptr());
+                    new_case = sub(cases[i], subst.size(), subst.data());
                     inv_var_shifter inv(m());
                     inv(new_case, subst.size(), new_case);
                 }
@@ -1542,7 +1542,7 @@ namespace smt2 {
                     m_env.insert(vars[i], local(v, m_num_bindings));
                 }
             }
-            expr_stack().push_back(m().mk_app(f, args.size(), args.c_ptr()));
+            expr_stack().push_back(m().mk_app(f, args.size(), args.data()));
         }
 
         symbol parse_indexed_identifier_core() {
@@ -1807,7 +1807,7 @@ namespace smt2 {
                 return;
             }
             expr_ref t_ref(m());
-            m_ctx.mk_app(r, 0, nullptr, num_indices, m_param_stack.c_ptr() + param_spos, has_as ? sort_stack().back() : nullptr, t_ref);
+            m_ctx.mk_app(r, 0, nullptr, num_indices, m_param_stack.data() + param_spos, has_as ? sort_stack().back() : nullptr, t_ref);
             m_param_stack.shrink(param_spos);
             expr_stack().push_back(t_ref.get());
             if (has_as) {
@@ -1914,9 +1914,9 @@ namespace smt2 {
             else {
                 m_ctx.mk_app(fr->m_f,
                              num_args,
-                             expr_stack().c_ptr() + fr->m_expr_spos,
+                             expr_stack().data() + fr->m_expr_spos,
                              num_indices,
-                             m_param_stack.c_ptr() + fr->m_param_spos,
+                             m_param_stack.data() + fr->m_param_spos,
                              fr->m_as_sort ? sort_stack().back() : nullptr,
                              t_ref);
             }
@@ -1940,8 +1940,8 @@ namespace smt2 {
                     throw parser_exception("malformed let expression");
                 }
                 unsigned num_decls = expr_stack().size() - fr->m_expr_spos;
-                symbol * sym_it   = symbol_stack().c_ptr() + fr->m_sym_spos;
-                expr ** expr_it   = expr_stack().c_ptr() + fr->m_expr_spos;
+                symbol * sym_it   = symbol_stack().data() + fr->m_sym_spos;
+                expr ** expr_it   = expr_stack().data() + fr->m_expr_spos;
                 expr ** expr_end  = expr_it + num_decls;
                 for (; expr_it != expr_end; ++expr_it, ++sym_it) {
                     TRACE("let_frame", tout << "declaring: " << *sym_it << " " << mk_pp(*expr_it, m()) << "\n";);
@@ -2004,14 +2004,14 @@ namespace smt2 {
                 throw parser_exception("quantifier body must be a Boolean expression");
             quantifier* new_q = m().mk_quantifier(fr->m_kind,
                                       num_decls,
-                                      sort_stack().c_ptr() + fr->m_sort_spos,
-                                      symbol_stack().c_ptr() + fr->m_sym_spos,
+                                      sort_stack().data() + fr->m_sort_spos,
+                                      symbol_stack().data() + fr->m_sym_spos,
                                       expr_stack().back(),
                                       fr->m_weight,
                                       fr->m_qid,
                                       fr->m_skid,
-                                      num_pats, pattern_stack().c_ptr() + fr->m_pat_spos,
-                                      num_nopats, nopattern_stack().c_ptr() + fr->m_nopat_spos
+                                      num_pats, pattern_stack().data() + fr->m_pat_spos,
+                                      num_nopats, nopattern_stack().data() + fr->m_nopat_spos
                                       );
             TRACE("mk_quantifier", tout << "id: " << new_q->get_id() << "\n" << mk_ismt2_pp(new_q, m()) << "\n";);
             TRACE("skid", tout << "new_q->skid: " << new_q->get_skid() << "\n";);
@@ -2049,7 +2049,7 @@ namespace smt2 {
             }
             else {
                 unsigned num   = expr_stack().size() - fr->m_expr_spos;
-                expr * new_pat = m().mk_pattern(num, reinterpret_cast<app**>(expr_stack().c_ptr() + fr->m_expr_spos));
+                expr * new_pat = m().mk_pattern(num, reinterpret_cast<app**>(expr_stack().data() + fr->m_expr_spos));
                 expr_stack().shrink(fr->m_expr_spos);
                 expr_stack().push_back(new_pat);
             }
@@ -2273,7 +2273,7 @@ namespace smt2 {
             parse_expr();
             if (expr_stack().back()->get_sort() != sort_stack().back())
                 throw parser_exception("invalid function/constant definition, sort mismatch");
-            sort* const* sorts = sort_stack().c_ptr() + sort_spos;
+            sort* const* sorts = sort_stack().data() + sort_spos;
             expr* t = expr_stack().back();
             if (is_fun) {
                 expr_ref _t(t, m());
@@ -2392,10 +2392,10 @@ namespace smt2 {
             unsigned num_vars  = parse_sorted_vars();
             SASSERT(num_vars == m_num_bindings);
             parse_sort("Invalid recursive function definition");
-            recfun::promise_def pdef = m_ctx.decl_rec_fun(id, num_vars, sort_stack().c_ptr() + sort_spos, sort_stack().back());
+            recfun::promise_def pdef = m_ctx.decl_rec_fun(id, num_vars, sort_stack().data() + sort_spos, sort_stack().back());
             f = pdef.get_def()->get_decl();
-            bindings.append(num_vars, expr_stack().c_ptr() + expr_spos);
-            ids.append(num_vars, symbol_stack().c_ptr() + sym_spos);
+            bindings.append(num_vars, expr_stack().data() + expr_spos);
+            ids.append(num_vars, symbol_stack().data() + sym_spos);
             symbol_stack().shrink(sym_spos);
             sort_stack().shrink(sort_spos);
             expr_stack().shrink(expr_spos);
@@ -2426,7 +2426,7 @@ namespace smt2 {
             unsigned sym_spos  = symbol_stack().size();
             unsigned num_vars  = bindings.size();
             m_env.begin_scope();
-            m_symbol_stack.append(ids.size(), ids.c_ptr());
+            m_symbol_stack.append(ids.size(), ids.data());
             m_num_bindings = num_vars;
             for (unsigned i = 0; i < num_vars; ++i) {
                 m_env.insert(ids[i], local(bindings[i], num_vars));
@@ -2479,7 +2479,7 @@ namespace smt2 {
             unsigned num_params = parse_sorts("Parsing function declaration. Expecting sort list '('");
             parse_sort("Invalid function declaration");
             func_decl_ref f(m());
-            f = m().mk_func_decl(id, num_params, sort_stack().c_ptr() + spos, sort_stack().back());
+            f = m().mk_func_decl(id, num_params, sort_stack().data() + spos, sort_stack().back());
             sort_stack().shrink(spos);
             m_ctx.insert(f);
             check_rparen("invalid function declaration, ')' expected");
@@ -2602,7 +2602,7 @@ namespace smt2 {
             next();
             unsigned spos = expr_stack().size();
             parse_assumptions();
-            m_ctx.check_sat(expr_stack().size() - spos, expr_stack().c_ptr() + spos);
+            m_ctx.check_sat(expr_stack().size() - spos, expr_stack().data() + spos);
             next();
             expr_stack().shrink(spos);
         }
@@ -2615,7 +2615,7 @@ namespace smt2 {
             check_lparen_next("invalid check-sat-assuming command, '(', expected");
             parse_assumptions();
             check_rparen_next("invalid check-sat-assuming command, ')', expected");
-            m_ctx.check_sat(expr_stack().size() - spos, expr_stack().c_ptr() + spos);
+            m_ctx.check_sat(expr_stack().size() - spos, expr_stack().data() + spos);
             next();
             expr_stack().shrink(spos);
         }
@@ -2664,7 +2664,7 @@ namespace smt2 {
                 m_ctx.get_opt()->get_box_model(md, index);
             }
             m_ctx.regular_stream() << "(";
-            expr ** expr_it  = expr_stack().c_ptr() + spos;
+            expr ** expr_it  = expr_stack().data() + spos;
             expr ** expr_end = expr_it + m_cached_strings.size();
             md->compress();
             for (unsigned i = 0; expr_it < expr_end; expr_it++, i++) {
@@ -2752,7 +2752,7 @@ namespace smt2 {
                 parse_sorts("Invalid function name. Expecting sort list starting with '(' to disambiguate function name");
                 unsigned domain_size = sort_stack().size() - spos;
                 parse_sort("Invalid function name");
-                func_decl * d = m_ctx.find_func_decl(id, indices.size(), indices.c_ptr(), domain_size, sort_stack().c_ptr() + spos, sort_stack().back());
+                func_decl * d = m_ctx.find_func_decl(id, indices.size(), indices.data(), domain_size, sort_stack().data() + spos, sort_stack().back());
                 sort_stack().shrink(spos);
                 check_rparen_next("invalid function declaration reference, ')' expected");
                 return d;
@@ -2818,7 +2818,7 @@ namespace smt2 {
             case CPK_SYMBOL_LIST: {
                 unsigned spos = m_symbol_stack.size();
                 unsigned num  = parse_symbols();
-                m_curr_cmd->set_next_arg(m_ctx, num, m_symbol_stack.c_ptr() + spos);
+                m_curr_cmd->set_next_arg(m_ctx, num, m_symbol_stack.data() + spos);
                 break;
             }
             case CPK_SORT:
@@ -2828,7 +2828,7 @@ namespace smt2 {
             case CPK_SORT_LIST: {
                 unsigned spos = sort_stack().size();
                 unsigned num = parse_sorts("expecting sort list starting with '('");
-                m_curr_cmd->set_next_arg(m_ctx, num, sort_stack().c_ptr() + spos);
+                m_curr_cmd->set_next_arg(m_ctx, num, sort_stack().data() + spos);
                 break;
             }
             case CPK_EXPR:
@@ -2838,7 +2838,7 @@ namespace smt2 {
             case CPK_EXPR_LIST: {
                 unsigned spos = expr_stack().size();
                 unsigned num = parse_exprs();
-                m_curr_cmd->set_next_arg(m_ctx, num, expr_stack().c_ptr() + spos);
+                m_curr_cmd->set_next_arg(m_ctx, num, expr_stack().data() + spos);
                 break;
             }
             case CPK_FUNC_DECL: {
@@ -2849,7 +2849,7 @@ namespace smt2 {
             case CPK_FUNC_DECL_LIST: {
                 ptr_buffer<func_decl> flist;
                 parse_func_decl_refs(flist);
-                m_curr_cmd->set_next_arg(m_ctx, flist.size(), flist.c_ptr());
+                m_curr_cmd->set_next_arg(m_ctx, flist.size(), flist.data());
                 return;
             }
             case CPK_SORTED_VAR:

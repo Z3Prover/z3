@@ -236,18 +236,18 @@ bool quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
 
     // Macro  :=  Forall m_new_vars . appl = ITE( m_new_eqs, t, f_else)
 
-    app_ref appl(m.mk_app(f, m_new_vars.size(), m_new_vars.c_ptr()), m);
+    app_ref appl(m.mk_app(f, m_new_vars.size(), m_new_vars.data()), m);
 
     func_decl * fd = m.mk_fresh_func_decl(f->get_name(), symbol("else"),
                                                   f->get_arity(), f->get_domain(),
                                                   f->get_range());
-    expr_ref f_else(m.mk_app(fd, m_new_vars.size(), m_new_vars.c_ptr()), m);
-    expr_ref ite(m.mk_ite(m.mk_and(m_new_eqs.size(), m_new_eqs.c_ptr()), t, f_else), m);
+    expr_ref f_else(m.mk_app(fd, m_new_vars.size(), m_new_vars.data()), m);
+    expr_ref ite(m.mk_ite(m.mk_and(m_new_eqs.size(), m_new_eqs.data()), t, f_else), m);
 
     expr_ref eq(m.mk_eq(appl, ite), m);
 
     macro = m.mk_quantifier(forall_k, new_var_names_rev.size(),
-                                    new_qsorts_rev.c_ptr(), new_var_names_rev.c_ptr(), eq);
+                                    new_qsorts_rev.data(), new_var_names_rev.data(), eq);
 
     return true;
 }
@@ -344,7 +344,7 @@ void quasi_macros::apply_macros(expr_ref_vector & exprs, proof_ref_vector & prs,
 
 bool quasi_macros::operator()(expr_ref_vector & exprs, proof_ref_vector & prs, expr_dependency_ref_vector & deps) {
     unsigned n = exprs.size();
-    if (find_macros(n, exprs.c_ptr())) {
+    if (find_macros(n, exprs.data())) {
         apply_macros(exprs, prs, deps);
         return true;
     }

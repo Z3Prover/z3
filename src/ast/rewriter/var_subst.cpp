@@ -134,11 +134,11 @@ expr_ref unused_vars_eliminator::operator()(quantifier* q) {
     // (VAR 0) should be in the last position of var_mapping.
     // ...
     // (VAR (var_mapping.size() - 1)) should be in the first position.
-    std::reverse(var_mapping.c_ptr(), var_mapping.c_ptr() + var_mapping.size());
+    std::reverse(var_mapping.data(), var_mapping.data() + var_mapping.size());
 
     expr_ref  new_expr(m);
 
-    new_expr = m_subst(q->get_expr(), var_mapping.size(), var_mapping.c_ptr());
+    new_expr = m_subst(q->get_expr(), var_mapping.size(), var_mapping.data());
 
     if (num_removed == num_decls) {
         result = new_expr;
@@ -149,24 +149,24 @@ expr_ref unused_vars_eliminator::operator()(quantifier* q) {
     expr_ref_buffer new_no_patterns(m);
 
     for (unsigned i = 0; i < num_patterns; i++) {
-        new_patterns.push_back(m_subst(q->get_pattern(i), var_mapping.size(), var_mapping.c_ptr()));
+        new_patterns.push_back(m_subst(q->get_pattern(i), var_mapping.size(), var_mapping.data()));
     }
     for (unsigned i = 0; i < num_no_patterns; i++) {
-        new_no_patterns.push_back(m_subst(q->get_no_pattern(i), var_mapping.size(), var_mapping.c_ptr()));
+        new_no_patterns.push_back(m_subst(q->get_no_pattern(i), var_mapping.size(), var_mapping.data()));
     }
 
     result = m.mk_quantifier(q->get_kind(),
                              used_decl_sorts.size(),
-                             used_decl_sorts.c_ptr(),
-                             used_decl_names.c_ptr(),
+                             used_decl_sorts.data(),
+                             used_decl_names.data(),
                              new_expr,
                              q->get_weight(),
                              q->get_qid(),
                              q->get_skid(),
                              num_patterns,
-                             new_patterns.c_ptr(),
+                             new_patterns.data(),
                              num_no_patterns,
-                             new_no_patterns.c_ptr());
+                             new_no_patterns.data());
     to_quantifier(result)->set_no_unused_vars();
     SASSERT(is_well_sorted(m, result));
     return result;

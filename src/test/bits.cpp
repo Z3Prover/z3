@@ -26,8 +26,8 @@ static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k,
     for (unsigned sz = 1; sz <= dst_sz; sz++) {
         if (trace)
             std::cout << "  for sz = " << sz << std::endl;
-        shl(src_sz, src, k, sz, actual_dst.c_ptr());
-        ENSURE(!has_one_at_first_k_bits(sz, actual_dst.c_ptr(), k));
+        shl(src_sz, src, k, sz, actual_dst.data());
+        ENSURE(!has_one_at_first_k_bits(sz, actual_dst.data(), k));
         for (unsigned i = 0; i < sz; i++) {
             if (trace && dst[i] != actual_dst[i])
                 std::cout << "UNEXPECTED RESULT at [" << i << "]: " << actual_dst[i] << ", expected: " << dst[i] << "\n";
@@ -36,7 +36,7 @@ static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k,
         if (sz == src_sz) {
             unsigned nz1 = nlz(sz, src);
             if (nz1 >= k && !is_zero(sz, src)) {
-                unsigned nz2 = nlz(sz, actual_dst.c_ptr());
+                unsigned nz2 = nlz(sz, actual_dst.data());
                 if (nz1 - k != nz2) {
                     if (trace)
                         std::cout << "nlz BUG, nlz1: " << nz1 << ", k: " << k << ", nlz2: " << nz2 << std::endl;
@@ -47,7 +47,7 @@ static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k,
         if (sz >= src_sz + (k/32) + 1) {
             svector<unsigned> new_src;
             new_src.resize(sz, 0xAAAAAAAA);
-            shr(sz, actual_dst.c_ptr(), k, new_src.c_ptr());
+            shr(sz, actual_dst.data(), k, new_src.data());
             for (unsigned i = 0; i < src_sz; i++) {
                 if (trace && src[i] != new_src[i]) {
                     std::cout << "shr BUG, inverting shl, at bit[" << i << "], " << new_src[i] << ", expected: " << src[i] << std::endl;
@@ -58,9 +58,9 @@ static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k,
     }
     if (trace)
         std::cout << "  shift by 1, k times" << std::endl;
-    copy(src_sz, src, dst_sz, actual_dst.c_ptr());
+    copy(src_sz, src, dst_sz, actual_dst.data());
     for (unsigned i = 0; i < k; i++) {
-        shl(dst_sz, actual_dst.c_ptr(), 1, dst_sz, actual_dst.c_ptr());
+        shl(dst_sz, actual_dst.data(), 1, dst_sz, actual_dst.data());
     }
     for (unsigned i = 0; i < dst_sz; i++) {
         if (trace && dst[i] != actual_dst[i])
@@ -130,7 +130,7 @@ static void tst_shr(unsigned src_sz, unsigned const * src, unsigned k,
     }
     svector<unsigned> actual_dst;
     actual_dst.resize(src_sz, 0xAAAAAAAA);
-    shr(src_sz, src, k, actual_dst.c_ptr());
+    shr(src_sz, src, k, actual_dst.data());
     for (unsigned i = 0; i < src_sz; i++) {
         if (trace && dst[i] != actual_dst[i])
             std::cout << "UNEXPECTED RESULT at [" << i << "]: " << actual_dst[i] << ", expected: " << dst[i] << "\n";
@@ -182,7 +182,7 @@ static void tst_shl_rand(unsynch_mpz_manager & m, unsigned sz, unsigned k, bool 
     unsigned word_shift = (k / 32);
     for (unsigned i = 0; i < word_shift; i++)
         dst.push_back(0);
-    tst_shl(src.size(), src.c_ptr(), k, dst.size(), dst.c_ptr(), trace);
+    tst_shl(src.size(), src.data(), k, dst.size(), dst.data(), trace);
 }
 
 static void tst_shl_rand(unsigned N, unsigned sz, unsigned k, bool trace = false) {

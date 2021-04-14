@@ -48,7 +48,7 @@ extern "C" {
             acc.push_back(mk_accessor_decl(m, to_symbol(field_names[i]), type_ref(to_sort(field_sorts[i]))));
         }
 
-        constructor_decl* constrs[1] = { mk_constructor_decl(to_symbol(name), recognizer, acc.size(), acc.c_ptr()) };
+        constructor_decl* constrs[1] = { mk_constructor_decl(to_symbol(name), recognizer, acc.size(), acc.data()) };
 
         {
             datatype_decl * dt = mk_datatype_decl(dt_util, to_symbol(name), 0, nullptr, 1, constrs);
@@ -113,7 +113,7 @@ extern "C" {
 
 
         {
-            datatype_decl * dt = mk_datatype_decl(dt_util, to_symbol(name), 0, nullptr, n, constrs.c_ptr());
+            datatype_decl * dt = mk_datatype_decl(dt_util, to_symbol(name), 0, nullptr, n, constrs.data());
             bool is_ok = mk_c(c)->get_dt_plugin()->mk_datatypes(1, &dt, 0, nullptr, sorts);
             del_datatype_decl(dt);
 
@@ -302,9 +302,9 @@ extern "C" {
                     acc.push_back(mk_accessor_decl(m, cn->m_field_names[j], type_ref(cn->m_sort_refs[j])));
                 }
             }
-            constrs.push_back(mk_constructor_decl(cn->m_name, cn->m_tester, acc.size(), acc.c_ptr()));
+            constrs.push_back(mk_constructor_decl(cn->m_name, cn->m_tester, acc.size(), acc.data()));
         }
-        return mk_datatype_decl(dt_util, to_symbol(name), 0, nullptr, num_constructors, constrs.c_ptr());
+        return mk_datatype_decl(dt_util, to_symbol(name), 0, nullptr, num_constructors, constrs.data());
     }
 
     Z3_sort Z3_API Z3_mk_datatype(Z3_context c,
@@ -380,11 +380,11 @@ extern "C" {
         ptr_vector<datatype_decl> datas;
         for (unsigned i = 0; i < num_sorts; ++i) {
             constructor_list* cl = reinterpret_cast<constructor_list*>(constructor_lists[i]);
-            datas.push_back(mk_datatype_decl(c, sort_names[i], cl->size(), reinterpret_cast<Z3_constructor*>(cl->c_ptr())));
+            datas.push_back(mk_datatype_decl(c, sort_names[i], cl->size(), reinterpret_cast<Z3_constructor*>(cl->data())));
         }
         sort_ref_vector _sorts(m);
-        bool ok = mk_c(c)->get_dt_plugin()->mk_datatypes(datas.size(), datas.c_ptr(), 0, nullptr, _sorts);
-        del_datatype_decls(datas.size(), datas.c_ptr());
+        bool ok = mk_c(c)->get_dt_plugin()->mk_datatypes(datas.size(), datas.data(), 0, nullptr, _sorts);
+        del_datatype_decls(datas.size(), datas.data());
 
         if (!ok) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);

@@ -96,7 +96,7 @@ namespace opt {
         m_hardened.reset();
         for (expr* a : ctx.soft())
             m_is_assumption.mark(a);
-        shuffle(m_unprocessed.size(), m_unprocessed.c_ptr(), m_rand);
+        shuffle(m_unprocessed.size(), m_unprocessed.data(), m_rand);
         
         model_ref mdl = m_best_model->copy();
         unsigned j = 0;

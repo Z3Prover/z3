@@ -281,7 +281,7 @@ public:
             if (n == 0) return mk_empty(s);
             if (n == 1) return es[0]; 
             return m.mk_app(m_fid, OP_SEQ_CONCAT, n, es); }
-        expr* mk_concat(expr_ref_vector const& es, sort* s) const { return mk_concat(es.size(), es.c_ptr(), s); }
+        expr* mk_concat(expr_ref_vector const& es, sort* s) const { return mk_concat(es.size(), es.data(), s); }
         app* mk_length(expr* a) const { return m.mk_app(m_fid, OP_SEQ_LENGTH, 1, &a); }
         app* mk_at(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_AT, 2, es); }
         app* mk_nth(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH, 2, es); }

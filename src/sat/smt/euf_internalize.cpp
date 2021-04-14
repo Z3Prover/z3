@@ -96,7 +96,7 @@ namespace euf {
         if (auto* s = expr2solver(e)) 
             s->internalize(e, m_is_redundant);        
         else 
-            attach_node(m_egraph.mk(e, m_generation, num, m_args.c_ptr()));        
+            attach_node(m_egraph.mk(e, m_generation, num, m_args.data()));        
         return true;
     }
 
@@ -165,9 +165,9 @@ namespace euf {
         if (m.is_distinct(e)) {
             enode_vector _args(args);
             if (sign)
-                add_not_distinct_axiom(e, _args.c_ptr());
+                add_not_distinct_axiom(e, _args.data());
             else
-                add_distinct_axiom(e, _args.c_ptr());
+                add_distinct_axiom(e, _args.data());
             return true;
         }
         return false;
@@ -192,7 +192,7 @@ namespace euf {
             }
             s().mk_clause(lits, st);
             if (relevancy_enabled())
-                add_root(lits.size(), lits.c_ptr());
+                add_root(lits.size(), lits.data());
     }
         else {
             // g(f(x_i)) = x_i
@@ -214,7 +214,7 @@ namespace euf {
                 eqs.push_back(mk_eq(fapp, a));
             }
             pb_util pb(m);
-            expr_ref at_least2(pb.mk_at_least_k(eqs.size(), eqs.c_ptr(), 2), m);
+            expr_ref at_least2(pb.mk_at_least_k(eqs.size(), eqs.data(), 2), m);
             sat::literal lit = si.internalize(at_least2, m_is_redundant);
             s().mk_clause(1, &lit, st);
             if (relevancy_enabled())

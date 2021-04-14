@@ -290,7 +290,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             for (unsigned i = stores.size(); i-- > 0; ) {
                 expr_ref_vector args(m);
                 args.push_back(val);
-                args.append(stores[i].size(), stores[i].c_ptr());
+                args.append(stores[i].size(), stores[i].data());
                 val = m_ar.mk_store(args);
             }
             TRACE("model_evaluator", tout << val << "\n";);
@@ -423,10 +423,10 @@ struct evaluator_cfg : public default_rewriter_cfg {
             args2.push_back(b);
             stores1.append(stores2);
             for (unsigned i = 0; i < stores1.size(); ++i) {
-                args1.resize(1); args1.append(stores1[i].size() - 1, stores1[i].c_ptr());
-                args2.resize(1); args2.append(stores1[i].size() - 1, stores1[i].c_ptr());
-                expr_ref s1(m_ar.mk_select(args1.size(), args1.c_ptr()), m);
-                expr_ref s2(m_ar.mk_select(args2.size(), args2.c_ptr()), m);
+                args1.resize(1); args1.append(stores1[i].size() - 1, stores1[i].data());
+                args2.resize(1); args2.append(stores1[i].size() - 1, stores1[i].data());
+                expr_ref s1(m_ar.mk_select(args1.size(), args1.data()), m);
+                expr_ref s2(m_ar.mk_select(args2.size(), args2.data()), m);
                 conj.push_back(m.mk_eq(s1, s2));
             }
             result = mk_and(conj);
@@ -481,19 +481,19 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
         // stores with smaller index take precedence
         for (unsigned i = stores1.size(); i-- > 0; ) {
-            table1.insert(stores1[i].c_ptr());
+            table1.insert(stores1[i].data());
         }
 
         for (unsigned i = 0, sz = stores2.size(); i < sz; ++i) {
-            if (table2.contains(stores2[i].c_ptr())) {
+            if (table2.contains(stores2[i].data())) {
                 // first insertion takes precedence.
                 TRACE("model_evaluator", tout << "duplicate " << stores2[i] << "\n";);
                 continue;
             }
-            table2.insert(stores2[i].c_ptr());
+            table2.insert(stores2[i].data());
             expr * const* args = nullptr;
             expr* val = stores2[i][arity];
-            if (table1.find(stores2[i].c_ptr(), args)) {
+            if (table1.find(stores2[i].data(), args)) {
                 TRACE("model_evaluator", tout << "found value " << stores2[i] << "\n";);
                 table1.remove(args);
                 switch (compare(args[arity], val)) {

@@ -510,7 +510,7 @@ public:
                 m_temp_exprs.push_back(m_tracker.mpz2value(arg->get_sort(), v));
             }
             expr_ref q(m_manager), temp(m_manager);
-            q = m_manager.mk_app(a->get_decl(), m_temp_exprs.size(), m_temp_exprs.c_ptr());                                
+            q = m_manager.mk_app(a->get_decl(), m_temp_exprs.size(), m_temp_exprs.data());                                
             model dummy_model(m_manager);
             model_evaluator evaluator(dummy_model);
             evaluator(q, temp);

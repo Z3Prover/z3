@@ -170,7 +170,7 @@ namespace datalog {
             }
             if (valid) {
                 todo.pop_back();
-                e1 = m.mk_app(ap->get_decl(), args.size(), args.c_ptr());
+                e1 = m.mk_app(ap->get_decl(), args.size(), args.data());
                 trail.push_back(e1);
                 if (a.is_select(ap)) {
                     if (m_defs.find(e1, v)) {
@@ -195,7 +195,7 @@ namespace datalog {
                 for (unsigned j = 0; j < s->get_num_args(); ++j) {
                     args.push_back(cache.find(s->get_arg(j)));
                 }
-                e1 = m.mk_app(s->get_decl(), args.size(), args.c_ptr());
+                e1 = m.mk_app(s->get_decl(), args.size(), args.data());
                 if (!m_defs.contains(e1) && !insert_def(r, e1, v)) {
                     return false;
                 }
@@ -230,10 +230,10 @@ namespace datalog {
                 for (unsigned j = 0; j < args1.size(); ++j) {
                     eqs.push_back(m.mk_eq(args1[j], args2[j]));
                 }
-                conjs.push_back(m.mk_implies(m.mk_and(eqs.size(), eqs.c_ptr()), m.mk_eq(v1, v2)));
+                conjs.push_back(m.mk_implies(m.mk_and(eqs.size(), eqs.data()), m.mk_eq(v1, v2)));
             }
         }
-        body = m.mk_and(conjs.size(), conjs.c_ptr());        
+        body = m.mk_and(conjs.size(), conjs.data());        
         m_rewriter(body);   
         return true;
     }
@@ -281,7 +281,7 @@ namespace datalog {
             return false;        
         }
         expr_ref fml1(m), fml2(m), body(m), head(m);
-        body = m.mk_and(new_conjs.size(), new_conjs.c_ptr());
+        body = m.mk_and(new_conjs.size(), new_conjs.data());
         head = r.get_head();
         sub(body);
         m_rewriter(body);

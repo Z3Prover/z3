@@ -212,7 +212,7 @@ namespace tb {
             }
             fmls.push_back(m_constraint);
             flatten_and(fmls);
-            bool_rewriter(m).mk_and(fmls.size(), fmls.c_ptr(), fml);
+            bool_rewriter(m).mk_and(fmls.size(), fmls.data(), fml);
             return fml;
         }
 
@@ -223,7 +223,7 @@ namespace tb {
                 fv.accumulate(m_predicates[i]);
             }
             fv.accumulate(m_constraint);
-            vars.append(fv.size(), fv.c_ptr());
+            vars.append(fv.size(), fv.data());
         }
 
         expr_ref to_formula() const {
@@ -246,7 +246,7 @@ namespace tb {
                 if (!vars[i]) vars[i] = m.mk_bool_sort();
             }
             if (!vars.empty()) {
-                body = m.mk_forall(vars.size(), vars.c_ptr(), names.c_ptr(), body);
+                body = m.mk_forall(vars.size(), vars.data(), names.data(), body);
             }
             return body;
         }
@@ -293,7 +293,7 @@ namespace tb {
                 fmls.push_back(m_predicates[i]);
             }
             fmls.push_back(m_constraint);
-            bool_rewriter(m).mk_and(fmls.size(), fmls.c_ptr(), fml);
+            bool_rewriter(m).mk_and(fmls.size(), fmls.data(), fml);
             if (!m.is_false(m_head)) {
                 if (m.is_true(fml)) {
                     fml = m_head;
@@ -329,7 +329,7 @@ namespace tb {
             for (unsigned i = 0; i < utsz; ++i) {
                 m_predicates.push_back(r->get_tail(i));
             }
-            bool_rewriter(m).mk_and(fmls.size(), fmls.c_ptr(),  m_constraint);
+            bool_rewriter(m).mk_and(fmls.size(), fmls.data(),  m_constraint);
         }
 
         // Simplify a clause by applying equalities as substitutions on predicates.
@@ -355,7 +355,7 @@ namespace tb {
                 subst.apply(1, delta, expr_offset(m_predicates[i].get(), 0), tmp);
                 m_predicates[i] = to_app(tmp);
             }
-            bool_rewriter(m).mk_and(fmls.size(), fmls.c_ptr(),  m_constraint);
+            bool_rewriter(m).mk_and(fmls.size(), fmls.data(),  m_constraint);
             subst.apply(1, delta, expr_offset(m_constraint, 0), m_constraint);
             rw(m_constraint);
         }
@@ -559,15 +559,15 @@ namespace tb {
                 }
                 vars.push_back(m.mk_const(symbol(i), sorts[i]));
             }
-            fml = vs(g.get_head(), vars.size(), vars.c_ptr());
+            fml = vs(g.get_head(), vars.size(), vars.data());
             m_head = to_app(fml);
             for (unsigned i = 0; i < g.get_num_predicates(); ++i) {
-                fml = vs(g.get_predicate(i), vars.size(), vars.c_ptr());
+                fml = vs(g.get_predicate(i), vars.size(), vars.data());
                 m_preds.push_back(to_app(fml));
             }
-            fml = vs(g.get_constraint(), vars.size(), vars.c_ptr());
+            fml = vs(g.get_constraint(), vars.size(), vars.data());
             fmls.push_back(fml);
-            m_precond = m.mk_and(fmls.size(), fmls.c_ptr());
+            m_precond = m.mk_and(fmls.size(), fmls.data());
             IF_VERBOSE(2,
                        verbose_stream() << "setup-match: ";
                        for (unsigned i = 0; i < m_preds.size(); ++i) {
@@ -661,7 +661,7 @@ namespace tb {
                     return false;
                 }
             }
-            m_rw.mk_and(fmls.size(), fmls.c_ptr(), postcond);
+            m_rw.mk_and(fmls.size(), fmls.data(), postcond);
             if (!m.inc()) {
                 return false;
             }
@@ -1130,12 +1130,12 @@ namespace tb {
                 }
             }
             if (change) {
-                constraint = m_S2(result->get_constraint(), m_rename.size(), m_rename.c_ptr());
+                constraint = m_S2(result->get_constraint(), m_rename.size(), m_rename.data());
                 for (unsigned i = 0; i < result->get_num_predicates(); ++i) {
-                    tmp = m_S2(result->get_predicate(i), m_rename.size(), m_rename.c_ptr());
+                    tmp = m_S2(result->get_predicate(i), m_rename.size(), m_rename.data());
                     predicates[i] = to_app(tmp);
                 }
-                tmp = m_S2(result->get_head(), m_rename.size(), m_rename.c_ptr());
+                tmp = m_S2(result->get_head(), m_rename.size(), m_rename.data());
                 head = to_app(tmp);
                 result->init(head, predicates, constraint);
             }
@@ -1166,7 +1166,7 @@ namespace tb {
                 if (vars[i]) {
                     v = m.mk_var(i, vars[i]);
                     m_S1.apply(2, delta, expr_offset(v, offset), tmp);
-                    tmp = m_S2(tmp, m_rename.size(), m_rename.c_ptr());
+                    tmp = m_S2(tmp, m_rename.size(), m_rename.data());
                     insert_subst(offset, tmp);
                 }
                 else {
@@ -1222,26 +1222,26 @@ namespace tb {
                 }
             }
             app_ref_vector preds(m);
-            delta = m.mk_fresh_func_decl("Delta", dom.size(), dom.c_ptr(), m.mk_bool_sort());
+            delta = m.mk_fresh_func_decl("Delta", dom.size(), dom.data(), m.mk_bool_sort());
             acc    = alloc(clause, m);
             delta1 = alloc(clause, m);
             delta2 = alloc(clause, m);
-            delta1->init(m.mk_app(delta, zszs.size(), zszs.c_ptr()), preds, m.mk_true());
+            delta1->init(m.mk_app(delta, zszs.size(), zszs.data()), preds, m.mk_true());
             for (unsigned i = 0; i < zs.size(); ++i) {
                 zszs[i+zs.size()] = p->get_arg(i);
             }
             app_ref head(m), pred(m);
-            head = m.mk_app(delta, zszs.size(), zszs.c_ptr());
+            head = m.mk_app(delta, zszs.size(), zszs.data());
             for (unsigned i = 0; i < zs.size(); ++i) {
                 zszs[i+zs.size()] = q->get_arg(i);
             }
-            pred = m.mk_app(delta, zszs.size(), zszs.c_ptr());
+            pred = m.mk_app(delta, zszs.size(), zszs.data());
             preds.push_back(pred);
             for (unsigned i = 1; i < g.get_num_predicates(); ++i) {
                 preds.push_back(g.get_predicate(i));
             }
             delta2->init(head, preds, g.get_constraint());
-            preds.push_back(m.mk_app(q->get_decl(), zs.size(), zs.c_ptr()));
+            preds.push_back(m.mk_app(q->get_decl(), zs.size(), zs.data()));
             acc->init(p, preds, g.get_constraint());
 
             IF_VERBOSE(1,
@@ -1598,7 +1598,7 @@ namespace datalog {
 
             pc.invert();
             prs.push_back(m.mk_asserted(root));
-            pr = pc(m, 1, prs.c_ptr());
+            pr = pc(m, 1, prs.data());
             return pr;
         }
 
@@ -1610,7 +1610,7 @@ namespace datalog {
             }
             expr_ref body = clause.get_body();
             var_subst vs(m, false);
-            body = vs(body, subst.size(), subst.c_ptr());
+            body = vs(body, subst.size(), subst.data());
             out << body << "\n";
         }
 
@@ -1628,7 +1628,7 @@ namespace datalog {
             premises.push_back(m.mk_asserted(r1.to_formula()));
             premises.push_back(m.mk_asserted(r2.to_formula()));
             positions.push_back(std::make_pair(idx+1, 0));
-            pr = m.mk_hyper_resolve(2, premises.c_ptr(), fml, positions, substs);
+            pr = m.mk_hyper_resolve(2, premises.data(), fml, positions, substs);
             pc.insert(pr);
         }
     };

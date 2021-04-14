@@ -449,7 +449,7 @@ extern "C" {
         for (unsigned i = 0; i < num_relations; ++i) {
             kinds.push_back(to_symbol(relation_kinds[i]));
         }
-        to_fixedpoint_ref(d)->ctx().set_predicate_representation(to_func_decl(f), num_relations, kinds.c_ptr());
+        to_fixedpoint_ref(d)->ctx().set_predicate_representation(to_func_decl(f), num_relations, kinds.data());
         Z3_CATCH;
     }
 

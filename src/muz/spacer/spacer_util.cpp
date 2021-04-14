@@ -732,7 +732,7 @@ namespace spacer {
                     egraph.to_lits(v);
                 }
                 // sort arguments of the top-level and
-                std::stable_sort(v.c_ptr(), v.c_ptr() + v.size(), ast_lt_proc());
+                std::stable_sort(v.data(), v.data() + v.size(), ast_lt_proc());
 
                 TRACE("spacer_normalize",
                     tout << "Normalized:\n"
@@ -857,7 +857,7 @@ namespace spacer {
             sort* s = fv[i] ? fv[i] : m.mk_bool_sort();
             vars[i] = mk_zk_const(m, i, s);
             var_subst vs(m, false);
-            out = vs(e, vars.size(), (expr**)vars.c_ptr());
+            out = vs(e, vars.size(), (expr**)vars.data());
         }
     }
 

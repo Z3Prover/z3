@@ -126,7 +126,7 @@ namespace sat {
         m_values.reserve(s.num_vars(), false);
         unsigned trail_sz = s.init_trail_size();
         for (unsigned i = 0; i < trail_sz; ++i) {
-            add(1, s.m_trail.c_ptr() + i);
+            add(1, s.m_trail.data() + i);
         }
         unsigned sz = s.m_watches.size();
         for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {

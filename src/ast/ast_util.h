@@ -28,7 +28,7 @@ void remove_duplicates(C & v) {
         unsigned sz = v.size();
         unsigned j = 0;
         for (unsigned i = 0; i < sz; i++) {
-            typename C::data curr = v.get(i);
+            auto curr = v.get(i);
             if (!visited.is_marked(curr)) {
                 visited.mark(curr);
                 if (i != j)
@@ -102,8 +102,8 @@ expr * get_clause_literal(ast_manager & m, expr * cls, unsigned idx);
 expr * mk_and(ast_manager & m, unsigned num_args, expr * const * args);
 app  * mk_and(ast_manager & m, unsigned num_args, app * const * args);
 inline expr * mk_and(ast_manager & m, expr* a, expr* b) { expr* args[2] = { a, b }; return mk_and(m, 2, args); }
-inline app_ref mk_and(app_ref_vector const& args) { return app_ref(mk_and(args.get_manager(), args.size(), args.c_ptr()), args.get_manager()); }
-inline expr_ref mk_and(expr_ref_vector const& args) { return expr_ref(mk_and(args.get_manager(), args.size(), args.c_ptr()), args.get_manager()); }
+inline app_ref mk_and(app_ref_vector const& args) { return app_ref(mk_and(args.get_manager(), args.size(), args.data()), args.get_manager()); }
+inline expr_ref mk_and(expr_ref_vector const& args) { return expr_ref(mk_and(args.get_manager(), args.size(), args.data()), args.get_manager()); }
 
 inline app_ref operator&(expr_ref& a, expr* b) { return app_ref(a.m().mk_and(a, b), a.m()); }
 inline app_ref operator&(app_ref& a,  expr* b) { return app_ref(a.m().mk_and(a, b), a.m()); }
@@ -124,8 +124,8 @@ app_ref operator+(expr_ref& a, expr_ref& b);
 expr * mk_or(ast_manager & m, unsigned num_args, expr * const * args);
 app  * mk_or(ast_manager & m, unsigned num_args, app * const * args);
 inline expr * mk_or(ast_manager & m, expr* a, expr* b) { expr* args[2] = { a, b }; return mk_or(m, 2, args); }
-inline app_ref mk_or(app_ref_vector const& args) { return app_ref(mk_or(args.get_manager(), args.size(), args.c_ptr()), args.get_manager()); }
-inline expr_ref mk_or(expr_ref_vector const& args) { return expr_ref(mk_or(args.get_manager(), args.size(), args.c_ptr()), args.get_manager()); }
+inline app_ref mk_or(app_ref_vector const& args) { return app_ref(mk_or(args.get_manager(), args.size(), args.data()), args.get_manager()); }
+inline expr_ref mk_or(expr_ref_vector const& args) { return expr_ref(mk_or(args.get_manager(), args.size(), args.data()), args.get_manager()); }
 
 /**
    Return a          if arg = (not a)

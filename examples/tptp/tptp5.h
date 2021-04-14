@@ -27,7 +27,7 @@ public:
         m_names.push_back(symbol(name));
     }
     unsigned size() const { return m_fmls.size(); }
-    expr*const* c_ptr() const { return m_fmls.c_ptr(); }
+    expr*const* data() const { return m_fmls.data(); }
     expr* operator[](unsigned i) { return m_fmls[i].get(); }
     symbol const& name(unsigned i) { return m_names[i]; }
     void set_has_conjecture() { 

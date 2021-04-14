@@ -315,12 +315,12 @@ struct macro_manager::macro_expander_cfg : public default_rewriter_cfg {
                 subst_args[nidx] = n->get_arg(i);
             }
             var_subst s(m);
-            expr_ref rr = s(def, num, subst_args.c_ptr());
+            expr_ref rr = s(def, num, subst_args.data());
             m_trail.push_back(rr);
             r = rr;
             if (m.proofs_enabled()) {
-                expr_ref instance = s(q->get_expr(), num, subst_args.c_ptr());
-                proof * qi_pr = m.mk_quant_inst(m.mk_or(m.mk_not(q), instance), num, subst_args.c_ptr());
+                expr_ref instance = s(q->get_expr(), num, subst_args.data());
+                proof * qi_pr = m.mk_quant_inst(m.mk_or(m.mk_not(q), instance), num, subst_args.data());
                 proof * q_pr  = mm.m_decl2macro_pr.find(d);
                 proof * prs[2] = { qi_pr, q_pr };
                 p = m.mk_unit_resolution(2, prs);

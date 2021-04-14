@@ -1829,27 +1829,27 @@ public:
     app * mk_app(func_decl * decl, unsigned num_args, expr * const * args);
 
     app* mk_app(func_decl* decl, ref_vector<expr, ast_manager> const& args) {
-        return mk_app(decl, args.size(), args.c_ptr());
+        return mk_app(decl, args.size(), args.data());
     }
 
     app* mk_app(func_decl* decl, ref_buffer<expr, ast_manager> const& args) {
-        return mk_app(decl, args.size(), args.c_ptr());
+        return mk_app(decl, args.size(), args.data());
     }
 
     app* mk_app(func_decl* decl, ref_vector<app, ast_manager> const& args) {
-        return mk_app(decl, args.size(), (expr*const*)args.c_ptr());
+        return mk_app(decl, args.size(), (expr*const*)args.data());
     }
 
     app * mk_app(func_decl * decl, ptr_vector<expr> const& args) {
-        return mk_app(decl, args.size(), args.c_ptr());
+        return mk_app(decl, args.size(), args.data());
     }
 
     app * mk_app(func_decl * decl, ptr_buffer<expr> const& args) {
-        return mk_app(decl, args.size(), args.c_ptr());
+        return mk_app(decl, args.size(), args.data());
     }
 
     app * mk_app(func_decl * decl, ptr_vector<app> const& args) {
-        return mk_app(decl, args.size(), (expr*const*)args.c_ptr());
+        return mk_app(decl, args.size(), (expr*const*)args.data());
     }
 
     app * mk_app(func_decl * decl, expr * const * args) {
@@ -2138,9 +2138,9 @@ public:
     app * mk_xor(expr * lhs, expr * rhs) { return mk_app(basic_family_id, OP_XOR, lhs, rhs); }
     app * mk_ite(expr * c, expr * t, expr * e) { return mk_app(basic_family_id, OP_ITE, c, t, e); }
     app * mk_xor(unsigned num_args, expr * const * args) { return mk_app(basic_family_id, OP_XOR, num_args, args); }
-    app * mk_xor(ptr_buffer<expr> const& args) { return mk_xor(args.size(), args.c_ptr()); }
-    app * mk_xor(ptr_vector<expr> const& args) { return mk_xor(args.size(), args.c_ptr()); }
-    app * mk_xor(ref_buffer<expr, ast_manager> const& args) { return mk_xor(args.size(), args.c_ptr()); }
+    app * mk_xor(ptr_buffer<expr> const& args) { return mk_xor(args.size(), args.data()); }
+    app * mk_xor(ptr_vector<expr> const& args) { return mk_xor(args.size(), args.data()); }
+    app * mk_xor(ref_buffer<expr, ast_manager> const& args) { return mk_xor(args.size(), args.data()); }
     app * mk_or(unsigned num_args, expr * const * args) { return mk_app(basic_family_id, OP_OR, num_args, args); }
     app * mk_and(unsigned num_args, expr * const * args) { return mk_app(basic_family_id, OP_AND, num_args, args); }
     app * mk_or(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_OR, arg1, arg2); }
@@ -2149,14 +2149,14 @@ public:
     app * mk_or(expr* a, expr* b, expr* c, expr* d) { expr* args[4] = { a, b, c, d }; return mk_app(basic_family_id, OP_OR, 4, args); }
     app * mk_and(expr * arg1, expr * arg2, expr * arg3) { return mk_app(basic_family_id, OP_AND, arg1, arg2, arg3); }
 
-    app * mk_and(ref_vector<expr, ast_manager> const& args) { return mk_and(args.size(), args.c_ptr()); }
-    app * mk_and(ptr_vector<expr> const& args) { return mk_and(args.size(), args.c_ptr()); }
-    app * mk_and(ref_buffer<expr, ast_manager> const& args) { return mk_and(args.size(), args.c_ptr()); }
-    app * mk_and(ptr_buffer<expr> const& args) { return mk_and(args.size(), args.c_ptr()); }
-    app * mk_or(ref_vector<expr, ast_manager> const& args) { return mk_or(args.size(), args.c_ptr()); }
-    app * mk_or(ptr_vector<expr> const& args) { return mk_or(args.size(), args.c_ptr()); }
-    app * mk_or(ref_buffer<expr, ast_manager> const& args) { return mk_or(args.size(), args.c_ptr()); }
-    app * mk_or(ptr_buffer<expr> const& args) { return mk_or(args.size(), args.c_ptr()); }
+    app * mk_and(ref_vector<expr, ast_manager> const& args) { return mk_and(args.size(), args.data()); }
+    app * mk_and(ptr_vector<expr> const& args) { return mk_and(args.size(), args.data()); }
+    app * mk_and(ref_buffer<expr, ast_manager> const& args) { return mk_and(args.size(), args.data()); }
+    app * mk_and(ptr_buffer<expr> const& args) { return mk_and(args.size(), args.data()); }
+    app * mk_or(ref_vector<expr, ast_manager> const& args) { return mk_or(args.size(), args.data()); }
+    app * mk_or(ptr_vector<expr> const& args) { return mk_or(args.size(), args.data()); }
+    app * mk_or(ref_buffer<expr, ast_manager> const& args) { return mk_or(args.size(), args.data()); }
+    app * mk_or(ptr_buffer<expr> const& args) { return mk_or(args.size(), args.data()); }
     app * mk_implies(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_IMPLIES, arg1, arg2); }
     app * mk_not(expr * n) { return mk_app(basic_family_id, OP_NOT, n); }
     app * mk_distinct(unsigned num_args, expr * const * args);

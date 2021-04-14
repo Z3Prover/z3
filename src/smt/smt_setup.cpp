@@ -150,7 +150,7 @@ namespace smt {
             IF_VERBOSE(100, verbose_stream() << "(smt.collecting-features)\n";);
             ptr_vector<expr> fmls;
             m_context.get_asserted_formulas(fmls);
-            st.collect(fmls.size(), fmls.c_ptr());
+            st.collect(fmls.size(), fmls.data());
             TRACE("setup", st.display_primitive(tout););
             IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
             if (m_logic == "QF_UF") 
@@ -785,7 +785,7 @@ namespace smt {
         IF_VERBOSE(100, verbose_stream() << "(smt.collecting-features)\n";);
         ptr_vector<expr> fmls;
         m_context.get_asserted_formulas(fmls);
-        st.collect(fmls.size(), fmls.c_ptr());
+        st.collect(fmls.size(), fmls.data());
         IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
         bool fixnum = st.arith_k_sum_is_small() && m_params.m_arith_fixnum;
         bool int_only = !st.m_has_rational && !st.m_has_real && m_params.m_arith_int_only;
@@ -953,7 +953,7 @@ namespace smt {
         static_features st(m_manager);
         ptr_vector<expr> fmls;
         m_context.get_asserted_formulas(fmls);
-        st.collect(fmls.size(), fmls.c_ptr());
+        st.collect(fmls.size(), fmls.data());
         TRACE("setup", tout << "setup_unknown\n";);
         setup_arith();
         setup_arrays();

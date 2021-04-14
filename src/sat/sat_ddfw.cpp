@@ -147,7 +147,7 @@ namespace sat {
 
         unsigned trail_sz = s.init_trail_size();
         for (unsigned i = 0; i < trail_sz; ++i) {
-            add(1, s.m_trail.c_ptr() + i);
+            add(1, s.m_trail.data() + i);
         }
         unsigned sz = s.m_watches.size();
         for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
@@ -171,7 +171,7 @@ namespace sat {
 
     void ddfw::add_assumptions() {
         for (unsigned i = 0; i < m_assumptions.size(); ++i) {
-            add(1, m_assumptions.c_ptr() + i);
+            add(1, m_assumptions.data() + i);
         }
     }
 

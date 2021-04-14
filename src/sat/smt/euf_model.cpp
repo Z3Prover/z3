@@ -35,7 +35,7 @@ namespace euf {
 
         ~user_sort() {
             for (auto kv : sort2values)
-                mdl->register_usort(kv.m_key, kv.m_value->size(), kv.m_value->c_ptr());
+                mdl->register_usort(kv.m_key, kv.m_value->size(), kv.m_value->data());
         }
 
         void add(enode* r, sort* srt) {
@@ -203,8 +203,8 @@ namespace euf {
                     args.push_back(m_values.get(arg->get_root_id()));                
                 DEBUG_CODE(for (expr* arg : args) VERIFY(arg););
                 SASSERT(args.size() == arity);
-                if (!fi->get_entry(args.c_ptr()))
-                    fi->insert_new_entry(args.c_ptr(), v);
+                if (!fi->get_entry(args.data()))
+                    fi->insert_new_entry(args.data(), v);
             }
         }
     }

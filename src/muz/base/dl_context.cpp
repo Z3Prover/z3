@@ -625,7 +625,7 @@ namespace datalog {
             m_rel->add_fact(pred, fact);
         }
         else {
-            expr_ref rule(m.mk_app(pred, fact.size(), (expr*const*)fact.c_ptr()), m);
+            expr_ref rule(m.mk_app(pred, fact.size(), (expr*const*)fact.data()), m);
             add_rule(rule, symbol::null);
         }
     }
@@ -1125,7 +1125,7 @@ namespace datalog {
         ast_pp_util visitor(m);
         func_decl_set rels;
         unsigned num_axioms = m_background.size();
-        expr* const* axioms = m_background.c_ptr();
+        expr* const* axioms = m_background.data();
         expr_ref fml(m);
         expr_ref_vector rules(m), queries(m);
         svector<symbol> names;
@@ -1141,8 +1141,8 @@ namespace datalog {
         smt2_pp_environment_dbg env(m);
         mk_fresh_name fresh_names;
         collect_free_funcs(num_axioms,  axioms,  visitor, fresh_names);
-        collect_free_funcs(rules.size(), rules.c_ptr(),   visitor, fresh_names);
-        collect_free_funcs(queries.size(), queries.c_ptr(), visitor, fresh_names);
+        collect_free_funcs(rules.size(), rules.data(),   visitor, fresh_names);
+        collect_free_funcs(queries.size(), queries.data(), visitor, fresh_names);
         func_decl_set funcs;
         unsigned sz = visitor.coll.get_num_decls();
         for (unsigned i = 0; i < sz; ++i) {
@@ -1212,7 +1212,7 @@ namespace datalog {
                 else {
                     m_free_vars(q);
                     m_free_vars.set_default_sort(m.mk_bool_sort());
-                    sort* const* domain = m_free_vars.c_ptr();
+                    sort* const* domain = m_free_vars.data();
                     expr_ref qfn(m);
                     expr_ref_vector args(m);
                     fn = m.mk_fresh_func_decl(symbol("q"), symbol(""), m_free_vars.size(), domain, m.mk_bool_sort());
@@ -1220,7 +1220,7 @@ namespace datalog {
                     for (unsigned j = 0; j < m_free_vars.size(); ++j) {
                         args.push_back(m.mk_var(j, m_free_vars[j]));
                     }
-                    qfn = m.mk_implies(q, m.mk_app(fn, args.size(), args.c_ptr()));
+                    qfn = m.mk_implies(q, m.mk_app(fn, args.size(), args.data()));
 
                     out << "(assert ";
                     PP(qfn);
@@ -1327,7 +1327,7 @@ namespace datalog {
                 subst.push_back(fresh_vars[vars[max_var]].get());
             }
 
-            res = vsubst(q->get_expr(), subst.size(), subst.c_ptr());
+            res = vsubst(q->get_expr(), subst.size(), subst.data());
             rules[i] = res.get();
         }
     }

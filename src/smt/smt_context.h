@@ -910,7 +910,7 @@ namespace smt {
         void mk_th_axiom(theory_id tid, literal l1, literal l2, literal l3, unsigned num_params = 0, parameter * params = nullptr);
 
         void mk_th_axiom(theory_id tid, literal_vector const& ls, unsigned num_params = 0, parameter * params = nullptr) {
-            mk_th_axiom(tid, ls.size(), ls.c_ptr(), num_params, params);
+            mk_th_axiom(tid, ls.size(), ls.data(), num_params, params);
         }
 
         void mk_th_lemma(theory_id tid, literal l1, literal l2, unsigned num_params = 0, parameter * params = nullptr) {
@@ -928,7 +928,7 @@ namespace smt {
         }
 
         void mk_th_lemma(theory_id tid, literal_vector const& ls, unsigned num_params = 0, parameter * params = nullptr) {
-            mk_th_lemma(tid, ls.size(), ls.c_ptr(), num_params, params);
+            mk_th_lemma(tid, ls.size(), ls.data(), num_params, params);
         }
 
         /*
@@ -1357,14 +1357,14 @@ namespace smt {
 
         std::ostream& display_literal(std::ostream & out, literal l) const;
 
-        std::ostream& display_detailed_literal(std::ostream & out, literal l) const { l.display(out, m, m_bool_var2expr.c_ptr()); return out; }
+        std::ostream& display_detailed_literal(std::ostream & out, literal l) const { l.display(out, m, m_bool_var2expr.data()); return out; }
 
         void display_literal_info(std::ostream & out, literal l) const;
 
         std::ostream& display_literals(std::ostream & out, unsigned num_lits, literal const * lits) const;
 
         std::ostream& display_literals(std::ostream & out, literal_vector const& lits) const {
-            return display_literals(out, lits.size(), lits.c_ptr());
+            return display_literals(out, lits.size(), lits.data());
         }
 
         std::ostream& display_literal_smt2(std::ostream& out, literal lit) const;
@@ -1373,14 +1373,14 @@ namespace smt {
 
         std::ostream& display_literals_smt2(std::ostream& out, unsigned num_lits, literal const* lits) const;
 
-        std::ostream& display_literals_smt2(std::ostream& out, literal_vector const& ls) const { return display_literals_smt2(out, ls.size(), ls.c_ptr()); }
+        std::ostream& display_literals_smt2(std::ostream& out, literal_vector const& ls) const { return display_literals_smt2(out, ls.size(), ls.data()); }
 
         std::ostream& display_literal_verbose(std::ostream & out, literal lit) const;
 
         std::ostream& display_literals_verbose(std::ostream & out, unsigned num_lits, literal const * lits) const;
         
         std::ostream& display_literals_verbose(std::ostream & out, literal_vector const& lits) const {
-            return display_literals_verbose(out, lits.size(), lits.c_ptr());
+            return display_literals_verbose(out, lits.size(), lits.data());
         }
 
         void display_watch_list(std::ostream & out, literal l) const;
@@ -1733,7 +1733,7 @@ namespace smt {
         void assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain);
 
         void assign_fixed(enode* n, expr* val, literal_vector const& explain) {
-            assign_fixed(n, val, explain.size(), explain.c_ptr());
+            assign_fixed(n, val, explain.size(), explain.data());
         }
 
         void assign_fixed(enode* n, expr* val, literal explain) {
@@ -1778,7 +1778,7 @@ namespace smt {
         literal const *lits;
         unsigned len;
         pp_lits(context & ctx, unsigned len, literal const *lits) : ctx(ctx), lits(lits), len(len) {}
-        pp_lits(context & ctx, literal_vector const& ls) : ctx(ctx), lits(ls.c_ptr()), len(ls.size()) {}
+        pp_lits(context & ctx, literal_vector const& ls) : ctx(ctx), lits(ls.data()), len(ls.size()) {}
     };
 
     inline std::ostream & operator<<(std::ostream & out, pp_lits const & pp) {

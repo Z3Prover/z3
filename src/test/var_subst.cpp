@@ -50,7 +50,7 @@ void tst_instantiate(ast_manager & m, expr * f) {
         expr_ref_vector cnsts(m);
         for (unsigned i = 0; i < q->get_num_decls(); i++) 
             cnsts.push_back(m.mk_fresh_const("a", q->get_decl_sort(i)));
-        expr_ref r = instantiate(m, q, cnsts.c_ptr());
+        expr_ref r = instantiate(m, q, cnsts.data());
         TRACE("var_subst", tout << "quantifier:\n" << mk_pp(q, m) << "\nresult:\n" << mk_pp(r, m) << "\n";);
     }
 }
@@ -82,7 +82,7 @@ void tst_subst(ast_manager& m) {
     sub1.push_back(x);
     sub1.push_back(y);
     // replace #1 -> #2, #2 -> #1
-    e3 = subst(e2, 2, sub1.c_ptr());
+    e3 = subst(e2, 2, sub1.data());
     std::cout << mk_pp(e2, m) << "\n";
     std::cout << mk_pp(e3, m) << "\n";
     std::cout << mk_pp(t1, m) << "\n";
@@ -90,7 +90,7 @@ void tst_subst(ast_manager& m) {
 
     // replace #2 -> #3, #3 -> #2
     e2 = m.mk_forall(2, ss, names, e1);
-    e3 = subst(e2, 2, sub1.c_ptr());
+    e3 = subst(e2, 2, sub1.data());
     std::cout << mk_pp(e2, m) << "\n";
     std::cout << mk_pp(e3, m) << "\n";
     std::cout << mk_pp(t2, m) << "\n";

@@ -79,7 +79,7 @@ expr * simple_parser::parse_expr(scanner & s) {
                     args.push_back(arg);
                 }
                 else {
-                    expr * r = m_manager.mk_app(op.m_family_id, op.m_kind, args.size(), args.c_ptr());
+                    expr * r = m_manager.mk_app(op.m_family_id, op.m_kind, args.size(), args.data());
                     m_exprs.push_back(r);
                     return r;
                 }

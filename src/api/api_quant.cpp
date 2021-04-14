@@ -88,7 +88,7 @@ extern "C" {
         if (num_decls > 0) {
             result = mk_c(c)->m().mk_quantifier(
                 is_forall ? forall_k : exists_k,
-                names.size(), ts, names.c_ptr(), to_expr(body),
+                names.size(), ts, names.data(), to_expr(body),
                 weight,
                 qid,
                 to_symbol(skolem_id),
@@ -160,7 +160,7 @@ extern "C" {
         for (unsigned i = 0; i < num_decls; ++i) {
             names.push_back(to_symbol(decl_names[i]));
         }
-        result = mk_c(c)->m().mk_lambda(names.size(), ts, names.c_ptr(), to_expr(body));
+        result = mk_c(c)->m().mk_lambda(names.size(), ts, names.data(), to_expr(body));
         mk_c(c)->save_ast_trail(result.get());
         return of_ast(result.get());
         Z3_CATCH_RETURN(nullptr);
@@ -188,9 +188,9 @@ extern "C" {
             _vars.push_back(a->get_sort());
         }
         expr_ref result(mk_c(c)->m());        
-        expr_abstract(mk_c(c)->m(), 0, num_decls, _args.c_ptr(), to_expr(body), result);
+        expr_abstract(mk_c(c)->m(), 0, num_decls, _args.data(), to_expr(body), result);
         
-        result = mk_c(c)->m().mk_lambda(_vars.size(), _vars.c_ptr(), _names.c_ptr(), result);
+        result = mk_c(c)->m().mk_lambda(_vars.size(), _vars.data(), _names.data(), result);
         mk_c(c)->save_ast_trail(result.get());
         return of_ast(result.get());
         Z3_CATCH_RETURN(nullptr);
@@ -246,7 +246,7 @@ extern "C" {
             expr_ref result(mk_c(c)->m());
             app* pat = to_pattern(patterns[i]);
             SASSERT(mk_c(c)->m().is_pattern(pat));
-            expr_abstract(mk_c(c)->m(), 0, num_bound, bound_asts.c_ptr(), pat, result);
+            expr_abstract(mk_c(c)->m(), 0, num_bound, bound_asts.data(), pat, result);
             SASSERT(result.get()->get_kind() == AST_APP);
             pinned.push_back(result.get());
             SASSERT(mk_c(c)->m().is_pattern(result.get()));
@@ -260,20 +260,20 @@ extern "C" {
                 RETURN_Z3(nullptr);
             }
             app* pat = to_app(to_expr(no_patterns[i]));
-            expr_abstract(mk_c(c)->m(), 0, num_bound, bound_asts.c_ptr(), pat, result);
+            expr_abstract(mk_c(c)->m(), 0, num_bound, bound_asts.data(), pat, result);
             SASSERT(result.get()->get_kind() == AST_APP);
             pinned.push_back(result.get());
             _no_patterns.push_back(of_ast(result.get()));
         }
         expr_ref abs_body(mk_c(c)->m());
-        expr_abstract(mk_c(c)->m(), 0, num_bound, bound_asts.c_ptr(), to_expr(body), abs_body);
+        expr_abstract(mk_c(c)->m(), 0, num_bound, bound_asts.data(), to_expr(body), abs_body);
 
         Z3_ast result = mk_quantifier_ex_core(c, is_forall, weight,
                                               quantifier_id,
                                               skolem_id,
-                                              num_patterns, _patterns.c_ptr(),
-                                              num_no_patterns, _no_patterns.c_ptr(),
-                                              names.size(), types.c_ptr(), names.c_ptr(),
+                                              num_patterns, _patterns.data(),
+                                              num_no_patterns, _no_patterns.data(),
+                                              names.size(), types.data(), names.data(),
                                               of_ast(abs_body.get()));
         RETURN_Z3(result);
         Z3_CATCH_RETURN(nullptr);

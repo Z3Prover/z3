@@ -776,7 +776,7 @@ namespace euf {
             for (unsigned j = 0; j < n1->num_args(); ++j) 
                 args.push_back(old_expr2new_enode[n1->get_arg(j)->get_expr_id()]);
             expr*  e2 = tr(e1);
-            enode* n2 = mk(e2, n1->generation(), args.size(), args.c_ptr());
+            enode* n2 = mk(e2, n1->generation(), args.size(), args.data());
             old_expr2new_enode.setx(e1->get_id(), n2, nullptr);
             n2->set_value(n2->value());
             n2->m_bool_var = n1->m_bool_var;

@@ -369,7 +369,7 @@ void asserted_formulas::swap_asserted_formulas(vector<justified_expr>& formulas)
 void asserted_formulas::find_macros_core() {
     vector<justified_expr> new_fmls;
     unsigned sz = m_formulas.size();
-    (*m_macro_finder)(sz - m_qhead, m_formulas.c_ptr() + m_qhead, new_fmls);
+    (*m_macro_finder)(sz - m_qhead, m_formulas.data() + m_qhead, new_fmls);
     swap_asserted_formulas(new_fmls);
     reduce_and_solve();
 }
@@ -425,7 +425,7 @@ void asserted_formulas::apply_quasi_macros() {
     vector<justified_expr> new_fmls;
     quasi_macros proc(m, m_macro_manager);
     while (proc(m_formulas.size() - m_qhead,
-                m_formulas.c_ptr() + m_qhead,
+                m_formulas.data() + m_qhead,
                 new_fmls)) {
         swap_asserted_formulas(new_fmls);
         new_fmls.reset();
@@ -516,7 +516,7 @@ void asserted_formulas::commit() {
 }
 
 void asserted_formulas::commit(unsigned new_qhead) {
-    m_macro_manager.mark_forbidden(new_qhead - m_qhead, m_formulas.c_ptr() + m_qhead);
+    m_macro_manager.mark_forbidden(new_qhead - m_qhead, m_formulas.data() + m_qhead);
     m_expr2depth.reset();
     for (unsigned i = m_qhead; i < new_qhead; ++i) {
         justified_expr const& j = m_formulas[i];

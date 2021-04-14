@@ -160,13 +160,13 @@ class horn_tactic : public tactic {
             }
             if (head) {
                 if (!is_implication(f)) {
-                    f = m.mk_and(body.size(), body.c_ptr());
+                    f = m.mk_and(body.size(), body.data());
                     f = m.mk_implies(f, head);
                 }
                 return IS_RULE;
             }
             else {
-                f = m.mk_and(body.size(), body.c_ptr());
+                f = m.mk_and(body.size(), body.data());
                 return IS_QUERY;
             }
         }
@@ -308,7 +308,7 @@ class horn_tactic : public tactic {
                 for (unsigned i = 0; i < m_free_vars.size(); ++i) {
                     names.push_back(symbol(m_free_vars.size() - i - 1));
                 }
-                f = m.mk_forall(m_free_vars.size(), m_free_vars.c_ptr(), names.c_ptr(), f);
+                f = m.mk_forall(m_free_vars.size(), m_free_vars.data(), names.data(), f);
             }
         }
 

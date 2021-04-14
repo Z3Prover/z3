@@ -254,7 +254,7 @@ namespace smt {
                   //ctx.display(tout);                      
                   );
         }
-        expr_ref result(m.mk_or(disj.size(), disj.c_ptr()), m);
+        expr_ref result(m.mk_or(disj.size(), disj.data()), m);
         TRACE("opt",
               tout << result << " weight: " << weight << "\n";
               tout << "cost: " << m_zcost << " min-cost: " << m_zmin_cost << "\n";);
@@ -283,7 +283,7 @@ namespace smt {
         
         ctx.set_conflict(
             ctx.mk_justification(
-                ext_theory_conflict_justification(get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), 0, nullptr, 0, nullptr)));
+                ext_theory_conflict_justification(get_id(), ctx.get_region(), lits.size(), lits.data(), 0, nullptr, 0, nullptr)));
     }     
 
     bool theory_wmaxsat::max_unassigned_is_blocked() {
@@ -325,13 +325,13 @@ namespace smt {
             lits.push_back(literal(w));        
         }
         TRACE("opt", 
-              ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); 
+              ctx.display_literals_verbose(tout, lits.size(), lits.data()); 
               ctx.display_literal_verbose(tout << " --> ", lit););
         
         region& r = ctx.get_region();
         ctx.assign(lit, ctx.mk_justification(
                        ext_theory_propagation_justification(
-                           get_id(), r, lits.size(), lits.c_ptr(), 0, nullptr, lit, 0, nullptr)));
+                           get_id(), r, lits.size(), lits.data(), 0, nullptr, lit, 0, nullptr)));
     }                
 
 

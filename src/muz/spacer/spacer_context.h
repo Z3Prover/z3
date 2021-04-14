@@ -458,7 +458,7 @@ public:
     func_decl* head() const {return m_head;}
     ptr_vector<datalog::rule> const& rules() const {return m_rules;}
     func_decl* sig(unsigned i) const {return m_sig[i];} // signature
-    func_decl* const* sig() {return m_sig.c_ptr();}
+    func_decl* const* sig() {return m_sig.data();}
     unsigned  sig_size() const {return m_sig.size();}
     expr*  transition() const {return m_transition;}
     expr*  init() const {return m_init;}

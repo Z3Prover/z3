@@ -82,11 +82,11 @@ namespace datalog {
         func_decl*& filter_decl = m_tail2filter.insert_if_not_there(key, 0);
         if (!filter_decl) {
             filter_decl = m_context.mk_fresh_head_predicate(pred->get_decl()->get_name(), symbol("filter"), 
-                filter_domain.size(), filter_domain.c_ptr(), pred->get_decl());
+                filter_domain.size(), filter_domain.data(), pred->get_decl());
 
             m_pinned.push_back(filter_decl);
             app_ref filter_head(m);
-            filter_head = m.mk_app(filter_decl, key->filter_args.size(), key->filter_args.c_ptr());
+            filter_head = m.mk_app(filter_decl, key->filter_args.size(), key->filter_args.data());
             app * filter_tail = key->new_pred;
             rule * filter_rule = m_context.get_rule_manager().mk(filter_head, 1, &filter_tail, (const bool *)nullptr);
             filter_rule->set_accounting_parent_object(m_context, m_current);
@@ -128,7 +128,7 @@ namespace datalog {
                     }
                 }
                 SASSERT(new_args.size() == filter_decl->get_arity());
-                new_tail.push_back(m.mk_app(filter_decl, new_args.size(), new_args.c_ptr()));
+                new_tail.push_back(m.mk_app(filter_decl, new_args.size(), new_args.data()));
                 rule_modified = true;
             }
             else {
@@ -139,7 +139,7 @@ namespace datalog {
         if (rule_modified) {
             remove_duplicate_tails(new_tail, new_is_negated);
             SASSERT(new_tail.size() == new_is_negated.size());
-            rule * new_rule = m_context.get_rule_manager().mk(new_head, new_tail.size(), new_tail.c_ptr(), new_is_negated.c_ptr(), r->name());
+            rule * new_rule = m_context.get_rule_manager().mk(new_head, new_tail.size(), new_tail.data(), new_is_negated.data(), r->name());
             new_rule->set_accounting_parent_object(m_context, m_current);
             m_result->add_rule(new_rule);
             m_context.get_rule_manager().mk_rule_rewrite_proof(*r, *new_rule);

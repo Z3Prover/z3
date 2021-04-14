@@ -128,7 +128,7 @@ public:
 
     udoc_relation* mk_full(relation_signature const& sig) {
         func_decl_ref fn(m);
-        fn = m.mk_func_decl(symbol("full"), sig.size(), sig.c_ptr(), m.mk_bool_sort());
+        fn = m.mk_func_decl(symbol("full"), sig.size(), sig.data(), m.mk_bool_sort());
         relation_base* full = p.mk_full(fn, sig);
         return dynamic_cast<udoc_relation*>(full);
     }
@@ -209,7 +209,7 @@ public:
             unsigned_vector jc1, jc2;
             jc1.push_back(1);
             jc2.push_back(1);
-            datalog::relation_join_fn* join_fn = p.mk_join_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr());
+            datalog::relation_join_fn* join_fn = p.mk_join_fn(*t1, *t2, jc1.size(), jc1.data(), jc2.data());
             ENSURE(join_fn);
             t = (*join_fn)(*t1, *t2);
             cr.verify_join(*t1, *t2, *t, jc1, jc2);
@@ -240,7 +240,7 @@ public:
             t1 = mk_full(sig);
             unsigned_vector pc;
             pc.push_back(0);
-            datalog::relation_transformer_fn* proj_fn = p.mk_project_fn(*t1, pc.size(), pc.c_ptr());
+            datalog::relation_transformer_fn* proj_fn = p.mk_project_fn(*t1, pc.size(), pc.data());
             t = (*proj_fn)(*t1);
             cr.verify_project(*t1, *t, pc);
             t->display(std::cout); std::cout << "\n";
@@ -298,7 +298,7 @@ public:
             id.push_back(0);
             id.push_back(2);
             id.push_back(4);
-            rel_mut filter_id = p.mk_filter_identical_fn(*t1, id.size(), id.c_ptr());
+            rel_mut filter_id = p.mk_filter_identical_fn(*t1, id.size(), id.data());
             relation_fact f1(m);
             f1.push_back(bv.mk_numeral(rational(1),3));
             f1.push_back(bv.mk_numeral(rational(1),6));
@@ -468,7 +468,7 @@ public:
             t2 = mk_rand(sig);
             t1->display(std::cout);
             t2->display(std::cout);
-            join_project_fn = p.mk_join_project_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr(), pc.size(), pc.c_ptr());
+            join_project_fn = p.mk_join_project_fn(*t1, *t2, jc1.size(), jc1.data(), jc2.data(), pc.size(), pc.data());
             t = (*join_project_fn)(*t1, *t2);
             t->display(std::cout);
             cr.verify_join_project(*t1, *t2, *t, jc1, jc2, pc);
@@ -518,7 +518,7 @@ public:
         pc.push_back(2);
 
         scoped_ptr<datalog::relation_join_fn> join_project_fn;
-        join_project_fn = p.mk_join_project_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr(), pc.size(), pc.c_ptr());
+        join_project_fn = p.mk_join_project_fn(*t1, *t2, jc1.size(), jc1.data(), jc2.data(), pc.size(), pc.data());
         relation_base *t = (*join_project_fn)(*t1, *t2);
         cr.verify_join_project(*t1, *t2, *t, jc1, jc2, pc);
         t->deallocate();
@@ -564,7 +564,7 @@ public:
 
       t1->display(std::cout << "t1:");
       t2->display(std::cout << "t2:");
-      join_project_fn = p.mk_join_project_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr(), pc.size(), pc.c_ptr());
+      join_project_fn = p.mk_join_project_fn(*t1, *t2, jc1.size(), jc1.data(), jc2.data(), pc.size(), pc.data());
 
       relation_base* t;
       t = (*join_project_fn)(*t1, *t2);
@@ -638,7 +638,7 @@ public:
         jc2.push_back(0);
         scoped_ptr<datalog::relation_join_fn> join_fn;
 
-        join_fn = p.mk_join_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr());
+        join_fn = p.mk_join_fn(*t1, *t2, jc1.size(), jc1.data(), jc2.data());
         t = (*join_fn)(*t1, *t2);
 
         cr.verify_join(*t1, *t2, *t, jc1, jc2);
@@ -659,7 +659,7 @@ public:
 
     void check_permutation(relation_base* t1, unsigned_vector const& cycle) {
         scoped_ptr<datalog::relation_transformer_fn> rename;
-        rename = p.mk_rename_fn(*t1, cycle.size(), cycle.c_ptr());        
+        rename = p.mk_rename_fn(*t1, cycle.size(), cycle.data());        
         relation_base* t = (*rename)(*t1);
         cr.verify_permutation(*t1,*t, cycle);
         t1->display(std::cout); std::cout << "\n";
@@ -829,7 +829,7 @@ public:
         cols3.push_back(1);
         udoc_relation* tgt = mk_full(sig1);
         udoc_relation* neg = mk_full(sig2);
-        rel_mut filter_id = p.mk_filter_identical_fn(*tgt, cols3.size(), cols3.c_ptr());
+        rel_mut filter_id = p.mk_filter_identical_fn(*tgt, cols3.size(), cols3.data());
         (*filter_id)(*tgt);
         if (disable_fast) p.disable_fast_pass();
         apply_filter_neg(*tgt, *neg, cols1, cols2);
@@ -859,7 +859,7 @@ public:
                           unsigned_vector const& cols1, unsigned_vector const& cols2) {
 
         scoped_ptr<datalog::relation_intersection_filter_fn> negf;
-        negf = p.mk_filter_by_negation_fn(dst, neg, cols1.size(), cols1.c_ptr(), cols2.c_ptr());
+        negf = p.mk_filter_by_negation_fn(dst, neg, cols1.size(), cols1.data(), cols2.data());
         expr_ref dst0(m);
         dst.to_formula(dst0);
         (*negf)(dst, neg);
@@ -880,7 +880,7 @@ public:
 
     void apply_filter_project(udoc_relation& t, unsigned_vector const& rm, app* cond) {
         scoped_ptr<datalog::relation_transformer_fn> rt;
-        rt = p.mk_filter_interpreted_and_project_fn(t, cond, rm.size(), rm.c_ptr());
+        rt = p.mk_filter_interpreted_and_project_fn(t, cond, rm.size(), rm.data());
         datalog::relation_base* result = (*rt)(t);
         cr.verify_filter_project(t, *result, cond, rm);
         result->deallocate();
@@ -900,7 +900,7 @@ public:
             repl(tmp);
             disj.push_back(tmp);
         }
-        fml = mk_or(m, disj.size(), disj.c_ptr());
+        fml = mk_or(m, disj.size(), disj.data());
     }
 
     void apply_filter(udoc_relation& t, app* cond) {

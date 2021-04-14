@@ -159,7 +159,7 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
                 }
                 replace(q->get_expr(), new_body);
             }
-            b = m.update_quantifier(q, pats.size(), pats.c_ptr(), nopats.size(), nopats.c_ptr(), new_body);
+            b = m.update_quantifier(q, pats.size(), pats.data(), nopats.size(), nopats.data(), new_body);
             m_refs.push_back(b);
             cached = b;
             m_todo.pop_back();

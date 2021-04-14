@@ -81,7 +81,7 @@ namespace mbp {
                 model.register_decl(arg->get_decl(), m_val->get_arg(i));
                 args.push_back(arg);
             }
-            val = m.mk_app(f, args.size(), args.c_ptr());
+            val = m.mk_app(f, args.size(), args.data());
             TRACE("qe", tout << mk_pp(m_var->x(), m) << " |-> " << val << "\n";);
             reduce(val, lits);
         }

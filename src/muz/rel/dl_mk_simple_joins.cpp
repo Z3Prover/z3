@@ -381,9 +381,9 @@ namespace datalog {
 
             func_decl * decl = m_context.mk_fresh_head_predicate(
                 symbol(parent_name), symbol("split"), 
-                arity, domain.c_ptr(), parent_head);
+                arity, domain.data(), parent_head);
 
-            app_ref head(m.mk_app(decl, arity, args.c_ptr()), m);
+            app_ref head(m.mk_app(decl, arity, args.data()), m);
 
             app * tail[] = { t1, t2 };
 
@@ -726,8 +726,8 @@ namespace datalog {
                     negs.push_back(orig_r->is_neg_tail(i));
                 }
 
-                rule * new_rule = rm.mk(orig_r->get_head(), tail.size(), tail.c_ptr(), 
-                    negs.c_ptr(), orig_r->name());
+                rule * new_rule = rm.mk(orig_r->get_head(), tail.size(), tail.data(), 
+                    negs.data(), orig_r->name());
 
                 new_rule->set_accounting_parent_object(m_context, orig_r);
                 rm.mk_rule_rewrite_proof(*orig_r, *new_rule);

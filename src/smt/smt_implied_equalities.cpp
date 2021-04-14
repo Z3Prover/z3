@@ -163,7 +163,7 @@ namespace {
                 }
                 for (unsigned i = 0; i < terms.size(); ++i) {
                     args[0] = terms[i].term;
-                    terms[i].term = m.mk_app(m_array_util.get_family_id(), OP_SELECT, 0, nullptr, args.size(), args.c_ptr());
+                    terms[i].term = m.mk_app(m_array_util.get_family_id(), OP_SELECT, 0, nullptr, args.size(), args.data());
                 }
                 assert_relevant(terms);
                 VERIFY(m_solver.check_sat(0,nullptr) != l_false);

@@ -263,7 +263,7 @@ namespace pb {
         for (sat::literal l : c) {
             lits.push_back(lit2expr(l));
         }
-        expr_ref fml(m_pb.mk_at_least_k(c.size(), lits.c_ptr(), c.k()), m);
+        expr_ref fml(m_pb.mk_at_least_k(c.size(), lits.data(), c.k()), m);
 
         if (c.lit() != sat::null_literal) {
             fml = m.mk_eq(lit2expr(c.lit()), fml);
@@ -279,7 +279,7 @@ namespace pb {
             coeffs.push_back(rational(wl.first));
         }
         rational k(p.k());
-        expr_ref fml(m_pb.mk_ge(p.size(), coeffs.c_ptr(), lits.c_ptr(), k), m);
+        expr_ref fml(m_pb.mk_ge(p.size(), coeffs.data(), lits.data(), k), m);
 
         if (p.lit() != sat::null_literal) {
             fml = m.mk_eq(lit2expr(p.lit()), fml);

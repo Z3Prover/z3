@@ -252,7 +252,7 @@ func_decl * func_decls::find(ast_manager & m, unsigned num_args, expr * const * 
             return nullptr;
         sorts.push_back(args[i]->get_sort());
     }
-    return find(m, num_args, sorts.c_ptr(), range);
+    return find(m, num_args, sorts.data(), range);
 }
 
 unsigned func_decls::get_num_entries() const {
@@ -982,7 +982,7 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
     
     recfun::promise_def d = p.get_promise_def(f);
     recfun_replace replace(m());
-    p.set_definition(replace, d, vars.size(), vars.c_ptr(), rhs);
+    p.set_definition(replace, d, vars.size(), vars.data(), rhs);
 }
 
 func_decl * cmd_context::find_func_decl(symbol const & s) const {
@@ -1060,7 +1060,7 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
             buffer<parameter> ps;
             for (unsigned i = 0; i < num_indices; i++)
                 ps.push_back(parameter(indices[i]));
-            f = m().mk_func_decl(fid, k, num_indices, ps.c_ptr(), arity, domain, range);
+            f = m().mk_func_decl(fid, k, num_indices, ps.data(), arity, domain, range);
         }
         if (f == nullptr)
             throw cmd_exception("invalid function declaration reference, invalid builtin reference ", s);
@@ -1873,7 +1873,7 @@ void cmd_context::complete_model(model_ref& md) const {
             SASSERT(!v->has_var_params());
             IF_VERBOSE(12, verbose_stream() << "(model.completion " << k << ")\n"; );
             ptr_vector<sort> param_sorts(v->get_num_params(), m().mk_bool_sort());
-            sort * srt = v->instantiate(*m_pmanager, param_sorts.size(), param_sorts.c_ptr());
+            sort * srt = v->instantiate(*m_pmanager, param_sorts.size(), param_sorts.data());
             if (!md->has_uninterpreted_sort(srt)) {
                 expr * singleton = m().get_some_value(srt);
                 md->register_usort(srt, 1, &singleton);

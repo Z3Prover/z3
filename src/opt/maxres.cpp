@@ -318,11 +318,11 @@ public:
                 }
                 first = false;
                 m_last_index = index;
-                is_sat = check_sat(index, asms.c_ptr());
+                is_sat = check_sat(index, asms.data());
             }            
         }
         else {
-            is_sat = check_sat(asms.size(), asms.c_ptr());            
+            is_sat = check_sat(asms.size(), asms.data());            
         }              
         return is_sat;
     }
@@ -390,7 +390,7 @@ public:
             model_ref mdl;
             get_mus_model(mdl);
             is_sat = minimize_core(_core);
-            core.append(_core.size(), _core.c_ptr());
+            core.append(_core.size(), _core.data());
             DEBUG_CODE(verify_core(core););
             ++m_stats.m_num_cores;
             if (is_sat != l_true) {
@@ -459,11 +459,11 @@ public:
 
     void sort_assumptions(expr_ref_vector& _asms) {
         compare_asm comp(*this);
-        exprs asms(_asms.size(), _asms.c_ptr());
+        exprs asms(_asms.size(), _asms.data());
         expr_ref_vector trail(_asms);
         std::sort(asms.begin(), asms.end(), comp);
         _asms.reset();
-        _asms.append(asms.size(), asms.c_ptr());
+        _asms.append(asms.size(), asms.data());
         DEBUG_CODE(
             for (unsigned i = 0; i + 1 < asms.size(); ++i) {
                 SASSERT(get_weight(asms[i]) >= get_weight(asms[i+1]));
@@ -536,7 +536,7 @@ public:
         TRACE("opt", display_vec(tout << "minimized core: ", core););
         IF_VERBOSE(10, display_vec(verbose_stream() << "core: ", core););        
         max_resolve(core, w);
-        fml = mk_not(m, mk_and(m, core.size(), core.c_ptr()));
+        fml = mk_not(m, mk_and(m, core.size(), core.data()));
         add(fml);
         // save small cores such that lex-combinations of maxres can reuse these cores.
         if (core.size() <= 2) {
@@ -593,7 +593,7 @@ public:
             return l_true;
         }
         m_mus.reset();
-        m_mus.add_soft(core.size(), core.c_ptr());
+        m_mus.add_soft(core.size(), core.data());
         lbool is_sat = m_mus.get_mus(m_new_core);
         if (is_sat != l_true) {
             return is_sat;
@@ -631,11 +631,11 @@ public:
     }
 
     void display_vec(std::ostream& out, exprs const& exprs) {
-        display_vec(out, exprs.size(), exprs.c_ptr());
+        display_vec(out, exprs.size(), exprs.data());
     }
 
     void display_vec(std::ostream& out, expr_ref_vector const& exprs) {
-        display_vec(out, exprs.size(), exprs.c_ptr());
+        display_vec(out, exprs.size(), exprs.data());
     }
 
     void display_vec(std::ostream& out, unsigned sz, expr* const* args) const {
@@ -656,7 +656,7 @@ public:
         expr_ref fml(m), asum(m);
         app_ref cls(m), d(m), dd(m);
         m_B.reset();
-        m_B.append(core.size(), core.c_ptr());
+        m_B.append(core.size(), core.data());
         //
         // d_0 := true
         // d_i := b_{i-1} and d_{i-1}    for i = 1...sz-1
@@ -708,7 +708,7 @@ public:
         expr_ref fml(m), asum(m);
         app_ref cls(m), d(m), dd(m);
         m_B.reset();
-        m_B.append(cs.size(), cs.c_ptr());
+        m_B.append(cs.size(), cs.data());
         d = m.mk_false();
         //
         // d_0 := false
@@ -771,7 +771,7 @@ public:
     void relax_cores(vector<expr_ref_vector> const& cores) {
         vector<weighted_core> wcores;
         for (auto & core : cores) {
-            exprs _core(core.size(), core.c_ptr());
+            exprs _core(core.size(), core.data());
             wcores.push_back(weighted_core(_core, core_weight(_core)));
             remove_soft(_core, m_asms);
             split_core(_core);  
@@ -842,7 +842,7 @@ public:
             nsoft.push_back(mk_not(m, s.s));
             weights.push_back(s.weight);
         }            
-        fml = u.mk_lt(nsoft.size(), weights.c_ptr(), nsoft.c_ptr(), m_upper);
+        fml = u.mk_lt(nsoft.size(), weights.data(), nsoft.data(), m_upper);
         TRACE("opt", tout << "block upper bound " << fml << "\n";);;
         add(fml); 
     }
@@ -906,7 +906,7 @@ public:
 
     void verify_core(exprs const& core) {
         return;
-        IF_VERBOSE(1, verbose_stream() << "verify core " << s().check_sat(core.size(), core.c_ptr()) << "\n";);                
+        IF_VERBOSE(1, verbose_stream() << "verify core " << s().check_sat(core.size(), core.data()) << "\n";);                
         ref<solver> _solver = mk_smt_solver(m, m_params, symbol());
         _solver->assert_expr(s().get_assertions());
         _solver->assert_expr(core);

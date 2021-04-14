@@ -124,7 +124,7 @@ void map_proc::reconstruct(app* a) {
         }
     }
     if (is_new) {
-        expr* b = m.mk_app(a->get_decl(), m_args.size(), m_args.c_ptr());
+        expr* b = m.mk_app(a->get_decl(), m_args.size(), m_args.data());
         m_map.insert(a, b, nullptr);
     }
     else {

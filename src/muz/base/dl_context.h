@@ -94,8 +94,8 @@ namespace datalog {
         relation_fact(ast_manager & m, unsigned sz) : app_ref_vector(m) { resize(sz); }
         relation_fact(context & ctx);
 
-        iterator begin() const { return c_ptr(); }
-        iterator end() const { return c_ptr()+size(); }
+        iterator begin() const { return data(); }
+        iterator end() const { return data()+size(); }
 
         relation_element operator[](unsigned i) const { return get(i); }
         el_proxy operator[](unsigned i) { return el_proxy(*this, i); }

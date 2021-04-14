@@ -135,7 +135,7 @@ namespace datalog {
             for (expr* e : new_conjs) {
                 tail.push_back(rm.ensure_app(e));
             }
-            rule_ref new_rule(rm.mk(r.get_head(), tail.size(), tail.c_ptr(), nullptr, r.name(), false), rm);           
+            rule_ref new_rule(rm.mk(r.get_head(), tail.size(), tail.data(), nullptr, r.name(), false), rm);           
             rm.mk_rule_rewrite_proof(r, *new_rule.get());
             new_rules.add_rule(new_rule);
             TRACE("dl", tout << "No term-ite after blast_term_ite\n";);
@@ -178,7 +178,7 @@ namespace datalog {
         app_ref_vector consts(m);
         collect_uninterp_consts(fml2, consts, m_ground);
         
-        fml2 = mk_forall(m, consts.size(), consts.c_ptr(), fml2);
+        fml2 = mk_forall(m, consts.size(), consts.data(), fml2);
         proof_ref p(m);
         rm.mk_rule(fml2, p, new_rules, r.name()); 
 

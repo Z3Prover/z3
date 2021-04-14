@@ -165,7 +165,7 @@ class seq_rewriter {
 
 
     length_comparison compare_lengths(expr_ref_vector const& as, expr_ref_vector const& bs) {
-        return compare_lengths(as.size(), as.c_ptr(), bs.size(), bs.c_ptr());
+        return compare_lengths(as.size(), as.data(), bs.size(), bs.data());
     }
     length_comparison compare_lengths(unsigned sza, expr* const* as, unsigned szb, expr* const* bs);
 
@@ -333,7 +333,7 @@ public:
     br_status mk_le_core(expr* lhs, expr* rhs, expr_ref& result);
     br_status mk_bool_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result);
 
-    expr_ref mk_app(func_decl* f, expr_ref_vector const& args) { return mk_app(f, args.size(), args.c_ptr()); }
+    expr_ref mk_app(func_decl* f, expr_ref_vector const& args) { return mk_app(f, args.size(), args.data()); }
     expr_ref mk_app(func_decl* f, unsigned n, expr* const* args) { 
         expr_ref result(m());
         if (f->get_family_id() != u().get_family_id() || 

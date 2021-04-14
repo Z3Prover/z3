@@ -357,7 +357,7 @@ namespace opt {
         r.reset();
         buffer<symbol> tmp;
         m_context.get_relevant_labels(nullptr, tmp);
-        r.append(tmp.size(), tmp.c_ptr());
+        r.append(tmp.size(), tmp.data());
     }
         
     void opt_solver::set_progress_callback(progress_callback * callback) {

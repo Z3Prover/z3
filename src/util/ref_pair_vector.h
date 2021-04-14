@@ -45,7 +45,7 @@ protected:
     }
 
 public:
-    typedef T * data;
+    typedef T * data_t;
 
     ref_pair_vector_core(Ref const & r = Ref()):Ref(r) {}
 
@@ -127,7 +127,7 @@ public:
 
     elem_t const& get(unsigned idx) const { return m_nodes[idx]; }
 
-    elem_t const * c_ptr() const { return m_nodes.begin(); }
+    elem_t const * data() const { return m_nodes.begin(); }
     
     typedef elem_t const* iterator;
 

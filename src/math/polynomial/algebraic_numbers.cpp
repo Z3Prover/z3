@@ -554,8 +554,8 @@ namespace algebraic_numbers {
             else {
                 scoped_upoly & up_sqf = m_isolate_tmp3;
                 up_sqf.reset();
-                upm().square_free(up.size(), up.c_ptr(), up_sqf);
-                TRACE("algebraic", upm().display(tout, up_sqf.size(), up_sqf.c_ptr()); tout << "\n";);
+                upm().square_free(up.size(), up.data(), up_sqf);
+                TRACE("algebraic", upm().display(tout, up_sqf.size(), up_sqf.data()); tout << "\n";);
                 r.push_back(up_sqf, 1);
                 return false;
             }
@@ -610,10 +610,10 @@ namespace algebraic_numbers {
             factors & fs = m_isolate_factors;
             fs.reset();
             bool full_fact;
-            if (upm().has_zero_roots(up.size(), up.c_ptr())) {
+            if (upm().has_zero_roots(up.size(), up.data())) {
                 roots.push_back(numeral());
                 scoped_upoly & nz_up = m_isolate_tmp2;
-                upm().remove_zero_roots(up.size(), up.c_ptr(), nz_up);
+                upm().remove_zero_roots(up.size(), up.data(), nz_up);
                 full_fact = factor(nz_up, fs);
             }
             else {
@@ -640,7 +640,7 @@ namespace algebraic_numbers {
                     continue;
                 }
                 SASSERT(m_isolate_roots.empty() && m_isolate_lowers.empty() && m_isolate_uppers.empty());
-                upm().sqf_isolate_roots(f.size(), f.c_ptr(), bqm(), m_isolate_roots, m_isolate_lowers, m_isolate_uppers);
+                upm().sqf_isolate_roots(f.size(), f.data(), bqm(), m_isolate_roots, m_isolate_lowers, m_isolate_uppers);
                 // collect rational/basic roots                
                 unsigned sz = m_isolate_roots.size();
                 TRACE("algebraic", tout << "isolated roots: " << sz << "\n";);
@@ -654,13 +654,13 @@ namespace algebraic_numbers {
                 for (unsigned i = 0; i < sz; i++) {
                     mpbq & lower = m_isolate_lowers[i];
                     mpbq & upper = m_isolate_uppers[i];
-                    if (!upm().isolating2refinable(f.size(), f.c_ptr(), bqm(), lower, upper)) {
+                    if (!upm().isolating2refinable(f.size(), f.data(), bqm(), lower, upper)) {
                         // found rational root... it is stored in lower
                         to_mpq(qm(), lower, r);
                         roots.push_back(numeral(mk_basic_cell(r)));
                     }
                     else {
-                        algebraic_cell * c = mk_algebraic_cell(f.size(), f.c_ptr(), lower, upper, full_fact);
+                        algebraic_cell * c = mk_algebraic_cell(f.size(), f.data(), lower, upper, full_fact);
                         roots.push_back(numeral(c));
                     }
                 }
@@ -990,7 +990,7 @@ namespace algebraic_numbers {
         void set_core(numeral & c, scoped_upoly & p, mpbqi & r_i, upolynomial::scoped_upolynomial_sequence & seq, int lV, int uV, bool minimal) {
             TRACE("algebraic", tout << "set_core p: "; upm().display(tout, p); tout << "\n";);
             if (bqim().contains_zero(r_i)) {
-                if (upm().has_zero_roots(p.size(), p.c_ptr())) {
+                if (upm().has_zero_roots(p.size(), p.data())) {
                     // zero is a root of p, and r_i is an isolating interval containing zero,
                     // then c is zero
                     reset(c);
@@ -1012,15 +1012,15 @@ namespace algebraic_numbers {
 
             // make sure 0 is not a root of p
             scoped_upoly & nz_p = m_add_tmp;
-            if (upm().has_zero_roots(p.size(), p.c_ptr())) {
+            if (upm().has_zero_roots(p.size(), p.data())) {
                 // remove zero root
-                upm().remove_zero_roots(p.size(), p.c_ptr(), nz_p);
+                upm().remove_zero_roots(p.size(), p.data(), nz_p);
             }
             else {
                 p.swap(nz_p);
             }
 
-            if (!upm().isolating2refinable(nz_p.size(), nz_p.c_ptr(), bqm(), r_i.lower(), r_i.upper())) {
+            if (!upm().isolating2refinable(nz_p.size(), nz_p.data(), bqm(), r_i.lower(), r_i.upper())) {
                 // found actual root
                 scoped_mpq r(qm());
                 to_mpq(qm(), r_i.lower(), r);
@@ -1028,7 +1028,7 @@ namespace algebraic_numbers {
             }
             else {
                 TRACE("algebraic", tout << "set_core...\n";);
-                set(c, nz_p.size(), nz_p.c_ptr(), r_i.lower(), r_i.upper(), minimal);
+                set(c, nz_p.size(), nz_p.data(), r_i.lower(), r_i.upper(), minimal);
             }
         }
 
@@ -1064,7 +1064,7 @@ namespace algebraic_numbers {
             for (unsigned i = 0; i < num_fs; i++) {
                 TRACE("anum_mk_binary", tout << "factor " << i << "\n"; upm().display(tout, fs[i]); tout << "\n";);
                 typename upolynomial::scoped_upolynomial_sequence * seq = alloc(typename upolynomial::scoped_upolynomial_sequence, upm());
-                upm().sturm_seq(fs[i].size(), fs[i].c_ptr(), *seq);
+                upm().sturm_seq(fs[i].size(), fs[i].data(), *seq);
                 seqs.push_back(seq);
             }
             SASSERT(seqs.size() == num_fs);
@@ -1114,7 +1114,7 @@ namespace algebraic_numbers {
                     TRACE("anum_mk_binary", tout << "target_i: " << target_i << "\n";);
                     saved_a.restore_if_too_small();
                     saved_b.restore_if_too_small();
-                    upm().set(fs[target_i].size(), fs[target_i].c_ptr(), f);
+                    upm().set(fs[target_i].size(), fs[target_i].data(), f);
                     set_core(c, f, r_i, *(seqs[target_i]), target_lV, target_uV, full_fact);
                     return;
                 }
@@ -1144,7 +1144,7 @@ namespace algebraic_numbers {
             scoped_ptr_vector<typename upolynomial::scoped_upolynomial_sequence> seqs;
             for (unsigned i = 0; i < num_fs; i++) {
                 typename upolynomial::scoped_upolynomial_sequence * seq = alloc(typename upolynomial::scoped_upolynomial_sequence, upm());
-                upm().sturm_seq(fs[i].size(), fs[i].c_ptr(), *seq);
+                upm().sturm_seq(fs[i].size(), fs[i].data(), *seq);
                 seqs.push_back(seq);
             }
             SASSERT(seqs.size() == num_fs);
@@ -1188,7 +1188,7 @@ namespace algebraic_numbers {
                 if (num_rem == 1 && target_i != UINT_MAX) {
                     // found isolating interval
                     saved_a.restore_if_too_small();
-                    upm().set(fs[target_i].size(), fs[target_i].c_ptr(), f);
+                    upm().set(fs[target_i].size(), fs[target_i].data(), f);
                     set_core(b, f, r_i, *(seqs[target_i]), target_lV, target_uV, full_fact);
                     return;
                 }
@@ -1363,10 +1363,10 @@ namespace algebraic_numbers {
                 bqm().add(upper, mpz(1), upper); // make sure (a_val)^{1/k} < upper
             }
             SASSERT(bqm().lt(lower, upper));
-            TRACE("algebraic", tout << "root_core:\n"; upm().display(tout, p.size(), p.c_ptr()); tout << "\n";);
+            TRACE("algebraic", tout << "root_core:\n"; upm().display(tout, p.size(), p.data()); tout << "\n";);
             // p is not necessarily a minimal polynomial.
             // So, we set the m_minimal flag to false. TODO: try to factor.
-            set(b, p.size(), p.c_ptr(), lower, upper, false);
+            set(b, p.size(), p.data(), lower, upper, false);
         }
 
         void root(numeral & a, unsigned k, numeral & b) {
@@ -1466,15 +1466,15 @@ namespace algebraic_numbers {
                 qm().add(il, nbv, il);
                 qm().add(iu, nbv, iu);
                 // (il, iu) is an isolating refinable (rational) interval for the new polynomial.
-                upm().convert_q2bq_interval(m_add_tmp.size(), m_add_tmp.c_ptr(), il, iu, bqm(), l, u);
+                upm().convert_q2bq_interval(m_add_tmp.size(), m_add_tmp.data(), il, iu, bqm(), l, u);
             }
             TRACE("algebraic",
-                  upm().display(tout, m_add_tmp.size(), m_add_tmp.c_ptr());
+                  upm().display(tout, m_add_tmp.size(), m_add_tmp.data());
                   tout << ", l: " << l << ", u: " << u << "\n";
-                  tout << "l_sign: " << upm().eval_sign_at(m_add_tmp.size(), m_add_tmp.c_ptr(), l) << "\n";
-                  tout << "u_sign: " << upm().eval_sign_at(m_add_tmp.size(), m_add_tmp.c_ptr(), u) << "\n";
+                  tout << "l_sign: " << upm().eval_sign_at(m_add_tmp.size(), m_add_tmp.data(), l) << "\n";
+                  tout << "u_sign: " << upm().eval_sign_at(m_add_tmp.size(), m_add_tmp.data(), u) << "\n";
                   );
-            set(c, m_add_tmp.size(), m_add_tmp.c_ptr(), l, u, a->m_minimal /* minimality is preserved */);
+            set(c, m_add_tmp.size(), m_add_tmp.data(), l, u, a->m_minimal /* minimality is preserved */);
             normalize(c);
         }
 
@@ -1550,7 +1550,7 @@ namespace algebraic_numbers {
             qm().inv(nbv);
             scoped_upoly & mulp = m_add_tmp;
             upm().set(a->m_p_sz, a->m_p, mulp);
-            upm().compose_p_q_x(mulp.size(), mulp.c_ptr(), nbv);
+            upm().compose_p_q_x(mulp.size(), mulp.data(), nbv);
             mpbqi const & i = a->m_interval;
             scoped_mpbq l(bqm());
             scoped_mpbq u(bqm());
@@ -1576,15 +1576,15 @@ namespace algebraic_numbers {
                 if (is_neg)
                     qm().swap(il, iu);
                 // (il, iu) is an isolating refinable (rational) interval for the new polynomial.
-                upm().convert_q2bq_interval(mulp.size(), mulp.c_ptr(), il, iu, bqm(), l, u);
+                upm().convert_q2bq_interval(mulp.size(), mulp.data(), il, iu, bqm(), l, u);
             }
             TRACE("algebraic",
-                  upm().display(tout, mulp.size(), mulp.c_ptr());
+                  upm().display(tout, mulp.size(), mulp.data());
                   tout << ", l: " << l << ", u: " << u << "\n";
-                  tout << "l_sign: " << upm().eval_sign_at(mulp.size(), mulp.c_ptr(), l) << "\n";
-                  tout << "u_sign: " << upm().eval_sign_at(mulp.size(), mulp.c_ptr(), u) << "\n";
+                  tout << "l_sign: " << upm().eval_sign_at(mulp.size(), mulp.data(), l) << "\n";
+                  tout << "u_sign: " << upm().eval_sign_at(mulp.size(), mulp.data(), u) << "\n";
                   );
-            set(c, mulp.size(), mulp.c_ptr(), l, u, a->m_minimal /* minimality is preserved */);
+            set(c, mulp.size(), mulp.data(), l, u, a->m_minimal /* minimality is preserved */);
             normalize(c);
         }
 
@@ -2223,7 +2223,7 @@ namespace algebraic_numbers {
                 SASSERT(pm().is_univariate(R));
                 scoped_upoly & _R = m_eval_sign_tmp;
                 upm().to_numeral_vector(R, _R);
-                unsigned k = upm().nonzero_root_lower_bound(_R.size(), _R.c_ptr());
+                unsigned k = upm().nonzero_root_lower_bound(_R.size(), _R.data());
                 TRACE("anum_eval_sign", tout << "R: " << R << "\nk: " << k << "\nri: "<< ri << "\n";);
                 scoped_mpbq mL(bqm()), L(bqm());
                 bqm().set(mL, -1);

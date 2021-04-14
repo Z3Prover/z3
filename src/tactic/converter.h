@@ -86,7 +86,7 @@ protected:
         ptr_buffer<T> t2s;
         for (T* c : m_c2s)
             t2s.push_back(c ? c->translate(translator) : nullptr);
-        return alloc(T2, t1, m_c2s.size(), t2s.c_ptr(), m_szs.c_ptr());
+        return alloc(T2, t1, m_c2s.size(), t2s.data(), m_szs.data());
     }
 
 public:

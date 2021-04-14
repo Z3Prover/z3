@@ -161,12 +161,12 @@ class elim_uncnstr_tactic : public tactic {
                 for (unsigned i = 0; i < arity; i++)
                     new_args.push_back(m().get_some_value(get_array_domain(s, i)));
                 expr_ref sel(m());
-                sel = m().mk_app(fid, OP_SELECT, new_args.size(), new_args.c_ptr());
+                sel = m().mk_app(fid, OP_SELECT, new_args.size(), new_args.data());
                 expr_ref diff_sel(m());
                 if (!mk_diff(sel, diff_sel))
                     return false;
                 new_args.push_back(diff_sel);
-                r = m().mk_app(fid, OP_STORE, new_args.size(), new_args.c_ptr());
+                r = m().mk_app(fid, OP_STORE, new_args.size(), new_args.data());
                 return true;
             }
             if (fid == m_dt_util.get_family_id()) {
@@ -197,7 +197,7 @@ class elim_uncnstr_tactic : public tactic {
                             new_args.push_back(m().get_some_value(constructor->get_domain(i)));
                         }
                     }
-                    r = m().mk_app(constructor, new_args.size(), new_args.c_ptr());
+                    r = m().mk_app(constructor, new_args.size(), new_args.data());
                     return true;
                 }
                 // TODO: handle more cases.
@@ -396,7 +396,7 @@ class elim_uncnstr_tactic : public tactic {
                 if (new_args.size() == 1)
                     rest = new_args[0];
                 else
-                    rest = m().mk_app(fid, add_k, new_args.size(), new_args.c_ptr());
+                    rest = m().mk_app(fid, add_k, new_args.size(), new_args.data());
                 add_def(v, m().mk_app(fid, sub_k, u, rest));
             }
             return u;
@@ -503,7 +503,7 @@ class elim_uncnstr_tactic : public tactic {
                 args.push_back(r);
                 if (low > 0)
                     args.push_back(m_bv_util.mk_numeral(rational(0), low));
-                add_def(arg, m_bv_util.mk_concat(args.size(), args.c_ptr()));
+                add_def(arg, m_bv_util.mk_concat(args.size(), args.data()));
             }
             return r;
         }
@@ -698,7 +698,7 @@ class elim_uncnstr_tactic : public tactic {
                         else
                             new_args.push_back(m().get_some_value(c->get_domain(i)));
                     }
-                    add_def(args[0], m().mk_app(c, new_args.size(), new_args.c_ptr()));
+                    add_def(args[0], m().mk_app(c, new_args.size(), new_args.data()));
                     return u;
                 }
             }

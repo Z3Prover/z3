@@ -257,7 +257,7 @@ class pdatatypes_decl : public pdecl {
     bool instantiate(pdecl_manager & m, sort * const * s);
     ~pdatatypes_decl() override {}
 public:
-    pdatatype_decl const * const * children() const { return m_datatypes.c_ptr(); }
+    pdatatype_decl const * const * children() const { return m_datatypes.data(); }
     pdatatype_decl * const * begin() const { return m_datatypes.begin(); }
     pdatatype_decl * const * end() const { return m_datatypes.end(); }
     // commit declaration 

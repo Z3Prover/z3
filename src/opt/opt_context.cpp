@@ -215,7 +215,7 @@ namespace opt {
             for (unsigned i = 0; i < o.m_terms.size(); ++i) {
                 args.push_back(m.mk_ite(o.m_terms[i], zero, m_arith.mk_numeral(o.m_weights[i], false)));
             }
-            result = m_arith.mk_add(args.size(), args.c_ptr());
+            result = m_arith.mk_add(args.size(), args.data());
             break;
         case O_MAXIMIZE:
             result = o.m_term;
@@ -299,7 +299,7 @@ namespace opt {
 
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n");
         
-        lbool is_sat = s.check_sat(asms.size(),asms.c_ptr());
+        lbool is_sat = s.check_sat(asms.size(),asms.data());
 
         TRACE("opt", s.display(tout << "initial search result: " << is_sat << "\n");); 
         if (is_sat != l_false) {
@@ -581,10 +581,10 @@ namespace opt {
                 }
             }
             if (is_ge) {
-                result = pb.mk_ge(sz, coeffs.c_ptr(), terms.c_ptr(), k);
+                result = pb.mk_ge(sz, coeffs.data(), terms.data(), k);
             }
             else {
-                result = pb.mk_le(sz, coeffs.c_ptr(), terms.c_ptr(), k);
+                result = pb.mk_le(sz, coeffs.data(), terms.data(), k);
             }
             break;
         }
@@ -869,7 +869,7 @@ namespace opt {
             expr_dependency_ref core(r->dep(i), m);
             m.linearize(core, deps);
             if (!deps.empty()) {
-                fmls.push_back(m.mk_implies(m.mk_and(deps.size(), deps.c_ptr()), r->form(i)));
+                fmls.push_back(m.mk_implies(m.mk_and(deps.size(), deps.data()), r->form(i)));
             }
             else {
                 fmls.push_back(r->form(i));
@@ -879,7 +879,7 @@ namespace opt {
             ptr_vector<expr> core_elems;
             expr_dependency_ref core(r->dep(0), m);
             m.linearize(core, core_elems);
-            m_core.append(core_elems.size(), core_elems.c_ptr());
+            m_core.append(core_elems.size(), core_elems.data());
         }
     }
 
@@ -1029,7 +1029,7 @@ namespace opt {
         case O_MAXSMT: name = "maxsat"; break;
         default: break;
         }
-        func_decl* f = m.mk_fresh_func_decl(name,"", domain.size(), domain.c_ptr(), m.mk_bool_sort());
+        func_decl* f = m.mk_fresh_func_decl(name,"", domain.size(), domain.data(), m.mk_bool_sort());
         m_objective_fns.insert(f, index);
         m_objective_refs.push_back(f);
         m_objective_orig.insert(f, sz > 0 ? args[0] : nullptr);
@@ -1175,7 +1175,7 @@ namespace opt {
                     args.push_back(purify(fm, arg));
                 }
             }
-            term = m_arith.mk_add(args.size(), args.c_ptr());
+            term = m_arith.mk_add(args.size(), args.data());
         }
         else if (m.is_ite(term) || !is_mul_const(term)) {
             TRACE("opt", tout << "Purifying " << term << "\n";);
@@ -1247,7 +1247,7 @@ namespace opt {
                 fmls.push_back(mk_maximize(i, obj.m_term));
                 break;
             case O_MAXSMT: 
-                fmls.push_back(mk_maxsat(i, obj.m_terms.size(), obj.m_terms.c_ptr()));
+                fmls.push_back(mk_maxsat(i, obj.m_terms.size(), obj.m_terms.data()));
                 break;
             }
         }
@@ -1353,7 +1353,7 @@ namespace opt {
             ) {
             objective& o = m_objectives[0];
             unsigned sz = o.m_terms.size();
-            inc_sat_display(verbose_stream(), get_solver(), sz, o.m_terms.c_ptr(), o.m_weights.c_ptr());
+            inc_sat_display(verbose_stream(), get_solver(), sz, o.m_terms.data(), o.m_weights.data());
         }
 
         
@@ -1481,7 +1481,7 @@ namespace opt {
         switch(args.size()) {
         case 0: return expr_ref(m_arith.mk_numeral(rational(0), true), m);
         case 1: return expr_ref(args[0].get(), m);
-        default: return expr_ref(m_arith.mk_add(args.size(), args.c_ptr()), m);
+        default: return expr_ref(m_arith.mk_add(args.size(), args.data()), m);
         }
     }
        
@@ -1582,7 +1582,7 @@ namespace opt {
         std::ostringstream strm;
         m_sat_solver = mk_inc_sat_solver(m, m_params);
         m_sat_solver->assert_expr(m_hard_constraints);
-        inc_sat_display(strm, *m_sat_solver.get(), soft_f.size(), soft_f.c_ptr(), soft_w.c_ptr());
+        inc_sat_display(strm, *m_sat_solver.get(), soft_f.size(), soft_f.data(), soft_w.data());
         return strm.str();
     }
 

@@ -110,14 +110,14 @@ namespace q {
 
     float queue::get_cost(fingerprint& f) {
         set_values(f, 0);
-        float r = m_evaluator(m_cost_function, m_vals.size(), m_vals.c_ptr());
+        float r = m_evaluator(m_cost_function, m_vals.size(), m_vals.data());
         f.c->m_stat->update_max_cost(r);
         return r;
     }
 
     unsigned queue::get_new_gen(fingerprint& f, float cost) {
         set_values(f, cost);
-        float r = m_evaluator(m_new_gen_function, m_vals.size(), m_vals.c_ptr());
+        float r = m_evaluator(m_new_gen_function, m_vals.size(), m_vals.data());
         return std::max(f.m_max_generation + 1, static_cast<unsigned>(r));
     }
 

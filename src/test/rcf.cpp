@@ -115,7 +115,7 @@ static void tst_solve(unsigned n, int _A[], int _b[], int _c[], bool solved) {
             A.set(i, j, _A[i*n + j]);
     svector<int> b;
     b.resize(n, 0);
-    if (mm.solve(A, b.c_ptr(), _c)) {
+    if (mm.solve(A, b.data(), _c)) {
         ENSURE(solved);
         for (unsigned i = 0; i < n; i++) {
             ENSURE(b[i] == _b[i]);
@@ -138,7 +138,7 @@ static void tst_lin_indep(unsigned m, unsigned n, int _A[], unsigned ex_sz, unsi
     unsigned_vector r;
     r.resize(A.n());
     scoped_mpz_matrix B(mm);
-    mm.linear_independent_rows(A, r.c_ptr(), B);
+    mm.linear_independent_rows(A, r.data(), B);
     for (unsigned i = 0; i < ex_sz; i++) {
         ENSURE(r[i] == ex_r[i]);
     }

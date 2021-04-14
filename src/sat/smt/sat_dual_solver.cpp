@@ -98,7 +98,7 @@ namespace sat {
         m_lits.reset();
         for (unsigned i = 0; i < sz; ++i) 
             m_lits.push_back(ext2lit(clause[i]));
-        m_solver.mk_clause(sz, m_lits.c_ptr(), status::input());
+        m_solver.mk_clause(sz, m_lits.data(), status::input());
     }
 
     bool dual_solver::operator()(solver const& s) {
@@ -107,11 +107,11 @@ namespace sat {
         if (m_roots.empty())
             return true;
         m_solver.user_push();
-        m_solver.add_clause(m_roots.size(), m_roots.c_ptr(), status::input());
+        m_solver.add_clause(m_roots.size(), m_roots.data(), status::input());
         m_lits.reset();
         for (bool_var v : m_tracked_vars)
             m_lits.push_back(literal(v, l_false == s.value(m_var2ext[v])));
-        lbool is_sat = m_solver.check(m_lits.size(), m_lits.c_ptr());
+        lbool is_sat = m_solver.check(m_lits.size(), m_lits.data());
         if (is_sat == l_false) 
             for (literal lit : m_solver.get_core())
                 m_core.push_back(lit2ext(lit));        

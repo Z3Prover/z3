@@ -354,7 +354,7 @@ namespace sat {
         m_literals.append(sz, args);
         for (unsigned i = 0; i < sz; ++i) reserve(args[i].var());
         if (op == and_op || op == xor_op) {
-            std::sort(m_literals.c_ptr() + offset, m_literals.c_ptr() + offset + sz);
+            std::sort(m_literals.data() + offset, m_literals.data() + offset + sz);
         }
         add_node(v, n);
     }
@@ -424,7 +424,7 @@ namespace sat {
             }
         }
         if (changed && (n.is_and() || n.is_xor())) {
-            std::sort(m_literals.c_ptr() + n.offset(), m_literals.c_ptr() + n.offset() + n.size());
+            std::sort(m_literals.data() + n.offset(), m_literals.data() + n.offset() + n.size());
         }
         return true;
     }

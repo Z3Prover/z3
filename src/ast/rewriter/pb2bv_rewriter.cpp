@@ -156,7 +156,7 @@ struct pb2bv_rewriter::imp {
             //sort_args();
             gcd_reduce<is_le>(m_coeffs, k);
             unsigned sz = m_args.size();
-            expr * const* args = m_args.c_ptr();
+            expr * const* args = m_args.data();
             TRACE("pb", 
                   for (unsigned i = 0; i < sz; ++i) {
                       tout << m_coeffs[i] << "*" << mk_pp(args[i], m) << " ";
@@ -277,7 +277,7 @@ struct pb2bv_rewriter::imp {
             rational bound;
             flip(sz, args, args1, _k, bound);
             if (bound.get_unsigned() < k) {
-                return mk_ge_tot(sz, args1.c_ptr(), bound, result);
+                return mk_ge_tot(sz, args1.data(), bound, result);
             }
             if (k > 20) {
                 return false;
@@ -295,7 +295,7 @@ struct pb2bv_rewriter::imp {
             rational bound;
             flip(sz, args, args1, _k, bound);
             if (bound.get_unsigned() < k) {
-                return mk_le_tot(sz, args1.c_ptr(), bound, result);
+                return mk_le_tot(sz, args1.data(), bound, result);
             }
             if (k > 20) {
                 return false;
@@ -519,7 +519,7 @@ struct pb2bv_rewriter::imp {
                       tout << "\n";
                       );
                 ptr_vector<expr> out;
-                m_sort.sorting(carry.size(), carry.c_ptr(), out);
+                m_sort.sorting(carry.size(), carry.data(), out);
                 
                 expr_ref gt = mod_ge(out, B, d_i + 1);
                 expr_ref ge = mod_ge(out, B, d_i);
@@ -557,13 +557,13 @@ struct pb2bv_rewriter::imp {
             }
             switch (is_le) {
             case l_true: 
-                result = m_sort.le(k.get_unsigned(), coeffs.size(), coeffs.c_ptr(), m_args.c_ptr());
+                result = m_sort.le(k.get_unsigned(), coeffs.size(), coeffs.data(), m_args.data());
                 break;
             case l_false:
-                result = m_sort.ge(k.get_unsigned(), coeffs.size(), coeffs.c_ptr(), m_args.c_ptr());
+                result = m_sort.ge(k.get_unsigned(), coeffs.size(), coeffs.data(), m_args.data());
                 break;
             case l_undef:
-                result = m_sort.eq(k.get_unsigned(), coeffs.size(), coeffs.c_ptr(), m_args.c_ptr());
+                result = m_sort.eq(k.get_unsigned(), coeffs.size(), coeffs.data(), m_args.data());
                 break;
             }
             return result;
@@ -588,7 +588,7 @@ struct pb2bv_rewriter::imp {
         expr_ref mk_seg_le(rational const& k) {
             sort_args();
             unsigned sz = m_args.size();            
-            expr* const* args = m_args.c_ptr();
+            expr* const* args = m_args.data();
 
             // Create sorted entries.
             vector<ptr_vector<expr>> outs;
@@ -661,7 +661,7 @@ struct pb2bv_rewriter::imp {
                 args1.push_back(mk_not(args[i]));
                 bound += m_coeffs[i];
             }
-            return mk_ge(sz, args1.c_ptr(), bound, result);
+            return mk_ge(sz, args1.data(), bound, result);
         }
 
         bool mk_eq(unsigned sz, expr * const* args, rational const& k, expr_ref& result) {

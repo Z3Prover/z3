@@ -431,7 +431,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                 }
             }
             expr_ref rewrite_cond(m);
-            rewrite_cond = m.mk_or(rewrite_eq.size(), rewrite_eq.c_ptr());
+            rewrite_cond = m.mk_or(rewrite_eq.size(), rewrite_eq.data());
             side_conditions.push_back(rewrite_cond.get());
             return true;
         }
@@ -788,7 +788,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                     // SASSERT(to_quantifier(premise)->get_num_decls() == sub.size());
                     premise = to_quantifier(premise)->get_expr();
                 }
-                premise = vs(premise, sub.size(), sub.c_ptr());
+                premise = vs(premise, sub.size(), sub.data());
             }
             fmls.push_back(premise.get());
             TRACE("proof_checker",
@@ -819,7 +819,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             fmls[i] = premise1;
         }
         fmls[0] = premise0;
-        premise0 = m.mk_or(fmls.size(), fmls.c_ptr());
+        premise0 = m.mk_or(fmls.size(), fmls.data());
         if (is_forall(conclusion)) {
             quantifier* q = to_quantifier(conclusion);
             premise0 = m.mk_iff(premise0, q->get_expr());
@@ -861,7 +861,7 @@ void proof_checker::set_false(expr_ref& e, unsigned position, expr_ref& lit) {
         args.append(a->get_num_args(), a->get_args());
         lit = args[position].get();
         args[position] = m.mk_false();
-        e = m.mk_or(args.size(), args.c_ptr());
+        e = m.mk_or(args.size(), args.data());
     }
     else if (m.is_implies(e, body, head)) {
         expr* const* heads = &head;
@@ -880,14 +880,14 @@ void proof_checker::set_false(expr_ref& e, unsigned position, expr_ref& lit) {
             args.append(num_heads, heads);
             lit = args[position].get();
             args[position] = m.mk_false();
-            e = m.mk_implies(body, m.mk_or(args.size(), args.c_ptr()));
+            e = m.mk_implies(body, m.mk_or(args.size(), args.data()));
         }
         else {
             position -= num_heads;
             args.append(num_bodies, bodies);
             lit = m.mk_not(args[position].get());
             args[position] = m.mk_true();
-            e = m.mk_implies(m.mk_and(args.size(), args.c_ptr()), head);
+            e = m.mk_implies(m.mk_and(args.size(), args.data()), head);
         }
     }
     else if (position == 0) {
@@ -1112,7 +1112,7 @@ void proof_checker::get_hypotheses(proof* p, expr_ref_vector& ante) {
             }
         }
         if (all_found) {
-            h = mk_hyp(hyps.size(), hyps.c_ptr());
+            h = mk_hyp(hyps.size(), hyps.data());
             m_pinned.push_back(h);
             m_hypotheses.insert(p, h);
             stack.pop_back();
@@ -1241,7 +1241,7 @@ void proof_checker::dump_proof(proof const* pr) {
         SASSERT(m.has_fact(a));
         antecedents.push_back(m.get_fact(a));
     }
-    dump_proof(antecedents.size(), antecedents.c_ptr(), consequent);
+    dump_proof(antecedents.size(), antecedents.data(), consequent);
 }
 
 void proof_checker::dump_proof(unsigned num_antecedents, expr * const * antecedents, expr * consequent) {

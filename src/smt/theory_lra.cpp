@@ -515,7 +515,7 @@ class theory_lra::imp {
             vars.push_back(register_theory_var_in_lar_solver(w));
         ensure_nla();
         m_solver->register_existing_terms();
-        m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
+        m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.data());
         return v;
     }
 
@@ -537,7 +537,7 @@ class theory_lra::imp {
             TRACE("arith", tout << "v" << v << " := " << mk_pp(t, m) << "\n" << vars << "\n";);
             m_solver->register_existing_terms();
             ensure_nla();
-            m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
+            m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.data());
         }
         return v;
     }
@@ -1326,7 +1326,7 @@ public:
             }
             if (m.has_trace_stream()) {
                 app_ref body(m);
-                body = m.mk_or(exprs.size(), exprs.c_ptr());
+                body = m.mk_or(exprs.size(), exprs.data());
                 th.log_axiom_instantiation(body);
             }
             ctx().mk_th_axiom(get_id(), lits.size(), lits.begin());                
@@ -1455,7 +1455,7 @@ public:
               }
               tout << "\n"; );
         if (!vars.empty()) {
-            lp().random_update(vars.size(), vars.c_ptr());
+            lp().random_update(vars.size(), vars.data());
         }
     }
 
@@ -1813,7 +1813,7 @@ public:
             t = ts.back();
         }
         else {
-            t = a.mk_add(ts.size(), ts.c_ptr());
+            t = a.mk_add(ts.size(), ts.data());
         }
         return t;
     }
@@ -1827,11 +1827,11 @@ public:
             ts.push_back(multerm(cv.first, var2expr(cv.second)));
         }
         switch (c.kind()) {
-        case lp::LE: fml = a.mk_le(a.mk_add(ts.size(), ts.c_ptr()), a.mk_numeral(rhs, true)); break;
-        case lp::LT: fml = a.mk_lt(a.mk_add(ts.size(), ts.c_ptr()), a.mk_numeral(rhs, true)); break;
-        case lp::GE: fml = a.mk_ge(a.mk_add(ts.size(), ts.c_ptr()), a.mk_numeral(rhs, true)); break;
-        case lp::GT: fml = a.mk_gt(a.mk_add(ts.size(), ts.c_ptr()), a.mk_numeral(rhs, true)); break;
-        case lp::EQ: fml = m.mk_eq(a.mk_add(ts.size(), ts.c_ptr()), a.mk_numeral(rhs, true)); break;
+        case lp::LE: fml = a.mk_le(a.mk_add(ts.size(), ts.data()), a.mk_numeral(rhs, true)); break;
+        case lp::LT: fml = a.mk_lt(a.mk_add(ts.size(), ts.data()), a.mk_numeral(rhs, true)); break;
+        case lp::GE: fml = a.mk_ge(a.mk_add(ts.size(), ts.data()), a.mk_numeral(rhs, true)); break;
+        case lp::GT: fml = a.mk_gt(a.mk_add(ts.size(), ts.data()), a.mk_numeral(rhs, true)); break;
+        case lp::EQ: fml = m.mk_eq(a.mk_add(ts.size(), ts.data()), a.mk_numeral(rhs, true)); break;
         case lp::NE:
             SASSERT(false); // unexpected
             break;
@@ -1931,7 +1931,7 @@ public:
             TRACE("arith", dump_cut_lemma(tout, m_lia->get_term(), m_lia->get_offset(), m_explanation, m_lia->is_upper()););
             literal lit(ctx().get_bool_var(b), false);
             TRACE("arith", 
-                  ctx().display_lemma_as_smt_problem(tout << "new cut:\n", m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
+                  ctx().display_lemma_as_smt_problem(tout << "new cut:\n", m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), lit);
                   display(tout););
             assign(lit, m_core, m_eqs, m_params);
             lia_check = l_false;
@@ -2297,17 +2297,17 @@ public:
             m_core2.push_back(lit);
             justification * js = nullptr;
             if (proofs_enabled()) {
-                js = alloc(theory_lemma_justification, get_id(), ctx(), m_core2.size(), m_core2.c_ptr(),
-                           params.size(), params.c_ptr());
+                js = alloc(theory_lemma_justification, get_id(), ctx(), m_core2.size(), m_core2.data(),
+                           params.size(), params.data());
             }
-            ctx().mk_clause(m_core2.size(), m_core2.c_ptr(), js, CLS_TH_LEMMA, nullptr);
+            ctx().mk_clause(m_core2.size(), m_core2.data(), js, CLS_TH_LEMMA, nullptr);
         }
         else {
             ctx().assign(
                 lit, ctx().mk_justification(
                     ext_theory_propagation_justification(
-                        get_id(), ctx().get_region(), core.size(), core.c_ptr(), 
-                        eqs.size(), eqs.c_ptr(), lit, params.size(), params.c_ptr())));            
+                        get_id(), ctx().get_region(), core.size(), core.data(), 
+                        eqs.size(), eqs.data(), lit, params.size(), params.data())));            
         }
     }
 
@@ -3037,7 +3037,7 @@ public:
         justification* js = 
             ctx().mk_justification(
                 ext_theory_eq_propagation_justification(
-                    get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), x, y));
+                    get_id(), ctx().get_region(), m_core.size(), m_core.data(), m_eqs.size(), m_eqs.data(), x, y));
         
         TRACE("arith",
               for (auto c : m_core) 
@@ -3170,8 +3170,8 @@ public:
                 ctx().mk_justification(
                     ext_theory_conflict_justification(
                         get_id(), ctx().get_region(), 
-                        m_core.size(), m_core.c_ptr(), 
-                        m_eqs.size(), m_eqs.c_ptr(), m_params.size(), m_params.c_ptr())));
+                        m_core.size(), m_core.data(), 
+                        m_eqs.size(), m_eqs.data(), m_params.size(), m_params.data())));
         }
         else {
             for (auto const& eq : m_eqs) {
@@ -3192,7 +3192,7 @@ public:
             // The lemmas can come in batches
             // and the same literal can appear in several lemmas in a batch: it becomes l_true
             // in earlier processing, but it was not so when the lemma was produced
-            ctx().mk_th_axiom(get_id(), m_core.size(), m_core.c_ptr());
+            ctx().mk_th_axiom(get_id(), m_core.size(), m_core.data());
         }
     }
 
@@ -3377,7 +3377,7 @@ public:
 
     void dump_conflict(literal_vector const& core, svector<enode_pair> const& eqs) {
         if (dump_lemmas()) {
-            ctx().display_lemma_as_smt_problem(core.size(), core.c_ptr(), eqs.size(), eqs.c_ptr(), false_literal);
+            ctx().display_lemma_as_smt_problem(core.size(), core.data(), eqs.size(), eqs.data(), false_literal);
         }
     }
 
@@ -3389,13 +3389,13 @@ public:
         cancel_eh<reslimit> eh(m.limit());
         scoped_timer timer(1000, &eh);
         bool result = l_true != nctx.check();
-        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, core.size(), core.c_ptr(), eqs.size(), eqs.c_ptr(), false_literal););
+        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, core.size(), core.data(), eqs.size(), eqs.data(), false_literal););
         return result;
     }
 
     void dump_assign(literal lit, literal_vector const& core, svector<enode_pair> const& eqs) {
         if (dump_lemmas()) {                
-            unsigned id = ctx().display_lemma_as_smt_problem(core.size(), core.c_ptr(), eqs.size(), eqs.c_ptr(), lit);
+            unsigned id = ctx().display_lemma_as_smt_problem(core.size(), core.data(), eqs.size(), eqs.data(), lit);
             (void)id;
         }
     }
@@ -3410,7 +3410,7 @@ public:
         cancel_eh<reslimit> eh(m.limit());
         scoped_timer timer(1000, &eh);
         bool result = l_true != nctx.check();
-        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, core.size(), core.c_ptr(), eqs.size(), eqs.c_ptr(), lit);
+        CTRACE("arith", !result, ctx().display_lemma_as_smt_problem(tout, core.size(), core.data(), eqs.size(), eqs.data(), lit);
                display(tout););   
         return result;
     }
@@ -3586,7 +3586,7 @@ public:
         case 1:
             return app_ref(to_app(args[0].get()), m);
         default:
-            return app_ref(a.mk_add(args.size(), args.c_ptr()), m);
+            return app_ref(a.mk_add(args.size(), args.data()), m);
         }
     }
 

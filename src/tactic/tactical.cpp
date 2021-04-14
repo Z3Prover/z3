@@ -137,7 +137,7 @@ public:
                     }                                                                         
                 }                                                                                       
                 else {                                                                                      
-                    result.append(r2.size(), r2.c_ptr());
+                    result.append(r2.size(), r2.data());
                 }                                                                                           
             }
                         
@@ -270,7 +270,7 @@ protected:
         for (tactic* curr : m_ts) {
             new_ts.push_back(curr->translate(m));
         }
-        return alloc(T, new_ts.size(), new_ts.c_ptr());
+        return alloc(T, new_ts.size(), new_ts.data());
     }
 
 };
@@ -661,7 +661,7 @@ public:
                     else {                                                                                      
                         goal_ref_buffer * new_r2 = alloc(goal_ref_buffer);
                         goals_vect.set(i, new_r2);
-                        new_r2->append(r2.size(), r2.c_ptr());
+                        new_r2->append(r2.size(), r2.data());
                         dependency_converter* dc = r1[i]->dc();                           
                         if (cores_enabled && dc) {
                             expr_dependency_ref * new_dep = alloc(expr_dependency_ref, new_m);
@@ -707,7 +707,7 @@ public:
                 }
                 if (proofs_enabled) {
                     // update proof converter of r1[i]
-                    r1[i]->set(concat(r1[i]->pc(), result.size() - j, result.c_ptr() + j));
+                    r1[i]->set(concat(r1[i]->pc(), result.size() - j, result.data() + j));
                 }
                 expr_dependency_translation td(translator);
                 if (core_buffer[i] != nullptr) {
@@ -852,7 +852,7 @@ class repeat_tactical : public unary_tactical {
 				}
 			}
 			else {
-				result.append(r2.size(), r2.c_ptr());
+				result.append(r2.size(), r2.data());
 			}
 		}
 

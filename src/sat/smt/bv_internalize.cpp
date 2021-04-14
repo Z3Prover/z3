@@ -413,7 +413,7 @@ namespace bv {
         unsigned i = 0;        
         for (expr* b : k_bits) 
             args.push_back(m.mk_ite(b, m_autil.mk_int(power2(i++)), zero));        
-        expr_ref sum(m_autil.mk_add(sz, args.c_ptr()), m);
+        expr_ref sum(m_autil.mk_add(sz, args.data()), m);
         expr_ref eq = mk_eq(n, sum);
         sat::literal lit = ctx.internalize(eq, false, false, m_is_redundant);
         add_unit(lit);
@@ -471,9 +471,9 @@ namespace bv {
         get_arg_bits(n, Rev ? 0 : 1, arg2_bits);
         expr_ref le(m);
         if (Signed)
-            m_bb.mk_sle(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), le);
+            m_bb.mk_sle(arg1_bits.size(), arg1_bits.data(), arg2_bits.data(), le);
         else
-            m_bb.mk_ule(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), le);
+            m_bb.mk_ule(arg1_bits.size(), arg1_bits.data(), arg2_bits.data(), le);
         literal def = ctx.internalize(le, false, false, m_is_redundant);
         if (Negated)
             def.neg();
@@ -535,7 +535,7 @@ namespace bv {
         SASSERT(n->get_num_args() == 1);
         expr_ref_vector arg1_bits(m), bits(m);
         get_arg_bits(n, 0, arg1_bits);
-        fn(arg1_bits.size(), arg1_bits.c_ptr(), bits);
+        fn(arg1_bits.size(), arg1_bits.data(), bits);
         init_bits(n, bits);
     }
 
@@ -544,7 +544,7 @@ namespace bv {
         expr_ref_vector arg1_bits(m), bits(m);
         get_arg_bits(n, 0, arg1_bits);
         unsigned param = n->get_decl()->get_parameter(0).get_int();
-        fn(arg1_bits.size(), arg1_bits.c_ptr(), param, bits);
+        fn(arg1_bits.size(), arg1_bits.data(), param, bits);
         init_bits(n, bits);
     }
 
@@ -554,7 +554,7 @@ namespace bv {
         get_arg_bits(e, 0, arg1_bits);
         get_arg_bits(e, 1, arg2_bits);
         SASSERT(arg1_bits.size() == arg2_bits.size());
-        fn(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), bits);
+        fn(arg1_bits.size(), arg1_bits.data(), arg2_bits.data(), bits);
         init_bits(e, bits);
     }
 
@@ -568,7 +568,7 @@ namespace bv {
             get_arg_bits(e, i, arg_bits);
             SASSERT(arg_bits.size() == bits.size());
             new_bits.reset();
-            fn(arg_bits.size(), arg_bits.c_ptr(), bits.c_ptr(), new_bits);
+            fn(arg_bits.size(), arg_bits.data(), bits.data(), new_bits);
             bits.swap(new_bits);
         }        
         init_bits(e, bits);
@@ -581,7 +581,7 @@ namespace bv {
         get_arg_bits(n, 0, arg1_bits);
         get_arg_bits(n, 1, arg2_bits);
         expr_ref out(m);
-        fn(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), out);
+        fn(arg1_bits.size(), arg1_bits.data(), arg2_bits.data(), out);
         sat::literal def = ctx.internalize(out, false, false, m_is_redundant);
         add_def(def, expr2literal(n));
     }
@@ -613,7 +613,7 @@ namespace bv {
         get_arg_bits(n, 1, arg2_bits);
         SASSERT(arg1_bits.size() == arg2_bits.size());
         expr_ref carry(m);
-        m_bb.mk_subtracter(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), bits, carry);
+        m_bb.mk_subtracter(arg1_bits.size(), arg1_bits.data(), arg2_bits.data(), bits, carry);
         init_bits(n, bits);
     }
 
@@ -748,6 +748,6 @@ namespace bv {
             eqs.push_back(~eq);
         }
         TRACE("bv", for (auto l : eqs) tout << mk_bounded_pp(literal2expr(l), m) << " "; tout << "\n";);
-        s().add_clause(eqs.size(), eqs.c_ptr(), sat::status::th(m_is_redundant, get_id()));
+        s().add_clause(eqs.size(), eqs.data(), sat::status::th(m_is_redundant, get_id()));
     }
 }

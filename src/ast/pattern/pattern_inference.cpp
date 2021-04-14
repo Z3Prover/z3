@@ -232,7 +232,7 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
 
         app * new_node = nullptr;
         if (changed)
-            new_node = m.mk_app(decl, buffer.size(), buffer.c_ptr());
+            new_node = m.mk_app(decl, buffer.size(), buffer.data());
         else
             new_node = to_app(n);
         save(n, delta, alloc(info, m, new_node, free_vars, size));
@@ -442,7 +442,7 @@ void pattern_inference_cfg::candidates2multi_patterns(unsigned max_num_patterns,
     for (unsigned j = 0; j < m_pre_patterns.size(); j++) {
         pre_pattern * curr = m_pre_patterns[j];
         if (curr->m_free_vars.num_elems() == m_num_bindings) {
-            app * new_pattern = m.mk_pattern(curr->m_exprs.size(), curr->m_exprs.c_ptr());
+            app * new_pattern = m.mk_pattern(curr->m_exprs.size(), curr->m_exprs.data());
             result.push_back(new_pattern);
             if (result.size() >= max_num_patterns)
                 return;
@@ -601,7 +601,7 @@ bool pattern_inference_cfg::reduce_quantifier(
             }
             else {
                 quantifier_ref tmp(m);
-                tmp    = m.update_quantifier(q, new_patterns.size(), (expr**) new_patterns.c_ptr(), q->get_expr());
+                tmp    = m.update_quantifier(q, new_patterns.size(), (expr**) new_patterns.data(), q->get_expr());
                 result = m.update_quantifier_weight(tmp, new_weight);
                 TRACE("pattern_inference", tout << "found patterns in database, weight: " << new_weight << "\n" << mk_pp(result, m) << "\n";);
             }
@@ -670,7 +670,7 @@ bool pattern_inference_cfg::reduce_quantifier(
         }
     }
 
-    quantifier_ref new_q(m.update_quantifier(q, new_patterns.size(), (expr**) new_patterns.c_ptr(), new_body), m);
+    quantifier_ref new_q(m.update_quantifier(q, new_patterns.size(), (expr**) new_patterns.data(), new_body), m);
     if (weight != q->get_weight())
         new_q = m.update_quantifier_weight(new_q, weight);
     if (m.proofs_enabled()) {
@@ -692,7 +692,7 @@ bool pattern_inference_cfg::reduce_quantifier(
                     auto str = q->get_qid().str();
                     warning_msg("pulled nested quantifier to be able to find an usable pattern (quantifier id: %s)", str.c_str());
                 }
-                new_q = m.update_quantifier(result2, new_patterns.size(), (expr**) new_patterns.c_ptr(), result2->get_expr());
+                new_q = m.update_quantifier(result2, new_patterns.size(), (expr**) new_patterns.data(), result2->get_expr());
                 if (m.proofs_enabled()) {
                     result_pr = m.mk_transitivity(new_pr, m.mk_quant_intro(result2, new_q, m.mk_bind_proof(new_q, m.mk_reflexivity(new_q->get_expr()))));
                 }

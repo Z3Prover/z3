@@ -98,7 +98,7 @@ namespace smt {
         TRACE("unit_resolution_justification_bug",
             tout << "in mk_proof\n" << literal_vector(m_num_literals, m_literals) << "\n";
             for (proof* p : prs) tout << mk_ll_pp(m.get_fact(p), m););
-        return m.mk_unit_resolution(prs.size(), prs.c_ptr());
+        return m.mk_unit_resolution(prs.size(), prs.data());
     }
 
     void eq_conflict_justification::get_antecedents(conflict_resolution & cr) {
@@ -141,7 +141,7 @@ namespace smt {
         
         expr * lhs = m_node1->get_root()->get_expr();
         expr * rhs = m_node2->get_root()->get_expr();
-        proof * pr1 = m.mk_transitivity(prs.size(), prs.c_ptr(), lhs, rhs);
+        proof * pr1 = m.mk_transitivity(prs.size(), prs.data(), lhs, rhs);
         proof * pr2 = m.mk_rewrite(m.mk_eq(lhs, rhs), m.mk_false());
         return m.mk_modus_ponens(pr1, pr2);
     }
@@ -275,9 +275,9 @@ namespace smt {
             lits.push_back(std::move(l));
         }
         if (lits.size() == 1)
-            return m.mk_th_lemma(m_th_id, lits.get(0), 0, nullptr, m_params.size(), m_params.c_ptr());
+            return m.mk_th_lemma(m_th_id, lits.get(0), 0, nullptr, m_params.size(), m_params.data());
         else
-            return m.mk_th_lemma(m_th_id, m.mk_or(lits.size(), lits.c_ptr()), 0, nullptr, m_params.size(), m_params.c_ptr());
+            return m.mk_th_lemma(m_th_id, m.mk_or(lits.size(), lits.data()), 0, nullptr, m_params.size(), m_params.data());
     }
 
     proof * theory_propagation_justification::mk_proof(conflict_resolution & cr) {
@@ -288,7 +288,7 @@ namespace smt {
         ast_manager & m = cr.get_manager();
         expr_ref fact(m);
         ctx.literal2expr(m_consequent, fact);
-        return m.mk_th_lemma(m_th_id, fact, prs.size(), prs.c_ptr(), m_params.size(), m_params.c_ptr());
+        return m.mk_th_lemma(m_th_id, fact, prs.size(), prs.data(), m_params.size(), m_params.data());
     }
 
     proof * theory_conflict_justification::mk_proof(conflict_resolution & cr) {
@@ -296,7 +296,7 @@ namespace smt {
         if (!antecedent2proof(cr, prs))
             return nullptr;
         ast_manager & m = cr.get_manager();
-        return m.mk_th_lemma(m_th_id, m.mk_false(), prs.size(), prs.c_ptr(), m_params.size(), m_params.c_ptr());
+        return m.mk_th_lemma(m_th_id, m.mk_false(), prs.size(), prs.data(), m_params.size(), m_params.data());
     }
 
     ext_simple_justification::ext_simple_justification(region & r, unsigned num_lits, literal const * lits, unsigned num_eqs, enode_pair const * eqs):
@@ -340,7 +340,7 @@ namespace smt {
         ast_manager & m = cr.get_manager();
         expr_ref fact(m);
         ctx.literal2expr(m_consequent, fact);
-        return m.mk_th_lemma(m_th_id, fact, prs.size(), prs.c_ptr(), m_params.size(), m_params.c_ptr());
+        return m.mk_th_lemma(m_th_id, fact, prs.size(), prs.data(), m_params.size(), m_params.data());
     }
     
     proof * ext_theory_conflict_justification::mk_proof(conflict_resolution & cr) {
@@ -348,7 +348,7 @@ namespace smt {
         if (!antecedent2proof(cr, prs))
             return nullptr;
         ast_manager & m = cr.get_manager();
-        return m.mk_th_lemma(m_th_id, m.mk_false(), prs.size(), prs.c_ptr(), m_params.size(), m_params.c_ptr());
+        return m.mk_th_lemma(m_th_id, m.mk_false(), prs.size(), prs.data(), m_params.size(), m_params.data());
     }
 
     proof * ext_theory_eq_propagation_justification::mk_proof(conflict_resolution & cr) {
@@ -358,7 +358,7 @@ namespace smt {
         ast_manager & m = cr.get_manager();
         context & ctx   = cr.get_context();
         expr * fact     = ctx.mk_eq_atom(m_lhs->get_expr(), m_rhs->get_expr());
-        return m.mk_th_lemma(m_th_id, fact, prs.size(), prs.c_ptr(), m_params.size(), m_params.c_ptr());
+        return m.mk_th_lemma(m_th_id, fact, prs.size(), prs.data(), m_params.size(), m_params.data());
     }
 
     
@@ -401,9 +401,9 @@ namespace smt {
             lits.push_back(sign ? m.mk_not(v) : v);
         }
         if (lits.size() == 1)
-            return m.mk_th_lemma(m_th_id, lits.get(0), 0, nullptr, m_params.size(), m_params.c_ptr());
+            return m.mk_th_lemma(m_th_id, lits.get(0), 0, nullptr, m_params.size(), m_params.data());
         else
-            return m.mk_th_lemma(m_th_id, m.mk_or(lits.size(), lits.c_ptr()), 0, nullptr, m_params.size(), m_params.c_ptr());
+            return m.mk_th_lemma(m_th_id, m.mk_or(lits.size(), lits.data()), 0, nullptr, m_params.size(), m_params.data());
     }
 
 };

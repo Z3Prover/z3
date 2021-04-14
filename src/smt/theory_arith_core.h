@@ -888,7 +888,7 @@ namespace smt {
     void theory_arith<Ext>::normalize_quasi_base_row(unsigned r_id) {
         buffer<linear_monomial> to_add;
         collect_vars(r_id, QUASI_BASE, to_add);
-        add_rows(r_id, to_add.size(), to_add.c_ptr());
+        add_rows(r_id, to_add.size(), to_add.data());
         SASSERT(!has_var_kind(r_id, QUASI_BASE));
     }
 
@@ -910,7 +910,7 @@ namespace smt {
                   display_row_info(tout, get_var_row(v));
                   tout << "\n";
               });
-        add_rows(r_id, to_add.size(), to_add.c_ptr());
+        add_rows(r_id, to_add.size(), to_add.data());
         theory_var s = m_rows[r_id].get_base_var();
         set_var_kind(s, BASE);
         inf_numeral tmp;
@@ -2942,8 +2942,8 @@ namespace smt {
     void theory_arith<Ext>::dump_lemmas(literal l, antecedents const& ante) {
         if (dump_lemmas()) {
             TRACE("arith", ante.display(tout) << " --> "; ctx.display_detailed_literal(tout, l); tout << "\n";);
-            ctx.display_lemma_as_smt_problem(ante.lits().size(), ante.lits().c_ptr(),
-                                             ante.eqs().size(), ante.eqs().c_ptr(), l);
+            ctx.display_lemma_as_smt_problem(ante.lits().size(), ante.lits().data(),
+                                             ante.eqs().size(), ante.eqs().data(), l);
 
         }
     }
@@ -2951,8 +2951,8 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::dump_lemmas(literal l, derived_bound const& ante) {
         if (dump_lemmas()) {
-            ctx.display_lemma_as_smt_problem(ante.lits().size(), ante.lits().c_ptr(),
-                                             ante.eqs().size(), ante.eqs().c_ptr(), l);
+            ctx.display_lemma_as_smt_problem(ante.lits().size(), ante.lits().data(),
+                                             ante.eqs().size(), ante.eqs().data(), l);
         }
     }
 
@@ -2978,17 +2978,17 @@ namespace smt {
                 lits.push_back(~(*it));
             justification * js = nullptr;
             if (proofs_enabled()) {
-                js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr(),
+                js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.data(),
                            ante.num_params(), ante.params("assign-bounds"));
             }
-            ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, nullptr);
+            ctx.mk_clause(lits.size(), lits.data(), js, CLS_TH_LEMMA, nullptr);
         }
         else {
             region & r = ctx.get_region();
             ctx.assign(l, ctx.mk_justification(
                            ext_theory_propagation_justification(
-                               get_id(), r, ante.lits().size(), ante.lits().c_ptr(),
-                               ante.eqs().size(), ante.eqs().c_ptr(), l,
+                               get_id(), r, ante.lits().size(), ante.lits().data(),
+                               ante.eqs().size(), ante.eqs().data(), l,
                                ante.num_params(), ante.params("assign-bounds"))));
         }
     }
@@ -3049,13 +3049,13 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::set_conflict(antecedents const& ante, antecedents& bounds, char const* proof_rule) {
-        set_conflict(ante.lits().size(), ante.lits().c_ptr(), ante.eqs().size(), ante.eqs().c_ptr(), bounds, proof_rule);
+        set_conflict(ante.lits().size(), ante.lits().data(), ante.eqs().size(), ante.eqs().data(), bounds, proof_rule);
         dump_lemmas(false_literal, ante);
     }
 
     template<typename Ext>
     void theory_arith<Ext>::set_conflict(derived_bound const& ante, antecedents& bounds, char const* proof_rule) {
-        set_conflict(ante.lits().size(), ante.lits().c_ptr(), ante.eqs().size(), ante.eqs().c_ptr(), bounds, proof_rule);
+        set_conflict(ante.lits().size(), ante.lits().data(), ante.eqs().size(), ante.eqs().data(), bounds, proof_rule);
         dump_lemmas(false_literal, ante);
     }
 

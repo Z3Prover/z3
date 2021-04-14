@@ -1292,7 +1292,7 @@ namespace smt {
                         assignment.push_back((unsigned)'?');
                     }
                 }
-                zstring strValue(assignment.size(), assignment.c_ptr());
+                zstring strValue(assignment.size(), assignment.data());
                 model.insert(var, strValue);
                 subst.insert(var, mk_string(strValue));
             }
@@ -1313,7 +1313,7 @@ namespace smt {
                         assignment.push_back((unsigned)'?');
                     }
                 }
-                zstring strValue(assignment.size(), assignment.c_ptr());
+                zstring strValue(assignment.size(), assignment.data());
                 model.insert(var, strValue);
                 subst.insert(var, mk_string(strValue));
             }

@@ -747,8 +747,8 @@ class smt2_printer {
         buffer<symbol> labels;
         bool is_pos;
         format * f = nullptr;
-        format ** it  = m_format_stack.c_ptr() + fr.m_spos;
-        format ** end = m_format_stack.c_ptr() + m_format_stack.size();
+        format ** it  = m_format_stack.data() + fr.m_spos;
+        format ** end = m_format_stack.data() + m_format_stack.size();
         if (m().is_label(t, is_pos, labels)) {
             SASSERT(it + 1 == end);
             f = pp_labels(is_pos, labels, *it);
@@ -829,7 +829,7 @@ class smt2_printer {
         buf.push_back(mk_indent(m(), SMALL_INDENT, mk_compose(m(), mk_line_break(m()), f)));
         for (unsigned i = 0; i < num_op; i++)
             buf.push_back(mk_string(m(), ")"));
-        return mk_compose(m(), buf.size(), buf.c_ptr());
+        return mk_compose(m(), buf.size(), buf.data());
     }
 
     format * pp_let(format * f) {
@@ -958,14 +958,14 @@ class smt2_printer {
             ptr_buffer<format> buf;
             buf.push_back(f_body);
             if (q->get_num_patterns() > 0) {
-                format ** it  = m_format_stack.c_ptr() + fr.m_spos;
+                format ** it  = m_format_stack.data() + fr.m_spos;
                 format ** end = it + q->get_num_patterns();
                 for (; it != end; ++it) {
                     buf.push_back(pp_attribute(":pattern ", *it));
                 }
             }
             if (q->get_num_no_patterns() > 0) {
-                format ** it  = m_format_stack.c_ptr() + fr.m_spos + q->get_num_patterns();
+                format ** it  = m_format_stack.data() + fr.m_spos + q->get_num_patterns();
                 format ** end = it + q->get_num_no_patterns();
                 for (; it != end; ++it) {
                     buf.push_back(pp_attribute(":no-pattern ", *it));
@@ -1223,7 +1223,7 @@ void mk_smt2_format(unsigned sz, expr * const* es, smt2_pp_environment & env, pa
         pr(es[i], num_vars, var_prefix, fr, var_names);
         fmts.push_back(std::move(fr));
     }
-    r = mk_seq<format**, f2f>(m, fmts.c_ptr(), fmts.c_ptr() + fmts.size(), f2f());
+    r = mk_seq<format**, f2f>(m, fmts.data(), fmts.data() + fmts.size(), f2f());
 }
 
 std::ostream & ast_smt2_pp(std::ostream & out, expr * n, smt2_pp_environment & env, params_ref const & p, unsigned indent,
@@ -1375,19 +1375,19 @@ std::ostream& operator<<(std::ostream& out, sort_ref const&  e) {
 std::ostream& operator<<(std::ostream& out, expr_ref_vector const&  e) {
     smt2_pp_environment_dbg env(e.get_manager());
     params_ref p;
-    return ast_smt2_pp(out, e.size(), e.c_ptr(), env, p, 0, 0, nullptr);
+    return ast_smt2_pp(out, e.size(), e.data(), env, p, 0, 0, nullptr);
 }
 
 std::ostream& operator<<(std::ostream& out, var_ref_vector const&  e) {
     smt2_pp_environment_dbg env(e.get_manager());
     params_ref p;
-    return ast_smt2_pp(out, e.size(), (expr*const*)e.c_ptr(), env, p, 0, 0, nullptr);
+    return ast_smt2_pp(out, e.size(), (expr*const*)e.data(), env, p, 0, 0, nullptr);
 }
 
 std::ostream& operator<<(std::ostream& out, app_ref_vector const&  e) {
     smt2_pp_environment_dbg env(e.get_manager());
     params_ref p;
-    return ast_smt2_pp(out, e.size(), (expr*const*)e.c_ptr(), env, p, 0, 0, nullptr);
+    return ast_smt2_pp(out, e.size(), (expr*const*)e.data(), env, p, 0, 0, nullptr);
 }
 
 std::ostream& operator<<(std::ostream& out, func_decl_ref_vector const&  e) {

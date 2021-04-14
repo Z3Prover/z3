@@ -90,7 +90,7 @@ class mpfx_manager {
     mpfx              m_one;
     mpn_manager       m_mpn_manager;
 
-    unsigned * words(mpfx const & n) const { return m_words.c_ptr() + (n.m_sig_idx * m_total_sz); }
+    unsigned * words(mpfx const & n) const { return m_words.data() + (n.m_sig_idx * m_total_sz); }
     unsigned sz(unsigned * ws) const;
 
     void ensure_capacity(unsigned sig_idx) {

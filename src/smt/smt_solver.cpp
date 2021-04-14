@@ -264,7 +264,7 @@ namespace {
             if (!m_minimizing_core && smt_params_helper(get_params()).core_minimize()) {
                 scoped_minimize_core scm(*this);
                 mus mus(*this);
-                mus.add_soft(r.size(), r.c_ptr());
+                mus.add_soft(r.size(), r.data());
                 expr_ref_vector r2(m);
                 if (l_true == mus.get_mus(r2)) {
                     r.reset();
@@ -297,7 +297,7 @@ namespace {
         void get_labels(svector<symbol> & r) override {
             buffer<symbol> tmp;
             m_context.get_relevant_labels(nullptr, tmp);
-            r.append(tmp.size(), tmp.c_ptr());
+            r.append(tmp.size(), tmp.data());
         }
 
         ast_manager & get_manager() const override { return m_context.m(); }
@@ -435,7 +435,7 @@ namespace {
                     }
                 }
 
-                core.append(new_core_literals.size(), new_core_literals.c_ptr());
+                core.append(new_core_literals.size(), new_core_literals.data());
 
                 if (new_core_literals.empty())
                     break;

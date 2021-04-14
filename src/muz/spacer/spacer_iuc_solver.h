@@ -103,7 +103,7 @@ public:
     void get_full_unsat_core(ptr_vector<expr> &core) {
         expr_ref_vector _core(m);
         m_solver.get_unsat_core(_core);
-        core.append(_core.size(), _core.c_ptr());
+        core.append(_core.size(), _core.data());
     }
 
     /* solver interface */

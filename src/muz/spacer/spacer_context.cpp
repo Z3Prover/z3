@@ -224,7 +224,7 @@ void derivation::exist_skolemize(expr* fml, app_ref_vector& vars, expr_ref& res)
         return;
     }
     
-    std::stable_sort(vars.c_ptr(), vars.c_ptr() + vars.size(), sk_lt_proc());
+    std::stable_sort(vars.data(), vars.data() + vars.size(), sk_lt_proc());
     unsigned j = 1;
     for (unsigned i = 1; i < vars.size(); ++i) 
         if (vars.get(i) != vars.get(j - 1)) 
@@ -396,7 +396,7 @@ pob *derivation::create_next_child ()
         m_trans = mk_and (summaries);
 
         // variables to eliminate
-        vars.append (rf->aux_vars ().size (), rf->aux_vars ().c_ptr ());
+        vars.append (rf->aux_vars ().size (), rf->aux_vars ().data ());
         for (unsigned i = 0, sz = pt.head ()->get_arity (); i < sz; ++i) { 
             vars.push_back(m.mk_const(pm.o2n(pt.sig(i), 0))); 
         }
@@ -537,7 +537,7 @@ void lemma::mk_expr_core() {
         zks.append(m_zks);
         zks.reverse();
         m_body = expr_abstract(m, 0,
-                               zks.size(), (expr* const*)zks.c_ptr(), m_body);
+                               zks.size(), (expr* const*)zks.data(), m_body);
         ptr_buffer<sort> sorts;
         svector<symbol> names;
         for (app* z : zks) {
@@ -545,8 +545,8 @@ void lemma::mk_expr_core() {
             names.push_back(z->get_decl()->get_name());
         }
         m_body = m.mk_quantifier(forall_k, zks.size(),
-                                 sorts.c_ptr(),
-                                 names.c_ptr(),
+                                 sorts.data(),
+                                 names.data(),
                                  m_body, 15, symbol(m_body->get_id()));
     }
     SASSERT(m_body);
@@ -568,7 +568,7 @@ void lemma::mk_cube_core() {
             m_cube.push_back(m.mk_true());
         }
         else {
-            std::sort(m_cube.c_ptr(), m_cube.c_ptr() + m_cube.size(), ast_lt_proc());
+            std::sort(m_cube.data(), m_cube.data() + m_cube.size(), ast_lt_proc());
         }
     }
     else {
@@ -669,7 +669,7 @@ void lemma::mk_insts(expr_ref_vector &out, expr* e)
     unsigned num_decls = to_quantifier(lem)->get_num_decls();
     expr_ref inst(m);
     for (unsigned off = 0, sz = m_bindings.size(); off < sz; off += num_decls) {
-        instantiate((expr * const *) m_bindings.c_ptr() + off, inst, e);
+        instantiate((expr * const *) m_bindings.data() + off, inst, e);
         out.push_back(inst);
         inst.reset();
     }
@@ -1100,7 +1100,7 @@ expr_ref pred_transformer::get_reachable()
             const ptr_vector<app> &aux = f->aux_vars();
             if (!aux.empty()) {
                 // -- existentially quantify auxiliary variables
-                r = mk_exists (m, aux.size(), aux.c_ptr(), r);
+                r = mk_exists (m, aux.size(), aux.data(), r);
                 // XXX not sure how this interacts with variable renaming later on.
                 // XXX For now, simply dissallow existentially quantified auxiliaries
                 NOT_IMPLEMENTED_YET();
@@ -1503,7 +1503,7 @@ bool pred_transformer::is_invariant(unsigned level, lemma* lem,
     if (ctx.use_bg_invs()) get_pred_bg_invs(conj);
 
     lbool r = m_solver->check_assumptions (cand, aux, m_transition_clause,
-                                           conj.size(), conj.c_ptr(), 1);
+                                           conj.size(), conj.data(), 1);
     if (r == l_false) {
         solver_level = m_solver->uses_level ();
         lem->reset_ctp();
@@ -1538,7 +1538,7 @@ bool pred_transformer::check_inductive(unsigned level, expr_ref_vector& state,
     conj.push_back (m_extend_lit);
     lbool res = m_solver->check_assumptions (state, aux,
                                             m_transition_clause,
-                                            conj.size (), conj.c_ptr (), 1);
+                                            conj.size (), conj.data (), 1);
     if (res == l_false) {
         state.reset();
         state.append(core);
@@ -1682,7 +1682,7 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule)
         ground_free_vars(trans, var_reprs, aux_vars, ut_size == 0);
        // SASSERT(is_all_non_null(var_reprs));
 
-        expr_ref tmp = var_subst(m, false)(trans, var_reprs.size (), (expr*const*)var_reprs.c_ptr());
+        expr_ref tmp = var_subst(m, false)(trans, var_reprs.size (), (expr*const*)var_reprs.data());
         flatten_and (tmp, side);
         trans = mk_and(side);
         side.reset ();
@@ -2068,7 +2068,7 @@ void pred_transformer::frames::sort ()
     if (m_sorted) { return; }
 
     m_sorted = true;
-    std::sort(m_lemmas.c_ptr(), m_lemmas.c_ptr() + m_lemmas.size (), m_lt);
+    std::sort(m_lemmas.data(), m_lemmas.data() + m_lemmas.size (), m_lt);
 }
 
 bool pred_transformer::frames::propagate_to_next_level (unsigned level)
@@ -2565,7 +2565,7 @@ bool context::validate() {
                 for (unsigned j = utsz; j < tsz; ++j) {
                     fmls.push_back(r.get_tail(j));
                 }
-                tmp = m.mk_and(fmls.size(), fmls.c_ptr());
+                tmp = m.mk_and(fmls.size(), fmls.data());
                 svector<symbol> names;
                 expr_free_vars fv;
                 fv (tmp);
@@ -2576,7 +2576,7 @@ bool context::validate() {
                 }
                 if (!fv.empty()) {
                     fv.reverse ();
-                    tmp = m.mk_exists(fv.size(), fv.c_ptr(), names.c_ptr(), tmp);
+                    tmp = m.mk_exists(fv.size(), fv.data(), names.data(), tmp);
                 }
                 ref<solver> sol =
                     mk_smt_solver(m, params_ref::get_empty(), symbol::null);
@@ -3779,7 +3779,7 @@ reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
     // collect aux vars to eliminate
     ptr_vector<app>& aux_vars = get_aux_vars (r);
     bool elim_aux = ctx.elim_aux();
-    if (elim_aux) { vars.append(aux_vars.size(), aux_vars.c_ptr()); }
+    if (elim_aux) { vars.append(aux_vars.size(), aux_vars.data()); }
 
     res = mk_and (path_cons);
 
@@ -3860,7 +3860,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     }
     // local variables of the rule
     ptr_vector<app>& aux_vars = pt.get_aux_vars(r);
-    vars.append(aux_vars.size(), aux_vars.c_ptr());
+    vars.append(aux_vars.size(), aux_vars.data());
 
     // skolems of the pob
     n.get_skolems(vars);
@@ -3892,7 +3892,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
         kid_order.reverse();
     }
     else if (m_children_order == CO_RANDOM) {
-        shuffle(kid_order.size(), kid_order.c_ptr(), m_random);
+        shuffle(kid_order.size(), kid_order.data(), m_random);
     }
 
     for (unsigned i = 0, sz = preds.size(); i < sz; ++i) {
@@ -4036,7 +4036,7 @@ bool context::check_invariant(unsigned lvl, func_decl* fn)
     if (m.is_true(inv)) { return true; }
     pt.add_premises(m_rels, lvl, conj);
     conj.push_back(m.mk_not(inv));
-    expr_ref fml(m.mk_and(conj.size(), conj.c_ptr()), m);
+    expr_ref fml(m.mk_and(conj.size(), conj.data()), m);
     ctx->assert_expr(fml);
     lbool result = ctx->check_sat(0, nullptr);
     TRACE("spacer", tout << "Check invariant level: " << lvl << " " << result
@@ -4061,7 +4061,7 @@ expr_ref context::get_constraints (unsigned level)
         { args.push_back(m.mk_const(m_pm.o2n(r.sig(i), 0))); }
 
         expr_ref pred(m);
-        pred = m.mk_app(r.head (), r.sig_size(), args.c_ptr());
+        pred = m.mk_app(r.head (), r.sig_size(), args.data());
 
         constraints.push_back(m.mk_implies(pred, c));
     }
@@ -4107,7 +4107,7 @@ void context::new_lemma_eh(pred_transformer &pt, lemma *lem) {
         for (unsigned i = 0; i < pt.sig_size(); ++i) {
             args.push_back(m.mk_const(pt.get_manager().o2n(pt.sig(i), 0)));
         }
-        expr *app = m.mk_app(pt.head(), pt.sig_size(), args.c_ptr());
+        expr *app = m.mk_app(pt.head(), pt.sig_size(), args.data());
         expr *lemma = m.mk_implies(app, lem->get_expr());
         for (unsigned i = 0; i < m_callbacks.size(); i++) {
             if (m_callbacks[i]->new_lemma())

@@ -367,7 +367,7 @@ extern "C" {
             return;
         }
         // check sorts of value
-        expr* const* _args = (expr* const*) to_ast_vector_ref(args).c_ptr();
+        expr* const* _args = (expr* const*) to_ast_vector_ref(args).data();
         _fi->insert_entry(_args, _value);
         Z3_CATCH;
     }

@@ -304,7 +304,7 @@ namespace seq {
         expr_ref eq_length(m.mk_eq(a.mk_int(lenX), seq.str.mk_length(X)), m);
         expr* val = ctx.expr2rep(eq_length);
         if (!m.is_false(val)) {
-            expr_ref Y(seq.str.mk_concat(lenX.get_unsigned(), units.c_ptr(), X->get_sort()), m);
+            expr_ref Y(seq.str.mk_concat(lenX.get_unsigned(), units.data(), X->get_sort()), m);
             expr_ref eq = m_ax.sk().mk_eq(X, Y);
             add_consequence(~eq_length, eq);
             return true;
@@ -369,12 +369,12 @@ namespace seq {
 
     void eq_solver::set_prefix(expr_ref& x, expr_ref_vector const& xs, unsigned sz) const {
         SASSERT(0 < xs.size() && sz <= xs.size());
-        x = seq.str.mk_concat(sz, xs.c_ptr(), xs[0]->get_sort());
+        x = seq.str.mk_concat(sz, xs.data(), xs[0]->get_sort());
     }
 
     void eq_solver::set_suffix(expr_ref& x, expr_ref_vector const& xs, unsigned sz) const {
         SASSERT(0 < xs.size() && sz <= xs.size());
-        x = seq.str.mk_concat(sz, xs.c_ptr() + xs.size() - sz, xs[0]->get_sort());
+        x = seq.str.mk_concat(sz, xs.data() + xs.size() - sz, xs[0]->get_sort());
     }
 
     unsigned eq_solver::count_units_l2r(expr_ref_vector const& es, unsigned offset) const {

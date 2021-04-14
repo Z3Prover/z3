@@ -284,7 +284,7 @@ bool ufbv_rewriter::rewrite1(func_decl * f, expr_ref_vector & m_new_args, expr_r
 
             SASSERT(large->get_decl() == f);
 
-            if (m_match_subst(large, l_s.second, m_new_args.c_ptr(), np)) {
+            if (m_match_subst(large, l_s.second, m_new_args.data(), np)) {
                 TRACE("demodulator_bug", tout << "succeeded...\n" << mk_pp(l_s.second, m) << "\n===>\n" << mk_pp(np, m) << "\n";);
                 return true;
             }
@@ -397,7 +397,7 @@ expr * ufbv_rewriter::rewrite(expr * n) {
                         if (f->get_family_id() != m.get_basic_family_id())
                             na = m.mk_app(f, m_new_args);
                         else
-                            m_bsimp.mk_app(f, m_new_args.size(), m_new_args.c_ptr(), na);
+                            m_bsimp.mk_app(f, m_new_args.size(), m_new_args.data(), na);
                         TRACE("demodulator_bug", tout << "e:\n" << mk_pp(e, m) << "\nnew_args: \n";
                               tout << m_new_args << "\n";
                               tout << "=====>\n";

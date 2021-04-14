@@ -395,7 +395,7 @@ namespace sat {
                             unsigned csz = p.first;
                             literal lit = p.second;
                             swap(lit.var(), csz, clause);
-                            update_stack.append(csz, clause.c_ptr());
+                            update_stack.append(csz, clause.data());
                             update_stack.push_back(null_literal);
                         }
                     }

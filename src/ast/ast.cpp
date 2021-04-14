@@ -187,7 +187,7 @@ decl_info::decl_info(family_id family_id, decl_kind k, unsigned num_parameters,
 decl_info::decl_info(decl_info const& other) :
     m_family_id(other.m_family_id),
     m_kind(other.m_kind),
-    m_parameters(other.m_parameters.size(), other.m_parameters.c_ptr()),
+    m_parameters(other.m_parameters.size(), other.m_parameters.data()),
     m_private_parameters(other.m_private_parameters) {
 }
 
@@ -691,7 +691,7 @@ func_decl * decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, para
     for (unsigned i = 0; i < num_args; i++) {
         sorts.push_back(args[i]->get_sort());
     }
-    return mk_func_decl(k, num_parameters, parameters, num_args, sorts.c_ptr(), range);
+    return mk_func_decl(k, num_parameters, parameters, num_args, sorts.data(), range);
 }
 
 // -----------------------------------
@@ -741,7 +741,7 @@ func_decl * basic_decl_plugin::mk_bool_op_decl(char const * name, basic_op_kind 
     info.set_commutative(comm);
     info.set_idempotent(idempotent);
     info.set_chainable(chainable);
-    func_decl * d           = m_manager->mk_func_decl(symbol(name), num_args, domain.c_ptr(), m_bool_sort, info);
+    func_decl * d           = m_manager->mk_func_decl(symbol(name), num_args, domain.data(), m_bool_sort, info);
     m_manager->inc_ref(d);
     return d;
 }
@@ -763,7 +763,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(
         domain.push_back(m_proof_sort);
     domain.push_back(m_bool_sort);
     func_decl_info info(m_family_id, k, num_parameters, params);
-    return m_manager->mk_func_decl(symbol(name), num_parents+1, domain.c_ptr(), m_proof_sort, info);
+    return m_manager->mk_func_decl(symbol(name), num_parents+1, domain.data(), m_proof_sort, info);
 }
 
 func_decl * basic_decl_plugin::mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, bool inc_ref) {
@@ -771,7 +771,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(char const * name, basic_op_kind k,
     for (unsigned i = 0; i < num_parents; i++)
         domain.push_back(m_proof_sort);
     domain.push_back(m_bool_sort);
-    func_decl * d = m_manager->mk_func_decl(symbol(name), num_parents+1, domain.c_ptr(), m_proof_sort, func_decl_info(m_family_id, k));
+    func_decl * d = m_manager->mk_func_decl(symbol(name), num_parents+1, domain.data(), m_proof_sort, func_decl_info(m_family_id, k));
     if (inc_ref) m_manager->inc_ref(d);
     return d;
 }
@@ -780,7 +780,7 @@ func_decl * basic_decl_plugin::mk_compressed_proof_decl(char const * name, basic
     ptr_buffer<sort> domain;
     for (unsigned i = 0; i < num_parents; i++)
         domain.push_back(m_proof_sort);
-    func_decl * d = m_manager->mk_func_decl(symbol(name), num_parents, domain.c_ptr(), m_proof_sort, func_decl_info(m_family_id, k));
+    func_decl * d = m_manager->mk_func_decl(symbol(name), num_parents, domain.data(), m_proof_sort, func_decl_info(m_family_id, k));
     m_manager->inc_ref(d);
     return d;
 }
@@ -1101,7 +1101,7 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
                 sort* srt = join(arity, domain);
                 for (unsigned j = 0; j < arity; ++j) 
                     sorts.push_back(srt);
-                domain = sorts.c_ptr();
+                domain = sorts.data();
             }
         }
         return m_manager->mk_func_decl(symbol("distinct"), arity, domain, m_bool_sort, info);
@@ -1140,7 +1140,7 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case PR_BIND: {
         ptr_buffer<sort> sorts;
         for (unsigned i = 0; i < num_args; ++i) sorts.push_back(args[i]->get_sort());
-        return mk_func_decl(k, num_parameters, parameters, num_args, sorts.c_ptr(), range);
+        return mk_func_decl(k, num_parameters, parameters, num_args, sorts.data(), range);
     }
     default:
         break;
@@ -2008,7 +2008,7 @@ sort * ast_manager::substitute(sort* s, unsigned n, sort * const * src, sort * c
     if (!change) {
         return s;
     }
-    decl_info dinfo(s->get_family_id(), s->get_decl_kind(), ps.size(), ps.c_ptr(), s->private_parameters());
+    decl_info dinfo(s->get_family_id(), s->get_decl_kind(), ps.size(), ps.data(), s->private_parameters());
     sort_info sinfo(dinfo, s->get_num_elements());
     return mk_sort(s->get_name(), &sinfo);
 }
@@ -2172,9 +2172,9 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
                 sort * d = decl->is_associative() ? decl->get_domain(0) : decl->get_domain(i);
                 new_args.push_back(coerce_to(args[i], d));
             }
-            check_args(decl, num_args, new_args.c_ptr());
+            check_args(decl, num_args, new_args.data());
             SASSERT(new_args.size() == num_args);
-            new_node = new (mem)app(decl, num_args, new_args.c_ptr());
+            new_node = new (mem)app(decl, num_args, new_args.data());
             r = register_node(new_node);
         }
         else {
@@ -2276,7 +2276,7 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
             for (unsigned i = 1; i < num_args; i++) {
                 new_args.push_back(mk_app_core(decl, args[i-1], args[i]));
             }
-            r = mk_and(new_args.size(), new_args.c_ptr());
+            r = mk_and(new_args.size(), new_args.data());
         }
     }
     if (r == nullptr) {
@@ -2349,7 +2349,7 @@ app * ast_manager::mk_label(bool pos, unsigned num_names, symbol const * names, 
     p.push_back(parameter(static_cast<int>(pos)));
     for (unsigned i = 0; i < num_names; i++)
         p.push_back(parameter(names[i]));
-    return mk_app(label_family_id, OP_LABEL, p.size(), p.c_ptr(), 1, &n);
+    return mk_app(label_family_id, OP_LABEL, p.size(), p.data(), 1, &n);
 }
 
 app * ast_manager::mk_label(bool pos, symbol const & name, expr * n) {
@@ -2372,7 +2372,7 @@ app * ast_manager::mk_label_lit(unsigned num_names, symbol const * names) {
     buffer<parameter> p;
     for (unsigned i = 0; i < num_names; i++)
         p.push_back(parameter(names[i]));
-    return mk_app(label_family_id, OP_LABEL_LIT, p.size(), p.c_ptr(), 0, nullptr);
+    return mk_app(label_family_id, OP_LABEL_LIT, p.size(), p.data(), 0, nullptr);
 }
 
 app * ast_manager::mk_label_lit(symbol const & name) {
@@ -2630,7 +2630,7 @@ app * ast_manager::mk_distinct_expanded(unsigned num_args, expr * const * args) 
             new_args.push_back(mk_not(mk_eq(a1, a2)));
         }
     }
-    app * r = mk_and(new_args.size(), new_args.c_ptr());
+    app * r = mk_and(new_args.size(), new_args.data());
     TRACE("distinct", tout << "expanded distinct:\n" << mk_pp(r, *this) << "\n";);
     return r;
 }
@@ -2883,7 +2883,7 @@ proof * ast_manager::mk_transitivity(unsigned num_proofs, proof * const * proofs
     ptr_buffer<expr> args;
     args.append(num_proofs, (expr**) proofs);
     args.push_back(mk_eq(n1,n2));
-    return mk_app(basic_family_id, PR_TRANSITIVITY_STAR, args.size(), args.c_ptr());
+    return mk_app(basic_family_id, PR_TRANSITIVITY_STAR, args.size(), args.data());
 }
 
 proof * ast_manager::mk_monotonicity(func_decl * R, app * f1, app * f2, unsigned num_proofs, proof * const * proofs) {
@@ -2892,7 +2892,7 @@ proof * ast_manager::mk_monotonicity(func_decl * R, app * f1, app * f2, unsigned
     ptr_buffer<expr> args;
     args.append(num_proofs, (expr**) proofs);
     args.push_back(mk_app(R, f1, f2));
-    proof* p = mk_app(basic_family_id, PR_MONOTONICITY, args.size(), args.c_ptr());
+    proof* p = mk_app(basic_family_id, PR_MONOTONICITY, args.size(), args.data());
     return p;
 }
 
@@ -2954,7 +2954,7 @@ proof * ast_manager::mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, pr
     ptr_buffer<expr> args;
     args.append(num_proofs, (expr**) proofs);
     args.push_back(mk_eq(s, t));
-    return mk_app(basic_family_id, PR_REWRITE_STAR, args.size(), args.c_ptr());
+    return mk_app(basic_family_id, PR_REWRITE_STAR, args.size(), args.data());
 }
 
 proof * ast_manager::mk_pull_quant(expr * e, quantifier * q) {
@@ -2989,7 +2989,7 @@ proof * ast_manager::mk_quant_inst(expr * not_q_or_i, unsigned num_bind, expr* c
         params.push_back(parameter(binding[i]));
         SASSERT(params.back().is_ast());
     }
-    return mk_app(basic_family_id, PR_QUANT_INST, num_bind, params.c_ptr(), 1, & not_q_or_i);
+    return mk_app(basic_family_id, PR_QUANT_INST, num_bind, params.data(), 1, & not_q_or_i);
 }
 
 bool ast_manager::is_quant_inst(expr const* e, expr*& not_q_or_i, ptr_vector<expr>& binding) const {
@@ -3082,13 +3082,13 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
             fact = new_lits[0];
             break;
         default:
-            fact = mk_or(new_lits.size(), new_lits.c_ptr());
+            fact = mk_or(new_lits.size(), new_lits.data());
             break;
         }
         args.push_back(fact);
     }
     
-    proof * pr = mk_app(basic_family_id, PR_UNIT_RESOLUTION, args.size(), args.c_ptr());
+    proof * pr = mk_app(basic_family_id, PR_UNIT_RESOLUTION, args.size(), args.data());
     TRACE("unit_resolution", tout << "unit_resolution generating fact\n" << mk_ll_pp(pr, *this););
     return pr;
 }
@@ -3140,7 +3140,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         SASSERT(num_matches != cls_sz || is_false(new_fact));
     }
 #endif
-    proof * pr = mk_app(basic_family_id, PR_UNIT_RESOLUTION, args.size(), args.c_ptr());
+    proof * pr = mk_app(basic_family_id, PR_UNIT_RESOLUTION, args.size(), args.data());
     TRACE("unit_resolution", tout << "unit_resolution using fact\n" << mk_ll_pp(pr, *this););
     return pr;
 }
@@ -3168,7 +3168,7 @@ proof * ast_manager::mk_apply_defs(expr * n, expr * def, unsigned num_proofs, pr
     ptr_buffer<expr> args;
     args.append(num_proofs, (expr**) proofs);
     args.push_back(mk_oeq(n, def));
-    return mk_app(basic_family_id, PR_APPLY_DEF, args.size(), args.c_ptr());
+    return mk_app(basic_family_id, PR_APPLY_DEF, args.size(), args.data());
 }
 
 proof * ast_manager::mk_iff_oeq(proof * p) {
@@ -3202,7 +3202,7 @@ proof * ast_manager::mk_nnf_pos(expr * s, expr * t, unsigned num_proofs, proof *
     ptr_buffer<expr> args;
     args.append(num_proofs, (expr**) proofs);
     args.push_back(mk_oeq(s, t));
-    return mk_app(basic_family_id, PR_NNF_POS, args.size(), args.c_ptr());
+    return mk_app(basic_family_id, PR_NNF_POS, args.size(), args.data());
 }
 
 proof * ast_manager::mk_nnf_neg(expr * s, expr * t, unsigned num_proofs, proof * const * proofs) {
@@ -3212,7 +3212,7 @@ proof * ast_manager::mk_nnf_neg(expr * s, expr * t, unsigned num_proofs, proof *
     ptr_buffer<expr> args;
     args.append(num_proofs, (expr**) proofs);
     args.push_back(mk_oeq(mk_not(s), t));
-    return mk_app(basic_family_id, PR_NNF_NEG, args.size(), args.c_ptr());
+    return mk_app(basic_family_id, PR_NNF_NEG, args.size(), args.data());
 }
 
 proof * ast_manager::mk_skolemization(expr * q, expr * e) {
@@ -3255,7 +3255,7 @@ proof* ast_manager::mk_clause_trail_elem(proof *pr, expr* e, decl_kind k) {
     ptr_buffer<expr> args;
     if (pr) args.push_back(pr);
     args.push_back(e);
-    return mk_app(basic_family_id, k, 0, nullptr, args.size(), args.c_ptr());
+    return mk_app(basic_family_id, k, 0, nullptr, args.size(), args.data());
 }
 
 proof * ast_manager::mk_assumption_add(proof* pr, expr* e) {
@@ -3281,7 +3281,7 @@ proof * ast_manager::mk_redundant_del(expr* e) {
 proof * ast_manager::mk_clause_trail(unsigned n, proof* const* ps) {    
     ptr_buffer<expr> args;
     args.append(n, (expr**) ps);
-    return mk_app(basic_family_id, PR_CLAUSE_TRAIL, 0, nullptr, args.size(), args.c_ptr());
+    return mk_app(basic_family_id, PR_CLAUSE_TRAIL, 0, nullptr, args.size(), args.data());
 }
 
 proof * ast_manager::mk_th_lemma(
@@ -3301,7 +3301,7 @@ proof * ast_manager::mk_th_lemma(
     }
     args.append(num_proofs, (expr**) proofs);
     args.push_back(fact);
-    return mk_app(basic_family_id, PR_TH_LEMMA, num_params+1, parameters.c_ptr(), args.size(), args.c_ptr());
+    return mk_app(basic_family_id, PR_TH_LEMMA, num_params+1, parameters.data(), args.size(), args.data());
 }
 
 proof* ast_manager::mk_hyper_resolve(unsigned num_premises, proof* const* premises, expr* concl,
@@ -3337,7 +3337,7 @@ proof* ast_manager::mk_hyper_resolve(unsigned num_premises, proof* const* premis
     }
     sorts.push_back(mk_bool_sort());
     args.push_back(concl);
-    app* result = mk_app(basic_family_id, PR_HYPER_RESOLVE, params.size(), params.c_ptr(), args.size(), args.c_ptr());
+    app* result = mk_app(basic_family_id, PR_HYPER_RESOLVE, params.size(), params.data(), args.size(), args.data());
     SASSERT(result->get_family_id() == basic_family_id);
     SASSERT(result->get_decl_kind() == PR_HYPER_RESOLVE);
     return result;

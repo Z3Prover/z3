@@ -62,7 +62,7 @@ br_status factor_rewriter::mk_eq(expr * arg1, expr * arg2, expr_ref & result) {
         expr* e = it->m_key;
         eqs.push_back(m().mk_eq(e, a().mk_numeral(rational(0), e->get_sort())));  
     }
-    result = m().mk_or(eqs.size(), eqs.c_ptr());    
+    result = m().mk_or(eqs.size(), eqs.data());    
     return BR_DONE;
 }
 
@@ -86,7 +86,7 @@ br_status factor_rewriter::mk_le(expr * arg1, expr * arg2, expr_ref & result) {
     expr_ref_vector eqs(m());
     mk_is_negative(neg, eqs);
     eqs.push_back(neg);
-    result = m().mk_or(eqs.size(), eqs.c_ptr());
+    result = m().mk_or(eqs.size(), eqs.data());
     TRACE("factor_rewriter", 
           tout << mk_pp(arg1, m()) << " <= " << mk_pp(arg2, m()) << "\n";
           tout << mk_pp(result.get(), m()) << "\n";);
@@ -115,7 +115,7 @@ br_status factor_rewriter::mk_lt(expr * arg1, expr * arg2, expr_ref & result) {
         eqs[i] = m().mk_not(eqs[i].get());
     }
     eqs.push_back(neg);
-    result = m().mk_and(eqs.size(), eqs.c_ptr());
+    result = m().mk_and(eqs.size(), eqs.data());
     TRACE("factor_rewriter", tout << mk_pp(result.get(), m()) << "\n";);
     return BR_DONE;
 }
@@ -254,7 +254,7 @@ bool factor_rewriter::extract_factors() {
     SASSERT(!m_muls.empty());
     if (m_muls.size() == 1) {
         if (m_muls[0].size() > 1) {
-            m_factors.append(m_muls[0].size(), m_muls[0].c_ptr());
+            m_factors.append(m_muls[0].size(), m_muls[0].data());
             if (!m_adds[0].second) {
                 bool found_numeral = false;
                 sort* s = m_muls[0][0]->get_sort();
@@ -311,7 +311,7 @@ bool factor_rewriter::extract_factors() {
             e = m_muls[i][0];
             break;
         default: 
-            e = a().mk_mul(m_muls[i].size(), m_muls[i].c_ptr()); 
+            e = a().mk_mul(m_muls[i].size(), m_muls[i].data()); 
             break;
         }
         if (!m_adds[i].second) {
@@ -326,7 +326,7 @@ bool factor_rewriter::extract_factors() {
         m_factors.push_back(trail[0].get());
         break;
     default: 
-        m_factors.push_back(a().mk_add(trail.size(), trail.c_ptr()));
+        m_factors.push_back(a().mk_add(trail.size(), trail.data()));
         break;
     }
     TRACE("factor_rewriter",

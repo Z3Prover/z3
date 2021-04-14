@@ -208,7 +208,7 @@ namespace smt {
         
         if (m_params.m_arith_dump_lemmas) {
             symbol logic(m_lra ? (m_lia?"QF_LIRA":"QF_LRA") : "QF_LIA");
-            ctx.display_lemma_as_smt_problem(lits.size(), lits.c_ptr(), false_literal, logic);
+            ctx.display_lemma_as_smt_problem(lits.size(), lits.data(), false_literal, logic);
         }
         
         vector<parameter> params;
@@ -223,7 +223,7 @@ namespace smt {
             ctx.mk_justification(
                 ext_theory_conflict_justification(
                     get_id(), ctx.get_region(), 
-                    lits.size(), lits.c_ptr(), 0, nullptr, params.size(), params.c_ptr())));
+                    lits.size(), lits.data(), 0, nullptr, params.size(), params.data())));
 
         m_nc_functor.reset();
     }

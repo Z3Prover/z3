@@ -2547,9 +2547,9 @@ namespace smt {
                 new_js = mk_justification(unit_resolution_justification(m_region,
                                                                         js,
                                                                         simp_lits.size(),
-                                                                        simp_lits.c_ptr()));
+                                                                        simp_lits.data()));
             else
-                new_js = alloc(unit_resolution_justification, js, simp_lits.size(), simp_lits.c_ptr());
+                new_js = alloc(unit_resolution_justification, js, simp_lits.size(), simp_lits.data());
             cls.set_justification(new_js);
         }
         return false;
@@ -2605,10 +2605,10 @@ namespace smt {
                                 js = mk_justification(unit_resolution_justification(m_region,
                                                                                     cls_js,
                                                                                     simp_lits.size(),
-                                                                                    simp_lits.c_ptr()));
+                                                                                    simp_lits.data()));
                             }
                             else {
-                                js = alloc(unit_resolution_justification, cls_js, simp_lits.size(), simp_lits.c_ptr());
+                                js = alloc(unit_resolution_justification, cls_js, simp_lits.size(), simp_lits.data());
                                 // js took ownership of the justification object.
                                 cls->set_justification(nullptr);
                                 m_justifications.push_back(js);
@@ -3081,7 +3081,7 @@ namespace smt {
                     literal l2 = *set_it;
                     if (l2 != l) {
                         b_justification js(l);
-                        TRACE("theory_case_split", tout << "case split literal "; l2.display(tout, m, m_bool_var2expr.c_ptr()); tout << std::endl;);
+                        TRACE("theory_case_split", tout << "case split literal "; l2.display(tout, m, m_bool_var2expr.data()); tout << std::endl;);
                         if (l2 == true_literal || l2 == false_literal || l2 == null_literal) continue;
                         assign(~l2, js);
                         if (inconsistent()) {
@@ -3206,10 +3206,10 @@ namespace smt {
         if (lits.size() >= 2) {
             justification* js = nullptr;
             if (m.proofs_enabled()) {
-                proof * pr = mk_clause_def_axiom(lits.size(), lits.c_ptr(), nullptr);
+                proof * pr = mk_clause_def_axiom(lits.size(), lits.data(), nullptr);
                 js = mk_justification(justification_proof_wrapper(*this, pr));
             }
-            clausep = clause::mk(m, lits.size(), lits.c_ptr(), CLS_AUX, js);
+            clausep = clause::mk(m, lits.size(), lits.data(), CLS_AUX, js);
         }
         m_tmp_clauses.push_back(std::make_pair(clausep, lits));
     }
@@ -3238,7 +3238,7 @@ namespace smt {
             }
 
             if (unassigned != null_literal) {
-                shuffle(lits.size(), lits.c_ptr(), m_random);
+                shuffle(lits.size(), lits.data(), m_random);
                 push_scope();
                 assign(unassigned, b_justification::mk_axiom(), true);
                 return l_undef;
@@ -3347,7 +3347,7 @@ namespace smt {
         reset_assumptions();
         pop_to_base_lvl(); // undo the push_scope() performed by init_assumptions
         m_search_lvl = m_base_lvl;
-        std::sort(m_unsat_core.c_ptr(), m_unsat_core.c_ptr() + m_unsat_core.size(), ast_lt_proc());
+        std::sort(m_unsat_core.data(), m_unsat_core.data() + m_unsat_core.size(), ast_lt_proc());
         TRACE("unsat_core_bug", tout << "unsat core:\n" << m_unsat_core << "\n";);
         validate_unsat_core();
         // theory validation of unsat core
@@ -4188,7 +4188,7 @@ namespace smt {
                   for (unsigned i = 0; i < num_lits; i++) {
                       display_literal(tout, v[i]);
                       tout << "\n";
-                      v[i].display(tout, m, m_bool_var2expr.c_ptr());
+                      v[i].display(tout, m, m_bool_var2expr.data());
                       tout << "\n\n";
                   }
                   tout << "\n";);
@@ -4601,7 +4601,7 @@ namespace smt {
                 subst.push_back(m.mk_var(i, f->get_domain(i)));
             }
             var_subst sub(m, true);
-            expr_ref bodyr = sub(rhs, subst.size(), subst.c_ptr());
+            expr_ref bodyr = sub(rhs, subst.size(), subst.data());
 
             fi->set_else(bodyr);
             m_model->register_decl(f, fi);

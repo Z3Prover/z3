@@ -95,7 +95,7 @@ namespace array {
                 args.reset();
                 for (unsigned i = 1; i < p->num_args(); ++i) 
                     args.push_back(values.get(p->get_arg(i)->get_root_id()));    
-                fi->insert_entry(args.c_ptr(), value);
+                fi->insert_entry(args.data(), value);
             }
         }
         

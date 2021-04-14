@@ -121,12 +121,12 @@ namespace smt {
         else {            
             for (unsigned i = 0; i < seq.num_bits(); ++i) 
                 ebits.push_back(seq.mk_char_bit(e, i));
-            ctx.internalize(ebits.c_ptr(), ebits.size(), true);
+            ctx.internalize(ebits.data(), ebits.size(), true);
             for (expr* arg : ebits)
                 bits.push_back(literal(ctx.get_bool_var(arg)));            
             for (literal bit : bits)
                 ctx.mark_as_relevant(bit);
-            expr_ref bits2char(seq.mk_skolem(m_bits2char, ebits.size(), ebits.c_ptr(), e->get_sort()), m);
+            expr_ref bits2char(seq.mk_skolem(m_bits2char, ebits.size(), ebits.data(), e->get_sort()), m);
             ctx.mark_as_relevant(bits2char.get());
             enode* n1 = ensure_enode(e);
             enode* n2 = ensure_enode(bits2char);
@@ -148,7 +148,7 @@ namespace smt {
         auto const& b1 = get_ebits(v1);
         auto const& b2 = get_ebits(v2);
         expr_ref e(m);
-        m_bb.mk_ule(b1.size(), b1.c_ptr(), b2.c_ptr(), e);
+        m_bb.mk_ule(b1.size(), b1.data(), b2.data(), e);
         literal le = mk_literal(e);
         ctx.mark_as_relevant(le);
         ctx.mk_th_axiom(get_id(), ~lit, le);
@@ -170,8 +170,8 @@ namespace smt {
         auto const& zv = get_ebits(z);
         auto const& nv = get_ebits(n);
         expr_ref le1(m), le2(m);
-        m_bb.mk_ule(bv.size(), zv.c_ptr(), bv.c_ptr(), le1);
-        m_bb.mk_ule(bv.size(), bv.c_ptr(), nv.c_ptr(), le2);
+        m_bb.mk_ule(bv.size(), zv.data(), bv.data(), le1);
+        m_bb.mk_ule(bv.size(), bv.data(), nv.data(), le2);
         literal lit1 = mk_literal(le1);
         literal lit2 = mk_literal(le2);
         ctx.mk_th_axiom(get_id(), ~lit, lit1);
@@ -353,7 +353,7 @@ namespace smt {
         auto const& mbits = get_ebits(w);
         auto const& bits = get_ebits(v);
         expr_ref le(m);
-        m_bb.mk_ule(bits.size(), bits.c_ptr(), mbits.c_ptr(), le);
+        m_bb.mk_ule(bits.size(), bits.data(), mbits.data(), le);
         ctx.assign(mk_literal(le), nullptr);
         ++m_stats.m_num_bounds;
     }
@@ -378,7 +378,7 @@ namespace smt {
         }        
         // a = b => eq
         lits.push_back(eq);
-        ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+        ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
         ++m_stats.m_num_ackerman;
     }
     

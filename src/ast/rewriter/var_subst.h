@@ -48,10 +48,10 @@ public:
        Otherwise, (VAR 0) is stored in the first position, (VAR 1) in the second, and so on.
     */
     expr_ref operator()(expr * n, unsigned num_args, expr * const * args);
-    inline expr_ref operator()(expr * n, expr_ref_vector const& args) { return (*this)(n, args.size(), args.c_ptr()); }
-    inline expr_ref operator()(expr * n, var_ref_vector const& args) { return (*this)(n, args.size(), (expr*const*)args.c_ptr()); }
-    inline expr_ref operator()(expr * n, app_ref_vector const& args) { return (*this)(n, args.size(), (expr*const*)args.c_ptr()); }
-    inline expr_ref operator()(expr * n, ptr_vector<expr> const& args) { return (*this)(n, args.size(), args.c_ptr()); }
+    inline expr_ref operator()(expr * n, expr_ref_vector const& args) { return (*this)(n, args.size(), args.data()); }
+    inline expr_ref operator()(expr * n, var_ref_vector const& args) { return (*this)(n, args.size(), (expr*const*)args.data()); }
+    inline expr_ref operator()(expr * n, app_ref_vector const& args) { return (*this)(n, args.size(), (expr*const*)args.data()); }
+    inline expr_ref operator()(expr * n, ptr_vector<expr> const& args) { return (*this)(n, args.size(), args.data()); }
     void reset() { m_reducer.reset(); }
 };
 
@@ -104,7 +104,7 @@ public:
     bool contains(unsigned idx) const { return idx < m_sorts.size() && m_sorts[idx] != 0; }
     void set_default_sort(sort* s);
     void reverse() { m_sorts.reverse(); }
-    sort*const* c_ptr() const { return m_sorts.c_ptr(); }
+    sort*const* data() const { return m_sorts.data(); }
 };
 
 

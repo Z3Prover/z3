@@ -91,16 +91,13 @@ namespace api {
         smt_params                 m_fparams;
         // -------------------------------
 
-        ast_ref_vector             m_last_result; //!< used when m_user_ref_count == true
-        ast_ref_vector             m_ast_trail;   //!< used when m_user_ref_count == false
+        ast_ref_vector             m_ast_trail;
 
         ref<api::object>           m_last_obj; //!< reference to the last API object returned by the APIs
         u_map<api::object*>        m_allocated_objects; // !< table containing current set of allocated API objects
         unsigned_vector            m_free_object_ids;   // !< free list of identifiers available for allocated objects.
 
-        family_id                  m_basic_fid;
         family_id                  m_array_fid;
-        family_id                  m_arith_fid;
         family_id                  m_bv_fid;
         family_id                  m_dt_fid;
         family_id                  m_datalog_fid;
@@ -115,7 +112,6 @@ namespace api {
         Z3_error_code              m_error_code;
         Z3_error_handler *         m_error_handler;
         std::string                m_exception_msg; // catch the message associated with a Z3 exception
-        bool                       m_searching;
         Z3_ast_print_mode          m_print_mode;
 
         event_handler *            m_interruptable; // Reference to an object that can be interrupted by Z3_interrupt
@@ -154,9 +150,9 @@ namespace api {
         datatype_util& dtutil() { return m_dt_plugin->u(); }
         seq_util& sutil() { return m_sutil; }
         recfun::util& recfun() { return m_recfun; }
-        family_id get_basic_fid() const { return m_basic_fid; }
+        family_id get_basic_fid() const { return basic_family_id; }
         family_id get_array_fid() const { return m_array_fid; }
-        family_id get_arith_fid() const { return m_arith_fid; }
+        family_id get_arith_fid() const { return arith_family_id; }
         family_id get_bv_fid() const { return m_bv_fid; }
         family_id get_dt_fid() const { return m_dt_fid; }
         family_id get_datalog_fid() const { return m_datalog_fid; }
@@ -171,8 +167,6 @@ namespace api {
         void set_error_code(Z3_error_code err, char const* opt_msg);
         void set_error_code(Z3_error_code err, std::string &&opt_msg);
         void set_error_handler(Z3_error_handler h) { m_error_handler = h; }
-        // Sign an error if solver is searching
-        void check_searching();
 
         unsigned add_object(api::object* o);
         void del_object(api::object* o);
@@ -260,7 +254,6 @@ inline api::context * mk_c(Z3_context c) { return reinterpret_cast<api::context*
 #define SET_ERROR_CODE(ERR, MSG) { mk_c(c)->set_error_code(ERR, MSG); }
 #define CHECK_NON_NULL(_p_,_ret_) { if (_p_ == 0) { SET_ERROR_CODE(Z3_INVALID_ARG, "ast is null"); return _ret_; } }
 #define CHECK_VALID_AST(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_)) { SET_ERROR_CODE(Z3_INVALID_ARG, "not a valid ast"); return _ret_; } }
-#define CHECK_SEARCHING(c) mk_c(c)->check_searching();
 inline bool is_expr(Z3_ast a) { return is_expr(to_ast(a)); }
 #define CHECK_IS_EXPR(_p_, _ret_) { if (_p_ == 0 || !is_expr(_p_)) { SET_ERROR_CODE(Z3_INVALID_ARG, "ast is not an expression"); return _ret_; } }
 inline bool is_bool_expr(Z3_context c, Z3_ast a) { return is_expr(a) && mk_c(c)->m().is_bool(to_expr(a)); }

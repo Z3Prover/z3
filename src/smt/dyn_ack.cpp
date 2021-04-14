@@ -87,7 +87,7 @@ namespace smt {
                 }
             }
             app_ref eq(m.mk_eq(m_app1, m_app2), m);
-            proof_ref a1(m.mk_congruence(m_app1, m_app2, prs.size(), prs.c_ptr()), m);
+            proof_ref a1(m.mk_congruence(m_app1, m_app2, prs.size(), prs.data()), m);
             proof_ref a2(mk_hypothesis(m, eq, true, m_app1, m_app2), m);
             proof * antecedents[2] = { a1.get(), a2.get() };
             proof_ref false_pr(m.mk_unit_resolution(2, antecedents), m);
@@ -432,7 +432,7 @@ namespace smt {
         justification * js = nullptr;
         if (m.proofs_enabled())
             js = alloc(dyn_ack_cc_justification, n1, n2);
-        clause * cls = m_context.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, del_eh);
+        clause * cls = m_context.mk_clause(lits.size(), lits.data(), js, CLS_TH_LEMMA, del_eh);
         if (!cls) {
             dealloc(del_eh);
             return;
@@ -488,7 +488,7 @@ namespace smt {
                        m.mk_eq(n2, r),
                        m.mk_eq(n1, n2));
         }
-        clause * cls = ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, del_eh);
+        clause * cls = ctx.mk_clause(lits.size(), lits.data(), js, CLS_TH_LEMMA, del_eh);
         if (!cls) {
             dealloc(del_eh);
             return;

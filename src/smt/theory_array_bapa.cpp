@@ -430,13 +430,13 @@ namespace smt {
                         lits.push_back(mk_eq(args[0], args[1]));
                     }
                     else {
-                        expr_ref diff(m.mk_distinct_expanded(args.size(), args.c_ptr()), m);
+                        expr_ref diff(m.mk_distinct_expanded(args.size(), args.data()), m);
                         lits.push_back(~mk_literal(diff));
                     }
                 }
                 expr_ref ge(m_arith.mk_ge(sz->get_arg(1), m_arith.mk_int(info.m_selects.size())), m);
                 lits.push_back(mk_literal(ge));
-                mk_th_axiom(lits.size(), lits.c_ptr());
+                mk_th_axiom(lits.size(), lits.data());
                 return l_false;
             }
             return l_true;

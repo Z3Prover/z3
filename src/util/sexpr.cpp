@@ -169,7 +169,7 @@ void sexpr::display_atom(std::ostream & out) const {
         }
         std::reverse(buf.begin(), buf.end());
         buf.push_back(0);
-        out << buf.c_ptr();
+        out << buf.data();
         break;
     }
     case sexpr::kind_t::STRING:

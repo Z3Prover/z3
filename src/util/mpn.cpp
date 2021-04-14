@@ -201,14 +201,14 @@ bool mpn_manager::div(mpn_digit const * numer, size_t const lnum,
 
 #ifdef Z3DEBUG
     mpn_sbuffer temp(lnum+1, 0);
-    mul(quot, lnum-lden+1, denom, lden, temp.c_ptr());
+    mul(quot, lnum-lden+1, denom, lden, temp.data());
     size_t real_size;
-    add(temp.c_ptr(), lnum, rem, lden, temp.c_ptr(), lnum+1, &real_size);
+    add(temp.data(), lnum, rem, lden, temp.data(), lnum+1, &real_size);
     bool ok = true;
     for (size_t i = 0; i < lnum && ok; i++)
         if (temp[i] != numer[i]) ok = false;
     if (temp[lnum] != 0) ok = false;
-    CTRACE("mpn_dbg", !ok, tout << "DIV BUG: quot * denom + rem = "; display_raw(tout, temp.c_ptr(), lnum+1); tout << std::endl; );
+    CTRACE("mpn_dbg", !ok, tout << "DIV BUG: quot * denom + rem = "; display_raw(tout, temp.data(), lnum+1); tout << std::endl; );
     SASSERT(ok);
 #endif
 
@@ -249,8 +249,8 @@ size_t mpn_manager::div_normalize(mpn_digit const * numer, size_t const lnum,
         d = 0;
     }
 
-    TRACE("mpn_norm", tout << "Normalized: n_numer="; display_raw(tout, n_numer.c_ptr(), n_numer.size()); 
-                      tout << " n_denom="; display_raw(tout, n_denom.c_ptr(), n_denom.size()); tout << std::endl; );
+    TRACE("mpn_norm", tout << "Normalized: n_numer="; display_raw(tout, n_numer.data(), n_numer.size()); 
+                      tout << " n_denom="; display_raw(tout, n_denom.data(), n_denom.size()); tout << std::endl; );
     return d;
 }
 
@@ -292,7 +292,7 @@ bool mpn_manager::div_1(mpn_sbuffer & numer, mpn_digit const denom,
               mpn_double_digit r_hat = temp % (mpn_double_digit) denom;
               tout << "j=" << j << " q_hat=" << q_hat << " r_hat=" << r_hat;
               tout << " ms=" << ms;
-              tout << " new numer="; display_raw(tout, numer.c_ptr(), numer.size());
+              tout << " new numer="; display_raw(tout, numer.data(), numer.size());
               tout << " borrow=" << borrow;
               tout << std::endl; );
     }
@@ -331,20 +331,20 @@ bool mpn_manager::div_n(mpn_sbuffer & numer, mpn_sbuffer const & denom,
         // Replace numer[j+n]...numer[j] with 
         // numer[j+n]...numer[j] - q * (denom[n-1]...denom[0])
         mpn_digit q_hat_small = (mpn_digit)q_hat;
-        mul(&q_hat_small, 1, denom.c_ptr(), n, ms.c_ptr());
-        sub(&numer[j], n+1, ms.c_ptr(), n+1, &numer[j], &borrow);
+        mul(&q_hat_small, 1, denom.data(), n, ms.data());
+        sub(&numer[j], n+1, ms.data(), n+1, &numer[j], &borrow);
         quot[j] = q_hat_small;
         if (borrow) {
             quot[j]--;
             ab.resize(n+2);
             size_t real_size;
-            add(denom.c_ptr(), n, &numer[j], n+1, ab.c_ptr(), n+2, &real_size);
+            add(denom.data(), n, &numer[j], n+1, ab.data(), n+2, &real_size);
             for (size_t i = 0; i < n+1; i++)
                 numer[j+i] = ab[i];
         }
         TRACE("mpn_div", tout << "q_hat=" << q_hat << " r_hat=" << r_hat;
-                         tout << " ms="; display_raw(tout, ms.c_ptr(), n);
-                         tout << " new numer="; display_raw(tout, numer.c_ptr(), m+n+1);
+                         tout << " ms="; display_raw(tout, ms.data(), n);
+                         tout << " new numer="; display_raw(tout, numer.data(), m+n+1);
                          tout << " borrow=" << borrow;
                          tout << std::endl; );
     }

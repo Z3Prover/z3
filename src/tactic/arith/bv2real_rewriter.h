@@ -110,7 +110,7 @@ public:
 
     void add_side_condition(expr* e) { m_side_conditions.push_back(e); }
     unsigned num_side_conditions() const { return m_side_conditions.size(); }
-    expr* const* side_conditions() const { return m_side_conditions.c_ptr(); }
+    expr* const* side_conditions() const { return m_side_conditions.data(); }
 
     bool      is_zero(expr* e);
 

@@ -264,7 +264,7 @@ namespace sat {
 
         bool_var mk_var(bool ext = false, bool dvar = true);
 
-        clause* mk_clause(literal_vector const& lits, sat::status st = sat::status::asserted()) { return mk_clause(lits.size(), lits.c_ptr(), st); }
+        clause* mk_clause(literal_vector const& lits, sat::status st = sat::status::asserted()) { return mk_clause(lits.size(), lits.data(), st); }
         clause* mk_clause(unsigned num_lits, literal * lits, sat::status st = sat::status::asserted());
         clause* mk_clause(literal l1, literal l2, sat::status st = sat::status::asserted());
         clause* mk_clause(literal l1, literal l2, literal l3, sat::status st = sat::status::asserted());
@@ -284,7 +284,7 @@ namespace sat {
         bool memory_pressure();
         void del_clause(clause & c);
         clause * mk_clause_core(unsigned num_lits, literal * lits, sat::status st);
-        clause * mk_clause_core(literal_vector const& lits) { return mk_clause_core(lits.size(), lits.c_ptr()); }
+        clause * mk_clause_core(literal_vector const& lits) { return mk_clause_core(lits.size(), lits.data()); }
         clause * mk_clause_core(unsigned num_lits, literal * lits) { return mk_clause_core(num_lits, lits, sat::status::asserted()); }
         void mk_clause_core(literal l1, literal l2) { literal lits[2] = { l1, l2 }; mk_clause_core(2, lits); }
         void mk_bin_clause(literal l1, literal l2, sat::status st);

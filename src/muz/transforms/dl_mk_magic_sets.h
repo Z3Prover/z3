@@ -47,7 +47,7 @@ namespace datalog {
         };
 
         struct a_flag_hash {
-            typedef a_flag data;
+            typedef a_flag data_t;
             unsigned operator()(a_flag x) const { return x; }
         };
 

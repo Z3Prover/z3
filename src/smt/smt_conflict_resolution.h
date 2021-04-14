@@ -233,11 +233,11 @@ namespace smt {
         }
 
         literal * get_lemma_literals() {
-            return m_lemma.c_ptr();
+            return m_lemma.data();
         }
 
         expr * * get_lemma_atoms() {
-            return m_lemma_atoms.c_ptr();
+            return m_lemma_atoms.data();
         }
 
         void release_lemma_atoms() {

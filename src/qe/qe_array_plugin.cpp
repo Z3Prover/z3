@@ -93,7 +93,7 @@ namespace qe {
                     expr_ref save(m);
                     save = lhs = args[i].get();                    
                     args[i] = arith.mk_numeral(rational(0), lhs->get_sort());
-                    rhs = arith.mk_uminus(arith.mk_add(args.size(), args.c_ptr()));
+                    rhs = arith.mk_uminus(arith.mk_add(args.size(), args.data()));
                     if (arith.is_mul(lhs, e1, e2) && 
                         arith.is_numeral(e1, r) &&
                         r.is_minus_one()) {
@@ -173,7 +173,7 @@ namespace qe {
                 }
                 args2.push_back(rhs);
                 
-                store_B_i_t = m.mk_app(m_fid, OP_STORE, args2.size(), args2.c_ptr());
+                store_B_i_t = m.mk_app(m_fid, OP_STORE, args2.size(), args2.data());
                 
                 TRACE("qe", 
                       tout << "fml: " << mk_pp(fml, m) << "\n";
@@ -236,13 +236,13 @@ namespace qe {
                     args2.push_back(store_T);
                     args2.append(args[i]);
                     
-                    select_t = m.mk_app(m_fid, OP_SELECT, args2.size()-1, args2.c_ptr());
+                    select_t = m.mk_app(m_fid, OP_SELECT, args2.size()-1, args2.data());
                     fml = m.mk_and(fml, m.mk_eq(select_t, args2.back()));
-                    store_T = m.mk_app(m_fid, OP_STORE, args2.size(), args2.c_ptr());
+                    store_T = m.mk_app(m_fid, OP_STORE, args2.size(), args2.data());
 
                     args2[0] = store_t;
                     args2.back() = w;
-                    store_t = m.mk_app(m_fid, OP_STORE, args2.size(), args2.c_ptr());
+                    store_t = m.mk_app(m_fid, OP_STORE, args2.size(), args2.data());
 
                     m_ctx.add_var(w);
                 }

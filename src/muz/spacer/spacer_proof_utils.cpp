@@ -219,8 +219,8 @@ namespace spacer {
 
         proof_ref pf(m);
         pf =  m.mk_th_lemma(tid, m.mk_false(),
-                            parents.size(), parents.c_ptr(),
-                            v.size(), v.c_ptr());
+                            parents.size(), parents.data(),
+                            v.size(), v.data());
         return pf;
     }
 
@@ -345,8 +345,8 @@ namespace spacer {
 
         proof_ref pf(m);
         pf = m.mk_th_lemma(tid, m.mk_false(),
-                           parents.size(), parents.c_ptr(),
-                           v.size(), v.c_ptr());
+                           parents.size(), parents.data(),
+                           v.size(), v.data());
 
         SASSERT(is_arith_lemma(m, pf));
         TRACE("spacer.fkab", tout << mk_pp(pf, m) << "\n";);
@@ -447,7 +447,7 @@ namespace spacer {
                     SASSERT(p->get_decl()->get_arity() == args.size());
 
                     proof* res = m.mk_app(p->get_decl(),
-                                          args.size(), (expr * const*)args.c_ptr());
+                                          args.size(), (expr * const*)args.data());
                     m_pinned.push_back(res);
                     m_cache.insert(p, res);
                 }
@@ -734,7 +734,7 @@ namespace spacer {
         }
 
         expr_ref lemma(m);
-        lemma = mk_or(m, args.size(), args.c_ptr());
+        lemma = mk_or(m, args.size(), args.data());
 
         proof* res;
         res = m.mk_lemma(premise, lemma);
@@ -816,7 +816,7 @@ namespace spacer {
         // expr_ref tmp(m);
         // tmp = mk_or(m, pf_fact.size(), pf_fact.c_ptr());
         // proof* res = m.mk_unit_resolution(pf_args.size(), pf_args.c_ptr(), tmp);
-        proof *res = m.mk_unit_resolution(pf_args.size(), pf_args.c_ptr());
+        proof *res = m.mk_unit_resolution(pf_args.size(), pf_args.data());
         m_pinned.push_back(res);
 
         return res;
@@ -839,7 +839,7 @@ namespace spacer {
         SASSERT(old->get_decl()->get_arity() == args.size());
 
         proof* res = m.mk_app(old->get_decl(), args.size(),
-                              (expr * const*)args.c_ptr());
+                              (expr * const*)args.data());
         m_pinned.push_back(res);
         return res;
     }

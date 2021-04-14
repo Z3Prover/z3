@@ -390,7 +390,7 @@ namespace sat {
         for (unsigned i = num_units; i < m_units.size(); ++i) {
             m_assignment[m_units[i].var()] = l_undef;
         }
-        units.append(m_units.size() - num_units, m_units.c_ptr() + num_units);
+        units.append(m_units.size() - num_units, m_units.data() + num_units);
         m_units.shrink(num_units);
         bool ok = m_inconsistent;
         m_inconsistent = false;
@@ -517,7 +517,7 @@ namespace sat {
                 if (j != c.size()) {
                     lits.append(j, c.begin());
                     lits.append(c.size() - j - 1, c.begin() + j + 1);
-                    if (!is_drup(lits.size(), lits.c_ptr()))
+                    if (!is_drup(lits.size(), lits.data()))
                         return false;
                     lits.resize(n);
                 }
@@ -788,7 +788,7 @@ namespace sat {
         }
     }
     void drat::add(literal_vector const& lits, status st) {
-        add(lits.size(), lits.c_ptr(), st);
+        add(lits.size(), lits.data(), st);
     }
 
     void drat::add(unsigned sz, literal const* lits, status st) {
@@ -822,7 +822,7 @@ namespace sat {
             case 1: append(c[0], status::redundant()); break;
             default: {
                 verify(c.size(), c.begin());
-                clause* cl = m_alloc.mk_clause(c.size(), c.c_ptr(), true);
+                clause* cl = m_alloc.mk_clause(c.size(), c.data(), true);
                 append(*cl, status::redundant());
                 break;
             }

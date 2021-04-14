@@ -91,7 +91,7 @@ namespace datalog {
         family_id get_relation_kind(const relation_signature & sig, const bool_vector & inner_columns, 
                 family_id inner_kind) {
             SASSERT(sig.size()==inner_columns.size());
-            return get_relation_kind(sig, inner_columns.c_ptr(), inner_kind);
+            return get_relation_kind(sig, inner_columns.data(), inner_kind);
         }
 
         bool can_handle_signature(const relation_signature & s) override;
@@ -110,7 +110,7 @@ namespace datalog {
         sieve_relation * mk_from_inner(const relation_signature & s, const bool_vector & inner_columns, 
                 relation_base * inner_rel) {
             SASSERT(inner_columns.size()==s.size());
-            return mk_from_inner(s, inner_columns.c_ptr(), inner_rel);
+            return mk_from_inner(s, inner_columns.data(), inner_rel);
         }
 
     protected:

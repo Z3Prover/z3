@@ -1012,7 +1012,7 @@ namespace q {
                         SASSERT(m_vars[to_var(arg)->get_idx()] != -1);
                         iregs.push_back(m_vars[to_var(arg)->get_idx()]);
                     }
-                    m_seq.push_back(m_ct_manager.mk_is_cgr(lbl, first_app_reg, num_args, iregs.c_ptr()));
+                    m_seq.push_back(m_ct_manager.mk_is_cgr(lbl, first_app_reg, num_args, iregs.data()));
                 }
                 else {
                     // Generate a BIND operation for this application.
@@ -1089,7 +1089,7 @@ namespace q {
             }
             unsigned oreg        = m_tree->m_num_regs;
             m_tree->m_num_regs  += 1;
-            m_seq.push_back(m_ct_manager.mk_get_cgr(n->get_decl(), oreg, n->get_num_args(), iregs.c_ptr()));
+            m_seq.push_back(m_ct_manager.mk_get_cgr(n->get_decl(), oreg, n->get_num_args(), iregs.data()));
             return oreg;
         }
 
@@ -1201,7 +1201,7 @@ namespace q {
                         }
                     }
                     SASSERT(joints.size() == num_args);
-                    m_seq.push_back(m_ct_manager.mk_cont(lbl, num_args, oreg, s, joints.c_ptr()));
+                    m_seq.push_back(m_ct_manager.mk_cont(lbl, num_args, oreg, s, joints.data()));
                     m_num_choices++;
                     while (!m_todo.empty())
                         linearise_core();
@@ -2621,7 +2621,7 @@ namespace q {
         goto backtrack;
 
     cgr_common:
-        m_n1 = ctx.get_egraph().get_enode_eq_to(static_cast<const get_cgr *>(m_pc)->m_label, static_cast<const get_cgr *>(m_pc)->m_num_args, m_args.c_ptr()); 
+        m_n1 = ctx.get_egraph().get_enode_eq_to(static_cast<const get_cgr *>(m_pc)->m_label, static_cast<const get_cgr *>(m_pc)->m_num_args, m_args.data()); 
         if (!m_n1 || !ctx.is_relevant(m_n1))                                                                                                              
             goto backtrack;                                                                                                                                    
         update_max_generation(m_n1, nullptr);                                                                                                                  

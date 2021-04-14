@@ -69,7 +69,7 @@ protected:
     }
 
 public:
-    typedef T data;
+    typedef T data_t;
     typedef T * iterator;
     typedef const T * const_iterator;
 
@@ -184,7 +184,7 @@ public:
         return m_buffer[m_pos - 1]; 
     }
     
-    T * c_ptr() const {
+    T * data() const {
         return m_buffer;
     }
 
@@ -195,7 +195,7 @@ public:
     }
 
     void append(const buffer& source) {
-        append(source.size(), source.c_ptr());
+        append(source.size(), source.data());
     }
 
     T & operator[](unsigned idx) { 

@@ -63,7 +63,7 @@ class sat_tactic : public tactic {
             IF_VERBOSE(TACTIC_VERBOSITY_LVL, m_solver->display_status(verbose_stream()););
             TRACE("sat_dimacs", m_solver->display_dimacs(tout););
             dep2assumptions(dep2asm, assumptions);
-            lbool r = m_solver->check(assumptions.size(), assumptions.c_ptr());
+            lbool r = m_solver->check(assumptions.size(), assumptions.data());
             TRACE("sat", tout << "result of checking: " << r << " "; 
                   if (r == l_undef) tout << m_solver->get_reason_unknown(); tout << "\n";);
             if (r == l_false) {

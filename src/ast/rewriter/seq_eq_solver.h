@@ -102,7 +102,7 @@ namespace seq {
         void set_extract(V& dst, expr_ref_vector const& xs, unsigned offset, unsigned sz) const {
             SASSERT(offset + sz <= xs.size());
             dst.reset();
-            dst.append(sz, xs.c_ptr() + offset);
+            dst.append(sz, xs.data() + offset);
         }
 
         void set_conflict();

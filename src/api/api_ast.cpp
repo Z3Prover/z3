@@ -148,7 +148,7 @@ extern "C" {
                 return;            
             }
         }
-        expr_abstract(m, 0, n, _args.c_ptr(), to_expr(body), abs_body);
+        expr_abstract(m, 0, n, _args.data(), to_expr(body), abs_body);
         recfun::promise_def pd = p.get_promise_def(d);
         if (!pd.get_def()) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
@@ -159,7 +159,7 @@ extern "C" {
             return;
         }
         recfun_replace replace(m);
-        p.set_definition(replace, pd, n, _vars.c_ptr(), abs_body);
+        p.set_definition(replace, pd, n, _vars.data(), abs_body);
         Z3_CATCH;
     }
 
@@ -172,7 +172,7 @@ extern "C" {
             arg_list.push_back(to_expr(args[i]));
         }
         func_decl* _d = reinterpret_cast<func_decl*>(d);
-        app* a = mk_c(c)->m().mk_app(_d, num_args, arg_list.c_ptr());
+        app* a = mk_c(c)->m().mk_app(_d, num_args, arg_list.data());
         mk_c(c)->save_ast_trail(a);
         check_sorts(c, a);
         RETURN_Z3(of_ast(a));

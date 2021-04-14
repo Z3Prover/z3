@@ -31,7 +31,7 @@ static void add_clause(sat::solver& s, random_gen& r, trail_t& t) {
     for (unsigned i = 0; i < 3; ++i) {
         add_literal(r, cls);
     }
-    s.mk_clause(cls.size(), cls.c_ptr());
+    s.mk_clause(cls.size(), cls.data());
 }
 
 static void pop_user_scope(sat::solver& s, trail_t& t) {
@@ -63,7 +63,7 @@ static void check_coherence(sat::solver& s1, trail_t& t) {
         for (unsigned j = 0; j < clss.size(); ++j) {
             cls.reset();
             cls.append(clss[j]);
-            s2.mk_clause(cls.size(), cls.c_ptr());
+            s2.mk_clause(cls.size(), cls.data());
         }
     }
     lbool is_sat1 = s1.check();

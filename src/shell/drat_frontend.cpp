@@ -49,7 +49,7 @@ class smt_checker {
             expr_ref_vector args(m);
             for (expr* arg : *to_app(e)) 
                 args.push_back(define(arg, depth - 1));
-            r = m.mk_app(to_app(e)->get_decl(), args.size(), args.c_ptr());
+            r = m.mk_app(to_app(e)->get_decl(), args.size(), args.data());
         }
         return r;
     }
@@ -77,7 +77,7 @@ class smt_checker {
             m_lemma_solver->assert_expr(lit2expr(lit));
         }
 #endif
-        m_units.append(units.size() - m_units.size(), units.c_ptr() + m_units.size());
+        m_units.append(units.size() - m_units.size(), units.data() + m_units.size());
     }
 
     void check_assertion_redundant(sat::literal_vector const& input) {
@@ -111,7 +111,7 @@ class smt_checker {
         
         add_units();
         drup_units.reset();
-        if (m_drat.is_drup(lits.size(), lits.c_ptr(), drup_units)) {
+        if (m_drat.is_drup(lits.size(), lits.data(), drup_units)) {
             std::cout << "drup\n";
             return;
         }
@@ -194,7 +194,7 @@ public:
                 }
                 if (name == "is" && sz == 3) {
                     name = sexpr->get_child(2)->get_child(0)->get_symbol();
-                    f = ctx.find_func_decl(name, params.size(), params.c_ptr(), args.size(), sorts.c_ptr(), rng.get());
+                    f = ctx.find_func_decl(name, params.size(), params.data(), args.size(), sorts.data(), rng.get());
                     if (!f)
                         goto bail;
                     datatype_util dtu(m);
@@ -238,7 +238,7 @@ public:
         default:
             goto bail;
         }
-        f = ctx.find_func_decl(name, params.size(), params.c_ptr(), args.size(), sorts.c_ptr(), rng.get());
+        f = ctx.find_func_decl(name, params.size(), params.data(), args.size(), sorts.data(), rng.get());
         if (!f) 
             goto bail;
         result = ctx.m().mk_app(f, args);
@@ -328,7 +328,7 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
                 sargs.push_back(sorts.get(n));
             psort_decl* pd = ctx.find_psort_decl(name);
             if (pd) 
-                srt = pd->instantiate(ctx.pm(), sargs.size(), sargs.c_ptr());
+                srt = pd->instantiate(ctx.pm(), sargs.size(), sargs.data());
             else 
                 srt = m.mk_uninterpreted_sort(name);
             sorts.reserve(r.m_node_id+1);

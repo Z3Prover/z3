@@ -121,7 +121,7 @@ namespace smt {
 
     float qi_queue::get_cost(quantifier * q, app * pat, unsigned generation, unsigned min_top_generation, unsigned max_top_generation) {
         q::quantifier_stat * stat = set_values(q, pat, generation, min_top_generation, max_top_generation, 0);
-        float r = m_evaluator(m_cost_function, m_vals.size(), m_vals.c_ptr());
+        float r = m_evaluator(m_cost_function, m_vals.size(), m_vals.data());
         stat->update_max_cost(r);
         return r;
     }
@@ -129,7 +129,7 @@ namespace smt {
     unsigned qi_queue::get_new_gen(quantifier * q, unsigned generation, float cost) {
         // max_top_generation and min_top_generation are not available for computing inc_gen
         set_values(q, nullptr, generation, 0, 0, cost);
-        float r = m_evaluator(m_new_gen_function, m_vals.size(), m_vals.c_ptr());
+        float r = m_evaluator(m_new_gen_function, m_vals.size(), m_vals.data());
         return std::max(generation + 1, static_cast<unsigned>(r));
     }
 
@@ -254,7 +254,7 @@ namespace smt {
             ptr_vector<expr> args;
             args.push_back(m.mk_not(q));
             args.append(to_app(s_instance)->get_num_args(), to_app(s_instance)->get_args());
-            lemma = m.mk_or(args.size(), args.c_ptr());
+            lemma = m.mk_or(args.size(), args.data());
         }
         else if (m.is_false(s_instance)) {
             lemma = m.mk_not(q);
@@ -274,7 +274,7 @@ namespace smt {
                 bindings_e.push_back(bindings[i]->get_expr());
             }
             app * bare_lemma    = m.mk_or(m.mk_not(q), instance);
-            proof * qi_pr       = m.mk_quant_inst(bare_lemma, num_bindings, bindings_e.c_ptr());
+            proof * qi_pr       = m.mk_quant_inst(bare_lemma, num_bindings, bindings_e.data());
             proof_id            = qi_pr->get_id();
             if (bare_lemma == lemma) {
                 pr1             = qi_pr;

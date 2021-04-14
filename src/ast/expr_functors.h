@@ -91,7 +91,7 @@ public:
     }
     
     bool operator()(expr_ref_vector const& v) {
-        return (*this)(v.size(), v.c_ptr());
+        return (*this)(v.size(), v.data());
     }
     
     bool operator()(unsigned size, expr* const* es);

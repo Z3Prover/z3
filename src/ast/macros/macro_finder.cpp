@@ -384,7 +384,7 @@ void macro_finder::operator()(unsigned n, justified_expr const* fmls, vector<jus
             vector<justified_expr> old_fmls;
             _new_fmls.swap(old_fmls);
             SASSERT(_new_fmls.empty());
-            if (!expand_macros(old_fmls.size(), old_fmls.c_ptr(), _new_fmls))
+            if (!expand_macros(old_fmls.size(), old_fmls.data(), _new_fmls))
                 break;
         }
     }

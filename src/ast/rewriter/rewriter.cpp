@@ -275,7 +275,7 @@ void var_shifter_core::process_app(app * t, frame & fr) {
     SASSERT(fr.m_spos + num_args == m_result_stack.size());
     expr * new_t;
     if (fr.m_new_child) {
-        expr * const * new_args = m_result_stack.c_ptr() + fr.m_spos;
+        expr * const * new_args = m_result_stack.data() + fr.m_spos;
         new_t = m().mk_app(t->get_decl(), num_args, new_args);
     }
     else {
@@ -305,7 +305,7 @@ void var_shifter_core::process_quantifier(quantifier * q, frame & fr) {
     SASSERT(fr.m_spos + num_children == m_result_stack.size());
     expr * new_q;
     if (fr.m_new_child) {
-        expr * const * it = m_result_stack.c_ptr() + fr.m_spos;
+        expr * const * it = m_result_stack.data() + fr.m_spos;
         expr * new_expr = *it;
         ++it;
         expr * const * new_pats    = it;

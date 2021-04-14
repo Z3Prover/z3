@@ -161,12 +161,12 @@ public:
     }
     expr_ref mk_or(expr_ref_vector const& args) {
         expr_ref result(m());
-        mk_or(args.size(), args.c_ptr(), result);
+        mk_or(args.size(), args.data(), result);
         return result;
     }
     expr_ref mk_and(expr_ref_vector const& args) {
         expr_ref result(m());
-        mk_and(args.size(), args.c_ptr(), result);
+        mk_and(args.size(), args.data(), result);
         return result;
     }
 
