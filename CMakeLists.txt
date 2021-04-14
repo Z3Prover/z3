@@ -319,7 +319,7 @@ endif()
 ################################################################################
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads)
-list(APPEND Z3_DEPENDENT_LIBS ${CMAKE_THREAD_LIBS_INIT})
+list(APPEND Z3_DEPENDENT_LIBS Threads::Threads)
 
 ################################################################################
 # Compiler warnings
