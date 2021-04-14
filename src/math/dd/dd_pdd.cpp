@@ -1429,9 +1429,11 @@ namespace dd {
                 pow = 1;
                 v_prev = v;
             }
-            out << "v" << v_prev;
-            if (pow > 1)
-                out << "^" << pow;
+            if (v_prev != UINT_MAX) {
+                out << "v" << v_prev;
+                if (pow > 1)
+                    out << "^" << pow;
+            }
         }
         if (first) out << "0";
         return out;
