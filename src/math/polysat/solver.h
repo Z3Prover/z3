@@ -137,6 +137,8 @@ namespace polysat {
         void decide();
         void decide(pvar v);
 
+        void narrow(pvar v);
+
         p_dependency* mk_dep(unsigned dep) { return dep == null_dependency ? nullptr : m_dm.mk_leaf(dep); }
 
         bool is_conflict() const { return !m_conflict.empty(); }

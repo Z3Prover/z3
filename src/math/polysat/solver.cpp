@@ -521,6 +521,7 @@ namespace polysat {
         m_cjust[v].append(m_conflict);
         m_conflict.reset();
         add_non_viable(v, val);
+        narrow(v);
         decide(v);
     }
     
@@ -555,6 +556,14 @@ namespace polysat {
         }
         return nullptr;
     }
+
+    /**
+     * placeholder for factoring/gcd common factors
+     */
+    void solver::narrow(pvar v) {
+
+    }
+
 
     bool solver::is_always_false(constraint& c) {
         if (c.is_eq()) 
