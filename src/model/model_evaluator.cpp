@@ -616,7 +616,6 @@ struct model_evaluator::imp : public rewriter_tpl<mev::evaluator_cfg> {
                                     false, // no proofs for evaluator
                                     m_cfg),
         m_cfg(md.get_manager(), md, p) {
-        set_cancel_check(false);
     }
     void expand_stores(expr_ref &val) {m_cfg.expand_stores(val);}
     void reset() {
