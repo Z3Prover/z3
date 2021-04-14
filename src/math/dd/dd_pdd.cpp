@@ -1045,9 +1045,8 @@ namespace dd {
         if (m_semantics == mod2N_e && (r < 0 || r >= m_mod2N)) 
             return imk_val(mod(r, m_mod2N));
         const_info info;
-        if (!m_mpq_table.find(r, info)) {
+        if (!m_mpq_table.find(r, info)) 
             init_value(info, r);
-        }      
         return info.m_node_index;
     }
 

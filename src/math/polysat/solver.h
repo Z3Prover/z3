@@ -29,6 +29,7 @@ namespace polysat {
             unsigned m_num_propagations;
             unsigned m_num_conflicts;
             void reset() { memset(this, 0, sizeof(*this)); }
+            stats() { reset(); }
         };
 
         typedef ptr_vector<constraint> constraints;

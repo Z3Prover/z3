@@ -23,7 +23,7 @@ namespace polysat {
     dd::pdd_manager& solver::sz2pdd(unsigned sz) {
         m_pdd.reserve(sz + 1);
         if (!m_pdd[sz])
-            m_pdd.set(sz, alloc(dd::pdd_manager, 1000));
+            m_pdd.set(sz, alloc(dd::pdd_manager, 1000, dd::pdd_manager::semantics::mod2N_e, sz));
         return *m_pdd[sz];
     }
 
@@ -35,9 +35,11 @@ namespace polysat {
     }
 
     void solver::add_non_viable(pvar v, rational const& val) {
+        TRACE("polysat", tout << "v" << v << " /= " << val << "\n";);
         bdd value = m_bdd.mk_true();
         for (unsigned k = size(v); k-- > 0; ) 
             value &= val.get_bit(k) ? m_bdd.mk_var(k) : m_bdd.mk_nvar(k);
+        SASSERT((value && !m_viable[v]).is_false());
         m_viable[v] &= !value;        
     }
 
@@ -46,20 +48,22 @@ namespace polysat {
         bdd viable = m_viable[v];
         if (viable.is_false())
             return l_false;
+        bool is_unique = true;
         unsigned num_vars = 0;
         while (!viable.is_true()) {
-            unsigned k = viable.var();
+            ++num_vars;
+            if (!viable.lo().is_false() && !viable.hi().is_false())
+                is_unique = false;
             if (viable.lo().is_false()) {
-                val += rational::power_of_two(k);
+                val += rational::power_of_two(viable.var());
                 viable = viable.hi();
             }
             else 
                 viable = viable.lo();
-            ++num_vars;
         }
-        if (num_vars == size(v))
-            return l_true;
-        return l_undef;
+        is_unique &= num_vars == size(v);
+        TRACE("polysat", tout << "v" << v << " := " << val << " unique " << is_unique << "\n";);
+        return is_unique ? l_true : l_undef;
     }
 
     struct solver::t_del_var : public trail {
@@ -79,6 +83,7 @@ namespace polysat {
     solver::~solver() {}
     
     lbool solver::check_sat() { 
+        TRACE("polysat", tout << "check\n";);
         while (m_lim.inc()) {
             if (is_conflict() && at_base_level()) return l_false;
             else if (is_conflict()) resolve_conflict();
@@ -208,6 +213,7 @@ namespace polysat {
         if (p.is_zero()) 
             return false;
         if (p.is_never_zero()) {
+            TRACE("polysat", tout << c.p() << " := " << p << "\n";);
             // we could tag constraint to allow early substitution before 
             // swapping watch variable in case we can detect conflict earlier.
             set_conflict(c);
@@ -514,11 +520,13 @@ namespace polysat {
     void solver::revert_decision(pvar v) {
         rational val = m_value[v];
         SASSERT(m_justification[v].is_decision());
+        bdd viable = m_viable[v];
         m_conflict.append(m_cjust[v]);
         backjump(m_justification[v].level()-1);
         SASSERT(m_cjust[v].empty());
         m_cjust[v].append(m_conflict);
         m_conflict.reset();
+        m_viable[v] = viable;
         add_non_viable(v, val);
         narrow(v);
         decide(v);
@@ -622,8 +630,10 @@ namespace polysat {
         
     std::ostream& solver::display(std::ostream& out) const {
         for (auto p : m_search) {
-            out << "v" << p.first << " := " << p.second << "\n";
-            out << m_viable[p.first] << "\n";
+            auto v = p.first;
+            auto lvl = m_justification[v].level();
+            out << "v" << v << " := " << p.second << "@" << lvl << "\n";
+            out << m_viable[v] << "\n";
         }
         for (auto* c : m_constraints)
             out << *c << "\n";
