@@ -1716,8 +1716,8 @@ void mpz_manager<SYNCH>::display(std::ostream & out, mpz const & a) const {
         // GMP version
         size_t sz = mpz_sizeinbase(*a.m_ptr, 10) + 2;
         sbuffer<char, 1024> buffer(sz, 0);
-        mpz_get_str(buffer.c_ptr(), 10, *a.m_ptr);
-        out << buffer.c_ptr();
+        mpz_get_str(buffer.data(), 10, *a.m_ptr);
+        out << buffer.data();
 #endif
     } 
 }
@@ -1776,11 +1776,11 @@ void mpz_manager<SYNCH>::display_hex(std::ostream & out, mpz const & a, unsigned
         unsigned requiredLength = num_bits / 4;
         unsigned padding = requiredLength > sz ? requiredLength - sz : 0;
         sbuffer<char, 1024> buffer(sz, 0);
-        mpz_get_str(buffer.c_ptr(), 16, *(a.m_ptr));
+        mpz_get_str(buffer.data(), 16, *(a.m_ptr));
         for (unsigned i = 0; i < padding; ++i) {
             out << "0";
         }
-        out << buffer.c_ptr() + (sz > requiredLength ? sz - requiredLength : 0);
+        out << buffer.data() + (sz > requiredLength ? sz - requiredLength : 0);
 #endif
     }
     out.copyfmt(fmt);
@@ -1830,11 +1830,11 @@ void mpz_manager<SYNCH>::display_bin(std::ostream & out, mpz const & a, unsigned
         size_t sz = mpz_sizeinbase(*(a.m_ptr), 2);
         unsigned padding = num_bits > sz ? num_bits - sz : 0;
         sbuffer<char, 1024> buffer(sz, 0);
-        mpz_get_str(buffer.c_ptr(), 2, *(a.m_ptr));
+        mpz_get_str(buffer.data(), 2, *(a.m_ptr));
         for (unsigned i = 0; i < padding; ++i) {
             out << "0";
         }
-        out << buffer.c_ptr() + (sz > num_bits ? sz - num_bits : 0);
+        out << buffer.data() + (sz > num_bits ? sz - num_bits : 0);
 #endif
     }
 }

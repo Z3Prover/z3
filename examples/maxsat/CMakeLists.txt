@@ -35,7 +35,7 @@ if (FORCE_CXX_LINKER)
   )
 endif()
 
-if ("${CMAKE_SYSTEM_NAME}" MATCHES "[Ww]indows")
+if (CMAKE_SYSTEM_NAME MATCHES "[Ww]indows")
   # On Windows we need to copy the Z3 libraries
   # into the same directory as the executable
   # so that they can be found.

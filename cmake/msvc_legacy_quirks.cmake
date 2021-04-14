@@ -22,7 +22,7 @@ set(Z3_MSVC_LEGACY_DEFINES
   _UNICODE
 )
 
-if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
+if (TARGET_ARCHITECTURE STREQUAL "x86_64")
   list(APPEND Z3_MSVC_LEGACY_DEFINES ""
     # Don't set `_LIB`. The old build system sets this for x86_64 release
     # build. This flag doesn't seem to be documented but a stackoverflow
@@ -57,10 +57,10 @@ endif()
 # Note we don't set WIN32 or _WINDOWS because
 # CMake provides that for us. As a sanity check make sure the option
 # is present.
-if (NOT "${CMAKE_CXX_FLAGS}" MATCHES "[-/]D[ ]*WIN32")
+if (NOT CMAKE_CXX_FLAGS MATCHES "[-/]D[ ]*WIN32")
   message(FATAL_ERROR "\"/D WIN32\" is missing")
 endif()
-if (NOT "${CMAKE_CXX_FLAGS}" MATCHES "[-/]D[ ]*_WINDOWS")
+if (NOT CMAKE_CXX_FLAGS MATCHES "[-/]D[ ]*_WINDOWS")
   message(FATAL_ERROR "\"/D _WINDOWS\" is missing")
 endif()
 
@@ -82,7 +82,7 @@ endif()
 # build system kept the frame pointer for all configurations
 # except x86_64 release (I don't know why the frame pointer
 # is kept for i686 release).
-if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
+if (TARGET_ARCHITECTURE STREQUAL "x86_64")
   list(APPEND Z3_COMPONENT_CXX_FLAGS
     $<$<CONFIG:Debug>:${NO_OMIT_FRAME_POINTER_MSVC_FLAG}>
     $<$<CONFIG:MinSizeRel>:${NO_OMIT_FRAME_POINTER_MSVC_FLAG}>
@@ -91,7 +91,7 @@ else()
   list(APPEND Z3_COMPONENT_CXX_FLAGS ${NO_OMIT_FRAME_POINTER_MSVC_FLAG})
 endif()
 
-if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" STREQUAL "i686"))
+if ((TARGET_ARCHITECTURE STREQUAL "x86_64") OR (TARGET_ARCHITECTURE STREQUAL "i686"))
   # Use __cdecl calling convention. Apparently this is MSVC's default
   # but the old build system set it so for completeness set it too.
   # See https://msdn.microsoft.com/en-us/library/46t77ak2.aspx
@@ -153,9 +153,9 @@ string(APPEND CMAKE_SHARED_LINKER_FLAGS " /SUBSYSTEM:WINDOWS")
 # in the old build system except release x86_64. We try to emulate this here but
 # this is likely the wrong thing to do.
 foreach (_build_type ${_build_types_as_upper})
-  if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64" AND
-      ("${_build_type}" STREQUAL "RELEASE" OR
-      "${_build_type}"  STREQUAL "RELWITHDEBINFO")
+  if (TARGET_ARCHITECTURE STREQUAL "x86_64" AND
+      (_build_type STREQUAL "RELEASE" OR
+      _build_type  STREQUAL "RELWITHDEBINFO")
       )
     message(AUTHOR_WARNING "Skipping legacy linker MSVC options for x86_64 ${_build_type}")
   else()
