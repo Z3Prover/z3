@@ -493,6 +493,22 @@ public :
         SASSERT(r == -(2*a*a*b*b - 2*a*a*b - 3*a*b*b + a*b*b*b + 4*b));
     }
 
+    static void pow() {
+        std::cout << "pow\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 5);
+
+        unsigned const va = 0;
+        unsigned const vb = 1;
+        pdd const a = m.mk_var(va);
+        pdd const b = m.mk_var(vb);
+
+        SASSERT(a.pow(0) == m.one());
+        SASSERT(a.pow(1) == a);
+        SASSERT(a.pow(2) == a*a);
+        SASSERT(a.pow(7) == a*a*a*a*a*a*a);
+        SASSERT((3*a*b).pow(3) == 27*a*a*a*b*b*b);
+    }
+
 };
 
 }
@@ -511,4 +527,5 @@ void tst_pdd() {
     dd::test::factor();
     dd::test::max_pow2_divisor();
     dd::test::binary_resolve();
+    dd::test::pow();
 }

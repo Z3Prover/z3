@@ -215,6 +215,8 @@ namespace dd {
         PDD apply_rec(PDD arg1, PDD arg2, pdd_op op);
         PDD minus_rec(PDD p);
         PDD div_rec(PDD p, rational const& c, PDD c_pdd);
+        PDD pow(PDD p, unsigned j);
+        PDD pow_rec(PDD p, unsigned j);
 
         PDD reduce_on_match(PDD a, PDD b);
         bool lm_occurs(PDD p, PDD q) const;
@@ -328,6 +330,7 @@ namespace dd {
         pdd subst_val(pdd const& a, vector<std::pair<unsigned, rational>> const& s);
         pdd subst_val(pdd const& a, unsigned v, rational const& val);
         bool resolve(unsigned v, pdd const& p, pdd const& q, pdd& r);
+        pdd pow(pdd const& p, unsigned j);
 
         bool is_linear(PDD p) { return degree(p) == 1; }
         bool is_linear(pdd const& p);
@@ -403,6 +406,7 @@ namespace dd {
         pdd operator~() const { return m.mk_not(*this); }
         pdd rev_sub(rational const& r) const { return m.sub(m.mk_val(r), *this); }
         pdd div(rational const& other) const { return m.div(*this, other); }
+        pdd pow(unsigned j) const { return m.pow(*this, j); }
         pdd reduce(pdd const& other) const { return m.reduce(*this, other); }
         bool different_leading_term(pdd const& other) const { return m.different_leading_term(*this, other); }
         void factor(unsigned v, unsigned degree, pdd& lc, pdd& rest) const { m.factor(*this, v, degree, lc, rest); }

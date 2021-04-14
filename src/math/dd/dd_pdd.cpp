@@ -502,6 +502,38 @@ namespace dd {
         return r;
     }
 
+    pdd pdd_manager::pow(pdd const &p, unsigned j) {
+        return pdd(pow(p.root, j), this);
+    }
+
+    pdd_manager::PDD pdd_manager::pow(PDD p, unsigned j) {
+        if (j == 0)
+            return one_pdd;
+        else if (j == 1)
+            return p;
+        else if (is_zero(p))
+            return zero_pdd;
+        else if (is_one(p))
+            return one_pdd;
+        else if (is_val(p))
+            return imk_val(power(val(p), j));
+        else
+            return pow_rec(p, j);
+    }
+
+    pdd_manager::PDD pdd_manager::pow_rec(PDD p, unsigned j) {
+        SASSERT(j > 0);
+        if (j == 1)
+            return p;
+        // j even: pow(p,2*j')   =   pow(p*p,j')
+        // j odd:  pow(p,2*j'+1) = p*pow(p*p,j')
+        PDD q = pow_rec(apply(p, p, pdd_mul_op), j / 2);
+        if (j & 1) {
+            q = apply(q, p, pdd_mul_op);
+        }
+        return q;
+    }
+
     //
     // produce polynomial where a is reduced by b.
     // all monomials in a that are divisible by lm(b)
@@ -873,10 +905,7 @@ namespace dd {
         rational const pow2j = rational::power_of_two(j);
         pdd const aa = div(a, pow2j);
         pdd const cc = div(c, pow2j);
-        pdd vv = one();
-        for (unsigned deg = l - m; deg-- > 0; ) {
-            vv *= mk_var(v);
-        }
+        pdd vv = pow(mk_var(v), l - m);
         r = b * cc - aa * d * vv;
         return true;
     }
