@@ -63,7 +63,8 @@ namespace dd {
             pdd_mul_op = 5,
             pdd_reduce_op = 6,
             pdd_subst_val_op = 7,
-            pdd_no_op = 8
+            pdd_div_const_op = 8,
+            pdd_no_op = 9
         };
 
         struct node {
@@ -213,6 +214,7 @@ namespace dd {
         PDD apply(PDD arg1, PDD arg2, pdd_op op);
         PDD apply_rec(PDD arg1, PDD arg2, pdd_op op);
         PDD minus_rec(PDD p);
+        PDD div_rec(PDD p, rational const& c, PDD c_pdd);
 
         PDD reduce_on_match(PDD a, PDD b);
         bool lm_occurs(PDD p, PDD q) const;
@@ -317,6 +319,7 @@ namespace dd {
         pdd sub(pdd const& a, pdd const& b);
         pdd mul(pdd const& a, pdd const& b);
         pdd mul(rational const& c, pdd const& b);
+        pdd div(pdd const& a, rational const& c);
         pdd mk_or(pdd const& p, pdd const& q);
         pdd mk_xor(pdd const& p, pdd const& q);
         pdd mk_xor(pdd const& p, unsigned q);
@@ -399,6 +402,7 @@ namespace dd {
         pdd operator+(rational const& other) const { return m.add(other, *this); }
         pdd operator~() const { return m.mk_not(*this); }
         pdd rev_sub(rational const& r) const { return m.sub(m.mk_val(r), *this); }
+        pdd div(rational const& other) const { return m.div(*this, other); }
         pdd reduce(pdd const& other) const { return m.reduce(*this, other); }
         bool different_leading_term(pdd const& other) const { return m.different_leading_term(*this, other); }
         void factor(unsigned v, unsigned degree, pdd& lc, pdd& rest) const { m.factor(*this, v, degree, lc, rest); }

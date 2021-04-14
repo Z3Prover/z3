@@ -438,9 +438,10 @@ public :
 
         SASSERT(m.zero().max_pow2_divisor() == UINT_MAX);
         SASSERT(m.one().max_pow2_divisor() == 0);
-        pdd p = (1 << 20) * a * b + 1024 * b * b * b;
+        pdd p = (1 << 20)*a*b + 1024*b*b*b;
         std::cout << p << " divided by 2^" << p.max_pow2_divisor() << "\n";
         SASSERT(p.max_pow2_divisor() == 10);
+        SASSERT(p.div(rational::power_of_two(10)) == 1024*a*b + b*b*b);
         SASSERT((p + p).max_pow2_divisor() == 11);
         SASSERT((p * p).max_pow2_divisor() == 20);
         SASSERT((p + 2*b).max_pow2_divisor() == 1);
