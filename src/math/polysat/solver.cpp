@@ -100,6 +100,7 @@ namespace polysat {
         m_vars.push_back(sz2pdd(sz).mk_var(v));
         m_size.push_back(sz);
         m_trail.push(t_del_var(*this));
+        m_free_vars.mk_var_eh(v);
         return v;
     }
 
@@ -115,6 +116,7 @@ namespace polysat {
         m_activity.pop_back();
         m_vars.pop_back();
         m_size.pop_back();
+        m_free_vars.del_var_eh(v);
     }
 
     void solver::add_eq(pdd const& p, unsigned dep) {
