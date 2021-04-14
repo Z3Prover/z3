@@ -12,30 +12,64 @@ namespace polysat {
 
     struct scoped_solver : public solver_scope, public solver {
         scoped_solver(): solver(stack, lim) {}
+
+        void check() {
+            std::cout << check_sat() << "\n";
+            statistics st;
+            collect_statistics(st);
+            std::cout << st << "\n";
+            std::cout << *this << "\n";
+        }
     };
+
+    /**
+     * most basic linear equation solving.
+     * they should be solvable.
+     * they also illustrate some limitations of basic solver even if it solves them.
+     * Example
+     *   the value to a + 1 = 0 is fixed at 3, there should be no search.
+     */
+
+    static void test_l1() {
+        scoped_solver s;
+        auto a = s.var(s.add_var(2));
+        s.add_eq(a + 1);
+        s.check();
+    }
+
+    static void test_l2() {
+        scoped_solver s;
+        auto a = s.var(s.add_var(2));
+        auto b = s.var(s.add_var(2));
+        s.add_eq(2*a + b + 1);
+        s.add_eq(2*b + a);
+        s.check();
+    }
+
     
     /**
      * This one is unsat because a*a*(a*a - 1)
      * is 0 for all values of a.
      */
-    static void test_eq1() {
+    static void test_p1() {
         scoped_solver s;
         auto a = s.var(s.add_var(2));
         auto p = a*a*(a*a - 1) + 1;
         s.add_eq(p);
-        std::cout << s.check_sat() << "\n";
+        s.check();
     }
 
     /**
      * has solution a = 3
      */
-    static void test_eq2() {
+    static void test_p2() {
         scoped_solver s;
         auto a = s.var(s.add_var(2));
         auto p = a*(a-1) + 2;
         s.add_eq(p);
-        std::cout << s.check_sat() << "\n";
+        s.check();
     }
+
 
     /**
      * Check unsat of:
@@ -52,7 +86,7 @@ namespace polysat {
         s.add_eq(u - (v*q) - r, 0);
         s.add_ult(r, u, 0);
         s.add_ult(u, v*q, 0);
-        std::cout << s.check_sat() << "\n";        
+        s.check();
     }
 
     /**
@@ -74,7 +108,7 @@ namespace polysat {
         s.add_eq(n*q2 + r2 - c*a + c*b);
         s.add_ult(r2, n);
         s.add_diseq(n);
-        std::cout << s.check_sat() << "\n";
+        s.check();
     }
 
     // convert assertions into internal solver state
@@ -86,10 +120,15 @@ namespace polysat {
 
 
 void tst_polysat() {
-    polysat::test_eq1();
-    polysat::test_eq2();
+    polysat::test_l1();
+    polysat::test_l2();
+#if 0
+    // worry about this later
+    polysat::test_p1();
+    polysat::test_p2();
     polysat::test_ineq1();
     polysat::test_ineq2();
+#endif
 }
 
 // TBD also add test that loads from a file and runs the polysat engine.
