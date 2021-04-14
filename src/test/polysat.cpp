@@ -1,4 +1,4 @@
-#include "math/polysat/polysat.h"
+#include "math/polysat/solver.h"
 #include "ast/ast.h"
 
 namespace polysat {
