@@ -445,10 +445,7 @@ namespace polysat {
     }
 
     void solver::backtrack(unsigned i, scoped_ptr<constraint>& lemma) {
-        if (lemma) {
-            m_conflict.push_back(lemma.get());
-            add_lemma(lemma.detach());
-        }
+        add_lemma(lemma.detach());
         do {
             auto v = m_search[i].first;
             if (!is_marked(v))
@@ -580,6 +577,8 @@ namespace polysat {
     }
 
     void solver::add_lemma(constraint* c) {
+        if (!c)
+            return;
         add_watch(*c);
         m_redundant.push_back(c);
         for (unsigned i = m_redundant.size() - 1; i-- > 0; ) {
