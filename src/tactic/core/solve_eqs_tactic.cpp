@@ -230,7 +230,7 @@ class solve_eqs_tactic : public tactic {
                 for (unsigned k = 0; k < n; ++k) {
                     if (k != j) args.push_back(arg->get_arg(k));
                 }
-                div = m_a_util.mk_mul(args.size(), args.c_ptr());
+                div = m_a_util.mk_mul(args.size(), args.data());
                 return true;
             }
             return false;
@@ -248,7 +248,7 @@ class solve_eqs_tactic : public tactic {
                     for (unsigned k = 0; k < num; ++k) {
                         if (k != i) args.push_back(lhs->get_arg(k));
                     }
-                    def = m_a_util.mk_sub(rhs, m_a_util.mk_add(args.size(), args.c_ptr()));
+                    def = m_a_util.mk_sub(rhs, m_a_util.mk_add(args.size(), args.data()));
                     def = m_a_util.mk_div(def, div);
                     if (m_produce_proofs)
                         pr = m().mk_rewrite(eq, m().mk_eq(var, def));
@@ -311,7 +311,7 @@ class solve_eqs_tactic : public tactic {
                 def = m_a_util.mk_sub(rhs, other_args[0]);
                 break;
             default:
-                def = m_a_util.mk_sub(rhs, m_a_util.mk_add(other_args.size(), other_args.c_ptr()));
+                def = m_a_util.mk_sub(rhs, m_a_util.mk_add(other_args.size(), other_args.data()));
                 break;
             }
             if (m_produce_proofs)

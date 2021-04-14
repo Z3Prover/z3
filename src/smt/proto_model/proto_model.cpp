@@ -173,7 +173,7 @@ expr* proto_model::cleanup_expr(expr_ref_vector& trail, expr* fi_else, func_decl
                     TRACE("model_bug", tout << f->get_name() << "\n";);
                     found_aux_fs.insert(f);
                 }
-                new_t = m_rewrite.mk_app(f, args.size(), args.c_ptr());                
+                new_t = m_rewrite.mk_app(f, args.size(), args.data());                
                 if (t != new_t.get())
                     trail.push_back(new_t);
                 todo.pop_back();
@@ -400,7 +400,7 @@ model * proto_model::mk_model() {
         sort * s = get_uninterpreted_sort(i);
         TRACE("proto_model", tout << "copying uninterpreted sorts...\n" << mk_pp(s, m) << "\n";);
         ptr_vector<expr> const& buf = get_universe(s);
-        mdl->register_usort(s, buf.size(), buf.c_ptr());
+        mdl->register_usort(s, buf.size(), buf.data());
     }
 
     return mdl;

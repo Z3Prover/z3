@@ -236,7 +236,7 @@ expr * expand_distinct(ast_manager & m, unsigned num_args, expr * const * args) 
         for (unsigned j = i + 1; j < num_args; j++)
             new_diseqs.push_back(m.mk_not(m.mk_eq(args[i], args[j])));
     }
-    return mk_and(m, new_diseqs.size(), new_diseqs.c_ptr());
+    return mk_and(m, new_diseqs.size(), new_diseqs.data());
 }
 
 expr* mk_distinct(ast_manager& m, unsigned num_args, expr * const * args) {
@@ -253,7 +253,7 @@ expr* mk_distinct(ast_manager& m, unsigned num_args, expr * const * args) {
 
 expr_ref mk_distinct(expr_ref_vector const& args) {
     ast_manager& m = args.get_manager();
-    return expr_ref(mk_distinct(m, args.size(), args.c_ptr()), m);
+    return expr_ref(mk_distinct(m, args.size(), args.data()), m);
 }
 
 

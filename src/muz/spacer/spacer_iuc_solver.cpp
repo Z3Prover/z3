@@ -121,7 +121,7 @@ namespace spacer {
     lbool iuc_solver::check_sat_cc(const expr_ref_vector &cube,
                                    vector<expr_ref_vector> const & clauses) {
         if (clauses.empty())
-            return check_sat(cube.size(), cube.c_ptr());
+            return check_sat(cube.size(), cube.data());
         
         // -- remove any old assumptions
         m_assumptions.shrink(m_first_assumption);

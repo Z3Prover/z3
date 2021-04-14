@@ -472,7 +472,7 @@ namespace smt {
             ctx.mk_justification(
                 ext_theory_conflict_justification(
                     get_id(), ctx.get_region(),
-                    lits.size(), lits.c_ptr(), 0, 0, params.size(), params.c_ptr())));
+                    lits.size(), lits.data(), 0, 0, params.size(), params.data())));
     }
 
     lbool theory_special_relations::final_check(relation& r) {
@@ -534,7 +534,7 @@ namespace smt {
                     literal_vector const& lits = r.m_explanation;
                     TRACE("special_relations", ctx.display_literals_verbose(tout << mk_pp(x->get_expr(), m) << " = " << mk_pp(y->get_expr(), m) << "\n", lits) << "\n";);
                     IF_VERBOSE(20, ctx.display_literals_verbose(verbose_stream() << mk_pp(x->get_expr(), m) << " = " << mk_pp(y->get_expr(), m) << "\n", lits) << "\n";);
-                    eq_justification js(ctx.mk_justification(ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), 0, nullptr, 
+                    eq_justification js(ctx.mk_justification(ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), lits.size(), lits.data(), 0, nullptr, 
                                                                                                      x, y)));
                     ctx.assign_eq(x, y, js);
                 }

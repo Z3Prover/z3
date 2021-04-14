@@ -220,7 +220,7 @@ namespace sat {
                 if (c->glue() <= 2 || (c->size() <= 40 && c->glue() <= 8) || copy_learned) {
                     buffer.reset();
                     for (literal l : *c) buffer.push_back(l);
-                    clause* c1 = mk_clause_core(buffer.size(), buffer.c_ptr(), sat::status::redundant());
+                    clause* c1 = mk_clause_core(buffer.size(), buffer.data(), sat::status::redundant());
                     if (c1) {
                         ++num_learned;
                         c1->set_glue(c->glue());
@@ -358,7 +358,7 @@ namespace sat {
             m_aux_literals.reset();
             m_aux_literals.append(num_lits, lits);
             m_aux_literals.append(m_user_scope_literals);
-            return mk_clause_core(m_aux_literals.size(), m_aux_literals.c_ptr(), st);
+            return mk_clause_core(m_aux_literals.size(), m_aux_literals.data(), st);
         }
     }
 
@@ -983,7 +983,7 @@ namespace sat {
             __builtin_prefetch((const char*)((m_watches[l.index()].c_ptr())));
 #else
     #if !defined(_M_ARM) && !defined(_M_ARM64)
-            _mm_prefetch((const char*)((m_watches[l.index()].c_ptr())), _MM_HINT_T1);
+            _mm_prefetch((const char*)((m_watches[l.index()].data())), _MM_HINT_T1);
     #endif
 #endif
         }
@@ -1402,7 +1402,7 @@ namespace sat {
         m_local_search->add(*this);
         m_local_search->updt_params(m_params);
         scoped_rl.push_child(&(m_local_search->rlimit()));
-        lbool r = m_local_search->check(_lits.size(), _lits.c_ptr(), nullptr);
+        lbool r = m_local_search->check(_lits.size(), _lits.data(), nullptr);
         if (r == l_true) {
             m_model = m_local_search->get_model();
             m_model_is_current = true;
@@ -2589,7 +2589,7 @@ namespace sat {
             }
         }
         
-        unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());        
+        unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.data());        
         m_fast_glue_avg.update(glue);
         m_slow_glue_avg.update(glue);
     
@@ -2605,7 +2605,7 @@ namespace sat {
             ++m_stats.m_backtracks;
             pop_reinit(m_scope_lvl - backtrack_lvl + 1);
         }
-        clause * lemma = mk_clause_core(m_lemma.size(), m_lemma.c_ptr(), sat::status::redundant());
+        clause * lemma = mk_clause_core(m_lemma.size(), m_lemma.data(), sat::status::redundant());
         if (lemma) {
             lemma->set_glue(glue);
         }
@@ -3557,7 +3557,7 @@ namespace sat {
             tout << "clauses to reinit: " << (m_clauses_to_reinit.size() - old_sz) << "\n";
             tout << "new level:         " << new_lvl << "\n";
             tout << "vars to reinit:    " << m_vars_to_reinit << "\n";
-            tout << "free vars:         " << bool_var_vector(m_free_vars.size() - free_vars_head, m_free_vars.c_ptr() + free_vars_head) << "\n";
+            tout << "free vars:         " << bool_var_vector(m_free_vars.size() - free_vars_head, m_free_vars.data() + free_vars_head) << "\n";
             for (unsigned i = m_clauses_to_reinit.size(); i-- > old_sz; )
                 tout << "reinit:           " << m_clauses_to_reinit[i] << "\n";
             display(tout););        
@@ -4234,7 +4234,7 @@ namespace sat {
         for (literal lit : gamma) {
             sat::literal_vector asms1(asms);
             asms1.push_back(~lit);
-            lbool r = s.check(asms1.size(), asms1.c_ptr());
+            lbool r = s.check(asms1.size(), asms1.data());
             if (r == l_false) {
                 conseq.push_back(s.get_core());
             }
@@ -4258,7 +4258,7 @@ namespace sat {
             while (true) {
                 sat::literal_vector asms1(asms);
                 asms1.append(omegaN);
-                lbool r = s.check(asms1.size(), asms1.c_ptr());
+                lbool r = s.check(asms1.size(), asms1.data());
                 if (r == l_true) {
                     IF_VERBOSE(1, verbose_stream() << "(sat) " << omegaN << "\n";);
                     prune_unfixed(lambda, s.get_model());
@@ -4308,7 +4308,7 @@ namespace sat {
             return get_bounded_consequences(asms, vars, conseq);
         }
         if (!m_model_is_current) {
-            is_sat = check(asms.size(), asms.c_ptr());
+            is_sat = check(asms.size(), asms.data());
         }
         if (is_sat != l_true) {
             return is_sat;
@@ -4379,7 +4379,7 @@ namespace sat {
             init_assumptions(1, &lit);
         }
         else {
-            init_assumptions(asms.size(), asms.c_ptr());
+            init_assumptions(asms.size(), asms.data());
         }
         propagate(false);
         if (check_inconsistent()) return l_false;
@@ -4438,7 +4438,7 @@ namespace sat {
             init_assumptions(1, &lit);
         }
         else {
-            init_assumptions(asms.size(), asms.c_ptr());
+            init_assumptions(asms.size(), asms.data());
         }
         propagate(false);
         if (check_inconsistent()) return l_false;

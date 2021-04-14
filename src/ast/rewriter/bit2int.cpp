@@ -244,7 +244,7 @@ void bit2int::visit(app* n) {
         m_args.push_back(get_cached(arg));
     }
 
-    expr* const* args = m_args.c_ptr();
+    expr* const* args = m_args.data();
 
     bool has_b2i = 
         m_arith_util.is_le(n) || m_arith_util.is_ge(n) || m_arith_util.is_gt(n) || 

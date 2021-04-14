@@ -617,7 +617,7 @@ struct cofactor_elim_term_ite::imp {
                     has_term_ite = true;
                 expr_ref new_t(m);
                 if (has_new_args)
-                    new_t = m.mk_app(to_app(t)->get_decl(), num, new_args.c_ptr());
+                    new_t = m.mk_app(to_app(t)->get_decl(), num, new_args.data());
                 else
                     new_t = t;
                 if (has_term_ite && is_atom(new_t)) {

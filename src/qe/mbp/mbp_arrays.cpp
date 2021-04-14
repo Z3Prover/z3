@@ -102,7 +102,7 @@ namespace {
                 for (expr* e : v)
                     sorts.push_back (e->get_sort());
             }
-            m_decl = m.mk_func_decl (symbol (PARTIAL_EQ), sorts.size (), sorts.c_ptr (), m.mk_bool_sort ());
+            m_decl = m.mk_func_decl (symbol (PARTIAL_EQ), sorts.size (), sorts.data (), m.mk_bool_sort ());
         }
 
         expr_ref lhs () { return m_lhs; }
@@ -117,9 +117,9 @@ namespace {
                 args.push_back (m_lhs);
                 args.push_back (m_rhs);
                 for (auto const& v : m_diff_indices) {
-                    args.append (v.size(), v.c_ptr());
+                    args.append (v.size(), v.data());
                 }
-                m_peq = m.mk_app (m_decl, args.size (), args.c_ptr ());
+                m_peq = m.mk_app (m_decl, args.size (), args.data ());
             }
             return m_peq;
         }
@@ -135,7 +135,7 @@ namespace {
                 for (expr_ref_vector const& diff : m_diff_indices) {
                     ptr_vector<expr> store_args;
                     store_args.push_back (rhs);
-                    store_args.append (diff.size(), diff.c_ptr());
+                    store_args.append (diff.size(), diff.data());
                     app_ref val(m.mk_fresh_const ("diff", val_sort), m);
                     store_args.push_back (val);
                     aux_consts.push_back (val);
@@ -306,7 +306,7 @@ namespace mbp {
                 if (!all_done) continue;
                 todo.pop_back ();
 
-                expr_ref a_new (m.mk_app (a->get_decl (), args.size (), args.c_ptr ()), m);
+                expr_ref a_new (m.mk_app (a->get_decl (), args.size (), args.data ()), m);
 
                 // if a_new is select on m_v, introduce new constant
                 if (m_arr_u.is_select (a) &&
@@ -358,7 +358,7 @@ namespace mbp {
                 // mk val term
                 ptr_vector<expr> sel_args;
                 sel_args.push_back (arr);
-                sel_args.append(I[i].size(), I[i].c_ptr());
+                sel_args.append(I[i].size(), I[i].data());
                 expr_ref val_term (m_arr_u.mk_select (sel_args), m);
                 // evaluate and assign to ith diff_val_const
                 val = (*m_mev)(val_term);
@@ -452,7 +452,7 @@ namespace mbp {
                         // arr1[idx] == x
                         ptr_vector<expr> sel_args;
                         sel_args.push_back (arr1);
-                        sel_args.append(idxs.size(), idxs.c_ptr());
+                        sel_args.append(idxs.size(), idxs.data());
                         expr_ref arr1_idx (m_arr_u.mk_select (sel_args), m);
                         expr_ref eq (m.mk_eq (arr1_idx, x), m);
                         m_aux_lits_v.push_back (eq);
@@ -774,7 +774,7 @@ namespace mbp {
                 todo.pop_back ();
 
                 if (dirty) {
-                    r = m.mk_app (a->get_decl (), args.size (), args.c_ptr ());
+                    r = m.mk_app (a->get_decl (), args.size (), args.data ());
                     m_pinned.push_back (r);
                 }
                 else {
@@ -1073,7 +1073,7 @@ namespace mbp {
                 for (unsigned i = start; i < m_idxs.size(); ++i) {
                     xs.append(m_idxs[i].idx);
                 }
-                m_idx_lits.push_back(m.mk_distinct(xs.size(), xs.c_ptr()));
+                m_idx_lits.push_back(m.mk_distinct(xs.size(), xs.data()));
             }
             else {
                 datatype::util dt(m);
@@ -1085,7 +1085,7 @@ namespace mbp {
                     name << "get" << (i++);
                     acc.push_back(mk_accessor_decl(m, symbol(name.str()), type_ref(x->get_sort())));
                 }
-                constructor_decl* constrs[1] = { mk_constructor_decl(symbol("tuple"), symbol("is-tuple"), acc.size(), acc.c_ptr()) };
+                constructor_decl* constrs[1] = { mk_constructor_decl(symbol("tuple"), symbol("is-tuple"), acc.size(), acc.data()) };
                 datatype::def* dts = mk_datatype_decl(dt, symbol("tuple"), 0, nullptr, 1, constrs);
                 VERIFY(dt.plugin().mk_datatypes(1, &dts, 0, nullptr, srts));
                 del_datatype_decl(dts);
@@ -1093,9 +1093,9 @@ namespace mbp {
                 ptr_vector<func_decl> const & decls = *dt.get_datatype_constructors(tuple);
                 expr_ref_vector xs(m);
                 for (unsigned i = start; i < m_idxs.size(); ++i) {
-                    xs.push_back(m.mk_app(decls[0], m_idxs[i].idx.size(), m_idxs[i].idx.c_ptr()));
+                    xs.push_back(m.mk_app(decls[0], m_idxs[i].idx.size(), m_idxs[i].idx.data()));
                 }
-                m_idx_lits.push_back(m.mk_distinct(xs.size(), xs.c_ptr()));
+                m_idx_lits.push_back(m.mk_distinct(xs.size(), xs.data()));
             }
         }
 
@@ -1273,7 +1273,7 @@ namespace mbp {
 
                     args[0] = result;
                     args.push_back(var);
-                    result = a.mk_store(args.size(), args.c_ptr());
+                    result = a.mk_store(args.size(), args.data());
                 }
                 expr_safe_replace sub(m);
                 sub.insert(s, result);

@@ -359,7 +359,7 @@ namespace smt {
         if (empty()) return nullptr;
         init();
         m_params[0] = parameter(symbol(name));
-        return m_params.c_ptr();
+        return m_params.data();
     }
 
     // -----------------------------------
@@ -746,8 +746,8 @@ namespace smt {
                 a.push_eq(e, coeff, proofs_enabled);
         }
         else {
-            a.append(m_lits.size(), m_lits.c_ptr());
-            a.append(m_eqs.size(),  m_eqs.c_ptr());
+            a.append(m_lits.size(), m_lits.data());
+            a.append(m_eqs.size(),  m_eqs.data());
         }
     }
 

@@ -280,7 +280,7 @@ extern "C" {
         to_optimize_ptr(o)->get_lower(idx, es);
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
-        v->m_ast_vector.append(es.size(), (ast*const*)es.c_ptr());
+        v->m_ast_vector.append(es.size(), (ast*const*)es.data());
         RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(nullptr);
     }
@@ -294,7 +294,7 @@ extern "C" {
         to_optimize_ptr(o)->get_upper(idx, es);
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
-        v->m_ast_vector.append(es.size(), (ast*const*)es.c_ptr());
+        v->m_ast_vector.append(es.size(), (ast*const*)es.data());
         RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(nullptr);
     }

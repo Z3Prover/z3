@@ -209,7 +209,7 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
 
     template<typename V>
     app * mk_mkbv(V const & bits) {
-        return m().mk_app(butil().get_family_id(), OP_MKBV, bits.size(), bits.c_ptr());
+        return m().mk_app(butil().get_family_id(), OP_MKBV, bits.size(), bits.data());
     }
 
     void mk_const(func_decl * f, expr_ref & result) {
@@ -241,7 +241,7 @@ void OP(expr * arg, expr_ref & result) {                        \
     m_in1.reset();                                              \
     get_bits(arg, m_in1);                                       \
     m_out.reset();                                              \
-    m_blaster.BB_OP(m_in1.size(), m_in1.c_ptr(), m_out);        \
+    m_blaster.BB_OP(m_in1.size(), m_in1.data(), m_out);        \
     result = mk_mkbv(m_out);                                    \
 }
 
@@ -255,7 +255,7 @@ void OP(expr * arg1, expr * arg2, expr_ref & result) {                  \
     get_bits(arg1, m_in1);                                              \
     get_bits(arg2, m_in2);                                              \
     m_out.reset();                                                      \
-    m_blaster.BB_OP(m_in1.size(), m_in1.c_ptr(), m_in2.c_ptr(), m_out); \
+    m_blaster.BB_OP(m_in1.size(), m_in1.data(), m_in2.data(), m_out); \
     result = mk_mkbv(m_out);                                            \
 }
 
@@ -294,7 +294,7 @@ void OP(expr * arg1, expr * arg2, expr_ref & result) {                          
     m_in1.reset(); m_in2.reset();                                               \
     get_bits(arg1, m_in1);                                                      \
     get_bits(arg2, m_in2);                                                      \
-    m_blaster.BB_OP(m_in1.size(), m_in1.c_ptr(), m_in2.c_ptr(), result);        \
+    m_blaster.BB_OP(m_in1.size(), m_in1.data(), m_in2.data(), result);        \
 }
 
     MK_BIN_PRED_REDUCE(reduce_eq,  mk_eq);
@@ -309,7 +309,7 @@ void OP(expr * arg, unsigned n, expr_ref & result) {            \
     m_in1.reset();                                              \
     get_bits(arg, m_in1);                                       \
     m_out.reset();                                              \
-    m_blaster.BB_OP(m_in1.size(), m_in1.c_ptr(), n, m_out);     \
+    m_blaster.BB_OP(m_in1.size(), m_in1.data(), n, m_out);     \
     result = mk_mkbv(m_out);                                    \
 }
 
@@ -321,7 +321,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
         get_bits(arg2, m_in1);
         get_bits(arg3, m_in2);
         m_out.reset();
-        m_blaster.mk_multiplexer(arg1, m_in1.size(), m_in1.c_ptr(), m_in2.c_ptr(), m_out);
+        m_blaster.mk_multiplexer(arg1, m_in1.size(), m_in1.data(), m_in2.data(), m_out);
         result = mk_mkbv(m_out);
     }
 
@@ -332,7 +332,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
             i--;
             m_in1.reset();
             get_bits(args[i], m_in1);
-            m_out.append(m_in1.size(), m_in1.c_ptr());
+            m_out.append(m_in1.size(), m_in1.data());
         }
         result = mk_mkbv(m_out);
     }
@@ -657,7 +657,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
                 new_decl_names.push_back(n);
             }
         }
-        result = m().mk_quantifier(old_q->get_kind(), new_decl_sorts.size(), new_decl_sorts.c_ptr(), new_decl_names.c_ptr(),
+        result = m().mk_quantifier(old_q->get_kind(), new_decl_sorts.size(), new_decl_sorts.data(), new_decl_names.data(),
                                    new_body, old_q->get_weight(), old_q->get_qid(), old_q->get_skid(),
                                    old_q->get_num_patterns(), new_patterns, old_q->get_num_no_patterns(), new_no_patterns);
         result_pr = nullptr;

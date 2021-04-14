@@ -263,7 +263,7 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
                                                                 body.get())));
             for (unsigned i = 0; i < f_i->num_entries(); i++)
                 f_entries.push_back(mk_string(m, ")"));
-            body = mk_compose(m, f_entries.size(), f_entries.c_ptr());
+            body = mk_compose(m, f_entries.size(), f_entries.data());
         }
         format_ref def(fm(m));
         std::string fname;

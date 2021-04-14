@@ -539,7 +539,7 @@ namespace smt {
         literal_vector & antecedents = m_tmp_literals;
         antecedents.reset();
         get_antecedents(source, target, antecedents);
-        ctx.assign(l, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), antecedents.size(), antecedents.c_ptr(), l)));
+        ctx.assign(l, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), antecedents.size(), antecedents.data(), l)));
     }
     
     template<typename Ext>
@@ -592,10 +592,10 @@ namespace smt {
             if (l != null_literal)
                 antecedents.push_back(l);
             region & r    = ctx.get_region();
-            ctx.set_conflict(ctx.mk_justification(theory_conflict_justification(get_id(), r, antecedents.size(), antecedents.c_ptr())));
+            ctx.set_conflict(ctx.mk_justification(theory_conflict_justification(get_id(), r, antecedents.size(), antecedents.data())));
 
             if (dump_lemmas()) {
-                ctx.display_lemma_as_smt_problem(antecedents.size(), antecedents.c_ptr(), false_literal);
+                ctx.display_lemma_as_smt_problem(antecedents.size(), antecedents.data(), false_literal);
             }
 
             return;
@@ -962,7 +962,7 @@ namespace smt {
             vars[0] = e.m_target;
             vars[1] = e.m_source;
             vars[2] = base_var;
-            S.add_row(base_var, 3, vars.c_ptr(), coeffs.c_ptr());
+            S.add_row(base_var, 3, vars.data(), coeffs.data());
             // t - s <= w
             // =>
             // t - s - b = 0, b <= w
@@ -984,7 +984,7 @@ namespace smt {
         }
         coeffs.push_back(mpq(1));
         vars.push_back(w);
-        Simplex::row row = S.add_row(w, vars.size(), vars.c_ptr(), coeffs.c_ptr());
+        Simplex::row row = S.add_row(w, vars.size(), vars.data(), coeffs.data());
         
         TRACE("opt", S.display(tout); display(tout););
         
@@ -1098,7 +1098,7 @@ namespace smt {
         else {
             // 
             expr_ref_vector const& core = m_objective_assignments[v];
-            f = m.mk_and(core.size(), core.c_ptr());
+            f = m.mk_and(core.size(), core.data());
             if (is_strict) {
                 f = m.mk_not(f);
             }
@@ -1114,7 +1114,7 @@ namespace smt {
             }
             else {
                 expr_ref_vector const& core = m_objective_assignments[v];
-                f = m.mk_and(core.size(), core.c_ptr());
+                f = m.mk_and(core.size(), core.data());
             }
         }
         else {

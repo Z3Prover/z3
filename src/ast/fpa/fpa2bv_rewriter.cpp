@@ -225,7 +225,7 @@ bool fpa2bv_rewriter_cfg::reduce_quantifier(
             new_decl_names.push_back(n);
         }
     }
-    result = m().mk_quantifier(old_q->get_kind(), new_decl_sorts.size(), new_decl_sorts.c_ptr(), new_decl_names.c_ptr(),
+    result = m().mk_quantifier(old_q->get_kind(), new_decl_sorts.size(), new_decl_sorts.data(), new_decl_names.data(),
                                new_body, old_q->get_weight(), old_q->get_qid(), old_q->get_skid(),
                                old_q->get_num_patterns(), new_patterns, old_q->get_num_no_patterns(), new_no_patterns);
     result_pr = nullptr;

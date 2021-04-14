@@ -21,9 +21,9 @@ void tst_horn_subsume_model_converter() {
     ints.push_back(a.mk_int());
 
     func_decl_ref p(m), q(m), r(m);
-    p = m.mk_func_decl(symbol("p"), 2, ints.c_ptr(), m.mk_bool_sort());
-    q = m.mk_func_decl(symbol("q"), 2, ints.c_ptr(), m.mk_bool_sort());
-    r = m.mk_func_decl(symbol("r"), 2, ints.c_ptr(), m.mk_bool_sort());
+    p = m.mk_func_decl(symbol("p"), 2, ints.data(), m.mk_bool_sort());
+    q = m.mk_func_decl(symbol("q"), 2, ints.data(), m.mk_bool_sort());
+    r = m.mk_func_decl(symbol("r"), 2, ints.data(), m.mk_bool_sort());
 
     ref<horn_subsume_model_converter> mc = alloc(horn_subsume_model_converter,m);
     model_ref mr = alloc(model, m);

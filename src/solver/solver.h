@@ -158,9 +158,9 @@ public:
 
     lbool check_sat(unsigned num_assumptions, expr * const * assumptions);
 
-    lbool check_sat(expr_ref_vector const& asms) { return check_sat(asms.size(), asms.c_ptr()); }
+    lbool check_sat(expr_ref_vector const& asms) { return check_sat(asms.size(), asms.data()); }
     
-    lbool check_sat(app_ref_vector const& asms) { return check_sat(asms.size(), (expr* const*)asms.c_ptr()); }
+    lbool check_sat(app_ref_vector const& asms) { return check_sat(asms.size(), (expr* const*)asms.data()); }
 
     lbool check_sat() { return check_sat(0, nullptr); }
 
@@ -171,7 +171,7 @@ public:
        assumed for the check.
     */
     virtual lbool check_sat_cc(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) {
-        if (clauses.empty()) return check_sat(cube.size(), cube.c_ptr());
+        if (clauses.empty()) return check_sat(cube.size(), cube.data());
         NOT_IMPLEMENTED_YET();
         return l_undef;
     }

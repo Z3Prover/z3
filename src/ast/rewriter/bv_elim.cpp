@@ -58,7 +58,7 @@ bool bv_elim_cfg::reduce_quantifier(quantifier * q,
                 _sorts.push_back(m.mk_bool_sort());
                 _names.push_back(symbol(new_name.str()));
             }
-            bv = m.mk_app(bfid, OP_MKBV, 0, nullptr, args.size(), args.c_ptr());
+            bv = m.mk_app(bfid, OP_MKBV, 0, nullptr, args.size(), args.data());
             _subst_map.push_back(bv.get());
         }
         else {
@@ -84,7 +84,7 @@ bool bv_elim_cfg::reduce_quantifier(quantifier * q,
         subst_map.push_back(_subst_map[i]);
     }
 
-    expr* const* sub  = subst_map.c_ptr();
+    expr* const* sub  = subst_map.data();
     unsigned sub_size = subst_map.size();
 
     new_body = subst(old_body, sub_size, sub);
@@ -98,14 +98,14 @@ bool bv_elim_cfg::reduce_quantifier(quantifier * q,
 
     result = m.mk_quantifier(forall_k, 
                         names.size(),
-                        sorts.c_ptr(),
-                        names.c_ptr(),
+                        sorts.data(),
+                        names.data(),
                         new_body.get(),
                         q->get_weight(),
                         q->get_qid(),
                         q->get_skid(),
-                        pats.size(), pats.c_ptr(),
-                        no_pats.size(), no_pats.c_ptr());
+                        pats.size(), pats.data(),
+                        no_pats.size(), no_pats.data());
     result_pr = m.mk_rewrite(q, result);
     return true;
 }

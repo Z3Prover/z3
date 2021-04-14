@@ -447,7 +447,7 @@ namespace arith {
                 vars.push_back(register_theory_var_in_lar_solver(w));
             ensure_nla();
             m_solver->register_existing_terms();
-            m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
+            m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.data());
         }
         return v;
     }
@@ -470,7 +470,7 @@ namespace arith {
             TRACE("arith", tout << "v" << v << " := " << mk_pp(t, m) << "\n" << vars << "\n";);
             m_solver->register_existing_terms();
             ensure_nla();
-            m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
+            m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.data());
         }
         return v;
     }
@@ -572,7 +572,7 @@ namespace arith {
             if (reflect(e))
                 for (expr* arg : *to_app(e))
                     args.push_back(e_internalize(arg));
-            n = ctx.mk_enode(e, args.size(), args.c_ptr());
+            n = ctx.mk_enode(e, args.size(), args.data());
             ctx.attach_node(n);
         }
         return n;

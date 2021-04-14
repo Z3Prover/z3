@@ -127,7 +127,7 @@ namespace smt {
                 return nullptr;
             buffer.push_back(arg);
         }
-        enode * e = m_context.get_enode_eq_to(n->get_decl(), num, buffer.c_ptr());
+        enode * e = m_context.get_enode_eq_to(n->get_decl(), num, buffer.data());
         if (e == nullptr)
             return nullptr;
         return m_context.is_relevant(e) ? e : nullptr;

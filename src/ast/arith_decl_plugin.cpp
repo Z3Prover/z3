@@ -336,8 +336,8 @@ void arith_decl_plugin::finalize() {
     DEC_REF(m_neg_root_decl);
     DEC_REF(m_u_asin_decl);
     DEC_REF(m_u_acos_decl);
-    m_manager->dec_array_ref(m_small_ints.size(), m_small_ints.c_ptr());
-    m_manager->dec_array_ref(m_small_reals.size(), m_small_reals.c_ptr());
+    m_manager->dec_array_ref(m_small_ints.size(), m_small_ints.data());
+    m_manager->dec_array_ref(m_small_reals.size(), m_small_reals.data());
 }
 
 sort * arith_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
@@ -762,7 +762,7 @@ algebraic_numbers::anum const & arith_util::to_irrational_algebraic_numeral(expr
 }
 
 expr_ref arith_util::mk_mul_simplify(expr_ref_vector const& args) {
-    return mk_mul_simplify(args.size(), args.c_ptr());
+    return mk_mul_simplify(args.size(), args.data());
 
 }
 expr_ref arith_util::mk_mul_simplify(unsigned sz, expr* const* args) {
@@ -783,7 +783,7 @@ expr_ref arith_util::mk_mul_simplify(unsigned sz, expr* const* args) {
 }
 
 expr_ref arith_util::mk_add_simplify(expr_ref_vector const& args) {
-    return mk_add_simplify(args.size(), args.c_ptr());
+    return mk_add_simplify(args.size(), args.data());
 
 }
 expr_ref arith_util::mk_add_simplify(unsigned sz, expr* const* args) {

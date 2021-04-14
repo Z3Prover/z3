@@ -107,7 +107,7 @@ public:
     unsigned num_entries() const { return m_entries.size(); }
     ptr_vector<func_entry>::const_iterator begin() const { return m_entries.begin(); }
     ptr_vector<func_entry>::const_iterator end() const { return m_entries.end(); }
-    func_entry const * const * get_entries() const { return m_entries.c_ptr(); }
+    func_entry const * const * get_entries() const { return m_entries.data(); }
     func_entry const * get_entry(unsigned idx) const { return m_entries[idx]; }
     void del_entry(unsigned idx);
 

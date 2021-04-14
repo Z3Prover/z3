@@ -173,7 +173,7 @@ class test_doc_cls {
             default: break;
             }
         }
-        result = mk_and(m, conjs.size(), conjs.c_ptr());
+        result = mk_and(m, conjs.size(), conjs.data());
         return result;
     }
 
@@ -197,7 +197,7 @@ class test_doc_cls {
                 break;
             }
         }
-        result = mk_and(m, conjs.size(), conjs.c_ptr());
+        result = mk_and(m, conjs.size(), conjs.data());
         return result;
     }
 
@@ -208,7 +208,7 @@ class test_doc_cls {
         for (unsigned i = 0; i < d.neg().size(); ++i) {
             conjs.push_back(m.mk_not(to_formula(d.neg()[i], m2)));
         }
-        result = mk_and(m, conjs.size(), conjs.c_ptr());
+        result = mk_and(m, conjs.size(), conjs.data());
         return result;
     }
 
@@ -218,7 +218,7 @@ class test_doc_cls {
         for (unsigned i = 0; i < ud.size(); ++i) {
             disjs.push_back(to_formula(ud[i], m2));
         }
-        result = mk_or(m, disjs.size(), disjs.c_ptr());
+        result = mk_or(m, disjs.size(), disjs.data());
         return result;
     }
 
@@ -299,7 +299,7 @@ class test_doc_cls {
             fmls.push_back(m.mk_not(mk_conj(*t)));
             d->neg().push_back(t);
         }
-        fml1 = mk_and(m, fmls.size(), fmls.c_ptr());
+        fml1 = mk_and(m, fmls.size(), fmls.data());
         bool_vector to_merge(N, false);
         bit_vector discard_cols;
         discard_cols.resize(N, false);
@@ -321,7 +321,7 @@ class test_doc_cls {
             }
         }
         eqs.push_back(to_formula(*d, dm));
-        fml1 = mk_and(m, eqs.size(), eqs.c_ptr());
+        fml1 = mk_and(m, eqs.size(), eqs.data());
         if (dm.merge(*d, lo, 1, equalities, discard_cols)) {
             fml2 = to_formula(*d, dm);
         }

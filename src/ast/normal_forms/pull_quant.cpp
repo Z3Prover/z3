@@ -150,9 +150,9 @@ struct pull_quant::imp {
                 std::reverse(var_names.begin(), var_names.end());
                 result = m.mk_quantifier(forall_children ? forall_k : exists_k,
                                                  var_sorts.size(),
-                                                 var_sorts.c_ptr(),
-                                                 var_names.c_ptr(),
-                                                 m.mk_app(d, new_adjusted_children.size(), new_adjusted_children.c_ptr()),
+                                                 var_sorts.data(),
+                                                 var_names.data(),
+                                                 m.mk_app(d, new_adjusted_children.size(), new_adjusted_children.data()),
                                                  w,
                                                  qid);
                 return true;
@@ -184,8 +184,8 @@ struct pull_quant::imp {
             // Remark: patterns are ignored.
             // See comment in reduce1_app
             result = m.mk_forall(var_sorts.size(),
-                                         var_sorts.c_ptr(),
-                                         var_names.c_ptr(),
+                                         var_sorts.data(),
+                                         var_names.data(),
                                          nested_q->get_expr(),
                                          std::min(q->get_weight(), nested_q->get_weight()),
                                          q->get_qid());
@@ -225,10 +225,10 @@ struct pull_quant::imp {
                     if (new_arg != arg)
                         proofs.push_back(m.mk_pull_quant(arg, to_quantifier(new_arg)));
                 }
-                pull_quant1(to_app(n)->get_decl(), new_args.size(), new_args.c_ptr(), r);
+                pull_quant1(to_app(n)->get_decl(), new_args.size(), new_args.data(), r);
                 if (m.proofs_enabled()) {
-                    app   * r1 = m.mk_app(to_app(n)->get_decl(), new_args.size(), new_args.c_ptr());
-                    proof * p1 = proofs.empty() ? nullptr : m.mk_congruence(to_app(n), r1, proofs.size(), proofs.c_ptr());
+                    app   * r1 = m.mk_app(to_app(n)->get_decl(), new_args.size(), new_args.data());
+                    proof * p1 = proofs.empty() ? nullptr : m.mk_congruence(to_app(n), r1, proofs.size(), proofs.data());
                     proof * p2 = r1 == r ? nullptr : m.mk_pull_quant(r1, to_quantifier(r));
                     pr = m.mk_transitivity(p1, p2);
                 }

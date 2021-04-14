@@ -613,7 +613,7 @@ namespace datalog {
             (*m_filter)(*t1);
             if( !m_project) {
                 relation_manager & rmgr = t1->get_plugin().get_manager();
-                m_project = rmgr.mk_project_fn(*t1, m_removed_cols.size(), m_removed_cols.c_ptr());
+                m_project = rmgr.mk_project_fn(*t1, m_removed_cols.size(), m_removed_cols.data());
                 if (!m_project) {
                     throw default_exception("projection does not exist");
                 }
@@ -685,7 +685,7 @@ namespace datalog {
             scoped_rel<relation_base> aux = (*m_join)(t1, t2);
             if(!m_project) {
                 relation_manager & rmgr = aux->get_plugin().get_manager();
-                m_project = rmgr.mk_project_fn(*aux, m_removed_cols.size(), m_removed_cols.c_ptr());
+                m_project = rmgr.mk_project_fn(*aux, m_removed_cols.size(), m_removed_cols.data());
                 if(!m_project) {
                     throw default_exception("projection does not exist");
                 }
@@ -842,7 +842,7 @@ namespace datalog {
         unsigned_vector join_removed_cols;
         add_sequence(tgt.get_signature().size(), src.get_signature().size(), join_removed_cols);
         scoped_rel<relation_join_fn> join_fun = mk_join_project_fn(tgt, src, joined_col_cnt, tgt_cols, src_cols,
-            join_removed_cols.size(), join_removed_cols.c_ptr(), false);
+            join_removed_cols.size(), join_removed_cols.data(), false);
         if(!join_fun) {
             return nullptr;
         }
@@ -1100,7 +1100,7 @@ namespace datalog {
                 if(get_result_signature().functional_columns()!=0) {
                     //to preserve functional columns we need to do the project_with_reduction
                     unreachable_reducer * reducer = alloc(unreachable_reducer);
-                    m_project = rmgr.mk_project_with_reduce_fn(*aux, m_removed_cols.size(), m_removed_cols.c_ptr(), reducer);
+                    m_project = rmgr.mk_project_with_reduce_fn(*aux, m_removed_cols.size(), m_removed_cols.data(), reducer);
                 }
                 else {
                     m_project = rmgr.mk_project_fn(*aux, m_removed_cols);
@@ -1250,11 +1250,11 @@ namespace datalog {
             for (table_base::row_interface& a : r) {
                 a.get_fact(m_row);
                 if (should_remove(m_row)) {
-                    m_to_remove.append(m_row.size(), m_row.c_ptr());
+                    m_to_remove.append(m_row.size(), m_row.data());
                     ++sz;
                 }
             }
-            r.remove_facts(sz, m_to_remove.c_ptr());
+            r.remove_facts(sz, m_to_remove.data());
         }
     };
 
@@ -1444,7 +1444,7 @@ namespace datalog {
             (*m_filter)(*t2);
             if (!m_project) {
                 relation_manager & rmgr = t2->get_plugin().get_manager();
-                m_project = rmgr.mk_project_fn(*t2, m_removed_cols.size(), m_removed_cols.c_ptr());
+                m_project = rmgr.mk_project_fn(*t2, m_removed_cols.size(), m_removed_cols.data());
                 if (!m_project) {
                     throw default_exception("projection does not exist");
                 }
@@ -1599,7 +1599,7 @@ namespace datalog {
 
             for (table_base::row_interface& a : t) {
                 a.get_fact(m_curr_fact);
-                if((*m_mapper)(m_curr_fact.c_ptr()+m_first_functional)) {
+                if((*m_mapper)(m_curr_fact.data()+m_first_functional)) {
                     m_aux_table->add_fact(m_curr_fact);
                 }
             }
@@ -1683,7 +1683,7 @@ namespace datalog {
             for (; it != end; ++it) {
                 mk_project(it);
                 if (!res->suggest_fact(m_former_row)) {
-                    (*m_reducer)(m_former_row.c_ptr()+m_res_first_functional, m_row.c_ptr()+m_res_first_functional);
+                    (*m_reducer)(m_former_row.data()+m_res_first_functional, m_row.data()+m_res_first_functional);
                     res->ensure_fact(m_former_row);
                 }
             }

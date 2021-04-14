@@ -77,12 +77,12 @@ namespace recfun {
 
         app_ref apply_case_predicate(expr_ref_vector const & args) const {
             ast_manager& m = m_pred.get_manager();
-            return app_ref(m.mk_app(m_pred, args.size(), args.c_ptr()), m);
+            return app_ref(m.mk_app(m_pred, args.size(), args.data()), m);
         }
 
         def * get_def() const { return m_def; }
         expr_ref_vector const & get_guards() const { return m_guards; }
-        expr * get_guards_c_ptr() const { return *m_guards.c_ptr(); }
+        expr * get_guards_c_ptr() const { return *m_guards.data(); }
         expr * get_guard(unsigned i) const { return m_guards[i]; }
         expr * get_rhs() const { return m_rhs; }
         unsigned num_guards() const { return m_guards.size(); }
@@ -256,11 +256,11 @@ namespace recfun {
         }
 
         app* mk_fun_defined(def const & d, ptr_vector<expr> const & args) {
-            return mk_fun_defined(d, args.size(), args.c_ptr());
+            return mk_fun_defined(d, args.size(), args.data());
         }
 
         app* mk_fun_defined(def const & d, expr_ref_vector const & args) {
-            return mk_fun_defined(d, args.size(), args.c_ptr());
+            return mk_fun_defined(d, args.size(), args.data());
         }
 
         func_decl_ref_vector get_rec_funs() {

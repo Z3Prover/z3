@@ -159,7 +159,7 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
                           << " --> " << mk_pp(e, m_manager) << "\n";);
                 }
                 else {
-                    expr * new_expr = m_manager.mk_app(to_app(e)->get_decl(), new_args.size(), new_args.c_ptr());
+                    expr * new_expr = m_manager.mk_app(to_app(e)->get_decl(), new_args.size(), new_args.data());
                     m_new_exprs.push_back(new_expr);
                     m_apply_cache.insert(n, new_expr);
                     TRACE("subst_bug", tout << "3. insert n: " << mk_pp(n.get_expr(), m_manager) << " : " << n.get_offset() 
@@ -203,7 +203,7 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
                 no_pats.push_back(std::move(er));
             }
             subst.apply(num_actual_offsets, deltas, body, s1, t1, er);
-            er = m_manager.update_quantifier(q, pats.size(), pats.c_ptr(), no_pats.size(), no_pats.c_ptr(), er);
+            er = m_manager.update_quantifier(q, pats.size(), pats.data(), no_pats.size(), no_pats.data(), er);
             m_todo.pop_back();
             m_apply_cache.insert(n, er);
             m_new_exprs.push_back(std::move(er));

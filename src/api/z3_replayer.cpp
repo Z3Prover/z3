@@ -628,25 +628,25 @@ struct z3_replayer::imp {
     unsigned * get_uint_array(unsigned pos) const {
         check_arg(pos, UINT_ARRAY);
         unsigned idx = static_cast<unsigned>(m_args[pos].m_uint);
-        return m_unsigned_arrays[idx].c_ptr();
+        return m_unsigned_arrays[idx].data();
     }
 
     int * get_int_array(unsigned pos) const {
         check_arg(pos, INT_ARRAY);
         unsigned idx = static_cast<unsigned>(m_args[pos].m_uint);
-        return m_int_arrays[idx].c_ptr();
+        return m_int_arrays[idx].data();
     }
 
     bool * get_bool_array(unsigned pos) const {
         check_arg(pos, UINT_ARRAY);
         unsigned idx = static_cast<unsigned>(m_args[pos].m_uint);
-        return reinterpret_cast<bool*>(m_unsigned_arrays[idx].c_ptr());
+        return reinterpret_cast<bool*>(m_unsigned_arrays[idx].data());
     }
 
     Z3_symbol * get_symbol_array(unsigned pos) const {
         check_arg(pos, SYMBOL_ARRAY);
         unsigned idx = static_cast<unsigned>(m_args[pos].m_uint);
-        return m_sym_arrays[idx].c_ptr();
+        return m_sym_arrays[idx].data();
     }
 
     void ** get_obj_array(unsigned pos) const {
@@ -655,7 +655,7 @@ struct z3_replayer::imp {
         ptr_vector<void> const & v = m_obj_arrays[idx];
         TRACE("z3_replayer_bug", tout << "pos: " << pos << ", idx: " << idx << " size(): " << v.size() << "\n";
               for (unsigned i = 0; i < v.size(); i++) tout << v[i] << " "; tout << "\n";);
-        return v.c_ptr();
+        return v.data();
     }
 
     int * get_int_addr(unsigned pos) {

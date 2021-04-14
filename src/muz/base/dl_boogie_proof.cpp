@@ -113,10 +113,10 @@ namespace datalog {
                         }
                     }
                 }
-                premises[i] = m.mk_hyper_resolve(premises2.size(), premises2.c_ptr(), l2, positions2, substs2);
+                premises[i] = m.mk_hyper_resolve(premises2.size(), premises2.data(), l2, positions2, substs2);
             }        
             conclusion = conclusion1;
-            pr = m.mk_hyper_resolve(premises.size(), premises.c_ptr(), conclusion, positions, substs);
+            pr = m.mk_hyper_resolve(premises.size(), premises.data(), conclusion, positions, substs);
         }
     }
     

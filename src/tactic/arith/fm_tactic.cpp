@@ -162,16 +162,16 @@ class fm_tactic : public tactic {
         fm_model_converter(ast_manager & _m):m(_m) {}
 
         ~fm_model_converter() override {
-            m.dec_array_ref(m_xs.size(), m_xs.c_ptr());
+            m.dec_array_ref(m_xs.size(), m_xs.data());
             vector<clauses>::iterator it  = m_clauses.begin();
             vector<clauses>::iterator end = m_clauses.end();
             for (; it != end; ++it)
-                m.dec_array_ref(it->size(), it->c_ptr());
+                m.dec_array_ref(it->size(), it->data());
         }
         
         void insert(func_decl * x, clauses & c) {
             m.inc_ref(x);
-            m.inc_array_ref(c.size(), c.c_ptr());
+            m.inc_array_ref(c.size(), c.data());
             m_xs.push_back(x);
             m_clauses.push_back(clauses());
             m_clauses.back().swap(c);
@@ -531,7 +531,7 @@ class fm_tactic : public tactic {
         }
         
         void reset_constraints() {
-            del_constraints(m_constraints.size(), m_constraints.c_ptr());
+            del_constraints(m_constraints.size(), m_constraints.data());
             m_constraints.reset();
         }
         
@@ -897,7 +897,7 @@ class fm_tactic : public tactic {
                 if (c.m_num_vars == 1)
                     lhs = ms[0];
                 else
-                    lhs = m_util.mk_add(ms.size(), ms.c_ptr());
+                    lhs = m_util.mk_add(ms.size(), ms.data());
                 expr * rhs = m_util.mk_numeral(c.m_c, int_cnstr);
                 if (c.m_strict) {
                     ineq = m.mk_not(m_util.mk_ge(lhs, rhs));
@@ -927,7 +927,7 @@ class fm_tactic : public tactic {
             if (lits.size() == 1)
                 return to_app(lits[0]);
             else
-                return m.mk_or(lits.size(), lits.c_ptr());
+                return m.mk_or(lits.size(), lits.data());
         }
         
         var mk_var(expr * t) {
@@ -1060,7 +1060,7 @@ class fm_tactic : public tactic {
                         if (!is_int(xs.back()))
                             all_int = false;
                     }
-                    mk_int(as.size(), as.c_ptr(), c);
+                    mk_int(as.size(), as.data(), c);
                     if (all_int && strict) {
                         strict = false;
                         c--;
@@ -1071,10 +1071,10 @@ class fm_tactic : public tactic {
             TRACE("to_var_bug", tout << "before mk_constraint: "; for (unsigned i = 0; i < xs.size(); i++) tout << " " << xs[i]; tout << "\n";);
             
             constraint * new_c = mk_constraint(lits.size(),
-                                               lits.c_ptr(),
+                                               lits.data(),
                                                xs.size(),
-                                               xs.c_ptr(),
-                                               as.c_ptr(),
+                                               xs.data(),
+                                               as.data(),
                                                c,
                                                strict,
                                                dep);
@@ -1428,10 +1428,10 @@ class fm_tactic : public tactic {
             }
             
             constraint * new_cnstr = mk_constraint(new_lits.size(),
-                                                   new_lits.c_ptr(),
+                                                   new_lits.data(),
                                                    new_xs.size(),
-                                                   new_xs.c_ptr(),
-                                                   new_as.c_ptr(),
+                                                   new_xs.data(),
+                                                   new_as.data(),
                                                    new_c,
                                                    new_strict,
                                                    new_dep);
@@ -1488,7 +1488,7 @@ class fm_tactic : public tactic {
                 for (unsigned j = 0; j < num_uppers; j++) {
                     if (m_inconsistent || num_new_cnstrs > limit) {
                         TRACE("fm", tout << "too many new constraints: " << num_new_cnstrs << "\n";);
-                        del_constraints(new_constraints.size(), new_constraints.c_ptr());
+                        del_constraints(new_constraints.size(), new_constraints.data());
                         return false;
                     }
                     constraint const & l_c = *(l[i]);

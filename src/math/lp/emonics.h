@@ -61,7 +61,7 @@ class emonics {
             
         unsigned operator()(lpvar v) const {
             auto const& vec = v != UINT_MAX? em.m_monics[em.m_var2index[v]].rvars() : em.m_find_key;
-            return string_hash(reinterpret_cast<char const*>(vec.c_ptr()), sizeof(lpvar)*vec.size(), 10);
+            return string_hash(reinterpret_cast<char const*>(vec.data()), sizeof(lpvar)*vec.size(), 10);
         }
     };
         
@@ -155,7 +155,7 @@ public:
        \brief create a monic from an equality v := vs
     */
     void add(lpvar v, unsigned sz, lpvar const* vs);
-    void add(lpvar v, svector<lpvar> const& vs) { add(v, vs.size(), vs.c_ptr()); }
+    void add(lpvar v, svector<lpvar> const& vs) { add(v, vs.size(), vs.data()); }
     void add(lpvar v, lpvar x, lpvar y) { lpvar vs[2] = { x, y }; add(v, 2, vs); }
     void add(lpvar v, lpvar x, lpvar y, lpvar z) { lpvar vs[3] = { x, y, z }; add(v, 3, vs); }
 

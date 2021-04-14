@@ -162,7 +162,7 @@ namespace q {
             bool operator()(expr* a, expr* b) const { return (*p)(a, b); }
         };
         lt _lt(proj);
-        std::sort(values.c_ptr(), values.c_ptr() + values.size(), _lt);
+        std::sort(values.data(), values.data() + values.size(), _lt);
         unsigned j = 0;
         for (unsigned i = 0; i < values.size(); ++i)
             if (i == 0 || values.get(i - 1) != values.get(i))

@@ -62,7 +62,7 @@ public:
         for (unsigned i = 0; i < m_abstr_model->get_num_uninterpreted_sorts(); i++) {
             sort * const s = m_abstr_model->get_uninterpreted_sort(i);
             ptr_vector<expr> u = m_abstr_model->get_universe(s);
-            destination->register_usort(s, u.size(), u.c_ptr());
+            destination->register_usort(s, u.size(), u.data());
         }
         
         for (unsigned i = 0; i < m_abstr_model->get_num_functions(); i++) {
@@ -213,7 +213,7 @@ private:
         }
         // handle functions
         if (m_ackr_helper.is_uninterp_fn(a)) { // handle uninterpreted
-            app_ref key(m.mk_app(a->get_decl(), values.c_ptr()), m);
+            app_ref key(m.mk_app(a->get_decl(), values.data()), m);
             if (!make_value_uninterpreted_function(a, key.get(), result)) {
                 return false;
             }
@@ -314,7 +314,7 @@ private:
         func_decl * const fd = a->get_decl();
         const family_id fid = fd->get_family_id();
         expr_ref term(m);
-        term = m.mk_app(a->get_decl(), num, values.c_ptr());
+        term = m.mk_app(a->get_decl(), num, values.data());
         m_evaluator->operator() (term, result);
         TRACE("model_constructor",
               tout << "eval(\n" << mk_ismt2_pp(term.get(), m, 2) << "\n->"
@@ -329,11 +329,11 @@ private:
                 if (s_fid == m_bv_rw.get_fid())
                     m_bv_rw.mk_eq_core(values.get(0), values.get(1), result);
             } else {
-                m_b_rw.mk_app_core(fd, num, values.c_ptr(), result);
+                m_b_rw.mk_app_core(fd, num, values.data(), result);
             }
         } else {
             if (fid == m_bv_rw.get_fid()) {
-                m_bv_rw.mk_app_core(fd, num, values.c_ptr(), result);
+                m_bv_rw.mk_app_core(fd, num, values.data(), result);
             }
             else {
                 UNREACHABLE();

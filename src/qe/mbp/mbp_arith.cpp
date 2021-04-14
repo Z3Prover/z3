@@ -343,7 +343,7 @@ namespace mbp {
             TRACE("qe", tout << "remaining vars: " << vars << "\n"; 
                   for (unsigned v : real_vars) tout << "v" << v << " " << mk_pp(index2expr[v], m) << "\n";
                   mbo.display(tout););
-            vector<opt::model_based_opt::def> defs = mbo.project(real_vars.size(), real_vars.c_ptr(), compute_def);
+            vector<opt::model_based_opt::def> defs = mbo.project(real_vars.size(), real_vars.data(), compute_def);
 
             vector<row> rows;
             mbo.get_live_rows(rows);

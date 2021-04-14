@@ -110,31 +110,31 @@ namespace datalog {
                     // apply substitution to body.
                     var_subst vs(m, false);
                     for (unsigned k = 0; k < p->get_arity(); ++k) {
-                        trm = vs(r.get_head()->get_arg(k), sub.size(), sub.c_ptr());
+                        trm = vs(r.get_head()->get_arg(k), sub.size(), sub.data());
                         conjs.push_back(m.mk_eq(trm, mk_q_arg(p, k, true)));
                     }
                     for (unsigned j = 0; j < r.get_uninterpreted_tail_size(); ++j) {
                         func_decl* q = r.get_decl(j);
                         for (unsigned k = 0; k < q->get_arity(); ++k) {
-                            trm = vs(r.get_tail(j)->get_arg(k), sub.size(), sub.c_ptr());
+                            trm = vs(r.get_tail(j)->get_arg(k), sub.size(), sub.data());
                             conjs.push_back(m.mk_eq(trm, mk_q_arg(q, k, false)));
                         }
                         func_decl_ref qr = mk_q_func_decl(q);
                         conjs.push_back(m.mk_app(qr, m_bv.mk_bv_sub(var, mk_q_one())));
                     }
                     for (unsigned j = r.get_uninterpreted_tail_size(); j < r.get_tail_size(); ++j) {
-                        trm = vs(r.get_tail(j), sub.size(), sub.c_ptr());
+                        trm = vs(r.get_tail(j), sub.size(), sub.data());
                         conjs.push_back(trm);
                     }
                     if (r.get_uninterpreted_tail_size() > 0) {
                         conjs.push_back(m_bv.mk_ule(mk_q_one(), var));
                     }
-                    bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), rule_body);
+                    bool_rewriter(m).mk_and(conjs.size(), conjs.data(), rule_body);
                     trm = m.mk_implies(rule_i, rule_body);
                     trm = m.mk_forall(1, index_sorts, &tick, trm, 1);
                     b.assert_expr(trm);
                 }
-                bool_rewriter(m).mk_or(rules.size(), rules.c_ptr(), trm);
+                bool_rewriter(m).mk_or(rules.size(), rules.data(), trm);
                 trm = m.mk_implies(pred, trm);
                 trm = m.mk_forall(1, index_sorts, &tick, trm, 1);
                 SASSERT(is_well_sorted(m, trm));
@@ -302,7 +302,7 @@ namespace datalog {
 
                 rm.to_formula(*r, fml);
                 r2 = r;
-                rm.substitute(r2, sub.size(), sub.c_ptr());
+                rm.substitute(r2, sub.size(), sub.data());
                 proof_ref p(m);
                 if (r0) {
                     VERIFY(unifier.unify_rules(*r0.get(), 0, *r2.get()));
@@ -399,7 +399,7 @@ namespace datalog {
                 symbol nm(_name.str());
                 vars.push_back(m.mk_const(nm, level_p->get_domain(i)));
             }
-            return expr_ref(m.mk_app(level_p, vars.size(), vars.c_ptr()), m);
+            return expr_ref(m.mk_app(level_p, vars.size(), vars.data()), m);
         }
 
         void compile(rule_set const& rules, expr_ref_vector& result, unsigned level) {
@@ -441,11 +441,11 @@ namespace datalog {
                             ++num_vars;
                         }
                     }
-                    head = m.mk_app(rule_i, args.size(), args.c_ptr());
+                    head = m.mk_app(rule_i, args.size(), args.data());
                     for (unsigned i = 0; i < r.get_tail_size(); ++i) {
                         conjs.push_back(r.get_tail(i));
                     }
-                    br.mk_and(conjs.size(), conjs.c_ptr(), body);
+                    br.mk_and(conjs.size(), conjs.data(), body);
 
                     replace_by_level_predicates(level, body);
                     body = skolemize_vars(r, args, rule_vars, body);
@@ -453,7 +453,7 @@ namespace datalog {
                     body = bind_vars(body, head);
                     result.push_back(body);
                 }
-                br.mk_or(rules.size(), rules.c_ptr(), body);
+                br.mk_or(rules.size(), rules.data(), body);
                 head = apply_vars(level_pred);
                 body = m.mk_implies(head, body);
                 body = bind_vars(body, head);
@@ -545,12 +545,12 @@ namespace datalog {
             for (unsigned j = 0; j < sz; ++j) {
                 func_decl* head_j = r->get_decl(j);
                 app* body_j = r->get_tail(j);
-                prop_body = vs(body_j, sub.size(), sub.c_ptr());
+                prop_body = vs(body_j, sub.size(), sub.data());
                 prs.push_back(get_proof(md, head_j, to_app(prop_body), level-1));
                 positions.push_back(std::make_pair(j+1,0));
                 substs.push_back(expr_ref_vector(m));
             }
-            pr = m.mk_hyper_resolve(sz+1, prs.c_ptr(), prop, positions, substs);
+            pr = m.mk_hyper_resolve(sz+1, prs.data(), prop, positions, substs);
             return pr;
         }
 
@@ -585,7 +585,7 @@ namespace datalog {
             for (unsigned i = 0; i < p->get_arity(); ++i) {
                 vars.push_back(m.mk_var(i, p->get_domain(i)));
             }
-            return expr_ref(m.mk_app(p, vars.size(), vars.c_ptr()), m);
+            return expr_ref(m.mk_app(p, vars.size(), vars.data()), m);
         }
 
         // remove variables from dst that are in src.
@@ -609,7 +609,7 @@ namespace datalog {
             for (unsigned i = 0; i < vars.size(); ++i) {
                 if (vars[i]) {
                     func_decl_ref f = mk_body_func(r, arg_sorts, i, vars[i]);
-                    binding.push_back(m.mk_app(f, args.size(), args.c_ptr()));
+                    binding.push_back(m.mk_app(f, args.size(), args.data()));
                 }
                 else {
                     binding.push_back(nullptr);
@@ -621,14 +621,14 @@ namespace datalog {
         expr_ref skolemize_vars(rule& r, expr_ref_vector const& args, ptr_vector<sort> const& vars, expr* e) {
             expr_ref_vector binding = mk_skolem_binding(r, vars, args);
             var_subst vs(m, false);
-            return vs(e, binding.size(), binding.c_ptr());
+            return vs(e, binding.size(), binding.data());
         }
 
         func_decl_ref mk_body_func(rule& r, ptr_vector<sort> const& args, unsigned index, sort* s) {
             std::stringstream _name;
             _name << r.get_decl()->get_name() << "@" << index;
             symbol name(_name.str());
-            func_decl* f = m.mk_func_decl(name, args.size(), args.c_ptr(), s);
+            func_decl* f = m.mk_func_decl(name, args.size(), args.data(), s);
             return func_decl_ref(f, m);
         }
 
@@ -654,11 +654,11 @@ namespace datalog {
                 return expr_ref(e, m);
             }
             var_subst vs(m, false);
-            tmp = vs(e, binding.size(), binding.c_ptr());
-            head = vs(pat, binding.size(), binding.c_ptr());
+            tmp = vs(e, binding.size(), binding.data());
+            head = vs(pat, binding.size(), binding.data());
             patterns.push_back(m.mk_pattern(to_app(head)));
             symbol qid, skid;
-            return expr_ref(m.mk_forall(sorts.size(), sorts.c_ptr(), names.c_ptr(), tmp, 1, qid, skid, 1, patterns.c_ptr()), m);
+            return expr_ref(m.mk_forall(sorts.size(), sorts.data(), names.data(), tmp, 1, qid, skid, 1, patterns.data()), m);
         }
 
     public:
@@ -892,14 +892,14 @@ namespace datalog {
                     for (unsigned j = 0; j < arity; ++j) {
                         vars.push_back(m.mk_var(arity-j,cnstr->get_domain(j)));
                     }
-                    trace_arg = m.mk_app(cnstr, vars.size(), vars.c_ptr());
+                    trace_arg = m.mk_app(cnstr, vars.size(), vars.data());
 
                     mk_subst(r, path_var, to_app(trace_arg), sub);
 
                     // apply substitution to body.
                     var_subst vs(m, false);
                     for (unsigned k = 0; k < p->get_arity(); ++k) {
-                        tmp = vs(r.get_head()->get_arg(k), sub.size(), sub.c_ptr());
+                        tmp = vs(r.get_head()->get_arg(k), sub.size(), sub.data());
                         expr_ref arg = mk_arg(p, k, path_var, trace_arg);
                         conjs.push_back(m.mk_eq(tmp, arg));
                     }
@@ -913,7 +913,7 @@ namespace datalog {
                         }
                         func_decl* q = r.get_decl(j);
                         for (unsigned k = 0; k < q->get_arity(); ++k) {
-                            tmp = vs(r.get_tail(j)->get_arg(k), sub.size(), sub.c_ptr());
+                            tmp = vs(r.get_tail(j)->get_arg(k), sub.size(), sub.data());
                             expr_ref arg = mk_arg(q, k, path_arg, vars[j].get());
                             conjs.push_back(m.mk_eq(tmp, arg));
                         }
@@ -921,10 +921,10 @@ namespace datalog {
                         conjs.push_back(m.mk_app(q_pred, vars[j].get(), path_arg));
                     }
                     for (unsigned j = r.get_uninterpreted_tail_size(); j < r.get_tail_size(); ++j) {
-                        tmp = vs(r.get_tail(j), sub.size(), sub.c_ptr());
+                        tmp = vs(r.get_tail(j), sub.size(), sub.data());
                         conjs.push_back(tmp);
                     }
-                    bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), rule_body);
+                    bool_rewriter(m).mk_and(conjs.size(), conjs.data(), rule_body);
                     ptr_vector<sort> q_sorts;
                     vector<symbol> names;
                     for (unsigned i = 0; i < vars.size(); ++i) {
@@ -941,7 +941,7 @@ namespace datalog {
                     patterns.reset();
                     patterns.push_back(m.mk_pattern(to_app(tmp)));
                     fml = m.mk_implies(tmp, rule_body);
-                    fml = m.mk_forall(vars.size(), q_sorts.c_ptr(), names.c_ptr(), fml, 1, qid, skid, 1, patterns.c_ptr());
+                    fml = m.mk_forall(vars.size(), q_sorts.data(), names.data(), fml, 1, qid, skid, 1, patterns.data());
                     b.assert_expr(fml);
                 }
             }
@@ -980,16 +980,16 @@ namespace datalog {
                     symbol name(_name.str());
                     _name << '?';
                     symbol is_name(_name.str());
-                    cnstrs.push_back(mk_constructor_decl(name, is_name, accs.size(), accs.c_ptr()));
+                    cnstrs.push_back(mk_constructor_decl(name, is_name, accs.size(), accs.data()));
                 }
-                dts.push_back(mk_datatype_decl(dtu, pred->get_name(), 0, nullptr, cnstrs.size(), cnstrs.c_ptr()));
+                dts.push_back(mk_datatype_decl(dtu, pred->get_name(), 0, nullptr, cnstrs.size(), cnstrs.data()));
             }
 
 
             sort_ref_vector new_sorts(m);
             family_id dfid = m.mk_family_id("datatype");
             datatype_decl_plugin* dtp = static_cast<datatype_decl_plugin*>(m.get_plugin(dfid));
-            VERIFY (dtp->mk_datatypes(dts.size(), dts.c_ptr(), 0, nullptr, new_sorts));
+            VERIFY (dtp->mk_datatypes(dts.size(), dts.data(), 0, nullptr, new_sorts));
 
             it  = b.m_rules.begin_grouped_rules();
             for (unsigned i = 0; it != end; ++it, ++i) {
@@ -1000,7 +1000,7 @@ namespace datalog {
             if (!new_sorts.empty()) {
                 TRACE("bmc", dtu.display_datatype(new_sorts[0].get(), tout););
             }
-            del_datatype_decls(dts.size(), dts.c_ptr());
+            del_datatype_decls(dts.size(), dts.data());
 
             // declare path data-type.
             {
@@ -1028,10 +1028,10 @@ namespace datalog {
                     ptr_vector<accessor_decl> accs;
                     type_ref tr(0);
                     accs.push_back(mk_accessor_decl(m, name, tr));
-                    cnstrs.push_back(mk_constructor_decl(name, is_name, accs.size(), accs.c_ptr()));
+                    cnstrs.push_back(mk_constructor_decl(name, is_name, accs.size(), accs.data()));
                 }
-                dts.push_back(mk_datatype_decl(dtu, symbol("Path"), 0, nullptr, cnstrs.size(), cnstrs.c_ptr()));
-                VERIFY (dtp->mk_datatypes(dts.size(), dts.c_ptr(), 0, nullptr, new_sorts));
+                dts.push_back(mk_datatype_decl(dtu, symbol("Path"), 0, nullptr, cnstrs.size(), cnstrs.data()));
+                VERIFY (dtp->mk_datatypes(dts.size(), dts.data(), 0, nullptr, new_sorts));
                 m_path_sort = new_sorts[0].get();
             }
         }
@@ -1069,7 +1069,7 @@ namespace datalog {
                     }
                     rule_ref rl(b.m_ctx.get_rule_manager());
                     rl = rules[i];
-                    b.m_ctx.get_rule_manager().substitute(rl, sub.size(), sub.c_ptr());
+                    b.m_ctx.get_rule_manager().substitute(rl, sub.size(), sub.data());
 
                     substs.push_back(sub);
 
@@ -1086,7 +1086,7 @@ namespace datalog {
                         substs.push_back(expr_ref_vector(m));
                     }
                     head = rl->get_head();
-                    pr = m.mk_hyper_resolve(sz+1, prs.c_ptr(), head, positions, substs);
+                    pr = m.mk_hyper_resolve(sz+1, prs.data(), head, positions, substs);
                     b.m_rule_trace.push_back(rl.get());
                     return pr;
                 }
@@ -1235,7 +1235,7 @@ namespace datalog {
 
                 rm.to_formula(*r, fml);
                 r2 = r;
-                rm.substitute(r2, sub.size(), sub.c_ptr());
+                rm.substitute(r2, sub.size(), sub.data());
                 proof_ref p(m);
                 {
                     scoped_proof _sp(m);
@@ -1405,27 +1405,27 @@ namespace datalog {
                     // apply substitution to body.
                     var_subst vs(m, false);
                     for (unsigned k = 0; k < p->get_arity(); ++k) {
-                        tmp = vs(r.get_head()->get_arg(k), sub.size(), sub.c_ptr());
+                        tmp = vs(r.get_head()->get_arg(k), sub.size(), sub.data());
                         conjs.push_back(m.mk_eq(tmp, mk_level_arg(p, k, level)));
                     }
                     for (unsigned j = 0; j < r.get_uninterpreted_tail_size(); ++j) {
                         SASSERT(level > 0);
                         func_decl* q = r.get_decl(j);
                         for (unsigned k = 0; k < q->get_arity(); ++k) {
-                            tmp = vs(r.get_tail(j)->get_arg(k), sub.size(), sub.c_ptr());
+                            tmp = vs(r.get_tail(j)->get_arg(k), sub.size(), sub.data());
                             conjs.push_back(m.mk_eq(tmp, mk_level_arg(q, k, level-1)));
                         }
                         conjs.push_back(mk_level_predicate(q, level-1));
                     }
                     for (unsigned j = r.get_uninterpreted_tail_size(); j < r.get_tail_size(); ++j) {
-                        tmp = vs(r.get_tail(j), sub.size(), sub.c_ptr());
+                        tmp = vs(r.get_tail(j), sub.size(), sub.data());
                         conjs.push_back(tmp);
                     }
-                    bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), rule_body);
+                    bool_rewriter(m).mk_and(conjs.size(), conjs.data(), rule_body);
                     rule_body = m.mk_implies(rule_i, rule_body);
                     b.assert_expr(rule_body);
                 }
-                bool_rewriter(m).mk_or(rules.size(), rules.c_ptr(), tmp);
+                bool_rewriter(m).mk_or(rules.size(), rules.data(), tmp);
                 tmp = m.mk_implies(level_pred, tmp);
                 b.assert_expr(tmp);
             }

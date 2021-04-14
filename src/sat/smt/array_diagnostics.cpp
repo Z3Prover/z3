@@ -118,8 +118,8 @@ namespace array {
             args.push_back(n->get_arg(i));
         for (euf::enode* n : args)
             eargs.push_back(n->get_expr());
-        expr_ref sel(a.mk_select(eargs.size(), eargs.c_ptr()), m);
-        euf::enode* n1 = ctx.get_egraph().find(sel, args.size(), args.c_ptr());
+        expr_ref sel(a.mk_select(eargs.size(), eargs.data()), m);
+        euf::enode* n1 = ctx.get_egraph().find(sel, args.size(), args.data());
         if (n1 && n1->get_root() == n->get_root())
             return;
         IF_VERBOSE(0, 

@@ -248,7 +248,7 @@ class lia2pb_tactic : public tactic {
                         a *= rational(2);
                     }
                     SASSERT(def_args.size() > 1);
-                    expr * def = m_util.mk_add(def_args.size(), def_args.c_ptr());
+                    expr * def = m_util.mk_add(def_args.size(), def_args.data());
                     expr_dependency * dep = nullptr;
                     if (m_produce_unsat_cores) {
                         dep = m.mk_join(m_bm.lower_dep(x), m_bm.upper_dep(x));

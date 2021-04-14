@@ -773,7 +773,7 @@ unsigned hilbert_basis::get_num_vars() const {
 }
 
 hilbert_basis::values hilbert_basis::vec(offset_t offs) const {
-    return values(m_ineqs.size(), m_store.c_ptr() + offs.m_offset);
+    return values(m_ineqs.size(), m_store.data() + offs.m_offset);
 }
 
 void hilbert_basis::init_basis() {

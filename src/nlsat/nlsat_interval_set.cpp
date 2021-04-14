@@ -263,7 +263,7 @@ namespace nlsat {
         new_set->m_full = full;
         new_set->m_ref_count  = 0;
         new_set->m_num_intervals = sz;
-        memcpy(new_set->m_intervals, buf.c_ptr(), sizeof(interval)*sz);
+        memcpy(new_set->m_intervals, buf.data(), sizeof(interval)*sz);
         return new_set;
     }
 
@@ -470,7 +470,7 @@ namespace nlsat {
         }
 
         SASSERT(!result.empty());
-        SASSERT(check_interval_set(m_am, result.size(), result.c_ptr()));
+        SASSERT(check_interval_set(m_am, result.size(), result.data()));
         // Compress
         // Remark: we only combine adjacent intervals when they have the same justification
         unsigned j  = 0;
@@ -506,7 +506,7 @@ namespace nlsat {
             m_am.del(curr.m_upper);
         }
         result.shrink(j);
-        SASSERT(check_interval_set(m_am, result.size(), result.c_ptr()));
+        SASSERT(check_interval_set(m_am, result.size(), result.data()));
         sz = j;
         SASSERT(sz >= 1);
         bool found_slack  = !result[0].m_lower_inf || !result[sz-1].m_upper_inf;

@@ -187,11 +187,11 @@ public:
     }
 
     app * mk_store(expr_ref_vector const& args) const {
-        return mk_store(args.size(), args.c_ptr());
+        return mk_store(args.size(), args.data());
     }
 
     app * mk_store(ptr_vector<expr> const& args) const {
-        return mk_store(args.size(), args.c_ptr());
+        return mk_store(args.size(), args.data());
     }
 
     app * mk_select(unsigned num_args, expr * const * args) const {
@@ -199,15 +199,15 @@ public:
     }
 
     app * mk_select(ptr_vector<expr> const& args) const {
-        return mk_select(args.size(), args.c_ptr());
+        return mk_select(args.size(), args.data());
     }
 
     app * mk_select(ptr_buffer<expr> const& args) const {
-        return mk_select(args.size(), args.c_ptr());
+        return mk_select(args.size(), args.data());
     }
 
     app * mk_select(expr_ref_vector const& args) const {
-        return mk_select(args.size(), args.c_ptr());
+        return mk_select(args.size(), args.data());
     }
 
     app * mk_map(func_decl * f, unsigned num_args, expr * const * args) {

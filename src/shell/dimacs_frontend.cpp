@@ -95,7 +95,7 @@ static void track_clause(sat::solver& dst,
     sat::literal lit = sat::literal(dst.mk_var(true, false), false);
     tracking_clauses.set(lit.var(), lits);
     lits.push_back(~lit);
-    dst.mk_clause(lits.size(), lits.c_ptr());
+    dst.mk_clause(lits.size(), lits.data());
     assumptions.push_back(lit);            
 }
 
@@ -254,7 +254,7 @@ unsigned read_dimacs(char const * file_name) {
         g_solver = &solver2;        
         sat::literal_vector assumptions;
         track_clauses(solver, solver2, assumptions, tracking_clauses);
-        r = g_solver->check(assumptions.size(), assumptions.c_ptr());
+        r = g_solver->check(assumptions.size(), assumptions.data());
     }
     else if (par.get_bool("enable", false)) {
         r = solve_parallel(solver);

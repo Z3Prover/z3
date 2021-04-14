@@ -1076,7 +1076,7 @@ namespace smt {
                         // f_aux will be assigned to the old interpretation of f.
                         func_decl* f_aux = m.mk_fresh_func_decl(f->get_name(), symbol::null, arity, f->get_domain(), f->get_range());
                         func_interp* new_fi = alloc(func_interp, m, arity);
-                        new_fi->set_else(m.mk_app(f_aux, args.size(), args.c_ptr()));
+                        new_fi->set_else(m.mk_app(f_aux, args.size(), args.data()));
                         TRACE("model_finder", tout << "Setting new interpretation for " << f->get_name() << "\n" <<
                             mk_pp(new_fi->get_else(), m) << "\n";
                         tout << "old interpretation: " << mk_pp(fi->get_interp(), m) << "\n";);
@@ -2551,7 +2551,7 @@ namespace smt {
                 eqs.push_back(m.mk_eq(sk, val));
             }
             expr_ref new_cnstr(m);
-            new_cnstr = m.mk_or(eqs.size(), eqs.c_ptr());
+            new_cnstr = m.mk_or(eqs.size(), eqs.data());
             TRACE("model_finder", tout << "assert_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
             aux_ctx->assert_expr(new_cnstr);
             asserted_something = true;

@@ -374,7 +374,7 @@ void farkas_learner::get_lemmas(proof* root, expr_set const& bs, expr_ref_vector
             SASSERT(coeffs.size() == lits.size());
             if (num_b_pures > 0) {
                 expr_ref res(m);
-                combine_constraints(coeffs.size(), lits.c_ptr(), coeffs.c_ptr(), res);
+                combine_constraints(coeffs.size(), lits.data(), coeffs.data(), res);
                 TRACE("farkas_learner2", tout << "Add: " << mk_pp(res, m) << "\n";);
                 INSERT(res);
                 b_closed.mark(p, true);

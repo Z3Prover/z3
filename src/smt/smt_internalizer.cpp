@@ -248,7 +248,7 @@ namespace smt {
                     internalize_rec(arg, true);
                     lits.push_back(get_literal(arg));
                 }
-                mk_root_clause(lits.size(), lits.c_ptr(), pr);
+                mk_root_clause(lits.size(), lits.data(), pr);
                 add_or_rel_watches(to_app(n));
                 break;
             }
@@ -592,7 +592,7 @@ namespace smt {
             vars.push_back(m.mk_var(sz - i - 1, q->get_decl_sort(i)));
         }
         array_util autil(m);
-        lam_app = autil.mk_select(vars.size(), vars.c_ptr());
+        lam_app = autil.mk_select(vars.size(), vars.data());
         eq = m.mk_eq(lam_app, q->get_expr());
         quantifier_ref fa(m);
         expr * patterns[1] = { m.mk_pattern(lam_app) };
@@ -1369,7 +1369,7 @@ namespace smt {
             }
             DEBUG_CODE(for (literal lit : simp_lits) SASSERT(get_assignment(lit) == l_true););
             if (!simp_lits.empty()) {
-                j = mk_justification(unit_resolution_justification(m_region, j, simp_lits.size(), simp_lits.c_ptr()));
+                j = mk_justification(unit_resolution_justification(m_region, j, simp_lits.size(), simp_lits.data()));
             }
             break;
         }
@@ -1429,7 +1429,7 @@ namespace smt {
             bool save_atoms     = lemma && iscope_lvl > m_base_lvl;
             bool reinit         = save_atoms;
             SASSERT(!lemma || j == 0 || !j->in_region());
-            clause * cls = clause::mk(m, num_lits, lits, k, j, del_eh, save_atoms, m_bool_var2expr.c_ptr());
+            clause * cls = clause::mk(m, num_lits, lits, k, j, del_eh, save_atoms, m_bool_var2expr.data());
             m_clause_proof.add(*cls);
             if (lemma) {
                 cls->set_activity(activity);
@@ -1506,7 +1506,7 @@ namespace smt {
             literal_buffer tmp;
             neg_literals(num_lits, lits, tmp);
             SASSERT(tmp.size() == num_lits);
-            display_lemma_as_smt_problem(tmp.size(), tmp.c_ptr(), false_literal, m_fparams.m_logic);
+            display_lemma_as_smt_problem(tmp.size(), tmp.data(), false_literal, m_fparams.m_logic);
         }
         mk_clause(num_lits, lits, js, k);
     }
@@ -1532,7 +1532,7 @@ namespace smt {
         if (root_gate)
             new_lits.push_back(m.mk_not(root_gate));
         SASSERT(num_lits > 1);
-        expr * fact        = m.mk_or(new_lits.size(), new_lits.c_ptr());
+        expr * fact        = m.mk_or(new_lits.size(), new_lits.data());
         return m.mk_def_axiom(fact);
         
     }
@@ -1644,7 +1644,7 @@ namespace smt {
             mk_gate_clause(~l, l_arg);
             buffer.push_back(~l_arg);
         }
-        mk_gate_clause(buffer.size(), buffer.c_ptr());
+        mk_gate_clause(buffer.size(), buffer.data());
     }
 
     void context::mk_or_cnstr(app * n) {
@@ -1656,7 +1656,7 @@ namespace smt {
             mk_gate_clause(l, ~l_arg);
             buffer.push_back(l_arg);
         }
-        mk_gate_clause(buffer.size(), buffer.c_ptr());
+        mk_gate_clause(buffer.size(), buffer.data());
     }
 
     void context::mk_iff_cnstr(app * n, bool sign) {

@@ -870,7 +870,7 @@ struct aig_manager::imp {
                 add_child(left(t));
                 add_child(right(t));
             }
-            expr * r = ast_mng.mk_not(ast_mng.mk_or(m_and_children.size(), m_and_children.c_ptr()));
+            expr * r = ast_mng.mk_not(ast_mng.mk_or(m_and_children.size(), m_and_children.data()));
             cache_result(n, r);
             TRACE("aig2expr", tout << "caching AND "; m.display_ref(tout, n); tout << "\n";);
         }
@@ -1059,7 +1059,7 @@ struct aig_manager::imp {
         }
 
         void reset_saved() {
-            m.dec_array_ref(m_saved.size(), m_saved.c_ptr());
+            m.dec_array_ref(m_saved.size(), m_saved.data());
             m_saved.finalize();
         }
 
@@ -1600,7 +1600,7 @@ public:
                 }
             }
         }
-        unmark(queue.size(), queue.c_ptr());
+        unmark(queue.size(), queue.data());
     }
 
     void display_smt2_ref(std::ostream & out, aig_lit const & r) const {
@@ -1635,9 +1635,9 @@ public:
             bool visited = true;
             for (unsigned i = 0; i < 2; i++) {
                 aig_lit c = t->m_children[i];
-                aig * c_ptr = c.ptr();
-                if (!c_ptr->m_mark) {
-                    todo.push_back(c_ptr);
+                aig * data = c.ptr();
+                if (!data->m_mark) {
+                    todo.push_back(data);
                     visited = false;
                 }
             }
@@ -1656,7 +1656,7 @@ public:
         out << "(assert ";
         display_smt2_ref(out, r);
         out << ")\n";
-        unmark(to_unmark.size(), to_unmark.c_ptr());
+        unmark(to_unmark.size(), to_unmark.data());
     }
 
     unsigned get_num_aigs() const {

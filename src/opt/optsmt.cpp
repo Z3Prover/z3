@@ -433,7 +433,7 @@ namespace opt {
         for (unsigned i = 0; i < m_lower.size() && m.inc(); ++i) {
             if (m_lower[i] <= mid[i] && mid[i] <= m_upper[i] && m_lower[i] < m_upper[i]) {
                 th.enable_record_conflict(bounds[i].get());
-                lbool is_sat = m_s->check_sat(1, bounds.c_ptr() + i);
+                lbool is_sat = m_s->check_sat(1, bounds.data() + i);
                 switch(is_sat) {
                 case l_true:
                     IF_VERBOSE(2, verbose_stream() << "(optsmt lower bound for v" << m_vars[i] << " := " << m_upper[i] << ")\n";);

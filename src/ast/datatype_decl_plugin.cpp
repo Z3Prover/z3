@@ -38,7 +38,7 @@ namespace datatype {
         unsigned n = ps.size();
         SASSERT(m_range);
         SASSERT(n == get_def().params().size());
-        sort_ref range(m.substitute(m_range, n, get_def().params().c_ptr(), ps.c_ptr()), m);
+        sort_ref range(m.substitute(m_range, n, get_def().params().data(), ps.data()), m);
         sort_ref src(get_def().instantiate(ps));
         sort* srcs[1] = { src.get() };
         parameter pas[2] = { parameter(name()), parameter(get_constructor().name()) };
@@ -70,7 +70,7 @@ namespace datatype {
         }
         sort_ref range = get_def().instantiate(ps);
         parameter pas[1] = { parameter(name()) };
-        return func_decl_ref(m.mk_func_decl(u().get_family_id(), OP_DT_CONSTRUCTOR, 1, pas, domain.size(), domain.c_ptr(), range), m);        
+        return func_decl_ref(m.mk_func_decl(u().get_family_id(), OP_DT_CONSTRUCTOR, 1, pas, domain.size(), domain.data(), range), m);        
     }
 
     func_decl_ref constructor::instantiate(sort* dt) const {
@@ -94,12 +94,12 @@ namespace datatype {
             vector<parameter> ps;
             ps.push_back(parameter(m_name));
             for (sort * s : m_params) ps.push_back(parameter(s));
-            m_sort = m.mk_sort(u().get_family_id(), DATATYPE_SORT, ps.size(), ps.c_ptr());
+            m_sort = m.mk_sort(u().get_family_id(), DATATYPE_SORT, ps.size(), ps.data());
         }
         if (sorts.empty()) {
             return m_sort;
         }
-        return sort_ref(m.substitute(m_sort, sorts.size(), m_params.c_ptr(), sorts.c_ptr()), m);
+        return sort_ref(m.substitute(m_sort, sorts.size(), m_params.data(), sorts.data()), m);
     }
 
     def* def::translate(ast_translation& tr, util& u) {
@@ -108,7 +108,7 @@ namespace datatype {
         for (sort* p : m_params) {
             ps.push_back(to_sort(tr(p)));
         }
-        def* result = alloc(def, tr.to(), u, m_name, m_class_id, ps.size(), ps.c_ptr());
+        def* result = alloc(def, tr.to(), u, m_name, m_class_id, ps.size(), ps.data());
         for (constructor* c : *this) {
             result->add(c->translate(tr));
         }
@@ -449,10 +449,10 @@ namespace datatype {
                     }
                 }
             }
-            if (!u().is_well_founded(sorts.size(), sorts.c_ptr())) {
+            if (!u().is_well_founded(sorts.size(), sorts.data())) {
                 m_manager->raise_exception("datatype is not well-founded");
             }
-            if (!u().is_covariant(sorts.size(), sorts.c_ptr())) {
+            if (!u().is_covariant(sorts.size(), sorts.data())) {
                 m_manager->raise_exception("datatype is not co-variant");
             }
 
@@ -1372,7 +1372,7 @@ namespace datatype {
             type_ref t(e.second);
             accd.push_back(mk_accessor_decl(m, e.first, t));
         }
-        auto* tuple = mk_constructor_decl(name, test, accd.size(), accd.c_ptr());
+        auto* tuple = mk_constructor_decl(name, test, accd.size(), accd.data());
         auto* dt = mk_datatype_decl(*this, name, 0, nullptr, 1, &tuple);
         sort_ref_vector sorts(m);
         VERIFY(plugin().mk_datatypes(1, &dt, 0, nullptr, sorts));

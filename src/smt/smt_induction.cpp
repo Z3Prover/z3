@@ -383,7 +383,7 @@ void induction_lemmas::create_hypotheses(unsigned depth, expr_ref_vector const& 
 
 void induction_lemmas::add_th_lemma(literal_vector const& lits) {
     IF_VERBOSE(0, ctx.display_literals_verbose(verbose_stream() << "lemma:\n", lits) << "\n");
-    ctx.mk_clause(lits.size(), lits.c_ptr(), nullptr, smt::CLS_TH_AXIOM); 
+    ctx.mk_clause(lits.size(), lits.data(), nullptr, smt::CLS_TH_AXIOM); 
     // CLS_TH_LEMMA, but then should re-instance if GC'ed
     ++m_num_lemmas;
 }
@@ -451,7 +451,7 @@ void induction_lemmas::apply_induction(literal lit, induction_positions_t const 
     induction_term_and_position_t itp(alpha, positions);
     bool found = m_skolems.find(itp, itp);
     if (found) {
-        sks.append(itp.m_skolems.size(), itp.m_skolems.c_ptr());
+        sks.append(itp.m_skolems.size(), itp.m_skolems.data());
     }
     
     unsigned i = 0;
@@ -470,7 +470,7 @@ void induction_lemmas::apply_induction(literal lit, induction_positions_t const 
         ++i;
     }
     if (!found) {
-        itp.m_skolems.append(sks.size(), sks.c_ptr());
+        itp.m_skolems.append(sks.size(), sks.data());
         m_trail.push_back(alpha);
         m_trail.append(sks);
         m_skolems.insert(itp);

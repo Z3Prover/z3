@@ -50,7 +50,7 @@ namespace smt {
         // try first sequential with a low conflict budget to make super easy problems cheap
         unsigned max_c = std::min(thread_max_conflicts, 40u);
         flet<unsigned> _mc(ctx.get_fparams().m_max_conflicts, max_c);
-        result = ctx.check(asms.size(), asms.c_ptr());
+        result = ctx.check(asms.size(), asms.data());
         if (result != l_undef || ctx.m_num_conflicts < max_c) {
             return result;
         }        
@@ -156,7 +156,7 @@ namespace smt {
                            if (num_rounds > 0) verbose_stream() << " :round " << num_rounds;
                            if (c) verbose_stream() << " :cube " << mk_bounded_pp(c, pm, 3);
                            verbose_stream() << ")\n";);
-                lbool r = pctx.check(lasms.size(), lasms.c_ptr());
+                lbool r = pctx.check(lasms.size(), lasms.data());
                 
                 if (r == l_undef && pctx.m_num_conflicts >= max_conflicts) {
                     // no-op

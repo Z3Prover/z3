@@ -420,8 +420,8 @@ struct ctx_simplify_tactic::imp {
             r = new_new_args[0];
         }
         else {
-            std::reverse(new_new_args.c_ptr(), new_new_args.c_ptr() + new_new_args.size());
-            m_mk_app(t->get_decl(), new_new_args.size(), new_new_args.c_ptr(), r);
+            std::reverse(new_new_args.data(), new_new_args.data() + new_new_args.size());
+            m_mk_app(t->get_decl(), new_new_args.size(), new_new_args.data(), r);
         }
         cache(t, r);
     }
@@ -495,7 +495,7 @@ struct ctx_simplify_tactic::imp {
             r     = t;
         }
         else {
-            m_mk_app(t->get_decl(), new_args.size(), new_args.c_ptr(), r);
+            m_mk_app(t->get_decl(), new_args.size(), new_args.data(), r);
         }
     }
 

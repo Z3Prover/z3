@@ -182,7 +182,7 @@ namespace q {
                     todo.push_back(arg);
             }
             if (args.size() == to_app(t)->get_num_args()) {
-                euf::enode* n = ctx.get_egraph().find(t, args.size(), args.c_ptr());
+                euf::enode* n = ctx.get_egraph().find(t, args.size(), args.data());
                 if (!n)
                     return nullptr;
                 m_indirect_nodes.push_back(n);

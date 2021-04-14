@@ -712,7 +712,7 @@ var context_t<C>::mk_monomial(unsigned sz, power const * pws) {
         }
     }
     sz = j + 1;
-    pws = m_pws.c_ptr();
+    pws = m_pws.data();
     unsigned mem_sz  = monomial::get_obj_size(sz);
     void * mem       = allocator().allocate(mem_sz);
     monomial * r     = new (mem) monomial(sz, pws);

@@ -128,9 +128,9 @@ namespace smt {
         */
         lbool check(unsigned num_assumptions = 0, expr * const * assumptions = nullptr);
 
-        lbool check(expr_ref_vector const& asms) { return check(asms.size(), asms.c_ptr()); }
+        lbool check(expr_ref_vector const& asms) { return check(asms.size(), asms.data()); }
 
-        lbool check(app_ref_vector const& asms) { return check(asms.size(), (expr* const*)asms.c_ptr()); }
+        lbool check(app_ref_vector const& asms) { return check(asms.size(), (expr* const*)asms.data()); }
 
         lbool check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses);
 

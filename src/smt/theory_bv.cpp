@@ -55,7 +55,7 @@ namespace smt {
         for (unsigned i = 0; i < bv_size; i++) {
             m_bits_expr.push_back(mk_bit2bool(owner, i));
         }
-        ctx.internalize(m_bits_expr.c_ptr(), bv_size, true);
+        ctx.internalize(m_bits_expr.data(), bv_size, true);
 
         for (unsigned i = 0; i < bv_size; i++) {
             bool_var b = ctx.get_bool_var(m_bits_expr[i]);
@@ -325,7 +325,7 @@ namespace smt {
         SASSERT(get_bv_size(n) == sz);
         m_bits[v].reset();
 
-        ctx.internalize(bits.c_ptr(), sz, true);
+        ctx.internalize(bits.data(), sz, true);
 
         for (unsigned i = 0; i < sz; i++) {
             expr * bit          = bits.get(i);
@@ -420,7 +420,7 @@ namespace smt {
                 return nullptr;
             expr * fact     = ctx.mk_eq_atom(m_th.get_enode(m_var1)->get_expr(), m_th.get_enode(m_var2)->get_expr());
             ast_manager & m = ctx.get_manager();
-            return m.mk_th_lemma(get_from_theory(), fact, prs.size(), prs.c_ptr());
+            return m.mk_th_lemma(get_from_theory(), fact, prs.size(), prs.data());
         }
 
         theory_id get_from_theory() const override {
@@ -471,7 +471,7 @@ namespace smt {
             eqs.push_back(~eq);
         }
         eqs.push_back(oeq);
-        ctx.mk_th_axiom(get_id(), eqs.size(), eqs.c_ptr());
+        ctx.mk_th_axiom(get_id(), eqs.size(), eqs.data());
     }
 
     void theory_bv::fixed_var_eh(theory_var v) {
@@ -634,7 +634,7 @@ namespace smt {
             args.push_back(m.mk_ite(b, n, zero));
             num *= numeral(2);
         }
-        expr_ref sum(m_autil.mk_add(sz, args.c_ptr()), m);
+        expr_ref sum(m_autil.mk_add(sz, args.data()), m);
         th_rewriter rw(m);
         rw(sum);
         literal l(mk_eq(n, sum, false));
@@ -727,7 +727,7 @@ namespace smt {
         enode * e       = mk_enode(n);                                  \
         expr_ref_vector arg1_bits(m), bits(m);                          \
         get_arg_bits(e, 0, arg1_bits);                                  \
-        m_bb.BLAST_OP(arg1_bits.size(), arg1_bits.c_ptr(), bits);       \
+        m_bb.BLAST_OP(arg1_bits.size(), arg1_bits.data(), bits);       \
         init_bits(e, bits);                                             \
     }
 
@@ -741,7 +741,7 @@ namespace smt {
         get_arg_bits(e, 0, arg1_bits);                                                  \
         get_arg_bits(e, 1, arg2_bits);                                                  \
         SASSERT(arg1_bits.size() == arg2_bits.size());                                  \
-        m_bb.BLAST_OP(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), bits);    \
+        m_bb.BLAST_OP(arg1_bits.size(), arg1_bits.data(), arg2_bits.data(), bits);    \
         init_bits(e, bits);                                                             \
     }
 
@@ -764,7 +764,7 @@ namespace smt {
             get_arg_bits(e, i, arg_bits);                                                       \
             SASSERT(arg_bits.size() == bits.size());                                            \
             new_bits.reset();                                                                   \
-            m_bb.BLAST_OP(arg_bits.size(), arg_bits.c_ptr(), bits.c_ptr(), new_bits);           \
+            m_bb.BLAST_OP(arg_bits.size(), arg_bits.data(), bits.data(), new_bits);           \
             bits.swap(new_bits);                                                                \
         }                                                                                       \
         init_bits(e, bits);                                                                     \
@@ -781,7 +781,7 @@ namespace smt {
         get_arg_bits(e, 1, arg2_bits);                                                  
         SASSERT(arg1_bits.size() == arg2_bits.size());                                  
         expr_ref carry(m);
-        m_bb.mk_subtracter(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), bits, carry);    
+        m_bb.mk_subtracter(arg1_bits.size(), arg1_bits.data(), arg2_bits.data(), bits, carry);    
         init_bits(e, bits);                                                                
     }
 
@@ -818,7 +818,7 @@ namespace smt {
         expr_ref_vector arg1_bits(m), bits(m);                                  \
         get_arg_bits(e, 0, arg1_bits);                                          \
         unsigned param  = n->get_decl()->get_parameter(0).get_int();            \
-        m_bb.BLAST_OP(arg1_bits.size(), arg1_bits.c_ptr(), param, bits);        \
+        m_bb.BLAST_OP(arg1_bits.size(), arg1_bits.data(), param, bits);        \
         init_bits(e, bits);                                                     \
     }
     
@@ -939,7 +939,7 @@ namespace smt {
         get_arg_bits(n, 0, arg1_bits);                                                                          \
         get_arg_bits(n, 1, arg2_bits);                                                                          \
         expr_ref out(m);                                                                                        \
-        m_bb.OP(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), out);                                   \
+        m_bb.OP(arg1_bits.size(), arg1_bits.data(), arg2_bits.data(), out);                                   \
         expr_ref s_out(m);                                                                                      \
         simplify_bit(out, s_out);                                                                               \
         ctx.internalize(s_out, true);                                                                           \
@@ -973,9 +973,9 @@ namespace smt {
         get_arg_bits(n, 1, arg2_bits);                                                  
         expr_ref le(m);
         if (Signed)
-            m_bb.mk_sle(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), le);
+            m_bb.mk_sle(arg1_bits.size(), arg1_bits.data(), arg2_bits.data(), le);
         else
-            m_bb.mk_ule(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), le);
+            m_bb.mk_ule(arg1_bits.size(), arg1_bits.data(), arg2_bits.data(), le);
         expr_ref s_le(m);
         simplify_bit(le, s_le);
         ctx.internalize(s_le, true);
@@ -1197,7 +1197,7 @@ namespace smt {
 
         m_stats.m_num_diseq_dynamic++;
         scoped_trace_stream st(*this, lits);
-        ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+        ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
     }
 
     void theory_bv::assign_eh(bool_var v, bool is_true) {
@@ -1313,7 +1313,7 @@ namespace smt {
                 ctx.mark_as_relevant(lits[2]);
                 {
                     scoped_trace_stream _sts(*this, lits);
-                    ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+                    ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
                 }
             }
      
@@ -1623,7 +1623,7 @@ namespace smt {
             ast_manager & m = cr.get_manager();
             expr_ref fact(m);
             ctx.literal2expr(m_consequent, fact);
-            return m.mk_th_lemma(get_from_theory(), fact, prs.size(), prs.c_ptr());
+            return m.mk_th_lemma(get_from_theory(), fact, prs.size(), prs.data());
         }
 
         theory_id get_from_theory() const override {

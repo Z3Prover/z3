@@ -699,7 +699,7 @@ namespace opt {
         unsigned i = 0, j = 0;
         while (i < r1.m_vars.size() || j < r2.m_vars.size()) {
             if (j == r2.m_vars.size()) {
-                m_new_vars.append(r1.m_vars.size() - i, r1.m_vars.c_ptr() + i);
+                m_new_vars.append(r1.m_vars.size() - i, r1.m_vars.data() + i);
                 break;
             }
             if (i == r1.m_vars.size()) {
@@ -823,7 +823,7 @@ namespace opt {
         row& r = m_rows[row_id];
         rational val(c);
         SASSERT(r.m_vars.empty());
-        r.m_vars.append(coeffs.size(), coeffs.c_ptr());
+        r.m_vars.append(coeffs.size(), coeffs.data());
         bool is_int_row = !coeffs.empty();
         std::sort(r.m_vars.begin(), r.m_vars.end(), var::compare());
         for (auto const& c : coeffs) {

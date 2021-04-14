@@ -99,7 +99,7 @@ namespace pb {
         }
         if (p.k() == 1 && p.lit() == sat::null_literal) {
             literal_vector lits(p.literals());
-            s().mk_clause(lits.size(), lits.c_ptr(), sat::status::th(p.learned(), get_id()));
+            s().mk_clause(lits.size(), lits.data(), sat::status::th(p.learned(), get_id()));
             IF_VERBOSE(100, display(verbose_stream() << "add clause: " << lits << "\n", p, true););
             remove_constraint(p, "implies clause");
         }
@@ -150,8 +150,8 @@ namespace pb {
             unsigned k = p.k() - true_val;
 
             if (k == 1 && p.lit() == sat::null_literal) {
-                literal_vector lits(sz, p.literals().c_ptr());
-                s().mk_clause(sz, lits.c_ptr(), sat::status::th(p.learned(), get_id()));
+                literal_vector lits(sz, p.literals().data());
+                s().mk_clause(sz, lits.data(), sat::status::th(p.learned(), get_id()));
                 remove_constraint(p, "is clause");
                 return;
             }
@@ -448,14 +448,14 @@ namespace pb {
         }
 
         else if (k == 1 && p.lit() == sat::null_literal) {
-            literal_vector lits(sz, p.literals().c_ptr());
-            s().mk_clause(sz, lits.c_ptr(), sat::status::th(p.learned(), get_id()));
+            literal_vector lits(sz, p.literals().data());
+            s().mk_clause(sz, lits.data(), sat::status::th(p.learned(), get_id()));
             remove_constraint(p, "recompiled to clause");
             return;
         }
 
         else if (all_units) {
-            literal_vector lits(sz, p.literals().c_ptr());
+            literal_vector lits(sz, p.literals().data());
             add_at_least(p.lit(), lits, k, p.learned());
             remove_constraint(p, "recompiled to cardinality");
             return;
@@ -1368,10 +1368,10 @@ namespace pb {
     constraint* solver::add_at_least(literal lit, literal_vector const& lits, unsigned k, bool learned) {
         if (k == 1 && lit == sat::null_literal) {
             literal_vector _lits(lits);
-            s().mk_clause(_lits.size(), _lits.c_ptr(), sat::status::th(learned, get_id()));
+            s().mk_clause(_lits.size(), _lits.data(), sat::status::th(learned, get_id()));
             return nullptr;
         }
-        if (!learned && clausify(lit, lits.size(), lits.c_ptr(), k)) {
+        if (!learned && clausify(lit, lits.size(), lits.data(), k)) {
             return nullptr;
         }
         void * mem = m_allocator.allocate(card::get_obj_size(lits.size()));
@@ -2143,7 +2143,7 @@ namespace pb {
                 s.s().mk_clause(~m_lits[i], max);
             }
             m_lits.push_back(~max);
-            s.s().mk_clause(m_lits.size(), m_lits.c_ptr());
+            s.s().mk_clause(m_lits.size(), m_lits.data());
             return max;
         }
         }
@@ -2168,7 +2168,7 @@ namespace pb {
                 m_lits[i] = ~m_lits[i];
             }
             m_lits.push_back(min);
-            s.s().mk_clause(m_lits.size(), m_lits.c_ptr());
+            s.s().mk_clause(m_lits.size(), m_lits.data());
             return min;
         }
         }
@@ -2177,7 +2177,7 @@ namespace pb {
     void solver::ba_sort::mk_clause(unsigned n, literal const* lits) {
         m_lits.reset();
         m_lits.append(n, lits);
-        s.s().mk_clause(n, m_lits.c_ptr());
+        s.s().mk_clause(n, m_lits.data());
     }
 
     std::ostream& solver::ba_sort::pp(std::ostream& out, literal l) const {
@@ -2306,8 +2306,8 @@ namespace pb {
         }
 
         if (k == 1 && c.lit() == sat::null_literal) {
-            literal_vector lits(sz, c.literals().c_ptr());
-            s().mk_clause(sz, lits.c_ptr(), sat::status::th(c.learned(), get_id()));
+            literal_vector lits(sz, c.literals().data());
+            s().mk_clause(sz, lits.data(), sat::status::th(c.learned(), get_id()));
             remove_constraint(c, "recompiled to clause");
             return;
         }
@@ -2417,7 +2417,7 @@ namespace pb {
         }
 
         if (is_cardinality(p, m_lemma)) {
-            literal lit = m_sort.ge(is_def, p.k(), m_lemma.size(), m_lemma.c_ptr());
+            literal lit = m_sort.ge(is_def, p.k(), m_lemma.size(), m_lemma.data());
             if (is_def) {
                 s().mk_clause(p.lit(), ~lit);
                 s().mk_clause(~p.lit(), lit);
@@ -3450,7 +3450,7 @@ namespace pb {
             for (wliteral wl : m_wlits) {
                 if (value(wl.second) == l_false) lits.push_back(wl.second);        
             }
-            unsigned glue = s().num_diff_levels(lits.size(), lits.c_ptr());
+            unsigned glue = s().num_diff_levels(lits.size(), lits.data());
             c->set_glue(glue);
         }
         return c;
@@ -3761,7 +3761,7 @@ namespace pb {
                     //    ~c.lits() <= n - k
                     lits.reset();
                     for (unsigned j = 0; j < n; ++j) lits.push_back(c[j]);
-                    add_cardinality(lits.size(), lits.c_ptr(), n - k);
+                    add_cardinality(lits.size(), lits.data(), n - k);
                 }
                 else {
                     //
@@ -3778,13 +3778,13 @@ namespace pb {
                     coeffs.reset();
                     for (literal l : c) lits.push_back(l), coeffs.push_back(1);
                     lits.push_back(~c.lit()); coeffs.push_back(n - k + 1);
-                    add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), n);
+                    add_pb(lits.size(), lits.data(), coeffs.data(), n);
 
                     lits.reset();
                     coeffs.reset();
                     for (literal l : c) lits.push_back(~l), coeffs.push_back(1);
                     lits.push_back(c.lit()); coeffs.push_back(k);
-                    add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), n);
+                    add_pb(lits.size(), lits.data(), coeffs.data(), n);
                 }
                 break;
             }
@@ -3800,7 +3800,7 @@ namespace pb {
                     // <=> 
                     //  ~wl + ... + ~w_n <= sum_of_weights - k
                     for (wliteral wl : p) lits.push_back(~(wl.second)), coeffs.push_back(wl.first);
-                    add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), sum - p.k());
+                    add_pb(lits.size(), lits.data(), coeffs.data(), sum - p.k());
                 }
                 else {
                     //    lit <=> w1 + .. + w_n >= k
@@ -3812,13 +3812,13 @@ namespace pb {
                     //     k*lit + ~wl + ... + ~w_n <= sum
                     lits.push_back(p.lit()), coeffs.push_back(p.k());
                     for (wliteral wl : p) lits.push_back(~(wl.second)), coeffs.push_back(wl.first);
-                    add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), sum);
+                    add_pb(lits.size(), lits.data(), coeffs.data(), sum);
 
                     lits.reset();
                     coeffs.reset();
                     lits.push_back(~p.lit()), coeffs.push_back(sum + 1 - p.k());
                     for (wliteral wl : p) lits.push_back(wl.second), coeffs.push_back(wl.first);
-                    add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), sum);
+                    add_pb(lits.size(), lits.data(), coeffs.data(), sum);
                 }
                 break;
             }

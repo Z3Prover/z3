@@ -34,7 +34,7 @@ static void reset_rcf_cancel(Z3_context c) {
 }
 
 static Z3_rcf_num from_rcnumeral(rcnumeral a) { 
-    return reinterpret_cast<Z3_rcf_num>(a.c_ptr()); 
+    return reinterpret_cast<Z3_rcf_num>(a.data()); 
 }
 
 static rcnumeral to_rcnumeral(Z3_rcf_num a) { 
@@ -128,7 +128,7 @@ extern "C" {
         }
         av.shrink(rz);
         rcnumeral_vector rs;
-        rcfm(c).isolate_roots(av.size(), av.c_ptr(), rs);
+        rcfm(c).isolate_roots(av.size(), av.data(), rs);
         unsigned num_roots = rs.size();
         for (unsigned i = 0; i < num_roots; i++) {
             roots[i] = from_rcnumeral(rs[i]);

@@ -179,9 +179,9 @@ void generic_model_converter::operator()(expr_ref& fml) {
                 args.push_back(m.mk_var(i, sorts.back()));
             }
             // TBD: check if order is correct with respect to quantifier binding ordering
-            expr_ref lhs(m.mk_app(e.m_f, arity, args.c_ptr()), m);
+            expr_ref lhs(m.mk_app(e.m_f, arity, args.data()), m);
             expr_ref body(m.mk_eq(lhs, e.m_def), m);
-            fmls.push_back(m.mk_forall(arity, sorts.c_ptr(), names.c_ptr(), body));
+            fmls.push_back(m.mk_forall(arity, sorts.data(), names.data(), body));
         }
         if (m_first_idx[e.m_f] == i) {
             m_first_idx.remove(e.m_f);

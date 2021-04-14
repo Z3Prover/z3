@@ -47,7 +47,7 @@ namespace recfun {
           m_def(d) {        
         parameter p(case_index);
         func_decl_info info(fid, OP_FUN_CASE_PRED, 1, &p);
-        m_pred = m.mk_func_decl(symbol(name.c_str()), arg_sorts.size(), arg_sorts.c_ptr(), m.mk_bool_sort(), info);
+        m_pred = m.mk_func_decl(symbol(name.c_str()), arg_sorts.size(), arg_sorts.data(), m.mk_bool_sort(), info);
     }
 
     def::def(ast_manager &m, family_id fid, symbol const & s,
@@ -505,9 +505,9 @@ namespace recfun {
                 }
                                 
                 symbol fresh_name("fold-rec-" + std::to_string(m().mk_fresh_id())); 
-                auto pd = mk_def(fresh_name, n, domain.c_ptr(), max_expr->get_sort());
+                auto pd = mk_def(fresh_name, n, domain.data(), max_expr->get_sort());
                 func_decl* f = pd.get_def()->get_decl();
-                expr_ref new_body(m().mk_app(f, n, args.c_ptr()), m());
+                expr_ref new_body(m().mk_app(f, n, args.data()), m());
                 set_definition(subst, pd, n, vars, max_expr);
                 subst.reset();
                 subst.insert(max_expr, new_body);

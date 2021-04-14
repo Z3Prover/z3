@@ -94,7 +94,7 @@ struct enum2bv_rewriter::imp {
                 return BR_DONE;
             }
             else if (m.is_distinct(f) && reduce_args(num, args, _args)) {
-                result = m.mk_distinct(_args.size(), _args.c_ptr());
+                result = m.mk_distinct(_args.size(), _args.data());
                 return BR_DONE;
             }
             else if (m_dt.is_recognizer(f) && reduce_arg(args[0], a0)) {
@@ -229,7 +229,7 @@ struct enum2bv_rewriter::imp {
                     break;
                 }
             }
-            result = m.mk_quantifier(q->get_kind(), q->get_num_decls(), m_sorts.c_ptr(), q->get_decl_names(), new_body_ref, 
+            result = m.mk_quantifier(q->get_kind(), q->get_num_decls(), m_sorts.data(), q->get_decl_names(), new_body_ref, 
                                      q->get_weight(), q->get_qid(), q->get_skid(), 
                                      q->get_num_patterns(), new_patterns,
                                      q->get_num_no_patterns(), new_no_patterns);

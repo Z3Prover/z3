@@ -293,7 +293,7 @@ private:
                     switch (m_cls.size()) {
                     case 0:  m_result.push_back(m.mk_false()); break;
                     case 1:  m_result.push_back(m_cls[0]); break;
-                    default: m_result.push_back(m.mk_or(m_cls.size(), m_cls.c_ptr()));
+                    default: m_result.push_back(m.mk_or(m_cls.size(), m_cls.data()));
                     }
                     return;
                 }
@@ -311,7 +311,7 @@ private:
                 init_sums(m_p);
                 init_lits(m_p);
                 process(0, m_c);
-                m_owner.m_b_rw.mk_and(m_result.size(), m_result.c_ptr(), r);
+                m_owner.m_b_rw.mk_and(m_result.size(), m_result.data(), r);
             }
         };
 
@@ -380,7 +380,7 @@ private:
                 for (unsigned i = 0; i < m_p.size(); i++) {
                     args.push_back(mon_lit2lit(m_p[i]));
                 }             
-                r = m.mk_or(args.size(), args.c_ptr());
+                r = m.mk_or(args.size(), args.data());
                 return;
             }
         
@@ -389,7 +389,7 @@ private:
                 for (unsigned i = 0; i < m_p.size(); i++) {
                     args.push_back(mon_lit2lit(m_p[i]));
                 }
-                m_b_rw.mk_and(args.size(), args.c_ptr(), r);
+                m_b_rw.mk_and(args.size(), args.data(), r);
                 return;
             }
         
@@ -468,7 +468,7 @@ private:
                 lhs_args.push_back(bv_monom);
             }
         
-            expr * lhs = m.mk_app(m_bv_util.get_family_id(), OP_BADD, lhs_args.size(), lhs_args.c_ptr());                
+            expr * lhs = m.mk_app(m_bv_util.get_family_id(), OP_BADD, lhs_args.size(), lhs_args.data());                
             expr * rhs = m_bv_util.mk_numeral(m_c, bits);
         
             r = m_bv_util.mk_ule(rhs, lhs);
@@ -808,7 +808,7 @@ private:
                         app * y_i = to_app(m_p[i+1].m_lit.var());
                         eqs.push_back(m.mk_eq(int2lit(x_i), int2lit(y_i)));
                     }
-                    m_b_rw.mk_and(eqs.size(), eqs.c_ptr(), r);
+                    m_b_rw.mk_and(eqs.size(), eqs.data(), r);
                     if (!pos)
                         m_b_rw.mk_not(r, r);
                     return;

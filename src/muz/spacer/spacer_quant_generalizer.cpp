@@ -184,7 +184,7 @@ void lemma_quantifier_generalizer::find_candidates(expr *e,
         }
     }
 
-    std::sort(candidates.c_ptr(), candidates.c_ptr() + candidates.size(),
+    std::sort(candidates.data(), candidates.data() + candidates.size(),
               index_lt_proc(m));
     // keep actual select indices in the order found at the back of
     // candidate list. There is no particular reason for this order
@@ -276,8 +276,8 @@ void lemma_quantifier_generalizer::cleanup(expr_ref_vector &cube,
             }
             if (!found) continue;
 
-            rep = arith.mk_add(kids.size(), kids.c_ptr());
-            bind = arith.mk_add(kids_bind.size(), kids_bind.c_ptr());
+            rep = arith.mk_add(kids.size(), kids.data());
+            bind = arith.mk_add(kids_bind.size(), kids_bind.data());
             TRACE("spacer_qgen",
                   tout << "replace " << mk_pp(idx, m) << " with " << mk_pp(rep, m) << "\n"
                   << "bind is: " << bind << "\n";);

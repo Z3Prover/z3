@@ -651,7 +651,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
     TRACE("dl_activity", 
           tout << mk_pp(le, m) << "\n";
           tout << "edge: " << a->get_pos() << "\n";
-          ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr());
+          ctx.display_literals_verbose(tout, lits.size(), lits.data());
           tout << "\n";
           );
 
@@ -661,13 +661,13 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
         params.push_back(parameter(symbol("farkas")));
         params.resize(lits.size()+1, parameter(rational(1)));
         js = new (ctx.get_region()) theory_lemma_justification(get_id(), ctx, 
-                   lits.size(), lits.c_ptr(), 
-                   params.size(), params.c_ptr());
+                   lits.size(), lits.data(), 
+                   params.size(), params.data());
     }
-    ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, nullptr);
+    ctx.mk_clause(lits.size(), lits.data(), js, CLS_TH_LEMMA, nullptr);
     if (dump_lemmas()) {
         symbol logic(m_lia_or_lra == is_lia ? "QF_LIA" : "QF_LRA");
-        ctx.display_lemma_as_smt_problem(lits.size(), lits.c_ptr(), false_literal, logic);
+        ctx.display_lemma_as_smt_problem(lits.size(), lits.data(), false_literal, logic);
     }
 
 #if 0
@@ -709,7 +709,7 @@ void theory_diff_logic<Ext>::set_neg_cycle_conflict() {
 
     if (dump_lemmas()) {
         symbol logic(m_lia_or_lra == is_lia ? "QF_LIA" : "QF_LRA");
-        ctx.display_lemma_as_smt_problem(lits.size(), lits.c_ptr(), false_literal, logic);
+        ctx.display_lemma_as_smt_problem(lits.size(), lits.data(), false_literal, logic);
     }
 
     vector<parameter> params;
@@ -724,7 +724,7 @@ void theory_diff_logic<Ext>::set_neg_cycle_conflict() {
         ctx.mk_justification(
             ext_theory_conflict_justification(
                 get_id(), ctx.get_region(), 
-                lits.size(), lits.c_ptr(), 0, nullptr, params.size(), params.c_ptr())));
+                lits.size(), lits.data(), 0, nullptr, params.size(), params.data())));
 
 }
 
@@ -1182,7 +1182,7 @@ void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
         vars[0] = node2simplex(e.get_target());
         vars[1] = node2simplex(e.get_source());
         vars[2] = base_var;
-        S.add_row(base_var, 3, vars.c_ptr(), coeffs.c_ptr());        
+        S.add_row(base_var, 3, vars.data(), coeffs.data());        
     }
     m_num_simplex_edges = es.size();
     for (unsigned i = 0; i < es.size(); ++i) {
@@ -1214,7 +1214,7 @@ void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
         }
         coeffs.push_back(mpq(1));
         vars.push_back(w);
-        Simplex::row row = S.add_row(w, vars.size(), vars.c_ptr(), coeffs.c_ptr());
+        Simplex::row row = S.add_row(w, vars.size(), vars.data(), coeffs.data());
         m_objective_rows.push_back(row);
     }
 }
@@ -1362,7 +1362,7 @@ expr_ref theory_diff_logic<Ext>::mk_ineq(theory_var v, inf_eps const& val, bool 
     else {
         // 
         expr_ref_vector const& core = m_objective_assignments[v];
-        f = m.mk_and(core.size(), core.c_ptr());
+        f = m.mk_and(core.size(), core.data());
         if (is_strict) {
             f = m.mk_not(f);
         }
@@ -1378,7 +1378,7 @@ expr_ref theory_diff_logic<Ext>::mk_ineq(theory_var v, inf_eps const& val, bool 
         }
         else {
             expr_ref_vector const& core = m_objective_assignments[v];
-            f = m.mk_and(core.size(), core.c_ptr());            
+            f = m.mk_and(core.size(), core.data());            
         }
     }
     else {

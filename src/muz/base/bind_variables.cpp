@@ -38,7 +38,7 @@ expr_ref bind_variables::operator()(expr* fml, bool is_forall) {
     if (!m_names.empty()) {
         m_bound.reverse();
         m_names.reverse();
-        result = m.mk_quantifier(is_forall ? forall_k : exists_k, m_bound.size(), m_bound.c_ptr(), m_names.c_ptr(), result);
+        result = m.mk_quantifier(is_forall ? forall_k : exists_k, m_bound.size(), m_bound.data(), m_names.data(), result);
     }
     m_pinned.reset();
     m_cache.reset();
@@ -114,7 +114,7 @@ expr_ref bind_variables::abstract(expr* term, cache_t& cache, unsigned scope) {
             }
             if (all_visited) {
                 if (some_diff) {
-                    b = m.mk_app(a->get_decl(), m_args.size(), m_args.c_ptr());
+                    b = m.mk_app(a->get_decl(), m_args.size(), m_args.data());
                     m_pinned.push_back(b);
                 }
                 else {
@@ -135,7 +135,7 @@ expr_ref bind_variables::abstract(expr* term, cache_t& cache, unsigned scope) {
                 patterns.push_back(abstract(q->get_pattern(i), new_cache, new_scope));
             }
             result1 = abstract(q->get_expr(), new_cache, new_scope);
-            b = m.update_quantifier(q, patterns.size(), patterns.c_ptr(), result1.get());
+            b = m.update_quantifier(q, patterns.size(), patterns.data(), result1.get());
             m_pinned.push_back(b);            
             cache.insert(e, b);
             m_todo.pop_back();            

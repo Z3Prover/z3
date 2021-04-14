@@ -209,9 +209,9 @@ namespace smt {
         if (m.proofs_enabled() && m_proof_hint.empty()) {
             m_proof_hint.push_back(parameter(symbol("triangle-eq")));
         }
-        ctx.mk_th_axiom(tid, ~t1_eq_t2_lit, le_lit, m_proof_hint.size(), m_proof_hint.c_ptr());
-        ctx.mk_th_axiom(tid, ~t1_eq_t2_lit, ge_lit, m_proof_hint.size(), m_proof_hint.c_ptr());
-        ctx.mk_th_axiom(tid, t1_eq_t2_lit, ~le_lit, ~ge_lit, m_proof_hint.size(), m_proof_hint.c_ptr());
+        ctx.mk_th_axiom(tid, ~t1_eq_t2_lit, le_lit, m_proof_hint.size(), m_proof_hint.data());
+        ctx.mk_th_axiom(tid, ~t1_eq_t2_lit, ge_lit, m_proof_hint.size(), m_proof_hint.data());
+        ctx.mk_th_axiom(tid, t1_eq_t2_lit, ~le_lit, ~ge_lit, m_proof_hint.size(), m_proof_hint.data());
         TRACE("arith_eq_adapter", tout << "internalizing: "
               << " " << mk_pp(le, m) << ": " << le_lit 
               << " " << mk_pp(ge, m) << ": " << ge_lit 
@@ -219,7 +219,7 @@ namespace smt {
 
         if (m_owner.get_fparams().m_arith_add_binary_bounds) {
             TRACE("arith_eq_adapter", tout << "adding binary bounds...\n";);
-            ctx.mk_th_axiom(tid, le_lit, ge_lit, m_proof_hint.size(), m_proof_hint.c_ptr());
+            ctx.mk_th_axiom(tid, le_lit, ge_lit, m_proof_hint.size(), m_proof_hint.data());
         }
         if (ctx.relevancy()) {
             relevancy_eh * eh = ctx.mk_relevancy_eh(arith_eq_relevancy_eh(n1->get_expr(), n2->get_expr(), t1_eq_t2, le, ge));

@@ -128,7 +128,7 @@ peq::peq (expr* lhs, expr* rhs, unsigned num_indices, expr * const * diff_indice
         sorts.push_back (diff_indices[i]->get_sort ());
         m_diff_indices.push_back (diff_indices [i]);
     }
-    m_decl = m.mk_func_decl (symbol (PARTIAL_EQ), sorts.size (), sorts.c_ptr (), m.mk_bool_sort ());
+    m_decl = m.mk_func_decl (symbol (PARTIAL_EQ), sorts.size (), sorts.data (), m.mk_bool_sort ());
 }
 
 void peq::lhs (expr_ref& result) { result = m_lhs; }
@@ -149,7 +149,7 @@ void peq::mk_peq (app_ref& result) {
         for (unsigned i = 0; i < m_num_indices; i++) {
             args.push_back (m_diff_indices.get (i));
         }
-        m_peq = m.mk_app (m_decl, args.size (), args.c_ptr ());
+        m_peq = m.mk_app (m_decl, args.size (), args.data ());
     }
     result = m_peq;
 }
@@ -326,7 +326,7 @@ namespace spacer_qe {
                 t = ts.get (0);
             }
             else {
-                t = a.mk_add(ts.size(), ts.c_ptr());
+                t = a.mk_add(ts.size(), ts.data());
             }
 
             return true;
@@ -947,7 +947,7 @@ namespace spacer_qe {
                     // all args processed; make new term
                     func_decl* d = ap->get_decl ();
                     expr_ref new_term (m);
-                    new_term = m.mk_app (d, args.size (), args.c_ptr ());
+                    new_term = m.mk_app (d, args.size (), args.data ());
                     // check for mod and introduce new var
                     if (a.is_mod (ap)) {
                         app_ref new_var (m);
@@ -976,7 +976,7 @@ namespace spacer_qe {
             if (new_fml) {
                 fml = new_fml;
                 // add in eqs
-                fml = m.mk_and (fml, m.mk_and (eqs.size (), eqs.c_ptr ()));
+                fml = m.mk_and (fml, m.mk_and (eqs.size (), eqs.data ()));
             }
             else {
                 // unchanged
@@ -1045,7 +1045,7 @@ namespace spacer_qe {
                     // t2 < abs (num_val)
                     lits.push_back (a.mk_lt (t2, a.mk_numeral (abs (num_val), a.mk_int ())));
 
-                    new_fml = m.mk_and (lits.size (), lits.c_ptr ());
+                    new_fml = m.mk_and (lits.size (), lits.data ());
                 }
             }
             else if (!is_app (fml)) {
@@ -1060,7 +1060,7 @@ namespace spacer_qe {
                     mod2div (ch, map);
                     children.push_back (ch);
                 }
-                new_fml = m.mk_app (a->get_decl (), children.size (), children.c_ptr ());
+                new_fml = m.mk_app (a->get_decl (), children.size (), children.data ());
             }
 
             map.insert (fml, new_fml, nullptr);
@@ -1402,7 +1402,7 @@ namespace spacer_qe {
                 if (!all_done) continue;
                 todo.pop_back ();
 
-                expr_ref a_new (m.mk_app (a->get_decl (), args.size (), args.c_ptr ()), m);
+                expr_ref a_new (m.mk_app (a->get_decl (), args.size (), args.data ()), m);
 
                 // if a_new is select on m_v, introduce new constant
                 if (m_arr_u.is_select (a) &&
@@ -1457,7 +1457,7 @@ namespace spacer_qe {
                 ptr_vector<expr> sel_args;
                 sel_args.push_back (arr);
                 sel_args.push_back (I.get (i));
-                expr_ref val_term (m_arr_u.mk_select (sel_args.size (), sel_args.c_ptr ()), m);
+                expr_ref val_term (m_arr_u.mk_select (sel_args.size (), sel_args.data ()), m);
                 // evaluate and assign to ith diff_val_const
                 m_mev.eval (*M, val_term, val);
                 M->register_decl (diff_val_consts.get (i)->get_decl (), val);
@@ -1537,7 +1537,7 @@ namespace spacer_qe {
                               );
 
                         // arr0 ==I arr1
-                        mk_peq (arr0, arr1, I.size (), I.c_ptr (), p_exp);
+                        mk_peq (arr0, arr1, I.size (), I.data (), p_exp);
 
                         TRACE ("qe",
                                 tout << "new peq:\n";
@@ -1548,7 +1548,7 @@ namespace spacer_qe {
                         m_idx_lits_v.append (idx_diseq);
                         // arr0 ==I+idx arr1
                         I.push_back (idx);
-                        mk_peq (arr0, arr1, I.size (), I.c_ptr (), p_exp);
+                        mk_peq (arr0, arr1, I.size (), I.data (), p_exp);
 
                         TRACE ("qe",
                                 tout << "new peq:\n";
@@ -1559,7 +1559,7 @@ namespace spacer_qe {
                         ptr_vector<expr> sel_args;
                         sel_args.push_back (arr1);
                         sel_args.push_back (idx);
-                        expr_ref arr1_idx (m_arr_u.mk_select (sel_args.size (), sel_args.c_ptr ()), m);
+                        expr_ref arr1_idx (m_arr_u.mk_select (sel_args.size (), sel_args.data ()), m);
                         expr_ref eq (m.mk_eq (arr1_idx, x), m);
                         m_aux_lits_v.push_back (eq);
 
@@ -1737,7 +1737,7 @@ namespace spacer_qe {
             lits.append (m_idx_lits_v);
             lits.append (m_aux_lits_v);
             lits.push_back (fml);
-            fml = m.mk_and (lits.size (), lits.c_ptr ());
+            fml = m.mk_and (lits.size (), lits.data ());
 
             if (m_subst_term_v) {
                 m_true_sub_v.insert (m_v, m_subst_term_v);
@@ -1899,7 +1899,7 @@ namespace spacer_qe {
                 todo.pop_back ();
 
                 if (dirty) {
-                    r = m.mk_app (a->get_decl (), args.size (), args.c_ptr ());
+                    r = m.mk_app (a->get_decl (), args.size (), args.data ());
                     m_pinned.push_back (r);
                 }
                 else r = a;
@@ -1954,7 +1954,7 @@ namespace spacer_qe {
             expr_ref_vector lits (m);
             lits.append (m_idx_lits);
             lits.push_back (fml);
-            fml = m.mk_and (lits.size (), lits.c_ptr ());
+            fml = m.mk_and (lits.size (), lits.data ());
             // simplify all trivial expressions introduced
             m_rw (fml);
 
@@ -2153,7 +2153,7 @@ namespace spacer_qe {
             expr_ref_vector lits (m);
             lits.append (m_idx_lits);
             lits.push_back (fml);
-            fml = m.mk_and (lits.size (), lits.c_ptr ());
+            fml = m.mk_and (lits.size (), lits.data ());
 
             // substitute for sel terms
             m_sub (fml);

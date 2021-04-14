@@ -380,7 +380,7 @@ namespace euf {
             ::solver::fresh_eh_t& fresh_eh);
         bool watches_fixed(enode* n) const;
         void assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain);
-        void assign_fixed(enode* n, expr* val, literal_vector const& explain) { assign_fixed(n, val, explain.size(), explain.c_ptr()); }
+        void assign_fixed(enode* n, expr* val, literal_vector const& explain) { assign_fixed(n, val, explain.size(), explain.data()); }
         void assign_fixed(enode* n, expr* val, literal explain) { assign_fixed(n, val, 1, &explain); }
 
         void user_propagate_register_final(::solver::final_eh_t& final_eh) {

@@ -200,7 +200,7 @@ namespace qe {
                 rest = mk_zero(x);
             }
             else {
-                rest = m_arith.mk_add(restl.size(), restl.c_ptr());
+                rest = m_arith.mk_add(restl.size(), restl.data());
             }
             if (contains_x(rest)) {
                 return false;
@@ -246,7 +246,7 @@ namespace qe {
                 rest = mk_zero(p);
             }
             else {
-                rest = m_arith.mk_add(restl.size(), restl.c_ptr());
+                rest = m_arith.mk_add(restl.size(), restl.data());
             }
         }
 
@@ -492,7 +492,7 @@ namespace qe {
             ptr_vector<expr> conjs;
             add_and(e1, conjs);
             add_and(e2, conjs);
-            m_bool_rewriter.mk_and(conjs.size(), conjs.c_ptr(), result);
+            m_bool_rewriter.mk_and(conjs.size(), conjs.data(), result);
         }
         
         void mk_or(unsigned sz, expr*const* args, expr_ref& result) {
@@ -635,7 +635,7 @@ namespace qe {
                 args.push_back(to_app(p)->get_arg(i));
             }
             std::sort(args.begin(), args.end(), mul_lt(*this));
-            p = m_arith.mk_add(args.size(), args.c_ptr());
+            p = m_arith.mk_add(args.size(), args.data());
         }
 
         void pp_div(std::ostream& out, app* x, div_constraint const& div) {
@@ -846,7 +846,7 @@ namespace qe {
                 ors.push_back(result);
                 ++index;
             }
-            mk_or(ors.size(), ors.c_ptr(), result);
+            mk_or(ors.size(), ors.data(), result);
             TRACE("qe", 
                   tout 
                   << "[0 " << up << "] " 
@@ -1007,7 +1007,7 @@ namespace qe {
             unsigned num_vars = m_ctx.get_num_vars();
             app_ref_vector const& vars = m_ctx.get_vars();
             
-            if (!is_linear(p, num_vars, vars.c_ptr(), values)) {
+            if (!is_linear(p, num_vars, vars.data(), values)) {
                 return false;
             }
 
@@ -1112,7 +1112,7 @@ namespace qe {
             for (unsigned i = 0; i <= num_vars; ++i) {
                 values.push_back(numeral(0));
             }
-            numeral* vars_ptr = values.c_ptr() + 1;
+            numeral* vars_ptr = values.data() + 1;
             ptr_vector<expr> todo;
             numeral k;
             expr* e1, *e2;
@@ -1215,35 +1215,35 @@ namespace qe {
         unsigned e_size(bool is_l) { return is_l?le_size():ge_size(); }
         unsigned size(bool is_strict, bool is_l) { return is_strict?t_size(is_l):e_size(is_l); }
 
-        expr* const* lt() { return m_lt_terms.c_ptr(); }
-        expr* const* le() { return m_le_terms.c_ptr(); }
-        expr* const* gt() { return m_gt_terms.c_ptr(); }
-        expr* const* ge() { return m_ge_terms.c_ptr(); }
+        expr* const* lt() { return m_lt_terms.data(); }
+        expr* const* le() { return m_le_terms.data(); }
+        expr* const* gt() { return m_gt_terms.data(); }
+        expr* const* ge() { return m_ge_terms.data(); }
         expr* const* t(bool is_l) { return is_l?lt():gt(); }
         expr* const* e(bool is_l) { return is_l?le():ge(); }
         expr* const* exprs(bool is_strict, bool is_l) { return is_strict?t(is_l):e(is_l);}
 
-        rational const* lt_coeffs() { return m_lt_coeffs.c_ptr(); }
-        rational const* le_coeffs() { return m_le_coeffs.c_ptr(); }
-        rational const* gt_coeffs() { return m_gt_coeffs.c_ptr(); }
-        rational const* ge_coeffs() { return m_ge_coeffs.c_ptr(); }
+        rational const* lt_coeffs() { return m_lt_coeffs.data(); }
+        rational const* le_coeffs() { return m_le_coeffs.data(); }
+        rational const* gt_coeffs() { return m_gt_coeffs.data(); }
+        rational const* ge_coeffs() { return m_ge_coeffs.data(); }
         rational const* t_coeffs(bool is_l) { return is_l?lt_coeffs():gt_coeffs(); }
         rational const* e_coeffs(bool is_l) { return is_l?le_coeffs():ge_coeffs(); }
         rational const* coeffs(bool is_strict, bool is_l) { return is_strict?t_coeffs(is_l):e_coeffs(is_l); }
 
-        app* const* lt_atoms() { return m_lt_atoms.c_ptr(); }
-        app* const* le_atoms() { return m_le_atoms.c_ptr(); }
-        app* const* gt_atoms() { return m_gt_atoms.c_ptr(); }
-        app* const* ge_atoms() { return m_ge_atoms.c_ptr(); }
+        app* const* lt_atoms() { return m_lt_atoms.data(); }
+        app* const* le_atoms() { return m_le_atoms.data(); }
+        app* const* gt_atoms() { return m_gt_atoms.data(); }
+        app* const* ge_atoms() { return m_ge_atoms.data(); }
         app* const* t_atoms(bool is_l) { return is_l?lt_atoms():gt_atoms(); }
         app* const* e_atoms(bool is_l) { return is_l?le_atoms():ge_atoms(); }
         app* const* atoms(bool is_strict, bool is_l) { return is_strict?t_atoms(is_l):e_atoms(is_l); }
         
         unsigned div_size() const    { return m_div_terms.size(); }
-        app* const* div_atoms()      { return m_div_atoms.c_ptr(); }
-        rational const* div_coeffs() { return m_div_coeffs.c_ptr(); }
-        expr* const* div_terms()     { return m_div_terms.c_ptr(); }
-        rational const* divisors()   { return m_div_divisors.c_ptr(); }
+        app* const* div_atoms()      { return m_div_atoms.data(); }
+        rational const* div_coeffs() { return m_div_coeffs.data(); }
+        expr* const* div_terms()     { return m_div_terms.data(); }
+        rational const* divisors()   { return m_div_divisors.data(); }
 
         bool div_z(rational & d, app_ref& z_bv, app_ref& z) {
             if (m_div_z.get()) {
@@ -1503,7 +1503,7 @@ public:
             m_result(r),
             m_coeff(coeff),
             m_term(term),
-            m_vars(vars.size(), vars.c_ptr())
+            m_vars(vars.size(), vars.data())
         {}
         
         unsigned mk_hash() const {
@@ -1829,10 +1829,10 @@ public:
                     terms.push_back(term);
                 }
                 if (is_lower) {
-                    def = m_util.mk_min(terms.size(), terms.c_ptr());
+                    def = m_util.mk_min(terms.size(), terms.data());
                 }
                 else {
-                    def = m_util.mk_max(terms.size(), terms.c_ptr());
+                    def = m_util.mk_max(terms.size(), terms.data());
                 }
                 
                 if (x_t.get_term()) {
@@ -2503,7 +2503,7 @@ public:
             brs = alloc(nlarith::branch_conditions, m);
             
             TRACE("nlarith", tout << mk_pp(fml, m) << "\n";);
-            if (!m_util.create_branches(x.x(), lits.size(), lits.c_ptr(), *brs)) {
+            if (!m_util.create_branches(x.x(), lits.size(), lits.data(), *brs)) {
                 TRACE("nlarith", tout << "no branches for " << mk_pp(x.x(), m) << "\n";);
                 dealloc(brs);
                 return false;

@@ -51,7 +51,7 @@ expr_ref func_decl_replace::operator()(expr* e) {
             }
             if (m_args.size() == n) {
                 if (arg_differs) {
-                    b = m.mk_app(c->get_decl(), m_args.size(), m_args.c_ptr());
+                    b = m.mk_app(c->get_decl(), m_args.size(), m_args.data());
                     m_refs.push_back(b);
                     SASSERT(a->get_sort() == b->get_sort());
                 } else {
@@ -59,7 +59,7 @@ expr_ref func_decl_replace::operator()(expr* e) {
                 }
                 func_decl* f = nullptr;
                 if (m_subst.find(c->get_decl(), f)) {
-                    b = m.mk_app(f, m_args.size(), m_args.c_ptr());
+                    b = m.mk_app(f, m_args.size(), m_args.data());
                     m_refs.push_back(b);
                 }
                 m_cache.insert(a, b);

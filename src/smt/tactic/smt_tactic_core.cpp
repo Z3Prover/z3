@@ -200,7 +200,7 @@ public:
                 if (assumptions.empty())
                     r = m_ctx->setup_and_check();
                 else
-                    r = m_ctx->check(assumptions.size(), assumptions.c_ptr());
+                    r = m_ctx->check(assumptions.size(), assumptions.data());
             }
             catch(...) {
                 TRACE("smt_tactic", tout << "exception\n";);
@@ -225,7 +225,7 @@ public:
                     buffer<symbol> r;
                     m_ctx->get_relevant_labels(nullptr, r);
                     labels_vec rv;
-                    rv.append(r.size(), r.c_ptr());
+                    rv.append(r.size(), r.data());
                     model_converter_ref mc;
                     mc = model_and_labels2model_converter(md.get(), rv);
                     mc = concat(fmc.get(), mc.get());
@@ -288,7 +288,7 @@ public:
                             buffer<symbol> r;
                             m_ctx->get_relevant_labels(nullptr, r);
                             labels_vec rv;
-                            rv.append(r.size(), r.c_ptr());
+                            rv.append(r.size(), r.data());
                             in->add(model_and_labels2model_converter(md.get(), rv));
                         }
                         return;

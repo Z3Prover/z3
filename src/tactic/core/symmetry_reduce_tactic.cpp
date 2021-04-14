@@ -164,7 +164,7 @@ private:
         for (unsigned i = 0; i < g.size(); ++i) {
             conjs.push_back(g.form(i));
         }
-        fml = m().mk_and(conjs.size(), conjs.c_ptr());
+        fml = m().mk_and(conjs.size(), conjs.data());
         normalize(fml);
     }
 
@@ -613,7 +613,7 @@ private:
         for (unsigned i = 0; i < C.size(); ++i) {
             eqs.push_back(m().mk_eq(t, C[i]));
         }
-        return m().mk_or(eqs.size(), eqs.c_ptr());
+        return m().mk_or(eqs.size(), eqs.data());
     }
 };
 

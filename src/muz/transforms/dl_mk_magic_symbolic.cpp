@@ -94,7 +94,7 @@ namespace datalog {
                 tail.push_back(mk_ans(r.get_tail(j)));
                 neg.push_back(false);
             }
-            new_rule = rm.mk(mk_ans(r.get_head()), tail.size(), tail.c_ptr(), neg.c_ptr(), r.name(), true);
+            new_rule = rm.mk(mk_ans(r.get_head()), tail.size(), tail.data(), neg.data(), r.name(), true);
             result->add_rule(new_rule);                
             if (source.is_output_predicate(r.get_decl())) {
                 result->set_output_predicate(new_rule->get_decl());
@@ -103,7 +103,7 @@ namespace datalog {
             }
 
             for (unsigned j = 0; j < utsz; ++j) {
-                new_rule = rm.mk(mk_query(r.get_tail(j)), tail.size()-utsz+j, tail.c_ptr(), neg.c_ptr(), r.name(), true);
+                new_rule = rm.mk(mk_query(r.get_tail(j)), tail.size()-utsz+j, tail.data(), neg.data(), r.name(), true);
                 result->add_rule(new_rule);
             }            
             

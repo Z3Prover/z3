@@ -198,6 +198,6 @@ expr_ref skolem::mk_step(expr* s, expr* idx, expr* re, unsigned i, unsigned j, e
     args.push_back(a.mk_int(i));
     args.push_back(a.mk_int(j));
     args.push_back(t);
-    return expr_ref(seq.mk_skolem(m_aut_step, args.size(), args.c_ptr(), m.mk_bool_sort()), m);
+    return expr_ref(seq.mk_skolem(m_aut_step, args.size(), args.data(), m.mk_bool_sort()), m);
 }
 

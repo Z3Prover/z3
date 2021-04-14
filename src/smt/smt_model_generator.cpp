@@ -437,8 +437,8 @@ namespace smt {
                       }
                       tout << "\n";
                       tout << "value: #" << n->get_owner_id() << "\n" << mk_ismt2_pp(result, m) << "\n";);
-                if (fi->get_entry(args.c_ptr()) == nullptr)
-                    fi->insert_new_entry(args.c_ptr(), result);
+                if (fi->get_entry(args.data()) == nullptr)
+                    fi->insert_new_entry(args.data(), result);
             }
         }
     }

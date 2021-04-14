@@ -424,7 +424,7 @@ namespace mbp {
             for (expr * arg : *a) {
                 kids.push_back (mk_app(arg));
             }
-            app* res = m.mk_app(a->get_decl(), a->get_num_args(), kids.c_ptr());
+            app* res = m.mk_app(a->get_decl(), a->get_num_args(), kids.data());
             m_pinned.push_back(res);
             return res;
         }
@@ -610,7 +610,7 @@ namespace mbp {
                 }
                 TRACE("qe_verbose", tout << *ch << " -> " << mk_pp(e, m) << "\n";);
             }
-            expr* pure = m.mk_app(a->get_decl(), kids.size(), kids.c_ptr());
+            expr* pure = m.mk_app(a->get_decl(), kids.size(), kids.data());
             m_pinned.push_back(pure);
             add_term2app(t, pure);
             return pure;
@@ -712,7 +712,7 @@ namespace mbp {
                         }
                     }
                     if (diff.size() > 1) {
-                        res.push_back(m.mk_distinct(diff.size(), diff.c_ptr()));
+                        res.push_back(m.mk_distinct(diff.size(), diff.data()));
                     }
                     else {
                         TRACE("qe", tout << "skipping " << mk_pp(lit, m) << "\n";);
@@ -802,7 +802,7 @@ namespace mbp {
                             args.push_back(r);
                         }
                         TRACE("qe", tout << "function: " << d->get_name() << "\n";);
-                        res.push_back(m.mk_distinct(args.size(), args.c_ptr()));
+                        res.push_back(m.mk_distinct(args.size(), args.data()));
                     }
                 }
             }
@@ -915,7 +915,7 @@ namespace mbp {
 
             // -- sort representatives, call mk_distinct on any range
             // -- of the same sort longer than 1
-            std::sort(reps.c_ptr(), reps.c_ptr() + reps.size(), sort_lt_proc());
+            std::sort(reps.data(), reps.data() + reps.size(), sort_lt_proc());
             unsigned i = 0;
             unsigned sz = reps.size();
             while (i < sz) {
@@ -928,7 +928,7 @@ namespace mbp {
                     if (!m.is_true(d)) res.push_back(d);
                 }
                 else if (j - i > 2)
-                    res.push_back(m.mk_distinct(j - i, reps.c_ptr() + i));
+                    res.push_back(m.mk_distinct(j - i, reps.data() + i));
                 i = j;
             }
             TRACE("qe", tout << "after distinct: " << res << "\n";);

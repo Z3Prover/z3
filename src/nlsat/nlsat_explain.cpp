@@ -174,8 +174,8 @@ namespace nlsat {
         std::ostream& display(std::ostream & out, literal l) const { return m_solver.display(out, l); }
         std::ostream& display_var(std::ostream & out, var x) const { return m_solver.display(out, x); }
         std::ostream& display(std::ostream & out, unsigned sz, literal const * ls) const { return m_solver.display(out, sz, ls); }
-        std::ostream& display(std::ostream & out, literal_vector const & ls) const { return display(out, ls.size(), ls.c_ptr()); }
-        std::ostream& display(std::ostream & out, scoped_literal_vector const & ls) const { return display(out, ls.size(), ls.c_ptr()); }
+        std::ostream& display(std::ostream & out, literal_vector const & ls) const { return display(out, ls.size(), ls.data()); }
+        std::ostream& display(std::ostream & out, scoped_literal_vector const & ls) const { return display(out, ls.size(), ls.data()); }
 
         /**
            \brief Add literal to the result vector.
@@ -277,7 +277,7 @@ namespace nlsat {
                 } 
             }
             SASSERT(!m_zero_fs.empty()); // one of the factors must be zero in the current interpretation, since p is zero in it.
-            literal l = m_solver.mk_ineq_literal(atom::EQ, m_zero_fs.size(), m_zero_fs.c_ptr(), m_is_even.c_ptr());
+            literal l = m_solver.mk_ineq_literal(atom::EQ, m_zero_fs.size(), m_zero_fs.data(), m_is_even.data());
             l.neg();
             TRACE("nlsat_explain", tout << "adding (zero assumption) literal:\n"; display(tout, l); tout << "\n";);
             add_literal(l);
@@ -468,7 +468,7 @@ namespace nlsat {
                     atom::kind new_k = a->get_kind();
                     if (atom_sign < 0)
                         new_k = atom::flip(new_k);
-                    literal new_l = m_solver.mk_ineq_literal(new_k, ps.size(), ps.c_ptr(), is_even.c_ptr());
+                    literal new_l = m_solver.mk_ineq_literal(new_k, ps.size(), ps.data(), is_even.data());
                     if (l.sign())
                         new_l.neg();
                     return new_l;
@@ -1191,7 +1191,7 @@ namespace nlsat {
                 atom::kind new_k = _a->get_kind();
                 if (atom_sign < 0)
                     new_k = atom::flip(new_k);
-                new_lit = m_solver.mk_ineq_literal(new_k, new_factors.size(), new_factors.c_ptr(), new_factors_even.c_ptr());
+                new_lit = m_solver.mk_ineq_literal(new_k, new_factors.size(), new_factors.data(), new_factors_even.data());
                 if (l.sign())
                     new_lit.neg();
                 TRACE("nlsat_simplify_core", tout << "simplified literal:\n"; display(tout, new_lit) << " " << m_solver.value(new_lit) << "\n";);
@@ -1394,7 +1394,7 @@ namespace nlsat {
                 TRACE("nlsat_explain", display(tout << "core after normalization\n", m_core2) << "\n";);
                 simplify(m_core2, max);
                 TRACE("nlsat_explain", display(tout << "core after simplify\n", m_core2) << "\n";);
-                main(m_core2.size(), m_core2.c_ptr());
+                main(m_core2.size(), m_core2.data());
                 m_core2.reset();
             }
             else {
@@ -1468,14 +1468,14 @@ namespace nlsat {
                     break;
             }
             TRACE("nlsat_minimize", tout << "core:\n"; display(tout, core););
-            r.append(core.size(), core.c_ptr());
+            r.append(core.size(), core.data());
         }
 
         void process(unsigned num, literal const * ls) {
             if (m_minimize_cores && num > 1) {
                 m_core1.reset();
                 minimize(num, ls, m_core1);
-                process2(m_core1.size(), m_core1.c_ptr());
+                process2(m_core1.size(), m_core1.data());
                 m_core1.reset();
             }
             else {
@@ -1515,7 +1515,7 @@ namespace nlsat {
                     SASSERT(!a || m_evaluator.eval(a, ls[i].sign()));
                 });
             split_literals(x, num, ls, lits);
-            collect_polys(lits.size(), lits.c_ptr(), m_ps);
+            collect_polys(lits.size(), lits.data(), m_ps);
             var mx_var = max_var(m_ps);
             if (!m_ps.empty()) {                
                 svector<var> renaming;
@@ -1524,7 +1524,7 @@ namespace nlsat {
                         renaming.push_back(i);
                     }
                     std::swap(renaming[x], renaming[mx_var]);
-                    m_solver.reorder(renaming.size(), renaming.c_ptr());
+                    m_solver.reorder(renaming.size(), renaming.data());
                     TRACE("qe", tout << "x: " << x << " max: " << mx_var << " num_vars: " << m_solver.num_vars() << "\n";
                           m_solver.display(tout););
                 }
@@ -1549,7 +1549,7 @@ namespace nlsat {
                 result.set(i, ~result[i]);
             }
             DEBUG_CODE(
-                TRACE("nlsat", m_solver.display(tout, result.size(), result.c_ptr()) << "\n"; );
+                TRACE("nlsat", m_solver.display(tout, result.size(), result.data()) << "\n"; );
                 for (literal l : result) {
                     CTRACE("nlsat", l_true != m_solver.value(l), m_solver.display(tout, l) << " " << m_solver.value(l) << "\n";);
                     SASSERT(l_true == m_solver.value(l));
@@ -1809,7 +1809,7 @@ namespace nlsat {
             svector<literal> lits;
             polynomial_ref p(m_pm);
             split_literals(x, num, ls, lits);
-            collect_polys(lits.size(), lits.c_ptr(), m_ps);
+            collect_polys(lits.size(), lits.data(), m_ps);
             unbounded = true;
             scoped_anum x_val(m_am);
             x_val = m_assignment.value(x);

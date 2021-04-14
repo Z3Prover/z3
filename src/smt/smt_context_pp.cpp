@@ -89,11 +89,11 @@ namespace smt {
     }
 
     std::ostream& context::display_literal(std::ostream & out, literal l) const {
-        l.display_compact(out, m_bool_var2expr.c_ptr()); return out;
+        l.display_compact(out, m_bool_var2expr.data()); return out;
     }
 
     std::ostream& context::display_literals(std::ostream & out, unsigned num_lits, literal const * lits) const {
-        display_compact(out, num_lits, lits, m_bool_var2expr.c_ptr()); return out;
+        display_compact(out, num_lits, lits, m_bool_var2expr.data()); return out;
     }
 
     std::ostream& context::display_literal_verbose(std::ostream & out, literal lit) const {
@@ -101,7 +101,7 @@ namespace smt {
     }
 
     std::ostream& context::display_literals_verbose(std::ostream & out, unsigned num_lits, literal const * lits) const {
-        display_verbose(out, m, num_lits, lits, m_bool_var2expr.c_ptr(), "\n"); return out;
+        display_verbose(out, m, num_lits, lits, m_bool_var2expr.data(), "\n"); return out;
     }
 
     std::ostream& context::display_literal_smt2(std::ostream& out, literal l) const {
@@ -120,7 +120,7 @@ namespace smt {
     }
 
     void context::display_literal_info(std::ostream & out, literal l) const {
-        l.display_compact(out, m_bool_var2expr.c_ptr());
+        l.display_compact(out, m_bool_var2expr.data());
         display_literal_smt2(out, l);
         out << "relevant: " << is_relevant(bool_var2expr(l.var())) << ", val: " << get_assignment(l) << "\n";
     }
@@ -171,7 +171,7 @@ namespace smt {
     }
 
     std::ostream& context::display_clause(std::ostream & out, clause const * cls) const {
-        cls->display_compact(out, m, m_bool_var2expr.c_ptr());
+        cls->display_compact(out, m, m_bool_var2expr.data());
         return out;
     }
 
@@ -229,7 +229,7 @@ namespace smt {
                 display_literal(out << lit << " ", lit);
                 if (!is_relevant(lit)) out << " n ";
                 out << ": ";
-                display_verbose(out, m, 1, &lit, m_bool_var2expr.c_ptr());
+                display_verbose(out, m, 1, &lit, m_bool_var2expr.data());
                 if (level > 0) {
                     auto j = get_justification(lit.var());
                     display(out << " ", j);

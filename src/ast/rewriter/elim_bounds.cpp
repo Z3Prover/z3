@@ -189,7 +189,7 @@ bool elim_bounds_cfg::reduce_quantifier(quantifier * q,
         new_body = atoms[0];
         break;
     default:
-        new_body = m.mk_or(atoms.size(), atoms.c_ptr());
+        new_body = m.mk_or(atoms.size(), atoms.data());
         break;
     }
     quantifier_ref new_q(m);

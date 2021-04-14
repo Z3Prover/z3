@@ -96,10 +96,10 @@ class expr_pattern_match {
                 args.push_back(arg);
             }
             if (m_manager.is_pattern(n)) {
-                result = m_manager.mk_pattern(num_args, reinterpret_cast<app**>(args.c_ptr()));
+                result = m_manager.mk_pattern(num_args, reinterpret_cast<app**>(args.data()));
             }
             else {
-                result = m_manager.mk_app(decl, num_args, args.c_ptr());
+                result = m_manager.mk_app(decl, num_args, args.data());
             }
             m_pinned.push_back(result);
             m_memoize.insert(n, result);

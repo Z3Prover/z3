@@ -256,7 +256,7 @@ private:
                     coeffs.push_back(pb.get_coeff(r, j));
                     args.push_back(negate(to_app(r)->get_arg(j)));
                 }
-                tmp = pb.mk_ge(args.size(), coeffs.c_ptr(), args.c_ptr(), sum - k + rational::one());
+                tmp = pb.mk_ge(args.size(), coeffs.data(), args.data(), sum - k + rational::one());
                 g->update(i, tmp, g->pr(i), g->dep(i));
             }
         }
@@ -293,7 +293,7 @@ private:
                     start = end;
                     TRACE("pb", tout << fml1 << "\n";);
                 }
-                fml2 = pb.mk_ge(cut_args.size(), cut_coeffs.c_ptr(), cut_args.c_ptr(), pb.get_k(e));
+                fml2 = pb.mk_ge(cut_args.size(), cut_coeffs.data(), cut_args.data(), pb.get_k(e));
                 g->update(i, fml2, nullptr, g->dep(i));
                 TRACE("pb", tout << fml2 << "\n";);
             }
@@ -350,7 +350,7 @@ private:
             cut_args.push_back(z);            
             j <<= 1;
         }
-        fml1 = pb.mk_ge(args.size(), coeffs.c_ptr(), args.c_ptr(), rational(0));
+        fml1 = pb.mk_ge(args.size(), coeffs.data(), args.data(), rational(0));
         m_r(fml1, fml);
         return fml;
     }
@@ -519,7 +519,7 @@ private:
             set_value(mc, arg, j != min_index);
         }
         
-        tmp1 = pb.mk_ge(args2.size(), coeffs2.c_ptr(), args2.c_ptr(), k2);
+        tmp1 = pb.mk_ge(args2.size(), coeffs2.data(), args2.data(), k2);
         IF_VERBOSE(3, verbose_stream() << " " << tmp1 << "\n";
                    for (unsigned i = 0; i < args2.size(); ++i) {
                        verbose_stream() << mk_pp(args2[i].get(), m) << " ";

@@ -264,9 +264,9 @@ expr_ref fpa2bv_converter::extra_quantify(expr * e)
 
     expr_ref res(m);
     var_subst vsubst(m);
-    res = vsubst.operator()(e, nv, subst_map.c_ptr());
+    res = vsubst.operator()(e, nv, subst_map.data());
     TRACE("fpa2bv", tout << "subst'd = " << mk_ismt2_pp(res, m) << std::endl; );
-    res = m.mk_forall(nv, new_decl_sorts.c_ptr(), new_decl_names.c_ptr(), res);
+    res = m.mk_forall(nv, new_decl_sorts.data(), new_decl_names.data(), res);
     return res;
 }
 

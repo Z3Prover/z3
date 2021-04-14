@@ -124,7 +124,7 @@ namespace datalog {
                 TRACE("dl", tout << body << "\n";);
                 // 3. abstract and quantify those variables that should be bound.
                 body = expr_abstract(bound, body);
-                body = m.mk_forall(names.size(), bound_sorts.c_ptr(), names.c_ptr(), body);
+                body = m.mk_forall(names.size(), bound_sorts.data(), names.data(), body);
 
                 TRACE("dl", tout << body << "\n";);
                 // 4. replace remaining constants by variables.
@@ -198,7 +198,7 @@ namespace datalog {
                         bound.push_back(true);
                         sorts.push_back(s1);
                     }
-                    arg = mk_select(arg, args.size(), args.c_ptr());
+                    arg = mk_select(arg, args.size(), args.data());
                     s = get_array_range(s);
                 }
                 domain.push_back(s);
@@ -207,7 +207,7 @@ namespace datalog {
                 sorts.push_back(s0);
             }
             SASSERT(old_p->get_range() == m.mk_bool_sort());
-            new_p = m.mk_func_decl(old_p->get_name(), domain.size(), domain.c_ptr(), old_p->get_range());
+            new_p = m.mk_func_decl(old_p->get_name(), domain.size(), domain.data(), old_p->get_range());
             m_refs.push_back(new_p);
             m_ctx.register_predicate(new_p, false);
             if (m_mc) {
@@ -234,7 +234,7 @@ namespace datalog {
                 for (unsigned j = 0; j < arity; ++j) {
                     args.push_back(m.mk_var(idx++, get_array_domain(s, j)));
                 }
-                arg = mk_select(arg, arity, args.c_ptr()+args.size()-arity);
+                arg = mk_select(arg, arity, args.data()+args.size()-arity);
                 s = get_array_range(s);
             }
             args.push_back(arg);
@@ -244,7 +244,7 @@ namespace datalog {
               for (unsigned i = 0; i < args.size(); ++i) {
                   tout << mk_pp(args[i].get(), m) << "\n";
               });
-        return app_ref(m.mk_app(new_p, args.size(), args.c_ptr()), m);
+        return app_ref(m.mk_app(new_p, args.size(), args.data()), m);
     }
 
     app_ref mk_quantifier_abstraction::mk_tail(rule_set const& rules, rule_set& dst, app* p) {
@@ -278,7 +278,7 @@ namespace datalog {
                     names.push_back(symbol(idx));
                     args.push_back(m.mk_var(idx++, vars.back()));
                 }
-                arg = mk_select(arg, arity, args.c_ptr()+args.size()-arity);
+                arg = mk_select(arg, arity, args.data()+args.size()-arity);
                 s = get_array_range(s);
             }
             if (is_pattern) {
@@ -288,12 +288,12 @@ namespace datalog {
         }
         expr* pat = nullptr;
         expr_ref pattern(m);
-        pattern = m.mk_pattern(pats.size(), pats.c_ptr());
+        pattern = m.mk_pattern(pats.size(), pats.data());
         pat = pattern.get();
         app_ref result(m);
         symbol qid, skid;
-        result = m.mk_app(new_p, args.size(), args.c_ptr());
-        result = m.mk_eq(m.mk_forall(vars.size(), vars.c_ptr(), names.c_ptr(), result, 1, qid, skid, 1, &pat), m.mk_true());
+        result = m.mk_app(new_p, args.size(), args.data());
+        result = m.mk_eq(m.mk_forall(vars.size(), vars.data(), names.data(), result, 1, qid, skid, 1, &pat), m.mk_true());
         return result;
     }
 
@@ -301,7 +301,7 @@ namespace datalog {
         ptr_vector<expr> args2;
         args2.push_back(arg);
         args2.append(num_args, args);
-        return a.mk_select(args2.size(), args2.c_ptr());
+        return a.mk_select(args2.size(), args2.data());
     }
 
     rule_set * mk_quantifier_abstraction::operator()(rule_set const & source) {
@@ -345,7 +345,7 @@ namespace datalog {
                 tail.push_back(r.get_tail(j));
             }
             head = mk_head(source, *result, r.get_head(), cnt);
-            fml = m.mk_implies(m.mk_and(tail.size(), tail.c_ptr()), head);
+            fml = m.mk_implies(m.mk_and(tail.size(), tail.data()), head);
             proof_ref pr(m);
             rm.mk_rule(fml, pr, *result, r.name());
             TRACE("dl", result->last()->display(m_ctx, tout););

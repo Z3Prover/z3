@@ -192,7 +192,7 @@ static app_ref generate_ineqs(ast_manager& m, sort* s, vector<expr_ref_vector>& 
 static void test_c(app* x, expr_ref_vector const& c) {
     ast_manager& m = c.get_manager();
     expr_ref fml(m);
-    fml = m.mk_and(c.size(), c.c_ptr());
+    fml = m.mk_and(c.size(), c.data());
     test(x, fml);
 }
 
@@ -261,8 +261,8 @@ static void test2(char const *ex) {
         names.push_back(vars[i]->get_decl()->get_name());
         sorts.push_back(vars[i]->get_sort());
     }
-    expr_abstract(m, 0, bound.size(), bound.c_ptr(), fml, fml2);
-    fml2 = m.mk_exists(bound.size(), sorts.c_ptr(), names.c_ptr(), fml2);
+    expr_abstract(m, 0, bound.size(), bound.data(), fml, fml2);
+    fml2 = m.mk_exists(bound.size(), sorts.data(), names.data(), fml2);
     qe::expr_quant_elim qe(m, params);
     for (unsigned i = 0; i < vars.size(); ++i) {
         VERIFY(mbp::arith_project(*md, vars[i].get(), lits));
@@ -303,7 +303,7 @@ static void mk_term(vector<var_t> const& vars, rational const& coeff, app_ref& t
         ts.push_back(a.mk_mul(a.mk_numeral(coeff, false), var));
     }
     ts.push_back(a.mk_numeral(coeff, a.mk_real()));
-    term = a.mk_add(ts.size(), ts.c_ptr());    
+    term = a.mk_add(ts.size(), ts.data());    
 }
 
 static void add_random_ineq(
@@ -466,9 +466,9 @@ static void test_project() {
     nums.push_back(a.mk_int(0));
     nums.push_back(a.mk_int(1));
     nums.push_back(a.mk_int(2));
-    fi->insert_new_entry(nums.c_ptr(),   a.mk_int(1));
-    fi->insert_new_entry(nums.c_ptr()+1, a.mk_int(2));
-    fi->insert_new_entry(nums.c_ptr()+2, a.mk_int(3));
+    fi->insert_new_entry(nums.data(),   a.mk_int(1));
+    fi->insert_new_entry(nums.data()+1, a.mk_int(2));
+    fi->insert_new_entry(nums.data()+2, a.mk_int(3));
     fi->set_else(a.mk_int(10));
     mdl.register_decl(f, fi);
     vars.reset();
@@ -502,7 +502,7 @@ static void test_project() {
     ds.push_back(z + 2);
     ds.push_back(u);
     ds.push_back(z);
-    lits.push_back(m.mk_not(m.mk_distinct(ds.size(), ds.c_ptr())));
+    lits.push_back(m.mk_not(m.mk_distinct(ds.size(), ds.data())));
     plugin(mdl, vars, lits);
     std::cout << lits << "\n";
 
@@ -522,7 +522,7 @@ static void test_project() {
     ds.push_back(u);
     ds.push_back(z + 10);
     ds.push_back(u + 4);
-    lits.push_back(m.mk_not(m.mk_distinct(ds.size(), ds.c_ptr())));
+    lits.push_back(m.mk_not(m.mk_distinct(ds.size(), ds.data())));
     plugin(mdl, vars, lits);
     std::cout << lits << "\n";
 
@@ -541,7 +541,7 @@ static void test_project() {
     ds.push_back(y);
     ds.push_back(z + 2);
     ds.push_back(u);
-    lits.push_back(m.mk_distinct(ds.size(), ds.c_ptr()));
+    lits.push_back(m.mk_distinct(ds.size(), ds.data()));
     plugin(mdl, vars, lits);
     std::cout << lits << "\n";
 

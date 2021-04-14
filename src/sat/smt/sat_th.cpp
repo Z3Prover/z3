@@ -163,7 +163,7 @@ namespace euf {
         bool was_true = false;
         for (auto lit : lits)
             was_true |= is_true(lit);
-        s().add_clause(lits.size(), lits.c_ptr(), mk_status());
+        s().add_clause(lits.size(), lits.data(), mk_status());
         return !was_true;
     }
 
@@ -191,7 +191,7 @@ namespace euf {
         if (!suppress_args)
             for (expr* arg : *to_app(e))
                 m_args.push_back(expr2enode(arg));
-        euf::enode* n = ctx.mk_enode(e, m_args.size(), m_args.c_ptr());
+        euf::enode* n = ctx.mk_enode(e, m_args.size(), m_args.data());
         ctx.attach_node(n);
         return n;
     }
@@ -251,11 +251,11 @@ namespace euf {
     }
 
     th_explain* th_explain::propagate(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs, sat::literal consequent) {
-        return mk(th, lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), consequent, nullptr, nullptr);
+        return mk(th, lits.size(), lits.data(), eqs.size(), eqs.data(), consequent, nullptr, nullptr);
     }
 
     th_explain* th_explain::propagate(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs, euf::enode* x, euf::enode* y) {
-        return mk(th, lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), sat::null_literal, x, y);
+        return mk(th, lits.size(), lits.data(), eqs.size(), eqs.data(), sat::null_literal, x, y);
     }
 
     th_explain* th_explain::propagate(th_euf_solver& th, sat::literal lit, euf::enode* x, euf::enode* y) {
@@ -263,7 +263,7 @@ namespace euf {
     }
 
     th_explain* th_explain::conflict(th_euf_solver& th, sat::literal_vector const& lits, enode_pair_vector const& eqs) {
-        return conflict(th, lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr());
+        return conflict(th, lits.size(), lits.data(), eqs.size(), eqs.data());
     }
 
     th_explain* th_explain::conflict(th_euf_solver& th, unsigned n_lits, sat::literal const* lits, unsigned n_eqs, enode_pair const* eqs) {
@@ -271,7 +271,7 @@ namespace euf {
     }
 
     th_explain* th_explain::conflict(th_euf_solver& th, enode_pair_vector const& eqs) {
-        return conflict(th, 0, nullptr, eqs.size(), eqs.c_ptr());
+        return conflict(th, 0, nullptr, eqs.size(), eqs.data());
     }
 
     th_explain* th_explain::conflict(th_euf_solver& th, sat::literal lit) {

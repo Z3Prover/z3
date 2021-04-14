@@ -129,14 +129,14 @@ void user_propagator::propagate() {
         if (m.is_false(prop.m_conseq)) {
             js = ctx.mk_justification(
                 ext_theory_conflict_justification(
-                    get_id(), ctx.get_region(), m_lits.size(), m_lits.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), 0, nullptr));
+                    get_id(), ctx.get_region(), m_lits.size(), m_lits.data(), m_eqs.size(), m_eqs.data(), 0, nullptr));
             ctx.set_conflict(js);
         }
         else {
             literal lit = mk_literal(prop.m_conseq);
             js = ctx.mk_justification(
                 ext_theory_propagation_justification(
-                    get_id(), ctx.get_region(), m_lits.size(), m_lits.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit));
+                    get_id(), ctx.get_region(), m_lits.size(), m_lits.data(), m_eqs.size(), m_eqs.data(), lit));
             ctx.assign(lit, js);
         }
         ++m_stats.m_num_propagations;

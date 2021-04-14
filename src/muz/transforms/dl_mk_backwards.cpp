@@ -67,7 +67,7 @@ namespace datalog {
                 else {
                     head = r.get_tail(j);
                 }
-                new_rule = rm.mk(head, tail.size(), tail.c_ptr(), neg.c_ptr(), r.name(), true);
+                new_rule = rm.mk(head, tail.size(), tail.data(), neg.data(), r.name(), true);
                 result->add_rule(new_rule);
             }
         }

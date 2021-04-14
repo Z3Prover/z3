@@ -151,7 +151,7 @@ void anti_unifier::operator()(expr *e1, expr *e2, expr_ref &res,
             if (m_todo.size() > todo_sz) {continue;}
 
             expr_ref u(m);
-            u = m.mk_app(n1->get_decl(), kids.size(), kids.c_ptr());
+            u = m.mk_app(n1->get_decl(), kids.size(), kids.data());
             m_pinned.push_back(u);
             m_cache.insert(n1, n2, u);
         }

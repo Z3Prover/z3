@@ -49,7 +49,7 @@ model::model(ast_manager & m):
 model::~model() {
     for (auto & kv : m_usort2universe) {
         m.dec_ref(kv.m_key);
-        m.dec_array_ref(kv.m_value->size(), kv.m_value->c_ptr());
+        m.dec_array_ref(kv.m_value->size(), kv.m_value->data());
         dealloc(kv.m_value);
     }
 }
@@ -73,7 +73,7 @@ void model::copy_func_interps(model const & source) {
 
 void model::copy_usort_interps(model const & source) {
     for (auto const& kv : source.m_usort2universe) 
-        register_usort(kv.m_key, kv.m_value->size(), kv.m_value->c_ptr());
+        register_usort(kv.m_key, kv.m_value->size(), kv.m_value->data());
 }
 
 model * model::copy() const {
@@ -161,7 +161,7 @@ void model::register_usort(sort * s, unsigned usize, expr * const * universe) {
         u->append(usize, universe);
     }
     else {
-        m.dec_array_ref(u->size(), u->c_ptr());
+        m.dec_array_ref(u->size(), u->data());
         u->reset();
         u->append(usize, universe);
     }
@@ -190,7 +190,7 @@ model * model::translate(ast_translation & translator) const {
         }
         res->register_usort(translator(kv.m_key),
                             new_universe.size(),
-                            new_universe.c_ptr());
+                            new_universe.data());
     }
 
     return res;
@@ -469,7 +469,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
             else if (f->is_skolem() && can_inline_def(ts, f) && (fi = get_func_interp(f)) && 
                      fi->get_interp() && (!ts.partition_ids().find(f, pid) || pid != current_partition)) {
                 var_subst vs(m, false);
-                new_t = vs(fi->get_interp(), args.size(), args.c_ptr());
+                new_t = vs(fi->get_interp(), args.size(), args.data());
             }
             else if (bv.is_bit2bool(t)) {
                 unsigned idx = f->get_parameter(0).get_int();
@@ -482,7 +482,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
             }
 #endif
             else {
-                new_t = ts.m_rewrite.mk_app(f, args.size(), args.c_ptr());                
+                new_t = ts.m_rewrite.mk_app(f, args.size(), args.data());                
             }
             
             if (t != new_t.get()) trail.push_back(new_t);

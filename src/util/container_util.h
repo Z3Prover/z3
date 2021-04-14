@@ -85,7 +85,7 @@ void print_container(const T & cont, std::ostream & out) {
 
 template<class T, class M>
 void print_container(const ref_vector<T,M> & cont, std::ostream & out) {
-    print_container(cont.c_ptr(), cont.c_ptr() + cont.size(), out);
+    print_container(cont.data(), cont.data() + cont.size(), out);
 }
 
 template<class T>

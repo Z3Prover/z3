@@ -48,7 +48,7 @@ namespace smt {
         m_dummy.m_data      = data;
         m_dummy.m_data_hash = data_hash;
         m_dummy.m_num_args  = num_args;
-        m_dummy.m_args      = m_tmp.c_ptr();
+        m_dummy.m_args      = m_tmp.data();
         return &m_dummy;
     }
 

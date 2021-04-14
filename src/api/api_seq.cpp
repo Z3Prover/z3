@@ -62,7 +62,7 @@ extern "C" {
         RESET_ERROR_CODE();
         unsigned_vector chs;
         for (unsigned i = 0; i < sz; ++i) chs.push_back((unsigned char)str[i]);
-        zstring s(sz, chs.c_ptr());
+        zstring s(sz, chs.data());
         app* a = mk_c(c)->sutil().str.mk_string(s);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
@@ -188,7 +188,7 @@ extern "C" {
             }
         }
         *length = buffer.size();
-        return buffer.c_ptr();
+        return buffer.data();
         Z3_CATCH_RETURN("");
     }
 

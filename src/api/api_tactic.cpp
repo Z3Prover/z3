@@ -136,7 +136,7 @@ extern "C" {
         for (unsigned i = 0; i < num; i++) {
             _ts.push_back(to_tactic_ref(ts[i]));
         }
-        tactic * new_t = par(num, _ts.c_ptr());
+        tactic * new_t = par(num, _ts.data());
         RETURN_TACTIC(new_t);
         Z3_CATCH_RETURN(nullptr);
     }

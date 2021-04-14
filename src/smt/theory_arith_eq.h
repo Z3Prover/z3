@@ -337,8 +337,8 @@ namespace smt {
             ctx.mk_justification(
                 ext_theory_eq_propagation_justification(
                     get_id(), r, 
-                    lits.size(), lits.c_ptr(),
-                    eqs.size(), eqs.c_ptr(),
+                    lits.size(), lits.data(),
+                    eqs.size(), eqs.data(),
                     _x, _y, 
                     antecedents.num_params(), antecedents.params("eq-propagate")));
         TRACE("arith_eq", tout << "detected equality: #" << _x->get_owner_id() << " = #" << _y->get_owner_id() << "\n";

@@ -210,11 +210,11 @@ namespace smt {
         theory_array::display_var(out, v);
         var_data_full const * d = m_var_data_full[v];
         out << " maps: {";
-        display_ids(out, d->m_maps.size(), d->m_maps.c_ptr());
+        display_ids(out, d->m_maps.size(), d->m_maps.data());
         out << "} p_parent_maps: {";
-        display_ids(out, d->m_parent_maps.size(), d->m_parent_maps.c_ptr());
+        display_ids(out, d->m_parent_maps.size(), d->m_parent_maps.data());
         out << "} p_const: {";
-        display_ids(out, d->m_consts.size(), d->m_consts.c_ptr());
+        display_ids(out, d->m_consts.size(), d->m_consts.data());
         out << "}\n";
     }
     
@@ -486,13 +486,13 @@ namespace smt {
             args1.push_back(arg);
         }
         for (unsigned j = 0; j < num_arrays; ++j) {
-            expr* sel = mk_select(args2l[j].size(), args2l[j].c_ptr());
+            expr* sel = mk_select(args2l[j].size(), args2l[j].data());
             args2.push_back(sel);
         }
 
         expr_ref sel1(m), sel2(m);
-        sel1 = mk_select(args1.size(), args1.c_ptr());
-        sel2 = m.mk_app(f, args2.size(), args2.c_ptr());
+        sel1 = mk_select(args1.size(), args1.data());
+        sel2 = m.mk_app(f, args2.size(), args2.data());
         ctx.get_rewriter()(sel2);
         ctx.internalize(sel1, false);
         ctx.internalize(sel2, false);
@@ -528,7 +528,7 @@ namespace smt {
             args2.push_back(mk_default(arg));
         }
 
-        expr_ref def2(m.mk_app(f, args2.size(), args2.c_ptr()), m);
+        expr_ref def2(m.mk_app(f, args2.size(), args2.data()), m);
         ctx.get_rewriter()(def2);
         expr* def1 = mk_default(map);
         ctx.internalize(def1, false);
@@ -630,7 +630,7 @@ namespace smt {
         for (unsigned short i = 1; i < num_args; ++i) {
             sel_args.push_back(select->get_expr()->get_arg(i));
         }
-        expr * sel = mk_select(sel_args.size(), sel_args.c_ptr());
+        expr * sel = mk_select(sel_args.size(), sel_args.data());
         expr * val = cnst->get_expr()->get_arg(0);
         TRACE("array", tout << "new select-const axiom...\n";
               tout << "const: " << mk_bounded_pp(cnst->get_expr(), m) << "\n";
@@ -664,9 +664,9 @@ namespace smt {
         for (unsigned short i = 1; i < num_args; ++i) {
             sel_args.push_back(select->get_expr()->get_arg(i));
         }
-        expr * sel = mk_select(sel_args.size(), sel_args.c_ptr());
+        expr * sel = mk_select(sel_args.size(), sel_args.data());
         func_decl * f = array_util(m).get_as_array_func_decl(arr->get_expr());
-        expr_ref val(m.mk_app(f, sel_args.size()-1, sel_args.c_ptr()+1), m);
+        expr_ref val(m.mk_app(f, sel_args.size()-1, sel_args.data()+1), m);
         TRACE("array", tout << "new select-as-array axiom...\n";
               tout << "as-array: " << mk_bounded_pp(arr->get_expr(), m) << "\n";
               tout << "select: " << mk_bounded_pp(select->get_expr(), m) << "\n";

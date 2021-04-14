@@ -92,11 +92,11 @@ bool horn_subsume_model_converter::mk_horn(
         }
     }
     expr_ref body_expr(m);
-    body_expr = m.mk_and(conjs.size(), conjs.c_ptr());
+    body_expr = m.mk_and(conjs.size(), conjs.data());
 
     // substitute variables directly.
     if (!subst.empty()) {
-        body_expr = vs(body_expr, subst.size(), subst.c_ptr());
+        body_expr = vs(body_expr, subst.size(), subst.data());
     }    
 
     if (fv.empty()) {
@@ -104,7 +104,7 @@ bool horn_subsume_model_converter::mk_horn(
         body_res = body_expr;
     }   
     else {
-        body_res  = m.mk_exists(fv.size(), fv.c_ptr(), names.c_ptr(), body_expr.get()); 
+        body_res  = m.mk_exists(fv.size(), fv.data(), names.data(), body_expr.get()); 
         m_rewrite(body_res);
         
     }

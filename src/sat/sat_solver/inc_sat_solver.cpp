@@ -165,13 +165,13 @@ public:
             asms.push_back(a);
         }
         VERIFY(l_true == internalize_formulas());
-        VERIFY(l_true == internalize_assumptions(sz, asms.c_ptr()));
+        VERIFY(l_true == internalize_assumptions(sz, asms.data()));
         svector<unsigned> nweights;
         for (unsigned i = 0; i < m_asms.size(); ++i) {
             nweights.push_back((unsigned) m_weights[i]);
         }
         m_weights.reset();
-        m_solver.display_wcnf(out, m_asms.size(), m_asms.c_ptr(), nweights.c_ptr());
+        m_solver.display_wcnf(out, m_asms.size(), m_asms.data(), nweights.data());
     }
 
     bool is_literal(expr* e) const {
@@ -204,7 +204,7 @@ public:
         m_dep2asm.reset();
         lbool r = internalize_formulas();
         if (r != l_true) return r;
-        r = internalize_assumptions(sz, _assumptions.c_ptr());
+        r = internalize_assumptions(sz, _assumptions.data());
         if (r != l_true) return r;
 
         init_reason_unknown();
@@ -212,7 +212,7 @@ public:
         bool reason_set = false;
         try {
             // IF_VERBOSE(0, m_solver.display(verbose_stream()));
-            r = m_solver.check(m_asms.size(), m_asms.c_ptr());
+            r = m_solver.check(m_asms.size(), m_asms.data());
         }
         catch (z3_exception& ex) {
             IF_VERBOSE(1, verbose_stream() << "exception: " << ex.msg() << "\n";);
@@ -337,7 +337,7 @@ public:
                 expr_ref_vector args(m);
                 args.push_back(::mk_not(m, a));
                 args.append(to_app(t)->get_num_args(), to_app(t)->get_args());
-                assert_expr_core(m.mk_or(args.size(), args.c_ptr()));
+                assert_expr_core(m.mk_or(args.size(), args.data()));
             }
             else {
                 m_is_cnf = false;
@@ -377,7 +377,7 @@ public:
     }
     void get_unsat_core(expr_ref_vector & r) override {
         r.reset();
-        r.append(m_core.size(), m_core.c_ptr());
+        r.append(m_core.size(), m_core.data());
     }
 
     void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
@@ -475,7 +475,7 @@ public:
         if (r != l_true) return r;
         r = internalize_vars(vars, bvars);
         if (r != l_true) return r;
-        r = internalize_assumptions(assumptions.size(), assumptions.c_ptr());
+        r = internalize_assumptions(assumptions.size(), assumptions.data());
         if (r != l_true) return r;
         r = m_solver.get_consequences(m_asms, bvars, lconseq);
         if (r == l_false) {
@@ -1090,7 +1090,7 @@ void inc_sat_display(std::ostream& out, solver& _s, unsigned sz, expr*const* sof
         }
         weights.push_back(_weights[i].get_unsigned());
     }
-    s.display_weighted(out, sz, soft, weights.c_ptr());
+    s.display_weighted(out, sz, soft, weights.data());
 }
 
 

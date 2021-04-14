@@ -127,7 +127,7 @@ struct dl_context {
             for (unsigned i = 0; i < q->get_arity(); ++i) {
                 args.push_back(m.mk_var(i, q->get_domain(i)));
             }
-            qr = m.mk_app(q, args.size(), args.c_ptr());
+            qr = m.mk_app(q, args.size(), args.data());
             qr = m_context->bind_vars(qr, false);
             m_collected_cmds->m_queries.push_back(qr);
             m_trail.push(push_back_vector<expr_ref_vector>(m_collected_cmds->m_queries));
@@ -427,9 +427,9 @@ public:
         ast_manager& m = ctx.m();
 
         func_decl_ref pred(
-            m.mk_func_decl(m_rel_name, m_domain.size(), m_domain.c_ptr(), m.mk_bool_sort()), m);
+            m.mk_func_decl(m_rel_name, m_domain.size(), m_domain.data(), m.mk_bool_sort()), m);
         ctx.insert(pred);
-        m_dl_ctx->register_predicate(pred, m_kinds.size(), m_kinds.c_ptr());
+        m_dl_ctx->register_predicate(pred, m_kinds.size(), m_kinds.data());
     }
 
 };

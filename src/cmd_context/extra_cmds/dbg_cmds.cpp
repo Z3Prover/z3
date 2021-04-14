@@ -123,7 +123,7 @@ public:
     }
     void execute(cmd_context & ctx) override {
         beta_reducer p(ctx.m());
-        expr_ref r = p(m_source, m_subst.size(), m_subst.c_ptr());
+        expr_ref r = p(m_source, m_subst.size(), m_subst.data());
         store_expr_ref(ctx, m_target, r.get());
     }
 };
@@ -304,7 +304,7 @@ public:
     }
 
     void execute(cmd_context & ctx) override {
-        expr_ref r = instantiate(ctx.m(), m_q, m_args.c_ptr());
+        expr_ref r = instantiate(ctx.m(), m_q, m_args.data());
         ctx.display(ctx.regular_stream(), r);
         ctx.regular_stream() << std::endl;
     }

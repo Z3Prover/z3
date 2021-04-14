@@ -182,7 +182,7 @@ namespace datalog {
                         m_args.push_back(a->get_arg(i));
                         m_g_vars.push_back(m.mk_var(idx++,m.mk_bool_sort()));
                     }
-                    m_f_vars.push_back(m_util.mk_bv(sz, m_g_vars.c_ptr()+m_g_vars.size()-sz));
+                    m_f_vars.push_back(m_util.mk_bv(sz, m_g_vars.data()+m_g_vars.size()-sz));
                 }
                 else {
                     m_args.push_back(arg);
@@ -202,7 +202,7 @@ namespace datalog {
                 for (expr* arg : m_args) {
                     domain.push_back(arg->get_sort());
                 }
-                g = m_context.mk_fresh_head_predicate(f->get_name(), symbol("bv"), m_args.size(), domain.c_ptr(), f);
+                g = m_context.mk_fresh_head_predicate(f->get_name(), symbol("bv"), m_args.size(), domain.data(), f);
                 m_old_funcs.push_back(f);
                 m_new_funcs.push_back(g);
                 m_pred2blast.insert(f, g);

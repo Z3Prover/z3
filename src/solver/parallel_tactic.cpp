@@ -226,7 +226,7 @@ class parallel_tactic : public tactic {
         solver const& get_solver() const { return *m_solver; }
 
         void set_assumptions(ptr_vector<expr> const& asms) {
-            m_assumptions.append(asms.size(), asms.c_ptr());
+            m_assumptions.append(asms.size(), asms.data());
         }
         
         bool has_assumptions() const { return !m_assumptions.empty(); }

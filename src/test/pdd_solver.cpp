@@ -111,10 +111,10 @@ namespace dd {
                 for (unsigned i = 0; i < args.size(); ++i) {
                     args[i] = mk_not(m, args.get(i));
                 }
-                g = m.mk_not(m.mk_and(args.size(), args.c_ptr()));
+                g = m.mk_not(m.mk_and(args.size(), args.data()));
             }
             else if (m.is_and(a)) {
-                g = m.mk_and(args.size(), args.c_ptr());
+                g = m.mk_and(args.size(), args.data());
                 trail.push_back(g);
             }
             else if (m.is_eq(a)) {
@@ -134,7 +134,7 @@ namespace dd {
                 g = mk_not(m, args.get(0));
             }
             else {
-                g = m.mk_app(a->get_decl(), args.size(), args.c_ptr());
+                g = m.mk_app(a->get_decl(), args.size(), args.data());
             }
             trail.push_back(g);
             cache.insert(a, g);

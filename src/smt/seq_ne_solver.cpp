@@ -108,7 +108,7 @@ bool theory_seq::propagate_ne2lit(unsigned idx) {
     }
     else {
         TRACE("seq", tout << "propagate: " << undef_lit << "\n";);
-        propagate_lit(n.dep(), lits.size(), lits.c_ptr(), ~undef_lit);
+        propagate_lit(n.dep(), lits.size(), lits.data(), ~undef_lit);
     }
     return true;
 }

@@ -999,7 +999,7 @@ namespace {
                         SASSERT(m_vars[to_var(arg)->get_idx()] != -1);
                         iregs.push_back(m_vars[to_var(arg)->get_idx()]);
                     }
-                    m_seq.push_back(m_ct_manager.mk_is_cgr(lbl, first_app_reg, num_args, iregs.c_ptr()));
+                    m_seq.push_back(m_ct_manager.mk_is_cgr(lbl, first_app_reg, num_args, iregs.data()));
                 }
                 else {
                     // Generate a BIND operation for this application.
@@ -1080,7 +1080,7 @@ namespace {
             }
             unsigned oreg        = m_tree->m_num_regs;
             m_tree->m_num_regs  += 1;
-            m_seq.push_back(m_ct_manager.mk_get_cgr(n->get_decl(), oreg, num_args, iregs.c_ptr()));
+            m_seq.push_back(m_ct_manager.mk_get_cgr(n->get_decl(), oreg, num_args, iregs.data()));
             return oreg;
         }
 
@@ -1194,7 +1194,7 @@ namespace {
                         }
                     }
                     SASSERT(joints.size() == num_args);
-                    m_seq.push_back(m_ct_manager.mk_cont(lbl, num_args, oreg, s, joints.c_ptr()));
+                    m_seq.push_back(m_ct_manager.mk_cont(lbl, num_args, oreg, s, joints.data()));
                     m_num_choices++;
                     while (!m_todo.empty())
                         linearise_core();
@@ -2592,7 +2592,7 @@ namespace {
 
         case GET_CGR1:
 #define GET_CGR_COMMON()                                                                                                                                                \
-            m_n1 = m_context.get_enode_eq_to(static_cast<const get_cgr *>(m_pc)->m_label, static_cast<const get_cgr *>(m_pc)->m_num_args, m_args.c_ptr());              \
+            m_n1 = m_context.get_enode_eq_to(static_cast<const get_cgr *>(m_pc)->m_label, static_cast<const get_cgr *>(m_pc)->m_num_args, m_args.data());              \
             if (m_n1 == 0 || !m_context.is_relevant(m_n1))                                                                                                              \
                 goto backtrack;                                                                                                                                         \
             update_max_generation(m_n1, nullptr);                                                                                                                       \
@@ -3653,8 +3653,8 @@ namespace {
                 recycle(t->m_todo);
                 t->m_todo = nullptr;
                 // remove both marks.
-                unmark_enodes(to_unmark->size(), to_unmark->c_ptr());
-                unmark_enodes2(to_unmark2->size(), to_unmark2->c_ptr());
+                unmark_enodes(to_unmark->size(), to_unmark->data());
+                unmark_enodes2(to_unmark2->size(), to_unmark2->data());
                 to_unmark->reset();
                 to_unmark2->reset();
             }

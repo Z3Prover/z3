@@ -99,7 +99,7 @@ public:
             ++j;
         }
         SASSERT(j >= 1);
-        res = j > 1 ? m.mk_or(j, args.c_ptr()) : args.get(0);
+        res = j > 1 ? m.mk_or(j, args.data()) : args.get(0);
     }
 
     void mk_app(func_decl *decl, expr_ref_vector &args, expr_ref &res)
@@ -115,7 +115,7 @@ public:
             // we don't want (= (not a) (not b)) to be reduced to (= a b)
         { res = m.mk_eq(args.get(0), args.get(1)); }
         else
-        { brwr.mk_app(decl, args.size(), args.c_ptr(), res); }
+        { brwr.mk_app(decl, args.size(), args.data(), res); }
     }
 
     void operator()(ast_manager &m, proof *pr, proof_ref &res)
@@ -202,7 +202,7 @@ public:
                 }
                 else {
                     // rebuild unit resolution
-                    newp = m.mk_unit_resolution(parents.size(), parents.c_ptr());
+                    newp = m.mk_unit_resolution(parents.size(), parents.data());
                     // XXX the old and new facts should be
                     // equivalent. The test here is much
                     // stronger. It might need to be relaxed.

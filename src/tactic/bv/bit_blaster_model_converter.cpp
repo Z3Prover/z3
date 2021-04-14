@@ -159,11 +159,11 @@ struct bit_blaster_model_converter : public model_converter {
 
         if (TO_BOOL) {
             SASSERT(is_app_of(bs, m().get_family_id("bv"), OP_MKBV));
-            result = util.mk_bv(bv_sz, args.c_ptr());
+            result = util.mk_bv(bv_sz, args.data());
         }
         else {
             SASSERT(is_app_of(bs, m().get_family_id("bv"), OP_CONCAT));
-            result = util.mk_concat(bv_sz, args.c_ptr());
+            result = util.mk_concat(bv_sz, args.data());
         }
         return result;
     }

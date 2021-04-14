@@ -67,9 +67,9 @@ namespace datalog {
                 sorts.push_back(arg->get_sort());
             }
         }
-        fn = m.mk_fresh_func_decl(p->get_decl()->get_name(), symbol("N"), sorts.size(), sorts.c_ptr(), m.mk_bool_sort());
+        fn = m.mk_fresh_func_decl(p->get_decl()->get_name(), symbol("N"), sorts.size(), sorts.data(), m.mk_bool_sort());
         m_ctx.register_predicate(fn, false);
-        q = m.mk_app(fn, args.size(), args.c_ptr());
+        q = m.mk_app(fn, args.size(), args.data());
         bool is_neg = true;
         rules.add_rule(rm.mk(q, 1, & p, &is_neg));
     }
@@ -101,7 +101,7 @@ namespace datalog {
             tail.push_back(r.get_tail(i));
             neg.push_back(false);
         }
-        rules.add_rule(rm.mk(r.get_head(), tail.size(), tail.c_ptr(), neg.c_ptr(), r.name()));
+        rules.add_rule(rm.mk(r.get_head(), tail.size(), tail.data(), neg.data(), r.name()));
     }
     
     rule_set * mk_separate_negated_tails::operator()(rule_set const& src) {

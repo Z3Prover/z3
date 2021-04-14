@@ -261,7 +261,7 @@ namespace datalog {
             }
             SASSERT(!m_last_result_relation);
             if (some_non_empty) {
-                m_answer = mk_and(m, ans.size(), ans.c_ptr());
+                m_answer = mk_and(m, ans.size(), ans.data());
                 if (is_approx) {
                     TRACE("dl", tout << "approx\n";);
                     res = l_undef;

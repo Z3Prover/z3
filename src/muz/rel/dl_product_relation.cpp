@@ -178,7 +178,7 @@ namespace datalog {
         for(unsigned i=0; i<rel_cnt; i++) {
             inner_rels.push_back(get_manager().mk_empty_relation(s, spec[i]));
         }
-        return alloc(product_relation,*this, s, inner_rels.size(), inner_rels.c_ptr());
+        return alloc(product_relation,*this, s, inner_rels.size(), inner_rels.data());
     }
 
     relation_base * product_relation_plugin::mk_full(func_decl* p, const relation_signature & s, family_id kind) {
@@ -195,7 +195,7 @@ namespace datalog {
         for(unsigned i=0; i<rel_cnt; i++) {
             inner_rels.push_back(get_manager().mk_full_relation(s, p, spec[i]));
         }
-        return alloc(product_relation,*this, s, inner_rels.size(), inner_rels.c_ptr());
+        return alloc(product_relation,*this, s, inner_rels.size(), inner_rels.data());
     }
 
     relation_base * product_relation_plugin::mk_full(func_decl* p, const relation_signature & s) {
@@ -414,8 +414,8 @@ namespace datalog {
                 const unsigned * cols1, const unsigned * cols2) 
             : convenient_relation_join_fn(r1.get_signature(), r2.get_signature(), col_cnt, cols1, cols2),
               m_plugin(p) {
-            init(r1.get_signature(), r1.size(), r1.m_relations.c_ptr(), 
-                 r2.get_signature(), r2.size(), r2.m_relations.c_ptr(), col_cnt, cols1, cols2);
+            init(r1.get_signature(), r1.size(), r1.m_relations.data(), 
+                 r2.get_signature(), r2.size(), r2.m_relations.data(), col_cnt, cols1, cols2);
         }
 
         join_fn(product_relation_plugin& p, relation_base const& r1, product_relation const& r2, unsigned col_cnt,
@@ -423,7 +423,7 @@ namespace datalog {
             : convenient_relation_join_fn(r1.get_signature(), r2.get_signature(), col_cnt, cols1, cols2),
               m_plugin(p) {
             relation_base const* rels1[1] = { &r1 };
-            init(r1.get_signature(), 1, rels1, r2.get_signature(), r2.size(), r2.m_relations.c_ptr(), col_cnt, cols1, cols2);
+            init(r1.get_signature(), 1, rels1, r2.get_signature(), r2.size(), r2.m_relations.data(), col_cnt, cols1, cols2);
         }
 
         join_fn(product_relation_plugin& p, product_relation const& r1, relation_base const& r2, unsigned col_cnt,
@@ -431,7 +431,7 @@ namespace datalog {
             : convenient_relation_join_fn(r1.get_signature(), r2.get_signature(), col_cnt, cols1, cols2),
               m_plugin(p) {
             relation_base const* rels2[1] = { &r2 };
-            init(r1.get_signature(), r1.size(), r1.m_relations.c_ptr(), r2.get_signature(), 1, rels2, col_cnt, cols1, cols2);
+            init(r1.get_signature(), r1.size(), r1.m_relations.data(), r2.get_signature(), 1, rels2, col_cnt, cols1, cols2);
         }
 
         join_fn(product_relation_plugin& p, relation_base const& r1, relation_base const& r2, unsigned col_cnt,
@@ -459,7 +459,7 @@ namespace datalog {
                 relation_base const& r2 = (m_kind2[i] == T_FULL)?(*m_full[m_offset2[i]]):access(m_offset2[i], _r2);
                 relations.push_back((*m_joins[i])(r1, r2));
             }
-            result = alloc(product_relation, m_plugin, get_result_signature(), sz, relations.c_ptr());
+            result = alloc(product_relation, m_plugin, get_result_signature(), sz, relations.data());
             TRACE("dl",result->display(tout););
             return result;
         }
@@ -501,7 +501,7 @@ namespace datalog {
             for (unsigned i = 0; i < r.size(); ++i) {
                 relations.push_back((*m_transforms[i])(r[i]));
             }
-            relation_base* result = alloc(product_relation, p, m_sig, relations.size(), relations.c_ptr());
+            relation_base* result = alloc(product_relation, p, m_sig, relations.size(), relations.data());
             TRACE("dl", _r.display(tout); result->display(tout););
             return result;
         }
@@ -517,7 +517,7 @@ namespace datalog {
             }
             relation_signature s;
             relation_signature::from_project(r.get_signature(), col_cnt, removed_cols, s);
-            return alloc(transform_fn, s, projs.size(), projs.c_ptr());
+            return alloc(transform_fn, s, projs.size(), projs.data());
         }
         return nullptr;
     }
@@ -532,7 +532,7 @@ namespace datalog {
             }
             relation_signature s;
             relation_signature::from_rename(r.get_signature(), cycle_len, permutation_cycle, s);
-            return alloc(transform_fn, s, trans.size(), trans.c_ptr());
+            return alloc(transform_fn, s, trans.size(), trans.data());
         }
         return nullptr;
     }
@@ -864,7 +864,7 @@ namespace datalog {
                 if (m) found = true;
             }
             if (found) {
-                return alloc(mutator_fn, mutators.size(), mutators.c_ptr());
+                return alloc(mutator_fn, mutators.size(), mutators.data());
             }
         }
         return nullptr;
@@ -882,7 +882,7 @@ namespace datalog {
                 if (m) found = true;
             }
             if (found) {
-                return alloc(mutator_fn, mutators.size(), mutators.c_ptr());
+                return alloc(mutator_fn, mutators.size(), mutators.data());
             }
         }
         return nullptr;
@@ -1086,7 +1086,7 @@ namespace datalog {
             relations.push_back((*this)[i].clone());
         }
         product_relation_plugin& p = get_plugin();
-        return alloc(product_relation, p, get_signature(), relations.size(), relations.c_ptr());
+        return alloc(product_relation, p, get_signature(), relations.size(), relations.data());
     }
 
     product_relation * product_relation::complement(func_decl*) const {
@@ -1119,7 +1119,7 @@ namespace datalog {
             m_relations[i]->to_formula(tmp);
             conjs.push_back(tmp);
         }
-        bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), fml);
+        bool_rewriter(m).mk_and(conjs.size(), conjs.data(), fml);
     }
 
     void product_relation::display(std::ostream & out) const {

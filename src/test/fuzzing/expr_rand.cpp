@@ -55,7 +55,7 @@ void expr_rand::walk() {
     for (unsigned i = 0; i < arity; ++i) {
         args.push_back(choose_expr(f->get_domain(i)));
     }
-    expr* r = m_manager.mk_app(f, args.size(), args.c_ptr());
+    expr* r = m_manager.mk_app(f, args.size(), args.data());
     add_expr(r);
 }
 

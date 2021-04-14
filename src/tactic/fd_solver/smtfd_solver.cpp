@@ -317,13 +317,13 @@ namespace smtfd {
                         r = m.mk_eq(m_args.get(0), m_args.get(1));
                     }
                     else if (m.is_distinct(a)) {
-                        r = m.mk_distinct(m_args.size(), m_args.c_ptr());
+                        r = m.mk_distinct(m_args.size(), m_args.data());
                     }
                     else if (m.is_ite(a)) {
                         r = m.mk_ite(m_args.get(0), m_args.get(1), m_args.get(2));
                     }
                     else if (bvfid == fid || bfid == fid || pbfid == fid) {
-                        r = m.mk_app(a->get_decl(), m_args.size(), m_args.c_ptr());
+                        r = m.mk_app(a->get_decl(), m_args.size(), m_args.data());
                     }
                     else if (is_uninterp_const(t) && m.is_bool(t)) {
                         r = t;
@@ -697,7 +697,7 @@ namespace smtfd {
     }
 
     unsigned f_app_hash::operator()(f_app const& a) const {
-        return get_composite_hash(p.values().c_ptr() + a.m_val_offset, a.m_t->get_num_args(), *this, *this);
+        return get_composite_hash(p.values().data() + a.m_val_offset, a.m_t->get_num_args(), *this, *this);
     }
     
     class basic_plugin : public theory_plugin {
@@ -779,7 +779,7 @@ namespace smtfd {
                 values.push_back(m.mk_model_value(values.size(), s));
                 m_pinned.push_back(values.back());                
             }
-            m_context.get_model().register_usort(s, values.size(), values.c_ptr());
+            m_context.get_model().register_usort(s, values.size(), values.data());
             for (unsigned i = 0; i < keys.size(); ++i) {
                 v2e.insert(keys[i], values[i]);
             }
@@ -859,7 +859,7 @@ namespace smtfd {
                     }
                     expr_ref val = model_value(f.m_t);
                     TRACE("smtfd_verbose", tout << mk_bounded_pp(f.m_t, m, 2) << " := " << val << "\n";);
-                    fi->insert_new_entry(args.c_ptr(), val);
+                    fi->insert_new_entry(args.data(), val);
                 }
                 mdl->register_decl(fn, fi);
             }
@@ -1410,7 +1410,7 @@ namespace smtfd {
                 for (expr* arg : *to_app(e)) {
                     args.push_back(replace_model_value(arg));
                 }
-                return expr_ref(m.mk_app(to_app(e)->get_decl(), args.size(), args.c_ptr()), m);
+                return expr_ref(m.mk_app(to_app(e)->get_decl(), args.size(), args.data()), m);
             }
             return expr_ref(e, m);
         }
@@ -1450,7 +1450,7 @@ namespace smtfd {
                 }
             }
             var_subst subst(m);
-            expr_ref body = subst(tmp, vars.size(), vars.c_ptr());
+            expr_ref body = subst(tmp, vars.size(), vars.data());
             
             if (is_forall(q)) {
                 body = m.mk_not(body);
@@ -1489,7 +1489,7 @@ namespace smtfd {
             }
 
             if (r == l_true) {                
-                body = subst(q->get_expr(), vals.size(), vals.c_ptr());
+                body = subst(q->get_expr(), vals.size(), vals.data());
                 m_context.rewrite(body);
                 TRACE("smtfd", tout << "vals: " << vals << "\n" << body << "\n";);
                 if (is_forall(q)) {
@@ -1518,7 +1518,7 @@ namespace smtfd {
                 vars[i] = m.mk_fresh_const(q->get_decl_name(i), q->get_decl_sort(i));    
             }
             var_subst subst(m);
-            expr_ref body = subst(q->get_expr(), vars.size(), vars.c_ptr());
+            expr_ref body = subst(q->get_expr(), vars.size(), vars.data());
             if (is_exists(q)) {
                 body = m.mk_implies(q, body);
             }
@@ -1646,7 +1646,7 @@ namespace smtfd {
             unsigned sz = m_assertions.size() - m_assertions_qhead;
             if (sz > 0) {
                 m_assertions.push_back(m_toggles.back());                
-                expr_ref fml(m.mk_and(sz + 1, m_assertions.c_ptr() + m_assertions_qhead), m);
+                expr_ref fml(m.mk_and(sz + 1, m_assertions.data() + m_assertions_qhead), m);
                 m_assertions.pop_back();                
                 expr* toggle = add_toggle(m.mk_fresh_const("toggle", m.mk_bool_sort()));
                 m_assertions_qhead = m_assertions.size();
@@ -2010,7 +2010,7 @@ namespace smtfd {
                 }        
                 m_stats.m_num_lemmas += m_context.size();
                 m_context.reset(m_model);
-                r = check_abs(core.size(), core.c_ptr());
+                r = check_abs(core.size(), core.data());
                 update_reason_unknown(r, m_fd_sat_solver);
                 switch (r) {
                 case l_false:

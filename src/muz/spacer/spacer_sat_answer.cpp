@@ -24,7 +24,7 @@ struct ground_sat_answer_op::frame {
         ast_manager &m = pt.get_ast_manager();
         spacer::manager &pm = pt.get_manager();
 
-        m_fact = m.mk_app(head(), m_gnd_subst.size(), m_gnd_subst.c_ptr());
+        m_fact = m.mk_app(head(), m_gnd_subst.size(), m_gnd_subst.data());
 
         // compute ground equalities implied by the fact
         SASSERT(m_gnd_subst.size() == pt.head()->get_arity());
@@ -193,7 +193,7 @@ proof *ground_sat_answer_op::mk_proof_step(frame &fr) {
         substs.push_back(expr_ref_vector(m));
     }
     m_pinned.push_back(m.mk_hyper_resolve(premises.size(),
-                                          premises.c_ptr(),
+                                          premises.data(),
                                           fr.fact(),
                                           positions, substs));
     TRACE("spacer_sat", tout << "pf step:\n"

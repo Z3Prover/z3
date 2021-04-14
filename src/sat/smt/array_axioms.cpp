@@ -319,7 +319,7 @@ namespace array {
         ptr_vector<expr> sel_args(num_args, select->get_args());
         sel_args[0] = arr;
         expr_ref sel(a.mk_select(sel_args), m);
-        expr_ref val(m.mk_app(f, sel_args.size() - 1, sel_args.c_ptr() + 1), m);
+        expr_ref val(m.mk_app(f, sel_args.size() - 1, sel_args.data() + 1), m);
         euf::enode* n1 = e_internalize(sel);
         euf::enode* n2 = e_internalize(val);
         return ctx.propagate(n1, n2, array_axiom());
@@ -450,10 +450,10 @@ namespace array {
             args1.push_back(k);
             args2.push_back(k);            
         }
-        expr * sel1 = a.mk_select(dimension+1, args1.c_ptr());
-        expr * sel2 = a.mk_select(dimension+1, args2.c_ptr());
+        expr * sel1 = a.mk_select(dimension+1, args1.data());
+        expr * sel2 = a.mk_select(dimension+1, args2.data());
         expr * eq = m.mk_eq(sel1, sel2);
-        expr_ref q(m.mk_forall(dimension, sorts.c_ptr(), names.c_ptr(), eq), m);
+        expr_ref q(m.mk_forall(dimension, sorts.data(), names.data(), eq), m);
         rewrite(q);
         return add_clause(~eq_internalize(e1, e2), mk_literal(q));
     }
@@ -573,7 +573,7 @@ namespace array {
             r->mark1();
             to_unmark.push_back(r);            
         }
-        TRACE("array", tout << "collecting shared vars...\n" << unsigned_vector(roots.size(), (unsigned*)roots.c_ptr())  << "\n";);
+        TRACE("array", tout << "collecting shared vars...\n" << unsigned_vector(roots.size(), (unsigned*)roots.data())  << "\n";);
         for (auto* n : to_unmark)
             n->unmark1();
     }

@@ -319,7 +319,7 @@ void der::create_substitution(unsigned sz) {
         expr_ref cur(m_map.get(m_order[i]), m);
 
         // do all the previous substitutions before inserting
-        expr_ref r = m_subst(cur, m_subst_map.size(), m_subst_map.c_ptr());
+        expr_ref r = m_subst(cur, m_subst_map.size(), m_subst_map.data());
 
         unsigned inx = sz - m_order[i]- 1;
         SASSERT(m_subst_map[inx]==0);
@@ -343,22 +343,22 @@ void der::apply_substitution(quantifier * q, expr_ref & r) {
 
     unsigned sz = m_new_args.size();
     expr_ref t(m);
-    t = (sz == 1) ? m_new_args[0] : m.mk_or(sz, m_new_args.c_ptr());
-    expr_ref new_e = m_subst(t, m_subst_map.size(), m_subst_map.c_ptr());
+    t = (sz == 1) ? m_new_args[0] : m.mk_or(sz, m_new_args.data());
+    expr_ref new_e = m_subst(t, m_subst_map.size(), m_subst_map.data());
 
     // don't forget to update the quantifier patterns
     expr_ref_buffer  new_patterns(m);
     expr_ref_buffer  new_no_patterns(m);
     for (unsigned j = 0; j < q->get_num_patterns(); j++) {
-        new_patterns.push_back(m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.c_ptr()));
+        new_patterns.push_back(m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.data()));
     }
 
     for (unsigned j = 0; j < q->get_num_no_patterns(); j++) {
-        new_no_patterns.push_back(m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.c_ptr()));
+        new_no_patterns.push_back(m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.data()));
     }
 
-    r = m.update_quantifier(q, new_patterns.size(), new_patterns.c_ptr(),
-                            new_no_patterns.size(), new_no_patterns.c_ptr(), new_e);
+    r = m.update_quantifier(q, new_patterns.size(), new_patterns.data(),
+                            new_no_patterns.size(), new_no_patterns.data(), new_e);
 }
 
 

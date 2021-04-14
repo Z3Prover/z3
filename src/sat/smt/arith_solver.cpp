@@ -613,7 +613,7 @@ namespace arith {
                 else 
                     args.push_back(values.get(arg->get_root_id()));
             }
-            value = m.mk_app(to_app(o)->get_decl(), args.size(), args.c_ptr());
+            value = m.mk_app(to_app(o)->get_decl(), args.size(), args.data());
             ctx.get_rewriter()(value);
         }
         else {
@@ -865,7 +865,7 @@ namespace arith {
             }
         }
         if (!vars.empty())
-            lp().random_update(vars.size(), vars.c_ptr());
+            lp().random_update(vars.size(), vars.data());
     }
 
     bool solver::assume_eqs() {
@@ -1351,7 +1351,7 @@ namespace arith {
         if (args.size() == 1)
             return app_ref(to_app(args[0].get()), m);
 
-        return app_ref(a.mk_add(args.size(), args.c_ptr()), m);        
+        return app_ref(a.mk_add(args.size(), args.data()), m);        
     }
 
     app_ref solver::mk_term(lp::lar_term const& term, bool is_int) {

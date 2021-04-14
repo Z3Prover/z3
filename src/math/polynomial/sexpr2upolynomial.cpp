@@ -45,7 +45,7 @@ void sexpr2upolynomial(upolynomial::manager & m, sexpr const * s, upolynomial::n
             for (unsigned i = 2; i < num; i++) {
                 m.reset(arg);
                 sexpr2upolynomial(m, s->get_child(i), arg, depth+1);
-                m.add(arg.size(), arg.c_ptr(), p.size(), p.c_ptr(), p);
+                m.add(arg.size(), arg.data(), p.size(), p.data(), p);
             }
         }
         else if (op == "-") {
@@ -60,7 +60,7 @@ void sexpr2upolynomial(upolynomial::manager & m, sexpr const * s, upolynomial::n
             for (unsigned i = 2; i < num; i++) {
                 m.reset(arg);
                 sexpr2upolynomial(m, s->get_child(i), arg, depth+1);
-                m.sub(p.size(), p.c_ptr(), arg.size(), arg.c_ptr(), p);
+                m.sub(p.size(), p.data(), arg.size(), arg.data(), p);
             }
         }
         else if (op == "*") {
@@ -71,7 +71,7 @@ void sexpr2upolynomial(upolynomial::manager & m, sexpr const * s, upolynomial::n
             for (unsigned i = 2; i < num; i++) {
                 m.reset(arg);
                 sexpr2upolynomial(m, s->get_child(i), arg, depth+1);
-                m.mul(arg.size(), arg.c_ptr(), p.size(), p.c_ptr(), p);
+                m.mul(arg.size(), arg.data(), p.size(), p.data(), p);
             }
         }
         else if (op == "^") {
@@ -82,7 +82,7 @@ void sexpr2upolynomial(upolynomial::manager & m, sexpr const * s, upolynomial::n
             if (!arg2->is_numeral() || !arg2->get_numeral().is_unsigned())
                 throw sexpr2upolynomial_exception("invalid univariate polynomial, exponent must be an unsigned integer", arg2);
             unsigned k = arg2->get_numeral().get_unsigned();
-            m.pw(p.size(), p.c_ptr(), k, p);
+            m.pw(p.size(), p.data(), k, p);
         }
         else {
             throw sexpr2upolynomial_exception("invalid univariate polynomial, '+', '-', '^' or '*' expected", s);

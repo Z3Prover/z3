@@ -28,7 +28,7 @@ namespace sat {
         flet<bool> _init(m_initializing, true);
         m_unsat_stack.reset();
         for (unsigned i = 0; i < m_assumptions.size(); ++i) {
-            add_clause(1, m_assumptions.c_ptr() + i);
+            add_clause(1, m_assumptions.data() + i);
         }
         if (m_is_unsat)
             return;
@@ -388,7 +388,7 @@ namespace sat {
         // copy units
         unsigned trail_sz = s.init_trail_size();
         for (unsigned i = 0; i < trail_sz; ++i) {
-            add_clause(1, s.m_trail.c_ptr() + i);
+            add_clause(1, s.m_trail.data() + i);
         }
 
         // copy binary clauses

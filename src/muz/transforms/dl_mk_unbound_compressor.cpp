@@ -72,7 +72,7 @@ namespace datalog {
         name_suffix << "compr_arg_" << arg_index;
 
         func_decl * cpred = m_context.mk_fresh_head_predicate(parent_name, symbol(name_suffix.str()),
-            arity, domain.c_ptr(), pred);
+            arity, domain.data(), pred);
         m_pinned.push_back(cpred);
         m_pinned.push_back(pred);
 
@@ -154,7 +154,7 @@ namespace datalog {
             }
         }
 
-        app_ref chead(m.mk_app(cpred, head_arity-1, cargs.c_ptr()), m);
+        app_ref chead(m.mk_app(cpred, head_arity-1, cargs.data()), m);
 
         m_modified = true;
         if (r->get_tail_size()==0 && m_context.get_rule_manager().is_fact(chead)) {
@@ -203,7 +203,7 @@ namespace datalog {
             }
         }
         SASSERT(dtail_args.size()==dtail_pred->get_arity());
-        app_ref dtail(m.mk_app(dtail_pred, dtail_args.size(), dtail_args.c_ptr()), m);
+        app_ref dtail(m.mk_app(dtail_pred, dtail_args.size(), dtail_args.data()), m);
 
         bool_vector tails_negated;
         app_ref_vector tails(m);
@@ -225,7 +225,7 @@ namespace datalog {
             tails.push_back(dtail);
         }
 
-        res = m_context.get_rule_manager().mk( r->get_head(), tails.size(), tails.c_ptr(), tails_negated.c_ptr());
+        res = m_context.get_rule_manager().mk( r->get_head(), tails.size(), tails.data(), tails_negated.data());
         res->set_accounting_parent_object(m_context, r);
         m_context.get_rule_manager().fix_unbound_vars(res, true);        
         return res;

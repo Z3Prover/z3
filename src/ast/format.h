@@ -77,7 +77,7 @@ namespace format_ns {
                 children.push_back(curr);
             }
         }
-        return mk_compose(m, children.size(), children.c_ptr());
+        return mk_compose(m, children.size(), children.data());
     }
 
     /**

@@ -254,8 +254,8 @@ namespace smt {
             void append(unsigned sz, literal const* ls) { m_lits.append(sz, ls); }
             void append(unsigned sz, enode_pair const* ps) { m_eqs.append(sz, ps); }
             unsigned num_params() const { return empty()?0:m_eq_coeffs.size() + m_lit_coeffs.size() + 1; }
-            numeral const* lit_coeffs() const { return m_lit_coeffs.c_ptr(); }
-            numeral const* eq_coeffs() const { return m_eq_coeffs.c_ptr(); }
+            numeral const* lit_coeffs() const { return m_lit_coeffs.data(); }
+            numeral const* eq_coeffs() const { return m_eq_coeffs.data(); }
             parameter* params(char const* name);
             std::ostream& display(theory_arith& th, std::ostream& out) const;
         };

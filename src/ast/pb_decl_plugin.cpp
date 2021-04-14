@@ -82,7 +82,7 @@ func_decl * pb_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
                 m.raise_exception("functions 'pble/pbge/pbeq' expect arity+1 integer parameters");
             }
         }
-        func_decl_info info(m_family_id, k, num_parameters, params.c_ptr());
+        func_decl_info info(m_family_id, k, num_parameters, params.data());
         return m.mk_func_decl(sym, arity, domain, m.mk_bool_sort(), info);
     }
     default:
@@ -136,9 +136,9 @@ app * pb_util::mk_le(unsigned num_args, rational const * coeffs, expr * const * 
     }
     if (all_ones && k.is_unsigned() && floor(m_k).is_int32()) {
         m_params[0] = parameter(floor(m_k).get_int32());
-        return m.mk_app(m_fid, OP_AT_MOST_K, 1, m_params.c_ptr(), num_args, args, m.mk_bool_sort());
+        return m.mk_app(m_fid, OP_AT_MOST_K, 1, m_params.data(), num_args, args, m.mk_bool_sort());
     }
-    return m.mk_app(m_fid, OP_PB_LE, m_params.size(), m_params.c_ptr(), num_args, args, m.mk_bool_sort());
+    return m.mk_app(m_fid, OP_PB_LE, m_params.size(), m_params.data(), num_args, args, m.mk_bool_sort());
 }
 
 app * pb_util::mk_ge(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k) {
@@ -152,9 +152,9 @@ app * pb_util::mk_ge(unsigned num_args, rational const * coeffs, expr * const * 
     }
     if (all_ones && k.is_unsigned()) {
         m_params[0] = parameter(ceil(m_k).get_unsigned());
-        return m.mk_app(m_fid, OP_AT_LEAST_K, 1, m_params.c_ptr(), num_args, args, m.mk_bool_sort());
+        return m.mk_app(m_fid, OP_AT_LEAST_K, 1, m_params.data(), num_args, args, m.mk_bool_sort());
     }
-    return m.mk_app(m_fid, OP_PB_GE, m_params.size(), m_params.c_ptr(), num_args, args, m.mk_bool_sort());
+    return m.mk_app(m_fid, OP_PB_GE, m_params.size(), m_params.data(), num_args, args, m.mk_bool_sort());
 }
 
 app * pb_util::mk_eq(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k) {
@@ -170,7 +170,7 @@ app * pb_util::mk_eq(unsigned num_args, rational const * coeffs, expr * const * 
     for (unsigned i = 0; i < num_args; ++i) {
         m_params.push_back(parameter(m_coeffs[i]));
     }
-    return m.mk_app(m_fid, OP_PB_EQ, m_params.size(), m_params.c_ptr(), num_args, args, m.mk_bool_sort());
+    return m.mk_app(m_fid, OP_PB_EQ, m_params.size(), m_params.data(), num_args, args, m.mk_bool_sort());
 }
 
 // ax + by < k
@@ -190,7 +190,7 @@ app * pb_util::mk_lt(unsigned num_args, rational const * _coeffs, expr * const *
     for (unsigned i = 0; i < num_args; ++i) {
         m_k += m_coeffs[i];
     }
-    return mk_ge(num_args, m_coeffs.c_ptr(), args.c_ptr(), m_k);
+    return mk_ge(num_args, m_coeffs.data(), args.data(), m_k);
 }
 
 

@@ -192,13 +192,13 @@ class reduce_hypotheses {
                 compute_mark1(res);
             } else if (m.is_unit_resolution(p)) {
                 // unit: reduce units; reduce the first premise; rebuild unit resolution
-                res = mk_unit_resolution_core(args.size(), args.c_ptr());
+                res = mk_unit_resolution_core(args.size(), args.data());
                 compute_mark1(res);
             } else  {
                 // other: reduce all premises; reapply
                 if (m.has_fact(p)) { args.push_back(to_app(m.get_fact(p))); }
                 SASSERT(p->get_decl()->get_arity() == args.size());
-                res = m.mk_app(p->get_decl(), args.size(), (expr * const*)args.c_ptr());
+                res = m.mk_app(p->get_decl(), args.size(), (expr * const*)args.data());
                 compute_mark1(res);
             }
 
@@ -238,7 +238,7 @@ class reduce_hypotheses {
         if (args.empty()) { 
             return pf; 
         }
-        lemma = mk_or(m, args.size(), args.c_ptr());
+        lemma = mk_or(m, args.size(), args.data());
         proof* res = m.mk_lemma(pf, lemma);
         m_pinned.push_back(res);
 
@@ -280,10 +280,10 @@ class reduce_hypotheses {
 
         SASSERT(new_fact_cls.size() + pf_args.size() - 1 == cls.size());
         expr_ref new_fact(m);
-        new_fact = mk_or(m, new_fact_cls.size(), new_fact_cls.c_ptr());
+        new_fact = mk_or(m, new_fact_cls.size(), new_fact_cls.data());
 
         // create new proof step
-        proof *res = m.mk_unit_resolution(pf_args.size(), pf_args.c_ptr(), new_fact);
+        proof *res = m.mk_unit_resolution(pf_args.size(), pf_args.data(), new_fact);
         m_pinned.push_back(res);
         return res;
     }
@@ -556,7 +556,7 @@ public:
                     clause = m_literals[0];
                 }
                 else {
-                    clause = m.mk_or(m_literals.size(), m_literals.c_ptr());
+                    clause = m.mk_or(m_literals.size(), m_literals.data());
                 }
                 tmp = m.mk_lemma(tmp, clause);
                 m_refs.push_back(tmp);
@@ -642,7 +642,7 @@ public:
                     if (m.is_complement(clause, m.get_fact(parents[i].get()))) {
                         parents[1] = parents[i].get();
                         parents.resize(2);
-                        result = m.mk_unit_resolution(parents.size(), parents.c_ptr());
+                        result = m.mk_unit_resolution(parents.size(), parents.data());
                         m_refs.push_back(result);               
                         add_hypotheses(result);
                         found = true;
@@ -679,7 +679,7 @@ public:
                 result = parents[0].get();
             }
             else {
-                result = m.mk_unit_resolution(parents.size(), parents.c_ptr());
+                result = m.mk_unit_resolution(parents.size(), parents.data());
                 m_refs.push_back(result);               
                 add_hypotheses(result);
             }
@@ -709,7 +709,7 @@ public:
                 args.push_back(m.get_fact(p));
             }
             if (change) {
-                tmp = m.mk_app(p->get_decl(), args.size(), args.c_ptr());
+                tmp = m.mk_app(p->get_decl(), args.size(), args.data());
                 m_refs.push_back(tmp);
             }
             else {
@@ -886,7 +886,7 @@ static void permute_unit_resolution(expr_ref_vector& refs, obj_map<proof,proof*>
         // AG: This can lead to merging of the units with other terms in interpolation,
         // AG: but without farkas coefficients this does not make sense
         prNew = m.mk_th_lemma(tid, m.get_fact(pr), 
-                              premises.size(), premises.c_ptr(), num_params-1, params+1);
+                              premises.size(), premises.data(), num_params-1, params+1);
     }
     else {
         ptr_vector<expr> args;
@@ -896,7 +896,7 @@ static void permute_unit_resolution(expr_ref_vector& refs, obj_map<proof,proof*>
         if (m.has_fact(pr)) {
             args.push_back(m.get_fact(pr));
         }
-        prNew = m.mk_app(pr->get_decl(), args.size(), args.c_ptr());
+        prNew = m.mk_app(pr->get_decl(), args.size(), args.data());
     }    
     
     cache.insert(pr, prNew);
@@ -938,7 +938,7 @@ private:
             }
             instantiate(sub, conclusion);
             return 
-                m.mk_hyper_resolve(premises.size(), premises.c_ptr(), conclusion, 
+                m.mk_hyper_resolve(premises.size(), premises.data(), conclusion, 
                                    positions, 
                                    substs);
         }        
@@ -967,12 +967,12 @@ private:
         substs.push_back(sub);
         conclusion = m.get_fact(p);
         instantiate(sub, conclusion);
-        return m.mk_hyper_resolve(premises.size(), premises.c_ptr(), conclusion, positions, substs);
+        return m.mk_hyper_resolve(premises.size(), premises.data(), conclusion, positions, substs);
     }
 
     void compose(expr_ref_vector& sub, expr_ref_vector const& s0) {
         for (unsigned i = 0; i < sub.size(); ++i) {
-            sub[i] = var_subst(m, false)(sub[i].get(), s0.size(), s0.c_ptr());
+            sub[i] = var_subst(m, false)(sub[i].get(), s0.size(), s0.data());
         }
     }
 
@@ -990,7 +990,7 @@ private:
                   tout << sub.size() << "\n";);
             return;
         }
-        fml = var_subst(m, false)(q->get_expr(), sub.size(), sub.c_ptr());
+        fml = var_subst(m, false)(q->get_expr(), sub.size(), sub.data());
     }
 
 };

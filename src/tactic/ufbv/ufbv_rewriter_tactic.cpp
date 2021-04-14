@@ -59,7 +59,7 @@ public:
             proofs.push_back(g->pr(i));
         }
 
-        dem(forms.size(), forms.c_ptr(), proofs.c_ptr(), new_forms, new_proofs);
+        dem(forms.size(), forms.data(), proofs.data(), new_forms, new_proofs);
 
         g->reset();
         for (unsigned i = 0; i < new_forms.size(); i++)

@@ -41,7 +41,7 @@ extern "C" {
         vector<parameter> params;
         for (unsigned i = 0; i < n; ++i) params.push_back(parameter(to_sort(domain[i])));
         params.push_back(parameter(to_sort(range)));
-        sort * ty =  mk_c(c)->m().mk_sort(mk_c(c)->get_array_fid(), ARRAY_SORT, params.size(), params.c_ptr());
+        sort * ty =  mk_c(c)->m().mk_sort(mk_c(c)->get_array_fid(), ARRAY_SORT, params.size(), params.data());
         mk_c(c)->save_ast_trail(ty);
         RETURN_Z3(of_sort(ty));
         Z3_CATCH_RETURN(nullptr);
@@ -94,8 +94,8 @@ extern "C" {
             args.push_back(to_expr(idxs[i]));
             domain.push_back(to_expr(idxs[i])->get_sort());
         }
-        func_decl * d   = m.mk_func_decl(mk_c(c)->get_array_fid(), OP_SELECT, 2, a_ty->get_parameters(), domain.size(), domain.c_ptr());
-        app * r        = m.mk_app(d, args.size(), args.c_ptr());
+        func_decl * d   = m.mk_func_decl(mk_c(c)->get_array_fid(), OP_SELECT, 2, a_ty->get_parameters(), domain.size(), domain.data());
+        app * r        = m.mk_app(d, args.size(), args.data());
         mk_c(c)->save_ast_trail(r);
         check_sorts(c, r);
         RETURN_Z3(of_ast(r));
@@ -154,8 +154,8 @@ extern "C" {
         }
         args.push_back(_v);
         domain.push_back(v_ty);
-        func_decl * d   = m.mk_func_decl(mk_c(c)->get_array_fid(), OP_STORE, 2, a_ty->get_parameters(), domain.size(), domain.c_ptr());
-        app * r        = m.mk_app(d, args.size(), args.c_ptr());
+        func_decl * d   = m.mk_func_decl(mk_c(c)->get_array_fid(), OP_STORE, 2, a_ty->get_parameters(), domain.size(), domain.data());
+        app * r        = m.mk_app(d, args.size(), args.data());
         mk_c(c)->save_ast_trail(r);
         check_sorts(c, r);
         RETURN_Z3(of_ast(r));
@@ -180,7 +180,7 @@ extern "C" {
             domain.push_back(_args[i]->get_sort());
         }
         parameter param(_f);
-        func_decl * d = m.mk_func_decl(mk_c(c)->get_array_fid(), OP_ARRAY_MAP, 1, &param, n, domain.c_ptr());
+        func_decl * d = m.mk_func_decl(mk_c(c)->get_array_fid(), OP_ARRAY_MAP, 1, &param, n, domain.data());
         app* r = m.mk_app(d, n, _args);
         mk_c(c)->save_ast_trail(r);
         check_sorts(c, r);

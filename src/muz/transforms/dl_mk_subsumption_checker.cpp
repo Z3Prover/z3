@@ -164,7 +164,7 @@ namespace datalog {
         }
 
         SASSERT(tail.size()==tail_neg.size());
-        res = m_context.get_rule_manager().mk(head, tail.size(), tail.c_ptr(), tail_neg.c_ptr(), r->name());
+        res = m_context.get_rule_manager().mk(head, tail.size(), tail.data(), tail_neg.data(), r->name());
         res->set_accounting_parent_object(m_context, r);
         m_context.get_rule_manager().fix_unbound_vars(res, true);
         m_context.get_rule_manager().mk_rule_rewrite_proof(*r, *res.get());
@@ -189,7 +189,7 @@ namespace datalog {
 
         //before traversing we sort rules so that the shortest are in the beginning.
         //this will help make subsumption checks more efficient
-        std::sort(orig_rules.c_ptr(), orig_rules.c_ptr() + orig_rules.size(), rule_size_comparator);
+        std::sort(orig_rules.data(), orig_rules.data() + orig_rules.size(), rule_size_comparator);
 
         for (rule * r : orig_rules) {
             func_decl * head_pred = r->get_decl();

@@ -84,7 +84,7 @@ namespace datalog {
                         m_new_tail_neg.push_back(false);                        
                     }
                     rule* new_r = m_context.get_rule_manager().mk(r->get_head(), m_new_tail.size(),
-                        m_new_tail.c_ptr(), m_new_tail_neg.c_ptr(), symbol::null, false);
+                        m_new_tail.data(), m_new_tail_neg.data(), symbol::null, false);
                     res->add_rule(new_r);
                 } else {
                     res->add_rule(r);
@@ -155,7 +155,7 @@ namespace datalog {
                     fmls.push_back(mk_and(conj));
                 }
                 expr_ref fml(m);
-                fml = m.mk_or(fmls.size(), fmls.c_ptr());
+                fml = m.mk_or(fmls.size(), fmls.data());
                 mc0->add(f, fml);
             }
             m_context.add_model_converter(mc0);

@@ -67,7 +67,7 @@ class split_clause_tactic : public tactic {
                 expr * not_li = m.mk_not(m_clause->get_arg(i));
                 prs.push_back(m.mk_lemma(pr_i, not_li));
             }
-            return proof_ref(m.mk_unit_resolution(prs.size(), prs.c_ptr()), m);
+            return proof_ref(m.mk_unit_resolution(prs.size(), prs.data()), m);
         }
 
         proof_converter * translate(ast_translation & translator) override {
@@ -124,8 +124,8 @@ public:
             subgoal_i->inc_depth();
             result.push_back(subgoal_i);
         }
-        in->set(concat(in->pc(), result.size(), result.c_ptr()));
-        in->add(dependency_converter::concat(result.size(), result.c_ptr()));
+        in->set(concat(in->pc(), result.size(), result.data()));
+        in->add(dependency_converter::concat(result.size(), result.data()));
     }
     
     void cleanup() override {

@@ -46,7 +46,7 @@ protected:
         }
     };
 public:
-    typedef T * data;
+    typedef T * data_t;
 
     ref_vector_core() = default;
     ref_vector_core(Ref const & r) : Ref(r) {}
@@ -130,11 +130,11 @@ public:
 
     T * get(unsigned idx, T * d) const { return m_nodes.get(idx, d); }
 
-    T * const * c_ptr() const { return m_nodes.begin(); }
+    T * const * data() const { return m_nodes.begin(); }
 
     typedef T* const* iterator;
 
-    T ** c_ptr() { return m_nodes.begin(); }
+    T ** data() { return m_nodes.begin(); }
 
     unsigned hash() const {
         unsigned sz = size();

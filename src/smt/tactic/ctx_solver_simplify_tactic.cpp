@@ -102,7 +102,7 @@ protected:
             return;
         ptr_vector<expr> fmls;
         g.get_formulas(fmls);
-        fml = mk_and(m, fmls.size(), fmls.c_ptr());
+        fml = mk_and(m, fmls.size(), fmls.data());
         m_solver.push();
         reduce(fml);
         m_solver.pop(1);
@@ -120,7 +120,7 @@ protected:
             // enable_trace("after_search");
             m_solver.push();
             expr_ref fml1(m);
-            fml1 = mk_and(m, fmls.size(), fmls.c_ptr());
+            fml1 = mk_and(m, fmls.size(), fmls.data());
             fml1 = m.mk_iff(fml, fml1);
             fml1 = m.mk_not(fml1);
             m_solver.assert_expr(fml1);
@@ -240,7 +240,7 @@ protected:
                     args.push_back(arg);
                 }
             }
-            m_mk_app(a->get_decl(), args.size(), args.c_ptr(), res);
+            m_mk_app(a->get_decl(), args.size(), args.data(), res);
             trail.push_back(res);
             // child needs to be visited.
             if (n2) {

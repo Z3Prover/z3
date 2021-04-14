@@ -419,7 +419,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 }
             }
             else {
-                mk_root_clause(m_result_stack.size(), m_result_stack.c_ptr());
+                mk_root_clause(m_result_stack.size(), m_result_stack.data());
             }
             m_result_stack.shrink(old_sz);
         }
@@ -442,7 +442,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             // I have to execute it after the binary mk_clause above.
             mk_clause(num+1, lits);
             if (aig()) 
-                aig()->add_or(l, num, aig_lits.c_ptr());
+                aig()->add_or(l, num, aig_lits.data());
                         
             m_solver.set_phase(~l);               
             m_result_stack.shrink(old_sz);
@@ -463,7 +463,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 for (unsigned i = 0; i < num; ++i) {
                     m_result_stack[i].neg();
                 }                
-                mk_root_clause(m_result_stack.size(), m_result_stack.c_ptr());
+                mk_root_clause(m_result_stack.size(), m_result_stack.data());
             }
             else {
                 for (unsigned i = 0; i < num; ++i) {
@@ -495,7 +495,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             }
             mk_clause(num+1, lits);
             if (aig()) {
-                aig()->add_and(l, num, aig_lits.c_ptr());
+                aig()->add_and(l, num, aig_lits.data());
             }        
             m_solver.set_phase(l);               
             if (sign)

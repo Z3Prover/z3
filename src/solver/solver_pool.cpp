@@ -290,7 +290,7 @@ private:
         }
 
         out << "(set-info :status " << lbool2status(last_status) << ")\n";
-        m_base->display(out, cube.size(), cube.c_ptr());
+        m_base->display(out, cube.size(), cube.data());
         for (auto const& clause : clauses) {
             out << ";; extra clause\n";
             out << "(assert (or ";

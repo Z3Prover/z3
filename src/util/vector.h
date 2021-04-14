@@ -120,7 +120,7 @@ class vector {
     }
 
 public:
-    typedef T data;
+    typedef T data_t;
     typedef T * iterator;
     typedef const T * const_iterator;
 
@@ -528,7 +528,7 @@ public:
         append(sz, data);
     }
 
-    T * c_ptr() const {
+    T * data() const {
         return m_data;
     }
 
@@ -654,10 +654,10 @@ struct vector_hash_tpl {
 };
 
 template<typename Hash>
-struct vector_hash : public vector_hash_tpl<Hash, vector<typename Hash::data> > {};
+struct vector_hash : public vector_hash_tpl<Hash, vector<typename Hash::data_t> > {};
 
 template<typename Hash>
-struct svector_hash : public vector_hash_tpl<Hash, svector<typename Hash::data> > {};
+struct svector_hash : public vector_hash_tpl<Hash, svector<typename Hash::data_t> > {};
 
 
 template<typename T>

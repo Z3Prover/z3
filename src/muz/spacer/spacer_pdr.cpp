@@ -340,7 +340,7 @@ bool context::gpdr_create_split_children(pob &n, const datalog::rule &r,
         kid_order.reverse();
     }
     else if (m_children_order == CO_RANDOM) {
-        shuffle(kid_order.size(), kid_order.c_ptr(), m_random);
+        shuffle(kid_order.size(), kid_order.data(), m_random);
     }
 
 

@@ -51,7 +51,7 @@ public:
     */
     counter & count(unsigned sz, const unsigned * els, int delta = 1);
     counter & count(const unsigned_vector & els, int delta = 1) {
-        return count(els.size(), els.c_ptr(), delta);
+        return count(els.size(), els.data(), delta);
     }
     
     void collect_positive(uint_set & acc) const;

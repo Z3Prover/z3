@@ -169,7 +169,7 @@ namespace qe {
 
         unsigned num_neq_terms() const { return m_neqs.size(); }
         expr* neq_term(unsigned i) const { return m_neqs[i]; }
-        expr* const* neq_terms() const { return m_neqs.c_ptr(); }
+        expr* const* neq_terms() const { return m_neqs.data(); }
 
         unsigned num_recognizers() { return m_recognizers.size(); }
         app*   recognizer(unsigned i) { return m_recognizers[i].get(); }
@@ -388,7 +388,7 @@ namespace qe {
                 expr* l_i = l->get_arg(i);
                 conj.push_back(m.mk_eq(l_i, r_i));                
             }
-            expr* e = m.mk_and(conj.size(), conj.c_ptr());
+            expr* e = m.mk_and(conj.size(), conj.data());
             m_map.insert(a, e, nullptr);
             TRACE("qe", tout << "replace: " << mk_pp(a, m) << " ==> \n" << mk_pp(e, m) << "\n";);
             return true;
@@ -541,7 +541,7 @@ namespace qe {
                 vars.push_back(fresh_x.get());
                 sub->second.push_back(fresh_x.get());
             }
-            app_ref t(m.mk_app(c, vars.size(), vars.c_ptr()), m);
+            app_ref t(m.mk_app(c, vars.size(), vars.data()), m);
             m_trail.push_back(x.x());
             m_trail.push_back(c);
             m_trail.push_back(t);
@@ -735,7 +735,7 @@ namespace qe {
                     sort* s = x->get_sort();
                     ptr_vector<sort> sorts;
                     sorts.resize(eqs.num_neq_terms(), s);
-                    func_decl* diag = m.mk_func_decl(symbol("diag"), sorts.size(), sorts.c_ptr(), s);
+                    func_decl* diag = m.mk_func_decl(symbol("diag"), sorts.size(), sorts.data(), s);
                     expr_ref t(m);
                     t = m.mk_app(diag, eqs.num_neq_terms(), eqs.neq_terms());
                     add_def(t, def);

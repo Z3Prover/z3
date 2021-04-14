@@ -46,7 +46,7 @@ void statistics::reset() {
 template<typename V, typename M>
 static void mk_map(V const & v, M & m) {
     for (auto const& p : v) {
-        typename V::data::second_type val;
+        typename V::data_t::second_type val;
         if (m.find(p.first, val)) 
             m.insert(p.first, p.second + val);
         else

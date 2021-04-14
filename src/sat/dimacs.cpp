@@ -126,7 +126,7 @@ static bool parse_dimacs_core(Buffer & in, std::ostream& err, sat::solver & solv
             }
             else {
                 read_clause(in, err, solver, lits);
-                solver.mk_clause(lits.size(), lits.c_ptr());
+                solver.mk_clause(lits.size(), lits.data());
             }
         }
     }
@@ -176,7 +176,7 @@ namespace dimacs {
             ++in;
         }
         m_buffer.push_back(0);
-        return m_buffer.c_ptr();
+        return m_buffer.data();
     }
 
     char const* drat_parser::parse_quoted_symbol() {
@@ -195,7 +195,7 @@ namespace dimacs {
                 ++in;
                 m_buffer.push_back(c);
                 m_buffer.push_back(0);
-                return m_buffer.c_ptr();
+                return m_buffer.data();
             }
             escape = (c == '\\');
             m_buffer.push_back(c);
@@ -221,7 +221,7 @@ namespace dimacs {
             ++in;
         }
         m_buffer.push_back(0);
-        return m_buffer.c_ptr();        
+        return m_buffer.data();        
     }
 
     int drat_parser::read_theory_id() {

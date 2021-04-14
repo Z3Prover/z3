@@ -70,7 +70,7 @@ namespace seq {
             }
             return mk("seq.align.m", e1, e2, e3, e4);
         }
-        expr_ref mk_accept(expr_ref_vector const& args) { return expr_ref(seq.mk_skolem(m_accept, args.size(), args.c_ptr(), m.mk_bool_sort()), m); }
+        expr_ref mk_accept(expr_ref_vector const& args) { return expr_ref(seq.mk_skolem(m_accept, args.size(), args.data(), m.mk_bool_sort()), m); }
         expr_ref mk_accept(expr* s, expr* i, expr* r) { return mk(m_accept, s, i, r, nullptr, m.mk_bool_sort()); }
         expr_ref mk_is_non_empty(expr* r, expr* u, expr* n) { return mk(m_is_non_empty, r, u, n, m.mk_bool_sort(), false); }
         expr_ref mk_is_empty(expr* r, expr* u, expr* n) { return mk(m_is_empty, r, u, n, m.mk_bool_sort(), false); }

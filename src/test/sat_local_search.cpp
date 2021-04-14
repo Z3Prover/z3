@@ -58,7 +58,7 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
         }
         infile >> k;
         //local_search.add_cardinality(lits.size(), lits.c_ptr(), static_cast<unsigned>(lits.size() - k));
-        local_search.add_cardinality(lits.size(), lits.c_ptr(), static_cast<unsigned>(k));
+        local_search.add_cardinality(lits.size(), lits.data(), static_cast<unsigned>(k));
     }
 
     infile.close();

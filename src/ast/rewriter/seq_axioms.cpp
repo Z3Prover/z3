@@ -109,7 +109,7 @@ namespace seq {
         if (m_trail.size() != 4000)
             return;
         unsigned new_size = 2000;
-        expr_ref_vector new_trail(m, new_size, m_trail.c_ptr() + new_size);
+        expr_ref_vector new_trail(m, new_size, m_trail.data() + new_size);
         m_purified.reset();
         for (unsigned i = 0; i < new_size; i += 2) 
             m_purified.insert(new_trail.get(i), new_trail.get(i + 1));

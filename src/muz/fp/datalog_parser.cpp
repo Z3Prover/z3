@@ -729,7 +729,7 @@ protected:
         while (tok != TK_ERROR && tok != TK_EOS) {            
             if (tok == TK_PERIOD) {
                 SASSERT(body.size()==polarity_vect.size());
-                add_rule(head, body.size(), body.c_ptr(), polarity_vect.c_ptr());
+                add_rule(head, body.size(), body.data(), polarity_vect.data());
                 return m_lexer->next_token();
             }
             char const* td = m_lexer->get_token_data();
@@ -852,7 +852,7 @@ protected:
             for (unsigned i = 0; i < arity; ++i) {
                 domain.push_back(args[i]->get_sort());
             }
-            f = m.mk_func_decl(s, domain.size(), domain.c_ptr(), m.mk_bool_sort());
+            f = m.mk_func_decl(s, domain.size(), domain.data(), m.mk_bool_sort());
 
             m_context.register_predicate(f, true);
         
@@ -870,7 +870,7 @@ protected:
         }
         SASSERT(args.size()==f->get_arity());
         //TODO: we do not need to do the mk_app if we're in a declaration
-        pred = m.mk_app(f, args.size(), args.c_ptr());
+        pred = m.mk_app(f, args.size(), args.data());
         return tok;
     }
 

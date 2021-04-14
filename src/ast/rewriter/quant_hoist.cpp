@@ -78,7 +78,7 @@ public:
                                : m.mk_const (sym, s);
             vars.push_back(a);
         }
-        expr * const * exprs = (expr* const*) (vars.c_ptr() + vars.size()- nd);
+        expr * const * exprs = (expr* const*) (vars.data() + vars.size()- nd);
         result = instantiate(m, q, exprs);
     }
 
@@ -215,10 +215,10 @@ private:
                     args.push_back(tmp);
                 }
                 if (rewrite_ok) {
-                m_rewriter.mk_and(args.size(), args.c_ptr(), result);
+                m_rewriter.mk_and(args.size(), args.data(), result);
             }
                 else {
-                    result = m.mk_and (args.size (), args.c_ptr ());
+                    result = m.mk_and (args.size (), args.data ());
                 }
             }
             else if (m.is_or(fml)) {
@@ -228,10 +228,10 @@ private:
                     args.push_back(tmp);
                 }
                 if (rewrite_ok) {
-                m_rewriter.mk_or(args.size(), args.c_ptr(), result);
+                m_rewriter.mk_or(args.size(), args.data(), result);
             }
                 else {
-                    result = m.mk_or (args.size (), args.c_ptr ());
+                    result = m.mk_or (args.size (), args.data ());
                 }
             }
             else if (m.is_not(fml)) {
