@@ -202,7 +202,7 @@ namespace dd {
     public:
         struct mem_out {};
 
-        bdd_manager(unsigned nodes);
+        bdd_manager(unsigned num_vars);
         ~bdd_manager();
 
         void set_max_num_nodes(unsigned n) { m_max_num_bdd_nodes = n; }

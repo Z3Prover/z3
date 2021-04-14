@@ -438,9 +438,10 @@ public :
 
         SASSERT(m.zero().max_pow2_divisor() == UINT_MAX);
         SASSERT(m.one().max_pow2_divisor() == 0);
-        pdd p = (1 << 20) * a * b + 1024 * b * b * b;
+        pdd p = (1 << 20)*a*b + 1024*b*b*b;
         std::cout << p << " divided by 2^" << p.max_pow2_divisor() << "\n";
         SASSERT(p.max_pow2_divisor() == 10);
+        SASSERT(p.div(rational::power_of_two(10)) == 1024*a*b + b*b*b);
         SASSERT((p + p).max_pow2_divisor() == 11);
         SASSERT((p * p).max_pow2_divisor() == 20);
         SASSERT((p + 2*b).max_pow2_divisor() == 1);
@@ -492,6 +493,22 @@ public :
         SASSERT(r == -(2*a*a*b*b - 2*a*a*b - 3*a*b*b + a*b*b*b + 4*b));
     }
 
+    static void pow() {
+        std::cout << "pow\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 5);
+
+        unsigned const va = 0;
+        unsigned const vb = 1;
+        pdd const a = m.mk_var(va);
+        pdd const b = m.mk_var(vb);
+
+        SASSERT(a.pow(0) == m.one());
+        SASSERT(a.pow(1) == a);
+        SASSERT(a.pow(2) == a*a);
+        SASSERT(a.pow(7) == a*a*a*a*a*a*a);
+        SASSERT((3*a*b).pow(3) == 27*a*a*a*b*b*b);
+    }
+
 };
 
 }
@@ -510,4 +527,5 @@ void tst_pdd() {
     dd::test::factor();
     dd::test::max_pow2_divisor();
     dd::test::binary_resolve();
+    dd::test::pow();
 }
