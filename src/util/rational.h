@@ -157,6 +157,12 @@ public:
     friend inline rational numerator(rational const & r) { rational result; m().get_numerator(r.m_val, result.m_val); return result; }
     
     friend inline rational denominator(rational const & r) { rational result; m().get_denominator(r.m_val, result.m_val); return result; }
+
+    friend inline rational inv(rational const & r) {
+        rational result;
+        m().inv(r.m_val, result.m_val);
+        return result;
+    }
     
     rational & operator+=(rational const & r) { 
         m().add(m_val, r.m_val, m_val);
