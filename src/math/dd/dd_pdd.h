@@ -297,7 +297,7 @@ namespace dd {
 
         struct mem_out {};
 
-        pdd_manager(unsigned nodes, semantics s = free_e, unsigned power_of_2 = 0);
+        pdd_manager(unsigned num_vars, semantics s = free_e, unsigned power_of_2 = 0);
         ~pdd_manager();
 
         semantics get_semantics() const { return m_semantics; }
