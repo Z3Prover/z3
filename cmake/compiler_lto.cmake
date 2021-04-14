@@ -18,11 +18,11 @@ if (Z3_LINK_TIME_OPTIMIZATION)
 
   set(_lto_compiler_flag "")
   set(_lto_linker_flag "")
-  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR
-      ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU"))
+  if ((CMAKE_CXX_COMPILER_ID MATCHES "Clang") OR
+      (CMAKE_CXX_COMPILER_ID MATCHES "GNU"))
       set(_lto_compiler_flag "-flto")
       set(_lto_linker_flag "-flto")
-  elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(_lto_compiler_flag "/GL")
     set(_lto_linker_flag "/LTCG")
   else()
