@@ -980,7 +980,7 @@ namespace sat {
         
         if (m_config.m_propagate_prefetch) {
 #if defined(__GNUC__) || defined(__clang__)
-            __builtin_prefetch((const char*)((m_watches[l.index()].c_ptr())));
+            __builtin_prefetch((const char*)((m_watches[l.index()].data())));
 #else
     #if !defined(_M_ARM) && !defined(_M_ARM64)
             _mm_prefetch((const char*)((m_watches[l.index()].data())), _MM_HINT_T1);
