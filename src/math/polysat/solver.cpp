@@ -15,21 +15,10 @@ Author:
 
 --*/
 
-#include "math/polysat/polysat.h"
+#include "math/polysat/solver.h"
 
 namespace polysat {
 
-    std::ostream& constraint::display(std::ostream& out) const {
-        switch (kind()) {
-        case ckind_t::eq_t:
-            return out << p() << " == 0";
-        case ckind_t::ule_t:
-            return out << lhs() << " <=u " << rhs();
-        case ckind_t::sle_t:
-            return out << lhs() << " <=s " << rhs();
-        }
-        return out;
-    }
     
     dd::pdd_manager& solver::sz2pdd(unsigned sz) {
         m_pdd.reserve(sz + 1);
@@ -355,6 +344,10 @@ namespace polysat {
     }
 
     void solver::assign_core(pvar v, rational const& val, justification const& j) {
+        if (j.is_decision()) 
+            ++m_stats.m_num_decisions;
+        else 
+            ++m_stats.m_num_propagations;
         SASSERT(is_viable(v, val));
         m_value[v] = val;
         m_search.push_back(std::make_pair(v, val));
@@ -393,6 +386,7 @@ namespace polysat {
      * 
      */
     void solver::resolve_conflict() {
+        ++m_stats.m_num_conflicts;
 
         SASSERT(!m_conflict.empty());
 
@@ -626,6 +620,12 @@ namespace polysat {
         for (auto* c : m_redundant)
             out << *c << "\n";
         return out;
+    }
+
+    void solver::collect_statistics(statistics& st) const {
+        st.update("polysat decisions",    m_stats.m_num_decisions);
+        st.update("polysat conflicts",    m_stats.m_num_conflicts);
+        st.update("polysat propagations", m_stats.m_num_propagations);
     }
 
     bool solver::invariant() {

@@ -3,7 +3,7 @@ Copyright (c) 2021 Microsoft Corporation
 
 Module Name:
 
-    polysat
+    polysat solver
 
 Abstract:
 
@@ -16,108 +16,20 @@ Author:
 --*/
 #pragma once
 
-#include "util/dependency.h"
-#include "util/trail.h"
-#include "util/lbool.h"
-#include "util/rlimit.h"
-#include "util/scoped_ptr_vector.h"
-#include "util/var_queue.h"
-#include "util/ref_vector.h"
-#include "math/dd/dd_pdd.h"
-#include "math/dd/dd_bdd.h"
+#include "util/statistics.h"
+#include "math/polysat/constraint.h"
+#include "math/polysat/justification.h"
 
 namespace polysat {
 
-    class solver;
-    typedef dd::pdd pdd;
-    typedef dd::bdd bdd;
-    typedef unsigned pvar;
-
-    const unsigned null_dependency = UINT_MAX;
-    const pvar null_var = UINT_MAX;
-
-    struct dep_value_manager {
-        void inc_ref(unsigned) {}
-        void dec_ref(unsigned) {}
-    };
-
-    struct dep_config {
-        typedef dep_value_manager value_manager;
-        typedef unsigned value;
-        typedef small_object_allocator allocator;
-        static const bool ref_count = false;
-    };
-
-    typedef dependency_manager<dep_config> poly_dep_manager;
-    typedef poly_dep_manager::dependency p_dependency;
-
-    typedef obj_ref<p_dependency, poly_dep_manager> p_dependency_ref; 
-    typedef ref_vector<p_dependency, poly_dep_manager> p_dependency_refv;
-
-    enum ckind_t { eq_t, ule_t, sle_t };
-
-    class constraint {
-        unsigned         m_level;
-        ckind_t          m_kind;
-        pdd              m_poly;
-        pdd              m_other;
-        p_dependency_ref m_dep;
-        unsigned_vector  m_vars;
-        constraint(unsigned lvl, pdd const& p, pdd const& q, p_dependency_ref& dep, ckind_t k): 
-            m_level(lvl), m_kind(k), m_poly(p), m_other(q), m_dep(dep) {
-            m_vars.append(p.free_vars());
-            if (q != p) 
-                for (auto v : q.free_vars())
-                    m_vars.insert(v);            
-            }
-    public:
-        static constraint* eq(unsigned lvl, pdd const& p, p_dependency_ref& d) { 
-            return alloc(constraint, lvl, p, p, d, ckind_t::eq_t); 
-        }
-        static constraint* ule(unsigned lvl, pdd const& p, pdd const& q, p_dependency_ref& d) { 
-            return alloc(constraint, lvl, p, q, d, ckind_t::ule_t); 
-        }
-        bool is_eq() const { return m_kind == ckind_t::eq_t; }
-        bool is_ule() const { return m_kind == ckind_t::ule_t; }
-        bool is_sle() const { return m_kind == ckind_t::sle_t; }
-        ckind_t kind() const { return m_kind; }
-        pdd const &  p() const { return m_poly; }
-        pdd const &  lhs() const { return m_poly; }
-        pdd const &  rhs() const { return m_other; }
-        std::ostream& display(std::ostream& out) const;
-        p_dependency* dep() const { return m_dep; }
-        unsigned_vector& vars() { return m_vars; }
-        unsigned level() const { return m_level; }
-    };
-
-    inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
-
-
-    /**
-     * Justification kind for a variable assignment.
-     */
-    enum justification_k { unassigned, decision, propagation };
-
-    class justification {
-        justification_k m_kind;
-        unsigned        m_level;
-        justification(justification_k k, unsigned lvl): m_kind(k), m_level(lvl) {}
-    public:
-        justification(): m_kind(justification_k::unassigned) {}
-        static justification unassigned() { return justification(justification_k::unassigned, 0); }
-        static justification decision(unsigned lvl) { return justification(justification_k::decision, lvl); }
-        static justification propagation(unsigned lvl) { return justification(justification_k::propagation, lvl); }
-        bool is_decision() const { return m_kind == justification_k::decision; }
-        bool is_unassigned() const { return m_kind == justification_k::unassigned; }
-        bool is_propagation() const { return m_kind == justification_k::propagation; }
-        justification_k kind() const { return m_kind; }
-        unsigned level() const { return m_level; }
-        std::ostream& display(std::ostream& out) const;
-    };
-
-    inline std::ostream& operator<<(std::ostream& out, justification const& j) { return j.display(out); }
-
     class solver {
+
+        struct stats {
+            unsigned m_num_decisions;
+            unsigned m_num_propagations;
+            unsigned m_num_conflicts;
+            void reset() { memset(this, 0, sizeof(*this)); }
+        };
 
         typedef ptr_vector<constraint> constraints;
 
@@ -131,6 +43,7 @@ namespace polysat {
         constraints              m_conflict;
         constraints              m_stash_just;
         var_queue                m_free_vars;
+        stats                    m_stats;
 
         // Per constraint state
         scoped_ptr_vector<constraint>   m_constraints;
@@ -304,6 +217,8 @@ namespace polysat {
         void pop(unsigned num_scopes);
        
         std::ostream& display(std::ostream& out) const;
+
+        void collect_statistics(statistics& st) const;
 
     };
 
