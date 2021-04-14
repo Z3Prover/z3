@@ -162,13 +162,13 @@ namespace smt {
        The variables are replaced by skolem constants. These constants are stored in sks.
     */
 
-    void model_checker::assert_neg_q_m(quantifier * q, expr_ref_vector & sks) {
+    bool model_checker::assert_neg_q_m(quantifier * q, expr_ref_vector & sks) {
         expr_ref tmp(m);
         
         TRACE("model_checker", tout << "curr_model:\n"; model_pp(tout, *m_curr_model););
 
         if (!m_curr_model->eval(q->get_expr(), tmp, true)) {
-            return;
+            return false;
         }
         TRACE("model_checker", tout << "q after applying interpretation:\n" << mk_ismt2_pp(tmp, m) << "\n";);
         ptr_buffer<expr> subst_args;
@@ -191,6 +191,7 @@ namespace smt {
         r = m.mk_not(sk_body);
         TRACE("model_checker", tout << "mk_neg_q_m:\n" << mk_ismt2_pp(r, m) << "\n";);
         m_aux_context->assert_expr(r);
+        return true;
     }
 
     bool model_checker::add_instance(quantifier * q, model * cex, expr_ref_vector & sks, bool use_inv) {
@@ -333,7 +334,8 @@ namespace smt {
         TRACE("model_checker", tout << "model checking:\n" << expr_ref(flat_q->get_expr(), m) << "\n";);
         expr_ref_vector sks(m);
 
-        assert_neg_q_m(flat_q, sks);
+        if (!assert_neg_q_m(flat_q, sks))
+            return false;
         TRACE("model_checker", tout << "skolems:\n" << sks << "\n";);
 
         flet<bool> l(m_aux_context->get_fparams().m_array_fake_support, true);
