@@ -443,6 +443,97 @@ namespace dd {
         return r;
     }
 
+    /**
+     * Divide PDD by a constant value.
+     *
+     * IMPORTANT: Performs regular numerical division.
+     * For semantics 'mod2N_e', this means that 'c' must be an integer
+     * and all coefficients of 'a' must be divisible by 'c'.
+     *
+     * NOTE: Why do we not just use 'mul(a, inv(c))' instead?
+     * In case of semantics 'mod2N_e', an invariant is that all PDDs have integer coefficients.
+     * But such a multiplication would create nodes with non-integral coefficients.
+     */
+    pdd pdd_manager::div(pdd const& a, rational const& c) {
+        if (m_semantics == free_e) {
+            // Don't cache separately for the free semantics;
+            // use 'mul' so we can share results for a/c and a*(1/c).
+            return mul(inv(c), a);
+        }
+        SASSERT(c.is_int());
+        bool first = true;
+        SASSERT(well_formed());
+        scoped_push _sp(*this);
+        while (true) {
+            try {
+                return pdd(div_rec(a.root, c, null_pdd), this);
+            }
+            catch (const mem_out &) {
+                try_gc();
+                if (!first) throw;
+                first = false;
+            }
+        }
+        SASSERT(well_formed());
+        return pdd(zero_pdd, this);
+    }
+
+    pdd_manager::PDD pdd_manager::div_rec(PDD a, rational const& c, PDD c_pdd) {
+        SASSERT(m_semantics != free_e);
+        SASSERT(c.is_int());
+        if (is_zero(a))
+            return zero_pdd;
+        if (is_val(a)) {
+            rational r = val(a) / c;
+            SASSERT(r.is_int());
+            return imk_val(r);
+        }
+        if (c_pdd == null_pdd)
+            c_pdd = imk_val(c);
+        op_entry* e1 = pop_entry(a, c_pdd, pdd_div_const_op);
+        op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
+        if (check_result(e1, e2, a, c_pdd, pdd_div_const_op))
+            return e2->m_result;
+        push(div_rec(lo(a), c, c_pdd));
+        push(div_rec(hi(a), c, c_pdd));
+        PDD r = make_node(level(a), read(2), read(1));
+        pop(2);
+        e1->m_result = r;
+        return r;
+    }
+
+    pdd pdd_manager::pow(pdd const &p, unsigned j) {
+        return pdd(pow(p.root, j), this);
+    }
+
+    pdd_manager::PDD pdd_manager::pow(PDD p, unsigned j) {
+        if (j == 0)
+            return one_pdd;
+        else if (j == 1)
+            return p;
+        else if (is_zero(p))
+            return zero_pdd;
+        else if (is_one(p))
+            return one_pdd;
+        else if (is_val(p))
+            return imk_val(power(val(p), j));
+        else
+            return pow_rec(p, j);
+    }
+
+    pdd_manager::PDD pdd_manager::pow_rec(PDD p, unsigned j) {
+        SASSERT(j > 0);
+        if (j == 1)
+            return p;
+        // j even: pow(p,2*j')   =   pow(p*p,j')
+        // j odd:  pow(p,2*j'+1) = p*pow(p*p,j')
+        PDD q = pow_rec(apply(p, p, pdd_mul_op), j / 2);
+        if (j & 1) {
+            q = apply(q, p, pdd_mul_op);
+        }
+        return q;
+    }
+
     //
     // produce polynomial where a is reduced by b.
     // all monomials in a that are divisible by lm(b)
@@ -754,6 +845,15 @@ namespace dd {
         e->m_rest = rest.root;
     }
 
+    /**
+     * Apply function f to all coefficients of the polynomial.
+     * The function should be of type
+     *      rational const& -> rational
+     *      rational const& -> unsigned
+     * and should always return integers.
+     *
+     * NOTE: the operation is not cached.
+     */
     template <class Fn>
     pdd pdd_manager::map_coefficients(pdd const& p, Fn f) {
         if (p.is_val()) {
@@ -803,17 +903,9 @@ namespace dd {
         unsigned const j = std::min(max_pow2_divisor(a), max_pow2_divisor(c));
         SASSERT(j != UINT_MAX);  // should only be possible when both l and m are 0
         rational const pow2j = rational::power_of_two(j);
-        auto div_pow2j = [&pow2j](rational const& r) -> rational {
-            rational result = r / pow2j;
-            SASSERT(result.is_int());
-            return result;
-        };
-        pdd aa = map_coefficients(a, div_pow2j);
-        pdd cc = map_coefficients(c, div_pow2j);
-        pdd vv = one();
-        for (unsigned deg = l - m; deg-- > 0; ) {
-            vv *= mk_var(v);
-        }
+        pdd const aa = div(a, pow2j);
+        pdd const cc = div(c, pow2j);
+        pdd vv = pow(mk_var(v), l - m);
         r = b * cc - aa * d * vv;
         return true;
     }
@@ -1366,9 +1458,11 @@ namespace dd {
                 pow = 1;
                 v_prev = v;
             }
-            out << "v" << v_prev;
-            if (pow > 1)
-                out << "^" << pow;
+            if (v_prev != UINT_MAX) {
+                out << "v" << v_prev;
+                if (pow > 1)
+                    out << "^" << pow;
+            }
         }
         if (first) out << "0";
         return out;
