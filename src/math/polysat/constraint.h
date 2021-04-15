@@ -26,6 +26,8 @@ namespace polysat {
     class ule_constraint;
 
     class constraint {
+        friend class eq_constraint;
+        friend class ule_constraint;
         unsigned         m_level;
         ckind_t          m_kind;
         p_dependency_ref m_dep;
@@ -39,8 +41,9 @@ namespace polysat {
         bool is_sle() const { return m_kind == ckind_t::sle_t; }
         ckind_t kind() const { return m_kind; }
         virtual std::ostream& display(std::ostream& out) const = 0;
-        eq_constraint& to_eq() { return *dynamic_cast<eq_constraint*>(this); }
-        eq_constraint const& to_eq() { return *dynamic_cast<eq_constraint const*>(this); }
+        virtual bool propagate(solver& s, pvar v) = 0;
+        eq_constraint& to_eq();
+        eq_constraint const& to_eq() const;
         p_dependency* dep() const { return m_dep; }
         unsigned_vector& vars() { return m_vars; }
         unsigned level() const { return m_level; }
@@ -49,12 +52,14 @@ namespace polysat {
     class eq_constraint : public constraint {
         pdd m_poly;
     public:
-        eq_constraint(unsigned lvl, pdd const& p, pdd const& q, p_dependency_ref& dep,):
+        eq_constraint(unsigned lvl, pdd const& p, p_dependency_ref& dep):
             constraint(lvl, dep, ckind_t::eq_t), m_poly(p) {
             m_vars.append(p.free_vars());
         }
         pdd const & p() const { return m_poly; }
         std::ostream& display(std::ostream& out) const override;
+
+        bool propagate(solver& s, pvar v) override;
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }

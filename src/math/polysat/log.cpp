@@ -66,6 +66,7 @@ std::pair<std::ostream&, bool>
 polysat_log(LogLevel msg_level, std::string fn, std::string /* pretty_fn */)
 {
   std::ostream& os = std::cerr;
+#if 0
   int const fd = fileno(stderr);
 
   size_t width = 20;
@@ -82,6 +83,10 @@ polysat_log(LogLevel msg_level, std::string fn, std::string /* pretty_fn */)
   os << "[" << fn << "] " << std::string(padding, ' ');
   os << std::string(polysat_log_indent_level, ' ');
   return {os, (bool)color};
+#else
+  return {os, false};
+#endif
+
 }
 
 polysat_log_indent::polysat_log_indent(int amount)

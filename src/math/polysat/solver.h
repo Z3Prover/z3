@@ -32,6 +32,8 @@ namespace polysat {
             stats() { reset(); }
         };
 
+        friend class eq_constraint;
+
         typedef ptr_vector<constraint> constraints;
 
         trail_stack&             m_trail;
@@ -120,7 +122,6 @@ namespace polysat {
 
         void propagate(pvar v);
         bool propagate(pvar v, constraint& c);
-        bool propagate_eq(pvar v, constraint& c);
         void propagate(pvar v, rational const& val, constraint& c);
         void erase_watch(pvar v, constraint& c);
         void erase_watch(constraint& c);
