@@ -44,6 +44,10 @@ polysat_should_log(LogLevel msg_level, std::string fn, std::string pretty_fn);
 std::pair<std::ostream&, bool>
 polysat_log(LogLevel msg_level, std::string fn, std::string pretty_fn);
 
+#ifdef _MSC_VER
+#define __PRETTY_FUNCTION__ __FUNCSIG__
+#endif
+
 #define LOG_(lvl, x)                                               \
   do {                                                             \
     if (polysat_should_log(lvl, __func__, __PRETTY_FUNCTION__)) {  \
