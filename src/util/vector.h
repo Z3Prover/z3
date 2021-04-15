@@ -609,6 +609,19 @@ public:
     ptr_vector(unsigned s):vector<T *, false>(s) {}
     ptr_vector(unsigned s, T * elem):vector<T *, false>(s, elem) {}
     ptr_vector(unsigned s, T * const * data):vector<T *, false>(s, const_cast<T**>(data)) {}
+    std::ostream& display(std::ostream& out, char const* delim = " ") const {
+        bool first = true;
+        for (auto const* u : *this) {
+            if (!first)
+                out << delim;
+            first = false;
+            if (u)
+                out << *u;
+            else
+                out << "<NULL>";
+        }
+        return out;
+    }
 };
 
 template<typename T, typename SZ = unsigned>
@@ -633,6 +646,11 @@ template<typename T>
 inline std::ostream& operator<<(std::ostream& out, svector<T> const& v) {
     for (unsigned u : v) out << u << " ";
     return out;
+}
+
+template<typename T>
+inline std::ostream& operator<<(std::ostream& out, ptr_vector<T> const& v) {
+    return v.display(out);
 }
 
 

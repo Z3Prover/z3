@@ -87,12 +87,17 @@ namespace polysat {
 
         
         /**
-         * Find a next viable value for varible.
+         * Find a next viable value for variable.
          * l_false - there are no viable values.
          * l_true  - there is only one viable value left.
          * l_undef - there are multiple viable values, return a guess
          */
         lbool find_viable(pvar v, rational & val);
+
+        /** Log all viable values for the given variable.
+         * (Inefficient, but useful for debugging small instances.)
+         */
+        void log_viable(pvar v);
 
         /**
          * undo trail operations for backtracking.
