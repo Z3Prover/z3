@@ -234,7 +234,7 @@ namespace polysat {
         rational a = p.hi().val();
         rational b = p.lo().val();
         rational inv_a;
-        if (p.lo().val().is_odd()) {
+        if (a.is_odd()) {
             // v1 = -b * inverse(a)
             unsigned sz = p.power_of_2();
             VERIFY(a.mult_inverse(sz, inv_a)); 
@@ -243,6 +243,8 @@ namespace polysat {
             propagate(other_var, val, c);
             return false;
         }
+
+        SASSERT(!b.is_odd());  // otherwise p.is_never_zero() would have been true above
 
         // TBD
         // constrain viable using condition on x

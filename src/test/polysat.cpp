@@ -48,6 +48,15 @@ namespace polysat {
         // Expected result: SAT with a = 2, b = 3
     }
 
+    static void test_l3() {
+        scoped_solver s;
+        auto a = s.var(s.add_var(2));
+        auto b = s.var(s.add_var(2));
+        s.add_eq(3*b + a + 2);
+        s.check();
+        // Expected result: SAT
+    }
+
     
     /**
      * This one is unsat because a*a*(a*a - 1)
@@ -124,6 +133,7 @@ namespace polysat {
 void tst_polysat() {
     polysat::test_l1();
     polysat::test_l2();
+    polysat::test_l3();
 #if 0
     // worry about this later
     polysat::test_p1();
