@@ -15,16 +15,13 @@ Author:
 
 namespace polysat {
 
+
+    constraint* constraint::eq(unsigned lvl, pdd const& p, p_dependency_ref& d) {
+        return alloc(eq_constraint, lvl, p, dep);
+    }
+
     std::ostream& constraint::display(std::ostream& out) const {
-        switch (kind()) {
-        case ckind_t::eq_t:
-            return out << p() << " == 0";
-        case ckind_t::ule_t:
-            return out << lhs() << " <=u " << rhs();
-        case ckind_t::sle_t:
-            return out << lhs() << " <=s " << rhs();
-        }
-        return out;
+        return out << p() << " == 0";
     }
 
 }

@@ -3,6 +3,7 @@
 #endif
 #include <utility>
 
+#include "util/util.h"
 #include "math/polysat/log.h"
 
 #if POLYSAT_LOGGING_ENABLED
