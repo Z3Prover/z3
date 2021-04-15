@@ -528,6 +528,7 @@ namespace polysat {
         m_conflict.reset();
         m_viable[v] = viable;
         add_non_viable(v, val);
+        m_free_vars.del_var_eh(v);
         narrow(v);
         decide(v);
     }
