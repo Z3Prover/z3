@@ -240,9 +240,8 @@ namespace dd {
             break;
         case pdd_subst_val_op:
             while (!is_val(q) && !is_val(p)) {
-                if (level(p) == level(q)) break;
                 if (level(p) < level(q)) q = lo(q);
-                else p = lo(p);
+                else break;
             }
             if (is_val(p) || is_val(q)) return p;            
             break;
@@ -388,12 +387,19 @@ namespace dd {
         case pdd_subst_val_op:
             SASSERT(!is_val(p));
             SASSERT(!is_val(q));
-            SASSERT(level_p == level_q);
+            SASSERT(level_p >= level_q);
             push(apply_rec(lo(p), q, pdd_subst_val_op));   // lo := subst(lo(p), s)
             push(apply_rec(hi(p), q, pdd_subst_val_op));   // hi := subst(hi(p), s)
-            push(apply_rec(lo(q), read(1), pdd_mul_op));       // hi := hi*s[var(p)]
-            r = apply_rec(read(1), read(3), pdd_add_op);       // r := hi + lo := subst(lo(p),s) + s[var(p)]*subst(hi(p),s)
-            npop = 3;
+
+            if (level_p > level_q) {
+                r = make_node(level_p, read(2), read(1));
+                npop = 2;
+            }
+            else {
+                push(apply_rec(lo(q), read(1), pdd_mul_op));       // hi := hi*s[var(p)]
+                r = apply_rec(read(1), read(3), pdd_add_op);       // r := hi + lo := subst(lo(p),s) + s[var(p)]*subst(hi(p),s)
+                npop = 3;
+            }
             break;
         default:
             r = null_pdd;

@@ -220,9 +220,9 @@ namespace polysat {
             return false;
         }
 
-        // one variable remains unassigned.
+        // at most one variable remains unassigned.
         auto other_var = vars[1 - idx];
-        SASSERT(!is_assigned(other_var));
+        // SASSERT(!is_assigned(other_var));
 
         // Detect and apply unit propagation.
             
@@ -364,12 +364,14 @@ namespace polysat {
 
     void solver::set_conflict(constraint& c) { 
         SASSERT(m_conflict.empty());
+        TRACE("polysat", tout << "conflict " << c << "\n";);
         m_conflict.push_back(&c); 
     }
 
     void solver::set_conflict(pvar v) {
         SASSERT(m_conflict.empty());
         m_conflict.append(m_cjust[v]);
+        TRACE("polysat", tout << "conflict "; for (auto* c : m_conflict) tout << *c << "\n";);
         if (m_cjust[v].empty())
             m_conflict.push_back(nullptr);
     }
