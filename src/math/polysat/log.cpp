@@ -30,7 +30,7 @@ get_max_log_level(std::string const& fn, std::string const& pretty_fn)
   //     return LogLevel::Trace;
   // }
 
-  return LogLevel::Trace;
+  return LogLevel::Verbose;
   // return LogLevel::Warn;
 }
 
@@ -43,27 +43,14 @@ polysat_should_log(LogLevel msg_level, std::string fn, std::string pretty_fn)
 }
 
 static char const*
-level_name(LogLevel msg_level)
-{
-  switch (msg_level) {
-    case LogLevel::Error: return "[ERROR]";
-    case LogLevel::Warn:  return "[WARN] ";
-    case LogLevel::Info:  return "[INFO] ";
-    case LogLevel::Debug: return "[DEBUG]";
-    case LogLevel::Trace: return "[TRACE]";
-    default:              return "[???]  ";
-  }
-}
-
-static char const*
 level_color(LogLevel msg_level)
 {
   switch (msg_level) {
-    case LogLevel::Error:
+    case LogLevel::Heading1:
       return "\x1B[31m"; // red
-    case LogLevel::Warn:
+    case LogLevel::Heading2:
       return "\x1B[33m"; // yellow
-    case LogLevel::Info:
+    case LogLevel::Heading3:
       return "\x1B[34m"; // blue
     default:
       return nullptr;
@@ -83,7 +70,6 @@ polysat_log(LogLevel msg_level, std::string fn, std::string /* pretty_fn */)
   if (color && !isatty(fd)) { color = nullptr; }
 
   if (color) { os << color; }
-  // os << level_name(msg_level) << " ";
   os << "[" << fn << "] " << std::string(padding, ' ');
   return {os, (bool)color};
 }

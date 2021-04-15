@@ -18,34 +18,16 @@
 #include <cstdint>
 #include <iostream>
 #include <string>
-// #include <vector>
-// #include <typeinfo>
-
-/*
-namespace numerical_chars {
-inline std::ostream &operator<<(std::ostream &os, char c) {
-    return std::is_signed<char>::value ? os << static_cast<int>(c)
-                                       : os << static_cast<unsigned int>(c);
-}
-
-inline std::ostream &operator<<(std::ostream &os, signed char c) {
-    return os << static_cast<int>(c);
-}
-
-inline std::ostream &operator<<(std::ostream &os, unsigned char c) {
-    return os << static_cast<unsigned int>(c);
-}
-}
-*/
 
 
 /// Lower log level means more important
 enum class LogLevel : int {
-  Error = 0,
-  Warn = 1,
-  Info = 2,
-  Debug = 3,
-  Trace = 4,
+  None = 0,
+  Heading1 = 1,
+  Heading2 = 2,
+  Heading3 = 3,
+  Default = 4,
+  Verbose = 5,
 };
 
 /// Filter log messages
@@ -55,7 +37,7 @@ polysat_should_log(LogLevel msg_level, std::string fn, std::string pretty_fn);
 std::pair<std::ostream&, bool>
 polysat_log(LogLevel msg_level, std::string fn, std::string pretty_fn);
 
-#define LOG(lvl, x)                                                \
+#define LOG_(lvl, x)                                               \
   do {                                                             \
     if (polysat_should_log(lvl, __func__, __PRETTY_FUNCTION__)) {  \
       auto pair = polysat_log(lvl, __func__, __PRETTY_FUNCTION__); \
@@ -69,26 +51,26 @@ polysat_log(LogLevel msg_level, std::string fn, std::string pretty_fn);
     }                                                              \
   } while (false)
 
-#define LOG_ERROR(x) LOG(LogLevel::Error, x)
-#define LOG_WARN(x)  LOG(LogLevel::Warn, x)
-#define LOG_INFO(x)  LOG(LogLevel::Info, x)
-#define LOG_DEBUG(x) LOG(LogLevel::Debug, x)
-#define LOG_TRACE(x) LOG(LogLevel::Trace, x)
+#define LOG_H1(x) LOG_(LogLevel::Heading1, x)
+#define LOG_H2(x) LOG_(LogLevel::Heading2, x)
+#define LOG_H3(x) LOG_(LogLevel::Heading3, x)
+#define LOG(x)    LOG_(LogLevel::Default , x)
+#define LOG_V(x)  LOG_(LogLevel::Verbose , x)
 
 
 #else  // POLYSAT_LOGGING_ENABLED
 
 
-#define LOG(lvl, x)  \
+#define LOG_(lvl, x)  \
   do {               \
     /* do nothing */ \
   } while (false)
 
-#define LOG_ERROR(x) LOG(0, x)
-#define LOG_WARN(x)  LOG(0, x)
-#define LOG_INFO(x)  LOG(0, x)
-#define LOG_DEBUG(x) LOG(0, x)
-#define LOG_TRACE(x) LOG(0, x)
+#define LOG_H1(x) LOG_(0, x)
+#define LOG_H2(x) LOG_(0, x)
+#define LOG_H3(x) LOG_(0, x)
+#define LOG(x)    LOG_(0, x)
+#define LOG_V(x)  LOG_(0, x)
 
 
 #endif  // POLYSAT_LOGGING_ENABLED
