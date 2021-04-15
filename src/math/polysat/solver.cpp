@@ -36,6 +36,7 @@ namespace polysat {
     }
 
     void solver::add_non_viable(pvar v, rational const& val) {
+        LOG("pvar " << v << " /= " << val);
         TRACE("polysat", tout << "v" << v << " /= " << val << "\n";);
         bdd value = m_bdd.mk_true();
         for (unsigned k = size(v); k-- > 0; ) 
@@ -270,7 +271,7 @@ namespace polysat {
         rational a = p.hi().val();
         rational b = p.lo().val();
         rational inv_a;
-        if (p.lo().val().is_odd()) {
+        if (a.is_odd()) {
             // v1 = -b * inverse(a)
             unsigned sz = p.power_of_2();
             VERIFY(a.mult_inverse(sz, inv_a)); 
@@ -280,9 +281,50 @@ namespace polysat {
             return false;
         }
 
+        SASSERT(!b.is_odd());  // otherwise p.is_never_zero() would have been true above
+
         // TBD
         // constrain viable using condition on x
         // 2*x + 2 == 0 mod 4 => x is odd
+        //
+        // We have:
+        // 2^j*a'*x + 2^j*b' == 0 mod m, where a' is odd (but not necessarily b')
+        // <=> 2^j*(a'*x + b') == 0 mod m
+        // <=> a'*x + b' == 0 mod (m-j)
+        // <=> x == -b' * inverse_{m-j}(a') mod (m-j)
+        // ( <=> 2^j*x == 2^j * -b' * inverse_{m-j}(a') mod m )
+        //
+        // x == c mod (m-j)
+        // Which x in 2^m satisfy this?
+        // => x \in { c + k * 2^(m-j) | k = 0, ..., 2^j - 1 }
+        unsigned rank_a = a.trailing_zeros();  // j
+        SASSERT(b == 0 || rank_a <= b.trailing_zeros());
+        rational aa = a / rational::power_of_two(rank_a);  // a'
+        rational bb = b / rational::power_of_two(rank_a);  // b'
+        rational inv_aa;
+        unsigned small_sz = p.power_of_2() - rank_a;  // m - j
+        VERIFY(aa.mult_inverse(small_sz, inv_aa));
+        rational cc = mod(inv_aa * -bb, rational::power_of_two(small_sz));
+        LOG(m_vars[other_var] << " = " << cc << " + k * 2^" << small_sz);
+        // TODO: better way to update the BDD, e.g. construct new one (only if rank_a is small?)
+        vector<rational> viable;
+        for (rational k = rational::zero(); k < rational::power_of_two(rank_a); k += 1) {
+            rational val = cc + k * rational::power_of_two(small_sz);
+            viable.push_back(val);
+        }
+        LOG_V("still viable: " << viable);
+        unsigned i = 0;
+        for (rational r = rational::zero(); r < rational::power_of_two(p.power_of_2()); r += 1) {
+            while (i < viable.size() && viable[i] < r)
+                ++i;
+            if (i < viable.size() && viable[i] == r)
+                continue;
+            if (is_viable(other_var, r)) {
+                add_non_viable(other_var, r);
+            }
+        }
+
+        LOG("TODO");
         
         return false;
     }
