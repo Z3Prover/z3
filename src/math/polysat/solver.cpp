@@ -208,12 +208,13 @@ namespace polysat {
                 return true;
             }
         }        
+        
 
         auto p = c.p().subst_val(m_search);
+        TRACE("polysat", tout << c.p() << " := " << p << "\n";);
         if (p.is_zero()) 
             return false;
         if (p.is_never_zero()) {
-            TRACE("polysat", tout << c.p() << " := " << p << "\n";);
             // we could tag constraint to allow early substitution before 
             // swapping watch variable in case we can detect conflict earlier.
             set_conflict(c);
@@ -251,8 +252,10 @@ namespace polysat {
     }
 
     void solver::propagate(pvar v, rational const& val, constraint& c) {
-        if (is_viable(v, val)) 
+        if (is_viable(v, val)) {
+            m_free_vars.del_var_eh(v);
             assign_core(v, val, justification::propagation(m_level));        
+        }
         else 
             set_conflict(c);
     }
@@ -356,6 +359,7 @@ namespace polysat {
             ++m_stats.m_num_decisions;
         else 
             ++m_stats.m_num_propagations;
+        TRACE("polysat", tout << "v" << v << " := " << val << " " << j << "\n";);
         SASSERT(is_viable(v, val));
         m_value[v] = val;
         m_search.push_back(std::make_pair(v, val));
