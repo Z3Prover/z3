@@ -3,6 +3,7 @@ z3_add_component(polysat
     solver.cpp
     constraint.cpp
     justification.cpp
+    log.cpp
   COMPONENT_DEPENDENCIES
     util
     dd
