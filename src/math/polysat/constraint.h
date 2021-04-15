@@ -42,6 +42,7 @@ namespace polysat {
         ckind_t kind() const { return m_kind; }
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual bool propagate(solver& s, pvar v) = 0;
+        virtual constraint* resolve(solver& s, pvar v) = 0;
         eq_constraint& to_eq();
         eq_constraint const& to_eq() const;
         p_dependency* dep() const { return m_dep; }
@@ -58,8 +59,8 @@ namespace polysat {
         }
         pdd const & p() const { return m_poly; }
         std::ostream& display(std::ostream& out) const override;
-
         bool propagate(solver& s, pvar v) override;
+        constraint* resolve(solver& s, pvar v) override;
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }

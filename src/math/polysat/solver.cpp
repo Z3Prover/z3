@@ -202,27 +202,11 @@ namespace polysat {
         auto& wlist = m_watch[v];
         unsigned i = 0, j = 0, sz = wlist.size();
         for (; i < sz && !is_conflict(); ++i) 
-            if (!propagate(v, *wlist[i]))
+            if (!wlist[i]->propagate(*this, v))
                 wlist[j++] = wlist[i];
         for (; i < sz; ++i)
             wlist[j++] = wlist[i];
         wlist.shrink(j);
-    }
-
-    /**
-     * Return true iff the constraint should be removed from the current watch list.
-     */
-    bool solver::propagate(pvar v, constraint& c) {
-        switch (c.kind()) {
-        case ckind_t::eq_t:
-            return c.to_eq().propagate(*this, v);
-        case ckind_t::ule_t:
-        case ckind_t::sle_t:
-            NOT_IMPLEMENTED_YET();
-            return false;
-        }
-        UNREACHABLE();
-        return false;
     }
 
     void solver::propagate(pvar v, rational const& val, constraint& c) {
@@ -534,24 +518,10 @@ namespace polysat {
     constraint* solver::resolve(pvar v) {
         SASSERT(!m_cjust[v].empty());
         SASSERT(m_justification[v].is_propagation());
-        if (m_conflict.size() > 1)
+        if (m_cjust[v].size() != 1)
             return nullptr;
-        if (m_cjust[v].size() > 1)
-            return nullptr;
-        constraint* c = m_conflict[0];
         constraint* d = m_cjust[v].back();
-        if (c->is_eq() && d->is_eq()) {
-            pdd p = c->to_eq().p();
-            pdd q = d->to_eq().p();
-            pdd r = p;
-            if (!p.resolve(v, q, r)) 
-                return nullptr;
-            p_dependency_ref dep(m_dm);
-            dep = m_dm.mk_join(c->dep(), d->dep());
-            unsigned level = std::max(c->level(), d->level());
-            return constraint::eq(level, r, dep);             
-        }
-        return nullptr;
+        return d->resolve(*this, v);
     }
 
     /**

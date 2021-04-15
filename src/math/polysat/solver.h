@@ -121,7 +121,6 @@ namespace polysat {
         bool is_assigned(pvar v) const { return !m_justification[v].is_unassigned(); }
 
         void propagate(pvar v);
-        bool propagate(pvar v, constraint& c);
         void propagate(pvar v, rational const& val, constraint& c);
         void erase_watch(pvar v, constraint& c);
         void erase_watch(constraint& c);

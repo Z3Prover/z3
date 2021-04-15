@@ -134,4 +134,22 @@ namespace polysat {
         return false;
     }
 
+    constraint* eq_constraint::resolve(solver& s, pvar v) {
+        if (s.m_conflict.size() != 1)
+            return nullptr;
+        constraint* c = s.m_conflict[0];
+        if (c->is_eq()) {
+            pdd a = c->to_eq().p();
+            pdd b = p();
+            pdd r = a;
+            if (!a.resolve(v, b, r)) 
+                return nullptr;
+            p_dependency_ref d(s.m_dm.mk_join(c->dep(), dep()), s.m_dm);
+            // d = ;
+            unsigned lvl = std::max(c->level(), level());
+            return constraint::eq(lvl, r, d);             
+        }
+        return nullptr;
+    }
+
 }
