@@ -1,4 +1,6 @@
-#include <unistd.h>
+#ifndef _MSC_VER
+#include <unistd.h>  // for isatty
+#endif
 #include <utility>
 
 #include "math/polysat/log.h"
@@ -68,8 +70,12 @@ polysat_log(LogLevel msg_level, std::string fn, std::string /* pretty_fn */)
   size_t width = 20;
   size_t padding = width - std::min(width, fn.size());
 
+#ifdef _MSC_VER
+  char const* color = nullptr;
+#else
   char const* color = level_color(msg_level);
   if (color && !isatty(fd)) { color = nullptr; }
+#endif
 
   if (color) { os << color; }
   os << "[" << fn << "] " << std::string(padding, ' ');
