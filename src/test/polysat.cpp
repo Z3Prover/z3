@@ -35,11 +35,9 @@ namespace polysat {
         auto a = s.var(s.add_var(2));
         s.add_eq(a + 1);
         s.check();
+        // Expected result: SAT with a = 3
     }
     
-    // TBD: we get the wrong result / conflicts.
-    // it claims that v1 + 2*v0 + 1 with v0 replaced by 0 is 1.
-    // it should be v1 + 1
     static void test_l2() {
         scoped_solver s;
         auto a = s.var(s.add_var(2));
@@ -47,6 +45,7 @@ namespace polysat {
         s.add_eq(2*a + b + 1);
         s.add_eq(2*b + a);
         s.check();
+        // Expected result: SAT with a = 2, b = 3
     }
 
     
