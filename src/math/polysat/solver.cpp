@@ -306,25 +306,25 @@ namespace polysat {
         VERIFY(aa.mult_inverse(small_sz, inv_aa));
         rational cc = mod(inv_aa * -bb, rational::power_of_two(small_sz));
         LOG(m_vars[other_var] << " = " << cc << " + k * 2^" << small_sz);
-        // TODO: better way to update the BDD, e.g. construct new one (only if rank_a is small?)
-        vector<rational> viable;
-        for (rational k = rational::zero(); k < rational::power_of_two(rank_a); k += 1) {
-            rational val = cc + k * rational::power_of_two(small_sz);
-            viable.push_back(val);
-        }
-        LOG_V("still viable: " << viable);
-        unsigned i = 0;
-        for (rational r = rational::zero(); r < rational::power_of_two(p.power_of_2()); r += 1) {
-            while (i < viable.size() && viable[i] < r)
-                ++i;
-            if (i < viable.size() && viable[i] == r)
-                continue;
-            if (is_viable(other_var, r)) {
-                add_non_viable(other_var, r);
+        // Bit representation of the remaining values:
+        //   k*2^(m-j) +         c'
+        // ????????????000000000000000000000000   (0 = bits of cc; ? = any value)
+        // |- rank_a -||---- small_sz bits ---|
+        // |-------- p.power_of_2() ----------|
+        // So we just force all lower bits in the bdd to be the same as in cc
+        for (unsigned k = small_sz; k-- > 0; )
+            m_viable[other_var] &= cc.get_bit(k) ? m_bdd.mk_var(k) : m_bdd.mk_nvar(k);
+        // keep this for debugging, for now
+        IF_LOGGING({
+            vector<rational> viable;
+            for (rational k = rational::zero(); k < rational::power_of_two(rank_a); k += 1) {
+                rational val = cc + k * rational::power_of_two(small_sz);
+                viable.push_back(val);
             }
-        }
-
-        LOG("TODO");
+            LOG_V("still viable: " << viable);
+            log_viable(other_var);
+        });
+        m_cjust[other_var].push_back(&c);
         
         return false;
     }
