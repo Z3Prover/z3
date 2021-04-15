@@ -509,6 +509,55 @@ public :
         SASSERT((3*a*b).pow(3) == 27*a*a*a*b*b*b);
     }
 
+    static void subst_val() {
+        std::cout << "subst_val\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 2);
+
+        unsigned const va = 0;
+        unsigned const vb = 1;
+        unsigned const vc = 2;
+        unsigned const vd = 3;
+        pdd const a = m.mk_var(va);
+        pdd const b = m.mk_var(vb);
+        pdd const c = m.mk_var(vc);
+        pdd const d = m.mk_var(vd);
+
+        {
+            pdd const p = 2*a + b + 1;
+            SASSERT(p.subst_val(va, rational(0)) == b + 1);
+        }
+
+        {
+            pdd const p = a + 2*b;
+            SASSERT(p.subst_val(va, rational(0)) == 2*b);
+            SASSERT(p.subst_val(va, rational(2)) == 2*b + 2);
+            SASSERT(p.subst_val(vb, rational(0)) == a);
+            SASSERT(p.subst_val(vb, rational(1)) == a + 2);
+            SASSERT(p.subst_val(vb, rational(2)) == a);
+            SASSERT(p.subst_val(vb, rational(3)) == a + 2);
+            SASSERT(p.subst_val(va, rational(0)).subst_val(vb, rational(3)) == 2*m.one());
+        }
+
+        {
+            pdd const p = a + b + c + d;
+            vector<std::pair<unsigned, rational>> sub;
+            sub.push_back({vb, rational(2)});
+            sub.push_back({vc, rational(3)});
+            SASSERT(p.subst_val(sub) == a + d + 1);
+        }
+
+        {
+            pdd const p = (a + b) * (b + c) * (c + d);
+            vector<std::pair<unsigned, rational>> sub;
+            sub.push_back({vb, rational(2)});
+            sub.push_back({vc, rational(3)});
+            SASSERT(p.subst_val(sub) == (a + 2) * (d + 3));
+            sub.push_back({va, rational(3)});
+            sub.push_back({vd, rational(2)});
+            SASSERT(p.subst_val(sub) == m.one());
+        }
+    }
+
 };
 
 }
@@ -528,4 +577,5 @@ void tst_pdd() {
     dd::test::max_pow2_divisor();
     dd::test::binary_resolve();
     dd::test::pow();
+    dd::test::subst_val();
 }
