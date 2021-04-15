@@ -240,7 +240,7 @@ namespace dd {
             break;
         case pdd_subst_val_op:
             while (!is_val(q) && !is_val(p)) {
-                if (level(p) < level(q)) q = lo(q);
+                if (level(p) < level(q)) q = hi(q);
                 else break;
             }
             if (is_val(p) || is_val(q)) return p;            
