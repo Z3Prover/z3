@@ -633,7 +633,7 @@ namespace polysat {
         for (auto p : m_search) {
             auto v = p.first;
             auto lvl = m_justification[v].level();
-            out << "v" << v << " := " << p.second << "@" << lvl << "\n";
+            out << "v" << v << " := " << p.second << " @" << lvl << "\n";
             out << m_viable[v] << "\n";
         }
         for (auto* c : m_constraints)
