@@ -19,6 +19,13 @@
 #include <iostream>
 #include <string>
 
+class polysat_log_indent
+{
+  int m_amount;
+public:
+  polysat_log_indent(int amount);
+  ~polysat_log_indent();
+};
 
 /// Lower log level means more important
 enum class LogLevel : int {
@@ -51,9 +58,16 @@ polysat_log(LogLevel msg_level, std::string fn, std::string pretty_fn);
     }                                                              \
   } while (false)
 
-#define LOG_H1(x) LOG_(LogLevel::Heading1, x)
-#define LOG_H2(x) LOG_(LogLevel::Heading2, x)
-#define LOG_H3(x) LOG_(LogLevel::Heading3, x)
+#define LOG_CONCAT_HELPER(a,b) a ## b
+#define LOG_CONCAT(a,b) LOG_CONCAT_HELPER(a,b)
+
+#define LOG_INDENT(lvl, x)  \
+  LOG_(lvl, x);             \
+  polysat_log_indent LOG_CONCAT(polysat_log_indent_obj_, __LINE__) (4);
+
+#define LOG_H1(x) LOG_INDENT(LogLevel::Heading1, x)
+#define LOG_H2(x) LOG_INDENT(LogLevel::Heading2, x)
+#define LOG_H3(x) LOG_INDENT(LogLevel::Heading3, x)
 #define LOG(x)    LOG_(LogLevel::Default , x)
 #define LOG_V(x)  LOG_(LogLevel::Verbose , x)
 

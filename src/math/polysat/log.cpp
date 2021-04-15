@@ -57,6 +57,8 @@ level_color(LogLevel msg_level)
   }
 }
 
+int polysat_log_indent_level = 0;
+
 std::pair<std::ostream&, bool>
 polysat_log(LogLevel msg_level, std::string fn, std::string /* pretty_fn */)
 {
@@ -71,7 +73,20 @@ polysat_log(LogLevel msg_level, std::string fn, std::string /* pretty_fn */)
 
   if (color) { os << color; }
   os << "[" << fn << "] " << std::string(padding, ' ');
+  os << std::string(polysat_log_indent_level, ' ');
   return {os, (bool)color};
 }
+
+polysat_log_indent::polysat_log_indent(int amount)
+  : m_amount{amount}
+{
+  polysat_log_indent_level += m_amount;
+}
+
+polysat_log_indent::~polysat_log_indent()
+{
+  polysat_log_indent_level -= m_amount;
+}
+
 
 #endif  // POLYSAT_LOGGING_ENABLED
