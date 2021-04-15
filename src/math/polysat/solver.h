@@ -159,10 +159,6 @@ namespace polysat {
         void backjump(unsigned new_level);
         void undo_var(pvar v);
         void add_lemma(constraint* c);
-        bool is_always_false(constraint& c);
-        bool eval_to_false(constraint& c);
-
-
 
         bool invariant();
         bool invariant(scoped_ptr_vector<constraint> const& cs);

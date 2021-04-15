@@ -376,12 +376,9 @@ namespace polysat {
 
         scoped_ptr<constraint> lemma;
         reset_marks();
-        for (constraint* c : m_conflict) {
-            SASSERT(c);
-            LOG("Conflicting: " << *c);
+        for (constraint* c : m_conflict) 
             for (auto v : c->vars()) 
                 set_mark(v);
-        }
         
         for (unsigned i = m_search.size(); i-- > 0; ) {
             pvar v = m_search[i].first;
@@ -403,14 +400,14 @@ namespace polysat {
                 backtrack(i, lemma);
                 return;
             }
-            if (is_always_false(*new_lemma)) {
+            if (new_lemma->is_always_false()) {
                 learn_lemma(v, new_lemma.get());
                 m_conflict.reset();
                 m_conflict.push_back(new_lemma.detach());
                 report_unsat();
                 return;
             }
-            if (!eval_to_false(*new_lemma)) {
+            if (!new_lemma->is_currently_false(*this)) {
                 backtrack(i, lemma);
                 return;
             }
@@ -529,21 +526,6 @@ namespace polysat {
      */
     void solver::narrow(pvar v) {
 
-    }
-
-
-    bool solver::is_always_false(constraint& c) {
-        if (c.is_eq()) 
-            return c.to_eq().p().is_never_zero();
-        return false;
-    }
-
-    bool solver::eval_to_false(constraint& c) {
-        if (c.is_eq()) {
-            pdd r = c.to_eq().p().subst_val(m_search);
-            return r.is_never_zero();
-        }
-        return false;
     }
 
     void solver::add_lemma(constraint* c) {
