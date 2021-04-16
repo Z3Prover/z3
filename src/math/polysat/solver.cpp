@@ -41,27 +41,8 @@ namespace polysat {
         m_viable[v] &= !m_bdd.mk_int(val, size(v));
     }
 
-    lbool solver::find_viable(pvar v, rational & val) {
-        val = 0;
-        bdd viable = m_viable[v];
-        if (viable.is_false())
-            return l_false;
-        bool is_unique = true;
-        unsigned num_vars = 0;
-        while (!viable.is_true()) {
-            ++num_vars;
-            if (!viable.lo().is_false() && !viable.hi().is_false())
-                is_unique = false;
-            if (viable.lo().is_false()) {
-                val += rational::power_of_two(viable.var());
-                viable = viable.hi();
-            }
-            else 
-                viable = viable.lo();
-        }
-        is_unique &= num_vars == size(v);
-        TRACE("polysat", tout << "v" << v << " := " << val << " unique " << is_unique << "\n";);
-        return is_unique ? l_true : l_undef;
+    dd::find_int_t solver::find_viable(pvar v, rational & val) {
+        return m_viable[v].find_int(size(v), val);
     }
 
     
@@ -306,15 +287,15 @@ namespace polysat {
         IF_LOGGING(log_viable(v));
         rational val;
         switch (find_viable(v, val)) {
-        case l_false:
+        case dd::find_int_t::empty:
             LOG("Conflict: no value for pvar " << v);
             set_conflict(v);
             break;
-        case l_true:
+        case dd::find_int_t::singleton:
             LOG("Propagation: pvar " << v << " := " << val << " (due to unique value)");
             assign_core(v, val, justification::propagation(m_level));
             break;
-        case l_undef:
+        case dd::find_int_t::multiple:
             LOG("Decision: pvar " << v << " := " << val);
             push_level();
             assign_core(v, val, justification::decision(m_level));
