@@ -343,7 +343,7 @@ public:
         return m().is_power_of_two(m_val, shift);
     }
 
-    bool mult_inverse(unsigned num_bits, rational & result);
+    bool mult_inverse(unsigned num_bits, rational & result) const;
 
     static rational const & zero() {
         return m_zero;

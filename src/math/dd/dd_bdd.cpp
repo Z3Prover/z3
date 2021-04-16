@@ -895,4 +895,81 @@ namespace dd {
     bdd& bdd::operator=(bdd const& other) { unsigned r1 = root; root = other.root; m->inc_ref(root); m->dec_ref(r1); return *this; }
     std::ostream& operator<<(std::ostream& out, bdd const& b) { return b.display(out); }
 
+
+    bdd bdd_manager::mk_int(rational const& val, unsigned w) {
+        bdd b = mk_true();
+        for (unsigned k = w; k-- > 0;)
+            b &= val.get_bit(k) ? mk_var(k) : mk_nvar(k);
+        return b;
+    }
+
+    bool bdd_manager::contains_int(BDD b, rational const& val, unsigned w) {
+        while (!is_const(b)) {
+            unsigned const var = m_level2var[level(b)];
+            if (var >= w)
+                b = lo(b);
+            else
+                b = val.get_bit(var) ? hi(b) : lo(b);
+        }
+        return is_true(b);
+    }
+
+    find_int_t bdd_manager::find_int(BDD b, unsigned w, rational& val) {
+        val = 0;
+        if (is_false(b))
+            return find_int_t::empty;
+        bool is_unique = true;
+        unsigned num_vars = 0;
+        while (!is_true(b)) {
+            ++num_vars;
+            if (!is_false(lo(b)) && !is_false(hi(b)))
+                is_unique = false;
+            if (is_false(lo(b))) {
+                val += rational::power_of_two(var(b));
+                b = hi(b);
+            }
+            else
+                b = lo(b);
+        }
+        is_unique &= (num_vars == w);
+
+        return is_unique ? find_int_t::singleton : find_int_t::multiple;
+    }
+
+    bdd bdd_manager::mk_affine(rational const& a, rational const& b, unsigned w) {
+        if (a.is_zero())
+            return b.is_zero() ? mk_true() : mk_false();
+        // a*x + b == 0 (mod 2^w)
+        unsigned const rank_a = a.trailing_zeros();
+        unsigned const rank_b = b.is_zero() ? w : b.trailing_zeros();
+        // We have a', b' odd such that:
+        // 2^rank(a) * a'* x  +  2^rank(b) * b'  ==  0  (mod 2^w)
+        if (rank_a > rank_b) {
+            // <=> 2^(rank(a)-rank(b)) * a' * x  +  b'  ==  0  (mod 2^(w-rank(b)))
+            // LHS is always odd => equation cannot be true
+            return mk_false();
+        }
+        else if (b.is_zero()) {
+            // this is just a specialization of the else-branch below
+            return mk_int(rational::zero(), w - rank_a);
+        }
+        else {
+            unsigned const j = w - rank_a;
+            // Let b'' := 2^(rank(b)-rank(a)) * b', then we have:
+            // <=> a' * x  +  b''  ==  0  (mod 2^j)
+            // <=> x  ==  -b'' * inverse_j(a')  (mod 2^j)
+            // Now the question is, for what x in Z_{2^w} does this hold?
+            // Answer: for all x where the lower j bits are the same as in the RHS of the last equation,
+            // so we just fix those bits and leave the others unconstrained
+            // (which we can do simply by encoding the RHS as a j-width integer).
+            rational const pow2_rank_a = rational::power_of_two(rank_a);
+            rational const aa = a / pow2_rank_a;  // a'
+            rational const bb = b / pow2_rank_a;  // b''
+            rational inv_aa;
+            VERIFY(aa.mult_inverse(j, inv_aa));
+            rational const cc = mod(inv_aa * -bb, rational::power_of_two(j));
+            return mk_int(cc, j);
+        }
+   }
+
 }

@@ -21,10 +21,13 @@ Revision History:
 #include "util/vector.h"
 #include "util/map.h"
 #include "util/small_object_allocator.h"
+#include "util/rational.h"
 
 namespace dd {
 
     class bdd;
+
+    enum class find_int_t { empty, singleton, multiple };
 
     class bdd_manager {
         friend bdd;
@@ -189,6 +192,9 @@ namespace dd {
         bdd mk_or(bdd const& a, bdd const& b);
         bdd mk_xor(bdd const& a, bdd const& b);
 
+        bool contains_int(BDD b, rational const& val, unsigned w);
+        find_int_t find_int(BDD b, unsigned w, rational& val);
+
         void reserve_var(unsigned v);
         bool well_formed();
 
@@ -218,6 +224,20 @@ namespace dd {
         bdd mk_exists(unsigned v, bdd const& b);
         bdd mk_forall(unsigned v, bdd const& b);
         bdd mk_ite(bdd const& c, bdd const& t, bdd const& e);
+
+        /** Encodes the lower w bits of val as BDD, using variable indices 0 to w-1.
+         * The least-significant bit is encoded as variable 0.
+         * val must be an integer.
+         */
+        bdd mk_int(rational const& val, unsigned w);
+
+        /** Encodes the solutions of the affine relation
+         *
+         *      a*x + b == 0  (mod 2^w)
+         *
+         * as BDD.
+         */
+        bdd mk_affine(rational const& a, rational const& b, unsigned w);
 
         std::ostream& display(std::ostream& out);
         std::ostream& display(std::ostream& out, bdd const& b);
@@ -256,6 +276,12 @@ namespace dd {
         double cnf_size() const { return m->cnf_size(root); }
         double dnf_size() const { return m->dnf_size(root); }
         unsigned bdd_size() const { return m->bdd_size(*this); }
+
+        /** Checks whether the integer val is contained in the BDD when viewed as set of integers (see also mk_int). */
+        bool contains_int(rational const& val, unsigned w) { return m->contains_int(root, val, w); }
+
+        /** Returns an integer contained in the BDD, if any, and whether the BDD is a singleton. */
+        find_int_t find_int(unsigned w, rational& val) { return m->find_int(root, w, val); }
     };
 
     std::ostream& operator<<(std::ostream& out, bdd const& b);

@@ -112,6 +112,11 @@ namespace polysat {
         void add_non_viable(pvar v, rational const& val);
 
         /**
+         * Register all values that are not contained in vals as non-viable.
+         */
+        void intersect_viable(pvar v, bdd vals);
+
+        /**
          * Add dependency for variable viable range.
          */
         void add_viable_dep(pvar v, p_dependency* dep);
@@ -119,11 +124,8 @@ namespace polysat {
         
         /**
          * Find a next viable value for variable.
-         * l_false - there are no viable values.
-         * l_true  - there is only one viable value left.
-         * l_undef - there are multiple viable values, return a guess
          */
-        lbool find_viable(pvar v, rational & val);
+        dd::find_int_t find_viable(pvar v, rational & val);
 
         /** Log all viable values for the given variable.
          * (Inefficient, but useful for debugging small instances.)
