@@ -97,7 +97,7 @@ namespace polysat {
             rational b = q.lo().val();
             bdd xs = s.m_bdd.mk_affine(a, b, s.size(v));
             s.intersect_viable(v, xs);
-            s.m_cjust[v].push_back(this);
+            s.push_cjust(v, this);
             return true;
         }
         // TODO: what other constraints can be extracted cheaply?
