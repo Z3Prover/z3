@@ -112,6 +112,11 @@ namespace polysat {
         void add_non_viable(pvar v, rational const& val);
 
         /**
+         * Register all values that are not contained in vals as non-viable.
+         */
+        void intersect_viable(pvar v, bdd vals);
+
+        /**
          * Add dependency for variable viable range.
          */
         void add_viable_dep(pvar v, p_dependency* dep);

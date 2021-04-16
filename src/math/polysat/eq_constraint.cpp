@@ -138,9 +138,15 @@ namespace polysat {
     }
 
     void eq_constraint::narrow(solver& s) {
-        if (!p().is_linear())
-            return;
-        // TODO apply affine constraints and other that can be extracted cheaply
+        if (p().is_linear()) {
+            // a*x + b == 0
+            pvar v = vars()[0];
+            rational a = p().hi().val();
+            rational b = p().lo().val();
+            bdd xs = s.m_bdd.mk_affine(a, b, s.size(v));
+            s.intersect_viable(v, xs);
+        }
+        // TODO: what other constraints can be extracted cheaply?
     }
 
     bool eq_constraint::is_always_false() {

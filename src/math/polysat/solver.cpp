@@ -37,8 +37,12 @@ namespace polysat {
         LOG("pvar " << v << " /= " << val);
         TRACE("polysat", tout << "v" << v << " /= " << val << "\n";);
         SASSERT(is_viable(v, val));
+        intersect_viable(v, !m_bdd.mk_int(val, size(v)));
+    }
+
+    void solver::intersect_viable(pvar v, bdd vals) {
         push_viable(v);
-        m_viable[v] &= !m_bdd.mk_int(val, size(v));
+        m_viable[v] &= vals;
     }
 
     dd::find_int_t solver::find_viable(pvar v, rational & val) {
