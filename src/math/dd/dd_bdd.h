@@ -225,6 +225,30 @@ namespace dd {
         bdd mk_forall(unsigned v, bdd const& b);
         bdd mk_ite(bdd const& c, bdd const& t, bdd const& e);
 
+        /* BDD vector operations */
+        typedef vector<bdd> bddv;
+        bdd mk_ule(bddv const& a, bddv const& b);
+        bdd mk_uge(bddv const& a, bddv const& b); // { return mk_ule(b, a); }
+        bdd mk_ult(bddv const& a, bddv const& b); // { return mk_ule(a, b) && !mk_eq(a, b); }
+        bdd mk_ugt(bddv const& a, bddv const& b); // { return mk_ult(b, a); }
+        bdd mk_sle(bddv const& a, bddv const& b);
+        bdd mk_sge(bddv const& a, bddv const& b); // { return mk_sle(b, a); }
+        bdd mk_slt(bddv const& a, bddv const& b); // { return mk_sle(a, b) && !mk_eq(a, b); }
+        bdd mk_sgt(bddv const& a, bddv const& b); // { return mk_slt(b, a); }
+        bdd mk_eq(bddv const& a, bddv const& b);
+        bddv mk_num(rational const& n, unsigned num_bits);
+        bddv mk_ones(unsigned num_bits);
+        bddv mk_zero(unsigned num_bits);
+        bddv mk_var(unsigned num_bits, unsigned const* vars);
+        bddv mk_var(unsigned_vector const& vars);
+        bddv mk_add(bddv const& a, bddv const& b);
+        bddv mk_sub(bddv const& a, bddv const& b);
+        bddv mk_mul(bddv const& a, bddv const& b);
+        bddv mk_mul(bddv const& a, bool_vector const& b);
+        void mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem);
+        rational    to_val(bddv const& a);
+
+
         /** Encodes the lower w bits of val as BDD, using variable indices 0 to w-1.
          * The least-significant bit is encoded as variable 0.
          * val must be an integer.
@@ -264,10 +288,10 @@ namespace dd {
         bool is_true() const { return root == bdd_manager::true_bdd; }
         bool is_false() const { return root == bdd_manager::false_bdd; }        
 
-        bdd operator!() { return m->mk_not(*this); }
-        bdd operator&&(bdd const& other) { return m->mk_and(*this, other); }
-        bdd operator||(bdd const& other) { return m->mk_or(*this, other); }
-        bdd operator^(bdd const& other) { return m->mk_xor(*this, other); }
+        bdd operator!() const { return m->mk_not(*this); }
+        bdd operator&&(bdd const& other) const { return m->mk_and(*this, other); }
+        bdd operator||(bdd const& other) const { return m->mk_or(*this, other); }
+        bdd operator^(bdd const& other) const { return m->mk_xor(*this, other); }
         bdd operator|=(bdd const& other) { return *this = *this || other; }
         bdd operator&=(bdd const& other) { return *this = *this && other; }
         std::ostream& display(std::ostream& out) const { return m->display(out, *this); }

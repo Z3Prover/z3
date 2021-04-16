@@ -21,10 +21,12 @@ namespace polysat {
         case justification_k::unassigned:
             return out << "unassigned";
         case justification_k::decision:
-            return out << "decision (level " << level() << ")";
+            return out << "decision @ " << level();
         case justification_k::propagation:
-            return out << "propagation (level " << level() << ")";
+            return out << "propagation @ " << level();
         }
+        UNREACHABLE();
+        return out;
     }
 
 }

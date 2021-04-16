@@ -39,7 +39,7 @@ namespace polysat {
     }
 
     bool bit_constraint::is_currently_false(solver& s) {
-        return m_viable[m_var].is_false();
+        return s.m_viable[m_var].is_false();
     }
 
     void bit_constraint::narrow(solver& s) {
