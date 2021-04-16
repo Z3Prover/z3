@@ -12,6 +12,7 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-03-19
+    Jakob Rath 2021-04-6
 
 --*/
 
@@ -42,6 +43,7 @@ namespace polysat {
         for (unsigned k = size(v); k-- > 0; ) 
             value &= val.get_bit(k) ? m_bdd.mk_var(k) : m_bdd.mk_nvar(k);
         SASSERT((value && !m_viable[v]).is_false());
+        push_viable(v);
         m_viable[v] &= !value;        
     }
 
@@ -68,14 +70,8 @@ namespace polysat {
         return is_unique ? l_true : l_undef;
     }
 
-    struct solver::t_del_var : public trail {
-        solver& s;
-        t_del_var(solver& s): s(s) {}
-        void undo() override { s.del_var(); }
-    };
     
-    solver::solver(trail_stack& s, reslimit& lim): 
-        m_trail(s),
+    solver::solver(reslimit& lim): 
         m_lim(lim),
         m_bdd(1000),
         m_dm(m_value_manager, m_alloc),
@@ -132,7 +128,7 @@ namespace polysat {
         m_activity.push_back(0);
         m_vars.push_back(sz2pdd(sz).mk_var(v));
         m_size.push_back(sz);
-        m_trail.push(t_del_var(*this));
+        m_trail.push_back(trail_instr_t::add_var_i);
         m_free_vars.mk_var_eh(v);
         return v;
     }
@@ -192,7 +188,7 @@ namespace polysat {
     }
 
     void solver::propagate() {
-        m_trail.push(value_trail(m_qhead));
+        push_qhead();
         while (can_propagate()) 
             propagate(m_search[m_qhead++].first);
     }
@@ -220,15 +216,51 @@ namespace polysat {
 
     void solver::push_level() {
         ++m_level;
-        m_trail.push_scope();
+        m_trail.push_back(trail_instr_t::inc_level_i);
     }
 
     void solver::pop_levels(unsigned num_levels) {
-        m_trail.pop_scope(num_levels);        
-        m_level -= num_levels;
+        while (num_levels > 0) {
+            switch (m_trail.back()) {
+            case trail_instr_t::qhead_i: {
+                pop_qhead();
+                break;
+            }
+            case trail_instr_t::add_var_i: {
+                del_var();
+                break;
+            }
+            case trail_instr_t::inc_level_i: {
+                --m_level;
+                --num_levels;
+                break;
+            }
+            case trail_instr_t::viable_i: {
+                auto p = m_viable_trail.back();
+                m_viable[p.first] = p.second;
+                m_viable_trail.pop_back();
+                break;
+            }
+            case trail_instr_t::assign_i: {
+                auto v = m_search.back().first;
+                m_free_vars.unassign_var_eh(v);
+                m_justification[v] = justification::unassigned();
+                m_search.pop_back();
+                break;
+            }
+            case trail_instr_t::just_i: {
+                auto v = m_cjust_trail.back();
+                m_cjust[v].pop_back();
+                m_cjust_trail.pop_back();
+                break;
+            }
+            default:
+                UNREACHABLE();
+            }
+            m_trail.pop_back();
+        }
         pop_constraints(m_constraints);
         pop_constraints(m_redundant);
-        pop_assignment();
     }
 
     void solver::pop_constraints(scoped_ptr_vector<constraint>& cs) {
@@ -238,28 +270,6 @@ namespace polysat {
             cs.pop_back();
         }        
     }
-
-    /**
-     * TBD: rewrite for proper backtracking where variable levels don't follow scope level.
-     * use a marker into m_search for level as in SAT solver.
-     */
-    void solver::pop_assignment() {
-        while (!m_search.empty() && m_justification[m_search.back().first].level() > m_level) {
-            undo_var(m_search.back().first);
-            m_search.pop_back();
-        }
-    }
-
-    // Base approach just clears all assignments.
-    // TBD approach allows constraints to constrain bits of v. They are 
-    // added to cjust and affect viable outside of search.
-    void solver::undo_var(pvar v) {
-        m_justification[v] = justification::unassigned();
-        m_free_vars.unassign_var_eh(v);
-        m_cjust[v].reset();
-        m_viable[v] = m_bdd.mk_true(); 
-    }
-
 
     void solver::add_watch(constraint& c) {
         auto const& vars = c.vars();
@@ -327,6 +337,7 @@ namespace polysat {
         SASSERT(is_viable(v, val));
         m_value[v] = val;
         m_search.push_back(std::make_pair(v, val));
+        m_trail.push_back(trail_instr_t::assign_i);
         m_justification[v] = j; 
     }
 
@@ -473,7 +484,7 @@ namespace polysat {
         if (!c)
             return;
         SASSERT(m_conflict_level <= m_justification[v].level());
-        m_cjust[v].push_back(c);        
+        push_cjust(v, c);
         add_lemma(c);
     }
 
@@ -490,11 +501,14 @@ namespace polysat {
         rational val = m_value[v];
         SASSERT(m_justification[v].is_decision());
         bdd viable = m_viable[v];
-        m_conflict.append(m_cjust[v]);
+        constraints just(m_cjust[v]);
         backjump(m_justification[v].level()-1);
-        SASSERT(m_cjust[v].empty());
-        m_cjust[v].append(m_conflict);
+        for (unsigned i = m_cjust[v].size(); i < just.size(); ++i) 
+            push_cjust(v, just[i]);
+        for (constraint* c : m_conflict)
+            push_cjust(v, c);
         m_conflict.reset();
+        push_viable(v);
         m_viable[v] = viable;
         add_non_viable(v, val);
         m_free_vars.del_var_eh(v);

@@ -12,6 +12,7 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-03-19
+    Jakob Rath 2021-04-6
 
 --*/
 #pragma once
@@ -19,6 +20,7 @@ Author:
 #include "util/statistics.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/justification.h"
+#include "math/polysat/trail.h"
 
 namespace polysat {
 
@@ -36,7 +38,6 @@ namespace polysat {
 
         typedef ptr_vector<constraint> constraints;
 
-        trail_stack&             m_trail;
         reslimit&                m_lim;
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
         dd::bdd_manager          m_bdd;
@@ -68,8 +69,34 @@ namespace polysat {
         unsigned                 m_qhead { 0 };
         unsigned                 m_level { 0 };
 
+        svector<trail_instr_t>   m_trail;
+        unsigned_vector          m_qhead_trail;
+        vector<std::pair<pvar, bdd>> m_viable_trail;
+        unsigned_vector          m_cjust_trail;
+
+
         unsigned_vector          m_base_levels;  // External clients can push/pop scope. 
 
+
+        void push_viable(pvar v) {
+            m_viable_trail.push_back(std::make_pair(v, m_viable[v]));
+        }
+
+        void push_qhead() { 
+            m_trail.push_back(trail_instr_t::qhead_i);
+            m_qhead_trail.push_back(m_qhead);
+        }
+
+        void pop_qhead() {
+            m_qhead = m_qhead_trail.back();
+            m_qhead_trail.pop_back();
+        }
+
+        void push_cjust(pvar v, constraint* c) {
+            m_cjust[v].push_back(c);        
+            m_trail.push_back(trail_instr_t::just_i);
+            m_cjust_trail.push_back(v);
+        }
 
         unsigned size(pvar v) const { return m_size[v]; }
         /**
@@ -105,7 +132,6 @@ namespace polysat {
          * undo trail operations for backtracking.
          * Each struct is a subclass of trail and implements undo().
          */
-        struct t_del_var;
 
         void del_var();
 
@@ -113,7 +139,6 @@ namespace polysat {
 
         void push_level();
         void pop_levels(unsigned num_levels);
-        void pop_assignment();
         void pop_constraints(scoped_ptr_vector<constraint>& cs);
 
         void assign_core(pvar v, rational const& val, justification const& j);
@@ -157,7 +182,6 @@ namespace polysat {
         void revert_decision(pvar v);
         void learn_lemma(pvar v, constraint* c);
         void backjump(unsigned new_level);
-        void undo_var(pvar v);
         void add_lemma(constraint* c);
 
         bool invariant();
@@ -170,7 +194,7 @@ namespace polysat {
          * every update to the solver is going to be retractable
          * by pushing an undo action on the trail stack.
          */
-        solver(trail_stack& s, reslimit& lim);
+        solver(reslimit& lim);
 
         ~solver();
 

@@ -7,11 +7,10 @@ namespace polysat {
 
     struct solver_scope {
         reslimit lim;
-        trail_stack stack;        
     };
 
     struct scoped_solver : public solver_scope, public solver {
-        scoped_solver(): solver(stack, lim) {}
+        scoped_solver(): solver(lim) {}
 
         void check() {
             std::cout << check_sat() << "\n";
