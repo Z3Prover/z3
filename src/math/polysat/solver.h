@@ -37,6 +37,7 @@ namespace polysat {
         };
 
         friend class eq_constraint;
+        friend class bit_constraint;
 
         typedef ptr_vector<constraint> constraints;
 

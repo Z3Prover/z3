@@ -13,14 +13,14 @@ Author:
 --*/
 
 #include "math/polysat/bit_constraint.h"
+#include "math/polysat/solver.h"
 
 namespace polysat {
 
     std::ostream& bit_constraint::display(std::ostream& out) const {
-            if (!m_value)
-                out << "~";
-            out << "v" << m_var << "[" << m_index << "] ";
-        }
+        if (!m_value)
+            out << "~";
+        out << "v" << m_var << "[" << m_index << "] ";
         return out;
     }
 
@@ -39,19 +39,11 @@ namespace polysat {
     }
 
     bool bit_constraint::is_currently_false(solver& s) {
-        return false;
+        return m_viable[m_var].is_false();
     }
 
     void bit_constraint::narrow(solver& s) {
-        bdd viable = s.m_bdd.mk_true();
-        if (m_value)
-            viable &= s.m_bdd.mk_var(m_index);
-        else 
-            viable &= s.m_bdd.mk_nvar(m_index);
-        s.push_viable(v);
-        s.m_viable[v] &= viable;
-        if (s.m_viable[v].is_false()) 
-            s.set_conflict(v);
+        s.intersect_viable(m_var, m_value ? s.m_bdd.mk_var(m_index) : s.m_bdd.mk_nvar(m_index));
     }
 
 }

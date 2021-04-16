@@ -43,12 +43,13 @@ namespace polysat {
     void solver::intersect_viable(pvar v, bdd vals) {
         push_viable(v);
         m_viable[v] &= vals;
+        if (m_viable[v].is_false())
+            set_conflict(v);
     }
 
     dd::find_int_t solver::find_viable(pvar v, rational & val) {
         return m_viable[v].find_int(size(v), val);
     }
-
     
     solver::solver(reslimit& lim): 
         m_lim(lim),
