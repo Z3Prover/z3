@@ -5,10 +5,6 @@ Module Name:
 
     polysat constraints
 
-Abstract:
-
-    Polynomial constriants
-
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-03-19

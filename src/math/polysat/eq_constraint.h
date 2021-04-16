@@ -3,15 +3,12 @@ Copyright (c) 2021 Microsoft Corporation
 
 Module Name:
 
-    polysat constraints
-
-Abstract:
-
-    Polynomial equality constriants
+    polysat equality constraints
 
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-03-19
+    Jakob Rath 2021-04-6
 
 --*/
 #pragma once

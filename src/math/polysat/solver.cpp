@@ -495,8 +495,10 @@ namespace polysat {
         backjump(m_justification[v].level()-1);
         for (unsigned i = m_cjust[v].size(); i < just.size(); ++i) 
             push_cjust(v, just[i]);
-        for (constraint* c : m_conflict)
+        for (constraint* c : m_conflict) {
             push_cjust(v, c);
+            c->narrow(*this);
+        }
         m_conflict.reset();
         push_viable(v);
         m_viable[v] = viable;

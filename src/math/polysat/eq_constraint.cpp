@@ -105,6 +105,13 @@ namespace polysat {
     }
 
     void eq_constraint::narrow(solver& s) {
+        // NSB code review:
+        // This should also use the current assignment so be similar to propagate.
+        // The idea is that narrow is invoked when the constraint is first added
+        // and also when the constraint is used in a conflict.
+        // When it is used in a conflict, there could be a partial assignment in s.m_search
+        // that fixes variables in p().
+        // 
         (void)try_narrow_with(p(), s);
     }
 

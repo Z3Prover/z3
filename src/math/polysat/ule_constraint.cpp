@@ -3,7 +3,7 @@ Copyright (c) 2021 Microsoft Corporation
 
 Module Name:
 
-    polysat ule_constraints
+    polysat unsigned <= constraints
 
 Author:
 
