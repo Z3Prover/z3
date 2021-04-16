@@ -36,7 +36,6 @@ namespace polysat {
                 return true;
             }
         }        
-        
 
         LOG("Assignments: " << s.m_search);
         auto q = p().subst_val(s.m_search);
@@ -52,71 +51,24 @@ namespace polysat {
 
         // at most one variable remains unassigned.
         auto other_var = vars()[1 - idx];
+        SASSERT(!q.is_val() && q.var() == other_var);
 
         // Detect and apply unit propagation.
-            
-        if (!q.is_linear())
-            return false;
-
-        // a*x + b == 0
-        rational a = q.hi().val();
-        rational b = q.lo().val();
-        rational inv_a;
-        if (a.is_odd()) {
-            // v1 = -b * inverse(a)
-            unsigned sz = q.power_of_2();
-            VERIFY(a.mult_inverse(sz, inv_a)); 
-            rational val = mod(inv_a * -b, rational::power_of_two(sz));
-            s.m_cjust[other_var].push_back(this);
-            s.propagate(other_var, val, *this);
-            return false;
-        }
-
-        SASSERT(!b.is_odd());  // otherwise p.is_never_zero() would have been true above
-
-        // TBD
-        // constrain viable using condition on x
-        // 2*x + 2 == 0 mod 4 => x is odd
-        //
-        // We have:
-        // 2^j*a'*x + 2^j*b' == 0 mod m, where a' is odd (but not necessarily b')
-        // <=> 2^j*(a'*x + b') == 0 mod m
-        // <=> a'*x + b' == 0 mod (m-j)
-        // <=> x == -b' * inverse_{m-j}(a') mod (m-j)
-        // ( <=> 2^j*x == 2^j * -b' * inverse_{m-j}(a') mod m )
-        //
-        // x == c mod (m-j)
-        // Which x in 2^m satisfy this?
-        // => x \in { c + k * 2^(m-j) | k = 0, ..., 2^j - 1 }
-        unsigned rank_a = a.trailing_zeros();  // j
-        SASSERT(b == 0 || rank_a <= b.trailing_zeros());
-        rational aa = a / rational::power_of_two(rank_a);  // a'
-        rational bb = b / rational::power_of_two(rank_a);  // b'
-        rational inv_aa;
-        unsigned small_sz = q.power_of_2() - rank_a;  // m - j
-        VERIFY(aa.mult_inverse(small_sz, inv_aa));
-        rational cc = mod(inv_aa * -bb, rational::power_of_two(small_sz));
-        LOG(m_vars[other_var] << " = " << cc << " + k * 2^" << small_sz);
-        // TODO: better way to update the BDD, e.g. construct new one (only if rank_a is small?)
-        vector<rational> viable;
-        for (rational k = rational::zero(); k < rational::power_of_two(rank_a); k += 1) {
-            rational val = cc + k * rational::power_of_two(small_sz);
-            viable.push_back(val);
-        }
-        LOG_V("still viable: " << viable);
-        unsigned i = 0;
-        for (rational r = rational::zero(); r < rational::power_of_two(q.power_of_2()); r += 1) {
-            while (i < viable.size() && viable[i] < r)
-                ++i;
-            if (i < viable.size() && viable[i] == r)
-                continue;
-            if (s.is_viable(other_var, r)) {
-                s.add_non_viable(other_var, r);
+        if (try_narrow_with(q, s)) {
+            rational val;
+            switch (s.find_viable(other_var, val)) {
+            case dd::find_int_t::empty:
+                s.set_conflict(*this);
+                return false;
+            case dd::find_int_t::singleton:
+                s.propagate(other_var, val, *this);
+                return false;
+            case dd::find_int_t::multiple:
+                /* do nothing */
+                break;
             }
         }
 
-        LOG("TODO");
-        
         return false;
     }
 
@@ -137,16 +89,23 @@ namespace polysat {
         return nullptr;
     }
 
-    void eq_constraint::narrow(solver& s) {
-        if (p().is_linear()) {
+    bool eq_constraint::try_narrow_with(pdd const& q, solver& s) {
+        if (q.is_linear()) {
             // a*x + b == 0
-            pvar v = vars()[0];
-            rational a = p().hi().val();
-            rational b = p().lo().val();
+            pvar v = q.var();
+            rational a = q.hi().val();
+            rational b = q.lo().val();
             bdd xs = s.m_bdd.mk_affine(a, b, s.size(v));
             s.intersect_viable(v, xs);
+            s.m_cjust[v].push_back(this);
+            return true;
         }
         // TODO: what other constraints can be extracted cheaply?
+        return false;
+    }
+
+    void eq_constraint::narrow(solver& s) {
+        (void)try_narrow_with(p(), s);
     }
 
     bool eq_constraint::is_always_false() {
