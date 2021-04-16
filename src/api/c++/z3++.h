@@ -575,7 +575,6 @@ namespace z3 {
             unsigned m_index;
         public:
             iterator(ast_vector_tpl const* v, unsigned i): m_vector(v), m_index(i) {}
-            iterator(iterator const& other): m_vector(other.m_vector), m_index(other.m_index) {}
 
             bool operator==(iterator const& other) const noexcept {
                 return other.m_index == m_index;
@@ -1992,8 +1991,7 @@ namespace z3 {
 
     template<typename T>
     template<typename T2>
-    array<T>::array(ast_vector_tpl<T2> const & v):m_array(new T[v.size()]) {
-        m_size  = v.size();
+    array<T>::array(ast_vector_tpl<T2> const & v):m_array(new T[v.size()]), m_size(v.size()) {
         for (unsigned i = 0; i < m_size; i++) {
             m_array[i] = v[i];
         }
