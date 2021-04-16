@@ -30,21 +30,15 @@ namespace polysat {
     }
 
     bool solver::is_viable(pvar v, rational const& val) {
-        bdd b = m_viable[v];
-        for (unsigned k = size(v); k-- > 0 && !b.is_false(); ) 
-            b &= val.get_bit(k) ? m_bdd.mk_var(k) : m_bdd.mk_nvar(k);
-        return !b.is_false();
+        return m_viable[v].contains_int(val, size(v));
     }
 
     void solver::add_non_viable(pvar v, rational const& val) {
         LOG("pvar " << v << " /= " << val);
         TRACE("polysat", tout << "v" << v << " /= " << val << "\n";);
-        bdd value = m_bdd.mk_true();
-        for (unsigned k = size(v); k-- > 0; ) 
-            value &= val.get_bit(k) ? m_bdd.mk_var(k) : m_bdd.mk_nvar(k);
-        SASSERT((value && !m_viable[v]).is_false());
+        SASSERT(is_viable(v, val));
         push_viable(v);
-        m_viable[v] &= !value;        
+        m_viable[v] &= !m_bdd.mk_int(val, size(v));
     }
 
     lbool solver::find_viable(pvar v, rational & val) {
