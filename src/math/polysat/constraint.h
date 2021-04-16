@@ -12,20 +12,22 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-03-19
+    Jakob Rath 2021-04-6
 
 --*/
 #pragma once
 #include "math/polysat/types.h"
 
-
 namespace polysat {
 
-    enum ckind_t { eq_t, ule_t, sle_t };
+    enum ckind_t { eq_t, ule_t, sle_t, bit_t };
 
     class eq_constraint;
+    class bit_constraint;
     class ule_constraint;
 
     class constraint {
+        friend class bit_constraint;
         friend class eq_constraint;
         friend class ule_constraint;
         unsigned         m_level;
@@ -46,27 +48,12 @@ namespace polysat {
         virtual constraint* resolve(solver& s, pvar v) = 0;
         virtual bool is_always_false() = 0;
         virtual bool is_currently_false(solver& s) = 0;
+        virtual void narrow(solver& s) = 0;
         eq_constraint& to_eq();
         eq_constraint const& to_eq() const;
         p_dependency* dep() const { return m_dep; }
         unsigned_vector& vars() { return m_vars; }
         unsigned level() const { return m_level; }
-    };
-
-    class eq_constraint : public constraint {
-        pdd m_poly;
-    public:
-        eq_constraint(unsigned lvl, pdd const& p, p_dependency_ref& dep):
-            constraint(lvl, dep, ckind_t::eq_t), m_poly(p) {
-            m_vars.append(p.free_vars());
-        }
-        ~eq_constraint() override {}
-        pdd const & p() const { return m_poly; }
-        std::ostream& display(std::ostream& out) const override;
-        bool propagate(solver& s, pvar v) override;
-        constraint* resolve(solver& s, pvar v) override;
-        bool is_always_false() override;
-        bool is_currently_false(solver& s) override;
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }

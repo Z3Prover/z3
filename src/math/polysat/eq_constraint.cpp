@@ -25,7 +25,6 @@ namespace polysat {
     bool eq_constraint::propagate(solver& s, pvar v) {
         LOG_H3("Propagate " << s.m_vars[v] << " in " << *this);
         SASSERT(!vars().empty());
-        auto var = s.m_vars[v].var();
         unsigned idx = 0;
         if (vars()[idx] != v)
             idx = 1;
@@ -47,8 +46,6 @@ namespace polysat {
             return false;
         if (q.is_never_zero()) {
             LOG("Conflict (never zero under current assignment)");
-            // we could tag constraint to allow early substitution before 
-            // swapping watch variable in case we can detect conflict earlier.
             s.set_conflict(*this);
             return false;
         }
@@ -134,11 +131,16 @@ namespace polysat {
             if (!a.resolve(v, b, r)) 
                 return nullptr;
             p_dependency_ref d(s.m_dm.mk_join(c->dep(), dep()), s.m_dm);
-            // d = ;
             unsigned lvl = std::max(c->level(), level());
             return constraint::eq(lvl, r, d);             
         }
         return nullptr;
+    }
+
+    void eq_constraint::narrow(solver& s) {
+        if (!p().is_linear())
+            return;
+        // TODO apply affine constraints and other that can be extracted cheaply
     }
 
     bool eq_constraint::is_always_false() {

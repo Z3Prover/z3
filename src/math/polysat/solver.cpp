@@ -154,6 +154,7 @@ namespace polysat {
         LOG("Adding constraint: " << *c);
         m_constraints.push_back(c);
         add_watch(*c);
+        c->narrow(*this);
     }
 
     void solver::add_diseq(pdd const& p, unsigned dep) {

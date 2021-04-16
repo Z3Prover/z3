@@ -19,6 +19,8 @@ Author:
 
 #include "util/statistics.h"
 #include "math/polysat/constraint.h"
+#include "math/polysat/eq_constraint.h"
+#include "math/polysat/bit_constraint.h"
 #include "math/polysat/justification.h"
 #include "math/polysat/trail.h"
 

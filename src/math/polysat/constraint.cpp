@@ -15,6 +15,8 @@ Author:
 #include "math/polysat/constraint.h"
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
+#include "math/polysat/bit_constraint.h"
+#include "math/polysat/eq_constraint.h"
 
 namespace polysat {
 
