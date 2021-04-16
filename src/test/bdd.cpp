@@ -73,6 +73,46 @@ namespace dd {
         std::cout << c1 << "\n";
         std::cout << c1.bdd_size() << "\n";
     }
+
+    static void test_int() {
+        unsigned const w = 3;  // bit width
+        bdd_manager m(w);
+        vector<bdd> num;
+        for (unsigned n = 0; n < (1<<w); ++n)
+            num.push_back(m.mk_int(rational(n), w));
+        for (unsigned k = 0; k < (1 << w); ++k)
+            for (unsigned n = 0; n < (1 << w); ++n)
+                SASSERT(num[k].contains_int(rational(n), w) == (n == k));
+        bdd s0127 = num[0] || num[1] || num[2] || num[7];
+        SASSERT(s0127.contains_int(rational(0), w));
+        SASSERT(s0127.contains_int(rational(1), w));
+        SASSERT(s0127.contains_int(rational(2), w));
+        SASSERT(!s0127.contains_int(rational(3), w));
+        SASSERT(!s0127.contains_int(rational(4), w));
+        SASSERT(!s0127.contains_int(rational(5), w));
+        SASSERT(!s0127.contains_int(rational(6), w));
+        SASSERT(s0127.contains_int(rational(7), w));
+        bdd s123 = num[1] || num[2] || num[3];
+        SASSERT((s0127 && s123) == (num[1] || num[2]));
+
+        // larger width constrains additional bits
+        SASSERT(m.mk_int(rational(6), 3) != m.mk_int(rational(6), 4));
+
+        // 4*x + 2 == 0 (mod 2^3) has no solutions
+        SASSERT(m.mk_affine(rational(4), rational(2), 3).is_false());
+        // 3*x + 2 == 0 (mod 2^3) has the unique solution 2
+        SASSERT(m.mk_affine(rational(3), rational(2), 3) == num[2]);
+        // 2*x + 2 == 0 (mod 2^3) has the solutions 3, 7
+        SASSERT(m.mk_affine(rational(2), rational(2), 3) == (num[3] || num[7]));
+        // 12*x + 8 == 0 (mod 2^4) has the solutions 2, 6, 10, 14
+        bdd expected = m.mk_int(rational(2), 4) || m.mk_int(rational(6), 4) || m.mk_int(rational(10), 4) || m.mk_int(rational(14), 4);
+        SASSERT(m.mk_affine(rational(12), rational(8), 4) == expected);
+
+        SASSERT(m.mk_affine(rational(0), rational(0), 3).is_true());
+        SASSERT(m.mk_affine(rational(0), rational(1), 3).is_false());
+        // 2*x == 0 (mod 2^3) has the solutions 0, 4
+        SASSERT(m.mk_affine(rational(2), rational(0), 3) == (num[0] || num[4]));
+    }
 }
 
 void tst_bdd() {
@@ -80,4 +120,5 @@ void tst_bdd() {
     dd::test2();
     dd::test3();
     dd::test4();
+    dd::test_int();
 }
