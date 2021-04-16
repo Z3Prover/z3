@@ -6,6 +6,19 @@
 #include "util/util.h"
 #include "math/polysat/log.h"
 
+/**
+For windows:
+https://docs.microsoft.com/en-us/cpp/c-runtime-library/reference/isatty?view=msvc-160
+
+So include <io.h> and create platform wrapper for _isatty / isatty.
+
+Other:
+- add option to configure z3 trace feature to point to std::err
+- roll this functionality into trace.cpp/trace.h in util
+- Generally, generic functionality should not reside in specific directories.
+- code diverges on coding conventions.
+*/
+
 #if POLYSAT_LOGGING_ENABLED
 
 static LogLevel

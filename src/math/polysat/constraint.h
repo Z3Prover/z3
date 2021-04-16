@@ -23,11 +23,11 @@ namespace polysat {
     enum ckind_t { eq_t, ule_t, sle_t, bit_t };
 
     class eq_constraint;
-    class bit_constraint;
+    class var_constraint;
     class ule_constraint;
 
     class constraint {
-        friend class bit_constraint;
+        friend class var_constraint;
         friend class eq_constraint;
         friend class ule_constraint;
         unsigned         m_level;
@@ -38,6 +38,8 @@ namespace polysat {
             m_level(lvl), m_kind(k), m_dep(dep) {}
     public:
         static constraint* eq(unsigned lvl, pdd const& p, p_dependency_ref& d);
+        static constraint* viable(unsigned lvl, pvar v, bdd const& b, p_dependency_ref& d);
+        static constraint* ule(unsigned lvl, pdd const& a, pdd const& b, p_dependency_ref& d);
         virtual ~constraint() {}
         bool is_eq() const { return m_kind == ckind_t::eq_t; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }

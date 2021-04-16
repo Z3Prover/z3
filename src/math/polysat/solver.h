@@ -20,7 +20,8 @@ Author:
 #include "util/statistics.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/eq_constraint.h"
-#include "math/polysat/bit_constraint.h"
+#include "math/polysat/var_constraint.h"
+#include "math/polysat/ule_constraint.h"
 #include "math/polysat/justification.h"
 #include "math/polysat/trail.h"
 
@@ -37,7 +38,7 @@ namespace polysat {
         };
 
         friend class eq_constraint;
-        friend class bit_constraint;
+        friend class var_constraint;
 
         typedef ptr_vector<constraint> constraints;
 
