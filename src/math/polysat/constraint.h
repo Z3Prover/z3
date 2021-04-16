@@ -36,6 +36,7 @@ namespace polysat {
             m_level(lvl), m_kind(k), m_dep(dep) {}
     public:
         static constraint* eq(unsigned lvl, pdd const& p, p_dependency_ref& d);
+        virtual ~constraint() {}
         bool is_eq() const { return m_kind == ckind_t::eq_t; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }
         bool is_sle() const { return m_kind == ckind_t::sle_t; }
@@ -59,6 +60,7 @@ namespace polysat {
             constraint(lvl, dep, ckind_t::eq_t), m_poly(p) {
             m_vars.append(p.free_vars());
         }
+        ~eq_constraint() override {}
         pdd const & p() const { return m_poly; }
         std::ostream& display(std::ostream& out) const override;
         bool propagate(solver& s, pvar v) override;
