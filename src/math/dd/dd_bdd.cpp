@@ -994,6 +994,18 @@ namespace dd {
     bdd bdd_manager::mk_uge(bddv const& a, bddv const& b) { return mk_ule(b, a); }
     bdd bdd_manager::mk_ult(bddv const& a, bddv const& b) { return mk_ule(a, b) && !mk_eq(a, b); }
     bdd bdd_manager::mk_ugt(bddv const& a, bddv const& b) { return mk_ult(b, a); }
+
+    bdd_manager::bddv bdd_manager::mk_add(bddv const& a, bddv const& b) {
+        SASSERT(a.size() == b.size());
+        bdd carry = mk_false();
+        bddv result;
+        for (unsigned i = 0; i < a.size(); ++i) {
+            carry = (carry && a[i]) || (carry && b[i]) || (a[i] && b[i]);
+            result.push_back(carry ^ a[i] ^ b[i]);
+        }
+        return result;
+    }
+
 #if 0
     bdd bdd_manager::mk_sle(bddv const& a, bddv const& b);
     bdd bdd_manager::mk_sge(bddv const& a, bddv const& b) { return mk_sle(b, a); }
@@ -1004,7 +1016,6 @@ namespace dd {
     bdd_manager::bddv bdd_manager::mk_zero(unsigned num_bits);
     bdd_manager::bddv bdd_manager::mk_var(unsigned num_bits, unsigned const* vars);
     bdd_manager::bddv bdd_manager::mk_var(unsigned_vector const& vars);
-    bdd_manager::bddv bdd_manager::mk_add(bddv const& a, bddv const& b);
     bdd_manager::bddv bdd_manager::mk_sub(bddv const& a, bddv const& b);
     bdd_manager::bddv bdd_manager::mk_mul(bddv const& a, bddv const& b);
     bdd_manager::bddv bdd_manager::mk_mul(bddv const& a, bool_vector const& b);
