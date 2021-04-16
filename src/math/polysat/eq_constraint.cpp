@@ -90,7 +90,7 @@ namespace polysat {
     }
 
     bool eq_constraint::try_narrow_with(pdd const& q, solver& s) {
-        if (q.is_linear()) {
+        if (q.is_linear() && q.free_vars().size() == 1) {
             // a*x + b == 0
             pvar v = q.var();
             rational a = q.hi().val();
