@@ -914,6 +914,28 @@ namespace dd {
         return is_true(b);
     }
 
+    find_int_t bdd_manager::find_int(BDD b, unsigned w, rational& val) {
+        val = 0;
+        if (is_false(b))
+            return find_int_t::empty;
+        bool is_unique = true;
+        unsigned num_vars = 0;
+        while (!is_true(b)) {
+            ++num_vars;
+            if (!is_false(lo(b)) && !is_false(hi(b)))
+                is_unique = false;
+            if (is_false(lo(b))) {
+                val += rational::power_of_two(var(b));
+                b = hi(b);
+            }
+            else
+                b = lo(b);
+        }
+        is_unique &= (num_vars == w);
+
+        return is_unique ? find_int_t::singleton : find_int_t::multiple;
+    }
+
     bdd bdd_manager::mk_affine(rational const& a, rational const& b, unsigned w) {
         if (a.is_zero())
             return b.is_zero() ? mk_true() : mk_false();
