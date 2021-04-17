@@ -17,6 +17,7 @@ Author:
 --*/
 #pragma once
 
+#include <limits>
 #include "util/statistics.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/eq_constraint.h"
@@ -53,6 +54,9 @@ namespace polysat {
         constraints              m_stash_just;
         var_queue                m_free_vars;
         stats                    m_stats;
+
+        uint64_t                 m_max_conflicts { std::numeric_limits<uint64_t>::max() };
+        uint64_t                 m_max_decisions { std::numeric_limits<uint64_t>::max() };
 
         // Per constraint state
         scoped_ptr_vector<constraint>   m_constraints;
@@ -152,6 +156,9 @@ namespace polysat {
         void assign_core(pvar v, rational const& val, justification const& j);
 
         bool is_assigned(pvar v) const { return !m_justification[v].is_unassigned(); }
+
+
+        bool should_search();
 
         void propagate(pvar v);
         void propagate(pvar v, rational const& val, constraint& c);

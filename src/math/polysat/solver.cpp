@@ -88,6 +88,13 @@ namespace polysat {
         }
     }
 #endif
+
+    bool solver::should_search() {
+        return 
+            m_lim.inc() && 
+            (m_stats.m_num_conflicts < m_max_conflicts) &&
+            (m_stats.m_num_decisions < m_max_decisions);
+    }
     
     lbool solver::check_sat() { 
         TRACE("polysat", tout << "check\n";);
