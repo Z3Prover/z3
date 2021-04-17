@@ -24,9 +24,21 @@ namespace polysat {
     
     dd::pdd_manager& solver::sz2pdd(unsigned sz) {
         m_pdd.reserve(sz + 1);
-        if (!m_pdd[sz])
+        if (!m_pdd[sz]) 
             m_pdd.set(sz, alloc(dd::pdd_manager, 1000, dd::pdd_manager::semantics::mod2N_e, sz));
         return *m_pdd[sz];
+    }
+
+    vector<bdd>& solver::sz2bits(unsigned sz) {
+        m_bits.reserve(sz + 1);
+        auto* bits = m_bits[sz];
+        if (!bits) {
+            m_bits.set(sz, alloc(vector<bdd>));
+            bits = m_bits[sz];
+            for (unsigned i = 0; i < sz; ++i)
+                bits->push_back(m_bdd.mk_var(i));
+        }
+        return *bits;
     }
 
     bool solver::is_viable(pvar v, rational const& val) {
@@ -37,7 +49,8 @@ namespace polysat {
         LOG("pvar " << v << " /= " << val);
         TRACE("polysat", tout << "v" << v << " /= " << val << "\n";);
         SASSERT(is_viable(v, val));
-        intersect_viable(v, !m_bdd.mk_int(val, size(v)));
+        auto& bits = sz2bits(size(v));
+        intersect_viable(v, !m_bdd.mk_eq(bits, val));
     }
 
     void solver::intersect_viable(pvar v, bdd vals) {

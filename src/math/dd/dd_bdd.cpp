@@ -896,6 +896,9 @@ namespace dd {
     std::ostream& operator<<(std::ostream& out, bdd const& b) { return b.display(out); }
 
 
+    // NSB code review: 
+    // this function should be removed and replaced by functionality where the
+    // client maintains what are the variables.
     bdd bdd_manager::mk_int(rational const& val, unsigned w) {
         bdd b = mk_true();
         for (unsigned k = w; k-- > 0;)
@@ -979,6 +982,22 @@ namespace dd {
             eq &= !(a[i] ^ b[i]);
         }
         return eq;
+    }
+
+    bdd bdd_manager::mk_eq(bddv const& a, rational const& n) {
+        SASSERT(n.is_int() && n >= 0 && n < rational(2).expt(a.size()));
+        bdd b = mk_true();
+        for (unsigned i = a.size(); i-- > 0; ) 
+            b &= n.get_bit(i) ? a[i] : !a[i];
+        return b;
+    }
+
+    bdd bdd_manager::mk_eq(unsigned_vector const& vars, rational const& n) {
+        SASSERT(n.is_int() && n >= 0 && n < rational(2).expt(vars.size()));
+        bdd b = mk_true();
+        for (unsigned i = vars.size(); i-- > 0; ) 
+            b &= n.get_bit(i) ? mk_var(vars[i]) : mk_nvar(vars[i]);
+        return b;
     }
 
     bdd bdd_manager::mk_ule(bddv const& a, bddv const& b) {

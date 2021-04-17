@@ -236,6 +236,8 @@ namespace dd {
         bdd mk_slt(bddv const& a, bddv const& b); // { return mk_sle(a, b) && !mk_eq(a, b); }
         bdd mk_sgt(bddv const& a, bddv const& b); // { return mk_slt(b, a); }
         bdd mk_eq(bddv const& a, bddv const& b);
+        bdd mk_eq(bddv const& a, rational const& v);
+        bdd mk_eq(unsigned_vector const& vars, rational const& v);
         bddv mk_num(rational const& n, unsigned num_bits);
         bddv mk_ones(unsigned num_bits);
         bddv mk_zero(unsigned num_bits);
