@@ -304,9 +304,11 @@ namespace dd {
         unsigned bdd_size() const { return m->bdd_size(*this); }
 
         /** Checks whether the integer val is contained in the BDD when viewed as set of integers (see also mk_int). */
+        // NSB code review: this API needs to be changed: bit-position to variable mapping is external
         bool contains_int(rational const& val, unsigned w) { return m->contains_int(root, val, w); }
 
         /** Returns an integer contained in the BDD, if any, and whether the BDD is a singleton. */
+        // NSB code review: this API needs to be changed: bit-position to variable mapping is external
         find_int_t find_int(unsigned w, rational& val) { return m->find_int(root, w, val); }
     };
 
