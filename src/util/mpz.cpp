@@ -52,10 +52,14 @@ Revision History:
 // This is needed for _tzcnt_u32 and friends.
 #include <immintrin.h>
 #define _trailing_zeros32(X) _tzcnt_u32(X)
-#endif
-
-#if defined(__GNUC__)
+#elif defined(__GNUC__)
 #define _trailing_zeros32(X) __builtin_ctz(X)
+#else
+static uint32_t _trailing_zeros32(uint32_t x) {
+    uint32_t r = 0;
+    for (; 0 == (x & 1) && r < 32; ++r, x >>= 1);
+    return r;
+}
 #endif
 
 #if (defined(__LP64__) || defined(_WIN64)) && !defined(_M_ARM) && !defined(_M_ARM64)
@@ -65,23 +69,11 @@ Revision History:
  #define _trailing_zeros64(X) _tzcnt_u64(X)
  #endif
 #else
-inline uint64_t _trailing_zeros64(uint64_t x) {
+static uint64_t _trailing_zeros64(uint64_t x) {
     uint64_t r = 0;
     for (; 0 == (x & 1) && r < 64; ++r, x >>= 1);
     return r;
 }
-
-#if defined(_WINDOWS) && !defined(_M_ARM) && !defined(_M_ARM64)
-// _trailing_zeros32 already defined using intrinsics
-#elif defined(__GNUC__)
-// _trailing_zeros32 already defined using intrinsics
-#else
-inline uint32_t _trailing_zeros32(uint32_t x) {
-    uint32_t r = 0;
-    for (; 0 == (x & 1) && r < 32; ++r, x >>= 1);
-    return r;
-}
-#endif
 #endif
 
 
