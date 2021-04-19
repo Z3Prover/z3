@@ -26,8 +26,10 @@ Revision History:
 namespace dd {
 
     class bdd;
+    typedef vector<bdd> bddv;
 
     enum class find_int_t { empty, singleton, multiple };
+    std::ostream& operator<<(std::ostream& out, find_int_t x);
 
     class bdd_manager {
         friend bdd;
@@ -225,8 +227,10 @@ namespace dd {
         bdd mk_forall(unsigned v, bdd const& b);
         bdd mk_ite(bdd const& c, bdd const& t, bdd const& e);
 
-        /* BDD vector operations */
-        typedef vector<bdd> bddv;
+        /* BDD vector operations
+         * - Fixed-width arithmetic, i.e., modulo 2^size
+         * - The lowest index is the LSB
+         */
         bdd mk_ule(bddv const& a, bddv const& b);
         bdd mk_uge(bddv const& a, bddv const& b); // { return mk_ule(b, a); }
         bdd mk_ult(bddv const& a, bddv const& b); // { return mk_ule(a, b) && !mk_eq(a, b); }
@@ -247,6 +251,8 @@ namespace dd {
         bddv mk_sub(bddv const& a, bddv const& b);
         bddv mk_mul(bddv const& a, bddv const& b);
         bddv mk_mul(bddv const& a, bool_vector const& b);
+        bddv mk_mul(bddv const& a, rational const& val);
+        void bddv_shl(bddv& a);
         void mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem);
         rational    to_val(bddv const& a);
 

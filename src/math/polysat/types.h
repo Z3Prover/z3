@@ -26,6 +26,7 @@ namespace polysat {
     class solver;
     typedef dd::pdd pdd;
     typedef dd::bdd bdd;
+    typedef dd::bddv bddv;
     typedef unsigned pvar;
 
     const unsigned null_dependency = UINT_MAX;

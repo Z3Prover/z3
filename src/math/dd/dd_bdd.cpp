@@ -1004,6 +1004,7 @@ namespace dd {
 
 
     bdd bdd_manager::mk_eq(bddv const& a, bddv const& b) {
+        SASSERT(a.size() == b.size());
         bdd eq = mk_true();
         for (unsigned i = a.size(); i-- > 0; ) {
             eq &= !(a[i] ^ b[i]);
@@ -1041,13 +1042,113 @@ namespace dd {
     bdd bdd_manager::mk_ult(bddv const& a, bddv const& b) { return mk_ule(a, b) && !mk_eq(a, b); }
     bdd bdd_manager::mk_ugt(bddv const& a, bddv const& b) { return mk_ult(b, a); }
 
-    bdd_manager::bddv bdd_manager::mk_add(bddv const& a, bddv const& b) {
+    bddv bdd_manager::mk_add(bddv const& a, bddv const& b) {
         SASSERT(a.size() == b.size());
         bdd carry = mk_false();
         bddv result;
+#if 0
         for (unsigned i = 0; i < a.size(); ++i) {
-            carry = (carry && a[i]) || (carry && b[i]) || (a[i] && b[i]);
             result.push_back(carry ^ a[i] ^ b[i]);
+            carry = (carry && a[i]) || (carry && b[i]) || (a[i] && b[i]);
+        }
+#else
+        if (a.size() > 0) {
+            result.push_back(a[0] ^ b[0]);
+        }
+        for (unsigned i = 1; i < a.size(); ++i) {
+            carry = (carry && a[i-1]) || (carry && b[i-1]) || (a[i-1] && b[i-1]);
+            result.push_back(carry ^ a[i] ^ b[i]);
+        }
+#endif
+        return result;
+    }
+
+    void bdd_manager::bddv_shl(bddv &a) {
+        for (unsigned j = a.size(); j-- > 1; ) {
+            a[j] = a[j - 1];
+        }
+        a[0] = mk_false();
+    }
+
+    bddv bdd_manager::mk_mul(bddv const& a, bddv const& b) {
+        SASSERT(a.size() == b.size());
+        bddv a_shifted = a;
+        bddv result = mk_zero(a.size());
+        for (unsigned i = 0; i < b.size(); ++i) {
+#if 1
+            bddv s = a_shifted;
+            for (unsigned j = i; j < b.size(); ++j) {
+                s[j] &= b[i];
+            }
+            result = mk_add(result, s);
+#else
+            // From BuDDy's bvec_mul. It seems to compute more intermediate BDDs than the version above?
+            bddv added = mk_add(result, a_shifted);
+            for (unsigned j = 0; j < result.size(); ++j) {
+                result[j] = mk_ite(b[i], added[j], result[j]);
+            }
+#endif
+            bddv_shl(a_shifted);
+        }
+        return result;
+    }
+
+    bddv bdd_manager::mk_mul(bddv const& a, rational const& val) {
+        bddv a_shifted = a;
+        bddv result = mk_zero(a.size());
+        for (unsigned i = 0; i < a.size(); ++i) {
+            if (val.get_bit(i)) {
+                result = mk_add(result, a_shifted);
+            }
+            bddv_shl(a_shifted);
+        }
+        return result;
+    }
+
+    bddv bdd_manager::mk_num(rational const& n, unsigned num_bits) {
+        bddv result;
+        for (unsigned i = 0; i < num_bits; ++i) {
+            result.push_back(n.get_bit(i) ? mk_true() : mk_false());
+        }
+        return result;
+    }
+
+    bddv bdd_manager::mk_ones(unsigned num_bits) {
+        bddv result;
+        for (unsigned i = 0; i < num_bits; ++i) {
+            result.push_back(mk_true());
+        }
+        return result;
+    }
+
+    bddv bdd_manager::mk_zero(unsigned num_bits) {
+        bddv result;
+        for (unsigned i = 0; i < num_bits; ++i) {
+            result.push_back(mk_false());
+        }
+        return result;
+    }
+
+    bddv bdd_manager::mk_var(unsigned num_bits, unsigned const* vars) {
+        bddv result;
+        for (unsigned i = 0; i < num_bits; ++i) {
+            result.push_back(mk_var(vars[i]));
+        }
+        return result;
+    }
+
+    bddv bdd_manager::mk_var(unsigned_vector const& vars) {
+        return mk_var(vars.size(), vars.data());
+    }
+
+    rational bdd_manager::to_val(bddv const& a) {
+        rational result = rational::zero();
+        for (unsigned i = 0; i < a.size(); ++i) {
+            bdd const &bit = a[i];
+            SASSERT(is_const(bit.root));
+            if (bit.is_true()) {
+                result += rational::power_of_two(i);
+            }
         }
         return result;
     }
@@ -1057,16 +1158,9 @@ namespace dd {
     bdd bdd_manager::mk_sge(bddv const& a, bddv const& b) { return mk_sle(b, a); }
     bdd bdd_manager::mk_slt(bddv const& a, bddv const& b) { return mk_sle(a, b) && !mk_eq(a, b); }
     bdd bdd_manager::mk_sgt(bddv const& a, bddv const& b) { return mk_slt(b, a); }
-    bdd_manager::bddv bdd_manager::mk_num(rational const& n, unsigned num_bits);
-    bdd_manager::bddv bdd_manager::mk_ones(unsigned num_bits);
-    bdd_manager::bddv bdd_manager::mk_zero(unsigned num_bits);
-    bdd_manager::bddv bdd_manager::mk_var(unsigned num_bits, unsigned const* vars);
-    bdd_manager::bddv bdd_manager::mk_var(unsigned_vector const& vars);
     bdd_manager::bddv bdd_manager::mk_sub(bddv const& a, bddv const& b);
-    bdd_manager::bddv bdd_manager::mk_mul(bddv const& a, bddv const& b);
     bdd_manager::bddv bdd_manager::mk_mul(bddv const& a, bool_vector const& b);
     void bdd_manager::mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem);
-    rational bdd_manager::to_val(bddv const& a);
 #endif
 
 }
