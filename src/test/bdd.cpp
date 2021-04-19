@@ -74,6 +74,17 @@ namespace dd {
         std::cout << c1.bdd_size() << "\n";
     }
 
+    static void test_xor() {
+        bdd_manager m(4);
+        bdd v0 = m.mk_var(0);
+        bdd v1 = m.mk_var(0);
+        SASSERT((m.mk_false() ^ v0) == v0);
+        SASSERT((v0 ^ m.mk_false()) == v0);
+        SASSERT((m.mk_true() ^ v0) == !v0);
+        SASSERT((v0 ^ m.mk_true()) == !v0);
+        SASSERT((v0 ^ v1) == ((v0 && !v1) || (!v0 && v1)));
+    }
+
     static void test_int() {
         unsigned const w = 3;  // bit width
         bdd_manager m(w);
@@ -120,5 +131,6 @@ void tst_bdd() {
     dd::test2();
     dd::test3();
     dd::test4();
+    dd::test_xor();
     dd::test_int();
 }

@@ -142,6 +142,8 @@ namespace dd {
             if (a == b) return false_bdd;
             if (is_false(a)) return b;
             if (is_false(b)) return a;
+            if (is_true(a)) return mk_not_rec(b);
+            if (is_true(b)) return mk_not_rec(a);
             break;
         default:
             UNREACHABLE();
