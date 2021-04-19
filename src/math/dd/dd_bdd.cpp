@@ -921,35 +921,47 @@ namespace dd {
         return b;
     }
 
-    bool bdd_manager::contains_int(BDD b, rational const& val, unsigned w) {
+    bool bdd_manager::contains_int(BDD b, rational const& val, unsigned_vector const& bits) {
+        DEBUG_CODE(for (unsigned i = 1; i < bits.size(); ++i) { SASSERT(bits[i-1] < bits[i]); });
+        unsigned var_idx = bits.size();
         while (!is_const(b)) {
-            unsigned const var = m_level2var[level(b)];
-            if (var >= w)
-                b = lo(b);
-            else
-                b = val.get_bit(var) ? hi(b) : lo(b);
+            VERIFY(var_idx-- > 0);
+            SASSERT(var(b) <= bits[var_idx]);
+            while (var(b) < bits[var_idx]) {
+                VERIFY(var_idx-- > 0);
+            }
+            SASSERT(var(b) == bits[var_idx]);
+            b = val.get_bit(var_idx) ? hi(b) : lo(b);
         }
         return is_true(b);
     }
 
-    find_int_t bdd_manager::find_int(BDD b, unsigned w, rational& val) {
+    find_int_t bdd_manager::find_int(BDD b, unsigned_vector bits, rational& val) {
+        DEBUG_CODE(for (unsigned i = 1; i < bits.size(); ++i) { SASSERT(bits[i-1] < bits[i]); });
         val = 0;
         if (is_false(b))
             return find_int_t::empty;
         bool is_unique = true;
-        unsigned num_vars = 0;
+        unsigned var_idx = bits.size();
         while (!is_true(b)) {
-            ++num_vars;
+            VERIFY(var_idx-- > 0);
+            SASSERT(var(b) <= bits[var_idx]);
+            while (var(b) < bits[var_idx]) {
+                is_unique = false;
+                VERIFY(var_idx-- > 0);
+            }
             if (!is_false(lo(b)) && !is_false(hi(b)))
                 is_unique = false;
             if (is_false(lo(b))) {
-                val += rational::power_of_two(var(b));
+                SASSERT(var(b) == bits[var_idx]);
+                val += rational::power_of_two(var_idx);
                 b = hi(b);
             }
             else
                 b = lo(b);
         }
-        is_unique &= (num_vars == w);
+        if (var_idx > 0)
+            is_unique = false;
 
         return is_unique ? find_int_t::singleton : find_int_t::multiple;
     }

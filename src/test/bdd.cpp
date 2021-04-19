@@ -87,22 +87,34 @@ namespace dd {
 
     static void test_int() {
         unsigned const w = 3;  // bit width
+        unsigned_vector bits;
+        bits.push_back(0);
+        bits.push_back(1);
+        bits.push_back(2);
         bdd_manager m(w);
+
         vector<bdd> num;
         for (unsigned n = 0; n < (1<<w); ++n)
             num.push_back(m.mk_int(rational(n), w));
-        for (unsigned k = 0; k < (1 << w); ++k)
-            for (unsigned n = 0; n < (1 << w); ++n)
-                SASSERT(num[k].contains_int(rational(n), w) == (n == k));
+        for (unsigned k = 0; k < (1 << w); ++k) {
+            for (unsigned n = 0; n < (1 << w); ++n) {
+                SASSERT(num[k].contains_int(rational(n), bits) == (n == k));
+                rational r;
+                SASSERT_EQ((num[n] || num[k]).find_int(bits, r), (n == k) ? find_int_t::singleton : find_int_t::multiple);
+                SASSERT(r == n || r == k);
+            }
+        }
+
         bdd s0127 = num[0] || num[1] || num[2] || num[7];
-        SASSERT(s0127.contains_int(rational(0), w));
-        SASSERT(s0127.contains_int(rational(1), w));
-        SASSERT(s0127.contains_int(rational(2), w));
-        SASSERT(!s0127.contains_int(rational(3), w));
-        SASSERT(!s0127.contains_int(rational(4), w));
-        SASSERT(!s0127.contains_int(rational(5), w));
-        SASSERT(!s0127.contains_int(rational(6), w));
-        SASSERT(s0127.contains_int(rational(7), w));
+        SASSERT(s0127.contains_int(rational(0), bits));
+        SASSERT(s0127.contains_int(rational(1), bits));
+        SASSERT(s0127.contains_int(rational(2), bits));
+        SASSERT(!s0127.contains_int(rational(3), bits));
+        SASSERT(!s0127.contains_int(rational(4), bits));
+        SASSERT(!s0127.contains_int(rational(5), bits));
+        SASSERT(!s0127.contains_int(rational(6), bits));
+        SASSERT(s0127.contains_int(rational(7), bits));
+
         bdd s123 = num[1] || num[2] || num[3];
         SASSERT((s0127 && s123) == (num[1] || num[2]));
 

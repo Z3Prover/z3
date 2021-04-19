@@ -192,8 +192,8 @@ namespace dd {
         bdd mk_or(bdd const& a, bdd const& b);
         bdd mk_xor(bdd const& a, bdd const& b);
 
-        bool contains_int(BDD b, rational const& val, unsigned w);
-        find_int_t find_int(BDD b, unsigned w, rational& val);
+        bool contains_int(BDD b, rational const& val, unsigned_vector const& bits);
+        find_int_t find_int(BDD b, unsigned_vector bits, rational& val);
 
         void reserve_var(unsigned v);
         bool well_formed();
@@ -303,13 +303,21 @@ namespace dd {
         double dnf_size() const { return m->dnf_size(root); }
         unsigned bdd_size() const { return m->bdd_size(*this); }
 
-        /** Checks whether the integer val is contained in the BDD when viewed as set of integers (see also mk_int). */
-        // NSB code review: this API needs to be changed: bit-position to variable mapping is external
-        bool contains_int(rational const& val, unsigned w) { return m->contains_int(root, val, w); }
+        /** Checks whether the integer val is contained in the BDD when viewed as set of integers.
+         *
+         * Preconditions:
+         * - bits are sorted in ascending order,
+         * - the bdd only contains variables from bits.
+         */
+        bool contains_int(rational const& val, unsigned_vector const& bits) const { return m->contains_int(root, val, bits); }
 
-        /** Returns an integer contained in the BDD, if any, and whether the BDD is a singleton. */
-        // NSB code review: this API needs to be changed: bit-position to variable mapping is external
-        find_int_t find_int(unsigned w, rational& val) { return m->find_int(root, w, val); }
+        /** Returns an integer contained in the BDD, if any, and whether the BDD is a singleton.
+         *
+         * Preconditions:
+         * - bits are sorted in ascending order,
+         * - the bdd only contains variables from bits.
+         */
+        find_int_t find_int(unsigned_vector const& bits, rational& val) const { return m->find_int(root, bits, val); }
     };
 
     std::ostream& operator<<(std::ostream& out, bdd const& b);
