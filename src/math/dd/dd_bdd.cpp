@@ -999,7 +999,7 @@ namespace dd {
     bddv bdd_manager::mk_add(bddv const& a, bddv const& b) {
         SASSERT(a.size() == b.size());
         bdd carry = mk_false();
-        bddv result;
+        bddv result(this);
 #if 0
         for (unsigned i = 0; i < a.size(); ++i) {
             result.push_back(carry ^ a[i] ^ b[i]);
@@ -1072,7 +1072,7 @@ namespace dd {
 
     bddv bdd_manager::mk_num(rational const& n, unsigned num_bits) {
         SASSERT(n.is_int() && n >= 0 && n < rational::power_of_two(num_bits));
-        bddv result;
+        bddv result(this);
         for (unsigned i = 0; i < num_bits; ++i) {
             result.push_back(n.get_bit(i) ? mk_true() : mk_false());
         }
@@ -1080,7 +1080,7 @@ namespace dd {
     }
 
     bddv bdd_manager::mk_ones(unsigned num_bits) {
-        bddv result;
+        bddv result(this);
         for (unsigned i = 0; i < num_bits; ++i) {
             result.push_back(mk_true());
         }
@@ -1088,7 +1088,7 @@ namespace dd {
     }
 
     bddv bdd_manager::mk_zero(unsigned num_bits) {
-        bddv result;
+        bddv result(this);
         for (unsigned i = 0; i < num_bits; ++i) {
             result.push_back(mk_false());
         }
@@ -1096,7 +1096,7 @@ namespace dd {
     }
 
     bddv bdd_manager::mk_var(unsigned num_bits, unsigned const* vars) {
-        bddv result;
+        bddv result(this);
         for (unsigned i = 0; i < num_bits; ++i) {
             result.push_back(mk_var(vars[i]));
         }
@@ -1108,7 +1108,7 @@ namespace dd {
     }
 
     bool bdd_manager::is_constv(bddv const& a) {
-        for (bdd const& bit : a)
+        for (bdd const& bit : a.bits)
             if (!is_const(bit.root))
                 return false;
         return true;

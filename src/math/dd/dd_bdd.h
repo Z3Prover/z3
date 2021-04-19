@@ -26,15 +26,17 @@ Revision History:
 namespace dd {
 
     class bdd;
-    typedef vector<bdd> bddv;
+    class bddv;
 
     enum class find_result { empty, singleton, multiple };
     std::ostream& operator<<(std::ostream& out, find_result x);
 
     class bdd_manager {
         friend bdd;
+        friend bddv;
 
         typedef unsigned BDD;
+        typedef svector<BDD> BDDV;
 
         const BDD null_bdd = UINT_MAX;
 
@@ -315,6 +317,83 @@ namespace dd {
     };
 
     std::ostream& operator<<(std::ostream& out, bdd const& b);
+
+    class bddv {
+        friend bdd_manager;
+
+        // TODO: currently we repeat the pointer to the manager in every entry of bits.
+        // Should use BDDV instead (drawback: the functions in bdd_manager aren't as nice and they need to be careful about reference counting if they work with BDD directly).
+        vector<bdd>  bits;
+        bdd_manager& m;
+
+        bddv(vector<bdd> bits, bdd_manager* m): bits(bits), m(*m) { inc_bits_ref(); }
+        bddv(vector<bdd>&& bits, bdd_manager* m): bits(std::move(bits)), m(*m) { inc_bits_ref(); }
+        void inc_bits_ref() {
+            // NOTE: necessary if we switch to BDDV as storage
+            // for (BDD b : bits) { m.inc_ref(b); }
+        }
+
+        // NOTE: these should probably be removed if we switch to BDDV
+        bddv(bdd_manager* m): bits(), m(*m) { }
+        bdd const& operator[](unsigned i) const { return bits[i]; }
+        bdd& operator[](unsigned i) { return bits[i]; }
+        void push_back(bdd const& a) { bits.push_back(a); }
+        void push_back(bdd&& a) { bits.push_back(a); }
+    public:
+        bddv(bddv const& other): bits(other.bits), m(other.m) { inc_bits_ref(); }
+        bddv(bddv&& other): bits(), m(other.m) { std::swap(bits, other.bits); }
+        bddv& operator=(bddv const& other) {
+            if (this != &other) {
+                bddv old(std::move(*this));
+                bits = other.bits;
+                inc_bits_ref();
+            }
+            return *this;
+        }
+        bddv& operator=(bddv&& other) {
+            if (this != &other) {
+                bddv old(std::move(*this));
+                SASSERT(bits.empty());
+                std::swap(bits, other.bits);
+            }
+            return *this;
+        }
+        ~bddv() {
+            // NOTE: necessary if we switch to BDDV as storage
+            // for (BDD b : bits) { m.dec_ref(b); }
+        }
+
+        unsigned size() const { return bits.size(); }
+        vector<bdd> const& get_bits() const { return bits; }
+
+        bdd operator<=(bddv const& other) const { return m.mk_ule(*this, other); }
+        bdd operator>=(bddv const& other) const { return m.mk_uge(*this, other); }
+        bdd operator<(bddv const& other) const { return m.mk_ult(*this, other); }
+        bdd operator>(bddv const& other) const { return m.mk_ugt(*this, other); }
+        // TODO: what about the signed versions?
+        // bdd mk_sle(bddv const& a, bddv const& b);
+        // bdd mk_sge(bddv const& a, bddv const& b); // { return mk_sle(b, a); }
+        // bdd mk_slt(bddv const& a, bddv const& b); // { return mk_sle(a, b) && !mk_eq(a, b); }
+        // bdd mk_sgt(bddv const& a, bddv const& b); // { return mk_slt(b, a); }
+
+        bdd operator==(bddv const& other) const { return m.mk_eq(*this, other); }
+        bdd operator==(rational const& other) const { return m.mk_eq(*this, other); }
+        bdd operator!=(bddv const& other) const { return !m.mk_eq(*this, other); }
+        bdd operator!=(rational const& other) const { return !m.mk_eq(*this, other); }
+        bddv operator+(bddv const& other) const { return m.mk_add(*this, other); }
+        bddv operator+(rational const& other) const { return m.mk_add(*this, m.mk_num(other, size())); }
+        bddv operator-(bddv const& other) const { return m.mk_sub(*this, other); }
+        bddv operator*(bddv const& other) const { return m.mk_mul(*this, other); }
+        bddv operator*(rational const& other) const { return m.mk_mul(*this, other); }
+        bddv operator*(bool_vector const& other) const { return m.mk_mul(*this, other); }
+
+        // void mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem);
+
+        bool is_const() const { return m.is_constv(*this); }
+        rational to_val() const { return m.to_val(*this); }
+    };
+
+    inline bddv operator*(rational const& r, bddv const& a) { return a * r; }
 
 }
 

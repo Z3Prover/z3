@@ -29,14 +29,15 @@ namespace polysat {
         return *m_pdd[sz];
     }
 
-    vector<bdd>& solver::sz2bits(unsigned sz) {
+    bddv const& solver::sz2bits(unsigned sz) {
         m_bits.reserve(sz + 1);
         auto* bits = m_bits[sz];
         if (!bits) {
-            m_bits.set(sz, alloc(vector<bdd>));
-            bits = m_bits[sz];
+            unsigned_vector vars;
             for (unsigned i = 0; i < sz; ++i)
-                bits->push_back(m_bdd.mk_var(i));
+                vars.push_back(i);
+            m_bits.set(sz, alloc(bddv, m_bdd.mk_var(vars)));
+            bits = m_bits[sz];
         }
         return *bits;
     }

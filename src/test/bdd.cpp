@@ -104,9 +104,9 @@ namespace dd {
                 rational const kr(k);
                 bddv const nv = m.mk_num(nr, num_bits);
                 bddv const kv = m.mk_num(kr, num_bits);
-                SASSERT_EQ(m.to_val(m.mk_add(nv, kv)), (nr + kr) % modulus);
-                SASSERT_EQ(m.to_val(m.mk_mul(nv, kr)), (nr * kr) % modulus);
-                SASSERT_EQ(m.to_val(m.mk_mul(nv, kv)), (nr * kr) % modulus);
+                SASSERT_EQ((nv + kv).to_val(), (nr + kr) % modulus);
+                SASSERT_EQ((nv * kr).to_val(), (nr * kr) % modulus);
+                SASSERT_EQ((nv * kv).to_val(), (nr * kr) % modulus);
                 bdd eq = m.mk_eq(nv, kv);
                 SASSERT((eq.is_true() || eq.is_false()) && (eq.is_true() == (n == k)));
                 eq = m.mk_eq(nv, kr);
@@ -193,7 +193,7 @@ namespace dd {
 
         {
             // 5*x == 1 (mod 16)  =>  x == 13 (mod 16)
-            bdd const five_inv = m.mk_eq(m.mk_mul(x, five), one);
+            bdd const five_inv = x * five == one;
             rational r;
             auto res = five_inv.find_num(bits, r);
             SASSERT_EQ(res, find_result::singleton);
@@ -202,7 +202,7 @@ namespace dd {
 
         {
             // 6*x == 1 (mod 16)  =>  no solution for x
-            bdd const six_inv = m.mk_eq(m.mk_mul(x, six), one);
+            bdd const six_inv = x * six == one;
             rational r;
             auto res = six_inv.find_num(bits, r);
             SASSERT_EQ(res, find_result::empty);
@@ -211,18 +211,18 @@ namespace dd {
 
         {
             // 6*x == 0 (mod 16)  =>  x is either 0 or 8 (mod 16)
-            bdd const b = m.mk_eq(m.mk_mul(x, six), zero);
+            bdd const b = six * x == zero;
             rational r;
             SASSERT(b.contains_num(rational(0), bits));
             SASSERT(b.contains_num(rational(8), bits));
-            SASSERT((b && !m.mk_eq(x, rational(0)) && !m.mk_eq(x, rational(8))).is_false());
-            SASSERT((b && !m.mk_eq(x, rational(0))) == m.mk_eq(x, rational(8)));
+            SASSERT((b && (x != rational(0)) && (x != rational(8))).is_false());
+            SASSERT((b && (x != rational(0))) == (x == rational(8)));
         }
 
-        SASSERT_EQ(m.mk_mul(x, zero), m.mk_mul(x, rational(0)));
-        SASSERT_EQ(m.mk_mul(x, one), m.mk_mul(x, rational(1)));
-        SASSERT_EQ(m.mk_mul(x, five), m.mk_mul(x, rational(5)));
-        SASSERT_EQ(m.mk_mul(x, six), m.mk_mul(x, rational(6)));
+        SASSERT_EQ((x * zero).get_bits(), (x * rational(0)).get_bits());
+        SASSERT_EQ((x *  one).get_bits(), (x * rational(1)).get_bits());
+        SASSERT_EQ((x * five).get_bits(), (x * rational(5)).get_bits());
+        SASSERT_EQ((x *  six).get_bits(), (x * rational(6)).get_bits());
     }
 
     static void test_int() {
@@ -236,9 +236,8 @@ namespace dd {
         bddv const x = m.mk_var(bits);
 
         // Encodes the values x satisfying a*x + b == 0 (mod 2^w) as BDD.
-        auto mk_affine = [&m] (rational const& a, bddv const& x, rational const& b) {
-            auto lhs = m.mk_add(m.mk_mul(x, a), m.mk_num(b, x.size()));
-            return m.mk_eq(lhs, rational(0));
+        auto mk_affine = [] (rational const& a, bddv const& x, rational const& b) {
+            return (a*x + b == rational(0));
         };
 
         vector<bdd> num;
