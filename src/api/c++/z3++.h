@@ -871,6 +871,36 @@ namespace z3 {
         bool is_well_sorted() const { bool r = Z3_is_well_sorted(ctx(), m_ast); check_error(); return r; }
 
         /**
+           \brief Return true if this expression is an fpa and is inf
+        */
+        bool is_inf() const {
+            assert(is_fpa());
+            Z3_ast r = Z3_mk_fpa_is_infinite(ctx(), m_ast);
+            check_error();
+            return expr(ctx(), r);
+        }
+
+        /**
+           \brief Return true if this expression is an fpa and is NaN
+        */
+        bool is_nan() const {
+            assert(is_fpa());
+            Z3_ast r = Z3_mk_fpa_is_nan(ctx(), m_ast);
+            check_error();
+            return expr(ctx(), r);
+        }
+
+        /**
+           \brief Convert this fpa into an IEEE BV
+        */
+        bool to_ieee_bv() const {
+            assert(is_fpa());
+            Z3_ast r = Z3_mk_fpa_to_ieee_bv(ctx(), m_ast),
+            check_error();
+            return expr(ctx(), r);
+        }
+
+        /**
            \brief Return string representation of numeral or algebraic number
            This method assumes the expression is numeral or algebraic
 
