@@ -26,13 +26,17 @@ Revision History:
 namespace dd {
 
     class bdd;
+    class bddv;
 
-    enum class find_int_t { empty, singleton, multiple };
+    enum class find_result { empty, singleton, multiple };
+    std::ostream& operator<<(std::ostream& out, find_result x);
 
     class bdd_manager {
         friend bdd;
+        friend bddv;
 
         typedef unsigned BDD;
+        typedef svector<BDD> BDDV;
 
         const BDD null_bdd = UINT_MAX;
 
@@ -192,9 +196,6 @@ namespace dd {
         bdd mk_or(bdd const& a, bdd const& b);
         bdd mk_xor(bdd const& a, bdd const& b);
 
-        bool contains_int(BDD b, rational const& val, unsigned w);
-        find_int_t find_int(BDD b, unsigned w, rational& val);
-
         void reserve_var(unsigned v);
         bool well_formed();
 
@@ -204,6 +205,12 @@ namespace dd {
             scoped_push(bdd_manager& m) :m(m), m_size(m.m_bdd_stack.size()) {}
             ~scoped_push() { m.m_bdd_stack.shrink(m_size); }
         };
+
+        bool contains_num(BDD b, rational const& val, unsigned_vector const& bits);
+        find_result find_num(BDD b, unsigned_vector bits, rational& val);
+
+        void bddv_shl(bddv& a);
+        template <class GetBitFn> bddv mk_mul(bddv const& a, GetBitFn get_bit);
 
     public:
         struct mem_out {};
@@ -225,8 +232,10 @@ namespace dd {
         bdd mk_forall(unsigned v, bdd const& b);
         bdd mk_ite(bdd const& c, bdd const& t, bdd const& e);
 
-        /* BDD vector operations */
-        typedef vector<bdd> bddv;
+        /* BDD vector operations
+         * - Fixed-width arithmetic, i.e., modulo 2^size
+         * - The lowest index is the LSB
+         */
         bdd mk_ule(bddv const& a, bddv const& b);
         bdd mk_uge(bddv const& a, bddv const& b); // { return mk_ule(b, a); }
         bdd mk_ult(bddv const& a, bddv const& b); // { return mk_ule(a, b) && !mk_eq(a, b); }
@@ -247,23 +256,10 @@ namespace dd {
         bddv mk_sub(bddv const& a, bddv const& b);
         bddv mk_mul(bddv const& a, bddv const& b);
         bddv mk_mul(bddv const& a, bool_vector const& b);
+        bddv mk_mul(bddv const& a, rational const& val);
         void mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem);
-        rational    to_val(bddv const& a);
-
-
-        /** Encodes the lower w bits of val as BDD, using variable indices 0 to w-1.
-         * The least-significant bit is encoded as variable 0.
-         * val must be an integer.
-         */
-        bdd mk_int(rational const& val, unsigned w);
-
-        /** Encodes the solutions of the affine relation
-         *
-         *      a*x + b == 0  (mod 2^w)
-         *
-         * as BDD.
-         */
-        bdd mk_affine(rational const& a, rational const& b, unsigned w);
+        bool is_constv(bddv const& a);
+        rational to_val(bddv const& a);
 
         std::ostream& display(std::ostream& out);
         std::ostream& display(std::ostream& out, bdd const& b);
@@ -303,16 +299,101 @@ namespace dd {
         double dnf_size() const { return m->dnf_size(root); }
         unsigned bdd_size() const { return m->bdd_size(*this); }
 
-        /** Checks whether the integer val is contained in the BDD when viewed as set of integers (see also mk_int). */
-        // NSB code review: this API needs to be changed: bit-position to variable mapping is external
-        bool contains_int(rational const& val, unsigned w) { return m->contains_int(root, val, w); }
+        /** Checks whether the integer val is contained in the BDD when viewed as set of integers.
+         *
+         * Preconditions:
+         * - bits are sorted in ascending order,
+         * - the bdd only contains variables from bits.
+         */
+        bool contains_num(rational const& val, unsigned_vector const& bits) const { return m->contains_num(root, val, bits); }
 
-        /** Returns an integer contained in the BDD, if any, and whether the BDD is a singleton. */
-        // NSB code review: this API needs to be changed: bit-position to variable mapping is external
-        find_int_t find_int(unsigned w, rational& val) { return m->find_int(root, w, val); }
+        /** Returns an integer contained in the BDD, if any, and whether the BDD is a singleton.
+         *
+         * Preconditions:
+         * - bits are sorted in ascending order,
+         * - the bdd only contains variables from bits.
+         */
+        find_result find_num(unsigned_vector const& bits, rational& val) const { return m->find_num(root, bits, val); }
     };
 
     std::ostream& operator<<(std::ostream& out, bdd const& b);
+
+    class bddv {
+        friend bdd_manager;
+
+        // TODO: currently we repeat the pointer to the manager in every entry of bits.
+        // Should use BDDV instead (drawback: the functions in bdd_manager aren't as nice and they need to be careful about reference counting if they work with BDD directly).
+        vector<bdd>  bits;
+        bdd_manager& m;
+
+        bddv(vector<bdd> bits, bdd_manager* m): bits(bits), m(*m) { inc_bits_ref(); }
+        bddv(vector<bdd>&& bits, bdd_manager* m): bits(std::move(bits)), m(*m) { inc_bits_ref(); }
+        void inc_bits_ref() {
+            // NOTE: necessary if we switch to BDDV as storage
+            // for (BDD b : bits) { m.inc_ref(b); }
+        }
+
+        // NOTE: these should probably be removed if we switch to BDDV
+        bddv(bdd_manager* m): bits(), m(*m) { }
+        bdd const& operator[](unsigned i) const { return bits[i]; }
+        bdd& operator[](unsigned i) { return bits[i]; }
+        void push_back(bdd const& a) { bits.push_back(a); }
+        void push_back(bdd&& a) { bits.push_back(a); }
+    public:
+        bddv(bddv const& other): bits(other.bits), m(other.m) { inc_bits_ref(); }
+        bddv(bddv&& other): bits(), m(other.m) { std::swap(bits, other.bits); }
+        bddv& operator=(bddv const& other) {
+            if (this != &other) {
+                bddv old(std::move(*this));
+                bits = other.bits;
+                inc_bits_ref();
+            }
+            return *this;
+        }
+        bddv& operator=(bddv&& other) {
+            if (this != &other) {
+                bddv old(std::move(*this));
+                SASSERT(bits.empty());
+                std::swap(bits, other.bits);
+            }
+            return *this;
+        }
+        ~bddv() {
+            // NOTE: necessary if we switch to BDDV as storage
+            // for (BDD b : bits) { m.dec_ref(b); }
+        }
+
+        unsigned size() const { return bits.size(); }
+        vector<bdd> const& get_bits() const { return bits; }
+
+        bdd operator<=(bddv const& other) const { return m.mk_ule(*this, other); }
+        bdd operator>=(bddv const& other) const { return m.mk_uge(*this, other); }
+        bdd operator<(bddv const& other) const { return m.mk_ult(*this, other); }
+        bdd operator>(bddv const& other) const { return m.mk_ugt(*this, other); }
+        // TODO: what about the signed versions?
+        // bdd mk_sle(bddv const& a, bddv const& b);
+        // bdd mk_sge(bddv const& a, bddv const& b); // { return mk_sle(b, a); }
+        // bdd mk_slt(bddv const& a, bddv const& b); // { return mk_sle(a, b) && !mk_eq(a, b); }
+        // bdd mk_sgt(bddv const& a, bddv const& b); // { return mk_slt(b, a); }
+
+        bdd operator==(bddv const& other) const { return m.mk_eq(*this, other); }
+        bdd operator==(rational const& other) const { return m.mk_eq(*this, other); }
+        bdd operator!=(bddv const& other) const { return !m.mk_eq(*this, other); }
+        bdd operator!=(rational const& other) const { return !m.mk_eq(*this, other); }
+        bddv operator+(bddv const& other) const { return m.mk_add(*this, other); }
+        bddv operator+(rational const& other) const { return m.mk_add(*this, m.mk_num(other, size())); }
+        bddv operator-(bddv const& other) const { return m.mk_sub(*this, other); }
+        bddv operator*(bddv const& other) const { return m.mk_mul(*this, other); }
+        bddv operator*(rational const& other) const { return m.mk_mul(*this, other); }
+        bddv operator*(bool_vector const& other) const { return m.mk_mul(*this, other); }
+
+        // void mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem);
+
+        bool is_const() const { return m.is_constv(*this); }
+        rational to_val() const { return m.to_val(*this); }
+    };
+
+    inline bddv operator*(rational const& r, bddv const& a) { return a * r; }
 
 }
 

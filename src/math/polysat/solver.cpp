@@ -29,20 +29,20 @@ namespace polysat {
         return *m_pdd[sz];
     }
 
-    vector<bdd>& solver::sz2bits(unsigned sz) {
+    unsigned_vector const& solver::sz2bits(unsigned sz) {
         m_bits.reserve(sz + 1);
         auto* bits = m_bits[sz];
         if (!bits) {
-            m_bits.set(sz, alloc(vector<bdd>));
+            m_bits.set(sz, alloc(unsigned_vector));
             bits = m_bits[sz];
             for (unsigned i = 0; i < sz; ++i)
-                bits->push_back(m_bdd.mk_var(i));
+                bits->push_back(i);
         }
         return *bits;
     }
 
     bool solver::is_viable(pvar v, rational const& val) {
-        return m_viable[v].contains_int(val, size(v));
+        return m_viable[v].contains_num(val, sz2bits(size(v)));
     }
 
     void solver::add_non_viable(pvar v, rational const& val) {
@@ -60,8 +60,8 @@ namespace polysat {
             set_conflict(v);
     }
 
-    dd::find_int_t solver::find_viable(pvar v, rational & val) {
-        return m_viable[v].find_int(size(v), val);
+    dd::find_result solver::find_viable(pvar v, rational & val) {
+        return m_viable[v].find_num(sz2bits(size(v)), val);
     }
     
     solver::solver(reslimit& lim): 
@@ -323,15 +323,15 @@ namespace polysat {
         IF_LOGGING(log_viable(v));
         rational val;
         switch (find_viable(v, val)) {
-        case dd::find_int_t::empty:
+        case dd::find_result::empty:
             LOG("Conflict: no value for pvar " << v);
             set_conflict(v);
             break;
-        case dd::find_int_t::singleton:
+        case dd::find_result::singleton:
             LOG("Propagation: pvar " << v << " := " << val << " (due to unique value)");
             assign_core(v, val, justification::propagation(m_level));
             break;
-        case dd::find_int_t::multiple:
+        case dd::find_result::multiple:
             LOG("Decision: pvar " << v << " := " << val);
             push_level();
             assign_core(v, val, justification::decision(m_level));

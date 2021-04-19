@@ -45,7 +45,7 @@ namespace polysat {
 
         reslimit&                m_lim;
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
-        scoped_ptr_vector<vector<bdd>> m_bits;
+        scoped_ptr_vector<unsigned_vector> m_bits;
         dd::bdd_manager          m_bdd;
         dep_value_manager        m_value_manager;
         small_object_allocator   m_alloc;
@@ -132,7 +132,7 @@ namespace polysat {
         /**
          * Find a next viable value for variable.
          */
-        dd::find_int_t find_viable(pvar v, rational & val);
+        dd::find_result find_viable(pvar v, rational & val);
 
         /** Log all viable values for the given variable.
          * (Inefficient, but useful for debugging small instances.)
@@ -147,7 +147,7 @@ namespace polysat {
         void del_var();
 
         dd::pdd_manager& sz2pdd(unsigned sz);
-        vector<bdd>& sz2bits(unsigned sz);
+        unsigned_vector const& sz2bits(unsigned sz);
 
         void push_level();
         void pop_levels(unsigned num_levels);

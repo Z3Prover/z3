@@ -63,6 +63,13 @@ bool is_debug_enabled(const char * tag);
 #define CASSERT(TAG, COND) DEBUG_CODE(if (assertions_enabled() && is_debug_enabled(TAG) && !(COND)) { notify_assertion_violation(__FILE__, __LINE__, #COND); INVOKE_DEBUGGER(); })
 #define XASSERT(COND, EXTRA_CODE) DEBUG_CODE(if (assertions_enabled() && !(COND)) { notify_assertion_violation(__FILE__, __LINE__, #COND); { EXTRA_CODE } INVOKE_DEBUGGER(); })
 
+#define SASSERT_EQ(LHS, RHS)                                                     \
+    DEBUG_CODE(if (assertions_enabled() && !((LHS) == (RHS))) {                  \
+        notify_assertion_violation(__FILE__, __LINE__, #LHS " == " #RHS);        \
+        std::cerr << "LHS value: " << (LHS) << "\nRHS value: " << (RHS) << "\n"; \
+        INVOKE_DEBUGGER();                                                       \
+    })
+
 #ifdef Z3DEBUG
 # define UNREACHABLE() DEBUG_CODE(notify_assertion_violation(__FILE__, __LINE__, "UNEXPECTED CODE WAS REACHED."); INVOKE_DEBUGGER();)
 #else
