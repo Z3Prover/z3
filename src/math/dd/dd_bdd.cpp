@@ -23,13 +23,13 @@ Revision History:
 
 namespace dd {
 
-    std::ostream& operator<<(std::ostream& out, find_int_t x) {
+    std::ostream& operator<<(std::ostream& out, find_result x) {
         switch (x) {
-        case find_int_t::empty:
+        case find_result::empty:
             return out << "empty";
-        case find_int_t::singleton:
+        case find_result::singleton:
             return out << "singleton";
-        case find_int_t::multiple:
+        case find_result::multiple:
             return out << "multiple";
         }
         UNREACHABLE();
@@ -911,7 +911,7 @@ namespace dd {
     std::ostream& operator<<(std::ostream& out, bdd const& b) { return b.display(out); }
 
 
-    bool bdd_manager::contains_int(BDD b, rational const& val, unsigned_vector const& bits) {
+    bool bdd_manager::contains_num(BDD b, rational const& val, unsigned_vector const& bits) {
         DEBUG_CODE(for (unsigned i = 1; i < bits.size(); ++i) { SASSERT(bits[i-1] < bits[i]); });
         unsigned var_idx = bits.size();
         while (!is_const(b)) {
@@ -926,11 +926,11 @@ namespace dd {
         return is_true(b);
     }
 
-    find_int_t bdd_manager::find_int(BDD b, unsigned_vector bits, rational& val) {
+    find_result bdd_manager::find_num(BDD b, unsigned_vector bits, rational& val) {
         DEBUG_CODE(for (unsigned i = 1; i < bits.size(); ++i) { SASSERT(bits[i-1] < bits[i]); });
         val = 0;
         if (is_false(b))
-            return find_int_t::empty;
+            return find_result::empty;
         bool is_unique = true;
         unsigned var_idx = bits.size();
         while (!is_true(b)) {
@@ -953,7 +953,7 @@ namespace dd {
         if (var_idx > 0)
             is_unique = false;
 
-        return is_unique ? find_int_t::singleton : find_int_t::multiple;
+        return is_unique ? find_result::singleton : find_result::multiple;
     }
 
 

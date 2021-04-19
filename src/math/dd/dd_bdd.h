@@ -28,8 +28,8 @@ namespace dd {
     class bdd;
     typedef vector<bdd> bddv;
 
-    enum class find_int_t { empty, singleton, multiple };
-    std::ostream& operator<<(std::ostream& out, find_int_t x);
+    enum class find_result { empty, singleton, multiple };
+    std::ostream& operator<<(std::ostream& out, find_result x);
 
     class bdd_manager {
         friend bdd;
@@ -194,9 +194,6 @@ namespace dd {
         bdd mk_or(bdd const& a, bdd const& b);
         bdd mk_xor(bdd const& a, bdd const& b);
 
-        bool contains_int(BDD b, rational const& val, unsigned_vector const& bits);
-        find_int_t find_int(BDD b, unsigned_vector bits, rational& val);
-
         void reserve_var(unsigned v);
         bool well_formed();
 
@@ -206,6 +203,9 @@ namespace dd {
             scoped_push(bdd_manager& m) :m(m), m_size(m.m_bdd_stack.size()) {}
             ~scoped_push() { m.m_bdd_stack.shrink(m_size); }
         };
+
+        bool contains_num(BDD b, rational const& val, unsigned_vector const& bits);
+        find_result find_num(BDD b, unsigned_vector bits, rational& val);
 
         void bddv_shl(bddv& a);
         template <class GetBitFn> bddv mk_mul(bddv const& a, GetBitFn get_bit);
@@ -303,7 +303,7 @@ namespace dd {
          * - bits are sorted in ascending order,
          * - the bdd only contains variables from bits.
          */
-        bool contains_int(rational const& val, unsigned_vector const& bits) const { return m->contains_int(root, val, bits); }
+        bool contains_num(rational const& val, unsigned_vector const& bits) const { return m->contains_num(root, val, bits); }
 
         /** Returns an integer contained in the BDD, if any, and whether the BDD is a singleton.
          *
@@ -311,7 +311,7 @@ namespace dd {
          * - bits are sorted in ascending order,
          * - the bdd only contains variables from bits.
          */
-        find_int_t find_int(unsigned_vector const& bits, rational& val) const { return m->find_int(root, bits, val); }
+        find_result find_num(unsigned_vector const& bits, rational& val) const { return m->find_num(root, bits, val); }
     };
 
     std::ostream& operator<<(std::ostream& out, bdd const& b);

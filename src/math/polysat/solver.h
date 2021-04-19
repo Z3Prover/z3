@@ -132,7 +132,7 @@ namespace polysat {
         /**
          * Find a next viable value for variable.
          */
-        dd::find_int_t find_viable(pvar v, rational & val);
+        dd::find_result find_viable(pvar v, rational & val);
 
         /** Log all viable values for the given variable.
          * (Inefficient, but useful for debugging small instances.)

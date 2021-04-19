@@ -57,13 +57,13 @@ namespace polysat {
         if (try_narrow_with(q, s)) {
             rational val;
             switch (s.find_viable(other_var, val)) {
-            case dd::find_int_t::empty:
+            case dd::find_result::empty:
                 s.set_conflict(*this);
                 return false;
-            case dd::find_int_t::singleton:
+            case dd::find_result::singleton:
                 s.propagate(other_var, val, *this);
                 return false;
-            case dd::find_int_t::multiple:
+            case dd::find_result::multiple:
                 /* do nothing */
                 break;
             }
