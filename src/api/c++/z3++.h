@@ -1297,7 +1297,7 @@ namespace z3 {
             check_error();
             return expr(ctx(), r);
         }
-        expr contains(expr const& s) {
+        expr contains(expr const& s) const {
             check_context(*this, s);
             Z3_ast r = Z3_mk_seq_contains(ctx(), *this, s);
             check_error();
