@@ -29,21 +29,20 @@ namespace polysat {
         return *m_pdd[sz];
     }
 
-    bddv const& solver::sz2bits(unsigned sz) {
+    unsigned_vector const& solver::sz2bits(unsigned sz) {
         m_bits.reserve(sz + 1);
         auto* bits = m_bits[sz];
         if (!bits) {
-            unsigned_vector vars;
-            for (unsigned i = 0; i < sz; ++i)
-                vars.push_back(i);
-            m_bits.set(sz, alloc(bddv, m_bdd.mk_var(vars)));
+            m_bits.set(sz, alloc(unsigned_vector));
             bits = m_bits[sz];
+            for (unsigned i = 0; i < sz; ++i)
+                bits->push_back(i);
         }
         return *bits;
     }
 
     bool solver::is_viable(pvar v, rational const& val) {
-        return m_viable[v].contains_num(val, size(v));
+        return m_viable[v].contains_num(val, sz2bits(size(v)));
     }
 
     void solver::add_non_viable(pvar v, rational const& val) {
@@ -62,7 +61,7 @@ namespace polysat {
     }
 
     dd::find_result solver::find_viable(pvar v, rational & val) {
-        return m_viable[v].find_num(size(v), val);
+        return m_viable[v].find_num(sz2bits(size(v)), val);
     }
     
     solver::solver(reslimit& lim): 

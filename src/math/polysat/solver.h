@@ -45,7 +45,7 @@ namespace polysat {
 
         reslimit&                m_lim;
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
-        scoped_ptr_vector<bddv>  m_bits;
+        scoped_ptr_vector<unsigned_vector> m_bits;
         dd::bdd_manager          m_bdd;
         dep_value_manager        m_value_manager;
         small_object_allocator   m_alloc;
@@ -147,7 +147,7 @@ namespace polysat {
         void del_var();
 
         dd::pdd_manager& sz2pdd(unsigned sz);
-        bddv const& sz2bits(unsigned sz);
+        unsigned_vector const& sz2bits(unsigned sz);
 
         void push_level();
         void pop_levels(unsigned num_levels);
