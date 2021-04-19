@@ -23,6 +23,19 @@ Revision History:
 
 namespace dd {
 
+    std::ostream& operator<<(std::ostream& out, find_int_t x) {
+        switch (x) {
+        case find_int_t::empty:
+            return out << "empty";
+        case find_int_t::singleton:
+            return out << "singleton";
+        case find_int_t::multiple:
+            return out << "multiple";
+        }
+        UNREACHABLE();
+        return out;
+    }
+
     bdd_manager::bdd_manager(unsigned num_vars) {
         m_cost_metric = bdd_cost;
         m_cost_bdd = 0;
