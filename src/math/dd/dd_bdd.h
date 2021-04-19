@@ -207,6 +207,9 @@ namespace dd {
             ~scoped_push() { m.m_bdd_stack.shrink(m_size); }
         };
 
+        void bddv_shl(bddv& a);
+        template <class GetBitFn> bddv mk_mul(bddv const& a, GetBitFn get_bit);
+
     public:
         struct mem_out {};
 
@@ -252,10 +255,9 @@ namespace dd {
         bddv mk_mul(bddv const& a, bddv const& b);
         bddv mk_mul(bddv const& a, bool_vector const& b);
         bddv mk_mul(bddv const& a, rational const& val);
-        void bddv_shl(bddv& a);
         void mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem);
-        rational    to_val(bddv const& a);
-
+        bool is_constv(bddv const& a);
+        rational to_val(bddv const& a);
 
         std::ostream& display(std::ostream& out);
         std::ostream& display(std::ostream& out, bdd const& b);

@@ -1047,11 +1047,12 @@ namespace dd {
         return result;
     }
 
-    bddv bdd_manager::mk_mul(bddv const& a, rational const& val) {
+    template <class GetBitFn>
+    bddv bdd_manager::mk_mul(bddv const& a, GetBitFn get_bit) {
         bddv a_shifted = a;
         bddv result = mk_zero(a.size());
         for (unsigned i = 0; i < a.size(); ++i) {
-            if (val.get_bit(i)) {
+            if (get_bit(i)) {
                 result = mk_add(result, a_shifted);
             }
             bddv_shl(a_shifted);
@@ -1059,7 +1060,18 @@ namespace dd {
         return result;
     }
 
+    bddv bdd_manager::mk_mul(bddv const& a, rational const& val) {
+        SASSERT(val.is_int() && val >= 0 && val < rational::power_of_two(a.size()));
+        return mk_mul(a, [val](unsigned i) { return val.get_bit(i); });
+    }
+
+    bddv bdd_manager::mk_mul(bddv const& a, bool_vector const& b) {
+        SASSERT(a.size() == b.size());
+        return mk_mul(a, [b](unsigned i) { return b[i]; });
+    }
+
     bddv bdd_manager::mk_num(rational const& n, unsigned num_bits) {
+        SASSERT(n.is_int() && n >= 0 && n < rational::power_of_two(num_bits));
         bddv result;
         for (unsigned i = 0; i < num_bits; ++i) {
             result.push_back(n.get_bit(i) ? mk_true() : mk_false());
@@ -1095,6 +1107,13 @@ namespace dd {
         return mk_var(vars.size(), vars.data());
     }
 
+    bool bdd_manager::is_constv(bddv const& a) {
+        for (bdd const& bit : a)
+            if (!is_const(bit.root))
+                return false;
+        return true;
+    }
+
     rational bdd_manager::to_val(bddv const& a) {
         rational result = rational::zero();
         for (unsigned i = 0; i < a.size(); ++i) {
@@ -1113,7 +1132,6 @@ namespace dd {
     bdd bdd_manager::mk_slt(bddv const& a, bddv const& b) { return mk_sle(a, b) && !mk_eq(a, b); }
     bdd bdd_manager::mk_sgt(bddv const& a, bddv const& b) { return mk_slt(b, a); }
     bdd_manager::bddv bdd_manager::mk_sub(bddv const& a, bddv const& b);
-    bdd_manager::bddv bdd_manager::mk_mul(bddv const& a, bool_vector const& b);
     void bdd_manager::mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem);
 #endif
 

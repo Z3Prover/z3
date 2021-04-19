@@ -93,9 +93,9 @@ namespace dd {
         SASSERT_EQ(m.to_val(m.mk_zero(num_bits)), rational(0));
         SASSERT_EQ(m.to_val(m.mk_ones(num_bits)), modulus - 1);
 
-        for (unsigned n = 0; n < 32; ++n) {
+        for (unsigned n = 0; n < 16; ++n) {
             rational const nr(n);
-            SASSERT_EQ(m.to_val(m.mk_num(nr, num_bits)), nr % modulus);
+            SASSERT_EQ(m.to_val(m.mk_num(nr, num_bits)), nr);
         }
 
         for (unsigned n = 0; n < 16; ++n) {
