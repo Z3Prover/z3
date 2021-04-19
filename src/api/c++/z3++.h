@@ -1824,6 +1824,18 @@ namespace z3 {
     inline expr slt(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvslt(a.ctx(), a, b)); }
     inline expr slt(expr const & a, int b) { return slt(a, a.ctx().num_val(b, a.get_sort())); }
     inline expr slt(int a, expr const & b) { return slt(b.ctx().num_val(a, b.get_sort()), b); }
+    /**
+       \brief signed greater than or equal to operator for bitvectors.
+    */
+    inline expr sge(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvsge(a.ctx(), a, b)); }
+    inline expr sge(expr const & a, int b) { return sge(a, a.ctx().num_val(b, a.get_sort())); }
+    inline expr sge(int a, expr const & b) { return sge(b.ctx().num_val(a, b.get_sort()), b); }
+    /**
+       \brief signed greater than operator for bitvectors.
+    */
+    inline expr sgt(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvsgt(a.ctx(), a, b)); }
+    inline expr sgt(expr const & a, int b) { return sgt(a, a.ctx().num_val(b, a.get_sort())); }
+    inline expr sgt(int a, expr const & b) { return sgt(b.ctx().num_val(a, b.get_sort()), b); }
 
 
     /**
