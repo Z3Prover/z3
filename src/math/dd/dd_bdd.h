@@ -257,20 +257,6 @@ namespace dd {
         rational    to_val(bddv const& a);
 
 
-        /** Encodes the lower w bits of val as BDD, using variable indices 0 to w-1.
-         * The least-significant bit is encoded as variable 0.
-         * val must be an integer.
-         */
-        bdd mk_int(rational const& val, unsigned w);
-
-        /** Encodes the solutions of the affine relation
-         *
-         *      a*x + b == 0  (mod 2^w)
-         *
-         * as BDD.
-         */
-        bdd mk_affine(rational const& a, rational const& b, unsigned w);
-
         std::ostream& display(std::ostream& out);
         std::ostream& display(std::ostream& out, bdd const& b);
 

@@ -233,9 +233,18 @@ namespace dd {
         bits.push_back(2);
         bdd_manager m(w);
 
+        bddv const x = m.mk_var(bits);
+
+        // Encodes the values x satisfying a*x + b == 0 (mod 2^w) as BDD.
+        auto mk_affine = [&m] (rational const& a, bddv const& x, rational const& b) {
+            auto lhs = m.mk_add(m.mk_mul(x, a), m.mk_num(b, x.size()));
+            return m.mk_eq(lhs, rational(0));
+        };
+
         vector<bdd> num;
         for (unsigned n = 0; n < (1<<w); ++n)
-            num.push_back(m.mk_int(rational(n), w));
+            num.push_back(m.mk_eq(x, rational(n)));
+
         for (unsigned k = 0; k < (1 << w); ++k) {
             for (unsigned n = 0; n < (1 << w); ++n) {
                 SASSERT(num[k].contains_int(rational(n), bits) == (n == k));
@@ -258,23 +267,25 @@ namespace dd {
         bdd s123 = num[1] || num[2] || num[3];
         SASSERT((s0127 && s123) == (num[1] || num[2]));
 
-        // larger width constrains additional bits
-        SASSERT(m.mk_int(rational(6), 3) != m.mk_int(rational(6), 4));
+        SASSERT(mk_affine(rational(0), x, rational(0)).is_true());
+        SASSERT(mk_affine(rational(0), x, rational(1)).is_false());
+        // 2*x == 0 (mod 2^3) has the solutions 0, 4
+        SASSERT(mk_affine(rational(2), x, rational(0)) == (num[0] || num[4]));
 
         // 4*x + 2 == 0 (mod 2^3) has no solutions
-        SASSERT(m.mk_affine(rational(4), rational(2), 3).is_false());
+        SASSERT(mk_affine(rational(4), x, rational(2)).is_false());
         // 3*x + 2 == 0 (mod 2^3) has the unique solution 2
-        SASSERT(m.mk_affine(rational(3), rational(2), 3) == num[2]);
+        SASSERT(mk_affine(rational(3), x, rational(2)) == num[2]);
         // 2*x + 2 == 0 (mod 2^3) has the solutions 3, 7
-        SASSERT(m.mk_affine(rational(2), rational(2), 3) == (num[3] || num[7]));
-        // 12*x + 8 == 0 (mod 2^4) has the solutions 2, 6, 10, 14
-        bdd expected = m.mk_int(rational(2), 4) || m.mk_int(rational(6), 4) || m.mk_int(rational(10), 4) || m.mk_int(rational(14), 4);
-        SASSERT(m.mk_affine(rational(12), rational(8), 4) == expected);
+        SASSERT(mk_affine(rational(2), x, rational(2)) == (num[3] || num[7]));
 
-        SASSERT(m.mk_affine(rational(0), rational(0), 3).is_true());
-        SASSERT(m.mk_affine(rational(0), rational(1), 3).is_false());
-        // 2*x == 0 (mod 2^3) has the solutions 0, 4
-        SASSERT(m.mk_affine(rational(2), rational(0), 3) == (num[0] || num[4]));
+        unsigned_vector bits4 = bits;
+        bits4.push_back(10);
+        bddv const x4 = m.mk_var(bits4);
+
+        // 12*x + 8 == 0 (mod 2^4) has the solutions 2, 6, 10, 14
+        bdd expected = m.mk_eq(x4, rational(2)) || m.mk_eq(x4, rational(6)) || m.mk_eq(x4, rational(10)) || m.mk_eq(x4, rational(14));
+        SASSERT(mk_affine(rational(12), x4, rational(8)) == expected);
     }
 }
 
