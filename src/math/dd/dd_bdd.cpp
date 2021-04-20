@@ -959,16 +959,15 @@ namespace dd {
     bdd bdd_manager::mk_eq(bddv const& a, bddv const& b) {
         SASSERT(a.size() == b.size());
         bdd eq = mk_true();
-        for (unsigned i = a.size(); i-- > 0; ) {
+        for (unsigned i = 0; i < a.size(); ++i)
             eq &= !(a[i] ^ b[i]);
-        }
         return eq;
     }
 
     bdd bdd_manager::mk_eq(bddv const& a, rational const& n) {
         SASSERT(n.is_int() && n >= 0 && n < rational(2).expt(a.size()));
         bdd b = mk_true();
-        for (unsigned i = a.size(); i-- > 0; ) 
+        for (unsigned i = 0; i < a.size(); ++i)
             b &= n.get_bit(i) ? a[i] : !a[i];
         return b;
     }
@@ -976,7 +975,7 @@ namespace dd {
     bdd bdd_manager::mk_eq(unsigned_vector const& vars, rational const& n) {
         SASSERT(n.is_int() && n >= 0 && n < rational(2).expt(vars.size()));
         bdd b = mk_true();
-        for (unsigned i = vars.size(); i-- > 0; ) 
+        for (unsigned i = 0; i < vars.size(); ++i)
             b &= n.get_bit(i) ? mk_var(vars[i]) : mk_nvar(vars[i]);
         return b;
     }
