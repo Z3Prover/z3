@@ -118,11 +118,13 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::gauss_jordan() {
-        while (!m_base_vars.empty.empty()) {
+        while (!m_base_vars.empty()) {
             auto v = m_base_vars.back();
             auto rid = m_vars[v].m_base2row;
+#if 0
             auto const& row = m_rows[rid];
             make_basic(v, row);
+#endif
         }
     }
 
