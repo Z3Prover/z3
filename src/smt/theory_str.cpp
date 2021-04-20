@@ -5450,23 +5450,21 @@ namespace smt {
                 get_grounded_concats(depth + 1, arg0DeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
                 get_grounded_concats(depth + 1, arg1DeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
 
-                std::map<std::vector<expr*>, std::set<expr*> >::iterator arg0_grdItor = groundedMap[arg0DeAlias].begin();
                 std::map<std::vector<expr*>, std::set<expr*> >::iterator arg1_grdItor;
-                for (; arg0_grdItor != groundedMap[arg0DeAlias].end(); arg0_grdItor++) {
-                    arg1_grdItor = groundedMap[arg1DeAlias].begin();
-                    for (; arg1_grdItor != groundedMap[arg1DeAlias].end(); arg1_grdItor++) {
+                for (auto const &arg0_grdItor : groundedMap[arg0DeAlias]) {
+                    for (auto const &arg1_grdItor : groundedMap[arg1DeAlias]) {
                         std::vector<expr*> ndVec;
-                        ndVec.insert(ndVec.end(), arg0_grdItor->first.begin(), arg0_grdItor->first.end());
-                        size_t arg0VecSize = arg0_grdItor->first.size();
-                        size_t arg1VecSize = arg1_grdItor->first.size();
-                        if (arg0VecSize > 0 && arg1VecSize > 0 && u.str.is_string(arg0_grdItor->first[arg0VecSize - 1]) && u.str.is_string(arg1_grdItor->first[0])) {
+                        ndVec.insert(ndVec.end(), arg0_grdItor.first.begin(), arg0_grdItor.first.end());
+                        size_t arg0VecSize = arg0_grdItor.first.size();
+                        size_t arg1VecSize = arg1_grdItor.first.size();
+                        if (arg0VecSize > 0 && arg1VecSize > 0 && u.str.is_string(arg0_grdItor.first[arg0VecSize - 1]) && u.str.is_string(arg1_grdItor.first[0])) {
                             ndVec.pop_back();
-                            ndVec.push_back(mk_concat(arg0_grdItor->first[arg0VecSize - 1], arg1_grdItor->first[0]));
+                            ndVec.push_back(mk_concat(arg0_grdItor.first[arg0VecSize - 1], arg1_grdItor.first[0]));
                             for (size_t i = 1; i < arg1VecSize; i++) {
-                                ndVec.push_back(arg1_grdItor->first[i]);
+                                ndVec.push_back(arg1_grdItor.first[i]);
                             }
                         } else {
-                            ndVec.insert(ndVec.end(), arg1_grdItor->first.begin(), arg1_grdItor->first.end());
+                            ndVec.insert(ndVec.end(), arg1_grdItor.first.begin(), arg1_grdItor.first.end());
                         }
                         // only insert if we don't know "node = concat(ndVec)" since one set of condition leads to this is enough
                         if (groundedMap[node].find(ndVec) == groundedMap[node].end()) {
@@ -5474,12 +5472,12 @@ namespace smt {
                             if (arg0 != arg0DeAlias) {
                                 groundedMap[node][ndVec].insert(ctx.mk_eq_atom(arg0, arg0DeAlias));
                             }
-                            groundedMap[node][ndVec].insert(arg0_grdItor->second.begin(), arg0_grdItor->second.end());
+                            groundedMap[node][ndVec].insert(arg0_grdItor.second.begin(), arg0_grdItor.second.end());
 
                             if (arg1 != arg1DeAlias) {
                                 groundedMap[node][ndVec].insert(ctx.mk_eq_atom(arg1, arg1DeAlias));
                             }
-                            groundedMap[node][ndVec].insert(arg1_grdItor->second.begin(), arg1_grdItor->second.end());
+                            groundedMap[node][ndVec].insert(arg1_grdItor.second.begin(), arg1_grdItor.second.end());
                         }
                     }
                 }
@@ -5500,16 +5498,15 @@ namespace smt {
                 expr * deAliasedEqConcat = dealias_node(eqConcat, varAliasMap, concatAliasMap);
                 get_grounded_concats(depth + 1, deAliasedEqConcat, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
 
-                std::map<std::vector<expr*>, std::set<expr*> >::iterator grdItor = groundedMap[deAliasedEqConcat].begin();
-                for (; grdItor != groundedMap[deAliasedEqConcat].end(); grdItor++) {
+                for (auto const &grdItor : groundedMap[deAliasedEqConcat]) {
                     std::vector<expr*> ndVec;
-                    ndVec.insert(ndVec.end(), grdItor->first.begin(), grdItor->first.end());
+                    ndVec.insert(ndVec.end(), grdItor.first.begin(), grdItor.first.end());
                     // only insert if we don't know "node = concat(ndVec)" since one set of condition leads to this is enough
                     if (groundedMap[node].find(ndVec) == groundedMap[node].end()) {
                         // condition: node = deAliasedEqConcat
                         groundedMap[node][ndVec].insert(ctx.mk_eq_atom(node, deAliasedEqConcat));
                         // appending conditions for "deAliasedEqConcat = CONCAT(ndVec)"
-                        groundedMap[node][ndVec].insert(grdItor->second.begin(), grdItor->second.end());
+                        groundedMap[node][ndVec].insert(grdItor.second.begin(), grdItor.second.end());
                     }
                 }
             }
