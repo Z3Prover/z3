@@ -134,6 +134,8 @@ namespace polysat {
         void gauss_jordan();
         void make_basic(var_t v, row const& r);
 
+
+        // TBD: 
         void  del_row(row const& r) {}
         var_t select_var_to_fix() { throw nullptr; }
         pivot_strategy_t pivot_strategy() { throw nullptr; }
@@ -150,19 +152,15 @@ namespace polysat {
         var_t select_pivot_blands(var_t x_i, bool is_below, scoped_numeral& out_a_ij) { throw nullptr; }
         var_t select_pivot_core(var_t x_i, bool is_below, scoped_numeral& out_a_ij) { throw nullptr; }
         int get_num_non_free_dep_vars(var_t x_j, int best_so_far) { throw nullptr; }
-
         var_t pick_var_to_leave(var_t x_j, bool is_pos, 
                                 scoped_numeral& gain, scoped_numeral& new_a_ij, bool& inc) { throw nullptr; }
 
-
         void  select_pivot_primal(var_t v, var_t& x_i, var_t& x_j, scoped_numeral& a_ij, bool& inc_x_i, bool& inc_x_j) {}
-
-
         bool at_lower(var_t v) const { return false; }
         bool at_upper(var_t v) const { return false; }
         bool above_lower(var_t v) const { return false; }
         bool below_upper(var_t v) const { return false; }
-        bool outside_bounds(var_t v) const { return below_lower(v) || above_upper(v); }
+        bool outside_bounds(var_t v) const { return false; }
         bool is_free(var_t v) const { return m_vars[v].m_lo == m_vars[v].m_hi; }
         bool is_non_free(var_t v) const { return !is_free(v); }
         bool is_base(var_t x) const { return m_vars[x].m_is_base; }
