@@ -210,8 +210,6 @@ namespace dd {
         bool contains_num(BDD b, rational const& val, unsigned_vector const& bits);
         find_result find_num(BDD b, unsigned_vector bits, rational& val);
 
-        void bddv_shl(bddv& a);
-        void bddv_shr(bddv& a);
         template <class GetBitFn> bddv mk_mul(bddv const& a, GetBitFn get_bit);
 
     public:
@@ -334,6 +332,8 @@ namespace dd {
         bdd& operator[](unsigned i) { return m_bits[i]; }
         void push_back(bdd const& a) { m_bits.push_back(a); }
         void push_back(bdd&& a) { m_bits.push_back(std::move(a)); }
+        void shl();
+        void shr();
 
     public:
         unsigned size() const { return m_bits.size(); }

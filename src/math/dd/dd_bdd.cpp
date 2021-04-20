@@ -1029,18 +1029,6 @@ namespace dd {
         return result;
     }
 
-    void bdd_manager::bddv_shl(bddv &a) {
-        for (unsigned j = a.size(); j-- > 1;)
-            a[j] = a[j-1];
-        a[0] = mk_false();
-    }
-
-    void bdd_manager::bddv_shr(bddv &a) {
-        for (unsigned j = 1; j < a.size(); ++j)
-            a[j-1] = a[j];
-        a[a.size()-1] = mk_false();
-    }
-
     bddv bdd_manager::mk_mul(bddv const& a, bddv const& b) {
         SASSERT(a.size() == b.size());
         bddv a_shifted = a;
@@ -1057,7 +1045,7 @@ namespace dd {
             for (unsigned j = 0; j < result.size(); ++j)
                 result[j] = mk_ite(b[i], added[j], result[j]);
 #endif
-            bddv_shl(a_shifted);
+            a_shifted.shl();
         }
         return result;
     }
@@ -1069,7 +1057,7 @@ namespace dd {
         for (unsigned i = 0; i < a.size(); ++i) {
             if (get_bit(i))
                 result = mk_add(result, a_shifted);
-            bddv_shl(a_shifted);
+            a_shifted.shl();
         }
         return result;
     }
@@ -1110,7 +1098,7 @@ namespace dd {
             if (i > 0)
                 quot[b.size()-i] = divLteRem;
 
-            bddv_shr(div);
+            div.shr();
         }
         rem.m_bits.shrink(b.size());
     }
@@ -1172,5 +1160,17 @@ namespace dd {
     bdd bdd_manager::mk_slt(bddv const& a, bddv const& b) { return mk_sle(a, b) && !mk_eq(a, b); }
     bdd bdd_manager::mk_sgt(bddv const& a, bddv const& b) { return mk_slt(b, a); }
 #endif
+
+    void bddv::shl() {
+        for (unsigned j = size(); j-- > 1;)
+            m_bits[j] = m_bits[j-1];
+        m_bits[0] = m->mk_false();
+    }
+
+    void bddv::shr() {
+        for (unsigned j = 1; j < size(); ++j)
+            m_bits[j-1] = m_bits[j];
+        m_bits[size()-1] = m->mk_false();
+    }
 
 }
