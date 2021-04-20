@@ -659,6 +659,7 @@ namespace dd {
 
     bdd_manager::BDD bdd_manager::mk_quant(unsigned n, unsigned const* vars, BDD b, bdd_op op) {
         BDD result = b;
+        // TODO: should this method catch mem_out like the other non-rec mk_ methods?
         for (unsigned i = 0; i < n; ++i) {
             result = mk_quant_rec(m_var2level[vars[i]], result, op);
         }
