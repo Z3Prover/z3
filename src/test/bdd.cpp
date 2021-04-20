@@ -91,20 +91,20 @@ public:
 
     static void test_bddv_ops_on_constants() {
         std::cout << "test_bddv_ops_on_constants\n";
-        unsigned const num_bits = 4;
+        unsigned const num_bits = 3;
         rational const modulus = rational::power_of_two(num_bits);
         bdd_manager m(num_bits);
 
         SASSERT_EQ(m.to_val(m.mk_zero(num_bits)), rational(0));
         SASSERT_EQ(m.to_val(m.mk_ones(num_bits)), modulus - 1);
 
-        for (unsigned n = 0; n < 16; ++n) {
+        for (unsigned n = 0; n < 8; ++n) {
             rational const nr(n);
             SASSERT_EQ(m.to_val(m.mk_num(nr, num_bits)), nr);
         }
 
-        for (unsigned n = 0; n < 16; ++n) {
-            for (unsigned k = 0; k < 16; ++k) {
+        for (unsigned n = 0; n < 8; ++n) {
+            for (unsigned k = 0; k < 8; ++k) {
                 rational const nr(n);
                 rational const kr(k);
                 bddv const nv = m.mk_num(nr, num_bits);
