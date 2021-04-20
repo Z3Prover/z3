@@ -6499,35 +6499,29 @@ namespace smt {
         TRACE("str",
               tout << "lhs eqc:" << std::endl;
               tout << "Concats:" << std::endl;
-              for (std::set<expr*>::iterator it = eqc_concat_lhs.begin(); it != eqc_concat_lhs.end(); ++it) {
-                  expr * ex = *it;
+              for (auto const &ex : eqc_concat_lhs) {
                   tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
               }
               tout << "Variables:" << std::endl;
-              for (std::set<expr*>::iterator it = eqc_var_lhs.begin(); it != eqc_var_lhs.end(); ++it) {
-                  expr * ex = *it;
+              for (auto const &ex : eqc_var_lhs) {
                   tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
               }
               tout << "Constants:" << std::endl;
-              for (std::set<expr*>::iterator it = eqc_const_lhs.begin(); it != eqc_const_lhs.end(); ++it) {
-                  expr * ex = *it;
+              for (auto const &ex : eqc_const_lhs) {
                   tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
               }
 
               tout << "rhs eqc:" << std::endl;
               tout << "Concats:" << std::endl;
-              for (std::set<expr*>::iterator it = eqc_concat_rhs.begin(); it != eqc_concat_rhs.end(); ++it) {
-                  expr * ex = *it;
+              for (auto const &ex : eqc_concat_rhs) {
                   tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
               }
               tout << "Variables:" << std::endl;
-              for (std::set<expr*>::iterator it = eqc_var_rhs.begin(); it != eqc_var_rhs.end(); ++it) {
-                  expr * ex = *it;
+              for (auto const &ex : eqc_var_rhs) {
                   tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
               }
               tout << "Constants:" << std::endl;
-              for (std::set<expr*>::iterator it = eqc_const_rhs.begin(); it != eqc_const_rhs.end(); ++it) {
-                  expr * ex = *it;
+              for (auto const &ex : eqc_const_rhs) {
                   tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
               }
               );
@@ -6539,15 +6533,13 @@ namespace smt {
 
         if (!eqc_const_lhs.empty()) {
             expr * conStr = *(eqc_const_lhs.begin());
-            std::set<expr*>::iterator itor2 = eqc_concat_rhs.begin();
-            for (; itor2 != eqc_concat_rhs.end(); itor2++) {
-                solve_concat_eq_str(*itor2, conStr);
+            for (auto const &itor2 : eqc_concat_rhs) {
+                solve_concat_eq_str(itor2, conStr);
             }
         } else if (!eqc_const_rhs.empty()) {
             expr* conStr = *(eqc_const_rhs.begin());
-            std::set<expr*>::iterator itor1 = eqc_concat_lhs.begin();
-            for (; itor1 != eqc_concat_lhs.end(); itor1++) {
-                solve_concat_eq_str(*itor1, conStr);
+            for (auto const &itor1 : eqc_concat_lhs) {
+                solve_concat_eq_str(itor1, conStr);
             }
         }
 
@@ -6600,16 +6592,14 @@ namespace smt {
 
         int hasCommon = 0;
         if (!eqc_concat_lhs.empty() && !eqc_concat_rhs.empty()) {
-            std::set<expr*>::iterator itor1 = eqc_concat_lhs.begin();
-            std::set<expr*>::iterator itor2 = eqc_concat_rhs.begin();
-            for (; itor1 != eqc_concat_lhs.end(); itor1++) {
-                if (eqc_concat_rhs.find(*itor1) != eqc_concat_rhs.end()) {
+            for (auto const &itor1 : eqc_concat_lhs) {
+                if (eqc_concat_rhs.find(itor1) != eqc_concat_rhs.end()) {
                     hasCommon = 1;
                     break;
                 }
             }
-            for (; itor2 != eqc_concat_rhs.end(); itor2++) {
-                if (eqc_concat_lhs.find(*itor2) != eqc_concat_lhs.end()) {
+            for (auto const &itor2 : eqc_concat_rhs) {
+                if (eqc_concat_lhs.find(itor2) != eqc_concat_lhs.end()) {
                     hasCommon = 1;
                     break;
                 }
@@ -6618,10 +6608,11 @@ namespace smt {
                 if (opt_ConcatOverlapAvoid) {
                     bool found = false;
                     // check each pair and take the first ones that won't immediately overlap
-                    for (itor1 = eqc_concat_lhs.begin(); itor1 != eqc_concat_lhs.end() && !found; ++itor1) {
-                        expr * concat_lhs = *itor1;
-                        for (itor2 = eqc_concat_rhs.begin(); itor2 != eqc_concat_rhs.end() && !found; ++itor2) {
-                            expr * concat_rhs = *itor2;
+                    for (auto const &concat_lhs : eqc_concat_lhs) {
+                        if (found) {
+                            break;
+                        }
+                        for (auto const &concat_rhs : eqc_concat_rhs) {
                             if (will_result_in_overlap(concat_lhs, concat_rhs)) {
                                 TRACE("str", tout << "Concats " << mk_pp(concat_lhs, m) << " and "
                                         << mk_pp(concat_rhs, m) << " will result in overlap; skipping." << std::endl;);
@@ -6834,8 +6825,7 @@ namespace smt {
             expr_ref_vector formulas(get_manager());
             ctx.get_assignments(formulas);
             tout << "dumping all formulas:" << std::endl;
-            for (expr_ref_vector::iterator i = formulas.begin(); i != formulas.end(); ++i) {
-                expr * ex = *i;
+            for (auto const &ex : formulas) {
                 tout << mk_pp(ex, get_manager()) << (ctx.is_relevant(ex) ? "" : " (NOT REL)") << std::endl;
             }
         );
@@ -7046,8 +7036,7 @@ namespace smt {
 
         expr_ref_vector assignments(m);
         ctx.get_assignments(assignments);
-        for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
-            expr * ex = *i;
+        for (auto const &ex : assignments) {
             recursive_check_variable_scope(ex);
         }
     }
@@ -7072,9 +7061,8 @@ namespace smt {
         // list of expr* to remove from cut_var_map
         ptr_vector<expr> cutvarmap_removes;
 
-        obj_map<expr, std::stack<T_cut *> >::iterator varItor = cut_var_map.begin();
-        while (varItor != cut_var_map.end()) {
-            std::stack<T_cut*> & val = cut_var_map[varItor->m_key];
+        for (auto const &varItor : cut_var_map) {
+            std::stack<T_cut*> & val = cut_var_map[varItor.m_key];
             while ((!val.empty()) && (val.top()->level != 0) && (val.top()->level >= sLevel)) {
                 // TRACE("str", tout << "remove cut info for " << mk_pp(e, get_manager()) << std::endl; print_cut_var(e, tout););
                 // T_cut * aCut = val.top();
@@ -7082,9 +7070,8 @@ namespace smt {
                 // dealloc(aCut);
             }
             if (val.empty()) {
-                cutvarmap_removes.insert(varItor->m_key);
+                cutvarmap_removes.insert(varItor.m_key);
             }
-            varItor++;
         }
 
         for (expr* ex : cutvarmap_removes)
@@ -7124,11 +7111,10 @@ namespace smt {
             tout << "dumping all assignments:" << std::endl;
             expr_ref_vector assignments(m);
             ctx.get_assignments(assignments);
-            for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
-                expr * ex = *i;
+            for (auto const &ex : assignments) {
                 tout << mk_ismt2_pp(ex, m) << (ctx.is_relevant(ex) ? "" : " (NOT REL)") << std::endl;
             }
-                   );
+        );
     }
 
     // returns true if needle appears as a subterm anywhere under haystack,
@@ -7266,18 +7252,15 @@ namespace smt {
         {
             tout << "(0) alias: variables" << std::endl;
             std::map<expr*, std::map<expr*, int> > aliasSumMap;
-            std::map<expr*, expr*>::iterator itor0 = aliasIndexMap.begin();
-            for (; itor0 != aliasIndexMap.end(); itor0++) {
-                aliasSumMap[itor0->second][itor0->first] = 1;
+            for (auto const &itor0 : aliasIndexMap) {
+                aliasSumMap[itor0.second][itor0.first] = 1;
             }
-            std::map<expr*, std::map<expr*, int> >::iterator keyItor = aliasSumMap.begin();
-            for (; keyItor != aliasSumMap.end(); keyItor++) {
+            for (auto const &keyItor : aliasSumMap) {
                 tout << "    * ";
-                tout << mk_pp(keyItor->first, mgr);
+                tout << mk_pp(keyItor.first, mgr);
                 tout << " : ";
-                std::map<expr*, int>::iterator innerItor = keyItor->second.begin();
-                for (; innerItor != keyItor->second.end(); innerItor++) {
-                    tout << mk_pp(innerItor->first, mgr);
+                for (auto const &innerItor : keyItor.second) {
+                    tout << mk_pp(innerItor.first, mgr);
                     tout << ", ";
                 }
                 tout << std::endl;
@@ -7287,13 +7270,12 @@ namespace smt {
 
         {
             tout << "(1) var = constStr:" << std::endl;
-            std::map<expr*, expr*>::iterator itor1 = var_eq_constStr_map.begin();
-            for (; itor1 != var_eq_constStr_map.end(); itor1++) {
+            for (auto const &itor1 : var_eq_constStr_map) {
                 tout << "    * ";
-                tout << mk_pp(itor1->first, mgr);
+                tout << mk_pp(itor1.first, mgr);
                 tout << " = ";
-                tout << mk_pp(itor1->second, mgr);
-                if (!in_same_eqc(itor1->first, itor1->second)) {
+                tout << mk_pp(itor1.second, mgr);
+                if (!in_same_eqc(itor1.first, itor1.second)) {
                     tout << "   (not true in ctx)";
                 }
                 tout << std::endl;
@@ -7303,14 +7285,12 @@ namespace smt {
 
         {
             tout << "(2) var = concat:" << std::endl;
-            std::map<expr*, std::map<expr*, int> >::iterator itor2 = var_eq_concat_map.begin();
-            for (; itor2 != var_eq_concat_map.end(); itor2++) {
+            for (auto const &itor2 : var_eq_concat_map) {
                 tout << "    * ";
-                tout << mk_pp(itor2->first, mgr);
+                tout << mk_pp(itor2.first, mgr);
                 tout << " = { ";
-                std::map<expr*, int>::iterator i_itor = itor2->second.begin();
-                for (; i_itor != itor2->second.end(); i_itor++) {
-                    tout << mk_pp(i_itor->first, mgr);
+                for (auto const &i_itor : itor2.second) {
+                    tout << mk_pp(i_itor.first, mgr);
                     tout << ", ";
                 }
                 tout << std::endl;
@@ -7320,12 +7300,10 @@ namespace smt {
 
         {
             tout << "(3) var = unrollFunc:" << std::endl;
-            std::map<expr*, std::map<expr*, int> >::iterator itor2 = var_eq_unroll_map.begin();
-            for (; itor2 != var_eq_unroll_map.end(); itor2++) {
-                tout << "    * " << mk_pp(itor2->first, mgr) << " = { ";
-                std::map<expr*, int>::iterator i_itor = itor2->second.begin();
-                for (; i_itor != itor2->second.end(); i_itor++) {
-                    tout << mk_pp(i_itor->first, mgr) << ", ";
+            for (auto const &itor2 : var_eq_unroll_map) {
+                tout << "    * " << mk_pp(itor2.first, mgr) << " = { ";
+                for (auto const &i_itor : itor2.second) {
+                    tout << mk_pp(i_itor.first, mgr) << ", ";
                 }
                 tout << " }" << std::endl;
             }
@@ -7334,12 +7312,11 @@ namespace smt {
 
         {
             tout << "(4) concat = constStr:" << std::endl;
-            std::map<expr*, expr*>::iterator itor3 = concat_eq_constStr_map.begin();
-            for (; itor3 != concat_eq_constStr_map.end(); itor3++) {
+            for (auto const &itor3 : concat_eq_constStr_map) {
                 tout << "    * ";
-                tout << mk_pp(itor3->first, mgr);
+                tout << mk_pp(itor3.first, mgr);
                 tout << " = ";
-                tout << mk_pp(itor3->second, mgr);
+                tout << mk_pp(itor3.second, mgr);
                 tout << std::endl;
 
             }
@@ -7348,13 +7325,11 @@ namespace smt {
 
         {
             tout << "(5) eq concats:" << std::endl;
-            std::map<expr*, std::map<expr*, int> >::iterator itor4 = concat_eq_concat_map.begin();
-            for (; itor4 != concat_eq_concat_map.end(); itor4++) {
-                if (itor4->second.size() > 1) {
-                    std::map<expr*, int>::iterator i_itor = itor4->second.begin();
+            for (auto const &itor4 : concat_eq_concat_map) {
+                if (itor4.second.size() > 1) {
                     tout << "    * ";
-                    for (; i_itor != itor4->second.end(); i_itor++) {
-                        tout << mk_pp(i_itor->first, mgr);
+                    for (auto const &i_itor : itor4.second) {
+                        tout << mk_pp(i_itor.first, mgr);
                         tout << " , ";
                     }
                     tout << std::endl;
@@ -7365,12 +7340,10 @@ namespace smt {
 
         {
             tout << "(6) eq unrolls:" << std::endl;
-            std::map<expr*, std::set<expr*> >::iterator itor5 = unrollGroupMap.begin();
-            for (; itor5 != unrollGroupMap.end(); itor5++) {
+            for (auto const &itor5 : unrollGroupMap) {
                 tout << "    * ";
-                std::set<expr*>::iterator i_itor = itor5->second.begin();
-                for (; i_itor != itor5->second.end(); i_itor++) {
-                    tout << mk_pp(*i_itor, mgr) << ",  ";
+                for (auto const &i_itor : itor5.second) {
+                    tout << mk_pp(i_itor, mgr) << ",  ";
                 }
                 tout << std::endl;
             }
@@ -7379,10 +7352,9 @@ namespace smt {
 
         {
             tout << "(7) unroll = concats:" << std::endl;
-            std::map<expr*, std::set<expr*> >::iterator itor5 = unrollGroupMap.begin();
-            for (; itor5 != unrollGroupMap.end(); itor5++) {
+            for (auto const &itor5 : unrollGroupMap) {
                 tout << "    * ";
-                expr * unroll = itor5->first;
+                expr * unroll = itor5.first;
                 tout << mk_pp(unroll, mgr) << std::endl;
                 enode * e_curr = ctx.get_enode(unroll);
                 enode * e_curr_end = e_curr;
