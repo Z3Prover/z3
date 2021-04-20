@@ -80,6 +80,7 @@ namespace polysat {
     template<typename Ext>
     typename fixplex<Ext>::row 
     fixplex<Ext>::add_row(var_t base_var, unsigned num_vars, var_t const* vars, numeral const* coeffs) {
+        m_base_vars.reset();
         row r = M.mk_row();
         for (unsigned i = 0; i < num_vars; ++i) 
             if (coeffs[i] != 0)                 
@@ -87,13 +88,13 @@ namespace polysat {
 
         numeral base_coeff = 0;
         numeral value = 0;
-        bool has_base = false;
         for (auto const& e : M.row_entries(r)) {
             var_t v = e.m_var;
             if (v == base_var) 
                 base_coeff = e.m_coeff;
             else {
-                has_base |= is_base(v);
+                if (is_base(v))
+                    m_base_vars.push_back(v);
                 value += e.m_coeff * m_vars[v].m_value;
             }
         }
@@ -108,8 +109,7 @@ namespace polysat {
         m_vars[base_vars].m_value = value / base_coeff;
         // TBD: record when base_coeff does not divide value
         add_patch(base_var);
-        if (has_base) {
-            m_to_fix_base.push_back(r.id());
+        if (!m_base_vars.empty()) {
             gauss_jordan();
         }
         SASSERT(well_formed_row(r));
@@ -119,32 +119,31 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::gauss_jordan() {
-        while (!m_to_fix_base.empty()) {
-            auto rid = m_to_fix_base.back();
-            if (gauss_jordan(m_rows[rid])) {
-                m_to_fix_base.pop_back();
-            }
+        while (!m_base_vars.empty.empty()) {
+            auto v = m_base_vars.back();
+            auto rid = m_vars[v].m_base2row;
+            auto const& row = m_rows[rid];
+            make_basic(v, row);
         }
     }
 
+    /**
+     * make v a basic variable.
+     * If v is already a basic variable in preferred_row, skip
+     * If v
+     */
+
     template<typename Ext>
-    bool fixplex<Ext>::gauss_jordan(row const& r) {
-        auto base_var = m_row2base[r.id()];
-        unsigned other_base = null_var;
-        numeral c1;
-        for (auto const& e : M.row_entries(r)) {
-            var_t v = e.m_var;
-            if (is_base(v) && v != base_var) {
-                other_base = v;
+    void fixplex<Ext>::make_basic(var_t v, row const& preferred_row) {
+        numeral c1 = 0;
+        for (auto const& e : M.row_entries(preferred_row)) {
+            if (e.m_var == v) {
                 c1 = e.m_coeff;
                 break;
-            }
+            }                    
         }
-        if (null_var == other_base)
-            return true;
-
-        auto c2 = m_vars[other_base].m_base_coeff;
-        auto r2 = m_vars[other_base].m_base2row;
+        auto c2 = m_vars[v].m_base_coeff;
+        auto r2 = m_vars[v].m_base2row;
         unsigned exp1 = trailing_zeros(c1); // exponent of two for v in r
         unsigned exp2 = trailing_zeros(c2); // exponent of two for v in r2
         if (exp1 >= exp2) {
@@ -157,8 +156,9 @@ namespace polysat {
         }
 
         NOT_IMPLEMENTED_YET();
-        return false;
+        
     }
+
 
 #if 0
     /**

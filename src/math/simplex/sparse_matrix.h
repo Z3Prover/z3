@@ -256,6 +256,17 @@ namespace simplex {
         col_iterator col_begin(int v) const { return col_iterator(m_columns[v], m_rows, true); }
         col_iterator col_end(int v) const { return col_iterator(m_columns[v], m_rows, false); }
 
+        class col_entries_t {
+            sparse_matrix const& m;
+            int v;
+        public:
+            col_entries_t(sparse_matrix const& m, int v): m(m), v(v) {}
+            col_iterator begin() { return m.col_begin(v); }
+            col_iterator end() { return m.col_end(v); }
+        };
+
+        col_entries_t col_entries(int v) { return col_entries_t(*this, v); }
+
         void display(std::ostream& out);
         void display_row(std::ostream& out, row const& r);
         bool well_formed() const;

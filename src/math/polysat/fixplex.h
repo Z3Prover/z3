@@ -81,7 +81,6 @@ namespace polysat {
         uint_set                    m_left_basis;
         unsigned                    m_infeasible_var;
         unsigned_vector             m_base_vars;
-        unsigned_vector             m_to_fix_base;
         stats                       m_stats;
 
     public:
@@ -133,48 +132,46 @@ namespace polysat {
     private:
 
         void gauss_jordan();
-        bool gauss_jordan(row const& r);
+        void make_basic(var_t v, row const& r);
 
-#if 0
-        void  del_row(row const& r);
-        var_t select_var_to_fix();
-        pivot_strategy_t pivot_strategy();
+        void  del_row(row const& r) {}
+        var_t select_var_to_fix() { throw nullptr; }
+        pivot_strategy_t pivot_strategy() { throw nullptr; }
         var_t select_smallest_var() { return m_to_patch.empty()?null_var:m_to_patch.erase_min(); }
-        var_t select_error_var(bool least);
-        void check_blands_rule(var_t v, unsigned& num_repeated);
-        bool make_var_feasible(var_t x_i);
-        void update_and_pivot(var_t x_i, var_t x_j, numeral const& a_ij, numeral const& new_value);
-        void update_value(var_t v, numeral const& delta);
-        void update_value_core(var_t v, numeral const& delta);
-        void pivot(var_t x_i, var_t x_j, numeral const& a_ij);
-        void move_to_bound(var_t x, bool to_lower);
-        var_t select_pivot(var_t x_i, bool is_below, scoped_numeral& out_a_ij);
-        var_t select_pivot_blands(var_t x_i, bool is_below, scoped_numeral& out_a_ij);
-        var_t select_pivot_core(var_t x_i, bool is_below, scoped_numeral& out_a_ij);
-        int get_num_non_free_dep_vars(var_t x_j, int best_so_far);
+        var_t select_error_var(bool least) { throw nullptr; }
+        void check_blands_rule(var_t v, unsigned& num_repeated) {}
+        bool make_var_feasible(var_t x_i) { return false; }
+        void update_and_pivot(var_t x_i, var_t x_j, numeral const& a_ij, numeral const& new_value) {}
+        void update_value(var_t v, numeral const& delta) {}
+        void update_value_core(var_t v, numeral const& delta) {}
+        void pivot(var_t x_i, var_t x_j, numeral const& a_ij) {}
+        void move_to_bound(var_t x, bool to_lower) {}
+        var_t select_pivot(var_t x_i, bool is_below, scoped_numeral& out_a_ij) { throw nullptr; }
+        var_t select_pivot_blands(var_t x_i, bool is_below, scoped_numeral& out_a_ij) { throw nullptr; }
+        var_t select_pivot_core(var_t x_i, bool is_below, scoped_numeral& out_a_ij) { throw nullptr; }
+        int get_num_non_free_dep_vars(var_t x_j, int best_so_far) { throw nullptr; }
 
         var_t pick_var_to_leave(var_t x_j, bool is_pos, 
-                                scoped_numeral& gain, scoped_numeral& new_a_ij, bool& inc);
+                                scoped_numeral& gain, scoped_numeral& new_a_ij, bool& inc) { throw nullptr; }
 
 
-        void  select_pivot_primal(var_t v, var_t& x_i, var_t& x_j, scoped_numeral& a_ij, bool& inc_x_i, bool& inc_x_j);
+        void  select_pivot_primal(var_t v, var_t& x_i, var_t& x_j, scoped_numeral& a_ij, bool& inc_x_i, bool& inc_x_j) {}
 
 
-        bool at_lower(var_t v) const;
-        bool at_upper(var_t v) const;
-        bool above_lower(var_t v) const;
-        bool below_upper(var_t v) const;
+        bool at_lower(var_t v) const { return false; }
+        bool at_upper(var_t v) const { return false; }
+        bool above_lower(var_t v) const { return false; }
+        bool below_upper(var_t v) const { return false; }
         bool outside_bounds(var_t v) const { return below_lower(v) || above_upper(v); }
         bool is_free(var_t v) const { return m_vars[v].m_lo == m_vars[v].m_hi; }
         bool is_non_free(var_t v) const { return !is_free(v); }
         bool is_base(var_t x) const { return m_vars[x].m_is_base; }
-        void add_patch(var_t v);
+        void add_patch(var_t v) {}
 
-        bool well_formed() const;
-        bool well_formed_row(row const& r) const;
-        bool is_feasible() const;
+        bool well_formed() const { return false; }                                 
+        bool well_formed_row(row const& r) const { return false; }
+        bool is_feasible() const { return false; }
 
-#endif
     };
 
     struct uint64_ext {
