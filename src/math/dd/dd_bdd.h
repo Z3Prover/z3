@@ -284,7 +284,8 @@ namespace dd {
         unsigned var() const { return m->var(root); }
 
         bool is_true() const { return root == bdd_manager::true_bdd; }
-        bool is_false() const { return root == bdd_manager::false_bdd; }        
+        bool is_false() const { return root == bdd_manager::false_bdd; }
+        bool is_const() const { return is_false() || is_true(); }
 
         bdd operator!() const { return m->mk_not(*this); }
         bdd operator&&(bdd const& other) const { return m->mk_and(*this, other); }

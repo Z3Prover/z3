@@ -1,4 +1,5 @@
 #include "math/dd/dd_bdd.h"
+#include "math/dd/dd_fdd.h"
 
 namespace dd {
 
@@ -114,9 +115,9 @@ public:
                 SASSERT_EQ((nv * kr).to_val(), (nr * kr) % modulus);
                 SASSERT_EQ((nv * kv).to_val(), (nr * kr) % modulus);
                 bdd eq = m.mk_eq(nv, kv);
-                SASSERT((eq.is_true() || eq.is_false()) && (eq.is_true() == (n == k)));
+                SASSERT(eq.is_const() && (eq.is_true() == (n == k)));
                 eq = m.mk_eq(nv, kr);
-                SASSERT((eq.is_true() || eq.is_false()) && (eq.is_true() == (n == k)));
+                SASSERT(eq.is_const() && (eq.is_true() == (n == k)));
 
                 bddv quotv = m.mk_zero(num_bits);
                 bddv remv = m.mk_zero(num_bits);
@@ -283,20 +284,17 @@ public:
         SASSERT_EQ(three <= x && x < five, x == four || x == three);
     }
 
-    static void test_int() {
-        std::cout << "test_int\n";
+    static void test_fdd3() {
+        std::cout << "test_fdd3\n";
         unsigned const w = 3;  // bit width
-        unsigned_vector bits;
-        bits.push_back(0);
-        bits.push_back(1);
-        bits.push_back(2);
         bdd_manager m(w);
 
-        bddv const x = m.mk_var(bits);
+        fdd const x_dom(m, w);
+        bddv const& x = x_dom.var();
 
         // Encodes the values x satisfying a*x + b == 0 (mod 2^w) as BDD.
-        auto mk_affine = [] (rational const& a, bddv const& x, rational const& b) {
-            return (a*x + b == rational(0));
+        auto mk_affine = [] (unsigned a, bddv const& x, unsigned b) {
+            return (rational(a)*x + rational(b) == rational(0));
         };
 
         vector<bdd> num;
@@ -305,70 +303,68 @@ public:
 
         for (unsigned k = 0; k < (1 << w); ++k) {
             for (unsigned n = 0; n < (1 << w); ++n) {
-                SASSERT(num[k].contains_num(rational(n), bits) == (n == k));
+                SASSERT(x_dom.contains(num[k], rational(n)) == (n == k));
                 rational r;
-                SASSERT_EQ((num[n] || num[k]).find_num(bits, r), (n == k) ? find_result::singleton : find_result::multiple);
+                SASSERT_EQ(x_dom.find(num[n] || num[k], r), (n == k) ? find_t::singleton : find_t::multiple);
                 SASSERT(r == n || r == k);
             }
         }
 
         bdd s0127 = num[0] || num[1] || num[2] || num[7];
-        SASSERT(s0127.contains_num(rational(0), bits));
-        SASSERT(s0127.contains_num(rational(1), bits));
-        SASSERT(s0127.contains_num(rational(2), bits));
-        SASSERT(!s0127.contains_num(rational(3), bits));
-        SASSERT(!s0127.contains_num(rational(4), bits));
-        SASSERT(!s0127.contains_num(rational(5), bits));
-        SASSERT(!s0127.contains_num(rational(6), bits));
-        SASSERT(s0127.contains_num(rational(7), bits));
+        SASSERT( x_dom.contains(s0127, rational(0)));
+        SASSERT( x_dom.contains(s0127, rational(1)));
+        SASSERT( x_dom.contains(s0127, rational(2)));
+        SASSERT(!x_dom.contains(s0127, rational(3)));
+        SASSERT(!x_dom.contains(s0127, rational(4)));
+        SASSERT(!x_dom.contains(s0127, rational(5)));
+        SASSERT(!x_dom.contains(s0127, rational(6)));
+        SASSERT( x_dom.contains(s0127, rational(7)));
 
         bdd s123 = num[1] || num[2] || num[3];
         SASSERT((s0127 && s123) == (num[1] || num[2]));
 
-        SASSERT(mk_affine(rational(0), x, rational(0)).is_true());
-        SASSERT(mk_affine(rational(0), x, rational(1)).is_false());
+        SASSERT(mk_affine(0, x, 0).is_true());
+        SASSERT(mk_affine(0, x, 1).is_false());
         // 2*x == 0 (mod 2^3) has the solutions 0, 4
-        SASSERT(mk_affine(rational(2), x, rational(0)) == (num[0] || num[4]));
+        SASSERT(mk_affine(2, x, 0) == (num[0] || num[4]));
 
         // 4*x + 2 == 0 (mod 2^3) has no solutions
-        SASSERT(mk_affine(rational(4), x, rational(2)).is_false());
+        SASSERT(mk_affine(4, x, 2).is_false());
         // 3*x + 2 == 0 (mod 2^3) has the unique solution 2
-        SASSERT(mk_affine(rational(3), x, rational(2)) == num[2]);
+        SASSERT(mk_affine(3, x, 2) == num[2]);
         // 2*x + 2 == 0 (mod 2^3) has the solutions 3, 7
-        SASSERT(mk_affine(rational(2), x, rational(2)) == (num[3] || num[7]));
-
-        unsigned_vector bits4 = bits;
-        bits4.push_back(10);
-        bddv const x4 = m.mk_var(bits4);
-
-        // 12*x + 8 == 0 (mod 2^4) has the solutions 2, 6, 10, 14
-        bdd expected = m.mk_eq(x4, rational(2)) || m.mk_eq(x4, rational(6)) || m.mk_eq(x4, rational(10)) || m.mk_eq(x4, rational(14));
-        SASSERT(mk_affine(rational(12), x4, rational(8)) == expected);
+        SASSERT(mk_affine(2, x, 2) == (num[3] || num[7]));
     }
 
-    static void test_int_reorder() {
-        std::cout << "test_int_reorder\n";
-        unsigned_vector bits;
-        bits.push_back(0);
-        bits.push_back(1);
-        bits.push_back(2);
-        bits.push_back(3);
-        bdd_manager m(bits.size());
+    static void test_fdd4() {
+        std::cout << "test_fdd4\n";
+        bdd_manager m(4);
+        fdd const y_dom(m, 4);
+        bddv const& y = y_dom.var();
+        // 12*y + 8 == 0 (mod 2^4) has the solutions 2, 6, 10, 14
+        bdd equation = rational(12) * y + rational(8) == rational(0);
+        bdd expected = (y == rational(2)) || (y == rational(6)) || (y == rational(10)) || (y == rational(14));
+        SASSERT(equation == expected);
+    }
 
-        bddv const x = m.mk_var(bits);
+    static void test_fdd_reorder() {
+        std::cout << "test_fdd_reorder\n";
+        bdd_manager m(4);
+        fdd const x_dom(m, 4);
+        bddv const& x = x_dom.var();
 
         vector<bdd> num;
-        for (unsigned n = 0; n < (1 << bits.size()); ++n) {
+        for (unsigned n = 0; n < (1 << x_dom.num_bits()); ++n) {
             num.push_back(x == rational(n));
-            SASSERT(num[n].contains_num(rational(n), bits));
+            SASSERT(x_dom.contains(num[n], rational(n)));
             rational r;
-            SASSERT_EQ(num[n].find_num(bits, r), find_result::singleton);
-            SASSERT_EQ(r, rational(n));
+            SASSERT_EQ(x_dom.find(num[n], r), find_t::singleton);
+            SASSERT_EQ(r, n);
         }
 
         // need something extra to skew costs and trigger a reorder
         bdd atleast3 = (x >= rational(3));
-        SASSERT(atleast3.contains_num(rational(3), bits));
+        SASSERT(x_dom.contains(atleast3, rational(3)));
 
         auto const old_levels = m.m_var2level;
         std::cout << "old levels: " << old_levels << "\n";
@@ -378,11 +374,11 @@ public:
         SASSERT(old_levels != m.m_var2level);  // ensure that reorder actually did something.
 
         // Should still give the correct answer after reordering
-        for (unsigned n = 0; n < (1 << bits.size()); ++n) {
-            SASSERT(num[n].contains_num(rational(n), bits));
+        for (unsigned n = 0; n < (1 << x_dom.num_bits()); ++n) {
+            SASSERT(x_dom.contains(num[n], rational(n)));
             rational r;
-            SASSERT_EQ(num[n].find_num(bits, r), find_result::singleton);
-            SASSERT_EQ(r, rational(n));
+            SASSERT_EQ(x_dom.find(num[n], r), find_t::singleton);
+            SASSERT_EQ(r, n);
         }
     }
 
@@ -402,6 +398,7 @@ void tst_bdd() {
     dd::test_bdd::test_bddv_addsub();
     dd::test_bdd::test_bddv_mul();
     dd::test_bdd::test_bddv_ule();
-    dd::test_bdd::test_int();
-    dd::test_bdd::test_int_reorder();
+    dd::test_bdd::test_fdd3();
+    dd::test_bdd::test_fdd4();
+    dd::test_bdd::test_fdd_reorder();
 }
