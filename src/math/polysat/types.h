@@ -20,6 +20,7 @@ Author:
 #include "util/ref_vector.h"
 #include "math/dd/dd_pdd.h"
 #include "math/dd/dd_bdd.h"
+#include "math/dd/dd_fdd.h"
 
 namespace polysat {
 

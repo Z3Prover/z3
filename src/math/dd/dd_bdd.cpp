@@ -23,19 +23,6 @@ Revision History:
 
 namespace dd {
 
-    std::ostream& operator<<(std::ostream& out, find_result x) {
-        switch (x) {
-        case find_result::empty:
-            return out << "empty";
-        case find_result::singleton:
-            return out << "singleton";
-        case find_result::multiple:
-            return out << "multiple";
-        }
-        UNREACHABLE();
-        return out;
-    }
-
     bdd_manager::bdd_manager(unsigned num_vars) {
         m_cost_metric = bdd_cost;
         m_cost_bdd = 0;
@@ -606,10 +593,10 @@ namespace dd {
         if (is_true(a)) return b;
         if (is_false(a)) return c;
         if (b == c) return b;
-        if (is_true(b)) return apply(a, c, bdd_or_op);
-        if (is_false(c)) return apply(a, b, bdd_and_op);
-        if (is_false(b)) return apply(mk_not_rec(a), c, bdd_and_op);
-        if (is_true(c)) return apply(mk_not_rec(a), b, bdd_or_op);
+        if (is_true(b)) return apply_rec(a, c, bdd_or_op);
+        if (is_false(c)) return apply_rec(a, b, bdd_and_op);
+        if (is_false(b)) return apply_rec(mk_not_rec(a), c, bdd_and_op);
+        if (is_true(c)) return apply_rec(mk_not_rec(a), b, bdd_or_op);
         SASSERT(!is_const(a) && !is_const(b) && !is_const(c));
         op_entry * e1 = pop_entry(a, b, c);
         op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
@@ -659,6 +646,7 @@ namespace dd {
 
     bdd_manager::BDD bdd_manager::mk_quant(unsigned n, unsigned const* vars, BDD b, bdd_op op) {
         BDD result = b;
+        // TODO: should this method catch mem_out like the other non-rec mk_ methods?
         for (unsigned i = 0; i < n; ++i) {
             result = mk_quant_rec(m_var2level[vars[i]], result, op);
         }
@@ -911,65 +899,18 @@ namespace dd {
     std::ostream& operator<<(std::ostream& out, bdd const& b) { return b.display(out); }
 
 
-    bool bdd_manager::contains_num(BDD b, rational const& val, unsigned_vector const& bits) {
-        DEBUG_CODE(for (unsigned i = 1; i < bits.size(); ++i) { SASSERT(bits[i-1] < bits[i]); });
-        unsigned var_idx = bits.size();
-        while (!is_const(b)) {
-            VERIFY(var_idx-- > 0);
-            SASSERT(var(b) <= bits[var_idx]);
-            while (var(b) < bits[var_idx]) {
-                VERIFY(var_idx-- > 0);
-            }
-            SASSERT(var(b) == bits[var_idx]);
-            b = val.get_bit(var_idx) ? hi(b) : lo(b);
-        }
-        return is_true(b);
-    }
-
-    find_result bdd_manager::find_num(BDD b, unsigned_vector bits, rational& val) {
-        DEBUG_CODE(for (unsigned i = 1; i < bits.size(); ++i) { SASSERT(bits[i-1] < bits[i]); });
-        val = 0;
-        if (is_false(b))
-            return find_result::empty;
-        bool is_unique = true;
-        unsigned var_idx = bits.size();
-        while (!is_true(b)) {
-            VERIFY(var_idx-- > 0);
-            SASSERT(var(b) <= bits[var_idx]);
-            while (var(b) < bits[var_idx]) {
-                is_unique = false;
-                VERIFY(var_idx-- > 0);
-            }
-            if (!is_false(lo(b)) && !is_false(hi(b)))
-                is_unique = false;
-            if (is_false(lo(b))) {
-                SASSERT(var(b) == bits[var_idx]);
-                val += rational::power_of_two(var_idx);
-                b = hi(b);
-            }
-            else
-                b = lo(b);
-        }
-        if (var_idx > 0)
-            is_unique = false;
-
-        return is_unique ? find_result::singleton : find_result::multiple;
-    }
-
-
     bdd bdd_manager::mk_eq(bddv const& a, bddv const& b) {
         SASSERT(a.size() == b.size());
         bdd eq = mk_true();
-        for (unsigned i = a.size(); i-- > 0; ) {
+        for (unsigned i = 0; i < a.size(); ++i)
             eq &= !(a[i] ^ b[i]);
-        }
         return eq;
     }
 
     bdd bdd_manager::mk_eq(bddv const& a, rational const& n) {
         SASSERT(n.is_int() && n >= 0 && n < rational(2).expt(a.size()));
         bdd b = mk_true();
-        for (unsigned i = a.size(); i-- > 0; ) 
+        for (unsigned i = 0; i < a.size(); ++i)
             b &= n.get_bit(i) ? a[i] : !a[i];
         return b;
     }
@@ -977,7 +918,7 @@ namespace dd {
     bdd bdd_manager::mk_eq(unsigned_vector const& vars, rational const& n) {
         SASSERT(n.is_int() && n >= 0 && n < rational(2).expt(vars.size()));
         bdd b = mk_true();
-        for (unsigned i = vars.size(); i-- > 0; ) 
+        for (unsigned i = 0; i < vars.size(); ++i)
             b &= n.get_bit(i) ? mk_var(vars[i]) : mk_nvar(vars[i]);
         return b;
     }
@@ -1006,9 +947,8 @@ namespace dd {
             carry = (carry && a[i]) || (carry && b[i]) || (a[i] && b[i]);
         }
 #else
-        if (a.size() > 0) {
+        if (a.size() > 0)
             result.push_back(a[0] ^ b[0]);
-        }
         for (unsigned i = 1; i < a.size(); ++i) {
             carry = (carry && a[i-1]) || (carry && b[i-1]) || (a[i-1] && b[i-1]);
             result.push_back(carry ^ a[i] ^ b[i]);
@@ -1017,11 +957,18 @@ namespace dd {
         return result;
     }
 
-    void bdd_manager::bddv_shl(bddv &a) {
-        for (unsigned j = a.size(); j-- > 1; ) {
-            a[j] = a[j - 1];
+    bddv bdd_manager::mk_sub(bddv const& a, bddv const& b) {
+        SASSERT(a.size() == b.size());
+        bdd carry = mk_false();
+        bddv result(this);
+        if (a.size() > 0)
+            result.push_back(a[0] ^ b[0]);
+        for (unsigned i = 1; i < a.size(); ++i) {
+            // carry = (a[i-1] && b[i-1] && carry) || (!a[i-1] && (b[i-1] || carry));
+            carry = mk_ite(a[i-1], b[i-1] && carry, b[i-1] || carry);
+            result.push_back(carry ^ a[i] ^ b[i]);
         }
-        a[0] = mk_false();
+        return result;
     }
 
     bddv bdd_manager::mk_mul(bddv const& a, bddv const& b) {
@@ -1031,18 +978,16 @@ namespace dd {
         for (unsigned i = 0; i < b.size(); ++i) {
 #if 1
             bddv s = a_shifted;
-            for (unsigned j = i; j < b.size(); ++j) {
+            for (unsigned j = i; j < b.size(); ++j)
                 s[j] &= b[i];
-            }
             result = mk_add(result, s);
 #else
             // From BuDDy's bvec_mul. It seems to compute more intermediate BDDs than the version above?
             bddv added = mk_add(result, a_shifted);
-            for (unsigned j = 0; j < result.size(); ++j) {
+            for (unsigned j = 0; j < result.size(); ++j)
                 result[j] = mk_ite(b[i], added[j], result[j]);
-            }
 #endif
-            bddv_shl(a_shifted);
+            a_shifted.shl();
         }
         return result;
     }
@@ -1052,10 +997,9 @@ namespace dd {
         bddv a_shifted = a;
         bddv result = mk_zero(a.size());
         for (unsigned i = 0; i < a.size(); ++i) {
-            if (get_bit(i)) {
+            if (get_bit(i))
                 result = mk_add(result, a_shifted);
-            }
-            bddv_shl(a_shifted);
+            a_shifted.shl();
         }
         return result;
     }
@@ -1070,36 +1014,63 @@ namespace dd {
         return mk_mul(a, [b](unsigned i) { return b[i]; });
     }
 
+    void bdd_manager::mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem) {
+        SASSERT(a.size() == b.size());
+        quot = mk_zero(a.size());
+        // We work with double-size vectors
+        unsigned worksize = a.size() + b.size();
+        // Extend dividend to worksize
+        rem = a;
+        for (unsigned i = b.size(); i-- > 0; )
+            rem.push_back(mk_false());
+        // Shift divisor to the left
+        bddv div(this);
+        for (unsigned i = a.size(); i-- > 0; )
+            div.push_back(mk_false());
+        div.m_bits.append(b.m_bits);
+        // Keep shifting divisor to the right and subtract whenever it is
+        // smaller than the remaining value
+        for (int i = 0; i <= b.size(); ++i) {
+            bdd divLteRem = div <= rem;
+            bddv remSubDiv = rem - div;
+
+            for (int j = 0; j < worksize; ++j)
+                rem[j] = mk_ite(divLteRem, remSubDiv[j], rem[j]);
+
+            if (i > 0)
+                quot[b.size()-i] = divLteRem;
+
+            div.shr();
+        }
+        rem.m_bits.shrink(b.size());
+    }
+
     bddv bdd_manager::mk_num(rational const& n, unsigned num_bits) {
         SASSERT(n.is_int() && n >= 0 && n < rational::power_of_two(num_bits));
         bddv result(this);
-        for (unsigned i = 0; i < num_bits; ++i) {
+        for (unsigned i = 0; i < num_bits; ++i)
             result.push_back(n.get_bit(i) ? mk_true() : mk_false());
-        }
         return result;
     }
 
     bddv bdd_manager::mk_ones(unsigned num_bits) {
         bddv result(this);
-        for (unsigned i = 0; i < num_bits; ++i) {
+        for (unsigned i = 0; i < num_bits; ++i)
             result.push_back(mk_true());
-        }
         return result;
     }
 
     bddv bdd_manager::mk_zero(unsigned num_bits) {
         bddv result(this);
-        for (unsigned i = 0; i < num_bits; ++i) {
+        for (unsigned i = 0; i < num_bits; ++i)
             result.push_back(mk_false());
-        }
         return result;
     }
 
     bddv bdd_manager::mk_var(unsigned num_bits, unsigned const* vars) {
         bddv result(this);
-        for (unsigned i = 0; i < num_bits; ++i) {
+        for (unsigned i = 0; i < num_bits; ++i)
             result.push_back(mk_var(vars[i]));
-        }
         return result;
     }
 
@@ -1108,7 +1079,7 @@ namespace dd {
     }
 
     bool bdd_manager::is_constv(bddv const& a) {
-        for (bdd const& bit : a.bits)
+        for (bdd const& bit : a.bits())
             if (!is_const(bit.root))
                 return false;
         return true;
@@ -1119,9 +1090,8 @@ namespace dd {
         for (unsigned i = 0; i < a.size(); ++i) {
             bdd const &bit = a[i];
             SASSERT(is_const(bit.root));
-            if (bit.is_true()) {
+            if (bit.is_true())
                 result += rational::power_of_two(i);
-            }
         }
         return result;
     }
@@ -1131,8 +1101,18 @@ namespace dd {
     bdd bdd_manager::mk_sge(bddv const& a, bddv const& b) { return mk_sle(b, a); }
     bdd bdd_manager::mk_slt(bddv const& a, bddv const& b) { return mk_sle(a, b) && !mk_eq(a, b); }
     bdd bdd_manager::mk_sgt(bddv const& a, bddv const& b) { return mk_slt(b, a); }
-    bdd_manager::bddv bdd_manager::mk_sub(bddv const& a, bddv const& b);
-    void bdd_manager::mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem);
 #endif
+
+    void bddv::shl() {
+        for (unsigned j = size(); j-- > 1;)
+            m_bits[j] = m_bits[j-1];
+        m_bits[0] = m->mk_false();
+    }
+
+    void bddv::shr() {
+        for (unsigned j = 1; j < size(); ++j)
+            m_bits[j-1] = m_bits[j];
+        m_bits[size()-1] = m->mk_false();
+    }
 
 }
