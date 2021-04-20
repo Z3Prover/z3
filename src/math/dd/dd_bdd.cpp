@@ -1031,8 +1031,14 @@ namespace dd {
 
     void bdd_manager::bddv_shl(bddv &a) {
         for (unsigned j = a.size(); j-- > 1;)
-            a[j] = a[j - 1];
+            a[j] = a[j-1];
         a[0] = mk_false();
+    }
+
+    void bdd_manager::bddv_shr(bddv &a) {
+        for (unsigned j = 1; j < a.size(); ++j)
+            a[j-1] = a[j];
+        a[a.size()-1] = mk_false();
     }
 
     bddv bdd_manager::mk_mul(bddv const& a, bddv const& b) {
@@ -1076,6 +1082,37 @@ namespace dd {
     bddv bdd_manager::mk_mul(bddv const& a, bool_vector const& b) {
         SASSERT(a.size() == b.size());
         return mk_mul(a, [b](unsigned i) { return b[i]; });
+    }
+
+    void bdd_manager::mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem) {
+        SASSERT(a.size() == b.size());
+        quot = mk_zero(a.size());
+        // We work with double-size vectors
+        unsigned worksize = a.size() + b.size();
+        // Extend dividend to worksize
+        rem = a;
+        for (unsigned i = b.size(); i-- > 0; )
+            rem.push_back(mk_false());
+        // Shift divisor to the left
+        bddv div(this);
+        for (unsigned i = a.size(); i-- > 0; )
+            div.push_back(mk_false());
+        div.m_bits.append(b.m_bits);
+        // Keep shifting divisor to the right and subtract whenever it is
+        // smaller than the remaining value
+        for (int i = 0; i <= b.size(); ++i) {
+            bdd divLteRem = div <= rem;
+            bddv remSubDiv = rem - div;
+
+            for (int j = 0; j < worksize; ++j)
+                rem[j] = mk_ite(divLteRem, remSubDiv[j], rem[j]);
+
+            if (i > 0)
+                quot[b.size()-i] = divLteRem;
+
+            bddv_shr(div);
+        }
+        rem.m_bits.shrink(b.size());
     }
 
     bddv bdd_manager::mk_num(rational const& n, unsigned num_bits) {
@@ -1134,7 +1171,6 @@ namespace dd {
     bdd bdd_manager::mk_sge(bddv const& a, bddv const& b) { return mk_sle(b, a); }
     bdd bdd_manager::mk_slt(bddv const& a, bddv const& b) { return mk_sle(a, b) && !mk_eq(a, b); }
     bdd bdd_manager::mk_sgt(bddv const& a, bddv const& b) { return mk_slt(b, a); }
-    void bdd_manager::mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem);
 #endif
 
 }

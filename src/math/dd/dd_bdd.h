@@ -211,6 +211,7 @@ namespace dd {
         find_result find_num(BDD b, unsigned_vector bits, rational& val);
 
         void bddv_shl(bddv& a);
+        void bddv_shr(bddv& a);
         template <class GetBitFn> bddv mk_mul(bddv const& a, GetBitFn get_bit);
 
     public:

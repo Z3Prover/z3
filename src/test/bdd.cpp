@@ -117,6 +117,18 @@ public:
                 SASSERT((eq.is_true() || eq.is_false()) && (eq.is_true() == (n == k)));
                 eq = m.mk_eq(nv, kr);
                 SASSERT((eq.is_true() || eq.is_false()) && (eq.is_true() == (n == k)));
+
+                bddv quotv = m.mk_zero(num_bits);
+                bddv remv = m.mk_zero(num_bits);
+                nv.quot_rem(kv, quotv, remv);
+                if (k != 0) {
+                    SASSERT_EQ(quotv.to_val(), rational(n / k));
+                    SASSERT_EQ(remv.to_val(), rational(n % k));
+                } else {
+                    // std::cout << "n=" << n << "  k=" << k << "\n";
+                    // std::cout << "  quot: " << quotv.to_val() << "\n";
+                    // std::cout << "   rem: " << remv.to_val() << "\n";
+                }
             }
         }
     }
