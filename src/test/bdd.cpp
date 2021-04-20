@@ -86,6 +86,7 @@ namespace dd {
     }
 
     static void test_bddv_ops_on_constants() {
+        std::cout << "test_bddv_ops_on_constants\n";
         unsigned const num_bits = 4;
         rational const modulus = rational::power_of_two(num_bits);
         bdd_manager m(num_bits);
@@ -116,6 +117,7 @@ namespace dd {
     }
 
     static void test_bddv_eqfind_small() {
+        std::cout << "test_bddv_eqfind_small\n";
         bdd_manager m(4);
         unsigned_vector bits;
         bits.push_back(0);
@@ -130,6 +132,7 @@ namespace dd {
     }
 
     static void test_bddv_eqfind() {
+        std::cout << "test_bddv_eqfind\n";
         unsigned const num_bits = 4;
         bdd_manager m(num_bits);
 
@@ -176,6 +179,7 @@ namespace dd {
     }
 
     static void test_bddv_mul() {
+        std::cout << "test_bddv_mul\n";
         unsigned const num_bits = 4;
         bdd_manager m(num_bits);
 
@@ -225,7 +229,31 @@ namespace dd {
         SASSERT_EQ((x *  six).bits(), (x * rational(6)).bits());
     }
 
+    static void test_bddv_ule() {
+        std::cout << "test_bddv_ule\n";
+        unsigned const num_bits = 4;
+        bdd_manager m(num_bits);
+
+        unsigned_vector bits;
+        bits.push_back(0);
+        bits.push_back(1);
+        bits.push_back(2);
+        bits.push_back(3);
+
+        bddv const x = m.mk_var(bits);
+        bddv const three = m.mk_num(rational(3), num_bits);
+        bddv const four = m.mk_num(rational(4), num_bits);
+        bddv const five = m.mk_num(rational(5), num_bits);
+
+        SASSERT_EQ(x >= four && x < five, x == four);
+        SASSERT_EQ(four <= x && x < five, x == four);
+        SASSERT_EQ(three < x && x < five, x == four);
+        SASSERT_EQ(three < x && x <= four, x == four);
+        SASSERT_EQ(three <= x && x < five, x == four || x == three);
+    }
+
     static void test_int() {
+        std::cout << "test_int\n";
         unsigned const w = 3;  // bit width
         unsigned_vector bits;
         bits.push_back(0);
@@ -298,5 +326,6 @@ void tst_bdd() {
     dd::test_bddv_eqfind_small();
     dd::test_bddv_eqfind();
     dd::test_bddv_mul();
+    dd::test_bddv_ule();
     dd::test_int();
 }
