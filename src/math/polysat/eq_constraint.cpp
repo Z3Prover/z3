@@ -57,13 +57,13 @@ namespace polysat {
         if (try_narrow_with(q, s)) {
             rational val;
             switch (s.find_viable(other_var, val)) {
-            case dd::find_result::empty:
+            case dd::find_t::empty:
                 s.set_conflict(*this);
                 return false;
-            case dd::find_result::singleton:
+            case dd::find_t::singleton:
                 s.propagate(other_var, val, *this);
                 return false;
-            case dd::find_result::multiple:
+            case dd::find_t::multiple:
                 /* do nothing */
                 break;
             }
@@ -95,7 +95,7 @@ namespace polysat {
             pvar v = q.var();
             rational a = q.hi().val();
             rational b = q.lo().val();
-            bddv const& x = s.m_bdd.mk_var(s.sz2bits(s.size(v)));
+            bddv const& x = s.sz2bits(s.size(v)).var();
             bdd xs = (a * x + b == rational(0));
             s.intersect_viable(v, xs);
             s.push_cjust(v, this);

@@ -30,20 +30,18 @@ namespace polysat {
         return *m_pdd[sz];
     }
 
-    unsigned_vector const& solver::sz2bits(unsigned sz) {
+    dd::fdd const& solver::sz2bits(unsigned sz) {
         m_bits.reserve(sz + 1);
         auto* bits = m_bits[sz];
         if (!bits) {
-            m_bits.set(sz, alloc(unsigned_vector));
+            m_bits.set(sz, alloc(dd::fdd, m_bdd, sz));
             bits = m_bits[sz];
-            for (unsigned i = 0; i < sz; ++i)
-                bits->push_back(i);
         }
         return *bits;
     }
 
     bool solver::is_viable(pvar v, rational const& val) {
-        return m_viable[v].contains_num(val, sz2bits(size(v)));
+        return sz2bits(size(v)).contains(m_viable[v], val);
     }
 
     void solver::add_non_viable(pvar v, rational const& val) {
@@ -51,7 +49,7 @@ namespace polysat {
         TRACE("polysat", tout << "v" << v << " /= " << val << "\n";);
         SASSERT(is_viable(v, val));
         auto& bits = sz2bits(size(v));
-        intersect_viable(v, !m_bdd.mk_eq(bits, val));
+        intersect_viable(v, bits.var() != val);
     }
 
     void solver::intersect_viable(pvar v, bdd vals) {
@@ -61,8 +59,8 @@ namespace polysat {
             set_conflict(v);
     }
 
-    dd::find_result solver::find_viable(pvar v, rational & val) {
-        return m_viable[v].find_num(sz2bits(size(v)), val);
+    dd::find_t solver::find_viable(pvar v, rational & val) {
+        return sz2bits(size(v)).find(m_viable[v], val);
     }
     
     solver::solver(reslimit& lim): 
@@ -326,15 +324,15 @@ namespace polysat {
         IF_LOGGING(log_viable(v));
         rational val;
         switch (find_viable(v, val)) {
-        case dd::find_result::empty:
+        case dd::find_t::empty:
             LOG("Conflict: no value for pvar " << v);
             set_conflict(v);
             break;
-        case dd::find_result::singleton:
+        case dd::find_t::singleton:
             LOG("Propagation: pvar " << v << " := " << val << " (due to unique value)");
             assign_core(v, val, justification::propagation(m_level));
             break;
-        case dd::find_result::multiple:
+        case dd::find_t::multiple:
             LOG("Decision: pvar " << v << " := " << val);
             push_level();
             assign_core(v, val, justification::decision(m_level));
