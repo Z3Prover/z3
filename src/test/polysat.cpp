@@ -148,7 +148,7 @@ namespace polysat {
      */
     static void test_monot1() {
         scoped_solver s;
-	    auto bw = 5;
+        auto bw = 5;
 
         auto tb1 = s.var(s.add_var(bw));
         auto tb2 = s.var(s.add_var(bw));
@@ -179,13 +179,13 @@ namespace polysat {
 
         s.add_eq(elastic1 + a - elastic2);
 
-	    // tb2 = ((v * base2) / elastic2);
+        // tb2 = ((v * base2) / elastic2);
         s.add_eq((tb2 * elastic2) + rem3 - (v * base2));
 
-	    // quot4 = v / (elastic1 + a);
-	    s.add_eq((quot4 * (elastic1 + a)) + rem4 - v);
+        // quot4 = v / (elastic1 + a);
+        s.add_eq((quot4 * (elastic1 + a)) + rem4 - v);
 
-	    s.add_eq(quot4 + 1 - err);
+        s.add_eq(quot4 + 1 - err);
 
         s.add_ult(tb1, tb2);
         s.check();

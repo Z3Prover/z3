@@ -48,6 +48,7 @@ namespace polysat {
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
         scoped_ptr_vector<dd::fdd> m_bits;
         dd::bdd_manager          m_bdd;
+        fixplex<uint64_ext>      m_fixplex;
         dep_value_manager        m_value_manager;
         small_object_allocator   m_alloc;
         poly_dep_manager         m_dm;

@@ -339,7 +339,7 @@ public:
         bddv const& x = x_dom.var();
 
         vector<bdd> num;
-        for (unsigned n = 0; n < (1 << x_dom.num_bits()); ++n) {
+        for (unsigned n = 0; n < (1ul << x_dom.num_bits()); ++n) {
             num.push_back(x == rational(n));
             SASSERT(x_dom.contains(num[n], rational(n)));
             rational r;
@@ -359,7 +359,7 @@ public:
         SASSERT(old_levels != m.m_var2level);  // ensure that reorder actually did something.
 
         // Should still give the correct answer after reordering
-        for (unsigned n = 0; n < (1 << x_dom.num_bits()); ++n) {
+        for (unsigned n = 0; n < (1ul << x_dom.num_bits()); ++n) {
             SASSERT(x_dom.contains(num[n], rational(n)));
             rational r;
             SASSERT_EQ(x_dom.find(num[n], r), find_t::singleton);

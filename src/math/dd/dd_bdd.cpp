@@ -976,17 +976,10 @@ namespace dd {
         bddv a_shifted = a;
         bddv result = mk_zero(a.size());
         for (unsigned i = 0; i < b.size(); ++i) {
-#if 1
             bddv s = a_shifted;
             for (unsigned j = i; j < b.size(); ++j)
                 s[j] &= b[i];
             result = mk_add(result, s);
-#else
-            // From BuDDy's bvec_mul. It seems to compute more intermediate BDDs than the version above?
-            bddv added = mk_add(result, a_shifted);
-            for (unsigned j = 0; j < result.size(); ++j)
-                result[j] = mk_ite(b[i], added[j], result[j]);
-#endif
             a_shifted.shl();
         }
         return result;
@@ -1014,31 +1007,40 @@ namespace dd {
         return mk_mul(a, [b](unsigned i) { return b[i]; });
     }
 
+    bddv bdd_manager::mk_concat(bddv const& a, bddv const& b) {
+        bddv result = a;
+        result.m_bits.append(b.m_bits);
+        return result;
+    }
+
+
+    /**
+     * Quotient remainder
+     * 
+     *  rem, div have size 2*|a| = worksize. 
+     * Initialization:
+     *  rem := a ++ false
+     *  div := false ++ b
+     */
     void bdd_manager::mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem) {
         SASSERT(a.size() == b.size());
         quot = mk_zero(a.size());
-        // We work with double-size vectors
         unsigned worksize = a.size() + b.size();
-        // Extend dividend to worksize
-        rem = a;
-        for (unsigned i = b.size(); i-- > 0; )
-            rem.push_back(mk_false());
-        // Shift divisor to the left
-        bddv div(this);
-        for (unsigned i = a.size(); i-- > 0; )
-            div.push_back(mk_false());
-        div.m_bits.append(b.m_bits);
+        rem = a.append(mk_zero(b.size()));
+        bddv div = mk_zero(a.size()).append(b);
+        //
         // Keep shifting divisor to the right and subtract whenever it is
         // smaller than the remaining value
-        for (int i = 0; i <= b.size(); ++i) {
+        //
+        for (unsigned i = 0; i <= b.size(); ++i) {
             bdd divLteRem = div <= rem;
             bddv remSubDiv = rem - div;
 
-            for (int j = 0; j < worksize; ++j)
+            for (unsigned j = 0; j < worksize; ++j)
                 rem[j] = mk_ite(divLteRem, remSubDiv[j], rem[j]);
 
             if (i > 0)
-                quot[b.size()-i] = divLteRem;
+                quot[b.size() - i] = divLteRem;
 
             div.shr();
         }
@@ -1105,14 +1107,14 @@ namespace dd {
 
     void bddv::shl() {
         for (unsigned j = size(); j-- > 1;)
-            m_bits[j] = m_bits[j-1];
+            m_bits[j] = m_bits[j - 1];
         m_bits[0] = m->mk_false();
     }
 
     void bddv::shr() {
         for (unsigned j = 1; j < size(); ++j)
-            m_bits[j-1] = m_bits[j];
-        m_bits[size()-1] = m->mk_false();
+            m_bits[j - 1] = m_bits[j];
+        m_bits[size() - 1] = m->mk_false();
     }
 
 }

@@ -251,6 +251,7 @@ namespace dd {
         bddv mk_mul(bddv const& a, bddv const& b);
         bddv mk_mul(bddv const& a, bool_vector const& b);
         bddv mk_mul(bddv const& a, rational const& val);
+        bddv mk_concat(bddv const& a, bddv const& b);
         void mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem);
         bool is_constv(bddv const& a);
         rational to_val(bddv const& a);
@@ -303,7 +304,7 @@ namespace dd {
         vector<bdd>  m_bits;
         bdd_manager* m;
 
-        bddv(vector<bdd> bits, bdd_manager* m): m_bits(bits), m(m) { SASSERT(m); }
+        bddv(vector<bdd> const& bits, bdd_manager* m): m_bits(bits), m(m) { SASSERT(m); }
         bddv(vector<bdd>&& bits, bdd_manager* m): m_bits(std::move(bits)), m(m) { SASSERT(m); }
 
         bddv(bdd_manager* m): m_bits(), m(m) { SASSERT(m); }
@@ -347,7 +348,7 @@ namespace dd {
         bddv operator*(bddv const& other) const { return m->mk_mul(*this, other); }
         bddv operator*(rational const& other) const { return m->mk_mul(*this, other); }
         bddv operator*(bool_vector const& other) const { return m->mk_mul(*this, other); }
-
+        bddv append(bddv const& other) const { return m->mk_concat(*this, other); }
         void quot_rem(bddv const& divisor, bddv& quot, bddv& rem) const { m->mk_quot_rem(*this, divisor, quot, rem); }
 
         bool is_const() const { return m->is_constv(*this); }
