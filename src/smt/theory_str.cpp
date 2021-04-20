@@ -8145,18 +8145,17 @@ namespace smt {
         ctx.get_assignments(assignments);
         bool axiomAdded = false;
         // collect all concats in context
-        for (expr_ref_vector::iterator it = assignments.begin(); it != assignments.end(); ++it) {
-            if (! ctx.is_relevant(*it)) {
+        for (auto const &it : assignments) {
+            if (! ctx.is_relevant(it)) {
                 continue;
             }
-            if (m.is_eq(*it)) {
-                collect_var_concat(*it, varSet, concatSet);
+            if (m.is_eq(it)) {
+                collect_var_concat(it, varSet, concatSet);
             }
         }
         // iterate each concat
         // if a concat doesn't have length info, check if the length of all leaf nodes can be resolved
-        for (std::set<expr*>::iterator it = concatSet.begin(); it != concatSet.end(); it++) {
-            expr * concat = *it;
+        for (auto const &concat : concatSet) {
             rational lenValue;
             expr_ref concatlenExpr (mk_strlen(concat), m) ;
             bool allLeafResolved = true;
@@ -8168,10 +8167,10 @@ namespace smt {
                     std::set<expr*> leafNodes;
                     get_unique_non_concat_nodes(concat, leafNodes);
                     expr_ref_vector l_items(m);
-                    for (std::set<expr*>::iterator leafIt = leafNodes.begin(); leafIt != leafNodes.end(); ++leafIt) {
+                    for (auto const &leafIt : leafNodes) {
                         rational leafLenValue;
-                        if (get_len_value(*leafIt, leafLenValue)) {
-                            expr_ref leafItLenExpr (mk_strlen(*leafIt), m);
+                        if (get_len_value(leafIt, leafLenValue)) {
+                            expr_ref leafItLenExpr (mk_strlen(leafIt), m);
                             expr_ref leafLenValueExpr (mk_int(leafLenValue), m);
                             expr_ref lcExpr (ctx.mk_eq_atom(leafItLenExpr, leafLenValueExpr), m);
                             l_items.push_back(lcExpr);
@@ -8193,8 +8192,7 @@ namespace smt {
         }
         // if no concat length is propagated, check the length of variables.
         if (! axiomAdded) {
-            for (std::set<expr*>::iterator it = varSet.begin(); it != varSet.end(); it++) {
-                expr * var = *it;
+            for (auto const &var : varSet) {
                 rational lenValue;
                 expr_ref varlen (mk_strlen(var), m) ;
                 if (! get_arith_value(varlen, lenValue)) {
@@ -8239,16 +8237,14 @@ namespace smt {
         if (opt_DeferEQCConsistencyCheck) {
             TRACE("str", tout << "performing deferred EQC consistency check" << std::endl;);
             std::set<enode*> eqc_roots;
-            for (ptr_vector<enode>::const_iterator it = ctx.begin_enodes(); it != ctx.end_enodes(); ++it) {
-                enode * e = *it;
+            for (auto const &e : ctx.enodes()) {
                 enode * root = e->get_root();
                 eqc_roots.insert(root);
             }
 
             bool found_inconsistency = false;
 
-            for (std::set<enode*>::iterator it = eqc_roots.begin(); it != eqc_roots.end(); ++it) {
-                enode * e = *it;
+            for (auto const &e : eqc_roots) {
                 app * a = e->get_expr();
                 if (!(a->get_sort() == u.str.mk_string_sort())) {
                     TRACE("str", tout << "EQC root " << mk_pp(a, m) << " not a string term; skipping" << std::endl;);
@@ -8300,12 +8296,10 @@ namespace smt {
 
         // enhancement: improved backpropagation of string constants into var=concat terms
         bool backpropagation_occurred = false;
-        for (std::map<expr*, std::map<expr*, int> >::iterator veqc_map_it = var_eq_concat_map.begin();
-             veqc_map_it != var_eq_concat_map.end(); ++veqc_map_it) {
-            expr * var = veqc_map_it->first;
-            for (std::map<expr*, int>::iterator concat_map_it = veqc_map_it->second.begin();
-                 concat_map_it != veqc_map_it->second.end(); ++concat_map_it) {
-                app * concat = to_app(concat_map_it->first);
+        for (auto const &veqc_map_it : var_eq_concat_map) {
+            expr * var = veqc_map_it.first;
+            for (auto const &concat_map_it : veqc_map_it.second) {
+                app * concat = to_app(concat_map_it.first);
                 expr * concat_lhs = concat->get_arg(0);
                 expr * concat_rhs = concat->get_arg(1);
                 // If the concat LHS and RHS both have a string constant in their EQC,
@@ -8376,24 +8370,18 @@ namespace smt {
         expr_ref_vector free_variables(m);
         std::set<expr*> unused_internal_variables;
         { // Z3str2 free variables check
-            std::map<expr*, int>::iterator itor = varAppearInAssign.begin();
-            for (; itor != varAppearInAssign.end(); ++itor) {
-                /*
-                  std::string vName = std::string(Z3_ast_to_string(ctx, itor->first));
-                  if (vName.length() >= 3 && vName.substr(0, 3) == "$$_")
-                  continue;
-                */
-                if (internal_variable_set.find(itor->first) != internal_variable_set.end()) {
+            for (auto const &itor : varAppearInAssign) {
+                if (internal_variable_set.find(itor.first) != internal_variable_set.end()) {
                     // this can be ignored, I think
-                    TRACE("str", tout << "free internal variable " << mk_pp(itor->first, m) << " ignored" << std::endl;);
+                    TRACE("str", tout << "free internal variable " << mk_pp(itor.first, m) << " ignored" << std::endl;);
                     continue;
                 }
                 bool hasEqcValue = false;
-                get_eqc_value(itor->first, hasEqcValue);
+                get_eqc_value(itor.first, hasEqcValue);
                 if (!hasEqcValue) {
-                    TRACE("str", tout << "found free variable " << mk_pp(itor->first, m) << std::endl;);
+                    TRACE("str", tout << "found free variable " << mk_pp(itor.first, m) << std::endl;);
                     needToAssignFreeVars = true;
-                    free_variables.push_back(itor->first);
+                    free_variables.push_back(itor.first);
                     // break;
                 } else {
                     // debug
@@ -8477,8 +8465,7 @@ namespace smt {
                     return FC_DONE;
                 } else {
                     TRACE("str", tout << "Assigning decoy values to free internal variables." << std::endl;);
-                    for (std::set<expr*>::iterator it = unused_internal_variables.begin(); it != unused_internal_variables.end(); ++it) {
-                        expr * var = *it;
+                    for (auto const &var : unused_internal_variables) {
                         expr_ref assignment(m.mk_eq(var, mk_string("**unused**")), m);
                         assert_axiom(assignment);
                     }
@@ -8503,11 +8490,11 @@ namespace smt {
 
         {
             TRACE("str", tout << "free var map (#" << freeVar_map.size() << "):" << std::endl;
-                  for (std::map<expr*, int>::iterator freeVarItor1 = freeVar_map.begin(); freeVarItor1 != freeVar_map.end(); freeVarItor1++) {
-                      expr * freeVar = freeVarItor1->first;
+                  for (auto const &freeVarItor1 : freeVar_map) {
+                      expr * freeVar = freeVarItor1.first;
                       rational lenValue;
                       bool lenValue_exists = get_len_value(freeVar, lenValue);
-                      tout << mk_pp(freeVar, m) << " [depCnt = " << freeVarItor1->second << ", length = "
+                      tout << mk_pp(freeVar, m) << " [depCnt = " << freeVarItor1.second << ", length = "
                            << (lenValue_exists ? lenValue.to_string() : "?")
                            << "]" << std::endl;
                   }
