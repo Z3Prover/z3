@@ -1872,11 +1872,14 @@ public:
 
 app* theory_seq::get_ite_value(expr* e) {
     expr* e1, *e2, *e3;
-    while (m.is_ite(e, e1, e2, e3)) {
-        if (get_root(e2) == get_root(e)) {
+    while (m.is_ite(e, e1, e2, e3)) {        
+        if (!ctx.e_internalized(e))
+            break;
+        enode* r = ctx.get_enode(e)->get_root();
+        if (ctx.get_enode(e2)->get_root() == r) {
             e = e2;
         }
-        else if (get_root(e3) == get_root(e)) {
+        else if (ctx.get_enode(e3)->get_root() == r) {
             e = e3;
         }
         else {
