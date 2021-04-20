@@ -106,7 +106,7 @@ namespace polysat {
         m_vars[base_var].m_base2row = r.id();
         m_vars[base_var].m_is_base = true;
         m_vars[base_var].m_base_coeff = base_coeff;
-        m_vars[base_vars].m_value = value / base_coeff;
+        m_vars[base_var].m_value = value / base_coeff;
         // TBD: record when base_coeff does not divide value
         add_patch(base_var);
         if (!m_base_vars.empty()) {
