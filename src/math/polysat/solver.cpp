@@ -18,6 +18,7 @@ Author:
 
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
+#include "math/polysat/fixplex_def.h"
 
 namespace polysat {
 
@@ -69,6 +70,8 @@ namespace polysat {
         m_bdd(1000),
         m_dm(m_value_manager, m_alloc),
         m_free_vars(m_activity) {
+
+        fixplex<uint64_ext> s(m_lim);
     }
 
     solver::~solver() {}

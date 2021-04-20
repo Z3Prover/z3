@@ -10,4 +10,5 @@ z3_add_component(polysat
   COMPONENT_DEPENDENCIES
     util
     dd
+    simplex
 )

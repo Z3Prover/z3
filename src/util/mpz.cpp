@@ -84,6 +84,13 @@ inline uint32_t _trailing_zeros32(uint32_t x) {
 #endif
 #endif
 
+unsigned trailing_zeros(uint32_t x) {
+    return static_cast<unsigned>(_trailing_zeros32(x));
+}
+
+unsigned trailing_zeros(uint64_t x) {
+    return static_cast<unsigned>(_trailing_zeros64(x));
+}
 
 #define _bit_min(x, y) (y + ((x - y) & ((int)(x - y) >> 31)))
 #define _bit_max(x, y) (x - ((x - y) & ((int)(x - y) >> 31)))

@@ -25,6 +25,7 @@ Author:
 #include "math/polysat/ule_constraint.h"
 #include "math/polysat/justification.h"
 #include "math/polysat/trail.h"
+#include "math/polysat/fixplex.h"
 
 namespace polysat {
 

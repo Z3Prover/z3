@@ -201,6 +201,16 @@ namespace simplex {
         row_iterator row_begin(row const& r) { return row_iterator(m_rows[r.id()], true); }
         row_iterator row_end(row const& r) { return row_iterator(m_rows[r.id()], false); }
 
+        struct row_entries_t {
+            sparse_matrix& m;
+            row const& r;
+            row_entries_t(sparse_matrix & m, row const& r): m(m), r(r) {}
+            row_iterator begin() { return m.row_begin(r); }
+            row_iterator end() { return m.row_end(r); }
+        };
+
+        row_entries_t row_entries(row const& r) { return row_entries_t(*this, r); }
+
         unsigned column_size(var_t v) const { return m_columns[v].size(); }
 
         class col_iterator {
