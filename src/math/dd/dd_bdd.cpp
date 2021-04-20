@@ -1014,6 +1014,20 @@ namespace dd {
         return result;
     }
 
+    bddv bdd_manager::mk_sub(bddv const& a, bddv const& b) {
+        SASSERT(a.size() == b.size());
+        bdd carry = mk_false();
+        bddv result(this);
+        if (a.size() > 0)
+            result.push_back(a[0] ^ b[0]);
+        for (unsigned i = 1; i < a.size(); ++i) {
+            // carry = (a[i-1] && b[i-1] && carry) || (!a[i-1] && (b[i-1] || carry));
+            carry = mk_ite(a[i-1], b[i-1] && carry, b[i-1] || carry);
+            result.push_back(carry ^ a[i] ^ b[i]);
+        }
+        return result;
+    }
+
     void bdd_manager::bddv_shl(bddv &a) {
         for (unsigned j = a.size(); j-- > 1;)
             a[j] = a[j - 1];
@@ -1119,7 +1133,6 @@ namespace dd {
     bdd bdd_manager::mk_sge(bddv const& a, bddv const& b) { return mk_sle(b, a); }
     bdd bdd_manager::mk_slt(bddv const& a, bddv const& b) { return mk_sle(a, b) && !mk_eq(a, b); }
     bdd bdd_manager::mk_sgt(bddv const& a, bddv const& b) { return mk_slt(b, a); }
-    bdd_manager::bddv bdd_manager::mk_sub(bddv const& a, bddv const& b);
     void bdd_manager::mk_quot_rem(bddv const& a, bddv const& b, bddv& quot, bddv& rem);
 #endif
 

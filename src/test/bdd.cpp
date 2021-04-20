@@ -110,6 +110,7 @@ public:
                 bddv const nv = m.mk_num(nr, num_bits);
                 bddv const kv = m.mk_num(kr, num_bits);
                 SASSERT_EQ((nv + kv).to_val(), (nr + kr) % modulus);
+                SASSERT_EQ((nv - kv).to_val(), (nr - kr + modulus) % modulus);
                 SASSERT_EQ((nv * kr).to_val(), (nr * kr) % modulus);
                 SASSERT_EQ((nv * kv).to_val(), (nr * kr) % modulus);
                 bdd eq = m.mk_eq(nv, kv);
@@ -180,6 +181,20 @@ public:
             SASSERT_EQ(res, find_result::singleton);
             SASSERT_EQ(r, rational(5));
         }
+    }
+
+    static void test_bddv_addsub() {
+        std::cout << "test_bddv_addsub\n";
+        unsigned_vector bits;
+        bits.push_back(0);
+        bits.push_back(1);
+        bits.push_back(2);
+        bdd_manager m(bits.size());
+        bddv const x = m.mk_var(bits);
+        SASSERT_EQ(x - rational(3) == rational(2), x == rational(5));
+        SASSERT_EQ(x + rational(3) == rational(5), x == rational(2));
+        SASSERT_EQ(x - rational(3) == rational(6), x == rational(1));
+        SASSERT_EQ(x + rational(3) == rational(2), x == rational(7));
     }
 
     static void test_bddv_mul() {
@@ -372,6 +387,7 @@ void tst_bdd() {
     dd::test_bdd::test_bddv_ops_on_constants();
     dd::test_bdd::test_bddv_eqfind_small();
     dd::test_bdd::test_bddv_eqfind();
+    dd::test_bdd::test_bddv_addsub();
     dd::test_bdd::test_bddv_mul();
     dd::test_bdd::test_bddv_ule();
     dd::test_bdd::test_int();

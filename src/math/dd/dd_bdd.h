@@ -362,6 +362,8 @@ namespace dd {
         bddv operator+(bddv const& other) const { return m->mk_add(*this, other); }
         bddv operator+(rational const& other) const { return m->mk_add(*this, m->mk_num(other, size())); }
         bddv operator-(bddv const& other) const { return m->mk_sub(*this, other); }
+        bddv operator-(rational const& other) const { return m->mk_sub(*this, m->mk_num(other, size())); }
+        bddv rev_sub(rational const& other) const { return m->mk_sub(m->mk_num(other, size()), *this); }
         bddv operator*(bddv const& other) const { return m->mk_mul(*this, other); }
         bddv operator*(rational const& other) const { return m->mk_mul(*this, other); }
         bddv operator*(bool_vector const& other) const { return m->mk_mul(*this, other); }
@@ -379,6 +381,8 @@ namespace dd {
     inline bdd operator==(rational const& r, bddv const& a) { return a == r; }
     inline bdd operator!=(rational const& r, bddv const& a) { return a != r; }
     inline bddv operator*(rational const& r, bddv const& a) { return a * r; }
+    inline bddv operator+(rational const& r, bddv const& a) { return a + r; }
+    inline bddv operator-(rational const& r, bddv const& a) { return a.rev_sub(r); }
 
 }
 
