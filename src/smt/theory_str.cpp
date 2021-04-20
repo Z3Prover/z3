@@ -7186,8 +7186,6 @@ namespace smt {
         }
     }
 
-    // NOTE: this function used to take an argument `Z3_ast node`;
-    // it was not used and so was removed from the signature
     void theory_str::classify_ast_by_type_in_positive_context(std::map<expr*, int> & varMap,
                                                               std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap) {
 
@@ -7195,8 +7193,7 @@ namespace smt {
         expr_ref_vector assignments(m);
         ctx.get_assignments(assignments);
 
-        for (expr_ref_vector::iterator it = assignments.begin(); it != assignments.end(); ++it) {
-            expr * argAst = *it;
+        for (auto const &argAst : assignments) {
             // the original code jumped through some hoops to check whether the AST node
             // is a function, then checked whether that function is "interesting".
             // however, the only thing that's considered "interesting" is an equality predicate.
@@ -7245,8 +7242,7 @@ namespace smt {
                                    std::map<expr*, std::map<expr*, int> > & var_eq_concat_map,
                                    std::map<expr*, std::map<expr*, int> > & var_eq_unroll_map,
                                    std::map<expr*, expr*> & concat_eq_constStr_map,
-                                   std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map,
-                                   std::map<expr*, std::set<expr*> > & unrollGroupMap) {
+                                   std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map) {
 #ifdef _TRACE
         ast_manager & mgr = get_manager();
         {
@@ -7338,37 +7334,6 @@ namespace smt {
             tout << std::endl;
         }
 
-        {
-            tout << "(6) eq unrolls:" << std::endl;
-            for (auto const &itor5 : unrollGroupMap) {
-                tout << "    * ";
-                for (auto const &i_itor : itor5.second) {
-                    tout << mk_pp(i_itor, mgr) << ",  ";
-                }
-                tout << std::endl;
-            }
-            tout << std::endl;
-        }
-
-        {
-            tout << "(7) unroll = concats:" << std::endl;
-            for (auto const &itor5 : unrollGroupMap) {
-                tout << "    * ";
-                expr * unroll = itor5.first;
-                tout << mk_pp(unroll, mgr) << std::endl;
-                enode * e_curr = ctx.get_enode(unroll);
-                enode * e_curr_end = e_curr;
-                do {
-                    app * curr = e_curr->get_expr();
-                    if (u.str.is_concat(curr)) {
-                        tout << "      >>> " << mk_pp(curr, mgr) << std::endl;
-                    }
-                    e_curr = e_curr->get_next();
-                } while (e_curr != e_curr_end);
-                tout << std::endl;
-            }
-            tout << std::endl;
-        }
 #else
         return;
 #endif // _TRACE
@@ -7388,7 +7353,7 @@ namespace smt {
      *        > should split the unroll function so that var2 and var3 are bounded by new unrolls
      */
     int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr*, int> & freeVarMap,
-                                     std::map<expr*, std::set<expr*> > & unrollGroupMap, std::map<expr*, std::map<expr*, int> > & var_eq_concat_map) {
+                                      std::map<expr*, std::map<expr*, int> > & var_eq_concat_map) {
         std::map<expr*, int> concatMap;
         std::map<expr*, int> unrollMap;
         std::map<expr*, expr*> aliasIndexMap;
@@ -7567,7 +7532,7 @@ namespace smt {
         // print some debugging info
         TRACE("str", trace_ctx_dep(tout, aliasIndexMap, var_eq_constStr_map,
                                    var_eq_concat_map, var_eq_unroll_map,
-                                   concat_eq_constStr_map, concat_eq_concat_map, unrollGroupMap););
+                                   concat_eq_constStr_map, concat_eq_concat_map););
 
         /*
         if (!contain_pair_bool_map.empty()) {
@@ -8345,9 +8310,8 @@ namespace smt {
         // run dependence analysis to find free string variables
         std::map<expr*, int> varAppearInAssign;
         std::map<expr*, int> freeVar_map;
-        std::map<expr*, std::set<expr*> > unrollGroup_map;
         std::map<expr*, std::map<expr*, int> > var_eq_concat_map;
-        int conflictInDep = ctx_dep_analysis(varAppearInAssign, freeVar_map, unrollGroup_map, var_eq_concat_map);
+        int conflictInDep = ctx_dep_analysis(varAppearInAssign, freeVar_map, var_eq_concat_map);
         if (conflictInDep == -1) {
             m_stats.m_solved_by = 2;
             return FC_DONE;
@@ -8554,88 +8518,7 @@ namespace smt {
                }
                );
 
-        // -----------------------------------------------------------
-        // variables in freeVar are those not bounded by Concats
-        // classify variables in freeVarMap:
-        // (1) freeVar = unroll(r1, t1)
-        // (2) vars are not bounded by either concat or unroll
-        // -----------------------------------------------------------
-        std::map<expr*, std::set<expr*> > fv_unrolls_map;
-
-        // erase var bounded by an unroll function from freeVar_map
-        for (std::map<expr*, std::set<expr*> >::iterator fvIt3 = fv_unrolls_map.begin();
-             fvIt3 != fv_unrolls_map.end(); fvIt3++) {
-            expr * var = fvIt3->first;
-            TRACE("str", tout << "erase free variable " << mk_pp(var, m) << " from freeVar_map, it is bounded by an Unroll" << std::endl;);
-            freeVar_map.erase(var);
-        }
-
-        // collect the case:
-        //   * Concat(X, Y) = unroll(r1, t1) /\ Concat(X, Y) = unroll(r2, t2)
-        //     concatEqUnrollsMap[Concat(X, Y)] = {unroll(r1, t1), unroll(r2, t2)}
-
-        std::map<expr*, std::set<expr*> > concatEqUnrollsMap;
-        for (std::map<expr*, std::set<expr*> >::iterator urItor = unrollGroup_map.begin();
-             urItor != unrollGroup_map.end(); urItor++) {
-            expr * unroll = urItor->first;
-            expr * curr = unroll;
-            do {
-                if (u.str.is_concat(to_app(curr))) {
-                    concatEqUnrollsMap[curr].insert(unroll);
-                    concatEqUnrollsMap[curr].insert(unrollGroup_map[unroll].begin(), unrollGroup_map[unroll].end());
-                }
-                enode * e_curr = ctx.get_enode(curr);
-                curr = e_curr->get_next()->get_expr();
-                // curr = get_eqc_next(curr);
-            } while (curr != unroll);
-        }
-
-        std::map<expr*, std::set<expr*> > concatFreeArgsEqUnrollsMap;
-        std::set<expr*> fvUnrollSet;
-        for (std::map<expr*, std::set<expr*> >::iterator concatItor = concatEqUnrollsMap.begin();
-             concatItor != concatEqUnrollsMap.end(); concatItor++) {
-            expr * concat = concatItor->first;
-            expr * concatArg1 = to_app(concat)->get_arg(0);
-            expr * concatArg2 = to_app(concat)->get_arg(1);
-            bool arg1Bounded = false;
-            bool arg2Bounded = false;
-            // arg1
-            if (variable_set.find(concatArg1) != variable_set.end()) {
-                if (freeVar_map.find(concatArg1) == freeVar_map.end()) {
-                    arg1Bounded = true;
-                } else {
-                    fvUnrollSet.insert(concatArg1);
-                }
-            } else if (u.str.is_concat(to_app(concatArg1))) {
-                if (concatEqUnrollsMap.find(concatArg1) == concatEqUnrollsMap.end()) {
-                    arg1Bounded = true;
-                }
-            }
-            // arg2
-            if (variable_set.find(concatArg2) != variable_set.end()) {
-                if (freeVar_map.find(concatArg2) == freeVar_map.end()) {
-                    arg2Bounded = true;
-                } else {
-                    fvUnrollSet.insert(concatArg2);
-                }
-            } else if (u.str.is_concat(to_app(concatArg2))) {
-                if (concatEqUnrollsMap.find(concatArg2) == concatEqUnrollsMap.end()) {
-                    arg2Bounded = true;
-                }
-            }
-            if (!arg1Bounded && !arg2Bounded) {
-                concatFreeArgsEqUnrollsMap[concat].insert(
-                    concatEqUnrollsMap[concat].begin(),
-                    concatEqUnrollsMap[concat].end());
-            }
-        }
-        for (std::set<expr*>::iterator vItor = fvUnrollSet.begin(); vItor != fvUnrollSet.end(); vItor++) {
-            TRACE("str", tout << "remove " << mk_pp(*vItor, m) << " from freeVar_map" << std::endl;);
-            freeVar_map.erase(*vItor);
-        }
-
         // Assign free variables
-        std::set<expr*> fSimpUnroll;
 
         {
             TRACE("str", tout << "free var map (#" << freeVar_map.size() << "):" << std::endl;

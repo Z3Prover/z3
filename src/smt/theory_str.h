@@ -669,15 +669,14 @@ protected:
     void check_consistency_contains(expr * e, bool is_true);
 
     int ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr*, int> & freeVarMap,
-            std::map<expr*, std::set<expr*> > & unrollGroupMap, std::map<expr*, std::map<expr*, int> > & var_eq_concat_map);
+            std::map<expr*, std::map<expr*, int> > & var_eq_concat_map);
     void trace_ctx_dep(std::ofstream & tout,
             std::map<expr*, expr*> & aliasIndexMap,
             std::map<expr*, expr*> & var_eq_constStr_map,
             std::map<expr*, std::map<expr*, int> > & var_eq_concat_map,
             std::map<expr*, std::map<expr*, int> > & var_eq_unroll_map,
             std::map<expr*, expr*> & concat_eq_constStr_map,
-            std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map,
-            std::map<expr*, std::set<expr*> > & unrollGroupMap);
+            std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map);
 
     bool term_appears_as_subterm(expr * needle, expr * haystack);
     void classify_ast_by_type(expr * node, std::map<expr*, int> & varMap,
