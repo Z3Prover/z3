@@ -873,7 +873,7 @@ namespace z3 {
         /**
            \brief Return true if this expression is an fpa and is inf
         */
-        bool is_inf() const {
+        expr is_inf() const {
             assert(is_fpa());
             Z3_ast r = Z3_mk_fpa_is_infinite(ctx(), m_ast);
             check_error();
@@ -883,7 +883,7 @@ namespace z3 {
         /**
            \brief Return true if this expression is an fpa and is NaN
         */
-        bool is_nan() const {
+        expr is_nan() const {
             assert(is_fpa());
             Z3_ast r = Z3_mk_fpa_is_nan(ctx(), m_ast);
             check_error();
@@ -893,7 +893,7 @@ namespace z3 {
         /**
            \brief Convert this fpa into an IEEE BV
         */
-        bool to_ieee_bv() const {
+        expr to_ieee_bv() const {
             assert(is_fpa());
             Z3_ast r = Z3_mk_fpa_to_ieee_bv(ctx(), m_ast),
             check_error();
