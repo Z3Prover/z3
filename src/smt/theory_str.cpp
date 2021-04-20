@@ -5015,7 +5015,6 @@ namespace smt {
                     }
                 }
 
-                //for (keysItor2 = contain_pair_idx_map[n2].begin(); keysItor2 != contain_pair_idx_map[n2].end(); keysItor2++) {
                 for (auto const& key2 : contain_pair_idx_map[n2]) {
                     // keysItor2 is on set {<.., n2>, ..., <n2, ...>, ...}
                     //std::pair<expr*, expr*> key2 = *keysItor2;
@@ -5112,11 +5111,7 @@ namespace smt {
                                 // * key1.first = key2.first
                                 //   check eqc(key1.second) and eqc(key2.second)
                                 // -----------------------------------------------------------
-                                //expr_ref_vector::iterator eqItorSub1 = subAst1Eqc.begin();
-                                //for (; eqItorSub1 != subAst1Eqc.end(); eqItorSub1++) {
                                 for (auto eqSubVar1 : subAst1Eqc) {
-                                    //expr_ref_vector::iterator eqItorSub2 = subAst2Eqc.begin();
-                                    //for (; eqItorSub2 != subAst2Eqc.end(); eqItorSub2++) {
                                     for (auto eqSubVar2 : subAst2Eqc) {
                                         // ------------
                                         // key1.first = key2.first /\ containPairBoolMap[<eqc(key1.second), eqc(key2.second)>]
@@ -5532,19 +5527,16 @@ namespace smt {
     void theory_str::print_grounded_concat(expr * node, std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap) {
         TRACE("str", tout << mk_pp(node, get_manager()) << std::endl;);
         if (groundedMap.find(node) != groundedMap.end()) {
-            std::map<std::vector<expr*>, std::set<expr*> >::iterator itor = groundedMap[node].begin();
-            for (; itor != groundedMap[node].end(); ++itor) {
+            for (auto const &itor : groundedMap[node]) {
                 TRACE("str",
                       tout << "\t[grounded] ";
-                      std::vector<expr*>::const_iterator vIt = itor->first.begin();
-                      for (; vIt != itor->first.end(); ++vIt) {
-                          tout << mk_pp(*vIt, get_manager()) << ", ";
+                      for (auto const &vIt : itor.first) {
+                          tout << mk_pp(vIt, get_manager()) << ", ";
                       }
                       tout << std::endl;
                       tout << "\t[condition] ";
-                      std::set<expr*>::iterator sIt = itor->second.begin();
-                      for (; sIt != itor->second.end(); sIt++) {
-                          tout << mk_pp(*sIt, get_manager()) << ", ";
+                      for (auto const &sIt : itor.second) {
+                          tout << mk_pp(sIt, get_manager()) << ", ";
                       }
                       tout << std::endl;
                       );
@@ -5659,12 +5651,9 @@ namespace smt {
                                        std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap) {
 
         ast_manager & m = get_manager();
-        std::map<std::vector<expr*>, std::set<expr*> >::iterator itorStr = groundedMap[strDeAlias].begin();
-        std::map<std::vector<expr*>, std::set<expr*> >::iterator itorSubStr;
-        for (; itorStr != groundedMap[strDeAlias].end(); itorStr++) {
-            itorSubStr = groundedMap[subStrDeAlias].begin();
-            for (; itorSubStr != groundedMap[subStrDeAlias].end(); itorSubStr++) {
-                bool contain = is_partial_in_grounded_concat(itorStr->first, itorSubStr->first);
+        for (auto const &itorStr : groundedMap[strDeAlias]) {
+            for (auto const &itorSubStr : groundedMap[subStrDeAlias]) {
+                bool contain = is_partial_in_grounded_concat(itorStr.first, itorSubStr.first);
                 if (contain) {
                     expr_ref_vector litems(m);
                     if (str != strDeAlias) {
@@ -5674,15 +5663,11 @@ namespace smt {
                         litems.push_back(ctx.mk_eq_atom(subStr, subStrDeAlias));
                     }
 
-                    //litems.insert(itorStr->second.begin(), itorStr->second.end());
-                    //litems.insert(itorSubStr->second.begin(), itorSubStr->second.end());
-                    for (std::set<expr*>::const_iterator i1 = itorStr->second.begin();
-                         i1 != itorStr->second.end(); ++i1) {
-                        litems.push_back(*i1);
+                    for (auto const &i1: itorStr.second) {
+                        litems.push_back(i1);
                     }
-                    for (std::set<expr*>::const_iterator i1 = itorSubStr->second.begin();
-                         i1 != itorSubStr->second.end(); ++i1) {
-                        litems.push_back(*i1);
+                    for (auto const &i1 : itorSubStr.second) {
+                        litems.push_back(i1);
                     }
 
                     expr_ref implyR(boolVar, m);
