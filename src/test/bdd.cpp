@@ -1,6 +1,10 @@
 #include "math/dd/dd_bdd.h"
 
 namespace dd {
+
+class test_bdd {
+public:
+
     static void test1() {
         bdd_manager m(20);
         bdd v0 = m.mk_var(0);
@@ -270,7 +274,7 @@ namespace dd {
 
         vector<bdd> num;
         for (unsigned n = 0; n < (1<<w); ++n)
-            num.push_back(m.mk_eq(x, rational(n)));
+            num.push_back(x == rational(n));
 
         for (unsigned k = 0; k < (1 << w); ++k) {
             for (unsigned n = 0; n < (1 << w); ++n) {
@@ -314,18 +318,62 @@ namespace dd {
         bdd expected = m.mk_eq(x4, rational(2)) || m.mk_eq(x4, rational(6)) || m.mk_eq(x4, rational(10)) || m.mk_eq(x4, rational(14));
         SASSERT(mk_affine(rational(12), x4, rational(8)) == expected);
     }
+
+    static void test_int_reorder() {
+        std::cout << "test_int_reorder\n";
+        unsigned_vector bits;
+        bits.push_back(0);
+        bits.push_back(1);
+        bits.push_back(2);
+        bits.push_back(3);
+        bdd_manager m(bits.size());
+
+        bddv const x = m.mk_var(bits);
+
+        vector<bdd> num;
+        for (unsigned n = 0; n < (1 << bits.size()); ++n) {
+            num.push_back(x == rational(n));
+            SASSERT(num[n].contains_num(rational(n), bits));
+            rational r;
+            SASSERT_EQ(num[n].find_num(bits, r), find_result::singleton);
+            SASSERT_EQ(r, rational(n));
+        }
+
+        // need something extra to skew costs and trigger a reorder
+        bdd atleast3 = (x >= rational(3));
+        SASSERT(atleast3.contains_num(rational(3), bits));
+
+        auto const old_levels = m.m_var2level;
+        std::cout << "old levels: " << old_levels << "\n";
+        m.gc();
+        m.try_reorder();
+        std::cout << "new levels: " << m.m_var2level << "\n";
+        SASSERT(old_levels != m.m_var2level);  // ensure that reorder actually did something.
+
+        // Should still give the correct answer after reordering
+        for (unsigned n = 0; n < (1 << bits.size()); ++n) {
+            SASSERT(num[n].contains_num(rational(n), bits));
+            rational r;
+            SASSERT_EQ(num[n].find_num(bits, r), find_result::singleton);
+            SASSERT_EQ(r, rational(n));
+        }
+    }
+
+};
+
 }
 
 void tst_bdd() {
-    dd::test1();
-    dd::test2();
-    dd::test3();
-    dd::test4();
-    dd::test_xor();
-    dd::test_bddv_ops_on_constants();
-    dd::test_bddv_eqfind_small();
-    dd::test_bddv_eqfind();
-    dd::test_bddv_mul();
-    dd::test_bddv_ule();
-    dd::test_int();
+    dd::test_bdd::test1();
+    dd::test_bdd::test2();
+    dd::test_bdd::test3();
+    dd::test_bdd::test4();
+    dd::test_bdd::test_xor();
+    dd::test_bdd::test_bddv_ops_on_constants();
+    dd::test_bdd::test_bddv_eqfind_small();
+    dd::test_bdd::test_bddv_eqfind();
+    dd::test_bdd::test_bddv_mul();
+    dd::test_bdd::test_bddv_ule();
+    dd::test_bdd::test_int();
+    dd::test_bdd::test_int_reorder();
 }

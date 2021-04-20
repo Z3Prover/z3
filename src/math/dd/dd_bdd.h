@@ -27,6 +27,7 @@ namespace dd {
 
     class bdd;
     class bddv;
+    class test_bdd;
 
     enum class find_result { empty, singleton, multiple };
     std::ostream& operator<<(std::ostream& out, find_result x);
@@ -34,6 +35,7 @@ namespace dd {
     class bdd_manager {
         friend bdd;
         friend bddv;
+        friend test_bdd;
 
         typedef unsigned BDD;
 
@@ -341,6 +343,10 @@ namespace dd {
         bdd operator>=(bddv const& other) const { return m->mk_uge(*this, other); }  ///< unsigned comparison
         bdd operator< (bddv const& other) const { return m->mk_ult(*this, other); }  ///< unsigned comparison
         bdd operator> (bddv const& other) const { return m->mk_ugt(*this, other); }  ///< unsigned comparison
+        bdd operator<=(rational const& other) const { return m->mk_ule(*this, m->mk_num(other, size())); }  ///< unsigned comparison
+        bdd operator>=(rational const& other) const { return m->mk_uge(*this, m->mk_num(other, size())); }  ///< unsigned comparison
+        bdd operator< (rational const& other) const { return m->mk_ult(*this, m->mk_num(other, size())); }  ///< unsigned comparison
+        bdd operator> (rational const& other) const { return m->mk_ugt(*this, m->mk_num(other, size())); }  ///< unsigned comparison
 
         /* signed comparison operators */
         bdd sle(bddv const& other) const { return m->mk_sle(*this, other); }
@@ -366,6 +372,12 @@ namespace dd {
         rational to_val() const { return m->to_val(*this); }
     };
 
+    inline bdd operator<=(rational const& r, bddv const& a) { return a >= r; }  ///< unsigned comparison
+    inline bdd operator>=(rational const& r, bddv const& a) { return a <= r; }  ///< unsigned comparison
+    inline bdd operator< (rational const& r, bddv const& a) { return a > r; }  ///< unsigned comparison
+    inline bdd operator> (rational const& r, bddv const& a) { return a < r; }  ///< unsigned comparison
+    inline bdd operator==(rational const& r, bddv const& a) { return a == r; }
+    inline bdd operator!=(rational const& r, bddv const& a) { return a != r; }
     inline bddv operator*(rational const& r, bddv const& a) { return a * r; }
 
 }
