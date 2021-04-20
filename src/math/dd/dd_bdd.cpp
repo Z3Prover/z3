@@ -606,10 +606,10 @@ namespace dd {
         if (is_true(a)) return b;
         if (is_false(a)) return c;
         if (b == c) return b;
-        if (is_true(b)) return apply(a, c, bdd_or_op);
-        if (is_false(c)) return apply(a, b, bdd_and_op);
-        if (is_false(b)) return apply(mk_not_rec(a), c, bdd_and_op);
-        if (is_true(c)) return apply(mk_not_rec(a), b, bdd_or_op);
+        if (is_true(b)) return apply_rec(a, c, bdd_or_op);
+        if (is_false(c)) return apply_rec(a, b, bdd_and_op);
+        if (is_false(b)) return apply_rec(mk_not_rec(a), c, bdd_and_op);
+        if (is_true(c)) return apply_rec(mk_not_rec(a), b, bdd_or_op);
         SASSERT(!is_const(a) && !is_const(b) && !is_const(c));
         op_entry * e1 = pop_entry(a, b, c);
         op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
