@@ -219,10 +219,10 @@ namespace dd {
             SASSERT((b && (x != rational(0))) == (x == rational(8)));
         }
 
-        SASSERT_EQ((x * zero).get_bits(), (x * rational(0)).get_bits());
-        SASSERT_EQ((x *  one).get_bits(), (x * rational(1)).get_bits());
-        SASSERT_EQ((x * five).get_bits(), (x * rational(5)).get_bits());
-        SASSERT_EQ((x *  six).get_bits(), (x * rational(6)).get_bits());
+        SASSERT_EQ((x * zero).bits(), (x * rational(0)).bits());
+        SASSERT_EQ((x *  one).bits(), (x * rational(1)).bits());
+        SASSERT_EQ((x * five).bits(), (x * rational(5)).bits());
+        SASSERT_EQ((x *  six).bits(), (x * rational(6)).bits());
     }
 
     static void test_int() {

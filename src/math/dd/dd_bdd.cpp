@@ -1098,7 +1098,7 @@ namespace dd {
     }
 
     bool bdd_manager::is_constv(bddv const& a) {
-        for (bdd const& bit : a.bits)
+        for (bdd const& bit : a.bits())
             if (!is_const(bit.root))
                 return false;
         return true;
