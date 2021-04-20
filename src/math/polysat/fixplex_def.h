@@ -38,7 +38,6 @@ namespace polysat {
             m_to_patch.set_bounds(2*v+1);
     }
 
-
     template<typename Ext>
     void fixplex<Ext>::reset() {
         M.reset();

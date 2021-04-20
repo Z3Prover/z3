@@ -67,7 +67,7 @@ namespace polysat {
             {}
         };
 
-        static const var_t null_var;
+        static const var_t null_var = 0;
         reslimit&                   m_limit;
         mutable manager             m;
         mutable matrix              M;
@@ -110,24 +110,19 @@ namespace polysat {
         lbool make_feasible();
         row   add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs);
 
-#if 0
-        row   get_infeasible_row();
-        void  del_row(var_t base_var);
-        void  set_lo(var_t var, numeral const& b);
-        void  set_hi(var_t var, numeral const& b);
-        bool  in_range(var_t var, numeral const& b) const;
-        void  unset_lo(var_t var);
-        void  unset_hi(var_t var); 
-        void  set_value(var_t var, numeral const& b);        
-        numeral const& get_value(var_t v);
-        void display(std::ostream& out) const;
-        void display_row(std::ostream& out, row const& r, bool values = true);
-
-
-
-        void collect_statistics(::statistics & st) const;
-
-#endif
+        // TBD
+        row   get_infeasible_row() { throw nullptr; }
+        void  del_row(var_t base_var) {}
+        void  set_lo(var_t var, numeral const& b) {}
+        void  set_hi(var_t var, numeral const& b) {}
+        bool  in_range(var_t var, numeral const& b) const {}
+        void  unset_lo(var_t var) {}
+        void  unset_hi(var_t var) {}
+        void  set_value(var_t var, numeral const& b) {} 
+        numeral const& get_value(var_t v) { throw nullptr; }
+        void display(std::ostream& out) const {}
+        void display_row(std::ostream& out, row const& r, bool values = true) {}
+        void collect_statistics(::statistics & st) const {}
 
     private:
 
