@@ -871,9 +871,9 @@ namespace z3 {
         bool is_well_sorted() const { bool r = Z3_is_well_sorted(ctx(), m_ast); check_error(); return r; }
 
         /**
-           \brief Return true if this expression is an fpa and is inf
+           \brief Return Boolean expression to test whether expression is inf
         */
-        expr is_inf() const {
+        expr mk_is_inf() const {
             assert(is_fpa());
             Z3_ast r = Z3_mk_fpa_is_infinite(ctx(), m_ast);
             check_error();
@@ -881,9 +881,9 @@ namespace z3 {
         }
 
         /**
-           \brief Return true if this expression is an fpa and is NaN
+           \brief Return Boolean expression to test for whether expression is a NaN
         */
-        expr is_nan() const {
+        expr mk_is_nan() const {
             assert(is_fpa());
             Z3_ast r = Z3_mk_fpa_is_nan(ctx(), m_ast);
             check_error();
@@ -893,7 +893,7 @@ namespace z3 {
         /**
            \brief Convert this fpa into an IEEE BV
         */
-        expr to_ieee_bv() const {
+        expr mk_to_ieee_bv() const {
             assert(is_fpa());
             Z3_ast r = Z3_mk_fpa_to_ieee_bv(ctx(), m_ast),
             check_error();
