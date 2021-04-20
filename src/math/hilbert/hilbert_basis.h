@@ -89,7 +89,7 @@ class hilbert_basis {
     reslimit&          m_limit;
     vector<num_vector> m_ineqs;      // set of asserted inequalities
     bool_vector      m_iseq;       // inequalities that are equalities
-    num_vector         m_store;      // store of vectors
+    mutable num_vector         m_store;      // store of vectors
     svector<offset_t>  m_basis;      // vector of current basis
     svector<offset_t>  m_free_list;  // free list of unused storage
     svector<offset_t>  m_active;     // active set

@@ -258,7 +258,7 @@ void mpfx_manager::set_core(mpfx & n, mpz_manager<SYNCH> & m, mpz const & v) {
         m_tmp_digits.reset();
         allocate_if_needed(n);
         n.m_sign = m.decompose(v, m_tmp_digits);
-        unsigned sz = m_tmp_digits.size();
+        auto sz = m_tmp_digits.size();
         if (sz > m_int_part_sz)
             throw overflow_exception();
         unsigned * w = words(n);
@@ -299,7 +299,7 @@ void mpfx_manager::set_core(mpfx & n, mpq_manager<SYNCH> & m, mpq const & v) {
         }
         m_tmp_digits.reset();
         m.decompose(tmp, m_tmp_digits);
-        unsigned sz = m_tmp_digits.size();
+        auto sz = m_tmp_digits.size();
         if (sz > m_total_sz)
             throw overflow_exception();
         unsigned * w = words(n);

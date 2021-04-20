@@ -1010,7 +1010,7 @@ namespace dd {
         m_todo.push_back(p);
         while (!m_todo.empty()) {
             PDD r = m_todo.back();
-            if (is_marked(r)) 
+            if (is_marked(r))
                 m_todo.pop_back();
             else if (is_val(r))
                 m_todo.pop_back();
@@ -1025,8 +1025,10 @@ namespace dd {
                 max_d = std::max(d, max_d);
                 m_todo.pop_back();
             }
-            else 
-                m_todo.push_back(lo(r)).push_back(hi(r));                
+            else {
+                m_todo.push_back(lo(r));
+                m_todo.push_back(hi(r));
+            }
         }
         return max_d;
     }
