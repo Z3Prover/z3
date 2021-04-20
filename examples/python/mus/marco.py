@@ -177,6 +177,7 @@ def enumerate_sets(csolver, map):
            yield ("MSS", csolver.to_c_lits(MSS))
            map.block_down(MSS)
         else:
+           seed = csolver.seed_from_core()
            MUS = csolver.shrink(seed)
            yield ("MUS", csolver.to_c_lits(MUS))
            map.block_up(MUS)
