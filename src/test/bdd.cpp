@@ -137,22 +137,19 @@ public:
     static void test_bddv_eqfind_small() {
         std::cout << "test_bddv_eqfind_small\n";
         bdd_manager m(4);
-        unsigned_vector bits;
-        bits.push_back(0);
-        bddv const x = m.mk_var(bits);
-        bddv const one = m.mk_num(rational(1), bits.size());
-        bdd x_is_one = m.mk_eq(x, one);
+        fdd const x_dom(m, 1);
+        bddv const x = x_dom.var();
+        bdd x_is_one = (x == rational(1));
         std::cout << "x_is_one:\n" << x_is_one << "\n";
         rational r;
-        auto res = x_is_one.find_num(bits, r);
-        SASSERT_EQ(res, find_result::singleton);
+        auto res = x_dom.find(x_is_one, r);
+        SASSERT_EQ(res, find_t::singleton);
         SASSERT_EQ(r, rational(1));
     }
 
     static void test_bddv_eqfind() {
         std::cout << "test_bddv_eqfind\n";
-        unsigned const num_bits = 4;
-        bdd_manager m(num_bits);
+        bdd_manager m(4);
 
         unsigned_vector bits;
         bits.push_back(0);
@@ -160,39 +157,41 @@ public:
         bits.push_back(4);
         bits.push_back(27);
 
-        bddv const x = m.mk_var(bits);
-        bddv const zero = m.mk_zero(num_bits);
-        bddv const one = m.mk_num(rational(1), num_bits);
-        bddv const five = m.mk_num(rational(5), num_bits);
+        fdd const x_dom(m, bits);
+        bddv const x = x_dom.var();
+        bddv const zero = m.mk_zero(x_dom.num_bits());
+        bddv const one = m.mk_num(rational(1), x_dom.num_bits());
+        bddv const five = m.mk_num(rational(5), x_dom.num_bits());
 
-        SASSERT(m.mk_eq(one, rational(1)).is_true());
-        SASSERT(m.mk_eq(five, rational(5)).is_true());
-        SASSERT(m.mk_eq(five, rational(4)).is_false());
-        SASSERT(m.mk_eq(five, five).is_true());
-        SASSERT(m.mk_eq(five, one).is_false());
+        SASSERT((one == rational(1)).is_true());
+        SASSERT((five == rational(5)).is_true());
+        SASSERT((five == rational(4)).is_false());
+        SASSERT((five == five).is_true());
+        SASSERT((five == one).is_false());
 
+        // Test the three different mk_eq overloads
         {
             bdd const x_is_five = m.mk_eq(x, rational(5));
             rational r;
-            auto res = x_is_five.find_num(bits, r);
-            SASSERT_EQ(res, find_result::singleton);
-            SASSERT_EQ(r, rational(5));
+            auto res = x_dom.find(x_is_five, r);
+            SASSERT_EQ(res, find_t::singleton);
+            SASSERT_EQ(r, 5);
         }
 
         {
             bdd const x_is_five = m.mk_eq(bits, rational(5));
             rational r;
-            auto res = x_is_five.find_num(bits, r);
-            SASSERT_EQ(res, find_result::singleton);
-            SASSERT_EQ(r, rational(5));
+            auto res = x_dom.find(x_is_five, r);
+            SASSERT_EQ(res, find_t::singleton);
+            SASSERT_EQ(r, 5);
         }
 
         {
             bdd const x_is_five = m.mk_eq(x, five);
             rational r;
-            auto res = x_is_five.find_num(bits, r);
-            SASSERT_EQ(res, find_result::singleton);
-            SASSERT_EQ(r, rational(5));
+            auto res = x_dom.find(x_is_five, r);
+            SASSERT_EQ(res, find_t::singleton);
+            SASSERT_EQ(r, 5);
         }
     }
 
@@ -227,33 +226,19 @@ public:
         bddv const five = m.mk_num(rational(5), num_bits);
         bddv const six = m.mk_num(rational(6), num_bits);
 
-        {
-            // 5*x == 1 (mod 16)  =>  x == 13 (mod 16)
-            bdd const five_inv = x * five == one;
-            rational r;
-            auto res = five_inv.find_num(bits, r);
-            SASSERT_EQ(res, find_result::singleton);
-            SASSERT_EQ(r, rational(13));
-        }
+        // 5*x == 1 (mod 16)  =>  x == 13 (mod 16)
+        bdd const five_inv = x * five == one;
+        SASSERT_EQ(five_inv, x == rational(13));
 
-        {
-            // 6*x == 1 (mod 16)  =>  no solution for x
-            bdd const six_inv = x * six == one;
-            rational r;
-            auto res = six_inv.find_num(bits, r);
-            SASSERT_EQ(res, find_result::empty);
-            SASSERT(six_inv.is_false());
-        }
+        // 6*x == 1 (mod 16)  =>  no solution for x
+        bdd const six_inv = x * six == one;
+        SASSERT(six_inv.is_false());
 
-        {
-            // 6*x == 0 (mod 16)  =>  x is either 0 or 8 (mod 16)
-            bdd const b = six * x == zero;
-            rational r;
-            SASSERT(b.contains_num(rational(0), bits));
-            SASSERT(b.contains_num(rational(8), bits));
-            SASSERT((b && (x != rational(0)) && (x != rational(8))).is_false());
-            SASSERT((b && (x != rational(0))) == (x == rational(8)));
-        }
+        // 6*x == 0 (mod 16)  =>  x is either 0 or 8 (mod 16)
+        bdd const b = six * x == zero;
+        SASSERT_EQ(b, x == rational(0) || x == rational(8));
+        SASSERT((b && (x != rational(0)) && (x != rational(8))).is_false());
+        SASSERT_EQ(b && (x != rational(0)), x == rational(8));
 
         SASSERT_EQ((x * zero).bits(), (x * rational(0)).bits());
         SASSERT_EQ((x *  one).bits(), (x * rational(1)).bits());

@@ -23,19 +23,6 @@ Revision History:
 
 namespace dd {
 
-    std::ostream& operator<<(std::ostream& out, find_result x) {
-        switch (x) {
-        case find_result::empty:
-            return out << "empty";
-        case find_result::singleton:
-            return out << "singleton";
-        case find_result::multiple:
-            return out << "multiple";
-        }
-        UNREACHABLE();
-        return out;
-    }
-
     bdd_manager::bdd_manager(unsigned num_vars) {
         m_cost_metric = bdd_cost;
         m_cost_bdd = 0;
@@ -910,51 +897,6 @@ namespace dd {
 
     bdd& bdd::operator=(bdd const& other) { unsigned r1 = root; root = other.root; m->inc_ref(root); m->dec_ref(r1); return *this; }
     std::ostream& operator<<(std::ostream& out, bdd const& b) { return b.display(out); }
-
-
-    bool bdd_manager::contains_num(BDD b, rational const& val, unsigned_vector const& bits) {
-        DEBUG_CODE(for (unsigned i = 1; i < bits.size(); ++i) { SASSERT(bits[i-1] < bits[i]); });
-        unsigned var_idx = bits.size();
-        while (!is_const(b)) {
-            VERIFY(var_idx-- > 0);
-            SASSERT(var(b) <= bits[var_idx]);
-            while (var(b) < bits[var_idx])
-                VERIFY(var_idx-- > 0);
-            SASSERT(var(b) == bits[var_idx]);
-            b = val.get_bit(var_idx) ? hi(b) : lo(b);
-        }
-        return is_true(b);
-    }
-
-    find_result bdd_manager::find_num(BDD b, unsigned_vector bits, rational& val) {
-        DEBUG_CODE(for (unsigned i = 1; i < bits.size(); ++i) { SASSERT(bits[i-1] < bits[i]); });
-        val = 0;
-        if (is_false(b))
-            return find_result::empty;
-        bool is_unique = true;
-        unsigned var_idx = bits.size();
-        while (!is_true(b)) {
-            VERIFY(var_idx-- > 0);
-            SASSERT(var(b) <= bits[var_idx]);
-            while (var(b) < bits[var_idx]) {
-                is_unique = false;
-                VERIFY(var_idx-- > 0);
-            }
-            if (!is_false(lo(b)) && !is_false(hi(b)))
-                is_unique = false;
-            if (is_false(lo(b))) {
-                SASSERT(var(b) == bits[var_idx]);
-                val += rational::power_of_two(var_idx);
-                b = hi(b);
-            }
-            else
-                b = lo(b);
-        }
-        if (var_idx > 0)
-            is_unique = false;
-
-        return is_unique ? find_result::singleton : find_result::multiple;
-    }
 
 
     bdd bdd_manager::mk_eq(bddv const& a, bddv const& b) {

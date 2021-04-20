@@ -29,9 +29,6 @@ namespace dd {
     class bddv;
     class test_bdd;
 
-    enum class find_result { empty, singleton, multiple };
-    std::ostream& operator<<(std::ostream& out, find_result x);
-
     class bdd_manager {
         friend bdd;
         friend bddv;
@@ -207,9 +204,6 @@ namespace dd {
             ~scoped_push() { m.m_bdd_stack.shrink(m_size); }
         };
 
-        bool contains_num(BDD b, rational const& val, unsigned_vector const& bits);
-        find_result find_num(BDD b, unsigned_vector bits, rational& val);
-
         template <class GetBitFn> bddv mk_mul(bddv const& a, GetBitFn get_bit);
 
     public:
@@ -299,22 +293,6 @@ namespace dd {
         double cnf_size() const { return m->cnf_size(root); }
         double dnf_size() const { return m->dnf_size(root); }
         unsigned bdd_size() const { return m->bdd_size(*this); }
-
-        /** Checks whether the integer val is contained in the BDD when viewed as set of integers.
-         *
-         * Preconditions:
-         * - bits are sorted in ascending order,
-         * - the bdd only contains variables from bits.
-         */
-        bool contains_num(rational const& val, unsigned_vector const& bits) const { return m->contains_num(root, val, bits); }
-
-        /** Returns an integer contained in the BDD, if any, and whether the BDD is a singleton.
-         *
-         * Preconditions:
-         * - bits are sorted in ascending order,
-         * - the bdd only contains variables from bits.
-         */
-        find_result find_num(unsigned_vector const& bits, rational& val) const { return m->find_num(root, bits, val); }
     };
 
     std::ostream& operator<<(std::ostream& out, bdd const& b);

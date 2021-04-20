@@ -55,7 +55,14 @@ namespace dd {
 
         bddv const& var() const { return m_var; }
 
+        /** Checks whether the integer val is contained in the BDD when viewed as set of integers.
+         * Precondition: the bdd only contains variables managed by this fdd.
+         */
         bool contains(bdd b, rational const& val) const;
+
+        /** Returns an integer contained in the BDD, if any, and whether the BDD is a singleton.
+         * Precondition: the bdd only contains variables managed by this fdd.
+         */
         find_t find(bdd b, rational& out_val) const;
     };
 
