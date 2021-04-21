@@ -69,8 +69,6 @@ namespace polysat {
         m_fixplex(m_lim),
         m_dm(m_value_manager, m_alloc),
         m_free_vars(m_activity) {
-
-        fixplex<uint64_ext> s(m_lim);
     }
 
     solver::~solver() {}
