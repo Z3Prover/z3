@@ -47,7 +47,7 @@ namespace polysat {
         m_left_basis.reset();
         m_base_vars.reset();
 
-        pivot(0,1, 2);
+        // pivot(0,1, 2);
     }
 
     template<typename Ext>
@@ -224,6 +224,7 @@ namespace polysat {
                 ri   = rk;
                 a_ij = a_kj;
             }
+            // TBD: should we here recalculate value of basic variables?
             SASSERT(well_formed_row(r_k));
         }
         SASSERT(well_formed());
