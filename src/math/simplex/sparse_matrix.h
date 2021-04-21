@@ -250,7 +250,8 @@ namespace simplex {
             col_iterator & operator++() { ++m_curr; move_to_used(); return *this; }
             col_iterator operator++(int) { col_iterator tmp = *this; ++*this; return tmp; }
             bool operator==(col_iterator const & it) const { return m_curr == it.m_curr; }
-            bool operator!=(col_iterator const & it) const { return m_curr != it.m_curr; }           
+            bool operator!=(col_iterator const & it) const { return m_curr != it.m_curr; } 
+            col_iterator& operator*() { return *this; }
         };
 
         col_iterator col_begin(int v) const { return col_iterator(m_columns[v], m_rows, true); }

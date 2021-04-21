@@ -46,6 +46,8 @@ namespace polysat {
         m_row2base.reset();
         m_left_basis.reset();
         m_base_vars.reset();
+
+        pivot(0,1, 2);
     }
 
     template<typename Ext>
@@ -129,32 +131,14 @@ namespace polysat {
     }
 
     /**
-     * make v a basic variable.
      * If v is already a basic variable in preferred_row, skip
-     * If v
+     * If v is non-basic but basic in a different row, then 
+     *      eliminate v from one of the rows.
+     * If v if non-basic
      */
 
     template<typename Ext>
     void fixplex<Ext>::make_basic(var_t v, row const& preferred_row) {
-        numeral c1 = 0;
-        for (auto const& e : M.row_entries(preferred_row)) {
-            if (e.m_var == v) {
-                c1 = e.m_coeff;
-                break;
-            }                    
-        }
-        auto c2 = m_vars[v].m_base_coeff;
-        auto r2 = m_vars[v].m_base2row;
-        unsigned exp1 = trailing_zeros(c1); // exponent of two for v in r
-        unsigned exp2 = trailing_zeros(c2); // exponent of two for v in r2
-        if (exp1 >= exp2) {
-            // eliminate v from r
-        }
-        else {
-            // eliminate v from r2, 
-            // make v the new base for r
-            // perform gauss-jordan for both r and r2 (add to queue)
-        }
 
         NOT_IMPLEMENTED_YET();
         
@@ -189,42 +173,63 @@ namespace polysat {
         SASSERT(new_value == x_iI.m_value);
         pivot(x_i, x_j, a_ij);
     }
+#endif
     
     template<typename Ext>
-    void fixplex<Ext>::pivot(var_t x_i, var_t x_j, numeral const& a_ij) {
+    void fixplex<Ext>::pivot(var_t x_i, var_t x_j, numeral a_ij) {
         ++m_stats.m_num_pivots;
         var_info& x_iI = m_vars[x_i];
         var_info& x_jI = m_vars[x_j];
-        unsigned r_i = x_iI.m_base2row;
-        m_row2base[r_i] = x_j;
-        x_jI.m_base2row = r_i;
-        x_jI.m_base_coeff = a_ij;
+        unsigned ri = x_iI.m_base2row;
+        m_row2base[ri] = x_j;
+        x_jI.m_base2row = ri;
         x_jI.m_is_base = true;
         x_iI.m_is_base = false;
+        row r_i(ri);
         add_patch(x_j);
-        SASSERT(well_formed_row(row(r_i)));
+        SASSERT(well_formed_row(r_i));
 
-        col_iterator it = M.col_begin(x_j), end = M.col_end(x_j);
-        scoped_numeral a_kj(m), g(m);
-        for (; it != end; ++it) {
-            row r_k = it.get_row();
-            if (r_k.id() != r_i) {
-                a_kj = it.get_row_entry().m_coeff;
-                a_kj.neg();
-                M.mul(r_k, a_ij);
-                M.add(r_k, a_kj, row(r_i));
-                var_t s = m_row2base[r_k.id()];
-                numeral& coeff = m_vars[s].m_base_coeff;
-                m.mul(coeff, a_ij, coeff);
-                M.gcd_normalize(r_k, g);
-                if (!m.is_one(g)) {
-                    m.div(coeff, g, coeff);
-                }
-                SASSERT(well_formed_row(row(r_k)));
+        unsigned tz1 = trailing_zeros(a_ij);
+
+        for (auto c : M.col_entries(x_j)) {
+            row r_k = c.get_row();
+            unsigned rk = r_k.id();
+            if (rk == ri)
+                continue;
+
+            numeral a_kj = c.get_row_entry().m_coeff;
+            unsigned tz2 = trailing_zeros(a_kj);
+            if (tz2 >= tz1) {
+                // eliminate x_j from row r_k
+                numeral a = a_ij >> tz1;
+                numeral b = m.inv(a_kj >> (tz2 - tz1));
+                M.mul(r_k, a);
+                M.add(r_k, b, r_i);
             }
+            else {
+                // eliminate x_j from row r_i
+                // The new base variable for r_i is base of r_k
+                // The new base variable for r_k is x_j.
+                
+                numeral a = a_kj >> tz2;
+                numeral b = m.inv(a_ij >> (tz1 - tz2));
+                M.mul(r_i, a);
+                M.add(r_i, b, r_k);
+                unsigned x_k = m_row2base[rk];
+                std::swap(m_row2base[ri], m_row2base[rk]);
+                m_vars[x_j].m_base2row = rk;
+                m_vars[x_k].m_base2row = ri;
+                tz1  = tz2;
+                r_i  = r_k;
+                ri   = rk;
+                a_ij = a_kj;
+            }
+            SASSERT(well_formed_row(r_k));
         }
         SASSERT(well_formed());
     }
+
+#if 0
 
     template<typename Ext>
     void fixplex<Ext>::update_value(var_t v, eps_numeral const& delta) {

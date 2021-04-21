@@ -18,6 +18,7 @@ Author:
 
 #pragma once
 
+#include <limits>
 #include "math/simplex/sparse_matrix.h"
 #include "util/heap.h"
 #include "util/lbool.h"
@@ -141,7 +142,7 @@ namespace polysat {
         void update_and_pivot(var_t x_i, var_t x_j, numeral const& a_ij, numeral const& new_value) {}
         void update_value(var_t v, numeral const& delta) {}
         void update_value_core(var_t v, numeral const& delta) {}
-        void pivot(var_t x_i, var_t x_j, numeral const& a_ij) {}
+        void pivot(var_t x_i, var_t x_j, numeral a_ij);
         void move_to_bound(var_t x, bool to_lower) {}
         var_t select_pivot(var_t x_i, bool is_below, scoped_numeral& out_a_ij) { throw nullptr; }
         var_t select_pivot_blands(var_t x_i, bool is_below, scoped_numeral& out_a_ij) { throw nullptr; }
@@ -169,16 +170,24 @@ namespace polysat {
 
     struct uint64_ext {
         typedef uint64_t numeral;
+        static const uint64_t max_numeral = 0; // std::limits<uint64_t>::max();
         struct manager {
+            typedef uint64_t numeral;
             void reset() {}
-            void reset(numeral& n) {}
+            void reset(numeral& n) { n = 0; }
+            void del(numeral const& n) {}
             bool is_zero(numeral const& n) const { return n == 0; }
+            bool is_one(numeral const& n) const { return n == 1; }
+            bool is_minus_one(numeral const& n) const { return max_numeral == n; }
+            void add(numeral const& a, numeral const& b, numeral& r) { r = a + b; }
+            void sub(numeral const& a, numeral const& b, numeral& r) { r = a - b; }
+            void mul(numeral const& a, numeral const& b, numeral& r) { r = a * b; }
+            void set(numeral& r, numeral const& a) { r = a; }
+            void neg(numeral& a) { a = 0 - a; }
+            numeral inv(numeral const& a) { return 0 - a; }
+            void swap(numeral& a, numeral& b) { std::swap(a, b); }
         };
-        struct scoped_numeral {
-            scoped_numeral(manager& m) { n = 0; }
-            numeral n;
-            numeral& operator()() { return n; }
-        };
+        typedef _scoped_numeral<manager> scoped_numeral;
     };
 
 };
