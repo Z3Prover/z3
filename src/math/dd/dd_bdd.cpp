@@ -937,6 +937,26 @@ namespace dd {
     bdd bdd_manager::mk_ult(bddv const& a, bddv const& b) { return mk_ule(a, b) && !mk_eq(a, b); }
     bdd bdd_manager::mk_ugt(bddv const& a, bddv const& b) { return mk_ult(b, a); }
 
+    bdd bdd_manager::mk_sle(bddv const& a, bddv const& b) {
+        SASSERT(a.size() == b.size());
+        // Note: sle can be reduced to ule by flipping the sign bits of both arguments
+        bdd lt = mk_false();
+        bdd eq = mk_true();
+        unsigned const sz = a.size();
+        if (sz > 0) {
+            lt = a[sz - 1] && !b[sz - 1];
+            eq = !(a[sz - 1] ^ b[sz - 1]);
+            for (unsigned i = sz - 1; i-- > 0; ) {
+                lt |= eq && (!a[i] && b[i]);
+                eq &= !(a[i] ^ b[i]);
+            }
+        }
+        return lt || eq;
+    }
+    bdd bdd_manager::mk_sge(bddv const& a, bddv const& b) { return mk_sle(b, a); }
+    bdd bdd_manager::mk_slt(bddv const& a, bddv const& b) { return mk_sle(a, b) && !mk_eq(a, b); }
+    bdd bdd_manager::mk_sgt(bddv const& a, bddv const& b) { return mk_slt(b, a); }
+
     bddv bdd_manager::mk_add(bddv const& a, bddv const& b) {
         SASSERT(a.size() == b.size());
         bdd carry = mk_false();
@@ -1097,13 +1117,6 @@ namespace dd {
         }
         return result;
     }
-
-#if 0
-    bdd bdd_manager::mk_sle(bddv const& a, bddv const& b);
-    bdd bdd_manager::mk_sge(bddv const& a, bddv const& b) { return mk_sle(b, a); }
-    bdd bdd_manager::mk_slt(bddv const& a, bddv const& b) { return mk_sle(a, b) && !mk_eq(a, b); }
-    bdd bdd_manager::mk_sgt(bddv const& a, bddv const& b) { return mk_slt(b, a); }
-#endif
 
     void bddv::shl() {
         for (unsigned j = size(); j-- > 1;)

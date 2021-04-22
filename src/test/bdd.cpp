@@ -119,6 +119,27 @@ public:
                 eq = m.mk_eq(nv, kr);
                 SASSERT(eq.is_const() && (eq.is_true() == (n == k)));
 
+                bdd cmp = nv <= kv;
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nr <= kr)));
+                cmp = nv >= kv;
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nr >= kr)));
+                cmp = nv < kv;
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nr < kr)));
+                cmp = nv > kv;
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nr > kr)));
+
+                // signed versions
+                rational const nrs = (nr < modulus / 2) ? nr : nr - modulus;
+                rational const krs = (kr < modulus / 2) ? kr : kr - modulus;
+                cmp = nv.sle(kv);
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nrs <= krs)));
+                cmp = nv.sge(kv);
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nrs >= krs)));
+                cmp = nv.slt(kv);
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nrs < krs)));
+                cmp = nv.sgt(kv);
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nrs > krs)));
+
                 bddv quotv = m.mk_zero(num_bits);
                 bddv remv = m.mk_zero(num_bits);
                 nv.quot_rem(kv, quotv, remv);
