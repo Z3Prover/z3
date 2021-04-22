@@ -35,10 +35,11 @@ namespace dd {
         bdd_manager*    m;
         bddv            m_var;
 
-        static unsigned_vector seq(unsigned count) {
+        static unsigned_vector seq(unsigned count, unsigned start = 0, unsigned step = 1) {
             unsigned_vector result;
-            for (unsigned i = 0; i < count; ++i)
-                result.push_back(i);
+            unsigned k = start;
+            for (unsigned i = 0; i < count; ++i, k += step)
+                result.push_back(k);
             return result;
         }
 
@@ -46,7 +47,7 @@ namespace dd {
 
     public:
         /** Initialize FDD using BDD variables from 0 to num_bits-1. */
-        fdd(bdd_manager& manager, unsigned num_bits) : fdd(manager, seq(num_bits)) { }
+        fdd(bdd_manager& manager, unsigned num_bits, unsigned start = 0, unsigned step = 1) : fdd(manager, seq(num_bits, start, step)) { }
         fdd(bdd_manager& manager, unsigned_vector const& vars) : fdd(manager, unsigned_vector(vars)) { }
         fdd(bdd_manager& manager, unsigned_vector&& vars);
 

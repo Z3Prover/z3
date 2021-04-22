@@ -391,15 +391,8 @@ public:
     static void test_fdd_twovars() {
         std::cout << "test_fdd_twovars\n";
         bdd_manager m(6);
-        unsigned_vector x_bits, y_bits;
-        x_bits.push_back(0);
-        y_bits.push_back(1);
-        x_bits.push_back(2);
-        y_bits.push_back(3);
-        x_bits.push_back(4);
-        y_bits.push_back(5);
-        fdd const x_dom(m, x_bits);
-        fdd const y_dom(m, y_bits);
+        fdd const x_dom(m, 3, 0, 2);
+        fdd const y_dom(m, 3, 1, 2);
         bddv const& x = x_dom.var();
         bddv const& y = y_dom.var();
         SASSERT_EQ(x - y <= rational(0), x == y);
