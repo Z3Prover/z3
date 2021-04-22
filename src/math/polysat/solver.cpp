@@ -41,14 +41,14 @@ namespace polysat {
     }
 
     bool solver::is_viable(pvar v, rational const& val) {
-        return sz2bits(size(v)).contains(m_viable[v], val);
+        return var2bits(v).contains(m_viable[v], val);
     }
 
     void solver::add_non_viable(pvar v, rational const& val) {
         LOG("pvar " << v << " /= " << val);
         TRACE("polysat", tout << "v" << v << " /= " << val << "\n";);
         SASSERT(is_viable(v, val));
-        auto& bits = sz2bits(size(v));
+        auto const& bits = var2bits(v);
         intersect_viable(v, bits.var() != val);
     }
 
@@ -60,7 +60,7 @@ namespace polysat {
     }
 
     dd::find_t solver::find_viable(pvar v, rational & val) {
-        return sz2bits(size(v)).find(m_viable[v], val);
+        return var2bits(v).find_hint(m_viable[v], m_value[v], val);
     }
     
     solver::solver(reslimit& lim): 

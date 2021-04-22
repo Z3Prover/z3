@@ -64,6 +64,9 @@ namespace dd {
          * Precondition: the bdd only contains variables managed by this fdd.
          */
         find_t find(bdd b, rational& out_val) const;
+
+        /** Like find, but returns hint if it is contained in the BDD. */
+        find_t find_hint(bdd b, rational const& hint, rational& out_val) const;
     };
 
 }

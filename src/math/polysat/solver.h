@@ -150,6 +150,7 @@ namespace polysat {
 
         dd::pdd_manager& sz2pdd(unsigned sz);
         dd::fdd const& sz2bits(unsigned sz);
+        dd::fdd const& var2bits(pvar v) { return sz2bits(size(v)); }
 
         void push_level();
         void pop_levels(unsigned num_levels);

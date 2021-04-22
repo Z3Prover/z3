@@ -48,27 +48,54 @@ namespace dd {
     }
 
     find_t fdd::find(bdd b, rational& out_val) const {
+        return find_hint(b, rational::zero(), out_val);
+    }
+
+    find_t fdd::find_hint(bdd b, rational const& hint, rational& out_val) const {
         out_val = 0;
         if (b.is_false())
             return find_t::empty;
         bool is_unique = true;
+        bool hint_ok = !hint.is_zero();  // since we choose the 'lo' branch by default, we don't need to check the hint when it is 0.
         unsigned num_vars = 0;
         while (!b.is_true()) {
             ++num_vars;
             unsigned const pos = var2pos(b.var());
             SASSERT(pos != UINT_MAX && "Unexpected BDD variable");
+
+            bool go_hi = false;
             if (b.lo().is_false()) {
+                go_hi = true;
+                if (hint_ok && !hint.get_bit(pos))
+                    hint_ok = false;
+            }
+            else if (b.hi().is_false()) {
+                if (hint_ok && hint.get_bit(pos))
+                    hint_ok = false;
+            }
+            else {
+                // This is the only case where we have a choice
+                // => follow the hint
+                SASSERT(!b.lo().is_false() && !b.hi().is_false());
+                is_unique = false;
+                if (hint_ok && hint.get_bit(pos))
+                    go_hi = true;
+            }
+
+            if (go_hi) {
                 out_val += rational::power_of_two(pos);
                 b = b.hi();
             }
-            else {
-                if (!b.hi().is_false())
-                    is_unique = false;
+            else
                 b = b.lo();
-            }
         }
         if (num_vars != num_bits())
             is_unique = false;
+        // If a variable corresponding to a 1-bit in hint does not appear in the BDD,
+        // out_val is wrong at this point, so we set it explicitly.
+        if (hint_ok)
+            out_val = hint;
+        // TODO: instead of computing out_val incrementally, we could mark the visited 'hi'-positions and only compute out_val from the marks when !hint_ok.
         return is_unique ? find_t::singleton : find_t::multiple;
     }
 
