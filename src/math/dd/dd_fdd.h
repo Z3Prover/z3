@@ -32,7 +32,7 @@ namespace dd {
     class fdd {
         unsigned_vector m_pos2var;  // pos -> BDD var
         unsigned_vector m_var2pos;  // var -> pos (pos = place number in the bit representation, 0 is LSB's place)
-        // bdd_manager*    m;  // NOTE: currently unused
+        bdd_manager*    m;
         bddv            m_var;
 
         static unsigned_vector seq(unsigned count) {
@@ -54,6 +54,9 @@ namespace dd {
         unsigned_vector const& bdd_vars() const { return m_pos2var; }
 
         bddv const& var() const { return m_var; }
+
+        /** Equivalent to var() != 0 */
+        bdd non_zero() const;
 
         /** Checks whether the integer val is contained in the BDD when viewed as set of integers.
          * Precondition: the bdd only contains variables managed by this fdd.

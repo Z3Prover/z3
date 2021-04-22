@@ -23,7 +23,7 @@ namespace dd {
     fdd::fdd(bdd_manager& manager, unsigned_vector&& vars)
         : m_pos2var(std::move(vars))
         , m_var2pos()
-        // , m(&manager)
+        , m(&manager)
         , m_var(manager.mk_var(m_pos2var))
     {
         for (unsigned pos = 0; pos < m_pos2var.size(); ++pos) {
@@ -32,6 +32,14 @@ namespace dd {
                 m_var2pos.push_back(UINT_MAX);
             m_var2pos[var] = pos;
         }
+    }
+
+    bdd fdd::non_zero() const {
+        bdd non_zero = m->mk_false();
+        for (unsigned var : m_pos2var) {
+            non_zero |= m->mk_var(var);
+        }
+        return non_zero;
     }
 
     unsigned fdd::var2pos(unsigned var) const {
