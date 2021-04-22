@@ -41,6 +41,7 @@ namespace polysat {
 
         friend class eq_constraint;
         friend class var_constraint;
+        friend class ule_constraint;
 
         typedef ptr_vector<constraint> constraints;
 
@@ -201,6 +202,8 @@ namespace polysat {
         void learn_lemma(pvar v, constraint* c);
         void backjump(unsigned new_level);
         void add_lemma(constraint* c);
+
+        void add_constraint(constraint* c);
 
         bool invariant();
         bool invariant(scoped_ptr_vector<constraint> const& cs);
