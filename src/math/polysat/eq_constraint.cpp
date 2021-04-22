@@ -95,7 +95,7 @@ namespace polysat {
             pvar v = q.var();
             rational a = q.hi().val();
             rational b = q.lo().val();
-            bddv const& x = s.sz2bits(s.size(v)).var();
+            bddv const& x = s.var2bits(v).var();
             bdd xs = (a * x + b == rational(0));
             s.intersect_viable(v, xs);
             s.push_cjust(v, this);

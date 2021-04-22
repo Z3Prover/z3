@@ -32,13 +32,14 @@ namespace dd {
     class fdd {
         unsigned_vector m_pos2var;  // pos -> BDD var
         unsigned_vector m_var2pos;  // var -> pos (pos = place number in the bit representation, 0 is LSB's place)
-        // bdd_manager*    m;  // NOTE: currently unused
+        bdd_manager*    m;
         bddv            m_var;
 
-        static unsigned_vector seq(unsigned count) {
+        static unsigned_vector seq(unsigned count, unsigned start = 0, unsigned step = 1) {
             unsigned_vector result;
-            for (unsigned i = 0; i < count; ++i)
-                result.push_back(i);
+            unsigned k = start;
+            for (unsigned i = 0; i < count; ++i, k += step)
+                result.push_back(k);
             return result;
         }
 
@@ -46,7 +47,7 @@ namespace dd {
 
     public:
         /** Initialize FDD using BDD variables from 0 to num_bits-1. */
-        fdd(bdd_manager& manager, unsigned num_bits) : fdd(manager, seq(num_bits)) { }
+        fdd(bdd_manager& manager, unsigned num_bits, unsigned start = 0, unsigned step = 1) : fdd(manager, seq(num_bits, start, step)) { }
         fdd(bdd_manager& manager, unsigned_vector const& vars) : fdd(manager, unsigned_vector(vars)) { }
         fdd(bdd_manager& manager, unsigned_vector&& vars);
 
@@ -54,6 +55,9 @@ namespace dd {
         unsigned_vector const& bdd_vars() const { return m_pos2var; }
 
         bddv const& var() const { return m_var; }
+
+        /** Equivalent to var() != 0 */
+        bdd non_zero() const;
 
         /** Checks whether the integer val is contained in the BDD when viewed as set of integers.
          * Precondition: the bdd only contains variables managed by this fdd.
@@ -64,6 +68,9 @@ namespace dd {
          * Precondition: the bdd only contains variables managed by this fdd.
          */
         find_t find(bdd b, rational& out_val) const;
+
+        /** Like find, but returns hint if it is contained in the BDD. */
+        find_t find_hint(bdd b, rational const& hint, rational& out_val) const;
     };
 
 }

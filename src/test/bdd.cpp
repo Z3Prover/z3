@@ -119,6 +119,27 @@ public:
                 eq = m.mk_eq(nv, kr);
                 SASSERT(eq.is_const() && (eq.is_true() == (n == k)));
 
+                bdd cmp = nv <= kv;
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nr <= kr)));
+                cmp = nv >= kv;
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nr >= kr)));
+                cmp = nv < kv;
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nr < kr)));
+                cmp = nv > kv;
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nr > kr)));
+
+                // signed versions
+                rational const nrs = (nr < modulus / 2) ? nr : nr - modulus;
+                rational const krs = (kr < modulus / 2) ? kr : kr - modulus;
+                cmp = nv.sle(kv);
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nrs <= krs)));
+                cmp = nv.sge(kv);
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nrs >= krs)));
+                cmp = nv.slt(kv);
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nrs < krs)));
+                cmp = nv.sgt(kv);
+                SASSERT(cmp.is_const() && (cmp.is_true() == (nrs > krs)));
+
                 bddv quotv = m.mk_zero(num_bits);
                 bddv remv = m.mk_zero(num_bits);
                 nv.quot_rem(kv, quotv, remv);
@@ -367,6 +388,41 @@ public:
         }
     }
 
+    static void test_fdd_twovars() {
+        std::cout << "test_fdd_twovars\n";
+        bdd_manager m(6);
+        fdd const x_dom(m, 3, 0, 2);
+        fdd const y_dom(m, 3, 1, 2);
+        bddv const& x = x_dom.var();
+        bddv const& y = y_dom.var();
+        SASSERT_EQ(x - y <= rational(0), x == y);
+    }
+
+    static void test_fdd_find_hint() {
+        std::cout << "test_fdd_find_hint\n";
+        bdd_manager m(4);
+        fdd const x_dom(m, 4);
+        bddv const& x = x_dom.var();
+
+        bdd s358 = x == rational(3) || x == rational(5) || x == rational(8);
+        rational r;
+        SASSERT_EQ(x_dom.find_hint(s358, rational(8), r), find_t::multiple);
+        SASSERT_EQ(r, 8);
+        SASSERT_EQ(x_dom.find_hint(s358, rational(5), r), find_t::multiple);
+        SASSERT_EQ(r, 5);
+        SASSERT_EQ(x_dom.find_hint(s358, rational(3), r), find_t::multiple);
+        SASSERT_EQ(r, 3);
+        SASSERT_EQ(x_dom.find_hint(s358, rational(7), r), find_t::multiple);
+        SASSERT(r == 3 || r == 5 || r == 8);
+
+        SASSERT_EQ(x_dom.find_hint(x == rational(5), rational(3), r), find_t::singleton);
+        SASSERT_EQ(r, 5);
+        SASSERT_EQ(x_dom.find_hint(x == rational(5), rational(5), r), find_t::singleton);
+        SASSERT_EQ(r, 5);
+
+        SASSERT_EQ(x_dom.find_hint(s358 && (x == rational(4)), rational(5), r), find_t::empty);
+    }
+
 };
 
 }
@@ -386,4 +442,6 @@ void tst_bdd() {
     dd::test_bdd::test_fdd3();
     dd::test_bdd::test_fdd4();
     dd::test_bdd::test_fdd_reorder();
+    dd::test_bdd::test_fdd_twovars();
+    dd::test_bdd::test_fdd_find_hint();
 }

@@ -41,14 +41,14 @@ namespace polysat {
     }
 
     bool solver::is_viable(pvar v, rational const& val) {
-        return sz2bits(size(v)).contains(m_viable[v], val);
+        return var2bits(v).contains(m_viable[v], val);
     }
 
     void solver::add_non_viable(pvar v, rational const& val) {
         LOG("pvar " << v << " /= " << val);
         TRACE("polysat", tout << "v" << v << " /= " << val << "\n";);
         SASSERT(is_viable(v, val));
-        auto& bits = sz2bits(size(v));
+        auto const& bits = var2bits(v);
         intersect_viable(v, bits.var() != val);
     }
 
@@ -60,7 +60,7 @@ namespace polysat {
     }
 
     dd::find_t solver::find_viable(pvar v, rational & val) {
-        return sz2bits(size(v)).find(m_viable[v], val);
+        return var2bits(v).find_hint(m_viable[v], m_value[v], val);
     }
     
     solver::solver(reslimit& lim): 
@@ -148,13 +148,18 @@ namespace polysat {
         m_free_vars.del_var_eh(v);
     }
 
+    void solver::add_constraint(constraint* c) {
+        SASSERT(c);
+        LOG("Adding constraint: " << *c);
+        m_constraints.push_back(c);
+        c->narrow(*this);
+    }
+
     void solver::add_eq(pdd const& p, unsigned dep) {
         p_dependency_ref d(mk_dep(dep), m_dm);
         constraint* c = constraint::eq(m_level, p, d);
-        LOG("Adding constraint: " << *c);
-        m_constraints.push_back(c);
         add_watch(*c);
-        c->narrow(*this);
+        add_constraint(c);
     }
 
     void solver::add_diseq(pdd const& p, unsigned dep) {
@@ -166,32 +171,35 @@ namespace polysat {
             return;
         }
         unsigned sz = size(p.var());
-        auto slack = add_var(size(p.var()));
+        auto slack = add_var(sz);
         auto q = p + var(slack);
         add_eq(q, dep);
-        bdd non_zero = m_bdd.mk_false();
-        for (unsigned i = 0; i < sz; ++i) 
-            non_zero |= m_bdd.mk_var(i);
+        auto non_zero = sz2bits(sz).non_zero();
         p_dependency_ref d(mk_dep(dep), m_dm);        
         constraint* c = constraint::viable(m_level, slack, non_zero, d);
-        m_constraints.push_back(c);
-        c->narrow(*this);
+        add_constraint(c);
     }
 
     void solver::add_ule(pdd const& p, pdd const& q, unsigned dep) {
-        // save for later
+        p_dependency_ref d(mk_dep(dep), m_dm);
+        constraint* c = constraint::ule(m_level, p, q, d);
+        add_watch(*c);
+        add_constraint(c);
     }
 
     void solver::add_sle(pdd const& p, pdd const& q, unsigned dep) {
         // save for later
+        NOT_IMPLEMENTED_YET();
     }
 
     void solver::add_ult(pdd const& p, pdd const& q, unsigned dep) {
         // save for later
+        NOT_IMPLEMENTED_YET();
     }
 
     void solver::add_slt(pdd const& p, pdd const& q, unsigned dep) {
         // save for later
+        NOT_IMPLEMENTED_YET();
     }
 
 
