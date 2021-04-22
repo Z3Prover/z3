@@ -157,11 +157,18 @@ namespace bv {
         std::function<void(unsigned sz, expr* const* xs, expr* const* ys, expr_ref& bit)> ebin;
         std::function<void(unsigned sz, expr* const* xs, expr_ref_vector& bits)> un;
         std::function<void(unsigned sz, expr* const* xs, unsigned p, expr_ref_vector& bits)> pun;
+        std::function<expr*(expr* x, expr* y)> ibin;
+        std::function<expr*(expr* x)> iun;
+
 #define internalize_bin(F) bin = [&](unsigned sz, expr* const* xs, expr* const* ys, expr_ref_vector& bits) { m_bb.F(sz, xs, ys, bits); }; internalize_binary(a, bin);
 #define internalize_un(F) un = [&](unsigned sz, expr* const* xs, expr_ref_vector& bits) { m_bb.F(sz, xs, bits);}; internalize_unary(a, un);
 #define internalize_ac(F) bin = [&](unsigned sz, expr* const* xs, expr* const* ys, expr_ref_vector& bits) { m_bb.F(sz, xs, ys, bits); }; internalize_ac_binary(a, bin);
 #define internalize_pun(F) pun = [&](unsigned sz, expr* const* xs, unsigned p, expr_ref_vector& bits) { m_bb.F(sz, xs, p, bits);}; internalize_par_unary(a, pun);
 #define internalize_nfl(F) ebin = [&](unsigned sz, expr* const* xs, expr* const* ys, expr_ref& out) { m_bb.F(sz, xs, ys, out);}; internalize_novfl(a, ebin);
+#define internalize_int(B, U)                                   \
+        ibin = [&](expr* x, expr* y) { return B(x, y); };      \
+        iun = [&](expr* x) { return U(x); };                    \
+        internalize_interp(a, ibin, iun);
 
         switch (a->get_decl_kind()) {
         case OP_BV_NUM:           internalize_num(a); break;
@@ -212,7 +219,11 @@ namespace bv {
         case OP_MKBV:             internalize_mkbv(a); break;
         case OP_INT2BV:           internalize_int2bv(a); break;
         case OP_BV2INT:           internalize_bv2int(a); break;
-        case OP_BUDIV:            internalize_udiv(a); break;
+        case OP_BUDIV:            internalize_int(bv.mk_bv_udiv_i, bv.mk_bv_udiv0); break;
+        case OP_BSDIV:            internalize_int(bv.mk_bv_sdiv_i, bv.mk_bv_sdiv0); break;
+        case OP_BSREM:            internalize_int(bv.mk_bv_srem_i, bv.mk_bv_srem0); break;
+        case OP_BUREM:            internalize_int(bv.mk_bv_urem_i, bv.mk_bv_urem0); break;
+        case OP_BSMOD:            internalize_int(bv.mk_bv_smod_i, bv.mk_bv_smod0); break;
         case OP_BSDIV0:           break;
         case OP_BUDIV0:           break;
         case OP_BSREM0:           break;
@@ -520,6 +531,7 @@ namespace bv {
         bv_rewriter_params p(s().params());
         expr* arg1 = n->get_arg(0);
         expr* arg2 = n->get_arg(1);
+        mk_bits(get_th_var(n));
         if (p.hi_div0()) {
             add_unit(eq_internalize(n, bv.mk_bv_udiv_i(arg1, arg2)));
             return;
@@ -529,6 +541,39 @@ namespace bv {
         expr_ref eq(m.mk_eq(arg2, zero), m);
         expr_ref udiv(m.mk_ite(eq, bv.mk_bv_udiv0(arg1), bv.mk_bv_udiv_i(arg1, arg2)), m);
         add_unit(eq_internalize(n, udiv));
+    }
+
+    void solver::internalize_interp(app* n, std::function<expr*(expr*, expr*)>& ibin, std::function<expr*(expr*)>& iun) {
+        bv_rewriter_params p(s().params());
+        expr* arg1 = n->get_arg(0);
+        expr* arg2 = n->get_arg(1);
+        mk_bits(get_th_var(n));
+        if (p.hi_div0()) {
+            add_unit(eq_internalize(n, ibin(arg1, arg2)));
+            return;
+        }
+        unsigned sz = bv.get_bv_size(n);
+        expr_ref zero(bv.mk_numeral(0, sz), m);
+        expr_ref eq(m.mk_eq(arg2, zero), m);
+        expr_ref ite(m.mk_ite(eq, iun(arg1), ibin(arg1, arg2)), m);
+        add_unit(eq_internalize(n, ite));
+
+    }
+
+    void solver::internalize_sdiv(app* n) {
+        bv_rewriter_params p(s().params());
+        expr* arg1 = n->get_arg(0);
+        expr* arg2 = n->get_arg(1);
+        mk_bits(get_th_var(n));
+        if (p.hi_div0()) {
+            add_unit(eq_internalize(n, bv.mk_bv_sdiv_i(arg1, arg2)));
+            return;
+        }
+        unsigned sz = bv.get_bv_size(n);
+        expr_ref zero(bv.mk_numeral(0, sz), m);
+        expr_ref eq(m.mk_eq(arg2, zero), m);
+        expr_ref sdiv(m.mk_ite(eq, bv.mk_bv_sdiv0(arg1), bv.mk_bv_sdiv_i(arg1, arg2)), m);
+        add_unit(eq_internalize(n, sdiv));
     }
 
     void solver::internalize_unary(app* n, std::function<void(unsigned, expr* const*, expr_ref_vector&)>& fn) {
