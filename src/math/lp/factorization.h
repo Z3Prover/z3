@@ -30,12 +30,12 @@ struct factorization_factory;
 enum class factor_type { VAR, MON };
 
 class factor {
-    lpvar        m_var;
-    factor_type  m_type;
-    bool        m_sign;
+    lpvar        m_var{ UINT_MAX };
+    factor_type  m_type{ factor_type::VAR };
+    bool         m_sign{ false };
 public:
     factor(): factor(false) {}
-    factor(bool sign): m_var(UINT_MAX), m_type(factor_type::VAR), m_sign(sign) {}
+    factor(bool sign): m_sign(sign) {}
     explicit factor(lpvar v, factor_type t) : m_var(v), m_type(t), m_sign(false) {}
     unsigned var() const { return m_var; }
     factor_type type() const { return m_type; }
@@ -77,9 +77,10 @@ public:
 
 struct const_iterator_mon {
     // fields
-    bool_vector                  m_mask;
+    mutable bool_vector                    m_mask;
     const factorization_factory *  m_ff;
-    bool                           m_full_factorization_returned;
+    mutable bool                           m_full_factorization_returned;
+    mutable unsigned               m_num_failures{ 0 };
 
     // typedefs
     typedef const_iterator_mon self_type;

@@ -23,21 +23,30 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
     std::sort(k_vars.begin(), k_vars.end());
     std::sort(j_vars.begin(), j_vars.end());
 
+    if (false && m_num_failures > 10) {
+        for (bool& m : m_mask) m = true;
+        m_mask[0] = false;
+        m_full_factorization_returned = true;
+        return false;
+    }
     if (k_vars.size() == 1) {
         k.set(k_vars[0], factor_type::VAR);
     } else {
         unsigned i;
         if (!m_ff->find_canonical_monic_of_vars(k_vars, i)) {
+            ++m_num_failures;
             return false;
         }
         k.set(i, factor_type::MON);
     }
+    m_num_failures = 0;
 
     if (j_vars.size() == 1) {
         j.set(j_vars[0], factor_type::VAR);
     } else {
         unsigned i;
         if (!m_ff->find_canonical_monic_of_vars(j_vars, i)) {
+            ++m_num_failures;
             return false;
         }
         j.set(i, factor_type::MON);
@@ -46,7 +55,7 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
 }
 
 factorization const_iterator_mon::operator*() const {
-    if (m_full_factorization_returned == false)  {
+    if (!m_full_factorization_returned)  {
         return create_full_factorization(m_ff->m_monic);
     }
     factor j, k; rational sign;
