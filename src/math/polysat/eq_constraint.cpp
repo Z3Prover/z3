@@ -36,39 +36,9 @@ namespace polysat {
                 return true;
             }
         }        
-
-        LOG("Assignments: " << s.m_search);
-        auto q = p().subst_val(s.m_search);
-        LOG("Substituted: " << p() << " := " << q);
-        TRACE("polysat", tout << p() << " := " << q << "\n";);
-        if (q.is_zero()) 
-            return false;
-        if (q.is_never_zero()) {
-            LOG("Conflict (never zero under current assignment)");
-            s.set_conflict(*this);
-            return false;
-        }
-
         // at most one variable remains unassigned.
-        auto other_var = vars()[1 - idx];
-        SASSERT(!q.is_val() && q.var() == other_var);
 
-        // Detect and apply unit propagation.
-        if (try_narrow_with(q, s)) {
-            rational val;
-            switch (s.find_viable(other_var, val)) {
-            case dd::find_t::empty:
-                s.set_conflict(*this);
-                return false;
-            case dd::find_t::singleton:
-                s.propagate(other_var, val, *this);
-                return false;
-            case dd::find_t::multiple:
-                /* do nothing */
-                break;
-            }
-        }
-
+        narrow(s);
         return false;
     }
 
@@ -89,31 +59,37 @@ namespace polysat {
         return nullptr;
     }
 
-    bool eq_constraint::try_narrow_with(pdd const& q, solver& s) {
-        if (q.is_linear() && q.free_vars().size() == 1) {
+    void eq_constraint::narrow(solver& s) {
+        LOG("Assignment: " << s.m_search);
+        auto q = p().subst_val(s.m_search);
+        LOG("Substituted: " << p() << " := " << q);
+        if (q.is_zero())
+            return;
+        if (q.is_never_zero()) {
+            LOG("Conflict (never zero under current assignment)");
+            s.set_conflict(*this);
+            return;
+        }
+
+        if (q.is_unilinear()) {
             // a*x + b == 0
             pvar v = q.var();
             rational a = q.hi().val();
             rational b = q.lo().val();
             bddv const& x = s.var2bits(v).var();
             bdd xs = (a * x + b == rational(0));
-            s.intersect_viable(v, xs);
             s.push_cjust(v, this);
-            return true;
-        }
-        // TODO: what other constraints can be extracted cheaply?
-        return false;
-    }
+            s.intersect_viable(v, xs);
 
-    void eq_constraint::narrow(solver& s) {
-        // NSB code review:
-        // This should also use the current assignment so be similar to propagate.
-        // The idea is that narrow is invoked when the constraint is first added
-        // and also when the constraint is used in a conflict.
-        // When it is used in a conflict, there could be a partial assignment in s.m_search
-        // that fixes variables in p().
-        // 
-        (void)try_narrow_with(p(), s);
+            rational val;
+            if (s.find_viable(v, val) == dd::find_t::singleton) {
+                s.propagate(v, val, *this);
+            }
+
+            return;
+        }
+
+        // TODO: what other constraints can be extracted cheaply?
     }
 
     bool eq_constraint::is_always_false() {
