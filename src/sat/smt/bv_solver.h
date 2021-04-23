@@ -239,6 +239,7 @@ namespace bv {
         void internalize_ac_binary(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn);
         void internalize_par_unary(app* n, std::function<void(unsigned, expr* const*, unsigned p, expr_ref_vector&)>& fn);
         void internalize_novfl(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref&)>& fn);
+        void internalize_interp(app* n, std::function<expr*(expr*, expr*)>& ibin, std::function<expr*(expr*)>& un);
         void internalize_num(app * n);       
         void internalize_concat(app * n);        
         void internalize_bv2int(app* n);
@@ -249,9 +250,6 @@ namespace bv {
         void internalize_sub(app* n);
         void internalize_extract(app* n);
         void internalize_bit2bool(app* n);
-        void internalize_interp(app* n, std::function<expr*(expr*, expr*)>& ibin, std::function<expr*(expr*)>& un);
-        void internalize_udiv(app* n);
-        void internalize_sdiv(app* n);
         void internalize_udiv_i(app* n);
         template<bool Signed, bool Reverse, bool Negated>
         void internalize_le(app* n);
