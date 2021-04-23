@@ -141,8 +141,7 @@ namespace euf {
         }
 
         m_bool_var2expr.reserve(v + 1, nullptr);
-        if (m_bool_var2expr[v]) {
-            SASSERT(m_egraph.find(e));
+        if (m_bool_var2expr[v] && m_egraph.find(e)) {
             SASSERT(m_egraph.find(e)->bool_var() == v);
             return lit;
         }
