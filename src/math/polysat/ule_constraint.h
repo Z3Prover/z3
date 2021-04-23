@@ -29,9 +29,12 @@ namespace polysat {
                     m_vars.push_back(v);
         }
         ~ule_constraint() override {}
+        pdd const& lhs() const { return m_lhs; }
+        pdd const& rhs() const { return m_rhs; }
         std::ostream& display(std::ostream& out) const override;
         bool propagate(solver& s, pvar v) override;
         constraint* resolve(solver& s, pvar v) override;
+        static bool is_always_false(pdd const& lhs, pdd const& rhs);
         bool is_always_false() override;
         bool is_currently_false(solver& s) override;
         void narrow(solver& s) override;

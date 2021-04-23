@@ -386,6 +386,8 @@ namespace dd {
         bool is_one() const { return m.is_one(root); }
         bool is_zero() const { return m.is_zero(root); }
         bool is_linear() const { return m.is_linear(root); }
+        /** Polynomial is of the form: a * x + b */
+        bool is_unilinear() const { return !is_val() && lo().is_val() && hi().is_val(); }
         bool is_unary() const { return !is_val() && lo().is_zero() && hi().is_val(); } 
         bool is_binary() const { return m.is_binary(root); }
         bool is_monomial() const { return m.is_monomial(root); }

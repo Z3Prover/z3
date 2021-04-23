@@ -32,7 +32,6 @@ namespace polysat {
         bool is_always_false() override;
         bool is_currently_false(solver& s) override;
         void narrow(solver& s) override;
-        bool try_narrow_with(pdd const& q, solver& s);
     };
 
 }
