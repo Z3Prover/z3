@@ -765,7 +765,6 @@ namespace euf {
 
     void egraph::copy_from(egraph const& src, std::function<void*(void*)>& copy_justification) {
         SASSERT(m_scopes.empty());
-        SASSERT(src.m_scopes.empty());
         SASSERT(m_nodes.empty());
         ptr_vector<enode> old_expr2new_enode, args;
         ast_translation tr(src.m, m);
@@ -793,6 +792,8 @@ namespace euf {
                 merge(n2, n2t, n1->m_justification.copy(copy_justification));
         }
         propagate();
+        for (unsigned i = 0; i < src.m_scopes.size(); ++i)
+            push();
     }
 }
 
