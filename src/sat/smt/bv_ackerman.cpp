@@ -31,6 +31,8 @@ namespace bv {
     }
 
     void ackerman::reset() {
+        while (m_queue)
+            remove(m_queue->prev());     
         m_table.reset();
         m_queue = nullptr;        
     }
