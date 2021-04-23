@@ -827,6 +827,15 @@ bool bv_recognizers::is_extract(expr const* e, unsigned& low, unsigned& high, ex
     return true;
 }
 
+bool bv_recognizers::is_repeat(expr const * e, expr*& arg, unsigned& n) const {
+    if (!is_app_of(e, get_fid(), OP_REPEAT))
+        return false;
+    arg = to_app(e)->get_arg(0);
+    n = to_app(e)->get_parameter(0).get_int();
+    return true;
+}
+
+
 bool bv_recognizers::is_bv2int(expr const* e, expr*& r) const {
     if (!is_bv2int(e)) return false;
     r = to_app(e)->get_arg(0);

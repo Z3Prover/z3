@@ -213,6 +213,7 @@ namespace bv {
         case OP_BSUB:             internalize_sub(a); break;
         case OP_CONCAT:           internalize_concat(a); break;
         case OP_EXTRACT:          internalize_extract(a); break;
+        case OP_REPEAT:           internalize_repeat(a); break;
         case OP_MKBV:             internalize_mkbv(a); break;
         case OP_INT2BV:           internalize_int2bv(a); break;
         case OP_BV2INT:           internalize_bv2int(a); break;
@@ -639,6 +640,18 @@ namespace bv {
         for (unsigned i = lo; i <= hi; ++i) 
             add_bit(v, m_bits[arg_v][i]);
         find_wpos(v);
+    }
+
+    void solver::internalize_repeat(app* e) {
+        unsigned n = 0;
+        expr* arg = nullptr;
+        VERIFY(bv.is_repeat(e, arg, n));
+        expr_ref_vector conc(m);
+        for (unsigned i = 0; i < n; ++i)
+            conc.push_back(arg);
+        expr_ref r(bv.mk_concat(conc), m);
+        mk_bits(get_th_var(e));
+        add_unit(eq_internalize(e, r));
     }
 
     void solver::internalize_bit2bool(app* n) {

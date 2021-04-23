@@ -249,6 +249,7 @@ namespace bv {
         void internalize_carry(app* n);
         void internalize_sub(app* n);
         void internalize_extract(app* n);
+        void internalize_repeat(app* n);
         void internalize_bit2bool(app* n);
         void internalize_udiv_i(app* n);
         template<bool Signed, bool Reverse, bool Negated>
