@@ -281,12 +281,13 @@ namespace euf {
        VERIFY(n->num_args() == 0 || !n->merge_enabled() || m_table.contains(n));
     }
 
-    void egraph::set_value(enode* n, lbool value) {        
-        force_push();
-        TRACE("euf", tout << bpp(n) << "\n";);
-        SASSERT(n->value() == l_undef);
-        n->set_value(value);
-        m_updates.push_back(update_record(n, update_record::value_assignment()));
+    void egraph::set_value(enode* n, lbool value) {  
+        if (n->value() == l_undef) {
+            force_push();
+            TRACE("euf", tout << bpp(n) << " := " << value << "\n";);
+            n->set_value(value);
+            m_updates.push_back(update_record(n, update_record::value_assignment()));
+        }
     }
 
     void egraph::set_lbl_hash(enode* n) {
