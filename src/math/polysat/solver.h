@@ -91,6 +91,7 @@ namespace polysat {
 
 
         void push_viable(pvar v) {
+            m_trail.push_back(trail_instr_t::viable_i);
             m_viable_trail.push_back(std::make_pair(v, m_viable[v]));
         }
 
