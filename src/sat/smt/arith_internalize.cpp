@@ -164,7 +164,7 @@ namespace arith {
         unsigned index = 0;
         while (index < terms.size()) {
             SASSERT(index >= vars.size());
-            expr* n = terms[index].get();
+            expr* n = terms.get(index);
             st.to_ensure_enode().push_back(n);
             if (a.is_add(n)) {
                 for (expr* arg : *to_app(n)) {
@@ -391,7 +391,7 @@ namespace arith {
 
     bool solver::internalize_term(expr* term) {
         if (!has_var(term))
-            internalize_def(term);
+            register_theory_var_in_lar_solver(internalize_def(term));
         return true;
     }
 
