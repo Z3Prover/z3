@@ -48,8 +48,10 @@ namespace euf {
         if (s().inconsistent())
             return;
         for (enode* n : m_egraph.nodes())
-            if (m.is_false(n->get_root()->get_expr()) && m.is_eq(n->get_expr()) &&
-                n->get_arg(0)->get_root() == n->get_arg(1)->get_root()) {
+            if (m.is_false(n->get_root()->get_expr()) && 
+                m.is_eq(n->get_expr()) &&
+                !m.is_bool(n->get_app()->get_arg(0)) && 
+                (n->get_arg(0)->get_root() == n->get_arg(1)->get_root())) {
                 enable_trace("euf");
                 TRACE("euf", display(tout << n->get_expr_id() << ": " << mk_pp(n->get_expr(), m) << "\n" 
                                      << "#" << n->get_arg(0)->get_expr_id() << " == #" << n->get_arg(1)->get_expr_id() << " r: " << n->get_arg(0)->get_root_id() << "\n");
