@@ -49,7 +49,7 @@
   <!-- Build properties -->
   <PropertyGroup>
     <!-- In *nix builds, netfx TFMs are not available. -->
-    <TargetFrameworks>netstandard2.1;net45</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;net45</TargetFrameworks>
     <OutputTypeEx>library</OutputTypeEx>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <NoWarn>1701,1702</NoWarn>
