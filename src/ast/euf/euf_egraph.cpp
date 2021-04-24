@@ -297,6 +297,7 @@ namespace euf {
     void egraph::pop(unsigned num_scopes) {
         if (num_scopes <= m_num_scopes) {
             m_num_scopes -= num_scopes;
+            m_to_merge.reset();
             return;
         }
         num_scopes -= m_num_scopes;
@@ -440,8 +441,8 @@ namespace euf {
                 auto rc = insert_table(p);
                 enode* p_other = rc.first;
                 SASSERT(m_table.contains_ptr(p) == (p_other == p));
-                if (p_other != p)
-                    m_to_merge.push_back(to_merge(p_other, p, rc.second));
+                if (p_other != p) 
+                    m_to_merge.push_back(to_merge(p_other, p, rc.second));                
                 else
                     r2->m_parents.push_back(p);
                 if (p->is_equality())
@@ -705,8 +706,6 @@ namespace euf {
                 TRACE("euf", display(tout << bpp(n) << " is not closed under congruence\n"););
                 UNREACHABLE();
             }
-
-
     }
 
     std::ostream& egraph::display(std::ostream& out, unsigned max_args, enode* n) const {
@@ -795,6 +794,7 @@ namespace euf {
         propagate();
         for (unsigned i = 0; i < src.m_scopes.size(); ++i)
             push();
+        force_push();
     }
 }
 
