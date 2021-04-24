@@ -321,7 +321,8 @@ namespace opt {
                 is_sat = m_s->check_sat(1,vars);
                 if (is_sat == l_true) {
                     disj.reset();
-                    m_s->maximize_objectives(disj);
+                    if (!m_s->maximize_objectives1(disj)) 
+                        return l_undef;
                     m_s->get_model(m_model);       
                     m_s->get_labels(m_labels);            
                     for (unsigned i = 0; i < ors.size(); ++i) {
@@ -395,7 +396,8 @@ namespace opt {
         expr_ref_vector disj(m);
         m_s->get_model(m_model);
         m_s->get_labels(m_labels);
-        m_s->maximize_objectives(disj);
+        if (!m_s->maximize_objectives1(disj))
+            return expr_ref(m.mk_true(), m);
         set_max(m_lower, m_s->get_objective_values(), disj);
         TRACE("opt", model_pp(tout << m_lower << "\n", *m_model););
         IF_VERBOSE(2, verbose_stream() << "(optsmt.lower " << m_lower << ")\n";);
