@@ -49,7 +49,7 @@
   <!-- Build properties -->
   <PropertyGroup>
     <!-- In *nix builds, netfx TFMs are not available. -->
-    <TargetFrameworks>netstandard2.0;net45</TargetFrameworks>
+    <TargetFrameworks>netstandard2.1;net45</TargetFrameworks>
     <OutputTypeEx>library</OutputTypeEx>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <NoWarn>1701,1702</NoWarn>
@@ -82,6 +82,9 @@ ${Z3_DOTNET_COMPILE_ITEMS}
     </Content>
     <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.so" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.so')">
       <PackagePath>runtimes\linux-x64\native</PackagePath>
+    </Content>
+    <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.dylib" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.dylib')">
+      <PackagePath>runtimes\macos\native</PackagePath>
     </Content>
   </ItemGroup>
 
