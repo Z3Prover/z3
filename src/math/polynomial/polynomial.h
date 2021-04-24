@@ -133,7 +133,7 @@ namespace polynomial {
             /**
                \brief Number of distinct factors (not counting multiplicities).
             */
-            unsigned distinct_factors() const { return m_factors.size(); }
+            size_t distinct_factors() const { return m_factors.size(); }
             
             /**
                \brief Number of distinct factors (counting multiplicities).

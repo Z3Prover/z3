@@ -34,7 +34,7 @@ public:
     
     void flush() {
         SASSERT(b.size() == A.size());
-        unsigned sz = A.size();
+        auto sz = A.size();
         for (unsigned i = 0; i < sz; i++) {
             svector<numeral> & as = A[i];
             m.del(b[i]);

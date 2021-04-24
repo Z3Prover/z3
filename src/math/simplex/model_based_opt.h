@@ -39,8 +39,9 @@ namespace opt {
     class model_based_opt {
     public:
         struct var {
-            unsigned m_id;
+            unsigned m_id { 0 };
             rational m_coeff;
+            var() {}
             var(unsigned id, rational const& c): m_id(id), m_coeff(c) {}
             struct compare {
                 bool operator()(var x, var y) {

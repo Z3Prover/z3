@@ -53,6 +53,15 @@ Revision History:
 // };
 //
 
+// Note:
+// polynomial.h contains declaration
+// typedef svector<numeral>                        numeral_vector;
+// it is crucial that it uses svector and not vector. The destructors on elements of the numeral vector are handled outside.
+// Numeral gets instantiated by mpz and mpz does not support copy constructors.
+// porting svector to vector is therefore blocked on the semantics of svector being 
+// copy-constructor free.
+// 
+
 #include <vector>
 
 template<typename T, bool CallDestructors=true, typename SZ = unsigned>
@@ -63,13 +72,14 @@ public:
 
     vector() {}
     vector(SZ s) {
-        // resize(s, T());
+        // TODO resize(s, T());
     }
     vector(SZ s, T const& e) {
-        // resize(s, e);
+        // TODO resize(s, e);
     }
 
     vector(SZ s, T const* e) {
+        // TODO
     }
 
     void reset() { clear(); }
@@ -100,11 +110,11 @@ public:
     }
     
     void erase(iterator pos) {
-
+        // TODO
     }
 
     void erase(T const& e) {
-
+        // TODO
     }
     void fill(T const & elem) {
         for (auto& e : *this)
@@ -133,7 +143,7 @@ public:
     }
 
     void append(unsigned n,  T const* elems) {
-        
+        // TODO
     }
 
     bool contains(T const & elem) const {
