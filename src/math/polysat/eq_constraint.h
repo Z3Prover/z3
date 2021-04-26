@@ -31,7 +31,14 @@ namespace polysat {
         constraint* resolve(solver& s, pvar v) override;
         bool is_always_false() override;
         bool is_currently_false(solver& s) override;
+        bool is_currently_true(solver& s) override;
         void narrow(solver& s) override;
+
+    private:
+        constraint* eq_resolve(solver& s, pvar v);
+        void eq_narrow(solver& s);
+        constraint* diseq_resolve(solver& s, pvar v);
+        void diseq_narrow(solver& s);
     };
 
 }

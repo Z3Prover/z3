@@ -38,5 +38,6 @@ namespace polysat {
         void narrow(solver& s) override;
         bool is_always_false() override;
         bool is_currently_false(solver& s) override;
+        bool is_currently_true(solver& s) override;
     };
 }

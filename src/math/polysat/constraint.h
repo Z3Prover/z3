@@ -50,6 +50,7 @@ namespace polysat {
         virtual constraint* resolve(solver& s, pvar v) = 0;
         virtual bool is_always_false() = 0;
         virtual bool is_currently_false(solver& s) = 0;
+        virtual bool is_currently_true(solver& s) = 0;
         virtual void narrow(solver& s) = 0;
         eq_constraint& to_eq();
         eq_constraint const& to_eq() const;

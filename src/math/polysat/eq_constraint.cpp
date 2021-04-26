@@ -19,7 +19,7 @@ Author:
 namespace polysat {
 
     std::ostream& eq_constraint::display(std::ostream& out) const {
-        return out << p() << " == 0";
+        return out << p() << (sign() == pos_t ? " == 0" : " != 0") << " [" << m_status << "]";
     }
 
     bool eq_constraint::propagate(solver& s, pvar v) {
@@ -43,9 +43,56 @@ namespace polysat {
     }
 
     constraint* eq_constraint::resolve(solver& s, pvar v) {
+        if (is_positive())
+            return eq_resolve(s, v);
+        if (is_negative())
+            return diseq_resolve(s, v);
+        UNREACHABLE();
+    }
+
+    void eq_constraint::narrow(solver& s) {
+        if (is_positive())
+            eq_narrow(s);
+        if (is_negative())
+            diseq_narrow(s);
+    }
+
+    bool eq_constraint::is_always_false() {
+        if (is_positive())
+            return p().is_never_zero();
+        if (is_negative())
+            return p().is_zero();
+        UNREACHABLE();
+    }
+
+    bool eq_constraint::is_currently_false(solver& s) {
+        pdd r = p().subst_val(s.m_search);
+        if (is_positive())
+            return r.is_never_zero();
+        if (is_negative())
+            return r.is_zero();
+        UNREACHABLE();
+    }
+
+    bool eq_constraint::is_currently_true(solver& s) {
+        pdd r = p().subst_val(s.m_search);
+        if (is_positive())
+            return r.is_zero();
+        if (is_negative())
+            return r.is_never_zero();
+        UNREACHABLE();
+    }
+
+    /**
+     * Equality constraints
+     */
+
+    constraint* eq_constraint::eq_resolve(solver& s, pvar v) {
+        SASSERT(is_currently_true(s));
         if (s.m_conflict.size() != 1)
             return nullptr;
         constraint* c = s.m_conflict[0];
+        SASSERT(c->is_currently_false(s));
         if (c->is_eq()) {
             pdd a = c->to_eq().p();
             pdd b = p();
@@ -61,7 +108,7 @@ namespace polysat {
         return nullptr;
     }
 
-    void eq_constraint::narrow(solver& s) {
+    void eq_constraint::eq_narrow(solver& s) {
         LOG("Assignment: " << s.m_search);
         auto q = p().subst_val(s.m_search);
         LOG("Substituted: " << p() << " := " << q);
@@ -94,13 +141,17 @@ namespace polysat {
         // TODO: what other constraints can be extracted cheaply?
     }
 
-    bool eq_constraint::is_always_false() {
-        return p().is_never_zero();
+
+    /**
+     * Disequality constraints
+     */
+
+    constraint* eq_constraint::diseq_resolve(solver& s, pvar v) {
+        NOT_IMPLEMENTED_YET();
     }
 
-    bool eq_constraint::is_currently_false(solver& s) {
-        pdd r = p().subst_val(s.m_search);
-        return r.is_never_zero();
+    void eq_constraint::diseq_narrow(solver& s) {
+        NOT_IMPLEMENTED_YET();
     }
 
 }
