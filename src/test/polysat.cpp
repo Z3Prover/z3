@@ -12,8 +12,33 @@ namespace polysat {
     struct scoped_solver : public solver_scope, public solver {
         scoped_solver(): solver(lim) {}
 
+        lbool check_rec() {
+            lbool result = check_sat();
+            if (result != l_undef)
+                return result;
+            auto const& new_lemma = get_lemma();
+            // Empty lemma => check_sat() terminated for another reason, e.g., resource limits
+            if (new_lemma.empty())
+                return l_undef;
+            for (auto lit : new_lemma) {
+                push();
+                assign_eh(lit, true);
+                result = check_rec();
+                pop();
+                // Found a model => done
+                if (result == l_true)
+                    return l_true;
+                if (result == l_undef)
+                    return l_undef;
+                // Unsat => try next literal
+                SASSERT(result == l_false);
+            }
+            // No literal worked? unsat
+            return l_false;
+        }
+
         void check() {
-            std::cout << check_sat() << "\n";
+            std::cout << check_rec() << "\n";
             statistics st;
             collect_statistics(st);
             std::cout << st << "\n";
@@ -113,9 +138,9 @@ namespace polysat {
         auto v = s.var(s.add_var(5));
         auto q = s.var(s.add_var(5));
         auto r = s.var(s.add_var(5));
-        s.add_eq(u - (v*q) - r, 0);
-        s.add_ult(r, u, 0);
-        s.add_ult(u, v*q, 0);
+        s.add_eq(u - (v*q) - r);
+        s.add_ult(r, u);
+        s.add_ult(u, v*q);
         s.check();
     }
 

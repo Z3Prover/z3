@@ -229,8 +229,19 @@ namespace polysat {
 
         /**
          * End-game satisfiability checker.
+         *
+         * Returns l_undef if the search cannot proceed.
+         * Possible reasons:
+         * - Resource limits are exhausted.
+         * - A disjunctive lemma should be learned. The disjunction needs to be handled externally.
          */
         lbool check_sat();
+
+        /**
+         * Returns the disjunctive lemma that should be learned,
+         * or an empty vector if check_sat() terminated for a different reason.
+         */
+        bool_var_vector get_lemma() { NOT_IMPLEMENTED_YET(); return {}; };
 
         /**
          * retrieve unsat core dependencies
@@ -283,7 +294,7 @@ namespace polysat {
          * Adds so-called user-scope.
          */
         void push();
-        void pop(unsigned num_scopes);
+        void pop(unsigned num_scopes = 1);
        
         std::ostream& display(std::ostream& out) const;
 
