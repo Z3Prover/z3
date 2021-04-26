@@ -1308,6 +1308,10 @@ namespace z3 {
         friend expr fma(expr const& a, expr const& b, expr const& c, expr const& rm);
 
         /**
+           \brief Create an expression of FloatingPoint sort from three bit-vector expressions.
+        */
+        friend expr fpa_fp(expr const& rm, expr const& fp, unsigned bv_len);
+        /**
            \brief Conversion of a floating-point term into a signed bit-vector
         */
         friend expr fpa_to_sbv(expr const& rm, expr const& fp, unsigned bv_len);
@@ -1813,6 +1817,12 @@ namespace z3 {
         return expr(a.ctx(), r);
     }
 
+    inline expr fpa_fp(expr const& sgn, expr const& exp, expr const & sig) {
+        check_context(sgn, exp); check_context(exp, sig);
+        Z3_ast r = Z3_mk_fpa_fp(sgn.ctx(), sgn, exp, sig)
+        sgn.check_error();
+        return expr(sgn.ctx(), r);
+    }
     inline expr fpa_to_sbv(expr const& rm, expr const& fp, unsigned bv_len) {
         check_context(rm, fp);
         assert(fp.is_fpa());
