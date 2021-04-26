@@ -584,6 +584,8 @@ namespace polysat {
         if (!c)
             return;
         LOG("Lemma: " << *c);
+        SASSERT(!get_bv2c(c->bvar()));
+        insert_bv2c(c->bvar(), c);
         add_watch(*c);
         m_redundant.push_back(c);
         for (unsigned i = m_redundant.size() - 1; i-- > 0; ) {
