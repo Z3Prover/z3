@@ -21,8 +21,8 @@ namespace polysat {
         pdd m_lhs;
         pdd m_rhs;
     public:
-        ule_constraint(unsigned lvl, pdd const& l, pdd const& r, p_dependency_ref& dep):
-            constraint(lvl, dep, ckind_t::ule_t), m_lhs(l), m_rhs(r) {
+        ule_constraint(unsigned lvl, bool_var bvar, csign_t sign, pdd const& l, pdd const& r, p_dependency_ref& dep):
+            constraint(lvl, bvar, sign, dep, ckind_t::ule_t), m_lhs(l), m_rhs(r) {
             m_vars.append(l.free_vars());
             for (auto v : r.free_vars())
                 if (!m_vars.contains(v))
@@ -34,9 +34,10 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const override;
         bool propagate(solver& s, pvar v) override;
         constraint* resolve(solver& s, pvar v) override;
-        static bool is_always_false(pdd const& lhs, pdd const& rhs);
+        bool is_always_false(pdd const& lhs, pdd const& rhs);
         bool is_always_false() override;
         bool is_currently_false(solver& s) override;
+        bool is_currently_true(solver& s) override;
         void narrow(solver& s) override;
     };
 

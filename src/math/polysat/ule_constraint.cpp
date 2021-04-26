@@ -19,7 +19,7 @@ Author:
 namespace polysat {
 
     std::ostream& ule_constraint::display(std::ostream& out) const {
-        return out << m_lhs << " <=u " << m_rhs;
+        return out << m_lhs << (sign() == pos_t ? " <=u " : " >u ") << m_rhs << " [" << m_status << "]";
     }
 
     bool ule_constraint::propagate(solver& s, pvar v) {
@@ -57,7 +57,8 @@ namespace polysat {
             return;
         }
         if (p.is_val() && q.is_val()) {
-            SASSERT(p.val() <= q.val());
+            SASSERT(!is_positive() || p.val() <= q.val());
+            SASSERT(!is_negative() || p.val() > q.val());
             return;
         }
 
@@ -89,7 +90,9 @@ namespace polysat {
         }
         if (v != null_var) {
             bddv const& x = s.var2bits(v).var();
-            bdd xs = (a * x + b <= c * x + d);
+            bddv l = a * x + b;
+            bddv r = c * x + d;
+            bdd xs = is_positive() ? (l <= r) : (l > r);
             s.push_cjust(v, this);
             s.intersect_viable(v, xs);
 
@@ -106,7 +109,11 @@ namespace polysat {
 
     bool ule_constraint::is_always_false(pdd const& lhs, pdd const& rhs) {
         // TODO: other conditions (e.g. when forbidden interval would be full)
-        return lhs.is_val() && rhs.is_val() && !(lhs.val() <= rhs.val());
+        if (is_positive())
+            return lhs.is_val() && rhs.is_val() && !(lhs.val() <= rhs.val());
+        if (is_negative())
+            return lhs.is_val() && rhs.is_val() && !(lhs.val() > rhs.val());
+        UNREACHABLE();
     }
 
     bool ule_constraint::is_always_false() {
@@ -117,6 +124,16 @@ namespace polysat {
         auto p = lhs().subst_val(s.m_search);
         auto q = rhs().subst_val(s.m_search);
         return is_always_false(p, q);
+    }
+
+    bool ule_constraint::is_currently_true(solver& s) {
+        auto p = lhs().subst_val(s.m_search);
+        auto q = rhs().subst_val(s.m_search);
+        if (is_positive())
+            return p.is_val() && q.is_val() && p.val() <= q.val();
+        if (is_negative())
+            return p.is_val() && q.is_val() && p.val() > q.val();
+        UNREACHABLE();
     }
 
 }

@@ -20,8 +20,8 @@ namespace polysat {
     class eq_constraint : public constraint {
         pdd m_poly;
     public:
-        eq_constraint(unsigned lvl, pdd const& p, p_dependency_ref& dep):
-            constraint(lvl, dep, ckind_t::eq_t), m_poly(p) {
+        eq_constraint(unsigned lvl, bool_var bvar, csign_t sign, pdd const& p, p_dependency_ref& dep):
+            constraint(lvl, bvar, sign, dep, ckind_t::eq_t), m_poly(p) {
             m_vars.append(p.free_vars());
         }
         ~eq_constraint() override {}
@@ -31,7 +31,14 @@ namespace polysat {
         constraint* resolve(solver& s, pvar v) override;
         bool is_always_false() override;
         bool is_currently_false(solver& s) override;
+        bool is_currently_true(solver& s) override;
         void narrow(solver& s) override;
+
+    private:
+        constraint* eq_resolve(solver& s, pvar v);
+        void eq_narrow(solver& s);
+        constraint* diseq_resolve(solver& s, pvar v);
+        void diseq_narrow(solver& s);
     };
 
 }

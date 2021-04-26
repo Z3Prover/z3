@@ -39,6 +39,10 @@ namespace polysat {
         return s.m_viable[m_var].is_false();
     }
 
+    bool var_constraint::is_currently_true(solver& s) {
+        return !s.m_viable[m_var].is_false();
+    }
+
     void var_constraint::narrow(solver& s) {
         s.intersect_viable(m_var, m_viable);
     }

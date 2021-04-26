@@ -148,58 +148,76 @@ namespace polysat {
         m_free_vars.del_var_eh(v);
     }
 
-    void solver::add_constraint(constraint* c) {
+    void solver::new_constraint(constraint* c) {
         SASSERT(c);
-        LOG("Adding constraint: " << *c);
+        LOG("New constraint: " << *c);
         m_constraints.push_back(c);
-        c->narrow(*this);
+        SASSERT(!get_bv2c(c->bvar()));
+        insert_bv2c(c->bvar(), c);
     }
 
-    void solver::add_eq(pdd const& p, unsigned dep) {
+    bool_var solver::new_eq(pdd const& p, unsigned dep) {
         p_dependency_ref d(mk_dep(dep), m_dm);
-        constraint* c = constraint::eq(m_level, p, d);
-        add_watch(*c);
-        add_constraint(c);
+        constraint* c = constraint::eq(m_level, m_next_bvar++, pos_t, p, d);
+        new_constraint(c);
+        return c->bvar();
     }
 
-    void solver::add_diseq(pdd const& p, unsigned dep) {
-        if (p.is_val()) {
-            if (!p.is_zero()) 
-                return;
-            // set conflict.
-            NOT_IMPLEMENTED_YET();
-            return;
-        }
+    bool_var solver::new_diseq(pdd const& p, unsigned dep) {
+        // if (p.is_val()) {
+        //     if (!p.is_zero())
+        //         return;
+        //     // set conflict.
+        //     NOT_IMPLEMENTED_YET();   // TODO: not here, only when activated
+        //     return;
+        // }
         unsigned sz = size(p.var());
         auto slack = add_var(sz);
         auto q = p + var(slack);
         add_eq(q, dep);
         auto non_zero = sz2bits(sz).non_zero();
         p_dependency_ref d(mk_dep(dep), m_dm);        
-        constraint* c = constraint::viable(m_level, slack, non_zero, d);
-        add_constraint(c);
+        constraint* c = constraint::viable(m_level, m_next_bvar++, pos_t, slack, non_zero, d);
+        new_constraint(c);
+        return c->bvar();
     }
 
-    void solver::add_ule(pdd const& p, pdd const& q, unsigned dep) {
+    bool_var solver::new_ule(pdd const& p, pdd const& q, unsigned dep, csign_t sign) {
         p_dependency_ref d(mk_dep(dep), m_dm);
-        constraint* c = constraint::ule(m_level, p, q, d);
+        constraint* c = constraint::ule(m_level, m_next_bvar++, sign, p, q, d);
+        new_constraint(c);
+        return c->bvar();
+    }
+
+    bool_var solver::new_sle(pdd const& p, pdd const& q, unsigned dep, csign_t sign) {
+        auto shift = rational::power_of_two(p.power_of_2() - 1);
+        return new_ule(p + shift, q + shift, dep, sign);
+    }
+
+    bool_var solver::new_ult(pdd const& p, pdd const& q, unsigned dep) {
+        return new_ule(q, p, dep, neg_t);
+    }
+
+    bool_var solver::new_slt(pdd const& p, pdd const& q, unsigned dep) {
+        return new_sle(q, p, dep, neg_t);
+    }
+
+    void solver::add_eq(pdd const& p, unsigned dep) { assign_eh(new_eq(p, dep), true); }
+    void solver::add_diseq(pdd const& p, unsigned dep) { assign_eh(new_diseq(p, dep), true); }
+    void solver::add_ule(pdd const& p, pdd const& q, unsigned dep) { assign_eh(new_ule(p, q, dep), true); }
+    void solver::add_ult(pdd const& p, pdd const& q, unsigned dep) { assign_eh(new_ult(p, q, dep), true); }
+    void solver::add_sle(pdd const& p, pdd const& q, unsigned dep) { assign_eh(new_sle(p, q, dep), true); }
+    void solver::add_slt(pdd const& p, pdd const& q, unsigned dep) { assign_eh(new_slt(p, q, dep), true); }
+
+    void solver::assign_eh(bool_var v, bool is_true) {
+        constraint* c = get_bv2c(v);
+        if (!c) {
+            LOG("WARN: there is no constraint for bool_var " << v);
+            return;
+        }
+        c->assign_eh(is_true);
         add_watch(*c);
-        add_constraint(c);
-    }
-
-    void solver::add_sle(pdd const& p, pdd const& q, unsigned dep) {
-        // save for later
-        NOT_IMPLEMENTED_YET();
-    }
-
-    void solver::add_ult(pdd const& p, pdd const& q, unsigned dep) {
-        // save for later
-        NOT_IMPLEMENTED_YET();
-    }
-
-    void solver::add_slt(pdd const& p, pdd const& q, unsigned dep) {
-        // save for later
-        NOT_IMPLEMENTED_YET();
+        c->narrow(*this);
     }
 
 
@@ -566,6 +584,8 @@ namespace polysat {
         if (!c)
             return;
         LOG("Lemma: " << *c);
+        SASSERT(!get_bv2c(c->bvar()));
+        insert_bv2c(c->bvar(), c);
         add_watch(*c);
         m_redundant.push_back(c);
         for (unsigned i = m_redundant.size() - 1; i-- > 0; ) {
