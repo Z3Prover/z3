@@ -90,7 +90,7 @@ namespace bv {
         m_wpos.push_back(0);
         m_zero_one_bits.push_back(zero_one_bits());       
         ctx.attach_th_var(n, this, r);        
-        TRACE("bv", tout << "mk-var: " << r << " " << n->get_expr_id() << " " << mk_bounded_pp(n->get_expr(), m) << "\n";);
+        TRACE("bv", tout << "mk-var: v" << r << " " << n->get_expr_id() << " " << mk_bounded_pp(n->get_expr(), m) << "\n";);
         return r;
     }
 
@@ -289,6 +289,7 @@ namespace bv {
         SASSERT(l == mk_true() || ~l == mk_true());
         bool is_true = l == mk_true();
         zero_one_bits& bits = m_zero_one_bits[v];
+        TRACE("bv", tout << "register v" << v << " " << l << " " << mk_true() << "\n";);
         bits.push_back(zero_one_bit(v, idx, is_true));
     }
 
