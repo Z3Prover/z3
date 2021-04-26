@@ -65,6 +65,13 @@ namespace polysat {
         scoped_ptr_vector<constraint>   m_constraints;
         scoped_ptr_vector<constraint>   m_redundant;
 
+        // Map boolean variables to constraints
+        bool_var                 m_next_bvar = 2;  // TODO: later, bool vars come from external supply
+        ptr_vector<constraint>   m_bv2constraint;
+        void insert_bv2c(bool_var bv, constraint* c) { m_bv2constraint.setx(bv, c, nullptr); }
+        void erase_bv2c(bool_var bv) { m_bv2constraint[bv] = nullptr; }
+        constraint* get_bv2c(bool_var bv) const { return m_bv2constraint.get(bv, nullptr); }
+
         // Per variable information
         vector<bdd>              m_viable;   // set of viable values.
         vector<rational>         m_value;    // assigned value
@@ -204,7 +211,7 @@ namespace polysat {
         void backjump(unsigned new_level);
         void add_lemma(constraint* c);
 
-        void add_constraint(constraint* c);
+        void new_constraint(constraint* c);
 
         bool invariant();
         bool invariant(scoped_ptr_vector<constraint> const& cs);
@@ -241,10 +248,17 @@ namespace polysat {
         pdd var(pvar v) { return m_vars[v]; }
 
         /**
-         * Add polynomial constraints
+         * Create polynomial constraints (but do not activate them).
          * Each constraint is tracked by a dependency.
-         * assign sets the 'index'th bit of var.
          */
+        bool_var new_eq(pdd const& p, unsigned dep = null_dependency);
+        bool_var new_diseq(pdd const& p, unsigned dep = null_dependency);
+        bool_var new_ule(pdd const& p, pdd const& q, unsigned dep = null_dependency, csign_t sign = pos_t);
+        bool_var new_ult(pdd const& p, pdd const& q, unsigned dep = null_dependency);
+        bool_var new_sle(pdd const& p, pdd const& q, unsigned dep = null_dependency, csign_t sign = pos_t);
+        bool_var new_slt(pdd const& p, pdd const& q, unsigned dep = null_dependency);
+
+        /** Create and activate polynomial constraints. */
         void add_eq(pdd const& p, unsigned dep = null_dependency);
         void add_diseq(pdd const& p, unsigned dep = null_dependency);
         void add_ule(pdd const& p, pdd const& q, unsigned dep = null_dependency);
@@ -252,6 +266,11 @@ namespace polysat {
         void add_sle(pdd const& p, pdd const& q, unsigned dep = null_dependency);
         void add_slt(pdd const& p, pdd const& q, unsigned dep = null_dependency);
         
+        /**
+         * Activate the constraint corresponding to the given boolean variable.
+         * Note: to deactivate, use push/pop.
+         */
+        void assign_eh(bool_var v, bool is_true);
 
         /**
          * main state transitions.
