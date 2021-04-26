@@ -1314,11 +1314,11 @@ namespace z3 {
         /**
            \brief Conversion of a floating-point term into a signed bit-vector
         */
-        friend expr fpa_to_sbv(expr const& rm, expr const& fp, unsigned bv_len);
+        friend expr fpa_to_sbv(sort const& rm, expr const& fp, unsigned bv_len);
         /**
            \brief Conversion of a floating-point term into a unsigned bit-vector
         */
-        friend expr fpa_to_ubv(expr const& rm, expr const& fp, unsigned bv_len);
+        friend expr fpa_to_ubv(sort const& rm, expr const& fp, unsigned bv_len);
 
         /**
            \brief sequence and regular expression operations.
@@ -1819,21 +1819,21 @@ namespace z3 {
 
     inline expr fpa_fp(expr const& sgn, expr const& exp, expr const & sig) {
         check_context(sgn, exp); check_context(exp, sig);
-        Z3_ast r = Z3_mk_fpa_fp(sgn.ctx(), sgn, exp, sig)
+        Z3_ast r = Z3_mk_fpa_fp(sgn.ctx(), sgn, exp, sig);
         sgn.check_error();
         return expr(sgn.ctx(), r);
     }
-    inline expr fpa_to_sbv(expr const& rm, expr const& fp, unsigned bv_len) {
+    inline expr fpa_to_sbv(sort const& rm, expr const& fp, unsigned bv_len) {
         check_context(rm, fp);
         assert(fp.is_fpa());
-        Z3_ast r = Z3_mk_fpa_to_sbv(fp.ctx(), rm, fp, bv_len);
+        Z3_ast r = Z3_mk_fpa_to_sbv(fp.ctx(), rm.m_ast, fp.m_ast, bv_len);
         fp.check_error();
         return expr(fp.ctx(), r);
     }
-    inline expr fpa_to_ubv(expr const& rm, expr const& fp, unsigned bv_len) {
+    inline expr fpa_to_ubv(sort const& rm, expr const& fp, unsigned bv_len) {
         check_context(rm, fp);
         assert(fp.is_fpa());
-        Z3_ast r = Z3_mk_fpa_to_ubv(fp.ctx(), rm, fp, bv_len);
+        Z3_ast r = Z3_mk_fpa_to_ubv(fp.ctx(), rm.m_ast, fp.m_ast, bv_len);
         fp.check_error();
         return expr(fp.ctx(), r);
     }
