@@ -1308,6 +1308,15 @@ namespace z3 {
         friend expr fma(expr const& a, expr const& b, expr const& c, expr const& rm);
 
         /**
+           \brief Conversion of a floating-point term into a signed bit-vector
+        */
+        friend expr fpa_to_sbv(expr const& rm, expr const& fp, unsigned bv_len);
+        /**
+           \brief Conversion of a floating-point term into a unsigned bit-vector
+        */
+        friend expr fpa_to_ubv(expr const& rm, expr const& fp, unsigned bv_len);
+
+        /**
            \brief sequence and regular expression operations.
            + is overloaded as sequence concatenation and regular expression union.
            concat is overloaded to handle sequences and regular expressions
@@ -1802,6 +1811,21 @@ namespace z3 {
         Z3_ast r = Z3_mk_fpa_fma(a.ctx(), rm, a, b, c);
         a.check_error();
         return expr(a.ctx(), r);
+    }
+
+    inline expr fpa_to_sbv(expr const& rm, expr const& fp, unsigned bv_len) {
+        check_context(rm, fp);
+        assert(fp.is_fpa());
+        Z3_ast r = Z3_mk_fpa_to_sbv(fp.ctx(), rm, fp, bv_len);
+        fp.check_error();
+        return expr(fp.ctx(), r);
+    }
+    inline expr fpa_to_ubv(expr const& rm, expr const& fp, unsigned bv_len) {
+        check_context(rm, fp);
+        assert(fp.is_fpa());
+        Z3_ast r = Z3_mk_fpa_to_ubv(fp.ctx(), rm, fp, bv_len);
+        fp.check_error();
+        return expr(fp.ctx(), r);
     }
 
 
