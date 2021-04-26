@@ -437,7 +437,7 @@ namespace seq {
         expr_ref t_eq_empty = mk_eq_empty(t);
 
         // |t| = 0 => |s| = 0 or indexof(t,s,offset) = -1
-        // ~contains(t,s) <=> indexof(t,s,offset) = -1
+        // ~contains(t,s) => indexof(t,s,offset) = -1
 
         add_clause(cnt,  i_eq_m1);
         add_clause(~t_eq_empty, s_eq_empty, i_eq_m1);
@@ -489,7 +489,7 @@ namespace seq {
             // 0 <= offset & offset < len(t) => len(x) = offset
             // 0 <= offset & offset < len(t) & indexof(y,s,0) = -1 => -1 = i
             // 0 <= offset & offset < len(t) & indexof(y,s,0) >= 0 =>
-            //                  -1 = indexof(y,s,0) + offset = indexof(t, s, offset)
+            //                  indexof(y,s,0) + offset = indexof(t, s, offset)
 
             add_clause(~offset_ge_0, offset_ge_len, mk_seq_eq(t, mk_concat(x, y)));
             add_clause(~offset_ge_0, offset_ge_len, mk_eq(mk_len(x), offset));
