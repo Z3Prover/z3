@@ -96,7 +96,6 @@ namespace q {
     }
 
     euf::theory_var solver::mk_var(euf::enode* n) {
-        SASSERT(is_forall(n->get_expr()) || is_exists(n->get_expr()));
         auto v = euf::th_euf_solver::mk_var(n);
         ctx.attach_th_var(n, this, v);        
         return v;

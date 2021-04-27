@@ -291,7 +291,20 @@ namespace euf {
     }
 
     void egraph::set_lbl_hash(enode* n) {
-        NOT_IMPLEMENTED_YET();
+        SASSERT(n->m_lbl_hash == -1);
+        // m_lbl_hash should be different from -1, if and only if,
+        // there is a pattern that contains the enode. So,
+        // I use a trail to restore the value of m_lbl_hash to -1.
+        m_updates.push_back(update_record(n, update_record::lbl_hash()));
+        unsigned h = hash_u(n->get_expr_id());
+        n->m_lbl_hash = h & (APPROX_SET_CAPACITY - 1);
+        // propagate modification to the root m_lbls set.
+        enode* r = n->get_root();
+        approx_set & r_lbls = r->m_lbls;
+        if (!r_lbls.may_contain(n->m_lbl_hash)) {
+            m_updates.push_back(update_record(r, update_record::lbl_hash()));
+            r_lbls.insert(n->m_lbl_hash);
+        }
     }
 
     void egraph::pop(unsigned num_scopes) {
@@ -356,6 +369,9 @@ namespace euf {
             case update_record::tag_t::is_value_assignment:
                 VERIFY(p.r1->value() != l_undef);
                 p.r1->set_value(l_undef);
+                break;
+            case update_record::tag_t::is_lbl_hash:
+                p.r1->m_lbl_hash = p.m_lbl_hash;
                 break;
             default:
                 UNREACHABLE();
