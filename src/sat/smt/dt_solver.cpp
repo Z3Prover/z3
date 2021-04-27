@@ -717,10 +717,8 @@ namespace dt {
     }
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
-        if (!visit_rec(m, e, sign, root, redundant)) {
-            TRACE("dt", tout << mk_pp(e, m) << "\n";);
-            return sat::null_literal;
-        }
+        if (!visit_rec(m, e, sign, root, redundant)) 
+            return sat::null_literal;        
         auto lit = ctx.expr2literal(e);
         if (sign)
             lit.neg();
