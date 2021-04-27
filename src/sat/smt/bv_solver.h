@@ -102,6 +102,9 @@ namespace bv {
             unsigned   m_is_true:1;
             zero_one_bit(theory_var v = euf::null_theory_var, unsigned idx = UINT_MAX, bool is_true = false):
                 m_owner(v), m_idx(idx), m_is_true(is_true) {}
+            std::ostream& display(std::ostream& out) const {
+                return out << "v" << m_owner << " @ " << m_idx << " " << (m_is_true?"T":"F");
+            }
         };
 
         typedef svector<zero_one_bit> zero_one_bits;
@@ -367,9 +370,12 @@ namespace bv {
         typedef std::pair<solver const*, theory_var> pp_var;
         pp_var pp(theory_var v) const { return pp_var(this, v); }
 
+        friend std::ostream& operator<<(std::ostream& out, solver::zero_one_bit const& zo) { return zo.display(out); }
+
     };
 
     inline std::ostream& operator<<(std::ostream& out, solver::pp_var const& p) { return p.first->display(out, p.second); }
+
 
 
 }
