@@ -895,7 +895,7 @@ namespace z3 {
         */
         expr mk_to_ieee_bv() const {
             assert(is_fpa());
-            Z3_ast r = Z3_mk_fpa_to_ieee_bv(ctx(), m_ast),
+            Z3_ast r = Z3_mk_fpa_to_ieee_bv(ctx(), m_ast);
             check_error();
             return expr(ctx(), r);
         }
@@ -1306,6 +1306,19 @@ namespace z3 {
            \brief FloatingPoint fused multiply-add.
           */
         friend expr fma(expr const& a, expr const& b, expr const& c, expr const& rm);
+
+        /**
+           \brief Create an expression of FloatingPoint sort from three bit-vector expressions.
+        */
+        friend expr fpa_fp(expr const& rm, expr const& fp, unsigned bv_len);
+        /**
+           \brief Conversion of a floating-point term into a signed bit-vector
+        */
+        friend expr fpa_to_sbv(sort const& rm, expr const& fp, unsigned bv_len);
+        /**
+           \brief Conversion of a floating-point term into a unsigned bit-vector
+        */
+        friend expr fpa_to_ubv(sort const& rm, expr const& fp, unsigned bv_len);
 
         /**
            \brief sequence and regular expression operations.
@@ -1802,6 +1815,27 @@ namespace z3 {
         Z3_ast r = Z3_mk_fpa_fma(a.ctx(), rm, a, b, c);
         a.check_error();
         return expr(a.ctx(), r);
+    }
+
+    inline expr fpa_fp(expr const& sgn, expr const& exp, expr const & sig) {
+        check_context(sgn, exp); check_context(exp, sig);
+        Z3_ast r = Z3_mk_fpa_fp(sgn.ctx(), sgn, exp, sig);
+        sgn.check_error();
+        return expr(sgn.ctx(), r);
+    }
+    inline expr fpa_to_sbv(sort const& rm, expr const& fp, unsigned bv_len) {
+        check_context(rm, fp);
+        assert(fp.is_fpa());
+        Z3_ast r = Z3_mk_fpa_to_sbv(fp.ctx(), rm.m_ast, fp.m_ast, bv_len);
+        fp.check_error();
+        return expr(fp.ctx(), r);
+    }
+    inline expr fpa_to_ubv(sort const& rm, expr const& fp, unsigned bv_len) {
+        check_context(rm, fp);
+        assert(fp.is_fpa());
+        Z3_ast r = Z3_mk_fpa_to_ubv(fp.ctx(), rm.m_ast, fp.m_ast, bv_len);
+        fp.check_error();
+        return expr(fp.ctx(), r);
     }
 
 
