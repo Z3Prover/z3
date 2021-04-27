@@ -703,9 +703,11 @@ namespace dt {
     }
 
     bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
-        theory_var v = n->get_th_var(get_id());
         if (!is_datatype(n->get_expr()))
             return true;
+        theory_var v = n->get_th_var(get_id());
+        if (v == euf::null_theory_var) 
+            return true;        
         euf::enode* con = m_var_data[m_find.find(v)]->m_constructor;
         if (con->num_args() == 0)
             dep.insert(n, nullptr);
