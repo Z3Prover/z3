@@ -144,6 +144,16 @@ namespace euf {
                     m_values.set(id, m.mk_false());
                     continue;
                 }
+                switch (n->value()) {
+                case l_true:
+                    m_values.set(id, m.mk_true());
+                    continue;
+                case l_false:
+                    m_values.set(id, m.mk_false());
+                    continue;
+                default:
+                    break;
+                }
                 if (is_app(e) && to_app(e)->get_family_id() == m.get_basic_family_id())
                     continue;
                 sat::bool_var v = get_enode(e)->bool_var();
