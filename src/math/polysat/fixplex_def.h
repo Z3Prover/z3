@@ -43,7 +43,7 @@ namespace polysat {
         M.reset();
         m_to_patch.reset();
         m_vars.reset();
-        m_row2base.reset();
+        m_rows.reset();
         m_left_basis.reset();
         m_base_vars.reset();
 
@@ -101,13 +101,14 @@ namespace polysat {
         }
         SASSERT(base_coeff != 0);
         SASSERT(!is_base(base_var));
-        while (m_row2base.size() <= r.id()) 
-            m_row2base.push_back(null_var);
-        m_row2base[r.id()] = base_var;
+        while (m_rows.size() <= r.id()) 
+            m_rows.push_back(row_info());
+        m_rows[r.id()].m_base = base_var;
+        m_rows[r.id()].m_base_coeff = base_coeff;
+        m_rows[r.id()].m_value = value;
         m_vars[base_var].m_base2row = r.id();
         m_vars[base_var].m_is_base = true;
-        m_vars[base_var].m_base_coeff = base_coeff;
-        m_vars[base_var].m_value = value / base_coeff;
+        m_vars[base_var].m_value = 0 - (value / base_coeff);
         // TBD: record when base_coeff does not divide value
         add_patch(base_var);
         if (!m_base_vars.empty()) {
@@ -117,6 +118,38 @@ namespace polysat {
         SASSERT(well_formed());
         return r;
     }
+
+
+    /**
+     * increment v by delta
+     */
+    template<typename Ext>
+    void fixplex<Ext>::update_value(var_t v, numeral const& delta) {
+        if (delta == 0)
+            return;
+        m_vars[v].m_value += delta;
+        if (is_base(v)) {
+            add_patch(v);
+            return;
+        }
+
+        //
+        // v <- v + delta
+        // s*s_coeff + R = 0, where R contains v*v_coeff 
+        // -> 
+        // R.value += delta*v_coeff
+        // s.value = - R.value / s_coeff
+        // 
+        for (auto c : M.col_entries(v)) {
+            row r = c.get_row();
+            row_info& ri = m_rows[r.id()];
+            var_t s = ri.m_base;
+            var_info& si = m_vars[s];
+            ri.m_value += delta * c.get_row_entry().m_coeff;
+            si.m_value = 0 - (ri.m_value / ri.m_base_coeff);
+            add_patch(s);
+        }            
+    }    
 
     template<typename Ext>
     void fixplex<Ext>::gauss_jordan() {
@@ -181,7 +214,9 @@ namespace polysat {
         var_info& x_iI = m_vars[x_i];
         var_info& x_jI = m_vars[x_j];
         unsigned ri = x_iI.m_base2row;
-        m_row2base[ri] = x_j;
+        m_rows[ri].m_base = x_j;
+        m_rows[ri].m_value = 0; // TBD
+        m_rows[ri].m_base_coeff = a_ij;
         x_jI.m_base2row = ri;
         x_jI.m_is_base = true;
         x_iI.m_is_base = false;
@@ -215,8 +250,10 @@ namespace polysat {
                 numeral b = m.inv(a_ij >> (tz1 - tz2));
                 M.mul(r_i, a);
                 M.add(r_i, b, r_k);
-                unsigned x_k = m_row2base[rk];
-                std::swap(m_row2base[ri], m_row2base[rk]);
+                unsigned x_k = m_row[rk].m_base;
+                
+                // TBD: redo according to slides
+                // TBD: std::swap(m_row2base[ri], m_row2base[rk]);
                 m_vars[x_j].m_base2row = rk;
                 m_vars[x_k].m_base2row = ri;
                 tz1  = tz2;
@@ -230,42 +267,6 @@ namespace polysat {
         SASSERT(well_formed());
     }
 
-#if 0
-
-    template<typename Ext>
-    void fixplex<Ext>::update_value(var_t v, eps_numeral const& delta) {
-        if (em.is_zero(delta)) {
-            return;
-        }
-        update_value_core(v, delta);
-        col_iterator it = M.col_begin(v), end = M.col_end(v);
-
-        // v <- v + delta
-        // s*s_coeff + v*v_coeff + R = 0
-        // -> 
-        // (v + delta)*v_coeff + (s - delta*v_coeff/s_coeff)*v + R = 0
-        for (; it != end; ++it) {
-            row r = it.get_row();
-            var_t s = m_row2base[r.id()];
-            var_info& si = m_vars[s];
-            scoped_eps_numeral delta2(em);
-            numeral const& coeff = it.get_row_entry().m_coeff;
-            em.mul(delta,  coeff, delta2);
-            em.div(delta2, si.m_base_coeff, delta2);
-            delta2.neg();
-            update_value_core(s, delta2);
-        }            
-    }    
-
-    template<typename Ext>
-    void fixplex<Ext>::update_value_core(var_t v, eps_numeral const& delta) {
-        eps_numeral& val = m_vars[v].m_value;
-        em.add(val, delta, val);
-        if (is_base(v)) {
-            add_patch(v);
-        }
-    }
-#endif
 
 }
 

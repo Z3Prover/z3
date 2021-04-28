@@ -68,6 +68,12 @@ namespace polysat {
             {}
         };
 
+        struct row_info {
+            var_t   m_base;
+            numeral m_value;
+            numeral m_base_coeff;            
+        };
+
         static const var_t null_var = 0;
         reslimit&                   m_limit;
         mutable manager             m;
@@ -75,7 +81,7 @@ namespace polysat {
         unsigned                    m_max_iterations;
         var_heap                    m_to_patch;
         vector<var_info>            m_vars;
-        svector<var_t>              m_row2base;
+        vector<row_info>            m_rows;
         bool                        m_bland;
         unsigned                    m_blands_rule_threshold;
         random_gen                  m_random;
@@ -99,7 +105,7 @@ namespace polysat {
         typedef typename matrix::row_iterator row_iterator;
         typedef typename matrix::col_iterator col_iterator;
 
-        var_t get_base_var(row const& r) const { return m_row2base[r.id()]; }
+        var_t get_base_var(row const& r) const { return m_rows[r.id()].m_base; }
         numeral const& get_lo(var_t var) const { return m_vars[var].m_lo; }
         numeral const& get_hi(var_t var) const { return m_vars[var].m_hi; }
         void set_max_iterations(unsigned n) { m_max_iterations = n; }
@@ -130,6 +136,8 @@ namespace polysat {
         void gauss_jordan();
         void make_basic(var_t v, row const& r);
 
+        void update_value_core(var_t v, numeral const& delta);
+
 
         // TBD: 
         void  del_row(row const& r) {}
@@ -140,8 +148,7 @@ namespace polysat {
         void check_blands_rule(var_t v, unsigned& num_repeated) {}
         bool make_var_feasible(var_t x_i) { return false; }
         void update_and_pivot(var_t x_i, var_t x_j, numeral const& a_ij, numeral const& new_value) {}
-        void update_value(var_t v, numeral const& delta) {}
-        void update_value_core(var_t v, numeral const& delta) {}
+        void update_value(var_t v, numeral const& delta);
         void pivot(var_t x_i, var_t x_j, numeral a_ij);
         void move_to_bound(var_t x, bool to_lower) {}
         var_t select_pivot(var_t x_i, bool is_below, scoped_numeral& out_a_ij) { throw nullptr; }

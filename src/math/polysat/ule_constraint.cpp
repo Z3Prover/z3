@@ -114,6 +114,7 @@ namespace polysat {
         if (is_negative())
             return lhs.is_val() && rhs.is_val() && !(lhs.val() > rhs.val());
         UNREACHABLE();
+        return false;
     }
 
     bool ule_constraint::is_always_false() {
@@ -134,6 +135,7 @@ namespace polysat {
         if (is_negative())
             return p.is_val() && q.is_val() && p.val() > q.val();
         UNREACHABLE();
+        return false;
     }
 
 }

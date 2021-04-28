@@ -48,6 +48,7 @@ namespace polysat {
         if (is_negative())
             return diseq_resolve(s, v);
         UNREACHABLE();
+        return nullptr;
     }
 
     void eq_constraint::narrow(solver& s) {
@@ -63,6 +64,7 @@ namespace polysat {
         if (is_negative())
             return p().is_zero();
         UNREACHABLE();
+        return false;
     }
 
     bool eq_constraint::is_currently_false(solver& s) {
@@ -72,6 +74,7 @@ namespace polysat {
         if (is_negative())
             return r.is_zero();
         UNREACHABLE();
+        return false;
     }
 
     bool eq_constraint::is_currently_true(solver& s) {
@@ -81,6 +84,7 @@ namespace polysat {
         if (is_negative())
             return r.is_never_zero();
         UNREACHABLE();
+        return false;
     }
 
     /**
@@ -148,6 +152,7 @@ namespace polysat {
 
     constraint* eq_constraint::diseq_resolve(solver& s, pvar v) {
         NOT_IMPLEMENTED_YET();
+        return nullptr;
     }
 
     void eq_constraint::diseq_narrow(solver& s) {
