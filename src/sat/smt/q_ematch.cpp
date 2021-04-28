@@ -410,10 +410,8 @@ namespace q {
         mam::ground_subterms(pat, m_ground);
         for (expr* g : m_ground) { 
             euf::enode* n = ctx.get_egraph().find(g);
-            if (!n->is_attached_to(m_qs.get_id())) {
-                euf::theory_var v = m_qs.mk_var(n);
-                ctx.get_egraph().add_th_var(n, v, m_qs.get_id());
-            }
+            if (!n->is_attached_to(m_qs.get_id())) 
+                m_qs.mk_var(n);            
         }
     }
 
