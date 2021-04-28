@@ -109,12 +109,11 @@ namespace polysat {
 
     bool ule_constraint::is_always_false(pdd const& lhs, pdd const& rhs) {
         // TODO: other conditions (e.g. when forbidden interval would be full)
+        VERIFY(!is_undef());
         if (is_positive())
             return lhs.is_val() && rhs.is_val() && !(lhs.val() <= rhs.val());
-        if (is_negative())
+        else 
             return lhs.is_val() && rhs.is_val() && !(lhs.val() > rhs.val());
-        UNREACHABLE();
-        return false;
     }
 
     bool ule_constraint::is_always_false() {
@@ -130,12 +129,11 @@ namespace polysat {
     bool ule_constraint::is_currently_true(solver& s) {
         auto p = lhs().subst_val(s.m_search);
         auto q = rhs().subst_val(s.m_search);
+        VERIFY(!is_undef());
         if (is_positive())
             return p.is_val() && q.is_val() && p.val() <= q.val();
-        if (is_negative())
+        else 
             return p.is_val() && q.is_val() && p.val() > q.val();
-        UNREACHABLE();
-        return false;
     }
 
 }

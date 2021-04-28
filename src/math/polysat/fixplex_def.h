@@ -128,10 +128,7 @@ namespace polysat {
         if (delta == 0)
             return;
         m_vars[v].m_value += delta;
-        if (is_base(v)) {
-            add_patch(v);
-            return;
-        }
+        SASSERT(!is_base(v));
 
         //
         // v <- v + delta
@@ -144,9 +141,8 @@ namespace polysat {
             row r = c.get_row();
             row_info& ri = m_rows[r.id()];
             var_t s = ri.m_base;
-            var_info& si = m_vars[s];
             ri.m_value += delta * c.get_row_entry().m_coeff;
-            si.m_value = 0 - (ri.m_value / ri.m_base_coeff);
+            m_vars[s].m_value = 0 - (ri.m_value / ri.m_base_coeff);
             add_patch(s);
         }            
     }    
