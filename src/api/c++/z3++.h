@@ -335,6 +335,7 @@ namespace z3 {
         expr bool_const(char const * name);
         expr int_const(char const * name);
         expr real_const(char const * name);
+        expr string_const(char const * name);
         expr bv_const(char const * name, unsigned sz);
         expr fpa_const(char const * name, unsigned ebits, unsigned sbits);
 
@@ -3231,6 +3232,7 @@ namespace z3 {
     inline expr context::bool_const(char const * name) { return constant(name, bool_sort()); }
     inline expr context::int_const(char const * name) { return constant(name, int_sort()); }
     inline expr context::real_const(char const * name) { return constant(name, real_sort()); }
+    inline expr context::string_const(char const * name) { return constant(name, string_sort()); }
     inline expr context::bv_const(char const * name, unsigned sz) { return constant(name, bv_sort(sz)); }
     inline expr context::fpa_const(char const * name, unsigned ebits, unsigned sbits) { return constant(name, fpa_sort(ebits, sbits)); }
 
