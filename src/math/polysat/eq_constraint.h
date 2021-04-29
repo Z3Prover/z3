@@ -20,7 +20,7 @@ namespace polysat {
     class eq_constraint : public constraint {
         pdd m_poly;
     public:
-        eq_constraint(unsigned lvl, bool_var bvar, csign_t sign, pdd const& p, p_dependency_ref& dep):
+        eq_constraint(unsigned lvl, bool_var bvar, csign_t sign, pdd const& p, p_dependency_ref const& dep):
             constraint(lvl, bvar, sign, dep, ckind_t::eq_t), m_poly(p) {
             m_vars.append(p.free_vars());
         }

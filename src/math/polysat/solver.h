@@ -42,6 +42,7 @@ namespace polysat {
         friend class eq_constraint;
         friend class var_constraint;
         friend class ule_constraint;
+        friend class forbidden_intervals;
 
         typedef ptr_vector<constraint> constraints;
 
@@ -113,12 +114,20 @@ namespace polysat {
         }
 
         void push_cjust(pvar v, constraint* c) {
+            if (m_cjust[v].contains(c))  // TODO: better check (flag on constraint?)
+                return;
             m_cjust[v].push_back(c);        
             m_trail.push_back(trail_instr_t::just_i);
             m_cjust_trail.push_back(v);
         }
 
         unsigned size(pvar v) const { return m_size[v]; }
+
+        /**
+         * Check whether variable v has any viable values left according to m_viable.
+         */
+        bool has_viable(pvar v);
+
         /**
          * check if value is viable according to m_viable.
          */
@@ -139,7 +148,6 @@ namespace polysat {
          */
         void add_viable_dep(pvar v, p_dependency* dep);
 
-        
         /**
          * Find a next viable value for variable.
          */

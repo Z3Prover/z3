@@ -136,4 +136,144 @@ namespace polysat {
             return p.is_val() && q.is_val() && p.val() > q.val();
     }
 
+    /**
+     * Precondition: all variables other than v are assigned.
+     */
+    bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& i, constraint*& neg_condition)
+    {
+        SASSERT(!is_undef());
+
+        // Current only works when degree(v) is at most one on both sides
+        unsigned const deg1 = lhs().degree(v);
+        unsigned const deg2 = rhs().degree(v);
+        if (deg1 > 1 || deg2 > 1)
+            return false;
+
+        if (deg1 == 0 && deg2 == 0) {
+            UNREACHABLE();  // this case is not useful for conflict resolution (but it could be handled in principle)
+            // i is empty or full, condition would be this constraint itself?
+            return true;
+        }
+
+        unsigned const sz = s.size(v);
+        dd::pdd_manager& m = s.sz2pdd(sz);
+
+        pdd p1 = m.zero();
+        pdd e1 = m.zero();
+        if (deg1 == 0)
+            e1 = lhs();
+        else
+            lhs().factor(v, 1, p1, e1);
+
+        pdd p2 = m.zero();
+        pdd e2 = m.zero();
+        if (deg2 == 0)
+            e2 = rhs();
+        else
+            rhs().factor(v, 1, p2, e2);
+
+        // Interval extraction only works if v-coefficients are the same
+        if (deg1 != 0 && deg2 != 0 && p1 != p2)
+            return false;
+
+        // Currently only works if coefficient is a power of two
+        if (!p1.is_val())
+            return false;
+        if (!p2.is_val())
+            return false;
+        rational a1 = p1.val();
+        rational a2 = p2.val();
+        // TODO: to express the interval for coefficient 2^i symbolically, we need right-shift/upper-bits-extract in the language.
+        // So currently we can only do it if the coefficient is 1.
+        if (!a1.is_zero() && !a1.is_one())
+            return false;
+        if (!a2.is_zero() && !a2.is_one())
+            return false;
+        /*
+        unsigned j1 = 0;
+        unsigned j2 = 0;
+        if (!a1.is_zero() && !a1.is_power_of_two(j1))
+            return false;
+        if (!a2.is_zero() && !a2.is_power_of_two(j2))
+            return false;
+        */
+
+        // Concrete values of evaluable terms
+        auto e1s = e1.subst_val(s.m_search);
+        auto e2s = e2.subst_val(s.m_search);
+        SASSERT(e1s.is_val());
+        SASSERT(e2s.is_val());
+
+        bool is_trivial;
+        pdd condition_body = m.zero();
+        pdd lo = m.zero();
+        rational lo_val = rational::zero();
+        pdd hi = m.zero();
+        rational hi_val = rational::zero();
+
+        if (a2.is_zero()) {
+            SASSERT(!a1.is_zero());
+            // e1 + t <= e2, with t = 2^j1*y
+            // condition for empty/full: e2 == -1
+            is_trivial = (e2s + 1).is_zero();
+            condition_body = e2 + 1;
+            if (!is_trivial) {
+                lo = e2 - e1 + 1;
+                lo_val = (e2s - e1s + 1).val();
+                hi = -e1;
+                hi_val = (-e1s).val();
+            }
+        }
+        else if (a1.is_zero()) {
+            SASSERT(!a2.is_zero());
+            // e1 <= e2 + t, with t = 2^j2*y
+            // condition for empty/full: e1 == 0
+            is_trivial = e1s.is_zero();
+            condition_body = e1;
+            if (!is_trivial) {
+                lo = -e2;
+                lo_val = (-e2s).val();
+                hi = e1 - e2;
+                hi_val = (e1s - e2s).val();
+            }
+        }
+        else {
+            SASSERT(!a1.is_zero());
+            SASSERT(!a2.is_zero());
+            // e1 + t <= e2 + t, with t = 2^j1*y = 2^j2*y
+            // condition for empty/full: e1 == e2
+            is_trivial = e1s.val() == e2s.val();
+            condition_body = e1 - e2;
+            if (!is_trivial) {
+                lo = -e2;
+                lo_val = (-e2s).val();
+                hi = -e1;
+                hi_val = (-e1s).val();
+            }
+        }
+
+        if (condition_body.is_val()) {
+            // Condition is trivial; no need to create a constraint for that.
+            SASSERT(is_trivial == condition_body.is_zero());
+            neg_condition = nullptr;
+        }
+        else
+            neg_condition = constraint::eq(level(), s.m_next_bvar++, is_trivial ? neg_t : pos_t, condition_body, m_dep);
+
+        if (is_trivial) {
+            if (is_positive())
+                i = eval_interval::empty(m);
+            else
+                i = eval_interval::full();
+        } else {
+            if (is_negative()) {
+                swap(lo, hi);
+                lo_val.swap(hi_val);
+            }
+            i = eval_interval::proper(lo, lo_val, hi, hi_val);
+        }
+
+        return true;
+    }
+
 }

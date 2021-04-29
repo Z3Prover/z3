@@ -4,6 +4,7 @@ z3_add_component(polysat
     eq_constraint.cpp
     ule_constraint.cpp
     var_constraint.cpp
+    forbidden_intervals.cpp
     justification.cpp
     log.cpp
     solver.cpp

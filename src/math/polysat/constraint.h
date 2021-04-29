@@ -13,6 +13,7 @@ Author:
 --*/
 #pragma once
 #include "math/polysat/types.h"
+#include "math/polysat/interval.h"
 
 namespace polysat {
 
@@ -34,12 +35,13 @@ namespace polysat {
         bool_var         m_bool_var;
         csign_t          m_sign;  ///< sign/polarity
         lbool            m_status = l_undef;  ///< current constraint status, computed from value of m_bool_var and m_sign
-        constraint(unsigned lvl, bool_var bvar, csign_t sign, p_dependency_ref& dep, ckind_t k):
+        constraint(unsigned lvl, bool_var bvar, csign_t sign, p_dependency_ref const& dep, ckind_t k):
             m_level(lvl), m_kind(k), m_dep(dep), m_bool_var(bvar), m_sign(sign) {}
     public:
-        static constraint* eq(unsigned lvl, bool_var bvar, csign_t sign, pdd const& p, p_dependency_ref& d);
-        static constraint* viable(unsigned lvl, bool_var bvar, csign_t sign, pvar v, bdd const& b, p_dependency_ref& d);
-        static constraint* ule(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref& d);
+        static constraint* eq(unsigned lvl, bool_var bvar, csign_t sign, pdd const& p, p_dependency_ref const& d);
+        static constraint* viable(unsigned lvl, bool_var bvar, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d);
+        static constraint* ule(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        static constraint* ult(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
         virtual ~constraint() {}
         bool is_eq() const { return m_kind == ckind_t::eq_t; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }
@@ -63,6 +65,7 @@ namespace polysat {
         bool is_positive() const { return m_status == l_true; }
         bool is_negative() const { return m_status == l_false; }
         bool is_undef() const { return m_status == l_undef; }
+        virtual bool forbidden_interval(solver& s, pvar v, eval_interval& i, constraint*& neg_condition) { return false; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
