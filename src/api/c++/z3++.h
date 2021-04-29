@@ -896,7 +896,7 @@ namespace z3 {
         */
         expr mk_to_ieee_bv() const {
             assert(is_fpa());
-            Z3_ast r = Z3_mk_fpa_to_ieee_bv(ctx(), m_ast),
+            Z3_ast r = Z3_mk_fpa_to_ieee_bv(ctx(), m_ast);
             check_error();
             return expr(ctx(), r);
         }
