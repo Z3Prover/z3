@@ -205,6 +205,7 @@ namespace polysat {
         return false; 
     }
 
+#if 0
     /**
        \brief Select a variable x_j in the row r defining the base var x_i, 
        s.t. x_j can be used to patch the error in x_i.  Return null_theory_var
@@ -215,8 +216,8 @@ namespace polysat {
        bound (above its upper bound).
     */
     template<typename Ext>
-    typename simplex<Ext>::var_t 
-    simplex<Ext>::select_pivot_core(var_t x_i, numeral & out_a_ij) {
+    typename fixplex<Ext>::var_t 
+    fixplex<Ext>::select_pivot_core(var_t x_i, numeral & out_a_ij) {
         SASSERT(is_base(x_i));
         var_t max    = get_num_vars();
         var_t result = max;
@@ -255,6 +256,7 @@ namespace polysat {
         }
         return result < max ? result : null_var;
     }
+#endif
 
     /**
        \brief Given row
