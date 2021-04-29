@@ -41,6 +41,7 @@ namespace polysat {
         static constraint* eq(unsigned lvl, bool_var bvar, csign_t sign, pdd const& p, p_dependency_ref const& d);
         static constraint* viable(unsigned lvl, bool_var bvar, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d);
         static constraint* ule(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        static constraint* ult(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
         virtual ~constraint() {}
         bool is_eq() const { return m_kind == ckind_t::eq_t; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }

@@ -41,4 +41,9 @@ namespace polysat {
         return alloc(ule_constraint, lvl, bvar, sign, a, b, d);
     }
 
+    constraint* constraint::ult(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+        // a < b  <=>  !(b <= a)
+        return ule(lvl, bvar, static_cast<csign_t>(!sign), b, a, d);
+    }
+
 }
