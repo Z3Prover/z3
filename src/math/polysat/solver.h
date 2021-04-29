@@ -113,6 +113,8 @@ namespace polysat {
         }
 
         void push_cjust(pvar v, constraint* c) {
+            if (m_cjust[v].contains(c))  // TODO: better check (flag on constraint?)
+                return;
             m_cjust[v].push_back(c);        
             m_trail.push_back(trail_instr_t::just_i);
             m_cjust_trail.push_back(v);
