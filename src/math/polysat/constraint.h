@@ -13,6 +13,7 @@ Author:
 --*/
 #pragma once
 #include "math/polysat/types.h"
+#include "math/polysat/interval.h"
 
 namespace polysat {
 
@@ -63,6 +64,7 @@ namespace polysat {
         bool is_positive() const { return m_status == l_true; }
         bool is_negative() const { return m_status == l_false; }
         bool is_undef() const { return m_status == l_undef; }
+        virtual bool forbidden_interval(solver& s, pvar v, interval& i, constraint* condition) { return false; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }

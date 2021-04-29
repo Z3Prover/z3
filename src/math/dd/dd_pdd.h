@@ -430,6 +430,7 @@ namespace dd {
         unsigned max_pow2_divisor() const { return m.max_pow2_divisor(root); }
         unsigned_vector const& free_vars() const { return m.free_vars(*this); }
 
+        void swap(pdd& other) { std::swap(root, other.root); }
 
         pdd_iterator begin() const;
         pdd_iterator end() const;
@@ -456,6 +457,8 @@ namespace dd {
     inline pdd& operator|=(pdd & p, pdd const& q) { p = p | q; return p; }
     inline pdd& operator-=(pdd & p, pdd const& q) { p = p - q; return p; }
     inline pdd& operator+=(pdd & p, pdd const& q) { p = p + q; return p; }
+
+    inline void swap(pdd& p, pdd& q) { p.swap(q); }
 
     std::ostream& operator<<(std::ostream& out, pdd const& b);
 
