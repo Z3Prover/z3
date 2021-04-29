@@ -48,4 +48,33 @@ namespace polysat {
         pdd const& hi() const { SASSERT(is_proper()); return m_bounds->hi; }
     };
 
+    class eval_interval {
+        interval m_symbolic;
+        rational m_concrete_lo;
+        rational m_concrete_hi;
+
+        eval_interval(interval&& i, rational const& lo_val, rational const& hi_val):
+            m_symbolic(std::move(i)), m_concrete_lo(lo_val), m_concrete_hi(hi_val) {}
+    public:
+        static eval_interval empty(dd::pdd_manager &m) {
+            return {interval::empty(m), rational::zero(), rational::zero()};
+        }
+        static eval_interval full() {
+            return {interval::full(), rational::zero(), rational::zero()};
+        }
+        static eval_interval proper(pdd const &lo, rational const &lo_val, pdd const &hi, rational const &hi_val) {
+            return {interval::proper(lo, hi), lo_val, hi_val};
+        }
+
+        bool is_full() const { return m_symbolic.is_full(); }
+        bool is_proper() const { return m_symbolic.is_proper(); }
+        bool is_always_empty() const { return m_symbolic.is_always_empty(); }
+        bool is_currently_empty() const { return is_proper() && lo_val() == hi_val(); }
+        interval const& symbolic() const { return m_symbolic; }
+        pdd const& lo() const { return m_symbolic.lo(); }
+        pdd const& hi() const { return m_symbolic.hi(); }
+        rational const& lo_val() const { SASSERT(is_proper()); return m_concrete_lo; }
+        rational const& hi_val() const { SASSERT(is_proper()); return m_concrete_hi; }
+    };
+
 }
