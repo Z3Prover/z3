@@ -121,6 +121,12 @@ namespace polysat {
         }
 
         unsigned size(pvar v) const { return m_size[v]; }
+
+        /**
+         * Check whether variable v has any viable values left according to m_viable.
+         */
+        bool has_viable(pvar v);
+
         /**
          * check if value is viable according to m_viable.
          */
@@ -141,7 +147,6 @@ namespace polysat {
          */
         void add_viable_dep(pvar v, p_dependency* dep);
 
-        
         /**
          * Find a next viable value for variable.
          */

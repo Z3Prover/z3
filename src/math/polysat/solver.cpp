@@ -40,6 +40,10 @@ namespace polysat {
         return *bits;
     }
 
+    bool solver::has_viable(pvar v) {
+        return !m_viable[v].is_false();
+    }
+
     bool solver::is_viable(pvar v, rational const& val) {
         return var2bits(v).contains(m_viable[v], val);
     }
