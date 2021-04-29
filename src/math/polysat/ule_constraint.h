@@ -40,7 +40,7 @@ namespace polysat {
         bool is_currently_true(solver& s) override;
         void narrow(solver& s) override;
 
-        bool forbidden_interval(solver& s, pvar v, eval_interval& i, constraint* condition) override;
+        bool forbidden_interval(solver& s, pvar v, eval_interval& i, constraint*& neg_condition) override;
     };
 
 }

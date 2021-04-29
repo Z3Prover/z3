@@ -139,7 +139,7 @@ namespace polysat {
     /**
      * Precondition: all variables other than v are assigned.
      */
-    bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& i, constraint* condition)
+    bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& i, constraint*& neg_condition)
     {
         SASSERT(!is_undef());
 
@@ -252,7 +252,13 @@ namespace polysat {
             }
         }
 
-        condition = constraint::eq(s.m_level, s.m_next_bvar++, is_trivial ? pos_t : neg_t, condition_body, m_dep);
+        if (condition_body.is_val()) {
+            // Condition is trivial; no need to create a constraint for that.
+            SASSERT(is_trivial == condition_body.is_zero());
+            neg_condition = nullptr;
+        }
+        else
+            neg_condition = constraint::eq(level(), s.m_next_bvar++, is_trivial ? neg_t : pos_t, condition_body, m_dep);
 
         if (is_trivial) {
             if (is_positive())
