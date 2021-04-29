@@ -42,6 +42,7 @@ namespace polysat {
         friend class eq_constraint;
         friend class var_constraint;
         friend class ule_constraint;
+        friend class forbidden_intervals;
 
         typedef ptr_vector<constraint> constraints;
 
