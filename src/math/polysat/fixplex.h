@@ -146,10 +146,9 @@ namespace polysat {
         var_t select_smallest_var() { return m_to_patch.empty()?null_var:m_to_patch.erase_min(); }
         var_t select_error_var(bool least) { throw nullptr; }
         void check_blands_rule(var_t v, unsigned& num_repeated) {}
-        bool make_var_feasible(var_t x_i) { return false; }
-        void update_and_pivot(var_t x_i, var_t x_j, numeral const& a_ij, numeral const& new_value) {}
+        bool make_var_feasible(var_t x_i);
+        void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& new_value);
         void update_value(var_t v, numeral const& delta);
-        void pivot(var_t x_i, var_t x_j, numeral a_ij);
         void move_to_bound(var_t x, bool to_lower) {}
         var_t select_pivot(var_t x_i, bool is_below, scoped_numeral& out_a_ij) { throw nullptr; }
         var_t select_pivot_blands(var_t x_i, bool is_below, scoped_numeral& out_a_ij) { throw nullptr; }
@@ -159,11 +158,8 @@ namespace polysat {
                                 scoped_numeral& gain, scoped_numeral& new_a_ij, bool& inc) { throw nullptr; }
 
         void  select_pivot_primal(var_t v, var_t& x_i, var_t& x_j, scoped_numeral& a_ij, bool& inc_x_i, bool& inc_x_j) {}
-        bool at_lower(var_t v) const { return false; }
-        bool at_upper(var_t v) const { return false; }
-        bool above_lower(var_t v) const { return false; }
-        bool below_upper(var_t v) const { return false; }
-        bool outside_bounds(var_t v) const { return false; }
+        numeral new_value(var_t v) const;
+        bool in_bounds(var_t v) const;        
         bool is_free(var_t v) const { return m_vars[v].m_lo == m_vars[v].m_hi; }
         bool is_non_free(var_t v) const { return !is_free(v); }
         bool is_base(var_t x) const { return m_vars[x].m_is_base; }

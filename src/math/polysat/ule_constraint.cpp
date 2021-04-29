@@ -111,9 +111,9 @@ namespace polysat {
         // TODO: other conditions (e.g. when forbidden interval would be full)
         VERIFY(!is_undef());
         if (is_positive())
-            return lhs.is_val() && rhs.is_val() && !(lhs.val() <= rhs.val());
+            return lhs.is_val() && rhs.is_val() && lhs.val() > rhs.val();
         else 
-            return lhs.is_val() && rhs.is_val() && !(lhs.val() > rhs.val());
+            return lhs.is_val() && rhs.is_val() && lhs.val() <= rhs.val();
     }
 
     bool ule_constraint::is_always_false() {

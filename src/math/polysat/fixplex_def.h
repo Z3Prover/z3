@@ -173,92 +173,164 @@ namespace polysat {
         
     }
 
+    template<typename Ext>
+    bool fixplex<Ext>::in_bounds(var_t v) const {
+        auto lo = m_vars[v].m_lo;
+        auto hi = m_vars[v].m_hi;
+        if (lo == hi)
+            return true;
+        auto val = m_vars[v].m_value;
+        if (lo < hi)
+            return lo <= val && val < hi;
+        return val < hi || lo <= val;
+    }
 
-#if 0
+    template<typename Ext>
+    typename fixplex<Ext>::numeral fixplex<Ext>::new_value(var_t v) const {
+        auto lo = m_vars[v].m_lo;
+        auto hi = m_vars[v].m_hi;
+        auto val = m_vars[v].m_value;
+        if ((lo - val) < (val - hi))
+            return lo;
+        else
+            return hi;
+    }
+
+    template<typename Ext>
+    bool fixplex<Ext>::make_var_feasible(var_t x_i) {
+        if (in_bounds(x_i))
+            return true;
+        
+        NOT_IMPLEMENTED_YET();
+        return false; 
+    }
+
     /**
-       \brief Make x_j the new base variable for row of x_i.
-       x_i is assumed base variable of row r_i.
-       x_j is assumed to have coefficient a_ij in r_i.                      
+       \brief Select a variable x_j in the row r defining the base var x_i, 
+       s.t. x_j can be used to patch the error in x_i.  Return null_theory_var
+       if there is no x_j. Otherwise, return x_j and store its coefficient
+       in out_a_ij.
 
-       a_ii*x_i + a_ij*x_j + r_i = 0
-       
-       current value of x_i is v_i
-       new value of x_i is     new_value
-       a_ii*(x_i + new_value - x_i) + a_ij*((x_i - new_value)*a_ii/a_ij + x_j) + r_i = 0
-
-       Let r_k be a row where x_j has coefficient x_kj != 0.
-       r_k <- r_k * a_ij - r_i * a_kj
+       The argument is_below is true (false) if x_i is below its lower
+       bound (above its upper bound).
     */
     template<typename Ext>
-    void fixplex<Ext>::update_and_pivot(var_t x_i, var_t x_j, numeral const& a_ij, numeral const& new_value) {
+    typename simplex<Ext>::var_t 
+    simplex<Ext>::select_pivot_core(var_t x_i, numeral & out_a_ij) {
         SASSERT(is_base(x_i));
-        SASSERT(!is_base(x_j));
-        var_info& x_iI = m_vars[x_i];
-        numeral const& a_ii = x_iI.m_base_coeff;
-        auto theta = x_iI.m_value - new_value;
-        theta *= a_ii;
-        theta /= a_ij;
-        update_value(x_j, theta);
-        SASSERT(new_value == x_iI.m_value);
-        pivot(x_i, x_j, a_ij);
-    }
-#endif
-    
-    template<typename Ext>
-    void fixplex<Ext>::pivot(var_t x_i, var_t x_j, numeral a_ij) {
-        ++m_stats.m_num_pivots;
-        var_info& x_iI = m_vars[x_i];
-        var_info& x_jI = m_vars[x_j];
-        unsigned ri = x_iI.m_base2row;
-        m_rows[ri].m_base = x_j;
-        m_rows[ri].m_value = 0; // TBD
-        m_rows[ri].m_base_coeff = a_ij;
-        x_jI.m_base2row = ri;
-        x_jI.m_is_base = true;
-        x_iI.m_is_base = false;
-        row r_i(ri);
-        add_patch(x_j);
-        SASSERT(well_formed_row(r_i));
-
-        unsigned tz1 = trailing_zeros(a_ij);
-
-        for (auto c : M.col_entries(x_j)) {
-            row r_k = c.get_row();
-            unsigned rk = r_k.id();
-            if (rk == ri)
+        var_t max    = get_num_vars();
+        var_t result = max;
+        row r = row(m_vars[x_i].m_base2row);
+        int n = 0;
+        unsigned best_col_sz = UINT_MAX;
+        int best_so_far    = INT_MAX;
+        
+        for (auto const& r : M.row_iterator(r)) {
+            var_t x_j       = r.m_var;          
+            if (x_i == x_j) 
                 continue;
+            numeral const & a_ij = r.m_coeff;  
+                                                               
+            bool is_neg = is_below ? m.is_neg(a_ij) : m.is_pos(a_ij);
+            bool is_pos = !is_neg;                                   
+            bool can_pivot = ((is_pos && above_lower(x_j)) || (is_neg && below_upper(x_j)));
+            if (can_pivot) {
+                int num  = get_num_non_free_dep_vars(x_j, best_so_far);
+                unsigned col_sz    = M.column_size(x_j);
+                if (num < best_so_far || (num == best_so_far && col_sz < best_col_sz)) {
+                    result        = x_j;
+                    out_a_ij      = a_ij;
+                    best_so_far   = num;
+                    best_col_sz   = col_sz;
+                    n             = 1;
+                } 
+                else if (num == best_so_far && col_sz == best_col_sz) {
+                    n++;
+                    if (m_random()%n == 0) {
+                        result      = x_j;
+                        out_a_ij    = a_ij;
+                    }
+                }                              
+            }
+        }
+        return result < max ? result : null_var;
+    }
 
-            numeral a_kj = c.get_row_entry().m_coeff;
-            unsigned tz2 = trailing_zeros(a_kj);
-            if (tz2 >= tz1) {
-                // eliminate x_j from row r_k
-                numeral a = a_ij >> tz1;
-                numeral b = m.inv(a_kj >> (tz2 - tz1));
-                M.mul(r_k, a);
-                M.add(r_k, b, r_i);
-            }
-            else {
-                // eliminate x_j from row r_i
-                // The new base variable for r_i is base of r_k
-                // The new base variable for r_k is x_j.
-                
-                numeral a = a_kj >> tz2;
-                numeral b = m.inv(a_ij >> (tz1 - tz2));
-                M.mul(r_i, a);
-                M.add(r_i, b, r_k);
-                unsigned x_k = m_row[rk].m_base;
-                
-                // TBD: redo according to slides
-                // TBD: std::swap(m_row2base[ri], m_row2base[rk]);
-                m_vars[x_j].m_base2row = rk;
-                m_vars[x_k].m_base2row = ri;
-                tz1  = tz2;
-                r_i  = r_k;
-                ri   = rk;
-                a_ij = a_kj;
-            }
-            // TBD: should we here recalculate value of basic variables?
-            SASSERT(well_formed_row(r_k));
+    /**
+       \brief Given row
+
+         r_x = a*x + b*y + rest = 0
+
+       Assume:
+
+         base(r_x) = x
+         value(r_x) = value(b*y + rest)
+         old_value(y) := value(y)
+
+       Effect:
+
+         base(r_x)  := y
+         value(x)   := new_value            
+         value(r_x) := value(r_x) - b*value(y) + a*new_value
+         value(y)   := -value(r_x) / b
+         base_coeff(r_x) := b
+ 
+       Let r be a row where y has coefficient c != 0.
+       Assume: trailing_zeros(c) >= trailing_zeros(b)
+       
+         z = base(r)
+         d = base_coeff(r)
+         b1 = (b >> tz(b))
+         c1 = (c >> (tz(c) - tz(b)))       
+         r <- b1 * r  - c1 * r_x
+         value(r) := b1 * value(r) - b1 * old_value(y) - c1 * value(r_x)
+         value(z) := - value(r) / d
+         base_coeff(r) := b1 * base_coeff(r)
+    */    
+    template<typename Ext>
+    void fixplex<Ext>::pivot(var_t x, var_t y, numeral const& b, numeral const& new_value) {
+        ++m_stats.m_num_pivots;
+        SASSERT(is_base(x));
+        SASSERT(!is_base(y));
+        var_info& xI = m_vars[x];
+        var_info& yI = m_vars[y];
+        unsigned rx = xI.m_base2row;
+        auto& row_x = m_rows[rx];
+        numeral const& a = row_x.m_base_coeff;
+        numeral old_value_y = yI.m_value;
+        row_x.m_base = y;
+        row_x.m_value = row_i.m_value - b*old_value_y + a*new_value;
+        row_x.m_base_coeff = b;
+        yI.m_base2row = rx;
+        yI.m_is_base = true;
+        yI.m_value = 0 - row_x.m_value / b;
+        xI.m_is_base = false;
+        xI.m_value = new_value;
+        row r_x(rx);
+        add_patch(y);
+        SASSERT(well_formed_row(r_x));
+
+        unsigned tz1 = trailing_zeros(b);
+
+        for (auto col : M.col_entries(y)) {
+            row r_z = col.get_row();
+            unsigned rz = r_z.id();
+            if (rz == rx)
+                continue;
+            auto& row_z = m_rows[rz];
+            var_info& zI = m_vars[row_z];
+            numeral c = col.get_row_entry().m_coeff;
+            unsigned tz2 = trailing_zeros(c);
+            SASSERT(tz1 <= tz2);
+            numeral b1 = b >> tz1;
+            numeral c1 = m.inv(c >> (tz2 - tz1));
+            M.mul(r_z, b1);
+            M.add(r_z, c1, r_x);
+            row_z.m_value = (b1 * (row_z.m_value - old_value_y)) + c1 * row_x.m_value;
+            row_z.m_base_coeff *= b1;
+            zI.m_value = 0 - row_z.m_value / row_z.m_base_coeff;
+            SASSERT(well_formed_row(r_z));
+            add_patch(zI.m_base);
         }
         SASSERT(well_formed());
     }
