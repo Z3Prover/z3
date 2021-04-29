@@ -29,15 +29,15 @@ namespace polysat {
         return *dynamic_cast<eq_constraint const*>(this); 
     }
 
-    constraint* constraint::eq(unsigned lvl, bool_var bvar, csign_t sign, pdd const& p, p_dependency_ref& d) {
+    constraint* constraint::eq(unsigned lvl, bool_var bvar, csign_t sign, pdd const& p, p_dependency_ref const& d) {
         return alloc(eq_constraint, lvl, bvar, sign, p, d);
     }
 
-    constraint* constraint::viable(unsigned lvl, bool_var bvar, csign_t sign, pvar v, bdd const& b, p_dependency_ref& d) {
+    constraint* constraint::viable(unsigned lvl, bool_var bvar, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d) {
         return alloc(var_constraint, lvl, bvar, sign, v, b, d);
     }
 
-    constraint* constraint::ule(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref& d) {
+    constraint* constraint::ule(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
         return alloc(ule_constraint, lvl, bvar, sign, a, b, d);
     }
 
