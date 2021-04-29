@@ -302,7 +302,7 @@ namespace euf {
         enode* r = n->get_root();
         approx_set & r_lbls = r->m_lbls;
         if (!r_lbls.may_contain(n->m_lbl_hash)) {
-            m_updates.push_back(update_record(r, update_record::lbl_hash()));
+            m_updates.push_back(update_record(r, update_record::lbl_set()));
             r_lbls.insert(n->m_lbl_hash);
         }
     }
@@ -372,6 +372,9 @@ namespace euf {
                 break;
             case update_record::tag_t::is_lbl_hash:
                 p.r1->m_lbl_hash = p.m_lbl_hash;
+                break;
+            case update_record::tag_t::is_lbl_set:
+                p.r1->m_lbls.set(p.m_lbls);
                 break;
             default:
                 UNREACHABLE();
