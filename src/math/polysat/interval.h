@@ -48,6 +48,13 @@ namespace polysat {
         pdd const& hi() const { SASSERT(is_proper()); return m_bounds->hi; }
     };
 
+    inline std::ostream& operator<<(std::ostream& os, interval const& i) {
+        if (i.is_full())
+            return os << "full";
+        else
+            return os << "[" << i.lo() << " ; " << i.hi() << "[";
+    }
+
     class eval_interval {
         interval m_symbolic;
         rational m_concrete_lo;
@@ -75,6 +82,26 @@ namespace polysat {
         pdd const& hi() const { return m_symbolic.hi(); }
         rational const& lo_val() const { SASSERT(is_proper()); return m_concrete_lo; }
         rational const& hi_val() const { SASSERT(is_proper()); return m_concrete_hi; }
+        rational current_len() const {
+            SASSERT(is_proper());
+            return mod(hi_val() - lo_val(), rational::power_of_two(lo().power_of_2()));
+        }
+        bool currently_contains(rational const& val) const {
+            if (is_full())
+                return true;
+            else if (lo_val() <= hi_val())
+                return lo_val() <= val && val < hi_val();
+            else
+                return val < hi_val() || val >= lo_val();
+        }
     };
+
+    inline std::ostream& operator<<(std::ostream& os, eval_interval const& i) {
+        if (i.is_full())
+            return os << "full";
+        else
+            return os << i.symbolic() << " := [" << i.lo_val() << ";" << i.hi_val() << "[";
+    }
+
 
 }
