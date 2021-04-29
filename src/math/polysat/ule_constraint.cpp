@@ -139,7 +139,7 @@ namespace polysat {
     /**
      * Precondition: all variables other than v are assigned.
      */
-    bool ule_constraint::forbidden_interval(solver& s, pvar v, interval& i, constraint* condition)
+    bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& i, constraint* condition)
     {
         SASSERT(!is_undef());
 
@@ -207,7 +207,9 @@ namespace polysat {
         bool is_trivial;
         pdd condition_body = m.zero();
         pdd lo = m.zero();
+        rational lo_val = rational::zero();
         pdd hi = m.zero();
+        rational hi_val = rational::zero();
 
         if (a2.is_zero()) {
             SASSERT(!a1.is_zero());
@@ -217,7 +219,9 @@ namespace polysat {
             condition_body = e2 + 1;
             if (!is_trivial) {
                 lo = e2 - e1 + 1;
+                lo_val = (e2s - e1s + 1).val();
                 hi = -e1;
+                hi_val = (-e1s).val();
             }
         }
         else if (a1.is_zero()) {
@@ -228,7 +232,9 @@ namespace polysat {
             condition_body = e1;
             if (!is_trivial) {
                 lo = -e2;
+                lo_val = (-e2s).val();
                 hi = e1 - e2;
+                hi_val = (e1s - e2s).val();
             }
         }
         else {
@@ -240,7 +246,9 @@ namespace polysat {
             condition_body = e1 - e2;
             if (!is_trivial) {
                 lo = -e2;
+                lo_val = (-e2s).val();
                 hi = -e1;
+                hi_val = (-e1s).val();
             }
         }
 
@@ -248,13 +256,15 @@ namespace polysat {
 
         if (is_trivial) {
             if (is_positive())
-                i = interval::empty(m);
+                i = eval_interval::empty(m);
             else
-                i = interval::full();
+                i = eval_interval::full();
         } else {
-            if (is_negative())
+            if (is_negative()) {
                 swap(lo, hi);
-            i = interval::proper(lo, hi);
+                lo_val.swap(hi_val);
+            }
+            i = eval_interval::proper(lo, lo_val, hi, hi_val);
         }
 
         return true;
