@@ -19,6 +19,7 @@ Author:
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
 #include "math/polysat/fixplex_def.h"
+#include "math/polysat/forbidden_intervals.h"
 
 namespace polysat {
 
@@ -38,6 +39,10 @@ namespace polysat {
             bits = m_bits[sz];
         }
         return *bits;
+    }
+
+    bool solver::has_viable(pvar v) {
+        return !m_viable[v].is_false();
     }
 
     bool solver::is_viable(pvar v, rational const& val) {
@@ -421,17 +426,39 @@ namespace polysat {
             return;
         }
 
+        pvar conflict_var = null_var;
         scoped_ptr<constraint> lemma;
         reset_marks();
         for (constraint* c : m_conflict) 
-            for (auto v : c->vars()) 
+            for (auto v : c->vars()) {
                 set_mark(v);
+                if (!has_viable(v)) {
+                    SASSERT(conflict_var == null_var || conflict_var == v);  // at most one variable can be empty
+                    conflict_var = v;
+                }
+            }
+
+        if (conflict_var != null_var) {
+            LOG_H2("Conflict due to empty viable set for pvar " << conflict_var);
+            scoped_ptr_vector<constraint> disjunctive_lemma;
+            if (forbidden_intervals::explain(*this, m_conflict, conflict_var, disjunctive_lemma)) {
+                LOG_H3("Learning disjunctive lemma"); // << disjunctive_lemma);
+                SASSERT(disjunctive_lemma.size() > 0);
+                if (disjunctive_lemma.size() == 1) {
+                    // TODO: continue normally?
+                } else {
+                    // TODO: solver needs to return l_undef and allow external handling of disjunctive lemma
+                }
+            }
+        }
         
         for (unsigned i = m_search.size(); i-- > 0; ) {
             pvar v = m_search[i].first;
+            LOG_H2("Working on pvar " << v);
             if (!is_marked(v))
                 continue;
             justification& j = m_justification[v];
+            LOG("Justification: " << j);
             if (j.level() <= base_level()) {
                 report_unsat();
                 return;

@@ -246,7 +246,7 @@ namespace polysat {
                 numeral b = m.inv(a_ij >> (tz1 - tz2));
                 M.mul(r_i, a);
                 M.add(r_i, b, r_k);
-                unsigned x_k = m_row[rk].m_base;
+                unsigned x_k = m_rows[rk].m_base;
                 
                 // TBD: redo according to slides
                 // TBD: std::swap(m_row2base[ri], m_row2base[rk]);

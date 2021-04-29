@@ -21,7 +21,7 @@ namespace polysat {
         pdd m_lhs;
         pdd m_rhs;
     public:
-        ule_constraint(unsigned lvl, bool_var bvar, csign_t sign, pdd const& l, pdd const& r, p_dependency_ref& dep):
+        ule_constraint(unsigned lvl, bool_var bvar, csign_t sign, pdd const& l, pdd const& r, p_dependency_ref const& dep):
             constraint(lvl, bvar, sign, dep, ckind_t::ule_t), m_lhs(l), m_rhs(r) {
             m_vars.append(l.free_vars());
             for (auto v : r.free_vars())
@@ -39,6 +39,8 @@ namespace polysat {
         bool is_currently_false(solver& s) override;
         bool is_currently_true(solver& s) override;
         void narrow(solver& s) override;
+
+        bool forbidden_interval(solver& s, pvar v, eval_interval& i, constraint*& neg_condition) override;
     };
 
 }
