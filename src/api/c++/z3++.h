@@ -2984,8 +2984,16 @@ namespace z3 {
             return *this;
         }
         operator Z3_fixedpoint() const { return m_fp; }
-        void from_string(char const* s) { Z3_fixedpoint_from_string(ctx(), m_fp, s); check_error(); }
-        void from_file(char const* s) { Z3_fixedpoint_from_file(ctx(), m_fp, s); check_error(); }
+        expr_vector from_string(char const* s) { 
+            Z3_ast_vector r = Z3_fixedpoint_from_string(ctx(), m_fp, s); 
+            check_error(); 
+            return expr_vector(ctx(), r);
+        }
+        expr_vector from_file(char const* s) { 
+            Z3_ast_vector r = Z3_fixedpoint_from_file(ctx(), m_fp, s); 
+            check_error(); 
+            return expr_vector(ctx(), r);
+        }
         void add_rule(expr& rule, symbol const& name) { Z3_fixedpoint_add_rule(ctx(), m_fp, rule, name); check_error(); }
         void add_fact(func_decl& f, unsigned * args) { Z3_fixedpoint_add_fact(ctx(), m_fp, f, f.arity(), args); check_error(); }
         check_result query(expr& q) { Z3_lbool r = Z3_fixedpoint_query(ctx(), m_fp, q); check_error(); return to_check_result(r); }
