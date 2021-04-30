@@ -46,6 +46,24 @@ namespace polysat {
         }
     };
 
+
+    /**
+     * Testing the solver's internal state.
+     */
+
+    /// Creates two separate conflicts (from narrowing) before solving loop is started.
+    static void test_add_conflicts() {
+        scoped_solver s;
+        auto a = s.var(s.add_var(3));
+        auto b = s.var(s.add_var(3));
+        s.add_eq(a + 1);
+        s.add_eq(a + 2);
+        s.add_eq(b + 1);
+        s.add_eq(b + 2);
+        s.check();
+    }
+
+
     /**
      * most basic linear equation solving.
      * they should be solvable.
@@ -290,6 +308,7 @@ namespace polysat {
 
 
 void tst_polysat() {
+    polysat::test_add_conflicts();
     polysat::test_l1();
     polysat::test_l2();
     polysat::test_l3();
