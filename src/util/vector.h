@@ -532,7 +532,7 @@ public:
         return m_data;
     }
 
-    void swap(vector & other) {
+    void swap(vector & other) noexcept {
         std::swap(m_data, other.m_data);
     }
 
