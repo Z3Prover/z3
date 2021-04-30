@@ -94,6 +94,7 @@ namespace smt2 {
 
         symbol               m_assert;
         symbol               m_check_sat;
+        symbol               m_get_models;
         symbol               m_define_fun;
         symbol               m_define_const;
         symbol               m_model_add;
@@ -2607,6 +2608,36 @@ namespace smt2 {
             expr_stack().shrink(spos);
         }
 
+        void parse_get_models() {
+            SASSERT(curr_is_identifier());
+            SASSERT(curr_id() == m_get_models);
+            next();
+            unsigned spos = expr_stack().size();
+            parse_assumptions();
+            model_ref md;
+            while (true) {
+                m_ctx.check_sat(expr_stack().size() - spos, expr_stack().data() + spos);
+                if (m_ctx.is_model_available(md) && m_ctx.get_check_sat_result()) {
+                    m_ctx.display_model(md);
+                    // or:
+                    // #include "model/model_pp.h"
+                    // model_pp(std::cout, *md);
+                } else {
+                    break;
+                }
+
+                ptr_buffer<expr> v;
+                unsigned sz = md->get_num_constants();
+                for (unsigned i = 0; i < sz; i++) {
+                    func_decl * c = md->get_constant(i);
+                    v.push_back(m().mk_eq(md->get_const_interp(c), m().mk_const(c)));
+                }
+                m_ctx.assert_expr(m().mk_not(m().mk_and(v)));
+            }
+            next();
+            expr_stack().shrink(spos);
+        }
+
         void parse_check_sat_assuming() {
             SASSERT(curr_is_identifier());
             SASSERT(curr_id() == m_check_sat_assuming);
@@ -2947,6 +2978,10 @@ namespace smt2 {
                 parse_check_sat();
                 return;
             }
+            if (s == m_get_models) {
+                parse_get_models();
+                return;
+            }
             if (s == m_push) {
                 parse_push();
                 return;
@@ -3036,6 +3071,7 @@ namespace smt2 {
             m_lblpos(":lblpos"),
             m_assert("assert"),
             m_check_sat("check-sat"),
+            m_get_models("get-models"),
             m_define_fun("define-fun"),
             m_define_const("define-const"),
             m_model_add("model-add"),
