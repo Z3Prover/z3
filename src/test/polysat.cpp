@@ -16,7 +16,7 @@ namespace polysat {
             lbool result = check_sat();
             if (result != l_undef)
                 return result;
-            auto const& new_lemma = get_lemma();
+            auto const new_lemma = get_lemma();
             // Empty lemma => check_sat() terminated for another reason, e.g., resource limits
             if (new_lemma.empty())
                 return l_undef;
