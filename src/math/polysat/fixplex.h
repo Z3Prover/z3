@@ -106,8 +106,9 @@ namespace polysat {
         typedef typename matrix::col_iterator col_iterator;
 
         var_t get_base_var(row const& r) const { return m_rows[r.id()].m_base; }
-        numeral const& get_lo(var_t var) const { return m_vars[var].m_lo; }
-        numeral const& get_hi(var_t var) const { return m_vars[var].m_hi; }
+        numeral const& lo(var_t var) const { return m_vars[var].m_lo; }
+        numeral const& hi(var_t var) const { return m_vars[var].m_hi; }
+        numeral const& value(var_t var) const { return m_vars[var].m_values; }
         void set_max_iterations(unsigned n) { m_max_iterations = n; }
         row_iterator row_begin(row const& r) { return M.row_begin(r); }
         row_iterator row_end(row const& r) { return M.row_end(r); }
@@ -146,20 +147,24 @@ namespace polysat {
         var_t select_smallest_var() { return m_to_patch.empty()?null_var:m_to_patch.erase_min(); }
         var_t select_error_var(bool least) { throw nullptr; }
         void check_blands_rule(var_t v, unsigned& num_repeated) {}
-        bool make_var_feasible(var_t x_i);
+        lbool make_var_feasible(var_t x_i);
+        bool is_infeasible_row(var_t x);
         void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& new_value);
         void update_value(var_t v, numeral const& delta);
         void move_to_bound(var_t x, bool to_lower) {}
-        var_t select_pivot(var_t x_i, bool is_below, scoped_numeral& out_a_ij) { throw nullptr; }
-        var_t select_pivot_blands(var_t x_i, bool is_below, scoped_numeral& out_a_ij) { throw nullptr; }
-        var_t select_pivot_core(var_t x_i, bool is_below, scoped_numeral& out_a_ij) { throw nullptr; }
+        bool  can_pivot(var_t x_i, numeral const& new_value, numeral const& a_ij, var_t x_j);
+        bool  has_minimal_trailing_zeros(var_t y, numeral const& b);
+        var_t select_pivot(var_t x_i, bool is_below, numeral& out_a_ij) { throw nullptr; }
+        var_t select_pivot_blands(var_t x_i, bool is_below, numeral& out_a_ij) { throw nullptr; }
+        var_t select_pivot_core(var_t x, numeral const& delta, numeral const& new_value, numeral& out_b);
         int get_num_non_free_dep_vars(var_t x_j, int best_so_far) { throw nullptr; }
         var_t pick_var_to_leave(var_t x_j, bool is_pos, 
-                                scoped_numeral& gain, scoped_numeral& new_a_ij, bool& inc) { throw nullptr; }
+                                numeral& gain, numeral& new_a_ij, bool& inc) { throw nullptr; }
 
-        void  select_pivot_primal(var_t v, var_t& x_i, var_t& x_j, scoped_numeral& a_ij, bool& inc_x_i, bool& inc_x_j) {}
+        void  select_pivot_primal(var_t v, var_t& x_i, var_t& x_j, numeral& a_ij, bool& inc_x_i, bool& inc_x_j) {}
         numeral new_value(var_t v) const;
-        bool in_bounds(var_t v) const;        
+        bool in_bounds(var_t v) const;
+        bool in_bounds(numeral const& val, numeral const& lo, numeral const& hi) const;        
         bool is_free(var_t v) const { return m_vars[v].m_lo == m_vars[v].m_hi; }
         bool is_non_free(var_t v) const { return !is_free(v); }
         bool is_base(var_t x) const { return m_vars[x].m_is_base; }
@@ -189,6 +194,10 @@ namespace polysat {
             void neg(numeral& a) { a = 0 - a; }
             numeral inv(numeral const& a) { return 0 - a; }
             void swap(numeral& a, numeral& b) { std::swap(a, b); }
+
+            // treat numerals as signed and check for overflow/underflow
+            bool signed_mul(numeral& r, numeral const& x, numeral const& y) { r = x * y; return true; }
+            bool signed_add(numeral& r, numeral const& x, numeral const& y) { r = x + y; return true; }
         };
         typedef _scoped_numeral<manager> scoped_numeral;
     };
