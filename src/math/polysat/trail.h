@@ -22,7 +22,8 @@ namespace polysat {
         inc_level_i,
         viable_i,
         assign_i,
-        just_i
+        just_i,
+        assign_eh_i,
     };
 
     

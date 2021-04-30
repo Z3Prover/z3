@@ -62,7 +62,7 @@ namespace polysat {
         return true;
     }
 
-    bool forbidden_intervals::explain(solver& s, ptr_vector<constraint> const& conflict, pvar v, scoped_ptr_vector<constraint>& out_lemma) {
+    bool forbidden_intervals::explain(solver& s, ptr_vector<constraint> const& conflict, pvar v, clause& out_lemma) {
 
         // Extract forbidden intervals from conflicting constraints
         vector<fi_record> records;
@@ -137,6 +137,7 @@ namespace polysat {
         // - the upper bound of each interval is contained in the next interval,
         // then the forbidden intervals cover the whole domain and we have a conflict.
         // We learn the negation of this conjunction.
+        scoped_ptr_vector<constraint> literals;
         for (unsigned seq_i = seq.size(); seq_i-- > 0; ) {
             unsigned const i = seq[seq_i];
             unsigned const next_i = seq[(seq_i+1) % seq.size()];
@@ -149,14 +150,15 @@ namespace polysat {
             auto const& rhs = next_hi - next_lo;
             constraint* c = constraint::ult(lemma_lvl, s.m_next_bvar++, neg_t, lhs, rhs, lemma_dep);
             LOG("constraint: " << *c);
-            out_lemma.push_back(c);
+            literals.push_back(c);
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
             scoped_ptr<constraint>& cond = records[i].cond;
             if (cond)
-                out_lemma.push_back(cond.detach());
+                literals.push_back(cond.detach());
         }
 
+        out_lemma = std::move(literals);
         return true;
     }
 

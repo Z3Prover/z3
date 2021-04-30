@@ -102,7 +102,8 @@ namespace polysat {
     }
     
     lbool solver::check_sat() { 
-        TRACE("polysat", tout << "check\n";);
+        LOG("Starting");
+        m_disjunctive_lemma.reset();
         while (m_lim.inc()) {
             LOG_H1("Next solving loop iteration");
             LOG("Free variables: " << m_free_vars);
@@ -114,7 +115,8 @@ namespace polysat {
                 }
             });
 
-            if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
+            if (pending_disjunctive_lemma()) { LOG_H2("UNDEF (handle lemma externally)"); return l_undef; }
+            else if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
             else if (is_conflict()) resolve_conflict();
             else if (can_propagate()) propagate();
             else if (!can_decide()) { LOG_H2("SAT"); return l_true; }
@@ -141,7 +143,6 @@ namespace polysat {
     void solver::del_var() {
         // TODO also remove v from all learned constraints.
         pvar v = m_viable.size() - 1;
-        m_free_vars.del_var_eh(v);
         m_viable.pop_back();
         m_cjust.pop_back();
         m_value.pop_back();
@@ -222,6 +223,8 @@ namespace polysat {
         }
         c->assign_eh(is_true);
         add_watch(*c);
+        m_assign_eh_history.push_back(v);
+        m_trail.push_back(trail_instr_t::assign_eh_i);
         c->narrow(*this);
     }
 
@@ -263,6 +266,7 @@ namespace polysat {
     }
 
     void solver::pop_levels(unsigned num_levels) {
+        LOG("Pop " << num_levels << " levels; current level is " << m_level);
         while (num_levels > 0) {
             switch (m_trail.back()) {
             case trail_instr_t::qhead_i: {
@@ -295,6 +299,14 @@ namespace polysat {
                 auto v = m_cjust_trail.back();
                 m_cjust[v].pop_back();
                 m_cjust_trail.pop_back();
+                break;
+            }
+            case trail_instr_t::assign_eh_i: {
+                auto bvar = m_assign_eh_history.back();
+                constraint* c = get_bv2c(bvar);
+                erase_watch(*c);
+                c->unassign_eh();
+                m_assign_eh_history.pop_back();
                 break;
             }
             default:
@@ -375,7 +387,6 @@ namespace polysat {
             ++m_stats.m_num_decisions;
         else 
             ++m_stats.m_num_propagations;
-        TRACE("polysat", tout << "v" << v << " := " << val << " " << j << "\n";);
         LOG("pvar " << v << " := " << val << " by " << j);
         SASSERT(is_viable(v, val));
         m_value[v] = val;
@@ -385,15 +396,15 @@ namespace polysat {
     }
 
     void solver::set_conflict(constraint& c) { 
+        LOG("conflict: " << c);
         SASSERT(m_conflict.empty());
-        TRACE("polysat", tout << "conflict " << c << "\n";);
         m_conflict.push_back(&c); 
     }
 
     void solver::set_conflict(pvar v) {
         SASSERT(m_conflict.empty());
         m_conflict.append(m_cjust[v]);
-        TRACE("polysat", tout << "conflict "; for (auto* c : m_conflict) tout << *c << "\n";);
+        LOG("conflict for pvar " << v << ": " << m_conflict);
         if (m_cjust[v].empty())
             m_conflict.push_back(nullptr);
     }
@@ -440,14 +451,27 @@ namespace polysat {
 
         if (conflict_var != null_var) {
             LOG_H2("Conflict due to empty viable set for pvar " << conflict_var);
-            scoped_ptr_vector<constraint> disjunctive_lemma;
-            if (forbidden_intervals::explain(*this, m_conflict, conflict_var, disjunctive_lemma)) {
-                LOG_H3("Learning disjunctive lemma"); // << disjunctive_lemma);
-                SASSERT(disjunctive_lemma.size() > 0);
-                if (disjunctive_lemma.size() == 1) {
+            clause new_lemma;
+            if (forbidden_intervals::explain(*this, m_conflict, conflict_var, new_lemma)) {
+                LOG_H3("Learning disjunctive lemma");
+                SASSERT(new_lemma.size() > 0);
+                if (new_lemma.size() == 1) {
+                    lemma = new_lemma.detach()[0];
                     // TODO: continue normally?
                 } else {
-                    // TODO: solver needs to return l_undef and allow external handling of disjunctive lemma
+                    SASSERT(m_disjunctive_lemma.empty());
+                    reset_marks();
+                    for (constraint* c : new_lemma) {
+                        m_disjunctive_lemma.push_back(c->bvar());
+                        insert_bv2c(c->bvar(), c);
+                        for (auto v : c->vars())
+                            set_mark(v);
+                    }
+                    m_redundant_clauses.push_back(std::move(new_lemma));
+                    backtrack(m_search.size()-1, lemma);
+                    SASSERT(pending_disjunctive_lemma());
+                    m_conflict.reset();
+                    return;
                 }
             }
         }
@@ -635,13 +659,15 @@ namespace polysat {
     }
 
     void solver::push() {
+        LOG("Push user scope");
         push_level();
         m_base_levels.push_back(m_level);
     }
 
     void solver::pop(unsigned num_scopes) {
         unsigned base_level = m_base_levels[m_base_levels.size() - num_scopes];
-        pop_levels(m_level - base_level - 1);
+        LOG("Pop " << num_scopes << " user scopes; lowest popped level = " << base_level << "; current level = " << m_level);
+        pop_levels(m_level - base_level + 1);
     }
 
     bool solver::at_base_level() const {

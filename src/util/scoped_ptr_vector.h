@@ -26,7 +26,22 @@ template<typename T>
 class scoped_ptr_vector {
     ptr_vector<T> m_vector;
 public:
+    scoped_ptr_vector() = default;
     ~scoped_ptr_vector() { reset(); }
+    scoped_ptr_vector(scoped_ptr_vector& other) = delete;
+    scoped_ptr_vector& operator=(scoped_ptr_vector& other) = delete;
+
+    scoped_ptr_vector(scoped_ptr_vector&& other) noexcept {
+        m_vector.swap(other.m_vector);
+    }
+    scoped_ptr_vector& operator=(scoped_ptr_vector&& other) {
+        if (this == &other)
+            return *this;
+        reset();
+        m_vector.swap(other.m_vector);
+        return *this;
+    }
+
     void reset() { std::for_each(m_vector.begin(), m_vector.end(), delete_proc<T>()); m_vector.reset(); }
     void push_back(T * ptr) { m_vector.push_back(ptr); }
     void pop_back() { SASSERT(!empty()); set(size()-1, nullptr); m_vector.pop_back(); }
@@ -65,7 +80,15 @@ public:
         ptr = m_vector.back();
         m_vector[m_vector.size()-1] = tmp;
     }
-    typename ptr_vector<T>::const_iterator begin() const { return m_vector.begin(); }
-    typename ptr_vector<T>::const_iterator end() const { return m_vector.end(); }
+
+    ptr_vector<T> detach() {
+        ptr_vector<T> tmp(std::move(m_vector));
+        SASSERT(m_vector.empty());
+        return tmp;
+    }
+
+    using const_iterator = typename ptr_vector<T>::const_iterator;
+    const_iterator begin() const { return m_vector.begin(); }
+    const_iterator end() const { return m_vector.end(); }
 };
 

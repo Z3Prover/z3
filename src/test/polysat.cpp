@@ -16,7 +16,7 @@ namespace polysat {
             lbool result = check_sat();
             if (result != l_undef)
                 return result;
-            auto const& new_lemma = get_lemma();
+            auto const new_lemma = get_lemma();
             // Empty lemma => check_sat() terminated for another reason, e.g., resource limits
             if (new_lemma.empty())
                 return l_undef;
@@ -45,6 +45,24 @@ namespace polysat {
             std::cout << *this << "\n";
         }
     };
+
+
+    /**
+     * Testing the solver's internal state.
+     */
+
+    /// Creates two separate conflicts (from narrowing) before solving loop is started.
+    static void test_add_conflicts() {
+        scoped_solver s;
+        auto a = s.var(s.add_var(3));
+        auto b = s.var(s.add_var(3));
+        s.add_eq(a + 1);
+        s.add_eq(a + 2);
+        s.add_eq(b + 1);
+        s.add_eq(b + 2);
+        s.check();
+    }
+
 
     /**
      * most basic linear equation solving.
@@ -122,6 +140,73 @@ namespace polysat {
         auto a = s.var(s.add_var(2));
         auto p = a*(a-1) + 2;
         s.add_eq(p);
+        s.check();
+    }
+
+    // Unique solution: u = 5
+    static void test_ineq_basic1() {
+        scoped_solver s;
+        auto u = s.var(s.add_var(4));
+        auto zero = u - u;
+        s.add_ule(u, zero + 5);
+        s.add_ule(zero + 5, u);
+        s.check();
+    }
+
+    // Unsatisfiable
+    static void test_ineq_basic2() {
+        scoped_solver s;
+        auto u = s.var(s.add_var(4));
+        auto zero = u - u;
+        s.add_ult(u, zero + 5);
+        s.add_ule(zero + 5, u);
+        s.check();
+    }
+
+    // Solutions with u = v = w
+    static void test_ineq_basic3() {
+        scoped_solver s;
+        auto u = s.var(s.add_var(4));
+        auto v = s.var(s.add_var(4));
+        auto w = s.var(s.add_var(4));
+        s.add_ule(u, v);
+        s.add_ule(v, w);
+        s.add_ule(w, u);
+        s.check();
+    }
+
+    // Unsatisfiable
+    static void test_ineq_basic4() {
+        scoped_solver s;
+        auto u = s.var(s.add_var(4));
+        auto v = s.var(s.add_var(4));
+        auto w = s.var(s.add_var(4));
+        s.add_ule(u, v);
+        s.add_ult(v, w);
+        s.add_ule(w, u);
+        s.check();
+    }
+
+    // Satisfiable
+    // Without forbidden intervals, we just try values for u until it works
+    static void test_ineq_basic5() {
+        scoped_solver s;
+        auto u = s.var(s.add_var(4));
+        auto v = s.var(s.add_var(4));
+        auto zero = u - u;
+        s.add_ule(zero + 12, u + v);
+        s.add_ule(v, zero + 2);
+        s.check();
+    }
+
+    // Like 5 but the other forbidden interval will be the longest
+    static void test_ineq_basic6() {
+        scoped_solver s;
+        auto u = s.var(s.add_var(4));
+        auto v = s.var(s.add_var(4));
+        auto zero = u - u;
+        s.add_ule(zero + 14, u + v);
+        s.add_ule(v, zero + 2);
         s.check();
     }
 
@@ -290,6 +375,7 @@ namespace polysat {
 
 
 void tst_polysat() {
+    polysat::test_add_conflicts();
     polysat::test_l1();
     polysat::test_l2();
     polysat::test_l3();
