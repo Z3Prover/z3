@@ -1309,6 +1309,21 @@ namespace z3 {
         friend expr fma(expr const& a, expr const& b, expr const& c, expr const& rm);
 
         /**
+           \brief Create an expression of FloatingPoint sort from three bit-vector expressions
+        */
+        friend expr fpa_fp(expr const& sgn, expr const& exp, expr const& sig);
+
+        /**
+           \brief Conversion of a floating-point term into a signed bit-vector.
+        */
+        friend expr fpa_to_sbv(expr const& t, unsigned sz);
+
+        /**
+           \brief Conversion of a floating-point term into an unsigned bit-vector.
+        */
+        friend expr fpa_to_ubv(expr const& t, unsigned sz);
+
+        /**
            \brief sequence and regular expression operations.
            + is overloaded as sequence concatenation and regular expression union.
            concat is overloaded to handle sequences and regular expressions
@@ -1805,6 +1820,27 @@ namespace z3 {
         return expr(a.ctx(), r);
     }
 
+    inline expr fpa_fp(expr const& sgn, expr const& exp, expr const& sig) {
+        check_context(sgn, exp); check_context(exp, sig);
+        assert(sgn.is_bv() && exp.is_bv() && sig.is_bv());
+        Z3_ast r = Z3_mk_fpa_fp(sgn.ctx(), sgn, exp, sig);
+        sgn.check_error();
+        return expr(sgn.ctx(), r);
+    }
+
+    inline expr fpa_to_sbv(expr const& t, unsigned sz) {
+        assert(t.is_fpa());
+        Z3_ast r = Z3_mk_fpa_to_sbv(t.ctx(), t.ctx().fpa_rounding_mode(), t, sz);
+        t.check_error();
+        return expr(t.ctx(), r);
+    }
+
+    inline expr fpa_to_ubv(expr const& t, unsigned sz) {
+        assert(t.is_fpa());
+        Z3_ast r = Z3_mk_fpa_to_ubv(t.ctx(), t.ctx().fpa_rounding_mode(), t, sz);
+        t.check_error();
+        return expr(t.ctx(), r);
+    }
 
     /**
        \brief Create the if-then-else expression <tt>ite(c, t, e)</tt>
