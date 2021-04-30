@@ -2569,7 +2569,7 @@ namespace smt2 {
                 throw cmd_exception("invalid assert command, expression required as argument");
             }
             expr * f = expr_stack().back();
-            if (!m().is_bool(f)) {
+            if (!f || !m().is_bool(f)) {
                 TRACE("smt2parser", tout << expr_ref(f, m()) << "\n";);
                 throw cmd_exception("invalid assert command, term is not Boolean");
             }
