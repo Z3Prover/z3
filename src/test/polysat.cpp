@@ -143,6 +143,73 @@ namespace polysat {
         s.check();
     }
 
+    // Unique solution: u = 5
+    static void test_ineq_basic1() {
+        scoped_solver s;
+        auto u = s.var(s.add_var(4));
+        auto zero = u - u;
+        s.add_ule(u, zero + 5);
+        s.add_ule(zero + 5, u);
+        s.check();
+    }
+
+    // Unsatisfiable
+    static void test_ineq_basic2() {
+        scoped_solver s;
+        auto u = s.var(s.add_var(4));
+        auto zero = u - u;
+        s.add_ult(u, zero + 5);
+        s.add_ule(zero + 5, u);
+        s.check();
+    }
+
+    // Solutions with u = v = w
+    static void test_ineq_basic3() {
+        scoped_solver s;
+        auto u = s.var(s.add_var(4));
+        auto v = s.var(s.add_var(4));
+        auto w = s.var(s.add_var(4));
+        s.add_ule(u, v);
+        s.add_ule(v, w);
+        s.add_ule(w, u);
+        s.check();
+    }
+
+    // Unsatisfiable
+    static void test_ineq_basic4() {
+        scoped_solver s;
+        auto u = s.var(s.add_var(4));
+        auto v = s.var(s.add_var(4));
+        auto w = s.var(s.add_var(4));
+        s.add_ule(u, v);
+        s.add_ult(v, w);
+        s.add_ule(w, u);
+        s.check();
+    }
+
+    // Satisfiable
+    // Without forbidden intervals, we just try values for u until it works
+    static void test_ineq_basic5() {
+        scoped_solver s;
+        auto u = s.var(s.add_var(4));
+        auto v = s.var(s.add_var(4));
+        auto zero = u - u;
+        s.add_ule(zero + 12, u + v);
+        s.add_ule(v, zero + 2);
+        s.check();
+    }
+
+    // Like 5 but the other forbidden interval will be the longest
+    static void test_ineq_basic6() {
+        scoped_solver s;
+        auto u = s.var(s.add_var(4));
+        auto v = s.var(s.add_var(4));
+        auto zero = u - u;
+        s.add_ule(zero + 14, u + v);
+        s.add_ule(v, zero + 2);
+        s.check();
+    }
+
 
     /**
      * Check unsat of:
