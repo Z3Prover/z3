@@ -66,6 +66,8 @@ namespace polysat {
         scoped_ptr_vector<constraint>   m_constraints;
         scoped_ptr_vector<constraint>   m_redundant;
 
+        bool_var_vector          m_assign_eh_history;
+
         // Map boolean variables to constraints
         bool_var                 m_next_bvar = 2;  // TODO: later, bool vars come from external supply
         ptr_vector<constraint>   m_bv2constraint;

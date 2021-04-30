@@ -222,6 +222,8 @@ namespace polysat {
         }
         c->assign_eh(is_true);
         add_watch(*c);
+        m_assign_eh_history.push_back(v);
+        m_trail.push_back(trail_instr_t::assign_eh_i);
         c->narrow(*this);
     }
 
@@ -295,6 +297,14 @@ namespace polysat {
                 auto v = m_cjust_trail.back();
                 m_cjust[v].pop_back();
                 m_cjust_trail.pop_back();
+                break;
+            }
+            case trail_instr_t::assign_eh_i: {
+                auto bvar = m_assign_eh_history.back();
+                constraint* c = get_bv2c(bvar);
+                erase_watch(*c);
+                c->unassign_eh();
+                m_assign_eh_history.pop_back();
                 break;
             }
             default:

@@ -62,6 +62,7 @@ namespace polysat {
         bool_var bvar() const { return m_bool_var; }
         bool sign() const { return m_sign; }
         void assign_eh(bool is_true) { m_status = (is_true ^ !m_sign) ? l_true : l_false; }
+        void unassign_eh() { m_status = l_undef; }
         bool is_positive() const { return m_status == l_true; }
         bool is_negative() const { return m_status == l_false; }
         bool is_undef() const { return m_status == l_undef; }
