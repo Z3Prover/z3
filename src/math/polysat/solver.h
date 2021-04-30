@@ -65,7 +65,9 @@ namespace polysat {
         // Per constraint state
         scoped_ptr_vector<constraint>   m_constraints;
         scoped_ptr_vector<constraint>   m_redundant;
+        vector<clause>                  m_redundant_clauses;
 
+        bool_var_vector          m_disjunctive_lemma;
         bool_var_vector          m_assign_eh_history;
 
         // Map boolean variables to constraints
@@ -251,7 +253,8 @@ namespace polysat {
          * Returns the disjunctive lemma that should be learned,
          * or an empty vector if check_sat() terminated for a different reason.
          */
-        bool_var_vector get_lemma() { NOT_IMPLEMENTED_YET(); return {}; };
+        bool_var_vector get_lemma() { return m_disjunctive_lemma; }
+        bool pending_disjunctive_lemma() { return !m_disjunctive_lemma.empty(); }
 
         /**
          * retrieve unsat core dependencies

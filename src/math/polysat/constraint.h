@@ -70,6 +70,27 @@ namespace polysat {
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
-        
+
+    class clause {
+        scoped_ptr_vector<constraint> m_literals;
+    public:
+        clause() {}
+        clause(scoped_ptr_vector<constraint>&& literals): m_literals(std::move(literals)) {
+            SASSERT(std::all_of(m_literals.begin(), m_literals.end(), [](constraint* c) { return c != nullptr; }));
+            SASSERT(empty() || std::all_of(m_literals.begin(), m_literals.end(), [this](constraint* c) { return c->level() == level(); }));
+        }
+
+        bool empty() const { return m_literals.empty(); }
+        unsigned size() const { return m_literals.size(); }
+        constraint* operator[](unsigned idx) const { return m_literals[idx]; }
+
+        using const_iterator = typename scoped_ptr_vector<constraint>::const_iterator;
+        const_iterator begin() const { return m_literals.begin(); }
+        const_iterator end() const { return m_literals.end(); }
+
+        ptr_vector<constraint> detach() { return m_literals.detach(); }
+
+        unsigned level() const { SASSERT(!empty()); return m_literals[0]->level(); }
+    };
 
 }
