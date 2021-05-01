@@ -26,10 +26,11 @@ Author:
 
 namespace polysat {
 
+    typedef unsigned var_t;
+
     template<typename Ext>
     class fixplex {
 
-        typedef unsigned var_t;
         typedef typename Ext::numeral numeral;
         typedef typename Ext::scoped_numeral scoped_numeral;
         typedef typename Ext::manager manager;
@@ -105,10 +106,13 @@ namespace polysat {
         typedef typename matrix::row_iterator row_iterator;
         typedef typename matrix::col_iterator col_iterator;
 
+        void set_lo(var_t var, numeral const& b) { m_vars[var].m_lo = b; }
+        void set_hi(var_t var, numeral const& b) { m_vars[var].m_hi = b; }
+
         var_t get_base_var(row const& r) const { return m_rows[r.id()].m_base; }
         numeral const& lo(var_t var) const { return m_vars[var].m_lo; }
         numeral const& hi(var_t var) const { return m_vars[var].m_hi; }
-        numeral const& value(var_t var) const { return m_vars[var].m_values; }
+        numeral const& value(var_t var) const { return m_vars[var].m_value; }
         void set_max_iterations(unsigned n) { m_max_iterations = n; }
         row_iterator row_begin(row const& r) { return M.row_begin(r); }
         row_iterator row_end(row const& r) { return M.row_end(r); }
@@ -121,8 +125,6 @@ namespace polysat {
         // TBD
         row   get_infeasible_row() { throw nullptr; }
         void  del_row(var_t base_var) {}
-        void  set_lo(var_t var, numeral const& b) {}
-        void  set_hi(var_t var, numeral const& b) {}
         bool  in_range(var_t var, numeral const& b) const {}
         void  unset_lo(var_t var) {}
         void  unset_hi(var_t var) {}

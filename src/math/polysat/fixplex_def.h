@@ -243,8 +243,7 @@ namespace polysat {
        number of trailing zeros. 
     */
     template<typename Ext>
-    typename fixplex<Ext>::var_t 
-    fixplex<Ext>::select_pivot_core(var_t x, numeral const& delta, 
+    var_t fixplex<Ext>::select_pivot_core(var_t x, numeral const& delta, 
                                     numeral const& new_value, numeral & out_b) {
         SASSERT(is_base(x));
         var_t max    = get_num_vars();
@@ -254,7 +253,9 @@ namespace polysat {
         unsigned best_col_sz = UINT_MAX;
         int best_so_far    = INT_MAX;
         numeral row_value = m_rows[r.id()].m_value;
+        numeral a = m_rows[r.id()].m_base_coeff;
         numeral delta_y;
+        numeral delta_best = 0;
         bool best_in_bounds = false;
 
         for (auto const& r : M.row_entries(r)) {
@@ -287,7 +288,7 @@ namespace polysat {
                 is_improvement = true;
             else if (best_in_bounds && _in_bounds && num == best_so_far && col_sz < best_col_sz)
                 is_improvement = true;
-            else if (best_in_bounds && delta_y == delta_best && num_best_so_far && col_sz == best_col_sz)
+            else if (best_in_bounds && delta_y == delta_best && best_so_far == num && col_sz == best_col_sz)
                 is_plateau = true;
             
             if (is_improvement) {
@@ -298,7 +299,7 @@ namespace polysat {
                 best_in_bounds = _in_bounds;
                 n            = 1;
             } 
-            else if (is_pleateau) {
+            else if (is_plateau) {
                 n++;
                 if (m_random() % n == 0) {
                     result   = y;
@@ -327,9 +328,9 @@ namespace polysat {
     template<typename Ext>
     bool fixplex<Ext>::is_infeasible_row(var_t x) {
         SASSERT(is_base(x));
-        auto& row = m_rows[m_vars[x].m_base2row];
+        auto r = m_vars[x].m_base2row;
         numeral lo_sum = 0, hi_sum = 0, diff = 0;
-        for (auto const& e : M.row_entries(r)) {
+        for (auto const& e : M.row_entries(row(r))) {
             var_t v = e.m_var;
             numeral const& c = e.m_coeff;
             if (lo(v) == hi(v))
@@ -389,7 +390,7 @@ namespace polysat {
         numeral const& a = row_x.m_base_coeff;
         numeral old_value_y = yI.m_value;
         row_x.m_base = y;
-        row_x.m_value = row_i.m_value - b*old_value_y + a*new_value;
+        row_x.m_value = row_x.m_value - b*old_value_y + a*new_value;
         row_x.m_base_coeff = b;
         yI.m_base2row = rx;
         yI.m_is_base = true;
@@ -408,7 +409,7 @@ namespace polysat {
             if (rz == rx)
                 continue;
             auto& row_z = m_rows[rz];
-            var_info& zI = m_vars[row_z];
+            var_info& zI = m_vars[rz];
             numeral c = col.get_row_entry().m_coeff;
             unsigned tz2 = trailing_zeros(c);
             SASSERT(tz1 <= tz2);
@@ -420,7 +421,7 @@ namespace polysat {
             row_z.m_base_coeff *= b1;
             zI.m_value = 0 - row_z.m_value / row_z.m_base_coeff;
             SASSERT(well_formed_row(r_z));
-            add_patch(zI.m_base);
+            add_patch(row_z.m_base);
         }
         SASSERT(well_formed());
     }
