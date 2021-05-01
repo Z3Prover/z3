@@ -264,4 +264,5 @@ int main(int argc, char ** argv) {
     TST(finder);
     TST(polysat);
     TST_ARGV(polysat_argv);
+    TST(fixplex);
 }

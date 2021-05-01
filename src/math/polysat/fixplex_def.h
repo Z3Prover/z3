@@ -46,8 +46,6 @@ namespace polysat {
         m_rows.reset();
         m_left_basis.reset();
         m_base_vars.reset();
-
-        // pivot(0,1, 2);
     }
 
     template<typename Ext>
@@ -61,10 +59,9 @@ namespace polysat {
         m_bland = false;
         SASSERT(well_formed());
         while ((v = select_var_to_fix()) != null_var) {
-            TRACE("simplex", display(tout << "v" << v << "\n"););
-            if (!m_limit.inc() || num_iterations > m_max_iterations) {
+            TRACE("polysat", display(tout << "v" << v << "\n"););
+            if (!m_limit.inc() || num_iterations > m_max_iterations) 
                 return l_undef;
-            }
             check_blands_rule(v, num_repeated);
             switch (make_var_feasible(v)) {
             case l_true:
@@ -87,6 +84,9 @@ namespace polysat {
     template<typename Ext>
     typename fixplex<Ext>::row 
     fixplex<Ext>::add_row(var_t base_var, unsigned num_vars, var_t const* vars, numeral const* coeffs) {
+        for (unsigned i = 0; i < num_vars; ++i) 
+            ensure_var(vars[i]);
+
         m_base_vars.reset();
         row r = M.mk_row();
         for (unsigned i = 0; i < num_vars; ++i) 
@@ -180,11 +180,6 @@ namespace polysat {
     }
 
     template<typename Ext>
-    bool fixplex<Ext>::in_bounds(var_t v) const {
-        return in_bounds(value(v), lo(v), hi(v));
-    }
-
-    template<typename Ext>
     bool fixplex<Ext>::in_bounds(numeral const& val, numeral const& lo, numeral const& hi) const {
         if (lo == hi)
             return true;
@@ -192,7 +187,6 @@ namespace polysat {
             return lo <= val && val < hi;
         return val < hi || lo <= val;
     }
-
 
     /**
      * Attempt to improve assigment to make x feasible.
@@ -254,7 +248,7 @@ namespace polysat {
         int best_so_far    = INT_MAX;
         numeral row_value = m_rows[r.id()].m_value;
         numeral a = m_rows[r.id()].m_base_coeff;
-        numeral delta_y;
+        numeral delta_y = 0;
         numeral delta_best = 0;
         bool best_in_bounds = false;
 
@@ -288,7 +282,7 @@ namespace polysat {
                 is_improvement = true;
             else if (best_in_bounds && _in_bounds && num == best_so_far && col_sz < best_col_sz)
                 is_improvement = true;
-            else if (best_in_bounds && delta_y == delta_best && best_so_far == num && col_sz == best_col_sz)
+            else if (best_in_bounds && !_in_bounds && delta_y == delta_best && best_so_far == num && col_sz == best_col_sz)
                 is_plateau = true;
             
             if (is_improvement) {
@@ -309,6 +303,20 @@ namespace polysat {
         }
         return result < max ? result : null_var;
     }
+
+    template<typename Ext>
+    void fixplex<Ext>::set_bounds(var_t v, numeral const& lo, numeral const& hi) {         
+        m_vars[v].m_lo = lo; 
+        m_vars[v].m_hi = hi; 
+        if (in_bounds(v))
+            return;
+        if (is_base(v)) 
+            add_patch(v);
+        else {
+            NOT_IMPLEMENTED_YET();
+        }
+    }
+
 
     template<typename Ext>
     bool fixplex<Ext>::has_minimal_trailing_zeros(var_t y, numeral const& b) {
@@ -425,6 +433,169 @@ namespace polysat {
         }
         SASSERT(well_formed());
     }
+
+    template<typename Ext>    
+    bool fixplex<Ext>::is_feasible() const {
+        for (unsigned i = m_vars.size(); i-- > 0; )
+            if (!in_bounds(i))
+                return false;
+        return true;
+    }
+
+    template<typename Ext>
+    typename fixplex<Ext>::row 
+    fixplex<Ext>::get_infeasible_row() {
+        SASSERT(is_base(m_infeasible_var));
+        unsigned row_id = m_vars[m_infeasible_var].m_base2row;
+        return row(row_id);
+    }
+
+    /**
+       \brief Return the number of base variables that are non free and are v dependent.
+       The function adds 1 to the result if v is non free.
+       The function returns with a partial result r if r > best_so_far.
+       This function is used to select the pivot variable.
+    */
+    template<typename Ext>
+    int fixplex<Ext>::get_num_non_free_dep_vars(var_t x_j, int best_so_far) {
+        int result = is_non_free(x_j);
+        for (auto const& col : M.col_entries(x_j)) {
+            var_t s = m_rows[col.get_row().id()].m_base;
+            result += is_non_free(s);
+            if (result > best_so_far)
+                return result;
+        }
+        return result;
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::add_patch(var_t v) {
+        SASSERT(is_base(v));
+        CTRACE("polysat", !in_bounds(v), tout << "Add patch: v" << v << "\n";);
+        if (!in_bounds(v)) 
+            m_to_patch.insert(v);
+    }
+
+    template<typename Ext>
+    var_t fixplex<Ext>::select_var_to_fix() {
+        switch (pivot_strategy()) {
+        case S_BLAND:
+            return select_smallest_var();
+        case S_GREATEST_ERROR:
+            return select_error_var(false);
+        case S_LEAST_ERROR:
+            return select_error_var(true);
+        default:
+            return select_smallest_var();
+        }
+    }
+
+    template<typename Ext>
+    var_t fixplex<Ext>::select_error_var(bool least) {
+        var_t best = null_var;
+        numeral best_error = 0, curr_error = 0;
+        for (var_t v : m_to_patch) {
+            if (in_bounds(v))
+                continue;
+            if (lo(v) - value(v) < value(v) - hi(v))
+                curr_error = lo(v) - value(v);
+            else
+                curr_error = value(v) - hi(v) - 1;
+            if ((best == null_var) || 
+                (least && curr_error < best_error) ||
+                (!least && curr_error > best_error)) {
+                best = v;
+                best_error = curr_error;
+            }
+        }
+        if (best == null_var)
+            m_to_patch.clear(); // all variables are satisfied
+        else
+            m_to_patch.erase(best);
+        return best;
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::check_blands_rule(var_t v, unsigned& num_repeated) {
+        if (m_bland) 
+            return;
+        if (!m_left_basis.contains(v)) 
+            m_left_basis.insert(v);
+        else {
+            ++num_repeated;
+            m_bland = num_repeated > m_blands_rule_threshold;
+            CTRACE("polysat", m_bland, tout << "using blands rule, " << num_repeated << "\n";);
+        }
+    }
+
+    template<typename Ext>    
+    std::ostream& fixplex<Ext>::display(std::ostream& out) const {
+        M.display(out);
+        for (unsigned i = 0; i < m_vars.size(); ++i) {
+            var_info const& vi = m_vars[i];
+            out << "v" << i << " " << value(i) << " [" << lo(i) << ", " << hi(i) << "[ ";
+            if (vi.m_is_base) out << "b:" << vi.m_base2row << " ";
+            out << "\n";
+        }
+        return out;
+    }
+
+    template<typename Ext>    
+    void fixplex<Ext>::display_row(std::ostream& out, row const& r, bool values) {
+        for (auto const& e : M.row_entries(r)) {
+            var_t v = e.m_var;
+            if (e.m_coeff != 1)
+                out << e.m_coeff << " * ";
+            out << "v" << v << " ";
+            if (values) 
+                out << value(v) << " [" << lo(v) << ", " << hi(v) << "[ ";            
+        }
+        return out << "\n";
+    }
+
+    template<typename Ext>    
+    bool fixplex<Ext>::well_formed() const { 
+        SASSERT(M.well_formed());
+        for (unsigned i = 0; i < m_rows.size(); ++i) {
+            var_t s = m_rows[i].m_base;
+            if (s == null_var) 
+                continue;
+            SASSERT(i == m_vars[s].m_base2row); 
+            VERIFY(well_formed_row(row(i)));            
+        }
+        for (unsigned i = 0; i < m_vars.size(); ++i) {
+            SASSERT(is_base(i) || in_bounds(i));
+        }
+        return true;
+    }
+
+    template<typename Ext>                                     
+    bool fixplex<Ext>::well_formed_row(row const& r) const { 
+        var_t s = m_rows[r.id()].m_base;
+        (void)s;
+        SASSERT(m_vars[s].m_base2row == r.id());
+        SASSERT(m_vars[s].m_is_base);
+        numeral sum = 0;
+        for (auto const& e : M.row_entries(r)) {
+            sum += value(e.m_var) * e.m_coeff;
+            SASSERT(s != e.m_var || m_rows[r.id()].m_base_coeff == e.m_coeff);
+        }
+        if (sum != 0) {
+            IF_VERBOSE(0, M.display_row(verbose_stream(), r););
+            TRACE("polysat", display(tout << "non-well formed row\n"); M.display_row(tout << "row: ", r););
+            throw default_exception("non-well formed row");
+        }
+        return true;
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::collect_statistics(::statistics & st) const {
+        M.collect_statistics(st);
+        st.update("fixplex num pivots", m_stats.m_num_pivots);
+        st.update("fixplex num infeasible", m_stats.m_num_infeasible);
+        st.update("fixplex num checks", m_stats.m_num_checks);
+    }
+
 
 
 }

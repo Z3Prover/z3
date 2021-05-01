@@ -238,7 +238,7 @@ namespace simplex {
                 --m_col.m_refs;
             }
 
-            row get_row() { 
+            row get_row() const { 
                 return row(m_col.m_entries[m_curr].m_row_id); 
             }
             row_entry const& get_row_entry() {
