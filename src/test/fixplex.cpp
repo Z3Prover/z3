@@ -8,7 +8,7 @@ namespace polysat {
     static void test1() {
         reslimit lim;
         fixplex<uint64_ext> fp(lim);
-        var_t x = 0, y = 1, z = 2, u = 3;
+        var_t x = 0, y = 1, z = 2;
         
         var_t ys[3] = { x, y, z };
         numeral coeffs[3] = { 2, 1, 4 };        

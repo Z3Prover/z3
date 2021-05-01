@@ -155,10 +155,11 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::gauss_jordan() {
+#if 0
         while (!m_base_vars.empty()) {
             auto v = m_base_vars.back();
             auto rid = m_vars[v].m_base2row;
-#if 0
+
             auto const& row = m_rows[rid];
             make_basic(v, row);
 #endif
@@ -265,7 +266,7 @@ namespace polysat {
                 if (lo(y) - new_y_value < new_y_value - hi(y))
                     delta_y = new_y_value - lo(y);
                 else
-                    delta_y = hi(y) - new_y_value;
+                    delta_y = hi(y) - new_y_value - 1;
             }
             int num  = get_num_non_free_dep_vars(y, best_so_far);
             unsigned col_sz = M.column_size(y);
@@ -291,6 +292,7 @@ namespace polysat {
                 best_so_far  = num;
                 best_col_sz  = col_sz;
                 best_in_bounds = _in_bounds;
+                delta_best   = delta_y;
                 n            = 1;
             } 
             else if (is_plateau) {
@@ -312,11 +314,11 @@ namespace polysat {
             return;
         if (is_base(v)) 
             add_patch(v);
-        else {
-            NOT_IMPLEMENTED_YET();
-        }
+        else if (lo - value(v) < value(v) - hi)
+            update_value(v, lo - value(v));
+        else
+            update_value(v, hi - value(v) - 1);        
     }
-
 
     template<typename Ext>
     bool fixplex<Ext>::has_minimal_trailing_zeros(var_t y, numeral const& b) {
@@ -331,7 +333,6 @@ namespace polysat {
         }
         return true;
     }
-
 
     template<typename Ext>
     bool fixplex<Ext>::is_infeasible_row(var_t x) {
@@ -446,8 +447,7 @@ namespace polysat {
     typename fixplex<Ext>::row 
     fixplex<Ext>::get_infeasible_row() {
         SASSERT(is_base(m_infeasible_var));
-        unsigned row_id = m_vars[m_infeasible_var].m_base2row;
-        return row(row_id);
+        return row(m_vars[m_infeasible_var].m_base2row);
     }
 
     /**
@@ -541,7 +541,7 @@ namespace polysat {
     }
 
     template<typename Ext>    
-    void fixplex<Ext>::display_row(std::ostream& out, row const& r, bool values) {
+    std::ostream& fixplex<Ext>::display_row(std::ostream& out, row const& r, bool values) {
         for (auto const& e : M.row_entries(r)) {
             var_t v = e.m_var;
             if (e.m_coeff != 1)

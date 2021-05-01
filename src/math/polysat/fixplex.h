@@ -116,7 +116,7 @@ namespace polysat {
         lbool make_feasible();
         row add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs);
         std::ostream& display(std::ostream& out) const;
-        void display_row(std::ostream& out, row const& r, bool values = true);
+        std::ostream& display_row(std::ostream& out, row const& r, bool values = true);
         void collect_statistics(::statistics & st) const;
 
         row get_infeasible_row();
