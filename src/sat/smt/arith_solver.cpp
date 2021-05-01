@@ -1001,6 +1001,8 @@ namespace arith {
             ++m_stats.m_assume_eqs;
             return sat::check_result::CR_CONTINUE;
         }
+        if (!check_delayed_eqs()) 
+            return sat::check_result::CR_CONTINUE;
         if (m_not_handled != nullptr) {
             TRACE("arith", tout << "unhandled operator " << mk_pp(m_not_handled, m) << "\n";);
             return sat::check_result::CR_GIVEUP;
