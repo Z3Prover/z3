@@ -63,6 +63,7 @@ namespace dt {
         SASSERT(s.m_to_unmark2.empty());
         s.m_used_eqs.reset();
         s.m_dfs.reset();
+        s.m_parent.reset();
     }
 
     solver::final_check_st::~final_check_st() {
