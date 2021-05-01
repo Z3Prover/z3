@@ -138,12 +138,12 @@ namespace polysat {
         var_t select_smallest_var() { return m_to_patch.empty()?null_var:m_to_patch.erase_min(); }
         lbool make_var_feasible(var_t x_i);
         bool is_infeasible_row(var_t x);
-        void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& new_value);
+        void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& value);
+        numeral value2delta(var_t v, numeral const& new_value) const;
         void update_value(var_t v, numeral const& delta);
         bool can_pivot(var_t x_i, numeral const& new_value, numeral const& a_ij, var_t x_j);
         bool has_minimal_trailing_zeros(var_t y, numeral const& b);
-        var_t select_pivot_core(var_t x, numeral const& delta, numeral const& new_value, numeral& out_b);
-        numeral new_value(var_t v) const;
+        var_t select_pivot_core(var_t x, numeral const& new_value, numeral& out_b);
         bool in_bounds(var_t v) const { return in_bounds(v, value(v)); }
         bool in_bounds(var_t v, numeral const& b) const { return in_bounds(b, lo(v), hi(v)); }
         bool in_bounds(numeral const& val, numeral const& lo, numeral const& hi) const;        

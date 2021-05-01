@@ -205,17 +205,10 @@ namespace polysat {
         if (in_bounds(x))
             return l_true;
         auto val = value(x);
-        numeral new_value, b, delta;
-        if (lo(x) - val < val - hi(x)) {
-            new_value = lo(x); 
-            delta = new_value - val;
-        }
-        else {
-            new_value = hi(x) - 1; 
-            delta = val - new_value;
-        }
- 
-        var_t y = select_pivot_core(x, delta, new_value, b);
+        numeral delta = value2delta(x, value(x));
+        numeral new_value = value(x) + delta; 
+        numeral b;
+        var_t y = select_pivot_core(x, new_value, b);
 
         if (y == null_var) {
             if (is_infeasible_row(x))
@@ -238,7 +231,7 @@ namespace polysat {
        number of trailing zeros. 
     */
     template<typename Ext>
-    var_t fixplex<Ext>::select_pivot_core(var_t x, numeral const& delta, 
+    var_t fixplex<Ext>::select_pivot_core(var_t x, 
                                     numeral const& new_value, numeral & out_b) {
         SASSERT(is_base(x));
         var_t max    = get_num_vars();
@@ -266,7 +259,7 @@ namespace polysat {
                 if (lo(y) - new_y_value < new_y_value - hi(y))
                     delta_y = new_y_value - lo(y);
                 else
-                    delta_y = hi(y) - new_y_value - 1;
+                    delta_y = new_y_value - hi(y) - 1;
             }
             int num  = get_num_non_free_dep_vars(y, best_so_far);
             unsigned col_sz = M.column_size(y);
@@ -307,6 +300,16 @@ namespace polysat {
     }
 
     template<typename Ext>
+    typename fixplex<Ext>::numeral 
+    fixplex<Ext>::value2delta(var_t v, numeral const& value) const {
+        if (lo(v) - value < value - hi(v))
+            return lo(v) - value;
+        else
+            return hi(v) - value - 1;    
+    }
+
+
+    template<typename Ext>
     void fixplex<Ext>::set_bounds(var_t v, numeral const& lo, numeral const& hi) {         
         m_vars[v].m_lo = lo; 
         m_vars[v].m_hi = hi; 
@@ -314,10 +317,8 @@ namespace polysat {
             return;
         if (is_base(v)) 
             add_patch(v);
-        else if (lo - value(v) < value(v) - hi)
-            update_value(v, lo - value(v));
         else
-            update_value(v, hi - value(v) - 1);        
+            update_value(v, value2delta(v, value(v)));
     }
 
     template<typename Ext>
