@@ -162,8 +162,8 @@ namespace polysat {
 
             auto const& row = m_rows[rid];
             make_basic(v, row);
-#endif
         }
+#endif
     }
 
     /**
@@ -595,8 +595,4 @@ namespace polysat {
         st.update("fixplex num infeasible", m_stats.m_num_infeasible);
         st.update("fixplex num checks", m_stats.m_num_checks);
     }
-
-
-
 }
-

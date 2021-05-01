@@ -18,7 +18,6 @@ Author:
 
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
-#include "math/polysat/fixplex_def.h"
 #include "math/polysat/forbidden_intervals.h"
 
 namespace polysat {
@@ -71,7 +70,6 @@ namespace polysat {
     solver::solver(reslimit& lim): 
         m_lim(lim),
         m_bdd(1000),
-        m_fixplex(m_lim),
         m_dm(m_value_manager, m_alloc),
         m_free_vars(m_activity) {
     }
