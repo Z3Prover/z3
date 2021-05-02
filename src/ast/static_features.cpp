@@ -104,7 +104,7 @@ void static_features::reset() {
     m_num_aliens_per_family                .reset();
     m_num_theories                         = 0;
     m_theories                             .reset();
-    m_max_stack_depth                      = 500;
+    m_max_stack_depth                      = 100;
     flush_cache();
 }
 
@@ -404,10 +404,11 @@ void static_features::process(expr * e, bool form_ctx, bool or_and_ctx, bool ite
         m_num_sharing++;
         return;
     }    
+
     if (stack_depth > m_max_stack_depth) {
         for (expr* arg : subterms(expr_ref(e, m)))
             if (get_depth(arg) <= 3 || is_quantifier(arg)) 
-                process(arg, form_ctx, or_and_ctx, ite_ctx, stack_depth-10);
+                process(arg, form_ctx, or_and_ctx, ite_ctx, stack_depth - 10);
         return;
     }
     mark(e);
