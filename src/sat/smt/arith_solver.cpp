@@ -145,7 +145,7 @@ namespace arith {
         bool v_is_int = b.is_int();
         literal lit2 = sat::null_literal;
         bool find_glb = (is_true == (k == lp_api::lower_t));
-        TRACE("arith", tout << "v" << v << " find_glb: " << find_glb << " is_true: " << is_true << " k: " << k << " is_lower: " << (k == lp_api::lower_t) << "\n";);
+        TRACE("arith", tout << lit1 << " v" << v << " val " << val << " find_glb: " << find_glb << " is_true: " << is_true << " k: " << k << " is_lower: " << (k == lp_api::lower_t) << "\n";);
         if (find_glb) {
             rational glb;
             api_bound* lb = nullptr;
@@ -187,6 +187,7 @@ namespace arith {
         m_params.push_back(parameter(m_farkas));
         m_params.push_back(parameter(rational(1)));
         m_params.push_back(parameter(rational(1)));
+        TRACE("arith", tout << lit2 << " <- " << m_core << "\n";);
         assign(lit2, m_core, m_eqs, m_params);
         ++m_stats.m_bounds_propagations;
     }
