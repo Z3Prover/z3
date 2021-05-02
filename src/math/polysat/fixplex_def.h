@@ -205,8 +205,7 @@ namespace polysat {
         if (in_bounds(x))
             return l_true;
         auto val = value(x);
-        numeral delta = value2delta(x, value(x));
-        numeral new_value = value(x) + delta; 
+        numeral new_value = (lo(x) - val < val - hi(x)) ? lo(x) : hi(x) - 1;
         numeral b;
         var_t y = select_pivot_core(x, new_value, b);
 
@@ -302,6 +301,7 @@ namespace polysat {
     template<typename Ext>
     typename fixplex<Ext>::numeral 
     fixplex<Ext>::value2delta(var_t v, numeral const& value) const {
+        SASSERT(!in_bounds(v));
         if (lo(v) - value < value - hi(v))
             return lo(v) - value;
         else
