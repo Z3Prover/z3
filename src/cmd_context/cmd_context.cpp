@@ -1123,7 +1123,7 @@ bool cmd_context::try_mk_builtin_app(symbol const & s, unsigned num_args, expr *
         result = m().mk_app(fid, k, num_indices, indices, num_args, args, range);
     }
     CHECK_SORT(result.get());
-    return true;
+    return nullptr != result.get();
 }
 
 bool cmd_context::try_mk_declared_app(symbol const & s, unsigned num_args, expr * const * args, 

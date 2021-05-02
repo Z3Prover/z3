@@ -1944,6 +1944,8 @@ namespace smt2 {
                 expr ** expr_it   = expr_stack().data() + fr->m_expr_spos;
                 expr ** expr_end  = expr_it + num_decls;
                 for (; expr_it != expr_end; ++expr_it, ++sym_it) {
+                    if (!(*expr_it))
+                        throw parser_exception("invalid let expression");
                     TRACE("let_frame", tout << "declaring: " << *sym_it << " " << mk_pp(*expr_it, m()) << "\n";);
                     m_env.insert(*sym_it, local(*expr_it, m_num_bindings));
                 }
