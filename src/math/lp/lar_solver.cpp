@@ -2340,9 +2340,6 @@ namespace lp {
     }
 
     void lar_solver::fix_terms_with_rounded_columns() {
-        TRACE("cube",
-            for (unsigned i = 0; i < m_terms.size(); i++)
-                tout << i << " " << term_is_used_as_row(i) << "\n";);
 
         for (unsigned i = 0; i < m_terms.size(); i++) {
             if (!term_is_used_as_row(i))
@@ -2361,11 +2358,10 @@ namespace lp {
                 m_mpq_lar_core_solver.m_r_solver.update_x(j, v);
             }
         }
-        for (unsigned i = 0; i < A_r().row_count(); i++) 
-            row_is_correct(i);
 
         SASSERT(ax_is_correct());
     }
+
     // return true if all y coords are zeroes
     bool lar_solver::sum_first_coords(const lar_term& t, mpq& val) const {
         val = zero_of_type<mpq>();
