@@ -405,6 +405,7 @@ namespace polysat {
             ++m_stats.m_num_propagations;
         LOG("pvar " << v << " := " << val << " by " << j);
         SASSERT(is_viable(v, val));
+        SASSERT(std::all_of(m_search.begin(), m_search.end(), [v](auto p) { return p.first != v; }));
         m_value[v] = val;
         m_search.push_back(std::make_pair(v, val));
         m_trail.push_back(trail_instr_t::assign_i);
@@ -592,7 +593,9 @@ namespace polysat {
     }
 
     /**
-     * variable v was assigned by a decision at position i in the search stack.
+     * Revert a decision that caused a conflict.
+     * Variable v was assigned by a decision at position i in the search stack.
+     *
      * TODO: we could resolve constraints in cjust[v] against each other to 
      * obtain stronger propagation. Example:
      *  (x + 1)*P = 0 and (x + 1)*Q = 0, where gcd(P,Q) = 1, then we have x + 1 = 0.
@@ -602,23 +605,31 @@ namespace polysat {
      */
     void solver::revert_decision(pvar v) {
         rational val = m_value[v];
+        LOG_H3("Reverting decision: pvar " << v << " -> " << val);
         SASSERT(m_justification[v].is_decision());
         bdd viable = m_viable[v];
         constraints just(m_cjust[v]);
         backjump(m_justification[v].level()-1);
-        for (unsigned i = m_cjust[v].size(); i < just.size(); ++i) 
-            push_cjust(v, just[i]);
-        for (constraint* c : m_conflict) {
-            push_cjust(v, c);
-            c->narrow(*this);
-        }
-        m_conflict.reset();
+        // Since decision "v -> val" caused a conflict, we may keep all
+        // viability restrictions on v and additionally exclude val.
         push_viable(v);
         m_viable[v] = viable;
         add_non_viable(v, val);
-        m_free_vars.del_var_eh(v);
+        for (unsigned i = m_cjust[v].size(); i < just.size(); ++i) 
+            push_cjust(v, just[i]);
+        for (constraint* c : m_conflict) {
+            // Add the conflict as justification for the exclusion of 'val'
+            push_cjust(v, c);
+            // NOTE: in general, narrow may change the conflict.
+            //       But since we just backjumped, narrowing should not result in an additional conflict.
+            c->narrow(*this);
+        }
+        m_conflict.reset();
         narrow(v);
-        decide(v);
+        if (m_justification[v].is_unassigned()) {
+            m_free_vars.del_var_eh(v);
+            decide(v);
+        }
     }
     
     void solver::backjump(unsigned new_level) {
