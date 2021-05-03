@@ -75,6 +75,10 @@ namespace polysat {
         scoped_ptr_vector<constraint> m_literals;
     public:
         clause() {}
+        clause(scoped_ptr<constraint>&& c) {
+            SASSERT(c);
+            m_literals.push_back(c.detach());
+        }
         clause(scoped_ptr_vector<constraint>&& literals): m_literals(std::move(literals)) {
             SASSERT(std::all_of(m_literals.begin(), m_literals.end(), [](constraint* c) { return c != nullptr; }));
             SASSERT(empty() || std::all_of(m_literals.begin(), m_literals.end(), [this](constraint* c) { return c->level() == level(); }));

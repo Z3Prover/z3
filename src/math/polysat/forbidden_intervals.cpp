@@ -95,13 +95,14 @@ namespace polysat {
             }
         }
 
+        LOG("has_full: " << std::boolalpha << has_full);
         if (has_full) {
-            auto const& full_record = records.back();
+            // We have a single interval covering the whole domain
+            // => the side conditions of that interval are enough to produce a conflict
+            auto& full_record = records.back();
             SASSERT(full_record.interval.is_full());
-            LOG("has_full: " << std::boolalpha << has_full);
-            // TODO: use full interval to explain
-            NOT_IMPLEMENTED_YET();
-            return false;
+            out_lemma = std::move(full_record.neg_cond);
+            return true;
         }
 
         if (records.empty())
