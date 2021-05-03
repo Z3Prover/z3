@@ -2126,7 +2126,7 @@ namespace upolynomial {
         }
         frame_stack.push_back(drs_frame(parent_idx, sz, true));
         // right child
-        translate(sz, p_stack.end() - sz, p_aux);
+        translate(sz, p_stack.data() + p_stack.size() - sz, p_aux);
         normalize(p_aux);
         for (unsigned i = 0; i < sz; i++) {
             p_stack.push_back(numeral());
@@ -2226,7 +2226,7 @@ namespace upolynomial {
             drs_frame & fr    = frame_stack.back();
             unsigned sz       = fr.m_size;
             SASSERT(sz <= p_stack.size());
-            numeral const * p = p_stack.end() - sz;
+            numeral const * p = p_stack.data() + p_stack.size() - sz;
             TRACE("upolynomial", tout << "processing frame #" << frame_stack.size() - 1 << "\n"
                   << "first: " << fr.m_first << ", left: " << fr.m_left << ", sz: " << fr.m_size << ", parent_idx: ";
                   if (fr.m_parent_idx == UINT_MAX) tout << "<null>"; else tout << fr.m_parent_idx;

@@ -93,8 +93,16 @@ namespace bv {
         } while (curr != v);
 
         zero_one_bits const& _bits = m_zero_one_bits[v];
-        if (_bits.size() != num_bits)
-            std::cout << v << " " << _bits.size() << " " << num_bits << "\n";
+        if (_bits.size() != num_bits) {
+            std::cout << "v" << v << " " << _bits.size() << " " << num_bits << "\n";
+            std::cout << "true: " << mk_true() << "\n";
+            do {
+                std::cout << "v" << curr << ": " << m_bits[curr] << "\n";
+                curr = m_find.next(curr);
+            }
+            while (curr != v);
+        }
+        SASSERT(_bits.size() == num_bits);
         VERIFY(_bits.size() == num_bits);
         bool_vector already_found;
         already_found.resize(bv_sz, false);

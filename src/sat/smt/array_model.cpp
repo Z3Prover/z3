@@ -39,8 +39,10 @@ namespace array {
                 dep.add(n, p->get_arg(i));
         }
         for (euf::enode* k : euf::enode_class(n)) 
-            if (a.is_const(k->get_expr()))
-                dep.add(n, k->get_arg(0));    
+            if (a.is_const(k->get_expr())) 
+                dep.add(n, k->get_arg(0)); 
+        if (!dep.deps().contains(n))
+            dep.insert(n, nullptr);
         return true;
     }
 

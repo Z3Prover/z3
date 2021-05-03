@@ -102,9 +102,12 @@ namespace euf {
             struct new_lits_qhead {};
             struct inconsistent {};
             struct value_assignment {};
+            struct lbl_hash {};
+            struct lbl_set {};
             enum class tag_t { is_set_parent, is_add_node, is_toggle_merge, 
-                         is_add_th_var, is_replace_th_var, is_new_lit, is_new_th_eq,
-                         is_new_th_eq_qhead, is_new_lits_qhead, is_inconsistent, is_value_assignment };
+                    is_add_th_var, is_replace_th_var, is_new_lit, is_new_th_eq,
+                    is_lbl_hash, is_new_th_eq_qhead, is_new_lits_qhead, 
+                    is_inconsistent, is_value_assignment, is_lbl_set };
             tag_t  tag;
             enode* r1;
             enode* n1;
@@ -116,6 +119,8 @@ namespace euf {
                 };
                 unsigned qhead;
                 bool     m_inconsistent;
+                signed char m_lbl_hash;
+                unsigned long long m_lbls;
             };
             update_record(enode* r1, enode* n1, unsigned r2_num_parents) :
                 tag(tag_t::is_set_parent), r1(r1), n1(n1), r2_num_parents(r2_num_parents) {}
@@ -139,6 +144,10 @@ namespace euf {
                 tag(tag_t::is_inconsistent), r1(nullptr), n1(nullptr), m_inconsistent(inc) {}
             update_record(enode* n, value_assignment) :
                 tag(tag_t::is_value_assignment), r1(n), n1(nullptr), qhead(0) {}
+            update_record(enode* n, lbl_hash):
+                tag(tag_t::is_lbl_hash), r1(n), n1(nullptr), m_lbl_hash(n->m_lbl_hash) {}
+            update_record(enode* n, lbl_set):
+                tag(tag_t::is_lbl_set), r1(n), n1(nullptr), m_lbls(n->m_lbls.get()) {}    
         };
         ast_manager&           m;
         svector<to_merge>      m_to_merge;

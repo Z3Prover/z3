@@ -281,21 +281,36 @@ namespace euf {
        VERIFY(n->num_args() == 0 || !n->merge_enabled() || m_table.contains(n));
     }
 
-    void egraph::set_value(enode* n, lbool value) {        
-        force_push();
-        TRACE("euf", tout << bpp(n) << "\n";);
-        SASSERT(n->value() == l_undef);
-        n->set_value(value);
-        m_updates.push_back(update_record(n, update_record::value_assignment()));
+    void egraph::set_value(enode* n, lbool value) {  
+        if (n->value() == l_undef) {
+            force_push();
+            TRACE("euf", tout << bpp(n) << " := " << value << "\n";);
+            n->set_value(value);
+            m_updates.push_back(update_record(n, update_record::value_assignment()));
+        }
     }
 
     void egraph::set_lbl_hash(enode* n) {
-        NOT_IMPLEMENTED_YET();
+        SASSERT(n->m_lbl_hash == -1);
+        // m_lbl_hash should be different from -1, if and only if,
+        // there is a pattern that contains the enode. So,
+        // I use a trail to restore the value of m_lbl_hash to -1.
+        m_updates.push_back(update_record(n, update_record::lbl_hash()));
+        unsigned h = hash_u(n->get_expr_id());
+        n->m_lbl_hash = h & (APPROX_SET_CAPACITY - 1);
+        // propagate modification to the root m_lbls set.
+        enode* r = n->get_root();
+        approx_set & r_lbls = r->m_lbls;
+        if (!r_lbls.may_contain(n->m_lbl_hash)) {
+            m_updates.push_back(update_record(r, update_record::lbl_set()));
+            r_lbls.insert(n->m_lbl_hash);
+        }
     }
 
     void egraph::pop(unsigned num_scopes) {
         if (num_scopes <= m_num_scopes) {
             m_num_scopes -= num_scopes;
+            m_to_merge.reset();
             return;
         }
         num_scopes -= m_num_scopes;
@@ -354,6 +369,12 @@ namespace euf {
             case update_record::tag_t::is_value_assignment:
                 VERIFY(p.r1->value() != l_undef);
                 p.r1->set_value(l_undef);
+                break;
+            case update_record::tag_t::is_lbl_hash:
+                p.r1->m_lbl_hash = p.m_lbl_hash;
+                break;
+            case update_record::tag_t::is_lbl_set:
+                p.r1->m_lbls.set(p.m_lbls);
                 break;
             default:
                 UNREACHABLE();
@@ -439,8 +460,8 @@ namespace euf {
                 auto rc = insert_table(p);
                 enode* p_other = rc.first;
                 SASSERT(m_table.contains_ptr(p) == (p_other == p));
-                if (p_other != p)
-                    m_to_merge.push_back(to_merge(p_other, p, rc.second));
+                if (p_other != p) 
+                    m_to_merge.push_back(to_merge(p_other, p, rc.second));                
                 else
                     r2->m_parents.push_back(p);
                 if (p->is_equality())
@@ -704,8 +725,6 @@ namespace euf {
                 TRACE("euf", display(tout << bpp(n) << " is not closed under congruence\n"););
                 UNREACHABLE();
             }
-
-
     }
 
     std::ostream& egraph::display(std::ostream& out, unsigned max_args, enode* n) const {
@@ -765,7 +784,6 @@ namespace euf {
 
     void egraph::copy_from(egraph const& src, std::function<void*(void*)>& copy_justification) {
         SASSERT(m_scopes.empty());
-        SASSERT(src.m_scopes.empty());
         SASSERT(m_nodes.empty());
         ptr_vector<enode> old_expr2new_enode, args;
         ast_translation tr(src.m, m);
@@ -793,6 +811,9 @@ namespace euf {
                 merge(n2, n2t, n1->m_justification.copy(copy_justification));
         }
         propagate();
+        for (unsigned i = 0; i < src.m_scopes.size(); ++i)
+            push();
+        force_push();
     }
 }
 

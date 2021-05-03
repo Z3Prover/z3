@@ -134,6 +134,14 @@ public:
         CASSERT("union_find", check_invariant());
     }
 
+    void set_root(unsigned v, unsigned root) {
+        TRACE("union_find", tout << "merging " << v << " " << root << "\n";);
+        SASSERT(v != root);
+        m_find[v] = root;
+        m_size[root] += m_size[v];
+        std::swap(m_next[root], m_next[v]);
+    }
+
     // dissolve equivalence class of v
     // this method cannot be used with backtracking.
     void dissolve(unsigned v) {

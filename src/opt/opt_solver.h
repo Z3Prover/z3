@@ -119,8 +119,8 @@ namespace opt {
 
         smt::theory_var add_objective(app* term);
         void reset_objectives();
-        void maximize_objective(unsigned i, expr_ref& blocker);
-        void maximize_objectives(expr_ref_vector& blockers);
+        bool maximize_objective(unsigned i, expr_ref& blocker);
+        bool maximize_objectives1(expr_ref_vector& blockers);
         inf_eps const & saved_objective_value(unsigned obj_index);
         inf_eps current_objective_value(unsigned obj_index);
         model* get_model_idx(unsigned obj_index) { return m_models[obj_index]; }

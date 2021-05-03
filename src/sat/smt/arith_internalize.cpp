@@ -164,7 +164,7 @@ namespace arith {
         unsigned index = 0;
         while (index < terms.size()) {
             SASSERT(index >= vars.size());
-            expr* n = terms[index].get();
+            expr* n = terms.get(index);
             st.to_ensure_enode().push_back(n);
             if (a.is_add(n)) {
                 for (expr* arg : *to_app(n)) {
@@ -382,7 +382,7 @@ namespace arith {
         updt_unassigned_bounds(v, +1);
         m_bounds_trail.push_back(v);
         m_bool_var2bound.insert(bv, b);
-        TRACE("arith_verbose", tout << "Internalized " << bv << ": " << mk_pp(atom, m) << "\n";);
+        TRACE("arith_verbose", tout << "Internalized " << lit << ": " << mk_pp(atom, m) << " " << *b << "\n";);
         m_new_bounds.push_back(b);
         //add_use_lists(b);
         return true;
@@ -391,7 +391,7 @@ namespace arith {
 
     bool solver::internalize_term(expr* term) {
         if (!has_var(term))
-            internalize_def(term);
+            register_theory_var_in_lar_solver(internalize_def(term));
         return true;
     }
 
@@ -583,11 +583,10 @@ namespace arith {
         if (e->is_attached_to(get_id()))
             return e->get_th_var(get_id());
         theory_var v = mk_var(e);
-        TRACE("arith", tout << "fresh var: v" << v << " " << mk_pp(n, m) << "\n";);
+        TRACE("arith_verbose", tout << "v" << v << " " << mk_pp(n, m) << "\n";);
         SASSERT(m_bounds.size() <= static_cast<unsigned>(v) || m_bounds[v].empty());
         reserve_bounds(v);
         ctx.attach_th_var(e, this, v);
-        TRACE("arith", tout << mk_pp(n, m) << " " << v << "\n";);
         SASSERT(euf::null_theory_var != v);
         return v;
     }

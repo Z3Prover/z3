@@ -1246,8 +1246,8 @@ namespace dd {
             }
             else {
                 set_mark(r);
-                m_todo.pop_back();
-                m_todo.push_back(lo(r)).push_back(hi(r));
+                m_todo.push_back(lo(r));
+                m_todo.push_back(hi(r));
             }
         }
         return max_d;

@@ -40,6 +40,125 @@ Revision History:
 #pragma warning(disable:4127)
 #endif
 
+
+#if 0
+
+// portability guide to std::vector.
+// memory allocator should be based on memory_allocator<T>
+// 
+// template<typename T>
+// struct memory_allocator {
+//     typedef  T value_type;
+//     etc (interface seems to change between C++17, 20 versions)
+// };
+//
+
+// Note:
+// polynomial.h contains declaration
+// typedef svector<numeral>                        numeral_vector;
+// it is crucial that it uses svector and not vector. The destructors on elements of the numeral vector are handled outside.
+// Numeral gets instantiated by mpz and mpz does not support copy constructors.
+// porting svector to vector is therefore blocked on the semantics of svector being 
+// copy-constructor free.
+// 
+
+#include <vector>
+
+template<typename T, bool CallDestructors=true, typename SZ = unsigned>
+class vector : public std::vector<T> {
+public:
+    typedef T data_t;
+    typedef typename std::vector<T>::iterator iterator;
+
+    vector() {}
+    vector(SZ s) {
+        // TODO resize(s, T());
+    }
+    vector(SZ s, T const& e) {
+        // TODO resize(s, e);
+    }
+
+    vector(SZ s, T const* e) {
+        // TODO
+    }
+
+    void reset() { clear(); }
+    void finalize() { clear(); }
+    void reserve(SZ s, T const & d) {
+        if (s > size())
+            resize(s, d);
+    }
+    void reserve(SZ s) {
+        
+    }
+
+    void setx(SZ idx, T const & elem, T const & d) {
+        if (idx >= size()) 
+            resize(idx+1, d);
+        (*this)[idx] = elem;
+    }
+
+    T const & get(SZ idx, T const & d) const {
+        if (idx >= size()) {
+            return d;
+        }
+        return (*this)[idx];
+    }
+
+    void insert(T const & elem) {
+        push_back(elem);
+    }
+    
+    void erase(iterator pos) {
+        // TODO
+    }
+
+    void erase(T const& e) {
+        // TODO
+    }
+    void fill(T const & elem) {
+        for (auto& e : *this)
+            e = elem;
+    }
+
+    void fill(unsigned sz, T const & elem) {
+        resize(sz);
+        fill(elem);
+    }
+
+    void shrink(SZ s) {
+        resize(s);
+    }
+    void reverse() {
+        SZ sz = size();
+        for (SZ i = 0; i < sz/2; ++i) {
+            std::swap((*this)[i], (*this)[sz-i-1]);
+        }
+    }
+
+    void append(vector<T, CallDestructors> const & other) {
+        for(SZ i = 0; i < other.size(); ++i) {
+            push_back(other[i]);
+        }
+    }
+
+    void append(unsigned n,  T const* elems) {
+        // TODO
+    }
+
+    bool contains(T const & elem) const {
+        for (auto const& e : *this)
+            if (e == elem)
+                return true;
+        return false;
+    }
+
+    
+}; 
+
+
+#else
+
 template<typename T, bool CallDestructors=true, typename SZ = unsigned>
 class vector {
 #define SIZE_IDX     -1
@@ -601,6 +720,8 @@ public:
     };
 
 };
+
+#endif
 
 template<typename T>
 class ptr_vector : public vector<T *, false> {

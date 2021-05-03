@@ -63,6 +63,7 @@ namespace dt {
         SASSERT(s.m_to_unmark2.empty());
         s.m_used_eqs.reset();
         s.m_dfs.reset();
+        s.m_parent.reset();
     }
 
     solver::final_check_st::~final_check_st() {
@@ -692,6 +693,10 @@ namespace dt {
 
     void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {
         theory_var v = n->get_th_var(get_id());
+        if (v == euf::null_theory_var) {
+            values.set(n->get_root_id(), mdl.get_fresh_value(n->get_sort()));
+            return;
+        }
         v = m_find.find(v);
         SASSERT(v != euf::null_theory_var);
         enode* con = m_var_data[v]->m_constructor;
@@ -703,9 +708,11 @@ namespace dt {
     }
 
     bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
-        theory_var v = n->get_th_var(get_id());
         if (!is_datatype(n->get_expr()))
-            return true;
+            return false;
+        theory_var v = n->get_th_var(get_id());
+        if (v == euf::null_theory_var) 
+            return false;
         euf::enode* con = m_var_data[m_find.find(v)]->m_constructor;
         if (con->num_args() == 0)
             dep.insert(n, nullptr);
@@ -715,10 +722,8 @@ namespace dt {
     }
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
-        if (!visit_rec(m, e, sign, root, redundant)) {
-            TRACE("dt", tout << mk_pp(e, m) << "\n";);
-            return sat::null_literal;
-        }
+        if (!visit_rec(m, e, sign, root, redundant)) 
+            return sat::null_literal;        
         auto lit = ctx.expr2literal(e);
         if (sign)
             lit.neg();

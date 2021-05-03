@@ -202,12 +202,14 @@ namespace opt {
         return r;
     }
 
-    void opt_solver::maximize_objectives(expr_ref_vector& blockers) {
+    bool opt_solver::maximize_objectives1(expr_ref_vector& blockers) {
         expr_ref blocker(m);
         for (unsigned i = 0; i < m_objective_vars.size(); ++i) {
-            maximize_objective(i, blocker);
+            if (!maximize_objective(i, blocker))
+                return false;
             blockers.push_back(blocker);
         }
+        return true;
     }
 
     lbool opt_solver::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
@@ -238,7 +240,7 @@ namespace opt {
        Precondition: the state of the solver is satisfiable and such that a current model can be extracted.
        
     */
-    void opt_solver::maximize_objective(unsigned i, expr_ref& blocker) {
+    bool opt_solver::maximize_objective(unsigned i, expr_ref& blocker) {
         smt::theory_var v = m_objective_vars[i];
         bool has_shared = false;
         m_last_model = nullptr;
@@ -256,8 +258,9 @@ namespace opt {
             SASSERT(has_shared);
             decrement_value(i, val);
             if (l_true != m_context.check(0, nullptr))  
-                throw default_exception("maximization suspended");
-            m_context.get_model(m_last_model);            
+                return false;
+            m_context.get_model(m_last_model);      
+            return true;
         };
 
         if (!val.is_finite()) {
@@ -268,15 +271,15 @@ namespace opt {
             m_last_model = nullptr;
             m_context.get_model(m_last_model);
             if (has_shared && val != current_objective_value(i)) {
-                decrement();
+                if (!decrement())
+                    return false;
             }
             else {
                 m_models.set(i, m_last_model.get());
             }
         }
-        else {
-            decrement();
-        }
+        else if (!decrement())
+            return false;
         m_objective_values[i] = val;
         TRACE("opt", { 
                 tout << "objective:     " << mk_pp(m_objective_terms[i].get(), m) << "\n";
@@ -285,6 +288,7 @@ namespace opt {
                 if (m_models[i]) model_smt2_pp(tout << "update model:\n", m, *m_models[i], 0); 
                 if (m_last_model) model_smt2_pp(tout << "last model:\n", m, *m_last_model, 0);
             });
+        return true;
     }
 
     lbool opt_solver::decrement_value(unsigned i, inf_eps& val) {

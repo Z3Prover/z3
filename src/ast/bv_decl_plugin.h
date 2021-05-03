@@ -310,6 +310,7 @@ public:
     unsigned get_extract_high(expr const * n) const { SASSERT(is_extract(n)); return get_extract_high(to_app(n)->get_decl()); }
     unsigned get_extract_low(expr const * n) const { SASSERT(is_extract(n)); return get_extract_low(to_app(n)->get_decl()); }
     bool is_extract(expr const * e, unsigned & low, unsigned & high, expr * & b) const;
+    bool is_repeat(expr const * e, expr*& arg, unsigned& n) const;
     bool is_bv2int(expr const * e, expr * & r) const;
     bool is_bv_add(expr const * e) const { return is_app_of(e, get_fid(), OP_BADD); }
     bool is_bv_sub(expr const * e) const { return is_app_of(e, get_fid(), OP_BSUB); }

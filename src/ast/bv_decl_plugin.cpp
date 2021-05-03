@@ -718,7 +718,7 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
     op_names.push_back(builtin_name("rotate_right",OP_ROTATE_RIGHT));
     op_names.push_back(builtin_name("bit2bool", OP_BIT2BOOL));
 
-    if (logic == symbol::null || logic == symbol("ALL") || logic == "QF_FD") {
+    if (logic == symbol::null || logic == symbol("ALL") || logic == "QF_FD" || logic == "HORN") {
         op_names.push_back(builtin_name("bvumul_noovfl",OP_BUMUL_NO_OVFL));
         op_names.push_back(builtin_name("bvsmul_noovfl",OP_BSMUL_NO_OVFL));
         op_names.push_back(builtin_name("bvsmul_noudfl",OP_BSMUL_NO_UDFL));
@@ -826,6 +826,15 @@ bool bv_recognizers::is_extract(expr const* e, unsigned& low, unsigned& high, ex
     b = to_app(e)->get_arg(0);
     return true;
 }
+
+bool bv_recognizers::is_repeat(expr const * e, expr*& arg, unsigned& n) const {
+    if (!is_app_of(e, get_fid(), OP_REPEAT))
+        return false;
+    arg = to_app(e)->get_arg(0);
+    n = to_app(e)->get_parameter(0).get_int();
+    return true;
+}
+
 
 bool bv_recognizers::is_bv2int(expr const* e, expr*& r) const {
     if (!is_bv2int(e)) return false;
