@@ -470,12 +470,22 @@ namespace polysat {
             LOG_H2("Conflict due to empty viable set for pvar " << conflict_var);
             clause new_lemma;
             if (forbidden_intervals::explain(*this, m_conflict, conflict_var, new_lemma)) {
-                LOG_H3("Learning disjunctive lemma");
+                LOG_H3("Lemma from forbidden intervals (size: " << new_lemma.size() << ")");
+                for (constraint* c : new_lemma)
+                    LOG("Literal: " << *c);
                 SASSERT(new_lemma.size() > 0);
                 if (new_lemma.size() == 1) {
                     lemma = new_lemma.detach()[0];
-                    // TODO: continue normally?
-                } else {
+                    SASSERT(lemma);
+                    lemma->assign_eh(true);
+                    reset_marks();
+                    for (auto v : lemma->vars())
+                        set_mark(v);
+                    m_conflict.reset();
+                    m_conflict.push_back(lemma.get());
+                    // continue normally
+                }
+                else {
                     SASSERT(m_disjunctive_lemma.empty());
                     reset_marks();
                     for (constraint* c : new_lemma) {
@@ -645,10 +655,13 @@ namespace polysat {
     constraint* solver::resolve(pvar v) {
         SASSERT(!m_cjust[v].empty());
         SASSERT(m_justification[v].is_propagation());
+        LOG("resolve pvar " << v);
         if (m_cjust[v].size() != 1)
             return nullptr;
         constraint* d = m_cjust[v].back();
-        return d->resolve(*this, v);
+        constraint* res = d->resolve(*this, v);
+        LOG("resolved: " << show_deref(res));
+        return res;
     }
 
     /**
