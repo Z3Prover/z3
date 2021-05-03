@@ -230,8 +230,7 @@ namespace polysat {
        number of trailing zeros. 
     */
     template<typename Ext>
-    var_t fixplex<Ext>::select_pivot_core(var_t x, 
-                                    numeral const& new_value, numeral & out_b) {
+    var_t fixplex<Ext>::select_pivot_core(var_t x, numeral const& new_value, numeral & out_b) {
         SASSERT(is_base(x));
         var_t max    = get_num_vars();
         var_t result = max;
@@ -275,7 +274,9 @@ namespace polysat {
                 is_improvement = true;
             else if (best_in_bounds && _in_bounds && num == best_so_far && col_sz < best_col_sz)
                 is_improvement = true;
-            else if (best_in_bounds && !_in_bounds && delta_y == delta_best && best_so_far == num && col_sz == best_col_sz)
+            else if (!best_in_bounds && !_in_bounds && delta_y == delta_best && best_so_far == num && col_sz == best_col_sz)
+                is_plateau = true;
+            else if (best_in_bounds && _in_bounds && best_so_far == num && col_sz == best_col_sz)
                 is_plateau = true;
             
             if (is_improvement) {
@@ -295,13 +296,23 @@ namespace polysat {
                 }
             }                              
         }
-        return result < max ? result : null_var;
+        if (result == max)
+            return null_var;
+        if (!best_in_bounds && delta_best >= value2delta(x, new_value))
+            return null_var;
+        return result;
     }
 
+    /**
+     * Compute delta to add to the value, such that value + delta is either lo(v), or hi(v) - 1
+     * A pre-condition is that value is not in the range [lo(v),hi(v)[, 
+     * and therefore as a consequence lo(v) != hi(v).
+     */
     template<typename Ext>
     typename fixplex<Ext>::numeral 
     fixplex<Ext>::value2delta(var_t v, numeral const& value) const {
         SASSERT(!in_bounds(v));
+        SASSERT(lo(v) != hi(v));
         if (lo(v) - value < value - hi(v))
             return lo(v) - value;
         else
@@ -309,6 +320,13 @@ namespace polysat {
     }
 
 
+    /**
+     * The the bounds of variable v.
+     * If the current value of v, value(v), is in bounds, no further updates are made.
+     * If value(v) is outside the the new bounds, then
+     * - the tableau is updated if v is non-basic.
+     * - the variable v is queued to patch if v is basic.
+     */
     template<typename Ext>
     void fixplex<Ext>::set_bounds(var_t v, numeral const& lo, numeral const& hi) {         
         m_vars[v].m_lo = lo; 
@@ -321,6 +339,10 @@ namespace polysat {
             update_value(v, value2delta(v, value(v)));
     }
 
+    /**
+     * Check if the coefficient b of y has the minimal number of trailing zeros.
+     * In other words, the coefficient b is a multiple of the smallest power of 2.
+     */
     template<typename Ext>
     bool fixplex<Ext>::has_minimal_trailing_zeros(var_t y, numeral const& b) {
         unsigned tz1 = trailing_zeros(b);
@@ -335,6 +357,24 @@ namespace polysat {
         return true;
     }
 
+    /**
+     * Determine if row is linear infeasiable.
+     * A row is linear infeasible if it can be established
+     * that none of the available assignments within current
+     * bounds let the row add up to 0.
+     * 
+     * Assume the row is of the form:
+     *   ax + by + cz = 0
+     * with bounds
+     *   x : [lo_x, hi_x[, y : [lo_y, hi_y[, z : [lo_z : hi_z[
+     * 
+     * Claim. The row is infeasible if the following conditions are met:
+     * 
+     * - 0 < a*lo_x + b*lo_y + c*lo_z <= a*hi_x + b*hi_y + c*hi_z  mod 2^k
+     * - a*(hi_x - lo_x) + b*(hi_y - lo_y) + c*(hi_z - lo_z) < 2^k
+     * - lo_x != hi_x, lo_y != hi_y, lo_z != hi_z
+     * 
+     */
     template<typename Ext>
     bool fixplex<Ext>::is_infeasible_row(var_t x) {
         SASSERT(is_base(x));
@@ -577,11 +617,12 @@ namespace polysat {
         SASSERT(m_vars[s].m_base2row == r.id());
         SASSERT(m_vars[s].m_is_base);
         numeral sum = 0;
+        numeral base_coeff = m_rows[r.id()].m_base_coeff;
         for (auto const& e : M.row_entries(r)) {
             sum += value(e.m_var) * e.m_coeff;
-            SASSERT(s != e.m_var || m_rows[r.id()].m_base_coeff == e.m_coeff);
+            SASSERT(s != e.m_var || base_coeff == e.m_coeff);
         }
-        if (sum != 0) {
+        if (sum >= base_coeff) {
             IF_VERBOSE(0, M.display_row(verbose_stream(), r););
             TRACE("polysat", display(tout << "non-well formed row\n"); M.display_row(tout << "row: ", r););
             throw default_exception("non-well formed row");
