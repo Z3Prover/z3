@@ -219,7 +219,11 @@ namespace polysat {
             LOG("WARN: there is no constraint for bool_var " << v);
             return;
         }
+        if (is_conflict())
+            return;
+        SASSERT(c->is_undef());
         c->assign_eh(is_true);
+        LOG("Activate constraint: " << *c);
         add_watch(*c);
         m_assign_eh_history.push_back(v);
         m_trail.push_back(trail_instr_t::assign_eh_i);
