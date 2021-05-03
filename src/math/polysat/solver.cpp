@@ -651,6 +651,7 @@ namespace polysat {
         if (!c)
             return;
         LOG("Lemma: " << *c);
+        SASSERT(!c->is_undef());
         SASSERT(!get_bv2c(c->bvar()));
         insert_bv2c(c->bvar(), c);
         add_watch(*c);
