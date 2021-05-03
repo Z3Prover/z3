@@ -22,26 +22,6 @@ namespace polysat {
         return out << m_lhs << (sign() == pos_t ? " <=u " : " >u ") << m_rhs << " [" << m_status << "]";
     }
 
-    bool ule_constraint::propagate(solver& s, pvar v) {
-        LOG_H3("Propagate " << s.m_vars[v] << " in " << *this);
-        SASSERT(!vars().empty());
-        unsigned idx = 0;
-        if (vars()[idx] != v)
-            idx = 1;
-        SASSERT(v == vars()[idx]);
-        // find other watch variable.
-        for (unsigned i = vars().size(); i-- > 2; ) {
-            unsigned other_v = vars()[i];
-            if (!s.is_assigned(other_v)) {
-                s.add_watch(*this, other_v);
-                return true;
-            }
-        }
-
-        narrow(s);
-        return false;
-    }
-
     constraint* ule_constraint::resolve(solver& s, pvar v) {
         return nullptr;
     }

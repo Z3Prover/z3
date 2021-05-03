@@ -22,28 +22,6 @@ namespace polysat {
         return out << p() << (sign() == pos_t ? " == 0" : " != 0") << " [" << m_status << "]";
     }
 
-    bool eq_constraint::propagate(solver& s, pvar v) {
-        LOG_H3("Propagate " << s.m_vars[v] << " in " << *this);
-        SASSERT(!vars().empty());
-        unsigned idx = 0;
-        if (vars()[idx] != v)
-            idx = 1;
-        SASSERT(v == vars()[idx]);
-        // find other watch variable.
-        for (unsigned i = vars().size(); i-- > 2; ) {
-            unsigned other_v = vars()[i];
-            if (!s.is_assigned(other_v)) {
-                s.add_watch(*this, other_v);
-                std::swap(vars()[idx], vars()[i]);
-                return true;
-            }
-        }        
-        // at most one variable remains unassigned.
-
-        narrow(s);
-        return false;
-    }
-
     constraint* eq_constraint::resolve(solver& s, pvar v) {
         if (is_positive())
             return eq_resolve(s, v);

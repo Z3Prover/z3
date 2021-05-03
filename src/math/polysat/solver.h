@@ -38,6 +38,7 @@ namespace polysat {
             stats() { reset(); }
         };
 
+        friend class constraint;
         friend class eq_constraint;
         friend class var_constraint;
         friend class ule_constraint;

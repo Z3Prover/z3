@@ -48,7 +48,8 @@ namespace polysat {
         bool is_sle() const { return m_kind == ckind_t::sle_t; }
         ckind_t kind() const { return m_kind; }
         virtual std::ostream& display(std::ostream& out) const = 0;
-        virtual bool propagate(solver& s, pvar v) = 0;
+        bool propagate(solver& s, pvar v);
+        virtual void propagate_core(solver& s, pvar v, pvar other_v);
         virtual constraint* resolve(solver& s, pvar v) = 0;
         virtual bool is_always_false() = 0;
         virtual bool is_currently_false(solver& s) = 0;

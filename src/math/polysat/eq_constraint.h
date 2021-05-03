@@ -27,7 +27,6 @@ namespace polysat {
         ~eq_constraint() override {}
         pdd const & p() const { return m_poly; }
         std::ostream& display(std::ostream& out) const override;
-        bool propagate(solver& s, pvar v) override;
         constraint* resolve(solver& s, pvar v) override;
         bool is_always_false() override;
         bool is_currently_false(solver& s) override;
