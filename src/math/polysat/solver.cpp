@@ -709,6 +709,7 @@ namespace polysat {
         unsigned base_level = m_base_levels[m_base_levels.size() - num_scopes];
         LOG("Pop " << num_scopes << " user scopes; lowest popped level = " << base_level << "; current level = " << m_level);
         pop_levels(m_level - base_level + 1);
+        m_conflict.reset();   // TODO: maybe keep conflict if level of all constraints is lower than base_level?
     }
 
     bool solver::at_base_level() const {
