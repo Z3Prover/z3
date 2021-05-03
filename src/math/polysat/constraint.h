@@ -67,6 +67,8 @@ namespace polysat {
         bool is_positive() const { return m_status == l_true; }
         bool is_negative() const { return m_status == l_false; }
         bool is_undef() const { return m_status == l_undef; }
+
+        /** Precondition: all variables other than v are assigned. */
         virtual bool forbidden_interval(solver& s, pvar v, eval_interval& i, constraint*& neg_condition) { return false; }
     };
 

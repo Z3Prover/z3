@@ -118,9 +118,6 @@ namespace polysat {
             return p.is_val() && q.is_val() && p.val() > q.val();
     }
 
-    /**
-     * Precondition: all variables other than v are assigned.
-     */
     bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& i, constraint*& neg_condition)
     {
         SASSERT(!is_undef());
