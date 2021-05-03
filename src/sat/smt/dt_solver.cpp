@@ -693,6 +693,10 @@ namespace dt {
 
     void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {
         theory_var v = n->get_th_var(get_id());
+        if (v == euf::null_theory_var) {
+            values.set(n->get_root_id(), mdl.get_fresh_value(n->get_sort()));
+            return;
+        }
         v = m_find.find(v);
         SASSERT(v != euf::null_theory_var);
         enode* con = m_var_data[v]->m_constructor;
@@ -705,10 +709,10 @@ namespace dt {
 
     bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
         if (!is_datatype(n->get_expr()))
-            return true;
+            return false;
         theory_var v = n->get_th_var(get_id());
         if (v == euf::null_theory_var) 
-            return true;        
+            return false;
         euf::enode* con = m_var_data[m_find.find(v)]->m_constructor;
         if (con->num_args() == 0)
             dep.insert(n, nullptr);

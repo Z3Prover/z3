@@ -208,6 +208,7 @@ namespace euf {
                     fi = alloc(func_interp, m, arity);
                     mdl->register_decl(f, fi);
                 }
+                TRACE("euf", tout << f->get_name() << "\n";);
                 args.reset();                
                 for (enode* arg : enode_args(n)) 
                     args.push_back(m_values.get(arg->get_root_id()));                

@@ -570,7 +570,7 @@ namespace bv {
     }
 
     void solver::internalize_ac_binary(app* e, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn) {
-        SASSERT(e->get_num_args() >= 2);
+        SASSERT(e->get_num_args() >= 1);
         expr_ref_vector bits(m), new_bits(m), arg_bits(m);
         unsigned i = e->get_num_args() - 1;
         get_arg_bits(e, i, bits);
