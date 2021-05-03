@@ -50,7 +50,6 @@ namespace polysat {
 
     void solver::add_non_viable(pvar v, rational const& val) {
         LOG("pvar " << v << " /= " << val);
-        TRACE("polysat", tout << "v" << v << " /= " << val << "\n";);
         SASSERT(is_viable(v, val));
         auto const& bits = var2bits(v);
         intersect_viable(v, bits.var() != val);
@@ -120,6 +119,7 @@ namespace polysat {
             else if (!can_decide()) { LOG_H2("SAT"); return l_true; }
             else decide();
         }
+        LOG_H2("UNDEF (resource limit)");
         return l_undef;
     }
         
@@ -194,6 +194,21 @@ namespace polysat {
     }
 
     bool_var solver::new_sle(pdd const& p, pdd const& q, unsigned dep, csign_t sign) {
+        // To do signed comparison of bitvectors, flip the msb and do unsigned comparison:
+        //
+        //      x <=s y    <=>    x + 2^(w-1)  <=u  y + 2^(w-1)
+        //
+        // Example for bit width 3:
+        //      111  -1
+        //      110  -2
+        //      101  -3
+        //      100  -4
+        //      011   3
+        //      010   2
+        //      001   1
+        //      000   0
+        //
+        // Argument: flipping the msb swaps the negative and non-negative blocks
         auto shift = rational::power_of_two(p.power_of_2() - 1);
         return new_ule(p + shift, q + shift, dep, sign);
     }
@@ -219,7 +234,11 @@ namespace polysat {
             LOG("WARN: there is no constraint for bool_var " << v);
             return;
         }
+        if (is_conflict())
+            return;
+        SASSERT(c->is_undef());
         c->assign_eh(is_true);
+        LOG("Activate constraint: " << *c);
         add_watch(*c);
         m_assign_eh_history.push_back(v);
         m_trail.push_back(trail_instr_t::assign_eh_i);
@@ -235,6 +254,7 @@ namespace polysat {
         push_qhead();
         while (can_propagate()) 
             propagate(m_search[m_qhead++].first);
+        SASSERT(wlist_invariant());
     }
 
     void solver::propagate(pvar v) {
@@ -250,6 +270,7 @@ namespace polysat {
     }
 
     void solver::propagate(pvar v, rational const& val, constraint& c) {
+        LOG("Propagation: pvar " << v << " := " << val << ", due to " << c);
         if (is_viable(v, val)) {
             m_free_vars.del_var_eh(v);
             assign_core(v, val, justification::propagation(m_level));        
@@ -326,10 +347,15 @@ namespace polysat {
 
     void solver::add_watch(constraint& c) {
         auto const& vars = c.vars();
-        if (vars.size() > 0) 
-            m_watch[vars[0]].push_back(&c);
-        if (vars.size() > 1) 
-            m_watch[vars[1]].push_back(&c);
+        if (vars.size() > 0)
+            add_watch(c, vars[0]);
+        if (vars.size() > 1)
+            add_watch(c, vars[1]);
+    }
+
+    void solver::add_watch(constraint &c, pvar v) {
+        LOG("watching v" << v << " of constraint " << c);
+        m_watch[v].push_back(&c);
     }
 
     void solver::erase_watch(constraint& c) {
@@ -366,10 +392,14 @@ namespace polysat {
         switch (find_viable(v, val)) {
         case dd::find_t::empty:
             LOG("Conflict: no value for pvar " << v);
+            // NOTE: all such cases should be discovered elsewhere (e.g., during propagation/narrowing)
+            //       (fail here in debug mode so we notice if we miss some)
+            DEBUG_CODE( UNREACHABLE(); );
             set_conflict(v);
             break;
         case dd::find_t::singleton:
             LOG("Propagation: pvar " << v << " := " << val << " (due to unique value)");
+            // NOTE: this case may happen legitimately if all other possibilities were excluded by brute force search
             assign_core(v, val, justification::propagation(m_level));
             break;
         case dd::find_t::multiple:
@@ -387,6 +417,7 @@ namespace polysat {
             ++m_stats.m_num_propagations;
         LOG("pvar " << v << " := " << val << " by " << j);
         SASSERT(is_viable(v, val));
+        SASSERT(std::all_of(m_search.begin(), m_search.end(), [v](auto p) { return p.first != v; }));
         m_value[v] = val;
         m_search.push_back(std::make_pair(v, val));
         m_trail.push_back(trail_instr_t::assign_i);
@@ -451,12 +482,22 @@ namespace polysat {
             LOG_H2("Conflict due to empty viable set for pvar " << conflict_var);
             clause new_lemma;
             if (forbidden_intervals::explain(*this, m_conflict, conflict_var, new_lemma)) {
-                LOG_H3("Learning disjunctive lemma");
+                LOG_H3("Lemma from forbidden intervals (size: " << new_lemma.size() << ")");
+                for (constraint* c : new_lemma)
+                    LOG("Literal: " << *c);
                 SASSERT(new_lemma.size() > 0);
                 if (new_lemma.size() == 1) {
                     lemma = new_lemma.detach()[0];
-                    // TODO: continue normally?
-                } else {
+                    SASSERT(lemma);
+                    lemma->assign_eh(true);
+                    reset_marks();
+                    for (auto v : lemma->vars())
+                        set_mark(v);
+                    m_conflict.reset();
+                    m_conflict.push_back(lemma.get());
+                    // continue normally
+                }
+                else {
                     SASSERT(m_disjunctive_lemma.empty());
                     reset_marks();
                     for (constraint* c : new_lemma) {
@@ -568,13 +609,16 @@ namespace polysat {
     void solver::learn_lemma(pvar v, constraint* c) {
         if (!c)
             return;
+        LOG("Learning: " << *c);
         SASSERT(m_conflict_level <= m_justification[v].level());
         push_cjust(v, c);
         add_lemma(c);
     }
 
     /**
-     * variable v was assigned by a decision at position i in the search stack.
+     * Revert a decision that caused a conflict.
+     * Variable v was assigned by a decision at position i in the search stack.
+     *
      * TODO: we could resolve constraints in cjust[v] against each other to 
      * obtain stronger propagation. Example:
      *  (x + 1)*P = 0 and (x + 1)*Q = 0, where gcd(P,Q) = 1, then we have x + 1 = 0.
@@ -584,23 +628,31 @@ namespace polysat {
      */
     void solver::revert_decision(pvar v) {
         rational val = m_value[v];
+        LOG_H3("Reverting decision: pvar " << v << " -> " << val);
         SASSERT(m_justification[v].is_decision());
         bdd viable = m_viable[v];
         constraints just(m_cjust[v]);
         backjump(m_justification[v].level()-1);
-        for (unsigned i = m_cjust[v].size(); i < just.size(); ++i) 
-            push_cjust(v, just[i]);
-        for (constraint* c : m_conflict) {
-            push_cjust(v, c);
-            c->narrow(*this);
-        }
-        m_conflict.reset();
+        // Since decision "v -> val" caused a conflict, we may keep all
+        // viability restrictions on v and additionally exclude val.
         push_viable(v);
         m_viable[v] = viable;
         add_non_viable(v, val);
-        m_free_vars.del_var_eh(v);
+        for (unsigned i = m_cjust[v].size(); i < just.size(); ++i) 
+            push_cjust(v, just[i]);
+        for (constraint* c : m_conflict) {
+            // Add the conflict as justification for the exclusion of 'val'
+            push_cjust(v, c);
+            // NOTE: in general, narrow may change the conflict.
+            //       But since we just backjumped, narrowing should not result in an additional conflict.
+            c->narrow(*this);
+        }
+        m_conflict.reset();
         narrow(v);
-        decide(v);
+        if (m_justification[v].is_unassigned()) {
+            m_free_vars.del_var_eh(v);
+            decide(v);
+        }
     }
     
     void solver::backjump(unsigned new_level) {
@@ -616,10 +668,13 @@ namespace polysat {
     constraint* solver::resolve(pvar v) {
         SASSERT(!m_cjust[v].empty());
         SASSERT(m_justification[v].is_propagation());
+        LOG("resolve pvar " << v);
         if (m_cjust[v].size() != 1)
             return nullptr;
         constraint* d = m_cjust[v].back();
-        return d->resolve(*this, v);
+        constraint* res = d->resolve(*this, v);
+        LOG("resolved: " << show_deref(res));
+        return res;
     }
 
     /**
@@ -633,6 +688,7 @@ namespace polysat {
         if (!c)
             return;
         LOG("Lemma: " << *c);
+        SASSERT(!c->is_undef());
         SASSERT(!get_bv2c(c->bvar()));
         insert_bv2c(c->bvar(), c);
         add_watch(*c);
@@ -666,6 +722,7 @@ namespace polysat {
         unsigned base_level = m_base_levels[m_base_levels.size() - num_scopes];
         LOG("Pop " << num_scopes << " user scopes; lowest popped level = " << base_level << "; current level = " << m_level);
         pop_levels(m_level - base_level + 1);
+        m_conflict.reset();   // TODO: maybe keep conflict if level of all constraints is lower than base_level?
     }
 
     bool solver::at_base_level() const {
@@ -709,6 +766,29 @@ namespace polysat {
         unsigned sz = cs.size();
         for (unsigned i = 0; i + 1 < sz; ++i) 
             VERIFY(cs[i]->level() <= cs[i + 1]->level());
+        return true;
+    }
+
+    /**
+     * Check that two variables of each constraint are watched.
+     */
+    bool solver::wlist_invariant() {
+        constraints cs;
+        cs.append(m_constraints.size(), m_constraints.data());
+        cs.append(m_redundant.size(), m_redundant.data());
+        for (auto* c : cs) {
+            unsigned num_watches = 0;
+            for (auto const& wlist : m_watch) {
+                unsigned n = std::count(wlist.begin(), wlist.end(), c);
+                VERIFY(n <= 1);  // no duplicates in the watchlist
+                num_watches += n;
+            }
+            switch (c->vars().size()) {
+                case 0:  VERIFY(num_watches == 0); break;
+                case 1:  VERIFY(num_watches == 1); break;
+                default: VERIFY(num_watches == 2); break;
+            }
+        }
         return true;
     }
 

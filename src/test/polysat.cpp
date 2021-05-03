@@ -63,6 +63,21 @@ namespace polysat {
         s.check();
     }
 
+    /// Has constraints which must be inserted into other watchlist to discover UNSAT
+    static void test_wlist() {
+        scoped_solver s;
+        auto a = s.var(s.add_var(3));
+        auto b = s.var(s.add_var(3));
+        auto c = s.var(s.add_var(3));
+        auto d = s.var(s.add_var(3));
+        s.add_eq(d + c + b + a + 1);
+        s.add_eq(d + c + b + a);
+        s.add_eq(d + c + b);
+        s.add_eq(d + c);
+        s.add_eq(d);
+        s.check();
+    }
+
 
     /**
      * most basic linear equation solving.
@@ -142,6 +157,23 @@ namespace polysat {
         s.add_eq(p);
         s.check();
     }
+
+    /**
+     * unsat
+     * - learns 3*x + 1 == 0 by polynomial resolution
+     * - this forces x == 5, which means the first constraint is unsatisfiable by parity.
+     */
+    static void test_p3() {
+        scoped_solver s;
+        auto x = s.var(s.add_var(4));
+        auto y = s.var(s.add_var(4));
+        auto z = s.var(s.add_var(4));
+        s.add_eq(x*x*y + 3*y + 7);
+        s.add_eq(2*y + z + 8);
+        s.add_eq(3*x + 4*y*z + 2*z*z + 1);
+        s.check();
+    }
+
 
     // Unique solution: u = 5
     static void test_ineq_basic1() {
@@ -376,15 +408,23 @@ namespace polysat {
 
 void tst_polysat() {
     polysat::test_add_conflicts();
+    polysat::test_wlist();
     polysat::test_l1();
     polysat::test_l2();
     polysat::test_l3();
     polysat::test_l4();
     polysat::test_l5();
-#if 0
-    // worry about this later
     polysat::test_p1();
     polysat::test_p2();
+    polysat::test_p3();
+    polysat::test_ineq_basic1();
+    polysat::test_ineq_basic2();
+    polysat::test_ineq_basic3();
+    polysat::test_ineq_basic4();
+    polysat::test_ineq_basic5();
+    polysat::test_ineq_basic6();
+#if 0
+    // worry about this later
     polysat::test_ineq1();
     polysat::test_ineq2();
 #endif

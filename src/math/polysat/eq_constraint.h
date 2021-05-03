@@ -27,18 +27,16 @@ namespace polysat {
         ~eq_constraint() override {}
         pdd const & p() const { return m_poly; }
         std::ostream& display(std::ostream& out) const override;
-        bool propagate(solver& s, pvar v) override;
         constraint* resolve(solver& s, pvar v) override;
         bool is_always_false() override;
         bool is_currently_false(solver& s) override;
         bool is_currently_true(solver& s) override;
         void narrow(solver& s) override;
+        bool forbidden_interval(solver& s, pvar v, eval_interval& i, constraint*& neg_condition) override;
 
     private:
         constraint* eq_resolve(solver& s, pvar v);
-        void eq_narrow(solver& s);
         constraint* diseq_resolve(solver& s, pvar v);
-        void diseq_narrow(solver& s);
     };
 
 }

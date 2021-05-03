@@ -33,7 +33,6 @@ namespace polysat {
             constraint(lvl, bvar, sign, dep, ckind_t::bit_t), m_var(v), m_viable(b) {}
         ~var_constraint() override {}
         std::ostream& display(std::ostream& out) const override;
-        bool propagate(solver& s, pvar v) override;
         constraint* resolve(solver& s, pvar v) override;
         void narrow(solver& s) override;
         bool is_always_false() override;

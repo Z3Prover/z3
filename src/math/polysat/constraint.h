@@ -48,7 +48,8 @@ namespace polysat {
         bool is_sle() const { return m_kind == ckind_t::sle_t; }
         ckind_t kind() const { return m_kind; }
         virtual std::ostream& display(std::ostream& out) const = 0;
-        virtual bool propagate(solver& s, pvar v) = 0;
+        bool propagate(solver& s, pvar v);
+        virtual void propagate_core(solver& s, pvar v, pvar other_v);
         virtual constraint* resolve(solver& s, pvar v) = 0;
         virtual bool is_always_false() = 0;
         virtual bool is_currently_false(solver& s) = 0;
@@ -66,6 +67,8 @@ namespace polysat {
         bool is_positive() const { return m_status == l_true; }
         bool is_negative() const { return m_status == l_false; }
         bool is_undef() const { return m_status == l_undef; }
+
+        /** Precondition: all variables other than v are assigned. */
         virtual bool forbidden_interval(solver& s, pvar v, eval_interval& i, constraint*& neg_condition) { return false; }
     };
 
@@ -75,6 +78,10 @@ namespace polysat {
         scoped_ptr_vector<constraint> m_literals;
     public:
         clause() {}
+        clause(scoped_ptr<constraint>&& c) {
+            SASSERT(c);
+            m_literals.push_back(c.detach());
+        }
         clause(scoped_ptr_vector<constraint>&& literals): m_literals(std::move(literals)) {
             SASSERT(std::all_of(m_literals.begin(), m_literals.end(), [](constraint* c) { return c != nullptr; }));
             SASSERT(empty() || std::all_of(m_literals.begin(), m_literals.end(), [this](constraint* c) { return c->level() == level(); }));

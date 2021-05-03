@@ -20,7 +20,7 @@ namespace polysat {
 
     struct fi_record {
         eval_interval interval;
-        scoped_ptr<constraint> cond;  // could be multiple constraints later
+        scoped_ptr<constraint> neg_cond;  // could be multiple constraints later
         constraint* src;
     };
 
@@ -72,15 +72,12 @@ namespace polysat {
         for (constraint* c : conflict) {
             LOG("constraint: " << *c);
             eval_interval interval = eval_interval::full();
-            constraint* cond = nullptr;  // TODO: change to scoped_ptr
-            if (c->forbidden_interval(s, v, interval, cond)) {
+            constraint* neg_cond = nullptr;  // TODO: change to scoped_ptr
+            if (c->forbidden_interval(s, v, interval, neg_cond)) {
                 LOG("~> interval: " << interval);
-                if (cond)
-                    LOG("       cond: " << *cond);
-                else
-                    LOG("       cond: <null>");
+                LOG("       neg_cond: " << show_deref(neg_cond));
                 if (interval.is_currently_empty()) {
-                    dealloc(cond);
+                    dealloc(neg_cond);
                     continue;
                 }
                 if (interval.is_full())
@@ -92,19 +89,20 @@ namespace polysat {
                         longest_i = records.size();
                     }
                 }
-                records.push_back({std::move(interval), cond, c});
+                records.push_back({std::move(interval), neg_cond, c});
                 if (has_full)
                     break;
             }
         }
 
+        LOG("has_full: " << std::boolalpha << has_full);
         if (has_full) {
-            auto const& full_record = records.back();
+            // We have a single interval covering the whole domain
+            // => the side conditions of that interval are enough to produce a conflict
+            auto& full_record = records.back();
             SASSERT(full_record.interval.is_full());
-            LOG("has_full: " << std::boolalpha << has_full);
-            // TODO: use full interval to explain
-            NOT_IMPLEMENTED_YET();
-            return false;
+            out_lemma = std::move(full_record.neg_cond);
+            return true;
         }
 
         if (records.empty())
@@ -153,9 +151,9 @@ namespace polysat {
             literals.push_back(c);
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
-            scoped_ptr<constraint>& cond = records[i].cond;
-            if (cond)
-                literals.push_back(cond.detach());
+            scoped_ptr<constraint>& neg_cond = records[i].neg_cond;
+            if (neg_cond)
+                literals.push_back(neg_cond.detach());
         }
 
         out_lemma = std::move(literals);

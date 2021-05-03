@@ -21,11 +21,6 @@ namespace polysat {
         return out << "v" << m_var << ": " << m_viable << "\n";
     }
 
-    bool var_constraint::propagate(solver& s, pvar v) {       
-        UNREACHABLE();
-        return false;
-    }
-
     constraint* var_constraint::resolve(solver& s, pvar v) {
         UNREACHABLE();
         return nullptr;

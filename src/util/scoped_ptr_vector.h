@@ -87,6 +87,8 @@ public:
         return tmp;
     }
 
+    T* const* data() const { return m_vector.data(); }
+
     using const_iterator = typename ptr_vector<T>::const_iterator;
     const_iterator begin() const { return m_vector.begin(); }
     const_iterator end() const { return m_vector.end(); }
