@@ -31,8 +31,9 @@ namespace polysat {
         SASSERT(v == vars()[idx]);
         // find other watch variable.
         for (unsigned i = vars().size(); i-- > 2; ) {
-            if (!s.is_assigned(vars()[i])) {
-                std::swap(vars()[idx], vars()[i]);
+            unsigned other_v = vars()[i];
+            if (!s.is_assigned(other_v)) {
+                s.add_watch(*this, other_v);
                 return true;
             }
         }

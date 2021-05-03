@@ -187,6 +187,7 @@ namespace polysat {
         void erase_watch(pvar v, constraint& c);
         void erase_watch(constraint& c);
         void add_watch(constraint& c);
+        void add_watch(constraint& c, pvar v);
 
         void set_conflict(constraint& c);
         void set_conflict(pvar v);
@@ -225,6 +226,7 @@ namespace polysat {
 
         bool invariant();
         bool invariant(scoped_ptr_vector<constraint> const& cs);
+        bool wlist_invariant();
 
     public:
 

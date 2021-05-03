@@ -254,6 +254,7 @@ namespace polysat {
         push_qhead();
         while (can_propagate()) 
             propagate(m_search[m_qhead++].first);
+        SASSERT(wlist_invariant());
     }
 
     void solver::propagate(pvar v) {
@@ -346,10 +347,15 @@ namespace polysat {
 
     void solver::add_watch(constraint& c) {
         auto const& vars = c.vars();
-        if (vars.size() > 0) 
-            m_watch[vars[0]].push_back(&c);
-        if (vars.size() > 1) 
-            m_watch[vars[1]].push_back(&c);
+        if (vars.size() > 0)
+            add_watch(c, vars[0]);
+        if (vars.size() > 1)
+            add_watch(c, vars[1]);
+    }
+
+    void solver::add_watch(constraint &c, pvar v) {
+        LOG("watching v" << v << " of constraint " << c);
+        m_watch[v].push_back(&c);
     }
 
     void solver::erase_watch(constraint& c) {
@@ -603,6 +609,7 @@ namespace polysat {
     void solver::learn_lemma(pvar v, constraint* c) {
         if (!c)
             return;
+        LOG("Learning: " << *c);
         SASSERT(m_conflict_level <= m_justification[v].level());
         push_cjust(v, c);
         add_lemma(c);
@@ -759,6 +766,29 @@ namespace polysat {
         unsigned sz = cs.size();
         for (unsigned i = 0; i + 1 < sz; ++i) 
             VERIFY(cs[i]->level() <= cs[i + 1]->level());
+        return true;
+    }
+
+    /**
+     * Check that two variables of each constraint are watched.
+     */
+    bool solver::wlist_invariant() {
+        constraints cs;
+        cs.append(m_constraints.size(), m_constraints.data());
+        cs.append(m_redundant.size(), m_redundant.data());
+        for (auto* c : cs) {
+            unsigned num_watches = 0;
+            for (auto const& wlist : m_watch) {
+                unsigned n = std::count(wlist.begin(), wlist.end(), c);
+                VERIFY(n <= 1);  // no duplicates in the watchlist
+                num_watches += n;
+            }
+            switch (c->vars().size()) {
+                case 0:  VERIFY(num_watches == 0); break;
+                case 1:  VERIFY(num_watches == 1); break;
+                default: VERIFY(num_watches == 2); break;
+            }
+        }
         return true;
     }
 

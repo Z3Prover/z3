@@ -63,6 +63,21 @@ namespace polysat {
         s.check();
     }
 
+    /// Has constraints which must be inserted into other watchlist to discover UNSAT
+    static void test_wlist() {
+        scoped_solver s;
+        auto a = s.var(s.add_var(3));
+        auto b = s.var(s.add_var(3));
+        auto c = s.var(s.add_var(3));
+        auto d = s.var(s.add_var(3));
+        s.add_eq(d + c + b + a + 1);
+        s.add_eq(d + c + b + a);
+        s.add_eq(d + c + b);
+        s.add_eq(d + c);
+        s.add_eq(d);
+        s.check();
+    }
+
 
     /**
      * most basic linear equation solving.
@@ -393,6 +408,7 @@ namespace polysat {
 
 void tst_polysat() {
     polysat::test_add_conflicts();
+    polysat::test_wlist();
     polysat::test_l1();
     polysat::test_l2();
     polysat::test_l3();
