@@ -32,10 +32,50 @@ namespace polysat {
     }
 
     void eq_constraint::narrow(solver& s) {
-        if (is_positive())
-            eq_narrow(s);
-        if (is_negative())
-            diseq_narrow(s);
+        SASSERT(!is_undef());
+        LOG("Assignment: " << s.m_search);
+        auto q = p().subst_val(s.m_search);
+        LOG("Substituted: " << p() << " := " << q);
+        if (q.is_zero()) {
+            if (is_positive())
+                return;
+            if (is_negative()) {
+                LOG("Conflict (zero under current assignment)");
+                s.set_conflict(*this);
+                return;
+            }
+        }
+        if (q.is_never_zero()) {
+            if (is_positive()) {
+                LOG("Conflict (never zero under current assignment)");
+                s.set_conflict(*this);
+                return;
+            }
+            if (is_negative())
+                return;
+        }
+
+        if (q.is_unilinear()) {
+            // a*x + b == 0
+            pvar v = q.var();
+            rational a = q.hi().val();
+            rational b = q.lo().val();
+            bddv const& x = s.var2bits(v).var();
+            bddv lhs = a * x + b;
+            rational zero = rational::zero();
+            bdd xs = is_positive() ? (lhs == zero) : (lhs != zero);
+            s.push_cjust(v, this);
+            s.intersect_viable(v, xs);
+
+            rational val;
+            if (s.find_viable(v, val) == dd::find_t::singleton) {
+                s.propagate(v, val, *this);
+            }
+
+            return;
+        }
+
+        // TODO: what other constraints can be extracted cheaply?
     }
 
     bool eq_constraint::is_always_false() {
@@ -92,38 +132,7 @@ namespace polysat {
         return nullptr;
     }
 
-    void eq_constraint::eq_narrow(solver& s) {
-        LOG("Assignment: " << s.m_search);
-        auto q = p().subst_val(s.m_search);
-        LOG("Substituted: " << p() << " := " << q);
-        if (q.is_zero())
-            return;
-        if (q.is_never_zero()) {
-            LOG("Conflict (never zero under current assignment)");
-            s.set_conflict(*this);
-            return;
-        }
 
-        if (q.is_unilinear()) {
-            // a*x + b == 0
-            pvar v = q.var();
-            rational a = q.hi().val();
-            rational b = q.lo().val();
-            bddv const& x = s.var2bits(v).var();
-            bdd xs = (a * x + b == rational(0));
-            s.push_cjust(v, this);
-            s.intersect_viable(v, xs);
-
-            rational val;
-            if (s.find_viable(v, val) == dd::find_t::singleton) {
-                s.propagate(v, val, *this);
-            }
-
-            return;
-        }
-
-        // TODO: what other constraints can be extracted cheaply?
-    }
 
 
     /**
@@ -133,39 +142,6 @@ namespace polysat {
     constraint* eq_constraint::diseq_resolve(solver& s, pvar v) {
         NOT_IMPLEMENTED_YET();
         return nullptr;
-    }
-
-    void eq_constraint::diseq_narrow(solver& s) {
-        LOG("Assignment: " << s.m_search);
-        auto q = p().subst_val(s.m_search);
-        LOG("Substituted: " << p() << " := " << q);
-        if (q.is_zero()) {
-            LOG("Conflict (zero under current assignment)");
-            s.set_conflict(*this);
-            return;
-        }
-        if (q.is_never_zero())
-            return;
-
-        if (q.is_unilinear()) {
-            // a*x + b == 0
-            pvar v = q.var();
-            rational a = q.hi().val();
-            rational b = q.lo().val();
-            bddv const& x = s.var2bits(v).var();
-            bdd xs = (a * x + b != rational(0));
-            s.push_cjust(v, this);
-            s.intersect_viable(v, xs);
-
-            rational val;
-            if (s.find_viable(v, val) == dd::find_t::singleton) {
-                s.propagate(v, val, *this);
-            }
-
-            return;
-        }
-
-        // TODO: what other constraints can be extracted cheaply?
     }
 
 }

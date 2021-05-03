@@ -35,9 +35,7 @@ namespace polysat {
 
     private:
         constraint* eq_resolve(solver& s, pvar v);
-        void eq_narrow(solver& s);
         constraint* diseq_resolve(solver& s, pvar v);
-        void diseq_narrow(solver& s);
     };
 
 }

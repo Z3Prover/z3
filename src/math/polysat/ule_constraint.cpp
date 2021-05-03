@@ -27,6 +27,7 @@ namespace polysat {
     }
 
     void ule_constraint::narrow(solver& s) {
+        SASSERT(!is_undef());
         LOG("Assignment: " << s.m_search);
         auto p = lhs().subst_val(s.m_search);
         LOG("Substituted LHS: " << lhs() << " := " << p);
