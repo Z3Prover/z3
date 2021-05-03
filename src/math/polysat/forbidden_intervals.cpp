@@ -75,10 +75,7 @@ namespace polysat {
             constraint* neg_cond = nullptr;  // TODO: change to scoped_ptr
             if (c->forbidden_interval(s, v, interval, neg_cond)) {
                 LOG("~> interval: " << interval);
-                if (neg_cond)
-                    LOG("       neg_cond: " << *neg_cond);
-                else
-                    LOG("       neg_cond: <null>");
+                LOG("       neg_cond: " << show_deref(neg_cond));
                 if (interval.is_currently_empty()) {
                     dealloc(neg_cond);
                     continue;
