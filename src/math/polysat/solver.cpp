@@ -50,7 +50,6 @@ namespace polysat {
 
     void solver::add_non_viable(pvar v, rational const& val) {
         LOG("pvar " << v << " /= " << val);
-        TRACE("polysat", tout << "v" << v << " /= " << val << "\n";);
         SASSERT(is_viable(v, val));
         auto const& bits = var2bits(v);
         intersect_viable(v, bits.var() != val);
@@ -194,6 +193,21 @@ namespace polysat {
     }
 
     bool_var solver::new_sle(pdd const& p, pdd const& q, unsigned dep, csign_t sign) {
+        // To do signed comparison of bitvectors, flip the msb and do unsigned comparison:
+        //
+        //      x <=s y    <=>    x + 2^(w-1)  <=u  y + 2^(w-1)
+        //
+        // Example for bit width 3:
+        //      111  -1
+        //      110  -2
+        //      101  -3
+        //      100  -4
+        //      011   3
+        //      010   2
+        //      001   1
+        //      000   0
+        //
+        // Argument: flipping the msb swaps the negative and non-negative blocks
         auto shift = rational::power_of_two(p.power_of_2() - 1);
         return new_ule(p + shift, q + shift, dep, sign);
     }
