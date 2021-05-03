@@ -119,6 +119,7 @@ namespace polysat {
             else if (!can_decide()) { LOG_H2("SAT"); return l_true; }
             else decide();
         }
+        LOG_H2("UNDEF (resource limit)");
         return l_undef;
     }
         
@@ -268,6 +269,7 @@ namespace polysat {
     }
 
     void solver::propagate(pvar v, rational const& val, constraint& c) {
+        LOG("Propagation: pvar " << v << " := " << val << ", due to " << c);
         if (is_viable(v, val)) {
             m_free_vars.del_var_eh(v);
             assign_core(v, val, justification::propagation(m_level));        
@@ -384,10 +386,14 @@ namespace polysat {
         switch (find_viable(v, val)) {
         case dd::find_t::empty:
             LOG("Conflict: no value for pvar " << v);
+            // NOTE: all such cases should be discovered elsewhere (e.g., during propagation/narrowing)
+            //       (fail here in debug mode so we notice if we miss some)
+            DEBUG_CODE( UNREACHABLE(); );
             set_conflict(v);
             break;
         case dd::find_t::singleton:
             LOG("Propagation: pvar " << v << " := " << val << " (due to unique value)");
+            // NOTE: this case may happen legitimately if all other possibilities were excluded by brute force search
             assign_core(v, val, justification::propagation(m_level));
             break;
         case dd::find_t::multiple:
