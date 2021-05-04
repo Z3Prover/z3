@@ -70,12 +70,12 @@ namespace polysat {
         rational longest_len;
         unsigned longest_i = UINT_MAX;
         for (constraint* c : conflict) {
-            LOG("constraint: " << *c);
+            LOG_H3("Computing forbidden interval for: " << *c);
             eval_interval interval = eval_interval::full();
             scoped_ptr<constraint> neg_cond;
             if (c->forbidden_interval(s, v, interval, neg_cond)) {
-                LOG("~> interval: " << interval);
-                LOG("       neg_cond: " << show_deref(neg_cond));
+                LOG("interval: " << interval);
+                LOG("neg_cond: " << show_deref(neg_cond));
                 if (interval.is_currently_empty())
                     continue;
                 if (interval.is_full())
@@ -117,6 +117,7 @@ namespace polysat {
             return false;
         }
         LOG("seq: " << seq);
+        SASSERT(seq.size() >= 2);  // otherwise has_full should have been true
 
         p_dependency* d = nullptr;
         unsigned lemma_lvl = 0;
