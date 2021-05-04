@@ -1356,6 +1356,26 @@ namespace z3 {
         friend expr fpa_to_ubv(expr const& t, unsigned sz);
 
         /**
+           \brief Conversion of a signed bit-vector term into a floating-point.
+        */
+        friend expr sbv_to_fpa(expr const& t, sort s);
+
+        /**
+           \brief Conversion of an unsigned bit-vector term into a floating-point.
+        */
+        friend expr ubv_to_fpa(expr const& t, sort s);
+
+        /**
+           \brief Conversion of a floating-point term into another floating-point.
+        */
+        friend expr fpa_to_fpa(expr const& t, sort s);
+
+        /**
+           \brief Round a floating-point term into its closest integer.
+        */
+        friend expr round_fpa_to_closest_integer(expr const& t);
+
+        /**
            \brief sequence and regular expression operations.
            + is overloaded as sequence concatenation and regular expression union.
            concat is overloaded to handle sequences and regular expressions
@@ -1870,6 +1890,34 @@ namespace z3 {
     inline expr fpa_to_ubv(expr const& t, unsigned sz) {
         assert(t.is_fpa());
         Z3_ast r = Z3_mk_fpa_to_ubv(t.ctx(), t.ctx().fpa_rounding_mode(), t, sz);
+        t.check_error();
+        return expr(t.ctx(), r);
+    }
+
+    inline expr sbv_to_fpa(expr const& t, sort s) {
+        assert(t.is_bv());
+        Z3_ast r = Z3_mk_fpa_to_fp_signed(t.ctx(), t.ctx().fpa_rounding_mode(), t, s);
+        t.check_error();
+        return expr(t.ctx(), r);
+    }
+
+    inline expr ubv_to_fpa(expr const& t, sort s) {
+        assert(t.is_bv());
+        Z3_ast r = Z3_mk_fpa_to_fp_unsigned(t.ctx(), t.ctx().fpa_rounding_mode(), t, s);
+        t.check_error();
+        return expr(t.ctx(), r);
+    }
+
+    inline expr fpa_to_fpa(expr const& t, sort s) {
+        assert(t.is_fpa());
+        Z3_ast r = Z3_mk_fpa_to_fp_float(t.ctx(), t.ctx().fpa_rounding_mode(), t, s);
+        t.check_error();
+        return expr(t.ctx(), r);
+    }
+
+    inline expr round_fpa_to_closest_integer(expr const& t) {
+        assert(t.is_fpa());
+        Z3_ast r = Z3_mk_fpa_round_to_integral(t.ctx(), t.ctx().fpa_rounding_mode(), t);
         t.check_error();
         return expr(t.ctx(), r);
     }
