@@ -934,6 +934,16 @@ namespace z3 {
         }
 
         /**
+           \brief Convert this IEEE BV into a fpa
+        */
+        expr mk_from_ieee_bv(sort const &s) const {
+            assert(is_bv());
+            Z3_ast r = Z3_mk_fpa_to_fp_bv(ctx(), m_ast, s);
+            check_error();
+            return expr(ctx(), r);
+        }
+
+        /**
            \brief Return string representation of numeral or algebraic number
            This method assumes the expression is numeral or algebraic
 
