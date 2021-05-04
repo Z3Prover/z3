@@ -366,6 +366,8 @@ namespace z3 {
 
         expr fpa_val(double n);
         expr fpa_val(float n);
+        expr fpa_nan(sort const & s);
+        expr fpa_inf(sort const & s, bool sgn);
 
         expr string_val(char const* s);
         expr string_val(char const* s, unsigned n);
@@ -3416,6 +3418,8 @@ namespace z3 {
 
     inline expr context::fpa_val(double n) { sort s = fpa_sort<64>(); Z3_ast r = Z3_mk_fpa_numeral_double(m_ctx, n, s); check_error(); return expr(*this, r); }
     inline expr context::fpa_val(float n) { sort s = fpa_sort<32>(); Z3_ast r = Z3_mk_fpa_numeral_float(m_ctx, n, s); check_error(); return expr(*this, r); }
+    inline expr context::fpa_nan(sort const & s) { Z3_ast r = Z3_mk_fpa_nan(m_ctx, s); check_error(); return expr(*this, r); }
+    inline expr context::fpa_inf(sort const & s, bool sgn) { Z3_ast r = Z3_mk_fpa_inf(m_ctx, s, sgn); check_error(); return expr(*this, r); }
 
     inline expr context::string_val(char const* s, unsigned n) { Z3_ast r = Z3_mk_lstring(m_ctx, n, s); check_error(); return expr(*this, r); }
     inline expr context::string_val(char const* s) { Z3_ast r = Z3_mk_string(m_ctx, s); check_error(); return expr(*this, r); }
