@@ -1342,6 +1342,7 @@ namespace z3 {
 
         friend expr abs(expr const & a);
         friend expr sqrt(expr const & a, expr const & rm);
+        friend expr fp_eq(expr const & a, expr const & b);
 
         friend expr operator~(expr const & a);
         expr extract(unsigned hi, unsigned lo) const { Z3_ast r = Z3_mk_extract(ctx(), hi, lo, *this); ctx().check_error(); return expr(ctx(), r); }
@@ -1884,6 +1885,13 @@ namespace z3 {
         check_context(a, rm);
         assert(a.is_fpa());
         Z3_ast r = Z3_mk_fpa_sqrt(a.ctx(), rm, a);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
+    inline expr fp_eq(expr const & a, expr const & b) {
+        check_context(a, b);
+        assert(a.is_fpa());
+        Z3_ast r = Z3_mk_fpa_eq(a.ctx(), a, b);
         a.check_error();
         return expr(a.ctx(), r);
     }
