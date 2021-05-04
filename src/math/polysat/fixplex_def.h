@@ -586,13 +586,13 @@ namespace polysat {
     template<typename Ext>                                     
     void fixplex<Ext>::set_base_value(var_t x) {
         SASSERT(is_base(x));
-        auto r = base2row(x);
-        m_vars[x].m_value = 0 - (m_rows[r].m_value / m_rows[r].m_base_coeff);
-        bool was_integral = m_rows[r].m_integral;
-        m_rows[r].m_integral = is_solved(row(r));
-        if (was_integral && !row2integral(row(r)))
+        auto row r(base2row(x));
+        m_vars[x].m_value = 0 - (row2value(r) / row2base_coeff(r));
+        bool was_integral = row2integral(r);
+        m_rows[r.id()].m_integral = is_solved(r);
+        if (was_integral && !row2integral(r))
             ++m_num_non_integral;
-        else if (!was_integral && row2integral(row(r)))
+        else if (!was_integral && row2integral(r))
             --m_num_non_integral;                 
     }
 
