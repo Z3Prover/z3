@@ -273,6 +273,11 @@ namespace polysat {
         pdd var(pvar v) { return m_vars[v]; }
 
         /**
+         * Return value of v in the current model (only meaningful if check_sat() returned l_true).
+         */
+        rational get_value(pvar v) const { SASSERT(!m_justification[v].is_unassigned()); return m_value[v]; }
+
+        /**
          * Create polynomial constraints (but do not activate them).
          * Each constraint is tracked by a dependency.
          */
