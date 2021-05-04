@@ -1337,6 +1337,9 @@ namespace z3 {
         expr rotate_right(unsigned i) { Z3_ast r = Z3_mk_rotate_right(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
         expr repeat(unsigned i) { Z3_ast r = Z3_mk_repeat(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
 
+        friend expr bvredor(expr const & a);
+        friend expr bvredand(expr const & a);
+
         friend expr abs(expr const & a);
         friend expr sqrt(expr const & a, expr const & rm);
 
@@ -1848,6 +1851,18 @@ namespace z3 {
             r = Z3_mk_fpa_max(a.ctx(), a, b); 
         }
         return expr(a.ctx(), r); 
+    }
+    inline expr bvredor(expr const & a) {
+        assert(a.is_bv());
+        Z3_ast r = Z3_mk_bvredor(a.ctx(), a);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
+    inline expr bvredand(expr const & a) {
+        assert(a.is_bv());
+        Z3_ast r = Z3_mk_bvredor(a.ctx(), a);
+        a.check_error();
+        return expr(a.ctx(), r);
     }
     inline expr abs(expr const & a) { 
         Z3_ast r;
