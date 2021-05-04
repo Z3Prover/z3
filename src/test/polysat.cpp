@@ -112,6 +112,21 @@ namespace polysat {
         s.expect_unsat();
     }
 
+    /// Has a constraint in cjust[a] where a does not occur.
+    static void test_cjust() {
+        scoped_solver s(__func__);
+        auto a = s.var(s.add_var(3));
+        auto b = s.var(s.add_var(3));
+        auto c = s.var(s.add_var(3));
+        // 1. Decide a = 0.
+        s.add_eq(a*a + b + 7);                  // 2. Propagate b = 1
+        s.add_eq(b*b + c*c*c*(b+7) + c + 5);    // 3. Propagate c = 2
+        s.add_eq(b*b + c*c);                    // 4. Conflict
+        // Resolution fails because second constraint has c*c*c
+        // => cjust[a] += b*b + c*c
+        s.check();
+        s.expect_unsat();
+    }
 
     /**
      * most basic linear equation solving.
@@ -457,6 +472,7 @@ namespace polysat {
 void tst_polysat() {
     polysat::test_add_conflicts();
     polysat::test_wlist();
+    polysat::test_cjust();
     polysat::test_l1();
     polysat::test_l2();
     polysat::test_l3();
