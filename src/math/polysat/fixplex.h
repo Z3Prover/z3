@@ -70,6 +70,7 @@ namespace polysat {
         };
 
         struct row_info {
+            bool    m_integral { true };
             var_t   m_base;
             numeral m_value;
             numeral m_base_coeff;            
@@ -80,6 +81,7 @@ namespace polysat {
         mutable manager             m;
         mutable matrix              M;
         unsigned                    m_max_iterations { UINT_MAX };
+        unsigned                    m_num_non_integral { 0 };
         var_heap                    m_to_patch;
         vector<var_info>            m_vars;
         vector<row_info>            m_rows;
@@ -150,6 +152,12 @@ namespace polysat {
         bool is_free(var_t v) const { return lo(v) == hi(v); }
         bool is_non_free(var_t v) const { return !is_free(v); }
         bool is_base(var_t x) const { return m_vars[x].m_is_base; }
+        unsigned base2row(var_t x) const { return m_vars[x].m_base2row; }
+        numeral const& row2value(row const& r) const { return m_rows[r.id()].m_value; }
+        numeral const& row2base_coeff(row const& r) const { return m_rows[r.id()].m_base_coeff; }
+        var_t row2base(row const& r) const { return m_rows[r.id()].m_base; }
+        bool row2integral(row const& r) const { return m_rows[r.id()].m_integral; }
+        void set_base_value(var_t x); 
         bool is_feasible() const;
         int get_num_non_free_dep_vars(var_t x_j, int best_so_far);
         void add_patch(var_t v);
@@ -157,6 +165,9 @@ namespace polysat {
         void check_blands_rule(var_t v, unsigned& num_repeated);
         pivot_strategy_t pivot_strategy() { return m_bland ? S_BLAND : S_DEFAULT; }
         var_t select_error_var(bool least);
+
+        bool is_solved(row const& r) const;
+        bool is_solved(var_t v) const { SASSERT(is_base(v)); return is_solved(base2row(v)); }
 
         bool well_formed() const;                 
         bool well_formed_row(row const& r) const;

@@ -114,7 +114,7 @@ namespace polysat {
         m_rows[r.id()].m_value = value;
         m_vars[base_var].m_base2row = r.id();
         m_vars[base_var].m_is_base = true;
-        m_vars[base_var].m_value = 0 - (value / base_coeff);
+        set_base_value(base_var);
         // TBD: record when base_coeff does not divide value
         add_patch(base_var);
         if (!m_base_vars.empty()) {
@@ -148,7 +148,7 @@ namespace polysat {
             row_info& ri = m_rows[r.id()];
             var_t s = ri.m_base;
             ri.m_value += delta * c.get_row_entry().m_coeff;
-            m_vars[s].m_value = 0 - (ri.m_value / ri.m_base_coeff);
+            set_base_value(s);
             add_patch(s);
         }            
     }    
@@ -234,7 +234,7 @@ namespace polysat {
         SASSERT(is_base(x));
         var_t max    = get_num_vars();
         var_t result = max;
-        row r = row(m_vars[x].m_base2row);
+        row r(base2row(x));
         int n = 0;
         unsigned best_col_sz = UINT_MAX;
         int best_so_far    = INT_MAX;
@@ -378,7 +378,7 @@ namespace polysat {
     template<typename Ext>
     bool fixplex<Ext>::is_infeasible_row(var_t x) {
         SASSERT(is_base(x));
-        auto r = m_vars[x].m_base2row;
+        auto r = base2row(x);
         numeral lo_sum = 0, hi_sum = 0, diff = 0;
         for (auto const& e : M.row_entries(row(r))) {
             var_t v = e.m_var;
@@ -444,7 +444,7 @@ namespace polysat {
         row_x.m_base_coeff = b;
         yI.m_base2row = rx;
         yI.m_is_base = true;
-        yI.m_value = 0 - row_x.m_value / b;
+        set_base_value(y);
         xI.m_is_base = false;
         xI.m_value = new_value;
         row r_x(rx);
@@ -458,8 +458,9 @@ namespace polysat {
             unsigned rz = r_z.id();
             if (rz == rx)
                 continue;
+            auto z = row2base(r_z);
             auto& row_z = m_rows[rz];
-            var_info& zI = m_vars[rz];
+            var_info& zI = m_vars[z];
             numeral c = col.get_row_entry().m_coeff;
             unsigned tz2 = trailing_zeros(c);
             SASSERT(tz1 <= tz2);
@@ -469,7 +470,7 @@ namespace polysat {
             M.add(r_z, c1, r_x);
             row_z.m_value = (b1 * (row_z.m_value - old_value_y)) + c1 * row_x.m_value;
             row_z.m_base_coeff *= b1;
-            zI.m_value = 0 - row_z.m_value / row_z.m_base_coeff;
+            set_base_value(z);
             SASSERT(well_formed_row(r_z));
             add_patch(row_z.m_base);
         }
@@ -488,7 +489,7 @@ namespace polysat {
     typename fixplex<Ext>::row 
     fixplex<Ext>::get_infeasible_row() {
         SASSERT(is_base(m_infeasible_var));
-        return row(m_vars[m_infeasible_var].m_base2row);
+        return row(base2row(m_infeasible_var));
     }
 
     /**
@@ -513,7 +514,10 @@ namespace polysat {
     void fixplex<Ext>::add_patch(var_t v) {
         SASSERT(is_base(v));
         CTRACE("polysat", !in_bounds(v), tout << "Add patch: v" << v << "\n";);
-        if (!in_bounds(v)) 
+        if (in_bounds(v)) {
+            
+        }
+        else 
             m_to_patch.insert(v);
     }
 
@@ -569,6 +573,30 @@ namespace polysat {
         }
     }
 
+    /**
+     * Check if row is solved with respect to integrality constraints.
+     * The value of the row is allowed to be off by the base coefficient
+     * representing the case where there is a rational, but not integer solution.
+     */
+    template<typename Ext>                                     
+    bool fixplex<Ext>::is_solved(row const& r) const {
+        return (value(row2base(r)) * row2base_coeff(r)) + row2value(r) == 0;
+    }
+
+    template<typename Ext>                                     
+    void fixplex<Ext>::set_base_value(var_t x) {
+        SASSERT(is_base(x));
+        auto r = base2row(x);
+        m_vars[x].m_value = 0 - (m_rows[r].m_value / m_rows[r].m_base_coeff);
+        bool was_integral = m_rows[r].m_integral;
+        m_rows[r].m_integral = is_solved(row(r));
+        if (was_integral && !row2integral(row(r)))
+            ++m_num_non_integral;
+        else if (!was_integral && row2integral(row(r)))
+            --m_num_non_integral;                 
+    }
+
+
     template<typename Ext>    
     std::ostream& fixplex<Ext>::display(std::ostream& out) const {
         M.display(out);
@@ -601,7 +629,7 @@ namespace polysat {
             var_t s = m_rows[i].m_base;
             if (s == null_var) 
                 continue;
-            SASSERT(i == m_vars[s].m_base2row); 
+            SASSERT(i == base2row(s));
             VERIFY(well_formed_row(row(i)));            
         }
         for (unsigned i = 0; i < m_vars.size(); ++i) {
@@ -614,7 +642,7 @@ namespace polysat {
     bool fixplex<Ext>::well_formed_row(row const& r) const { 
         var_t s = m_rows[r.id()].m_base;
         (void)s;
-        SASSERT(m_vars[s].m_base2row == r.id());
+        SASSERT(base2row(s) == r.id());
         SASSERT(m_vars[s].m_is_base);
         numeral sum = 0;
         numeral base_coeff = m_rows[r.id()].m_base_coeff;
@@ -636,5 +664,6 @@ namespace polysat {
         st.update("fixplex num pivots", m_stats.m_num_pivots);
         st.update("fixplex num infeasible", m_stats.m_num_infeasible);
         st.update("fixplex num checks", m_stats.m_num_checks);
+        st.update("fixplex num non-integral", m_num_non_integral);
     }
 }
