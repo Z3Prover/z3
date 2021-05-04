@@ -113,11 +113,17 @@ namespace polysat {
      */
 
     constraint* eq_constraint::eq_resolve(solver& s, pvar v) {
-        SASSERT(is_currently_true(s));
+        LOG("Resolve " << *this << " upon v" << v);
         if (s.m_conflict.size() != 1)
             return nullptr;
         constraint* c = s.m_conflict[0];
         SASSERT(c->is_currently_false(s));
+        // 'c == this' can happen if propagation was from decide() with only one value left
+        // (e.g., if there's an unsatisfiable clause and we try all values).
+        // Resolution would give us '0 == 0' in this case, which is useless.
+        if (c == this)
+            return nullptr;
+        SASSERT(is_currently_true(s));  // TODO: might not always hold (due to similar case as in comment above?)
         if (c->is_eq()) {
             pdd a = c->to_eq().p();
             pdd b = p();
@@ -146,7 +152,7 @@ namespace polysat {
 
 
     /// Compute forbidden interval for equality constraint by considering it as p <=u 0 (or p >u 0 for disequality)
-    bool eq_constraint::forbidden_interval(solver& s, pvar v, eval_interval& i, constraint*& neg_condition)
+    bool eq_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, scoped_ptr<constraint>& out_neg_cond)
     {
         SASSERT(!is_undef());
 
@@ -201,8 +207,8 @@ namespace polysat {
             swap(lo, hi);
             lo_val.swap(hi_val);
         }
-        i = eval_interval::proper(lo, lo_val, hi, hi_val);
-        neg_condition = nullptr;
+        out_interval = eval_interval::proper(lo, lo_val, hi, hi_val);
+        out_neg_cond = nullptr;
         return true;
     }
 

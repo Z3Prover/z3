@@ -118,7 +118,7 @@ namespace polysat {
             return p.is_val() && q.is_val() && p.val() > q.val();
     }
 
-    bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& i, constraint*& neg_condition)
+    bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, scoped_ptr<constraint>& out_neg_cond)
     {
         SASSERT(!is_undef());
 
@@ -136,6 +136,8 @@ namespace polysat {
 
         unsigned const sz = s.size(v);
         dd::pdd_manager& m = s.sz2pdd(sz);
+        rational const pow2 = rational::power_of_two(sz);
+        rational const minus_one = pow2 - 1;
 
         pdd p1 = m.zero();
         pdd e1 = m.zero();
@@ -163,10 +165,10 @@ namespace polysat {
         rational a1 = p1.val();
         rational a2 = p2.val();
         // TODO: to express the interval for coefficient 2^i symbolically, we need right-shift/upper-bits-extract in the language.
-        // So currently we can only do it if the coefficient is 1.
-        if (!a1.is_zero() && !a1.is_one())
+        // So currently we can only do it if the coefficient is 1 or -1.
+        if (!a1.is_zero() && !a1.is_one() && a1 != minus_one)
             return false;
-        if (!a2.is_zero() && !a2.is_one())
+        if (!a2.is_zero() && !a2.is_one() && a2 != minus_one)
             return false;
         /*
         unsigned j1 = 0;
@@ -176,6 +178,9 @@ namespace polysat {
         if (!a2.is_zero() && !a2.is_power_of_two(j2))
             return false;
         */
+
+        rational const y_coeff = a1.is_zero() ? a2 : a1;
+        SASSERT(!y_coeff.is_zero());
 
         // Concrete values of evaluable terms
         auto e1s = e1.subst_val(s.m_search);
@@ -219,6 +224,7 @@ namespace polysat {
         else {
             SASSERT(!a1.is_zero());
             SASSERT(!a2.is_zero());
+            SASSERT_EQ(a1, a2);
             // e1 + t <= e2 + t, with t = 2^j1*y = 2^j2*y
             // condition for empty/full: e1 == e2
             is_trivial = e1s.val() == e2s.val();
@@ -234,22 +240,44 @@ namespace polysat {
         if (condition_body.is_val()) {
             // Condition is trivial; no need to create a constraint for that.
             SASSERT(is_trivial == condition_body.is_zero());
-            neg_condition = nullptr;
+            out_neg_cond = nullptr;
         }
         else
-            neg_condition = constraint::eq(level(), s.m_next_bvar++, is_trivial ? neg_t : pos_t, condition_body, m_dep);
+            out_neg_cond = constraint::eq(level(), s.m_next_bvar++, is_trivial ? neg_t : pos_t, condition_body, m_dep);
 
         if (is_trivial) {
             if (is_positive())
-                i = eval_interval::empty(m);
+                // TODO: we cannot use empty intervals for interpolation. So we
+                // can remove the empty case (make it represent 'full' instead),
+                // and return 'false' here. Then we do not need the proper/full
+                // tag on intervals.
+                out_interval = eval_interval::empty(m);
             else
-                i = eval_interval::full();
+                out_interval = eval_interval::full();
         } else {
+            if (y_coeff == minus_one) {
+                // Transform according to:  y \in [l;u[  <=>  -y \in [1-u;1-l[
+                //      -y \in [1-u;1-l[
+                //      <=>  -y - (1 - u) < (1 - l) - (1 - u)    { by: y \in [l;u[  <=>  y - l < u - l }
+                //      <=>  u - y - 1 < u - l                   { simplified }
+                //      <=>  (u-l) - (u-y-1) - 1 < u-l           { by: a < b  <=>  b - a - 1 < b }
+                //      <=>  y - l < u - l                       { simplified }
+                //      <=>  y \in [l;u[.
+                lo = 1 - lo;
+                hi = 1 - hi;
+                swap(lo, hi);
+                lo_val = mod(1 - lo_val, pow2);
+                hi_val = mod(1 - hi_val, pow2);
+                lo_val.swap(hi_val);
+            }
+            else
+                SASSERT(y_coeff.is_one());
+
             if (is_negative()) {
                 swap(lo, hi);
                 lo_val.swap(hi_val);
             }
-            i = eval_interval::proper(lo, lo_val, hi, hi_val);
+            out_interval = eval_interval::proper(lo, lo_val, hi, hi_val);
         }
 
         return true;
