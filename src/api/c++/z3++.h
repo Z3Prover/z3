@@ -874,7 +874,7 @@ namespace z3 {
         bool is_well_sorted() const { bool r = Z3_is_well_sorted(ctx(), m_ast); check_error(); return r; }
 
         /**
-           \brief Return Boolean expression to test whether expression is inf
+           \brief Return Boolean expression to test for whether an FP expression is inf
         */
         expr mk_is_inf() const {
             assert(is_fpa());
@@ -884,11 +884,41 @@ namespace z3 {
         }
 
         /**
-           \brief Return Boolean expression to test for whether expression is a NaN
+           \brief Return Boolean expression to test for whether an FP expression is a NaN
         */
         expr mk_is_nan() const {
             assert(is_fpa());
             Z3_ast r = Z3_mk_fpa_is_nan(ctx(), m_ast);
+            check_error();
+            return expr(ctx(), r);
+        }
+
+        /**
+           \brief Return Boolean expression to test for whether an FP expression is a normal
+        */
+        expr mk_is_normal() const {
+            assert(is_fpa());
+            Z3_ast r = Z3_mk_fpa_is_normal(ctx(), m_ast);
+            check_error();
+            return expr(ctx(), r);
+        }
+
+        /**
+           \brief Return Boolean expression to test for whether an FP expression is a subnormal
+        */
+        expr mk_is_subnormal() const {
+            assert(is_fpa());
+            Z3_ast r = Z3_mk_fpa_is_subnormal(ctx(), m_ast);
+            check_error();
+            return expr(ctx(), r);
+        }
+
+        /**
+           \brief Return Boolean expression to test for whether an FP expression is a zero
+        */
+        expr mk_is_zero() const {
+            assert(is_fpa());
+            Z3_ast r = Z3_mk_fpa_is_zero(ctx(), m_ast);
             check_error();
             return expr(ctx(), r);
         }
