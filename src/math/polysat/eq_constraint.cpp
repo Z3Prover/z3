@@ -113,11 +113,17 @@ namespace polysat {
      */
 
     constraint* eq_constraint::eq_resolve(solver& s, pvar v) {
-        SASSERT(is_currently_true(s));
+        LOG("Resolve " << *this << " upon v" << v);
         if (s.m_conflict.size() != 1)
             return nullptr;
         constraint* c = s.m_conflict[0];
         SASSERT(c->is_currently_false(s));
+        // 'c == this' can happen if propagation was from decide() with only one value left
+        // (e.g., if there's an unsatisfiable clause and we try all values).
+        // Resolution would give us '0 == 0' in this case, which is useless.
+        if (c == this)
+            return nullptr;
+        SASSERT(is_currently_true(s));  // TODO: might not always hold (due to similar case as in comment above?)
         if (c->is_eq()) {
             pdd a = c->to_eq().p();
             pdd b = p();
