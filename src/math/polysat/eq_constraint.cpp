@@ -146,7 +146,7 @@ namespace polysat {
 
 
     /// Compute forbidden interval for equality constraint by considering it as p <=u 0 (or p >u 0 for disequality)
-    bool eq_constraint::forbidden_interval(solver& s, pvar v, eval_interval& i, constraint*& neg_condition)
+    bool eq_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, scoped_ptr<constraint>& out_neg_cond)
     {
         SASSERT(!is_undef());
 
@@ -201,8 +201,8 @@ namespace polysat {
             swap(lo, hi);
             lo_val.swap(hi_val);
         }
-        i = eval_interval::proper(lo, lo_val, hi, hi_val);
-        neg_condition = nullptr;
+        out_interval = eval_interval::proper(lo, lo_val, hi, hi_val);
+        out_neg_cond = nullptr;
         return true;
     }
 

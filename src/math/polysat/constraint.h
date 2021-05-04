@@ -68,8 +68,13 @@ namespace polysat {
         bool is_negative() const { return m_status == l_false; }
         bool is_undef() const { return m_status == l_undef; }
 
-        /** Precondition: all variables other than v are assigned. */
-        virtual bool forbidden_interval(solver& s, pvar v, eval_interval& i, constraint*& neg_condition) { return false; }
+        /** Precondition: all variables other than v are assigned.
+         *
+         * \param[out] out_interval     The forbidden interval for this constraint
+         * \param[out] out_neg_cond     Negation of the side condition (the side condition is true when the forbidden interval is trivial). May be NULL if the condition is constant.
+         * \returns True iff a forbidden interval exists and the output parameters were set.
+         */
+        virtual bool forbidden_interval(solver& s, pvar v, eval_interval& out_interval, scoped_ptr<constraint>& out_neg_cond) { return false; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }

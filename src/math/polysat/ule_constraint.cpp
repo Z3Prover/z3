@@ -118,7 +118,7 @@ namespace polysat {
             return p.is_val() && q.is_val() && p.val() > q.val();
     }
 
-    bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& i, constraint*& neg_condition)
+    bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, scoped_ptr<constraint>& out_neg_cond)
     {
         SASSERT(!is_undef());
 
@@ -234,22 +234,26 @@ namespace polysat {
         if (condition_body.is_val()) {
             // Condition is trivial; no need to create a constraint for that.
             SASSERT(is_trivial == condition_body.is_zero());
-            neg_condition = nullptr;
+            out_neg_cond = nullptr;
         }
         else
-            neg_condition = constraint::eq(level(), s.m_next_bvar++, is_trivial ? neg_t : pos_t, condition_body, m_dep);
+            out_neg_cond = constraint::eq(level(), s.m_next_bvar++, is_trivial ? neg_t : pos_t, condition_body, m_dep);
 
         if (is_trivial) {
             if (is_positive())
-                i = eval_interval::empty(m);
+                // TODO: we cannot use empty intervals for interpolation. So we
+                // can remove the empty case (make it represent 'full' instead),
+                // and return 'false' here. Then we do not need the proper/full
+                // tag on intervals.
+                out_interval = eval_interval::empty(m);
             else
-                i = eval_interval::full();
+                out_interval = eval_interval::full();
         } else {
             if (is_negative()) {
                 swap(lo, hi);
                 lo_val.swap(hi_val);
             }
-            i = eval_interval::proper(lo, lo_val, hi, hi_val);
+            out_interval = eval_interval::proper(lo, lo_val, hi, hi_val);
         }
 
         return true;

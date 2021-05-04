@@ -72,14 +72,12 @@ namespace polysat {
         for (constraint* c : conflict) {
             LOG("constraint: " << *c);
             eval_interval interval = eval_interval::full();
-            constraint* neg_cond = nullptr;  // TODO: change to scoped_ptr
+            scoped_ptr<constraint> neg_cond;
             if (c->forbidden_interval(s, v, interval, neg_cond)) {
                 LOG("~> interval: " << interval);
                 LOG("       neg_cond: " << show_deref(neg_cond));
-                if (interval.is_currently_empty()) {
-                    dealloc(neg_cond);
+                if (interval.is_currently_empty())
                     continue;
-                }
                 if (interval.is_full())
                     has_full = true;
                 else {
@@ -89,7 +87,7 @@ namespace polysat {
                         longest_i = records.size();
                     }
                 }
-                records.push_back({std::move(interval), neg_cond, c});
+                records.push_back({std::move(interval), std::move(neg_cond), c});
                 if (has_full)
                     break;
             }
