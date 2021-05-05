@@ -469,12 +469,12 @@ namespace dt {
 
     void solver::merge_eh(theory_var v1, theory_var v2, theory_var, theory_var) {
         // v1 is the new root
-        TRACE("dt", tout << "merging v" << v1 << " v" << v2 << "\n";);
         SASSERT(v1 == static_cast<int>(m_find.find(v1)));
         var_data* d1 = m_var_data[v1];
         var_data* d2 = m_var_data[v2];
         auto* con1 = d1->m_constructor;
         auto* con2 = d2->m_constructor;
+        TRACE("dt", tout << "merging v" << v1 << " v" << v2 << "\n" << ctx.bpp(con1) << " " << ctx.bpp(con2) << "\n";);
         if (con1 && con2 && con1->get_decl() != con2->get_decl())
             ctx.set_conflict(euf::th_explain::conflict(*this, con1, con2));
         else if (con2 && !con1) {
@@ -720,6 +720,19 @@ namespace dt {
             dep.add(n, arg->get_root());
         return true;
     }
+
+    bool solver::include_func_interp(func_decl* f) const {
+        if (!dt.is_accessor(f))
+            return false;
+        func_decl* con = dt.get_accessor_constructor(f);
+        for (enode* app : ctx.get_egraph().enodes_of(f)) {
+            enode* arg = app->get_arg(0)->get_root();
+            if (is_constructor(arg) && arg->get_decl() != con) 
+                return true;
+        }
+        return false; 
+    }
+
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
         if (!visit_rec(m, e, sign, root, redundant)) 

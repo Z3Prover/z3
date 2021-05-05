@@ -162,7 +162,7 @@ namespace bv {
 
 #define internalize_bin(F) bin = [&](unsigned sz, expr* const* xs, expr* const* ys, expr_ref_vector& bits) { m_bb.F(sz, xs, ys, bits); }; internalize_binary(a, bin);
 #define internalize_un(F) un = [&](unsigned sz, expr* const* xs, expr_ref_vector& bits) { m_bb.F(sz, xs, bits);}; internalize_unary(a, un);
-#define internalize_ac(F) bin = [&](unsigned sz, expr* const* xs, expr* const* ys, expr_ref_vector& bits) { m_bb.F(sz, xs, ys, bits); }; internalize_ac_binary(a, bin);
+#define internalize_ac(F) bin = [&](unsigned sz, expr* const* xs, expr* const* ys, expr_ref_vector& bits) { m_bb.F(sz, xs, ys, bits); }; internalize_binary(a, bin);
 #define internalize_pun(F) pun = [&](unsigned sz, expr* const* xs, unsigned p, expr_ref_vector& bits) { m_bb.F(sz, xs, p, bits);}; internalize_par_unary(a, pun);
 #define internalize_nfl(F) ebin = [&](unsigned sz, expr* const* xs, expr* const* ys, expr_ref& out) { m_bb.F(sz, xs, ys, out);}; internalize_novfl(a, ebin);
 #define internalize_int(B, U) ibin = [&](expr* x, expr* y) { return B(x, y); }; iun = [&](expr* x) { return U(x); }; internalize_interp(a, ibin, iun);
@@ -559,27 +559,19 @@ namespace bv {
         init_bits(n, bits);
     }
 
-    void solver::internalize_binary(app* e, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn) {
-        SASSERT(e->get_num_args() == 2);
-        expr_ref_vector arg1_bits(m), arg2_bits(m), bits(m);
-        get_arg_bits(e, 0, arg1_bits);
-        get_arg_bits(e, 1, arg2_bits);
-        SASSERT(arg1_bits.size() == arg2_bits.size());
-        fn(arg1_bits.size(), arg1_bits.data(), arg2_bits.data(), bits);
-        init_bits(e, bits);
-    }
 
-    void solver::internalize_ac_binary(app* e, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn) {
+    void solver::internalize_binary(app* e, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn) {
         SASSERT(e->get_num_args() >= 1);
         expr_ref_vector bits(m), new_bits(m), arg_bits(m);
+        
         unsigned i = e->get_num_args() - 1;
-        get_arg_bits(e, i, bits);
-        for (; i-- > 0; ) {
+        get_arg_bits(e, 0, bits);
+        for (unsigned i = 1; i < e->get_num_args(); ++i) {
             arg_bits.reset();
             get_arg_bits(e, i, arg_bits);
             SASSERT(arg_bits.size() == bits.size());
             new_bits.reset();
-            fn(arg_bits.size(), arg_bits.data(), bits.data(), new_bits);
+            fn(bits.size(), bits.data(), arg_bits.data(), new_bits);
             bits.swap(new_bits);
         }        
         init_bits(e, bits);
