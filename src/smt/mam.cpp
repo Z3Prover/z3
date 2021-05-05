@@ -1843,7 +1843,7 @@ namespace {
         enode_vector        m_bindings;
         enode_vector        m_args;
         backtrack_stack     m_backtrack_stack;
-        unsigned            m_top;
+        unsigned            m_top { 0 };
         const instruction * m_pc;
 
         // auxiliary temporary variables
@@ -2210,8 +2210,13 @@ namespace {
             if (curr->get_num_args() == expected_num_args && m_context.is_relevant(curr))
                 break;
         }
-        if (bp.m_it == bp.m_end)
+        if (bp.m_it == bp.m_end) {
+            if (best_v) {
+                bp.m_to_recycle = nullptr; 
+                recycle_enode_vector(best_v);
+            }
             return nullptr;
+        }
         m_top++;
         update_max_generation(*(bp.m_it), nullptr);
         return *(bp.m_it);
