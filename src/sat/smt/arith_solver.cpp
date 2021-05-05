@@ -580,6 +580,7 @@ namespace arith {
                        verbose_stream() << n->bool_var() << " " << n->value() << " " << get_phase(n->bool_var()) << " " << ctx.bpp(n) << "\n";
                        verbose_stream() << *b << "\n";);
             IF_VERBOSE(0, ctx.display(verbose_stream()));
+            IF_VERBOSE(0, verbose_stream() << mdl << "\n");
             UNREACHABLE();
         }
     }
@@ -1438,4 +1439,12 @@ namespace arith {
         ctx.get_antecedents(l, jst, r, probing);
     }
 
+    bool solver::include_func_interp(func_decl* f) const {
+        return 
+            a.is_div0(f) ||
+            a.is_idiv0(f) ||
+            a.is_power0(f) ||
+            a.is_rem0(f) ||
+            a.is_mod0(f);        
+    }
 }

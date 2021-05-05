@@ -444,6 +444,7 @@ namespace arith {
         void apply_sort_cnstr(euf::enode* n, sort* s) override {}
         bool is_shared(theory_var v) const override;
         lbool get_phase(bool_var v) override;
+        bool include_func_interp(func_decl* f) const override;
 
         // bounds and equality propagation callbacks
         lp::lar_solver& lp() { return *m_solver; }
