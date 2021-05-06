@@ -396,6 +396,39 @@ namespace polysat {
         return 0 < lo_sum && lo_sum <= hi_sum;
     }
 
+    /**
+     * Check if row is infeasible modulo parity constraints.
+     * Let parity be the minimal power of two of coefficients to non-fixed variables.
+     * Let fixed be the sum of fixed variables.
+     * A row is infeasible if parity > the smallest power of two dividing fixed.
+     *
+     * Other parity tests are possible.
+     * The "range" parity test checks if the minimal parities of all but one variable are outside
+     * the range of the value range of a selected variable.
+     */
+    template<typename Ext>
+    bool fixplex<Ext>::is_parity_infeasible_row(var_t x) {
+        SASSERT(is_base(x));
+        auto r = base2row(x);
+        if (row2integral(row(r)))
+            return false;
+        numeral fixed = 0;
+        unsigned parity = UINT_MAX;
+        for (auto const& e : M.row_entries(row(r))) {
+            var_t v = e.m_var;
+            auto c = e.m_coeff;
+            if (is_fixed(v))
+                fixed += value(v)*c;
+            else 
+                parity = std::min(trailing_zeros(c), parity);
+        }
+
+        if (trailing_zeros(fixed) < parity)
+            return true;
+        
+        return false;
+    }
+
 
     /**
        \brief Given row
@@ -586,7 +619,7 @@ namespace polysat {
     template<typename Ext>                                     
     void fixplex<Ext>::set_base_value(var_t x) {
         SASSERT(is_base(x));
-        auto row r(base2row(x));
+        row r(base2row(x));
         m_vars[x].m_value = 0 - (row2value(r) / row2base_coeff(r));
         bool was_integral = row2integral(r);
         m_rows[r.id()].m_integral = is_solved(r);
@@ -596,6 +629,28 @@ namespace polysat {
             --m_num_non_integral;                 
     }
 
+    /**
+     * Equality detection.
+     */
+    template<typename Ext>
+    bool fixplex<Ext>::is_offset_row(row const& r, var_t& x, var_t & y) const {
+        x = null_var;
+        y = null_var;
+        for (auto const& e : M.row_entries(r)) {
+            var_t v = e.m_var;
+            if (is_fixed(v))
+                continue;
+            numeral const& c = e.m_coeff;
+            if (c == 1 && x == null_var)
+                x = v;
+            else if (c + 1 == 0 && y == null_var)
+                y = v;
+            else
+                return false;
+        }        
+        return true;
+    }
+    
 
     template<typename Ext>    
     std::ostream& fixplex<Ext>::display(std::ostream& out) const {

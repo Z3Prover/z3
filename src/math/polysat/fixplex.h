@@ -140,6 +140,8 @@ namespace polysat {
         var_t select_smallest_var() { return m_to_patch.empty()?null_var:m_to_patch.erase_min(); }
         lbool make_var_feasible(var_t x_i);
         bool is_infeasible_row(var_t x);
+        bool is_parity_infeasible_row(var_t x);
+        bool is_offset_row(row const& r, var_t& x, var_t & y) const;
         void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& value);
         numeral value2delta(var_t v, numeral const& new_value) const;
         void update_value(var_t v, numeral const& delta);
@@ -206,8 +208,16 @@ namespace polysat {
             void swap(numeral& a, numeral& b) { std::swap(a, b); }
 
             // treat numerals as signed and check for overflow/underflow
-            bool signed_mul(numeral& r, numeral const& x, numeral const& y) { r = x * y; return true; }
-            bool signed_add(numeral& r, numeral const& x, numeral const& y) { r = x + y; return true; }
+            bool signed_mul(numeral& r, numeral const& x, numeral const& y) { 
+                r = x * y; 
+                if (y != 0 && x != r / y)
+                    return false;
+                return true; 
+            }
+            bool signed_add(numeral& r, numeral const& x, numeral const& y) { 
+                r = x + y; 
+                return x <= r;
+            }
             std::ostream& display(std::ostream& out, numeral const& x) const { return out << x; }
         };
         typedef _scoped_numeral<manager> scoped_numeral;
