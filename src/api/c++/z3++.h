@@ -287,7 +287,7 @@ namespace z3 {
         /**
            \brief Return a RoundingMode sort.
          */
-        sort fpa_rounding_mode();
+        sort fpa_rounding_mode_sort();
         /**
            \brief Sets RoundingMode of FloatingPoints.
          */
@@ -341,6 +341,8 @@ namespace z3 {
 
         template<size_t precision>
         expr fpa_const(char const * name);
+
+        expr fpa_rounding_mode();
 
         expr bool_val(bool b);
 
@@ -1119,17 +1121,6 @@ namespace z3 {
         }
 
         operator Z3_app() const { assert(is_app()); return reinterpret_cast<Z3_app>(m_ast); }
-
-        /**
-           \brief Return a RoundingMode sort.
-         */
-        sort fpa_rounding_mode() {
-            assert(is_fpa());
-            Z3_sort s = ctx().fpa_rounding_mode();
-            check_error();
-            return sort(ctx(), s);
-        }
-
 
         /**
            \brief Return the declaration associated with this application.
@@ -3222,18 +3213,7 @@ namespace z3 {
     template<>
     inline sort context::fpa_sort<128>() { return fpa_sort(15, 113); }
 
-    inline sort context::fpa_rounding_mode() {
-        switch (m_rounding_mode) {
-        case RNA: return sort(*this, Z3_mk_fpa_rna(m_ctx));
-        case RNE: return sort(*this, Z3_mk_fpa_rne(m_ctx));
-        case RTP: return sort(*this, Z3_mk_fpa_rtp(m_ctx));
-        case RTN: return sort(*this, Z3_mk_fpa_rtn(m_ctx));
-        case RTZ: return sort(*this, Z3_mk_fpa_rtz(m_ctx));
-        default: return sort(*this); 
-        }
-    }
-
-    inline void context::set_rounding_mode(rounding_mode rm) { m_rounding_mode = rm; }
+    inline sort context::fpa_rounding_mode_sort() { Z3_sort r = Z3_mk_fpa_rounding_mode_sort(m_ctx); check_error(); return sort(*this, r); }
 
     inline sort context::array_sort(sort d, sort r) { Z3_sort s = Z3_mk_array_sort(m_ctx, d, r); check_error(); return sort(*this, s); }
     inline sort context::array_sort(sort_vector const& d, sort r) {
@@ -3389,6 +3369,19 @@ namespace z3 {
 
     template<size_t precision>
     inline expr context::fpa_const(char const * name) { return constant(name, fpa_sort<precision>()); }
+
+    inline void context::set_rounding_mode(rounding_mode rm) { m_rounding_mode = rm; }
+
+    inline expr context::fpa_rounding_mode() {
+        switch (m_rounding_mode) {
+        case RNA: return expr(*this, Z3_mk_fpa_rna(m_ctx));
+        case RNE: return expr(*this, Z3_mk_fpa_rne(m_ctx));
+        case RTP: return expr(*this, Z3_mk_fpa_rtp(m_ctx));
+        case RTN: return expr(*this, Z3_mk_fpa_rtn(m_ctx));
+        case RTZ: return expr(*this, Z3_mk_fpa_rtz(m_ctx));
+        default: return expr(*this);
+        }
+    }
 
     inline expr context::bool_val(bool b) { return b ? expr(*this, Z3_mk_true(m_ctx)) : expr(*this, Z3_mk_false(m_ctx)); }
 
