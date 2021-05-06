@@ -716,7 +716,7 @@ namespace polysat {
         numeral val = value(x);
         fix_entry e;
         if (m_value2fixed_var.find(val, e) && is_valid_variable(e.x) && is_fixed(e.x) && value(e.x) == val && e.x != x) 
-            eq_eh(x, y, e.r, r);
+            eq_eh(x, e.x, e.r, r);
         else 
             m_value2fixed_var.insert(val, fix_entry(x, r));
     }
