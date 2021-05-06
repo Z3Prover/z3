@@ -164,7 +164,7 @@ namespace z3 {
         void set_context(Z3_context ctx) {
             m_ctx = ctx;
             m_enable_exceptions = true;
-            m_rounding_mode = RNA;
+            m_rounding_mode = RNE;
             Z3_set_error_handler(m_ctx, 0);
             Z3_set_ast_print_mode(m_ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
         }
