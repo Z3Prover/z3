@@ -32,10 +32,14 @@ namespace simplex {
         typedef typename Ext::manager manager;
         typedef unsigned var_t;
 
-        struct row_entry {
+        class row_entry {
+            friend class sparse_matrix;
             numeral         m_coeff;
             var_t           m_var;
+        public:
             row_entry(numeral && c, var_t v) : m_coeff(std::move(c)), m_var(v) {}
+            inline numeral const& coeff() const { return m_coeff; }
+            inline var_t var() const { return m_var; }
         };
 
     private:
@@ -63,7 +67,7 @@ namespace simplex {
             };            
             _row_entry(numeral && c, var_t v) : row_entry(std::move(c), v), m_col_idx(0) {}
             _row_entry() : row_entry(numeral(), dead_id), m_col_idx(0) {}
-            bool is_dead() const { return row_entry::m_var == dead_id; }
+            bool is_dead() const { return row_entry::var() == dead_id; }
         };
 
         /**

@@ -21,6 +21,7 @@ Author:
 #include <limits>
 #include "math/simplex/sparse_matrix.h"
 #include "util/heap.h"
+#include "util/map.h"
 #include "util/lbool.h"
 #include "util/uint_set.h"
 
@@ -80,11 +81,18 @@ namespace polysat {
             numeral m_base_coeff;            
         };
 
-        struct offset_eq {
+        struct var_eq {
             var_t x, y;
             row r1, r2;
-            offset_eq(var_t x, var_t y, row const& r1, row const& r2):
+            var_eq(var_t x, var_t y, row const& r1, row const& r2):
                 x(x), y(y), r1(r1), r2(r2) {}
+        };
+
+        struct fix_entry {
+            var_t x;
+            row r;
+            fix_entry(var_t x, row const& r): x(x), r(r) {}
+            fix_entry():x(null_var), r(0) {}
         };
 
         static const var_t null_var = UINT_MAX;
@@ -96,7 +104,7 @@ namespace polysat {
         var_heap                    m_to_patch;
         vector<var_info>            m_vars;
         vector<row_info>            m_rows;
-        vector<offset_eq>           m_offset_eqs;
+        vector<var_eq>              m_var_eqs;
         bool                        m_bland { false };
         unsigned                    m_blands_rule_threshold { 1000 };
         random_gen                  m_random;
@@ -104,6 +112,7 @@ namespace polysat {
         unsigned                    m_infeasible_var { null_var };
         unsigned_vector             m_base_vars;
         stats                       m_stats;
+        map<numeral, fix_entry, typename manager::hash, typename manager::eq> m_value2fixed_var;
 
     public:
         fixplex(reslimit& lim):
@@ -153,6 +162,7 @@ namespace polysat {
         bool is_offset_row(row const& r, numeral& cx, var_t& x, numeral& cy, var_t & y) const;
         void lookahead_eq(row const& r1, numeral const& cx, var_t x, numeral const& cy, var_t y);
         void get_offset_eqs(row const& r);
+        void fixed_var_eh(row const& r, var_t x);
         void eq_eh(var_t x, var_t y, row const& r1, row const& r2);
         void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& value);
         numeral value2delta(var_t v, numeral const& new_value) const;
@@ -166,6 +176,7 @@ namespace polysat {
         bool is_free(var_t v) const { return lo(v) == hi(v); }
         bool is_non_free(var_t v) const { return !is_free(v); }
         bool is_fixed(var_t v) const { return lo(v) + 1 == hi(v); }
+        bool is_valid_variable(var_t v) const { return v < m_vars.size(); }
         bool is_base(var_t x) const { return m_vars[x].m_is_base; }
         unsigned base2row(var_t x) const { return m_vars[x].m_base2row; }
         numeral const& row2value(row const& r) const { return m_rows[r.id()].m_value; }
@@ -206,6 +217,16 @@ namespace polysat {
         static const uint64_t max_numeral = 0; // std::limits<uint64_t>::max();
         struct manager {
             typedef uint64_t numeral;
+            struct hash {
+                unsigned operator()(numeral const& n) const { 
+                    return static_cast<unsigned>(n); 
+                }
+            };
+            struct eq {
+                bool operator()(numeral const& a, numeral const& b) const {
+                    return a == b;
+                }
+            };
             void reset() {}
             void reset(numeral& n) { n = 0; }
             void del(numeral const& n) {}

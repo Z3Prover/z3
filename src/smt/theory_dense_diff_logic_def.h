@@ -1011,7 +1011,7 @@ namespace smt {
             expr_ref tmp(m);
             core.reset();
             for (; it != end; ++it) {
-                unsigned v = it->m_var;
+                unsigned v = it->var();
                 if (num_nodes <= v && v < num_nodes + num_edges) {
                     unsigned edge_id = v - num_nodes;
                     literal lit = m_edges[edge_id].m_justification;

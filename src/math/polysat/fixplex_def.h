@@ -96,13 +96,13 @@ namespace polysat {
         numeral base_coeff = 0;
         numeral value = 0;
         for (auto const& e : M.row_entries(r)) {
-            var_t v = e.m_var;
+            var_t v = e.var();
             if (v == base_var) 
-                base_coeff = e.m_coeff;
+                base_coeff = e.coeff();
             else {
                 if (is_base(v))
                     m_base_vars.push_back(v);
-                value += e.m_coeff * m_vars[v].m_value;
+                value += e.coeff() * m_vars[v].m_value;
             }
         }
         SASSERT(base_coeff != 0);
@@ -147,7 +147,7 @@ namespace polysat {
             row r = c.get_row();
             row_info& ri = m_rows[r.id()];
             var_t s = ri.m_base;
-            ri.m_value += delta * c.get_row_entry().m_coeff;
+            ri.m_value += delta * c.get_row_entry().coeff();
             set_base_value(s);
             add_patch(s);
         }            
@@ -219,7 +219,7 @@ namespace polysat {
         
         pivot(x, y, b, new_value);
 
-        get_offset_eqs(row(base2row(y)));
+        // get_offset_eqs(row(base2row(y)));
 
         return l_true;
     }
@@ -249,8 +249,8 @@ namespace polysat {
         bool best_in_bounds = false;
 
         for (auto const& r : M.row_entries(r)) {
-            var_t y = r.m_var;          
-            numeral const & b = r.m_coeff;  
+            var_t y = r.var();          
+            numeral const & b = r.coeff();  
             if (x == y) 
                 continue;
             if (!has_minimal_trailing_zeros(y, b))
@@ -353,7 +353,7 @@ namespace polysat {
         if (tz1 == 0)
             return true;
         for (auto col : M.col_entries(y)) {
-            numeral c = col.get_row_entry().m_coeff;
+            numeral c = col.get_row_entry().coeff();
             unsigned tz2 = m.trailing_zeros(c);
             if (tz1 > tz2)
                 return false;
@@ -385,8 +385,8 @@ namespace polysat {
         auto r = base2row(x);
         numeral lo_sum = 0, hi_sum = 0, diff = 0;
         for (auto const& e : M.row_entries(row(r))) {
-            var_t v = e.m_var;
-            numeral const& c = e.m_coeff;
+            var_t v = e.var();
+            numeral const& c = e.coeff();
             if (lo(v) == hi(v))
                 return false;
             lo_sum += lo(v) * c;
@@ -419,8 +419,8 @@ namespace polysat {
         numeral fixed = 0;
         unsigned parity = UINT_MAX;
         for (auto const& e : M.row_entries(row(r))) {
-            var_t v = e.m_var;
-            auto c = e.m_coeff;
+            var_t v = e.var();
+            auto c = e.coeff();
             if (is_fixed(v))
                 fixed += value(v)*c;
             else 
@@ -498,7 +498,7 @@ namespace polysat {
             auto z = row2base(r_z);
             auto& row_z = m_rows[rz];
             var_info& zI = m_vars[z];
-            numeral c = col.get_row_entry().m_coeff;
+            numeral c = col.get_row_entry().coeff();
             unsigned tz2 = m.trailing_zeros(c);
             SASSERT(tz1 <= tz2);
             numeral b1 = b >> tz1;
@@ -551,10 +551,7 @@ namespace polysat {
     void fixplex<Ext>::add_patch(var_t v) {
         SASSERT(is_base(v));
         CTRACE("polysat", !in_bounds(v), tout << "Add patch: v" << v << "\n";);
-        if (in_bounds(v)) {
-            
-        }
-        else 
+        if (!in_bounds(v)) 
             m_to_patch.insert(v);
     }
 
@@ -649,6 +646,8 @@ namespace polysat {
      *
      * Fixed variable equalities
      * -------------------------
+     * Use persistent hash-table of variables that are fixed at values.
+     * Update table when a variable gets fixed and check for collisions.
      * 
      */
 
@@ -669,10 +668,10 @@ namespace polysat {
         if (!row2integral(r))
             return false;
         for (auto const& e : M.row_entries(r)) {
-            var_t v = e.m_var;
+            var_t v = e.var();
             if (is_fixed(v))
                 continue;
-            numeral const& c = e.m_coeff;
+            numeral const& c = e.coeff();
             if (x == null_var) {
                 cx = c;
                 x = v;
@@ -709,11 +708,23 @@ namespace polysat {
         }
     }
 
+    /**
+     * Accumulate equalities between variables fixed to the same values.
+     */
+    template<typename Ext>
+    void fixplex<Ext>::fixed_var_eh(row const& r, var_t x) {
+        numeral val = value(x);
+        fix_entry e;
+        if (m_value2fixed_var.find(val, e) && is_valid_variable(e.x) && is_fixed(e.x) && value(e.x) == val && e.x != x) 
+            eq_eh(x, y, e.r, r);
+        else 
+            m_value2fixed_var.insert(val, fix_entry(x, r));
+    }
+
     template<typename Ext>
     void fixplex<Ext>::eq_eh(var_t x, var_t y, row const& r1, row const& r2) {
-        m_offset_eqs.push_back(offset_eq(x, y, r1, r2));
-    }
-    
+        m_var_eqs.push_back(var_eq(x, y, r1, r2));
+    }    
 
     template<typename Ext>    
     std::ostream& fixplex<Ext>::display(std::ostream& out) const {
@@ -730,9 +741,9 @@ namespace polysat {
     template<typename Ext>    
     std::ostream& fixplex<Ext>::display_row(std::ostream& out, row const& r, bool values) {
         for (auto const& e : M.row_entries(r)) {
-            var_t v = e.m_var;
-            if (e.m_coeff != 1)
-                out << e.m_coeff << " * ";
+            var_t v = e.var();
+            if (e.coeff() != 1)
+                out << e.coeff() << " * ";
             out << "v" << v << " ";
             if (values) 
                 out << value(v) << " [" << lo(v) << ", " << hi(v) << "[ ";            
@@ -766,8 +777,8 @@ namespace polysat {
         numeral sum = 0;
         numeral base_coeff = m_rows[r.id()].m_base_coeff;
         for (auto const& e : M.row_entries(r)) {
-            sum += value(e.m_var) * e.m_coeff;
-            SASSERT(s != e.m_var || base_coeff == e.m_coeff);
+            sum += value(e.var()) * e.coeff();
+            SASSERT(s != e.var() || base_coeff == e.coeff());
         }
         if (sum >= base_coeff) {
             IF_VERBOSE(0, M.display_row(verbose_stream(), r););
