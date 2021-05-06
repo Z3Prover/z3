@@ -215,8 +215,12 @@ namespace polysat {
             else
                 return l_undef;
         }
+
         
         pivot(x, y, b, new_value);
+
+        get_offset_eqs(row(base2row(y)));
+
         return l_true;
     }
 
@@ -345,12 +349,12 @@ namespace polysat {
      */
     template<typename Ext>
     bool fixplex<Ext>::has_minimal_trailing_zeros(var_t y, numeral const& b) {
-        unsigned tz1 = trailing_zeros(b);
+        unsigned tz1 = m.trailing_zeros(b);
         if (tz1 == 0)
             return true;
         for (auto col : M.col_entries(y)) {
             numeral c = col.get_row_entry().m_coeff;
-            unsigned tz2 = trailing_zeros(c);
+            unsigned tz2 = m.trailing_zeros(c);
             if (tz1 > tz2)
                 return false;
         }
@@ -420,10 +424,10 @@ namespace polysat {
             if (is_fixed(v))
                 fixed += value(v)*c;
             else 
-                parity = std::min(trailing_zeros(c), parity);
+                parity = std::min(m.trailing_zeros(c), parity);
         }
 
-        if (trailing_zeros(fixed) < parity)
+        if (m.trailing_zeros(fixed) < parity)
             return true;
         
         return false;
@@ -484,7 +488,7 @@ namespace polysat {
         add_patch(y);
         SASSERT(well_formed_row(r_x));
 
-        unsigned tz1 = trailing_zeros(b);
+        unsigned tz1 = m.trailing_zeros(b);
  
         for (auto col : M.col_entries(y)) {
             row r_z = col.get_row();
@@ -495,7 +499,7 @@ namespace polysat {
             auto& row_z = m_rows[rz];
             var_info& zI = m_vars[z];
             numeral c = col.get_row_entry().m_coeff;
-            unsigned tz2 = trailing_zeros(c);
+            unsigned tz2 = m.trailing_zeros(c);
             SASSERT(tz1 <= tz2);
             numeral b1 = b >> tz1;
             numeral c1 = m.inv(c >> (tz2 - tz1));
@@ -631,24 +635,83 @@ namespace polysat {
 
     /**
      * Equality detection.
+     *
+     * Offset equality detection
+     * -------------------------
+     * is_offset_row: determine if row is cx*x + cy*y + k == 0 where k is a constant.
+     * Then walk every row containing x, y, respectively
+     * If there is a row cx*x + cy*z + k' == 0, where y, z are two different variables
+     * but value(y) = value(z), cy is odd
+     * then it follows that k = k' and y = z is implied.
+     * 
+     * Offset equality detection is only applied to integral rows where the current  
+     * evaluation satisfies the row equality.
+     *
+     * Fixed variable equalities
+     * -------------------------
+     * 
      */
+
     template<typename Ext>
-    bool fixplex<Ext>::is_offset_row(row const& r, var_t& x, var_t & y) const {
+    void fixplex<Ext>::get_offset_eqs(row const& r) {
+        var_t x, y;
+        numeral cx, cy;
+        if (!is_offset_row(r, cx, x, cy, y))
+            return;
+        lookahead_eq(r, cx, x, cy, y);
+        lookahead_eq(r, cy, y, cx, x);
+    }
+
+    template<typename Ext>
+    bool fixplex<Ext>::is_offset_row(row const& r, numeral& cx, var_t& x, numeral& cy, var_t & y) const {
         x = null_var;
         y = null_var;
+        if (!row2integral(r))
+            return false;
         for (auto const& e : M.row_entries(r)) {
             var_t v = e.m_var;
             if (is_fixed(v))
                 continue;
             numeral const& c = e.m_coeff;
-            if (c == 1 && x == null_var)
+            if (x == null_var) {
+                cx = c;
                 x = v;
-            else if (c + 1 == 0 && y == null_var)
+            }
+            else if (y == null_var) {
+                cy = c;
                 y = v;
+            }
             else
                 return false;
         }        
-        return true;
+        return y != null_var;
+    }
+
+
+    template<typename Ext>
+    void fixplex<Ext>::lookahead_eq(row const& r1, numeral const& cx, var_t x, numeral const& cy, var_t y) {   
+        if (m.is_even(cy))
+            return;
+        var_t z, u;
+        numeral cz, cu;
+        for (auto c : M.col_entries(x)) {
+            auto r2 = c.get_row();
+            if (r1.id() == r2.id())
+                continue;
+            if (!is_offset_row(r2, cz, z, cu, u))
+                continue;
+            if (u == x) {
+                std::swap(z, u);
+                std::swap(cz, cu);
+            }
+            if (z == x && cx == cz && u != y && cu == cy && value(u) == value(y)) 
+                eq_eh(u, y, r1, r2);                
+        }
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::eq_eh(var_t x, var_t y, row const& r1, row const& r2) {
+        m_offset_eqs.push_back(offset_eq(x, y, r1, r2));
     }
     
 
@@ -681,11 +744,12 @@ namespace polysat {
     bool fixplex<Ext>::well_formed() const { 
         SASSERT(M.well_formed());
         for (unsigned i = 0; i < m_rows.size(); ++i) {
-            var_t s = m_rows[i].m_base;
+            row r(i);
+            var_t s = row2base(r);
             if (s == null_var) 
                 continue;
             SASSERT(i == base2row(s));
-            VERIFY(well_formed_row(row(i)));            
+            VERIFY(well_formed_row(r));
         }
         for (unsigned i = 0; i < m_vars.size(); ++i) {
             SASSERT(is_base(i) || in_bounds(i));

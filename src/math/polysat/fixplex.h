@@ -30,11 +30,15 @@ namespace polysat {
 
     template<typename Ext>
     class fixplex {
-
+    public:
         typedef typename Ext::numeral numeral;
         typedef typename Ext::scoped_numeral scoped_numeral;
         typedef typename Ext::manager manager;
         typedef simplex::sparse_matrix<Ext> matrix;
+        typedef typename matrix::row row;
+        typedef typename matrix::row_iterator row_iterator;
+        typedef typename matrix::col_iterator col_iterator;
+    protected:
         struct var_lt {
             bool operator()(var_t v1, var_t v2) const { return v1 < v2; }
         };
@@ -76,6 +80,13 @@ namespace polysat {
             numeral m_base_coeff;            
         };
 
+        struct offset_eq {
+            var_t x, y;
+            row r1, r2;
+            offset_eq(var_t x, var_t y, row const& r1, row const& r2):
+                x(x), y(y), r1(r1), r2(r2) {}
+        };
+
         static const var_t null_var = UINT_MAX;
         reslimit&                   m_limit;
         mutable manager             m;
@@ -85,6 +96,7 @@ namespace polysat {
         var_heap                    m_to_patch;
         vector<var_info>            m_vars;
         vector<row_info>            m_rows;
+        vector<offset_eq>           m_offset_eqs;
         bool                        m_bland { false };
         unsigned                    m_blands_rule_threshold { 1000 };
         random_gen                  m_random;
@@ -101,9 +113,6 @@ namespace polysat {
 
         ~fixplex();
 
-        typedef typename matrix::row row;
-        typedef typename matrix::row_iterator row_iterator;
-        typedef typename matrix::col_iterator col_iterator;
 
         void set_bounds(var_t v, numeral const& lo, numeral const& hi);
         void unset_bounds(var_t v) { m_vars[v].m_lo = m_vars[v].m_hi; }
@@ -141,7 +150,10 @@ namespace polysat {
         lbool make_var_feasible(var_t x_i);
         bool is_infeasible_row(var_t x);
         bool is_parity_infeasible_row(var_t x);
-        bool is_offset_row(row const& r, var_t& x, var_t & y) const;
+        bool is_offset_row(row const& r, numeral& cx, var_t& x, numeral& cy, var_t & y) const;
+        void lookahead_eq(row const& r1, numeral const& cx, var_t x, numeral const& cy, var_t y);
+        void get_offset_eqs(row const& r);
+        void eq_eh(var_t x, var_t y, row const& r1, row const& r2);
         void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& value);
         numeral value2delta(var_t v, numeral const& new_value) const;
         void update_value(var_t v, numeral const& delta);
@@ -153,6 +165,7 @@ namespace polysat {
         bool in_bounds(numeral const& val, numeral const& lo, numeral const& hi) const;        
         bool is_free(var_t v) const { return lo(v) == hi(v); }
         bool is_non_free(var_t v) const { return !is_free(v); }
+        bool is_fixed(var_t v) const { return lo(v) + 1 == hi(v); }
         bool is_base(var_t x) const { return m_vars[x].m_is_base; }
         unsigned base2row(var_t x) const { return m_vars[x].m_base2row; }
         numeral const& row2value(row const& r) const { return m_rows[r.id()].m_value; }
@@ -198,6 +211,7 @@ namespace polysat {
             void del(numeral const& n) {}
             bool is_zero(numeral const& n) const { return n == 0; }
             bool is_one(numeral const& n) const { return n == 1; }
+            bool is_even(numeral const& n) const { return (n & 1) == 0; }
             bool is_minus_one(numeral const& n) const { return max_numeral == n; }
             void add(numeral const& a, numeral const& b, numeral& r) { r = a + b; }
             void sub(numeral const& a, numeral const& b, numeral& r) { r = a - b; }
@@ -206,6 +220,7 @@ namespace polysat {
             void neg(numeral& a) { a = 0 - a; }
             numeral inv(numeral const& a) { return 0 - a; }
             void swap(numeral& a, numeral& b) { std::swap(a, b); }
+            unsigned trailing_zeros(numeral const& a) const { return ::trailing_zeros(a); }
 
             // treat numerals as signed and check for overflow/underflow
             bool signed_mul(numeral& r, numeral const& x, numeral const& y) { 
@@ -218,7 +233,9 @@ namespace polysat {
                 r = x + y; 
                 return x <= r;
             }
-            std::ostream& display(std::ostream& out, numeral const& x) const { return out << x; }
+            std::ostream& display(std::ostream& out, numeral const& x) const { 
+                return out << x; 
+            }
         };
         typedef _scoped_numeral<manager> scoped_numeral;
     };
