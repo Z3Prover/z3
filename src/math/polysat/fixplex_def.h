@@ -727,6 +727,11 @@ namespace polysat {
     }    
 
 
+    template<typename Ext>
+    void fixplex<Ext>::propagate_bounds() {
+        for (unsigned i = 0; i < m_rows.size(); ++i) 
+            propagate_bounds(row(i));
+    }
 
     template<typename Ext>
     void fixplex<Ext>::propagate_bounds(row const& r) {
@@ -753,17 +758,20 @@ namespace polysat {
                 return;
         }        
 
+        std::cout << "bounds " << free_v << "\n";
         if (free_v != null_var) {
-            if (free_c == 1) {
-                // 
-                // free_v in [lo_sum, hi_sum[
-                // new_bound(r, free_v, lo_sum, hi_sum);
-            }
-            else {
-                // c = -1
-                // free_v in [1 - hi_sum, 1 - lo_sum[
-                // new_bound(r, free_v, 1 - hi_sum, 1 - lo_sum);
-            }
+
+            //
+            // c = 1:
+            //   free_v in [lo_sum, hi_sum[
+            // c = -1:
+            //   free_v in [1 - hi_sum, 1 - lo_sum[
+            //
+
+            if (free_c == 1) 
+                new_bound(r, free_v, lo_sum, hi_sum);
+            else 
+                new_bound(r, free_v, 1 - hi_sum, 1 - lo_sum);
             return;
         }
         for (auto const& e : M.row_entries(r)) {
