@@ -763,15 +763,16 @@ namespace polysat {
 
             //
             // c = 1:
-            //   free_v in [lo_sum, hi_sum[
+            //   free_v in [0 - hi_sum, 1 - lo_sum[
             // c = -1:
-            //   free_v in [1 - hi_sum, 1 - lo_sum[
+            //   free_v in [lo_sum, hi_sum + 1[
             //
 
             if (free_c == 1) 
-                new_bound(r, free_v, lo_sum, hi_sum);
+                new_bound(r, free_v, 0 - hi_sum, 1 - lo_sum);
             else 
-                new_bound(r, free_v, 1 - hi_sum, 1 - lo_sum);
+                new_bound(r, free_v, lo_sum, hi_sum + 1);
+            SASSERT(in_bounds(free_v));
             return;
         }
         for (auto const& e : M.row_entries(r)) {
@@ -779,7 +780,7 @@ namespace polysat {
             SASSERT(!is_free(v));
             numeral const& c = e.coeff();
             numeral lo_other = lo_sum - lo(v) * c;
-            numeral hi_other = hi_sum - (hi(v) - 1) * c - 1;
+            numeral hi_other = hi_sum - (hi(v) - 1) * c + 1;
             //
             // compute [lo_other,hi_other[ as range of
             // other variables.
@@ -790,6 +791,7 @@ namespace polysat {
                 new_bound(r, v, lo1, hi(v));
             if (hi(v) > hi1) 
                 new_bound(r, v, lo(v), hi1);
+            SASSERT(in_bounds(v));
         }
     }
 

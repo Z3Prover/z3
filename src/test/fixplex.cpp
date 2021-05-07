@@ -64,6 +64,13 @@ namespace polysat {
         fp.set_bounds(y, 3, 6);
         fp.run();
         fp.propagate_bounds();
+        fp.reset();
+        coeffs[2] = 0ull - 1;
+        fp.add_row(x, 3, ys, coeffs);
+        fp.set_bounds(x, 3, 4);
+        fp.set_bounds(y, 3, 6);
+        fp.run();
+        fp.propagate_bounds();
     }
 
 }
