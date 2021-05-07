@@ -164,6 +164,8 @@ namespace polysat {
         void get_offset_eqs(row const& r);
         void fixed_var_eh(row const& r, var_t x);
         void eq_eh(var_t x, var_t y, row const& r1, row const& r2);
+        void propagate_bounds(row const& r);
+        void new_bound(row const& r, var_t x, numeral const& l, numeral const& h);
         void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& value);
         numeral value2delta(var_t v, numeral const& new_value) const;
         void update_value(var_t v, numeral const& delta);

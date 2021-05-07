@@ -726,6 +726,73 @@ namespace polysat {
         m_var_eqs.push_back(var_eq(x, y, r1, r2));
     }    
 
+
+#if 1
+
+    template<typename Ext>
+    void fixplex<Ext>::propagate_bounds(row const& r) {
+        numeral lo_sum = 0, hi_sum = 0, diff = 0, free_c = 0;
+        var_t free_v = null_var;
+        for (auto const& e : M.row_entries(r)) {
+            var_t v = e.var();
+            numeral const& c = e.coeff();
+            if (is_free(v)) {
+                if (free_v != null_var)
+                    return;
+                if (c != 1 && c + 1 != 1)
+                    return;
+                free_v = v;
+                free_c = c;
+                continue;
+            }
+            lo_sum += lo(v) * c;
+            hi_sum += (hi(v) - 1) * c;
+            numeral range = hi(v) - lo(v);
+            if (!m.signed_mul(range, c, range))
+                return;
+            if (!m.signed_add(diff, diff, range))
+                return;
+        }        
+
+        if (free_v != null_var) {
+            if (c == 1) {
+                // 
+                // free_v in [lo_sum, hi_sum[
+                // new_bound(r, free_v, lo_sum, hi_sum);
+            }
+            else {
+                // c = -1
+                // free_v in [1 - hi_sum, 1 - lo_sum[
+                // new_bound(r, free_v, 1 - hi_sum, 1 - lo_sum);
+            }
+            return;
+        }
+        for (auto const& e : M.row_entries(r)) {
+            var_t v = e.var();
+            numeral const& c = e.coeff();
+            numeral lo_other = lo_sum - lo(v) * c;
+            numeral hi_other = hi_sum - (hi(v) - 1) * c;
+            //
+            // compute [lo_other,hi_other[ as range of
+            // other variables.
+            // 
+            numeral lo1 = 1 - hi_other;
+            numeral hi1 = 1 - lo_other;
+            if (lo(v) < lo1) {
+                new_bound(r, v, lo1, hi(v));
+            }
+            if (hi(v) > hi1) {
+                new_bound(r, v, lo(v), hi1);
+            }
+        }
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::new_bound(row const& r, var_t x, numeral const& l, numeral const& h) {
+
+    }
+#endif
+
     template<typename Ext>    
     std::ostream& fixplex<Ext>::display(std::ostream& out) const {
         M.display(out);
