@@ -738,7 +738,7 @@ namespace polysat {
             if (is_free(v)) {
                 if (free_v != null_var)
                     return;
-                if (c != 1 && c + 1 != 1)
+                if (c != 1 && c + 1 != 0)
                     return;
                 free_v = v;
                 free_c = c;
@@ -768,27 +768,26 @@ namespace polysat {
         }
         for (auto const& e : M.row_entries(r)) {
             var_t v = e.var();
+            SASSERT(!is_free(v));
             numeral const& c = e.coeff();
             numeral lo_other = lo_sum - lo(v) * c;
-            numeral hi_other = hi_sum - (hi(v) - 1) * c;
+            numeral hi_other = hi_sum - (hi(v) - 1) * c - 1;
             //
             // compute [lo_other,hi_other[ as range of
             // other variables.
             // 
             numeral lo1 = 1 - hi_other;
             numeral hi1 = 1 - lo_other;
-            if (lo(v) < lo1) {
+            if (lo(v) < lo1) 
                 new_bound(r, v, lo1, hi(v));
-            }
-            if (hi(v) > hi1) {
+            if (hi(v) > hi1) 
                 new_bound(r, v, lo(v), hi1);
-            }
         }
     }
 
     template<typename Ext>
     void fixplex<Ext>::new_bound(row const& r, var_t x, numeral const& l, numeral const& h) {
-
+        IF_VERBOSE(0, verbose_stream() << "new-bound v" << x << " [" << l << "," << h << "[\n");
     }
 
     template<typename Ext>    
