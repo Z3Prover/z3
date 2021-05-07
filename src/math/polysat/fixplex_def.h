@@ -727,7 +727,6 @@ namespace polysat {
     }    
 
 
-#if 1
 
     template<typename Ext>
     void fixplex<Ext>::propagate_bounds(row const& r) {
@@ -755,7 +754,7 @@ namespace polysat {
         }        
 
         if (free_v != null_var) {
-            if (c == 1) {
+            if (free_c == 1) {
                 // 
                 // free_v in [lo_sum, hi_sum[
                 // new_bound(r, free_v, lo_sum, hi_sum);
@@ -791,7 +790,6 @@ namespace polysat {
     void fixplex<Ext>::new_bound(row const& r, var_t x, numeral const& l, numeral const& h) {
 
     }
-#endif
 
     template<typename Ext>    
     std::ostream& fixplex<Ext>::display(std::ostream& out) const {
