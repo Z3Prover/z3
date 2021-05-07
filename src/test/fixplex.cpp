@@ -71,6 +71,25 @@ namespace polysat {
         fp.set_bounds(y, 3, 6);
         fp.run();
         fp.propagate_bounds();
+        fp.reset();
+        fp.add_row(x, 3, ys, coeffs);
+        fp.set_bounds(x, 3, 4);
+        fp.set_bounds(y, 3, 6);
+        fp.set_bounds(z, 1, 8);
+        fp.run();
+        fp.propagate_bounds();
+        fp.reset();
+    }
+
+    static void test_interval1() {
+        interval<uint64_t> i1(1, 2);
+        interval<uint64_t> i2(3, 6);
+        std::cout << i1 << " " << i2 << "\n";
+        std::cout << i1 << " * 4 := " << (i1 * 4) << "\n";
+        std::cout << i2 << " * 3 := " << (i2 * 3) << "\n";
+        std::cout << i1 << " * -4 := " << (i1 * (0 - 4)) << "\n";
+        std::cout << i2 << " * -3 := " << (i2 * (0 - 3)) << "\n";
+        std::cout << "-" << i2 << " := " << (-i2) << "\n";
     }
 
 }
@@ -80,4 +99,5 @@ void tst_fixplex() {
     polysat::test2();
     polysat::test3();
     polysat::test4();
+    polysat::test_interval1();
 }

@@ -29,6 +29,45 @@ namespace polysat {
 
     typedef unsigned var_t;
 
+    template<typename Numeral>
+    struct pp {
+        Numeral n;
+        pp(Numeral const& n):n(n) {}
+    };
+
+    template<typename Numeral>
+    inline std::ostream& operator<<(std::ostream& out, pp<Numeral> const& p) {
+        if ((0 - p.n) < p.n)
+            return out << "-" << (0 - p.n);
+        return out << p.n;
+    }
+
+    /**
+     * Modular interval arithmetic
+     */
+    template<typename Numeral>
+    struct interval {
+        Numeral lo { 0 };
+        Numeral hi { 0 };
+        interval() {}
+        interval(Numeral const& l, Numeral const& h): lo(l), hi(h) {}
+        static interval free() { return interval(0, 0); }
+        bool is_free() const { return lo == hi; }
+        interval operator+(interval const& other) const;
+        interval operator-(interval const& other) const;
+        interval operator-() const;
+        interval operator*(Numeral const& n) const;
+        interval operator+(Numeral const& n) const { return interval(lo + n, hi + n); }
+        interval operator-(Numeral const& n) const { return interval(lo - n, hi - n); }
+        interval& operator+=(interval const& other) { *this = *this + other; return *this; }
+        std::ostream& display(std::ostream& out) const { return out << "[" << pp(lo) << ", " << pp(hi) << "["; }
+    };
+
+    template<typename Numeral>
+    inline std::ostream& operator<<(std::ostream& out, interval<Numeral> const& i) {
+        return i.display(out);
+    }
+
     template<typename Ext>
     class fixplex {
     public:
@@ -62,11 +101,9 @@ namespace polysat {
             S_DEFAULT
         };
 
-        struct var_info {
+        struct var_info : public interval<numeral> {
             unsigned    m_base2row:29;
             unsigned    m_is_base:1;
-            numeral     m_lo { 0 };
-            numeral     m_hi { 0 };
             numeral     m_value { 0 };
             var_info():
                 m_base2row(0),
@@ -124,11 +161,11 @@ namespace polysat {
 
 
         void set_bounds(var_t v, numeral const& lo, numeral const& hi);
-        void unset_bounds(var_t v) { m_vars[v].m_lo = m_vars[v].m_hi; }
+        void unset_bounds(var_t v) { m_vars[v].lo = m_vars[v].hi; }
 
         var_t get_base_var(row const& r) const { return m_rows[r.id()].m_base; }
-        numeral const& lo(var_t var) const { return m_vars[var].m_lo; }
-        numeral const& hi(var_t var) const { return m_vars[var].m_hi; }
+        numeral const& lo(var_t var) const { return m_vars[var].lo; }
+        numeral const& hi(var_t var) const { return m_vars[var].hi; }
         numeral const& value(var_t var) const { return m_vars[var].m_value; }
         void set_max_iterations(unsigned n) { m_max_iterations = n; }
         unsigned get_num_vars() const { return m_vars.size(); }
@@ -215,9 +252,11 @@ namespace polysat {
 
     };
 
+
     struct uint64_ext {
         typedef uint64_t numeral;
         static const uint64_t max_numeral = 0; // std::limits<uint64_t>::max();
+
         struct manager {
             typedef uint64_t numeral;
             struct hash {
@@ -258,16 +297,18 @@ namespace polysat {
                 return x <= r;
             }
             std::ostream& display(std::ostream& out, numeral const& x) const { 
-                return out << x; 
+                return out << pp(x); 
             }
         };
         typedef _scoped_numeral<manager> scoped_numeral;
     };
 
+
     template<typename Ext>
     inline std::ostream& operator<<(std::ostream& out, fixplex<Ext> const& fp) {
         return fp.display(out);
     }
+
 
 };
 

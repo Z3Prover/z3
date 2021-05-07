@@ -23,6 +23,54 @@ Author:
 
 namespace polysat {
 
+    template<typename Numeral>
+    interval<Numeral> interval<Numeral>::operator+(interval<Numeral> const& other) const {
+        if (is_free())
+            return *this;
+        if (other.is_free())
+            return interval::free();
+        Numeral sz = (hi - lo) + (other.hi - other.lo);
+        if (sz < (hi - lo))
+            return interval::free();
+        return interval(lo + other.lo, hi + other.hi);
+    }
+
+    template<typename Numeral>
+    interval<Numeral> interval<Numeral>::operator-(interval<Numeral> const& other) const {
+        return *this + (-other);
+    }
+
+    template<typename Numeral>
+    interval<Numeral> interval<Numeral>::operator-() const {
+        if (is_free())
+            return *this;
+        return interval(1 - hi, 1 - lo);
+    }
+
+    template<typename Numeral>
+    interval<Numeral> interval<Numeral>::operator*(Numeral const& n) const {
+        if (n == 0)
+            return interval(0, 1);
+        if (n == 1)
+            return *this;
+        if (is_free())
+            return *this;
+        Numeral sz = hi - lo;
+        if (0 - n < n) {
+            Numeral mn = 0 - n;
+            Numeral mz = mn * sz;            
+            if (mz / mn != sz)
+                return interval::free();
+            return interval((hi - 1) * n, n * lo + 1);
+        }
+        else {
+            Numeral mz = n * sz;
+            if (mz / n != sz)
+                return interval::free();
+            return interval(n * lo, n * (hi - 1) + 1);
+        }
+    }
+
     template<typename Ext>
     fixplex<Ext>::~fixplex() {
         reset();
@@ -309,7 +357,7 @@ namespace polysat {
 
     /**
      * Compute delta to add to the value, such that value + delta is either lo(v), or hi(v) - 1
-     * A pre-condition is that value is not in the range [lo(v),hi(v)[, 
+     * A pre-condition is that value is not in the interval [lo(v),hi(v)[, 
      * and therefore as a consequence lo(v) != hi(v).
      */
     template<typename Ext>
@@ -333,8 +381,8 @@ namespace polysat {
      */
     template<typename Ext>
     void fixplex<Ext>::set_bounds(var_t v, numeral const& lo, numeral const& hi) {         
-        m_vars[v].m_lo = lo; 
-        m_vars[v].m_hi = hi; 
+        m_vars[v].lo = lo; 
+        m_vars[v].hi = hi; 
         if (in_bounds(v))
             return;
         if (is_base(v)) 
@@ -383,21 +431,15 @@ namespace polysat {
     bool fixplex<Ext>::is_infeasible_row(var_t x) {
         SASSERT(is_base(x));
         auto r = base2row(x);
-        numeral lo_sum = 0, hi_sum = 0, diff = 0;
+        interval<numeral> range(0, 1);
         for (auto const& e : M.row_entries(row(r))) {
             var_t v = e.var();
             numeral const& c = e.coeff();
-            if (lo(v) == hi(v))
-                return false;
-            lo_sum += lo(v) * c;
-            hi_sum += (hi(v) - 1) * c;
-            numeral range = hi(v) - lo(v);
-            if (!m.signed_mul(range, c, range))
-                return false;
-            if (!m.signed_add(diff, diff, range))
+            range += m_vars[v] * c;
+            if (range.is_free())
                 return false;
         }        
-        return 0 < lo_sum && lo_sum <= hi_sum;
+        return 0 < range.lo && range.lo < range.hi;
     }
 
     /**
@@ -744,7 +786,8 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::propagate_bounds(row const& r) {
-        numeral lo_sum = 0, hi_sum = 0, diff = 0, free_c = 0;
+        interval<numeral> range(0, 1);
+        numeral free_c = 0;
         var_t free_v = null_var;
         for (auto const& e : M.row_entries(r)) {
             var_t v = e.var();
@@ -752,34 +795,22 @@ namespace polysat {
             if (is_free(v)) {
                 if (free_v != null_var)
                     return;
-                if (c != 1 && c + 1 != 0)
-                    return;
                 free_v = v;
                 free_c = c;
                 continue;
             }
-            lo_sum += lo(v) * c;
-            hi_sum += (hi(v) - 1) * c;
-            numeral range = hi(v) - lo(v);
-            if (!m.signed_mul(range, c, range))
-                return;
-            if (!m.signed_add(diff, diff, range))
+            range += m_vars[v] * c;
+            if (range.is_free())
                 return;
         }        
 
+        std::cout << "bounds " << free_v << " range " << range << "\n";
+
         if (free_v != null_var) {
-
-            //
-            // c = 1:
-            //   free_v in [0 - hi_sum, 1 - lo_sum[
-            // c = -1:
-            //   free_v in [lo_sum, hi_sum + 1[
-            //
-
-            if (free_c == 1) 
-                new_bound(r, free_v, 0 - hi_sum, 1 - lo_sum);
-            else 
-                new_bound(r, free_v, lo_sum, hi_sum + 1);
+            range = (-range) * free_c;
+            if (range.is_free())
+                return;
+            new_bound(r, free_v, range.lo, range.hi);
             SASSERT(in_bounds(free_v));
             return;
         }
@@ -787,23 +818,19 @@ namespace polysat {
             var_t v = e.var();
             SASSERT(!is_free(v));
             numeral const& c = e.coeff();
-            if (c != 1 && c + 1 != 0)
-                continue;
-            numeral lo_sum1 = lo_sum - lo(v) * c;
-            numeral hi_sum1 = hi_sum - (hi(v) - 1) * c;
-            if (c == 1)
-                new_bound(r, v, 0 - hi_sum1, 1 - lo_sum1);
-            else
-                new_bound(r, v, lo_sum1, hi_sum1 + 1);
-            SASSERT(in_bounds(v));
+            auto range1 = range - m_vars[v] * c;
+            new_bound(r, v, range1.lo, range1.hi);
+            // SASSERT(in_bounds(v));
         }
     }
 
     template<typename Ext>
     void fixplex<Ext>::new_bound(row const& r, var_t x, numeral const& l, numeral const& h) {
+        // TBD: 
+        std::cout << is_free(x) << " " << l << " " << lo(x) << " " << hi(x) << " " << h << "\n";
         if (!is_free(x) && l <= lo(x) && hi(x) <= h)
             return;            
-        IF_VERBOSE(0, verbose_stream() << "new-bound v" << x << " [" << l << "," << h << "[\n");
+        IF_VERBOSE(0, verbose_stream() << "new-bound v" << x << " [" << pp(l) << "," << pp(h) << "[\n");
     }
 
     template<typename Ext>    
@@ -811,7 +838,7 @@ namespace polysat {
         M.display(out);
         for (unsigned i = 0; i < m_vars.size(); ++i) {
             var_info const& vi = m_vars[i];
-            out << "v" << i << " " << value(i) << " [" << lo(i) << ", " << hi(i) << "[ ";
+            out << "v" << i << " " << pp(value(i)) << " [" << pp(lo(i)) << ", " << pp(hi(i)) << "[ ";
             if (vi.m_is_base) out << "b:" << vi.m_base2row << " ";
             out << "\n";
         }
@@ -823,10 +850,10 @@ namespace polysat {
         for (auto const& e : M.row_entries(r)) {
             var_t v = e.var();
             if (e.coeff() != 1)
-                out << e.coeff() << " * ";
+                out << pp(e.coeff()) << " * ";
             out << "v" << v << " ";
             if (values) 
-                out << value(v) << " [" << lo(v) << ", " << hi(v) << "[ ";            
+                out << pp(value(v)) << " [" << pp(lo(v)) << ", " << pp(hi(v)) << "[ ";            
         }
         return out << "\n";
     }
