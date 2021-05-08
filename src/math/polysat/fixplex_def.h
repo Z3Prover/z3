@@ -24,7 +24,23 @@ Author:
 namespace polysat {
 
     template<typename Numeral>
+    bool interval<Numeral>::contains(Numeral const& n) const {
+        if (is_empty())
+            return false;
+        if (is_free())
+            return true;
+        if (lo < hi)
+            return lo <= n && n < hi;
+        else
+            return lo <= n || n < hi;
+    }
+
+    template<typename Numeral>
     interval<Numeral> interval<Numeral>::operator+(interval<Numeral> const& other) const {
+        if (is_empty())
+            return *this;
+        if (other.is_empty())
+            return other;
         if (is_free())
             return *this;
         if (other.is_free())
@@ -42,6 +58,8 @@ namespace polysat {
 
     template<typename Numeral>
     interval<Numeral> interval<Numeral>::operator-() const {
+        if (is_empty())
+            return *this;
         if (is_free())
             return *this;
         return interval(1 - hi, 1 - lo);
@@ -49,6 +67,8 @@ namespace polysat {
 
     template<typename Numeral>
     interval<Numeral> interval<Numeral>::operator*(Numeral const& n) const {
+        if (is_empty())
+            return *this;
         if (n == 0)
             return interval(0, 1);
         if (n == 1)
@@ -70,6 +90,26 @@ namespace polysat {
             return interval(n * lo, n * (hi - 1) + 1);
         }
     }
+
+    template<typename Numeral>
+    interval<Numeral> interval<Numeral>::operator&(interval const& other) const {
+        Numeral l, h;
+        if (is_free() || other.is_empty())
+            return other;
+        if (other.is_free() || is_empty())
+            return *this;
+        if (contains(other.lo))
+            l = other.lo;
+        else if (other.contains(lo))
+            l = lo;
+        else interval::empty();
+        if (contains(other.hi - 1))
+            h = other.hi;
+        else if (other.contains(hi - 1))
+            h = hi;
+        return interval(l, h);
+    }
+
 
     template<typename Ext>
     fixplex<Ext>::~fixplex() {
@@ -228,14 +268,6 @@ namespace polysat {
         
     }
 
-    template<typename Ext>
-    bool fixplex<Ext>::in_bounds(numeral const& val, numeral const& lo, numeral const& hi) const {
-        if (lo == hi)
-            return true;
-        if (lo < hi)
-            return lo <= val && val < hi;
-        return val < hi || lo <= val;
-    }
 
     /**
      * Attempt to improve assigment to make x feasible.
@@ -266,6 +298,8 @@ namespace polysat {
 
         
         pivot(x, y, b, new_value);
+
+        std::cout << "pivot v" << y << " := " << new_value << "\n";
 
         // get_offset_eqs(row(base2row(y)));
 
@@ -304,7 +338,7 @@ namespace polysat {
             if (!has_minimal_trailing_zeros(y, b))
                 continue;
             numeral new_y_value = (row_value - b*value(y) - a*new_value)/b;
-            bool _in_bounds = in_bounds(new_y_value, lo(y), hi(y));
+            bool _in_bounds = in_bounds(y, new_y_value);
             if (!_in_bounds) {
                 if (lo(y) - new_y_value < new_y_value - hi(y))
                     delta_y = new_y_value - lo(y);
@@ -520,6 +554,7 @@ namespace polysat {
         numeral old_value_y = yI.m_value;
         row_x.m_base = y;
         row_x.m_value = row_x.m_value - b*old_value_y + a*new_value;
+        std::cout << "row value " << row_x.m_value << "\n";
         row_x.m_base_coeff = b;
         yI.m_base2row = rx;
         yI.m_is_base = true;
@@ -663,7 +698,15 @@ namespace polysat {
     void fixplex<Ext>::set_base_value(var_t x) {
         SASSERT(is_base(x));
         row r(base2row(x));
-        m_vars[x].m_value = 0 - (row2value(r) / row2base_coeff(r));
+        auto c = row2base_coeff(r);
+        if (c == 1)
+            m_vars[x].m_value = 0 - row2value(r);
+        else if (c + 1 == 0)
+            m_vars[x].m_value = row2value(r);
+        else {
+            // TBD: compute "inverse" of c?
+            m_vars[x].m_value = 0 - row2value(r) / c;           
+        }
         bool was_integral = row2integral(r);
         m_rows[r.id()].m_integral = is_solved(r);
         if (was_integral && !row2integral(r))
@@ -808,29 +851,25 @@ namespace polysat {
 
         if (free_v != null_var) {
             range = (-range) * free_c;
-            if (range.is_free())
-                return;
-            new_bound(r, free_v, range.lo, range.hi);
+            new_bound(r, free_v, range);
             SASSERT(in_bounds(free_v));
             return;
         }
         for (auto const& e : M.row_entries(r)) {
             var_t v = e.var();
             SASSERT(!is_free(v));
-            numeral const& c = e.coeff();
-            auto range1 = range - m_vars[v] * c;
-            new_bound(r, v, range1.lo, range1.hi);
+            auto range1 = range - m_vars[v] * e.coeff();
+            new_bound(r, v, range1);
             // SASSERT(in_bounds(v));
         }
     }
 
     template<typename Ext>
-    void fixplex<Ext>::new_bound(row const& r, var_t x, numeral const& l, numeral const& h) {
-        // TBD: 
-        std::cout << is_free(x) << " " << l << " " << lo(x) << " " << hi(x) << " " << h << "\n";
-        if (!is_free(x) && l <= lo(x) && hi(x) <= h)
-            return;            
-        IF_VERBOSE(0, verbose_stream() << "new-bound v" << x << " [" << pp(l) << "," << pp(h) << "[\n");
+    void fixplex<Ext>::new_bound(row const& r, var_t x, interval<numeral> const& range) {
+        if (range.is_free())
+            return;
+        m_vars[x] &= range;
+        IF_VERBOSE(0, verbose_stream() << "new-bound v" << x << " " << m_vars[x] << "\n");
     }
 
     template<typename Ext>    
@@ -838,7 +877,7 @@ namespace polysat {
         M.display(out);
         for (unsigned i = 0; i < m_vars.size(); ++i) {
             var_info const& vi = m_vars[i];
-            out << "v" << i << " " << pp(value(i)) << " [" << pp(lo(i)) << ", " << pp(hi(i)) << "[ ";
+            out << "v" << i << " " << pp(value(i)) << " " << vi << " ";
             if (vi.m_is_base) out << "b:" << vi.m_base2row << " ";
             out << "\n";
         }
@@ -853,7 +892,7 @@ namespace polysat {
                 out << pp(e.coeff()) << " * ";
             out << "v" << v << " ";
             if (values) 
-                out << pp(value(v)) << " [" << pp(lo(v)) << ", " << pp(hi(v)) << "[ ";            
+                out << pp(value(v)) << " " << m_vars[v];
         }
         return out << "\n";
     }

@@ -47,12 +47,17 @@ namespace polysat {
      */
     template<typename Numeral>
     struct interval {
+        bool emp { false };
         Numeral lo { 0 };
         Numeral hi { 0 };
         interval() {}
         interval(Numeral const& l, Numeral const& h): lo(l), hi(h) {}
         static interval free() { return interval(0, 0); }
+        static interval empty() { interval i(0, 0); i.emp = true; return i; }
         bool is_free() const { return lo == hi; }
+        bool is_empty() const { return emp; }
+        bool contains(Numeral const& n) const;
+        interval operator&(interval const& other) const;
         interval operator+(interval const& other) const;
         interval operator-(interval const& other) const;
         interval operator-() const;
@@ -60,7 +65,11 @@ namespace polysat {
         interval operator+(Numeral const& n) const { return interval(lo + n, hi + n); }
         interval operator-(Numeral const& n) const { return interval(lo - n, hi - n); }
         interval& operator+=(interval const& other) { *this = *this + other; return *this; }
-        std::ostream& display(std::ostream& out) const { return out << "[" << pp(lo) << ", " << pp(hi) << "["; }
+        std::ostream& display(std::ostream& out) const { 
+            if (is_empty()) return out << "empty"; 
+            if (is_free()) return out << "free";
+            return out << "[" << pp(lo) << ", " << pp(hi) << "["; 
+        }
     };
 
     template<typename Numeral>
@@ -109,6 +118,10 @@ namespace polysat {
                 m_base2row(0),
                 m_is_base(false)
             {}
+            var_info& operator&=(interval<numeral> const& range) {
+                interval<numeral>::operator=(range);
+                return *this;
+            }
         };
 
         struct row_info {
@@ -203,7 +216,7 @@ namespace polysat {
         void fixed_var_eh(row const& r, var_t x);
         void eq_eh(var_t x, var_t y, row const& r1, row const& r2);
         void propagate_bounds(row const& r);
-        void new_bound(row const& r, var_t x, numeral const& l, numeral const& h);
+        void new_bound(row const& r, var_t x, interval<numeral> const& range);
         void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& value);
         numeral value2delta(var_t v, numeral const& new_value) const;
         void update_value(var_t v, numeral const& delta);
@@ -211,8 +224,8 @@ namespace polysat {
         bool has_minimal_trailing_zeros(var_t y, numeral const& b);
         var_t select_pivot_core(var_t x, numeral const& new_value, numeral& out_b);
         bool in_bounds(var_t v) const { return in_bounds(v, value(v)); }
-        bool in_bounds(var_t v, numeral const& b) const { return in_bounds(b, lo(v), hi(v)); }
-        bool in_bounds(numeral const& val, numeral const& lo, numeral const& hi) const;        
+        bool in_bounds(var_t v, numeral const& b) const { return in_bounds(b, m_vars[v]); }
+        bool in_bounds(numeral const& val, interval<numeral> const& range) const { return range.contains(val); }
         bool is_free(var_t v) const { return lo(v) == hi(v); }
         bool is_non_free(var_t v) const { return !is_free(v); }
         bool is_fixed(var_t v) const { return lo(v) + 1 == hi(v); }
