@@ -44,7 +44,7 @@ namespace polysat {
         if (is_free())
             return *this;
         if (other.is_free())
-            return interval::free();
+            return other;
         Numeral sz = (hi - lo) + (other.hi - other.lo);
         if (sz < (hi - lo))
             return interval::free();
@@ -102,14 +102,16 @@ namespace polysat {
             l = other.lo;
         else if (other.contains(lo))
             l = lo;
-        else interval::empty();
+        else 
+            return interval::empty();
         if (contains(other.hi - 1))
             h = other.hi;
         else if (other.contains(hi - 1))
             h = hi;
+        else
+            return interval::empty();
         return interval(l, h);
     }
-
 
     template<typename Ext>
     fixplex<Ext>::~fixplex() {
@@ -299,8 +301,6 @@ namespace polysat {
         
         pivot(x, y, b, new_value);
 
-        std::cout << "pivot v" << y << " := " << new_value << "\n";
-
         // get_offset_eqs(row(base2row(y)));
 
         return l_true;
@@ -324,8 +324,8 @@ namespace polysat {
         int n = 0;
         unsigned best_col_sz = UINT_MAX;
         int best_so_far    = INT_MAX;
-        numeral row_value = m_rows[r.id()].m_value;
         numeral a = m_rows[r.id()].m_base_coeff;
+        numeral row_value = m_rows[r.id()].m_value + a * new_value;
         numeral delta_y = 0;
         numeral delta_best = 0;
         bool best_in_bounds = false;
@@ -337,7 +337,7 @@ namespace polysat {
                 continue;
             if (!has_minimal_trailing_zeros(y, b))
                 continue;
-            numeral new_y_value = (row_value - b*value(y) - a*new_value)/b;
+            numeral new_y_value = solve_for(row_value - b*value(y), b);
             bool _in_bounds = in_bounds(y, new_y_value);
             if (!_in_bounds) {
                 if (lo(y) - new_y_value < new_y_value - hi(y))
@@ -554,7 +554,6 @@ namespace polysat {
         numeral old_value_y = yI.m_value;
         row_x.m_base = y;
         row_x.m_value = row_x.m_value - b*old_value_y + a*new_value;
-        std::cout << "row value " << row_x.m_value << "\n";
         row_x.m_base_coeff = b;
         yI.m_base2row = rx;
         yI.m_is_base = true;
@@ -694,19 +693,22 @@ namespace polysat {
         return (value(row2base(r)) * row2base_coeff(r)) + row2value(r) == 0;
     }
 
+    template<typename Ext>
+    typename fixplex<Ext>::numeral 
+    fixplex<Ext>::solve_for(numeral const& row_value, numeral const& c) {
+        if (c == 1)
+            return 0 - row_value;
+        if (c + 1 == 0)
+            return row_value;
+        // TBD: fix this to use proper inverse
+        return 0 - row_value / c;
+    }
+
     template<typename Ext>                                     
     void fixplex<Ext>::set_base_value(var_t x) {
         SASSERT(is_base(x));
         row r(base2row(x));
-        auto c = row2base_coeff(r);
-        if (c == 1)
-            m_vars[x].m_value = 0 - row2value(r);
-        else if (c + 1 == 0)
-            m_vars[x].m_value = row2value(r);
-        else {
-            // TBD: compute "inverse" of c?
-            m_vars[x].m_value = 0 - row2value(r) / c;           
-        }
+        m_vars[x].m_value = solve_for(row2value(r), row2base_coeff(r));
         bool was_integral = row2integral(r);
         m_rows[r.id()].m_integral = is_solved(r);
         if (was_integral && !row2integral(r))
@@ -846,8 +848,6 @@ namespace polysat {
             if (range.is_free())
                 return;
         }        
-
-        std::cout << "bounds " << free_v << " range " << range << "\n";
 
         if (free_v != null_var) {
             range = (-range) * free_c;

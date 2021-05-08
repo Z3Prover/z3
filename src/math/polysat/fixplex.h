@@ -237,6 +237,7 @@ namespace polysat {
         var_t row2base(row const& r) const { return m_rows[r.id()].m_base; }
         bool row2integral(row const& r) const { return m_rows[r.id()].m_integral; }
         void set_base_value(var_t x); 
+        numeral solve_for(numeral const& row_value, numeral const& coeff);
         bool is_feasible() const;
         int get_num_non_free_dep_vars(var_t x_j, int best_so_far);
         void add_patch(var_t v);
