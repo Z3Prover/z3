@@ -66,6 +66,7 @@ static void STD_CALL on_ctrl_c(int) {
 
 static void display_model(sat::solver const & s) {
     sat::model const & m = s.get_model();
+    std::cout << "v ";
     for (unsigned i = 1; i < m.size(); i++) {
         switch (m[i]) {
         case l_false: std::cout << "-" << i << " ";  break;
@@ -77,7 +78,7 @@ static void display_model(sat::solver const & s) {
 }
 
 static void display_core(sat::solver const& s, vector<sat::literal_vector> const& tracking_clauses) {
-    std::cout << "core\n";
+    std::cout << "v core\n";
     sat::literal_vector const& c = s.get_core();
     for (unsigned i = 0; i < c.size(); ++i) {
         sat::literal_vector const& cls = tracking_clauses[c[i].var()];
