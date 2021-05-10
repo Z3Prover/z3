@@ -215,6 +215,57 @@ namespace polysat {
         return r;
     }
 
+    template<typename Ext>
+    void fixplex<Ext>::del_row(row const& r) {
+        var_t var = m_row2base[r.id()];
+        m_vars[var].m_is_base = false;
+        m_vars[var].lo = 0;
+        m_vars[var].hi = 0;
+        m_row2base[r.id()] = null_var;
+        M.del(r);
+        SASSERT(M.col_begin(var) == M.col_end(var));
+        SASSERT(well_formed());
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::del_row(var_t var) {
+        TRACE("polysat", tout << var << "\n";);
+        row r;
+        if (is_base(var)) {
+            r = row(m_vars[var].m_base2row);                                    
+        }
+        else {
+            unsigned tz = UINT_MAX;
+            numeral coeff;
+            for (auto c : M.col_entries(var)) {
+                unsigned tzc = m.trailing_zeros(c.get_row_entry().coeff());
+                if (tzc < tz) {
+                    r = c.get_row_entry();
+                    tz = tzc;
+                    coeff = c.get_row_entry().coeff();
+                    if (tz == 0)
+                        break;
+                }
+            }
+            if (tz == UINT_MAX)
+                return;
+            var_t old_base = m_row2base[r.id()];
+            numeral new_value;
+            var_info& vi = m_vars[old_base];
+            if (!vi.contains(value(old_base))) 
+                new_value = vi.lo;
+            else 
+                new_value = value(old_base);
+            // need to move var such that old_base comes in bound.
+            pivot(old_base, var, coeff, new_value);   
+            SASSERT(is_base(var));
+            SASSERT(m_vars[var].m_base2row == r.id());            
+            SASSERT(vi.contains(value(old_base)));
+        }
+        del_row(r);
+        TRACE("polysat", display(tout););
+        SASSERT(well_formed());
+    }
 
     /**
      * increment v by delta
@@ -454,11 +505,8 @@ namespace polysat {
      * with bounds
      *   x : [lo_x, hi_x[, y : [lo_y, hi_y[, z : [lo_z : hi_z[
      * 
-     * Claim. The row is infeasible if the following conditions are met:
-     * 
-     * - 0 < a*lo_x + b*lo_y + c*lo_z <= a*hi_x + b*hi_y + c*hi_z  mod 2^k
-     * - a*(hi_x - lo_x) + b*(hi_y - lo_y) + c*(hi_z - lo_z) < 2^k
-     * - lo_x != hi_x, lo_y != hi_y, lo_z != hi_z
+     * Let range = [lo_x, hi_x[ + [lo_y, hi_y[ + [lo_z : hi_z[
+     * Claim. If range does not contain 0, then the row is infeasible.
      * 
      */
     template<typename Ext>
@@ -473,7 +521,7 @@ namespace polysat {
             if (range.is_free())
                 return false;
         }        
-        return 0 < range.lo && range.lo < range.hi;
+        return !range.contains(0);
     }
 
     /**
@@ -693,6 +741,30 @@ namespace polysat {
         return (value(row2base(r)) * row2base_coeff(r)) + row2value(r) == 0;
     }
 
+    /**
+     * solve for c * x + row_value = 0
+     * Cases 
+     * c = 1: x = -row_value
+     * c = -1: x = row_value
+     * row_value = 0
+     * Analytic solutions:
+     * trailing_zeros(c) <= trailing_zeros(row_value):
+     *   x = - inverse(c >> trailing_zeros(c)) * row_value << (trailing_zeros(row_value) - trailing_zeros(c))
+     * trailing_zeros(c) > trailing_zeros(row_value):
+     *   There is no feasible (integral) solution for x
+     *   Possible approximation:
+     *   x = - inverse(c >> trailing_zeros(c)) * row_value >> (trailing_zeros(c) - trailing_zeros(row_value))
+     * 
+     * Approximate approaches:
+     * 0 - c >= c:
+     *   * - row_value / c or (0 - row_value) / c
+     * 0 - c < c
+     *   * row_value / (0 - c) or - (0 - row_value) / (0 - c)
+     * 
+     * Analytic solution requires computing inverse (uses gcd, so multiple divisions).
+     * Approximation can be used to suppress rows that are feasible in a relaxation.
+     * Characteristics of the relaxation(s) requires further analysis.     
+     */
     template<typename Ext>
     typename fixplex<Ext>::numeral 
     fixplex<Ext>::solve_for(numeral const& row_value, numeral const& c) {
@@ -700,7 +772,8 @@ namespace polysat {
             return 0 - row_value;
         if (c + 1 == 0)
             return row_value;
-        // TBD: fix this to use proper inverse
+        if (0 - c < c)
+            return row_value / (0 - c);
         return 0 - row_value / c;
     }
 

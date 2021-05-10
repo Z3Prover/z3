@@ -54,12 +54,13 @@ namespace polysat {
         interval(Numeral const& l, Numeral const& h): lo(l), hi(h) {}
         static interval free() { return interval(0, 0); }
         static interval empty() { interval i(0, 0); i.emp = true; return i; }
-        bool is_free() const { return lo == hi; }
+        bool is_free() const { return !emp && lo == hi; }
         bool is_empty() const { return emp; }
         bool contains(Numeral const& n) const;
         interval operator&(interval const& other) const;
         interval operator+(interval const& other) const;
         interval operator-(interval const& other) const;
+        interval operator*(interval const& other) const;
         interval operator-() const;
         interval operator*(Numeral const& n) const;
         interval operator+(Numeral const& n) const { return interval(lo + n, hi + n); }
@@ -192,10 +193,7 @@ namespace polysat {
 
         row get_infeasible_row();
 
-#if 0
-        // TBD
-        void del_row(var_t base_var) {}
-#endif
+        void del_row(var_t base_var);
 
 
     private:
@@ -252,10 +250,11 @@ namespace polysat {
         bool well_formed() const;                 
         bool well_formed_row(row const& r) const;
 
+        void  del_row(row const& r);
+
 
 #if 0
         // TBD: 
-        void  del_row(row const& r) {}
         void move_to_bound(var_t x, bool to_lower) {}
         var_t select_pivot(var_t x_i, bool is_below, numeral& out_a_ij) { throw nullptr; }
         var_t select_pivot_blands(var_t x_i, bool is_below, numeral& out_a_ij) { throw nullptr; }
@@ -269,7 +268,6 @@ namespace polysat {
 
     struct uint64_ext {
         typedef uint64_t numeral;
-        static const uint64_t max_numeral = 0; // std::limits<uint64_t>::max();
 
         struct manager {
             typedef uint64_t numeral;
@@ -289,7 +287,7 @@ namespace polysat {
             bool is_zero(numeral const& n) const { return n == 0; }
             bool is_one(numeral const& n) const { return n == 1; }
             bool is_even(numeral const& n) const { return (n & 1) == 0; }
-            bool is_minus_one(numeral const& n) const { return max_numeral == n; }
+            bool is_minus_one(numeral const& n) const { return n + 1 == 0; }
             void add(numeral const& a, numeral const& b, numeral& r) { r = a + b; }
             void sub(numeral const& a, numeral const& b, numeral& r) { r = a - b; }
             void mul(numeral const& a, numeral const& b, numeral& r) { r = a * b; }
@@ -298,18 +296,47 @@ namespace polysat {
             numeral inv(numeral const& a) { return 0 - a; }
             void swap(numeral& a, numeral& b) { std::swap(a, b); }
             unsigned trailing_zeros(numeral const& a) const { return ::trailing_zeros(a); }
+            numeral mul_inverse(numeral const& x) {
+                if (x == 0)
+                    return 0;
+                numeral t0 = 1, t1 = 0 - 1;
+                numeral r0 = x, r1 = 0 - x;
+                while (r1 != 0) {
+                    numeral q = r0 / r1;
+                    numeral tmp = t1;
+                    t1 = t0 - q * t1;
+                    t0 = tmp;
+                    tmp = r1;
+                    r1 = r0 - q * r1;
+                    r0 = tmp;
+                }
+                return t0;
+            }
+            numeral gcd(numeral x, numeral y) {
+                if (x == 0) 
+                    return y;
+                if (y == 0)
+                    return x;
+                unsigned tz = trailing_zeros(x);
+                numeral shift = std::min(trailing_zeros(y), tz);
+                x >>= tz;
+                if (x == 1) 
+                    return x << shift;
+                if (y == 1) 
+                    return y << shift;
+                if (x == y) 
+                    return x << shift;
+                do {
+                    tz = trailing_zeros(y);
+                    y >>= tz;
+                    if (x > y) 
+                        swap(x, y);
+                    y -= x;
+                }
+                while (y != 0);
+                return x << shift;
+            }
 
-            // treat numerals as signed and check for overflow/underflow
-            bool signed_mul(numeral& r, numeral const& x, numeral const& y) { 
-                r = x * y; 
-                if (y != 0 && x != r / y)
-                    return false;
-                return true; 
-            }
-            bool signed_add(numeral& r, numeral const& x, numeral const& y) { 
-                r = x + y; 
-                return x <= r;
-            }
             std::ostream& display(std::ostream& out, numeral const& x) const { 
                 return out << pp(x); 
             }

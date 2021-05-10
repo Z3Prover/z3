@@ -81,7 +81,7 @@ namespace polysat {
         fp.reset();
     }
 
-    static void test_interval1() {
+    static void test_interval() {
         interval<uint64_t> i1(1, 2);
         interval<uint64_t> i2(3, 6);
         std::cout << i1 << " " << i2 << "\n";
@@ -92,6 +92,19 @@ namespace polysat {
         std::cout << "-" << i2 << " := " << (-i2) << "\n";
     }
 
+    static void test_gcd() {
+        std::cout << "gcd\n";
+        uint64_ext::manager e;
+        uint64_t x = 0, y = 0, z = 0, a = 0, b = 0;
+        uint64_t g = e.gcd(15, 27);
+        std::cout << g << "\n";
+        std::cout << 15 << " " << e.mul_inverse(15) << " " << 15*e.mul_inverse(15) << "\n";
+        std::cout << 30 << " " << e.mul_inverse(30) << " " << 30*e.mul_inverse(30) << "\n";
+        std::cout << 60 << " " << e.mul_inverse(60) << " " << 60*e.mul_inverse(60) << "\n";
+        std::cout << 29 << " " << e.mul_inverse(29) << " " << 29*e.mul_inverse(29) << "\n";
+
+
+    }
 }
 
 void tst_fixplex() {
@@ -99,5 +112,6 @@ void tst_fixplex() {
     polysat::test2();
     polysat::test3();
     polysat::test4();
-    polysat::test_interval1();
+    polysat::test_interval();
+    polysat::test_gcd();
 }
