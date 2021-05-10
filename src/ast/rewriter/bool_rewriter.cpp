@@ -62,7 +62,7 @@ br_status bool_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * co
         return BR_DONE;
     case OP_XOR:
         switch (num_args) {
-        case 0: return BR_FAILED;
+        case 0: result = m().mk_false(); return BR_DONE;
         case 1: result = args[0]; return BR_DONE;
         case 2: mk_xor(args[0], args[1], result); return BR_DONE;
         default: UNREACHABLE(); return BR_FAILED;

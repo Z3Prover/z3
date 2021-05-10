@@ -577,6 +577,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void convert_iff2(app * t, bool root, bool sign) {
+        if (t->get_num_args() != 2)
+            throw default_exception("unexpected number of arguments to xor");
         SASSERT(t->get_num_args() == 2);
         unsigned sz = m_result_stack.size();
         SASSERT(sz >= 2);
