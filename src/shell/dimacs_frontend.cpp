@@ -264,15 +264,15 @@ unsigned read_dimacs(char const * file_name) {
     }
     switch (r) {
     case l_true: 
-        std::cout << "sat\n"; 
+        std::cout << "s SATISFIABLE\n"; 
         if (file_name && gparams::get_ref().get_bool("model_validate", false)) verify_solution(file_name);
         display_model(*g_solver);
         break;
     case l_undef: 
-        std::cout << "unknown\n"; 
+        std::cout << "s UNKNOWN\n"; 
         break;
     case l_false: 
-        std::cout << "unsat\n"; 
+        std::cout << "s UNSATISFIABLE\n"; 
         if (p.get_bool("dimacs.core", false)) {
             display_core(*g_solver, tracking_clauses);
         }
