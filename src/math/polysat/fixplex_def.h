@@ -20,98 +20,9 @@ Author:
 
 #include "math/polysat/fixplex.h"
 #include "math/simplex/sparse_matrix_def.h"
+#include "math/interval/mod_interval_def.h"
 
 namespace polysat {
-
-    template<typename Numeral>
-    bool interval<Numeral>::contains(Numeral const& n) const {
-        if (is_empty())
-            return false;
-        if (is_free())
-            return true;
-        if (lo < hi)
-            return lo <= n && n < hi;
-        else
-            return lo <= n || n < hi;
-    }
-
-    template<typename Numeral>
-    interval<Numeral> interval<Numeral>::operator+(interval<Numeral> const& other) const {
-        if (is_empty())
-            return *this;
-        if (other.is_empty())
-            return other;
-        if (is_free())
-            return *this;
-        if (other.is_free())
-            return other;
-        Numeral sz = (hi - lo) + (other.hi - other.lo);
-        if (sz < (hi - lo))
-            return interval::free();
-        return interval(lo + other.lo, hi + other.hi);
-    }
-
-    template<typename Numeral>
-    interval<Numeral> interval<Numeral>::operator-(interval<Numeral> const& other) const {
-        return *this + (-other);
-    }
-
-    template<typename Numeral>
-    interval<Numeral> interval<Numeral>::operator-() const {
-        if (is_empty())
-            return *this;
-        if (is_free())
-            return *this;
-        return interval(1 - hi, 1 - lo);
-    }
-
-    template<typename Numeral>
-    interval<Numeral> interval<Numeral>::operator*(Numeral const& n) const {
-        if (is_empty())
-            return *this;
-        if (n == 0)
-            return interval(0, 1);
-        if (n == 1)
-            return *this;
-        if (is_free())
-            return *this;
-        Numeral sz = hi - lo;
-        if (0 - n < n) {
-            Numeral mn = 0 - n;
-            Numeral mz = mn * sz;            
-            if (mz / mn != sz)
-                return interval::free();
-            return interval((hi - 1) * n, n * lo + 1);
-        }
-        else {
-            Numeral mz = n * sz;
-            if (mz / n != sz)
-                return interval::free();
-            return interval(n * lo, n * (hi - 1) + 1);
-        }
-    }
-
-    template<typename Numeral>
-    interval<Numeral> interval<Numeral>::operator&(interval const& other) const {
-        Numeral l, h;
-        if (is_free() || other.is_empty())
-            return other;
-        if (other.is_free() || is_empty())
-            return *this;
-        if (contains(other.lo))
-            l = other.lo;
-        else if (other.contains(lo))
-            l = lo;
-        else 
-            return interval::empty();
-        if (contains(other.hi - 1))
-            h = other.hi;
-        else if (other.contains(hi - 1))
-            h = hi;
-        else
-            return interval::empty();
-        return interval(l, h);
-    }
 
     template<typename Ext>
     fixplex<Ext>::~fixplex() {
@@ -513,7 +424,7 @@ namespace polysat {
     bool fixplex<Ext>::is_infeasible_row(var_t x) {
         SASSERT(is_base(x));
         auto r = base2row(x);
-        interval<numeral> range(0, 1);
+        mod_interval<numeral> range(0, 1);
         for (auto const& e : M.row_entries(row(r))) {
             var_t v = e.var();
             numeral const& c = e.coeff();
@@ -915,7 +826,7 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::propagate_bounds(row const& r) {
-        interval<numeral> range(0, 1);
+        mod_interval<numeral> range(0, 1);
         numeral free_c = 0;
         var_t free_v = null_var;
         for (auto const& e : M.row_entries(r)) {
@@ -949,7 +860,7 @@ namespace polysat {
     }
 
     template<typename Ext>
-    void fixplex<Ext>::new_bound(row const& r, var_t x, interval<numeral> const& range) {
+    void fixplex<Ext>::new_bound(row const& r, var_t x, mod_interval<numeral> const& range) {
         if (range.is_free())
             return;
         m_vars[x] &= range;

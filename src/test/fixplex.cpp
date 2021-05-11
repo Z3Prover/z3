@@ -115,8 +115,8 @@ namespace polysat {
 
 
     static void test_interval() {
-        interval<uint64_t> i1(1, 2);
-        interval<uint64_t> i2(3, 6);
+        mod_interval<uint64_t> i1(1, 2);
+        mod_interval<uint64_t> i2(3, 6);
         std::cout << i1 << " " << i2 << "\n";
         std::cout << i1 << " * 4 := " << (i1 * 4) << "\n";
         std::cout << i2 << " * 3 := " << (i2 * 3) << "\n";

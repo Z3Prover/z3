@@ -12,4 +12,5 @@ z3_add_component(polysat
     util
     dd
     simplex
+    interval
 )

@@ -20,6 +20,7 @@ Author:
 
 #include <limits>
 #include "math/simplex/sparse_matrix.h"
+#include "math/interval/mod_interval.h"
 #include "util/heap.h"
 #include "util/map.h"
 #include "util/lbool.h"
@@ -29,54 +30,6 @@ namespace polysat {
 
     typedef unsigned var_t;
 
-    template<typename Numeral>
-    struct pp {
-        Numeral n;
-        pp(Numeral const& n):n(n) {}
-    };
-
-    template<typename Numeral>
-    inline std::ostream& operator<<(std::ostream& out, pp<Numeral> const& p) {
-        if ((0 - p.n) < p.n)
-            return out << "-" << (0 - p.n);
-        return out << p.n;
-    }
-
-    /**
-     * Modular interval arithmetic
-     */
-    template<typename Numeral>
-    struct interval {
-        bool emp { false };
-        Numeral lo { 0 };
-        Numeral hi { 0 };
-        interval() {}
-        interval(Numeral const& l, Numeral const& h): lo(l), hi(h) {}
-        static interval free() { return interval(0, 0); }
-        static interval empty() { interval i(0, 0); i.emp = true; return i; }
-        bool is_free() const { return !emp && lo == hi; }
-        bool is_empty() const { return emp; }
-        bool contains(Numeral const& n) const;
-        interval operator&(interval const& other) const;
-        interval operator+(interval const& other) const;
-        interval operator-(interval const& other) const;
-        interval operator*(interval const& other) const;
-        interval operator-() const;
-        interval operator*(Numeral const& n) const;
-        interval operator+(Numeral const& n) const { return interval(lo + n, hi + n); }
-        interval operator-(Numeral const& n) const { return interval(lo - n, hi - n); }
-        interval& operator+=(interval const& other) { *this = *this + other; return *this; }
-        std::ostream& display(std::ostream& out) const { 
-            if (is_empty()) return out << "empty"; 
-            if (is_free()) return out << "free";
-            return out << "[" << pp(lo) << ", " << pp(hi) << "["; 
-        }
-    };
-
-    template<typename Numeral>
-    inline std::ostream& operator<<(std::ostream& out, interval<Numeral> const& i) {
-        return i.display(out);
-    }
 
     template<typename Ext>
     class fixplex {
@@ -111,7 +64,7 @@ namespace polysat {
             S_DEFAULT
         };
 
-        struct var_info : public interval<numeral> {
+        struct var_info : public mod_interval<numeral> {
             unsigned    m_base2row:29;
             unsigned    m_is_base:1;
             numeral     m_value { 0 };
@@ -119,8 +72,8 @@ namespace polysat {
                 m_base2row(0),
                 m_is_base(false)
             {}
-            var_info& operator&=(interval<numeral> const& range) {
-                interval<numeral>::operator=(range);
+            var_info& operator&=(mod_interval<numeral> const& range) {
+                mod_interval<numeral>::operator=(range);
                 return *this;
             }
         };
@@ -215,7 +168,7 @@ namespace polysat {
         void fixed_var_eh(row const& r, var_t x);
         void eq_eh(var_t x, var_t y, row const& r1, row const& r2);
         void propagate_bounds(row const& r);
-        void new_bound(row const& r, var_t x, interval<numeral> const& range);
+        void new_bound(row const& r, var_t x, mod_interval<numeral> const& range);
         void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& value);
         numeral value2delta(var_t v, numeral const& new_value) const;
         void update_value(var_t v, numeral const& delta);
@@ -224,7 +177,7 @@ namespace polysat {
         var_t select_pivot_core(var_t x, numeral const& new_value, numeral& out_b);
         bool in_bounds(var_t v) const { return in_bounds(v, value(v)); }
         bool in_bounds(var_t v, numeral const& b) const { return in_bounds(b, m_vars[v]); }
-        bool in_bounds(numeral const& val, interval<numeral> const& range) const { return range.contains(val); }
+        bool in_bounds(numeral const& val, mod_interval<numeral> const& range) const { return range.contains(val); }
         bool is_free(var_t v) const { return lo(v) == hi(v); }
         bool is_non_free(var_t v) const { return !is_free(v); }
         bool is_fixed(var_t v) const { return lo(v) + 1 == hi(v); }
