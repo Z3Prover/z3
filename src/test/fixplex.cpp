@@ -97,6 +97,22 @@ namespace polysat {
         std::cout << fp << "\n";
     }
 
+    static void test_eq() {
+        scoped_fp fp;
+        var_t x = 0, y = 1, z = 2, u = 3;        
+        var_t ys1[3] = { x, y, u };
+        numeral m1 = 0ull - 1ull;
+        numeral coeffs1[3] = { 1, m1, m1 };        
+        var_t ys2[3] = { y, z, u };
+        numeral coeffs2[3] = { 1, m1, 1 };        
+        fp.add_row(x, 3, ys1, coeffs1);
+        fp.add_row(z, 3, ys2, coeffs2);
+        fp.set_bounds(u, 1, 2);
+        fp.run();
+        fp.propagate_eqs();
+
+    }
+
 
     static void test_interval() {
         interval<uint64_t> i1(1, 2);
@@ -119,8 +135,6 @@ namespace polysat {
         std::cout << 30 << " " << e.mul_inverse(30) << " " << 30*e.mul_inverse(30) << "\n";
         std::cout << 60 << " " << e.mul_inverse(60) << " " << 60*e.mul_inverse(60) << "\n";
         std::cout << 29 << " " << e.mul_inverse(29) << " " << 29*e.mul_inverse(29) << "\n";
-
-
     }
 }
 
@@ -133,4 +147,5 @@ void tst_fixplex() {
 
     polysat::test_interval();
     polysat::test_gcd();
+    polysat::test_eq();
 }

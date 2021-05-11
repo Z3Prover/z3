@@ -185,6 +185,7 @@ namespace polysat {
         unsigned get_num_vars() const { return m_vars.size(); }
         void  reset();
         void  propagate_bounds();
+        void  propagate_eqs();
         lbool make_feasible();
         row add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs);
         std::ostream& display(std::ostream& out) const;

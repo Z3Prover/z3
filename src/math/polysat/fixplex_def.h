@@ -812,6 +812,13 @@ namespace polysat {
      */
 
     template<typename Ext>
+    void fixplex<Ext>::propagate_eqs() {
+        for (unsigned i = 0; i < m_rows.size(); ++i) 
+            get_offset_eqs(row(i));        
+    }
+
+
+    template<typename Ext>
     void fixplex<Ext>::get_offset_eqs(row const& r) {
         var_t x, y;
         numeral cx, cy;
@@ -855,7 +862,7 @@ namespace polysat {
         numeral cz, cu;
         for (auto c : M.col_entries(x)) {
             auto r2 = c.get_row();
-            if (r1.id() == r2.id())
+            if (r1.id() >= r2.id())
                 continue;
             if (!is_offset_row(r2, cz, z, cu, u))
                 continue;
@@ -863,8 +870,11 @@ namespace polysat {
                 std::swap(z, u);
                 std::swap(cz, cu);
             }
-            if (z == x && cx == cz && u != y && cu == cy && value(u) == value(y)) 
+            if (z == x && u != y && cx == cz && cu == cy && value(u) == value(y)) 
                 eq_eh(u, y, r1, r2);                
+            if (z == x && u != y && cx + cz == 0 && cu + cy == 0 && value(u) == value(y)) 
+                eq_eh(u, y, r1, r2);                
+
         }
     }
 
@@ -883,6 +893,7 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::eq_eh(var_t x, var_t y, row const& r1, row const& r2) {
+        std::cout << "eq " << x << " == " << y << "\n";
         m_var_eqs.push_back(var_eq(x, y, r1, r2));
     }    
 
@@ -990,9 +1001,8 @@ namespace polysat {
     template<typename Ext>                                     
     bool fixplex<Ext>::well_formed_row(row const& r) const { 
         var_t s = m_rows[r.id()].m_base;
-        (void)s;
-        SASSERT(base2row(s) == r.id());
-        SASSERT(m_vars[s].m_is_base);
+        VERIFY(base2row(s) == r.id());
+        VERIFY(m_vars[s].m_is_base);
         numeral sum = 0;
         numeral base_coeff = m_rows[r.id()].m_base_coeff;
         for (auto const& e : M.row_entries(r)) {
@@ -1004,6 +1014,7 @@ namespace polysat {
             TRACE("polysat", display(tout << "non-well formed row\n"); M.display_row(tout << "row: ", r););
             throw default_exception("non-well formed row");
         }
+        SASSERT(sum == m_rows[r.id()].m_value + base_coeff * value(s));
         return true;
     }
 
