@@ -217,11 +217,11 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::del_row(row const& r) {
-        var_t var = m_row2base[r.id()];
+        var_t var = m_rows[r.id()].m_base;
         m_vars[var].m_is_base = false;
         m_vars[var].lo = 0;
         m_vars[var].hi = 0;
-        m_row2base[r.id()] = null_var;
+        m_rows[r.id()].m_base = null_var;
         M.del(r);
         SASSERT(M.col_begin(var) == M.col_end(var));
         SASSERT(well_formed());
@@ -240,7 +240,7 @@ namespace polysat {
             for (auto c : M.col_entries(var)) {
                 unsigned tzc = m.trailing_zeros(c.get_row_entry().coeff());
                 if (tzc < tz) {
-                    r = c.get_row_entry();
+                    r = c.get_row();
                     tz = tzc;
                     coeff = c.get_row_entry().coeff();
                     if (tz == 0)
@@ -249,7 +249,7 @@ namespace polysat {
             }
             if (tz == UINT_MAX)
                 return;
-            var_t old_base = m_row2base[r.id()];
+            var_t old_base = m_rows[r.id()].m_base;
             numeral new_value;
             var_info& vi = m_vars[old_base];
             if (!vi.contains(value(old_base))) 
@@ -626,10 +626,10 @@ namespace polysat {
             unsigned tz2 = m.trailing_zeros(c);
             SASSERT(tz1 <= tz2);
             numeral b1 = b >> tz1;
-            numeral c1 = m.inv(c >> (tz2 - tz1));
+            numeral c1 = 0 - (c >> (tz2 - tz1));
             M.mul(r_z, b1);
             M.add(r_z, c1, r_x);
-            row_z.m_value = (b1 * (row_z.m_value - old_value_y)) + c1 * row_x.m_value;
+            row_z.m_value = (b1 * (row_z.m_value - c * old_value_y)) + c1 * row_x.m_value;
             row_z.m_base_coeff *= b1;
             set_base_value(z);
             SASSERT(well_formed_row(r_z));
@@ -951,7 +951,7 @@ namespace polysat {
         for (unsigned i = 0; i < m_vars.size(); ++i) {
             var_info const& vi = m_vars[i];
             out << "v" << i << " " << pp(value(i)) << " " << vi << " ";
-            if (vi.m_is_base) out << "b:" << vi.m_base2row << " ";
+            if (vi.m_is_base) out << "b:" << vi.m_base2row << " " << pp(m_rows[vi.m_base2row].m_value) << " ";
             out << "\n";
         }
         return out;
@@ -965,7 +965,7 @@ namespace polysat {
                 out << pp(e.coeff()) << " * ";
             out << "v" << v << " ";
             if (values) 
-                out << pp(value(v)) << " " << m_vars[v];
+                out << pp(value(v)) << " " << m_vars[v] << " ";
         }
         return out << "\n";
     }
