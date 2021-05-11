@@ -2316,7 +2316,7 @@ public:
         if (is_exists(tmp) && to_quantifier(tmp)->get_qid() == qe_lite) {
             used_vars used;
             tmp = to_quantifier(tmp)->get_expr();
-            used.process(tmp);
+            used(tmp);
             var_subst vs(m, true);
             fml = vs(tmp, vars.size(), (expr*const*)vars.data());
             // collect set of variables that were used.
