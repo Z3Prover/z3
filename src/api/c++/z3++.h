@@ -511,9 +511,11 @@ namespace z3 {
             return *this;
         }
         ast & operator=(ast && s) noexcept {
-            object::operator=(std::forward<object>(s));
-            m_ast = s.m_ast;
-            s.m_ast = nullptr;
+            if (this != &s) {
+                object::operator=(std::forward<object>(s));
+                m_ast = s.m_ast;
+                s.m_ast = nullptr;
+            }
             return *this;
         }
         Z3_ast_kind kind() const { Z3_ast_kind r = Z3_get_ast_kind(ctx(), m_ast); check_error(); return r; }
