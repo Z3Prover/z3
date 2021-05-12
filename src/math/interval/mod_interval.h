@@ -33,8 +33,9 @@ inline std::ostream& operator<<(std::ostream& out, pp<Numeral> const& p) {
 }
 
 template<typename Numeral>
-struct mod_interval {
+class mod_interval {
     bool emp { false };
+public:
     Numeral lo { 0 };
     Numeral hi { 0 };
     mod_interval() {}
@@ -43,6 +44,8 @@ struct mod_interval {
     static mod_interval empty() { mod_interval i(0, 0); i.emp = true; return i; }
     bool is_free() const { return !emp && lo == hi; }
     bool is_empty() const { return emp; }
+    void set_free() { lo = hi = 0; emp = false; }
+    void set_bounds(Numeral const& l, Numeral const& h) { lo = l; hi = h; }
     bool contains(Numeral const& n) const;
     mod_interval operator&(mod_interval const& other) const;
     mod_interval operator+(mod_interval const& other) const;

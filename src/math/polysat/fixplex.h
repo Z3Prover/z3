@@ -41,6 +41,14 @@ namespace polysat {
         typedef typename matrix::row row;
         typedef typename matrix::row_iterator row_iterator;
         typedef typename matrix::col_iterator col_iterator;
+
+        struct var_eq {
+            var_t x, y;
+            row r1, r2;
+            var_eq(var_t x, var_t y, row const& r1, row const& r2):
+                x(x), y(y), r1(r1), r2(r2) {}
+        };
+
     protected:
         struct var_lt {
             bool operator()(var_t v1, var_t v2) const { return v1 < v2; }
@@ -73,8 +81,12 @@ namespace polysat {
                 m_is_base(false)
             {}
             var_info& operator&=(mod_interval<numeral> const& range) {
-                mod_interval<numeral>::operator=(range);
+                mod_interval<numeral>::operator=(range & *this);
                 return *this;
+            }
+            var_info& operator=(mod_interval<numeral> const& range) {
+                mod_interval<numeral>::operator=(range);
+                return *this;                
             }
         };
 
@@ -85,12 +97,6 @@ namespace polysat {
             numeral m_base_coeff;            
         };
 
-        struct var_eq {
-            var_t x, y;
-            row r1, r2;
-            var_eq(var_t x, var_t y, row const& r1, row const& r2):
-                x(x), y(y), r1(r1), r2(r2) {}
-        };
 
         struct fix_entry {
             var_t x;
@@ -128,7 +134,7 @@ namespace polysat {
 
 
         void set_bounds(var_t v, numeral const& lo, numeral const& hi);
-        void unset_bounds(var_t v) { m_vars[v].lo = m_vars[v].hi; }
+        void unset_bounds(var_t v) { m_vars[v].set_free(); }
 
         var_t get_base_var(row const& r) const { return m_rows[r.id()].m_base; }
         numeral const& lo(var_t var) const { return m_vars[var].lo; }
@@ -136,9 +142,11 @@ namespace polysat {
         numeral const& value(var_t var) const { return m_vars[var].m_value; }
         void set_max_iterations(unsigned n) { m_max_iterations = n; }
         unsigned get_num_vars() const { return m_vars.size(); }
-        void  reset();
-        void  propagate_bounds();
-        void  propagate_eqs();
+        void reset();
+        void propagate_bounds();
+        void propagate_eqs();
+        vector<var_eq> const& var_eqs() const { return m_var_eqs; }
+        void reset_eqs() { m_var_eqs.reset(); }
         lbool make_feasible();
         row add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs);
         std::ostream& display(std::ostream& out) const;
@@ -149,14 +157,10 @@ namespace polysat {
 
         void del_row(var_t base_var);
 
-
     private:
 
-        void gauss_jordan();
-        void make_basic(var_t v, row const& r);
-
         void update_value_core(var_t v, numeral const& delta);
-        void  ensure_var(var_t v);
+        void ensure_var(var_t v);
 
         var_t select_smallest_var() { return m_to_patch.empty()?null_var:m_to_patch.erase_min(); }
         lbool make_var_feasible(var_t x_i);
@@ -171,9 +175,11 @@ namespace polysat {
         void new_bound(row const& r, var_t x, mod_interval<numeral> const& range);
         void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& value);
         numeral value2delta(var_t v, numeral const& new_value) const;
+        numeral value2error(var_t v, numeral const& new_value) const;
         void update_value(var_t v, numeral const& delta);
         bool can_pivot(var_t x_i, numeral const& new_value, numeral const& a_ij, var_t x_j);
         bool has_minimal_trailing_zeros(var_t y, numeral const& b);
+        var_t select_pivot(var_t x_i, numeral const& new_value, numeral& out_b);
         var_t select_pivot_core(var_t x, numeral const& new_value, numeral& out_b);
         bool in_bounds(var_t v) const { return in_bounds(v, value(v)); }
         bool in_bounds(var_t v, numeral const& b) const { return in_bounds(b, m_vars[v]); }
@@ -206,17 +212,18 @@ namespace polysat {
 
         void  del_row(row const& r);
 
+        var_t select_pivot_blands(var_t x, numeral const& new_value, numeral& out_b);
+        bool can_improve(var_t x, numeral const& new_value, var_t y, numeral const& b);
 
-#if 0
-        // TBD: 
-        void move_to_bound(var_t x, bool to_lower) {}
-        var_t select_pivot(var_t x_i, bool is_below, numeral& out_a_ij) { throw nullptr; }
-        var_t select_pivot_blands(var_t x_i, bool is_below, numeral& out_a_ij) { throw nullptr; }
-        var_t pick_var_to_leave(var_t x_j, bool is_pos, 
-                                numeral& gain, numeral& new_a_ij, bool& inc) { throw nullptr; }
+        bool pivot_base_vars();
+        bool elim_base(var_t v);
 
-#endif
-
+        bool eliminate_var(
+            row const& r_y,
+            row const& r_z, 
+            numeral const& c, 
+            unsigned tz_b,
+            numeral const& old_value_y);
     };
 
 

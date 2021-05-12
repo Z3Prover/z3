@@ -110,7 +110,9 @@ namespace polysat {
         fp.set_bounds(u, 1, 2);
         fp.run();
         fp.propagate_eqs();
-
+        for (auto e : fp.var_eqs())
+            std::cout << e.x << " == " << e.y << "\n";
+        
     }
 
 
