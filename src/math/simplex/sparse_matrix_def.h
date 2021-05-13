@@ -199,9 +199,8 @@ namespace simplex {
     */
     template<typename Ext>
     inline void sparse_matrix<Ext>::column::compress_if_needed(vector<_row> & rows) {
-        if (size() * 2 < num_entries() && m_refs == 0) {
+        if (size() * 2 < num_entries() && m_refs == 0) 
             compress(rows);
-        }
     }
 
     template<typename Ext>
@@ -390,7 +389,7 @@ namespace simplex {
         int col_idx = r_entry.m_col_idx;                                
         r.del_row_entry(pos);                              
         column & c  = m_columns[v];                   
-        c.del_col_entry(col_idx);                           
+        c.del_col_entry(col_idx); 
         c.compress_if_needed(m_rows);                       
     }
 
@@ -399,11 +398,8 @@ namespace simplex {
     */    
     template<typename Ext>
     void sparse_matrix<Ext>::neg(row r) {
-        row_iterator it  = row_begin(r);                             
-        row_iterator end = row_end(r);                               
-        for (; it != end; ++it) {   
-            m.neg(it->m_coeff);
-        }                                            
+        for (auto& r : row_entries(r))
+            m.neg(r.m_coeff);
     }
 
     /**

@@ -220,35 +220,48 @@ namespace simplex {
         class col_iterator {
             friend class sparse_matrix;
             unsigned             m_curr;
-            column const&        m_col;
-            vector<_row> const&  m_rows;
+            int                  m_var;
+            sparse_matrix const& m_sm;
+
+            column const& col() const { 
+                return m_sm.m_columns[m_var]; 
+            }
+
             void move_to_used() {
-                while (m_curr < m_col.num_entries() && m_col.m_entries[m_curr].is_dead()) {
+                while (m_curr < col().num_entries() && col().m_entries[m_curr].is_dead()) {
                     ++m_curr;
                 }
             }
-            col_iterator(column const& c, vector<_row> const& r, bool begin): 
-                m_curr(0), m_col(c), m_rows(r) {
-                ++m_col.m_refs;
-                if (begin) {
+
+            col_iterator(int var, sparse_matrix const& sm, bool begin): 
+                m_curr(0), m_var(var), m_sm(sm) {
+                ++col().m_refs;
+                if (begin) 
                     move_to_used();
-                }
-                else {
-                    m_curr = m_col.num_entries();
-                }
+                else 
+                    m_curr = col().num_entries();
             }
+
         public:
+
             ~col_iterator() {
-                --m_col.m_refs;
+                --col().m_refs;
+            }
+
+            col_iterator(col_iterator const& other): 
+                m_curr(other.m_curr),
+                m_var(other.m_var),
+                m_sm(other.m_sm) {
+                ++col().m_refs;
             }
 
             row get_row() const { 
-                return row(m_col.m_entries[m_curr].m_row_id); 
+                return row(col().m_entries[m_curr].m_row_id); 
             }
             row_entry const& get_row_entry() {
-                col_entry const& c = m_col.m_entries[m_curr];
+                col_entry const& c = col().m_entries[m_curr];
                 int row_id = c.m_row_id;
-                return m_rows[row_id].m_entries[c.m_row_idx];
+                return m_sm.m_rows[row_id].m_entries[c.m_row_idx];
             }
             
             col_iterator & operator++() { ++m_curr; move_to_used(); return *this; }
@@ -258,8 +271,8 @@ namespace simplex {
             col_iterator& operator*() { return *this; }
         };
 
-        col_iterator col_begin(int v) const { return col_iterator(m_columns[v], m_rows, true); }
-        col_iterator col_end(int v) const { return col_iterator(m_columns[v], m_rows, false); }
+        col_iterator col_begin(int v) const { return col_iterator(v, *this, true); }
+        col_iterator col_end(int v) const { return col_iterator(v, *this, false); }
 
         class col_entries_t {
             sparse_matrix const& m;
