@@ -30,9 +30,11 @@ namespace polysat {
 
     typedef unsigned var_t;
 
+    struct fixplex_base {};
+
 
     template<typename Ext>
-    class fixplex {
+    class fixplex : public fixplex_base {
     public:
         typedef typename Ext::numeral numeral;
         typedef typename Ext::scoped_numeral scoped_numeral;
@@ -137,7 +139,6 @@ namespace polysat {
         void set_bounds(var_t v, numeral const& lo, numeral const& hi);
         void unset_bounds(var_t v) { m_vars[v].set_free(); }
 
-        var_t get_base_var(row const& r) const { return m_rows[r.id()].m_base; }
         numeral const& lo(var_t var) const { return m_vars[var].lo; }
         numeral const& hi(var_t var) const { return m_vars[var].hi; }
         numeral const& value(var_t var) const { return m_vars[var].m_value; }
@@ -149,14 +150,16 @@ namespace polysat {
         vector<var_eq> const& var_eqs() const { return m_var_eqs; }
         void reset_eqs() { m_var_eqs.reset(); }
         lbool make_feasible();
-        row add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs);
+        void add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs);
         std::ostream& display(std::ostream& out) const;
-        std::ostream& display_row(std::ostream& out, row const& r, bool values = true);
         void collect_statistics(::statistics & st) const;
         row get_infeasible_row();
         void del_row(var_t base_var);
 
     private:
+
+        std::ostream& display_row(std::ostream& out, row const& r, bool values = true);
+        var_t get_base_var(row const& r) const { return m_rows[r.id()].m_base; }
 
         void update_value_core(var_t v, numeral const& delta);
         void ensure_var(var_t v);

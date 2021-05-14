@@ -13,11 +13,13 @@ Abstract:
     into linear form.
     Equalities, Inequalities are converted into rows and slack variables.
     Slack variables are bounded when constraints are activated.
+    It also handles backtracking state: bounds that are activated inside one 
+    scope are de-activated when exiting the scope.
     
 Author:
 
-    Nikolaj Bjorner (nbjorner) 2021-03-19
-    Jakob Rath 2021-04-6
+    Nikolaj Bjorner (nbjorner) 2021-05-14
+    Jakob Rath 2021-05-14
 
 --*/
 
@@ -47,19 +49,23 @@ namespace polysat {
             m_lim(lim)
         {}
 
-        void push() {}
-        void pop(unsigned n) {}
-        void internalize_constraint(constraint& c) {}
-        void set_value(pvar v, rational const& value) {}
-        void set_bound(pvar v, rational const& lo, rational const& hi) {}
-        void activate_constraint(constraint& c) {}
+        void push();
+        void pop(unsigned n); 
+        void internalize_constraint(constraint& c);
+        void set_value(pvar v, rational const& value);
+        void set_bound(pvar v, rational const& lo, rational const& hi);
+        void activate_constraint(constraint& c);
 
         // check integer modular feasibility under current bounds.
-        lbool check() { return l_undef; }
-        void unsat_core(unsigned_vector& deps) {}
+        lbool check();
+        void unsat_core(unsigned_vector& deps);
 
         // current value assigned to (linear) variable according to tableau.
-        rational value(pvar v) { return rational(0); }
+        rational value(pvar v);
+
+        std::ostream& display(std::ostream& out) const { return out; }
+        void collect_statistics(::statistics & st) const {}
+
     };
 
 

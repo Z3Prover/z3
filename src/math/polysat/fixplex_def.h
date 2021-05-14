@@ -84,8 +84,7 @@ namespace polysat {
     }
 
     template<typename Ext>
-    typename fixplex<Ext>::row 
-    fixplex<Ext>::add_row(var_t base_var, unsigned num_vars, var_t const* vars, numeral const* coeffs) {
+    void fixplex<Ext>::add_row(var_t base_var, unsigned num_vars, var_t const* vars, numeral const* coeffs) {
         for (unsigned i = 0; i < num_vars; ++i) 
             ensure_var(vars[i]);
 
@@ -122,7 +121,6 @@ namespace polysat {
             ++m_stats.m_num_approx;
         SASSERT(well_formed_row(r));
         SASSERT(well_formed());
-        return r;
     }
 
     template<typename Ext>
