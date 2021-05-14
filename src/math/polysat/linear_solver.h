@@ -32,8 +32,10 @@ Author:
 
 namespace polysat {
 
+    class solver;
+
     class linear_solver {
-        reslimit&                m_lim;
+        solver&                  s;
         ptr_vector<fixplex_base> m_fix;
         unsigned_vector          m_var2ext;
         unsigned_vector          m_ext2var;
@@ -45,13 +47,13 @@ namespace polysat {
         // removing rows from fixplex
         //
     public:
-        linear_solver(reslimit& lim):
-            m_lim(lim)
+        linear_solver(solver& s):
+            s(s) 
         {}
 
         void push();
         void pop(unsigned n); 
-        void internalize_constraint(constraint& c);
+        void new_constraint(constraint& c);
         void set_value(pvar v, rational const& value);
         void set_bound(pvar v, rational const& lo, rational const& hi);
         void activate_constraint(constraint& c);

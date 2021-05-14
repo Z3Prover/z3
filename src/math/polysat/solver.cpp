@@ -68,6 +68,7 @@ namespace polysat {
     
     solver::solver(reslimit& lim): 
         m_lim(lim),
+        m_linear_solver(*this),
         m_bdd(1000),
         m_dm(m_value_manager, m_alloc),
         m_free_vars(m_activity) {
@@ -155,6 +156,7 @@ namespace polysat {
     void solver::new_constraint(constraint* c) {
         SASSERT(c);
         LOG("New constraint: " << *c);
+        m_linear_solver.new_constraint(*c);
         m_constraints.push_back(c);
         SASSERT(!get_bv2c(c->bvar()));
         insert_bv2c(c->bvar(), c);
@@ -243,6 +245,7 @@ namespace polysat {
         m_assign_eh_history.push_back(v);
         m_trail.push_back(trail_instr_t::assign_eh_i);
         c->narrow(*this);
+        m_linear_solver.activate_constraint(*c);
     }
 
 
@@ -254,6 +257,13 @@ namespace polysat {
         push_qhead();
         while (can_propagate()) 
             propagate(m_search[m_qhead++].first);
+        switch (m_linear_solver.check()) {
+        case l_false:
+            // TODO extract conflict
+            break;
+        default:
+            break;
+        }
         SASSERT(wlist_invariant());
     }
 
@@ -282,10 +292,12 @@ namespace polysat {
     void solver::push_level() {
         ++m_level;
         m_trail.push_back(trail_instr_t::inc_level_i);
+        m_linear_solver.push();
     }
 
     void solver::pop_levels(unsigned num_levels) {
         LOG("Pop " << num_levels << " levels; current level is " << m_level);
+        m_linear_solver.pop(num_levels);
         while (num_levels > 0) {
             switch (m_trail.back()) {
             case trail_instr_t::qhead_i: {
@@ -422,6 +434,7 @@ namespace polysat {
         m_search.push_back(std::make_pair(v, val));
         m_trail.push_back(trail_instr_t::assign_i);
         m_justification[v] = j; 
+        m_linear_solver.set_value(v, val);
     }
 
     void solver::set_conflict(constraint& c) { 
@@ -777,9 +790,9 @@ namespace polysat {
         cs.append(m_constraints.size(), m_constraints.data());
         cs.append(m_redundant.size(), m_redundant.data());
         for (auto* c : cs) {
-            unsigned num_watches = 0;
+            int64_t num_watches = 0;
             for (auto const& wlist : m_watch) {
-                unsigned n = std::count(wlist.begin(), wlist.end(), c);
+                auto n = std::count(wlist.begin(), wlist.end(), c);
                 VERIFY(n <= 1);  // no duplicates in the watchlist
                 num_watches += n;
             }

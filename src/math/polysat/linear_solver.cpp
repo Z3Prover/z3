@@ -13,12 +13,13 @@ Author:
 --*/
 
 #include "math/polysat/linear_solver.h"
+#include "math/polysat/solver.h"
 
 namespace polysat {
 
     void linear_solver::push() {}
     void linear_solver::pop(unsigned n) {}
-    void linear_solver::internalize_constraint(constraint& c) {}
+    void linear_solver::new_constraint(constraint& c) {}
     void linear_solver::set_value(pvar v, rational const& value) {}
     void linear_solver::set_bound(pvar v, rational const& lo, rational const& hi) {}
     void linear_solver::activate_constraint(constraint& c) {}

@@ -24,6 +24,7 @@ Author:
 #include "math/polysat/var_constraint.h"
 #include "math/polysat/ule_constraint.h"
 #include "math/polysat/justification.h"
+#include "math/polysat/linear_solver.h"
 #include "math/polysat/trail.h"
 
 namespace polysat {
@@ -43,10 +44,12 @@ namespace polysat {
         friend class var_constraint;
         friend class ule_constraint;
         friend class forbidden_intervals;
+        friend class linear_solver;
 
         typedef ptr_vector<constraint> constraints;
 
         reslimit&                m_lim;
+        linear_solver            m_linear_solver;
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
         scoped_ptr_vector<dd::fdd> m_bits;
         dd::bdd_manager          m_bdd;
