@@ -28,10 +28,10 @@ namespace polysat {
 
     void ule_constraint::narrow(solver& s) {
         SASSERT(!is_undef());
-        LOG("Assignment: " << s.m_search);
-        auto p = lhs().subst_val(s.m_search);
+        LOG("Assignment: " << s.assignment());
+        auto p = lhs().subst_val(s.assignment());
         LOG("Substituted LHS: " << lhs() << " := " << p);
-        auto q = rhs().subst_val(s.m_search);
+        auto q = rhs().subst_val(s.assignment());
         LOG("Substituted RHS: " << rhs() << " := " << q);
 
         if (is_always_false(p, q)) {
@@ -103,14 +103,14 @@ namespace polysat {
     }
 
     bool ule_constraint::is_currently_false(solver& s) {
-        auto p = lhs().subst_val(s.m_search);
-        auto q = rhs().subst_val(s.m_search);
+        auto p = lhs().subst_val(s.assignment());
+        auto q = rhs().subst_val(s.assignment());
         return is_always_false(p, q);
     }
 
     bool ule_constraint::is_currently_true(solver& s) {
-        auto p = lhs().subst_val(s.m_search);
-        auto q = rhs().subst_val(s.m_search);
+        auto p = lhs().subst_val(s.assignment());
+        auto q = rhs().subst_val(s.assignment());
         VERIFY(!is_undef());
         if (is_positive())
             return p.is_val() && q.is_val() && p.val() <= q.val();
@@ -183,8 +183,8 @@ namespace polysat {
         SASSERT(!y_coeff.is_zero());
 
         // Concrete values of evaluable terms
-        auto e1s = e1.subst_val(s.m_search);
-        auto e2s = e2.subst_val(s.m_search);
+        auto e1s = e1.subst_val(s.assignment());
+        auto e2s = e2.subst_val(s.assignment());
         SASSERT(e1s.is_val());
         SASSERT(e2s.is_val());
 

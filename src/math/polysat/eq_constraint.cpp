@@ -33,8 +33,8 @@ namespace polysat {
 
     void eq_constraint::narrow(solver& s) {
         SASSERT(!is_undef());
-        LOG("Assignment: " << s.m_search);
-        auto q = p().subst_val(s.m_search);
+        LOG("Assignment: " << s.assignment());
+        auto q = p().subst_val(s.assignment());
         LOG("Substituted: " << p() << " := " << q);
         if (q.is_zero()) {
             if (is_positive())
@@ -88,7 +88,7 @@ namespace polysat {
     }
 
     bool eq_constraint::is_currently_false(solver& s) {
-        pdd r = p().subst_val(s.m_search);
+        pdd r = p().subst_val(s.assignment());
         if (is_positive())
             return r.is_never_zero();
         if (is_negative())
@@ -98,7 +98,7 @@ namespace polysat {
     }
 
     bool eq_constraint::is_currently_true(solver& s) {
-        pdd r = p().subst_val(s.m_search);
+        pdd r = p().subst_val(s.assignment());
         if (is_positive())
             return r.is_zero();
         if (is_negative())
@@ -191,7 +191,7 @@ namespace polysat {
         */
 
         // Concrete values of evaluable terms
-        auto e1s = e1.subst_val(s.m_search);
+        auto e1s = e1.subst_val(s.assignment());
         auto e2s = m.zero();
         SASSERT(e1s.is_val());
         SASSERT(e2s.is_val());

@@ -7,6 +7,7 @@ z3_add_component(polysat
     forbidden_intervals.cpp
     justification.cpp
     log.cpp
+    search_state.cpp
     solver.cpp
   COMPONENT_DEPENDENCIES
     util

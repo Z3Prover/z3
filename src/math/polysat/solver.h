@@ -24,6 +24,7 @@ Author:
 #include "math/polysat/var_constraint.h"
 #include "math/polysat/ule_constraint.h"
 #include "math/polysat/justification.h"
+#include "math/polysat/search_state.h"
 #include "math/polysat/trail.h"
 
 namespace polysat {
@@ -86,10 +87,10 @@ namespace polysat {
         vector<pdd>              m_vars;
         unsigned_vector          m_size;     // store size of variables.
 
-        // search state that lists assigned variables
-        vector<std::pair<pvar, rational>> m_search;
+        search_state             m_search;
+        assignment_t const& assignment() const { return m_search.assignment(); }
 
-        unsigned                 m_qhead { 0 };
+        unsigned                 m_qhead { 0 }; // next item to propagate (index into m_search)
         unsigned                 m_level { 0 };
 
         svector<trail_instr_t>   m_trail;

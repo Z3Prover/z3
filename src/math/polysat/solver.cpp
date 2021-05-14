@@ -104,7 +104,7 @@ namespace polysat {
         while (m_lim.inc()) {
             LOG_H1("Next solving loop iteration");
             LOG("Free variables: " << m_free_vars);
-            LOG("Assignments:    " << m_search);
+            LOG("Assignments:    " << assignment());
             LOG("Conflict:       " << m_conflict);
             IF_LOGGING({
                 for (pvar v = 0; v < m_viable.size(); ++v) {
@@ -252,8 +252,11 @@ namespace polysat {
 
     void solver::propagate() {
         push_qhead();
-        while (can_propagate()) 
-            propagate(m_search[m_qhead++].first);
+        while (can_propagate()) {
+            auto const& item = m_search[m_qhead++];
+            if (item.is_assignment())
+                propagate(item.var());
+        }
         SASSERT(wlist_invariant());
     }
 
@@ -308,10 +311,10 @@ namespace polysat {
                 break;
             }
             case trail_instr_t::assign_i: {
-                auto v = m_search.back().first;
+                auto v = m_search.back().var();
                 m_free_vars.unassign_var_eh(v);
                 m_justification[v] = justification::unassigned();
-                m_search.pop_back();
+                m_search.pop();
                 break;
             }
             case trail_instr_t::just_i: {
@@ -415,17 +418,17 @@ namespace polysat {
             ++m_stats.m_num_decisions;
         else 
             ++m_stats.m_num_propagations;
-        LOG("pvar " << v << " := " << val << " by " << j);
+        LOG("v" << v << " := " << val << " by " << j);
         SASSERT(is_viable(v, val));
-        SASSERT(std::all_of(m_search.begin(), m_search.end(), [v](auto p) { return p.first != v; }));
+        SASSERT(std::all_of(assignment().begin(), assignment().end(), [v](auto p) { return p.first != v; }));
         m_value[v] = val;
-        m_search.push_back(std::make_pair(v, val));
+        m_search.push_assignment(v, val);
         m_trail.push_back(trail_instr_t::assign_i);
         m_justification[v] = j; 
     }
 
     void solver::set_conflict(constraint& c) { 
-        LOG("conflict: " << c);
+        LOG("Conflict: " << c);
         SASSERT(m_conflict.empty());
         m_conflict.push_back(&c); 
     }
@@ -433,7 +436,7 @@ namespace polysat {
     void solver::set_conflict(pvar v) {
         SASSERT(m_conflict.empty());
         m_conflict.append(m_cjust[v]);
-        LOG("conflict for pvar " << v << ": " << m_conflict);
+        LOG("Conflict for v" << v << ": " << m_conflict);
         if (m_cjust[v].empty())
             m_conflict.push_back(nullptr);
     }
@@ -516,44 +519,49 @@ namespace polysat {
         }
         
         for (unsigned i = m_search.size(); i-- > 0; ) {
-            pvar v = m_search[i].first;
-            LOG_H2("Working on pvar " << v);
-            if (!is_marked(v))
-                continue;
-            justification& j = m_justification[v];
-            LOG("Justification: " << j);
-            if (j.level() <= base_level()) {
-                report_unsat();
-                return;
-            }
-            if (j.is_decision()) {
-                learn_lemma(v, lemma.detach());
-                revert_decision(v);
-                return;
-            }
-            SASSERT(j.is_propagation());
-            scoped_ptr<constraint> new_lemma = resolve(v);
-            if (!new_lemma) {
-                backtrack(i, lemma);
-                return;
-            }
-            if (new_lemma->is_always_false()) {
-                learn_lemma(v, new_lemma.get());
+            auto const& item = m_search[i];
+            if (item.is_assignment()) {
+                pvar v = item.var();
+                LOG_H2("Working on pvar " << v);
+                if (!is_marked(v))
+                    continue;
+                justification& j = m_justification[v];
+                LOG("Justification: " << j);
+                if (j.level() <= base_level()) {
+                    report_unsat();
+                    return;
+                }
+                if (j.is_decision()) {
+                    learn_lemma(v, lemma.detach());
+                    revert_decision(v);
+                    return;
+                }
+                SASSERT(j.is_propagation());
+                scoped_ptr<constraint> new_lemma = resolve(v);
+                if (!new_lemma) {
+                    backtrack(i, lemma);
+                    return;
+                }
+                if (new_lemma->is_always_false()) {
+                    learn_lemma(v, new_lemma.get());
+                    m_conflict.reset();
+                    m_conflict.push_back(new_lemma.detach());
+                    report_unsat();
+                    return;
+                }
+                if (!new_lemma->is_currently_false(*this)) {
+                    backtrack(i, lemma);
+                    return;
+                }
+                lemma = new_lemma.detach();
+                reset_marks();
+                for (auto w : lemma->vars())
+                    set_mark(w);
                 m_conflict.reset();
-                m_conflict.push_back(new_lemma.detach());
-                report_unsat();
-                return;
+                m_conflict.push_back(lemma.get());
             }
-            if (!new_lemma->is_currently_false(*this)) {
-                backtrack(i, lemma);
-                return;
-            }
-            lemma = new_lemma.detach();
-            reset_marks();
-            for (auto w : lemma->vars())
-                set_mark(w);
-            m_conflict.reset();
-            m_conflict.push_back(lemma.get());
+            else
+                NOT_IMPLEMENTED_YET();
         }
         report_unsat();
     }
@@ -561,26 +569,31 @@ namespace polysat {
     void solver::backtrack(unsigned i, scoped_ptr<constraint>& lemma) {
         add_lemma(lemma.detach());
         do {
-            auto v = m_search[i].first;
-            if (!is_marked(v))
-                continue;
-            justification& j = m_justification[v];
-            if (j.level() <= base_level()) 
-                break;
-            if (j.is_decision()) {
-                revert_decision(v);
-                return;
+            auto const& item = m_search[i];
+            if (item.is_assignment()) {
+                auto v = item.var();
+                if (!is_marked(v))
+                    continue;
+                justification& j = m_justification[v];
+                if (j.level() <= base_level())
+                    break;
+                if (j.is_decision()) {
+                    revert_decision(v);
+                    return;
+                }
+                // retrieve constraint used for propagation
+                // add variables to COI
+                SASSERT(j.is_propagation());
+                for (auto* c : m_cjust[v]) {
+                    for (auto w : c->vars())
+                        set_mark(w);
+                    m_conflict.push_back(c);
+                }
             }
-            // retrieve constraint used for propagation
-            // add variables to COI
-            SASSERT(j.is_propagation());
-            for (auto* c : m_cjust[v]) {
-                for (auto w : c->vars())
-                    set_mark(w);
-                m_conflict.push_back(c);
-            }
+            else
+                NOT_IMPLEMENTED_YET();
         }
-        while (i-- > 0);        
+        while (i-- > 0);
         report_unsat();
     }
 
@@ -734,7 +747,7 @@ namespace polysat {
     }
         
     std::ostream& solver::display(std::ostream& out) const {
-        for (auto p : m_search) {
+        for (auto p : assignment()) {
             auto v = p.first;
             auto lvl = m_justification[v].level();
             out << "v" << v << " := " << p.second << " @" << lvl << "\n";
