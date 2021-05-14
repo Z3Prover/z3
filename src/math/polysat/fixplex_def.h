@@ -157,8 +157,7 @@ namespace polysat {
         m_var_eqs.reset();
         var_t var = row2base(r);
         m_vars[var].m_is_base = false;
-        m_vars[var].lo = 0;
-        m_vars[var].hi = 0;
+        m_vars[var].set_free();
         m_rows[r.id()].m_base = null_var;
         M.del(r);
         SASSERT(M.col_begin(var) == M.col_end(var));
@@ -248,8 +247,9 @@ namespace polysat {
     lbool fixplex<Ext>::make_var_feasible(var_t x) {
         if (in_bounds(x))
             return l_true;
-        auto val = value(x);
-        numeral new_value = (lo(x) - val < val - hi(x)) ? lo(x) : hi(x) - 1;
+        if (m_vars[x].is_empty())
+            return l_false;
+        numeral new_value = m_vars[x].closest_value(value(x));
         numeral b;
         var_t y = select_pivot_core(x, new_value, b);
 
@@ -417,7 +417,6 @@ namespace polysat {
         else
             return value - hi(v) - 1;    
     }
-
 
     /**
      * The the bounds of variable v.

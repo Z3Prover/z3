@@ -109,3 +109,14 @@ mod_interval<Numeral> mod_interval<Numeral>::operator&(mod_interval const& other
         return mod_interval::empty();
     return mod_interval(l, h);
 }
+
+template<typename Numeral>
+Numeral mod_interval<Numeral>::closest_value(Numeral const& n) const {
+    if (contains(n))
+        return n;
+    if (is_empty())
+        return n;
+    if (lo - n < n - hi)
+        return lo;
+    return hi - 1;
+}

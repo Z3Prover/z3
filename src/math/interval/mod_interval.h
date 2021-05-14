@@ -61,6 +61,7 @@ public:
         if (is_free()) return out << "free";
         return out << "[" << pp(lo) << ", " << pp(hi) << "["; 
     }
+    Numeral closest_value(Numeral const& n) const;
 };
 
 template<typename Numeral>
