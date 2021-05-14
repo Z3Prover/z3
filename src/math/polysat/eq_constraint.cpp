@@ -124,7 +124,7 @@ namespace polysat {
         if (c == this)
             return nullptr;
         SASSERT(is_currently_true(s));  // TODO: might not always hold (due to similar case as in comment above?)
-        if (c->is_eq()) {
+        if (c->is_eq() && c->is_positive()) {
             pdd a = c->to_eq().p();
             pdd b = p();
             pdd r = a;
