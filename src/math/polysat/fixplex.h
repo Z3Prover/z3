@@ -59,6 +59,7 @@ namespace polysat {
             unsigned m_num_pivots;
             unsigned m_num_infeasible;
             unsigned m_num_checks;
+            unsigned m_num_approx;
             stats() { reset(); }
             void reset() {
                 memset(this, 0, sizeof(*this));
@@ -152,9 +153,7 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_row(std::ostream& out, row const& r, bool values = true);
         void collect_statistics(::statistics & st) const;
-
         row get_infeasible_row();
-
         void del_row(var_t base_var);
 
     private:
@@ -189,11 +188,11 @@ namespace polysat {
         bool is_fixed(var_t v) const { return lo(v) + 1 == hi(v); }
         bool is_valid_variable(var_t v) const { return v < m_vars.size(); }
         bool is_base(var_t x) const { return m_vars[x].m_is_base; }
-        unsigned base2row(var_t x) const { return m_vars[x].m_base2row; }
+        row base2row(var_t x) const { return row(m_vars[x].m_base2row); }
         numeral const& row2value(row const& r) const { return m_rows[r.id()].m_value; }
         numeral const& row2base_coeff(row const& r) const { return m_rows[r.id()].m_base_coeff; }
         var_t row2base(row const& r) const { return m_rows[r.id()].m_base; }
-        bool row2integral(row const& r) const { return m_rows[r.id()].m_integral; }
+        bool row_is_integral(row const& r) const { return m_rows[r.id()].m_integral; }
         void set_base_value(var_t x); 
         numeral solve_for(numeral const& row_value, numeral const& coeff);
         bool is_feasible() const;
