@@ -58,6 +58,10 @@ namespace polysat {
         virtual void narrow(solver& s) = 0;
         eq_constraint& to_eq();
         eq_constraint const& to_eq() const;
+        ule_constraint& to_ule();
+        ule_constraint const& to_ule() const;
+        var_constraint& to_bit();
+        var_constraint const& to_bit() const;
         p_dependency* dep() const { return m_dep; }
         unsigned_vector& vars() { return m_vars; }
         unsigned level() const { return m_level; }

@@ -27,34 +27,31 @@ namespace polysat {
             case trail_i::inc_level_i:
                 --n;
                 break;
-            case trail_i::add_var_i:
-                NOT_IMPLEMENTED_YET();
+            case trail_i::add_var_i: {
+                auto [v, sz] = m_rows.back();
+                --m_sz2num_vars[sz];
+                m_rows.pop_back();
                 break;
+            }
             case trail_i::set_bound_i: {
                 auto [v, sz] = m_rows.back();
                 sz2fixplex(sz).restore_bound();
                 m_rows.pop_back();
                 break;
             }
-            case trail_i::set_value_i:
-                break;
             case trail_i::add_row_i: {
                 auto [v, sz] = m_rows.back();
                 sz2fixplex(sz).del_row(v);
                 m_rows.pop_back();
                 break;
             }
-            case trail_i::activate_constraint_i:
-                // not needed?
-                NOT_IMPLEMENTED_YET();
-                break;
             default:
                 UNREACHABLE();
             }
             m_trail.pop_back();
         }
     }
-
+    
     fixplex_base& linear_solver::sz2fixplex(unsigned sz) { 
         fixplex_base* b = m_fix.get(sz, nullptr);
         if (!b) {
@@ -74,51 +71,107 @@ namespace polysat {
             m_fix.set(sz, b);
         }
         return *b;
-    }        
+    }  
+
+
+    var_t linear_solver::internalize_pdd(pdd const& p) {
+        unsigned sz = p.power_of_2();
+        linearize(p);
+        if (m_vars.size() == 1 && m_coeffs.back() == 1) 
+            return m_vars.back();
+        var_t v = fresh_var(sz);
+        m_vars.push_back(v);
+        m_coeffs.push_back(rational::power_of_two(sz) - 1);
+        sz2fixplex(sz).add_row(v, m_vars.size(), m_vars.data(), m_coeffs.data());
+        m_rows.push_back(std::make_pair(v, sz));
+        m_trail.push_back(trail_i::add_row_i);
+        return v;
+    }
+    
+    /**
+     * create the row c.p() - v == 0
+     * when equality is asserted, set range on v as v == 0 or v > 0.
+     */
+        
+    void linear_solver::new_eq(eq_constraint& c) {
+        pdd p = c.p();
+        var_t v = internalize_pdd(c.p());
+        m_bool_var2row.setx(c.bvar(), v, UINT_MAX);        
+    }
+    
+    void linear_solver::assert_eq(eq_constraint& c) {
+        var_t v = m_bool_var2row[c.bvar()];
+        pdd p = c.p();
+        unsigned sz = p.power_of_2();
+        auto& fp = sz2fixplex(sz);            
+        m_trail.push_back(trail_i::set_bound_i);
+        m_rows.push_back(std::make_pair(v, sz));
+        if (c.is_positive()) 
+            fp.set_bounds(v, rational::zero(), rational::zero());
+        else 
+            fp.set_bounds(v, rational::one(), rational::power_of_two(sz) - 1);
+    }
+
+    void linear_solver::new_le(ule_constraint& c) {
+        var_t v = internalize_pdd(c.lhs());
+        m_bool_var2row.setx(c.bvar(), v, UINT_MAX);
+        var_t w = internalize_pdd(c.rhs());
+        m_bool_var2row.setx(c.bvar(), w, UINT_MAX);
+        // todo: track both variables
+    }
+
+    void linear_solver::assert_le(ule_constraint& c) {
+        // v <= w:
+        // static constraints:
+        // - lo(v) <= lo(w)
+        // - hi(v) <= hi(w)
+        //
+        // special case for inequalities with constant bounds
+        // bounds propagation on fp, then bounds strengthening
+        // based on static constraints
+        // internal backtrack search over bounds
+        // inequality graph (with offsets)
+        // 
+    }
+
+    void linear_solver::new_bit(var_constraint& c) {
+    }
+
+    void linear_solver::assert_bit(var_constraint& c) {
+
+    }
+
 
     void linear_solver::new_constraint(constraint& c) {
         switch (c.kind()) {
-        case ckind_t::eq_t: {
-            //
-            // create the row c.p() - v == 0
-            // when equality is asserted, set range on v as v == 0 or v > 0.
-            //
-            pdd p = c.to_eq().p();
-            unsigned sz = p.power_of_2();
-            linearize(p);
-            var_t v = fresh_var(sz);
-            m_vars.push_back(v);
-            m_coeffs.push_back(rational::power_of_two(sz) - 1);
-            sz2fixplex(sz).add_row(v, m_vars.size(), m_vars.data(), m_coeffs.data());
-            m_rows.push_back(std::make_pair(v, sz));
-            m_trail.push_back(trail_i::add_row_i);
-            m_bool_var2row.setx(c.bvar(), v, UINT_MAX);
-            break;
-        }
+        case ckind_t::eq_t: 
+            new_eq(c.to_eq());
+            break;        
         case ckind_t::ule_t:
+            new_le(c.to_ule());
+            break;
         case ckind_t::bit_t:
+            new_bit(c.to_bit());
+            break;
+        default:
+            UNREACHABLE();
             break;
         }
     }
 
     void linear_solver::activate_constraint(constraint& c) {
         switch (c.kind()) {
-        case ckind_t::eq_t: {
-            var_t v = m_bool_var2row[c.bvar()];
-            pdd p = c.to_eq().p();
-            unsigned sz = p.power_of_2();
-            auto& fp = sz2fixplex(sz);
-            
-            m_trail.push_back(trail_i::set_bound_i);
-            m_rows.push_back(std::make_pair(v, sz));
-            if (c.is_positive()) 
-                fp.set_bounds(v, rational::zero(), rational::zero());
-            else 
-                fp.set_bounds(v, rational::one(), rational::power_of_two(sz) - 1);
-            break;
-        }
+        case ckind_t::eq_t: 
+            assert_eq(c.to_eq());
+            break;        
         case ckind_t::ule_t:
+            assert_le(c.to_ule());
+            break;
         case ckind_t::bit_t:
+            assert_bit(c.to_bit());            
+            break;
+        default:
+            UNREACHABLE();
             break;
         }
     }
@@ -138,28 +191,45 @@ namespace polysat {
         return 0;
     }
 
-    var_t linear_solver::fresh_var(unsigned sz) {
+    var_t linear_solver::pvar2var(unsigned sz, pvar v) {
         NOT_IMPLEMENTED_YET();
         return 0;
     }
 
+    var_t linear_solver::fresh_var(unsigned sz) {
+        m_sz2num_vars.reserve(sz + 1);
+        m_trail.push_back(trail_i::add_var_i);
+        m_rows.push_back(std::make_pair(0, sz));
+        return m_sz2num_vars[sz]++;
+    }
+
     void linear_solver::set_value(pvar v, rational const& value) {
+        unsigned sz = s.size(v);
+        auto& fp = sz2fixplex(sz);
+        var_t w = pvar2var(sz, v);
+        m_trail.push_back(trail_i::set_bound_i);
+        m_rows.push_back(std::make_pair(w, sz));
+        fp.set_value(w, value);        
     }
 
     void linear_solver::set_bound(pvar v, rational const& lo, rational const& hi) {
         unsigned sz = s.size(v);
         auto& fp = sz2fixplex(sz);
+        var_t w = pvar2var(sz, v);
         m_trail.push_back(trail_i::set_bound_i);
-        m_rows.push_back(std::make_pair(v, sz));
-        fp.set_bounds(v, lo, hi);        
+        m_rows.push_back(std::make_pair(w, sz));
+        fp.set_bounds(w, lo, hi);        
     }
     
     // check integer modular feasibility under current bounds.
     lbool linear_solver::check() { 
-        return l_undef; 
+        lbool res = l_true;
+        // loop over fp solvers that have been touched and use make_feasible.        
+        return res; 
     }
 
     void linear_solver::unsat_core(unsigned_vector& deps) {
+        NOT_IMPLEMENTED_YET();
     }
 
     // current value assigned to (linear) variable according to tableau.

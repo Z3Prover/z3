@@ -39,9 +39,7 @@ namespace polysat {
             inc_level_i,
             add_var_i,
             set_bound_i,
-            set_value_i,
-            add_row_i,
-            activate_constraint_i
+            add_row_i
         };
 
         solver&                  s;
@@ -54,14 +52,25 @@ namespace polysat {
         svector<var_t>           m_vars;
         vector<rational>         m_coeffs;
         svector<var_t>           m_bool_var2row;
+        unsigned_vector          m_sz2num_vars;
 
         fixplex_base& sz2fixplex(unsigned sz);
 
         void linearize(pdd const& p);
         var_t fresh_var(unsigned sz);
 
+
+        var_t internalize_pdd(pdd const& p);
+        void new_eq(eq_constraint& eq);
+        void new_le(ule_constraint& le);
+        void new_bit(var_constraint& vc);
+        void assert_eq(eq_constraint& eq);
+        void assert_le(ule_constraint& le);
+        void assert_bit(var_constraint& vc);
+
         // bind monomial to variable.
         var_t mono2var(unsigned sz, unsigned_vector const& m);
+        var_t pvar2var(unsigned sz, pvar v);
         unsigned_vector var2mono(unsigned sz, var_t v) { throw default_exception("nyi"); }
         //
         // TBD trail object for 

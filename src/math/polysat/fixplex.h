@@ -32,12 +32,14 @@ namespace polysat {
     typedef unsigned var_t;
 
     struct fixplex_base {
+        virtual ~fixplex_base() {}
         virtual lbool make_feasible() = 0;
         virtual void add_row(var_t base, unsigned num_vars, var_t const* vars, rational const* coeffs) = 0;
         virtual void del_row(var_t base_var) = 0;
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual void collect_statistics(::statistics & st) const = 0;
         virtual void set_bounds(var_t v, rational const& lo, rational const& hi) = 0;        
+        virtual void set_value(var_t v, rational const& val) = 0;
         virtual void restore_bound() = 0;   
     };
 
@@ -111,8 +113,8 @@ namespace polysat {
 
         struct stashed_bound : mod_interval<numeral> {
             var_t m_var;
-            stashed_bound(var_t v, numeral const& lo, numeral const& hi):
-                mod_interval<numeral>(lo, hi),
+            stashed_bound(var_t v, mod_interval<numeral> const& i):
+                mod_interval<numeral>(i),
                 m_var(v)
             {}
         };
@@ -150,7 +152,7 @@ namespace polysat {
             M(m),
             m_to_patch(1024) {}
 
-        ~fixplex();
+        ~fixplex() override;
 
         lbool make_feasible() override;
         void add_row(var_t base, unsigned num_vars, var_t const* vars, rational const* coeffs) override;
@@ -158,6 +160,7 @@ namespace polysat {
         void collect_statistics(::statistics & st) const override;
         void del_row(var_t base_var) override;
         void set_bounds(var_t v, rational const& lo, rational const& hi) override;
+        void set_value(var_t v, rational const& val) override;
         void restore_bound() override;
 
         void set_bounds(var_t v, numeral const& lo, numeral const& hi);

@@ -440,8 +440,8 @@ namespace polysat {
      * - the variable v is queued to patch if v is basic.
      */
     template<typename Ext>
-    void fixplex<Ext>::set_bounds(var_t v, numeral const& lo, numeral const& hi) {        
-        m_vars[v] = mod_interval(lo, hi);
+    void fixplex<Ext>::set_bounds(var_t v, numeral const& l, numeral const& h) {        
+        m_vars[v] = mod_interval(l, h);
         if (in_bounds(v))
             return;
         if (is_base(v)) 
@@ -454,8 +454,15 @@ namespace polysat {
     void fixplex<Ext>::set_bounds(var_t v, rational const& _lo, rational const& _hi) {
         numeral lo = m.from_rational(_lo);
         numeral hi = m.from_rational(_hi);
-        m_stashed_bounds.push_back(stashed_bound(v, lo, hi));
+        m_stashed_bounds.push_back(stashed_bound(v, m_vars[v]));
         set_bounds(v, lo, hi);
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::set_value(var_t v, rational const& _val) {
+        numeral val = m.from_rational(_val);
+        m_stashed_bounds.push_back(stashed_bound(v, m_vars[v]));
+        set_bounds(v, val, val + 1);
     }
 
     template<typename Ext>
