@@ -41,6 +41,33 @@ namespace polysat {
         return alloc(ule_constraint, lvl, bvar, sign, a, b, d);
     }
 
+
+    // To do signed comparison of bitvectors, flip the msb and do unsigned comparison:
+    //
+    //      x <=s y    <=>    x + 2^(w-1)  <=u  y + 2^(w-1)
+    //
+    // Example for bit width 3:
+    //      111  -1
+    //      110  -2
+    //      101  -3
+    //      100  -4
+    //      011   3
+    //      010   2
+    //      001   1
+    //      000   0
+    //
+    // Argument: flipping the msb swaps the negative and non-negative blocks
+    //
+    constraint* constraint::sle(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+        auto shift = rational::power_of_two(a.power_of_2() - 1);
+        return ule(lvl, bvar, sign, a + shift, b + shift, d);
+    }
+
+    constraint* constraint::slt(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+        auto shift = rational::power_of_two(a.power_of_2() - 1);
+        return ult(lvl, bvar, sign, a + shift, b + shift, d);                
+    }
+
     constraint* constraint::ult(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
         // a < b  <=>  !(b <= a)
         return ule(lvl, bvar, static_cast<csign_t>(!sign), b, a, d);

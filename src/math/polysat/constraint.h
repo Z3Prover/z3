@@ -17,7 +17,7 @@ Author:
 
 namespace polysat {
 
-    enum ckind_t { eq_t, ule_t, sle_t, bit_t };
+    enum ckind_t { eq_t, ule_t, bit_t };
     enum csign_t : bool { neg_t = false, pos_t = true };
 
     class eq_constraint;
@@ -42,10 +42,11 @@ namespace polysat {
         static constraint* viable(unsigned lvl, bool_var bvar, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d);
         static constraint* ule(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
         static constraint* ult(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        static constraint* sle(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        static constraint* slt(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
         virtual ~constraint() {}
         bool is_eq() const { return m_kind == ckind_t::eq_t; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }
-        bool is_sle() const { return m_kind == ckind_t::sle_t; }
         ckind_t kind() const { return m_kind; }
         virtual std::ostream& display(std::ostream& out) const = 0;
         bool propagate(solver& s, pvar v);

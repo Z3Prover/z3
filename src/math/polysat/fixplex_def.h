@@ -84,6 +84,14 @@ namespace polysat {
     }
 
     template<typename Ext>
+    void fixplex<Ext>::add_row(var_t base_var, unsigned num_vars, var_t const* vars, rational const* coeffs) {
+        vector<numeral> _coeffs;
+        for (unsigned i = 0; i < num_vars; ++i)
+            _coeffs.push_back(m.from_rational(coeffs[i]));
+        add_row(base_var, num_vars, vars, _coeffs.data());
+    }
+
+    template<typename Ext>
     void fixplex<Ext>::add_row(var_t base_var, unsigned num_vars, var_t const* vars, numeral const* coeffs) {
         for (unsigned i = 0; i < num_vars; ++i) 
             ensure_var(vars[i]);
@@ -440,6 +448,21 @@ namespace polysat {
             add_patch(v);
         else
             update_value(v, value2delta(v, value(v)));
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::set_bounds(var_t v, rational const& _lo, rational const& _hi) {
+        numeral lo = m.from_rational(_lo);
+        numeral hi = m.from_rational(_hi);
+        m_stashed_bounds.push_back(stashed_bound(v, lo, hi));
+        set_bounds(v, lo, hi);
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::restore_bound() {
+        auto const& b = m_stashed_bounds.back();
+        set_bounds(b.m_var, b.lo, b.hi);
+        m_stashed_bounds.pop_back();
     }
 
     /**

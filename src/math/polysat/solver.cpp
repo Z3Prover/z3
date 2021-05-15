@@ -153,13 +153,14 @@ namespace polysat {
         m_free_vars.del_var_eh(v);
     }
 
-    void solver::new_constraint(constraint* c) {
+    bool_var solver::new_constraint(constraint* c) {
         SASSERT(c);
         LOG("New constraint: " << *c);
         m_linear_solver.new_constraint(*c);
         m_constraints.push_back(c);
         SASSERT(!get_bv2c(c->bvar()));
         insert_bv2c(c->bvar(), c);
+        return c->bvar();
     }
 
     bool_var solver::new_eq(pdd const& p, unsigned dep) {
@@ -184,35 +185,17 @@ namespace polysat {
         auto non_zero = sz2bits(sz).non_zero();
         p_dependency_ref d(mk_dep(dep), m_dm);        
         constraint* c = constraint::viable(m_level, m_next_bvar++, pos_t, slack, non_zero, d);
-        new_constraint(c);
-        return c->bvar();
+        return new_constraint(c);
     }
 
     bool_var solver::new_ule(pdd const& p, pdd const& q, unsigned dep, csign_t sign) {
         p_dependency_ref d(mk_dep(dep), m_dm);
-        constraint* c = constraint::ule(m_level, m_next_bvar++, sign, p, q, d);
-        new_constraint(c);
-        return c->bvar();
+        return new_constraint(constraint::ule(m_level, m_next_bvar++, sign, p, q, d));
     }
 
     bool_var solver::new_sle(pdd const& p, pdd const& q, unsigned dep, csign_t sign) {
-        // To do signed comparison of bitvectors, flip the msb and do unsigned comparison:
-        //
-        //      x <=s y    <=>    x + 2^(w-1)  <=u  y + 2^(w-1)
-        //
-        // Example for bit width 3:
-        //      111  -1
-        //      110  -2
-        //      101  -3
-        //      100  -4
-        //      011   3
-        //      010   2
-        //      001   1
-        //      000   0
-        //
-        // Argument: flipping the msb swaps the negative and non-negative blocks
-        auto shift = rational::power_of_two(p.power_of_2() - 1);
-        return new_ule(p + shift, q + shift, dep, sign);
+        p_dependency_ref d(mk_dep(dep), m_dm);
+        return new_constraint(constraint::sle(m_level, m_next_bvar++, sign, p, q, d));
     }
 
     bool_var solver::new_ult(pdd const& p, pdd const& q, unsigned dep) {
@@ -257,6 +240,11 @@ namespace polysat {
         push_qhead();
         while (can_propagate()) 
             propagate(m_search[m_qhead++].first);
+
+        linear_propagate();
+    }
+
+    void solver::linear_propagate() {
         switch (m_linear_solver.check()) {
         case l_false:
             // TODO extract conflict

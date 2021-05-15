@@ -211,6 +211,7 @@ namespace polysat {
         void decide(pvar v);
 
         void narrow(pvar v);
+        void linear_propagate();
 
         p_dependency* mk_dep(unsigned dep) { return dep == null_dependency ? nullptr : m_dm.mk_leaf(dep); }
 
@@ -226,7 +227,7 @@ namespace polysat {
         void backjump(unsigned new_level);
         void add_lemma(constraint* c);
 
-        void new_constraint(constraint* c);
+        bool_var new_constraint(constraint* c);
 
         bool invariant();
         bool invariant(scoped_ptr_vector<constraint> const& cs);

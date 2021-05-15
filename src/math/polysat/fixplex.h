@@ -23,6 +23,7 @@ Author:
 #include "math/interval/mod_interval.h"
 #include "util/heap.h"
 #include "util/map.h"
+#include "util/rational.h"
 #include "util/lbool.h"
 #include "util/uint_set.h"
 
@@ -30,7 +31,15 @@ namespace polysat {
 
     typedef unsigned var_t;
 
-    struct fixplex_base {};
+    struct fixplex_base {
+        virtual lbool make_feasible() = 0;
+        virtual void add_row(var_t base, unsigned num_vars, var_t const* vars, rational const* coeffs) = 0;
+        virtual void del_row(var_t base_var) = 0;
+        virtual std::ostream& display(std::ostream& out) const = 0;
+        virtual void collect_statistics(::statistics & st) const = 0;
+        virtual void set_bounds(var_t v, rational const& lo, rational const& hi) = 0;        
+        virtual void restore_bound() = 0;   
+    };
 
 
     template<typename Ext>
@@ -100,6 +109,13 @@ namespace polysat {
             numeral m_base_coeff;            
         };
 
+        struct stashed_bound : mod_interval<numeral> {
+            var_t m_var;
+            stashed_bound(var_t v, numeral const& lo, numeral const& hi):
+                mod_interval<numeral>(lo, hi),
+                m_var(v)
+            {}
+        };
 
         struct fix_entry {
             var_t x;
@@ -125,6 +141,7 @@ namespace polysat {
         unsigned                    m_infeasible_var { null_var };
         unsigned_vector             m_base_vars;
         stats                       m_stats;
+        vector<stashed_bound>       m_stashed_bounds;
         map<numeral, fix_entry, typename manager::hash, typename manager::eq> m_value2fixed_var;
 
     public:
@@ -135,9 +152,17 @@ namespace polysat {
 
         ~fixplex();
 
+        lbool make_feasible() override;
+        void add_row(var_t base, unsigned num_vars, var_t const* vars, rational const* coeffs) override;
+        std::ostream& display(std::ostream& out) const override;
+        void collect_statistics(::statistics & st) const override;
+        void del_row(var_t base_var) override;
+        void set_bounds(var_t v, rational const& lo, rational const& hi) override;
+        void restore_bound() override;
 
         void set_bounds(var_t v, numeral const& lo, numeral const& hi);
         void unset_bounds(var_t v) { m_vars[v].set_free(); }
+
 
         numeral const& lo(var_t var) const { return m_vars[var].lo; }
         numeral const& hi(var_t var) const { return m_vars[var].hi; }
@@ -149,12 +174,9 @@ namespace polysat {
         void propagate_eqs();
         vector<var_eq> const& var_eqs() const { return m_var_eqs; }
         void reset_eqs() { m_var_eqs.reset(); }
-        lbool make_feasible();
+
         void add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs);
-        std::ostream& display(std::ostream& out) const;
-        void collect_statistics(::statistics & st) const;
         row get_infeasible_row();
-        void del_row(var_t base_var);
 
     private:
 
@@ -244,6 +266,7 @@ namespace polysat {
                     return a == b;
                 }
             };
+            numeral from_rational(rational const& n) { return n.get_uint64(); }
             void reset() {}
             void reset(numeral& n) { n = 0; }
             void del(numeral const& n) {}

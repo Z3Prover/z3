@@ -35,11 +35,34 @@ namespace polysat {
     class solver;
 
     class linear_solver {
+        enum trail_i {
+            inc_level_i,
+            add_var_i,
+            set_bound_i,
+            set_value_i,
+            add_row_i,
+            activate_constraint_i
+        };
+
         solver&                  s;
-        ptr_vector<fixplex_base> m_fix;
+        scoped_ptr_vector<fixplex_base> m_fix;
+        svector<trail_i>         m_trail;
+        svector<std::pair<var_t, unsigned>> m_rows; 
         unsigned_vector          m_var2ext;
         unsigned_vector          m_ext2var;
-        
+
+        svector<var_t>           m_vars;
+        vector<rational>         m_coeffs;
+        svector<var_t>           m_bool_var2row;
+
+        fixplex_base& sz2fixplex(unsigned sz);
+
+        void linearize(pdd const& p);
+        var_t fresh_var(unsigned sz);
+
+        // bind monomial to variable.
+        var_t mono2var(unsigned sz, unsigned_vector const& m);
+        unsigned_vector var2mono(unsigned sz, var_t v) { throw default_exception("nyi"); }
         //
         // TBD trail object for 
         // removing variables
