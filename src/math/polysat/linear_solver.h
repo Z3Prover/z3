@@ -51,7 +51,7 @@ namespace polysat {
 
         svector<var_t>           m_vars;
         vector<rational>         m_coeffs;
-        svector<var_t>           m_bool_var2row;
+        svector<std::pair<var_t, var_t>>           m_bool_var2row;
         unsigned_vector          m_sz2num_vars;
 
         fixplex_base& sz2fixplex(unsigned sz);

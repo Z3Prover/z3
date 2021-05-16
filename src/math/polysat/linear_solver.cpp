@@ -94,15 +94,14 @@ namespace polysat {
      */
         
     void linear_solver::new_eq(eq_constraint& c) {
-        pdd p = c.p();
         var_t v = internalize_pdd(c.p());
-        m_bool_var2row.setx(c.bvar(), v, UINT_MAX);        
+        auto pr = std::make_pair(v, v);
+        m_bool_var2row.setx(c.bvar(), pr, pr);
     }
     
     void linear_solver::assert_eq(eq_constraint& c) {
-        var_t v = m_bool_var2row[c.bvar()];
-        pdd p = c.p();
-        unsigned sz = p.power_of_2();
+        var_t v = m_bool_var2row[c.bvar()].first;
+        unsigned sz = c.p().power_of_2();
         auto& fp = sz2fixplex(sz);            
         m_trail.push_back(trail_i::set_bound_i);
         m_rows.push_back(std::make_pair(v, sz));
@@ -114,13 +113,13 @@ namespace polysat {
 
     void linear_solver::new_le(ule_constraint& c) {
         var_t v = internalize_pdd(c.lhs());
-        m_bool_var2row.setx(c.bvar(), v, UINT_MAX);
         var_t w = internalize_pdd(c.rhs());
-        m_bool_var2row.setx(c.bvar(), w, UINT_MAX);
-        // todo: track both variables
+        auto pr = std::make_pair(v, w);
+        m_bool_var2row.setx(c.bvar(), pr, pr);
     }
 
     void linear_solver::assert_le(ule_constraint& c) {
+        auto [v, w] = m_bool_var2row[c.bvar()];
         // v <= w:
         // static constraints:
         // - lo(v) <= lo(w)
@@ -192,8 +191,9 @@ namespace polysat {
     }
 
     var_t linear_solver::pvar2var(unsigned sz, pvar v) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+        unsigned_vector vars;
+        vars.push_back(v);
+        return mono2var(sz, vars);
     }
 
     var_t linear_solver::fresh_var(unsigned sz) {
