@@ -13,6 +13,7 @@ Author:
 --*/
 
 #include "math/polysat/linear_solver.h"
+#include "math/polysat/fixplex_def.h"
 #include "math/polysat/solver.h"
 
 namespace polysat {
@@ -31,6 +32,13 @@ namespace polysat {
                 auto [v, sz] = m_rows.back();
                 --m_sz2num_vars[sz];
                 m_rows.pop_back();
+                break;
+            }
+            case trail_i::add_mono_i: {
+                auto m = m_monomials.back();
+                m_mono2var.erase(m);
+                m_alloc.deallocate(m.num_vars*sizeof(unsigned), m.vars);
+                m_monomials.pop_back();
                 break;
             }
             case trail_i::set_bound_i: {
@@ -105,11 +113,12 @@ namespace polysat {
         auto& fp = sz2fixplex(sz);            
         m_trail.push_back(trail_i::set_bound_i);
         m_rows.push_back(std::make_pair(v, sz));
+        rational z(0), o(1);
         if (c.is_positive()) 
-            fp.set_bounds(v, rational::zero(), rational::zero());
+            fp.set_bounds(v, z, z);
         else 
-            fp.set_bounds(v, rational::one(), rational::power_of_two(sz) - 1);
-    }
+            fp.set_bounds(v, o, z);
+}
 
     void linear_solver::new_le(ule_constraint& c) {
         var_t v = internalize_pdd(c.lhs());
@@ -186,8 +195,17 @@ namespace polysat {
     }
 
     var_t linear_solver::mono2var(unsigned sz, unsigned_vector const& var) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+        mono_info m(sz, var.size(), var.data()), m1;
+        if (m_mono2var.find(m, m1))
+            return m1.var;
+        m.vars = static_cast<unsigned*>(m_alloc.allocate(var.size()*sizeof(unsigned)));
+        for (unsigned i = 0; i < var.size(); var.data()) 
+            m.vars[i] = var[i];
+        m.var = fresh_var(sz);
+        m_mono2var.insert(m);
+        m_monomials.push_back(m);
+        m_trail.push_back(trail_i::add_mono_i);
+        return m.var;
     }
 
     var_t linear_solver::pvar2var(unsigned sz, pvar v) {
@@ -222,9 +240,20 @@ namespace polysat {
     }
     
     // check integer modular feasibility under current bounds.
+    // and inequalities
     lbool linear_solver::check() { 
         lbool res = l_true;
-        // loop over fp solvers that have been touched and use make_feasible.        
+        for (auto* f : m_fix) {
+            if (!f)
+                continue;
+            lbool r = f->make_feasible();
+            if (r == l_false) {
+                // m_unsat_f = f;
+                return r;
+            }
+            if (r == l_undef)
+                res = l_undef;
+        }
         return res; 
     }
 

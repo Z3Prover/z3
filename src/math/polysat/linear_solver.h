@@ -25,6 +25,8 @@ Author:
 
 #pragma once
 
+#include "util/hashtable.h"
+#include "util/small_object_allocator.h"
 #include "math/polysat/fixplex.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/eq_constraint.h"
@@ -38,8 +40,38 @@ namespace polysat {
         enum trail_i {
             inc_level_i,
             add_var_i,
+            add_mono_i,
             set_bound_i,
             add_row_i
+        };
+
+        struct mono_info {
+            unsigned  sz { 0 };
+            unsigned  num_vars { 0 }; 
+            unsigned* vars { nullptr };
+            unsigned  var { 0 };            
+            mono_info(unsigned sz, unsigned num_vars, unsigned* vars):
+                sz(sz),
+                num_vars(num_vars),
+                vars(vars)
+            {}
+            mono_info() {}
+            struct hash {
+                unsigned operator()(mono_info const& i) const {
+                    // TODO
+                    return 0;
+                }
+            };
+            struct eq {
+                 bool operator()(mono_info const& a, mono_info const& b) const {
+                     if (a.num_vars != b.num_vars)
+                         return false;
+                     for (unsigned i = 0; i < a.num_vars; ++i)
+                         if (a.vars[i] != b.vars[i])
+                             return false;
+                     return a.sz == b.sz;
+                }
+            };
         };
 
         solver&                  s;
@@ -51,8 +83,12 @@ namespace polysat {
 
         svector<var_t>           m_vars;
         vector<rational>         m_coeffs;
-        svector<std::pair<var_t, var_t>>           m_bool_var2row;
+        svector<std::pair<var_t, var_t>> m_bool_var2row;
+
+        hashtable<mono_info, mono_info::hash, mono_info::eq> m_mono2var;
         unsigned_vector          m_sz2num_vars;
+        small_object_allocator   m_alloc;
+        svector<mono_info>       m_monomials;
 
         fixplex_base& sz2fixplex(unsigned sz);
 
@@ -80,7 +116,8 @@ namespace polysat {
         //
     public:
         linear_solver(solver& s):
-            s(s) 
+            s(s),
+            m_alloc("mononials")
         {}
 
         void push();
