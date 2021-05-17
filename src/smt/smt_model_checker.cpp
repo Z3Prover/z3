@@ -319,7 +319,14 @@ namespace smt {
     struct scoped_ctx_push {
         context* c;
         scoped_ctx_push(context* c): c(c) { c->push(); }
-        ~scoped_ctx_push() { c->pop(1); }
+        ~scoped_ctx_push() { 
+            try {
+                c->pop(1);
+            }
+            catch (...) {
+                ;
+            }
+        }
     };
 
     /**
