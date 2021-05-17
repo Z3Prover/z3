@@ -26,6 +26,7 @@ Author:
 #include "math/polysat/justification.h"
 #include "math/polysat/search_state.h"
 #include "math/polysat/trail.h"
+#include "math/polysat/log.h"
 
 namespace polysat {
 
@@ -54,8 +55,8 @@ namespace polysat {
         dep_value_manager        m_value_manager;
         small_object_allocator   m_alloc;
         poly_dep_manager         m_dm;
-        constraints              m_conflict;
-        constraints              m_stash_just;
+        constraints_and_clauses  m_conflict;
+        // constraints              m_stash_just;
         var_queue                m_free_vars;
         stats                    m_stats;
 
@@ -66,12 +67,15 @@ namespace polysat {
         scoped_ptr_vector<constraint>   m_constraints;
         scoped_ptr_vector<constraint>   m_redundant;
         scoped_ptr_vector<clause>       m_redundant_clauses;
+        unsigned_vector                 m_next_guess;  // for each clause, the next literal we guess upon backtracking
 
         bool_var_vector          m_disjunctive_lemma;
         bool_var_vector          m_assign_eh_history;
 
         // Map boolean variables to constraints
-        bool_var                 m_next_bvar = 2;  // TODO: later, bool vars come from external supply
+        bool_var_manager         m_bvars;
+        // TODO: move into bool_var_manager
+        bool_var                 m_next_bvar = 2;
         ptr_vector<constraint>   m_bv2constraint;
         void insert_bv2c(bool_var bv, constraint* c) { m_bv2constraint.setx(bv, c, nullptr); }
         void erase_bv2c(bool_var bv) { m_bv2constraint[bv] = nullptr; }
@@ -89,6 +93,14 @@ namespace polysat {
 
         search_state             m_search;
         assignment_t const& assignment() const { return m_search.assignment(); }
+
+        // (old, remove later)
+        // using bool_clauses = ptr_vector<bool_clause>;
+        // vector<lbool>            m_bool_value;   // value of boolean literal (indexed by literal)
+        // vector<bool_clauses>     m_bool_watch;   // watch list into clauses (indexed by literal)
+        // // scoped_ptr_vector<bool_clause>  m_bool_clauses;  // NOTE: as of now, external clauses will only be units! So this is not needed.
+        // svector<bool_lit>        m_bool_units;   // externally asserted unit clauses, via assign_eh
+        // scoped_ptr_vector<bool_clause>  m_bool_redundant;   // learned clause storage
 
         unsigned                 m_qhead { 0 }; // next item to propagate (index into m_search)
         unsigned                 m_level { 0 };
@@ -120,6 +132,7 @@ namespace polysat {
         void push_cjust(pvar v, constraint* c) {
             if (m_cjust[v].contains(c))  // TODO: better check (flag on constraint?)
                 return;
+            LOG_V("cjust[v" << v << "] += " << *c);
             m_cjust[v].push_back(c);        
             m_trail.push_back(trail_instr_t::just_i);
             m_cjust_trail.push_back(v);
@@ -202,7 +215,7 @@ namespace polysat {
 
         unsigned                 m_conflict_level { 0 };
 
-        constraint* resolve(pvar v);
+        scoped_clause resolve(pvar v);
 
         bool can_decide() const { return !m_free_vars.empty(); }
         void decide();
@@ -217,10 +230,12 @@ namespace polysat {
         bool at_base_level() const;
         unsigned base_level() const;
 
-        void resolve_conflict();            
-        void backtrack(unsigned i, scoped_ptr<constraint>& lemma);
+        void resolve_conflict();
+        void resolve_conflict_clause(scoped_clause& lemma);
+        void backtrack(unsigned i, scoped_clause& lemma);
         void report_unsat();
-        void revert_decision(pvar v);
+        void revert_decision(pvar v, scoped_clause& reason);
+        void revert_boolean_decision(bool_lit lit, scoped_clause& reason);
         void learn_lemma(pvar v, constraint* c);
         void backjump(unsigned new_level);
         void add_lemma(constraint* c);

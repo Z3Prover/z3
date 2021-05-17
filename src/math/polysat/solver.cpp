@@ -459,68 +459,52 @@ namespace polysat {
 
         SASSERT(is_conflict());
 
-        if (m_conflict.size() == 1 && !m_conflict[0]) {
+        if (m_conflict.units().size() == 1 && !m_conflict.units()[0]) {
             report_unsat();
             return;
         }
 
         pvar conflict_var = null_var;
-        scoped_ptr<constraint> lemma;
+        scoped_clause lemma;
         reset_marks();
-        for (constraint* c : m_conflict) 
-            for (auto v : c->vars()) {
-                set_mark(v);
-                if (!has_viable(v)) {
-                    SASSERT(conflict_var == null_var || conflict_var == v);  // at most one variable can be empty
-                    conflict_var = v;
-                }
+        for (auto v : m_conflict.vars()) {
+            set_mark(v);
+            if (!has_viable(v)) {
+                SASSERT(conflict_var == null_var || conflict_var == v);  // at most one variable can be empty
+                conflict_var = v;
             }
+        }
 
-        if (conflict_var != null_var) {
+        if (m_conflict.clauses().empty() && conflict_var != null_var) {
             LOG_H2("Conflict due to empty viable set for pvar " << conflict_var);
             scoped_clause new_lemma;
-            if (forbidden_intervals::explain(*this, m_conflict, conflict_var, new_lemma)) {
+            if (forbidden_intervals::explain(*this, m_conflict.units(), conflict_var, new_lemma)) {
                 SASSERT(new_lemma.clause);
                 clause& cl = *new_lemma.clause;
                 LOG_H3("Lemma from forbidden intervals (size: " << cl.size() << ")");
-                for (constraint* c : cl)
+                for (constraint* c : cl) {
                     LOG("Literal: " << *c);
-                SASSERT(cl.size() > 0);
-                if (cl.size() == 1) {
-                    NOT_IMPLEMENTED_YET();
-                    // TODO: lemma = cl.detach()[0];
-                    SASSERT(lemma);
-                    lemma->assign_eh(true);
-                    reset_marks();
-                    for (auto v : lemma->vars())
+                    for (auto v : c->vars())
                         set_mark(v);
-                    m_conflict.reset();
-                    m_conflict.push_back(lemma.get());
-                    // continue normally
                 }
-                else {
-                    SASSERT(m_disjunctive_lemma.empty());
-                    reset_marks();
-                    for (constraint* c : cl) {
-                        m_disjunctive_lemma.push_back(c->bvar());
-                        insert_bv2c(c->bvar(), c);
-                        for (auto v : c->vars())
-                            set_mark(v);
-                    }
-                    for (constraint* c : new_lemma.constraint_storage.detach())
-                        insert_constraint(m_redundant, c);
-                    m_redundant_clauses.push_back(new_lemma.clause.detach());
-                    backtrack(m_search.size()-1, lemma);
-                    SASSERT(pending_disjunctive_lemma());
-                    m_conflict.reset();
-                    return;
-                }
+                SASSERT(cl.size() > 0);
+                reset_marks();
+                lemma = std::move(new_lemma);
+                m_conflict.reset();
+                /*
+                if (lemma.clause->size() == 1)
+                    m_conflict.units().push_back((*lemma.clause)[0]);
+                else
+                    m_conflict.clauses().push_back(lemma.clause.get());
+                */
+                m_conflict.push_back(lemma.clause.get());
             }
         }
         
         for (unsigned i = m_search.size(); i-- > 0; ) {
             auto const& item = m_search[i];
             if (item.is_assignment()) {
+                // Resolve over variable assignment
                 pvar v = item.var();
                 LOG_H2("Working on pvar " << v);
                 if (!is_marked(v))
@@ -532,45 +516,66 @@ namespace polysat {
                     return;
                 }
                 if (j.is_decision()) {
-                    learn_lemma(v, lemma.detach());
-                    revert_decision(v);
+                    // learn_lemma(v, lemma.detach());  // TODO: done by revert_decision
+                    revert_decision(v, lemma);
                     return;
                 }
                 SASSERT(j.is_propagation());
-                scoped_ptr<constraint> new_lemma = resolve(v);
+                scoped_clause new_lemma = resolve(v);
                 if (!new_lemma) {
                     backtrack(i, lemma);
                     return;
                 }
-                if (new_lemma->is_always_false()) {
-                    learn_lemma(v, new_lemma.get());
+                if (new_lemma.is_always_false()) {
+                    clause* cl = new_lemma.get();
+                    // learn_lemma(v, new_lemma.get());  // TODO: reactivate (will have to detach)
                     m_conflict.reset();
-                    m_conflict.push_back(new_lemma.detach());
+                    m_conflict.push_back(cl);
                     report_unsat();
                     return;
                 }
-                if (!new_lemma->is_currently_false(*this)) {
+                if (!new_lemma.is_currently_false(*this)) {
                     backtrack(i, lemma);
                     return;
                 }
-                lemma = new_lemma.detach();
+                lemma = std::move(new_lemma);
                 reset_marks();
-                for (auto w : lemma->vars())
-                    set_mark(w);
+                for (auto lit : lemma.clause->literals())
+                    for (auto w : lit->vars())
+                        set_mark(w);
                 m_conflict.reset();
                 m_conflict.push_back(lemma.get());
             }
-            else
+            else {
+                // Resolve over boolean literal
+                SASSERT(item.is_boolean());
+                bool_lit const lit = item.lit();
+                bool_var const var = lit.var();
+                if (!m_bvars.is_marked(var))
+                    continue;
+                if (m_bvars.level(var) <= base_level()) {
+                    report_unsat();
+                    return;
+                }
+                if (m_bvars.is_decision(var)) {
+                    revert_boolean_decision(lit, lemma);
+                    return;
+                }
+                SASSERT(m_bvars.is_propagation(var));
+                clause* other = m_bvars.reason(var);
+                // TODO: boolean resolution
                 NOT_IMPLEMENTED_YET();
+            }
         }
         report_unsat();
     }
 
-    void solver::backtrack(unsigned i, scoped_ptr<constraint>& lemma) {
-        add_lemma(lemma.detach());
+    void solver::backtrack(unsigned i, scoped_clause& lemma) {
         do {
+            SASSERT(i > base_level());  // don't backtrack beyond base level; otherwise user scope might be destroyed
             auto const& item = m_search[i];
             if (item.is_assignment()) {
+                // Backtrack over variable assignment
                 auto v = item.var();
                 if (!is_marked(v))
                     continue;
@@ -578,7 +583,7 @@ namespace polysat {
                 if (j.level() <= base_level())
                     break;
                 if (j.is_decision()) {
-                    revert_decision(v);
+                    revert_decision(v, lemma);
                     return;
                 }
                 // retrieve constraint used for propagation
@@ -587,13 +592,33 @@ namespace polysat {
                 for (auto* c : m_cjust[v]) {
                     for (auto w : c->vars())
                         set_mark(w);
-                    m_conflict.push_back(c);
+                    m_conflict.units().push_back(c);
                 }
             }
-            else
+            else {
+                // Backtrack over boolean literal
+                SASSERT(item.is_boolean());
+                bool_lit lit = item.lit();
+                bool_var var = lit.var();
+                SASSERT(m_bvars.is_assigned(var));
+                if (!m_bvars.is_marked(var))
+                    continue;
+                // NOTE: currently, we should never reach this point (but check)
+                UNREACHABLE();
+
+                if (m_bvars.level(var) <= base_level())
+                    break;
+                if (m_bvars.is_decision(var)) {
+                    revert_boolean_decision(lit, lemma);
+                    return;
+                }
+                SASSERT(m_bvars.is_propagation(var));
+                clause* other = m_bvars.reason(var);
                 NOT_IMPLEMENTED_YET();
+            }
         }
-        while (i-- > 0);
+        while (i-- > 0);  // TODO: should that be base_level() instead of 0? we might destroy user scopes otherwise...
+        // TODO: learn lemma
         report_unsat();
     }
 
@@ -605,10 +630,11 @@ namespace polysat {
     void solver::unsat_core(unsigned_vector& deps) {
         deps.reset();
         p_dependency_ref conflict_dep(m_dm);
-        for (auto* c : m_conflict) {
+        for (auto* c : m_conflict.units())
             if (c)
                 conflict_dep = m_dm.mk_join(c->dep(), conflict_dep);
-        }
+        for (auto* c : m_conflict.clauses())
+            conflict_dep = m_dm.mk_join(c->dep(), conflict_dep);
         m_dm.linearize(conflict_dep, deps);
     }
 
@@ -639,7 +665,7 @@ namespace polysat {
      * In general form it can rely on factoring.
      * Root finding can further prune viable.
      */
-    void solver::revert_decision(pvar v) {
+    void solver::revert_decision(pvar v, scoped_clause& reason) {
         rational val = m_value[v];
         LOG_H3("Reverting decision: pvar " << v << " -> " << val);
         SASSERT(m_justification[v].is_decision());
@@ -648,12 +674,15 @@ namespace polysat {
         backjump(m_justification[v].level()-1);
         // Since decision "v -> val" caused a conflict, we may keep all
         // viability restrictions on v and additionally exclude val.
+        // TODO: viability restrictions on 'v' must have happened before decision on 'v'. Do we really need to save/restore m_viable here?
+        SASSERT(m_viable[v] == viable);  // check this with assertion
+        SASSERT(m_cjust[v] == just);  // check this with assertion
         push_viable(v);
         m_viable[v] = viable;
         add_non_viable(v, val);
         for (unsigned i = m_cjust[v].size(); i < just.size(); ++i) 
             push_cjust(v, just[i]);
-        for (constraint* c : m_conflict) {
+        for (constraint* c : m_conflict.units()) {
             // Add the conflict as justification for the exclusion of 'val'
             push_cjust(v, c);
             // NOTE: in general, narrow may change the conflict.
@@ -661,6 +690,7 @@ namespace polysat {
             c->narrow(*this);
         }
         m_conflict.reset();
+        // TODO: learn lemma!
         narrow(v);
         if (m_justification[v].is_unassigned()) {
             m_free_vars.del_var_eh(v);
@@ -678,16 +708,19 @@ namespace polysat {
     /**
      * Return residue of superposing p and q with respect to v.
      */
-    constraint* solver::resolve(pvar v) {
+    scoped_clause solver::resolve(pvar v) {
+        scoped_clause result;
         SASSERT(!m_cjust[v].empty());
         SASSERT(m_justification[v].is_propagation());
         LOG("resolve pvar " << v);
         if (m_cjust[v].size() != 1)
-            return nullptr;
+            return result;
         constraint* d = m_cjust[v].back();
         constraint* res = d->resolve(*this, v);
         LOG("resolved: " << show_deref(res));
-        return res;
+        result.clause = clause::unit(res);
+        result.constraint_storage.push_back(res);
+        return result;
     }
 
     /**
