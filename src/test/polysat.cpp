@@ -361,6 +361,7 @@ namespace polysat {
         auto elastic1 = s.var(s.add_var(bw));
         auto elastic2 = s.var(s.add_var(bw));
         auto err = s.var(s.add_var(bw));
+        auto zero = a - a;
 
         auto rem1 = s.var(s.add_var(bw));
         auto quot2 = s.var(s.add_var(bw));
@@ -371,35 +372,43 @@ namespace polysat {
 
         s.add_diseq(elastic1);
 
-        // tb1 = (v * base1) / elastic1;
+        // division: tb1 = (v * base1) / elastic1;
         s.add_eq((tb1 * elastic1) + rem1 - (v * base1));
+        s.add_ult(rem1, elastic1);
+        // s.add_mul_noofl(tb1, elastic1); TODO
 
-        // quot2 = (a * base1) / elastic1
+        // division: quot2 = (a * base1) / elastic1
         s.add_eq((quot2 * elastic1) + rem2 - (a * base1));
+        s.add_ult(rem2, elastic1);
+        // s.add_mul_noofl(quot2, elastic1); TODO
 
         s.add_eq(base1 + quot2 - base2);
 
         s.add_eq(elastic1 + a - elastic2);
 
-        // tb2 = ((v * base2) / elastic2);
+        // division: tb2 = ((v * base2) / elastic2);
         s.add_eq((tb2 * elastic2) + rem3 - (v * base2));
+        s.add_ult(rem3, elastic2);
+        // s.add_mul_noofl(tb2, elastic2); TODO
 
-        // quot4 = v / (elastic1 + a);
-        s.add_eq((quot4 * (elastic1 + a)) + rem4 - v);
+        // division: quot4 = v / elastic2;
+        s.add_eq((quot4 * elastic2) + rem4 - v);
+        s.add_ult(rem4, elastic2);
+        // s.add_mul_noofl(quot4, elastic2); TODO
 
         s.add_eq(quot4 + 1 - err);
 
-        push()
+        s.push();
         s.add_ult(tb1, tb2);
         s.check();
         s.expect_unsat();
-        pop()
+        s.pop();
 
-        push()
+        s.push();
         s.add_ult(tb1 + err, tb2);
         s.check();
         s.expect_unsat();
-        pop()
+        s.pop();
     }
 
     // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
