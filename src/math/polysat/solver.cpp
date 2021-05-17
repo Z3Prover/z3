@@ -354,7 +354,7 @@ namespace polysat {
     }
 
     void solver::add_watch(constraint &c, pvar v) {
-        LOG("watching v" << v << " of constraint " << c);
+        LOG("Watching v" << v << " in constraint " << c);
         m_watch[v].push_back(&c);
     }
 
@@ -387,23 +387,21 @@ namespace polysat {
     }
 
     void solver::decide(pvar v) {
+        LOG("Decide v" << v);
         IF_LOGGING(log_viable(v));
         rational val;
         switch (find_viable(v, val)) {
         case dd::find_t::empty:
-            LOG("Conflict: no value for pvar " << v);
             // NOTE: all such cases should be discovered elsewhere (e.g., during propagation/narrowing)
             //       (fail here in debug mode so we notice if we miss some)
             DEBUG_CODE( UNREACHABLE(); );
             set_conflict(v);
             break;
         case dd::find_t::singleton:
-            LOG("Propagation: pvar " << v << " := " << val << " (due to unique value)");
             // NOTE: this case may happen legitimately if all other possibilities were excluded by brute force search
             assign_core(v, val, justification::propagation(m_level));
             break;
         case dd::find_t::multiple:
-            LOG("Decision: pvar " << v << " := " << val);
             push_level();
             assign_core(v, val, justification::decision(m_level));
             break;
@@ -426,16 +424,16 @@ namespace polysat {
 
     void solver::set_conflict(constraint& c) { 
         LOG("Conflict: " << c);
-        SASSERT(m_conflict.empty());
+        SASSERT(!is_conflict());
         m_conflict.push_back(&c); 
     }
 
     void solver::set_conflict(pvar v) {
-        SASSERT(m_conflict.empty());
+        SASSERT(!is_conflict());
         m_conflict.append(m_cjust[v]);
-        LOG("Conflict for v" << v << ": " << m_conflict);
         if (m_cjust[v].empty())
             m_conflict.push_back(nullptr);
+        LOG("Conflict for v" << v << ": " << m_conflict);
     }
 
         
@@ -459,7 +457,7 @@ namespace polysat {
         LOG_H2("Resolve conflict");
         ++m_stats.m_num_conflicts;
 
-        SASSERT(!m_conflict.empty());
+        SASSERT(is_conflict());
 
         if (m_conflict.size() == 1 && !m_conflict[0]) {
             report_unsat();
