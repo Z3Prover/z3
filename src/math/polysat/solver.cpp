@@ -161,8 +161,7 @@ namespace polysat {
     }
 
     bool_var solver::new_eq(pdd const& p, unsigned dep) {
-        p_dependency_ref d(mk_dep(dep), m_dm);
-        constraint* c = constraint::eq(m_level, m_next_bvar++, pos_t, p, d);
+        constraint* c = constraint::eq(m_level, m_next_bvar++, pos_t, p, mk_dep_ref(dep));
         new_constraint(c);
         return c->bvar();
     }
@@ -180,15 +179,13 @@ namespace polysat {
         auto q = p + var(slack);
         add_eq(q, dep);
         auto non_zero = sz2bits(sz).non_zero();
-        p_dependency_ref d(mk_dep(dep), m_dm);        
-        constraint* c = constraint::viable(m_level, m_next_bvar++, pos_t, slack, non_zero, d);
+        constraint* c = constraint::viable(m_level, m_next_bvar++, pos_t, slack, non_zero, mk_dep_ref(dep));
         new_constraint(c);
         return c->bvar();
     }
 
     bool_var solver::new_ule(pdd const& p, pdd const& q, unsigned dep, csign_t sign) {
-        p_dependency_ref d(mk_dep(dep), m_dm);
-        constraint* c = constraint::ule(m_level, m_next_bvar++, sign, p, q, d);
+        constraint* c = constraint::ule(m_level, m_next_bvar++, sign, p, q, mk_dep_ref(dep));
         new_constraint(c);
         return c->bvar();
     }
