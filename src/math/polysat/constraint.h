@@ -80,29 +80,44 @@ namespace polysat {
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
 
     class clause {
-        scoped_ptr_vector<constraint> m_literals;
+        unsigned m_level;
+        p_dependency_ref m_dep;
+        ptr_vector<constraint> m_literals;
+
+        /* TODO: embed literals to save an indirection?
+        unsigned m_num_literals;
+        constraint* m_literals[0];
+
+        static size_t object_size(unsigned m_num_literals) {
+            return sizeof(clause) + m_num_literals * sizeof(constraint*);
+        }
+        */
+
+        clause(unsigned lvl, p_dependency_ref const& d, ptr_vector<constraint> const& literals):
+            m_level(lvl), m_dep(d), m_literals(literals)
+        {
+            SASSERT(std::all_of(m_literals.begin(), m_literals.end(),
+                [this](constraint *c) {
+                    return (c != nullptr) && (c->level() <= level());
+                }));
+        }
+
     public:
-        clause() {}
-        clause(scoped_ptr<constraint>&& c) {
-            SASSERT(c);
-            m_literals.push_back(c.detach());
-        }
-        clause(scoped_ptr_vector<constraint>&& literals): m_literals(std::move(literals)) {
-            SASSERT(std::all_of(m_literals.begin(), m_literals.end(), [](constraint* c) { return c != nullptr; }));
-            SASSERT(empty() || std::all_of(m_literals.begin(), m_literals.end(), [this](constraint* c) { return c->level() == level(); }));
-        }
+        static clause* from_literals(unsigned lvl, p_dependency_ref const& d, ptr_vector<constraint> const& literals);
+
+        ptr_vector<constraint> const literals() const { return m_literals; }
+        p_dependency* dep() const { return m_dep; }
+        unsigned level() const { return m_level; }
 
         bool empty() const { return m_literals.empty(); }
         unsigned size() const { return m_literals.size(); }
         constraint* operator[](unsigned idx) const { return m_literals[idx]; }
 
-        using const_iterator = typename scoped_ptr_vector<constraint>::const_iterator;
+        using const_iterator = typename ptr_vector<constraint>::const_iterator;
         const_iterator begin() const { return m_literals.begin(); }
         const_iterator end() const { return m_literals.end(); }
-
-        ptr_vector<constraint> detach() { return m_literals.detach(); }
-
-        unsigned level() const { SASSERT(!empty()); return m_literals[0]->level(); }
     };
+
+
 
 }

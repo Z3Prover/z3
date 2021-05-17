@@ -62,7 +62,7 @@ namespace polysat {
         return true;
     }
 
-    bool forbidden_intervals::explain(solver& s, ptr_vector<constraint> const& conflict, pvar v, clause& out_lemma) {
+    bool forbidden_intervals::explain(solver& s, ptr_vector<constraint> const& conflict, pvar v, scoped_ptr<clause>& out_lemma, scoped_ptr_vector<constraint>& out_constraints_storage) {
 
         // Extract forbidden intervals from conflicting constraints
         vector<fi_record> records;
@@ -99,7 +99,13 @@ namespace polysat {
             // => the side conditions of that interval are enough to produce a conflict
             auto& full_record = records.back();
             SASSERT(full_record.interval.is_full());
-            out_lemma = std::move(full_record.neg_cond);
+            ptr_vector<constraint> literals;
+            if (full_record.neg_cond) {
+                literals.push_back(full_record.neg_cond.get());
+                out_constraints_storage.push_back(full_record.neg_cond.detach());
+            }
+            p_dependency_ref d(full_record.src->dep(), s.m_dm);
+            out_lemma = clause::from_literals(full_record.src->level(), d, literals);
             return true;
         }
 
@@ -134,7 +140,7 @@ namespace polysat {
         // - the upper bound of each interval is contained in the next interval,
         // then the forbidden intervals cover the whole domain and we have a conflict.
         // We learn the negation of this conjunction.
-        scoped_ptr_vector<constraint> literals;
+        ptr_vector<constraint> literals;
         for (unsigned seq_i = seq.size(); seq_i-- > 0; ) {
             unsigned const i = seq[seq_i];
             unsigned const next_i = seq[(seq_i+1) % seq.size()];
@@ -151,11 +157,14 @@ namespace polysat {
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
             scoped_ptr<constraint>& neg_cond = records[i].neg_cond;
-            if (neg_cond)
-                literals.push_back(neg_cond.detach());
+            if (neg_cond) {
+                literals.push_back(neg_cond.get());
+                out_constraints_storage.push_back(neg_cond.detach());
+            }
         }
 
-        out_lemma = std::move(literals);
+        // TODO: Lemma must contain all redundant constraints from 'conflict'
+        out_lemma = clause::from_literals(lemma_lvl, lemma_dep, literals);
         return true;
     }
 
