@@ -74,4 +74,7 @@ namespace polysat {
         narrow(s);
     }
 
+    clause* clause::from_literals(unsigned lvl, p_dependency_ref const& d, ptr_vector<constraint> const& literals) {
+        return alloc(clause, lvl, d, literals);
+    }
 }

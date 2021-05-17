@@ -65,7 +65,7 @@ namespace polysat {
         // Per constraint state
         scoped_ptr_vector<constraint>   m_constraints;
         scoped_ptr_vector<constraint>   m_redundant;
-        vector<clause>                  m_redundant_clauses;
+        scoped_ptr_vector<clause>       m_redundant_clauses;
 
         bool_var_vector          m_disjunctive_lemma;
         bool_var_vector          m_assign_eh_history;
@@ -226,9 +226,10 @@ namespace polysat {
         void add_lemma(constraint* c);
 
         void new_constraint(constraint* c);
+        static void insert_constraint(scoped_ptr_vector<constraint>& cs, constraint* c);
 
         bool invariant();
-        bool invariant(scoped_ptr_vector<constraint> const& cs);
+        static bool invariant(scoped_ptr_vector<constraint> const& cs);
         bool wlist_invariant();
 
     public:

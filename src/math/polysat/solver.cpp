@@ -480,14 +480,17 @@ namespace polysat {
 
         if (conflict_var != null_var) {
             LOG_H2("Conflict due to empty viable set for pvar " << conflict_var);
-            clause new_lemma;
+            scoped_clause new_lemma;
             if (forbidden_intervals::explain(*this, m_conflict, conflict_var, new_lemma)) {
-                LOG_H3("Lemma from forbidden intervals (size: " << new_lemma.size() << ")");
-                for (constraint* c : new_lemma)
+                SASSERT(new_lemma.clause);
+                clause& cl = *new_lemma.clause;
+                LOG_H3("Lemma from forbidden intervals (size: " << cl.size() << ")");
+                for (constraint* c : cl)
                     LOG("Literal: " << *c);
-                SASSERT(new_lemma.size() > 0);
-                if (new_lemma.size() == 1) {
-                    lemma = new_lemma.detach()[0];
+                SASSERT(cl.size() > 0);
+                if (cl.size() == 1) {
+                    NOT_IMPLEMENTED_YET();
+                    // TODO: lemma = cl.detach()[0];
                     SASSERT(lemma);
                     lemma->assign_eh(true);
                     reset_marks();
@@ -500,13 +503,15 @@ namespace polysat {
                 else {
                     SASSERT(m_disjunctive_lemma.empty());
                     reset_marks();
-                    for (constraint* c : new_lemma) {
+                    for (constraint* c : cl) {
                         m_disjunctive_lemma.push_back(c->bvar());
                         insert_bv2c(c->bvar(), c);
                         for (auto v : c->vars())
                             set_mark(v);
                     }
-                    m_redundant_clauses.push_back(std::move(new_lemma));
+                    for (constraint* c : new_lemma.constraint_storage.detach())
+                        insert_constraint(m_redundant, c);
+                    m_redundant_clauses.push_back(new_lemma.clause.detach());
                     backtrack(m_search.size()-1, lemma);
                     SASSERT(pending_disjunctive_lemma());
                     m_conflict.reset();
@@ -702,15 +707,19 @@ namespace polysat {
         SASSERT(!get_bv2c(c->bvar()));
         insert_bv2c(c->bvar(), c);
         add_watch(*c);
-        m_redundant.push_back(c);
-        for (unsigned i = m_redundant.size() - 1; i-- > 0; ) {
-            auto* c1 = m_redundant[i + 1];
-            auto* c2 = m_redundant[i];
+        insert_constraint(m_redundant, c);
+    }
+
+    void solver::insert_constraint(scoped_ptr_vector<constraint>& cs, constraint* c) {
+        cs.push_back(c);
+        for (unsigned i = cs.size() - 1; i-- > 0; ) {
+            auto* c1 = cs[i + 1];
+            auto* c2 = cs[i];
             if (c1->level() >= c2->level())
                 break;
-            m_redundant.swap(i, i + 1);
+            cs.swap(i, i + 1);
         }
-        SASSERT(invariant(m_redundant)); 
+        SASSERT(invariant(cs)); 
     }
     
     void solver::reset_marks() {
