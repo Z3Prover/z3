@@ -61,7 +61,7 @@ namespace lp {
             return true;
         const lar_term* t = lra.terms()[i];
         impq delta = get_cube_delta_for_term(*t);
-        TRACE("cube", lra.print_term_as_indices(*t, tout); tout << ", delta = " << delta;);
+        TRACE("cube", lra.print_term_as_indices(*t, tout); tout << ", delta = " << delta << "\n";);
         if (is_zero(delta))
             return true;
         return lra.tighten_term_bounds_by_delta(tv::term(i), delta);

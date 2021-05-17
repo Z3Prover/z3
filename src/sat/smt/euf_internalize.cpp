@@ -141,8 +141,7 @@ namespace euf {
         }
 
         m_bool_var2expr.reserve(v + 1, nullptr);
-        if (m_bool_var2expr[v]) {
-            SASSERT(m_egraph.find(e));
+        if (m_bool_var2expr[v] && m_egraph.find(e)) {
             SASSERT(m_egraph.find(e)->bool_var() == v);
             return lit;
         }
@@ -158,6 +157,8 @@ namespace euf {
             m_egraph.set_merge_enabled(n, false);
         if (!si.is_bool_op(e))
             track_relevancy(lit.var());
+        if (s().value(lit) != l_undef) 
+            m_egraph.set_value(n, s().value(lit));
         return lit;
     }
 

@@ -4096,7 +4096,7 @@ namespace polynomial {
         // select a new random value in GF(p) that is not in vals, and store it in r
         void peek_fresh(scoped_numeral_vector const & vals, unsigned p, scoped_numeral & r) {
             SASSERT(vals.size() < p); // otherwise we can't keep the fresh value
-            unsigned sz = vals.size();
+            auto sz = vals.size();
             while (true) {
                 m().set(r, rand() % p);
                 // check if fresh value...
@@ -6240,7 +6240,7 @@ namespace polynomial {
             }
 
             void reset() {
-                unsigned sz = m_xs.size();
+                auto sz = m_xs.size();
                 for (unsigned i = 0; i < sz; i++) {
                     m_max_degree[m_xs[i]] = 0;
                 }

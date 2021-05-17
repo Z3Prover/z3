@@ -58,28 +58,28 @@ public:
     ref_vector_core(ref_vector_core &&) noexcept = default;
     
     ~ref_vector_core() {
-        dec_range_ref(m_nodes.begin(), m_nodes.end());
+        dec_range_ref(m_nodes.data(), m_nodes.data() + m_nodes.size());
     }
     
     void reset() {
-        dec_range_ref(m_nodes.begin(), m_nodes.end());
+        dec_range_ref(m_nodes.data(), m_nodes.data() + m_nodes.size());
         m_nodes.reset();
     }
 
     void finalize() {
-        dec_range_ref(m_nodes.begin(), m_nodes.end());
+        dec_range_ref(m_nodes.data(), m_nodes.data() + m_nodes.size());
         m_nodes.finalize();
     }
 
     void resize(unsigned sz) {
         if (sz < m_nodes.size())
-            dec_range_ref(m_nodes.begin() + sz, m_nodes.end());
+            dec_range_ref(m_nodes.data() + sz, m_nodes.data() + m_nodes.size());
         m_nodes.resize(sz);
     }
 
     void resize(unsigned sz, T * d) {
         if (sz < m_nodes.size()) {
-            dec_range_ref(m_nodes.begin() + sz, m_nodes.end());
+            dec_range_ref(m_nodes.data() + sz, m_nodes.data() + m_nodes.size());
             m_nodes.shrink(sz); 
         }
         else {
@@ -130,11 +130,11 @@ public:
 
     T * get(unsigned idx, T * d) const { return m_nodes.get(idx, d); }
 
-    T * const * data() const { return m_nodes.begin(); }
+    T * const * data() const { return m_nodes.data(); }
 
     typedef T* const* iterator;
 
-    T ** data() { return m_nodes.begin(); }
+    T ** data() { return m_nodes.data(); }
 
     unsigned hash() const {
         unsigned sz = size();

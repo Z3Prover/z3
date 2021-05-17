@@ -336,8 +336,13 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
     //
     quantifier* lam = nullptr;
     for (unsigned i = 0; i < num_args; ++i) {
-        if (is_lambda(args[i])) {
+        if (is_lambda(args[i]))
             lam = to_quantifier(args[i]);
+        else if (m_util.is_const(args[i]))
+            continue;
+        else {
+            lam = nullptr;
+            break;
         }
     }
     if (lam) {
@@ -350,15 +355,6 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
             else if (is_lambda(a)) {
                 lam = to_quantifier(a);
                 args1.push_back(lam->get_expr());
-            }
-            else {
-                expr_ref_vector sel(m());
-                sel.push_back(a);
-                unsigned n = lam->get_num_decls();
-                for (unsigned i = 0; i < n; ++i) {
-                    sel.push_back(m().mk_var(n - i - 1, lam->get_decl_sort(i)));
-                }
-                args1.push_back(m_util.mk_select(sel.size(), sel.data()));
             }
         }
         result = m().mk_app(f, args1.size(), args1.data());

@@ -24,8 +24,8 @@ Author:
 #include "math/polysat/var_constraint.h"
 #include "math/polysat/ule_constraint.h"
 #include "math/polysat/justification.h"
+#include "math/polysat/linear_solver.h"
 #include "math/polysat/trail.h"
-#include "math/polysat/fixplex.h"
 
 namespace polysat {
 
@@ -39,17 +39,20 @@ namespace polysat {
             stats() { reset(); }
         };
 
+        friend class constraint;
         friend class eq_constraint;
         friend class var_constraint;
         friend class ule_constraint;
+        friend class forbidden_intervals;
+        friend class linear_solver;
 
         typedef ptr_vector<constraint> constraints;
 
         reslimit&                m_lim;
+        linear_solver            m_linear_solver;
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
         scoped_ptr_vector<dd::fdd> m_bits;
         dd::bdd_manager          m_bdd;
-        fixplex<uint64_ext>      m_fixplex;
         dep_value_manager        m_value_manager;
         small_object_allocator   m_alloc;
         poly_dep_manager         m_dm;
@@ -64,6 +67,10 @@ namespace polysat {
         // Per constraint state
         scoped_ptr_vector<constraint>   m_constraints;
         scoped_ptr_vector<constraint>   m_redundant;
+        vector<clause>                  m_redundant_clauses;
+
+        bool_var_vector          m_disjunctive_lemma;
+        bool_var_vector          m_assign_eh_history;
 
         // Map boolean variables to constraints
         bool_var                 m_next_bvar = 2;  // TODO: later, bool vars come from external supply
@@ -113,12 +120,20 @@ namespace polysat {
         }
 
         void push_cjust(pvar v, constraint* c) {
+            if (m_cjust[v].contains(c))  // TODO: better check (flag on constraint?)
+                return;
             m_cjust[v].push_back(c);        
             m_trail.push_back(trail_instr_t::just_i);
             m_cjust_trail.push_back(v);
         }
 
         unsigned size(pvar v) const { return m_size[v]; }
+
+        /**
+         * Check whether variable v has any viable values left according to m_viable.
+         */
+        bool has_viable(pvar v);
+
         /**
          * check if value is viable according to m_viable.
          */
@@ -139,7 +154,6 @@ namespace polysat {
          */
         void add_viable_dep(pvar v, p_dependency* dep);
 
-        
         /**
          * Find a next viable value for variable.
          */
@@ -177,6 +191,7 @@ namespace polysat {
         void erase_watch(pvar v, constraint& c);
         void erase_watch(constraint& c);
         void add_watch(constraint& c);
+        void add_watch(constraint& c, pvar v);
 
         void set_conflict(constraint& c);
         void set_conflict(pvar v);
@@ -196,6 +211,7 @@ namespace polysat {
         void decide(pvar v);
 
         void narrow(pvar v);
+        void linear_propagate();
 
         p_dependency* mk_dep(unsigned dep) { return dep == null_dependency ? nullptr : m_dm.mk_leaf(dep); }
 
@@ -211,10 +227,11 @@ namespace polysat {
         void backjump(unsigned new_level);
         void add_lemma(constraint* c);
 
-        void new_constraint(constraint* c);
+        bool_var new_constraint(constraint* c);
 
         bool invariant();
         bool invariant(scoped_ptr_vector<constraint> const& cs);
+        bool wlist_invariant();
 
     public:
 
@@ -241,7 +258,8 @@ namespace polysat {
          * Returns the disjunctive lemma that should be learned,
          * or an empty vector if check_sat() terminated for a different reason.
          */
-        bool_var_vector get_lemma() { NOT_IMPLEMENTED_YET(); return {}; };
+        bool_var_vector get_lemma() { return m_disjunctive_lemma; }
+        bool pending_disjunctive_lemma() { return !m_disjunctive_lemma.empty(); }
 
         /**
          * retrieve unsat core dependencies
@@ -257,6 +275,11 @@ namespace polysat {
          * Create polynomial terms
          */
         pdd var(pvar v) { return m_vars[v]; }
+
+        /**
+         * Return value of v in the current model (only meaningful if check_sat() returned l_true).
+         */
+        rational get_value(pvar v) const { SASSERT(!m_justification[v].is_unassigned()); return m_value[v]; }
 
         /**
          * Create polynomial constraints (but do not activate them).

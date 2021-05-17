@@ -144,6 +144,16 @@ namespace euf {
                     m_values.set(id, m.mk_false());
                     continue;
                 }
+                switch (n->value()) {
+                case l_true:
+                    m_values.set(id, m.mk_true());
+                    continue;
+                case l_false:
+                    m_values.set(id, m.mk_false());
+                    continue;
+                default:
+                    break;
+                }
                 if (is_app(e) && to_app(e)->get_family_id() == m.get_basic_family_id())
                     continue;
                 sat::bool_var v = get_enode(e)->bool_var();
@@ -198,6 +208,7 @@ namespace euf {
                     fi = alloc(func_interp, m, arity);
                     mdl->register_decl(f, fi);
                 }
+                TRACE("euf", tout << f->get_name() << "\n";);
                 args.reset();                
                 for (enode* arg : enode_args(n)) 
                     args.push_back(m_values.get(arg->get_root_id()));                

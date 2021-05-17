@@ -2331,15 +2331,16 @@ namespace lp {
                 v = flv;
             }
             m_incorrect_columns.insert(j);
-            TRACE("cube", tout << "new val = " << v << "\n";);
+            TRACE("cube", tout << "new val = " << v << " column: " << j << "\n";);
         }
-        if (m_incorrect_columns.size()) {
+        if (!m_incorrect_columns.empty()) {
             fix_terms_with_rounded_columns();
             m_incorrect_columns.clear();
         }
     }
 
     void lar_solver::fix_terms_with_rounded_columns() {
+
         for (unsigned i = 0; i < m_terms.size(); i++) {
             if (!term_is_used_as_row(i))
                 continue;
@@ -2357,8 +2358,10 @@ namespace lp {
                 m_mpq_lar_core_solver.m_r_solver.update_x(j, v);
             }
         }
+
         SASSERT(ax_is_correct());
     }
+
     // return true if all y coords are zeroes
     bool lar_solver::sum_first_coords(const lar_term& t, mpq& val) const {
         val = zero_of_type<mpq>();

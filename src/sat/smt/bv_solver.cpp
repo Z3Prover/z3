@@ -661,9 +661,10 @@ namespace bv {
             result->m_bits[i].append(m_bits[i]);
             result->m_zero_one_bits[i].append(m_zero_one_bits[i]);
         }
+        result->set_solver(&ctx.s());
         for (theory_var i = 0; i < static_cast<theory_var>(get_num_vars()); ++i)
             if (find(i) != i)
-                result->m_find.merge(i, find(i));
+                result->m_find.set_root(i, find(i));
         result->m_prop_queue.append(m_prop_queue);
         for (unsigned i = 0; i < m_bool_var2atom.size(); ++i) {
             atom* a = m_bool_var2atom[i];

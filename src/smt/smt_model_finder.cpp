@@ -74,7 +74,6 @@ namespace smt {
                 for (auto const& kv : m_elems) {
                     m.dec_ref(kv.m_key);
                 }
-                m_elems.reset();
             }
 
             obj_map<expr, unsigned> const& get_elems() const { return m_elems; }

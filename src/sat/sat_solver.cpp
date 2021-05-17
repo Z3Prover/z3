@@ -1296,7 +1296,7 @@ namespace sat {
             return do_local_search(num_lits, lits);
         }
         if ((m_config.m_num_threads > 1 || m_config.m_local_search_threads > 0 || 
-             m_config.m_ddfw_threads > 0) && !m_par) {
+             m_config.m_ddfw_threads > 0) && !m_par && !m_ext) {
             SASSERT(scope_lvl() == 0);
             return check_par(num_lits, lits);
         }
@@ -1440,6 +1440,9 @@ namespace sat {
         if (!rlimit().inc()) {
             return l_undef;
         }
+        if (m_ext)
+            return l_undef;
+
         scoped_ptr_vector<i_local_search> ls;
         scoped_ptr_vector<solver> uw;
         int num_extra_solvers = m_config.m_num_threads - 1;

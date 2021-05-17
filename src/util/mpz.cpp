@@ -52,10 +52,14 @@ Revision History:
 // This is needed for _tzcnt_u32 and friends.
 #include <immintrin.h>
 #define _trailing_zeros32(X) _tzcnt_u32(X)
-#endif
-
-#if defined(__GNUC__)
+#elif defined(__GNUC__)
 #define _trailing_zeros32(X) __builtin_ctz(X)
+#else
+static uint32_t _trailing_zeros32(uint32_t x) {
+    uint32_t r = 0;
+    for (; 0 == (x & 1) && r < 32; ++r, x >>= 1);
+    return r;
+}
 #endif
 
 #if (defined(__LP64__) || defined(_WIN64)) && !defined(_M_ARM) && !defined(_M_ARM64)
@@ -65,23 +69,11 @@ Revision History:
  #define _trailing_zeros64(X) _tzcnt_u64(X)
  #endif
 #else
-inline uint64_t _trailing_zeros64(uint64_t x) {
+static uint64_t _trailing_zeros64(uint64_t x) {
     uint64_t r = 0;
     for (; 0 == (x & 1) && r < 64; ++r, x >>= 1);
     return r;
 }
-
-#if defined(_WINDOWS) && !defined(_M_ARM) && !defined(_M_ARM64)
-// _trailing_zeros32 already defined using intrinsics
-#elif defined(__GNUC__)
-// _trailing_zeros32 already defined using intrinsics
-#else
-inline uint32_t _trailing_zeros32(uint32_t x) {
-    uint32_t r = 0;
-    for (; 0 == (x & 1) && r < 32; ++r, x >>= 1);
-    return r;
-}
-#endif
 #endif
 
 unsigned trailing_zeros(uint32_t x) {
@@ -1723,8 +1715,8 @@ void mpz_manager<SYNCH>::display(std::ostream & out, mpz const & a) const {
         // GMP version
         size_t sz = mpz_sizeinbase(*a.m_ptr, 10) + 2;
         sbuffer<char, 1024> buffer(sz, 0);
-        mpz_get_str(buffer.c_ptr(), 10, *a.m_ptr);
-        out << buffer.c_ptr();
+        mpz_get_str(buffer.data(), 10, *a.m_ptr);
+        out << buffer.data();
 #endif
     } 
 }
@@ -1783,11 +1775,11 @@ void mpz_manager<SYNCH>::display_hex(std::ostream & out, mpz const & a, unsigned
         unsigned requiredLength = num_bits / 4;
         unsigned padding = requiredLength > sz ? requiredLength - sz : 0;
         sbuffer<char, 1024> buffer(sz, 0);
-        mpz_get_str(buffer.c_ptr(), 16, *(a.m_ptr));
+        mpz_get_str(buffer.data(), 16, *(a.m_ptr));
         for (unsigned i = 0; i < padding; ++i) {
             out << "0";
         }
-        out << buffer.c_ptr() + (sz > requiredLength ? sz - requiredLength : 0);
+        out << buffer.data() + (sz > requiredLength ? sz - requiredLength : 0);
 #endif
     }
     out.copyfmt(fmt);
@@ -1837,11 +1829,11 @@ void mpz_manager<SYNCH>::display_bin(std::ostream & out, mpz const & a, unsigned
         size_t sz = mpz_sizeinbase(*(a.m_ptr), 2);
         unsigned padding = num_bits > sz ? num_bits - sz : 0;
         sbuffer<char, 1024> buffer(sz, 0);
-        mpz_get_str(buffer.c_ptr(), 2, *(a.m_ptr));
+        mpz_get_str(buffer.data(), 2, *(a.m_ptr));
         for (unsigned i = 0; i < padding; ++i) {
             out << "0";
         }
-        out << buffer.c_ptr() + (sz > num_bits ? sz - num_bits : 0);
+        out << buffer.data() + (sz > num_bits ? sz - num_bits : 0);
 #endif
     }
 }

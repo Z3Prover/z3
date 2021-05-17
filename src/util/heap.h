@@ -139,7 +139,7 @@ public:
         if (empty()) {
             return;
         }
-        memset(m_value2indices.begin(), 0, sizeof(int) * m_value2indices.size());
+        memset(m_value2indices.data(), 0, sizeof(int) * m_value2indices.size());
         m_values.reset();
         m_values.push_back(-1);
         CASSERT("heap", check_invariant());
@@ -244,11 +244,11 @@ public:
     }
 
     iterator begin() { 
-        return m_values.begin() + 1; 
+        return m_values.data() + 1; 
     }
 
     iterator end() { 
-        return m_values.end(); 
+        return m_values.data() + m_values.size(); 
     }
 
     const_iterator begin() const { 

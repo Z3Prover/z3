@@ -1492,6 +1492,7 @@ seq_util::rex::info seq_util::rex::info::orelse(seq_util::rex::info const& i) co
 seq_util::rex::info seq_util::rex::info::loop(unsigned lower, unsigned upper) const {
     if (is_known()) {
         unsigned m = min_length * lower;
+        // Code review: this is not a complete overflow check. 
         if (m > 0 && (m < min_length || m < lower))
             m = UINT_MAX;
         lbool loop_nullable = (nullable == l_true || lower == 0 ? l_true : nullable);

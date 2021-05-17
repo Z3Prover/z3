@@ -80,7 +80,7 @@ public:
 
     // Insert in the this object the elements in the set source.
     uint_set & operator |=(const uint_set & source) {
-        unsigned source_size = source.size();
+        auto source_size = source.size();
         if (source_size > size()) {
             resize(source_size + 1);
         }
@@ -91,7 +91,7 @@ public:
     }
 
     uint_set& operator &=(const uint_set& source) {
-        unsigned source_size = source.size();
+        auto source_size = source.size();
         if (source_size < size()) {
             resize(source_size);
         }
@@ -102,7 +102,7 @@ public:
     }
 
     bool operator==(const uint_set & source) const {
-        unsigned min_size = size();
+        auto min_size = size();
         if (source.size() < min_size) {
             min_size = source.size();
         }
@@ -111,12 +111,12 @@ public:
                 return false;
             }
         }
-        for (unsigned i = min_size; i < size(); ++i) {
+        for (auto i = min_size; i < size(); ++i) {
             if ((*this)[i]) {
                 return false;
             }
         }
-        for (unsigned i = min_size; i < source.size(); ++i) {
+        for (auto i = min_size; i < source.size(); ++i) {
             if (source[i]) {
                 return false;
             }
@@ -131,7 +131,7 @@ public:
 
     // Return true if the this set is a subset of source.
     bool subset_of(const uint_set & source) const {
-        unsigned min_size = size();
+        auto min_size = size();
         if (source.size() < min_size) {
             min_size = source.size();
         }
@@ -140,7 +140,7 @@ public:
                 return false;
             }
         }
-        for (unsigned i = min_size; i < size(); ++i) {
+        for (auto i = min_size; i < size(); ++i) {
             if ((*this)[i]) {
                 return false;
             }
@@ -252,7 +252,7 @@ public:
     void remove(unsigned v) {
         if (contains(v)) {
             m_in_set[v] = false;
-            unsigned i = m_set.size();
+            auto i = m_set.size();
             for (; i > 0 && m_set[--i] != v; ) 
                 ;
             SASSERT(m_set[i] == v);
@@ -282,7 +282,7 @@ public:
     iterator end() const { return m_set.end(); }
     // void reset() { m_set.reset(); m_in_set.reset(); }
     void reset() { 
-        unsigned sz = m_set.size();
+        auto sz = m_set.size();
         for (unsigned i = 0; i < sz; ++i) m_in_set[m_set[i]] = false;
         m_set.reset(); 
     }

@@ -40,7 +40,7 @@ endif()
 target_include_directories(c_example PRIVATE ${Z3_C_INCLUDE_DIRS})
 target_link_libraries(c_example PRIVATE ${Z3_LIBRARIES})
 
-if ("${CMAKE_SYSTEM_NAME}" MATCHES "[Ww]indows")
+if (CMAKE_SYSTEM_NAME MATCHES "[Ww]indows")
   # On Windows we need to copy the Z3 libraries
   # into the same directory as the executable
   # so that they can be found.

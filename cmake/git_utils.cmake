@@ -26,7 +26,7 @@ function(add_git_dir_dependency GIT_DOT_FILE SUCCESS_VAR)
     # git directory
     file(READ "${GIT_DOT_FILE}" GIT_DOT_FILE_DATA LIMIT 512)
     string(STRIP "${GIT_DOT_FILE_DATA}" GIT_DOT_FILE_DATA_STRIPPED)
-    if ("${GIT_DOT_FILE_DATA_STRIPPED}" MATCHES "^gitdir:[ ]*(.+)$")
+    if (GIT_DOT_FILE_DATA_STRIPPED MATCHES "^gitdir:[ ]*(.+)$")
       # Git worktree
       message(STATUS "Found git worktree")
       set(GIT_WORKTREE_DIR "${CMAKE_MATCH_1}")
@@ -75,7 +75,7 @@ function(add_git_dir_dependency GIT_DOT_FILE SUCCESS_VAR)
   file(READ "${GIT_HEAD_FILE}" GIT_HEAD_DATA LIMIT 128)
   string(STRIP "${GIT_HEAD_DATA}" GIT_HEAD_DATA_STRIPPED)
 
-  if ("${GIT_HEAD_DATA_STRIPPED}" MATCHES "^ref:[ ]*(.+)$")
+  if (GIT_HEAD_DATA_STRIPPED MATCHES "^ref:[ ]*(.+)$")
     # HEAD points at a reference.
     set(GIT_REF "${CMAKE_MATCH_1}")
     if (EXISTS "${GIT_DIR}/${GIT_REF}")

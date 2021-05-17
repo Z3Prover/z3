@@ -1,5 +1,7 @@
+#include "math/polysat/log.h"
 #include "math/polysat/solver.h"
 #include "ast/ast.h"
+#include <vector>
 
 namespace polysat {
     // test resolve, factoring routines
@@ -10,13 +12,16 @@ namespace polysat {
     };
 
     struct scoped_solver : public solver_scope, public solver {
-        scoped_solver(): solver(lim) {}
+        scoped_solver(std::string name): solver(lim), m_name(name) {}
+
+        std::string m_name;
+        lbool m_last_result = l_undef;
 
         lbool check_rec() {
             lbool result = check_sat();
             if (result != l_undef)
                 return result;
-            auto const& new_lemma = get_lemma();
+            auto const new_lemma = get_lemma();
             // Empty lemma => check_sat() terminated for another reason, e.g., resource limits
             if (new_lemma.empty())
                 return l_undef;
@@ -38,13 +43,90 @@ namespace polysat {
         }
 
         void check() {
-            std::cout << check_rec() << "\n";
+            m_last_result = check_rec();
+            std::cout << m_name << ": " << m_last_result << "\n";
             statistics st;
             collect_statistics(st);
             std::cout << st << "\n";
             std::cout << *this << "\n";
         }
+
+        void expect_unsat() {
+            if (m_last_result != l_false) {
+                LOG_H1("FAIL: " << m_name << ": expected UNSAT, got " << m_last_result << "!");
+                VERIFY(false);
+            }
+        }
+
+        void expect_sat(std::vector<std::pair<dd::pdd, unsigned>> const& expected_assignment = {}) {
+            if (m_last_result == l_true) {
+                for (auto const& p : expected_assignment) {
+                    auto const& v_pdd = p.first;
+                    auto const expected_value = p.second;
+                    SASSERT(v_pdd.is_monomial() && !v_pdd.is_val());
+                    auto const v = v_pdd.var();
+                    if (get_value(v) != expected_value) {
+                        LOG_H1("FAIL: " << m_name << ": expected assignment v" << v << " := " << expected_value << ", got value " << get_value(v) << "!");
+                        VERIFY(false);
+                    }
+                }
+            }
+            else {
+                LOG_H1("FAIL: " << m_name << ": expected SAT, got " << m_last_result << "!");
+                VERIFY(false);
+            }
+        }
     };
+
+
+    /**
+     * Testing the solver's internal state.
+     */
+
+    /// Creates two separate conflicts (from narrowing) before solving loop is started.
+    static void test_add_conflicts() {
+        scoped_solver s(__func__);
+        auto a = s.var(s.add_var(3));
+        auto b = s.var(s.add_var(3));
+        s.add_eq(a + 1);
+        s.add_eq(a + 2);
+        s.add_eq(b + 1);
+        s.add_eq(b + 2);
+        s.check();
+        s.expect_unsat();
+    }
+
+    /// Has constraints which must be inserted into other watchlist to discover UNSAT
+    static void test_wlist() {
+        scoped_solver s(__func__);
+        auto a = s.var(s.add_var(3));
+        auto b = s.var(s.add_var(3));
+        auto c = s.var(s.add_var(3));
+        auto d = s.var(s.add_var(3));
+        s.add_eq(d + c + b + a + 1);
+        s.add_eq(d + c + b + a);
+        s.add_eq(d + c + b);
+        s.add_eq(d + c);
+        s.add_eq(d);
+        s.check();
+        s.expect_unsat();
+    }
+
+    /// Has a constraint in cjust[a] where a does not occur.
+    static void test_cjust() {
+        scoped_solver s(__func__);
+        auto a = s.var(s.add_var(3));
+        auto b = s.var(s.add_var(3));
+        auto c = s.var(s.add_var(3));
+        // 1. Decide a = 0.
+        s.add_eq(a*a + b + 7);                  // 2. Propagate b = 1
+        s.add_eq(b*b + c*c*c*(b+7) + c + 5);    // 3. Propagate c = 2
+        s.add_eq(b*b + c*c);                    // 4. Conflict
+        // Resolution fails because second constraint has c*c*c
+        // => cjust[a] += b*b + c*c
+        s.check();
+        s.expect_unsat();
+    }
 
     /**
      * most basic linear equation solving.
@@ -55,50 +137,49 @@ namespace polysat {
      */
 
     static void test_l1() {
-        scoped_solver s;
+        scoped_solver s(__func__);
         auto a = s.var(s.add_var(2));
         s.add_eq(a + 1);
         s.check();
-        // Expected result: SAT with a = 3
+        s.expect_sat({{a, 3}});
     }
     
     static void test_l2() {
-        scoped_solver s;
+        scoped_solver s(__func__);
         auto a = s.var(s.add_var(2));
         auto b = s.var(s.add_var(2));
         s.add_eq(2*a + b + 1);
         s.add_eq(2*b + a);
         s.check();
-        // Expected result: SAT with a = 2, b = 3
+        s.expect_sat({{a, 2}, {b, 3}});
     }
 
     static void test_l3() {
-        scoped_solver s;
+        scoped_solver s(__func__);
         auto a = s.var(s.add_var(2));
         auto b = s.var(s.add_var(2));
         s.add_eq(3*b + a + 2);
         s.check();
-        // Expected result: SAT
+        s.expect_sat();
     }
 
     static void test_l4() {
-        scoped_solver s;
+        scoped_solver s(__func__);
         auto a = s.var(s.add_var(3));
-        // auto b = s.var(s.add_var(3));
         s.add_eq(4*a + 2);
         s.check();
-        // Expected result: UNSAT
+        s.expect_unsat();
     }
 
-    // Goal: test propagate_eq in case of 2*a*x + 2*b == 0
     static void test_l5() {
-        scoped_solver s;
+        scoped_solver s(__func__);
         auto a = s.var(s.add_var(3));
         auto b = s.var(s.add_var(3));
+        s.add_diseq(b);
         s.add_eq(a + 2*b + 4);
         s.add_eq(a + 4*b + 4);
         s.check();
-        // Expected result: UNSAT
+        s.expect_sat({{a, 4}, {b, 4}});
     }
 
     
@@ -107,22 +188,117 @@ namespace polysat {
      * is 0 for all values of a.
      */
     static void test_p1() {
-        scoped_solver s;
+        scoped_solver s(__func__);
         auto a = s.var(s.add_var(2));
         auto p = a*a*(a*a - 1) + 1;
         s.add_eq(p);
         s.check();
+        s.expect_unsat();
     }
 
     /**
-     * has solution a = 3
+     * has solutions a = 2 and a = 3
      */
     static void test_p2() {
-        scoped_solver s;
+        scoped_solver s(__func__);
         auto a = s.var(s.add_var(2));
         auto p = a*(a-1) + 2;
         s.add_eq(p);
         s.check();
+        s.expect_sat();
+    }
+
+    /**
+     * unsat
+     * - learns 3*x + 1 == 0 by polynomial resolution
+     * - this forces x == 5, which means the first constraint is unsatisfiable by parity.
+     */
+    static void test_p3() {
+        scoped_solver s(__func__);
+        auto x = s.var(s.add_var(4));
+        auto y = s.var(s.add_var(4));
+        auto z = s.var(s.add_var(4));
+        s.add_eq(x*x*y + 3*y + 7);
+        s.add_eq(2*y + z + 8);
+        s.add_eq(3*x + 4*y*z + 2*z*z + 1);
+        s.check();
+        s.expect_unsat();
+    }
+
+
+    // Unique solution: u = 5
+    static void test_ineq_basic1() {
+        scoped_solver s(__func__);
+        auto u = s.var(s.add_var(4));
+        auto zero = u - u;
+        s.add_ule(u, zero + 5);
+        s.add_ule(zero + 5, u);
+        s.check();
+        s.expect_sat({{u, 5}});
+    }
+
+    // Unsatisfiable
+    static void test_ineq_basic2() {
+        scoped_solver s(__func__);
+        auto u = s.var(s.add_var(4));
+        auto zero = u - u;
+        s.add_ult(u, zero + 5);
+        s.add_ule(zero + 5, u);
+        s.check();
+        s.expect_unsat();
+    }
+
+    // Solutions with u = v = w
+    static void test_ineq_basic3() {
+        scoped_solver s(__func__);
+        auto u = s.var(s.add_var(4));
+        auto v = s.var(s.add_var(4));
+        auto w = s.var(s.add_var(4));
+        s.add_ule(u, v);
+        s.add_ule(v, w);
+        s.add_ule(w, u);
+        s.check();
+        s.expect_sat();
+        SASSERT_EQ(s.get_value(u.var()), s.get_value(v.var()));
+        SASSERT_EQ(s.get_value(u.var()), s.get_value(w.var()));
+    }
+
+    // Unsatisfiable
+    static void test_ineq_basic4() {
+        scoped_solver s(__func__);
+        auto u = s.var(s.add_var(4));
+        auto v = s.var(s.add_var(4));
+        auto w = s.var(s.add_var(4));
+        s.add_ule(u, v);
+        s.add_ult(v, w);
+        s.add_ule(w, u);
+        s.check();
+        s.expect_unsat();
+    }
+
+    // Satisfiable
+    // Without forbidden intervals, we just try values for u until it works
+    static void test_ineq_basic5() {
+        scoped_solver s(__func__);
+        auto u = s.var(s.add_var(4));
+        auto v = s.var(s.add_var(4));
+        auto zero = u - u;
+        s.add_ule(zero + 12, u + v);
+        s.add_ule(v, zero + 2);
+        s.check();
+        s.expect_sat();  // e.g., u = 12, v = 0
+    }
+
+    // Like test_ineq_basic5 but the other forbidden interval will be the longest
+    static void test_ineq_basic6() {
+        scoped_solver s(__func__);
+        auto u = s.var(s.add_var(4));
+        auto v = s.var(s.add_var(4));
+        auto zero = u - u;
+        s.add_ule(zero + 14, u + v);
+        s.add_ule(v, zero + 2);
+        s.check();
+        s.expect_sat();
     }
 
 
@@ -133,7 +309,7 @@ namespace polysat {
      * v*q > u
      */
     static void test_ineq1() {
-        scoped_solver s;
+        scoped_solver s(__func__);
         auto u = s.var(s.add_var(5));
         auto v = s.var(s.add_var(5));
         auto q = s.var(s.add_var(5));
@@ -142,6 +318,7 @@ namespace polysat {
         s.add_ult(r, u);
         s.add_ult(u, v*q);
         s.check();
+        s.expect_unsat();
     }
 
     /**
@@ -151,7 +328,7 @@ namespace polysat {
      * n > r2 > 0
      */
     static void test_ineq2() {
-        scoped_solver s;
+        scoped_solver s(__func__);
         auto n = s.var(s.add_var(5));
         auto q1 = s.var(s.add_var(5));
         auto a = s.var(s.add_var(5));
@@ -164,15 +341,15 @@ namespace polysat {
         s.add_ult(r2, n);
         s.add_diseq(n);
         s.check();
+        s.expect_unsat();
     }
 
 
     /**
-     * Monotonicity example from certora (1)
-     *  expected: unsat (twice)
+     * Monotonicity example from certora
      */
     static void test_monot() {
-        scoped_solver s;
+        scoped_solver s(__func__);
         auto bw = 5;
 
         auto tb1 = s.var(s.add_var(bw));
@@ -215,18 +392,20 @@ namespace polysat {
         push()
         s.add_ult(tb1, tb2);
         s.check();
+        s.expect_unsat();
         pop()
 
         push()
         s.add_ult(tb1 + err, tb2);
         s.check();
+        s.expect_unsat();
         pop()
     }
 
     // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
     // NOTE: actually, add_var seems to keep them in sync, so this is not an issue at the moment (but we should still test it later)
     // static void test_mixed_vars() {
-    //     scoped_solver s;
+    //     scoped_solver s(__func__);
     //     auto a = s.var(s.add_var(2));
     //     auto b = s.var(s.add_var(4));
     //     auto c = s.var(s.add_var(2));
@@ -245,15 +424,25 @@ namespace polysat {
 
 
 void tst_polysat() {
+    polysat::test_add_conflicts();
+    polysat::test_wlist();
+    polysat::test_cjust();
     polysat::test_l1();
     polysat::test_l2();
     polysat::test_l3();
     polysat::test_l4();
     polysat::test_l5();
-#if 0
-    // worry about this later
     polysat::test_p1();
     polysat::test_p2();
+    polysat::test_p3();
+    polysat::test_ineq_basic1();
+    polysat::test_ineq_basic2();
+    polysat::test_ineq_basic3();
+    polysat::test_ineq_basic4();
+    polysat::test_ineq_basic5();
+    polysat::test_ineq_basic6();
+#if 0
+    // worry about this later
     polysat::test_ineq1();
     polysat::test_ineq2();
 #endif

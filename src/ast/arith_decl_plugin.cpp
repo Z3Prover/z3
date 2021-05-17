@@ -898,7 +898,8 @@ bool arith_util::is_extended_numeral(expr* term, rational& r) const {
             continue;
         }
         if (is_mul(term)) {
-            rational r(mul), n(0);
+            r = mul;
+            rational n(0);
             for (expr* arg : *to_app(term)) {
                 if (!is_extended_numeral(arg, n))
                     return false;
@@ -907,7 +908,8 @@ bool arith_util::is_extended_numeral(expr* term, rational& r) const {
             return true;
         }
         if (is_add(term)) {
-            rational r(0), n(0);
+            rational n(0);
+            r = 0;
             for (expr* arg : *to_app(term)) {
                 if (!is_extended_numeral(arg, n))
                     return false;
@@ -921,8 +923,7 @@ bool arith_util::is_extended_numeral(expr* term, rational& r) const {
         if (is_sub(term, t1, t2) && 
             is_extended_numeral(t1, k1) &&
             is_extended_numeral(t2, k2)) {
-            r = k1 - k2;
-            r *= mul;
+            r = (k1 - k2) * mul;
             return true;
         }
         return false;

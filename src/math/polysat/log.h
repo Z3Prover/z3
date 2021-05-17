@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <iostream>
 #include <string>
+#include "math/polysat/log_helper.h"
 
 class polysat_log_indent
 {
