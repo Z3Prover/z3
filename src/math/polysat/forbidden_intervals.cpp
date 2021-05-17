@@ -62,7 +62,7 @@ namespace polysat {
         return true;
     }
 
-    bool forbidden_intervals::explain(solver& s, ptr_vector<constraint> const& conflict, pvar v, scoped_ptr<clause>& out_lemma, scoped_ptr_vector<constraint>& out_constraints_storage) {
+    bool forbidden_intervals::explain(solver& s, ptr_vector<constraint> const& conflict, pvar v, scoped_clause& out_lemma) {
 
         // Extract forbidden intervals from conflicting constraints
         vector<fi_record> records;
@@ -102,10 +102,10 @@ namespace polysat {
             ptr_vector<constraint> literals;
             if (full_record.neg_cond) {
                 literals.push_back(full_record.neg_cond.get());
-                out_constraints_storage.push_back(full_record.neg_cond.detach());
+                out_lemma.constraint_storage.push_back(full_record.neg_cond.detach());
             }
             p_dependency_ref d(full_record.src->dep(), s.m_dm);
-            out_lemma = clause::from_literals(full_record.src->level(), d, literals);
+            out_lemma.clause = clause::from_literals(full_record.src->level(), d, literals);
             return true;
         }
 
@@ -159,12 +159,12 @@ namespace polysat {
             scoped_ptr<constraint>& neg_cond = records[i].neg_cond;
             if (neg_cond) {
                 literals.push_back(neg_cond.get());
-                out_constraints_storage.push_back(neg_cond.detach());
+                out_lemma.constraint_storage.push_back(neg_cond.detach());
             }
         }
 
         // TODO: Lemma must contain all redundant constraints from 'conflict'
-        out_lemma = clause::from_literals(lemma_lvl, lemma_dep, literals);
+        out_lemma.clause = clause::from_literals(lemma_lvl, lemma_dep, literals);
         return true;
     }
 

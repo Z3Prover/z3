@@ -118,6 +118,11 @@ namespace polysat {
         const_iterator end() const { return m_literals.end(); }
     };
 
+    // A clause that owns (some of) its literals
+    struct scoped_clause {
+        scoped_ptr<clause> clause;
+        scoped_ptr_vector<constraint> constraint_storage;
+    };
 
 
 }
