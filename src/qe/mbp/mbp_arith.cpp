@@ -194,16 +194,18 @@ namespace mbp {
 
             else if (m.is_ite(t, t1, t2, t3)) {
                 val = eval(t1);
-                SASSERT(m.is_true(val) || m.is_false(val));
                 TRACE("qe", tout << mk_pp(t1, m) << " := " << val << "\n";);
                 if (m.is_true(val)) {
                     linearize(mbo, eval, mul, t2, c, fmls, ts, tids);
                     fmls.push_back(t1);
                 }
-                else {
+                else if (m.is_false(val)) {
                     expr_ref not_t1(mk_not(m, t1), m);
                     fmls.push_back(not_t1);
                     linearize(mbo, eval, mul, t3, c, fmls, ts, tids);
+                }
+                else {
+                    throw default_exception("mbp evaluation didn't produce a truth value");
                 }
             }
             else if (a.is_mod(t, t1, t2) && is_numeral(t2, mul1) && !mul1.is_zero()) {
