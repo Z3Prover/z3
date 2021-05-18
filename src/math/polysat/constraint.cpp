@@ -32,6 +32,9 @@ namespace polysat {
             SASSERT(!m_external_constraints.contains(dep));
             m_external_constraints.insert(dep, c);
         }
+        while (m_constraints.size() <= c->level())
+            m_constraints.push_back({});
+        m_constraints[c->level()].push_back(c);
         return bool_lit::positive(var);
     }
 
