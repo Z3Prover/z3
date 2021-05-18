@@ -12,70 +12,64 @@ Author:
 
 --*/
 #pragma once
+#include "math/polysat/boolean.h"
 #include "math/polysat/types.h"
 #include "math/polysat/interval.h"
+#include "util/map.h"
 
 namespace polysat {
 
-    enum ckind_t { eq_t, ule_t, sle_t, bit_t };
+    enum ckind_t { eq_t, ule_t, bit_t };
     enum csign_t : bool { neg_t = false, pos_t = true };
 
     class constraint;
+    class clause;
     class eq_constraint;
     class var_constraint;
     class ule_constraint;
 
-    // TODO: separate file
-    class bool_var_manager {
-        svector<bool_var>   m_unused;  // previously deleted variables that can be reused by new_var();
-        svector<lbool>      m_value;
-        svector<unsigned>   m_level;
-        svector<clause*>    m_reason;  // propagation reason, NULL for decisions
-
-        unsigned_vector     m_marks;
-        unsigned            m_clock { 0 };
-
-    public:
-        bool_var new_var();
-        void del_var(bool_var v);
-
-        void reset_marks();
-        bool is_marked(bool_var v) const { return m_clock == m_marks[v]; }
-        void set_mark(bool_var v) { m_marks[v] = m_clock; }
-
-        bool is_assigned(bool_var v) const;
-        bool is_decision(bool_var v) const;
-        bool is_propagation(bool_var v) const;
-        lbool value(bool_var v) const;
-        unsigned level(bool_var v) const;
-        clause* reason(bool_var v) const;
-    };
-
-
-    /* NOTE: currently unused
     // Manage constraint lifetime, deduplication, and connection to boolean variables/literals.
     class constraint_manager {
+        bool_var_manager& m_bvars;
+
         // Constraint storage per level
         vector<scoped_ptr_vector<constraint>> m_constraints;
 
-        // TODO: some hashmaps to look up whether constraint exists
+        // Association to boolean variables
+        ptr_vector<constraint>   m_bv2constraint;
+        void insert_bv2c(bool_var bv, constraint* c) { m_bv2constraint.setx(bv, c, nullptr); }
+        void erase_bv2c(bool_var bv) { m_bv2constraint[bv] = nullptr; }
+        constraint* get_bv2c(bool_var bv) const { return m_bv2constraint.get(bv, nullptr); }
+
+        // Association to external dependency values (i.e., external names for constraints)
+        u_map<constraint*> m_external_constraints;
+
+        // TODO: some hashmaps to look up whether constraint (or its negation) already exists
 
     public:
+        constraint_manager(bool_var_manager& bvars): m_bvars(bvars) {}
+
         // Start managing lifetime of the given constraint and assign a boolean literal to it.
         bool_lit insert(constraint* c);
-        // Release constraints at given level and above.
+
+        // Release constraints at the given level and above.
         void release_level(unsigned lvl);
 
         constraint* lookup(bool_var v);
+        constraint* lookup_external(unsigned dep) { return m_external_constraints.get(dep, nullptr); }
 
-        // Convenience methods, automatically insert the constraint.
-        static constraint* eq(unsigned lvl, bool_var bvar, csign_t sign, pdd const& p, p_dependency_ref const& d);
-        static constraint* viable(unsigned lvl, bool_var bvar, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d);
-        static constraint* ule(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-        static constraint* ult(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-    }; */
+        // // Convenience methods; they automatically insert the constraint.
+        // static constraint* eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d);
+        // static constraint* viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d);
+        // static constraint* ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        // static constraint* ult(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        // static constraint* sle(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        // static constraint* slt(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+    };
 
     class constraint {
+        friend class constraint_manager;
+        friend class clause;
         friend class var_constraint;
         friend class eq_constraint;
         friend class ule_constraint;
@@ -83,20 +77,22 @@ namespace polysat {
         ckind_t          m_kind;
         p_dependency_ref m_dep;
         unsigned_vector  m_vars;
-        bool_var         m_bool_var;
+        bool_var         m_bool_var = null_bool_var;
         csign_t          m_sign;  ///< sign/polarity
         lbool            m_status = l_undef;  ///< current constraint status, computed from value of m_bool_var and m_sign
-        constraint(unsigned lvl, bool_var bvar, csign_t sign, p_dependency_ref const& dep, ckind_t k):
-            m_level(lvl), m_kind(k), m_dep(dep), m_bool_var(bvar), m_sign(sign) {}
+        constraint(unsigned lvl, csign_t sign, p_dependency_ref const& dep, ckind_t k):
+            m_level(lvl), m_kind(k), m_dep(dep), m_sign(sign) {}
     public:
-        static constraint* eq(unsigned lvl, bool_var bvar, csign_t sign, pdd const& p, p_dependency_ref const& d);
-        static constraint* viable(unsigned lvl, bool_var bvar, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d);
-        static constraint* ule(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-        static constraint* ult(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        static constraint* eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d);
+        static constraint* viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d);
+        static constraint* ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        static constraint* ult(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        static constraint* sle(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        static constraint* slt(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
         virtual ~constraint() {}
         bool is_eq() const { return m_kind == ckind_t::eq_t; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }
-        bool is_sle() const { return m_kind == ckind_t::sle_t; }
+        bool is_bit() const { return m_kind == ckind_t::bit_t; }
         ckind_t kind() const { return m_kind; }
         virtual std::ostream& display(std::ostream& out) const = 0;
         bool propagate(solver& s, pvar v);
@@ -108,6 +104,10 @@ namespace polysat {
         virtual void narrow(solver& s) = 0;
         eq_constraint& to_eq();
         eq_constraint const& to_eq() const;
+        ule_constraint& to_ule();
+        ule_constraint const& to_ule() const;
+        var_constraint& to_bit();
+        var_constraint const& to_bit() const;
         p_dependency* dep() const { return m_dep; }
         unsigned_vector& vars() { return m_vars; }
         unsigned level() const { return m_level; }
@@ -166,6 +166,7 @@ namespace polysat {
 
     class clause {
         unsigned m_level;
+        unsigned m_next_guess = 0;  // next guess for enumerative backtracking  (TODO: don't start at 0 but at the first *new* literal)
         p_dependency_ref m_dep;
         ptr_vector<constraint> m_literals;
 
@@ -210,6 +211,10 @@ namespace polysat {
         bool is_currently_false(solver& s) const {
             return std::all_of(m_literals.begin(), m_literals.end(), [&s](constraint* c) { return c->is_currently_false(s); });
         }
+
+        unsigned next_guess() {
+            return m_next_guess++;
+        }
     };
 
     // A clause that owns (some of) its literals
@@ -221,6 +226,10 @@ namespace polysat {
 
         bool is_unit() const { return clause && clause->size() == 1; }
         constraint* unit() const { SASSERT(is_unit()); return (*clause)[0]; }
+
+        bool empty() const { SASSERT(clause); return clause->empty(); }
+        unsigned size() const { SASSERT(clause); return clause->size(); }
+        constraint* operator[](unsigned idx) const { SASSERT(clause); return (*clause)[idx]; }
 
         bool is_always_false() const { return clause->is_always_false(); }
         bool is_currently_false(solver& s) const { return clause->is_currently_false(s); }
@@ -281,7 +290,7 @@ namespace polysat {
             for (constraint* c : m_units)
                 vars.append(c->vars());
             for (clause* cl : m_clauses)
-                for (constraint* c : m_units)
+                for (constraint* c : *cl)
                     vars.append(c->vars());
             return vars;
         }

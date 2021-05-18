@@ -151,7 +151,7 @@ namespace polysat {
             auto const& next_hi = records[next_i].interval.hi();
             auto const& lhs = hi - next_lo;
             auto const& rhs = next_hi - next_lo;
-            constraint* c = constraint::ult(lemma_lvl, s.m_next_bvar++, neg_t, lhs, rhs, lemma_dep);
+            constraint* c = constraint::ult(lemma_lvl, neg_t, lhs, rhs, lemma_dep);
             LOG("constraint: " << *c);
             literals.push_back(c);
             // Side conditions

@@ -21,6 +21,39 @@ Author:
 
 namespace polysat {
 
+    bool_lit constraint_manager::insert(constraint* c) {
+        SASSERT(c);
+        SASSERT(c->bvar() == null_bool_var);
+        bool_var var = m_bvars.new_var();
+        c->m_bool_var = var;
+        insert_bv2c(var, c);
+        if (c->dep() && c->dep()->is_leaf()) {
+            unsigned dep = c->dep()->leaf_value();
+            SASSERT(!m_external_constraints.contains(dep));
+            m_external_constraints.insert(dep, c);
+        }
+        return bool_lit::positive(var);
+    }
+
+    // Release constraints at the given level and above.
+    void constraint_manager::release_level(unsigned lvl) {
+        for (unsigned l = m_constraints.size(); l-- > lvl; )
+            for (constraint* c : m_constraints[l]) {
+                erase_bv2c(c->bvar());
+                m_bvars.del_var(c->bvar());
+                if (c->dep() && c->dep()->is_leaf()) {
+                    unsigned dep = c->dep()->leaf_value();
+                    SASSERT(m_external_constraints.contains(dep));
+                    m_external_constraints.remove(dep);
+                }
+            }
+        m_constraints.shrink(lvl);
+    }
+
+    constraint* constraint_manager::lookup(bool_var v) {
+        return get_bv2c(v);
+    }
+
     eq_constraint& constraint::to_eq() { 
         return *dynamic_cast<eq_constraint*>(this); 
     }
@@ -29,21 +62,63 @@ namespace polysat {
         return *dynamic_cast<eq_constraint const*>(this); 
     }
 
-    constraint* constraint::eq(unsigned lvl, bool_var bvar, csign_t sign, pdd const& p, p_dependency_ref const& d) {
-        return alloc(eq_constraint, lvl, bvar, sign, p, d);
+    ule_constraint& constraint::to_ule() {
+        return *dynamic_cast<ule_constraint*>(this);
     }
 
-    constraint* constraint::viable(unsigned lvl, bool_var bvar, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d) {
-        return alloc(var_constraint, lvl, bvar, sign, v, b, d);
+    ule_constraint const& constraint::to_ule() const {
+        return *dynamic_cast<ule_constraint const*>(this);
     }
 
-    constraint* constraint::ule(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
-        return alloc(ule_constraint, lvl, bvar, sign, a, b, d);
+    var_constraint& constraint::to_bit() {
+        return *dynamic_cast<var_constraint*>(this);
     }
 
-    constraint* constraint::ult(unsigned lvl, bool_var bvar, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+    var_constraint const& constraint::to_bit() const {
+        return *dynamic_cast<var_constraint const*>(this);
+    }
+
+    constraint* constraint::eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d) {
+        return alloc(eq_constraint, lvl, sign, p, d);
+    }
+
+    constraint* constraint::viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d) {
+        return alloc(var_constraint, lvl, sign, v, b, d);
+    }
+
+    constraint* constraint::ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+        return alloc(ule_constraint, lvl, sign, a, b, d);
+    }
+
+    constraint* constraint::ult(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
         // a < b  <=>  !(b <= a)
-        return ule(lvl, bvar, static_cast<csign_t>(!sign), b, a, d);
+        return ule(lvl, static_cast<csign_t>(!sign), b, a, d);
+    }
+
+    // To do signed comparison of bitvectors, flip the msb and do unsigned comparison:
+    //
+    //      x <=s y    <=>    x + 2^(w-1)  <=u  y + 2^(w-1)
+    //
+    // Example for bit width 3:
+    //      111  -1
+    //      110  -2
+    //      101  -3
+    //      100  -4
+    //      011   3
+    //      010   2
+    //      001   1
+    //      000   0
+    //
+    // Argument: flipping the msb swaps the negative and non-negative blocks
+    //
+    constraint* constraint::sle(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+        auto shift = rational::power_of_two(a.power_of_2() - 1);
+        return ule(lvl, sign, a + shift, b + shift, d);
+    }
+
+    constraint* constraint::slt(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+        auto shift = rational::power_of_two(a.power_of_2() - 1);
+        return ult(lvl, sign, a + shift, b + shift, d);
     }
 
     bool constraint::propagate(solver& s, pvar v) {
@@ -72,6 +147,12 @@ namespace polysat {
         (void)v;
         (void)other_v;
         narrow(s);
+    }
+
+    clause* clause::unit(constraint* c) {
+        ptr_vector<constraint> lits;
+        lits.push_back(c);
+        return alloc(clause, c->level(), c->m_dep, lits);
     }
 
     clause* clause::from_literals(unsigned lvl, p_dependency_ref const& d, ptr_vector<constraint> const& literals) {

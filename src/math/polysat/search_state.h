@@ -12,6 +12,7 @@ Author:
 
 --*/
 #pragma once
+#include "math/polysat/boolean.h"
 #include "math/polysat/types.h"
 
 namespace polysat {

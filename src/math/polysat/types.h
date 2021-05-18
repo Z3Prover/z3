@@ -51,42 +51,4 @@ namespace polysat {
     typedef obj_ref<p_dependency, poly_dep_manager> p_dependency_ref; 
     typedef ref_vector<p_dependency, poly_dep_manager> p_dependency_refv;
 
-    typedef unsigned bool_var;
-    typedef svector<bool_var> bool_var_vector;
-
-    // 0 ...  x
-    // 1 ... ~x
-    // 2 ...  y
-    // 3 ... ~y
-    // :
-    // :
-    // UINT_MAX-1 ... (invalid)
-    // UINT_MAX   ... (invalid; used to represent invalid/missing literals)
-    class bool_lit {
-        unsigned m_index;
-
-        bool_lit(): m_index(UINT_MAX) {}
-        explicit bool_lit(unsigned idx): m_index(idx) { SASSERT(is_valid()); }
-
-    public:
-        bool_lit(bool_var var, bool is_positive): bool_lit(2*var + is_positive) {}
-
-        static bool_lit positive(bool_var var) { return bool_lit(var, true); }
-        static bool_lit negative(bool_var var) { return bool_lit(var, false); }
-        static bool_lit invalid() { return bool_lit(); }
-
-        bool is_valid() const { return m_index < (UINT_MAX & ~0x1); }
-
-        unsigned index() const { SASSERT(is_valid()); return m_index; }
-        bool_var var() const { SASSERT(is_valid()); return m_index / 2; }
-
-        bool is_positive() const { return (m_index & 0x1) == 0; }
-        bool is_negative() const { return !is_positive(); }
-
-        bool_lit operator~() const { return bool_lit(m_index ^ 0x1); }
-
-        // operator unsigned() const { return index(); }
-    };
-
-
 }

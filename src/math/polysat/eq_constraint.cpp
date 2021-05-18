@@ -116,7 +116,9 @@ namespace polysat {
         LOG("Resolve " << *this << " upon v" << v);
         if (s.m_conflict.size() != 1)
             return nullptr;
-        constraint* c = s.m_conflict[0];
+        if (!s.m_conflict.clauses().empty())
+            return nullptr;
+        constraint* c = s.m_conflict.units()[0];
         SASSERT(c->is_currently_false(s));
         // 'c == this' can happen if propagation was from decide() with only one value left
         // (e.g., if there's an unsatisfiable clause and we try all values).
@@ -132,7 +134,7 @@ namespace polysat {
                 return nullptr;
             p_dependency_ref d(s.m_dm.mk_join(c->dep(), dep()), s.m_dm);
             unsigned lvl = std::max(c->level(), level());
-            constraint* lemma = constraint::eq(lvl, s.m_next_bvar++, pos_t, r, d);
+            constraint* lemma = constraint::eq(lvl, pos_t, r, d);
             lemma->assign_eh(true);
             return lemma;
         }
