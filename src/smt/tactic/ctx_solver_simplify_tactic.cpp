@@ -190,6 +190,8 @@ protected:
             parent_pos = todo.back().m_parent;
             self_idx   = todo.back().m_idx;
             n = names.back();
+            bool found = false;
+
             
             if (cache.contains(e)) {
                 goto done;
@@ -213,7 +215,6 @@ protected:
             sz = a->get_num_args();            
             n2 = nullptr;
 
-            bool found = false;
 
             //
             // This is a single traversal version of the context
