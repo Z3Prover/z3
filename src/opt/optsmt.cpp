@@ -235,7 +235,7 @@ namespace opt {
                 else {
                     ++steps;
                 }
-                if (delta_per_step > rational::one() || obj == last_objective) {
+                if (delta_per_step > rational::one() || (obj == last_objective && is_int)) {
                     m_s->push();
                     ++num_scopes;
                     bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));
