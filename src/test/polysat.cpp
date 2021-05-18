@@ -350,24 +350,42 @@ namespace polysat {
      */
     static void test_monot() {
         scoped_solver s(__func__);
-        auto bw = 5;
+
+        auto baseBw = 5;
+        auto max_int_const = 31; // (2^5 - 1) -- change this if you change baseBw
+
+        auto bw = 2 * baseBw;
+        auto max_int = s.var(s.add_var(bw));
+        s.add_eq(max_int - max_int_const);
 
         auto tb1 = s.var(s.add_var(bw));
+        s.add_ule(tb1, max_int);
         auto tb2 = s.var(s.add_var(bw));
+        s.add_ule(tb2, max_int);
         auto a = s.var(s.add_var(bw));
+        s.add_ule(a, max_int);
         auto v = s.var(s.add_var(bw));
+        s.add_ule(v, max_int);
         auto base1 = s.var(s.add_var(bw));
+        s.add_ule(base1, max_int);
         auto base2 = s.var(s.add_var(bw));
+        s.add_ule(base2, max_int);
         auto elastic1 = s.var(s.add_var(bw));
+        s.add_ule(elastic1, max_int);
         auto elastic2 = s.var(s.add_var(bw));
+        s.add_ule(elastic2, max_int);
         auto err = s.var(s.add_var(bw));
+        s.add_ule(err, max_int);
+
         auto zero = a - a;
 
         auto rem1 = s.var(s.add_var(bw));
         auto quot2 = s.var(s.add_var(bw));
+        s.add_ule(quot2, max_int);
         auto rem2 = s.var(s.add_var(bw));
         auto rem3 = s.var(s.add_var(bw));
         auto quot4 = s.var(s.add_var(bw));
+        s.add_ule(quot4, max_int);
         auto rem4 = s.var(s.add_var(bw));
 
         s.add_diseq(elastic1);
@@ -375,12 +393,12 @@ namespace polysat {
         // division: tb1 = (v * base1) / elastic1;
         s.add_eq((tb1 * elastic1) + rem1 - (v * base1));
         s.add_ult(rem1, elastic1);
-        // s.add_mul_noofl(tb1, elastic1); TODO
+        s.add_ule((tb1 * elastic1), max_int);
 
         // division: quot2 = (a * base1) / elastic1
         s.add_eq((quot2 * elastic1) + rem2 - (a * base1));
         s.add_ult(rem2, elastic1);
-        // s.add_mul_noofl(quot2, elastic1); TODO
+        s.add_ule((quot2 * elastic1), max_int);
 
         s.add_eq(base1 + quot2 - base2);
 
@@ -389,12 +407,12 @@ namespace polysat {
         // division: tb2 = ((v * base2) / elastic2);
         s.add_eq((tb2 * elastic2) + rem3 - (v * base2));
         s.add_ult(rem3, elastic2);
-        // s.add_mul_noofl(tb2, elastic2); TODO
+        s.add_ule((tb2 * elastic2), max_int);
 
         // division: quot4 = v / elastic2;
         s.add_eq((quot4 * elastic2) + rem4 - v);
         s.add_ult(rem4, elastic2);
-        // s.add_mul_noofl(quot4, elastic2); TODO
+        s.add_ule((quot4 * elastic2), max_int);
 
         s.add_eq(quot4 + 1 - err);
 
@@ -405,7 +423,7 @@ namespace polysat {
         s.pop();
 
         s.push();
-        s.add_ult(tb1 + err, tb2);
+        s.add_ult(tb2 + err, tb1);
         s.check();
         s.expect_unsat();
         s.pop();
