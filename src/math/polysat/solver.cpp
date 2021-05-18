@@ -458,6 +458,17 @@ namespace polysat {
         pvar conflict_var = null_var;
         scoped_clause lemma;
         reset_marks();
+        m_bvars.reset_marks();
+        for (auto c : m_conflict.units()) {
+            // for (auto v : c->vars())
+            //     set_mark(v);
+            m_bvars.set_mark(c->bvar());
+        }
+        for (auto cl : m_conflict.clauses()) {
+            for (auto c : *cl) {
+                m_bvars.set_mark(c->bvar());
+            }
+        }
         for (auto v : m_conflict.vars()) {
             set_mark(v);
             if (!has_viable(v)) {
@@ -564,7 +575,7 @@ namespace polysat {
 
     void solver::backtrack(unsigned i, scoped_clause& lemma) {
         do {
-            SASSERT(i > base_level());  // don't backtrack beyond base level; otherwise user scope might be destroyed
+            // SASSERT(i > base_level());  // don't backtrack beyond base level; otherwise user scope might be destroyed
             auto const& item = m_search[i];
             if (item.is_assignment()) {
                 // Backtrack over variable assignment
@@ -762,8 +773,10 @@ namespace polysat {
         constraint* d = m_cjust[v].back();
         constraint* res = d->resolve(*this, v);
         LOG("resolved: " << show_deref(res));
-        result.clause = clause::unit(res);
-        result.constraint_storage.push_back(res);
+        if (res) {
+            result.clause = clause::unit(res);
+            result.constraint_storage.push_back(res);
+        }
         return result;
     }
 
@@ -780,6 +793,7 @@ namespace polysat {
         LOG("Lemma: " << lemma);
         if (lemma.is_unit()) {
             constraint* c = lemma.unit();
+            lemma.constraint_storage.detach();  // TODO: make nicer
             bool_lit lit = m_constraints.insert(c);
             assign_bool_core(lit, nullptr);
             insert_constraint(m_redundant, c);
@@ -839,10 +853,12 @@ namespace polysat {
             out << "v" << v << " := " << p.second << " @" << lvl << "\n";
             out << m_viable[v] << "\n";
         }
+        out << "Original:\n";
         for (auto* c : m_original)
-            out << *c << "\n";
+            out << "\t" << *c << "\n";
+        out << "Redundant:\n";
         for (auto* c : m_redundant)
-            out << *c << "\n";
+            out << "\t" << *c << "\n";
         return out;
     }
 

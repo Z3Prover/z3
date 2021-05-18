@@ -101,7 +101,7 @@ namespace polysat {
 
         void reset_marks();
         bool is_marked(bool_var var) const { return m_clock == m_marks[var]; }
-        void set_mark(bool_var var) { m_marks[var] = m_clock; }
+        void set_mark(bool_var var);
 
         bool is_assigned(bool_var var) const { return value(var) != l_undef; }
         bool is_assigned(bool_lit lit) const { return value(lit) != l_undef; }

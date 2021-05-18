@@ -50,7 +50,8 @@ namespace polysat {
                     m_external_constraints.remove(dep);
                 }
             }
-        m_constraints.shrink(lvl);
+        if (lvl < m_constraints.size())
+            m_constraints.shrink(lvl);
     }
 
     constraint* constraint_manager::lookup(bool_var v) {
@@ -153,6 +154,7 @@ namespace polysat {
     }
 
     clause* clause::unit(constraint* c) {
+        SASSERT(c);
         ptr_vector<constraint> lits;
         lits.push_back(c);
         return alloc(clause, c->level(), c->m_dep, lits);

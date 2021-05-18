@@ -13,6 +13,7 @@ Author:
 --*/
 #pragma once
 #include "math/polysat/boolean.h"
+#include "math/polysat/log.h"
 
 namespace polysat {
 
@@ -66,6 +67,15 @@ namespace polysat {
             return;
         m_clock++;
         m_marks.fill(0);
+    }
+
+    void bool_var_manager::set_mark(bool_var var) {
+        if (var == null_bool_var) {
+            LOG("WARN: trying to mark null_bool_var!");
+            // TODO: fix callers and turn this into an assertion.
+            return;
+        }
+        m_marks[var] = m_clock;
     }
 
     std::ostream& operator<<(std::ostream& out, bool_lit const& lit) {
