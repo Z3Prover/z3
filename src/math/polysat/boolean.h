@@ -33,7 +33,7 @@ namespace polysat {
 
         bool_lit(): m_index(UINT_MAX) {}
         explicit bool_lit(unsigned idx): m_index(idx) { SASSERT(is_valid()); }
-        bool_lit(bool_var var, bool is_positive): bool_lit(2*var + is_positive) {}
+        bool_lit(bool_var var, bool is_positive): bool_lit(2*var + !is_positive) {}
 
     public:
         static bool_lit from_index(unsigned idx) { return bool_lit(idx); }
@@ -52,6 +52,8 @@ namespace polysat {
 
         bool_lit operator~() const { return bool_lit(m_index ^ 0x1); }
     };
+
+    std::ostream& operator<<(std::ostream& out, bool_lit const& lit);
 
 
 /* NOTE: currently unused

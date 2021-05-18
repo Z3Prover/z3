@@ -68,4 +68,9 @@ namespace polysat {
         m_marks.fill(0);
     }
 
+    std::ostream& operator<<(std::ostream& out, bool_lit const& lit) {
+        if (lit.is_negative())
+            out << "~";
+        return out << lit.var();
+    }
 }

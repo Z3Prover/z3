@@ -193,11 +193,11 @@ namespace polysat {
     void solver::new_constraint(constraint* c, bool activate) {
         SASSERT(c);
         SASSERT(activate || c->dep());  // if we don't activate the constraint, we need the dependency to access it again later.
-        m_constraints.insert(c);
+        bool_lit lit = m_constraints.insert(c);
         LOG("New constraint: " << *c);
         m_original.push_back(c);
         if (activate)
-            assign_bool_core(bool_lit::positive(c->bvar()), nullptr);
+            assign_bool_core(lit, nullptr);
     }
 
 
@@ -728,6 +728,7 @@ namespace polysat {
     }
 
     void solver::assign_bool_core(bool_lit lit, clause* reason) {
+        LOG("Assigning boolean literal: " << lit);
         SASSERT(!m_bvars.is_assigned(lit));
         m_bvars.assign(lit, m_level, reason);
         constraint* c = m_constraints.lookup(lit.var());
@@ -779,9 +780,8 @@ namespace polysat {
         LOG("Lemma: " << lemma);
         if (lemma.is_unit()) {
             constraint* c = lemma.unit();
-            m_constraints.insert(c);
-            SASSERT(!c->is_undef());  // TODO: ??? probably wrong now
-            add_watch(*c);
+            bool_lit lit = m_constraints.insert(c);
+            assign_bool_core(lit, nullptr);
             insert_constraint(m_redundant, c);
         } else {
             for (constraint* c : lemma.constraint_storage.detach())
