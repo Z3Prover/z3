@@ -70,11 +70,7 @@ namespace polysat {
     }
 
     void bool_var_manager::set_mark(bool_var var) {
-        if (var == null_bool_var) {
-            LOG("WARN: trying to mark null_bool_var!");
-            // TODO: fix callers and turn this into an assertion.
-            return;
-        }
+        SASSERT(var != null_bool_var);
         m_marks[var] = m_clock;
     }
 
