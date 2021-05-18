@@ -51,6 +51,9 @@ namespace polysat {
         bool is_negative() const { return !is_positive(); }
 
         bool_lit operator~() const { return bool_lit(m_index ^ 0x1); }
+
+        bool operator==(bool_lit other) const { return m_index == other.m_index; }
+        bool operator!=(bool_lit other) const { return !(*this == other); }
     };
 
     std::ostream& operator<<(std::ostream& out, bool_lit const& lit);

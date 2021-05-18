@@ -77,9 +77,9 @@ namespace polysat {
         ckind_t          m_kind;
         p_dependency_ref m_dep;
         unsigned_vector  m_vars;
-        bool_var         m_bool_var = null_bool_var;
+        bool_lit         m_lit = bool_lit::invalid();  ///< boolean literal associated to this constraint; is invalid until assigned by constraint_manager::insert
         csign_t          m_sign;  ///< sign/polarity
-        lbool            m_status = l_undef;  ///< current constraint status, computed from value of m_bool_var and m_sign
+        lbool            m_status = l_undef;  ///< current constraint status, computed from value of m_lit and m_sign
         constraint(unsigned lvl, csign_t sign, p_dependency_ref const& dep, ckind_t k):
             m_level(lvl), m_kind(k), m_dep(dep), m_sign(sign) {}
     public:
@@ -111,7 +111,7 @@ namespace polysat {
         p_dependency* dep() const { return m_dep; }
         unsigned_vector& vars() { return m_vars; }
         unsigned level() const { return m_level; }
-        bool_var bvar() const { return m_bool_var; }
+        bool_lit lit() const { return m_lit; }
         bool sign() const { return m_sign; }
         void assign_eh(bool is_true) { m_status = (is_true ^ !m_sign) ? l_true : l_false; }
         void unassign_eh() { m_status = l_undef; }

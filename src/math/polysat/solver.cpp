@@ -467,12 +467,12 @@ namespace polysat {
         }
         m_bvars.reset_marks();
         for (auto c : m_conflict.units())
-            if (c->bvar() != null_bool_var)
-                m_bvars.set_mark(c->bvar());
+            if (c->lit().is_valid())
+                m_bvars.set_mark(c->lit().var());
         for (auto cl : m_conflict.clauses())
             for (auto c : *cl)
-                if (c->bvar() != null_bool_var)
-                    m_bvars.set_mark(c->bvar());
+                if (c->lit().is_valid())
+                    m_bvars.set_mark(c->lit().var());
 
         if (m_conflict.clauses().empty() && conflict_var != null_var) {
             LOG_H2("Conflict due to empty viable set for pvar " << conflict_var);
@@ -539,11 +539,11 @@ namespace polysat {
                 lemma = std::move(new_lemma);
                 reset_marks();
                 m_bvars.reset_marks();
-                for (auto lit : lemma.clause->literals()) {
-                    for (auto w : lit->vars())
+                for (auto c : lemma.clause->literals()) {
+                    for (auto w : c->vars())
                         set_mark(w);
-                    if (lit->bvar() != null_bool_var)
-                        m_bvars.set_mark(lit->bvar());
+                    if (c->lit().is_valid())
+                        m_bvars.set_mark(c->lit().var());
                 }
                 m_conflict.reset();
                 m_conflict.push_back(lemma.get());
@@ -594,8 +594,8 @@ namespace polysat {
                 for (auto* c : m_cjust[v]) {
                     for (auto w : c->vars())
                         set_mark(w);
-                    if (c->bvar() != null_bool_var)
-                        m_bvars.set_mark(c->bvar());
+                    if (c->lit().is_valid())
+                        m_bvars.set_mark(c->lit().var());
                     m_conflict.units().push_back(c);
                 }
             }
@@ -662,8 +662,7 @@ namespace polysat {
             // Guess one of the new literals
             unsigned next_idx = lemma.clause->next_guess();
             constraint* c = lemma[next_idx];
-            bool_lit next_lit = bool_lit::positive(c->bvar());
-            assign_bool_backtrackable(next_lit, nullptr);
+            assign_bool_backtrackable(c->lit(), nullptr);
             push_cjust(v, c);
         }
         add_lemma(lemma);
@@ -717,25 +716,24 @@ namespace polysat {
     }
     
     void solver::revert_boolean_decision(bool_lit lit, scoped_clause& reason) {
-        // TODO: next one
         bool_var const var = lit.var();
         SASSERT(m_bvars.is_decision(var));
         backjump(m_bvars.level(var) - 1);
 
-        bool contains_var = std::any_of(reason.clause->begin(), reason.clause->end(), [var](constraint* c) { return c->bvar() == var; });
-        SASSERT(contains_var);  // TODO: hm...
+        bool contains_var = std::any_of(reason.clause->begin(), reason.clause->end(), [var](constraint* c) { return c->lit().var() == var; });
+        bool contains_opp = std::any_of(reason.clause->begin(), reason.clause->end(), [lit](constraint* c) { return c->lit() == ~lit; });
+        SASSERT(contains_var && contains_opp);  // TODO: hm...
         assign_bool_backtrackable(~lit, reason.clause.get());
         add_lemma(reason);
 
         clause* lemma = m_bvars.lemma(var);
         unsigned next_idx = lemma->next_guess();
-        bool_lit next_lit = bool_lit::positive((*lemma)[next_idx]->bvar());
-        if (next_idx == lemma->size() - 1) {
-            // Next choice is the last literal => propagation
+        bool_lit next_lit = (*lemma)[next_idx]->lit();
+        // If the guess is the last literal do a propagation, otherwise a decision
+        if (next_idx == lemma->size() - 1)
             assign_bool_backtrackable(next_lit, lemma);
-        } else {
+        else
             assign_bool_backtrackable(next_lit, nullptr);
-        }
     }
 
     void solver::assign_bool_core(bool_lit lit, clause* reason) {

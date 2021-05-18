@@ -23,9 +23,10 @@ namespace polysat {
 
     bool_lit constraint_manager::insert(constraint* c) {
         SASSERT(c);
-        SASSERT(c->bvar() == null_bool_var);
+        SASSERT(!c->lit().is_valid());
         bool_var var = m_bvars.new_var();
-        c->m_bool_var = var;
+        bool_lit lit = bool_lit::positive(var);
+        c->m_lit = lit;
         insert_bv2c(var, c);
         if (c->dep() && c->dep()->is_leaf()) {
             unsigned dep = c->dep()->leaf_value();
@@ -35,21 +36,22 @@ namespace polysat {
         while (m_constraints.size() <= c->level())
             m_constraints.push_back({});
         m_constraints[c->level()].push_back(c);
-        return bool_lit::positive(var);
+        return lit;
     }
 
     // Release constraints at the given level and above.
     void constraint_manager::release_level(unsigned lvl) {
-        for (unsigned l = m_constraints.size(); l-- > lvl; )
+        for (unsigned l = m_constraints.size(); l-- > lvl; ) {
             for (constraint* c : m_constraints[l]) {
-                erase_bv2c(c->bvar());
-                m_bvars.del_var(c->bvar());
+                erase_bv2c(c->lit().var());
+                m_bvars.del_var(c->lit().var());
                 if (c->dep() && c->dep()->is_leaf()) {
                     unsigned dep = c->dep()->leaf_value();
                     SASSERT(m_external_constraints.contains(dep));
                     m_external_constraints.remove(dep);
                 }
             }
+        }
         if (lvl < m_constraints.size())
             m_constraints.shrink(lvl);
     }
