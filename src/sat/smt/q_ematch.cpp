@@ -166,9 +166,9 @@ namespace q {
         todo.push_back(e);
         while (!todo.empty()) {
             expr* t = todo.back();
+            todo.pop_back();
             if (m_mark.is_marked(t))
                 continue;
-            todo.pop_back();
             m_mark.mark(t);
             if (is_ground(t)) {
                 add_watch(ctx.get_egraph().find(t), clause_idx);

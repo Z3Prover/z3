@@ -374,6 +374,8 @@ namespace mbp {
                     ts.push_back(var2expr(index2expr, v));                
                 if (!d.m_coeff.is_zero())
                     ts.push_back(a.mk_numeral(d.m_coeff, is_int));
+                if (ts.empty())
+                    ts.push_back(a.mk_numeral(rational(0), is_int));
                 t = mk_add(ts);
                 if (!d.m_div.is_one() && is_int) 
                     t = a.mk_idiv(t, a.mk_numeral(d.m_div, is_int));                
