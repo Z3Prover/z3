@@ -333,7 +333,8 @@ namespace smt {
                 if (e != nullptr) {
                     enode * curr = e;
                     do {
-                        set_relevant(curr->get_expr());
+                        if (!is_relevant_core(curr->get_expr()))
+                            set_relevant(curr->get_expr());
                         curr = curr->get_next();
                     }
                     while (curr != e);
