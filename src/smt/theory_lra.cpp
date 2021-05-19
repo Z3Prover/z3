@@ -983,9 +983,8 @@ public:
         enode * n1 = get_enode(lhs);
         enode * n2 = get_enode(rhs);
         TRACE("arith_verbose", tout << mk_pp(atom, m) << " " << is_arith(n1) << " " << is_arith(n2) << "\n";);
-        if (is_arith(n1) && is_arith(n2) && n1 != n2) {
+        if (is_arith(n1) && is_arith(n2) && n1 != n2) 
             m_arith_eq_adapter.mk_axioms(n1, n2);
-        }
     }
 
     void assign_eh(bool_var v, bool is_true) {
@@ -1024,7 +1023,7 @@ public:
     }
 
     bool use_diseqs() const {
-        return true;
+        return ctx().get_fparams().m_arith_eager_eq_axioms;
     }
 
     void new_diseq_eh(theory_var v1, theory_var v2) {
@@ -1085,7 +1084,6 @@ public:
     }
 
     void relevant_eh(app* n) {
-        TRACE("arith", tout << mk_pp(n, m) << "\n";);
         expr* n1, *n2;
         if (a.is_mod(n, n1, n2)) 
             mk_idiv_mod_axioms(n1, n2);
@@ -2083,7 +2081,7 @@ public:
             bool is_true = m_asserted_atoms[m_asserted_qhead].m_is_true;
             m_to_check.push_back(bv);
             api_bound* b = nullptr;
-            TRACE("arith", tout << "propagate: " << bv << "\n";);
+            TRACE("arith", tout << "propagate: " << literal(bv, !is_true) << "\n";);
             if (m_bool_var2bound.find(bv, b)) {
                 assert_bound(bv, is_true, *b);
             }
@@ -2303,6 +2301,8 @@ public:
             ctx().mk_clause(m_core2.size(), m_core2.data(), js, CLS_TH_LEMMA, nullptr);
         }
         else {
+            std::cout << "assign " << lit << " " << core << " " << eqs.size() << "\n";
+            ctx().display_literal_verbose(std::cout << " => ", lit) << "\n";
             ctx().assign(
                 lit, ctx().mk_justification(
                     ext_theory_propagation_justification(
@@ -2642,14 +2642,16 @@ public:
             if (sign)
                 lit2.neg();
         }
-        TRACE("arith", 
-              ctx().display_literal_verbose(tout, lit1);
-              ctx().display_literal_verbose(tout << " => ", lit2);
-              tout << "\n";);
         updt_unassigned_bounds(v, -1);
         ++m_stats.m_bound_propagations2;
         reset_evidence();
         m_core.push_back(lit1);
+        ctx().display_literals_verbose(std::cout, m_core);
+        ctx().display_literal_verbose(std::cout << " => ", lit2) << "\n";
+        TRACE("arith", 
+              ctx().display_literals_verbose(tout, m_core);
+              ctx().display_literal_verbose(tout << " => ", lit2);
+              tout << "\n";);
         m_params.push_back(parameter(m_farkas));
         m_params.push_back(parameter(rational(1)));
         m_params.push_back(parameter(rational(1)));
