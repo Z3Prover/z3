@@ -46,16 +46,14 @@ extern "C" {
         gparams::reset();
         env_params::updt_params();
     }
-
-    static std::string g_Z3_global_param_get_buffer;
     
     Z3_bool_opt Z3_API Z3_global_param_get(Z3_string param_id, Z3_string_ptr param_value) {
         memory::initialize(UINT_MAX);
         LOG_Z3_global_param_get(param_id, param_value);
         *param_value = nullptr;
         try {
-            g_Z3_global_param_get_buffer = gparams::get_value(param_id);
-            *param_value = g_Z3_global_param_get_buffer.c_str();
+            gparams::g_buffer() = gparams::get_value(param_id);
+            *param_value = gparams::g_buffer().c_str();
             return true;
         }
         catch (z3_exception & ex) {

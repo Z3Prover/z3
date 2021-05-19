@@ -153,4 +153,5 @@ void scoped_timer::finalize() {
         }
     }
     num_workers = 0;
+    available_workers.clear();
 }
