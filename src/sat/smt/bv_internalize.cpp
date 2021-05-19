@@ -284,7 +284,6 @@ namespace bv {
     }
 
     void solver::register_true_false_bit(theory_var v, unsigned idx) {
-        SASSERT(s().value(m_bits[v][idx]) != l_undef);
         sat::literal l = m_bits[v][idx];
         SASSERT(l == mk_true() || ~l == mk_true());
         bool is_true = l == mk_true();
@@ -369,7 +368,7 @@ namespace bv {
     sat::literal solver::mk_true() {
         if (m_true == sat::null_literal) {
             ctx.push(value_trail<sat::literal>(m_true));
-            m_true = ctx.internalize(m.mk_true(), false, false, false);
+            m_true = ctx.internalize(m.mk_true(), false, true, false);
         }
         return m_true;
     }

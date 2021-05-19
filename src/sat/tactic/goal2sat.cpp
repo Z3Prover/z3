@@ -75,7 +75,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
     expr_ref_vector             m_trail;
     func_decl_ref_vector        m_unhandled_funs;
     bool                        m_default_external;
-    bool                        m_xor_solver { false };
     bool                        m_euf { false };
     bool                        m_drat { false };
     bool                        m_is_redundant { false };
@@ -108,7 +107,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         sat_params sp(p);
         m_ite_extra  = p.get_bool("ite_extra", true);
         m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
-        m_xor_solver = p.get_bool("xor_solver", false);
         m_euf = sp.euf();
         m_drat = sp.drat_file().is_non_empty_string();
     }
@@ -576,7 +574,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
     }
 
-    void convert_iff2(app * t, bool root, bool sign) {
+    void convert_iff(app * t, bool root, bool sign) {
         if (t->get_num_args() != 2)
             throw default_exception("unexpected number of arguments to xor");
         SASSERT(t->get_num_args() == 2);
@@ -609,13 +607,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 l.neg();
             m_result_stack.push_back(l);
         }
-    }
-
-    void convert_iff(app * t, bool root, bool sign) {
-        if (!m_euf && is_xor(t))
-            convert_ba(t, root, sign);
-        else               
-            convert_iff2(t, root, sign);
     }
 
     func_decl_ref_vector const& interpreted_funs() {
@@ -723,10 +714,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
     }
 
-    bool is_xor(app* t) const {
-        return m_xor_solver && m.is_iff(t) && m.is_iff(t->get_arg(1));
-    }
-
     struct scoped_stack {
         imp& i;
         sat::literal_vector& r;
@@ -782,11 +769,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
             if (m.is_not(t)) {
                 m_frame_stack.pop_back();
                 visit(t->get_arg(0), root, !sign);
-                continue;
-            }
-            if (!m_euf && is_xor(t)) {
-                convert_ba(t, root, sign);
-                m_frame_stack.pop_back();
                 continue;
             }
             unsigned num = t->get_num_args();
