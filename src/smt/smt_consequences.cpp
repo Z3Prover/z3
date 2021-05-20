@@ -385,10 +385,10 @@ namespace smt {
                 expr* e = kv.m_key;
                 expr* val = kv.m_value;
                 literal lit = mk_diseq(e, val);
-                mark_as_relevant(lit);
                 if (get_assignment(lit) != l_undef) {
                     continue;
                 }
+                mark_as_relevant(lit);
                 ++num_vars;
                 push_scope();
                 assign(lit, b_justification::mk_axiom(), true);

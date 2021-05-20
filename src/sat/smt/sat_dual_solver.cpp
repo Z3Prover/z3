@@ -147,6 +147,7 @@ namespace sat {
             if (m_solver.value(r) == l_true)
                 lits.push_back(r);
         out << "roots: " << lits << "\n";
+        m_solver.display(out);
 
         return out;
     }

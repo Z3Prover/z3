@@ -3081,7 +3081,7 @@ namespace smt {
                     literal l2 = *set_it;
                     if (l2 != l) {
                         b_justification js(l);
-                        TRACE("theory_case_split", tout << "case split literal "; l2.display(tout, m, m_bool_var2expr.data()); tout << std::endl;);
+                        TRACE("theory_case_split", tout << "case split literal "; smt::display(tout, l2, m, m_bool_var2expr.data()); tout << std::endl;);
                         if (l2 == true_literal || l2 == false_literal || l2 == null_literal) continue;
                         assign(~l2, js);
                         if (inconsistent()) {
@@ -4188,7 +4188,7 @@ namespace smt {
                   for (unsigned i = 0; i < num_lits; i++) {
                       display_literal(tout, v[i]);
                       tout << "\n";
-                      v[i].display(tout, m, m_bool_var2expr.data());
+                      smt::display(tout, v[i], m, m_bool_var2expr.data());
                       tout << "\n\n";
                   }
                   tout << "\n";);

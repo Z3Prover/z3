@@ -645,7 +645,6 @@ namespace datatype {
             return false;
         func_decl* c = get_accessor_constructor(f);
         SASSERT(n == 1);
-        std::cout << f->get_name() << " " << mk_pp(args[0], m) << "\n";
         if (is_constructor(args[0])) 
             return to_app(args[0])->get_decl() != c;
         return false;

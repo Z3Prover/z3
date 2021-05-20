@@ -39,7 +39,7 @@ public:
 };
 
 class var_register {
-    svector<ext_var_info> m_local_to_external;
+    vector<ext_var_info> m_local_to_external;
     std::unordered_map<unsigned, unsigned> m_external_to_local;
     unsigned m_locals_mask;
     unsigned m_locals_mask_inverted;

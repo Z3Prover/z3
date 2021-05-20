@@ -60,7 +60,7 @@ namespace dt {
             stats() { reset(); }
         };
 
-        datatype_util         dt;
+        mutable datatype_util dt;
         array_util            m_autil;
         stats                 m_stats;
         ptr_vector<var_data>  m_var_data;
@@ -150,6 +150,7 @@ namespace dt {
         bool unit_propagate() override { return false; }
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
         bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
+        bool include_func_interp(func_decl* f) const override;
         sat::literal internalize(expr* e, bool sign, bool root, bool redundant) override;
         void internalize(expr* e, bool redundant) override;
         euf::theory_var mk_var(euf::enode* n) override;

@@ -72,6 +72,7 @@ class skolemizer {
     cache         m_cache;
     cache         m_cache_pr;
     bool          m_proofs_enabled;
+    used_vars     m_uv;
 
 
     void process(quantifier * q, expr_ref & r, proof_ref & p) {
@@ -81,14 +82,14 @@ class skolemizer {
             p = nullptr;
             return;
         }
-        used_vars uv;
-        uv(q);
+        m_uv.reset();
+        m_uv(q);
         SASSERT(is_well_sorted(m, q));
-        unsigned sz = uv.get_max_found_var_idx_plus_1();
+        unsigned sz = m_uv.get_max_found_var_idx_plus_1();
         ptr_buffer<sort> sorts;
         expr_ref_vector args(m);
         for (unsigned i = 0; i < sz; i++) {
-            sort * s = uv.get(i);
+            sort * s = m_uv.get(i);
             if (s != nullptr) {
                 sorts.push_back(s);
                 args.push_back(m.mk_var(i, s));
@@ -111,7 +112,7 @@ class skolemizer {
         // (VAR num_decls-1) is in the last position.
         //
         for (unsigned i = 0; i < sz; i++) {
-            sort * s = uv.get(i);
+            sort * s = m_uv.get(i);
             if (s != nullptr)
                 substitution.push_back(m.mk_var(i, s));
             else

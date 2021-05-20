@@ -61,7 +61,6 @@ namespace opt {
         void commit_assignment(unsigned index);
         inf_eps get_lower(unsigned index) const;
         inf_eps get_upper(unsigned index) const;
-        bool objective_is_model_valid(unsigned index) const;
         void    get_model(model_ref& mdl, svector<symbol>& labels);
         model*  get_model(unsigned index) const { return m_models[index]; }
 

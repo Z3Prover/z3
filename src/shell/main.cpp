@@ -46,7 +46,6 @@ Revision History:
 
 typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_LP, IN_Z3_LOG, IN_MPS, IN_DRAT } input_kind;
 
-static std::string  g_aux_input_file;
 static char const * g_input_file          = nullptr;
 static char const * g_drat_input_file     = nullptr;
 static bool         g_standard_input      = false;
@@ -124,7 +123,7 @@ void display_usage() {
     std::cout << "Use 'z3 -p' for the complete list of global and module parameters.\n";
 }
    
-static void parse_cmd_line_args(int argc, char ** argv) {
+static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv) {
     long timeout = 0;
     int i = 1;
     char * eq_pos = nullptr;
@@ -134,19 +133,18 @@ static void parse_cmd_line_args(int argc, char ** argv) {
         if (arg[0] == '-' && arg[1] == '-' && arg[2] == 0) {
             // Little hack used to read files with strange names such as -foo.smt2
             // z3 -- -foo.smt2
-            i++;
-            g_aux_input_file = "";
-            for (; i < argc; i++) {
-                g_aux_input_file += argv[i];
-                if (i < argc - 1)
-                    g_aux_input_file += " ";
-            }
             if (g_input_file) {
                 warning_msg("input file was already specified.");
+                break;
             }
-            else {
-                g_input_file = g_aux_input_file.c_str();
+            i++;
+            input_file = "";
+            for (; i < argc; i++) {
+                input_file += argv[i];
+                if (i < argc - 1)
+                    input_file += " ";
             }
+            g_input_file = input_file.c_str();
             break;
         }
         
@@ -321,11 +319,12 @@ static void parse_cmd_line_args(int argc, char ** argv) {
 
 
 int STD_CALL main(int argc, char ** argv) {
-     try{
+     try {
         unsigned return_value = 0;
         memory::initialize(0);
         memory::exit_when_out_of_memory(true, "ERROR: out of memory");
-        parse_cmd_line_args(argc, argv);
+        std::string input_file;
+        parse_cmd_line_args(input_file, argc, argv);
         env_params::updt_params();
 
         if (g_input_file && g_standard_input) {

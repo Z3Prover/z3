@@ -1218,15 +1218,11 @@ namespace {
                 linearise_multi_pattern(first_idx);
             }
 
-#ifdef Z3DEBUG
-            for (unsigned i = 0; i < m_qa->get_num_decls(); i++) {
-                CTRACE("mam_new_bug", m_vars[i] < 0, tout << mk_ismt2_pp(m_qa, m) << "\ni: " << i << " m_vars[i]: " << m_vars[i] << "\n";
-                       tout << "m_mp:\n" << mk_ismt2_pp(m_mp, m) << "\n";
-                       tout << "tree:\n" << *m_tree << "\n";
-                       );
-                SASSERT(m_vars[i] >= 0);
-            }
-#endif
+            // check that all variables are captured by pattern.
+            for (unsigned i = 0; i < m_qa->get_num_decls(); i++) 
+                if (m_vars[i] == -1) 
+                    return;
+
             SASSERT(head->m_next == 0);
             m_seq.push_back(m_ct_manager.mk_yield(m_qa, m_mp, m_qa->get_num_decls(), reinterpret_cast<unsigned*>(m_vars.begin())));
 
@@ -1843,7 +1839,7 @@ namespace {
         enode_vector        m_bindings;
         enode_vector        m_args;
         backtrack_stack     m_backtrack_stack;
-        unsigned            m_top;
+        unsigned            m_top { 0 };
         const instruction * m_pc;
 
         // auxiliary temporary variables
@@ -2210,8 +2206,13 @@ namespace {
             if (curr->get_num_args() == expected_num_args && m_context.is_relevant(curr))
                 break;
         }
-        if (bp.m_it == bp.m_end)
+        if (bp.m_it == bp.m_end) {
+            if (best_v) {
+                bp.m_to_recycle = nullptr; 
+                recycle_enode_vector(best_v);
+            }
             return nullptr;
+        }
         m_top++;
         update_max_generation(*(bp.m_it), nullptr);
         return *(bp.m_it);

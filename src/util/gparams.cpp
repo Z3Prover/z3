@@ -137,6 +137,7 @@ struct gparams::imp {
     smap<params_ref* >   m_module_params;
     params_ref           m_params;
     region               m_region;
+    std::string          m_buffer;
 
     void check_registered() {
         if (m_modules_registered)
@@ -650,4 +651,9 @@ void gparams::finalize() {
     TRACE("gparams", tout << "gparams::finalize()\n";);
     dealloc(g_imp);
     DEALLOC_MUTEX(gparams_mux);
+}
+
+std::string& gparams::g_buffer() {
+    SASSERT(g_imp);
+    return g_imp->m_buffer;
 }

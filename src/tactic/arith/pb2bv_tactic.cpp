@@ -657,13 +657,14 @@ private:
                         SASSERT(pos);                        
                         r = m.mk_true();
                     }
-                    else {
-                        SASSERT((c.is_zero() && k == GE) ||
-                                (c.is_one() && k == LE));
+                    else if ((c.is_zero() && k == GE) ||
+                             (c.is_one() && k == LE)) {
                         // unit 0 >= x, 1 <= x
                         SASSERT(pos);
                         r = mk_unit(rhs, k == GE);
                     }
+                    else 
+                        throw_non_pb(t);
                     return;
                 }
                 throw_non_pb(t);
@@ -985,7 +986,7 @@ private:
 
         void throw_tactic(expr* e) {
             std::stringstream strm;
-            strm << "goal is in a fragment unsupported by pb2bv. Offending expression: " << mk_pp(e, m);
+            strm << "goal is in a fragment not supported by pb2bv. Offending expression: " << mk_pp(e, m);
             throw tactic_exception(strm.str());
         }
     };

@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
+#include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/arith_rewriter.h"
@@ -266,6 +267,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             func_interp * fi = m_model.get_func_interp(g);
             if (fi && (result = fi->get_array_interp(g))) {
                 model_evaluator ev(m_model, m_params);
+                ev.set_model_completion(false);
                 result = ev(result);
                 m_pinned.push_back(result);
                 m_def_cache.insert(g, result);
@@ -373,6 +375,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
             var_subst vs(m, false);
             result = vs(fi->get_interp(), num, args);
+            if (!is_ground(result.get()) && recfun::util(m).is_defined(f))
+                return BR_DONE;
             return BR_REWRITE_FULL;
         }
 

@@ -193,14 +193,25 @@ namespace smt {
 
             }
             catch (z3_error & err) {
-                error_code = err.error_code();
-                ex_kind = ERROR_EX;                
-                done = true;
+                if (finished_id == UINT_MAX) {
+                    error_code = err.error_code();
+                    ex_kind = ERROR_EX;
+                    done = true;
+                }
             }
             catch (z3_exception & ex) {
-                ex_msg = ex.msg();
-                ex_kind = DEFAULT_EX;    
-                done = true;
+                if (finished_id == UINT_MAX) {
+                    ex_msg = ex.msg();
+                    ex_kind = DEFAULT_EX;
+                    done = true;
+                }
+            }
+            catch (...) {
+                if (finished_id == UINT_MAX) {
+                    ex_msg = "unknown exception";
+                    ex_kind = ERROR_EX;
+                    done = true;
+                }
             }
         };
 

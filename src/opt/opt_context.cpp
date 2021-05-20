@@ -1714,23 +1714,8 @@ namespace opt {
             objective const& obj = m_objectives[i];
             switch(obj.m_type) {
             case O_MINIMIZE:
-            case O_MAXIMIZE: {
-                inf_eps n = m_optsmt.get_lower(obj.m_index);
-                if (false && // theory_lra doesn't produce infinitesimals
-                    m_optsmt.objective_is_model_valid(obj.m_index) && 
-                    n.get_infinity().is_zero() &&
-                    n.get_infinitesimal().is_zero() &&
-                    is_numeral((*m_model)(obj.m_term), r1)) {
-                    rational r2 = n.get_rational();
-                    if (obj.m_type == O_MINIMIZE) {
-                        r1.neg();
-                    }
-                    CTRACE("opt", r1 != r2, tout << obj.m_term << " evaluates to " << r1 << " but has objective " << r2 << "\n";);
-                    CTRACE("opt", r1 != r2, tout << *m_model;);
-                    SASSERT(r1 == r2);
-                }
+            case O_MAXIMIZE: 
                 break;
-            }
             case O_MAXSMT: {
                 rational value(0);
                 for (unsigned i = 0; i < obj.m_terms.size(); ++i) {

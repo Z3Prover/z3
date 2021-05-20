@@ -148,8 +148,10 @@ namespace q {
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool learned) {
         SASSERT(is_forall(e) || is_exists(e));
         sat::bool_var v = ctx.get_si().add_bool_var(e);
-        sat::literal lit = ctx.attach_lit(sat::literal(v, sign), e);
+        sat::literal lit = ctx.attach_lit(sat::literal(v, false), e);
         mk_var(ctx.get_egraph().find(e));
+        if (sign)
+            lit.neg();
         return lit;
     }
 

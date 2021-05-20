@@ -89,7 +89,7 @@ namespace smt {
     }
 
     std::ostream& context::display_literal(std::ostream & out, literal l) const {
-        l.display_compact(out, m_bool_var2expr.data()); return out;
+        smt::display_compact(out, l, m_bool_var2expr.data()); return out;
     }
 
     std::ostream& context::display_literals(std::ostream & out, unsigned num_lits, literal const * lits) const {
@@ -120,7 +120,7 @@ namespace smt {
     }
 
     void context::display_literal_info(std::ostream & out, literal l) const {
-        l.display_compact(out, m_bool_var2expr.data());
+        smt::display_compact(out, l, m_bool_var2expr.data());
         display_literal_smt2(out, l);
         out << "relevant: " << is_relevant(bool_var2expr(l.var())) << ", val: " << get_assignment(l) << "\n";
     }

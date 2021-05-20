@@ -244,23 +244,46 @@ namespace opt {
         smt::theory_var v = m_objective_vars[i];
         bool has_shared = false;
         m_last_model = nullptr;
+        //
+        // compute an optimization hint.
+        // The hint is valid if there are no shared symbols (a pure LP).
+        // Generally, the hint is not necessarily valid and has to be checked
+        // relative to other theories.
+        // 
         inf_eps val = get_optimizer().maximize(v, blocker, has_shared);
         m_context.get_model(m_last_model);
         inf_eps val2;
-        m_valid_objectives[i] = true;
         has_shared = true;
         TRACE("opt", tout << (has_shared?"has shared":"non-shared") << " " << val << " " << blocker << "\n";
               if (m_last_model) tout << *m_last_model << "\n";);
         if (!m_models[i]) 
             m_models.set(i, m_last_model.get());
+
+        //
+        // retrieve value of objective from current model and update 
+        // current optimal.
+        // 
+        auto update_objective = [&]() {
+            rational r;
+            expr_ref value = (*m_last_model)(m_objective_terms.get(i));
+            if (arith_util(m).is_numeral(value, r) && r > m_objective_values[i])
+                m_objective_values[i] = inf_eps(r);            
+        };
+
+        update_objective();
                         
-        auto decrement = [&]() {
+
+        // 
+        // check that "val" obtained from optimization hint is a valid bound.
+        // 
+        auto check_bound = [&]() {
             SASSERT(has_shared);
-            decrement_value(i, val);
+            bool ok = bound_value(i, val);
             if (l_true != m_context.check(0, nullptr))  
                 return false;
-            m_context.get_model(m_last_model);      
-            return true;
+            m_context.get_model(m_last_model);   
+            update_objective();
+            return ok;
         };
 
         if (!val.is_finite()) {
@@ -270,19 +293,16 @@ namespace opt {
             TRACE("opt", tout << "updated\n";);
             m_last_model = nullptr;
             m_context.get_model(m_last_model);
-            if (has_shared && val != current_objective_value(i)) {
-                if (!decrement())
-                    return false;
-            }
-            else {
+            if (!has_shared || val == current_objective_value(i))
                 m_models.set(i, m_last_model.get());
-            }
+            else if (!check_bound())
+                return false;
         }
-        else if (!decrement())
+        else if (!check_bound())
             return false;
         m_objective_values[i] = val;
         TRACE("opt", { 
-                tout << "objective:     " << mk_pp(m_objective_terms[i].get(), m) << "\n";
+                tout << "objective:     " << mk_pp(m_objective_terms.get(i), m) << "\n";
                 tout << "maximal value: " << val << "\n"; 
                 tout << "new condition: " << blocker << "\n";
                 if (m_models[i]) model_smt2_pp(tout << "update model:\n", m, *m_models[i], 0); 
@@ -291,10 +311,9 @@ namespace opt {
         return true;
     }
 
-    lbool opt_solver::decrement_value(unsigned i, inf_eps& val) {
+    bool opt_solver::bound_value(unsigned i, inf_eps& val) {
         push_core();
         expr_ref ge = mk_ge(i, val);
-        TRACE("opt", tout << ge << "\n";);
         assert_expr(ge);
         lbool is_sat = m_context.check(0, nullptr);
         is_sat = adjust_result(is_sat);
@@ -303,19 +322,7 @@ namespace opt {
             m_models.set(i, m_last_model.get());
         }
         pop_core(1);
-        TRACE("opt", tout << is_sat << "\n";);
-        if (is_sat != l_true) {
-            // cop-out approximation
-            if (arith_util(m).is_real(m_objective_terms.get(i))) {
-                val -= inf_eps(inf_rational(rational(0), true));
-            }
-            else {
-                val -= inf_eps(inf_rational(rational(1)));
-            }
-            m_valid_objectives[i] = false;
-        }
-        return is_sat;
-
+        return is_sat == l_true;
     }
 
     lbool opt_solver::adjust_result(lbool r) {
@@ -338,10 +345,12 @@ namespace opt {
         for (unsigned i = m_models.size(); i-- > 0; ) {
             auto* mdl = m_models[i];
             if (mdl) {
+                TRACE("opt", tout << "get " << i << "\n" << *mdl << "\n";);
                 m = mdl;
                 return;
             }
         }        
+        TRACE("opt", tout << "get last\n";);
         m = m_last_model.get();
     }
     
@@ -384,7 +393,6 @@ namespace opt {
         m_objective_vars.push_back(v);
         m_objective_values.push_back(inf_eps(rational::minus_one(), inf_rational()));
         m_objective_terms.push_back(term);
-        m_valid_objectives.push_back(true);
         m_models.push_back(nullptr);
         return v;
     }
@@ -486,7 +494,6 @@ namespace opt {
         m_objective_vars.reset();
         m_objective_values.reset();
         m_objective_terms.reset();
-        m_valid_objectives.reset();
     }
 
     opt_solver& opt_solver::to_opt(solver& s) {

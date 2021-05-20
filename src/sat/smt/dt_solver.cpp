@@ -249,7 +249,7 @@ namespace dt {
         SASSERT(!d->m_constructor);
         SASSERT(!recognizer || ctx.value(recognizer) == l_false || !is_final);
         
-        TRACE("dt", tout << "non_rec_c: " << non_rec_c->get_name() << " #rec: " << d->m_recognizers.size() << "\n";);
+        TRACE("dt", tout << ctx.bpp(n) << " non_rec_c: " << non_rec_c->get_name() << " #rec: " << d->m_recognizers.size() << "\n";);
 
         if (!recognizer && non_rec_c->get_arity() == 0) {
             sat::literal eq = eq_internalize(n->get_expr(), m.mk_const(non_rec_c));
@@ -469,12 +469,12 @@ namespace dt {
 
     void solver::merge_eh(theory_var v1, theory_var v2, theory_var, theory_var) {
         // v1 is the new root
-        TRACE("dt", tout << "merging v" << v1 << " v" << v2 << "\n";);
         SASSERT(v1 == static_cast<int>(m_find.find(v1)));
         var_data* d1 = m_var_data[v1];
         var_data* d2 = m_var_data[v2];
         auto* con1 = d1->m_constructor;
         auto* con2 = d2->m_constructor;
+        TRACE("dt", tout << "merging v" << v1 << " v" << v2 << "\n" << ctx.bpp(var2enode(v1)) << " == " << ctx.bpp(var2enode(v2)) << " " << ctx.bpp(con1) << " " << ctx.bpp(con2) << "\n";);
         if (con1 && con2 && con1->get_decl() != con2->get_decl())
             ctx.set_conflict(euf::th_explain::conflict(*this, con1, con2));
         else if (con2 && !con1) {
@@ -721,6 +721,19 @@ namespace dt {
         return true;
     }
 
+    bool solver::include_func_interp(func_decl* f) const {
+        if (!dt.is_accessor(f))
+            return false;
+        func_decl* con = dt.get_accessor_constructor(f);
+        for (enode* app : ctx.get_egraph().enodes_of(f)) {
+            enode* arg = app->get_arg(0)->get_root();
+            if (is_constructor(arg) && arg->get_decl() != con) 
+                return true;
+        }
+        return false; 
+    }
+
+
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
         if (!visit_rec(m, e, sign, root, redundant)) 
             return sat::null_literal;        
@@ -769,7 +782,6 @@ namespace dt {
                 }
             }
             mk_var(n);
-
         }
         else if (is_recognizer(term)) {
             mk_var(n);
@@ -781,6 +793,8 @@ namespace dt {
             SASSERT(is_accessor(term));
             SASSERT(n->num_args() == 1);
             mk_var(n->get_arg(0));
+            if (is_datatype(n))
+                mk_var(n);
         }
 
         return true;

@@ -77,7 +77,6 @@ namespace opt {
         vector<inf_eps>     m_objective_values;
         sref_vector<model>  m_models;
         expr_ref_vector     m_objective_terms;
-        bool_vector       m_valid_objectives;
         bool                m_dump_benchmarks;
         static unsigned     m_dump_count;
         statistics          m_stats;
@@ -124,9 +123,6 @@ namespace opt {
         inf_eps const & saved_objective_value(unsigned obj_index);
         inf_eps current_objective_value(unsigned obj_index);
         model* get_model_idx(unsigned obj_index) { return m_models[obj_index]; }
-        bool objective_is_model_valid(unsigned obj_index) const {
-            return m_valid_objectives[obj_index];
-        }
 
         bool was_unknown() const { return m_was_unknown; }
 
@@ -147,7 +143,7 @@ namespace opt {
                                symbol const& logic = symbol::null, char const * status = "unknown", char const * attributes = "");
 
     private:
-        lbool decrement_value(unsigned i, inf_eps& val);
+        bool bound_value(unsigned i, inf_eps& val);
         void set_model(unsigned i);
         lbool adjust_result(lbool r);
     };
