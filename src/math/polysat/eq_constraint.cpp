@@ -19,7 +19,10 @@ Author:
 namespace polysat {
 
     std::ostream& eq_constraint::display(std::ostream& out) const {
-        return out << p() << (sign() == pos_t ? " == 0" : " != 0") << " [" << m_status << "]";
+        out << p() << (sign() == pos_t ? " == 0" : " != 0") << " @" << level();
+        if (is_undef())
+            out << " [inactive]";
+        return out;
     }
 
     constraint* eq_constraint::resolve(solver& s, pvar v) {
@@ -135,7 +138,7 @@ namespace polysat {
             p_dependency_ref d(s.m_dm.mk_join(c->dep(), dep()), s.m_dm);
             unsigned lvl = std::max(c->level(), level());
             constraint* lemma = constraint::eq(lvl, pos_t, r, d);
-            lemma->assign_eh(true);
+            lemma->assign(true);
             return lemma;
         }
         return nullptr;

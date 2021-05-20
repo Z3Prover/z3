@@ -55,7 +55,7 @@ namespace polysat {
         // Release constraints at the given level and above.
         void release_level(unsigned lvl);
 
-        constraint* lookup(bool_var v);
+        constraint* lookup(bool_lit lit);
         constraint* lookup_external(unsigned dep) { return m_external_constraints.get(dep, nullptr); }
 
         // // Convenience methods; they automatically insert the constraint.
@@ -113,8 +113,8 @@ namespace polysat {
         unsigned level() const { return m_level; }
         bool_lit lit() const { return m_lit; }
         bool sign() const { return m_sign; }
-        void assign_eh(bool is_true) { m_status = (is_true ^ !m_sign) ? l_true : l_false; }
-        void unassign_eh() { m_status = l_undef; }
+        void assign(bool is_true) { m_status = (is_true ^ !m_sign) ? l_true : l_false; }
+        void unassign() { m_status = l_undef; }
         bool is_positive() const { return m_status == l_true; }
         bool is_negative() const { return m_status == l_false; }
         bool is_undef() const { return m_status == l_undef; }
@@ -215,7 +215,11 @@ namespace polysat {
         unsigned next_guess() {
             return m_next_guess++;
         }
+
+        std::ostream& display(std::ostream& out) const;
     };
+
+    inline std::ostream& operator<<(std::ostream& out, clause const& c) { return c.display(out); }
 
     // A clause that owns (some of) its literals
     struct scoped_clause {
@@ -237,6 +241,10 @@ namespace polysat {
         polysat::clause* get() { return clause.get(); }
         polysat::clause* detach() { SASSERT(constraint_storage.empty()); return clause.detach(); }
         ptr_vector<constraint> detach_literals() { return constraint_storage.detach(); }
+
+        using const_iterator = typename clause::const_iterator;
+        const_iterator begin() const { SASSERT(clause); return clause->begin(); }
+        const_iterator end() const { SASSERT(clause); return clause->end(); }
     };
 
     // Container for unit constraints and clauses.
@@ -295,7 +303,7 @@ namespace polysat {
             return vars;
         }
 
-        std::ostream& display(std::ostream& out) const { return out << "TODO"; }
+        std::ostream& display(std::ostream& out) const;
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraints_and_clauses const& c) { return c.display(out); }

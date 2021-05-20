@@ -43,6 +43,7 @@ namespace polysat {
     void constraint_manager::release_level(unsigned lvl) {
         for (unsigned l = m_constraints.size(); l-- > lvl; ) {
             for (constraint* c : m_constraints[l]) {
+                LOG_V("Removing constraint: " << show_deref(c));
                 erase_bv2c(c->lit().var());
                 m_bvars.del_var(c->lit().var());
                 if (c->dep() && c->dep()->is_leaf()) {
@@ -56,8 +57,14 @@ namespace polysat {
             m_constraints.shrink(lvl);
     }
 
-    constraint* constraint_manager::lookup(bool_var v) {
-        return get_bv2c(v);
+    constraint* constraint_manager::lookup(bool_lit lit) {
+        constraint* c = get_bv2c(lit.var());
+        if (c->lit() == lit)
+            return c;
+        else {
+            LOG_H1("WARN: need constraint of opposite polarity!");
+            return nullptr;  // TODO: fix
+        }
     }
 
     eq_constraint& constraint::to_eq() { 
@@ -164,5 +171,36 @@ namespace polysat {
 
     clause* clause::from_literals(unsigned lvl, p_dependency_ref const& d, ptr_vector<constraint> const& literals) {
         return alloc(clause, lvl, d, literals);
+    }
+
+    std::ostream& clause::display(std::ostream& out) const {
+        bool first = true;
+        for (auto* c : literals()) {
+            if (first)
+                first = false;
+            else
+                out << " \\/ ";
+            out << show_deref(c);
+        }
+        return out;
+    }
+
+    std::ostream& constraints_and_clauses::display(std::ostream& out) const {
+        bool first = true;
+        for (auto* c : units()) {
+            if (first)
+                first = false;
+            else
+                out << "  ;  ";
+            out << show_deref(c);
+        }
+        for (auto* cl : clauses()) {
+            if (first)
+                first = false;
+            else
+                out << "  ;  ";
+            out << show_deref(cl);
+        }
+        return out;
     }
 }

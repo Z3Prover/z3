@@ -74,7 +74,6 @@ namespace polysat {
         scoped_ptr_vector<clause>       m_redundant_clauses;
 
         svector<bool_var>        m_disjunctive_lemma;
-        svector<unsigned>        m_assign_eh_history;
 
         // Per variable information
         vector<bdd>              m_viable;   // set of viable values.
@@ -104,6 +103,7 @@ namespace polysat {
         unsigned_vector          m_qhead_trail;
         vector<std::pair<pvar, bdd>> m_viable_trail;
         unsigned_vector          m_cjust_trail;
+        ptr_vector<constraint>   m_activate_trail;
 
 
         unsigned_vector          m_base_levels;  // External clients can push/pop scope. 
@@ -188,6 +188,9 @@ namespace polysat {
         // Assign a boolean literal and activate the corresponding constraint.
         void assign_bool_core(bool_lit lit, clause* reason);
         void assign_bool_backtrackable(bool_lit lit, clause* reason);
+        void activate_constraint(constraint* c);
+        void decide_bool(bool_lit lit);
+        void propagate_bool(bool_lit lit, clause* reason);
 
         void assign_core(pvar v, rational const& val, justification const& j);
         bool is_assigned(pvar v) const { return !m_justification[v].is_unassigned(); }
@@ -195,6 +198,7 @@ namespace polysat {
 
         bool should_search();
 
+        void propagate(bool_lit lit);
         void propagate(pvar v);
         void propagate(pvar v, rational const& val, constraint& c);
         void erase_watch(pvar v, constraint& c);
@@ -233,7 +237,7 @@ namespace polysat {
         void backtrack(unsigned i, scoped_clause& lemma);
         void report_unsat();
         void revert_decision(pvar v, scoped_clause& reason);
-        void revert_boolean_decision(bool_lit lit, scoped_clause& reason);
+        void revert_bool_decision(bool_lit lit, scoped_clause& reason);
         void learn_lemma(pvar v, scoped_clause& cl);
         void backjump(unsigned new_level);
         void add_lemma(scoped_clause& lemma);
