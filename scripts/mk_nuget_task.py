@@ -28,7 +28,7 @@ os_info = {"z64-ubuntu-14" : ('so', 'ubuntu.14.04-x64'),
            'glibc-2.31' : ('so', 'glibc-x64'),
            'x64-win' : ('dll', 'win-x64'),
            'x86-win' : ('dll', 'win-x86'),
-           'osx' : ('dylib', 'macos'),
+           'osx' : ('dylib', 'osx-x64'),
            'debian' : ('so', 'debian.8-x64') }
 
 def classify_package(f):
@@ -52,7 +52,7 @@ def unpack(packages, symbols):
     #    +- win-x64
     #    +- win-x86
     #    +- ubuntu-x64
-    #    +- macos
+    #    +- osx-x64
     # +
     tmp = "tmp" if not symbols else "tmpsym"
     for f in os.listdir(packages):
