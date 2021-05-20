@@ -64,12 +64,12 @@ namespace polysat {
         fixplex_base* b = m_fix.get(sz, nullptr);
         if (!b) {
             switch (sz) {
+            case 32:
+                b = alloc(fixplex<generic_uint_ext<unsigned>>, s.m_lim);
+                break;
             case 64:
                 b = alloc(fixplex<uint64_ext>, s.m_lim);
                 break;
-            case 8:
-            case 16:
-            case 32:
             case 128:
             case 256:
             default:

@@ -254,11 +254,12 @@ namespace polysat {
     };
 
 
-    struct uint64_ext {
-        typedef uint64_t numeral;
+    template<typename uint_type>
+    struct generic_uint_ext {
+        typedef uint_type numeral;
 
         struct manager {
-            typedef uint64_t numeral;
+            typedef uint_type numeral;
             struct hash {
                 unsigned operator()(numeral const& n) const { 
                     return static_cast<unsigned>(n); 
@@ -269,7 +270,7 @@ namespace polysat {
                     return a == b;
                 }
             };
-            numeral from_rational(rational const& n) { return n.get_uint64(); }
+            numeral from_rational(rational const& n) { return static_cast<uint_type>(n.get_uint64()); }
             void reset() {}
             void reset(numeral& n) { n = 0; }
             void del(numeral const& n) {}
@@ -332,6 +333,8 @@ namespace polysat {
         };
         typedef _scoped_numeral<manager> scoped_numeral;
     };
+
+    typedef generic_uint_ext<uint64_t> uint64_ext;
 
 
     template<typename Ext>
