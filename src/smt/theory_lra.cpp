@@ -976,8 +976,6 @@ public:
     }
         
     void internalize_eq_eh(app * atom, bool_var) {
-        if (!ctx().get_fparams().m_arith_eager_eq_axioms)
-            return;
         expr* lhs = nullptr, *rhs = nullptr;
         VERIFY(m.is_eq(atom, lhs, rhs));
         enode * n1 = get_enode(lhs);
@@ -1023,7 +1021,7 @@ public:
     }
 
     bool use_diseqs() const {
-        return ctx().get_fparams().m_arith_eager_eq_axioms;
+        return true;
     }
 
     void new_diseq_eh(theory_var v1, theory_var v2) {
@@ -2301,8 +2299,6 @@ public:
             ctx().mk_clause(m_core2.size(), m_core2.data(), js, CLS_TH_LEMMA, nullptr);
         }
         else {
-            std::cout << "assign " << lit << " " << core << " " << eqs.size() << "\n";
-            ctx().display_literal_verbose(std::cout << " => ", lit) << "\n";
             ctx().assign(
                 lit, ctx().mk_justification(
                     ext_theory_propagation_justification(
@@ -2646,8 +2642,6 @@ public:
         ++m_stats.m_bound_propagations2;
         reset_evidence();
         m_core.push_back(lit1);
-        ctx().display_literals_verbose(std::cout, m_core);
-        ctx().display_literal_verbose(std::cout << " => ", lit2) << "\n";
         TRACE("arith", 
               ctx().display_literals_verbose(tout, m_core);
               ctx().display_literal_verbose(tout << " => ", lit2);
