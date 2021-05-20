@@ -26,8 +26,10 @@ namespace polysat {
         SASSERT(!c->lit().is_valid());
         bool_var var = m_bvars.new_var();
         bool_lit lit = bool_lit::positive(var);
+        LOG_V("Inserting constraint: " << *c << "; now represented by bool_lit " << lit);
         c->m_lit = lit;
         insert_bv2c(var, c);
+        // TODO: use explicit insert_external(constraint* c, unsigned dep) for that.
         if (c->dep() && c->dep()->is_leaf()) {
             unsigned dep = c->dep()->leaf_value();
             SASSERT(!m_external_constraints.contains(dep));
@@ -52,9 +54,8 @@ namespace polysat {
                     m_external_constraints.remove(dep);
                 }
             }
+            m_constraints[l].reset();
         }
-        if (lvl < m_constraints.size())
-            m_constraints.shrink(lvl);
     }
 
     constraint* constraint_manager::lookup(bool_lit lit) {
@@ -63,7 +64,8 @@ namespace polysat {
             return c;
         else {
             LOG_H1("WARN: need constraint of opposite polarity!");
-            return nullptr;  // TODO: fix
+            // return nullptr;  // TODO: fix
+            return c;
         }
     }
 
@@ -166,11 +168,11 @@ namespace polysat {
         SASSERT(c);
         ptr_vector<constraint> lits;
         lits.push_back(c);
-        return alloc(clause, c->level(), c->m_dep, lits);
+        return alloc(clause, c->level(), c->m_dep, 0, lits);
     }
 
-    clause* clause::from_literals(unsigned lvl, p_dependency_ref const& d, ptr_vector<constraint> const& literals) {
-        return alloc(clause, lvl, d, literals);
+    clause* clause::from_literals(unsigned lvl, p_dependency_ref const& d, unsigned num_antecedents, ptr_vector<constraint> const& literals) {
+        return alloc(clause, lvl, d, num_antecedents, literals);
     }
 
     std::ostream& clause::display(std::ostream& out) const {
@@ -183,6 +185,13 @@ namespace polysat {
             out << show_deref(c);
         }
         return out;
+    }
+
+    std::ostream& scoped_clause::display(std::ostream& out) const {
+        if (clause)
+            return out << *clause;
+        else
+            return out << "<NULL>";
     }
 
     std::ostream& constraints_and_clauses::display(std::ostream& out) const {

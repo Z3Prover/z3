@@ -160,15 +160,16 @@ namespace polysat {
 
     constraint* solver::mk_diseq(pdd const& p, unsigned dep) {
         if (p.is_val()) {
-            if (!p.is_zero())
-                return nullptr;  // TODO: probably better to create a dummy always-true constraint?
-            // Use 0 != 0 for a constraint that is always false
+            // if (!p.is_zero())
+            //     return nullptr;  // TODO: probably better to create a dummy always-true constraint?
+            // // Use 0 != 0 for a constraint that is always false
+            // Use p != 0 as evaluable dummy constraint
             return constraint::eq(m_level, neg_t, p, mk_dep_ref(dep));
         }
         unsigned sz = size(p.var());
         auto slack = add_var(sz);
         auto q = p + var(slack);
-        add_eq(q, dep);
+        add_eq(q, dep);  // TODO: 'dep' now refers to two constraints; this is not yet supported
         auto non_zero = sz2bits(sz).non_zero();
         return constraint::viable(m_level, pos_t, slack, non_zero, mk_dep_ref(dep));
     }
@@ -195,8 +196,8 @@ namespace polysat {
         bool_lit lit = m_constraints.insert(c);
         LOG("New constraint: " << *c);
         m_original.push_back(c);
-        if (activate)
-            assign_bool_core(lit, nullptr);
+        if (activate && !is_conflict())
+            activate_constraint_base(c);
     }
 
     void solver::new_eq(pdd const& p, unsigned dep)                 { new_constraint(mk_eq(p, dep), false); }
@@ -221,7 +222,7 @@ namespace polysat {
         }
         if (is_conflict())
             return;
-        assign_bool_core(c->lit(), nullptr);
+        activate_constraint_base(c);
     }
 
 
@@ -245,16 +246,9 @@ namespace polysat {
         LOG_H2("Propagate boolean literal " << lit);
         constraint* c = m_constraints.lookup(lit);
         SASSERT(c);
-        // SASSERT(c->is_undef());
-        if (!c->is_undef()) { SASSERT(c->is_positive() == lit.is_positive()); }
-
-        LOG("Activating constraint: " << *c);
-        m_trail.push_back(trail_instr_t::activate_constraint_i);
-        m_activate_trail.push_back(c);
-        c->assign(lit.is_positive());
-        add_watch(*c);
-
-        c->narrow(*this);
+        SASSERT(!c->is_undef());
+        SASSERT(c->lit().is_positive() == lit.is_positive());
+        // c->narrow(*this);
     }
 
     void solver::propagate(pvar v) {
@@ -287,8 +281,7 @@ namespace polysat {
     void solver::pop_levels(unsigned num_levels) {
         SASSERT(m_level >= num_levels);
         unsigned const target_level = m_level - num_levels;
-        svector<bool_lit> redo_lits;
-        LOG("Pop " << num_levels << " levels; current level is " << m_level);
+        LOG("Pop " << num_levels << " levels (lvl " << m_level << " -> " << target_level << ")");
         while (num_levels > 0) {
             switch (m_trail.back()) {
             case trail_instr_t::qhead_i: {
@@ -323,18 +316,9 @@ namespace polysat {
                 bool_lit lit = m_search.back().lit();
                 LOG_V("Undo assign_bool_i: " << lit);
                 constraint* c = m_constraints.lookup(lit);
+                deactivate_constraint(*c);
+                m_bvars.unassign(lit);
                 m_search.pop();
-                if (c->level() >= target_level) {
-                    // TODO: keep units
-                    // redo_lits.push_back(lit);
-                }
-                break;
-            }
-            case trail_instr_t::activate_constraint_i: {
-                auto* c = m_activate_trail.back();
-                LOG_V("Undo activate_constraint_i: " << show_deref(c));
-                erase_watch(*c);
-                c->unassign();
                 break;
             }
             case trail_instr_t::just_i: {
@@ -349,9 +333,6 @@ namespace polysat {
             }
             m_trail.pop_back();
         }
-        for (bool_lit lit : redo_lits) {
-            // TODO: assign_bool_core(lit, ...);
-        }
         pop_constraints(m_original);
         pop_constraints(m_redundant);
         m_constraints.release_level(m_level + 1);
@@ -361,7 +342,7 @@ namespace polysat {
     void solver::pop_constraints(ptr_vector<constraint>& cs) {
         VERIFY(invariant(cs));
         while (!cs.empty() && cs.back()->level() > m_level) {
-            erase_watch(*cs.back());
+            deactivate_constraint(*cs.back());
             cs.pop_back();
         }        
     }
@@ -457,7 +438,26 @@ namespace polysat {
         LOG("Conflict for v" << v << ": " << m_conflict);
     }
 
-        
+    void solver::set_marks(constraint const& c) {
+        if (c.lit().is_valid())
+            m_bvars.set_mark(c.lit().var());
+        for (auto v : c.vars())
+            set_mark(v);
+    }
+
+    void solver::set_marks(clause const& cl) {
+        for (auto c : cl)
+            set_marks(*c);
+    }
+
+    void solver::set_marks(constraints_and_clauses const& cc) {
+        for (auto c : cc.units())
+            if (c)
+                set_marks(*c);
+        for (auto cl : cc.clauses())
+            set_marks(*cl);
+    }
+
     /**
      * Conflict resolution.
      * - m_conflict are constraints that are infeasible in the current assignment.
@@ -487,22 +487,14 @@ namespace polysat {
 
         pvar conflict_var = null_var;
         scoped_clause lemma;
-        reset_marks();
-        for (auto v : m_conflict.vars()) {
-            set_mark(v);
+        for (auto v : m_conflict.vars())
             if (!has_viable(v)) {
                 SASSERT(conflict_var == null_var || conflict_var == v);  // at most one variable can be empty
                 conflict_var = v;
             }
-        }
+        reset_marks();
         m_bvars.reset_marks();
-        for (auto c : m_conflict.units())
-            if (c->lit().is_valid())
-                m_bvars.set_mark(c->lit().var());
-        for (auto cl : m_conflict.clauses())
-            for (auto c : *cl)
-                if (c->lit().is_valid())
-                    m_bvars.set_mark(c->lit().var());
+        set_marks(m_conflict);
 
         if (m_conflict.clauses().empty() && conflict_var != null_var) {
             LOG_H2("Conflict due to empty viable set for pvar " << conflict_var);
@@ -519,21 +511,10 @@ namespace polysat {
                 SASSERT(cl.size() > 0);
                 lemma = std::move(new_lemma);
                 m_conflict.reset();
-                /*
-                if (lemma.clause->size() == 1)
-                    m_conflict.units().push_back((*lemma.clause)[0]);
-                else
-                    m_conflict.clauses().push_back(lemma.clause.get());
-                */
                 m_conflict.push_back(lemma.get());
                 reset_marks();
                 m_bvars.reset_marks();
-                for (auto c : lemma) {
-                    for (auto w : c->vars())
-                        set_mark(w);
-                    if (c->lit().is_valid())
-                        m_bvars.set_mark(c->lit().var());
-                }
+                set_marks(*lemma.get());
             }
         }
 
@@ -576,12 +557,7 @@ namespace polysat {
                 lemma = std::move(new_lemma);
                 reset_marks();
                 m_bvars.reset_marks();
-                for (auto c : lemma) {
-                    for (auto w : c->vars())
-                        set_mark(w);
-                    if (c->lit().is_valid())
-                        m_bvars.set_mark(c->lit().var());
-                }
+                set_marks(*lemma.get());
                 m_conflict.reset();
                 m_conflict.push_back(lemma.get());
             }
@@ -696,15 +672,27 @@ namespace polysat {
         SASSERT(m_conflict_level <= m_justification[v].level());
         if (lemma.is_unit()) {
             constraint* c = lemma.unit();
+            add_lemma(lemma);
             push_cjust(v, c);
+            activate_constraint_base(c);
         } else {
             // Guess one of the new literals
-            unsigned next_idx = lemma.clause->next_guess();
-            constraint* c = lemma[next_idx];
-            decide_bool(c->lit());
+            clause* cl = lemma.get();
+            add_lemma(lemma);
+            // unsigned next_idx = cl->next_guess();
+            // constraint* c = (*cl)[next_idx];
+            constraint* c = nullptr;
+            while (true) {
+                unsigned next_idx = cl->next_guess();
+                SASSERT(next_idx < cl->size()); // must succeed for at least one
+                c = (*cl)[next_idx];
+                c->assign(true);
+                if (!c->is_currently_false(*this))
+                    break;
+            }
+            decide_bool(c->lit(), cl);
             push_cjust(v, c);
         }
-        add_lemma(lemma);
     }
 
     /**
@@ -735,6 +723,9 @@ namespace polysat {
         // for (unsigned i = m_cjust[v].size(); i < just.size(); ++i)
         //     push_cjust(v, just[i]);
 
+        add_non_viable(v, val);
+        learn_lemma(v, reason);
+
         for (constraint* c : m_conflict.units()) {
             // Add the conflict as justification for the exclusion of 'val'
             push_cjust(v, c);
@@ -744,10 +735,7 @@ namespace polysat {
         }
         m_conflict.reset();
 
-        learn_lemma(v, reason);
-        add_non_viable(v, val);
-
-        // narrow(v);
+        narrow(v);
         if (m_justification[v].is_unassigned()) {
             m_free_vars.del_var_eh(v);
             decide(v);
@@ -763,8 +751,9 @@ namespace polysat {
         bool contains_var = std::any_of(reason.clause->begin(), reason.clause->end(), [var](constraint* c) { return c->lit().var() == var; });
         bool contains_opp = std::any_of(reason.clause->begin(), reason.clause->end(), [lit](constraint* c) { return c->lit() == ~lit; });
         SASSERT(contains_var && contains_opp);  // TODO: hm...
-        propagate_bool(~lit, reason.clause.get());
+        clause* reason_cl = reason.get();
         add_lemma(reason);
+        propagate_bool(~lit, reason_cl);
 
         clause* lemma = m_bvars.lemma(var);
         unsigned next_idx = lemma->next_guess();
@@ -773,53 +762,69 @@ namespace polysat {
         if (next_idx == lemma->size() - 1)
             propagate_bool(next_lit, lemma);
         else
-            decide_bool(next_lit);
+            decide_bool(next_lit, lemma);
     }
 
-    void solver::decide_bool(bool_lit lit) {
+    void solver::decide_bool(bool_lit lit, clause* lemma) {
         push_level();
-        LOG("Decide bool_lit " << lit << " @ " << m_level);
-        assign_bool_backtrackable(lit, nullptr);
+        LOG_H2("Decide bool_lit " << lit << " @ " << m_level);
+        assign_bool_backtrackable(lit, nullptr, lemma);
     }
 
     void solver::propagate_bool(bool_lit lit, clause* reason) {
         LOG("Propagate bool_lit " << lit << " @ " << m_level << " by " << show_deref(reason));
         SASSERT(reason);
-        assign_bool_backtrackable(lit, reason);
+        assign_bool_backtrackable(lit, reason, nullptr);
     }
 
-    void solver::assign_bool_backtrackable(bool_lit lit, clause* reason) {
-        assign_bool_core(lit, reason);
-    }
+    /// Assign a boolean literal and put it on the search stack,
+    /// and activate the corresponding constraint.
+    void solver::assign_bool_backtrackable(bool_lit lit, clause* reason, clause* lemma) {
+        assign_bool_core(lit, reason, lemma);
 
-    void solver::assign_bool_core(bool_lit lit, clause* reason) {
-        LOG("Assigning boolean literal: " << lit);
-        SASSERT(!m_bvars.is_assigned(lit));
-        m_bvars.assign(lit, m_level, reason);
+        m_trail.push_back(trail_instr_t::assign_bool_i);
+        m_search.push_boolean(lit);
+
         constraint* c = m_constraints.lookup(lit);
         SASSERT(c);
-        // SASSERT(c->is_undef());
-
-        m_search.push_boolean(lit);
-        m_trail.push_back(trail_instr_t::assign_bool_i);
-
-        // // TODO: do these things in propagate(bool_lit) instead?
-        // SASSERT(c->is_undef());
-        // c->assign(lit.is_positive());
-        // // LOG("Activate constraint: " << *c);
-        // add_watch(*c);
-        // c->narrow(*this);
-
-        // c->assign_eh(is_true);
-        // add_watch(*c);
-        // m_assign_eh_history.push_back(dep);
-        // m_trail.push_back(trail_instr_t::assign_eh_i);
-        // c->narrow(*this);
+        bool is_true = lit.is_positive() == c->lit().is_positive();
+        activate_constraint(*c, is_true);
     }
 
-    void solver::activate_constraint(constraint* c) {
-        // activate constraint immediately
-        // (only suitable for unit clauses)
+    /// Activate a constraint at the base level.
+    /// Used for external unit constraints and unit consequences.
+    void solver::activate_constraint_base(constraint* c) {
+        SASSERT(c);
+        assign_bool_core(c->lit(), nullptr, nullptr);
+        activate_constraint(*c, true);
+        // c must be in m_original or m_redundant so it can be deactivated properly when popping the base level
+        SASSERT(
+            std::count(m_original.begin(), m_original.end(), c) + std::count(m_redundant.begin(), m_redundant.end(), c) == 1
+            // std::any_of(m_original.begin(), m_original.end(), [c](constraint* d) { return c == d; })
+            // || std::any_of(m_redundant.begin(), m_redundant.end(), [c](constraint* d) { return c == d; })
+        );
+    }
+
+    /// Assign a boolean literal and activate the corresponding constraint
+    void solver::assign_bool_core(bool_lit lit, clause* reason, clause* lemma) {
+        LOG("Assigning boolean literal: " << lit);
+        m_bvars.assign(lit, m_level, reason, lemma);
+    }
+
+    /// Activate constraint immediately
+    void solver::activate_constraint(constraint& c, bool is_true) {
+        LOG("Activating constraint: " << c);
+        SASSERT(m_bvars.value(c.lit()) == to_lbool(is_true));
+        c.assign(is_true);
+        add_watch(c);
+        c.narrow(*this);
+    }
+
+    /// Deactivate constraint immediately
+    void solver::deactivate_constraint(constraint& c) {
+        LOG("Deactivating constraint: " << c);
+        erase_watch(c);
+        c.unassign();
     }
 
     void solver::backjump(unsigned new_level) {
@@ -856,19 +861,17 @@ namespace polysat {
 
     }
 
+    // Add lemma to storage but do not activate it
     void solver::add_lemma(scoped_clause& lemma) {
         if (!lemma)
             return;
         LOG("Lemma: " << lemma);
+        for (constraint* c : lemma.constraint_storage.detach())
+            m_constraints.insert(c);
         if (lemma.is_unit()) {
             constraint* c = lemma.unit();
-            lemma.constraint_storage.detach();  // TODO: make nicer
-            bool_lit lit = m_constraints.insert(c);
-            assign_bool_core(lit, nullptr);
             insert_constraint(m_redundant, c);
         } else {
-            for (constraint* c : lemma.constraint_storage.detach())
-                m_constraints.insert(c);
             m_redundant_clauses.push_back(lemma.clause.detach());
         }
     }

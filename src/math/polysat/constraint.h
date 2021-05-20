@@ -73,15 +73,18 @@ namespace polysat {
         friend class var_constraint;
         friend class eq_constraint;
         friend class ule_constraint;
-        unsigned         m_level;
+        constraint_manager* m_manager = nullptr;   // TODO
+        unsigned         m_storage_level;  ///< Controls lifetime of the constraint object. Always a base level (for external dependencies the level at which it was created, and for others the maximum storage level of its external dependencies).
+        unsigned         m_active_level;  ///< Level at which the constraint was activated. Possibly different from m_storage_level because constraints in lemmas may become activated only at a higher level.
         ckind_t          m_kind;
         p_dependency_ref m_dep;
         unsigned_vector  m_vars;
         bool_lit         m_lit = bool_lit::invalid();  ///< boolean literal associated to this constraint; is invalid until assigned by constraint_manager::insert
         csign_t          m_sign;  ///< sign/polarity
         lbool            m_status = l_undef;  ///< current constraint status, computed from value of m_lit and m_sign
+        // clause*          m_clause = nullptr;  ///< the lemma which has introduced this constraint. NULL for base-level constraints.
         constraint(unsigned lvl, csign_t sign, p_dependency_ref const& dep, ckind_t k):
-            m_level(lvl), m_kind(k), m_dep(dep), m_sign(sign) {}
+            m_storage_level(lvl), m_kind(k), m_dep(dep), m_sign(sign) {}
     public:
         static constraint* eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d);
         static constraint* viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d);
@@ -109,14 +112,18 @@ namespace polysat {
         var_constraint& to_bit();
         var_constraint const& to_bit() const;
         p_dependency* dep() const { return m_dep; }
+        // clause* clause() const { return m_clause; }
         unsigned_vector& vars() { return m_vars; }
-        unsigned level() const { return m_level; }
+        unsigned_vector const& vars() const { return m_vars; }
+        unsigned level() const { return m_storage_level; }
         bool_lit lit() const { return m_lit; }
         bool sign() const { return m_sign; }
-        void assign(bool is_true) { m_status = (is_true ^ !m_sign) ? l_true : l_false; }
+        void assign(bool is_true) {
+            lbool new_status = (is_true ^ !m_sign) ? l_true : l_false;
+            SASSERT(is_undef() || new_status == m_status);
+            m_status = new_status;
+        }
         void unassign() { m_status = l_undef; }
-        bool is_positive() const { return m_status == l_true; }
-        bool is_negative() const { return m_status == l_false; }
         bool is_undef() const { return m_status == l_undef; }
 
         /** Precondition: all variables other than v are assigned.
@@ -126,6 +133,10 @@ namespace polysat {
          * \returns True iff a forbidden interval exists and the output parameters were set.
          */
         virtual bool forbidden_interval(solver& s, pvar v, eval_interval& out_interval, scoped_ptr<constraint>& out_neg_cond) { return false; }
+
+    protected:
+        bool is_positive() const { return m_status == l_true; }
+        bool is_negative() const { return m_status == l_false; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
@@ -164,9 +175,17 @@ namespace polysat {
     };
     */
 
+    // A clause of the form:
+    //
+    //      A_1 /\ ... /\ A_m ==> C_1 \/ ... \/ C_n
+    //
+    // where
+    // - A_i are existing constraints (the first m_num_antecedents constraints in m_literals)
+    // - C_j are new constraints (the rest in m_literals)
     class clause {
         unsigned m_level;
-        unsigned m_next_guess = 0;  // next guess for enumerative backtracking  (TODO: don't start at 0 but at the first *new* literal)
+        unsigned m_next_guess;  // next guess for enumerative backtracking
+        unsigned m_num_antecedents;  // number of negated constraints at the beginning of m_literals
         p_dependency_ref m_dep;
         ptr_vector<constraint> m_literals;
 
@@ -179,18 +198,23 @@ namespace polysat {
         }
         */
 
-        clause(unsigned lvl, p_dependency_ref const& d, ptr_vector<constraint> const& literals):
-            m_level(lvl), m_dep(d), m_literals(literals)
+        clause(unsigned lvl, p_dependency_ref const& d, unsigned num_antecedents, ptr_vector<constraint> const& literals):
+            m_level(lvl), m_next_guess(num_antecedents), m_num_antecedents(num_antecedents), m_dep(d), m_literals(literals)
         {
             SASSERT(std::all_of(m_literals.begin(), m_literals.end(),
-                [this](constraint *c) {
+                [this](constraint* c) {
                     return (c != nullptr) && (c->level() <= level());
                 }));
+            // SASSERT(std::all_of(consequents_begin(), consequents_end(), [this](constraint* c) { return c->clause() == this; }));
         }
+
 
     public:
         static clause* unit(constraint* c);
-        static clause* from_literals(unsigned lvl, p_dependency_ref const& d, ptr_vector<constraint> const& literals);
+        static clause* from_literals(unsigned lvl, p_dependency_ref const& d, unsigned num_antecedents, ptr_vector<constraint> const& literals);
+
+        // Resolve with 'other' upon 'var'.
+        bool resolve(bool_var var, clause const* other);
 
         ptr_vector<constraint> const& literals() const { return m_literals; }
         p_dependency* dep() const { return m_dep; }
@@ -203,6 +227,10 @@ namespace polysat {
         using const_iterator = typename ptr_vector<constraint>::const_iterator;
         const_iterator begin() const { return m_literals.begin(); }
         const_iterator end() const { return m_literals.end(); }
+        const_iterator antecedents_begin() const { return m_literals.begin(); }
+        const_iterator antecedents_end() const { return m_literals.begin() + m_num_antecedents; }
+        const_iterator consequents_begin() const { return m_literals.begin() + m_num_antecedents; }
+        const_iterator consequents_end() const { return m_literals.end(); }
 
         bool is_always_false() const {
             return std::all_of(m_literals.begin(), m_literals.end(), [](constraint* c) { return c->is_always_false(); });
@@ -245,7 +273,11 @@ namespace polysat {
         using const_iterator = typename clause::const_iterator;
         const_iterator begin() const { SASSERT(clause); return clause->begin(); }
         const_iterator end() const { SASSERT(clause); return clause->end(); }
+
+        std::ostream& display(std::ostream& out) const;
     };
+
+    inline std::ostream& operator<<(std::ostream& out, scoped_clause const& c) { return c.display(out); }
 
     // Container for unit constraints and clauses.
     class constraints_and_clauses {
@@ -258,6 +290,12 @@ namespace polysat {
 
         ptr_vector<clause> const& clauses() const { return m_clauses; }
         ptr_vector<clause>& clauses() { return m_clauses; }
+
+        bool is_unit() const { return units().size() == 1 && clauses().empty(); }
+        constraint* get_unit() const { SASSERT(is_unit()); return units()[0]; }
+
+        bool is_clause() const { return units().empty() && clauses().size() == 1; }
+        clause* get_clause() const { SASSERT(is_clause()); return clauses()[0]; }
 
         unsigned size() const {
             return m_units.size() + m_clauses.size();
@@ -285,10 +323,10 @@ namespace polysat {
         }
 
         void push_back(clause* cl) {
-            if (cl->size() == 1) {
-                // TODO: is this really what we want? (the deps of clause and constraint may be different)
-                m_units.push_back((*cl)[0]);
-            } else
+            // if (cl->size() == 1) {
+            //     // TODO: is this really what we want? (the deps of clause and constraint may be different)
+            //     m_units.push_back((*cl)[0]);
+            // } else
                 m_clauses.push_back(cl);
         }
 

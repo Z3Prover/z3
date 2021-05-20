@@ -24,7 +24,6 @@ namespace polysat {
         assign_i,
         just_i,
         assign_bool_i,
-        activate_constraint_i,
     };
 
     

@@ -100,12 +100,14 @@ namespace polysat {
             auto& full_record = records.back();
             SASSERT(full_record.interval.is_full());
             ptr_vector<constraint> literals;
+            literals.push_back(full_record.src);  // TODO: only do this if it's not a base-level constraint! (from unit clauses, e.g., external constraints)
+            unsigned const num_antecedents = literals.size();
             if (full_record.neg_cond) {
                 literals.push_back(full_record.neg_cond.get());
                 out_lemma.constraint_storage.push_back(full_record.neg_cond.detach());
             }
-            p_dependency_ref d(full_record.src->dep(), s.m_dm);
-            out_lemma.clause = clause::from_literals(full_record.src->level(), d, literals);
+            p_dependency_ref lemma_dep(full_record.src->dep(), s.m_dm);
+            out_lemma.clause = clause::from_literals(full_record.src->level(), lemma_dep, num_antecedents, literals);
             return true;
         }
 
@@ -136,11 +138,21 @@ namespace polysat {
 
         // Create lemma
         // Idea:
-        // - If the side conditions hold, and
+        // - If the src constraints hold, and
+        // - if the side conditions hold, and
         // - the upper bound of each interval is contained in the next interval,
         // then the forbidden intervals cover the whole domain and we have a conflict.
         // We learn the negation of this conjunction.
+
         ptr_vector<constraint> literals;
+        // Add negation of src constraints as antecedents (may be resolved during backtracking)
+        for (unsigned const i : seq) {
+            // TODO: don't add base-level constraints! (from unit clauses, e.g., external constraints)
+            //       (maybe extract that into a helper function on 'clause'... it could sort out base-level and other constraints; add the first to lemma_dep and the other to antecedents)
+            literals.push_back(records[i].src);
+        }
+        unsigned const num_antecedents = literals.size();
+        // Add side conditions and interval constraints
         for (unsigned seq_i = seq.size(); seq_i-- > 0; ) {
             unsigned const i = seq[seq_i];
             unsigned const next_i = seq[(seq_i+1) % seq.size()];
@@ -151,9 +163,10 @@ namespace polysat {
             auto const& next_hi = records[next_i].interval.hi();
             auto const& lhs = hi - next_lo;
             auto const& rhs = next_hi - next_lo;
-            constraint* c = constraint::ult(lemma_lvl, neg_t, lhs, rhs, lemma_dep);
+            constraint* c = constraint::ult(lemma_lvl, neg_t, lhs, rhs, s.mk_dep_ref(null_dependency));
             LOG("constraint: " << *c);
             literals.push_back(c);
+            out_lemma.constraint_storage.push_back(c);
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
             scoped_ptr<constraint>& neg_cond = records[i].neg_cond;
@@ -162,9 +175,7 @@ namespace polysat {
                 out_lemma.constraint_storage.push_back(neg_cond.detach());
             }
         }
-
-        // TODO: Lemma must contain all redundant constraints from 'conflict'
-        out_lemma.clause = clause::from_literals(lemma_lvl, lemma_dep, literals);
+        out_lemma.clause = clause::from_literals(lemma_lvl, lemma_dep, num_antecedents, literals);
         return true;
     }
 

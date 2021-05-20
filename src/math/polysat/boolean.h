@@ -16,6 +16,7 @@ Author:
 
 namespace polysat {
 
+    // allowed range: 0 <= bool_var < UINT_MAX/2
     typedef unsigned bool_var;
     bool_var const null_bool_var = UINT_MAX;
 
@@ -33,7 +34,7 @@ namespace polysat {
 
         bool_lit(): m_index(UINT_MAX) {}
         explicit bool_lit(unsigned idx): m_index(idx) { SASSERT(is_valid()); }
-        bool_lit(bool_var var, bool is_positive): bool_lit(2*var + !is_positive) {}
+        bool_lit(bool_var var, bool is_positive): bool_lit(2*var + !is_positive) { SASSERT(var < UINT_MAX/2); }
 
     public:
         static bool_lit from_index(unsigned idx) { return bool_lit(idx); }
@@ -120,7 +121,8 @@ namespace polysat {
         clause* lemma(bool_var var) const { SASSERT(is_decision(var)); return m_lemma[var]; }
 
         /// Set the given literal to true
-        void assign(bool_lit lit, unsigned lvl, clause* reason);
+        void assign(bool_lit lit, unsigned lvl, clause* reason, clause* lemma);
+        void unassign(bool_lit lit);
     };
 
 }

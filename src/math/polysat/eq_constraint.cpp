@@ -167,6 +167,7 @@ namespace polysat {
             return false;
 
         if (deg == 0) {
+            return false;
             UNREACHABLE();  // this case is not useful for conflict resolution (but it could be handled in principle)
             // i is empty or full, condition would be this constraint itself?
             return true;

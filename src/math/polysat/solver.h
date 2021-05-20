@@ -185,11 +185,13 @@ namespace polysat {
         void pop_levels(unsigned num_levels);
         void pop_constraints(ptr_vector<constraint>& cs);
 
-        // Assign a boolean literal and activate the corresponding constraint.
-        void assign_bool_core(bool_lit lit, clause* reason);
-        void assign_bool_backtrackable(bool_lit lit, clause* reason);
-        void activate_constraint(constraint* c);
-        void decide_bool(bool_lit lit);
+        void assign_bool_backtrackable(bool_lit lit, clause* reason, clause* lemma);
+        void activate_constraint_base(constraint* c);
+        void assign_bool_core(bool_lit lit, clause* reason, clause* lemma);
+        // void assign_bool_base(bool_lit lit);
+        void activate_constraint(constraint& c, bool is_true);
+        void deactivate_constraint(constraint& c);
+        void decide_bool(bool_lit lit, clause* lemma);
         void propagate_bool(bool_lit lit, clause* reason);
 
         void assign_core(pvar v, rational const& val, justification const& j);
@@ -214,6 +216,10 @@ namespace polysat {
         void reset_marks();
         bool is_marked(pvar v) const { return m_clock == m_marks[v]; }
         void set_mark(pvar v) { m_marks[v] = m_clock; }
+
+        void set_marks(constraints_and_clauses const& cc);
+        void set_marks(constraint const& c);
+        void set_marks(clause const& cl);
 
         unsigned                 m_conflict_level { 0 };
 
