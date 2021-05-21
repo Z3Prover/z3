@@ -24,6 +24,7 @@ namespace polysat {
 
     class constraint;
     class clause;
+    class scoped_clause;
     class eq_constraint;
     class var_constraint;
     class ule_constraint;
@@ -57,8 +58,8 @@ namespace polysat {
         // Release constraints at the given level and above.
         void release_level(unsigned lvl);
 
-        constraint* lookup(sat::bool_var var);
-        constraint* lookup_external(unsigned dep) { return m_external_constraints.get(dep, nullptr); }
+        constraint* lookup(sat::bool_var var) const;
+        constraint* lookup_external(unsigned dep) const { return m_external_constraints.get(dep, nullptr); }
 
         scoped_ptr<constraint> eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d);
         scoped_ptr<constraint> viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d);
@@ -71,6 +72,7 @@ namespace polysat {
     class constraint {
         friend class constraint_manager;
         friend class clause;
+        friend class scoped_clause;
         friend class var_constraint;
         friend class eq_constraint;
         friend class ule_constraint;
@@ -132,53 +134,12 @@ namespace polysat {
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
 
-    /*   NOTE: not used at the moment
-    class signed_constraint {
-        constraint* c;
-        csign_t sign;
-        // TODO: move sign from constraint to this
-    };
-
-    class active_constraint {
-        signed_constraint c;
-        bool status;
-        // TODO: move status from constraint to this
-    };
-    */
-
-    // NOTE: not used at the moment
-    /*
-    // A disjunctive lemma:
-    //
-    //      A_1 /\ ... /\ A_m ==> C_1 \/ ... \/ C_n
-    //
-    // where
-    // - A_i are existing (redundant) constraints in m_antecedents
-    // - C_j are new constraints in m_consequents.
-    class lemma {
-        unsigned m_level;
-        p_dependency_ref m_dep;
-        ptr_vector<constraint> m_antecedents;
-        scoped_ptr_vector<constraint> m_consequents;
-
-    public:
-        bool is_unit() const { return m_antecedents.empty() && m_consequents.size() == 1; }
-    };
-    */
-
-    // A clause of the form:
-    //
-    //      A_1 /\ ... /\ A_m ==> C_1 \/ ... \/ C_n
-    //
-    // where
-    // - A_i are existing constraints (the first m_num_antecedents constraints in m_literals)
-    // - C_j are new constraints (the rest in m_literals)
+    // Disjunction of constraints represented by boolean literals
     class clause {
         unsigned m_level;
-        unsigned m_next_guess;  // next guess for enumerative backtracking
-        unsigned m_num_antecedents;  // number of negated constraints at the beginning of m_literals
+        unsigned m_next_guess = UINT_MAX;  // next guess for enumerative backtracking
         p_dependency_ref m_dep;
-        ptr_vector<constraint> m_literals;
+        sat::literal_vector m_literals;
 
         /* TODO: embed literals to save an indirection?
         unsigned m_num_literals;
@@ -189,49 +150,36 @@ namespace polysat {
         }
         */
 
-        clause(unsigned lvl, p_dependency_ref const& d, unsigned num_antecedents, ptr_vector<constraint> const& literals):
-            m_level(lvl), m_next_guess(num_antecedents), m_num_antecedents(num_antecedents), m_dep(d), m_literals(literals)
+        clause(unsigned lvl, p_dependency_ref const& d, sat::literal_vector const& literals):
+            m_level(lvl), m_dep(d), m_literals(literals)
         {
-            SASSERT(std::all_of(m_literals.begin(), m_literals.end(),
-                [this](constraint* c) {
-                    return (c != nullptr) && (c->level() <= level());
-                }));
-            // SASSERT(std::all_of(consequents_begin(), consequents_end(), [this](constraint* c) { return c->clause() == this; }));
+            SASSERT(std::all_of(m_literals.begin(), m_literals.end(), [this](sat::literal l) { return l != sat::null_literal; }));
         }
 
-
     public:
-        static clause* unit(constraint* c);
-        static clause* from_literals(unsigned lvl, p_dependency_ref const& d, unsigned num_antecedents, ptr_vector<constraint> const& literals);
+        // static clause* unit(constraint* c);
+        static clause* from_literals(unsigned lvl, p_dependency_ref const& d, sat::literal_vector const& literals);
 
         // Resolve with 'other' upon 'var'.
         bool resolve(sat::bool_var var, clause const* other);
 
-        ptr_vector<constraint> const& literals() const { return m_literals; }
+        sat::literal_vector const& literals() const { return m_literals; }
         p_dependency* dep() const { return m_dep; }
         unsigned level() const { return m_level; }
 
         bool empty() const { return m_literals.empty(); }
         unsigned size() const { return m_literals.size(); }
-        constraint* operator[](unsigned idx) const { return m_literals[idx]; }
+        sat::literal operator[](unsigned idx) const { return m_literals[idx]; }
 
-        using const_iterator = typename ptr_vector<constraint>::const_iterator;
+        using const_iterator = typename sat::literal_vector::const_iterator;
         const_iterator begin() const { return m_literals.begin(); }
         const_iterator end() const { return m_literals.end(); }
-        const_iterator antecedents_begin() const { return m_literals.begin(); }
-        const_iterator antecedents_end() const { return m_literals.begin() + m_num_antecedents; }
-        const_iterator consequents_begin() const { return m_literals.begin() + m_num_antecedents; }
-        const_iterator consequents_end() const { return m_literals.end(); }
 
-        bool is_always_false() const {
-            return std::all_of(m_literals.begin(), m_literals.end(), [](constraint* c) { return c->is_always_false(); });
-        }
-
-        bool is_currently_false(solver& s) const {
-            return std::all_of(m_literals.begin(), m_literals.end(), [&s](constraint* c) { return c->is_currently_false(s); });
-        }
+        bool is_always_false(solver& s) const;
+        bool is_currently_false(solver& s) const;
 
         unsigned next_guess() {
+            SASSERT(m_next_guess < m_literals.size());
             return m_next_guess++;
         }
 
@@ -240,30 +188,38 @@ namespace polysat {
 
     inline std::ostream& operator<<(std::ostream& out, clause const& c) { return c.display(out); }
 
-    // A clause that owns (some of) its literals
-    struct scoped_clause {
-        scoped_ptr<clause> clause;
-        scoped_ptr_vector<constraint> constraint_storage;
+    // A clause that owns (some of) the constraints represented by its literals.
+    class scoped_clause {
+        scoped_ptr<clause> m_clause;
+        scoped_ptr_vector<constraint> m_owned;
 
-        operator bool() const { return clause; }
+    public:
+        scoped_clause() {}
+        scoped_clause(std::nullptr_t) {}
 
-        bool is_unit() const { return clause && clause->size() == 1; }
-        constraint* unit() const { SASSERT(is_unit()); return (*clause)[0]; }
+        scoped_clause(scoped_ptr<constraint>&& c);
 
-        bool empty() const { SASSERT(clause); return clause->empty(); }
-        unsigned size() const { SASSERT(clause); return clause->size(); }
-        constraint* operator[](unsigned idx) const { SASSERT(clause); return (*clause)[idx]; }
+        scoped_clause(scoped_ptr<clause>&& clause, scoped_ptr_vector<constraint>&& owned_literals):
+            m_clause(std::move(clause)), m_owned(std::move(owned_literals)) {}
 
-        bool is_always_false() const { return clause->is_always_false(); }
-        bool is_currently_false(solver& s) const { return clause->is_currently_false(s); }
+        operator bool() const { return m_clause; }
 
-        polysat::clause* get() { return clause.get(); }
-        polysat::clause* detach() { SASSERT(constraint_storage.empty()); return clause.detach(); }
-        ptr_vector<constraint> detach_literals() { return constraint_storage.detach(); }
+        bool is_owned_unit() const { return m_clause && m_clause->size() == 1 && m_owned.size() == 1; }
+
+        bool empty() const { SASSERT(m_clause); return m_clause->empty(); }
+        unsigned size() const { SASSERT(m_clause); return m_clause->size(); }
+        sat::literal operator[](unsigned idx) const { SASSERT(m_clause); return (*m_clause)[idx]; }
+
+        bool is_always_false(solver& s) const { return m_clause->is_always_false(s); }
+        bool is_currently_false(solver& s) const { return m_clause->is_currently_false(s); }
+
+        clause* get() { return m_clause.get(); }
+        clause* detach() { SASSERT(m_owned.empty()); return m_clause.detach(); }
+        ptr_vector<constraint> detach_constraints() { return m_owned.detach(); }
 
         using const_iterator = typename clause::const_iterator;
-        const_iterator begin() const { SASSERT(clause); return clause->begin(); }
-        const_iterator end() const { SASSERT(clause); return clause->end(); }
+        const_iterator begin() const { SASSERT(m_clause); return m_clause->begin(); }
+        const_iterator end() const { SASSERT(m_clause); return m_clause->end(); }
 
         std::ostream& display(std::ostream& out) const;
     };
@@ -305,30 +261,21 @@ namespace polysat {
             m_units.append(cs);
         }
 
-        void push_back(std::nullptr_t) {
-            m_units.push_back(nullptr);
-        }
-
-        void push_back(constraint* c) {
-            m_units.push_back(c);
-        }
-
-        void push_back(clause* cl) {
-            // if (cl->size() == 1) {
-            //     // TODO: is this really what we want? (the deps of clause and constraint may be different)
-            //     m_units.push_back((*cl)[0]);
-            // } else
-                m_clauses.push_back(cl);
-        }
+        void push_back(std::nullptr_t) { m_units.push_back(nullptr); }
+        void push_back(constraint* c) { m_units.push_back(c); }
+        void push_back(clause* cl) { m_clauses.push_back(cl); }
 
         // TODO: use iterator instead
-        unsigned_vector vars() const {
+        unsigned_vector vars(constraint_manager const& cm) const {
             unsigned_vector vars;
             for (constraint* c : m_units)
                 vars.append(c->vars());
             for (clause* cl : m_clauses)
-                for (constraint* c : *cl)
-                    vars.append(c->vars());
+                for (auto lit : *cl) {
+                    constraint* c = cm.lookup(lit.var());
+                    if (c)
+                        vars.append(c->vars());
+                }
             return vars;
         }
 

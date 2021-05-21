@@ -56,7 +56,7 @@ namespace polysat {
         }
     }
 
-    constraint* constraint_manager::lookup(sat::bool_var var) {
+    constraint* constraint_manager::lookup(sat::bool_var var) const {
         return get_bv2c(var);
     }
 
@@ -155,32 +155,46 @@ namespace polysat {
         narrow(s);
     }
 
-    clause* clause::unit(constraint* c) {
-        SASSERT(c);
-        ptr_vector<constraint> lits;
-        lits.push_back(c);
-        return alloc(clause, c->level(), c->m_dep, 0, lits);
+    clause* clause::from_literals(unsigned lvl, p_dependency_ref const& d, sat::literal_vector const& literals) {
+        return alloc(clause, lvl, d, literals);
     }
 
-    clause* clause::from_literals(unsigned lvl, p_dependency_ref const& d, unsigned num_antecedents, ptr_vector<constraint> const& literals) {
-        return alloc(clause, lvl, d, num_antecedents, literals);
+    bool clause::is_always_false(solver& s) const {
+        return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
+            constraint *c = s.m_constraints.lookup(lit.var());
+            return c->is_always_false();
+        });
     }
 
+    bool clause::is_currently_false(solver& s) const {
+        return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
+            constraint *c = s.m_constraints.lookup(lit.var());
+            return c->is_currently_false(s);
+        });
+    }
     std::ostream& clause::display(std::ostream& out) const {
         bool first = true;
-        for (auto* c : literals()) {
+        for (auto lit : literals()) {
             if (first)
                 first = false;
             else
                 out << " \\/ ";
-            out << show_deref(c);
+            out << lit;
         }
         return out;
     }
 
+    scoped_clause::scoped_clause(scoped_ptr<constraint>&& c) {
+        SASSERT(c);
+        sat::literal_vector lits;
+        lits.push_back(sat::literal(c->bvar()));
+        m_clause = clause::from_literals(c->level(), c->m_dep, lits);
+        m_owned.push_back(c.detach());
+    }
+
     std::ostream& scoped_clause::display(std::ostream& out) const {
-        if (clause)
-            return out << *clause;
+        if (m_clause)
+            return out << *m_clause;
         else
             return out << "<NULL>";
     }

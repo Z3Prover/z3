@@ -462,8 +462,8 @@ namespace polysat {
     }
 
     void solver::set_marks(clause const& cl) {
-        for (auto c : cl)
-            set_marks(*c);
+        for (auto lit : cl)
+            set_marks(*m_constraints.lookup(lit.var()));
     }
 
     void solver::set_marks(constraints_and_clauses const& cc) {
@@ -503,7 +503,7 @@ namespace polysat {
 
         pvar conflict_var = null_var;
         scoped_clause lemma;
-        for (auto v : m_conflict.vars())
+        for (auto v : m_conflict.vars(m_constraints))
             if (!has_viable(v)) {
                 SASSERT(conflict_var == null_var || conflict_var == v);  // at most one variable can be empty
                 conflict_var = v;
@@ -519,8 +519,9 @@ namespace polysat {
                 SASSERT(new_lemma);
                 clause& cl = *new_lemma.get();
                 LOG_H3("Lemma from forbidden intervals (size: " << cl.size() << ")");
-                for (constraint* c : cl) {
-                    LOG("Literal: " << *c);
+                for (sat::literal lit : cl) {
+                    LOG("Literal: " << lit);
+                    constraint* c = m_constraints.lookup(lit.var());
                     for (auto v : c->vars())
                         set_mark(v);
                 }
@@ -558,9 +559,9 @@ namespace polysat {
                     backtrack(i, lemma);
                     return;
                 }
-                if (new_lemma.is_always_false()) {
+                if (new_lemma.is_always_false(*this)) {
                     clause* cl = new_lemma.get();
-                    learn_lemma(v, new_lemma);
+                    learn_lemma(v, std::move(new_lemma));
                     m_conflict.reset();
                     m_conflict.push_back(cl);
                     report_unsat();
@@ -681,34 +682,46 @@ namespace polysat {
      * We add 'p == 0' as a lemma. The lemma depends on the dependencies used
      * to derive p, and the level of the lemma is the maximal level of the dependencies.
      */
-    void solver::learn_lemma(pvar v, scoped_clause& lemma) {
+    void solver::learn_lemma(pvar v, scoped_clause&& lemma) {
         if (!lemma)
             return;
         LOG("Learning: " << lemma);
         SASSERT(m_conflict_level <= m_justification[v].level());
-        if (lemma.is_unit()) {
-            constraint* c = lemma.unit();
-            add_lemma(lemma);
-            push_cjust(v, c);
-            activate_constraint_base(c);
-        } else {
-            // Guess one of the new literals
-            clause* cl = lemma.get();
-            add_lemma(lemma);
-            // unsigned next_idx = cl->next_guess();
-            // constraint* c = (*cl)[next_idx];
-            constraint* c = nullptr;
-            while (true) {
-                unsigned next_idx = cl->next_guess();
-                SASSERT(next_idx < cl->size()); // must succeed for at least one
-                c = (*cl)[next_idx];
-                c->assign(true);
-                if (!c->is_currently_false(*this))
-                    break;
-            }
-            decide_bool(sat::literal(c->bvar()), cl);
-            push_cjust(v, c);
+        if (lemma.is_owned_unit()) {
+            scoped_ptr<constraint> c = lemma.detach_constraints()[0];
+            SASSERT(lemma[0].var() == c->bvar());
+            SASSERT(!lemma[0].sign()); // that case is handled incorrectly atm
+            learn_lemma_unit(v, std::move(c));
         }
+        else
+            learn_lemma_clause(v, std::move(lemma));
+    }
+
+    void solver::learn_lemma_unit(pvar v, scoped_ptr<constraint>&& lemma) {
+        SASSERT(lemma);
+        constraint* c = lemma.get();
+        add_lemma_unit(std::move(lemma));
+        push_cjust(v, c);
+        activate_constraint_base(c);
+    }
+
+    void solver::learn_lemma_clause(pvar v, scoped_clause&& lemma) {
+        SASSERT(lemma);
+        clause& cl = *lemma.get();
+        add_lemma_clause(std::move(lemma));
+        // Guess one of the new literals
+        constraint* c = nullptr;
+        while (true) {
+            unsigned next_idx = cl.next_guess();
+            SASSERT(next_idx < cl.size()); // must succeed for at least one
+            sat::literal lit = cl[next_idx];
+            c = m_constraints.lookup(lit.var());
+            c->assign(!lit.sign());
+            if (!c->is_currently_false(*this))
+                break;
+        }
+        decide_bool(sat::literal(c->bvar()), &cl);
+        push_cjust(v, c);
     }
 
     /**
@@ -740,7 +753,7 @@ namespace polysat {
         //     push_cjust(v, just[i]);
 
         add_non_viable(v, val);
-        learn_lemma(v, reason);
+        learn_lemma(v, std::move(reason));
 
         for (constraint* c : m_conflict.units()) {
             // Add the conflict as justification for the exclusion of 'val'
@@ -764,16 +777,16 @@ namespace polysat {
         SASSERT(m_bvars.is_decision(var));
         backjump(m_bvars.level(var) - 1);
 
-        bool contains_var = std::any_of(reason.clause->begin(), reason.clause->end(), [var](constraint* c) { return c->bvar() == var; });
-        // bool contains_opp = std::any_of(reason.clause->begin(), reason.clause->end(), [lit](constraint* c) { return c->lit() == ~lit; });
-        // SASSERT(contains_var && contains_opp);  // TODO: hm...
+        bool contains_var = std::any_of(reason.begin(), reason.end(), [var](sat::literal reason_lit) { return reason_lit.var() == var; });
+        bool contains_opp = std::any_of(reason.begin(), reason.end(), [lit](sat::literal reason_lit) { return reason_lit == ~lit; });
+        SASSERT(contains_var && contains_opp);  // TODO: hm...
         clause* reason_cl = reason.get();
-        add_lemma(reason);
+        add_lemma_clause(std::move(reason));
         propagate_bool(~lit, reason_cl);
 
         clause* lemma = m_bvars.lemma(var);
         unsigned next_idx = lemma->next_guess();
-        sat::literal next_lit{(*lemma)[next_idx]->bvar()};
+        sat::literal next_lit = (*lemma)[next_idx];
         // If the guess is the last literal then do a propagation, otherwise a decision
         if (next_idx == lemma->size() - 1)
             propagate_bool(next_lit, lemma);
@@ -860,16 +873,14 @@ namespace polysat {
         SASSERT(m_justification[v].is_propagation());
         LOG("resolve pvar " << v);
         if (m_cjust[v].size() != 1)
-            return result;
+            return nullptr;
         constraint* d = m_cjust[v].back();
         scoped_ptr<constraint> res = d->resolve(*this, v);
         LOG("resolved: " << show_deref(res));
         if (res) {
             res->assign(true);
-            result.clause = clause::unit(res.get());
-            result.constraint_storage.push_back(res.detach());
         }
-        return result;
+        return res;
     }
 
     /**
@@ -880,18 +891,27 @@ namespace polysat {
     }
 
     // Add lemma to storage but do not activate it
-    void solver::add_lemma(scoped_clause& lemma) {
+    void solver::add_lemma_unit(scoped_ptr<constraint>&& lemma) {
+        if (!lemma)
+            return;
+        LOG("Lemma: " << show_deref(lemma));
+        constraint* c = m_constraints.insert(lemma.detach());
+        insert_constraint(m_redundant, c);
+    }
+
+    // Add lemma to storage but do not activate it
+    void solver::add_lemma_clause(scoped_clause&& lemma) {
         if (!lemma)
             return;
         LOG("Lemma: " << lemma);
-        for (constraint* c : lemma.constraint_storage.detach())
+        ptr_vector<constraint> constraints = lemma.detach_constraints();
+        for (constraint* c : constraints)
             m_constraints.insert(c);
-        if (lemma.is_unit()) {
-            constraint* c = lemma.unit();
-            insert_constraint(m_redundant, c);
-        } else {
-            m_redundant_clauses.push_back(lemma.clause.detach());
-        }
+
+        clause* clause = lemma.detach();
+        m_redundant_clauses.push_back(clause);
+
+        // TODO:  also update clause->m_next_guess (probably needs to sort the literals too)
     }
 
     void solver::insert_constraint(ptr_vector<constraint>& cs, constraint* c) {

@@ -46,6 +46,7 @@ namespace polysat {
         friend class eq_constraint;
         friend class var_constraint;
         friend class ule_constraint;
+        friend class clause;
         friend class forbidden_intervals;
         friend class linear_solver;
 
@@ -248,9 +249,12 @@ namespace polysat {
         void report_unsat();
         void revert_decision(pvar v, scoped_clause& reason);
         void revert_bool_decision(sat::literal lit, scoped_clause& reason);
-        void learn_lemma(pvar v, scoped_clause& cl);
+        void learn_lemma(pvar v, scoped_clause&& lemma);
+        void learn_lemma_unit(pvar v, scoped_ptr<constraint>&& lemma);
+        void learn_lemma_clause(pvar v, scoped_clause&& lemma);
         void backjump(unsigned new_level);
-        void add_lemma(scoped_clause& lemma);
+        void add_lemma_unit(scoped_ptr<constraint>&& lemma);
+        void add_lemma_clause(scoped_clause&& lemma);
 
         scoped_ptr<constraint> mk_eq(pdd const& p, unsigned dep);
         scoped_ptr<constraint> mk_diseq(pdd const& p, unsigned dep);
