@@ -12,7 +12,9 @@ namespace polysat {
     };
 
     struct scoped_solver : public solver_scope, public solver {
-        scoped_solver(std::string name): solver(lim), m_name(name) {}
+        scoped_solver(std::string name): solver(lim), m_name(name) {
+            std::cout << "\nSTART: " << m_name << "\n";
+        }
 
         std::string m_name;
         lbool m_last_result = l_undef;
