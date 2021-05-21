@@ -76,7 +76,7 @@ namespace polysat {
         ptr_vector<constraint>   m_redundant;
         scoped_ptr_vector<clause>       m_redundant_clauses;
 
-        svector<bool_var>        m_disjunctive_lemma;
+        svector<sat::bool_var>   m_disjunctive_lemma;
 
         // Per variable information
         vector<bdd>              m_viable;   // set of viable values.
@@ -96,7 +96,7 @@ namespace polysat {
         // vector<lbool>            m_bool_value;   // value of boolean literal (indexed by literal)
         // vector<bool_clauses>     m_bool_watch;   // watch list into clauses (indexed by literal)
         // // scoped_ptr_vector<bool_clause>  m_bool_clauses;  // NOTE: as of now, external clauses will only be units! So this is not needed.
-        // svector<bool_lit>        m_bool_units;   // externally asserted unit clauses, via assign_eh
+        // svector<sat::literal>        m_bool_units;   // externally asserted unit clauses, via assign_eh
         // scoped_ptr_vector<bool_clause>  m_bool_redundant;   // learned clause storage
 
         unsigned                 m_qhead { 0 }; // next item to propagate (index into m_search)
@@ -188,14 +188,14 @@ namespace polysat {
         void pop_levels(unsigned num_levels);
         void pop_constraints(ptr_vector<constraint>& cs);
 
-        void assign_bool_backtrackable(bool_lit lit, clause* reason, clause* lemma);
+        void assign_bool_backtrackable(sat::literal lit, clause* reason, clause* lemma);
         void activate_constraint_base(constraint* c);
-        void assign_bool_core(bool_lit lit, clause* reason, clause* lemma);
-        // void assign_bool_base(bool_lit lit);
+        void assign_bool_core(sat::literal lit, clause* reason, clause* lemma);
+        // void assign_bool_base(sat::literal lit);
         void activate_constraint(constraint& c, bool is_true);
         void deactivate_constraint(constraint& c);
-        void decide_bool(bool_lit lit, clause* lemma);
-        void propagate_bool(bool_lit lit, clause* reason);
+        void decide_bool(sat::literal lit, clause* lemma);
+        void propagate_bool(sat::literal lit, clause* reason);
 
         void assign_core(pvar v, rational const& val, justification const& j);
         bool is_assigned(pvar v) const { return !m_justification[v].is_unassigned(); }
@@ -203,7 +203,7 @@ namespace polysat {
 
         bool should_search();
 
-        void propagate(bool_lit lit);
+        void propagate(sat::literal lit);
         void propagate(pvar v);
         void propagate(pvar v, rational const& val, constraint& c);
         void erase_watch(pvar v, constraint& c);
@@ -247,7 +247,7 @@ namespace polysat {
         void backtrack(unsigned i, scoped_clause& lemma);
         void report_unsat();
         void revert_decision(pvar v, scoped_clause& reason);
-        void revert_bool_decision(bool_lit lit, scoped_clause& reason);
+        void revert_bool_decision(sat::literal lit, scoped_clause& reason);
         void learn_lemma(pvar v, scoped_clause& cl);
         void backjump(unsigned new_level);
         void add_lemma(scoped_clause& lemma);
@@ -290,7 +290,7 @@ namespace polysat {
          * Returns the disjunctive lemma that should be learned,
          * or an empty vector if check_sat() terminated for a different reason.
          */
-        svector<bool_var> get_lemma() { return m_disjunctive_lemma; }
+        svector<sat::bool_var> get_lemma() { return m_disjunctive_lemma; }
         bool pending_disjunctive_lemma() { return !m_disjunctive_lemma.empty(); }
 
         /**

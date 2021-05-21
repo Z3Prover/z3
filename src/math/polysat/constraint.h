@@ -37,9 +37,9 @@ namespace polysat {
 
         // Association to boolean variables
         ptr_vector<constraint>   m_bv2constraint;
-        void insert_bv2c(bool_var bv, constraint* c) { m_bv2constraint.setx(bv, c, nullptr); }
-        void erase_bv2c(bool_var bv) { m_bv2constraint[bv] = nullptr; }
-        constraint* get_bv2c(bool_var bv) const { return m_bv2constraint.get(bv, nullptr); }
+        void insert_bv2c(sat::bool_var bv, constraint* c) { m_bv2constraint.setx(bv, c, nullptr); }
+        void erase_bv2c(sat::bool_var bv) { m_bv2constraint[bv] = nullptr; }
+        constraint* get_bv2c(sat::bool_var bv) const { return m_bv2constraint.get(bv, nullptr); }
 
         // Association to external dependency values (i.e., external names for constraints)
         u_map<constraint*> m_external_constraints;
@@ -50,12 +50,12 @@ namespace polysat {
         constraint_manager(bool_var_manager& bvars): m_bvars(bvars) {}
 
         // Start managing lifetime of the given constraint and assign a boolean literal to it.
-        bool_lit insert(constraint* c);
+        sat::literal insert(constraint* c);
 
         // Release constraints at the given level and above.
         void release_level(unsigned lvl);
 
-        constraint* lookup(bool_lit lit);
+        constraint* lookup(sat::literal lit);
         constraint* lookup_external(unsigned dep) { return m_external_constraints.get(dep, nullptr); }
 
         // // Convenience methods; they automatically insert the constraint.
@@ -79,7 +79,7 @@ namespace polysat {
         ckind_t          m_kind;
         p_dependency_ref m_dep;
         unsigned_vector  m_vars;
-        bool_lit         m_lit = bool_lit::invalid();  ///< boolean literal associated to this constraint; is invalid until assigned by constraint_manager::insert
+        sat::literal     m_lit = sat::null_literal;  ///< boolean literal associated to this constraint; is invalid until assigned by constraint_manager::insert
         csign_t          m_sign;  ///< sign/polarity
         lbool            m_status = l_undef;  ///< current constraint status, computed from value of m_lit and m_sign
         // clause*          m_clause = nullptr;  ///< the lemma which has introduced this constraint. NULL for base-level constraints.
@@ -116,7 +116,7 @@ namespace polysat {
         unsigned_vector& vars() { return m_vars; }
         unsigned_vector const& vars() const { return m_vars; }
         unsigned level() const { return m_storage_level; }
-        bool_lit lit() const { return m_lit; }
+        sat::literal lit() const { return m_lit; }
         bool sign() const { return m_sign; }
         void assign(bool is_true) {
             lbool new_status = (is_true ^ !m_sign) ? l_true : l_false;
@@ -212,7 +212,7 @@ namespace polysat {
         static clause* from_literals(unsigned lvl, p_dependency_ref const& d, unsigned num_antecedents, ptr_vector<constraint> const& literals);
 
         // Resolve with 'other' upon 'var'.
-        bool resolve(bool_var var, clause const* other);
+        bool resolve(sat::bool_var var, clause const* other);
 
         ptr_vector<constraint> const& literals() const { return m_literals; }
         p_dependency* dep() const { return m_dep; }

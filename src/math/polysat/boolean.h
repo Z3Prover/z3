@@ -17,11 +17,12 @@ Author:
 
 namespace polysat {
 
-    // allowed range: 0 <= bool_var < UINT_MAX/2
-    typedef unsigned bool_var;
-    bool_var const null_bool_var = UINT_MAX;
+    // using bool_var = sat::bool_var;
+    // using ::sat::null_bool_var;
+    // using ::sat::bool_var_vector;
+    // using bool_lit = sat::literal;
 
-
+/*
     // 0 ...  x
     // 1 ... ~x
     // 2 ...  y
@@ -59,6 +60,7 @@ namespace polysat {
     };
 
     std::ostream& operator<<(std::ostream& out, bool_lit const& lit);
+    */
 
 
 /* NOTE: currently unused
@@ -86,44 +88,44 @@ namespace polysat {
     class clause;
 
     class bool_var_manager {
-        svector<bool_var>   m_unused;  // previously deleted variables that can be reused by new_var();
-        svector<lbool>      m_value;   // current value (indexed by literal)
-        svector<unsigned>   m_level;   // level of assignment (indexed by variable)
-        svector<clause*>    m_reason;  // propagation reason, NULL for decisions (indexed by variable)
+        svector<sat::bool_var>  m_unused;  // previously deleted variables that can be reused by new_var();
+        svector<lbool>          m_value;   // current value (indexed by literal)
+        svector<unsigned>       m_level;   // level of assignment (indexed by variable)
+        svector<clause*>        m_reason;  // propagation reason, NULL for decisions (indexed by variable)
 
         // For enumerative backtracking we store the lemma we're handling with a certain decision
-        svector<clause*>    m_lemma;
+        svector<clause*>        m_lemma;
 
-        unsigned_vector     m_marks;
-        unsigned            m_clock { 0 };
+        unsigned_vector         m_marks;
+        unsigned                m_clock { 0 };
 
         // allocated size (not the number of active variables)
         unsigned size() const { return m_level.size(); }
 
     public:
-        bool_var new_var();
-        void del_var(bool_var var);
+        sat::bool_var new_var();
+        void del_var(sat::bool_var var);
 
         void reset_marks();
-        bool is_marked(bool_var var) const { return m_clock == m_marks[var]; }
-        void set_mark(bool_var var);
+        bool is_marked(sat::bool_var var) const { return m_clock == m_marks[var]; }
+        void set_mark(sat::bool_var var);
 
-        bool is_assigned(bool_var var) const { return value(var) != l_undef; }
-        bool is_assigned(bool_lit lit) const { return value(lit) != l_undef; }
-        bool is_decision(bool_var var) const { return is_assigned(var) && !reason(var); }
+        bool is_assigned(sat::bool_var var) const { return value(var) != l_undef; }
+        bool is_assigned(sat::literal lit) const { return value(lit) != l_undef; }
+        bool is_decision(sat::bool_var var) const { return is_assigned(var) && !reason(var); }
         // bool is_decision(bool_lit lit) const { return is_decision(lit.var()); }
-        bool is_propagation(bool_var var) const { return is_assigned(var) && reason(var); }
-        lbool value(bool_var var) const { return value(bool_lit::positive(var)); }
-        lbool value(bool_lit lit) const { return m_value[lit.index()]; }
-        unsigned level(bool_var var) const { SASSERT(is_assigned(var)); return m_level[var]; }
-        // unsigned level(bool_lit lit) const { return level(lit.var()); }
-        clause* reason(bool_var var) const { SASSERT(is_assigned(var)); return m_reason[var]; }
+        bool is_propagation(sat::bool_var var) const { return is_assigned(var) && reason(var); }
+        lbool value(sat::bool_var var) const { return value(sat::literal(var)); }
+        lbool value(sat::literal lit) const { return m_value[lit.index()]; }
+        unsigned level(sat::bool_var var) const { SASSERT(is_assigned(var)); return m_level[var]; }
+        // unsigned level(sat::literal lit) const { return level(lit.var()); }
+        clause* reason(sat::bool_var var) const { SASSERT(is_assigned(var)); return m_reason[var]; }
 
-        clause* lemma(bool_var var) const { SASSERT(is_decision(var)); return m_lemma[var]; }
+        clause* lemma(sat::bool_var var) const { SASSERT(is_decision(var)); return m_lemma[var]; }
 
         /// Set the given literal to true
-        void assign(bool_lit lit, unsigned lvl, clause* reason, clause* lemma);
-        void unassign(bool_lit lit);
+        void assign(sat::literal lit, unsigned lvl, clause* reason, clause* lemma);
+        void unassign(sat::literal lit);
     };
 
 }

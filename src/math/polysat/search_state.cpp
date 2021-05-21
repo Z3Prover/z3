@@ -32,7 +32,7 @@ namespace polysat {
         m_assignment.push_back({p, r});
     }
 
-    void search_state::push_boolean(bool_lit lit) {
+    void search_state::push_boolean(sat::literal lit) {
         m_items.push_back(search_item::boolean(lit));
     }
 

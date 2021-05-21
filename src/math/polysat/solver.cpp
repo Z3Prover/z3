@@ -194,7 +194,7 @@ namespace polysat {
     void solver::new_constraint(constraint* c, bool activate) {
         SASSERT(c);
         SASSERT(activate || c->dep());  // if we don't activate the constraint, we need the dependency to access it again later.
-        bool_lit lit = m_constraints.insert(c);
+        sat::literal lit = m_constraints.insert(c);
         LOG("New constraint: " << *c);
         m_original.push_back(c);
         m_linear_solver.new_constraint(*c);
@@ -255,12 +255,12 @@ namespace polysat {
         }
     }
 
-    void solver::propagate(bool_lit lit) {
+    void solver::propagate(sat::literal lit) {
         LOG_H2("Propagate boolean literal " << lit);
         constraint* c = m_constraints.lookup(lit);
         SASSERT(c);
         SASSERT(!c->is_undef());
-        SASSERT(c->lit().is_positive() == lit.is_positive());
+        SASSERT(c->lit().sign() == lit.sign());
         // c->narrow(*this);
     }
 
@@ -328,7 +328,7 @@ namespace polysat {
                 break;
             }
             case trail_instr_t::assign_bool_i: {
-                bool_lit lit = m_search.back().lit();
+                sat::literal lit = m_search.back().lit();
                 LOG_V("Undo assign_bool_i: " << lit);
                 constraint* c = m_constraints.lookup(lit);
                 deactivate_constraint(*c);
@@ -455,7 +455,7 @@ namespace polysat {
     }
 
     void solver::set_marks(constraint const& c) {
-        if (c.lit().is_valid())
+        if (c.lit() != sat::null_literal)
             m_bvars.set_mark(c.lit().var());
         for (auto v : c.vars())
             set_mark(v);
@@ -580,9 +580,9 @@ namespace polysat {
             else {
                 // Resolve over boolean literal
                 SASSERT(item.is_boolean());
-                bool_lit const lit = item.lit();
+                sat::literal const lit = item.lit();
                 LOG_H2("Working on boolean literal " << lit);
-                bool_var const var = lit.var();
+                sat::bool_var const var = lit.var();
                 if (!m_bvars.is_marked(var))
                     continue;
                 if (m_bvars.level(var) <= base_level()) {
@@ -624,7 +624,7 @@ namespace polysat {
                 for (auto* c : m_cjust[v]) {
                     for (auto w : c->vars())
                         set_mark(w);
-                    if (c->lit().is_valid())
+                    if (c->lit() != sat::null_literal)
                         m_bvars.set_mark(c->lit().var());
                     m_conflict.units().push_back(c);
                 }
@@ -632,9 +632,9 @@ namespace polysat {
             else {
                 // Backtrack over boolean literal
                 SASSERT(item.is_boolean());
-                bool_lit lit = item.lit();
+                sat::literal lit = item.lit();
                 LOG_H2("Working on boolean literal " << lit);
-                bool_var var = lit.var();
+                sat::bool_var var = lit.var();
                 SASSERT(m_bvars.is_assigned(var));
                 if (!m_bvars.is_marked(var))
                     continue;
@@ -758,8 +758,8 @@ namespace polysat {
         }
     }
     
-    void solver::revert_bool_decision(bool_lit lit, scoped_clause& reason) {
-        bool_var const var = lit.var();
+    void solver::revert_bool_decision(sat::literal lit, scoped_clause& reason) {
+        sat::bool_var const var = lit.var();
         LOG_H3("Reverting boolean decision: " << lit);
         SASSERT(m_bvars.is_decision(var));
         backjump(m_bvars.level(var) - 1);
@@ -773,7 +773,7 @@ namespace polysat {
 
         clause* lemma = m_bvars.lemma(var);
         unsigned next_idx = lemma->next_guess();
-        bool_lit next_lit = (*lemma)[next_idx]->lit();
+        sat::literal next_lit = (*lemma)[next_idx]->lit();
         // If the guess is the last literal then do a propagation, otherwise a decision
         if (next_idx == lemma->size() - 1)
             propagate_bool(next_lit, lemma);
@@ -781,21 +781,21 @@ namespace polysat {
             decide_bool(next_lit, lemma);
     }
 
-    void solver::decide_bool(bool_lit lit, clause* lemma) {
+    void solver::decide_bool(sat::literal lit, clause* lemma) {
         push_level();
-        LOG_H2("Decide bool_lit " << lit << " @ " << m_level);
+        LOG_H2("Decide boolean literal " << lit << " @ " << m_level);
         assign_bool_backtrackable(lit, nullptr, lemma);
     }
 
-    void solver::propagate_bool(bool_lit lit, clause* reason) {
-        LOG("Propagate bool_lit " << lit << " @ " << m_level << " by " << show_deref(reason));
+    void solver::propagate_bool(sat::literal lit, clause* reason) {
+        LOG("Propagate boolean literal " << lit << " @ " << m_level << " by " << show_deref(reason));
         SASSERT(reason);
         assign_bool_backtrackable(lit, reason, nullptr);
     }
 
     /// Assign a boolean literal and put it on the search stack,
     /// and activate the corresponding constraint.
-    void solver::assign_bool_backtrackable(bool_lit lit, clause* reason, clause* lemma) {
+    void solver::assign_bool_backtrackable(sat::literal lit, clause* reason, clause* lemma) {
         assign_bool_core(lit, reason, lemma);
 
         m_trail.push_back(trail_instr_t::assign_bool_i);
@@ -803,7 +803,7 @@ namespace polysat {
 
         constraint* c = m_constraints.lookup(lit);
         SASSERT(c);
-        bool is_true = lit.is_positive() == c->lit().is_positive();
+        bool is_true = lit.sign() == c->lit().sign();
         activate_constraint(*c, is_true);
     }
 
@@ -822,7 +822,7 @@ namespace polysat {
     }
 
     /// Assign a boolean literal and activate the corresponding constraint
-    void solver::assign_bool_core(bool_lit lit, clause* reason, clause* lemma) {
+    void solver::assign_bool_core(sat::literal lit, clause* reason, clause* lemma) {
         LOG("Assigning boolean literal: " << lit);
         m_bvars.assign(lit, m_level, reason, lemma);
     }

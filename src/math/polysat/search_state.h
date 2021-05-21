@@ -30,19 +30,19 @@ namespace polysat {
         search_item_k m_kind;
         union {
             pvar m_var;
-            bool_lit m_lit;
+            sat::literal m_lit;
         };
 
         search_item(pvar var): m_kind(search_item_k::assignment), m_var(var) {}
-        search_item(bool_lit lit): m_kind(search_item_k::boolean), m_lit(lit) {}
+        search_item(sat::literal lit): m_kind(search_item_k::boolean), m_lit(lit) {}
     public:
         static search_item assignment(pvar var) { return search_item(var); }
-        static search_item boolean(bool_lit lit) { return search_item(lit); }
+        static search_item boolean(sat::literal lit) { return search_item(lit); }
         bool is_assignment() const { return m_kind == search_item_k::assignment; }
         bool is_boolean() const { return m_kind == search_item_k::boolean; }
         search_item_k kind() const { return m_kind; }
         pvar var() const { SASSERT(is_assignment()); return m_var; }
-        bool_lit lit() const { SASSERT(is_boolean()); return m_lit; }
+        sat::literal lit() const { SASSERT(is_boolean()); return m_lit; }
         std::ostream& display(std::ostream& out) const;
     };
 
@@ -62,7 +62,7 @@ namespace polysat {
         assignment_t const& assignment() const { return m_assignment; }
 
         void push_assignment(pvar p, rational const& r);
-        void push_boolean(bool_lit lit);
+        void push_boolean(sat::literal lit);
         void pop();
 
         std::ostream& display(std::ostream& out) const;

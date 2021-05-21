@@ -21,11 +21,11 @@ Author:
 
 namespace polysat {
 
-    bool_lit constraint_manager::insert(constraint* c) {
+    sat::literal constraint_manager::insert(constraint* c) {
         SASSERT(c);
-        SASSERT(!c->lit().is_valid());
-        bool_var var = m_bvars.new_var();
-        bool_lit lit = bool_lit::positive(var);
+        SASSERT(c->lit() == sat::null_literal);
+        sat::bool_var var = m_bvars.new_var();
+        sat::literal lit = sat::literal(var);
         LOG_V("Inserting constraint: " << *c << "; now represented by bool_lit " << lit);
         c->m_lit = lit;
         insert_bv2c(var, c);
@@ -58,7 +58,7 @@ namespace polysat {
         }
     }
 
-    constraint* constraint_manager::lookup(bool_lit lit) {
+    constraint* constraint_manager::lookup(sat::literal lit) {
         constraint* c = get_bv2c(lit.var());
         if (c->lit() == lit)
             return c;
