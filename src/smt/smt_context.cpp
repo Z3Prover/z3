@@ -1395,7 +1395,7 @@ namespace smt {
         SASSERT(get_bdata(v).is_enode());
         lbool val  = get_assignment(v);
         TRACE("propagate_bool_var_enode_bug", tout << "var: " << v << " #" << bool_var2expr(v)->get_id() << "\n";);
-        SASSERT(v < static_cast<int>(m_b_internalized_stack.size()));
+        SASSERT(v < m_b_internalized_stack.size());
         enode * n  = bool_var2enode(v);
 
         CTRACE("mk_bool_var", !n, tout << "No enode for " << v << "\n";);
@@ -1986,7 +1986,7 @@ namespace smt {
     void context::remove_lit_occs(clause const& cls, unsigned nbv) {
         if (!track_occs()) return;
         for (literal l : cls) {
-            if (l.var() < static_cast<int>(nbv)) 
+            if (l.var() < nbv) 
                 dec_ref(l);
         }
     }
@@ -2264,7 +2264,7 @@ namespace smt {
                     SASSERT(cls->get_num_atoms() == cls->get_num_literals());
                     for (unsigned j = 0; j < 2; j++) {
                         literal l           = cls->get_literal(j);
-                        if (l.var() < static_cast<int>(num_bool_vars)) {
+                        if (l.var() < num_bool_vars) {
                             // This boolean variable was not deleted during backtracking
                             //
                             // So, it is still a watch literal. I remove the watch, since
@@ -4096,7 +4096,7 @@ namespace smt {
                 expr * * atoms         = m_conflict_resolution->get_lemma_atoms();
                 for (unsigned i = 0; i < num_lits; i++) {
                     literal l   = lits[i];
-                    if (l.var() >= static_cast<int>(num_bool_vars)) {
+                    if (l.var() >= num_bool_vars) {
                         // This boolean variable was deleted during backtracking, it need to be recreated.
                         // Remark: atom may be a negative literal (not a). Z3 creates Boolean variables for not-gates that
                         // are nested in terms. Example: let f be a uninterpreted function from Bool -> Int.
