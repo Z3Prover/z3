@@ -62,13 +62,13 @@ public:
         if (it == nullptr) return;
         mpq a = it->get_data().m_value;
         this->m_coeffs.erase(term_column);
-        for (const auto & p : t) {
+        for (auto p : t) {
             this->add_monomial(a * p.coeff(), p.column());
         }
     }
 
     lar_term(const vector<std::pair<mpq, unsigned>>& coeffs) {
-        for (const auto & p : coeffs) {
+        for (auto const& p : coeffs) {
             add_monomial(p.first, p.second);
         }
     }
