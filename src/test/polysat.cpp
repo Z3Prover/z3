@@ -575,6 +575,72 @@ namespace polysat {
         s.pop();
     }
 
+    /*
+     * Transcribed from https://github.com/NikolajBjorner/polysat/blob/main/puzzles/bv.smt2 .
+
+     * We do overflow checks by doubling the base bitwidth here.
+     */
+    static void test_fixed_point_arith_div_mul_inverse() {
+        scoped_solver s(__func__);
+
+        auto baseBw = 5;
+        auto max_int_const = 31; // (2^5 - 1) -- change this when you change baseBw
+
+        auto bw = 2 * baseBw;
+        auto max_int = s.var(s.add_var(bw));
+        s.add_eq(max_int - max_int_const);
+
+        auto zero = max_int - max_int;
+
+        auto first = s.var(s.add_var(bw));
+        s.add_ule(first, max_int);
+        auto second = s.var(s.add_var(bw));
+        s.add_ule(second, max_int);
+        auto idx = s.var(s.add_var(bw));
+        s.add_ule(idx, max_int);
+        auto r = s.var(s.add_var(bw));
+        s.add_ule(r, max_int);
+
+        // q = max_int / idx <=> q * idx + r - max_int = 0
+        auto q = s.var(s.add_var(bw));
+        auto r = s.var(s.add_var(bw));
+        s.add_eq((q * idx) + r - max_int);
+        s.add_ult(r, idx);
+        s.add_ule(q * idx, max_int);
+
+        /*  last assertion:
+                (not
+                    (=> (bvugt second first) 
+                        (=> 
+                            (=> (not (= idx #x00000000)) 
+                                (bvule (bvsub second first) q)) 
+                            (bvumul_noovfl (bvsub second first) idx))))
+            transforming negated boolean skeleton:
+                (not (=> a (=> (or b c) d))) <=> (and a (not d) (or b c))
+         */
+
+        // (bvugt second first)
+        s.add_ult(first, second);
+        // (bvumul_noovfl (bvsub second first) idx)
+        s.add_ule((second - first) * idx, max_int);
+
+        // resolving disjunction via push/pop
+
+        // first disjunct: (= idx #x00000000)
+        s.push();
+        s.add_eq(idx);
+        s.check_sat();
+        s.expect_unsat();
+        s.pop();
+
+        // second disjunct: (bvule (bvsub second first) q)
+        s.push();
+        s.add_ule(second - first, q);
+        s.check_sat();
+        s.expect_unsat();
+        s.pop();
+    }
+
 
 
     // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
