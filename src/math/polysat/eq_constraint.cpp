@@ -25,7 +25,7 @@ namespace polysat {
         return out;
     }
 
-    constraint* eq_constraint::resolve(solver& s, pvar v) {
+    scoped_ptr<constraint> eq_constraint::resolve(solver& s, pvar v) {
         if (is_positive())
             return eq_resolve(s, v);
         if (is_negative())
@@ -115,7 +115,7 @@ namespace polysat {
      * Equality constraints
      */
 
-    constraint* eq_constraint::eq_resolve(solver& s, pvar v) {
+    scoped_ptr<constraint> eq_constraint::eq_resolve(solver& s, pvar v) {
         LOG("Resolve " << *this << " upon v" << v);
         if (s.m_conflict.size() != 1)
             return nullptr;
@@ -137,9 +137,7 @@ namespace polysat {
                 return nullptr;
             p_dependency_ref d(s.m_dm.mk_join(c->dep(), dep()), s.m_dm);
             unsigned lvl = std::max(c->level(), level());
-            constraint* lemma = s.m_constraints.eq(lvl, pos_t, r, d);
-            lemma->assign(true);
-            return lemma;
+            return s.m_constraints.eq(lvl, pos_t, r, d);
         }
         return nullptr;
     }
@@ -149,7 +147,7 @@ namespace polysat {
      * Disequality constraints
      */
 
-    constraint* eq_constraint::diseq_resolve(solver& s, pvar v) {
+    scoped_ptr<constraint> eq_constraint::diseq_resolve(solver& s, pvar v) {
         NOT_IMPLEMENTED_YET();
         return nullptr;
     }

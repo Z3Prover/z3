@@ -32,7 +32,7 @@ namespace polysat {
         pdd const& lhs() const { return m_lhs; }
         pdd const& rhs() const { return m_rhs; }
         std::ostream& display(std::ostream& out) const override;
-        constraint* resolve(solver& s, pvar v) override;
+        scoped_ptr<constraint> resolve(solver& s, pvar v) override;
         bool is_always_false(pdd const& lhs, pdd const& rhs);
         bool is_always_false() override;
         bool is_currently_false(solver& s) override;

@@ -21,7 +21,7 @@ namespace polysat {
         return out << "v" << m_var << ": " << m_viable << "\n";
     }
 
-    constraint* var_constraint::resolve(solver& s, pvar v) {
+    scoped_ptr<constraint> var_constraint::resolve(solver& s, pvar v) {
         UNREACHABLE();
         return nullptr;
     }

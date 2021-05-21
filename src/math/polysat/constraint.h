@@ -52,7 +52,7 @@ namespace polysat {
         constraint_manager(bool_var_manager& bvars): m_bvars(bvars) {}
 
         // Start managing lifetime of the given constraint
-        void insert(constraint* c);
+        constraint* insert(scoped_ptr<constraint>&& c);
 
         // Release constraints at the given level and above.
         void release_level(unsigned lvl);
@@ -60,12 +60,12 @@ namespace polysat {
         constraint* lookup(sat::bool_var var);
         constraint* lookup_external(unsigned dep) { return m_external_constraints.get(dep, nullptr); }
 
-        constraint* eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d);
-        constraint* viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d);
-        constraint* ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-        constraint* ult(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-        constraint* sle(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-        constraint* slt(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        scoped_ptr<constraint> eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d);
+        scoped_ptr<constraint> viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d);
+        scoped_ptr<constraint> ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        scoped_ptr<constraint> ult(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        scoped_ptr<constraint> sle(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        scoped_ptr<constraint> slt(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
     };
 
     class constraint {
@@ -94,7 +94,7 @@ namespace polysat {
         virtual std::ostream& display(std::ostream& out) const = 0;
         bool propagate(solver& s, pvar v);
         virtual void propagate_core(solver& s, pvar v, pvar other_v);
-        virtual constraint* resolve(solver& s, pvar v) = 0;
+        virtual scoped_ptr<constraint> resolve(solver& s, pvar v) = 0;
         virtual bool is_always_false() = 0;
         virtual bool is_currently_false(solver& s) = 0;
         virtual bool is_currently_true(solver& s) = 0;

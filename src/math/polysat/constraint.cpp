@@ -21,7 +21,8 @@ Author:
 
 namespace polysat {
 
-    void constraint_manager::insert(constraint* c) {
+    constraint* constraint_manager::insert(scoped_ptr<constraint>&& sc) {
+        constraint* c = sc.detach();
         LOG_V("Inserting constraint: " << show_deref(c));
         SASSERT(c);
         SASSERT(c->bvar() != sat::null_bool_var);
@@ -36,6 +37,7 @@ namespace polysat {
         while (m_constraints.size() <= c->level())
             m_constraints.push_back({});
         m_constraints[c->level()].push_back(c);
+        return c;
     }
 
     // Release constraints at the given level and above.
@@ -82,19 +84,19 @@ namespace polysat {
         return *dynamic_cast<var_constraint const*>(this);
     }
 
-    constraint* constraint_manager::eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d) {
+    scoped_ptr<constraint> constraint_manager::eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d) {
         return alloc(eq_constraint, *this, lvl, sign, p, d);
     }
 
-    constraint* constraint_manager::viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d) {
+    scoped_ptr<constraint> constraint_manager::viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d) {
         return alloc(var_constraint, *this, lvl, sign, v, b, d);
     }
 
-    constraint* constraint_manager::ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+    scoped_ptr<constraint> constraint_manager::ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
         return alloc(ule_constraint, *this, lvl, sign, a, b, d);
     }
 
-    constraint* constraint_manager::ult(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+    scoped_ptr<constraint> constraint_manager::ult(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
         // a < b  <=>  !(b <= a)
         return ule(lvl, static_cast<csign_t>(!sign), b, a, d);
     }
@@ -115,12 +117,12 @@ namespace polysat {
     //
     // Argument: flipping the msb swaps the negative and non-negative blocks
     //
-    constraint* constraint_manager::sle(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+    scoped_ptr<constraint> constraint_manager::sle(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
         return ule(lvl, sign, a + shift, b + shift, d);
     }
 
-    constraint* constraint_manager::slt(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+    scoped_ptr<constraint> constraint_manager::slt(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
         return ult(lvl, sign, a + shift, b + shift, d);
     }

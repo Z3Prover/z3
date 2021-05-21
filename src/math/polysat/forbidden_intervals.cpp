@@ -163,10 +163,10 @@ namespace polysat {
             auto const& next_hi = records[next_i].interval.hi();
             auto const& lhs = hi - next_lo;
             auto const& rhs = next_hi - next_lo;
-            constraint* c = s.m_constraints.ult(lemma_lvl, neg_t, lhs, rhs, s.mk_dep_ref(null_dependency));
+            scoped_ptr<constraint> c = s.m_constraints.ult(lemma_lvl, neg_t, lhs, rhs, s.mk_dep_ref(null_dependency));
             LOG("constraint: " << *c);
-            literals.push_back(c);
-            out_lemma.constraint_storage.push_back(c);
+            literals.push_back(c.get());
+            out_lemma.constraint_storage.push_back(c.detach());
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
             scoped_ptr<constraint>& neg_cond = records[i].neg_cond;

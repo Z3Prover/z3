@@ -25,7 +25,7 @@ namespace polysat {
         return out;
     }
 
-    constraint* ule_constraint::resolve(solver& s, pvar v) {
+    scoped_ptr<constraint> ule_constraint::resolve(solver& s, pvar v) {
         return nullptr;
     }
 

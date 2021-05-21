@@ -252,13 +252,13 @@ namespace polysat {
         void backjump(unsigned new_level);
         void add_lemma(scoped_clause& lemma);
 
-        constraint* mk_eq(pdd const& p, unsigned dep);
-        constraint* mk_diseq(pdd const& p, unsigned dep);
-        constraint* mk_ule(pdd const& p, pdd const& q, unsigned dep);
-        constraint* mk_ult(pdd const& p, pdd const& q, unsigned dep);
-        constraint* mk_sle(pdd const& p, pdd const& q, unsigned dep);
-        constraint* mk_slt(pdd const& p, pdd const& q, unsigned dep);
-        void new_constraint(constraint* c, bool activate);
+        scoped_ptr<constraint> mk_eq(pdd const& p, unsigned dep);
+        scoped_ptr<constraint> mk_diseq(pdd const& p, unsigned dep);
+        scoped_ptr<constraint> mk_ule(pdd const& p, pdd const& q, unsigned dep);
+        scoped_ptr<constraint> mk_ult(pdd const& p, pdd const& q, unsigned dep);
+        scoped_ptr<constraint> mk_sle(pdd const& p, pdd const& q, unsigned dep);
+        scoped_ptr<constraint> mk_slt(pdd const& p, pdd const& q, unsigned dep);
+        void new_constraint(scoped_ptr<constraint>&& c, bool activate);
         static void insert_constraint(ptr_vector<constraint>& cs, constraint* c);
 
         bool invariant();

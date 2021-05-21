@@ -155,11 +155,11 @@ namespace polysat {
         m_free_vars.del_var_eh(v);
     }
 
-    constraint* solver::mk_eq(pdd const& p, unsigned dep) {
+    scoped_ptr<constraint> solver::mk_eq(pdd const& p, unsigned dep) {
         return m_constraints.eq(m_level, pos_t, p, mk_dep_ref(dep));
     }
 
-    constraint* solver::mk_diseq(pdd const& p, unsigned dep) {
+    scoped_ptr<constraint> solver::mk_diseq(pdd const& p, unsigned dep) {
         if (p.is_val()) {
             // if (!p.is_zero())
             //     return nullptr;  // TODO: probably better to create a dummy always-true constraint?
@@ -175,26 +175,26 @@ namespace polysat {
         return m_constraints.viable(m_level, pos_t, slack, non_zero, mk_dep_ref(dep));
     }
 
-    constraint* solver::mk_ule(pdd const& p, pdd const& q, unsigned dep) {
+    scoped_ptr<constraint> solver::mk_ule(pdd const& p, pdd const& q, unsigned dep) {
         return m_constraints.ule(m_level, pos_t, p, q, mk_dep_ref(dep));
     }
 
-    constraint* solver::mk_ult(pdd const& p, pdd const& q, unsigned dep) {
+    scoped_ptr<constraint> solver::mk_ult(pdd const& p, pdd const& q, unsigned dep) {
         return m_constraints.ult(m_level, pos_t, p, q, mk_dep_ref(dep));
     }
 
-    constraint* solver::mk_sle(pdd const& p, pdd const& q, unsigned dep) {
+    scoped_ptr<constraint> solver::mk_sle(pdd const& p, pdd const& q, unsigned dep) {
         return m_constraints.sle(m_level, pos_t, p, q, mk_dep_ref(dep));
     }
 
-    constraint* solver::mk_slt(pdd const& p, pdd const& q, unsigned dep) {
+    scoped_ptr<constraint> solver::mk_slt(pdd const& p, pdd const& q, unsigned dep) {
         return m_constraints.slt(m_level, pos_t, p, q, mk_dep_ref(dep));
     }
 
-    void solver::new_constraint(constraint* c, bool activate) {
-        SASSERT(c);
-        SASSERT(activate || c->dep());  // if we don't activate the constraint, we need the dependency to access it again later.
-        m_constraints.insert(c);
+    void solver::new_constraint(scoped_ptr<constraint>&& sc, bool activate) {
+        SASSERT(sc);
+        SASSERT(activate || sc->dep());  // if we don't activate the constraint, we need the dependency to access it again later.
+        constraint* c = m_constraints.insert(std::move(sc));
         LOG("New constraint: " << *c);
         m_original.push_back(c);
         m_linear_solver.new_constraint(*c);
@@ -862,11 +862,12 @@ namespace polysat {
         if (m_cjust[v].size() != 1)
             return result;
         constraint* d = m_cjust[v].back();
-        constraint* res = d->resolve(*this, v);
+        scoped_ptr<constraint> res = d->resolve(*this, v);
         LOG("resolved: " << show_deref(res));
         if (res) {
-            result.clause = clause::unit(res);
-            result.constraint_storage.push_back(res);
+            res->assign(true);
+            result.clause = clause::unit(res.get());
+            result.constraint_storage.push_back(res.detach());
         }
         return result;
     }
