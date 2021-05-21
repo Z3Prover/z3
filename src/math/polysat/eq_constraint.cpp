@@ -19,10 +19,13 @@ Author:
 namespace polysat {
 
     std::ostream& eq_constraint::display(std::ostream& out) const {
-        return out << p() << (sign() == pos_t ? " == 0" : " != 0") << " [" << m_status << "]";
+        out << p() << (sign() == pos_t ? " == 0" : " != 0") << " @" << level();
+        if (is_undef())
+            out << " [inactive]";
+        return out;
     }
 
-    constraint* eq_constraint::resolve(solver& s, pvar v) {
+    scoped_ptr<constraint> eq_constraint::resolve(solver& s, pvar v) {
         if (is_positive())
             return eq_resolve(s, v);
         if (is_negative())
@@ -33,8 +36,8 @@ namespace polysat {
 
     void eq_constraint::narrow(solver& s) {
         SASSERT(!is_undef());
-        LOG("Assignment: " << s.m_search);
-        auto q = p().subst_val(s.m_search);
+        LOG("Assignment: " << s.assignment());
+        auto q = p().subst_val(s.assignment());
         LOG("Substituted: " << p() << " := " << q);
         if (q.is_zero()) {
             if (is_positive())
@@ -88,7 +91,7 @@ namespace polysat {
     }
 
     bool eq_constraint::is_currently_false(solver& s) {
-        pdd r = p().subst_val(s.m_search);
+        pdd r = p().subst_val(s.assignment());
         if (is_positive())
             return r.is_never_zero();
         if (is_negative())
@@ -98,7 +101,7 @@ namespace polysat {
     }
 
     bool eq_constraint::is_currently_true(solver& s) {
-        pdd r = p().subst_val(s.m_search);
+        pdd r = p().subst_val(s.assignment());
         if (is_positive())
             return r.is_zero();
         if (is_negative())
@@ -112,11 +115,13 @@ namespace polysat {
      * Equality constraints
      */
 
-    constraint* eq_constraint::eq_resolve(solver& s, pvar v) {
+    scoped_ptr<constraint> eq_constraint::eq_resolve(solver& s, pvar v) {
         LOG("Resolve " << *this << " upon v" << v);
         if (s.m_conflict.size() != 1)
             return nullptr;
-        constraint* c = s.m_conflict[0];
+        if (!s.m_conflict.clauses().empty())
+            return nullptr;
+        constraint* c = s.m_conflict.units()[0];
         SASSERT(c->is_currently_false(s));
         // 'c == this' can happen if propagation was from decide() with only one value left
         // (e.g., if there's an unsatisfiable clause and we try all values).
@@ -124,7 +129,7 @@ namespace polysat {
         if (c == this)
             return nullptr;
         SASSERT(is_currently_true(s));  // TODO: might not always hold (due to similar case as in comment above?)
-        if (c->is_eq()) {
+        if (c->is_eq() && c->is_positive()) {
             pdd a = c->to_eq().p();
             pdd b = p();
             pdd r = a;
@@ -132,9 +137,7 @@ namespace polysat {
                 return nullptr;
             p_dependency_ref d(s.m_dm.mk_join(c->dep(), dep()), s.m_dm);
             unsigned lvl = std::max(c->level(), level());
-            constraint* lemma = constraint::eq(lvl, s.m_next_bvar++, pos_t, r, d);
-            lemma->assign_eh(true);
-            return lemma;
+            return s.m_constraints.eq(lvl, pos_t, r, d);
         }
         return nullptr;
     }
@@ -144,7 +147,7 @@ namespace polysat {
      * Disequality constraints
      */
 
-    constraint* eq_constraint::diseq_resolve(solver& s, pvar v) {
+    scoped_ptr<constraint> eq_constraint::diseq_resolve(solver& s, pvar v) {
         NOT_IMPLEMENTED_YET();
         return nullptr;
     }
@@ -162,6 +165,7 @@ namespace polysat {
             return false;
 
         if (deg == 0) {
+            return false;
             UNREACHABLE();  // this case is not useful for conflict resolution (but it could be handled in principle)
             // i is empty or full, condition would be this constraint itself?
             return true;
@@ -191,7 +195,7 @@ namespace polysat {
         */
 
         // Concrete values of evaluable terms
-        auto e1s = e1.subst_val(s.m_search);
+        auto e1s = e1.subst_val(s.assignment());
         auto e2s = m.zero();
         SASSERT(e1s.is_val());
         SASSERT(e2s.is_val());

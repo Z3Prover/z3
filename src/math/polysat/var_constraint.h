@@ -29,11 +29,11 @@ namespace polysat {
         pvar        m_var;
         bdd         m_viable;
     public:
-        var_constraint(unsigned lvl, bool_var bvar, csign_t sign, pvar v, bdd const & b, p_dependency_ref const& dep):
-            constraint(lvl, bvar, sign, dep, ckind_t::bit_t), m_var(v), m_viable(b) {}
+        var_constraint(constraint_manager& m, unsigned lvl, csign_t sign, pvar v, bdd const & b, p_dependency_ref const& dep):
+            constraint(m, lvl, sign, dep, ckind_t::bit_t), m_var(v), m_viable(b) {}
         ~var_constraint() override {}
         std::ostream& display(std::ostream& out) const override;
-        constraint* resolve(solver& s, pvar v) override;
+        scoped_ptr<constraint> resolve(solver& s, pvar v) override;
         void narrow(solver& s) override;
         bool is_always_false() override;
         bool is_currently_false(solver& s) override;

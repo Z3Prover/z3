@@ -62,7 +62,7 @@ namespace polysat {
         return true;
     }
 
-    bool forbidden_intervals::explain(solver& s, ptr_vector<constraint> const& conflict, pvar v, clause& out_lemma) {
+    bool forbidden_intervals::explain(solver& s, ptr_vector<constraint> const& conflict, pvar v, scoped_clause& out_lemma) {
 
         // Extract forbidden intervals from conflicting constraints
         vector<fi_record> records;
@@ -99,7 +99,16 @@ namespace polysat {
             // => the side conditions of that interval are enough to produce a conflict
             auto& full_record = records.back();
             SASSERT(full_record.interval.is_full());
-            out_lemma = std::move(full_record.neg_cond);
+            sat::literal_vector literals;
+            scoped_ptr_vector<constraint> new_constraints;
+            literals.push_back(~sat::literal(full_record.src->bvar()));  // TODO: only do this if it's not a base-level constraint! (from unit clauses, e.g., external constraints)
+            if (full_record.neg_cond) {
+                literals.push_back(sat::literal(full_record.neg_cond.get()->bvar()));
+                new_constraints.push_back(full_record.neg_cond.detach());
+            }
+            unsigned lemma_lvl = full_record.src->level();
+            p_dependency_ref lemma_dep(full_record.src->dep(), s.m_dm);
+            out_lemma = scoped_clause(clause::from_literals(lemma_lvl, lemma_dep, literals), std::move(new_constraints));
             return true;
         }
 
@@ -130,11 +139,22 @@ namespace polysat {
 
         // Create lemma
         // Idea:
-        // - If the side conditions hold, and
+        // - If the src constraints hold, and
+        // - if the side conditions hold, and
         // - the upper bound of each interval is contained in the next interval,
         // then the forbidden intervals cover the whole domain and we have a conflict.
         // We learn the negation of this conjunction.
-        scoped_ptr_vector<constraint> literals;
+
+        sat::literal_vector literals;
+        scoped_ptr_vector<constraint> new_constraints;
+        // Add negation of src constraints as antecedents (may be resolved during backtracking)
+        for (unsigned const i : seq) {
+            // TODO: don't add base-level constraints! (from unit clauses, e.g., external constraints)
+            //       (maybe extract that into a helper function on 'clause'... it could sort out base-level and other constraints; add the first to lemma_dep and the other to antecedents)
+            sat::literal src_lit{records[i].src->bvar()};
+            literals.push_back(~src_lit);
+        }
+        // Add side conditions and interval constraints
         for (unsigned seq_i = seq.size(); seq_i-- > 0; ) {
             unsigned const i = seq[seq_i];
             unsigned const next_i = seq[(seq_i+1) % seq.size()];
@@ -145,17 +165,20 @@ namespace polysat {
             auto const& next_hi = records[next_i].interval.hi();
             auto const& lhs = hi - next_lo;
             auto const& rhs = next_hi - next_lo;
-            constraint* c = constraint::ult(lemma_lvl, s.m_next_bvar++, neg_t, lhs, rhs, lemma_dep);
+            scoped_ptr<constraint> c = s.m_constraints.ult(lemma_lvl, neg_t, lhs, rhs, s.mk_dep_ref(null_dependency));
             LOG("constraint: " << *c);
-            literals.push_back(c);
+            literals.push_back(sat::literal(c->bvar()));
+            new_constraints.push_back(c.detach());
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
             scoped_ptr<constraint>& neg_cond = records[i].neg_cond;
-            if (neg_cond)
-                literals.push_back(neg_cond.detach());
+            if (neg_cond) {
+                literals.push_back(sat::literal(neg_cond->bvar()));
+                new_constraints.push_back(neg_cond.detach());
+            }
         }
-
-        out_lemma = std::move(literals);
+        scoped_ptr<clause> cl = clause::from_literals(lemma_lvl, lemma_dep, literals);
+        out_lemma = scoped_clause(std::move(cl), std::move(new_constraints));
         return true;
     }
 

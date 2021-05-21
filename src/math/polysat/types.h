@@ -51,7 +51,4 @@ namespace polysat {
     typedef obj_ref<p_dependency, poly_dep_manager> p_dependency_ref; 
     typedef ref_vector<p_dependency, poly_dep_manager> p_dependency_refv;
 
-    typedef int bool_var;  // see smt_types.h
-    typedef svector<bool_var> bool_var_vector;  // see smt_types.h
-
 }

@@ -19,19 +19,22 @@ Author:
 namespace polysat {
 
     std::ostream& ule_constraint::display(std::ostream& out) const {
-        return out << m_lhs << (sign() == pos_t ? " <=u " : " >u ") << m_rhs << " [" << m_status << "]";
+        out << m_lhs << (sign() == pos_t ? " <=u " : " >u ") << m_rhs << " @" << level();
+        if (is_undef())
+            out << " [inactive]";
+        return out;
     }
 
-    constraint* ule_constraint::resolve(solver& s, pvar v) {
+    scoped_ptr<constraint> ule_constraint::resolve(solver& s, pvar v) {
         return nullptr;
     }
 
     void ule_constraint::narrow(solver& s) {
         SASSERT(!is_undef());
-        LOG("Assignment: " << s.m_search);
-        auto p = lhs().subst_val(s.m_search);
+        LOG("Assignment: " << s.assignment());
+        auto p = lhs().subst_val(s.assignment());
         LOG("Substituted LHS: " << lhs() << " := " << p);
-        auto q = rhs().subst_val(s.m_search);
+        auto q = rhs().subst_val(s.assignment());
         LOG("Substituted RHS: " << rhs() << " := " << q);
 
         if (is_always_false(p, q)) {
@@ -103,14 +106,14 @@ namespace polysat {
     }
 
     bool ule_constraint::is_currently_false(solver& s) {
-        auto p = lhs().subst_val(s.m_search);
-        auto q = rhs().subst_val(s.m_search);
+        auto p = lhs().subst_val(s.assignment());
+        auto q = rhs().subst_val(s.assignment());
         return is_always_false(p, q);
     }
 
     bool ule_constraint::is_currently_true(solver& s) {
-        auto p = lhs().subst_val(s.m_search);
-        auto q = rhs().subst_val(s.m_search);
+        auto p = lhs().subst_val(s.assignment());
+        auto q = rhs().subst_val(s.assignment());
         VERIFY(!is_undef());
         if (is_positive())
             return p.is_val() && q.is_val() && p.val() <= q.val();
@@ -129,6 +132,7 @@ namespace polysat {
             return false;
 
         if (deg1 == 0 && deg2 == 0) {
+            return false;
             UNREACHABLE();  // this case is not useful for conflict resolution (but it could be handled in principle)
             // i is empty or full, condition would be this constraint itself?
             return true;
@@ -183,8 +187,8 @@ namespace polysat {
         SASSERT(!y_coeff.is_zero());
 
         // Concrete values of evaluable terms
-        auto e1s = e1.subst_val(s.m_search);
-        auto e2s = e2.subst_val(s.m_search);
+        auto e1s = e1.subst_val(s.assignment());
+        auto e2s = e2.subst_val(s.assignment());
         SASSERT(e1s.is_val());
         SASSERT(e2s.is_val());
 
@@ -243,7 +247,7 @@ namespace polysat {
             out_neg_cond = nullptr;
         }
         else
-            out_neg_cond = constraint::eq(level(), s.m_next_bvar++, is_trivial ? neg_t : pos_t, condition_body, m_dep);
+            out_neg_cond = s.m_constraints.eq(level(), is_trivial ? neg_t : pos_t, condition_body, s.mk_dep_ref(null_dependency));
 
         if (is_trivial) {
             if (is_positive())

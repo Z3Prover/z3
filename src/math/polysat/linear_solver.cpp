@@ -114,6 +114,7 @@ namespace polysat {
         m_trail.push_back(trail_i::set_bound_i);
         m_rows.push_back(std::make_pair(v, sz));
         rational z(0), o(1);
+        SASSERT(!c.is_undef());
         if (c.is_positive()) 
             fp.set_bounds(v, z, z);
         else 
@@ -168,6 +169,7 @@ namespace polysat {
     }
 
     void linear_solver::activate_constraint(constraint& c) {
+        SASSERT(!c.is_undef());
         switch (c.kind()) {
         case ckind_t::eq_t: 
             assert_eq(c.to_eq());
@@ -199,7 +201,7 @@ namespace polysat {
         if (m_mono2var.find(m, m1))
             return m1.var;
         m.vars = static_cast<unsigned*>(m_alloc.allocate(var.size()*sizeof(unsigned)));
-        for (unsigned i = 0; i < var.size(); var.data()) 
+        for (unsigned i = 0; i < var.size(); ++i)
             m.vars[i] = var[i];
         m.var = fresh_var(sz);
         m_mono2var.insert(m);

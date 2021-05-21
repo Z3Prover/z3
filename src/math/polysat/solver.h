@@ -19,13 +19,16 @@ Author:
 
 #include <limits>
 #include "util/statistics.h"
+#include "math/polysat/boolean.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/eq_constraint.h"
 #include "math/polysat/var_constraint.h"
 #include "math/polysat/ule_constraint.h"
 #include "math/polysat/justification.h"
 #include "math/polysat/linear_solver.h"
+#include "math/polysat/search_state.h"
 #include "math/polysat/trail.h"
+#include "math/polysat/log.h"
 
 namespace polysat {
 
@@ -43,6 +46,7 @@ namespace polysat {
         friend class eq_constraint;
         friend class var_constraint;
         friend class ule_constraint;
+        friend class clause;
         friend class forbidden_intervals;
         friend class linear_solver;
 
@@ -56,28 +60,24 @@ namespace polysat {
         dep_value_manager        m_value_manager;
         small_object_allocator   m_alloc;
         poly_dep_manager         m_dm;
-        constraints              m_conflict;
-        constraints              m_stash_just;
+        constraints_and_clauses  m_conflict;
+        // constraints              m_stash_just;
         var_queue                m_free_vars;
         stats                    m_stats;
 
         uint64_t                 m_max_conflicts { std::numeric_limits<uint64_t>::max() };
         uint64_t                 m_max_decisions { std::numeric_limits<uint64_t>::max() };
 
-        // Per constraint state
-        scoped_ptr_vector<constraint>   m_constraints;
-        scoped_ptr_vector<constraint>   m_redundant;
-        vector<clause>                  m_redundant_clauses;
-
-        bool_var_vector          m_disjunctive_lemma;
-        bool_var_vector          m_assign_eh_history;
-
         // Map boolean variables to constraints
-        bool_var                 m_next_bvar = 2;  // TODO: later, bool vars come from external supply
-        ptr_vector<constraint>   m_bv2constraint;
-        void insert_bv2c(bool_var bv, constraint* c) { m_bv2constraint.setx(bv, c, nullptr); }
-        void erase_bv2c(bool_var bv) { m_bv2constraint[bv] = nullptr; }
-        constraint* get_bv2c(bool_var bv) const { return m_bv2constraint.get(bv, nullptr); }
+        bool_var_manager         m_bvars;
+
+        // Per constraint state
+        constraint_manager       m_constraints;
+        ptr_vector<constraint>   m_original;
+        ptr_vector<constraint>   m_redundant;
+        scoped_ptr_vector<clause>       m_redundant_clauses;
+
+        svector<sat::bool_var>   m_disjunctive_lemma;
 
         // Per variable information
         vector<bdd>              m_viable;   // set of viable values.
@@ -89,16 +89,25 @@ namespace polysat {
         vector<pdd>              m_vars;
         unsigned_vector          m_size;     // store size of variables.
 
-        // search state that lists assigned variables
-        vector<std::pair<pvar, rational>> m_search;
+        search_state             m_search;
+        assignment_t const& assignment() const { return m_search.assignment(); }
 
-        unsigned                 m_qhead { 0 };
+        // (old, remove later)
+        // using bool_clauses = ptr_vector<bool_clause>;
+        // vector<lbool>            m_bool_value;   // value of boolean literal (indexed by literal)
+        // vector<bool_clauses>     m_bool_watch;   // watch list into clauses (indexed by literal)
+        // // scoped_ptr_vector<bool_clause>  m_bool_clauses;  // NOTE: as of now, external clauses will only be units! So this is not needed.
+        // svector<sat::literal>        m_bool_units;   // externally asserted unit clauses, via assign_eh
+        // scoped_ptr_vector<bool_clause>  m_bool_redundant;   // learned clause storage
+
+        unsigned                 m_qhead { 0 }; // next item to propagate (index into m_search)
         unsigned                 m_level { 0 };
 
         svector<trail_instr_t>   m_trail;
         unsigned_vector          m_qhead_trail;
         vector<std::pair<pvar, bdd>> m_viable_trail;
         unsigned_vector          m_cjust_trail;
+        ptr_vector<constraint>   m_activate_trail;
 
 
         unsigned_vector          m_base_levels;  // External clients can push/pop scope. 
@@ -122,6 +131,7 @@ namespace polysat {
         void push_cjust(pvar v, constraint* c) {
             if (m_cjust[v].contains(c))  // TODO: better check (flag on constraint?)
                 return;
+            LOG_V("cjust[v" << v << "] += " << *c);
             m_cjust[v].push_back(c);        
             m_trail.push_back(trail_instr_t::just_i);
             m_cjust_trail.push_back(v);
@@ -177,15 +187,24 @@ namespace polysat {
 
         void push_level();
         void pop_levels(unsigned num_levels);
-        void pop_constraints(scoped_ptr_vector<constraint>& cs);
+        void pop_constraints(ptr_vector<constraint>& cs);
+
+        void assign_bool_backtrackable(sat::literal lit, clause* reason, clause* lemma);
+        void activate_constraint_base(constraint* c);
+        void assign_bool_core(sat::literal lit, clause* reason, clause* lemma);
+        // void assign_bool_base(sat::literal lit);
+        void activate_constraint(constraint& c, bool is_true);
+        void deactivate_constraint(constraint& c);
+        void decide_bool(sat::literal lit, clause* lemma);
+        void propagate_bool(sat::literal lit, clause* reason);
 
         void assign_core(pvar v, rational const& val, justification const& j);
-
         bool is_assigned(pvar v) const { return !m_justification[v].is_unassigned(); }
 
 
         bool should_search();
 
+        void propagate(sat::literal lit);
         void propagate(pvar v);
         void propagate(pvar v, rational const& val, constraint& c);
         void erase_watch(pvar v, constraint& c);
@@ -202,9 +221,13 @@ namespace polysat {
         bool is_marked(pvar v) const { return m_clock == m_marks[v]; }
         void set_mark(pvar v) { m_marks[v] = m_clock; }
 
+        void set_marks(constraints_and_clauses const& cc);
+        void set_marks(constraint const& c);
+        void set_marks(clause const& cl);
+
         unsigned                 m_conflict_level { 0 };
 
-        constraint* resolve(pvar v);
+        scoped_clause resolve(pvar v);
 
         bool can_decide() const { return !m_free_vars.empty(); }
         void decide();
@@ -214,23 +237,36 @@ namespace polysat {
         void linear_propagate();
 
         p_dependency* mk_dep(unsigned dep) { return dep == null_dependency ? nullptr : m_dm.mk_leaf(dep); }
+        p_dependency_ref mk_dep_ref(unsigned dep) { return p_dependency_ref(mk_dep(dep), m_dm); }
 
         bool is_conflict() const { return !m_conflict.empty(); }
         bool at_base_level() const;
         unsigned base_level() const;
 
-        void resolve_conflict();            
-        void backtrack(unsigned i, scoped_ptr<constraint>& lemma);
+        void resolve_conflict();
+        void resolve_conflict_clause(scoped_clause& lemma);
+        void backtrack(unsigned i, scoped_clause& lemma);
         void report_unsat();
-        void revert_decision(pvar v);
-        void learn_lemma(pvar v, constraint* c);
+        void revert_decision(pvar v, scoped_clause& reason);
+        void revert_bool_decision(sat::literal lit, scoped_clause& reason);
+        void learn_lemma(pvar v, scoped_clause&& lemma);
+        void learn_lemma_unit(pvar v, scoped_ptr<constraint>&& lemma);
+        void learn_lemma_clause(pvar v, scoped_clause&& lemma);
         void backjump(unsigned new_level);
-        void add_lemma(constraint* c);
+        void add_lemma_unit(scoped_ptr<constraint>&& lemma);
+        void add_lemma_clause(scoped_clause&& lemma);
 
-        bool_var new_constraint(constraint* c);
+        scoped_ptr<constraint> mk_eq(pdd const& p, unsigned dep);
+        scoped_ptr<constraint> mk_diseq(pdd const& p, unsigned dep);
+        scoped_ptr<constraint> mk_ule(pdd const& p, pdd const& q, unsigned dep);
+        scoped_ptr<constraint> mk_ult(pdd const& p, pdd const& q, unsigned dep);
+        scoped_ptr<constraint> mk_sle(pdd const& p, pdd const& q, unsigned dep);
+        scoped_ptr<constraint> mk_slt(pdd const& p, pdd const& q, unsigned dep);
+        void new_constraint(scoped_ptr<constraint>&& c, bool activate);
+        static void insert_constraint(ptr_vector<constraint>& cs, constraint* c);
 
         bool invariant();
-        bool invariant(scoped_ptr_vector<constraint> const& cs);
+        static bool invariant(ptr_vector<constraint> const& cs);
         bool wlist_invariant();
 
     public:
@@ -258,7 +294,7 @@ namespace polysat {
          * Returns the disjunctive lemma that should be learned,
          * or an empty vector if check_sat() terminated for a different reason.
          */
-        bool_var_vector get_lemma() { return m_disjunctive_lemma; }
+        svector<sat::bool_var> get_lemma() { return m_disjunctive_lemma; }
         bool pending_disjunctive_lemma() { return !m_disjunctive_lemma.empty(); }
 
         /**
@@ -285,12 +321,12 @@ namespace polysat {
          * Create polynomial constraints (but do not activate them).
          * Each constraint is tracked by a dependency.
          */
-        bool_var new_eq(pdd const& p, unsigned dep = null_dependency);
-        bool_var new_diseq(pdd const& p, unsigned dep = null_dependency);
-        bool_var new_ule(pdd const& p, pdd const& q, unsigned dep = null_dependency, csign_t sign = pos_t);
-        bool_var new_ult(pdd const& p, pdd const& q, unsigned dep = null_dependency);
-        bool_var new_sle(pdd const& p, pdd const& q, unsigned dep = null_dependency, csign_t sign = pos_t);
-        bool_var new_slt(pdd const& p, pdd const& q, unsigned dep = null_dependency);
+        void new_eq(pdd const& p, unsigned dep);
+        void new_diseq(pdd const& p, unsigned dep);
+        void new_ule(pdd const& p, pdd const& q, unsigned dep);
+        void new_ult(pdd const& p, pdd const& q, unsigned dep);
+        void new_sle(pdd const& p, pdd const& q, unsigned dep);
+        void new_slt(pdd const& p, pdd const& q, unsigned dep);
 
         /** Create and activate polynomial constraints. */
         void add_eq(pdd const& p, unsigned dep = null_dependency);
@@ -304,7 +340,7 @@ namespace polysat {
          * Activate the constraint corresponding to the given boolean variable.
          * Note: to deactivate, use push/pop.
          */
-        void assign_eh(bool_var v, bool is_true);
+        void assign_eh(unsigned dep, bool is_true);
 
         /**
          * main state transitions.

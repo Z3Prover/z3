@@ -44,6 +44,7 @@ public:
     public:
         unsigned get_ref_count() const { return m_ref_count; }
         bool is_leaf() const { return m_leaf == 1; }
+        value const& leaf_value() const { SASSERT(is_leaf()); return static_cast<leaf const*>(this)->m_value; }
     };
 
 private:

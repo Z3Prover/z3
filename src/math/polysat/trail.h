@@ -23,7 +23,7 @@ namespace polysat {
         viable_i,
         assign_i,
         just_i,
-        assign_eh_i,
+        assign_bool_i,
     };
 
     

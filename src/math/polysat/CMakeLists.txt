@@ -1,11 +1,13 @@
 z3_add_component(polysat
   SOURCES
+    boolean.cpp
     constraint.cpp
     eq_constraint.cpp
     forbidden_intervals.cpp
     justification.cpp
     linear_solver.cpp
     log.cpp
+    search_state.cpp
     solver.cpp
     ule_constraint.cpp
     var_constraint.cpp
