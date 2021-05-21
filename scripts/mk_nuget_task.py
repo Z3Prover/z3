@@ -25,7 +25,7 @@ def mk_dir(d):
 os_info = {"z64-ubuntu-14" : ('so', 'ubuntu.14.04-x64'),
            'ubuntu-18' : ('so', 'ubuntu-x64'),
            'ubuntu-20' : ('so', 'ubuntu-x64'),
-           'glibc-2.31' : ('so', 'glibc-x64'),
+           'glibc-2.31' : ('so', 'ubuntu-x64'),
            'x64-win' : ('dll', 'win-x64'),
            'x86-win' : ('dll', 'win-x86'),
            'osx' : ('dylib', 'osx-x64'),
@@ -89,7 +89,7 @@ def create_nuget_spec(version, repo, branch, commit, symbols):
     contents = """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
-        <id>Microsoft.Z3</id>
+        <id>Microsoft.Z3.x64</id>
         <version>{0}</version>
         <authors>Microsoft</authors>
         <description>
