@@ -338,10 +338,8 @@ private:
         app_parents const& get_parents() { return m_use_funs; }
 
         void operator()(app* n) {
-            func_decl* f;
-            unsigned sz = n->get_num_args();
-            for (unsigned i = 0; i < sz; ++i) {
-                expr* e = n->get_arg(i);
+            func_decl* f = n->get_decl();
+            for (expr* e : *n) {
                 if (is_app(e)) {
                     auto& value = m_use_funs.insert_if_not_there(to_app(e), 0);
                     if (!value) value = alloc(fun_set);

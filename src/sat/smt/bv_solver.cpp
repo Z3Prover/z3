@@ -355,8 +355,6 @@ namespace bv {
             ctx.drat_eq_def(leq, eq);
         }
 
-        static unsigned s_count = 0;
-
         sat::literal_vector lits;
         switch (c.m_kind) {
         case bv_justification::kind_t::eq2bit:
