@@ -347,12 +347,14 @@ namespace polysat {
 
     /**
      * Monotonicity example from certora
+     * 
+     * We do overflow checks by doubling the base bitwidth here.
      */
     static void test_monot() {
         scoped_solver s(__func__);
 
         auto baseBw = 5;
-        auto max_int_const = 31; // (2^5 - 1) -- change this if you change baseBw
+        auto max_int_const = 31; // (2^5 - 1) -- change this when you change baseBw
 
         auto bw = 2 * baseBw;
         auto max_int = s.var(s.add_var(bw));
@@ -376,8 +378,6 @@ namespace polysat {
         s.add_ule(elastic2, max_int);
         auto err = s.var(s.add_var(bw));
         s.add_ule(err, max_int);
-
-        auto zero = a - a;
 
         auto rem1 = s.var(s.add_var(bw));
         auto quot2 = s.var(s.add_var(bw));
@@ -428,6 +428,154 @@ namespace polysat {
         s.expect_unsat();
         s.pop();
     }
+
+    /*
+     * Mul-then-div in fixed point arithmetic is (roughly) neutral.
+     *
+     * I.e. we prove "(((a * b) / sf) * sf) / b" to be equal to a, up to some error margin.
+     * 
+     * sf is the scaling factor (we could leave this unconstrained, but non-zero, to make the benchmark a bit harder)
+     * em is the error margin
+     * 
+     * We do overflow checks by doubling the base bitwidth here.
+     */
+    static void test_fixed_point_arith_mul_div_inverse() {
+        scoped_solver s(__func__);
+
+        auto baseBw = 5;
+        auto max_int_const = 31; // (2^5 - 1) -- change this when you change baseBw
+
+        auto bw = 2 * baseBw;
+        auto max_int = s.var(s.add_var(bw));
+        s.add_eq(max_int - max_int_const);
+
+        auto zero = max_int - max_int;
+
+        // "input" variables
+        auto a = s.var(s.add_var(bw));
+        s.add_ule(a, max_int);
+        auto b = s.var(s.add_var(bw));
+        s.add_ule(b, max_int);
+        s.add_ult(zero, b); // b > 0
+
+        // scaling factor (setting it, somewhat arbitrarily, to max_int/3)
+        auto sf = s.var(s.add_var(bw));
+        s.add_eq(sf - (max_int_const/3));
+
+        // (a * b) / sf = quot1 <=> quot1 * sf + rem1 - (a * b) = 0
+        auto quot1 = s.var(s.add_var(bw));
+        auto rem1 = s.var(s.add_var(bw));
+        s.add_eq((quot1 * sf) + rem1 - (a * b));
+        s.add_ult(rem1, sf);
+        s.add_ule(quot1 * sf, max_int);
+
+        // (((a * b) / sf) * sf) / b <=> quot2 * b + rem2 - (((a * b) / sf) * sf) = 0
+        auto quot2 = s.var(s.add_var(bw));
+        auto rem2 = s.var(s.add_var(bw));
+        s.add_eq((quot2 * b) + rem2 - (quot1 * sf));
+        s.add_ult(rem2, b);
+        s.add_ule(quot2 * b, max_int);
+
+        // sf / b = quot3 <=> quot3 * b + rem3 = sf
+        auto quot3 = s.var(s.add_var(bw));
+        auto rem3 = s.var(s.add_var(bw));
+        s.add_eq((quot3 * b) + rem3 - sf);
+        s.add_ult(rem3, b);
+        s.add_ule(quot3 * b, max_int);
+
+        // em = sf / b + 1
+        auto em = s.var(s.add_var(bw));
+        s.add_eq(quot3 + 1 - em);
+
+        // we prove quot3 <= a and quot3 + em >= a
+
+        s.push();
+        s.add_ult(a, quot3);
+        s.check_sat();
+        s.expect_unsat();
+        s.pop();
+
+        s.push();
+        s.add_ult(quot3 + em, a);
+        s.check_sat();
+        s.expect_unsat();
+        s.pop();
+    }
+
+    /*
+     * Div-then-mul in fixed point arithmetic is (roughly) neutral.
+     *
+     * I.e. we prove "(b * ((a * sf) / b)) / sf" to be equal to a, up to some error margin.
+     * 
+     * sf is the scaling factor (we could leave this unconstrained, but non-zero, to make the benchmark a bit harder)
+     * em is the error margin
+     * 
+     * We do overflow checks by doubling the base bitwidth here.
+     */
+    static void test_fixed_point_arith_div_mul_inverse() {
+        scoped_solver s(__func__);
+
+        auto baseBw = 5;
+        auto max_int_const = 31; // (2^5 - 1) -- change this when you change baseBw
+
+        auto bw = 2 * baseBw;
+        auto max_int = s.var(s.add_var(bw));
+        s.add_eq(max_int - max_int_const);
+
+        auto zero = max_int - max_int;
+
+        // "input" variables
+        auto a = s.var(s.add_var(bw));
+        s.add_ule(a, max_int);
+        auto b = s.var(s.add_var(bw));
+        s.add_ule(b, max_int);
+        s.add_ult(zero, b); // b > 0
+
+        // scaling factor (setting it, somewhat arbitrarily, to max_int/3)
+        auto sf = s.var(s.add_var(bw));
+        s.add_eq(sf - (max_int_const/3));
+
+        // (a * sf) / b = quot1 <=> quot1 * b + rem1 - (a * sf) = 0
+        auto quot1 = s.var(s.add_var(bw));
+        auto rem1 = s.var(s.add_var(bw));
+        s.add_eq((quot1 * b) + rem1 - (a * sf));
+        s.add_ult(rem1, b);
+        s.add_ule(quot1 * b, max_int);
+
+        // (b * ((a * sf) / b)) / sf = quot2 <=> quot2 * sf + rem2 - (b * ((a * sf) / b)) = 0
+        auto quot2 = s.var(s.add_var(bw));
+        auto rem2 = s.var(s.add_var(bw));
+        s.add_eq((quot2 * sf) + rem2 - (b * quot1));
+        s.add_ult(rem2, sf);
+        s.add_ule(quot2 * sf, max_int);
+
+        // b / sf = quot3 <=> quot3 * sf + rem3 - b = 0
+        auto quot3 = s.var(s.add_var(bw));
+        auto rem3 = s.var(s.add_var(bw));
+        s.add_eq((quot3 * sf) + rem3 - b);
+        s.add_ult(rem3, sf);
+        s.add_ule(quot3 * sf, max_int);
+
+        // em = b / sf + 1
+        auto em = s.var(s.add_var(bw));
+        s.add_eq(quot3 + 1 - em);
+
+        // we prove quot3 <= a and quot3 + em >= a
+
+        s.push();
+        s.add_ult(a, quot3);
+        s.check_sat();
+        s.expect_unsat();
+        s.pop();
+
+        s.push();
+        s.add_ult(quot3 + em, a);
+        s.check_sat();
+        s.expect_unsat();
+        s.pop();
+    }
+
+
 
     // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
     // NOTE: actually, add_var seems to keep them in sync, so this is not an issue at the moment (but we should still test it later)
