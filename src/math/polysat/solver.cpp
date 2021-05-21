@@ -156,7 +156,7 @@ namespace polysat {
     }
 
     constraint* solver::mk_eq(pdd const& p, unsigned dep) {
-        return constraint::eq(m_level, pos_t, p, mk_dep_ref(dep));
+        return m_constraints.eq(m_level, pos_t, p, mk_dep_ref(dep));
     }
 
     constraint* solver::mk_diseq(pdd const& p, unsigned dep) {
@@ -165,36 +165,36 @@ namespace polysat {
             //     return nullptr;  // TODO: probably better to create a dummy always-true constraint?
             // // Use 0 != 0 for a constraint that is always false
             // Use p != 0 as evaluable dummy constraint
-            return constraint::eq(m_level, neg_t, p, mk_dep_ref(dep));
+            return m_constraints.eq(m_level, neg_t, p, mk_dep_ref(dep));
         }
         unsigned sz = size(p.var());
         auto slack = add_var(sz);
         auto q = p + var(slack);
         add_eq(q, dep);  // TODO: 'dep' now refers to two constraints; this is not yet supported
         auto non_zero = sz2bits(sz).non_zero();
-        return constraint::viable(m_level, pos_t, slack, non_zero, mk_dep_ref(dep));
+        return m_constraints.viable(m_level, pos_t, slack, non_zero, mk_dep_ref(dep));
     }
 
     constraint* solver::mk_ule(pdd const& p, pdd const& q, unsigned dep) {
-        return constraint::ule(m_level, pos_t, p, q, mk_dep_ref(dep));
+        return m_constraints.ule(m_level, pos_t, p, q, mk_dep_ref(dep));
     }
 
     constraint* solver::mk_ult(pdd const& p, pdd const& q, unsigned dep) {
-        return constraint::ult(m_level, pos_t, p, q, mk_dep_ref(dep));
+        return m_constraints.ult(m_level, pos_t, p, q, mk_dep_ref(dep));
     }
 
     constraint* solver::mk_sle(pdd const& p, pdd const& q, unsigned dep) {
-        return constraint::sle(m_level, pos_t, p, q, mk_dep_ref(dep));
+        return m_constraints.sle(m_level, pos_t, p, q, mk_dep_ref(dep));
     }
 
     constraint* solver::mk_slt(pdd const& p, pdd const& q, unsigned dep) {
-        return constraint::slt(m_level, pos_t, p, q, mk_dep_ref(dep));
+        return m_constraints.slt(m_level, pos_t, p, q, mk_dep_ref(dep));
     }
 
     void solver::new_constraint(constraint* c, bool activate) {
         SASSERT(c);
         SASSERT(activate || c->dep());  // if we don't activate the constraint, we need the dependency to access it again later.
-        sat::literal lit = m_constraints.insert(c);
+        m_constraints.insert(c);
         LOG("New constraint: " << *c);
         m_original.push_back(c);
         m_linear_solver.new_constraint(*c);
@@ -257,10 +257,10 @@ namespace polysat {
 
     void solver::propagate(sat::literal lit) {
         LOG_H2("Propagate boolean literal " << lit);
-        constraint* c = m_constraints.lookup(lit);
+        constraint* c = m_constraints.lookup(lit.var());
         SASSERT(c);
         SASSERT(!c->is_undef());
-        SASSERT(c->lit().sign() == lit.sign());
+        SASSERT(c->is_positive() == !lit.sign());
         // c->narrow(*this);
     }
 
@@ -330,7 +330,7 @@ namespace polysat {
             case trail_instr_t::assign_bool_i: {
                 sat::literal lit = m_search.back().lit();
                 LOG_V("Undo assign_bool_i: " << lit);
-                constraint* c = m_constraints.lookup(lit);
+                constraint* c = m_constraints.lookup(lit.var());
                 deactivate_constraint(*c);
                 m_bvars.unassign(lit);
                 m_search.pop();
@@ -455,8 +455,8 @@ namespace polysat {
     }
 
     void solver::set_marks(constraint const& c) {
-        if (c.lit() != sat::null_literal)
-            m_bvars.set_mark(c.lit().var());
+        if (c.bvar() != sat::null_bool_var)
+            m_bvars.set_mark(c.bvar());
         for (auto v : c.vars())
             set_mark(v);
     }
@@ -624,8 +624,8 @@ namespace polysat {
                 for (auto* c : m_cjust[v]) {
                     for (auto w : c->vars())
                         set_mark(w);
-                    if (c->lit() != sat::null_literal)
-                        m_bvars.set_mark(c->lit().var());
+                    if (c->bvar() != sat::null_bool_var)
+                        m_bvars.set_mark(c->bvar());
                     m_conflict.units().push_back(c);
                 }
             }
@@ -706,7 +706,7 @@ namespace polysat {
                 if (!c->is_currently_false(*this))
                     break;
             }
-            decide_bool(c->lit(), cl);
+            decide_bool(sat::literal(c->bvar()), cl);
             push_cjust(v, c);
         }
     }
@@ -764,16 +764,16 @@ namespace polysat {
         SASSERT(m_bvars.is_decision(var));
         backjump(m_bvars.level(var) - 1);
 
-        bool contains_var = std::any_of(reason.clause->begin(), reason.clause->end(), [var](constraint* c) { return c->lit().var() == var; });
-        bool contains_opp = std::any_of(reason.clause->begin(), reason.clause->end(), [lit](constraint* c) { return c->lit() == ~lit; });
-        SASSERT(contains_var && contains_opp);  // TODO: hm...
+        bool contains_var = std::any_of(reason.clause->begin(), reason.clause->end(), [var](constraint* c) { return c->bvar() == var; });
+        // bool contains_opp = std::any_of(reason.clause->begin(), reason.clause->end(), [lit](constraint* c) { return c->lit() == ~lit; });
+        // SASSERT(contains_var && contains_opp);  // TODO: hm...
         clause* reason_cl = reason.get();
         add_lemma(reason);
         propagate_bool(~lit, reason_cl);
 
         clause* lemma = m_bvars.lemma(var);
         unsigned next_idx = lemma->next_guess();
-        sat::literal next_lit = (*lemma)[next_idx]->lit();
+        sat::literal next_lit{(*lemma)[next_idx]->bvar()};
         // If the guess is the last literal then do a propagation, otherwise a decision
         if (next_idx == lemma->size() - 1)
             propagate_bool(next_lit, lemma);
@@ -801,9 +801,9 @@ namespace polysat {
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
 
-        constraint* c = m_constraints.lookup(lit);
+        constraint* c = m_constraints.lookup(lit.var());
         SASSERT(c);
-        bool is_true = lit.sign() == c->lit().sign();
+        bool is_true = !lit.sign();
         activate_constraint(*c, is_true);
     }
 
@@ -811,7 +811,7 @@ namespace polysat {
     /// Used for external unit constraints and unit consequences.
     void solver::activate_constraint_base(constraint* c) {
         SASSERT(c);
-        assign_bool_core(c->lit(), nullptr, nullptr);
+        assign_bool_core(sat::literal(c->bvar()), nullptr, nullptr);
         activate_constraint(*c, true);
         // c must be in m_original or m_redundant so it can be deactivated properly when popping the base level
         SASSERT(
@@ -830,7 +830,7 @@ namespace polysat {
     /// Activate constraint immediately
     void solver::activate_constraint(constraint& c, bool is_true) {
         LOG("Activating constraint: " << c);
-        SASSERT(m_bvars.value(c.lit()) == to_lbool(is_true));
+        SASSERT(m_bvars.value(c.bvar()) == to_lbool(is_true));
         c.assign(is_true);
         add_watch(c);
         c.narrow(*this);

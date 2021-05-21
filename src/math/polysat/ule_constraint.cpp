@@ -247,7 +247,7 @@ namespace polysat {
             out_neg_cond = nullptr;
         }
         else
-            out_neg_cond = constraint::eq(level(), is_trivial ? neg_t : pos_t, condition_body, s.mk_dep_ref(null_dependency));
+            out_neg_cond = s.m_constraints.eq(level(), is_trivial ? neg_t : pos_t, condition_body, s.mk_dep_ref(null_dependency));
 
         if (is_trivial) {
             if (is_positive())

@@ -20,8 +20,8 @@ namespace polysat {
     class eq_constraint : public constraint {
         pdd m_poly;
     public:
-        eq_constraint(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& dep):
-            constraint(lvl, sign, dep, ckind_t::eq_t), m_poly(p) {
+        eq_constraint(constraint_manager& m, unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& dep):
+            constraint(m, lvl, sign, dep, ckind_t::eq_t), m_poly(p) {
             m_vars.append(p.free_vars());
         }
         ~eq_constraint() override {}

@@ -137,7 +137,7 @@ namespace polysat {
                 return nullptr;
             p_dependency_ref d(s.m_dm.mk_join(c->dep(), dep()), s.m_dm);
             unsigned lvl = std::max(c->level(), level());
-            constraint* lemma = constraint::eq(lvl, pos_t, r, d);
+            constraint* lemma = s.m_constraints.eq(lvl, pos_t, r, d);
             lemma->assign(true);
             return lemma;
         }

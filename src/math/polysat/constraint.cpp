@@ -21,14 +21,12 @@ Author:
 
 namespace polysat {
 
-    sat::literal constraint_manager::insert(constraint* c) {
+    void constraint_manager::insert(constraint* c) {
+        LOG_V("Inserting constraint: " << show_deref(c));
         SASSERT(c);
-        SASSERT(c->lit() == sat::null_literal);
-        sat::bool_var var = m_bvars.new_var();
-        sat::literal lit = sat::literal(var);
-        LOG_V("Inserting constraint: " << *c << "; now represented by bool_lit " << lit);
-        c->m_lit = lit;
-        insert_bv2c(var, c);
+        SASSERT(c->bvar() != sat::null_bool_var);
+        SASSERT(get_bv2c(c->bvar()) == nullptr);
+        insert_bv2c(c->bvar(), c);
         // TODO: use explicit insert_external(constraint* c, unsigned dep) for that.
         if (c->dep() && c->dep()->is_leaf()) {
             unsigned dep = c->dep()->leaf_value();
@@ -38,7 +36,6 @@ namespace polysat {
         while (m_constraints.size() <= c->level())
             m_constraints.push_back({});
         m_constraints[c->level()].push_back(c);
-        return lit;
     }
 
     // Release constraints at the given level and above.
@@ -46,8 +43,7 @@ namespace polysat {
         for (unsigned l = m_constraints.size(); l-- > lvl; ) {
             for (constraint* c : m_constraints[l]) {
                 LOG_V("Removing constraint: " << show_deref(c));
-                erase_bv2c(c->lit().var());
-                m_bvars.del_var(c->lit().var());
+                erase_bv2c(c->bvar());
                 if (c->dep() && c->dep()->is_leaf()) {
                     unsigned dep = c->dep()->leaf_value();
                     SASSERT(m_external_constraints.contains(dep));
@@ -58,15 +54,8 @@ namespace polysat {
         }
     }
 
-    constraint* constraint_manager::lookup(sat::literal lit) {
-        constraint* c = get_bv2c(lit.var());
-        if (c->lit() == lit)
-            return c;
-        else {
-            LOG_H1("WARN: need constraint of opposite polarity!");
-            // return nullptr;  // TODO: fix
-            return c;
-        }
+    constraint* constraint_manager::lookup(sat::bool_var var) {
+        return get_bv2c(var);
     }
 
     eq_constraint& constraint::to_eq() { 
@@ -93,19 +82,19 @@ namespace polysat {
         return *dynamic_cast<var_constraint const*>(this);
     }
 
-    constraint* constraint::eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d) {
-        return alloc(eq_constraint, lvl, sign, p, d);
+    constraint* constraint_manager::eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d) {
+        return alloc(eq_constraint, *this, lvl, sign, p, d);
     }
 
-    constraint* constraint::viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d) {
-        return alloc(var_constraint, lvl, sign, v, b, d);
+    constraint* constraint_manager::viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d) {
+        return alloc(var_constraint, *this, lvl, sign, v, b, d);
     }
 
-    constraint* constraint::ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
-        return alloc(ule_constraint, lvl, sign, a, b, d);
+    constraint* constraint_manager::ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+        return alloc(ule_constraint, *this, lvl, sign, a, b, d);
     }
 
-    constraint* constraint::ult(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+    constraint* constraint_manager::ult(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
         // a < b  <=>  !(b <= a)
         return ule(lvl, static_cast<csign_t>(!sign), b, a, d);
     }
@@ -126,12 +115,12 @@ namespace polysat {
     //
     // Argument: flipping the msb swaps the negative and non-negative blocks
     //
-    constraint* constraint::sle(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+    constraint* constraint_manager::sle(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
         return ule(lvl, sign, a + shift, b + shift, d);
     }
 
-    constraint* constraint::slt(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+    constraint* constraint_manager::slt(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
         return ult(lvl, sign, a + shift, b + shift, d);
     }

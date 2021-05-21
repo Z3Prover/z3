@@ -30,6 +30,8 @@ namespace polysat {
 
     // Manage constraint lifetime, deduplication, and connection to boolean variables/literals.
     class constraint_manager {
+        friend class constraint;
+
         bool_var_manager& m_bvars;
 
         // Constraint storage per level
@@ -49,22 +51,21 @@ namespace polysat {
     public:
         constraint_manager(bool_var_manager& bvars): m_bvars(bvars) {}
 
-        // Start managing lifetime of the given constraint and assign a boolean literal to it.
-        sat::literal insert(constraint* c);
+        // Start managing lifetime of the given constraint
+        void insert(constraint* c);
 
         // Release constraints at the given level and above.
         void release_level(unsigned lvl);
 
-        constraint* lookup(sat::literal lit);
+        constraint* lookup(sat::bool_var var);
         constraint* lookup_external(unsigned dep) { return m_external_constraints.get(dep, nullptr); }
 
-        // // Convenience methods; they automatically insert the constraint.
-        // static constraint* eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d);
-        // static constraint* viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d);
-        // static constraint* ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-        // static constraint* ult(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-        // static constraint* sle(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-        // static constraint* slt(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        constraint* eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d);
+        constraint* viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d);
+        constraint* ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        constraint* ult(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        constraint* sle(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        constraint* slt(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
     };
 
     class constraint {
@@ -73,26 +74,19 @@ namespace polysat {
         friend class var_constraint;
         friend class eq_constraint;
         friend class ule_constraint;
-        constraint_manager* m_manager = nullptr;   // TODO
+        constraint_manager* m_manager;
         unsigned         m_storage_level;  ///< Controls lifetime of the constraint object. Always a base level (for external dependencies the level at which it was created, and for others the maximum storage level of its external dependencies).
         unsigned         m_active_level;  ///< Level at which the constraint was activated. Possibly different from m_storage_level because constraints in lemmas may become activated only at a higher level.
         ckind_t          m_kind;
         p_dependency_ref m_dep;
         unsigned_vector  m_vars;
-        sat::literal     m_lit = sat::null_literal;  ///< boolean literal associated to this constraint; is invalid until assigned by constraint_manager::insert
+        sat::bool_var    m_bvar;  ///< boolean variable associated to this constraint; convention: a constraint itself always represents the positive sat::literal
         csign_t          m_sign;  ///< sign/polarity
         lbool            m_status = l_undef;  ///< current constraint status, computed from value of m_lit and m_sign
-        // clause*          m_clause = nullptr;  ///< the lemma which has introduced this constraint. NULL for base-level constraints.
-        constraint(unsigned lvl, csign_t sign, p_dependency_ref const& dep, ckind_t k):
-            m_storage_level(lvl), m_kind(k), m_dep(dep), m_sign(sign) {}
+        constraint(constraint_manager& m, unsigned lvl, csign_t sign, p_dependency_ref const& dep, ckind_t k):
+            m_manager(&m), m_storage_level(lvl), m_kind(k), m_dep(dep), m_bvar(m_manager->m_bvars.new_var()), m_sign(sign) {}
     public:
-        static constraint* eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d);
-        static constraint* viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d);
-        static constraint* ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-        static constraint* ult(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-        static constraint* sle(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-        static constraint* slt(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-        virtual ~constraint() {}
+        virtual ~constraint() { m_manager->m_bvars.del_var(m_bvar); }
         bool is_eq() const { return m_kind == ckind_t::eq_t; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }
         bool is_bit() const { return m_kind == ckind_t::bit_t; }
@@ -112,11 +106,10 @@ namespace polysat {
         var_constraint& to_bit();
         var_constraint const& to_bit() const;
         p_dependency* dep() const { return m_dep; }
-        // clause* clause() const { return m_clause; }
         unsigned_vector& vars() { return m_vars; }
         unsigned_vector const& vars() const { return m_vars; }
         unsigned level() const { return m_storage_level; }
-        sat::literal lit() const { return m_lit; }
+        sat::bool_var bvar() const { return m_bvar; }
         bool sign() const { return m_sign; }
         void assign(bool is_true) {
             lbool new_status = (is_true ^ !m_sign) ? l_true : l_false;
