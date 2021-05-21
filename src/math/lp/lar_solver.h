@@ -584,6 +584,8 @@ public:
         }
         return out;
     }
+    
+    void subst_known_terms(lar_term*);
 
     inline std::ostream& print_column_bound_info(unsigned j, std::ostream& out) const {
         return m_mpq_lar_core_solver.m_r_solver.print_column_bound_info(j, out);

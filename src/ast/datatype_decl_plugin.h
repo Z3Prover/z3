@@ -103,10 +103,10 @@ namespace datatype {
 
     namespace param_size {
         class size {
-            unsigned m_ref;
+            unsigned m_ref{ 0 };
         public:
-            size(): m_ref(0) {}
-            virtual ~size() {}
+            size() {}
+            virtual ~size() { }
             void inc_ref() { ++m_ref; }
             void dec_ref();
             static size* mk_offset(sort_size const& s); 
@@ -197,7 +197,7 @@ namespace datatype {
         sort_ref_vector const& params() const { return m_params; }
         util& u() const { return m_util; }
         param_size::size* sort_size() { return m_sort_size; }
-        void set_sort_size(param_size::size* p) { m_sort_size = p; if (p) p->inc_ref(); m_sort = nullptr; }
+        void set_sort_size(param_size::size* p) { auto* q = m_sort_size;  m_sort_size = p; if (p) p->inc_ref(); if (q) q->dec_ref(); m_sort = nullptr; }
         def* translate(ast_translation& tr, util& u);
     };
 

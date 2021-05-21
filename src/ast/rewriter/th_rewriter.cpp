@@ -51,9 +51,11 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     recfun_rewriter     m_rec_rw;
     arith_util          m_a_util;
     bv_util             m_bv_util;
+    expr_safe_replace   m_rep;
+    bool                m_new_subst { false };
     expr_ref_vector     m_pinned;
     unsigned long long  m_max_memory; // in bytes
-    unsigned            m_max_steps;
+    unsigned            m_max_steps;    
     bool                m_pull_cheap_ite;
     bool                m_flat;
     bool                m_cache_all;
@@ -685,12 +687,17 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     void apply_subst(ptr_buffer<expr>& patterns) {
         if (!m_subst)
             return;
+        if (patterns.empty())
+            return;
+        if (m_new_subst) {
+            m_rep.reset();
+            for (auto kv : m_subst->sub())
+                m_rep.insert(kv.m_key, kv.m_value);
+            m_new_subst = false;
+        }
         expr_ref tmp(m());
-        expr_safe_replace rep(m());
-        for (auto kv : m_subst->sub())
-            rep.insert(kv.m_key, kv.m_value);
         for (unsigned i = 0; i < patterns.size(); ++i) {
-            rep(patterns[i], tmp);
+            m_rep(patterns[i], tmp);
             m_pinned.push_back(tmp);
             patterns[i] = tmp;
         }
@@ -796,6 +803,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_rec_rw(m),
         m_a_util(m),
         m_bv_util(m),
+        m_rep(m),
         m_pinned(m),
         m_used_dependencies(m),
         m_subst(nullptr) {
@@ -805,6 +813,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     void set_substitution(expr_substitution * s) {
         reset();
         m_subst = s;
+        m_new_subst = true;
     }
 
     void reset() {

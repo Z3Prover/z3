@@ -84,8 +84,15 @@ namespace polysat {
     }
 
     template<typename Ext>
-    typename fixplex<Ext>::row 
-    fixplex<Ext>::add_row(var_t base_var, unsigned num_vars, var_t const* vars, numeral const* coeffs) {
+    void fixplex<Ext>::add_row(var_t base_var, unsigned num_vars, var_t const* vars, rational const* coeffs) {
+        vector<numeral> _coeffs;
+        for (unsigned i = 0; i < num_vars; ++i)
+            _coeffs.push_back(m.from_rational(coeffs[i]));
+        add_row(base_var, num_vars, vars, _coeffs.data());
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::add_row(var_t base_var, unsigned num_vars, var_t const* vars, numeral const* coeffs) {
         for (unsigned i = 0; i < num_vars; ++i) 
             ensure_var(vars[i]);
 
@@ -122,7 +129,6 @@ namespace polysat {
             ++m_stats.m_num_approx;
         SASSERT(well_formed_row(r));
         SASSERT(well_formed());
-        return r;
     }
 
     template<typename Ext>
@@ -434,14 +440,36 @@ namespace polysat {
      * - the variable v is queued to patch if v is basic.
      */
     template<typename Ext>
-    void fixplex<Ext>::set_bounds(var_t v, numeral const& lo, numeral const& hi) {        
-        m_vars[v] = mod_interval(lo, hi);
+    void fixplex<Ext>::set_bounds(var_t v, numeral const& l, numeral const& h) {        
+        m_vars[v] = mod_interval(l, h);
         if (in_bounds(v))
             return;
         if (is_base(v)) 
             add_patch(v);
         else
             update_value(v, value2delta(v, value(v)));
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::set_bounds(var_t v, rational const& _lo, rational const& _hi) {
+        numeral lo = m.from_rational(_lo);
+        numeral hi = m.from_rational(_hi);
+        m_stashed_bounds.push_back(stashed_bound(v, m_vars[v]));
+        set_bounds(v, lo, hi);
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::set_value(var_t v, rational const& _val) {
+        numeral val = m.from_rational(_val);
+        m_stashed_bounds.push_back(stashed_bound(v, m_vars[v]));
+        set_bounds(v, val, val + 1);
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::restore_bound() {
+        auto const& b = m_stashed_bounds.back();
+        set_bounds(b.m_var, b.lo, b.hi);
+        m_stashed_bounds.pop_back();
     }
 
     /**

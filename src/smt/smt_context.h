@@ -1357,7 +1357,7 @@ namespace smt {
 
         std::ostream& display_literal(std::ostream & out, literal l) const;
 
-        std::ostream& display_detailed_literal(std::ostream & out, literal l) const { l.display(out, m, m_bool_var2expr.data()); return out; }
+        std::ostream& display_detailed_literal(std::ostream & out, literal l) const { return smt::display(out, l, m, m_bool_var2expr.data()); }
 
         void display_literal_info(std::ostream & out, literal l) const;
 

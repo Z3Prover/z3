@@ -26,18 +26,26 @@ class used_vars {
     typedef hashtable<expr_delta_pair, obj_hash<expr_delta_pair>, default_eq<expr_delta_pair> > cache;
     cache                    m_cache;
     svector<expr_delta_pair> m_todo;
+    unsigned                 m_num_decls{ UINT_MAX };
+    unsigned                 m_num_found_vars{ 0 };
 
     void process(expr * n, unsigned delta);
 
 public:
     
     void operator()(expr * n) {
-        m_found_vars.reset();
+        reset();
         process(n, 0);
     }
 
     void reset() {
         m_found_vars.reset();
+        m_num_decls = UINT_MAX;
+        m_num_found_vars = 0;
+    }
+
+    void set_num_decls(unsigned n) {
+        m_num_decls = n;
     }
 
     void process(expr * n) {

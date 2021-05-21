@@ -79,7 +79,9 @@ expr_ref unused_vars_eliminator::operator()(quantifier* q) {
         result = q;
         return result;
     }
+    unsigned num_decls = q->get_num_decls();
     m_used.reset();
+    m_used.set_num_decls(num_decls);
     m_used.process(q->get_expr());
     unsigned num_patterns = q->get_num_patterns();
     for (unsigned i = 0; i < num_patterns; i++)
@@ -88,7 +90,7 @@ expr_ref unused_vars_eliminator::operator()(quantifier* q) {
     for (unsigned i = 0; i < num_no_patterns; i++)
         m_used.process(q->get_no_pattern(i));
 
-    unsigned num_decls = q->get_num_decls();
+    
     if (m_used.uses_all_vars(num_decls)) {
         q->set_no_unused_vars();
         result = q;

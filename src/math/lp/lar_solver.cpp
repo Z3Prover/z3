@@ -162,7 +162,7 @@ namespace lp {
                 continue;
             if (!m_terms[k]->contains(basis_j))
                 continue;
-            m_terms[k]->subst(basis_j, m_mpq_lar_core_solver.m_r_solver.m_pivot_row);
+            m_terms[k]->subst_in_row(basis_j, m_mpq_lar_core_solver.m_r_solver.m_pivot_row);
         }
     }
 
@@ -1717,6 +1717,27 @@ namespace lp {
         return true;
     }
 
+    void lar_solver::subst_known_terms(lar_term* t) {
+        std::set<unsigned> seen_terms;
+        for (const auto&p : *t) {
+            auto j = p.column();
+            if (this->column_corresponds_to_term(j)) {
+                seen_terms.insert(j);
+            }
+        }
+        while (!seen_terms.empty()) {
+            unsigned j = *seen_terms.begin();
+            seen_terms.erase(j);
+            auto tj = this->m_var_register.local_to_external(j);
+            auto& ot = this->get_term(tj);
+            for(const auto&  p : ot){
+              if (this->column_corresponds_to_term(p.column())) {
+                 seen_terms.insert(p.column());
+              }   
+            }
+            t->subst_by_term(ot, j);
+        }
+    }
     // do not register in m_var_register this term if ext_i == UINT_MAX
     var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>>& coeffs, unsigned ext_i) {
         TRACE("lar_solver_terms", print_linear_combination_of_column_indices_only(coeffs, tout) << ", ext_i =" << ext_i << "\n";);
@@ -1726,6 +1747,7 @@ namespace lp {
         if (strategy_is_undecided())
             return add_term_undecided(coeffs);
         lar_term* t = new lar_term(coeffs);
+        subst_known_terms(t);
         push_term(t);
         SASSERT(m_terms.size() == m_term_register.size());
         unsigned adjusted_term_index = m_terms.size() - 1;

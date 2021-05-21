@@ -95,14 +95,20 @@ namespace bv {
         result.reset();
         unsigned i = 0;
         for (literal b : m_bits[v]) {
-            switch (ctx.s().value(b)) {
-            case l_false:
-                break;
-            case l_undef:
-                return false;
-            case l_true:
+            if (b == ~m_true) 
+                ;
+            else if (b == m_true) 
                 result += power2(i);
-                break;
+            else {
+                switch (ctx.s().value(b)) {
+                case l_false:
+                    break;
+                case l_undef:
+                    return false;
+                case l_true:
+                    result += power2(i);
+                    break;
+                }
             }
             ++i;
         }

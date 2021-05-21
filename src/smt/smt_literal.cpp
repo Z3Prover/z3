@@ -22,41 +22,44 @@ Revision History:
 
 namespace smt {
 
-    void literal::display(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const {
-        if (*this == true_literal)
+    std::ostream& display(std::ostream & out, literal lit, ast_manager & m, expr * const * bool_var2expr_map) {
+        if (lit == true_literal)
             out << "true";
-        else if (*this == false_literal)
+        else if (lit == false_literal)
             out << "false";
-        else if (*this == null_literal)
+        else if (lit == null_literal)
             out << "null";
-        else if (sign())
-            out << "(not " << mk_bounded_pp(bool_var2expr_map[var()], m, 3) << ")";
+        else if (lit.sign())
+            out << "(not " << mk_bounded_pp(bool_var2expr_map[lit.var()], m, 3) << ")";
         else
-            out << mk_bounded_pp(bool_var2expr_map[var()], m, 3);
+            out << mk_bounded_pp(bool_var2expr_map[lit.var()], m, 3);
+        return out;
     }
 
-    void literal::display_smt2(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const {
-        if (*this == true_literal)
+    std::ostream& display_smt2(std::ostream & out, literal lit, ast_manager & m, expr * const * bool_var2expr_map) {
+        if (lit == true_literal)
             out << "true";
-        else if (*this == false_literal)
+        else if (lit == false_literal)
             out << "false";
-        else if (*this == null_literal)
+        else if (lit == null_literal)
             out << "null";
-        else if (sign())
-            out << "(not " << mk_pp(bool_var2expr_map[var()], m, 3) << ")";
+        else if (lit.sign())
+            out << "(not " << mk_pp(bool_var2expr_map[lit.var()], m, 3) << ")";
         else
-            out << mk_pp(bool_var2expr_map[var()], m, 3);
+            out << mk_pp(bool_var2expr_map[lit.var()], m, 3);
+        return out;
     }
 
-    void literal::display_compact(std::ostream & out, expr * const * bool_var2expr_map) const {
-        if (*this == true_literal)
+    std::ostream& display_compact(std::ostream & out, literal lit, expr * const * bool_var2expr_map) {
+        if (lit == true_literal)
             out << "true";
-        else if (*this == false_literal)
+        else if (lit == false_literal)
             out << "false";
-        else if (sign())
-            out << "(not #" << bool_var2expr_map[var()]->get_id() << ")";
+        else if (lit.sign())
+            out << "(not #" << bool_var2expr_map[lit.var()]->get_id() << ")";
         else
-            out << "#" << bool_var2expr_map[var()]->get_id();
+            out << "#" << bool_var2expr_map[lit.var()]->get_id();
+        return out;
     }
 
     std::ostream & operator<<(std::ostream & out, literal l) {
@@ -72,24 +75,26 @@ namespace smt {
     }
 
     std::ostream & operator<<(std::ostream & out, const literal_vector & v) {
-        display(out, v.begin(), v.end());
+        ::display(out, v.begin(), v.end());
         return out;
     }
 
-    void display_compact(std::ostream & out, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map) {
+    std::ostream& display_compact(std::ostream & out, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map) {
         for (unsigned i = 0; i < num_lits; i++) {
             if (i > 0)
                 out << " ";
-            lits[i].display_compact(out, bool_var2expr_map);
+            display_compact(out, lits[i], bool_var2expr_map);
         }
+        return out;
     }
 
-    void display_verbose(std::ostream & out, ast_manager& m, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map, char const* sep) {
+    std::ostream& display_verbose(std::ostream & out, ast_manager& m, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map, char const* sep) {
         for (unsigned i = 0; i < num_lits; i++) {
             if (i > 0)
                 out << sep;
-            lits[i].display(out, m, bool_var2expr_map);
+            display(out, lits[i], m, bool_var2expr_map);
         }
+        return out;
     }
 
     /**

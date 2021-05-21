@@ -879,8 +879,9 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
 void cmd_context::insert(symbol const & s, psort_decl * p) {
     pm().inc_ref(p);
     if (m_psort_decls.contains(s)) {
+        symbol _s = s;
         pm().dec_ref(p);
-        throw cmd_exception("sort already defined ", s);
+        throw cmd_exception("sort already defined ", _s);
     }
     m_psort_decls.insert(s, p);
     if (!m_global_decls) {

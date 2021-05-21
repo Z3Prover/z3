@@ -25,6 +25,7 @@ Author:
 #include "math/polysat/var_constraint.h"
 #include "math/polysat/ule_constraint.h"
 #include "math/polysat/justification.h"
+#include "math/polysat/linear_solver.h"
 #include "math/polysat/search_state.h"
 #include "math/polysat/trail.h"
 #include "math/polysat/log.h"
@@ -46,10 +47,12 @@ namespace polysat {
         friend class var_constraint;
         friend class ule_constraint;
         friend class forbidden_intervals;
+        friend class linear_solver;
 
         typedef ptr_vector<constraint> constraints;
 
         reslimit&                m_lim;
+        linear_solver            m_linear_solver;
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
         scoped_ptr_vector<dd::fdd> m_bits;
         dd::bdd_manager          m_bdd;
@@ -230,6 +233,7 @@ namespace polysat {
         void decide(pvar v);
 
         void narrow(pvar v);
+        void linear_propagate();
 
         p_dependency* mk_dep(unsigned dep) { return dep == null_dependency ? nullptr : m_dm.mk_leaf(dep); }
         p_dependency_ref mk_dep_ref(unsigned dep) { return p_dependency_ref(mk_dep(dep), m_dm); }

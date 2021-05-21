@@ -68,6 +68,7 @@ namespace polysat {
     
     solver::solver(reslimit& lim): 
         m_lim(lim),
+        m_linear_solver(*this),
         m_bdd(1000),
         m_dm(m_value_manager, m_alloc),
         m_free_vars(m_activity),
@@ -196,6 +197,7 @@ namespace polysat {
         bool_lit lit = m_constraints.insert(c);
         LOG("New constraint: " << *c);
         m_original.push_back(c);
+        m_linear_solver.new_constraint(*c);
         if (activate && !is_conflict())
             activate_constraint_base(c);
     }
@@ -239,7 +241,18 @@ namespace polysat {
             else
                 propagate(item.lit());
         }
+        linear_propagate();
         SASSERT(wlist_invariant());
+    }
+
+    void solver::linear_propagate() {
+        switch (m_linear_solver.check()) {
+        case l_false:
+            // TODO extract conflict
+            break;
+        default:
+            break;
+        }
     }
 
     void solver::propagate(bool_lit lit) {
@@ -276,12 +289,14 @@ namespace polysat {
     void solver::push_level() {
         ++m_level;
         m_trail.push_back(trail_instr_t::inc_level_i);
+        m_linear_solver.push();
     }
 
     void solver::pop_levels(unsigned num_levels) {
         SASSERT(m_level >= num_levels);
         unsigned const target_level = m_level - num_levels;
         LOG("Pop " << num_levels << " levels (lvl " << m_level << " -> " << target_level << ")");
+        m_linear_solver.pop(num_levels);
         while (num_levels > 0) {
             switch (m_trail.back()) {
             case trail_instr_t::qhead_i: {
@@ -422,6 +437,7 @@ namespace polysat {
         m_search.push_assignment(v, val);
         m_trail.push_back(trail_instr_t::assign_i);
         m_justification[v] = j; 
+        m_linear_solver.set_value(v, val);
     }
 
     void solver::set_conflict(constraint& c) { 
@@ -818,6 +834,7 @@ namespace polysat {
         c.assign(is_true);
         add_watch(c);
         c.narrow(*this);
+        m_linear_solver.activate_constraint(c);
     }
 
     /// Deactivate constraint immediately
@@ -966,9 +983,9 @@ namespace polysat {
         for (auto* c : cs) {
             if (c->is_undef())
                 continue;
-            unsigned num_watches = 0;
+            int64_t num_watches = 0;
             for (auto const& wlist : m_watch) {
-                unsigned n = std::count(wlist.begin(), wlist.end(), c);
+                auto n = std::count(wlist.begin(), wlist.end(), c);
                 VERIFY(n <= 1);  // no duplicates in the watchlist
                 num_watches += n;
             }

@@ -190,6 +190,8 @@ protected:
             parent_pos = todo.back().m_parent;
             self_idx   = todo.back().m_idx;
             n = names.back();
+            bool found = false;
+
             
             if (cache.contains(e)) {
                 goto done;
@@ -213,37 +215,50 @@ protected:
             sz = a->get_num_args();            
             n2 = nullptr;
 
+
+            //
+            // This is a single traversal version of the context
+            // simplifier. It simplifies only the first occurrence of 
+            // a sub-term with respect to the context.
+            //                                        
+
             for (unsigned i = 0; i < sz; ++i) {
                 expr* arg = a->get_arg(i);
-                if (cache.find(arg, path_r)) {
-                    //
-                    // This is a single traversal version of the context
-                    // simplifier. It simplifies only the first occurrence of 
-                    // a sub-term with respect to the context.
-                    //
-                                        
-                    if (path_r.m_parent == self_pos && path_r.m_idx == i) {
-                        args.push_back(path_r.m_expr);
+                if (cache.find(arg, path_r) &&
+                    path_r.m_parent == self_pos && path_r.m_idx == i) {
+                    args.push_back(path_r.m_expr);
+                    found = true;
+                    continue;
+                }
+                args.push_back(arg);
+            }
+
+            //
+            // the context is not equivalent to top-level 
+            // if it is already simplified.
+            // Bug exposes such a scenario #5256
+            // 
+            if (!found) {
+                args.reset();            
+                for (unsigned i = 0; i < sz; ++i) {
+                    expr* arg = a->get_arg(i);
+                    if (!n2 && !m.is_value(arg)) {
+                        n2 = mk_fresh(id, arg->get_sort());
+                        trail.push_back(n2);
+                        todo.push_back(expr_pos(self_pos, ++child_id, i, arg));
+                        names.push_back(n2);
+                        args.push_back(n2);
                     }
                     else {
                         args.push_back(arg);
                     }
-                }
-                else if (!n2 && !m.is_value(arg)) {
-                    n2 = mk_fresh(id, arg->get_sort());
-                    trail.push_back(n2);
-                    todo.push_back(expr_pos(self_pos, ++child_id, i, arg));
-                    names.push_back(n2);
-                    args.push_back(n2);
-                }
-                else {
-                    args.push_back(arg);
                 }
             }
             m_mk_app(a->get_decl(), args.size(), args.data(), res);
             trail.push_back(res);
             // child needs to be visited.
             if (n2) {
+                SASSERT(!found);
                 m_solver.push();
                 tmp = m.mk_eq(res, n);
                 m_solver.assert_expr(tmp);
