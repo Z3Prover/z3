@@ -104,16 +104,17 @@ namespace polysat {
     void linear_solver::new_eq(eq_constraint& c) {
         var_t v = internalize_pdd(c.p());
         auto pr = std::make_pair(v, v);
-        m_bool_var2row.setx(c.bvar(), pr, pr);
+        m_bool_var2row.setx(c.lit().var(), pr, pr);
     }
     
     void linear_solver::assert_eq(eq_constraint& c) {
-        var_t v = m_bool_var2row[c.bvar()].first;
+        var_t v = m_bool_var2row[c.lit().var()].first;
         unsigned sz = c.p().power_of_2();
         auto& fp = sz2fixplex(sz);            
         m_trail.push_back(trail_i::set_bound_i);
         m_rows.push_back(std::make_pair(v, sz));
         rational z(0), o(1);
+        SASSERT(!c.is_undef());
         if (c.is_positive()) 
             fp.set_bounds(v, z, z);
         else 
@@ -124,11 +125,11 @@ namespace polysat {
         var_t v = internalize_pdd(c.lhs());
         var_t w = internalize_pdd(c.rhs());
         auto pr = std::make_pair(v, w);
-        m_bool_var2row.setx(c.bvar(), pr, pr);
+        m_bool_var2row.setx(c.lit().var(), pr, pr);
     }
 
     void linear_solver::assert_le(ule_constraint& c) {
-        auto [v, w] = m_bool_var2row[c.bvar()];
+        auto [v, w] = m_bool_var2row[c.lit().var()];
         // v <= w:
         // static constraints:
         // - lo(v) <= lo(w)
@@ -168,6 +169,7 @@ namespace polysat {
     }
 
     void linear_solver::activate_constraint(constraint& c) {
+        SASSERT(!c.is_undef());
         switch (c.kind()) {
         case ckind_t::eq_t: 
             assert_eq(c.to_eq());

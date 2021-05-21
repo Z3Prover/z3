@@ -125,6 +125,8 @@ namespace polysat {
         }
         void unassign() { m_status = l_undef; }
         bool is_undef() const { return m_status == l_undef; }
+        bool is_positive() const { return m_status == l_true; }
+        bool is_negative() const { return m_status == l_false; }
 
         /** Precondition: all variables other than v are assigned.
          *
@@ -133,10 +135,6 @@ namespace polysat {
          * \returns True iff a forbidden interval exists and the output parameters were set.
          */
         virtual bool forbidden_interval(solver& s, pvar v, eval_interval& out_interval, scoped_ptr<constraint>& out_neg_cond) { return false; }
-
-    protected:
-        bool is_positive() const { return m_status == l_true; }
-        bool is_negative() const { return m_status == l_false; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
