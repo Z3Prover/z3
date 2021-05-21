@@ -94,6 +94,8 @@ namespace sat {
     inline bool operator==(literal const & l1, literal const & l2) { return l1.m_val == l2.m_val; }
     inline bool operator!=(literal const & l1, literal const & l2) { return l1.m_val != l2.m_val; }
 
+    inline std::ostream & operator<<(std::ostream & out, sat::literal l) { if (l == sat::null_literal) out << "null"; else out << (l.sign() ? "-" : "") << l.var(); return out; }
+
 
     typedef svector<literal> literal_vector;
     typedef std::pair<literal, literal> literal_pair;
@@ -161,7 +163,7 @@ namespace sat {
 
     struct dimacs_lit {
         literal m_lit;
-        dimacs_lit(literal l):m_lit(l) {}
+        explicit dimacs_lit(literal l):m_lit(l) {}
     };
 
     inline std::ostream & operator<<(std::ostream & out, dimacs_lit const & dl) {
@@ -190,6 +192,3 @@ namespace sat {
     }
 
 };
-
-inline std::ostream & operator<<(std::ostream & out, sat::literal l) { if (l == sat::null_literal) out << "null"; else out << (l.sign() ? "-" : "") << l.var(); return out; }
-
