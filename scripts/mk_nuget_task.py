@@ -89,7 +89,7 @@ def create_nuget_spec(version, repo, branch, commit, symbols):
     contents = """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
-        <id>Microsoft.Z3.x64</id>
+        <id>Microsoft.Z3</id>
         <version>{0}</version>
         <authors>Microsoft</authors>
         <description>
