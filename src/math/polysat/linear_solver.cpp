@@ -201,7 +201,7 @@ namespace polysat {
         if (m_mono2var.find(m, m1))
             return m1.var;
         m.vars = static_cast<unsigned*>(m_alloc.allocate(var.size()*sizeof(unsigned)));
-        for (unsigned i = 0; i < var.size(); var.data()) 
+        for (unsigned i = 0; i < var.size(); ++i)
             m.vars[i] = var[i];
         m.var = fresh_var(sz);
         m_mono2var.insert(m);

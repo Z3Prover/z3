@@ -11,7 +11,6 @@ Author:
     Jakob Rath 2021-04-6
 
 --*/
-#pragma once
 #include "math/polysat/boolean.h"
 #include "math/polysat/log.h"
 

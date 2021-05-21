@@ -13,6 +13,7 @@ Author:
 --*/
 #pragma once
 #include "math/polysat/types.h"
+#include "util/sat_literal.h"
 
 namespace polysat {
 

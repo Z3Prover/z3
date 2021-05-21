@@ -17,6 +17,7 @@ Author:
 #pragma once
 
 #include "util/lbool.h"
+#include "util/approx_set.h"
 #include "util/vector.h"
 #include "util/uint_set.h"
 
