@@ -4884,13 +4884,17 @@ bool seq_rewriter::reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs,
         str().is_itos(ls.get(0), n) &&
         is_string(rs.size(), rs.data(), s)) {
         std::string s1 = s.encode();
-        rational r(s1.c_str());
-        if (s1 == r.to_string()) {
-            eqs.push_back(n, m_autil.mk_numeral(r, true));
-            ls.reset(); 
-            rs.reset();
-            return true;
+        try {
+            rational r(s1.c_str());
+            if (s1 == r.to_string()) {
+                eqs.push_back(n, m_autil.mk_numeral(r, true));
+                ls.reset();
+                rs.reset();
+                return true;
+            }
         }
+        catch (...)
+        { }
     }
     return true;
 }
