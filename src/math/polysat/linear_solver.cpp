@@ -128,19 +128,58 @@ namespace polysat {
         m_bool_var2row.setx(c.bvar(), pr, pr);
     }
 
+    //
+    // v <= w:
+    // static constraints:
+    // - lo(v) <= lo(w)
+    // - hi(v) <= hi(w)
+    //
+    // special case for inequalities with constant bounds
+    // bounds propagation on fp, then bounds strengthening
+    // based on static constraints
+    // internal backtrack search over bounds
+    // inequality graph (with offsets)
+    // 
+
     void linear_solver::assert_le(ule_constraint& c) {
         auto [v, w] = m_bool_var2row[c.bvar()];
-        // v <= w:
-        // static constraints:
-        // - lo(v) <= lo(w)
-        // - hi(v) <= hi(w)
-        //
-        // special case for inequalities with constant bounds
-        // bounds propagation on fp, then bounds strengthening
-        // based on static constraints
-        // internal backtrack search over bounds
-        // inequality graph (with offsets)
-        // 
+        unsigned sz = c.lhs().power_of_2();
+        auto& fp = sz2fixplex(sz);     
+        rational z(0);
+        if (c.rhs().is_val()) {
+            bool is_max_value = false; 
+            if (c.is_positive()) 
+                // v <= rhs
+                fp.set_bounds(v, z, c.rhs().val());                 
+            else if (is_max_value) 
+                throw default_exception("conflict not implemented");
+            else 
+                // rhs < v
+                fp.set_bounds(v, c.rhs().val() + 1, z);
+            m_trail.push_back(trail_i::set_bound_i);
+            m_rows.push_back(std::make_pair(v, sz));
+            return;
+        }
+
+        if (c.lhs().is_val()) {
+            if (c.is_positive()) 
+                // w >= lhs 
+                fp.set_bounds(w, c.lhs().val(), z);
+            else if (c.lhs().val() == 0)
+                throw default_exception("conflict not implemented");
+            else 
+                // w < lhs 
+                fp.set_bounds(w, z, c.lhs().val() - 1);
+            m_trail.push_back(trail_i::set_bound_i);
+            m_rows.push_back(std::make_pair(w, sz));
+            return;
+        }
+
+        if (c.is_positive()) 
+            fp.add_le(v, w);
+        else 
+            fp.add_lt(w, v);
+
     }
 
     void linear_solver::new_bit(var_constraint& c) {

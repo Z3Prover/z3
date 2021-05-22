@@ -472,6 +472,17 @@ namespace polysat {
         m_stashed_bounds.pop_back();
     }
 
+    template<typename Ext>
+    void fixplex<Ext>::add_le(var_t v, var_t w) {
+        NOT_IMPLEMENTED_YET();
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::add_lt(var_t v, var_t w) {
+        NOT_IMPLEMENTED_YET();        
+    }
+
+
     /**
      * Check if the coefficient b of y has the minimal number of trailing zeros.
      * In other words, the coefficient b is a multiple of the smallest power of 2.

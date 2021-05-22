@@ -41,6 +41,8 @@ namespace polysat {
         virtual void set_bounds(var_t v, rational const& lo, rational const& hi) = 0;        
         virtual void set_value(var_t v, rational const& val) = 0;
         virtual void restore_bound() = 0;   
+        virtual void add_le(var_t v, var_t w) = 0;
+        virtual void add_lt(var_t v, var_t w) = 0;
     };
 
 
@@ -162,6 +164,8 @@ namespace polysat {
         void set_bounds(var_t v, rational const& lo, rational const& hi) override;
         void set_value(var_t v, rational const& val) override;
         void restore_bound() override;
+        void add_le(var_t v, var_t w) override;
+        void add_lt(var_t v, var_t w) override;
 
         void set_bounds(var_t v, numeral const& lo, numeral const& hi);
         void unset_bounds(var_t v) { m_vars[v].set_free(); }

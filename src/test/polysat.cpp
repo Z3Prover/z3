@@ -582,7 +582,7 @@ namespace polysat {
 
      * We do overflow checks by doubling the base bitwidth here.
      */
-    static void test_fixed_point_arith_div_mul_inverse() {
+    static void test_fixed_point_arith_div_mul_inverse2() {
         scoped_solver s(__func__);
 
         auto baseBw = 5;
@@ -605,7 +605,7 @@ namespace polysat {
 
         // q = max_int / idx <=> q * idx + r - max_int = 0
         auto q = s.var(s.add_var(bw));
-        auto r = s.var(s.add_var(bw));
+        r = s.var(s.add_var(bw));
         s.add_eq((q * idx) + r - max_int);
         s.add_ult(r, idx);
         s.add_ule(q * idx, max_int);
@@ -684,6 +684,9 @@ void tst_polysat() {
     polysat::test_ineq_basic4();
     polysat::test_ineq_basic5();
     polysat::test_ineq_basic6();
+    polysat::test_fixed_point_arith_div_mul_inverse2();
+    polysat::test_fixed_point_arith_div_mul_inverse();
+    polysat::test_fixed_point_arith_mul_div_inverse();
 #if 0
     // worry about this later
     polysat::test_ineq1();
