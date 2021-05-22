@@ -1337,9 +1337,8 @@ namespace smt {
                             rw(arg_subst);
                             TRACE("str_fl", tout << "ival = " << ival << ", string arg evaluates to " << mk_pp(arg_subst, m) << std::endl;);
 
-                            symbol arg_str;
-                            if (u.str.is_string(arg_subst, arg_str)) {
-                                zstring arg_zstr(arg_str.bare_str());
+                            zstring arg_zstr;
+                            if (u.str.is_string(arg_subst, arg_zstr)) {
                                 rational arg_value;
                                 if (string_integer_conversion_valid(arg_zstr, arg_value)) {
                                     if (ival != arg_value) {
@@ -1365,9 +1364,8 @@ namespace smt {
                             (*replacer)(arg, arg_subst);
                             rw(arg_subst);
                             TRACE("str_fl", tout << "ival = " << ival << ", string arg evaluates to " << mk_pp(arg_subst, m) << std::endl;);
-                            symbol arg_str;
-                            if (u.str.is_string(arg_subst, arg_str)) {
-                                zstring arg_zstr(arg_str.bare_str());
+                            zstring arg_zstr;
+                            if (u.str.is_string(arg_subst, arg_zstr)) {
                                 if (ival >= rational::zero() && ival <= rational(u.max_char())) {
                                     // check that arg_subst has length 1 and that the codepoints are the same
                                     if (arg_zstr.length() != 1 || rational(arg_zstr[0]) != ival) {
@@ -1396,9 +1394,8 @@ namespace smt {
                             rw(e_subst);
                             TRACE("str_fl", tout << "ival = " << ival << ", string arg evaluates to " << mk_pp(e_subst, m) << std::endl;);
 
-                            symbol e_str;
-                            if (u.str.is_string(e_subst, e_str)) {
-                                zstring e_zstr(e_str.bare_str());
+                            zstring e_zstr;
+                            if (u.str.is_string(e_subst, e_zstr)) {
                                 // if arg is negative, e must be empty
                                 // if arg is non-negative, e must be valid AND cannot contain leading zeroes
 
@@ -1436,9 +1433,8 @@ namespace smt {
                             (*replacer)(e, e_subst);
                             rw(e_subst);
                             TRACE("str_fl", tout << "ival = " << ival << ", string arg evaluates to " << mk_pp(e_subst, m) << std::endl;);
-                            symbol e_str;
-                            if (u.str.is_string(e_subst, e_str)) {
-                                zstring e_zstr(e_str.bare_str());
+                            zstring e_zstr;
+                            if (u.str.is_string(e_subst, e_zstr)) {
                                 // if arg is out of range, e must be empty
                                 // if arg is in range, e must be valid
                                 if (ival <= rational::zero() || ival >= rational(u.max_char())) {

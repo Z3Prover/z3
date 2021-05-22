@@ -190,8 +190,7 @@ namespace smt {
     }
 
     expr * theory_str::mk_string(const char * str) {
-        symbol sym(str);
-        return u.str.mk_string(sym);
+        return u.str.mk_string(str);
     }
 
     void theory_str::collect_statistics(::statistics & st) const {

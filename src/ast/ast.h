@@ -22,6 +22,7 @@ Revision History:
 #include "util/vector.h"
 #include "util/hashtable.h"
 #include "util/buffer.h"
+#include "util/zstring.h"
 #include "util/symbol.h"
 #include "util/rational.h"
 #include "util/hash.h"
@@ -100,6 +101,7 @@ public:
         PARAM_INT,
         PARAM_AST,
         PARAM_SYMBOL,
+        PARAM_ZSTRING,
         PARAM_RATIONAL,
         PARAM_DOUBLE,
         // PARAM_EXTERNAL is used for handling decl_plugin specific parameters.
@@ -119,6 +121,7 @@ private:
         ast*         m_ast;     // for PARAM_AST
         symbol       m_symbol;  // for PARAM_SYMBOL
         rational*    m_rational; // for PARAM_RATIONAL
+        zstring*     m_zstring;  // for PARAM_ZSTRING
         double       m_dval;   // for PARAM_DOUBLE (remark: this is not used in float_decl_plugin)
         unsigned     m_ext_id; // for PARAM_EXTERNAL
     };
@@ -131,7 +134,9 @@ public:
     explicit parameter(ast * p): m_kind(PARAM_AST), m_ast(p) {}
     explicit parameter(symbol const & s): m_kind(PARAM_SYMBOL), m_symbol(s) {}
     explicit parameter(rational const & r): m_kind(PARAM_RATIONAL), m_rational(alloc(rational, r)) {}
-    explicit parameter(rational && r) : m_kind(PARAM_RATIONAL), m_rational(alloc(rational, std::move(r))) {}
+    explicit parameter(rational && r) : m_kind(PARAM_RATIONAL), m_rational(alloc(rational, std::move(r))) {} 
+    explicit parameter(zstring const& s): m_kind(PARAM_ZSTRING), m_zstring(alloc(zstring, s)) {}
+    explicit parameter(zstring && s): m_kind(PARAM_ZSTRING), m_zstring(alloc(zstring, std::move(s))) {}
     explicit parameter(double d):m_kind(PARAM_DOUBLE), m_dval(d) {}
     explicit parameter(const char *s):m_kind(PARAM_SYMBOL), m_symbol(symbol(s)) {}
     explicit parameter(const std::string &s):m_kind(PARAM_SYMBOL), m_symbol(symbol(s)) {}
@@ -146,6 +151,7 @@ public:
         case PARAM_RATIONAL: m_rational = nullptr; std::swap(m_rational, other.m_rational); break;
         case PARAM_DOUBLE: m_dval = other.m_dval; break;
         case PARAM_EXTERNAL: m_ext_id = other.m_ext_id; break;
+        case PARAM_ZSTRING: m_zstring = other.m_zstring; break;
         default:
             UNREACHABLE();
             break;
@@ -163,6 +169,7 @@ public:
     bool is_rational() const { return m_kind == PARAM_RATIONAL; }
     bool is_double() const { return m_kind == PARAM_DOUBLE; }
     bool is_external() const { return m_kind == PARAM_EXTERNAL; }
+    bool is_zstring() const { return m_kind == PARAM_ZSTRING; }
 
     bool is_int(int & i) const { return is_int() && (i = get_int(), true); }
     bool is_ast(ast * & a) const { return is_ast() && (a = get_ast(), true); }
@@ -170,6 +177,7 @@ public:
     bool is_rational(rational & r) const { return is_rational() && (r = get_rational(), true); }
     bool is_double(double & d) const { return is_double() && (d = get_double(), true); }
     bool is_external(unsigned & id) const { return is_external() && (id = get_ext_id(), true); }
+    bool is_zstring(zstring& s) const { return is_zstring() && (s = get_zstring(), true); }
 
     /**
        \brief This method is invoked when the parameter is
@@ -187,6 +195,7 @@ public:
     ast * get_ast() const { SASSERT(is_ast()); return m_ast; }
     symbol get_symbol() const { SASSERT(is_symbol()); return m_symbol; }
     rational const & get_rational() const { SASSERT(is_rational()); return *m_rational; }
+    zstring const& get_zstring() const { SASSERT(is_zstring()); return *m_zstring; }
     double get_double() const { SASSERT(is_double()); return m_dval; }
     unsigned get_ext_id() const { SASSERT(is_external()); return m_ext_id; }
 

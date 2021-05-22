@@ -33,7 +33,7 @@ static bool is_hex_digit(char ch, unsigned& d) {
     return false;
 }
 
-bool zstring::is_escape_char(bool from_input, char const *& s, unsigned& result) {
+bool zstring::is_escape_char(char const *& s, unsigned& result) {
     unsigned d;
     if (*s == '\\' && s[1] == 'u' && s[2] == '{' && s[3] != '}') {
         result = 0;
@@ -55,8 +55,6 @@ bool zstring::is_escape_char(bool from_input, char const *& s, unsigned& result)
         }
         return false;
     }
-    if (!from_input)
-        return false;
     unsigned d1, d2, d3, d4;
     if (*s == '\\' && s[1] == 'u' && 
         is_hex_digit(s[2], d1) &&
@@ -75,10 +73,10 @@ bool zstring::is_escape_char(bool from_input, char const *& s, unsigned& result)
     return false;
 }
 
-zstring::zstring(char const* s, bool from_input) {
+zstring::zstring(char const* s) {
     while (*s) {
         unsigned ch = 0;
-        if (is_escape_char(from_input, s, ch)) {
+        if (is_escape_char(s, ch)) {
             m_buffer.push_back(ch);
         }
         else {
@@ -88,6 +86,7 @@ zstring::zstring(char const* s, bool from_input) {
     }
     SASSERT(well_formed());
 }
+
 
 bool zstring::uses_unicode() const {
     return gparams::get_value("unicode") != "false";
@@ -236,11 +235,16 @@ zstring zstring::extract(unsigned offset, unsigned len) const {
     return result;
 }
 
+unsigned zstring::hash() const {
+    return unsigned_ptr_hash(m_buffer.data(), m_buffer.size(), 23);
+}
+
 zstring zstring::operator+(zstring const& other) const {
     zstring result(*this);
     result.m_buffer.append(other.m_buffer);
     return result;
 }
+
 
 bool zstring::operator==(const zstring& other) const {
     // two strings are equal iff they have the same length and characters

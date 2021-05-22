@@ -67,8 +67,8 @@ public:
     }
     bool get_some_values(sort* s, expr_ref& v1, expr_ref& v2) override {
         if (u.is_string(s)) {
-            v1 = u.str.mk_string(symbol("a"));
-            v2 = u.str.mk_string(symbol("b"));
+            v1 = u.str.mk_string("a");
+            v2 = u.str.mk_string("b");
             return true;
         }
         sort* ch;
@@ -94,10 +94,11 @@ public:
             while (true) {
                 std::ostringstream strm;
                 strm << m_unique_delim << std::hex << m_next++ << std::dec << m_unique_delim;
-                symbol sym(strm.str());
+                std::string s(strm.str());
+                symbol sym(s);
                 if (m_strings.contains(sym)) continue;
                 m_strings.insert(sym);
-                return u.str.mk_string(sym);
+                return u.str.mk_string(s);
             }
         }
         sort* seq = nullptr, *ch = nullptr;
@@ -131,8 +132,9 @@ public:
         return nullptr;
     }
     void register_value(expr* n) override {
-        symbol sym;
-        if (u.str.is_string(n, sym)) {
+        zstring s;
+        if (u.str.is_string(n, s)) {
+            symbol sym(s.encode());
             m_strings.insert(sym);
             if (sym.str().find(m_unique_delim) != std::string::npos) 
                 add_new_delim();
