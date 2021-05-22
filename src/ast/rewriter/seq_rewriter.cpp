@@ -2159,7 +2159,7 @@ br_status seq_rewriter::mk_str_from_code(expr* a, expr_ref& result) {
     rational r;
     if (m_autil.is_numeral(a, r)) {
         if (r.is_neg() || r > u().max_char()) {
-            result = str().mk_string(symbol(""));
+            result = str().mk_string(zstring());
         }
         else {
             unsigned num = r.get_unsigned();
@@ -2207,10 +2207,10 @@ br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {
     rational r;
     if (m_autil.is_numeral(a, r)) {
         if (r.is_int() && !r.is_neg()) {
-            result = str().mk_string(symbol(r.to_string()));
+            result = str().mk_string(zstring(r));
         }
         else {
-            result = str().mk_string(symbol(""));
+            result = str().mk_string(zstring());
         }
         return BR_DONE;
     }
@@ -2225,7 +2225,7 @@ br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {
             eqs.push_back(m().mk_eq(b, str().mk_string(s)));
         }
         result = m().mk_or(eqs);
-        result = m().mk_ite(result, b, str().mk_string(symbol("")));
+        result = m().mk_ite(result, b, str().mk_string(zstring()));
         return BR_REWRITE2;
     }
     return BR_FAILED;
@@ -4884,13 +4884,17 @@ bool seq_rewriter::reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs,
         str().is_itos(ls.get(0), n) &&
         is_string(rs.size(), rs.data(), s)) {
         std::string s1 = s.encode();
-        rational r(s1.c_str());
-        if (s1 == r.to_string()) {
-            eqs.push_back(n, m_autil.mk_numeral(r, true));
-            ls.reset(); 
-            rs.reset();
-            return true;
+        try {
+            rational r(s1.c_str());
+            if (s1 == r.to_string()) {
+                eqs.push_back(n, m_autil.mk_numeral(r, true));
+                ls.reset();
+                rs.reset();
+                return true;
+            }
         }
+        catch (...)
+        { }
     }
     return true;
 }

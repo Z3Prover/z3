@@ -78,7 +78,7 @@ stages:
       vmImage: "ubuntu-latest"
     container: "quay.io/pypa/manylinux2010_x86_64:latest"
     variables:
-      python: "/opt/python/cp35-cp35m/bin/python"
+      python: "/opt/python/cp37-cp37m/bin/python"
     steps:
     - task: PythonScript@0
       displayName: Build

@@ -104,7 +104,7 @@ public:
             ctx.display(ctx.regular_stream(), r);
             ctx.regular_stream() << std::endl; 
         }
-        if (!failed && m_params.get_bool("print_proofs", false)) {
+        if (!failed && m_params.get_bool("print_proofs", false) && pr.get()) {
             ast_smt_pp pp(ctx.m());
             pp.set_logic(ctx.get_logic());
             pp.display_expr_smt2(ctx.regular_stream(), pr.get());

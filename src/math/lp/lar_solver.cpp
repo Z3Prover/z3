@@ -1719,7 +1719,7 @@ namespace lp {
 
     void lar_solver::subst_known_terms(lar_term* t) {
         std::set<unsigned> seen_terms;
-        for (const auto&p : *t) {
+        for (auto p : *t) {
             auto j = p.column();
             if (this->column_corresponds_to_term(j)) {
                 seen_terms.insert(j);
@@ -1730,10 +1730,10 @@ namespace lp {
             seen_terms.erase(j);
             auto tj = this->m_var_register.local_to_external(j);
             auto& ot = this->get_term(tj);
-            for(const auto&  p : ot){
-              if (this->column_corresponds_to_term(p.column())) {
-                 seen_terms.insert(p.column());
-              }   
+            for (auto p : ot){
+                if (this->column_corresponds_to_term(p.column())) {
+                    seen_terms.insert(p.column());
+                }   
             }
             t->subst_by_term(ot, j);
         }

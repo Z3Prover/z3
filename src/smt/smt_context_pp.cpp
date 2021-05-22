@@ -296,7 +296,7 @@ namespace smt {
 
     void context::display_hot_bool_vars(std::ostream & out) const {
         out << "hot bool vars:\n";
-        int num = get_num_bool_vars();
+        unsigned num = get_num_bool_vars();
         for (bool_var v = 0; v < num; v++) {
             double val = get_activity(v)/m_bvar_inc;
             if (val > 10.00) {

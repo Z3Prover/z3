@@ -164,7 +164,7 @@ namespace z3 {
         void set_context(Z3_context ctx) {
             m_ctx = ctx;
             m_enable_exceptions = true;
-            m_rounding_mode = RNA;
+            m_rounding_mode = RNE;
             Z3_set_error_handler(m_ctx, 0);
             Z3_set_ast_print_mode(m_ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
         }
@@ -287,7 +287,7 @@ namespace z3 {
         /**
            \brief Return a RoundingMode sort.
          */
-        sort fpa_rounding_mode();
+        sort fpa_rounding_mode_sort();
         /**
            \brief Sets RoundingMode of FloatingPoints.
          */
@@ -342,6 +342,8 @@ namespace z3 {
         template<size_t precision>
         expr fpa_const(char const * name);
 
+        expr fpa_rounding_mode();
+
         expr bool_val(bool b);
 
         expr int_val(int n);
@@ -366,6 +368,8 @@ namespace z3 {
 
         expr fpa_val(double n);
         expr fpa_val(float n);
+        expr fpa_nan(sort const & s);
+        expr fpa_inf(sort const & s, bool sgn);
 
         expr string_val(char const* s);
         expr string_val(char const* s, unsigned n);
@@ -696,6 +700,8 @@ namespace z3 {
             \pre is_array()
         */
         sort array_range() const { assert(is_array()); Z3_sort s = Z3_get_array_sort_range(ctx(), *this); check_error(); return sort(ctx(), s); }
+
+        friend std::ostream & operator<<(std::ostream & out, sort const & s) { return out << Z3_sort_to_string(s.ctx(), Z3_sort(s.m_ast)); }
     };
 
     /**
@@ -874,7 +880,7 @@ namespace z3 {
         bool is_well_sorted() const { bool r = Z3_is_well_sorted(ctx(), m_ast); check_error(); return r; }
 
         /**
-           \brief Return Boolean expression to test whether expression is inf
+           \brief Return Boolean expression to test for whether an FP expression is inf
         */
         expr mk_is_inf() const {
             assert(is_fpa());
@@ -884,11 +890,41 @@ namespace z3 {
         }
 
         /**
-           \brief Return Boolean expression to test for whether expression is a NaN
+           \brief Return Boolean expression to test for whether an FP expression is a NaN
         */
         expr mk_is_nan() const {
             assert(is_fpa());
             Z3_ast r = Z3_mk_fpa_is_nan(ctx(), m_ast);
+            check_error();
+            return expr(ctx(), r);
+        }
+
+        /**
+           \brief Return Boolean expression to test for whether an FP expression is a normal
+        */
+        expr mk_is_normal() const {
+            assert(is_fpa());
+            Z3_ast r = Z3_mk_fpa_is_normal(ctx(), m_ast);
+            check_error();
+            return expr(ctx(), r);
+        }
+
+        /**
+           \brief Return Boolean expression to test for whether an FP expression is a subnormal
+        */
+        expr mk_is_subnormal() const {
+            assert(is_fpa());
+            Z3_ast r = Z3_mk_fpa_is_subnormal(ctx(), m_ast);
+            check_error();
+            return expr(ctx(), r);
+        }
+
+        /**
+           \brief Return Boolean expression to test for whether an FP expression is a zero
+        */
+        expr mk_is_zero() const {
+            assert(is_fpa());
+            Z3_ast r = Z3_mk_fpa_is_zero(ctx(), m_ast);
             check_error();
             return expr(ctx(), r);
         }
@@ -899,6 +935,16 @@ namespace z3 {
         expr mk_to_ieee_bv() const {
             assert(is_fpa());
             Z3_ast r = Z3_mk_fpa_to_ieee_bv(ctx(), m_ast);
+            check_error();
+            return expr(ctx(), r);
+        }
+
+        /**
+           \brief Convert this IEEE BV into a fpa
+        */
+        expr mk_from_ieee_bv(sort const &s) const {
+            assert(is_bv());
+            Z3_ast r = Z3_mk_fpa_to_fp_bv(ctx(), m_ast, s);
             check_error();
             return expr(ctx(), r);
         }
@@ -1077,17 +1123,6 @@ namespace z3 {
         }
 
         operator Z3_app() const { assert(is_app()); return reinterpret_cast<Z3_app>(m_ast); }
-
-        /**
-           \brief Return a RoundingMode sort.
-         */
-        sort fpa_rounding_mode() {
-            assert(is_fpa());
-            Z3_sort s = ctx().fpa_rounding_mode();
-            check_error();
-            return sort(ctx(), s);
-        }
-
 
         /**
            \brief Return the declaration associated with this application.
@@ -1297,8 +1332,12 @@ namespace z3 {
         expr rotate_right(unsigned i) { Z3_ast r = Z3_mk_rotate_right(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
         expr repeat(unsigned i) { Z3_ast r = Z3_mk_repeat(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
 
+        friend expr bvredor(expr const & a);
+        friend expr bvredand(expr const & a);
+
         friend expr abs(expr const & a);
         friend expr sqrt(expr const & a, expr const & rm);
+        friend expr fp_eq(expr const & a, expr const & b);
 
         friend expr operator~(expr const & a);
         expr extract(unsigned hi, unsigned lo) const { Z3_ast r = Z3_mk_extract(ctx(), hi, lo, *this); ctx().check_error(); return expr(ctx(), r); }
@@ -1324,6 +1363,26 @@ namespace z3 {
            \brief Conversion of a floating-point term into an unsigned bit-vector.
         */
         friend expr fpa_to_ubv(expr const& t, unsigned sz);
+
+        /**
+           \brief Conversion of a signed bit-vector term into a floating-point.
+        */
+        friend expr sbv_to_fpa(expr const& t, sort s);
+
+        /**
+           \brief Conversion of an unsigned bit-vector term into a floating-point.
+        */
+        friend expr ubv_to_fpa(expr const& t, sort s);
+
+        /**
+           \brief Conversion of a floating-point term into another floating-point.
+        */
+        friend expr fpa_to_fpa(expr const& t, sort s);
+
+        /**
+           \brief Round a floating-point term into its closest integer.
+        */
+        friend expr round_fpa_to_closest_integer(expr const& t);
 
         /**
            \brief sequence and regular expression operations.
@@ -1789,6 +1848,18 @@ namespace z3 {
         }
         return expr(a.ctx(), r); 
     }
+    inline expr bvredor(expr const & a) {
+        assert(a.is_bv());
+        Z3_ast r = Z3_mk_bvredor(a.ctx(), a);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
+    inline expr bvredand(expr const & a) {
+        assert(a.is_bv());
+        Z3_ast r = Z3_mk_bvredor(a.ctx(), a);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
     inline expr abs(expr const & a) { 
         Z3_ast r;
         if (a.is_int()) {
@@ -1809,6 +1880,13 @@ namespace z3 {
         check_context(a, rm);
         assert(a.is_fpa());
         Z3_ast r = Z3_mk_fpa_sqrt(a.ctx(), rm, a);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
+    inline expr fp_eq(expr const & a, expr const & b) {
+        check_context(a, b);
+        assert(a.is_fpa());
+        Z3_ast r = Z3_mk_fpa_eq(a.ctx(), a, b);
         a.check_error();
         return expr(a.ctx(), r);
     }
@@ -1840,6 +1918,34 @@ namespace z3 {
     inline expr fpa_to_ubv(expr const& t, unsigned sz) {
         assert(t.is_fpa());
         Z3_ast r = Z3_mk_fpa_to_ubv(t.ctx(), t.ctx().fpa_rounding_mode(), t, sz);
+        t.check_error();
+        return expr(t.ctx(), r);
+    }
+
+    inline expr sbv_to_fpa(expr const& t, sort s) {
+        assert(t.is_bv());
+        Z3_ast r = Z3_mk_fpa_to_fp_signed(t.ctx(), t.ctx().fpa_rounding_mode(), t, s);
+        t.check_error();
+        return expr(t.ctx(), r);
+    }
+
+    inline expr ubv_to_fpa(expr const& t, sort s) {
+        assert(t.is_bv());
+        Z3_ast r = Z3_mk_fpa_to_fp_unsigned(t.ctx(), t.ctx().fpa_rounding_mode(), t, s);
+        t.check_error();
+        return expr(t.ctx(), r);
+    }
+
+    inline expr fpa_to_fpa(expr const& t, sort s) {
+        assert(t.is_fpa());
+        Z3_ast r = Z3_mk_fpa_to_fp_float(t.ctx(), t.ctx().fpa_rounding_mode(), t, s);
+        t.check_error();
+        return expr(t.ctx(), r);
+    }
+
+    inline expr round_fpa_to_closest_integer(expr const& t) {
+        assert(t.is_fpa());
+        Z3_ast r = Z3_mk_fpa_round_to_integral(t.ctx(), t.ctx().fpa_rounding_mode(), t);
         t.check_error();
         return expr(t.ctx(), r);
     }
@@ -3109,18 +3215,7 @@ namespace z3 {
     template<>
     inline sort context::fpa_sort<128>() { return fpa_sort(15, 113); }
 
-    inline sort context::fpa_rounding_mode() {
-        switch (m_rounding_mode) {
-        case RNA: return sort(*this, Z3_mk_fpa_rna(m_ctx));
-        case RNE: return sort(*this, Z3_mk_fpa_rne(m_ctx));
-        case RTP: return sort(*this, Z3_mk_fpa_rtp(m_ctx));
-        case RTN: return sort(*this, Z3_mk_fpa_rtn(m_ctx));
-        case RTZ: return sort(*this, Z3_mk_fpa_rtz(m_ctx));
-        default: return sort(*this); 
-        }
-    }
-
-    inline void context::set_rounding_mode(rounding_mode rm) { m_rounding_mode = rm; }
+    inline sort context::fpa_rounding_mode_sort() { Z3_sort r = Z3_mk_fpa_rounding_mode_sort(m_ctx); check_error(); return sort(*this, r); }
 
     inline sort context::array_sort(sort d, sort r) { Z3_sort s = Z3_mk_array_sort(m_ctx, d, r); check_error(); return sort(*this, s); }
     inline sort context::array_sort(sort_vector const& d, sort r) {
@@ -3277,6 +3372,19 @@ namespace z3 {
     template<size_t precision>
     inline expr context::fpa_const(char const * name) { return constant(name, fpa_sort<precision>()); }
 
+    inline void context::set_rounding_mode(rounding_mode rm) { m_rounding_mode = rm; }
+
+    inline expr context::fpa_rounding_mode() {
+        switch (m_rounding_mode) {
+        case RNA: return expr(*this, Z3_mk_fpa_rna(m_ctx));
+        case RNE: return expr(*this, Z3_mk_fpa_rne(m_ctx));
+        case RTP: return expr(*this, Z3_mk_fpa_rtp(m_ctx));
+        case RTN: return expr(*this, Z3_mk_fpa_rtn(m_ctx));
+        case RTZ: return expr(*this, Z3_mk_fpa_rtz(m_ctx));
+        default: return expr(*this);
+        }
+    }
+
     inline expr context::bool_val(bool b) { return b ? expr(*this, Z3_mk_true(m_ctx)) : expr(*this, Z3_mk_false(m_ctx)); }
 
     inline expr context::int_val(int n) { Z3_ast r = Z3_mk_int(m_ctx, n, int_sort()); check_error(); return expr(*this, r); }
@@ -3305,6 +3413,8 @@ namespace z3 {
 
     inline expr context::fpa_val(double n) { sort s = fpa_sort<64>(); Z3_ast r = Z3_mk_fpa_numeral_double(m_ctx, n, s); check_error(); return expr(*this, r); }
     inline expr context::fpa_val(float n) { sort s = fpa_sort<32>(); Z3_ast r = Z3_mk_fpa_numeral_float(m_ctx, n, s); check_error(); return expr(*this, r); }
+    inline expr context::fpa_nan(sort const & s) { Z3_ast r = Z3_mk_fpa_nan(m_ctx, s); check_error(); return expr(*this, r); }
+    inline expr context::fpa_inf(sort const & s, bool sgn) { Z3_ast r = Z3_mk_fpa_inf(m_ctx, s, sgn); check_error(); return expr(*this, r); }
 
     inline expr context::string_val(char const* s, unsigned n) { Z3_ast r = Z3_mk_lstring(m_ctx, n, s); check_error(); return expr(*this, r); }
     inline expr context::string_val(char const* s) { Z3_ast r = Z3_mk_string(m_ctx, s); check_error(); return expr(*this, r); }

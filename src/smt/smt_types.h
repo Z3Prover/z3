@@ -22,6 +22,7 @@ Revision History:
 #include "util/vector.h"
 #include "util/hashtable.h"
 #include "util/lbool.h"
+#include "util/sat_literal.h"
 
 class model;
 
@@ -29,9 +30,9 @@ namespace smt {
     /**
        \brief A boolean variable is just an integer.
     */
-    typedef int bool_var;
+    typedef sat::bool_var bool_var;
     
-    const bool_var null_bool_var  = -1;
+    const bool_var null_bool_var  = sat::null_bool_var;
     const bool_var true_bool_var  = 0;
     const bool_var first_bool_var = 1;
     

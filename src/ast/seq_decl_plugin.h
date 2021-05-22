@@ -191,7 +191,6 @@ public:
     unsigned max_char() const { return get_char_plugin().max_char(); }
     unsigned num_bits() const { return get_char_plugin().num_bits(); }
 
-    app* mk_string(symbol const& s);
     app* mk_string(zstring const& s);
     app* mk_char(unsigned ch);
 
@@ -262,9 +261,6 @@ public:
         ast_manager& m;
         family_id    m_fid;
 
-        app* mk_string(char const* s) { return mk_string(symbol(s)); }
-        app* mk_string(std::string const& s) { return mk_string(symbol(s.c_str())); }
-
 
     public:
         str(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
@@ -273,7 +269,6 @@ public:
         sort* mk_string_sort() const { return m.mk_sort(m_fid, _STRING_SORT, 0, nullptr); }
         app* mk_empty(sort* s) const { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, nullptr, 0, (expr*const*)nullptr, s)); }
         app* mk_string(zstring const& s) const;
-        app* mk_string(symbol const& s) const { return u.seq.mk_string(s); }
         app* mk_char(unsigned ch) const;
         app* mk_concat(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONCAT, 2, es); }
         app* mk_concat(expr* a, expr* b, expr* c) const { return mk_concat(a, mk_concat(b, c)); }
@@ -313,14 +308,12 @@ public:
         bool is_skolem(func_decl const* f)      const { return is_decl_of(f, m_fid, _OP_SEQ_SKOLEM); }
 
         bool is_string(expr const * n) const { return is_app_of(n, m_fid, OP_STRING_CONST); }
-        bool is_string(expr const* n, symbol& s) const {
-            return is_string(n) && (s = to_app(n)->get_decl()->get_parameter(0).get_symbol(), true);
-        }
         bool is_string(func_decl const* f) const { return is_decl_of(f, m_fid, OP_STRING_CONST); }
         bool is_string(expr const* n, zstring& s) const;
         bool is_string(func_decl const* f, zstring& s) const;
-        bool is_empty(expr const* n) const { symbol s;
-            return is_app_of(n, m_fid, OP_SEQ_EMPTY) || (is_string(n, s) && !s.is_numerical() && *s.bare_str() == 0);
+        bool is_empty(expr const* n) const {
+            zstring s;
+            return is_app_of(n, m_fid, OP_SEQ_EMPTY) || (is_string(n, s) && s.empty());
         }
         bool is_concat(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_CONCAT); }
         bool is_length(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_LENGTH); }

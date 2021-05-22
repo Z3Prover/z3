@@ -375,7 +375,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_SEQ_EMPTY:
         match(*m_sigs[k], arity, domain, range, rng);
         if (rng == m_string) {
-            parameter param(symbol(""));
+            parameter param(zstring(""));
             return mk_func_decl(OP_STRING_CONST, 1, &param, 0, nullptr, m_string);
         }
         else {
@@ -474,7 +474,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         m.raise_exception("Incorrect arguments used for re.^. Expected one non-negative integer parameter");
 
     case OP_STRING_CONST:
-        if (!(num_parameters == 1 && arity == 0 && parameters[0].is_symbol())) {
+        if (!(num_parameters == 1 && arity == 0 && parameters[0].is_zstring())) {
             m.raise_exception("invalid string declaration");
         }
         return m.mk_const_decl(m_stringc_sym, m_string,
@@ -503,7 +503,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         if (!(num_parameters == 1 && parameters[0].is_int())) 
             m.raise_exception("character literal expects integer parameter");
         zstring zs(parameters[0].get_int());        
-        parameter p(zs.encode());
+        parameter p(zs);
         return m.mk_const_decl(m_stringc_sym, m_string,func_decl_info(m_family_id, OP_STRING_CONST, 1, &p));
     }
         
@@ -630,16 +630,8 @@ void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol 
     sort_names.push_back(builtin_name("StringSequence", _STRING_SORT));
 }
 
-app* seq_decl_plugin::mk_string(symbol const& s) {
-    parameter param(s);
-    func_decl* f = m_manager->mk_const_decl(m_stringc_sym, m_string,
-                                            func_decl_info(m_family_id, OP_STRING_CONST, 1, &param));
-    return m_manager->mk_const(f);
-}
-
 app* seq_decl_plugin::mk_string(zstring const& s) {
-    symbol sym(s.encode());
-    parameter param(sym);
+    parameter param(s);
     func_decl* f = m_manager->mk_const_decl(m_stringc_sym, m_string,
                                             func_decl_info(m_family_id, OP_STRING_CONST, 1, &param));
     return m_manager->mk_const(f);
@@ -792,7 +784,7 @@ app* seq_util::mk_lt(expr* ch1, expr* ch2) const {
 
 bool seq_util::str::is_string(func_decl const* f, zstring& s) const {
     if (is_string(f)) {
-        s = zstring(f->get_parameter(0).get_symbol().bare_str());
+        s = f->get_parameter(0).get_zstring();
         return true;
     }
     else {

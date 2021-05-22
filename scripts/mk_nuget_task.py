@@ -25,7 +25,7 @@ def mk_dir(d):
 os_info = {"z64-ubuntu-14" : ('so', 'ubuntu.14.04-x64'),
            'ubuntu-18' : ('so', 'ubuntu-x64'),
            'ubuntu-20' : ('so', 'ubuntu-x64'),
-           'glibc-2.31' : ('so', 'glibc-x64'),
+           'glibc-2.31' : ('so', 'ubuntu-x64'),
            'x64-win' : ('dll', 'win-x64'),
            'x86-win' : ('dll', 'win-x86'),
            'osx' : ('dylib', 'osx-x64'),

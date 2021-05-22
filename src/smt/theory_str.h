@@ -53,11 +53,11 @@ public:
         u(m), delim("!"), m_next(0) {}
     ~str_value_factory() override {}
     expr * get_some_value(sort * s) override {
-        return u.str.mk_string(symbol("some value"));
+        return u.str.mk_string("some value");
     }
     bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override {
-        v1 = u.str.mk_string(symbol("value 1"));
-        v2 = u.str.mk_string(symbol("value 2"));
+        v1 = u.str.mk_string("value 1");
+        v2 = u.str.mk_string("value 2");
         return true;
     }
     expr * get_fresh_value(sort * s) override {
@@ -65,10 +65,11 @@ public:
             while (true) {
                 std::ostringstream strm;
                 strm << delim << std::hex << (m_next++) << std::dec << delim;
-                symbol sym(strm.str());
+                std::string s(strm.str());
+                symbol sym(s);
                 if (m_strings.contains(sym)) continue;
                 m_strings.insert(sym);
-                return u.str.mk_string(sym);
+                return u.str.mk_string(s);
             }
         }
         sort* seq = nullptr;

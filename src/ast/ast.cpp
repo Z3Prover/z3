@@ -41,6 +41,9 @@ parameter::~parameter() {
     if (m_kind == PARAM_RATIONAL) {
         dealloc(m_rational);
     }
+    if (m_kind == PARAM_ZSTRING) {
+        dealloc(m_zstring);
+    }
 }
 
 parameter::parameter(parameter const& other) {
@@ -64,6 +67,7 @@ parameter& parameter::operator=(parameter const& other) {
     case PARAM_RATIONAL: m_rational = alloc(rational, other.get_rational()); break;
     case PARAM_DOUBLE: m_dval = other.m_dval; break;
     case PARAM_EXTERNAL: m_ext_id = other.m_ext_id; break;
+    case PARAM_ZSTRING: m_zstring = alloc(zstring, other.get_zstring()); break;
     default:
         UNREACHABLE();
         break;
@@ -99,6 +103,7 @@ bool parameter::operator==(parameter const & p) const {
     case PARAM_RATIONAL: return get_rational() == p.get_rational();
     case PARAM_DOUBLE: return m_dval == p.m_dval;
     case PARAM_EXTERNAL: return m_ext_id == p.m_ext_id;
+    case PARAM_ZSTRING: return get_zstring() == p.get_zstring();
     default: UNREACHABLE(); return false;
     }
 }
@@ -111,6 +116,7 @@ unsigned parameter::hash() const {
     case PARAM_SYMBOL:   b = get_symbol().hash(); break;
     case PARAM_RATIONAL: b = get_rational().hash(); break;
     case PARAM_DOUBLE:   b = static_cast<unsigned>(m_dval); break;
+    case PARAM_ZSTRING:  b = get_zstring().hash(); break;
     case PARAM_EXTERNAL: b = m_ext_id; break;
     }
     return (b << 2) | m_kind;
@@ -124,6 +130,7 @@ std::ostream& parameter::display(std::ostream& out) const {
     case PARAM_AST:      return out << "#" << get_ast()->get_id();
     case PARAM_DOUBLE:   return out << m_dval;
     case PARAM_EXTERNAL: return out << "@" << m_ext_id;
+    case PARAM_ZSTRING:  return out << get_zstring();
     default:
         UNREACHABLE();
         return out << "[invalid parameter]";

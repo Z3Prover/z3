@@ -563,7 +563,6 @@ namespace bv {
         SASSERT(e->get_num_args() >= 1);
         expr_ref_vector bits(m), new_bits(m), arg_bits(m);
         
-        unsigned i = e->get_num_args() - 1;
         get_arg_bits(e, 0, bits);
         for (unsigned i = 1; i < e->get_num_args(); ++i) {
             arg_bits.reset();

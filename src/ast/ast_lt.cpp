@@ -23,6 +23,7 @@ Revision History:
 #define check_bool(B1,B2) if (B1 != B2) return !B1 && B2
 #define check_ptr(P1,P2) if (!P1 && P2) return true; if (P1 && !P2) return false
 #define check_ast(T1,T2) if (T1 != T2) { n1 = T1; n2 = T2; goto start; }
+#define check_zstring(S1, S2) if (S1 != S2) return S1 < S2
 
 #define check_parameter(p1, p2) {                               \
     check_value(p1.get_kind(), p2.get_kind());                  \
@@ -44,6 +45,9 @@ Revision History:
         break;                                                  \
     case parameter::PARAM_EXTERNAL:                             \
         check_value(p1.get_ext_id(), p2.get_ext_id());          \
+        break;                                                  \
+    case parameter::PARAM_ZSTRING:                              \
+        check_zstring(p1.get_zstring(), p2.get_zstring());      \
         break;                                                  \
     default:                                                    \
         UNREACHABLE();                                          \

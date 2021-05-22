@@ -19,6 +19,7 @@ Author:
 #include <string>
 #include "util/vector.h"
 #include "util/buffer.h"
+#include "util/rational.h"
 
 class zstring {
 private:
@@ -34,6 +35,7 @@ public:
     zstring() {}
     zstring(char const* s);
     zstring(const std::string &str) : zstring(str.c_str()) {}
+    zstring(rational const& r): zstring(r.to_string()) {}
     zstring(unsigned sz, unsigned const* s) { m_buffer.append(sz, s); SASSERT(well_formed()); }
     zstring(unsigned ch);
     zstring replace(zstring const& src, zstring const& dst) const;
@@ -51,6 +53,7 @@ public:
     zstring operator+(zstring const& other) const;
     bool operator==(const zstring& other) const;
     bool operator!=(const zstring& other) const;
+    unsigned hash() const;
 
     friend std::ostream& operator<<(std::ostream &os, const zstring &str);
     friend bool operator<(const zstring& lhs, const zstring& rhs);

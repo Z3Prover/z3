@@ -682,7 +682,7 @@ namespace seq {
         // itos(n) does not start with "0" when n > 0
         // n = 0 or at(itos(n),0) != "0"
         // alternative: n >= 0 => itos(stoi(itos(n))) = itos(n)
-        expr_ref zs(seq.str.mk_string(symbol("0")), m);
+        expr_ref zs(seq.str.mk_string("0"), m);
         m_rewrite(zs);
         expr_ref eq0 = mk_eq(n, zero);
         expr_ref at0 = mk_eq(seq.str.mk_at(e, zero), zs);
