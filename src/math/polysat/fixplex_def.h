@@ -521,7 +521,7 @@ namespace polysat {
                 IF_VERBOSE(0, verbose_stream() << "violated v" << v << " < v" << w << "\n");
                 return l_false;
             }
-            if (ineq.strict && value(v) > value(w)) {
+            if (!ineq.strict && value(v) > value(w)) {
                 IF_VERBOSE(0, verbose_stream() << "violated v" << v << " <= v" << w << "\n");
                 return l_false;
             }
