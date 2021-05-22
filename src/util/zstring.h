@@ -32,8 +32,8 @@ public:
     static unsigned ascii_max_char() { return 255; }
     static unsigned ascii_num_bits() { return 8; }
     zstring() {}
-    zstring(char const* s);
-    zstring(const std::string &str) : zstring(str.c_str()) {}
+    zstring(char const* s, bool from_input);
+    zstring(const std::string &str) : zstring(str.c_str(), false) {}
     zstring(unsigned sz, unsigned const* s) { m_buffer.append(sz, s); SASSERT(well_formed()); }
     zstring(unsigned ch);
     zstring replace(zstring const& src, zstring const& dst) const;

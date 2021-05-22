@@ -73,10 +73,10 @@ bool zstring::is_escape_char(char const *& s, unsigned& result) {
     return false;
 }
 
-zstring::zstring(char const* s) {
+zstring::zstring(char const* s, bool from_input) {
     while (*s) {
         unsigned ch = 0;
-        if (is_escape_char(s, ch)) {
+        if (from_input && is_escape_char(s, ch)) {
             m_buffer.push_back(ch);
         }
         else {
