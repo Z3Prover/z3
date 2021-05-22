@@ -25,7 +25,7 @@ private:
     buffer<unsigned> m_buffer;
     bool well_formed() const;
     bool uses_unicode() const;
-    bool is_escape_char(char const *& s, unsigned& result);
+    bool is_escape_char(bool from_input, char const *& s, unsigned& result);
 public:
     static unsigned unicode_max_char() { return 196607; }
     static unsigned unicode_num_bits() { return 18; }

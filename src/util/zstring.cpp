@@ -33,7 +33,7 @@ static bool is_hex_digit(char ch, unsigned& d) {
     return false;
 }
 
-bool zstring::is_escape_char(char const *& s, unsigned& result) {
+bool zstring::is_escape_char(bool from_input, char const *& s, unsigned& result) {
     unsigned d;
     if (*s == '\\' && s[1] == 'u' && s[2] == '{' && s[3] != '}') {
         result = 0;
@@ -55,6 +55,8 @@ bool zstring::is_escape_char(char const *& s, unsigned& result) {
         }
         return false;
     }
+    if (!from_input)
+        return false;
     unsigned d1, d2, d3, d4;
     if (*s == '\\' && s[1] == 'u' && 
         is_hex_digit(s[2], d1) &&
@@ -76,7 +78,7 @@ bool zstring::is_escape_char(char const *& s, unsigned& result) {
 zstring::zstring(char const* s, bool from_input) {
     while (*s) {
         unsigned ch = 0;
-        if (from_input && is_escape_char(s, ch)) {
+        if (is_escape_char(from_input, s, ch)) {
             m_buffer.push_back(ch);
         }
         else {
