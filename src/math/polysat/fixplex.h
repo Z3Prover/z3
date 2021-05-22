@@ -43,6 +43,7 @@ namespace polysat {
         virtual void restore_bound() = 0;   
         virtual void add_le(var_t v, var_t w) = 0;
         virtual void add_lt(var_t v, var_t w) = 0;
+        virtual void restore_ineq() = 0;
     };
 
 
@@ -128,6 +129,15 @@ namespace polysat {
             fix_entry():x(null_var), r(0) {}
         };
 
+        struct ineq {
+            var_t v { null_var };
+            var_t w { null_var };
+            bool strict { false };
+            bool is_active { true };
+            ineq(var_t v, var_t w, bool s):
+                v(v), w(w), strict(s) {}
+        };
+
         static const var_t null_var = UINT_MAX;
         reslimit&                   m_limit;
         mutable manager             m;
@@ -148,6 +158,13 @@ namespace polysat {
         vector<stashed_bound>       m_stashed_bounds;
         map<numeral, fix_entry, typename manager::hash, typename manager::eq> m_value2fixed_var;
 
+        // inequalities
+        svector<ineq>               m_ineqs;
+        unsigned_vector             m_ineqs_to_check;
+        bool_vector                 m_var_is_touched;
+        vector<unsigned_vector>     m_var2ineqs;
+        svector<var_t>              m_vars_to_untouch;
+
     public:
         fixplex(reslimit& lim):
             m_limit(lim),
@@ -164,8 +181,9 @@ namespace polysat {
         void set_bounds(var_t v, rational const& lo, rational const& hi) override;
         void set_value(var_t v, rational const& val) override;
         void restore_bound() override;
-        void add_le(var_t v, var_t w) override;
-        void add_lt(var_t v, var_t w) override;
+        void add_le(var_t v, var_t w) override { add_ineq(v, w, false); }
+        void add_lt(var_t v, var_t w) override { add_ineq(v, w, true); }
+        virtual void restore_ineq() override;
 
         void set_bounds(var_t v, numeral const& lo, numeral const& hi);
         void unset_bounds(var_t v) { m_vars[v].set_free(); }
@@ -234,6 +252,11 @@ namespace polysat {
         void check_blands_rule(var_t v, unsigned& num_repeated);
         pivot_strategy_t pivot_strategy() { return m_bland ? S_BLAND : S_DEFAULT; }
         var_t select_error_var(bool least);
+
+        // facilities for handling inequalities
+        void add_ineq(var_t v, var_t w, bool strict);
+        void touch_var(var_t x);
+        lbool check_ineqs();
 
         bool is_solved(row const& r) const;
         bool is_solved(var_t v) const { SASSERT(is_base(v)); return is_solved(base2row(v)); }

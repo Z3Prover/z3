@@ -53,6 +53,12 @@ namespace polysat {
                 m_rows.pop_back();
                 break;
             }
+            case trail_i::add_ineq_i: {
+                auto [v, sz] = m_rows.back();
+                sz2fixplex(sz).restore_ineq();
+                m_rows.pop_back();
+                break;
+            }
             default:
                 UNREACHABLE();
             }
@@ -179,7 +185,8 @@ namespace polysat {
             fp.add_le(v, w);
         else 
             fp.add_lt(w, v);
-
+        m_trail.push_back(trail_i::add_ineq_i);
+        m_rows.push_back(std::make_pair(v, sz));
     }
 
     void linear_solver::new_bit(var_constraint& c) {

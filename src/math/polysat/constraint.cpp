@@ -15,6 +15,7 @@ Author:
 #include "math/polysat/constraint.h"
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
+#include "math/polysat/log_helper.h"
 #include "math/polysat/var_constraint.h"
 #include "math/polysat/eq_constraint.h"
 #include "math/polysat/ule_constraint.h"

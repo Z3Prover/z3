@@ -76,11 +76,13 @@ namespace polysat {
                 return l_false;
             case l_undef:
                 m_to_patch.insert(v);
+                if (l_false == check_ineqs())
+                    return l_false;
                 return l_undef;
             }
         }
         SASSERT(well_formed());
-        return l_true;
+        return check_ineqs();
     }
 
     template<typename Ext>
@@ -226,6 +228,7 @@ namespace polysat {
         if (delta == 0)
             return;
         m_vars[v].m_value += delta;
+        touch_var(v);
         SASSERT(!is_base(v));
 
         //
@@ -473,14 +476,65 @@ namespace polysat {
     }
 
     template<typename Ext>
-    void fixplex<Ext>::add_le(var_t v, var_t w) {
-        NOT_IMPLEMENTED_YET();
+    void fixplex<Ext>::add_ineq(var_t v, var_t w, bool strict) {
+        unsigned idx = m_ineqs.size();
+        m_var2ineqs.reserve(std::max(v, w) + 1);
+        m_var2ineqs[v].push_back(idx);
+        m_var2ineqs[w].push_back(idx);
+        m_ineqs_to_check.push_back(idx);
+        m_ineqs.push_back(ineq(v, w, strict));
     }
 
     template<typename Ext>
-    void fixplex<Ext>::add_lt(var_t v, var_t w) {
-        NOT_IMPLEMENTED_YET();        
+    void fixplex<Ext>::restore_ineq() {
+        auto ineq = m_ineqs.back();
+        m_var2ineqs[ineq.v].pop_back();
+        m_var2ineqs[ineq.w].pop_back();
+        m_ineqs.pop_back();
     }
+
+    template<typename Ext>
+    void fixplex<Ext>::touch_var(var_t v) {
+        if (v >= m_var2ineqs.size())
+            return;
+        if (m_var_is_touched.get(v, false))
+            return;
+        m_var_is_touched.set(v, true);
+        for (auto idx : m_var2ineqs[v]) {
+            if (!m_ineqs[idx].is_active) {
+                m_ineqs[idx].is_active = true;
+                m_ineqs_to_check.push_back(idx);
+            }
+        }
+    }
+
+    template<typename Ext>
+    lbool fixplex<Ext>::check_ineqs() {
+        m_vars_to_untouch.reset();
+        for (auto idx : m_ineqs_to_check) {
+            if (idx >= m_ineqs.size())
+                continue;
+            auto& ineq = m_ineqs[idx];
+            var_t v = ineq.v;
+            var_t w = ineq.w;
+            if (ineq.strict && value(v) >= value(w)) {
+                IF_VERBOSE(0, verbose_stream() << "violated v" << v << " < v" << w << "\n");
+                return l_false;
+            }
+            if (ineq.strict && value(v) > value(w)) {
+                IF_VERBOSE(0, verbose_stream() << "violated v" << v << " <= v" << w << "\n");
+                return l_false;
+            }
+            ineq.is_active = false;
+            m_vars_to_untouch.push_back(v);
+            m_vars_to_untouch.push_back(w);
+        }
+        for (auto v : m_vars_to_untouch)
+            m_var_is_touched.set(v, false);
+        m_ineqs_to_check.reset();
+        m_vars_to_untouch.reset();
+        return l_true;
+    } 
 
 
     /**
@@ -615,6 +669,7 @@ namespace polysat {
         set_base_value(y);
         xI.m_is_base = false;
         xI.m_value = new_value;
+        touch_var(x);
         row r_x(rx);
         add_patch(y);
         SASSERT(well_formed_row(r_x));
@@ -815,6 +870,7 @@ namespace polysat {
         SASSERT(is_base(x));
         row r = base2row(x);
         m_vars[x].m_value = solve_for(row2value(r), row2base_coeff(r));
+        touch_var(x);
         bool was_integral = row_is_integral(r);
         m_rows[r.id()].m_integral = is_solved(r);
         if (was_integral && !row_is_integral(r))

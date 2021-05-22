@@ -42,6 +42,7 @@ namespace polysat {
             add_var_i,
             add_mono_i,
             set_bound_i,
+            add_ineq_i,
             add_row_i
         };
 
