@@ -307,8 +307,7 @@ class recover_01_tactic : public tactic {
             new_goal->add(g->mc());
             new_goal->add(g->pc());
 
-            unsigned sz = g->size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < g->size(); i++) {
                 expr * f = g->form(i);
                 if (save_clause(f)) {
                     saved = true;
@@ -356,8 +355,7 @@ class recover_01_tactic : public tactic {
             m_rw.set_substitution(subst);
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);
-            unsigned size = new_goal->size();
-            for (unsigned idx = 0; idx < size; idx++) {
+            for (unsigned idx = 0; idx < new_goal->size(); idx++) {
                 expr * curr = new_goal->form(idx);
                 m_rw(curr, new_curr);
                 new_goal->update(idx, new_curr);
