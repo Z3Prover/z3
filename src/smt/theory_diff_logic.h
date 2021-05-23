@@ -77,7 +77,6 @@ namespace smt {
                 m_pos(pos),
                 m_neg(neg) {
             }
-            ~atom() {}
             bool_var get_bool_var() const { return m_bvar; }
             bool is_true() const { return m_true; }
             void assign_eh(bool is_true) { m_true = is_true; }
@@ -383,24 +382,21 @@ namespace smt {
         static const bool m_int_theory = true;
         typedef rational numeral;
         typedef rational fin_numeral;
-        numeral     m_epsilon;
-        idl_ext() : m_epsilon(1) {}
+        numeral     m_epsilon { 1 };
     };
 
     struct sidl_ext {
         static const bool m_int_theory = true;
         typedef s_integer numeral;
         typedef s_integer fin_numeral;
-        numeral m_epsilon;
-        sidl_ext() : m_epsilon(1) {}
+        numeral m_epsilon { 1 };
     };
 
     struct rdl_ext {
         static const bool m_int_theory = false;
         typedef inf_int_rational numeral;
         typedef rational fin_numeral;
-        numeral      m_epsilon;        
-        rdl_ext() : m_epsilon(rational(), true) {}
+        numeral      m_epsilon { rational(), true };
     };
 
     //

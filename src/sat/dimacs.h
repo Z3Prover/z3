@@ -63,7 +63,6 @@ namespace dimacs {
         unsigned        m_node_id{ 0 };
         std::string     m_name;
         unsigned_vector m_args;
-        drat_record() {}
     };
 
     struct drat_pp {
@@ -111,6 +110,3 @@ namespace dimacs {
 
     };
 };
-
-
-

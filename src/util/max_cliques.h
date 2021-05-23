@@ -86,8 +86,6 @@ class max_cliques : public T {
     unsigned_vector const& next(unsigned vertex) const { return m_next[vertex]; }
     
 public:
-    max_cliques() {}
-
     void add_edge(unsigned src, unsigned dst) {
         m_next.reserve(std::max(src, dst) + 1);
         m_next.reserve(std::max(negate(src), negate(dst)) + 1);

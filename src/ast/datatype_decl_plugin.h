@@ -105,7 +105,6 @@ namespace datatype {
         class size {
             unsigned m_ref{ 0 };
         public:
-            size() {}
             virtual ~size() { }
             void inc_ref() { ++m_ref; }
             void dec_ref();
@@ -124,7 +123,6 @@ namespace datatype {
         struct offset : public size {
             sort_size m_offset;
             offset(sort_size const& s): m_offset(s) {}
-            ~offset() override {}
             size* subst(obj_map<sort,size*>& S) override { return this; }
             sort_size eval(obj_map<sort, sort_size> const& S) override { return m_offset; }
         };
@@ -152,7 +150,6 @@ namespace datatype {
         struct sparam : public size {
             sort_ref m_param;
             sparam(sort_ref& p): m_param(p) {}
-            ~sparam() override {}
             size* subst(obj_map<sort, size*>& S) override;
             sort_size eval(obj_map<sort, sort_size> const& S) override { return S[m_param]; }
         };

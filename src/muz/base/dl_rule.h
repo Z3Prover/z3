@@ -313,7 +313,6 @@ namespace datalog {
         static unsigned get_obj_size(unsigned n) { return sizeof(rule) + n * sizeof(app *); }
 
         rule() : m_ref_cnt(0), m_name(symbol::null) {}
-        ~rule() {}
 
         void deallocate(ast_manager & m);
 

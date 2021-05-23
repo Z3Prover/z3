@@ -94,9 +94,8 @@ public:
    \brief Generic wrapper.
 */
 class object_ref {
-    unsigned m_ref_count;
+    unsigned m_ref_count = 0;
 public:
-    object_ref():m_ref_count(0) {}
     virtual ~object_ref() {}
     virtual void finalize(cmd_context & ctx) = 0;
     void inc_ref(cmd_context & ctx) {

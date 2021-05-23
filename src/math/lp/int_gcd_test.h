@@ -47,7 +47,6 @@ namespace lp {
         void add_to_explanation_from_fixed_or_boxed_column(unsigned j);
     public:
         int_gcd_test(int_solver& lia);
-        ~int_gcd_test() {}
         lia_move operator()();
         bool should_apply();
     };

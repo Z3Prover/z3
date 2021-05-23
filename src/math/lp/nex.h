@@ -54,7 +54,6 @@ public:
     virtual unsigned size() const { return 1; }
     virtual expr_type type() const = 0;
     virtual std::ostream& print(std::ostream&) const = 0;    
-    nex() {}
     bool is_elementary() const {
         switch(type()) {
         case expr_type::SUM:

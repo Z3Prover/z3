@@ -214,12 +214,10 @@ void display_parameters(std::ostream & out, unsigned n, parameter const * p);
    between symbols (family names) and the unique IDs.
 */
 class family_manager {
-    family_id               m_next_id;
+    family_id               m_next_id = 0;
     symbol_table<family_id> m_families;
     svector<symbol>         m_names;
 public:
-    family_manager():m_next_id(0) {}
-
     /**
        \brief Return the family_id for s, a new id is created if !has_family(s)
 
@@ -999,8 +997,8 @@ struct builtin_name {
 */
 class decl_plugin {
 protected:
-    ast_manager * m_manager;
-    family_id     m_family_id;
+    ast_manager * m_manager = nullptr;
+    family_id     m_family_id = null_family_id;
 
     virtual void set_manager(ast_manager * m, family_id id) {
         SASSERT(m_manager == nullptr);
@@ -1024,8 +1022,6 @@ protected:
     friend class ast_manager;
 
 public:
-    decl_plugin():m_manager(nullptr), m_family_id(null_family_id) {}
-
     virtual ~decl_plugin() {}
     virtual void finalize() {}
 
@@ -1354,8 +1350,6 @@ class user_sort_plugin : public decl_plugin {
     svector<symbol> m_sort_names;
     dictionary<int> m_name2decl_kind;
 public:
-    user_sort_plugin() {}
-
     sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
     func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                              unsigned arity, sort * const * domain, sort * range) override;
@@ -2450,7 +2444,6 @@ typedef obj_mark<expr> expr_mark;
 class expr_sparse_mark {
     obj_hashtable<expr> m_marked;
 public:
-    expr_sparse_mark() {}
     bool is_marked(expr * n) const { return m_marked.contains(n); }
     void mark(expr * n) { m_marked.insert(n); }
     void mark(expr * n, bool flag) { if (flag) m_marked.insert(n); else m_marked.erase(n); }
@@ -2461,7 +2454,6 @@ template<unsigned IDX>
 class ast_fast_mark {
     ptr_buffer<ast> m_to_unmark;
 public:
-    ast_fast_mark() {}
     ~ast_fast_mark() {
         reset();
     }
@@ -2603,7 +2595,6 @@ class scoped_mark : public ast_mark {
     unsigned_vector m_lim;
 public:
     scoped_mark(ast_manager& m): m_stack(m) {}
-    ~scoped_mark() override {}
     void mark(ast * n, bool flag) override;
     void reset() override;
     void mark(ast * n);
@@ -2644,7 +2635,3 @@ struct parameter_pp {
 inline std::ostream& operator<<(std::ostream& out, parameter_pp const& pp) {
     return pp.m.display(out, pp.p);
 }
-
-
-
-

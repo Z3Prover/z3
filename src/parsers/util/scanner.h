@@ -39,8 +39,6 @@ public:
 
     scanner(std::istream& stream, std::ostream& err, bool smt2, bool bv_token=false);
 
-    ~scanner() {}    
-    
     int get_line() const { return m_line; }
 
     int get_pos() const { return m_pos; }
@@ -86,5 +84,3 @@ private:
     token read_bv_literal();
     bool state_ok();
 };
-
-

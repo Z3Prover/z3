@@ -44,11 +44,10 @@ typedef enum { HT_FREE,
 template<typename T>
 class default_hash_entry {
     unsigned         m_hash{ 0 }; //!< cached hash code
-    hash_entry_state m_state;
+    hash_entry_state m_state = HT_FREE;
     T                m_data;
 public:
     typedef T         data;
-    default_hash_entry():m_state(HT_FREE), m_data() {}
     unsigned get_hash() const  { return m_hash; }
     bool is_free() const { return m_state == HT_FREE; }
     bool is_deleted() const { return m_state == HT_DELETED; }
@@ -67,10 +66,9 @@ public:
 template<int Free, int Deleted>
 class int_hash_entry {
     unsigned         m_hash; //!< cached hash code
-    int              m_data;
+    int              m_data = Free;
 public:
     typedef int data;
-    int_hash_entry():m_data(Free) {}
     unsigned get_hash() const { return m_hash; }
     bool is_free() const { return m_data == Free; }
     bool is_deleted() const { return m_data == Deleted; }
@@ -89,10 +87,9 @@ public:
 template<typename T>
 class ptr_hash_entry {
     unsigned        m_hash; //!< cached hash code
-    T *             m_ptr;
+    T *             m_ptr = nullptr;
 public:
     typedef T * data;
-    ptr_hash_entry():m_ptr(nullptr) {}
     unsigned get_hash() const { return m_hash; }
     bool is_free() const { return m_ptr == nullptr; }
     bool is_deleted() const { return m_ptr == reinterpret_cast<T *>(1); }
@@ -112,10 +109,9 @@ public:
 */
 template<typename T>
 class ptr_addr_hash_entry : public ptr_hash_entry<T> {
-    T *             m_ptr;
+    T *             m_ptr = nullptr;
 public:
     typedef T * data;
-    ptr_addr_hash_entry():m_ptr(nullptr) {}
     unsigned get_hash() const { return get_ptr_hash(m_ptr); }
     bool is_free() const { return m_ptr == nullptr; }
     bool is_deleted() const { return m_ptr == reinterpret_cast<T *>(1); }

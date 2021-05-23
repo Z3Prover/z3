@@ -54,7 +54,6 @@ namespace array {
             euf::enode_vector   m_lambdas;             // equivalent nodes that have beta reduction properties
             euf::enode_vector   m_parent_lambdas;      // parents that have beta reduction properties
             euf::enode_vector   m_parent_selects;      // parents that use array in select position
-            var_data() {}
         };
 
 

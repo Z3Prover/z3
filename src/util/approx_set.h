@@ -164,7 +164,7 @@ typedef approx_set_tpl<unsigned, u2u> u_approx_set;
 
 class approx_set : public u_approx_set {
 public:
-    approx_set():u_approx_set() {}
+    approx_set() = default;
     approx_set(unsigned e):u_approx_set(e) {}
     
     class iterator {
