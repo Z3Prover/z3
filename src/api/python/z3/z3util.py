@@ -473,7 +473,8 @@ def myImplies(a, b):
     return myBinOp(Z3_OP_IMPLIES, [a, b])
 
 
-def Iff(f): return And(Implies(f[0], f[1]), Implies(f[1], f[0]))
+def Iff(f):
+    return And(Implies(f[0], f[1]), Implies(f[1], f[0]))
 
 
 def model_str(m, as_str=True):

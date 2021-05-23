@@ -1683,10 +1683,10 @@ def BoolVal(val, ctx=None):
     True
     """
     ctx = _get_ctx(ctx)
-    if val == False:
-        return BoolRef(Z3_mk_false(ctx.ref()), ctx)
-    else:
+    if val:
         return BoolRef(Z3_mk_true(ctx.ref()), ctx)
+    else:
+        return BoolRef(Z3_mk_false(ctx.ref()), ctx)
 
 
 def Bool(name, ctx=None):
