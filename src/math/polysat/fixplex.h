@@ -221,6 +221,7 @@ namespace polysat {
         void fixed_var_eh(row const& r, var_t x);
         void eq_eh(var_t x, var_t y, row const& r1, row const& r2);
         void propagate_bounds(row const& r);
+        void propagate_bounds(ineq const& i);
         void new_bound(row const& r, var_t x, mod_interval<numeral> const& range);
         void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& value);
         numeral value2delta(var_t v, numeral const& new_value) const;

@@ -14,6 +14,49 @@ Author:
     Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-6
 
+Notes:
+
+Equality pivoting.
+==================
+
+Similar to normal pivoting except base variable must have minimal power of 2
+to ensure that pivoting preserves solutions (Olm-Seidl condition).
+
+Assigning values to base variables could be revised.
+It is desirable to entirely avoid computing values for base variables.
+The requirement is really to establish that there exists a solution within bounds.
+
+
+
+Inequality handling.
+====================
+
+- try patch:
+  x <= y, value(x) > value(y):
+   - x is non-basic: value(x) := value(y); update values of basic.
+   - y is non-basic: value(y) := value(x); update values of basic.
+   - x (y) is basic: pivot, update
+       
+- conflict and bounds:
+  x <= y, lo(x) > hi(y)  
+  x < y, lo(x) >= hi(y)  
+  Conflict detection depends on effectiveness of bounds propagation
+
+  Test case:
+    x <= y, y <= z, z < x should result in a conflict without branching.
+
+- branch (and bound):
+  x <= y, value(x) > value(y):
+     Let delta = (value(x) + value(y)) / 2 (computed as (value(x) - value(y)) / 2 + value(y))
+     case split:
+        x <= delta or x > delta
+     
+     Case x <= delta blocks current solution.
+     Case x > delta incurs bounds propagation on y, y > delta, that also blocks current solution.
+
+- cuts:
+  would be good to understand how to adapt a notion of cuts for modular case.       
+
 --*/
 
 #pragma once
@@ -834,7 +877,6 @@ namespace polysat {
      * Cases 
      * c = 1: x = -row_value
      * c = -1: x = row_value
-     * row_value = 0
      * Analytic solutions:
      * trailing_zeros(c) <= trailing_zeros(row_value):
      *   x = - inverse(c >> trailing_zeros(c)) * row_value << (trailing_zeros(row_value) - trailing_zeros(c))
@@ -990,6 +1032,8 @@ namespace polysat {
     void fixplex<Ext>::propagate_bounds() {
         for (unsigned i = 0; i < m_rows.size(); ++i) 
             propagate_bounds(row(i));
+        for (auto ineq : m_ineqs) 
+            propagate_bounds(ineq);
     }
 
     /**
@@ -1035,6 +1079,24 @@ namespace polysat {
             // SASSERT(in_bounds(v));
         }
     }
+
+    template<typename Ext>
+    void fixplex<Ext>::propagate_bounds(ineq const& i) {
+        // v < w => hi(v) < hi(w)
+        // v < w => lo(v) < lo(w)
+        // v <= w => hi(v) <= hi(w)
+        // v <= w => lo(v) <= lo(w)
+        var_t v = i.v, w = i.w;
+        if (i.strict && hi(v) >= hi(w))
+            ;
+        if (i.strict && lo(v) >= lo(w))
+            ;
+        if (!i.strict && hi(v) > hi(w))
+            ;
+        if (!i.strict && lo(v) > lo(w))
+            ;
+    }
+    
 
     template<typename Ext>
     void fixplex<Ext>::new_bound(row const& r, var_t x, mod_interval<numeral> const& range) {
