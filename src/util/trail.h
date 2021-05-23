@@ -26,8 +26,7 @@ Revision History:
 
 class trail {
 public:
-    virtual ~trail() {
-    }
+    virtual ~trail() {}
     virtual void undo() = 0;
 };
 
@@ -48,9 +47,6 @@ public:
         m_value = new_value;
     }
 
-    ~value_trail() override {
-    }
-
     void undo() override {
         m_value = m_old_value;
     }
@@ -69,9 +65,6 @@ public:
         m_values(values) {
     }
     
-    ~scoped_value_trail() override {
-    }
-    
     void undo() override {
         m_value = m_values.back();
         m_values.pop_back();
@@ -84,9 +77,6 @@ class reset_flag_trail : public trail {
 public:
     reset_flag_trail(bool & value):
         m_value(value) {
-    }
-
-    ~reset_flag_trail() override {
     }
 
     void undo() override {
@@ -121,8 +111,7 @@ public:
         m_vector(v),
         m_old_size(v.size()) {
     }
-    ~restore_size_trail() override {
-    }
+
     void undo() override {
         m_vector.shrink(m_old_size);
     }
@@ -138,9 +127,6 @@ public:
         m_vector(v),
         m_idx(idx),
         m_old_value(v[idx]) {
-    }
-
-    ~vector_value_trail() override {
     }
 
     void undo() override {
@@ -162,9 +148,6 @@ public:
         m_old_value(v[i][j]) {
     }
 
-    ~vector2_value_trail() override {
-    }
-
     void undo() override {
         m_vector[m_i][m_j] = m_old_value;
     }
@@ -177,7 +160,6 @@ class insert_obj_map : public trail {
     D*                m_obj;
 public:
     insert_obj_map(obj_map<D,R>& t, D* o) : m_map(t), m_obj(o) {}
-    ~insert_obj_map() override {}
     void undo() override { m_map.remove(m_obj); }
 };
 
@@ -188,7 +170,6 @@ class remove_obj_map : public trail {
     R                 m_value;
 public:
     remove_obj_map(obj_map<D,R>& t, D* o, R v) : m_map(t), m_obj(o), m_value(v) {}
-    ~remove_obj_map() override {}
     void undo() override { m_map.insert(m_obj, m_value); }
 };
 
@@ -198,7 +179,6 @@ class insert_map : public trail {
     D             m_obj;
 public:
     insert_map(M& t, D o) : m_map(t), m_obj(o) {}
-    ~insert_map() override {}
     void undo() override { m_map.remove(m_obj); }
 };
 
@@ -210,8 +190,7 @@ class insert_ref_map : public trail {
     D             m_obj;
 public:
     insert_ref_map(Mgr& m, M& t, D o) : m(m), m_map(t), m_obj(o) {}
-    virtual ~insert_ref_map() {}
-    virtual void undo() { m_map.remove(m_obj); m.dec_ref(m_obj); }
+    void undo() override { m_map.remove(m_obj); m.dec_ref(m_obj); }
 };
 
 template<typename Mgr, typename D, typename R>
@@ -222,8 +201,7 @@ class insert_ref2_map : public trail {
     R*             m_val;
 public:
     insert_ref2_map(Mgr& m, obj_map<D,R*>& t, D*o, R*r) : m(m), m_map(t), m_obj(o), m_val(r) {}
-    virtual ~insert_ref2_map() {}
-    virtual void undo() { m_map.remove(m_obj); m.dec_ref(m_obj); m.dec_ref(m_val); }
+    void undo() override { m_map.remove(m_obj); m.dec_ref(m_obj); m.dec_ref(m_val); }
 };
 
 
@@ -248,9 +226,6 @@ public:
     set_vector_idx_trail(ptr_vector<T> & v, unsigned idx):
         m_vector(v),
         m_idx(idx) {
-    }
-
-    ~set_vector_idx_trail() override {
     }
 
     void undo() override {
@@ -286,7 +261,7 @@ public:
     m_value(m_vector[index].back()) {
     }
 
-    virtual void undo() {
+    void undo() override {
         m_vector[m_index].push_back(m_value);
     }
 };
@@ -317,7 +292,7 @@ public:
     m_index(index) {
     }
 
-    virtual void undo() {
+    void undo() override {
         m_vector[m_index].pop_back();
     }
 };
@@ -351,9 +326,6 @@ public:
         m_idx(idx),
         m_hist(hist) {}
     
-    ~history_trail() override {
-    }
-    
     void undo() override {
         m_dst[m_idx] = m_hist.back();
         m_hist.pop_back();
@@ -382,7 +354,7 @@ public:
         m_obj(obj) {
     }
 
-    virtual void undo() {
+    void undo() override {
         m_obj.reset();
     }
 };
@@ -393,7 +365,6 @@ class insert_obj_trail : public trail {
     T*                m_obj;
 public:
     insert_obj_trail(obj_hashtable<T>& t, T* o) : m_table(t), m_obj(o) {}
-    ~insert_obj_trail() override {}
     void undo() override { m_table.remove(m_obj); }
 };
 
@@ -404,8 +375,7 @@ class remove_obj_trail : public trail {
     T*                m_obj;
 public:
     remove_obj_trail(obj_hashtable<T>& t, T* o) : m_table(t), m_obj(o) {}
-    virtual ~remove_obj_trail() {}
-    virtual void undo() { m_table.insert(m_obj); }
+    void undo() override { m_table.insert(m_obj); }
 };
 
 
@@ -425,10 +395,6 @@ class trail_stack {
     unsigned_vector         m_scopes;
     region                  m_region;
 public:
-    trail_stack() {}
-
-    ~trail_stack() {}
-
     region & get_region() { return m_region; }
 
     void reset() {
@@ -457,4 +423,3 @@ public:
         m_region.pop_scope(num_scopes);
     }
 };
-

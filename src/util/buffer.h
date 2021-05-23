@@ -81,7 +81,7 @@ public:
         }
     }
 
-    buffer(buffer && source) {
+    buffer(buffer && source) noexcept {
         if (source.m_buffer == reinterpret_cast<T*>(source.m_initial_buffer)) {
             for (unsigned i = 0, sz = source.size(); i < sz; ++i) {
                 push_back(std::move(source.m_buffer[i]));
