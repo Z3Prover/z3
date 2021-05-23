@@ -38,39 +38,27 @@ Revision History:
 // -----------------------------------
 
 parameter::~parameter() {
-    if (m_kind == PARAM_RATIONAL) {
-        dealloc(m_rational);
+    if (auto p = std::get_if<rational*>(&m_val)) {
+        dealloc(*p);
     }
-    if (m_kind == PARAM_ZSTRING) {
-        dealloc(m_zstring);
+    if (auto p = std::get_if<zstring*>(&m_val)) {
+        dealloc(*p);
     }
-}
-
-parameter::parameter(parameter const& other) {
-    m_kind = PARAM_INT;
-    m_int = 0;
-    *this = other;
 }
 
 parameter& parameter::operator=(parameter const& other) {
     if (this == &other) {
         return *this;
     }
-    if (m_kind == PARAM_RATIONAL) {
-        dealloc(m_rational);
+
+    this->~parameter();
+    m_val = other.m_val;
+
+    if (auto p = std::get_if<rational*>(&m_val)) {
+        m_val = alloc(rational, **p);
     }
-    m_kind = other.m_kind;
-    switch(other.m_kind) {
-    case PARAM_INT: m_int = other.get_int(); break;
-    case PARAM_AST: m_ast = other.get_ast(); break;
-    case PARAM_SYMBOL: m_symbol = other.m_symbol; break;
-    case PARAM_RATIONAL: m_rational = alloc(rational, other.get_rational()); break;
-    case PARAM_DOUBLE: m_dval = other.m_dval; break;
-    case PARAM_EXTERNAL: m_ext_id = other.m_ext_id; break;
-    case PARAM_ZSTRING: m_zstring = alloc(zstring, other.get_zstring()); break;
-    default:
-        UNREACHABLE();
-        break;
+    if (auto p = std::get_if<zstring*>(&m_val)) {
+        m_val = alloc(zstring, **p);
     }
     return *this;
 }
@@ -95,45 +83,40 @@ void parameter::del_eh(ast_manager & m, family_id fid) {
 }
 
 bool parameter::operator==(parameter const & p) const {
-    if (m_kind != p.m_kind) return false;
-    switch(m_kind) {
-    case PARAM_INT: return m_int == p.m_int;
-    case PARAM_AST: return m_ast == p.m_ast;
-    case PARAM_SYMBOL: return get_symbol() == p.get_symbol();
+    if (get_kind() != p.get_kind()) return false;
+    switch (get_kind()) {
     case PARAM_RATIONAL: return get_rational() == p.get_rational();
-    case PARAM_DOUBLE: return m_dval == p.m_dval;
-    case PARAM_EXTERNAL: return m_ext_id == p.m_ext_id;
     case PARAM_ZSTRING: return get_zstring() == p.get_zstring();
-    default: UNREACHABLE(); return false;
+    default: return m_val == p.m_val;
     }
 }
 
 unsigned parameter::hash() const {
     unsigned b = 0;
-    switch(m_kind) {
-    case PARAM_INT:      b = m_int; break;
-    case PARAM_AST:      b = m_ast->hash(); break;
+    switch (get_kind()) {
+    case PARAM_INT:      b = get_int(); break;
+    case PARAM_AST:      b = get_ast()->hash(); break;
     case PARAM_SYMBOL:   b = get_symbol().hash(); break;
     case PARAM_RATIONAL: b = get_rational().hash(); break;
-    case PARAM_DOUBLE:   b = static_cast<unsigned>(m_dval); break;
+    case PARAM_DOUBLE:   b = static_cast<unsigned>(get_double()); break;
     case PARAM_ZSTRING:  b = get_zstring().hash(); break;
-    case PARAM_EXTERNAL: b = m_ext_id; break;
+    case PARAM_EXTERNAL: b = get_ext_id(); break;
     }
-    return (b << 2) | m_kind;
+    return (b << 2) | get_kind();
 }
 
 std::ostream& parameter::display(std::ostream& out) const {
-    switch(m_kind) {
+    switch (get_kind()) {
     case PARAM_INT:      return out << get_int();
     case PARAM_SYMBOL:   return out << get_symbol();
     case PARAM_RATIONAL: return out << get_rational();
-    case PARAM_AST:      return out << "#" << get_ast()->get_id();
-    case PARAM_DOUBLE:   return out << m_dval;
-    case PARAM_EXTERNAL: return out << "@" << m_ext_id;
+    case PARAM_AST:      return out << '#' << get_ast()->get_id();
+    case PARAM_DOUBLE:   return out << get_double();
+    case PARAM_EXTERNAL: return out << '@' << get_ext_id();
     case PARAM_ZSTRING:  return out << get_zstring();
     default:
         UNREACHABLE();
-        return out << "[invalid parameter]";
+        return out;
     }
 }
 
