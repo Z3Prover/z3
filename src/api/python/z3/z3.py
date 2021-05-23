@@ -1822,10 +1822,10 @@ def And(*args):
     """
     last_arg = None
     if len(args) > 0:
-        last_arg = args[len(args)-1]
+        last_arg = args[len(args) - 1]
     if isinstance(last_arg, Context):
-        ctx = args[len(args)-1]
-        args = args[:len(args)-1]
+        ctx = args[len(args) - 1]
+        args = args[:len(args) - 1]
     elif len(args) == 1 and isinstance(args[0], AstVector):
         ctx = args[0].ctx
         args = [a for a in args[0]]
@@ -1855,10 +1855,10 @@ def Or(*args):
     """
     last_arg = None
     if len(args) > 0:
-        last_arg = args[len(args)-1]
+        last_arg = args[len(args) - 1]
     if isinstance(last_arg, Context):
-        ctx = args[len(args)-1]
-        args = args[:len(args)-1]
+        ctx = args[len(args) - 1]
+        args = args[:len(args) - 1]
     elif len(args) == 1 and isinstance(args[0], AstVector):
         ctx = args[0].ctx
         args = [a for a in args[0]]
@@ -3191,7 +3191,7 @@ def RatVal(a, b, ctx=None):
     if z3_debug():
         _z3_assert(_is_int(a) or isinstance(a, str), "First argument cannot be converted into an integer")
         _z3_assert(_is_int(b) or isinstance(b, str), "Second argument cannot be converted into an integer")
-    return simplify(RealVal(a, ctx)/RealVal(b, ctx))
+    return simplify(RealVal(a, ctx) / RealVal(b, ctx))
 
 
 def Q(a, b, ctx=None):
@@ -4083,7 +4083,7 @@ def Concat(*args):
         _z3_assert(all([is_bv(a) for a in args]), "All arguments must be Z3 bit-vector expressions.")
     r = args[0]
     for i in range(sz - 1):
-        r = BitVecRef(Z3_mk_concat(ctx.ref(), r.as_ast(), args[i+1].as_ast()), ctx)
+        r = BitVecRef(Z3_mk_concat(ctx.ref(), r.as_ast(), args[i + 1].as_ast()), ctx)
     return r
 
 
@@ -6840,7 +6840,7 @@ class Solver(Z3PPObject):
         Z3_solver_push(self.ctx.ref(), self.solver)
 
     def pop(self, num=1):
-        """Backtrack \c num backtracking points.
+        """Backtrack \\c num backtracking points.
 
         >>> x = Int('x')
         >>> s = Solver()
@@ -8181,7 +8181,7 @@ def AndThen(*ts, **ks):
     num = len(ts)
     r = ts[0]
     for i in range(num - 1):
-        r = _and_then(r, ts[i+1], ctx)
+        r = _and_then(r, ts[i + 1], ctx)
     return r
 
 
@@ -8215,7 +8215,7 @@ def OrElse(*ts, **ks):
     num = len(ts)
     r = ts[0]
     for i in range(num - 1):
-        r = _or_else(r, ts[i+1], ctx)
+        r = _or_else(r, ts[i + 1], ctx)
     return r
 
 
@@ -8568,7 +8568,7 @@ def _probe_nary(f, args, ctx):
     num = len(args)
     r = _to_probe(args[0], ctx)
     for i in range(num - 1):
-        r = Probe(f(ctx.ref(), r.probe, _to_probe(args[i+1], ctx).probe), ctx)
+        r = Probe(f(ctx.ref(), r.probe, _to_probe(args[i + 1], ctx).probe), ctx)
     return r
 
 
@@ -9764,7 +9764,7 @@ def _to_float_str(val, exp=0):
             res = val
         elif val[-1] == ')':
             res = val[0:inx]
-            exp = str(int(val[inx+5:-1]) + int(exp))
+            exp = str(int(val[inx + 5:-1]) + int(exp))
         else:
             _z3_assert(False, "String does not have floating-point numeral form.")
     elif z3_debug():

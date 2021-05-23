@@ -37,7 +37,7 @@ class Numeral:
     >>> Numeral(Sqrt(2)) + Numeral(Sqrt(3))
     3.1462643699?
 
-    Z3 numerals can be used to perform computations with 
+    Z3 numerals can be used to perform computations with
     values in a Z3 model.
 
     >>> s = Solver()
@@ -185,8 +185,8 @@ class Numeral:
         return Fraction(self.numerator().as_long(), self.denominator().as_long())
 
     def approx(self, precision=10):
-        """Return a numeral that approximates the numeral `self`. 
-        The result `r` is such that |r - self| <= 1/10^precision 
+        """Return a numeral that approximates the numeral `self`.
+        The result `r` is such that |r - self| <= 1/10^precision
 
         If `self` is rational, then the result is `self`.
 
@@ -201,8 +201,8 @@ class Numeral:
         return self.upper(precision)
 
     def upper(self, precision=10):
-        """Return a upper bound that approximates the numeral `self`. 
-        The result `r` is such that r - self <= 1/10^precision 
+        """Return a upper bound that approximates the numeral `self`.
+        The result `r` is such that r - self <= 1/10^precision
 
         If `self` is rational, then the result is `self`.
 
@@ -220,8 +220,8 @@ class Numeral:
             return Numeral(Z3_get_algebraic_number_upper(self.ctx_ref(), self.as_ast(), precision), self.ctx)
 
     def lower(self, precision=10):
-        """Return a lower bound that approximates the numeral `self`. 
-        The result `r` is such that self - r <= 1/10^precision 
+        """Return a lower bound that approximates the numeral `self`.
+        The result `r` is such that self - r <= 1/10^precision
 
         If `self` is rational, then the result is `self`.
 
@@ -355,7 +355,7 @@ class Numeral:
 
     def __rdiv__(self, other):
         """ Return the numeral `other / self`.
-        >>> 3 / Numeral(2) 
+        >>> 3 / Numeral(2)
         3/2
         >>> 3 / Numeral(2).root(2)
         2.1213203435?
@@ -417,7 +417,7 @@ class Numeral:
     def __rlt__(self, other):
         """ Return True if `other < self`.
 
-        >>> 2 < Numeral(Sqrt(2)) 
+        >>> 2 < Numeral(Sqrt(2))
         False
         """
         return self > other
@@ -457,7 +457,7 @@ class Numeral:
     def __rle__(self, other):
         """ Return True if `other <= self`.
 
-        >>> 2 <= Numeral(Sqrt(2)) 
+        >>> 2 <= Numeral(Sqrt(2))
         False
         """
         return self >= other
@@ -526,7 +526,7 @@ class Numeral:
 
 
 def eval_sign_at(p, vs):
-    """ 
+    """
     Evaluate the sign of the polynomial `p` at `vs`.  `p` is a Z3
     Expression containing arithmetic operators: +, -, *, ^k where k is
     an integer; and free variables x that is_var(x) is True. Moreover,
@@ -552,7 +552,7 @@ def eval_sign_at(p, vs):
 
 def isolate_roots(p, vs=[]):
     """
-    Given a multivariate polynomial p(x_0, ..., x_{n-1}, x_n), returns the 
+    Given a multivariate polynomial p(x_0, ..., x_{n-1}, x_n), returns the
     roots of the univariate polynomial p(vs[0], ..., vs[len(vs)-1], x_n).
 
     Remarks:

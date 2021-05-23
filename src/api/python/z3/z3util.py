@@ -7,7 +7,7 @@
 #          ThanhVu (Vu) Nguyen <tnguyen@cs.unm.edu>
 ############################################
 """
-Usage:  
+Usage:
 import common_z3 as CM_Z3
 """
 
@@ -65,7 +65,7 @@ def get_z3_version(as_str=False):
 def ehash(v):
     """
     Returns a 'stronger' hash value than the default hash() method.
-    The result from hash() is not enough to distinguish between 2 
+    The result from hash() is not enough to distinguish between 2
     z3 expressions in some cases.
 
     Note: the following doctests will fail with Python 2.x as the
@@ -84,7 +84,7 @@ def ehash(v):
 
 
 """
-In Z3, variables are called *uninterpreted* consts and 
+In Z3, variables are called *uninterpreted* consts and
 variables are *interpreted* consts.
 """
 
@@ -203,11 +203,11 @@ def prove(claim, assume=None, verbose=0):
     AssertionError: Assumption is always False!
 
     >>> r,m = prove(Implies(x,x),assume=y,verbose=2); r,model_str(m,as_str=False)
-    assume: 
+    assume:
     y
-    claim: 
+    claim:
     Implies(x, x)
-    to_prove: 
+    to_prove:
     Implies(y, Implies(x, x))
     (True, None)
 
@@ -279,7 +279,7 @@ def get_models(f, k):
     If f is not satisfiable, returns False.
     If f cannot be solved, returns None
     If f is satisfiable, returns the first k models
-    Note that if f is a tautology, e.g.\ True, then the result is []
+    Note that if f is a tautology, e.g.\\ True, then the result is []
 
     Based on http://stackoverflow.com/questions/11867611/z3py-checking-all-solutions-for-equation
 
@@ -479,12 +479,12 @@ def Iff(f): return And(Implies(f[0], f[1]), Implies(f[1], f[0]))
 def model_str(m, as_str=True):
     """
     Returned a 'sorted' model (so that it's easier to see)
-    The model is sorted by its key, 
-    e.g. if the model is y = 3 , x = 10, then the result is 
+    The model is sorted by its key,
+    e.g. if the model is y = 3 , x = 10, then the result is
     x = 10, y = 3
 
     EXAMPLES:
-    see doctest exampels from function prove() 
+    see doctest exampels from function prove()
 
     """
     if z3_debug():

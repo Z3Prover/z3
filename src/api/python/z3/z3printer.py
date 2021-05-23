@@ -248,7 +248,7 @@ def _op_name(a):
         f = a.decl()
     k = f.kind()
     n = _z3_op_to_str.get(k, None)
-    if n == None:
+    if n is None:
         return f.name()
     else:
         return n
@@ -305,7 +305,7 @@ def _html_op_name(a):
         f = a.decl()
     k = f.kind()
     n = _z3_html_op_to_str.get(k, None)
-    if n == None:
+    if n is None:
         sym = Z3_get_decl_name(f.ctx_ref(), f.ast)
         if Z3_get_symbol_kind(f.ctx_ref(), sym) == Z3_INT_SYMBOL:
             return "&#950;<sub>%s</sub>" % Z3_get_symbol_int(f.ctx_ref(), sym)
@@ -460,7 +460,7 @@ def to_format(arg, size=None):
         return arg
     else:
         r = StringFormatObject(str(arg))
-        if size != None:
+        if size is not None:
             r.size = size
         return r
 
@@ -500,7 +500,7 @@ def seq(args, sep=',', space=True):
     for i in range(num - 1):
         r.append(to_format(sep))
         r.append(nl)
-        r.append(args[i+1])
+        r.append(args[i + 1])
     return compose(r)
 
 
@@ -782,8 +782,8 @@ class Formatter:
             if self.is_infix(k) and n >= 3:
                 rm = a.arg(0)
                 if z3.is_fprm_value(rm) and z3.get_default_rounding_mode(a.ctx).eq(rm):
-                    arg1 = to_format(self.pp_expr(a.arg(1), d+1, xs))
-                    arg2 = to_format(self.pp_expr(a.arg(2), d+1, xs))
+                    arg1 = to_format(self.pp_expr(a.arg(1), d + 1, xs))
+                    arg2 = to_format(self.pp_expr(a.arg(2), d + 1, xs))
                     r = []
                     r.append(arg1)
                     r.append(to_format(' '))
@@ -792,7 +792,7 @@ class Formatter:
                     r.append(arg2)
                     return compose(r)
             elif k == Z3_OP_FPA_NEG:
-                return compose([to_format('-'), to_format(self.pp_expr(a.arg(0), d+1, xs))])
+                return compose([to_format('-'), to_format(self.pp_expr(a.arg(0), d + 1, xs))])
 
         if k in _z3_op_to_fpa_normal_str:
             op = _z3_op_to_fpa_normal_str[k]
@@ -807,7 +807,7 @@ class Formatter:
                     first = False
                 else:
                     r.append(to_format(', '))
-                r.append(self.pp_expr(c, d+1, xs))
+                r.append(self.pp_expr(c, d + 1, xs))
             r.append(to_format(')'))
             return compose(r)
         else:
@@ -817,7 +817,7 @@ class Formatter:
         r = []
         sz = 0
         for child in a.children():
-            r.append(self.pp_expr(child, d+1, xs))
+            r.append(self.pp_expr(child, d + 1, xs))
             sz = sz + 1
             if sz > self.max_args:
                 r.append(self.pp_ellipses())
@@ -836,7 +836,7 @@ class Formatter:
         p = self.get_precedence(k)
         first = True
         for child in a.children():
-            child_pp = self.pp_expr(child, d+1, xs)
+            child_pp = self.pp_expr(child, d + 1, xs)
             child_k = None
             if z3.is_app(child):
                 child_k = child.decl().kind()
@@ -886,7 +886,7 @@ class Formatter:
         child_k = None
         if z3.is_app(child):
             child_k = child.decl().kind()
-        child_pp = self.pp_expr(child, d+1, xs)
+        child_pp = self.pp_expr(child, d + 1, xs)
         if k != child_k and self.is_infix_unary(child_k):
             child_p = self.get_precedence(child_k)
             if p <= child_p:
@@ -897,7 +897,7 @@ class Formatter:
         return compose(to_format(name), indent(_len(name), child_pp))
 
     def pp_power_arg(self, arg, d, xs):
-        r = self.pp_expr(arg, d+1, xs)
+        r = self.pp_expr(arg, d + 1, xs)
         k = None
         if z3.is_app(arg):
             k = arg.decl().kind()
@@ -907,8 +907,8 @@ class Formatter:
             return r
 
     def pp_power(self, a, d, xs):
-        arg1_pp = self.pp_power_arg(a.arg(0), d+1, xs)
-        arg2_pp = self.pp_power_arg(a.arg(1), d+1, xs)
+        arg1_pp = self.pp_power_arg(a.arg(0), d + 1, xs)
+        arg2_pp = self.pp_power_arg(a.arg(1), d + 1, xs)
         return group(seq((arg1_pp, arg2_pp), '**', False))
 
     def pp_neq(self):
@@ -928,24 +928,24 @@ class Formatter:
         if a.num_args() != 2:
             return self.pp_prefix(a, d, xs)
         else:
-            arg1_pp = self.pp_expr(a.arg(0), d+1, xs)
-            arg2_pp = self.pp_expr(a.arg(1), d+1, xs)
+            arg1_pp = self.pp_expr(a.arg(0), d + 1, xs)
+            arg2_pp = self.pp_expr(a.arg(1), d + 1, xs)
             return compose(arg1_pp, indent(2, compose(to_format('['), arg2_pp, to_format(']'))))
 
     def pp_unary_param(self, a, d, xs):
         p = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 0)
-        arg = self.pp_expr(a.arg(0), d+1, xs)
+        arg = self.pp_expr(a.arg(0), d + 1, xs)
         return seq1(self.pp_name(a), [to_format(p), arg])
 
     def pp_extract(self, a, d, xs):
         h = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 0)
         l = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 1)
-        arg = self.pp_expr(a.arg(0), d+1, xs)
+        arg = self.pp_expr(a.arg(0), d + 1, xs)
         return seq1(self.pp_name(a), [to_format(h), to_format(l), arg])
 
     def pp_loop(self, a, d, xs):
         l = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 0)
-        arg = self.pp_expr(a.arg(0), d+1, xs)
+        arg = self.pp_expr(a.arg(0), d + 1, xs)
         if Z3_get_decl_num_parameters(a.ctx_ref(), a.decl().ast) > 1:
             h = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 1)
             return seq1("Loop", [arg, to_format(l), to_format(h)])
@@ -958,7 +958,7 @@ class Formatter:
         if a.num_args() == 1:
             return self.pp_expr(a.arg(0), d, xs)
         else:
-            return seq1('MultiPattern', [self.pp_expr(arg, d+1, xs) for arg in a.children()])
+            return seq1('MultiPattern', [self.pp_expr(arg, d + 1, xs) for arg in a.children()])
 
     def pp_is(self, a, d, xs):
         f = a.params()[0]
@@ -973,7 +973,7 @@ class Formatter:
         sz = 0
         r.append(to_format(f.name()))
         for child in a.children():
-            r.append(self.pp_expr(child, d+1, xs))
+            r.append(self.pp_expr(child, d + 1, xs))
             sz = sz + 1
             if sz > self.max_args:
                 r.append(self.pp_ellipses())
@@ -981,18 +981,18 @@ class Formatter:
         return seq1(self.pp_name(a), r)
 
     def pp_K(self, a, d, xs):
-        return seq1(self.pp_name(a), [self.pp_sort(a.domain()), self.pp_expr(a.arg(0), d+1, xs)])
+        return seq1(self.pp_name(a), [self.pp_sort(a.domain()), self.pp_expr(a.arg(0), d + 1, xs)])
 
     def pp_atmost(self, a, d, f, xs):
         k = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 0)
-        return seq1(self.pp_name(a), [seq3([self.pp_expr(ch, d+1, xs) for ch in a.children()]), to_format(k)])
+        return seq1(self.pp_name(a), [seq3([self.pp_expr(ch, d + 1, xs) for ch in a.children()]), to_format(k)])
 
     def pp_pbcmp(self, a, d, f, xs):
         chs = a.children()
         rchs = range(len(chs))
         k = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 0)
-        ks = [Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, i+1) for i in rchs]
-        ls = [seq3([self.pp_expr(chs[i], d+1, xs), to_format(ks[i])]) for i in rchs]
+        ks = [Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, i + 1) for i in rchs]
+        ls = [seq3([self.pp_expr(chs[i], d + 1, xs), to_format(ks[i])]) for i in rchs]
         return seq1(self.pp_name(a), [seq3(ls), to_format(k)])
 
     def pp_app(self, a, d, xs):
@@ -1065,7 +1065,7 @@ class Formatter:
     def pp_quantifier(self, a, d, xs):
         ys = [to_format(a.var_name(i)) for i in range(a.num_vars())]
         new_xs = xs + ys
-        body_pp = self.pp_expr(a.body(), d+1, new_xs)
+        body_pp = self.pp_expr(a.body(), d + 1, new_xs)
         if len(ys) == 1:
             ys_pp = ys[0]
         else:
@@ -1106,7 +1106,7 @@ class Formatter:
         r = []
         sz = 0
         for elem in a:
-            r.append(f(elem, d+1, xs))
+            r.append(f(elem, d + 1, xs))
             sz = sz + 1
             if sz > self.max_args:
                 r.append(self.pp_ellipses())
@@ -1160,7 +1160,7 @@ class Formatter:
                 break
         if sz <= self.max_args:
             else_val = f.else_value()
-            if else_val == None:
+            if else_val is None:
                 else_pp = to_format('#unspecified')
             else:
                 else_pp = self.pp_expr(else_val, 0, [])
@@ -1240,7 +1240,7 @@ class HTMLFormatter(Formatter):
                 if pos + 2 == sz:
                     return to_format(r)
                 else:
-                    return to_format('%s<sub>%s</sub>' % (r[0:pos], r[pos+2:sz]), sz - 2)
+                    return to_format('%s<sub>%s</sub>' % (r[0:pos], r[pos + 2:sz]), sz - 2)
 
     def is_assoc(self, k):
         return _is_html_assoc(k)
@@ -1261,8 +1261,8 @@ class HTMLFormatter(Formatter):
         return to_format("&ne;")
 
     def pp_power(self, a, d, xs):
-        arg1_pp = self.pp_power_arg(a.arg(0), d+1, xs)
-        arg2_pp = self.pp_expr(a.arg(1), d+1, xs)
+        arg1_pp = self.pp_power_arg(a.arg(0), d + 1, xs)
+        arg2_pp = self.pp_expr(a.arg(1), d + 1, xs)
         return compose(arg1_pp, to_format('<sup>', 1), arg2_pp, to_format('</sup>', 1))
 
     def pp_var(self, a, d, xs):
@@ -1277,7 +1277,7 @@ class HTMLFormatter(Formatter):
     def pp_quantifier(self, a, d, xs):
         ys = [to_format(a.var_name(i)) for i in range(a.num_vars())]
         new_xs = xs + ys
-        body_pp = self.pp_expr(a.body(), d+1, new_xs)
+        body_pp = self.pp_expr(a.body(), d + 1, new_xs)
         ys_pp = group(seq(ys))
         if a.is_forall():
             header = '&forall;'
@@ -1305,13 +1305,13 @@ def set_pp_option(k, v):
             set_fpa_pretty(False)
         return True
     val = getattr(_PP, k, None)
-    if val != None:
-        _z3_assert(type(v) == type(val), "Invalid pretty print option value")
+    if val is not None:
+        _z3_assert(isinstance(v, type(val)), "Invalid pretty print option value")
         setattr(_PP, k, v)
         return True
     val = getattr(_Formatter, k, None)
-    if val != None:
-        _z3_assert(type(v) == type(val), "Invalid pretty print option value")
+    if val is not None:
+        _z3_assert(isinstance(v, type(val)), "Invalid pretty print option value")
         setattr(_Formatter, k, v)
         return True
     return False

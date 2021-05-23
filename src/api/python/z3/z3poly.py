@@ -15,9 +15,9 @@ def subresultants(p, q, x):
 
     'p', 'q' and 'x' are Z3 expressions where 'p' and 'q' are arithmetic terms.
     Note that, any subterm that cannot be viewed as a polynomial is assumed to be a variable.
-    Example: f(a) is a considered to be a variable b in the polynomial       
+    Example: f(a) is a considered to be a variable b in the polynomial
 
-    f(a)*f(a) + 2*f(a) + 1 
+    f(a)*f(a) + 2*f(a) + 1
 
     >>> x, y = Reals('x y')
     >>> subresultants(2*x + y, 3*x - 2*y + 2, x)
