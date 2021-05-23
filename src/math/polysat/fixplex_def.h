@@ -1086,17 +1086,31 @@ namespace polysat {
         // v < w => lo(v) < lo(w)
         // v <= w => hi(v) <= hi(w)
         // v <= w => lo(v) <= lo(w)
+        // TBD: detect conflicts, 
+        // ensure overflow / underflow conditions
         var_t v = i.v, w = i.w;
         if (i.strict && hi(v) >= hi(w))
-            ;
+            new_bound(i, v, lo(v), hi(w) - 1);
         if (i.strict && lo(v) >= lo(w))
-            ;
+            new_bound(i, w, lo(v) + 1, hi(w));
         if (!i.strict && hi(v) > hi(w))
-            ;
+            new_bound(i, v, lo(v), hi(w));
         if (!i.strict && lo(v) > lo(w))
-            ;
+            new_bound(i, w, lo(v), hi(w));
     }
-    
+
+    template<typename Ext>
+    void fixplex<Ext>::new_bound(ineq const& i, var_t x, numeral const& l, numeral const& h) {
+        mod_interval<numeral> r(l, h);
+        bool was_fixed = lo(x) + 1 == hi(x);
+        m_vars[x] &= r;
+        if (m_vars[x].is_empty())
+            m_infeasible_var = x;
+        else if (!was_fixed && lo(x) + 1 == hi(x)) {
+            // TBD: track based on inequality not row
+            // fixed_var_eh(r, x);
+        }
+    }
 
     template<typename Ext>
     void fixplex<Ext>::new_bound(row const& r, var_t x, mod_interval<numeral> const& range) {
@@ -1107,7 +1121,7 @@ namespace polysat {
         IF_VERBOSE(0, verbose_stream() << "new-bound v" << x << " " << m_vars[x] << "\n");
         if (m_vars[x].is_empty()) 
             m_infeasible_var = x;
-        else if (!was_fixed && lo(x) + 1 == hi(x))
+        else if (!was_fixed && lo(x) + 1 == hi(x)) 
             fixed_var_eh(r, x);
     }
 
