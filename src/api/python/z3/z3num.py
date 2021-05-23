@@ -171,7 +171,7 @@ class Numeral:
 
         """
         assert(self.is_integer())
-        if sys.version_info[0] >= 3:
+        if sys.version_info.major >= 3:
             return int(Z3_get_numeral_string(self.ctx_ref(), self.as_ast()))
         else:
             return long(Z3_get_numeral_string(self.ctx_ref(), self.as_ast()))

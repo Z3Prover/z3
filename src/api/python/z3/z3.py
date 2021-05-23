@@ -66,7 +66,7 @@ def z3_debug():
     return Z3_DEBUG
 
 
-if sys.version < "3":
+if sys.version_info.major < 3:
     def _is_int(v):
         return isinstance(v, (int, long))
 else:

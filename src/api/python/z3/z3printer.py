@@ -10,7 +10,7 @@ import io
 
 # We want to import submodule z3 here, but there's no way
 # to do that that works correctly on both Python 2 and 3.
-if sys.version < "3":
+if sys.version_info.major < 3:
     # In Python 2: an implicit-relative import of submodule z3.
     # In Python 3: an undesirable import of global package z3.
     import z3
@@ -155,7 +155,7 @@ def _is_sub(k):
     return k == Z3_OP_SUB or k == Z3_OP_BSUB
 
 
-if sys.version < "3":
+if sys.version_info.major < 3:
     import codecs
 
     def u(x):
