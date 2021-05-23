@@ -132,13 +132,18 @@ expr * array_factory::get_fresh_value(sort * s) {
         return get_some_value(s);
     }
     sort * range    = get_array_range(s);
-    expr * range_val = m_model.get_fresh_value(range);
-    if (range_val != nullptr) {
-        // easy case
-        func_interp * fi;
-        expr * val = mk_array_interp(s, fi);
-        fi->set_else(range_val);
-        return val;
+    expr* range_val = nullptr;
+    
+    if (!m_recursive_fresh) {
+        flet<bool> _recursive(m_recursive_fresh, true);
+        range_val = m_model.get_fresh_value(range);
+        if (range_val != nullptr) {
+            // easy case
+            func_interp* fi;
+            expr* val = mk_array_interp(s, fi);
+            fi->set_else(range_val);
+            return val;
+        }
     }
 
     TRACE("array_factory_bug", tout << "array fresh value: using fresh index, range: " << mk_pp(range, m_manager) << "\n";);
