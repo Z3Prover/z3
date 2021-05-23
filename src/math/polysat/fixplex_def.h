@@ -1082,21 +1082,47 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::propagate_bounds(ineq const& i) {
-        // v < w => hi(v) < hi(w)
-        // v < w => lo(v) < lo(w)
-        // v <= w => hi(v) <= hi(w)
-        // v <= w => lo(v) <= lo(w)
-        // TBD: detect conflicts, 
-        // ensure overflow / underflow conditions
+        // v < w  & lo(v) + 1 = 0  -> conflict
+        // v < w  & hi(w) = 0      -> conflict
+        // v < w  & lo(v) >= hi(w) -> conflict
+        // v <= w & lo(v) >  hi(w) -> conflict
+        // v < w  & hi(v) >= hi(w) -> hi(v) := hi(w) - 1
+        // v < w  & lo(v) >= lo(w) -> lo(w) := lo(v) + 1
+        // v <= w & hi(v) >  hi(w) -> hi(v) := hi(w)
+        // v <= w & lo(v) >  lo(w) -> lo(w) := lo(w)
         var_t v = i.v, w = i.w;
-        if (i.strict && hi(v) >= hi(w))
+        bool s = i.strict;
+        if (s && lo(v) + 1 == 0)
+            conflict_bound(i);
+        else if (s && hi(w) == 0)
+            conflict_bound(i);
+        else if (s && lo(v) >= hi(w))
+            conflict_bound(i);
+        else if (!s && lo(v) > hi(w))
+            conflict_bound(i);
+        else if (s && hi(v) >= hi(w)) {
+            SASSERT(lo(v) < hi(w));
+            SASSERT(hi(w) != 0);
             new_bound(i, v, lo(v), hi(w) - 1);
-        if (i.strict && lo(v) >= lo(w))
+        }
+        else if (s && lo(v) >= lo(w)) {
+            SASSERT(lo(v) + 1 != 0);
+            SASSERT(hi(w) > lo(v));
             new_bound(i, w, lo(v) + 1, hi(w));
-        if (!i.strict && hi(v) > hi(w))
+        }
+        else if (!s && hi(v) > hi(w)) {
+            SASSERT(lo(v) <= hi(w));
             new_bound(i, v, lo(v), hi(w));
-        if (!i.strict && lo(v) > lo(w))
+        }
+        else if (!s && lo(v) > lo(w)) {
+            SASSERT(lo(v) <= hi(w));
             new_bound(i, w, lo(v), hi(w));
+        }
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::conflict_bound(ineq const& i) {
+        NOT_IMPLEMENTED_YET();
     }
 
     template<typename Ext>

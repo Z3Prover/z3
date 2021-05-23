@@ -224,6 +224,7 @@ namespace polysat {
         void propagate_bounds(ineq const& i);
         void new_bound(row const& r, var_t x, mod_interval<numeral> const& range);
         void new_bound(ineq const& i, var_t x, numeral const& lo, numeral const& hi);
+        void conflict_bound(ineq const& i);
         void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& value);
         numeral value2delta(var_t v, numeral const& new_value) const;
         numeral value2error(var_t v, numeral const& new_value) const;
