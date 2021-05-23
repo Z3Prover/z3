@@ -10,7 +10,7 @@ import io
 
 # We want to import submodule z3 here, but there's no way
 # to do that that works correctly on both Python 2 and 3.
-if sys.version < '3':
+if sys.version < "3":
     # In Python 2: an implicit-relative import of submodule z3.
     # In Python 3: an undesirable import of global package z3.
     import z3
@@ -37,31 +37,31 @@ def _z3_assert(cond, msg):
 
 # Z3 operator names to Z3Py
 _z3_op_to_str = {
-    Z3_OP_TRUE: 'True', Z3_OP_FALSE: 'False', Z3_OP_EQ: '==', Z3_OP_DISTINCT: 'Distinct',
-    Z3_OP_ITE: 'If', Z3_OP_AND: 'And', Z3_OP_OR: 'Or', Z3_OP_IFF: '==', Z3_OP_XOR: 'Xor',
-    Z3_OP_NOT: 'Not', Z3_OP_IMPLIES: 'Implies', Z3_OP_IDIV: '/', Z3_OP_MOD: '%',
-    Z3_OP_TO_REAL: 'ToReal', Z3_OP_TO_INT: 'ToInt', Z3_OP_POWER: '**', Z3_OP_IS_INT: 'IsInt',
-    Z3_OP_BADD: '+', Z3_OP_BSUB: '-', Z3_OP_BMUL: '*', Z3_OP_BOR: '|', Z3_OP_BAND: '&',
-    Z3_OP_BNOT: '~', Z3_OP_BXOR: '^', Z3_OP_BNEG: '-', Z3_OP_BUDIV: 'UDiv', Z3_OP_BSDIV: '/', Z3_OP_BSMOD: '%',
-    Z3_OP_BSREM: 'SRem', Z3_OP_BUREM: 'URem', Z3_OP_EXT_ROTATE_LEFT: 'RotateLeft', Z3_OP_EXT_ROTATE_RIGHT: 'RotateRight',
-    Z3_OP_SLEQ: '<=', Z3_OP_SLT: '<', Z3_OP_SGEQ: '>=', Z3_OP_SGT: '>',
-    Z3_OP_ULEQ: 'ULE', Z3_OP_ULT: 'ULT', Z3_OP_UGEQ: 'UGE', Z3_OP_UGT: 'UGT',
-    Z3_OP_SIGN_EXT: 'SignExt', Z3_OP_ZERO_EXT: 'ZeroExt', Z3_OP_REPEAT: 'RepeatBitVec',
-    Z3_OP_BASHR: '>>', Z3_OP_BSHL: '<<', Z3_OP_BLSHR: 'LShR',
-    Z3_OP_CONCAT: 'Concat', Z3_OP_EXTRACT: 'Extract', Z3_OP_BV2INT: 'BV2Int',
-    Z3_OP_ARRAY_MAP: 'Map', Z3_OP_SELECT: 'Select', Z3_OP_STORE: 'Store',
-    Z3_OP_CONST_ARRAY: 'K', Z3_OP_ARRAY_EXT: 'Ext',
-    Z3_OP_PB_AT_MOST: 'AtMost', Z3_OP_PB_LE: 'PbLe', Z3_OP_PB_GE: 'PbGe', Z3_OP_PB_EQ: 'PbEq',
-    Z3_OP_SEQ_CONCAT: 'Concat', Z3_OP_SEQ_PREFIX: 'PrefixOf', Z3_OP_SEQ_SUFFIX: 'SuffixOf',
-    Z3_OP_SEQ_UNIT: 'Unit', Z3_OP_SEQ_CONTAINS: 'Contains', Z3_OP_SEQ_REPLACE: 'Replace',
-    Z3_OP_SEQ_AT: 'At', Z3_OP_SEQ_NTH: 'Nth', Z3_OP_SEQ_INDEX: 'IndexOf',
-    Z3_OP_SEQ_LAST_INDEX: 'LastIndexOf', Z3_OP_SEQ_LENGTH: 'Length', Z3_OP_STR_TO_INT: 'StrToInt', Z3_OP_INT_TO_STR: 'IntToStr',
-    Z3_OP_SEQ_IN_RE: 'InRe', Z3_OP_SEQ_TO_RE: 'Re',
-    Z3_OP_RE_PLUS: 'Plus', Z3_OP_RE_STAR: 'Star', Z3_OP_RE_OPTION: 'Option', Z3_OP_RE_UNION: 'Union', Z3_OP_RE_RANGE: 'Range',
-    Z3_OP_RE_INTERSECT: 'Intersect', Z3_OP_RE_COMPLEMENT: 'Complement',
-    Z3_OP_FPA_IS_NAN: 'fpIsNaN', Z3_OP_FPA_IS_INF: 'fpIsInf', Z3_OP_FPA_IS_ZERO: 'fpIsZero',
-    Z3_OP_FPA_IS_NORMAL: 'fpIsNormal', Z3_OP_FPA_IS_SUBNORMAL: 'fpIsSubnormal',
-    Z3_OP_FPA_IS_NEGATIVE: 'fpIsNegative', Z3_OP_FPA_IS_POSITIVE: 'fpIsPositive',
+    Z3_OP_TRUE: "True", Z3_OP_FALSE: "False", Z3_OP_EQ: "==", Z3_OP_DISTINCT: "Distinct",
+    Z3_OP_ITE: "If", Z3_OP_AND: "And", Z3_OP_OR: "Or", Z3_OP_IFF: "==", Z3_OP_XOR: "Xor",
+    Z3_OP_NOT: "Not", Z3_OP_IMPLIES: "Implies", Z3_OP_IDIV: "/", Z3_OP_MOD: "%",
+    Z3_OP_TO_REAL: "ToReal", Z3_OP_TO_INT: "ToInt", Z3_OP_POWER: "**", Z3_OP_IS_INT: "IsInt",
+    Z3_OP_BADD: "+", Z3_OP_BSUB: "-", Z3_OP_BMUL: "*", Z3_OP_BOR: "|", Z3_OP_BAND: "&",
+    Z3_OP_BNOT: "~", Z3_OP_BXOR: "^", Z3_OP_BNEG: "-", Z3_OP_BUDIV: "UDiv", Z3_OP_BSDIV: "/", Z3_OP_BSMOD: "%",
+    Z3_OP_BSREM: "SRem", Z3_OP_BUREM: "URem", Z3_OP_EXT_ROTATE_LEFT: "RotateLeft", Z3_OP_EXT_ROTATE_RIGHT: "RotateRight",
+    Z3_OP_SLEQ: "<=", Z3_OP_SLT: "<", Z3_OP_SGEQ: ">=", Z3_OP_SGT: ">",
+    Z3_OP_ULEQ: "ULE", Z3_OP_ULT: "ULT", Z3_OP_UGEQ: "UGE", Z3_OP_UGT: "UGT",
+    Z3_OP_SIGN_EXT: "SignExt", Z3_OP_ZERO_EXT: "ZeroExt", Z3_OP_REPEAT: "RepeatBitVec",
+    Z3_OP_BASHR: ">>", Z3_OP_BSHL: "<<", Z3_OP_BLSHR: "LShR",
+    Z3_OP_CONCAT: "Concat", Z3_OP_EXTRACT: "Extract", Z3_OP_BV2INT: "BV2Int",
+    Z3_OP_ARRAY_MAP: "Map", Z3_OP_SELECT: "Select", Z3_OP_STORE: "Store",
+    Z3_OP_CONST_ARRAY: "K", Z3_OP_ARRAY_EXT: "Ext",
+    Z3_OP_PB_AT_MOST: "AtMost", Z3_OP_PB_LE: "PbLe", Z3_OP_PB_GE: "PbGe", Z3_OP_PB_EQ: "PbEq",
+    Z3_OP_SEQ_CONCAT: "Concat", Z3_OP_SEQ_PREFIX: "PrefixOf", Z3_OP_SEQ_SUFFIX: "SuffixOf",
+    Z3_OP_SEQ_UNIT: "Unit", Z3_OP_SEQ_CONTAINS: "Contains", Z3_OP_SEQ_REPLACE: "Replace",
+    Z3_OP_SEQ_AT: "At", Z3_OP_SEQ_NTH: "Nth", Z3_OP_SEQ_INDEX: "IndexOf",
+    Z3_OP_SEQ_LAST_INDEX: "LastIndexOf", Z3_OP_SEQ_LENGTH: "Length", Z3_OP_STR_TO_INT: "StrToInt", Z3_OP_INT_TO_STR: "IntToStr",
+    Z3_OP_SEQ_IN_RE: "InRe", Z3_OP_SEQ_TO_RE: "Re",
+    Z3_OP_RE_PLUS: "Plus", Z3_OP_RE_STAR: "Star", Z3_OP_RE_OPTION: "Option", Z3_OP_RE_UNION: "Union", Z3_OP_RE_RANGE: "Range",
+    Z3_OP_RE_INTERSECT: "Intersect", Z3_OP_RE_COMPLEMENT: "Complement",
+    Z3_OP_FPA_IS_NAN: "fpIsNaN", Z3_OP_FPA_IS_INF: "fpIsInf", Z3_OP_FPA_IS_ZERO: "fpIsZero",
+    Z3_OP_FPA_IS_NORMAL: "fpIsNormal", Z3_OP_FPA_IS_SUBNORMAL: "fpIsSubnormal",
+    Z3_OP_FPA_IS_NEGATIVE: "fpIsNegative", Z3_OP_FPA_IS_POSITIVE: "fpIsPositive",
 }
 
 # List of infix operators
@@ -94,35 +94,35 @@ _z3_precedence = {
 
 # FPA operators
 _z3_op_to_fpa_normal_str = {
-    Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN: 'RoundNearestTiesToEven()', Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY: 'RoundNearestTiesToAway()',
-    Z3_OP_FPA_RM_TOWARD_POSITIVE: 'RoundTowardPositive()', Z3_OP_FPA_RM_TOWARD_NEGATIVE: 'RoundTowardNegative()',
-    Z3_OP_FPA_RM_TOWARD_ZERO: 'RoundTowardZero()',
-    Z3_OP_FPA_PLUS_INF: 'fpPlusInfinity', Z3_OP_FPA_MINUS_INF: 'fpMinusInfinity',
-    Z3_OP_FPA_NAN: 'fpNaN', Z3_OP_FPA_PLUS_ZERO: 'fpPZero', Z3_OP_FPA_MINUS_ZERO: 'fpNZero',
-    Z3_OP_FPA_ADD: 'fpAdd', Z3_OP_FPA_SUB: 'fpSub', Z3_OP_FPA_NEG: 'fpNeg', Z3_OP_FPA_MUL: 'fpMul',
-    Z3_OP_FPA_DIV: 'fpDiv', Z3_OP_FPA_REM: 'fpRem', Z3_OP_FPA_ABS: 'fpAbs',
-    Z3_OP_FPA_MIN: 'fpMin', Z3_OP_FPA_MAX: 'fpMax',
-    Z3_OP_FPA_FMA: 'fpFMA', Z3_OP_FPA_SQRT: 'fpSqrt', Z3_OP_FPA_ROUND_TO_INTEGRAL: 'fpRoundToIntegral',
+    Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN: "RoundNearestTiesToEven()", Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY: "RoundNearestTiesToAway()",
+    Z3_OP_FPA_RM_TOWARD_POSITIVE: "RoundTowardPositive()", Z3_OP_FPA_RM_TOWARD_NEGATIVE: "RoundTowardNegative()",
+    Z3_OP_FPA_RM_TOWARD_ZERO: "RoundTowardZero()",
+    Z3_OP_FPA_PLUS_INF: "fpPlusInfinity", Z3_OP_FPA_MINUS_INF: "fpMinusInfinity",
+    Z3_OP_FPA_NAN: "fpNaN", Z3_OP_FPA_PLUS_ZERO: "fpPZero", Z3_OP_FPA_MINUS_ZERO: "fpNZero",
+    Z3_OP_FPA_ADD: "fpAdd", Z3_OP_FPA_SUB: "fpSub", Z3_OP_FPA_NEG: "fpNeg", Z3_OP_FPA_MUL: "fpMul",
+    Z3_OP_FPA_DIV: "fpDiv", Z3_OP_FPA_REM: "fpRem", Z3_OP_FPA_ABS: "fpAbs",
+    Z3_OP_FPA_MIN: "fpMin", Z3_OP_FPA_MAX: "fpMax",
+    Z3_OP_FPA_FMA: "fpFMA", Z3_OP_FPA_SQRT: "fpSqrt", Z3_OP_FPA_ROUND_TO_INTEGRAL: "fpRoundToIntegral",
 
-    Z3_OP_FPA_EQ: 'fpEQ', Z3_OP_FPA_LT: 'fpLT', Z3_OP_FPA_GT: 'fpGT', Z3_OP_FPA_LE: 'fpLEQ',
-    Z3_OP_FPA_GE: 'fpGEQ',
+    Z3_OP_FPA_EQ: "fpEQ", Z3_OP_FPA_LT: "fpLT", Z3_OP_FPA_GT: "fpGT", Z3_OP_FPA_LE: "fpLEQ",
+    Z3_OP_FPA_GE: "fpGEQ",
 
-    Z3_OP_FPA_FP: 'fpFP', Z3_OP_FPA_TO_FP: 'fpToFP', Z3_OP_FPA_TO_FP_UNSIGNED: 'fpToFPUnsigned',
-    Z3_OP_FPA_TO_UBV: 'fpToUBV', Z3_OP_FPA_TO_SBV: 'fpToSBV', Z3_OP_FPA_TO_REAL: 'fpToReal',
-    Z3_OP_FPA_TO_IEEE_BV: 'fpToIEEEBV'
+    Z3_OP_FPA_FP: "fpFP", Z3_OP_FPA_TO_FP: "fpToFP", Z3_OP_FPA_TO_FP_UNSIGNED: "fpToFPUnsigned",
+    Z3_OP_FPA_TO_UBV: "fpToUBV", Z3_OP_FPA_TO_SBV: "fpToSBV", Z3_OP_FPA_TO_REAL: "fpToReal",
+    Z3_OP_FPA_TO_IEEE_BV: "fpToIEEEBV"
 }
 
 _z3_op_to_fpa_pretty_str = {
-    Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN: 'RNE()', Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY: 'RNA()',
-    Z3_OP_FPA_RM_TOWARD_POSITIVE: 'RTP()', Z3_OP_FPA_RM_TOWARD_NEGATIVE: 'RTN()',
-    Z3_OP_FPA_RM_TOWARD_ZERO: 'RTZ()',
-    Z3_OP_FPA_PLUS_INF: '+oo', Z3_OP_FPA_MINUS_INF: '-oo',
-    Z3_OP_FPA_NAN: 'NaN', Z3_OP_FPA_PLUS_ZERO: '+0.0', Z3_OP_FPA_MINUS_ZERO: '-0.0',
+    Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN: "RNE()", Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY: "RNA()",
+    Z3_OP_FPA_RM_TOWARD_POSITIVE: "RTP()", Z3_OP_FPA_RM_TOWARD_NEGATIVE: "RTN()",
+    Z3_OP_FPA_RM_TOWARD_ZERO: "RTZ()",
+    Z3_OP_FPA_PLUS_INF: "+oo", Z3_OP_FPA_MINUS_INF: "-oo",
+    Z3_OP_FPA_NAN: "NaN", Z3_OP_FPA_PLUS_ZERO: "+0.0", Z3_OP_FPA_MINUS_ZERO: "-0.0",
 
-    Z3_OP_FPA_ADD: '+', Z3_OP_FPA_SUB: '-', Z3_OP_FPA_MUL: '*', Z3_OP_FPA_DIV: '/',
-    Z3_OP_FPA_REM: '%', Z3_OP_FPA_NEG: '-',
+    Z3_OP_FPA_ADD: "+", Z3_OP_FPA_SUB: "-", Z3_OP_FPA_MUL: "*", Z3_OP_FPA_DIV: "/",
+    Z3_OP_FPA_REM: "%", Z3_OP_FPA_NEG: "-",
 
-    Z3_OP_FPA_EQ: 'fpEQ', Z3_OP_FPA_LT: '<', Z3_OP_FPA_GT: '>', Z3_OP_FPA_LE: '<=', Z3_OP_FPA_GE: '>='
+    Z3_OP_FPA_EQ: "fpEQ", Z3_OP_FPA_LT: "<", Z3_OP_FPA_GT: ">", Z3_OP_FPA_LE: "<=", Z3_OP_FPA_GE: ">="
 }
 
 _z3_fpa_infix = [
@@ -155,7 +155,7 @@ def _is_sub(k):
     return k == Z3_OP_SUB or k == Z3_OP_BSUB
 
 
-if sys.version < '3':
+if sys.version < "3":
     import codecs
 
     def u(x):
@@ -166,21 +166,21 @@ else:
 
 _z3_infix_compact = [Z3_OP_MUL, Z3_OP_BMUL, Z3_OP_POWER, Z3_OP_DIV, Z3_OP_IDIV, Z3_OP_MOD, Z3_OP_BSDIV, Z3_OP_BSMOD]
 
-_ellipses = '...'
+_ellipses = "..."
 
-_html_ellipses = '&hellip;'
+_html_ellipses = "&hellip;"
 # Overwrite some of the operators for HTML
-_z3_pre_html_op_to_str = {Z3_OP_EQ: '=', Z3_OP_IFF: '=', Z3_OP_NOT: '&not;',
-                          Z3_OP_AND: '&and;', Z3_OP_OR: '&or;', Z3_OP_IMPLIES: '&rArr;',
-                          Z3_OP_LT: '&lt;', Z3_OP_GT: '&gt;', Z3_OP_LE: '&le;', Z3_OP_GE: '&ge;',
-                          Z3_OP_MUL: '&middot;',
-                          Z3_OP_SLEQ: '&le;', Z3_OP_SLT: '&lt;', Z3_OP_SGEQ: '&ge;', Z3_OP_SGT: '&gt;',
-                          Z3_OP_ULEQ: '&le;<sub>u</sub>', Z3_OP_ULT: '&lt;<sub>u</sub>',
-                          Z3_OP_UGEQ: '&ge;<sub>u</sub>', Z3_OP_UGT: '&gt;<sub>u</sub>',
-                          Z3_OP_BMUL: '&middot;',
-                          Z3_OP_BUDIV: '/<sub>u</sub>', Z3_OP_BUREM: '%<sub>u</sub>',
-                          Z3_OP_BASHR: '&gt;&gt;', Z3_OP_BSHL: '&lt;&lt;',
-                          Z3_OP_BLSHR: '&gt;&gt;<sub>u</sub>'
+_z3_pre_html_op_to_str = {Z3_OP_EQ: "=", Z3_OP_IFF: "=", Z3_OP_NOT: "&not;",
+                          Z3_OP_AND: "&and;", Z3_OP_OR: "&or;", Z3_OP_IMPLIES: "&rArr;",
+                          Z3_OP_LT: "&lt;", Z3_OP_GT: "&gt;", Z3_OP_LE: "&le;", Z3_OP_GE: "&ge;",
+                          Z3_OP_MUL: "&middot;",
+                          Z3_OP_SLEQ: "&le;", Z3_OP_SLT: "&lt;", Z3_OP_SGEQ: "&ge;", Z3_OP_SGT: "&gt;",
+                          Z3_OP_ULEQ: "&le;<sub>u</sub>", Z3_OP_ULT: "&lt;<sub>u</sub>",
+                          Z3_OP_UGEQ: "&ge;<sub>u</sub>", Z3_OP_UGT: "&gt;<sub>u</sub>",
+                          Z3_OP_BMUL: "&middot;",
+                          Z3_OP_BUDIV: "/<sub>u</sub>", Z3_OP_BUREM: "%<sub>u</sub>",
+                          Z3_OP_BASHR: "&gt;&gt;", Z3_OP_BSHL: "&lt;&lt;",
+                          Z3_OP_BLSHR: "&gt;&gt;<sub>u</sub>"
                           }
 
 # Extra operators that are infix/unary for HTML
@@ -367,7 +367,7 @@ class ComposeFormatObject(NAryFormatObject):
         return True
 
     def as_tuple(self):
-        return ('compose', [a.as_tuple() for a in self.children])
+        return ("compose", [a.as_tuple() for a in self.children])
 
     def space_upto_nl(self):
         r = 0
@@ -387,7 +387,7 @@ class ChoiceFormatObject(NAryFormatObject):
         return True
 
     def as_tuple(self):
-        return ('choice', [a.as_tuple() for a in self.children])
+        return ("choice", [a.as_tuple() for a in self.children])
 
     def space_upto_nl(self):
         return self.children[0].space_upto_nl()
@@ -406,7 +406,7 @@ class IndentFormatObject(FormatObject):
         return [self.child]
 
     def as_tuple(self):
-        return ('indent', self.indent, self.child.as_tuple())
+        return ("indent", self.indent, self.child.as_tuple())
 
     def space_upto_nl(self):
         return self.child.space_upto_nl()
@@ -420,13 +420,13 @@ class IndentFormatObject(FormatObject):
 
 class LineBreakFormatObject(FormatObject):
     def __init__(self):
-        self.space = ' '
+        self.space = " "
 
     def is_linebreak(self):
         return True
 
     def as_tuple(self):
-        return '<line-break>'
+        return "<line-break>"
 
     def space_upto_nl(self):
         return (0, True)
@@ -447,7 +447,7 @@ class StringFormatObject(FormatObject):
         return self.string
 
     def space_upto_nl(self):
-        return (getattr(self, 'size', len(self.string)), False)
+        return (getattr(self, "size", len(self.string)), False)
 
 
 def fits(f, space_left):
@@ -485,15 +485,15 @@ def line_break():
 
 def _len(a):
     if isinstance(a, StringFormatObject):
-        return getattr(a, 'size', len(a.string))
+        return getattr(a, "size", len(a.string))
     else:
         return len(a)
 
 
-def seq(args, sep=',', space=True):
+def seq(args, sep=",", space=True):
     nl = line_break()
     if not space:
-        nl.space = ''
+        nl.space = ""
     r = []
     r.append(args[0])
     num = len(args)
@@ -504,7 +504,7 @@ def seq(args, sep=',', space=True):
     return compose(r)
 
 
-def seq1(header, args, lp='(', rp=')'):
+def seq1(header, args, lp="(", rp=")"):
     return group(compose(to_format(header),
                          to_format(lp),
                          indent(len(lp) + _len(header),
@@ -512,7 +512,7 @@ def seq1(header, args, lp='(', rp=')'):
                          to_format(rp)))
 
 
-def seq2(header, args, i=4, lp='(', rp=')'):
+def seq2(header, args, i=4, lp="(", rp=")"):
     if len(args) == 0:
         return compose(to_format(header), to_format(lp), to_format(rp))
     else:
@@ -520,7 +520,7 @@ def seq2(header, args, i=4, lp='(', rp=')'):
                              indent(i, compose(seq(args), to_format(rp)))))
 
 
-def seq3(args, lp='(', rp=')'):
+def seq3(args, lp="(", rp=")"):
     if len(args) == 0:
         return compose(to_format(lp), to_format(rp))
     else:
@@ -529,7 +529,7 @@ def seq3(args, lp='(', rp=')'):
 
 class StopPPException(Exception):
     def __str__(self):
-        return 'pp-interrupted'
+        return "pp-interrupted"
 
 
 class PP:
@@ -565,11 +565,11 @@ class PP:
         self.ribbon_pos = 0
         self.line = self.line + 1
         if self.line < self.max_lines:
-            self.out.write(u('\n'))
+            self.out.write(u("\n"))
             for i in range(indent):
-                self.out.write(u(' '))
+                self.out.write(u(" "))
         else:
-            self.out.write(u('\n...'))
+            self.out.write(u("\n..."))
             raise StopPPException()
 
     def pp(self, f, indent):
@@ -614,10 +614,10 @@ class Formatter:
         return self.ellipses
 
     def pp_arrow(self):
-        return ' ->'
+        return " ->"
 
     def pp_unknown(self):
-        return '<unknown>'
+        return "<unknown>"
 
     def pp_name(self, a):
         return to_format(_op_name(a))
@@ -638,21 +638,21 @@ class Formatter:
         return self.is_infix(a) or self.is_unary(a)
 
     def add_paren(self, a):
-        return compose(to_format('('), indent(1, a), to_format(')'))
+        return compose(to_format("("), indent(1, a), to_format(")"))
 
     def pp_sort(self, s):
         if isinstance(s, z3.ArraySortRef):
-            return seq1('Array', (self.pp_sort(s.domain()), self.pp_sort(s.range())))
+            return seq1("Array", (self.pp_sort(s.domain()), self.pp_sort(s.range())))
         elif isinstance(s, z3.BitVecSortRef):
-            return seq1('BitVec', (to_format(s.size()), ))
+            return seq1("BitVec", (to_format(s.size()), ))
         elif isinstance(s, z3.FPSortRef):
-            return seq1('FPSort', (to_format(s.ebits()), to_format(s.sbits())))
+            return seq1("FPSort", (to_format(s.ebits()), to_format(s.sbits())))
         elif isinstance(s, z3.ReSortRef):
-            return seq1('ReSort', (self.pp_sort(s.basis()), ))
+            return seq1("ReSort", (self.pp_sort(s.basis()), ))
         elif isinstance(s, z3.SeqSortRef):
             if s.is_string():
                 return to_format("String")
-            return seq1('Seq', (self.pp_sort(s.basis()), ))
+            return seq1("Seq", (self.pp_sort(s.basis()), ))
         else:
             return to_format(s.name())
 
@@ -688,53 +688,53 @@ class Formatter:
         return to_format(a.as_string())
 
     def pp_fprm_value(self, a):
-        _z3_assert(z3.is_fprm_value(a), 'expected FPRMNumRef')
+        _z3_assert(z3.is_fprm_value(a), "expected FPRMNumRef")
         if self.fpa_pretty and (a.decl().kind() in _z3_op_to_fpa_pretty_str):
             return to_format(_z3_op_to_fpa_pretty_str.get(a.decl().kind()))
         else:
             return to_format(_z3_op_to_fpa_normal_str.get(a.decl().kind()))
 
     def pp_fp_value(self, a):
-        _z3_assert(isinstance(a, z3.FPNumRef), 'type mismatch')
+        _z3_assert(isinstance(a, z3.FPNumRef), "type mismatch")
         if not self.fpa_pretty:
             r = []
             if (a.isNaN()):
                 r.append(to_format(_z3_op_to_fpa_normal_str[Z3_OP_FPA_NAN]))
-                r.append(to_format('('))
+                r.append(to_format("("))
                 r.append(to_format(a.sort()))
-                r.append(to_format(')'))
+                r.append(to_format(")"))
                 return compose(r)
             elif (a.isInf()):
                 if (a.isNegative()):
                     r.append(to_format(_z3_op_to_fpa_normal_str[Z3_OP_FPA_MINUS_INF]))
                 else:
                     r.append(to_format(_z3_op_to_fpa_normal_str[Z3_OP_FPA_PLUS_INF]))
-                r.append(to_format('('))
+                r.append(to_format("("))
                 r.append(to_format(a.sort()))
-                r.append(to_format(')'))
+                r.append(to_format(")"))
                 return compose(r)
 
             elif (a.isZero()):
                 if (a.isNegative()):
-                    return to_format('-zero')
+                    return to_format("-zero")
                 else:
-                    return to_format('+zero')
+                    return to_format("+zero")
             else:
-                _z3_assert(z3.is_fp_value(a), 'expecting FP num ast')
+                _z3_assert(z3.is_fp_value(a), "expecting FP num ast")
                 r = []
                 sgn = c_int(0)
                 sgnb = Z3_fpa_get_numeral_sign(a.ctx_ref(), a.ast, byref(sgn))
                 exp = Z3_fpa_get_numeral_exponent_string(a.ctx_ref(), a.ast, False)
                 sig = Z3_fpa_get_numeral_significand_string(a.ctx_ref(), a.ast)
-                r.append(to_format('FPVal('))
+                r.append(to_format("FPVal("))
                 if sgnb and sgn.value != 0:
-                    r.append(to_format('-'))
+                    r.append(to_format("-"))
                 r.append(to_format(sig))
-                r.append(to_format('*(2**'))
+                r.append(to_format("*(2**"))
                 r.append(to_format(exp))
-                r.append(to_format(', '))
+                r.append(to_format(", "))
                 r.append(to_format(a.sort()))
-                r.append(to_format('))'))
+                r.append(to_format("))"))
                 return compose(r)
         else:
             if (a.isNaN()):
@@ -750,25 +750,25 @@ class Formatter:
                 else:
                     return to_format(_z3_op_to_fpa_pretty_str[Z3_OP_FPA_PLUS_ZERO])
             else:
-                _z3_assert(z3.is_fp_value(a), 'expecting FP num ast')
+                _z3_assert(z3.is_fp_value(a), "expecting FP num ast")
                 r = []
                 sgn = (ctypes.c_int)(0)
                 sgnb = Z3_fpa_get_numeral_sign(a.ctx_ref(), a.ast, byref(sgn))
                 exp = Z3_fpa_get_numeral_exponent_string(a.ctx_ref(), a.ast, False)
                 sig = Z3_fpa_get_numeral_significand_string(a.ctx_ref(), a.ast)
                 if sgnb and sgn.value != 0:
-                    r.append(to_format('-'))
+                    r.append(to_format("-"))
                 r.append(to_format(sig))
-                if (exp != '0'):
-                    r.append(to_format('*(2**'))
+                if (exp != "0"):
+                    r.append(to_format("*(2**"))
                     r.append(to_format(exp))
-                    r.append(to_format(')'))
+                    r.append(to_format(")"))
                 return compose(r)
 
     def pp_fp(self, a, d, xs):
         _z3_assert(isinstance(a, z3.FPRef), "type mismatch")
         k = a.decl().kind()
-        op = '?'
+        op = "?"
         if (self.fpa_pretty and k in _z3_op_to_fpa_pretty_str):
             op = _z3_op_to_fpa_pretty_str[k]
         elif k in _z3_op_to_fpa_normal_str:
@@ -786,13 +786,13 @@ class Formatter:
                     arg2 = to_format(self.pp_expr(a.arg(2), d + 1, xs))
                     r = []
                     r.append(arg1)
-                    r.append(to_format(' '))
+                    r.append(to_format(" "))
                     r.append(to_format(op))
-                    r.append(to_format(' '))
+                    r.append(to_format(" "))
                     r.append(arg2)
                     return compose(r)
             elif k == Z3_OP_FPA_NEG:
-                return compose([to_format('-'), to_format(self.pp_expr(a.arg(0), d + 1, xs))])
+                return compose([to_format("-"), to_format(self.pp_expr(a.arg(0), d + 1, xs))])
 
         if k in _z3_op_to_fpa_normal_str:
             op = _z3_op_to_fpa_normal_str[k]
@@ -800,15 +800,15 @@ class Formatter:
         r = []
         r.append(to_format(op))
         if not z3.is_const(a):
-            r.append(to_format('('))
+            r.append(to_format("("))
             first = True
             for c in a.children():
                 if first:
                     first = False
                 else:
-                    r.append(to_format(', '))
+                    r.append(to_format(", "))
                 r.append(self.pp_expr(c, d + 1, xs))
-            r.append(to_format(')'))
+            r.append(to_format(")"))
             return compose(r)
         else:
             return to_format(a.as_string())
@@ -875,7 +875,7 @@ class Formatter:
         else:
             op = self.pp_name(a)
             sz = _len(op)
-            op.string = ' ' + op.string
+            op.string = " " + op.string
             op.size = sz + 1
             return group(seq(self.infix_args(a, d, xs), op))
 
@@ -909,7 +909,7 @@ class Formatter:
     def pp_power(self, a, d, xs):
         arg1_pp = self.pp_power_arg(a.arg(0), d + 1, xs)
         arg2_pp = self.pp_power_arg(a.arg(1), d + 1, xs)
-        return group(seq((arg1_pp, arg2_pp), '**', False))
+        return group(seq((arg1_pp, arg2_pp), "**", False))
 
     def pp_neq(self):
         return to_format("!=")
@@ -918,7 +918,7 @@ class Formatter:
         if a.num_args() == 2:
             op = self.pp_neq()
             sz = _len(op)
-            op.string = ' ' + op.string
+            op.string = " " + op.string
             op.size = sz + 1
             return group(seq(self.infix_args(a, d, xs), op))
         else:
@@ -930,7 +930,7 @@ class Formatter:
         else:
             arg1_pp = self.pp_expr(a.arg(0), d + 1, xs)
             arg2_pp = self.pp_expr(a.arg(1), d + 1, xs)
-            return compose(arg1_pp, indent(2, compose(to_format('['), arg2_pp, to_format(']'))))
+            return compose(arg1_pp, indent(2, compose(to_format("["), arg2_pp, to_format("]"))))
 
     def pp_unary_param(self, a, d, xs):
         p = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 0)
@@ -958,7 +958,7 @@ class Formatter:
         if a.num_args() == 1:
             return self.pp_expr(a.arg(0), d, xs)
         else:
-            return seq1('MultiPattern', [self.pp_expr(arg, d + 1, xs) for arg in a.children()])
+            return seq1("MultiPattern", [self.pp_expr(arg, d + 1, xs) for arg in a.children()])
 
     def pp_is(self, a, d, xs):
         f = a.params()[0]
@@ -1058,7 +1058,7 @@ class Formatter:
         idx = z3.get_var_index(a)
         sz = len(xs)
         if idx >= sz:
-            return seq1('Var', (to_format(idx),))
+            return seq1("Var", (to_format(idx),))
         else:
             return to_format(xs[sz - idx - 1])
 
@@ -1069,13 +1069,13 @@ class Formatter:
         if len(ys) == 1:
             ys_pp = ys[0]
         else:
-            ys_pp = seq3(ys, '[', ']')
+            ys_pp = seq3(ys, "[", "]")
         if a.is_forall():
-            header = 'ForAll'
+            header = "ForAll"
         elif a.is_exists():
-            header = 'Exists'
+            header = "Exists"
         else:
-            header = 'Lambda'
+            header = "Lambda"
         return seq1(header, (ys_pp, body_pp))
 
     def pp_expr(self, a, d, xs):
@@ -1111,7 +1111,7 @@ class Formatter:
             if sz > self.max_args:
                 r.append(self.pp_ellipses())
                 break
-        return seq3(r, '[', ']')
+        return seq3(r, "[", "]")
 
     def pp_seq(self, a, d, xs):
         return self.pp_seq_core(self.pp_expr, a, d, xs)
@@ -1129,12 +1129,12 @@ class Formatter:
             else:
                 i_pp = self.pp_expr(i, 0, [])
             name = self.pp_name(d)
-            r.append(compose(name, to_format(' = '), indent(_len(name) + 3, i_pp)))
+            r.append(compose(name, to_format(" = "), indent(_len(name) + 3, i_pp)))
             sz = sz + 1
             if sz > self.max_args:
                 r.append(self.pp_ellipses())
                 break
-        return seq3(r, '[', ']')
+        return seq3(r, "[", "]")
 
     def pp_func_entry(self, e):
         num = e.num_args()
@@ -1161,11 +1161,11 @@ class Formatter:
         if sz <= self.max_args:
             else_val = f.else_value()
             if else_val is None:
-                else_pp = to_format('#unspecified')
+                else_pp = to_format("#unspecified")
             else:
                 else_pp = self.pp_expr(else_val, 0, [])
-            r.append(group(seq((to_format('else'), else_pp), self.pp_arrow())))
-        return seq3(r, '[', ']')
+            r.append(group(seq((to_format("else"), else_pp), self.pp_arrow())))
+        return seq3(r, "[", "]")
 
     def pp_list(self, a):
         r = []
@@ -1182,7 +1182,7 @@ class Formatter:
         if isinstance(a, tuple):
             return seq3(r)
         else:
-            return seq3(r, '[', ']')
+            return seq3(r, "[", "]")
 
     def main(self, a):
         if z3.is_expr(a):
@@ -1222,17 +1222,17 @@ class HTMLFormatter(Formatter):
         self.ellipses = to_format(_html_ellipses)
 
     def pp_arrow(self):
-        return to_format(' &rarr;', 1)
+        return to_format(" &rarr;", 1)
 
     def pp_unknown(self):
-        return '<b>unknown</b>'
+        return "<b>unknown</b>"
 
     def pp_name(self, a):
         r = _html_op_name(a)
-        if r[0] == '&' or r[0] == '/' or r[0] == '%':
+        if r[0] == "&" or r[0] == "/" or r[0] == "%":
             return to_format(r, 1)
         else:
-            pos = r.find('__')
+            pos = r.find("__")
             if pos == -1 or pos == 0:
                 return to_format(r)
             else:
@@ -1240,7 +1240,7 @@ class HTMLFormatter(Formatter):
                 if pos + 2 == sz:
                     return to_format(r)
                 else:
-                    return to_format('%s<sub>%s</sub>' % (r[0:pos], r[pos + 2:sz]), sz - 2)
+                    return to_format("%s<sub>%s</sub>" % (r[0:pos], r[pos + 2:sz]), sz - 2)
 
     def is_assoc(self, k):
         return _is_html_assoc(k)
@@ -1263,14 +1263,14 @@ class HTMLFormatter(Formatter):
     def pp_power(self, a, d, xs):
         arg1_pp = self.pp_power_arg(a.arg(0), d + 1, xs)
         arg2_pp = self.pp_expr(a.arg(1), d + 1, xs)
-        return compose(arg1_pp, to_format('<sup>', 1), arg2_pp, to_format('</sup>', 1))
+        return compose(arg1_pp, to_format("<sup>", 1), arg2_pp, to_format("</sup>", 1))
 
     def pp_var(self, a, d, xs):
         idx = z3.get_var_index(a)
         sz = len(xs)
         if idx >= sz:
             # 957 is the greek letter nu
-            return to_format('&#957;<sub>%s</sub>' % idx, 1)
+            return to_format("&#957;<sub>%s</sub>" % idx, 1)
         else:
             return to_format(xs[sz - idx - 1])
 
@@ -1280,11 +1280,11 @@ class HTMLFormatter(Formatter):
         body_pp = self.pp_expr(a.body(), d + 1, new_xs)
         ys_pp = group(seq(ys))
         if a.is_forall():
-            header = '&forall;'
+            header = "&forall;"
         else:
-            header = '&exist;'
+            header = "&exist;"
         return group(compose(to_format(header, 1),
-                             indent(1, compose(ys_pp, to_format(' :'), line_break(), body_pp))))
+                             indent(1, compose(ys_pp, to_format(" :"), line_break(), body_pp))))
 
 
 _PP = PP()
@@ -1292,13 +1292,13 @@ _Formatter = Formatter()
 
 
 def set_pp_option(k, v):
-    if k == 'html_mode':
+    if k == "html_mode":
         if v:
             set_html_mode(True)
         else:
             set_html_mode(False)
         return True
-    if k == 'fpa_pretty':
+    if k == "fpa_pretty":
         if v:
             set_fpa_pretty(True)
         else:
@@ -1377,11 +1377,11 @@ def print_matrix(m):
         print('<table cellpadding="2", cellspacing="0", border="1">')
         for r in m:
             _z3_assert(isinstance(r, list) or isinstance(r, tuple), "matrix expected")
-            print('<tr>')
+            print("<tr>")
             for c in r:
-                print('<td>%s</td>' % c)
-            print('</tr>')
-        print('</table>')
+                print("<td>%s</td>" % c)
+            print("</tr>")
+        print("</table>")
 
 
 def insert_line_breaks(s, width):
@@ -1392,8 +1392,8 @@ def insert_line_breaks(s, width):
     new_str = io.StringIO()
     w = 0
     for i in range(sz):
-        if w > width and s[i] == ' ':
-            new_str.write(u('<br />'))
+        if w > width and s[i] == " ":
+            new_str.write(u("<br />"))
             w = 0
         else:
             new_str.write(u(s[i]))

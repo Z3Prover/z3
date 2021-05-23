@@ -66,7 +66,7 @@ def z3_debug():
     return Z3_DEBUG
 
 
-if sys.version < '3':
+if sys.version < "3":
     def _is_int(v):
         return isinstance(v, (int, long))
 else:
@@ -896,7 +896,7 @@ def FreshFunction(*sig):
             _z3_assert(is_sort(sig[i]), "Z3 sort expected")
         dom[i] = sig[i].ast
     ctx = rng.ctx
-    return FuncDeclRef(Z3_mk_fresh_func_decl(ctx.ref(), 'f', arity, dom, rng.ast), ctx)
+    return FuncDeclRef(Z3_mk_fresh_func_decl(ctx.ref(), "f", arity, dom, rng.ast), ctx)
 
 
 def _to_func_decl_ref(a, ctx):
@@ -1429,7 +1429,7 @@ def Consts(names, sort):
     return [Const(name, sort) for name in names]
 
 
-def FreshConst(sort, prefix='c'):
+def FreshConst(sort, prefix="c"):
     """Create a fresh constant of a specified sort"""
     ctx = _get_ctx(sort.ctx)
     return _to_expr_ref(Z3_mk_fresh_const(ctx.ref(), prefix, sort.ast), ctx)
@@ -1729,10 +1729,10 @@ def BoolVector(prefix, sz, ctx=None):
     >>> And(P)
     And(p__0, p__1, p__2)
     """
-    return [Bool('%s__%s' % (prefix, i)) for i in range(sz)]
+    return [Bool("%s__%s" % (prefix, i)) for i in range(sz)]
 
 
-def FreshBool(prefix='b', ctx=None):
+def FreshBool(prefix="b", ctx=None):
     """Return a fresh Boolean constant in the given context using the given prefix.
 
     If `ctx=None`, then the global context is used.
@@ -3243,10 +3243,10 @@ def IntVector(prefix, sz, ctx=None):
     x__0 + x__1 + x__2
     """
     ctx = _get_ctx(ctx)
-    return [Int('%s__%s' % (prefix, i), ctx) for i in range(sz)]
+    return [Int("%s__%s" % (prefix, i), ctx) for i in range(sz)]
 
 
-def FreshInt(prefix='x', ctx=None):
+def FreshInt(prefix="x", ctx=None):
     """Return a fresh integer constant in the given context using the given prefix.
 
     >>> x = FreshInt()
@@ -3300,10 +3300,10 @@ def RealVector(prefix, sz, ctx=None):
     Real
     """
     ctx = _get_ctx(ctx)
-    return [Real('%s__%s' % (prefix, i), ctx) for i in range(sz)]
+    return [Real("%s__%s" % (prefix, i), ctx) for i in range(sz)]
 
 
-def FreshReal(prefix='b', ctx=None):
+def FreshReal(prefix="b", ctx=None):
     """Return a fresh real constant in the given context using the given prefix.
 
     >>> x = FreshReal()
@@ -5290,7 +5290,7 @@ def TupleSort(name, sorts, ctx=None):
         >>> pair, mk_pair, (first, second) = TupleSort("pair", [IntSort(), StringSort()])
     """
     tuple = Datatype(name, ctx)
-    projects = [('project%d' % i, sorts[i]) for i in range(len(sorts))]
+    projects = [("project%d" % i, sorts[i]) for i in range(len(sorts))]
     tuple.declare(name, *projects)
     tuple = tuple.create()
     return tuple, tuple.constructor(0), [tuple.accessor(0, i) for i in range(len(sorts))]
@@ -5747,7 +5747,7 @@ class Goal(Z3PPObject):
         >>> g
         [x + 1 >= 2]
         """
-        t = Tactic('simplify')
+        t = Tactic("simplify")
         return t.apply(self, *arguments, **keywords)[0]
 
     def as_expr(self):
@@ -6621,10 +6621,10 @@ class Statistics:
                     out.write(u('<tr style="background-color:#CFCFCF">'))
                     even = False
                 else:
-                    out.write(u('<tr>'))
+                    out.write(u("<tr>"))
                     even = True
-                out.write(u('<td>%s</td><td>%s</td></tr>' % (k, v)))
-            out.write(u('</table>'))
+                out.write(u("<td>%s</td><td>%s</td></tr>" % (k, v)))
+            out.write(u("</table>"))
             return out.getvalue()
         else:
             return Z3_stats_to_string(self.ctx.ref(), self.stats)
@@ -6716,7 +6716,7 @@ class Statistics:
         >>> st.nlsat_stages
         2
         """
-        key = name.replace('_', ' ')
+        key = name.replace("_", " ")
         try:
             return self.get_key_value(key)
         except Z3Exception:
@@ -7469,7 +7469,7 @@ class Fixedpoint(Z3PPObject):
         # obtain names as a single string separated by semicolons
         names = _symbol2py(self.ctx, Z3_fixedpoint_get_rule_names_along_trace(self.ctx.ref(), self.fixedpoint))
         # split into individual names
-        return names.split(';')
+        return names.split(";")
 
     def get_num_levels(self, predicate):
         """Retrieve number of levels used for predicate in PDR engine"""
@@ -8177,7 +8177,7 @@ def AndThen(*ts, **ks):
     """
     if z3_debug():
         _z3_assert(len(ts) >= 2, "At least two arguments expected")
-    ctx = ks.get('ctx', None)
+    ctx = ks.get("ctx", None)
     num = len(ts)
     r = ts[0]
     for i in range(num - 1):
@@ -8211,7 +8211,7 @@ def OrElse(*ts, **ks):
     """
     if z3_debug():
         _z3_assert(len(ts) >= 2, "At least two arguments expected")
-    ctx = ks.get('ctx', None)
+    ctx = ks.get("ctx", None)
     num = len(ts)
     r = ts[0]
     for i in range(num - 1):
@@ -8229,7 +8229,7 @@ def ParOr(*ts, **ks):
     """
     if z3_debug():
         _z3_assert(len(ts) >= 2, "At least two arguments expected")
-    ctx = _get_ctx(ks.get('ctx', None))
+    ctx = _get_ctx(ks.get("ctx", None))
     ts = [_to_tactic(t, ctx) for t in ts]
     sz = len(ts)
     _args = (TacticObj * sz)()
@@ -8267,7 +8267,7 @@ def With(t, *args, **keys):
     >>> t((x + 1)*(y + 2) == 0)
     [[2*x + y + x*y == -2]]
     """
-    ctx = keys.pop('ctx', None)
+    ctx = keys.pop("ctx", None)
     t = _to_tactic(t, ctx)
     p = args2params(args, keys, t.ctx)
     return Tactic(Z3_tactic_using_params(t.ctx.ref(), t.tactic, p.params), t.ctx)
@@ -8347,13 +8347,13 @@ def describe_tactics():
                 print('<tr style="background-color:#CFCFCF">')
                 even = False
             else:
-                print('<tr>')
+                print("<tr>")
                 even = True
-            print('<td>%s</td><td>%s</td></tr>' % (t, insert_line_breaks(tactic_description(t), 40)))
-        print('</table>')
+            print("<td>%s</td><td>%s</td></tr>" % (t, insert_line_breaks(tactic_description(t), 40)))
+        print("</table>")
     else:
         for t in tactics():
-            print('%s : %s' % (t, tactic_description(t)))
+            print("%s : %s" % (t, tactic_description(t)))
 
 
 class Probe:
@@ -8553,13 +8553,13 @@ def describe_probes():
                 print('<tr style="background-color:#CFCFCF">')
                 even = False
             else:
-                print('<tr>')
+                print("<tr>")
                 even = True
-            print('<td>%s</td><td>%s</td></tr>' % (p, insert_line_breaks(probe_description(p), 40)))
-        print('</table>')
+            print("<td>%s</td><td>%s</td></tr>" % (p, insert_line_breaks(probe_description(p), 40)))
+        print("</table>")
     else:
         for p in probes():
-            print('%s : %s' % (p, probe_description(p)))
+            print("%s : %s" % (p, probe_description(p)))
 
 
 def _probe_nary(f, args, ctx):
@@ -9175,7 +9175,7 @@ def _coerce_fp_expr_list(alist, ctx):
     r = []
     for i in range(len(alist)):
         a = alist[i]
-        is_repr = isinstance(a, str) and a.contains('2**(') and a.endswith(')')
+        is_repr = isinstance(a, str) and a.contains("2**(") and a.endswith(")")
         if is_repr or _is_int(a) or isinstance(a, (float, bool)):
             r.append(FPVal(a, None, first_fp_sort, ctx))
         else:
@@ -9749,8 +9749,8 @@ def _to_float_str(val, exp=0):
             v = val.as_integer_ratio()
             num = v[0]
             den = v[1]
-            rvs = str(num) + '/' + str(den)
-            res = rvs + 'p' + _to_int_str(exp)
+            rvs = str(num) + "/" + str(den)
+            res = rvs + "p" + _to_int_str(exp)
     elif isinstance(val, bool):
         if val:
             res = "1.0"
@@ -9759,10 +9759,10 @@ def _to_float_str(val, exp=0):
     elif _is_int(val):
         res = str(val)
     elif isinstance(val, str):
-        inx = val.find('*(2**')
+        inx = val.find("*(2**")
         if inx == -1:
             res = val
-        elif val[-1] == ')':
+        elif val[-1] == ")":
             res = val[0:inx]
             exp = str(int(val[inx + 5:-1]) + int(exp))
         else:
@@ -9772,7 +9772,7 @@ def _to_float_str(val, exp=0):
     if exp == 0:
         return res
     else:
-        return res + 'p' + exp
+        return res + "p" + exp
 
 
 def fpNaN(s):
@@ -10610,7 +10610,7 @@ class SeqRef(ExprRef):
         if self.is_string_value():
             string_length = ctypes.c_uint()
             chars = Z3_get_lstring(self.ctx_ref(), self.as_ast(), byref(string_length))
-            return string_at(chars, size=string_length.value).decode('latin-1')
+            return string_at(chars, size=string_length.value).decode("latin-1")
         return Z3_ast_to_string(self.ctx_ref(), self.as_ast())
 
     def __le__(self, other):
