@@ -90,7 +90,6 @@ public:
             m_buffer          = source.m_buffer;
             m_pos             = source.m_pos;
             m_capacity        = source.m_capacity;
-            m_buffer          = source.m_buffer;
             source.m_buffer   = reinterpret_cast<T*>(source.m_initial_buffer);
             source.m_pos      = 0;
             source.m_capacity = INITIAL_SIZE;
