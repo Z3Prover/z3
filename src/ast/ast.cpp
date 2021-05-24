@@ -174,14 +174,6 @@ decl_info::decl_info(family_id family_id, decl_kind k, unsigned num_parameters,
     m_private_parameters(private_params) {
 }
 
-decl_info::decl_info(decl_info const& other) :
-    m_family_id(other.m_family_id),
-    m_kind(other.m_kind),
-    m_parameters(other.m_parameters.size(), other.m_parameters.data()),
-    m_private_parameters(other.m_private_parameters) {
-}
-
-
 void decl_info::init_eh(ast_manager & m) {
     for (parameter & p : m_parameters) {
         p.init_eh(m);

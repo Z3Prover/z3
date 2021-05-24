@@ -267,8 +267,6 @@ public:
     decl_info(family_id family_id = null_family_id, decl_kind k = null_decl_kind,
               unsigned num_parameters = 0, parameter const * parameters = nullptr, bool private_params = false);
 
-    decl_info(decl_info const& other);
-
     void init_eh(ast_manager & m);
     void del_eh(ast_manager & m);
 
@@ -368,8 +366,7 @@ public:
               unsigned num_parameters = 0, parameter const * parameters = nullptr, bool private_parameters = false):
         decl_info(family_id, k, num_parameters, parameters, private_parameters), m_num_elements(num_elements) {
     }
-    sort_info(sort_info const& other) : decl_info(other), m_num_elements(other.m_num_elements) {            
-    }
+
     sort_info(decl_info const& di, sort_size const& num_elements) : 
         decl_info(di), m_num_elements(num_elements) {}
 
