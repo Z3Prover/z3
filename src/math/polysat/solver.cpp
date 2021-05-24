@@ -20,6 +20,9 @@ Author:
 #include "math/polysat/log.h"
 #include "math/polysat/forbidden_intervals.h"
 
+// For development; to be removed once the linear solver works well enough
+#define ENABLE_LINEAR_SOLVER 0
+
 namespace polysat {
 
     
@@ -197,7 +200,9 @@ namespace polysat {
         constraint* c = m_constraints.insert(std::move(sc));
         LOG("New constraint: " << *c);
         m_original.push_back(c);
+#if ENABLE_LINEAR_SOLVER
         m_linear_solver.new_constraint(*c);
+#endif
         if (activate && !is_conflict())
             activate_constraint_base(c);
     }
@@ -246,6 +251,7 @@ namespace polysat {
     }
 
     void solver::linear_propagate() {
+#if ENABLE_LINEAR_SOLVER
         switch (m_linear_solver.check()) {
         case l_false:
             // TODO extract conflict
@@ -253,6 +259,7 @@ namespace polysat {
         default:
             break;
         }
+#endif
     }
 
     void solver::propagate(sat::literal lit) {
@@ -289,14 +296,18 @@ namespace polysat {
     void solver::push_level() {
         ++m_level;
         m_trail.push_back(trail_instr_t::inc_level_i);
+#if ENABLE_LINEAR_SOLVER
         m_linear_solver.push();
+#endif
     }
 
     void solver::pop_levels(unsigned num_levels) {
         SASSERT(m_level >= num_levels);
         unsigned const target_level = m_level - num_levels;
         LOG("Pop " << num_levels << " levels (lvl " << m_level << " -> " << target_level << ")");
+#if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
+#endif
         while (num_levels > 0) {
             switch (m_trail.back()) {
             case trail_instr_t::qhead_i: {
@@ -437,7 +448,9 @@ namespace polysat {
         m_search.push_assignment(v, val);
         m_trail.push_back(trail_instr_t::assign_i);
         m_justification[v] = j; 
+#if ENABLE_LINEAR_SOLVER
         m_linear_solver.set_value(v, val);
+#endif
     }
 
     void solver::set_conflict(constraint& c) { 
@@ -847,7 +860,9 @@ namespace polysat {
         c.assign(is_true);
         add_watch(c);
         c.narrow(*this);
+#if ENABLE_LINEAR_SOLVER
         m_linear_solver.activate_constraint(c);
+#endif
     }
 
     /// Deactivate constraint immediately
