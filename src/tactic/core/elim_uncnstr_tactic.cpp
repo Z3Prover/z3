@@ -21,6 +21,7 @@ Notes:
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
 #include "tactic/core/collect_occs.h"
@@ -784,7 +785,7 @@ class elim_uncnstr_tactic : public tactic {
         m_vars.reset();
         collect_occs p;
         p(*g, m_vars);
-        if (m_vars.empty()) {
+        if (m_vars.empty() || recfun::util(m()).has_defs()) {
             result.push_back(g.get());
             // did not increase depth since it didn't do anything.
             return;
