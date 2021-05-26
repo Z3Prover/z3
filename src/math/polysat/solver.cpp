@@ -195,6 +195,7 @@ namespace polysat {
     }
 
     void solver::new_constraint(scoped_ptr<constraint>&& sc, bool activate) {
+        VERIFY(at_base_level());
         SASSERT(sc);
         SASSERT(activate || sc->dep());  // if we don't activate the constraint, we need the dependency to access it again later.
         constraint* c = m_constraints.insert(std::move(sc));
@@ -207,21 +208,8 @@ namespace polysat {
             activate_constraint_base(c);
     }
 
-    void solver::new_eq(pdd const& p, unsigned dep)                 { new_constraint(mk_eq(p, dep), false); }
-    void solver::new_diseq(pdd const& p, unsigned dep)              { new_constraint(mk_diseq(p, dep), false); }
-    void solver::new_ule(pdd const& p, pdd const& q, unsigned dep)  { new_constraint(mk_ule(p, q, dep), false); }
-    void solver::new_ult(pdd const& p, pdd const& q, unsigned dep)  { new_constraint(mk_ult(p, q, dep), false); }
-    void solver::new_sle(pdd const& p, pdd const& q, unsigned dep)  { new_constraint(mk_sle(p, q, dep), false); }
-    void solver::new_slt(pdd const& p, pdd const& q, unsigned dep)  { new_constraint(mk_slt(p, q, dep), false); }
-
-    void solver::add_eq(pdd const& p, unsigned dep)                 { new_constraint(mk_eq(p, dep), true); }
-    void solver::add_diseq(pdd const& p, unsigned dep)              { new_constraint(mk_diseq(p, dep), true); }
-    void solver::add_ule(pdd const& p, pdd const& q, unsigned dep)  { new_constraint(mk_ule(p, q, dep), true); }
-    void solver::add_ult(pdd const& p, pdd const& q, unsigned dep)  { new_constraint(mk_ult(p, q, dep), true); }
-    void solver::add_sle(pdd const& p, pdd const& q, unsigned dep)  { new_constraint(mk_sle(p, q, dep), true); }
-    void solver::add_slt(pdd const& p, pdd const& q, unsigned dep)  { new_constraint(mk_slt(p, q, dep), true); }
-
     void solver::assign_eh(unsigned dep, bool is_true) {
+        VERIFY(at_base_level());
         constraint* c = m_constraints.lookup_external(dep);
         if (!c) {
             LOG("WARN: there is no constraint for dependency " << dep);

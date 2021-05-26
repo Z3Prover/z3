@@ -321,20 +321,20 @@ namespace polysat {
          * Create polynomial constraints (but do not activate them).
          * Each constraint is tracked by a dependency.
          */
-        void new_eq(pdd const& p, unsigned dep);
-        void new_diseq(pdd const& p, unsigned dep);
-        void new_ule(pdd const& p, pdd const& q, unsigned dep);
-        void new_ult(pdd const& p, pdd const& q, unsigned dep);
-        void new_sle(pdd const& p, pdd const& q, unsigned dep);
-        void new_slt(pdd const& p, pdd const& q, unsigned dep);
+        void new_eq(pdd const& p, unsigned dep)                { new_constraint(mk_eq(p, dep), false); }
+        void new_diseq(pdd const& p, unsigned dep)             { new_constraint(mk_diseq(p, dep), false); }
+        void new_ule(pdd const& p, pdd const& q, unsigned dep) { new_constraint(mk_ule(p, q, dep), false); }
+        void new_ult(pdd const& p, pdd const& q, unsigned dep) { new_constraint(mk_ult(p, q, dep), false); }
+        void new_sle(pdd const& p, pdd const& q, unsigned dep) { new_constraint(mk_sle(p, q, dep), false); }
+        void new_slt(pdd const& p, pdd const& q, unsigned dep) { new_constraint(mk_slt(p, q, dep), false); }
 
         /** Create and activate polynomial constraints. */
-        void add_eq(pdd const& p, unsigned dep = null_dependency);
-        void add_diseq(pdd const& p, unsigned dep = null_dependency);
-        void add_ule(pdd const& p, pdd const& q, unsigned dep = null_dependency);
-        void add_ult(pdd const& p, pdd const& q, unsigned dep = null_dependency);
-        void add_sle(pdd const& p, pdd const& q, unsigned dep = null_dependency);
-        void add_slt(pdd const& p, pdd const& q, unsigned dep = null_dependency);
+        void add_eq(pdd const& p, unsigned dep = null_dependency)                { new_constraint(mk_eq(p, dep), true); }
+        void add_diseq(pdd const& p, unsigned dep = null_dependency)             { new_constraint(mk_diseq(p, dep), true); }
+        void add_ule(pdd const& p, pdd const& q, unsigned dep = null_dependency) { new_constraint(mk_ule(p, q, dep), true); }
+        void add_ult(pdd const& p, pdd const& q, unsigned dep = null_dependency) { new_constraint(mk_ult(p, q, dep), true); }
+        void add_sle(pdd const& p, pdd const& q, unsigned dep = null_dependency) { new_constraint(mk_sle(p, q, dep), true); }
+        void add_slt(pdd const& p, pdd const& q, unsigned dep = null_dependency) { new_constraint(mk_slt(p, q, dep), true); }
         
         /**
          * Activate the constraint corresponding to the given boolean variable.
