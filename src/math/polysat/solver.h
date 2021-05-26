@@ -75,7 +75,7 @@ namespace polysat {
         constraint_manager       m_constraints;
         ptr_vector<constraint>   m_original;
         ptr_vector<constraint>   m_redundant;
-        scoped_ptr_vector<clause>       m_redundant_clauses;
+        ptr_vector<clause>       m_redundant_clauses;
 
         svector<sat::bool_var>   m_disjunctive_lemma;
 
@@ -227,7 +227,8 @@ namespace polysat {
 
         unsigned                 m_conflict_level { 0 };
 
-        scoped_clause resolve(pvar v);
+        clause_ref resolve(pvar v);
+        bool resolve(sat::literal lit, clause_ref lemma);
 
         bool can_decide() const { return !m_free_vars.empty(); }
         void decide();
@@ -244,25 +245,24 @@ namespace polysat {
         unsigned base_level() const;
 
         void resolve_conflict();
-        void resolve_conflict_clause(scoped_clause& lemma);
-        void backtrack(unsigned i, scoped_clause& lemma);
+        void backtrack(unsigned i, clause_ref lemma);
         void report_unsat();
-        void revert_decision(pvar v, scoped_clause& reason);
-        void revert_bool_decision(sat::literal lit, scoped_clause& reason);
-        void learn_lemma(pvar v, scoped_clause&& lemma);
-        void learn_lemma_unit(pvar v, scoped_ptr<constraint>&& lemma);
-        void learn_lemma_clause(pvar v, scoped_clause&& lemma);
+        void revert_decision(pvar v, clause_ref reason);
+        void revert_bool_decision(sat::literal lit, clause_ref reason);
+        void learn_lemma(pvar v, clause_ref lemma);
+        void learn_lemma_unit(pvar v, constraint_ref lemma);
+        void learn_lemma_clause(pvar v, clause_ref lemma);
         void backjump(unsigned new_level);
-        void add_lemma_unit(scoped_ptr<constraint>&& lemma);
-        void add_lemma_clause(scoped_clause&& lemma);
+        void add_lemma_unit(constraint_ref lemma);
+        void add_lemma_clause(clause_ref lemma);
 
-        scoped_ptr<constraint> mk_eq(pdd const& p, unsigned dep);
-        scoped_ptr<constraint> mk_diseq(pdd const& p, unsigned dep);
-        scoped_ptr<constraint> mk_ule(pdd const& p, pdd const& q, unsigned dep);
-        scoped_ptr<constraint> mk_ult(pdd const& p, pdd const& q, unsigned dep);
-        scoped_ptr<constraint> mk_sle(pdd const& p, pdd const& q, unsigned dep);
-        scoped_ptr<constraint> mk_slt(pdd const& p, pdd const& q, unsigned dep);
-        void new_constraint(scoped_ptr<constraint>&& c, bool activate);
+        constraint_ref mk_eq(pdd const& p, unsigned dep);
+        constraint_ref mk_diseq(pdd const& p, unsigned dep);
+        constraint_ref mk_ule(pdd const& p, pdd const& q, unsigned dep);
+        constraint_ref mk_ult(pdd const& p, pdd const& q, unsigned dep);
+        constraint_ref mk_sle(pdd const& p, pdd const& q, unsigned dep);
+        constraint_ref mk_slt(pdd const& p, pdd const& q, unsigned dep);
+        void new_constraint(constraint_ref c, bool activate);
         static void insert_constraint(ptr_vector<constraint>& cs, constraint* c);
 
         bool invariant();

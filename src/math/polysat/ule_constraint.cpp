@@ -25,7 +25,7 @@ namespace polysat {
         return out;
     }
 
-    scoped_ptr<constraint> ule_constraint::resolve(solver& s, pvar v) {
+    constraint_ref ule_constraint::resolve(solver& s, pvar v) {
         return nullptr;
     }
 
@@ -121,7 +121,7 @@ namespace polysat {
             return p.is_val() && q.is_val() && p.val() > q.val();
     }
 
-    bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, scoped_ptr<constraint>& out_neg_cond)
+    bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, constraint_ref& out_neg_cond)
     {
         SASSERT(!is_undef());
 
