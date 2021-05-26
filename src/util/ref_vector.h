@@ -20,6 +20,7 @@ Revision History:
 
 #include "util/vector.h"
 #include "util/obj_ref.h"
+#include "util/ref.h"
 
 /**
    \brief Vector of smart pointers.
@@ -110,6 +111,11 @@ public:
     ref_vector_core& push_back(obj_ref<T,M> && n) {
         m_nodes.push_back(n.get());
         n.steal();
+        return *this;
+    }
+
+    ref_vector_core& push_back(ref<T>&& n) {
+        m_nodes.push_back(n.detach());
         return *this;
     }
 
