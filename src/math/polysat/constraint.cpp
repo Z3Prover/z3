@@ -42,6 +42,12 @@ namespace polysat {
 
     clause* constraint_manager::insert(clause_ref cl) {
         SASSERT(cl);
+        // Insert new constraints
+        for (constraint* c : cl->m_new_constraints)
+            // TODO: if (!inserted) ?
+            insert(c);
+        cl->m_new_constraints = {};  // free vector memory
+        // Insert clause
         while (m_clauses.size() <= cl->level())
             m_clauses.push_back({});
         clause* pcl = cl.get();
@@ -176,6 +182,17 @@ namespace polysat {
         narrow(s);
     }
 
+    clause_ref clause::from_unit(constraint_ref c) {
+        SASSERT(c);
+        unsigned const lvl = c->level();
+        auto const& dep = c->m_dep;
+        sat::literal_vector lits;
+        lits.push_back(sat::literal(c->bvar()));
+        constraint_ref_vector cs;
+        cs.push_back(std::move(c));
+        return clause::from_literals(lvl, dep, std::move(lits), std::move(cs));
+    }
+
     clause_ref clause::from_literals(unsigned lvl, p_dependency_ref const& d, sat::literal_vector literals, constraint_ref_vector constraints) {
         return alloc(clause, lvl, d, literals, constraints);
     }
@@ -204,26 +221,6 @@ namespace polysat {
         }
         return out;
     }
-
-/*
-    scoped_clause::scoped_clause(scoped_ptr<constraint>&& c) {
-        if (c) {
-            sat::literal_vector lits;
-            lits.push_back(sat::literal(c->bvar()));
-            m_clause = clause::from_literals(c->level(), c->m_dep, lits);
-            m_owned.push_back(c.detach());
-        } else {
-            m_clause = nullptr;
-        }
-    }
-
-    std::ostream& scoped_clause::display(std::ostream& out) const {
-        if (m_clause)
-            return out << *m_clause;
-        else
-            return out << "<NULL>";
-    }
-    */
 
     std::ostream& constraints_and_clauses::display(std::ostream& out) const {
         bool first = true;

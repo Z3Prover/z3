@@ -258,7 +258,6 @@ namespace polysat {
         constraint* c = m_constraints.lookup(lit.var());
         SASSERT(c);
         SASSERT(!c->is_undef());
-        SASSERT(c->is_positive() == !lit.sign());
         // c->narrow(*this);
     }
 
@@ -695,10 +694,10 @@ namespace polysat {
     void solver::learn_lemma(pvar v, clause_ref lemma) {
         if (!lemma)
             return;
-        LOG("Learning: " << lemma);
+        LOG("Learning: " << show_deref(lemma));
         SASSERT(m_conflict_level <= m_justification[v].level());
         if (lemma->size() == 1) {
-            constraint_ref c = lemma->constraints()[0];
+            constraint_ref c = lemma->new_constraints()[0];  // TODO: probably wrong
             SASSERT_EQ(lemma->literals()[0].var(), c->bvar());
             SASSERT(!lemma->literals()[0].sign()); // that case is handled incorrectly atm
             learn_lemma_unit(v, std::move(c));
@@ -717,22 +716,37 @@ namespace polysat {
 
     void solver::learn_lemma_clause(pvar v, clause_ref lemma) {
         SASSERT(lemma);
-        clause& cl = *lemma.get();
+        constraint* c = decide_bool(*lemma);
+        push_cjust(v, c);
         add_lemma_clause(std::move(lemma));
-        // Guess one of the new literals
+    }
+
+    // Guess a literal from the given clause; returns the guessed constraint
+    constraint* solver::decide_bool(clause& lemma) {
         constraint* c = nullptr;
         while (true) {
-            unsigned next_idx = cl.next_guess();
-            SASSERT(next_idx < cl.size()); // must succeed for at least one
-            sat::literal lit = cl[next_idx];
+            unsigned next_idx = lemma.next_guess();
+            SASSERT(next_idx < lemma.size());  // must succeed for at least one
+            sat::literal lit = lemma[next_idx];
+            if (m_bvars.value(lit) == l_false)
+                continue;
             c = m_constraints.lookup(lit.var());
-            // TODO: skip if not a new literals
             c->assign(!lit.sign());
-            if (!c->is_currently_false(*this))
-                break;
+            if (c->is_currently_false(*this))
+                continue;
+            // Choose c as next literal
+            break;
         }
-        decide_bool(sat::literal(c->bvar()), &cl);
-        push_cjust(v, c);
+        sat::literal const new_lit{c->bvar()};
+        // TODO: this will not be needed once we add boolean watchlists; alternatively replace with an incremental counter on the clause
+        unsigned const unassigned_count =
+            std::count_if(lemma.begin(), lemma.end(),
+            [this](sat::literal lit) { return !m_bvars.is_assigned(lit); });
+        if (unassigned_count == 1)
+            propagate_bool(new_lit, &lemma);
+        else
+            decide_bool(new_lit, lemma);
+        return c;
     }
 
     /**
@@ -796,19 +810,14 @@ namespace polysat {
         propagate_bool(~lit, reason_cl);
 
         clause* lemma = m_bvars.lemma(var);
-        unsigned next_idx = lemma->next_guess();
-        sat::literal next_lit = (*lemma)[next_idx];
-        // If the guess is the last literal then do a propagation, otherwise a decision
-        if (next_idx == lemma->size() - 1)
-            propagate_bool(next_lit, lemma);
-        else
-            decide_bool(next_lit, lemma);
+        SASSERT(lemma);
+        decide_bool(*lemma);
     }
 
-    void solver::decide_bool(sat::literal lit, clause* lemma) {
+    void solver::decide_bool(sat::literal lit, clause& lemma) {
         push_level();
         LOG_H2("Decide boolean literal " << lit << " @ " << m_level);
-        assign_bool_backtrackable(lit, nullptr, lemma);
+        assign_bool_backtrackable(lit, nullptr, &lemma);
     }
 
     void solver::propagate_bool(sat::literal lit, clause* reason) {
@@ -891,8 +900,7 @@ namespace polysat {
         LOG("resolved: " << show_deref(res));
         if (res) {
             res->assign(true);
-            // TODO: make clause from res!
-            return nullptr;
+            return clause::from_unit(res);
         }
         else
             return nullptr;
@@ -919,15 +927,8 @@ namespace polysat {
         if (!lemma)
             return;
         LOG("Lemma: " << show_deref(lemma));
-        for (constraint* c : lemma->constraints())
-            m_constraints.insert(c);
-
-        // lemma->constraints().reset();
         clause* cl = m_constraints.insert(lemma);
         m_redundant_clauses.push_back(cl);
-
-        // TODO:  also update clause->m_next_guess (probably needs to sort the literals too);
-        //        OTOH we can just check the current value of each potential next literal at guess time. => no need for complicated keeping track of stuff here
     }
 
     void solver::insert_constraint(ptr_vector<constraint>& cs, constraint* c) {

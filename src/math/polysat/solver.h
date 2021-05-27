@@ -195,7 +195,8 @@ namespace polysat {
         // void assign_bool_base(sat::literal lit);
         void activate_constraint(constraint& c, bool is_true);
         void deactivate_constraint(constraint& c);
-        void decide_bool(sat::literal lit, clause* lemma);
+        constraint* decide_bool(clause& lemma);
+        void decide_bool(sat::literal lit, clause& lemma);
         void propagate_bool(sat::literal lit, clause* reason);
 
         void assign_core(pvar v, rational const& val, justification const& j);

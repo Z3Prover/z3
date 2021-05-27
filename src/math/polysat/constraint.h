@@ -45,8 +45,8 @@ namespace polysat {
 
         // Association to boolean variables
         ptr_vector<constraint>   m_bv2constraint;
-        void insert_bv2c(sat::bool_var bv, constraint* c) { LOG_V("insert: " << bv << " -> " << c); m_bv2constraint.setx(bv, c, nullptr); }
-        void erase_bv2c(sat::bool_var bv) { LOG_V("erase: " << bv); m_bv2constraint[bv] = nullptr; }
+        void insert_bv2c(sat::bool_var bv, constraint* c) { /* NOTE: will be called with incompletely constructed c! */ m_bv2constraint.setx(bv, c, nullptr); }
+        void erase_bv2c(sat::bool_var bv) {  m_bv2constraint[bv] = nullptr; }
         constraint* get_bv2c(sat::bool_var bv) const { return m_bv2constraint.get(bv, nullptr); }
 
         // Constraint storage per level; should be destructed before m_bv2constraint
@@ -122,7 +122,6 @@ namespace polysat {
         virtual std::ostream& display(std::ostream& out) const = 0;
         bool propagate(solver& s, pvar v);
         virtual void propagate_core(solver& s, pvar v, pvar other_v);
-        virtual constraint_ref resolve(solver& s, pvar v) = 0;
         virtual bool is_always_false() = 0;
         virtual bool is_currently_false(solver& s) = 0;
         virtual bool is_currently_true(solver& s) = 0;
@@ -149,6 +148,9 @@ namespace polysat {
         bool is_positive() const { return m_status == l_true; }
         bool is_negative() const { return m_status == l_false; }
 
+        // TODO: must return a 'clause_ref' instead. If we resolve with a non-unit constraint, we need to keep it in the clause (or should we track those as dependencies? the level needs to be higher then.)
+        virtual constraint_ref resolve(solver& s, pvar v) = 0;
+
         /** Precondition: all variables other than v are assigned.
          *
          * \param[out] out_interval     The forbidden interval for this constraint
@@ -170,7 +172,7 @@ namespace polysat {
         unsigned m_next_guess = 0;  // next guess for enumerative backtracking
         p_dependency_ref m_dep;
         sat::literal_vector m_literals;
-        constraint_ref_vector m_constraints;  // for each literal, the corresponding constraint.; OR: optional; new constraints that are owned by this clause.
+        constraint_ref_vector m_new_constraints;  // new constraints, temporarily owned by this clause
 
         /* TODO: embed literals to save an indirection?
         unsigned m_num_literals;
@@ -181,8 +183,8 @@ namespace polysat {
         }
         */
 
-        clause(unsigned lvl, p_dependency_ref const& d, sat::literal_vector literals, constraint_ref_vector constraints):
-            m_level(lvl), m_dep(d), m_literals(std::move(literals)), m_constraints(std::move(constraints))
+        clause(unsigned lvl, p_dependency_ref const& d, sat::literal_vector literals, constraint_ref_vector new_constraints):
+            m_level(lvl), m_dep(d), m_literals(std::move(literals)), m_new_constraints(std::move(new_constraints))
         {
             SASSERT(std::count(m_literals.begin(), m_literals.end(), sat::null_literal) == 0);
         }
@@ -191,8 +193,8 @@ namespace polysat {
         void inc_ref() { m_ref_count++; }
         void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (!m_ref_count) dealloc(this); }
 
-        // static clause* unit(constraint* c);
-        static clause_ref from_literals(unsigned lvl, p_dependency_ref const& d, sat::literal_vector literals, constraint_ref_vector constraints);
+        static clause_ref from_unit(constraint_ref c);
+        static clause_ref from_literals(unsigned lvl, p_dependency_ref const& d, sat::literal_vector literals, constraint_ref_vector new_constraints);
 
         // Resolve with 'other' upon 'var'.
         bool resolve(sat::bool_var var, clause const* other);
@@ -201,7 +203,7 @@ namespace polysat {
         p_dependency* dep() const { return m_dep; }
         unsigned level() const { return m_level; }
 
-        constraint_ref_vector const& constraints() const { return m_constraints; }
+        constraint_ref_vector const& new_constraints() const { return m_new_constraints; }
         bool empty() const { return m_literals.empty(); }
         unsigned size() const { return m_literals.size(); }
         sat::literal operator[](unsigned idx) const { return m_literals[idx]; }
@@ -222,46 +224,6 @@ namespace polysat {
     };
 
     inline std::ostream& operator<<(std::ostream& out, clause const& c) { return c.display(out); }
-
-/*
-    // A clause that owns (some of) the constraints represented by its literals.
-    class scoped_clause {
-        scoped_ptr<clause> m_clause;
-        scoped_ptr_vector<constraint> m_owned;
-
-    public:
-        scoped_clause() {}
-        scoped_clause(std::nullptr_t) {}
-
-        scoped_clause(scoped_ptr<constraint>&& c);
-
-        scoped_clause(scoped_ptr<clause>&& clause, scoped_ptr_vector<constraint>&& owned_literals):
-            m_clause(std::move(clause)), m_owned(std::move(owned_literals)) {}
-
-        explicit operator bool() const { return m_clause; }
-
-        bool is_owned_unit() const { return m_clause && m_clause->size() == 1 && m_owned.size() == 1; }
-
-        bool empty() const { SASSERT(m_clause); return m_clause->empty(); }
-        unsigned size() const { SASSERT(m_clause); return m_clause->size(); }
-        sat::literal operator[](unsigned idx) const { SASSERT(m_clause); return (*m_clause)[idx]; }
-
-        bool is_always_false(solver& s) const { return m_clause->is_always_false(s); }
-        bool is_currently_false(solver& s) const { return m_clause->is_currently_false(s); }
-
-        clause* get() { return m_clause.get(); }
-        clause* detach() { SASSERT(m_owned.empty()); return m_clause.detach(); }
-        ptr_vector<constraint> detach_constraints() { return m_owned.detach(); }
-
-        using const_iterator = typename clause::const_iterator;
-        const_iterator begin() const { SASSERT(m_clause); return m_clause->begin(); }
-        const_iterator end() const { SASSERT(m_clause); return m_clause->end(); }
-
-        std::ostream& display(std::ostream& out) const;
-    };
-
-    inline std::ostream& operator<<(std::ostream& out, scoped_clause const& c) { return c.display(out); }
-*/
 
     // Container for unit constraints and clauses.
     class constraints_and_clauses {
