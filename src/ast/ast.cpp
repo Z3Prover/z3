@@ -102,7 +102,7 @@ unsigned parameter::hash() const {
     case PARAM_ZSTRING:  b = get_zstring().hash(); break;
     case PARAM_EXTERNAL: b = get_ext_id(); break;
     }
-    return (b << 2) | get_kind();
+    return b;
 }
 
 std::ostream& parameter::display(std::ostream& out) const {
