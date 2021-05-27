@@ -66,8 +66,12 @@ public:
         return m_ptr;
     }
 
-    operator bool() const {
+    explicit operator bool() const {
         return m_ptr != nullptr;
+    }
+
+    bool operator!() const {
+        return m_ptr == nullptr;
     }
 
     const T & operator*() const {
