@@ -1661,6 +1661,8 @@ namespace {
 
                 if (m_incompatible.empty()) {
                     // sequence starting at head is fully compatible
+                    if (!curr)
+                        return;
                     SASSERT(curr != 0);
                     SASSERT(curr->m_opcode == CHOOSE);
                     choose * first_child = static_cast<choose *>(curr);
