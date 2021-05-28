@@ -189,6 +189,11 @@ namespace polysat {
         // Concrete values of evaluable terms
         auto e1s = e1.subst_val(s.assignment());
         auto e2s = e2.subst_val(s.assignment());
+        // TODO: this is not always true! cjust[v]/conflict may contain unassigned variables (they're coming from a previous conflict, but together they lead to a conflict. need something else to handle that.)
+        if (!e1s.is_val())
+            return false;
+        if (!e2s.is_val())
+            return false;
         SASSERT(e1s.is_val());
         SASSERT(e2s.is_val());
 

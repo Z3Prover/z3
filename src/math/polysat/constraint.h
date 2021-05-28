@@ -91,6 +91,7 @@ namespace polysat {
 
         constraint_manager* m_manager;
         unsigned         m_ref_count = 0;
+        // bool             m_stored = false;  ///< Whether it has been inserted into the constraint_manager to be tracked by level
         unsigned         m_storage_level;  ///< Controls lifetime of the constraint object. Always a base level (for external dependencies the level at which it was created, and for others the maximum storage level of its external dependencies).
         unsigned         m_active_level;  ///< Level at which the constraint was activated. Possibly different from m_storage_level because constraints in lemmas may become activated only at a higher level.
         ckind_t          m_kind;
@@ -99,6 +100,7 @@ namespace polysat {
         sat::bool_var    m_bvar;  ///< boolean variable associated to this constraint; convention: a constraint itself always represents the positive sat::literal
         csign_t          m_sign;  ///< sign/polarity
         lbool            m_status = l_undef;  ///< current constraint status, computed from value of m_lit and m_sign
+        lbool            m_bvalue = l_undef;  ///< TODO: remove m_sign and m_bvalue, use m_status as current value. the constraint itself is always the positive literal. use unit clauses for unit/external constraints; negation may come in through there.
 
         constraint(constraint_manager& m, unsigned lvl, csign_t sign, p_dependency_ref const& dep, ckind_t k):
             m_manager(&m), m_storage_level(lvl), m_kind(k), m_dep(dep), m_bvar(m_manager->m_bvars.new_var()), m_sign(sign) {
@@ -137,18 +139,21 @@ namespace polysat {
         unsigned_vector const& vars() const { return m_vars; }
         unsigned level() const { return m_storage_level; }
         sat::bool_var bvar() const { return m_bvar; }
+        sat::literal blit() const { SASSERT(m_bvalue != l_undef); return m_bvalue == l_true ? sat::literal(m_bvar) : ~sat::literal(m_bvar); }
         bool sign() const { return m_sign; }
         void assign(bool is_true) {
+            SASSERT(m_bvalue == l_undef || m_bvalue == to_lbool(is_true));
+            m_bvalue = to_lbool(is_true);
             lbool new_status = (is_true ^ !m_sign) ? l_true : l_false;
             SASSERT(is_undef() || new_status == m_status);
             m_status = new_status;
         }
-        void unassign() { m_status = l_undef; }
+        void unassign() { m_status = l_undef; m_bvalue = l_undef; }
         bool is_undef() const { return m_status == l_undef; }
         bool is_positive() const { return m_status == l_true; }
         bool is_negative() const { return m_status == l_false; }
 
-        // TODO: must return a 'clause_ref' instead. If we resolve with a non-unit constraint, we need to keep it in the clause (or should we track those as dependencies? the level needs to be higher then.)
+        // TODO: must return a 'clause_ref' instead. If we resolve with a non-base constraint, we need to keep it in the clause (or should we track those as dependencies? the level needs to be higher then.)
         virtual constraint_ref resolve(solver& s, pvar v) = 0;
 
         /** Precondition: all variables other than v are assigned.

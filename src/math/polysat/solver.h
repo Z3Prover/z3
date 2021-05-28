@@ -229,7 +229,7 @@ namespace polysat {
         unsigned                 m_conflict_level { 0 };
 
         clause_ref resolve(pvar v);
-        bool resolve(sat::literal lit, clause_ref lemma);
+        clause_ref resolve_bool(sat::literal lit);
 
         bool can_decide() const { return !m_free_vars.empty(); }
         void decide();

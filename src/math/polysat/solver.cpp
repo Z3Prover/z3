@@ -413,6 +413,7 @@ namespace polysat {
             // NOTE: all such cases should be discovered elsewhere (e.g., during propagation/narrowing)
             //       (fail here in debug mode so we notice if we miss some)
             DEBUG_CODE( UNREACHABLE(); );
+            m_free_vars.unassign_var_eh(v);
             set_conflict(v);
             break;
         case dd::find_t::singleton:
@@ -599,17 +600,43 @@ namespace polysat {
                     return;
                 }
                 SASSERT(m_bvars.is_propagation(var));
-                clause* other = m_bvars.reason(var);
-                // TODO: boolean resolution
-                NOT_IMPLEMENTED_YET();
-                // TODO: separate function
-                // we resolve upon 'var'
+                clause_ref new_lemma = resolve_bool(lit);
+                SASSERT(new_lemma);
+                if (new_lemma->is_always_false(*this)) {
+                    clause* cl = new_lemma.get();
+                    // learn_lemma(v, std::move(new_lemma));
+                    m_conflict.reset();
+                    m_conflict.push_back(cl);
+                    report_unsat();
+                    return;
+                }
+                if (!new_lemma->is_currently_false(*this)) {
+                    backtrack(i, lemma);
+                    return;
+                }
+                lemma = std::move(new_lemma);
+                reset_marks();
+                m_bvars.reset_marks();
+                set_marks(*lemma.get());
+                m_conflict.reset();
+                m_conflict.push_back(lemma.get());
             }
         }
         report_unsat();
     }
 
-    bool resolve(sat::literal lit, scoped_clause& lemma) {
+    clause_ref solver::resolve_bool(sat::literal lit) {
+        if (m_conflict.size() != 1)
+            return nullptr;
+        if (m_conflict.clauses().size() != 1)
+            return nullptr;
+        clause* lemma = m_conflict.clauses()[0];
+        SASSERT(lemma);
+        SASSERT(m_bvars.is_propagation(lit.var()));
+        clause* other = m_bvars.reason(lit.var());
+        SASSERT(other);
+        VERIFY(lemma->resolve(lit.var(), *other));
+        return lemma;  // currently modified in-place
     }
 
     void solver::backtrack(unsigned i, clause_ref lemma) {
@@ -723,6 +750,13 @@ namespace polysat {
 
     // Guess a literal from the given clause; returns the guessed constraint
     constraint* solver::decide_bool(clause& lemma) {
+        LOG_H3("Guessing literal in lemma: " << lemma);
+        IF_LOGGING({
+            for (pvar v = 0; v < m_viable.size(); ++v) {
+                log_viable(v);
+            }
+        });
+        LOG("Boolean assignment: " << m_bvars);
         constraint* c = nullptr;
         while (true) {
             unsigned next_idx = lemma.next_guess();
@@ -730,6 +764,7 @@ namespace polysat {
             sat::literal lit = lemma[next_idx];
             if (m_bvars.value(lit) == l_false)
                 continue;
+            SASSERT(m_bvars.value(lit) != l_true);  // cannot happen in a valid lemma
             c = m_constraints.lookup(lit.var());
             c->assign(!lit.sign());
             if (c->is_currently_false(*this))
@@ -762,7 +797,7 @@ namespace polysat {
      */
     void solver::revert_decision(pvar v, clause_ref reason) {
         rational val = m_value[v];
-        LOG_H3("Reverting decision: pvar " << v << " -> " << val);
+        LOG_H3("Reverting decision: pvar " << v << " := " << val);
         SASSERT(m_justification[v].is_decision());
         bdd viable = m_viable[v];
         constraints just(m_cjust[v]);
@@ -778,7 +813,6 @@ namespace polysat {
         //     push_cjust(v, just[i]);
 
         add_non_viable(v, val);
-        learn_lemma(v, std::move(reason));
 
         for (constraint* c : m_conflict.units()) {
             // Add the conflict as justification for the exclusion of 'val'
@@ -788,6 +822,13 @@ namespace polysat {
             c->narrow(*this);
         }
         m_conflict.reset();
+
+        learn_lemma(v, std::move(reason));
+
+        if (is_conflict()) {
+            LOG_H1("Conflict during revert_decision!");
+            return;
+        }
 
         narrow(v);
         if (m_justification[v].is_unassigned()) {
@@ -800,17 +841,54 @@ namespace polysat {
         sat::bool_var const var = lit.var();
         LOG_H3("Reverting boolean decision: " << lit);
         SASSERT(m_bvars.is_decision(var));
+
+        if (reason) {
+            LOG("Reason: " << show_deref(reason));
+            bool contains_var = std::any_of(reason->begin(), reason->end(), [var](sat::literal reason_lit) { return reason_lit.var() == var; });
+            bool contains_opp = std::any_of(reason->begin(), reason->end(), [lit](sat::literal reason_lit) { return reason_lit == ~lit; });
+            SASSERT(contains_var);
+            SASSERT(contains_opp);
+        }
+        else {
+            LOG_H3("Empty reason");
+            LOG("Conflict: " << m_conflict);
+            // TODO: what to do when reason is NULL?
+            // * this means we were unable to build a lemma for the current conflict.
+            // * the reason for reverting this decision then needs to be the (negation of the) conflicting literals. Or we give up on resolving this lemma?
+            SASSERT(m_conflict.clauses().empty());  // not sure how to handle otherwise
+            unsigned reason_lvl = m_constraints.lookup(lit.var())->level();
+            p_dependency_ref reason_dep(m_constraints.lookup(lit.var())->dep(), m_dm);
+            sat::literal_vector reason_lits;
+            reason_lits.push_back(~lit);  // propagated literal
+            for (auto c : m_conflict.units()) {
+                if (c->bvar() == var)
+                    continue;
+                reason_lvl = std::max(reason_lvl, c->level());
+                reason_dep = m_dm.mk_join(reason_dep, c->dep());
+                reason_lits.push_back(c->blit());
+            }
+            reason = clause::from_literals(reason_lvl, reason_dep, reason_lits, {});
+            LOG("Made-up reason: " << show_deref(reason));
+        }
+
+        clause* lemma = m_bvars.lemma(var);  // need to grab this while 'lit' is still assigned
+        SASSERT(lemma);
+
         backjump(m_bvars.level(var) - 1);
 
-        bool contains_var = std::any_of(reason->begin(), reason->end(), [var](sat::literal reason_lit) { return reason_lit.var() == var; });
-        bool contains_opp = std::any_of(reason->begin(), reason->end(), [lit](sat::literal reason_lit) { return reason_lit == ~lit; });
-        SASSERT(contains_var && contains_opp);  // TODO: hm...
+        for (constraint* c : m_conflict.units()) {
+            if (c->bvar() == var)
+                continue;
+            // NOTE: in general, narrow may change the conflict.
+            //       But since we just backjumped, narrowing should not result in an additional conflict.
+            c->narrow(*this);
+        }
+        m_conflict.reset();
+
         clause* reason_cl = reason.get();
         add_lemma_clause(std::move(reason));
         propagate_bool(~lit, reason_cl);
 
-        clause* lemma = m_bvars.lemma(var);
-        SASSERT(lemma);
         decide_bool(*lemma);
     }
 
@@ -862,7 +940,7 @@ namespace polysat {
 
     /// Activate constraint immediately
     void solver::activate_constraint(constraint& c, bool is_true) {
-        LOG("Activating constraint: " << c);
+        LOG("Activating constraint: " << c << " ; is_true = " << is_true);
         SASSERT(m_bvars.value(c.bvar()) == to_lbool(is_true));
         c.assign(is_true);
         add_watch(c);

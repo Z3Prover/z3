@@ -101,7 +101,7 @@ namespace polysat {
             SASSERT(full_record.interval.is_full());
             sat::literal_vector literals;
             constraint_ref_vector new_constraints;
-            literals.push_back(~sat::literal(full_record.src->bvar()));  // TODO: only do this if it's not a base-level constraint! (from unit clauses, e.g., external constraints)
+            literals.push_back(~full_record.src->blit());  // TODO: only do this if it's not a base-level constraint! (from unit clauses, e.g., external constraints)
             if (full_record.neg_cond) {
                 literals.push_back(sat::literal(full_record.neg_cond.get()->bvar()));
                 new_constraints.push_back(std::move(full_record.neg_cond));
@@ -151,7 +151,7 @@ namespace polysat {
         for (unsigned const i : seq) {
             // TODO: don't add base-level constraints! (from unit clauses, e.g., external constraints)
             //       (maybe extract that into a helper function on 'clause'... it could sort out base-level and other constraints; add the first to lemma_dep and the other to antecedents)
-            sat::literal src_lit{records[i].src->bvar()};
+            sat::literal src_lit = records[i].src->blit();
             literals.push_back(~src_lit);
         }
         // Add side conditions and interval constraints

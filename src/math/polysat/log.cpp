@@ -27,27 +27,16 @@ get_max_log_level(std::string const& fn, std::string const& pretty_fn)
   (void)fn;
   (void)pretty_fn;
 
-  // bool const from_decision_queue = pretty_fn.find("DecisionQueue") != std::string::npos;
-  // if (from_decision_queue) {
-  //   return LogLevel::Info;
-  // }
+  if (fn == "push_cjust") {
+    return LogLevel::Verbose;
+  }
 
-  // if (pretty_fn.find("add_") != std::string::npos) {
-  //   return LogLevel::Info;
-  // }
-
-  // if (fn == "analyze") {
-  //   return LogLevel::Trace;
-  // }
-  // if (fn.find("minimize") != std::string::npos) {
-  //   return LogLevel::Trace;
-  // }
-  // if (fn == "propagate_literal") {
-  //     return LogLevel::Trace;
-  // }
+  if (fn == "pop_levels") {
+    // return LogLevel::Default;
+  }
 
   return LogLevel::Verbose;
-  // return LogLevel::Warn;
+  return LogLevel::Default;
 }
 
 /// Filter log messages
