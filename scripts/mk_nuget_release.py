@@ -43,13 +43,13 @@ def download_installs():
         sys.stdout.flush()
         urllib.request.urlretrieve(url, "packages/%s" % name)
 
-os_info = {"z64-ubuntu-14" : ('so', 'ubuntu.14.04-x64'),
-           'ubuntu-16' : ('so', 'ubuntu-x64'),
+os_info = {"z64-ubuntu-14" : ('so', 'linux-x64'),
+           'ubuntu-16' : ('so', 'linux-x64'),
            'x64-win' : ('dll', 'win-x64'),
 # Skip x86 as I can't get dotnet build to produce AnyCPU TargetPlatform           
 #          'x86-win' : ('dll', 'win-x86'),
            'osx' : ('dylib', 'osx-x64'),
-           'debian' : ('so', 'debian.8-x64') }
+           'debian' : ('so', 'linux-x64') }
 
 def classify_package(f):
     for os_name in os_info:
@@ -66,9 +66,7 @@ def unpack():
     # +- runtimes
     #    +- win-x64
     #    +- win-x86
-    #    +- ubuntu.16.04-x64
-    #    +- ubuntu.14.04-x64
-    #    +- debian.8-x64
+    #    +- linux-x64
     #    +- osx-x64
     # +
     for f in os.listdir("packages"):

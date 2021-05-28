@@ -22,14 +22,14 @@ def mk_dir(d):
         os.makedirs(d)
 
 
-os_info = {"z64-ubuntu-14" : ('so', 'ubuntu.14.04-x64'),
-           'ubuntu-18' : ('so', 'ubuntu-x64'),
-           'ubuntu-20' : ('so', 'ubuntu-x64'),
-           'glibc-2.31' : ('so', 'ubuntu-x64'),
+os_info = {"z64-ubuntu-14" : ('so', 'linux-x64'),
+           'ubuntu-18' : ('so', 'linux-x64'),
+           'ubuntu-20' : ('so', 'linux-x64'),
+           'glibc-2.31' : ('so', 'linux-x64'),
            'x64-win' : ('dll', 'win-x64'),
            'x86-win' : ('dll', 'win-x86'),
            'osx' : ('dylib', 'osx-x64'),
-           'debian' : ('so', 'debian.8-x64') }
+           'debian' : ('so', 'linux-x64') }
 
 def classify_package(f):
     for os_name in os_info:
@@ -51,7 +51,7 @@ def unpack(packages, symbols):
     # +- runtimes
     #    +- win-x64
     #    +- win-x86
-    #    +- ubuntu-x64
+    #    +- linux-x64
     #    +- osx-x64
     # +
     tmp = "tmp" if not symbols else "tmpsym"
