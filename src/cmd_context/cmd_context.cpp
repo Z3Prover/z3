@@ -611,6 +611,7 @@ void cmd_context::set_produce_models(bool f) {
 }
 
 void cmd_context::set_produce_unsat_cores(bool f) {
+    std::cout << "uc\n";
     // can only be set before initialization
     SASSERT(!has_manager());
     m_params.m_unsat_core |= f;
