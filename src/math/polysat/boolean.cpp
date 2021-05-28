@@ -75,4 +75,15 @@ namespace polysat {
         SASSERT(var != sat::null_bool_var);
         m_marks[var] = m_clock;
     }
+
+    std::ostream& bool_var_manager::display(std::ostream& out) const {
+        for (sat::bool_var v = 0; v < size(); ++v) {
+            sat::literal lit{v};
+            if (value(lit) == l_true)
+                out << " " << lit;
+            if (value(lit) == l_false)
+                out << " " << ~lit;
+        }
+        return out;
+    }
 }
