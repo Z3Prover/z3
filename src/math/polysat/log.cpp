@@ -27,13 +27,15 @@ get_max_log_level(std::string const& fn, std::string const& pretty_fn)
   (void)fn;
   (void)pretty_fn;
 
-  if (fn == "push_cjust") {
+  if (fn == "push_cjust")
     return LogLevel::Verbose;
-  }
 
-  if (fn == "pop_levels") {
-    // return LogLevel::Default;
-  }
+  // if (fn == "pop_levels")
+  //   return LogLevel::Default;
+
+  // also covers 'reset_marks' and 'set_marks'
+  if (fn.find("set_mark") != std::string::npos)
+    return LogLevel::Default;
 
   return LogLevel::Verbose;
   return LogLevel::Default;

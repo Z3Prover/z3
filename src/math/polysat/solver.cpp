@@ -605,10 +605,9 @@ namespace polysat {
                 clause_ref new_lemma = resolve_bool(lit);
                 SASSERT(new_lemma);
                 if (new_lemma->is_always_false(*this)) {
-                    clause* cl = new_lemma.get();
-                    // learn_lemma(v, std::move(new_lemma));
+                    // learn_lemma(v, new_lemma);
                     m_conflict.reset();
-                    m_conflict.push_back(cl);
+                    m_conflict.push_back(std::move(new_lemma));
                     report_unsat();
                     return;
                 }
@@ -665,7 +664,7 @@ namespace polysat {
                         set_mark(w);
                     if (c->bvar() != sat::null_bool_var)
                         m_bvars.set_mark(c->bvar());
-                    m_conflict.units().push_back(c);
+                    m_conflict.push_back(c);
                 }
             }
             else {
@@ -677,9 +676,6 @@ namespace polysat {
                 SASSERT(m_bvars.is_assigned(var));
                 if (!m_bvars.is_marked(var))
                     continue;
-                // NOTE: currently, we should never reach this point (but check)
-                // UNREACHABLE();
-
                 if (m_bvars.level(var) <= base_level())
                     break;
                 if (m_bvars.is_decision(var)) {
@@ -687,13 +683,13 @@ namespace polysat {
                     return;
                 }
                 SASSERT(m_bvars.is_propagation(var));
-                // Note: here, bvar being marked need not mean it's part of the reason (could come from a cjust)
                 clause* other = m_bvars.reason(var);
-                NOT_IMPLEMENTED_YET();
+                set_marks(*other);
+                m_conflict.push_back(other);
             }
         }
         while (i-- > 0);
-        // TODO: learn lemma
+        add_lemma_clause(lemma);  // TODO: handle units correctly
         report_unsat();
     }
 
@@ -1050,6 +1046,7 @@ namespace polysat {
         if (!lemma)
             return;
         LOG("Lemma: " << show_deref(lemma));
+        SASSERT(lemma->size() > 1);
         clause* cl = m_constraints.insert(lemma);
         m_redundant_clauses.push_back(cl);
     }
