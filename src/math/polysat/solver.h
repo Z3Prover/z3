@@ -75,7 +75,7 @@ namespace polysat {
         constraint_manager       m_constraints;
         ptr_vector<constraint>   m_original;
         ptr_vector<constraint>   m_redundant;
-        scoped_ptr_vector<clause>       m_redundant_clauses;
+        ptr_vector<clause>       m_redundant_clauses;
 
         svector<sat::bool_var>   m_disjunctive_lemma;
 
@@ -195,7 +195,8 @@ namespace polysat {
         // void assign_bool_base(sat::literal lit);
         void activate_constraint(constraint& c, bool is_true);
         void deactivate_constraint(constraint& c);
-        void decide_bool(sat::literal lit, clause* lemma);
+        sat::literal decide_bool(clause& lemma);
+        void decide_bool(sat::literal lit, clause& lemma);
         void propagate_bool(sat::literal lit, clause* reason);
 
         void assign_core(pvar v, rational const& val, justification const& j);
@@ -219,7 +220,7 @@ namespace polysat {
         unsigned        m_clock { 0 };
         void reset_marks();
         bool is_marked(pvar v) const { return m_clock == m_marks[v]; }
-        void set_mark(pvar v) { m_marks[v] = m_clock; }
+        void set_mark(pvar v) { LOG_V("Marking: v" << v); m_marks[v] = m_clock; }
 
         void set_marks(constraints_and_clauses const& cc);
         void set_marks(constraint const& c);
@@ -227,7 +228,8 @@ namespace polysat {
 
         unsigned                 m_conflict_level { 0 };
 
-        scoped_clause resolve(pvar v);
+        clause_ref resolve(pvar v);
+        clause_ref resolve_bool(sat::literal lit);
 
         bool can_decide() const { return !m_free_vars.empty(); }
         void decide();
@@ -244,25 +246,24 @@ namespace polysat {
         unsigned base_level() const;
 
         void resolve_conflict();
-        void resolve_conflict_clause(scoped_clause& lemma);
-        void backtrack(unsigned i, scoped_clause& lemma);
+        void backtrack(unsigned i, clause_ref lemma);
         void report_unsat();
-        void revert_decision(pvar v, scoped_clause& reason);
-        void revert_bool_decision(sat::literal lit, scoped_clause& reason);
-        void learn_lemma(pvar v, scoped_clause&& lemma);
-        void learn_lemma_unit(pvar v, scoped_ptr<constraint>&& lemma);
-        void learn_lemma_clause(pvar v, scoped_clause&& lemma);
+        void revert_decision(pvar v, clause_ref reason);
+        void revert_bool_decision(sat::literal lit, clause_ref reason);
+        void learn_lemma(pvar v, clause_ref lemma);
+        void learn_lemma_unit(pvar v, constraint_ref lemma);
+        void learn_lemma_clause(pvar v, clause_ref lemma);
         void backjump(unsigned new_level);
-        void add_lemma_unit(scoped_ptr<constraint>&& lemma);
-        void add_lemma_clause(scoped_clause&& lemma);
+        void add_lemma_unit(constraint_ref lemma);
+        void add_lemma_clause(clause_ref lemma);
 
-        scoped_ptr<constraint> mk_eq(pdd const& p, unsigned dep);
-        scoped_ptr<constraint> mk_diseq(pdd const& p, unsigned dep);
-        scoped_ptr<constraint> mk_ule(pdd const& p, pdd const& q, unsigned dep);
-        scoped_ptr<constraint> mk_ult(pdd const& p, pdd const& q, unsigned dep);
-        scoped_ptr<constraint> mk_sle(pdd const& p, pdd const& q, unsigned dep);
-        scoped_ptr<constraint> mk_slt(pdd const& p, pdd const& q, unsigned dep);
-        void new_constraint(scoped_ptr<constraint>&& c, bool activate);
+        constraint_ref mk_eq(pdd const& p, unsigned dep);
+        constraint_ref mk_diseq(pdd const& p, unsigned dep);
+        constraint_ref mk_ule(pdd const& p, pdd const& q, unsigned dep);
+        constraint_ref mk_ult(pdd const& p, pdd const& q, unsigned dep);
+        constraint_ref mk_sle(pdd const& p, pdd const& q, unsigned dep);
+        constraint_ref mk_slt(pdd const& p, pdd const& q, unsigned dep);
+        void new_constraint(constraint_ref c, bool activate);
         static void insert_constraint(ptr_vector<constraint>& cs, constraint* c);
 
         bool invariant();
@@ -321,20 +322,20 @@ namespace polysat {
          * Create polynomial constraints (but do not activate them).
          * Each constraint is tracked by a dependency.
          */
-        void new_eq(pdd const& p, unsigned dep);
-        void new_diseq(pdd const& p, unsigned dep);
-        void new_ule(pdd const& p, pdd const& q, unsigned dep);
-        void new_ult(pdd const& p, pdd const& q, unsigned dep);
-        void new_sle(pdd const& p, pdd const& q, unsigned dep);
-        void new_slt(pdd const& p, pdd const& q, unsigned dep);
+        void new_eq(pdd const& p, unsigned dep)                { new_constraint(mk_eq(p, dep), false); }
+        void new_diseq(pdd const& p, unsigned dep)             { new_constraint(mk_diseq(p, dep), false); }
+        void new_ule(pdd const& p, pdd const& q, unsigned dep) { new_constraint(mk_ule(p, q, dep), false); }
+        void new_ult(pdd const& p, pdd const& q, unsigned dep) { new_constraint(mk_ult(p, q, dep), false); }
+        void new_sle(pdd const& p, pdd const& q, unsigned dep) { new_constraint(mk_sle(p, q, dep), false); }
+        void new_slt(pdd const& p, pdd const& q, unsigned dep) { new_constraint(mk_slt(p, q, dep), false); }
 
         /** Create and activate polynomial constraints. */
-        void add_eq(pdd const& p, unsigned dep = null_dependency);
-        void add_diseq(pdd const& p, unsigned dep = null_dependency);
-        void add_ule(pdd const& p, pdd const& q, unsigned dep = null_dependency);
-        void add_ult(pdd const& p, pdd const& q, unsigned dep = null_dependency);
-        void add_sle(pdd const& p, pdd const& q, unsigned dep = null_dependency);
-        void add_slt(pdd const& p, pdd const& q, unsigned dep = null_dependency);
+        void add_eq(pdd const& p, unsigned dep = null_dependency)                { new_constraint(mk_eq(p, dep), true); }
+        void add_diseq(pdd const& p, unsigned dep = null_dependency)             { new_constraint(mk_diseq(p, dep), true); }
+        void add_ule(pdd const& p, pdd const& q, unsigned dep = null_dependency) { new_constraint(mk_ule(p, q, dep), true); }
+        void add_ult(pdd const& p, pdd const& q, unsigned dep = null_dependency) { new_constraint(mk_ult(p, q, dep), true); }
+        void add_sle(pdd const& p, pdd const& q, unsigned dep = null_dependency) { new_constraint(mk_sle(p, q, dep), true); }
+        void add_slt(pdd const& p, pdd const& q, unsigned dep = null_dependency) { new_constraint(mk_slt(p, q, dep), true); }
         
         /**
          * Activate the constraint corresponding to the given boolean variable.

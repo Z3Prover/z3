@@ -32,13 +32,13 @@ namespace polysat {
         pdd const& lhs() const { return m_lhs; }
         pdd const& rhs() const { return m_rhs; }
         std::ostream& display(std::ostream& out) const override;
-        scoped_ptr<constraint> resolve(solver& s, pvar v) override;
+        constraint_ref resolve(solver& s, pvar v) override;
         bool is_always_false(pdd const& lhs, pdd const& rhs);
         bool is_always_false() override;
         bool is_currently_false(solver& s) override;
         bool is_currently_true(solver& s) override;
         void narrow(solver& s) override;
-        bool forbidden_interval(solver& s, pvar v, eval_interval& out_interval, scoped_ptr<constraint>& out_neg_cond) override;
+        bool forbidden_interval(solver& s, pvar v, eval_interval& out_interval, constraint_ref& out_neg_cond) override;
     };
 
 }

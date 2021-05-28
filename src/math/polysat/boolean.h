@@ -58,6 +58,10 @@ namespace polysat {
         /// Set the given literal to true
         void assign(sat::literal lit, unsigned lvl, clause* reason, clause* lemma);
         void unassign(sat::literal lit);
+
+        std::ostream& display(std::ostream& out) const;
     };
+
+    inline std::ostream& operator<<(std::ostream& out, bool_var_manager const& m) { return m.display(out); }
 
 }

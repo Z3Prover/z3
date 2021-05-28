@@ -23,7 +23,7 @@ namespace polysat {
     class forbidden_intervals {
 
     public:
-        static bool explain(solver& s, ptr_vector<constraint> const& conflict, pvar v, scoped_clause& out_lemma);
+        static bool explain(solver& s, constraint_ref_vector const& conflict, pvar v, clause_ref& out_lemma);
 
     };
 }

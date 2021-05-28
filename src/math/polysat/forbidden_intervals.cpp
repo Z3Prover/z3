@@ -20,7 +20,7 @@ namespace polysat {
 
     struct fi_record {
         eval_interval interval;
-        scoped_ptr<constraint> neg_cond;  // could be multiple constraints later
+        constraint_ref neg_cond;  // could be multiple constraints later
         constraint* src;
     };
 
@@ -62,7 +62,7 @@ namespace polysat {
         return true;
     }
 
-    bool forbidden_intervals::explain(solver& s, ptr_vector<constraint> const& conflict, pvar v, scoped_clause& out_lemma) {
+    bool forbidden_intervals::explain(solver& s, constraint_ref_vector const& conflict, pvar v, clause_ref& out_lemma) {
 
         // Extract forbidden intervals from conflicting constraints
         vector<fi_record> records;
@@ -72,7 +72,7 @@ namespace polysat {
         for (constraint* c : conflict) {
             LOG_H3("Computing forbidden interval for: " << *c);
             eval_interval interval = eval_interval::full();
-            scoped_ptr<constraint> neg_cond;
+            constraint_ref neg_cond;
             if (c->forbidden_interval(s, v, interval, neg_cond)) {
                 LOG("interval: " << interval);
                 LOG("neg_cond: " << show_deref(neg_cond));
@@ -100,15 +100,15 @@ namespace polysat {
             auto& full_record = records.back();
             SASSERT(full_record.interval.is_full());
             sat::literal_vector literals;
-            scoped_ptr_vector<constraint> new_constraints;
-            literals.push_back(~sat::literal(full_record.src->bvar()));  // TODO: only do this if it's not a base-level constraint! (from unit clauses, e.g., external constraints)
+            constraint_ref_vector new_constraints;
+            literals.push_back(~full_record.src->blit());  // TODO: only do this if it's not a base-level constraint! (from unit clauses, e.g., external constraints)
             if (full_record.neg_cond) {
                 literals.push_back(sat::literal(full_record.neg_cond.get()->bvar()));
-                new_constraints.push_back(full_record.neg_cond.detach());
+                new_constraints.push_back(std::move(full_record.neg_cond));
             }
             unsigned lemma_lvl = full_record.src->level();
             p_dependency_ref lemma_dep(full_record.src->dep(), s.m_dm);
-            out_lemma = scoped_clause(clause::from_literals(lemma_lvl, lemma_dep, literals), std::move(new_constraints));
+            out_lemma = clause::from_literals(lemma_lvl, lemma_dep, std::move(literals), std::move(new_constraints));
             return true;
         }
 
@@ -146,12 +146,12 @@ namespace polysat {
         // We learn the negation of this conjunction.
 
         sat::literal_vector literals;
-        scoped_ptr_vector<constraint> new_constraints;
+        constraint_ref_vector new_constraints;
         // Add negation of src constraints as antecedents (may be resolved during backtracking)
         for (unsigned const i : seq) {
             // TODO: don't add base-level constraints! (from unit clauses, e.g., external constraints)
             //       (maybe extract that into a helper function on 'clause'... it could sort out base-level and other constraints; add the first to lemma_dep and the other to antecedents)
-            sat::literal src_lit{records[i].src->bvar()};
+            sat::literal src_lit = records[i].src->blit();
             literals.push_back(~src_lit);
         }
         // Add side conditions and interval constraints
@@ -165,20 +165,19 @@ namespace polysat {
             auto const& next_hi = records[next_i].interval.hi();
             auto const& lhs = hi - next_lo;
             auto const& rhs = next_hi - next_lo;
-            scoped_ptr<constraint> c = s.m_constraints.ult(lemma_lvl, neg_t, lhs, rhs, s.mk_dep_ref(null_dependency));
+            constraint_ref c = s.m_constraints.ult(lemma_lvl, neg_t, lhs, rhs, s.mk_dep_ref(null_dependency));
             LOG("constraint: " << *c);
             literals.push_back(sat::literal(c->bvar()));
-            new_constraints.push_back(c.detach());
+            new_constraints.push_back(std::move(c));
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
-            scoped_ptr<constraint>& neg_cond = records[i].neg_cond;
+            constraint_ref& neg_cond = records[i].neg_cond;
             if (neg_cond) {
                 literals.push_back(sat::literal(neg_cond->bvar()));
-                new_constraints.push_back(neg_cond.detach());
+                new_constraints.push_back(std::move(neg_cond));
             }
         }
-        scoped_ptr<clause> cl = clause::from_literals(lemma_lvl, lemma_dep, literals);
-        out_lemma = scoped_clause(std::move(cl), std::move(new_constraints));
+        out_lemma = clause::from_literals(lemma_lvl, lemma_dep, std::move(literals), std::move(new_constraints));
         return true;
     }
 

@@ -18,11 +18,13 @@ Author:
 #pragma once
 
 #include <iostream>
+#include <utility>
+#include "util/ref.h"
 #include "util/util.h"
 
 template <typename T>
 struct show_deref_t {
-  T* ptr;
+  T const* ptr;
 };
 
 template <typename T>
@@ -38,7 +40,22 @@ show_deref_t<T> show_deref(T* ptr) {
   return show_deref_t<T>{ptr};
 }
 
-template <typename T>
-show_deref_t<T> show_deref(scoped_ptr<T> const& ptr) {
+// template <typename T>
+// show_deref_t<T> show_deref(ref<T> const& ptr) {
+//   return show_deref_t<T>{ptr.get()};
+// }
+
+// template <typename T>
+// show_deref_t<T> show_deref(scoped_ptr<T> const& ptr) {
+//   return show_deref_t<T>{ptr.get()};
+// }
+
+// template <typename Ptr, typename T = decltype(&*std::declval<Ptr>())>
+// show_deref_t<T> show_deref(Ptr const& ptr) {
+//   return show_deref_t<T>{&*ptr};
+// }
+
+template <typename Ptr, typename T = typename std::remove_pointer<decltype(std::declval<Ptr>().get())>::type>
+show_deref_t<T> show_deref(Ptr const& ptr) {
   return show_deref_t<T>{ptr.get()};
 }

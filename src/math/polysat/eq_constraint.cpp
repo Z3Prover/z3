@@ -19,13 +19,13 @@ Author:
 namespace polysat {
 
     std::ostream& eq_constraint::display(std::ostream& out) const {
-        out << p() << (sign() == pos_t ? " == 0" : " != 0") << " @" << level();
+        out << p() << (sign() == pos_t ? " == 0" : " != 0") << " @" << level() << " b" << bvar();
         if (is_undef())
             out << " [inactive]";
         return out;
     }
 
-    scoped_ptr<constraint> eq_constraint::resolve(solver& s, pvar v) {
+    constraint_ref eq_constraint::resolve(solver& s, pvar v) {
         if (is_positive())
             return eq_resolve(s, v);
         if (is_negative())
@@ -115,7 +115,7 @@ namespace polysat {
      * Equality constraints
      */
 
-    scoped_ptr<constraint> eq_constraint::eq_resolve(solver& s, pvar v) {
+    constraint_ref eq_constraint::eq_resolve(solver& s, pvar v) {
         LOG("Resolve " << *this << " upon v" << v);
         if (s.m_conflict.size() != 1)
             return nullptr;
@@ -147,7 +147,7 @@ namespace polysat {
      * Disequality constraints
      */
 
-    scoped_ptr<constraint> eq_constraint::diseq_resolve(solver& s, pvar v) {
+    constraint_ref eq_constraint::diseq_resolve(solver& s, pvar v) {
         NOT_IMPLEMENTED_YET();
         return nullptr;
     }
@@ -155,7 +155,7 @@ namespace polysat {
 
 
     /// Compute forbidden interval for equality constraint by considering it as p <=u 0 (or p >u 0 for disequality)
-    bool eq_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, scoped_ptr<constraint>& out_neg_cond)
+    bool eq_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, constraint_ref& out_neg_cond)
     {
         SASSERT(!is_undef());
 

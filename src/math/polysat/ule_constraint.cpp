@@ -19,13 +19,13 @@ Author:
 namespace polysat {
 
     std::ostream& ule_constraint::display(std::ostream& out) const {
-        out << m_lhs << (sign() == pos_t ? " <=u " : " >u ") << m_rhs << " @" << level();
+        out << m_lhs << (sign() == pos_t ? " <=u " : " >u ") << m_rhs << " @" << level() << " b" << bvar();
         if (is_undef())
             out << " [inactive]";
         return out;
     }
 
-    scoped_ptr<constraint> ule_constraint::resolve(solver& s, pvar v) {
+    constraint_ref ule_constraint::resolve(solver& s, pvar v) {
         return nullptr;
     }
 
@@ -121,7 +121,7 @@ namespace polysat {
             return p.is_val() && q.is_val() && p.val() > q.val();
     }
 
-    bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, scoped_ptr<constraint>& out_neg_cond)
+    bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, constraint_ref& out_neg_cond)
     {
         SASSERT(!is_undef());
 
@@ -189,6 +189,11 @@ namespace polysat {
         // Concrete values of evaluable terms
         auto e1s = e1.subst_val(s.assignment());
         auto e2s = e2.subst_val(s.assignment());
+        // TODO: this is not always true! cjust[v]/conflict may contain unassigned variables (they're coming from a previous conflict, but together they lead to a conflict. need something else to handle that.)
+        if (!e1s.is_val())
+            return false;
+        if (!e2s.is_val())
+            return false;
         SASSERT(e1s.is_val());
         SASSERT(e2s.is_val());
 
