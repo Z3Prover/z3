@@ -210,6 +210,31 @@ namespace polysat {
             return c->is_currently_false(s);
         });
     }
+
+    bool clause::resolve(sat::bool_var var, clause const& other) {
+        DEBUG_CODE({
+            bool this_has_pos = std::count(begin(), end(), sat::literal(var)) > 0;
+            bool this_has_neg = std::count(begin(), end(), ~sat::literal(var)) > 0;
+            bool other_has_pos = std::count(other.begin(), other.end(), sat::literal(var)) > 0;
+            bool other_has_neg = std::count(other.begin(), other.end(), ~sat::literal(var)) > 0;
+            SASSERT(!this_has_pos || !this_has_neg);  // otherwise this is tautology
+            SASSERT(!other_has_pos || !other_has_neg);  // otherwise other is tautology
+            SASSERT((this_has_pos && other_has_neg) || (this_has_neg && other_has_pos));
+        });
+        // The resolved var should not be one of the new constraints
+        SASSERT(std::all_of(new_constraints().begin(), new_constraints().end(), [var](constraint* c) { return c->bvar() != var; }));
+        SASSERT(std::all_of(other.new_constraints().begin(), other.new_constraints().end(), [var](constraint* c) { return c->bvar() != var; }));
+        int j = 0;
+        for (int i = 0; i < m_literals.size(); ++i)
+            if (m_literals[i].var() != var)
+                m_literals[j++] = m_literals[i];
+        m_literals.shrink(j);
+        for (sat::literal lit : other.literals())
+            if (lit.var() != var)
+                m_literals.push_back(lit);
+        return true;
+    }
+
     std::ostream& clause::display(std::ostream& out) const {
         bool first = true;
         for (auto lit : literals()) {

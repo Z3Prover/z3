@@ -197,7 +197,7 @@ namespace polysat {
         static clause_ref from_literals(unsigned lvl, p_dependency_ref const& d, sat::literal_vector literals, constraint_ref_vector new_constraints);
 
         // Resolve with 'other' upon 'var'.
-        bool resolve(sat::bool_var var, clause const* other);
+        bool resolve(sat::bool_var var, clause const& other);
 
         sat::literal_vector const& literals() const { return m_literals; }
         p_dependency* dep() const { return m_dep; }
