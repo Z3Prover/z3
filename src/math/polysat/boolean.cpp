@@ -63,6 +63,7 @@ namespace polysat {
     }
 
     void bool_var_manager::reset_marks() {
+        LOG_V("-------------------------- (reset boolean marks)");
         m_marks.reserve(size());
         m_clock++;
         if (m_clock != 0)
@@ -72,6 +73,7 @@ namespace polysat {
     }
 
     void bool_var_manager::set_mark(sat::bool_var var) {
+        LOG_V("Marking: b" << var);
         SASSERT(var != sat::null_bool_var);
         m_marks[var] = m_clock;
     }

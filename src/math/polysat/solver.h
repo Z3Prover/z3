@@ -195,7 +195,7 @@ namespace polysat {
         // void assign_bool_base(sat::literal lit);
         void activate_constraint(constraint& c, bool is_true);
         void deactivate_constraint(constraint& c);
-        constraint* decide_bool(clause& lemma);
+        sat::literal decide_bool(clause& lemma);
         void decide_bool(sat::literal lit, clause& lemma);
         void propagate_bool(sat::literal lit, clause* reason);
 
@@ -220,7 +220,7 @@ namespace polysat {
         unsigned        m_clock { 0 };
         void reset_marks();
         bool is_marked(pvar v) const { return m_clock == m_marks[v]; }
-        void set_mark(pvar v) { m_marks[v] = m_clock; }
+        void set_mark(pvar v) { LOG_V("Marking: v" << v); m_marks[v] = m_clock; }
 
         void set_marks(constraints_and_clauses const& cc);
         void set_marks(constraint const& c);

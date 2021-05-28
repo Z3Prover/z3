@@ -459,6 +459,7 @@ namespace polysat {
     }
 
     void solver::set_marks(constraint const& c) {
+        LOG_V("Marking in: " << c);
         if (c.bvar() != sat::null_bool_var)
             m_bvars.set_mark(c.bvar());
         for (auto v : c.vars())
@@ -466,6 +467,7 @@ namespace polysat {
     }
 
     void solver::set_marks(clause const& cl) {
+        LOG_V("Marking in: " << cl);
         for (auto lit : cl)
             set_marks(*m_constraints.lookup(lit.var()));
     }
@@ -743,13 +745,14 @@ namespace polysat {
 
     void solver::learn_lemma_clause(pvar v, clause_ref lemma) {
         SASSERT(lemma);
-        constraint* c = decide_bool(*lemma);
+        sat::literal lit = decide_bool(*lemma);
+        constraint* c = m_constraints.lookup(lit.var());
         push_cjust(v, c);
         add_lemma_clause(std::move(lemma));
     }
 
     // Guess a literal from the given clause; returns the guessed constraint
-    constraint* solver::decide_bool(clause& lemma) {
+    sat::literal solver::decide_bool(clause& lemma) {
         LOG_H3("Guessing literal in lemma: " << lemma);
         IF_LOGGING({
             for (pvar v = 0; v < m_viable.size(); ++v) {
@@ -757,31 +760,65 @@ namespace polysat {
             }
         });
         LOG("Boolean assignment: " << m_bvars);
-        constraint* c = nullptr;
-        while (true) {
-            unsigned next_idx = lemma.next_guess();
-            SASSERT(next_idx < lemma.size());  // must succeed for at least one
-            sat::literal lit = lemma[next_idx];
-            if (m_bvars.value(lit) == l_false)
-                continue;
+
+        auto is_suitable = [this](sat::literal lit) -> bool {
+            if (m_bvars.value(lit) == l_false)  // already assigned => cannot decide on this (comes from either lemma LHS or previously decided literals that are now changed to propagation)
+                return false;
             SASSERT(m_bvars.value(lit) != l_true);  // cannot happen in a valid lemma
-            c = m_constraints.lookup(lit.var());
+            constraint* c = m_constraints.lookup(lit.var());
             c->assign(!lit.sign());
+            bool result = true;
             if (c->is_currently_false(*this))
-                continue;
-            // Choose c as next literal
-            break;
+                result = false;
+            c->unassign();
+            return result;
+        };
+
+        // constraint *choice = nullptr;
+        sat::literal choice = sat::null_literal;
+        unsigned num_choices = 0;  // TODO: should probably cache this?
+
+        for (sat::literal lit : lemma) {
+            if (is_suitable(lit)) {
+                num_choices++;
+                if (choice == sat::null_literal)
+                    choice = lit;
+            }
         }
-        sat::literal const new_lit{c->bvar()};
-        // TODO: this will not be needed once we add boolean watchlists; alternatively replace with an incremental counter on the clause
-        unsigned const unassigned_count =
-            std::count_if(lemma.begin(), lemma.end(),
-            [this](sat::literal lit) { return !m_bvars.is_assigned(lit); });
-        if (unassigned_count == 1)
-            propagate_bool(new_lit, &lemma);
+
+        SASSERT(choice != sat::null_literal);  // must succeed for at least one
+        if (num_choices == 1)
+            propagate_bool(choice, &lemma);
         else
-            decide_bool(new_lit, lemma);
-        return c;
+            decide_bool(choice, lemma);
+        return choice;
+
+        // constraint* c = nullptr;
+        // while (true) {
+        //     unsigned next_idx = lemma.next_guess();
+        //     SASSERT(next_idx < lemma.size());  // must succeed for at least one
+        //     sat::literal lit = lemma[next_idx];
+        //     // LOG_V("trying: "
+        //     if (m_bvars.value(lit) == l_false)
+        //         continue;
+        //     SASSERT(m_bvars.value(lit) != l_true);  // cannot happen in a valid lemma
+        //     c = m_constraints.lookup(lit.var());
+        //     c->assign(!lit.sign());
+        //     if (c->is_currently_false(*this))
+        //         continue;
+        //     // Choose c as next literal
+        //     break;
+        // }
+        // sat::literal const new_lit{c->bvar()};
+        // TODO: this will not be needed once we add boolean watchlists; alternatively replace with an incremental counter on the clause
+        // unsigned const unassigned_count =
+        //     std::count_if(lemma.begin(), lemma.end(),
+        //     [this](sat::literal lit) { return !m_bvars.is_assigned(lit); });
+        // if (unassigned_count == 1)
+        //     propagate_bool(new_lit, &lemma);
+        // else
+        //     decide_bool(new_lit, lemma);
+        // return c;
     }
 
     /**
@@ -845,8 +882,16 @@ namespace polysat {
         if (reason) {
             LOG("Reason: " << show_deref(reason));
             bool contains_var = std::any_of(reason->begin(), reason->end(), [var](sat::literal reason_lit) { return reason_lit.var() == var; });
+            if (!contains_var) {
+                // TODO: in this case, we got here via 'backtrack'. What to do if the reason does not contain lit?
+                // * 'reason' is still a perfectly good lemma and a summary of the conflict (the lemma roughly corresponds to ~conflict)
+                // * the conflict is the reason for flipping 'lit'
+                // * thus we just add '~lit' to 'reason' and see it as "conflict => ~lit".
+                auto lits = reason->literals();
+                lits.push_back(~lit);
+                reason = clause::from_literals(reason->level(), {reason->dep(), m_dm}, lits, reason->new_constraints());
+            }
             bool contains_opp = std::any_of(reason->begin(), reason->end(), [lit](sat::literal reason_lit) { return reason_lit == ~lit; });
-            SASSERT(contains_var);
             SASSERT(contains_opp);
         }
         else {
@@ -1022,6 +1067,7 @@ namespace polysat {
     }
     
     void solver::reset_marks() {
+        LOG_V("-------------------------- (reset variable marks)");
         m_marks.reserve(m_vars.size());
         m_clock++;
         if (m_clock != 0)
