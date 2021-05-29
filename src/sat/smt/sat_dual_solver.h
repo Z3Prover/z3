@@ -42,6 +42,8 @@ namespace sat {
         literal  ext2lit(literal lit);
         literal  lit2ext(literal lit);
 
+        void add_assumptions(solver const& s);
+
         std::ostream& display(solver const& s, std::ostream& out) const;
 
     public:
