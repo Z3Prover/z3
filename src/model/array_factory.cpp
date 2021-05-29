@@ -134,8 +134,9 @@ expr * array_factory::get_fresh_value(sort * s) {
     sort * range    = get_array_range(s);
     expr* range_val = nullptr;
     
-    if (!m_recursive_fresh) {
-        flet<bool> _recursive(m_recursive_fresh, true);
+    if (!m_ranges.contains(range)) {
+        ptr_vector<sort>::scoped_stack _s(m_ranges);
+        m_ranges.push_back(range);
         range_val = m_model.get_fresh_value(range);
         if (range_val != nullptr) {
             // easy case
