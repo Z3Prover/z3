@@ -405,6 +405,7 @@ public:
     void insert_aux_pdecl(pdecl * p);
     void model_add(symbol const & s, unsigned arity, sort *const* domain, expr * t);
     void model_del(func_decl* f);
+    void register_fun(symbol const& s, func_decl* f);
     void insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e);
     func_decl * find_func_decl(symbol const & s) const;
     func_decl * find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices,

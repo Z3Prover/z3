@@ -4582,31 +4582,8 @@ namespace smt {
     }
 
     void context::add_rec_funs_to_model() {
-        if (!m_model) return;
-        recfun::util u(m);
-        func_decl_ref_vector recfuns = u.get_rec_funs();
-        for (func_decl* f : recfuns) {
-            auto& def = u.get_def(f);
-            expr* rhs = def.get_rhs();
-            if (!rhs) continue;
-            if (f->get_arity() == 0) {
-                m_model->register_decl(f, rhs);
-                continue;
-            }			
-
-            func_interp* fi = alloc(func_interp, m, f->get_arity());
-            // reverse argument order so that variable 0 starts at the beginning.
-            expr_ref_vector subst(m);
-            for (unsigned i = 0; i < f->get_arity(); ++i) {
-                subst.push_back(m.mk_var(i, f->get_domain(i)));
-            }
-            var_subst sub(m, true);
-            expr_ref bodyr = sub(rhs, subst.size(), subst.data());
-
-            fi->set_else(bodyr);
-            m_model->register_decl(f, fi);
-        }
-        TRACE("model", tout << *m_model << "\n";);
+        if (m_model)
+            m_model->add_rec_funs();
     }
 
 };

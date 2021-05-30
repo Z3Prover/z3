@@ -25,7 +25,7 @@ Notes:
 
 expr_ref var_subst::operator()(expr * n, unsigned num_args, expr * const * args) {
     expr_ref result(m_reducer.m());
-    if (is_ground(n)) {
+    if (is_ground(n) || num_args == 0) {
         result = n;
         //application does not have free variables or nested quantifiers.
         //There is no need to print the bindings here?

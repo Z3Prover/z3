@@ -24,6 +24,7 @@ Revision History:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
 #include "ast/well_sorted.h"
 #include "ast/used_symbols.h"
 #include "ast/for_each_expr.h"
@@ -582,3 +583,32 @@ void model::reset_eval_cache() {
     m_mev.reset();
 }
 
+void model::add_rec_funs() {
+    recfun::util u(m);
+    func_decl_ref_vector recfuns = u.get_rec_funs();
+    for (func_decl* f : recfuns) {
+        auto& def = u.get_def(f);
+        expr* rhs = def.get_rhs();
+        if (!rhs) 
+            continue;
+        if (has_interpretation(f))
+            continue;
+        if (f->get_arity() == 0) {
+            register_decl(f, rhs);
+            continue;
+        }
+                
+        func_interp* fi = alloc(func_interp, m, f->get_arity());
+        // reverse argument order so that variable 0 starts at the beginning.
+        expr_ref_vector subst(m);
+        for (unsigned i = 0; i < f->get_arity(); ++i) {
+            subst.push_back(m.mk_var(i, f->get_domain(i)));
+        }
+        var_subst sub(m, true);
+        expr_ref bodyr = sub(rhs, subst);
+        
+        fi->set_else(bodyr);
+        register_decl(f, fi);
+    }
+    TRACE("model", tout << *this << "\n";);
+}

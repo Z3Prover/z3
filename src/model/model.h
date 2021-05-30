@@ -108,6 +108,7 @@ public:
     void reset_eval_cache();
     bool has_solver(); 
     void set_solver(expr_solver* solver);
+    void add_rec_funs();
 
     class scoped_model_completion {
         bool   m_old_completion;

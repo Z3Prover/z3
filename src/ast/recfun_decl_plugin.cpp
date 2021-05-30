@@ -54,7 +54,9 @@ namespace recfun {
              unsigned arity, sort* const * domain, sort* range, bool is_generated)
         :   m(m), m_name(s),
             m_domain(m, arity, domain), 
-            m_range(range, m), m_vars(m), m_cases(),
+            m_range(range, m), 
+            m_vars(m), 
+            m_cases(),
             m_decl(m), 
             m_rhs(m),
             m_fid(fid)
@@ -412,6 +414,16 @@ namespace recfun {
             }
             m_defs.insert(d->get_decl(), d);
             return promise_def(&u(), d);
+        }
+
+        void plugin::erase_def(func_decl* f) {
+            def* d = nullptr;
+            if (m_defs.find(f, d)) {
+                for (case_def & c : d->get_cases()) 
+                    m_case_defs.erase(c.get_decl());
+                m_defs.erase(f);
+                dealloc(d);
+            }
         }
         
         void plugin::set_definition(replace& r, promise_def & d, unsigned n_vars, var * const * vars, expr * rhs) {

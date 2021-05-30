@@ -66,7 +66,10 @@ public:
     }
 
     void display(std::ostream & out) override {
-        out << "(ackr-model-converter)\n";
+        out << "(ackr-model-converter";
+        if (abstr_model)
+            out << *abstr_model;
+        out << ")\n";
     }
 
 protected:
@@ -102,16 +105,13 @@ void ackr_model_converter::convert_constants(model * source, model * destination
         func_decl * const c = source->get_constant(i);
         app * const term = info->find_term(c);
         expr * value = source->get_const_interp(c);
-        TRACE("ackermannize", tout << mk_ismt2_pp(c, m) << " " << term << "\n";);
-        if (!term) {
+        TRACE("ackermannize", tout << mk_ismt2_pp(c, m) << " " << mk_ismt2_pp(term, m) << "\n";);
+        if (!term) 
             destination->register_decl(c, value);
-        }
-        else if (autil.is_select(term)) {
+        else if (autil.is_select(term)) 
             add_entry(evaluator, term, value, array_interpretations);
-        }
-        else {
+        else 
             add_entry(evaluator, term, value, interpretations);
-        }
     }
 
     for (auto & kv : interpretations) {
