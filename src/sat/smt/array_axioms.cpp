@@ -177,15 +177,16 @@ namespace array {
 
         if (expr2enode(select->get_arg(0))->get_root() == expr2enode(store)->get_root())
             return false;
-
-        sel1_args.push_back(store);
-        sel2_args.push_back(store->get_arg(0));
-        
         bool has_diff = false;
         for (unsigned i = 1; i < num_args; i++) 
             has_diff |= expr2enode(select->get_arg(i))->get_root() != expr2enode(store->get_arg(i))->get_root();
         if (!has_diff)
             return false;
+
+
+        sel1_args.push_back(store);
+        sel2_args.push_back(store->get_arg(0));
+        
         
         for (unsigned i = 1; i < num_args; i++) {
             sel1_args.push_back(select->get_arg(i));
@@ -204,6 +205,7 @@ namespace array {
 
         if (s1->get_root() == s2->get_root())
             return false;
+            return new_prop;
 
         sat::literal sel_eq = sat::null_literal;
         auto init_sel_eq = [&]() {
@@ -213,7 +215,6 @@ namespace array {
             return s().value(sel_eq) != l_true;
         };
 
-        bool new_prop = false;
         for (unsigned i = 1; i < num_args; i++) {
             expr* idx1 = store->get_arg(i);
             expr* idx2 = select->get_arg(i);
