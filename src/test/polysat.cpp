@@ -11,11 +11,7 @@ namespace polysat {
         reslimit lim;
     };
 
-    struct scoped_solver : public solver_scope, public solver {
-        scoped_solver(std::string name): solver(lim), m_name(name) {
-            std::cout << "\nSTART: " << m_name << "\n";
-        }
-
+    class scoped_solver : public solver_scope, public solver {
         std::string m_name;
         lbool m_last_result = l_undef;
 
@@ -42,6 +38,11 @@ namespace polysat {
             }
             // No literal worked? unsat
             return l_false;
+        }
+
+    public:
+        scoped_solver(std::string name): solver(lim), m_name(name) {
+            std::cout << "\nSTART: " << m_name << "\n";
         }
 
         void check() {
@@ -493,13 +494,13 @@ namespace polysat {
 
         s.push();
         s.add_ult(a, quot3);
-        s.check_sat();
+        s.check();
         s.expect_unsat();
         s.pop();
 
         s.push();
         s.add_ult(quot3 + em, a);
-        s.check_sat();
+        s.check();
         s.expect_unsat();
         s.pop();
     }
@@ -566,13 +567,13 @@ namespace polysat {
 
         s.push();
         s.add_ult(a, quot3);
-        s.check_sat();
+        s.check();
         s.expect_unsat();
         s.pop();
 
         s.push();
         s.add_ult(quot3 + em, a);
-        s.check_sat();
+        s.check();
         s.expect_unsat();
         s.pop();
     }
@@ -631,14 +632,14 @@ namespace polysat {
         // first disjunct: (= idx #x00000000)
         s.push();
         s.add_eq(idx);
-        s.check_sat();
+        s.check();
         s.expect_unsat();
         s.pop();
 
         // second disjunct: (bvule (bvsub second first) q)
         s.push();
         s.add_ule(second - first, q);
-        s.check_sat();
+        s.check();
         s.expect_unsat();
         s.pop();
     }
