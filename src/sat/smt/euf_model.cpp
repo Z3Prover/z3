@@ -253,13 +253,14 @@ namespace euf {
             if (!is_relevant(n))
                 continue;
             bool tt = l_true == s().value(n->bool_var());
-            if (tt && mdl.is_false(e)) {
-                IF_VERBOSE(0, verbose_stream() << "Failed to validate " << bpp(n) << " " << mdl(e) << "\n");
-                for (auto* arg : euf::enode_args(n))
-                    IF_VERBOSE(0, verbose_stream() << bpp(arg) << "\n" << mdl(arg->get_expr()) << "\n");
-            }
-            if (!tt && mdl.is_true(e))
-                IF_VERBOSE(0, verbose_stream() << "Failed to validate " << bpp(n) << " " << mdl(e) << "\n");
+            if (tt && !mdl.is_false(e))
+                continue;
+            if (!tt && !mdl.is_true(e))
+                continue;
+            IF_VERBOSE(0, 
+                       verbose_stream() << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(e) << "\n";
+                       for (auto* arg : euf::enode_args(n))
+                           verbose_stream() << bpp(arg) << "\n" << mdl(arg->get_expr()) << "\n";);
         }
         
     }

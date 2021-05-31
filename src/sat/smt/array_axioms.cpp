@@ -174,9 +174,13 @@ namespace array {
         SASSERT(store->get_num_args() == 1 + select->get_num_args());
         ptr_buffer<expr> sel1_args, sel2_args;
         unsigned num_args = select->get_num_args();
+
+        if (expr2enode(select->get_arg(0))->get_root() == expr2enode(store)->get_root())
+            return false;
+
         sel1_args.push_back(store);
         sel2_args.push_back(store->get_arg(0));
-
+        
         bool has_diff = false;
         for (unsigned i = 1; i < num_args; i++) 
             has_diff |= expr2enode(select->get_arg(i))->get_root() != expr2enode(store->get_arg(i))->get_root();
@@ -191,6 +195,7 @@ namespace array {
         expr_ref sel1(a.mk_select(sel1_args), m);
         expr_ref sel2(a.mk_select(sel2_args), m);
         expr_ref sel_eq_e(m.mk_eq(sel1, sel2), m);
+
         euf::enode* s1 = e_internalize(sel1);
         euf::enode* s2 = e_internalize(sel2);
         TRACE("array", 
@@ -200,9 +205,13 @@ namespace array {
         if (s1->get_root() == s2->get_root())
             return false;
 
-        sat::literal sel_eq = mk_literal(sel_eq_e);
-        if (s().value(sel_eq) == l_true)
-            return false;
+        sat::literal sel_eq = sat::null_literal;
+        auto init_sel_eq = [&]() {
+            if (sel_eq != sat::null_literal) 
+                return true;
+            sel_eq = mk_literal(sel_eq_e);
+            return s().value(sel_eq) != l_true;
+        };
 
         bool new_prop = false;
         for (unsigned i = 1; i < num_args; i++) {
@@ -213,11 +222,17 @@ namespace array {
             if (r1 == r2)
                 continue;
             if (m.are_distinct(r1->get_expr(), r2->get_expr())) {
-                new_prop = true;
-                add_clause(sel_eq);
+                if (init_sel_eq() && add_clause(sel_eq))
+                    new_prop = true;
                 break;
             }
             sat::literal idx_eq = eq_internalize(idx1, idx2);
+            if (s().value(idx_eq) == l_true)
+                continue;
+            if (s().value(idx_eq) == l_undef)
+                new_prop = true;
+            if (!init_sel_eq())
+                break;
             if (add_clause(idx_eq, sel_eq))
                 new_prop = true;
         }

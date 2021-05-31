@@ -55,6 +55,7 @@ namespace bv {
         m_ackerman(*this),
         m_bb(m, get_config()),
         m_find(*this) {
+        m_bb.set_flat(false);
     }
 
     void solver::fixed_var_eh(theory_var v1) {
