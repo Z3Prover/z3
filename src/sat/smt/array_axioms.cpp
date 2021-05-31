@@ -197,11 +197,18 @@ namespace array {
         expr_ref sel2(a.mk_select(sel2_args), m);
         expr_ref sel_eq_e(m.mk_eq(sel1, sel2), m);
 
+        bool new_prop = false;
+        if (!ctx.get_egraph().find(sel1))
+            new_prop = true;
+        if (!ctx.get_egraph().find(sel2))
+            new_prop = true;
+
         euf::enode* s1 = e_internalize(sel1);
         euf::enode* s2 = e_internalize(sel2);
         TRACE("array", 
               tout << "select-store " << ctx.bpp(s1) << " " << ctx.bpp(s1->get_root()) << "\n";
               tout << "select-store " << ctx.bpp(s2) << " " << ctx.bpp(s2->get_root()) << "\n";);
+
 
         if (s1->get_root() == s2->get_root())
             return new_prop;
