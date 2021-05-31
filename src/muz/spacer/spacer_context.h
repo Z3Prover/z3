@@ -153,7 +153,7 @@ public:
     expr_ref_vector const &get_cube();
     void update_cube(pob_ref const &p, expr_ref_vector &cube);
 
-    bool has_pob() {return m_pob;}
+    bool has_pob() {return !!m_pob;}
     pob_ref &get_pob() {return m_pob;}
     unsigned weakness() {return m_weakness;}
 
