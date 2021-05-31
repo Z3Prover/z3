@@ -204,7 +204,6 @@ namespace array {
               tout << "select-store " << ctx.bpp(s2) << " " << ctx.bpp(s2->get_root()) << "\n";);
 
         if (s1->get_root() == s2->get_root())
-            return false;
             return new_prop;
 
         sat::literal sel_eq = sat::null_literal;
