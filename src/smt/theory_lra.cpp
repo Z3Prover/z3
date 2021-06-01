@@ -1541,8 +1541,8 @@ public:
 
         switch (is_sat) {
         case l_true:
-            TRACE("arith", /*display(tout);*/
-                  ctx().display(tout);
+            TRACE("arith", display(tout);
+                  /* ctx().display(tout);*/
                   );
 
             switch (check_lia()) {
