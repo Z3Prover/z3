@@ -1,6 +1,7 @@
 #include "math/polysat/log.h"
 #include "math/polysat/solver.h"
 #include "ast/ast.h"
+#include "parsers/smt2/smt2parser.h"
 #include <vector>
 
 namespace polysat {
@@ -11,11 +12,7 @@ namespace polysat {
         reslimit lim;
     };
 
-    struct scoped_solver : public solver_scope, public solver {
-        scoped_solver(std::string name): solver(lim), m_name(name) {
-            std::cout << "\nSTART: " << m_name << "\n";
-        }
-
+    class scoped_solver : public solver_scope, public solver {
         std::string m_name;
         lbool m_last_result = l_undef;
 
@@ -42,6 +39,11 @@ namespace polysat {
             }
             // No literal worked? unsat
             return l_false;
+        }
+
+    public:
+        scoped_solver(std::string name): solver(lim), m_name(name) {
+            std::cout << "\nSTART: " << m_name << "\n";
         }
 
         void check() {
@@ -493,13 +495,13 @@ namespace polysat {
 
         s.push();
         s.add_ult(a, quot3);
-        s.check_sat();
+        s.check();
         s.expect_unsat();
         s.pop();
 
         s.push();
         s.add_ult(quot3 + em, a);
-        s.check_sat();
+        s.check();
         s.expect_unsat();
         s.pop();
     }
@@ -566,13 +568,13 @@ namespace polysat {
 
         s.push();
         s.add_ult(a, quot3);
-        s.check_sat();
+        s.check();
         s.expect_unsat();
         s.pop();
 
         s.push();
         s.add_ult(quot3 + em, a);
-        s.check_sat();
+        s.check();
         s.expect_unsat();
         s.pop();
     }
@@ -631,14 +633,14 @@ namespace polysat {
         // first disjunct: (= idx #x00000000)
         s.push();
         s.add_eq(idx);
-        s.check_sat();
+        s.check();
         s.expect_unsat();
         s.pop();
 
         // second disjunct: (bvule (bvsub second first) q)
         s.push();
         s.add_ule(second - first, q);
-        s.check_sat();
+        s.check();
         s.expect_unsat();
         s.pop();
     }
@@ -697,17 +699,29 @@ void tst_polysat() {
 // TBD also add test that loads from a file and runs the polysat engine.
 // sketch follows below:
 
+
 void tst_polysat_argv(char** argv, int argc, int& i) {
     // set up SMT2 parser to extract assertions
     // assume they are simple bit-vector equations (and inequations)
     // convert to solver state.
-    // std::ifstream is(argv[0]);
+    if (argc != 2) {
+        std::cerr << "Usage: " << argv[0] << " FILE\n";
+        return;
+    }
+    std::ifstream is(argv[1]);
     // cmd_context ctx(false, &m);
-    // ctx.set_ignore_check(true);
-    // VERIFY(parse_smt2_commands(ctx, is));
-    // auto fmls = ctx.assertions();
-    // trail_stack stack;
-    // solver s(stack);
+    cmd_context ctx(false);
+    ctx.set_ignore_check(true);
+    VERIFY(parse_smt2_commands(ctx, is));
+    auto fmls = ctx.assertions();
+    polysat::scoped_solver s("polysat");
+    for (expr* fm : fmls) {
+        // fm->get_kind()
+        if (is_app(fm)) {
+            // is_app_of
+        }
+    }
     // polysat::internalize(s, fmls);
     // std::cout << s.check() << "\n";
+    s.check();
 }
