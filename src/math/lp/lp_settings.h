@@ -140,6 +140,7 @@ struct statistics {
         st.update("arith-patches", m_patches);
         st.update("arith-patches-success", m_patches_success);
         st.update("arith-hnf-calls", m_hnf_cutter_calls);
+        st.update("arith-hnf-cuts", m_hnf_cuts);
         st.update("arith-horner-calls", m_horner_calls);
         st.update("arith-horner-conflicts", m_horner_conflicts);
         st.update("arith-horner-cross-nested-forms", m_cross_nested_forms);
