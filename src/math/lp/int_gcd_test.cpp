@@ -172,7 +172,10 @@ namespace lp {
             return false;
         }
                 
-        if (least_coeff_is_bounded && !m_least_coeff.is_one() && !ext_gcd_test(A.m_rows[i]))
+        if (least_coeff_is_bounded && 
+            !m_least_coeff.is_one() && 
+            !lia.get_value(basic_var).is_int() && 
+            !ext_gcd_test(A.m_rows[i]))
             return false;    
 
         if (!least_coeff_is_unique)
