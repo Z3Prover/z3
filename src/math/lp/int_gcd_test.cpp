@@ -278,16 +278,16 @@ namespace lp {
         if (modulus == 0)
             return true;
         SASSERT(modulus.is_int());
-        mpq parity = m_consts / m_least_coeff;
-        if (!parity.is_int())
+        mpq offset = m_consts / m_least_coeff;
+        if (!offset.is_int())
             return true;
-        parity = mod(parity, modulus);
-        if (!least_sign && parity != 0)
-            parity = modulus - parity;
-        TRACE("gcd_test", tout << least_idx << " modulus: " << modulus << " consts: " << m_consts << " sign " << least_sign << " parity: " << parity << "\n";);
+        offset = mod(offset, modulus);
+        if (!least_sign && offset != 0)
+            offset = modulus - offset;
+        TRACE("gcd_test", tout << least_idx << " modulus: " << modulus << " consts: " << m_consts << " sign " << least_sign << " offset: " << offset << "\n";);
 
-        SASSERT(0 <= parity && parity < modulus);
-        return insert_parity(least_idx, row, parity, modulus);
+        SASSERT(0 <= offset && offset < modulus);
+        return insert_parity(least_idx, row, offset, modulus);
     }
 
     void int_gcd_test::reset_test() {
@@ -306,7 +306,11 @@ namespace lp {
 
         // incomplete parity check.
         for (auto const& p : m_parities[j]) {            
-            if (p.m_modulo == modulo && offset != p.m_parity) {
+            if (p.m_modulo != modulo)
+                continue;
+            if (p.m_offset == offset) 
+                return true;
+            else {
                 fill_explanation_from_fixed_columns(r);
                 fill_explanation_from_fixed_columns(*p.m_row);
                 return false;

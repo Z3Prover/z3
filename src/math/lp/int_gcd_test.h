@@ -34,11 +34,11 @@ namespace lp {
     class int_gcd_test {
 
         struct parity {
-            mpq m_parity;
+            mpq m_offset;
             mpq m_modulo;
             const row_strip<mpq>* m_row = nullptr;
             parity(mpq const& p, mpq const& m, row_strip<mpq> const& r):
-                m_parity(p),
+                m_offset(p),
                 m_modulo(m),
                 m_row(&r)
             {}
