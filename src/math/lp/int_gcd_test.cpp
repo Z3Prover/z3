@@ -75,19 +75,36 @@ namespace lp {
     }
 
     bool int_gcd_test::gcd_test() {
-        reset_parities();
+        reset_test();
         const auto & A = lra.A_r(); // getting the matrix
-        for (unsigned i = 0; i < A.row_count(); i++)
+        for (unsigned i = 0; i < A.row_count(); i++) {
+            unsigned basic_var = lra.r_basis()[i];
+            if (!lia.column_is_int(basic_var))
+                continue;
+            if (lia.get_value(basic_var).is_int())
+                continue;
             if (!gcd_test_for_row(A, i)) 
                 return false;        
+            mark_visited(i);
+        }
+        for (unsigned i = m_inserted_vars.size(); i-- > 0; ) {
+            unsigned j = m_inserted_vars[i];
+            for (const auto & c : lra.get_column(j)) {
+                unsigned r = c.var();
+                if (is_visited(r))
+                    continue;
+                mark_visited(r);
+                if (!gcd_test_for_row(A, r))
+                    return false;
+            }
+        }
         return true;
     }
     
     static mpq get_denominators_lcm(const row_strip<mpq> & row) {
         mpq r(1);
-        for  (auto & c : row) {
+        for (auto & c : row) 
             r = lcm(r, denominator(c.coeff()));
-        }
         return r;
     }
     
@@ -130,8 +147,8 @@ namespace lp {
                     least_coeff_is_unique = true;
                     least_coeff_index = j;
                 }
-                else if (least_coeff_is_bounded && aux == m_least_coeff) {
-                    least_coeff_is_bounded = lra.column_is_bounded(j);
+                else if (aux == m_least_coeff) {
+                    least_coeff_is_bounded &= lra.column_is_bounded(j);
                     least_coeff_is_unique = false;
                 }
             }
@@ -154,16 +171,8 @@ namespace lp {
             fill_explanation_from_fixed_columns(A.m_rows[i]);
             return false;
         }
-
-        
-        if (m_least_coeff.is_one() && !least_coeff_is_bounded) {
-            SASSERT(gcds.is_one());
-            if (!least_coeff_is_unique)
-                return true;
-            return accumulate_parity(row, least_coeff_index);
-        }
-        
-        if (least_coeff_is_bounded && !ext_gcd_test(A.m_rows[i]))
+                
+        if (least_coeff_is_bounded && !m_least_coeff.is_one() && !ext_gcd_test(A.m_rows[i]))
             return false;    
 
         if (!least_coeff_is_unique)
@@ -278,28 +287,33 @@ namespace lp {
         TRACE("gcd_test", tout << least_idx << " modulus: " << modulus << " consts: " << m_consts << " sign " << least_sign << " parity: " << parity << "\n";);
 
         SASSERT(0 <= parity && parity < modulus);
-        return insert_row_parity(least_idx, row, parity, modulus);
+        return insert_parity(least_idx, row, parity, modulus);
     }
 
-    void int_gcd_test::reset_parities() {
-        for (auto j : m_inserted_rows)
-            m_row_parities[j].pop_back();
-        m_inserted_rows.reset();
+    void int_gcd_test::reset_test() {
+        for (auto j : m_inserted_vars)
+            m_parities[j].pop_back();
+        m_inserted_vars.reset();
+        m_visited_ts++;
+        if (m_visited_ts == 0) {
+            m_visited.reset();
+            m_visited_ts++;
+        }
     }
 
-    bool int_gcd_test::insert_row_parity(unsigned j, row_strip<mpq> const& r, mpq const& parity, mpq const& modulo) {
-        m_row_parities.reserve(j + 1);
+    bool int_gcd_test::insert_parity(unsigned j, row_strip<mpq> const& r, mpq const& offset, mpq const& modulo) {
+        m_parities.reserve(j + 1);
 
         // incomplete parity check.
-        for (auto const& p : m_row_parities[j]) {            
-            if (p.m_modulo == modulo && parity != p.m_parity) {
+        for (auto const& p : m_parities[j]) {            
+            if (p.m_modulo == modulo && offset != p.m_parity) {
                 fill_explanation_from_fixed_columns(r);
                 fill_explanation_from_fixed_columns(*p.m_row);
                 return false;
             }
         }
-        m_inserted_rows.push_back(j);        
-        m_row_parities[j].push_back(row_parity(parity, modulo, r));
+        m_inserted_vars.push_back(j);        
+        m_parities[j].push_back(parity(offset, modulo, r));
         return true;
     }
 

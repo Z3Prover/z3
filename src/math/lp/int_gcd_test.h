@@ -33,11 +33,11 @@ namespace lp {
     class lar_solver;
     class int_gcd_test {
 
-        struct row_parity {
+        struct parity {
             mpq m_parity;
             mpq m_modulo;
             const row_strip<mpq>* m_row = nullptr;
-            row_parity(mpq const& p, mpq const& m, row_strip<mpq> const& r):
+            parity(mpq const& p, mpq const& m, row_strip<mpq> const& r):
                 m_parity(p),
                 m_modulo(m),
                 m_row(&r)
@@ -45,16 +45,21 @@ namespace lp {
         };
         class int_solver& lia;
         class lar_solver& lra;
-        unsigned m_next_gcd;
-        unsigned m_delay;
-        mpq m_consts;
-        mpq m_least_coeff;
-        mpq m_lcm_den;
-        unsigned_vector            m_inserted_rows;
-        vector<vector<row_parity>> m_row_parities;
+        unsigned m_next_gcd = 0;
+        unsigned m_delay = 0;
+        mpq      m_consts;
+        mpq      m_least_coeff;
+        mpq      m_lcm_den;
+        unsigned_vector        m_inserted_vars;
+        vector<vector<parity>> m_parities;
+        unsigned_vector        m_visited;
+        unsigned               m_visited_ts = 0;
 
-        void reset_parities();
-        bool insert_row_parity(unsigned j, row_strip<mpq> const& r, mpq const& parity, mpq const& modulo);
+        bool is_visited(unsigned i) { return m_visited.get(i, 0) == m_visited_ts; }
+        void mark_visited(unsigned i) { m_visited.setx(i, m_visited_ts, 0); }
+
+        void reset_test();
+        bool insert_parity(unsigned j, row_strip<mpq> const& r, mpq const& parity, mpq const& modulo);
 
         bool gcd_test();
         bool gcd_test_for_row(const static_matrix<mpq, numeric_pair<mpq>> & A, unsigned i);
