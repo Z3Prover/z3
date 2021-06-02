@@ -6485,7 +6485,7 @@ class ModelRef(Z3PPObject):
         sat
         >>> m = s.model()
         >>> m.get_universe(A)
-        [A!val!0, A!val!1]
+        [A!val!1, A!val!0]
         """
         if z3_debug():
             _z3_assert(isinstance(s, SortRef), "Z3 sort expected")
