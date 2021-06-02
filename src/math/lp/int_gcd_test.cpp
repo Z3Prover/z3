@@ -259,7 +259,7 @@ namespace lp {
     bool int_gcd_test::accumulate_parity(const row_strip<mpq> & row, unsigned least_idx) {
 
         // remove this line to enable new functionality.
-        // return true;
+        return true;
 
         mpq modulus(0);
         bool least_sign = false;
