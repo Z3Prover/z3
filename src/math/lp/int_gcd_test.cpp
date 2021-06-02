@@ -75,7 +75,6 @@ namespace lp {
     }
 
     bool int_gcd_test::gcd_test() {
-        std::cout << "gcd-test\n";
         reset_parities();
         const auto & A = lra.A_r(); // getting the matrix
         for (unsigned i = 0; i < A.row_count(); i++)
@@ -156,8 +155,6 @@ namespace lp {
             return false;
         }
 
-        if (!least_coeff_is_unique)
-            lia.display_row(std::cout << "non-unique ", row);
         
         if (m_least_coeff.is_one() && !least_coeff_is_bounded) {
             SASSERT(gcds.is_one());
