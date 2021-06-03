@@ -209,7 +209,7 @@ public:
     double       harris_feasibility_tolerance { 1e-7 };         // page 179 of Istvan Maros
     double       ignore_epsilon_of_harris { 10e-5 };
     unsigned     max_number_of_iterations_with_no_improvements { 2000000 };
-    unsigned     max_total_number_of_iterations { 2000000 };
+    unsigned     max_total_number_of_iterations { 20000000 };
     double       time_limit; // the maximum time limit of the total run time in seconds
     // dual section
     double       dual_feasibility_tolerance { 1e-7 };            // page 71 of the PhD thesis of Achim Koberstein
