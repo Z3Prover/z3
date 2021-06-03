@@ -21,7 +21,7 @@ fn main() {
 
     let mut s = String::new();
     match process.stdout.unwrap().read_to_string(&mut s) {
-        Err(why) => panic!("couldn't read wc stdout: {}", why),
+        Err(why) => panic!("couldn't read z3 stdout: {}", why),
         Ok(_) => print!("z3 responded with:\n{}", s),
     }
 }
