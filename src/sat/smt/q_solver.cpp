@@ -41,9 +41,17 @@ namespace q {
         quantifier* q = to_quantifier(e);
 
         auto const& exp = expand(q);
-        if (exp.size() > 1) {
+        if (exp.size() > 1 && is_forall(q)) {
             for (expr* e : exp) 
                 add_clause(~l, ctx.internalize(e, l.sign(), false, false));                    
+            return;
+        }
+        if (exp.size() > 1 && is_exists(q)) {
+            sat::literal_vector lits;
+            lits.push_back(~l);
+            for (expr* e : exp)
+                lits.push_back(ctx.internalize(e, l.sign(), false, false));
+            add_clause(lits);
             return;
         }
 
