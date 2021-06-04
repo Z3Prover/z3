@@ -193,8 +193,8 @@ namespace euf {
             }
             s().mk_clause(lits, st);
             if (relevancy_enabled())
-                add_root(lits.size(), lits.data());
-    }
+                add_root(lits);
+        }
         else {
             // g(f(x_i)) = x_i
             // f(x_1) = a + .... + f(x_n) = a >= 2

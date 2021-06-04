@@ -42,8 +42,12 @@ namespace q {
 
         auto const& exp = expand(q);
         if (exp.size() > 1 && is_forall(q)) {
-            for (expr* e : exp) 
-                add_clause(~l, ctx.internalize(e, l.sign(), false, false));                    
+            for (expr* e : exp) {
+                sat::literal lit = ctx.internalize(e, l.sign(), false, false); 
+                add_clause(~l, lit);                    
+                if (ctx.relevancy_enabled())
+                    ctx.add_root(~l, lit);
+            }
             return;
         }
         if (exp.size() > 1 && is_exists(q)) {
@@ -52,6 +56,8 @@ namespace q {
             for (expr* e : exp)
                 lits.push_back(ctx.internalize(e, l.sign(), false, false));
             add_clause(lits);
+            if (ctx.relevancy_enabled())
+                ctx.add_root(lits);
             return;
         }
 
