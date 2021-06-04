@@ -209,8 +209,10 @@ namespace euf {
                     mdl->register_decl(f, fi);
                 }
                 args.reset();                
-                for (enode* arg : enode_args(n)) 
-                    args.push_back(m_values.get(arg->get_root_id()));                
+                for (expr* arg : *a) {
+                    enode* earg = get_enode(arg); 
+                    args.push_back(m_values.get(earg->get_root_id()));                
+                }
                 DEBUG_CODE(for (expr* arg : args) VERIFY(arg););
                 SASSERT(args.size() == arity);
                 if (!fi->get_entry(args.data()))
