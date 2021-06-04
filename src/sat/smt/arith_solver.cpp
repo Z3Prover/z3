@@ -631,8 +631,11 @@ namespace arith {
             return false;
         expr* e = n->get_expr();
         if (a.is_arith_expr(e) && to_app(e)->get_num_args() > 0) {
-            for (auto* arg : euf::enode_args(n))
-                dep.add(n, arg);
+            for (auto* arg : *to_app(e)) {
+                auto* earg = expr2enode(arg);
+                if (earg)
+                    dep.add(n, earg);
+            }
         }
         else {
             dep.insert(n, nullptr); 
