@@ -2398,6 +2398,7 @@ def mk_config():
     config = open(os.path.join(BUILD_DIR, 'config.mk'), 'w')
     global CXX, CC, GMP, GUARD_CF, STATIC_BIN, GIT_HASH, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, LOG_SYNC, SINGLE_THREADED
     if IS_WINDOWS:
+        CXXFLAGS = '/nologo /Zi /D WIN32 /D _WINDOWS /EHsc /GS /Gd /std:c++17'
         config.write(
             'CC=cl\n'
             'CXX=cl\n'
@@ -2438,7 +2439,7 @@ def mk_config():
                 'SLINK_FLAGS=/nologo /LDd\n' % static_opt)
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /Gd %s %s\n' % (extra_opt, static_opt))
+                    'CXXFLAGS=/c %s /W3 /WX- /Od /Oy- /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /Gm- /RTC1 %s %s\n' % (CXXFLAGS, extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (link_extra_opt, maybe_disable_dynamic_base, link_extra_opt))
@@ -2447,7 +2448,7 @@ def mk_config():
                 exit(1)
             else:
                 config.write(
-                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /Gd /arch:SSE2 %s %s\n' % (extra_opt, static_opt))
+                    'CXXFLAGS=/c %s /W3 /WX- /Od /Oy- /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /Gm- /RTC1 /arch:SSE2 %s %s\n' % (CXXFLAGS, extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (link_extra_opt, maybe_disable_dynamic_base, link_extra_opt))
@@ -2463,7 +2464,7 @@ def mk_config():
                 extra_opt = '%s /D _TRACE ' % extra_opt
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _LIB /D _WINDOWS /D _UNICODE /D UNICODE /Gm- /EHsc /GS /Gd /GF /Gy /TP %s %s\n' % (GL, extra_opt, static_opt))
+                    'CXXFLAGS=/c%s %s /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D NDEBUG /D _LIB /D UNICODE /Gm- /GF /Gy /TP %s %s\n' % (GL, CXXFLAGS, extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link%s /profile /MACHINE:X64 /SUBSYSTEM:CONSOLE /STACK:8388608 %s\n'
                     'SLINK_EXTRA_FLAGS=/link%s /profile /MACHINE:X64 /SUBSYSTEM:WINDOWS /STACK:8388608 %s\n' % (LTCG, link_extra_opt, LTCG, link_extra_opt))
@@ -2472,7 +2473,7 @@ def mk_config():
                 exit(1)
             else:
                 config.write(
-                    'CXXFLAGS=/nologo /c%s /Zi /W3 /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _CONSOLE /D _WINDOWS /D ASYNC_COMMANDS /Gm- /EHsc /GS /Gd /arch:SSE2 %s %s\n' % (GL, extra_opt, static_opt))
+                    'CXXFLAGS=/c%s %s /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D NDEBUG /D _CONSOLE /D ASYNC_COMMANDS /Gm- /arch:SSE2 %s %s\n' % (GL, CXXFLAGS, extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
                     'SLINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (LTCG, link_extra_opt, LTCG, maybe_disable_dynamic_base, link_extra_opt))
@@ -2514,7 +2515,7 @@ def mk_config():
         if GIT_HASH:
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
         CXXFLAGS = '%s -std=c++17' % CXXFLAGS
-        CXXFLAGS = '%s -fvisibility=hidden -c' % CXXFLAGS
+        CXXFLAGS = '%s -fvisibility=hidden -fvisibility-inlines-hidden -c' % CXXFLAGS
         FPMATH = test_fpmath(CXX)
         CXXFLAGS = '%s %s' % (CXXFLAGS, FPMATH_FLAGS)
         if LOG_SYNC:
