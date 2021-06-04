@@ -681,6 +681,8 @@ namespace opt {
 
     void context::update_solver() {
         sat_params p(m_params);
+        if (p.euf())
+            return;
         if (!p.euf()) {
             if (!m_enable_sat || !probe_fd()) {
                 return;
