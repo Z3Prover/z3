@@ -181,9 +181,14 @@ namespace q {
             return q_flat;
         proof_ref pr(m);
         expr_ref  new_q(m);
-        pull_quant pull(m);
-        pull(q, new_q, pr);
-        SASSERT(is_well_sorted(m, new_q));
+        if (is_forall(q)) {
+            pull_quant pull(m);
+            pull(q, new_q, pr);
+            SASSERT(is_well_sorted(m, new_q));
+        }
+        else {
+            new_q = q;
+        }
         q_flat = to_quantifier(new_q);
         m.inc_ref(q_flat);
         m.inc_ref(q);
