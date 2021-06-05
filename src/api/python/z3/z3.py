@@ -9122,19 +9122,21 @@ def get_default_rounding_mode(ctx=None):
         return RNA(ctx)
 
 
+_ROUNDING_MODES = frozenset({
+    Z3_OP_FPA_RM_TOWARD_ZERO,
+    Z3_OP_FPA_RM_TOWARD_NEGATIVE,
+    Z3_OP_FPA_RM_TOWARD_POSITIVE,
+    Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN,
+    Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY
+})
+
+
 def set_default_rounding_mode(rm, ctx=None):
     global _dflt_rounding_mode
     if is_fprm_value(rm):
         _dflt_rounding_mode = rm.decl().kind()
     else:
-        modes = [
-            Z3_OP_FPA_RM_TOWARD_ZERO,
-            Z3_OP_FPA_RM_TOWARD_NEGATIVE,
-            Z3_OP_FPA_RM_TOWARD_POSITIVE,
-            Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN,
-            Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY
-        ]
-        _z3_assert(_dflt_rounding_mode in modes, "illegal rounding mode")
+        _z3_assert(_dflt_rounding_mode in _ROUNDING_MODES, "illegal rounding mode")
         _dflt_rounding_mode = rm
 
 
