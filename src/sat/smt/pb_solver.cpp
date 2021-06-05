@@ -132,7 +132,6 @@ namespace pb {
             remove_constraint(p, "is tight");
         }
         else {
-            
             unsigned sz = p.size();
             clear_watch(p);
             unsigned j = 0;
@@ -1470,7 +1469,6 @@ namespace pb {
             return true;
         }
         else if (c.lit() != sat::null_literal && value(c.lit()) != l_true) {
-        // else if (c.lit() != sat::null_literal && value(c.lit()) == l_false) {
             return true;
         }
         else {
@@ -2025,7 +2023,7 @@ namespace pb {
             unit_strengthen();
             cleanup_clauses();
             cleanup_constraints();
-            update_pure();
+
             count++;
         }        
         while (count < 10 && (m_simplify_change || trail_sz < s().init_trail_size()));
@@ -2045,41 +2043,6 @@ namespace pb {
         // IF_VERBOSE(0, s().display(verbose_stream()));
         // mutex_reduction();
         // if (s().m_clauses.size() < 80000) lp_lookahead_reduction();
-    }
-
-    /*
-     * ~lit does not occur in clauses
-     * ~lit is only in one constraint use list
-     * lit == C 
-     * -> ignore assignments to ~lit for C
-     * 
-     * ~lit does not occur in clauses
-     * lit is only in one constraint use list
-     * lit == C
-     * -> negate: ~lit == ~C
-     */
-    void solver::update_pure() {
-        //return;
-        for (constraint* cp : m_constraints) {
-            literal lit = cp->lit();
-            if (lit != sat::null_literal && 
-                !cp->is_pure() &&
-                value(lit) == l_undef && 
-                get_wlist(~lit).size() == 1 &&              
-                m_clause_use_list.get(lit).empty()) {
-                clear_watch(*cp);
-                cp->negate();
-                lit.neg();
-            }
-            if (lit != sat::null_literal && 
-                !cp->is_pure() &&
-                m_cnstr_use_list[(~lit).index()].size() == 1 &&
-                get_wlist(lit).size() == 1 && 
-                m_clause_use_list.get(~lit).empty()) { 
-                cp->set_pure();
-                get_wlist(~lit).erase(sat::watched(cp->cindex())); // just ignore assignments to false
-            }
-        }
     }
 
     void solver::mutex_reduction() {
