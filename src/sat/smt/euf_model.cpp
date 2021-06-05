@@ -248,9 +248,12 @@ namespace euf {
     }
 
     void solver::validate_model(model& mdl) {
+        bool first = true;
         for (enode* n : m_egraph.nodes()) {
             expr* e = n->get_expr();
             if (!m.is_bool(e))
+                continue;
+            if (has_quantifiers(e))
                 continue;
             if (!is_relevant(n))
                 continue;
@@ -263,6 +266,11 @@ namespace euf {
                        verbose_stream() << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(e) << "\n";
                        for (auto* arg : euf::enode_args(n))
                            verbose_stream() << bpp(arg) << "\n" << mdl(arg->get_expr()) << "\n";);
+            CTRACE("euf", first, 
+                   tout << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(e) << "\n";
+                   s().display(tout);
+                   tout << mdl << "\n";);
+            first = false;
         }
         
     }
