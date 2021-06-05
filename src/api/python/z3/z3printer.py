@@ -37,38 +37,111 @@ def _z3_assert(cond, msg):
 
 # Z3 operator names to Z3Py
 _z3_op_to_str = {
-    Z3_OP_TRUE: "True", Z3_OP_FALSE: "False", Z3_OP_EQ: "==", Z3_OP_DISTINCT: "Distinct",
-    Z3_OP_ITE: "If", Z3_OP_AND: "And", Z3_OP_OR: "Or", Z3_OP_IFF: "==", Z3_OP_XOR: "Xor",
-    Z3_OP_NOT: "Not", Z3_OP_IMPLIES: "Implies", Z3_OP_IDIV: "/", Z3_OP_MOD: "%",
-    Z3_OP_TO_REAL: "ToReal", Z3_OP_TO_INT: "ToInt", Z3_OP_POWER: "**", Z3_OP_IS_INT: "IsInt",
-    Z3_OP_BADD: "+", Z3_OP_BSUB: "-", Z3_OP_BMUL: "*", Z3_OP_BOR: "|", Z3_OP_BAND: "&",
-    Z3_OP_BNOT: "~", Z3_OP_BXOR: "^", Z3_OP_BNEG: "-", Z3_OP_BUDIV: "UDiv", Z3_OP_BSDIV: "/", Z3_OP_BSMOD: "%",
-    Z3_OP_BSREM: "SRem", Z3_OP_BUREM: "URem", Z3_OP_EXT_ROTATE_LEFT: "RotateLeft", Z3_OP_EXT_ROTATE_RIGHT: "RotateRight",
-    Z3_OP_SLEQ: "<=", Z3_OP_SLT: "<", Z3_OP_SGEQ: ">=", Z3_OP_SGT: ">",
-    Z3_OP_ULEQ: "ULE", Z3_OP_ULT: "ULT", Z3_OP_UGEQ: "UGE", Z3_OP_UGT: "UGT",
-    Z3_OP_SIGN_EXT: "SignExt", Z3_OP_ZERO_EXT: "ZeroExt", Z3_OP_REPEAT: "RepeatBitVec",
-    Z3_OP_BASHR: ">>", Z3_OP_BSHL: "<<", Z3_OP_BLSHR: "LShR",
-    Z3_OP_CONCAT: "Concat", Z3_OP_EXTRACT: "Extract", Z3_OP_BV2INT: "BV2Int",
-    Z3_OP_ARRAY_MAP: "Map", Z3_OP_SELECT: "Select", Z3_OP_STORE: "Store",
-    Z3_OP_CONST_ARRAY: "K", Z3_OP_ARRAY_EXT: "Ext",
-    Z3_OP_PB_AT_MOST: "AtMost", Z3_OP_PB_LE: "PbLe", Z3_OP_PB_GE: "PbGe", Z3_OP_PB_EQ: "PbEq",
-    Z3_OP_SEQ_CONCAT: "Concat", Z3_OP_SEQ_PREFIX: "PrefixOf", Z3_OP_SEQ_SUFFIX: "SuffixOf",
-    Z3_OP_SEQ_UNIT: "Unit", Z3_OP_SEQ_CONTAINS: "Contains", Z3_OP_SEQ_REPLACE: "Replace",
-    Z3_OP_SEQ_AT: "At", Z3_OP_SEQ_NTH: "Nth", Z3_OP_SEQ_INDEX: "IndexOf",
-    Z3_OP_SEQ_LAST_INDEX: "LastIndexOf", Z3_OP_SEQ_LENGTH: "Length", Z3_OP_STR_TO_INT: "StrToInt", Z3_OP_INT_TO_STR: "IntToStr",
-    Z3_OP_SEQ_IN_RE: "InRe", Z3_OP_SEQ_TO_RE: "Re",
-    Z3_OP_RE_PLUS: "Plus", Z3_OP_RE_STAR: "Star", Z3_OP_RE_OPTION: "Option", Z3_OP_RE_UNION: "Union", Z3_OP_RE_RANGE: "Range",
-    Z3_OP_RE_INTERSECT: "Intersect", Z3_OP_RE_COMPLEMENT: "Complement",
-    Z3_OP_FPA_IS_NAN: "fpIsNaN", Z3_OP_FPA_IS_INF: "fpIsInf", Z3_OP_FPA_IS_ZERO: "fpIsZero",
-    Z3_OP_FPA_IS_NORMAL: "fpIsNormal", Z3_OP_FPA_IS_SUBNORMAL: "fpIsSubnormal",
-    Z3_OP_FPA_IS_NEGATIVE: "fpIsNegative", Z3_OP_FPA_IS_POSITIVE: "fpIsPositive",
+    Z3_OP_TRUE: "True",
+    Z3_OP_FALSE: "False",
+    Z3_OP_EQ: "==",
+    Z3_OP_DISTINCT: "Distinct",
+    Z3_OP_ITE: "If",
+    Z3_OP_AND: "And",
+    Z3_OP_OR: "Or",
+    Z3_OP_IFF: "==",
+    Z3_OP_XOR: "Xor",
+    Z3_OP_NOT: "Not",
+    Z3_OP_IMPLIES: "Implies",
+
+    Z3_OP_IDIV: "/",
+    Z3_OP_MOD: "%",
+    Z3_OP_TO_REAL: "ToReal",
+    Z3_OP_TO_INT: "ToInt",
+    Z3_OP_POWER: "**",
+    Z3_OP_IS_INT: "IsInt",
+    Z3_OP_BADD: "+",
+    Z3_OP_BSUB: "-",
+    Z3_OP_BMUL: "*",
+    Z3_OP_BOR: "|",
+    Z3_OP_BAND: "&",
+    Z3_OP_BNOT: "~",
+    Z3_OP_BXOR: "^",
+    Z3_OP_BNEG: "-",
+    Z3_OP_BUDIV: "UDiv",
+    Z3_OP_BSDIV: "/",
+    Z3_OP_BSMOD: "%",
+    Z3_OP_BSREM: "SRem",
+    Z3_OP_BUREM: "URem",
+
+    Z3_OP_EXT_ROTATE_LEFT: "RotateLeft",
+    Z3_OP_EXT_ROTATE_RIGHT: "RotateRight",
+
+    Z3_OP_SLEQ: "<=",
+    Z3_OP_SLT: "<",
+    Z3_OP_SGEQ: ">=",
+    Z3_OP_SGT: ">",
+
+    Z3_OP_ULEQ: "ULE",
+    Z3_OP_ULT: "ULT",
+    Z3_OP_UGEQ: "UGE",
+    Z3_OP_UGT: "UGT",
+    Z3_OP_SIGN_EXT: "SignExt",
+    Z3_OP_ZERO_EXT: "ZeroExt",
+
+    Z3_OP_REPEAT: "RepeatBitVec",
+    Z3_OP_BASHR: ">>",
+    Z3_OP_BSHL: "<<",
+    Z3_OP_BLSHR: "LShR",
+
+    Z3_OP_CONCAT: "Concat",
+    Z3_OP_EXTRACT: "Extract",
+    Z3_OP_BV2INT: "BV2Int",
+    Z3_OP_ARRAY_MAP: "Map",
+    Z3_OP_SELECT: "Select",
+    Z3_OP_STORE: "Store",
+    Z3_OP_CONST_ARRAY: "K",
+    Z3_OP_ARRAY_EXT: "Ext",
+
+    Z3_OP_PB_AT_MOST: "AtMost",
+    Z3_OP_PB_LE: "PbLe",
+    Z3_OP_PB_GE: "PbGe",
+    Z3_OP_PB_EQ: "PbEq",
+
+    Z3_OP_SEQ_CONCAT: "Concat",
+    Z3_OP_SEQ_PREFIX: "PrefixOf",
+    Z3_OP_SEQ_SUFFIX: "SuffixOf",
+    Z3_OP_SEQ_UNIT: "Unit",
+    Z3_OP_SEQ_CONTAINS: "Contains",
+    Z3_OP_SEQ_REPLACE: "Replace",
+    Z3_OP_SEQ_AT: "At",
+    Z3_OP_SEQ_NTH: "Nth",
+    Z3_OP_SEQ_INDEX: "IndexOf",
+    Z3_OP_SEQ_LAST_INDEX: "LastIndexOf",
+    Z3_OP_SEQ_LENGTH: "Length",
+    Z3_OP_STR_TO_INT: "StrToInt",
+    Z3_OP_INT_TO_STR: "IntToStr",
+
+    Z3_OP_SEQ_IN_RE: "InRe",
+    Z3_OP_SEQ_TO_RE: "Re",
+    Z3_OP_RE_PLUS: "Plus",
+    Z3_OP_RE_STAR: "Star",
+    Z3_OP_RE_OPTION: "Option",
+    Z3_OP_RE_UNION: "Union",
+    Z3_OP_RE_RANGE: "Range",
+    Z3_OP_RE_INTERSECT: "Intersect",
+    Z3_OP_RE_COMPLEMENT: "Complement",
+
+    Z3_OP_FPA_IS_NAN: "fpIsNaN",
+    Z3_OP_FPA_IS_INF: "fpIsInf",
+    Z3_OP_FPA_IS_ZERO: "fpIsZero",
+    Z3_OP_FPA_IS_NORMAL: "fpIsNormal",
+    Z3_OP_FPA_IS_SUBNORMAL: "fpIsSubnormal",
+    Z3_OP_FPA_IS_NEGATIVE: "fpIsNegative",
+    Z3_OP_FPA_IS_POSITIVE: "fpIsPositive",
 }
 
 # List of infix operators
 _z3_infix = [
     Z3_OP_EQ, Z3_OP_IFF, Z3_OP_ADD, Z3_OP_SUB, Z3_OP_MUL, Z3_OP_DIV, Z3_OP_IDIV, Z3_OP_MOD, Z3_OP_POWER,
-    Z3_OP_LE, Z3_OP_LT, Z3_OP_GE, Z3_OP_GT, Z3_OP_BADD, Z3_OP_BSUB, Z3_OP_BMUL, Z3_OP_BSDIV, Z3_OP_BSMOD, Z3_OP_BOR, Z3_OP_BAND,
-    Z3_OP_BXOR, Z3_OP_BSDIV, Z3_OP_SLEQ, Z3_OP_SLT, Z3_OP_SGEQ, Z3_OP_SGT, Z3_OP_BASHR, Z3_OP_BSHL
+    Z3_OP_LE, Z3_OP_LT, Z3_OP_GE, Z3_OP_GT, Z3_OP_BADD, Z3_OP_BSUB, Z3_OP_BMUL,
+    Z3_OP_BSDIV, Z3_OP_BSMOD, Z3_OP_BOR, Z3_OP_BAND,
+    Z3_OP_BXOR, Z3_OP_BSDIV, Z3_OP_SLEQ, Z3_OP_SLT, Z3_OP_SGEQ, Z3_OP_SGT, Z3_OP_BASHR, Z3_OP_BSHL,
 ]
 
 _z3_unary = [Z3_OP_UMINUS, Z3_OP_BNOT, Z3_OP_BNEG]
@@ -83,33 +156,53 @@ _z3_precedence = {
     Z3_OP_BAND: 5,
     Z3_OP_BXOR: 6,
     Z3_OP_BOR: 7,
-    Z3_OP_LE: 8, Z3_OP_LT: 8, Z3_OP_GE: 8, Z3_OP_GT: 8, Z3_OP_EQ: 8, Z3_OP_SLEQ: 8, Z3_OP_SLT: 8, Z3_OP_SGEQ: 8, Z3_OP_SGT: 8,
-    Z3_OP_IFF: 8,
+    Z3_OP_LE: 8, Z3_OP_LT: 8, Z3_OP_GE: 8, Z3_OP_GT: 8, Z3_OP_EQ: 8, Z3_OP_SLEQ: 8,
+    Z3_OP_SLT: 8, Z3_OP_SGEQ: 8, Z3_OP_SGT: 8, Z3_OP_IFF: 8,
 
     Z3_OP_FPA_NEG: 1,
     Z3_OP_FPA_MUL: 2, Z3_OP_FPA_DIV: 2, Z3_OP_FPA_REM: 2, Z3_OP_FPA_FMA: 2,
     Z3_OP_FPA_ADD: 3, Z3_OP_FPA_SUB: 3,
-    Z3_OP_FPA_LE: 8, Z3_OP_FPA_LT: 8, Z3_OP_FPA_GE: 8, Z3_OP_FPA_GT: 8, Z3_OP_FPA_EQ: 8
+    Z3_OP_FPA_LE: 8, Z3_OP_FPA_LT: 8, Z3_OP_FPA_GE: 8, Z3_OP_FPA_GT: 8, Z3_OP_FPA_EQ: 8,
 }
 
 # FPA operators
 _z3_op_to_fpa_normal_str = {
-    Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN: "RoundNearestTiesToEven()", Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY: "RoundNearestTiesToAway()",
-    Z3_OP_FPA_RM_TOWARD_POSITIVE: "RoundTowardPositive()", Z3_OP_FPA_RM_TOWARD_NEGATIVE: "RoundTowardNegative()",
+    Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN: "RoundNearestTiesToEven()",
+    Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY: "RoundNearestTiesToAway()",
+    Z3_OP_FPA_RM_TOWARD_POSITIVE: "RoundTowardPositive()",
+    Z3_OP_FPA_RM_TOWARD_NEGATIVE: "RoundTowardNegative()",
     Z3_OP_FPA_RM_TOWARD_ZERO: "RoundTowardZero()",
-    Z3_OP_FPA_PLUS_INF: "fpPlusInfinity", Z3_OP_FPA_MINUS_INF: "fpMinusInfinity",
-    Z3_OP_FPA_NAN: "fpNaN", Z3_OP_FPA_PLUS_ZERO: "fpPZero", Z3_OP_FPA_MINUS_ZERO: "fpNZero",
-    Z3_OP_FPA_ADD: "fpAdd", Z3_OP_FPA_SUB: "fpSub", Z3_OP_FPA_NEG: "fpNeg", Z3_OP_FPA_MUL: "fpMul",
-    Z3_OP_FPA_DIV: "fpDiv", Z3_OP_FPA_REM: "fpRem", Z3_OP_FPA_ABS: "fpAbs",
-    Z3_OP_FPA_MIN: "fpMin", Z3_OP_FPA_MAX: "fpMax",
-    Z3_OP_FPA_FMA: "fpFMA", Z3_OP_FPA_SQRT: "fpSqrt", Z3_OP_FPA_ROUND_TO_INTEGRAL: "fpRoundToIntegral",
+    Z3_OP_FPA_PLUS_INF: "fpPlusInfinity",
+    Z3_OP_FPA_MINUS_INF: "fpMinusInfinity",
+    Z3_OP_FPA_NAN: "fpNaN",
+    Z3_OP_FPA_PLUS_ZERO: "fpPZero",
+    Z3_OP_FPA_MINUS_ZERO: "fpNZero",
+    Z3_OP_FPA_ADD: "fpAdd",
+    Z3_OP_FPA_SUB: "fpSub",
+    Z3_OP_FPA_NEG: "fpNeg",
+    Z3_OP_FPA_MUL: "fpMul",
+    Z3_OP_FPA_DIV: "fpDiv",
+    Z3_OP_FPA_REM: "fpRem",
+    Z3_OP_FPA_ABS: "fpAbs",
+    Z3_OP_FPA_MIN: "fpMin",
+    Z3_OP_FPA_MAX: "fpMax",
+    Z3_OP_FPA_FMA: "fpFMA",
+    Z3_OP_FPA_SQRT: "fpSqrt",
+    Z3_OP_FPA_ROUND_TO_INTEGRAL: "fpRoundToIntegral",
 
-    Z3_OP_FPA_EQ: "fpEQ", Z3_OP_FPA_LT: "fpLT", Z3_OP_FPA_GT: "fpGT", Z3_OP_FPA_LE: "fpLEQ",
+    Z3_OP_FPA_EQ: "fpEQ",
+    Z3_OP_FPA_LT: "fpLT",
+    Z3_OP_FPA_GT: "fpGT",
+    Z3_OP_FPA_LE: "fpLEQ",
     Z3_OP_FPA_GE: "fpGEQ",
 
-    Z3_OP_FPA_FP: "fpFP", Z3_OP_FPA_TO_FP: "fpToFP", Z3_OP_FPA_TO_FP_UNSIGNED: "fpToFPUnsigned",
-    Z3_OP_FPA_TO_UBV: "fpToUBV", Z3_OP_FPA_TO_SBV: "fpToSBV", Z3_OP_FPA_TO_REAL: "fpToReal",
-    Z3_OP_FPA_TO_IEEE_BV: "fpToIEEEBV"
+    Z3_OP_FPA_FP: "fpFP",
+    Z3_OP_FPA_TO_FP: "fpToFP",
+    Z3_OP_FPA_TO_FP_UNSIGNED: "fpToFPUnsigned",
+    Z3_OP_FPA_TO_UBV: "fpToUBV",
+    Z3_OP_FPA_TO_SBV: "fpToSBV",
+    Z3_OP_FPA_TO_REAL: "fpToReal",
+    Z3_OP_FPA_TO_IEEE_BV: "fpToIEEEBV",
 }
 
 _z3_op_to_fpa_pretty_str = {
@@ -131,8 +224,19 @@ _z3_fpa_infix = [
 ]
 
 
+_ASSOC_OPS = frozenset({
+    Z3_OP_BOR,
+    Z3_OP_BXOR,
+    Z3_OP_BAND,
+    Z3_OP_ADD,
+    Z3_OP_BADD,
+    Z3_OP_MUL,
+    Z3_OP_BMUL,
+})
+
+
 def _is_assoc(k):
-    return k == Z3_OP_BOR or k == Z3_OP_BXOR or k == Z3_OP_BAND or k == Z3_OP_ADD or k == Z3_OP_BADD or k == Z3_OP_MUL or k == Z3_OP_BMUL
+    return k in _ASSOC_OPS
 
 
 def _is_left_assoc(k):
@@ -938,18 +1042,18 @@ class Formatter:
         return seq1(self.pp_name(a), [to_format(p), arg])
 
     def pp_extract(self, a, d, xs):
-        h = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 0)
-        l = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 1)
+        high = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 0)
+        low = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 1)
         arg = self.pp_expr(a.arg(0), d + 1, xs)
-        return seq1(self.pp_name(a), [to_format(h), to_format(l), arg])
+        return seq1(self.pp_name(a), [to_format(high), to_format(low), arg])
 
     def pp_loop(self, a, d, xs):
-        l = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 0)
+        low = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 0)
         arg = self.pp_expr(a.arg(0), d + 1, xs)
         if Z3_get_decl_num_parameters(a.ctx_ref(), a.decl().ast) > 1:
-            h = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 1)
-            return seq1("Loop", [arg, to_format(l), to_format(h)])
-        return seq1("Loop", [arg, to_format(l)])
+            high = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 1)
+            return seq1("Loop", [arg, to_format(low), to_format(high)])
+        return seq1("Loop", [arg, to_format(low)])
 
     def pp_set(self, id, a):
         return seq1(id, [self.pp_sort(a.sort())])
