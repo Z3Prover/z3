@@ -130,7 +130,7 @@ namespace q {
 
         void add_instantiation(clause& c, binding& b, sat::literal lit);
 
-        bool propagate(euf::enode* const* binding, unsigned max_generation, clause& c);
+        bool propagate(euf::enode* const* binding, unsigned max_generation, clause& c, bool& new_propagation);
 
         std::ostream& display(std::ostream& out) const;
 

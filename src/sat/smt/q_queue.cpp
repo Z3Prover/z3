@@ -145,7 +145,8 @@ namespace q {
         ent.m_instantiated = true;
                 
         unsigned gen = get_new_gen(f, ent.m_cost);
-        if (em.propagate(f.nodes(), gen, *f.c))
+        bool new_propagation = false;
+        if (em.propagate(f.nodes(), gen, *f.c, new_propagation))
             return;
 
         auto* ebindings = m_subst(q, num_bindings);

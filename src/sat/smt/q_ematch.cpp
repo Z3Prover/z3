@@ -229,11 +229,12 @@ namespace q {
         TRACE("q", tout << "on-binding " << mk_pp(q, m) << "\n";);
         unsigned idx = m_q2clauses[q];
         clause& c = *m_clauses[idx];
-        if (!propagate(_binding, max_generation, c)) 
+        bool new_propagation = false;
+        if (!propagate(_binding, max_generation, c, new_propagation)) 
             add_binding(c, pat, _binding, max_generation, min_gen, max_gen);
     }
 
-    bool ematch::propagate(euf::enode* const* binding, unsigned max_generation, clause& c) {
+    bool ematch::propagate(euf::enode* const* binding, unsigned max_generation, clause& c, bool& propagated) {
         TRACE("q", c.display(ctx, tout) << "\n";);
         unsigned idx = UINT_MAX;
         lbool ev = m_eval(binding, c, idx);
@@ -260,6 +261,7 @@ namespace q {
             ++m_stats.m_num_propagations;
             ctx.propagate(instantiate(c, binding, c[idx]), j_idx);
         }
+        propagated = true;
         return true;
     }
 
@@ -479,10 +481,8 @@ namespace q {
                 continue;
 
             do {
-                if (propagate(b->m_nodes, b->m_max_generation, c)) {
+                if (propagate(b->m_nodes, b->m_max_generation, c, propagated)) 
                     to_remove.push_back(b);
-                    propagated = true;
-                }
                 else if (flush) {
                     instantiate(*b, c);
                     to_remove.push_back(b);

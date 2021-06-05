@@ -41,28 +41,28 @@ namespace euf {
     const theory_id null_theory_id = -1;
 
     class enode {
-        expr* m_expr{ nullptr };
-        bool          m_mark1{ false };
-        bool          m_mark2{ false };
-        bool          m_commutative{ false };
-        bool          m_update_children{ false };
-        bool          m_interpreted{ false };
-        bool          m_merge_enabled{ true }; 
-        bool          m_is_equality{ false };   // Does the expression represent an equality
-        lbool         m_value;                  // Assignment by SAT solver for Boolean node
-        unsigned      m_bool_var { UINT_MAX };  // SAT solver variable associated with Boolean node
-        unsigned      m_class_size{ 1 };        // Size of the equivalence class if the enode is the root.
-        unsigned      m_table_id{ UINT_MAX };       
-        unsigned      m_generation { 0 };       // Tracks how many quantifier instantiation rounds were needed to generate this enode.
+        expr*         m_expr = nullptr;
+        bool          m_mark1 = false;
+        bool          m_mark2 = false;
+        bool          m_commutative = false;
+        bool          m_update_children = false;
+        bool          m_interpreted = false;
+        bool          m_merge_enabled = true; 
+        bool          m_is_equality = false;    // Does the expression represent an equality
+        lbool         m_value = l_undef;        // Assignment by SAT solver for Boolean node
+        unsigned      m_bool_var = UINT_MAX;    // SAT solver variable associated with Boolean node
+        unsigned      m_class_size = 1;         // Size of the equivalence class if the enode is the root.
+        unsigned      m_table_id = UINT_MAX;       
+        unsigned      m_generation = 0;         // Tracks how many quantifier instantiation rounds were needed to generate this enode.
         enode_vector  m_parents;
-        enode* m_next   { nullptr };
-        enode* m_root   { nullptr };
-        enode* m_target { nullptr };
-        enode* m_cg     { nullptr };
+        enode* m_next   = nullptr;
+        enode* m_root   = nullptr;
+        enode* m_target = nullptr;
+        enode* m_cg     = nullptr;
         th_var_list   m_th_vars;
         justification m_justification;
-        unsigned      m_num_args{ 0 };
-        signed char         m_lbl_hash { -1 };  // It is different from -1, if enode is used in a pattern
+        unsigned      m_num_args = 0;
+        signed char         m_lbl_hash = -1;  // It is different from -1, if enode is used in a pattern
         approx_set          m_lbls;
         approx_set          m_plbls;
         enode* m_args[0];
