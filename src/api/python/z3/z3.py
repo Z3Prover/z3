@@ -1188,11 +1188,11 @@ def _coerce_exprs(a, b, ctx=None):
     return (a, b)
 
 
-def _reduce(f, l, a):
-    r = a
-    for e in l:
-        r = f(r, e)
-    return r
+def _reduce(func, sequence, initial):
+    result = initial
+    for element in sequence:
+        result = func(result, element)
+    return result
 
 
 def _coerce_expr_list(alist, ctx=None):
@@ -5486,9 +5486,6 @@ class Goal(Z3PPObject):
             self.goal = Z3_mk_goal(self.ctx.ref(), models, unsat_cores, proofs)
         Z3_goal_inc_ref(self.ctx.ref(), self.goal)
 
-    def __deepcopy__(self, memo={}):
-        return Goal(False, False, False, self.ctx, self.goal)
-
     def __del__(self):
         if self.goal is not None and self.ctx.ref() is not None:
             Z3_goal_dec_ref(self.ctx.ref(), self.goal)
@@ -5793,9 +5790,6 @@ class AstVector(Z3PPObject):
             self.ctx = ctx
         Z3_ast_vector_inc_ref(self.ctx.ref(), self.vector)
 
-    def __deepcopy__(self, memo={}):
-        return AstVector(self.vector, self.ctx)
-
     def __del__(self):
         if self.vector is not None and self.ctx.ref() is not None:
             Z3_ast_vector_dec_ref(self.ctx.ref(), self.vector)
@@ -5834,7 +5828,13 @@ class AstVector(Z3PPObject):
             return _to_ast_ref(Z3_ast_vector_get(self.ctx.ref(), self.vector, i), self.ctx)
 
         elif isinstance(i, slice):
-            return [_to_ast_ref(Z3_ast_vector_get(self.ctx.ref(), self.vector, ii), self.ctx) for ii in range(*i.indices(self.__len__()))]
+            result = []
+            for ii in range(*i.indices(self.__len__())):
+                result.append(_to_ast_ref(
+                    Z3_ast_vector_get(self.ctx.ref(), self.vector, ii),
+                    self.ctx,
+                ))
+            return result
 
     def __setitem__(self, i, v):
         """Update AST at position `i`.
@@ -6178,9 +6178,6 @@ class FuncInterp(Z3PPObject):
         self.ctx = ctx
         if self.f is not None:
             Z3_func_interp_inc_ref(self.ctx.ref(), self.f)
-
-    def __deepcopy__(self, memo={}):
-        return FuncInterp(self.f, self.ctx)
 
     def __del__(self):
         if self.f is not None and self.ctx.ref() is not None:
@@ -9130,12 +9127,14 @@ def set_default_rounding_mode(rm, ctx=None):
     if is_fprm_value(rm):
         _dflt_rounding_mode = rm.decl().kind()
     else:
-        _z3_assert(_dflt_rounding_mode == Z3_OP_FPA_RM_TOWARD_ZERO or
-                   _dflt_rounding_mode == Z3_OP_FPA_RM_TOWARD_NEGATIVE or
-                   _dflt_rounding_mode == Z3_OP_FPA_RM_TOWARD_POSITIVE or
-                   _dflt_rounding_mode == Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN or
-                   _dflt_rounding_mode == Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY,
-                   "illegal rounding mode")
+        modes = [
+            Z3_OP_FPA_RM_TOWARD_ZERO,
+            Z3_OP_FPA_RM_TOWARD_NEGATIVE,
+            Z3_OP_FPA_RM_TOWARD_POSITIVE,
+            Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN,
+            Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY
+        ]
+        _z3_assert(_dflt_rounding_mode in modes, "illegal rounding mode")
         _dflt_rounding_mode = rm
 
 
@@ -9564,10 +9563,11 @@ class FPNumRef(FPRef):
     """
 
     def sign(self):
-        l = (ctypes.c_int)()
-        if Z3_fpa_get_numeral_sign(self.ctx.ref(), self.as_ast(), byref(l)) == False:
+        num = (ctypes.c_int)()
+        nsign = Z3_fpa_get_numeral_sign(self.ctx.ref(), self.as_ast(), byref(l))
+        if nsign is False:
             raise Z3Exception("error retrieving the sign of a numeral.")
-        return l.value != 0
+        return num.value != 0
 
     """The sign of a floating-point numeral as a bit-vector expression.
 
@@ -10692,7 +10692,7 @@ def String(name, ctx=None):
 
 
 def Strings(names, ctx=None):
-    """Return string constants"""
+    """Return a tuple of String constants. """
     ctx = _get_ctx(ctx)
     if isinstance(names, str):
         names = names.split(" ")
@@ -10707,14 +10707,6 @@ def SubString(s, offset, length):
 def SubSeq(s, offset, length):
     """Extract substring or subsequence starting at offset"""
     return Extract(s, offset, length)
-
-
-def Strings(names, ctx=None):
-    """Return a tuple of String constants. """
-    ctx = _get_ctx(ctx)
-    if isinstance(names, str):
-        names = names.split(" ")
-    return [String(name, ctx) for name in names]
 
 
 def Empty(s):
@@ -10820,17 +10812,15 @@ def Replace(s, src, dst):
     return SeqRef(Z3_mk_seq_replace(src.ctx_ref(), s.as_ast(), src.as_ast(), dst.as_ast()), s.ctx)
 
 
-def IndexOf(s, substr):
-    return IndexOf(s, substr, IntVal(0))
-
-
-def IndexOf(s, substr, offset):
+def IndexOf(s, substr, offset=None):
     """Retrieve the index of substring within a string starting at a specified offset.
     >>> simplify(IndexOf("abcabc", "bc", 0))
     1
     >>> simplify(IndexOf("abcabc", "bc", 2))
     4
     """
+    if offset is None:
+        offset = IntVal(0)
     ctx = None
     if is_expr(offset):
         ctx = offset.ctx
@@ -11124,7 +11114,6 @@ def user_prop_pop(ctx, num_scopes):
 
 
 def user_prop_fresh(id, ctx):
-    prop = _prop_closures.get(id)
     _prop_closures.set_threaded()
     new_prop = UsePropagateBase(None, ctx)
     _prop_closures.set(new_prop.id, new_prop.fresh())
