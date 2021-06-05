@@ -114,6 +114,8 @@ namespace q {
                 args.push_back(replace_model_value(arg));
             return expr_ref(m.mk_app(to_app(e)->get_decl(), args), m);
         }
+        if (m.is_model_value(e))
+            return expr_ref(m.mk_model_value(0, e->get_sort()), m);
         return expr_ref(e, m);
     }
 
