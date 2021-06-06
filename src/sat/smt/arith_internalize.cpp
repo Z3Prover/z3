@@ -275,6 +275,9 @@ namespace arith {
             else {
                 if (is_app(n)) {
                     internalize_args(to_app(n));
+                    for (expr* arg : *to_app(n)) 
+                        if (a.is_arith_expr(arg))
+                            internalize_term(arg);
                 }
                 theory_var v = mk_evar(n);
                 coeffs[vars.size()] = coeffs[index];
@@ -291,9 +294,8 @@ namespace arith {
         st.to_ensure_enode().reset();
         for (unsigned i = st.to_ensure_var().size(); i-- > 0; ) {
             expr* n = st.to_ensure_var()[i];
-            if (is_app(n)) {
+            if (is_app(n)) 
                 internalize_term(to_app(n));
-            }
         }
         st.to_ensure_var().reset();
     }
@@ -388,7 +390,6 @@ namespace arith {
         return true;
     }
 
-
     bool solver::internalize_term(expr* term) {
         if (!has_var(term))
             register_theory_var_in_lar_solver(internalize_def(term));
@@ -424,7 +425,7 @@ namespace arith {
         TRACE("arith", tout << mk_pp(t, m) << " " << force << " " << reflect(t) << "\n";);
         if (!force && !reflect(t))
             return;
-        for (expr* arg : *t)
+        for (expr* arg : *t) 
             e_internalize(arg);
     }
 
