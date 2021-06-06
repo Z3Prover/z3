@@ -1991,7 +1991,8 @@ namespace q {
             TRACE("trigger_bug", tout << "execute for code tree:\n"; t->display(tout););
             init(t);
             if (t->filter_candidates()) {
-                for (enode* app : t->get_candidates()) {
+                for (unsigned i = 0; i < t->get_candidates().size(); ++i) {
+                    enode* app = t->get_candidates()[i];
                     TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_expr(), m) << "\n";);
                     if (!app->is_marked1() && app->is_cgr()) {
                         if (ctx.resource_limits_exceeded() || !execute_core(t, app))
@@ -2005,7 +2006,8 @@ namespace q {
                 }
             }
             else {
-                for (enode* app : t->get_candidates()) {
+                for (unsigned i = 0; i < t->get_candidates().size(); ++i) {
+                    enode* app = t->get_candidates()[i];
                     TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_expr(), m) << "\n";);
                     if (app->is_cgr()) {
                         TRACE("trigger_bug", tout << "is_cgr\n";);
