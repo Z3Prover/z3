@@ -48,12 +48,12 @@ Revision History:
 #endif
 
 
-#if defined(_WINDOWS) && !defined(_M_ARM) && !defined(_M_ARM64)
+#if defined(__GNUC__)
+#define _trailing_zeros32(X) __builtin_ctz(X)
+#elif defined(_WINDOWS) && !defined(_M_ARM) && !defined(_M_ARM64) && !defined(__MINGW32__)
 // This is needed for _tzcnt_u32 and friends.
 #include <immintrin.h>
 #define _trailing_zeros32(X) _tzcnt_u32(X)
-#elif defined(__GNUC__)
-#define _trailing_zeros32(X) __builtin_ctz(X)
 #else
 static uint32_t _trailing_zeros32(uint32_t x) {
     uint32_t r = 0;
