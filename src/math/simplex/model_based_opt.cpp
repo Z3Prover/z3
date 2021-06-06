@@ -1009,8 +1009,7 @@ namespace opt {
                     result = solve_for(glb_index, x, true);                
                 }
                 else {
-                    result = def();
-                    m_var2value[x] = rational::zero();
+                    result = def() + m_var2value[x];
                 }
                 SASSERT(eval(result) == eval(x));
             }
@@ -1130,9 +1129,8 @@ namespace opt {
         }
         TRACE("opt1", display(tout << "tableau after replace x by y := v" << y << "\n"););
         def result = project(y, compute_def);
-        if (compute_def) {
+        if (compute_def) 
             result = (result * D) + u;     
-        }
         SASSERT(!compute_def || eval(result) == eval(x));
         return result;
     }
