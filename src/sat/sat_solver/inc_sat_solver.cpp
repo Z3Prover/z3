@@ -1057,7 +1057,7 @@ private:
             CTRACE("sat", !m.is_true(tmp),
                    tout << "Evaluation failed: " << mk_pp(f, m) << " to " << tmp << "\n";
                    model_smt2_pp(tout, m, *(mdl.get()), 0););
-            if (!m.is_true(tmp)) {
+            if (m.is_false(tmp)) {
                 IF_VERBOSE(0, verbose_stream() << "failed to verify: " << mk_pp(f, m) << "\n");
                 IF_VERBOSE(0, verbose_stream() << "evaluated to " << tmp << "\n");
                 all_true = false;

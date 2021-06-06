@@ -157,6 +157,7 @@ namespace q {
             expr* t = todo.back();
             SASSERT(!is_ground(t) || ctx.get_egraph().find(t));
             if (is_ground(t)) {
+                m_mark.mark(t);
                 m_eval.setx(t->get_id(), ctx.get_egraph().find(t), nullptr);
                 SASSERT(m_eval[t->get_id()]);
                 todo.pop_back();

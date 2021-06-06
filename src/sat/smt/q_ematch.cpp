@@ -8,7 +8,7 @@ Module Name:
 Abstract:
 
     E-matching quantifier instantiation plugin
-
+    
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-01-24
@@ -374,6 +374,7 @@ namespace q {
         clause* cl = alloc(clause, m, m_clauses.size());
         cl->m_literal = ctx.mk_literal(_q);
         quantifier_ref q(_q, m);
+        q = m_qs.flatten(q);
         if (is_exists(q)) {
             cl->m_literal.neg();
             expr_ref body(mk_not(m, q->get_expr()), m);
