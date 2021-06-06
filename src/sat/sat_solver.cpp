@@ -1396,7 +1396,8 @@ namespace sat {
             }
         };
         scoped_ls _ls(*this);
-        if (inconsistent()) return l_false;
+        if (inconsistent()) 
+            return l_false;
         scoped_limits scoped_rl(rlimit());
         SASSERT(m_local_search);
         m_local_search->add(*this);

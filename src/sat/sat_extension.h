@@ -128,6 +128,7 @@ namespace sat {
                                 std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)>& pb) {                                
             return false;
         }
+        virtual bool is_pb() { return false; }
     };
 
 };

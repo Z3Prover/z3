@@ -211,6 +211,7 @@ namespace pb {
         unsigned next_id() { return m_constraint_id++; }
         void set_non_learned(constraint& c);
         double get_reward(literal l, sat::ext_justification_idx idx, sat::literal_occs_fun& occs) const override;
+        bool is_pb() override { return true; }
 
         // cardinality
         lbool add_assign(card& c, literal lit);
