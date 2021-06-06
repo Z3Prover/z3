@@ -153,6 +153,7 @@ namespace euf {
         m_unhandled_functions.push_back(f);
         m_trail.push(push_back_vector<func_decl_ref_vector>(m_unhandled_functions));
         IF_VERBOSE(0, verbose_stream() << mk_pp(f, m) << " not handled\n");
+        SASSERT(false);
     }
 
     void solver::init_search() {

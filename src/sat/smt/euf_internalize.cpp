@@ -109,7 +109,7 @@ namespace euf {
         if (m.is_bool(e))
             attach_lit(literal(si.add_bool_var(e), false), e);
 
-        if (!m.is_bool(e) && e->get_sort()->get_family_id() != null_family_id) {
+        if (!m.is_bool(e) && !m.is_uninterp(e->get_sort())) {
             auto* e_ext = expr2solver(e);
             auto* s_ext = sort2solver(e->get_sort());
             if (s_ext && s_ext != e_ext)
