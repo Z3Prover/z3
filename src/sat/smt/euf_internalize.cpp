@@ -114,6 +114,8 @@ namespace euf {
             auto* s_ext = sort2solver(e->get_sort());
             if (s_ext && s_ext != e_ext)
                 s_ext->apply_sort_cnstr(n, e->get_sort());
+            else if (!s_ext && !e_ext && is_app(e)) 
+                unhandled_function(to_app(e)->get_decl());
         }
         expr* a = nullptr, * b = nullptr;                   
         if (m.is_eq(e, a, b) && a->get_sort()->get_family_id() != null_family_id) {
