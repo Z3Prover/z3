@@ -104,6 +104,8 @@ namespace opt {
         rational eval(unsigned x) const;
         
         rational eval(def const& d) const;
+        
+        rational eval(vector<var> const& coeffs) const;
 
         void resolve(unsigned row_src, rational const& a1, unsigned row_dst, unsigned x);
 

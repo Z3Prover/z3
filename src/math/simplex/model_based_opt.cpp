@@ -166,7 +166,7 @@ namespace opt {
         return true;
     }
 
-#define PASSERT(_e_) if (!(_e_)) { TRACE("opt1", display(tout, r); display(tout);); SASSERT(_e_); }
+#define PASSERT(_e_) { CTRACE("qe", !(_e_), display(tout, r); display(tout);); SASSERT(_e_); }
 
     bool model_based_opt::invariant(unsigned index, row const& r) {
         vector<var> const& vars = r.m_vars;
@@ -423,6 +423,13 @@ namespace opt {
         }
         return val;
     }    
+
+    rational model_based_opt::eval(vector<var> const& coeffs) const {
+        rational val(0);
+        for (var const& v : coeffs) 
+            val += v.m_coeff * eval(v.m_id);
+        return val;
+    }
  
     rational model_based_opt::get_coefficient(unsigned row_id, unsigned var_id) const {
         return m_rows[row_id].get_coefficient(var_id);
@@ -1193,7 +1200,7 @@ namespace opt {
             row& r1 = m_rows[row_id1];
             vector<var> coeffs;
             mk_coeffs_without(coeffs, r1.m_vars, x);
-            rational c = r1.m_coeff;
+            rational c = mod(-eval(coeffs), a);
             add_divides(coeffs, c, a);
         }
         unsigned_vector const& row_ids = m_var2row_ids[x];
