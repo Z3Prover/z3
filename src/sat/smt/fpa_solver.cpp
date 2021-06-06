@@ -122,6 +122,50 @@ namespace fpa {
             n = mk_enode(e, false);
         SASSERT(!n->is_attached_to(get_id()));
         mk_var(n);
+        TRACE("fp", tout << "post: " << mk_bounded_pp(e, m) << "\n";);
+        m_nodes.push_back(std::tuple(n, sign, root));
+        ctx.push(push_back_trail(m_nodes));
+        return true;
+    }
+
+    void solver::apply_sort_cnstr(enode* n, sort* s) {
+        TRACE("t_fpa", tout << "apply sort cnstr for: " << mk_ismt2_pp(n->get_expr(), m) << "\n";);
+        SASSERT(s->get_family_id() == get_id());
+        SASSERT(m_fpa_util.is_float(s) || m_fpa_util.is_rm(s));
+        SASSERT(m_fpa_util.is_float(n->get_expr()) || m_fpa_util.is_rm(n->get_expr()));
+        SASSERT(n->get_decl()->get_range() == s);
+
+        if (is_attached_to_var(n))
+            return;
+        attach_new_th_var(n);
+
+        expr* owner = n->get_expr();
+
+        if (m_fpa_util.is_rm(s) && !m_fpa_util.is_bv2rm(owner)) {
+            // For every RM term, we need to make sure that it's
+            // associated bit-vector is within the valid range.
+            expr_ref valid(m), limit(m);
+            limit = m_bv_util.mk_numeral(4, 3);
+            valid = m_bv_util.mk_ule(m_converter.wrap(owner), limit);
+            add_unit(mk_literal(valid));
+        }
+        activate(owner);
+    }
+
+    bool solver::unit_propagate() {
+
+        if (m_nodes.size() <= m_nodes_qhead)
+            return false;
+        ctx.push(value_trail<unsigned>(m_nodes_qhead));
+        for (; m_nodes_qhead < m_nodes.size(); ++m_nodes_qhead) 
+            unit_propagate(m_nodes[m_nodes_qhead]);
+        return true;
+    }
+
+    void solver::unit_propagate(std::tuple<enode*, bool, bool> const& t) {
+        auto [n, sign, root] = t;
+        expr* e = n->get_expr();
+        app* a = to_app(e);
         if (m.is_bool(e)) {
             sat::literal atom(ctx.get_si().add_bool_var(e), false);
             atom = ctx.attach_lit(atom, e);
@@ -151,31 +195,7 @@ namespace fpa {
                 break;
             }
         }
-        return true;
-    }
 
-    void solver::apply_sort_cnstr(enode* n, sort* s) {
-        TRACE("t_fpa", tout << "apply sort cnstr for: " << mk_ismt2_pp(n->get_expr(), m) << "\n";);
-        SASSERT(s->get_family_id() == get_id());
-        SASSERT(m_fpa_util.is_float(s) || m_fpa_util.is_rm(s));
-        SASSERT(m_fpa_util.is_float(n->get_expr()) || m_fpa_util.is_rm(n->get_expr()));
-        SASSERT(n->get_decl()->get_range() == s);
-
-        if (is_attached_to_var(n))
-            return;
-        attach_new_th_var(n);
-
-        expr* owner = n->get_expr();
-
-        if (m_fpa_util.is_rm(s) && !m_fpa_util.is_bv2rm(owner)) {
-            // For every RM term, we need to make sure that it's
-            // associated bit-vector is within the valid range.
-            expr_ref valid(m), limit(m);
-            limit = m_bv_util.mk_numeral(4, 3);
-            valid = m_bv_util.mk_ule(m_converter.wrap(owner), limit);
-            add_unit(mk_literal(valid));
-        }
-        activate(owner);
     }
 
     void solver::activate(expr* n) {

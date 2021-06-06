@@ -332,10 +332,10 @@ namespace euf {
                 propagated1 = true;
             }
 
-            for (auto* s : m_solvers) {
-                if (s->unit_propagate())
+            for (unsigned i = 0; i < m_solvers.size(); ++i) 
+                if (m_solvers[i]->unit_propagate())
                     propagated1 = true;
-            }
+            
             if (!propagated1)
                 break;
             propagated = true;             

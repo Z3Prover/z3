@@ -744,7 +744,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     };
 
     void process(expr* n, bool is_root, bool redundant) {
-        TRACE("goal2sat", tout << "process-begin " << mk_bounded_pp(n, m, 3) 
+        TRACE("goal2sat", tout << "process-begin " << mk_bounded_pp(n, m, 2) 
             << " root: " << is_root 
             << " result-stack: " << m_result_stack.size() 
             << " frame-stack: " << m_frame_stack.size() << "\n";);
@@ -784,7 +784,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 m_frame_stack[fsz - 1].m_idx++;
                 if (!visit(arg, false, false))
                     goto loop;
-                TRACE("goal2sat_bug", tout << "visit " << mk_bounded_pp(t, m, 2) << " result stack: " << m_result_stack.size() << "\n";);
+                TRACE("goal2sat_bug", tout << "visit " << mk_bounded_pp(arg, m, 2) << " result stack: " << m_result_stack.size() << "\n";);
             }
             TRACE("goal2sat_bug", tout << "converting\n";
                   tout << mk_bounded_pp(t, m, 2) << " root: " << root << " sign: " << sign << "\n";
