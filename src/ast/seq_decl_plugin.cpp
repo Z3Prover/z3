@@ -1269,22 +1269,7 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
         case OP_RE_OPTION:
             i1 = get_info_rec(e->get_arg(0));
             return i1.opt();
-        case OP_RE_RANGE: {
-            lbool is_nullable = l_undef;
-            bool is_singleton = false;
-            bool is_interpreted = false;
-            zstring s1, s2;
-            expr* r1, *r2;
-            if (is_range(e, r1, r2) && 
-                u.str.is_string(r1, s1) && u.str.is_string(r2, s2) &&
-                s1.length() == 1 && s2.length() == 1 && s1[0] <= s2[0]) {
-                is_nullable = l_false;
-                is_singleton = true;
-                is_interpreted = true;
-            }
-            std::cout << is_nullable << "\n";
-            return info(true, true, is_interpreted, true, true, true, is_singleton, is_nullable, 1, 0);
-        }
+        case OP_RE_RANGE: 
         case OP_RE_FULL_CHAR_SET:
         case OP_RE_OF_PRED:
             //TBD: check if the character predicate contains uninterpreted symbols or is nonground or is unsat
