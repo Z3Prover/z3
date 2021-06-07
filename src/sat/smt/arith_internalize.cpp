@@ -436,8 +436,8 @@ namespace arith {
         theory_var v = mk_evar(t);
         if (_has_var)
             return v;
-        theory_var w = mk_evar(n);
         internalize_term(n);
+        theory_var w = mk_evar(n);
 
         if (p == 0) {
             mk_power0_axioms(t, n);
