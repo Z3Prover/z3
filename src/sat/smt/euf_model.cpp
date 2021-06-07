@@ -77,11 +77,11 @@ namespace euf {
     }
 
     bool solver::include_func_interp(func_decl* f) {
-        if (f->is_skolem())
-            return false;
         if (f->get_family_id() == null_family_id)
             return true;
         if (f->get_family_id() == m.get_basic_family_id())
+            return false;
+        if (f->is_skolem())
             return false;
         euf::th_model_builder* mb = func_decl2solver(f);
         return mb && mb->include_func_interp(f);
@@ -190,7 +190,7 @@ namespace euf {
             if (!is_app(e))
                 continue;
             app* a = to_app(e);
-            func_decl* f = a->get_decl();            
+            func_decl* f = a->get_decl();       
             if (!include_func_interp(f))
                 continue;
             if (m.is_bool(e) && is_uninterp_const(e) && mdl->get_const_interp(f))
