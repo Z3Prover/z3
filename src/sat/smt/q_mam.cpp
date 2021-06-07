@@ -2256,6 +2256,8 @@ namespace q {
 #endif
         // It doesn't make sense to process an irrelevant enode.
         TRACE("mam_execute_core", tout << "EXEC " << t->get_root_lbl()->get_name() << "\n";);
+        if (!ctx.is_relevant(n))
+            return false;
         SASSERT(ctx.is_relevant(n));
         m_pattern_instances.reset();
         m_min_top_generation.reset();
