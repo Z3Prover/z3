@@ -259,6 +259,7 @@ namespace bv {
         void assert_bv2int_axiom(app * n);
         void assert_int2bv_axiom(app* n);
         void assert_ackerman(theory_var v1, theory_var v2);
+        bool reflect() const { return get_config().m_bv_reflect; }
 
         // delay internalize
         enum class internalize_mode {
