@@ -377,6 +377,7 @@ namespace q {
         m_model->reset_eval_cache();
         for (app* v : qb.vars)
             m_model->register_decl(v->get_decl(), mdl(v));
+        ctx.model_updated(m_model);
         if (qb.var_args.empty())
             return;
         var_subst subst(m);
@@ -416,7 +417,16 @@ namespace q {
             expr_ref value = (*m_model)(term);
             expr* s = m_model_fixer.invert_app(term, value);
             rep.insert(term, s);
-            eqs.push_back(m.mk_eq(term, s));
+            expr_ref eq(m.mk_eq(term, s), m);
+            if (m_model->is_false(eq)) {
+                IF_VERBOSE(0,
+                    verbose_stream() << mk_pp(s, m) << " := " << (*m_model)(s) << "\n";
+                verbose_stream() << mk_pp(term, m) << " := " << (*m_model)(term) << "\n";
+                verbose_stream() << value << " -> " << (*m_model)(ctx.values2root()[value]->get_expr()) << "\n";
+                verbose_stream() << (*m_model)(s) << " -> " << (*m_model)(ctx.values2root()[(*m_model)(s)]->get_expr()) << "\n";
+                verbose_stream() << *m_model << "\n";);
+            }
+            eqs.push_back(eq);
         }
         rep(fmls);
         fmls.append(eqs);

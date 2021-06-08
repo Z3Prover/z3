@@ -149,7 +149,7 @@ namespace euf {
 
         // model building
         expr_ref_vector m_values;
-        obj_map<expr, enode*> m_values2root;
+        obj_map<expr, enode*> m_values2root;        
         bool include_func_interp(func_decl* f);
         void register_macros(model& mdl);
         void dependencies2values(user_sort& us, deps_t& deps, model_ref& mdl);
@@ -370,6 +370,7 @@ namespace euf {
         // model construction
         void update_model(model_ref& mdl);
         obj_map<expr, enode*> const& values2root();
+        void model_updated(model_ref& mdl);
         expr* node2value(enode* n) const;
 
         // diagnostics

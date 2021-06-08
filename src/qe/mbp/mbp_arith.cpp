@@ -281,9 +281,9 @@ namespace mbp {
             obj_map<expr, unsigned> tids;
             expr_ref_vector pinned(m);
             unsigned j = 0;
-            TRACE("qe", tout << "vars: " << vars << "\nfmls: " << fmls << "\n";);
-            for (unsigned i = 0; i < fmls.size(); ++i) {
-                expr * fml = fmls.get(i);
+            TRACE("qe", tout << "vars: " << vars << "\nfmls: " << fmls << "\n";
+                  for (expr* f : fmls) tout << mk_pp(f, m) << " := " << model(f) << "\n";);
+            for (expr* fml : fmls) {
                 if (!linearize(mbo, eval, fml, fmls, tids)) {
                     TRACE("qe", tout << "could not linearize: " << mk_pp(fml, m) << "\n";);
                     fmls[j++] = fml;

@@ -229,17 +229,23 @@ namespace euf {
         // TODO
     }
 
+    void solver::model_updated(model_ref& mdl) {
+        m_values2root.reset();
+        for (enode* n : m_egraph.nodes())
+            if (n->is_root() && m_values.get(n->get_expr_id())) 
+                m_values[n->get_expr_id()] = (*mdl)(n->get_expr());            
+    }
+
     obj_map<expr,enode*> const& solver::values2root() {    
         if (!m_values2root.empty())
             return m_values2root;
         for (enode* n : m_egraph.nodes())
             if (n->is_root() && m_values.get(n->get_expr_id()))
                 m_values2root.insert(m_values.get(n->get_expr_id()), n);
-#if 0
-        for (auto kv : m_values2root) {
-            std::cout << mk_pp(kv.m_key, m) << " -> " << bpp(kv.m_value) << "\n";
-        }
-#endif
+        TRACE("model", 
+              for (auto kv : m_values2root) 
+                  tout << mk_pp(kv.m_key, m) << " -> " << bpp(kv.m_value) << "\n";);
+        
         return m_values2root;
     }
 
