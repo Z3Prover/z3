@@ -73,6 +73,7 @@ namespace euf {
         values2model(deps, mdl);
         for (auto* mb : m_solvers)
             mb->finalize_model(*mdl);
+        TRACE("model", tout << "created model " << *mdl << "\n";);
         validate_model(*mdl);
     }
 

@@ -106,8 +106,8 @@ namespace euf {
 
         TRACE("euf",
             for (enode* n : m_egraph.nodes())
-                if (is_relevant(n))
-                    tout << "relevant " << mk_bounded_pp(n->get_expr(), m) << "\n";);
-        return true;
+                if (is_relevant(n)) 
+                    tout << "relevant " << n->get_expr_id() << " [r" << n->get_root_id() << "]: " << mk_bounded_pp(n->get_expr(), m) << "\n";);
+              return true;
     }
 }
