@@ -214,12 +214,10 @@ private:
                     pull_quantifier(a->get_arg(i), qt, vars, tmp, use_fresh, rewrite_ok);
                     args.push_back(tmp);
                 }
-                if (rewrite_ok) {
-                m_rewriter.mk_and(args.size(), args.data(), result);
-            }
-                else {
+                if (rewrite_ok) 
+                    m_rewriter.mk_and(args.size(), args.data(), result);
+                else 
                     result = m.mk_and (args.size (), args.data ());
-                }
             }
             else if (m.is_or(fml)) {
                 num_args = to_app(fml)->get_num_args();
@@ -227,12 +225,10 @@ private:
                     pull_quantifier(to_app(fml)->get_arg(i), qt, vars, tmp, use_fresh, rewrite_ok);
                     args.push_back(tmp);
                 }
-                if (rewrite_ok) {
-                m_rewriter.mk_or(args.size(), args.data(), result);
-            }
-                else {
+                if (rewrite_ok) 
+                    m_rewriter.mk_or(args.size(), args.data(), result);
+                else 
                     result = m.mk_or (args.size (), args.data ());
-                }
             }
             else if (m.is_not(fml)) {
                 pull_quantifier(to_app(fml)->get_arg(0), negate(qt), vars, tmp, use_fresh, rewrite_ok);

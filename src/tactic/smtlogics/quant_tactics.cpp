@@ -107,7 +107,7 @@ tactic * mk_lra_tactic(ast_manager & m, params_ref const & p) {
                            mk_qe_lite_tactic(m, p),
                            cond(mk_has_quantifier_probe(), 
                                 cond(mk_is_lira_probe(),
-                                     mk_qsat_tactic(m, p),
+                                     or_else(mk_qsat_tactic(m, p), mk_smt_tactic(m)),
                                      mk_smt_tactic(m)),
                                 mk_smt_tactic(m)));
     st->updt_params(p);
