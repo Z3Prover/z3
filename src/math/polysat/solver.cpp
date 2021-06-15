@@ -847,19 +847,33 @@ namespace polysat {
 
         add_non_viable(v, val);
 
-        for (constraint* c : m_conflict.units()) {
+        auto confl = std::move(m_conflict);
+        m_conflict.reset();
+
+        for (constraint* c : confl.units()) {
             // Add the conflict as justification for the exclusion of 'val'
             push_cjust(v, c);
             // NOTE: in general, narrow may change the conflict.
             //       But since we just backjumped, narrowing should not result in an additional conflict.
+            // TODO: this call to "narrow" may still lead to a conflict,
+            //       because we do not detect all conflicts immediately.
+            //       Consider:
+            //       - Assert constraint zx > yx, watching y and z.
+            //       - Guess x = 0.
+            //       - We have a conflict but we don't know. It will be discovered when y and z are assigned,
+            //         and then may lead to an assertion failure through this call to narrow.
             c->narrow(*this);
+            if (is_conflict()) {
+                LOG_H1("Conflict during revert_decision/narrow!");
+                return;
+            }
         }
-        m_conflict.reset();
+        // m_conflict.reset();
 
         learn_lemma(v, std::move(reason));
 
         if (is_conflict()) {
-            LOG_H1("Conflict during revert_decision!");
+            LOG_H1("Conflict during revert_decision/learn_lemma!");
             return;
         }
 
