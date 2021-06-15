@@ -93,7 +93,7 @@ namespace polysat {
         unsigned         m_ref_count = 0;
         // bool             m_stored = false;  ///< Whether it has been inserted into the constraint_manager to be tracked by level
         unsigned         m_storage_level;  ///< Controls lifetime of the constraint object. Always a base level (for external dependencies the level at which it was created, and for others the maximum storage level of its external dependencies).
-        unsigned         m_active_level;  ///< Level at which the constraint was activated. Possibly different from m_storage_level because constraints in lemmas may become activated only at a higher level.
+        unsigned         m_active_level = UINT_MAX;  ///< Level at which the constraint was activated. Possibly different from m_storage_level because constraints in lemmas may become activated only at a higher level.
         ckind_t          m_kind;
         p_dependency_ref m_dep;
         unsigned_vector  m_vars;
@@ -172,7 +172,7 @@ namespace polysat {
         friend class constraint_manager;
 
         unsigned m_ref_count = 0;
-        unsigned m_level;
+        unsigned m_level;  // TODO: this is "storage" level, rename accordingly
         // unsigned m_next_guess = UINT_MAX;  // next guess for enumerative backtracking
         unsigned m_next_guess = 0;  // next guess for enumerative backtracking
         p_dependency_ref m_dep;

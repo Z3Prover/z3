@@ -354,15 +354,14 @@ namespace polysat {
      * 
      * We do overflow checks by doubling the base bitwidth here.
      */
-    static void test_monot() {
+    static void test_monot(unsigned base_bw = 5) {
         scoped_solver s(__func__);
 
-        auto baseBw = 5;
-        auto max_int_const = 31; // (2^5 - 1) -- change this when you change baseBw
+        auto max_int_const = rational::power_of_two(base_bw) - 1;
 
-        auto bw = 2 * baseBw;
+        unsigned bw = 2 * base_bw;
         auto max_int = s.var(s.add_var(bw));
-        s.add_eq(max_int - max_int_const);
+        s.add_eq(max_int + (-max_int_const));
 
         auto tb1 = s.var(s.add_var(bw));
         s.add_ule(tb1, max_int);
@@ -499,11 +498,13 @@ namespace polysat {
         s.expect_unsat();
         s.pop();
 
-        s.push();
-        s.add_ult(quot3 + em, a);
-        s.check();
-        s.expect_unsat();
-        s.pop();
+        NOT_IMPLEMENTED_YET();  // this is just a note to continue here once we get the above expect_unsat to pass.
+
+        // s.push();
+        // s.add_ult(quot3 + em, a);
+        // s.check();
+        // s.expect_unsat();
+        // s.pop();
     }
 
     /*
@@ -579,12 +580,69 @@ namespace polysat {
         s.pop();
     }
 
-    /*
-     * Transcribed from https://github.com/NikolajBjorner/polysat/blob/main/puzzles/bv.smt2 .
+    /** Monotonicity under bounds,
+     * puzzle extracted from https://github.com/NikolajBjorner/polysat/blob/main/puzzles/bv.smt2
+     *
+     * x, y, z \in [0..2^64[
+     * x, y, z < 2^32
+     * y <= x
+     * x*z < 2^32
+     * y*z >= 2^32
+     */
+    static void test_monot_bounds(unsigned base_bw = 32) {
+        scoped_solver s(__func__);
+        unsigned bw = 2 * base_bw;
+        auto x = s.var(s.add_var(bw));
+        auto y = s.var(s.add_var(bw));
+        auto z = s.var(s.add_var(bw));
+        auto zero = x - x;
+        auto bound = (zero + 2).pow(base_bw);
+        s.add_ult(x, bound);
+        s.add_ult(y, bound);
+        s.add_ult(z, bound);
+        // TODO: try alternative:
+        // TODO: maybe we should normalize equations where one side is a constant?
+        // TODO: should we always express a < b as a <= b - 1 ?  [ well, no. this only works if b > 0. ]
+        // s.add_ule(x, bound - 1);
+        // s.add_ule(y, bound - 1);
+        // s.add_ule(z, bound - 1);
+        s.add_ule(y, x);
+        s.add_ult(x*z, bound);
+        s.add_ule(bound, y*z);
+        s.check();
+        s.expect_unsat();
+    }
 
+    /** Monotonicity under bounds, simplified even more.
+     *
+     * x, y, z \in [0..2^64[
+     * x, y, z < 2^32
+     * z <= y
+     * y*x < z*x
+     */
+    static void test_monot_bounds_simple(unsigned base_bw = 32) {
+        scoped_solver s(__func__);
+        unsigned bw = 2 * base_bw;
+        auto y = s.var(s.add_var(bw));
+        auto x = s.var(s.add_var(bw));
+        auto z = s.var(s.add_var(bw));
+        auto zero = x - x;
+        auto bound = (zero + 2).pow(base_bw);
+        s.add_ult(x, bound);
+        s.add_ult(y, bound);
+        s.add_ult(z, bound);
+        s.add_ule(z, y);
+        s.add_ult(y*x, z*x);
+        s.check();
+        s.expect_unsat();
+    }
+
+    /*
+     * Transcribed from https://github.com/NikolajBjorner/polysat/blob/main/puzzles/bv.smt2
+     *
      * We do overflow checks by doubling the base bitwidth here.
      */
-    static void test_fixed_point_arith_div_mul_inverse2() {
+    static void test_monot_bounds_full() {
         scoped_solver s(__func__);
 
         auto baseBw = 5;
@@ -686,8 +744,10 @@ void tst_polysat() {
     polysat::test_ineq_basic4();
     polysat::test_ineq_basic5();
     polysat::test_ineq_basic6();
-    polysat::test_fixed_point_arith_div_mul_inverse2();
     polysat::test_fixed_point_arith_div_mul_inverse();
+    polysat::test_monot_bounds_simple(2);
+    polysat::test_monot_bounds(2);
+    polysat::test_monot_bounds_full();
     polysat::test_fixed_point_arith_mul_div_inverse();
 #if 0
     // worry about this later
