@@ -4088,7 +4088,13 @@ def Concat(*args):
 
 
 def Extract(high, low, a):
-    """Create a Z3 bit-vector extraction expression, or create a string extraction expression.
+    """Create a Z3 bit-vector extraction expression.
+    Extract is overloaded to also work on sequence extraction.
+    The functions SubString and SubSeq are redirected to Extract.
+    For this case, the arguments are reinterpreted as:
+        high - is a sequence (string)
+        low  - is an offset
+        a    - is the length to be extracted
 
     >>> x = BitVec('x', 8)
     >>> Extract(6, 2, x)
