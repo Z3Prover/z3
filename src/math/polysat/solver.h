@@ -173,6 +173,8 @@ namespace polysat {
          * (Inefficient, but useful for debugging small instances.)
          */
         void log_viable(pvar v);
+        /** Like log_viable but for all variables */
+        void log_viable();
 
         /**
          * undo trail operations for backtracking.
@@ -214,6 +216,7 @@ namespace polysat {
         void add_watch(constraint& c, pvar v);
 
         void set_conflict(constraint& c);
+        void set_conflict(clause& cl);
         void set_conflict(pvar v);
 
         unsigned_vector m_marks;

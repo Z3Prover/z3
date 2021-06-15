@@ -85,6 +85,15 @@ namespace polysat {
     }
 
 #if POLYSAT_LOGGING_ENABLED
+    void solver::log_viable() {
+        // only for small problems
+        if (m_viable.size() < 10) {
+            for (pvar v = 0; v < m_viable.size(); ++v) {
+                log_viable(v);
+            }
+        }
+    }
+
     void solver::log_viable(pvar v) {
         if (size(v) <= 5) {
             vector<rational> xs;
@@ -115,11 +124,7 @@ namespace polysat {
             LOG("Free variables: " << m_free_vars);
             LOG("Assignments:    " << assignment());
             LOG("Conflict:       " << m_conflict);
-            IF_LOGGING({
-                for (pvar v = 0; v < m_viable.size(); ++v) {
-                    log_viable(v);
-                }
-            });
+            IF_LOGGING(log_viable());
 
             if (pending_disjunctive_lemma()) { LOG_H2("UNDEF (handle lemma externally)"); return l_undef; }
             else if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
@@ -450,6 +455,12 @@ namespace polysat {
         m_conflict.push_back(&c); 
     }
 
+    void solver::set_conflict(clause& cl) {
+        LOG("Conflict: " << cl);
+        SASSERT(!is_conflict());
+        m_conflict.push_back(&cl);
+    }
+
     void solver::set_conflict(pvar v) {
         SASSERT(!is_conflict());
         m_conflict.append(m_cjust[v]);
@@ -750,11 +761,7 @@ namespace polysat {
     // Guess a literal from the given clause; returns the guessed constraint
     sat::literal solver::decide_bool(clause& lemma) {
         LOG_H3("Guessing literal in lemma: " << lemma);
-        IF_LOGGING({
-            for (pvar v = 0; v < m_viable.size(); ++v) {
-                log_viable(v);
-            }
-        });
+        IF_LOGGING(log_viable());
         LOG("Boolean assignment: " << m_bvars);
 
         auto is_suitable = [this](sat::literal lit) -> bool {
@@ -775,15 +782,32 @@ namespace polysat {
         unsigned num_choices = 0;  // TODO: should probably cache this?
 
         for (sat::literal lit : lemma) {
+            IF_LOGGING({
+                auto value = m_bvars.value(lit);
+                auto c = m_constraints.lookup(lit.var());
+                bool is_false;
+                if (value == l_undef) {
+                    c->assign(!lit.sign());
+                    is_false = c->is_currently_false(*this);
+                    c->unassign();
+                }
+                else
+                    is_false = c->is_currently_false(*this);
+                LOG_V("Checking: lit=" << lit << ", value=" << value << ", constraint=" << show_deref(c) << ", currently_false=" << is_false);
+            });
             if (is_suitable(lit)) {
                 num_choices++;
                 if (choice == sat::null_literal)
                     choice = lit;
             }
         }
+        LOG_V("num_choices: " << num_choices);
 
-        SASSERT(choice != sat::null_literal);  // must succeed for at least one
-        if (num_choices == 1)
+        if (num_choices == 0)
+            // This case may happen when all undefined literals are false under the current variable assignment.
+            // TODO: The question is whether such lemmas should be generated? Check test_monot() for such a case.
+            set_conflict(lemma);
+        else if (num_choices == 1)
             propagate_bool(choice, &lemma);
         else
             decide_bool(choice, lemma);
@@ -910,6 +934,7 @@ namespace polysat {
             // TODO: what to do when reason is NULL?
             // * this means we were unable to build a lemma for the current conflict.
             // * the reason for reverting this decision then needs to be the (negation of the) conflicting literals. Or we give up on resolving this lemma?
+            // TODO: do not include 'base' unit constraints (only in dependencies)
             SASSERT(m_conflict.clauses().empty());  // not sure how to handle otherwise
             unsigned reason_lvl = m_constraints.lookup(lit.var())->level();
             p_dependency_ref reason_dep(m_constraints.lookup(lit.var())->dep(), m_dm);

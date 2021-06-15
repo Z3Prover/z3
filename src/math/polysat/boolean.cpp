@@ -41,7 +41,8 @@ namespace polysat {
         m_level[var] = UINT_MAX;
         m_reason[var] = nullptr;
         m_lemma[var] = nullptr;
-        m_unused.push_back(var);
+        // TODO: this is disabled for now, since re-using variables for different constraints may be confusing during debugging. Should be enabled later.
+        // m_unused.push_back(var);
     }
 
     void bool_var_manager::assign(sat::literal lit, unsigned lvl, clause* reason, clause* lemma) {
