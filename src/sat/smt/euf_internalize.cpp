@@ -179,10 +179,13 @@ namespace euf {
     void solver::add_not_distinct_axiom(app* e, enode* const* args) {
         SASSERT(m.is_distinct(e));
         unsigned sz = e->get_num_args();
-        if (sz <= 1)
-            return;
-
         sat::status st = sat::status::th(m_is_redundant, m.get_basic_family_id());
+
+        if (sz <= 1) {
+            s().mk_clause(0, nullptr, st);
+            return;
+        }
+
         static const unsigned distinct_max_args = 32;
         if (sz <= distinct_max_args) {
             sat::literal_vector lits;
@@ -230,10 +233,8 @@ namespace euf {
         static const unsigned distinct_max_args = 32;
         unsigned sz = e->get_num_args();
         sat::status st = sat::status::th(m_is_redundant, m.get_basic_family_id());
-        if (sz <= 1) {
-            s().mk_clause(0, nullptr, st);
+        if (sz <= 1) 
             return;
-        }
         if (sz <= distinct_max_args) {
             for (unsigned i = 0; i < sz; ++i) {
                 for (unsigned j = i + 1; j < sz; ++j) {
