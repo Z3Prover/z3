@@ -3,6 +3,7 @@ z3_add_component(polysat
     boolean.cpp
     constraint.cpp
     eq_constraint.cpp
+    explain.cpp
     forbidden_intervals.cpp
     justification.cpp
     linear_solver.cpp
