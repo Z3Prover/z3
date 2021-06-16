@@ -243,7 +243,7 @@ def prove(claim, assume=None, verbose=0):
                     emsg = "{}\n{}".format(assume, emsg)
                 return emsg
 
-            assert is_proved == False, _f()
+            assert is_proved is False, _f()
 
         to_prove = Implies(assume, to_prove)
 
@@ -261,7 +261,7 @@ def prove(claim, assume=None, verbose=0):
     if models is None:  # unknown
         print("E: cannot solve !")
         return None, None
-    elif models == False:  # unsat
+    elif models is False:  # unsat
         return True, None
     else:  # sat
         if z3_debug():
@@ -446,9 +446,9 @@ def myBinOp(op, *L):
         L = L[0]
 
     if z3_debug():
-        assert all(not isinstance(l, bool) for l in L)
+        assert all(not isinstance(val, bool) for val in L)
 
-    L = [l for l in L if is_expr(l)]
+    L = [val for val in L if is_expr(val)]
     if L:
         if len(L) == 1:
             return L[0]
