@@ -19,6 +19,7 @@ Author:
 #include "util/id_var_list.h"
 #include "util/lbool.h"
 #include "util/approx_set.h"
+#include "util/sat_literal.h"
 #include "ast/ast.h"
 #include "ast/euf/euf_justification.h"
 
@@ -50,7 +51,7 @@ namespace euf {
         bool          m_merge_enabled = true; 
         bool          m_is_equality = false;    // Does the expression represent an equality
         lbool         m_value = l_undef;        // Assignment by SAT solver for Boolean node
-        unsigned      m_bool_var = UINT_MAX;    // SAT solver variable associated with Boolean node
+        sat::bool_var m_bool_var = sat::null_bool_var;    // SAT solver variable associated with Boolean node
         unsigned      m_class_size = 1;         // Size of the equivalence class if the enode is the root.
         unsigned      m_table_id = UINT_MAX;       
         unsigned      m_generation = 0;         // Tracks how many quantifier instantiation rounds were needed to generate this enode.
@@ -135,7 +136,7 @@ namespace euf {
         void set_merge_enabled(bool m) { m_merge_enabled = m; }
         void set_value(lbool v) { m_value = v; }
         void set_is_equality() { m_is_equality = true;  }
-        void set_bool_var(unsigned v) { m_bool_var = v; }
+        void set_bool_var(sat::bool_var v) { m_bool_var = v; }
 
     public:
         ~enode() { 
@@ -155,7 +156,7 @@ namespace euf {
         bool interpreted() const { return m_interpreted; }
         bool is_equality() const { return m_is_equality; }
         lbool value() const { return m_value;  }
-        unsigned bool_var() const { return m_bool_var; }
+        sat::bool_var bool_var() const { return m_bool_var; }
         bool is_cgr() const { return this == m_cg; }
         enode* get_cg() const { return m_cg; }
         bool commutative() const { return m_commutative; }

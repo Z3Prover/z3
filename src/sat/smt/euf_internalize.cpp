@@ -42,7 +42,7 @@ namespace euf {
         if (n) {
             if (m.is_bool(e)) {
                 SASSERT(!s().was_eliminated(n->bool_var()));
-                SASSERT(n->bool_var() != UINT_MAX);
+                SASSERT(n->bool_var() != sat::null_bool_var);
                 return literal(n->bool_var(), sign);
             }
             TRACE("euf", tout << "non-bool\n";);
@@ -153,7 +153,7 @@ namespace euf {
         enode* n = m_egraph.find(e);
         if (!n) 
             n = m_egraph.mk(e, m_generation, 0, nullptr); 
-        SASSERT(n->bool_var() == UINT_MAX || n->bool_var() == v);
+        SASSERT(n->bool_var() == sat::null_bool_var || n->bool_var() == v);
         m_egraph.set_bool_var(n, v);
         if (m.is_eq(e) || m.is_or(e) || m.is_and(e) || m.is_not(e))
             m_egraph.set_merge_enabled(n, false);
