@@ -108,6 +108,9 @@ namespace polysat {
             m_manager->insert_bv2c(bvar(), this);
         }
 
+    protected:
+        std::ostream& display_extra(std::ostream& out) const;
+
     public:
         void inc_ref() { m_ref_count++; }
         void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (!m_ref_count) dealloc(this); }

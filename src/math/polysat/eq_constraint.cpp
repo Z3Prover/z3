@@ -19,10 +19,8 @@ Author:
 namespace polysat {
 
     std::ostream& eq_constraint::display(std::ostream& out) const {
-        out << p() << (sign() == pos_t ? " == 0" : " != 0") << " @" << level() << " b" << bvar();
-        if (is_undef())
-            out << " [inactive]";
-        return out;
+        out << p() << (sign() == pos_t ? " == 0" : " != 0");
+        return display_extra(out);
     }
 
     constraint_ref eq_constraint::resolve(solver& s, pvar v) {

@@ -154,6 +154,13 @@ namespace polysat {
         return ult(lvl, sign, a + shift, b + shift, d);
     }
 
+    std::ostream& constraint::display_extra(std::ostream& out) const {
+        out << " @" << level() << " (b" << bvar() << ")";
+        if (is_undef())
+            out << " [inactive]";
+        return out;
+    }
+
     bool constraint::propagate(solver& s, pvar v) {
         LOG_H3("Propagate " << s.m_vars[v] << " in " << *this);
         SASSERT(!vars().empty());

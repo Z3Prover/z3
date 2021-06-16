@@ -19,10 +19,8 @@ Author:
 namespace polysat {
 
     std::ostream& ule_constraint::display(std::ostream& out) const {
-        out << m_lhs << (sign() == pos_t ? " <=u " : " >u ") << m_rhs << " @" << level() << " b" << bvar();
-        if (is_undef())
-            out << " [inactive]";
-        return out;
+        out << m_lhs << (sign() == pos_t ? " <= " : " > ") << m_rhs;
+        return display_extra(out);
     }
 
     constraint_ref ule_constraint::resolve(solver& s, pvar v) {
