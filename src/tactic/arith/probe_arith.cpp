@@ -496,6 +496,7 @@ struct is_non_nira_functor {
                     throw_found(n); 
                 if (m_linear && u.is_numeral(n->get_arg(1), r) && r.is_zero())
                     throw_found(n); 
+                if (m_linear && u.is_numeral(n->get_arg(1), r) && !r.is_zero())
                 if (!is_ground(n->get_arg(0)) || !is_ground(n->get_arg(1))) 
                     throw_found(n);
                 return;

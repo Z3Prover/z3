@@ -808,7 +808,6 @@ namespace smt {
                     if (t_val && !m.is_unique_value(t_val))                         
                         for (expr* v : values)
                             found |= m.are_equal(v, t_val);
-                    
                     if (t_val && !found && !already_found.contains(t_val)) {
                         values.push_back(t_val);
                         already_found.insert(t_val);
@@ -1113,9 +1112,14 @@ namespace smt {
                 mk_inverses();
                 complete_partial_funcs(partial_funcs);
                 TRACE("model_finder", tout << "after auf_solver fixing the model\n";
-                display_nodes(tout);
-                tout << "NEW MODEL:\n";
-                model_pp(tout, *m_model););
+                      display_nodes(tout);
+                      tout << "NEW MODEL:\n";
+                      model_pp(tout, *m_model););
+            }
+
+            bool is_default_representative(expr* t) {
+                app* tt = nullptr;
+                return t && m_sort2k.find(t->get_sort(), tt) && (tt == t);
             }
         };
 
@@ -1185,15 +1189,15 @@ namespace smt {
                 node* n1 = s.get_A_f_i(m_f, m_arg_i);
                 node* n2 = s.get_uvar(q, m_var_j);
                 CTRACE("model_finder", n1->get_sort() != n2->get_sort(),
-                    tout << "sort bug:\n" << mk_ismt2_pp(q->get_expr(), m) << "\n" << mk_ismt2_pp(q, m) << "\n";
-                tout << "decl(0): " << q->get_decl_name(0) << "\n";
-                tout << "f: " << m_f->get_name() << " i: " << m_arg_i << "\n";
-                tout << "v: " << m_var_j << "\n";
-                n1->get_root()->display(tout, m);
-                n2->get_root()->display(tout, m);
-                tout << "f signature: ";
-                for (unsigned i = 0; i < m_f->get_arity(); i++) tout << mk_pp(m_f->get_domain(i), m) << " ";
-                tout << "-> " << mk_pp(m_f->get_range(), m) << "\n";
+                       tout << "sort bug:\n" << mk_ismt2_pp(q->get_expr(), m) << "\n" << mk_ismt2_pp(q, m) << "\n";
+                       tout << "decl(0): " << q->get_decl_name(0) << "\n";
+                       tout << "f: " << m_f->get_name() << " i: " << m_arg_i << "\n";
+                       tout << "v: " << m_var_j << "\n";
+                       n1->get_root()->display(tout, m);
+                       n2->get_root()->display(tout, m);
+                       tout << "f signature: ";
+                       for (unsigned i = 0; i < m_f->get_arity(); i++) tout << mk_pp(m_f->get_domain(i), m) << " ";
+                       tout << "-> " << mk_pp(m_f->get_range(), m) << "\n";
                 );
 
                 n1->merge(n2);
@@ -2511,6 +2515,8 @@ namespace smt {
         if (s == nullptr)
             return nullptr;
         expr* t = s->get_inv(val);
+        if (m_auf_solver->is_default_representative(t))
+            return val;
         if (t != nullptr) {
             generation = s->get_generation(t);
         }
