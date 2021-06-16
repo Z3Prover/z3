@@ -213,8 +213,9 @@ namespace euf {
                 for (expr* arg : *a) {
                     enode* earg = get_enode(arg); 
                     args.push_back(m_values.get(earg->get_root_id()));                
+                    CTRACE("euf", !args.back(), tout << "no value for " << bpp(earg) << "\n";);
+                    SASSERT(args.back());
                 }
-                DEBUG_CODE(for (expr* arg : args) VERIFY(arg););
                 SASSERT(args.size() == arity);
                 if (!fi->get_entry(args.data()))
                     fi->insert_new_entry(args.data(), v);
