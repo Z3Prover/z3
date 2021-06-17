@@ -201,12 +201,13 @@ namespace polysat {
     }
 
     clause_ref clause::from_literals(unsigned lvl, p_dependency_ref const& d, sat::literal_vector literals, constraint_ref_vector constraints) {
-        return alloc(clause, lvl, d, literals, constraints);
+        return alloc(clause, lvl, d, std::move(literals), std::move(constraints));
     }
 
     bool clause::is_always_false(solver& s) const {
         return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
             constraint *c = s.m_constraints.lookup(lit.var());
+            tmp_assign _t(c, lit);
             return c->is_always_false();
         });
     }
@@ -214,6 +215,7 @@ namespace polysat {
     bool clause::is_currently_false(solver& s) const {
         return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
             constraint *c = s.m_constraints.lookup(lit.var());
+            tmp_assign _t(c, lit);
             return c->is_currently_false(s);
         });
     }
