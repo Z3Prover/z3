@@ -278,6 +278,7 @@ namespace q {
 
 
     void eval::explain(sat::literal l, justification& j, sat::literal_vector& r, bool probing) {
+        scoped_mark_reset _sr(*this);
         unsigned l_idx = 0;
         clause& c = j.m_clause;
         for (; l_idx < c.size(); ++l_idx) {
