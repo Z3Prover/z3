@@ -299,4 +299,37 @@ namespace polysat {
 
     inline std::ostream& operator<<(std::ostream& out, constraints_and_clauses const& c) { return c.display(out); }
 
+
+    /// Temporarily assign a constraint according to the sign of the given literal.
+    class tmp_assign final {
+        constraint* m_constraint;
+        bool m_should_unassign = false;
+    public:
+        tmp_assign(constraint* c, sat::literal lit):
+            m_constraint(c) {
+            SASSERT(c);
+            SASSERT(c->bvar() == lit.var());
+            if (c->is_undef()) {
+                c->assign(!lit.sign());
+                m_should_unassign = true;
+            }
+            else
+                SASSERT(c->blit() == lit);
+        }
+        tmp_assign(constraint_ref const& c, sat::literal lit): tmp_assign(c.get(), lit) {}
+        void revert() {
+            if (m_should_unassign) {
+                m_constraint->unassign();
+                m_should_unassign = false;
+            }
+        }
+        ~tmp_assign() {
+            revert();
+        }
+        tmp_assign(tmp_assign&) = delete;
+        tmp_assign(tmp_assign&&) = delete;
+        tmp_assign& operator=(tmp_assign&) = delete;
+        tmp_assign& operator=(tmp_assign&&) = delete;
+    };
+
 }
