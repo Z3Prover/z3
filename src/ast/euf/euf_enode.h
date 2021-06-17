@@ -156,6 +156,7 @@ namespace euf {
         bool interpreted() const { return m_interpreted; }
         bool is_equality() const { return m_is_equality; }
         lbool value() const { return m_value;  }
+        bool value_conflict() const { return value() != l_undef && get_root()->value() != l_undef && value() != get_root()->value(); }
         sat::bool_var bool_var() const { return m_bool_var; }
         bool is_cgr() const { return this == m_cg; }
         enode* get_cg() const { return m_cg; }
