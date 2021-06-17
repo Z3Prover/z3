@@ -49,6 +49,8 @@ namespace q {
         euf::enode* const* nodes() { return m_nodes; }
 
         euf::enode* operator[](unsigned i) const { return m_nodes[i]; }
+
+        std::ostream& display(euf::solver& ctx, unsigned num_nodes, std::ostream& out) const;
     };
 
     struct clause {
