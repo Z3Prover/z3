@@ -145,25 +145,36 @@ namespace polysat {
         LOG("x = " << x);
         LOG("y = " << y);
         auto& pddm = m_solver.sz2pdd(p);
+        unsigned min_k = 0;
+        unsigned max_k = p - 1;
         unsigned k = p/2;
 
         rational x_val;
         if (m_solver.try_eval(x, x_val)) {
             unsigned x_bits = x_val.bitsize();
-            LOG("eval x: " << x << " := " << x_val << " (bitsize: " << x_bits << ")");
+            LOG("eval x: " << x << " := " << x_val << " (x_bits: " << x_bits << ")");
             SASSERT(x_val < rational::power_of_two(x_bits));
-            k = x_bits;  // or higher
+            min_k = x_bits;
         }
 
         rational y_val;
         if (m_solver.try_eval(y, y_val)) {
             unsigned y_bits = y_val.bitsize();
-            LOG("eval y: " << y << " := " << y_val << " (bitsize: " << y_bits << ")");
+            LOG("eval y: " << y << " := " << y_val << " (y_bits: " << y_bits << ")");
             SASSERT(y_val < rational::power_of_two(y_bits));
-            k = p - y_bits;  // or lower
+            max_k = p - y_bits;
         }
 
-        LOG("k = " << k);
+        SASSERT(min_k <= max_k);  // in this case, cannot choose k s.t. both literals are false
+
+        // TODO: could also choose other value for k (but between the bounds)
+        if (min_k == 0)
+            k = max_k;
+        else
+            k = min_k;
+
+        LOG("k = " << k << "; min_k = " << min_k << "; max_k = " << max_k << "; p = " << p);
+        SASSERT(min_k <= k && k <= max_k);
 
         // x >= 2^k
         constraint_ref c1 = m_solver.m_constraints.ult(level, pos_t, pddm.mk_val(rational::power_of_two(k)), x, null_dep());
