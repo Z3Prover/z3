@@ -81,6 +81,7 @@ namespace q {
         unsigned_vector               m_clause_queue;
 
         binding* alloc_binding(unsigned n, app* pat, unsigned max_generation, unsigned min_top, unsigned max_top);
+        euf::enode* const* alloc_binding(clause& c, euf::enode* const* _binding);
         void add_binding(clause& c, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top);
 
         sat::ext_justification_idx mk_justification(unsigned idx, clause& c, euf::enode* const* b);
@@ -130,7 +131,7 @@ namespace q {
 
         void add_instantiation(clause& c, binding& b, sat::literal lit);
 
-        bool propagate(euf::enode* const* binding, unsigned max_generation, clause& c, bool& new_propagation);
+        bool propagate(bool is_owned, euf::enode* const* binding, unsigned max_generation, clause& c, bool& new_propagation);
 
         std::ostream& display(std::ostream& out) const;
 
