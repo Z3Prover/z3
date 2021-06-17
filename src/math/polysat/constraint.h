@@ -93,7 +93,7 @@ namespace polysat {
         unsigned         m_ref_count = 0;
         // bool             m_stored = false;  ///< Whether it has been inserted into the constraint_manager to be tracked by level
         unsigned         m_storage_level;  ///< Controls lifetime of the constraint object. Always a base level (for external dependencies the level at which it was created, and for others the maximum storage level of its external dependencies).
-        unsigned         m_active_level = UINT_MAX;  ///< Level at which the constraint was activated. Possibly different from m_storage_level because constraints in lemmas may become activated only at a higher level.
+        // unsigned         m_active_level = UINT_MAX;  ///< Level at which the constraint was activated. Possibly different from m_storage_level because constraints in lemmas may become activated only at a higher level. NOTE: this is actually the level of the corresponding bool_var.
         ckind_t          m_kind;
         p_dependency_ref m_dep;
         unsigned_vector  m_vars;
@@ -107,6 +107,9 @@ namespace polysat {
             SASSERT_EQ(m_manager->get_bv2c(bvar()), nullptr);
             m_manager->insert_bv2c(bvar(), this);
         }
+
+    protected:
+        std::ostream& display_extra(std::ostream& out) const;
 
     public:
         void inc_ref() { m_ref_count++; }
@@ -138,6 +141,13 @@ namespace polysat {
         unsigned_vector& vars() { return m_vars; }
         unsigned_vector const& vars() const { return m_vars; }
         unsigned level() const { return m_storage_level; }
+        // unsigned active_level() const {
+        //     SASSERT(!is_undef());
+        //     return m_manager->m_bvars.level(bvar());
+        // }
+        // unsigned active_at_base_level(solver& s) const {
+        //     return !is_undef() && active_level() <= s.base_level();
+        // }
         sat::bool_var bvar() const { return m_bvar; }
         sat::literal blit() const { SASSERT(m_bvalue != l_undef); return m_bvalue == l_true ? sat::literal(m_bvar) : ~sat::literal(m_bvar); }
         bool sign() const { return m_sign; }
@@ -230,6 +240,33 @@ namespace polysat {
 
     inline std::ostream& operator<<(std::ostream& out, clause const& c) { return c.display(out); }
 
+    /// Builds a clause from literals and constraints.
+    /// Takes care to
+    /// - skip literals that are active at the base level,
+    /// - skip trivial new constraints such as "4 <= 1".
+    class clause_builder {
+        solver& m_solver;
+        sat::literal_vector m_literals;
+        constraint_ref_vector m_new_constraints;
+
+    public:
+        clause_builder(solver& s): m_solver(s) {}
+
+        bool empty() const { return m_literals.empty() && m_new_constraints.empty(); }
+        void reset();
+
+        /// Build the clause. This will reset the clause builder so it can be reused.
+        clause_ref build(unsigned lvl, p_dependency_ref const& d);
+
+        /// Add a literal to the clause.
+        /// Intended to be used for literals representing a constraint that already exists.
+        void push_literal(sat::literal lit);
+        /// Add a constraint to the clause that does not yet exist in the solver so far.
+        /// By convention, this will add the positive literal for this constraint.
+        /// (TODO: we might need to change this later; but then we will add a second argument for the literal or the sign.)
+        void push_new_constraint(constraint_ref c);
+    };
+
     // Container for unit constraints and clauses.
     class constraints_and_clauses {
         constraint_ref_vector m_units;
@@ -288,5 +325,38 @@ namespace polysat {
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraints_and_clauses const& c) { return c.display(out); }
+
+
+    /// Temporarily assign a constraint according to the sign of the given literal.
+    class tmp_assign final {
+        constraint* m_constraint;
+        bool m_should_unassign = false;
+    public:
+        tmp_assign(constraint* c, sat::literal lit):
+            m_constraint(c) {
+            SASSERT(c);
+            SASSERT(c->bvar() == lit.var());
+            if (c->is_undef()) {
+                c->assign(!lit.sign());
+                m_should_unassign = true;
+            }
+            else
+                SASSERT(c->blit() == lit);
+        }
+        tmp_assign(constraint_ref const& c, sat::literal lit): tmp_assign(c.get(), lit) {}
+        void revert() {
+            if (m_should_unassign) {
+                m_constraint->unassign();
+                m_should_unassign = false;
+            }
+        }
+        ~tmp_assign() {
+            revert();
+        }
+        tmp_assign(tmp_assign&) = delete;
+        tmp_assign(tmp_assign&&) = delete;
+        tmp_assign& operator=(tmp_assign&) = delete;
+        tmp_assign& operator=(tmp_assign&&) = delete;
+    };
 
 }

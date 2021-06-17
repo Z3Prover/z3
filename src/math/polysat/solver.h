@@ -47,6 +47,8 @@ namespace polysat {
         friend class var_constraint;
         friend class ule_constraint;
         friend class clause;
+        friend class clause_builder;
+        friend class conflict_explainer;
         friend class forbidden_intervals;
         friend class linear_solver;
 
@@ -244,9 +246,15 @@ namespace polysat {
         p_dependency* mk_dep(unsigned dep) { return dep == null_dependency ? nullptr : m_dm.mk_leaf(dep); }
         p_dependency_ref mk_dep_ref(unsigned dep) { return p_dependency_ref(mk_dep(dep), m_dm); }
 
+        /// Evaluate term under the current assignment.
+        bool try_eval(pdd const& p, rational& out_value) const;
+
         bool is_conflict() const { return !m_conflict.empty(); }
         bool at_base_level() const;
         unsigned base_level() const;
+        bool active_at_base_level(sat::bool_var bvar) const;
+        bool active_at_base_level(sat::literal lit) const { return active_at_base_level(lit.var()); }
+        bool active_at_base_level(constraint& c) const { return active_at_base_level(c.bvar()); }
 
         void resolve_conflict();
         void backtrack(unsigned i, clause_ref lemma);

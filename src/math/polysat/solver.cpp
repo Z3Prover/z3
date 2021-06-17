@@ -17,6 +17,7 @@ Author:
 --*/
 
 #include "math/polysat/solver.h"
+#include "math/polysat/explain.h"
 #include "math/polysat/log.h"
 #include "math/polysat/forbidden_intervals.h"
 
@@ -550,6 +551,13 @@ namespace polysat {
                 m_bvars.reset_marks();
                 set_marks(*lemma.get());
             }
+            else {
+                // lemma = resolve(conflict_var);
+                conflict_explainer cx(*this, m_conflict);
+                lemma = cx.resolve(conflict_var, {});
+                LOG("resolved: " << show_deref(lemma));
+                // std::abort();
+            }
         }
 
         for (unsigned i = m_search.size(); i-- > 0; ) {
@@ -615,6 +623,8 @@ namespace polysat {
                 SASSERT(m_bvars.is_propagation(var));
                 clause_ref new_lemma = resolve_bool(lit);
                 SASSERT(new_lemma);
+                LOG("new_lemma: " << show_deref(new_lemma));
+                LOG("new_lemma is always false: " << new_lemma->is_always_false(*this));
                 if (new_lemma->is_always_false(*this)) {
                     // learn_lemma(v, new_lemma);
                     m_conflict.reset();
@@ -622,10 +632,11 @@ namespace polysat {
                     report_unsat();
                     return;
                 }
-                if (!new_lemma->is_currently_false(*this)) {
-                    backtrack(i, lemma);
-                    return;
-                }
+                LOG("new_lemma is currently false: " << new_lemma->is_currently_false(*this));
+                // if (!new_lemma->is_currently_false(*this)) {
+                //     backtrack(i, lemma);
+                //     return;
+                // }
                 lemma = std::move(new_lemma);
                 reset_marks();
                 m_bvars.reset_marks();
@@ -642,12 +653,26 @@ namespace polysat {
             return nullptr;
         if (m_conflict.clauses().size() != 1)
             return nullptr;
+        LOG_H3("resolve_bool");
         clause* lemma = m_conflict.clauses()[0];
         SASSERT(lemma);
         SASSERT(m_bvars.is_propagation(lit.var()));
         clause* other = m_bvars.reason(lit.var());
         SASSERT(other);
+        LOG("lemma: " << show_deref(lemma));
+        LOG("other: " << show_deref(other));
         VERIFY(lemma->resolve(lit.var(), *other));
+        LOG("resolved: " << show_deref(lemma));
+
+        // unassign constraints whose current value does not agree with their occurrence in the lemma
+        for (sat::literal lit : *lemma) {
+            constraint *c = m_constraints.lookup(lit.var());
+            if (!c->is_undef() && c ->blit() != lit) {
+                LOG("unassigning: " << show_deref(c));
+                c->unassign();
+            }
+        }
+
         return lemma;  // currently modified in-place
     }
 
@@ -764,17 +789,14 @@ namespace polysat {
         IF_LOGGING(log_viable());
         LOG("Boolean assignment: " << m_bvars);
 
+        // To make a guess, we need to find an unassigned literal that is not false in the current model.
         auto is_suitable = [this](sat::literal lit) -> bool {
             if (m_bvars.value(lit) == l_false)  // already assigned => cannot decide on this (comes from either lemma LHS or previously decided literals that are now changed to propagation)
                 return false;
             SASSERT(m_bvars.value(lit) != l_true);  // cannot happen in a valid lemma
             constraint* c = m_constraints.lookup(lit.var());
-            c->assign(!lit.sign());
-            bool result = true;
-            if (c->is_currently_false(*this))
-                result = false;
-            c->unassign();
-            return result;
+            tmp_assign _t(c, lit);
+            return !c->is_currently_false(*this);
         };
 
         // constraint *choice = nullptr;
@@ -782,19 +804,15 @@ namespace polysat {
         unsigned num_choices = 0;  // TODO: should probably cache this?
 
         for (sat::literal lit : lemma) {
-            IF_LOGGING({
-                auto value = m_bvars.value(lit);
-                auto c = m_constraints.lookup(lit.var());
-                bool is_false;
-                if (value == l_undef) {
-                    c->assign(!lit.sign());
-                    is_false = c->is_currently_false(*this);
-                    c->unassign();
-                }
-                else
-                    is_false = c->is_currently_false(*this);
-                LOG_V("Checking: lit=" << lit << ", value=" << value << ", constraint=" << show_deref(c) << ", currently_false=" << is_false);
-            });
+            // IF_LOGGING({
+            //     auto value = m_bvars.value(lit);
+            //     auto c = m_constraints.lookup(lit.var());
+            //     bool is_false;
+            //     LOG_V("Checking: lit=" << lit << ", value=" << value << ", constraint=" << show_deref(c));
+            //     tmp_assign _t(c, lit);
+            //     is_false = c->is_currently_false(*this);
+            //     LOG_V("Checking: lit=" << lit << ", value=" << value << ", constraint=" << show_deref(c) << ", currently_false=" << is_false);
+            // });
             if (is_suitable(lit)) {
                 num_choices++;
                 if (choice == sat::null_literal)
@@ -886,7 +904,9 @@ namespace polysat {
             //       - Guess x = 0.
             //       - We have a conflict but we don't know. It will be discovered when y and z are assigned,
             //         and then may lead to an assertion failure through this call to narrow.
-            c->narrow(*this);
+            // TODO: what to do with "unassigned" constraints at this point? (we probably should have resolved those away, even in the 'backtrack' case.)
+            if (!c->is_undef())  // TODO: this check to be removed once this is fixed properly.
+                c->narrow(*this);
             if (is_conflict()) {
                 LOG_H1("Conflict during revert_decision/narrow!");
                 return;
@@ -1048,10 +1068,19 @@ namespace polysat {
      * Return residue of superposing p and q with respect to v.
      */
     clause_ref solver::resolve(pvar v) {
+        LOG_H3("Resolve v" << v);
         SASSERT(!m_cjust[v].empty());
         SASSERT(m_justification[v].is_propagation());
-        LOG("resolve pvar " << v);
-        if (m_cjust[v].size() != 1)
+        LOG("Conflict: " << m_conflict);
+        LOG("cjust[v" << v << "]: " << m_cjust[v]);
+
+        conflict_explainer cx(*this, m_conflict);
+        clause_ref res = cx.resolve(v, m_cjust[v]);
+        LOG("resolved: " << show_deref(res));
+        // std::abort();
+        return res;
+/*
+            if (m_cjust[v].size() != 1)
             return nullptr;
         constraint* d = m_cjust[v].back();
         constraint_ref res = d->resolve(*this, v);
@@ -1062,6 +1091,7 @@ namespace polysat {
         }
         else
             return nullptr;
+*/
     }
 
     /**
@@ -1085,7 +1115,10 @@ namespace polysat {
         if (!lemma)
             return;
         LOG("Lemma: " << show_deref(lemma));
-        SASSERT(lemma->size() > 1);
+        // SASSERT(lemma->size() > 1);
+        if (lemma->size() < 2) {
+            LOG_H1("TODO: this should be treated as unit constraint and asserted at the base level!");
+        }
         clause* cl = m_constraints.insert(lemma);
         m_redundant_clauses.push_back(cl);
     }
@@ -1132,7 +1165,18 @@ namespace polysat {
     unsigned solver::base_level() const {
         return m_base_levels.empty() ? 0 : m_base_levels.back();
     }
-        
+
+    bool solver::active_at_base_level(sat::bool_var bvar) const {
+        return m_bvars.is_assigned(bvar) && m_bvars.level(bvar) <= base_level();
+    }
+
+    bool solver::try_eval(pdd const& p, rational& out_value) const {
+        pdd r = p.subst_val(assignment());
+        if (r.is_val())
+            out_value = r.val();
+        return r.is_val();
+    }
+
     std::ostream& solver::display(std::ostream& out) const {
         for (auto p : assignment()) {
             auto v = p.first;
@@ -1146,6 +1190,14 @@ namespace polysat {
         out << "Redundant:\n";
         for (auto* c : m_redundant)
             out << "\t" << *c << "\n";
+        out << "Redundant clauses:\n";
+        for (auto* cl : m_redundant_clauses) {
+            out << "\t" << *cl << "\n";
+            for (auto lit : *cl) {
+                auto c = m_constraints.lookup(lit.var());
+                out << "\t\t" << lit.var() << ": " << *c << "\n";
+            }
+        }
         return out;
     }
 

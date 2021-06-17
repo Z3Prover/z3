@@ -18,7 +18,8 @@ Author:
 namespace polysat {
 
     std::ostream& var_constraint::display(std::ostream& out) const {
-        return out << "v" << m_var << ": " << m_viable << "\n";
+        out << "v" << m_var << ": " << m_viable << "\n";
+        return display_extra(out);
     }
 
     constraint_ref var_constraint::resolve(solver& s, pvar v) {

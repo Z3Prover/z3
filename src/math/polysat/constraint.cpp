@@ -154,6 +154,13 @@ namespace polysat {
         return ult(lvl, sign, a + shift, b + shift, d);
     }
 
+    std::ostream& constraint::display_extra(std::ostream& out) const {
+        out << " @" << level() << " (b" << bvar() << ")";
+        if (is_undef())
+            out << " [inactive]";
+        return out;
+    }
+
     bool constraint::propagate(solver& s, pvar v) {
         LOG_H3("Propagate " << s.m_vars[v] << " in " << *this);
         SASSERT(!vars().empty());
@@ -194,12 +201,13 @@ namespace polysat {
     }
 
     clause_ref clause::from_literals(unsigned lvl, p_dependency_ref const& d, sat::literal_vector literals, constraint_ref_vector constraints) {
-        return alloc(clause, lvl, d, literals, constraints);
+        return alloc(clause, lvl, d, std::move(literals), std::move(constraints));
     }
 
     bool clause::is_always_false(solver& s) const {
         return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
             constraint *c = s.m_constraints.lookup(lit.var());
+            tmp_assign _t(c, lit);
             return c->is_always_false();
         });
     }
@@ -207,6 +215,7 @@ namespace polysat {
     bool clause::is_currently_false(solver& s) const {
         return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
             constraint *c = s.m_constraints.lookup(lit.var());
+            tmp_assign _t(c, lit);
             return c->is_currently_false(s);
         });
     }
@@ -245,6 +254,35 @@ namespace polysat {
             out << lit;
         }
         return out;
+    }
+
+    void clause_builder::reset() {
+        m_literals.reset();
+        m_new_constraints.reset();
+        SASSERT(empty());
+    }
+
+    clause_ref clause_builder::build(unsigned lvl, p_dependency_ref const& d) {
+        clause_ref cl = clause::from_literals(lvl, d, std::move(m_literals), std::move(m_new_constraints));
+        SASSERT(empty());
+        return cl;
+    }
+
+    void clause_builder::push_literal(sat::literal lit) {
+        if (m_solver.active_at_base_level(lit))
+            return;
+        m_literals.push_back(lit);
+    }
+
+    void clause_builder::push_new_constraint(constraint_ref c) {
+        SASSERT(c);
+        SASSERT(c->is_undef());
+        sat::literal lit{c->bvar()};
+        tmp_assign _t(c, lit);
+        if (c->is_always_false())
+            return;
+        m_literals.push_back(lit);
+        m_new_constraints.push_back(std::move(c));
     }
 
     std::ostream& constraints_and_clauses::display(std::ostream& out) const {
