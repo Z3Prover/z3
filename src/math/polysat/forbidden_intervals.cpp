@@ -100,25 +100,19 @@ namespace polysat {
             auto& full_record = records.back();
             SASSERT(full_record.interval.is_full());
             clause_builder clause(s);
-            // sat::literal_vector literals;
-            // constraint_ref_vector new_constraints;
             clause.push_literal(~full_record.src->blit());
-            // if (!s.active_at_base_level(full_record.src->bvar()))
-            //     literals.push_back(~full_record.src->blit());  // TODO: only do this if it's not a base-level constraint! (from unit clauses, e.g., external constraints)
-            if (full_record.neg_cond) {
+            if (full_record.neg_cond)
                 clause.push_new_constraint(std::move(full_record.neg_cond));
-                // literals.push_back(sat::literal(full_record.neg_cond.get()->bvar()));
-                // new_constraints.push_back(std::move(full_record.neg_cond));
-            }
             unsigned lemma_lvl = full_record.src->level();
             p_dependency_ref lemma_dep(full_record.src->dep(), s.m_dm);
             out_lemma = clause.build(lemma_lvl, lemma_dep);
-            // out_lemma = clause::from_literals(lemma_lvl, lemma_dep, std::move(literals), std::move(new_constraints));
             return true;
         }
 
-        if (records.empty())
+        if (records.empty()) {
+            LOG("aborted (no intervals)");
             return false;
+        }
 
         SASSERT(longest_i != UINT_MAX);
         LOG("longest: i=" << longest_i << "; " << records[longest_i].interval);
@@ -128,6 +122,7 @@ namespace polysat {
         // Select a sequence of covering intervals
         unsigned_vector seq;
         if (!find_covering_sequence(records, longest_i, modulus, seq)) {
+            LOG("aborted (intervals do not cover domain)");
             return false;
         }
         LOG("seq: " << seq);
@@ -150,22 +145,11 @@ namespace polysat {
         // then the forbidden intervals cover the whole domain and we have a conflict.
         // We learn the negation of this conjunction.
 
-        // sat::literal_vector literals;
-        // constraint_ref_vector new_constraints;
         clause_builder clause(s);
         // Add negation of src constraints as antecedents (may be resolved during backtracking)
         for (unsigned const i : seq) {
-            // TODO: don't add base-level constraints! (from unit clauses, e.g., external constraints)
-            //       (maybe extract that into a helper function on 'clause'... it could sort out base-level and other constraints; add the first to lemma_dep and the other to antecedents)
-            // TODO: make "clause builder" which automatically sorts out conditions like this.
-            //       it should have add_literal(...) for existing literals and add_new_constraint(constraint_ref) for new constraints.
-            //       conditions to sort out:
-            //          - skip literals active at base level
-            //          - skip trivial new constraints such as "4 <= 0" which sometimes seem to occur (basically, do a "is_always_false" check?)
             sat::literal src_lit = records[i].src->blit();
             clause.push_literal(~src_lit);
-            // if (!s.active_at_base_level(src_lit))
-            //     literals.push_back(~src_lit);
         }
         // Add side conditions and interval constraints
         for (unsigned seq_i = seq.size(); seq_i-- > 0; ) {
@@ -181,19 +165,13 @@ namespace polysat {
             constraint_ref c = s.m_constraints.ult(lemma_lvl, neg_t, lhs, rhs, s.mk_dep_ref(null_dependency));
             LOG("constraint: " << *c);
             clause.push_new_constraint(std::move(c));
-            // literals.push_back(sat::literal(c->bvar()));
-            // new_constraints.push_back(std::move(c));
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
             constraint_ref& neg_cond = records[i].neg_cond;
-            if (neg_cond) {
+            if (neg_cond)
                 clause.push_new_constraint(std::move(neg_cond));
-                // literals.push_back(sat::literal(neg_cond->bvar()));
-                // new_constraints.push_back(std::move(neg_cond));
-            }
         }
         out_lemma = clause.build(lemma_lvl, lemma_dep);
-        // out_lemma = clause::from_literals(lemma_lvl, lemma_dep, std::move(literals), std::move(new_constraints));
         return true;
     }
 
