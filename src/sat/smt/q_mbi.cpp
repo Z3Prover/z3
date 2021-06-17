@@ -146,7 +146,7 @@ namespace q {
             return l_undef;
         if (m.is_false(qb->mbody))
             return l_true;
-        if (quick_check(q, *qb))
+        if (quick_check(q, q_flat, *qb))
             return l_false;
 
         m_generation_bound = 0;
@@ -471,18 +471,20 @@ namespace q {
         }
     }
 
-    bool mbqi::quick_check(quantifier* q, q_body& qb) {
+    bool mbqi::quick_check(quantifier* q, quantifier* q_flat, q_body& qb) {
         unsigned_vector offsets;
         if (!first_offset(offsets, qb.vars))
             return false;
         var_subst subst(m);
+        expr_ref body(m);
         unsigned max_rounds = m_max_quick_check_rounds;
         unsigned num_bindings = 0;
         expr_ref_vector binding(m);
+        
         for (unsigned i = 0; i < max_rounds && num_bindings < m_max_cex; ++i) {
             set_binding(offsets, qb.vars, binding);
             if (m_model->is_true(qb.vbody)) {
-                expr_ref body = subst(q->get_expr(), binding);
+                body = subst(q_flat->get_expr(), binding);
                 if (is_forall(q))
                     body = ::mk_not(m, body);
                 add_instantiation(q, body);
