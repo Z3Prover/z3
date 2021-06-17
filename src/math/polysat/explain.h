@@ -14,7 +14,6 @@ Author:
 #pragma once
 #include "math/polysat/constraint.h"
 #include "math/polysat/interval.h"
-#include "math/polysat/model.h"
 #include "math/polysat/solver.h"
 
 namespace polysat {
@@ -23,7 +22,6 @@ namespace polysat {
     // TODO: indexing of constraints/clauses?
     class conflict_explainer {
         solver& m_solver;
-        // model const& m_model;
         constraints_and_clauses m_conflict;
         pvar m_var = null_var;
         ptr_vector<constraint> m_cjust_v;
@@ -38,7 +36,7 @@ namespace polysat {
         p_dependency_ref null_dep() const { return m_solver.mk_dep_ref(null_dependency); }
         void push_omega_mul(clause_builder& clause, unsigned level, unsigned p, pdd const& x, pdd const& y);
     public:
-        conflict_explainer(solver& s, /* model const& model, */ constraints_and_clauses const& conflict);
+        conflict_explainer(solver& s, constraints_and_clauses const& conflict);
 
         clause_ref resolve(pvar v, ptr_vector<constraint> const& cjust_v);
     };

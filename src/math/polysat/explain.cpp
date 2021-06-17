@@ -16,8 +16,8 @@ Author:
 
 namespace polysat {
 
-    conflict_explainer::conflict_explainer(solver& s, /* model const& model, */ constraints_and_clauses const& conflict):
-        m_solver(s), /* m_model(model), */ m_conflict(conflict) {}
+    conflict_explainer::conflict_explainer(solver& s, constraints_and_clauses const& conflict):
+        m_solver(s), m_conflict(conflict) {}
 
     clause_ref conflict_explainer::resolve(pvar v, ptr_vector<constraint> const& cjust) {
         LOG_H3("Attempting to explain conflict for v" << v);
