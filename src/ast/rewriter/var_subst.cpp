@@ -44,8 +44,11 @@ expr_ref var_subst::operator()(expr * n, unsigned num_args, expr * const * args)
     }
     if (has_quantifiers(n)) {
         expr_safe_replace rep(m);
-        for (unsigned k = 0; k < num_args; ++k)
-            rep.insert(m.mk_var(m_std_order ? num_args - k - 1 : k, args[k]->get_sort()), args[k]);
+        for (unsigned k = 0; k < num_args; ++k) {
+            expr* arg = args[k];
+            if (arg)
+                rep.insert(m.mk_var(m_std_order ? num_args - k - 1 : k, arg->get_sort()), arg);
+        }
         rep(n, result);
         return result;
     }
