@@ -17,6 +17,7 @@ Author:
 --*/
 
 #include "math/polysat/solver.h"
+#include "math/polysat/explain.h"
 #include "math/polysat/log.h"
 #include "math/polysat/forbidden_intervals.h"
 
@@ -550,6 +551,13 @@ namespace polysat {
                 m_bvars.reset_marks();
                 set_marks(*lemma.get());
             }
+            else {
+                // lemma = resolve(conflict_var);
+                conflict_explainer cx(*this, m_conflict);
+                lemma = cx.resolve(conflict_var, {});
+                LOG("resolved: " << show_deref(lemma));
+                // std::abort();
+            }
         }
 
         for (unsigned i = m_search.size(); i-- > 0; ) {
@@ -1060,10 +1068,19 @@ namespace polysat {
      * Return residue of superposing p and q with respect to v.
      */
     clause_ref solver::resolve(pvar v) {
+        LOG_H3("Resolve v" << v);
         SASSERT(!m_cjust[v].empty());
         SASSERT(m_justification[v].is_propagation());
-        LOG("resolve pvar " << v);
-        if (m_cjust[v].size() != 1)
+        LOG("Conflict: " << m_conflict);
+        LOG("cjust[v" << v << "]: " << m_cjust[v]);
+
+        conflict_explainer cx(*this, m_conflict);
+        clause_ref res = cx.resolve(v, m_cjust[v]);
+        LOG("resolved: " << show_deref(res));
+        // std::abort();
+        return res;
+/*
+            if (m_cjust[v].size() != 1)
             return nullptr;
         constraint* d = m_cjust[v].back();
         constraint_ref res = d->resolve(*this, v);
@@ -1074,6 +1091,7 @@ namespace polysat {
         }
         else
             return nullptr;
+*/
     }
 
     /**
