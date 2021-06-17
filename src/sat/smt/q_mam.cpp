@@ -3783,9 +3783,10 @@ namespace q {
             ctx.push(value_trail<unsigned>(m_to_match_head));
             for (; m_to_match_head < m_to_match.size(); ++m_to_match_head) {
                 code_tree* t = m_to_match[m_to_match_head];
-                SASSERT(t->has_candidates());
-                m_interpreter.execute(t);
-                t->reset_candidates();
+                if (t->has_candidates()) {
+                    m_interpreter.execute(t);
+                    t->reset_candidates();
+                }
             }
             if (!m_new_patterns.empty()) {
                 match_new_patterns();
