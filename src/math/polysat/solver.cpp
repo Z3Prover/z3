@@ -1162,6 +1162,14 @@ namespace polysat {
         out << "Redundant:\n";
         for (auto* c : m_redundant)
             out << "\t" << *c << "\n";
+        out << "Redundant clauses:\n";
+        for (auto* cl : m_redundant_clauses) {
+            out << "\t" << *cl << "\n";
+            for (auto lit : *cl) {
+                auto c = m_constraints.lookup(lit.var());
+                out << "\t\t" << lit.var() << ": " << *c << "\n";
+            }
+        }
         return out;
     }
 
