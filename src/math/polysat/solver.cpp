@@ -615,6 +615,8 @@ namespace polysat {
                 SASSERT(m_bvars.is_propagation(var));
                 clause_ref new_lemma = resolve_bool(lit);
                 SASSERT(new_lemma);
+                LOG("new_lemma: " << show_deref(new_lemma));
+                LOG("new_lemma is always false: " << new_lemma->is_always_false(*this));
                 if (new_lemma->is_always_false(*this)) {
                     // learn_lemma(v, new_lemma);
                     m_conflict.reset();
@@ -622,10 +624,11 @@ namespace polysat {
                     report_unsat();
                     return;
                 }
-                if (!new_lemma->is_currently_false(*this)) {
-                    backtrack(i, lemma);
-                    return;
-                }
+                LOG("new_lemma is currently false: " << new_lemma->is_currently_false(*this));
+                // if (!new_lemma->is_currently_false(*this)) {
+                //     backtrack(i, lemma);
+                //     return;
+                // }
                 lemma = std::move(new_lemma);
                 reset_marks();
                 m_bvars.reset_marks();
@@ -642,12 +645,26 @@ namespace polysat {
             return nullptr;
         if (m_conflict.clauses().size() != 1)
             return nullptr;
+        LOG_H3("resolve_bool");
         clause* lemma = m_conflict.clauses()[0];
         SASSERT(lemma);
         SASSERT(m_bvars.is_propagation(lit.var()));
         clause* other = m_bvars.reason(lit.var());
         SASSERT(other);
+        LOG("lemma: " << show_deref(lemma));
+        LOG("other: " << show_deref(other));
         VERIFY(lemma->resolve(lit.var(), *other));
+        LOG("resolved: " << show_deref(lemma));
+
+        // unassign constraints whose current value does not agree with their occurrence in the lemma
+        for (sat::literal lit : *lemma) {
+            constraint *c = m_constraints.lookup(lit.var());
+            if (!c->is_undef() && c ->blit() != lit) {
+                LOG("unassigning: " << show_deref(c));
+                c->unassign();
+            }
+        }
+
         return lemma;  // currently modified in-place
     }
 
@@ -764,17 +781,14 @@ namespace polysat {
         IF_LOGGING(log_viable());
         LOG("Boolean assignment: " << m_bvars);
 
+        // To make a guess, we need to find an unassigned literal that is not false in the current model.
         auto is_suitable = [this](sat::literal lit) -> bool {
             if (m_bvars.value(lit) == l_false)  // already assigned => cannot decide on this (comes from either lemma LHS or previously decided literals that are now changed to propagation)
                 return false;
             SASSERT(m_bvars.value(lit) != l_true);  // cannot happen in a valid lemma
             constraint* c = m_constraints.lookup(lit.var());
-            c->assign(!lit.sign());
-            bool result = true;
-            if (c->is_currently_false(*this))
-                result = false;
-            c->unassign();
-            return result;
+            tmp_assign _t(c, lit);
+            return !c->is_currently_false(*this);
         };
 
         // constraint *choice = nullptr;
@@ -782,19 +796,15 @@ namespace polysat {
         unsigned num_choices = 0;  // TODO: should probably cache this?
 
         for (sat::literal lit : lemma) {
-            IF_LOGGING({
-                auto value = m_bvars.value(lit);
-                auto c = m_constraints.lookup(lit.var());
-                bool is_false;
-                if (value == l_undef) {
-                    c->assign(!lit.sign());
-                    is_false = c->is_currently_false(*this);
-                    c->unassign();
-                }
-                else
-                    is_false = c->is_currently_false(*this);
-                LOG_V("Checking: lit=" << lit << ", value=" << value << ", constraint=" << show_deref(c) << ", currently_false=" << is_false);
-            });
+            // IF_LOGGING({
+            //     auto value = m_bvars.value(lit);
+            //     auto c = m_constraints.lookup(lit.var());
+            //     bool is_false;
+            //     LOG_V("Checking: lit=" << lit << ", value=" << value << ", constraint=" << show_deref(c));
+            //     tmp_assign _t(c, lit);
+            //     is_false = c->is_currently_false(*this);
+            //     LOG_V("Checking: lit=" << lit << ", value=" << value << ", constraint=" << show_deref(c) << ", currently_false=" << is_false);
+            // });
             if (is_suitable(lit)) {
                 num_choices++;
                 if (choice == sat::null_literal)
@@ -886,7 +896,9 @@ namespace polysat {
             //       - Guess x = 0.
             //       - We have a conflict but we don't know. It will be discovered when y and z are assigned,
             //         and then may lead to an assertion failure through this call to narrow.
-            c->narrow(*this);
+            // TODO: what to do with "unassigned" constraints at this point? (we probably should have resolved those away, even in the 'backtrack' case.)
+            if (!c->is_undef())  // TODO: this check to be removed once this is fixed properly.
+                c->narrow(*this);
             if (is_conflict()) {
                 LOG_H1("Conflict during revert_decision/narrow!");
                 return;
