@@ -240,6 +240,33 @@ namespace polysat {
 
     inline std::ostream& operator<<(std::ostream& out, clause const& c) { return c.display(out); }
 
+    /// Builds a clause from literals and constraints.
+    /// Takes care to
+    /// - skip literals that are active at the base level,
+    /// - skip trivial new constraints such as "4 <= 1".
+    class clause_builder {
+        solver& m_solver;
+        sat::literal_vector m_literals;
+        constraint_ref_vector m_new_constraints;
+
+    public:
+        clause_builder(solver& s): m_solver(s) {}
+
+        bool empty() const { return m_literals.empty() && m_new_constraints.empty(); }
+        void reset();
+
+        /// Build the clause. This will reset the clause builder so it can be reused.
+        clause_ref build(unsigned lvl, p_dependency_ref const& d);
+
+        /// Add a literal to the clause.
+        /// Intended to be used for literals representing a constraint that already exists.
+        void push_literal(sat::literal lit);
+        /// Add a constraint to the clause that does not yet exist in the solver so far.
+        /// By convention, this will add the positive literal for this constraint.
+        /// (TODO: we might need to change this later; but then we will add a second argument for the literal or the sign.)
+        void push_new_constraint(constraint_ref c);
+    };
+
     // Container for unit constraints and clauses.
     class constraints_and_clauses {
         constraint_ref_vector m_units;

@@ -254,6 +254,35 @@ namespace polysat {
         return out;
     }
 
+    void clause_builder::reset() {
+        m_literals.reset();
+        m_new_constraints.reset();
+        SASSERT(empty());
+    }
+
+    clause_ref clause_builder::build(unsigned lvl, p_dependency_ref const& d) {
+        clause_ref cl = clause::from_literals(lvl, d, std::move(m_literals), std::move(m_new_constraints));
+        SASSERT(empty());
+        return cl;
+    }
+
+    void clause_builder::push_literal(sat::literal lit) {
+        if (m_solver.active_at_base_level(lit))
+            return;
+        m_literals.push_back(lit);
+    }
+
+    void clause_builder::push_new_constraint(constraint_ref c) {
+        SASSERT(c);
+        SASSERT(c->is_undef());
+        sat::literal lit{c->bvar()};
+        tmp_assign _t(c, lit);
+        if (c->is_always_false())
+            return;
+        m_literals.push_back(lit);
+        m_new_constraints.push_back(std::move(c));
+    }
+
     std::ostream& constraints_and_clauses::display(std::ostream& out) const {
         bool first = true;
         for (auto c : units()) {
