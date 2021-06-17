@@ -106,8 +106,6 @@ namespace polysat {
                 SASSERT(c->is_negative());
                 // zx > yx
 
-                LOG("doing");
-
                 unsigned const lvl = c->level();
 
                 pdd x = m_solver.var(m_var);
@@ -143,8 +141,30 @@ namespace polysat {
     ///
     /// @param[in] p    bit width
     void conflict_explainer::push_omega_mul(clause_builder& clause, unsigned level, unsigned p, pdd const& x, pdd const& y) {
+        LOG_H3("Omega^*(x, y)");
+        LOG("x = " << x);
+        LOG("y = " << y);
         auto& pddm = m_solver.sz2pdd(p);
-        unsigned k = 2;  // TODO: choose k
+        unsigned k = p/2;
+
+        rational x_val;
+        if (m_solver.try_eval(x, x_val)) {
+            unsigned x_bits = x_val.bitsize();
+            LOG("eval x: " << x << " := " << x_val << " (bitsize: " << x_bits << ")");
+            SASSERT(x_val < rational::power_of_two(x_bits));
+            k = x_bits;  // or higher
+        }
+
+        rational y_val;
+        if (m_solver.try_eval(y, y_val)) {
+            unsigned y_bits = y_val.bitsize();
+            LOG("eval y: " << y << " := " << y_val << " (bitsize: " << y_bits << ")");
+            SASSERT(y_val < rational::power_of_two(y_bits));
+            k = p - y_bits;  // or lower
+        }
+
+        LOG("k = " << k);
+
         // x >= 2^k
         constraint_ref c1 = m_solver.m_constraints.ult(level, pos_t, pddm.mk_val(rational::power_of_two(k)), x, null_dep());
         // y > 2^{p-k}

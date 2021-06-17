@@ -1115,7 +1115,10 @@ namespace polysat {
         if (!lemma)
             return;
         LOG("Lemma: " << show_deref(lemma));
-        SASSERT(lemma->size() > 1);
+        // SASSERT(lemma->size() > 1);
+        if (lemma->size() < 2) {
+            LOG_H1("TODO: this should be treated as unit constraint and asserted at the base level!");
+        }
         clause* cl = m_constraints.insert(lemma);
         m_redundant_clauses.push_back(cl);
     }
@@ -1166,7 +1169,14 @@ namespace polysat {
     bool solver::active_at_base_level(sat::bool_var bvar) const {
         return m_bvars.is_assigned(bvar) && m_bvars.level(bvar) <= base_level();
     }
-        
+
+    bool solver::try_eval(pdd const& p, rational& out_value) const {
+        pdd r = p.subst_val(assignment());
+        if (r.is_val())
+            out_value = r.val();
+        return r.is_val();
+    }
+
     std::ostream& solver::display(std::ostream& out) const {
         for (auto p : assignment()) {
             auto v = p.first;

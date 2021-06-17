@@ -246,6 +246,9 @@ namespace polysat {
         p_dependency* mk_dep(unsigned dep) { return dep == null_dependency ? nullptr : m_dm.mk_leaf(dep); }
         p_dependency_ref mk_dep_ref(unsigned dep) { return p_dependency_ref(mk_dep(dep), m_dm); }
 
+        /// Evaluate term under the current assignment.
+        bool try_eval(pdd const& p, rational& out_value) const;
+
         bool is_conflict() const { return !m_conflict.empty(); }
         bool at_base_level() const;
         unsigned base_level() const;
