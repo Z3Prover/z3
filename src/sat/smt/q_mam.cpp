@@ -3705,9 +3705,12 @@ namespace q {
                 SASSERT(tmp_tree != 0);
                 SASSERT(!m_egraph.enodes_of(lbl).empty());
                 m_interpreter.init(tmp_tree);
-                for (enode * app : m_egraph.enodes_of(lbl)) 
+                auto& nodes = m_egraph.enodes_of(lbl);
+                for (unsigned i = 0; i < nodes.size(); ++i) {
+                    enode* app = nodes[i];
                     if (ctx.is_relevant(app))
                         m_interpreter.execute_core(tmp_tree, app);
+                }
                 m_tmp_trees[lbl_id] = nullptr;
                 dealloc(tmp_tree);
             }
