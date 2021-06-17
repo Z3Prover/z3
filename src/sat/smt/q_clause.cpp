@@ -45,7 +45,7 @@ namespace q {
         binding* b = m_bindings;
         if (b) {
             do {
-                b->display(ctx, num_decls(), out) << " - " << b << "\n";
+                b->display(ctx, num_decls(), out) << "\n";
                 b = b->next();
             }
             while (b != m_bindings);
