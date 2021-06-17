@@ -1132,6 +1132,10 @@ namespace polysat {
     unsigned solver::base_level() const {
         return m_base_levels.empty() ? 0 : m_base_levels.back();
     }
+
+    bool solver::active_at_base_level(sat::bool_var bvar) const {
+        return m_bvars.is_assigned(bvar) && m_bvars.level(bvar) <= base_level();
+    }
         
     std::ostream& solver::display(std::ostream& out) const {
         for (auto p : assignment()) {

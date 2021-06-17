@@ -247,6 +247,9 @@ namespace polysat {
         bool is_conflict() const { return !m_conflict.empty(); }
         bool at_base_level() const;
         unsigned base_level() const;
+        bool active_at_base_level(sat::bool_var bvar) const;
+        bool active_at_base_level(sat::literal lit) const { return active_at_base_level(lit.var()); }
+        bool active_at_base_level(constraint& c) const { return active_at_base_level(c.bvar()); }
 
         void resolve_conflict();
         void backtrack(unsigned i, clause_ref lemma);

@@ -93,7 +93,7 @@ namespace polysat {
         unsigned         m_ref_count = 0;
         // bool             m_stored = false;  ///< Whether it has been inserted into the constraint_manager to be tracked by level
         unsigned         m_storage_level;  ///< Controls lifetime of the constraint object. Always a base level (for external dependencies the level at which it was created, and for others the maximum storage level of its external dependencies).
-        unsigned         m_active_level = UINT_MAX;  ///< Level at which the constraint was activated. Possibly different from m_storage_level because constraints in lemmas may become activated only at a higher level.
+        // unsigned         m_active_level = UINT_MAX;  ///< Level at which the constraint was activated. Possibly different from m_storage_level because constraints in lemmas may become activated only at a higher level. NOTE: this is actually the level of the corresponding bool_var.
         ckind_t          m_kind;
         p_dependency_ref m_dep;
         unsigned_vector  m_vars;
@@ -141,6 +141,13 @@ namespace polysat {
         unsigned_vector& vars() { return m_vars; }
         unsigned_vector const& vars() const { return m_vars; }
         unsigned level() const { return m_storage_level; }
+        // unsigned active_level() const {
+        //     SASSERT(!is_undef());
+        //     return m_manager->m_bvars.level(bvar());
+        // }
+        // unsigned active_at_base_level(solver& s) const {
+        //     return !is_undef() && active_level() <= s.base_level();
+        // }
         sat::bool_var bvar() const { return m_bvar; }
         sat::literal blit() const { SASSERT(m_bvalue != l_undef); return m_bvalue == l_true ? sat::literal(m_bvar) : ~sat::literal(m_bvar); }
         bool sign() const { return m_sign; }
