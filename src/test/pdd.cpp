@@ -448,6 +448,18 @@ public :
         SASSERT((p + b*b*b).max_pow2_divisor() == 0);
     }
 
+    static void try_div() {
+        std::cout << "try_div\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 256);
+        pdd const a = m.mk_var(0);
+        pdd const b = m.mk_var(1);
+
+        pdd const p = 5*a + 15*a*b;
+        SASSERT_EQ(p.div(rational(5)), a + 3*a*b);
+        pdd res = a;
+        SASSERT(!p.try_div(rational(3), res));
+    }
+
     static void binary_resolve() {
         std::cout << "binary resolve\n";
         pdd_manager m(4, pdd_manager::mod2N_e, 4);
@@ -575,6 +587,7 @@ void tst_pdd() {
     dd::test::degree_of_variables();
     dd::test::factor();
     dd::test::max_pow2_divisor();
+    dd::test::try_div();
     dd::test::binary_resolve();
     dd::test::pow();
     dd::test::subst_val();
