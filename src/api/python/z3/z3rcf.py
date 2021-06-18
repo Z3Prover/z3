@@ -1,8 +1,8 @@
 ############################################
 # Copyright (c) 2013 Microsoft Corporation
-# 
+#
 # Z3 Python interface for Z3 Real Closed Fields
-# that may contain 
+# that may contain
 #    - computable transcendentals
 #    - infinitesimals
 #    - algebraic extensions
@@ -12,7 +12,7 @@
 from .z3 import *
 from .z3core import *
 from .z3printer import *
-from fractions import Fraction
+
 
 def _to_rcfnum(num, ctx=None):
     if isinstance(num, RCFNum):
@@ -20,13 +20,16 @@ def _to_rcfnum(num, ctx=None):
     else:
         return RCFNum(num, ctx)
 
+
 def Pi(ctx=None):
     ctx = z3.get_ctx(ctx)
     return RCFNum(Z3_rcf_mk_pi(ctx.ref()), ctx)
 
+
 def E(ctx=None):
     ctx = z3.get_ctx(ctx)
     return RCFNum(Z3_rcf_mk_e(ctx.ref()), ctx)
+
 
 def MkInfinitesimal(name="eps", ctx=None):
     # Todo: remove parameter name.
@@ -34,21 +37,23 @@ def MkInfinitesimal(name="eps", ctx=None):
     ctx = z3.get_ctx(ctx)
     return RCFNum(Z3_rcf_mk_infinitesimal(ctx.ref()), ctx)
 
+
 def MkRoots(p, ctx=None):
     ctx = z3.get_ctx(ctx)
     num = len(p)
-    _tmp = [] 
-    _as  = (RCFNumObj * num)()
-    _rs  = (RCFNumObj * num)() 
+    _tmp = []
+    _as = (RCFNumObj * num)()
+    _rs = (RCFNumObj * num)()
     for i in range(num):
         _a = _to_rcfnum(p[i], ctx)
-        _tmp.append(_a) # prevent GC
+        _tmp.append(_a)  # prevent GC
         _as[i] = _a.num
     nr = Z3_rcf_mk_roots(ctx.ref(), num, _as, _rs)
-    r  = []
+    r = []
     for i in range(nr):
         r.append(RCFNum(_rs[i], ctx))
     return r
+
 
 class RCFNum:
     def __init__(self, num, ctx=None):
@@ -65,7 +70,7 @@ class RCFNum:
 
     def ctx_ref(self):
         return self.ctx.ref()
-                  
+
     def __repr__(self):
         return Z3_rcf_num_to_string(self.ctx_ref(), self.num, False, in_html_mode())
 
@@ -112,10 +117,10 @@ class RCFNum:
 
     def __pow__(self, k):
         return self.power(k)
- 
+
     def decimal(self, prec=5):
         return Z3_rcf_num_to_decimal_string(self.ctx_ref(), self.num, prec)
-    
+
     def __lt__(self, other):
         v = _to_rcfnum(other, self.ctx)
         return Z3_rcf_lt(self.ctx_ref(), self.num, v.num)

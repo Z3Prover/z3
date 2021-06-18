@@ -77,7 +77,6 @@ namespace smt {
             atom(bool_var bv, int pos, int neg) : 
                 m_bvar(bv), m_true(false),
                 m_pos(pos), m_neg(neg) {}
-            ~atom() {}
             bool_var get_bool_var() const { return m_bvar; }
             void assign_eh(bool is_true) { m_true = is_true; }
             int get_asserted_edge() const { return this->m_true?m_pos:m_neg; }

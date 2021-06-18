@@ -269,6 +269,6 @@ namespace array {
 
     bool solver::can_beta_reduce(euf::enode* n) const {
         expr* c = n->get_expr();
-        return a.is_const(c) || a.is_as_array(c) || a.is_store(c) || is_lambda(c);
+        return a.is_const(c) || a.is_as_array(c) || a.is_store(c) || is_lambda(c) || a.is_map(c);
     }
 }

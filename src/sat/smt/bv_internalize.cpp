@@ -137,7 +137,7 @@ namespace bv {
             return true;
 
         SASSERT(!n || !n->is_attached_to(get_id()));
-        bool suppress_args = !get_config().m_bv_reflect && !m.is_considered_uninterpreted(a->get_decl());
+        bool suppress_args = !reflect() && !m.is_considered_uninterpreted(a->get_decl());
         if (!n)
             n = mk_enode(e, suppress_args);
 
@@ -661,12 +661,10 @@ namespace bv {
         if (lit0 == sat::null_literal) {
             m_bits[v_arg][idx] = lit;
             TRACE("bv", tout << "add-bit: " << lit << " " << literal2expr(lit) << "\n";);
-            if (arg_sz > 1) {
-                atom* a = new (get_region()) atom(lit.var());
-                a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
-                insert_bv2a(lit.var(), a);
-                ctx.push(mk_atom_trail(lit.var(), *this));
-            }
+            atom* a = new (get_region()) atom(lit.var());
+            a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
+            insert_bv2a(lit.var(), a);
+            ctx.push(mk_atom_trail(lit.var(), *this));
         }
         else if (lit != lit0) {
             add_clause(lit0, ~lit);

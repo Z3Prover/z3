@@ -101,6 +101,17 @@ namespace sat {
         m_solver.mk_clause(sz, m_lits.data(), status::input());
     }
 
+    void dual_solver::add_assumptions(solver const& s) {
+        m_lits.reset();
+        for (bool_var v : m_tracked_vars)
+            m_lits.push_back(literal(v, l_false == s.value(m_var2ext[v])));
+        for (auto lit : m_units) {
+            bool_var w = m_ext2var.get(lit.var(), null_bool_var);
+            if (w != null_bool_var)
+                m_lits.push_back(ext2lit(lit));            
+        }
+    }
+
     bool dual_solver::operator()(solver const& s) {
         m_core.reset();
         m_core.append(m_units);
@@ -108,9 +119,7 @@ namespace sat {
             return true;
         m_solver.user_push();
         m_solver.add_clause(m_roots.size(), m_roots.data(), status::input());
-        m_lits.reset();
-        for (bool_var v : m_tracked_vars)
-            m_lits.push_back(literal(v, l_false == s.value(m_var2ext[v])));
+        add_assumptions(s);
         lbool is_sat = m_solver.check(m_lits.size(), m_lits.data());
         if (is_sat == l_false) 
             for (literal lit : m_solver.get_core())

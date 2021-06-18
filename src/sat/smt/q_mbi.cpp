@@ -114,6 +114,8 @@ namespace q {
                 args.push_back(replace_model_value(arg));
             return expr_ref(m.mk_app(to_app(e)->get_decl(), args), m);
         }
+        if (m.is_model_value(e))
+            return expr_ref(m.mk_model_value(0, e->get_sort()), m);
         return expr_ref(e, m);
     }
 
@@ -144,7 +146,7 @@ namespace q {
             return l_undef;
         if (m.is_false(qb->mbody))
             return l_true;
-        if (quick_check(q, *qb))
+        if (quick_check(q, q_flat, *qb))
             return l_false;
 
         m_generation_bound = 0;
@@ -375,6 +377,7 @@ namespace q {
         m_model->reset_eval_cache();
         for (app* v : qb.vars)
             m_model->register_decl(v->get_decl(), mdl(v));
+        ctx.model_updated(m_model);
         if (qb.var_args.empty())
             return;
         var_subst subst(m);
@@ -414,7 +417,16 @@ namespace q {
             expr_ref value = (*m_model)(term);
             expr* s = m_model_fixer.invert_app(term, value);
             rep.insert(term, s);
-            eqs.push_back(m.mk_eq(term, s));
+            expr_ref eq(m.mk_eq(term, s), m);
+            if (m_model->is_false(eq)) {
+                IF_VERBOSE(0,
+                    verbose_stream() << mk_pp(s, m) << " := " << (*m_model)(s) << "\n";
+                verbose_stream() << mk_pp(term, m) << " := " << (*m_model)(term) << "\n";
+                verbose_stream() << value << " -> " << (*m_model)(ctx.values2root()[value]->get_expr()) << "\n";
+                verbose_stream() << (*m_model)(s) << " -> " << (*m_model)(ctx.values2root()[(*m_model)(s)]->get_expr()) << "\n";
+                verbose_stream() << *m_model << "\n";);
+            }
+            eqs.push_back(eq);
         }
         rep(fmls);
         fmls.append(eqs);
@@ -459,18 +471,20 @@ namespace q {
         }
     }
 
-    bool mbqi::quick_check(quantifier* q, q_body& qb) {
+    bool mbqi::quick_check(quantifier* q, quantifier* q_flat, q_body& qb) {
         unsigned_vector offsets;
         if (!first_offset(offsets, qb.vars))
             return false;
         var_subst subst(m);
+        expr_ref body(m);
         unsigned max_rounds = m_max_quick_check_rounds;
         unsigned num_bindings = 0;
         expr_ref_vector binding(m);
+        
         for (unsigned i = 0; i < max_rounds && num_bindings < m_max_cex; ++i) {
             set_binding(offsets, qb.vars, binding);
             if (m_model->is_true(qb.vbody)) {
-                expr_ref body = subst(q->get_expr(), binding);
+                body = subst(q_flat->get_expr(), binding);
                 if (is_forall(q))
                     body = ::mk_not(m, body);
                 add_instantiation(q, body);

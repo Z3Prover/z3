@@ -94,7 +94,6 @@ namespace datalog {
     struct uint_set2 {
         uint_set lt;
         uint_set le;
-        uint_set2() {}
         bool operator==(const uint_set2& other) const {
             return other.lt == lt && other.le == le;
         }

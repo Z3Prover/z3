@@ -433,6 +433,7 @@ public:
     app * mk_add(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_ADD, arg1, arg2); }
     app * mk_add(expr * arg1, expr * arg2, expr* arg3) const { return m_manager.mk_app(arith_family_id, OP_ADD, arg1, arg2, arg3); }
     app * mk_add(expr_ref_vector const& args) const { return mk_add(args.size(), args.data()); }
+    app * mk_add(expr_ref_buffer const& args) const { return mk_add(args.size(), args.data()); }
 
     app * mk_sub(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_SUB, arg1, arg2); }
     app * mk_sub(unsigned num_args, expr * const * args) const { return m_manager.mk_app(arith_family_id, OP_SUB, num_args, args); }

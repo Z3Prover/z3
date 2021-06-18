@@ -25,7 +25,7 @@ jobs:
   - task: EsrpCodeSigning@1
     displayName: Sign
     inputs:
-      ConnectedServiceName: 'z3-esrp-signing'
+      ConnectedServiceName: 'z3-esrp-signing-2'
       FolderPath: 'dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
       Pattern: 'Microsoft.Z3.dll,libz3.dll,libz3java.dll,z3.exe'
       signConfigType: 'inlineSignParams'

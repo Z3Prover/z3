@@ -64,8 +64,6 @@ public:
 
 class dom_simplifier {
  public:
-    dom_simplifier() {}
-    
     virtual ~dom_simplifier() {}
     /**
        \brief assert_expr performs an implicit push

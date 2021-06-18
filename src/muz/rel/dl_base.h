@@ -178,7 +178,7 @@ namespace datalog {
 
         class base_fn {
         public:
-            base_fn() {}
+            base_fn() = default;
             virtual ~base_fn() {}
         private:
             //private and undefined copy constructor and operator= to avoid copying
@@ -219,8 +219,6 @@ namespace datalog {
         */
         class mutator_fn : public base_fn {
         public:
-            ~mutator_fn() override {}
-
             virtual void operator()(base_object & t) = 0;
 
             virtual bool supports_attachment(base_object& other) { return false; }

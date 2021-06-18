@@ -1,21 +1,22 @@
 ############################################
 # Copyright (c) 2012 Microsoft Corporation
-# 
+#
 # Z3 Python interface
 #
 # Authors: Leonardo de Moura (leonardo)
 #          ThanhVu (Vu) Nguyen <tnguyen@cs.unm.edu>
 ############################################
 """
-Usage:  
+Usage:
 import common_z3 as CM_Z3
 """
 
 import ctypes
 from .z3 import *
 
+
 def vset(seq, idfun=None, as_list=True):
-    # This functions preserves the order of arguments while removing duplicates. 
+    # This functions preserves the order of arguments while removing duplicates.
     # This function is from https://code.google.com/p/common-python-vu/source/browse/vu_common.py
     # (Thanhu's personal code). It has been copied here to avoid a dependency on vu_common.py.
     """
@@ -24,36 +25,36 @@ def vset(seq, idfun=None, as_list=True):
     >>> vset([[11,2],1, [10,['9',1]],2, 1, [11,2],[3,3],[10,99],1,[10,['9',1]]],idfun=repr)
     [[11, 2], 1, [10, ['9', 1]], 2, [3, 3], [10, 99]]
     """
- 
+
     def _uniq_normal(seq):
         d_ = {}
         for s in seq:
             if s not in d_:
                 d_[s] = None
                 yield s
- 
-    def _uniq_idfun(seq,idfun):
+
+    def _uniq_idfun(seq, idfun):
         d_ = {}
         for s in seq:
             h_ = idfun(s)
             if h_ not in d_:
                 d_[h_] = None
                 yield s
- 
+
     if idfun is None:
         res = _uniq_normal(seq)
-    else: 
-        res = _uniq_idfun(seq,idfun)
- 
-    return list(res) if as_list else res 
+    else:
+        res = _uniq_idfun(seq, idfun)
+
+    return list(res) if as_list else res
 
 
 def get_z3_version(as_str=False):
     major = ctypes.c_uint(0)
     minor = ctypes.c_uint(0)
     build = ctypes.c_uint(0)
-    rev   = ctypes.c_uint(0)
-    Z3_get_version(major,minor, build, rev)
+    rev = ctypes.c_uint(0)
+    Z3_get_version(major, minor, build, rev)
     rs = map(int, (major.value, minor.value, build.value, rev.value))
     if as_str:
         return "{}.{}.{}.{}".format(*rs)
@@ -64,9 +65,9 @@ def get_z3_version(as_str=False):
 def ehash(v):
     """
     Returns a 'stronger' hash value than the default hash() method.
-    The result from hash() is not enough to distinguish between 2 
+    The result from hash() is not enough to distinguish between 2
     z3 expressions in some cases.
-    
+
     Note: the following doctests will fail with Python 2.x as the
     default formatting doesn't match that of 3.x.
     >>> x1 = Bool('x'); x2 = Bool('x'); x3 = Int('x')
@@ -74,7 +75,7 @@ def ehash(v):
     783810685 783810685 783810685
     >>> print(ehash(x1), ehash(x2), ehash(x3))
     x_783810685_1 x_783810685_1 x_783810685_2
-    
+
     """
     if z3_debug():
         assert is_expr(v)
@@ -83,9 +84,10 @@ def ehash(v):
 
 
 """
-In Z3, variables are called *uninterpreted* consts and 
+In Z3, variables are called *uninterpreted* consts and
 variables are *interpreted* consts.
 """
+
 
 def is_expr_var(v):
     """
@@ -111,7 +113,8 @@ def is_expr_var(v):
     True
     """
 
-    return is_const(v) and v.decl().kind()==Z3_OP_UNINTERPRETED
+    return is_const(v) and v.decl().kind() == Z3_OP_UNINTERPRETED
+
 
 def is_expr_val(v):
     """
@@ -135,13 +138,11 @@ def is_expr_val(v):
     False
     >>> is_expr_val(SafetyInjection)
     False
-    """        
-    return is_const(v) and v.decl().kind()!=Z3_OP_UNINTERPRETED
+    """
+    return is_const(v) and v.decl().kind() != Z3_OP_UNINTERPRETED
 
 
-
-
-def get_vars(f, rs = None):
+def get_vars(f, rs=None):
     """
     >>> x,y = Ints('x y')
     >>> a,b = Bools('a b')
@@ -151,22 +152,21 @@ def get_vars(f, rs = None):
     """
     if rs is None:
         rs = []
-        
+
     if z3_debug():
         assert is_expr(f)
 
     if is_const(f):
         if is_expr_val(f):
             return rs
-        else:  #variable
-            return vset(rs + [f],str)
+        else:  # variable
+            return vset(rs + [f], str)
 
     else:
         for f_ in f.children():
             rs = get_vars(f_, rs)
 
         return vset(rs, str)
-
 
 
 def mk_var(name, vsort):
@@ -179,13 +179,12 @@ def mk_var(name, vsort):
     elif vsort.kind() == Z3_DATATYPE_SORT:
         v = Const(name, vsort)
     else:
-        raise TypeError('Cannot handle this sort (s: %sid: %d)' %(vsort,vsort.kind()))
-    
+        raise TypeError("Cannot handle this sort (s: %sid: %d)" % (vsort, vsort.kind()))
+
     return v
 
 
-
-def prove(claim,assume=None,verbose=0):
+def prove(claim, assume=None, verbose=0):
     """
     >>> r,m = prove(BoolVal(True),verbose=0); r,model_str(m,as_str=False)
     (True, None)
@@ -204,11 +203,11 @@ def prove(claim,assume=None,verbose=0):
     AssertionError: Assumption is always False!
 
     >>> r,m = prove(Implies(x,x),assume=y,verbose=2); r,model_str(m,as_str=False)
-    assume: 
+    assume:
     y
-    claim: 
+    claim:
     Implies(x, x)
-    to_prove: 
+    to_prove:
     Implies(y, Implies(x, x))
     (True, None)
 
@@ -236,52 +235,52 @@ def prove(claim,assume=None,verbose=0):
     to_prove = claim
     if assume:
         if z3_debug():
-            is_proved,_ = prove(Not(assume))
+            is_proved, _ = prove(Not(assume))
 
             def _f():
                 emsg = "Assumption is always False!"
                 if verbose >= 2:
-                    emsg = "{}\n{}".format(assume,emsg)
+                    emsg = "{}\n{}".format(assume, emsg)
                 return emsg
 
-            assert is_proved==False, _f()
+            assert is_proved is False, _f()
 
-        to_prove = Implies(assume,to_prove)
+        to_prove = Implies(assume, to_prove)
 
     if verbose >= 2:
-        print('assume: ')
+        print("assume: ")
         print(assume)
-        print('claim: ')
+        print("claim: ")
         print(claim)
-        print('to_prove: ')
+        print("to_prove: ")
         print(to_prove)
 
     f = Not(to_prove)
 
-    models = get_models(f,k=1)
-    if models is None: #unknown
-        print('E: cannot solve !')
+    models = get_models(f, k=1)
+    if models is None:  # unknown
+        print("E: cannot solve !")
         return None, None
-    elif models == False: #unsat
-        return True,None   
-    else: #sat
+    elif models is False:  # unsat
+        return True, None
+    else:  # sat
         if z3_debug():
-            assert isinstance(models,list)
+            assert isinstance(models, list)
 
         if models:
-            return False, models[0] #the first counterexample
+            return False, models[0]  # the first counterexample
         else:
-            return False, []  #infinite counterexample,models
-        
+            return False, []  # infinite counterexample,models
 
-def get_models(f,k):
+
+def get_models(f, k):
     """
     Returns the first k models satisfiying f.
     If f is not satisfiable, returns False.
     If f cannot be solved, returns None
     If f is satisfiable, returns the first k models
-    Note that if f is a tautology, e.g.\ True, then the result is []
-    
+    Note that if f is a tautology, e.g.\\ True, then the result is []
+
     Based on http://stackoverflow.com/questions/11867611/z3py-checking-all-solutions-for-equation
 
     EXAMPLES:
@@ -314,7 +313,7 @@ def get_models(f,k):
     if z3_debug():
         assert is_expr(f)
         assert k >= 1
-    
+
     s = Solver()
     s.add(f)
 
@@ -323,16 +322,14 @@ def get_models(f,k):
     while s.check() == sat and i < k:
         i = i + 1
         m = s.model()
-        if not m: #if m == []
+        if not m:  # if m == []
             break
         models.append(m)
 
-
-        #create new constraint to block the current model
+        # create new constraint to block the current model
         block = Not(And([v() == m[v] for v in m]))
         s.add(block)
 
-    
     if s.check() == unknown:
         return None
     elif s.check() == unsat and i == 0:
@@ -340,7 +337,8 @@ def get_models(f,k):
     else:
         return models
 
-def is_tautology(claim,verbose=0):
+
+def is_tautology(claim, verbose=0):
     """
     >>> is_tautology(Implies(Bool('x'),Bool('x')))
     True
@@ -355,38 +353,38 @@ def is_tautology(claim,verbose=0):
     False
 
     """
-    return prove(claim=claim,assume=None,verbose=verbose)[0]
+    return prove(claim=claim, assume=None, verbose=verbose)[0]
 
 
-def is_contradiction(claim,verbose=0):
+def is_contradiction(claim, verbose=0):
     """
     >>> x,y=Bools('x y')
     >>> is_contradiction(BoolVal(False))
     True
-    
+
     >>> is_contradiction(BoolVal(True))
     False
-    
+
     >>> is_contradiction(x)
     False
-    
+
     >>> is_contradiction(Implies(x,y))
     False
-    
+
     >>> is_contradiction(Implies(x,x))
     False
-    
+
     >>> is_contradiction(And(x,Not(x)))
     True
     """
 
-    return prove(claim=Not(claim),assume=None,verbose=verbose)[0]
+    return prove(claim=Not(claim), assume=None, verbose=verbose)[0]
 
 
 def exact_one_model(f):
     """
     return True if f has exactly 1 model, False otherwise.
-    
+
     EXAMPLES:
 
     >>> x, y = Ints('x y')
@@ -403,30 +401,29 @@ def exact_one_model(f):
     False
     """
 
-    models = get_models(f,k=2)
-    if isinstance(models,list):
-        return len(models)==1
+    models = get_models(f, k=2)
+    if isinstance(models, list):
+        return len(models) == 1
     else:
         return False
-        
-    
 
-def myBinOp(op,*L):
+
+def myBinOp(op, *L):
     """
     >>> myAnd(*[Bool('x'),Bool('y')])
     And(x, y)
-    
+
     >>> myAnd(*[Bool('x'),None])
     x
-    
+
     >>> myAnd(*[Bool('x')])
     x
-    
+
     >>> myAnd(*[])
-    
+
     >>> myAnd(Bool('x'),Bool('y'))
     And(x, y)
-    
+
     >>> myAnd(*[Bool('x'),Bool('y')])
     And(x, y)
 
@@ -435,7 +432,7 @@ def myBinOp(op,*L):
 
     >>> myAnd((Bool('x'),Bool('y')))
     And(x, y)
-    
+
     >>> myAnd(*[Bool('x'),Bool('y'),True])
     Traceback (most recent call last):
     ...
@@ -444,59 +441,62 @@ def myBinOp(op,*L):
 
     if z3_debug():
         assert op == Z3_OP_OR or op == Z3_OP_AND or op == Z3_OP_IMPLIES
-    
-    if len(L)==1 and (isinstance(L[0],list) or isinstance(L[0],tuple)):
+
+    if len(L) == 1 and (isinstance(L[0], list) or isinstance(L[0], tuple)):
         L = L[0]
 
     if z3_debug():
-        assert all(not isinstance(l,bool) for l in L)
+        assert all(not isinstance(val, bool) for val in L)
 
-    L = [l for l in L if is_expr(l)]
+    L = [val for val in L if is_expr(val)]
     if L:
-        if len(L)==1:
+        if len(L) == 1:
             return L[0]
-        if op ==  Z3_OP_OR:
+        if op == Z3_OP_OR:
             return Or(L)
         if op == Z3_OP_AND:
-            return And(L)        
-        return Implies(L[0],L[1])
+            return And(L)
+        return Implies(L[0], L[1])
     else:
         return None
 
 
 def myAnd(*L):
-    return myBinOp(Z3_OP_AND,*L)
+    return myBinOp(Z3_OP_AND, *L)
+
 
 def myOr(*L):
-    return myBinOp(Z3_OP_OR,*L)
+    return myBinOp(Z3_OP_OR, *L)
 
-def myImplies(a,b):
-    return myBinOp(Z3_OP_IMPLIES,[a,b])
-    
 
-Iff = lambda f: And(Implies(f[0],f[1]),Implies(f[1],f[0]))
+def myImplies(a, b):
+    return myBinOp(Z3_OP_IMPLIES, [a, b])
 
-def model_str(m,as_str=True):
+
+def Iff(f):
+    return And(Implies(f[0], f[1]), Implies(f[1], f[0]))
+
+
+def model_str(m, as_str=True):
     """
     Returned a 'sorted' model (so that it's easier to see)
-    The model is sorted by its key, 
-    e.g. if the model is y = 3 , x = 10, then the result is 
+    The model is sorted by its key,
+    e.g. if the model is y = 3 , x = 10, then the result is
     x = 10, y = 3
 
     EXAMPLES:
-    see doctest exampels from function prove() 
+    see doctest exampels from function prove()
 
     """
     if z3_debug():
-        assert m is None or m == [] or isinstance(m,ModelRef)
+        assert m is None or m == [] or isinstance(m, ModelRef)
 
-    if m :
-        vs = [(v,m[v]) for v in m]
-        vs = sorted(vs,key=lambda a,_: str(a))
+    if m:
+        vs = [(v, m[v]) for v in m]
+        vs = sorted(vs, key=lambda a, _: str(a))
         if as_str:
-            return '\n'.join(['{} = {}'.format(k,v) for (k,v) in vs])
+            return "\n".join(["{} = {}".format(k, v) for (k, v) in vs])
         else:
             return vs
     else:
         return str(m) if as_str else m
-

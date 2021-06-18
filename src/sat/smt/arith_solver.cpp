@@ -76,8 +76,9 @@ namespace arith {
     }
 
     bool solver::unit_propagate() {
+        TRACE("arith", tout << "unit propagate\n";);
         m_model_is_initialized = false;
-        if (!m_new_eq && m_new_bounds.empty() && m_asserted_qhead == m_asserted.size())
+        if (!m_solver->has_changed_columns() && !m_new_eq && m_new_bounds.empty() && m_asserted_qhead == m_asserted.size())
             return false;
 
         m_new_eq = false;
@@ -138,26 +139,31 @@ namespace arith {
         lp_api::bound_kind k = b.get_bound_kind();
         theory_var v = b.get_var();
         inf_rational val = b.get_value(is_true);
+        bool same_polarity = b.get_lit().sign() == lit1.sign();
         lp_bounds const& bounds = m_bounds[v];
         SASSERT(!bounds.empty());
         if (bounds.size() == 1) return;
         if (m_unassigned_bounds[v] == 0) return;
         bool v_is_int = b.is_int();
         literal lit2 = sat::null_literal;
-        bool find_glb = (is_true == (k == lp_api::lower_t));
+        bool find_glb = (same_polarity == (k == lp_api::lower_t));
         TRACE("arith", tout << lit1 << " v" << v << " val " << val << " find_glb: " << find_glb << " is_true: " << is_true << " k: " << k << " is_lower: " << (k == lp_api::lower_t) << "\n";);
         if (find_glb) {
             rational glb;
             api_bound* lb = nullptr;
             for (api_bound* b2 : bounds) {
-                if (b2 == &b) continue;
+                if (b2 == &b) 
+                    continue;
                 rational const& val2 = b2->get_value();
-                if (((is_true || v_is_int) ? val2 < val : val2 <= val) && (!lb || glb < val2)) {
+                if (lb && glb >= val2)
+                    continue;
+                if (((same_polarity || v_is_int) ? val2 < val : val2 <= val)) {
                     lb = b2;
                     glb = val2;
                 }
             }
-            if (!lb) return;
+            if (!lb) 
+                return;
             bool sign = lb->get_bound_kind() != lp_api::lower_t;
             lit2 = lb->get_lit();
             if (sign)
@@ -167,14 +173,18 @@ namespace arith {
             rational lub;
             api_bound* ub = nullptr;
             for (api_bound* b2 : bounds) {
-                if (b2 == &b) continue;
+                if (b2 == &b) 
+                    continue;
                 rational const& val2 = b2->get_value();
-                if (((is_true || v_is_int) ? val < val2 : val <= val2) && (!ub || val2 < lub)) {
+                if (ub && val2 >= lub)
+                    continue;
+                if (((same_polarity || v_is_int) ? val < val2 : val <= val2)) {
                     ub = b2;
                     lub = val2;
                 }
             }
-            if (!ub) return;
+            if (!ub) 
+                return;
             bool sign = ub->get_bound_kind() != lp_api::upper_t;
             lit2 = ub->get_lit();
             if (sign)
@@ -609,11 +619,11 @@ namespace arith {
         }
         else if (a.is_arith_expr(o)) {
             expr_ref_vector args(m);
-            for (auto* arg : euf::enode_args(n)) {
-                if (m.is_value(arg->get_expr()))
-                    args.push_back(arg->get_expr());
+            for (auto* arg : *to_app(o)) {
+                if (m.is_value(arg))
+                    args.push_back(arg);
                 else 
-                    args.push_back(values.get(arg->get_root_id()));
+                    args.push_back(values.get(ctx.get_enode(arg)->get_root_id()));
             }
             value = m.mk_app(to_app(o)->get_decl(), args.size(), args.data());
             ctx.get_rewriter()(value);
@@ -631,8 +641,11 @@ namespace arith {
             return false;
         expr* e = n->get_expr();
         if (a.is_arith_expr(e) && to_app(e)->get_num_args() > 0) {
-            for (auto* arg : euf::enode_args(n))
-                dep.add(n, arg);
+            for (auto* arg : *to_app(e)) {
+                auto* earg = expr2enode(arg);
+                if (earg)
+                    dep.add(n, earg);
+            }
         }
         else {
             dep.insert(n, nullptr); 

@@ -140,6 +140,7 @@ struct statistics {
         st.update("arith-patches", m_patches);
         st.update("arith-patches-success", m_patches_success);
         st.update("arith-hnf-calls", m_hnf_cutter_calls);
+        st.update("arith-hnf-cuts", m_hnf_cuts);
         st.update("arith-horner-calls", m_horner_calls);
         st.update("arith-horner-conflicts", m_horner_conflicts);
         st.update("arith-horner-cross-nested-forms", m_cross_nested_forms);
@@ -208,7 +209,7 @@ public:
     double       harris_feasibility_tolerance { 1e-7 };         // page 179 of Istvan Maros
     double       ignore_epsilon_of_harris { 10e-5 };
     unsigned     max_number_of_iterations_with_no_improvements { 2000000 };
-    unsigned     max_total_number_of_iterations { 2000000 };
+    unsigned     max_total_number_of_iterations { 20000000 };
     double       time_limit; // the maximum time limit of the total run time in seconds
     // dual section
     double       dual_feasibility_tolerance { 1e-7 };            // page 71 of the PhD thesis of Achim Koberstein

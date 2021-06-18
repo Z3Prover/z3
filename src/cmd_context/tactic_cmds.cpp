@@ -166,9 +166,9 @@ public:
   }
 };
 
-class check_sat_using_tactict_cmd : public exec_given_tactic_cmd {
+class check_sat_using_tactic_cmd : public exec_given_tactic_cmd {
 public:
-    check_sat_using_tactict_cmd():
+    check_sat_using_tactic_cmd():
         exec_given_tactic_cmd("check-sat-using") {
     }
 
@@ -397,7 +397,7 @@ void install_core_tactic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(declare_tactic_cmd));
     ctx.insert(alloc(get_user_tactics_cmd));
     ctx.insert(alloc(help_tactic_cmd));
-    ctx.insert(alloc(check_sat_using_tactict_cmd));
+    ctx.insert(alloc(check_sat_using_tactic_cmd));
     ctx.insert(alloc(apply_tactic_cmd));
     install_tactics(ctx);
 }

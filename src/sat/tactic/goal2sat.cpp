@@ -137,6 +137,10 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (relevancy_enabled())
             ensure_euf()->add_root(n, lits);
     }
+
+    void add_dual_root(sat::literal lit) {
+        add_dual_root(1, &lit);
+    }
     
     void mk_clause(sat::literal l) {
         mk_clause(1, &l);
@@ -199,6 +203,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             // create fake variable to represent true;
             m_true = sat::literal(add_var(false, m.mk_true()), false);
             mk_clause(m_true); // v is true
+            add_dual_root(1, &m_true);
         }
         return m_true;
     }
@@ -223,6 +228,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (!m_expr2var_replay || !m_expr2var_replay->find(t, v))  
             v = add_var(true, t);
         m_map.insert(t, v);
+        if (relevancy_enabled() && (m.is_true(t) || m.is_false(t))) 
+            add_dual_root(sat::literal(v, m.is_false(t)));
         return v;
     }
 
@@ -737,7 +744,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     };
 
     void process(expr* n, bool is_root, bool redundant) {
-        TRACE("goal2sat", tout << "process-begin " << mk_bounded_pp(n, m, 3) 
+        TRACE("goal2sat", tout << "process-begin " << mk_bounded_pp(n, m, 2) 
             << " root: " << is_root 
             << " result-stack: " << m_result_stack.size() 
             << " frame-stack: " << m_frame_stack.size() << "\n";);
@@ -777,7 +784,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 m_frame_stack[fsz - 1].m_idx++;
                 if (!visit(arg, false, false))
                     goto loop;
-                TRACE("goal2sat_bug", tout << "visit " << mk_bounded_pp(t, m, 2) << " result stack: " << m_result_stack.size() << "\n";);
+                TRACE("goal2sat_bug", tout << "visit " << mk_bounded_pp(arg, m, 2) << " result stack: " << m_result_stack.size() << "\n";);
             }
             TRACE("goal2sat_bug", tout << "converting\n";
                   tout << mk_bounded_pp(t, m, 2) << " root: " << root << " sign: " << sign << "\n";

@@ -352,7 +352,21 @@ void cmd_context::insert_macro(symbol const& s, unsigned arity, sort*const* doma
     else {
         VERIFY(decls.insert(m(), arity, domain, t));
     }
-    model_add(s, arity, domain, t);
+
+    recfun::decl::plugin& p = get_recfun_plugin();
+    recfun_replace replace(m());
+    var_ref_vector vars(m()), rvars(m());
+    for (unsigned i = 0; i < arity; ++i) {
+        vars.push_back(m().mk_var(i, domain[i]));
+        rvars.push_back(m().mk_var(i, domain[arity - i - 1]));
+    }
+    recfun::promise_def d = p.ensure_def(s, arity, domain, t->get_sort());
+
+    // recursive functions have opposite calling convention from macros!
+    var_subst sub(m(), true);
+    expr_ref tt = sub(t, rvars);
+    p.set_definition(replace, d, vars.size(), vars.data(), tt);
+    register_fun(s, d.get_def()->get_decl());
 }
 
 void cmd_context::erase_macro(symbol const& s) {
@@ -940,17 +954,23 @@ void cmd_context::insert(symbol const & s, object_ref * r) {
 }
 
 void cmd_context::model_add(symbol const & s, unsigned arity, sort *const* domain, expr * t) {
+
     if (!mc0()) m_mcs.set(m_mcs.size()-1, alloc(generic_model_converter, m(), "cmd_context"));
     if (m_solver.get() && !m_solver->mc0()) m_solver->set_model_converter(mc0()); 
+
     func_decl_ref fn(m().mk_func_decl(s, arity, domain, t->get_sort()), m());
-    func_decls & fs = m_func_decls.insert_if_not_there(s, func_decls());
-    fs.insert(m(), fn);
-    VERIFY(fn->get_range() == t->get_sort());
     mc0()->add(fn, t);
-    if (!m_global_decls)
-        m_func_decls_stack.push_back(sf_pair(s, fn));
+    VERIFY(fn->get_range() == t->get_sort());
+    register_fun(s, fn);
 }
 
+void cmd_context::register_fun(symbol const& s, func_decl* fn) {
+    func_decls & fs = m_func_decls.insert_if_not_there(s, func_decls());
+    fs.insert(m(), fn);
+    if (!m_global_decls)
+        m_func_decls_stack.push_back(sf_pair(s, fn));
+
+}
 
 void cmd_context::model_del(func_decl* f) {
     if (!mc0()) m_mcs.set(m_mcs.size() - 1, alloc(generic_model_converter, m(), "cmd_context"));
@@ -1230,6 +1250,8 @@ void cmd_context::erase_func_decl_core(symbol const & s, func_decl * f) {
             SASSERT(m_func_decl2alias.contains(f));
             m_func_decl2alias.erase(f);
         }
+
+        get_recfun_plugin().erase_def(f);
         fs.erase(m(), f);
         if (fs.empty())
             m_func_decls.erase(s);
@@ -1751,7 +1773,9 @@ void cmd_context::add_declared_functions(model& mdl) {
                 mdl.register_decl(f, fi);
             }
         }
+        mdl.add_rec_funs();
     }
+    
 }
 
 void cmd_context::display_sat_result(lbool r) {

@@ -294,7 +294,7 @@ namespace euf {
         euf::enode* n = m_egraph.find(e);
         if (!n)
             return;
-        bool sign = l.sign();                
+        bool sign = l.sign();       
         m_egraph.set_value(n, sign ? l_false : l_true);
         for (auto th : enode_th_vars(n))
             m_id2solver[th.get_id()]->asserted(l);
@@ -308,7 +308,7 @@ namespace euf {
             euf::enode* nb = n->get_arg(1);
             m_egraph.merge(na, nb, c);
         }
-        else if (n->merge_tf()) {
+        else if (n->merge_tf() || n->value_conflict()) {
             euf::enode* nb = sign ? mk_false() : mk_true();
             m_egraph.merge(n, nb, c);
         }
@@ -332,10 +332,10 @@ namespace euf {
                 propagated1 = true;
             }
 
-            for (auto* s : m_solvers) {
-                if (s->unit_propagate())
+            for (unsigned i = 0; i < m_solvers.size(); ++i) 
+                if (m_solvers[i]->unit_propagate())
                     propagated1 = true;
-            }
+            
             if (!propagated1)
                 break;
             propagated = true;             

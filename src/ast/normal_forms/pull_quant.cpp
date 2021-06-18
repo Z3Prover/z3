@@ -276,7 +276,7 @@ struct pull_quant::imp {
 
             if (is_exists(old_q)) {
                 result = m.mk_not(new_body);
-                result = m.mk_not(m.update_quantifier(old_q, exists_k, result));
+                result = m.mk_not(m.update_quantifier(old_q, forall_k, result));
                 if (m.proofs_enabled()) 
                     m.mk_rewrite(old_q, result);
                 return true;

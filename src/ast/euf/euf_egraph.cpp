@@ -689,7 +689,7 @@ namespace euf {
         if (ra->interpreted() && rb->interpreted()) {
             explain_eq(justifications, a, ra);
             explain_eq(justifications, b, rb);
-            return UINT_MAX;
+            return sat::null_bool_var;
         }
         expr_ref eq(m.mk_eq(a->get_expr(), b->get_expr()), m);
         m_tmp_eq->m_args[0] = a;

@@ -160,7 +160,6 @@ class seq_decl_plugin : public decl_plugin {
 public:
     seq_decl_plugin();
 
-    ~seq_decl_plugin() override {}
     void finalize() override;
 
     bool unicode() const { return get_char_plugin().unicode(); }
@@ -574,8 +573,6 @@ public:
         str(*this),
         re(*this) {
     }
-
-    ~seq_util() {}
 
     family_id get_family_id() const { return m_fid; }
 };

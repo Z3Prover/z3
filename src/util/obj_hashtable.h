@@ -29,10 +29,9 @@ Revision History:
 */
 template<typename T>
 class obj_hash_entry {
-    T *             m_ptr;
+    T *             m_ptr = nullptr;
 public:
     typedef T * data;
-    obj_hash_entry():m_ptr(nullptr) {}
     unsigned get_hash() const { return m_ptr->hash(); }
     bool is_free() const { return m_ptr == nullptr; }
     bool is_deleted() const { return m_ptr == reinterpret_cast<T *>(1); }
@@ -82,7 +81,6 @@ public:
         key_data m_data;
     public:
         typedef key_data data;
-        obj_map_entry() {}
         unsigned get_hash() const { return m_data.hash(); }
         bool is_free() const { return m_data.m_key == nullptr; }
         bool is_deleted() const { return m_data.m_key == reinterpret_cast<Key *>(1); }

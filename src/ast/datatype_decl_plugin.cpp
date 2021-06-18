@@ -1082,6 +1082,14 @@ namespace datatype {
         return r;
     }
 
+    bool util::is_recursive_array(sort* a) {
+        array_util autil(m);
+        if (!autil.is_array(a))
+            return false;
+        a = autil.get_array_range_rec(a);                
+        return is_datatype(a) && is_recursive(a);
+    }
+
     bool util::is_enum_sort(sort* s) {
         if (!is_datatype(s)) {
             return false;
@@ -1243,6 +1251,9 @@ namespace datatype {
        defined together in the same mutually recursive definition.
     */
     bool util::are_siblings(sort * s1, sort * s2) {
+        array_util autil(m);
+        s1 = autil.get_array_range_rec(s1);                
+        s2 = autil.get_array_range_rec(s2);                
         if (!is_datatype(s1) || !is_datatype(s2)) {
             return s1 == s2;
         }

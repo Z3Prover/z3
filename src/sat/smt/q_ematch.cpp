@@ -8,7 +8,7 @@ Module Name:
 Abstract:
 
     E-matching quantifier instantiation plugin
-
+    
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-01-24
@@ -213,6 +213,14 @@ namespace q {
         unsigned sz = sizeof(binding) + sizeof(euf::enode* const*)*n;
         void* mem = ctx.get_region().allocate(sz);
         return new (mem) binding(pat, max_generation, min_top, max_top);
+    }  
+
+    euf::enode* const* ematch::alloc_binding(clause& c, euf::enode* const* _binding) {
+        unsigned sz = sizeof(euf::enode* const*) * c.num_decls();
+        euf::enode** binding = (euf::enode**)ctx.get_region().allocate(sz);
+        for (unsigned i = 0; i < c.num_decls(); ++i)
+            binding[i] = _binding[i];
+        return binding;
     }
 
     void ematch::add_binding(clause& c, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top) {
@@ -229,11 +237,12 @@ namespace q {
         TRACE("q", tout << "on-binding " << mk_pp(q, m) << "\n";);
         unsigned idx = m_q2clauses[q];
         clause& c = *m_clauses[idx];
-        if (!propagate(_binding, max_generation, c)) 
+        bool new_propagation = false;
+        if (!propagate(false, _binding, max_generation, c, new_propagation)) 
             add_binding(c, pat, _binding, max_generation, min_gen, max_gen);
     }
 
-    bool ematch::propagate(euf::enode* const* binding, unsigned max_generation, clause& c) {
+    bool ematch::propagate(bool is_owned, euf::enode* const* binding, unsigned max_generation, clause& c, bool& propagated) {
         TRACE("q", c.display(ctx, tout) << "\n";);
         unsigned idx = UINT_MAX;
         lbool ev = m_eval(binding, c, idx);
@@ -251,6 +260,8 @@ namespace q {
         }
         if (ev == l_undef && max_generation > m_generation_propagation_threshold)
             return false;
+        if (!is_owned) 
+            binding = alloc_binding(c, binding);        
         auto j_idx = mk_justification(idx, c, binding);       
         if (ev == l_false) {
             ++m_stats.m_num_conflicts;
@@ -260,6 +271,7 @@ namespace q {
             ++m_stats.m_num_propagations;
             ctx.propagate(instantiate(c, binding, c[idx]), j_idx);
         }
+        propagated = true;
         return true;
     }
 
@@ -372,6 +384,7 @@ namespace q {
         clause* cl = alloc(clause, m, m_clauses.size());
         cl->m_literal = ctx.mk_literal(_q);
         quantifier_ref q(_q, m);
+        q = m_qs.flatten(q);
         if (is_exists(q)) {
             cl->m_literal.neg();
             expr_ref body(mk_not(m, q->get_expr()), m);
@@ -479,10 +492,8 @@ namespace q {
                 continue;
 
             do {
-                if (propagate(b->m_nodes, b->m_max_generation, c)) {
+                if (propagate(true, b->m_nodes, b->m_max_generation, c, propagated)) 
                     to_remove.push_back(b);
-                    propagated = true;
-                }
                 else if (flush) {
                     instantiate(*b, c);
                     to_remove.push_back(b);

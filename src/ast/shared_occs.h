@@ -24,8 +24,6 @@ Revision History:
 class shared_occs_mark {
     ptr_buffer<ast> m_to_unmark;
 public:
-    shared_occs_mark() {}
- 
     ~shared_occs_mark() {
         reset();
     }

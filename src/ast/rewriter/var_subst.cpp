@@ -17,6 +17,7 @@ Notes:
 
 --*/
 #include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_smt2_pp.h"
@@ -24,8 +25,9 @@ Notes:
 #include "ast/for_each_expr.h"
 
 expr_ref var_subst::operator()(expr * n, unsigned num_args, expr * const * args) {
-    expr_ref result(m_reducer.m());
-    if (is_ground(n)) {
+    ast_manager& m = m_reducer.m();
+    expr_ref result(m);
+    if (is_ground(n) || num_args == 0) {
         result = n;
         //application does not have free variables or nested quantifiers.
         //There is no need to print the bindings here?
@@ -40,6 +42,16 @@ expr_ref var_subst::operator()(expr * n, unsigned num_args, expr * const * args)
 
         return result;
     }
+    if (has_quantifiers(n)) {
+        expr_safe_replace rep(m);
+        for (unsigned k = 0; k < num_args; ++k) {
+            expr* arg = args[k];
+            if (arg)
+                rep.insert(m.mk_var(m_std_order ? num_args - k - 1 : k, arg->get_sort()), arg);
+        }
+        rep(n, result);
+        return result;
+    }
     SASSERT(is_well_sorted(result.m(), n));
     m_reducer.reset();
     if (m_std_order)
@@ -47,10 +59,10 @@ expr_ref var_subst::operator()(expr * n, unsigned num_args, expr * const * args)
     else
         m_reducer.set_bindings(num_args, args);
     m_reducer(n, result);
-    SASSERT(is_well_sorted(m_reducer.m(), result));
+    SASSERT(is_well_sorted(m, result));
     TRACE("var_subst_bug",
-          tout << "m_std_order: " << m_std_order << "\n" << mk_ismt2_pp(n, m_reducer.m()) << "\nusing\n";
-          for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m_reducer.m()) << "\n";
+          tout << "m_std_order: " << m_std_order << "\n" << mk_ismt2_pp(n, m) << "\nusing\n";
+          for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m) << "\n";
           tout << "\n------>\n";
           tout << result << "\n";);
     return result;

@@ -104,7 +104,7 @@ void static_features::reset() {
     m_num_aliens_per_family                .reset();
     m_num_theories                         = 0;
     m_theories                             .reset();
-    m_max_stack_depth                      = 100;
+    m_max_stack_depth                      = 30;
     flush_cache();
 }
 

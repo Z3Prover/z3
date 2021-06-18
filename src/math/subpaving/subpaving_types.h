@@ -31,7 +31,7 @@ class exception {
 
 class power : public std::pair<var, unsigned> {
 public:
-    power():std::pair<var, unsigned>() {}
+    power() = default;
     power(var v, unsigned d):std::pair<var, unsigned>(v, d) {}
     var x() const { return first; }
     var get_var() const { return first; }

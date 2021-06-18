@@ -73,15 +73,16 @@ namespace euf {
         values2model(deps, mdl);
         for (auto* mb : m_solvers)
             mb->finalize_model(*mdl);
+        TRACE("model", tout << "created model " << *mdl << "\n";);
         validate_model(*mdl);
     }
 
     bool solver::include_func_interp(func_decl* f) {
-        if (f->is_skolem())
-            return false;
         if (f->get_family_id() == null_family_id)
             return true;
         if (f->get_family_id() == m.get_basic_family_id())
+            return false;
+        if (f->is_skolem())
             return false;
         euf::th_model_builder* mb = func_decl2solver(f);
         return mb && mb->include_func_interp(f);
@@ -190,7 +191,7 @@ namespace euf {
             if (!is_app(e))
                 continue;
             app* a = to_app(e);
-            func_decl* f = a->get_decl();            
+            func_decl* f = a->get_decl();       
             if (!include_func_interp(f))
                 continue;
             if (m.is_bool(e) && is_uninterp_const(e) && mdl->get_const_interp(f))
@@ -209,9 +210,12 @@ namespace euf {
                     mdl->register_decl(f, fi);
                 }
                 args.reset();                
-                for (enode* arg : enode_args(n)) 
-                    args.push_back(m_values.get(arg->get_root_id()));                
-                DEBUG_CODE(for (expr* arg : args) VERIFY(arg););
+                for (expr* arg : *a) {
+                    enode* earg = get_enode(arg); 
+                    args.push_back(m_values.get(earg->get_root_id()));                
+                    CTRACE("euf", !args.back(), tout << "no value for " << bpp(earg) << "\n";);
+                    SASSERT(args.back());
+                }
                 SASSERT(args.size() == arity);
                 if (!fi->get_entry(args.data()))
                     fi->insert_new_entry(args.data(), v);
@@ -227,17 +231,23 @@ namespace euf {
         // TODO
     }
 
+    void solver::model_updated(model_ref& mdl) {
+        m_values2root.reset();
+        for (enode* n : m_egraph.nodes())
+            if (n->is_root() && m_values.get(n->get_expr_id())) 
+                m_values[n->get_expr_id()] = (*mdl)(n->get_expr());            
+    }
+
     obj_map<expr,enode*> const& solver::values2root() {    
         if (!m_values2root.empty())
             return m_values2root;
         for (enode* n : m_egraph.nodes())
             if (n->is_root() && m_values.get(n->get_expr_id()))
                 m_values2root.insert(m_values.get(n->get_expr_id()), n);
-#if 0
-        for (auto kv : m_values2root) {
-            std::cout << mk_pp(kv.m_key, m) << " -> " << bpp(kv.m_value) << "\n";
-        }
-#endif
+        TRACE("model", 
+              for (auto kv : m_values2root) 
+                  tout << mk_pp(kv.m_key, m) << " -> " << bpp(kv.m_value) << "\n";);
+        
         return m_values2root;
     }
 
@@ -246,20 +256,29 @@ namespace euf {
     }
 
     void solver::validate_model(model& mdl) {
+        bool first = true;
         for (enode* n : m_egraph.nodes()) {
             expr* e = n->get_expr();
             if (!m.is_bool(e))
                 continue;
+            if (has_quantifiers(e))
+                continue;
             if (!is_relevant(n))
                 continue;
             bool tt = l_true == s().value(n->bool_var());
-            if (tt && mdl.is_false(e)) {
-                IF_VERBOSE(0, verbose_stream() << "Failed to validate " << bpp(n) << " " << mdl(e) << "\n");
-                for (auto* arg : euf::enode_args(n))
-                    IF_VERBOSE(0, verbose_stream() << bpp(arg) << "\n" << mdl(arg->get_expr()) << "\n");
-            }
-            if (!tt && mdl.is_true(e))
-                IF_VERBOSE(0, verbose_stream() << "Failed to validate " << bpp(n) << " " << mdl(e) << "\n");
+            if (tt && !mdl.is_false(e))
+                continue;
+            if (!tt && !mdl.is_true(e))
+                continue;
+            IF_VERBOSE(0, 
+                       verbose_stream() << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(e) << "\n";
+                       for (auto* arg : euf::enode_args(n))
+                           verbose_stream() << bpp(arg) << "\n" << mdl(arg->get_expr()) << "\n";);
+            CTRACE("euf", first, 
+                   tout << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(e) << "\n";
+                   s().display(tout);
+                   tout << mdl << "\n";);
+            first = false;
         }
         
     }

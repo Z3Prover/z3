@@ -41,14 +41,31 @@ namespace q {
         quantifier* q = to_quantifier(e);
 
         auto const& exp = expand(q);
-        if (exp.size() > 1) {
-            for (expr* e : exp) 
-                add_clause(~l, ctx.internalize(e, l.sign(), false, false));                    
+        if (exp.size() > 1 && is_forall(q)) {
+            for (expr* e : exp) {
+                sat::literal lit = ctx.internalize(e, l.sign(), false, false); 
+                add_clause(~l, lit);                    
+                if (ctx.relevancy_enabled())
+                    ctx.add_root(~l, lit);
+            }
+            return;
+        }
+        if (exp.size() > 1 && is_exists(q)) {
+            sat::literal_vector lits;
+            lits.push_back(~l);
+            for (expr* e : exp)
+                lits.push_back(ctx.internalize(e, l.sign(), false, false));
+            add_clause(lits);
+            if (ctx.relevancy_enabled())
+                ctx.add_root(lits);
             return;
         }
 
-        if (l.sign() == is_forall(e)) 
-            add_clause(~l, skolemize(q));
+        if (l.sign() == is_forall(e)) {
+            sat::literal lit = skolemize(q);
+            add_clause(~l, lit);
+            ctx.add_root(~l, lit);
+        }
         else {
             ctx.push_vec(m_universal, l);
             if (ctx.get_config().m_ematching)
@@ -167,9 +184,14 @@ namespace q {
             return q_flat;
         proof_ref pr(m);
         expr_ref  new_q(m);
-        pull_quant pull(m);
-        pull(q, new_q, pr);
-        SASSERT(is_well_sorted(m, new_q));
+        if (is_forall(q)) {
+            pull_quant pull(m);
+            pull(q, new_q, pr);
+            SASSERT(is_well_sorted(m, new_q));
+        }
+        else {
+            new_q = q;
+        }
         q_flat = to_quantifier(new_q);
         m.inc_ref(q_flat);
         m.inc_ref(q);

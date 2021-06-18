@@ -218,13 +218,14 @@ namespace q {
 
     expr* model_fixer::invert_app(app* t, expr* value) {
         euf::enode* r = nullptr;
+        auto& v2r = ctx.values2root();
         TRACE("q",
-            tout << "invert-app " << mk_pp(t, m) << " = " << mk_pp(value, m) << "\n";
-              if (ctx.values2root().find(value, r)) 
+              tout << "invert-app " << mk_pp(t, m) << " = " << mk_pp(value, m) << "\n";
+              if (v2r.find(value, r)) 
                   tout << "inverse " << mk_pp(r->get_expr(), m) << "\n";
-              ctx.display(tout);
+              ctx.display(tout);              
               );
-        if (ctx.values2root().find(value, r))
+        if (v2r.find(value, r)) 
             return r->get_expr();
         return value;
     }

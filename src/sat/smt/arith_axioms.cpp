@@ -331,6 +331,8 @@ namespace arith {
     }
 
     void solver::new_diseq_eh(euf::th_eq const& e) {
+        ensure_column(e.v1());
+        ensure_column(e.v2());
         m_delayed_eqs.push_back(std::make_pair(e, false));
         ctx.push(push_back_vector<svector<std::pair<euf::th_eq, bool>>>(m_delayed_eqs));
     }

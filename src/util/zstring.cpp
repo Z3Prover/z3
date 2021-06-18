@@ -276,16 +276,10 @@ bool operator<(const zstring& lhs, const zstring& rhs) {
     for (unsigned i = 0; i < len; ++i) {
         unsigned Li = lhs[i];
         unsigned Ri = rhs[i];
-        if (Li < Ri) {
-            return true;
-        } 
-        else if (Li > Ri) {
-            return false;
-        } 
+        if (Li != Ri)
+            return Li < Ri;
     }
     // at this point, all compared characters are equal,
     // so decide based on the relative lengths
     return lhs.length() < rhs.length();
 }
-
-

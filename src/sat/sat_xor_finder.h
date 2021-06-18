@@ -62,7 +62,6 @@ namespace sat {
 
     public:
         xor_finder(solver& s) : s(s), m_max_xor_size(5) { init_parity(); }
-        ~xor_finder() {}        
 
         void set(std::function<void (literal_vector const& lits)>& f) { m_on_xor = f; }
 

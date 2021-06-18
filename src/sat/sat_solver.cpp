@@ -141,6 +141,7 @@ namespace sat {
         m_participated.reset();
         m_canceled.reset();
         m_reasoned.reset();
+        m_case_split_queue.reset();
         m_simplifier.reset_todos();
         m_qhead = 0;
         m_trail.reset();
@@ -1029,7 +1030,7 @@ namespace sat {
                     return false;
             } while (m_qhead < m_trail.size());
 
-            if (m_ext && !is_probing()) 
+            if (m_ext && (!is_probing() || at_base_lvl())) 
                 m_ext->unit_propagate();            
         }
         if (m_inconsistent)
@@ -1396,7 +1397,8 @@ namespace sat {
             }
         };
         scoped_ls _ls(*this);
-        if (inconsistent()) return l_false;
+        if (inconsistent()) 
+            return l_false;
         scoped_limits scoped_rl(rlimit());
         SASSERT(m_local_search);
         m_local_search->add(*this);
@@ -3540,7 +3542,7 @@ namespace sat {
             else {
                 set_eliminated(v, true);
                 if (!is_external(v) || true) {
-                    m_free_vars.push_back(v);
+                    m_free_vars.push_back(v);                   
                 }
             }
         }
@@ -3555,6 +3557,7 @@ namespace sat {
             bool_var v = m_free_vars[i];
             cleanup_watch(literal(v, false));
             cleanup_watch(literal(v, true));
+            
         }
         TRACE("sat",
             tout << "clauses to reinit: " << (m_clauses_to_reinit.size() - old_sz) << "\n";
@@ -3573,10 +3576,10 @@ namespace sat {
                 m_free_vars[j++] = w;
         m_free_vars.shrink(j);
 
-        for (bool_var i = v; i < m_justification.size(); ++i) {
-            m_case_split_queue.del_var_eh(i);
-            m_probing.reset_cache(literal(i, true));
-            m_probing.reset_cache(literal(i, false));
+        for (bool_var w = m_justification.size(); w-- > v;) {
+            m_case_split_queue.del_var_eh(w);
+            m_probing.reset_cache(literal(w, true));
+            m_probing.reset_cache(literal(w, false));
         }
         m_watches.shrink(2*v);
         m_assignment.shrink(2*v);
@@ -3599,6 +3602,7 @@ namespace sat {
     void solver::pop(unsigned num_scopes) {
         if (num_scopes == 0)
             return;
+        unsigned free_vars_head = m_free_vars.size();
         if (m_ext) {
             pop_vars(num_scopes);
             m_ext->pop(num_scopes);
@@ -3608,6 +3612,8 @@ namespace sat {
         scope & s        = m_scopes[new_lvl];
         m_inconsistent   = false; // TBD: use model seems to make this redundant: s.m_inconsistent;
         unassign_vars(s.m_trail_lim, new_lvl);
+        for (unsigned i = m_free_vars.size(); i-- > free_vars_head; )
+            m_case_split_queue.del_var_eh(m_free_vars[i]);
         m_scope_lvl -= num_scopes;
         reinit_clauses(s.m_clauses_to_reinit_lim);
         m_scopes.shrink(new_lvl);

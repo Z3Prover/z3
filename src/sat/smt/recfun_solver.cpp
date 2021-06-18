@@ -328,5 +328,17 @@ namespace recfun {
         }
         return found;
     }
+
+    bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
+        if (n->num_args() == 0)
+            dep.insert(n, nullptr);
+        for (auto* k : euf::enode_args(n))
+            dep.add(n, k);
+        return true;
+    }
+
+    void solver::add_value(euf::enode* n, model& mdl, expr_ref_vector& values) {
+        values.set(n->get_root_id(), n->get_root()->get_expr());
+    }
     
 }

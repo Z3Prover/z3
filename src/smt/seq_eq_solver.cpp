@@ -1113,11 +1113,14 @@ bool theory_seq::is_unit_eq(expr_ref_vector const& ls, expr_ref_vector const& rs
  
 
 struct remove_obj_pair_map : public trail {
+    ast_manager& m;
     obj_pair_hashtable<expr, expr> & m_map;
     expr* a, *b;
-    remove_obj_pair_map(obj_pair_hashtable<expr, expr> & map, expr* a, expr* b):
-        m_map(map), a(a), b(b) {}
+    remove_obj_pair_map(ast_manager& m, obj_pair_hashtable<expr, expr> & map, expr* a, expr* b):
+        m(m), m_map(map), a(a), b(b) {}
     void undo() override {
+        m.dec_ref(a);
+        m.dec_ref(b);
         m_map.erase(std::make_pair(a, b));
     }
 };
@@ -1138,8 +1141,10 @@ bool theory_seq::solve_nth_eq(expr_ref_vector const& ls, expr_ref_vector const& 
         expr_ref rhs = mk_concat(rs.size(), rs.data(), ls[0]->get_sort());
         if (m_nth_eq2_cache.contains(std::make_pair(rhs, ls[0])))
             return false;
+        m.inc_ref(rhs);
+        m.inc_ref(ls[0]);
         m_nth_eq2_cache.insert(std::make_pair(rhs, ls[0]));
-        ctx.push_trail(remove_obj_pair_map(m_nth_eq2_cache, rhs, ls[0]));
+        ctx.push_trail(remove_obj_pair_map(m, m_nth_eq2_cache, rhs, ls[0]));
         ls1.push_back(s);        
         if (!idx_is_zero) rs1.push_back(m_sk.mk_pre(s, idx)); 
         rs1.push_back(m_util.str.mk_unit(rhs)); 

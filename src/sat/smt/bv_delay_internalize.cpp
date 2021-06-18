@@ -73,6 +73,8 @@ namespace bv {
         SASSERT(e->get_num_args() >= 2);
         expr_ref_vector args(m);
         euf::enode* n = expr2enode(e);
+        if (!reflect())
+            return false;
         auto r1 = eval_bv(n);
         auto r2 = eval_args(n, args);
         if (r1 == r2)
@@ -355,6 +357,8 @@ namespace bv {
         if (!bv.is_bv(e))
             return internalize_mode::no_delay_i;
         if (!get_config().m_bv_delay)
+            return internalize_mode::no_delay_i;
+        if (!reflect())
             return internalize_mode::no_delay_i;
         internalize_mode mode;
         switch (to_app(e)->get_decl_kind()) {

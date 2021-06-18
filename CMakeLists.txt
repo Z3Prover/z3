@@ -351,6 +351,7 @@ option(Z3_BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise
 ################################################################################
 if (NOT MSVC)
   z3_add_cxx_flag("-fvisibility=hidden" REQUIRED)
+  z3_add_cxx_flag("-fvisibility-inlines-hidden" REQUIRED)
 endif()
 
 ################################################################################

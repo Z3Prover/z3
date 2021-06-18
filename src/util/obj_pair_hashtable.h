@@ -29,11 +29,10 @@ Revision History:
 template<typename T1, typename T2>
 class obj_pair_hash_entry {
     unsigned            m_hash; // cached hash code
-    std::pair<T1*, T2*> m_data;
+    std::pair<T1*, T2*> m_data { nullptr, nullptr };
     
 public:
     typedef std::pair<T1*, T2*> data;
-    obj_pair_hash_entry():m_data(static_cast<T1*>(nullptr),static_cast<T2*>(nullptr)) {}
     unsigned get_hash() const { return m_hash; }
     bool is_free() const { return m_data.first == 0; }
     bool is_deleted() const { return m_data.first == reinterpret_cast<T1 *>(1); }
@@ -94,7 +93,6 @@ protected:
         key_data m_data;
     public:
         typedef key_data data;
-        entry() {}
         unsigned get_hash() const { return m_data.hash(); }
         bool is_free() const { return m_data.m_key1 == nullptr; }
         bool is_deleted() const { return m_data.m_key1 == reinterpret_cast<Key1 *>(1); }

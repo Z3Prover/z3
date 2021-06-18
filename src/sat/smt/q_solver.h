@@ -74,7 +74,7 @@ namespace q {
         euf::th_solver* clone(euf::solver& ctx) override;
         bool unit_propagate() override;
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
-        void internalize(expr* e, bool redundant) override { UNREACHABLE(); }
+        void internalize(expr* e, bool redundant) override { internalize(e, false, false, redundant); }
         euf::theory_var mk_var(euf::enode* n) override;
         void init_search() override;
         void finalize_model(model& mdl) override;

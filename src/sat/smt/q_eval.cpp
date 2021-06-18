@@ -157,6 +157,7 @@ namespace q {
             expr* t = todo.back();
             SASSERT(!is_ground(t) || ctx.get_egraph().find(t));
             if (is_ground(t)) {
+                m_mark.mark(t);
                 m_eval.setx(t->get_id(), ctx.get_egraph().find(t), nullptr);
                 SASSERT(m_eval[t->get_id()]);
                 todo.pop_back();
@@ -277,6 +278,7 @@ namespace q {
 
 
     void eval::explain(sat::literal l, justification& j, sat::literal_vector& r, bool probing) {
+        scoped_mark_reset _sr(*this);
         unsigned l_idx = 0;
         clause& c = j.m_clause;
         for (; l_idx < c.size(); ++l_idx) {

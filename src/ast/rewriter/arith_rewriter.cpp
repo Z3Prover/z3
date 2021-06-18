@@ -184,6 +184,8 @@ bool arith_rewriter::is_bound(expr * arg1, expr * arg2, op_kind kind, expr_ref &
             kind = inv(kind);
             r = true;
         }
+        if (a.is_zero())
+            return false;
         if (!a.is_one())
             r = true;
         if (!r)

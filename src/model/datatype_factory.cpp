@@ -27,6 +27,8 @@ datatype_factory::datatype_factory(ast_manager & m, model_core & md):
 }
 
 expr * datatype_factory::get_some_value(sort * s) {
+    if (!m_util.is_datatype(s))
+        return m_model.get_some_value(s);
     value_set * set = nullptr;
     if (m_sort2value_set.find(s, set) && !set->empty())
         return *(set->begin());
@@ -77,6 +79,8 @@ bool datatype_factory::is_subterm_of_last_value(app* e) {
    It also updates m_last_fresh_value
 */
 expr * datatype_factory::get_almost_fresh_value(sort * s) {
+    if (!m_util.is_datatype(s))
+        return m_model.get_some_value(s);
     value_set * set = get_value_set(s);
     if (set->empty()) {
         expr * val = get_some_value(s);
@@ -136,6 +140,8 @@ expr * datatype_factory::get_almost_fresh_value(sort * s) {
 
 
 expr * datatype_factory::get_fresh_value(sort * s) {
+    if (!m_util.is_datatype(s))
+        return m_model.get_fresh_value(s);
     TRACE("datatype", tout << "generating fresh value for: " << s->get_name() << "\n";);
     value_set * set = get_value_set(s);
     // Approach 0) 
@@ -162,7 +168,9 @@ expr * datatype_factory::get_fresh_value(sort * s) {
         unsigned num            = constructor->get_arity();
         for (unsigned i = 0; i < num; i++) {
             sort * s_arg        = constructor->get_domain(i);
-            if (!found_fresh_arg && (!m_util.is_recursive(s) || !m_util.is_datatype(s_arg) || !m_util.are_siblings(s, s_arg))) {
+            if (!found_fresh_arg && 
+                !m_util.is_recursive_array(s_arg) && 
+                (!m_util.is_recursive(s) || !m_util.is_datatype(s_arg) || !m_util.are_siblings(s, s_arg))) {
                 expr * new_arg = m_model.get_fresh_value(s_arg);
                 if (new_arg != nullptr) {
                     found_fresh_arg = true;
@@ -191,7 +199,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
     // search for constructor...
     unsigned num_iterations = 0;
     if (m_util.is_recursive(s)) {
-        while(true) {
+        while (true) {
             ++num_iterations;
             TRACE("datatype", tout << mk_pp(get_last_fresh_value(s), m_manager) << "\n";);
             ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(s);
@@ -207,15 +215,15 @@ expr * datatype_factory::get_fresh_value(sort * s) {
                           << m_util.are_siblings(s, s_arg) << "  is_datatype " 
                           << m_util.is_datatype(s_arg) << " found_sibling " 
                           << found_sibling << "\n";);
-                    if (!found_sibling && m_util.is_datatype(s_arg) && m_util.are_siblings(s, s_arg)) {
+                    if (!found_sibling && m_util.are_siblings(s, s_arg)) {
                         found_sibling = true;
                         expr * maybe_new_arg = nullptr;
-                        if (num_iterations <= 1) {
-                            maybe_new_arg = get_almost_fresh_value(s_arg);
-                        }
-                        else {
+                        if (!m_util.is_datatype(s_arg))
+                            maybe_new_arg = m_model.get_fresh_value(s_arg);
+                        else if (num_iterations <= 1)
+                            maybe_new_arg = get_almost_fresh_value(s_arg);                        
+                        else 
                             maybe_new_arg = get_fresh_value(s_arg);
-                        }
                         if (!maybe_new_arg) {
                             TRACE("datatype", 
                                   tout << "no argument found for " << mk_pp(s_arg, m_manager) << "\n";);

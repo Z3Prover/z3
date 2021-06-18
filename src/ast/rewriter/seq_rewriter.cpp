@@ -432,6 +432,7 @@ br_status seq_rewriter::mk_bool_app_helper(bool is_and, unsigned n, expr* const*
     obj_map<expr, expr*> in_re, not_in_re;
     bool found_pair = false;
     
+    ptr_buffer<expr> new_args;
     for (unsigned i = 0; i < n; ++i) {
         expr* args_i = args[i];
         expr* x = nullptr, *y = nullptr, *z = nullptr;
@@ -455,13 +456,15 @@ br_status seq_rewriter::mk_bool_app_helper(bool is_and, unsigned n, expr* const*
                 found_pair |= in_re.contains(x);
             }
         }
+        else 
+            new_args.push_back(args_i);
     }
     
     if (!found_pair) {
         return BR_FAILED;
     }
     
-    ptr_buffer<expr> new_args;
+
     for (auto const & kv : in_re) {
         expr* x = kv.m_key;
         expr* y = kv.m_value;
@@ -480,12 +483,6 @@ br_status seq_rewriter::mk_bool_app_helper(bool is_and, unsigned n, expr* const*
         expr* y = kv.m_value;
         if (!in_re.contains(x)) {
             new_args.push_back(re().mk_in_re(x, re().mk_complement(y)));
-        }
-    }
-    for (unsigned i = 0; i < n; ++i) {
-        expr* arg = args[i], * x;
-        if (!str().is_in_re(arg) && !(m().is_not(arg, x) && str().is_in_re(x))) {
-            new_args.push_back(arg);
         }
     }
     
@@ -2500,7 +2497,7 @@ expr_ref seq_rewriter::is_nullable(expr* r) {
         m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, result);        
     }
     STRACE("seq_verbose", tout << "is_nullable result: "
-                               << mk_pp(result, m()) << std::endl;);
+                               << result << std::endl;);
     return result;
 }
 

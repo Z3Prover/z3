@@ -293,6 +293,7 @@ namespace smt {
         obj_map<enode, model_value_proc *> root2proc;
         ptr_vector<enode> roots;
         ptr_vector<model_value_proc> procs;
+        scoped_reset _scoped_reset(*this, procs);
         svector<source> sources;
         buffer<model_value_dependency> dependencies;
         expr_ref_vector dependency_values(m);
@@ -315,7 +316,6 @@ namespace smt {
               m_context->display(tout);
               );
 
-        scoped_reset _scoped_reset(*this, procs);
 
         for (source const& curr : sources) {
             if (curr.is_fresh_value()) {

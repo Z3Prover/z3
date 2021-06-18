@@ -295,6 +295,8 @@ bool lackr::collect_terms() {
                 }                
                 if (m_autil.is_as_array(curr, f))
                     m_non_funs.mark(f, true);
+                if (m_autil.is_map(curr))
+                    m_non_funs.mark(m_autil.get_map_func_decl(curr), true);
                 break;
             }
             case AST_QUANTIFIER:

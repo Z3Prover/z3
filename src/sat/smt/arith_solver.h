@@ -112,7 +112,7 @@ namespace arith {
             }
         };
         scoped_ptr_vector<internalize_state> m_internalize_states;
-        unsigned                      m_internalize_head{ 0 };
+        unsigned                      m_internalize_head = 0;
 
         class scoped_internalize_state {
             solver& m_imp;
@@ -149,10 +149,10 @@ namespace arith {
         vector<rational>         m_columns;
         var_coeffs               m_left_side;              // constraint left side
 
-        lpvar m_one_var   { UINT_MAX };
-        lpvar m_zero_var  { UINT_MAX };
-        lpvar m_rone_var  { UINT_MAX };
-        lpvar m_rzero_var { UINT_MAX };
+        lpvar m_one_var   = UINT_MAX;
+        lpvar m_zero_var  = UINT_MAX;
+        lpvar m_rone_var  = UINT_MAX;
+        lpvar m_rzero_var = UINT_MAX;
 
         enum constraint_source {
             inequality_source,
@@ -177,7 +177,7 @@ namespace arith {
         vector<lp_bounds>      m_bounds;
         unsigned_vector        m_unassigned_bounds;
         unsigned_vector        m_bounds_trail;
-        unsigned               m_asserted_qhead{ 0 };
+        unsigned               m_asserted_qhead = 0;
 
         svector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates;
         unsigned                                          m_assume_eq_head{ 0 };

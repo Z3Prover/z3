@@ -186,6 +186,8 @@ namespace recfun {
             
             def* mk_def(replace& subst, symbol const& name, unsigned n, sort ** params, sort * range, unsigned n_vars, var ** vars, expr * rhs);
 
+            void erase_def(func_decl* f);
+
             bool has_def(func_decl* f) const { return m_defs.contains(f); }
             bool has_defs() const;
             def const& get_def(func_decl* f) const { return *(m_defs[f]); }

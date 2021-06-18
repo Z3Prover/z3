@@ -149,7 +149,7 @@ namespace euf {
 
         // model building
         expr_ref_vector m_values;
-        obj_map<expr, enode*> m_values2root;
+        obj_map<expr, enode*> m_values2root;        
         bool include_func_interp(func_decl* f);
         void register_macros(model& mdl);
         void dependencies2values(user_sort& us, deps_t& deps, model_ref& mdl);
@@ -357,8 +357,11 @@ namespace euf {
         // relevancy
         bool relevancy_enabled() const { return get_config().m_relevancy_lvl > 0; }
         void add_root(unsigned n, sat::literal const* lits);
+        void add_root(sat::literal_vector const& lits) { add_root(lits.size(), lits.data()); }
+        void add_root(sat::literal lit) { add_root(1, &lit); }
+        void add_root(sat::literal a, sat::literal b) { sat::literal lits[2] = {a, b}; add_root(2, lits); }
         void add_aux(unsigned n, sat::literal const* lits);
-        void add_aux(sat::literal a, sat::literal b) { sat::literal lits[2] = {a, b}; add_aux(2, lits); }
+        void add_aux(sat::literal a, sat::literal b) { sat::literal lits[2] = {a, b}; add_aux(2, lits); } 
         void track_relevancy(sat::bool_var v);
         bool is_relevant(expr* e) const;
         bool is_relevant(enode* n) const;
@@ -367,6 +370,7 @@ namespace euf {
         // model construction
         void update_model(model_ref& mdl);
         obj_map<expr, enode*> const& values2root();
+        void model_updated(model_ref& mdl);
         expr* node2value(enode* n) const;
 
         // diagnostics
