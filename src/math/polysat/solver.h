@@ -35,6 +35,7 @@ namespace polysat {
     class solver {
 
         struct stats {
+            unsigned m_num_iterations;
             unsigned m_num_decisions;
             unsigned m_num_propagations;
             unsigned m_num_conflicts;

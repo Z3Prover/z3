@@ -121,6 +121,7 @@ namespace polysat {
         LOG("Starting");
         m_disjunctive_lemma.reset();
         while (m_lim.inc()) {
+            m_stats.m_num_iterations++;
             LOG_H1("Next solving loop iteration");
             LOG("Free variables: " << m_free_vars);
             LOG("Assignments:    " << assignment());
@@ -622,6 +623,10 @@ namespace polysat {
                 }
                 SASSERT(m_bvars.is_propagation(var));
                 clause_ref new_lemma = resolve_bool(lit);
+                if (!new_lemma) {
+                    backtrack(i, lemma);
+                    return;
+                }
                 SASSERT(new_lemma);
                 LOG("new_lemma: " << show_deref(new_lemma));
                 LOG("new_lemma is always false: " << new_lemma->is_always_false(*this));
@@ -905,6 +910,7 @@ namespace polysat {
             //       - We have a conflict but we don't know. It will be discovered when y and z are assigned,
             //         and then may lead to an assertion failure through this call to narrow.
             // TODO: what to do with "unassigned" constraints at this point? (we probably should have resolved those away, even in the 'backtrack' case.)
+            //       NOTE: they are constraints from clauses that were added to cjust… how to deal with that? should we add the whole clause to cjust?
             if (!c->is_undef())  // TODO: this check to be removed once this is fixed properly.
                 c->narrow(*this);
             if (is_conflict()) {
@@ -963,6 +969,8 @@ namespace polysat {
             for (auto c : m_conflict.units()) {
                 if (c->bvar() == var)
                     continue;
+                if (c->is_undef())  // TODO: see revert_decision for a note on this.
+                    continue;
                 reason_lvl = std::max(reason_lvl, c->level());
                 reason_dep = m_dm.mk_join(reason_dep, c->dep());
                 reason_lits.push_back(c->blit());
@@ -981,13 +989,23 @@ namespace polysat {
                 continue;
             // NOTE: in general, narrow may change the conflict.
             //       But since we just backjumped, narrowing should not result in an additional conflict.
+            if (c->is_undef())  // TODO: see revert_decision for a note on this.
+                continue;
             c->narrow(*this);
+            if (is_conflict()) {
+                LOG_H1("Conflict during revert_bool_decision/narrow!");
+                return;
+            }
         }
         m_conflict.reset();
 
         clause* reason_cl = reason.get();
         add_lemma_clause(std::move(reason));
         propagate_bool(~lit, reason_cl);
+        if (is_conflict()) {
+            LOG_H1("Conflict during revert_bool_decision/propagate_bool!");
+            return;
+        }
 
         decide_bool(*lemma);
     }
@@ -1202,6 +1220,7 @@ namespace polysat {
     }
 
     void solver::collect_statistics(statistics& st) const {
+        st.update("polysat iterations",   m_stats.m_num_iterations);
         st.update("polysat decisions",    m_stats.m_num_decisions);
         st.update("polysat conflicts",    m_stats.m_num_conflicts);
         st.update("polysat propagations", m_stats.m_num_propagations);
