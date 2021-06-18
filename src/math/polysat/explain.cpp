@@ -40,6 +40,9 @@ namespace polysat {
                 LOG("New constraint: " << show_deref(c));
             }
         }
+        else {
+            LOG("No lemma");
+        }
 
         m_var = null_var;
         m_cjust_v.reset();
@@ -72,7 +75,7 @@ namespace polysat {
 
     /// [x] zx > yx  ==>  ...
     clause_ref conflict_explainer::by_ugt_x() {
-        LOG_H3("Try zx > yx");
+        LOG_H3("Try zx > yx where x := v" << m_var);
         for (auto* c : m_conflict.units())
             LOG("Constraint: " << show_deref(c));
         for (auto* c : m_conflict.clauses())
@@ -82,8 +85,8 @@ namespace polysat {
         for (auto* c : m_conflict.units()) {
             if (!c->is_ule())
                 continue;
-            pdd lhs = c->to_ule().lhs();
-            pdd rhs = c->to_ule().rhs();
+            pdd const& lhs = c->to_ule().lhs();
+            pdd const& rhs = c->to_ule().rhs();
             if (lhs.degree(m_var) != 1)
                 continue;
             if (rhs.degree(m_var) != 1)
@@ -127,13 +130,179 @@ namespace polysat {
         return nullptr;
     }
 
-    /// [y] y >= z' /\ zx > yx  ==>  ...
+    /// [y] z' <= y /\ zx > yx  ==>  ...
     clause_ref conflict_explainer::by_ugt_y() {
+        LOG_H3("Try z' <= y && zx > yx where y := v" << m_var);
+        for (auto* c : m_conflict.units())
+            LOG("Constraint: " << show_deref(c));
+        for (auto* c : m_conflict.clauses())
+            LOG("Clause: " << show_deref(c));
+
+        pdd const y = m_solver.var(m_var);
+
+        // Collect constraints of shape "_ <= y"
+        ptr_vector<constraint> ds;
+        for (auto* d : m_conflict.units()) {
+            if (!d->is_ule())
+                continue;
+            if (!d->is_positive())
+                continue;
+            pdd const& rhs = d->to_ule().rhs();
+            // TODO: a*y where 'a' divides 'x' should also be easy to handle (assuming for now they're numbers)
+            // TODO: also z' < y should follow the same pattern.
+            if (rhs != y)
+                continue;
+            LOG("z' <= y candidate: " << show_deref(d));
+            ds.push_back(d);
+        }
+        if (ds.empty())
+            return nullptr;
+
+        // Find constraint of shape: zx > yx
+        for (auto* c : m_conflict.units()) {
+            if (!c->is_ule())
+                continue;
+            pdd const& lhs = c->to_ule().lhs();
+            pdd const& rhs = c->to_ule().rhs();
+            if (rhs.degree(m_var) != 1)
+                continue;
+            pdd x = lhs;
+            pdd rest = lhs;
+            rhs.factor(m_var, 1, x, rest);
+            if (!rest.is_zero())
+                continue;
+            // TODO: in principle, 'x' could be any polynomial. However, we need to divide the lhs by x, and we don't have general polynomial division yet.
+            //       so for now we just allow the form 'value*variable'.
+            //       (extension to arbitrary monomials for 'x' should be fairly easy too)
+            if (!x.is_unary())
+                continue;
+            unsigned x_var = x.var();
+            rational x_coeff = x.hi().val();
+            pdd xz = lhs;
+            if (!lhs.try_div(x_coeff, xz))
+                continue;
+            pdd z = lhs;
+            xz.factor(x_var, 1, z, rest);
+            if (!rest.is_zero())
+                continue;
+
+            unsigned const lvl = c->level();
+            if (c->is_positive()) {
+                // zx <= yx
+                NOT_IMPLEMENTED_YET();
+            }
+            else {
+                SASSERT(c->is_negative());
+                // zx > yx
+
+                LOG("zx > yx: " << show_deref(c));
+
+                // TODO: for now, we just choose the first of the other constraints
+                constraint* d = ds[0];
+                SASSERT(d->is_ule() && d->is_positive());
+                pdd const& z_prime = d->to_ule().lhs();
+
+                unsigned const p = m_solver.size(m_var);
+
+                clause_builder clause(m_solver);
+                // Omega^*(x, y)
+                push_omega_mul(clause, lvl, p, x, y);
+                // zx > z'x
+                constraint_ref zx_gt_zpx = m_solver.m_constraints.ult(lvl, pos_t, z*x, z_prime*x, null_dep());
+                LOG("zx>z'x: " << show_deref(zx_gt_zpx));
+                clause.push_new_constraint(std::move(zx_gt_zpx));
+
+                return clause.build(lvl, {c->dep(), m_solver.m_dm});
+            }
+        }
         return nullptr;
     }
 
-    /// [z] y' >= z /\ zx > yx  ==>  ...
+    /// [z] z <= y' /\ zx > yx  ==>  ...
     clause_ref conflict_explainer::by_ugt_z() {
+        LOG_H3("Try z <= y' && zx > yx where z := v" << m_var);
+        for (auto* c : m_conflict.units())
+            LOG("Constraint: " << show_deref(c));
+        for (auto* c : m_conflict.clauses())
+            LOG("Clause: " << show_deref(c));
+
+        pdd const z = m_solver.var(m_var);
+
+        // Collect constraints of shape "z <= _"
+        ptr_vector<constraint> ds;
+        for (auto* d : m_conflict.units()) {
+            if (!d->is_ule())
+                continue;
+            if (!d->is_positive())
+                continue;
+            pdd const& lhs = d->to_ule().lhs();
+            // TODO: a*y where 'a' divides 'x' should also be easy to handle (assuming for now they're numbers)
+            // TODO: also z < y' should follow the same pattern.
+            if (lhs != z)
+                continue;
+            LOG("z <= y' candidate: " << show_deref(d));
+            ds.push_back(d);
+        }
+        if (ds.empty())
+            return nullptr;
+
+        // Find constraint of shape: zx > yx
+        for (auto* c : m_conflict.units()) {
+            if (!c->is_ule())
+                continue;
+            pdd const& lhs = c->to_ule().lhs();
+            pdd const& rhs = c->to_ule().rhs();
+            if (lhs.degree(m_var) != 1)
+                continue;
+            pdd x = lhs;
+            pdd rest = lhs;
+            lhs.factor(m_var, 1, x, rest);
+            if (!rest.is_zero())
+                continue;
+            // TODO: in principle, 'x' could be any polynomial. However, we need to divide the lhs by x, and we don't have general polynomial division yet.
+            //       so for now we just allow the form 'value*variable'.
+            //       (extension to arbitrary monomials for 'x' should be fairly easy too)
+            if (!x.is_unary())
+                continue;
+            unsigned x_var = x.var();
+            rational x_coeff = x.hi().val();
+            pdd xy = lhs;
+            if (!rhs.try_div(x_coeff, xy))
+                continue;
+            pdd y = lhs;
+            xy.factor(x_var, 1, y, rest);
+            if (!rest.is_zero())
+                continue;
+
+            unsigned const lvl = c->level();
+            if (c->is_positive()) {
+                // zx <= yx
+                NOT_IMPLEMENTED_YET();
+            }
+            else {
+                SASSERT(c->is_negative());
+                // zx > yx
+
+                LOG("zx > yx: " << show_deref(c));
+
+                // TODO: for now, we just choose the first of the other constraints
+                constraint* d = ds[0];
+                SASSERT(d->is_ule() && d->is_positive());
+                pdd const& y_prime = d->to_ule().rhs();
+
+                unsigned const p = m_solver.size(m_var);
+
+                clause_builder clause(m_solver);
+                // Omega^*(x, y')
+                push_omega_mul(clause, lvl, p, x, y_prime);
+                // y'x > yx
+                constraint_ref ypx_gt_yx = m_solver.m_constraints.ult(lvl, pos_t, y_prime*x, y*x, null_dep());
+                LOG("y'x>yx: " << show_deref(ypx_gt_yx));
+                clause.push_new_constraint(std::move(ypx_gt_yx));
+
+                return clause.build(lvl, {c->dep(), m_solver.m_dm});
+            }
+        }
         return nullptr;
     }
 
