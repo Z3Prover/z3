@@ -352,6 +352,7 @@ namespace euf {
         sat::literal attach_lit(sat::literal lit, expr* e);
         void unhandled_function(func_decl* f);
         th_rewriter& get_rewriter() { return m_rewriter; }
+        void rewrite(expr_ref& e) { m_rewriter(e); }
         bool is_shared(euf::enode* n) const;
 
         // relevancy

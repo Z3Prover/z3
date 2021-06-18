@@ -278,6 +278,7 @@ namespace euf {
             }
             else {
                 sat::bool_var v = si.to_bool_var(c);
+                s().set_external(v);
                 VERIFY(v != sat::null_bool_var);
                 VERIFY(s().is_external(v));
                 SASSERT(v != sat::null_bool_var);

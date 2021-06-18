@@ -745,7 +745,7 @@ namespace euf {
             out << "] ";
         }
         if (n->value() != l_undef) 
-            out << "[v" << n->bool_var() << " := " << (n->value() == l_true ? "T":"F") << "] ";
+            out << "[b" << n->bool_var() << " := " << (n->value() == l_true ? "T":"F") << "] ";
         if (n->has_th_vars()) {
             out << "[t";
             for (auto v : enode_th_vars(n))
