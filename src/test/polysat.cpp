@@ -727,6 +727,9 @@ namespace polysat {
 
 
 void tst_polysat() {
+    polysat::test_monot_bounds_simple(8);
+    return;
+
     polysat::test_add_conflicts();
     polysat::test_wlist();
     polysat::test_cjust();
@@ -745,7 +748,6 @@ void tst_polysat() {
     polysat::test_ineq_basic5();
     polysat::test_ineq_basic6();
     polysat::test_fixed_point_arith_div_mul_inverse();
-    polysat::test_monot_bounds_simple(2);
     polysat::test_monot_bounds(2);
     polysat::test_monot_bounds_full();
     polysat::test_fixed_point_arith_mul_div_inverse();
