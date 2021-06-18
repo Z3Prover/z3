@@ -364,6 +364,7 @@ public:
     MATCH_UNARY(is_bv_not);
 
     MATCH_BINARY(is_bv_add);
+    MATCH_BINARY(is_bv_sub);
     MATCH_BINARY(is_bv_mul);
     MATCH_BINARY(is_bv_sle);
     MATCH_BINARY(is_bv_ule);

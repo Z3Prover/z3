@@ -727,12 +727,17 @@ namespace polysat {
             return *r;
         bv_util bv(m);
         rational n;
-        unsigned sz;
+        unsigned sz = bv.get_bv_size(e);
         expr* a, *b;
         if (bv.is_bv_add(e, a, b)) {
             auto pa = to_pdd(m, s, expr2pdd, a);
             auto pb = to_pdd(m, s, expr2pdd, b);
             r = alloc(pdd, pa + pb);
+        }
+        else if (bv.is_bv_sub(e, a, b)) {
+            auto pa = to_pdd(m, s, expr2pdd, a);
+            auto pb = to_pdd(m, s, expr2pdd, b);
+            r = alloc(pdd, pa - pb);
         }
         else if (bv.is_bv_mul(e, a, b)) {
             auto pa = to_pdd(m, s, expr2pdd, a);
@@ -740,20 +745,26 @@ namespace polysat {
             r = alloc(pdd, pa * pb);
         }
         else if (bv.is_bv_udiv(e, a, b)) {
-            std::cout << "TODO udiv\n";
+            // quot = udiv(a, b)
+            // quot*b + rem == a
+            // rem < b or b == 0
+            // quot*b does not overflow
+            auto quot = s.var(s.add_var(sz));
+            auto rem = s.var(s.add_var(sz));
+            auto pa = to_pdd(m, s, expr2pdd, a);
+            auto pb = to_pdd(m, s, expr2pdd, b);            
+            s.add_eq(quot*pb + rem - pa);
+            s.add_ult(rem, pb);
+            // TODO:
+            // s.add_mul_noovfl(quot, pb);
+            r = alloc(pdd, quot);
         }
-        else if (bv.is_numeral(e, n, sz)) {
+        else if (bv.is_numeral(e, n, sz)) 
             r = alloc(pdd, s.value(n, sz));
-        }
-        else if (is_uninterp(e)) {
-            sz = bv.get_bv_size(e);
+        else if (is_uninterp(e)) 
             r = alloc(pdd, s.var(s.add_var(sz)));
-        }
-        else 
-            std::cout << "unknown " << mk_pp(e, m) << "\n";
-
-        if (!r) {
-            sz = bv.get_bv_size(e);
+        else {
+            std::cout << "UNKNOWN " << mk_pp(e, m) << "\n";
             r = alloc(pdd, s.var(s.add_var(sz)));
         }
         expr2pdd.insert(e, r);
@@ -793,15 +804,21 @@ namespace polysat {
             else if (bv.is_slt(fm, a, b) || bv.is_sgt(fm, b, a)) {
                 auto pa = to_pdd(m, s, expr2pdd, a);
                 auto pb = to_pdd(m, s, expr2pdd, b);
-                std::cout << "slt\n";
+                if (is_not)
+                    s.add_sle(pb, pa);
+                else 
+                    s.add_slt(pa, pb);
             }
             else if (bv.is_sle(fm, a, b) || bv.is_sge(fm, b, a)) {
                 auto pa = to_pdd(m, s, expr2pdd, a);
                 auto pb = to_pdd(m, s, expr2pdd, b);
-                std::cout << "sle\n";
+                if (is_not)
+                    s.add_slt(pb, pa);
+                else 
+                    s.add_sle(pa, pb);
             }
             else {
-                std::cout << "formula: " << is_not << " " << mk_pp(fm, m) << "\n";            
+                std::cout << "SKIP: " << mk_pp(fm, m) << "\n";            
             }
         }
         for (auto [k,v] : expr2pdd)
@@ -842,11 +859,8 @@ void tst_polysat() {
 #endif
 }
 
-// TBD also add test that loads from a file and runs the polysat engine.
-// sketch follows below:
 
 #include "ast/bv_decl_plugin.h"
-
 
 
 void tst_polysat_argv(char** argv, int argc, int& i) {
@@ -854,7 +868,6 @@ void tst_polysat_argv(char** argv, int argc, int& i) {
     // assume they are simple bit-vector equations (and inequations)
     // convert to solver state.
     
-    std::cout << "argc " << argc << "\n";
     if (argc < 3) {
         std::cerr << "Usage: " << argv[0] << " FILE\n";
         return;
@@ -872,5 +885,6 @@ void tst_polysat_argv(char** argv, int argc, int& i) {
     auto fmls = ctx.assertions();
     polysat::scoped_solver s("polysat");
     polysat::internalize(m, s, fmls);
+    std::cout << "checking\n";
     s.check();
 }
