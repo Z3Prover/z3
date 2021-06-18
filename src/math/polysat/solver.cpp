@@ -154,6 +154,11 @@ namespace polysat {
         return v;
     }
 
+    pdd solver::value(rational const& v, unsigned sz) {
+        return sz2pdd(sz).mk_val(v);
+    }
+
+
     void solver::del_var() {
         // TODO also remove v from all learned constraints.
         pvar v = m_viable.size() - 1;

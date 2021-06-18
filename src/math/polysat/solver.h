@@ -326,6 +326,11 @@ namespace polysat {
         pdd var(pvar v) { return m_vars[v]; }
 
         /**
+         * Create polynomial constant.
+         */
+        pdd value(rational const& v, unsigned sz);
+
+        /**
          * Return value of v in the current model (only meaningful if check_sat() returned l_true).
          */
         rational get_value(pvar v) const { SASSERT(!m_justification[v].is_unassigned()); return m_value[v]; }

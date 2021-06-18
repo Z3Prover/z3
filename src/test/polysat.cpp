@@ -720,8 +720,92 @@ namespace polysat {
 
     // convert assertions into internal solver state
     // support small grammar of formulas.
-    void internalize(solver& s, expr_ref_vector& fmls) {
 
+    pdd to_pdd(ast_manager& m, solver& s, obj_map<expr, pdd*>& expr2pdd, expr* e) {
+        pdd* r = nullptr;
+        if (expr2pdd.find(e, r))
+            return *r;
+        bv_util bv(m);
+        rational n;
+        unsigned sz;
+        expr* a, *b;
+        if (bv.is_bv_add(e, a, b)) {
+            auto pa = to_pdd(m, s, expr2pdd, a);
+            auto pb = to_pdd(m, s, expr2pdd, b);
+            r = alloc(pdd, pa + pb);
+        }
+        else if (bv.is_bv_mul(e, a, b)) {
+            auto pa = to_pdd(m, s, expr2pdd, a);
+            auto pb = to_pdd(m, s, expr2pdd, b);
+            r = alloc(pdd, pa * pb);
+        }
+        else if (bv.is_bv_udiv(e, a, b)) {
+            std::cout << "TODO udiv\n";
+        }
+        else if (bv.is_numeral(e, n, sz)) {
+            r = alloc(pdd, s.value(n, sz));
+        }
+        else if (is_uninterp(e)) {
+            sz = bv.get_bv_size(e);
+            r = alloc(pdd, s.var(s.add_var(sz)));
+        }
+        else 
+            std::cout << "unknown " << mk_pp(e, m) << "\n";
+
+        if (!r) {
+            sz = bv.get_bv_size(e);
+            r = alloc(pdd, s.var(s.add_var(sz)));
+        }
+        expr2pdd.insert(e, r);
+        return *r;
+    }
+
+    void internalize(ast_manager& m, solver& s, ptr_vector<expr>& fmls) {
+        bv_util bv(m);
+        obj_map<expr, pdd*> expr2pdd;
+        for (expr* fm : fmls) {
+            bool is_not = m.is_not(fm, fm);
+            expr* a, *b;
+            if (m.is_eq(fm, a, b)) {
+                auto pa = to_pdd(m, s, expr2pdd, a);
+                auto pb = to_pdd(m, s, expr2pdd, b);
+                if (is_not)
+                    s.add_diseq(pa - pb);
+                else 
+                    s.add_eq(pa - pb);
+            }
+            else if (bv.is_ult(fm, a, b) || bv.is_ugt(fm, b, a)) {
+                auto pa = to_pdd(m, s, expr2pdd, a);
+                auto pb = to_pdd(m, s, expr2pdd, b);
+                if (is_not)
+                    s.add_ule(pb, pa);
+                else 
+                    s.add_ult(pa, pb);
+            }
+            else if (bv.is_ule(fm, a, b) || bv.is_uge(fm, b, a)) {
+                auto pa = to_pdd(m, s, expr2pdd, a);
+                auto pb = to_pdd(m, s, expr2pdd, b);
+                if (is_not)
+                    s.add_ult(pb, pa);
+                else 
+                    s.add_ule(pa, pb);
+            }
+            else if (bv.is_slt(fm, a, b) || bv.is_sgt(fm, b, a)) {
+                auto pa = to_pdd(m, s, expr2pdd, a);
+                auto pb = to_pdd(m, s, expr2pdd, b);
+                std::cout << "slt\n";
+            }
+            else if (bv.is_sle(fm, a, b) || bv.is_sge(fm, b, a)) {
+                auto pa = to_pdd(m, s, expr2pdd, a);
+                auto pb = to_pdd(m, s, expr2pdd, b);
+                std::cout << "sle\n";
+            }
+            else {
+                std::cout << "formula: " << is_not << " " << mk_pp(fm, m) << "\n";            
+            }
+        }
+        for (auto [k,v] : expr2pdd)
+            dealloc(v);
     }
 }
 
@@ -761,29 +845,32 @@ void tst_polysat() {
 // TBD also add test that loads from a file and runs the polysat engine.
 // sketch follows below:
 
+#include "ast/bv_decl_plugin.h"
+
+
 
 void tst_polysat_argv(char** argv, int argc, int& i) {
     // set up SMT2 parser to extract assertions
     // assume they are simple bit-vector equations (and inequations)
     // convert to solver state.
-    if (argc != 2) {
+    
+    std::cout << "argc " << argc << "\n";
+    if (argc < 3) {
         std::cerr << "Usage: " << argv[0] << " FILE\n";
         return;
     }
-    std::ifstream is(argv[1]);
-    // cmd_context ctx(false, &m);
+    std::cout << "processing " << argv[2] << "\n";
+    std::ifstream is(argv[2]);
+    if (is.bad() || is.fail()) {
+        std::cout << "failed to open " << argv[2] << "\n";
+        return;
+    }
     cmd_context ctx(false);
+    ast_manager& m = ctx.m();
     ctx.set_ignore_check(true);
     VERIFY(parse_smt2_commands(ctx, is));
     auto fmls = ctx.assertions();
     polysat::scoped_solver s("polysat");
-    for (expr* fm : fmls) {
-        // fm->get_kind()
-        if (is_app(fm)) {
-            // is_app_of
-        }
-    }
-    // polysat::internalize(s, fmls);
-    // std::cout << s.check() << "\n";
+    polysat::internalize(m, s, fmls);
     s.check();
 }

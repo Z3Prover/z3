@@ -343,6 +343,14 @@ public:
     bool is_bv_not(expr const * e) const { return is_app_of(e, get_fid(), OP_BNOT); }
     bool is_bv_ule(expr const * e) const { return is_app_of(e, get_fid(), OP_ULEQ); }
     bool is_bv_sle(expr const * e) const { return is_app_of(e, get_fid(), OP_SLEQ); }
+    bool is_ule(expr const * e) const { return is_app_of(e, get_fid(), OP_ULEQ); }
+    bool is_sle(expr const * e) const { return is_app_of(e, get_fid(), OP_SLEQ); }
+    bool is_ult(expr const * e) const { return is_app_of(e, get_fid(), OP_ULT); }
+    bool is_slt(expr const * e) const { return is_app_of(e, get_fid(), OP_SLT); }
+    bool is_ugt(expr const * e) const { return is_app_of(e, get_fid(), OP_UGT); }
+    bool is_sgt(expr const * e) const { return is_app_of(e, get_fid(), OP_SGT); }
+    bool is_uge(expr const * e) const { return is_app_of(e, get_fid(), OP_UGEQ); }
+    bool is_sge(expr const * e) const { return is_app_of(e, get_fid(), OP_SGEQ); }
     bool is_bit2bool(expr const * e) const { return is_app_of(e, get_fid(), OP_BIT2BOOL); }
     bool is_bv2int(expr const* e) const { return is_app_of(e, get_fid(), OP_BV2INT); }
     bool is_int2bv(expr const* e) const { return is_app_of(e, get_fid(), OP_INT2BV); }
@@ -359,6 +367,14 @@ public:
     MATCH_BINARY(is_bv_mul);
     MATCH_BINARY(is_bv_sle);
     MATCH_BINARY(is_bv_ule);
+    MATCH_BINARY(is_ule);
+    MATCH_BINARY(is_sle);
+    MATCH_BINARY(is_ult);
+    MATCH_BINARY(is_slt);
+    MATCH_BINARY(is_uge);
+    MATCH_BINARY(is_sge);
+    MATCH_BINARY(is_ugt);
+    MATCH_BINARY(is_sgt);
     MATCH_BINARY(is_bv_ashr);
     MATCH_BINARY(is_bv_lshr);
     MATCH_BINARY(is_bv_shl);
