@@ -461,10 +461,17 @@ namespace dd {
      * But such a multiplication would create nodes with non-integral coefficients.
      */
     pdd pdd_manager::div(pdd const& a, rational const& c) {
+        pdd res(zero_pdd, this);
+        VERIFY(try_div(a, c, res));
+        return res;
+    }
+
+    bool pdd_manager::try_div(pdd const& a, rational const& c, pdd& out_result) {
         if (m_semantics == free_e) {
             // Don't cache separately for the free semantics;
             // use 'mul' so we can share results for a/c and a*(1/c).
-            return mul(inv(c), a);
+            out_result = mul(inv(c), a);
+            return true;
         }
         SASSERT(c.is_int());
         bool first = true;
@@ -472,7 +479,11 @@ namespace dd {
         scoped_push _sp(*this);
         while (true) {
             try {
-                return pdd(div_rec(a.root, c, null_pdd), this);
+                PDD res = div_rec(a.root, c, null_pdd);
+                if (res != null_pdd)
+                    out_result = pdd(res, this);
+                SASSERT(well_formed());
+                return res != null_pdd;
             }
             catch (const mem_out &) {
                 try_gc();
@@ -480,10 +491,9 @@ namespace dd {
                 first = false;
             }
         }
-        SASSERT(well_formed());
-        return pdd(zero_pdd, this);
     }
 
+    /// Returns null_pdd if one of the coefficients is not divisible by c.
     pdd_manager::PDD pdd_manager::div_rec(PDD a, rational const& c, PDD c_pdd) {
         SASSERT(m_semantics != free_e);
         SASSERT(c.is_int());
@@ -491,8 +501,10 @@ namespace dd {
             return zero_pdd;
         if (is_val(a)) {
             rational r = val(a) / c;
-            SASSERT(r.is_int());
-            return imk_val(r);
+            if (r.is_int())
+                return imk_val(r);
+            else
+                return null_pdd;
         }
         if (c_pdd == null_pdd)
             c_pdd = imk_val(c);
@@ -502,10 +514,14 @@ namespace dd {
             return e2->m_result;
         push(div_rec(lo(a), c, c_pdd));
         push(div_rec(hi(a), c, c_pdd));
-        PDD r = make_node(level(a), read(2), read(1));
+        PDD l = read(2);
+        PDD h = read(1);
+        PDD res = null_pdd;
+        if (l != null_pdd && h != null_pdd)
+            res = make_node(level(a), l, h);
         pop(2);
-        e1->m_result = r;
-        return r;
+        e1->m_result = res;
+        return res;
     }
 
     pdd pdd_manager::pow(pdd const &p, unsigned j) {

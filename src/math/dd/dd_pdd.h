@@ -322,6 +322,7 @@ namespace dd {
         pdd mul(pdd const& a, pdd const& b);
         pdd mul(rational const& c, pdd const& b);
         pdd div(pdd const& a, rational const& c);
+        bool try_div(pdd const& a, rational const& c, pdd& out_result);
         pdd mk_or(pdd const& p, pdd const& q);
         pdd mk_xor(pdd const& p, pdd const& q);
         pdd mk_xor(pdd const& p, unsigned q);
@@ -408,6 +409,7 @@ namespace dd {
         pdd operator~() const { return m.mk_not(*this); }
         pdd rev_sub(rational const& r) const { return m.sub(m.mk_val(r), *this); }
         pdd div(rational const& other) const { return m.div(*this, other); }
+        bool try_div(rational const& other, pdd& out_result) const { return m.try_div(*this, other, out_result); }
         pdd pow(unsigned j) const { return m.pow(*this, j); }
         pdd reduce(pdd const& other) const { return m.reduce(*this, other); }
         bool different_leading_term(pdd const& other) const { return m.different_leading_term(*this, other); }

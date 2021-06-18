@@ -28,12 +28,14 @@ namespace polysat {
     }
 
     void ule_constraint::narrow(solver& s) {
-        SASSERT(!is_undef());
+        LOG_H3("Narrowing " << *this);
         LOG("Assignment: " << s.assignment());
         auto p = lhs().subst_val(s.assignment());
         LOG("Substituted LHS: " << lhs() << " := " << p);
         auto q = rhs().subst_val(s.assignment());
         LOG("Substituted RHS: " << rhs() << " := " << q);
+
+        SASSERT(!is_undef());
 
         if (is_always_false(p, q)) {
             s.set_conflict(*this);
@@ -95,8 +97,8 @@ namespace polysat {
         VERIFY(!is_undef());
         if (is_positive())
             return lhs.is_val() && rhs.is_val() && lhs.val() > rhs.val();
-        else 
-            return lhs.is_val() && rhs.is_val() && lhs.val() <= rhs.val();
+        else
+            return (lhs.is_val() && rhs.is_val() && lhs.val() <= rhs.val()) || (lhs == rhs);
     }
 
     bool ule_constraint::is_always_false() {
