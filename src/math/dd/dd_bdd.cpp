@@ -1002,6 +1002,20 @@ namespace dd {
         return result;
     }
 
+    bool_vector bdd_manager::mk_usub(bool_vector const& b) {
+        bool_vector result;
+        if (b.empty())
+            return result;
+        bool carry = false;
+        result.push_back(b[0]);
+        for (unsigned i = 1; i < b.size(); ++i) {
+            carry |= b[i-1];
+            result.push_back(carry ^ b[i]);
+        }
+        return result;
+    }
+
+
     bddv bdd_manager::mk_mul(bddv const& a, bddv const& b) {
         SASSERT(a.size() == b.size());
         bddv a_shifted = a;
@@ -1029,32 +1043,13 @@ namespace dd {
         bddv a_shifted = a;
         bddv result = mk_zero(a.size());
 
-#if 0
-        // 
-        // check correctness and tune mk_usub
-        // multiplication by a constant is dead slow.
-        // this can also be tuned.
-        // 
-        unsigned cnt = 0;
-        bool negated = false;
-        for (auto v : b) if (v) cnt++;
-        
+       
         // use identity (bvmul a b) == (bvneg (bvmul (bvneg a) b))
-        if (cnt*2 > b.size()) {
-            bool_vector b_inv;
-            for (auto v : b)
-                b_inv.push_back(!v);
-            for (unsigned i = 0; i < b_inv.size(); ++i) {
-                if (b_inv[i])
-                    b_inv[i] = false;
-                else {
-                    b_inv[i] = true;
-                    break;
-                }
-            }
-            return mk_usub(mk_mul(a, b_inv));
-        }
-#endif
+        unsigned cnt = 0;
+        for (auto v : b) if (v) cnt++; 
+        if (cnt*2 > b.size()) 
+            return mk_usub(mk_mul(a, mk_usub(b)));
+
         for (unsigned i = 0; i < a.size(); ++i) {
             if (b[i])
                 result = mk_add(result, a_shifted);

@@ -204,6 +204,8 @@ namespace dd {
             ~scoped_push() { m.m_bdd_stack.shrink(m_size); }
         };
 
+        bool_vector mk_usub(bool_vector const& b);
+
     public:
         struct mem_out {};
 
