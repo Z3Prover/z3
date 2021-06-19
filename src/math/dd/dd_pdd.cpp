@@ -1460,7 +1460,10 @@ namespace dd {
             rational c = abs(m.first);
             m.second.reverse();
             if (!c.is_one() || m.second.empty()) {
-                out << c;
+                if (m_semantics == mod2N_e && mod(-c, m_mod2N) < c)
+                    out << -mod(-c, m_mod2N);
+                else 
+                    out << c;
                 if (!m.second.empty()) out << "*";
             }
             unsigned v_prev = UINT_MAX;
