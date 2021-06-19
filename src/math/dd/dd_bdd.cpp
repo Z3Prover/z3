@@ -991,6 +991,17 @@ namespace dd {
         return result;
     }
 
+    bddv bdd_manager::mk_usub(bddv const& a) {
+        bddv result(this);        
+        bdd carry = mk_false();
+        result.push_back(a[0]);
+        for (unsigned i = 1; i < a.size(); ++i) {
+            carry = a[i-1] || carry;
+            result.push_back(carry ^ a[i]);
+        }
+        return result;
+    }
+
     bddv bdd_manager::mk_mul(bddv const& a, bddv const& b) {
         SASSERT(a.size() == b.size());
         bddv a_shifted = a;
@@ -1005,26 +1016,51 @@ namespace dd {
         return result;
     }
 
-    template <class GetBitFn>
-    bddv bdd_manager::mk_mul(bddv const& a, GetBitFn get_bit) {
-        bddv a_shifted = a;
-        bddv result = mk_zero(a.size());
-        for (unsigned i = 0; i < a.size(); ++i) {
-            if (get_bit(i))
-                result = mk_add(result, a_shifted);
-            a_shifted.shl();
-        }
-        return result;
-    }
-
     bddv bdd_manager::mk_mul(bddv const& a, rational const& val) {
         SASSERT(val.is_int() && val >= 0 && val < rational::power_of_two(a.size()));
-        return mk_mul(a, [val](unsigned i) { return val.get_bit(i); });
+        bool_vector b;
+        for (unsigned i = 0; i < a.size(); ++i) 
+            b.push_back(val.get_bit(i));
+        return mk_mul(a, b);
     }
 
     bddv bdd_manager::mk_mul(bddv const& a, bool_vector const& b) {
         SASSERT(a.size() == b.size());
-        return mk_mul(a, [b](unsigned i) { return b[i]; });
+        bddv a_shifted = a;
+        bddv result = mk_zero(a.size());
+
+#if 0
+        // 
+        // check correctness and tune mk_usub
+        // multiplication by a constant is dead slow.
+        // this can also be tuned.
+        // 
+        unsigned cnt = 0;
+        bool negated = false;
+        for (auto v : b) if (v) cnt++;
+        
+        // use identity (bvmul a b) == (bvneg (bvmul (bvneg a) b))
+        if (cnt*2 > b.size()) {
+            bool_vector b_inv;
+            for (auto v : b)
+                b_inv.push_back(!v);
+            for (unsigned i = 0; i < b_inv.size(); ++i) {
+                if (b_inv[i])
+                    b_inv[i] = false;
+                else {
+                    b_inv[i] = true;
+                    break;
+                }
+            }
+            return mk_usub(mk_mul(a, b_inv));
+        }
+#endif
+        for (unsigned i = 0; i < a.size(); ++i) {
+            if (b[i])
+                result = mk_add(result, a_shifted);
+            a_shifted.shl();
+        }
+        return result;
     }
 
     bddv bdd_manager::mk_concat(bddv const& a, bddv const& b) {

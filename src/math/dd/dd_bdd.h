@@ -204,8 +204,6 @@ namespace dd {
             ~scoped_push() { m.m_bdd_stack.shrink(m_size); }
         };
 
-        template <class GetBitFn> bddv mk_mul(bddv const& a, GetBitFn get_bit);
-
     public:
         struct mem_out {};
 
@@ -248,6 +246,7 @@ namespace dd {
         bddv mk_var(unsigned_vector const& vars);
         bddv mk_add(bddv const& a, bddv const& b);
         bddv mk_sub(bddv const& a, bddv const& b);
+        bddv mk_usub(bddv const& a);
         bddv mk_mul(bddv const& a, bddv const& b);
         bddv mk_mul(bddv const& a, bool_vector const& b);
         bddv mk_mul(bddv const& a, rational const& val);
