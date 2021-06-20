@@ -87,11 +87,8 @@ namespace euf {
             bool operator()(enode * n1, enode * n2) const {
                 SASSERT(n1->num_args() == 2);
                 SASSERT(n2->num_args() == 2);
-
                 if (n1->get_decl() != n2->get_decl())
                     return false;
-
-                SASSERT(n1->get_decl() == n2->get_decl());
                 enode* c1_1 = get_root(n1, 0);  
                 enode* c1_2 = get_root(n1, 1); 
                 enode* c2_1 = get_root(n2, 0); 
