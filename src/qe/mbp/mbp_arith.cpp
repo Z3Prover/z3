@@ -283,7 +283,8 @@ namespace mbp {
             unsigned j = 0;
             TRACE("qe", tout << "vars: " << vars << "\nfmls: " << fmls << "\n";
                   for (expr* f : fmls) tout << mk_pp(f, m) << " := " << model(f) << "\n";);
-            for (expr* fml : fmls) {
+            for (unsigned i = 0; i < fmls.size(); ++i) {
+                expr* fml = fmls.get(i);
                 if (!linearize(mbo, eval, fml, fmls, tids)) {
                     TRACE("qe", tout << "could not linearize: " << mk_pp(fml, m) << "\n";);
                     fmls[j++] = fml;
