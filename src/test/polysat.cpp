@@ -861,12 +861,30 @@ void tst_polysat() {
 
 
 #include "ast/bv_decl_plugin.h"
+#include <signal.h>
 
+polysat::scoped_solver* g_solver = nullptr;
+
+static void display_statistics() {
+    if (g_solver) {
+        statistics st;
+        g_solver->collect_statistics(st);
+        std::cout << st << "\n";
+    }
+}
+
+static void STD_CALL on_ctrl_c(int) {
+    signal (SIGINT, SIG_DFL);
+    display_statistics();
+    raise(SIGINT);
+}
 
 void tst_polysat_argv(char** argv, int argc, int& i) {
     // set up SMT2 parser to extract assertions
     // assume they are simple bit-vector equations (and inequations)
     // convert to solver state.
+
+    signal(SIGINT, on_ctrl_c);
     
     if (argc < 3) {
         std::cerr << "Usage: " << argv[0] << " FILE\n";
@@ -884,6 +902,7 @@ void tst_polysat_argv(char** argv, int argc, int& i) {
     VERIFY(parse_smt2_commands(ctx, is));
     auto fmls = ctx.assertions();
     polysat::scoped_solver s("polysat");
+    g_solver = &s;
     polysat::internalize(m, s, fmls);
     std::cout << "checking\n";
     s.check();
