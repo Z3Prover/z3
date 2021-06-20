@@ -29,7 +29,7 @@ namespace polysat {
 
     void ule_constraint::narrow(solver& s) {
         LOG_H3("Narrowing " << *this);
-        LOG("Assignment: " << s.assignment());
+        LOG("Assignment: " << assignments_pp(s));
         auto p = lhs().subst_val(s.assignment());
         LOG("Substituted LHS: " << lhs() << " := " << p);
         auto q = rhs().subst_val(s.assignment());

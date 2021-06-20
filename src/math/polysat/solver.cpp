@@ -124,7 +124,7 @@ namespace polysat {
             m_stats.m_num_iterations++;
             LOG_H1("Next solving loop iteration");
             LOG("Free variables: " << m_free_vars);
-            LOG("Assignments:    " << assignment());
+            LOG("Assignment:     " << assignments_pp(*this));
             LOG("Conflict:       " << m_conflict);
             IF_LOGGING(log_viable());
 
@@ -286,7 +286,7 @@ namespace polysat {
     }
 
     void solver::propagate(pvar v, rational const& val, constraint& c) {
-        LOG("Propagation: pvar " << v << " := " << val << ", due to " << c);
+        LOG("Propagation: " << assignment_pp(*this, v, val) << ", due to " << c);
         if (is_viable(v, val)) {
             m_free_vars.del_var_eh(v);
             assign_core(v, val, justification::propagation(m_level));        
@@ -1223,6 +1223,22 @@ namespace polysat {
         }
         return out;
     }
+
+    std::ostream& assignments_pp::display(std::ostream& out) const {
+        for (auto [var, val] : s.assignment())
+            out << assignment_pp(s, var, val) << " ";
+        return out;
+    }
+
+    std::ostream& assignment_pp::display(std::ostream& out) const {
+        out << "v" << var << " := ";
+        rational const& p = rational::power_of_two(s.size(var));
+        if (val > mod(-val, p))
+            return out << -mod(-val, p);
+        else 
+            return out << val;
+    }
+    
 
     void solver::collect_statistics(statistics& st) const {
         st.update("polysat iterations",   m_stats.m_num_iterations);

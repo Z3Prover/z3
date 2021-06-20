@@ -34,7 +34,7 @@ namespace polysat {
 
     void eq_constraint::narrow(solver& s) {
         SASSERT(!is_undef());
-        LOG("Assignment: " << s.assignment());
+        LOG("Assignment: " << assignments_pp(s));
         auto q = p().subst_val(s.assignment());
         LOG("Substituted: " << p() << " := " << q);
         if (q.is_zero()) {

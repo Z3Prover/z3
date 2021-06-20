@@ -52,6 +52,8 @@ namespace polysat {
         friend class conflict_explainer;
         friend class forbidden_intervals;
         friend class linear_solver;
+        friend class assignment_pp;
+        friend class assignments_pp;
 
         typedef ptr_vector<constraint> constraints;
 
@@ -380,7 +382,27 @@ namespace polysat {
 
     };
 
+    class assignments_pp {
+        solver& s;
+    public:
+        assignments_pp(solver& s): s(s) {}
+        std::ostream& display(std::ostream& out) const;
+    };
+
+    class assignment_pp {
+        solver& s;
+        pvar var;
+        rational const& val;
+    public:
+        assignment_pp(solver& s, pvar var, rational const& val): s(s), var(var), val(val) {}
+        std::ostream& display(std::ostream& out) const;
+    };
+
     inline std::ostream& operator<<(std::ostream& out, solver const& s) { return s.display(out); }
+
+    inline std::ostream& operator<<(std::ostream& out, assignment_pp const& p) { return p.display(out); }
+
+    inline std::ostream& operator<<(std::ostream& out, assignments_pp const& a) { return a.display(out); }
 
 }
 
