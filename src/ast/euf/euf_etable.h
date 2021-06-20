@@ -88,6 +88,9 @@ namespace euf {
                 SASSERT(n1->num_args() == 2);
                 SASSERT(n2->num_args() == 2);
 
+                if (n1->get_decl() != n2->get_decl())
+                    return false;
+
                 SASSERT(n1->get_decl() == n2->get_decl());
                 enode* c1_1 = get_root(n1, 0);  
                 enode* c1_2 = get_root(n1, 1); 
