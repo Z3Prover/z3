@@ -383,18 +383,18 @@ namespace polysat {
     };
 
     class assignments_pp {
-        solver& s;
+        solver const& s;
     public:
-        assignments_pp(solver& s): s(s) {}
+        assignments_pp(solver const& s): s(s) {}
         std::ostream& display(std::ostream& out) const;
     };
 
     class assignment_pp {
-        solver& s;
+        solver const& s;
         pvar var;
         rational const& val;
     public:
-        assignment_pp(solver& s, pvar var, rational const& val): s(s), var(var), val(val) {}
+        assignment_pp(solver const& s, pvar var, rational const& val): s(s), var(var), val(val) {}
         std::ostream& display(std::ostream& out) const;
     };
 

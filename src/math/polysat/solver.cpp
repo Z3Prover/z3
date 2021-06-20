@@ -125,7 +125,7 @@ namespace polysat {
             LOG_H1("Next solving loop iteration");
             LOG("Free variables: " << m_free_vars);
             LOG("Assignment:     " << assignments_pp(*this));
-            LOG("Conflict:       " << m_conflict);
+            if (!m_conflict.empty()) LOG("Conflict:       " << m_conflict);
             IF_LOGGING(log_viable());
 
             if (pending_disjunctive_lemma()) { LOG_H2("UNDEF (handle lemma externally)"); return l_undef; }
@@ -444,7 +444,7 @@ namespace polysat {
             ++m_stats.m_num_decisions;
         else 
             ++m_stats.m_num_propagations;
-        LOG("v" << v << " := " << val << " by " << j);
+        LOG(assignment_pp(*this, v, val) << " by " << j);
         SASSERT(is_viable(v, val));
         SASSERT(std::all_of(assignment().begin(), assignment().end(), [v](auto p) { return p.first != v; }));
         m_value[v] = val;
@@ -458,6 +458,7 @@ namespace polysat {
 
     void solver::set_conflict(constraint& c) { 
         LOG("Conflict: " << c);
+        LOG(*this);
         SASSERT(!is_conflict());
         m_conflict.push_back(&c); 
     }
@@ -516,6 +517,7 @@ namespace polysat {
      */
     void solver::resolve_conflict() {
         LOG_H2("Resolve conflict");
+        LOG_H2(*this);
         ++m_stats.m_num_conflicts;
 
         SASSERT(is_conflict());
@@ -1201,11 +1203,13 @@ namespace polysat {
     }
 
     std::ostream& solver::display(std::ostream& out) const {
-        for (auto p : assignment()) {
-            auto v = p.first;
-            auto lvl = m_justification[v].level();
-            out << "v" << v << " := " << p.second << " @" << lvl << "\n";
-            out << m_viable[v] << "\n";
+        for (auto [v, val] : assignment()) {
+            auto j = m_justification[v];
+            out << assignment_pp(*this, v, val) << " @" << j.level();
+            if (j.is_propagation())
+                out << " " << m_cjust[v];
+            out << "\n";
+            // out << m_viable[v] << "\n";
         }
         out << "Original:\n";
         for (auto* c : m_original)
