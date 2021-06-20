@@ -206,6 +206,7 @@ namespace dd {
 
         bool_vector mk_usub(bool_vector const& b);
 
+
     public:
         struct mem_out {};
 
@@ -247,6 +248,7 @@ namespace dd {
         bddv mk_var(unsigned num_bits, unsigned const* vars);
         bddv mk_var(unsigned_vector const& vars);
         bddv mk_add(bddv const& a, bddv const& b);
+        bddv mk_add(bddv const& a, std::function<bdd(unsigned)>& get_bit);
         bddv mk_sub(bddv const& a, bddv const& b);
         bddv mk_usub(bddv const& a);
         bddv mk_mul(bddv const& a, bddv const& b);
@@ -365,6 +367,7 @@ namespace dd {
     inline bddv operator*(rational const& r, bddv const& a) { return a * r; }
     inline bddv operator+(rational const& r, bddv const& a) { return a + r; }
     inline bddv operator-(rational const& r, bddv const& a) { return a.rev_sub(r); }
+
 
 }
 

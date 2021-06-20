@@ -516,6 +516,7 @@ namespace polysat {
      *
      */
     void solver::resolve_conflict() {
+        IF_VERBOSE(1, verbose_stream() << "resolve conflict\n");
         LOG_H2("Resolve conflict");
         LOG_H2(*this);
         ++m_stats.m_num_conflicts;

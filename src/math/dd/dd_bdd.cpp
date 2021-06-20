@@ -977,6 +977,20 @@ namespace dd {
         return result;
     }
 
+    bddv bdd_manager::mk_add(bddv const& a, std::function<bdd(unsigned)>& b) {
+        bdd carry = mk_false();
+        bddv result(this);
+        if (a.size() > 0)
+            result.push_back(a[0] ^ b(0));
+        for (unsigned i = 1; i < a.size(); ++i) {
+            auto bi1 = b(i-1);
+            carry = (carry && a[i-1]) || (carry && bi1) || (a[i-1] && bi1);
+            result.push_back(carry ^ a[i] ^ b(i));
+        }
+        return result;
+    }
+
+
     bddv bdd_manager::mk_sub(bddv const& a, bddv const& b) {
         SASSERT(a.size() == b.size());
         bdd carry = mk_false();
@@ -1018,14 +1032,14 @@ namespace dd {
 
     bddv bdd_manager::mk_mul(bddv const& a, bddv const& b) {
         SASSERT(a.size() == b.size());
-        bddv a_shifted = a;
         bddv result = mk_zero(a.size());
         for (unsigned i = 0; i < b.size(); ++i) {
-            bddv s = a_shifted;
-            for (unsigned j = i; j < b.size(); ++j)
-                s[j] &= b[i];
-            result = mk_add(result, s);
-            a_shifted.shl();
+            std::function<bdd(unsigned)> get_a = [&](unsigned k) {
+                if (k < i)
+                    return mk_false();
+                return a[i - k] && b[i];
+            };
+            result = mk_add(result, get_a);
         }
         return result;
     }
@@ -1040,7 +1054,6 @@ namespace dd {
 
     bddv bdd_manager::mk_mul(bddv const& a, bool_vector const& b) {
         SASSERT(a.size() == b.size());
-        bddv a_shifted = a;
         bddv result = mk_zero(a.size());
 
        
@@ -1051,9 +1064,14 @@ namespace dd {
             return mk_usub(mk_mul(a, mk_usub(b)));
 
         for (unsigned i = 0; i < a.size(); ++i) {
+            std::function<bdd(unsigned)> get_a = [&](unsigned k) {
+                if (k < i)
+                    return mk_false();
+                else
+                    return a[k - i];
+            };
             if (b[i])
-                result = mk_add(result, a_shifted);
-            a_shifted.shl();
+                result = mk_add(result, get_a);
         }
         return result;
     }
