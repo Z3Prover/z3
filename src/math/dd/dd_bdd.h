@@ -338,6 +338,9 @@ namespace dd {
         bdd slt(bddv const& other) const { return m->mk_slt(*this, other); }
         bdd sgt(bddv const& other) const { return m->mk_sgt(*this, other); }
 
+        bdd all0() const;        
+        bdd all1() const;
+
         bdd operator==(bddv const& other) const { return m->mk_eq(*this, other); }
         bdd operator==(rational const& other) const { return m->mk_eq(*this, other); }
         bdd operator!=(bddv const& other) const { return !m->mk_eq(*this, other); }

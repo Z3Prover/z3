@@ -927,7 +927,7 @@ namespace dd {
         SASSERT(a.size() == b.size());
         bdd lt = mk_false();
         bdd eq = mk_true();
-        for (unsigned i = a.size(); i-- > 0; ) {
+        for (unsigned i = a.size(); i-- > 0 && !eq.is_false(); ) {
             lt |= eq && (!a[i] && b[i]);
             eq &= !(a[i] ^ b[i]);
         }
@@ -1178,5 +1178,20 @@ namespace dd {
             m_bits[j - 1] = m_bits[j];
         m_bits[size() - 1] = m->mk_false();
     }
+
+    bdd bddv::all0() const {
+        bdd r = m->mk_true();
+        for (unsigned i = size(); i-- > 0; )
+            r &= !m_bits[i];
+        return r;
+    }
+
+    bdd bddv::all1() const {
+        bdd r = m->mk_true();
+        for (unsigned i = size(); i-- > 0; )
+            r &= m_bits[i];
+        return r;
+    }
+
 
 }

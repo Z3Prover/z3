@@ -188,6 +188,7 @@ namespace polysat {
 
         void del_var();
 
+        dd::bdd_manager& get_bdd() { return m_bdd; }
         dd::pdd_manager& sz2pdd(unsigned sz);
         dd::fdd const& sz2bits(unsigned sz);
         dd::fdd const& var2bits(pvar v) { return sz2bits(size(v)); }

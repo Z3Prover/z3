@@ -59,20 +59,29 @@ namespace polysat {
         if (q.is_unilinear()) {
             // a*x + b == 0
             pvar v = q.var();
+            s.push_cjust(v, this);
+
             rational a = q.hi().val();
             rational b = q.lo().val();
             bddv const& x = s.var2bits(v).var();
-            bddv lhs = a * x + b;
-            rational zero = rational::zero();
-            bdd xs = is_positive() ? (lhs == zero) : (lhs != zero);
-            s.push_cjust(v, this);
-            s.intersect_viable(v, xs);
-
-            rational val;
-            if (s.find_viable(v, val) == dd::find_t::singleton) {
-                s.propagate(v, val, *this);
+            if (b == 0 && a.is_odd()) {
+                // hacky test optimizing special case.
+                // general case is compute inverse(a)*-b for equality 2^k*a*x + b == 0
+                // then constrain x.
+                // 
+                s.intersect_viable(v, is_positive() ? x.all0() : !x.all0());
+            }
+            else {
+                IF_VERBOSE(10, verbose_stream() << a << "*x + " << b << "\n");
+                
+                bddv lhs = a * x + b;
+                bdd xs = is_positive() ? lhs.all0() : !lhs.all0();
+                s.intersect_viable(v, xs);
             }
 
+            rational val;
+            if (s.find_viable(v, val) == dd::find_t::singleton) 
+                s.propagate(v, val, *this);
             return;
         }
 
