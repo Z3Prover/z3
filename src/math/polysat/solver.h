@@ -56,13 +56,13 @@ namespace polysat {
         typedef ptr_vector<constraint> constraints;
 
         reslimit&                m_lim;
-        linear_solver            m_linear_solver;
+        dd::bdd_manager          m_bdd;
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
         scoped_ptr_vector<dd::fdd> m_bits;
-        dd::bdd_manager          m_bdd;
         dep_value_manager        m_value_manager;
         small_object_allocator   m_alloc;
         poly_dep_manager         m_dm;
+        linear_solver            m_linear_solver;
         constraints_and_clauses  m_conflict;
         // constraints              m_stash_just;
         var_queue                m_free_vars;
@@ -204,7 +204,8 @@ namespace polysat {
         void decide_bool(sat::literal lit, clause& lemma);
         void propagate_bool(sat::literal lit, clause* reason);
 
-        void assign_core(pvar v, rational const& val, justification const& j);
+        void assign_core(pvar v, rational const& val, justification
+            const& j);
         bool is_assigned(pvar v) const { return !m_justification[v].is_unassigned(); }
 
 

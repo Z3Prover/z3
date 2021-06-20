@@ -1009,7 +1009,7 @@ namespace dd {
         bool carry = false;
         result.push_back(b[0]);
         for (unsigned i = 1; i < b.size(); ++i) {
-            carry |= b[i-1];
+            carry = carry || b[i-1];
             result.push_back(carry ^ b[i]);
         }
         return result;
