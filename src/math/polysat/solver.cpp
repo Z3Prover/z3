@@ -34,49 +34,9 @@ namespace polysat {
         return *m_pdd[sz];
     }
 
-#if 0
-    dd::fdd const& solver::sz2bits(unsigned sz) {
-        m_bits.reserve(sz + 1);
-        auto* bits = m_bits[sz];
-        if (!bits) {
-            m_bits.set(sz, alloc(dd::fdd, m_bdd, sz));
-            bits = m_bits[sz];
-        }
-        return *bits;
-    }
-
-    bool solver::has_viable(pvar v) {
-        return !m_viable[v].is_false();
-    }
-
-    bool solver::is_viable(pvar v, rational const& val) {
-        return var2bits(v).contains(m_viable[v], val);
-    }
-
-    void solver::add_non_viable(pvar v, rational const& val) {
-        LOG("pvar " << v << " /= " << val);
-        SASSERT(is_viable(v, val));
-        auto const& bits = var2bits(v);
-        intersect_viable(v, bits.var() != val);
-    }
-
-    void solver::intersect_viable(pvar v, bdd vals) {
-        push_viable(v);
-        m_viable[v] &= vals;
-        if (m_viable[v].is_false())
-            set_conflict(v);
-    }
-
-    dd::find_t solver::find_viable(pvar v, rational & val) {
-        return var2bits(v).find_hint(m_viable[v], m_value[v], val);
-    }
-    
-#endif
-
     solver::solver(reslimit& lim): 
         m_lim(lim),
         m_vble(*this),
-        // m_bdd(1000),
         m_dm(m_value_manager, m_alloc),
         m_linear_solver(*this),
         m_free_vars(m_activity),

@@ -46,6 +46,21 @@ namespace polysat {
         }
     }
 
+    void viable::intersect_ule(pvar v, rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive) {
+        bddv const& x = var2bits(v).var();
+        // hacky special case
+        if (a == 1 && b == 0 && c == 0 && d == 0) 
+            // x <= 0
+            intersect_viable(v, is_positive ? x.all0() : !x.all0());
+        else {
+            IF_VERBOSE(10, verbose_stream() << a << "*x + " << b << (is_positive ? " <= " : " > ") << c << "*x + " << d << "\n");
+            bddv l = a * x + b;
+            bddv r = c * x + d;
+            bdd xs = is_positive ? (l <= r) : (l > r);
+            intersect_viable(v, xs);
+        }
+    }
+
     bool viable::has_viable(pvar v) {
         return !m_viable[v].is_false();
     }

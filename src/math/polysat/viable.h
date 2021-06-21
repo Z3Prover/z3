@@ -42,6 +42,8 @@ namespace polysat {
 
         void intersect_eq(rational const& a, pvar v, rational const& b, bool is_positive);
 
+        void intersect_ule(pvar v, rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive);
+
         /**
          * Check whether variable v has any viable values left according to m_viable.
          */
