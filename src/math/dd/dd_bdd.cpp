@@ -1181,14 +1181,14 @@ namespace dd {
 
     bdd bddv::all0() const {
         bdd r = m->mk_true();
-        for (unsigned i = size(); i-- > 0; )
+        for (unsigned i = 0; i < size() && !r.is_false(); ++i)
             r &= !m_bits[i];
         return r;
     }
 
     bdd bddv::all1() const {
         bdd r = m->mk_true();
-        for (unsigned i = size(); i-- > 0; )
+        for (unsigned i = 0; i < size() && !r.is_false(); ++i) 
             r &= m_bits[i];
         return r;
     }

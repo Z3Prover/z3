@@ -28,6 +28,7 @@ Author:
 #include "math/polysat/linear_solver.h"
 #include "math/polysat/search_state.h"
 #include "math/polysat/trail.h"
+#include "math/polysat/viable.h"
 #include "math/polysat/log.h"
 
 namespace polysat {
@@ -52,15 +53,15 @@ namespace polysat {
         friend class conflict_explainer;
         friend class forbidden_intervals;
         friend class linear_solver;
+        friend class viable;
         friend class assignment_pp;
         friend class assignments_pp;
 
         typedef ptr_vector<constraint> constraints;
 
         reslimit&                m_lim;
-        dd::bdd_manager          m_bdd;
+        viable                   m_vble;   // viable sets per variable
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
-        scoped_ptr_vector<dd::fdd> m_bits;
         dep_value_manager        m_value_manager;
         small_object_allocator   m_alloc;
         poly_dep_manager         m_dm;
@@ -85,7 +86,6 @@ namespace polysat {
         svector<sat::bool_var>   m_disjunctive_lemma;
 
         // Per variable information
-        vector<bdd>              m_viable;   // set of viable values.
         vector<rational>         m_value;    // assigned value
         vector<justification>    m_justification; // justification for variable assignment
         vector<constraints>      m_cjust;    // constraints justifying variable range.
@@ -110,7 +110,6 @@ namespace polysat {
 
         svector<trail_instr_t>   m_trail;
         unsigned_vector          m_qhead_trail;
-        vector<std::pair<pvar, bdd>> m_viable_trail;
         unsigned_vector          m_cjust_trail;
         ptr_vector<constraint>   m_activate_trail;
 
@@ -119,8 +118,7 @@ namespace polysat {
 
 
         void push_viable(pvar v) {
-            m_trail.push_back(trail_instr_t::viable_i);
-            m_viable_trail.push_back(std::make_pair(v, m_viable[v]));
+            m_vble.push_viable(v);
         }
 
         void push_qhead() { 
@@ -145,53 +143,13 @@ namespace polysat {
         unsigned size(pvar v) const { return m_size[v]; }
 
         /**
-         * Check whether variable v has any viable values left according to m_viable.
-         */
-        bool has_viable(pvar v);
-
-        /**
-         * check if value is viable according to m_viable.
-         */
-        bool is_viable(pvar v, rational const& val);
-
-        /**
-         * register that val is non-viable for var.
-         */
-        void add_non_viable(pvar v, rational const& val);
-
-        /**
-         * Register all values that are not contained in vals as non-viable.
-         */
-        void intersect_viable(pvar v, bdd vals);
-
-        /**
-         * Add dependency for variable viable range.
-         */
-        void add_viable_dep(pvar v, p_dependency* dep);
-
-        /**
-         * Find a next viable value for variable.
-         */
-        dd::find_t find_viable(pvar v, rational & val);
-
-        /** Log all viable values for the given variable.
-         * (Inefficient, but useful for debugging small instances.)
-         */
-        void log_viable(pvar v);
-        /** Like log_viable but for all variables */
-        void log_viable();
-
-        /**
          * undo trail operations for backtracking.
          * Each struct is a subclass of trail and implements undo().
          */
 
         void del_var();
 
-        dd::bdd_manager& get_bdd() { return m_bdd; }
         dd::pdd_manager& sz2pdd(unsigned sz);
-        dd::fdd const& sz2bits(unsigned sz);
-        dd::fdd const& var2bits(pvar v) { return sz2bits(size(v)); }
 
         void push_level();
         void pop_levels(unsigned num_levels);

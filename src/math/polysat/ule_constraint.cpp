@@ -74,22 +74,22 @@ namespace polysat {
             d = q.lo().val();
         }
         if (v != null_var) {
-            bddv const& x = s.var2bits(v).var();
+            bddv const& x = s.m_vble.var2bits(v).var();
             s.push_cjust(v, this);
             // hacky special case
             if (a == 1 && b == 0 && c == 0 && d == 0) 
                 // x <= 0
-                s.intersect_viable(v, is_positive() ? x.all0() : !x.all0());
+                s.m_vble.intersect_viable(v, is_positive() ? x.all0() : !x.all0());
             else {
                 IF_VERBOSE(10, verbose_stream() << a << "*x + " << b << (is_positive() ? " <= " : " > ") << c << "*x + " << d << "\n");
                 bddv l = a * x + b;
                 bddv r = c * x + d;
                 bdd xs = is_positive() ? (l <= r) : (l > r);
-                s.intersect_viable(v, xs);
+                s.m_vble.intersect_viable(v, xs);
             }
 
             rational val;
-            if (s.find_viable(v, val) == dd::find_t::singleton) {
+            if (s.m_vble.find_viable(v, val) == dd::find_t::singleton) {
                 s.propagate(v, val, *this);
             }
 

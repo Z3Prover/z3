@@ -63,24 +63,11 @@ namespace polysat {
 
             rational a = q.hi().val();
             rational b = q.lo().val();
-            bddv const& x = s.var2bits(v).var();
-            if (b == 0 && a.is_odd()) {
-                // hacky test optimizing special case.
-                // general case is compute inverse(a)*-b for equality 2^k*a*x + b == 0
-                // then constrain x.
-                // 
-                s.intersect_viable(v, is_positive() ? x.all0() : !x.all0());
-            }
-            else {
-                IF_VERBOSE(10, verbose_stream() << a << "*x + " << b << "\n");
-                
-                bddv lhs = a * x + b;
-                bdd xs = is_positive() ? lhs.all0() : !lhs.all0();
-                s.intersect_viable(v, xs);
-            }
+            s.m_vble.intersect_eq(a, v, b, is_positive());
+
 
             rational val;
-            if (s.find_viable(v, val) == dd::find_t::singleton) 
+            if (s.m_vble.find_viable(v, val) == dd::find_t::singleton) 
                 s.propagate(v, val, *this);
             return;
         }
