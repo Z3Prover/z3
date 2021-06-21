@@ -12,6 +12,7 @@ Author:
 
 --*/
 
+#if 0
 #include "math/polysat/var_constraint.h"
 #include "math/polysat/solver.h"
 
@@ -44,3 +45,4 @@ namespace polysat {
     }
 
 }
+#endif

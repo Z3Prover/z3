@@ -18,6 +18,10 @@ Author:
     Jakob Rath 2021-04-6
 
 --*/
+
+
+#if 0
+// to remove
 #pragma once
 #include "math/dd/dd_bdd.h"
 #include "math/polysat/constraint.h"
@@ -40,3 +44,5 @@ namespace polysat {
         bool is_currently_true(solver& s) override;
     };
 }
+
+#endif

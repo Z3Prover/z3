@@ -100,10 +100,8 @@ namespace polysat {
         var_t internalize_pdd(pdd const& p);
         void new_eq(eq_constraint& eq);
         void new_le(ule_constraint& le);
-        void new_bit(var_constraint& vc);
         void assert_eq(eq_constraint& eq);
         void assert_le(ule_constraint& le);
-        void assert_bit(var_constraint& vc);
 
         // bind monomial to variable.
         var_t mono2var(unsigned sz, unsigned_vector const& m);

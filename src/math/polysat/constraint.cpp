@@ -103,6 +103,7 @@ namespace polysat {
         return *dynamic_cast<ule_constraint const*>(this);
     }
 
+#if 0
     var_constraint& constraint::to_bit() {
         return *dynamic_cast<var_constraint*>(this);
     }
@@ -111,13 +112,16 @@ namespace polysat {
         return *dynamic_cast<var_constraint const*>(this);
     }
 
+    constraint_ref constraint_manager::viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d) {
+        return alloc(var_constraint, *this, lvl, sign, v, b, d);
+    }
+
+#endif
+
     constraint_ref constraint_manager::eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d) {
         return alloc(eq_constraint, *this, lvl, sign, p, d);
     }
 
-    constraint_ref constraint_manager::viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d) {
-        return alloc(var_constraint, *this, lvl, sign, v, b, d);
-    }
 
     constraint_ref constraint_manager::ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
         return alloc(ule_constraint, *this, lvl, sign, a, b, d);

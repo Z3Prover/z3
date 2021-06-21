@@ -117,12 +117,13 @@ namespace polysat {
     }
 
     constraint_ref solver::mk_diseq(pdd const& p, unsigned dep) {
+        return m_constraints.eq(m_level, neg_t, p, mk_dep_ref(dep));
+#if 0
         if (p.is_val()) {
             // if (!p.is_zero())
             //     return nullptr;  // TODO: probably better to create a dummy always-true constraint?
             // // Use 0 != 0 for a constraint that is always false
             // Use p != 0 as evaluable dummy constraint
-            return m_constraints.eq(m_level, neg_t, p, mk_dep_ref(dep));
         }
         unsigned sz = size(p.var());
         auto slack = add_var(sz);
@@ -130,6 +131,7 @@ namespace polysat {
         add_eq(q, dep);  // TODO: 'dep' now refers to two constraints; this is not yet supported
         auto non_zero = m_vble.sz2bits(sz).non_zero();
         return m_constraints.viable(m_level, pos_t, slack, non_zero, mk_dep_ref(dep));
+#endif
     }
 
     constraint_ref solver::mk_ule(pdd const& p, pdd const& q, unsigned dep) {

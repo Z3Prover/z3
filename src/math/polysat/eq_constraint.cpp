@@ -72,6 +72,7 @@ namespace polysat {
             return;
         }
 
+
         // TODO: what other constraints can be extracted cheaply?
     }
 

@@ -189,13 +189,6 @@ namespace polysat {
         m_rows.push_back(std::make_pair(v, sz));
     }
 
-    void linear_solver::new_bit(var_constraint& c) {
-    }
-
-    void linear_solver::assert_bit(var_constraint& c) {
-
-    }
-
 
     void linear_solver::new_constraint(constraint& c) {
         switch (c.kind()) {
@@ -204,9 +197,6 @@ namespace polysat {
             break;        
         case ckind_t::ule_t:
             new_le(c.to_ule());
-            break;
-        case ckind_t::bit_t:
-            new_bit(c.to_bit());
             break;
         default:
             UNREACHABLE();
@@ -222,9 +212,6 @@ namespace polysat {
             break;        
         case ckind_t::ule_t:
             assert_le(c.to_ule());
-            break;
-        case ckind_t::bit_t:
-            assert_bit(c.to_bit());            
             break;
         default:
             UNREACHABLE();
