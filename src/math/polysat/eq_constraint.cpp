@@ -63,11 +63,11 @@ namespace polysat {
 
             rational a = q.hi().val();
             rational b = q.lo().val();
-            s.m_vble.intersect_eq(a, v, b, is_positive());
+            s.m_viable.intersect_eq(a, v, b, is_positive());
 
 
             rational val;
-            if (s.m_vble.find_viable(v, val) == dd::find_t::singleton) 
+            if (s.m_viable.find_viable(v, val) == dd::find_t::singleton) 
                 s.propagate(v, val, *this);
             return;
         }

@@ -36,7 +36,7 @@ namespace polysat {
 
     solver::solver(reslimit& lim): 
         m_lim(lim),
-        m_vble(*this),
+        m_viable(*this),
         m_dm(m_value_manager, m_alloc),
         m_linear_solver(*this),
         m_free_vars(m_activity),
@@ -65,7 +65,7 @@ namespace polysat {
             LOG("Free variables: " << m_free_vars);
             LOG("Assignment:     " << assignments_pp(*this));
             if (!m_conflict.empty()) LOG("Conflict:       " << m_conflict);
-            IF_LOGGING(m_vble.log());
+            IF_LOGGING(m_viable.log());
 
             if (pending_disjunctive_lemma()) { LOG_H2("UNDEF (handle lemma externally)"); return l_undef; }
             else if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
@@ -82,7 +82,7 @@ namespace polysat {
         pvar v = m_value.size();
         m_value.push_back(rational::zero());
         m_justification.push_back(justification::unassigned());
-        m_vble.push();
+        m_viable.push();
         m_cjust.push_back(constraints());
         m_watch.push_back(ptr_vector<constraint>());
         m_activity.push_back(0);
@@ -101,7 +101,7 @@ namespace polysat {
     void solver::del_var() {
         // TODO also remove v from all learned constraints.
         pvar v = m_value.size() - 1;
-        m_vble.pop();
+        m_viable.pop();
         m_cjust.pop_back();
         m_value.pop_back();
         m_justification.pop_back();
@@ -118,20 +118,6 @@ namespace polysat {
 
     constraint_ref solver::mk_diseq(pdd const& p, unsigned dep) {
         return m_constraints.eq(m_level, neg_t, p, mk_dep_ref(dep));
-#if 0
-        if (p.is_val()) {
-            // if (!p.is_zero())
-            //     return nullptr;  // TODO: probably better to create a dummy always-true constraint?
-            // // Use 0 != 0 for a constraint that is always false
-            // Use p != 0 as evaluable dummy constraint
-        }
-        unsigned sz = size(p.var());
-        auto slack = add_var(sz);
-        auto q = p + var(slack);
-        add_eq(q, dep);  // TODO: 'dep' now refers to two constraints; this is not yet supported
-        auto non_zero = m_vble.sz2bits(sz).non_zero();
-        return m_constraints.viable(m_level, pos_t, slack, non_zero, mk_dep_ref(dep));
-#endif
     }
 
     constraint_ref solver::mk_ule(pdd const& p, pdd const& q, unsigned dep) {
@@ -228,7 +214,7 @@ namespace polysat {
 
     void solver::propagate(pvar v, rational const& val, constraint& c) {
         LOG("Propagation: " << assignment_pp(*this, v, val) << ", due to " << c);
-        if (m_vble.is_viable(v, val)) {
+        if (m_viable.is_viable(v, val)) {
             m_free_vars.del_var_eh(v);
             assign_core(v, val, justification::propagation(m_level));        
         }
@@ -267,7 +253,7 @@ namespace polysat {
                 break;
             }
             case trail_instr_t::viable_i: {
-                m_vble.pop_viable();
+                m_viable.pop_viable();
                 break;
             }
             case trail_instr_t::assign_i: {
@@ -356,9 +342,9 @@ namespace polysat {
 
     void solver::decide(pvar v) {
         LOG("Decide v" << v);
-        IF_LOGGING(m_vble.log(v));
+        IF_LOGGING(m_viable.log(v));
         rational val;
-        switch (m_vble.find_viable(v, val)) {
+        switch (m_viable.find_viable(v, val)) {
         case dd::find_t::empty:
             // NOTE: all such cases should be discovered elsewhere (e.g., during propagation/narrowing)
             //       (fail here in debug mode so we notice if we miss some)
@@ -383,7 +369,7 @@ namespace polysat {
         else 
             ++m_stats.m_num_propagations;
         LOG(assignment_pp(*this, v, val) << " by " << j);
-        SASSERT(m_vble.is_viable(v, val));
+        SASSERT(m_viable.is_viable(v, val));
         SASSERT(std::all_of(assignment().begin(), assignment().end(), [v](auto p) { return p.first != v; }));
         m_value[v] = val;
         m_search.push_assignment(v, val);
@@ -469,7 +455,7 @@ namespace polysat {
         pvar conflict_var = null_var;
         clause_ref lemma;
         for (auto v : m_conflict.vars(m_constraints))
-            if (!m_vble.has_viable(v)) {
+            if (!m_viable.has_viable(v)) {
                 SASSERT(conflict_var == null_var || conflict_var == v);  // at most one variable can be empty
                 conflict_var = v;
             }
@@ -737,7 +723,7 @@ namespace polysat {
     // Guess a literal from the given clause; returns the guessed constraint
     sat::literal solver::decide_bool(clause& lemma) {
         LOG_H3("Guessing literal in lemma: " << lemma);
-        IF_LOGGING(m_vble.log());
+        IF_LOGGING(m_viable.log());
         LOG("Boolean assignment: " << m_bvars);
 
         // To make a guess, we need to find an unassigned literal that is not false in the current model.
@@ -832,7 +818,7 @@ namespace polysat {
         // TODO: viability restrictions on 'v' must have happened before decision on 'v'. Do we really need to save/restore m_viable here?
         SASSERT(m_cjust[v] == just);  // check this with assertion
 
-        m_vble.add_non_viable(v, val);
+        m_viable.add_non_viable(v, val);
 
         auto confl = std::move(m_conflict);
         m_conflict.reset();

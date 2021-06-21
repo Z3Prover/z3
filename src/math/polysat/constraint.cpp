@@ -238,9 +238,9 @@ namespace polysat {
         SASSERT(std::all_of(new_constraints().begin(), new_constraints().end(), [var](constraint* c) { return c->bvar() != var; }));
         SASSERT(std::all_of(other.new_constraints().begin(), other.new_constraints().end(), [var](constraint* c) { return c->bvar() != var; }));
         int j = 0;
-        for (int i = 0; i < m_literals.size(); ++i)
-            if (m_literals[i].var() != var)
-                m_literals[j++] = m_literals[i];
+        for (auto lit : m_literals)
+            if (lit.var() != var)
+                m_literals[j++] = lit;
         m_literals.shrink(j);
         for (sat::literal lit : other.literals())
             if (lit.var() != var)

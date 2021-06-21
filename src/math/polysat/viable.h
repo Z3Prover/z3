@@ -30,6 +30,15 @@ namespace polysat {
         vector<bdd>                  m_viable;   // set of viable values.
         vector<std::pair<pvar, bdd>> m_viable_trail;
 
+        /**
+         * Register all values that are not contained in vals as non-viable.
+         */
+        void intersect_viable(pvar v, bdd vals);
+
+        dd::bdd_manager& get_bdd() { return m_bdd; }
+        dd::fdd const& sz2bits(unsigned sz);
+        dd::fdd const& var2bits(pvar v);
+
     public:
         viable(solver& s);
 
@@ -39,6 +48,11 @@ namespace polysat {
         void push_viable(pvar v);
 
         void pop_viable();
+
+        /**
+         * update state of viable for pvar v
+         * based on affine constraints
+         */
 
         void intersect_eq(rational const& a, pvar v, rational const& b, bool is_positive);
 
@@ -61,15 +75,6 @@ namespace polysat {
          */
         void add_non_viable(pvar v, rational const& val);
 
-        /**
-         * Register all values that are not contained in vals as non-viable.
-         */
-        void intersect_viable(pvar v, bdd vals);
-
-        /**
-         * Add dependency for variable viable range.
-         */
-        void add_viable_dep(pvar v, p_dependency* dep);
 
         /**
          * Find a next viable value for variable.
@@ -80,12 +85,9 @@ namespace polysat {
          * (Inefficient, but useful for debugging small instances.)
          */
         void log(pvar v);
-        /** Like log_viable but for all variables */
-        void log();
 
-        dd::bdd_manager& get_bdd() { return m_bdd; }
-        dd::fdd const& sz2bits(unsigned sz);
-        dd::fdd const& var2bits(pvar v);
+        /** Like log(v) but for all variables */
+        void log();
 
     };
 }

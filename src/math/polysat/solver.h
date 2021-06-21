@@ -60,7 +60,7 @@ namespace polysat {
         typedef ptr_vector<constraint> constraints;
 
         reslimit&                m_lim;
-        viable                   m_vble;   // viable sets per variable
+        viable                   m_viable;   // viable sets per variable
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
         dep_value_manager        m_value_manager;
         small_object_allocator   m_alloc;
@@ -118,7 +118,7 @@ namespace polysat {
 
 
         void push_viable(pvar v) {
-            m_vble.push_viable(v);
+            m_viable.push_viable(v);
         }
 
         void push_qhead() { 

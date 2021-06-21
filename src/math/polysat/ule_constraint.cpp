@@ -76,10 +76,10 @@ namespace polysat {
         if (v != null_var) {
             s.push_cjust(v, this);
 
-            s.m_vble.intersect_ule(v, a, b, c, d, is_positive());
+            s.m_viable.intersect_ule(v, a, b, c, d, is_positive());
 
             rational val;
-            if (s.m_vble.find_viable(v, val) == dd::find_t::singleton) 
+            if (s.m_viable.find_viable(v, val) == dd::find_t::singleton) 
                 s.propagate(v, val, *this);
 
             return;
