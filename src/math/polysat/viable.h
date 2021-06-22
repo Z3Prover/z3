@@ -16,11 +16,17 @@ Author:
 
 #include <limits>
 #include "math/dd/dd_bdd.h"
+#include "math/interval/mod_interval.h"
 #include "math/polysat/types.h"
 
 namespace polysat {
 
     class solver;
+
+    class viable_values : public mod_interval<rational> {
+
+
+    };
 
     class viable {
         typedef dd::bdd bdd;

@@ -695,12 +695,36 @@ void doc_manager::check_equiv(ast_manager& m, expr* fml1, expr* fml2) {
     SASSERT(res == l_false);
 }
 
+
+expr_ref doc_manager::to_formula(ast_manager & m, tbv const& src) {
+    expr_ref result(m);
+    expr_ref_vector conj(m);
+    for (unsigned i = 0; i < num_tbits(); ++i) {
+        switch (src[i]) {
+        case BIT_0:
+            conj.push_back(m.mk_not(m.mk_const(symbol(i), m.mk_bool_sort())));
+            break;
+        case BIT_1:
+            conj.push_back(m.mk_const(symbol(i), m.mk_bool_sort()));
+            break;
+        default:
+            break;            
+        }        
+    }
+    result = mk_and(m, conj.size(), conj.data());
+    return result;    
+}
+
+expr_ref doc_manager::mk_var(ast_manager & m, unsigned i) {
+    return expr_ref(m.mk_const(symbol(i), m.mk_bool_sort()), m);    
+}
+
 expr_ref doc_manager::to_formula(ast_manager& m, doc const& src) {
     expr_ref result(m);
     expr_ref_vector conj(m);
-    conj.push_back(tbvm().to_formula(m, src.pos()));
+    conj.push_back(to_formula(m, src.pos()));
     for (unsigned i = 0; i < src.neg().size(); ++i) {
-        conj.push_back(m.mk_not(tbvm().to_formula(m, src.neg()[i])));
+        conj.push_back(m.mk_not(to_formula(m, src.neg()[i])));
     }
     result = mk_and(m, conj.size(), conj.data());
     return result;
@@ -712,9 +736,9 @@ void doc_manager::project_expand(expr_ref& fml, bit_vector const& to_delete) {
     for (unsigned i = 0; i < num_tbits(); ++i) {
         if (to_delete.get(i)) {
             expr_safe_replace rep1(m), rep2(m);
-            rep1.insert(tbvm().mk_var(m, i), m.mk_true());
+            rep1.insert(mk_var(m, i), m.mk_true());
             rep1(fml, tmp1);
-            rep2.insert(tbvm().mk_var(m, i), m.mk_false());
+            rep2.insert(mk_var(m, i), m.mk_false());
             rep2(fml, tmp2);
             if (tmp1 == tmp2) {
                 fml = tmp1;
@@ -731,7 +755,7 @@ void doc_manager::project_rename(expr_ref& fml, bit_vector const& to_delete) {
     expr_safe_replace rep(m);
     for (unsigned i = 0, j = 0; i < num_tbits(); ++i) {
         if (!to_delete.get(i)) {
-            rep.insert(tbvm().mk_var(m, j), tbvm().mk_var(m, i));
+            rep.insert(mk_var(m, j), mk_var(m, i));
             ++j;
         }
     }
