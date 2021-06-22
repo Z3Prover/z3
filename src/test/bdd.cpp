@@ -119,6 +119,8 @@ public:
                 eq = m.mk_eq(nv, kr);
                 SASSERT(eq.is_const() && (eq.is_true() == (n == k)));
 
+                SASSERT(m.mk_usub(nv).to_val() == (m.mk_zero(num_bits) - nv).to_val());
+
                 bdd cmp = nv <= kv;
                 SASSERT(cmp.is_const() && (cmp.is_true() == (nr <= kr)));
                 cmp = nv >= kv;
