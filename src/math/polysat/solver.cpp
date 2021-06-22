@@ -695,9 +695,16 @@ namespace polysat {
         LOG("Learning: " << show_deref(lemma));
         SASSERT(m_conflict_level <= m_justification[v].level());
         if (lemma->size() == 1) {
-            constraint_ref c = lemma->new_constraints()[0];  // TODO: probably wrong
+            constraint_ref c;
+            if (lemma->new_constraints().size() > 0) {
+                SASSERT_EQ(lemma->new_constraints().size(), 1);
+                c = lemma->new_constraints()[0];
+            }
+            else {
+                c = m_constraints.lookup(lemma->literals()[0].var());
+            }
             SASSERT_EQ(lemma->literals()[0].var(), c->bvar());
-            SASSERT(!lemma->literals()[0].sign()); // that case is handled incorrectly atm
+            SASSERT(!lemma->literals()[0].sign()); // TODO: that case is handled incorrectly atm
             learn_lemma_unit(v, std::move(c));
         }
         else
@@ -969,11 +976,7 @@ namespace polysat {
         assign_bool_core(sat::literal(c->bvar()), nullptr, nullptr);
         activate_constraint(*c, true);
         // c must be in m_original or m_redundant so it can be deactivated properly when popping the base level
-        SASSERT(
-            std::count(m_original.begin(), m_original.end(), c) + std::count(m_redundant.begin(), m_redundant.end(), c) == 1
-            // std::any_of(m_original.begin(), m_original.end(), [c](constraint* d) { return c == d; })
-            // || std::any_of(m_redundant.begin(), m_redundant.end(), [c](constraint* d) { return c == d; })
-        );
+        SASSERT_EQ(std::count(m_original.begin(), m_original.end(), c) + std::count(m_redundant.begin(), m_redundant.end(), c), 1);
     }
 
     /// Assign a boolean literal and activate the corresponding constraint
@@ -1059,11 +1062,11 @@ namespace polysat {
         if (!lemma)
             return;
         LOG("Lemma: " << show_deref(lemma));
-        // SASSERT(lemma->size() > 1);
         if (lemma->size() < 2) {
             LOG_H1("TODO: this should be treated as unit constraint and asserted at the base level!");
         }
-        clause* cl = m_constraints.insert(lemma);
+        SASSERT(lemma->size() > 1);
+        clause* cl = m_constraints.insert(std::move(lemma));
         m_redundant_clauses.push_back(cl);
     }
 

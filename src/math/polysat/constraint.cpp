@@ -66,7 +66,10 @@ namespace polysat {
         for (unsigned l = m_constraints.size(); l-- > lvl; ) {
             for (auto const& c : m_constraints[l]) {
                 LOG_V("Removing constraint: " << show_deref(c));
-                SASSERT_EQ(c->m_ref_count, 1);  // otherwise there is a leftover reference somewhere
+                if (c->m_ref_count > 2) {
+                    // NOTE: ref count could be two if the constraint was added twice (once as part of clause, and later as unit constraint)
+                    LOG_H1("Expected ref_count 1 or 2, got " << c->m_ref_count << " for " << *c);
+                }
                 if (c->dep() && c->dep()->is_leaf()) {
                     unsigned dep = c->dep()->leaf_value();
                     SASSERT(m_external_constraints.contains(dep));
