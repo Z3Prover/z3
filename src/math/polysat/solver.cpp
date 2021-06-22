@@ -485,11 +485,9 @@ namespace polysat {
                 set_marks(*lemma.get());
             }
             else {
-                // lemma = resolve(conflict_var);
                 conflict_explainer cx(*this, m_conflict);
                 lemma = cx.resolve(conflict_var, {});
                 LOG("resolved: " << show_deref(lemma));
-                // std::abort();
             }
         }
 
@@ -722,6 +720,7 @@ namespace polysat {
     void solver::learn_lemma_clause(pvar v, clause_ref lemma) {
         SASSERT(lemma);
         sat::literal lit = decide_bool(*lemma);
+        SASSERT(lit != sat::null_literal);
         constraint* c = m_constraints.lookup(lit.var());
         push_cjust(v, c);
         add_lemma_clause(std::move(lemma));
@@ -732,6 +731,7 @@ namespace polysat {
         LOG_H3("Guessing literal in lemma: " << lemma);
         IF_LOGGING(m_viable.log());
         LOG("Boolean assignment: " << m_bvars);
+        SASSERT(lemma.size() >= 2);
 
         // To make a guess, we need to find an unassigned literal that is not false in the current model.
         auto is_suitable = [this](sat::literal lit) -> bool {
@@ -748,15 +748,6 @@ namespace polysat {
         unsigned num_choices = 0;  // TODO: should probably cache this?
 
         for (sat::literal lit : lemma) {
-            // IF_LOGGING({
-            //     auto value = m_bvars.value(lit);
-            //     auto c = m_constraints.lookup(lit.var());
-            //     bool is_false;
-            //     LOG_V("Checking: lit=" << lit << ", value=" << value << ", constraint=" << show_deref(c));
-            //     tmp_assign _t(c, lit);
-            //     is_false = c->is_currently_false(*this);
-            //     LOG_V("Checking: lit=" << lit << ", value=" << value << ", constraint=" << show_deref(c) << ", currently_false=" << is_false);
-            // });
             if (is_suitable(lit)) {
                 num_choices++;
                 if (choice == sat::null_literal)
@@ -774,33 +765,6 @@ namespace polysat {
         else
             decide_bool(choice, lemma);
         return choice;
-
-        // constraint* c = nullptr;
-        // while (true) {
-        //     unsigned next_idx = lemma.next_guess();
-        //     SASSERT(next_idx < lemma.size());  // must succeed for at least one
-        //     sat::literal lit = lemma[next_idx];
-        //     // LOG_V("trying: "
-        //     if (m_bvars.value(lit) == l_false)
-        //         continue;
-        //     SASSERT(m_bvars.value(lit) != l_true);  // cannot happen in a valid lemma
-        //     c = m_constraints.lookup(lit.var());
-        //     c->assign(!lit.sign());
-        //     if (c->is_currently_false(*this))
-        //         continue;
-        //     // Choose c as next literal
-        //     break;
-        // }
-        // sat::literal const new_lit{c->bvar()};
-        // TODO: this will not be needed once we add boolean watchlists; alternatively replace with an incremental counter on the clause
-        // unsigned const unassigned_count =
-        //     std::count_if(lemma.begin(), lemma.end(),
-        //     [this](sat::literal lit) { return !m_bvars.is_assigned(lit); });
-        // if (unassigned_count == 1)
-        //     propagate_bool(new_lit, &lemma);
-        // else
-        //     decide_bool(new_lit, lemma);
-        // return c;
     }
 
     /**
@@ -1024,21 +988,7 @@ namespace polysat {
         conflict_explainer cx(*this, m_conflict);
         clause_ref res = cx.resolve(v, m_cjust[v]);
         LOG("resolved: " << show_deref(res));
-        // std::abort();
         return res;
-/*
-            if (m_cjust[v].size() != 1)
-            return nullptr;
-        constraint* d = m_cjust[v].back();
-        constraint_ref res = d->resolve(*this, v);
-        LOG("resolved: " << show_deref(res));
-        if (res) {
-            res->assign(true);
-            return clause::from_unit(res);
-        }
-        else
-            return nullptr;
-*/
     }
 
     /**
