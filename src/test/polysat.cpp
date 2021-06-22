@@ -517,13 +517,12 @@ namespace polysat {
      * 
      * We do overflow checks by doubling the base bitwidth here.
      */
-    static void test_fixed_point_arith_div_mul_inverse() {
+    static void test_fixed_point_arith_div_mul_inverse(unsigned base_bw = 5) {
         scoped_solver s(__func__);
 
-        auto baseBw = 5;
-        auto max_int_const = 31; // (2^5 - 1) -- change this when you change baseBw
+        auto max_int_const = rational::power_of_two(base_bw) - 1;
 
-        auto bw = 2 * baseBw;
+        auto bw = 2 * base_bw;
         auto max_int = s.var(s.add_var(bw));
         s.add_eq(max_int - max_int_const);
 
@@ -538,7 +537,7 @@ namespace polysat {
 
         // scaling factor (setting it, somewhat arbitrarily, to max_int/3)
         auto sf = s.var(s.add_var(bw));
-        s.add_eq(sf - (max_int_const/3));
+        s.add_eq(sf - floor(max_int_const/3));
 
         // (a * sf) / b = quot1 <=> quot1 * b + rem1 - (a * sf) = 0
         auto quot1 = s.var(s.add_var(bw));
@@ -642,30 +641,29 @@ namespace polysat {
      *
      * We do overflow checks by doubling the base bitwidth here.
      */
-    static void test_monot_bounds_full() {
+    static void test_monot_bounds_full(unsigned base_bw = 5) {
         scoped_solver s(__func__);
 
-        auto baseBw = 5;
-        auto max_int_const = 31; // (2^5 - 1) -- change this when you change baseBw
+        auto const max_int_const = rational::power_of_two(base_bw) - 1;
 
-        auto bw = 2 * baseBw;
-        auto max_int = s.var(s.add_var(bw));
+        auto const bw = 2 * base_bw;
+        auto const max_int = s.var(s.add_var(bw));
         s.add_eq(max_int - max_int_const);
 
-        auto zero = max_int - max_int;
+        auto const zero = max_int - max_int;
 
-        auto first = s.var(s.add_var(bw));
+        auto const first = s.var(s.add_var(bw));
         s.add_ule(first, max_int);
-        auto second = s.var(s.add_var(bw));
+        auto const second = s.var(s.add_var(bw));
         s.add_ule(second, max_int);
-        auto idx = s.var(s.add_var(bw));
+        auto const idx = s.var(s.add_var(bw));
         s.add_ule(idx, max_int);
-        auto r = s.var(s.add_var(bw));
+        auto const q = s.var(s.add_var(bw));
+        s.add_ule(q, max_int);
+        auto const r = s.var(s.add_var(bw));
         s.add_ule(r, max_int);
 
         // q = max_int / idx <=> q * idx + r - max_int = 0
-        auto q = s.var(s.add_var(bw));
-        r = s.var(s.add_var(bw));
         s.add_eq((q * idx) + r - max_int);
         s.add_ult(r, idx);
         s.add_ule(q * idx, max_int);
@@ -683,8 +681,9 @@ namespace polysat {
 
         // (bvugt second first)
         s.add_ult(first, second);
-        // (bvumul_noovfl (bvsub second first) idx)
-        s.add_ule((second - first) * idx, max_int);
+        // (not (bvumul_noovfl (bvsub second first) idx))
+        s.add_ult(max_int, (second - first) * idx);
+        // s.add_ule((second - first) * idx, max_int);
 
         // resolving disjunction via push/pop
 

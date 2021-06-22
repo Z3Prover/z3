@@ -4,7 +4,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "muz/rel/tbv.h"
+#include "util/tbv.h"
 
 static void tst1(unsigned num_bits) {
     tbv_manager m(num_bits);

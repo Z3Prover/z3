@@ -71,7 +71,7 @@ namespace polysat {
             else if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
             else if (is_conflict()) resolve_conflict();
             else if (can_propagate()) propagate();
-            else if (!can_decide()) { LOG_H2("SAT"); return l_true; }
+            else if (!can_decide()) { LOG_H2("SAT"); SASSERT(verify_sat()); return l_true; }
             else decide();
         }
         LOG_H2("UNDEF (resource limit)");
@@ -442,7 +442,8 @@ namespace polysat {
     void solver::resolve_conflict() {
         IF_VERBOSE(1, verbose_stream() << "resolve conflict\n");
         LOG_H2("Resolve conflict");
-        LOG_H2(*this);
+        LOG(*this);
+        LOG("search state: " << m_search);
         ++m_stats.m_num_conflicts;
 
         SASSERT(is_conflict());
@@ -485,11 +486,9 @@ namespace polysat {
                 set_marks(*lemma.get());
             }
             else {
-                // lemma = resolve(conflict_var);
                 conflict_explainer cx(*this, m_conflict);
                 lemma = cx.resolve(conflict_var, {});
                 LOG("resolved: " << show_deref(lemma));
-                // std::abort();
             }
         }
 
@@ -512,7 +511,9 @@ namespace polysat {
                     return;
                 }
                 SASSERT(j.is_propagation());
+                LOG("Lemma: " << show_deref(lemma));
                 clause_ref new_lemma = resolve(v);
+                LOG("New Lemma: " << show_deref(new_lemma));
                 if (!new_lemma) {
                     backtrack(i, lemma);
                     return;
@@ -554,6 +555,7 @@ namespace polysat {
                     return;
                 }
                 SASSERT(m_bvars.is_propagation(var));
+                LOG("Lemma: " << show_deref(lemma));
                 clause_ref new_lemma = resolve_bool(lit);
                 if (!new_lemma) {
                     backtrack(i, lemma);
@@ -695,9 +697,16 @@ namespace polysat {
         LOG("Learning: " << show_deref(lemma));
         SASSERT(m_conflict_level <= m_justification[v].level());
         if (lemma->size() == 1) {
-            constraint_ref c = lemma->new_constraints()[0];  // TODO: probably wrong
+            constraint_ref c;
+            if (lemma->new_constraints().size() > 0) {
+                SASSERT_EQ(lemma->new_constraints().size(), 1);
+                c = lemma->new_constraints()[0];
+            }
+            else {
+                c = m_constraints.lookup(lemma->literals()[0].var());
+            }
             SASSERT_EQ(lemma->literals()[0].var(), c->bvar());
-            SASSERT(!lemma->literals()[0].sign()); // that case is handled incorrectly atm
+            SASSERT(!lemma->literals()[0].sign()); // TODO: that case is handled incorrectly atm
             learn_lemma_unit(v, std::move(c));
         }
         else
@@ -715,6 +724,7 @@ namespace polysat {
     void solver::learn_lemma_clause(pvar v, clause_ref lemma) {
         SASSERT(lemma);
         sat::literal lit = decide_bool(*lemma);
+        SASSERT(lit != sat::null_literal);
         constraint* c = m_constraints.lookup(lit.var());
         push_cjust(v, c);
         add_lemma_clause(std::move(lemma));
@@ -725,6 +735,7 @@ namespace polysat {
         LOG_H3("Guessing literal in lemma: " << lemma);
         IF_LOGGING(m_viable.log());
         LOG("Boolean assignment: " << m_bvars);
+        SASSERT(lemma.size() >= 2);
 
         // To make a guess, we need to find an unassigned literal that is not false in the current model.
         auto is_suitable = [this](sat::literal lit) -> bool {
@@ -741,15 +752,6 @@ namespace polysat {
         unsigned num_choices = 0;  // TODO: should probably cache this?
 
         for (sat::literal lit : lemma) {
-            // IF_LOGGING({
-            //     auto value = m_bvars.value(lit);
-            //     auto c = m_constraints.lookup(lit.var());
-            //     bool is_false;
-            //     LOG_V("Checking: lit=" << lit << ", value=" << value << ", constraint=" << show_deref(c));
-            //     tmp_assign _t(c, lit);
-            //     is_false = c->is_currently_false(*this);
-            //     LOG_V("Checking: lit=" << lit << ", value=" << value << ", constraint=" << show_deref(c) << ", currently_false=" << is_false);
-            // });
             if (is_suitable(lit)) {
                 num_choices++;
                 if (choice == sat::null_literal)
@@ -767,33 +769,6 @@ namespace polysat {
         else
             decide_bool(choice, lemma);
         return choice;
-
-        // constraint* c = nullptr;
-        // while (true) {
-        //     unsigned next_idx = lemma.next_guess();
-        //     SASSERT(next_idx < lemma.size());  // must succeed for at least one
-        //     sat::literal lit = lemma[next_idx];
-        //     // LOG_V("trying: "
-        //     if (m_bvars.value(lit) == l_false)
-        //         continue;
-        //     SASSERT(m_bvars.value(lit) != l_true);  // cannot happen in a valid lemma
-        //     c = m_constraints.lookup(lit.var());
-        //     c->assign(!lit.sign());
-        //     if (c->is_currently_false(*this))
-        //         continue;
-        //     // Choose c as next literal
-        //     break;
-        // }
-        // sat::literal const new_lit{c->bvar()};
-        // TODO: this will not be needed once we add boolean watchlists; alternatively replace with an incremental counter on the clause
-        // unsigned const unassigned_count =
-        //     std::count_if(lemma.begin(), lemma.end(),
-        //     [this](sat::literal lit) { return !m_bvars.is_assigned(lit); });
-        // if (unassigned_count == 1)
-        //     propagate_bool(new_lit, &lemma);
-        // else
-        //     decide_bool(new_lit, lemma);
-        // return c;
     }
 
     /**
@@ -886,12 +861,11 @@ namespace polysat {
             // TODO: what to do when reason is NULL?
             // * this means we were unable to build a lemma for the current conflict.
             // * the reason for reverting this decision then needs to be the (negation of the) conflicting literals. Or we give up on resolving this lemma?
-            // TODO: do not include 'base' unit constraints (only in dependencies)
             SASSERT(m_conflict.clauses().empty());  // not sure how to handle otherwise
+            clause_builder clause(*this);
             unsigned reason_lvl = m_constraints.lookup(lit.var())->level();
             p_dependency_ref reason_dep(m_constraints.lookup(lit.var())->dep(), m_dm);
-            sat::literal_vector reason_lits;
-            reason_lits.push_back(~lit);  // propagated literal
+            clause.push_literal(~lit);  // propagated literal
             for (auto c : m_conflict.units()) {
                 if (c->bvar() == var)
                     continue;
@@ -899,9 +873,9 @@ namespace polysat {
                     continue;
                 reason_lvl = std::max(reason_lvl, c->level());
                 reason_dep = m_dm.mk_join(reason_dep, c->dep());
-                reason_lits.push_back(c->blit());
+                clause.push_literal(c->blit());
             }
-            reason = clause::from_literals(reason_lvl, reason_dep, reason_lits, {});
+            reason = clause.build(reason_lvl, reason_dep);
             LOG("Made-up reason: " << show_deref(reason));
         }
 
@@ -969,11 +943,7 @@ namespace polysat {
         assign_bool_core(sat::literal(c->bvar()), nullptr, nullptr);
         activate_constraint(*c, true);
         // c must be in m_original or m_redundant so it can be deactivated properly when popping the base level
-        SASSERT(
-            std::count(m_original.begin(), m_original.end(), c) + std::count(m_redundant.begin(), m_redundant.end(), c) == 1
-            // std::any_of(m_original.begin(), m_original.end(), [c](constraint* d) { return c == d; })
-            // || std::any_of(m_redundant.begin(), m_redundant.end(), [c](constraint* d) { return c == d; })
-        );
+        SASSERT_EQ(std::count(m_original.begin(), m_original.end(), c) + std::count(m_redundant.begin(), m_redundant.end(), c), 1);
     }
 
     /// Assign a boolean literal and activate the corresponding constraint
@@ -1021,21 +991,7 @@ namespace polysat {
         conflict_explainer cx(*this, m_conflict);
         clause_ref res = cx.resolve(v, m_cjust[v]);
         LOG("resolved: " << show_deref(res));
-        // std::abort();
         return res;
-/*
-            if (m_cjust[v].size() != 1)
-            return nullptr;
-        constraint* d = m_cjust[v].back();
-        constraint_ref res = d->resolve(*this, v);
-        LOG("resolved: " << show_deref(res));
-        if (res) {
-            res->assign(true);
-            return clause::from_unit(res);
-        }
-        else
-            return nullptr;
-*/
     }
 
     /**
@@ -1059,11 +1015,11 @@ namespace polysat {
         if (!lemma)
             return;
         LOG("Lemma: " << show_deref(lemma));
-        // SASSERT(lemma->size() > 1);
         if (lemma->size() < 2) {
             LOG_H1("TODO: this should be treated as unit constraint and asserted at the base level!");
         }
-        clause* cl = m_constraints.insert(lemma);
+        SASSERT(lemma->size() > 1);
+        clause* cl = m_constraints.insert(std::move(lemma));
         m_redundant_clauses.push_back(cl);
     }
 
@@ -1211,6 +1167,18 @@ namespace polysat {
         return true;
     }
 
+    /// Check that all original constraints are satisfied by the current model.
+    bool solver::verify_sat() {
+        LOG_H1("Checking current model...");
+        LOG("Assignment: " << assignments_pp(*this));
+        for (auto* c : m_original) {
+            bool ok = c->is_currently_true(*this);
+            LOG((ok ? "PASS" : "FAIL") << ": " << show_deref(c));
+            if (!ok) return false;
+        }
+        LOG("All good!");
+        return true;
+    }
 }
 
 

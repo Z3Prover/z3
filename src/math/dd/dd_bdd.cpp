@@ -1037,7 +1037,8 @@ namespace dd {
             std::function<bdd(unsigned)> get_a = [&](unsigned k) {
                 if (k < i)
                     return mk_false();
-                return a[i - k] && b[i];
+                else
+                    return a[k - i] && b[i];
             };
             result = mk_add(result, get_a);
         }
@@ -1056,11 +1057,10 @@ namespace dd {
         SASSERT(a.size() == b.size());
         bddv result = mk_zero(a.size());
 
-       
         // use identity (bvmul a b) == (bvneg (bvmul (bvneg a) b))
         unsigned cnt = 0;
         for (auto v : b) if (v) cnt++; 
-        if (cnt*2 > b.size()) 
+        if (cnt*2 > b.size()+1)
             return mk_usub(mk_mul(a, mk_usub(b)));
 
         for (unsigned i = 0; i < a.size(); ++i) {
