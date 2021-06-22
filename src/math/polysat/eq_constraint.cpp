@@ -191,9 +191,9 @@ namespace polysat {
 
         // Concrete values of evaluable terms
         auto e1s = e1.subst_val(s.assignment());
-        auto e2s = m.zero();
+        if (!e1s.is_val())
+            return false;
         SASSERT(e1s.is_val());
-        SASSERT(e2s.is_val());
 
         // e1 + t <= 0, with t = 2^j1*y
         // condition for empty/full: 0 == -1, never satisfied, so we always have a proper interval!
