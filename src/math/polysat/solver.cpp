@@ -857,12 +857,11 @@ namespace polysat {
             // TODO: what to do when reason is NULL?
             // * this means we were unable to build a lemma for the current conflict.
             // * the reason for reverting this decision then needs to be the (negation of the) conflicting literals. Or we give up on resolving this lemma?
-            // TODO: do not include 'base' unit constraints (only in dependencies)
             SASSERT(m_conflict.clauses().empty());  // not sure how to handle otherwise
+            clause_builder clause(*this);
             unsigned reason_lvl = m_constraints.lookup(lit.var())->level();
             p_dependency_ref reason_dep(m_constraints.lookup(lit.var())->dep(), m_dm);
-            sat::literal_vector reason_lits;
-            reason_lits.push_back(~lit);  // propagated literal
+            clause.push_literal(~lit);  // propagated literal
             for (auto c : m_conflict.units()) {
                 if (c->bvar() == var)
                     continue;
@@ -870,9 +869,9 @@ namespace polysat {
                     continue;
                 reason_lvl = std::max(reason_lvl, c->level());
                 reason_dep = m_dm.mk_join(reason_dep, c->dep());
-                reason_lits.push_back(c->blit());
+                clause.push_literal(c->blit());
             }
-            reason = clause::from_literals(reason_lvl, reason_dep, reason_lits, {});
+            reason = clause.build(reason_lvl, reason_dep);
             LOG("Made-up reason: " << show_deref(reason));
         }
 
