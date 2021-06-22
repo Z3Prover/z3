@@ -442,7 +442,8 @@ namespace polysat {
     void solver::resolve_conflict() {
         IF_VERBOSE(1, verbose_stream() << "resolve conflict\n");
         LOG_H2("Resolve conflict");
-        LOG_H2(*this);
+        LOG(*this);
+        LOG("search state: " << m_search);
         ++m_stats.m_num_conflicts;
 
         SASSERT(is_conflict());
@@ -510,7 +511,9 @@ namespace polysat {
                     return;
                 }
                 SASSERT(j.is_propagation());
+                LOG("Lemma: " << show_deref(lemma));
                 clause_ref new_lemma = resolve(v);
+                LOG("New Lemma: " << show_deref(new_lemma));
                 if (!new_lemma) {
                     backtrack(i, lemma);
                     return;
@@ -552,6 +555,7 @@ namespace polysat {
                     return;
                 }
                 SASSERT(m_bvars.is_propagation(var));
+                LOG("Lemma: " << show_deref(lemma));
                 clause_ref new_lemma = resolve_bool(lit);
                 if (!new_lemma) {
                     backtrack(i, lemma);
