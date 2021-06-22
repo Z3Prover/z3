@@ -15,6 +15,7 @@ Author:
 #pragma once
 
 #include <limits>
+#include "util/tbv.h"
 #include "math/dd/dd_bdd.h"
 #include "math/interval/mod_interval.h"
 #include "math/polysat/types.h"
@@ -23,9 +24,23 @@ namespace polysat {
 
     class solver;
 
-    class viable_values : public mod_interval<rational> {
-
-
+    //
+    // replace BDDs by viable sets that emulate affine relations.
+    // viable_set has an interval of feasible values.
+    // it also can use ternary bit-vectors.
+    //
+    class viable_set : public mod_interval<rational> {
+        unsigned m_num_bits;
+        tbv* m_tbv = nullptr;
+    public:
+        viable_set(unsigned num_bits): m_num_bits(num_bits) {}
+        bool is_singleton(rational& val) const; // all bits in tbv are fixed and !is_empty() for mod_interval
+        void set_lo(rational const& lo);
+        void set_hi(rational const& hi);
+        void set_eq(rational const& val);
+        void seq_ne(rational const& val);
+        void set_ule(rational const& a, rational const& b, rational const& c, rational const& d);
+        void set_ugt(rational const& a, rational const& b, rational const& c, rational const& d);
     };
 
     class viable {
@@ -33,8 +48,11 @@ namespace polysat {
         solver& s;
         dd::bdd_manager              m_bdd;
         scoped_ptr_vector<dd::fdd>   m_bits;
-        vector<bdd>                  m_viable;   // set of viable values.
+        vector<bdd>                  m_viable_bdd;   // set of viable values.
         vector<std::pair<pvar, bdd>> m_viable_trail;
+
+
+        vector<viable_set>        m_viable; // future representation of viable values
 
         /**
          * Register all values that are not contained in vals as non-viable.
@@ -48,8 +66,8 @@ namespace polysat {
     public:
         viable(solver& s);
 
-        void push() { m_viable.push_back(m_bdd.mk_true()); }
-        void pop() { m_viable.pop_back(); }
+        void push() { m_viable_bdd.push_back(m_bdd.mk_true()); }
+        void pop() { m_viable_bdd.pop_back(); }
 
         void push_viable(pvar v);
 
@@ -69,7 +87,7 @@ namespace polysat {
          */
         bool has_viable(pvar v);
 
-        bool is_false(pvar v) { return m_viable[v].is_false(); }
+        bool is_false(pvar v) { return m_viable_bdd[v].is_false(); }
 
         /**
          * check if value is viable according to m_viable.

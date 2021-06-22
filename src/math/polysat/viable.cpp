@@ -11,13 +11,13 @@ namespace polysat {
 
     void viable::push_viable(pvar v) {
         s.m_trail.push_back(trail_instr_t::viable_i);
-        m_viable_trail.push_back(std::make_pair(v, m_viable[v]));
+        m_viable_trail.push_back(std::make_pair(v, m_viable_bdd[v]));
     }
 
     void viable::pop_viable() {
         auto p = m_viable_trail.back();
         LOG_V("Undo viable_i");
-        m_viable[p.first] = p.second;
+        m_viable_bdd[p.first] = p.second;
         m_viable_trail.pop_back();
     }
 
@@ -62,11 +62,11 @@ namespace polysat {
     }
 
     bool viable::has_viable(pvar v) {
-        return !m_viable[v].is_false();
+        return !m_viable_bdd[v].is_false();
     }
 
     bool viable::is_viable(pvar v, rational const& val) {
-        return var2bits(v).contains(m_viable[v], val);
+        return var2bits(v).contains(m_viable_bdd[v], val);
     }
 
     void viable::add_non_viable(pvar v, rational const& val) {
@@ -78,13 +78,13 @@ namespace polysat {
 
     void viable::intersect_viable(pvar v, bdd vals) {
         push_viable(v);
-        m_viable[v] &= vals;
-        if (m_viable[v].is_false())
+        m_viable_bdd[v] &= vals;
+        if (m_viable_bdd[v].is_false())
             s.set_conflict(v);
     }
 
     dd::find_t viable::find_viable(pvar v, rational & val) {
-        return var2bits(v).find_hint(m_viable[v], s.m_value[v], val);
+        return var2bits(v).find_hint(m_viable_bdd[v], s.m_value[v], val);
     }
 
     dd::fdd const& viable::sz2bits(unsigned sz) {
@@ -100,23 +100,20 @@ namespace polysat {
 #if POLYSAT_LOGGING_ENABLED
     void viable::log() {
         // only for small problems
-        if (m_viable.size() < 10) {
-            for (pvar v = 0; v < m_viable.size(); ++v) {
-                log(v);
-            }
-        }
+        for (pvar v = 0; v < std::min(10u, m_viable.size()); ++v) 
+            log(v);            
     }
 
     void viable::log(pvar v) {
         if (s.size(v) <= 5) {
             vector<rational> xs;
-            for (rational x = rational::zero(); x < rational::power_of_two(s.size(v)); x += 1) {
-                if (is_viable(v, x)) {
+            for (rational x = rational::zero(); x < rational::power_of_two(s.size(v)); x += 1) 
+                if (is_viable(v, x)) 
                     xs.push_back(x);
-                }
-            }
+                            
             LOG("Viable for pvar " << v << ": " << xs);
-        } else {
+        } 
+        else {
             LOG("Viable for pvar " << v << ": <range too big>");
         }
     }
