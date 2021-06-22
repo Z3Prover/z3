@@ -27,6 +27,10 @@ namespace polysat {
         return out;
     }
 
+    std::ostream& search_state::display(std::ostream& out) const {
+        return out << m_items;
+    }
+
     void search_state::push_assignment(pvar p, rational const& r) {
         m_items.push_back(search_item::assignment(p));
         m_assignment.push_back({p, r});

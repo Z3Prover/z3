@@ -71,7 +71,7 @@ namespace polysat {
             else if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
             else if (is_conflict()) resolve_conflict();
             else if (can_propagate()) propagate();
-            else if (!can_decide()) { LOG_H2("SAT"); return l_true; }
+            else if (!can_decide()) { LOG_H2("SAT"); SASSERT(verify_sat()); return l_true; }
             else decide();
         }
         LOG_H2("UNDEF (resource limit)");
@@ -1163,6 +1163,18 @@ namespace polysat {
         return true;
     }
 
+    /// Check that all original constraints are satisfied by the current model.
+    bool solver::verify_sat() {
+        LOG_H1("Checking current model...");
+        LOG("Assignment: " << assignments_pp(*this));
+        for (auto* c : m_original) {
+            bool ok = c->is_currently_true(*this);
+            LOG((ok ? "PASS" : "FAIL") << ": " << show_deref(c));
+            if (!ok) return false;
+        }
+        LOG("All good!");
+        return true;
+    }
 }
 
 

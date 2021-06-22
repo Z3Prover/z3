@@ -243,6 +243,7 @@ namespace polysat {
         bool invariant();
         static bool invariant(ptr_vector<constraint> const& cs);
         bool wlist_invariant();
+        bool verify_sat();
 
     public:
 
