@@ -87,6 +87,7 @@ namespace polysat {
         pdd lhs;
         pdd rhs;
         bool is_strict;
+        constraint const* src;
     };
 
 

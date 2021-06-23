@@ -216,10 +216,10 @@ namespace polysat {
         pdd zero = p() - p();
         if (is_positive()) {
             // p <= 0
-            return { .lhs = p(), .rhs = zero, .is_strict = false };
+            return { .lhs = p(), .rhs = zero, .is_strict = false, .src = this };
         } else {
             // 0 < p
-            return { .lhs = zero, .rhs = p(), .is_strict = true };
+            return { .lhs = zero, .rhs = p(), .is_strict = true, .src = this };
         }
     }
 }
