@@ -119,47 +119,43 @@ namespace polysat {
             LOG("z>y: " << show_deref(y_le_z));
             clause.push_new_constraint(std::move(y_le_z));
 
-            p_dependency_ref d(c.src->dep(), m_solver.m_dm);
-            return clause.build(lvl, d);
+            p_dependency_ref dep(c.src->dep(), m_solver.m_dm);
+            return clause.build(lvl, dep);
         }
         return nullptr;
     }
 
-    /// [y] z' <= y /\ zx > yx  ==>  ...
+    /// [y] z' <= y /\ zx > yx  ==>  Ω*(x,y) \/ zx > z'x
+    /// [y] z' <= y /\ yx <= zx  ==>  Ω*(x,y) \/ z'x <= zx
     clause_ref conflict_explainer::by_ugt_y() {
         LOG_H3("Try z' <= y && zx > yx where y := v" << m_var);
 
         pdd const y = m_solver.var(m_var);
+        unsigned const sz = m_solver.size(m_var);
+        pdd const zero = m_solver.sz2pdd(sz).zero();
 
         // Collect constraints of shape "_ <= y"
-        ptr_vector<constraint> ds;
-        for (auto* d : m_conflict.units()) {
-            if (!d->is_ule())
-                continue;
-            if (!d->is_positive())
-                continue;
-            pdd const& rhs = d->to_ule().rhs();
+        vector<inequality> ds;
+        for (auto* d1 : m_conflict.units()) {
+            auto d = d1->as_inequality();
             // TODO: a*y where 'a' divides 'x' should also be easy to handle (assuming for now they're numbers)
             // TODO: also z' < y should follow the same pattern.
-            if (rhs != y)
+            if (d.rhs != y)
                 continue;
-            LOG("z' <= y candidate: " << show_deref(d));
-            ds.push_back(d);
+            LOG("z' <= y candidate: " << show_deref(d.src));
+            ds.push_back(std::move(d));
         }
         if (ds.empty())
             return nullptr;
 
-        // Find constraint of shape: zx > yx
-        for (auto* c : m_conflict.units()) {
-            if (!c->is_ule())
+        // Find constraint of shape: yx <= zx
+        for (auto* c1 : m_conflict.units()) {
+            auto c = c1->as_inequality();
+            if (c.lhs.degree(m_var) != 1)
                 continue;
-            pdd const& lhs = c->to_ule().lhs();
-            pdd const& rhs = c->to_ule().rhs();
-            if (rhs.degree(m_var) != 1)
-                continue;
-            pdd x = lhs;
-            pdd rest = lhs;
-            rhs.factor(m_var, 1, x, rest);
+            pdd x = zero;
+            pdd rest = zero;
+            c.lhs.factor(m_var, 1, x, rest);
             if (!rest.is_zero())
                 continue;
             // TODO: in principle, 'x' could be any polynomial. However, we need to divide the lhs by x, and we don't have general polynomial division yet.
@@ -169,42 +165,35 @@ namespace polysat {
                 continue;
             unsigned x_var = x.var();
             rational x_coeff = x.hi().val();
-            pdd xz = lhs;
-            if (!lhs.try_div(x_coeff, xz))
+            pdd xz = zero;
+            if (!c.rhs.try_div(x_coeff, xz))
                 continue;
-            pdd z = lhs;
+            pdd z = zero;
             xz.factor(x_var, 1, z, rest);
             if (!rest.is_zero())
                 continue;
 
-            unsigned const lvl = c->level();  // TODO: max of both levels
-            if (c->is_positive()) {
-                // zx <= yx
-                NOT_IMPLEMENTED_YET();
-            }
-            else {
-                SASSERT(c->is_negative());
-                // zx > yx
-
-                LOG("zx > yx: " << show_deref(c));
-
-                // TODO: for now, we just choose the first of the other constraints
-                constraint* d = ds[0];
-                SASSERT(d->is_ule() && d->is_positive());
-                pdd const& z_prime = d->to_ule().lhs();
-
-                unsigned const p = m_solver.size(m_var);
+            // TODO: for now, we just try all ds
+            for (auto const& d : ds) {
+                LOG("zx > yx: " << show_deref(c.src));
+                unsigned const lvl = std::max(c.src->level(), d.src->level());
+                pdd const& z_prime = d.lhs;
 
                 clause_builder clause(m_solver);
                 // Omega^*(x, y)
-                if (!push_omega_mul(clause, lvl, p, x, y))
+                if (!push_omega_mul(clause, lvl, sz, x, y))
                     continue;
-                // zx > z'x
-                constraint_ref zx_gt_zpx = m_solver.m_constraints.ult(lvl, pos_t, z*x, z_prime*x, null_dep());
-                LOG("zx>z'x: " << show_deref(zx_gt_zpx));
-                clause.push_new_constraint(std::move(zx_gt_zpx));
+                // z'x <= zx
+                constraint_ref zpx_le_zx;
+                if (c.is_strict || d.is_strict)
+                    zpx_le_zx = m_solver.m_constraints.ult(lvl, pos_t, z_prime*x, z*x, null_dep());
+                else
+                    zpx_le_zx = m_solver.m_constraints.ule(lvl, pos_t, z_prime*x, z*x, null_dep());
+                LOG("zx>z'x: " << show_deref(zpx_le_zx));
+                clause.push_new_constraint(std::move(zpx_le_zx));
 
-                return clause.build(lvl, {c->dep(), m_solver.m_dm});  // TODO: join deps
+                p_dependency_ref dep(m_solver.m_dm.mk_join(c.src->dep(), d.src->dep()), m_solver.m_dm);
+                return clause.build(lvl, dep);
             }
         }
         return nullptr;
