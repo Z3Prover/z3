@@ -919,7 +919,14 @@ namespace polysat {
     void solver::propagate_bool(sat::literal lit, clause* reason) {
         LOG("Propagate boolean literal " << lit << " @ " << m_level << " by " << show_deref(reason));
         SASSERT(reason);
-        assign_bool_backtrackable(lit, reason, nullptr);
+        if (reason->literals().size() == 1) {
+            SASSERT(reason->literals()[0] == lit);
+            constraint* c = m_constraints.lookup(lit.var());
+            m_redundant.push_back(c);
+            activate_constraint_base(c);
+        }
+        else
+            assign_bool_backtrackable(lit, reason, nullptr);
     }
 
     /// Assign a boolean literal and put it on the search stack,
@@ -1018,7 +1025,7 @@ namespace polysat {
         if (lemma->size() < 2) {
             LOG_H1("TODO: this should be treated as unit constraint and asserted at the base level!");
         }
-        SASSERT(lemma->size() > 1);
+        // SASSERT(lemma->size() > 1);
         clause* cl = m_constraints.insert(std::move(lemma));
         m_redundant_clauses.push_back(cl);
     }
