@@ -73,12 +73,22 @@ namespace polysat {
         constraint* lookup_external(unsigned dep) const { return m_external_constraints.get(dep, nullptr); }
 
         constraint_ref eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d);
-        constraint_ref viable(unsigned lvl, csign_t sign, pvar v, bdd const& b, p_dependency_ref const& d);
         constraint_ref ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
         constraint_ref ult(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
         constraint_ref sle(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
         constraint_ref slt(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
     };
+
+
+    /// Normalized inequality:
+    ///     lhs <= rhs, if !is_strict
+    ///     lhs < rhs, otherwise
+    struct inequality {
+        pdd lhs;
+        pdd rhs;
+        bool is_strict;
+    };
+
 
     class constraint {
         friend class constraint_manager;
@@ -128,6 +138,7 @@ namespace polysat {
         virtual bool is_currently_false(solver& s) = 0;
         virtual bool is_currently_true(solver& s) = 0;
         virtual void narrow(solver& s) = 0;
+        virtual inequality as_inequality() const = 0;
         eq_constraint& to_eq();
         eq_constraint const& to_eq() const;
         ule_constraint& to_ule();

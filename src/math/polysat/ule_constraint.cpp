@@ -288,4 +288,12 @@ namespace polysat {
         return true;
     }
 
+    inequality ule_constraint::as_inequality() const {
+        SASSERT(!is_undef());
+        if (is_positive()) {
+            return { .lhs = lhs(), .rhs = rhs(), .is_strict = false };
+        } else {
+            return { .lhs = rhs(), .rhs = lhs(), .is_strict = true };
+        }
+    }
 }
