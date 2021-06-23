@@ -20,6 +20,8 @@ Author:
 #include "math/interval/mod_interval.h"
 #include "math/polysat/types.h"
 
+#define NEW_VIABLE 0
+
 namespace polysat {
 
     class solver;
@@ -32,15 +34,18 @@ namespace polysat {
     class viable_set : public mod_interval<rational> {
         unsigned m_num_bits;
         tbv* m_tbv = nullptr;
-    public:
-        viable_set(unsigned num_bits): m_num_bits(num_bits) {}
-        bool is_singleton(rational& val) const; // all bits in tbv are fixed and !is_empty() for mod_interval
         void set_lo(rational const& lo);
         void set_hi(rational const& hi);
         void set_eq(rational const& val);
         void seq_ne(rational const& val);
         void set_ule(rational const& a, rational const& b, rational const& c, rational const& d);
         void set_ugt(rational const& a, rational const& b, rational const& c, rational const& d);
+
+    public:
+        viable_set(unsigned num_bits): m_num_bits(num_bits) {}
+        bool is_singleton(rational& val) const; // all bits in tbv are fixed and !is_empty() for mod_interval
+        void intersect_eq(rational const& a, rational const& b, bool is_positive) {}      
+        void intersect_ule(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive) {}
     };
 
     class viable {
@@ -66,8 +71,15 @@ namespace polysat {
     public:
         viable(solver& s);
 
-        void push() { m_viable_bdd.push_back(m_bdd.mk_true()); }
-        void pop() { m_viable_bdd.pop_back(); }
+        void push(unsigned num_bits) { 
+            m_viable_bdd.push_back(m_bdd.mk_true()); 
+            m_viable.push_back(viable_set(num_bits)); 
+        }
+
+        void pop() { 
+            m_viable_bdd.pop_back(); 
+            m_viable.pop_back(); 
+        }
 
         void push_viable(pvar v);
 
@@ -87,7 +99,7 @@ namespace polysat {
          */
         bool has_viable(pvar v);
 
-        bool is_false(pvar v) { return m_viable_bdd[v].is_false(); }
+        bool is_false(pvar v) { return !has_viable(v); }
 
         /**
          * check if value is viable according to m_viable.

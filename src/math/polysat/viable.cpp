@@ -1,6 +1,20 @@
+/*++
+Copyright (c) 2021 Microsoft Corporation
+
+Module Name:
+
+    maintain viable domains
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2021-03-19
+    Jakob Rath 2021-04-6
+
+--*/
 
 #include "math/polysat/viable.h"
 #include "math/polysat/solver.h"
+
 
 namespace polysat {
 
@@ -10,19 +24,35 @@ namespace polysat {
     {}
 
     void viable::push_viable(pvar v) {
+#if NEW_VIABLE
+
+#else
         s.m_trail.push_back(trail_instr_t::viable_i);
         m_viable_trail.push_back(std::make_pair(v, m_viable_bdd[v]));
+#endif
     }
 
     void viable::pop_viable() {
+#if NEW_VIABLE
+
+#else
         auto p = m_viable_trail.back();
         LOG_V("Undo viable_i");
         m_viable_bdd[p.first] = p.second;
         m_viable_trail.pop_back();
+#endif
     }
 
     // a*v + b == 0 or a*v + b != 0
     void viable::intersect_eq(rational const& a, pvar v, rational const& b, bool is_positive) {
+
+#if NEW_VIABLE
+        save_viable(v);
+        m_viable[v].intersect_eq(a, b, is_positive);
+        if (m_viable[v].is_empty())
+            set_conflict(v);
+#else
+        
         bddv const& x = var2bits(v).var();
         if (b == 0 && a.is_odd()) {
             // hacky test optimizing special case.
@@ -44,9 +74,16 @@ namespace polysat {
             bdd xs = is_positive ? lhs.all0() : !lhs.all0();
             intersect_viable(v, xs);
         }
+#endif
     }
 
     void viable::intersect_ule(pvar v, rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive) {
+#if NEW_VIABLE
+        save_viable(v);
+        m_viable[v].intersect_ule(a, b, c, d, is_positive);
+        if (m_viable[v].is_empty())
+            set_conflict(v);
+#else
         bddv const& x = var2bits(v).var();
         // hacky special case
         if (a == 1 && b == 0 && c == 0 && d == 0) 
@@ -59,21 +96,37 @@ namespace polysat {
             bdd xs = is_positive ? (l <= r) : (l > r);
             intersect_viable(v, xs);
         }
+#endif
     }
 
     bool viable::has_viable(pvar v) {
+#if NEW_VIABLE
+        return !m_viable[v].is_empty();
+#else
         return !m_viable_bdd[v].is_false();
+#endif
     }
 
     bool viable::is_viable(pvar v, rational const& val) {
+#if NEW_VIABLE
+        return m_viable[v].contains(val);
+#else
         return var2bits(v).contains(m_viable_bdd[v], val);
+#endif
     }
 
     void viable::add_non_viable(pvar v, rational const& val) {
+#if NEW_VIABLE
+        save_viable(v);
+        m_viable[v].set_ne(val);
+        if (m_viable[v].is_empty())
+            set_conflict();
+#else
         LOG("pvar " << v << " /= " << val);
         SASSERT(is_viable(v, val));
         auto const& bits = var2bits(v);
         intersect_viable(v, bits.var() != val);
+#endif
     }
 
     void viable::intersect_viable(pvar v, bdd vals) {
@@ -84,7 +137,11 @@ namespace polysat {
     }
 
     dd::find_t viable::find_viable(pvar v, rational & val) {
+#if NEW_VIABLE
+        return m_viable[v].find_hint(s.m_value[v], val);
+#else
         return var2bits(v).find_hint(m_viable_bdd[v], s.m_value[v], val);
+#endif
     }
 
     dd::fdd const& viable::sz2bits(unsigned sz) {

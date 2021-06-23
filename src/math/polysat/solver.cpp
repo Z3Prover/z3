@@ -82,7 +82,7 @@ namespace polysat {
         pvar v = m_value.size();
         m_value.push_back(rational::zero());
         m_justification.push_back(justification::unassigned());
-        m_viable.push();
+        m_viable.push(sz);
         m_cjust.push_back(constraints());
         m_watch.push_back(ptr_vector<constraint>());
         m_activity.push_back(0);
