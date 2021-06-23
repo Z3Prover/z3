@@ -71,6 +71,10 @@ namespace polysat {
         unsigned longest_i = UINT_MAX;
         for (constraint* c : conflict) {
             LOG_H3("Computing forbidden interval for: " << *c);
+            if (c->is_undef()) {
+                LOG("TODO: undef constraint in conflict... what does this mean???");
+                continue;
+            }
             eval_interval interval = eval_interval::full();
             constraint_ref neg_cond;
             if (c->forbidden_interval(s, v, interval, neg_cond)) {
