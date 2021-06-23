@@ -27,6 +27,11 @@ namespace polysat {
         for (auto* c : cjust)
             m_conflict.push_back(c);
 
+        for (auto* c : m_conflict.units())
+            LOG("Constraint: " << show_deref(c));
+        for (auto* c : m_conflict.clauses())
+            LOG("Clause: " << show_deref(c));
+
         // TODO: we should share work done for examining constraints between different resolution methods
         clause_ref lemma;
         if (!lemma) lemma = by_polynomial_superposition();
@@ -78,10 +83,6 @@ namespace polysat {
     /// [x] yx <= zx  ==>  Ω*(x,y) \/ y <= z
     clause_ref conflict_explainer::by_ugt_x() {
         LOG_H3("Try zx > yx where x := v" << m_var);
-        for (auto* c : m_conflict.units())
-            LOG("Constraint: " << show_deref(c));
-        for (auto* c : m_conflict.clauses())
-            LOG("Clause: " << show_deref(c));
 
         pdd const x = m_solver.var(m_var);
         unsigned const sz = m_solver.size(m_var);
@@ -127,10 +128,6 @@ namespace polysat {
     /// [y] z' <= y /\ zx > yx  ==>  ...
     clause_ref conflict_explainer::by_ugt_y() {
         LOG_H3("Try z' <= y && zx > yx where y := v" << m_var);
-        for (auto* c : m_conflict.units())
-            LOG("Constraint: " << show_deref(c));
-        for (auto* c : m_conflict.clauses())
-            LOG("Clause: " << show_deref(c));
 
         pdd const y = m_solver.var(m_var);
 
@@ -216,10 +213,6 @@ namespace polysat {
     /// [z] z <= y' /\ zx > yx  ==>  ...
     clause_ref conflict_explainer::by_ugt_z() {
         LOG_H3("Try z <= y' && zx > yx where z := v" << m_var);
-        for (auto* c : m_conflict.units())
-            LOG("Constraint: " << show_deref(c));
-        for (auto* c : m_conflict.clauses())
-            LOG("Clause: " << show_deref(c));
 
         pdd const z = m_solver.var(m_var);
 
@@ -306,10 +299,6 @@ namespace polysat {
     ///     ==>   Ω*(a, z)  \/  y <= az
     clause_ref conflict_explainer::y_ule_ax_and_x_ule_z() {
         LOG_H3("Try y <= ax && x <= z where x := v" << m_var);
-        for (auto* c : m_conflict.units())
-            LOG("Constraint: " << show_deref(c));
-        for (auto* c : m_conflict.clauses())
-            LOG("Clause: " << show_deref(c));
 
         pdd const x = m_solver.var(m_var);
         unsigned const sz = m_solver.size(m_var);
