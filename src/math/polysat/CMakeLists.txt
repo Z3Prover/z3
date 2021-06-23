@@ -11,7 +11,6 @@ z3_add_component(polysat
     search_state.cpp
     solver.cpp
     ule_constraint.cpp
-    var_constraint.cpp
     viable.cpp
   COMPONENT_DEPENDENCIES
     util
