@@ -74,7 +74,8 @@ namespace polysat {
         return nullptr;
     }
 
-    /// [x] zx > yx  ==>  ...
+    /// [x] zx > yx  ==>  Ω*(x,y) \/ z > y
+    /// [x] yx <= zx  ==>  Ω*(x,y) \/ y <= z
     clause_ref conflict_explainer::by_ugt_x() {
         LOG_H3("Try zx > yx where x := v" << m_var);
         for (auto* c : m_conflict.units())
@@ -82,52 +83,43 @@ namespace polysat {
         for (auto* c : m_conflict.clauses())
             LOG("Clause: " << show_deref(c));
 
-        // Find constraint of desired shape
-        for (auto* c : m_conflict.units()) {
-            if (!c->is_ule())
+        pdd const x = m_solver.var(m_var);
+        unsigned const sz = m_solver.size(m_var);
+        pdd const zero = m_solver.sz2pdd(sz).zero();
+
+        // Find constraint of shape: yx <= zx
+        for (auto* c1 : m_conflict.units()) {
+            auto c = c1->as_inequality();
+            if (c.lhs.degree(m_var) != 1)
                 continue;
-            pdd const& lhs = c->to_ule().lhs();
-            pdd const& rhs = c->to_ule().rhs();
-            if (lhs.degree(m_var) != 1)
+            if (c.rhs.degree(m_var) != 1)
                 continue;
-            if (rhs.degree(m_var) != 1)
-                continue;
-            pdd y = lhs;
-            pdd rest = lhs;
-            rhs.factor(m_var, 1, y, rest);
+            pdd y = zero;
+            pdd rest = zero;
+            c.lhs.factor(m_var, 1, y, rest);
             if (!rest.is_zero())
                 continue;
-            pdd z = lhs;
-            lhs.factor(m_var, 1, z, rest);
+            pdd z = zero;
+            c.rhs.factor(m_var, 1, z, rest);
             if (!rest.is_zero())
                 continue;
 
-            if (c->is_positive()) {
-                // zx <= yx
-                NOT_IMPLEMENTED_YET();
-            }
-            else {
-                SASSERT(c->is_negative());
-                // zx > yx
+            unsigned const lvl = c.src->level();
 
-                unsigned const lvl = c->level();
+            clause_builder clause(m_solver);
+            // Omega^*(x, y)
+            if (!push_omega_mul(clause, lvl, sz, x, y))
+                continue;
+            constraint_ref y_le_z;
+            if (c.is_strict)
+                y_le_z = m_solver.m_constraints.ult(lvl, pos_t, y, z, null_dep());
+            else
+                y_le_z = m_solver.m_constraints.ule(lvl, pos_t, y, z, null_dep());
+            LOG("z>y: " << show_deref(y_le_z));
+            clause.push_new_constraint(std::move(y_le_z));
 
-                pdd x = m_solver.var(m_var);
-                unsigned const p = m_solver.size(m_var);
-
-                clause_builder clause(m_solver);
-                // Omega^*(x, y)
-                if (!push_omega_mul(clause, lvl, p, x, y))
-                    continue;
-                // z > y
-                constraint_ref z_gt_y = m_solver.m_constraints.ult(lvl, pos_t, y, z, null_dep());
-                LOG("z>y: " << show_deref(z_gt_y));
-                clause.push_new_constraint(std::move(z_gt_y));
-
-                p_dependency_ref d(c->dep(), m_solver.m_dm);
-                return clause.build(lvl, d);
-            }
-
+            p_dependency_ref d(c.src->dep(), m_solver.m_dm);
+            return clause.build(lvl, d);
         }
         return nullptr;
     }
@@ -325,14 +317,12 @@ namespace polysat {
 
         // Collect constraints of shape "x <= _"
         vector<inequality> ds;
-        ptr_vector<constraint> d1s;
         for (auto* d1 : m_conflict.units()) {
             inequality d = d1->as_inequality();
             if (d.lhs != x)
                 continue;
-            LOG("x <= z' candidate: " << show_deref(d1));
+            LOG("x <= z' candidate: " << show_deref(d.src));
             ds.push_back(std::move(d));
-            d1s.push_back(d1);
         }
         if (ds.empty())
             return nullptr;
@@ -352,10 +342,8 @@ namespace polysat {
             LOG("y <= ax: " << show_deref(c1));
 
             // TODO: for now, we just try all of the other constraints in order
-            for (unsigned i = 0; i < ds.size(); ++i) {
-                inequality d = ds[i];
-                constraint* d1 = d1s[i];
-                unsigned const lvl = std::max(c1->level(), d1->level());
+            for (auto const& d : ds) {
+                unsigned const lvl = std::max(c1->level(), d.src->level());
                 pdd const& z = d.rhs;
 
                 clause_builder clause(m_solver);
@@ -371,7 +359,8 @@ namespace polysat {
                 LOG("y<=az: " << show_deref(y_ule_az));
                 clause.push_new_constraint(std::move(y_ule_az));
 
-                return clause.build(lvl, {c1->dep(), m_solver.m_dm});  // TODO: join deps
+                p_dependency_ref dep(m_solver.m_dm.mk_join(c1->dep(), d.src->dep()), m_solver.m_dm);
+                return clause.build(lvl, dep);
             }
         }
         return nullptr;
