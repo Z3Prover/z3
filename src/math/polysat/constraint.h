@@ -30,7 +30,6 @@ namespace polysat {
     class clause;
     class scoped_clause;
     class eq_constraint;
-    // class var_constraint;
     class ule_constraint;
     using constraint_ref = ref<constraint>;
     using constraint_ref_vector = sref_vector<constraint>;
@@ -85,7 +84,6 @@ namespace polysat {
         friend class constraint_manager;
         friend class clause;
         friend class scoped_clause;
-        // friend class var_constraint;
         friend class eq_constraint;
         friend class ule_constraint;
 
