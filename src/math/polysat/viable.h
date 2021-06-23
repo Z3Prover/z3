@@ -30,6 +30,9 @@ namespace polysat {
     // replace BDDs by viable sets that emulate affine relations.
     // viable_set has an interval of feasible values.
     // it also can use ternary bit-vectors.
+    // or we could also just use a vector of lbool instead of ternary bit-vectors
+    // updating them at individual positions is relatively cheap instead of copying the
+    // vectors every time a range is narrowed.
     //
     class viable_set : public mod_interval<rational> {
         unsigned m_num_bits;
@@ -49,15 +52,16 @@ namespace polysat {
     };
 
     class viable {
-        typedef dd::bdd bdd;
         solver& s;
+#if NEW_VIABLE
+        vector<viable_set>        m_viable; // future representation of viable values
+#else
+        typedef dd::bdd bdd;
         dd::bdd_manager              m_bdd;
         scoped_ptr_vector<dd::fdd>   m_bits;
         vector<bdd>                  m_viable_bdd;   // set of viable values.
         vector<std::pair<pvar, bdd>> m_viable_trail;
 
-
-        vector<viable_set>        m_viable; // future representation of viable values
 
         /**
          * Register all values that are not contained in vals as non-viable.
@@ -67,18 +71,25 @@ namespace polysat {
         dd::bdd_manager& get_bdd() { return m_bdd; }
         dd::fdd const& sz2bits(unsigned sz);
         dd::fdd const& var2bits(pvar v);
+#endif
 
     public:
         viable(solver& s);
 
         void push(unsigned num_bits) { 
-            m_viable_bdd.push_back(m_bdd.mk_true()); 
+#if NEW_VIABLE
             m_viable.push_back(viable_set(num_bits)); 
+#else
+            m_viable_bdd.push_back(m_bdd.mk_true()); 
+#endif
         }
 
         void pop() { 
-            m_viable_bdd.pop_back(); 
+#if NEW_VIABLE
             m_viable.pop_back(); 
+#else
+            m_viable_bdd.pop_back(); 
+#endif
         }
 
         void push_viable(pvar v);

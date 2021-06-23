@@ -157,7 +157,7 @@ namespace polysat {
 #if POLYSAT_LOGGING_ENABLED
     void viable::log() {
         // only for small problems
-        for (pvar v = 0; v < std::min(10u, m_viable.size()); ++v) 
+        for (pvar v = 0; v < std::min(10u, m_viable_bdd.size()); ++v) 
             log(v);            
     }
 
