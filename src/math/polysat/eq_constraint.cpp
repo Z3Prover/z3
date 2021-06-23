@@ -214,12 +214,12 @@ namespace polysat {
     inequality eq_constraint::as_inequality() const {
         SASSERT(!is_undef());
         pdd zero = p() - p();
-        if (is_positive()) {
+        if (is_positive()) 
             // p <= 0
-            return { .lhs = p(), .rhs = zero, .is_strict = false, .src = this };
-        } else {
+            return inequality(p(), zero, false, this);
+        else 
             // 0 < p
-            return { .lhs = zero, .rhs = p(), .is_strict = true, .src = this };
-        }
+            return inequality(zero, p(), true, this);
     }
+
 }

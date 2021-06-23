@@ -88,6 +88,8 @@ namespace polysat {
         pdd rhs;
         bool is_strict;
         constraint const* src;
+        inequality(pdd const & lhs, pdd const & rhs, bool is_strict, constraint const* src):
+            lhs(lhs), rhs(rhs), is_strict(is_strict), src(src) {}
     };
 
 
