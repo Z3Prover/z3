@@ -591,23 +591,24 @@ namespace polysat {
     static void test_monot_bounds(unsigned base_bw = 32) {
         scoped_solver s(__func__);
         unsigned bw = 2 * base_bw;
-        auto x = s.var(s.add_var(bw));
         auto y = s.var(s.add_var(bw));
         auto z = s.var(s.add_var(bw));
+        auto x = s.var(s.add_var(bw));
         auto zero = x - x;
         auto bound = (zero + 2).pow(base_bw);
+#if 1
         s.add_ult(x, bound);
         s.add_ult(y, bound);
-        s.add_ult(z, bound);
-        // TODO: try alternative:
-        // TODO: maybe we should normalize equations where one side is a constant?
-        // TODO: should we always express a < b as a <= b - 1 ?  [ well, no. this only works if b > 0. ]
-        // s.add_ule(x, bound - 1);
-        // s.add_ule(y, bound - 1);
-        // s.add_ule(z, bound - 1);
-        s.add_ule(y, x);
-        s.add_ult(x*z, bound);
-        s.add_ule(bound, y*z);
+        // s.add_ult(z, bound);   // not required
+#else
+        s.add_ule(x, bound - 1);
+        s.add_ule(y, bound - 1);
+        // s.add_ule(z, bound - 1);   // not required
+#endif
+        auto a = zero + 13;
+        s.add_ule(z, y);
+        s.add_ult(x*y, a);
+        s.add_ule(a, x*z);
         s.check();
         s.expect_unsat();
     }
@@ -622,6 +623,11 @@ namespace polysat {
     static void test_monot_bounds_simple(unsigned base_bw = 32) {
         scoped_solver s(__func__);
         unsigned bw = 2 * base_bw;
+        /*
+        auto z = s.var(s.add_var(bw));
+        auto x = s.var(s.add_var(bw));
+        auto y = s.var(s.add_var(bw));
+        */
         auto y = s.var(s.add_var(bw));
         auto x = s.var(s.add_var(bw));
         auto z = s.var(s.add_var(bw));
@@ -827,7 +833,8 @@ namespace polysat {
 
 
 void tst_polysat() {
-    polysat::test_monot_bounds_simple(8);
+    polysat::test_monot_bounds(8);
+    // polysat::test_monot_bounds_simple(8);
     return;
 
     polysat::test_add_conflicts();

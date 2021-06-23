@@ -211,4 +211,15 @@ namespace polysat {
         return true;
     }
 
+    inequality eq_constraint::as_inequality() const {
+        SASSERT(!is_undef());
+        pdd zero = p() - p();
+        if (is_positive()) {
+            // p <= 0
+            return { .lhs = p(), .rhs = zero, .is_strict = false, .src = this };
+        } else {
+            // 0 < p
+            return { .lhs = zero, .rhs = p(), .is_strict = true, .src = this };
+        }
+    }
 }
