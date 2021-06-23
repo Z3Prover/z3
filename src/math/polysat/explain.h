@@ -33,8 +33,10 @@ namespace polysat {
         clause_ref by_ugt_y();
         clause_ref by_ugt_z();
 
+        clause_ref y_ule_ax_and_x_ule_z();
+
         p_dependency_ref null_dep() const { return m_solver.mk_dep_ref(null_dependency); }
-        void push_omega_mul(clause_builder& clause, unsigned level, unsigned p, pdd const& x, pdd const& y);
+        bool push_omega_mul(clause_builder& clause, unsigned level, unsigned p, pdd const& x, pdd const& y);
     public:
         conflict_explainer(solver& s, constraints_and_clauses const& conflict);
 

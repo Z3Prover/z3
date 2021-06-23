@@ -33,6 +33,7 @@ namespace polysat {
         if (!lemma) lemma = by_ugt_x();
         if (!lemma) lemma = by_ugt_y();
         if (!lemma) lemma = by_ugt_z();
+        if (!lemma) lemma = y_ule_ax_and_x_ule_z();
 
         if (lemma) {
             LOG("New lemma: " << *lemma);
@@ -116,7 +117,8 @@ namespace polysat {
 
                 clause_builder clause(m_solver);
                 // Omega^*(x, y)
-                push_omega_mul(clause, lvl, p, x, y);
+                if (!push_omega_mul(clause, lvl, p, x, y))
+                    continue;
                 // z > y
                 constraint_ref z_gt_y = m_solver.m_constraints.ult(lvl, pos_t, y, z, null_dep());
                 LOG("z>y: " << show_deref(z_gt_y));
@@ -186,7 +188,7 @@ namespace polysat {
             if (!rest.is_zero())
                 continue;
 
-            unsigned const lvl = c->level();
+            unsigned const lvl = c->level();  // TODO: max of both levels
             if (c->is_positive()) {
                 // zx <= yx
                 NOT_IMPLEMENTED_YET();
@@ -206,13 +208,14 @@ namespace polysat {
 
                 clause_builder clause(m_solver);
                 // Omega^*(x, y)
-                push_omega_mul(clause, lvl, p, x, y);
+                if (!push_omega_mul(clause, lvl, p, x, y))
+                    continue;
                 // zx > z'x
                 constraint_ref zx_gt_zpx = m_solver.m_constraints.ult(lvl, pos_t, z*x, z_prime*x, null_dep());
                 LOG("zx>z'x: " << show_deref(zx_gt_zpx));
                 clause.push_new_constraint(std::move(zx_gt_zpx));
 
-                return clause.build(lvl, {c->dep(), m_solver.m_dm});
+                return clause.build(lvl, {c->dep(), m_solver.m_dm});  // TODO: join deps
             }
         }
         return nullptr;
@@ -274,7 +277,7 @@ namespace polysat {
             if (!rest.is_zero())
                 continue;
 
-            unsigned const lvl = c->level();
+            unsigned const lvl = c->level();  // TODO: max of both levels
             if (c->is_positive()) {
                 // zx <= yx
                 NOT_IMPLEMENTED_YET();
@@ -294,13 +297,81 @@ namespace polysat {
 
                 clause_builder clause(m_solver);
                 // Omega^*(x, y')
-                push_omega_mul(clause, lvl, p, x, y_prime);
+                if (!push_omega_mul(clause, lvl, p, x, y_prime))
+                    continue;
                 // y'x > yx
                 constraint_ref ypx_gt_yx = m_solver.m_constraints.ult(lvl, pos_t, y_prime*x, y*x, null_dep());
                 LOG("y'x>yx: " << show_deref(ypx_gt_yx));
                 clause.push_new_constraint(std::move(ypx_gt_yx));
 
-                return clause.build(lvl, {c->dep(), m_solver.m_dm});
+                return clause.build(lvl, {c->dep(), m_solver.m_dm});  // TODO: join deps
+            }
+        }
+        return nullptr;
+    }
+
+    /// [x]  y <= ax /\ x <= z  (non-overflow case)
+    ///     ==>   Ω*(a, z)  \/  y <= az
+    clause_ref conflict_explainer::y_ule_ax_and_x_ule_z() {
+        LOG_H3("Try y <= ax && x <= z where x := v" << m_var);
+        for (auto* c : m_conflict.units())
+            LOG("Constraint: " << show_deref(c));
+        for (auto* c : m_conflict.clauses())
+            LOG("Clause: " << show_deref(c));
+
+        pdd const x = m_solver.var(m_var);
+        unsigned const sz = m_solver.size(m_var);
+        pdd const zero = m_solver.sz2pdd(sz).zero();
+
+        // Collect constraints of shape "x <= _"
+        vector<inequality> ds;
+        ptr_vector<constraint> d1s;
+        for (auto* d1 : m_conflict.units()) {
+            inequality d = d1->as_inequality();
+            if (d.lhs != x)
+                continue;
+            LOG("x <= z' candidate: " << show_deref(d1));
+            ds.push_back(std::move(d));
+            d1s.push_back(d1);
+        }
+        if (ds.empty())
+            return nullptr;
+
+        // Find constraint of shape: y <= ax
+        for (auto* c1 : m_conflict.units()) {
+            inequality c = c1->as_inequality();
+            if (c.rhs.degree(m_var) != 1)
+                continue;
+            pdd a = zero;
+            pdd rest = zero;
+            c.rhs.factor(m_var, 1, a, rest);
+            if (!rest.is_zero())
+                continue;
+            pdd const& y = c.lhs;
+
+            LOG("y <= ax: " << show_deref(c1));
+
+            // TODO: for now, we just try all of the other constraints in order
+            for (unsigned i = 0; i < ds.size(); ++i) {
+                inequality d = ds[i];
+                constraint* d1 = d1s[i];
+                unsigned const lvl = std::max(c1->level(), d1->level());
+                pdd const& z = d.rhs;
+
+                clause_builder clause(m_solver);
+                // Omega^*(a, z)
+                if (!push_omega_mul(clause, lvl, sz, a, z))
+                    continue;
+                // y'x > yx
+                constraint_ref y_ule_az;
+                if (c.is_strict || d.is_strict)
+                    y_ule_az = m_solver.m_constraints.ult(lvl, pos_t, y, a*z, null_dep());
+                else
+                    y_ule_az = m_solver.m_constraints.ule(lvl, pos_t, y, a*z, null_dep());
+                LOG("y<=az: " << show_deref(y_ule_az));
+                clause.push_new_constraint(std::move(y_ule_az));
+
+                return clause.build(lvl, {c1->dep(), m_solver.m_dm});  // TODO: join deps
             }
         }
         return nullptr;
@@ -309,7 +380,7 @@ namespace polysat {
     /// Add Ω*(x, y) to the clause.
     ///
     /// @param[in] p    bit width
-    void conflict_explainer::push_omega_mul(clause_builder& clause, unsigned level, unsigned p, pdd const& x, pdd const& y) {
+    bool conflict_explainer::push_omega_mul(clause_builder& clause, unsigned level, unsigned p, pdd const& x, pdd const& y) {
         LOG_H3("Omega^*(x, y)");
         LOG("x = " << x);
         LOG("y = " << y);
@@ -334,7 +405,14 @@ namespace polysat {
             max_k = p - y_bits;
         }
 
-        SASSERT(min_k <= max_k);  // in this case, cannot choose k s.t. both literals are false
+        if (min_k > max_k) {
+            // In this case, we cannot choose k such that both literals are false.
+            // This means x*y overflows in the current model and the chosen rule is not applicable.
+            // (or maybe we are in the case where we need the msb-encoding for overflow).
+            return false;
+        }
+
+        SASSERT(min_k <= max_k);  // if this assertion fails, we cannot choose k s.t. both literals are false
 
         // TODO: could also choose other value for k (but between the bounds)
         if (min_k == 0)
@@ -351,5 +429,6 @@ namespace polysat {
         constraint_ref c2 = m_solver.m_constraints.ule(level, pos_t, pddm.mk_val(rational::power_of_two(p-k)), y, null_dep());
         clause.push_new_constraint(std::move(c1));
         clause.push_new_constraint(std::move(c2));
+        return true;
     }
 }
