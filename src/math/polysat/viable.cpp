@@ -68,6 +68,8 @@ namespace polysat {
                 hi = a;
             else if (hi == 0 && is_max(a))
                 hi = a;
+            else 
+                std::cout << "diseq " << lo << " " << a << " " << hi << "\n";
         }
     }
 
@@ -111,10 +113,14 @@ namespace polysat {
     void viable_set::set_hi(rational const& d) {
         if (is_max(d))
             return;
+        else if (is_free())
+            lo = 0, hi = d + 1;
         else if (lo > d)
             set_empty();
         else if (hi != 0 || d + 1 < hi)
-            hi = d + 1;        
+            hi = d + 1;       
+        else 
+            std::cout << "set hi " << lo << " " << d << " " << hi << "\n";
     }
 
     void viable_set::set_lo(rational const& b) {
@@ -124,6 +130,8 @@ namespace polysat {
             lo = b, hi = 0;
         else if (lo < b)
             lo = b;                    
+        else 
+            std::cout << "set lo " << lo << " " << b << " " << hi << "\n";
     }
 #endif
 
