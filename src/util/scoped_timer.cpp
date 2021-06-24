@@ -104,10 +104,10 @@ public:
         else {
             s->cv.notify_one();
         }
+        s->m_mutex.unlock();
     }
 
     ~imp() {
-        s->m_mutex.unlock();
         while (s->work == 1)
             std::this_thread::yield();
     }
