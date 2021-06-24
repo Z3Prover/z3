@@ -46,6 +46,7 @@ public:
     bool is_empty() const { return emp; }
     void set_free() { lo = hi = 0; emp = false; }
     void set_bounds(Numeral const& l, Numeral const& h) { lo = l; hi = h; }
+    void set_empty() { emp = true; }
     bool contains(Numeral const& n) const;
     mod_interval operator&(mod_interval const& other) const;
     mod_interval operator+(mod_interval const& other) const;

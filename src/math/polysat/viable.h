@@ -14,18 +14,23 @@ Author:
 --*/
 #pragma once
 
-#include <limits>
-#include "util/tbv.h"
-#include "math/dd/dd_bdd.h"
-#include "math/interval/mod_interval.h"
-#include "math/polysat/types.h"
-
 #define NEW_VIABLE 0
+
+#include <limits>
+
+#if !NEW_VIABLE
+#include "math/dd/dd_bdd.h"
+#endif
+
+#include "math/polysat/types.h"
+#include "math/interval/mod_interval.h"
+
 
 namespace polysat {
 
     class solver;
 
+#if NEW_VIABLE
     //
     // replace BDDs by viable sets that emulate affine relations.
     // viable_set has an interval of feasible values.
@@ -36,30 +41,30 @@ namespace polysat {
     //
     class viable_set : public mod_interval<rational> {
         unsigned m_num_bits;
-        tbv* m_tbv = nullptr;
+        bool is_max(rational const& a) const;
         void set_lo(rational const& lo);
         void set_hi(rational const& hi);
-        void set_eq(rational const& val);
-        void seq_ne(rational const& val);
-        void set_ule(rational const& a, rational const& b, rational const& c, rational const& d);
-        void set_ugt(rational const& a, rational const& b, rational const& c, rational const& d);
-
+        void intersect_eq(rational const& a, bool is_positive);
     public:
         viable_set(unsigned num_bits): m_num_bits(num_bits) {}
-        bool is_singleton(rational& val) const; // all bits in tbv are fixed and !is_empty() for mod_interval
-        void intersect_eq(rational const& a, rational const& b, bool is_positive) {}      
-        void intersect_ule(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive) {}
+        bool is_singleton(rational& val) const; 
+        dd::find_t find_hint(rational const& c, rational& val) const;
+        void set_ne(rational const& a) { intersect_eq(a, false); }
+        void intersect_eq(rational const& a, rational const& b, bool is_positive);
+        void intersect_ule(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive);
     };
+#endif
 
     class viable {
         solver& s;
 #if NEW_VIABLE
-        vector<viable_set>        m_viable; // future representation of viable values
+        vector<viable_set>           m_viable; // future representation of viable values
+        vector<std::pair<pvar, viable_set>> m_viable_trail;
 #else
         typedef dd::bdd bdd;
         dd::bdd_manager              m_bdd;
         scoped_ptr_vector<dd::fdd>   m_bits;
-        vector<bdd>                  m_viable_bdd;   // set of viable values.
+        vector<bdd>                  m_viable;   // set of viable values.
         vector<std::pair<pvar, bdd>> m_viable_trail;
 
 
@@ -80,16 +85,12 @@ namespace polysat {
 #if NEW_VIABLE
             m_viable.push_back(viable_set(num_bits)); 
 #else
-            m_viable_bdd.push_back(m_bdd.mk_true()); 
+            m_viable.push_back(m_bdd.mk_true()); 
 #endif
         }
 
         void pop() { 
-#if NEW_VIABLE
             m_viable.pop_back(); 
-#else
-            m_viable_bdd.pop_back(); 
-#endif
         }
 
         void push_viable(pvar v);
