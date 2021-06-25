@@ -60,17 +60,23 @@ static void thread_func(scoped_timer_state *s) {
 
         while (!s->m_mutex.try_lock_until(end)) {
             if (std::chrono::steady_clock::now() >= end) {
-                s->eh->operator()(TIMEOUT_EH_CALLER);
-                goto next;
+                if (s->work.compare_exchange_strong(1, -1)) {
+                    s->eh->operator()(TIMEOUT_EH_CALLER);
+                    s->work = 0;
+                    workers.lock();
+                    goto next;
+                }
+                s->m_mutex.lock();
+                break;
             }
         }
 
+        s->cv.notify_one();
         s->m_mutex.unlock();
-
-    next:
-        s->work = 0;
         workers.lock();
         available_workers.push_back(s);
+
+    next:
     }
 }
 
@@ -107,9 +113,17 @@ public:
     }
 
     ~imp() {
-        s->m_mutex.unlock();
-        while (s->work == 1)
-            std::this_thread::yield();
+        if (s->work.compare_exchange_strong(1, 0)) {
+            s->cv.wait(s->m_mutex);
+            s->m_mutex.unlock();
+        } else {
+            s->m_mutex.unlock();
+            while (s->work == -1)
+                std::this_thread::yield();
+            workers.lock();
+            available_workers.push_back(s);
+            workers.unlock();            
+        }
     }
 };
 
