@@ -51,6 +51,7 @@ static int working = WORKING;
 static void thread_func(scoped_timer_state *s) {
     workers.lock();
     while (true) {
+    start:
         s->cv.wait(workers, [=]{ return s->work > 0; });
         workers.unlock();
 
@@ -66,7 +67,7 @@ static void thread_func(scoped_timer_state *s) {
                     s->eh->operator()(TIMEOUT_EH_CALLER);
                     s->work = IDLE;
                     workers.lock();
-                    goto end;
+                    goto start;
                 }
                 goto next;
             }
@@ -77,8 +78,6 @@ static void thread_func(scoped_timer_state *s) {
     next:
         workers.lock();
         available_workers.push_back(s);
-
-    end:
     }
 }
 
