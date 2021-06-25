@@ -191,7 +191,7 @@ namespace polysat {
 
     /// Literal together with the constraint it represents.
     /// (or: constraint with polarity)
-    class constraint_literal {   // TODO: rename into constraint_lit....
+    class constraint_literal {
         sat::literal m_literal = sat::null_literal;
         constraint_ref m_constraint = nullptr;
 
@@ -199,15 +199,15 @@ namespace polysat {
         constraint_literal() {}
         constraint_literal(sat::literal lit, constraint_ref c):
             m_literal(lit), m_constraint(std::move(c)) {
-            SASSERT(constraint());
-            SASSERT(literal().var() == constraint()->bvar());
+            SASSERT(get());
+            SASSERT(literal().var() == get()->bvar());
         }
         constraint_literal operator~() const&& {
             return {~m_literal, std::move(m_constraint)};
         }
         sat::literal literal() const { return m_literal; }
-        constraint* constraint() const { return m_constraint.get(); }
-        constraint_ref detach_constraint() { m_literal = sat::null_literal; return std::move(m_constraint); }
+        constraint* get() const { return m_constraint.get(); }
+        constraint_ref detach() { m_literal = sat::null_literal; return std::move(m_constraint); }
 
         explicit operator bool() const { return !!m_constraint; }
         bool operator!() const { return !m_constraint; }

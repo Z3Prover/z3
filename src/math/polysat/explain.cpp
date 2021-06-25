@@ -144,7 +144,7 @@ namespace polysat {
                 y_le_z = m_solver.m_constraints.ult(lvl, y, z);
             else
                 y_le_z = m_solver.m_constraints.ule(lvl, y, z);
-            LOG("z>y: " << show_deref(y_le_z.constraint()));
+            LOG("z>y: " << show_deref(y_le_z));
             clause.push_new_constraint(std::move(y_le_z));
 
             return clause.build();
@@ -219,7 +219,7 @@ namespace polysat {
                     zpx_le_zx = m_solver.m_constraints.ult(lvl, z_prime*x, z*x);
                 else
                     zpx_le_zx = m_solver.m_constraints.ule(lvl, z_prime*x, z*x);
-                LOG("zx>z'x: " << show_deref(zpx_le_zx.constraint()));
+                LOG("zx>z'x: " << show_deref(zpx_le_zx));
                 clause.push_new_constraint(std::move(zpx_le_zx));
 
                 return clause.build();
@@ -295,7 +295,7 @@ namespace polysat {
                     yx_le_ypx = m_solver.m_constraints.ult(lvl, y*x, y_prime*x);
                 else
                     yx_le_ypx = m_solver.m_constraints.ule(lvl, y*x, y_prime*x);
-                LOG("y'x>yx: " << show_deref(yx_le_ypx.constraint()));
+                LOG("y'x>yx: " << show_deref(yx_le_ypx));
                 clause.push_new_constraint(std::move(yx_le_ypx));
 
                 return clause.build();
@@ -356,7 +356,7 @@ namespace polysat {
                     y_ule_az = m_solver.m_constraints.ult(lvl, y, a*z);
                 else
                     y_ule_az = m_solver.m_constraints.ule(lvl, y, a*z);
-                LOG("y<=az: " << show_deref(y_ule_az.constraint()));
+                LOG("y<=az: " << show_deref(y_ule_az));
                 clause.push_new_constraint(std::move(y_ule_az));
 
                 return clause.build();

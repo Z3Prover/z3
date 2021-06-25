@@ -141,7 +141,7 @@ namespace polysat {
         SASSERT(cl);
         SASSERT(activate || dep != null_dependency);  // if we don't activate the constraint, we need the dependency to access it again later.
         sat::literal lit = cl.literal();
-        constraint* c = cl.constraint();
+        constraint* c = cl.get();
         clause* unit = m_constraints.store(clause::from_unit(std::move(cl), mk_dep_ref(dep)));
         c->set_unit_clause(unit);
         if (dep != null_dependency)

@@ -57,12 +57,12 @@ namespace polysat {
         // TODO: assert that constraint is new (not 'inserted' into manager yet)
         SASSERT(c);
         SASSERT(c->is_undef());
-        tmp_assign _t(c.constraint(), c.literal());
+        tmp_assign _t(c.get(), c.literal());
         if (c->is_always_false())
             return;
         m_level = std::max(m_level, c->level());
         m_literals.push_back(c.literal());
-        m_new_constraints.push_back(c.detach_constraint());
+        m_new_constraints.push_back(c.detach());
     }
 
 }

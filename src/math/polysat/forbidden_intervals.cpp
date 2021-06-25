@@ -81,7 +81,7 @@ namespace polysat {
             constraint_literal neg_cond;
             if (c->forbidden_interval(s, v, interval, neg_cond)) {
                 LOG("interval: " << interval);
-                LOG("neg_cond: " << show_deref(neg_cond.constraint()));
+                LOG("neg_cond: " << show_deref(neg_cond));
                 if (interval.is_currently_empty())
                     continue;
                 if (interval.is_full())

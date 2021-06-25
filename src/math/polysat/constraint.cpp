@@ -184,13 +184,13 @@ namespace polysat {
         narrow(s);
     }
 
-    clause_ref clause::from_unit(constraint_literal cl, p_dependency_ref d) {
-        SASSERT(cl.constraint());
-        unsigned const lvl = cl.constraint()->level();
+    clause_ref clause::from_unit(constraint_literal c, p_dependency_ref d) {
+        SASSERT(c);
+        unsigned const lvl = c->level();
         sat::literal_vector lits;
-        lits.push_back(cl.literal());
+        lits.push_back(c.literal());
         constraint_ref_vector cs;
-        cs.push_back(cl.detach_constraint());
+        cs.push_back(c.detach());
         return clause::from_literals(lvl, std::move(d), std::move(lits), std::move(cs));
     }
 
