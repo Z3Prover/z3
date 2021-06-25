@@ -19,10 +19,7 @@ Author:
 namespace polysat {
 
     std::ostream& eq_constraint::display(std::ostream& out) const {
-        out << p();
-        if (is_positive())      out << " == 0 ";
-        else if (is_negative()) out << " != 0 ";
-        else                    out << " ==/!= 0 ";
+        out << p() << " == 0 ";
         return display_extra(out);
     }
 

@@ -19,11 +19,7 @@ Author:
 namespace polysat {
 
     std::ostream& ule_constraint::display(std::ostream& out) const {
-        out << m_lhs;
-        if (is_positive())      out << " <= ";
-        else if (is_negative()) out << " > ";
-        else                    out << " <=/> ";
-        out << m_rhs;
+        out << m_lhs << " <= " << m_rhs;
         return display_extra(out);
     }
 

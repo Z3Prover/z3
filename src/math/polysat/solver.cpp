@@ -61,7 +61,7 @@ namespace polysat {
         m_disjunctive_lemma.reset();
         while (m_lim.inc()) {
             m_stats.m_num_iterations++;
-            LOG_H1("Next solving loop iteration");
+            LOG_H1("Next solving loop iteration (#" << m_stats.m_num_iterations << ")");
             LOG("Free variables: " << m_free_vars);
             LOG("Assignment:     " << assignments_pp(*this));
             if (!m_conflict.empty()) LOG("Conflict:       " << m_conflict);
@@ -387,7 +387,7 @@ namespace polysat {
 
     void solver::set_conflict(constraint& c) { 
         LOG("Conflict: " << c);
-        LOG(*this);
+        LOG("\n" << *this);
         SASSERT(!is_conflict());
         m_conflict.push_back(&c); 
     }
@@ -447,7 +447,7 @@ namespace polysat {
     void solver::resolve_conflict() {
         IF_VERBOSE(1, verbose_stream() << "resolve conflict\n");
         LOG_H2("Resolve conflict");
-        LOG(*this);
+        LOG("\n" << *this);
         LOG("search state: " << m_search);
         ++m_stats.m_num_conflicts;
 
@@ -1101,14 +1101,16 @@ namespace polysat {
     }
 
     std::ostream& solver::display(std::ostream& out) const {
+        out << "Assignment:\n";
         for (auto [v, val] : assignment()) {
             auto j = m_justification[v];
-            out << assignment_pp(*this, v, val) << " @" << j.level();
+            out << "\t" << assignment_pp(*this, v, val) << " @" << j.level();
             if (j.is_propagation())
                 out << " " << m_cjust[v];
             out << "\n";
             // out << m_viable[v] << "\n";
         }
+        out << "Boolean assignment:\n\t" << m_bvars << "\n";
         out << "Original:\n";
         for (auto* c : m_original)
             out << "\t" << *c << "\n";

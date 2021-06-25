@@ -62,12 +62,13 @@ namespace polysat {
                     SASSERT(m_solver.m_bvars.value(lit.var()) != l_true);
                     constraint* c = m_solver.m_constraints.lookup(lit.var());
                     SASSERT(c);
-                    // tmp_assign _t(c, lit);
-                    // SASSERT(c->is_currently_false(m_solver));   // TODO: pvar v may not have a value at this point...
+                    tmp_assign _t(c, lit);
                     // if (c->is_currently_true(m_solver)) {
                     //     LOG("ERROR: constraint is true: " << show_deref(c));
                     //     SASSERT(false);
                     // }
+                    // SASSERT(!c->is_currently_true(m_solver));
+                    // SASSERT(c->is_currently_false(m_solver));   // TODO: pvar v may not have a value at this point...
                 }
             }
             else {
