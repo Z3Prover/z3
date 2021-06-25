@@ -81,13 +81,6 @@ namespace polysat {
         return lemma;
     }
 
-    // TODO: If we resolve with a non-base constraint (i.e., coming from a non-unit clause),
-    // we need to keep the other literals in the result clause.
-    // I.e., we need to output "general rules" like we do for the inequalitities.
-    // - Using the clause_builder ensures that we get the same result as before for unit clause input.
-    // QUESTION: where to get the appropriate dependencies and levels from???? since we only see the constraint here...
-    //           If it is a "general rule", then do we even need dependencies?
-    // TODO: also need to adapt other rules (they do not include the premise yet, so they aren't really rules yet!)
     clause_ref conflict_explainer::by_polynomial_superposition() {
         if (m_conflict.units().size() != 2 || m_conflict.clauses().size() > 0)
             return nullptr;
@@ -142,6 +135,7 @@ namespace polysat {
             unsigned const lvl = c.src->level();
 
             clause_builder clause(m_solver);
+            clause.push_literal(~c.src->blit());
             // Omega^*(x, y)
             if (!push_omega_mul(clause, lvl, sz, x, y))
                 continue;
@@ -214,6 +208,8 @@ namespace polysat {
                 pdd const& z_prime = d.lhs;
 
                 clause_builder clause(m_solver);
+                clause.push_literal(~c.src->blit());
+                clause.push_literal(~d.src->blit());
                 // Omega^*(x, y)
                 if (!push_omega_mul(clause, lvl, sz, x, y))
                     continue;
@@ -288,6 +284,8 @@ namespace polysat {
                 pdd const& y_prime = d.rhs;
 
                 clause_builder clause(m_solver);
+                clause.push_literal(~c.src->blit());
+                clause.push_literal(~d.src->blit());
                 // Omega^*(x, y')
                 if (!push_omega_mul(clause, lvl, sz, x, y_prime))
                     continue;
@@ -347,6 +345,8 @@ namespace polysat {
                 pdd const& z = d.rhs;
 
                 clause_builder clause(m_solver);
+                clause.push_literal(~c.src->blit());
+                clause.push_literal(~d.src->blit());
                 // Omega^*(a, z)
                 if (!push_omega_mul(clause, lvl, sz, a, z))
                     continue;
