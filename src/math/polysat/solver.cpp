@@ -61,7 +61,7 @@ namespace polysat {
         m_disjunctive_lemma.reset();
         while (m_lim.inc()) {
             m_stats.m_num_iterations++;
-            LOG_H1("Next solving loop iteration");
+            LOG_H1("Next solving loop iteration (#" << m_stats.m_num_iterations << ")");
             LOG("Free variables: " << m_free_vars);
             LOG("Assignment:     " << assignments_pp(*this));
             if (!m_conflict.empty()) LOG("Conflict:       " << m_conflict);
@@ -112,42 +112,47 @@ namespace polysat {
         m_free_vars.del_var_eh(v);
     }
 
-    constraint_ref solver::mk_eq(pdd const& p, unsigned dep) {
-        return m_constraints.eq(m_level, pos_t, p, mk_dep_ref(dep));
+    constraint_literal solver::mk_eq(pdd const& p) {
+        return m_constraints.eq(m_level, p);
     }
 
-    constraint_ref solver::mk_diseq(pdd const& p, unsigned dep) {
-        return m_constraints.eq(m_level, neg_t, p, mk_dep_ref(dep));
+    constraint_literal solver::mk_diseq(pdd const& p) {
+        return ~m_constraints.eq(m_level, p);
     }
 
-    constraint_ref solver::mk_ule(pdd const& p, pdd const& q, unsigned dep) {
-        return m_constraints.ule(m_level, pos_t, p, q, mk_dep_ref(dep));
+    constraint_literal solver::mk_ule(pdd const& p, pdd const& q) {
+        return m_constraints.ule(m_level, p, q);
     }
 
-    constraint_ref solver::mk_ult(pdd const& p, pdd const& q, unsigned dep) {
-        return m_constraints.ult(m_level, pos_t, p, q, mk_dep_ref(dep));
+    constraint_literal solver::mk_ult(pdd const& p, pdd const& q) {
+        return m_constraints.ult(m_level, p, q);
     }
 
-    constraint_ref solver::mk_sle(pdd const& p, pdd const& q, unsigned dep) {
-        return m_constraints.sle(m_level, pos_t, p, q, mk_dep_ref(dep));
+    constraint_literal solver::mk_sle(pdd const& p, pdd const& q) {
+        return m_constraints.sle(m_level, p, q);
     }
 
-    constraint_ref solver::mk_slt(pdd const& p, pdd const& q, unsigned dep) {
-        return m_constraints.slt(m_level, pos_t, p, q, mk_dep_ref(dep));
+    constraint_literal solver::mk_slt(pdd const& p, pdd const& q) {
+        return m_constraints.slt(m_level, p, q);
     }
 
-    void solver::new_constraint(constraint_ref cr, bool activate) {
+    void solver::new_constraint(constraint_literal cl, unsigned dep, bool activate) {
         VERIFY(at_base_level());
-        SASSERT(cr);
-        SASSERT(activate || cr->dep());  // if we don't activate the constraint, we need the dependency to access it again later.
-        constraint* c = m_constraints.insert(std::move(cr));
+        SASSERT(cl);
+        SASSERT(activate || dep != null_dependency);  // if we don't activate the constraint, we need the dependency to access it again later.
+        sat::literal lit = cl.literal();
+        constraint* c = cl.get();
+        clause* unit = m_constraints.store(clause::from_unit(std::move(cl), mk_dep_ref(dep)));
+        c->set_unit_clause(unit);
+        if (dep != null_dependency)
+            m_constraints.register_external(c);
         LOG("New constraint: " << *c);
         m_original.push_back(c);
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.new_constraint(*c);
 #endif
         if (activate && !is_conflict())
-            activate_constraint_base(c);
+            activate_constraint_base(c, !lit.sign());
     }
 
     void solver::assign_eh(unsigned dep, bool is_true) {
@@ -159,7 +164,7 @@ namespace polysat {
         }
         if (is_conflict())
             return;
-        activate_constraint_base(c);
+        activate_constraint_base(c, is_true);
     }
 
 
@@ -382,7 +387,7 @@ namespace polysat {
 
     void solver::set_conflict(constraint& c) { 
         LOG("Conflict: " << c);
-        LOG(*this);
+        LOG("\n" << *this);
         SASSERT(!is_conflict());
         m_conflict.push_back(&c); 
     }
@@ -442,7 +447,7 @@ namespace polysat {
     void solver::resolve_conflict() {
         IF_VERBOSE(1, verbose_stream() << "resolve conflict\n");
         LOG_H2("Resolve conflict");
-        LOG(*this);
+        LOG("\n" << *this);
         LOG("search state: " << m_search);
         ++m_stats.m_num_conflicts;
 
@@ -489,6 +494,7 @@ namespace polysat {
                 conflict_explainer cx(*this, m_conflict);
                 lemma = cx.resolve(conflict_var, {});
                 LOG("resolved: " << show_deref(lemma));
+                // SASSERT(false && "pause on explanation");
             }
         }
 
@@ -678,7 +684,7 @@ namespace polysat {
         p_dependency_ref conflict_dep(m_dm);
         for (auto& c : m_conflict.units())
             if (c)
-                conflict_dep = m_dm.mk_join(c->dep(), conflict_dep);
+                conflict_dep = m_dm.mk_join(c->unit_dep(), conflict_dep);
         for (auto& c : m_conflict.clauses())
             conflict_dep = m_dm.mk_join(c->dep(), conflict_dep);
         m_dm.linearize(conflict_dep, deps);
@@ -706,19 +712,13 @@ namespace polysat {
                 c = m_constraints.lookup(lemma->literals()[0].var());
             }
             SASSERT_EQ(lemma->literals()[0].var(), c->bvar());
-            SASSERT(!lemma->literals()[0].sign()); // TODO: that case is handled incorrectly atm
-            learn_lemma_unit(v, std::move(c));
+            SASSERT(c);
+            add_lemma_unit(c);
+            push_cjust(v, c.get());
+            activate_constraint_base(c.get(), !lemma->literals()[0].sign());
         }
         else
             learn_lemma_clause(v, std::move(lemma));
-    }
-
-    void solver::learn_lemma_unit(pvar v, constraint_ref lemma) {
-        SASSERT(lemma);
-        constraint* c = lemma.get();
-        add_lemma_unit(std::move(lemma));
-        push_cjust(v, c);
-        activate_constraint_base(c);
     }
 
     void solver::learn_lemma_clause(pvar v, clause_ref lemma) {
@@ -744,6 +744,7 @@ namespace polysat {
             SASSERT(m_bvars.value(lit) != l_true);  // cannot happen in a valid lemma
             constraint* c = m_constraints.lookup(lit.var());
             tmp_assign _t(c, lit);
+            SASSERT(!c->is_currently_true(*this));  // should not happen in a valid lemma
             return !c->is_currently_false(*this);
         };
 
@@ -863,19 +864,19 @@ namespace polysat {
             // * the reason for reverting this decision then needs to be the (negation of the) conflicting literals. Or we give up on resolving this lemma?
             SASSERT(m_conflict.clauses().empty());  // not sure how to handle otherwise
             clause_builder clause(*this);
-            unsigned reason_lvl = m_constraints.lookup(lit.var())->level();
-            p_dependency_ref reason_dep(m_constraints.lookup(lit.var())->dep(), m_dm);
+            // unsigned reason_lvl = m_constraints.lookup(lit.var())->level();
+            // p_dependency_ref reason_dep(m_constraints.lookup(lit.var())->dep(), m_dm);
             clause.push_literal(~lit);  // propagated literal
             for (auto c : m_conflict.units()) {
                 if (c->bvar() == var)
                     continue;
                 if (c->is_undef())  // TODO: see revert_decision for a note on this.
                     continue;
-                reason_lvl = std::max(reason_lvl, c->level());
-                reason_dep = m_dm.mk_join(reason_dep, c->dep());
+                // reason_lvl = std::max(reason_lvl, c->level());
+                // reason_dep = m_dm.mk_join(reason_dep, c->dep());
                 clause.push_literal(c->blit());
             }
-            reason = clause.build(reason_lvl, reason_dep);
+            reason = clause.build();
             LOG("Made-up reason: " << show_deref(reason));
         }
 
@@ -923,7 +924,7 @@ namespace polysat {
             SASSERT(reason->literals()[0] == lit);
             constraint* c = m_constraints.lookup(lit.var());
             m_redundant.push_back(c);
-            activate_constraint_base(c);
+            activate_constraint_base(c, !lit.sign());
         }
         else
             assign_bool_backtrackable(lit, reason, nullptr);
@@ -945,15 +946,16 @@ namespace polysat {
 
     /// Activate a constraint at the base level.
     /// Used for external unit constraints and unit consequences.
-    void solver::activate_constraint_base(constraint* c) {
+    void solver::activate_constraint_base(constraint* c, bool is_true) {
         SASSERT(c);
-        assign_bool_core(sat::literal(c->bvar()), nullptr, nullptr);
-        activate_constraint(*c, true);
         // c must be in m_original or m_redundant so it can be deactivated properly when popping the base level
         SASSERT_EQ(std::count(m_original.begin(), m_original.end(), c) + std::count(m_redundant.begin(), m_redundant.end(), c), 1);
+        sat::literal lit(c->bvar(), !is_true);
+        assign_bool_core(lit, nullptr, nullptr);
+        activate_constraint(*c, is_true);
     }
 
-    /// Assign a boolean literal and activate the corresponding constraint
+    /// Assign a boolean literal
     void solver::assign_bool_core(sat::literal lit, clause* reason, clause* lemma) {
         LOG("Assigning boolean literal: " << lit);
         m_bvars.assign(lit, m_level, reason, lemma);
@@ -976,6 +978,9 @@ namespace polysat {
         LOG("Deactivating constraint: " << c);
         erase_watch(c);
         c.unassign();
+#if ENABLE_LINEAR_SOLVER
+        m_linear_solver.deactivate_constraint(c);  // TODO add this method to linear solver?
+#endif
     }
 
     void solver::backjump(unsigned new_level) {
@@ -998,6 +1003,7 @@ namespace polysat {
         conflict_explainer cx(*this, m_conflict);
         clause_ref res = cx.resolve(v, m_cjust[v]);
         LOG("resolved: " << show_deref(res));
+        // SASSERT(false && "pause on explanation");
         return res;
     }
 
@@ -1013,20 +1019,22 @@ namespace polysat {
         if (!lemma)
             return;
         LOG("Lemma: " << show_deref(lemma));
-        constraint* c = m_constraints.insert(std::move(lemma));
+        constraint* c = m_constraints.store(std::move(lemma));
         insert_constraint(m_redundant, c);
+        // TODO: create unit clause
     }
 
     // Add lemma to storage but do not activate it
     void solver::add_lemma_clause(clause_ref lemma) {
         if (!lemma)
             return;
+        // TODO: check for unit clauses!
         LOG("Lemma: " << show_deref(lemma));
         if (lemma->size() < 2) {
             LOG_H1("TODO: this should be treated as unit constraint and asserted at the base level!");
         }
         // SASSERT(lemma->size() > 1);
-        clause* cl = m_constraints.insert(std::move(lemma));
+        clause* cl = m_constraints.store(std::move(lemma));
         m_redundant_clauses.push_back(cl);
     }
 
@@ -1074,7 +1082,15 @@ namespace polysat {
     }
 
     bool solver::active_at_base_level(sat::bool_var bvar) const {
-        return m_bvars.is_assigned(bvar) && m_bvars.level(bvar) <= base_level();
+        // NOTE: this active_at_base_level is actually not what we want!!!
+        //          first of all, it might not really be a base level: could be a non-base level between previous base levels.
+        //          in that case, how do we determine the right dependencies???
+        //          secondly, we are interested in "unit clauses", not as much whether we assigned something on the base level...
+        //          TODO: however, propagating stuff at the base level... need to be careful with dependencies there... might need to turn all base-level propagations into unit clauses...
+        VERIFY(false);
+        // bool res = m_bvars.is_assigned(bvar) && m_bvars.level(bvar) <= base_level();
+        // SASSERT_EQ(res, !!m_constraints.lookup(bvar)->unit_clause());
+        // return res;
     }
 
     bool solver::try_eval(pdd const& p, rational& out_value) const {
@@ -1085,14 +1101,16 @@ namespace polysat {
     }
 
     std::ostream& solver::display(std::ostream& out) const {
+        out << "Assignment:\n";
         for (auto [v, val] : assignment()) {
             auto j = m_justification[v];
-            out << assignment_pp(*this, v, val) << " @" << j.level();
+            out << "\t" << assignment_pp(*this, v, val) << " @" << j.level();
             if (j.is_propagation())
                 out << " " << m_cjust[v];
             out << "\n";
             // out << m_viable[v] << "\n";
         }
+        out << "Boolean assignment:\n\t" << m_bvars << "\n";
         out << "Original:\n";
         for (auto* c : m_original)
             out << "\t" << *c << "\n";

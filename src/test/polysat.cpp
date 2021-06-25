@@ -833,8 +833,8 @@ namespace polysat {
 
 
 void tst_polysat() {
-    polysat::test_monot_bounds(8);
-    // polysat::test_monot_bounds_simple(8);
+    // polysat::test_monot_bounds(8);
+    polysat::test_monot_bounds_simple(8);
     return;
 
     polysat::test_add_conflicts();

@@ -15,7 +15,6 @@ Author:
 --*/
 #pragma once
 #include "math/polysat/constraint.h"
-#include "math/polysat/interval.h"
 #include "math/polysat/solver.h"
 
 namespace polysat {

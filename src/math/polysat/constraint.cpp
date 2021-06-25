@@ -21,17 +21,11 @@ Author:
 
 namespace polysat {
 
-    constraint* constraint_manager::insert(constraint_ref c) {
-        LOG_V("Inserting constraint: " << show_deref(c));
+    constraint* constraint_manager::store(constraint_ref c) {
+        LOG_V("Store constraint: " << show_deref(c));
         SASSERT(c);
         SASSERT(c->bvar() != sat::null_bool_var);
         SASSERT(get_bv2c(c->bvar()) == c.get());
-        // TODO: use explicit insert_external(constraint* c, unsigned dep) for that.
-        if (c->dep() && c->dep()->is_leaf()) {
-            unsigned dep = c->dep()->leaf_value();
-            SASSERT(!m_external_constraints.contains(dep));
-            m_external_constraints.insert(dep, c.get());
-        }
         while (m_constraints.size() <= c->level())
             m_constraints.push_back({});
         constraint* pc = c.get();
@@ -39,12 +33,12 @@ namespace polysat {
         return pc;
     }
 
-    clause* constraint_manager::insert(clause_ref cl) {
+    clause* constraint_manager::store(clause_ref cl) {
+        LOG_V("Store clause: " << show_deref(cl));
         SASSERT(cl);
         // Insert new constraints
         for (constraint* c : cl->m_new_constraints)
-            // TODO: if (!inserted) ?
-            insert(c);
+            store(c);
         cl->m_new_constraints = {};  // free vector memory
         // Insert clause
         while (m_clauses.size() <= cl->level())
@@ -54,14 +48,17 @@ namespace polysat {
         return pcl;
     }
 
+    void constraint_manager::register_external(constraint* c) {
+        SASSERT(c);
+        SASSERT(c->unit_dep());
+        SASSERT(c->unit_dep()->is_leaf());
+        unsigned const dep = c->unit_dep()->leaf_value();
+        SASSERT(!m_external_constraints.contains(dep));
+        m_external_constraints.insert(dep, c);
+    }
+
     // Release constraints at the given level and above.
     void constraint_manager::release_level(unsigned lvl) {
-        for (unsigned l = m_clauses.size(); l-- > lvl; ) {
-            for (auto const& cl : m_clauses[l]) {
-                SASSERT_EQ(cl->m_ref_count, 1);  // otherwise there is a leftover reference somewhere
-            }
-            m_clauses[l].reset();
-        }
         for (unsigned l = m_constraints.size(); l-- > lvl; ) {
             for (auto const& c : m_constraints[l]) {
                 LOG_V("Removing constraint: " << show_deref(c));
@@ -69,13 +66,20 @@ namespace polysat {
                     // NOTE: ref count could be two if the constraint was added twice (once as part of clause, and later as unit constraint)
                     LOG_H1("Expected ref_count 1 or 2, got " << c->m_ref_count << " for " << *c);
                 }
-                if (c->dep() && c->dep()->is_leaf()) {
-                    unsigned dep = c->dep()->leaf_value();
+                auto* d = c->unit_dep();
+                if (d && d->is_leaf()) {
+                    unsigned const dep = d->leaf_value();
                     SASSERT(m_external_constraints.contains(dep));
                     m_external_constraints.remove(dep);
                 }
             }
             m_constraints[l].reset();
+        }
+        for (unsigned l = m_clauses.size(); l-- > lvl; ) {
+            for (auto const& cl : m_clauses[l]) {
+                SASSERT_EQ(cl->m_ref_count, 1);  // otherwise there is a leftover reference somewhere
+            }
+            m_clauses[l].reset();
         }
     }
 
@@ -105,18 +109,18 @@ namespace polysat {
         return *dynamic_cast<ule_constraint const*>(this);
     }
 
-    constraint_ref constraint_manager::eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d) {
-        return alloc(eq_constraint, *this, lvl, sign, p, d);
+    constraint_literal constraint_manager::eq(unsigned lvl, pdd const& p) {
+        return constraint_literal{alloc(eq_constraint, *this, lvl, p)};
     }
 
 
-    constraint_ref constraint_manager::ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
-        return alloc(ule_constraint, *this, lvl, sign, a, b, d);
+    constraint_literal constraint_manager::ule(unsigned lvl, pdd const& a, pdd const& b) {
+        return constraint_literal{alloc(ule_constraint, *this, lvl, a, b)};
     }
 
-    constraint_ref constraint_manager::ult(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+    constraint_literal constraint_manager::ult(unsigned lvl, pdd const& a, pdd const& b) {
         // a < b  <=>  !(b <= a)
-        return ule(lvl, static_cast<csign_t>(!sign), b, a, d);
+        return ~ule(lvl, b, a);
     }
 
     // To do signed comparison of bitvectors, flip the msb and do unsigned comparison:
@@ -135,14 +139,14 @@ namespace polysat {
     //
     // Argument: flipping the msb swaps the negative and non-negative blocks
     //
-    constraint_ref constraint_manager::sle(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+    constraint_literal constraint_manager::sle(unsigned lvl, pdd const& a, pdd const& b) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
-        return ule(lvl, sign, a + shift, b + shift, d);
+        return ule(lvl, a + shift, b + shift);
     }
 
-    constraint_ref constraint_manager::slt(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d) {
+    constraint_literal constraint_manager::slt(unsigned lvl, pdd const& a, pdd const& b) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
-        return ult(lvl, sign, a + shift, b + shift, d);
+        return ult(lvl, a + shift, b + shift);
     }
 
     std::ostream& constraint::display_extra(std::ostream& out) const {
@@ -180,19 +184,18 @@ namespace polysat {
         narrow(s);
     }
 
-    clause_ref clause::from_unit(constraint_ref c) {
+    clause_ref clause::from_unit(constraint_literal c, p_dependency_ref d) {
         SASSERT(c);
         unsigned const lvl = c->level();
-        auto const& dep = c->m_dep;
         sat::literal_vector lits;
-        lits.push_back(sat::literal(c->bvar()));
+        lits.push_back(c.literal());
         constraint_ref_vector cs;
-        cs.push_back(std::move(c));
-        return clause::from_literals(lvl, dep, std::move(lits), std::move(cs));
+        cs.push_back(c.detach());
+        return clause::from_literals(lvl, std::move(d), std::move(lits), std::move(cs));
     }
 
-    clause_ref clause::from_literals(unsigned lvl, p_dependency_ref const& d, sat::literal_vector literals, constraint_ref_vector constraints) {
-        return alloc(clause, lvl, d, std::move(literals), std::move(constraints));
+    clause_ref clause::from_literals(unsigned lvl, p_dependency_ref d, sat::literal_vector literals, constraint_ref_vector constraints) {
+        return alloc(clause, lvl, std::move(d), std::move(literals), std::move(constraints));
     }
 
     bool clause::is_always_false(solver& s) const {
@@ -245,35 +248,6 @@ namespace polysat {
             out << lit;
         }
         return out;
-    }
-
-    void clause_builder::reset() {
-        m_literals.reset();
-        m_new_constraints.reset();
-        SASSERT(empty());
-    }
-
-    clause_ref clause_builder::build(unsigned lvl, p_dependency_ref const& d) {
-        clause_ref cl = clause::from_literals(lvl, d, std::move(m_literals), std::move(m_new_constraints));
-        SASSERT(empty());
-        return cl;
-    }
-
-    void clause_builder::push_literal(sat::literal lit) {
-        if (m_solver.active_at_base_level(lit))
-            return;
-        m_literals.push_back(lit);
-    }
-
-    void clause_builder::push_new_constraint(constraint_ref c) {
-        SASSERT(c);
-        SASSERT(c->is_undef());
-        sat::literal lit{c->bvar()};
-        tmp_assign _t(c, lit);
-        if (c->is_always_false())
-            return;
-        m_literals.push_back(lit);
-        m_new_constraints.push_back(std::move(c));
     }
 
     std::ostream& constraints_and_clauses::display(std::ostream& out) const {
