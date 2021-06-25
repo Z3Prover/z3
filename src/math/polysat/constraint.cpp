@@ -50,10 +50,9 @@ namespace polysat {
 
     void constraint_manager::register_external(constraint* c) {
         SASSERT(c);
-        SASSERT(c->unit_clause());
-        SASSERT(c->unit_clause()->dep());
-        SASSERT(c->unit_clause()->dep()->is_leaf());
-        unsigned const dep = c->unit_clause()->dep()->leaf_value();
+        SASSERT(c->unit_dep());
+        SASSERT(c->unit_dep()->is_leaf());
+        unsigned const dep = c->unit_dep()->leaf_value();
         SASSERT(!m_external_constraints.contains(dep));
         m_external_constraints.insert(dep, c);
     }
@@ -67,9 +66,9 @@ namespace polysat {
                     // NOTE: ref count could be two if the constraint was added twice (once as part of clause, and later as unit constraint)
                     LOG_H1("Expected ref_count 1 or 2, got " << c->m_ref_count << " for " << *c);
                 }
-                clause* unit = c->unit_clause();
-                if (unit && unit->dep() && unit->dep()->is_leaf()) {
-                    unsigned const dep = unit->dep()->leaf_value();
+                auto* d = c->unit_dep();
+                if (d && d->is_leaf()) {
+                    unsigned const dep = d->leaf_value();
                     SASSERT(m_external_constraints.contains(dep));
                     m_external_constraints.remove(dep);
                 }

@@ -140,6 +140,7 @@ namespace polysat {
         VERIFY(at_base_level());
         SASSERT(cl);
         SASSERT(activate || dep != null_dependency);  // if we don't activate the constraint, we need the dependency to access it again later.
+        sat::literal lit = cl.literal();
         constraint* c = cl.constraint();
         clause* unit = m_constraints.store(clause::from_unit(std::move(cl), mk_dep_ref(dep)));
         c->set_unit_clause(unit);
@@ -151,7 +152,7 @@ namespace polysat {
         m_linear_solver.new_constraint(*c);
 #endif
         if (activate && !is_conflict())
-            activate_constraint_base(c);
+            activate_constraint_base(c, !lit.sign());
     }
 
     void solver::assign_eh(unsigned dep, bool is_true) {
@@ -163,7 +164,7 @@ namespace polysat {
         }
         if (is_conflict())
             return;
-        activate_constraint_base(c);
+        activate_constraint_base(c, is_true);
     }
 
 
@@ -711,19 +712,13 @@ namespace polysat {
                 c = m_constraints.lookup(lemma->literals()[0].var());
             }
             SASSERT_EQ(lemma->literals()[0].var(), c->bvar());
-            SASSERT(!lemma->literals()[0].sign()); // TODO: that case is handled incorrectly atm
-            learn_lemma_unit(v, std::move(c));
+            SASSERT(c);
+            add_lemma_unit(c);
+            push_cjust(v, c.get());
+            activate_constraint_base(c.get(), !lemma->literals()[0].sign());
         }
         else
             learn_lemma_clause(v, std::move(lemma));
-    }
-
-    void solver::learn_lemma_unit(pvar v, constraint_ref lemma) {
-        SASSERT(lemma);
-        constraint* c = lemma.get();
-        add_lemma_unit(std::move(lemma));
-        push_cjust(v, c);
-        activate_constraint_base(c);
     }
 
     void solver::learn_lemma_clause(pvar v, clause_ref lemma) {
@@ -749,6 +744,7 @@ namespace polysat {
             SASSERT(m_bvars.value(lit) != l_true);  // cannot happen in a valid lemma
             constraint* c = m_constraints.lookup(lit.var());
             tmp_assign _t(c, lit);
+            SASSERT(!c->is_currently_true(*this));  // should not happen in a valid lemma
             return !c->is_currently_false(*this);
         };
 
@@ -928,7 +924,7 @@ namespace polysat {
             SASSERT(reason->literals()[0] == lit);
             constraint* c = m_constraints.lookup(lit.var());
             m_redundant.push_back(c);
-            activate_constraint_base(c);
+            activate_constraint_base(c, !lit.sign());
         }
         else
             assign_bool_backtrackable(lit, reason, nullptr);
@@ -950,13 +946,13 @@ namespace polysat {
 
     /// Activate a constraint at the base level.
     /// Used for external unit constraints and unit consequences.
-    void solver::activate_constraint_base(constraint* c) {
+    void solver::activate_constraint_base(constraint* c, bool is_true) {
         SASSERT(c);
-        // TODO: this is wrong now! fix it
-        assign_bool_core(sat::literal(c->bvar()), nullptr, nullptr);
-        activate_constraint(*c, true);
         // c must be in m_original or m_redundant so it can be deactivated properly when popping the base level
         SASSERT_EQ(std::count(m_original.begin(), m_original.end(), c) + std::count(m_redundant.begin(), m_redundant.end(), c), 1);
+        sat::literal lit(c->bvar(), !is_true);
+        assign_bool_core(lit, nullptr, nullptr);
+        activate_constraint(*c, is_true);
     }
 
     /// Assign a boolean literal

@@ -166,7 +166,7 @@ namespace polysat {
         void assign(bool is_true) {
             SASSERT(m_status == l_undef /* || m_status == to_lbool(is_true) */);
             m_status = to_lbool(is_true);
-            SASSERT(m_manager->m_bvars.value(bvar()) == l_undef || m_manager->m_bvars.value(bvar()) == m_status);  // TODO: is this always true? maybe we sometimes want to check the opposite phase temporarily.
+            // SASSERT(m_manager->m_bvars.value(bvar()) == l_undef || m_manager->m_bvars.value(bvar()) == m_status);  // TODO: is this always true? maybe we sometimes want to check the opposite phase temporarily.
         }
         void unassign() { m_status = l_undef; }
         bool is_undef() const { return m_status == l_undef; }
@@ -214,7 +214,7 @@ namespace polysat {
         polysat::constraint* operator->() const { return m_constraint.get(); }
         polysat::constraint const& operator*() const { return *m_constraint; }
 
-        constraint_literal& operator=(nullptr_t) { m_literal = sat::null_literal; m_constraint = nullptr; }
+        constraint_literal& operator=(nullptr_t) { m_literal = sat::null_literal; m_constraint = nullptr; return *this; }
     private:
         friend class constraint_manager;
         explicit constraint_literal(polysat::constraint* c): constraint_literal(sat::literal(c->bvar()), c) {}
@@ -352,13 +352,13 @@ namespace polysat {
         tmp_assign(constraint* c, sat::literal lit):
             m_constraint(c) {
             SASSERT(c);
-            SASSERT(c->bvar() == lit.var());
+            SASSERT_EQ(c->bvar(), lit.var());
             if (c->is_undef()) {
                 c->assign(!lit.sign());
                 m_should_unassign = true;
             }
             else
-                SASSERT(c->blit() == lit);
+                SASSERT_EQ(c->blit(), lit);
         }
         tmp_assign(constraint_ref const& c, sat::literal lit): tmp_assign(c.get(), lit) {}
         void revert() {

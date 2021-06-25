@@ -32,6 +32,15 @@ namespace polysat {
         for (auto* c : m_conflict.clauses())
             LOG("Clause: " << show_deref(c));
 
+        // TODO: this is a temporary workaround! we should not get any undef constraints at this point
+        constraints_and_clauses confl = std::move(m_conflict);
+        SASSERT(m_conflict.empty());
+        for (auto* c : confl.units())
+            if (!c->is_undef())
+                m_conflict.push_back(c);
+        for (auto* c : confl.clauses())
+                m_conflict.push_back(c);
+
         // TODO: we should share work done for examining constraints between different resolution methods
         clause_ref lemma;
         if (!lemma) lemma = by_polynomial_superposition();
@@ -48,10 +57,17 @@ namespace polysat {
                 }
                 // All constraints in the lemma must be false in the conflict state
                 for (auto lit : lemma->literals()) {
+                    if (m_solver.m_bvars.value(lit.var()) == l_false)
+                        continue;
+                    SASSERT(m_solver.m_bvars.value(lit.var()) != l_true);
                     constraint* c = m_solver.m_constraints.lookup(lit.var());
                     SASSERT(c);
-                    tmp_assign _t(c, lit);
-                    SASSERT(c->is_currently_false(m_solver));
+                    // tmp_assign _t(c, lit);
+                    // SASSERT(c->is_currently_false(m_solver));   // TODO: pvar v may not have a value at this point...
+                    // if (c->is_currently_true(m_solver)) {
+                    //     LOG("ERROR: constraint is true: " << show_deref(c));
+                    //     SASSERT(false);
+                    // }
                 }
             }
             else {
@@ -395,9 +411,9 @@ namespace polysat {
         SASSERT(min_k <= k && k <= max_k);
 
         // x >= 2^k
-        auto c1 = m_solver.m_constraints.ult(level, pddm.mk_val(rational::power_of_two(k)), x);
+        auto c1 = m_solver.m_constraints.ule(level, pddm.mk_val(rational::power_of_two(k)), x);
         // y > 2^{p-k}
-        auto c2 = m_solver.m_constraints.ule(level, pddm.mk_val(rational::power_of_two(p-k)), y);
+        auto c2 = m_solver.m_constraints.ult(level, pddm.mk_val(rational::power_of_two(p-k)), y);
         clause.push_new_constraint(std::move(c1));
         clause.push_new_constraint(std::move(c2));
         return true;

@@ -148,7 +148,7 @@ namespace polysat {
         void pop_constraints(ptr_vector<constraint>& cs);
 
         void assign_bool_backtrackable(sat::literal lit, clause* reason, clause* lemma);
-        void activate_constraint_base(constraint* c);
+        void activate_constraint_base(constraint* c, bool is_true);
         void assign_bool_core(sat::literal lit, clause* reason, clause* lemma);
         // void assign_bool_base(sat::literal lit);
         void activate_constraint(constraint& c, bool is_true);
@@ -217,7 +217,6 @@ namespace polysat {
         void revert_decision(pvar v, clause_ref reason);
         void revert_bool_decision(sat::literal lit, clause_ref reason);
         void learn_lemma(pvar v, clause_ref lemma);
-        void learn_lemma_unit(pvar v, constraint_ref lemma);
         void learn_lemma_clause(pvar v, clause_ref lemma);
         void backjump(unsigned new_level);
         void add_lemma_unit(constraint_ref lemma);
