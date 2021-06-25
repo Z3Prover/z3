@@ -19,17 +19,11 @@ Author:
 namespace polysat {
 
     std::ostream& eq_constraint::display(std::ostream& out) const {
-        out << p() << (sign() == pos_t ? " == 0" : " != 0");
+        out << p();
+        if (is_positive())      out << " == 0 ";
+        else if (is_negative()) out << " != 0 ";
+        else                    out << " ==/!= 0 ";
         return display_extra(out);
-    }
-
-    constraint_ref eq_constraint::resolve(solver& s, pvar v) {
-        if (is_positive())
-            return eq_resolve(s, v);
-        if (is_negative())
-            return diseq_resolve(s, v);
-        UNREACHABLE();
-        return nullptr;
     }
 
     void eq_constraint::narrow(solver& s) {
@@ -110,47 +104,36 @@ namespace polysat {
      * Equality constraints
      */
 
-    constraint_ref eq_constraint::eq_resolve(solver& s, pvar v) {
-        LOG("Resolve " << *this << " upon v" << v);
-        if (s.m_conflict.size() != 1)
-            return nullptr;
-        if (!s.m_conflict.clauses().empty())
-            return nullptr;
-        constraint* c = s.m_conflict.units()[0];
-        SASSERT(c->is_currently_false(s));
-        // 'c == this' can happen if propagation was from decide() with only one value left
-        // (e.g., if there's an unsatisfiable clause and we try all values).
-        // Resolution would give us '0 == 0' in this case, which is useless.
-        if (c == this)
-            return nullptr;
-        SASSERT(is_currently_true(s));  // TODO: might not always hold (due to similar case as in comment above?)
-        if (c->is_eq() && c->is_positive()) {
-            pdd a = c->to_eq().p();
-            pdd b = p();
-            pdd r = a;
-            if (!a.resolve(v, b, r)) 
-                return nullptr;
-            p_dependency_ref d(s.m_dm.mk_join(c->dep(), dep()), s.m_dm);
-            unsigned lvl = std::max(c->level(), level());
-            return s.m_constraints.eq(lvl, pos_t, r, d);
-        }
-        return nullptr;
-    }
-
-
-    /**
-     * Disequality constraints
-     */
-
-    constraint_ref eq_constraint::diseq_resolve(solver& s, pvar v) {
-        NOT_IMPLEMENTED_YET();
-        return nullptr;
-    }
-
+    // constraint_ref eq_constraint::eq_resolve(solver& s, pvar v) {
+    //     LOG("Resolve " << *this << " upon v" << v);
+    //     if (s.m_conflict.size() != 1)
+    //         return nullptr;
+    //     if (!s.m_conflict.clauses().empty())
+    //         return nullptr;
+    //     constraint* c = s.m_conflict.units()[0];
+    //     SASSERT(c->is_currently_false(s));
+    //     // 'c == this' can happen if propagation was from decide() with only one value left
+    //     // (e.g., if there's an unsatisfiable clause and we try all values).
+    //     // Resolution would give us '0 == 0' in this case, which is useless.
+    //     if (c == this)
+    //         return nullptr;
+    //     SASSERT(is_currently_true(s));  // TODO: might not always hold (due to similar case as in comment above?)
+    //     if (c->is_eq() && c->is_positive()) {
+    //         pdd a = c->to_eq().p();
+    //         pdd b = p();
+    //         pdd r = a;
+    //         if (!a.resolve(v, b, r)) 
+    //             return nullptr;
+    //         p_dependency_ref d(s.m_dm.mk_join(c->dep(), dep()), s.m_dm);
+    //         unsigned lvl = std::max(c->level(), level());
+    //         return s.m_constraints.eq(lvl, pos_t, r, d);
+    //     }
+    //     return nullptr;
+    // }
 
 
     /// Compute forbidden interval for equality constraint by considering it as p <=u 0 (or p >u 0 for disequality)
-    bool eq_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, constraint_ref& out_neg_cond)
+    bool eq_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, constraint_literal& out_neg_cond)
     {
         SASSERT(!is_undef());
 

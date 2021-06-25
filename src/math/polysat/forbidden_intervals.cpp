@@ -14,13 +14,15 @@ Author:
 
 --*/
 #include "math/polysat/forbidden_intervals.h"
+#include "math/polysat/clause_builder.h"
+#include "math/polysat/interval.h"
 #include "math/polysat/log.h"
 
 namespace polysat {
 
     struct fi_record {
         eval_interval interval;
-        constraint_ref neg_cond;  // could be multiple constraints later
+        constraint_literal neg_cond;  // could be multiple constraints later
         constraint* src;
     };
 
@@ -76,10 +78,10 @@ namespace polysat {
                 continue;
             }
             eval_interval interval = eval_interval::full();
-            constraint_ref neg_cond;
+            constraint_literal neg_cond;
             if (c->forbidden_interval(s, v, interval, neg_cond)) {
                 LOG("interval: " << interval);
-                LOG("neg_cond: " << show_deref(neg_cond));
+                LOG("neg_cond: " << show_deref(neg_cond.constraint()));
                 if (interval.is_currently_empty())
                     continue;
                 if (interval.is_full())
@@ -107,9 +109,7 @@ namespace polysat {
             clause.push_literal(~full_record.src->blit());
             if (full_record.neg_cond)
                 clause.push_new_constraint(std::move(full_record.neg_cond));
-            unsigned lemma_lvl = full_record.src->level();
-            p_dependency_ref lemma_dep(full_record.src->dep(), s.m_dm);
-            out_lemma = clause.build(lemma_lvl, lemma_dep);
+            out_lemma = clause.build();
             return true;
         }
 
@@ -132,14 +132,11 @@ namespace polysat {
         LOG("seq: " << seq);
         SASSERT(seq.size() >= 2);  // otherwise has_full should have been true
 
-        p_dependency* d = nullptr;
         unsigned lemma_lvl = 0;
         for (unsigned i : seq) {
             constraint* c = records[i].src;
-            d = s.m_dm.mk_join(d, c->dep());
             lemma_lvl = std::max(lemma_lvl, c->level());
         }
-        p_dependency_ref lemma_dep(d, s.m_dm);
 
         // Create lemma
         // Idea:
@@ -166,16 +163,16 @@ namespace polysat {
             auto const& next_hi = records[next_i].interval.hi();
             auto const& lhs = hi - next_lo;
             auto const& rhs = next_hi - next_lo;
-            constraint_ref c = s.m_constraints.ult(lemma_lvl, neg_t, lhs, rhs, s.mk_dep_ref(null_dependency));
+            constraint_literal c = ~s.m_constraints.ult(lemma_lvl, lhs, rhs);
             LOG("constraint: " << *c);
             clause.push_new_constraint(std::move(c));
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
-            constraint_ref& neg_cond = records[i].neg_cond;
+            constraint_literal& neg_cond = records[i].neg_cond;
             if (neg_cond)
                 clause.push_new_constraint(std::move(neg_cond));
         }
-        out_lemma = clause.build(lemma_lvl, lemma_dep);
+        out_lemma = clause.build();
         return true;
     }
 
