@@ -33,30 +33,31 @@ Revision History:
 #include <pthread.h>
 #endif
 
+enum scoped_timer_work_state { EXPIRED = -1, IDLE = 0, WORKING = 1, EXITING = 2 };
+
 struct scoped_timer_state {
     std::thread m_thread;
     std::timed_mutex m_mutex;
     event_handler * eh;
     unsigned ms;
-    std::atomic<int> work;
+    std::atomic<scoped_timer_work_state> work;
     std::condition_variable_any cv;
 };
 
 static std::vector<scoped_timer_state*> available_workers;
 static std::mutex workers;
 static atomic<unsigned> num_workers(0);
-enum { EXPIRED = -1, IDLE = 0, WORKING = 1 };
-static int working = WORKING;
+static scoped_timer_work_state working = WORKING;
 
 static void thread_func(scoped_timer_state *s) {
     workers.lock();
     while (true) {
     start:
-        s->cv.wait(workers, [=]{ return s->work > 0; });
+        s->cv.wait(workers, [=]{ return s->work > IDLE; });
         workers.unlock();
 
         // exiting..
-        if (s->work == 2)
+        if (s->work == EXITING)
             return;
 
         auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(s->ms);
@@ -152,7 +153,7 @@ void scoped_timer::finalize() {
     while (deleted < num_workers) {
         workers.lock();
         for (auto w : available_workers) {
-            w->work = 2;
+            w->work = EXITING;
             w->cv.notify_one();
         }
         decltype(available_workers) cleanup_workers;
