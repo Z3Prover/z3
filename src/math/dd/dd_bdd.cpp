@@ -582,7 +582,7 @@ namespace dd {
     bdd bdd_manager::mk_cofactor(bdd const& a, bdd const& b) {
 	bool first = true;
         scoped_push _sp(*this);
-	    SASSERT(!is_const(b) && is_const(lo(b)) && is_const(hi(b)));
+        SASSERT(!b.is_const() && b.lo().is_const() && b.hi().is_const());
         while (true) {
             try {
                 return bdd(mk_cofactor_rec(a.root, b.root), this); 
