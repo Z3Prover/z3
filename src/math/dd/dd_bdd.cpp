@@ -145,13 +145,6 @@ namespace dd {
             if (is_true(a)) return mk_not_rec(b);
             if (is_true(b)) return mk_not_rec(a);
             break;
-	case bdd_cofactor_op:
-	    if (a == b) return a;
-	    if (is_const(a)) return a;
-	    if (level(a) == level(b))
-		
-	    SASSERT(!is_const(b));
-	    break;
         default:
             UNREACHABLE();
             break;
