@@ -120,4 +120,36 @@ namespace dd {
         return out;
     }
 
+  
+    bool fdd::sup(bdd const& x, bool_vector& lo) {
+        SASSERT(lo.size() == num_bits());
+	//
+	// Assumption: common case is that high-order bits are before lower-order bits also
+	// after re-ordering.
+	//
+
+	// this checks that lo is included in x
+	bdd b = x;
+	while (!b.is_true()) {
+	    unsigned const pos = var2pos(b.var());
+            SASSERT(pos != UINT_MAX && "Unexpected BDD variable");
+	    if (lo[pos] && b.hi().is_false())
+		return false;
+	    if (!lo[pos] && b.lo().is_false())
+		return false;
+	    
+	    if (lo[pos])
+		b = b.hi();
+	    else
+		b = b.lo();
+	}
+	return false;
+    }
+    
+    bool fdd::inf(bdd const& b, bool_vector& hi) {
+        SASSERT(hi.size() == num_bits());
+	return false;
+    }
+
+
 }

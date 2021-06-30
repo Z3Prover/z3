@@ -41,29 +41,54 @@ namespace polysat {
     //
     class viable_set : public mod_interval<rational> {
         unsigned m_num_bits;
+        rational p2() const { return rational::power_of_two(m_num_bits); }
         bool is_max(rational const& a) const;
         void set_lo(rational const& lo);
         void set_hi(rational const& hi);
         void intersect_eq(rational const& a, bool is_positive);
     public:
         viable_set(unsigned num_bits): m_num_bits(num_bits) {}
-        bool is_singleton(rational& val) const; 
+        bool is_singleton() const; 
         dd::find_t find_hint(rational const& c, rational& val) const;
         void set_ne(rational const& a) { intersect_eq(a, false); }
         void intersect_eq(rational const& a, rational const& b, bool is_positive);
-        void intersect_ule(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive);
+        bool intersect_ule(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive);
+        void intersect_ule(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive, unsigned& budget);
     };
 #endif
 
     class viable {
         solver& s;
-#if NEW_VIABLE
-        vector<viable_set>           m_viable; // future representation of viable values
-        vector<std::pair<pvar, viable_set>> m_viable_trail;
-#else
         typedef dd::bdd bdd;
+        typedef dd::fdd fdd;
         dd::bdd_manager              m_bdd;
         scoped_ptr_vector<dd::fdd>   m_bits;
+#if NEW_VIABLE
+        struct ineq_entry {
+            unsigned m_num_bits;
+            rational a, b, c, d;
+            bdd      repr;
+            unsigned m_activity = 0;
+            ineq_entry(unsigned n, rational const& a, rational const& b, rational const& c, rational const& d, bdd& f) :
+                m_num_bits(n), a(a), b(b), c(c), d(d), repr(f) {}
+
+            struct hash {
+                unsigned operator()(ineq_entry const* e) const {
+                    return mk_mix(e->a.hash(), e->b.hash(), mk_mix(e->c.hash(), e->d.hash(), e->m_num_bits));
+                }
+            };
+            struct eq {
+                bool operator()(ineq_entry const* x, ineq_entry const* y) const {
+                    return x->a == y->a && x->b == y->b && x->c == y->c && x->d == y->d && x->m_num_bits == y->m_num_bits;
+                }
+            };
+        };
+        vector<viable_set>                                       m_viable; 
+        vector<std::pair<pvar, viable_set>>                      m_viable_trail;
+        hashtable<ineq_entry*, ineq_entry::hash, ineq_entry::eq> m_ineq_cache;
+#else
+
+        
         vector<bdd>                  m_viable;   // set of viable values.
         vector<std::pair<pvar, bdd>> m_viable_trail;
 
@@ -72,11 +97,11 @@ namespace polysat {
          * Register all values that are not contained in vals as non-viable.
          */
         void intersect_viable(pvar v, bdd vals);
-
+#endif
         dd::bdd_manager& get_bdd() { return m_bdd; }
         dd::fdd const& sz2bits(unsigned sz);
         dd::fdd const& var2bits(pvar v);
-#endif
+
 
     public:
         viable(solver& s);

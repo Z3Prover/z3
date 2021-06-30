@@ -259,6 +259,7 @@ namespace dd {
         bool is_constv(bddv const& a);
         rational to_val(bddv const& a);
 
+
         std::ostream& display(std::ostream& out);
         std::ostream& display(std::ostream& out, bdd const& b);
 

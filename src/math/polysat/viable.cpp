@@ -10,6 +10,13 @@ Author:
     Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-6
 
+Notes:
+
+Use cheap heuristics to narrow viable sets whenever possible.
+If the cheap heuristics fail, compute a BDD representing the viable sets
+and narrow the range using the BDDs that are cached.
+
+
 --*/
 
 #include "math/polysat/viable.h"
@@ -23,16 +30,13 @@ namespace polysat {
 
     dd::find_t viable_set::find_hint(rational const& d, rational& val) const {
         if (is_empty())
-            return dd::find_t::empty;
-        // 
-        // ignore d since with a single interval, 
-        // backtracking does not ensure that non-boundary bounds are removed.
-        // viable_set could have multiple intervals to support arbitrary partitions
-        // this is similar to interval_set or might even be an instance of it.
-        // 
-        val = lo;
+            return dd::find_t::empty;         
+        if (contains(d))
+            val = d;
+        else 
+            val = lo;
         if (lo + 1 == hi || hi == 0 && is_max(lo))
-            return dd::find_t::singleton;
+            return dd::find_t::singleton;            
         return dd::find_t::multiple;
     }
 
@@ -40,7 +44,7 @@ namespace polysat {
         return a + 1 == rational::power_of_two(m_num_bits);
     }
     
-    bool viable_set::is_singleton(rational& val) const {
+    bool viable_set::is_singleton() const {
         return !is_empty() && (lo + 1 == hi || (hi == 0 && is_max(lo)));
     }
 
@@ -60,9 +64,9 @@ namespace polysat {
                 return;
             if (a == lo && a + 1 == hi)
                 set_empty();
-            if (a == lo && hi == 0 && is_max(a))
+            else if (a == lo && hi == 0 && is_max(a))
                 set_empty();
-            else if (a == lo)
+            else if (a == lo && !is_max(a))
                 lo = a + 1;
             else if (a + 1 == hi)
                 hi = a;
@@ -80,18 +84,20 @@ namespace polysat {
             else {
                 rational a_inv;
                 VERIFY(a.mult_inverse(m_num_bits, a_inv));
-                intersect_eq(mod(a_inv * -b, rational::power_of_two(m_num_bits)), is_positive);
+                intersect_eq(mod(a_inv * -b, p2()), is_positive);
             }
         }
+	    else
+	        std::cout << "intersect " << a << "*x " << " == " << b << " " << is_positive << "\n";
     }
 
-    void viable_set::intersect_ule(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive) {
+    bool viable_set::intersect_ule(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive) {
         // x <= 0
-        if (a == 1 && b == 0 && c == 0 && d == 0) 
+        if (a.is_odd() && b == 0 && c == 0 && d == 0)
             intersect_eq(b, is_positive);
         else if (a == 1 && b == 0 && c == 0) {
             // x <= d
-            if (is_positive) 
+            if (is_positive)
                 set_hi(d);
             // x > d
             else if (is_max(d))
@@ -101,13 +107,38 @@ namespace polysat {
         }
         else if (a == 0 && c == 1 && d == 0) {
             // x >= b
-            if (is_positive) 
+            if (is_positive)
                 set_lo(b);
             else if (b == 0)
                 set_empty();
-            else 
+            else
                 set_hi(b - 1);
-        }            
+        }
+        else if (c == 0 && d == 0) {
+            // ax + b <= 0
+            // or ax + b > 0
+            intersect_eq(a, b, is_positive);
+        }
+        else
+            return false;
+
+        return true;
+    }
+
+    void viable_set::intersect_ule(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive, unsigned& budget) {
+        auto eval = [&](rational const& x) {
+            return is_positive == mod(a * x + b, p2()) <= mod(c * x + d, p2());
+        };        
+        while (budget > 0 && !eval(lo) && !is_max(lo) && !is_empty()) {
+            --budget;
+            lo += 1;
+            set_lo(lo);
+        }
+        while (budget > 0 && hi > 0 && !eval(hi - 1) && !is_empty()) {
+            --budget;
+            hi = hi - 1;
+            set_hi(hi);
+        }
     }
 
     void viable_set::set_hi(rational const& d) {
@@ -136,11 +167,8 @@ namespace polysat {
 #endif
 
     viable::viable(solver& s):
-        s(s)
-#if !NEW_VIABLE
-        ,
+        s(s),
         m_bdd(1000)
-#endif
     {}
 
     void viable::push_viable(pvar v) {
@@ -191,7 +219,35 @@ namespace polysat {
     void viable::intersect_ule(pvar v, rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive) {
 #if NEW_VIABLE
         push_viable(v);
-        m_viable[v].intersect_ule(a, b, c, d, is_positive);
+        if (!m_viable[v].intersect_ule(a, b, c, d, is_positive)) {
+            unsigned budget = 10;
+            m_viable[v].intersect_ule(a, b, c, d, is_positive, budget);
+            if (budget == 0) {
+                std::cout << "miss: " << a << " " << b << " " << c << " " << d << " " << is_positive << "\n";
+                unsigned sz = var2bits(v).num_bits();
+                bdd le = m_bdd.mk_true();
+                ineq_entry entry0(sz, a, b, c, d, le);
+                ineq_entry* other = nullptr;
+                if (!m_ineq_cache.find(&entry0, other)) {
+                    std::cout << "ADD-to-cache\n";
+                    bddv const& x = var2bits(v).var();
+                    le = ((a * x) + b) <= ((c * x) + d);
+                    other = alloc(ineq_entry, sz, a, b, c, d, le);
+                    m_ineq_cache.insert(other);
+                }
+                le = is_positive ? other->repr : !other->repr;
+                other->m_activity++;
+                // le(lo) is false: find min x >= lo, such that le(x) is false, le(x+1) is true
+                // le(hi) is false: find max x =< hi, such that le(x) is false, le(x-1) is true
+                
+                // bdd x_is_lo = m.mk_num(sz, m_viable[v].lo) == var2bits(v).var();
+                // bdd lo_is_sat = x_is_lo && lo;
+                // if (lo_is_sat.is_false())
+                //     find_min_above(lo, le);
+
+            }
+
+        }
         if (m_viable[v].is_empty())
             s.set_conflict(v);
 #else
@@ -230,6 +286,7 @@ namespace polysat {
 #if NEW_VIABLE
         push_viable(v);
         m_viable[v].set_ne(val);
+        std::cout << " v" << v << " != " << val << "\n";
         if (m_viable[v].is_empty())
             s.set_conflict(v);
 #else
@@ -257,7 +314,6 @@ namespace polysat {
 #endif
     }
 
-#if !NEW_VIABLE
     dd::fdd const& viable::sz2bits(unsigned sz) {
         m_bits.reserve(sz + 1);
         auto* bits = m_bits[sz];
@@ -267,7 +323,6 @@ namespace polysat {
         }
         return *bits;
     }
-#endif
 
 #if POLYSAT_LOGGING_ENABLED
     void viable::log() {
@@ -291,9 +346,7 @@ namespace polysat {
     }
 #endif
 
-#if !NEW_VIABLE
     dd::fdd const& viable::var2bits(pvar v) { return sz2bits(s.size(v)); }
-#endif
 
 
 }
