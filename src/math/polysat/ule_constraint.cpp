@@ -19,12 +19,8 @@ Author:
 namespace polysat {
 
     std::ostream& ule_constraint::display(std::ostream& out) const {
-        out << m_lhs << (sign() == pos_t ? " <= " : " > ") << m_rhs;
+        out << m_lhs << " <= " << m_rhs;
         return display_extra(out);
-    }
-
-    constraint_ref ule_constraint::resolve(solver& s, pvar v) {
-        return nullptr;
     }
 
     void ule_constraint::narrow(solver& s) {
@@ -117,7 +113,7 @@ namespace polysat {
             return p.is_val() && q.is_val() && p.val() > q.val();
     }
 
-    bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, constraint_ref& out_neg_cond)
+    bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, constraint_literal& out_neg_cond)
     {
         SASSERT(!is_undef());
 
@@ -247,8 +243,10 @@ namespace polysat {
             SASSERT(is_trivial == condition_body.is_zero());
             out_neg_cond = nullptr;
         }
+        else if (is_trivial)
+            out_neg_cond = ~s.m_constraints.eq(level(), condition_body);
         else
-            out_neg_cond = s.m_constraints.eq(level(), is_trivial ? neg_t : pos_t, condition_body, s.mk_dep_ref(null_dependency));
+            out_neg_cond = s.m_constraints.eq(level(), condition_body);
 
         if (is_trivial) {
             if (is_positive())

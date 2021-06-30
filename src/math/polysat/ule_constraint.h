@@ -21,8 +21,8 @@ namespace polysat {
         pdd m_lhs;
         pdd m_rhs;
     public:
-        ule_constraint(constraint_manager& m, unsigned lvl, csign_t sign, pdd const& l, pdd const& r, p_dependency_ref const& dep):
-            constraint(m, lvl, sign, dep, ckind_t::ule_t), m_lhs(l), m_rhs(r) {
+        ule_constraint(constraint_manager& m, unsigned lvl, pdd const& l, pdd const& r):
+            constraint(m, lvl, ckind_t::ule_t), m_lhs(l), m_rhs(r) {
             m_vars.append(l.free_vars());
             for (auto v : r.free_vars())
                 if (!m_vars.contains(v))
@@ -32,13 +32,12 @@ namespace polysat {
         pdd const& lhs() const { return m_lhs; }
         pdd const& rhs() const { return m_rhs; }
         std::ostream& display(std::ostream& out) const override;
-        constraint_ref resolve(solver& s, pvar v) override;
         bool is_always_false(pdd const& lhs, pdd const& rhs);
         bool is_always_false() override;
         bool is_currently_false(solver& s) override;
         bool is_currently_true(solver& s) override;
         void narrow(solver& s) override;
-        bool forbidden_interval(solver& s, pvar v, eval_interval& out_interval, constraint_ref& out_neg_cond) override;
+        bool forbidden_interval(solver& s, pvar v, eval_interval& out_interval, constraint_literal& out_neg_cond) override;
         inequality as_inequality() const override;
     };
 

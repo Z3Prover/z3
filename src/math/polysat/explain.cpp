@@ -32,6 +32,15 @@ namespace polysat {
         for (auto* c : m_conflict.clauses())
             LOG("Clause: " << show_deref(c));
 
+        // TODO: this is a temporary workaround! we should not get any undef constraints at this point
+        constraints_and_clauses confl = std::move(m_conflict);
+        SASSERT(m_conflict.empty());
+        for (auto* c : confl.units())
+            if (!c->is_undef())
+                m_conflict.push_back(c);
+        for (auto* c : confl.clauses())
+                m_conflict.push_back(c);
+
         // TODO: we should share work done for examining constraints between different resolution methods
         clause_ref lemma;
         if (!lemma) lemma = by_polynomial_superposition();
@@ -40,15 +49,32 @@ namespace polysat {
         if (!lemma) lemma = by_ugt_z();
         if (!lemma) lemma = y_ule_ax_and_x_ule_z();
 
-        if (lemma) {
-            LOG("New lemma: " << *lemma);
-            for (auto* c : lemma->new_constraints()) {
-                LOG("New constraint: " << show_deref(c));
+        DEBUG_CODE({
+            if (lemma) {
+                LOG("New lemma: " << *lemma);
+                for (auto* c : lemma->new_constraints()) {
+                    LOG("New constraint: " << show_deref(c));
+                }
+                // All constraints in the lemma must be false in the conflict state
+                for (auto lit : lemma->literals()) {
+                    if (m_solver.m_bvars.value(lit.var()) == l_false)
+                        continue;
+                    SASSERT(m_solver.m_bvars.value(lit.var()) != l_true);
+                    constraint* c = m_solver.m_constraints.lookup(lit.var());
+                    SASSERT(c);
+                    tmp_assign _t(c, lit);
+                    // if (c->is_currently_true(m_solver)) {
+                    //     LOG("ERROR: constraint is true: " << show_deref(c));
+                    //     SASSERT(false);
+                    // }
+                    // SASSERT(!c->is_currently_true(m_solver));
+                    // SASSERT(c->is_currently_false(m_solver));   // TODO: pvar v may not have a value at this point...
+                }
             }
-        }
-        else {
-            LOG("No lemma");
-        }
+            else {
+                LOG("No lemma");
+            }
+        });
 
         m_var = null_var;
         m_cjust_v.reset();
@@ -70,11 +96,12 @@ namespace polysat {
             pdd r = a;
             if (!a.resolve(m_var, b, r) && !b.resolve(m_var, a, r))
                 return nullptr;
-            p_dependency_ref d(m_solver.m_dm.mk_join(c1->dep(), c2->dep()), m_solver.m_dm);
-            unsigned lvl = std::max(c1->level(), c2->level());
-            constraint_ref c = m_solver.m_constraints.eq(lvl, pos_t, r, d);
-            c->assign(true);
-            return clause::from_unit(c);
+            unsigned const lvl = std::max(c1->level(), c2->level());
+            clause_builder clause(m_solver);
+            clause.push_literal(~c1->blit());
+            clause.push_literal(~c2->blit());
+            clause.push_new_constraint(m_solver.m_constraints.eq(lvl, r));
+            return clause.build();
         }
         return nullptr;
     }
@@ -108,19 +135,19 @@ namespace polysat {
             unsigned const lvl = c.src->level();
 
             clause_builder clause(m_solver);
+            clause.push_literal(~c.src->blit());
             // Omega^*(x, y)
             if (!push_omega_mul(clause, lvl, sz, x, y))
                 continue;
-            constraint_ref y_le_z;
+            constraint_literal y_le_z;
             if (c.is_strict)
-                y_le_z = m_solver.m_constraints.ult(lvl, pos_t, y, z, null_dep());
+                y_le_z = m_solver.m_constraints.ult(lvl, y, z);
             else
-                y_le_z = m_solver.m_constraints.ule(lvl, pos_t, y, z, null_dep());
+                y_le_z = m_solver.m_constraints.ule(lvl, y, z);
             LOG("z>y: " << show_deref(y_le_z));
             clause.push_new_constraint(std::move(y_le_z));
 
-            p_dependency_ref dep(c.src->dep(), m_solver.m_dm);
-            return clause.build(lvl, dep);
+            return clause.build();
         }
         return nullptr;
     }
@@ -181,20 +208,21 @@ namespace polysat {
                 pdd const& z_prime = d.lhs;
 
                 clause_builder clause(m_solver);
+                clause.push_literal(~c.src->blit());
+                clause.push_literal(~d.src->blit());
                 // Omega^*(x, y)
                 if (!push_omega_mul(clause, lvl, sz, x, y))
                     continue;
                 // z'x <= zx
-                constraint_ref zpx_le_zx;
+                constraint_literal zpx_le_zx;
                 if (c.is_strict || d.is_strict)
-                    zpx_le_zx = m_solver.m_constraints.ult(lvl, pos_t, z_prime*x, z*x, null_dep());
+                    zpx_le_zx = m_solver.m_constraints.ult(lvl, z_prime*x, z*x);
                 else
-                    zpx_le_zx = m_solver.m_constraints.ule(lvl, pos_t, z_prime*x, z*x, null_dep());
+                    zpx_le_zx = m_solver.m_constraints.ule(lvl, z_prime*x, z*x);
                 LOG("zx>z'x: " << show_deref(zpx_le_zx));
                 clause.push_new_constraint(std::move(zpx_le_zx));
 
-                p_dependency_ref dep(m_solver.m_dm.mk_join(c.src->dep(), d.src->dep()), m_solver.m_dm);
-                return clause.build(lvl, dep);
+                return clause.build();
             }
         }
         return nullptr;
@@ -256,20 +284,21 @@ namespace polysat {
                 pdd const& y_prime = d.rhs;
 
                 clause_builder clause(m_solver);
+                clause.push_literal(~c.src->blit());
+                clause.push_literal(~d.src->blit());
                 // Omega^*(x, y')
                 if (!push_omega_mul(clause, lvl, sz, x, y_prime))
                     continue;
                 // yx <= y'x
-                constraint_ref yx_le_ypx;
+                constraint_literal yx_le_ypx;
                 if (c.is_strict || d.is_strict)
-                    yx_le_ypx = m_solver.m_constraints.ult(lvl, pos_t, y*x, y_prime*x, null_dep());
+                    yx_le_ypx = m_solver.m_constraints.ult(lvl, y*x, y_prime*x);
                 else
-                    yx_le_ypx = m_solver.m_constraints.ule(lvl, pos_t, y*x, y_prime*x, null_dep());
+                    yx_le_ypx = m_solver.m_constraints.ule(lvl, y*x, y_prime*x);
                 LOG("y'x>yx: " << show_deref(yx_le_ypx));
                 clause.push_new_constraint(std::move(yx_le_ypx));
 
-                p_dependency_ref dep(m_solver.m_dm.mk_join(c.src->dep(), d.src->dep()), m_solver.m_dm);
-                return clause.build(lvl, dep);
+                return clause.build();
             }
         }
         return nullptr;
@@ -316,20 +345,21 @@ namespace polysat {
                 pdd const& z = d.rhs;
 
                 clause_builder clause(m_solver);
+                clause.push_literal(~c.src->blit());
+                clause.push_literal(~d.src->blit());
                 // Omega^*(a, z)
                 if (!push_omega_mul(clause, lvl, sz, a, z))
                     continue;
                 // y'x > yx
-                constraint_ref y_ule_az;
+                constraint_literal y_ule_az;
                 if (c.is_strict || d.is_strict)
-                    y_ule_az = m_solver.m_constraints.ult(lvl, pos_t, y, a*z, null_dep());
+                    y_ule_az = m_solver.m_constraints.ult(lvl, y, a*z);
                 else
-                    y_ule_az = m_solver.m_constraints.ule(lvl, pos_t, y, a*z, null_dep());
+                    y_ule_az = m_solver.m_constraints.ule(lvl, y, a*z);
                 LOG("y<=az: " << show_deref(y_ule_az));
                 clause.push_new_constraint(std::move(y_ule_az));
 
-                p_dependency_ref dep(m_solver.m_dm.mk_join(c1->dep(), d.src->dep()), m_solver.m_dm);
-                return clause.build(lvl, dep);
+                return clause.build();
             }
         }
         return nullptr;
@@ -382,9 +412,9 @@ namespace polysat {
         SASSERT(min_k <= k && k <= max_k);
 
         // x >= 2^k
-        constraint_ref c1 = m_solver.m_constraints.ult(level, pos_t, pddm.mk_val(rational::power_of_two(k)), x, null_dep());
+        auto c1 = m_solver.m_constraints.ule(level, pddm.mk_val(rational::power_of_two(k)), x);
         // y > 2^{p-k}
-        constraint_ref c2 = m_solver.m_constraints.ule(level, pos_t, pddm.mk_val(rational::power_of_two(p-k)), y, null_dep());
+        auto c2 = m_solver.m_constraints.ult(level, pddm.mk_val(rational::power_of_two(p-k)), y);
         clause.push_new_constraint(std::move(c1));
         clause.push_new_constraint(std::move(c2));
         return true;

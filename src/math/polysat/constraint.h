@@ -25,6 +25,7 @@ namespace polysat {
     enum ckind_t { eq_t, ule_t };
     enum csign_t : bool { neg_t = false, pos_t = true };
 
+    class constraint_literal;
     class constraint;
     class constraint_manager;
     class clause;
@@ -41,6 +42,7 @@ namespace polysat {
         friend class constraint;
 
         bool_var_manager& m_bvars;
+        // poly_dep_manager& m_dm;
 
         // Association to boolean variables
         ptr_vector<constraint>   m_bv2constraint;
@@ -59,24 +61,29 @@ namespace polysat {
 
     public:
         constraint_manager(bool_var_manager& bvars): m_bvars(bvars) {}
+        // constraint_manager(bool_var_manager& bvars, poly_dep_manager& dm): m_bvars(bvars), m_dm(dm) {}
         ~constraint_manager();
 
         // Start managing lifetime of the given constraint
-        // TODO: rename to "store", or "keep"... because the bvar->constraint mapping is already inserted at creation.
-        constraint* insert(constraint_ref c);
-        clause* insert(clause_ref cl);
+        constraint* store(constraint_ref c);
+        clause* store(clause_ref cl);
 
-        // Release constraints at the given level and above.
+        /// Register a unit clause with an external dependency.
+        void register_external(constraint* c);
+
+        /// Release constraints at the given level and above.
         void release_level(unsigned lvl);
 
         constraint* lookup(sat::bool_var var) const;
         constraint* lookup_external(unsigned dep) const { return m_external_constraints.get(dep, nullptr); }
 
-        constraint_ref eq(unsigned lvl, csign_t sign, pdd const& p, p_dependency_ref const& d);
-        constraint_ref ule(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-        constraint_ref ult(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-        constraint_ref sle(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
-        constraint_ref slt(unsigned lvl, csign_t sign, pdd const& a, pdd const& b, p_dependency_ref const& d);
+        constraint_literal eq(unsigned lvl, pdd const& p);
+        constraint_literal ule(unsigned lvl, pdd const& a, pdd const& b);
+        constraint_literal ult(unsigned lvl, pdd const& a, pdd const& b);
+        constraint_literal sle(unsigned lvl, pdd const& a, pdd const& b);
+        constraint_literal slt(unsigned lvl, pdd const& a, pdd const& b);
+
+        // p_dependency_ref null_dep() const { return {nullptr, m_dm}; }
     };
 
 
@@ -101,20 +108,17 @@ namespace polysat {
         friend class ule_constraint;
 
         constraint_manager* m_manager;
-        unsigned         m_ref_count = 0;
-        // bool             m_stored = false;  ///< Whether it has been inserted into the constraint_manager to be tracked by level
-        unsigned         m_storage_level;  ///< Controls lifetime of the constraint object. Always a base level (for external dependencies the level at which it was created, and for others the maximum storage level of its external dependencies).
-        // unsigned         m_active_level = UINT_MAX;  ///< Level at which the constraint was activated. Possibly different from m_storage_level because constraints in lemmas may become activated only at a higher level. NOTE: this is actually the level of the corresponding bool_var.
-        ckind_t          m_kind;
-        p_dependency_ref m_dep;
-        unsigned_vector  m_vars;
-        sat::bool_var    m_bvar;  ///< boolean variable associated to this constraint; convention: a constraint itself always represents the positive sat::literal
-        csign_t          m_sign;  ///< sign/polarity
-        lbool            m_status = l_undef;  ///< current constraint status, computed from value of m_lit and m_sign
-        lbool            m_bvalue = l_undef;  ///< TODO: remove m_sign and m_bvalue, use m_status as current value. the constraint itself is always the positive literal. use unit clauses for unit/external constraints; negation may come in through there.
+        clause*             m_unit_clause = nullptr;  ///< If this constraint was asserted by a unit clause, we store that clause here.
+        unsigned            m_ref_count = 0;
+        // TODO: we could remove the level on constraints and instead store constraint_refs for all literals inside the clause? (clauses will then be 4 times larger though...)
+        unsigned            m_storage_level;  ///< Controls lifetime of the constraint object. Always a base level.
+        ckind_t             m_kind;
+        unsigned_vector     m_vars;
+        sat::bool_var       m_bvar;  ///< boolean variable associated to this constraint; convention: a constraint itself always represents the positive sat::literal
+        lbool               m_status = l_undef;  ///< current constraint status; intended to be the same as m_manager->m_bvars.value(bvar()) if that value is set.
 
-        constraint(constraint_manager& m, unsigned lvl, csign_t sign, p_dependency_ref const& dep, ckind_t k):
-            m_manager(&m), m_storage_level(lvl), m_kind(k), m_dep(dep), m_bvar(m_manager->m_bvars.new_var()), m_sign(sign) {
+        constraint(constraint_manager& m, unsigned lvl, ckind_t k):
+            m_manager(&m), m_storage_level(lvl), m_kind(k), m_bvar(m_manager->m_bvars.new_var()) {
             SASSERT_EQ(m_manager->get_bv2c(bvar()), nullptr);
             m_manager->insert_bv2c(bvar(), this);
         }
@@ -146,7 +150,6 @@ namespace polysat {
         eq_constraint const& to_eq() const;
         ule_constraint& to_ule();
         ule_constraint const& to_ule() const;
-        p_dependency* dep() const { return m_dep; }
         unsigned_vector& vars() { return m_vars; }
         unsigned_vector const& vars() const { return m_vars; }
         unsigned level() const { return m_storage_level; }
@@ -158,22 +161,21 @@ namespace polysat {
         //     return !is_undef() && active_level() <= s.base_level();
         // }
         sat::bool_var bvar() const { return m_bvar; }
-        sat::literal blit() const { SASSERT(m_bvalue != l_undef); return m_bvalue == l_true ? sat::literal(m_bvar) : ~sat::literal(m_bvar); }
-        bool sign() const { return m_sign; }
+
+        sat::literal blit() const { SASSERT(!is_undef()); return m_status == l_true ? sat::literal(m_bvar) : ~sat::literal(m_bvar); }
         void assign(bool is_true) {
-            SASSERT(m_bvalue == l_undef || m_bvalue == to_lbool(is_true));
-            m_bvalue = to_lbool(is_true);
-            lbool new_status = (is_true ^ !m_sign) ? l_true : l_false;
-            SASSERT(is_undef() || new_status == m_status);
-            m_status = new_status;
+            SASSERT(m_status == l_undef /* || m_status == to_lbool(is_true) */);
+            m_status = to_lbool(is_true);
+            // SASSERT(m_manager->m_bvars.value(bvar()) == l_undef || m_manager->m_bvars.value(bvar()) == m_status);  // TODO: is this always true? maybe we sometimes want to check the opposite phase temporarily.
         }
-        void unassign() { m_status = l_undef; m_bvalue = l_undef; }
+        void unassign() { m_status = l_undef; }
         bool is_undef() const { return m_status == l_undef; }
         bool is_positive() const { return m_status == l_true; }
         bool is_negative() const { return m_status == l_false; }
 
-        // TODO: must return a 'clause_ref' instead. If we resolve with a non-base constraint, we need to keep it in the clause (or should we track those as dependencies? the level needs to be higher then.)
-        virtual constraint_ref resolve(solver& s, pvar v) = 0;
+        clause* unit_clause() const { return m_unit_clause; }
+        void set_unit_clause(clause* cl) { SASSERT(cl); SASSERT(!m_unit_clause); m_unit_clause = cl; }
+        p_dependency* unit_dep() const;
 
         /** Precondition: all variables other than v are assigned.
          *
@@ -181,18 +183,50 @@ namespace polysat {
          * \param[out] out_neg_cond     Negation of the side condition (the side condition is true when the forbidden interval is trivial). May be NULL if the condition is constant.
          * \returns True iff a forbidden interval exists and the output parameters were set.
          */
-        virtual bool forbidden_interval(solver& s, pvar v, eval_interval& out_interval, constraint_ref& out_neg_cond) { return false; }
+        virtual bool forbidden_interval(solver& s, pvar v, eval_interval& out_interval, constraint_literal& out_neg_cond) { return false; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
 
-    // Disjunction of constraints represented by boolean literals
+
+    /// Literal together with the constraint it represents.
+    /// (or: constraint with polarity)
+    class constraint_literal {
+        sat::literal m_literal = sat::null_literal;
+        constraint_ref m_constraint = nullptr;
+
+    public:
+        constraint_literal() {}
+        constraint_literal(sat::literal lit, constraint_ref c):
+            m_literal(lit), m_constraint(std::move(c)) {
+            SASSERT(get());
+            SASSERT(literal().var() == get()->bvar());
+        }
+        constraint_literal operator~() const&& {
+            return {~m_literal, std::move(m_constraint)};
+        }
+        sat::literal literal() const { return m_literal; }
+        constraint* get() const { return m_constraint.get(); }
+        constraint_ref detach() { m_literal = sat::null_literal; return std::move(m_constraint); }
+
+        explicit operator bool() const { return !!m_constraint; }
+        bool operator!() const { return !m_constraint; }
+        polysat::constraint* operator->() const { return m_constraint.get(); }
+        polysat::constraint const& operator*() const { return *m_constraint; }
+
+        constraint_literal& operator=(nullptr_t) { m_literal = sat::null_literal; m_constraint = nullptr; return *this; }
+    private:
+        friend class constraint_manager;
+        explicit constraint_literal(polysat::constraint* c): constraint_literal(sat::literal(c->bvar()), c) {}
+    };
+
+
+    /// Disjunction of constraints represented by boolean literals
     class clause {
         friend class constraint_manager;
 
         unsigned m_ref_count = 0;
-        unsigned m_level;  // TODO: this is "storage" level, rename accordingly
-        // unsigned m_next_guess = UINT_MAX;  // next guess for enumerative backtracking
+        unsigned m_level;
         unsigned m_next_guess = 0;  // next guess for enumerative backtracking
         p_dependency_ref m_dep;
         sat::literal_vector m_literals;
@@ -207,8 +241,8 @@ namespace polysat {
         }
         */
 
-        clause(unsigned lvl, p_dependency_ref const& d, sat::literal_vector literals, constraint_ref_vector new_constraints):
-            m_level(lvl), m_dep(d), m_literals(std::move(literals)), m_new_constraints(std::move(new_constraints))
+        clause(unsigned lvl, p_dependency_ref d, sat::literal_vector literals, constraint_ref_vector new_constraints):
+            m_level(lvl), m_dep(std::move(d)), m_literals(std::move(literals)), m_new_constraints(std::move(new_constraints))
         {
             SASSERT(std::count(m_literals.begin(), m_literals.end(), sat::null_literal) == 0);
         }
@@ -217,8 +251,8 @@ namespace polysat {
         void inc_ref() { m_ref_count++; }
         void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (!m_ref_count) dealloc(this); }
 
-        static clause_ref from_unit(constraint_ref c);
-        static clause_ref from_literals(unsigned lvl, p_dependency_ref const& d, sat::literal_vector literals, constraint_ref_vector new_constraints);
+        static clause_ref from_unit(constraint_literal c, p_dependency_ref d);
+        static clause_ref from_literals(unsigned lvl, p_dependency_ref d, sat::literal_vector literals, constraint_ref_vector new_constraints);
 
         // Resolve with 'other' upon 'var'.
         bool resolve(sat::bool_var var, clause const& other);
@@ -249,32 +283,6 @@ namespace polysat {
 
     inline std::ostream& operator<<(std::ostream& out, clause const& c) { return c.display(out); }
 
-    /// Builds a clause from literals and constraints.
-    /// Takes care to
-    /// - skip literals that are active at the base level,
-    /// - skip trivial new constraints such as "4 <= 1".
-    class clause_builder {
-        solver& m_solver;
-        sat::literal_vector m_literals;
-        constraint_ref_vector m_new_constraints;
-
-    public:
-        clause_builder(solver& s): m_solver(s) {}
-
-        bool empty() const { return m_literals.empty() && m_new_constraints.empty(); }
-        void reset();
-
-        /// Build the clause. This will reset the clause builder so it can be reused.
-        clause_ref build(unsigned lvl, p_dependency_ref const& d);
-
-        /// Add a literal to the clause.
-        /// Intended to be used for literals representing a constraint that already exists.
-        void push_literal(sat::literal lit);
-        /// Add a constraint to the clause that does not yet exist in the solver so far.
-        /// By convention, this will add the positive literal for this constraint.
-        /// (TODO: we might need to change this later; but then we will add a second argument for the literal or the sign.)
-        void push_new_constraint(constraint_ref c);
-    };
 
     // Container for unit constraints and clauses.
     class constraints_and_clauses {
@@ -344,13 +352,13 @@ namespace polysat {
         tmp_assign(constraint* c, sat::literal lit):
             m_constraint(c) {
             SASSERT(c);
-            SASSERT(c->bvar() == lit.var());
+            SASSERT_EQ(c->bvar(), lit.var());
             if (c->is_undef()) {
                 c->assign(!lit.sign());
                 m_should_unassign = true;
             }
             else
-                SASSERT(c->blit() == lit);
+                SASSERT_EQ(c->blit(), lit);
         }
         tmp_assign(constraint_ref const& c, sat::literal lit): tmp_assign(c.get(), lit) {}
         void revert() {
@@ -368,4 +376,5 @@ namespace polysat {
         tmp_assign& operator=(tmp_assign&&) = delete;
     };
 
+    inline p_dependency* constraint::unit_dep() const { return m_unit_clause ? m_unit_clause->dep() : nullptr; }
 }
