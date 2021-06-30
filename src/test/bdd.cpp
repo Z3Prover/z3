@@ -425,6 +425,19 @@ public:
         SASSERT_EQ(x_dom.find_hint(s358 && (x == rational(4)), rational(5), r), find_t::empty);
     }
 
+    static void test_cofactor() {
+	std::cout << "test_cofactor\n";
+	bdd_manager m(20);
+        bdd v0 = m.mk_var(0);
+        bdd v1 = m.mk_var(1);
+        bdd v2 = m.mk_var(2);
+        bdd c1 = v0 && v1 && v2;
+	SASSERT(c1.cofactor(v0) == (v1 && v2));
+	SASSERT(c1.cofactor(v1) == (v0 && v2));
+	SASSERT(c1.cofactor(v2) == (v0 && v1));
+	SASSERT(c1.cofactor(!v1) == m.mk_false());
+    }
+
 };
 
 }
@@ -446,4 +459,5 @@ void tst_bdd() {
     dd::test_bdd::test_fdd_reorder();
     dd::test_bdd::test_fdd_twovars();
     dd::test_bdd::test_fdd_find_hint();
+    dd::test_bdd::test_cofactor();
 }

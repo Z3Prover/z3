@@ -45,7 +45,8 @@ namespace dd {
             bdd_not_op = 5,
             bdd_and_proj_op = 6,
             bdd_or_proj_op = 7,
-            bdd_no_op = 8,
+	    bdd_cofactor_op = 8,
+            bdd_no_op = 9,
         };
 
         struct bdd_node {
@@ -146,6 +147,7 @@ namespace dd {
         BDD mk_not_rec(BDD b);
         BDD mk_ite_rec(BDD a, BDD b, BDD c);
         BDD mk_quant_rec(unsigned lvl, BDD b, bdd_op op);
+	BDD mk_cofactor_rec(BDD a, BDD b);
 
         void push(BDD b);
         void pop(unsigned num_scopes);
@@ -193,6 +195,7 @@ namespace dd {
         bdd mk_and(bdd const& a, bdd const& b);
         bdd mk_or(bdd const& a, bdd const& b);
         bdd mk_xor(bdd const& a, bdd const& b);
+	bdd mk_cofactor(bdd const& a, bdd const& b);
 
         void reserve_var(unsigned v);
         bool well_formed();
@@ -292,6 +295,7 @@ namespace dd {
         bdd operator^(bdd const& other) const { return m->mk_xor(*this, other); }
         bdd operator|=(bdd const& other) { return *this = *this || other; }
         bdd operator&=(bdd const& other) { return *this = *this && other; }
+	bdd cofactor(bdd const& cube) { return m->mk_cofactor(*this, cube); }
         std::ostream& display(std::ostream& out) const { return m->display(out, *this); }
         bool operator==(bdd const& other) const { return root == other.root; }
         bool operator!=(bdd const& other) const { return root != other.root; }

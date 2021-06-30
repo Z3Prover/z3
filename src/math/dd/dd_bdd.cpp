@@ -145,6 +145,13 @@ namespace dd {
             if (is_true(a)) return mk_not_rec(b);
             if (is_true(b)) return mk_not_rec(a);
             break;
+	case bdd_cofactor_op:
+	    if (a == b) return a;
+	    if (is_const(a)) return a;
+	    if (level(a) == level(b))
+		
+	    SASSERT(!is_const(b));
+	    break;
         default:
             UNREACHABLE();
             break;
@@ -573,7 +580,47 @@ namespace dd {
         e1->m_result = r;
         return r;
     }
+
+    /**
+     * co-factor a using b. 
+     * b must be a variable bdd (it can be generalized to a cube)
+     */
+
+    bdd bdd_manager::mk_cofactor(bdd const& a, bdd const& b) {
+	bool first = true;
+        scoped_push _sp(*this);
+	    SASSERT(!is_const(b) && is_const(lo(b)) && is_const(hi(b)));
+        while (true) {
+            try {
+                return bdd(mk_cofactor_rec(a.root, b.root), this); 
+            }
+            catch (const mem_out &) {
+                if (!first) throw;
+                try_reorder();
+                first = false;
+            }
+        }
+    }
+
+    bdd_manager::BDD bdd_manager::mk_cofactor_rec(BDD a, BDD b) {
+        if (is_const(a)) return a;
+        unsigned la = level(a), lb = level(b);
+        if (la < lb) return a;
+        if (la == lb) return is_true(hi(b)) ? hi(a) : lo(a);
+        op_entry* e1 = pop_entry(a, b, bdd_cofactor_op);
+        op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
+        if (check_result(e1, e2, a, b, bdd_cofactor_op))
+            return e2->m_result;
+        SASSERT(la > lb);
+        push(mk_cofactor_rec(lo(a), b));
+        push(mk_cofactor_rec(hi(a), b));
+        BDD r = make_node(la, read(2), read(1));
+        pop(2);
+        e1->m_result = r;
+        return r;
+    }
     
+
     bdd bdd_manager::mk_ite(bdd const& c, bdd const& t, bdd const& e) {         
         bool first = true;
         scoped_push _sp(*this);
@@ -588,6 +635,7 @@ namespace dd {
             }
         }
     }
+
 
     bdd_manager::BDD bdd_manager::mk_ite_rec(BDD a, BDD b, BDD c) {
         if (is_true(a)) return b;
