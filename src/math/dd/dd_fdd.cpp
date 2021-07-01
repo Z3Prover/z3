@@ -215,10 +215,9 @@ namespace dd {
         }
 
         SASSERT(!lo[idx]);
-        trail.reverse();
         lo[idx] = true;
         unsigned v = m_pos2var[idx];
-        b = trail[idx].cofactor(m->mk_var(v));
+        b = trail[lo.size() - idx - 1].cofactor(m->mk_var(v));
         for (unsigned i = idx; i-- > 0; ) {
             SASSERT(!b.is_true());
             if (b.is_false()) {
@@ -235,7 +234,7 @@ namespace dd {
 
         dec(lo);
         
-	return true;
+	    return true;
     }
     
     bool fdd::inf(bdd const& x, bool_vector& hi) const {
@@ -279,12 +278,10 @@ namespace dd {
         }
 
         SASSERT(hi[idx]);
-        trail.reverse();
         hi[idx] = false;
         unsigned v = m_pos2var[idx];
-        b = trail[idx].cofactor(m->mk_nvar(v));
+        b = trail[hi.size() - idx - 1].cofactor(m->mk_nvar(v));
 
-        // Check logic, TBD
         for (unsigned i = idx; i-- > 0; ) {
             SASSERT(!b.is_true());
             if (b.is_false()) {
@@ -292,11 +289,11 @@ namespace dd {
                     hi[j] = true;
                 break;
             }
-            hi[i] = b.lo().is_true();
-            if (hi[i]) 
-                b = b.hi();
-            else 
+            hi[i] = !b.hi().is_true();
+            if (!hi[i]) 
                 b = b.lo();
+            else 
+                b = b.hi();
         }
 
         inc(hi);

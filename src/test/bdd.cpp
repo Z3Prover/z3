@@ -446,6 +446,14 @@ public:
         }
     }
 
+    static void dec(bool_vector& x) {
+        for (auto& b : x) {
+            b = !b;
+            if (!b)
+                break;
+        }
+    }
+
     static unsigned value(bool_vector const& x) {
         unsigned p = 1;
         unsigned v = 0;
@@ -463,14 +471,41 @@ public:
         bddv const& x = x_dom.var();
         bdd c = (1 <= x && x <= 5) || (11 <= x && x <= 13) || (29 <= x && x <= 33);
         bool_vector lo(10, false);
-        for (unsigned i = 0; i < 30; ++i) {
+        for (unsigned i = 0; i < 20; ++i) {
+            unsigned v = value(lo);
             bool found = x_dom.sup(c, lo);
-            std::cout << found << ": " << value(lo) << "\n";
+            std::cout << found << ": " << v << " - " << value(lo) << "\n";
             if (found) 
                 std::cout << x_dom.sup(c, lo) << ": " << value(lo) << "\n";
+            c = !c;
             inc(lo);
         }        
     }
+
+    static void test_inf() {
+	std::cout << "test_inf\n";
+	bdd_manager m(20);
+        fdd const x_dom(m, 10);
+        bddv const& x = x_dom.var();
+        bdd c = (1 <= x && x <= 5) || (11 <= x && x <= 13) || (29 <= x && x <= 33);
+        bool_vector hi(10, true);
+        for (unsigned i = 0; i < 10; ++i) {
+            bool found = x_dom.inf(c, hi);
+            std::cout << found << ": " << value(hi) << "\n";
+            if (found) {
+                std::cout << x_dom.inf(c, hi) << ": " << value(hi) << "\n";
+                SASSERT(value(hi) == 0 || value(hi) == 1 || value(hi) == 5 || value(hi) == 6 ||
+                        value(hi) == 10 || value(hi) == 11 || 
+                        value(hi) == 13 || value(hi) == 14 || 
+                        value(hi) == 28 || value(hi) == 29 || 
+                        value(hi) == 33 || value(hi) == 34 || value(hi) == 1023);
+            }
+            c = !c;
+            dec(hi);
+        }        
+    }
+
+
 
 };
 
@@ -494,5 +529,6 @@ void tst_bdd() {
     dd::test_bdd::test_fdd_twovars();
     dd::test_bdd::test_fdd_find_hint();
     dd::test_bdd::test_cofactor();
+    dd::test_bdd::test_inf();
     dd::test_bdd::test_sup();
 }
