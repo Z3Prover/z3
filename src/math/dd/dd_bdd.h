@@ -375,6 +375,8 @@ namespace dd {
     inline bddv operator*(rational const& r, bddv const& a) { return a * r; }
     inline bddv operator+(rational const& r, bddv const& a) { return a + r; }
     inline bddv operator-(rational const& r, bddv const& a) { return a.rev_sub(r); }
+    inline bdd operator<=(int i, bddv const& a) { return a >= rational(i); }
+    inline bdd operator<=(bddv const& a, int i) { return a <= rational(i); }
 
 
 }

@@ -121,7 +121,7 @@ namespace dd {
     }
 
   
-    bool fdd::sup(bdd const& x, bool_vector& lo) {
+    bool fdd::sup(bdd const& x, bool_vector& lo) const {
         SASSERT(lo.size() == num_bits());
 	//
 	// Assumption: common case is that high-order bits are before lower-order bits also
@@ -194,7 +194,7 @@ namespace dd {
         for (unsigned i = idx; i-- > 0; ) {
             SASSERT(!b.is_true());
             if (b.is_false()) {
-                for (unsigned j = 0; j < i; ++j)
+                for (unsigned j = 0; j <= i; ++j)
                     lo[j] = false;
                 break;
             }
@@ -206,20 +206,16 @@ namespace dd {
         }
 
         // subtract one from resulting vector:
-
-        for (unsigned i = 0; i < lo.size(); ++i) {
-            if (lo[i]) {
-                lo[i] = false;
+        for (auto& b : lo) {
+            b = !b;
+            if (!b)
                 break;
-            }
-            else 
-                lo[i] = true;                
         }
         
 	return true;
     }
     
-    bool fdd::inf(bdd const& b, bool_vector& hi) {
+    bool fdd::inf(bdd const& b, bool_vector& hi) const {
         SASSERT(hi.size() == num_bits());
 	return false;
     }

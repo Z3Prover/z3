@@ -438,6 +438,40 @@ public:
 	SASSERT(c1.cofactor(!v1) == m.mk_false());
     }
 
+    static void inc(bool_vector& x) {
+        for (auto& b : x) {
+            b = !b;
+            if (b)
+                break;
+        }
+    }
+
+    static unsigned value(bool_vector const& x) {
+        unsigned p = 1;
+        unsigned v = 0;
+        for (auto b : x) {
+            v += p*b;
+            p <<= 1;
+        }
+        return v;
+    }
+
+    static void test_sup() {
+	std::cout << "test_sup\n";
+	bdd_manager m(20);
+        fdd const x_dom(m, 10);
+        bddv const& x = x_dom.var();
+        bdd c = (1 <= x && x <= 5) || (11 <= x && x <= 13) || (29 <= x && x <= 33);
+        bool_vector lo(10, false);
+        for (unsigned i = 0; i < 30; ++i) {
+            bool found = x_dom.sup(c, lo);
+            std::cout << found << ": " << value(lo) << "\n";
+            if (found) 
+                std::cout << x_dom.sup(c, lo) << ": " << value(lo) << "\n";
+            inc(lo);
+        }        
+    }
+
 };
 
 }
@@ -460,4 +494,5 @@ void tst_bdd() {
     dd::test_bdd::test_fdd_twovars();
     dd::test_bdd::test_fdd_find_hint();
     dd::test_bdd::test_cofactor();
+    dd::test_bdd::test_sup();
 }

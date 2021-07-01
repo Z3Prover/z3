@@ -84,9 +84,9 @@ namespace dd {
 	 * \return false if b is false at lo/hi
 	 * \pre variables in b are a subset of variables from the fdd
 	 */ 
-	bool sup(bdd const& b, bool_vector& lo);
+	bool sup(bdd const& b, bool_vector& lo) const;
       
-	bool inf(bdd const& b, bool_vector& hi); 
+	bool inf(bdd const& b, bool_vector& hi) const; 
       
     };
 
