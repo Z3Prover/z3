@@ -125,10 +125,10 @@ namespace dd {
         SASSERT(lo.size() == num_bits());
 	//
 	// Assumption: common case is that high-order bits are before lower-order bits also
-	// after re-ordering.
+	// after re-ordering. Then co-factoring is relatively cheap.
 	//
 
-	// this checks that lo is included in x
+	// this segment checks that lo is included in x
 	bdd b = x;
 	while (!b.is_true()) {
 	    unsigned const pos = var2pos(b.var());
@@ -136,14 +136,87 @@ namespace dd {
 	    if (lo[pos] && b.hi().is_false())
 		return false;
 	    if (!lo[pos] && b.lo().is_false())
-		return false;
-	    
+		return false;	    
 	    if (lo[pos])
 		b = b.hi();
 	    else
 		b = b.lo();
 	}
-	return false;
+
+        //
+        // find minimal index where b is false for some 
+        // value larger than lo.
+        //
+        // Let ua(x lo) be shorthand for "unbounded-above" of variable
+        // x with bit-string lo.
+        // 
+        // we have the following identities:
+        // ua(_ []) = true
+        // ua(x 1 ++ lo) = hi(x) = T or ua(hi(x), lo)
+        // ua(x 0 ++ lo) = hi(x) = T and ua(lo(x), lo)
+        // 
+        // the least significant bit where ua is false
+        // represents the position where the smallest number above
+        // lo resides that violates x.
+
+        unsigned idx = UINT_MAX;
+        vector<bdd> trail;
+        b = x;
+        for (unsigned i = lo.size(); i-- > 0; ) {
+            trail.push_back(b);
+            unsigned v = m_pos2var[i];
+            bdd w = m->mk_var(v);
+            bdd hi = b.cofactor(w);
+            if (lo[i]) {
+                if (hi.is_true())
+                    break;
+                SASSERT(!hi.is_false());
+                b = hi;
+            }
+            else {
+                if (!hi.is_true())
+                    idx = i;
+                b = b.cofactor(m->mk_nvar(v));
+            }
+        }
+        if (idx == UINT_MAX) {
+            // all values above lo satisfy x
+            for (auto& b : lo) 
+                b = true;
+            return true;
+        }
+
+        SASSERT(!lo[idx]);
+        trail.reverse();
+        lo[idx] = true;
+        unsigned v = m_pos2var[idx];
+        b = trail[idx].cofactor(m->mk_var(v));
+        for (unsigned i = idx; i-- > 0; ) {
+            SASSERT(!b.is_true());
+            if (b.is_false()) {
+                for (unsigned j = 0; j < i; ++j)
+                    lo[j] = false;
+                break;
+            }
+            lo[i] = b.lo().is_true();
+            if (lo[i]) 
+                b = b.hi();
+            else 
+                b = b.lo();
+        }
+
+        // subtract one from resulting vector:
+
+        for (unsigned i = 0; i < lo.size(); ++i) {
+            if (lo[i]) {
+                lo[i] = false;
+                break;
+            }
+            else 
+                lo[i] = true;                
+        }
+        
+	return true;
     }
     
     bool fdd::inf(bdd const& b, bool_vector& hi) {
