@@ -45,6 +45,8 @@ namespace dd {
 
         unsigned var2pos(unsigned var) const;
 
+        bool contains(bdd const& b, bool_vector const& value) const;
+
     public:
         /** Initialize FDD using BDD variables from 0 to num_bits-1. */
         fdd(bdd_manager& manager, unsigned num_bits, unsigned start = 0, unsigned step = 1) : fdd(manager, seq(num_bits, start, step)) { }

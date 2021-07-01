@@ -120,6 +120,47 @@ namespace dd {
         return out;
     }
 
+    bool fdd::contains(bdd const& x, bool_vector const& value) const {
+	bdd b = x;
+	while (!b.is_true()) {
+	    unsigned const pos = var2pos(b.var());
+            SASSERT(pos != UINT_MAX && "Unexpected BDD variable");
+	    if (value[pos] && b.hi().is_false())
+		return false;
+	    if (!value[pos] && b.lo().is_false())
+		return false;	    
+	    if (value[pos])
+		b = b.hi();
+	    else
+		b = b.lo();
+	}
+        return true;
+    }
+
+
+    // subtract one from x
+    static void dec(bool_vector& x) {
+        for (auto& b : x) {
+            b = !b;
+            if (!b)
+                break;
+        }
+    }
+
+    // add one to x
+    static void inc(bool_vector& x) {
+        for (auto& b : x) {
+            b = !b;
+            if (b)
+                break;
+        }
+    }
+
+    static void reset(bool_vector& x, bool value) {
+        for (auto& b : x)
+            b = value;
+    }
+
   
     bool fdd::sup(bdd const& x, bool_vector& lo) const {
         SASSERT(lo.size() == num_bits());
@@ -128,20 +169,8 @@ namespace dd {
 	// after re-ordering. Then co-factoring is relatively cheap.
 	//
 
-	// this segment checks that lo is included in x
-	bdd b = x;
-	while (!b.is_true()) {
-	    unsigned const pos = var2pos(b.var());
-            SASSERT(pos != UINT_MAX && "Unexpected BDD variable");
-	    if (lo[pos] && b.hi().is_false())
-		return false;
-	    if (!lo[pos] && b.lo().is_false())
-		return false;	    
-	    if (lo[pos])
-		b = b.hi();
-	    else
-		b = b.lo();
-	}
+        if (!contains(x, lo))
+            return false;
 
         //
         // find minimal index where b is false for some 
@@ -161,7 +190,7 @@ namespace dd {
 
         unsigned idx = UINT_MAX;
         vector<bdd> trail;
-        b = x;
+        bdd b = x;
         for (unsigned i = lo.size(); i-- > 0; ) {
             trail.push_back(b);
             unsigned v = m_pos2var[i];
@@ -181,8 +210,7 @@ namespace dd {
         }
         if (idx == UINT_MAX) {
             // all values above lo satisfy x
-            for (auto& b : lo) 
-                b = true;
+            reset(lo, true);
             return true;
         }
 
@@ -205,19 +233,75 @@ namespace dd {
                 b = b.lo();
         }
 
-        // subtract one from resulting vector:
-        for (auto& b : lo) {
-            b = !b;
-            if (!b)
-                break;
-        }
+        dec(lo);
         
 	return true;
     }
     
-    bool fdd::inf(bdd const& b, bool_vector& hi) const {
+    bool fdd::inf(bdd const& x, bool_vector& hi) const {
         SASSERT(hi.size() == num_bits());
-	return false;
+        if (!contains(x, hi))
+            return false;
+
+        // Let ub(x hi) be shorthand for "unbounded-below" of variable
+        // x with bit-string hi.
+        // 
+        // we have the following identities:
+        // ub(_ []) = true
+        // ub(x 0 ++ hi) = lo(x) = T or ub(lo(x), hi)
+        // ub(x 1 ++ hi) = lo(x) = T and ub(hi(x), hi)
+        // 
+
+        unsigned idx = UINT_MAX;
+        vector<bdd> trail;
+        bdd b = x;
+        for (unsigned i = hi.size(); i-- > 0; ) {
+            trail.push_back(b);
+            unsigned v = m_pos2var[i];
+            bdd nw = m->mk_nvar(v);
+            bdd lo = b.cofactor(nw);
+            if (!hi[i]) {
+                if (lo.is_true())
+                    break;
+                SASSERT(!lo.is_false());
+                b = lo;
+            }
+            else {
+                if (!lo.is_true())
+                    idx = i;
+                b = b.cofactor(m->mk_var(v));
+            }
+        }
+        if (idx == UINT_MAX) {
+            // all values below hi satisfy x
+            reset(hi, false);
+            return true;
+        }
+
+        SASSERT(hi[idx]);
+        trail.reverse();
+        hi[idx] = false;
+        unsigned v = m_pos2var[idx];
+        b = trail[idx].cofactor(m->mk_nvar(v));
+
+        // Check logic, TBD
+        for (unsigned i = idx; i-- > 0; ) {
+            SASSERT(!b.is_true());
+            if (b.is_false()) {
+                for (unsigned j = 0; j <= i; ++j)
+                    hi[j] = true;
+                break;
+            }
+            hi[i] = b.lo().is_true();
+            if (hi[i]) 
+                b = b.hi();
+            else 
+                b = b.lo();
+        }
+
+        inc(hi);
+
+        return true;
     }
 
 
