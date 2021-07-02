@@ -200,6 +200,7 @@ namespace polysat {
     void solver::propagate(sat::literal lit) {
         LOG_H2("Propagate boolean literal " << lit);
         constraint* c = m_constraints.lookup(lit.var());
+        (void)c;
         SASSERT(c);
         SASSERT(!c->is_undef());
         // c->narrow(*this);
@@ -238,6 +239,7 @@ namespace polysat {
     void solver::pop_levels(unsigned num_levels) {
         SASSERT(m_level >= num_levels);
         unsigned const target_level = m_level - num_levels;
+        (void)target_level;
         LOG("Pop " << num_levels << " levels (lvl " << m_level << " -> " << target_level << ")");
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
@@ -853,8 +855,7 @@ namespace polysat {
                 lits.push_back(~lit);
                 reason = clause::from_literals(reason->level(), {reason->dep(), m_dm}, lits, reason->new_constraints());
             }
-            bool contains_opp = std::any_of(reason->begin(), reason->end(), [lit](sat::literal reason_lit) { return reason_lit == ~lit; });
-            SASSERT(contains_opp);
+            SASSERT(std::any_of(reason->begin(), reason->end(), [lit](sat::literal reason_lit) { return reason_lit == ~lit; }));
         }
         else {
             LOG_H3("Empty reason");

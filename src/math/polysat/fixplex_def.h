@@ -748,11 +748,9 @@ namespace polysat {
         unsigned tz_b,    
         numeral const& old_value_y) {
 
-        var_t y = row2base(r_y);
         numeral b = row2base_coeff(r_y);
         auto z = row2base(r_z);
         auto& row_z = m_rows[r_z.id()];
-        var_info& zI = m_vars[z];
         unsigned tz_c = m.trailing_zeros(c);
         numeral b1, c1;
         if (tz_b <= tz_c) {
