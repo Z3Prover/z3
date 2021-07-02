@@ -18,6 +18,8 @@ Author:
 
 #pragma once
 
+#include "util/rational.h"
+
 
 template<typename Numeral>
 struct pp {
@@ -29,6 +31,10 @@ template<typename Numeral>
 inline std::ostream& operator<<(std::ostream& out, pp<Numeral> const& p) {
     if ((0 - p.n) < p.n)
         return out << "-" << (0 - p.n);
+    return out << p.n;
+}
+
+inline std::ostream& operator<<(std::ostream& out, pp<rational> const& p) {
     return out << p.n;
 }
 

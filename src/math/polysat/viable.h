@@ -11,6 +11,11 @@ Author:
     Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-6
 
+Notes:
+
+    NEW_VIABLE uses cheaper book-keeping, but is partial.
+    The implementation of NEW_VIABLE is atm incomplete and ad-hoc.
+    
 --*/
 #pragma once
 
@@ -18,10 +23,7 @@ Author:
 
 #include <limits>
 
-#if !NEW_VIABLE
 #include "math/dd/dd_bdd.h"
-#endif
-
 #include "math/polysat/types.h"
 #include "math/interval/mod_interval.h"
 
@@ -43,15 +45,17 @@ namespace polysat {
         unsigned m_num_bits;
         rational p2() const { return rational::power_of_two(m_num_bits); }
         bool is_max(rational const& a) const;
-        void set_lo(rational const& lo);
-        void set_hi(rational const& hi);
         void intersect_eq(rational const& a, bool is_positive);
+        void narrow(std::function<bool(rational const&)>& eval, unsigned& budget);
     public:
         viable_set(unsigned num_bits): m_num_bits(num_bits) {}
         bool is_singleton() const; 
         dd::find_t find_hint(rational const& c, rational& val) const;
         void set_ne(rational const& a) { intersect_eq(a, false); }
-        void intersect_eq(rational const& a, rational const& b, bool is_positive);
+        void set_lo(rational const& lo);
+        void set_hi(rational const& hi);
+        bool intersect_eq(rational const& a, rational const& b, bool is_positive);
+        void intersect_eq(rational const& a, rational const& b, bool is_positive, unsigned& budget);
         bool intersect_ule(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive);
         void intersect_ule(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive, unsigned& budget);
     };

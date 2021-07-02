@@ -301,5 +301,36 @@ namespace dd {
         return true;
     }
 
+    bool_vector fdd::rational2bits(rational const& r) const {
+        bool_vector result;
+        for (unsigned i = 0; i < num_bits(); ++i)
+            result.push_back(r.get_bit(i));
+        return result;
+    }
+
+    rational fdd::bits2rational(bool_vector const& v) const {
+        rational result(0);
+        for (unsigned i = 0; i < num_bits(); ++i)
+            if (v[i])
+                result += rational::power_of_two(i);
+        return result;
+    }
+
+    bool fdd::sup(bdd const& b, rational& _lo) const {
+        bool_vector lo = rational2bits(_lo);
+        if (!sup(b, lo))
+            return false;
+        _lo = bits2rational(lo);
+        return true;
+    }
+    
+    bool fdd::inf(bdd const& b, rational& _hi) const {
+        bool_vector hi = rational2bits(_hi);
+        if (!inf(b, hi))
+            return false;
+        _hi = bits2rational(hi);
+        return true;
+    }
+
 
 }

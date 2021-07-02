@@ -73,11 +73,11 @@ namespace polysat {
             else if (hi == 0 && is_max(a))
                 hi = a;
             else 
-                std::cout << "diseq " << lo << " " << a << " " << hi << "\n";
+                std::cout << "unhandled diseq " << lo << " " << a << " " << hi << "\n";
         }
     }
 
-    void viable_set::intersect_eq(rational const& a, rational const& b, bool is_positive) {
+    bool viable_set::intersect_eq(rational const& a, rational const& b, bool is_positive) {
         if (a.is_odd()) {
             if (b == 0)
                 intersect_eq(b, is_positive);
@@ -86,10 +86,20 @@ namespace polysat {
                 VERIFY(a.mult_inverse(m_num_bits, a_inv));
                 intersect_eq(mod(a_inv * -b, p2()), is_positive);
             }
+            return true;
         }
-	    else
-	        std::cout << "intersect " << a << "*x " << " == " << b << " " << is_positive << "\n";
+        else {
+            return false;
+        }
     }
+
+    void viable_set::intersect_eq(rational const& a, rational const& b, bool is_positive, unsigned& budget) {
+        std::function<bool(rational const&)> eval = [&](rational const& x) {
+            return is_positive == (mod(a * x + b, p2()) == 0);
+        };       
+        narrow(eval, budget);
+    }
+
 
     bool viable_set::intersect_ule(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive) {
         // x <= 0
@@ -114,21 +124,13 @@ namespace polysat {
             else
                 set_hi(b - 1);
         }
-        else if (c == 0 && d == 0) {
-            // ax + b <= 0
-            // or ax + b > 0
-            intersect_eq(a, b, is_positive);
-        }
         else
             return false;
 
         return true;
     }
 
-    void viable_set::intersect_ule(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive, unsigned& budget) {
-        auto eval = [&](rational const& x) {
-            return is_positive == mod(a * x + b, p2()) <= mod(c * x + d, p2());
-        };        
+    void viable_set::narrow(std::function<bool(rational const&)>& eval, unsigned& budget) {
         while (budget > 0 && !eval(lo) && !is_max(lo) && !is_empty()) {
             --budget;
             lo += 1;
@@ -141,6 +143,13 @@ namespace polysat {
         }
     }
 
+    void viable_set::intersect_ule(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive, unsigned& budget) {
+        std::function<bool(rational const&)> eval = [&](rational const& x) {
+            return is_positive == mod(a * x + b, p2()) <= mod(c * x + d, p2());
+        };       
+        narrow(eval, budget);
+    }
+
     void viable_set::set_hi(rational const& d) {
         if (is_max(d))
             return;
@@ -149,9 +158,11 @@ namespace polysat {
         else if (lo > d)
             set_empty();
         else if (hi != 0 || d + 1 < hi)
-            hi = d + 1;       
+            hi = d + 1;  
+        else if (d + 1 == hi)
+            return;
         else 
-            std::cout << "set hi " << lo << " " << d << " " << hi << "\n";
+            std::cout << "set hi " << d << " " << *this << "\n";
     }
 
     void viable_set::set_lo(rational const& b) {
@@ -161,8 +172,10 @@ namespace polysat {
             lo = b, hi = 0;
         else if (lo < b)
             lo = b;                    
+        else if (lo == b)
+            return;
         else 
-            std::cout << "set lo " << lo << " " << b << " " << hi << "\n";
+            std::cout << "set lo " << b << " " << *this << "\n";
     }
 #endif
 
@@ -187,7 +200,15 @@ namespace polysat {
     void viable::intersect_eq(rational const& a, pvar v, rational const& b, bool is_positive) {
 #if NEW_VIABLE
         push_viable(v);
-        m_viable[v].intersect_eq(a, b, is_positive);
+        if (!m_viable[v].intersect_eq(a, b, is_positive)) {
+            IF_VERBOSE(10, verbose_stream() << "could not intersect v" << v << " " << m_viable[v] << "\n");
+            unsigned budget = 10;
+            m_viable[v].intersect_eq(a, b, is_positive, budget);
+            if (budget == 0) {
+                std::cout << "budget used\n";
+                // then narrow the range using BDDs
+            }
+        }
         if (m_viable[v].is_empty())
             s.set_conflict(v);
 #else
@@ -218,6 +239,9 @@ namespace polysat {
 
     void viable::intersect_ule(pvar v, rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive) {
 #if NEW_VIABLE
+        // 
+        // TODO This code needs to be partitioned into self-contained pieces.
+        //
         push_viable(v);
         if (!m_viable[v].intersect_ule(a, b, c, d, is_positive)) {
             unsigned budget = 10;
@@ -235,15 +259,30 @@ namespace polysat {
                     other = alloc(ineq_entry, sz, a, b, c, d, le);
                     m_ineq_cache.insert(other);
                 }
-                le = is_positive ? other->repr : !other->repr;
+                bdd gt = is_positive ? !other->repr : other->repr;
                 other->m_activity++;
+
+                // 
+                // instead of using activity for GC, use the Move-To-Front approach 
+                // see sat/smt/bv_ackerman.h or sat/smt/euf_ackerman.h
+                // where hash table entries use a dll_base.
+                // 
+
                 // le(lo) is false: find min x >= lo, such that le(x) is false, le(x+1) is true
                 // le(hi) is false: find max x =< hi, such that le(x) is false, le(x-1) is true
                 
-                // bdd x_is_lo = m.mk_num(sz, m_viable[v].lo) == var2bits(v).var();
-                // bdd lo_is_sat = x_is_lo && lo;
-                // if (lo_is_sat.is_false())
-                //     find_min_above(lo, le);
+                rational bound = m_viable[v].lo;
+                if (var2bits(v).sup(gt, bound)) {
+                    m_viable[v].set_lo(bound);
+                    m_viable[v].set_ne(bound);
+                }
+                bound = m_viable[v].hi;
+                if (bound != 0) {
+                    bound = bound - 1;
+                    if (var2bits(v).inf(gt, bound)) {
+                        std::cout << "TODO: new upper bound " << bound << "\n";
+                    }
+                }
 
             }
 
@@ -285,8 +324,8 @@ namespace polysat {
     void viable::add_non_viable(pvar v, rational const& val) {
 #if NEW_VIABLE
         push_viable(v);
+        IF_VERBOSE(10, verbose_stream() << " v" << v << " != " << val << "\n");
         m_viable[v].set_ne(val);
-        std::cout << " v" << v << " != " << val << "\n";
         if (m_viable[v].is_empty())
             s.set_conflict(v);
 #else

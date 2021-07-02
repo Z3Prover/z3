@@ -39,7 +39,7 @@ namespace polysat {
             if (!c->is_undef())
                 m_conflict.push_back(c);
         for (auto* c : confl.clauses())
-                m_conflict.push_back(c);
+            m_conflict.push_back(c);
 
         // TODO: we should share work done for examining constraints between different resolution methods
         clause_ref lemma;
@@ -81,16 +81,58 @@ namespace polysat {
         return lemma;
     }
 
+    /**
+     *  Polynomial superposition.
+     *  So far between two equalities.
+     *  TODO: Also handle =, != superposition here?
+     *  TODO: handle case when m_conflict.units().size() > 2
+     *  TODO: handle super-position into a clause?
+     */
     clause_ref conflict_explainer::by_polynomial_superposition() {
-        if (m_conflict.units().size() != 2 || m_conflict.clauses().size() > 0)
+        LOG_H3("units-size: " << m_conflict.units().size() << " conflict-clauses " << m_conflict.clauses().size());
+        constraint* c1 = nullptr, *c2 = nullptr;
+        if (m_conflict.units().size() == 2 && m_conflict.clauses().size() == 0) {
+            c1 = m_conflict.units()[0];
+            c2 = m_conflict.units()[1];
+        }
+        else {
+            // other combinations?
+
+#if 0
+            // A clause can also be a unit.
+            // Even if a clause is not a unit, we could still resolve a propagation 
+            // into some literal in the current conflict clause.
+            // Selecting resolvents should not be specific to superposition.
+            // 
+
+            for (auto clause : m_conflict.clauses()) {
+                if (clause->size() == 1) {                    
+                    sat::literal lit = (*clause)[0];
+                    if (lit.sign())
+                        continue;
+                    constraint* c = m_solver.m_constraints.lookup(lit.var());                    
+                    LOG("unit clause: " << *c);
+                    if (c->is_eq() && c->is_positive()) {
+                        c1 = c;
+                        break;
+                    }
+                }
+            }
+            if (!c1)
+                return nullptr;
+
+            for (constraint* c : m_conflict.units()) {
+                if (c->is_eq() && c->is_positive()) {
+                    c2 = c;
+                    break;
+                }
+            }
+            std::cout << c1 << " " << c2 << "\n";
+#endif
+        }
+        if (!c1 || !c2 || c1 == c2)
             return nullptr;
-        constraint* c1 = m_conflict.units()[0];
-        constraint* c2 = m_conflict.units()[1];
-        if (c1 == c2)
-            return nullptr;
-        if (!c1->is_eq() || !c2->is_eq())
-            return nullptr;
-        if (c1->is_positive() && c2->is_positive()) {
+        if (c1->is_eq() && c2->is_eq() && c1->is_positive() && c2->is_positive()) {
             pdd a = c1->to_eq().p();
             pdd b = c2->to_eq().p();
             pdd r = a;

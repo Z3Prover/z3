@@ -47,6 +47,10 @@ namespace dd {
 
         bool contains(bdd const& b, bool_vector const& value) const;
 
+        rational bits2rational(bool_vector const& v) const;
+
+        bool_vector rational2bits(rational const& r) const;
+
     public:
         /** Initialize FDD using BDD variables from 0 to num_bits-1. */
         fdd(bdd_manager& manager, unsigned num_bits, unsigned start = 0, unsigned step = 1) : fdd(manager, seq(num_bits, start, step)) { }
@@ -89,6 +93,10 @@ namespace dd {
 	bool sup(bdd const& b, bool_vector& lo) const;
       
 	bool inf(bdd const& b, bool_vector& hi) const; 
+
+        bool sup(bdd const& b, rational& lo) const;
+
+        bool inf(bdd const& b, rational& hi) const;
       
     };
 

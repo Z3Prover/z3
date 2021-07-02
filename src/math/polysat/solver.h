@@ -97,8 +97,8 @@ namespace polysat {
         search_state             m_search;
         assignment_t const& assignment() const { return m_search.assignment(); }
 
-        unsigned                 m_qhead { 0 }; // next item to propagate (index into m_search)
-        unsigned                 m_level { 0 };
+        unsigned                 m_qhead = 0; // next item to propagate (index into m_search)
+        unsigned                 m_level = 0;
 
         svector<trail_instr_t>   m_trail;
         unsigned_vector          m_qhead_trail;
@@ -157,8 +157,7 @@ namespace polysat {
         void decide_bool(sat::literal lit, clause& lemma);
         void propagate_bool(sat::literal lit, clause* reason);
 
-        void assign_core(pvar v, rational const& val, justification
-            const& j);
+        void assign_core(pvar v, rational const& val, justification const& j);
         bool is_assigned(pvar v) const { return !m_justification[v].is_unassigned(); }
 
 

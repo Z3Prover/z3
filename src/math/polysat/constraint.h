@@ -211,8 +211,8 @@ namespace polysat {
 
         explicit operator bool() const { return !!m_constraint; }
         bool operator!() const { return !m_constraint; }
-        polysat::constraint* operator->() const { return m_constraint.get(); }
-        polysat::constraint const& operator*() const { return *m_constraint; }
+        constraint* operator->() const { return m_constraint.get(); }
+        constraint const& operator*() const { return *m_constraint; }
 
         constraint_literal& operator=(nullptr_t) { m_literal = sat::null_literal; m_constraint = nullptr; return *this; }
     private:
