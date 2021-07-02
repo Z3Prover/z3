@@ -91,6 +91,7 @@ namespace polysat {
     clause_ref conflict_explainer::by_polynomial_superposition() {
         LOG_H3("units-size: " << m_conflict.units().size() << " conflict-clauses " << m_conflict.clauses().size());
         constraint* c1 = nullptr, *c2 = nullptr;
+
         if (m_conflict.units().size() == 2 && m_conflict.clauses().size() == 0) {
             c1 = m_conflict.units()[0];
             c2 = m_conflict.units()[1];
@@ -111,6 +112,8 @@ namespace polysat {
                     if (lit.sign())
                         continue;
                     constraint* c = m_solver.m_constraints.lookup(lit.var());                    
+                    c->assign(true);
+                    // this clause is really a unit.
                     LOG("unit clause: " << *c);
                     if (c->is_eq() && c->is_positive()) {
                         c1 = c;
@@ -127,7 +130,6 @@ namespace polysat {
                     break;
                 }
             }
-            std::cout << c1 << " " << c2 << "\n";
 #endif
         }
         if (!c1 || !c2 || c1 == c2)
