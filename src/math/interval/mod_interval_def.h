@@ -120,3 +120,89 @@ Numeral mod_interval<Numeral>::closest_value(Numeral const& n) const {
         return lo;
     return hi - 1;
 }
+
+// TBD: correctness and completeness for wrap-around semantics needs to be checked/fixed
+
+template<typename Numeral>
+void mod_interval<Numeral>::intersect_ule(Numeral const& h) {
+    if (is_empty())
+        return;
+    if (is_max(h))
+        return;
+    else if (is_free())
+        lo = 0, hi = h + 1;
+    else if (hi > lo && lo > h)
+        set_empty();
+    else if (hi != 0 || h + 1 < hi)
+        hi = h + 1;  
+}
+
+template<typename Numeral>
+void mod_interval<Numeral>::intersect_uge(Numeral const& l) {
+    if (is_empty())
+        return;
+    if (lo < hi && hi <= l)
+        set_empty();
+    else if (is_free())
+        lo = l, hi = 0;
+    else if (lo < hi && lo < l)
+        lo = l;                    
+}
+
+template<typename Numeral>
+void mod_interval<Numeral>::intersect_ult(Numeral const& h) {
+    if (is_empty())
+        return;
+    if (h == 0)
+        set_empty();
+    else if (is_free())
+        lo = 0, hi = h;
+    else if (hi > lo && lo >= h)
+        set_empty();
+    else if (hi > lo && h < hi)
+        hi = h;
+}
+
+template<typename Numeral>
+void mod_interval<Numeral>::intersect_ugt(Numeral const& l) {
+    if (is_empty())
+        return;
+    if (is_max(l))
+        set_empty();
+    else if (is_free())
+        lo = l + 1, hi = 0;
+    else if (lo > l)
+        return;
+    else if (lo < hi && hi <= l)
+        set_empty();
+    else if (lo < hi) 
+        lo = l + 1;
+}
+
+template<typename Numeral>
+void mod_interval<Numeral>::intersect_fixed(Numeral const& a) {
+    if (is_empty())
+        return;
+    if (!contains(a))
+        set_empty();
+    else if (is_max(a))
+        lo = a, hi = 0;
+    else
+        lo = a, hi = a + 1;
+}
+
+template<typename Numeral>
+void mod_interval<Numeral>::intersect_diff(Numeral const& a) {
+    if (!contains(a) || is_empty())
+        return;
+    if (a == lo && a + 1 == hi)
+        set_empty();
+    else if (a == lo && hi == 0 && is_max(a))
+        set_empty();
+    else if (a == lo && !is_max(a))
+        lo = a + 1;
+    else if (a + 1 == hi)
+        hi = a;
+    else if (hi == 0 && is_max(a))
+        hi = a;
+}

@@ -48,12 +48,23 @@ public:
     mod_interval(Numeral const& l, Numeral const& h): lo(l), hi(h) {}
     static mod_interval free() { return mod_interval(0, 0); }
     static mod_interval empty() { mod_interval i(0, 0); i.emp = true; return i; }
+
     bool is_free() const { return !emp && lo == hi; }
     bool is_empty() const { return emp; }
+    bool is_singleton() const { return !is_empty() && (lo + 1 == hi || (hi == 0 && is_max(lo))); }
+    bool contains(Numeral const& n) const;
+    virtual bool is_max(Numeral const& n) const { return n + 1 == 0; }
+
     void set_free() { lo = hi = 0; emp = false; }
     void set_bounds(Numeral const& l, Numeral const& h) { lo = l; hi = h; }
     void set_empty() { emp = true; }
-    bool contains(Numeral const& n) const;
+
+    void intersect_ule(Numeral const& h);
+    void intersect_uge(Numeral const& l);
+    void intersect_ult(Numeral const& h);
+    void intersect_ugt(Numeral const& l);
+    void intersect_fixed(Numeral const& n);
+    void intersect_diff(Numeral const& n);
     mod_interval operator&(mod_interval const& other) const;
     mod_interval operator+(mod_interval const& other) const;
     mod_interval operator-(mod_interval const& other) const;
