@@ -1950,7 +1950,7 @@ sig
   val mk_re_loop : context -> Expr.expr -> int -> int -> Expr.expr 
   
   (* intersection of regular expressions *)
-  val mk_re_intersect : context -> int -> Expr.expr list -> Expr.expr
+  val mk_re_intersect : context -> Expr.expr list -> Expr.expr
 
   (* the regular expression complement *)
   val mk_re_complement : context -> Expr.expr -> Expr.expr 
