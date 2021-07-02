@@ -48,6 +48,7 @@ namespace polysat {
         bool narrow(std::function<bool(rational const&)>& eval);
     public:
         viable_set(unsigned num_bits): m_num_bits(num_bits) {}
+        ~viable_set() override {}
         dd::find_t find_hint(rational const& c, rational& val) const;
         bool intersect_eq(rational const& a, rational const& b, bool is_positive);
         bool intersect_le(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive);

@@ -97,6 +97,7 @@ namespace polysat {
                 m_base2row(0),
                 m_is_base(false)
             {}
+            ~var_info() override {}
             var_info& operator&=(mod_interval<numeral> const& range) {
                 mod_interval<numeral>::operator=(range & *this);
                 return *this;

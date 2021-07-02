@@ -42,6 +42,7 @@ template<typename Numeral>
 class mod_interval {
     bool emp { false };
 public:
+    virtual ~mod_interval() {}
     Numeral lo { 0 };
     Numeral hi { 0 };
     mod_interval() {}
@@ -65,6 +66,7 @@ public:
     void intersect_ugt(Numeral const& l);
     void intersect_fixed(Numeral const& n);
     void intersect_diff(Numeral const& n);
+
     mod_interval operator&(mod_interval const& other) const;
     mod_interval operator+(mod_interval const& other) const;
     mod_interval operator-(mod_interval const& other) const;
