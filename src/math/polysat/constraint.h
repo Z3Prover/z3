@@ -214,7 +214,7 @@ namespace polysat {
         constraint* operator->() const { return m_constraint.get(); }
         constraint const& operator*() const { return *m_constraint; }
 
-        constraint_literal& operator=(nullptr_t) { m_literal = sat::null_literal; m_constraint = nullptr; return *this; }
+        constraint_literal& operator=(std::nullptr_t) { m_literal = sat::null_literal; m_constraint = nullptr; return *this; }
     private:
         friend class constraint_manager;
         explicit constraint_literal(constraint* c): constraint_literal(sat::literal(c->bvar()), c) {}
