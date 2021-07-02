@@ -20,7 +20,6 @@ Revision History:
 
 #include "util/tbv.h"
 #include "util/hashtable.h"
-#include "ast/ast_util.h"
 
 
 static bool s_debug_alloc = false;

@@ -25,7 +25,7 @@ Revision History:
 #include "util/tbv.h"
 #include "util/union_find.h"
 #include "util/buffer.h"
-
+#include "ast/ast.h"
 
 class doc;
 template<typename M, typename T> class union_bvec;

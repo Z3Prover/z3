@@ -23,7 +23,6 @@ Revision History:
 #include "util/fixed_bit_vector.h"
 #include "util/bit_vector.h"
 #include "util/rational.h"
-#include "ast/ast.h"
 
 class tbv;
 
