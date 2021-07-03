@@ -8,9 +8,9 @@
 #define __FStar_UInt128_H
 #include <inttypes.h>
 #include <stdbool.h>
-#include "kremlin/lowstar_endianness.h"
-#include "kremlin/internal/types.h"
-#include "kremlin/internal/target.h"
+#include "math/bigfix/kremlin/lowstar_endianness.h"
+#include "math/bigfix/kremlin/internal/types.h"
+#include "math/bigfix/kremlin/internal/target.h"
 
 
 

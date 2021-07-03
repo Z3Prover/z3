@@ -11,9 +11,9 @@
 #ifndef FSTAR_UINT128_MSVC
 #define FSTAR_UINT128_MSVC
 
-#include "kremlin/internal/types.h"
-#include "FStar_UInt128.h"
-#include "FStar_UInt_8_16_32_64.h"
+#include "math/bigfix/kremlin/internal/types.h"
+#include "math/bigfix/kremlib/FStar_UInt128.h"
+#include "math/bigfix/kremlib/FStar_UInt_8_16_32_64.h"
 
 #ifndef _MSC_VER
 #  error This file only works with the MSVC compiler

@@ -23,9 +23,9 @@
 #ifndef FSTAR_UINT128_GCC64
 #define FSTAR_UINT128_GCC64
 
-#include "FStar_UInt128.h"
-#include "FStar_UInt_8_16_32_64.h"
-#include "LowStar_Endianness.h"
+#include "math/bigfix/kremlib/FStar_UInt128.h"
+#include "math/bigfix/kremlib/FStar_UInt_8_16_32_64.h"
+#include "math/bigfix/kremlib/LowStar_Endianness.h"
 
 /* GCC + using native unsigned __int128 support */
 

@@ -67,6 +67,7 @@ add_executable(test-z3
   matcher.cpp
   "${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp"
   memory.cpp
+  mod_interval.cpp
   model2expr.cpp
   model_based_opt.cpp
   model_evaluator.cpp

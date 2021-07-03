@@ -115,18 +115,6 @@ namespace polysat {
         
     }
 
-
-    static void test_interval() {
-        mod_interval<uint64_t> i1(1, 2);
-        mod_interval<uint64_t> i2(3, 6);
-        std::cout << i1 << " " << i2 << "\n";
-        std::cout << i1 << " * 4 := " << (i1 * 4) << "\n";
-        std::cout << i2 << " * 3 := " << (i2 * 3) << "\n";
-        std::cout << i1 << " * -4 := " << (i1 * (0 - 4)) << "\n";
-        std::cout << i2 << " * -3 := " << (i2 * (0 - 3)) << "\n";
-        std::cout << "-" << i2 << " := " << (-i2) << "\n";
-    }
-
     static void test_gcd() {
         std::cout << "gcd\n";
         uint64_ext::manager e;
@@ -147,7 +135,6 @@ void tst_fixplex() {
     polysat::test4();
     polysat::test5();
 
-    polysat::test_interval();
     polysat::test_gcd();
     polysat::test_eq();
 }

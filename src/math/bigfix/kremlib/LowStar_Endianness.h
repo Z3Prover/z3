@@ -8,12 +8,10 @@
 #define __LowStar_Endianness_H
 #include <inttypes.h>
 #include <stdbool.h>
-#include "kremlin/lowstar_endianness.h"
-#include "kremlin/internal/types.h"
-#include "kremlin/internal/target.h"
-
-
-#include "FStar_UInt128.h"
+#include "math/bigfix/kremlin/lowstar_endianness.h"
+#include "math/bigfix/kremlin/internal/types.h"
+#include "math/bigfix/kremlin/internal/target.h"
+#include "math/bigfix/FStar_UInt128.h"
 
 static inline void store128_le(uint8_t *x0, FStar_UInt128_uint128 x1);
 
