@@ -123,7 +123,6 @@ Numeral mod_interval<Numeral>::closest_value(Numeral const& n) const {
 
 // TBD: correctness and completeness for wrap-around semantics needs to be checked/fixed
 
-
 template<typename Numeral>
 mod_interval<Numeral>& mod_interval<Numeral>::intersect_uge(Numeral const& l) {
     if (is_empty())
@@ -153,7 +152,7 @@ mod_interval<Numeral>& mod_interval<Numeral>::intersect_ugt(Numeral const& l) {
         set_empty();
     else if (lo < hi) 
         lo = l + 1;
-    else if (hi < lo && hi <= l + 1 && l <= lo - 1)
+    else if (hi < lo && hi <= l + 1 && l < lo)
         hi = 0;
     else if (hi < lo && lo <= l)
         hi = 0, lo = l + 1;
