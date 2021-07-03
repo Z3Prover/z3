@@ -1,0 +1,8 @@
+z3_add_component(bigfix
+  SOURCES
+    Hacl_Bignum.c
+    Hacl_Bignum256.c
+    u256.cpp
+  COMPONENT_DEPENDENCIES
+    util  
+)
