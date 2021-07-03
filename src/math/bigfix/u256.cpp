@@ -21,35 +21,19 @@ u256 u256::operator*(u256 const& other) const {
     return u256(result);
 }
 
-u256 u256::operator+(u256 const& other) const {
-    u256 result;
-    Hacl_Bignum256_add(const_cast<uint64_t*>(m_num), const_cast<uint64_t*>(other.m_num), result.m_num);
-    return result;
-}
-
-u256 u256::operator-(u256 const& other) const {
-    u256 result;
-    Hacl_Bignum256_sub(const_cast<uint64_t*>(m_num), const_cast<uint64_t*>(other.m_num), result.m_num);
-    return result;
-}
-
 u256& u256::operator*=(u256 const& other) {
     uint64_t result[8];
-    Hacl_Bignum256_add(const_cast<uint64_t*>(m_num), const_cast<uint64_t*>(other.m_num), result);
+    Hacl_Bignum256_mul(const_cast<uint64_t*>(m_num), const_cast<uint64_t*>(other.m_num), result);
     std::uninitialized_copy(m_num, m_num + sizeof(*this), result);
     return *this;
 }
 
 u256& u256::operator+=(u256 const& other) {
-    uint64_t result[4];
-    Hacl_Bignum256_add(const_cast<uint64_t*>(m_num), const_cast<uint64_t*>(other.m_num), result);
-    std::uninitialized_copy(m_num, m_num + sizeof(*this), result);
+    Hacl_Bignum256_add(const_cast<uint64_t*>(m_num), const_cast<uint64_t*>(other.m_num), m_num);
     return *this;
 }
 
 u256& u256::operator-=(u256 const& other) {
-    uint64_t result[4];
-    Hacl_Bignum256_sub(const_cast<uint64_t*>(m_num), const_cast<uint64_t*>(other.m_num), result);
-    std::uninitialized_copy(m_num, m_num + sizeof(*this), result);
+    Hacl_Bignum256_sub(const_cast<uint64_t*>(m_num), const_cast<uint64_t*>(other.m_num), m_num);
     return *this;
 }

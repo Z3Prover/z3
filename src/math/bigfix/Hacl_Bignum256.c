@@ -274,6 +274,7 @@ void Hacl_Bignum256_sqr(uint64_t *a, uint64_t *res)
     res[i0 + i0] = r;
   }
   uint64_t c0 = Hacl_Bignum_Addition_bn_add_eq_len_u64(resLen, res, res, res);
+  (void)c0;
   KRML_CHECK_SIZE(sizeof (uint64_t), resLen);
   uint64_t *tmp = alloca(resLen * sizeof (uint64_t));
   memset(tmp, 0U, resLen * sizeof (uint64_t));
@@ -286,6 +287,7 @@ void Hacl_Bignum256_sqr(uint64_t *a, uint64_t *res)
     tmp[(uint32_t)2U * i + (uint32_t)1U] = hi;
   }
   uint64_t c1 = Hacl_Bignum_Addition_bn_add_eq_len_u64(resLen, res, tmp, res);
+  (void)c1;
 }
 
 static inline void precompr2(uint32_t nBits, uint64_t *n, uint64_t *res)
@@ -414,6 +416,7 @@ static inline void areduction(uint64_t *n, uint64_t nInv, uint64_t *c, uint64_t 
   uint64_t c00 = c0;
   uint64_t tmp[4U] = { 0U };
   uint64_t c1 = Hacl_Bignum256_sub(res, n, tmp);
+  (void)c1;
   uint64_t m = (uint64_t)0U - c00;
   for (uint32_t i = (uint32_t)0U; i < (uint32_t)4U; i++)
   {
@@ -497,6 +500,7 @@ static inline void amont_sqr(uint64_t *n, uint64_t nInv_u64, uint64_t *aM, uint6
     c[i0 + i0] = r;
   }
   uint64_t c0 = Hacl_Bignum_Addition_bn_add_eq_len_u64(resLen, c, c, c);
+  (void)c0;
   KRML_CHECK_SIZE(sizeof (uint64_t), resLen);
   uint64_t *tmp = alloca(resLen * sizeof (uint64_t));
   memset(tmp, 0U, resLen * sizeof (uint64_t));
