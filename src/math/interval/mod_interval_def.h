@@ -133,7 +133,7 @@ mod_interval<Numeral>& mod_interval<Numeral>::intersect_ule(Numeral const& h) {
         lo = 0, hi = h + 1;
     else if (hi > lo && lo > h)
         set_empty();
-    else if (hi != 0 || h + 1 < hi)
+    else if (hi == 0 || h + 1 < hi)
         hi = h + 1; 
     return *this;
 }
@@ -146,7 +146,7 @@ mod_interval<Numeral>& mod_interval<Numeral>::intersect_uge(Numeral const& l) {
         set_empty();
     else if (is_free())
         lo = l, hi = 0;
-    else if (lo < hi && lo < l)
+    else if ((lo < hi || hi == 0) && lo < l)
         lo = l;     
     return *this;
 }
@@ -175,7 +175,7 @@ mod_interval<Numeral>& mod_interval<Numeral>::intersect_ugt(Numeral const& l) {
     else if (is_free())
         lo = l + 1, hi = 0;
     else if (lo > l)
-        return;
+        return *this;
     else if (lo < hi && hi <= l)
         set_empty();
     else if (lo < hi) 
