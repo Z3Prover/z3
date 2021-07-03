@@ -2,11 +2,13 @@
 #include "math/bigfix/Hacl_Bignum256.h"
 #include <memory>
 
+u256::u256() {
+    m_num[0] = m_num[1] = m_num[2] = m_num[3] = 0;
+}
+
 u256::u256(uint64_t n) {
     m_num[0] = n;
-    m_num[1] = 0;
-    m_num[2] = 0;
-    m_num[3] = 0;
+    m_num[1] = m_num[2] = m_num[3] = 0;
 }
 
 u256::u256(uint64_t const* v) {
