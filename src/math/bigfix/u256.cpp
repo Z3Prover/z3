@@ -1,5 +1,6 @@
 #include "math/bigfix/u256.h"
 #include "math/bigfix/Hacl_Bignum256.h"
+#include <memory>
 
 u256::u256(uint64_t n) {
     m_num[0] = n;
