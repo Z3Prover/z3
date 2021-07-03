@@ -14,7 +14,11 @@ public:
     u256 operator+(u256 const& other) const { u256 r = *this; return r += other; }
     u256 operator-(u256 const& other) const { u256 r = *this; return r -= other; }
     u256 operator-() const { u256 r = *this; return r.inv(); }
+    u256 operator<<(uint64_t sh) const;
+    u256 operator>>(uint64_t sh) const;
+    u256 operator&(u256 const& other) const;
 
+    u256 mod(u256 const& other) const;
     u256 mul_inverse() const;
     unsigned trailing_zeros() const;
     u256 gcd(u256 const& other) const;
@@ -27,17 +31,17 @@ public:
     u256& inv();  /* unary minus */
 
     // comparisons
-    bool operator==(u256 const& other) const;
-    bool operator!=(u256 const& other) const;
+    bool operator==(u256 const& other) const { return m_num[0] == other.m_num[0] && m_num[1] == other.m_num[1] && m_num[2] == other.m_num[2] && m_num[3] == other.m_num[3]; } 
+    bool operator!=(u256 const& other) const { return !(*this == other); }
     bool operator<(u256 const& other) const;
-    bool operator<=(u256 const& other) const;
-    bool operator>(u256 const& other) const;
-    bool operator>=(u256 const& other) const;
+    bool operator<=(u256 const& other) const { return !(other < *this); }
+    bool operator>(u256 const& other) const { return other < *this; }
+    bool operator>=(u256 const& other) const { return !(*this < other); }
 
     bool operator<(uint64_t other) const;
-    bool operator<=(uint64_t other) const;
+    bool operator<=(uint64_t other) const { return !(*this > other); }
     bool operator>(uint64_t other) const;
-    bool operator>=(uint64_t other) const;
+    bool operator>=(uint64_t other) const { return !(*this < other); }
 
     bool is_zero() const { return m_num[0] == 0 && m_num[1] == 0 && m_num[2] == 0 && m_num[3] == 0; }
     bool is_one() const { return m_num[0] == 1 && m_num[1] == 0 && m_num[2] == 0 && m_num[3] == 0; }
