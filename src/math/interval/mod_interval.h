@@ -42,11 +42,11 @@ template<typename Numeral>
 class mod_interval {
     bool emp { false };
 public:
-    virtual ~mod_interval() {}
     Numeral lo { 0 };
     Numeral hi { 0 };
     mod_interval() {}
     mod_interval(Numeral const& l, Numeral const& h): lo(l), hi(h) {}
+    virtual ~mod_interval() {}
     static mod_interval free() { return mod_interval(0, 0); }
     static mod_interval empty() { mod_interval i(0, 0); i.emp = true; return i; }
 
@@ -60,12 +60,12 @@ public:
     void set_bounds(Numeral const& l, Numeral const& h) { lo = l; hi = h; }
     void set_empty() { emp = true; }
 
-    void intersect_ule(Numeral const& h);
-    void intersect_uge(Numeral const& l);
-    void intersect_ult(Numeral const& h);
-    void intersect_ugt(Numeral const& l);
-    void intersect_fixed(Numeral const& n);
-    void intersect_diff(Numeral const& n);
+    mod_interval& intersect_ule(Numeral const& h);
+    mod_interval& intersect_uge(Numeral const& l);
+    mod_interval& intersect_ult(Numeral const& h);
+    mod_interval& intersect_ugt(Numeral const& l);
+    mod_interval& intersect_fixed(Numeral const& n);
+    mod_interval& intersect_diff(Numeral const& n);
 
     mod_interval operator&(mod_interval const& other) const;
     mod_interval operator+(mod_interval const& other) const;

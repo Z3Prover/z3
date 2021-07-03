@@ -124,35 +124,37 @@ Numeral mod_interval<Numeral>::closest_value(Numeral const& n) const {
 // TBD: correctness and completeness for wrap-around semantics needs to be checked/fixed
 
 template<typename Numeral>
-void mod_interval<Numeral>::intersect_ule(Numeral const& h) {
+mod_interval<Numeral>& mod_interval<Numeral>::intersect_ule(Numeral const& h) {
     if (is_empty())
-        return;
+        return *this;
     if (is_max(h))
-        return;
+        return *this;
     else if (is_free())
         lo = 0, hi = h + 1;
     else if (hi > lo && lo > h)
         set_empty();
     else if (hi != 0 || h + 1 < hi)
-        hi = h + 1;  
+        hi = h + 1; 
+    return *this;
 }
 
 template<typename Numeral>
-void mod_interval<Numeral>::intersect_uge(Numeral const& l) {
+mod_interval<Numeral>& mod_interval<Numeral>::intersect_uge(Numeral const& l) {
     if (is_empty())
-        return;
+        return *this;
     if (lo < hi && hi <= l)
         set_empty();
     else if (is_free())
         lo = l, hi = 0;
     else if (lo < hi && lo < l)
-        lo = l;                    
+        lo = l;     
+    return *this;
 }
 
 template<typename Numeral>
-void mod_interval<Numeral>::intersect_ult(Numeral const& h) {
+mod_interval<Numeral>& mod_interval<Numeral>::intersect_ult(Numeral const& h) {
     if (is_empty())
-        return;
+        return *this;
     if (h == 0)
         set_empty();
     else if (is_free())
@@ -161,12 +163,13 @@ void mod_interval<Numeral>::intersect_ult(Numeral const& h) {
         set_empty();
     else if (hi > lo && h < hi)
         hi = h;
+    return *this;
 }
 
 template<typename Numeral>
-void mod_interval<Numeral>::intersect_ugt(Numeral const& l) {
+mod_interval<Numeral>& mod_interval<Numeral>::intersect_ugt(Numeral const& l) {
     if (is_empty())
-        return;
+        return *this;
     if (is_max(l))
         set_empty();
     else if (is_free())
@@ -177,24 +180,26 @@ void mod_interval<Numeral>::intersect_ugt(Numeral const& l) {
         set_empty();
     else if (lo < hi) 
         lo = l + 1;
+    return *this;
 }
 
 template<typename Numeral>
-void mod_interval<Numeral>::intersect_fixed(Numeral const& a) {
+mod_interval<Numeral>& mod_interval<Numeral>::intersect_fixed(Numeral const& a) {
     if (is_empty())
-        return;
+        return *this;
     if (!contains(a))
         set_empty();
     else if (is_max(a))
         lo = a, hi = 0;
     else
         lo = a, hi = a + 1;
+    return *this;
 }
 
 template<typename Numeral>
-void mod_interval<Numeral>::intersect_diff(Numeral const& a) {
+mod_interval<Numeral>& mod_interval<Numeral>::intersect_diff(Numeral const& a) {
     if (!contains(a) || is_empty())
-        return;
+        return *this;
     if (a == lo && a + 1 == hi)
         set_empty();
     else if (a == lo && hi == 0 && is_max(a))
@@ -205,4 +210,5 @@ void mod_interval<Numeral>::intersect_diff(Numeral const& a) {
         hi = a;
     else if (hi == 0 && is_max(a))
         hi = a;
+    return *this;
 }

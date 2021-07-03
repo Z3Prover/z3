@@ -11,6 +11,14 @@ static void test_interval1() {
     std::cout << "-" << i2 << " := " << (-i2) << "\n";
 }
 
+static void test_interval2() {
+    mod_interval<uint32_t> i;
+    std::cout << " >= 0: " << i.intersect_uge(0) << "\n";
+    std::cout << " >= 1: " << i.intersect_uge(1) << "\n";
+
+}
+
 void tst_mod_interval() {
     test_interval1();
+    test_interval2();
 }
