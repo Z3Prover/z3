@@ -775,7 +775,11 @@ app* seq_util::mk_char(unsigned ch) const {
 }
 
 app* seq_util::mk_le(expr* ch1, expr* ch2) const {
-    return ch.mk_le(ch1, ch2);
+    if(is_char(ch1) && is_char(ch2)) {
+        return ch.mk_le(ch1, ch2);
+    } else {
+        return arith_util(m).mk_le(ch1, ch2);
+    }
 }
 
 app* seq_util::mk_lt(expr* ch1, expr* ch2) const {
