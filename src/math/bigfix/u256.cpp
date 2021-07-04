@@ -93,8 +93,6 @@ u256 u256::operator&(u256 const& other) const {
     return r;
 }
 
-
-
 u256& u256::operator*=(u256 const& other) {
     uint64_t result[8];
     Hacl_Bignum256_mul(const_cast<uint64_t*>(m_num), const_cast<uint64_t*>(other.m_num), result);
@@ -112,7 +110,7 @@ u256& u256::operator-=(u256 const& other) {
     return *this;
 }
 
-u256& u256::inv() {
+u256& u256::uminus() {
     uint64_t zero[4];
     zero[0] = zero[1] = zero[2] = zero[3] = 0;
     Hacl_Bignum256_sub(zero, const_cast<uint64_t*>(m_num), m_num);
@@ -146,6 +144,35 @@ u256 u256::mod(u256 const& other) const {
 }
 
 u256 u256::mul_inverse() const {
+    if (is_zero())
+        return *this;
+    if (is_one())
+        return *this;
+    if (is_even()) 
+        return (*this >> trailing_zeros()).mul_inverse();
+
+    u256 t0(1);
+    u256 t1(-t0);
+    u256 r0(*this);
+    u256 r1(-r0); 
+    while (!r1.is_zero()) {
+        auto tmp = t1;
+    }
+#if 0
+    numeral t0 = 1, t1 = 0 - 1;
+    numeral r0 = x, r1 = 0 - x;
+    while (r1 != 0) {
+        numeral q = r0 / r1;
+        numeral tmp = t1;
+        t1 = t0 - q * t1;
+        t0 = tmp;
+        tmp = r1;
+        r1 = r0 - q * r1;
+        r0 = tmp;
+    }
+    return t0;
+#endif
+    
     NOT_IMPLEMENTED_YET();
     return *this;
 }

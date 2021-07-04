@@ -13,7 +13,7 @@ public:
     u256 operator*(u256 const& other) const;
     u256 operator+(u256 const& other) const { u256 r = *this; return r += other; }
     u256 operator-(u256 const& other) const { u256 r = *this; return r -= other; }
-    u256 operator-() const { u256 r = *this; return r.inv(); }
+    u256 operator-() const { u256 r = *this; return r.uminus(); }
     u256 operator<<(uint64_t sh) const;
     u256 operator>>(uint64_t sh) const;
     u256 operator&(u256 const& other) const;
@@ -28,7 +28,7 @@ public:
     u256& operator+=(u256 const& other);
     u256& operator*=(u256 const& other);
     u256& operator-=(u256 const& other);
-    u256& inv();  /* unary minus */
+    u256& uminus();  /* unary minus */
 
     // comparisons
     bool operator==(u256 const& other) const { return m_num[0] == other.m_num[0] && m_num[1] == other.m_num[1] && m_num[2] == other.m_num[2] && m_num[3] == other.m_num[3]; } 
@@ -54,3 +54,8 @@ public:
 inline std::ostream& operator<<(std::ostream& out, u256 const& u) {
     return u.display(out);
 }
+
+inline bool operator<(uint64_t n, u256 const& y) { return y > n; }
+inline bool operator<=(uint64_t n, u256 const& y) { return y >= n; }
+inline bool operator>(uint64_t n, u256 const& y) { return y < n; }
+inline bool operator>=(uint64_t n, u256 const& y) { return y <= n; }
