@@ -293,4 +293,13 @@ namespace polysat {
         else 
             return inequality(rhs(), lhs(), true, this);
     }
+
+    unsigned ule_constraint::hash() const {
+    	return mk_mix(lhs().hash(), rhs().hash(), 23);
+    }
+    
+    bool ule_constraint::operator==(constraint const& other) const {
+        return other.is_ule() && lhs() == other.to_ule().lhs() && rhs() == other.to_ule().rhs();
+    }
+
 }

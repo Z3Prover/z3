@@ -202,4 +202,12 @@ namespace polysat {
             return inequality(zero, p(), true, this);
     }
 
+    unsigned eq_constraint::hash() const {
+    	return p().hash();
+    }
+    
+    bool eq_constraint::operator==(constraint const& other) const {
+    	return other.is_eq() && p() == other.to_eq().p();
+    }
+ 
 }

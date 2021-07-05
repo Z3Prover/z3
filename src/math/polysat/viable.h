@@ -14,7 +14,51 @@ Author:
 Notes:
 
     NEW_VIABLE uses cheaper book-keeping, but is partial.
-    
+   
+
+Alternative to using rational, instead use fixed-width numerals.
+
+
+map from num_bits to template set
+
+class viable_trail_base {
+public:
+   virtual pop(pvar v) = 0;
+   virtual push(pvar v) = 0;
+   static viable_trail_base* mk_trail(unsigned num_bits);
+};
+
+class viable_trail<Numeral> : public viable_trail_base {
+    vector<viable_set<Numeral>> m_viable;
+    vector<viable_set<Numeral>> m_trail;
+public:
+    void pop(pvar v) override {
+         m_viable[v] = m_trail.back();
+         m_trail.pop_back();
+    }
+    void push(pvar v) override {
+         m_trail.push_back(m_viable[v]);
+    }
+};
+
+// from num-bits to viable_trail_base*
+scoped_ptr_vector<viable_trail_base> m_viable_trails;
+
+viable_set_base& to_viable(pvar v) {
+  return (*m_viable_trails[num_bits(v)])[v];
+}
+
+viable_set_base is required to expose functions:
+lo, hi, 
+prev, next           alternative as bit-vectors
+update_lo (a) 
+update_hi (a) 
+intersect_le  (a, b, c, d)
+intersect_diff (a, b)
+intersect_eq (a, b)
+is_empty
+contains
+
 --*/
 #pragma once
 
@@ -24,37 +68,14 @@ Notes:
 
 #include "math/dd/dd_bdd.h"
 #include "math/polysat/types.h"
-#include "math/interval/mod_interval.h"
-
+#if NEW_VIABLE
+#include "math/polysat/viable_set.h"
+#endif
 
 namespace polysat {
 
     class solver;
 
-#if NEW_VIABLE
-    //
-    // replace BDDs by viable sets that emulate affine relations.
-    // viable_set has an interval of feasible values.
-    // it also can use ternary bit-vectors.
-    // or we could also just use a vector of lbool instead of ternary bit-vectors
-    // updating them at individual positions is relatively cheap instead of copying the
-    // vectors every time a range is narrowed.
-    //
-    class viable_set : public mod_interval<rational> {
-        unsigned m_num_bits;
-        rational p2() const { return rational::power_of_two(m_num_bits); }
-        bool is_max(rational const& a) const override;
-        void intersect_eq(rational const& a, bool is_positive);
-        bool narrow(std::function<bool(rational const&)>& eval);
-    public:
-        viable_set(unsigned num_bits): m_num_bits(num_bits) {}
-        ~viable_set() override {}
-        dd::find_t find_hint(rational const& c, rational& val) const;
-        bool intersect_eq(rational const& a, rational const& b, bool is_positive);
-        bool intersect_le(rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive);
-        rational prev(rational const& p) const;
-    };
-#endif
 
     class viable {
         typedef dd::bdd bdd;
@@ -86,8 +107,8 @@ namespace polysat {
                 }
             };
         };
-        vector<viable_set>                                       m_viable; 
-        vector<std::pair<pvar, viable_set>>                      m_viable_trail;
+        scoped_ptr_vector<viable_set>                             m_viable; 
+        vector<std::pair<pvar, viable_set*>>                      m_viable_trail;
         hashtable<cached_constraint*, cached_constraint::hash, cached_constraint::eq> m_constraint_cache;
 
         void intersect_ule_bdd(pvar v, rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive);
@@ -119,7 +140,7 @@ namespace polysat {
 
         void push(unsigned num_bits) { 
 #if NEW_VIABLE
-            m_viable.push_back(viable_set(num_bits)); 
+            m_viable.push_back(alloc(viable_set, num_bits)); 
 #else
             m_viable.push_back(m_bdd.mk_true()); 
 #endif

@@ -229,3 +229,23 @@ mod_interval<Numeral>& mod_interval<Numeral>::intersect_diff(Numeral const& a) {
         hi = a;
     return *this;
 }
+
+template<typename Numeral>
+mod_interval<Numeral>& mod_interval<Numeral>::update_lo(Numeral const& new_lo) {
+    SASSERT(lo <= new_lo);
+    if (lo < hi && hi <= new_lo)
+	set_empty();
+    else
+	lo = new_lo;
+    return *this;
+}
+
+template<typename Numeral>
+mod_interval<Numeral>& mod_interval<Numeral>::update_hi(Numeral const& new_hi) {
+    SASSERT(new_hi <= hi);
+    if (new_hi <= lo && lo < hi)
+	set_empty();
+    else
+	hi = new_hi;
+    return *this;
+}

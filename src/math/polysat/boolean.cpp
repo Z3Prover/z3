@@ -7,7 +7,6 @@ Module Name:
 
 Author:
 
-    Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-6
 
 --*/
@@ -25,10 +24,15 @@ namespace polysat {
             m_reason.push_back(nullptr);
             m_lemma.push_back(nullptr);
             return var;
-        } else {
+        }
+	else {
             sat::bool_var var = m_unused.back();
             m_unused.pop_back();
             SASSERT_EQ(m_level[var], UINT_MAX);
+	    SASSERT_EQ(m_value[2*var], l_undef);
+	    SASSERT_EQ(m_value[2*var+1], l_undef);
+	    SASSERT_EQ(m_reason[var], nullptr);
+	    SASSERT_EQ(m_lemma[var], nullptr);
             return var;
         }
     }

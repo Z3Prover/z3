@@ -42,7 +42,6 @@ namespace polysat {
         friend class constraint;
 
         bool_var_manager& m_bvars;
-        // poly_dep_manager& m_dm;
 
         // Association to boolean variables
         ptr_vector<constraint>   m_bv2constraint;
@@ -134,6 +133,9 @@ namespace polysat {
             m_manager->erase_bv2c(bvar());
             m_manager->m_bvars.del_var(m_bvar);
         }
+
+	    virtual unsigned hash() const = 0;
+	    virtual bool operator==(constraint const& other) const = 0;
 
         bool is_eq() const { return m_kind == ckind_t::eq_t; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }
@@ -360,6 +362,7 @@ namespace polysat {
             else
                 SASSERT_EQ(c->blit(), lit);
         }
+      // NSB review: assumes life-time of c extends use in tmp_assign.
         tmp_assign(constraint_ref const& c, sat::literal lit): tmp_assign(c.get(), lit) {}
         void revert() {
             if (m_should_unassign) {

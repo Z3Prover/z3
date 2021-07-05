@@ -1,3 +1,4 @@
+#include "util/mpn.h"
 #include "math/bigfix/u256.h"
 #include "math/bigfix/Hacl_Bignum256.h"
 #include <memory>
@@ -13,6 +14,13 @@ u256::u256(uint64_t n) {
 }
 
 u256::u256(rational const& n) {
+#if 1
+    for (unsigned i = 0; i < 4; ++i) {
+        m_num[i] = 0;
+        for (unsigned j = 0; j < 64; ++j)
+            m_num[i] |= n.get_bit(i * 64 + j) << j;
+    }
+#else
     uint8_t bytes[32];
     for (unsigned i = 0; i < 32; ++i)
         bytes[i] = 0;
@@ -21,6 +29,7 @@ u256::u256(rational const& n) {
     auto* v = Hacl_Bignum256_new_bn_from_bytes_be(32, bytes);
     std::uninitialized_copy(v, v + 4, m_num);    
     free(v);
+#endif
 }
 
 
@@ -29,6 +38,7 @@ u256::u256(uint64_t const* v) {
 }
 
 u256 u256::operator*(u256 const& other) const {
+    // TBD: maybe just use mpn_manager::mul?
     uint64_t result[8];
     Hacl_Bignum256_mul(const_cast<uint64_t*>(m_num), const_cast<uint64_t*>(other.m_num), result);
     return u256(result);
@@ -63,7 +73,7 @@ u256 u256::operator<<(uint64_t sh) const {
 u256 u256::operator>>(uint64_t sh) const {
     u256 r;
     if (0 == sh || sh >= 256) 
-        ;
+	;
     else if (sh >= 176) 
         r.m_num[0] = m_num[3] >> (sh - 176);
     else if (sh >= 128) {
@@ -132,6 +142,10 @@ u256 u256::mod(u256 const& other) const {
         VERIFY(Hacl_Bignum256_mod(const_cast<uint64_t*>(other.m_num), a, r.m_num));
         return r;
     }
+    
+    // claim:
+    // a mod 2^k*b = ((a >> k) mod b) << k | (a & ((1 << k) - 1))
+    
     unsigned tz = other.trailing_zeros();
     u256 thz = *this >> tz;
     u256 n = other >> tz;
@@ -156,14 +170,8 @@ u256 u256::mul_inverse() const {
     u256 r0(*this);
     u256 r1(-r0); 
     while (!r1.is_zero()) {
-        auto tmp = t1;
-    }
-#if 0
-    numeral t0 = 1, t1 = 0 - 1;
-    numeral r0 = x, r1 = 0 - x;
-    while (r1 != 0) {
-        numeral q = r0 / r1;
-        numeral tmp = t1;
+        u256 q = r0 / r1;
+        u256 tmp = t1;
         t1 = t0 - q * t1;
         t0 = tmp;
         tmp = r1;
@@ -171,10 +179,6 @@ u256 u256::mul_inverse() const {
         r0 = tmp;
     }
     return t0;
-#endif
-    
-    NOT_IMPLEMENTED_YET();
-    return *this;
 }
 
 unsigned u256::trailing_zeros() const {
@@ -237,11 +241,41 @@ bool u256::operator>(uint64_t other) const {
     return 0 != Hacl_Bignum256_lt_mask(_other, const_cast<uint64_t*>(m_num));
 }
 
-
-std::ostream& u256::display(std::ostream& out) const {
+rational u256::to_rational() const {
     rational n;
     for (unsigned i = 0; i < 4; ++i) 
         if (m_num[i] != 0) 
             n += rational(m_num[i], rational::ui64()) * rational::power_of_two(i * 64);
-    return out << n;
+    return n;
+}
+
+std::ostream& u256::display(std::ostream& out) const {
+    return out << to_rational();
+}
+
+// mpn implements the main functionality needed for unsigned fixed-point arithmetic
+// we could use mpn for add/sub/mul as well and maybe punt on Hacl dependency.
+
+u256 u256::operator/(u256 const& other) const {
+    u256 result;
+    mpn_manager m;
+    mpn_digit rem[8];
+    unsigned n1 = 0, n2 = 0;
+    for (unsigned i = 4; i-- > 0; ) {
+        if (m_num[i]) {
+            n1 = 2 * (i + 1);
+            break;
+        }
+    }
+    for (unsigned i = 4; i-- > 0; ) {
+        if (other.m_num[i]) {
+            n2 = 2 * (i + 1);
+            break;
+        }
+    }
+    VERIFY(m.div(reinterpret_cast<mpn_digit const*>(m_num), n1,
+        reinterpret_cast<mpn_digit const*>(other.m_num), n2,
+        reinterpret_cast<mpn_digit*>(result.m_num),
+        rem));
+    return result;
 }

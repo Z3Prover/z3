@@ -33,6 +33,8 @@ namespace polysat {
         void narrow(solver& s) override;
         bool forbidden_interval(solver& s, pvar v, eval_interval& out_interval, constraint_literal& out_neg_cond) override;
         inequality as_inequality() const override;
+        unsigned hash() const override;
+        bool operator==(constraint const& other) const override;
     };
 
 }

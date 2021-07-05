@@ -10,9 +10,11 @@ public:
     u256();
     u256(uint64_t n);
     u256(rational const& n);
+    rational to_rational() const;
     u256 operator*(u256 const& other) const;
     u256 operator+(u256 const& other) const { u256 r = *this; return r += other; }
     u256 operator-(u256 const& other) const { u256 r = *this; return r -= other; }
+    u256 operator/(u256 const& other) const;
     u256 operator-() const { u256 r = *this; return r.uminus(); }
     u256 operator<<(uint64_t sh) const;
     u256 operator>>(uint64_t sh) const;
@@ -28,6 +30,9 @@ public:
     u256& operator+=(u256 const& other);
     u256& operator*=(u256 const& other);
     u256& operator-=(u256 const& other);
+    u256& operator/=(u256 const& other) { *this = *this / other; return *this; }
+    u256& operator>>=(uint64_t sh) { *this = *this >> sh; return *this; }
+    u256& operator<<=(uint64_t sh) { *this = *this << sh; return *this; }
     u256& uminus();  /* unary minus */
 
     // comparisons

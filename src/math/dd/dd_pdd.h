@@ -422,6 +422,7 @@ namespace dd {
         std::ostream& display(std::ostream& out) const { return m.display(out, *this); }
         bool operator==(pdd const& other) const { return root == other.root; }
         bool operator!=(pdd const& other) const { return root != other.root; }
+        unsigned hash() const { return root; }
 
         unsigned power_of_2() const { return m.power_of_2(); }
 

@@ -66,6 +66,8 @@ public:
     mod_interval& intersect_ugt(Numeral const& l);
     mod_interval& intersect_fixed(Numeral const& n);
     mod_interval& intersect_diff(Numeral const& n);
+    mod_interval& update_lo(Numeral const& new_lo);
+    mod_interval& update_hi(Numeral const& new_hi);
 
     mod_interval operator&(mod_interval const& other) const;
     mod_interval operator+(mod_interval const& other) const;
