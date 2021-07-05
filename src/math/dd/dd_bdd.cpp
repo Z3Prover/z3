@@ -597,13 +597,29 @@ namespace dd {
 
     bdd_manager::BDD bdd_manager::mk_cofactor_rec(BDD a, BDD b) {
         if (is_const(a)) return a;
+        if (is_const(b)) return a;
         unsigned la = level(a), lb = level(b);
-        if (la < lb) return a;
-        if (la == lb) return is_true(hi(b)) ? hi(a) : lo(a);
+	// cases where b is a single literal
+	if (la == lb && is_const(lo(b)) && is_const(hi(b)))
+	    return is_true(hi(b)) ? hi(a) : lo(a);
+	if (la < lb && is_const(lo(b)) && is_const(hi(b)))
+	    return a;
+	// cases where b is a proper cube (with more than one literal
+	if (la == lb) {
+	    if (is_false(lo(b)))
+		a = hi(a), b = hi(b);
+	    else
+		a = lo(a), b = lo(b);
+	    return mk_cofactor_rec(a, b);
+	}
+	if (la < lb) 
+	    return mk_cofactor_rec(a, is_false(lo(b)) ? hi(b) : lo(b));
+
         op_entry* e1 = pop_entry(a, b, bdd_cofactor_op);
         op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
         if (check_result(e1, e2, a, b, bdd_cofactor_op))
             return e2->m_result;
+
         SASSERT(la > lb);
         push(mk_cofactor_rec(lo(a), b));
         push(mk_cofactor_rec(hi(a), b));
