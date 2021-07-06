@@ -73,6 +73,28 @@ public class Optimize extends Z3Object {
         Assert(constraints);
     }
 
+    /** 
+     * Assert a constraint into the optimizer, and track it (in the unsat) core
+     * using the Boolean constant p. 
+     * 
+     * Remarks: 
+     * This API is an alternative to {@link #check} with assumptions for
+     * extracting unsat cores.
+     * Both APIs can be used in the same solver. The unsat core will contain a
+     * combination
+     * of the Boolean variables provided using {@link #assertAndTrack}
+     * and the Boolean literals
+     * provided using {@link #check} with assumptions.
+     */ 
+    public void AssertAndTrack(Expr<BoolSort> constraint, Expr<BoolSort> p)
+    {
+        getContext().checkContextMatch(constraint);
+        getContext().checkContextMatch(p);
+
+        Native.optimizeAssertAndTrack(getContext().nCtx(), getNativeObject(),
+                constraint.getNativeObject(), p.getNativeObject());
+    }
+
     /**
      * Handle to objectives returned by objective functions.
      **/
