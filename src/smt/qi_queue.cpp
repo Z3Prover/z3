@@ -401,11 +401,9 @@ namespace smt {
         }
 
         bool result = true;
-	    bool has_delayed = false;
         for (unsigned i = 0; i < m_delayed_entries.size(); i++) {
             entry & e       = m_delayed_entries[i];
             TRACE("qi_queue", tout << e.m_qb << ", cost: " << e.m_cost << ", instantiated: " << e.m_instantiated << "\n";);
-	        has_delayed |= !e.m_instantiated;
             if (!e.m_instantiated && e.m_cost <= m_params.m_qi_lazy_threshold)  {
                 TRACE("qi_queue",
                       tout << "lazy quantifier instantiation...\n" << mk_pp(static_cast<quantifier*>(e.m_qb->get_data()), m) << "\ncost: " << e.m_cost << "\n";);
@@ -413,20 +411,6 @@ namespace smt {
                 m_instantiated_trail.push_back(i);
                 m_stats.m_num_lazy_instances++;
                 instantiate(e);
-            }
-        }
-        if (result && has_delayed) {
-            for (unsigned i = 0; i < m_delayed_entries.size(); i++) {
-                entry& e = m_delayed_entries[i];
-                if (e.m_instantiated)
-                    continue;
-                TRACE("qi_queue",
-                    tout << "lazy quantifier instantiation...\n" << mk_pp(static_cast<quantifier*>(e.m_qb->get_data()), m) << "\ncost: " << e.m_cost << "\n";);
-                result = false;
-                m_instantiated_trail.push_back(i);
-                m_stats.m_num_lazy_instances++;
-                instantiate(e);
-                break;
             }
         }
         return result;
