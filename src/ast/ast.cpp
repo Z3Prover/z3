@@ -559,10 +559,11 @@ unsigned get_node_hash(ast const * n) {
             return to_sort(n)->get_name().hash();
         else
             return combine_hash(to_sort(n)->get_name().hash(), to_sort(n)->get_info()->hash());
-    case AST_FUNC_DECL:
+    case AST_FUNC_DECL: {
+        unsigned h = combine_hash(to_func_decl(n)->get_name().hash(), to_func_decl(n)->get_range()->hash());
         return ast_array_hash(to_func_decl(n)->get_domain(), to_func_decl(n)->get_arity(),
-                              to_func_decl(n)->get_info() == nullptr ?
-                              to_func_decl(n)->get_name().hash() : combine_hash(to_func_decl(n)->get_name().hash(), to_func_decl(n)->get_info()->hash()));
+            combine_hash(h, to_func_decl(n)->get_info() == nullptr ?  0 : to_func_decl(n)->get_info()->hash()));
+    }
     case AST_APP:
         return ast_array_hash(to_app(n)->get_args(),
                               to_app(n)->get_num_args(),
