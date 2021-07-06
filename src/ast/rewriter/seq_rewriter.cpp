@@ -4238,7 +4238,7 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
     expr_ref_vector conds(m());
     flatten_and(cond, conds);
     expr* lhs = nullptr, *rhs = nullptr, *e1 = nullptr; 
-    if (u().is_char(elem)) {
+    if (u().is_char(elem->get_sort())) {
         unsigned ch = 0;
         svector<std::pair<unsigned, unsigned>> ranges, ranges1;
         ranges.push_back(std::make_pair(0, u().max_char()));
