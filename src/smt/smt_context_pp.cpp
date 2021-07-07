@@ -608,14 +608,14 @@ namespace smt {
             clause * cls = j.get_clause();
             out << "clause ";
             if (cls) out << literal_vector(cls->get_num_literals(), cls->begin());
-            if (cls) display_literals_smt2(out << "\n", cls->get_num_literals(), cls->begin());
+            // if (cls) display_literals_smt2(out << "\n", cls->get_num_literals(), cls->begin());
             break;
         }
         case b_justification::JUSTIFICATION: {
             literal_vector lits;
             const_cast<conflict_resolution&>(*m_conflict_resolution).justification2literals(j.get_justification(), lits);
             out << "justification " << j.get_justification()->get_from_theory() << ": ";
-            display_literals_smt2(out, lits);
+            // display_literals_smt2(out, lits);
             break;
         }
         default:
