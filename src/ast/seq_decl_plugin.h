@@ -222,6 +222,7 @@ public:
     sort* mk_string_sort() const { return seq.string_sort(); }
 
     bool is_char(sort* s) const { return seq.is_char(s); }
+    bool is_char(expr* e) const { return is_char(e->get_sort()); }
     bool is_string(sort* s) const { return is_seq(s) && seq.is_char(to_sort(s->get_parameter(0).get_ast())); }
     bool is_seq(sort* s) const { return is_sort_of(s, m_fid, SEQ_SORT); }
     bool is_re(sort* s) const { return is_sort_of(s, m_fid, RE_SORT); }
@@ -230,7 +231,6 @@ public:
     bool is_seq(sort* s, sort*& seq) const { return is_seq(s) && (seq = to_sort(s->get_parameter(0).get_ast()), true); }
     bool is_re(expr* e) const { return is_re(e->get_sort()); }
     bool is_re(expr* e, sort*& seq) const { return is_re(e->get_sort(), seq); }
-    bool is_char(expr* e) const { return is_char(e->get_sort()); }
     bool is_const_char(expr* e, unsigned& c) const;
     bool is_const_char(expr* e) const { unsigned c; return is_const_char(e, c); }
     bool is_char_le(expr const* e) const;
