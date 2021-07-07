@@ -566,6 +566,8 @@ namespace smt {
         void add_int_string(expr* e);
         bool check_int_string();
         bool check_int_string(expr* e);
+        bool branch_itos();
+        bool branch_itos(expr* e);
 
         expr_ref add_elim_string_axiom(expr* n);
         void add_in_re_axiom(expr* n);
