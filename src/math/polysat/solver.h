@@ -126,7 +126,8 @@ namespace polysat {
         void push_cjust(pvar v, constraint* c) {
             if (m_cjust[v].contains(c))  // TODO: better check (flag on constraint?)
                 return;
-            LOG_V("cjust[v" << v << "] += " << *c);
+            LOG_V("cjust[v" << v << "] += " << show_deref(c));
+            SASSERT(c);
             m_cjust[v].push_back(c);        
             m_trail.push_back(trail_instr_t::just_i);
             m_cjust_trail.push_back(v);
@@ -206,9 +207,6 @@ namespace polysat {
         bool is_conflict() const { return !m_conflict.empty(); }
         bool at_base_level() const;
         unsigned base_level() const;
-        bool active_at_base_level(sat::bool_var bvar) const;
-        bool active_at_base_level(sat::literal lit) const { return active_at_base_level(lit.var()); }
-        bool active_at_base_level(constraint& c) const { return active_at_base_level(c.bvar()); }
 
         void resolve_conflict();
         void backtrack(unsigned i, clause_ref lemma);
@@ -216,10 +214,8 @@ namespace polysat {
         void revert_decision(pvar v, clause_ref reason);
         void revert_bool_decision(sat::literal lit, clause_ref reason);
         void learn_lemma(pvar v, clause_ref lemma);
-        void learn_lemma_clause(pvar v, clause_ref lemma);
         void backjump(unsigned new_level);
-        void add_lemma_unit(constraint_ref lemma);
-        void add_lemma_clause(clause_ref lemma);
+        void add_lemma(clause_ref lemma);
 
         constraint_literal mk_eq(pdd const& p);
         constraint_literal mk_diseq(pdd const& p);
