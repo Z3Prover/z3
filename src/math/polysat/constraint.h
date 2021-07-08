@@ -351,6 +351,7 @@ namespace polysat {
         constraint* m_constraint;
         bool m_should_unassign = false;
     public:
+        /// c must live longer than tmp_assign.
         tmp_assign(constraint* c, sat::literal lit):
             m_constraint(c) {
             SASSERT(c);
@@ -362,8 +363,6 @@ namespace polysat {
             else
                 SASSERT_EQ(c->blit(), lit);
         }
-      // NSB review: assumes life-time of c extends use in tmp_assign.
-        tmp_assign(constraint_ref const& c, sat::literal lit): tmp_assign(c.get(), lit) {}
         void revert() {
             if (m_should_unassign) {
                 m_constraint->unassign();
