@@ -57,9 +57,9 @@ namespace polysat {
                 }
                 // All constraints in the lemma must be false in the conflict state
                 for (auto lit : lemma->literals()) {
-                    if (m_solver.m_bvars.value(lit.var()) == l_false)
+                    if (m_solver.m_bvars.value(lit) == l_false)
                         continue;
-                    SASSERT(m_solver.m_bvars.value(lit.var()) != l_true);
+                    SASSERT(m_solver.m_bvars.value(lit) != l_true);
                     constraint* c = m_solver.m_constraints.lookup(lit.var());
                     SASSERT(c);
                     tmp_assign _t(c, lit);

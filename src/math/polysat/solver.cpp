@@ -703,6 +703,7 @@ namespace polysat {
         if (cl->size() == 1) {
             sat::literal lit = cl->literals()[0];
             constraint* c = m_constraints.lookup(lit.var());
+            c->set_unit_clause(cl);
             push_cjust(v, c);
             activate_constraint_base(c, !lit.sign());
         }
@@ -770,12 +771,7 @@ namespace polysat {
         rational val = m_value[v];
         LOG_H3("Reverting decision: pvar " << v << " := " << val);
         SASSERT(m_justification[v].is_decision());
-        constraints just(m_cjust[v]);
         backjump(m_justification[v].level()-1);
-        // Since decision "v -> val" caused a conflict, we may keep all
-        // viability restrictions on v and additionally exclude val.
-        // TODO: viability restrictions on 'v' must have happened before decision on 'v'. Do we really need to save/restore m_viable here?
-        SASSERT(m_cjust[v] == just);  // check this with assertion
 
         m_viable.add_non_viable(v, val);
 

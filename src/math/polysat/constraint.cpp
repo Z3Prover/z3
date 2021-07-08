@@ -151,8 +151,9 @@ namespace polysat {
 
     std::ostream& constraint::display_extra(std::ostream& out) const {
         out << " @" << level() << " (b" << bvar() << ")";
-        if (is_undef())
-            out << " [inactive]";
+        if (is_positive()) out << " [pos]";
+        if (is_negative()) out << " [neg]";
+        if (is_undef()) out << " [inactive]";
         return out;
     }
 
