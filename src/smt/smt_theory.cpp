@@ -195,6 +195,18 @@ namespace smt {
         log_axiom_instantiation(mk_or(fmls));
     }
 
+
+    void theory::log_axiom_instantiation(literal_buffer const& ls) {
+        ast_manager& m = get_manager();
+        expr_ref_vector fmls(m);
+        expr_ref tmp(m);
+        for (literal l : ls) {
+            ctx.literal2expr(l, tmp);
+            fmls.push_back(tmp);
+        }
+        log_axiom_instantiation(mk_or(fmls));
+    }
+
     void theory::log_axiom_instantiation(app * r, unsigned axiom_id, unsigned num_bindings, app * const * bindings, unsigned pattern_id, const vector<std::tuple<enode *, enode *>> & used_enodes) {
         ast_manager & m = get_manager();
         app_ref _r(r, m);
