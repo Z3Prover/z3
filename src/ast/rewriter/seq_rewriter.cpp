@@ -1775,6 +1775,10 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
         result = str().mk_concat(c, a);
         return BR_REWRITE1;
     }
+    if (str().is_empty(a) && str().is_empty(c)) {
+        result = a;
+        return BR_DONE;
+    }
 
     m_lhs.reset();
     str().get_concat(a, m_lhs);
