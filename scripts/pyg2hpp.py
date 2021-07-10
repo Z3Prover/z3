@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#  - /usr/bin/env python
 """
 Reads a pyg file and emits the corresponding
 C++ header file into the specified destination
