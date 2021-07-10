@@ -646,9 +646,8 @@ namespace smt {
               );
        
         ctx.mark_as_relevant(l);
-        if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(l.var()));
+        scoped_trace_stream _ts(*this, l);
         ctx.mk_th_axiom(get_id(), 1, &l);
-        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     void theory_bv::internalize_int2bv(app* n) {    
@@ -688,9 +687,10 @@ namespace smt {
 
         literal l(mk_eq(lhs, rhs, false));
         ctx.mark_as_relevant(l);
-        if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(l.var()));
-        ctx.mk_th_axiom(get_id(), 1, &l);
-        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+        {
+            scoped_trace_stream _ts(*this, l);
+            ctx.mk_th_axiom(get_id(), 1, &l);
+        }
         
         TRACE("bv", 
               tout << mk_pp(lhs, m) << " == \n";
@@ -704,17 +704,29 @@ namespace smt {
         for (unsigned i = 0; i < sz; ++i) {
             numeral div = power(numeral(2), i);
             mod = numeral(2);
-            rhs = (i == 0) ? e : m_autil.mk_idiv(e, m_autil.mk_numeral(div, true));
-            rhs = m_autil.mk_mod(rhs, m_autil.mk_numeral(mod, true));
+            expr_ref div_rhs((i == 0) ? e : m_autil.mk_idiv(e, m_autil.mk_numeral(div, true)), m);
+            rhs = m_autil.mk_mod(div_rhs, m_autil.mk_numeral(mod, true));
             rhs = ctx.mk_eq_atom(rhs, m_autil.mk_int(1));
             lhs = n_bits.get(i);
             TRACE("bv", tout << mk_pp(lhs, m) << " == " << mk_pp(rhs, m) << "\n";);
             l = literal(mk_eq(lhs, rhs, false));
             ctx.mark_as_relevant(l);
-            if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(l.var()));
-            ctx.mk_th_axiom(get_id(), 1, &l);
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
-            
+            {
+                scoped_trace_stream _st(*this, l);
+                ctx.mk_th_axiom(get_id(), 1, &l);
+            }
+            {
+                // 0 < e < 2^i => e div 2^i = 0                
+                expr_ref zero(m_autil.mk_int(0), m);
+                literal a = mk_literal(m_autil.mk_ge(e, m_autil.mk_int(div)));
+                literal b = mk_literal(m_autil.mk_ge(e, zero));
+                literal c = mk_eq(div_rhs, zero, false);
+                ctx.mark_as_relevant(a);
+                ctx.mark_as_relevant(b);
+                ctx.mark_as_relevant(c);
+                // scoped_trace_stream _st(*this, a, ~b);
+                ctx.mk_th_axiom(get_id(), a, ~b, c);
+            }
         }
     }
 
