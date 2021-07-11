@@ -50,7 +50,7 @@ namespace q {
             }
             return;
         }
-        if (exp.size() > 1 && is_exists(q) /* && l.sign() */) {
+        if (exp.size() > 1 && is_exists(q) && l.sign()) {
             sat::literal_vector lits;
             lits.push_back(~l);
             for (expr* e : exp)
