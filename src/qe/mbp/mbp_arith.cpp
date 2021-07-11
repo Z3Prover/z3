@@ -281,7 +281,7 @@ namespace mbp {
             obj_map<expr, unsigned> tids;
             expr_ref_vector pinned(m);
             unsigned j = 0;
-            TRACE("qe", tout << "vars: " << vars << "\nfmls: " << fmls << "\n";
+            TRACE("qe", tout << "vars: " << vars << "\n";
                   for (expr* f : fmls) tout << mk_pp(f, m) << " := " << model(f) << "\n";);
             for (unsigned i = 0; i < fmls.size(); ++i) {
                 expr* fml = fmls.get(i);
