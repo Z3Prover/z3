@@ -139,6 +139,10 @@ namespace euf {
             sat::literal lit2 = literal(v, false);
             s().mk_clause(~lit, lit2, sat::status::th(m_is_redundant, m.get_basic_family_id()));
             s().mk_clause(lit, ~lit2, sat::status::th(m_is_redundant, m.get_basic_family_id()));
+            if (relevancy_enabled()) {
+                add_root(~lit, lit2);
+                add_root(lit, ~lit2);
+            }
             lit = lit2;
         }
 

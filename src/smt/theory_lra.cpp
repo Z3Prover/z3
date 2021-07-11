@@ -1170,14 +1170,11 @@ public:
         VERIFY(a.is_is_int(n, x));
         literal eq = th.mk_eq(a.mk_to_real(a.mk_to_int(x)), x, false);
         literal is_int = ctx().get_literal(n);
-        if (m.has_trace_stream()) {
-            app_ref body(m);
-            body = m.mk_iff(n, ctx().bool_var2expr(eq.var()));
-            th.log_axiom_instantiation(body);
-        }
+        scoped_trace_stream _sts1(th, ~is_int, eq);
+        scoped_trace_stream _sts2(th, is_int, ~eq);
         mk_axiom(~is_int, eq);
         mk_axiom(is_int, ~eq);
-        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+
     }
 
     // create axiom for 
