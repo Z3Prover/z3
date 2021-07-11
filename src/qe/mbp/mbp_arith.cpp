@@ -294,7 +294,9 @@ namespace mbp {
                 }
             }
             fmls.shrink(j);
-            TRACE("qe", tout << "formulas\n" << fmls << "\n";);
+            TRACE("qe", tout << "formulas\n" << fmls << "\n";
+		                for (auto [e, id] : tids)
+		                    tout << mk_pp(e, m) << " -> " << id << "\n";);
 
             // fmls holds residue,
             // mbo holds linear inequalities that are in scope
