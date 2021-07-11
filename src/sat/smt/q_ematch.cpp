@@ -401,7 +401,12 @@ namespace q {
         for (expr* arg : ors) {
             bool sign = m.is_not(arg, arg);
             expr* l, *r;
-            if (!m.is_eq(arg, l, r) || is_ground(arg)) {
+            if (m.is_distinct(arg) && to_app(arg)->get_num_args() == 2) {
+                l = to_app(arg)->get_arg(0);
+                r = to_app(arg)->get_arg(1);
+                sign = !sign;
+            }
+            else if (!m.is_eq(arg, l, r) || is_ground(arg)) {
                 l = arg;
                 r = sign ? m.mk_false() : m.mk_true();
                 sign = false;
