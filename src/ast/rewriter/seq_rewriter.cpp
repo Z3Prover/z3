@@ -714,6 +714,10 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 1);
         st = mk_str_stoi(args[0], result);
         break;
+    case OP_STRING_UBVTOS:
+        SASSERT(num_args == 1);
+        st = mk_str_ubv2s(args[0], result);
+        break;
     case _OP_STRING_CONCAT:
     case _OP_STRING_PREFIX:
     case _OP_STRING_SUFFIX:
@@ -2204,6 +2208,11 @@ br_status seq_rewriter::mk_str_is_digit(expr* a, expr_ref& result) {
 }
 
 
+br_status seq_rewriter::mk_str_ubv2s(expr* a, expr_ref& result) {
+    return BR_FAILED;
+}
+
+
 br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {
     rational r;
     if (m_autil.is_numeral(a, r)) {
@@ -2263,6 +2272,11 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
     expr* b;
     if (str().is_itos(a, b)) {
         result = m().mk_ite(m_autil.mk_ge(b, zero()), b, minus_one());
+        return BR_DONE;
+    }
+    if (str().is_ubv2s(a, b)) {
+        bv_util bv(m());
+        result = bv.mk_bv2int(b);
         return BR_DONE;
     }
     
