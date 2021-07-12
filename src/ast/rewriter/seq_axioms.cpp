@@ -792,8 +792,6 @@ namespace seq {
         es.reverse();
         eq = m.mk_eq(seq.str.mk_ubv2s(b), seq.str.mk_concat(es, seq.str.mk_string_sort()));
         add_clause(~ge10k, ge10k1, eq);
-        ubv2ch_axiom(bv_sort);
-
     }
 
     void axioms::ubv2ch_axiom(sort* bv_sort) {

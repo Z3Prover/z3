@@ -1579,6 +1579,14 @@ bool theory_seq::check_ubv_string(expr* e) {
         k++;
         value = div(value, rational(10));
     }
+    bool has_sort = false;
+    for (auto* e2 : m_has_ubv_axiom) {
+        expr* b2 = nullptr;
+        VERIFY(m_util.str.is_ubv2s(e2, b2));
+        has_sort |= b2->get_sort() == b->get_sort();
+    }
+    if (!has_sort)
+        m_ax.add_ubv2ch_axioms(b->get_sort());
     m_has_ubv_axiom.insert(e);
     m_trail_stack.push(insert_obj_trail<expr>(m_has_ubv_axiom, e));
     m_ax.add_ubv2s_axiom(b, k);

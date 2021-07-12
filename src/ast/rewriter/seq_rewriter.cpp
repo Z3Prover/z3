@@ -2209,6 +2209,12 @@ br_status seq_rewriter::mk_str_is_digit(expr* a, expr_ref& result) {
 
 
 br_status seq_rewriter::mk_str_ubv2s(expr* a, expr_ref& result) {
+    bv_util bv(m());
+    rational val;
+    if (bv.is_numeral(a, val)) {
+        result = str().mk_string(zstring(val));
+        return BR_DONE;
+    }
     return BR_FAILED;
 }
 
