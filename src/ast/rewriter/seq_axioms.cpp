@@ -769,6 +769,43 @@ namespace seq {
         }
     }
 
+    void axioms::ubv2s_axiom(expr* b, unsigned k) {
+        expr_ref ge10k(m), ge10k1(m), eq(m);
+        bv_util bv(m);
+        sort* bv_sort = b->get_sort();
+        rational pow(1);
+        for (unsigned i = 0; i < k; ++i)
+            pow *= 10;
+        if (k == 0) {
+            ge10k = m.mk_true();            
+        }
+        else {
+            ge10k = bv.mk_ule(bv.mk_numeral(pow, bv_sort), b);
+        }
+        ge10k1 = bv.mk_ule(bv.mk_numeral(pow * 10, bv_sort), b);
+        expr_ref_vector es(m);
+        expr_ref bb(b, m);
+        unsigned sz = bv.get_bv_size(b);
+        for (unsigned i = 0; i < k; ++i) {
+            es.push_back(seq.str.mk_unit(m_sk.mk_ubv2ch(bv.mk_bv_urem(bb, bv.mk_numeral(10, sz)))));
+        }
+        es.reverse();
+        eq = m.mk_eq(seq.str.mk_ubv2s(b), seq.str.mk_concat(es, seq.str.mk_string_sort()));
+        add_clause(~ge10k, ge10k1, eq);
+        ubv2ch_axiom(bv_sort);
+
+    }
+
+    void axioms::ubv2ch_axiom(sort* bv_sort) {
+        bv_util bv(m);
+        expr_ref eq(m);
+        unsigned sz = bv.get_bv_size(bv_sort);
+        for (unsigned i = 0; i < 10; ++i) {
+            eq = m.mk_eq(m_sk.mk_ubv2ch(bv.mk_numeral(i, sz)), seq.mk_char('0' + i));
+            add_clause(eq);
+        }
+    }
+
     /**
        Let s := itos(e)
 

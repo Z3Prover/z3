@@ -262,6 +262,7 @@ theory_seq::theory_seq(context& ctx):
     m_axioms(m),
     m_axioms_head(0),
     m_int_string(m),
+    m_ubv_string(m),
     m_length(m),
     m_length_limit(m),
     m_mg(nullptr),
@@ -366,6 +367,11 @@ final_check_status theory_seq::final_check_eh() {
     if (check_int_string()) {
         ++m_stats.m_int_string;
         TRACEFIN("int_string");
+        return FC_CONTINUE;
+    }
+    if (check_ubv_string()) {
+        ++m_stats.m_ubv_string;
+        TRACEFIN("ubv_string");
         return FC_CONTINUE;
     }
     if (reduce_length_eq()) {
@@ -1525,6 +1531,60 @@ bool theory_seq::add_length_to_eqc(expr* e) {
     return change;
 }
 
+void theory_seq::add_ubv_string(expr* e) {
+    m_ubv_string.push_back(e);
+    m_trail_stack.push(push_back_vector<expr_ref_vector>(m_ubv_string));
+}
+
+bool theory_seq::check_ubv_string() {
+    bool change = false;
+    for (expr* e : m_ubv_string) {
+        if (check_ubv_string(e))
+            change = true;
+    }
+    return change;
+}
+
+bool theory_seq::check_ubv_string(expr* e) {
+    expr* n = nullptr;
+    if (ctx.inconsistent())
+        return true;
+    if (m_has_ubv_axiom.contains(e))
+        return false;
+    expr* b = nullptr;
+    bv_util bv(m);
+    VERIFY(m_util.str.is_ubv2s(e, b));
+    unsigned sz = bv.get_bv_size(b);
+    rational value(0);
+    bool all_bits_assigned = true;
+    for (unsigned i = 0; i < sz; ++i) {
+        expr_ref bit(bv.mk_bit2bool(b, i), m);
+        literal lit = mk_literal(bit);
+        switch (ctx.get_assignment(lit)) {
+        case l_undef:
+            ctx.mark_as_relevant(lit);
+            all_bits_assigned = false;
+            break;
+        case l_true:
+            value += rational::power_of_two(i);
+            break;
+        case l_false:
+            break;
+        }
+    }
+    if (!all_bits_assigned)
+        return true;
+    unsigned k = 0;
+    while (value >= 10) {
+        k++;
+        value = div(value, rational(10));
+    }
+    m_has_ubv_axiom.insert(e);
+    m_trail_stack.push(insert_obj_trail<expr>(m_has_ubv_axiom, e));
+    m_ax.add_ubv2s_axiom(b, k);
+    return true;
+}
+
 void theory_seq::add_int_string(expr* e) {
     m_int_string.push_back(e);
     m_trail_stack.push(push_back_vector<expr_ref_vector>(m_int_string));
@@ -1761,6 +1821,7 @@ void theory_seq::collect_statistics(::statistics & st) const {
     st.update("seq extensionality", m_stats.m_extensionality);
     st.update("seq fixed length", m_stats.m_fixed_length);
     st.update("seq int.to.str", m_stats.m_int_string);
+    st.update("seq str.from_ubv", m_stats.m_ubv_string);
 }
 
 void theory_seq::init_search_eh() {
@@ -3098,6 +3159,9 @@ void theory_seq::relevant_eh(app* n) {
         m_util.str.is_stoi(n)) {
         add_int_string(n);
     }
+
+    if (m_util.str.is_ubv2s(n))
+        add_ubv_string(n);
 
     expr* arg = nullptr;
     if (m_sk.is_tail(n, arg)) {
