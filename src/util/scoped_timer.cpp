@@ -33,34 +33,43 @@ Revision History:
 #include <pthread.h>
 #endif
 
+enum scoped_timer_work_state { EXPIRED = -1, IDLE = 0, WORKING = 1, EXITING = 2 };
+
 struct scoped_timer_state {
     std::thread m_thread;
     std::timed_mutex m_mutex;
     event_handler * eh;
     unsigned ms;
-    std::atomic<int> work;
+    std::atomic<scoped_timer_work_state> work;
     std::condition_variable_any cv;
 };
 
 static std::vector<scoped_timer_state*> available_workers;
 static std::mutex workers;
 static atomic<unsigned> num_workers(0);
+static scoped_timer_work_state working = WORKING;
 
 static void thread_func(scoped_timer_state *s) {
     workers.lock();
     while (true) {
-        s->cv.wait(workers, [=]{ return s->work > 0; });
+    start:
+        s->cv.wait(workers, [=]{ return s->work > IDLE; });
         workers.unlock();
 
         // exiting..
-        if (s->work == 2)
+        if (s->work == EXITING)
             return;
 
         auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(s->ms);
 
         while (!s->m_mutex.try_lock_until(end)) {
             if (std::chrono::steady_clock::now() >= end) {
-                s->eh->operator()(TIMEOUT_EH_CALLER);
+                if (s->work.compare_exchange_strong(working, EXPIRED)) {
+                    s->eh->operator()(TIMEOUT_EH_CALLER);
+                    s->work = IDLE;
+                    workers.lock();
+                    goto start;
+                }
                 goto next;
             }
         }
@@ -68,7 +77,6 @@ static void thread_func(scoped_timer_state *s) {
         s->m_mutex.unlock();
 
     next:
-        s->work = 0;
         workers.lock();
         available_workers.push_back(s);
     }
@@ -97,7 +105,7 @@ public:
         s->ms = ms;
         s->eh = eh;
         s->m_mutex.lock();
-        s->work = 1;
+        s->work = WORKING;
         if (new_worker) {
             s->m_thread = std::thread(thread_func, s);
         } 
@@ -107,9 +115,15 @@ public:
     }
 
     ~imp() {
+        bool ret = s->work.compare_exchange_strong(working, IDLE);
         s->m_mutex.unlock();
-        while (s->work == 1)
-            std::this_thread::yield();
+        if (!ret) {
+            while (s->work == EXPIRED)
+                std::this_thread::yield();
+            workers.lock();
+            available_workers.push_back(s);
+            workers.unlock();
+        }
     }
 };
 
@@ -139,7 +153,7 @@ void scoped_timer::finalize() {
     while (deleted < num_workers) {
         workers.lock();
         for (auto w : available_workers) {
-            w->work = 2;
+            w->work = EXITING;
             w->cv.notify_one();
         }
         decltype(available_workers) cleanup_workers;
