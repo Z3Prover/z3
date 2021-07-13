@@ -2031,7 +2031,7 @@ public class Context implements AutoCloseable {
     /**
      * Convert an unsigned bitvector expression to a string.
      */
-    public SeqExpr<CharSort> ubvToString(Expr<BvSort> e)
+    public SeqExpr<CharSort> ubvToString(Expr<BitVecSort> e)
     {
 	return (SeqExpr<CharSort>) Expr.create(this, Native.mkUbvToStr(nCtx(), e.getNativeObject()));
     }
