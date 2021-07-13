@@ -806,9 +806,12 @@ namespace seq {
         expr_ref ge10k(m), ge10k1(m), eq(m);
         bv_util bv(m);
         sort* bv_sort = b->get_sort();
+        unsigned sz = bv.get_bv_size(bv_sort);
         rational pow(1);
         for (unsigned i = 1; i < k; ++i)
             pow *= 10;
+        if (pow * 10 >= rational::power_of_two(sz))
+            return; // TODO: add conflict when k is too large or avoid overflow bounds and limits
         ge10k = bv.mk_ule(bv.mk_numeral(pow, bv_sort), b);        
         ge10k1 = bv.mk_ule(bv.mk_numeral(pow * 10, bv_sort), b);
         eq = m.mk_eq(seq.str.mk_length(seq.str.mk_ubv2s(b)), a.mk_int(k));
