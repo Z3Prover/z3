@@ -1532,8 +1532,19 @@ bool theory_seq::add_length_to_eqc(expr* e) {
 }
 
 void theory_seq::add_ubv_string(expr* e) {
+    bool has_sort = false;
+    expr* b = nullptr;
+    VERIFY(m_util.str.is_ubv2s(e, b));
+    for (auto* e2 : m_ubv_string) {
+        expr* b2 = nullptr;
+        VERIFY(m_util.str.is_ubv2s(e2, b2));
+        has_sort |= b2->get_sort() == b->get_sort();
+    }
+    if (!has_sort)
+        m_ax.add_ubv2ch_axioms(b->get_sort());
     m_ubv_string.push_back(e);
     m_trail_stack.push(push_back_vector<expr_ref_vector>(m_ubv_string));
+    add_length_to_eqc(e);
 }
 
 bool theory_seq::check_ubv_string() {
@@ -1554,6 +1565,11 @@ bool theory_seq::check_ubv_string(expr* e) {
     expr* b = nullptr;
     bv_util bv(m);
     VERIFY(m_util.str.is_ubv2s(e, b));
+    rational len;
+    if (get_length(e, len) && len.is_unsigned()) 
+        m_ax.add_ubv2s_len_axiom(b, len.get_unsigned());
+    
+
     unsigned sz = bv.get_bv_size(b);
     rational value(0);
     bool all_bits_assigned = true;
@@ -1579,14 +1595,7 @@ bool theory_seq::check_ubv_string(expr* e) {
         k++;
         value = div(value, rational(10));
     }
-    bool has_sort = false;
-    for (auto* e2 : m_has_ubv_axiom) {
-        expr* b2 = nullptr;
-        VERIFY(m_util.str.is_ubv2s(e2, b2));
-        has_sort |= b2->get_sort() == b->get_sort();
-    }
-    if (!has_sort)
-        m_ax.add_ubv2ch_axioms(b->get_sort());
+
     m_has_ubv_axiom.insert(e);
     m_trail_stack.push(insert_obj_trail<expr>(m_has_ubv_axiom, e));
     m_ax.add_ubv2s_axiom(b, k);
