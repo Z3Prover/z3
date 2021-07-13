@@ -253,8 +253,13 @@ namespace z3 {
            \brief Return the Bit-vector sort of size \c sz. That is, the sort for bit-vectors of size \c sz.
         */
         sort bv_sort(unsigned sz);
+
         /**
-           \brief Return the sort for ASCII strings.
+           \brief Return the sort for Unicode characters.
+         */
+        sort char_sort();
+        /**
+           \brief Return the sort for Unicode strings.
          */
         sort string_sort();
         /**
