@@ -156,11 +156,11 @@ namespace Microsoft.Z3
         /// <summary>
         /// Retrieves the String sort of the context.
         /// </summary>
-        public SeqSort CharSort
+        public CharSort CharSort
         {
             get
             {
-                if (m_charSort == null) m_charSort = new CharSort(this, Native.Z3_mk_char_sort(nCtx)); return m_charSort;
+                if (m_charSort == null) m_charSort = new CharSort(this); return m_charSort;
             }
         }
 

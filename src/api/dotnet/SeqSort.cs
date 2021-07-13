@@ -33,11 +33,6 @@ namespace Microsoft.Z3
         {
             Debug.Assert(ctx != null);
         }
-        internal SeqSort(Context ctx)
-            : base(ctx, Native.Z3_mk_int_sort(ctx.nCtx))
-        {
-            Debug.Assert(ctx != null);
-        }
         #endregion
     }
 }
