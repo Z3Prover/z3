@@ -89,7 +89,6 @@ namespace Microsoft.Z3
         /// </remarks>
         public IntSymbol MkSymbol(int i)
         {
-
             return new IntSymbol(this, i);
         }
 
@@ -98,7 +97,6 @@ namespace Microsoft.Z3
         /// </summary>
         public StringSymbol MkSymbol(string name)
         {
-
             return new StringSymbol(this, name);
         }
 
@@ -107,7 +105,6 @@ namespace Microsoft.Z3
         /// </summary>
         internal Symbol[] MkSymbols(string[] names)
         {
-
             if (names == null) return null;
             Symbol[] result = new Symbol[names.Length];
             for (int i = 0; i < names.Length; ++i) result[i] = MkSymbol(names[i]);
@@ -120,6 +117,7 @@ namespace Microsoft.Z3
         private IntSort m_intSort = null;
         private RealSort m_realSort = null;
         private SeqSort m_stringSort = null;
+        private CharSort m_charSort = null;
 
         /// <summary>
         /// Retrieves the Boolean sort of the context.
@@ -154,6 +152,18 @@ namespace Microsoft.Z3
                 if (m_realSort == null) m_realSort = new RealSort(this); return m_realSort;
             }
         }
+
+        /// <summary>
+        /// Retrieves the String sort of the context.
+        /// </summary>
+        public SeqSort CharSort
+        {
+            get
+            {
+                if (m_charSort == null) m_charSort = new CharSort(this, Native.Z3_mk_char_sort(nCtx)); return m_charSort;
+            }
+        }
+
 
         /// <summary>
         /// Retrieves the String sort of the context.
@@ -2383,6 +2393,16 @@ namespace Microsoft.Z3
             Debug.Assert(e != null);
             Debug.Assert(e is ArithExpr);
             return new SeqExpr(this, Native.Z3_mk_int_to_str(nCtx, e.NativeObject));
+        }
+
+        /// <summary>
+        /// Convert a bit-vector expression, represented as an unsigned number, to a string.
+        /// </summary>
+        public SeqExpr UbvToString(Expr e)
+        {
+            Debug.Assert(e != null);
+            Debug.Assert(e is ArithExpr);
+            return new SeqExpr(this, Native.Z3_mk_ubv_to_str(nCtx, e.NativeObject));
         }
 
         /// <summary>
