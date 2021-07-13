@@ -783,11 +783,12 @@ namespace seq {
             ge10k = bv.mk_ule(bv.mk_numeral(pow, bv_sort), b);
         }
         ge10k1 = bv.mk_ule(bv.mk_numeral(pow * 10, bv_sort), b);
-        expr_ref_vector es(m);
-        expr_ref bb(b, m);
         unsigned sz = bv.get_bv_size(b);
+        expr_ref_vector es(m);
+        expr_ref bb(b, m), ten(bv.mk_numeral(10, sz), m);
         for (unsigned i = 0; i < k; ++i) {
-            es.push_back(seq.str.mk_unit(m_sk.mk_ubv2ch(bv.mk_bv_urem(bb, bv.mk_numeral(10, sz)))));
+            es.push_back(seq.str.mk_unit(m_sk.mk_ubv2ch(bv.mk_bv_urem(bb, ten))));
+            bb = bv.mk_bv_udiv(bb, ten);
         }
         es.reverse();
         eq = m.mk_eq(seq.str.mk_ubv2s(b), seq.str.mk_concat(es, seq.str.mk_string_sort()));
