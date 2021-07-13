@@ -107,7 +107,6 @@ stages:
       inputs:
         artifactName: 'UbuntuDoc'
         targetPath: $(Build.ArtifactStagingDirectory)
-	
 
   - job: ManyLinuxBuild
     displayName: "ManyLinux build"
