@@ -286,11 +286,9 @@ namespace euf {
 
     void solver::asserted(literal l) {
         expr* e = m_bool_var2expr.get(l.var(), nullptr);
-        if (!e) {
-            TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << "\n";);
+	TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " := " << mk_bounded_pp(e, m) << "\n";);
+        if (!e) 
             return;        
-        }
-        TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " := " << mk_bounded_pp(e, m) << "\n";);
         euf::enode* n = m_egraph.find(e);
         if (!n)
             return;

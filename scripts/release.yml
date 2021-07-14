@@ -6,7 +6,7 @@
 trigger: none
 
 variables:
-  ReleaseVersion: '4.8.11'
+  ReleaseVersion: '4.8.12'
 
 stages:
 
@@ -107,7 +107,6 @@ stages:
       inputs:
         artifactName: 'UbuntuDoc'
         targetPath: $(Build.ArtifactStagingDirectory)
-	
 
   - job: ManyLinuxBuild
     displayName: "ManyLinux build"

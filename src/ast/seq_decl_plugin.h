@@ -79,6 +79,7 @@ enum seq_op_kind {
     OP_STRING_CONST,
     OP_STRING_ITOS,
     OP_STRING_STOI,
+    OP_STRING_UBVTOS,
     OP_STRING_LT,
     OP_STRING_LE,
     OP_STRING_IS_DIGIT,
@@ -149,6 +150,7 @@ class seq_decl_plugin : public decl_plugin {
     func_decl* mk_assoc_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_string, decl_kind k_seq);
     func_decl* mk_left_assoc_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_string, decl_kind k_seq);
     func_decl* mk_assoc_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_string, decl_kind k_seq, bool is_right);
+    func_decl* mk_ubv2s(unsigned arity, sort* const* domain);
 
 
     void init();
@@ -294,6 +296,7 @@ public:
         app* mk_char_bit(expr* e, unsigned i);
         app* mk_itos(expr* i) const { return m.mk_app(m_fid, OP_STRING_ITOS, 1, &i); }
         app* mk_stoi(expr* s) const { return m.mk_app(m_fid, OP_STRING_STOI, 1, &s); }
+        app* mk_ubv2s(expr* b) const { return m.mk_app(m_fid, OP_STRING_UBVTOS, 1, &b); }
         app* mk_is_empty(expr* s) const;
         app* mk_lex_lt(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_STRING_LT, 2, es); }
         app* mk_lex_le(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_STRING_LE, 2, es); }
@@ -332,6 +335,7 @@ public:
         bool is_suffix(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_SUFFIX); }
         bool is_itos(expr const* n)     const { return is_app_of(n, m_fid, OP_STRING_ITOS); }
         bool is_stoi(expr const* n)     const { return is_app_of(n, m_fid, OP_STRING_STOI); }
+        bool is_ubv2s(expr const* n)    const { return is_app_of(n, m_fid, OP_STRING_UBVTOS); }
         bool is_in_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_IN_RE); }
         bool is_unit(expr const* n)     const { return is_app_of(n, m_fid, OP_SEQ_UNIT); }
         bool is_lt(expr const* n)       const { return is_app_of(n, m_fid, OP_STRING_LT); }
@@ -369,6 +373,7 @@ public:
         MATCH_BINARY(is_le);
         MATCH_UNARY(is_itos);
         MATCH_UNARY(is_stoi);
+        MATCH_UNARY(is_ubv2s);
         MATCH_UNARY(is_is_digit);
         MATCH_UNARY(is_from_code);
         MATCH_UNARY(is_to_code);

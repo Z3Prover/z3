@@ -323,6 +323,7 @@ namespace smt {
             unsigned m_fixed_length;
             unsigned m_propagate_contains;
             unsigned m_int_string;
+            unsigned m_ubv_string;
         };
         typedef hashtable<rational, rational::hash_proc, rational::eq_proc> rational_set;
 
@@ -348,6 +349,8 @@ namespace smt {
         unsigned                   m_axioms_head; // index of first axiom to add.
         bool                       m_incomplete;             // is the solver (clearly) incomplete for the fragment.
         expr_ref_vector            m_int_string;
+        expr_ref_vector            m_ubv_string;         // list all occurrences of str.from_ubv that have been seen
+        obj_hashtable<expr>        m_has_ubv_axiom;      // keep track of ubv that have been axiomatized within scope.
         obj_hashtable<expr>        m_has_length;         // is length applied
         expr_ref_vector            m_length;             // length applications themselves
         obj_map<expr, unsigned>    m_length_limit_map;   // sequences that have length limit predicates
@@ -568,6 +571,11 @@ namespace smt {
         bool check_int_string(expr* e);
         bool branch_itos();
         bool branch_itos(expr* e);
+
+        // functions that convert ubv to string
+        void add_ubv_string(expr* e);
+        bool check_ubv_string();
+        bool check_ubv_string(expr* e);
 
         expr_ref add_elim_string_axiom(expr* n);
         void add_in_re_axiom(expr* n);

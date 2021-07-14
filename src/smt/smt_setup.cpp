@@ -735,10 +735,6 @@ namespace smt {
         else if (m_params.m_string_solver == "none") {
             // don't register any solver.
         }
-        else if (m_params.m_string_solver == "char") {
-            setup_QF_BV();
-            setup_char();
-        }
         else {
             throw default_exception("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'");
         }

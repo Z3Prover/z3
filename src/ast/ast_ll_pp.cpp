@@ -303,7 +303,9 @@ public:
     }
 
     void display_bounded(ast * n, unsigned depth) {
-        if (is_app(n)) {
+        if (!n)
+   	     m_out << "null";    
+        else if (is_app(n)) {
             display(to_expr(n), depth);
         }
         else if (is_var(n)) {
