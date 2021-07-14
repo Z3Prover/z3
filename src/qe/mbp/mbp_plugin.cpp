@@ -102,7 +102,7 @@ namespace mbp {
         model_evaluator eval(model);
         eval.set_expand_array_equalities(true);
         TRACE("qe", tout << fmls << "\n";);
-        DEBUG_CODE(for (expr* fml : fmls) { CTRACE("qe", m.is_false(eval(fml)), tout << mk_pp(fml, m) << " is false\n";); SASSERT(!m.is_false(eval(fml))); });
+        DEBUG_CODE(for (expr* fml : fmls) { CTRACE("qe", m.is_false(eval(fml)), tout << mk_pp(fml, m) << " is false\n" << model;); SASSERT(!m.is_false(eval(fml))); });
 
         for (unsigned i = 0; i < fmls.size(); ++i) {
             expr* fml = fmls.get(i), * nfml, * f1, * f2, * f3;

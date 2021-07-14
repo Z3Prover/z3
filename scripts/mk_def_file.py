@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#  - /usr/bin/env python
 """
 Reads a list of Z3 API header files and
 generate a ``.def`` file to define the

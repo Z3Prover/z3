@@ -384,7 +384,7 @@ namespace arith {
 
         obj_map<expr, expr*>      m_predicate2term;
         obj_map<expr, bound_info> m_term2bound_info;
-        bool                      m_model_is_initialized{ false };
+        bool                      m_model_is_initialized = false;
 
         unsigned small_lemma_size() const { return get_config().m_arith_small_lemma_size; }
         bool propagate_eqs() const { return get_config().m_arith_propagate_eqs && m_num_conflicts < get_config().m_arith_propagation_threshold; }

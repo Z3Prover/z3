@@ -1170,14 +1170,11 @@ public:
         VERIFY(a.is_is_int(n, x));
         literal eq = th.mk_eq(a.mk_to_real(a.mk_to_int(x)), x, false);
         literal is_int = ctx().get_literal(n);
-        if (m.has_trace_stream()) {
-            app_ref body(m);
-            body = m.mk_iff(n, ctx().bool_var2expr(eq.var()));
-            th.log_axiom_instantiation(body);
-        }
+        scoped_trace_stream _sts1(th, ~is_int, eq);
+        scoped_trace_stream _sts2(th, is_int, ~eq);
         mk_axiom(~is_int, eq);
         mk_axiom(is_int, ~eq);
-        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+
     }
 
     // create axiom for 
@@ -1248,6 +1245,7 @@ public:
             mk_axiom(eq);
             mk_axiom(mk_literal(a.mk_ge(mod, zero)));
             mk_axiom(mk_literal(a.mk_le(mod, upper)));
+            
             {
                 std::function<void(void)> log = [&,this]() {
                     th.log_axiom_unit(m.mk_implies(m.mk_not(m.mk_eq(q, zero)), c.bool_var2expr(eq.var())));
@@ -1320,13 +1318,8 @@ public:
                 exprs.push_back(c.bool_var2expr(mod_j.var()));
                 ctx().mark_as_relevant(mod_j);
             }
-            if (m.has_trace_stream()) {
-                app_ref body(m);
-                body = m.mk_or(exprs.size(), exprs.data());
-                th.log_axiom_instantiation(body);
-            }
+            scoped_trace_stream _st(th, lits);
             ctx().mk_th_axiom(get_id(), lits.size(), lits.begin());                
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }            
     }
 
@@ -1749,20 +1742,14 @@ public:
                 literal p_ge_r1  = mk_literal(a.mk_ge(p, a.mk_numeral(lo, true)));
                 literal n_le_div = mk_literal(a.mk_le(n, a.mk_numeral(div_r, true)));
                 literal n_ge_div = mk_literal(a.mk_ge(n, a.mk_numeral(div_r, true)));
-                if (m.has_trace_stream()) {
-                    app_ref body(m);
-                    body = m.mk_implies(ctx().bool_var2expr(p_le_r1.var()), ctx().bool_var2expr(n_le_div.var()));
-                    th.log_axiom_instantiation(body);
+                {
+                    scoped_trace_stream _sts(th, ~p_le_r1, n_le_div);
+                    mk_axiom(~p_le_r1, n_le_div);
                 }
-                mk_axiom(~p_le_r1, n_le_div); 
-                if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
-                if (m.has_trace_stream()) {
-                    app_ref body(m);
-                    body = m.mk_implies(ctx().bool_var2expr(p_ge_r1.var()), ctx().bool_var2expr(n_ge_div.var()));
-                    th.log_axiom_instantiation(body);
+                {
+                    scoped_trace_stream _sts(th, ~p_ge_r1, n_ge_div);
+                    mk_axiom(~p_ge_r1, n_ge_div);
                 }
-                mk_axiom(~p_ge_r1, n_ge_div);
-                if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 
                 all_divs_valid = false;
 

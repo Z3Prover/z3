@@ -36,7 +36,7 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_emons(m_evars),
     m_reslim(lim),
     m_use_nra_model(false),
-    m_nra(s, lim, *this)
+    m_nra(s, m_nra_lim, *this)
 {
     m_nlsat_delay = lp_settings().nlsat_delay();
 }
@@ -1563,10 +1563,15 @@ bool core::should_run_bounded_nlsat() {
 
 lbool core::bounded_nlsat() {
     params_ref p;
+    lbool ret;
     p.set_uint("max_conflicts", 100);
-    scoped_rlimit sr(m_reslim, 100000);
     m_nra.updt_params(p);
-    lbool ret = m_nra.check(); 
+    {
+        scoped_limits sl(m_reslim);
+        sl.push_child(&m_nra_lim);
+        scoped_rlimit sr(m_nra_lim, 100000);
+        ret = m_nra.check();
+    }
     p.set_uint("max_conflicts", UINT_MAX);           
     m_nra.updt_params(p);
     m_stats.m_nra_calls++;

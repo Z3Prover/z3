@@ -282,12 +282,14 @@ namespace smt {
         auto & vars = e.m_def->get_vars();
         expr_ref lhs(e.m_lhs, m);
         unsigned depth = get_depth(e.m_lhs);
-        expr_ref rhs(apply_args(depth, vars, e.m_args, e.m_def->get_rhs()), m);
+        expr_ref rhs(apply_args(depth, vars, e.m_args, e.m_def->get_rhs()), m);	
         literal lit = mk_eq_lit(lhs, rhs);
         std::function<literal(void)> fn = [&]() { return lit; };
         scoped_trace_stream _tr(*this, fn);
         ctx.mk_th_axiom(get_id(), 1, &lit);
         TRACEFN("macro expansion yields " << pp_lit(ctx, lit));
+	    if (has_quantifiers(rhs))
+	        throw default_exception("quantified formulas in recursive functions are not supported");
     }
 
     /**
@@ -392,6 +394,8 @@ namespace smt {
         std::function<literal_vector(void)> fn = [&]() { return clause; };
         scoped_trace_stream _tr(*this, fn);
         ctx.mk_th_axiom(get_id(), clause);
+        if (has_quantifiers(rhs))
+            throw default_exception("quantified formulas in recursive functions are not supported");
     }
     
     final_check_status theory_recfun::final_check_eh() {

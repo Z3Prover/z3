@@ -387,7 +387,7 @@ namespace smt {
             bool result = true;
             for (unsigned i = 0; i < sz; i++) {
                 entry & e       = m_delayed_entries[i];
-                TRACE("qi_queue", tout << e.m_qb << ", cost: " << e.m_cost << ", instantiated: " << e.m_instantiated << "\n";);
+                TRACE("qi_queue", tout << e.m_qb << ", cost: " << e.m_cost << " min-cost: " << min_cost << ", instantiated: " << e.m_instantiated << "\n";);
                 if (!e.m_instantiated && e.m_cost <= min_cost) {
                     TRACE("qi_queue",
                           tout << "lazy quantifier instantiation...\n" << mk_pp(static_cast<quantifier*>(e.m_qb->get_data()), m) << "\ncost: " << e.m_cost << "\n";);

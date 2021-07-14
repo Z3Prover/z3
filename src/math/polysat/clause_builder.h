@@ -22,7 +22,7 @@ Notes:
 #include "math/polysat/types.h"
 
 namespace polysat {
-
+  
     class clause_builder {
         solver&               m_solver;
         sat::literal_vector   m_literals;

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# -- /usr/bin/env python
 """
 Scans the listed header files for
 memory initializers and finalizers and

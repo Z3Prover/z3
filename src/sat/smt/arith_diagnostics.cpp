@@ -50,7 +50,7 @@ namespace arith {
                     scoped_anum an(m_nla->am());
                     m_nla->am().display(out << " = ", nl_value(v, an));
                 }
-                else if (can_get_value(v))  
+                else if (can_get_value(v) && !m_solver->has_changed_columns())  
                     out << " = " << get_value(v);
                 if (is_int(v)) 
                     out << ", int";

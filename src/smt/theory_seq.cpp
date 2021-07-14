@@ -402,8 +402,11 @@ final_check_status theory_seq::final_check_eh() {
         ++m_stats.m_branch_nqs;
         TRACEFIN("branch_ne");
         return FC_CONTINUE;
+    }    
+    if (branch_itos()) {
+        TRACEFIN("branch_itos");
+        return FC_CONTINUE;
     }
-
     if (m_unhandled_expr) {
         TRACEFIN("give_up");
         TRACE("seq", tout << "unhandled: " << mk_pp(m_unhandled_expr, m) << "\n";);
@@ -1539,14 +1542,55 @@ bool theory_seq::check_int_string() {
 bool theory_seq::check_int_string(expr* e) {
     expr* n = nullptr;
     if (ctx.inconsistent())
-        return true;
+        return true;    
     if (m_util.str.is_itos(e, n) && !m_util.str.is_stoi(n) && add_length_to_eqc(e))
         return true;
     if (m_util.str.is_stoi(e, n) && !m_util.str.is_itos(n) && add_length_to_eqc(n))
         return true;
+
     return false;
 }
-    
+
+bool theory_seq::branch_itos() {
+    bool change = false;
+    for (expr * e : m_int_string) {
+        if (branch_itos(e))
+            change = true;
+    }
+    return change;
+}
+
+bool theory_seq::branch_itos(expr* e) {
+    expr* n = nullptr;
+    rational val;
+    if (ctx.inconsistent())
+        return true;
+    if (!m_util.str.is_itos(e, n))
+        return false;
+    if (!ctx.e_internalized(e))
+        return false;
+    enode* r = ctx.get_enode(e)->get_root();
+    if (m_util.str.is_string(r->get_expr()))
+        return false;
+    if (!get_num_value(n, val))
+        return false;
+    if (val.is_neg())
+        return false;    
+    literal b = mk_eq(e, m_util.str.mk_string(val.to_string()), false);
+    if (ctx.get_assignment(b) == l_true)
+        return false;
+    if (ctx.get_assignment(b) == l_false) {
+        literal a = mk_eq(n, m_autil.mk_int(val), false);
+        add_axiom(~a, b);
+    }
+    else {
+        ctx.force_phase(b);
+        ctx.mark_as_relevant(b);
+    }
+    return true;
+}
+
+
 
 void theory_seq::apply_sort_cnstr(enode* n, sort* s) {
     mk_var(n);

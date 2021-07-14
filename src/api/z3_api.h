@@ -4620,8 +4620,9 @@ extern "C" {
 
     /**
        \brief Return a hash code for the given AST.
-       The hash code is structural. You can use Z3_get_ast_id interchangeably with
-       this function.
+       The hash code is structural but two different AST objects can map to the same hash.
+       The result of \c Z3_get_ast_id returns an indentifier that is unique over the 
+       set of live AST objects.
 
        def_API('Z3_get_ast_hash', UINT, (_in(CONTEXT), _in(AST)))
     */

@@ -148,6 +148,7 @@ namespace seq {
         expr_ref_vector const* _es = nullptr;
         if (!match_itos3(e, n, _es))
             return false;
+
         expr_ref_vector const& es = *_es;
 
         if (es.empty()) {
@@ -183,6 +184,8 @@ namespace seq {
             expr_ref digit = m_ax.sk().mk_digit2int(u);
             add_consequence(m_ax.mk_ge(digit, 1));
         }
+	    expr_ref y(seq.str.mk_concat(e.rs, e.ls[0]->get_sort()), m);
+	    ctx.add_solution(e.ls[0], y);
         return true;
     }
 

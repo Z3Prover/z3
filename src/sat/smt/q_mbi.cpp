@@ -213,6 +213,7 @@ namespace q {
         sat::literal qlit = ctx.expr2literal(q);
         if (is_exists(q))
             qlit.neg();
+        ctx.rewrite(proj);
         TRACE("q", tout << "project: " << proj << "\n";);
         ++m_stats.m_num_instantiations;        
         unsigned generation = ctx.get_max_generation(proj);    
