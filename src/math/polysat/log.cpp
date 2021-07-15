@@ -87,7 +87,7 @@ polysat_log(LogLevel msg_level, std::string fn, std::string /* pretty_fn */)
   dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
   ok = ok && SetConsoleMode(hOut, dwMode);
 #else
-  int const fd = _fileno(stderr);
+  int const fd = fileno(stderr);
   if (color && !isatty(fd)) { color = nullptr; }
 #endif
 
