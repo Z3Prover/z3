@@ -3158,7 +3158,7 @@ expr_ref seq_rewriter::mk_der_cond(expr* cond, expr* ele, sort* seq_sort) {
     expr *c1 = nullptr, *c2 = nullptr, *ch1 = nullptr, *ch2 = nullptr;
     unsigned ch = 0;
     expr_ref result(m()), r1(m()), r2(m());
-    if (m().is_eq(cond, ch1, ch2)) {
+    if (m().is_eq(cond, ch1, ch2) && u().is_char(ch1)) {
         r1 = u().mk_le(ch1, ch2);
         r1 = mk_der_cond(r1, ele, seq_sort);
         r2 = u().mk_le(ch2, ch1);
@@ -3219,11 +3219,17 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         }
         expr_ref dr2 = mk_derivative(ele, r2);
         is_n = re_predicate(is_n, seq_sort);
-        // Instead of mk_der_union here, we use mk_der_antimorov_union to
-        // force the two cases to be considered separately and lifted to
-        // the top level. This avoids blowup in cases where determinization
-        // is expensive.
-        return mk_der_antimorov_union(result, mk_der_concat(is_n, dr2));
+        if (re().is_empty(dr2)) {
+            //do not concatenate [], it is a deade-end 
+            return result;
+        }
+        else {
+            // Instead of mk_der_union here, we use mk_der_antimorov_union to
+            // force the two cases to be considered separately and lifted to
+            // the top level. This avoids blowup in cases where determinization
+            // is expensive.
+            return mk_der_antimorov_union(result, mk_der_concat(is_n, dr2));
+        }
     }
     else if (re().is_star(r, r1)) {
         return mk_der_concat(mk_derivative(ele, r1), r);
@@ -3256,8 +3262,15 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         if (lo > 0) {
             lo--;
         }
-        result = re().mk_loop(r1, lo);
-        return mk_der_concat(mk_derivative(ele, r1), result);
+        result = mk_derivative(ele, r1);
+        //do not concatenate with [] (emptyset)
+        if (re().is_empty(result)) {
+            return result;
+        }
+        else {
+            //do not create loop r1{0,}, instead create r1*
+            return mk_der_concat(result, (lo == 0 ? re().mk_star(r1) : re().mk_loop(r1, lo)));
+        }
     }
     else if (re().is_loop(r, r1, lo, hi)) {
         if (hi == 0) {
@@ -3267,8 +3280,14 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         if (lo > 0) {
             lo--;
         }
-        result = re().mk_loop(r1, lo, hi);
-        return mk_der_concat(mk_derivative(ele, r1), result);
+        result = mk_derivative(ele, r1);
+        //do not concatenate with [] (emptyset) or handle the rest of the loop if no more iterations remain
+        if (re().is_empty(result) || hi == 0) {
+            return result;
+        }
+        else {
+            return mk_der_concat(result, re().mk_loop(r1, lo, hi));
+        }
     }
     else if (re().is_full_seq(r) ||
              re().is_empty(r)) {
@@ -3288,6 +3307,8 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             return result;
         }
         else if (str().is_empty(r1)) {
+            //observe: str().is_empty(r1) checks that r = () = epsilon
+            //while mk_empty() = [], because deriv(epsilon) = [] = nothing
             return mk_empty();
         }
 #if 0
