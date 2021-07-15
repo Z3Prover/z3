@@ -281,9 +281,10 @@ namespace mbp {
             obj_map<expr, unsigned> tids;
             expr_ref_vector pinned(m);
             unsigned j = 0;
-            TRACE("qe", tout << "vars: " << vars << "\nfmls: " << fmls << "\n";
+            TRACE("qe", tout << "vars: " << vars << "\n";
                   for (expr* f : fmls) tout << mk_pp(f, m) << " := " << model(f) << "\n";);
-            for (expr* fml : fmls) {
+            for (unsigned i = 0; i < fmls.size(); ++i) {
+                expr* fml = fmls.get(i);
                 if (!linearize(mbo, eval, fml, fmls, tids)) {
                     TRACE("qe", tout << "could not linearize: " << mk_pp(fml, m) << "\n";);
                     fmls[j++] = fml;
@@ -293,7 +294,9 @@ namespace mbp {
                 }
             }
             fmls.shrink(j);
-            TRACE("qe", tout << "formulas\n" << fmls << "\n";);
+            TRACE("qe", tout << "formulas\n" << fmls << "\n";
+		                for (auto [e, id] : tids)
+		                    tout << mk_pp(e, m) << " -> " << id << "\n";);
 
             // fmls holds residue,
             // mbo holds linear inequalities that are in scope

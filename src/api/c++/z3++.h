@@ -253,8 +253,13 @@ namespace z3 {
            \brief Return the Bit-vector sort of size \c sz. That is, the sort for bit-vectors of size \c sz.
         */
         sort bv_sort(unsigned sz);
+
         /**
-           \brief Return the sort for ASCII strings.
+           \brief Return the sort for Unicode characters.
+         */
+        sort char_sort();
+        /**
+           \brief Return the sort for Unicode strings.
          */
         sort string_sort();
         /**
@@ -1437,7 +1442,12 @@ namespace z3 {
             check_error();
             return expr(ctx(), r);
         }
-
+        expr ubvtos() const {
+            Z3_ast r = Z3_mk_ubv_to_str(ctx(), *this);
+            check_error();
+            return expr(ctx(), r);
+        }
+ 
         friend expr range(expr const& lo, expr const& hi);
         /**
            \brief create a looping regular expression.
@@ -3199,6 +3209,7 @@ namespace z3 {
     inline sort context::real_sort() { Z3_sort s = Z3_mk_real_sort(m_ctx); check_error(); return sort(*this, s); }
     inline sort context::bv_sort(unsigned sz) { Z3_sort s = Z3_mk_bv_sort(m_ctx, sz); check_error(); return sort(*this, s); }
     inline sort context::string_sort() { Z3_sort s = Z3_mk_string_sort(m_ctx); check_error(); return sort(*this, s); }
+    inline sort context::char_sort() { Z3_sort s = Z3_mk_char_sort(m_ctx); check_error(); return sort(*this, s); }
     inline sort context::seq_sort(sort& s) { Z3_sort r = Z3_mk_seq_sort(m_ctx, s); check_error(); return sort(*this, r); }
     inline sort context::re_sort(sort& s) { Z3_sort r = Z3_mk_re_sort(m_ctx, s); check_error(); return sort(*this, r); }
     inline sort context::fpa_sort(unsigned ebits, unsigned sbits) { Z3_sort s = Z3_mk_fpa_sort(m_ctx, ebits, sbits); check_error(); return sort(*this, s); }

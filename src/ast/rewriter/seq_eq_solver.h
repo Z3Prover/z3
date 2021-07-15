@@ -64,6 +64,12 @@ namespace seq {
         bool reduce_itos3(eqr const& e, eq_ptr& r);
         bool match_itos3(eqr const& e, expr*& n, expr_ref_vector const* & es);
 
+        bool match_ubv2s1(eqr const& e, expr*& s, expr*& t);
+        bool reduce_ubv2s1(eqr const& e, eq_ptr& r);
+
+        bool match_ubv2s2(eqr const& e, expr*& n, expr_ref_vector const*& es);
+        bool reduce_ubv2s2(eqr const& e, eq_ptr& r);
+
         bool match_binary_eq(eqr const& e, expr_ref& x, ptr_vector<expr>& xs, ptr_vector<expr>& ys, expr_ref& y);
         bool reduce_binary_eq(eqr const& e, eq_ptr& r);
 

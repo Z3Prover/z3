@@ -1,5 +1,9 @@
 #ifndef _MSC_VER
 #include <unistd.h>  // for isatty
+#else
+#include <windows.h>
+#include <io.h>
+#undef min
 #endif
 #include <utility>
 
@@ -54,11 +58,11 @@ level_color(LogLevel msg_level)
 {
   switch (msg_level) {
     case LogLevel::Heading1:
-      return "\x1B[31m"; // red
+      return "[31m"; // red
     case LogLevel::Heading2:
-      return "\x1B[33m"; // yellow
+      return "[33m"; // yellow
     case LogLevel::Heading3:
-      return "\x1B[34m"; // blue
+      return "[34m"; // blue
     default:
       return nullptr;
   }
@@ -70,16 +74,20 @@ std::pair<std::ostream&, bool>
 polysat_log(LogLevel msg_level, std::string fn, std::string /* pretty_fn */)
 {
   std::ostream& os = std::cerr;
-#if 0
-  int const fd = fileno(stderr);
 
   size_t width = 20;
   size_t padding = width - std::min(width, fn.size());
-
-#ifdef _MSC_VER
   char const* color = nullptr;
+  color = level_color(msg_level);
+#ifdef _MSC_VER    
+  HANDLE hOut = GetStdHandle(STD_ERROR_HANDLE);
+  bool ok = hOut != INVALID_HANDLE_VALUE;
+  DWORD dwMode = 0;
+  ok = ok && GetConsoleMode(hOut, &dwMode);
+  dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+  ok = ok && SetConsoleMode(hOut, dwMode);
 #else
-  char const* color = level_color(msg_level);
+  int const fd = _fileno(stderr);
   if (color && !isatty(fd)) { color = nullptr; }
 #endif
 
@@ -87,9 +95,6 @@ polysat_log(LogLevel msg_level, std::string fn, std::string /* pretty_fn */)
   os << "[" << fn << "] " << std::string(padding, ' ');
   os << std::string(polysat_log_indent_level, ' ');
   return {os, (bool)color};
-#else
-  return {os, false};
-#endif
 
 }
 

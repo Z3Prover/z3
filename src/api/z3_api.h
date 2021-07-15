@@ -1202,6 +1202,7 @@ typedef enum {
     // strings
     Z3_OP_STR_TO_INT,
     Z3_OP_INT_TO_STR,
+    Z3_OP_UBV_TO_STR,
     Z3_OP_STRING_LT,
     Z3_OP_STRING_LE,
 
@@ -3437,14 +3438,21 @@ extern "C" {
     Z3_sort Z3_API Z3_get_re_sort_basis(Z3_context c, Z3_sort s);
 
     /**
-       \brief Create a sort for 8 bit strings.
-
-       This function creates a sort for ASCII strings.
-       Each character is 8 bits.
+       \brief Create a sort for unicode strings.
 
        def_API('Z3_mk_string_sort', SORT ,(_in(CONTEXT), ))
      */
     Z3_sort Z3_API Z3_mk_string_sort(Z3_context c);
+
+    /**
+       \brief Create a sort for unicode characters.
+
+       The sort for characters can be changed to ASCII by setting
+       the global parameter \c unicode to \c false.
+
+       def_API('Z3_mk_char_sort', SORT ,(_in(CONTEXT), ))
+    */
+    Z3_sort Z3_API Z3_mk_char_sort(Z3_context c);
 
     /**
        \brief Check if \c s is a string sort.
@@ -3452,6 +3460,13 @@ extern "C" {
        def_API('Z3_is_string_sort', BOOL, (_in(CONTEXT), _in(SORT)))
      */
     bool Z3_API Z3_is_string_sort(Z3_context c, Z3_sort s);
+
+    /**
+       \brief Check if \c s is a character sort.
+
+       def_API('Z3_is_char_sort', BOOL, (_in(CONTEXT), _in(SORT)))
+    */
+    bool Z3_API Z3_is_char_sort(Z3_context c, Z3_sort s);
 
     /**
        \brief Create a string constant out of the string that is passed in
@@ -3632,6 +3647,14 @@ extern "C" {
        def_API('Z3_mk_int_to_str' ,AST ,(_in(CONTEXT), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_int_to_str(Z3_context c, Z3_ast s);
+
+    /**
+       \brief Unsigned bit-vector to string conversion.
+
+       def_API('Z3_mk_ubv_to_str' ,AST ,(_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_ubv_to_str(Z3_context c, Z3_ast s);
+  
 
     /**
        \brief Create a regular expression that accepts the sequence \c seq.
@@ -4620,8 +4643,9 @@ extern "C" {
 
     /**
        \brief Return a hash code for the given AST.
-       The hash code is structural. You can use Z3_get_ast_id interchangeably with
-       this function.
+       The hash code is structural but two different AST objects can map to the same hash.
+       The result of \c Z3_get_ast_id returns an indentifier that is unique over the 
+       set of live AST objects.
 
        def_API('Z3_get_ast_hash', UINT, (_in(CONTEXT), _in(AST)))
     */

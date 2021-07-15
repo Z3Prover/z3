@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# -- /usr/bin/env python
 """
 Determines the available global parameters from a list of header files and
 generates a ``gparams_register_modules.cpp`` file in the destination directory

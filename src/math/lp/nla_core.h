@@ -175,6 +175,7 @@ private:
     svector<lpvar>           m_add_buffer;
     mutable lp::u_set        m_active_var_set;
     lp::u_set                m_rows;
+    reslimit                 m_nra_lim;
 public:
     reslimit&                m_reslim;
     bool                     m_use_nra_model;

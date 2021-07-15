@@ -10,6 +10,12 @@ Version 4.8.next
     option, but at this point does not translate into benefits. It is currently 
     turned off by default.
 
+
+Version 4.8.12
+==============
+Release provided to fix git tag discrepancy issues with 4.8.11  
+
+
 Version 4.8.11
 ==============
   - self-contained character theory, direct support for UTF8, Unicode character sets.

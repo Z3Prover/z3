@@ -201,3 +201,6 @@ expr_ref skolem::mk_step(expr* s, expr* idx, expr* re, unsigned i, unsigned j, e
     return expr_ref(seq.mk_skolem(m_aut_step, args.size(), args.data(), m.mk_bool_sort()), m);
 }
 
+expr_ref skolem::mk_digit2bv(expr* ch, sort* bv_sort) {
+    return mk(symbol("seq.digit2bv"), ch, nullptr, nullptr, nullptr, bv_sort);
+}

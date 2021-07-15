@@ -79,6 +79,16 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+     Z3_sort Z3_API Z3_mk_char_sort(Z3_context c) {
+        Z3_TRY;
+        LOG_Z3_mk_char_sort(c);
+        RESET_ERROR_CODE();
+        sort* ty = mk_c(c)->sutil().mk_char_sort();
+        mk_c(c)->save_ast_trail(ty);
+        RETURN_Z3(of_sort(ty));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
     bool Z3_API Z3_is_seq_sort(Z3_context c, Z3_sort s) {
         Z3_TRY;
         LOG_Z3_is_seq_sort(c, s);
@@ -120,6 +130,15 @@ extern "C" {
         RETURN_Z3(of_sort(r));
         Z3_CATCH_RETURN(nullptr);
     }
+
+    bool Z3_API Z3_is_char_sort(Z3_context c, Z3_sort s) {
+        Z3_TRY;
+        LOG_Z3_is_char_sort(c, s);
+        RESET_ERROR_CODE();
+        return mk_c(c)->sutil().is_char(to_sort(s));
+        Z3_CATCH_RETURN(false);
+    }
+
 
     bool Z3_API Z3_is_string_sort(Z3_context c, Z3_sort s) {
         Z3_TRY;
@@ -225,6 +244,7 @@ extern "C" {
 
     MK_UNARY(Z3_mk_int_to_str, mk_c(c)->get_seq_fid(), OP_STRING_ITOS, SKIP);
     MK_UNARY(Z3_mk_str_to_int, mk_c(c)->get_seq_fid(), OP_STRING_STOI, SKIP);
+    MK_UNARY(Z3_mk_ubv_to_str, mk_c(c)->get_seq_fid(), OP_STRING_UBVTOS, SKIP);
 
 
     Z3_ast Z3_API Z3_mk_re_loop(Z3_context c, Z3_ast r, unsigned lo, unsigned hi) {

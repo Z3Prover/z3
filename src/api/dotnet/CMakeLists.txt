@@ -55,6 +55,7 @@ set(Z3_DOTNET_ASSEMBLY_SOURCES_IN_SRC_TREE
     BitVecSort.cs
     BoolExpr.cs
     BoolSort.cs
+    CharSort.cs
     Constructor.cs
     ConstructorList.cs
     Context.cs

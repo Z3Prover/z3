@@ -124,6 +124,12 @@ namespace smt {
                 }
             }
 
+            scoped_trace_stream(theory& th, literal_buffer const& lits) : m(th.get_manager()) {
+                if (m.has_trace_stream()) {
+                    th.log_axiom_instantiation(lits);
+                }
+            }
+
             scoped_trace_stream(theory& th, literal lit): m(th.get_manager()) {
                 if (m.has_trace_stream()) {
                     literal_vector lits;
@@ -463,6 +469,8 @@ namespace smt {
         }
 
         void log_axiom_instantiation(literal_vector const& ls);
+
+        void log_axiom_instantiation(literal_buffer const& ls);
 
         void log_axiom_instantiation(app * r, unsigned num_blamed_enodes, enode ** blamed_enodes) {
             vector<std::tuple<enode *, enode *>> used_enodes;

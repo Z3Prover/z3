@@ -192,20 +192,26 @@ namespace q {
     }
 
     struct ematch::remove_binding : public trail {
+        euf::solver& ctx;
         clause& c;
         binding* b;
-        remove_binding(clause& c, binding* b): c(c), b(b) {}
-        void undo() override {
+        remove_binding(euf::solver& ctx, clause& c, binding* b): ctx(ctx), c(c), b(b) {}
+        void undo() override {            
+            SASSERT(binding::contains(c.m_bindings, b));
             binding::remove_from(c.m_bindings, b);
+            binding::detach(b);
         }        
     };
 
     struct ematch::insert_binding : public trail {
+        euf::solver& ctx;
         clause& c;
         binding* b;
-        insert_binding(clause& c, binding* b): c(c), b(b) {}
-        void undo() override {
+        insert_binding(euf::solver& ctx, clause& c, binding* b): ctx(ctx), c(c), b(b) {}
+        void undo() override {            
+            SASSERT(!c.m_bindings || c.m_bindings->invariant());
             binding::push_to_front(c.m_bindings, b);
+            SASSERT(!c.m_bindings || c.m_bindings->invariant());
         }
     };
 
@@ -230,7 +236,7 @@ namespace q {
         for (unsigned i = 0; i < n; ++i)
             b->m_nodes[i] = _binding[i];        
         binding::push_to_front(c.m_bindings, b);
-        ctx.push(remove_binding(c, b));
+        ctx.push(remove_binding(ctx, c, b));
     }
 
     void ematch::on_binding(quantifier* q, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_gen, unsigned max_gen) {
@@ -395,7 +401,12 @@ namespace q {
         for (expr* arg : ors) {
             bool sign = m.is_not(arg, arg);
             expr* l, *r;
-            if (!m.is_eq(arg, l, r) || is_ground(arg)) {
+            if (m.is_distinct(arg) && to_app(arg)->get_num_args() == 2) {
+                l = to_app(arg)->get_arg(0);
+                r = to_app(arg)->get_arg(1);
+                sign = !sign;
+            }
+            else if (!m.is_eq(arg, l, r) || is_ground(arg)) {
                 l = arg;
                 r = sign ? m.mk_false() : m.mk_true();
                 sign = false;
@@ -503,8 +514,10 @@ namespace q {
             while (b != c.m_bindings);
 
             for (auto* b : to_remove) {
+                SASSERT(binding::contains(c.m_bindings, b));
                 binding::remove_from(c.m_bindings, b);
-                ctx.push(insert_binding(c, b));
+                binding::detach(b);
+                ctx.push(insert_binding(ctx, c, b));
             }
             to_remove.reset();
         }

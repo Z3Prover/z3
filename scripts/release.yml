@@ -6,7 +6,7 @@
 trigger: none
 
 variables:
-  ReleaseVersion: '4.8.11'
+  ReleaseVersion: '4.8.12'
 
 stages:
 
@@ -70,6 +70,42 @@ stages:
     - task: PublishPipelineArtifact@0
       inputs:
         artifactName: 'UbuntuBuild'
+        targetPath: $(Build.ArtifactStagingDirectory)
+
+
+  - job: UbuntuDoc
+    displayName: "Ubuntu Doc build"
+    pool:
+      vmImage: "Ubuntu-18.04"
+    steps:
+    - script: sudo apt-get install ocaml opam libgmp-dev
+    - script: sudo apt-get install doxygen
+    - script: sudo apt-get install graphviz
+    - script: opam init -y
+    - script: eval `opam config env`; opam install zarith ocamlfind -y
+    - script: python scripts/mk_make.py --ml --staticlib
+    - script: |
+        set -e
+        cd build
+        eval `opam config env` 
+        make -j3
+        make -j3 examples
+        make -j3 test-z3
+        ./ml_example
+        cd ..
+    - script: |
+        set -e
+        eval `opam config env` 
+        cd doc
+        python mk_api_doc.py --mld --z3py-package-path=../build/python/z3
+        mkdir api/html/ml
+        ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build/api/ml ../build/api/ml/z3enums.mli ../build/api/ml/z3.mli
+        cd ..
+    - script: zip -r z3doc.zip doc/api
+    - script: cp z3doc.zip $(Build.ArtifactStagingDirectory)/.
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'UbuntuDoc'
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: ManyLinuxBuild
@@ -284,6 +320,11 @@ stages:
         artifact: 'UbuntuBuild'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
+      displayName: "Download Doc"
+      inputs:
+        artifact: 'UbuntuDoc'
+        path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
         artifact: 'macOSBuild'
@@ -307,7 +348,7 @@ stages:
       displayName: 'Download NuGet Package'
       inputs:
         artifact: 'NuGetPackage'
-        path: $(Agent.TempDirectory)
+        path: $(Agent.TempDirectory)	
     - task: GitHubRelease@0
       inputs:
         gitHubConnection: Z3GitHub
@@ -323,9 +364,9 @@ stages:
         isDraft: true
         isPreRelease: false
 
-  # Enable on release:
+  # Enable on release (after fixing Nuget key)
   - job: NuGetPublish
-    condition: eq(0,1)
+    condition: eq(1,0)
     displayName: "Publish to NuGet.org"
     steps:
     - task: DownloadPipelineArtifact@2
@@ -346,7 +387,7 @@ stages:
 
   # Enable on release:
   - job: PyPIPublish
-    condition: eq(0,1)
+    condition: eq(1,1)
     displayName: "Publish to PyPI"
     pool:
       vmImage: "ubuntu-latest"

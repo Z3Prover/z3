@@ -93,6 +93,8 @@ namespace seq {
         expr_ref mk_is_digit(expr* ch) { return mk(symbol("seq.is_digit"), ch, nullptr, nullptr, nullptr, m.mk_bool_sort()); }
         expr_ref mk_unit_inv(expr* n);
         expr_ref mk_digit2int(expr* ch) { return mk(symbol("seq.digit2int"), ch, nullptr, nullptr, nullptr, a.mk_int()); }
+        expr_ref mk_digit2bv(expr* ch, sort* bv_sort);
+        expr_ref mk_ubv2ch(expr* b) { return mk(symbol("seq.ubv2ch"), b, nullptr, nullptr, nullptr, seq.mk_char_sort()); }
         expr_ref mk_left(expr* x, expr* y, expr* z = nullptr) { return mk("seq.left", x, y, z); }
         expr_ref mk_right(expr* x, expr* y, expr* z = nullptr) { return mk("seq.right", x, y, z); }
         expr_ref mk_max_unfolding_depth(unsigned d);

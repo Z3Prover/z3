@@ -262,6 +262,7 @@ theory_seq::theory_seq(context& ctx):
     m_axioms(m),
     m_axioms_head(0),
     m_int_string(m),
+    m_ubv_string(m),
     m_length(m),
     m_length_limit(m),
     m_mg(nullptr),
@@ -368,6 +369,11 @@ final_check_status theory_seq::final_check_eh() {
         TRACEFIN("int_string");
         return FC_CONTINUE;
     }
+    if (check_ubv_string()) {
+        ++m_stats.m_ubv_string;
+        TRACEFIN("ubv_string");
+        return FC_CONTINUE;
+    }
     if (reduce_length_eq()) {
         ++m_stats.m_branch_variable;
         TRACEFIN("reduce_length");
@@ -402,8 +408,11 @@ final_check_status theory_seq::final_check_eh() {
         ++m_stats.m_branch_nqs;
         TRACEFIN("branch_ne");
         return FC_CONTINUE;
+    }    
+    if (branch_itos()) {
+        TRACEFIN("branch_itos");
+        return FC_CONTINUE;
     }
-
     if (m_unhandled_expr) {
         TRACEFIN("give_up");
         TRACE("seq", tout << "unhandled: " << mk_pp(m_unhandled_expr, m) << "\n";);
@@ -1522,6 +1531,77 @@ bool theory_seq::add_length_to_eqc(expr* e) {
     return change;
 }
 
+void theory_seq::add_ubv_string(expr* e) {
+    bool has_sort = false;
+    expr* b = nullptr;
+    VERIFY(m_util.str.is_ubv2s(e, b));
+    for (auto* e2 : m_ubv_string) {
+        expr* b2 = nullptr;
+        VERIFY(m_util.str.is_ubv2s(e2, b2));
+        has_sort |= b2->get_sort() == b->get_sort();
+    }
+    if (!has_sort)
+        m_ax.add_ubv2ch_axioms(b->get_sort());
+    m_ubv_string.push_back(e);
+    m_trail_stack.push(push_back_vector<expr_ref_vector>(m_ubv_string));
+    add_length_to_eqc(e);
+}
+
+bool theory_seq::check_ubv_string() {
+    bool change = false;
+    for (expr* e : m_ubv_string) {
+        if (check_ubv_string(e))
+            change = true;
+    }
+    return change;
+}
+
+bool theory_seq::check_ubv_string(expr* e) {
+    expr* n = nullptr;
+    if (ctx.inconsistent())
+        return true;
+    if (m_has_ubv_axiom.contains(e))
+        return false;
+    expr* b = nullptr;
+    bv_util bv(m);
+    VERIFY(m_util.str.is_ubv2s(e, b));
+    rational len;
+    if (get_length(e, len) && len.is_unsigned()) 
+        m_ax.add_ubv2s_len_axiom(b, len.get_unsigned());
+    
+
+    unsigned sz = bv.get_bv_size(b);
+    rational value(0);
+    bool all_bits_assigned = true;
+    for (unsigned i = 0; i < sz; ++i) {
+        expr_ref bit(bv.mk_bit2bool(b, i), m);
+        literal lit = mk_literal(bit);
+        switch (ctx.get_assignment(lit)) {
+        case l_undef:
+            ctx.mark_as_relevant(lit);
+            all_bits_assigned = false;
+            break;
+        case l_true:
+            value += rational::power_of_two(i);
+            break;
+        case l_false:
+            break;
+        }
+    }
+    if (!all_bits_assigned)
+        return true;
+    unsigned k = 0;
+    while (value >= 10) {
+        k++;
+        value = div(value, rational(10));
+    }
+
+    m_has_ubv_axiom.insert(e);
+    m_trail_stack.push(insert_obj_trail<expr>(m_has_ubv_axiom, e));
+    m_ax.add_ubv2s_axiom(b, k);
+    return true;
+}
+
 void theory_seq::add_int_string(expr* e) {
     m_int_string.push_back(e);
     m_trail_stack.push(push_back_vector<expr_ref_vector>(m_int_string));
@@ -1539,14 +1619,55 @@ bool theory_seq::check_int_string() {
 bool theory_seq::check_int_string(expr* e) {
     expr* n = nullptr;
     if (ctx.inconsistent())
-        return true;
+        return true;    
     if (m_util.str.is_itos(e, n) && !m_util.str.is_stoi(n) && add_length_to_eqc(e))
         return true;
     if (m_util.str.is_stoi(e, n) && !m_util.str.is_itos(n) && add_length_to_eqc(n))
         return true;
+
     return false;
 }
-    
+
+bool theory_seq::branch_itos() {
+    bool change = false;
+    for (expr * e : m_int_string) {
+        if (branch_itos(e))
+            change = true;
+    }
+    return change;
+}
+
+bool theory_seq::branch_itos(expr* e) {
+    expr* n = nullptr;
+    rational val;
+    if (ctx.inconsistent())
+        return true;
+    if (!m_util.str.is_itos(e, n))
+        return false;
+    if (!ctx.e_internalized(e))
+        return false;
+    enode* r = ctx.get_enode(e)->get_root();
+    if (m_util.str.is_string(r->get_expr()))
+        return false;
+    if (!get_num_value(n, val))
+        return false;
+    if (val.is_neg())
+        return false;    
+    literal b = mk_eq(e, m_util.str.mk_string(val.to_string()), false);
+    if (ctx.get_assignment(b) == l_true)
+        return false;
+    if (ctx.get_assignment(b) == l_false) {
+        literal a = mk_eq(n, m_autil.mk_int(val), false);
+        add_axiom(~a, b);
+    }
+    else {
+        ctx.force_phase(b);
+        ctx.mark_as_relevant(b);
+    }
+    return true;
+}
+
+
 
 void theory_seq::apply_sort_cnstr(enode* n, sort* s) {
     mk_var(n);
@@ -1717,6 +1838,7 @@ void theory_seq::collect_statistics(::statistics & st) const {
     st.update("seq extensionality", m_stats.m_extensionality);
     st.update("seq fixed length", m_stats.m_fixed_length);
     st.update("seq int.to.str", m_stats.m_int_string);
+    st.update("seq str.from_ubv", m_stats.m_ubv_string);
 }
 
 void theory_seq::init_search_eh() {
@@ -3054,6 +3176,9 @@ void theory_seq::relevant_eh(app* n) {
         m_util.str.is_stoi(n)) {
         add_int_string(n);
     }
+
+    if (m_util.str.is_ubv2s(n))
+        add_ubv_string(n);
 
     expr* arg = nullptr;
     if (m_sk.is_tail(n, arg)) {

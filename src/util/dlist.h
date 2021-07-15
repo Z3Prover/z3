@@ -74,6 +74,10 @@ public:
         }
     }
 
+    static void detach(T* elem) {
+        elem->init(elem);
+    }
+
     bool invariant() const {
         auto* e = this;
         do {
@@ -83,6 +87,20 @@ public:
         }
         while (e != this);
         return true;
+    }
+
+
+    static bool contains(T* list, T* elem) {
+        if (!list)
+            return false;
+        T* first = list;
+        do {
+            if (list == elem)
+                return true;
+            list = list->m_next;
+        }         
+        while (list != first);
+        return false;
     }
 };
 

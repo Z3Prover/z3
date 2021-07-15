@@ -369,16 +369,14 @@ expr_ref func_interp::get_array_interp_core(func_decl * f) const {
     if (m_else == nullptr) 
         return r;
     ptr_vector<sort> domain;
-    for (sort* s : *f) {
-        domain.push_back(s);
-    }
+    for (sort* s : *f) 
+        domain.push_back(s);    
 
     bool ground = is_ground(m_else);
     for (func_entry * curr : m_entries) {
         ground &= is_ground(curr->get_result());
-        for (unsigned i = 0; i < m_arity; i++) {
-            ground &= is_ground(curr->get_arg(i));
-        }
+        for (unsigned i = 0; i < m_arity; i++) 
+            ground &= is_ground(curr->get_arg(i));        
     }
     if (!ground) {
         r = get_interp();

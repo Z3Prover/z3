@@ -3,7 +3,7 @@ Copyright (c) 2012-2014 Microsoft Corporation
    
 Module Name:
 
-    SeqSort.java
+    CharSort.java
 
 Abstract:
 
@@ -18,13 +18,16 @@ Notes:
 package com.microsoft.z3;
 
 /**
- * A Sequence sort
+ * A Character sort
  **/
-public class SeqSort<R extends Sort> extends Sort
+public class CharSort extends Sort
 {
-    SeqSort(Context ctx, long obj)
+    CharSort(Context ctx, long obj)
     {
         super(ctx, obj);
     }
+
+    CharSort(Context ctx) { super(ctx, Native.mkCharSort(ctx.nCtx())); {  }}
+
 }
 
