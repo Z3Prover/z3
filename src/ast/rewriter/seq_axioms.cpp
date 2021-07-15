@@ -776,26 +776,27 @@ namespace seq {
         rational pow(1);
         for (unsigned i = 0; i < k; ++i)
             pow *= 10;
-        if (k == 0) {
-            ge10k = m.mk_true();            
-        }
-        else {
-            ge10k = bv.mk_ule(bv.mk_numeral(pow, bv_sort), b);
-        }
+        ge10k = bv.mk_ule(bv.mk_numeral(pow, bv_sort), b);        
         ge10k1 = bv.mk_ule(bv.mk_numeral(pow * 10, bv_sort), b);
         unsigned sz = bv.get_bv_size(b);
         expr_ref_vector es(m);
         expr_ref bb(b, m), ten(bv.mk_numeral(10, sz), m);
-        pow = 1;
+        rational p(1);
         for (unsigned i = 0; i <= k; ++i) {
-            if (pow > 1)
-                bb = bv.mk_bv_udiv(b, bv.mk_numeral(pow, bv_sort));
+            if (p > 1)
+                bb = bv.mk_bv_udiv(b, bv.mk_numeral(p, bv_sort));
             es.push_back(seq.str.mk_unit(m_sk.mk_ubv2ch(bv.mk_bv_urem(bb, ten))));
-            pow *= 10;
+            p *= 10;
         }
         es.reverse();
         eq = m.mk_eq(seq.str.mk_ubv2s(b), seq.str.mk_concat(es, seq.str.mk_string_sort()));
-        add_clause(~ge10k, ge10k1, eq);
+        SASSERT(pow < rational::power_of_two(sz));
+        if (k == 0)
+            add_clause(ge10k1, eq);
+        else if (pow * 10 >= rational::power_of_two(sz))
+            add_clause(~ge10k, eq);
+        else 
+            add_clause(~ge10k, ge10k1, eq);
     }
 
     /*
@@ -810,12 +811,19 @@ namespace seq {
         rational pow(1);
         for (unsigned i = 1; i < k; ++i)
             pow *= 10;
-        if (pow * 10 >= rational::power_of_two(sz))
-            return; // TODO: add conflict when k is too large or avoid overflow bounds and limits
+        expr_ref len(seq.str.mk_length(seq.str.mk_ubv2s(b)), m);
+        if (pow >= rational::power_of_two(sz)) {
+            expr_ref ge(a.mk_ge(len, a.mk_int(k)), m);
+            add_clause(~ge);
+            return;
+        }
+
         ge10k = bv.mk_ule(bv.mk_numeral(pow, bv_sort), b);        
         ge10k1 = bv.mk_ule(bv.mk_numeral(pow * 10, bv_sort), b);
-        eq = m.mk_eq(seq.str.mk_length(seq.str.mk_ubv2s(b)), a.mk_int(k));
-        add_clause(~eq, ~ge10k1);
+        eq = m.mk_eq(len, a.mk_int(k));
+
+        if (pow * 10 < rational::power_of_two(sz))
+            add_clause(~eq, ~ge10k1);
         if (k > 1)
             add_clause(~eq, ge10k);
     }
