@@ -202,12 +202,6 @@ bool solver::is_literal(ast_manager& m, expr* e) {
 
 void solver::assert_expr(expr* f) {
     expr_ref fml(f, get_manager());
-    if (m_enforce_model_conversion) {
-        model_converter_ref mc = get_model_converter();
-        if (mc) {
-            (*mc)(fml);        
-        }
-    }
     assert_expr_core(fml);    
 }
 
@@ -215,13 +209,6 @@ void solver::assert_expr(expr* f, expr* t) {
     ast_manager& m = get_manager();
     expr_ref fml(f, m);    
     expr_ref a(t, m);
-    if (m_enforce_model_conversion) {
-        model_converter_ref mc = get_model_converter();
-        if (mc) {
-            (*mc)(fml);        
-            // (*mc)(a);        
-        }
-    }
     assert_expr_core2(fml, a);    
 }
 
@@ -241,14 +228,12 @@ void solver::collect_param_descrs(param_descrs & r) {
 void solver::reset_params(params_ref const & p) {
     m_params = p;
     solver_params sp(m_params);
-    m_enforce_model_conversion = sp.enforce_model_conversion();
     m_cancel_backup_file = sp.cancel_backup_file();
 }
 
 void solver::updt_params(params_ref const & p) {
     m_params.copy(p);
     solver_params sp(m_params);
-    m_enforce_model_conversion = sp.enforce_model_conversion();
     m_cancel_backup_file = sp.cancel_backup_file();
 }
 

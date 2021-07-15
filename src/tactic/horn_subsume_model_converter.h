@@ -72,8 +72,6 @@ public:
     
     void operator()(model_ref& _m) override;
 
-    void operator()(expr_ref& fml) override;
-
     model_converter * translate(ast_translation & translator) override;
 
     ast_manager& get_manager() { return m; }

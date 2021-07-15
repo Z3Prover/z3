@@ -49,10 +49,9 @@ solver* mk_smt2_solver(ast_manager& m, params_ref const& p);
 */
 class solver : public check_sat_result {
     params_ref  m_params;
-    bool        m_enforce_model_conversion;
     symbol      m_cancel_backup_file;
 public:
-    solver(): m_enforce_model_conversion(false) {}
+     solver() {}
     ~solver() override {}
 
     /**
