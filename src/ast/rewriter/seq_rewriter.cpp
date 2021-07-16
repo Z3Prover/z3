@@ -718,6 +718,10 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 1);
         st = mk_str_ubv2s(args[0], result);
         break;
+    case OP_STRING_SBVTOS:
+      SASSERT(num_args == 1);
+      st = mk_str_sbv2s(args[0], result);
+      break;
     case _OP_STRING_CONCAT:
     case _OP_STRING_PREFIX:
     case _OP_STRING_SUFFIX:
@@ -2218,6 +2222,30 @@ br_status seq_rewriter::mk_str_ubv2s(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
 
+br_status seq_rewriter::mk_str_sbv2s(expr *a, expr_ref &result) {
+    bv_util bv(m());
+    rational val;
+    unsigned bv_size = 0;
+    if (bv.is_numeral(a, val, bv_size)) {
+        rational r = mod(val, rational::power_of_two(bv_size));
+        SASSERT(!r.is_neg());
+        if (r >= rational::power_of_two(bv_size - 1)) {
+            r -= rational::power_of_two(bv_size);
+        }
+        result = str().mk_string(zstring(r));
+        return BR_DONE;
+    }
+    
+    bv_size = bv.get_bv_size(a);
+    result = m().mk_ite(
+        bv.mk_slt(a,bv.mk_numeral(0, bv_size)),
+        str().mk_concat(
+            str().mk_string(zstring("-")),
+            str().mk_ubv2s(bv.mk_bv_neg(a))
+        ),
+        str().mk_ubv2s(a));
+    return BR_REWRITE_FULL;
+}
 
 br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {
     rational r;
