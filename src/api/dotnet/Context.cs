@@ -2405,6 +2405,15 @@ namespace Microsoft.Z3
             return new SeqExpr(this, Native.Z3_mk_ubv_to_str(nCtx, e.NativeObject));
         }
 
+		/// <summary>
+		/// Convert a bit-vector expression, represented as an signed number, to a string.
+		/// </summary>
+		public SeqExpr SbvToString(Expr e) {
+			Debug.Assert(e != null);
+			Debug.Assert(e is ArithExpr);
+			return new SeqExpr(this, Native.Z3_mk_sbv_to_str(nCtx, e.NativeObject));
+		}
+
         /// <summary>
         /// Convert an integer expression to a string.
         /// </summary>

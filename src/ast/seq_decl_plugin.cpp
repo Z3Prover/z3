@@ -350,7 +350,7 @@ func_decl* seq_decl_plugin::mk_left_assoc_fun(decl_kind k, unsigned arity, sort*
     return mk_assoc_fun(k, arity, domain, range, k_seq, k_string, false);
 }
 
-func_decl* seq_decl_plugin::mk_ubv2s(unsigned arity, sort* const* domain) {
+func_decl* seq_decl_plugin::mk_ubv2s(unsigned arity, sort* const* domain) const {
     ast_manager& m = *m_manager;
     if (arity != 1)
         m.raise_exception("Invalid str.from_ubv expects one bit-vector argument");
@@ -359,6 +359,17 @@ func_decl* seq_decl_plugin::mk_ubv2s(unsigned arity, sort* const* domain) {
         m.raise_exception("Invalid str.from_ubv expects one bit-vector argument");
     sort* rng = m_string;
     return m.mk_func_decl(symbol("str.from_ubv"), arity, domain, rng, func_decl_info(m_family_id, OP_STRING_UBVTOS));    
+}
+
+func_decl* seq_decl_plugin::mk_sbv2s(unsigned arity, sort* const* domain) const {
+  ast_manager &m = *m_manager;
+  if (arity != 1)
+    m.raise_exception("Invalid str.from_sbv expects one bit-vector argument");
+  bv_util bv(m);
+  if (!bv.is_bv_sort(domain[0]))
+    m.raise_exception("Invalid str.from_sbv expects one bit-vector argument");
+  sort *rng = m_string;
+  return m.mk_func_decl(symbol("str.from_sbv"), arity, domain, rng, func_decl_info(m_family_id, OP_STRING_SBVTOS));
 }
 
 func_decl* seq_decl_plugin::mk_assoc_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_seq, decl_kind k_string, bool is_right) {
@@ -376,7 +387,7 @@ func_decl* seq_decl_plugin::mk_assoc_fun(decl_kind k, unsigned arity, sort* cons
 }
 
 
-func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                           unsigned arity, sort * const * domain, sort * range) {
     init();
     m_has_seq = true;
@@ -416,8 +427,12 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_STRING_FROM_CODE:
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
+
     case OP_STRING_UBVTOS:
-        return mk_ubv2s(arity, domain);        
+        return mk_ubv2s(arity, domain);
+
+    case OP_STRING_SBVTOS:
+        return mk_sbv2s(arity, domain);
 
     case _OP_REGEXP_FULL_CHAR:
         m_has_re = true;
@@ -627,6 +642,7 @@ void seq_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("re.nostr",  _OP_REGEXP_EMPTY));
     op_names.push_back(builtin_name("re.complement", OP_RE_COMPLEMENT));
     op_names.push_back(builtin_name("str.from_ubv", OP_STRING_UBVTOS));
+    op_names.push_back(builtin_name("str.from_sbv", OP_STRING_SBVTOS));
 }
 
 void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {

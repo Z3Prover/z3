@@ -1203,6 +1203,7 @@ typedef enum {
     Z3_OP_STR_TO_INT,
     Z3_OP_INT_TO_STR,
     Z3_OP_UBV_TO_STR,
+    Z3_OP_SBV_TO_STR,
     Z3_OP_STRING_LT,
     Z3_OP_STRING_LE,
 
@@ -3655,6 +3656,12 @@ extern "C" {
     */
     Z3_ast Z3_API Z3_mk_ubv_to_str(Z3_context c, Z3_ast s);
   
+    /**
+       \brief Signed bit-vector to string conversion.
+
+       def_API('Z3_mk_sbv_to_str' ,AST ,(_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_sbv_to_str(Z3_context c, Z3_ast s);
 
     /**
        \brief Create a regular expression that accepts the sequence \c seq.
