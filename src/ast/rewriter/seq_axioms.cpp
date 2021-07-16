@@ -800,6 +800,24 @@ namespace seq {
     }
 
     /*
+    * 1 <= len(ubv2s(b)) <= k, where k is min such that 10^k > 2^sz
+    */
+    void axioms::ubv2s_len_axiom(expr* b) {
+        bv_util bv(m);
+        sort* bv_sort = b->get_sort();
+        unsigned sz = bv.get_bv_size(bv_sort);
+        unsigned k = 1;
+        rational pow(10);
+        while (pow <= rational::power_of_two(sz))
+            ++k, pow *= 10;
+        expr_ref len(seq.str.mk_length(seq.str.mk_ubv2s(b)), m);
+        expr_ref ge(a.mk_ge(len, a.mk_int(1)), m);
+        expr_ref le(a.mk_le(len, a.mk_int(k)), m);
+        add_clause(le);
+        add_clause(ge);
+    }
+
+    /*
     *   len(ubv2s(b)) = k => 10^k-1 <= b < 10^{k}   k > 1
     *   len(ubv2s(b)) = 1 =>  b < 10^{1}   k = 1
     */
