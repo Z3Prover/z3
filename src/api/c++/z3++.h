@@ -1448,9 +1448,9 @@ namespace z3 {
             return expr(ctx(), r);
         }
         expr sbvtos() const {
-          Z3_ast r = Z3_mk_sbv_to_str(ctx(), *this);
-          check_error();
-          return expr(ctx(), r);
+            Z3_ast r = Z3_mk_sbv_to_str(ctx(), *this);
+            check_error();
+            return expr(ctx(), r);
         }
  
         friend expr range(expr const& lo, expr const& hi);

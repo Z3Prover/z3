@@ -362,14 +362,14 @@ func_decl* seq_decl_plugin::mk_ubv2s(unsigned arity, sort* const* domain) const 
 }
 
 func_decl* seq_decl_plugin::mk_sbv2s(unsigned arity, sort* const* domain) const {
-  ast_manager &m = *m_manager;
-  if (arity != 1)
-    m.raise_exception("Invalid str.from_sbv expects one bit-vector argument");
-  bv_util bv(m);
-  if (!bv.is_bv_sort(domain[0]))
-    m.raise_exception("Invalid str.from_sbv expects one bit-vector argument");
-  sort *rng = m_string;
-  return m.mk_func_decl(symbol("str.from_sbv"), arity, domain, rng, func_decl_info(m_family_id, OP_STRING_SBVTOS));
+    ast_manager &m = *m_manager;
+    if (arity != 1)
+        m.raise_exception("Invalid str.from_sbv expects one bit-vector argument");
+    bv_util bv(m);
+    if (!bv.is_bv_sort(domain[0]))
+        m.raise_exception("Invalid str.from_sbv expects one bit-vector argument");
+    sort *rng = m_string;
+    return m.mk_func_decl(symbol("str.from_sbv"), arity, domain, rng, func_decl_info(m_family_id, OP_STRING_SBVTOS));
 }
 
 func_decl* seq_decl_plugin::mk_assoc_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_seq, decl_kind k_string, bool is_right) {

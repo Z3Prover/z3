@@ -2232,9 +2232,6 @@ br_status seq_rewriter::mk_str_sbv2s(expr *a, expr_ref &result) {
         if (r >= rational::power_of_two(bv_size - 1)) {
             r -= rational::power_of_two(bv_size);
         }
-        if (r < -rational::power_of_two(bv_size - 1)) {
-            r += rational::power_of_two(bv_size);
-        }
         result = str().mk_string(zstring(r));
         return BR_DONE;
     }
@@ -2247,7 +2244,7 @@ br_status seq_rewriter::mk_str_sbv2s(expr *a, expr_ref &result) {
             str().mk_ubv2s(bv.mk_bv_neg(a))
         ),
         str().mk_ubv2s(a));
-    return BR_REWRITE3;
+    return BR_REWRITE_FULL;
 }
 
 br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {
