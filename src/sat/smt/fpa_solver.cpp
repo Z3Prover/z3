@@ -15,6 +15,8 @@ Author:
 
 Revision History:
 
+    Ported from theory_fpa by nbjorner in 2020.
+
 --*/
 
 #include "sat/smt/fpa_solver.h"
