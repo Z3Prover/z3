@@ -121,7 +121,7 @@ namespace fpa {
         if (!n)
             n = mk_enode(e, false);
         SASSERT(!n->is_attached_to(get_id()));
-        mk_var(n);
+        attach_new_th_var(n);
         TRACE("fp", tout << "post: " << mk_bounded_pp(e, m) << "\n";);
         m_nodes.push_back(std::tuple(n, sign, root));
         ctx.push(push_back_trail(m_nodes));
