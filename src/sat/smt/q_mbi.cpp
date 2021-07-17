@@ -168,6 +168,9 @@ namespace q {
                     return l_false;
                 if (check_forall_default(q, *qb, *mdl))
                     return l_false;
+                else {
+                    return l_undef;
+                }
             }
             if (m_generation_bound >= m_generation_max)
                 return l_true;
@@ -279,8 +282,9 @@ namespace q {
         bool fmls_extracted = false;
         TRACE("q",
               tout << "Project\n";
+	          tout << fmls << "\n";
+              tout << "model\n";
               tout << *m_model << "\n";
-              tout << fmls << "\n";
               tout << "model of projection\n" << mdl << "\n";
               tout << "var args: " << qb.var_args.size() << "\n";
               tout << "domain eqs: " << qb.domain_eqs << "\n";
@@ -294,6 +298,12 @@ namespace q {
             app* v = vars.get(i);
             auto* p = get_plugin(v);
             if (p && !fmls_extracted) {
+                TRACE("q", tout << "domain eqs\n" << qb.domain_eqs << "\n";);
+                
+                for (expr* e : qb.domain_eqs)
+                    if (!m_model->is_true(e))
+                        return expr_ref(nullptr, m);
+                
                 fmls.append(qb.domain_eqs);
                 eliminate_nested_vars(fmls, qb);
                 mbp::project_plugin proj(m);
@@ -312,6 +322,7 @@ namespace q {
             eqs.push_back(m.mk_eq(v, val));
         }
         rep(fmls);
+        TRACE("q", tout << "generated formulas\n" << fmls << "\ngenerated eqs:\n" << eqs;);
         return mk_and(fmls);
     }
 
