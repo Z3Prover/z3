@@ -213,11 +213,12 @@ void proto_model::cleanup() {
     TRACE("model_bug", model_v2_pp(tout, *this););
     func_decl_set found_aux_fs;
     expr_ref_vector trail(m);
-    for (auto const& kv : m_finterp) {
-        TRACE("model_bug", tout << kv.m_key->get_name() << "\n";);
-        func_interp * fi = kv.m_value;
+    ptr_buffer<func_interp> finterps;
+    for (auto const& kv : m_finterp)
+        finterps.push_back(kv.m_value);
+    for (auto* fi : finterps)         
         cleanup_func_interp(trail, fi, found_aux_fs);
-    }
+    
     for (unsigned i = 0; i < m_const_decls.size(); ++i) {
         func_decl* d = m_const_decls[i];
         expr* e = m_interp[d].second;
