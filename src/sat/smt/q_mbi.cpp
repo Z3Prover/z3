@@ -282,7 +282,7 @@ namespace q {
         bool fmls_extracted = false;
         TRACE("q",
               tout << "Project\n";
-	          tout << fmls << "\n";
+              tout << fmls << "\n";
               tout << "model\n";
               tout << *m_model << "\n";
               tout << "model of projection\n" << mdl << "\n";
