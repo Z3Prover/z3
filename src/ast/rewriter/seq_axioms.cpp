@@ -820,7 +820,7 @@ namespace seq {
     /*
     *   len(ubv2s(b)) = k => 10^k-1 <= b < 10^{k}   k > 1
     *   len(ubv2s(b)) = 1 =>  b < 10^{1}   k = 1
-    *   len(ubv2s(b)) >= k => is_digit(nth(ubv2s(b),0) & ... & is_digit(nth(ubv2s(b),k-1)
+    *   len(ubv2s(b)) >= k => is_digit(nth(ubv2s(b), 0)) & ... & is_digit(nth(ubv2s(b), k-1))
     */
     void axioms::ubv2s_len_axiom(expr* b, unsigned k) {
         expr_ref ge10k(m), ge10k1(m), eq(m), is_digit(m);
