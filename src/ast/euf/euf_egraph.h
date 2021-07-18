@@ -326,6 +326,7 @@ namespace euf {
         void collect_statistics(statistics& st) const;
 
         unsigned num_scopes() const { return m_scopes.size() + m_num_scopes; }
+        unsigned num_nodes() const { return m_nodes.size(); }
     };
 
     inline std::ostream& operator<<(std::ostream& out, egraph const& g) { return g.display(out); }

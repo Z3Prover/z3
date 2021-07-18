@@ -449,8 +449,8 @@ namespace euf {
 
         if (!init_relevancy())
             give_up = true;
-
-
+        
+        unsigned num_nodes = m_egraph.num_nodes();
         for (auto* e : m_solvers) {
             if (!m.inc())
                 return sat::check_result::CR_GIVEUP;
@@ -468,6 +468,10 @@ namespace euf {
             return sat::check_result::CR_CONTINUE;
         if (give_up)
             return sat::check_result::CR_GIVEUP;
+        if (num_nodes < m_egraph.num_nodes()) {
+            IF_VERBOSE(1, verbose_stream() << "new nodes created, but not detected\n");
+            return sat::check_result::CR_CONTINUE;           
+        }
         if (m_qsolver)
             return m_qsolver->check();
         TRACE("after_search", s().display(tout););
