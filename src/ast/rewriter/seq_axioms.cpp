@@ -820,16 +820,20 @@ namespace seq {
     /*
     *   len(ubv2s(b)) = k => 10^k-1 <= b < 10^{k}   k > 1
     *   len(ubv2s(b)) = 1 =>  b < 10^{1}   k = 1
+    *   len(ubv2s(b)) >= k => is_digit(nth(ubv2s(b),0) & ... & is_digit(nth(ubv2s(b),k-1)
     */
     void axioms::ubv2s_len_axiom(expr* b, unsigned k) {
-        expr_ref ge10k(m), ge10k1(m), eq(m);
+        expr_ref ge10k(m), ge10k1(m), eq(m), is_digit(m);
+        expr_ref ubvs(seq.str.mk_ubv2s(b), m);
+        expr_ref len(seq.str.mk_length(ubvs), m);
+        expr_ref ge_len(a.mk_ge(len, a.mk_int(k)), m);
         bv_util bv(m);
         sort* bv_sort = b->get_sort();
         unsigned sz = bv.get_bv_size(bv_sort);
         rational pow(1);
         for (unsigned i = 1; i < k; ++i)
             pow *= 10;
-        expr_ref len(seq.str.mk_length(seq.str.mk_ubv2s(b)), m);
+
         if (pow >= rational::power_of_two(sz)) {
             expr_ref ge(a.mk_ge(len, a.mk_int(k)), m);
             add_clause(~ge);
@@ -844,6 +848,12 @@ namespace seq {
             add_clause(~eq, ~ge10k1);
         if (k > 1)
             add_clause(~eq, ge10k);
+
+        for (unsigned i = 0; i < k; ++i) {
+            expr* ch = seq.str.mk_nth_i(ubvs, i);
+            is_digit = seq.mk_char_is_digit(ch);
+            add_clause(~ge_len, is_digit);
+        }
     }
 
     void axioms::ubv2ch_axiom(sort* bv_sort) {
