@@ -141,6 +141,19 @@ namespace q {
         mdl.register_decl(f_new, fi);
     }
 
+    /*
+    * For function f(...,t_idx, ..) collect the values of terms at position idx of f 
+    * as "values". 
+    * Map t_idx |-> mdl(t_idx)
+    * and mdl(t_idx) |-> t_idx
+    * Sort the values as [v_1, v_2, ..., v_n] with corresponding terms
+    * [t_1, t_2, ..., t_n]
+    * 
+    * Create the term if p(x) = if x <= v_1 then t_1 else if x <= v_2 then t_2 else ...  t_n
+    * where p is a fresh function 
+    * and return p(x)
+    */
+
     expr_ref model_fixer::add_projection_function(model& mdl, func_decl* f, unsigned idx) {
         sort* srt = f->get_domain(idx);
         projection_function* proj = get_projection(srt);
@@ -229,6 +242,15 @@ namespace q {
             return r->get_expr();
         return value;
     }
+
+    /**
+    * We are given a term f(...,arg_i,..) and value = mdl(arg_i)
+    * Create 
+    * 1 the bounds t_j <= arg_i < t_{j+1} where 
+    *   v_j <= value < v_{j+1} for the corresponding values of t_j, t_{j+1}
+    * 2 or the bound arg_i < t_0     if value < v_0
+    * 3 or the bound arg_i >= t_last if value > v_last
+    */
 
     void model_fixer::invert_arg(app* t, unsigned i, expr* value, expr_ref_vector& lits) {
         TRACE("q", tout << "invert-arg " << mk_pp(t, m) << " " << i << " " << mk_pp(value, m) << "\n";);
