@@ -281,17 +281,11 @@ namespace euf {
                 s().add_clause(1, &lit_th, st);
             }
             else {
-                sat::bool_var v = si.to_bool_var(c);
-                s().set_external(v);
-                VERIFY(v != sat::null_bool_var);
-                VERIFY(s().is_external(v));
-                SASSERT(v != sat::null_bool_var);
-                VERIFY(!s().was_eliminated(v));
+                sat::literal lit_c = mk_literal(c);
                 expr_ref eq_el = mk_eq(e, el);
-
                 sat::literal lit_el = mk_literal(eq_el);
-                literal lits1[2] = { literal(v, true),  lit_th };
-                literal lits2[2] = { literal(v, false), lit_el };
+                literal lits1[2] = { ~lit_c,  lit_th };
+                literal lits2[2] = { lit_c, lit_el };
                 s().add_clause(2, lits1, st);
                 s().add_clause(2, lits2, st);
             }
