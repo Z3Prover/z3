@@ -3950,6 +3950,7 @@ br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
     comp(none) -> all
     comp(all) -> none
     comp(comp(e1)) -> e1
+    comp(epsilon) -> .+
 */
 br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
     expr *e1 = nullptr, *e2 = nullptr;
@@ -3971,6 +3972,10 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
     }
     if (re().is_complement(a, e1)) {
         result = e1;
+        return BR_DONE;
+    }
+    if (re().is_to_re(a, e1) && str().is_empty(e1)) {
+        result = re().mk_plus(re().mk_full_char(a->get_sort()));
         return BR_DONE;
     }
     return BR_FAILED;
@@ -4160,6 +4165,7 @@ br_status seq_rewriter::mk_re_power(func_decl* f, expr* a, expr_ref& result) {
    a+* = a*
    emp* = ""
    all* = all   
+   .+* = all
 */
 br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
     expr* b, *c, *b1, *c1;
@@ -4182,7 +4188,10 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
         return BR_DONE;
     }
     if (re().is_plus(a, b)) {
-        result = re().mk_star(b);
+        if (re().is_full_char(b))
+            result = re().mk_full_seq(a->get_sort());
+        else
+            result = re().mk_star(b);
         return BR_DONE;
     }
     if (re().is_union(a, b, c)) {
