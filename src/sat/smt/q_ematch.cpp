@@ -94,7 +94,10 @@ namespace q {
         lit lit(expr_ref(l, m), expr_ref(r, m), sign); 
         if (idx != UINT_MAX)
             lit = c[idx];
-        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(lit, c, b);
+        auto* ev = static_cast<euf::enode_pair*>(ctx.get_region().allocate(sizeof(euf::enode_pair) * m_evidence.size()));
+        for (unsigned i = m_evidence.size(); i-- > 0; )
+            ev[i] = m_evidence[i];
+        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(lit, c, b, m_evidence.size(), ev);
         return constraint->to_index();
     }
 
@@ -251,7 +254,8 @@ namespace q {
     bool ematch::propagate(bool is_owned, euf::enode* const* binding, unsigned max_generation, clause& c, bool& propagated) {
         TRACE("q", c.display(ctx, tout) << "\n";);
         unsigned idx = UINT_MAX;
-        lbool ev = m_eval(binding, c, idx);
+        m_evidence.reset();
+        lbool ev = m_eval(binding, c, idx, m_evidence);
         if (ev == l_true) {
             ++m_stats.m_num_redundant;
             return true;
@@ -267,15 +271,18 @@ namespace q {
         if (ev == l_undef && max_generation > m_generation_propagation_threshold)
             return false;
         if (!is_owned) 
-            binding = alloc_binding(c, binding);        
-        auto j_idx = mk_justification(idx, c, binding);       
+            binding = alloc_binding(c, binding); 
+
+        auto j_idx = mk_justification(idx, c, binding);     
+
         if (ev == l_false) {
             ++m_stats.m_num_conflicts;
             ctx.set_conflict(j_idx);
         }
         else {
             ++m_stats.m_num_propagations;
-            ctx.propagate(instantiate(c, binding, c[idx]), j_idx);
+            auto lit = instantiate(c, binding, c[idx]);
+            ctx.propagate(lit, j_idx);            
         }
         propagated = true;
         return true;
@@ -295,6 +302,7 @@ namespace q {
     }
 
     void ematch::add_instantiation(clause& c, binding& b, sat::literal lit) {
+        m_evidence.reset();
         ctx.propagate(lit, mk_justification(UINT_MAX, c, b.nodes()));
     }
 

@@ -32,7 +32,7 @@ namespace q {
         m(ctx.get_manager())
     {}
 
-    lbool eval::operator()(euf::enode* const* binding, clause& c, unsigned& idx) {
+    lbool eval::operator()(euf::enode* const* binding, clause& c, unsigned& idx, euf::enode_pair_vector& evidence) {
         scoped_mark_reset _sr(*this);
         idx = UINT_MAX;
         unsigned sz = c.m_lits.size();
@@ -41,7 +41,7 @@ namespace q {
         for (unsigned i = 0; i < sz; ++i) {
             unsigned lim = m_indirect_nodes.size();
             lit l = c[i];
-            lbool cmp = compare(n, binding, l.lhs, l.rhs);
+            lbool cmp = compare(n, binding, l.lhs, l.rhs, evidence);
             switch (cmp) {
             case l_false:
                 m_indirect_nodes.shrink(lim);
@@ -75,46 +75,55 @@ namespace q {
         return l_undef;
     }
 
-    lbool eval::operator()(euf::enode* const* binding, clause& c) {
+    lbool eval::operator()(euf::enode* const* binding, clause& c, euf::enode_pair_vector& evidence) {
         unsigned idx = 0;
-        return (*this)(binding, c, idx);
+        return (*this)(binding, c, idx, evidence);
     }
 
-    lbool eval::compare(unsigned n, euf::enode* const* binding, expr* s, expr* t) {
+    lbool eval::compare(unsigned n, euf::enode* const* binding, expr* s, expr* t, euf::enode_pair_vector& evidence) {
         if (s == t)
             return l_true;
         if (m.are_distinct(s, t))
             return l_false;
 
-        euf::enode* sn = (*this)(n, binding, s);
-        euf::enode* tn = (*this)(n, binding, t);
-        if (sn) sn = sn->get_root();
-        if (tn) tn = tn->get_root();
+        euf::enode* sn = (*this)(n, binding, s, evidence);
+        euf::enode* tn = (*this)(n, binding, t, evidence);
+        euf::enode* sr = sn ? sn->get_root() : sn;
+        euf::enode* tr = tn ? tn->get_root() : tn;
+        if (sn != sr) evidence.push_back(euf::enode_pair(sn, sr)), sn = sr;
+        if (tn != tr) evidence.push_back(euf::enode_pair(tn, tr)), tn = tr;
         TRACE("q", tout << mk_pp(s, m) << " ~~ " << mk_pp(t, m) << "\n";
               tout << ctx.bpp(sn) << " " << ctx.bpp(tn) << "\n";);
         
         lbool c;
         if (sn && sn == tn)
             return l_true;
-        if (sn && tn && ctx.get_egraph().are_diseq(sn, tn))
+        if (sn && tn && ctx.get_egraph().are_diseq(sn, tn)) {
+            evidence.push_back(euf::enode_pair(sn, tn));
             return l_false;
+        }
         if (sn && tn)
             return l_undef;
         if (!sn && !tn) 
-            return compare_rec(n, binding, s, t);
+            return compare_rec(n, binding, s, t, evidence);
         if (!tn && sn) {
             std::swap(tn, sn);
             std::swap(t, s);
         }
-        for (euf::enode* t1 : euf::enode_class(tn)) 
-            if (c = compare_rec(n, binding, s, t1->get_expr()), c != l_undef)
+        unsigned sz = evidence.size();
+        for (euf::enode* t1 : euf::enode_class(tn)) {            
+            if (c = compare_rec(n, binding, s, t1->get_expr(), evidence), c != l_undef) {
+                evidence.push_back(euf::enode_pair(t1, tn));
                 return c;
+            }
+            evidence.shrink(sz);
+        }
         return l_undef;
     }
 
     // f(p1) = f(p2)  if p1 = p2
     // f(p1) != f(p2) if p1 != p2 and f is injective
-    lbool eval::compare_rec(unsigned n, euf::enode* const* binding, expr* s, expr* t) {
+    lbool eval::compare_rec(unsigned n, euf::enode* const* binding, expr* s, expr* t, euf::enode_pair_vector& evidence) {
         if (m.are_equal(s, t))
             return l_true;
         if (m.are_distinct(s, t))
@@ -127,14 +136,20 @@ namespace q {
             return l_undef;
         bool is_injective = to_app(s)->get_decl()->is_injective();
         bool has_undef = false;
+        unsigned sz = evidence.size();
         for (unsigned i = to_app(s)->get_num_args(); i-- > 0; ) {
-            switch (compare(n, binding, to_app(s)->get_arg(i), to_app(t)->get_arg(i))) {
+            unsigned sz1 = evidence.size(), sz2;
+            switch (compare(n, binding, to_app(s)->get_arg(i), to_app(t)->get_arg(i), evidence)) {
             case l_true:
                 break;
-            case l_false:
-                if (is_injective)
-                    return l_false;
-                return l_undef;
+            case l_false:                                
+                if (!is_injective)
+                    return l_undef;
+                sz2 = evidence.size();
+                for (unsigned i = 0; i < sz2 - sz1; ++i)
+                    evidence[sz + i] = evidence[sz1 + i];
+                evidence.shrink(sz + sz2 - sz1);
+                return l_false;
             case l_undef:
                 if (!is_injective)
                     return l_undef;
@@ -142,10 +157,15 @@ namespace q {
                 break;
             }
         }
-        return has_undef ? l_undef : l_true;
+
+        if (!has_undef)
+            return l_true;
+
+        evidence.shrink(sz);
+        return l_undef;
     }
 
-    euf::enode* eval::operator()(unsigned n, euf::enode* const* binding, expr* e) {
+    euf::enode* eval::operator()(unsigned n, euf::enode* const* binding, expr* e, euf::enode_pair_vector& evidence) {
         if (is_ground(e))
             return ctx.get_egraph().find(e);
         if (m_mark.is_marked(e))
@@ -186,6 +206,15 @@ namespace q {
                 euf::enode* n = ctx.get_egraph().find(t, args.size(), args.data());
                 if (!n)
                     return nullptr;
+                for (unsigned i = args.size(); i-- > 0; ) {
+                    if (args[i] != n->get_arg(i)) {
+                        // roots could be different when using commutativity
+                        // instead of compensating for this, we just bail out
+                        if (args[i]->get_root() != n->get_arg(i)->get_root())
+                            return nullptr;
+                        evidence.push_back(euf::enode_pair(args[i], n->get_arg(i)));
+                    }
+                }
                 m_indirect_nodes.push_back(n);
                 m_eval.setx(t->get_id(), n, nullptr);
                 m_mark.mark(t);
@@ -195,99 +224,18 @@ namespace q {
         return m_eval[e->get_id()];
     }
 
-    void eval::explain(clause& c, unsigned literal_idx, euf::enode* const* b) {
-        unsigned n = c.num_decls();
-        for (unsigned i = c.size(); i-- > 0; ) {
-            if (i == literal_idx) 
-                continue;
-            auto const& lit = c[i];
-            if (lit.sign) 
-                explain_eq(n, b, lit.lhs, lit.rhs);
-            else 
-                explain_diseq(n, b, lit.lhs, lit.rhs);
-        }
-    }
-
-    void eval::explain_eq(unsigned n, euf::enode* const* binding, expr* s, expr* t) {
-        SASSERT(l_true == compare(n, binding, s, t));
-        if (s == t)
-            return;
-        euf::enode* sn = (*this)(n, binding, s);
-        euf::enode* tn = (*this)(n, binding, t);
-        if (sn && tn) {
-            SASSERT(sn->get_root() == tn->get_root());
-            ctx.add_antecedent(sn, tn);
-            return;
-        }
-        if (!sn && tn) {
-            std::swap(sn, tn);
-            std::swap(s, t);
-        }
-        if (sn && !tn) {
-            for (euf::enode* s1 : euf::enode_class(sn)) {
-                if (l_true == compare_rec(n, binding, t, s1->get_expr())) {
-                    ctx.add_antecedent(sn, s1);
-                    explain_eq(n, binding, t, s1->get_expr());
-                    return;
-                }
-            }
-            UNREACHABLE();
-        }
-        SASSERT(is_app(s) && is_app(t));
-        SASSERT(to_app(s)->get_decl() == to_app(t)->get_decl());
-        for (unsigned i = to_app(s)->get_num_args(); i-- > 0; ) 
-            explain_eq(n, binding, to_app(s)->get_arg(i), to_app(t)->get_arg(i));
-    }
-
-    void eval::explain_diseq(unsigned n, euf::enode* const* binding, expr* s, expr* t) {
-        SASSERT(l_false == compare(n, binding, s, t));
-        if (m.are_distinct(s, t))
-            return;
-        euf::enode* sn = (*this)(n, binding, s);
-        euf::enode* tn = (*this)(n, binding, t);
-        if (sn && tn && ctx.get_egraph().are_diseq(sn, tn)) {
-            ctx.add_diseq_antecedent(sn, tn);
-            return;
-        }
-        if (!sn && tn) {
-            std::swap(sn, tn);
-            std::swap(s, t);
-        }
-        if (sn && !tn) {
-            for (euf::enode* s1 : euf::enode_class(sn)) {
-                if (l_false == compare_rec(n, binding, t, s1->get_expr())) {
-                    ctx.add_antecedent(sn, s1);
-                    explain_diseq(n, binding, t, s1->get_expr());
-                    return;
-                }
-            }
-            UNREACHABLE();
-        }
-        SASSERT(is_app(s) && is_app(t));
-        app* at = to_app(t);
-        app* as = to_app(s);
-        SASSERT(as->get_decl() == at->get_decl());
-        for (unsigned i = as->get_num_args(); i-- > 0; ) {
-            if (l_false == compare_rec(n, binding, as->get_arg(i), at->get_arg(i))) {                
-                explain_eq(n, binding, as->get_arg(i), at->get_arg(i));
-                return;
-            }
-        }
-        UNREACHABLE();
-    }
-
-
     void eval::explain(sat::literal l, justification& j, sat::literal_vector& r, bool probing) {
-        scoped_mark_reset _sr(*this);
-        unsigned l_idx = 0;
         clause& c = j.m_clause;
-        for (; l_idx < c.size(); ++l_idx) {
-            if (c[l_idx].lhs == j.m_lhs && c[l_idx].rhs == j.m_rhs && c[l_idx].sign == j.m_sign)
-                break;
+        for (unsigned i = 0; i < j.m_num_ev; ++i) {
+            auto [a, b] = j.m_evidence[i];
+            SASSERT(a->get_root() == b->get_root() || ctx.get_egraph().are_diseq(a, b));
+            if (a->get_root() == b->get_root())
+                ctx.add_antecedent(a, b);
+            else
+                ctx.add_diseq_antecedent(a, b);                            
         }
-        explain(c, l_idx, j.m_binding);
         r.push_back(c.m_literal);
-        (void)probing; // ignored
+        (void)probing; // ignored        
     }
 
     
