@@ -15,6 +15,7 @@ Author:
 
 --*/
 
+#include "ast/has_free_vars.h"
 #include "sat/smt/q_eval.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/q_solver.h"
@@ -176,7 +177,7 @@ namespace q {
         while (!todo.empty()) {
             expr* t = todo.back();
             SASSERT(!is_ground(t) || ctx.get_egraph().find(t));
-            if (is_ground(t)) {
+            if (is_ground(t) || (has_quantifiers(t) && !has_free_vars(t))) {
                 m_mark.mark(t);
                 m_eval.setx(t->get_id(), ctx.get_egraph().find(t), nullptr);
                 SASSERT(m_eval[t->get_id()]);
