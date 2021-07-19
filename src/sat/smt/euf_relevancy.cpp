@@ -38,11 +38,18 @@ namespace euf {
         }
     }
 
+    /**
+     * Add a root clause. Root clauses must all be satisfied by the 
+     * final assignment. If a clause is added above search level it
+     * is subject to removal on backtracking. These clauses are therefore
+     * not tracked.
+     */
     void solver::add_root(unsigned n, sat::literal const* lits) {
         if (!relevancy_enabled())
             return;
         ensure_dual_solver();
-        m_dual_solver->add_root(n, lits);
+        if (s().at_search_lvl())
+            m_dual_solver->add_root(n, lits);
     }
 
     void solver::add_aux(unsigned n, sat::literal const* lits) {

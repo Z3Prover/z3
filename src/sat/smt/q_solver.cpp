@@ -62,7 +62,7 @@ namespace q {
         if (l.sign() == is_forall(e)) {
             sat::literal lit = skolemize(q);
             add_clause(~l, lit);
-            ctx.add_aux(~l, lit);
+            ctx.add_root(~l, lit);
         }
         else {
             ctx.push_vec(m_universal, l);
