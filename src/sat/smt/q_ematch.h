@@ -49,6 +49,13 @@ namespace q {
             }
         };
 
+        struct prop {
+            bool is_conflict;
+            unsigned idx;
+            sat::ext_justification_idx j;
+            prop(bool is_conflict, unsigned idx, sat::ext_justification_idx j) : is_conflict(is_conflict), idx(idx), j(j) {}
+        };
+
         struct remove_binding;
         struct insert_binding;
         struct pop_clause;
@@ -65,6 +72,7 @@ namespace q {
         scoped_ptr<binding>           m_tmp_binding;
         unsigned                      m_tmp_binding_capacity = 0;
         queue                         m_inst_queue;
+        svector<prop>                 m_prop_queue;
         pattern_inference_rw          m_infer_patterns;
         scoped_ptr<q::mam>            m_mam, m_lazy_mam;
         ptr_vector<clause>            m_clauses;
@@ -107,6 +115,9 @@ namespace q {
 
         fingerprint* add_fingerprint(clause& c, binding& b, unsigned max_generation);
         void set_tmp_binding(fingerprint& fp);
+
+        bool flush_prop_queue();
+        void propagate(bool is_conflict, unsigned idx, sat::ext_justification_idx j_idx);
 
     public:
         

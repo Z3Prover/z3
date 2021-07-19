@@ -275,16 +275,34 @@ namespace q {
 
         auto j_idx = mk_justification(idx, c, binding);     
 
-        if (ev == l_false) {
+        if (is_owned)
+            propagate(ev == l_false, idx, j_idx);
+        else
+            m_prop_queue.push_back(prop(ev == l_false, idx, j_idx));
+        propagated = true;
+        return true;
+    }
+
+    void ematch::propagate(bool is_conflict, unsigned idx, sat::ext_justification_idx j_idx) {
+        if (is_conflict) {
             ++m_stats.m_num_conflicts;
             ctx.set_conflict(j_idx);
         }
         else {
             ++m_stats.m_num_propagations;
-            auto lit = instantiate(c, binding, c[idx]);
-            ctx.propagate(lit, j_idx);            
+            auto& j = justification::from_index(j_idx);
+            auto lit = instantiate(j.m_clause, j.m_binding, j.m_clause[idx]);
+            ctx.propagate(lit, j_idx);
         }
-        propagated = true;
+    }
+
+    bool ematch::flush_prop_queue() {
+        if (m_prop_queue.empty())
+            return false;
+        for (unsigned i = 0; i < m_prop_queue.size(); ++i) {
+            auto [is_conflict, idx, j_idx] = m_prop_queue[i];
+            propagate(is_conflict, idx, j_idx);
+        }
         return true;
     }
 
@@ -508,7 +526,7 @@ namespace q {
 
     bool ematch::propagate(bool flush) {
         m_mam->propagate();
-        bool propagated = false;
+        bool propagated = flush_prop_queue();
         if (m_qhead >= m_clause_queue.size())
             return m_inst_queue.propagate();
         ctx.push(value_trail<unsigned>(m_qhead));
