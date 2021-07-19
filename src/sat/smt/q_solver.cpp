@@ -45,8 +45,7 @@ namespace q {
             for (expr* e : exp) {
                 sat::literal lit = ctx.internalize(e, l.sign(), false, false); 
                 add_clause(~l, lit);                    
-                if (ctx.relevancy_enabled())
-                    ctx.add_root(~l, lit);
+                ctx.add_aux(~l, lit);
             }
             return;
         }
@@ -56,14 +55,14 @@ namespace q {
             for (expr* e : exp)
                 lits.push_back(ctx.internalize(e, l.sign(), false, false));
             add_clause(lits);
-            ctx.add_root(lits);
+            ctx.add_aux(lits);
             return;
         }
 
         if (l.sign() == is_forall(e)) {
             sat::literal lit = skolemize(q);
             add_clause(~l, lit);
-            ctx.add_root(~l, lit);
+            ctx.add_aux(~l, lit);
         }
         else {
             ctx.push_vec(m_universal, l);

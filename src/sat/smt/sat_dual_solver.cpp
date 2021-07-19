@@ -81,9 +81,9 @@ namespace sat {
         return literal(m_var2ext[lit.var()], lit.sign());
     }
 
-    void dual_solver::add_root(unsigned sz, literal const* clause) {
-        TRACE("dual", tout << "root: " << literal_vector(sz, clause) << "\n";);
+    void dual_solver::add_root(unsigned sz, literal const* clause) {        
         if (sz == 1) {
+            TRACE("dual", tout << "unit: " << clause[0] << "\n";);
             m_units.push_back(clause[0]);
             return;
         }
@@ -91,6 +91,7 @@ namespace sat {
         for (unsigned i = 0; i < sz; ++i)
             m_solver.mk_clause(root, ~ext2lit(clause[i]), status::input());
         m_roots.push_back(~root);
+        TRACE("dual", tout << "root: " << ~root << " => " << literal_vector(sz, clause) << "\n";);
     }
 
     void dual_solver::add_aux(unsigned sz, literal const* clause) {

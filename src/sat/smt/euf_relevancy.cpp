@@ -39,11 +39,15 @@ namespace euf {
     }
 
     void solver::add_root(unsigned n, sat::literal const* lits) {
+        if (!relevancy_enabled())
+            return;
         ensure_dual_solver();
         m_dual_solver->add_root(n, lits);
     }
 
     void solver::add_aux(unsigned n, sat::literal const* lits) {
+        if (!relevancy_enabled())
+            return;
         ensure_dual_solver();
         m_dual_solver->add_aux(n, lits);
     }
