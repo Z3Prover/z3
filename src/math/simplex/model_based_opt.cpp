@@ -528,6 +528,13 @@ namespace opt {
         }
     }
 
+    /**
+    * a1 > 0
+    * a1*x + r1 = value
+    * a2*x + r2 <= 0
+    * ------------------
+    * a1*r2 - a2*r1 <= value
+    */
     void model_based_opt::solve(unsigned row_src, rational const& a1, unsigned row_dst, unsigned x) {
         SASSERT(a1 == get_coefficient(row_src, x));
         SASSERT(a1.is_pos());
@@ -1205,10 +1212,9 @@ namespace opt {
         SASSERT(a.is_pos());
         if (ty == t_lt) {
             SASSERT(compute_def);
-            m_rows[row_id1].m_coeff += a;      
+            m_rows[row_id1].m_coeff -= m_rows[row_id1].m_value;
             m_rows[row_id1].m_type = t_le;
-            m_rows[row_id1].m_value += a;
-        }
+            m_rows[row_id1].m_value = 0;
         if (m_var2is_int[x] && !a.is_one()) {
             row& r1 = m_rows[row_id1];
             vector<var> coeffs;
