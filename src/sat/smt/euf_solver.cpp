@@ -348,9 +348,7 @@ namespace euf {
 
     void solver::propagate_literals() {
         for (; m_egraph.has_literal() && !s().inconsistent() && !m_egraph.inconsistent(); m_egraph.next_literal()) {
-            euf::enode_bool_pair p = m_egraph.get_literal();
-            euf::enode* n = p.first;
-            bool is_eq = p.second;
+            auto [n, is_eq] = m_egraph.get_literal();
             expr* e = n->get_expr();
             expr* a = nullptr, *b = nullptr;
             bool_var v = n->bool_var();
@@ -364,6 +362,10 @@ namespace euf {
             }
             else {
                 lbool val = n->get_root()->value();
+                if (val == l_undef && m.is_false(n->get_root()->get_expr()))
+                    val = l_false;
+                if (val == l_undef && m.is_true(n->get_root()->get_expr()))
+                    val = l_true;
                 a = e;
                 b = (val == l_true) ? m.mk_true() : m.mk_false();
                 SASSERT(val != l_undef);
