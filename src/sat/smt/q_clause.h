@@ -29,7 +29,9 @@ namespace q {
         expr_ref rhs;
         bool     sign;
         lit(expr_ref const& lhs, expr_ref const& rhs, bool sign):
-            lhs(lhs), rhs(rhs), sign(sign) {}
+            lhs(lhs), rhs(rhs), sign(sign) {
+            SASSERT(!rhs.m().is_false(rhs) || !sign);
+        }
         std::ostream& display(std::ostream& out) const;
     };
 

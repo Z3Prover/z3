@@ -419,6 +419,16 @@ namespace q {
                 r = sign ? m.mk_false() : m.mk_true();
                 sign = false;
             }
+            if (m.is_true(l) || m.is_false(l))
+                std::swap(l, r);
+            if (sign && m.is_false(r)) {
+                r = m.mk_true();
+                sign = false;
+            }
+            else if (sign && m.is_true(r)) {
+                r = m.mk_false();
+                sign = false;
+            }
             cl->m_lits.push_back(lit(expr_ref(l, m), expr_ref(r, m), sign));
         }
         if (q->get_num_patterns() == 0) {
