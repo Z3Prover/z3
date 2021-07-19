@@ -1215,6 +1215,8 @@ namespace opt {
             m_rows[row_id1].m_coeff -= m_rows[row_id1].m_value;
             m_rows[row_id1].m_type = t_le;
             m_rows[row_id1].m_value = 0;
+        }        
+
         if (m_var2is_int[x] && !a.is_one()) {
             row& r1 = m_rows[row_id1];
             vector<var> coeffs;
