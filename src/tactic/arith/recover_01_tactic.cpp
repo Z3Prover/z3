@@ -321,8 +321,6 @@ class recover_01_tactic : public tactic {
             SASSERT(new_goal->depth() == g->depth());
             SASSERT(new_goal->prec() == g->prec());
             new_goal->inc_depth();
-            new_goal->add(g->mc());
-            new_goal->add(g->pc());
 
             for (unsigned i = 0; i < g->size(); i++) {
                 expr * f = g->form(i);
@@ -375,7 +373,7 @@ class recover_01_tactic : public tactic {
                 new_goal->update(idx, new_curr);
             }
             result.push_back(new_goal.get());
-            TRACE("recover_01", new_goal->display(tout););
+            TRACE("recover_01", new_goal->display(tout); if (new_goal->mc()) new_goal->mc()->display(tout););
             SASSERT(new_goal->is_well_formed());
         }
         
