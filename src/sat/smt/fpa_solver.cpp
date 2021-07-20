@@ -312,7 +312,9 @@ namespace fpa {
             if (!wrapped) wrapped = m_converter.wrap(e);
             return expr2enode(wrapped) != nullptr;
         };
-        if (m_fpa_util.is_fp(e)) {
+        if (m_fpa_util.is_rm_numeral(e) || m_fpa_util.is_numeral(e)) 
+            value = e;
+        else if (m_fpa_util.is_fp(e)) {
             SASSERT(n->num_args() == 3);
             expr* a = values.get(n->get_arg(0)->get_root_id());
             expr* b = values.get(n->get_arg(1)->get_root_id());
