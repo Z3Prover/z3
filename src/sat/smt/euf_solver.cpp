@@ -342,7 +342,7 @@ namespace euf {
                 break;
             propagated = true;             
         }
-        DEBUG_CODE(if (!s().inconsistent()) check_missing_eq_propagation(););
+        DEBUG_CODE(if (!propagated && !s().inconsistent()) check_missing_eq_propagation(););
         return propagated;
     }
 
@@ -354,7 +354,7 @@ namespace euf {
             bool_var v = n->bool_var();
             SASSERT(m.is_bool(e));
             size_t cnstr;
-            literal lit;            
+            literal lit;  
             if (is_eq) {
                 VERIFY(m.is_eq(e, a, b));
                 cnstr = eq_constraint().to_index();
