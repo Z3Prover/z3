@@ -303,6 +303,7 @@ namespace q {
             auto [is_conflict, idx, j_idx] = m_prop_queue[i];
             propagate(is_conflict, idx, j_idx);
         }
+        m_prop_queue.reset();
         return true;
     }
 
