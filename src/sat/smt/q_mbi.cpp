@@ -299,13 +299,12 @@ namespace q {
             auto* p = get_plugin(v);
             if (p && !fmls_extracted) {
                 TRACE("q", tout << "domain eqs\n" << qb.domain_eqs << "\n";);
-                
-                for (expr* e : qb.domain_eqs)
-                    if (!m_model->is_true(e))
-                        return expr_ref(nullptr, m);
-                
+                                
                 fmls.append(qb.domain_eqs);
                 eliminate_nested_vars(fmls, qb);
+                for (expr* e : fmls)
+                    if (!m_model->is_true(e))
+                        return expr_ref(nullptr, m);
                 mbp::project_plugin proj(m);
                 proj.extract_literals(*m_model, vars, fmls);
                 fmls_extracted = true;
