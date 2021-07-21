@@ -134,7 +134,15 @@ namespace opt {
     }
 
     void model_based_opt::def::normalize() {
-        SASSERT(m_div.is_int());
+        if (!m_div.is_int()) {
+            rational den = denominator(m_div);
+            SASSERT(den > 1);
+            for (var& v : m_vars)
+                v.m_coeff *= den;
+            m_coeff *= den;
+            m_div *= den;
+
+        }
         if (m_div.is_neg()) {
             for (var& v : m_vars)
                 v.m_coeff.neg();
@@ -1249,6 +1257,7 @@ namespace opt {
         }
         def result;
         if (compute_def) {
+            TRACE("opt1", tout << m_rows[row_id1] << "\n";);
             result = def(m_rows[row_id1], x);
             m_var2value[x] = eval(result);
             TRACE("opt1", tout << "updated eval " << x << " := " << eval(x) << "\n";);
