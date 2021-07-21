@@ -110,10 +110,9 @@ bool quasi_macros::fully_depends_on(app * a, quantifier * q) const {
     // direct argument of a, i.e., a->get_arg(i) == v for some i
     bit_vector bitset;
     bitset.resize(q->get_num_decls(), false);
-    for (unsigned i = 0 ; i < a->get_num_args() ; i++) {
-        if (is_var(a->get_arg(i)))
-            bitset.set(to_var(a->get_arg(i))->get_idx(), true);
-    }
+    for (expr* arg : *a)
+        if (is_var(arg))
+             bitset.set(to_var(arg)->get_idx(), true);
 
     for (unsigned i = 0; i < bitset.size() ; i++) {
         if (!bitset.get(i))
