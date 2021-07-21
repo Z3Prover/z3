@@ -69,7 +69,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
     atom2bool_var &             m_map;
     dep2asm_map &               m_dep2asm;
     obj_map<expr, sat::bool_var>* m_expr2var_replay { nullptr };
-    sat::literal                m_true;
     bool                        m_ite_extra;
     unsigned long long          m_max_memory;
     expr_ref_vector             m_trail;
@@ -92,7 +91,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_unhandled_funs(m),
         m_default_external(default_external) {
         updt_params(p);
-        m_true = sat::null_literal;
     }
 
     ~imp() override {
@@ -198,16 +196,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
             ensure_euf()->drat_bool_def(v, n);
     }
 
-    sat::literal mk_true() {
-        if (m_true == sat::null_literal) {
-            // create fake variable to represent true;
-            m_true = sat::literal(add_var(false, m.mk_true()), false);
-            mk_clause(m_true); // v is true
-            add_dual_root(1, &m_true);
-        }
-        return m_true;
-    }
-
     sat::bool_var to_bool_var(expr* e) override {
         sat::literal l;
         sat::bool_var v = m_map.to_bool_var(e);
@@ -301,10 +289,16 @@ struct goal2sat::imp : public sat::sat_internalizer {
         sat::bool_var v = m_map.to_bool_var(t);
         if (v == sat::null_bool_var) {
             if (m.is_true(t)) {
-                l = sign ? ~mk_true() : mk_true();
+                sat::literal tt = sat::literal(add_var(false, m.mk_true()), false);
+                mk_clause(tt);
+                add_dual_root(1, &tt);
+                l = sign ? ~tt : tt;
             }
             else if (m.is_false(t)) {
-                l = sign ? mk_true() : ~mk_true();
+                sat::literal tt = sat::literal(add_var(false, m.mk_false()), true);
+                mk_clause(tt);
+                add_dual_root(1, &tt);
+                l = sign ? tt : ~tt;
             }
             else {                
                 if (m_euf) {
@@ -932,7 +926,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void user_pop(unsigned n) {
-        m_true = sat::null_literal;   
     }
 
 };
