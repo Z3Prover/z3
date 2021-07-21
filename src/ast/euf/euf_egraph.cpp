@@ -417,6 +417,16 @@ namespace euf {
             std::swap(r1, r2);
             std::swap(n1, n2);
         }
+        if (m.is_false(r2->get_expr()) && r1->value() == l_true) {
+            std::cout << "value assign conflict\n";
+            set_conflict(n1, n2, j);
+            return;
+        }
+        if (m.is_true(r2->get_expr()) && r1->value() == l_false) {
+            std::cout << "value assign conflict\n";
+            set_conflict(n1, n2, j);
+            return;
+        }
         if (j.is_congruence() && (m.is_false(r2->get_expr()) || m.is_true(r2->get_expr())))
             add_literal(n1, false);
         if (n1->is_equality() && n1->value() == l_false)
