@@ -159,7 +159,7 @@ extern "C" {
             return;
         }
         recfun_replace replace(m);
-        p.set_definition(replace, pd, n, _vars.data(), abs_body);
+        p.set_definition(replace, pd, true, n, _vars.data(), abs_body);
         Z3_CATCH;
     }
 

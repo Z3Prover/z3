@@ -365,7 +365,7 @@ void cmd_context::insert_macro(symbol const& s, unsigned arity, sort*const* doma
     // recursive functions have opposite calling convention from macros!
     var_subst sub(m(), true);
     expr_ref tt = sub(t, rvars);
-    p.set_definition(replace, d, vars.size(), vars.data(), tt);
+    p.set_definition(replace, d, true, vars.size(), vars.data(), tt);
     register_fun(s, d.get_def()->get_decl());
 }
 
@@ -1004,7 +1004,7 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
     
     recfun::promise_def d = p.get_promise_def(f);
     recfun_replace replace(m());
-    p.set_definition(replace, d, vars.size(), vars.data(), rhs);
+    p.set_definition(replace, d, false, vars.size(), vars.data(), rhs);
 }
 
 func_decl * cmd_context::find_func_decl(symbol const & s) const {
