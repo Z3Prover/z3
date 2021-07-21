@@ -1257,7 +1257,6 @@ namespace opt {
         }
         def result;
         if (compute_def) {
-            TRACE("opt1", tout << m_rows[row_id1] << "\n";);
             result = def(m_rows[row_id1], x);
             m_var2value[x] = eval(result);
             TRACE("opt1", tout << "updated eval " << x << " := " << eval(x) << "\n";);

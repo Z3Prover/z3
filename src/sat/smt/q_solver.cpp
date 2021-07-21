@@ -51,7 +51,7 @@ namespace q {
                 for (expr* e : exp) {
                     sat::literal lit = ctx.internalize(e, l.sign(), false, false); 
                     add_clause(~l, lit);                    
-                    ctx.add_aux(~l, lit);
+                    ctx.add_root(~l, lit);
                 }
             }
             else {
