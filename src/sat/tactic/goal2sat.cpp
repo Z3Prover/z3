@@ -999,6 +999,10 @@ bool goal2sat::has_interpreted_funs() const {
     return m_imp && !m_imp->interpreted_funs().empty(); 
 }
 
+bool goal2sat::has_euf() const {
+    return m_imp && m_imp->m_euf;
+}
+
 void goal2sat::update_model(model_ref& mdl) {
     if (m_imp) 
         m_imp->update_model(mdl);
