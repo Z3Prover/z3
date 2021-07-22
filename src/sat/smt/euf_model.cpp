@@ -61,6 +61,7 @@ namespace euf {
     };
 
     void solver::update_model(model_ref& mdl) {
+        mdl->reset_eval_cache();
         for (auto* mb : m_solvers)
             mb->init_model();
         m_values.reset();
