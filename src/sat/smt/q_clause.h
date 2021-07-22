@@ -59,9 +59,11 @@ namespace q {
         unsigned            m_index;
         vector<lit>         m_lits;
         quantifier_ref      m_q;
+        unsigned            m_watch = 0;
         sat::literal        m_literal = sat::null_literal;
         q::quantifier_stat* m_stat = nullptr;
         binding*            m_bindings = nullptr;
+
 
         clause(ast_manager& m, unsigned idx): m_index(idx), m_q(m) {}
 

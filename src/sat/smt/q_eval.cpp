@@ -39,40 +39,37 @@ namespace q {
         unsigned sz = c.m_lits.size();
         unsigned n = c.num_decls();
         m_indirect_nodes.reset();
-        for (unsigned i = 0; i < sz; ++i) {
+        for (unsigned j = 0; j < sz; ++j) {
+            unsigned i = (j + c.m_watch) % sz;
             unsigned lim = m_indirect_nodes.size();
             lit l = c[i];
             lbool cmp = compare(n, binding, l.lhs, l.rhs, evidence);
+            std::cout << l.sign << ": " << l.lhs << " ~~ " << l.rhs << " " << cmp << "\n";
             switch (cmp) {
             case l_false:
                 m_indirect_nodes.shrink(lim);
                 if (!l.sign)
                     break;
-                if (i > 0)
-                    std::swap(c[0], c[i]);
+                c.m_watch = i;
                 return l_true;
             case l_true:
                 m_indirect_nodes.shrink(lim);
                 if (l.sign)
                     break;
-                if (i > 0)
-                    std::swap(c[0], c[i]);
+                c.m_watch = i;
                 return l_true;
             case l_undef:
                 TRACE("q", tout << l.lhs << " ~~ " << l.rhs << " is undef\n";);
-                if (idx == 0) {
+                if (idx != UINT_MAX) {
                     idx = UINT_MAX;
                     return l_undef;
                 }
-                if (i > 0)
-                    std::swap(c[0], c[i]);
-                idx = 0;
+                idx = i;
                 break;
             }
         }
         if (idx == UINT_MAX)
             return l_false;
-        
         return l_undef;
     }
 
@@ -97,8 +94,9 @@ namespace q {
               tout << ctx.bpp(sn) << " " << ctx.bpp(tn) << "\n";);
         
         lbool c;
-        if (sn && sn == tn)
+        if (sn && sn == tn) 
             return l_true;
+        
         if (sn && tn && ctx.get_egraph().are_diseq(sn, tn)) {
             evidence.push_back(euf::enode_pair(sn, tn));
             return l_false;

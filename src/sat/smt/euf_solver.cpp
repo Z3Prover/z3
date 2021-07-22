@@ -211,7 +211,7 @@ namespace euf {
         for (sat::literal lit : r) 
             if (s().lvl(lit) > 0) r[j++] = lit;
         r.shrink(j);
-        TRACE("euf", tout << "eplain " << l << " <- " << r << " " << probing << "\n";);
+        TRACE("euf", tout << "explain " << l << " <- " << r << " " << probing << "\n";);
         DEBUG_CODE(for (auto lit : r) SASSERT(s().value(lit) == l_true););
 
         if (!probing)
