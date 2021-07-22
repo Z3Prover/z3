@@ -44,7 +44,6 @@ namespace q {
             unsigned lim = m_indirect_nodes.size();
             lit l = c[i];
             lbool cmp = compare(n, binding, l.lhs, l.rhs, evidence);
-            std::cout << l.sign << ": " << l.lhs << " ~~ " << l.rhs << " " << cmp << "\n";
             switch (cmp) {
             case l_false:
                 m_indirect_nodes.shrink(lim);
