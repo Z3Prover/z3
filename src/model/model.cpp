@@ -22,6 +22,7 @@ Revision History:
 #include "ast/ast_ll_pp.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/recfun_decl_plugin.h"
@@ -605,12 +606,13 @@ void model::add_rec_funs() {
                 
         func_interp* fi = alloc(func_interp, m, f->get_arity());
         // reverse argument order so that variable 0 starts at the beginning.
-        expr_ref_vector subst(m);
-        for (unsigned i = 0; i < f->get_arity(); ++i) {
-            subst.push_back(m.mk_var(i, f->get_domain(i)));
+        expr_safe_replace subst(m);
+        unsigned arity = f->get_arity();
+        for (unsigned i = 0; i < arity; ++i) {
+            subst.insert(m.mk_var(arity - i - 1, f->get_domain(i)), m.mk_var(i, f->get_domain(i)));            
         }
-        var_subst sub(m, true);
-        expr_ref bodyr = sub(rhs, subst);
+        expr_ref bodyr(m);
+        subst(rhs, bodyr);
         
         fi->set_else(bodyr);
         register_decl(f, fi);

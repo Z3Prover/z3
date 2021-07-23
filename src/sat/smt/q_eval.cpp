@@ -69,6 +69,7 @@ namespace q {
         }
         if (idx == UINT_MAX)
             return l_false;
+        c.m_watch = idx;
         return l_undef;
     }
 
