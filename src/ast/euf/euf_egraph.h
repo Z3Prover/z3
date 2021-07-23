@@ -159,6 +159,7 @@ namespace euf {
         enode*                 m_tmp_eq = nullptr;
         enode*                 m_tmp_node = nullptr;
         unsigned               m_tmp_node_capacity = 0;
+        tmp_app                m_tmp_app;
         enode_vector           m_nodes;
         expr_ref_vector        m_exprs;
         vector<enode_vector>   m_decl2enodes;
@@ -261,7 +262,7 @@ namespace euf {
         */
         bool are_diseq(enode* a, enode* b) const;
 
-        enode * get_enode_eq_to(func_decl * f, unsigned num_args, enode * const * args) { UNREACHABLE(); return nullptr; }
+        enode* get_enode_eq_to(func_decl* f, unsigned num_args, enode* const* args);
 
         /**
            \brief Maintain and update cursor into propagated consequences.

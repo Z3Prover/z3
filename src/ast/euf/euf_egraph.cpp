@@ -129,7 +129,7 @@ namespace euf {
         return n;
     }
 
-    egraph::egraph(ast_manager& m) : m(m), m_table(m), m_exprs(m) {
+    egraph::egraph(ast_manager& m) : m(m), m_table(m), m_tmp_app(2), m_exprs(m) {
         m_tmp_eq = enode::mk_tmp(m_region, 2);
     }
 
@@ -418,12 +418,10 @@ namespace euf {
             std::swap(n1, n2);
         }
         if (m.is_false(r2->get_expr()) && r1->value() == l_true) {
-            std::cout << "value assign conflict\n";
             set_conflict(n1, n2, j);
             return;
         }
         if (m.is_true(r2->get_expr()) && r1->value() == l_false) {
-            std::cout << "value assign conflict\n";
             set_conflict(n1, n2, j);
             return;
         }
@@ -602,6 +600,12 @@ namespace euf {
         if (r && r->get_root()->value() == l_false)
             return true;
         return false;
+    }
+
+    enode* egraph::get_enode_eq_to(func_decl* f, unsigned num_args, enode* const* args) {
+        m_tmp_app.set_decl(f);
+        m_tmp_app.set_num_args(num_args);
+        return find(m_tmp_app.get_app(), num_args, args);
     }
 
     /**
