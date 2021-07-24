@@ -3,6 +3,7 @@ z3_add_component(portfolio
     default_tactic.cpp
     smt_strategic_solver.cpp
     solver2lookahead.cpp
+    solver_subsumption_tactic.cpp
   COMPONENT_DEPENDENCIES
     aig_tactic
     fp
@@ -16,4 +17,6 @@ z3_add_component(portfolio
     fd_solver
   TACTIC_HEADERS
     default_tactic.h
+    solver_subsumption_tactic.h
+
 )
