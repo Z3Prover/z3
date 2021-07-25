@@ -93,7 +93,10 @@ namespace fpa {
         SASSERT(m.is_bool(e));
         if (!visit_rec(m, e, sign, root, redundant))
             return sat::null_literal;
-        return expr2literal(e);
+        sat::literal lit = expr2literal(e);
+        if (sign)
+           lit.neg();
+        return lit;
     }
 
     void solver::internalize(expr* e, bool redundant) {

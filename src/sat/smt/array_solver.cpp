@@ -176,6 +176,7 @@ namespace array {
         TRACE("array", tout << "v" << v_child << " - " << ctx.bpp(select) << " " << ctx.bpp(child) << " prop: " << should_prop_upward(get_var_data(v_child)) << "\n";);
         if (can_beta_reduce(child)) 
             push_axiom(select_axiom(select, child));
+	    propagate_parent_select_axioms(v_child);
     }
 
     void solver::add_lambda(theory_var v, euf::enode* lambda) {
