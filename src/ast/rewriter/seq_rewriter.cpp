@@ -3341,23 +3341,16 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         }
         else if (str().is_itos(r1, r2))
         {
-            //here r1 = (str.from_int r2) and r2 is non-ground 
-            //or else the expression would have been simplified earlier
-            //so r1 must be nonempty and must consists of decimal digits 
-            //'0' = char(48) <= elem <= char(57) = '9'
-            m_br.mk_and(u().mk_le(m_util.mk_char(48), ele), u().mk_le(ele, m_util.mk_char(57)), result);
-            if (m().is_false(result))
-                return mk_empty();
-
-            hd = str().mk_nth_i(r1, m_autil.mk_int(0));
-            m_br.mk_and(result, m().mk_eq(hd, ele), result);  // result := result & ele = (hd r1)
-            if (m().is_false(result))
-                return mk_empty();
-
-            tl = str().mk_substr(r1, m_autil.mk_int(1), m_autil.mk_sub(str().mk_length(r1), m_autil.mk_int(1)));
-            //if ((isdigit ele) and (ele = (hd r1))) then (to_re (tl r1)) else []
-            result = re_and(result, re().mk_to_re(tl));
-            return result;
+            //
+            // here r1 = (str.from_int r2) and r2 is non-ground 
+            // or else the expression would have been simplified earlier
+            // so r1 must be nonempty and must consists of decimal digits 
+            // '0' <= elem <= '9'
+            // if ((isdigit ele) and (ele = (hd r1))) then (to_re (tl r1)) else []
+            //
+            m_br.mk_and(u().mk_le(m_util.mk_char('0'), ele), u().mk_le(ele, m_util.mk_char('9')), m().mk_eq(hd, ele), result); 
+            tl = re().mk_to_re(str().mk_substr(r1, m_autil.mk_int(1), m_autil.mk_sub(str().mk_length(r1), m_autil.mk_int(1))));            
+            return re_and(result, tl);
         }
 #if 0
         else {
