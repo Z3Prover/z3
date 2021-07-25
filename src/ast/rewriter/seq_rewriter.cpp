@@ -3339,8 +3339,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             //while mk_empty() = [], because deriv(epsilon) = [] = nothing
             return mk_empty();
         }
-        else if (str().is_itos(r1, r2))
-        {
+        else if (str().is_itos(r1, r2)) {
             //
             // here r1 = (str.from_int r2) and r2 is non-ground 
             // or else the expression would have been simplified earlier
@@ -3352,18 +3351,6 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             tl = re().mk_to_re(str().mk_substr(r1, m_autil.mk_int(1), m_autil.mk_sub(str().mk_length(r1), m_autil.mk_int(1))));            
             return re_and(result, tl);
         }
-#if 0
-        else {
-            hd = str().mk_nth_i(r1, m_autil.mk_int(0));
-            tl = str().mk_substr(r1, m_autil.mk_int(1), m_autil.mk_sub(str().mk_length(r1), m_autil.mk_int(1)));
-            result = re().mk_to_re(tl);
-            result = 
-                m().mk_ite(m_br.mk_eq_rw(r1, str().mk_empty(m().get_sort(r1))), 
-                           mk_empty(),
-                           re_and(m_br.mk_eq_rw(ele, hd), result));
-            return result;
-        }
-#endif
     }
     else if (re().is_reverse(r, r1) && re().is_to_re(r1, r2)) {
         // Reverses are rewritten so that the only derivative case is
