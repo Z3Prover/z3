@@ -871,6 +871,8 @@ public:
         m_dump_benchmarks =         p.dump_benchmarks();
         m_enable_lns =              p.enable_lns(); 
         m_lns_conflicts =           p.lns_conflicts();
+	if (m_c.num_objectives() > 1)
+	  m_add_upper_bound_block = false;
     }
 
     lbool init_local() {
