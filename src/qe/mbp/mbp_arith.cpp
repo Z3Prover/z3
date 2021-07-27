@@ -47,7 +47,6 @@ namespace mbp {
         ~imp() {}
 
         void insert_mul(expr* x, rational const& v, obj_map<expr, rational>& ts) {
-            // TRACE("qe", tout << "Adding variable " << mk_pp(x, m) << " " << v << "\n";);
             rational w;
             if (ts.find(x, w)) 
                 ts.insert(x, w + v);            
@@ -362,6 +361,10 @@ namespace mbp {
                 optdefs2mbpdef(defs, index2expr, real_vars, result);     
             if (m_apply_projection)
                 apply_projection(result, fmls);
+            TRACE("qe",
+                for (auto [v, t] : result)
+                    tout << v << " := " << t << "\n";
+                tout << "fmls:" << fmls << "\n";);
             return result;
         }        
 
