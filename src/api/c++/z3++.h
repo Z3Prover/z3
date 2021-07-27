@@ -1880,12 +1880,14 @@ namespace z3 {
         if (a.is_int()) {
             expr zero = a.ctx().int_val(0);
 	    expr ge = a >= zero;
-            r = Z3_mk_ite(a.ctx(), ge, a, -a);	    
+	    expr na = -a;
+            r = Z3_mk_ite(a.ctx(), ge, a, na);	    
         }
         else if (a.is_real()) {
             expr zero = a.ctx().real_val(0);
 	    expr ge = a >= zero;
-            r = Z3_mk_ite(a.ctx(), ge, a, -a);
+	    expr na = -a;
+            r = Z3_mk_ite(a.ctx(), ge, a, na);
         }
         else {
             r = Z3_mk_fpa_abs(a.ctx(), a); 
