@@ -162,7 +162,6 @@ namespace q {
                 return r;
             if (r == l_true) {
                 model_ref mdl;
-                expr_ref proj(m);
                 m_solver->get_model(mdl);
                 if (check_forall_subst(q, *qb, *mdl))
                     return l_false;
