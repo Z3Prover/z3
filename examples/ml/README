@@ -14,9 +14,9 @@ for the byte-code version.
 If Z3 was installed into the ocamlfind package repository (see
 src/api/ml/README), then we can also compile this example as follows:  
 
-ocamlfind ocamlc -o ml_example.byte -package Z3 -linkpkg ml_example.ml
+ocamlfind ocamlc -o ml_example.byte -thread -package Z3 -linkpkg ml_example.ml
 or
-ocamlfind ocamlopt -o ml_example -package Z3 -linkpkg ml_example.ml
+ocamlfind ocamlopt -o ml_example -thread -package Z3 -linkpkg ml_example.ml
 
 Note that the resulting binaries depend on the shared z3 library
 (libz3.dll/.so/.dylb), which needs to be in the PATH (Windows), LD_LIBRARY_PATH
