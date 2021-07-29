@@ -336,7 +336,6 @@ namespace recfun {
         return alloc(def, m(), m_fid, name, n, domain, range, is_generated);
     }
 
-
     void util::set_definition(replace& subst, promise_def & d, bool is_macro, unsigned n_vars, var * const * vars, expr * rhs) {
         expr_ref rhs1(rhs, m());
         if (!is_macro)
@@ -531,7 +530,6 @@ namespace recfun {
             }
             return result;
         }
-
     }
 
     case_expansion::case_expansion(recfun::util& u, app * n) : 

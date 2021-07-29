@@ -66,10 +66,11 @@ namespace q {
             }
         }
         m_max_cex += ctx.get_config().m_mbqi_max_cexs;
-        for (auto p : m_instantiations) {
-            unsigned generation = std::get<2>(p);
+        for (auto [qlit, fml, generation] : m_instantiations) {
             euf::solver::scoped_generation sg(ctx, generation + 1);
-            m_qs.add_clause(~std::get<0>(p), ~ctx.mk_literal(std::get<1>(p)));
+            sat::literal lit = ctx.mk_literal(fml);
+            m_qs.add_clause(~qlit, ~lit);
+            ctx.add_root(~qlit, ~lit);
         }
         m_instantiations.reset();
         return result;

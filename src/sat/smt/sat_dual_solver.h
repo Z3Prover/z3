@@ -35,6 +35,7 @@ namespace sat {
         unsigned_vector m_ext2var;
         unsigned_vector m_var2ext;
         lim_svector<unsigned> m_vars;
+        unsigned        m_num_scopes = 0;
         void add_literal(literal lit);
 
         bool_var ext2var(bool_var v);
@@ -45,6 +46,8 @@ namespace sat {
         void add_assumptions(solver const& s);
 
         std::ostream& display(solver const& s, std::ostream& out) const;
+
+        void flush();
 
     public:
         dual_solver(reslimit& l);

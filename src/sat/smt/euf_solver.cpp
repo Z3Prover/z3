@@ -489,6 +489,8 @@ namespace euf {
         for (auto* e : m_solvers)
             e->push();
         m_egraph.push();
+        if (m_dual_solver)
+            m_dual_solver->push();
     }
 
     void solver::pop(unsigned n) {
@@ -506,20 +508,18 @@ namespace euf {
         }
         m_var_trail.shrink(sc.m_var_lim);        
         m_scopes.shrink(m_scopes.size() - n);
+        if (m_dual_solver)
+            m_dual_solver->pop(n);
         SASSERT(m_egraph.num_scopes() == m_scopes.size());
         TRACE("euf_verbose", display(tout << "pop to: " << m_scopes.size() << "\n"););
     }
 
     void solver::user_push() {
-        push();
-        if (m_dual_solver)
-            m_dual_solver->push();        
+        push();      
     }
 
     void solver::user_pop(unsigned n) {
         pop(n);
-        if (m_dual_solver)
-            m_dual_solver->pop(n);
     }
 
     void solver::start_reinit(unsigned n) {

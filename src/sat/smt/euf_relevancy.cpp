@@ -48,8 +48,7 @@ namespace euf {
         if (!relevancy_enabled())
             return;
         ensure_dual_solver();
-        if (s().at_search_lvl())
-            m_dual_solver->add_root(n, lits);
+        m_dual_solver->add_root(n, lits);
     }
 
     void solver::add_aux(unsigned n, sat::literal const* lits) {
