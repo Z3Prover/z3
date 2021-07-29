@@ -338,7 +338,9 @@ namespace recfun {
 
 
     void util::set_definition(replace& subst, promise_def & d, bool is_macro, unsigned n_vars, var * const * vars, expr * rhs) {
-        expr_ref rhs1 = get_plugin().redirect_ite(subst, n_vars, vars, rhs);        
+        expr_ref rhs1(rhs, m());
+        if (!is_macro)
+            rhs1 = get_plugin().redirect_ite(subst, n_vars, vars, rhs);        
         d.set_definition(subst, is_macro, n_vars, vars, rhs1);
     }
 

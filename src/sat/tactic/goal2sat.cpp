@@ -544,6 +544,29 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
     }
 
+    void convert_not(app* t, bool root, bool sign) {
+        SASSERT(t->get_num_args() == 1);
+        unsigned sz = m_result_stack.size();
+        SASSERT(sz >= 1);
+        sat::literal  lit = m_result_stack[sz - 1];
+        m_result_stack.shrink(sz - 1);
+        if (root) {
+            SASSERT(sz == 1);
+            mk_root_clause(sign ? lit : ~lit);            
+        }
+        else {
+            sat::bool_var k = add_var(false, t);
+            sat::literal  l(k, false);
+            cache(t, l);
+            // l <=> ~lit
+            mk_clause(lit, l);
+            mk_clause(~lit, ~l);
+            if (sign)
+                l.neg();
+            m_result_stack.push_back(l);
+        }
+    }
+
     void convert_implies(app* t, bool root, bool sign) {
         SASSERT(t->get_num_args() == 2);
         unsigned sz = m_result_stack.size();
@@ -702,6 +725,9 @@ struct goal2sat::imp : public sat::sat_internalizer {
             case OP_IMPLIES:
                 convert_implies(t, root, sign);
                 break;
+            case OP_NOT:
+                convert_not(t, root, sign);
+                break;
             default:
                 UNREACHABLE();
             }
@@ -767,7 +793,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 m_frame_stack.pop_back();
                 continue;
             }
-            if (m.is_not(t)) {
+            if (m.is_not(t) && !m.is_not(t->get_arg(0))) {
                 m_frame_stack.pop_back();
                 visit(t->get_arg(0), root, !sign);
                 continue;
