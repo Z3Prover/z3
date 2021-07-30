@@ -174,6 +174,7 @@ namespace array {
         ctx.push_vec(get_var_data(v_child).m_parent_selects, select);
         euf::enode* child = var2enode(v_child);
         TRACE("array", tout << "v" << v_child << " - " << ctx.bpp(select) << " " << ctx.bpp(child) << " prop: " << should_prop_upward(get_var_data(v_child)) << "\n";);
+        TRACE("array", tout << "can beta reduce " << can_beta_reduce(child) << "\n";);
         if (can_beta_reduce(child)) 
             push_axiom(select_axiom(select, child));
 	    propagate_parent_select_axioms(v_child);
@@ -227,6 +228,12 @@ namespace array {
         
         auto& d = get_var_data(v);
 
+        for (euf::enode* lambda : d.m_lambdas) {
+            expr* e = lambda->get_expr();
+            if (a.is_const(e) || a.is_map(e)) 
+                propagate_select_axioms(d, lambda);
+        }
+        
         for (euf::enode* lambda : d.m_parent_lambdas)
             propagate_select_axioms(d, lambda);
     }
