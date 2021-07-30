@@ -710,6 +710,41 @@ namespace polysat {
     }
 
 
+    /**
+     * x*x <= z
+     * (x+1)*(x+1) <= z
+     * y == x+1
+     * ¬(y*y <= z)
+     *
+     * The original version had signed comparisons but that doesn't matter for the UNSAT result.
+     * UNSAT can be seen easily by substituting the equality.
+     */
+    static void test_subst(unsigned bw = 32) {
+        scoped_solver s(__func__);
+        auto x = s.var(s.add_var(bw));
+        auto y = s.var(s.add_var(bw));
+        auto z = s.var(s.add_var(bw));
+        s.add_ule(x * x, z);  // optional
+        s.add_ule((x + 1) * (x + 1), z);
+        s.add_eq(x + 1 - y);
+        s.add_ult(z, y*y);
+        s.check();
+        s.expect_unsat();
+    }
+
+    static void test_subst_signed(unsigned bw = 32) {
+        scoped_solver s(__func__);
+        auto x = s.var(s.add_var(bw));
+        auto y = s.var(s.add_var(bw));
+        auto z = s.var(s.add_var(bw));
+        s.add_sle(x * x, z);  // optional
+        s.add_sle((x + 1) * (x + 1), z);
+        s.add_eq(x + 1 - y);
+        s.add_slt(z, y*y);
+        s.check();
+        s.expect_unsat();
+    }
+
 
     // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
     // NOTE: actually, add_var seems to keep them in sync, so this is not an issue at the moment (but we should still test it later)
@@ -834,8 +869,9 @@ namespace polysat {
 
 
 void tst_polysat() {
+    polysat::test_subst();
     // polysat::test_monot_bounds(8);
-    polysat::test_monot_bounds_simple(8);
+    // polysat::test_monot_bounds_simple(8);
     return;
 
     polysat::test_add_conflicts();
