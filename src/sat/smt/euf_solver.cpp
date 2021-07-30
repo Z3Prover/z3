@@ -214,14 +214,6 @@ namespace euf {
         TRACE("euf", tout << "explain " << l << " <- " << r << " " << probing << "\n";);
         DEBUG_CODE(for (auto lit : r) SASSERT(s().value(lit) == l_true););
 
-#if 0
-        if (r.size() == 5 && r[0] == literal(401, true) && r[1] == literal(259, false) && r[2] == literal(250, false) &&
-            r[3] == literal(631, false) && r[4] == literal(639, false)) {
-            TRACE("euf", s().display(tout););
-            exit(0);
-        }
-#endif
-
         if (!probing)
             log_antecedents(l, r);
     }
@@ -311,19 +303,20 @@ namespace euf {
 	    if (n->value_conflict()) {
             euf::enode* nb = sign ? mk_false() : mk_true();
             m_egraph.merge(n, nb, c);
+            return;
 	    }
-        else if (!sign && n->is_equality()) {
+        if (n->merge_tf()) {
+            euf::enode* nb = sign ? mk_false() : mk_true();
+            m_egraph.merge(n, nb, c);
+        }
+        if (!sign && n->is_equality()) {
             SASSERT(!m.is_iff(e));
             euf::enode* na = n->get_arg(0);
             euf::enode* nb = n->get_arg(1);
             m_egraph.merge(na, nb, c);
         }
-        else if (n->merge_tf()) {
-            euf::enode* nb = sign ? mk_false() : mk_true();
-            m_egraph.merge(n, nb, c);
-        }
-        else if (sign && n->is_equality()) 
-            m_egraph.new_diseq(n);        
+        else if (sign && n->is_equality())
+            m_egraph.new_diseq(n);      
     }
 
 
