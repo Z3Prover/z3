@@ -166,7 +166,8 @@ namespace polysat {
 
         sat::literal blit() const { SASSERT(!is_undef()); return m_status == l_true ? sat::literal(m_bvar) : ~sat::literal(m_bvar); }
         void assign(bool is_true) {
-            SASSERT(m_status == l_undef /* || m_status == to_lbool(is_true) */);
+            SASSERT(m_status == l_undef || m_status == to_lbool(is_true));
+            // SASSERT(m_status == l_undef /* || m_status == to_lbool(is_true) */);
             m_status = to_lbool(is_true);
             // SASSERT(m_manager->m_bvars.value(bvar()) == l_undef || m_manager->m_bvars.value(bvar()) == m_status);  // TODO: is this always true? maybe we sometimes want to check the opposite phase temporarily.
         }
@@ -176,7 +177,7 @@ namespace polysat {
         bool is_negative() const { return m_status == l_false; }
 
         clause* unit_clause() const { return m_unit_clause; }
-        void set_unit_clause(clause* cl) { SASSERT(cl); SASSERT(!m_unit_clause); m_unit_clause = cl; }
+        void set_unit_clause(clause* cl) { SASSERT(cl); SASSERT(!m_unit_clause || m_unit_clause == cl); m_unit_clause = cl; }
         p_dependency* unit_dep() const;
 
         /** Precondition: all variables other than v are assigned.

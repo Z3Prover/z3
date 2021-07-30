@@ -522,6 +522,7 @@ namespace polysat {
                 LOG("Lemma: " << show_deref(lemma));
                 clause_ref new_lemma = resolve(v);
                 LOG("New Lemma: " << show_deref(new_lemma));
+                // SASSERT(new_lemma); // TODO: only for debugging, to have a breakpoint on resolution failure
                 if (!new_lemma) {
                     backtrack(i, lemma);
                     return;
@@ -792,7 +793,8 @@ namespace polysat {
             //         and then may lead to an assertion failure through this call to narrow.
             // TODO: what to do with "unassigned" constraints at this point? (we probably should have resolved those away, even in the 'backtrack' case.)
             //       NOTE: they are constraints from clauses that were added to cjust… how to deal with that? should we add the whole clause to cjust?
-            if (!c->is_undef())  // TODO: this check to be removed once this is fixed properly.
+            SASSERT(!c->is_undef());
+            // if (!c->is_undef())  // TODO: this check to be removed once this is fixed properly.
                 c->narrow(*this);
             if (is_conflict()) {
                 LOG_H1("Conflict during revert_decision/narrow!");
@@ -901,7 +903,7 @@ namespace polysat {
         if (reason->literals().size() == 1) {
             SASSERT(reason->literals()[0] == lit);
             constraint* c = m_constraints.lookup(lit.var());
-            m_redundant.push_back(c);
+            // m_redundant.push_back(c);
             activate_constraint_base(c, !lit.sign());
         }
         else
@@ -926,6 +928,7 @@ namespace polysat {
     /// Used for external unit constraints and unit consequences.
     void solver::activate_constraint_base(constraint* c, bool is_true) {
         SASSERT(c);
+        LOG("\n" << *this);
         // c must be in m_original or m_redundant so it can be deactivated properly when popping the base level
         SASSERT_EQ(std::count(m_original.begin(), m_original.end(), c) + std::count(m_redundant.begin(), m_redundant.end(), c), 1);
         sat::literal lit(c->bvar(), !is_true);
@@ -1008,6 +1011,7 @@ namespace polysat {
 
     void solver::insert_constraint(ptr_vector<constraint>& cs, constraint* c) {
         SASSERT(c);
+        LOG_V("INSERTING: " << *c);
         cs.push_back(c);
         for (unsigned i = cs.size() - 1; i-- > 0; ) {
             auto* c1 = cs[i + 1];

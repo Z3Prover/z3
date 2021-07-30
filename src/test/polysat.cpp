@@ -43,6 +43,7 @@ namespace polysat {
 
     public:
         scoped_solver(std::string name): solver(lim), m_name(name) {
+            std::cout << "\n\n\n" << std::string(78, '#') << "\n";
             std::cout << "\nSTART: " << m_name << "\n";
         }
 
@@ -355,7 +356,7 @@ namespace polysat {
      * We do overflow checks by doubling the base bitwidth here.
      */
     static void test_monot(unsigned base_bw = 5) {
-        scoped_solver s(__func__);
+        scoped_solver s(std::string{__func__} + "(" + std::to_string(base_bw) + ")");
 
         auto max_int_const = rational::power_of_two(base_bw) - 1;
 
@@ -589,7 +590,7 @@ namespace polysat {
      * y*z >= 2^32
      */
     static void test_monot_bounds(unsigned base_bw = 32) {
-        scoped_solver s(__func__);
+        scoped_solver s(std::string{__func__} + "(" + std::to_string(base_bw) + ")");
         unsigned bw = 2 * base_bw;
         auto y = s.var(s.add_var(bw));
         auto z = s.var(s.add_var(bw));
