@@ -23,9 +23,6 @@ Author:
 namespace sat {
 
     class dual_solver {
-        struct no_drat_params : public params_ref {
-            no_drat_params();
-        };
         no_drat_params  m_params;
         solver          m_solver;
         lim_svector<literal> m_units, m_roots;

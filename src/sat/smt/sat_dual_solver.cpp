@@ -18,10 +18,6 @@ Author:
 
 namespace sat {
 
-    dual_solver::no_drat_params::no_drat_params() {
-        set_sym("drat.file", symbol());
-    }
-
     dual_solver::dual_solver(reslimit& l):
         m_solver(m_params, l)
     {
