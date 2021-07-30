@@ -25,9 +25,7 @@ Other:
 
 #if POLYSAT_LOGGING_ENABLED
 
-static LogLevel
-get_max_log_level(std::string const& fn, std::string const& pretty_fn)
-{
+static LogLevel get_max_log_level(std::string const& fn, std::string const& pretty_fn) {
   (void)fn;
   (void)pretty_fn;
 
@@ -46,16 +44,12 @@ get_max_log_level(std::string const& fn, std::string const& pretty_fn)
 }
 
 /// Filter log messages
-bool
-polysat_should_log(LogLevel msg_level, std::string fn, std::string pretty_fn)
-{
+bool polysat_should_log(LogLevel msg_level, std::string fn, std::string pretty_fn) {
   LogLevel max_log_level = get_max_log_level(fn, pretty_fn);
   return msg_level <= max_log_level;
 }
 
-static char const*
-level_color(LogLevel msg_level)
-{
+static char const* level_color(LogLevel msg_level) {
   switch (msg_level) {
     case LogLevel::Heading1:
       return "[31m"; // red
@@ -70,9 +64,7 @@ level_color(LogLevel msg_level)
 
 int polysat_log_indent_level = 0;
 
-std::pair<std::ostream&, bool>
-polysat_log(LogLevel msg_level, std::string fn, std::string /* pretty_fn */)
-{
+std::pair<std::ostream&, bool> polysat_log(LogLevel msg_level, std::string fn, std::string /* pretty_fn */) {
   std::ostream& os = std::cerr;
 
   size_t width = 20;
@@ -87,25 +79,23 @@ polysat_log(LogLevel msg_level, std::string fn, std::string /* pretty_fn */)
   dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
   ok = ok && SetConsoleMode(hOut, dwMode);
 #else
-  int const fd = _fileno(stderr);
+  int const fd = fileno(stderr);
   if (color && !isatty(fd)) { color = nullptr; }
 #endif
 
-  if (color) { os << color; }
+  if (color)
+    os << color;
   os << "[" << fn << "] " << std::string(padding, ' ');
   os << std::string(polysat_log_indent_level, ' ');
   return {os, (bool)color};
 
 }
 
-polysat_log_indent::polysat_log_indent(int amount)
-  : m_amount{amount}
-{
+polysat_log_indent::polysat_log_indent(int amount): m_amount{amount} {
   polysat_log_indent_level += m_amount;
 }
 
-polysat_log_indent::~polysat_log_indent()
-{
+polysat_log_indent::~polysat_log_indent() {
   polysat_log_indent_level -= m_amount;
 }
 

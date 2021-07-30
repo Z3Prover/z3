@@ -265,11 +265,8 @@ namespace polysat {
                 if (is_viable(v, x)) 
                     xs.push_back(x);
                             
-            LOG("Viable for pvar " << v << ": " << xs);
+            LOG("Viable for v" << v << ": " << xs);
         } 
-        else {
-            LOG("Viable for pvar " << v << ": <range too big>");
-        }
     }
 #endif
 

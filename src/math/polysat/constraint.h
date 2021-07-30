@@ -166,7 +166,8 @@ namespace polysat {
 
         sat::literal blit() const { SASSERT(!is_undef()); return m_status == l_true ? sat::literal(m_bvar) : ~sat::literal(m_bvar); }
         void assign(bool is_true) {
-            SASSERT(m_status == l_undef /* || m_status == to_lbool(is_true) */);
+            SASSERT(m_status == l_undef || m_status == to_lbool(is_true));
+            // SASSERT(m_status == l_undef /* || m_status == to_lbool(is_true) */);
             m_status = to_lbool(is_true);
             // SASSERT(m_manager->m_bvars.value(bvar()) == l_undef || m_manager->m_bvars.value(bvar()) == m_status);  // TODO: is this always true? maybe we sometimes want to check the opposite phase temporarily.
         }
@@ -176,7 +177,7 @@ namespace polysat {
         bool is_negative() const { return m_status == l_false; }
 
         clause* unit_clause() const { return m_unit_clause; }
-        void set_unit_clause(clause* cl) { SASSERT(cl); SASSERT(!m_unit_clause); m_unit_clause = cl; }
+        void set_unit_clause(clause* cl) { SASSERT(cl); SASSERT(!m_unit_clause || m_unit_clause == cl); m_unit_clause = cl; }
         p_dependency* unit_dep() const;
 
         /** Precondition: all variables other than v are assigned.
@@ -351,6 +352,7 @@ namespace polysat {
         constraint* m_constraint;
         bool m_should_unassign = false;
     public:
+        /// c must live longer than tmp_assign.
         tmp_assign(constraint* c, sat::literal lit):
             m_constraint(c) {
             SASSERT(c);
@@ -362,8 +364,6 @@ namespace polysat {
             else
                 SASSERT_EQ(c->blit(), lit);
         }
-      // NSB review: assumes life-time of c extends use in tmp_assign.
-        tmp_assign(constraint_ref const& c, sat::literal lit): tmp_assign(c.get(), lit) {}
         void revert() {
             if (m_should_unassign) {
                 m_constraint->unassign();

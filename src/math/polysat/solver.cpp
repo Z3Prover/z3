@@ -522,6 +522,7 @@ namespace polysat {
                 LOG("Lemma: " << show_deref(lemma));
                 clause_ref new_lemma = resolve(v);
                 LOG("New Lemma: " << show_deref(new_lemma));
+                // SASSERT(new_lemma); // TODO: only for debugging, to have a breakpoint on resolution failure
                 if (!new_lemma) {
                     backtrack(i, lemma);
                     return;
@@ -672,7 +673,7 @@ namespace polysat {
             }
         }
         while (i-- > 0);
-        add_lemma_clause(lemma);  // TODO: handle units correctly
+        add_lemma(lemma);  // TODO: this lemma is stored but otherwise "lost" because it will not be activated / not added to any watch data structures
         report_unsat();
     }
 
@@ -692,44 +693,27 @@ namespace polysat {
         m_dm.linearize(conflict_dep, deps);
     }
 
-    /**
-     * The polynomial p encodes an equality that the decision was infeasible.
-     * The effect of this function is that the assignment to v is undone and replaced 
-     * by a new decision or unit propagation or conflict.
-     * We add 'p == 0' as a lemma. The lemma depends on the dependencies used
-     * to derive p, and the level of the lemma is the maximal level of the dependencies.
-     */
     void solver::learn_lemma(pvar v, clause_ref lemma) {
         if (!lemma)
             return;
         LOG("Learning: " << show_deref(lemma));
+        SASSERT(lemma->size() > 0);
         SASSERT(m_conflict_level <= m_justification[v].level());
-        if (lemma->size() == 1) {
-            constraint_ref c;
-            if (lemma->new_constraints().size() > 0) {
-                SASSERT_EQ(lemma->new_constraints().size(), 1);
-                c = lemma->new_constraints()[0];
-            }
-            else {
-                c = m_constraints.lookup(lemma->literals()[0].var());
-            }
-            SASSERT_EQ(lemma->literals()[0].var(), c->bvar());
-            SASSERT(c);
-            add_lemma_unit(c);
-            push_cjust(v, c.get());
-            activate_constraint_base(c.get(), !lemma->literals()[0].sign());
+        clause* cl = lemma.get();
+        add_lemma(std::move(lemma));
+        if (cl->size() == 1) {
+            sat::literal lit = cl->literals()[0];
+            constraint* c = m_constraints.lookup(lit.var());
+            c->set_unit_clause(cl);
+            push_cjust(v, c);
+            activate_constraint_base(c, !lit.sign());
         }
-        else
-            learn_lemma_clause(v, std::move(lemma));
-    }
-
-    void solver::learn_lemma_clause(pvar v, clause_ref lemma) {
-        SASSERT(lemma);
-        sat::literal lit = decide_bool(*lemma);
-        SASSERT(lit != sat::null_literal);
-        constraint* c = m_constraints.lookup(lit.var());
-        push_cjust(v, c);
-        add_lemma_clause(std::move(lemma));
+        else {
+            sat::literal lit = decide_bool(*cl);
+            SASSERT(lit != sat::null_literal);
+            constraint* c = m_constraints.lookup(lit.var());
+            push_cjust(v, c);
+        }
     }
 
     // Guess a literal from the given clause; returns the guessed constraint
@@ -750,7 +734,6 @@ namespace polysat {
             return !c->is_currently_false(*this);
         };
 
-        // constraint *choice = nullptr;
         sat::literal choice = sat::null_literal;
         unsigned num_choices = 0;  // TODO: should probably cache this?
 
@@ -789,12 +772,7 @@ namespace polysat {
         rational val = m_value[v];
         LOG_H3("Reverting decision: pvar " << v << " := " << val);
         SASSERT(m_justification[v].is_decision());
-        constraints just(m_cjust[v]);
         backjump(m_justification[v].level()-1);
-        // Since decision "v -> val" caused a conflict, we may keep all
-        // viability restrictions on v and additionally exclude val.
-        // TODO: viability restrictions on 'v' must have happened before decision on 'v'. Do we really need to save/restore m_viable here?
-        SASSERT(m_cjust[v] == just);  // check this with assertion
 
         m_viable.add_non_viable(v, val);
 
@@ -815,7 +793,8 @@ namespace polysat {
             //         and then may lead to an assertion failure through this call to narrow.
             // TODO: what to do with "unassigned" constraints at this point? (we probably should have resolved those away, even in the 'backtrack' case.)
             //       NOTE: they are constraints from clauses that were added to cjust… how to deal with that? should we add the whole clause to cjust?
-            if (!c->is_undef())  // TODO: this check to be removed once this is fixed properly.
+            SASSERT(!c->is_undef());
+            // if (!c->is_undef())  // TODO: this check to be removed once this is fixed properly.
                 c->narrow(*this);
             if (is_conflict()) {
                 LOG_H1("Conflict during revert_decision/narrow!");
@@ -902,7 +881,7 @@ namespace polysat {
         m_conflict.reset();
 
         clause* reason_cl = reason.get();
-        add_lemma_clause(std::move(reason));
+        add_lemma(std::move(reason));
         propagate_bool(~lit, reason_cl);
         if (is_conflict()) {
             LOG_H1("Conflict during revert_bool_decision/propagate_bool!");
@@ -924,7 +903,7 @@ namespace polysat {
         if (reason->literals().size() == 1) {
             SASSERT(reason->literals()[0] == lit);
             constraint* c = m_constraints.lookup(lit.var());
-            m_redundant.push_back(c);
+            // m_redundant.push_back(c);
             activate_constraint_base(c, !lit.sign());
         }
         else
@@ -949,6 +928,7 @@ namespace polysat {
     /// Used for external unit constraints and unit consequences.
     void solver::activate_constraint_base(constraint* c, bool is_true) {
         SASSERT(c);
+        LOG("\n" << *this);
         // c must be in m_original or m_redundant so it can be deactivated properly when popping the base level
         SASSERT_EQ(std::count(m_original.begin(), m_original.end(), c) + std::count(m_redundant.begin(), m_redundant.end(), c), 1);
         sat::literal lit(c->bvar(), !is_true);
@@ -1016,30 +996,22 @@ namespace polysat {
     }
 
     // Add lemma to storage but do not activate it
-    void solver::add_lemma_unit(constraint_ref lemma) {
+    void solver::add_lemma(clause_ref lemma) {
         if (!lemma)
             return;
         LOG("Lemma: " << show_deref(lemma));
-        constraint* c = m_constraints.store(std::move(lemma));
-        insert_constraint(m_redundant, c);
-        // TODO: create unit clause
-    }
-
-    // Add lemma to storage but do not activate it
-    void solver::add_lemma_clause(clause_ref lemma) {
-        if (!lemma)
-            return;
-        // TODO: check for unit clauses!
-        LOG("Lemma: " << show_deref(lemma));
-        if (lemma->size() < 2) {
-            LOG_H1("TODO: this should be treated as unit constraint and asserted at the base level!");
-        }
-        // SASSERT(lemma->size() > 1);
+        SASSERT(lemma->size() > 0);
         clause* cl = m_constraints.store(std::move(lemma));
         m_redundant_clauses.push_back(cl);
+        if (cl->size() == 1) {
+            constraint* c = m_constraints.lookup(cl->literals()[0].var());
+            insert_constraint(m_redundant, c);
+        }
     }
 
     void solver::insert_constraint(ptr_vector<constraint>& cs, constraint* c) {
+        SASSERT(c);
+        LOG_V("INSERTING: " << *c);
         cs.push_back(c);
         for (unsigned i = cs.size() - 1; i-- > 0; ) {
             auto* c1 = cs[i + 1];
@@ -1082,17 +1054,17 @@ namespace polysat {
         return m_base_levels.empty() ? 0 : m_base_levels.back();
     }
 
-    bool solver::active_at_base_level(sat::bool_var bvar) const {
-        // NOTE: this active_at_base_level is actually not what we want!!!
-        //          first of all, it might not really be a base level: could be a non-base level between previous base levels.
-        //          in that case, how do we determine the right dependencies???
-        //          secondly, we are interested in "unit clauses", not as much whether we assigned something on the base level...
-        //          TODO: however, propagating stuff at the base level... need to be careful with dependencies there... might need to turn all base-level propagations into unit clauses...
-        VERIFY(false);
-        // bool res = m_bvars.is_assigned(bvar) && m_bvars.level(bvar) <= base_level();
-        // SASSERT_EQ(res, !!m_constraints.lookup(bvar)->unit_clause());
-        // return res;
-    }
+    // bool solver::active_at_base_level(sat::bool_var bvar) const {
+    //     // NOTE: this active_at_base_level is actually not what we want!!!
+    //     //          first of all, it might not really be a base level: could be a non-base level between previous base levels.
+    //     //          in that case, how do we determine the right dependencies???
+    //     //          secondly, we are interested in "unit clauses", not as much whether we assigned something on the base level...
+    //     //          TODO: however, propagating stuff at the base level... need to be careful with dependencies there... might need to turn all base-level propagations into unit clauses...
+    //     VERIFY(false);
+    //     // bool res = m_bvars.is_assigned(bvar) && m_bvars.level(bvar) <= base_level();
+    //     // SASSERT_EQ(res, !!m_constraints.lookup(bvar)->unit_clause());
+    //     // return res;
+    // }
 
     bool solver::try_eval(pdd const& p, rational& out_value) const {
         pdd r = p.subst_val(assignment());

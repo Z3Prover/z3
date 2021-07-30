@@ -24,6 +24,7 @@ namespace polysat {
     class conflict_explainer {
         solver& m_solver;
         constraints_and_clauses m_conflict;
+        ptr_vector<constraint> m_conflict_units;
         pvar m_var = null_var;
         ptr_vector<constraint> m_cjust_v;
 

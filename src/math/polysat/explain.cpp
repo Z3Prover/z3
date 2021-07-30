@@ -41,6 +41,30 @@ namespace polysat {
         for (auto* c : confl.clauses())
             m_conflict.push_back(c);
 
+        // Collect unit constraints
+        //
+        // TODO: the distinction between units and unit clauses is a bit awkward; maybe it should be removed.
+        //       We could then also remove the hybrid container 'constraints_and_clauses' by a clause_ref_vector
+        SASSERT(m_conflict_units.empty());
+        for (constraint* c : m_conflict.units())
+            // if (c->is_eq())
+                m_conflict_units.push_back(c);
+        for (auto clause : m_conflict.clauses()) {
+            if (clause->size() == 1) {                    
+                sat::literal lit = (*clause)[0];
+                constraint* c = m_solver.m_constraints.lookup(lit.var());                    
+                LOG("unit clause: " << show_deref(c));
+                // Morally, a derived unit clause is always asserted at the base level.
+                // (Even if we don't want to keep this one around. But maybe we should? Do we want to reconstruct proofs?)
+                c->set_unit_clause(clause);
+                c->assign(!lit.sign());
+                // this clause is really a unit.
+                // if (c->is_eq()) {
+                    m_conflict_units.push_back(c);
+                // }
+            }
+        }
+
         // TODO: we should share work done for examining constraints between different resolution methods
         clause_ref lemma;
         if (!lemma) lemma = by_polynomial_superposition();
@@ -57,9 +81,9 @@ namespace polysat {
                 }
                 // All constraints in the lemma must be false in the conflict state
                 for (auto lit : lemma->literals()) {
-                    if (m_solver.m_bvars.value(lit.var()) == l_false)
+                    if (m_solver.m_bvars.value(lit) == l_false)
                         continue;
-                    SASSERT(m_solver.m_bvars.value(lit.var()) != l_true);
+                    SASSERT(m_solver.m_bvars.value(lit) != l_true);
                     constraint* c = m_solver.m_constraints.lookup(lit.var());
                     SASSERT(c);
                     tmp_assign _t(c, lit);
@@ -90,6 +114,8 @@ namespace polysat {
      */
     clause_ref conflict_explainer::by_polynomial_superposition() {
         LOG_H3("units-size: " << m_conflict.units().size() << " conflict-clauses " << m_conflict.clauses().size());
+
+#if 0
         constraint* c1 = nullptr, *c2 = nullptr;
 
         if (m_conflict.units().size() == 2 && m_conflict.clauses().size() == 0) {
@@ -99,23 +125,26 @@ namespace polysat {
         else {
             // other combinations?
 
-#if 0
+#if 1
             // A clause can also be a unit.
             // Even if a clause is not a unit, we could still resolve a propagation 
             // into some literal in the current conflict clause.
             // Selecting resolvents should not be specific to superposition.
-            // 
 
             for (auto clause : m_conflict.clauses()) {
+                LOG("clause " << *clause << "  size " << clause->size());
                 if (clause->size() == 1) {                    
                     sat::literal lit = (*clause)[0];
-                    if (lit.sign())
-                        continue;
+                    // if (lit.sign())
+                    //     continue;
                     constraint* c = m_solver.m_constraints.lookup(lit.var());                    
-                    c->assign(true);
+                    // Morally, a derived unit clause is always asserted at the base level.
+                    // (Even if we don't want to keep this one around. But maybe we should? Do we want to reconstruct proofs?)
+                    c->set_unit_clause(clause);
+                    c->assign(!lit.sign());
                     // this clause is really a unit.
                     LOG("unit clause: " << *c);
-                    if (c->is_eq() && c->is_positive()) {
+                    if (c->is_eq()) { //  && c->is_positive()) {
                         c1 = c;
                         break;
                     }
@@ -134,6 +163,8 @@ namespace polysat {
         }
         if (!c1 || !c2 || c1 == c2)
             return nullptr;
+        LOG("c1: " << show_deref(c1));
+        LOG("c2: " << show_deref(c2));
         if (c1->is_eq() && c2->is_eq() && c1->is_positive() && c2->is_positive()) {
             pdd a = c1->to_eq().p();
             pdd b = c2->to_eq().p();
@@ -147,6 +178,72 @@ namespace polysat {
             clause.push_new_constraint(m_solver.m_constraints.eq(lvl, r));
             return clause.build();
         }
+        if (c1->is_eq() && c2->is_eq() && c1->is_negative() && c2->is_positive()) {
+            pdd a = c1->to_eq().p();
+            pdd b = c2->to_eq().p();
+            pdd r = a;
+            // TODO: only holds if the factor for 'a' is non-zero
+            if (!a.resolve(m_var, b, r))
+                return nullptr;
+            unsigned const lvl = std::max(c1->level(), c2->level());
+            clause_builder clause(m_solver);
+            clause.push_literal(~c1->blit());
+            clause.push_literal(~c2->blit());
+            clause.push_new_constraint(~m_solver.m_constraints.eq(lvl, r));
+            SASSERT(false);  // TODO "breakpoint" for debugging
+            return clause.build();
+        }
+
+#else
+        for (constraint* c1 : m_conflict_units) {
+            if (!c1->is_eq())
+                continue;
+            for (constraint* c2 : m_conflict_units) {  // TODO: can start iteration at index(c1)+1
+                if (c1 == c2)
+                    continue;
+                if (!c2->is_eq())
+                    continue;
+                if (c1->is_negative() && c2->is_negative())
+                    continue;
+                LOG("c1: " << show_deref(c1));
+                LOG("c2: " << show_deref(c2));
+                if (c1->is_positive() && c2->is_negative()) {
+                    std::swap(c1, c2);
+                }
+                pdd a = c1->to_eq().p();
+                pdd b = c2->to_eq().p();
+                pdd r = a;
+                unsigned const lvl = std::max(c1->level(), c2->level());
+                if (c1->is_positive() && c2->is_positive()) {
+                    if (!a.resolve(m_var, b, r) && !b.resolve(m_var, a, r))
+                        continue;
+                    clause_builder clause(m_solver);
+                    clause.push_literal(~c1->blit());
+                    clause.push_literal(~c2->blit());
+                    clause.push_new_constraint(m_solver.m_constraints.eq(lvl, r));
+                    auto cl = clause.build();
+                    LOG("r: " << show_deref(cl->new_constraints()[0]));
+                    LOG("result: " << show_deref(cl));
+                    // SASSERT(false);  // NOTE: this is a simple "breakpoint" for debugging
+                    return cl;
+                }
+                if (c1->is_negative() && c2->is_positive()) {
+                    // TODO: only holds if the factor for 'a' is non-zero
+                    if (!a.resolve(m_var, b, r))
+                        continue;
+                    clause_builder clause(m_solver);
+                    clause.push_literal(~c1->blit());
+                    clause.push_literal(~c2->blit());
+                    clause.push_new_constraint(~m_solver.m_constraints.eq(lvl, r));
+                    auto cl = clause.build();
+                    LOG("r: " << show_deref(cl->new_constraints()[0]));
+                    LOG("result: " << show_deref(cl));
+                    // SASSERT(false);  // NOTE: this is a simple "breakpoint" for debugging
+                    return cl;
+                }
+            }
+        }
+#endif
         return nullptr;
     }
 
