@@ -398,7 +398,7 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
             checker.parse_quantifier(sexpr, ctx, k, domain, names);
             q = m.mk_quantifier(k, domain.size(), domain.data(), names.data(), exprs.get(r.m_args[0]));
             exprs.reserve(r.m_node_id + 1);
-            exprs.set(r.m_node_id, m.mk_true());
+            exprs.set(r.m_node_id, q);
             break;
         }
         case dimacs::drat_record::tag_t::is_bool_def:
