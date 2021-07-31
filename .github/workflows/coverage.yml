@@ -38,7 +38,7 @@ jobs:
     #  run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2    
       
     - name: Run coverage
-      run: python z3test/scripts/test_coverage_tests.py build/install z3test/coverage/cpp    
+      run: python z3test/scripts/test_coverage_tests.py ./install z3test/coverage/cpp    
 
     - name: Test
       working-directory: ${{github.workspace}}/build
