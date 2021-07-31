@@ -173,12 +173,14 @@ public:
 
     void parse_quantifier(sexpr_ref const& sexpr, cmd_context& ctx, quantifier_kind& k, sort_ref_vector& domain, svector<symbol>& names) {
         k = quantifier_kind::forall_k;
+        symbol q;
+        unsigned sz;
         if (sexpr->get_kind() != sexpr::kind_t::COMPOSITE)
             goto bail;
-        unsigned sz = sexpr->get_num_children();
+        sz = sexpr->get_num_children();
         if (sz == 0)
             goto bail;
-        symbol q = sexpr->get_child(0)->get_symbol();
+        q = sexpr->get_child(0)->get_symbol();
         if (q == "forall")
             k = quantifier_kind::forall_k;
         else if (q == "exists")
@@ -188,7 +190,19 @@ public:
         else
             goto bail;
         for (unsigned i = 1; i < sz; ++i) {
-            std::cout << "parse bound\n";
+            auto* e = sexpr->get_child(i);
+            if (e->get_kind() != sexpr::kind_t::COMPOSITE)
+                goto bail;
+            if (2 != e->get_num_children())
+                goto bail;
+            symbol name = e->get_child(0)->get_symbol();
+            std::ostringstream ostrm;
+            e->get_child(1)->display(ostrm);            
+            std::istringstream istrm(ostrm.str());
+            params_ref p;
+            auto srt = parse_smt2_sort(ctx, istrm, false, p, "quantifier");
+            names.push_back(name);
+            domain.push_back(srt);            
         }
         return;
     bail:
@@ -374,6 +388,7 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
             break;
         }
         case dimacs::drat_record::tag_t::is_quantifier: {
+            VERIFY(r.m_args.size() == 1);          
             quantifier_ref q(m);      
             std::istringstream strm(r.m_name);
             auto sexpr = parse_sexpr(ctx, strm, p, drat_file);
@@ -381,8 +396,7 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
             svector<symbol> names;
             quantifier_kind k;
             checker.parse_quantifier(sexpr, ctx, k, domain, names);
-            sexpr->display(std::cout << "QQ ");
-            std::cout << "\n";
+            q = m.mk_quantifier(k, domain.size(), domain.data(), names.data(), exprs.get(r.m_args[0]));
             exprs.reserve(r.m_node_id + 1);
             exprs.set(r.m_node_id, m.mk_true());
             break;
@@ -399,7 +413,6 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
     statistics st;
     drat_checker.collect_statistics(st);
     std::cout << st << "\n";
-
 }
 
 
@@ -411,5 +424,3 @@ unsigned read_drat(char const* drat_file, char const* problem_file) {
     verify_smt(drat_file, problem_file);
     return 0;
 }
-
-

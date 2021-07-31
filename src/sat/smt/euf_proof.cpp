@@ -179,6 +179,8 @@ namespace euf {
     void solver::drat_eq_def(literal lit, expr* eq) {
         expr *a = nullptr, *b = nullptr;
         VERIFY(m.is_eq(eq, a, b));
+        drat_log_expr(a);
+        drat_log_expr(b);
         get_drat().def_begin('e', eq->get_id(), std::string("="));
         get_drat().def_add_arg(a->get_id());
         get_drat().def_add_arg(b->get_id());
