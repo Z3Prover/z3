@@ -31,6 +31,15 @@ jobs:
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
+    - name: Clone z3test
+      run: git clone https://github.com/z3prover/z3test z3test
+    
+    - name: Run regressions
+      run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2    
+      
+    - name: Run coverage
+      run: python z3test/scripts/test_coverage_tests.py build/install z3test/coverage/cpp    
+
     - name: Test
       working-directory: ${{github.workspace}}/build
       # Execute tests defined by the CMake configuration.  
