@@ -41,12 +41,32 @@ namespace euf {
             for (expr* arg : *a)
                 get_drat().def_add_arg(arg->get_id());
             get_drat().def_end();
-            m_drat_asts.insert(e);
-            push(insert_obj_trail<ast>(m_drat_asts, e));
         }
-        else {
-            IF_VERBOSE(0, verbose_stream() << "logging binders is TBD\n");
+        else if (is_var(e)) {
+            var* v = to_var(e);
+            std::stringstream strm;
+            strm << mk_pp(e->get_sort(), m);
+            get_drat().def_begin('v', v->get_id(), strm.str());
+            get_drat().def_add_arg(v->get_idx());
+            get_drat().def_end();
         }
+        else if (is_quantifier(e)) {
+            quantifier* q = to_quantifier(e);
+            std::stringstream strm;
+            strm << "(";
+            strm << (is_forall(q) ? "forall" : (is_exists(q) ? "exists" : "lambda"));
+            for (unsigned i = 0; i < q->get_num_decls(); ++i) {
+                strm << " (" << q->get_decl_name(i) << " " << mk_pp(q->get_decl_sort(i), m) << ")";
+            }
+            strm << ")";
+            get_drat().def_begin('q', q->get_id(), strm.str());
+            get_drat().def_add_arg(q->get_expr()->get_id());
+            get_drat().def_end();
+        }
+        else 
+            UNREACHABLE();
+        m_drat_asts.insert(e);
+        push(insert_obj_trail<ast>(m_drat_asts, e));
     }
 
     void solver::drat_log_expr(expr* e) {
@@ -61,6 +81,11 @@ namespace euf {
                 for (expr* arg : *to_app(e))
                     if (!m_drat_asts.contains(arg))
                         m_drat_todo.push_back(arg);
+            if (is_quantifier(e)) {
+                expr* arg = to_quantifier(e)->get_expr();
+                if (!m_drat_asts.contains(arg))
+                    m_drat_todo.push_back(arg);                
+            }                
             if (m_drat_todo.size() != sz)
                 continue;
             drat_log_expr1(e);

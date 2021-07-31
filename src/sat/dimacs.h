@@ -53,7 +53,7 @@ namespace dimacs {
     };
 
     struct drat_record {
-        enum class tag_t { is_clause, is_node, is_decl, is_sort, is_bool_def };
+        enum class tag_t { is_clause, is_node, is_decl, is_sort, is_bool_def, is_var, is_quantifier };
         tag_t            m_tag{ tag_t::is_clause };
         // a clause populates m_lits and m_status
         // a node populates m_node_id, m_name, m_args
