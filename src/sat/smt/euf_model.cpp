@@ -284,6 +284,7 @@ namespace euf {
                    tout << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(e) << "\n";
                    s().display(tout);
                    tout << mdl << "\n";);
+            (void)first;
             first = false;
         }
         
