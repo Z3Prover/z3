@@ -122,12 +122,17 @@ class smt_checker {
             m_input_solver->assert_expr(lit2expr(~lit));
         lbool is_sat = m_input_solver->check_sat();
         if (is_sat != l_false) {
-            std::cout << "did not verify: " << lits << "\n";
-            for (sat::literal lit : lits) {
-                std::cout << lit2expr(lit) << "\n";
-            }
+            std::cout << "did not verify: " << is_sat << " " << lits << "\n";
+            for (sat::literal lit : lits) 
+                std::cout << lit2expr(lit) << "\n";            
             std::cout << "\n";
             m_input_solver->display(std::cout);
+            if (is_sat == l_true) {
+                model_ref mdl;
+                m_input_solver->get_model(mdl);
+                std::cout << *mdl << "\n";
+            }
+                
             exit(0);
         }
         m_input_solver->pop(1);

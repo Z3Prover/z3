@@ -91,7 +91,6 @@ namespace sat {
 
         unsigned len = 0;
 
-
         if (st.is_deleted()) {
             buffer[len++] = 'd';
             buffer[len++] = ' ';

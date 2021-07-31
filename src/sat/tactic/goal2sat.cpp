@@ -599,8 +599,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void convert_iff(app * t, bool root, bool sign) {
-        if (t->get_num_args() != 2)
-            throw default_exception("unexpected number of arguments to xor");
+        if (t->get_num_args() != 2)            
+            throw default_exception("unexpected number of arguments to " + mk_pp(t, m));
         SASSERT(t->get_num_args() == 2);
         unsigned sz = m_result_stack.size();
         SASSERT(sz >= 2);
@@ -608,6 +608,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         sat::literal  l2 = m_result_stack[sz-2];
         m_result_stack.shrink(sz - 2);
         if (root) {
+            if (m.is_xor(t))
+                sign = !sign;
             SASSERT(sz == 2);
             if (sign) {
                 mk_root_clause(l1, l2);
@@ -616,17 +618,20 @@ struct goal2sat::imp : public sat::sat_internalizer {
             else {
                 mk_root_clause(l1, ~l2);
                 mk_root_clause(~l1, l2);
-            }            
+            }                  
         }
         else {
             sat::bool_var k = add_var(false, t);
             sat::literal  l(k, false);
+            if (m.is_xor(t))
+                l1.neg();
             mk_clause(~l, l1, ~l2);
             mk_clause(~l, ~l1, l2);
-            mk_clause(l,  l1, l2);
+            mk_clause(l, l1, l2);
             mk_clause(l, ~l1, ~l2);
-            if (aig()) aig()->add_iff(l, l1, l2);            
-            cache(t, m.is_xor(t) ? ~l : l);
+            if (aig()) aig()->add_iff(l, l1, l2);
+
+            cache(t, l);
             if (sign)
                 l.neg();
             m_result_stack.push_back(l);
@@ -720,7 +725,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 convert_iff(t, root, sign);
                 break;
             case OP_XOR:
-                convert_iff(t, root, !sign);
+                convert_iff(t, root, sign);
                 break;
             case OP_IMPLIES:
                 convert_implies(t, root, sign);
@@ -828,6 +833,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         process(n, false, redundant);
         SASSERT(m_result_stack.size() == sz + 1);
         sat::literal result = m_result_stack.back();
+        TRACE("goal2sat", tout << "done internalize " << result << " " << mk_bounded_pp(n, m, 2) << "\n";);
         m_result_stack.pop_back();
         if (!result.sign() && m_map.to_bool_var(n) == sat::null_bool_var) {
             force_push();

@@ -33,31 +33,23 @@ namespace euf {
             drat_log_decl(a->get_decl());
             std::stringstream strm;
             strm << mk_ismt2_func(a->get_decl(), m);
-            if (a->get_num_parameters() == 0)
-                get_drat().def_begin('e', e->get_id(), strm.str());
-            else {
-                get_drat().def_begin('e', e->get_id(), strm.str());
-            }
+            get_drat().def_begin('e', e->get_id(), strm.str());
             for (expr* arg : *a)
                 get_drat().def_add_arg(arg->get_id());
             get_drat().def_end();
         }
         else if (is_var(e)) {
             var* v = to_var(e);
-            std::stringstream strm;
-            strm << mk_pp(e->get_sort(), m);
-            get_drat().def_begin('v', v->get_id(), strm.str());
+            get_drat().def_begin('v', v->get_id(), "" + mk_pp(e->get_sort(), m));
             get_drat().def_add_arg(v->get_idx());
             get_drat().def_end();
         }
         else if (is_quantifier(e)) {
             quantifier* q = to_quantifier(e);
-            std::stringstream strm;
-            strm << "(";
-            strm << (is_forall(q) ? "forall" : (is_exists(q) ? "exists" : "lambda"));
-            for (unsigned i = 0; i < q->get_num_decls(); ++i) {
-                strm << " (" << q->get_decl_name(i) << " " << mk_pp(q->get_decl_sort(i), m) << ")";
-            }
+            std::stringstream strm;           
+            strm << "(" << (is_forall(q) ? "forall" : (is_exists(q) ? "exists" : "lambda"));
+            for (unsigned i = 0; i < q->get_num_decls(); ++i) 
+                strm << " (" << q->get_decl_name(i) << " " << mk_pp(q->get_decl_sort(i), m) << ")";            
             strm << ")";
             get_drat().def_begin('q', q->get_id(), strm.str());
             get_drat().def_add_arg(q->get_expr()->get_id());
@@ -88,7 +80,8 @@ namespace euf {
             }                
             if (m_drat_todo.size() != sz)
                 continue;
-            drat_log_expr1(e);
+            if (!m_drat_asts.contains(e))
+                drat_log_expr1(e);
             m_drat_todo.pop_back();                   
         }
     }
