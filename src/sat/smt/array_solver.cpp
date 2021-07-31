@@ -177,7 +177,7 @@ namespace array {
         TRACE("array", tout << "can beta reduce " << can_beta_reduce(child) << "\n";);
         if (can_beta_reduce(child)) 
             push_axiom(select_axiom(select, child));
-	    propagate_parent_select_axioms(v_child);
+        propagate_parent_select_axioms(v_child);
     }
 
     void solver::add_lambda(theory_var v, euf::enode* lambda) {

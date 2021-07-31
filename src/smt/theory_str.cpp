@@ -5523,6 +5523,7 @@ namespace smt {
         TRACE("str", tout << mk_pp(node, get_manager()) << std::endl;);
         if (groundedMap.find(node) != groundedMap.end()) {
             for (auto const &itor : groundedMap[node]) {
+                (void) itor;
                 TRACE("str",
                       tout << "\t[grounded] ";
                       for (auto const &vIt : itor.first) {

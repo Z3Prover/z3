@@ -50,7 +50,6 @@ class solver_subsumption_tactic : public tactic {
             return false;
         expr_ref_vector ors(m);
         ors.append(to_app(f)->get_num_args(), to_app(f)->get_args());
-        unsigned j = 0;
         expr_ref_vector prefix(m);
         for (unsigned i = 0; i < ors.size(); ++i) {
             expr_ref_vector fmls(m);
@@ -124,9 +123,15 @@ public:
 
     ~solver_subsumption_tactic() override {}
 
-    void updt_params(params_ref const& p) override { m_params = p; }
+    void updt_params(params_ref const& p) override { 
+        m_params = p; 
+        unsigned max_conflicts = p.get_uint("max_conflicts", 2);
+        m_params.set_uint("sat.max_conflicts", max_conflicts);
+        m_params.set_uint("smt.max_conflicts", max_conflicts);
+    }
 
     void collect_param_descrs(param_descrs& r) override { 
+        r.insert("max_conflicts", CPK_UINT, "(default: 10) maximal number of conflicts allowed per solver call.");
     }
 
     void operator()(goal_ref const& g, goal_ref_buffer& result) override {

@@ -3122,13 +3122,11 @@ namespace smt2 {
             m_num_bindings    = 0;
             m_num_open_paren = 0;
 
-            unsigned found_errors = 0;
             try {
                 scan_core();
                 parse_sort(context);
-                if (!sort_stack().empty()) {
+                if (!sort_stack().empty()) 
                     return sort_ref(sort_stack().back(), m());
-                }
             }
             catch (z3_exception & ex) {
                 error(ex.msg());

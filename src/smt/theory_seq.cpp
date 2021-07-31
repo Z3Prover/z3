@@ -1558,7 +1558,6 @@ bool theory_seq::check_ubv_string() {
 }
 
 bool theory_seq::check_ubv_string(expr* e) {
-    expr* n = nullptr;
     if (ctx.inconsistent())
         return true;
     if (m_has_ubv_axiom.contains(e))

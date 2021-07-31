@@ -206,6 +206,8 @@ public:
             std::istringstream istrm(ostrm.str());
             params_ref p;
             auto srt = parse_smt2_sort(ctx, istrm, false, p, "quantifier");
+            if (!srt)
+                goto bail;
             names.push_back(name);
             domain.push_back(srt);            
         }
@@ -215,7 +217,6 @@ public:
         sexpr->display(std::cout);
         std::cout << "\n";
         exit(0);        
-
     }
 
     void parse_sexpr(sexpr_ref const& sexpr, cmd_context& ctx, expr_ref_vector const& args, expr_ref& result) {
