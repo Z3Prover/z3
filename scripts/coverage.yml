@@ -10,7 +10,7 @@ variables:
   ubsanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=undefined" CFLAGS="${CFLAGS} -fsanitize=undefined"'
   msanEnv: 'CC=clang LDFLAGS="-L../libcxx/libcxx_msan/lib -lc++abi -Wl,-rpath=../libcxx/libcxx_msan/lib" CXX=clang++ CXXFLAGS="${CXXFLAGS} -stdlib=libc++ -fsanitize-memory-track-origins -fsanitize=memory -fPIE -fno-omit-frame-pointer -g -O2" CFLAGS="${CFLAGS} -stdlib=libc -fsanitize=memory -fsanitize-memory-track-origins -fno-omit-frame-pointer -g -O2"'
 
-
+jobs:
  
 - job: "UbuntuCMakeCoverage"
   displayName: "Ubuntu build - cmake w/ coverage"
