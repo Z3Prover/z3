@@ -389,8 +389,7 @@ namespace smt {
         if (fid == null_family_id) return !m_hidden_ufs.contains(f); 
         if (fid == m.get_basic_family_id()) return false;
         theory * th = m_context->get_theory(fid);
-        if (!th) return true;
-        return th->include_func_interp(f);
+        return !th || th->include_func_interp(f);
     }
     
     /**
