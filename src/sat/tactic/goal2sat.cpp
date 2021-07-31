@@ -300,24 +300,24 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 add_dual_root(1, &tt);
                 l = sign ? tt : ~tt;
             }
-            else {                
-                if (m_euf) {
-                    convert_euf(t, root, sign);  
-                    return;
-                } 
-                if (!is_uninterp_const(t)) {
-                    if (!is_app(t)) {
-                        std::ostringstream strm;
-                        strm << mk_ismt2_pp(t, m);
-                        throw_op_not_handled(strm.str());
-                    }
-                    else
-                        m_unhandled_funs.push_back(to_app(t)->get_decl());
+            else if (m_euf) {
+                convert_euf(t, root, sign);
+                return;
+            }
+            else if (!is_uninterp_const(t)) {
+                if (!is_app(t)) {
+                    std::ostringstream strm;
+                    strm << mk_ismt2_pp(t, m);
+                    throw_op_not_handled(strm.str());
                 }
+                else
+                    m_unhandled_funs.push_back(to_app(t)->get_decl());
+            }
+            else {
                 v = mk_bool_var(t);
                 l = sat::literal(v, sign);
                 bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
-                if (ext) 
+                if (ext)
                     m_solver.set_external(v);
                 TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << " " << is_uninterp_const(t) << "\n";);
             }
