@@ -42,6 +42,7 @@ namespace q {
         add_plugin(ap);
         add_plugin(alloc(mbp::datatype_project_plugin, m));
         add_plugin(alloc(mbp::array_project_plugin, m));
+        
     }
 
     lbool mbqi::operator()() {
@@ -565,7 +566,7 @@ namespace q {
 
     void mbqi::init_solver() {
         if (!m_solver)
-            m_solver = mk_smt2_solver(m, ctx.s().params());
+            m_solver = mk_smt2_solver(m, m_no_drat_params);
     }
 
     void mbqi::init_search() {
