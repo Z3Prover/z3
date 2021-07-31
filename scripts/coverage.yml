@@ -31,7 +31,7 @@ jobs:
          cd build
          ./test-z3 -a
          cd ..
-    - template: scripts/test-examples-cmake.yml
-    - template: scripts/test-regressions-coverage.yml
+    - template: test-examples-cmake.yml
+    - template: test-regressions-coverage.yml
          
 
