@@ -3815,6 +3815,7 @@ void fpa2bv_converter::mk_rounding_mode(decl_kind k, expr_ref & result)
     }
 
     result = m_util.mk_bv2rm(result);
+    std::cout << "Rounding: " << result << "\n";
 }
 
 void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {
