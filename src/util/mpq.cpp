@@ -260,6 +260,7 @@ void mpq_manager<SYNCH>::set(mpq & a, char const * val) {
             if (exp > 0) {
                 _scoped_numeral<mpq_manager<SYNCH>> _exp(*this);
                 _scoped_numeral<mpq_manager<SYNCH>> _qten(*this);
+                _qten = 10;
                 power(_qten, static_cast<unsigned>(exp), _exp);
                 TRACE("mpq_set", tout << "a: " << to_string(a) << ", exp_sign:" << exp_sign << ", exp: " << exp << " " << to_string(_exp) << std::endl;);
                 if (exp_sign)
