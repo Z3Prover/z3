@@ -290,14 +290,12 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (v == sat::null_bool_var) {
             if (m.is_true(t)) {
                 sat::literal tt = sat::literal(add_var(false, m.mk_true()), false);
-                mk_clause(tt);
-                add_dual_root(1, &tt);
+                mk_root_clause(tt);
                 l = sign ? ~tt : tt;
             }
             else if (m.is_false(t)) {
                 sat::literal tt = sat::literal(add_var(false, m.mk_false()), true);
-                mk_clause(tt);
-                add_dual_root(1, &tt);
+                mk_root_clause(tt);
                 l = sign ? tt : ~tt;
             }
             else if (m_euf) {

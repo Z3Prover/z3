@@ -236,7 +236,7 @@ namespace euf {
         sat::bool_var v = get_egraph().explain_diseq(m_explain, a, b);
         SASSERT(v == sat::null_bool_var || s().value(v) == l_false);
         if (v != sat::null_bool_var) 
-            m_explain.push_back(to_ptr(sat::literal(v, false)));
+            m_explain.push_back(to_ptr(sat::literal(v, true)));
     }
 
     bool solver::propagate(enode* a, enode* b, ext_justification_idx idx) {
@@ -286,13 +286,14 @@ namespace euf {
 
     void solver::asserted(literal l) {
         expr* e = m_bool_var2expr.get(l.var(), nullptr);
-	TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " := " << mk_bounded_pp(e, m) << "\n";);
+        TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " := " << mk_bounded_pp(e, m) << "\n";);
         if (!e) 
             return;        
+        
         euf::enode* n = m_egraph.find(e);
         if (!n)
             return;
-        bool sign = l.sign();       
+        bool sign = l.sign();   
         m_egraph.set_value(n, sign ? l_false : l_true);
         for (auto th : enode_th_vars(n))
             m_id2solver[th.get_id()]->asserted(l);
