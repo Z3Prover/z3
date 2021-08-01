@@ -162,7 +162,7 @@ class fm_tactic : public tactic {
         fm_model_converter(ast_manager & _m):m(_m) {}
 
         ~fm_model_converter() override {
-            m.dec_array_ref(m_xs.size(), m_xs.data());
+            m.dec_array_ref(m_xs.size(), m_xs.data());           
             vector<clauses>::iterator it  = m_clauses.begin();
             vector<clauses>::iterator end = m_clauses.end();
             for (; it != end; ++it)
@@ -1598,7 +1598,7 @@ class fm_tactic : public tactic {
                 report_tactic_progress(":fm-cost", m_counter);
                 if (!m_inconsistent) {
                     copy_remaining();
-                    m_new_goal->add(concat(g->mc(), m_mc.get()));
+                    m_new_goal->add(m_mc.get());
                 }
             }
             reset_constraints();
