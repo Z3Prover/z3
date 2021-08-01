@@ -106,11 +106,11 @@ namespace sat {
     }
 
     void dual_solver::add_aux(unsigned sz, literal const* clause) {
-        flush();
-        TRACE("dual", tout << "aux: " << literal_vector(sz, clause) << "\n";);
+        flush();        
         m_lits.reset();
         for (unsigned i = 0; i < sz; ++i) 
             m_lits.push_back(ext2lit(clause[i]));
+        TRACE("dual", tout << "aux: " << literal_vector(sz, clause) << " -> " << m_lits << "\n";);
         m_solver.mk_clause(sz, m_lits.data(), status::input());
     }
 

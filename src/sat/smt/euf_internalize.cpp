@@ -35,7 +35,10 @@ namespace euf {
     sat::literal solver::mk_literal(expr* e) {
         expr_ref _e(e, m);
         bool is_not = m.is_not(e, e);
-        return internalize(e, is_not, false, m_is_redundant);
+        sat::literal lit = internalize(e, false, false, m_is_redundant);
+        if (is_not)
+            lit.neg();
+        return lit;
     }
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {

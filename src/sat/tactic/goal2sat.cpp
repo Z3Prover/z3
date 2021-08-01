@@ -796,7 +796,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 m_frame_stack.pop_back();
                 continue;
             }
-            if (m.is_not(t) && !m.is_not(t->get_arg(0))) {
+            if (m.is_not(t) && !m.is_not(t->get_arg(0)) && fsz != sz + 1) {
                 m_frame_stack.pop_back();
                 visit(t->get_arg(0), root, !sign);
                 continue;

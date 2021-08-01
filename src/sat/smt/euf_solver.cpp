@@ -561,14 +561,11 @@ namespace euf {
         scoped_set_replay replay(*this);
         scoped_suspend_rlimit suspend_rlimit(m.limit());
 
-        for (auto const& t : m_reinit) 
-            replay.m.insert(std::get<0>(t), std::get<2>(t));
-        
+        for (auto const& [e, generation, v] : m_reinit) 
+            replay.m.insert(e, v);
+    
         TRACE("euf", for (auto const& kv : replay.m) tout << kv.m_value << "\n";);
-        for (auto const& t : m_reinit) {
-            expr_ref e          = std::get<0>(t);
-            unsigned generation = std::get<1>(t);
-            sat::bool_var v     = std::get<2>(t);
+        for (auto const& [e, generation, v] : m_reinit) {
             scoped_generation _sg(*this, generation);
             TRACE("euf", tout << "replay: " << v << " " << mk_bounded_pp(e, m) << "\n";);
             sat::literal lit;
@@ -579,7 +576,110 @@ namespace euf {
             VERIFY(lit.var() == v);
             attach_lit(lit, e);            
         }
+        
+        if (relevancy_enabled())
+            for (auto const& [e, generation, v] : m_reinit)
+                if (si.is_bool_op(e))
+                    relevancy_reinit(e);
         TRACE("euf", display(tout << "replay done\n"););
+    }
+
+    /**
+    * Boolean structure needs to be replayed for relevancy tracking.
+    * Main cases for replaying Boolean functions are included. When a replay
+    * is not supported, we just disable relevancy.
+    */
+    void solver::relevancy_reinit(expr* e) {
+        TRACE("euf", tout << "internalize again " << mk_pp(e, m) << "\n";);
+        if (to_app(e)->get_family_id() != m.get_basic_family_id()) {
+            disable_relevancy(e);
+            return;
+        }
+        auto lit = si.internalize(e, true);
+        switch (to_app(e)->get_decl_kind()) {
+        case OP_NOT: {
+            auto lit2 = si.internalize(to_app(e)->get_arg(0), true);
+            add_aux(lit, lit2);
+            add_aux(~lit, ~lit2);
+            break;
+        }
+        case OP_EQ: {
+            if (to_app(e)->get_num_args() != 2) {
+                disable_relevancy(e);
+                return;
+            }
+            auto lit1 = si.internalize(to_app(e)->get_arg(0), true);
+            auto lit2 = si.internalize(to_app(e)->get_arg(1), true);
+            add_aux(~lit, ~lit1, lit2);
+            add_aux(~lit, lit1, ~lit2);
+            add_aux(lit, lit1, lit2);
+            add_aux(lit, ~lit1, ~lit2);
+            break;
+        }
+        case OP_OR: {
+            sat::literal_vector lits;
+            for (expr* arg : *to_app(e))
+                lits.push_back(si.internalize(arg, true));
+            for (auto lit2 : lits)
+                add_aux(~lit2, lit);
+            lits.push_back(~lit);
+            add_aux(lits);
+            break;
+        }
+        case OP_AND: {
+            sat::literal_vector lits;
+            for (expr* arg : *to_app(e))
+                lits.push_back(~si.internalize(arg, true));
+            for (auto nlit2 : lits)
+                add_aux(~lit, ~nlit2);
+            lits.push_back(lit);
+            add_aux(lits);
+            break;
+        }
+        case OP_TRUE:
+            add_root(lit);
+            break;
+        case OP_FALSE:
+            add_root(~lit);
+            break;
+        case OP_ITE: {
+            auto lit1 = si.internalize(to_app(e)->get_arg(0), true);
+            auto lit2 = si.internalize(to_app(e)->get_arg(1), true);
+            auto lit3 = si.internalize(to_app(e)->get_arg(2), true);
+            add_aux(~lit, ~lit1, lit2);
+            add_aux(~lit, lit1, lit3);
+            add_aux(lit, ~lit1, ~lit2);
+            add_aux(lit, lit1, ~lit3);
+            break;
+        }
+        case OP_XOR: {
+            if (to_app(e)->get_num_args() != 2) {
+                disable_relevancy(e);
+                break;
+            }
+            auto lit1 = si.internalize(to_app(e)->get_arg(0), true);
+            auto lit2 = si.internalize(to_app(e)->get_arg(1), true);
+            add_aux(lit, ~lit1, lit2);
+            add_aux(lit, lit1, ~lit2);
+            add_aux(~lit, lit1, lit2);
+            add_aux(~lit, ~lit1, ~lit2);
+            break;
+        }
+        case OP_IMPLIES: {
+            if (to_app(e)->get_num_args() != 2) {
+                disable_relevancy(e);
+                break;
+            }
+            auto lit1 = si.internalize(to_app(e)->get_arg(0), true);
+            auto lit2 = si.internalize(to_app(e)->get_arg(1), true);
+            add_aux(~lit, ~lit1, lit2);
+            add_aux(lit, lit1);
+            add_aux(lit, ~lit2);
+            break;
+        }
+        default:
+            UNREACHABLE();
+        }
     }
 
     void solver::pre_simplify() {

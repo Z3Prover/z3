@@ -134,8 +134,9 @@ namespace euf {
         typedef std::tuple<expr_ref, unsigned, sat::bool_var> reinit_t;
         vector<reinit_t>    m_reinit;
 
-        void start_reinit(unsigned num_scopes);
+        void start_reinit(unsigned num_scopes);        
         void finish_reinit();
+        void relevancy_reinit(expr* e);
 
         // extensions
         th_solver* get_solver(family_id fid, func_decl* f);
@@ -356,7 +357,9 @@ namespace euf {
         bool is_shared(euf::enode* n) const;
 
         // relevancy
-        bool relevancy_enabled() const { return get_config().m_relevancy_lvl > 0; }
+        bool m_relevancy = true;
+        bool relevancy_enabled() const { return m_relevancy && get_config().m_relevancy_lvl > 0; }
+        void disable_relevancy(expr* e) { IF_VERBOSE(0, verbose_stream() << "disabling relevancy " << mk_pp(e, m) << "\n"); m_relevancy = false;  }
         void add_root(unsigned n, sat::literal const* lits);
         void add_root(sat::literal_vector const& lits) { add_root(lits.size(), lits.data()); }
         void add_root(sat::literal lit) { add_root(1, &lit); }
@@ -364,6 +367,7 @@ namespace euf {
         void add_aux(sat::literal_vector const& lits) { add_aux(lits.size(), lits.data()); }
         void add_aux(unsigned n, sat::literal const* lits);
         void add_aux(sat::literal a, sat::literal b) { sat::literal lits[2] = {a, b}; add_aux(2, lits); } 
+        void add_aux(sat::literal a, sat::literal b, sat::literal c) { sat::literal lits[3] = { a, b, c }; add_aux(3, lits); }
         void track_relevancy(sat::bool_var v);
         bool is_relevant(expr* e) const;
         bool is_relevant(enode* n) const;
