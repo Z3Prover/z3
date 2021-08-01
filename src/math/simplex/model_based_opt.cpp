@@ -1261,8 +1261,7 @@ namespace opt {
             m_var2value[x] = eval(result);
             TRACE("opt1", tout << "updated eval " << x << " := " << eval(x) << "\n";);
         }
-        else 
-            retire_row(row_id1);
+        retire_row(row_id1);
         return result;
     }
     

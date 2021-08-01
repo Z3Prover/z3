@@ -319,6 +319,14 @@ namespace mbp {
                     tids.insert(v, mbo.add_var(r, a.is_int(v)));
                 }
             }
+
+            // bail on variables in non-linear sub-terms
+            for (auto& kv : tids) {
+                expr* e = kv.m_key;
+                if (is_arith(e) && !var_mark.is_marked(e)) 
+                    mark_rec(fmls_mark, e);                
+            }
+
             if (m_check_purified) {
                 for (expr* fml : fmls) 
                     mark_rec(fmls_mark, fml);                

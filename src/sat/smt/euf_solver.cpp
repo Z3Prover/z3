@@ -288,8 +288,7 @@ namespace euf {
         expr* e = m_bool_var2expr.get(l.var(), nullptr);
         TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " := " << mk_bounded_pp(e, m) << "\n";);
         if (!e) 
-            return;        
-        
+            return;                
         euf::enode* n = m_egraph.find(e);
         if (!n)
             return;
@@ -303,21 +302,28 @@ namespace euf {
         SASSERT(l == get_literal(c));
 	    if (n->value_conflict()) {
             euf::enode* nb = sign ? mk_false() : mk_true();
+            euf::enode* r = n->get_root();
+            euf::enode* rb = sign ? mk_true() : mk_false();
+            sat::literal rl(r->bool_var(), r->value() == l_false);
             m_egraph.merge(n, nb, c);
+            m_egraph.merge(r, rb, to_ptr(rl));
+            SASSERT(m_egraph.inconsistent());
             return;
 	    }
         if (n->merge_tf()) {
             euf::enode* nb = sign ? mk_false() : mk_true();
             m_egraph.merge(n, nb, c);
         }
-        if (!sign && n->is_equality()) {
-            SASSERT(!m.is_iff(e));
-            euf::enode* na = n->get_arg(0);
-            euf::enode* nb = n->get_arg(1);
-            m_egraph.merge(na, nb, c);
-        }
-        else if (sign && n->is_equality())
-            m_egraph.new_diseq(n);      
+        if (n->is_equality()) {
+            if (sign)
+                m_egraph.new_diseq(n);
+            else {
+                SASSERT(!m.is_iff(e));
+                euf::enode* na = n->get_arg(0);
+                euf::enode* nb = n->get_arg(1);
+                m_egraph.merge(na, nb, c);
+            }
+        }    
     }
 
 
