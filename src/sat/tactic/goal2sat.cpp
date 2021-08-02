@@ -216,8 +216,10 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (!m_expr2var_replay || !m_expr2var_replay->find(t, v))  
             v = add_var(true, t);
         m_map.insert(t, v);
-        if (relevancy_enabled() && (m.is_true(t) || m.is_false(t))) 
+        if (relevancy_enabled() && (m.is_true(t) || m.is_false(t))) {
             add_dual_root(sat::literal(v, m.is_false(t)));
+            ensure_euf()->track_relevancy(v);
+        }
         return v;
     }
 
@@ -289,14 +291,14 @@ struct goal2sat::imp : public sat::sat_internalizer {
         sat::bool_var v = m_map.to_bool_var(t);
         if (v == sat::null_bool_var) {
             if (m.is_true(t)) {
-                sat::literal tt = sat::literal(add_var(false, m.mk_true()), false);
+                sat::literal tt = sat::literal(mk_bool_var(t), false);
                 mk_root_clause(tt);
                 l = sign ? ~tt : tt;
             }
             else if (m.is_false(t)) {
-                sat::literal tt = sat::literal(add_var(false, m.mk_false()), true);
-                mk_root_clause(tt);
-                l = sign ? tt : ~tt;
+                sat::literal ff = sat::literal(mk_bool_var(t), false);
+                mk_root_clause(~ff);
+                l = sign ? ~ff : ff;
             }
             else if (m_euf) {
                 convert_euf(t, root, sign);
@@ -796,7 +798,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
                 m_frame_stack.pop_back();
                 continue;
             }
-            if (m.is_not(t) && !m.is_not(t->get_arg(0)) && fsz != sz + 1) {
+            if (m.is_not(t) && (root || (!m.is_not(t->get_arg(0)) && fsz != sz + 1))) {
                 m_frame_stack.pop_back();
                 visit(t->get_arg(0), root, !sign);
                 continue;

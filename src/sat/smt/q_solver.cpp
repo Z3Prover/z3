@@ -54,6 +54,11 @@ namespace q {
                     ctx.add_root(~l, lit);
                 }
             }
+            else if (is_ground(q->get_expr())) {
+                auto lit = ctx.internalize(q->get_expr(), l.sign(), false, false);
+                add_clause(~l, lit);
+                ctx.add_root(~l, lit);
+            }
             else {
                 ctx.push_vec(m_universal, l);
                 if (ctx.get_config().m_ematching)
@@ -78,8 +83,7 @@ namespace q {
     }
 
     std::ostream& solver::display(std::ostream& out) const {
-        m_ematch.display(out);
-        return out;
+        return m_ematch.display(out);
     }
 
     std::ostream& solver::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const {
