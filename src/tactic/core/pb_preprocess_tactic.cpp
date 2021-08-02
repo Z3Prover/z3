@@ -199,7 +199,7 @@ public:
             expr* fml = g->form(m_ge[i]);
             if (!to_ge(fml, args1, coeffs1, k1)) continue;
             if (args1.empty()) continue;
-            expr* arg = args1[0].get();
+            expr* arg = args1.get(0);
             bool neg = m.is_not(arg, arg);
             if (!is_uninterp_const(arg)) continue;
             if (!m_vars.contains(to_app(arg))) continue;
@@ -478,24 +478,28 @@ private:
         expr_ref_vector args1(m), args2(m);
         vector<rational> coeffs1, coeffs2;        
         rational k1, k2;
-        if (!to_ge(fml1, args1, coeffs1, k1)) return;
-        if (!k1.is_one()) return;
-        if (!to_ge(g->form(idx2), args2, coeffs2, k2)) return;
+        if (!to_ge(fml1, args1, coeffs1, k1) || !k1.is_one()) 
+            return;
+        if (!to_ge(fml2, args2, coeffs2, k2)) 
+            return;
         // check that each variable in idx1 occurs only in idx2
         unsigned min_index = 0;
         rational min_coeff(0);
         unsigned_vector indices;
         for (unsigned i = 0; i < args1.size(); ++i) {
-            expr* x = args1[i].get();
+            expr* x = args1.get(i);
             m.is_not(x, x);
-            if (!is_app(x)) return;
-            if (!m_vars.contains(to_app(x))) return;            
+            if (!is_app(x) || !m_vars.contains(to_app(x))) 
+                return;            
             TRACE("pb", tout << mk_pp(x, m) << "\n";);
             rec const& r = m_vars.find(to_app(x));
-            if (r.pos.size() != 1 || r.neg.size() != 1) return;
-            if (r.pos[0] != idx2 && r.neg[0] != idx2) return;
+            if (r.pos.size() != 1 || r.neg.size() != 1) 
+                return;
+            if (r.pos[0] != idx2 && r.neg[0] != idx2) 
+                return;
+            bool found = false;
             for (unsigned j = 0; j < args2.size(); ++j) {
-                if (is_complement(args1[i].get(), args2[j].get())) {
+                if (is_complement(args1.get(i), args2.get(j))) {
                     if (i == 0) {
                         min_coeff = coeffs2[j];
                     }
@@ -504,12 +508,15 @@ private:
                         min_index = j;
                     }
                     indices.push_back(j);
+                    found = true;
                 }                
             }
+            if (!found)
+                return;
         }
         for (unsigned i = 0; i < indices.size(); ++i) {
             unsigned j = indices[i];
-            expr* arg = args2[j].get();
+            expr* arg = args2.get(j);
             if (j == min_index) {
                 args2[j] = m.mk_false();
             }
@@ -521,9 +528,7 @@ private:
         
         tmp1 = pb.mk_ge(args2.size(), coeffs2.data(), args2.data(), k2);
         IF_VERBOSE(3, verbose_stream() << " " << tmp1 << "\n";
-                   for (unsigned i = 0; i < args2.size(); ++i) {
-                       verbose_stream() << mk_pp(args2[i].get(), m) << " ";
-                   }
+                   verbose_stream() << args2 << "\n";
                    verbose_stream() << "\n";
                    );
         m_r(tmp1, tmp2);
