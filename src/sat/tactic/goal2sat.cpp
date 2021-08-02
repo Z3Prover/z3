@@ -275,7 +275,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }     
     }
 
-
     void cache(app* t, sat::literal l) override {
         force_push();
         SASSERT(!m_app2lit.contains(t));
@@ -284,8 +283,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_lit2app.insert(l.index(), t);
         m_cache_trail.push_back(t);
     }
-
-   void convert_atom(expr * t, bool root, bool sign) {
+    
+    void convert_atom(expr * t, bool root, bool sign) {
         SASSERT(m.is_bool(t));
         sat::literal  l;
         sat::bool_var v = m_map.to_bool_var(t);
