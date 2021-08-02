@@ -96,27 +96,27 @@ namespace euf {
         stats                  m_stats;
         th_rewriter            m_rewriter;
         func_decl_ref_vector   m_unhandled_functions;
-        sat::lookahead*        m_lookahead{ nullptr };
+        sat::lookahead*        m_lookahead = nullptr;
         ast_manager*           m_to_m;
         sat::sat_internalizer* m_to_si;
         scoped_ptr<euf::ackerman>    m_ackerman;
         scoped_ptr<sat::dual_solver> m_dual_solver;
-        user::solver*          m_user_propagator{ nullptr };
-        th_solver*             m_qsolver { nullptr };
-        unsigned               m_generation { 0 };
+        user::solver*          m_user_propagator = nullptr;
+        th_solver*             m_qsolver = nullptr;
+        unsigned               m_generation = 0;
         mutable ptr_vector<expr> m_todo;
 
         ptr_vector<expr>                                m_bool_var2expr;
         ptr_vector<size_t>                              m_explain;
-        unsigned                                        m_num_scopes{ 0 };
+        unsigned                                        m_num_scopes = 0;
         unsigned_vector                                 m_var_trail;
         svector<scope>                                  m_scopes;
         scoped_ptr_vector<th_solver>                    m_solvers;
         ptr_vector<th_solver>                           m_id2solver;
 
-        constraint* m_conflict{ nullptr };
-        constraint* m_eq{ nullptr };
-        constraint* m_lit{ nullptr };
+        constraint* m_conflict = nullptr;
+        constraint* m_eq = nullptr;
+        constraint* m_lit = nullptr;
 
         // internalization
         bool visit(expr* e) override;
