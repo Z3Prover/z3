@@ -1210,23 +1210,23 @@ namespace opt {
     model_based_opt::def model_based_opt::solve_for(unsigned row_id1, unsigned x, bool compute_def) {
         TRACE("opt", tout << "v" << x << " := " << eval(x) << "\n" << m_rows[row_id1] << "\n";);
         rational a = get_coefficient(row_id1, x), b;
-        ineq_type ty = m_rows[row_id1].m_type;
+        row& r1 = m_rows[row_id1];
+        ineq_type ty = r1.m_type;
         SASSERT(!a.is_zero());
-        SASSERT(m_rows[row_id1].m_alive);
+        SASSERT(r1.m_alive);
         if (a.is_neg()) {
             a.neg();
-            m_rows[row_id1].neg();
+            r1.neg();
         }
         SASSERT(a.is_pos());
         if (ty == t_lt) {
             SASSERT(compute_def);
-            m_rows[row_id1].m_coeff -= m_rows[row_id1].m_value;
-            m_rows[row_id1].m_type = t_le;
-            m_rows[row_id1].m_value = 0;
+            r1.m_coeff -= r1.m_value;
+            r1.m_type = t_le;
+            r1.m_value = 0;
         }        
 
-        if (m_var2is_int[x] && !a.is_one()) {
-            row& r1 = m_rows[row_id1];
+        if (m_var2is_int[x] && !a.is_one()) {            
             r1.m_coeff -= r1.m_value;
             r1.m_value = 0;
             vector<var> coeffs;
