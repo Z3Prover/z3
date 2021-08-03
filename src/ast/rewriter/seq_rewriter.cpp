@@ -672,6 +672,14 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 3);
         st = mk_seq_replace_all(args[0], args[1], args[2], result);
         break;
+    case OP_SEQ_REPLACE_RE:
+        SASSERT(num_args == 3);
+        st = mk_seq_replace_re(args[0], args[1], args[2], result);
+        break;
+    case OP_SEQ_REPLACE_RE_ALL:
+        SASSERT(num_args == 3);
+        st = mk_seq_replace_re_all(args[0], args[1], args[2], result);
+        break;
     case OP_SEQ_TO_RE:
         SASSERT(num_args == 1);
         st = mk_str_to_regexp(args[0], result);
@@ -1904,6 +1912,8 @@ br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& 
         result = str().mk_concat(strs, a->get_sort());
         return BR_REWRITE_FULL;
     }
+    // TBD: add case when a, b are concatenation of units that are values.
+    // in this case we can use a similar loop as for strings.
     return BR_FAILED;
 }
 
@@ -1914,7 +1924,6 @@ br_status seq_rewriter::mk_seq_replace_re_all(expr* a, expr* b, expr* c, expr_re
 br_status seq_rewriter::mk_seq_replace_re(expr* a, expr* b, expr* c, expr_ref& result) {
     return BR_FAILED;
 }
-
 
 br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
     TRACE("seq", tout << mk_pp(a, m()) << " " << mk_pp(b, m()) << "\n";);
@@ -3347,6 +3356,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             // '0' <= elem <= '9'
             // if ((isdigit ele) and (ele = (hd r1))) then (to_re (tl r1)) else []
             //
+            hd = str().mk_nth_i(r1, m_autil.mk_int(0));
             m_br.mk_and(u().mk_le(m_util.mk_char('0'), ele), u().mk_le(ele, m_util.mk_char('9')), m().mk_eq(hd, ele), result); 
             tl = re().mk_to_re(str().mk_substr(r1, m_autil.mk_int(1), m_autil.mk_sub(str().mk_length(r1), m_autil.mk_int(1))));            
             return re_and(result, tl);
