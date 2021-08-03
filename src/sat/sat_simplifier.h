@@ -40,15 +40,17 @@ namespace sat {
 
     class use_list {
         vector<clause_use_list> m_use_list;
+        
     public:
         void init(unsigned num_vars);
+        void reserve(unsigned num_vars) { while (m_use_list.size() <= 2*num_vars) m_use_list.push_back(clause_use_list()); }
         void insert(clause & c);
         void block(clause & c);
         void unblock(clause & c);
         void erase(clause & c);
         void erase(clause & c, literal l);
-        clause_use_list & get(literal l) { return m_use_list[l.index()]; }
-        clause_use_list const & get(literal l) const { return m_use_list[l.index()]; }
+        clause_use_list& get(literal l) { return m_use_list[l.index()]; }
+        clause_use_list const& get(literal l) const { return m_use_list[l.index()]; }
         void finalize() { m_use_list.finalize(); }
         std::ostream& display(std::ostream& out, literal l) const { return m_use_list[l.index()].display(out); }
     };
