@@ -111,6 +111,18 @@ namespace q {
             add_projection_functions(mdl, f);
     }
 
+    /**
+    *  we are given f with interpretation:
+    *      if x = v0 and y = w0 then f0
+    *      else if x = v1 and y = w1 then f1
+    *      ...
+    * Create a new interpretation for f as follows:
+    * f := f_aux(project1(x), project2(y))
+    * f_aux uses the original interpretation of f
+    * project1 sorts the values of v0, v1, ..., and maps arguments below v0 to v0, between v0, v1 to v1 etc.
+    * project2 sorts values of w0, w1, ... and maps argument y to values w0, w1, ..
+    * 
+    */
     void model_fixer::add_projection_functions(model& mdl, func_decl* f) {
         // update interpretation of f so that the graph of f is fully determined by the
         // ground values of its arguments.

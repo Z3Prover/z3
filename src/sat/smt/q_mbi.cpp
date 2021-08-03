@@ -169,9 +169,8 @@ namespace q {
                     return l_false;
                 if (check_forall_default(q, *qb, *mdl))
                     return l_false;
-                else {
-                    return l_undef;
-                }
+                else 
+                    return l_undef;                
             }
             if (m_generation_bound >= m_generation_max)
                 return l_true;
@@ -337,8 +336,8 @@ namespace q {
         qb.domain_eqs.reset();
         var_subst subst(m);
 
-        for (auto p : qb.var_args) {
-            expr_ref bounds = m_model_fixer.restrict_arg(p.first, p.second);  
+        for (auto [t, idx] : qb.var_args) {
+            expr_ref bounds = m_model_fixer.restrict_arg(t, idx);  
             if (m.is_true(bounds))
                 continue;
             expr_ref vbounds = subst(bounds, qb.vars);
@@ -393,11 +392,11 @@ namespace q {
         if (qb.var_args.empty())
             return;
         var_subst subst(m);
-        for (auto p : qb.var_args) {
-            expr_ref _term = subst(p.first, qb.vars);
+        for (auto [t, idx] : qb.var_args) {
+            expr_ref _term = subst(t, qb.vars);
             app_ref  term(to_app(_term), m);
-            expr_ref value = (*m_model)(term->get_arg(p.second));
-            m_model_fixer.invert_arg(term, p.second, value, qb.domain_eqs);
+            expr_ref value = (*m_model)(term->get_arg(idx));
+            m_model_fixer.invert_arg(term, idx, value, qb.domain_eqs);
         }
     }
 
