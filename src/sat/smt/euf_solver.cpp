@@ -315,14 +315,11 @@ namespace euf {
             m_egraph.merge(n, nb, c);
         }
         if (n->is_equality()) {
+            SASSERT(!m.is_iff(e));
             if (sign)
                 m_egraph.new_diseq(n);
-            else {
-                SASSERT(!m.is_iff(e));
-                euf::enode* na = n->get_arg(0);
-                euf::enode* nb = n->get_arg(1);
-                m_egraph.merge(na, nb, c);
-            }
+            else                 
+                m_egraph.merge(n->get_arg(0), n->get_arg(1), c);            
         }    
     }
 

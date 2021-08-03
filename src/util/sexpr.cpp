@@ -185,8 +185,10 @@ void sexpr::display_atom(std::ostream & out) const {
 }
 
 void sexpr::display(std::ostream & out) const {
-    if (!is_composite())
+    if (!is_composite()) {
         display_atom(out);
+        return;
+    }
     vector<std::pair<sexpr_composite const *, unsigned> > todo;
     todo.push_back(std::make_pair(static_cast<sexpr_composite const *>(this), 0));
     while (!todo.empty()) {

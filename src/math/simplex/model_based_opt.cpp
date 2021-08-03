@@ -1227,6 +1227,8 @@ namespace opt {
 
         if (m_var2is_int[x] && !a.is_one()) {
             row& r1 = m_rows[row_id1];
+            r1.m_coeff -= r1.m_value;
+            r1.m_value = 0;
             vector<var> coeffs;
             mk_coeffs_without(coeffs, r1.m_vars, x);
             rational c = mod(-eval(coeffs), a);
