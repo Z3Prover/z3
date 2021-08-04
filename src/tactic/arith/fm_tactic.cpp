@@ -132,10 +132,9 @@ class fm_tactic : public tactic {
                         else {
                             expr_ref val(m);
                             val = ev(monomial);
-                            if (!u.is_numeral(val))
-                                return NONE;
                             rational tmp;
-                            u.is_numeral(val, tmp);
+                            if (!u.is_numeral(val, tmp))
+                                return NONE;
                             if (neg)
                                 tmp.neg();
                             c -= tmp;
@@ -166,11 +165,9 @@ class fm_tactic : public tactic {
         fm_model_converter(ast_manager & _m):m(_m) {}
 
         ~fm_model_converter() override {
-            m.dec_array_ref(m_xs.size(), m_xs.data());           
-            vector<clauses>::iterator it  = m_clauses.begin();
-            vector<clauses>::iterator end = m_clauses.end();
-            for (; it != end; ++it)
-                m.dec_array_ref(it->size(), it->data());
+            m.dec_array_ref(m_xs.size(), m_xs.data());     
+            for (auto& c : m_clauses)
+                m.dec_array_ref(c.size(), c.data());
         }
         
         void insert(func_decl * x, clauses & c) {
@@ -180,6 +177,7 @@ class fm_tactic : public tactic {
             m_clauses.push_back(clauses());
             m_clauses.back().swap(c);
         }
+
 
         void get_units(obj_map<expr, bool>& units) override { units.reset(); }
 
@@ -256,11 +254,8 @@ class fm_tactic : public tactic {
             for (unsigned i = 0; i < sz; i++) {
                 out << "\n(" << m_xs[i]->get_name();
                 clauses const & cs = m_clauses[i];
-                clauses::const_iterator it  = cs.begin();
-                clauses::const_iterator end = cs.end();
-                for (; it != end; ++it) {
-                    out << "\n  " << mk_ismt2_pp(*it, m, 2);
-                }
+                for (auto& c : cs)
+                    out << "\n  " << mk_ismt2_pp(c, m, 2);                
                 out << ")";
             }
             out << ")\n";
@@ -278,10 +273,8 @@ class fm_tactic : public tactic {
                 clauses const & cs = m_clauses[i];
                 res->m_clauses.push_back(clauses());
                 clauses & new_cs = res->m_clauses.back();
-                clauses::const_iterator it  = cs.begin();
-                clauses::const_iterator end = cs.end();
-                for (; it != end; ++it) {
-                    app * new_c = translator(*it);
+                for (auto& c : cs) {
+                    app * new_c = translator(c);
                     to_m.inc_ref(new_c);
                     new_cs.push_back(new_c);
                 }
