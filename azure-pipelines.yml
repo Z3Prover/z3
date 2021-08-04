@@ -149,6 +149,7 @@ jobs:
 #   - template: scripts/test-java-cmake.yml
     - ${{if eq(variables['runTests'], 'True')}}:
       - template: scripts/test-regressions.yml
+         
 
 - job: "WindowsLatest"
   displayName: "Windows"

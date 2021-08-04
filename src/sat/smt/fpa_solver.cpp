@@ -15,6 +15,8 @@ Author:
 
 Revision History:
 
+    Ported from theory_fpa by nbjorner in 2020.
+
 --*/
 
 #include "sat/smt/fpa_solver.h"
@@ -91,7 +93,10 @@ namespace fpa {
         SASSERT(m.is_bool(e));
         if (!visit_rec(m, e, sign, root, redundant))
             return sat::null_literal;
-        return expr2literal(e);
+        sat::literal lit = expr2literal(e);
+        if (sign)
+           lit.neg();
+        return lit;
     }
 
     void solver::internalize(expr* e, bool redundant) {
@@ -116,12 +121,11 @@ namespace fpa {
 
     bool solver::post_visit(expr* e, bool sign, bool root) {
         euf::enode* n = expr2enode(e);
-        app* a = to_app(e);
         SASSERT(!n || !n->is_attached_to(get_id()));
         if (!n)
             n = mk_enode(e, false);
         SASSERT(!n->is_attached_to(get_id()));
-        mk_var(n);
+        attach_new_th_var(n);
         TRACE("fp", tout << "post: " << mk_bounded_pp(e, m) << "\n";);
         m_nodes.push_back(std::tuple(n, sign, root));
         ctx.push(push_back_trail(m_nodes));
@@ -310,7 +314,9 @@ namespace fpa {
             if (!wrapped) wrapped = m_converter.wrap(e);
             return expr2enode(wrapped) != nullptr;
         };
-        if (m_fpa_util.is_fp(e)) {
+        if (m_fpa_util.is_rm_numeral(e) || m_fpa_util.is_numeral(e)) 
+            value = e;
+        else if (m_fpa_util.is_fp(e)) {
             SASSERT(n->num_args() == 3);
             expr* a = values.get(n->get_arg(0)->get_root_id());
             expr* b = values.get(n->get_arg(1)->get_root_id());

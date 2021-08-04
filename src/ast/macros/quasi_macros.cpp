@@ -110,10 +110,9 @@ bool quasi_macros::fully_depends_on(app * a, quantifier * q) const {
     // direct argument of a, i.e., a->get_arg(i) == v for some i
     bit_vector bitset;
     bitset.resize(q->get_num_decls(), false);
-    for (unsigned i = 0 ; i < a->get_num_args() ; i++) {
-        if (is_var(a->get_arg(i)))
-            bitset.set(to_var(a->get_arg(i))->get_idx(), true);
-    }
+    for (expr* arg : *a)
+        if (is_var(arg))
+             bitset.set(to_var(arg)->get_idx(), true);
 
     for (unsigned i = 0; i < bitset.size() ; i++) {
         if (!bitset.get(i))
@@ -198,6 +197,7 @@ bool quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
 
     bit_vector v_seen;
     v_seen.resize(q->get_num_decls(), false);
+    unsigned num_seen = 0;
     for (unsigned i = 0; i < a->get_num_args(); ++i) {
         expr* arg = a->get_arg(i);
         if (!is_var(arg) && !is_ground(arg))
@@ -215,8 +215,11 @@ bool quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
             var * v = to_var(arg);
             m_new_vars.push_back(v);
             v_seen.set(v->get_idx(), true);
+            ++num_seen;
         }
     }
+    if (num_seen < q->get_num_decls())
+        return false;
 
     // Reverse the new variable names and sorts. [CMW: There is a smarter way to do this.]
     vector<symbol> new_var_names_rev;

@@ -478,6 +478,9 @@ namespace bv {
             if (!assign_bit(bit2, v1, v2, idx, bit1, false))
                 break;
         }
+        if (s().value(m_bits[v1][m_wpos[v1]]) != l_undef)
+            find_wpos(v1);
+
         return num_assigned > 0;
     }
 

@@ -653,9 +653,8 @@ namespace bv {
         if (!argn->is_attached_to(get_id())) {
             mk_var(argn);
         }        
-        theory_var v_arg = argn->get_th_var(get_id());
-        unsigned arg_sz = get_bv_size(v_arg);
-        SASSERT(idx < arg_sz);
+        theory_var v_arg = argn->get_th_var(get_id());        
+        SASSERT(idx < get_bv_size(v_arg));
         sat::literal lit = expr2literal(n);
         sat::literal lit0 = m_bits[v_arg][idx];
         if (lit0 == sat::null_literal) {

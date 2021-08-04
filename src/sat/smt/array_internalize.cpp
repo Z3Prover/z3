@@ -177,6 +177,8 @@ namespace array {
         auto set_index = [&](euf::enode* arg) { if (arg->get_root() == r) is_index = true; };
         auto set_value = [&](euf::enode* arg) { if (arg->get_root() == r) is_value = true; };
 
+        if (a.is_ext(n->get_expr()))
+            return true;
         for (euf::enode* parent : euf::enode_parents(r)) {
             app* p = parent->get_app();
             unsigned num_args = parent->num_args();
@@ -193,7 +195,7 @@ namespace array {
             }
             else if (a.is_const(p)) {
                 set_value(parent->get_arg(0));
-            }
+            }            
             if (is_array + is_index + is_value > 1)
                 return true;
         }

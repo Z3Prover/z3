@@ -61,6 +61,7 @@ namespace euf {
     };
 
     void solver::update_model(model_ref& mdl) {
+        mdl->reset_eval_cache();
         for (auto* mb : m_solvers)
             mb->init_model();
         m_values.reset();
@@ -178,6 +179,10 @@ namespace euf {
                 mbS->add_value(n, *mdl, m_values);
             else if (auto* mbE = expr2solver(e))
                 mbE->add_value(n, *mdl, m_values);
+            else if (is_app(e) && to_app(e)->get_family_id() != m.get_basic_family_id()) {
+                m_values.set(id, e);
+                IF_VERBOSE(1, verbose_stream() << "creating self-value for " << mk_pp(e, m) << "\n");
+            }
             else {
                 IF_VERBOSE(1, verbose_stream() << "no model values created for " << mk_pp(e, m) << "\n");
             }                
@@ -212,9 +217,10 @@ namespace euf {
                 args.reset();                
                 for (expr* arg : *a) {
                     enode* earg = get_enode(arg); 
-                    args.push_back(m_values.get(earg->get_root_id()));                
-                    CTRACE("euf", !args.back(), tout << "no value for " << bpp(earg) << "\n";);
-                    SASSERT(args.back());
+                    expr* val = m_values.get(earg->get_root_id());
+                    args.push_back(val);                
+                    CTRACE("euf", !val, tout << "no value for " << bpp(earg) << "\n";);
+                    SASSERT(val);
                 }
                 SASSERT(args.size() == arity);
                 if (!fi->get_entry(args.data()))
@@ -278,6 +284,7 @@ namespace euf {
                    tout << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(e) << "\n";
                    s().display(tout);
                    tout << mdl << "\n";);
+            (void)first;
             first = false;
         }
         

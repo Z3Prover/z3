@@ -113,8 +113,11 @@ class sat_tactic : public tactic {
                             break;
                         }
                     }
+
+                    bool euf = m_goal2sat.has_euf();
+		    
                     for (auto* f : fmls_to_validate) 
-                        if (md->is_false(f)) 
+                        if (!euf && md->is_false(f)) 
                             IF_VERBOSE(0, verbose_stream() << "failed to validate: " << mk_pp(f, m) << "\n";);
                     
                     m_goal2sat.update_model(md);

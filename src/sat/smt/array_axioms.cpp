@@ -427,9 +427,11 @@ namespace array {
             app_ref sel1(m), sel2(m);
             sel1 = a.mk_select(args1);
             sel2 = a.mk_select(args2);
+            prop |= !ctx.get_enode(sel1) || !ctx.get_enode(sel2);
             if (ctx.propagate(e_internalize(sel1), e_internalize(sel2), array_axiom()))
                 prop = true;
         }
+        prop |= !ctx.get_enode(def1) || !ctx.get_enode(def2);
         if (ctx.propagate(e_internalize(def1), e_internalize(def2), array_axiom()))
             prop = true;
         return prop;
@@ -538,7 +540,7 @@ namespace array {
             for (euf::enode* p : euf::enode_parents(n))
                 has_default |= a.is_default(p->get_expr());
             if (has_default)
-                propagate_parent_default(v);            
+                propagate_parent_default(v);      
         }
         bool change = false;
         unsigned sz = m_axiom_trail.size();

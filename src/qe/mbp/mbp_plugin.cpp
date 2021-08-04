@@ -95,6 +95,97 @@ namespace mbp {
             lits.push_back(e);
     }
 
+    bool project_plugin::reduce(model_evaluator& eval, model& model, expr* fml, expr_ref_vector& fmls) {
+        expr* nfml, * f1, * f2, * f3;
+        expr_ref val(m);
+        if (m.is_not(fml, nfml) && m.is_distinct(nfml))
+            push_back(fmls, pick_equality(m, model, nfml));
+        else if (m.is_or(fml)) {
+            for (expr* arg : *to_app(fml)) {
+                val = eval(arg);
+                if (m.is_true(val)) {
+                    fmls.push_back(arg);
+                    break;
+                }
+            }
+        }
+        else if (m.is_and(fml)) {
+            fmls.append(to_app(fml)->get_num_args(), to_app(fml)->get_args());
+        }
+        else if (m.is_iff(fml, f1, f2) || (m.is_not(fml, nfml) && m.is_xor(nfml, f1, f2))) {
+            val = eval(f1);
+            if (m.is_false(val)) {
+                push_back(fmls, mk_not(m, f1));
+                push_back(fmls, mk_not(m, f2));
+            }
+            else {
+                push_back(fmls, f1);
+                push_back(fmls, f2);
+            }
+        }
+        else if (m.is_implies(fml, f1, f2)) {
+            val = eval(f2);
+            if (m.is_true(val))
+                push_back(fmls, f2);
+            else
+                push_back(fmls, mk_not(m, f1));
+        }
+        else if (m.is_ite(fml, f1, f2, f3)) {
+            val = eval(f1);
+            if (m.is_true(val)) {
+                push_back(fmls, f1);
+                push_back(fmls, f2);
+            }
+            else {
+                push_back(fmls, mk_not(m, f1));
+                push_back(fmls, f3);
+            }
+        }
+        else if (m.is_not(fml, nfml) && m.is_not(nfml, nfml)) {
+            push_back(fmls, nfml);
+        }
+        else if (m.is_not(fml, nfml) && m.is_and(nfml)) {
+            for (expr* arg : *to_app(nfml)) {
+                val = eval(arg);
+                if (m.is_false(val)) {
+                    push_back(fmls, mk_not(m, arg));
+                    break;
+                }
+            }
+        }
+        else if (m.is_not(fml, nfml) && m.is_or(nfml)) {
+            for (expr* arg : *to_app(nfml))
+                push_back(fmls, mk_not(m, arg));
+        }
+        else if ((m.is_not(fml, nfml) && m.is_iff(nfml, f1, f2)) || m.is_xor(fml, f1, f2)) {
+            val = eval(f1);
+            if (m.is_true(val))
+                f2 = mk_not(m, f2);
+            else
+                f1 = mk_not(m, f1);
+            push_back(fmls, f1);
+            push_back(fmls, f2);
+        }
+        else if (m.is_not(fml, nfml) && m.is_implies(nfml, f1, f2)) {
+            push_back(fmls, f1);
+            push_back(fmls, mk_not(m, f2));
+        }
+        else if (m.is_not(fml, nfml) && m.is_ite(nfml, f1, f2, f3)) {
+            val = eval(f1);
+            if (m.is_true(val)) {
+                push_back(fmls, f1);
+                push_back(fmls, mk_not(m, f2));
+            }
+            else {
+                push_back(fmls, mk_not(m, f1));
+                push_back(fmls, mk_not(m, f3));
+            }
+        }
+        else
+            return false;
+        return true;
+    }
+
     void project_plugin::extract_literals(model& model, app_ref_vector const& vars, expr_ref_vector& fmls) {
         m_cache.reset();
         m_bool_visited.reset();
@@ -105,100 +196,9 @@ namespace mbp {
         DEBUG_CODE(for (expr* fml : fmls) { CTRACE("qe", m.is_false(eval(fml)), tout << mk_pp(fml, m) << " is false\n" << model;); SASSERT(!m.is_false(eval(fml))); });
 
         for (unsigned i = 0; i < fmls.size(); ++i) {
-            expr* fml = fmls.get(i), * nfml, * f1, * f2, * f3;
-            SASSERT(m.is_bool(fml));
-            if (m.is_not(fml, nfml) && m.is_distinct(nfml))
-                fmls[i--] = pick_equality(m, model, nfml);
-            else if (m.is_or(fml)) {
-                for (expr* arg : *to_app(fml)) {
-                    val = eval(arg);
-                    if (m.is_true(val)) {
-                        fmls[i] = arg;
-                        --i;
-                        break;
-                    }
-                }
-            }
-            else if (m.is_and(fml)) {
-                fmls.append(to_app(fml)->get_num_args(), to_app(fml)->get_args());
-                erase(fmls, i);
-            }
-            else if (m.is_iff(fml, f1, f2) || (m.is_not(fml, nfml) && m.is_xor(nfml, f1, f2))) {
-                val = eval(f1);
-                if (m.is_false(val)) {
-                    f1 = mk_not(m, f1);
-                    f2 = mk_not(m, f2);
-                }
-                fmls[i--] = f1;
-                push_back(fmls, f2);
-            }
-            else if (m.is_implies(fml, f1, f2)) {
-                val = eval(f2);
-                if (m.is_true(val)) {
-                    fmls[i] = f2;
-                }
-                else {
-                    fmls[i] = mk_not(m, f1);
-                }
-                --i;
-            }
-            else if (m.is_ite(fml, f1, f2, f3)) {
-                val = eval(f1);
-                if (m.is_true(val)) {
-                    push_back(fmls, f1);
-                    push_back(fmls, f2);
-                }
-                else {
-                    push_back(fmls, mk_not(m, f1));
-                    push_back(fmls, f3);
-                }
-                erase(fmls, i);
-            }
-            else if (m.is_not(fml, nfml) && m.is_not(nfml, nfml)) {
-                push_back(fmls, nfml);
-                erase(fmls, i);
-            }
-            else if (m.is_not(fml, nfml) && m.is_and(nfml)) {
-                for (expr* arg : *to_app(nfml)) {
-                    val = eval(arg);
-                    if (m.is_false(val)) {
-                        fmls[i--] = mk_not(m, arg);
-                        break;
-                    }
-                }
-            }
-            else if (m.is_not(fml, nfml) && m.is_or(nfml)) {
-                for (expr* arg : *to_app(nfml))
-                    push_back(fmls, mk_not(m, arg));
-                erase(fmls, i);
-            }
-            else if ((m.is_not(fml, nfml) && m.is_iff(nfml, f1, f2)) || m.is_xor(fml, f1, f2)) {
-                val = eval(f1);
-                if (m.is_true(val)) 
-                    f2 = mk_not(m, f2);                
-                else 
-                    f1 = mk_not(m, f1);                
-                push_back(fmls, f1);
-                push_back(fmls, f2);
-                erase(fmls, i);
-            }
-            else if (m.is_not(fml, nfml) && m.is_implies(nfml, f1, f2)) {
-                push_back(fmls, f1);
-                push_back(fmls, mk_not(m, f2));
-                erase(fmls, i);
-            }
-            else if (m.is_not(fml, nfml) && m.is_ite(nfml, f1, f2, f3)) {
-                val = eval(f1);
-                if (m.is_true(val)) {
-                    push_back(fmls, f1);
-                    push_back(fmls, mk_not(m, f2));
-                }
-                else {
-                    push_back(fmls, mk_not(m, f1));
-                    push_back(fmls, mk_not(m, f3));
-                }
-                erase(fmls, i);
-            }
+            expr* nfml, * fml = fmls.get(i);
+            if (reduce(eval, model, fml, fmls)) 
+                erase(fmls, i);            
             else if (m.is_not(fml, nfml))
                 extract_bools(eval, fmls, i, nfml, false);
             else

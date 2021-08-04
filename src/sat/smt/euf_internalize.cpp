@@ -34,7 +34,11 @@ namespace euf {
 
     sat::literal solver::mk_literal(expr* e) {
         expr_ref _e(e, m);
-        return internalize(e, false, false, m_is_redundant);
+        bool is_not = m.is_not(e, e);
+        sat::literal lit = internalize(e, false, false, m_is_redundant);
+        if (is_not)
+            lit.neg();
+        return lit;
     }
 
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
@@ -129,8 +133,7 @@ namespace euf {
     sat::literal solver::attach_lit(literal lit, expr* e) {
         sat::bool_var v = lit.var();       
         s().set_external(v);
-        s().set_eliminated(v, false);   
-
+        s().set_eliminated(v, false);           
 
         if (lit.sign()) {
             v = si.add_bool_var(e);
@@ -281,17 +284,11 @@ namespace euf {
                 s().add_clause(1, &lit_th, st);
             }
             else {
-                sat::bool_var v = si.to_bool_var(c);
-                s().set_external(v);
-                VERIFY(v != sat::null_bool_var);
-                VERIFY(s().is_external(v));
-                SASSERT(v != sat::null_bool_var);
-                VERIFY(!s().was_eliminated(v));
+                sat::literal lit_c = mk_literal(c);
                 expr_ref eq_el = mk_eq(e, el);
-
                 sat::literal lit_el = mk_literal(eq_el);
-                literal lits1[2] = { literal(v, true),  lit_th };
-                literal lits2[2] = { literal(v, false), lit_el };
+                literal lits1[2] = { ~lit_c,  lit_th };
+                literal lits2[2] = { lit_c, lit_el };
                 s().add_clause(2, lits1, st);
                 s().add_clause(2, lits2, st);
             }

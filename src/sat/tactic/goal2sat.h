@@ -66,6 +66,8 @@ public:
 
     bool has_interpreted_funs() const;
 
+    bool has_euf() const;
+
     sat::sat_internalizer& si(ast_manager& m, params_ref const& p, sat::solver_core& t, atom2bool_var& a2b, dep2asm_map& dep2asm, bool default_external = false);
 
     void update_model(model_ref& mdl);

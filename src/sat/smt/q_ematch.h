@@ -49,6 +49,13 @@ namespace q {
             }
         };
 
+        struct prop {
+            bool is_conflict;
+            unsigned idx;
+            sat::ext_justification_idx j;
+            prop(bool is_conflict, unsigned idx, sat::ext_justification_idx j) : is_conflict(is_conflict), idx(idx), j(j) {}
+        };
+
         struct remove_binding;
         struct insert_binding;
         struct pop_clause;
@@ -63,8 +70,9 @@ namespace q {
         quantifier_stat_gen           m_qstat_gen;
         fingerprints                  m_fingerprints;
         scoped_ptr<binding>           m_tmp_binding;
-        unsigned                      m_tmp_binding_capacity { 0 };
+        unsigned                      m_tmp_binding_capacity = 0;
         queue                         m_inst_queue;
+        svector<prop>                 m_prop_queue;
         pattern_inference_rw          m_infer_patterns;
         scoped_ptr<q::mam>            m_mam, m_lazy_mam;
         ptr_vector<clause>            m_clauses;
@@ -72,13 +80,14 @@ namespace q {
         vector<unsigned_vector>       m_watch;     // expr_id -> clause-index*
         stats                         m_stats;
         expr_fast_mark1               m_mark;
-        unsigned                      m_generation_propagation_threshold{ 3 };
+        unsigned                      m_generation_propagation_threshold = 3;
         ptr_vector<app>               m_ground;
-        bool                          m_in_queue_set{ false };
+        bool                          m_in_queue_set = false;
         nat_set                       m_node_in_queue;
         nat_set                       m_clause_in_queue;
-        unsigned                      m_qhead { 0 };
+        unsigned                      m_qhead = 0;
         unsigned_vector               m_clause_queue;
+        euf::enode_pair_vector        m_evidence;
 
         binding* alloc_binding(unsigned n, app* pat, unsigned max_generation, unsigned min_top, unsigned max_top);
         euf::enode* const* alloc_binding(clause& c, euf::enode* const* _binding);
@@ -107,6 +116,9 @@ namespace q {
         fingerprint* add_fingerprint(clause& c, binding& b, unsigned max_generation);
         void set_tmp_binding(fingerprint& fp);
 
+        bool flush_prop_queue();
+        void propagate(bool is_conflict, unsigned idx, sat::ext_justification_idx j_idx);
+
     public:
         
         ematch(euf::solver& ctx, solver& s);
@@ -115,7 +127,7 @@ namespace q {
 
         bool propagate(bool flush);
 
-        void init_search();
+        // void init_search();
 
         void add(quantifier* q);
 
@@ -127,7 +139,7 @@ namespace q {
         void on_binding(quantifier* q, app* pat, euf::enode* const* binding, unsigned max_generation, unsigned min_gen, unsigned max_gen);
 
         // callbacks from queue
-        lbool evaluate(euf::enode* const* binding, clause& c) { return m_eval(binding, c); }
+        lbool evaluate(euf::enode* const* binding, clause& c) { m_evidence.reset();  return m_eval(binding, c, m_evidence); }
 
         void add_instantiation(clause& c, binding& b, sat::literal lit);
 

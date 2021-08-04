@@ -248,8 +248,7 @@ public:
         }
     }
 
-    void operator()(quantifier * n) {
-        display_def_header(n);
+    void display_quantifier_header(quantifier* n) {
         m_out << "(" << (n->get_kind() == forall_k ? "forall" : (n->get_kind() == exists_k ? "exists" : "lambda")) << " ";
         unsigned num_decls = n->get_num_decls();
         m_out << "(vars ";
@@ -272,6 +271,12 @@ public:
             display_children(n->get_num_no_patterns(), n->get_no_patterns());
             m_out << ") ";
         }
+
+  }
+
+    void operator()(quantifier * n) {
+        display_def_header(n);
+        display_quantifier_header(n);
         display_child(n->get_expr());
         m_out << ")\n";
     }
@@ -279,6 +284,12 @@ public:
     void display(expr * n, unsigned depth) {
         if (is_var(n)) {
             m_out << "(:var " << to_var(n)->get_idx() << ")";
+            return;
+        }
+        if (is_quantifier(n)) {
+            display_quantifier_header(to_quantifier(n));
+            display(to_quantifier(n)->get_expr(), depth - 1);
+            m_out << ")";
             return;
         }
 
@@ -304,16 +315,11 @@ public:
 
     void display_bounded(ast * n, unsigned depth) {
         if (!n)
-   	     m_out << "null";    
-        else if (is_app(n)) {
-            display(to_expr(n), depth);
-        }
-        else if (is_var(n)) {
-            m_out << "(:var " << to_var(n)->get_idx() << ")";
-        }
-        else {
-            m_out << "#" << n->get_id();
-        }
+            m_out << "null";    
+        else if (is_expr(n)) 
+            display(to_expr(n), depth);               
+        else 
+            m_out << "#" << n->get_id();        
     }
 };
 

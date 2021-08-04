@@ -714,6 +714,7 @@ namespace dt {
         if (v == euf::null_theory_var) 
             return false;
         euf::enode* con = m_var_data[m_find.find(v)]->m_constructor;
+        CTRACE("dt", !con, display(tout) << ctx.bpp(n) << "\n";);
         if (con->num_args() == 0)
             dep.insert(n, nullptr);
         for (enode* arg : euf::enode_args(con))

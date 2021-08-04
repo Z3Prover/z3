@@ -165,6 +165,10 @@ namespace dimacs {
             return out << "f " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
         case drat_record::tag_t::is_bool_def:
             return out << "b " << r.m_node_id << " " << r.m_args << "0\n";
+        case drat_record::tag_t::is_var:
+            return out << "v " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
+        case drat_record::tag_t::is_quantifier:
+            return out << "q " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
         }
         return out;
     }
@@ -256,6 +260,23 @@ namespace dimacs {
                 m_record.m_args.push_back(n);
             }
         };
+        auto parse_var = [&]() {
+            ++in;
+            skip_whitespace(in);
+            n = parse_int(in, err);                    
+            skip_whitespace(in);
+            m_record.m_name = parse_sexpr();
+            m_record.m_tag = drat_record::tag_t::is_var;
+            m_record.m_node_id = n;
+            m_record.m_args.reset();
+            n = parse_int(in, err);
+            if (n < 0)
+                throw lex_error();
+            m_record.m_args.push_back(n);
+            n = parse_int(in, err);
+            if (n != 0)
+                throw lex_error();
+        };
         try {
         loop:
             skip_whitespace(in);
@@ -289,6 +310,12 @@ namespace dimacs {
             case 'e':
                 // parse expression definition
                 parse_ast(drat_record::tag_t::is_node);
+                break;
+            case 'v':
+                parse_var();
+                break;
+            case 'q':
+                parse_ast(drat_record::tag_t::is_quantifier);
                 break;
             case 'f':
                 // parse function declaration

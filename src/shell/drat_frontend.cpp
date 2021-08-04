@@ -122,12 +122,17 @@ class smt_checker {
             m_input_solver->assert_expr(lit2expr(~lit));
         lbool is_sat = m_input_solver->check_sat();
         if (is_sat != l_false) {
-            std::cout << "did not verify: " << lits << "\n";
-            for (sat::literal lit : lits) {
-                std::cout << lit2expr(lit) << "\n";
-            }
+            std::cout << "did not verify: " << is_sat << " " << lits << "\n";
+            for (sat::literal lit : lits) 
+                std::cout << lit2expr(lit) << "\n";            
             std::cout << "\n";
             m_input_solver->display(std::cout);
+            if (is_sat == l_true) {
+                model_ref mdl;
+                m_input_solver->get_model(mdl);
+                std::cout << *mdl << "\n";
+            }
+                
             exit(0);
         }
         m_input_solver->pop(1);
@@ -170,6 +175,49 @@ public:
     symbol name;
     unsigned_vector params;
     ptr_vector<sort> sorts;
+
+    void parse_quantifier(sexpr_ref const& sexpr, cmd_context& ctx, quantifier_kind& k, sort_ref_vector& domain, svector<symbol>& names) {
+        k = quantifier_kind::forall_k;
+        symbol q;
+        unsigned sz;
+        if (sexpr->get_kind() != sexpr::kind_t::COMPOSITE)
+            goto bail;
+        sz = sexpr->get_num_children();
+        if (sz == 0)
+            goto bail;
+        q = sexpr->get_child(0)->get_symbol();
+        if (q == "forall")
+            k = quantifier_kind::forall_k;
+        else if (q == "exists")
+            k = quantifier_kind::exists_k;
+        else if (q == "lambda")            
+            k = quantifier_kind::lambda_k;
+        else
+            goto bail;
+        for (unsigned i = 1; i < sz; ++i) {
+            auto* e = sexpr->get_child(i);
+            if (e->get_kind() != sexpr::kind_t::COMPOSITE)
+                goto bail;
+            if (2 != e->get_num_children())
+                goto bail;
+            symbol name = e->get_child(0)->get_symbol();
+            std::ostringstream ostrm;
+            e->get_child(1)->display(ostrm);            
+            std::istringstream istrm(ostrm.str());
+            params_ref p;
+            auto srt = parse_smt2_sort(ctx, istrm, false, p, "quantifier");
+            if (!srt)
+                goto bail;
+            names.push_back(name);
+            domain.push_back(srt);            
+        }
+        return;
+    bail:
+        std::cout << "Could not parse expression\n";
+        sexpr->display(std::cout);
+        std::cout << "\n";
+        exit(0);        
+    }
 
     void parse_sexpr(sexpr_ref const& sexpr, cmd_context& ctx, expr_ref_vector const& args, expr_ref& result) {
         params.reset();
@@ -310,7 +358,17 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
             std::istringstream strm(r.m_name);
             auto sexpr = parse_sexpr(ctx, strm, p, drat_file);
             checker.parse_sexpr(sexpr, ctx, args, e);
-            exprs.reserve(r.m_node_id+1);
+            exprs.reserve(r.m_node_id + 1);
+            exprs.set(r.m_node_id, e);
+            break;
+        }
+        case dimacs::drat_record::tag_t::is_var: {
+            var_ref e(m);
+            SASSERT(r.m_args.size() == 1);
+            std::istringstream strm(r.m_name);
+            auto srt = parse_smt2_sort(ctx, strm, false, p, drat_file);
+            e = m.mk_var(r.m_args[0], srt);
+            exprs.reserve(r.m_node_id + 1);
             exprs.set(r.m_node_id, e);
             break;
         }
@@ -331,12 +389,26 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
                 srt = pd->instantiate(ctx.pm(), sargs.size(), sargs.data());
             else 
                 srt = m.mk_uninterpreted_sort(name);
-            sorts.reserve(r.m_node_id+1);
+            sorts.reserve(r.m_node_id + 1);
             sorts.set(r.m_node_id, srt);
             break;
         }
+        case dimacs::drat_record::tag_t::is_quantifier: {
+            VERIFY(r.m_args.size() == 1);          
+            quantifier_ref q(m);      
+            std::istringstream strm(r.m_name);
+            auto sexpr = parse_sexpr(ctx, strm, p, drat_file);
+            sort_ref_vector domain(m);
+            svector<symbol> names;
+            quantifier_kind k;
+            checker.parse_quantifier(sexpr, ctx, k, domain, names);
+            q = m.mk_quantifier(k, domain.size(), domain.data(), names.data(), exprs.get(r.m_args[0]));
+            exprs.reserve(r.m_node_id + 1);
+            exprs.set(r.m_node_id, q);
+            break;
+        }
         case dimacs::drat_record::tag_t::is_bool_def:
-            bool_var2expr.reserve(r.m_node_id+1);
+            bool_var2expr.reserve(r.m_node_id + 1);
             bool_var2expr.set(r.m_node_id, exprs.get(r.m_args[0]));
             break;
         default:
@@ -347,7 +419,6 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
     statistics st;
     drat_checker.collect_statistics(st);
     std::cout << st << "\n";
-
 }
 
 
@@ -359,5 +430,3 @@ unsigned read_drat(char const* drat_file, char const* problem_file) {
     verify_smt(drat_file, problem_file);
     return 0;
 }
-
-

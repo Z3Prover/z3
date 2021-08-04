@@ -42,6 +42,7 @@ namespace q {
         add_plugin(ap);
         add_plugin(alloc(mbp::datatype_project_plugin, m));
         add_plugin(alloc(mbp::array_project_plugin, m));
+        
     }
 
     lbool mbqi::operator()() {
@@ -66,10 +67,11 @@ namespace q {
             }
         }
         m_max_cex += ctx.get_config().m_mbqi_max_cexs;
-        for (auto p : m_instantiations) {
-            unsigned generation = std::get<2>(p);
+        for (auto [qlit, fml, generation] : m_instantiations) {
             euf::solver::scoped_generation sg(ctx, generation + 1);
-            m_qs.add_clause(~std::get<0>(p), ~ctx.mk_literal(std::get<1>(p)));
+            sat::literal lit = ctx.mk_literal(fml);
+            m_qs.add_clause(~qlit, ~lit);
+            ctx.add_root(~qlit, ~lit);
         }
         m_instantiations.reset();
         return result;
@@ -162,12 +164,13 @@ namespace q {
                 return r;
             if (r == l_true) {
                 model_ref mdl;
-                expr_ref proj(m);
                 m_solver->get_model(mdl);
                 if (check_forall_subst(q, *qb, *mdl))
                     return l_false;
                 if (check_forall_default(q, *qb, *mdl))
                     return l_false;
+                else 
+                    return l_undef;                
             }
             if (m_generation_bound >= m_generation_max)
                 return l_true;
@@ -279,8 +282,9 @@ namespace q {
         bool fmls_extracted = false;
         TRACE("q",
               tout << "Project\n";
-              tout << *m_model << "\n";
               tout << fmls << "\n";
+              tout << "model\n";
+              tout << *m_model << "\n";
               tout << "model of projection\n" << mdl << "\n";
               tout << "var args: " << qb.var_args.size() << "\n";
               tout << "domain eqs: " << qb.domain_eqs << "\n";
@@ -294,8 +298,13 @@ namespace q {
             app* v = vars.get(i);
             auto* p = get_plugin(v);
             if (p && !fmls_extracted) {
+                TRACE("q", tout << "domain eqs\n" << qb.domain_eqs << "\n";);
+                                
                 fmls.append(qb.domain_eqs);
                 eliminate_nested_vars(fmls, qb);
+                for (expr* e : fmls)
+                    if (!m_model->is_true(e))
+                        return expr_ref(nullptr, m);
                 mbp::project_plugin proj(m);
                 proj.extract_literals(*m_model, vars, fmls);
                 fmls_extracted = true;
@@ -312,6 +321,7 @@ namespace q {
             eqs.push_back(m.mk_eq(v, val));
         }
         rep(fmls);
+        TRACE("q", tout << "generated formulas\n" << fmls << "\ngenerated eqs:\n" << eqs;);
         return mk_and(fmls);
     }
 
@@ -326,8 +336,8 @@ namespace q {
         qb.domain_eqs.reset();
         var_subst subst(m);
 
-        for (auto p : qb.var_args) {
-            expr_ref bounds = m_model_fixer.restrict_arg(p.first, p.second);  
+        for (auto [t, idx] : qb.var_args) {
+            expr_ref bounds = m_model_fixer.restrict_arg(t, idx);  
             if (m.is_true(bounds))
                 continue;
             expr_ref vbounds = subst(bounds, qb.vars);
@@ -382,11 +392,11 @@ namespace q {
         if (qb.var_args.empty())
             return;
         var_subst subst(m);
-        for (auto p : qb.var_args) {
-            expr_ref _term = subst(p.first, qb.vars);
+        for (auto [t, idx] : qb.var_args) {
+            expr_ref _term = subst(t, qb.vars);
             app_ref  term(to_app(_term), m);
-            expr_ref value = (*m_model)(term->get_arg(p.second));
-            m_model_fixer.invert_arg(term, p.second, value, qb.domain_eqs);
+            expr_ref value = (*m_model)(term->get_arg(idx));
+            m_model_fixer.invert_arg(term, idx, value, qb.domain_eqs);
         }
     }
 
@@ -555,7 +565,7 @@ namespace q {
 
     void mbqi::init_solver() {
         if (!m_solver)
-            m_solver = mk_smt2_solver(m, ctx.s().params());
+            m_solver = mk_smt2_solver(m, m_no_drat_params);
     }
 
     void mbqi::init_search() {

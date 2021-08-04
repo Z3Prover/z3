@@ -467,7 +467,7 @@ void macro_util::quasi_macro_head_to_macro_head(app * qhead, unsigned & num_decl
    See normalize_expr
 */
 void macro_util::mk_macro_interpretation(app * head, unsigned num_decls, expr * def, expr_ref & interp) const {
-    TRACE("macro_util", tout << mk_pp(head, m_manager) << "\n";);
+    TRACE("macro_util", tout << mk_pp(head, m_manager) << "\n" << mk_pp(def, m_manager) << "\n";);
     SASSERT(is_macro_head(head, head->get_num_args()) ||
             is_quasi_macro_ok(head, head->get_num_args(), def));
     SASSERT(!occurs(head->get_decl(), def));

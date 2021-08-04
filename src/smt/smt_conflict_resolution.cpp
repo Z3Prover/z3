@@ -315,7 +315,7 @@ namespace smt {
     void conflict_resolution::process_antecedent(literal antecedent, unsigned & num_marks) {
         bool_var var = antecedent.var();
         unsigned lvl = m_ctx.get_assign_level(var);
-        SASSERT(var < static_cast<int>(m_ctx.get_num_bool_vars()));
+        SASSERT(var < m_ctx.get_num_bool_vars());
         TRACE("conflict_", tout << "processing antecedent (level " << lvl << "):";
               m_ctx.display_literal(tout, antecedent);
               m_ctx.display_detailed_literal(tout << " ", antecedent) << "\n";);

@@ -156,26 +156,27 @@ namespace euf {
         svector<update_record> m_updates;
         unsigned_vector        m_scopes;
         enode_vector           m_expr2enode;
-        enode*                 m_tmp_eq { nullptr };
-        enode*                 m_tmp_node { nullptr };
-        unsigned               m_tmp_node_capacity { 0 };
+        enode*                 m_tmp_eq = nullptr;
+        enode*                 m_tmp_node = nullptr;
+        unsigned               m_tmp_node_capacity = 0;
+        tmp_app                m_tmp_app;
         enode_vector           m_nodes;
         expr_ref_vector        m_exprs;
         vector<enode_vector>   m_decl2enodes;
         enode_vector           m_empty_enodes;
-        unsigned               m_num_scopes { 0 };
-        bool                   m_inconsistent { false };
-        enode                  *m_n1 { nullptr };
-        enode                  *m_n2 { nullptr };
+        unsigned               m_num_scopes = 0;
+        bool                   m_inconsistent = false;
+        enode                  *m_n1 = nullptr;
+        enode                  *m_n2 = nullptr;
         justification          m_justification;
-        unsigned               m_new_lits_qhead { 0 };
-        unsigned               m_new_th_eqs_qhead { 0 };
+        unsigned               m_new_lits_qhead = 0;
+        unsigned               m_new_th_eqs_qhead = 0;
         svector<enode_bool_pair>  m_new_lits;
         svector<th_eq>         m_new_th_eqs;
         bool_vector            m_th_propagates_diseqs;
         enode_vector           m_todo;
         stats                  m_stats;
-        bool                   m_uses_congruence { false };
+        bool                   m_uses_congruence = false;
         std::function<void(enode*,enode*)>     m_on_merge;
         std::function<void(enode*)>            m_on_make;
         std::function<void(expr*,expr*,expr*)> m_used_eq;
@@ -261,7 +262,7 @@ namespace euf {
         */
         bool are_diseq(enode* a, enode* b) const;
 
-        enode * get_enode_eq_to(func_decl * f, unsigned num_args, enode * const * args) { UNREACHABLE(); return nullptr; }
+        enode* get_enode_eq_to(func_decl* f, unsigned num_args, enode* const* args);
 
         /**
            \brief Maintain and update cursor into propagated consequences.
@@ -326,6 +327,7 @@ namespace euf {
         void collect_statistics(statistics& st) const;
 
         unsigned num_scopes() const { return m_scopes.size() + m_num_scopes; }
+        unsigned num_nodes() const { return m_nodes.size(); }
     };
 
     inline std::ostream& operator<<(std::ostream& out, egraph const& g) { return g.display(out); }

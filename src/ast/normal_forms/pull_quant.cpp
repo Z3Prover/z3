@@ -281,9 +281,9 @@ struct pull_quant::imp {
                     m.mk_rewrite(old_q, result);
                 return true;
             }
-            if (is_lambda(old_q)) {
-                return false;
-            }
+
+            if (is_lambda(old_q)) 
+                return false;            
 
             if (!is_forall(new_body))
                 return false;

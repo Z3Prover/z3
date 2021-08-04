@@ -96,6 +96,7 @@ namespace seq {
         void itos_axiom(expr* s, unsigned k);
         void ubv2s_axiom(expr* b, unsigned k);
         void ubv2s_len_axiom(expr* b, unsigned k);
+        void ubv2s_len_axiom(expr* b);
         void ubv2ch_axiom(sort* bv_sort);
         void lt_axiom(expr* n);
         void le_axiom(expr* n);

@@ -125,7 +125,7 @@ namespace euf {
 
 
         ast_manager &                 m_manager;
-        bool                          m_commutativity{ false }; //!< true if the last found congruence used commutativity
+        bool                          m_commutativity = false; //!< true if the last found congruence used commutativity
         ptr_vector<void>              m_tables;
         map<decl_info, unsigned, decl_hash, decl_eq>  m_func_decl2id;
 

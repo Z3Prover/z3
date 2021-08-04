@@ -23,9 +23,9 @@ namespace q {
     std::ostream& lit::display(std::ostream& out) const {
         ast_manager& m = lhs.m();
         if (m.is_true(rhs) && !sign) 
-            return out << mk_bounded_pp(lhs, m, 2);
+            return out << lhs;
         if (m.is_false(rhs) && !sign) 
-            return out << "(not " << mk_bounded_pp(lhs, m, 2) << ")";
+            return out << "(not " << lhs << ")";
         return 
             out << mk_bounded_pp(lhs, m, 2) 
                 << (sign ? " != " : " == ") 
@@ -43,13 +43,13 @@ namespace q {
         for (auto const& lit : m_lits)
             lit.display(out) << "\n";
         binding* b = m_bindings;
-        if (b) {
-            do {
-                b->display(ctx, num_decls(), out) << "\n";
-                b = b->next();
-            }
-            while (b != m_bindings);
-        }
+        if (!b)
+            return out;
+        do {
+            b->display(ctx, num_decls(), out) << "\n";
+            b = b->next();
+        } 
+        while (b != m_bindings);
         return out;
     }
 

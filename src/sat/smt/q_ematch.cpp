@@ -94,7 +94,10 @@ namespace q {
         lit lit(expr_ref(l, m), expr_ref(r, m), sign); 
         if (idx != UINT_MAX)
             lit = c[idx];
-        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(lit, c, b);
+        auto* ev = static_cast<euf::enode_pair*>(ctx.get_region().allocate(sizeof(euf::enode_pair) * m_evidence.size()));
+        for (unsigned i = m_evidence.size(); i-- > 0; )
+            ev[i] = m_evidence[i];
+        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(lit, c, b, m_evidence.size(), ev);
         return constraint->to_index();
     }
 
@@ -251,7 +254,8 @@ namespace q {
     bool ematch::propagate(bool is_owned, euf::enode* const* binding, unsigned max_generation, clause& c, bool& propagated) {
         TRACE("q", c.display(ctx, tout) << "\n";);
         unsigned idx = UINT_MAX;
-        lbool ev = m_eval(binding, c, idx);
+        m_evidence.reset();
+        lbool ev = m_eval(binding, c, idx, m_evidence);
         if (ev == l_true) {
             ++m_stats.m_num_redundant;
             return true;
@@ -267,17 +271,39 @@ namespace q {
         if (ev == l_undef && max_generation > m_generation_propagation_threshold)
             return false;
         if (!is_owned) 
-            binding = alloc_binding(c, binding);        
-        auto j_idx = mk_justification(idx, c, binding);       
-        if (ev == l_false) {
+            binding = alloc_binding(c, binding); 
+
+        auto j_idx = mk_justification(idx, c, binding);     
+
+        if (is_owned)
+            propagate(ev == l_false, idx, j_idx);
+        else
+            m_prop_queue.push_back(prop(ev == l_false, idx, j_idx));
+        propagated = true;
+        return true;
+    }
+
+    void ematch::propagate(bool is_conflict, unsigned idx, sat::ext_justification_idx j_idx) {
+        if (is_conflict) {
             ++m_stats.m_num_conflicts;
             ctx.set_conflict(j_idx);
         }
         else {
             ++m_stats.m_num_propagations;
-            ctx.propagate(instantiate(c, binding, c[idx]), j_idx);
+            auto& j = justification::from_index(j_idx);
+            auto lit = instantiate(j.m_clause, j.m_binding, j.m_clause[idx]);
+            ctx.propagate(lit, j_idx);
         }
-        propagated = true;
+    }
+
+    bool ematch::flush_prop_queue() {
+        if (m_prop_queue.empty())
+            return false;
+        for (unsigned i = 0; i < m_prop_queue.size(); ++i) {
+            auto [is_conflict, idx, j_idx] = m_prop_queue[i];
+            propagate(is_conflict, idx, j_idx);
+        }
+        m_prop_queue.reset();
         return true;
     }
 
@@ -295,6 +321,7 @@ namespace q {
     }
 
     void ematch::add_instantiation(clause& c, binding& b, sat::literal lit) {
+        m_evidence.reset();
         ctx.propagate(lit, mk_justification(UINT_MAX, c, b.nodes()));
     }
 
@@ -411,6 +438,16 @@ namespace q {
                 r = sign ? m.mk_false() : m.mk_true();
                 sign = false;
             }
+            if (m.is_true(l) || m.is_false(l))
+                std::swap(l, r);
+            if (sign && m.is_false(r)) {
+                r = m.mk_true();
+                sign = false;
+            }
+            else if (sign && m.is_true(r)) {
+                r = m.mk_false();
+                sign = false;
+            }
             cl->m_lits.push_back(lit(expr_ref(l, m), expr_ref(r, m), sign));
         }
         if (q->get_num_patterns() == 0) {
@@ -490,7 +527,7 @@ namespace q {
 
     bool ematch::propagate(bool flush) {
         m_mam->propagate();
-        bool propagated = false;
+        bool propagated = flush_prop_queue();
         if (m_qhead >= m_clause_queue.size())
             return m_inst_queue.propagate();
         ctx.push(value_trail<unsigned>(m_qhead));

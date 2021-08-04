@@ -776,48 +776,84 @@ namespace seq {
         rational pow(1);
         for (unsigned i = 0; i < k; ++i)
             pow *= 10;
-        if (k == 0) {
-            ge10k = m.mk_true();            
-        }
-        else {
-            ge10k = bv.mk_ule(bv.mk_numeral(pow, bv_sort), b);
-        }
+        ge10k = bv.mk_ule(bv.mk_numeral(pow, bv_sort), b);        
         ge10k1 = bv.mk_ule(bv.mk_numeral(pow * 10, bv_sort), b);
         unsigned sz = bv.get_bv_size(b);
         expr_ref_vector es(m);
         expr_ref bb(b, m), ten(bv.mk_numeral(10, sz), m);
-        pow = 1;
+        rational p(1);
         for (unsigned i = 0; i <= k; ++i) {
-            if (pow > 1)
-                bb = bv.mk_bv_udiv(b, bv.mk_numeral(pow, bv_sort));
+            if (p > 1)
+                bb = bv.mk_bv_udiv(b, bv.mk_numeral(p, bv_sort));
             es.push_back(seq.str.mk_unit(m_sk.mk_ubv2ch(bv.mk_bv_urem(bb, ten))));
-            pow *= 10;
+            p *= 10;
         }
         es.reverse();
         eq = m.mk_eq(seq.str.mk_ubv2s(b), seq.str.mk_concat(es, seq.str.mk_string_sort()));
-        add_clause(~ge10k, ge10k1, eq);
+        SASSERT(pow < rational::power_of_two(sz));
+        if (k == 0)
+            add_clause(ge10k1, eq);
+        else if (pow * 10 >= rational::power_of_two(sz))
+            add_clause(~ge10k, eq);
+        else 
+            add_clause(~ge10k, ge10k1, eq);
+    }
+
+    /*
+    * 1 <= len(ubv2s(b)) <= k, where k is min such that 10^k > 2^sz
+    */
+    void axioms::ubv2s_len_axiom(expr* b) {
+        bv_util bv(m);
+        sort* bv_sort = b->get_sort();
+        unsigned sz = bv.get_bv_size(bv_sort);
+        unsigned k = 1;
+        rational pow(10);
+        while (pow <= rational::power_of_two(sz))
+            ++k, pow *= 10;
+        expr_ref len(seq.str.mk_length(seq.str.mk_ubv2s(b)), m);
+        expr_ref ge(a.mk_ge(len, a.mk_int(1)), m);
+        expr_ref le(a.mk_le(len, a.mk_int(k)), m);
+        add_clause(le);
+        add_clause(ge);
     }
 
     /*
     *   len(ubv2s(b)) = k => 10^k-1 <= b < 10^{k}   k > 1
     *   len(ubv2s(b)) = 1 =>  b < 10^{1}   k = 1
+    *   len(ubv2s(b)) >= k => is_digit(nth(ubv2s(b), 0)) & ... & is_digit(nth(ubv2s(b), k-1))
     */
     void axioms::ubv2s_len_axiom(expr* b, unsigned k) {
-        expr_ref ge10k(m), ge10k1(m), eq(m);
+        expr_ref ge10k(m), ge10k1(m), eq(m), is_digit(m);
+        expr_ref ubvs(seq.str.mk_ubv2s(b), m);
+        expr_ref len(seq.str.mk_length(ubvs), m);
+        expr_ref ge_len(a.mk_ge(len, a.mk_int(k)), m);
         bv_util bv(m);
         sort* bv_sort = b->get_sort();
         unsigned sz = bv.get_bv_size(bv_sort);
         rational pow(1);
         for (unsigned i = 1; i < k; ++i)
             pow *= 10;
-        if (pow * 10 >= rational::power_of_two(sz))
-            return; // TODO: add conflict when k is too large or avoid overflow bounds and limits
+
+        if (pow >= rational::power_of_two(sz)) {
+            expr_ref ge(a.mk_ge(len, a.mk_int(k)), m);
+            add_clause(~ge);
+            return;
+        }
+
         ge10k = bv.mk_ule(bv.mk_numeral(pow, bv_sort), b);        
         ge10k1 = bv.mk_ule(bv.mk_numeral(pow * 10, bv_sort), b);
-        eq = m.mk_eq(seq.str.mk_length(seq.str.mk_ubv2s(b)), a.mk_int(k));
-        add_clause(~eq, ~ge10k1);
+        eq = m.mk_eq(len, a.mk_int(k));
+
+        if (pow * 10 < rational::power_of_two(sz))
+            add_clause(~eq, ~ge10k1);
         if (k > 1)
             add_clause(~eq, ge10k);
+
+        for (unsigned i = 0; i < k; ++i) {
+            expr* ch = seq.str.mk_nth_i(ubvs, i);
+            is_digit = seq.mk_char_is_digit(ch);
+            add_clause(~ge_len, is_digit);
+        }
     }
 
     void axioms::ubv2ch_axiom(sort* bv_sort) {

@@ -169,10 +169,6 @@ void horn_subsume_model_converter::add_default_false_interpretation(expr* e, mod
 }
 
 
-void horn_subsume_model_converter::operator()(expr_ref& fml) {
-    NOT_IMPLEMENTED_YET();
-}
-
 void horn_subsume_model_converter::operator()(model_ref& mr) {
 
     func_decl_ref pred(m);

@@ -1859,18 +1859,18 @@ namespace smt {
         axiomatized_terms.insert(ex);
         TRACE("str", tout << "instantiate str.from_code axiom for " << mk_pp(ex, m) << std::endl;);
 
-        expr * arg;
-        u.str.is_from_code(ex, arg);
+        expr * arg = nullptr;
+        VERIFY(u.str.is_from_code(ex, arg));
         // (str.from_code N) == "" if N is not in the range [0, max_char].
         {
-	        expr_ref premise(m.mk_or(m_autil.mk_le(arg, mk_int(-1)), m_autil.mk_ge(arg, mk_int(u.max_char() + 1))), m);
+            expr_ref premise(m.mk_or(m_autil.mk_le(arg, mk_int(-1)), m_autil.mk_ge(arg, mk_int(u.max_char() + 1))), m);
             expr_ref conclusion(ctx.mk_eq_atom(ex, mk_string("")), m);
             expr_ref axiom(rewrite_implication(premise, conclusion), m);
             assert_axiom_rw(axiom);
         }
         // len (str.from_code N) == 1 if N is in the range [0, max_char].
         {
-	        expr_ref premise(m.mk_and(m_autil.mk_ge(arg, mk_int(0)), m_autil.mk_le(arg, mk_int(u.max_char() + 1))), m);
+            expr_ref premise(m.mk_and(m_autil.mk_ge(arg, mk_int(0)), m_autil.mk_le(arg, mk_int(u.max_char() + 1))), m);
             expr_ref conclusion(ctx.mk_eq_atom(mk_strlen(ex), mk_int(1)), m);
             expr_ref axiom(rewrite_implication(premise, conclusion), m);
             assert_axiom_rw(axiom);
@@ -1895,8 +1895,8 @@ namespace smt {
         axiomatized_terms.insert(ex);
         TRACE("str", tout << "instantiate str.to_code axiom for " << mk_pp(ex, m) << std::endl;);
 
-        expr * arg;
-        u.str.is_to_code(ex, arg);
+        expr * arg = nullptr;
+        VERIFY(u.str.is_to_code(ex, arg));
         // (str.to_code S) == -1 if len(S) != 1.
         {
             expr_ref premise(m.mk_not(ctx.mk_eq_atom(mk_strlen(arg), mk_int(1))), m);
@@ -5523,6 +5523,7 @@ namespace smt {
         TRACE("str", tout << mk_pp(node, get_manager()) << std::endl;);
         if (groundedMap.find(node) != groundedMap.end()) {
             for (auto const &itor : groundedMap[node]) {
+                (void) itor;
                 TRACE("str",
                       tout << "\t[grounded] ";
                       for (auto const &vIt : itor.first) {

@@ -82,6 +82,10 @@ namespace sat {
         void reset();
         void collect_statistics(statistics & st) const;
     };
+
+    struct no_drat_params : public params_ref {
+        no_drat_params() { set_sym("drat.file", symbol()); }        
+    };
     
     class solver : public solver_core {
     public:
@@ -183,6 +187,7 @@ namespace sat {
         scoped_limit_trail      m_vars_lim;
         stopwatch               m_stopwatch;
         params_ref              m_params;
+        no_drat_params          m_no_drat_params;
         scoped_ptr<solver>      m_clone; // for debugging purposes
         literal_vector          m_assumptions;      // additional assumptions during check
         literal_set             m_assumption_set;   // set of enabled assumptions

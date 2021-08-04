@@ -134,7 +134,15 @@ namespace opt {
     }
 
     void model_based_opt::def::normalize() {
-        SASSERT(m_div.is_int());
+        if (!m_div.is_int()) {
+            rational den = denominator(m_div);
+            SASSERT(den > 1);
+            for (var& v : m_vars)
+                v.m_coeff *= den;
+            m_coeff *= den;
+            m_div *= den;
+
+        }
         if (m_div.is_neg()) {
             for (var& v : m_vars)
                 v.m_coeff.neg();
@@ -528,6 +536,13 @@ namespace opt {
         }
     }
 
+    /**
+    * a1 > 0
+    * a1*x + r1 = value
+    * a2*x + r2 <= 0
+    * ------------------
+    * a1*r2 - a2*r1 <= value
+    */
     void model_based_opt::solve(unsigned row_src, rational const& a1, unsigned row_dst, unsigned x) {
         SASSERT(a1 == get_coefficient(row_src, x));
         SASSERT(a1.is_pos());
@@ -1195,22 +1210,25 @@ namespace opt {
     model_based_opt::def model_based_opt::solve_for(unsigned row_id1, unsigned x, bool compute_def) {
         TRACE("opt", tout << "v" << x << " := " << eval(x) << "\n" << m_rows[row_id1] << "\n";);
         rational a = get_coefficient(row_id1, x), b;
-        ineq_type ty = m_rows[row_id1].m_type;
+        row& r1 = m_rows[row_id1];
+        ineq_type ty = r1.m_type;
         SASSERT(!a.is_zero());
-        SASSERT(m_rows[row_id1].m_alive);
+        SASSERT(r1.m_alive);
         if (a.is_neg()) {
             a.neg();
-            m_rows[row_id1].neg();
+            r1.neg();
         }
         SASSERT(a.is_pos());
         if (ty == t_lt) {
             SASSERT(compute_def);
-            m_rows[row_id1].m_coeff += a;      
-            m_rows[row_id1].m_type = t_le;
-            m_rows[row_id1].m_value += a;
-        }
-        if (m_var2is_int[x] && !a.is_one()) {
-            row& r1 = m_rows[row_id1];
+            r1.m_coeff -= r1.m_value;
+            r1.m_type = t_le;
+            r1.m_value = 0;
+        }        
+
+        if (m_var2is_int[x] && !a.is_one()) {            
+            r1.m_coeff -= r1.m_value;
+            r1.m_value = 0;
             vector<var> coeffs;
             mk_coeffs_without(coeffs, r1.m_vars, x);
             rational c = mod(-eval(coeffs), a);

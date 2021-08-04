@@ -424,7 +424,8 @@ void asserted_formulas::apply_quasi_macros() {
     TRACE("before_quasi_macros", display(tout););
     vector<justified_expr> new_fmls;
     quasi_macros proc(m, m_macro_manager);
-    while (proc(m_formulas.size() - m_qhead,
+    while (m_qhead == 0 && 
+           proc(m_formulas.size() - m_qhead,
                 m_formulas.data() + m_qhead,
                 new_fmls)) {
         swap_asserted_formulas(new_fmls);

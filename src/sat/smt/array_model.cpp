@@ -26,8 +26,8 @@ namespace array {
         if (!a.is_array(n->get_expr())) {
             dep.insert(n, nullptr);
             return true;
-        }
-        for (euf::enode* p : euf::enode_parents(n)) {
+        }       
+        for (euf::enode* p : euf::enode_parents(n->get_root())) {
             if (a.is_default(p->get_expr())) {
                 dep.add(n, p);
                 continue;
@@ -51,6 +51,7 @@ namespace array {
         SASSERT(a.is_array(n->get_expr()));
         ptr_vector<expr> args;
         sort* srt = n->get_sort();
+        n = n->get_root();
         unsigned arity = get_array_arity(srt);
         func_decl * f    = mk_aux_decl_for_array_sort(m, srt);
         func_interp * fi = alloc(func_interp, m, arity);
@@ -70,7 +71,7 @@ namespace array {
             expr* else_value = nullptr;
             unsigned max_occ_num = 0;
             obj_map<expr, unsigned> num_occ;
-            for (euf::enode* p : euf::enode_parents(n)) {
+            for (euf::enode* p : euf::enode_parents(n->get_root())) {
                 if (a.is_select(p->get_expr()) && p->get_arg(0)->get_root() == n->get_root()) {
                     expr* v = values.get(p->get_root_id());
                     if (!v)
@@ -90,7 +91,7 @@ namespace array {
         }
 
         for (euf::enode* p : euf::enode_parents(n)) {
-            if (a.is_select(p->get_expr()) && p->get_arg(0)->get_root() == n->get_root()) {
+            if (a.is_select(p->get_expr()) && p->get_arg(0)->get_root() == n) {
                 expr* value = values.get(p->get_root_id());
                 if (!value || value == fi->get_else())
                     continue;
@@ -102,7 +103,7 @@ namespace array {
         }
         
         parameter p(f);
-        values.set(n->get_root_id(), m.mk_app(get_id(), OP_AS_ARRAY, 1, &p));
+        values.set(n->get_expr_id(), m.mk_app(get_id(), OP_AS_ARRAY, 1, &p));
     }
 
 

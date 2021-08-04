@@ -272,13 +272,15 @@ namespace smt {
                                        << "PA(" << mk_pp(s, m) << "@" << idx
                                        << "," << state_str(r) << ") ";);
 
-        if (re().is_empty(r)) {
+        auto info = re().get_info(r);
+
+        //if the minlength of the regex is UINT_MAX then the regex is a deadend
+        if (re().is_empty(r) || info.min_length == UINT_MAX) {
             STRACE("seq_regex_brief", tout << "(empty) ";);
             th.add_axiom(~lit);
             return;
         }
 
-        auto info = re().get_info(r);
         if (info.interpreted) {
             update_state_graph(r);
             

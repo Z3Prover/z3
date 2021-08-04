@@ -506,7 +506,7 @@ namespace z3 {
     public:
         ast(context & c):object(c), m_ast(0) {}
         ast(context & c, Z3_ast n):object(c), m_ast(n) { Z3_inc_ref(ctx(), m_ast); }
-        ast(ast const & s):object(s), m_ast(s.m_ast) { Z3_inc_ref(ctx(), m_ast); }
+        ast(ast const & s) :object(s), m_ast(s.m_ast) { Z3_inc_ref(ctx(), m_ast); }
         ast(ast && s) noexcept : object(std::forward<object>(s)), m_ast(s.m_ast) { s.m_ast = nullptr; }
         ~ast() { if (m_ast) Z3_dec_ref(*m_ctx, m_ast); }
         operator Z3_ast() const { return m_ast; }
@@ -517,14 +517,6 @@ namespace z3 {
                 Z3_dec_ref(ctx(), m_ast);
             object::operator=(s);
             m_ast = s.m_ast;
-            return *this;
-        }
-        ast & operator=(ast && s) noexcept {
-            if (this != &s) {
-                object::operator=(std::forward<object>(s));
-                m_ast = s.m_ast;
-                s.m_ast = nullptr;
-            }
             return *this;
         }
         Z3_ast_kind kind() const { Z3_ast_kind r = Z3_get_ast_kind(ctx(), m_ast); check_error(); return r; }
@@ -1447,6 +1439,11 @@ namespace z3 {
             check_error();
             return expr(ctx(), r);
         }
+        expr sbvtos() const {
+            Z3_ast r = Z3_mk_sbv_to_str(ctx(), *this);
+            check_error();
+            return expr(ctx(), r);
+        }
  
         friend expr range(expr const& lo, expr const& hi);
         /**
@@ -1874,11 +1871,15 @@ namespace z3 {
         Z3_ast r;
         if (a.is_int()) {
             expr zero = a.ctx().int_val(0);
-            r = Z3_mk_ite(a.ctx(), Z3_mk_ge(a.ctx(), a, zero), a, -a);
+	    expr ge = a >= zero;
+	    expr na = -a;
+            r = Z3_mk_ite(a.ctx(), ge, a, na);	    
         }
         else if (a.is_real()) {
             expr zero = a.ctx().real_val(0);
-            r = Z3_mk_ite(a.ctx(), Z3_mk_ge(a.ctx(), a, zero), a, -a);
+	    expr ge = a >= zero;
+	    expr na = -a;
+            r = Z3_mk_ite(a.ctx(), ge, a, na);
         }
         else {
             r = Z3_mk_fpa_abs(a.ctx(), a); 

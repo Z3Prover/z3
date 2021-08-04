@@ -1542,6 +1542,7 @@ void theory_seq::add_ubv_string(expr* e) {
     }
     if (!has_sort)
         m_ax.add_ubv2ch_axioms(b->get_sort());
+    m_ax.add_ubv2s_len_axiom(b);
     m_ubv_string.push_back(e);
     m_trail_stack.push(push_back_vector<expr_ref_vector>(m_ubv_string));
     add_length_to_eqc(e);
@@ -1557,7 +1558,6 @@ bool theory_seq::check_ubv_string() {
 }
 
 bool theory_seq::check_ubv_string(expr* e) {
-    expr* n = nullptr;
     if (ctx.inconsistent())
         return true;
     if (m_has_ubv_axiom.contains(e))

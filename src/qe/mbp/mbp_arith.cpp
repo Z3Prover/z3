@@ -47,7 +47,6 @@ namespace mbp {
         ~imp() {}
 
         void insert_mul(expr* x, rational const& v, obj_map<expr, rational>& ts) {
-            // TRACE("qe", tout << "Adding variable " << mk_pp(x, m) << " " << v << "\n";);
             rational w;
             if (ts.find(x, w)) 
                 ts.insert(x, w + v);            
@@ -320,6 +319,14 @@ namespace mbp {
                     tids.insert(v, mbo.add_var(r, a.is_int(v)));
                 }
             }
+
+            // bail on variables in non-linear sub-terms
+            for (auto& kv : tids) {
+                expr* e = kv.m_key;
+                if (is_arith(e) && !var_mark.is_marked(e)) 
+                    mark_rec(fmls_mark, e);                
+            }
+
             if (m_check_purified) {
                 for (expr* fml : fmls) 
                     mark_rec(fmls_mark, fml);                
@@ -362,6 +369,10 @@ namespace mbp {
                 optdefs2mbpdef(defs, index2expr, real_vars, result);     
             if (m_apply_projection)
                 apply_projection(result, fmls);
+            TRACE("qe",
+                for (auto [v, t] : result)
+                    tout << v << " := " << t << "\n";
+                tout << "fmls:" << fmls << "\n";);
             return result;
         }        
 
