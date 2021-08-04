@@ -70,16 +70,16 @@ namespace polysat {
     template<typename Ext>
     fixplex<Ext>::~fixplex() {
         reset();
-    }    
-    
+    }
+
     template<typename Ext>
     void fixplex<Ext>::ensure_var(var_t v) {
         while (v >= m_vars.size()) {
             M.ensure_var(m_vars.size());
-            m_vars.push_back(var_info());            
+            m_vars.push_back(var_info());
         }
-        if (m_to_patch.get_bounds() <= v) 
-            m_to_patch.set_bounds(2*v+1);
+        if (m_to_patch.get_bounds() <= v)
+            m_to_patch.set_bounds(2 * v + 1);
     }
 
     template<typename Ext>
@@ -105,7 +105,7 @@ namespace polysat {
         SASSERT(well_formed());
         while ((v = select_var_to_fix()) != null_var) {
             TRACE("polysat", display(tout << "v" << v << "\n"););
-            if (!m_limit.inc() || num_iterations > m_max_iterations) 
+            if (!m_limit.inc() || num_iterations > m_max_iterations)
                 return l_undef;
             check_blands_rule(v, num_repeated);
             switch (make_var_feasible(v)) {
@@ -138,20 +138,20 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::add_row(var_t base_var, unsigned num_vars, var_t const* vars, numeral const* coeffs) {
-        for (unsigned i = 0; i < num_vars; ++i) 
+        for (unsigned i = 0; i < num_vars; ++i)
             ensure_var(vars[i]);
 
         m_base_vars.reset();
         row r = M.mk_row();
-        for (unsigned i = 0; i < num_vars; ++i) 
-            if (coeffs[i] != 0)                 
+        for (unsigned i = 0; i < num_vars; ++i)
+            if (coeffs[i] != 0)
                 M.add_var(r, coeffs[i], vars[i]);
 
         numeral base_coeff = 0;
         numeral value = 0;
         for (auto const& e : M.row_entries(r)) {
             var_t v = e.var();
-            if (v == base_var) 
+            if (v == base_var)
                 base_coeff = e.coeff();
             else {
                 if (is_base(v))
@@ -161,7 +161,7 @@ namespace polysat {
         }
         SASSERT(base_coeff != 0);
         SASSERT(!is_base(base_var));
-        while (m_rows.size() <= r.id()) 
+        while (m_rows.size() <= r.id())
             m_rows.push_back(row_info());
         m_rows[r.id()].m_base = base_var;
         m_rows[r.id()].m_base_coeff = base_coeff;
@@ -189,9 +189,9 @@ namespace polysat {
     /**
      * Eliminate base variable v from all rows except where v is basic.
      * Return false if elimination required to multiply a non-basic row with an even number.
-     * This happens when the parity in the non-basic row is smaller than the parity of v in 
-     * the basic row. It is expected to be a corner case and we don't try to solve this 
-     * inside of fixplex. Instead to deal with the corner case we assume the layer around 
+     * This happens when the parity in the non-basic row is smaller than the parity of v in
+     * the basic row. It is expected to be a corner case and we don't try to solve this
+     * inside of fixplex. Instead to deal with the corner case we assume the layer around
      * fixplex uses a solution from fixplex as a starting point for a complete search (in polysat).
      */
     template<typename Ext>
@@ -248,14 +248,14 @@ namespace polysat {
             var_t old_base = row2base(r);
             numeral new_value;
             var_info& vi = m_vars[old_base];
-            if (!vi.contains(value(old_base))) 
+            if (!vi.contains(value(old_base)))
                 new_value = vi.lo;
-            else 
+            else
                 new_value = value(old_base);
             // need to move var such that old_base comes in bound.
-            pivot(old_base, var, coeff, new_value);   
+            pivot(old_base, var, coeff, new_value);
             SASSERT(is_base(var));
-            SASSERT(base2row(var).id() == r.id());            
+            SASSERT(base2row(var).id() == r.id());
             SASSERT(vi.contains(value(old_base)));
         }
         del_row(r);
@@ -288,17 +288,17 @@ namespace polysat {
             ri.m_value += delta * c.get_row_entry().coeff();
             set_base_value(s);
             add_patch(s);
-        }            
-    }    
+        }
+    }
 
 
     /**
      * Attempt to improve assigment to make x feasible.
-     * 
+     *
      * return l_false if x is base variable of infeasible row
      * return l_true if it is possible to find an assignment that improves
      * return l_undef if the row could not be used for an improvement
-     * 
+     *
      * delta - improvement over previous gap to feasible bound.
      * new_value - the new value to assign to x within its bounds.
      */
@@ -320,37 +320,37 @@ namespace polysat {
                 return l_undef;
         }
 
-        
+
         pivot(x, y, b, new_value);
 
         return l_true;
     }
 
     template<typename Ext>
-    var_t fixplex<Ext>::select_pivot(var_t x, numeral const& new_value, numeral & out_b) {
+    var_t fixplex<Ext>::select_pivot(var_t x, numeral const& new_value, numeral& out_b) {
         if (m_bland)
             return select_pivot_blands(x, new_value, out_b);
         return select_pivot_core(x, new_value, out_b);
     }
 
     /**
-       \brief Select a variable y in the row r defining the base var x, 
+       \brief Select a variable y in the row r defining the base var x,
        s.t. y can be used to patch the error in x_i.  Return null_var
        if there is no y. Otherwise, return y and store its coefficient
        in out_b.
 
        The routine gives up if the coefficients of all free variables do not have the minimal
-       number of trailing zeros. 
+       number of trailing zeros.
     */
     template<typename Ext>
-    var_t fixplex<Ext>::select_pivot_core(var_t x, numeral const& new_value, numeral & out_b) {
+    var_t fixplex<Ext>::select_pivot_core(var_t x, numeral const& new_value, numeral& out_b) {
         SASSERT(is_base(x));
-        var_t max    = get_num_vars();
+        var_t max = get_num_vars();
         var_t result = max;
         row r = base2row(x);
         int n = 0;
         unsigned best_col_sz = UINT_MAX;
-        int best_so_far    = INT_MAX;
+        int best_so_far = INT_MAX;
         numeral a = row2base_coeff(r);
         numeral row_value = row2value(r) + a * new_value;
         numeral delta_y = 0;
@@ -358,13 +358,13 @@ namespace polysat {
         bool best_in_bounds = false;
 
         for (auto const& r : M.row_entries(r)) {
-            var_t y = r.var();          
-            numeral const & b = r.coeff();  
-            if (x == y) 
+            var_t y = r.var();
+            numeral const& b = r.coeff();
+            if (x == y)
                 continue;
             if (!has_minimal_trailing_zeros(y, b))
                 continue;
-            numeral new_y_value = solve_for(row_value - b*value(y), b);
+            numeral new_y_value = solve_for(row_value - b * value(y), b);
             bool _in_bounds = in_bounds(y, new_y_value);
             if (!_in_bounds) {
                 if (lo(y) - new_y_value < new_y_value - hi(y))
@@ -372,7 +372,7 @@ namespace polysat {
                 else
                     delta_y = new_y_value - hi(y) - 1;
             }
-            int num  = get_num_non_free_dep_vars(y, best_so_far);
+            int num = get_num_non_free_dep_vars(y, best_so_far);
             unsigned col_sz = M.column_size(y);
             bool is_improvement = false, is_plateau = false;
 
@@ -391,23 +391,23 @@ namespace polysat {
                 is_plateau = true;
             else if (best_in_bounds && _in_bounds && best_so_far == num && col_sz == best_col_sz)
                 is_plateau = true;
-            
+
             if (is_improvement) {
-                result       = y;
-                out_b        = b;
-                best_so_far  = num;
-                best_col_sz  = col_sz;
+                result = y;
+                out_b = b;
+                best_so_far = num;
+                best_col_sz = col_sz;
                 best_in_bounds = _in_bounds;
-                delta_best   = delta_y;
-                n            = 1;
-            } 
+                delta_best = delta_y;
+                n = 1;
+            }
             else if (is_plateau) {
                 n++;
                 if (m_random() % n == 0) {
-                    result   = y;
-                    out_b    = b;
+                    result = y;
+                    out_b = b;
                 }
-            }                              
+            }
         }
         if (result == max)
             return null_var;
@@ -417,18 +417,18 @@ namespace polysat {
     }
 
     template<typename Ext>
-    var_t fixplex<Ext>::select_pivot_blands(var_t x, numeral const& new_value, numeral & out_b) {
+    var_t fixplex<Ext>::select_pivot_blands(var_t x, numeral const& new_value, numeral& out_b) {
         SASSERT(is_base(x));
         unsigned max = get_num_vars();
         var_t result = max;
         row r = base2row(x);
         for (auto const& c : M.col_entries(r)) {
-            var_t y = c.var();    
+            var_t y = c.var();
             if (x == y || y >= result)
                 continue;
-            numeral const & b = c.coeff();          
+            numeral const& b = c.coeff();
             if (can_improve(y, b)) {
-                out_b  = b;
+                out_b = b;
                 result = y;
             }
         }
@@ -436,8 +436,8 @@ namespace polysat {
     }
 
     /**
-     * determine whether setting x := new_value 
-     * allows to change the value of y in a direction 
+     * determine whether setting x := new_value
+     * allows to change the value of y in a direction
      * that reduces or maintains the overall error.
      */
     template<typename Ext>
@@ -452,30 +452,30 @@ namespace polysat {
 
     /**
      * Compute delta to add to the value, such that value + delta is either lo(v), or hi(v) - 1
-     * A pre-condition is that value is not in the interval [lo(v),hi(v)[, 
+     * A pre-condition is that value is not in the interval [lo(v),hi(v)[,
      * and therefore as a consequence lo(v) != hi(v).
      */
     template<typename Ext>
-    typename fixplex<Ext>::numeral 
-    fixplex<Ext>::value2delta(var_t v, numeral const& value) const {
+    typename fixplex<Ext>::numeral
+        fixplex<Ext>::value2delta(var_t v, numeral const& value) const {
         SASSERT(!in_bounds(v));
         SASSERT(lo(v) != hi(v));
         if (lo(v) - value < value - hi(v))
             return lo(v) - value;
         else
-            return hi(v) - value - 1;    
+            return hi(v) - value - 1;
     }
 
     template<typename Ext>
-    typename fixplex<Ext>::numeral 
-    fixplex<Ext>::value2error(var_t v, numeral const& value) const {
+    typename fixplex<Ext>::numeral
+        fixplex<Ext>::value2error(var_t v, numeral const& value) const {
         if (in_bounds(v))
             return 0;
         SASSERT(lo(v) != hi(v));
         if (lo(v) - value < value - hi(v))
             return lo(v) - value;
         else
-            return value - hi(v) - 1;    
+            return value - hi(v) - 1;
     }
 
     /**
@@ -486,46 +486,60 @@ namespace polysat {
      * - the variable v is queued to patch if v is basic.
      */
     template<typename Ext>
-    void fixplex<Ext>::set_bounds(var_t v, numeral const& l, numeral const& h) {        
-        m_vars[v] = mod_interval(l, h);
+    void fixplex<Ext>::set_bounds(var_t v, numeral const& l, numeral const& h, unsigned dep) {
+        auto lo0 = m_vars[v].lo;
+        auto hi0 = m_vars[v].hi;
+        m_vars[v] &= mod_interval(l, h);
+        if (lo0 != m_vars[v].lo)
+            m_vars[v].m_lo_dep = dep;
+        if (hi0 != m_vars[v].hi)
+            m_vars[v].m_hi_dep = dep;
         if (in_bounds(v))
             return;
-        if (is_base(v)) 
+        if (is_base(v))
             add_patch(v);
         else
             update_value(v, value2delta(v, value(v)));
     }
 
     template<typename Ext>
-    void fixplex<Ext>::set_bounds(var_t v, rational const& _lo, rational const& _hi) {
+    void fixplex<Ext>::set_bounds(var_t v, rational const& _lo, rational const& _hi, unsigned dep) {
         numeral lo = m.from_rational(_lo);
         numeral hi = m.from_rational(_hi);
         m_stashed_bounds.push_back(stashed_bound(v, m_vars[v]));
-        set_bounds(v, lo, hi);
+        set_bounds(v, lo, hi, dep);
     }
 
     template<typename Ext>
-    void fixplex<Ext>::set_value(var_t v, rational const& _val) {
+    void fixplex<Ext>::set_value(var_t v, rational const& _val, unsigned dep) {
         numeral val = m.from_rational(_val);
         m_stashed_bounds.push_back(stashed_bound(v, m_vars[v]));
-        set_bounds(v, val, val + 1);
+        set_bounds(v, val, val + 1, dep);
+    }
+
+    template<typename Ext>
+    rational fixplex<Ext>::get_value(var_t v) {
+        return m.to_rational(m_vars[v].m_value);
     }
 
     template<typename Ext>
     void fixplex<Ext>::restore_bound() {
         auto const& b = m_stashed_bounds.back();
-        set_bounds(b.m_var, b.lo, b.hi);
+        m_vars[b.m_var].lo = b.lo;
+        m_vars[b.m_var].hi = b.hi;
+        m_vars[b.m_var].m_lo_dep = b.m_lo_dep;
+        m_vars[b.m_var].m_hi_dep = b.m_hi_dep;
         m_stashed_bounds.pop_back();
     }
 
     template<typename Ext>
-    void fixplex<Ext>::add_ineq(var_t v, var_t w, bool strict) {
+    void fixplex<Ext>::add_ineq(var_t v, var_t w, unsigned dep, bool strict) {
         unsigned idx = m_ineqs.size();
         m_var2ineqs.reserve(std::max(v, w) + 1);
         m_var2ineqs[v].push_back(idx);
         m_var2ineqs[w].push_back(idx);
         m_ineqs_to_check.push_back(idx);
-        m_ineqs.push_back(ineq(v, w, strict));
+        m_ineqs.push_back(ineq(v, w, dep, strict));
     }
 
     template<typename Ext>
@@ -577,7 +591,7 @@ namespace polysat {
         m_ineqs_to_check.reset();
         m_vars_to_untouch.reset();
         return l_true;
-    } 
+    }
 
 
     /**
@@ -603,15 +617,15 @@ namespace polysat {
      * A row is linear infeasible if it can be established
      * that none of the available assignments within current
      * bounds let the row add up to 0.
-     * 
+     *
      * Assume the row is of the form:
      *   ax + by + cz = 0
      * with bounds
      *   x : [lo_x, hi_x[, y : [lo_y, hi_y[, z : [lo_z : hi_z[
-     * 
+     *
      * Let range = [lo_x, hi_x[ + [lo_y, hi_y[ + [lo_z : hi_z[
      * Claim. If range does not contain 0, then the row is infeasible.
-     * 
+     *
      */
     template<typename Ext>
     bool fixplex<Ext>::is_infeasible_row(var_t x) {
@@ -624,7 +638,7 @@ namespace polysat {
             range += m_vars[v] * c;
             if (range.is_free())
                 return false;
-        }        
+        }
         return !range.contains(0);
     }
 
@@ -650,14 +664,14 @@ namespace polysat {
             var_t v = e.var();
             auto c = e.coeff();
             if (is_fixed(v))
-                fixed += value(v)*c;
-            else 
+                fixed += value(v) * c;
+            else
                 parity = std::min(m.trailing_zeros(c), parity);
         }
 
         if (m.trailing_zeros(fixed) < parity)
             return true;
-        
+
         return false;
     }
 
@@ -676,23 +690,23 @@ namespace polysat {
        Effect:
 
          base(r_x)  := y
-         value(x)   := new_value            
+         value(x)   := new_value
          value(r_x) := value(r_x) - b*value(y) + a*new_value
          value(y)   := -value(r_x) / b
          base_coeff(r_x) := b
- 
+
        Let r be a row where y has coefficient c != 0.
        Assume: trailing_zeros(c) >= trailing_zeros(b)
-       
+
          z = base(r)
          d = base_coeff(r)
          b1 = (b >> tz(b))
-         c1 = (c >> (tz(c) - tz(b)))       
+         c1 = (c >> (tz(c) - tz(b)))
          r <- b1 * r  - c1 * r_x
          value(r) := b1 * value(r) - b1 * old_value(y) - c1 * value(r_x)
          value(z) := - value(r) / d
          base_coeff(r) := b1 * base_coeff(r)
-    */    
+    */
     template<typename Ext>
     void fixplex<Ext>::pivot(var_t x, var_t y, numeral const& b, numeral const& new_value) {
         ++m_stats.m_num_pivots;
@@ -705,7 +719,7 @@ namespace polysat {
         numeral const& a = row_x.m_base_coeff;
         numeral old_value_y = yI.m_value;
         row_x.m_base = y;
-        row_x.m_value = row_x.m_value - b*old_value_y + a*new_value;
+        row_x.m_value = row_x.m_value - b * old_value_y + a * new_value;
         row_x.m_base_coeff = b;
         yI.m_base2row = rx;
         yI.m_is_base = true;
@@ -718,7 +732,7 @@ namespace polysat {
         SASSERT(well_formed_row(r_x));
 
         unsigned tz_b = m.trailing_zeros(b);
- 
+
         for (auto col : M.col_entries(y)) {
             row r_z = col.get_row();
             unsigned rz = r_z.id();
@@ -740,12 +754,12 @@ namespace polysat {
      *
      * returns true if elimination preserves equivalence (is lossless).
      */
-    template<typename Ext>    
+    template<typename Ext>
     bool fixplex<Ext>::eliminate_var(
-        row const& r_y, 
-        row const& r_z, 
-        numeral const& c, 
-        unsigned tz_b,    
+        row const& r_y,
+        row const& r_z,
+        numeral const& c,
+        unsigned tz_b,
         numeral const& old_value_y) {
 
         numeral b = row2base_coeff(r_y);
@@ -770,7 +784,7 @@ namespace polysat {
         return tz_b <= tz_c;
     }
 
-    template<typename Ext>    
+    template<typename Ext>
     bool fixplex<Ext>::is_feasible() const {
         for (unsigned i = m_vars.size(); i-- > 0; )
             if (!in_bounds(i))
@@ -779,10 +793,32 @@ namespace polysat {
     }
 
     template<typename Ext>
-    typename fixplex<Ext>::row 
-    fixplex<Ext>::get_infeasible_row() {
+    typename fixplex<Ext>::row
+        fixplex<Ext>::get_infeasible_row() {
         SASSERT(is_base(m_infeasible_var));
         return base2row(m_infeasible_var);
+    }
+
+    /***
+    * Extract dependencies for infeasible row.
+    * A safe approximation is to extract dependencies for all bounds.
+    * 
+    * Different modes of infeasibility may not be based on a row:
+    * - inequalities
+    * - parity constraints between two rows.
+    */
+    template<typename Ext>
+    void fixplex<Ext>::get_infeasible_deps(unsigned_vector& deps) {
+        auto row = get_infeasible_row();
+        for (auto const& e : M.row_entries(row)) {
+            var_t v = e.var();
+            auto lo = m_vars[v].m_lo_dep;
+            auto hi = m_vars[v].m_hi_dep;
+            if (lo != UINT_MAX)
+                deps.push_back(lo);
+            if (hi != UINT_MAX)
+                deps.push_back(hi);
+        }
     }
 
     /**

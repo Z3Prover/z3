@@ -383,7 +383,8 @@ namespace polysat {
         m_trail.push_back(trail_instr_t::assign_i);
         m_justification[v] = j; 
 #if ENABLE_LINEAR_SOLVER
-        m_linear_solver.set_value(v, val);
+        // TODO: convert justification into a format that can be tracked in a depdendency core.
+        m_linear_solver.set_value(v, val, UINT_MAX);
 #endif
     }
 
@@ -942,7 +943,12 @@ namespace polysat {
         m_bvars.assign(lit, m_level, reason, lemma);
     }
 
-    /// Activate constraint immediately
+    /** 
+    * Activate constraint immediately
+    * Activation and de-activation of constraints follows the scope controlled by push/pop.
+    * constraints activated within the linear solver are de-activated when the linear
+    * solver is popped.
+    */
     void solver::activate_constraint(constraint& c, bool is_true) {
         LOG("Activating constraint: " << c << " ; is_true = " << is_true);
         SASSERT(m_bvars.value(c.bvar()) == to_lbool(is_true));
@@ -950,18 +956,15 @@ namespace polysat {
         add_watch(c);
         c.narrow(*this);
 #if ENABLE_LINEAR_SOLVER
-        m_linear_solver.activate_constraint(c);
+        m_linear_solver.activate_constraint(c.is_positive(), c);
 #endif
     }
 
-    /// Deactivate constraint immediately
+    /// Deactivate constraint
     void solver::deactivate_constraint(constraint& c) {
         LOG("Deactivating constraint: " << c);
         erase_watch(c);
         c.unassign();
-#if ENABLE_LINEAR_SOLVER
-        m_linear_solver.deactivate_constraint(c);  // TODO add this method to linear solver?
-#endif
     }
 
     void solver::backjump(unsigned new_level) {

@@ -28,7 +28,7 @@ namespace polysat {
         var_t ys[3] = { x, y, z };
         numeral coeffs[3] = { 2, 1, 4 };        
         fp.add_row(x, 3, ys, coeffs);
-        fp.set_bounds(x, 1, 2);
+        fp.set_bounds(x, 1, 2, 0);
         fp.run();
     }
 
@@ -38,7 +38,7 @@ namespace polysat {
         var_t ys[3] = { x, y, z };
         numeral coeffs[3] = { 1, 2, 4 };        
         fp.add_row(x, 3, ys, coeffs);
-        fp.set_bounds(x, 3, 4);
+        fp.set_bounds(x, 3, 4, 1);
         fp.run();
     }
 
@@ -48,9 +48,9 @@ namespace polysat {
         var_t ys[3] = { x, y, z };
         numeral coeffs[3] = { 1, 1, 1 };        
         fp.add_row(x, 3, ys, coeffs);
-        fp.set_bounds(x, 3, 4);
-        fp.set_bounds(y, 3, 4);
-        fp.set_bounds(z, 3, 4);
+        fp.set_bounds(x, 3, 4, 1);
+        fp.set_bounds(y, 3, 4, 2);
+        fp.set_bounds(z, 3, 4, 3);
         fp.run();
     }
 
@@ -60,22 +60,22 @@ namespace polysat {
         var_t ys[3] = { x, y, z };
         numeral coeffs[3] = { 1, 1, 1 };        
         fp.add_row(x, 3, ys, coeffs);
-        fp.set_bounds(x, 3, 4);
-        fp.set_bounds(y, 3, 6);
+        fp.set_bounds(x, 3, 4, 1);
+        fp.set_bounds(y, 3, 6, 2);
         fp.run();
         fp.propagate_bounds();
         fp.reset();
         coeffs[2] = 0ull - 1;
         fp.add_row(x, 3, ys, coeffs);
-        fp.set_bounds(x, 3, 4);
-        fp.set_bounds(y, 3, 6);
+        fp.set_bounds(x, 3, 4, 1);
+        fp.set_bounds(y, 3, 6, 2);
         fp.run();
         fp.propagate_bounds();
         fp.reset();
         fp.add_row(x, 3, ys, coeffs);
-        fp.set_bounds(x, 3, 4);
-        fp.set_bounds(y, 3, 6);
-        fp.set_bounds(z, 1, 8);
+        fp.set_bounds(x, 3, 4, 1);
+        fp.set_bounds(y, 3, 6, 2);
+        fp.set_bounds(z, 1, 8, 3);
         fp.run();
         fp.propagate_bounds();
         fp.reset();
@@ -88,8 +88,8 @@ namespace polysat {
         var_t ys[3] = { x, y, z };
         numeral coeffs[3] = { 1, 1, 1 };        
         fp.add_row(x, 3, ys, coeffs);
-        fp.set_bounds(x, 3, 4);
-        fp.set_bounds(y, 3, 6);
+        fp.set_bounds(x, 3, 4, 1);
+        fp.set_bounds(y, 3, 6, 2);
         var_t ys2[3] = { u, y, z };
         fp.add_row(u, 3, ys2, coeffs);        
         fp.run();
@@ -107,7 +107,7 @@ namespace polysat {
         numeral coeffs2[3] = { 1, m1, 1 };        
         fp.add_row(x, 3, ys1, coeffs1);
         fp.add_row(z, 3, ys2, coeffs2);
-        fp.set_bounds(u, 1, 2);
+        fp.set_bounds(u, 1, 2, 1);
         fp.run();
         fp.propagate_eqs();
         for (auto e : fp.var_eqs())

@@ -43,7 +43,8 @@ namespace polysat {
             add_mono_i,
             set_bound_i,
             add_ineq_i,
-            add_row_i
+            add_row_i,
+            set_active_i
         };
 
         struct mono_info {
@@ -81,6 +82,7 @@ namespace polysat {
         svector<std::pair<var_t, unsigned>> m_rows; 
         unsigned_vector          m_var2ext;
         unsigned_vector          m_ext2var;
+        ptr_vector<constraint>   m_active;
 
         svector<var_t>           m_vars;
         vector<rational>         m_coeffs;
@@ -90,29 +92,31 @@ namespace polysat {
         unsigned_vector          m_sz2num_vars;
         small_object_allocator   m_alloc;
         svector<mono_info>       m_monomials;
+        fixplex_base*            m_unsat_f = nullptr;
 
         fixplex_base& sz2fixplex(unsigned sz);
 
         void linearize(pdd const& p);
         var_t fresh_var(unsigned sz);
 
-
         var_t internalize_pdd(pdd const& p);
         void new_eq(eq_constraint& eq);
         void new_le(ule_constraint& le);
-        void assert_eq(eq_constraint& eq);
-        void assert_le(ule_constraint& le);
+        void assert_eq(bool is_positive, eq_constraint& eq);
+        void assert_le(bool is_positive, ule_constraint& le);
 
         // bind monomial to variable.
         var_t mono2var(unsigned sz, unsigned_vector const& m);
         var_t pvar2var(unsigned sz, pvar v);
-        unsigned_vector var2mono(unsigned sz, var_t v) { throw default_exception("nyi"); }
-        //
-        // TBD trail object for 
-        // removing variables
-        // undoing variable bounds bounds
-        // removing rows from fixplex
-        //
+        // unsigned_vector var2mono(unsigned sz, var_t v) { throw default_exception("nyi"); }
+
+        // distinguish constraint and justification dependencies
+        unsigned external_dep2dep(unsigned dep) const { return UINT_MAX - dep;  }
+        unsigned constraint_idx2dep(unsigned idx) const { return idx;  }
+        bool is_constraint_dep(unsigned dep) const { return dep < UINT_MAX / 2;  }
+        unsigned dep2constraint_idx(unsigned dep) const { return dep; }
+        unsigned dep2external_dep(unsigned dep) const { return UINT_MAX - dep; }
+
     public:
         linear_solver(solver& s):
             s(s),
@@ -122,13 +126,13 @@ namespace polysat {
         void push();
         void pop(unsigned n); 
         void new_constraint(constraint& c);
-        void set_value(pvar v, rational const& value);
-        void set_bound(pvar v, rational const& lo, rational const& hi);
-        void activate_constraint(constraint& c);
+        void set_value(pvar v, rational const& value, unsigned dep);
+        void set_bound(pvar v, rational const& lo, rational const& hi, unsigned dep);
+        void activate_constraint(bool is_positive, constraint& c);
 
         // check integer modular feasibility under current bounds.
         lbool check();
-        void unsat_core(unsigned_vector& deps);
+        void unsat_core(ptr_vector<constraint>& constraints, unsigned_vector& deps);
 
         // current value assigned to (linear) variable according to tableau.
         rational value(pvar v);

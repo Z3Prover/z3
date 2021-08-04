@@ -27,6 +27,8 @@ Author:
 #include "util/lbool.h"
 #include "util/uint_set.h"
 
+inline rational to_rational(uint64_t n) { return rational(n, rational::ui64()); }
+
 namespace polysat {
 
     typedef unsigned var_t;
@@ -38,12 +40,14 @@ namespace polysat {
         virtual void del_row(var_t base_var) = 0;
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual void collect_statistics(::statistics & st) const = 0;
-        virtual void set_bounds(var_t v, rational const& lo, rational const& hi) = 0;        
-        virtual void set_value(var_t v, rational const& val) = 0;
+        virtual void set_bounds(var_t v, rational const& lo, rational const& hi, unsigned dep) = 0;        
+        virtual void set_value(var_t v, rational const& val, unsigned dep) = 0;
+        virtual rational get_value(var_t v) = 0;
         virtual void restore_bound() = 0;   
-        virtual void add_le(var_t v, var_t w) = 0;
-        virtual void add_lt(var_t v, var_t w) = 0;
+        virtual void add_le(var_t v, var_t w, unsigned dep) = 0;
+        virtual void add_lt(var_t v, var_t w, unsigned dep) = 0;
         virtual void restore_ineq() = 0;
+        virtual void get_infeasible_deps(unsigned_vector& deps) = 0;
     };
 
 
@@ -92,7 +96,9 @@ namespace polysat {
         struct var_info : public mod_interval<numeral> {
             unsigned    m_base2row:29;
             unsigned    m_is_base:1;
-            numeral     m_value { 0 };
+            numeral     m_value = 0;
+            unsigned    m_lo_dep = UINT_MAX;
+            unsigned    m_hi_dep = UINT_MAX;
             var_info():
                 m_base2row(0),
                 m_is_base(false)
@@ -115,10 +121,10 @@ namespace polysat {
             numeral m_base_coeff;            
         };
 
-        struct stashed_bound : mod_interval<numeral> {
+        struct stashed_bound : var_info {
             var_t m_var;
-            stashed_bound(var_t v, mod_interval<numeral> const& i):
-                mod_interval<numeral>(i),
+            stashed_bound(var_t v, var_info const& i):
+                var_info(i),
                 m_var(v)
             {}
         };
@@ -131,12 +137,13 @@ namespace polysat {
         };
 
         struct ineq {
-            var_t v { null_var };
-            var_t w { null_var };
-            bool strict { false };
-            bool is_active { true };
-            ineq(var_t v, var_t w, bool s):
-                v(v), w(w), strict(s) {}
+            var_t v = null_var;
+            var_t w = null_var;
+            bool strict = false;
+            bool is_active = true;
+            unsigned dep = UINT_MAX;
+            ineq(var_t v, var_t w, unsigned dep, bool s):
+                v(v), w(w), strict(s), dep(dep) {}
         };
 
         static const var_t null_var = UINT_MAX;
@@ -179,14 +186,15 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const override;
         void collect_statistics(::statistics & st) const override;
         void del_row(var_t base_var) override;
-        void set_bounds(var_t v, rational const& lo, rational const& hi) override;
-        void set_value(var_t v, rational const& val) override;
+        void set_bounds(var_t v, rational const& lo, rational const& hi, unsigned dep) override;
+        void set_value(var_t v, rational const& val, unsigned dep) override;
+        rational get_value(var_t v) override;
         void restore_bound() override;
-        void add_le(var_t v, var_t w) override { add_ineq(v, w, false); }
-        void add_lt(var_t v, var_t w) override { add_ineq(v, w, true); }
+        void add_le(var_t v, var_t w, unsigned dep) override { add_ineq(v, w, dep, false); }
+        void add_lt(var_t v, var_t w, unsigned dep) override { add_ineq(v, w, dep, true); }
         virtual void restore_ineq() override;
 
-        void set_bounds(var_t v, numeral const& lo, numeral const& hi);
+        void set_bounds(var_t v, numeral const& lo, numeral const& hi, unsigned dep);
         void unset_bounds(var_t v) { m_vars[v].set_free(); }
 
 
@@ -202,9 +210,12 @@ namespace polysat {
         void reset_eqs() { m_var_eqs.reset(); }
 
         void add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs);
-        row get_infeasible_row();
+        
+        void get_infeasible_deps(unsigned_vector& deps) override;
 
     private:
+
+        row get_infeasible_row();
 
         std::ostream& display_row(std::ostream& out, row const& r, bool values = true);
         var_t get_base_var(row const& r) const { return m_rows[r.id()].m_base; }
@@ -258,7 +269,7 @@ namespace polysat {
         var_t select_error_var(bool least);
 
         // facilities for handling inequalities
-        void add_ineq(var_t v, var_t w, bool strict);
+        void add_ineq(var_t v, var_t w, unsigned dep, bool strict);
         void touch_var(var_t x);
         lbool check_ineqs();
 
@@ -284,7 +295,6 @@ namespace polysat {
             numeral const& old_value_y);
     };
 
-
     template<typename uint_type>
     struct generic_uint_ext {
         typedef uint_type numeral;
@@ -302,6 +312,7 @@ namespace polysat {
                 }
             };
             numeral from_rational(rational const& n) { return static_cast<uint_type>(n.get_uint64()); }
+            rational to_rational(numeral const& n) const { return ::to_rational(n); }
             void reset() {}
             void reset(numeral& n) { n = 0; }
             void del(numeral const& n) {}

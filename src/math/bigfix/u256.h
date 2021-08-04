@@ -70,12 +70,8 @@ inline std::ostream& operator<<(std::ostream& out, u256 const& u) {
 inline bool operator<(uint64_t n, u256 const& y) { return y > n; }
 inline bool operator<=(uint64_t n, u256 const& y) { return y >= n; }
 inline bool operator>(uint64_t n, u256 const& y) { return y < n; }
-inline unsigned trailing_zeros(u256 const& n) {
-    NOT_IMPLEMENTED_YET();
-    return 0;
-}
-inline u256 operator-(uint64_t n, u256 const& y) {
-    u256 x(n);
-    return x - y;
-}
+inline unsigned trailing_zeros(u256 const& n) { return n.trailing_zeros(); }
+   
+inline u256 operator-(uint64_t n, u256 const& y) { return u256(n) - y; }
 inline bool operator>=(uint64_t n, u256 const& y) { return y <= n; }
+inline rational to_rational(u256 const& x) { return x.to_rational(); }
