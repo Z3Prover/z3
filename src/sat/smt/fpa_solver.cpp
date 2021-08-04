@@ -226,6 +226,9 @@ namespace fpa {
                     add_unit(eq_internalize(wrapped, cc_args));
                     add_units(mk_side_conditions());
                 }
+                else if (m.is_ite(n)) {
+                    // pass
+                }
                 else 
                     add_unit(eq_internalize(m_converter.unwrap(wrapped, n->get_sort()), n));                
             }
