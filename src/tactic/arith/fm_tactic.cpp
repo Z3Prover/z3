@@ -93,7 +93,8 @@ class fm_tactic : public tactic {
                     expr * lhs = to_app(l)->get_arg(0);
                     expr * rhs = to_app(l)->get_arg(1);
                     rational c;
-                    u.is_numeral(rhs, c);
+                    if (!u.is_numeral(rhs, c))
+                        return NONE;
                     if (neg)
                         c.neg();
                     unsigned num_mons;
@@ -112,7 +113,8 @@ class fm_tactic : public tactic {
                         expr * xi;
                         rational ai_val;
                         if (u.is_mul(monomial, ai, xi)) {
-                            u.is_numeral(ai, ai_val);
+                            if (!u.is_numeral(ai, ai_val))
+                                return NONE;
                         }
                         else {
                             xi     = monomial;
@@ -120,7 +122,8 @@ class fm_tactic : public tactic {
                         }
                         if (u.is_to_real(xi))
                             xi = to_app(xi)->get_arg(0);
-                        SASSERT(is_uninterp_const(xi));
+                        if (!is_uninterp_const(xi))
+                            return NONE;
                         if (x == to_app(xi)->get_decl()) {
                             a_val = ai_val;
                             if (neg)
@@ -129,7 +132,8 @@ class fm_tactic : public tactic {
                         else {
                             expr_ref val(m);
                             val = ev(monomial);
-                            SASSERT(u.is_numeral(val));
+                            if (!u.is_numeral(val))
+                                return NONE;
                             rational tmp;
                             u.is_numeral(val, tmp);
                             if (neg)

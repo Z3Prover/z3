@@ -44,6 +44,7 @@ class pb_preprocess_tactic : public tactic {
     struct rec { unsigned_vector pos, neg; rec() { } };
     typedef obj_map<app, rec> var_map;
     ast_manager&     m;
+    expr_ref_vector  m_trail;
     pb_util          pb;
     var_map          m_vars;    
     unsigned_vector  m_ge;
@@ -99,7 +100,7 @@ class pb_preprocess_tactic : public tactic {
 
 public:
     pb_preprocess_tactic(ast_manager& m, params_ref const& p = params_ref()): 
-        m(m), pb(m), m_r(m) {}
+        m(m), m_trail(m), pb(m), m_r(m) {}
 
     ~pb_preprocess_tactic() override {}
 
@@ -121,6 +122,7 @@ public:
         g->inc_depth();        
         result.push_back(g.get());       
         while (simplify(g, *pp));
+        m_trail.reset();
         // decompose(g);
     }
 
@@ -406,6 +408,7 @@ private:
     void insert(unsigned i, app* e, bool pos) {
         SASSERT(is_uninterp_const(e));
         if (!m_vars.contains(e)) {
+            m_trail.push_back(e);
             m_vars.insert(e, rec());
         }
         if (pos) {
