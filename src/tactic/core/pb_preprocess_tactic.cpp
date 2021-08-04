@@ -44,7 +44,6 @@ class pb_preprocess_tactic : public tactic {
     struct rec { unsigned_vector pos, neg; rec() { } };
     typedef obj_map<app, rec> var_map;
     ast_manager&     m;
-    expr_ref_vector  m_trail;
     pb_util          pb;
     var_map          m_vars;    
     unsigned_vector  m_ge;
@@ -100,7 +99,7 @@ class pb_preprocess_tactic : public tactic {
 
 public:
     pb_preprocess_tactic(ast_manager& m, params_ref const& p = params_ref()): 
-        m(m), m_trail(m), pb(m), m_r(m) {}
+        m(m), pb(m), m_r(m) {}
 
     ~pb_preprocess_tactic() override {}
 
@@ -122,7 +121,6 @@ public:
         g->inc_depth();        
         result.push_back(g.get());       
         while (simplify(g, *pp));
-        m_trail.reset();
         // decompose(g);
     }
 
@@ -141,7 +139,8 @@ public:
         }
         
         for (unsigned i = 0; i < m_ge.size(); ++i) {
-            classify_vars(i, to_app(g->form(m_ge[i])));
+            if (!classify_vars(i, to_app(g->form(m_ge[i]))))
+                return false;
         }
         
         declassifier dcl(m_vars);
@@ -379,15 +378,15 @@ private:
         }
     }
 
-    void classify_vars(unsigned idx, app* e) {
+    bool classify_vars(unsigned idx, app* e) {
         expr* r;
         if (m.is_not(e, r) && is_uninterp_const(r)) {
             insert(idx, to_app(r), false);
-            return;
+            return true;
         }
         if (is_uninterp_const(e)) {
             insert(idx, e, true);
-            return;
+            return true;
         }
         for (unsigned i = 0; i < e->get_num_args(); ++i) {
             expr* arg = e->get_arg(i);
@@ -395,20 +394,22 @@ private:
                 // no-op
             }
             else if (m.is_not(arg, r)) {
-                SASSERT(is_uninterp_const(r));
+                if (!is_uninterp_const(r))
+                    return false;
                 insert(idx, to_app(r), false);
             }
             else {
-                SASSERT(is_uninterp_const(arg));
+                if (!is_uninterp_const(arg))
+                    return false;
                 insert(idx, to_app(arg), true);
             }
         }
+        return true;
     }
 
     void insert(unsigned i, app* e, bool pos) {
         SASSERT(is_uninterp_const(e));
         if (!m_vars.contains(e)) {
-            m_trail.push_back(e);
             m_vars.insert(e, rec());
         }
         if (pos) {
@@ -503,7 +504,10 @@ private:
             bool found = false;
             for (unsigned j = 0; j < args2.size(); ++j) {
                 if (is_complement(args1.get(i), args2.get(j))) {
-                    if (i == 0 || min_coeff > coeffs2[j]) {
+                    if (i == 0) {
+                        min_coeff = coeffs2[j];
+                    }
+                    else if (min_coeff > coeffs2[j]) {
                         min_coeff = coeffs2[j];
                         min_index = j;
                     }
@@ -514,9 +518,9 @@ private:
             if (!found)
                 return;
         }
-        for (unsigned j : indices) {
+        for (unsigned i = 0; i < indices.size(); ++i) {
+            unsigned j = indices[i];
             expr* arg = args2.get(j);
-            TRACE("pb", tout << "j " << j << " " << min_index << "\n";);
             if (j == min_index) {
                 args2[j] = m.mk_false();
             }
