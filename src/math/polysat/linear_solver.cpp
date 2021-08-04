@@ -15,6 +15,7 @@ Author:
 #include "math/polysat/linear_solver.h"
 #include "math/polysat/fixplex_def.h"
 #include "math/polysat/solver.h"
+#include "math/bigfix/u256.h"
 
 namespace polysat {
 
@@ -77,7 +78,11 @@ namespace polysat {
                 b = alloc(fixplex<uint64_ext>, s.m_lim);
                 break;
             case 128:
+	        NOT_IMPLEMENTED_YET();
+                break;
             case 256:
+	        b = alloc(fixplex<generic_uint_ext<u256>>, s.m_lim);
+                break;
             default:
                 NOT_IMPLEMENTED_YET();
                 break;

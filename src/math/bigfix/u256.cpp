@@ -13,6 +13,12 @@ u256::u256(uint64_t n) {
     m_num[1] = m_num[2] = m_num[3] = 0;
 }
 
+u256::u256(int n) {
+    SASSERT(n >= 0);
+    m_num[0] = n;
+    m_num[1] = m_num[2] = m_num[3] = 0;
+}
+
 u256::u256(rational const& n) {
 #if 1
     for (unsigned i = 0; i < 4; ++i) {

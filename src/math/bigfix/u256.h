@@ -9,8 +9,13 @@ class u256 {
 public:
     u256();
     u256(uint64_t n);
+    u256(int n);
     u256(rational const& n);
     rational to_rational() const;
+    u256& operator=(uint64_t n) {
+        *this = u256(n);
+        return *this;
+    }
     u256 operator*(u256 const& other) const;
     u256 operator+(u256 const& other) const { u256 r = *this; return r += other; }
     u256 operator-(u256 const& other) const { u256 r = *this; return r -= other; }
@@ -43,6 +48,8 @@ public:
     bool operator>(u256 const& other) const { return other < *this; }
     bool operator>=(u256 const& other) const { return !(*this < other); }
 
+    bool operator==(uint64_t other) const { return m_num[0] == other && m_num[1] == 0 && m_num[2] == 0 && m_num[3] == 0; }
+    bool operator!=(uint64_t other) const { return !(m_num[0] == other && m_num[1] == 0 && m_num[2] == 0 && m_num[3] == 0); }
     bool operator<(uint64_t other) const;
     bool operator<=(uint64_t other) const { return !(*this > other); }
     bool operator>(uint64_t other) const;
@@ -63,4 +70,12 @@ inline std::ostream& operator<<(std::ostream& out, u256 const& u) {
 inline bool operator<(uint64_t n, u256 const& y) { return y > n; }
 inline bool operator<=(uint64_t n, u256 const& y) { return y >= n; }
 inline bool operator>(uint64_t n, u256 const& y) { return y < n; }
+inline unsigned trailing_zeros(u256 const& n) {
+    NOT_IMPLEMENTED_YET();
+    return 0;
+}
+inline u256 operator-(uint64_t n, u256 const& y) {
+    u256 x(n);
+    return x - y;
+}
 inline bool operator>=(uint64_t n, u256 const& y) { return y <= n; }

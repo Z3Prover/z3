@@ -1224,7 +1224,4 @@ namespace polysat {
         st.update("fixplex num non-integral", m_num_non_integral);
         st.update("fixplex num approximated row additions", m_stats.m_num_approx);
     }
-
-
-
 }
