@@ -414,6 +414,38 @@ private:
                 return true;
             }
         }
+
+        //
+        // v <= u
+        // => u + 1 == 0 or delta
+        // v := delta ? u : u + 1
+        //
+        if (m_bv.is_bv_ule(p, e1, e2) && e1 == v && mc) {
+            ensure_mc(mc);
+            unsigned sz = m_bv.get_bv_size(e2);
+            expr_ref delta(m.mk_fresh_const("ule", m.mk_bool_sort()), m);
+            expr_ref succ_e2(m_bv.mk_bv_add(e2, m_bv.mk_numeral(1, sz)), m);
+            new_v = m.mk_or(delta, m.mk_eq(succ_e2, m_bv.mk_numeral(0, sz)));
+            (*mc)->hide(delta);
+            (*mc)->add(v, m.mk_ite(delta, e2, succ_e2));
+            return true;
+        }
+
+        //
+        // u <= v
+        // => u == 0 or delta
+        // v := delta ? u : u - 1
+        //
+        if (m_bv.is_bv_ule(p, e1, e2) && e2 == v && mc) {
+            ensure_mc(mc);
+            unsigned sz = m_bv.get_bv_size(e1);
+            expr_ref delta(m.mk_fresh_const("ule", m.mk_bool_sort()), m);
+            expr_ref pred_e1(m_bv.mk_bv_sub(e1, m_bv.mk_numeral(1, sz)), m);
+            new_v = m.mk_or(delta, m.mk_eq(e1, m_bv.mk_numeral(0, sz)));
+            (*mc)->hide(delta);
+            (*mc)->add(v, m.mk_ite(delta, e1, pred_e1));
+            return true;
+        }
         return false;
     }
 
