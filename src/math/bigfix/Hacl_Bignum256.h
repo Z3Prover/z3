@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 #include "math/bigfix/types.h"
-#include "math/bigfix/lowstar_endianness.h"
+#include "math/bigfix/LowStar_Endianness.h"
 #include <string.h>
 #include "math/bigfix/target.h"
 

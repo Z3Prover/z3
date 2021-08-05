@@ -8,7 +8,7 @@
 #define __FStar_UInt128_H
 #include <inttypes.h>
 #include <stdbool.h>
-#include "math/bigfix/lowstar_endianness.h"
+#include "math/bigfix/LowStar_Endianness.h"
 #include "math/bigfix/types.h"
 #include "math/bigfix/target.h"
 
