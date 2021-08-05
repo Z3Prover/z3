@@ -3,6 +3,7 @@ z3_add_component(bigfix
     Hacl_Bignum.c
     Hacl_Bignum256.c
     u256.cpp
+    u128.cpp
   COMPONENT_DEPENDENCIES
     util  
 )
