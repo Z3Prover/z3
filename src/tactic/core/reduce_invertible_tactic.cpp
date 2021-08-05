@@ -327,7 +327,6 @@ private:
             // 
             unsigned sz = m_bv.get_bv_size(p);
             expr_ref bit1(m_bv.mk_numeral(1, 1), m);
-            new_v = m_bv.mk_numeral(0, sz);
 
             
             unsigned sh = 0;
@@ -335,9 +334,10 @@ private:
                 r /= rational(2);
                 ++sh;
             }
-            if (r.is_pos() && sh > 0) {
+            if (r.is_pos() && sh > 0) 
                 new_v = m_bv.mk_concat(m_bv.mk_extract(sz-sh-1, 0, v), m_bv.mk_numeral(0, sh));
-            }
+            else
+                new_v = v;
             if (mc && !r.is_zero()) {
                 ensure_mc(mc);
                 expr_ref def(m);
