@@ -47,7 +47,7 @@ namespace polysat {
         virtual void add_le(var_t v, var_t w, unsigned dep) = 0;
         virtual void add_lt(var_t v, var_t w, unsigned dep) = 0;
         virtual void restore_ineq() = 0;
-        virtual void get_infeasible_deps(unsigned_vector& deps) = 0;
+        virtual unsigned_vector const& get_unsat_core() const = 0;
     };
 
 
@@ -160,7 +160,7 @@ namespace polysat {
         unsigned                    m_blands_rule_threshold { 1000 };
         random_gen                  m_random;
         uint_set                    m_left_basis;
-        unsigned                    m_infeasible_var { null_var };
+        unsigned_vector             m_unsat_core; 
         unsigned_vector             m_base_vars;
         stats                       m_stats;
         vector<stashed_bound>       m_stashed_bounds;
@@ -211,11 +211,9 @@ namespace polysat {
 
         void add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs);
         
-        void get_infeasible_deps(unsigned_vector& deps) override;
+        unsigned_vector const& get_unsat_core() const override { return m_unsat_core; }
 
     private:
-
-        row get_infeasible_row();
 
         std::ostream& display_row(std::ostream& out, row const& r, bool values = true);
         var_t get_base_var(row const& r) const { return m_rows[r.id()].m_base; }
@@ -267,6 +265,8 @@ namespace polysat {
         void check_blands_rule(var_t v, unsigned& num_repeated);
         pivot_strategy_t pivot_strategy() { return m_bland ? S_BLAND : S_DEFAULT; }
         var_t select_error_var(bool least);
+        void set_infeasible_base(var_t v);
+        void set_infeasible_bounds(var_t v);
 
         // facilities for handling inequalities
         void add_ineq(var_t v, var_t w, unsigned dep, bool strict);

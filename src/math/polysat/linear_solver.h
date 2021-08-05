@@ -111,11 +111,11 @@ namespace polysat {
         // unsigned_vector var2mono(unsigned sz, var_t v) { throw default_exception("nyi"); }
 
         // distinguish constraint and justification dependencies
-        unsigned external_dep2dep(unsigned dep) const { return UINT_MAX - dep;  }
-        unsigned constraint_idx2dep(unsigned idx) const { return idx;  }
-        bool is_constraint_dep(unsigned dep) const { return dep < UINT_MAX / 2;  }
-        unsigned dep2constraint_idx(unsigned dep) const { return dep; }
-        unsigned dep2external_dep(unsigned dep) const { return UINT_MAX - dep; }
+        unsigned external_dep2dep(unsigned dep) const { return dep * 2;  }
+        unsigned constraint_idx2dep(unsigned idx) const { return 1 + (idx * 2);  }
+        bool is_constraint_dep(unsigned dep) const { return 0 != (dep & 0x1); }
+        unsigned dep2constraint_idx(unsigned dep) const { return dep >> 2; }
+        unsigned dep2external_dep(unsigned dep) const { return dep >> 2; }
 
     public:
         linear_solver(solver& s):

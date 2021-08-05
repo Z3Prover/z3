@@ -97,7 +97,7 @@ namespace polysat {
     lbool fixplex<Ext>::make_feasible() {
         ++m_stats.m_num_checks;
         m_left_basis.reset();
-        m_infeasible_var = null_var;
+        m_unsat_core.reset();
         unsigned num_iterations = 0;
         unsigned num_repeated = 0;
         var_t v = null_var;
@@ -114,7 +114,7 @@ namespace polysat {
                 break;
             case l_false:
                 m_to_patch.insert(v);
-                m_infeasible_var = v;
+                set_infeasible_base(v);
                 ++m_stats.m_num_infeasible;
                 return l_false;
             case l_undef:
@@ -792,32 +792,22 @@ namespace polysat {
         return true;
     }
 
-    template<typename Ext>
-    typename fixplex<Ext>::row
-        fixplex<Ext>::get_infeasible_row() {
-        SASSERT(is_base(m_infeasible_var));
-        return base2row(m_infeasible_var);
-    }
-
     /***
-    * Extract dependencies for infeasible row.
-    * A safe approximation is to extract dependencies for all bounds.
-    * 
-    * Different modes of infeasibility may not be based on a row:
-    * - inequalities
-    * - parity constraints between two rows.
+    * Record an infeasible row.
     */
     template<typename Ext>
-    void fixplex<Ext>::get_infeasible_deps(unsigned_vector& deps) {
-        auto row = get_infeasible_row();
+    void fixplex<Ext>::set_infeasible_base(var_t v) {
+        m_unsat_core.reset();
+        SASSERT(is_base(v));
+        auto row = base2row(v);
         for (auto const& e : M.row_entries(row)) {
             var_t v = e.var();
             auto lo = m_vars[v].m_lo_dep;
             auto hi = m_vars[v].m_hi_dep;
             if (lo != UINT_MAX)
-                deps.push_back(lo);
+                m_unsat_core.push_back(lo);
             if (hi != UINT_MAX)
-                deps.push_back(hi);
+                m_unsat_core.push_back(hi);
         }
     }
 
@@ -1164,8 +1154,10 @@ namespace polysat {
         mod_interval<numeral> r(l, h);
         bool was_fixed = lo(x) + 1 == hi(x);
         m_vars[x] &= r;
-        if (m_vars[x].is_empty())
-            m_infeasible_var = x;
+        if (m_vars[x].is_empty()) {
+            // TODO
+            IF_VERBOSE(0, verbose_stream() << "infeasible\n");
+        }
         else if (!was_fixed && lo(x) + 1 == hi(x)) {
             // TBD: track based on inequality not row
             // fixed_var_eh(r, x);
@@ -1179,8 +1171,9 @@ namespace polysat {
         bool was_fixed = lo(x) + 1 == hi(x);
         m_vars[x] &= range;
         IF_VERBOSE(0, verbose_stream() << "new-bound v" << x << " " << m_vars[x] << "\n");
-        if (m_vars[x].is_empty()) 
-            m_infeasible_var = x;
+        if (m_vars[x].is_empty()) {
+            IF_VERBOSE(0, verbose_stream() << "infeasible\n");
+        }
         else if (!was_fixed && lo(x) + 1 == hi(x)) 
             fixed_var_eh(r, x);
     }

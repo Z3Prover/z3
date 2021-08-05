@@ -29,13 +29,13 @@
 extern "C" {
 #endif
 
-#include "kremlin/internal/types.h"
-#include "kremlin/lowstar_endianness.h"
+#include "math/bigfix/internal/types.h"
+#include "math/bigfix/kremlin/lowstar_endianness.h"
 #include <string.h>
-#include "kremlin/internal/target.h"
+#include "math/bigfix/kremlin/internal/target.h"
 
-#include "Hacl_Bignum.h"
-#include "Hacl_Bignum_Base.h"
+#include "math/bigfix/Hacl_Bignum.h"
+#include "math/bigfix/Hacl_Bignum_Base.h"
 
 /*******************************************************************************
 

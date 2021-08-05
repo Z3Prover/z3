@@ -313,15 +313,12 @@ namespace polysat {
         SASSERT(m_unsat_f);
         deps.reset();
         cs.reset();
-        m_unsat_f->get_infeasible_deps(deps);
-        unsigned j = 0;
-        for (unsigned dep : deps) {
+        for (unsigned dep : m_unsat_f->get_unsat_core()) {
             if (is_constraint_dep(dep))
                 cs.push_back(m_active[dep2constraint_idx(dep)]);
             else
-                deps[j++] = dep2external_dep(dep);
+                deps.push_back(dep2external_dep(dep));
         }
-        deps.shrink(j);
     }
 
     // current value assigned to (linear) variable according to tableau.
