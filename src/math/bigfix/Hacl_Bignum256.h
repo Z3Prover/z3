@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-#include "math/bigfix/internal/types.h"
+#include "math/bigfix/kremlin/internal/types.h"
 #include "math/bigfix/kremlin/lowstar_endianness.h"
 #include <string.h>
 #include "math/bigfix/kremlin/internal/target.h"
