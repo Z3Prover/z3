@@ -97,7 +97,6 @@ namespace polysat {
     lbool fixplex<Ext>::make_feasible() {
         ++m_stats.m_num_checks;
         m_left_basis.reset();
-        m_unsat_core.reset();
         unsigned num_iterations = 0;
         unsigned num_repeated = 0;
         var_t v = null_var;
@@ -1220,6 +1219,8 @@ namespace polysat {
         }
         for (unsigned i = 0; i < m_vars.size(); ++i) {
             SASSERT(is_base(i) || in_bounds(i));
+            if (!is_base(i) && !in_bounds(i))
+                return false;
         }
         return true;
     }

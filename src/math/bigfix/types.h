@@ -50,7 +50,7 @@ typedef struct FStar_UInt128_uint128_s {
  * latter is for internal use. */
 typedef FStar_UInt128_uint128 FStar_UInt128_t, uint128_t;
 
-#include "math/bigfix/lowstar_endianness.h"
+#include "math/bigfix/LowStar_Endianness.h"
 
 #endif
 
