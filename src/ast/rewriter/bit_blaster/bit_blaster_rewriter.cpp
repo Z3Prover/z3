@@ -357,8 +357,11 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
         result = mk_mkbv(m_out);
     }
 
-    void throw_unsupported() {
-        throw rewriter_exception("operator is not supported, you must simplify the goal before applying bit-blasting");
+    void throw_unsupported(func_decl * f) {
+        std::string msg = "operator ";
+        msg += f->get_name().str();
+        msg += " is not supported, you must simplify the goal before applying bit-blasting";
+        throw rewriter_exception(std::move(msg));
     }
 
     void blast_bv_term(expr * t, expr_ref & result, proof_ref & result_pr) {
@@ -424,7 +427,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
             case OP_BUREM:
             case OP_BSMOD:
                 if (m_blast_mul)
-                    throw_unsupported(); // must simplify to DIV_I AND DIV0
+                    throw_unsupported(f); // must simplify to DIV_I AND DIV0
                 return BR_FAILED; // keep them
 
             case OP_BSDIV0:
@@ -545,7 +548,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
             default:
                 TRACE("bit_blaster", tout << "non-supported operator: " << f->get_name() << "\n";
                       for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << std::endl;);
-                throw_unsupported();
+                throw_unsupported(f);
             }
         }
 
