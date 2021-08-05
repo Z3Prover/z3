@@ -12,10 +12,11 @@ Author:
 
 --*/
 
+#include "math/bigfix/u256.h"
 #include "math/polysat/linear_solver.h"
 #include "math/polysat/fixplex_def.h"
 #include "math/polysat/solver.h"
-#include "math/bigfix/u256.h"
+
 
 namespace polysat {
 
