@@ -513,6 +513,7 @@ static inline void amont_sqr(uint64_t *n, uint64_t nInv_u64, uint64_t *aM, uint6
     tmp[(uint32_t)2U * i + (uint32_t)1U] = hi;
   }
   uint64_t c1 = Hacl_Bignum_Addition_bn_add_eq_len_u64(resLen, c, tmp, c);
+  (void)c1;
   areduction(n, nInv_u64, c, resM);
 }
 
@@ -559,6 +560,7 @@ bn_slow_precomp(uint64_t *n, uint64_t mu, uint64_t *r2, uint64_t *a, uint64_t *r
   uint64_t c00 = c0;
   uint64_t tmp[4U] = { 0U };
   uint64_t c1 = Hacl_Bignum256_sub(a_mod, n, tmp);
+  (void)c1;
   uint64_t m = (uint64_t)0U - c00;
   for (uint32_t i = (uint32_t)0U; i < (uint32_t)4U; i++)
   {
@@ -1132,6 +1134,7 @@ bool Hacl_Bignum256_mod_inv_prime_vartime(uint64_t *n, uint64_t *a, uint64_t *re
     uint64_t n2[4U] = { 0U };
     uint64_t c0 = Lib_IntTypes_Intrinsics_sub_borrow_u64((uint64_t)0U, n[0U], (uint64_t)2U, n2);
     uint64_t c1;
+    (void)c1;
     if ((uint32_t)1U < (uint32_t)4U)
     {
       uint32_t rLen = (uint32_t)3U;
@@ -1334,6 +1337,7 @@ Hacl_Bignum256_mod_inv_prime_vartime_precomp(
   uint64_t n2[4U] = { 0U };
   uint64_t c0 = Lib_IntTypes_Intrinsics_sub_borrow_u64((uint64_t)0U, k1.n[0U], (uint64_t)2U, n2);
   uint64_t c1;
+  (void)c1;
   if ((uint32_t)1U < (uint32_t)4U)
   {
     uint32_t rLen = (uint32_t)3U;

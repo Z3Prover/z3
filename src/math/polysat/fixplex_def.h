@@ -73,6 +73,37 @@ namespace polysat {
     }
 
     template<typename Ext>
+    void fixplex<Ext>::push() {
+        m_trail.push_back(trail_i::inc_level_i);
+        m_deps.push_scope();
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::pop(unsigned n) {
+        m_deps.pop_scope(n);
+        while (n > 0) {
+            switch (m_trail.back()) {
+            case trail_i::inc_level_i:                
+                --n;
+                break;
+            case trail_i::set_bound_i: 
+                restore_bound();
+                break;            
+            case trail_i::add_row_i: 
+                del_row(m_row_trail.back());
+                m_row_trail.pop_back();
+                break;            
+            case trail_i::add_ineq_i: 
+                restore_ineq();
+                break;            
+            default:
+                UNREACHABLE();
+            }
+            m_trail.pop_back();
+        }
+    }
+
+    template<typename Ext>
     void fixplex<Ext>::ensure_var(var_t v) {
         while (v >= m_vars.size()) {
             M.ensure_var(m_vars.size());
@@ -173,6 +204,8 @@ namespace polysat {
             ++m_stats.m_num_approx;
         SASSERT(well_formed_row(r));
         SASSERT(well_formed());
+        m_trail.push_back(trail_i::add_row_i);
+        m_row_trail.push_back(base_var);
     }
 
     template<typename Ext>
@@ -486,13 +519,7 @@ namespace polysat {
      */
     template<typename Ext>
     void fixplex<Ext>::set_bounds(var_t v, numeral const& l, numeral const& h, unsigned dep) {
-        auto lo0 = m_vars[v].lo;
-        auto hi0 = m_vars[v].hi;
-        m_vars[v] &= mod_interval(l, h);
-        if (lo0 != m_vars[v].lo)
-            m_vars[v].m_lo_dep = nullptr; // TODO set_atom(dep);
-        if (hi0 != m_vars[v].hi)
-            m_vars[v].m_hi_dep = nullptr; // TODO .set_atom(dep);
+        update_bounds(v, l, h, mk_leaf(dep));
         if (in_bounds(v))
             return;
         if (is_base(v))
@@ -502,17 +529,28 @@ namespace polysat {
     }
 
     template<typename Ext>
+    void fixplex<Ext>::update_bounds(var_t v, numeral const& l, numeral const& h, u_dependency* dep) {
+        auto lo0 = m_vars[v].lo;
+        auto hi0 = m_vars[v].hi;
+        m_stashed_bounds.push_back(stashed_bound(v, m_vars[v]));
+        m_trail.push_back(trail_i::set_bound_i);
+        m_vars[v] &= mod_interval(l, h);
+        if (lo0 != m_vars[v].lo)
+            m_vars[v].m_lo_dep = dep;
+        if (hi0 != m_vars[v].hi)
+            m_vars[v].m_hi_dep = dep;
+    }
+
+    template<typename Ext>
     void fixplex<Ext>::set_bounds(var_t v, rational const& _lo, rational const& _hi, unsigned dep) {
         numeral lo = m.from_rational(_lo);
         numeral hi = m.from_rational(_hi);
-        m_stashed_bounds.push_back(stashed_bound(v, m_vars[v]));
         set_bounds(v, lo, hi, dep);
     }
 
     template<typename Ext>
     void fixplex<Ext>::set_value(var_t v, rational const& _val, unsigned dep) {
         numeral val = m.from_rational(_val);
-        m_stashed_bounds.push_back(stashed_bound(v, m_vars[v]));
         set_bounds(v, val, val + 1, dep);
     }
 
@@ -524,24 +562,21 @@ namespace polysat {
     template<typename Ext>
     void fixplex<Ext>::restore_bound() {
         auto& b = m_stashed_bounds.back();
-        auto* lo = m_vars[b.m_var].m_lo_dep;
-        auto* hi = m_vars[b.m_var].m_hi_dep;
         m_vars[b.m_var].lo = b.lo;
         m_vars[b.m_var].hi = b.hi;
         m_vars[b.m_var].m_lo_dep = b.m_lo_dep;
         m_vars[b.m_var].m_hi_dep = b.m_hi_dep;
-//        m_deps.dec_ref(lo);
-//        m_deps.dec_ref(hi);
         m_stashed_bounds.pop_back();
     }
 
     template<typename Ext>
     void fixplex<Ext>::add_ineq(var_t v, var_t w, unsigned dep, bool strict) {
-        unsigned idx = m_ineqs.size();
+        unsigned idx = m_ineqs.size();        
         m_var2ineqs.reserve(std::max(v, w) + 1);
         m_var2ineqs[v].push_back(idx);
         m_var2ineqs[w].push_back(idx);
         m_ineqs_to_check.push_back(idx);
+        m_trail.push_back(trail_i::add_ineq_i);
         m_ineqs.push_back(ineq(v, w, dep, strict));
     }
 
@@ -1126,50 +1161,64 @@ namespace polysat {
         var_t v = i.v, w = i.w;
         bool s = i.strict;
         if (s && lo(v) + 1 == 0)
-            return conflict_bound(i);
+            return conflict(i, m_vars[v].m_lo_dep);
         else if (s && hi(w) == 0)
-            return conflict_bound(i);
+            return conflict(i, m_vars[v].m_hi_dep);
         else if (s && lo(v) >= hi(w))
-            return conflict_bound(i);
+            return conflict(i, m_vars[v].m_lo_dep, m_vars[w].m_hi_dep);
         else if (!s && lo(v) > hi(w))
-            return conflict_bound(i);
+            return conflict(i, m_vars[v].m_lo_dep, m_vars[w].m_hi_dep);
         else if (s && hi(v) >= hi(w)) {
             SASSERT(lo(v) < hi(w));
             SASSERT(hi(w) != 0);
-            return new_bound(i, v, lo(v), hi(w) - 1);
+            return new_bound(i, v, lo(v), hi(w) - 1, m_vars[v].m_hi_dep, m_vars[w].m_hi_dep);
         }
         else if (s && lo(v) >= lo(w)) {
             SASSERT(lo(v) + 1 != 0);
             SASSERT(hi(w) > lo(v));
-            return new_bound(i, w, lo(v) + 1, hi(w));
+            return new_bound(i, w, lo(v) + 1, hi(w), m_vars[v].m_lo_dep, m_vars[w].m_lo_dep);
         }
         else if (!s && hi(v) > hi(w)) {
             SASSERT(lo(v) <= hi(w));
-            return new_bound(i, v, lo(v), hi(w));
+            return new_bound(i, v, lo(v), hi(w), m_vars[v].m_hi_dep, m_vars[w].m_hi_dep);
         }
         else if (!s && lo(v) > lo(w)) {
             SASSERT(lo(v) <= hi(w));
-            return new_bound(i, w, lo(v), hi(w));
+            return new_bound(i, w, lo(v), hi(w), m_vars[v].m_lo_dep, m_vars[w].m_lo_dep);
         }
         return l_true;
     }
 
     template<typename Ext>
-    lbool fixplex<Ext>::conflict_bound(ineq const& i) {
-        NOT_IMPLEMENTED_YET();
+    lbool fixplex<Ext>::conflict(ineq const& i, u_dependency* a, u_dependency* b) {
+        return conflict(a, m_deps.mk_join(mk_leaf(i.dep), b));
+    }
+
+    template<typename Ext>
+    lbool fixplex<Ext>::conflict(u_dependency* a) {
+        m_unsat_core.reset();
+        m_deps.linearize(a, m_unsat_core);
         return l_false;
     }
 
     template<typename Ext>
-    lbool fixplex<Ext>::new_bound(ineq const& i, var_t x, numeral const& l, numeral const& h) {
-        mod_interval<numeral> r(l, h);
-        bool was_fixed = lo(x) + 1 == hi(x);
-        m_vars[x] &= r;
-        if (m_vars[x].is_empty()) {
-            // TODO
-            IF_VERBOSE(0, verbose_stream() << "infeasible\n");
-            return l_false;
+    u_dependency* fixplex<Ext>::row2dep(row const& r) {
+        u_dependency* d = nullptr;
+        for (auto const& e : M.row_entries(r)) {
+            var_t v = e.var();
+            d = m_deps.mk_join(m_vars[v].m_lo_dep, d);
+            d = m_deps.mk_join(m_vars[v].m_hi_dep, d);
         }
+        return d;
+    }
+
+    template<typename Ext>
+    lbool fixplex<Ext>::new_bound(ineq const& i, var_t x, numeral const& l, numeral const& h, u_dependency* a, u_dependency* b) {
+        bool was_fixed = lo(x) + 1 == hi(x);
+        u_dependency* dep = m_deps.mk_join(mk_leaf(i.dep), m_deps.mk_join(a, b));
+        update_bounds(x, l, h, dep);
+        if (m_vars[x].is_empty())
+            return conflict(m_vars[x].m_lo_dep, m_vars[x].m_hi_dep);
         else if (!was_fixed && lo(x) + 1 == hi(x)) {
             // TBD: track based on inequality not row
             // fixed_var_eh(r, x);
@@ -1182,12 +1231,10 @@ namespace polysat {
         if (range.is_free())
             return l_true;
         bool was_fixed = lo(x) + 1 == hi(x);
-        m_vars[x] &= range;
+        update_bounds(x, range.lo, range.hi, row2dep(r));
         IF_VERBOSE(0, verbose_stream() << "new-bound v" << x << " " << m_vars[x] << "\n");
-        if (m_vars[x].is_empty()) {
-            IF_VERBOSE(0, verbose_stream() << "infeasible\n");
-            return l_false;
-        }
+        if (m_vars[x].is_empty()) 
+            return conflict(m_vars[x].m_lo_dep, m_vars[x].m_hi_dep);
         else if (!was_fixed && lo(x) + 1 == hi(x)) 
             fixed_var_eh(r, x);
         return l_true;

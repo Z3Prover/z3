@@ -41,7 +41,6 @@ namespace polysat {
             inc_level_i,
             add_var_i,
             add_mono_i,
-            set_bound_i,
             add_ineq_i,
             add_row_i,
             set_active_i
@@ -78,6 +77,7 @@ namespace polysat {
 
         solver&                  s;
         scoped_ptr_vector<fixplex_base> m_fix;
+        ptr_vector<fixplex_base> m_fix_ptr;
         svector<trail_i>         m_trail;
         svector<std::pair<var_t, unsigned>> m_rows; 
         unsigned_vector          m_var2ext;
@@ -94,7 +94,7 @@ namespace polysat {
         svector<mono_info>       m_monomials;
         fixplex_base*            m_unsat_f = nullptr;
 
-        fixplex_base& sz2fixplex(unsigned sz);
+        fixplex_base* sz2fixplex(unsigned sz);
 
         void linearize(pdd const& p);
         var_t fresh_var(unsigned sz);

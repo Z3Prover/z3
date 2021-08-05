@@ -317,6 +317,7 @@ static inline void bn_sqr_u32(uint32_t aLen, uint32_t *a, uint32_t *res)
     res[i0 + i0] = r;
   }
   uint32_t c0 = Hacl_Bignum_Addition_bn_add_eq_len_u32(resLen, res, res, res);
+  (void)c0;
   KRML_CHECK_SIZE(sizeof (uint32_t), resLen);
   uint32_t *tmp = alloca(resLen * sizeof (uint32_t));
   memset(tmp, 0U, resLen * sizeof (uint32_t));
@@ -329,6 +330,7 @@ static inline void bn_sqr_u32(uint32_t aLen, uint32_t *a, uint32_t *res)
     tmp[(uint32_t)2U * i + (uint32_t)1U] = hi;
   }
   uint32_t c1 = Hacl_Bignum_Addition_bn_add_eq_len_u32(resLen, res, tmp, res);
+  (void)c1;
 }
 
 static inline void bn_sqr_u64(uint32_t aLen, uint64_t *a, uint64_t *res)
@@ -366,6 +368,7 @@ static inline void bn_sqr_u64(uint32_t aLen, uint64_t *a, uint64_t *res)
     res[i0 + i0] = r;
   }
   uint64_t c0 = Hacl_Bignum_Addition_bn_add_eq_len_u64(resLen, res, res, res);
+  (void)c0;
   KRML_CHECK_SIZE(sizeof (uint64_t), resLen);
   uint64_t *tmp = alloca(resLen * sizeof (uint64_t));
   memset(tmp, 0U, resLen * sizeof (uint64_t));
@@ -378,6 +381,7 @@ static inline void bn_sqr_u64(uint32_t aLen, uint64_t *a, uint64_t *res)
     tmp[(uint32_t)2U * i + (uint32_t)1U] = hi;
   }
   uint64_t c1 = Hacl_Bignum_Addition_bn_add_eq_len_u64(resLen, res, tmp, res);
+  (void)c1;
 }
 
 void
@@ -720,6 +724,7 @@ Hacl_Bignum_Karatsuba_bn_karatsuba_sqr_uint64(
   uint64_t *tmp_ = tmp + aLen;
   uint64_t c0 = Hacl_Bignum_Addition_bn_sub_eq_len_u64(len2, a0, a1, tmp_);
   uint64_t c1 = Hacl_Bignum_Addition_bn_sub_eq_len_u64(len2, a1, a0, t0);
+  (void)c1;
   for (uint32_t i = (uint32_t)0U; i < len2; i++)
   {
     uint64_t *os = t0;
@@ -727,6 +732,7 @@ Hacl_Bignum_Karatsuba_bn_karatsuba_sqr_uint64(
     os[i] = x;
   }
   uint64_t c00 = c0;
+  (void)c00;
   uint64_t *t23 = tmp + aLen;
   uint64_t *tmp1 = tmp + aLen + aLen;
   Hacl_Bignum_Karatsuba_bn_karatsuba_sqr_uint64(len2, t0, tmp1, t23);
@@ -1428,6 +1434,7 @@ bn_almost_mont_reduction_u32(
   uint32_t *tmp = alloca(len * sizeof (uint32_t));
   memset(tmp, 0U, len * sizeof (uint32_t));
   uint32_t c1 = Hacl_Bignum_Addition_bn_sub_eq_len_u32(len, res, n, tmp);
+  (void)c1;
   uint32_t m = (uint32_t)0U - c00;
   for (uint32_t i = (uint32_t)0U; i < len; i++)
   {
@@ -1524,6 +1531,7 @@ bn_almost_mont_reduction_u64(
   uint64_t *tmp = alloca(len * sizeof (uint64_t));
   memset(tmp, 0U, len * sizeof (uint64_t));
   uint64_t c1 = Hacl_Bignum_Addition_bn_sub_eq_len_u64(len, res, n, tmp);
+  (void)c1;
   uint64_t m = (uint64_t)0U - c00;
   for (uint32_t i = (uint32_t)0U; i < len; i++)
   {

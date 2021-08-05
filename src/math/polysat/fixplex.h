@@ -30,6 +30,8 @@ Author:
 #include "util/ref.h"
 
 inline rational to_rational(uint64_t n) { return rational(n, rational::ui64()); }
+inline unsigned trailing_zeros(unsigned short n) { return trailing_zeros((uint32_t)n); }
+inline unsigned trailing_zeros(unsigned char n) { return trailing_zeros((uint32_t)n); }
 
 namespace polysat {
 
@@ -40,6 +42,8 @@ namespace polysat {
         virtual lbool make_feasible() = 0;
         virtual void add_row(var_t base, unsigned num_vars, var_t const* vars, rational const* coeffs) = 0;
         virtual void del_row(var_t base_var) = 0;
+        virtual void push() = 0;
+        virtual void pop(unsigned n) = 0;
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual void collect_statistics(::statistics & st) const = 0;
         virtual void set_bounds(var_t v, rational const& lo, rational const& hi, unsigned dep) = 0;        
@@ -50,6 +54,7 @@ namespace polysat {
         virtual void add_lt(var_t v, var_t w, unsigned dep) = 0;
         virtual void restore_ineq() = 0;
         virtual unsigned_vector const& get_unsat_core() const = 0;
+
     };
 
 
@@ -94,14 +99,6 @@ namespace polysat {
             S_LEAST_ERROR,
             S_DEFAULT
         };
-
-#if 0
-        struct dep_config {
-            static const bool ref_count = true;
-            typedef unsigned value;
-        };
-        typedef dependency_manager<dep_config> dep_manager;
-#endif
 
         struct var_info : public mod_interval<numeral> {
             unsigned      m_base2row:29;
@@ -156,6 +153,13 @@ namespace polysat {
                 v(v), w(w), strict(s), dep(dep) {}
         };
 
+        enum trail_i {
+            inc_level_i,
+            set_bound_i,
+            add_ineq_i,
+            add_row_i
+        };
+
         static const var_t null_var = UINT_MAX;
         reslimit&                   m_limit;
         mutable manager             m;
@@ -175,6 +179,8 @@ namespace polysat {
         stats                       m_stats;
         vector<stashed_bound>       m_stashed_bounds;
         u_dependency_manager        m_deps;
+        svector<trail_i>            m_trail;
+        svector<var_t>              m_row_trail;
         map<numeral, fix_entry, typename manager::hash, typename manager::eq> m_value2fixed_var;
 
         // inequalities
@@ -192,6 +198,9 @@ namespace polysat {
 
         ~fixplex() override;
 
+        void push() override;
+        void pop(unsigned n) override;
+
         lbool make_feasible() override;
         void add_row(var_t base, unsigned num_vars, var_t const* vars, rational const* coeffs) override;
         std::ostream& display(std::ostream& out) const override;
@@ -206,6 +215,7 @@ namespace polysat {
         virtual void restore_ineq() override;
 
         void set_bounds(var_t v, numeral const& lo, numeral const& hi, unsigned dep);
+        void update_bounds(var_t v, numeral const& l, numeral const& h, u_dependency* dep);
         void unset_bounds(var_t v) { m_vars[v].set_free(); }
 
 
@@ -244,8 +254,11 @@ namespace polysat {
         lbool propagate_bounds(row const& r);
         lbool propagate_bounds(ineq const& i);
         lbool new_bound(row const& r, var_t x, mod_interval<numeral> const& range);
-        lbool new_bound(ineq const& i, var_t x, numeral const& lo, numeral const& hi);
-        lbool conflict_bound(ineq const& i);
+        lbool new_bound(ineq const& i, var_t x, numeral const& lo, numeral const& hi, u_dependency* a = nullptr, u_dependency* b = nullptr);
+        lbool conflict(ineq const& i, u_dependency* a = nullptr, u_dependency* b = nullptr);
+        lbool conflict(u_dependency* a);
+        lbool conflict(u_dependency* a, u_dependency* b) { return conflict(m_deps.mk_join(a, b)); }
+        u_dependency* row2dep(row const& r);
         void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& value);
         numeral value2delta(var_t v, numeral const& new_value) const;
         numeral value2error(var_t v, numeral const& new_value) const;
@@ -278,6 +291,8 @@ namespace polysat {
         var_t select_error_var(bool least);
         void set_infeasible_base(var_t v);
         void set_infeasible_bounds(var_t v);
+
+        u_dependency* mk_leaf(unsigned dep) { return UINT_MAX == dep ? nullptr : m_deps.mk_leaf(dep); }
 
         // facilities for handling inequalities
         void add_ineq(var_t v, var_t w, unsigned dep, bool strict);
