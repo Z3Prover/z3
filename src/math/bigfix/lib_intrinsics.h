@@ -2,9 +2,6 @@
 
 #include <sys/types.h>
 
-#if __has_include("config.h")
-#include "config.h"
-#endif
 
 #if defined(COMPILE_INTRINSICS)
 #if defined(_MSC_VER)
@@ -16,7 +13,7 @@
 
 #if !defined(COMPILE_INTRINSICS)
 
-#include "Hacl_IntTypes_Intrinsics.h"
+#include "math/bigfix/Hacl_IntTypes_Intrinsics.h"
 
 #define Lib_IntTypes_Intrinsics_add_carry_u32(x1, x2, x3, x4) \
   (Hacl_IntTypes_Intrinsics_add_carry_u32(x1, x2, x3, x4))

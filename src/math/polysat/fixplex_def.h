@@ -1052,11 +1052,16 @@ namespace polysat {
 
 
     template<typename Ext>
-    void fixplex<Ext>::propagate_bounds() {
-        for (unsigned i = 0; i < m_rows.size(); ++i) 
-            propagate_bounds(row(i));
-        for (auto ineq : m_ineqs) 
-            propagate_bounds(ineq);
+    lbool fixplex<Ext>::propagate_bounds() {
+        lbool r = l_true;
+        for (unsigned i = 0; r == l_true && i < m_rows.size(); ++i) 
+            r = propagate_bounds(row(i));
+        for (auto ineq : m_ineqs) {
+            if (r != l_true)
+                break;
+            r = propagate_bounds(ineq);
+        }
+        return r;
     }
 
     /**
@@ -1069,7 +1074,7 @@ namespace polysat {
      */
 
     template<typename Ext>
-    void fixplex<Ext>::propagate_bounds(row const& r) {
+    lbool fixplex<Ext>::propagate_bounds(row const& r) {
         mod_interval<numeral> range(0, 1);
         numeral free_c = 0;
         var_t free_v = null_var;
@@ -1078,33 +1083,36 @@ namespace polysat {
             numeral const& c = e.coeff();
             if (is_free(v)) {
                 if (free_v != null_var)
-                    return;
+                    return l_true;
                 free_v = v;
                 free_c = c;
                 continue;
             }
             range += m_vars[v] * c;
             if (range.is_free())
-                return;
+                return l_true;
         }        
 
         if (free_v != null_var) {
             range = (-range) * free_c;
-            new_bound(r, free_v, range);
+            lbool res = new_bound(r, free_v, range);
             SASSERT(in_bounds(free_v));
-            return;
+            return res;
         }
         for (auto const& e : M.row_entries(r)) {
             var_t v = e.var();
             SASSERT(!is_free(v));
             auto range1 = range - m_vars[v] * e.coeff();
-            new_bound(r, v, range1);
+            lbool res = new_bound(r, v, range1);
+            if (res != l_true)
+                return res;
             // SASSERT(in_bounds(v));
         }
+        return l_true;
     }
 
     template<typename Ext>
-    void fixplex<Ext>::propagate_bounds(ineq const& i) {
+    lbool fixplex<Ext>::propagate_bounds(ineq const& i) {
         // v < w  & lo(v) + 1 = 0  -> conflict
         // v < w  & hi(w) = 0      -> conflict
         // v < w  & lo(v) >= hi(w) -> conflict
@@ -1116,65 +1124,71 @@ namespace polysat {
         var_t v = i.v, w = i.w;
         bool s = i.strict;
         if (s && lo(v) + 1 == 0)
-            conflict_bound(i);
+            return conflict_bound(i);
         else if (s && hi(w) == 0)
-            conflict_bound(i);
+            return conflict_bound(i);
         else if (s && lo(v) >= hi(w))
-            conflict_bound(i);
+            return conflict_bound(i);
         else if (!s && lo(v) > hi(w))
-            conflict_bound(i);
+            return conflict_bound(i);
         else if (s && hi(v) >= hi(w)) {
             SASSERT(lo(v) < hi(w));
             SASSERT(hi(w) != 0);
-            new_bound(i, v, lo(v), hi(w) - 1);
+            return new_bound(i, v, lo(v), hi(w) - 1);
         }
         else if (s && lo(v) >= lo(w)) {
             SASSERT(lo(v) + 1 != 0);
             SASSERT(hi(w) > lo(v));
-            new_bound(i, w, lo(v) + 1, hi(w));
+            return new_bound(i, w, lo(v) + 1, hi(w));
         }
         else if (!s && hi(v) > hi(w)) {
             SASSERT(lo(v) <= hi(w));
-            new_bound(i, v, lo(v), hi(w));
+            return new_bound(i, v, lo(v), hi(w));
         }
         else if (!s && lo(v) > lo(w)) {
             SASSERT(lo(v) <= hi(w));
-            new_bound(i, w, lo(v), hi(w));
+            return new_bound(i, w, lo(v), hi(w));
         }
+        return l_true;
     }
 
     template<typename Ext>
-    void fixplex<Ext>::conflict_bound(ineq const& i) {
+    lbool fixplex<Ext>::conflict_bound(ineq const& i) {
         NOT_IMPLEMENTED_YET();
+        return l_false;
     }
 
     template<typename Ext>
-    void fixplex<Ext>::new_bound(ineq const& i, var_t x, numeral const& l, numeral const& h) {
+    lbool fixplex<Ext>::new_bound(ineq const& i, var_t x, numeral const& l, numeral const& h) {
         mod_interval<numeral> r(l, h);
         bool was_fixed = lo(x) + 1 == hi(x);
         m_vars[x] &= r;
         if (m_vars[x].is_empty()) {
             // TODO
             IF_VERBOSE(0, verbose_stream() << "infeasible\n");
+            return l_false;
         }
         else if (!was_fixed && lo(x) + 1 == hi(x)) {
             // TBD: track based on inequality not row
             // fixed_var_eh(r, x);
         }
+        return l_true;
     }
 
     template<typename Ext>
-    void fixplex<Ext>::new_bound(row const& r, var_t x, mod_interval<numeral> const& range) {
+    lbool fixplex<Ext>::new_bound(row const& r, var_t x, mod_interval<numeral> const& range) {
         if (range.is_free())
-            return;
+            return l_true;
         bool was_fixed = lo(x) + 1 == hi(x);
         m_vars[x] &= range;
         IF_VERBOSE(0, verbose_stream() << "new-bound v" << x << " " << m_vars[x] << "\n");
         if (m_vars[x].is_empty()) {
             IF_VERBOSE(0, verbose_stream() << "infeasible\n");
+            return l_false;
         }
         else if (!was_fixed && lo(x) + 1 == hi(x)) 
             fixed_var_eh(r, x);
+        return l_true;
     }
 
     template<typename Ext>    

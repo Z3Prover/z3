@@ -204,7 +204,7 @@ namespace polysat {
         void set_max_iterations(unsigned n) { m_max_iterations = n; }
         unsigned get_num_vars() const { return m_vars.size(); }
         void reset();
-        void propagate_bounds();
+        lbool propagate_bounds();
         void propagate_eqs();
         vector<var_eq> const& var_eqs() const { return m_var_eqs; }
         void reset_eqs() { m_var_eqs.reset(); }
@@ -230,11 +230,11 @@ namespace polysat {
         void get_offset_eqs(row const& r);
         void fixed_var_eh(row const& r, var_t x);
         void eq_eh(var_t x, var_t y, row const& r1, row const& r2);
-        void propagate_bounds(row const& r);
-        void propagate_bounds(ineq const& i);
-        void new_bound(row const& r, var_t x, mod_interval<numeral> const& range);
-        void new_bound(ineq const& i, var_t x, numeral const& lo, numeral const& hi);
-        void conflict_bound(ineq const& i);
+        lbool propagate_bounds(row const& r);
+        lbool propagate_bounds(ineq const& i);
+        lbool new_bound(row const& r, var_t x, mod_interval<numeral> const& range);
+        lbool new_bound(ineq const& i, var_t x, numeral const& lo, numeral const& hi);
+        lbool conflict_bound(ineq const& i);
         void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& value);
         numeral value2delta(var_t v, numeral const& new_value) const;
         numeral value2error(var_t v, numeral const& new_value) const;
