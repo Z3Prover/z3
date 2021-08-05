@@ -26,13 +26,15 @@ Author:
 #include "util/rational.h"
 #include "util/lbool.h"
 #include "util/uint_set.h"
+#include "util/dependency.h"
+#include "util/ref.h"
 
 inline rational to_rational(uint64_t n) { return rational(n, rational::ui64()); }
 
 namespace polysat {
 
     typedef unsigned var_t;
-
+    
     struct fixplex_base {
         virtual ~fixplex_base() {}
         virtual lbool make_feasible() = 0;
@@ -93,12 +95,20 @@ namespace polysat {
             S_DEFAULT
         };
 
+#if 0
+        struct dep_config {
+            static const bool ref_count = true;
+            typedef unsigned value;
+        };
+        typedef dependency_manager<dep_config> dep_manager;
+#endif
+
         struct var_info : public mod_interval<numeral> {
-            unsigned    m_base2row:29;
-            unsigned    m_is_base:1;
-            numeral     m_value = 0;
-            unsigned    m_lo_dep = UINT_MAX;
-            unsigned    m_hi_dep = UINT_MAX;
+            unsigned      m_base2row:29;
+            unsigned      m_is_base:1;
+            numeral       m_value = 0;
+            u_dependency* m_lo_dep = nullptr;
+            u_dependency* m_hi_dep = nullptr;
             var_info():
                 m_base2row(0),
                 m_is_base(false)
@@ -164,6 +174,7 @@ namespace polysat {
         unsigned_vector             m_base_vars;
         stats                       m_stats;
         vector<stashed_bound>       m_stashed_bounds;
+        u_dependency_manager        m_deps;
         map<numeral, fix_entry, typename manager::hash, typename manager::eq> m_value2fixed_var;
 
         // inequalities

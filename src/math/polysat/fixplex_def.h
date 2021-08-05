@@ -490,9 +490,9 @@ namespace polysat {
         auto hi0 = m_vars[v].hi;
         m_vars[v] &= mod_interval(l, h);
         if (lo0 != m_vars[v].lo)
-            m_vars[v].m_lo_dep = dep;
+            m_vars[v].m_lo_dep = nullptr; // TODO set_atom(dep);
         if (hi0 != m_vars[v].hi)
-            m_vars[v].m_hi_dep = dep;
+            m_vars[v].m_hi_dep = nullptr; // TODO .set_atom(dep);
         if (in_bounds(v))
             return;
         if (is_base(v))
@@ -523,11 +523,15 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::restore_bound() {
-        auto const& b = m_stashed_bounds.back();
+        auto& b = m_stashed_bounds.back();
+        auto* lo = m_vars[b.m_var].m_lo_dep;
+        auto* hi = m_vars[b.m_var].m_hi_dep;
         m_vars[b.m_var].lo = b.lo;
         m_vars[b.m_var].hi = b.hi;
         m_vars[b.m_var].m_lo_dep = b.m_lo_dep;
         m_vars[b.m_var].m_hi_dep = b.m_hi_dep;
+//        m_deps.dec_ref(lo);
+//        m_deps.dec_ref(hi);
         m_stashed_bounds.pop_back();
     }
 
@@ -799,15 +803,13 @@ namespace polysat {
         m_unsat_core.reset();
         SASSERT(is_base(v));
         auto row = base2row(v);
+        ptr_vector<u_dependency> todo;
         for (auto const& e : M.row_entries(row)) {
             var_t v = e.var();
-            auto lo = m_vars[v].m_lo_dep;
-            auto hi = m_vars[v].m_hi_dep;
-            if (lo != UINT_MAX)
-                m_unsat_core.push_back(lo);
-            if (hi != UINT_MAX)
-                m_unsat_core.push_back(hi);
+            todo.push_back(m_vars[v].m_lo_dep);
+            todo.push_back(m_vars[v].m_hi_dep);
         }
+        m_deps.linearize(todo, m_unsat_core);
     }
 
     /**
