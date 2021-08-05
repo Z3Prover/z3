@@ -29,10 +29,10 @@
 extern "C" {
 #endif
 
-#include "kremlin/internal/types.h"
-#include "kremlin/lowstar_endianness.h"
+#include "math/bigfix/types.h"
+#include "math/bigfix/lowstar_endianness.h"
 #include <string.h>
-#include "kremlin/internal/target.h"
+#include "math/bigfix/target.h"
 
 static inline uint32_t
 Hacl_IntTypes_Intrinsics_add_carry_u32(uint32_t cin, uint32_t x, uint32_t y, uint32_t *r)

@@ -29,10 +29,10 @@
 extern "C" {
 #endif
 
-#include "math/bigfix/kremlin/internal/types.h"
-#include "math/bigfix/kremlin/lowstar_endianness.h"
+#include "math/bigfix/types.h"
+#include "math/bigfix/lowstar_endianness.h"
 #include <string.h>
-#include "math/bigfix/kremlin/internal/target.h"
+#include "math/bigfix/target.h"
 
 #include "math/bigfix/Hacl_Bignum.h"
 #include "math/bigfix/Hacl_Bignum_Base.h"

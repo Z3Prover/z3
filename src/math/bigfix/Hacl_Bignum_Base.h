@@ -29,10 +29,10 @@
 extern "C" {
 #endif
 
-#include "kremlin/internal/types.h"
-#include "kremlin/lowstar_endianness.h"
+#include "math/bigfix/types.h"
+#include "math/bigfix/lowstar_endianness.h"
 #include <string.h>
-#include "kremlin/internal/target.h"
+#include "math/bigfix/target.h"
 
 static inline uint64_t
 Hacl_Bignum_Base_mul_wide_add_u64(uint64_t a, uint64_t b, uint64_t c_in, uint64_t *out)

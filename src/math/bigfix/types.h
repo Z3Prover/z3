@@ -50,7 +50,7 @@ typedef struct FStar_UInt128_uint128_s {
  * latter is for internal use. */
 typedef FStar_UInt128_uint128 FStar_UInt128_t, uint128_t;
 
-#include "math/bigfix/kremlin/lowstar_endianness.h"
+#include "math/bigfix/lowstar_endianness.h"
 
 #endif
 
@@ -59,12 +59,12 @@ typedef FStar_UInt128_uint128 FStar_UInt128_t, uint128_t;
 #ifndef __FStar_UInt_8_16_32_64_H
 
 #if !defined(KRML_VERIFIED_UINT128) && defined(IS_MSVC64)
-#include "math/bigfix/kremlib/fstar_uint128_msvc.h"
+#include "math/bigfix/fstar_uint128_msvc.h"
 #elif !defined(KRML_VERIFIED_UINT128) && defined(HAS_INT128)
-#include "math/bigfix/kremlib/fstar_uint128_gcc64.h"
+#include "math/bigfix/fstar_uint128_gcc64.h"
 #else
-#include "math/bigfix/kremlib/FStar_UInt128_Verified.h"
-#include "math/bigfix/kremlib/fstar_uint128_struct_endianness.h"
+#include "math/bigfix/FStar_UInt128_Verified.h"
+#include "math/bigfix/fstar_uint128_struct_endianness.h"
 #endif
 
 #endif

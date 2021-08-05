@@ -29,13 +29,13 @@
 extern "C" {
 #endif
 
-#include "lib_intrinsics.h"
-#include "kremlin/internal/types.h"
-#include "kremlin/lowstar_endianness.h"
+#include "math/bigfix/lib_intrinsics.h"
+#include "math/bigfix/types.h"
+#include "math/bigfix/lowstar_endianness.h"
 #include <string.h>
-#include "kremlin/internal/target.h"
+#include "math/bigfix/target.h"
 
-#include "Hacl_Bignum_Base.h"
+#include "math/bigfix/Hacl_Bignum_Base.h"
 
 void Hacl_Bignum_Convert_bn_from_bytes_be_uint64(uint32_t len, uint8_t *b, uint64_t *res);
 
