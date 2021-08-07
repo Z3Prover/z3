@@ -252,12 +252,12 @@ namespace polysat {
         void fixed_var_eh(row const& r, var_t x);
         void eq_eh(var_t x, var_t y, row const& r1, row const& r2);
         lbool propagate_bounds(row const& r);
-        lbool propagate_bounds(ineq const& i);
-        lbool new_bound(row const& r, var_t x, mod_interval<numeral> const& range);
-        lbool new_bound(ineq const& i, var_t x, numeral const& lo, numeral const& hi, u_dependency* a = nullptr, u_dependency* b = nullptr);
-        lbool conflict(ineq const& i, u_dependency* a = nullptr, u_dependency* b = nullptr);
-        lbool conflict(u_dependency* a);
-        lbool conflict(u_dependency* a, u_dependency* b) { return conflict(m_deps.mk_join(a, b)); }
+        bool propagate_bounds(ineq const& i);
+        bool new_bound(row const& r, var_t x, mod_interval<numeral> const& range);
+        bool new_bound(ineq const& i, var_t x, numeral const& lo, numeral const& hi, u_dependency* a = nullptr, u_dependency* b = nullptr, u_dependency* c = nullptr, u_dependency* d = nullptr);
+        void conflict(ineq const& i, u_dependency* a = nullptr, u_dependency* b = nullptr, u_dependency* c = nullptr, u_dependency* d = nullptr);
+        void conflict(u_dependency* a);
+        void conflict(u_dependency* a, u_dependency* b, u_dependency* c = nullptr, u_dependency* d = nullptr) { conflict(m_deps.mk_join(m_deps.mk_join(a, b), m_deps.mk_join(c, d))); }
         u_dependency* row2dep(row const& r);
         void pivot(var_t x_i, var_t x_j, numeral const& b, numeral const& value);
         numeral value2delta(var_t v, numeral const& new_value) const;
@@ -297,7 +297,9 @@ namespace polysat {
         // facilities for handling inequalities
         void add_ineq(var_t v, var_t w, unsigned dep, bool strict);
         void touch_var(var_t x);
-        lbool check_ineqs();
+        bool ineqs_are_violated();
+        bool ineqs_are_satisfied();
+        void reset_ineqs_to_check();
 
         bool is_solved(row const& r) const;
         bool is_solved(var_t v) const { SASSERT(is_base(v)); return is_solved(base2row(v)); }

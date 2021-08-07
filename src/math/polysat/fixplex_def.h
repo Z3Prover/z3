@@ -149,13 +149,17 @@ namespace polysat {
                 return l_false;
             case l_undef:
                 m_to_patch.insert(v);
-                if (l_false == check_ineqs())
+                if (ineqs_are_violated())
                     return l_false;
                 return l_undef;
             }
         }
         SASSERT(well_formed());
-        return check_ineqs();
+        if (ineqs_are_violated())
+            return l_false;
+        if (ineqs_are_satisfied())
+            return l_true;
+        return l_undef;
     }
 
     template<typename Ext>
@@ -352,7 +356,6 @@ namespace polysat {
                 return l_undef;
         }
 
-
         pivot(x, y, b, new_value);
 
         return l_true;
@@ -499,8 +502,7 @@ namespace polysat {
     }
 
     template<typename Ext>
-    typename fixplex<Ext>::numeral
-        fixplex<Ext>::value2error(var_t v, numeral const& value) const {
+    typename fixplex<Ext>::numeral fixplex<Ext>::value2error(var_t v, numeral const& value) const {
         if (in_bounds(v))
             return 0;
         SASSERT(lo(v) != hi(v));
@@ -519,6 +521,7 @@ namespace polysat {
      */
     template<typename Ext>
     void fixplex<Ext>::set_bounds(var_t v, numeral const& l, numeral const& h, unsigned dep) {
+        ensure_var(v);
         update_bounds(v, l, h, mk_leaf(dep));
         if (in_bounds(v))
             return;
@@ -571,6 +574,8 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::add_ineq(var_t v, var_t w, unsigned dep, bool strict) {
+        ensure_var(v);
+        ensure_var(w);
         unsigned idx = m_ineqs.size();        
         m_var2ineqs.reserve(std::max(v, w) + 1);
         m_var2ineqs[v].push_back(idx);
@@ -604,31 +609,51 @@ namespace polysat {
     }
 
     template<typename Ext>
-    lbool fixplex<Ext>::check_ineqs() {
-        m_vars_to_untouch.reset();
+    void fixplex<Ext>::reset_ineqs_to_check() {
+        for (auto idx : m_ineqs_to_check) {
+            if (idx >= m_ineqs.size())
+                continue;
+            auto& ineq = m_ineqs[idx];
+             m_var_is_touched.setx(ineq.v, false, false);
+             m_var_is_touched.setx(ineq.w, false, false);
+             ineq.is_active = false;
+        }
+        m_ineqs_to_check.reset();
+    }
+
+    /**
+    * Check if the current assignment satisfies the inequalities
+    */
+    template<typename Ext>
+    bool fixplex<Ext>::ineqs_are_satisfied() {
         for (auto idx : m_ineqs_to_check) {
             if (idx >= m_ineqs.size())
                 continue;
             auto& ineq = m_ineqs[idx];
             var_t v = ineq.v;
             var_t w = ineq.w;
-            if (ineq.strict && value(v) >= value(w)) {
-                IF_VERBOSE(0, verbose_stream() << "violated v" << v << " < v" << w << "\n");
-                return l_false;
-            }
-            if (!ineq.strict && value(v) > value(w)) {
-                IF_VERBOSE(0, verbose_stream() << "violated v" << v << " <= v" << w << "\n");
-                return l_false;
-            }
-            ineq.is_active = false;
-            m_vars_to_untouch.push_back(v);
-            m_vars_to_untouch.push_back(w);
+            if (ineq.strict && value(v) >= value(w)) 
+                return false;            
+            if (!ineq.strict && value(v) > value(w))
+                return false;            
         }
-        for (auto v : m_vars_to_untouch)
-            m_var_is_touched.set(v, false);
-        m_ineqs_to_check.reset();
-        m_vars_to_untouch.reset();
-        return l_true;
+        reset_ineqs_to_check();
+        return true;
+    }
+
+    /**
+    * Propagate bounds and check if the current inequalities are satisfied
+    */
+    template<typename Ext>
+    bool fixplex<Ext>::ineqs_are_violated() {
+        for (unsigned i = 0; i < m_ineqs_to_check.size(); ++i) {
+            unsigned idx = m_ineqs_to_check[i];
+            if (idx >= m_ineqs.size())
+                continue;
+            if (!propagate_bounds(m_ineqs[idx]))
+                return true;
+        }
+        return false;
     }
 
 
@@ -1087,16 +1112,16 @@ namespace polysat {
         m_var_eqs.push_back(var_eq(x, y, r1, r2));
     }    
 
-
     template<typename Ext>
     lbool fixplex<Ext>::propagate_bounds() {
         lbool r = l_true;
         for (unsigned i = 0; r == l_true && i < m_rows.size(); ++i) 
             r = propagate_bounds(row(i));
+        if (r != l_true)
+            return r;
         for (auto ineq : m_ineqs) {
-            if (r != l_true)
-                break;
-            r = propagate_bounds(ineq);
+            if (!propagate_bounds(ineq))
+                return l_false;
         }
         return r;
     }
@@ -1132,7 +1157,7 @@ namespace polysat {
 
         if (free_v != null_var) {
             range = (-range) * free_c;
-            lbool res = new_bound(r, free_v, range);
+            lbool res = new_bound(r, free_v, range) ? l_true : l_false;
             SASSERT(in_bounds(free_v));
             return res;
         }
@@ -1140,7 +1165,7 @@ namespace polysat {
             var_t v = e.var();
             SASSERT(!is_free(v));
             auto range1 = range - m_vars[v] * e.coeff();
-            lbool res = new_bound(r, v, range1);
+            lbool res = new_bound(r, v, range1) ? l_true : l_false;
             if (res != l_true)
                 return res;
             // SASSERT(in_bounds(v));
@@ -1149,56 +1174,61 @@ namespace polysat {
     }
 
     template<typename Ext>
-    lbool fixplex<Ext>::propagate_bounds(ineq const& i) {
+    bool fixplex<Ext>::propagate_bounds(ineq const& i) {
         // v < w  & lo(v) + 1 = 0  -> conflict
-        // v < w  & hi(w) = 0      -> conflict
-        // v < w  & lo(v) >= hi(w) -> conflict
-        // v <= w & lo(v) >  hi(w) -> conflict
-        // v < w  & hi(v) >= hi(w) -> hi(v) := hi(w) - 1
-        // v < w  & lo(v) >= lo(w) -> lo(w) := lo(v) + 1
+        // v < w  & lo(w) = 0 & hi(w) = 1 -> conflict
+        // v < w  & hi(w) != 0 & lo(w) <= hi(w) & hi(w) - 1 <= lo(v) -> conflict
+        // v <= w & hi(w) != 0 & lo(w) <= hi(w) & hi(w) <= lo(v) -> conflict
+        // v < w  & hi(w) != 0 & lo(w) <= hi(w) <= hi(v) -> hi(v) := hi(w) - 1
+        // v < w  & lo(w) <= lo(v) -> lo(w) := lo(v) + 1
         // v <= w & hi(v) >  hi(w) -> hi(v) := hi(w)
         // v <= w & lo(v) >  lo(w) -> lo(w) := lo(w)
         var_t v = i.v, w = i.w;
         bool s = i.strict;
-        if (s && lo(v) + 1 == 0)
-            return conflict(i, m_vars[v].m_lo_dep);
-        else if (s && hi(w) == 0)
-            return conflict(i, m_vars[v].m_hi_dep);
-        else if (s && lo(v) >= hi(w))
-            return conflict(i, m_vars[v].m_lo_dep, m_vars[w].m_hi_dep);
-        else if (!s && lo(v) > hi(w))
-            return conflict(i, m_vars[v].m_lo_dep, m_vars[w].m_hi_dep);
-        else if (s && hi(v) >= hi(w)) {
-            SASSERT(lo(v) < hi(w));
-            SASSERT(hi(w) != 0);
-            return new_bound(i, v, lo(v), hi(w) - 1, m_vars[v].m_hi_dep, m_vars[w].m_hi_dep);
-        }
-        else if (s && lo(v) >= lo(w)) {
-            SASSERT(lo(v) + 1 != 0);
-            SASSERT(hi(w) > lo(v));
-            return new_bound(i, w, lo(v) + 1, hi(w), m_vars[v].m_lo_dep, m_vars[w].m_lo_dep);
-        }
-        else if (!s && hi(v) > hi(w)) {
-            SASSERT(lo(v) <= hi(w));
-            return new_bound(i, v, lo(v), hi(w), m_vars[v].m_hi_dep, m_vars[w].m_hi_dep);
-        }
-        else if (!s && lo(v) > lo(w)) {
-            SASSERT(lo(v) <= hi(w));
-            return new_bound(i, w, lo(v), hi(w), m_vars[v].m_lo_dep, m_vars[w].m_lo_dep);
-        }
-        return l_true;
+        auto* vlo = m_vars[v].m_lo_dep, *vhi = m_vars[v].m_hi_dep;
+        auto* wlo = m_vars[w].m_lo_dep, *whi = m_vars[w].m_hi_dep;
+        if (s && lo(v) + 1 == 0 && is_fixed(v))
+            return conflict(i, vlo, vhi), false;
+        if (s && lo(w) == 0 && is_fixed(w))
+            return conflict(i, wlo, whi), false;
+        if (s && hi(w) != 0 && lo(w) <= hi(w) && lo(v) <= hi(v) && hi(w) - 1 <= lo(v))
+            return conflict(i, vlo, wlo, whi), false;
+        if (s && hi(v) == 0 && lo(w) < hi(w) && hi(w) - 1 <= lo(v))
+            return conflict(i, vlo, vhi, wlo, whi), false;
+        if (!s && hi(w) != 0 && lo(w) <= hi(w) && hi(w) <= lo(v) && lo(v) <= hi(v))
+            return conflict(i, vlo, vhi, wlo, whi), false;
+        if (!s && hi(w) != 0 && lo(w) <= hi(w) && hi(w) <= lo(v) && hi(v) == 0)
+            return conflict(i, vlo, vhi, wlo, whi), false;
+        if (s && hi(w) != 0 && lo(w) <= hi(w) && hi(w) <= hi(v) && !new_bound(i, v, lo(v), hi(w) - 1, wlo, vhi, whi))
+            return false;             
+        if (s && lo(w) <= lo(v) && !new_bound(i, w, lo(v) + 1, hi(w), vlo, wlo))
+            return false;
+        if (s && hi(w) != 0 && hi(w) - 1 <= lo(v) && lo(v) <= hi(v) && hi(w) < lo(w) && !new_bound(i, w, lo(w), 0, wlo, whi, vlo, vhi))
+            return false;
+        if (s && hi(w) == 1 && !is_fixed(w) && !new_bound(i, w, lo(w), 0, wlo, whi))
+            return false;
+        if (!s && hi(v) > hi(w) && !new_bound(i, v, lo(v), hi(w), vhi, whi))
+            return false;
+        if (!s && lo(v) > lo(w) && !new_bound(i, w, lo(v), hi(w), vlo, wlo))
+            return false;     
+        if (!s && hi(w) != 0 && hi(w) < lo(w) && hi(w) <= lo(v) && lo(v) <= hi(v) && !new_bound(i, w, lo(w), 0, vlo, vhi, wlo, whi))
+            return false;
+        if (hi(w) != 0 && lo(w) <= hi(w) && hi(w) <= lo(v) && !new_bound(i, v, 0, hi(v), wlo, vlo, whi))
+            return false;
+
+        return true;
     }
 
     template<typename Ext>
-    lbool fixplex<Ext>::conflict(ineq const& i, u_dependency* a, u_dependency* b) {
-        return conflict(a, m_deps.mk_join(mk_leaf(i.dep), b));
+    void fixplex<Ext>::conflict(ineq const& i, u_dependency* a, u_dependency* b, u_dependency* c, u_dependency* d) {
+        conflict(a, m_deps.mk_join(mk_leaf(i.dep), m_deps.mk_join(b, m_deps.mk_join(c, d))));
     }
 
     template<typename Ext>
-    lbool fixplex<Ext>::conflict(u_dependency* a) {
+    void fixplex<Ext>::conflict(u_dependency* a) {
         m_unsat_core.reset();
         m_deps.linearize(a, m_unsat_core);
-        return l_false;
+        TRACE("polysat", tout << "core: " << m_unsat_core << "\n";);
     }
 
     template<typename Ext>
@@ -1213,31 +1243,31 @@ namespace polysat {
     }
 
     template<typename Ext>
-    lbool fixplex<Ext>::new_bound(ineq const& i, var_t x, numeral const& l, numeral const& h, u_dependency* a, u_dependency* b) {
+    bool fixplex<Ext>::new_bound(ineq const& i, var_t x, numeral const& l, numeral const& h, u_dependency* a, u_dependency* b, u_dependency* c, u_dependency* d) {
         bool was_fixed = lo(x) + 1 == hi(x);
-        u_dependency* dep = m_deps.mk_join(mk_leaf(i.dep), m_deps.mk_join(a, b));
+        u_dependency* dep = m_deps.mk_join(mk_leaf(i.dep), m_deps.mk_join(a, m_deps.mk_join(b, m_deps.mk_join(c, d))));
         update_bounds(x, l, h, dep);
         if (m_vars[x].is_empty())
-            return conflict(m_vars[x].m_lo_dep, m_vars[x].m_hi_dep);
+            return conflict(m_vars[x].m_lo_dep, m_vars[x].m_hi_dep), false;
         else if (!was_fixed && lo(x) + 1 == hi(x)) {
             // TBD: track based on inequality not row
             // fixed_var_eh(r, x);
         }
-        return l_true;
+        return true;
     }
 
     template<typename Ext>
-    lbool fixplex<Ext>::new_bound(row const& r, var_t x, mod_interval<numeral> const& range) {
+    bool fixplex<Ext>::new_bound(row const& r, var_t x, mod_interval<numeral> const& range) {
         if (range.is_free())
             return l_true;
         bool was_fixed = lo(x) + 1 == hi(x);
         update_bounds(x, range.lo, range.hi, row2dep(r));
         IF_VERBOSE(0, verbose_stream() << "new-bound v" << x << " " << m_vars[x] << "\n");
-        if (m_vars[x].is_empty()) 
-            return conflict(m_vars[x].m_lo_dep, m_vars[x].m_hi_dep);
+        if (m_vars[x].is_empty())
+            return conflict(m_vars[x].m_lo_dep, m_vars[x].m_hi_dep), false;
         else if (!was_fixed && lo(x) + 1 == hi(x)) 
             fixed_var_eh(r, x);
-        return l_true;
+        return true;
     }
 
     template<typename Ext>    
@@ -1248,6 +1278,12 @@ namespace polysat {
             out << "v" << i << " " << pp(value(i)) << " " << vi << " ";
             if (vi.m_is_base) out << "b:" << vi.m_base2row << " " << pp(m_rows[vi.m_base2row].m_value) << " ";
             out << "\n";
+        }
+        for (auto const& i : m_ineqs) {
+            if (i.strict)
+                out << "v" << i.v << " < v" << i.w << "\n";
+            else
+                out << "v" << i.v << " <= v" << i.w << "\n";
         }
         return out;
     }

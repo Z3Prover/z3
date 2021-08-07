@@ -286,12 +286,10 @@ namespace polysat {
     lbool linear_solver::check() { 
         lbool res = l_true;
         m_unsat_f = nullptr;
-        for (auto* f : m_fix) {
-            if (!f)
-                continue;
-            lbool r = f->make_feasible();
+        for (auto* fp : m_fix_ptr) {
+            lbool r = fp->make_feasible();
             if (r == l_false) {
-                m_unsat_f = f;
+                m_unsat_f = fp;
                 return r;
             }
             if (r == l_undef)
@@ -313,12 +311,13 @@ namespace polysat {
     }
 
     // current value assigned to (linear) variable according to tableau.
-    rational linear_solver::value(pvar v) { 
+    bool linear_solver::value(pvar v, rational& val) { 
         unsigned sz = s.size(v);
         auto* fp = sz2fixplex(sz);
         if (!fp)
-            return rational::zero();
-        return fp->get_value(pvar2var(sz, v));
+            return false;
+        val = fp->get_value(pvar2var(sz, v));
+        return true;
     }
     
 };

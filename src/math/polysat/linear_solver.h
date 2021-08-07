@@ -41,8 +41,6 @@ namespace polysat {
             inc_level_i,
             add_var_i,
             add_mono_i,
-            add_ineq_i,
-            add_row_i,
             set_active_i
         };
 
@@ -135,7 +133,7 @@ namespace polysat {
         void unsat_core(ptr_vector<constraint>& constraints, unsigned_vector& deps);
 
         // current value assigned to (linear) variable according to tableau.
-        rational value(pvar v);
+        bool value(pvar v, rational& val);
 
         std::ostream& display(std::ostream& out) const { return out; }
         void collect_statistics(::statistics & st) const {}
