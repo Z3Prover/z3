@@ -1070,7 +1070,7 @@ std::ostream& seq_util::rex::pp::compact_helper_seq(std::ostream& out, expr* s) 
             compact_helper_seq(out, e);
     }
     else if (re.u.str.is_string(s, z)) {
-        for (int i=0; i < z.length(); i++)
+        for (int i = 0; i < z.length(); i++)
             out << (char)z[i];
     }
     //using braces to indicate 'full' output

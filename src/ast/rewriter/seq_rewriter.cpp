@@ -1974,8 +1974,7 @@ br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& 
     }
     expr_ref_vector a_vals(m());
     expr_ref_vector b_vals(m());
-    if (try_get_unit_values(a, a_vals) && try_get_unit_values(b, b_vals))
-    {
+    if (try_get_unit_values(a, a_vals) && try_get_unit_values(b, b_vals)) {
         replace_all_subvectors(a_vals, b_vals, c, strs);
         result = str().mk_concat(strs, a->get_sort());
         return BR_REWRITE_FULL;
@@ -2011,8 +2010,8 @@ bool seq_rewriter::try_get_unit_values(expr* s, expr_ref_vector& vals) {
 * Replace all subvectors of b in a by c
 */
 void seq_rewriter::replace_all_subvectors(expr_ref_vector const& a, expr_ref_vector const& b, expr* c, expr_ref_vector& result) {
-    int i = 0;
-    int k = b.size();
+    unsigned int i = 0;
+    unsigned int k = b.size();
     while (i + k <= a.size()) {
         //if a[i..i+k-1] equals b then replace it by c and inceremnt i by k
         int j = 0;
