@@ -44,6 +44,7 @@ class pb_preprocess_tactic : public tactic {
     struct rec { unsigned_vector pos, neg; rec() { } };
     typedef obj_map<app, rec> var_map;
     ast_manager&     m;
+    expr_ref_vector  m_trail;
     pb_util          pb;
     var_map          m_vars;    
     unsigned_vector  m_ge;
@@ -99,7 +100,7 @@ class pb_preprocess_tactic : public tactic {
 
 public:
     pb_preprocess_tactic(ast_manager& m, params_ref const& p = params_ref()): 
-        m(m), pb(m), m_r(m) {}
+        m(m), m_trail(m), pb(m), m_r(m) {}
 
     ~pb_preprocess_tactic() override {}
 
@@ -157,7 +158,7 @@ public:
         m_progress = false;
         // first eliminate variables
         var_map::iterator it = next_resolvent(m_vars.begin()); 
-        while (it != m_vars.end()) {            
+        while (it != m_vars.end()) {  
             app * e = it->m_key;
             rec const& r = it->m_value;
             TRACE("pb", tout << mk_pp(e, m) << " " << r.pos.size() << " " << r.neg.size() << "\n";);
@@ -235,6 +236,7 @@ private:
         m_ge.reset();
         m_other.reset();
         m_vars.reset();
+        m_trail.reset();
     }
 
     expr* negate(expr* e) {
@@ -410,6 +412,7 @@ private:
     void insert(unsigned i, app* e, bool pos) {
         SASSERT(is_uninterp_const(e));
         if (!m_vars.contains(e)) {
+            m_trail.push_back(e);
             m_vars.insert(e, rec());
         }
         if (pos) {
