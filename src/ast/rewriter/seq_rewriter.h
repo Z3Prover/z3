@@ -180,6 +180,16 @@ class seq_rewriter {
 
     expr_ref mk_seq_concat(expr* a, expr* b);    
 
+    // Construct the expressions for taking the first element, the last element, the rest, and the butlast element
+    expr_ref mk_seq_first(expr* s);
+    expr_ref mk_seq_rest(expr* s);
+    expr_ref mk_seq_last(expr* s);
+    expr_ref mk_seq_butlast(expr* s);
+
+    bool try_get_unit_values(expr* s, expr_ref_vector& result);
+    //replace b in a by c into result
+    void replace_all_subvectors(expr_ref_vector const& as, expr_ref_vector const& bs, expr* c, expr_ref_vector& result);
+
     // Calculate derivative, memoized and enforcing a normal form
     expr_ref is_nullable_rec(expr* r);
     expr_ref mk_derivative_rec(expr* ele, expr* r);

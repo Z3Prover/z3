@@ -14,6 +14,7 @@ Author:
     Nikolaj Bjorner (nbjorner) 2015-12-5
     Murphy Berzish 2017-02-21
     Caleb Stanford 2020-07-07
+    Margus Veanes 2021
 
 --*/
 
@@ -870,6 +871,60 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
     }
 #endif
     return BR_FAILED;
+}
+
+/*
+*  In general constructs nth(t,0) but simplifies to nth(s,i) if t = substring(s,i,_)
+*  This method assumes that |t| > 0.
+*/
+expr_ref seq_rewriter::mk_seq_first(expr* t) {
+    expr_ref result(m());
+    //TBD: simplify
+    result = str().mk_nth(t, m_autil.mk_int(0));
+    return result;
+}
+
+/*
+*  In general constructs substring(t,1,|t|-1) but simplifies to substring(s,i+1,|s|-1) if t = substring(s,i,|s|-1)
+*  This method assumes that |t| > 0.
+*/
+expr_ref seq_rewriter::mk_seq_rest(expr* t) {
+    expr_ref result(m());
+    //TBD: simplify
+    result = str().mk_substr(t, m_autil.mk_int(1), m_autil.mk_sub(str().mk_length(t), m_autil.mk_int(1)));
+    return result;
+}
+
+/*
+*  In general constructs nth(t,|t|-1) but simplifies to nth(s,|s|-(i+1)) if t = substring(s,j,|s|-i)
+*  This method assumes that |t| > 0.
+*/
+expr_ref seq_rewriter::mk_seq_last(expr* t) {
+    expr_ref result(m());
+    expr* s, * j, * k, * l, * s_, * i;
+    rational v;
+    if (str().is_extract(t, s, j, k) &&
+        ((m_autil.is_add(k, i, l) && str().is_length(l, s_)) || (m_autil.is_add(k, l, i) && str().is_length(l, s_))) && s == s_)
+        result = str().mk_nth_i(s, m_autil.mk_add(m_autil.is_numeral(i, v) ? m_autil.mk_int(v.get_int32() - 1) : m_autil.mk_add(m_autil.mk_int(-1), i), l));
+    else
+        result = str().mk_nth_i(t, m_autil.mk_add(m_autil.mk_int(-1), str().mk_length(t)));
+    return result;
+}
+
+/*
+*  In general constructs substring(t,0,|t|-1) but if t = substring(s,j,|s|-i) then simplifies to substring(s,j,|s|-(i+1)) 
+*  This method assumes that |t| > 0 holds.
+*/
+expr_ref seq_rewriter::mk_seq_butlast(expr* t) {
+    expr_ref result(m());
+    expr* s, * j, * k, * l, * s_, * i;
+    rational v;
+    if (str().is_extract(t, s, j, k) &&
+        ((m_autil.is_add(k, i, l) && str().is_length(l, s_)) ||(m_autil.is_add(k, l, i) && str().is_length(l, s_))) && s == s_)
+        result = str().mk_substr(s, j, m_autil.mk_add(m_autil.is_numeral(i, v) ? m_autil.mk_int(v.get_int32() - 1) : m_autil.mk_add(m_autil.mk_int(-1), i), l));
+    else
+        result = str().mk_substr(t, m_autil.mk_int(0), m_autil.mk_add(m_autil.mk_int(-1), str().mk_length(t)));
+    return result;
 }
 
 /*
@@ -1893,13 +1948,13 @@ br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& 
         return BR_REWRITE1;
     }
     zstring s1, s2;
+    expr_ref_vector strs(m());
     if (str().is_string(a, s1) && str().is_string(b, s2)) {
         SASSERT(s2.length() > 0);
         if (s1.length() < s2.length()) {
             result = a;
             return BR_DONE;
         }
-        expr_ref_vector strs(m());
         for (unsigned i = 0; i < s1.length(); ++i) {
             if (s1.length() >= s2.length() + i && 
                 s2 == s1.extract(i, s2.length())) {
@@ -1912,9 +1967,61 @@ br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& 
         result = str().mk_concat(strs, a->get_sort());
         return BR_REWRITE_FULL;
     }
-    // TBD: add case when a, b are concatenation of units that are values.
-    // in this case we can use a similar loop as for strings.
+    expr_ref_vector a_vals(m());
+    expr_ref_vector b_vals(m());
+    if (try_get_unit_values(a, a_vals) && try_get_unit_values(b, b_vals))
+    {
+        replace_all_subvectors(a_vals, b_vals, c, strs);
+        result = str().mk_concat(strs, a->get_sort());
+        return BR_REWRITE_FULL;
+    }
+
+    //TODO: the case when a is a unit or concatenation of units while b is a string 
+    //or the other way around -- if that situation is possible at all -- is similar to the above
     return BR_FAILED;
+}
+
+/*
+* Returns false if s is not a single unit value or concatenation of unit values.
+* Else extracts the units from s into vals and returns true.
+*/
+bool seq_rewriter::try_get_unit_values(expr* s, expr_ref_vector& vals) {
+    expr* h, * t, * v;
+    t = s;
+    //collect all unit values from s, if not all elements are unit-values then fail
+    while (str().is_concat(t, h, t))
+        if (str().is_unit(h, v) && m().is_value(v))
+            vals.push_back(h);
+        else
+            return false;
+    //add the last element
+    if (str().is_unit(t, v) && m().is_value(v))
+        vals.push_back(t);
+    else
+        return false;
+    return true;
+}
+
+/*
+* Replace all subvectors of b in a by c
+*/
+void seq_rewriter::replace_all_subvectors(expr_ref_vector const& a, expr_ref_vector const& b, expr* c, expr_ref_vector& result) {
+    int i = 0;
+    int k = b.size();
+    while (i + k <= a.size()) {
+        //if a[i..i+k-1] equals b then replace it by c and inceremnt i by k
+        int j = 0;
+        while (j < k && b[j] == a[i + j]) j += 1;
+        if (j < k) //the equality failed
+            result.push_back(a[i++]);
+        else { //the equality succeeded
+            result.push_back(c);
+            i += k;
+        }
+    }
+    //add the trailing elements from a 
+    while (i < a.size())
+        result.push_back(a[i++]);
 }
 
 br_status seq_rewriter::mk_seq_replace_re_all(expr* a, expr* b, expr* c, expr_ref& result) {
@@ -3348,7 +3455,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             //while mk_empty() = [], because deriv(epsilon) = [] = nothing
             return mk_empty();
         }
-        else if (str().is_itos(r1, r2)) {
+        else if (str().is_itos(r1)) {
             //
             // here r1 = (str.from_int r2) and r2 is non-ground 
             // or else the expression would have been simplified earlier
@@ -3356,27 +3463,45 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             // '0' <= elem <= '9'
             // if ((isdigit ele) and (ele = (hd r1))) then (to_re (tl r1)) else []
             //
-            hd = str().mk_nth_i(r1, m_autil.mk_int(0));
+            hd = mk_seq_first(r1);
             m_br.mk_and(u().mk_le(m_util.mk_char('0'), ele), u().mk_le(ele, m_util.mk_char('9')), m().mk_eq(hd, ele), result); 
-            tl = re().mk_to_re(str().mk_substr(r1, m_autil.mk_int(1), m_autil.mk_sub(str().mk_length(r1), m_autil.mk_int(1))));            
+            tl = re().mk_to_re(mk_seq_rest(r1));            
+            return re_and(result, tl);
+        }
+        else {
+            // recall: [] denotes the empty language (nothing) regex, () denotes epsilon or empty sequence
+            // construct the term (if (r1 != () and (ele = (first r1)) then (to_re (rest r1)) else []))
+            hd = mk_seq_first(r1);
+            m_br.mk_and(m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort))), m().mk_eq(hd, ele), result);
+            tl = re().mk_to_re(mk_seq_rest(r1));
             return re_and(result, tl);
         }
     }
-    else if (re().is_reverse(r, r1) && re().is_to_re(r1, r2)) {
-        // Reverses are rewritten so that the only derivative case is
-        // derivative of a reverse of a string. (All other cases stuck)
-        // This is analagous to the previous is_to_re case.
-        expr_ref hd(m()), tl(m());
-        if (get_head_tail_reversed(r2, hd, tl)) {
-            // Use mk_der_cond to normalize
-            STRACE("seq_verbose", tout << "deriv reverse to_re" << std::endl;);
-            result = m().mk_eq(ele, tl);
-            result = mk_der_cond(result, ele, seq_sort);
-            result = mk_der_concat(result, re().mk_reverse(re().mk_to_re(hd)));
-            return result;
-        }
-        else if (str().is_empty(r2)) {
-            return mk_empty();
+    else if (re().is_reverse(r, r1)) {
+        if (re().is_to_re(r1, r2)) {
+            // First try to exctract hd and tl such that r = hd ++ tl and |tl|=1
+            expr_ref hd(m()), tl(m());
+            if (get_head_tail_reversed(r2, hd, tl)) {
+                // Use mk_der_cond to normalize
+                STRACE("seq_verbose", tout << "deriv reverse to_re" << std::endl;);
+                result = m().mk_eq(ele, tl);
+                result = mk_der_cond(result, ele, seq_sort);
+                result = mk_der_concat(result, re().mk_reverse(re().mk_to_re(hd)));
+                return result;
+            }
+            else if (str().is_empty(r2)) {
+                return mk_empty();
+            }
+            else {
+                // construct the term (if (r2 != () and (ele = (last r2)) then reverse(to_re (butlast r2)) else []))
+                // hd = first of reverse(r2) i.e. last of r2
+                // tl = rest of reverse(r2) i.e. butlast of r2
+                //hd = str().mk_nth_i(r2, m_autil.mk_sub(str().mk_length(r2), m_autil.mk_int(1)));
+                hd = mk_seq_last(r2);
+                m_br.mk_and(m().mk_not(m().mk_eq(r2, str().mk_empty(seq_sort))), m().mk_eq(hd, ele), result);
+                tl = re().mk_to_re(mk_seq_butlast(r2));
+                return re_and(result, re().mk_reverse(tl));
+            }
         }
     }
     else if (re().is_range(r, r1, r2)) {
