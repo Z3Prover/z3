@@ -285,6 +285,7 @@ void OP(unsigned num_args, expr * const * args, expr_ref & result) {    \
     MK_BIN_AC_REDUCE(reduce_add, reduce_bin_add, mk_adder);
     MK_BIN_AC_REDUCE(reduce_mul, reduce_bin_mul, mk_multiplier);
 
+    MK_BIN_AC_REDUCE(reduce_and, reduce_bin_and, mk_and);
     MK_BIN_AC_REDUCE(reduce_or, reduce_bin_or, mk_or);
     MK_BIN_AC_REDUCE(reduce_xor, reduce_bin_xor, mk_xor);
 
@@ -471,6 +472,9 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
             case OP_SLEQ:
                 SASSERT(num == 2);
                 reduce_sle(args[0], args[1], result);
+                return BR_DONE;
+            case OP_BAND:
+                reduce_and(num, args, result);
                 return BR_DONE;
             case OP_BOR:
                 reduce_or(num, args, result);
