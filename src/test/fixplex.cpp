@@ -141,6 +141,7 @@ namespace polysat {
     }
 
     static void test_ineqs() {
+        unsigned num_bad = 0;
         var_t x = 0, y = 1;
         unsigned nb = 6;
         uint64_t bounds[6] = { 0, 1, 2, 10 , (uint64_t)-2, (uint64_t)-1 };
@@ -169,11 +170,25 @@ namespace polysat {
                 solver.assert_expr(bv.mk_ule(I, x));
         };
 
+        auto add_not_bound = [&](expr* x, uint64_t i, uint64_t j) {
+            expr_ref I(bv.mk_numeral(i, 64), m);
+            expr_ref J(bv.mk_numeral(j, 64), m);
+            if (i < j)
+                solver.assert_expr(m.mk_not(m.mk_and(bv.mk_ule(I, x), mk_ult(x, J))));
+            else if (i > j && j != 0)
+                solver.assert_expr(m.mk_not(m.mk_or(bv.mk_ule(I, x), mk_ult(x, J))));
+            else if (i > j && j == 0)
+                solver.assert_expr(m.mk_not(bv.mk_ule(I, x)));
+            else
+                solver.assert_expr(m.mk_false());
+        };
+
         auto test_le = [&](bool test_le, uint64_t i, uint64_t j, uint64_t k, uint64_t l) {
             if (i == j && i != 0)
                 return;
             if (k == l && k != 0)
                 return;
+            // std::cout << "test " << i << " " << j << " " << k << " " << l << "\n";
             scoped_fp fp;
             fp.set_bounds(x, i, j, 1);
             fp.set_bounds(y, k, l, 2);       
@@ -197,12 +212,10 @@ namespace polysat {
 
             lbool feas2 = solver.check();
 
-
             if (feas == feas2) {
                 solver.pop(1);
                 return;
             }
-
 
             if (feas2 == l_false && feas == l_true) {
                 std::cout << "BUG!\n";
@@ -217,10 +230,16 @@ namespace polysat {
                 for (unsigned c : fp.get_unsat_core())
                     std::cout << c << "\n";
                 std::cout << "\n";
+                // TBD: check that core is sufficient and minimal
                 break;            
             case l_true:
             case l_undef:
 
+                if (feas2 == l_false) {
+                    std::cout << "Missed conflict\n";
+                    std::cout << fp << "\n";
+                    break;
+                }
                 // Check for missed bounds:
                 solver.push();
                 solver.assert_expr(m.mk_eq(X, bv.mk_numeral(fp.lo(x), 64)));
@@ -258,9 +277,40 @@ namespace polysat {
                     solver.pop(1);
                 }
 
+                // check that inferred bounds are implied:
+                solver.push();
+                add_not_bound(X, fp.lo(x), fp.hi(x));
+                if (l_false != solver.check()) {
+                    std::cout << "Bound on x is not implied\n";
+                    scoped_fp fp1;
+                    fp1.set_bounds(x, i, j, 1);
+                    fp1.set_bounds(y, k, l, 2);
+                    std::cout << fp1 << "\n";
+                    bad = true;
+                }
+                solver.pop(1);
+
+                solver.push();
+                add_not_bound(Y, fp.lo(y), fp.hi(y));
+                if (l_false != solver.check()) {
+                    std::cout << "Bound on y is not implied\n";
+                    scoped_fp fp1;
+                    fp1.set_bounds(x, i, j, 1);
+                    fp1.set_bounds(y, k, l, 2);
+                    std::cout << fp1 << "\n";
+                    bad = true;
+                }
+                solver.pop(1);
+
                 if (bad) {
-                    std::cout << fp << "\n";
                     std::cout << feas << " " << feas2 << "\n";
+                    std::cout << fp << "\n"; 
+                    std::cout << "original:\n";
+                    scoped_fp fp1;
+                    fp1.set_bounds(x, i, j, 1);
+                    fp1.set_bounds(y, k, l, 2);
+                    std::cout << fp1 << "\n";
+                    ++num_bad;
                 }
 
                 break;
@@ -287,6 +337,8 @@ namespace polysat {
                         test_le(true, bounds[i], bounds[j], bounds[k], bounds[l]);
                         test_le(false, bounds[i], bounds[j], bounds[k], bounds[l]);
                     }
+
+        std::cout << "number of failures: " << num_bad << "\n";
     }
 }
 
@@ -294,7 +346,6 @@ void tst_fixplex() {
 
     polysat::test_ineq1();
     polysat::test_ineqs();
-    return;
 
     polysat::test1();
     polysat::test2();

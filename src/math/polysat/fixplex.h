@@ -253,6 +253,8 @@ namespace polysat {
         void eq_eh(var_t x, var_t y, row const& r1, row const& r2);
         lbool propagate_bounds(row const& r);
         bool propagate_bounds(ineq const& i);
+        bool propagate_strict_bounds(ineq const& i);
+        bool propagate_non_strict_bounds(ineq const& i);
         bool new_bound(row const& r, var_t x, mod_interval<numeral> const& range);
         bool new_bound(ineq const& i, var_t x, numeral const& lo, numeral const& hi, u_dependency* a = nullptr, u_dependency* b = nullptr, u_dependency* c = nullptr, u_dependency* d = nullptr);
         void conflict(ineq const& i, u_dependency* a = nullptr, u_dependency* b = nullptr, u_dependency* c = nullptr, u_dependency* d = nullptr);

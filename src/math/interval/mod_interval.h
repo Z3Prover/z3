@@ -27,10 +27,15 @@ struct pp {
     pp(Numeral const& n):n(n) {}
 };
 
+
+inline std::ostream& operator<<(std::ostream& out, pp<uint8_t> const& p) {
+    return out << (unsigned)p.n;
+}
+
 template<typename Numeral>
 inline std::ostream& operator<<(std::ostream& out, pp<Numeral> const& p) {
-    if ((0 - p.n) < p.n)
-        return out << "-" << (0 - p.n);
+    if ((Numeral)(0 - p.n) < p.n)
+        return out << "-" << (Numeral)(0 - p.n);
     return out << p.n;
 }
 

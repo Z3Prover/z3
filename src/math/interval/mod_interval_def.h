@@ -95,19 +95,46 @@ mod_interval<Numeral> mod_interval<Numeral>::operator&(mod_interval const& other
         return other;
     if (other.is_free() || is_empty())
         return *this;
-    if (contains(other.lo))
-        l = other.lo;
-    else if (other.contains(lo))
-        l = lo;
-    else 
-        return mod_interval::empty();
-    if (contains(other.hi - 1))
-        h = other.hi;
-    else if (other.contains(hi - 1))
-        h = hi;
-    else
-        return mod_interval::empty();
+
+    if (lo < hi || hi == 0) {
+        if (other.lo < other.hi || other.hi == 0) {
+            if (hi != 0 && hi <= other.lo)
+                return mod_interval::empty();
+            if (other.hi != 0 && other.hi <= lo)
+                return mod_interval::empty();
+            l = lo >= other.lo ? lo : other.lo;
+            h = hi == 0 ? other.hi : (other.hi == 0 ? hi : (hi <= other.hi ? hi : other.hi));
+            return mod_interval(l, h);
+        }
+        SASSERT(0 < other.hi && other.hi < other.lo);
+        if (other.lo <= lo)
+            return *this;
+        if (other.hi <= lo && lo < hi && hi <= other.lo)
+            return mod_interval::empty();
+        if (lo <= other.hi && other.hi <= hi && hi <= other.lo)
+            return mod_interval(lo, other.hi);
+        if (hi == 0 && lo < other.hi)
+            return *this;
+        if (hi == 0 && other.hi <= lo)
+            return mod_interval(other.lo, hi);
+        if (other.hi <= lo && other.hi <= hi)
+            return mod_interval(other.lo, hi);
+        return *this;
+    }
+    SASSERT(hi < lo);
+    if (other.lo < other.hi || other.hi == 0)
+        return other & *this;
+    SASSERT(other.hi < other.lo);
+    SASSERT(hi != 0);
+    SASSERT(other.hi != 0);
+    if (lo <= other.hi)
+        return *this;
+    if (other.lo <= hi)
+        return other;
+    l = lo <= other.lo ? other.lo : lo;
+    h = hi >= other.hi ? other.hi : hi;
     return mod_interval(l, h);
+
 }
 
 template<typename Numeral>

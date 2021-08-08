@@ -1174,49 +1174,203 @@ namespace polysat {
     }
 
     template<typename Ext>
-    bool fixplex<Ext>::propagate_bounds(ineq const& i) {
-        // v < w  & lo(v) + 1 = 0  -> conflict
-        // v < w  & lo(w) = 0 & hi(w) = 1 -> conflict
-        // v < w  & hi(w) != 0 & lo(w) <= hi(w) & hi(w) - 1 <= lo(v) -> conflict
-        // v <= w & hi(w) != 0 & lo(w) <= hi(w) & hi(w) <= lo(v) -> conflict
-        // v < w  & hi(w) != 0 & lo(w) <= hi(w) <= hi(v) -> hi(v) := hi(w) - 1
-        // v < w  & lo(w) <= lo(v) -> lo(w) := lo(v) + 1
-        // v <= w & hi(v) >  hi(w) -> hi(v) := hi(w)
-        // v <= w & lo(v) >  lo(w) -> lo(w) := lo(w)
+    bool fixplex<Ext>::propagate_strict_bounds(ineq const& i) {
         var_t v = i.v, w = i.w;
         bool s = i.strict;
         auto* vlo = m_vars[v].m_lo_dep, *vhi = m_vars[v].m_hi_dep;
         auto* wlo = m_vars[w].m_lo_dep, *whi = m_vars[w].m_hi_dep;
-        if (s && lo(v) + 1 == 0 && is_fixed(v))
-            return conflict(i, vlo, vhi), false;
-        if (s && lo(w) == 0 && is_fixed(w))
-            return conflict(i, wlo, whi), false;
-        if (s && hi(w) != 0 && lo(w) <= hi(w) && lo(v) <= hi(v) && hi(w) - 1 <= lo(v))
-            return conflict(i, vlo, wlo, whi), false;
-        if (s && hi(v) == 0 && lo(w) < hi(w) && hi(w) - 1 <= lo(v))
-            return conflict(i, vlo, vhi, wlo, whi), false;
-        if (!s && hi(w) != 0 && lo(w) <= hi(w) && hi(w) <= lo(v) && lo(v) <= hi(v))
-            return conflict(i, vlo, vhi, wlo, whi), false;
-        if (!s && hi(w) != 0 && lo(w) <= hi(w) && hi(w) <= lo(v) && hi(v) == 0)
-            return conflict(i, vlo, vhi, wlo, whi), false;
-        if (s && hi(w) != 0 && lo(w) <= hi(w) && hi(w) <= hi(v) && !new_bound(i, v, lo(v), hi(w) - 1, wlo, vhi, whi))
-            return false;             
-        if (s && lo(w) <= lo(v) && !new_bound(i, w, lo(v) + 1, hi(w), vlo, wlo))
-            return false;
-        if (s && hi(w) != 0 && hi(w) - 1 <= lo(v) && lo(v) <= hi(v) && hi(w) < lo(w) && !new_bound(i, w, lo(w), 0, wlo, whi, vlo, vhi))
-            return false;
-        if (s && hi(w) == 1 && !is_fixed(w) && !new_bound(i, w, lo(w), 0, wlo, whi))
-            return false;
-        if (!s && hi(v) > hi(w) && !new_bound(i, v, lo(v), hi(w), vhi, whi))
-            return false;
-        if (!s && lo(v) > lo(w) && !new_bound(i, w, lo(v), hi(w), vlo, wlo))
-            return false;     
-        if (!s && hi(w) != 0 && hi(w) < lo(w) && hi(w) <= lo(v) && lo(v) <= hi(v) && !new_bound(i, w, lo(w), 0, vlo, vhi, wlo, whi))
-            return false;
-        if (hi(w) != 0 && lo(w) <= hi(w) && hi(w) <= lo(v) && !new_bound(i, v, 0, hi(v), wlo, vlo, whi))
-            return false;
 
+        if (lo(w) == 0 && !new_bound(i, w, lo(w) + 1, lo(w), wlo))
+            return false;
+        if (hi(w) == 1 && !new_bound(i, w, lo(w), hi(w) - 1, whi))
+            return false;
+        if (hi(w) <= hi(v) && lo(w) <= hi(w) && !(is_free(w)) && !new_bound(i, v, lo(v), hi(v) - 1, vhi, whi, wlo))
+            return false;
+        if (hi(v) == 0 && lo(w) <= lo(v) && !new_bound(i, w, lo(v) + 1, hi(v), vhi, vlo, wlo))
+            return false;
+        if (hi(v) == 0 && !(is_free(v)) && !new_bound(i, v, lo(v), hi(v) - 1, vhi))
+            return false;
+        if (lo(w) <= lo(v) && lo(v) <= hi(v) && !new_bound(i, w, lo(v) + 1, lo(v), vlo, vhi, wlo))
+            return false;
+        if (lo(v) + 1 == hi(w) && lo(v) <= hi(v) && !new_bound(i, w, lo(w), hi(w) - 1, vlo, vhi, whi))
+            return false;
+        if (!(lo(v) <= hi(v)) && is_fixed(w) && lo(w) <= hi(v) && !new_bound(i, v, lo(v) + 1, hi(w) - 1, vlo, vhi, whi, wlo))
+            return false;
+        if (lo(v) + 1 == hi(w) && lo(w) <= hi(w) && !new_bound(i, v, lo(v) + 1, hi(v), vlo, whi, wlo))
+            return false;
+        if (is_fixed(v) && lo(v) <= hi(w) && hi(w) <= lo(v) && !(hi(v) == 1) && !new_bound(i, w, lo(v) + 1, hi(w) - 1, vlo, vhi, whi))
+            return false;
+        if (!(hi(w) == 0) && hi(w) <= lo(v) && lo(v) <= hi(v) && !new_bound(i, w, lo(v) + 1, hi(w) - 1, vlo, vhi, whi))
+            return false;
+        if (hi(w) <= lo(v) && lo(w) <= hi(w) && !(is_free(w)) && !new_bound(i, v, lo(v) + 1, hi(w) - 1, vlo, whi, wlo))
+            return false;
+        if (lo(v) + 1 == hi(w) && hi(w) == 0 && !new_bound(i, v, lo(v) + 1, hi(v), vlo, whi))
+            return false;
+        if (lo(v) + 1 == 0 && !new_bound(i, v, lo(v) + 1, hi(v), vlo))
+            return false;
+        if (lo(w) < hi(w) && hi(w) <= lo(v) && !new_bound(i, v, 0, hi(v), vlo, vhi, whi, wlo))
+            return false;
+        //return true;
+
+        // manual patch
+        if (is_fixed(w) && lo(w) == 0)
+            return conflict(wlo, whi), false;
+        if (is_fixed(v) && hi(v) == 0)
+            return conflict(vlo, vhi), false;
+        if (!is_free(w) && (lo(w) <= hi(w) || hi(w) == 0) && (lo(v) < hi(v) || hi(v) == 0) && !new_bound(i, v, lo(v), hi(w) - 1, vlo, wlo, whi))
+            return false;
+        if (!is_free(v) && (lo(w) <= hi(w) || hi(w) == 0) && (lo(v) < hi(v) || hi(v) == 0) && !new_bound(i, w, lo(v) + 1, hi(w), vlo, vhi, whi))
+            return false;
+        if (lo(w) == 0 && !new_bound(i, w, 1, hi(w), wlo))
+            return false;
+        if (lo(v) + 1 == 0 && !new_bound(i, v, 0, hi(v), vhi))
+            return false;
+        if (lo(w) < hi(w) && (hi(w) <= hi(v) || hi(v) == 0) && !new_bound(i, v, lo(v), hi(w) - 1, vlo, vhi, wlo, whi))
+            return false;
+        if (!is_fixed(w) && lo(v) + 1 == hi(w) && (lo(v) <= hi(v) || hi(v) == 0) && !new_bound(i, w, lo(w), hi(w) - 1, vlo, wlo, whi))
+            return false;
+        if (lo(w) <= lo(v) && (lo(v) < hi(v) || lo(v) == 0) && !new_bound(i, w, lo(v) + 1, hi(w), vlo, vhi, wlo, whi))
+            return false;
+        if (hi(w) <= lo(v) && (lo(v) < hi(v) || hi(v) == 0) && !new_bound(i, w, lo(w), 0, vlo, vhi, wlo, whi))
+            return false;
+        if (lo(w) < hi(w) && hi(w) <= lo(v) && (lo(v) < hi(v) || hi(v) == 0))
+            return conflict(vlo, vhi, wlo, whi), false;
+//        if (!is_free(w) && hi(v) < lo(v) && lo(w) != 0 && (lo(w) <= hi(w) || hi(w) == 0) && !new_bound(i, v, lo(w) - 1, hi(v), vlo, vhi, wlo, whi))
+//            return false;
+
+
+        // automatically generated code
+        // see scripts/fixplex.py for script 
+
+        if (lo(w) == 0 && !new_bound(i, w, lo(w) + 1, lo(w), wlo))
+            return false;
+        if (is_fixed(v) && hi(w) <= hi(v) && lo(w) <= hi(w) && !(is_free(w)))
+            return conflict(wlo, whi, vhi, vlo), false;
+        if (lo(w) <= lo(v) && lo(v) <= hi(v) && !new_bound(i, w, lo(v) + 1, lo(v), wlo, vhi, vlo))
+            return false;
+        if (hi(w) <= hi(v) && lo(w) <= hi(w) && !(is_free(w)) && !new_bound(i, v, lo(v), hi(v) - 1, wlo, whi, vhi))
+            return false;
+        if (hi(w) == 1 && !new_bound(i, w, lo(w), hi(w) - 1, whi))
+            return false;
+        if (!(lo(v) == 0) && lo(v) <= hi(w) && hi(w) <= lo(v) && lo(v) <= hi(v) && !new_bound(i, w, lo(v) + 1, hi(w) - 1, whi, vhi, vlo))
+            return false;
+        if (!(hi(w) == 0) && is_fixed(v) && hi(w) <= hi(v) && !new_bound(i, w, lo(v) + 1, hi(v) - 1, whi, vhi, vlo))
+            return false;
+        if (!(lo(v) <= hi(w)) && !(hi(w) == 0) && lo(v) <= hi(v) && !new_bound(i, w, lo(v) + 1, hi(w) - 1, whi, vhi, vlo))
+            return false;
+        if (!(lo(v) <= lo(w)) && is_fixed(w) && !new_bound(i, v, lo(v) + 1, hi(w) - 1, wlo, whi, vlo))
+            return false;
+        if (hi(w) <= lo(v) && lo(w) <= hi(w) && !(is_free(w)) && !new_bound(i, v, lo(v) + 1, hi(w) - 1, wlo, whi, vlo))
+            return false;
+        if (is_fixed(w) && hi(v) == 0 && lo(w) <= lo(v))
+            return conflict(wlo, whi, vhi, vlo), false;
+        if (hi(v) == 0 && lo(w) <= lo(v) && !new_bound(i, w, lo(v) + 1, hi(v), wlo, vhi, vlo))
+            return false;
+        if (hi(v) == 0 && !(is_free(v)) && !new_bound(i, v, lo(v), hi(v) - 1, vhi))
+            return false;
+        if (is_fixed(w) && lo(w) <= lo(v) && !new_bound(i, v, lo(v) + 1, hi(w) - 1, wlo, whi, vlo))
+            return false;
         return true;
+    }
+
+    template<typename Ext>
+    bool fixplex<Ext>::propagate_non_strict_bounds(ineq const& i) {
+        var_t v = i.v, w = i.w;
+        bool s = i.strict;
+        auto* vlo = m_vars[v].m_lo_dep, *vhi = m_vars[v].m_hi_dep;
+        auto* wlo = m_vars[w].m_lo_dep, *whi = m_vars[w].m_hi_dep;
+
+        // manual patch
+        if (lo(w) < lo(v) && (lo(v) < hi(v) || hi(v) == 0) && !new_bound(i, w, lo(v), hi(w), vlo, vhi, wlo, whi))
+            return false;
+        if (!is_free(w) && (lo(w) <= hi(w) || hi(w) == 0) && (lo(v) < hi(v) || hi(v) == 0) && !new_bound(i, v, lo(v), hi(w), vlo, vhi, wlo, whi))
+            return false;
+        if (!is_free(v) && (lo(w) <= hi(w) || hi(w) == 0) && (lo(v) < hi(v) || hi(v) == 0) && !new_bound(i, w, lo(v), hi(w), vlo, vhi, whi))
+            return false;
+        if (hi(w) < lo(w) && hi(w) <= lo(v) && lo(v) < hi(v) && !new_bound(i, w, lo(w), 0, vlo, vhi, wlo, whi))
+            return false;
+        if (lo(w) < hi(w) && hi(w) <= lo(v) && (lo(v) < hi(v) || hi(v) == 0))
+            return conflict(vlo, vhi, wlo, whi), false;
+
+        // automatically generated code.
+        // see scripts/fixplex.py for script 
+        if (!(hi(w) <= lo(v)) && !(is_fixed(v)) && is_fixed(w) && hi(w) == 1 && !(hi(v) == 0) && !new_bound(i, v, 0, hi(w), vlo, wlo, vhi, whi))
+            return false;
+        if (!(hi(v) <= lo(w)) && !(is_fixed(v)) && is_fixed(w) && lo(w) <= lo(v) && lo(v) <= lo(w) && !new_bound(i, v, 0, hi(w), vlo, wlo, vhi, whi))
+            return false;
+        if (!(hi(v) <= hi(w)) && !(hi(w) <= lo(v)) && lo(w) <= lo(v) && !new_bound(i, v, 0, hi(w), wlo, vhi, vlo, whi))
+            return false;
+        if (!(lo(w) <= lo(v)) && !(hi(v) <= hi(w)) && is_fixed(w) && lo(w) <= hi(w) && !new_bound(i, v, 0, hi(w), vlo, wlo, vhi, whi))
+            return false;
+        if (!(lo(v) <= lo(w)) && hi(w) == 1 && lo(v) <= hi(w) && !new_bound(i, v, 0, hi(w), wlo, vlo, whi))
+            return false;
+        if (is_fixed(w) && hi(w) <= lo(v) && lo(w) <= hi(w) && !new_bound(i, v, 0, hi(w), wlo, vlo, whi))
+            return false;
+        if (!(lo(v) <= lo(w)) && lo(v) <= hi(w) && hi(w) <= lo(v) && !new_bound(i, v, 0, hi(w), wlo, vlo, whi))
+            return false;
+        if (!(lo(v) <= hi(w)) && is_fixed(v) && lo(w) <= hi(w) && !new_bound(i, w, lo(v), 0, vhi, vlo, wlo, whi))
+            return false;
+        if (!(is_fixed(w)) && !(hi(v) <= lo(w)) && is_fixed(v) && hi(v) <= hi(w) && hi(w) <= hi(v) && !new_bound(i, w, hi(w) - 1, hi(w), vlo, wlo, vhi, whi))
+            return false;
+        if (!(lo(v) <= lo(w)) && !(hi(w) <= lo(v)) && hi(w) <= hi(v) && !new_bound(i, w, lo(v), hi(w), vlo, wlo, vhi, whi))
+            return false;
+        if (!(lo(v) <= lo(w)) && is_fixed(v) && !new_bound(i, w, lo(v), 0, vhi, wlo, vlo))
+            return false;
+        if (is_fixed(v) && hi(w) == 1 && hi(w) <= lo(v) && hi(v) <= lo(w) && !(hi(v) == 0) && !new_bound(i, w, lo(w), 0, vhi, vlo, wlo, whi))
+            return false;
+        if (!(hi(v) == 1) && hi(w) == 1 && lo(v) <= hi(w) && hi(w) <= lo(v) && hi(v) <= lo(w) && lo(v) <= hi(v) && !new_bound(i, w, lo(w), 0, vhi, vlo, wlo, whi))
+            return false;
+        if (!(hi(w) == 0) && is_fixed(v) && hi(w) <= lo(v) && hi(v) <= lo(w) && lo(v) <= hi(v) && !new_bound(i, w, lo(w), 0, vhi, vlo, wlo, whi))
+            return false;
+        if (!(hi(v) <= hi(w)) && !(hi(w) == 0) && lo(v) <= hi(w) && hi(w) <= lo(v) && hi(v) <= lo(w) && !new_bound(i, w, lo(w), 0, vhi, vlo, wlo, whi))
+            return false;
+        if (!(lo(v) <= hi(w)) && !(lo(w) <= lo(v)) && hi(w) == 1 && lo(w) <= hi(v) && !new_bound(i, w, lo(w), 0, vhi, wlo, vlo, whi))
+            return false;
+        if (!(lo(v) <= hi(w)) && !(lo(w) <= lo(v)) && !(hi(w) == 0) && lo(w) <= hi(v) && !new_bound(i, w, lo(w), 0, vhi, wlo, vlo, whi))
+            return false;
+        if (!(lo(w) <= hi(w)) && is_fixed(v) && hi(w) == 1 && lo(w) <= lo(v) && !new_bound(i, w, lo(w), 0, vlo, wlo, vhi, whi))
+            return false;
+        if (!(lo(w) <= hi(w)) && !(hi(v) <= lo(w)) && hi(w) == 1 && lo(w) <= lo(v) && lo(v) <= lo(w) && !new_bound(i, w, lo(w), 0, vlo, wlo, vhi, whi))
+            return false;
+        if (!(lo(w) <= hi(w)) && !(hi(w) == 0) && is_fixed(v) && lo(w) <= lo(v) && !new_bound(i, w, lo(w), 0, vlo, wlo, vhi, whi))
+            return false;
+        if (!(lo(w) <= hi(w)) && !(hi(v) <= lo(w)) && !(hi(w) == 0) && lo(w) <= lo(v) && lo(v) <= lo(w) && !new_bound(i, w, lo(w), 0, vlo, wlo, vhi, whi))
+            return false;
+        if (!(lo(w) <= hi(w)) && !(hi(v) == 1) && hi(w) == 1 && lo(v) <= hi(w) && hi(w) <= lo(v) && !new_bound(i, w, lo(w), 0, vlo, wlo, vhi, whi))
+            return false;
+        if (!(lo(w) <= hi(w)) && !(hi(v) <= hi(w)) && !(hi(w) == 0) && lo(v) <= hi(w) && hi(w) <= lo(v) && !new_bound(i, w, lo(w), 0, vlo, wlo, vhi, whi))
+            return false;
+        if (!(lo(v) <= hi(w)) && hi(v) == 0 && lo(w) <= hi(v) && !new_bound(i, w, lo(v), 0, vhi, vlo, wlo, whi))
+            return false;
+        if (!(hi(w) == 1) && hi(v) == 1 && hi(w) <= lo(v) && lo(w) <= hi(v) && hi(v) <= lo(w) && lo(w) <= hi(w) && !new_bound(i, v, 0, lo(w), vhi, vlo, wlo, whi))
+            return false;
+        if (!(hi(w) <= hi(v)) && hi(w) <= lo(v) && lo(w) <= hi(v) && !new_bound(i, v, 0, hi(w) - 1, vhi, vlo, wlo, whi))
+            return false;
+        if (!(lo(v) <= lo(w)) && hi(v) == 0 && !new_bound(i, w, lo(v), 0, vhi, wlo, vlo))
+            return false;
+        if (!(lo(v) <= lo(w)) && !(hi(w) == 0) && hi(v) == 0 && lo(w) <= hi(v) && !new_bound(i, v, lo(v), hi(w), vlo, wlo, vhi, whi))
+            return false;
+        if (!(lo(v) <= hi(v)) && is_fixed(w) && hi(v) == 0 && lo(w) <= hi(w) && !new_bound(i, v, lo(v), hi(w), vhi, vlo, wlo, whi))
+            return false;
+        if (!(lo(v) <= hi(v)) && !(hi(w) <= lo(v)) && hi(v) == 0 && lo(w) <= lo(v) && !new_bound(i, v, lo(w), hi(w), wlo, vhi, vlo, whi))
+            return false;
+        if (!(hi(v) <= lo(w)) && hi(v) <= hi(w) && hi(w) <= lo(v) && !new_bound(i, v, 0, hi(w), vlo, wlo, vhi, whi))
+            return false;
+        if (!(lo(w) <= hi(w)) && hi(w) == 1 && hi(v) == 0 && lo(w) <= lo(v) && !new_bound(i, w, lo(w), 0, vlo, wlo, vhi, whi))
+            return false;
+        if (!(lo(v) <= hi(w)) && !(hi(w) == 0) && hi(v) == 0 && lo(v) <= lo(w) && !new_bound(i, w, lo(w), 0, wlo, vhi, vlo, whi))
+            return false;
+        if (!(lo(w) <= lo(v)) && !(hi(w) == 0) && hi(v) == 0 && hi(w) <= lo(v) && !new_bound(i, w, lo(w), 0, vlo, wlo, vhi, whi))
+            return false;   
+        return true;
+    }
+
+    template<typename Ext>
+    bool fixplex<Ext>::propagate_bounds(ineq const& i) {
+        if (i.strict)
+            return propagate_strict_bounds(i);
+        else
+            return propagate_non_strict_bounds(i);
     }
 
     template<typename Ext>
@@ -1246,7 +1400,9 @@ namespace polysat {
     bool fixplex<Ext>::new_bound(ineq const& i, var_t x, numeral const& l, numeral const& h, u_dependency* a, u_dependency* b, u_dependency* c, u_dependency* d) {
         bool was_fixed = lo(x) + 1 == hi(x);
         u_dependency* dep = m_deps.mk_join(mk_leaf(i.dep), m_deps.mk_join(a, m_deps.mk_join(b, m_deps.mk_join(c, d))));
+        // std::cout << "new bound " << x << " " << m_vars[x] << " " << mod_interval<numeral>(l, h) << " -> ";
         update_bounds(x, l, h, dep);
+        // std::cout << m_vars[x] << "\n";
         if (m_vars[x].is_empty())
             return conflict(m_vars[x].m_lo_dep, m_vars[x].m_hi_dep), false;
         else if (!was_fixed && lo(x) + 1 == hi(x)) {
