@@ -874,56 +874,61 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
 }
 
 /*
-*  In general constructs nth(t,0) but simplifies to nth(s,i) if t = substring(s,i,_)
+*  In general constructs nth(t,0) but if t = substring(s,j,..) then simplifies to nth(s,j)
 *  This method assumes that |t| > 0.
 */
 expr_ref seq_rewriter::mk_seq_first(expr* t) {
     expr_ref result(m());
-    //TBD: simplify
-    result = str().mk_nth(t, m_autil.mk_int(0));
+    expr* s, * j, * k;
+    if (str().is_extract(t, s, j, k))
+        result = str().mk_nth_i(s, j);
+    else
+        result = str().mk_nth_i(t, m_autil.mk_int(0));
     return result;
 }
 
 /*
-*  In general constructs substring(t,1,|t|-1) but simplifies to substring(s,i+1,|s|-1) if t = substring(s,i,|s|-1)
+*  In general constructs substring(t,1,|t|-1) but if t = substring(s,j,k) then simplifies to substring(s,j+1,k-1)
 *  This method assumes that |t| > 0.
 */
 expr_ref seq_rewriter::mk_seq_rest(expr* t) {
     expr_ref result(m());
-    //TBD: simplify
-    result = str().mk_substr(t, m_autil.mk_int(1), m_autil.mk_sub(str().mk_length(t), m_autil.mk_int(1)));
+    expr* s, * j, * k; 
+    expr* one = m_autil.mk_int(1);
+    if (str().is_extract(t, s, j, k))
+        result = str().mk_substr(s, m_autil.mk_add(j, one), m_autil.mk_sub(k, one));
+    else
+        result = str().mk_substr(t, one, m_autil.mk_sub(str().mk_length(t), one));
     return result;
 }
 
 /*
-*  In general constructs nth(t,|t|-1) but simplifies to nth(s,|s|-(i+1)) if t = substring(s,j,|s|-i)
+*  In general constructs nth(t,|t|-1) but if t = substring(s,j,k) then simplifies to nth(s,j+k-1) 
 *  This method assumes that |t| > 0.
 */
 expr_ref seq_rewriter::mk_seq_last(expr* t) {
     expr_ref result(m());
-    expr* s, * j, * k, * l, * s_, * i;
-    rational v;
-    if (str().is_extract(t, s, j, k) &&
-        ((m_autil.is_add(k, i, l) && str().is_length(l, s_)) || (m_autil.is_add(k, l, i) && str().is_length(l, s_))) && s == s_)
-        result = str().mk_nth_i(s, m_autil.mk_add(m_autil.is_numeral(i, v) ? m_autil.mk_int(v.get_int32() - 1) : m_autil.mk_add(m_autil.mk_int(-1), i), l));
+    expr* s, * j, * k;
+    expr* one = m_autil.mk_int(1);
+    if (str().is_extract(t, s, j, k))
+        result = str().mk_nth_i(s, m_autil.mk_sub(m_autil.mk_add(j, k), one));
     else
-        result = str().mk_nth_i(t, m_autil.mk_add(m_autil.mk_int(-1), str().mk_length(t)));
+        result = str().mk_nth_i(t, m_autil.mk_sub(str().mk_length(t), one));
     return result;
 }
 
 /*
-*  In general constructs substring(t,0,|t|-1) but if t = substring(s,j,|s|-i) then simplifies to substring(s,j,|s|-(i+1)) 
+*  In general constructs substring(t,0,|t|-1) but if t = substring(s,j,k) then simplifies to substring(s,j,k-1) 
 *  This method assumes that |t| > 0 holds.
 */
 expr_ref seq_rewriter::mk_seq_butlast(expr* t) {
     expr_ref result(m());
-    expr* s, * j, * k, * l, * s_, * i;
-    rational v;
-    if (str().is_extract(t, s, j, k) &&
-        ((m_autil.is_add(k, i, l) && str().is_length(l, s_)) ||(m_autil.is_add(k, l, i) && str().is_length(l, s_))) && s == s_)
-        result = str().mk_substr(s, j, m_autil.mk_add(m_autil.is_numeral(i, v) ? m_autil.mk_int(v.get_int32() - 1) : m_autil.mk_add(m_autil.mk_int(-1), i), l));
+    expr* s, * j, * k;
+    expr* one = m_autil.mk_int(1);
+    if (str().is_extract(t, s, j, k))
+        result = str().mk_substr(s, j, m_autil.mk_sub(k, one));
     else
-        result = str().mk_substr(t, m_autil.mk_int(0), m_autil.mk_add(m_autil.mk_int(-1), str().mk_length(t)));
+        result = str().mk_substr(t, m_autil.mk_int(0), m_autil.mk_sub(str().mk_length(t), one));
     return result;
 }
 
