@@ -3801,7 +3801,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         expr* s = nullptr;
         result = m().mk_and(m_autil.mk_ge(len_a, len_tl),
             re().mk_in_re(str().mk_substr(a, m_autil.mk_int(0), len_hd), hd),
-            (false && re().is_to_re(tl, s) ? m().mk_eq(s, str().mk_substr(a, len_hd, len_tl)) :
+            (re().is_to_re(tl, s) ? m().mk_eq(s, str().mk_substr(a, len_hd, len_tl)) :
                 re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl)));
         return BR_REWRITE_FULL;
     }
