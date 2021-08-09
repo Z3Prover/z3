@@ -93,10 +93,11 @@ public:
                 g->update(idx, f_new, new_pr, g->dep(idx));
             }  
             if (mc) g->add(mc.get());
-            g->inc_depth();
+	    TRACE("invertible_tactic", g->display(tout););
+	    g->inc_depth();
         }        
         result.push_back(g.get());
-        CTRACE("invertible_tactic", g->mc(), g->mc()->display(tout););
+	CTRACE("invertible_tactic", g->mc(), g->mc()->display(tout););
     }
 
     void cleanup() override {}
@@ -223,28 +224,46 @@ private:
         rational r;
         app* a = to_app(v);
         expr* fst_arg = a->get_arg(0);
-        bool fst_is_var = is_var(fst_arg);
 
-        for (unsigned i = 0, n = a->get_num_args(); i != n; ++i) {
-            auto arg = a->get_arg(i);
-            if (!m_parents[arg->get_id()].get() || is_var(arg) != fst_is_var)
+        for (expr* arg : *a) 
+            if (!m_parents[arg->get_id()].get())
                 return false;
 
-            if (fst_is_var && to_var(arg)->get_idx() >= max_var)
+        if (is_var(fst_arg)) {
+            for (expr* arg : *a) {
+                if (!is_var(arg))
+                    return false;
+                if (to_var(arg)->get_idx() >= max_var)
+                    return false;
+            }
+        }
+        else {            
+            bool first = true;
+            for (expr* arg : *a) {
+                if (!is_app(arg))
+                    return false;
+                if (is_uninterp_const(arg))
+                    continue;
+                if (m_bv.is_numeral(arg, r) && r == mdl) {
+                    if (first || mdl.is_zero()) {
+                        first = false;
+                        continue;
+                    }
+                    else
+                        return false;
+                }
                 return false;
-
-            if (m_bv.is_numeral(arg, r) && r != mdl)
-                return false;
-
-            if (i > 0 && !is_var(arg) && (!is_app(arg) || to_app(arg)->get_num_args() > 0))
-                return false;
+            }
         }
 
         if (mc) {
             ensure_mc(mc);
             expr_ref num(m_bv.mk_numeral(mdl, fst_arg->get_sort()), m);
             for (unsigned i = 1, n = a->get_num_args(); i != n; ++i) {
-                (*mc)->add(a->get_arg(i), num);
+                expr* arg = a->get_arg(i);
+                if (m_bv.is_numeral(arg))
+                    continue;
+                (*mc)->add(arg, num);
             }
         }
         new_v = fst_arg;
