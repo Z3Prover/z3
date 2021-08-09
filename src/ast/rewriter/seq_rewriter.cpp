@@ -1950,7 +1950,7 @@ br_status seq_rewriter::mk_seq_replace_all(expr* a, expr* b, expr* c, expr_ref& 
     } 
     if (a == b) {
         result = m().mk_ite(str().mk_is_empty(b), str().mk_empty(a->get_sort()), c);
-        return BR_REWRITE1;
+        return BR_REWRITE2;
     }
     zstring s1, s2;
     expr_ref_vector strs(m());
