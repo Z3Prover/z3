@@ -92,23 +92,16 @@ static void test_interval2() {
     std::cout << " < 501: " << i << " -> " << i.intersect_ult(501) << "\n";
 }
 
-static void test_interval_intersect(unsigned i, unsigned j, unsigned k, unsigned l) {
-    if (i == j && i != 0)
-        return;
-    if (k == l && k != 0)
-        return;
-    mod_interval<uint8_t> x(i, j);
-    mod_interval<uint8_t> y(k, l);
-    auto r = x & y;
+static void validate_is_intersection(char const* t, mod_interval<uint8_t> const& x, mod_interval<uint8_t> const& y, mod_interval<uint8_t> const& r) {
     bool x_not_y = false, y_not_x = false;
     // check that & computes a join
     // it contains all elements in x, y
     // it contains no elements neither in x, y
     // it does not contain two elements, one in x\y the other in y\x   
-    for (i = 0; i < 256; ++i) {
+    for (unsigned i = 0; i < 256; ++i) {
         uint8_t c = (uint8_t)i;
-        if ((x.contains(c) && y.contains(c)) &&  !r.contains(c)) {
-            std::cout << x << " & " << y << " = " << r << "\n";
+        if ((x.contains(c) && y.contains(c)) && !r.contains(c)) {
+            std::cout << t << " " << x << " & " << y << " = " << r << "\n";
             std::cout << i << " " << r.contains(c) << " " << x.contains(c) << " " << y.contains(c) << "\n";
         }
         VERIFY(!(x.contains(c) && y.contains(c)) || r.contains(c));
@@ -119,9 +112,20 @@ static void test_interval_intersect(unsigned i, unsigned j, unsigned k, unsigned
             y_not_x = true;
     }
     if (x_not_y && y_not_x) {
-        std::cout << x << " & " << y << " = " << r << "\n";
+        std::cout << t << " " << x << " & " << y << " = " << r << "\n";
         VERIFY(!x_not_y || !y_not_x);
     }
+}
+
+static void test_interval_intersect(unsigned i, unsigned j, unsigned k, unsigned l) {
+    if (i == j && i != 0)
+        return;
+    if (k == l && k != 0)
+        return;
+    mod_interval<uint8_t> x(i, j);
+    mod_interval<uint8_t> y(k, l);
+    auto r = x & y;
+    validate_is_intersection("&", x, y, r);
 }
 
 
@@ -140,53 +144,43 @@ static void test_interval_intersect2(unsigned i, unsigned j, uint8_t k) {
     mod_interval<uint8_t> x0(i, j);
 
     auto validate = [&](char const* t, mod_interval<uint8_t> const& y, mod_interval<uint8_t> const& z) {
-        if (y == z)
-            return;
-        std::cout << t << "(" << (unsigned)k << ") " << x0 << " -> " << y << " " << z << "\n";
-        SASSERT(false);
+        validate_is_intersection(t, x0, y, z);
     };
 
     {
         mod_interval<uint8_t> x = x0;
-        auto uge2 = x & mod_interval<uint8_t>(k, 0);
-        auto uge1 = x.intersect_uge(k);
-        validate("uge", uge1, uge2);
+        validate("uge", mod_interval<uint8_t>(k, 0), x.intersect_uge(k));
     }
 
     {
         mod_interval<uint8_t> x = x0;
-        auto ule1 = x.intersect_ule(k);
-        if ((uint8_t)(k + 1) != 0) {
-            auto ule2 = x0 & mod_interval<uint8_t>(0, k + 1);
-            validate("ule", ule1, ule2);
-        }
-        else {
-            validate("ule", ule1, x0);
-        }
+        validate("ule", mod_interval<uint8_t>(0, k + 1), x.intersect_ule(k));
     }
 
     {
         mod_interval<uint8_t> x = x0;
-        auto ult1 = x.intersect_ult(k);
-        if (k != 0) {
-            auto ult2 = x0 & mod_interval<uint8_t>(0, k);
-            validate("ult", ult1, ult2);
-        }
-        else {
-            validate("ult", ult1, mod_interval<uint8_t>::empty());
-        }
+        if (k != 0) 
+            validate("ult", mod_interval<uint8_t>(0, k), x.intersect_ult(k));        
+        else 
+            validate("ult", mod_interval<uint8_t>::empty(), x.intersect_ult(k));        
     }
+
     {
         mod_interval<uint8_t> x = x0;
-        auto ugt1 = x.intersect_ugt(k);
-        
-        if ((uint8_t)(k + 1) != 0) {
-            auto ugt2 = x0 & mod_interval<uint8_t>(k + 1, 0);
-            validate("ugt", ugt1, ugt2);
-        }
-        else {
-            validate("ugt", ugt1, mod_interval<uint8_t>::empty());
-        }
+        if ((uint8_t)(k + 1) != 0) 
+            validate("ugt", mod_interval<uint8_t>(k + 1, 0), x.intersect_ugt(k));        
+        else 
+            validate("ugt", mod_interval<uint8_t>::empty(), x.intersect_ugt(k));        
+    }
+
+    {
+        mod_interval<uint8_t> x = x0;
+        validate("fix", mod_interval<uint8_t>(k, k + 1), x.intersect_fixed(k));
+    }
+
+    {
+        mod_interval<uint8_t> x = x0;
+        validate("diff", mod_interval<uint8_t>(k + 1, k), x.intersect_diff(k));
     }
 }
 

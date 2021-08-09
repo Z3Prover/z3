@@ -148,8 +148,6 @@ Numeral mod_interval<Numeral>::closest_value(Numeral const& n) const {
     return hi - 1;
 }
 
-// TBD: correctness and completeness for wrap-around semantics needs to be checked/fixed
-
 template<typename Numeral>
 mod_interval<Numeral>& mod_interval<Numeral>::intersect_uge(Numeral const& l) {
     if (is_empty())
@@ -262,12 +260,17 @@ mod_interval<Numeral>& mod_interval<Numeral>::intersect_diff(Numeral const& a) {
         set_empty();
     else if (a == lo && hi == 0 && is_max(a))
         set_empty();
+    else if (is_free())
+        lo = a + 1, hi = a;
+    else if (0 < hi && hi < lo && a == lo)        
+        return *this;
     else if (a == lo && !is_max(a))
         lo = a + 1;
     else if (a + 1 == hi)
         hi = a;
     else if (hi == 0 && is_max(a))
         hi = a;
+
     return *this;
 }
 
@@ -275,9 +278,9 @@ template<typename Numeral>
 mod_interval<Numeral>& mod_interval<Numeral>::update_lo(Numeral const& new_lo) {
     SASSERT(lo <= new_lo);
     if (lo < hi && hi <= new_lo)
-	set_empty();
+	    set_empty();
     else
-	lo = new_lo;
+	    lo = new_lo;
     return *this;
 }
 
@@ -285,8 +288,8 @@ template<typename Numeral>
 mod_interval<Numeral>& mod_interval<Numeral>::update_hi(Numeral const& new_hi) {
     SASSERT(new_hi <= hi);
     if (new_hi <= lo && lo < hi)
-	set_empty();
+	    set_empty();
     else
-	hi = new_hi;
+	    hi = new_hi;
     return *this;
 }
