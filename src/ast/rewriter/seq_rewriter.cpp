@@ -2014,8 +2014,9 @@ void seq_rewriter::replace_all_subvectors(expr_ref_vector const& a, expr_ref_vec
     unsigned int k = b.size();
     while (i + k <= a.size()) {
         //if a[i..i+k-1] equals b then replace it by c and inceremnt i by k
-        int j = 0;
-        while (j < k && b[j] == a[i + j]) j += 1;
+        unsigned j = 0;
+        while (j < k && b[j] == a[i + j]) 
+            ++j;
         if (j < k) //the equality failed
             result.push_back(a[i++]);
         else { //the equality succeeded
@@ -5109,6 +5110,12 @@ bool seq_rewriter::reduce_itos(expr_ref_vector& ls, expr_ref_vector& rs,
         str().is_itos(ls.get(0), n) &&
         is_string(rs.size(), rs.data(), s)) {
         std::string s1 = s.encode();
+        for (auto c : s1) {
+            if (!('0' <= c && c <= '9'))
+                return false;
+        }
+        if (s1.size() > 1 && s1[0] == '0')
+            return false;
         try {
             rational r(s1.c_str());
             if (s1 == r.to_string()) {
@@ -5148,6 +5155,10 @@ bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
         fmls.push_back(m_autil.mk_le(len, m_autil.mk_int(0)));
         fmls.push_back(m_autil.mk_le(len_s, offset));
         result = m().mk_or(fmls);
+        return true;
+    }
+    if (str().is_itos(r, s)) {
+        result = m_autil.mk_lt(s, m_autil.mk_int(0));
         return true;
     }
     return false;
