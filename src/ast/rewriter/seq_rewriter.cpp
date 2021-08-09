@@ -3475,7 +3475,8 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             // if ((isdigit ele) and (ele = (hd r1))) then (to_re (tl r1)) else []
             //
             hd = mk_seq_first(r1);
-            m_br.mk_and(u().mk_le(m_util.mk_char('0'), ele), u().mk_le(ele, m_util.mk_char('9')), m().mk_eq(hd, ele), result); 
+            m_br.mk_and(u().mk_le(m_util.mk_char('0'), ele), u().mk_le(ele, m_util.mk_char('9')), 
+                m().mk_and(m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort))), m().mk_eq(hd, ele)), result);
             tl = re().mk_to_re(mk_seq_rest(r1));            
             return re_and(result, tl);
         }
