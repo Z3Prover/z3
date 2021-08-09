@@ -354,6 +354,16 @@ public:
         return result;
     }
 
+    /*
+    * makes concat and simplifies
+    */
+    expr_ref mk_re_append(expr* r1, expr* r2) {
+        expr_ref result(m());
+        if (mk_re_concat(r1, r2, result) == BR_FAILED)
+            result = re().mk_concat(r1, r2);
+        return result;
+    }
+
     /**
      * check if regular expression is of the form all ++ s ++ all ++ t + u ++ all, where, s, t, u are sequences
      */

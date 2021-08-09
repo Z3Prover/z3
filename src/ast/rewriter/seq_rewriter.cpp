@@ -894,7 +894,7 @@ expr_ref seq_rewriter::mk_seq_first(expr* t) {
 expr_ref seq_rewriter::mk_seq_rest(expr* t) {
     expr_ref result(m());
     expr* s, * j, * k; 
-    expr* one = m_autil.mk_int(1);
+    expr_ref one(m_autil.mk_int(1), m());
     if (str().is_extract(t, s, j, k))
         result = str().mk_substr(s, m_autil.mk_add(j, one), m_autil.mk_sub(k, one));
     else
@@ -909,7 +909,7 @@ expr_ref seq_rewriter::mk_seq_rest(expr* t) {
 expr_ref seq_rewriter::mk_seq_last(expr* t) {
     expr_ref result(m());
     expr* s, * j, * k;
-    expr* one = m_autil.mk_int(1);
+    expr_ref one(m_autil.mk_int(1), m());
     if (str().is_extract(t, s, j, k))
         result = str().mk_nth_i(s, m_autil.mk_sub(m_autil.mk_add(j, k), one));
     else
@@ -924,7 +924,7 @@ expr_ref seq_rewriter::mk_seq_last(expr* t) {
 expr_ref seq_rewriter::mk_seq_butlast(expr* t) {
     expr_ref result(m());
     expr* s, * j, * k;
-    expr* one = m_autil.mk_int(1);
+    expr_ref one(m_autil.mk_int(1), m());
     if (str().is_extract(t, s, j, k))
         result = str().mk_substr(s, j, m_autil.mk_sub(k, one));
     else
@@ -2632,12 +2632,18 @@ bool seq_rewriter::get_re_head_tail_reversed(expr* r, expr_ref& head, expr_ref& 
     if (re().is_concat(r, r1, r2)) {
         unsigned len = re().min_length(r2);
         if (len != UINT_MAX && re().max_length(r2) == len) {
-            head = r1;
-            tail = r2;
+            if (false && get_re_head_tail_reversed(r1, head, tail))
+                // left associative binding of concat
+                tail = mk_re_append(tail, r2);
+            else {
+                // right associative binding of concat
+                head = r1;
+                tail = r2;
+            }
             return true;
         }
         if (get_re_head_tail_reversed(r2, head, tail)) {
-            head = re().mk_concat(r1, head);
+            head = mk_re_append(r1, head);
             return true;
         }
     }
@@ -3552,10 +3558,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
         STRACE("seq_verbose", tout << "deriv of_pred" << std::endl;);
         return mk_der_cond(result, ele, seq_sort);
     }
-    // stuck cases: re.derivative, variable,
-    // str.to_re if the head of the string can't be obtained,
-    // and re.reverse if not applied to a string or if the tail char
-    // of the string can't be obtained
+    // stuck cases: re.derivative, re variable,
     return expr_ref(re().mk_derivative(ele, r), m());
 }
 
