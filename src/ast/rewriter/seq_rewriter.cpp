@@ -2632,7 +2632,7 @@ bool seq_rewriter::get_re_head_tail_reversed(expr* r, expr_ref& head, expr_ref& 
     if (re().is_concat(r, r1, r2)) {
         unsigned len = re().min_length(r2);
         if (len != UINT_MAX && re().max_length(r2) == len) {
-            if (false && get_re_head_tail_reversed(r1, head, tail))
+            if (get_re_head_tail_reversed(r1, head, tail))
                 // left associative binding of concat
                 tail = mk_re_append(tail, r2);
             else {
@@ -3176,7 +3176,8 @@ expr_ref seq_rewriter::mk_der_op_rec(decl_kind k, expr* a, expr* b) {
                 return result;
             }
             // Order with higher IDs on the outside
-            if (get_id(ca) < get_id(cb)) {
+            bool is_symmetric = k == OP_RE_UNION || k == OP_RE_INTERSECT;
+            if (is_symmetric && get_id(ca) < get_id(cb)) {
                 std::swap(a, b);
                 std::swap(ca, cb);
                 std::swap(notca, notcb);
@@ -3794,12 +3795,14 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     }
     if (get_re_head_tail_reversed(b, hd, tl)) {
         SASSERT(re().min_length(tl) == re().max_length(tl));
-        expr_ref len_tl(m_autil.mk_int(re().min_length(tl)), m()); 
+        expr_ref len_tl(m_autil.mk_int(re().min_length(tl)), m());
         expr_ref len_a(str().mk_length(a), m());
         expr_ref len_hd(m_autil.mk_sub(len_a, len_tl), m());
+        expr* s = nullptr;
         result = m().mk_and(m_autil.mk_ge(len_a, len_tl),
-                            re().mk_in_re(str().mk_substr(a, m_autil.mk_int(0), len_hd), hd),
-                            re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl));
+            re().mk_in_re(str().mk_substr(a, m_autil.mk_int(0), len_hd), hd),
+            (false && re().is_to_re(tl, s) ? m().mk_eq(s, str().mk_substr(a, len_hd, len_tl)) :
+                re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl)));
         return BR_REWRITE_FULL;
     }
 

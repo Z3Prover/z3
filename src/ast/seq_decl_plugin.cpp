@@ -911,7 +911,7 @@ unsigned seq_util::str::max_length(expr* s) const {
             return UINT_MAX;
     };
     while (is_concat(s, s1, s2)) {
-        result = u.max_plus(get_length(s), result);
+        result = u.max_plus(get_length(s1), result);
         s = s2;
     }
     result = u.max_plus(get_length(s), result);
