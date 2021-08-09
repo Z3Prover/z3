@@ -143,7 +143,7 @@ Numeral mod_interval<Numeral>::closest_value(Numeral const& n) const {
         return n;
     if (is_empty())
         return n;
-    if (lo - n < n - hi)
+    if ((Numeral)(lo - n) < (Numeral)(n - hi))
         return lo;
     return hi - 1;
 }
@@ -159,11 +159,13 @@ mod_interval<Numeral>& mod_interval<Numeral>::intersect_uge(Numeral const& l) {
     else if (is_free())
         lo = l, hi = 0;
     else if ((lo < hi || hi == 0) && lo < l)
-        lo = l;     
+        lo = l;
     else if (hi < lo && hi <= l && l <= lo)
         hi = 0;
     else if (hi < lo && lo < l)
         hi = 0, lo = l;
+    else if (0 < l && l < hi && hi < lo)
+        lo = l, hi = 0;
     return *this;
 }
 
@@ -175,14 +177,18 @@ mod_interval<Numeral>& mod_interval<Numeral>::intersect_ugt(Numeral const& l) {
         set_empty();
     else if (is_free())
         lo = l + 1, hi = 0;
-    else if (lo < hi && hi <= l)
+    else if (lo < hi && hi - 1 <= l)
         set_empty();
-    else if (lo < hi) 
+    else if (lo < hi && l < lo)
+        return *this;
+    else if (lo < hi)
         lo = l + 1;
     else if (hi < lo && hi <= l + 1 && l < lo)
         hi = 0;
     else if (hi < lo && lo <= l)
         hi = 0, lo = l + 1;
+    else if (l <= hi && hi < lo)
+        lo = l + 1, hi = 0;
     return *this;
 }
 
@@ -194,16 +200,22 @@ mod_interval<Numeral>& mod_interval<Numeral>::intersect_ule(Numeral const& h) {
         return *this;
     else if (is_free())
         lo = 0, hi = h + 1;
-    else if (hi > lo && lo > h)
+    else if (h < lo && (lo < hi || hi == 0))
         set_empty();
     else if (hi == 0 && h >= lo)
         hi = h + 1;
     else if (lo <= h && h + 1 < hi)
         hi = h + 1;
-    else if (hi < lo && h < hi)
+    else if (h < hi && hi < lo)
         hi = h + 1, lo = 0;
     else if (hi <= h && h < lo)
         lo = 0;
+    else if (hi == 0 && hi == h && hi < lo)
+        set_empty();
+    else if (0 < hi && hi == h && hi < lo)
+        lo = 0;
+    else if (0 < hi && hi < h && hi < lo)
+        lo = 0, hi = h + 1;
     return *this;
 }
 
@@ -215,14 +227,16 @@ mod_interval<Numeral>& mod_interval<Numeral>::intersect_ult(Numeral const& h) {
         set_empty();
     else if (is_free())
         lo = 0, hi = h;
-    else if (hi > lo && lo >= h)
+    else if (h <= lo && (lo < hi || hi == 0))
         set_empty();
-    else if (hi > lo && h < hi)
+    else if (h > lo && (h < hi || hi == 0))
         hi = h;
     else if (hi < lo && h <= hi)
         hi = h, lo = 0;
     else if (hi < h && h <= lo)
         lo = 0;
+    else if (0 < hi && hi < lo && hi + 1 <= h)
+        lo = 0, hi = h;
     return *this;
 }
 

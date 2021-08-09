@@ -134,8 +134,75 @@ static void test_interval_intersect() {
                     test_interval_intersect(bounds[i], bounds[j], bounds[k], bounds[l]);
 }
 
+static void test_interval_intersect2(unsigned i, unsigned j, uint8_t k) {
+    if (i == j && i != 0)
+        return;
+    mod_interval<uint8_t> x0(i, j);
+
+    auto validate = [&](char const* t, mod_interval<uint8_t> const& y, mod_interval<uint8_t> const& z) {
+        if (y == z)
+            return;
+        std::cout << t << "(" << (unsigned)k << ") " << x0 << " -> " << y << " " << z << "\n";
+        SASSERT(false);
+    };
+
+    {
+        mod_interval<uint8_t> x = x0;
+        auto uge2 = x & mod_interval<uint8_t>(k, 0);
+        auto uge1 = x.intersect_uge(k);
+        validate("uge", uge1, uge2);
+    }
+
+    {
+        mod_interval<uint8_t> x = x0;
+        auto ule1 = x.intersect_ule(k);
+        if ((uint8_t)(k + 1) != 0) {
+            auto ule2 = x0 & mod_interval<uint8_t>(0, k + 1);
+            validate("ule", ule1, ule2);
+        }
+        else {
+            validate("ule", ule1, x0);
+        }
+    }
+
+    {
+        mod_interval<uint8_t> x = x0;
+        auto ult1 = x.intersect_ult(k);
+        if (k != 0) {
+            auto ult2 = x0 & mod_interval<uint8_t>(0, k);
+            validate("ult", ult1, ult2);
+        }
+        else {
+            validate("ult", ult1, mod_interval<uint8_t>::empty());
+        }
+    }
+    {
+        mod_interval<uint8_t> x = x0;
+        auto ugt1 = x.intersect_ugt(k);
+        
+        if ((uint8_t)(k + 1) != 0) {
+            auto ugt2 = x0 & mod_interval<uint8_t>(k + 1, 0);
+            validate("ugt", ugt1, ugt2);
+        }
+        else {
+            validate("ugt", ugt1, mod_interval<uint8_t>::empty());
+        }
+    }
+}
+
+
+static void test_interval_intersect2() {
+    unsigned bounds[8] = { 0, 1, 2, 3, 252, 253, 254, 255 };
+    for (unsigned i = 0; i < 8; ++i)
+        for (unsigned j = 0; j < 8; ++j)
+            for (unsigned k = 0; k < 8; ++k)
+                test_interval_intersect2(bounds[i], bounds[j], bounds[k]);
+}
+
+
 void tst_mod_interval() {
     test_interval_intersect();
+    test_interval_intersect2();
     test_interval1();
     test_interval2();
 }

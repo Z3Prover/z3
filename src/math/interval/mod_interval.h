@@ -45,7 +45,7 @@ inline std::ostream& operator<<(std::ostream& out, pp<rational> const& p) {
 
 template<typename Numeral>
 class mod_interval {
-    bool emp { false };
+    bool emp = false;
 public:
     Numeral lo { 0 };
     Numeral hi { 0 };
@@ -59,7 +59,7 @@ public:
     bool is_empty() const { return emp; }
     bool is_singleton() const { return !is_empty() && (lo + 1 == hi || (hi == 0 && is_max(lo))); }
     bool contains(Numeral const& n) const;
-    virtual bool is_max(Numeral const& n) const { return n + 1 == 0; }
+    virtual bool is_max(Numeral const& n) const { return (Numeral)(n + 1) == 0; }
 
     void set_free() { lo = hi = 0; emp = false; }
     void set_bounds(Numeral const& l, Numeral const& h) { lo = l; hi = h; }
@@ -89,6 +89,16 @@ public:
         return out << "[" << pp(lo) << ", " << pp(hi) << "["; 
     }
     Numeral closest_value(Numeral const& n) const;
+    bool operator==(mod_interval const& other) const {
+        if (is_empty())
+            return other.is_empty();
+        if (is_free())
+            return other.is_free();
+        return lo == other.lo && hi == other.hi;
+    }
+    bool operator!=(mod_interval const& other) const {
+        return !(*this == other);
+    }
 };
 
 template<typename Numeral>
