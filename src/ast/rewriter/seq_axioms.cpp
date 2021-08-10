@@ -1108,7 +1108,7 @@ namespace seq {
         expr_ref c = m_sk.mk("seq.prefix.c", s, t, char_sort);
         expr_ref d = m_sk.mk("seq.prefix.d", s, t, char_sort);
         add_clause(lit, s_gt_t, mk_seq_eq(s, mk_concat(x, seq.str.mk_unit(c), y)));
-        add_clause(lit, s_gt_t, mk_seq_eq(t, mk_concat(x, seq.str.mk_unit(d), z)), mk_seq_eq(t, x));
+        add_clause(lit, s_gt_t, mk_seq_eq(t, mk_concat(x, seq.str.mk_unit(d), z)));
         add_clause(lit, s_gt_t, ~mk_eq(c, d));
 #endif
     }
