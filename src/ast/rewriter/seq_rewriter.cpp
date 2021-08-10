@@ -3476,7 +3476,8 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             // if ((isdigit ele) and (ele = (hd r1))) then (to_re (tl r1)) else []
             //
             hd = mk_seq_first(r1);
-            m_br.mk_and(u().mk_le(m_util.mk_char('0'), ele), u().mk_le(ele, m_util.mk_char('9')), m().mk_eq(hd, ele), result); 
+            m_br.mk_and(u().mk_le(m_util.mk_char('0'), ele), u().mk_le(ele, m_util.mk_char('9')), 
+                m().mk_and(m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort))), m().mk_eq(hd, ele)), result);
             tl = re().mk_to_re(mk_seq_rest(r1));            
             return re_and(result, tl);
         }
@@ -3802,7 +3803,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         expr* s = nullptr;
         result = m().mk_and(m_autil.mk_ge(len_a, len_tl),
             re().mk_in_re(str().mk_substr(a, m_autil.mk_int(0), len_hd), hd),
-            (false && re().is_to_re(tl, s) ? m().mk_eq(s, str().mk_substr(a, len_hd, len_tl)) :
+            (re().is_to_re(tl, s) ? m().mk_eq(s, str().mk_substr(a, len_hd, len_tl)) :
                 re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl)));
         return BR_REWRITE_FULL;
     }
