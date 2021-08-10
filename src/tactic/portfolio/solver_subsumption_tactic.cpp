@@ -41,31 +41,36 @@ class solver_subsumption_tactic : public tactic {
 
     /**
     * Check subsumption (a \/ b \/ c)
-    * if (a \/ b) is already implied
-    * Use a naive algorithm (not binary disection here)
+    * if (a \/ b) is already implied or if b is false in F
+    * 
+    * If
+    *   F |= (a \/ b \/ c)
+    * Then replace (a \/ b \/ c) by true
+    * 
+    * If 
+    *   F |= !b
+    * Then replace (a \/ b \/ c) by (a \/ c)
+    *
     */
 
     bool simplify(expr_ref& f) {
+        expr_ref_vector fmls(m), ors(m), prefix(m);
+        expr_ref nf(m.mk_not(f), m);
+        fmls.push_back(nf);
+        lbool is_sat = m_solver->check_sat(fmls);
+        if (is_sat == l_false) {
+            f = m.mk_true();
+            return true;
+        }
         if (!m.is_or(f))
             return false;
-        expr_ref_vector ors(m);
         ors.append(to_app(f)->get_num_args(), to_app(f)->get_args());
-        expr_ref_vector prefix(m);
         for (unsigned i = 0; i < ors.size(); ++i) {
-            expr_ref_vector fmls(m);
-            fmls.append(prefix);
-            for (unsigned k = i + 1; k < ors.size(); ++k)
-                fmls.push_back(m.mk_not(ors.get(k)));
-            lbool is_sat = m_solver->check_sat(fmls);
-            if (is_sat == l_false)
-                continue;
             fmls.reset();
-            fmls.push_back(ors.get(i));
-            
+            fmls.push_back(ors.get(i));            
             is_sat = m_solver->check_sat(fmls);
-            if (is_sat == l_false)
-                continue;
-            prefix.push_back(ors.get(i));                
+            if (is_sat != l_false)
+                prefix.push_back(ors.get(i));   
         }
         if (ors.size() != prefix.size()) {
             ors.reset();
