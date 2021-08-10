@@ -380,4 +380,18 @@ print("non-strict")
 search_dual(ULE(v, w))
     
 
-
+# Sketch v-next approach that 
+# Maintain a transition relation T(B0, B1)
+# where B := (lo(v), hi(v), lo(w), hi(w)) are variables.
+# Initially T is B0 = B1
+# Enumerate representative values of B0
+#   Enumerate solutions for  T(B0, B1) given value for B0
+#      Check if B & v < w and v = lo(v) is unsat (similar to w = lo(w), v = hi(v)-1, )
+#      If it is unsat then find predicate cover P for B1
+#      B1 |= P,
+#      * P & v < w & not in_bounds(v, lo(v)', hi(v)') is unsat
+#        where lo(v)', hi(v)' is a tightest bound under B1
+#        Update T by adding transition (P => B2 = lo(v)', hi(v)', lo(w), hi(w)) & (~P => B2 = B1)
+#      * P & v < w is unsat
+#        Update T by adding not P
+#
