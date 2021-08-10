@@ -1043,11 +1043,18 @@ namespace seq {
     }
 
     /**
+       suffix(s, t):
+       - the sequence s is a suffix of t.
 
-       suffix(s, t) => s = seq.suffix_inv(s, t) + t
+       Positive case is handled by the solver when the atom is asserted
+       suffix(s, t) => t = seq.suffix_inv(s, t) + s
+
+       Negative case is handled by axioms when the negation of the atom is asserted
        ~suffix(s, t) => len(s) > len(t) or s = y(s, t) + unit(c(s, t)) + x(s, t)
        ~suffix(s, t) => len(s) > len(t) or t = z(s, t) + unit(d(s, t)) + x(s, t)
        ~suffix(s, t) => len(s) > len(t) or c(s,t) != d(s,t)
+
+       Symmetric axioms are provided for prefix
 
     */
 
