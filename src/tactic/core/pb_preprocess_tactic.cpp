@@ -507,10 +507,7 @@ private:
             bool found = false;
             for (unsigned j = 0; j < args2.size(); ++j) {
                 if (is_complement(args1.get(i), args2.get(j))) {
-                    if (i == 0) {
-                        min_coeff = coeffs2[j];
-                    }
-                    else if (min_coeff > coeffs2[j]) {
+                    if (i == 0 || min_coeff > coeffs2[j]) {
                         min_coeff = coeffs2[j];
                         min_index = j;
                     }
