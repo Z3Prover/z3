@@ -414,7 +414,7 @@ namespace q {
         enode_vector               m_candidates;
 #ifdef Z3DEBUG
         egraph *                   m_egraph;
-        ptr_vector<app>            m_patterns;
+        svector<std::pair<quantifier*, app*>>            m_patterns;
 #endif
 #ifdef _PROFILE_MAM
         stopwatch                  m_watch;
@@ -568,7 +568,7 @@ namespace q {
             m_egraph = ctx;
         }
 
-        ptr_vector<app> & get_patterns() {
+        svector<std::pair<quantifier*, app*>> & get_patterns() {
             return m_patterns;
         }
 #endif
@@ -578,8 +578,8 @@ namespace q {
             if (m_egraph) {
                 ast_manager & m = m_egraph->get_manager();
                 out << "patterns:\n";
-                for (app* a : m_patterns) 
-                    out << mk_pp(a, m) << "\n";
+                for (auto [q, a] : m_patterns) 
+                    out << mk_pp(q, m) << " " << mk_pp(a, m) << "\n";
             }
 #endif
             out << "function: " << m_root_lbl->get_name();
@@ -2862,12 +2862,11 @@ namespace q {
                 // The E-matching engine that was built when all + and * applications were binary.
                 // We ignore the pattern if it does not have the expected number of arguments.
                 // This is not the ideal solution, but it avoids possible crashes.
-                if (tree->expected_num_args() == p->get_num_args()) {
+                if (tree->expected_num_args() == p->get_num_args()) 
                     m_compiler.insert(tree, qa, mp, first_idx, false);
-                }
             }
-            DEBUG_CODE(m_trees[lbl_id]->get_patterns().push_back(mp);
-                       ctx.push(push_back_trail<app*, false>(m_trees[lbl_id]->get_patterns())););
+            DEBUG_CODE(m_trees[lbl_id]->get_patterns().push_back(std::make_pair(qa, mp));
+                       ctx.push(push_back_trail<std::pair<quantifier*,app*>, false>(m_trees[lbl_id]->get_patterns())););
             TRACE("trigger_bug", tout << "after add_pattern, first_idx: " << first_idx << "\n"; m_trees[lbl_id]->display(tout););
         }
 

@@ -490,6 +490,10 @@ namespace q {
         TRACE("q", tout << "add " << mk_pp(_q, m) << "\n";);
         clause* c = clausify(_q);
         quantifier* q = c->q();
+        if (m_q2clauses.contains(q)) {
+            dealloc(c);
+            return;
+        }
         ensure_ground_enodes(*c);
         m_clauses.push_back(c);
         m_q2clauses.insert(q, c->index());
