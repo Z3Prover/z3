@@ -53,10 +53,24 @@ namespace polysat {
         virtual void add_le(var_t v, var_t w, unsigned dep) = 0;
         virtual void add_lt(var_t v, var_t w, unsigned dep) = 0;
         virtual void restore_ineq() = 0;
+        virtual bool inconsistent() const = 0;
         virtual unsigned_vector const& get_unsat_core() const = 0;
 
     };
 
+    struct ineq {
+        var_t v = UINT_MAX;
+        var_t w = UINT_MAX;
+        bool strict = false;
+        bool is_active = true;
+        unsigned dep = UINT_MAX;
+        ineq(var_t v, var_t w, unsigned dep, bool s) :
+            v(v), w(w), strict(s), dep(dep) {}
+
+        std::ostream& display(std::ostream& out) const {
+            return out << "v" << v << (strict ? " < v" : " <= v") << w;
+        }
+    };
 
     template<typename Ext>
     class fixplex : public fixplex_base {
@@ -143,19 +157,10 @@ namespace polysat {
             fix_entry():x(null_var), r(0) {}
         };
 
-        struct ineq {
-            var_t v = null_var;
-            var_t w = null_var;
-            bool strict = false;
-            bool is_active = true;
-            unsigned dep = UINT_MAX;
-            ineq(var_t v, var_t w, unsigned dep, bool s):
-                v(v), w(w), strict(s), dep(dep) {}
-        };
-
         enum trail_i {
             inc_level_i,
             set_bound_i,
+            set_inconsistent_i,
             add_ineq_i,
             add_row_i
         };
@@ -175,6 +180,7 @@ namespace polysat {
         random_gen                  m_random;
         uint_set                    m_left_basis;
         unsigned_vector             m_unsat_core; 
+        bool                        m_inconsistent = false;
         unsigned_vector             m_base_vars;
         stats                       m_stats;
         vector<stashed_bound>       m_stashed_bounds;
@@ -200,6 +206,7 @@ namespace polysat {
 
         void push() override;
         void pop(unsigned n) override;
+        bool inconsistent() const override { return m_inconsistent; }
 
         lbool make_feasible() override;
         void add_row(var_t base, unsigned num_vars, var_t const* vars, rational const* coeffs) override;
@@ -226,6 +233,10 @@ namespace polysat {
         unsigned get_num_vars() const { return m_vars.size(); }
         void reset();
         lbool propagate_bounds();
+
+        svector<std::pair<unsigned, ineq>> stack;
+        uint_set on_stack;
+        lbool propagate_ineqs(ineq const& i0);
         void propagate_eqs();
         vector<var_eq> const& var_eqs() const { return m_var_eqs; }
         void reset_eqs() { m_var_eqs.reset(); }
@@ -251,8 +262,8 @@ namespace polysat {
         void get_offset_eqs(row const& r);
         void fixed_var_eh(row const& r, var_t x);
         void eq_eh(var_t x, var_t y, row const& r1, row const& r2);
-        lbool propagate_bounds(row const& r);
-        bool propagate_bounds(ineq const& i);
+        bool propagate_row(row const& r);
+        bool propagate_ineq(ineq const& i);
         bool propagate_strict_bounds(ineq const& i);
         bool propagate_non_strict_bounds(ineq const& i);
         bool new_bound(row const& r, var_t x, mod_interval<numeral> const& range);
@@ -404,6 +415,7 @@ namespace polysat {
             }
         };
         typedef _scoped_numeral<manager> scoped_numeral;
+
     };
 
     typedef generic_uint_ext<uint64_t> uint64_ext;
@@ -413,6 +425,12 @@ namespace polysat {
     inline std::ostream& operator<<(std::ostream& out, fixplex<Ext> const& fp) {
         return fp.display(out);
     }
+
+
+    inline std::ostream& operator<<(std::ostream& out, ineq const& i) {
+        return i.display(out);
+    }
+ 
 
 
 };

@@ -96,6 +96,11 @@ namespace polysat {
             case trail_i::add_ineq_i: 
                 restore_ineq();
                 break;            
+            case trail_i::set_inconsistent_i:
+                SASSERT(m_inconsistent);
+                m_inconsistent = false;
+                m_unsat_core.reset();
+                break;
             default:
                 UNREACHABLE();
             }
@@ -126,6 +131,8 @@ namespace polysat {
 
     template<typename Ext>
     lbool fixplex<Ext>::make_feasible() {
+        if (m_inconsistent)
+            return l_false;
         ++m_stats.m_num_checks;
         m_left_basis.reset();
         unsigned num_iterations = 0;
@@ -537,11 +544,13 @@ namespace polysat {
         auto hi0 = m_vars[v].hi;
         m_stashed_bounds.push_back(stashed_bound(v, m_vars[v]));
         m_trail.push_back(trail_i::set_bound_i);
+        //        std::cout << "new bound " << x << " " << m_vars[x] << " " << mod_interval<numeral>(l, h) << " -> ";        
         m_vars[v] &= mod_interval(l, h);
         if (lo0 != m_vars[v].lo)
             m_vars[v].m_lo_dep = dep;
         if (hi0 != m_vars[v].hi)
             m_vars[v].m_hi_dep = dep;
+        // std::cout << m_vars[x] << "\n";
     }
 
     template<typename Ext>
@@ -614,9 +623,9 @@ namespace polysat {
             if (idx >= m_ineqs.size())
                 continue;
             auto& ineq = m_ineqs[idx];
-             m_var_is_touched.setx(ineq.v, false, false);
-             m_var_is_touched.setx(ineq.w, false, false);
-             ineq.is_active = false;
+            m_var_is_touched.setx(ineq.v, false, false);
+            m_var_is_touched.setx(ineq.w, false, false);
+            ineq.is_active = false;
         }
         m_ineqs_to_check.reset();
     }
@@ -646,11 +655,12 @@ namespace polysat {
     */
     template<typename Ext>
     bool fixplex<Ext>::ineqs_are_violated() {
+        lbool r;
         for (unsigned i = 0; i < m_ineqs_to_check.size(); ++i) {
             unsigned idx = m_ineqs_to_check[i];
             if (idx >= m_ineqs.size())
                 continue;
-            if (!propagate_bounds(m_ineqs[idx]))
+            if (r = propagate_ineqs(m_ineqs[idx]), r == l_false)
                 return true;
         }
         return false;
@@ -860,7 +870,6 @@ namespace polysat {
     */
     template<typename Ext>
     void fixplex<Ext>::set_infeasible_base(var_t v) {
-        m_unsat_core.reset();
         SASSERT(is_base(v));
         auto row = base2row(v);
         ptr_vector<u_dependency> todo;
@@ -869,7 +878,12 @@ namespace polysat {
             todo.push_back(m_vars[v].m_lo_dep);
             todo.push_back(m_vars[v].m_hi_dep);
         }
+        SASSERT(!m_inconsistent);
+        SASSERT(m_unsat_core.empty());
+        m_inconsistent = true;
+        m_trail.push_back(trail_i::set_inconsistent_i);
         m_deps.linearize(todo, m_unsat_core);
+
     }
 
     /**
@@ -1115,15 +1129,87 @@ namespace polysat {
     template<typename Ext>
     lbool fixplex<Ext>::propagate_bounds() {
         lbool r = l_true;
-        for (unsigned i = 0; r == l_true && i < m_rows.size(); ++i) 
-            r = propagate_bounds(row(i));
-        if (r != l_true)
-            return r;
-        for (auto ineq : m_ineqs) {
-            if (!propagate_bounds(ineq))
+        for (unsigned i = 0; i < m_rows.size(); ++i) 
+            if (!propagate_row(row(i)))
                 return l_false;
+        for (auto ineq : m_ineqs) 
+            if (r = propagate_ineqs(ineq), r != l_true)
+                return r;
+        return l_true;
+    }
+
+    //
+    // DFS search propagating inequalities
+    // TBDs:
+    // - manage on_stack: which variables? (not source of root inequality)
+    // - propagate other direction?
+    // - re-propagate if lower bound for w gets increased in stack?
+    // - combine with row propagation?
+    // - search for shorter cycles? conflicts with literals asserted at lower (glue) levels?
+    // - statistics
+    // use diff-logic propagation instead?
+    // - use heap based on potential
+    // - update gamma without overflow issues
+    //
+
+    template<typename Ext>
+    lbool fixplex<Ext>::propagate_ineqs(ineq const& i0) {
+        numeral old_lo = m_vars[i0.w].lo;
+        if (!propagate_ineq(i0))
+            return l_false;
+        if (old_lo == m_vars[i0.w].lo) 
+            return l_true;
+        on_stack.reset();
+        stack.reset();
+        stack.push_back(std::make_pair(0, i0));
+        on_stack.insert(i0.v);
+        while (!stack.empty()) {
+            if (!m_limit.inc())
+                return l_undef;
+            auto [ineq_out, i] = stack.back();        
+            auto const& ineqs = m_var2ineqs[i.w];
+            for (; ineq_out < ineqs.size(); ++ineq_out) {
+                auto& i_out = m_ineqs[ineqs[ineq_out]];
+                if (i.w != i_out.v) 
+                    continue;
+                old_lo = m_vars[i_out.w].lo;
+                if (!propagate_ineq(i_out))
+                    return l_false;      
+                bool is_onstack = on_stack.contains(i_out.w);
+                if (old_lo != m_vars[i_out.w].lo && !is_onstack) {
+                    on_stack.insert(i_out.w);
+                    stack.back().first = ineq_out + 1;
+                    stack.push_back(std::make_pair(0, i_out));
+                    break;
+                }
+
+                if (!is_onstack) {
+                    on_stack.insert(i_out.w);
+                    continue;
+                }
+
+                bool strict = i_out.strict, found = false;                
+                unsigned j = stack.size();
+                for (; !found && j-- > 0; ) {
+                    ineq i2 = stack[j].second;
+                    strict |= i2.strict;
+                    if (i2.v == i_out.w) 
+                        found = true;
+                }
+                if (strict && found) {
+                    auto* d = mk_leaf(i_out.dep);
+                    for (; j < stack.size(); ++j) 
+                        d = m_deps.mk_join(d, mk_leaf(stack[j].second.dep));
+                    conflict(d);
+                    return l_false;
+                }
+            }
+            if (ineq_out == ineqs.size()) {
+                on_stack.remove(i.w);
+                stack.pop_back();
+            }
         }
-        return r;
+        return l_true;
     }
 
     /**
@@ -1136,7 +1222,7 @@ namespace polysat {
      */
 
     template<typename Ext>
-    lbool fixplex<Ext>::propagate_bounds(row const& r) {
+    bool fixplex<Ext>::propagate_row(row const& r) {
         mod_interval<numeral> range(0, 1);
         numeral free_c = 0;
         var_t free_v = null_var;
@@ -1152,12 +1238,12 @@ namespace polysat {
             }
             range += m_vars[v] * c;
             if (range.is_free())
-                return l_true;
+                return true;
         }        
 
         if (free_v != null_var) {
             range = (-range) * free_c;
-            lbool res = new_bound(r, free_v, range) ? l_true : l_false;
+            bool res = new_bound(r, free_v, range);
             SASSERT(in_bounds(free_v));
             return res;
         }
@@ -1165,7 +1251,7 @@ namespace polysat {
             var_t v = e.var();
             SASSERT(!is_free(v));
             auto range1 = range - m_vars[v] * e.coeff();
-            lbool res = new_bound(r, v, range1) ? l_true : l_false;
+            bool res = new_bound(r, v, range1);
             if (res != l_true)
                 return res;
             // SASSERT(in_bounds(v));
@@ -1180,6 +1266,8 @@ namespace polysat {
         auto* vlo = m_vars[v].m_lo_dep, *vhi = m_vars[v].m_hi_dep;
         auto* wlo = m_vars[w].m_lo_dep, *whi = m_vars[w].m_hi_dep;
 
+        if (v == w)
+            return conflict(i, nullptr), false;
         if (lo(w) == 0 && !new_bound(i, w, lo(w) + 1, lo(w), wlo))
             return false;
         if (hi(w) == 1 && !new_bound(i, w, lo(w), hi(w) - 1, whi))
@@ -1214,9 +1302,9 @@ namespace polysat {
 
         // manual patch
         if (is_fixed(w) && lo(w) == 0)
-            return conflict(wlo, whi), false;
+            return conflict(i, wlo, whi), false;
         if (is_fixed(v) && hi(v) == 0)
-            return conflict(vlo, vhi), false;
+            return conflict(i, vlo, vhi), false;
         if (!is_free(w) && (lo(w) <= hi(w) || hi(w) == 0) && (lo(v) < hi(v) || hi(v) == 0) && !new_bound(i, v, lo(v), hi(w) - 1, vlo, wlo, whi))
             return false;
         if (!is_free(v) && (lo(w) <= hi(w) || hi(w) == 0) && (lo(v) < hi(v) || hi(v) == 0) && !new_bound(i, w, lo(v) + 1, hi(w), vlo, vhi, whi))
@@ -1234,7 +1322,7 @@ namespace polysat {
         if (hi(w) <= lo(v) && (lo(v) < hi(v) || hi(v) == 0) && !new_bound(i, w, lo(w), 0, vlo, vhi, wlo, whi))
             return false;
         if (lo(w) < hi(w) && hi(w) <= lo(v) && (lo(v) < hi(v) || hi(v) == 0))
-            return conflict(vlo, vhi, wlo, whi), false;
+            return conflict(i, vlo, vhi, wlo, whi), false;
 //        if (!is_free(w) && hi(v) < lo(v) && lo(w) != 0 && (lo(w) <= hi(w) || hi(w) == 0) && !new_bound(i, v, lo(w) - 1, hi(v), vlo, vhi, wlo, whi))
 //            return false;
 
@@ -1245,7 +1333,7 @@ namespace polysat {
         if (lo(w) == 0 && !new_bound(i, w, lo(w) + 1, lo(w), wlo))
             return false;
         if (is_fixed(v) && hi(w) <= hi(v) && lo(w) <= hi(w) && !(is_free(w)))
-            return conflict(wlo, whi, vhi, vlo), false;
+            return conflict(i, wlo, whi, vhi, vlo), false;
         if (lo(w) <= lo(v) && lo(v) <= hi(v) && !new_bound(i, w, lo(v) + 1, lo(v), wlo, vhi, vlo))
             return false;
         if (hi(w) <= hi(v) && lo(w) <= hi(w) && !(is_free(w)) && !new_bound(i, v, lo(v), hi(v) - 1, wlo, whi, vhi))
@@ -1263,7 +1351,7 @@ namespace polysat {
         if (hi(w) <= lo(v) && lo(w) <= hi(w) && !(is_free(w)) && !new_bound(i, v, lo(v) + 1, hi(w) - 1, wlo, whi, vlo))
             return false;
         if (is_fixed(w) && hi(v) == 0 && lo(w) <= lo(v))
-            return conflict(wlo, whi, vhi, vlo), false;
+            return conflict(i, wlo, whi, vhi, vlo), false;
         if (hi(v) == 0 && lo(w) <= lo(v) && !new_bound(i, w, lo(v) + 1, hi(v), wlo, vhi, vlo))
             return false;
         if (hi(v) == 0 && !(is_free(v)) && !new_bound(i, v, lo(v), hi(v) - 1, vhi))
@@ -1290,7 +1378,7 @@ namespace polysat {
         if (hi(w) < lo(w) && hi(w) <= lo(v) && lo(v) < hi(v) && !new_bound(i, w, lo(w), 0, vlo, vhi, wlo, whi))
             return false;
         if (lo(w) < hi(w) && hi(w) <= lo(v) && (lo(v) < hi(v) || hi(v) == 0))
-            return conflict(vlo, vhi, wlo, whi), false;
+            return conflict(i, vlo, vhi, wlo, whi), false;
 
         // automatically generated code.
         // see scripts/fixplex.py for script 
@@ -1366,7 +1454,7 @@ namespace polysat {
     }
 
     template<typename Ext>
-    bool fixplex<Ext>::propagate_bounds(ineq const& i) {
+    bool fixplex<Ext>::propagate_ineq(ineq const& i) {
         if (i.strict)
             return propagate_strict_bounds(i);
         else
@@ -1382,6 +1470,9 @@ namespace polysat {
     void fixplex<Ext>::conflict(u_dependency* a) {
         m_unsat_core.reset();
         m_deps.linearize(a, m_unsat_core);
+        SASSERT(!m_inconsistent);
+        m_inconsistent = true;
+        m_trail.push_back(trail_i::set_inconsistent_i);
         TRACE("polysat", tout << "core: " << m_unsat_core << "\n";);
     }
 
@@ -1399,10 +1490,8 @@ namespace polysat {
     template<typename Ext>
     bool fixplex<Ext>::new_bound(ineq const& i, var_t x, numeral const& l, numeral const& h, u_dependency* a, u_dependency* b, u_dependency* c, u_dependency* d) {
         bool was_fixed = lo(x) + 1 == hi(x);
-        u_dependency* dep = m_deps.mk_join(mk_leaf(i.dep), m_deps.mk_join(a, m_deps.mk_join(b, m_deps.mk_join(c, d))));
-        // std::cout << "new bound " << x << " " << m_vars[x] << " " << mod_interval<numeral>(l, h) << " -> ";
+        u_dependency* dep = m_deps.mk_join(mk_leaf(i.dep), m_deps.mk_join(a, m_deps.mk_join(b, m_deps.mk_join(c, d))));        
         update_bounds(x, l, h, dep);
-        // std::cout << m_vars[x] << "\n";
         if (m_vars[x].is_empty())
             return conflict(m_vars[x].m_lo_dep, m_vars[x].m_hi_dep), false;
         else if (!was_fixed && lo(x) + 1 == hi(x)) {
@@ -1435,12 +1524,8 @@ namespace polysat {
             if (vi.m_is_base) out << "b:" << vi.m_base2row << " " << pp(m_rows[vi.m_base2row].m_value) << " ";
             out << "\n";
         }
-        for (auto const& i : m_ineqs) {
-            if (i.strict)
-                out << "v" << i.v << " < v" << i.w << "\n";
-            else
-                out << "v" << i.v << " <= v" << i.w << "\n";
-        }
+        for (ineq const& i : m_ineqs)
+            out << i << "\n";        
         return out;
     }
 

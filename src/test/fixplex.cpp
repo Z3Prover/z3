@@ -131,13 +131,40 @@ namespace polysat {
         std::cout << 29 << " " << e.mul_inverse(29) << " " << 29*e.mul_inverse(29) << "\n";
     }
 
-    static void test_ineq1() {
-        std::cout << "ineq1\n";
+    static void test_ineq_propagation1() {
+        std::cout << "ineq propagation 1\n";
         scoped_fp fp;
         var_t x = 0, y = 1;
         fp.add_lt(x, y, 1);
         fp.add_le(y, x, 2);
         fp.run();
+        std::cout << "core:" << fp.get_unsat_core() << "\n";
+        SASSERT(fp.get_unsat_core().contains(1));
+        SASSERT(fp.get_unsat_core().contains(2));
+    }
+
+    static void test_ineq_propagation2() {
+        std::cout << "ineq propagation 2\n";
+        scoped_fp fp;
+        var_t x = 0, y = 1, z = 2, u = 3, v = 4;
+        fp.add_le(x, y, 1);
+        fp.add_le(y, z, 2);
+        fp.add_le(z, u, 3);
+        fp.add_le(u, v, 4);
+        fp.add_le(v, x, 5);
+        fp.run();
+        for (unsigned i = 0; i < 4; ++i) {
+            SASSERT(!fp.inconsistent());
+            fp.push();
+            fp.add_lt(i, i + 1, 6);
+            fp.run();
+            SASSERT(fp.inconsistent());
+            std::cout << "core:" << fp.get_unsat_core() << "\n";
+            for (unsigned j = 1; j < 5; ++j)
+                SASSERT((j != i + 1) == fp.get_unsat_core().contains(j));
+            fp.get_unsat_core().contains(6);
+            fp.pop(1);
+        }
     }
 
     static void test_ineqs() {
@@ -344,7 +371,8 @@ namespace polysat {
 
 void tst_fixplex() {
 
-    polysat::test_ineq1();
+    polysat::test_ineq_propagation1();
+    polysat::test_ineq_propagation2();
     polysat::test_ineqs();
 
     polysat::test1();
