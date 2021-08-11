@@ -41,20 +41,19 @@ class solver_subsumption_tactic : public tactic {
 
     /**
     * Check subsumption (a \/ b \/ c)
-    * if (a \/ b) is already implied or if b is false in F
+    *
+    * If 
+    *   F |= (a \/ ~b \/ c)
+    * Then replace (a \/ b \/ c) by (a \/ c)
     * 
     * If
     *   F |= (a \/ b \/ c)
     * Then replace (a \/ b \/ c) by true
     * 
-    * If 
-    *   F |= !b
-    * Then replace (a \/ b \/ c) by (a \/ c)
-    *
     */
 
     bool simplify(expr_ref& f) {
-        expr_ref_vector fmls(m), ors(m), prefix(m);
+        expr_ref_vector fmls(m), ors(m), nprefix(m), prefix(m);
         expr_ref nf(m.mk_not(f), m);
         fmls.push_back(nf);
         lbool is_sat = m_solver->check_sat(fmls);
@@ -65,12 +64,18 @@ class solver_subsumption_tactic : public tactic {
         if (!m.is_or(f))
             return false;
         ors.append(to_app(f)->get_num_args(), to_app(f)->get_args());
+        for (expr* arg : ors)
+            nprefix.push_back(mk_not(m, arg));
         for (unsigned i = 0; i < ors.size(); ++i) {
-            fmls.reset();
-            fmls.push_back(ors.get(i));            
-            is_sat = m_solver->check_sat(fmls);
-            if (is_sat != l_false)
-                prefix.push_back(ors.get(i));   
+            expr* arg = ors.get(i);
+            expr_ref save(nprefix.get(i), m);
+            nprefix[i] = arg;
+            is_sat = m_solver->check_sat(nprefix);
+            nprefix[i] = save;
+            if (is_sat == l_false) 
+                nprefix[i] = m.mk_true();
+            else 
+                prefix.push_back(arg);            
         }
         if (ors.size() != prefix.size()) {
             ors.reset();
