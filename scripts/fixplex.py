@@ -151,7 +151,7 @@ def propagate_conflict(core):
     sys.stdout.write("if (")
     sys.stdout.write(core2pred(core))
     sys.stdout.write(f")\n")
-    sys.stdout.write(f"   return conflict({deps}), false;\n")
+    sys.stdout.write(f"   return conflict(i, {deps}), false;\n")
     sys.stdout.flush()
 
 lows  = [BitVecVal(0, nb), l, k, i, j, k + 1, i + 1]
@@ -361,7 +361,7 @@ def test_le(ineq, lov, hiv, low, hiw):
 
 bounds = [0, 1, 2, 3, 10, 2**nb - 3, 2**nb - 2, 2**nb - 1]
 
-def search_dual(p):
+def search_dual_loop(p):
     for i in bounds:
         for j in bounds:
             for k in bounds:
@@ -369,15 +369,17 @@ def search_dual(p):
                     test_le(p, i, j, k, l)
 
 
-s0.push()
-s1.push()
-print("strict")
-search_dual(ULT(v, w))
-s0.pop()
-s1.pop()
+def search_dual():
+    s0.push()
+    s1.push()
+    print("strict")
+    search_dual_loop(ULT(v, w))
+    s0.pop()
+    s1.pop()
+    print("non-strict")
+    search_dual_loop(ULE(v, w))
 
-print("non-strict")
-search_dual(ULE(v, w))
+search_dual()
     
 
 # Sketch v-next approach that 

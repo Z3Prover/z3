@@ -1219,6 +1219,17 @@ namespace polysat {
      *  Explore an efficient way to propagate with the following idea:
      *  For odd c, multiply row by inverse of c and accumulate similar
      *  propagation.
+     * 
+     * Conflicts spanning multiple rows are TBD:
+     * Idea could be similar to conflicts for inequality propagation.
+     * - create a stack of variables that get tightened.
+     * - walk over every row that contains the top variable on the stack
+     * - perform bounds propagation for the currently examined row
+     * - put newly tightened variables from row on the top of the stack
+     * - if a variable occurs already on the stack determine if the rows on the
+     *   stack resolve into a conflict.
+     * 
+     * TBD: Combination of inequality and row propagation?
      */
 
     template<typename Ext>
