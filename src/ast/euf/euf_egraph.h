@@ -235,7 +235,7 @@ namespace euf {
         enode* find(expr* f, unsigned n, enode* const* args);
         enode* mk(expr* f, unsigned generation, unsigned n, enode *const* args);
         enode_vector const& enodes_of(func_decl* f);
-        void push() { ++m_num_scopes; }
+        void push() { if (!m_to_merge.empty()) propagate(); ++m_num_scopes; }
         void pop(unsigned num_scopes);
 
         /**
