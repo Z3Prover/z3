@@ -53,7 +53,7 @@ class solver_subsumption_tactic : public tactic {
     */
 
     bool simplify(expr_ref& f) {
-        expr_ref_vector fmls(m), ors(m), nprefix(m), prefix(m);
+        expr_ref_vector fmls(m), ors(m), nors(m), prefix(m);
         expr_ref nf(m.mk_not(f), m);
         fmls.push_back(nf);
         lbool is_sat = m_solver->check_sat(fmls);
@@ -65,15 +65,15 @@ class solver_subsumption_tactic : public tactic {
             return false;
         ors.append(to_app(f)->get_num_args(), to_app(f)->get_args());
         for (expr* arg : ors)
-            nprefix.push_back(mk_not(m, arg));
+            nors.push_back(mk_not(m, arg));
         for (unsigned i = 0; i < ors.size(); ++i) {
             expr* arg = ors.get(i);
-            expr_ref save(nprefix.get(i), m);
-            nprefix[i] = arg;
-            is_sat = m_solver->check_sat(nprefix);
-            nprefix[i] = save;
+            expr_ref save(nors.get(i), m);
+            nors[i] = arg;
+            is_sat = m_solver->check_sat(nors);
+            nors[i] = save;
             if (is_sat == l_false) 
-                nprefix[i] = m.mk_true();
+                nors[i] = m.mk_true();
             else 
                 prefix.push_back(arg);            
         }
@@ -141,7 +141,7 @@ public:
     }
 
     void collect_param_descrs(param_descrs& r) override { 
-        r.insert("max_conflicts", CPK_UINT, "(default: 10) maximal number of conflicts allowed per solver call.");
+        r.insert("max_conflicts", CPK_UINT, "(default: 2) maximal number of conflicts allowed per solver call.");
     }
 
     void operator()(goal_ref const& g, goal_ref_buffer& result) override {
