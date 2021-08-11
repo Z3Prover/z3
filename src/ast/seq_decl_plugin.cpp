@@ -911,7 +911,7 @@ unsigned seq_util::str::max_length(expr* s) const {
             return UINT_MAX;
     };
     while (is_concat(s, s1, s2)) {
-        result = u.max_plus(get_length(s), result);
+        result = u.max_plus(get_length(s1), result);
         s = s2;
     }
     result = u.max_plus(get_length(s), result);
@@ -1058,6 +1058,7 @@ app* seq_util::rex::mk_epsilon(sort* seq_sort) {
 */
 std::ostream& seq_util::rex::pp::compact_helper_seq(std::ostream& out, expr* s) const {
     SASSERT(re.u.is_seq(s));
+    zstring z;
     if (re.u.str.is_empty(s))
         out << "()";
     else if (re.u.str.is_unit(s))
@@ -1067,6 +1068,10 @@ std::ostream& seq_util::rex::pp::compact_helper_seq(std::ostream& out, expr* s) 
         re.u.str.get_concat(s, es);
         for (expr* e : es)
             compact_helper_seq(out, e);
+    }
+    else if (re.u.str.is_string(s, z)) {
+        for (unsigned i = 0; i < z.length(); i++)
+            out << (char)z[i];
     }
     //using braces to indicate 'full' output
     //for example an uninterpreted constant X will be printed as {X}
@@ -1100,7 +1105,7 @@ bool seq_util::rex::pp::can_skip_parenth(expr* r) const {
 std::ostream& seq_util::rex::pp::seq_unit(std::ostream& out, expr* s) const {
     expr* e;
     unsigned n = 0;
-    if (re.u.str.is_unit(s, e) && re.u.is_const_char(e, n)) {
+    if ((re.u.str.is_unit(s, e) && re.u.is_const_char(e, n)) || re.u.is_const_char(s, n)) {
         char c = (char)n;
         if (c == '\n')
             out << "\\n";
@@ -1148,7 +1153,11 @@ std::ostream& seq_util::rex::pp::seq_unit(std::ostream& out, expr* s) const {
 std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
     expr* r1 = nullptr, * r2 = nullptr, * s = nullptr, * s2 = nullptr;
     unsigned lo = 0, hi = 0;
-    if (re.is_full_char(e))
+    if (re.u.is_char(e))
+        return seq_unit(out, e);
+    else if (re.u.is_seq(e))
+        return compact_helper_seq(out, e);
+    else if (re.is_full_char(e))
         return out << ".";
     else if (re.is_full_seq(e))
         return out << ".*";
@@ -1163,9 +1172,9 @@ std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
     else if (re.is_concat(e, r1, r2)) 
         return out << pp(re, r1) << pp(re, r2);
     else if (re.is_union(e, r1, r2)) 
-        return out << pp(re, r1) << "|" << pp(re, r2);
+        return out << "(" << pp(re, r1) << "|" << pp(re, r2) << ")";
     else if (re.is_intersection(e, r1, r2)) 
-        return out << "(" << pp(re, r1) << (html_encode ? ")&amp;(": ")&(" ) << pp(re, r2) << ")";
+        return out << "(" << pp(re, r1) << "&amp;" /*(html_encode ? ")&amp;(" : ")&(")*/ << pp(re, r2) << ")";
     else if (re.is_complement(e, r1)) {
         if (can_skip_parenth(r1))
             return out << "~" << pp(re, r1);

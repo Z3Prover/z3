@@ -93,10 +93,11 @@ public:
                 g->update(idx, f_new, new_pr, g->dep(idx));
             }  
             if (mc) g->add(mc.get());
-            g->inc_depth();
+	    TRACE("invertible_tactic", g->display(tout););
+	    g->inc_depth();
         }        
         result.push_back(g.get());
-        CTRACE("invertible_tactic", g->mc(), g->mc()->display(tout););
+	CTRACE("invertible_tactic", g->mc(), g->mc()->display(tout););
     }
 
     void cleanup() override {}
@@ -223,28 +224,46 @@ private:
         rational r;
         app* a = to_app(v);
         expr* fst_arg = a->get_arg(0);
-        bool fst_is_var = is_var(fst_arg);
 
-        for (unsigned i = 0, n = a->get_num_args(); i != n; ++i) {
-            auto arg = a->get_arg(i);
-            if (!m_parents[arg->get_id()].get() || is_var(arg) != fst_is_var)
+        for (expr* arg : *a) 
+            if (!m_parents[arg->get_id()].get())
                 return false;
 
-            if (fst_is_var && to_var(arg)->get_idx() >= max_var)
+        if (is_var(fst_arg)) {
+            for (expr* arg : *a) {
+                if (!is_var(arg))
+                    return false;
+                if (to_var(arg)->get_idx() >= max_var)
+                    return false;
+            }
+        }
+        else {            
+            bool first = true;
+            for (expr* arg : *a) {
+                if (!is_app(arg))
+                    return false;
+                if (is_uninterp_const(arg))
+                    continue;
+                if (m_bv.is_numeral(arg, r) && r == mdl) {
+                    if (first || mdl.is_zero()) {
+                        first = false;
+                        continue;
+                    }
+                    else
+                        return false;
+                }
                 return false;
-
-            if (m_bv.is_numeral(arg, r) && r != mdl)
-                return false;
-
-            if (i > 0 && !is_var(arg) && (!is_app(arg) || to_app(arg)->get_num_args() > 0))
-                return false;
+            }
         }
 
         if (mc) {
             ensure_mc(mc);
             expr_ref num(m_bv.mk_numeral(mdl, fst_arg->get_sort()), m);
             for (unsigned i = 1, n = a->get_num_args(); i != n; ++i) {
-                (*mc)->add(a->get_arg(i), num);
+                expr* arg = a->get_arg(i);
+                if (m_bv.is_numeral(arg))
+                    continue;
+                (*mc)->add(arg, num);
             }
         }
         new_v = fst_arg;
@@ -327,7 +346,6 @@ private:
             // 
             unsigned sz = m_bv.get_bv_size(p);
             expr_ref bit1(m_bv.mk_numeral(1, 1), m);
-            new_v = m_bv.mk_numeral(0, sz);
 
             
             unsigned sh = 0;
@@ -335,9 +353,10 @@ private:
                 r /= rational(2);
                 ++sh;
             }
-            if (r.is_pos() && sh > 0) {
+            if (r.is_pos() && sh > 0) 
                 new_v = m_bv.mk_concat(m_bv.mk_extract(sz-sh-1, 0, v), m_bv.mk_numeral(0, sh));
-            }
+            else
+                new_v = v;
             if (mc && !r.is_zero()) {
                 ensure_mc(mc);
                 expr_ref def(m);
@@ -413,6 +432,38 @@ private:
                 new_v = m.mk_var(to_var(v)->get_idx(), m.mk_bool_sort());
                 return true;
             }
+        }
+
+        //
+        // v <= u
+        // => u + 1 == 0 or delta
+        // v := delta ? u : u + 1
+        //
+        if (m_bv.is_bv_ule(p, e1, e2) && e1 == v && mc) {
+            ensure_mc(mc);
+            unsigned sz = m_bv.get_bv_size(e2);
+            expr_ref delta(m.mk_fresh_const("ule", m.mk_bool_sort()), m);
+            expr_ref succ_e2(m_bv.mk_bv_add(e2, m_bv.mk_numeral(1, sz)), m);
+            new_v = m.mk_or(delta, m.mk_eq(succ_e2, m_bv.mk_numeral(0, sz)));
+            (*mc)->hide(delta);
+            (*mc)->add(v, m.mk_ite(delta, e2, succ_e2));
+            return true;
+        }
+
+        //
+        // u <= v
+        // => u == 0 or delta
+        // v := delta ? u : u - 1
+        //
+        if (m_bv.is_bv_ule(p, e1, e2) && e2 == v && mc) {
+            ensure_mc(mc);
+            unsigned sz = m_bv.get_bv_size(e1);
+            expr_ref delta(m.mk_fresh_const("ule", m.mk_bool_sort()), m);
+            expr_ref pred_e1(m_bv.mk_bv_sub(e1, m_bv.mk_numeral(1, sz)), m);
+            new_v = m.mk_or(delta, m.mk_eq(e1, m_bv.mk_numeral(0, sz)));
+            (*mc)->hide(delta);
+            (*mc)->add(v, m.mk_ite(delta, e1, pred_e1));
+            return true;
         }
         return false;
     }

@@ -73,7 +73,7 @@ namespace array {
             obj_map<expr, unsigned> num_occ;
             for (euf::enode* p : euf::enode_parents(n->get_root())) {
                 if (a.is_select(p->get_expr()) && p->get_arg(0)->get_root() == n->get_root()) {
-                    expr* v = values.get(p->get_root_id());
+                    expr* v = values.get(p->get_root_id(), nullptr);
                     if (!v)
                         continue;
                     unsigned no = 0;
@@ -92,7 +92,7 @@ namespace array {
 
         for (euf::enode* p : euf::enode_parents(n)) {
             if (a.is_select(p->get_expr()) && p->get_arg(0)->get_root() == n) {
-                expr* value = values.get(p->get_root_id());
+                expr* value = values.get(p->get_root_id(), nullptr);
                 if (!value || value == fi->get_else())
                     continue;
                 args.reset();

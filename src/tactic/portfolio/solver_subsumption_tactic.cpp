@@ -41,31 +41,41 @@ class solver_subsumption_tactic : public tactic {
 
     /**
     * Check subsumption (a \/ b \/ c)
-    * if (a \/ b) is already implied
-    * Use a naive algorithm (not binary disection here)
+    *
+    * If 
+    *   F |= (a \/ ~b \/ c)
+    * Then replace (a \/ b \/ c) by (a \/ c)
+    * 
+    * If
+    *   F |= (a \/ b \/ c)
+    * Then replace (a \/ b \/ c) by true
+    * 
     */
 
     bool simplify(expr_ref& f) {
+        expr_ref_vector fmls(m), ors(m), nors(m), prefix(m);
+        expr_ref nf(m.mk_not(f), m);
+        fmls.push_back(nf);
+        lbool is_sat = m_solver->check_sat(fmls);
+        if (is_sat == l_false) {
+            f = m.mk_true();
+            return true;
+        }
         if (!m.is_or(f))
             return false;
-        expr_ref_vector ors(m);
         ors.append(to_app(f)->get_num_args(), to_app(f)->get_args());
-        expr_ref_vector prefix(m);
+        for (expr* arg : ors)
+            nors.push_back(mk_not(m, arg));
         for (unsigned i = 0; i < ors.size(); ++i) {
-            expr_ref_vector fmls(m);
-            fmls.append(prefix);
-            for (unsigned k = i + 1; k < ors.size(); ++k)
-                fmls.push_back(m.mk_not(ors.get(k)));
-            lbool is_sat = m_solver->check_sat(fmls);
-            if (is_sat == l_false)
-                continue;
-            fmls.reset();
-            fmls.push_back(ors.get(i));
-            
-            is_sat = m_solver->check_sat(fmls);
-            if (is_sat == l_false)
-                continue;
-            prefix.push_back(ors.get(i));                
+            expr* arg = ors.get(i);
+            expr_ref save(nors.get(i), m);
+            nors[i] = arg;
+            is_sat = m_solver->check_sat(nors);
+            nors[i] = save;
+            if (is_sat == l_false) 
+                nors[i] = m.mk_true();
+            else 
+                prefix.push_back(arg);            
         }
         if (ors.size() != prefix.size()) {
             ors.reset();
@@ -131,7 +141,7 @@ public:
     }
 
     void collect_param_descrs(param_descrs& r) override { 
-        r.insert("max_conflicts", CPK_UINT, "(default: 10) maximal number of conflicts allowed per solver call.");
+        r.insert("max_conflicts", CPK_UINT, "(default: 2) maximal number of conflicts allowed per solver call.");
     }
 
     void operator()(goal_ref const& g, goal_ref_buffer& result) override {

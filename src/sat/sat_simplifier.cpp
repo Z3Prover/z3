@@ -2022,10 +2022,14 @@ namespace sat {
         }
         remove_bin_clauses(pos_l);
         remove_bin_clauses(neg_l);
-        remove_clauses(pos_occs, pos_l);
-        remove_clauses(neg_occs, neg_l);
-        pos_occs.reset();
-        neg_occs.reset();
+        {
+            clause_use_list& pos_occs = m_use_list.get(pos_l);
+            clause_use_list& neg_occs = m_use_list.get(neg_l);
+            remove_clauses(pos_occs, pos_l);
+            remove_clauses(neg_occs, neg_l);
+            pos_occs.reset();
+            neg_occs.reset();
+        }
         return true;
     }
 

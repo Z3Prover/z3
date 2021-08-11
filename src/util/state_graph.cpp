@@ -13,7 +13,7 @@ Abstract:
 Author:
 
     Caleb Stanford (calebstanford-msr / cdstanford) 2020-7
-
+    Margus Veanes 2020-8
 --*/
 
 #include "state_graph.h"

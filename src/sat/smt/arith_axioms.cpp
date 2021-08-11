@@ -418,6 +418,7 @@ namespace arith {
             expr* p = nullptr, * q = nullptr;
             VERIFY(a.is_idiv(n, p, q));
             theory_var v1 = internalize_def(p);
+            ensure_column(v1);
             lp::impq r1 = get_ivalue(v1);
             rational r2;
 
