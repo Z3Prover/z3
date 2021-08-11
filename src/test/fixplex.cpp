@@ -370,17 +370,17 @@ namespace polysat {
     }
 
     static void test_lp(
-        vector<svector<std::pair<unsigned, uint32_t>>> const& rows,
+        vector<svector<std::pair<unsigned, uint64_t>>> const& rows,
         svector<ineq> const& ineqs,
-        vector<mod_interval<uint32_t>> const& bounds) {
+        vector<mod_interval<uint64_t>> const& bounds) {
 
-        unsigned num_vars = 1;
+        unsigned num_vars = 0;
         for (auto const& row : rows)
             for (auto [v, c] : row)
-                num_vars = std::max(num_vars, v + 1);
+                num_vars = std::max(num_vars, v);
         for (auto const& i : ineqs)
             num_vars = std::max(num_vars, std::max(i.v, i.w));
-        num_vars = std::max(bounds.size(), num_vars);
+        num_vars = std::max(bounds.size(), num_vars + 1);
 
         ast_manager m;
         reg_decl_plugins(m);
@@ -423,21 +423,20 @@ namespace polysat {
         unsigned v = 0;
         for (auto const& b : bounds) {
             ++index;
-            if (!b.is_free()) {
-                fp.set_bounds(v, rational(b.lo, rational::ui64()), rational(b.hi, rational::ui64()), index);
+            if (b.is_free())
+                continue;
 
-                if (b.lo < b.hi) {
-                    solver.assert_expr(bv.mk_ule(bv.mk_numeral(b.lo, 32), variables.get(v)));
-                    solver.assert_expr(mk_ult(variables.get(v), bv.mk_numeral(b.hi, 32)));
-                }
-                else if (b.hi == 0)
-                    solver.assert_expr(bv.mk_ule(bv.mk_numeral(b.lo, 32), variables.get(v)));
-                else {
-                    expr_ref a(mk_ult(variables.get(v), bv.mk_numeral(b.hi, 32)), m);
-                    expr_ref b(bv.mk_ule(bv.mk_numeral(b.lo, 32), variables.get(v)), m);
-                    solver.assert_expr(m.mk_or(a, b));
-                }
-            }
+            fp.set_bounds(v, rational(b.lo, rational::ui64()), rational(b.hi, rational::ui64()), index);
+
+            expr_ref A(mk_ult(variables.get(v), bv.mk_numeral(b.hi, 32)), m);
+            expr_ref B(bv.mk_ule(bv.mk_numeral(b.lo, 32), variables.get(v)), m);
+
+            if (b.lo < b.hi) 
+                solver.assert_expr(m.mk_and(A, B));            
+            else if (b.hi == 0)
+                solver.assert_expr(B);
+            else 
+                solver.assert_expr(m.mk_or(A, B));            
         }
 
         solver.display(std::cout);
@@ -449,7 +448,23 @@ namespace polysat {
         std::cout << r1 << " " << r2 << "\n" << fp << "\n";
 
         if (r2 == l_true) {
-            std::cout << "TBD validate solution\n";
+            for (auto const& row : rows) {
+                uint64_t sum = 0;
+                for (auto col : row) 
+                    sum += col.second * fp.value(col.first);
+                SASSERT(sum == 0);
+            }
+            for (unsigned i = 0; i < bounds.size(); ++i) {
+                uint64_t val = fp.value(i);
+                uint64_t lo = bounds[i].lo;
+                uint64_t hi = bounds[i].hi;
+                SASSERT(!(lo < hi || hi == 0) || lo <= val && val < hi);
+                SASSERT(!(hi > lo) || val < hi || lo <= val);
+            }
+            for (auto const& i : ineqs) {
+                SASSERT(fp.value(i.v) <= fp.value(i.w));
+                SASSERT(!i.strict || fp.value(i.v) < fp.value(i.w));
+            }
         }
         if (r1 == r2) {
             std::cout << "agree\n";
@@ -471,17 +486,49 @@ namespace polysat {
 
 
     static void test_lps(random_gen& r, unsigned num_vars, unsigned num_rows, unsigned num_vars_per_row, unsigned num_ineqs) {
+        vector<svector<std::pair<unsigned, uint64_t>>> rows;
+        svector<ineq> ineqs;
+        vector<mod_interval<uint64_t>> bounds;
+        for (unsigned i = 0; i < num_vars; ++i) {
+            uint64_t l = (r() % 2 == 0) ? r() % 100 : (0 - r() % 10);
+            uint64_t h = (r() % 2 == 0) ? r() % 100 : (0 - r() % 10);
+            bounds.push_back(mod_interval<uint64_t>(l, h));
+        }
+        for (unsigned i = 0; i < num_ineqs; ++i) {
+            var_t v = r() % num_vars;
+            var_t w = r() % num_vars;
+            ineqs.push_back(ineq(v, w, 0, 0 == r() % 2));
+        }
+        for (unsigned i = 0; i < num_rows; ++i) {
+            svector<std::pair<unsigned, uint64_t>> row;
+            uint64_t coeff = (r() % 2 == 0) ? r() % 100 : (0 - r() % 10);
+            row.push_back(std::make_pair(i, coeff));
+            for (unsigned j = 0; j + 1 < num_vars_per_row; ++j) {
+                var_t v = (r() % (num_vars - num_vars_per_row)) + num_vars_per_row;
+                coeff = (r() % 2 == 0) ? r() % 100 : (0 - r() % 10);
+                row.push_back(std::make_pair(v, coeff));
+            }
+            rows.push_back(row);
+        }
 
+        test_lp(rows, ineqs, bounds);
     }
 
     static void test_lps() {
         random_gen r;
-        test_lps(r, 6, 3, 3, 3);
+        for (unsigned i = 0; i < 10000; ++i)
+            test_lps(r, 6, 0, 0, 5);
+        for (unsigned i = 0; i < 10000; ++i)
+            test_lps(r, 6, 3, 3, 0);
+        for (unsigned i = 0; i < 10000; ++i)
+            test_lps(r, 6, 3, 3, 3);
 
     }
 }
 
 void tst_fixplex() {
+
+    polysat::test_lps();
 
     polysat::test_ineq_propagation1();
     polysat::test_ineq_propagation2();
