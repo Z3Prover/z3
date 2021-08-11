@@ -1,3 +1,4 @@
+
 #include "math/polysat/fixplex.h"
 #include "math/polysat/fixplex_def.h"
 #include "ast/bv_decl_plugin.h"
@@ -366,6 +367,117 @@ namespace polysat {
                     }
 
         std::cout << "number of failures: " << num_bad << "\n";
+    }
+
+    static void test_lp(
+        vector<svector<std::pair<unsigned, uint32_t>>> const& rows,
+        svector<ineq> const& ineqs,
+        vector<mod_interval<uint32_t>> const& bounds) {
+
+        unsigned num_vars = 1;
+        for (auto const& row : rows)
+            for (auto [v, c] : row)
+                num_vars = std::max(num_vars, v + 1);
+        for (auto const& i : ineqs)
+            num_vars = std::max(num_vars, std::max(i.v, i.w));
+        num_vars = std::max(bounds.size(), num_vars);
+
+        ast_manager m;
+        reg_decl_plugins(m);
+        bv_util bv(m);
+        smt_params pa;
+        smt::kernel solver(m, pa);
+        expr_ref_vector variables(m);
+        for (unsigned i = 0; i < num_vars; ++i)
+            variables.push_back(m.mk_fresh_const("v", bv.mk_sort(32)));
+        auto mk_ult = [&](expr* a, expr* b) {
+            return m.mk_not(bv.mk_ule(b, a));
+        };
+
+        scoped_fp fp;
+        for (auto& row : rows) {
+            vector<rational> coeffs;
+            svector<var_t> vars;
+            expr_ref term(m);
+            term = bv.mk_numeral(0, 32);
+            for (auto [v, c] : row) {
+                coeffs.push_back(rational(c, rational::ui64()));
+                vars.push_back(v);
+                term = bv.mk_bv_add(term, bv.mk_bv_mul(bv.mk_numeral(c, 32), variables.get(v)));
+            }
+            fp.add_row(row[0].first, row.size(), vars.data(), coeffs.data());
+            solver.assert_expr(m.mk_eq(bv.mk_numeral(0, 32), term));
+        }
+        unsigned index = 0;
+        for (auto const& i : ineqs) {
+            ++index;
+            if (i.strict) {
+                fp.add_lt(i.v, i.w, index);
+                solver.assert_expr(mk_ult(variables.get(i.v), variables.get(i.w)));
+            }
+            else {
+                fp.add_le(i.v, i.w, index);
+                solver.assert_expr(bv.mk_ule(variables.get(i.v), variables.get(i.w)));
+            }
+        }
+        unsigned v = 0;
+        for (auto const& b : bounds) {
+            ++index;
+            if (!b.is_free()) {
+                fp.set_bounds(v, rational(b.lo, rational::ui64()), rational(b.hi, rational::ui64()), index);
+
+                if (b.lo < b.hi) {
+                    solver.assert_expr(bv.mk_ule(bv.mk_numeral(b.lo, 32), variables.get(v)));
+                    solver.assert_expr(mk_ult(variables.get(v), bv.mk_numeral(b.hi, 32)));
+                }
+                else if (b.hi == 0)
+                    solver.assert_expr(bv.mk_ule(bv.mk_numeral(b.lo, 32), variables.get(v)));
+                else {
+                    expr_ref a(mk_ult(variables.get(v), bv.mk_numeral(b.hi, 32)), m);
+                    expr_ref b(bv.mk_ule(bv.mk_numeral(b.lo, 32), variables.get(v)), m);
+                    solver.assert_expr(m.mk_or(a, b));
+                }
+            }
+        }
+
+        solver.display(std::cout);
+        std::cout << fp << "\n";
+
+        lbool r1 = solver.check();
+        lbool r2 = fp.make_feasible();
+
+        std::cout << r1 << " " << r2 << "\n" << fp << "\n";
+
+        if (r2 == l_true) {
+            std::cout << "TBD validate solution\n";
+        }
+        if (r1 == r2) {
+            std::cout << "agree\n";
+        }
+        else if (r1 == l_false && r2 == l_true) {
+            std::cout << "BUG should be unsat\n";
+            solver.display(std::cout);
+            std::cout << fp << "\n";
+        }
+        else if (r1 == l_true && r2 == l_false) {
+            std::cout << "BUG should be sat\n";
+            solver.display(std::cout);
+            std::cout << fp << "\n";
+        }
+        else {
+            std::cout << r2 << " missed with verdict " << r1 << "\n";
+        }
+    }
+
+
+    static void test_lps(random_gen& r, unsigned num_vars, unsigned num_rows, unsigned num_vars_per_row, unsigned num_ineqs) {
+
+    }
+
+    static void test_lps() {
+        random_gen r;
+        test_lps(r, 6, 3, 3, 3);
+
     }
 }
 
