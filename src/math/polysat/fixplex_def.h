@@ -608,7 +608,7 @@ namespace polysat {
             return;
         if (m_var_is_touched.get(v, false))
             return;
-        m_var_is_touched.set(v, true);
+        m_var_is_touched.setx(v, true, false);
         for (auto idx : m_var2ineqs[v]) {
             if (!m_ineqs[idx].is_active) {
                 m_ineqs[idx].is_active = true;
