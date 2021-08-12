@@ -174,9 +174,20 @@ public class Optimize extends Z3Object {
      **/
     public Handle<?> AssertSoft(Expr<BoolSort> constraint, int weight, String group)
     {
+        return AssertSoft(constraint, Integer.toString(weight), group);
+    }
+    
+    /**
+     * Assert soft constraint
+     *
+     * Return an objective which associates with the group of constraints.
+     *
+     **/
+    public Handle<?> AssertSoft(Expr<BoolSort> constraint, String weight, String group)
+    {
         getContext().checkContextMatch(constraint);
         Symbol s = getContext().mkSymbol(group);
-        return new Handle<>(this, Native.optimizeAssertSoft(getContext().nCtx(), getNativeObject(), constraint.getNativeObject(), Integer.toString(weight), s.getNativeObject()));
+        return new Handle<>(this, Native.optimizeAssertSoft(getContext().nCtx(), getNativeObject(), constraint.getNativeObject(), weight, s.getNativeObject()));
     }
 
     /**
