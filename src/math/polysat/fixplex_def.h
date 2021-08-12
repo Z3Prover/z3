@@ -494,14 +494,13 @@ namespace polysat {
 
     /**
      * Compute delta to add to the value, such that value + delta is either lo(v), or hi(v) - 1
-     * A pre-condition is that value is not in the interval [lo(v),hi(v)[,
+     * A pre-condition, when used during pivoting, is that value is not in the interval [lo(v),hi(v)[,
      * and therefore as a consequence lo(v) != hi(v).
      */
     template<typename Ext>
     typename fixplex<Ext>::numeral
         fixplex<Ext>::value2delta(var_t v, numeral const& value) const {
-        SASSERT(!in_bounds(v));
-        SASSERT(lo(v) != hi(v));
+
         if (lo(v) - value < value - hi(v))
             return lo(v) - value;
         else
@@ -540,19 +539,21 @@ namespace polysat {
         auto hi0 = m_vars[v].hi;
         m_stashed_bounds.push_back(stashed_bound(v, m_vars[v]));
         m_trail.push_back(trail_i::set_bound_i);
-                std::cout << "new bound " << v << " " << m_vars[v] << " " << mod_interval<numeral>(l, h) << " -> ";        
+       //         std::cout << "new bound " << v << " " << m_vars[v] << " " << mod_interval<numeral>(l, h) << " -> ";        
         m_vars[v] &= mod_interval(l, h);
         if (lo0 != m_vars[v].lo)
             m_vars[v].m_lo_dep = dep;
         if (hi0 != m_vars[v].hi)
             m_vars[v].m_hi_dep = dep;
-        std::cout << m_vars[v] << "\n";
+        // std::cout << m_vars[v] << "\n";
         if (m_vars[v].is_empty()) {
             conflict(m_vars[v].m_lo_dep, m_vars[v].m_hi_dep);
             return;
         }
         if (in_bounds(v))
             return;
+
+        SASSERT(lo(v) != hi(v));
         if (is_base(v))
             add_patch(v);
         else
@@ -598,7 +599,7 @@ namespace polysat {
         m_var2ineqs[w].push_back(idx);
         m_ineqs_to_check.push_back(idx);
         m_trail.push_back(trail_i::add_ineq_i);
-        m_ineqs.push_back(ineq(v, w, dep, strict));
+        m_ineqs.push_back(ineq(v, w, mk_leaf(dep), strict));
     }
 
     template<typename Ext>
@@ -1163,10 +1164,10 @@ namespace polysat {
     lbool fixplex<Ext>::propagate_ineqs(ineq const& i0) {
         numeral old_lo = m_vars[i0.w].lo;
         SASSERT(!m_inconsistent);
-        std::cout << "propagate " << i0 << "\n";
+        // std::cout << "propagate " << i0 << "\n";
         if (!propagate_ineq(i0))
             return l_false;
-        if (old_lo == m_vars[i0.w].lo) 
+        if (old_lo == m_vars[i0.w].lo && i0.is_touched) 
             return l_true;
         on_stack.reset();
         stack.reset();
@@ -1181,14 +1182,16 @@ namespace polysat {
                 auto& i_out = m_ineqs[ineqs[ineq_out]];
                 if (i.w != i_out.v) 
                     continue;
-                for (unsigned j = 0; j < stack.size(); ++j) 
-                    std::cout << " ";
-                std::cout << " -> " << i_out << "\n";
+//                for (unsigned j = 0; j < stack.size(); ++j) 
+//                    std::cout << " ";
+//                std::cout << " -> " << i_out << "\n";
                 old_lo = m_vars[i_out.w].lo;
                 if (!propagate_ineq(i_out))
                     return l_false;      
+                
                 bool is_onstack = on_stack.contains(i_out.w);
-                if (old_lo != m_vars[i_out.w].lo && !is_onstack) {
+                if ((old_lo != m_vars[i_out.w].lo || !i_out.is_touched) && !is_onstack) {
+                    i_out.is_touched = true;
                     on_stack.insert(i_out.w);
                     stack.back().first = ineq_out + 1;
                     stack.push_back(std::make_pair(0, i_out));
@@ -1200,18 +1203,22 @@ namespace polysat {
                     continue;
                 }
 
-                bool strict = i_out.strict, found = false;                
+                bool strict = i_out.strict, found = false, empty = false;
+                auto bound = m_vars[i_out.w];
                 unsigned j = stack.size();
                 for (; !found && j-- > 0; ) {
                     ineq i2 = stack[j].second;
                     strict |= i2.strict;
+                    bound &= m_vars[i2.w];
                     if (i2.v == i_out.w) 
                         found = true;
+                    if (bound.is_empty())
+                        empty = true;
                 }
-                if (strict && found) {
-                    auto* d = mk_leaf(i_out.dep);
+                if ((empty || strict) && found) {
+                    auto* d = i_out.dep;
                     for (; j < stack.size(); ++j) 
-                        d = m_deps.mk_join(d, mk_leaf(stack[j].second.dep));
+                        d = m_deps.mk_join(d, stack[j].second.dep);
                     conflict(d);
                     return l_false;
                 }
@@ -1381,6 +1388,10 @@ namespace polysat {
             return false;
         if (is_fixed(w) && lo(w) <= lo(v) && !new_bound(i, v, lo(v) + 1, hi(w) - 1, wlo, whi, vlo))
             return false;
+
+        if (value(v) >= value(w) && value(v) + 1 != 0 && m_vars[w].contains(value(v) + 1))
+            update_value(w, value(v) - value(w) + 1);
+        
         return true;
     }
 
@@ -1473,6 +1484,9 @@ namespace polysat {
             return false;
         if (!(lo(w) <= lo(v)) && !(hi(w) == 0) && hi(v) == 0 && hi(w) <= lo(v) && !new_bound(i, w, lo(w), 0, vlo, wlo, vhi, whi))
             return false;   
+
+        if (value(v) > value(w) && m_vars[w].contains(value(v)))
+            update_value(w, value(v) - value(w)); 
         return true;
     }
 
@@ -1486,7 +1500,7 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::conflict(ineq const& i, u_dependency* a, u_dependency* b, u_dependency* c, u_dependency* d) {
-        conflict(a, m_deps.mk_join(mk_leaf(i.dep), m_deps.mk_join(b, m_deps.mk_join(c, d))));
+        conflict(a, m_deps.mk_join(i.dep, m_deps.mk_join(b, m_deps.mk_join(c, d))));
     }
 
     template<typename Ext>
@@ -1514,7 +1528,7 @@ namespace polysat {
     bool fixplex<Ext>::new_bound(ineq const& i, var_t x, numeral const& l, numeral const& h, u_dependency* a, u_dependency* b, u_dependency* c, u_dependency* d) {
         bool was_fixed = lo(x) + 1 == hi(x);
         SASSERT(!inconsistent());
-        u_dependency* dep = m_deps.mk_join(mk_leaf(i.dep), m_deps.mk_join(a, m_deps.mk_join(b, m_deps.mk_join(c, d))));        
+        u_dependency* dep = m_deps.mk_join(i.dep, m_deps.mk_join(a, m_deps.mk_join(b, m_deps.mk_join(c, d))));        
         update_bounds(x, l, h, dep);
         if (inconsistent())
             return false;

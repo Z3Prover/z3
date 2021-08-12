@@ -63,8 +63,9 @@ namespace polysat {
         var_t w = UINT_MAX;
         bool strict = false;
         bool is_active = true;
-        unsigned dep = UINT_MAX;
-        ineq(var_t v, var_t w, unsigned dep, bool s) :
+        bool is_touched = false;
+        u_dependency* dep = nullptr;
+        ineq(var_t v, var_t w, u_dependency* dep, bool s) :
             v(v), w(w), strict(s), dep(dep) {}
 
         std::ostream& display(std::ostream& out) const {
