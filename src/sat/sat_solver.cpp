@@ -1895,9 +1895,7 @@ namespace sat {
             m_ext_assumption_set.reset();
             unsigned trail_size = m_trail.size();
             if (!inconsistent())
-                m_ext->add_assumptions();
-            for (unsigned i = trail_size; i < m_trail.size(); ++i)
-                m_ext_assumption_set.insert(m_trail[i]);
+                m_ext->add_assumptions(m_ext_assumption_set);
         }
     }
 

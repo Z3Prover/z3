@@ -279,13 +279,18 @@ namespace recfun {
         return true;
     }
 
-    void solver::add_assumptions() {
+    void solver::add_assumptions(sat::literal_set& assumptions) {
         if (u().has_defs() || m_disabled_guards.empty()) {
             app_ref dlimit = m_util.mk_num_rounds_pred(m_num_rounds);
             TRACEFN("add_theory_assumption " << dlimit);
-            s().assign_scoped(mk_literal(dlimit));
-            for (auto g : m_disabled_guards)
-                s().assign_scoped(~mk_literal(g));
+            sat::literal assumption = mk_literal(dlimit); 
+            assumptions.insert(assumption);
+            s().assign_scoped(assumption);
+            for (auto g : m_disabled_guards) {
+                assumption = ~mk_literal(g);
+                assumptions.insert(assumption);
+                s().assign_scoped(assumption);
+            }
         }
     }
     

@@ -276,7 +276,7 @@ namespace euf {
         bool propagated(literal l, ext_constraint_idx idx) override;
         bool unit_propagate() override;
         bool should_research(sat::literal_vector const& core) override;
-        void add_assumptions() override;
+        void add_assumptions(sat::literal_set& assumptions) override;
         bool tracking_assumptions() override;
 
         void propagate(literal lit, ext_justification_idx idx);
