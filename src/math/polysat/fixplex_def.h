@@ -530,27 +530,34 @@ namespace polysat {
     void fixplex<Ext>::set_bounds(var_t v, numeral const& l, numeral const& h, unsigned dep) {
         ensure_var(v);
         update_bounds(v, l, h, mk_leaf(dep));
+    }
+
+    template<typename Ext>
+    void fixplex<Ext>::update_bounds(var_t v, numeral const& l, numeral const& h, u_dependency* dep) {
+        if (inconsistent())
+            return;
+        auto lo0 = m_vars[v].lo;
+        auto hi0 = m_vars[v].hi;
+        m_stashed_bounds.push_back(stashed_bound(v, m_vars[v]));
+        m_trail.push_back(trail_i::set_bound_i);
+                std::cout << "new bound " << v << " " << m_vars[v] << " " << mod_interval<numeral>(l, h) << " -> ";        
+        m_vars[v] &= mod_interval(l, h);
+        if (lo0 != m_vars[v].lo)
+            m_vars[v].m_lo_dep = dep;
+        if (hi0 != m_vars[v].hi)
+            m_vars[v].m_hi_dep = dep;
+        std::cout << m_vars[v] << "\n";
+        if (m_vars[v].is_empty()) {
+            conflict(m_vars[v].m_lo_dep, m_vars[v].m_hi_dep);
+            return;
+        }
         if (in_bounds(v))
             return;
         if (is_base(v))
             add_patch(v);
         else
             update_value(v, value2delta(v, value(v)));
-    }
-
-    template<typename Ext>
-    void fixplex<Ext>::update_bounds(var_t v, numeral const& l, numeral const& h, u_dependency* dep) {
-        auto lo0 = m_vars[v].lo;
-        auto hi0 = m_vars[v].hi;
-        m_stashed_bounds.push_back(stashed_bound(v, m_vars[v]));
-        m_trail.push_back(trail_i::set_bound_i);
-        //        std::cout << "new bound " << x << " " << m_vars[x] << " " << mod_interval<numeral>(l, h) << " -> ";        
-        m_vars[v] &= mod_interval(l, h);
-        if (lo0 != m_vars[v].lo)
-            m_vars[v].m_lo_dep = dep;
-        if (hi0 != m_vars[v].hi)
-            m_vars[v].m_hi_dep = dep;
-        // std::cout << m_vars[x] << "\n";
+        SASSERT(in_bounds(v));
     }
 
     template<typename Ext>
@@ -1155,6 +1162,8 @@ namespace polysat {
     template<typename Ext>
     lbool fixplex<Ext>::propagate_ineqs(ineq const& i0) {
         numeral old_lo = m_vars[i0.w].lo;
+        SASSERT(!m_inconsistent);
+        std::cout << "propagate " << i0 << "\n";
         if (!propagate_ineq(i0))
             return l_false;
         if (old_lo == m_vars[i0.w].lo) 
@@ -1172,6 +1181,9 @@ namespace polysat {
                 auto& i_out = m_ineqs[ineqs[ineq_out]];
                 if (i.w != i_out.v) 
                     continue;
+                for (unsigned j = 0; j < stack.size(); ++j) 
+                    std::cout << " ";
+                std::cout << " -> " << i_out << "\n";
                 old_lo = m_vars[i_out.w].lo;
                 if (!propagate_ineq(i_out))
                     return l_false;      
@@ -1501,10 +1513,11 @@ namespace polysat {
     template<typename Ext>
     bool fixplex<Ext>::new_bound(ineq const& i, var_t x, numeral const& l, numeral const& h, u_dependency* a, u_dependency* b, u_dependency* c, u_dependency* d) {
         bool was_fixed = lo(x) + 1 == hi(x);
+        SASSERT(!inconsistent());
         u_dependency* dep = m_deps.mk_join(mk_leaf(i.dep), m_deps.mk_join(a, m_deps.mk_join(b, m_deps.mk_join(c, d))));        
         update_bounds(x, l, h, dep);
-        if (m_vars[x].is_empty())
-            return conflict(m_vars[x].m_lo_dep, m_vars[x].m_hi_dep), false;
+        if (inconsistent())
+            return false;
         else if (!was_fixed && lo(x) + 1 == hi(x)) {
             // TBD: track based on inequality not row
             // fixed_var_eh(r, x);
@@ -1516,11 +1529,12 @@ namespace polysat {
     bool fixplex<Ext>::new_bound(row const& r, var_t x, mod_interval<numeral> const& range) {
         if (range.is_free())
             return l_true;
+        SASSERT(!inconsistent());
         bool was_fixed = lo(x) + 1 == hi(x);
         update_bounds(x, range.lo, range.hi, row2dep(r));
         IF_VERBOSE(0, verbose_stream() << "new-bound v" << x << " " << m_vars[x] << "\n");
-        if (m_vars[x].is_empty())
-            return conflict(m_vars[x].m_lo_dep, m_vars[x].m_hi_dep), false;
+        if (inconsistent())
+            return false;
         else if (!was_fixed && lo(x) + 1 == hi(x)) 
             fixed_var_eh(r, x);
         return true;

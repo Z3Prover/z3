@@ -420,11 +420,9 @@ namespace polysat {
                 solver.assert_expr(bv.mk_ule(variables.get(i.v), variables.get(i.w)));
             }
         }
-        unsigned v = 0;
-        for (auto const& b : bounds) {
+        for (unsigned v = 0; v < bounds.size(); ++v) {
+            auto const& b = bounds[v];
             ++index;
-            if (b.is_free())
-                continue;
 
             fp.set_bounds(v, rational(b.lo, rational::ui64()), rational(b.hi, rational::ui64()), index);
 
@@ -439,31 +437,31 @@ namespace polysat {
                 solver.assert_expr(m.mk_or(A, B));            
         }
 
-        solver.display(std::cout);
-        std::cout << fp << "\n";
-
         lbool r1 = solver.check();
         lbool r2 = fp.make_feasible();
 
-        std::cout << r1 << " " << r2 << "\n" << fp << "\n";
+        std::cout << r1 << " " << r2 << "\n";
+
+#define VALIDATE(_test_) if (!(_test_)) { std::cout << "failed " << #_test_ << "\n"; solver.display(std::cout << fp << "\n"); SASSERT(false);}
 
         if (r2 == l_true) {
             for (auto const& row : rows) {
                 uint64_t sum = 0;
                 for (auto col : row) 
                     sum += col.second * fp.value(col.first);
-                SASSERT(sum == 0);
+                VALIDATE(sum == 0);
             }
             for (unsigned i = 0; i < bounds.size(); ++i) {
                 uint64_t val = fp.value(i);
                 uint64_t lo = bounds[i].lo;
                 uint64_t hi = bounds[i].hi;
-                SASSERT(!(lo < hi || hi == 0) || lo <= val && val < hi);
-                SASSERT(!(hi > lo) || val < hi || lo <= val);
+                VALIDATE(!(lo < hi) || (lo <= val && val < hi));
+                VALIDATE(!(0 < lo && hi == 0) || lo <= val);
+                VALIDATE(!(hi > lo) || val < hi || lo <= val);
             }
             for (auto const& i : ineqs) {
-                SASSERT(fp.value(i.v) <= fp.value(i.w));
-                SASSERT(!i.strict || fp.value(i.v) < fp.value(i.w));
+                VALIDATE(fp.value(i.v) <= fp.value(i.w));
+                VALIDATE(!i.strict || fp.value(i.v) < fp.value(i.w));
             }
         }
         if (r1 == r2) {
@@ -480,7 +478,17 @@ namespace polysat {
             std::cout << fp << "\n";
         }
         else {
+            
             std::cout << r2 << " missed with verdict " << r1 << "\n";
+            std::cout << fp << "\n";
+
+            if (r1 == l_false && false && rows.empty()) {
+                std::cout << "BUG should not miss unsat verdict when there are no rows\n";
+                solver.display(std::cout);
+                std::cout << "\n";
+                std::cout << fp << "\n";
+                SASSERT(false);
+            }
         }
     }
 
@@ -503,8 +511,14 @@ namespace polysat {
             svector<std::pair<unsigned, uint64_t>> row;
             uint64_t coeff = (r() % 2 == 0) ? r() % 100 : (0 - r() % 10);
             row.push_back(std::make_pair(i, coeff));
+            uint_set seen;
             for (unsigned j = 0; j + 1 < num_vars_per_row; ++j) {
-                var_t v = (r() % (num_vars - num_vars_per_row)) + num_vars_per_row;
+                var_t v;
+                do {
+                    v = (r() % (num_vars - num_vars_per_row)) + num_vars_per_row;
+                } 
+                while (seen.contains(v));
+                seen.insert(v);
                 coeff = (r() % 2 == 0) ? r() % 100 : (0 - r() % 10);
                 row.push_back(std::make_pair(v, coeff));
             }
