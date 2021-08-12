@@ -552,10 +552,13 @@ namespace mbp {
             if (fmls.empty() || defs.empty())
                 return;
             expr_safe_replace subst(m);
-            for (auto const& d : defs) 
-                subst.insert(d.var, d.term);            
-            unsigned j = 0;
             expr_ref tmp(m);
+            for (unsigned i = defs.size(); i-- > 0; ) {
+                auto const& d = defs[i];
+                subst(d.term, tmp);
+                subst.insert(d.var, tmp);
+            }
+            unsigned j = 0;
             for (expr* fml : fmls) {
                 subst(fml, tmp);
                 fmls[j++] = tmp;

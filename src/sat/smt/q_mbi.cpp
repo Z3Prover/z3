@@ -321,7 +321,7 @@ namespace q {
             eqs.push_back(m.mk_eq(v, val));
         }
         rep(fmls);
-        TRACE("q", tout << "generated formulas\n" << fmls << "\ngenerated eqs:\n" << eqs;);
+        TRACE("q", tout << "generated formulas\n" << fmls << "\ngenerated eqs:\n" << eqs << "\n";);
         return mk_and(fmls);
     }
 
