@@ -82,6 +82,12 @@ namespace polysat {
         reset();
     }
 
+
+    template<typename Ext>
+    void fixplex<Ext>::updt_params(params_ref const& p) {
+        m_max_iterations = p.get_uint("max_iterations", m_max_iterations);
+    }
+
     template<typename Ext>
     void fixplex<Ext>::push() {
         m_trail.push_back(trail_i::inc_level_i);
@@ -145,6 +151,7 @@ namespace polysat {
             return l_false;
         ++m_stats.m_num_checks;
         m_left_basis.reset();
+        m_last_pivot_var = null_var;
         unsigned num_iterations = 0;
         unsigned num_repeated = 0;
         var_t v = null_var;
@@ -407,6 +414,8 @@ namespace polysat {
             numeral const& b = r.coeff();
             if (x == y)
                 continue;
+            if (y == m_last_pivot_var)
+                continue;
             if (!has_minimal_trailing_zeros(y, b))
                 continue;
             numeral new_y_value = solve_for(row_value - b * value(y), b);
@@ -469,7 +478,7 @@ namespace polysat {
         row r = base2row(x);
         for (auto const& c : M.col_entries(r)) {
             var_t y = c.var();
-            if (x == y || y >= result)
+            if (x == y || y >= result || y == m_last_pivot_var)
                 continue;
             numeral const& b = c.coeff();
             if (can_improve(y, b)) {
@@ -798,7 +807,8 @@ namespace polysat {
     */
     template<typename Ext>
     void fixplex<Ext>::pivot(var_t x, var_t y, numeral const& b, numeral const& new_value) {
-        ++m_stats.m_num_pivots;       
+        ++m_stats.m_num_pivots;
+        m_last_pivot_var = x;
         SASSERT(is_base(x));
         SASSERT(!is_base(y));
         var_info& xI = m_vars[x];

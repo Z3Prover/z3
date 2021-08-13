@@ -28,6 +28,7 @@ Author:
 #include "util/uint_set.h"
 #include "util/dependency.h"
 #include "util/ref.h"
+#include "util/params.h"
 
 inline rational to_rational(uint64_t n) { return rational(n, rational::ui64()); }
 inline unsigned trailing_zeros(unsigned short n) { return trailing_zeros((uint32_t)n); }
@@ -55,6 +56,7 @@ namespace polysat {
         virtual void restore_ineq() = 0;
         virtual bool inconsistent() const = 0;
         virtual unsigned_vector const& get_unsat_core() const = 0;
+        virtual void updt_params(params_ref const& p) = 0;
 
     };
 
@@ -170,14 +172,15 @@ namespace polysat {
         reslimit&                   m_limit;
         mutable manager             m;
         mutable matrix              M;
-        unsigned                    m_max_iterations { UINT_MAX };
-        unsigned                    m_num_non_integral { 0 };
+        unsigned                    m_max_iterations = UINT_MAX;
+        unsigned                    m_num_non_integral = 0;
         var_heap                    m_to_patch;
         vector<var_info>            m_vars;
         vector<row_info>            m_rows;
         vector<var_eq>              m_var_eqs;
-        bool                        m_bland { false };
-        unsigned                    m_blands_rule_threshold { 1000 };
+        bool                        m_bland = false ;
+        unsigned                    m_blands_rule_threshold = 1000;
+        var_t                       m_last_pivot_var = null_var;
         random_gen                  m_random;
         uint_set                    m_left_basis;
         unsigned_vector             m_unsat_core; 
@@ -198,16 +201,19 @@ namespace polysat {
         svector<var_t>              m_vars_to_untouch;
 
     public:
-        fixplex(reslimit& lim):
+        fixplex(params_ref const& p, reslimit& lim):
             m_limit(lim),
             M(m),
-            m_to_patch(1024) {}
+            m_to_patch(1024) {
+            updt_params(p);
+        }
 
         ~fixplex() override;
 
         void push() override;
         void pop(unsigned n) override;
         bool inconsistent() const override { return m_inconsistent; }
+        void updt_params(params_ref const& p) override;
 
         lbool make_feasible() override;
         void add_row(var_t base, unsigned num_vars, var_t const* vars, rational const* coeffs) override;

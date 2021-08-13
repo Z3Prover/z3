@@ -19,6 +19,7 @@ Author:
 
 #include <limits>
 #include "util/statistics.h"
+#include "util/params.h"
 #include "math/polysat/boolean.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/clause_builder.h"
@@ -60,6 +61,7 @@ namespace polysat {
         typedef ptr_vector<constraint> constraints;
 
         reslimit&                m_lim;
+        params_ref               m_params;
         viable                   m_viable;   // viable sets per variable
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
         dep_value_manager        m_value_manager;
@@ -325,6 +327,8 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const;
 
         void collect_statistics(statistics& st) const;
+
+        params_ref& params() { return m_params;  }
 
     };
 

@@ -12,10 +12,12 @@ namespace polysat {
     typedef uint64_ext::numeral numeral;
 
     struct solver_scope {
+        params_ref p;
         reslimit lim;
     };
     struct scoped_fp : public solver_scope, public fixplex<uint64_ext> {
-        scoped_fp(): fixplex<uint64_ext>(lim) {}
+
+        scoped_fp(): fixplex<uint64_ext>(p, lim) {}
 
         void run() {
             std::cout << *this << "\n";
@@ -369,6 +371,27 @@ namespace polysat {
         std::cout << "number of failures: " << num_bad << "\n";
     }
 
+    static void save_scenario(
+        vector<svector<std::pair<unsigned, uint64_t>>> const& rows,
+        svector<ineq> const& ineqs,
+        vector<mod_interval<uint64_t>> const& bounds) {
+        std::cout << "static void scenario() {";
+        std::cout << "    vector<svector<std::pair<unsigned, uint64_t>>> rows\n;";
+        std::cout << "    svector<ineq> ineqs\n;";
+        std::cout << "    vector<mod_interval<uint64_t>> bounds\n";
+        for (auto row : rows) {
+            std::cout << "    rows.push_back(svector<std::pair<unsigned, uint64_t>>());\n";
+            for (auto col : row)
+                std::cout << "    rows.back().push_back(std::make_pair(" << col.first << ", " << col.second << ");\n";
+        }
+        for (auto ineq : ineqs)
+            std::cout << "    ineqs.push_back(ineq(" << ineq.v << ", " << ineq.w << " " << ineq.strict << ");\n";
+        for (auto bound : bounds)
+            std::cout << "    bounds.push_back(mod_interval<uint64_t>(" << bound.lo << ", " << bound.hi << ");\n";
+        std::cout << "    test_lp(rows, ineqs, bounds);\n}\n";
+    }
+
+
     static void test_lp(
         vector<svector<std::pair<unsigned, uint64_t>>> const& rows,
         svector<ineq> const& ineqs,
@@ -395,6 +418,10 @@ namespace polysat {
         };
 
         scoped_fp fp;
+        params_ref p;
+        p.set_uint("max_iterations", 100);
+        fp.updt_params(p);
+
         for (auto& row : rows) {
             vector<rational> coeffs;
             svector<var_t> vars;

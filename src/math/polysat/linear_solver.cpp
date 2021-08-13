@@ -64,22 +64,22 @@ namespace polysat {
         if (!b) {
             switch (sz) {
             case 8:
-                b = alloc(fixplex<generic_uint_ext<unsigned char>>, s.m_lim);
+                b = alloc(fixplex<generic_uint_ext<unsigned char>>, s.params(), s.m_lim);
                 break;
             case 16:
-                b = alloc(fixplex<generic_uint_ext<unsigned short>>, s.m_lim);
+                b = alloc(fixplex<generic_uint_ext<unsigned short>>, s.params(), s.m_lim);
                 break;
             case 32:
-                b = alloc(fixplex<generic_uint_ext<unsigned>>, s.m_lim);
+                b = alloc(fixplex<generic_uint_ext<unsigned>>, s.params(), s.m_lim);
                 break;
             case 64:
-                b = alloc(fixplex<uint64_ext>, s.m_lim);
+                b = alloc(fixplex<uint64_ext>, s.params(), s.m_lim);
                 break;
             case 128:
                 NOT_IMPLEMENTED_YET();
                 break;
             case 256:
-                b = alloc(fixplex<generic_uint_ext<u256>>, s.m_lim);
+                b = alloc(fixplex<generic_uint_ext<u256>>, s.params(), s.m_lim);
                 break;
             default:
                 NOT_IMPLEMENTED_YET();
