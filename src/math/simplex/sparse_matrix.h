@@ -32,6 +32,8 @@ namespace simplex {
         typedef typename Ext::manager manager;
         typedef unsigned var_t;
 
+        struct column;
+
         class row_entry {
             friend class sparse_matrix;
             numeral         m_coeff;
@@ -85,8 +87,7 @@ namespace simplex {
             col_entry(): m_row_id(0), m_row_idx(0) {}            
             bool is_dead() const { return (unsigned) m_row_id == dead_id; }
         };
-     
-        struct column;
+    
 
         /**
            \brief A row contains a base variable and set of
@@ -110,28 +111,30 @@ namespace simplex {
             int get_idx_of(var_t v) const;
         };
         
+
         /**
-           \brief A column stores in which rows a variable occurs.
-           The column may have free/dead entries. The field m_first_free_idx
-           is a reference to the first free/dead entry.
+            \brief A column stores in which rows a variable occurs.
+            The column may have free/dead entries. The field m_first_free_idx
+            is a reference to the first free/dead entry.
         */
         struct column {
             svector<col_entry> m_entries;
-            unsigned           m_size; 
+            unsigned           m_size;
             int                m_first_free_idx;
             mutable unsigned   m_refs;
-            
-            column():m_size(0), m_first_free_idx(-1), m_refs(0) {}
+
+            column() :m_size(0), m_first_free_idx(-1), m_refs(0) {}
             unsigned size() const { return m_size; }
             unsigned num_entries() const { return m_entries.size(); }
             void reset();
-            void compress(vector<_row> & rows);
-            void compress_if_needed(vector<_row> & rows);
+            void compress(vector<_row>& rows);
+            void compress_if_needed(vector<_row>& rows);
             //void compress_singleton(vector<_row> & rows, unsigned singleton_pos);
-            col_entry const * get_first_col_entry() const;
-            col_entry & add_col_entry(int & pos_idx);
+            col_entry const* get_first_col_entry() const;
+            col_entry& add_col_entry(int& pos_idx);
             void del_col_entry(unsigned idx);
         };
+
 
         manager&                m;
         vector<_row>            m_rows;
@@ -258,7 +261,7 @@ namespace simplex {
             row get_row() const { 
                 return row(col().m_entries[m_curr].m_row_id); 
             }
-            row_entry const& get_row_entry() {
+            row_entry const& get_row_entry() const {
                 col_entry const& c = col().m_entries[m_curr];
                 int row_id = c.m_row_id;
                 return m_sm.m_rows[row_id].m_entries[c.m_row_idx];

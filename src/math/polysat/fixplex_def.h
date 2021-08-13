@@ -172,7 +172,6 @@ namespace polysat {
             }
         }
         SASSERT(well_formed());
-        std::cout << "non-integral: " << m_num_non_integral << "\n";
         if (ineqs_are_violated())
             return l_false;
         if (ineqs_are_satisfied() && m_num_non_integral == 0)
@@ -257,9 +256,8 @@ namespace polysat {
         for (auto col : M.col_entries(v)) {
             if (r.id() == col.get_row().id())
                 continue;
-            numeral c = col.get_row_entry().coeff();
             numeral value_v = value(v);
-            if (!eliminate_var(r, col.get_row(), c, tz_b, value_v))
+            if (!eliminate_var(r, col, tz_b, value_v))
                 return false;
         }
         return true;
@@ -365,17 +363,12 @@ namespace polysat {
         numeral new_value = m_vars[x].closest_value(value(x));
         numeral b;
         var_t y = select_pivot_core(x, new_value, b);
-
-        if (y == null_var) {
-            if (is_infeasible_row(x))
-                return l_false;
-            else
-                return l_undef;
-        }
-
-        pivot(x, y, b, new_value);
-
-        return l_true;
+        if (y != null_var) 
+            return pivot(x, y, b, new_value), l_true;
+        else if (is_infeasible_row(x))
+            return l_false;
+        else
+            return l_undef;        
     }
 
     template<typename Ext>
@@ -600,6 +593,13 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::add_ineq(var_t v, var_t w, unsigned dep, bool strict) {
+        if (inconsistent())
+            return;
+        if (v == w) {
+            if (strict)
+                conflict(mk_leaf(dep));
+            return;
+        }
         ensure_var(v);
         ensure_var(w);
         unsigned idx = m_ineqs.size();        
@@ -682,7 +682,6 @@ namespace polysat {
         }
         return false;
     }
-
 
     /**
      * Check if the coefficient b of y has the minimal number of trailing zeros.
@@ -799,17 +798,17 @@ namespace polysat {
     */
     template<typename Ext>
     void fixplex<Ext>::pivot(var_t x, var_t y, numeral const& b, numeral const& new_value) {
-        ++m_stats.m_num_pivots;
-        TRACE("fixplex", tout << "pivot " << x << " " << y << "\n";);
-
+        ++m_stats.m_num_pivots;       
         SASSERT(is_base(x));
         SASSERT(!is_base(y));
         var_info& xI = m_vars[x];
         var_info& yI = m_vars[y];
         unsigned rx = xI.m_base2row;
         auto& row_x = m_rows[rx];
+        row r_x(rx);
         numeral const& a = row_x.m_base_coeff;
         numeral old_value_y = yI.m_value;
+        TRACE("fixplex", display_row(tout << "pivot " << x << " " << y << "\n", r_x););
         row_x.m_base = y;
         row_x.m_value = row_x.m_value - b * old_value_y + a * new_value;
         row_x.m_base_coeff = b;
@@ -819,20 +818,18 @@ namespace polysat {
         xI.m_is_base = false;
         xI.m_value = new_value;
         touch_var(x);
-        row r_x(rx);
         add_patch(y);
         SASSERT(well_formed_row(r_x));
 
         unsigned tz_b = m.trailing_zeros(b);
 
-        for (auto col : M.col_entries(y)) {
+        for (auto const& col : M.col_entries(y)) {
             row r_z = col.get_row();
             unsigned rz = r_z.id();
             if (rz == rx)
                 continue;
             TRACE("fixplex,", display_row(tout << "eliminate ", r_z, false) << "\n";);
-            numeral c = col.get_row_entry().coeff();
-            VERIFY(eliminate_var(r_x, r_z, c, tz_b, old_value_y));
+            VERIFY(eliminate_var(r_x, col, tz_b, old_value_y));
             TRACE("fixplex,", display_row(tout << "eliminated ", r_z, false) << "\n";);
             add_patch(row2base(r_z));
         }
@@ -841,37 +838,34 @@ namespace polysat {
 
     /**
      * r_y         - row where y is base variable
-     * r_z         - row that contains y with z base variable, z != y
-     * c           - coefficient of y in r_z
+     * z_col       - column iterator that contains row where z is base variable.
      * tz_b        - number of trailing zeros to coefficient of y in r_y
      * old_value_y - the value of y used to compute row2value(r_z)
      *
+     * Implied variables:
+     * r_z         - row that contains y with z base variable, z != y
+     * c           - coefficient of y in r_z
+     * 
      * returns true if elimination preserves equivalence (is lossless).
      */
     template<typename Ext>
     bool fixplex<Ext>::eliminate_var(
         row const& r_y,
-        row const& r_z,
-        numeral const& c,
+        col_iterator const& z_col,
         unsigned tz_b,
         numeral const& old_value_y) {
 
+        row const& r_z = z_col.get_row();
+        numeral c = z_col.get_row_entry().coeff();
         numeral b = row2base_coeff(r_y);
-        auto z = row2base(r_z);
-        auto& row_z = m_rows[r_z.id()];
+        auto z = row2base(r_z);        
         unsigned tz_c = m.trailing_zeros(c);
-        numeral b1, c1;
-        if (tz_b <= tz_c) {
-            b1 = b >> tz_b;
-            c1 = 0 - (c >> tz_b);
-        }
-        else {
-            b1 = b >> tz_c;
-            c1 = 0 - (c >> tz_c);
-        }
-
+        unsigned tz = std::min(tz_b, tz_c);
+        numeral b1 = b >> tz;
+        numeral c1 = 0 - (c >> tz);
         M.mul(r_z, b1);
         M.add(r_z, c1, r_y);
+        auto& row_z = m_rows[r_z.id()];
         row_z.m_value = (b1 * (row2value(r_z) - c * old_value_y)) + c1 * row2value(r_y);
         row_z.m_base_coeff *= b1;
         set_base_value(z);

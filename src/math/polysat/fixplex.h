@@ -331,8 +331,7 @@ namespace polysat {
 
         bool eliminate_var(
             row const& r_y,
-            row const& r_z, 
-            numeral const& c, 
+            col_iterator const& z_col,
             unsigned tz_b,
             numeral const& old_value_y);
     };
