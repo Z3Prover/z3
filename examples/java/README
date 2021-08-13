@@ -12,3 +12,9 @@ On Linux and FreeBSD, we must use
    LD_LIBRARY_PATH=. java -cp com.microsoft.z3.jar:. JavaExample
 On macOS, the corresponding option is DYLD_LIBRARY_PATH:
    DYLD_LIBRARY_PATH=. java -cp com.microsoft.z3.jar:. JavaExample  
+
+By default, Z3 Java bindings are automatically loading the required native library for Z3 from the default library path.
+In certain environments, depending on the developing process, the Z3 library is not available in the given library path.
+To disable the automated loading process, the user can set the environment variable "z3.skipLibraryLoad=true".
+In that case, the calling application should directly load the corresponding libraries before any interaction with Z3.
+
