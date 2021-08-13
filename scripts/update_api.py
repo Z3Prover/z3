@@ -545,7 +545,7 @@ def mk_java(java_dir, package_name):
     java_native.write('  public static native void setInternalErrorHandler(long ctx);\n\n')
 
     java_native.write('  static {\n')
-    java_native.write('    if (null == System.getProperty("z3.skipLibraryLoad")) {\n')
+    java_native.write('    if (!Boolean.parseBoolean(System.getProperty("z3.skipLibraryLoad"))) {\n')
     java_native.write('      try {\n')
     java_native.write('        System.loadLibrary("z3java");\n')
     java_native.write('      } catch (UnsatisfiedLinkError ex) {\n')
