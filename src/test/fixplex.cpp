@@ -449,6 +449,12 @@ namespace polysat {
                 uint64_t sum = 0;
                 for (auto col : row) 
                     sum += col.second * fp.value(col.first);
+                if (sum != 0) {
+                    std::cout << sum << " = ";
+                    for (auto col : row)
+                        std::cout << pp(col.second) << "*v" << col.first << "(" << pp(fp.value(col.first)) << ") ";
+                    std::cout << "\n";
+                }
                 VALIDATE(sum == 0);
             }
             for (unsigned i = 0; i < bounds.size(); ++i) {
@@ -509,7 +515,8 @@ namespace polysat {
         }
         for (unsigned i = 0; i < num_rows; ++i) {
             svector<std::pair<unsigned, uint64_t>> row;
-            uint64_t coeff = (r() % 2 == 0) ? r() % 100 : (0 - r() % 10);
+            uint64_t coeff = (r() % 2 == 0) ? (1 + r() % 100) : (0 - 1 - r() % 10);
+            SASSERT(coeff != 0);
             row.push_back(std::make_pair(i, coeff));
             uint_set seen;
             for (unsigned j = 0; j + 1 < num_vars_per_row; ++j) {
@@ -519,7 +526,8 @@ namespace polysat {
                 } 
                 while (seen.contains(v));
                 seen.insert(v);
-                coeff = (r() % 2 == 0) ? r() % 100 : (0 - r() % 10);
+                coeff = (r() % 2 == 0) ? (1 + r() % 100) : (0 - 1 - r() % 10);
+                SASSERT(coeff != 0);
                 row.push_back(std::make_pair(v, coeff));
             }
             rows.push_back(row);
@@ -531,9 +539,11 @@ namespace polysat {
     static void test_lps() {
         random_gen r;
         for (unsigned i = 0; i < 10000; ++i)
-            test_lps(r, 6, 0, 0, 5);
-        for (unsigned i = 0; i < 10000; ++i)
             test_lps(r, 6, 3, 3, 0);
+        return;
+        for (unsigned i = 0; i < 10000; ++i)
+            test_lps(r, 6, 0, 0, 5);
+
         for (unsigned i = 0; i < 10000; ++i)
             test_lps(r, 6, 3, 3, 3);
 

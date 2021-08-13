@@ -57,6 +57,16 @@ Inequality handling.
 - cuts:
   would be good to understand how to adapt a notion of cuts for modular case.       
 
+
+TODOs:
+- complete inequality propagation using incremental topological sort + patching using assignment to minimal values
+- equality extraction
+- bounds + row propagaiton
+- freedom interval patching
+- cuts
+- branch
+- update synthesis of bounds tightnening
+
 --*/
 
 #pragma once
@@ -162,9 +172,10 @@ namespace polysat {
             }
         }
         SASSERT(well_formed());
+        std::cout << "non-integral: " << m_num_non_integral << "\n";
         if (ineqs_are_violated())
             return l_false;
-        if (ineqs_are_satisfied())
+        if (ineqs_are_satisfied() && m_num_non_integral == 0)
             return l_true;
         return l_undef;
     }
@@ -316,7 +327,6 @@ namespace polysat {
         m_vars[v].m_value += delta;
         touch_var(v);
         SASSERT(!is_base(v));
-
         //
         // v <- v + delta
         // s*s_coeff + R = 0, where R contains v*v_coeff 
@@ -499,12 +509,11 @@ namespace polysat {
      */
     template<typename Ext>
     typename fixplex<Ext>::numeral
-        fixplex<Ext>::value2delta(var_t v, numeral const& value) const {
-
-        if (lo(v) - value < value - hi(v))
-            return lo(v) - value;
+        fixplex<Ext>::value2delta(var_t v, numeral const& val) const {
+        if (lo(v) - val < val - hi(v))
+            return lo(v) - val;
         else
-            return hi(v) - value - 1;
+            return hi(v) - val - 1;
     }
 
     template<typename Ext>
@@ -556,9 +565,9 @@ namespace polysat {
         SASSERT(lo(v) != hi(v));
         if (is_base(v))
             add_patch(v);
-        else
+        else 
             update_value(v, value2delta(v, value(v)));
-        SASSERT(in_bounds(v));
+        SASSERT(is_base(v) || in_bounds(v));
     }
 
     template<typename Ext>
@@ -604,7 +613,7 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::restore_ineq() {
-        auto ineq = m_ineqs.back();
+        auto const& ineq = m_ineqs.back();
         m_var2ineqs[ineq.v].pop_back();
         m_var2ineqs[ineq.w].pop_back();
         m_ineqs.pop_back();
@@ -791,6 +800,8 @@ namespace polysat {
     template<typename Ext>
     void fixplex<Ext>::pivot(var_t x, var_t y, numeral const& b, numeral const& new_value) {
         ++m_stats.m_num_pivots;
+        TRACE("fixplex", tout << "pivot " << x << " " << y << "\n";);
+
         SASSERT(is_base(x));
         SASSERT(!is_base(y));
         var_info& xI = m_vars[x];
@@ -819,8 +830,10 @@ namespace polysat {
             unsigned rz = r_z.id();
             if (rz == rx)
                 continue;
+            TRACE("fixplex,", display_row(tout << "eliminate ", r_z, false) << "\n";);
             numeral c = col.get_row_entry().coeff();
             VERIFY(eliminate_var(r_x, r_z, c, tz_b, old_value_y));
+            TRACE("fixplex,", display_row(tout << "eliminated ", r_z, false) << "\n";);
             add_patch(row2base(r_z));
         }
         SASSERT(well_formed());
@@ -850,12 +863,13 @@ namespace polysat {
         numeral b1, c1;
         if (tz_b <= tz_c) {
             b1 = b >> tz_b;
-            c1 = 0 - (c >> (tz_c - tz_b));
+            c1 = 0 - (c >> tz_b);
         }
         else {
-            b1 = b >> (tz_b - tz_c);
+            b1 = b >> tz_c;
             c1 = 0 - (c >> tz_c);
         }
+
         M.mul(r_z, b1);
         M.add(r_z, c1, r_y);
         row_z.m_value = (b1 * (row2value(r_z) - c * old_value_y)) + c1 * row2value(r_y);
@@ -1149,9 +1163,9 @@ namespace polysat {
     //
     // DFS search propagating inequalities
     // TBDs:
-    // - manage on_stack: which variables? (not source of root inequality)
-    // - propagate other direction?
-    // - re-propagate if lower bound for w gets increased in stack?
+    // - replace by incremental topological sort (util/topsort.h uses stack and is non-incremental).
+    //    Then patch solutions following a pre-order processing
+    //       value(v) := max({ value(w) | w <= v } u { value(w) + 1 | w < v } u { lo(v) }) unsat if out of bounds.
     // - combine with row propagation?
     // - search for shorter cycles? conflicts with literals asserted at lower (glue) levels?
     // - statistics
@@ -1161,7 +1175,7 @@ namespace polysat {
     //
 
     template<typename Ext>
-    lbool fixplex<Ext>::propagate_ineqs(ineq const& i0) {
+    lbool fixplex<Ext>::propagate_ineqs(ineq& i0) {
         numeral old_lo = m_vars[i0.w].lo;
         SASSERT(!m_inconsistent);
         // std::cout << "propagate " << i0 << "\n";
@@ -1172,6 +1186,7 @@ namespace polysat {
         on_stack.reset();
         stack.reset();
         stack.push_back(std::make_pair(0, i0));
+        i0.is_touched = true;
         on_stack.insert(i0.v);
         while (!stack.empty()) {
             if (!m_limit.inc())
@@ -1521,14 +1536,14 @@ namespace polysat {
             d = m_deps.mk_join(m_vars[v].m_lo_dep, d);
             d = m_deps.mk_join(m_vars[v].m_hi_dep, d);
         }
-        return d;
+return d;
     }
 
     template<typename Ext>
     bool fixplex<Ext>::new_bound(ineq const& i, var_t x, numeral const& l, numeral const& h, u_dependency* a, u_dependency* b, u_dependency* c, u_dependency* d) {
         bool was_fixed = lo(x) + 1 == hi(x);
         SASSERT(!inconsistent());
-        u_dependency* dep = m_deps.mk_join(i.dep, m_deps.mk_join(a, m_deps.mk_join(b, m_deps.mk_join(c, d))));        
+        u_dependency* dep = m_deps.mk_join(i.dep, m_deps.mk_join(a, m_deps.mk_join(b, m_deps.mk_join(c, d))));
         update_bounds(x, l, h, dep);
         if (inconsistent())
             return false;
@@ -1549,12 +1564,12 @@ namespace polysat {
         IF_VERBOSE(0, verbose_stream() << "new-bound v" << x << " " << m_vars[x] << "\n");
         if (inconsistent())
             return false;
-        else if (!was_fixed && lo(x) + 1 == hi(x)) 
+        else if (!was_fixed && lo(x) + 1 == hi(x))
             fixed_var_eh(r, x);
         return true;
     }
 
-    template<typename Ext>    
+    template<typename Ext>
     std::ostream& fixplex<Ext>::display(std::ostream& out) const {
         M.display(out);
         for (unsigned i = 0; i < m_vars.size(); ++i) {
@@ -1564,12 +1579,12 @@ namespace polysat {
             out << "\n";
         }
         for (ineq const& i : m_ineqs)
-            out << i << "\n";        
+            out << i << "\n";
         return out;
     }
 
-    template<typename Ext>    
-    std::ostream& fixplex<Ext>::display_row(std::ostream& out, row const& r, bool values) {
+    template<typename Ext>
+    std::ostream& fixplex<Ext>::display_row(std::ostream& out, row const& r, bool values) const {
         out << r.id() << " := " << pp(row2value(r)) << " : ";
         for (auto const& e : M.row_entries(r)) {
             var_t v = e.var();
@@ -1579,19 +1594,19 @@ namespace polysat {
             if (is_base(v))
                 out << "b";
             out << " ";
-            if (values) 
+            if (values)
                 out << pp(value(v)) << " " << m_vars[v] << " ";
         }
         return out << "\n";
     }
 
-    template<typename Ext>    
-    bool fixplex<Ext>::well_formed() const { 
+    template<typename Ext>
+    bool fixplex<Ext>::well_formed() const {
         SASSERT(M.well_formed());
         for (unsigned i = 0; i < m_rows.size(); ++i) {
             row r(i);
             var_t s = row2base(r);
-            if (s == null_var) 
+            if (s == null_var)
                 continue;
             SASSERT(i == base2row(s).id());
             VERIFY(well_formed_row(r));
@@ -1604,8 +1619,8 @@ namespace polysat {
         return true;
     }
 
-    template<typename Ext>                                     
-    bool fixplex<Ext>::well_formed_row(row const& r) const { 
+    template<typename Ext>
+    bool fixplex<Ext>::well_formed_row(row const& r) const {
         var_t s = row2base(r);
         VERIFY(base2row(s).id() == r.id());
         VERIFY(m_vars[s].m_is_base);
@@ -1620,6 +1635,14 @@ namespace polysat {
             TRACE("polysat", display(tout << "non-well formed row\n"); M.display_row(tout << "row: ", r););
             throw default_exception("non-well formed row");
         }
+
+        if (sum != row2value(r) + base_coeff * value(s)) {
+            std::cout << sum << "\n";
+            std::cout << (row2value(r) + base_coeff * value(s)) << "\n";
+            display_row(std::cout, r, false);
+            display(std::cout);
+        }
+
         SASSERT(sum == row2value(r) + base_coeff * value(s));
         return true;
     }
