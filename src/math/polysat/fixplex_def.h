@@ -99,19 +99,19 @@ namespace polysat {
         m_deps.pop_scope(n);
         while (n > 0) {
             switch (m_trail.back()) {
-            case trail_i::inc_level_i:                
+            case trail_i::inc_level_i:
                 --n;
                 break;
-            case trail_i::set_bound_i: 
+            case trail_i::set_bound_i:
                 restore_bound();
-                break;            
-            case trail_i::add_row_i: 
+                break;
+            case trail_i::add_row_i:
                 del_row(m_row_trail.back());
                 m_row_trail.pop_back();
-                break;            
-            case trail_i::add_ineq_i: 
+                break;
+            case trail_i::add_ineq_i:
                 restore_ineq();
-                break;            
+                break;
             case trail_i::set_inconsistent_i:
                 SASSERT(m_inconsistent);
                 m_inconsistent = false;
@@ -147,44 +147,47 @@ namespace polysat {
 
     template<typename Ext>
     lbool fixplex<Ext>::make_feasible() {
-        if (m_inconsistent)
-            return l_false;
         ++m_stats.m_num_checks;
         m_left_basis.reset();
-        m_last_pivot_var = null_var;
-        unsigned num_iterations = 0;
-        unsigned num_repeated = 0;
-        var_t v = null_var;
+        m_num_repeated = 0;
         m_bland = false;
+        unsigned num_iterations = 0;
         SASSERT(well_formed());
-        while ((v = select_var_to_fix()) != null_var) {
-            TRACE("polysat", display(tout << "v" << v << "\n"););
-            if (!m_limit.inc() || num_iterations > m_max_iterations)
-                return l_undef;
-            check_blands_rule(v, num_repeated);
-            switch (make_var_feasible(v)) {
-            case l_true:
-                ++num_iterations;
-                break;
-            case l_false:
-                m_to_patch.insert(v);
-                set_infeasible_base(v);
-                ++m_stats.m_num_infeasible;
+        while (m_limit.inc() && num_iterations < m_max_iterations) {
+            if (inconsistent()) 
                 return l_false;
-            case l_undef:
-                m_to_patch.insert(v);
-                if (ineqs_are_violated())
-                    return l_false;
+            if (!propagate())
+                return l_false;
+            if (is_satisfied())
+                return l_true;
+            if (!patch())
                 return l_undef;
-            }
+            ++num_iterations;            
+            SASSERT(well_formed());
         }
-        SASSERT(well_formed());
-        if (ineqs_are_violated())
-            return l_false;
-        if (ineqs_are_satisfied() && m_num_non_integral == 0)
-            return l_true;
         return l_undef;
     }
+
+    template<typename Ext>
+    bool fixplex<Ext>::patch() {
+        var_t v = select_var_to_fix();
+        if (v == null_var)
+            return false;
+        check_blands_rule(v);
+        switch (make_var_feasible(v)) {
+        case l_true:
+            return true;
+        case l_false:
+            m_to_patch.insert(v);
+            set_infeasible_base(v);
+            return true;
+        case l_undef:
+            m_to_patch.insert(v);
+            return false;
+        }
+        UNREACHABLE();
+        return true;
+    }   
 
     template<typename Ext>
     void fixplex<Ext>::add_row(var_t base_var, unsigned num_vars, var_t const* vars, rational const* coeffs) {
@@ -277,6 +280,7 @@ namespace polysat {
         m_vars[var].m_is_base = false;
         m_vars[var].set_free();
         m_rows[r.id()].m_base = null_var;
+        m_non_integral.remove(r.id());
         M.del(r);
         SASSERT(M.col_begin(var) == M.col_end(var));
         SASSERT(well_formed());
@@ -414,8 +418,6 @@ namespace polysat {
             numeral const& b = r.coeff();
             if (x == y)
                 continue;
-            if (y == m_last_pivot_var)
-                continue;
             if (!has_minimal_trailing_zeros(y, b))
                 continue;
             numeral new_y_value = solve_for(row_value - b * value(y), b);
@@ -478,7 +480,7 @@ namespace polysat {
         row r = base2row(x);
         for (auto const& c : M.col_entries(r)) {
             var_t y = c.var();
-            if (x == y || y >= result || y == m_last_pivot_var)
+            if (x == y || y >= result)
                 continue;
             numeral const& b = c.coeff();
             if (can_improve(y, b)) {
@@ -615,7 +617,8 @@ namespace polysat {
         m_var2ineqs.reserve(std::max(v, w) + 1);
         m_var2ineqs[v].push_back(idx);
         m_var2ineqs[w].push_back(idx);
-        m_ineqs_to_check.push_back(idx);
+        touch_var(v);
+        m_ineqs_to_propagate.insert(idx);
         m_trail.push_back(trail_i::add_ineq_i);
         m_ineqs.push_back(ineq(v, w, mk_leaf(dep), strict));
     }
@@ -630,49 +633,32 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::touch_var(var_t v) {
-        if (v >= m_var2ineqs.size())
-            return;
-        if (m_var_is_touched.get(v, false))
-            return;
-        m_var_is_touched.setx(v, true, false);
-        for (auto idx : m_var2ineqs[v]) {
-            if (!m_ineqs[idx].is_active) {
-                m_ineqs[idx].is_active = true;
-                m_ineqs_to_check.push_back(idx);
-            }
-        }
-    }
-
-    template<typename Ext>
-    void fixplex<Ext>::reset_ineqs_to_check() {
-        for (auto idx : m_ineqs_to_check) {
-            if (idx >= m_ineqs.size())
-                continue;
-            auto& ineq = m_ineqs[idx];
-            m_var_is_touched.setx(ineq.v, false, false);
-            m_var_is_touched.setx(ineq.w, false, false);
-            ineq.is_active = false;
-        }
-        m_ineqs_to_check.reset();
+        m_touched_vars.insert(v);       
     }
 
     /**
     * Check if the current assignment satisfies the inequalities
     */
     template<typename Ext>
-    bool fixplex<Ext>::ineqs_are_satisfied() {
-        for (auto idx : m_ineqs_to_check) {
-            if (idx >= m_ineqs.size())
-                continue;
-            auto& ineq = m_ineqs[idx];
-            var_t v = ineq.v;
-            var_t w = ineq.w;
-            if (ineq.strict && value(v) >= value(w)) 
-                return false;            
-            if (!ineq.strict && value(v) > value(w))
-                return false;            
+    bool fixplex<Ext>::is_satisfied() {
+        if (!m_to_patch.empty())
+            return false;
+        if (!m_non_integral.empty())
+            return false;
+        for (auto var : m_touched_vars) {
+            for (auto idx : m_var2ineqs[var]) {
+                if (idx >= m_ineqs.size())
+                    continue;
+                auto& ineq = m_ineqs[idx];
+                var_t v = ineq.v;
+                var_t w = ineq.w;
+                if (ineq.strict && value(v) >= value(w))
+                    return false;
+                if (!ineq.strict && value(v) > value(w))
+                    return false;
+            }
         }
-        reset_ineqs_to_check();
+        m_touched_vars.reset();
         return true;
     }
 
@@ -680,16 +666,16 @@ namespace polysat {
     * Propagate bounds and check if the current inequalities are satisfied
     */
     template<typename Ext>
-    bool fixplex<Ext>::ineqs_are_violated() {
+    bool fixplex<Ext>::propagate() {
         lbool r;
-        for (unsigned i = 0; i < m_ineqs_to_check.size(); ++i) {
-            unsigned idx = m_ineqs_to_check[i];
+        for (unsigned idx : m_ineqs_to_propagate) {
             if (idx >= m_ineqs.size())
                 continue;
             if (r = propagate_ineqs(m_ineqs[idx]), r == l_false)
-                return true;
+                return false;
         }
-        return false;
+        m_ineqs_to_propagate.reset();
+        return true;
     }
 
     /**
@@ -799,7 +785,7 @@ namespace polysat {
          z = base(r)
          d = base_coeff(r)
          b1 = (b >> tz(b))
-         c1 = (c >> (tz(c) - tz(b)))
+         c1 = (c >> tz(b))
          r <- b1 * r  - c1 * r_x
          value(r) := b1 * value(r) - b1 * old_value(y) - c1 * value(r_x)
          value(z) := - value(r) / d
@@ -808,7 +794,6 @@ namespace polysat {
     template<typename Ext>
     void fixplex<Ext>::pivot(var_t x, var_t y, numeral const& b, numeral const& new_value) {
         ++m_stats.m_num_pivots;
-        m_last_pivot_var = x;
         SASSERT(is_base(x));
         SASSERT(!is_base(y));
         var_info& xI = m_vars[x];
@@ -909,7 +894,7 @@ namespace polysat {
         m_inconsistent = true;
         m_trail.push_back(trail_i::set_inconsistent_i);
         m_deps.linearize(todo, m_unsat_core);
-
+        ++m_stats.m_num_infeasible;
     }
 
     /**
@@ -975,15 +960,15 @@ namespace polysat {
     }
 
     template<typename Ext>
-    void fixplex<Ext>::check_blands_rule(var_t v, unsigned& num_repeated) {
+    void fixplex<Ext>::check_blands_rule(var_t v) {
         if (m_bland) 
             return;
         if (!m_left_basis.contains(v)) 
             m_left_basis.insert(v);
         else {
-            ++num_repeated;
-            m_bland = num_repeated > m_blands_rule_threshold;
-            CTRACE("polysat", m_bland, tout << "using blands rule, " << num_repeated << "\n";);
+            ++m_num_repeated;
+            m_bland = m_num_repeated > m_blands_rule_threshold;
+            CTRACE("polysat", m_bland, tout << "using blands rule, " << m_num_repeated << "\n";);
         }
     }
 
@@ -1038,12 +1023,11 @@ namespace polysat {
         row r = base2row(x);
         m_vars[x].m_value = solve_for(row2value(r), row2base_coeff(r));
         touch_var(x);
-        bool was_integral = row_is_integral(r);
         m_rows[r.id()].m_integral = is_solved(r);
-        if (was_integral && !row_is_integral(r))
-            ++m_num_non_integral;
-        else if (!was_integral && row_is_integral(r))
-            --m_num_non_integral;                 
+        if (row_is_integral(r))
+            m_non_integral.remove(r.id());
+        else 
+            m_non_integral.insert(r.id());            
     }
 
     /**
@@ -1152,6 +1136,7 @@ namespace polysat {
         m_var_eqs.push_back(var_eq(x, y, r1, r2));
     }    
 
+#if 0
     template<typename Ext>
     lbool fixplex<Ext>::propagate_bounds() {
         lbool r = l_true;
@@ -1163,6 +1148,7 @@ namespace polysat {
                 return r;
         return l_true;
     }
+#endif
 
     //
     // DFS search propagating inequalities
@@ -1185,12 +1171,9 @@ namespace polysat {
         // std::cout << "propagate " << i0 << "\n";
         if (!propagate_ineq(i0))
             return l_false;
-        if (old_lo == m_vars[i0.w].lo && i0.is_touched) 
-            return l_true;
         on_stack.reset();
         stack.reset();
         stack.push_back(std::make_pair(0, i0));
-        i0.is_touched = true;
         on_stack.insert(i0.v);
         while (!stack.empty()) {
             if (!m_limit.inc())
@@ -1209,8 +1192,7 @@ namespace polysat {
                     return l_false;      
                 
                 bool is_onstack = on_stack.contains(i_out.w);
-                if ((old_lo != m_vars[i_out.w].lo || !i_out.is_touched) && !is_onstack) {
-                    i_out.is_touched = true;
+                if ((old_lo != m_vars[i_out.w].lo) && !is_onstack) {
                     on_stack.insert(i_out.w);
                     stack.back().first = ineq_out + 1;
                     stack.push_back(std::make_pair(0, i_out));
@@ -1528,6 +1510,7 @@ namespace polysat {
         m_deps.linearize(a, m_unsat_core);
         SASSERT(!m_inconsistent);
         m_inconsistent = true;
+        ++m_stats.m_num_infeasible;
         m_trail.push_back(trail_i::set_inconsistent_i);
         TRACE("polysat", tout << "core: " << m_unsat_core << "\n";);
     }
@@ -1657,7 +1640,7 @@ return d;
         st.update("fixplex num pivots", m_stats.m_num_pivots);
         st.update("fixplex num infeasible", m_stats.m_num_infeasible);
         st.update("fixplex num checks", m_stats.m_num_checks);
-        st.update("fixplex num non-integral", m_num_non_integral);
+        st.update("fixplex num non-integral", m_non_integral.num_elems());
         st.update("fixplex num approximated row additions", m_stats.m_num_approx);
     }
 }

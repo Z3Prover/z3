@@ -71,21 +71,18 @@ namespace polysat {
         fp.set_bounds(x, 3, 4, 1);
         fp.set_bounds(y, 3, 6, 2);
         fp.run();
-        fp.propagate_bounds();
         fp.reset();
         coeffs[2] = 0ull - 1;
         fp.add_row(x, 3, ys, coeffs);
         fp.set_bounds(x, 3, 4, 1);
         fp.set_bounds(y, 3, 6, 2);
         fp.run();
-        fp.propagate_bounds();
         fp.reset();
         fp.add_row(x, 3, ys, coeffs);
         fp.set_bounds(x, 3, 4, 1);
         fp.set_bounds(y, 3, 6, 2);
         fp.set_bounds(z, 1, 8, 3);
         fp.run();
-        fp.propagate_bounds();
         fp.reset();
     }
 
@@ -372,30 +369,34 @@ namespace polysat {
     }
 
     static void save_scenario(
+        unsigned id,
         vector<svector<std::pair<unsigned, uint64_t>>> const& rows,
         svector<ineq> const& ineqs,
         vector<mod_interval<uint64_t>> const& bounds) {
-        std::cout << "static void scenario() {";
-        std::cout << "    vector<svector<std::pair<unsigned, uint64_t>>> rows\n;";
-        std::cout << "    svector<ineq> ineqs\n;";
-        std::cout << "    vector<mod_interval<uint64_t>> bounds\n";
-        for (auto row : rows) {
+        std::cout << "static void scenario" << id << "() {\n";
+        std::cout << "    vector<svector<std::pair<unsigned, uint64_t>>> rows;\n";
+        std::cout << "    svector<ineq> ineqs;\n";
+        std::cout << "    vector<mod_interval<uint64_t>> bounds;\n";
+        for (auto const& row : rows) {
             std::cout << "    rows.push_back(svector<std::pair<unsigned, uint64_t>>());\n";
             for (auto col : row)
                 std::cout << "    rows.back().push_back(std::make_pair(" << col.first << ", " << col.second << ");\n";
         }
-        for (auto ineq : ineqs)
-            std::cout << "    ineqs.push_back(ineq(" << ineq.v << ", " << ineq.w << " " << ineq.strict << ");\n";
-        for (auto bound : bounds)
+        for (auto const& ineq : ineqs)
+            std::cout << "    ineqs.push_back(ineq(" << ineq.v << ", " << ineq.w << ", 0, " << (ineq.strict?"true":"false") << ");\n";
+        for (auto const& bound : bounds)
             std::cout << "    bounds.push_back(mod_interval<uint64_t>(" << bound.lo << ", " << bound.hi << ");\n";
-        std::cout << "    test_lp(rows, ineqs, bounds);\n}\n";
+        std::cout << "    test_lp(rows, ineqs, bounds); \n }\n";
     }
 
+    static unsigned num_test = 0;
 
     static void test_lp(
         vector<svector<std::pair<unsigned, uint64_t>>> const& rows,
         svector<ineq> const& ineqs,
         vector<mod_interval<uint64_t>> const& bounds) {
+
+        // save_scenario(++num_test, rows, ineqs, bounds);
 
         unsigned num_vars = 0;
         for (auto const& row : rows)

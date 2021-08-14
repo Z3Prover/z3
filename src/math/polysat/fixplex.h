@@ -64,8 +64,6 @@ namespace polysat {
         var_t v = UINT_MAX;
         var_t w = UINT_MAX;
         bool strict = false;
-        bool is_active = true;
-        bool is_touched = false;
         u_dependency* dep = nullptr;
         ineq(var_t v, var_t w, u_dependency* dep, bool s) :
             v(v), w(w), strict(s), dep(dep) {}
@@ -174,13 +172,14 @@ namespace polysat {
         mutable matrix              M;
         unsigned                    m_max_iterations = UINT_MAX;
         unsigned                    m_num_non_integral = 0;
+        uint_set                    m_non_integral;
         var_heap                    m_to_patch;
         vector<var_info>            m_vars;
         vector<row_info>            m_rows;
         vector<var_eq>              m_var_eqs;
         bool                        m_bland = false ;
         unsigned                    m_blands_rule_threshold = 1000;
-        var_t                       m_last_pivot_var = null_var;
+        unsigned                    m_num_repeated = 0;
         random_gen                  m_random;
         uint_set                    m_left_basis;
         unsigned_vector             m_unsat_core; 
@@ -195,10 +194,9 @@ namespace polysat {
 
         // inequalities
         svector<ineq>               m_ineqs;
-        unsigned_vector             m_ineqs_to_check;
-        bool_vector                 m_var_is_touched;
+        uint_set                    m_ineqs_to_propagate;
+        uint_set                    m_touched_vars;
         vector<unsigned_vector>     m_var2ineqs;
-        svector<var_t>              m_vars_to_untouch;
 
     public:
         fixplex(params_ref const& p, reslimit& lim):
@@ -239,7 +237,6 @@ namespace polysat {
         void set_max_iterations(unsigned n) { m_max_iterations = n; }
         unsigned get_num_vars() const { return m_vars.size(); }
         void reset();
-        lbool propagate_bounds();
 
         svector<std::pair<unsigned, ineq>> stack;
         uint_set on_stack;
@@ -259,6 +256,10 @@ namespace polysat {
 
         void update_value_core(var_t v, numeral const& delta);
         void ensure_var(var_t v);
+
+        bool patch();
+        bool propagate();
+        bool is_satisfied();
 
         var_t select_smallest_var() { return m_to_patch.empty()?null_var:m_to_patch.erase_min(); }
         lbool make_var_feasible(var_t x_i);
@@ -306,7 +307,7 @@ namespace polysat {
         int get_num_non_free_dep_vars(var_t x_j, int best_so_far);
         void add_patch(var_t v);
         var_t select_var_to_fix();
-        void check_blands_rule(var_t v, unsigned& num_repeated);
+        void check_blands_rule(var_t v);
         pivot_strategy_t pivot_strategy() { return m_bland ? S_BLAND : S_DEFAULT; }
         var_t select_error_var(bool least);
         void set_infeasible_base(var_t v);
@@ -317,9 +318,7 @@ namespace polysat {
         // facilities for handling inequalities
         void add_ineq(var_t v, var_t w, unsigned dep, bool strict);
         void touch_var(var_t x);
-        bool ineqs_are_violated();
-        bool ineqs_are_satisfied();
-        void reset_ineqs_to_check();
+
 
         bool is_solved(row const& r) const;
         bool is_solved(var_t v) const { SASSERT(is_base(v)); return is_solved(base2row(v)); }
