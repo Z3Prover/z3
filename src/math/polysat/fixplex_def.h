@@ -82,7 +82,6 @@ namespace polysat {
         reset();
     }
 
-
     template<typename Ext>
     void fixplex<Ext>::updt_params(params_ref const& p) {
         m_max_iterations = p.get_uint("max_iterations", m_max_iterations);
@@ -117,6 +116,13 @@ namespace polysat {
                 m_inconsistent = false;
                 m_unsat_core.reset();
                 break;
+            case trail_i::add_eq_i:
+                m_var_eqs.pop_back();
+                break;
+            case trail_i::fixed_val_i:
+                m_value2fixed_var.erase(m_fixed_vals.back());
+                m_fixed_vals.pop_back();
+                break;
             default:
                 UNREACHABLE();
             }
@@ -142,7 +148,6 @@ namespace polysat {
         m_rows.reset();
         m_left_basis.reset();
         m_base_vars.reset();
-        m_var_eqs.reset();
     }
 
     template<typename Ext>
@@ -275,7 +280,6 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::del_row(row const& r) {
-        m_var_eqs.reset();
         var_t var = row2base(r);
         m_vars[var].m_is_base = false;
         m_vars[var].set_free();
@@ -668,13 +672,12 @@ namespace polysat {
     template<typename Ext>
     bool fixplex<Ext>::propagate() {
         lbool r;
-        for (unsigned idx : m_ineqs_to_propagate) {
-            if (idx >= m_ineqs.size())
-                continue;
-            if (r = propagate_ineqs(m_ineqs[idx]), r == l_false)
+        while (!m_ineqs_to_propagate.empty()) {
+            unsigned idx = *m_ineqs_to_propagate.begin();        
+            if (idx < m_ineqs.size() && (r = propagate_ineqs(idx), r == l_false))
                 return false;
-        }
-        m_ineqs_to_propagate.reset();
+            m_ineqs_to_propagate.remove(idx);
+        }        
         return true;
     }
 
@@ -1111,9 +1114,9 @@ namespace polysat {
                 std::swap(cz, cu);
             }
             if (z == x && u != y && cx == cz && cu == cy && value(u) == value(y)) 
-                eq_eh(u, y, r1, r2);                
+                eq_eh(u, y, m_deps.mk_join(row2dep(r1), row2dep(r2)));                
             if (z == x && u != y && cx + cz == 0 && cu + cy == 0 && value(u) == value(y)) 
-                eq_eh(u, y, r1, r2);                
+                eq_eh(u, y, m_deps.mk_join(row2dep(r1), row2dep(r2)));
 
         }
     }
@@ -1122,18 +1125,24 @@ namespace polysat {
      * Accumulate equalities between variables fixed to the same values.
      */
     template<typename Ext>
-    void fixplex<Ext>::fixed_var_eh(row const& r, var_t x) {
+    void fixplex<Ext>::fixed_var_eh(u_dependency* dep, var_t x) {
         numeral val = value(x);
         fix_entry e;
-        if (m_value2fixed_var.find(val, e) && is_valid_variable(e.x) && is_fixed(e.x) && value(e.x) == val && e.x != x) 
-            eq_eh(x, e.x, e.r, r);
-        else 
-            m_value2fixed_var.insert(val, fix_entry(x, r));
+        if (m_value2fixed_var.find(val, e)) {
+            SASSERT(x != e.x);
+            eq_eh(x, e.x, m_deps.mk_join(e.dep, dep));
+        }
+        else {
+            m_value2fixed_var.insert(val, fix_entry(x, dep));
+            m_fixed_vals.push_back(val);
+            m_trail.push_back(trail_i::fixed_val_i);
+        }
     }
 
     template<typename Ext>
-    void fixplex<Ext>::eq_eh(var_t x, var_t y, row const& r1, row const& r2) {
-        m_var_eqs.push_back(var_eq(x, y, r1, r2));
+    void fixplex<Ext>::eq_eh(var_t x, var_t y, u_dependency* dep) {
+        m_var_eqs.push_back(var_eq(x, y, dep));
+        m_trail.push_back(trail_i::add_eq_i);
     }    
 
 #if 0
@@ -1165,7 +1174,8 @@ namespace polysat {
     //
 
     template<typename Ext>
-    lbool fixplex<Ext>::propagate_ineqs(ineq& i0) {
+    lbool fixplex<Ext>::propagate_ineqs(unsigned i0_idx) {
+        ineq i0 = m_ineqs[i0_idx];
         numeral old_lo = m_vars[i0.w].lo;
         SASSERT(!m_inconsistent);
         // std::cout << "propagate " << i0 << "\n";
@@ -1173,12 +1183,13 @@ namespace polysat {
             return l_false;
         on_stack.reset();
         stack.reset();
-        stack.push_back(std::make_pair(0, i0));
+        stack.push_back(std::make_pair(0, i0_idx));
         on_stack.insert(i0.v);
         while (!stack.empty()) {
             if (!m_limit.inc())
                 return l_undef;
-            auto [ineq_out, i] = stack.back();        
+            auto [ineq_out, i_idx] = stack.back();        
+            ineq i = m_ineqs[i_idx];
             auto const& ineqs = m_var2ineqs[i.w];
             for (; ineq_out < ineqs.size(); ++ineq_out) {
                 auto& i_out = m_ineqs[ineqs[ineq_out]];
@@ -1192,10 +1203,10 @@ namespace polysat {
                     return l_false;      
                 
                 bool is_onstack = on_stack.contains(i_out.w);
-                if ((old_lo != m_vars[i_out.w].lo) && !is_onstack) {
+                if ((old_lo != m_vars[i_out.w].lo || m_ineqs_to_propagate.contains(ineqs[ineq_out])) && !is_onstack) {
                     on_stack.insert(i_out.w);
                     stack.back().first = ineq_out + 1;
-                    stack.push_back(std::make_pair(0, i_out));
+                    stack.push_back(std::make_pair(0, ineqs[ineq_out]));
                     break;
                 }
 
@@ -1208,7 +1219,7 @@ namespace polysat {
                 auto bound = m_vars[i_out.w];
                 unsigned j = stack.size();
                 for (; !found && j-- > 0; ) {
-                    ineq i2 = stack[j].second;
+                    ineq i2 = m_ineqs[stack[j].second];
                     strict |= i2.strict;
                     bound &= m_vars[i2.w];
                     if (i2.v == i_out.w) 
@@ -1219,12 +1230,13 @@ namespace polysat {
                 if ((empty || strict) && found) {
                     auto* d = i_out.dep;
                     for (; j < stack.size(); ++j) 
-                        d = m_deps.mk_join(d, stack[j].second.dep);
+                        d = m_deps.mk_join(d, m_ineqs[stack[j].second].dep);
                     conflict(d);
                     return l_false;
                 }
             }
             if (ineq_out == ineqs.size()) {
+                m_ineqs_to_propagate.remove(i_idx);
                 on_stack.remove(i.w);
                 stack.pop_back();
             }
@@ -1523,36 +1535,36 @@ namespace polysat {
             d = m_deps.mk_join(m_vars[v].m_lo_dep, d);
             d = m_deps.mk_join(m_vars[v].m_hi_dep, d);
         }
-return d;
+        return d;
     }
 
     template<typename Ext>
     bool fixplex<Ext>::new_bound(ineq const& i, var_t x, numeral const& l, numeral const& h, u_dependency* a, u_dependency* b, u_dependency* c, u_dependency* d) {
-        bool was_fixed = lo(x) + 1 == hi(x);
+        bool was_fixed = is_fixed(x);
         SASSERT(!inconsistent());
         u_dependency* dep = m_deps.mk_join(i.dep, m_deps.mk_join(a, m_deps.mk_join(b, m_deps.mk_join(c, d))));
         update_bounds(x, l, h, dep);
         if (inconsistent())
             return false;
-        else if (!was_fixed && lo(x) + 1 == hi(x)) {
-            // TBD: track based on inequality not row
-            // fixed_var_eh(r, x);
-        }
+        if (!was_fixed && is_fixed(x)) 
+            fixed_var_eh(dep, x);
+        
         return true;
     }
 
     template<typename Ext>
     bool fixplex<Ext>::new_bound(row const& r, var_t x, mod_interval<numeral> const& range) {
-        if (range.is_free())
+        if (range.contains(m_vars[x]))
             return l_true;
         SASSERT(!inconsistent());
-        bool was_fixed = lo(x) + 1 == hi(x);
-        update_bounds(x, range.lo, range.hi, row2dep(r));
+        bool was_fixed = is_fixed(x);
+        u_dependency* dep = row2dep(r);
+        update_bounds(x, range.lo, range.hi, dep);
         IF_VERBOSE(0, verbose_stream() << "new-bound v" << x << " " << m_vars[x] << "\n");
         if (inconsistent())
             return false;
-        else if (!was_fixed && lo(x) + 1 == hi(x))
-            fixed_var_eh(r, x);
+        if (!was_fixed && is_fixed(x))
+            fixed_var_eh(dep, x);
         return true;
     }
 

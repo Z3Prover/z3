@@ -17,6 +17,7 @@ Author:
 #include "math/polysat/fixplex_def.h"
 #include "math/polysat/solver.h"
 
+inline unsigned numeral2hash(u256 const& n) { return n.hash(); }
 
 namespace polysat {
 

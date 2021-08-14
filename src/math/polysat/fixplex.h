@@ -33,6 +33,11 @@ Author:
 inline rational to_rational(uint64_t n) { return rational(n, rational::ui64()); }
 inline unsigned trailing_zeros(unsigned short n) { return trailing_zeros((uint32_t)n); }
 inline unsigned trailing_zeros(unsigned char n) { return trailing_zeros((uint32_t)n); }
+inline unsigned numeral2hash(unsigned char const& n) { return n; }
+inline unsigned numeral2hash(unsigned short const& n) { return n; }
+inline unsigned numeral2hash(uint32_t const& n) { return n; }
+inline unsigned numeral2hash(uint64_t const& n) { return static_cast<unsigned>(n ^ (n >> 32)); }
+
 
 namespace polysat {
 
@@ -86,9 +91,9 @@ namespace polysat {
 
         struct var_eq {
             var_t x, y;
-            row r1, r2;
-            var_eq(var_t x, var_t y, row const& r1, row const& r2):
-                x(x), y(y), r1(r1), r2(r2) {}
+            u_dependency* dep;
+            var_eq(var_t x, var_t y, u_dependency* dep):
+                x(x), y(y), dep(dep) {}
         };
 
     protected:
@@ -152,10 +157,10 @@ namespace polysat {
         };
 
         struct fix_entry {
-            var_t x;
-            row r;
-            fix_entry(var_t x, row const& r): x(x), r(r) {}
-            fix_entry():x(null_var), r(0) {}
+            var_t x = null_var;
+            u_dependency* dep = nullptr;
+            fix_entry(var_t x, u_dependency* dep): x(x), dep(dep) {}
+            fix_entry() {}
         };
 
         enum trail_i {
@@ -163,7 +168,9 @@ namespace polysat {
             set_bound_i,
             set_inconsistent_i,
             add_ineq_i,
-            add_row_i
+            add_row_i,
+            add_eq_i,
+            fixed_val_i
         };
 
         static const var_t null_var = UINT_MAX;
@@ -177,6 +184,7 @@ namespace polysat {
         vector<var_info>            m_vars;
         vector<row_info>            m_rows;
         vector<var_eq>              m_var_eqs;
+        vector<numeral>             m_fixed_vals;
         bool                        m_bland = false ;
         unsigned                    m_blands_rule_threshold = 1000;
         unsigned                    m_num_repeated = 0;
@@ -238,12 +246,11 @@ namespace polysat {
         unsigned get_num_vars() const { return m_vars.size(); }
         void reset();
 
-        svector<std::pair<unsigned, ineq>> stack;
+        svector<std::pair<unsigned, unsigned>> stack;
         uint_set on_stack;
-        lbool propagate_ineqs(ineq& i0);
+        lbool propagate_ineqs(unsigned idx);
         void propagate_eqs();
         vector<var_eq> const& var_eqs() const { return m_var_eqs; }
-        void reset_eqs() { m_var_eqs.reset(); }
 
         void add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs);
         
@@ -268,8 +275,8 @@ namespace polysat {
         bool is_offset_row(row const& r, numeral& cx, var_t& x, numeral& cy, var_t & y) const;
         void lookahead_eq(row const& r1, numeral const& cx, var_t x, numeral const& cy, var_t y);
         void get_offset_eqs(row const& r);
-        void fixed_var_eh(row const& r, var_t x);
-        void eq_eh(var_t x, var_t y, row const& r1, row const& r2);
+        void fixed_var_eh(u_dependency* dep, var_t x);
+        void eq_eh(var_t x, var_t y, u_dependency* dep);
         bool propagate_row(row const& r);
         bool propagate_ineq(ineq const& i);
         bool propagate_strict_bounds(ineq const& i);
@@ -349,7 +356,7 @@ namespace polysat {
             typedef uint_type numeral;
             struct hash {
                 unsigned operator()(numeral const& n) const { 
-                    return static_cast<unsigned>(n); 
+                    return numeral2hash(n); 
                 }
             };
             struct eq {

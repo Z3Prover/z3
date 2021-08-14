@@ -43,6 +43,11 @@ u256::u256(uint64_t const* v) {
     std::uninitialized_copy(v, v + 4, m_num);
 }
 
+unsigned u256::hash() const {
+    uint64_t h = m_num[0] + m_num[1] + m_num[2] + m_num[3];
+    return static_cast<unsigned>(h ^ (h >> 32ull));
+}
+
 u256 u256::operator*(u256 const& other) const {
     // TBD: maybe just use mpn_manager::mul?
     uint64_t result[8];

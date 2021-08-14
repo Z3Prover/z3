@@ -16,6 +16,7 @@ public:
         *this = u256(n);
         return *this;
     }
+    unsigned hash() const;
     u256 operator*(u256 const& other) const;
     u256 operator+(u256 const& other) const { u256 r = *this; return r += other; }
     u256 operator-(u256 const& other) const { u256 r = *this; return r -= other; }
