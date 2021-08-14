@@ -1210,6 +1210,7 @@ namespace z3 {
         friend expr implies(bool a, expr const & b);
 
         friend expr mk_or(expr_vector const& args);
+        friend expr mk_xor(expr_vector const& args);
         friend expr mk_and(expr_vector const& args);
 
         friend expr ite(expr const & c, expr const & t, expr const & e);
@@ -2383,6 +2384,14 @@ namespace z3 {
         Z3_ast r = Z3_mk_and(args.ctx(), _args.size(), _args.ptr());
         args.check_error();
         return expr(args.ctx(), r);
+    }
+    inline expr mk_xor(expr_vector const& args) {
+        if (args.empty())
+            return args.ctx().bool_val(false);
+        expr r = args[0];
+        for (unsigned i = 1; i < args.size(); ++i)
+            r = r ^ args[i];
+        return r;
     }
 
 
