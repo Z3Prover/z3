@@ -8,8 +8,8 @@
 #define __FStar_UInt128_Verified_H
 #include <inttypes.h>
 #include <stdbool.h>
-#include "kremlin/internal/types.h"
-#include "kremlin/internal/target.h"
+#include "math/bigfix/types.h"
+#include "math/bigfix/target.h"
 
 
 #include "FStar_UInt_8_16_32_64.h"
