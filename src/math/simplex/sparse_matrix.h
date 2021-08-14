@@ -32,7 +32,6 @@ namespace simplex {
         typedef typename Ext::manager manager;
         typedef unsigned var_t;
 
-        struct column;
 
         class row_entry {
             friend class sparse_matrix;
@@ -45,6 +44,7 @@ namespace simplex {
         };
 
     private:
+        struct column;
         
         struct stats {
             unsigned m_add_rows;
