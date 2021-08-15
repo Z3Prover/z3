@@ -91,11 +91,13 @@ namespace polysat {
     void fixplex<Ext>::push() {
         m_trail.push_back(trail_i::inc_level_i);
         m_deps.push_scope();
+        m_union_find_ctx.get_trail_stack().push_scope();
     }
 
     template<typename Ext>
     void fixplex<Ext>::pop(unsigned n) {
         m_deps.pop_scope(n);
+        m_union_find_ctx.get_trail_stack().pop_scope(n);
         while (n > 0) {
             switch (m_trail.back()) {
             case trail_i::inc_level_i:
@@ -135,6 +137,7 @@ namespace polysat {
         while (v >= m_vars.size()) {
             M.ensure_var(m_vars.size());
             m_vars.push_back(var_info());
+            m_union_find.mk_var();
         }
         if (m_to_patch.get_bounds() <= v)
             m_to_patch.set_bounds(2 * v + 1);
@@ -242,6 +245,8 @@ namespace polysat {
         SASSERT(well_formed());
         m_trail.push_back(trail_i::add_row_i);
         m_row_trail.push_back(base_var);
+        m_eq_rows.insert(r.id());
+        m_bound_rows.insert(r.id());
     }
 
     template<typename Ext>
@@ -286,6 +291,8 @@ namespace polysat {
         m_rows[r.id()].m_base = null_var;
         m_non_integral.remove(r.id());
         M.del(r);
+        m_eq_rows.remove(r.id());
+        m_bound_rows.remove(r.id());
         SASSERT(M.col_begin(var) == M.col_end(var));
         SASSERT(well_formed());
     }
@@ -671,11 +678,21 @@ namespace polysat {
     */
     template<typename Ext>
     bool fixplex<Ext>::propagate() {
-        lbool r;
-        while (!m_ineqs_to_propagate.empty()) {
-            unsigned idx = *m_ineqs_to_propagate.begin();        
-            if (idx < m_ineqs.size() && (r = propagate_ineqs(idx), r == l_false))
-                return false;
+        return propagate_ineqs() && propagate_row_bounds() && propagate_row_eqs();
+    }
+
+    template<typename Ext>
+    bool fixplex<Ext>::propagate_ineqs() {
+        lbool r = l_true;
+        while (!m_ineqs_to_propagate.empty() && r == l_true) {
+            unsigned idx = *m_ineqs_to_propagate.begin();  
+            if (idx >= m_ineqs.size()) {
+                m_ineqs_to_propagate.remove(idx);
+                continue;
+            }
+            r = propagate_ineqs(idx);
+            if (r == l_undef)
+                return true;
             m_ineqs_to_propagate.remove(idx);
         }        
         return true;
@@ -845,6 +862,9 @@ namespace polysat {
      * c           - coefficient of y in r_z
      * 
      * returns true if elimination preserves equivalence (is lossless).
+     * 
+     * TBD: add r_z.id() to m_eq_rows, m_bound_rows with some frequency?
+     * 
      */
     template<typename Ext>
     bool fixplex<Ext>::eliminate_var(
@@ -871,6 +891,7 @@ namespace polysat {
         return tz_b <= tz_c;
     }
 
+#if 0
     template<typename Ext>
     bool fixplex<Ext>::is_feasible() const {
         for (unsigned i = m_vars.size(); i-- > 0; )
@@ -878,6 +899,7 @@ namespace polysat {
                 return false;
         return true;
     }
+#endif
 
     /***
     * Record an infeasible row.
@@ -1055,9 +1077,11 @@ namespace polysat {
      */
 
     template<typename Ext>
-    void fixplex<Ext>::propagate_eqs() {
-        for (unsigned i = 0; i < m_rows.size(); ++i) 
-            get_offset_eqs(row(i));        
+    bool fixplex<Ext>::propagate_row_eqs() {
+        for (unsigned i : m_eq_rows)
+            get_offset_eqs(row(i));  
+        m_eq_rows.reset();
+        return !inconsistent();
     }
 
 
@@ -1113,11 +1137,10 @@ namespace polysat {
                 std::swap(z, u);
                 std::swap(cz, cu);
             }
-            if (z == x && u != y && cx == cz && cu == cy && value(u) == value(y)) 
+            if (z == x && find(u) != find(y) && cx == cz && cu == cy && value(u) == value(y)) 
                 eq_eh(u, y, m_deps.mk_join(row2dep(r1), row2dep(r2)));                
-            if (z == x && u != y && cx + cz == 0 && cu + cy == 0 && value(u) == value(y)) 
+            if (z == x && find(u) != find(y) && cx + cz == 0 && cu + cy == 0 && value(u) == value(y)) 
                 eq_eh(u, y, m_deps.mk_join(row2dep(r1), row2dep(r2)));
-
         }
     }
 
@@ -1129,8 +1152,8 @@ namespace polysat {
         numeral val = value(x);
         fix_entry e;
         if (m_value2fixed_var.find(val, e)) {
-            SASSERT(x != e.x);
-            eq_eh(x, e.x, m_deps.mk_join(e.dep, dep));
+            if (find(x) != find(e.x))
+                eq_eh(x, e.x, m_deps.mk_join(e.dep, dep));
         }
         else {
             m_value2fixed_var.insert(val, fix_entry(x, dep));
@@ -1141,23 +1164,20 @@ namespace polysat {
 
     template<typename Ext>
     void fixplex<Ext>::eq_eh(var_t x, var_t y, u_dependency* dep) {
+        SASSERT(find(x) != find(y));
+        merge(x, y);
         m_var_eqs.push_back(var_eq(x, y, dep));
         m_trail.push_back(trail_i::add_eq_i);
-    }    
+    }   
 
-#if 0
     template<typename Ext>
-    lbool fixplex<Ext>::propagate_bounds() {
-        lbool r = l_true;
-        for (unsigned i = 0; i < m_rows.size(); ++i) 
+    bool fixplex<Ext>::propagate_row_bounds() {
+        for (unsigned i : m_bound_rows)
             if (!propagate_row(row(i)))
-                return l_false;
-        for (auto ineq : m_ineqs) 
-            if (r = propagate_ineqs(ineq), r != l_true)
-                return r;
-        return l_true;
+                return false;
+        m_bound_rows.reset();
+        return true;
     }
-#endif
 
     //
     // DFS search propagating inequalities

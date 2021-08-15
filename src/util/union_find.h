@@ -93,6 +93,11 @@ public:
         return r;
     }
 
+    void reserve(unsigned v) {
+        while (get_num_vars() <= v)
+            mk_var();
+    }
+
     unsigned get_num_vars() const { return m_find.size(); }
 
 

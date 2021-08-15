@@ -114,7 +114,6 @@ namespace polysat {
         fp.add_row(z, 3, ys2, coeffs2);
         fp.set_bounds(u, 1, 2, 1);
         fp.run();
-        fp.propagate_eqs();
         for (auto e : fp.var_eqs())
             std::cout << e.x << " == " << e.y << "\n";
         

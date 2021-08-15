@@ -29,6 +29,7 @@ Author:
 #include "util/dependency.h"
 #include "util/ref.h"
 #include "util/params.h"
+#include "util/union_find.h"
 
 inline rational to_rational(uint64_t n) { return rational(n, rational::ui64()); }
 inline unsigned trailing_zeros(unsigned short n) { return trailing_zeros((uint32_t)n); }
@@ -183,8 +184,7 @@ namespace polysat {
         var_heap                    m_to_patch;
         vector<var_info>            m_vars;
         vector<row_info>            m_rows;
-        vector<var_eq>              m_var_eqs;
-        vector<numeral>             m_fixed_vals;
+
         bool                        m_bland = false ;
         unsigned                    m_blands_rule_threshold = 1000;
         unsigned                    m_num_repeated = 0;
@@ -198,7 +198,14 @@ namespace polysat {
         u_dependency_manager        m_deps;
         svector<trail_i>            m_trail;
         svector<var_t>              m_row_trail;
+
+        // euqality propagation
+        union_find_default_ctx      m_union_find_ctx;
+        union_find<>                m_union_find;
+        vector<var_eq>              m_var_eqs;
+        vector<numeral>             m_fixed_vals;
         map<numeral, fix_entry, typename manager::hash, typename manager::eq> m_value2fixed_var;
+        uint_set                    m_eq_rows;
 
         // inequalities
         svector<ineq>               m_ineqs;
@@ -206,11 +213,15 @@ namespace polysat {
         uint_set                    m_touched_vars;
         vector<unsigned_vector>     m_var2ineqs;
 
+        // bound propagation
+        uint_set                    m_bound_rows;
+
     public:
         fixplex(params_ref const& p, reslimit& lim):
             m_limit(lim),
             M(m),
-            m_to_patch(1024) {
+            m_to_patch(1024),
+            m_union_find(m_union_find_ctx) {
             updt_params(p);
         }
 
@@ -249,7 +260,6 @@ namespace polysat {
         svector<std::pair<unsigned, unsigned>> stack;
         uint_set on_stack;
         lbool propagate_ineqs(unsigned idx);
-        void propagate_eqs();
         vector<var_eq> const& var_eqs() const { return m_var_eqs; }
 
         void add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs);
@@ -266,6 +276,9 @@ namespace polysat {
 
         bool patch();
         bool propagate();
+        bool propagate_ineqs();
+        bool propagate_row_eqs();
+        bool propagate_row_bounds();
         bool is_satisfied();
 
         var_t select_smallest_var() { return m_to_patch.empty()?null_var:m_to_patch.erase_min(); }
@@ -276,6 +289,8 @@ namespace polysat {
         void lookahead_eq(row const& r1, numeral const& cx, var_t x, numeral const& cy, var_t y);
         void get_offset_eqs(row const& r);
         void fixed_var_eh(u_dependency* dep, var_t x);
+        var_t find(var_t x) { return m_union_find.find(x); }
+        void merge(var_t x, var_t y) { m_union_find.merge(x, y); }
         void eq_eh(var_t x, var_t y, u_dependency* dep);
         bool propagate_row(row const& r);
         bool propagate_ineq(ineq const& i);
