@@ -1054,11 +1054,13 @@ namespace polysat {
      * 
      */
 
+#if 0
     template<typename Ext>
     void fixplex<Ext>::propagate_eqs() {
         for (unsigned i = 0; i < m_rows.size(); ++i) 
             get_offset_eqs(row(i));        
     }
+#endif
 
 
     template<typename Ext>
@@ -1105,7 +1107,7 @@ namespace polysat {
         numeral cz, cu;
         for (auto c : M.col_entries(x)) {
             auto r2 = c.get_row();
-            if (r1.id() >= r2.id())
+            if (r1.id() == r2.id())
                 continue;
             if (!is_offset_row(r2, cz, z, cu, u))
                 continue;

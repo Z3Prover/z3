@@ -246,10 +246,8 @@ namespace polysat {
         unsigned get_num_vars() const { return m_vars.size(); }
         void reset();
 
-        svector<std::pair<unsigned, unsigned>> stack;
-        uint_set on_stack;
-        lbool propagate_ineqs(unsigned idx);
-        void propagate_eqs();
+
+        // void propagate_eqs();
         vector<var_eq> const& var_eqs() const { return m_var_eqs; }
 
         void add_row(var_t base, unsigned num_vars, var_t const* vars, numeral const* coeffs);
@@ -257,6 +255,10 @@ namespace polysat {
         unsigned_vector const& get_unsat_core() const override { return m_unsat_core; }
 
     private:
+
+        svector<std::pair<unsigned, unsigned>> stack;
+        uint_set on_stack;
+        lbool propagate_ineqs(unsigned idx);
 
         std::ostream& display_row(std::ostream& out, row const& r, bool values = true) const;
         var_t get_base_var(row const& r) const { return m_rows[r.id()].m_base; }
