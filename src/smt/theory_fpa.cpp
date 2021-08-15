@@ -454,6 +454,11 @@ namespace smt {
                     expr * args[] = { bv_val_a->get_arg(0), bv_val_a->get_arg(1), bv_val_a->get_arg(2) };
                     cc_args = m_bv_util.mk_concat(3, args);
                     c = m.mk_eq(wrapped, cc_args);
+		    // NB code review: #5454 exposes a bug in fpa_solver that
+		    // could be latent here as well. It needs also the equality
+		    // n == bv_val_e to be asserted such that whenever something is assigned th
+		    // bit-vector value cc_args it is equated with n
+		    // I don't see another way this constraint would be enforced.
                     assert_cnstr(c);
                     assert_cnstr(mk_side_conditions());
                 }

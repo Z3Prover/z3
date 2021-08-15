@@ -83,6 +83,12 @@ namespace fpa {
         return conds;
     }
 
+    sat::check_result solver::check() {
+        SASSERT(m_converter.m_extra_assertions.empty());
+        SASSERT(m_nodes.size() <= m_nodes_qhead);
+        return sat::check_result::CR_DONE;
+    }
+
     void solver::attach_new_th_var(enode* n) {
         theory_var v = mk_var(n);
         ctx.attach_th_var(n, this, v);
@@ -183,7 +189,7 @@ namespace fpa {
                 add_unit(atom);
             }
         }
-        else {
+        else {            
             switch (a->get_decl_kind()) {
             case OP_FPA_TO_FP:
             case OP_FPA_TO_UBV:
@@ -199,7 +205,7 @@ namespace fpa {
                 break;
             }
         }
-
+        activate(e);
     }
 
     void solver::activate(expr* n) {
@@ -223,7 +229,11 @@ namespace fpa {
                     VERIFY(m_fpa_util.is_fp(bv_val_e, a, b, c));
                     expr* args[] = { a, b, c };
                     expr_ref cc_args(m_bv_util.mk_concat(3, args), m);
+                    // Require
+                    // wrap(n) = bvK
+                    // fp(extract(wrap(n)) = n
                     add_unit(eq_internalize(wrapped, cc_args));
+                    add_unit(eq_internalize(bv_val_e, n));
                     add_units(mk_side_conditions());
                 }
                 else if (m.is_ite(n)) {
@@ -313,6 +323,7 @@ namespace fpa {
         expr* e = n->get_expr();
         app_ref wrapped(m);
         expr_ref value(m);
+        
         auto is_wrapped = [&]() {
             if (!wrapped) wrapped = m_converter.wrap(e);
             return expr2enode(wrapped) != nullptr;
@@ -345,6 +356,7 @@ namespace fpa {
             value = m_fpa_util.mk_pzero(ebits, sbits);
         }
         values.set(n->get_root_id(), value);
+        TRACE("t_fpa", tout << ctx.bpp(n) << " := " << value << "\n";);
     }
 
     bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
