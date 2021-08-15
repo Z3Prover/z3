@@ -138,6 +138,7 @@ namespace polysat {
             M.ensure_var(m_vars.size());
             m_vars.push_back(var_info());
             m_union_find.mk_var();
+            m_var2ineqs.push_back(unsigned_vector());
         }
         if (m_to_patch.get_bounds() <= v)
             m_to_patch.set_bounds(2 * v + 1);
@@ -162,7 +163,7 @@ namespace polysat {
         unsigned num_iterations = 0;
         SASSERT(well_formed());
         while (m_limit.inc() && num_iterations < m_max_iterations) {
-            if (inconsistent()) 
+            if (inconsistent())
                 return l_false;
             if (!propagate_ineqs())
                 return l_false;
@@ -170,8 +171,11 @@ namespace polysat {
                 return l_true;
             if (!propagate_row_bounds())
                 return l_false;
-            if (!patch()) 
+            if (!propagate_row_eqs())
+                return l_false;
+            if (!patch())                 
                 return l_undef;
+            
             ++num_iterations;            
             SASSERT(well_formed());
         }
@@ -627,7 +631,6 @@ namespace polysat {
         ensure_var(v);
         ensure_var(w);
         unsigned idx = m_ineqs.size();        
-        m_var2ineqs.reserve(std::max(v, w) + 1);
         m_var2ineqs[v].push_back(idx);
         m_var2ineqs[w].push_back(idx);
         touch_var(v);
@@ -1068,6 +1071,8 @@ namespace polysat {
 
     template<typename Ext>
     bool fixplex<Ext>::propagate_row_eqs() {
+        if (!m_to_patch.empty())
+            return true;
         for (unsigned i : m_eq_rows)
             get_offset_eqs(row(i));  
         m_eq_rows.reset();
@@ -1162,9 +1167,12 @@ namespace polysat {
 
     template<typename Ext>
     bool fixplex<Ext>::propagate_row_bounds() {
+        return true;
+        // TBD
         if (inconsistent())
             return false;
-        
+        if (!m_to_patch.empty())
+            return true;        
         for (unsigned i : m_bound_rows)
             if (!propagate_row(row(i)))
                 return false;

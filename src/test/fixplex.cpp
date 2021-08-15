@@ -579,11 +579,10 @@ namespace polysat {
 
 void tst_fixplex() {
 
-    polysat::test_ineqs();
+    polysat::test_lps();
     return;
 
-    polysat::test_lps();
-
+    polysat::test_ineqs();
     polysat::test_ineq_propagation1();
     polysat::test_ineq_propagation2();
 
