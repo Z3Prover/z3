@@ -33,6 +33,27 @@ bool mod_interval<Numeral>::contains(Numeral const& n) const {
 }
 
 template<typename Numeral>
+bool mod_interval<Numeral>::contains(mod_interval const& other) const {
+    if (is_empty())
+        return other.is_empty();
+    if (is_free())
+        return true;
+    if (hi == 0)
+        return lo <= other.lo && (other.lo < other.hi || other.hi == 0);
+    if (lo < hi)
+        return lo <= other.lo && other.hi <= hi;
+    if (other.lo < other.hi && other.hi <= hi)
+        return true;
+    if (other.lo < other.hi && lo <= other.lo)
+        return true;
+    if (other.hi == 0)
+        return lo <= other.lo;
+    SASSERT(other.hi < other.lo && other.hi != 0);
+    SASSERT(hi < lo && hi != 0);
+    return lo <= other.lo && other.hi <= hi;
+}
+
+template<typename Numeral>
 mod_interval<Numeral> mod_interval<Numeral>::operator+(mod_interval<Numeral> const& other) const {
     if (is_empty())
         return *this;
@@ -136,6 +157,23 @@ mod_interval<Numeral> mod_interval<Numeral>::operator&(mod_interval const& other
     return mod_interval(l, h);
 
 }
+
+template<typename Numeral>
+Numeral mod_interval<Numeral>::max() const {
+    if (lo < hi)
+        return hi - 1;
+    else
+        return Numeral(0) - 1;
+}
+
+template<typename Numeral>
+Numeral mod_interval<Numeral>::min() const {
+    if (lo < hi || hi == 0)
+        return lo;
+    else
+        return Numeral(0);
+}
+
 
 template<typename Numeral>
 Numeral mod_interval<Numeral>::closest_value(Numeral const& n) const {

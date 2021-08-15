@@ -114,7 +114,6 @@ namespace polysat {
         fp.add_row(z, 3, ys2, coeffs2);
         fp.set_bounds(u, 1, 2, 1);
         fp.run();
-        // fp.propagate_eqs();
         for (auto e : fp.var_eqs())
             std::cout << e.x << " == " << e.y << "\n";
         
@@ -580,11 +579,14 @@ namespace polysat {
 
 void tst_fixplex() {
 
+    polysat::test_ineqs();
+    return;
+
     polysat::test_lps();
 
     polysat::test_ineq_propagation1();
     polysat::test_ineq_propagation2();
-    polysat::test_ineqs();
+
 
     polysat::test1();
     polysat::test2();

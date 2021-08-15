@@ -59,7 +59,10 @@ public:
     bool is_empty() const { return emp; }
     bool is_singleton() const { return !is_empty() && (lo + 1 == hi || (hi == 0 && is_max(lo))); }
     bool contains(Numeral const& n) const;
+    bool contains(mod_interval const& other) const;
     virtual bool is_max(Numeral const& n) const { return (Numeral)(n + 1) == 0; }
+    Numeral max() const;
+    Numeral min() const; 
 
     void set_free() { lo = hi = 0; emp = false; }
     void set_bounds(Numeral const& l, Numeral const& h) { lo = l; hi = h; }
