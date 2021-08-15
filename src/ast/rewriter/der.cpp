@@ -339,7 +339,7 @@ void der::apply_substitution(quantifier * q, expr_ref_vector& ors, expr_ref & r)
         m_new_args.push_back(ors.get(i));
     }
 
-    expr_ref t = mk_or(m, m_new_args.size(), m_new_args.data());
+    expr_ref t(mk_or(m, m_new_args.size(), m_new_args.data()), m);
     expr_ref new_e = m_subst(t, m_subst_map);
 
     // don't forget to update the quantifier patterns
