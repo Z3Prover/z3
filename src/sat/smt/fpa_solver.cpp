@@ -147,6 +147,8 @@ namespace fpa {
 
         if (is_attached_to_var(n))
             return;
+        if (m.is_ite(n->get_expr()))
+            return;
         attach_new_th_var(n);
 
         expr* owner = n->get_expr();
@@ -213,7 +215,10 @@ namespace fpa {
 
         mpf_manager& mpfm = m_fpa_util.fm();
 
-        if (m_fpa_util.is_float(n) || m_fpa_util.is_rm(n)) {
+        if (m.is_ite(n)) {
+            // skip
+        }
+        else if (m_fpa_util.is_float(n) || m_fpa_util.is_rm(n)) {
             expr* a = nullptr, * b = nullptr, * c = nullptr;
             if (!m_fpa_util.is_fp(n)) {
                 app_ref wrapped = m_converter.wrap(n);
@@ -235,9 +240,6 @@ namespace fpa {
                     add_unit(eq_internalize(wrapped, cc_args));
                     add_unit(eq_internalize(bv_val_e, n));
                     add_units(mk_side_conditions());
-                }
-                else if (m.is_ite(n)) {
-                    // pass
                 }
                 else 
                     add_unit(eq_internalize(m_converter.unwrap(wrapped, n->get_sort()), n));                
