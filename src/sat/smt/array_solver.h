@@ -209,7 +209,8 @@ namespace array {
         unsigned get_lambda_equiv_size(var_data const& d) const;
         bool should_set_prop_upward(var_data const& d) const;
         bool should_prop_upward(var_data const& d) const;
-        bool can_beta_reduce(euf::enode* n) const;
+        bool can_beta_reduce(euf::enode* n) const { return can_beta_reduce(n->get_expr()); }
+        bool can_beta_reduce(expr* e) const;
 
         var_data& get_var_data(euf::enode* n) { return get_var_data(n->get_th_var(get_id())); }
         var_data& get_var_data(theory_var v) { return *m_var_data[v]; }

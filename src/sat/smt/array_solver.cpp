@@ -272,8 +272,7 @@ namespace array {
         return !get_config().m_array_delay_exp_axiom && d.m_prop_upward;
     }
 
-    bool solver::can_beta_reduce(euf::enode* n) const {
-        expr* c = n->get_expr();
+    bool solver::can_beta_reduce(expr* c) const {
         return a.is_const(c) || a.is_as_array(c) || a.is_store(c) || is_lambda(c) || a.is_map(c);
     }
 }
