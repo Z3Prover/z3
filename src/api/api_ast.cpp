@@ -137,6 +137,11 @@ extern "C" {
         func_decl* d = to_func_decl(f);
         ast_manager& m = mk_c(c)->m();
         recfun::decl::plugin& p = mk_c(c)->recfun().get_plugin();
+        if (!p.has_def(d)) {
+            std::string msg = "function " + mk_pp(d, m) + " needs to be defined using rec_func_decl";
+            SET_ERROR_CODE(Z3_INVALID_ARG, msg.c_str());
+            return;
+        }
         expr_ref abs_body(m);
         expr_ref_vector _args(m);
         var_ref_vector _vars(m);
