@@ -6,10 +6,6 @@ on:
   schedule:
     - cron: "0 11 * * *"
 
-env:
-  BUILD_TYPE: Debug
-  CMAKE_GENERATOR: Ninja
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,6 +13,9 @@ jobs:
     env:
       CC: clang
       CXX: clang++
+      BUILD_TYPE: Debug
+      CMAKE_GENERATOR: Ninja
+      COV_DETAILS_PATH: ${{github.workspace}}/cov-details
 
     steps:
     - uses: actions/checkout@v2
@@ -25,14 +24,13 @@ jobs:
       run: |
         sudo apt-get remove -y --purge man-db
         sudo apt-get update -y
-        sudo apt-get install -y gcovr ninja-build
+        sudo apt-get install -y gcovr ninja-build llvm clang
 
     ## Building
     - name: Configure CMake Z3
       run: CFLAGS=="--coverage" CXXFLAGS="--coverage" LDFLAGS="-lgcov" cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=./install
 
     - name: Build Z3
-      # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --target install --config ${{env.BUILD_TYPE}}
 
     - name: Build test-z3
@@ -75,8 +73,14 @@ jobs:
     - name: Gather coverage
       run: |
         cd ${{github.workspace}}
-        gcovr
-        #gcovr --html -o coverage.html .
+        gcovr --html coverage.html --gcov-executable "llvm-cov gcov" .
+        cd -
+
+    - name: Gather detailed coverage
+      run: |
+        cd ${{github.workspace}}
+        mkdir cov-details
+        gcovr --html-details ${{env.COV_DETAILS_PATH}}/coverage.html --gcov-executable "llvm-cov gcov" -r `pwd`/src --object-directory `pwd`/build
         cd -
 
     - name: Get date
@@ -86,5 +90,11 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: coverage-${{steps.date.outputs.date}}
-        path: coverage.html
-        retention-days: 10
+        path: ${{github.workspace}}/coverage.html
+        retention-days: 4
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: coverage-details-${{steps.date.outputs.date}}
+        path: ${{env.COV_DETAILS_PATH}}
+        retention-days: 4
