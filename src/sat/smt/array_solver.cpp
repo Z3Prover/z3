@@ -228,11 +228,8 @@ namespace array {
         
         auto& d = get_var_data(v);
 
-        for (euf::enode* lambda : d.m_lambdas) {
-            expr* e = lambda->get_expr();
-            if (a.is_const(e) || a.is_map(e)) 
-                propagate_select_axioms(d, lambda);
-        }
+        for (euf::enode* lambda : d.m_lambdas) 
+            propagate_select_axioms(d, lambda);        
         
         for (euf::enode* lambda : d.m_parent_lambdas)
             propagate_select_axioms(d, lambda);

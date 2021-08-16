@@ -175,18 +175,14 @@ namespace array {
         ptr_buffer<expr> sel1_args, sel2_args;
         unsigned num_args = select->get_num_args();
 
-        if (select->get_arg(0) != store && expr2enode(select->get_arg(0))->get_root() == expr2enode(store)->get_root()) 
-            return false;
         bool has_diff = false;
         for (unsigned i = 1; i < num_args; i++) 
             has_diff |= expr2enode(select->get_arg(i))->get_root() != expr2enode(store->get_arg(i))->get_root();
         if (!has_diff)
             return false;
 
-
         sel1_args.push_back(store);
-        sel2_args.push_back(store->get_arg(0));
-        
+        sel2_args.push_back(store->get_arg(0));        
         
         for (unsigned i = 1; i < num_args; i++) {
             sel1_args.push_back(select->get_arg(i));
