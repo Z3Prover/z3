@@ -11,11 +11,12 @@ namespace polysat {
 
     typedef uint64_ext::numeral numeral;
 
-    struct solver_scope {
+    struct fp_scope {
         params_ref p;
         reslimit lim;
     };
-    struct scoped_fp : public solver_scope, public fixplex<uint64_ext> {
+
+    struct scoped_fp : public fp_scope, public fixplex<uint64_ext> {
 
         scoped_fp(): fixplex<uint64_ext>(p, lim) {}
 
