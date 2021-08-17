@@ -6566,7 +6566,7 @@ class ModelRef(Z3PPObject):
         if is_expr(x):
             x = x.decl()
         if not is_func_decl(x) or x.arity() != 0:
-            raise Z3Exception(f"Expecting 0-ary function or constant expression {x}")
+            raise Z3Exception("Expecting 0-ary function or constant expression")
         value = _py2expr(value)
         Z3_add_const_interp(x.ctx_ref(), self.model, x.ast, value.ast)
 
