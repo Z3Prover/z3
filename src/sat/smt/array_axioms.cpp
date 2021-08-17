@@ -176,7 +176,7 @@ namespace array {
         unsigned num_args = select->get_num_args();
 
         expr* arg = select->get_arg(0);
-        if (arg != store && !can_beta_reduce(arg) && expr2enode(arg)->get_root() == expr2enode(store)->get_root()) 
+        if (false && arg != store && !can_beta_reduce(arg) && expr2enode(arg)->get_root() == expr2enode(store)->get_root()) 
             return false;
         bool has_diff = false;
         for (unsigned i = 1; i < num_args; i++) 
