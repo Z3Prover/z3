@@ -6561,6 +6561,15 @@ class ModelRef(Z3PPObject):
             r.append(FuncDeclRef(Z3_model_get_func_decl(self.ctx.ref(), self.model, i), self.ctx))
         return r
 
+    def update_value(self, x, value):
+        """Update the interpretation of a constant"""
+        if is_expr(x):
+            x = x.decl()
+        if not is_func_decl(x) or x.arity() != 0:
+            raise Z3Exception(f"Expecting 0-ary function or constant expression {x}")
+        value = _py2expr(value)
+        Z3_add_const_interp(x.ctx_ref(), self.model, x.ast, value.ast)
+
     def translate(self, target):
         """Translate `self` to the context `target`. That is, return a copy of `self` in the context `target`.
         """
