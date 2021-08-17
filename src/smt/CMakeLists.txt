@@ -30,7 +30,6 @@ z3_add_component(smt
     smt_farkas_util.cpp
     smt_for_each_relevant_expr.cpp
     smt_implied_equalities.cpp
-    smt_induction.cpp
     smt_internalizer.cpp
     smt_justification.cpp
     smt_kernel.cpp

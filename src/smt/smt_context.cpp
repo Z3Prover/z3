@@ -1668,16 +1668,6 @@ namespace smt {
     }
 
     /**
-       \brief retrieve facilities for creating induction lemmas.
-     */
-    induction& context::get_induction() {
-        if (!m_induction) {
-            m_induction = alloc(induction, *this, get_manager());
-        }
-        return *m_induction;
-    }
-
-    /**
        \brief unit propagation.
        Cancelation is not safe during propagation at base level because
        congruences cannot be retracted to a consistent state.

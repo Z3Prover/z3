@@ -33,7 +33,6 @@ Revision History:
 #include "smt/smt_statistics.h"
 #include "smt/smt_conflict_resolution.h"
 #include "smt/smt_relevancy.h"
-#include "smt/smt_induction.h"
 #include "smt/smt_case_split_queue.h"
 #include "smt/smt_almost_cg_table.h"
 #include "smt/smt_failure.h"
@@ -184,7 +183,6 @@ namespace smt {
         unsigned                    m_simp_qhead { 0 };
         int                         m_simp_counter { 0 }; //!< can become negative
         scoped_ptr<case_split_queue> m_case_split_queue;
-        scoped_ptr<induction>       m_induction;
         double                      m_bvar_inc { 1.0 };
         bool                        m_phase_cache_on { true };
         unsigned                    m_phase_counter { 0 }; //!< auxiliary variable used to decide when to turn on/off phase caching
@@ -1323,7 +1321,6 @@ namespace smt {
     public:
         bool can_propagate() const;
 
-        induction& get_induction(); 
 
         // Retrieve arithmetic values. 
         bool get_arith_lo(expr* e, rational& lo, bool& strict);
