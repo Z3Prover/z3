@@ -367,6 +367,25 @@ namespace datatype {
             return m.mk_func_decl(name, arity, domain, range, info);
         }
 
+        ptr_vector<constructor> plugin::get_constructors(symbol const& s) const {
+            ptr_vector<constructor> result;
+            for (auto [k, d] : m_defs) 
+                for (auto* c : *d)
+                    if (c->name() == s)
+                        result.push_back(c);
+            return result;
+        }
+
+        ptr_vector<accessor> plugin::get_accessors(symbol const& s) const {
+            ptr_vector<accessor> result;
+            for (auto [k, d] : m_defs) 
+                for (auto* c : *d)
+                    for (auto* a : *c)
+                        if (a->name() == s)
+                            result.push_back(a);
+            return result;
+        }
+
         func_decl * decl::plugin::mk_recognizer(unsigned num_parameters, parameter const * parameters, 
                                                 unsigned arity, sort * const * domain, sort *) {
             ast_manager& m = *m_manager;
@@ -556,9 +575,8 @@ namespace datatype {
 
         void plugin::remove(symbol const& s) {
             def* d = nullptr;
-            if (m_defs.find(s, d)) {
+            if (m_defs.find(s, d)) 
                 dealloc(d);
-            }
             m_defs.remove(s);
         }
 
