@@ -16,47 +16,43 @@ Author:
 
 namespace polysat {
 
-    /// Represents a conflict as core (~negation of clause).
-    ///
-    /// TODO: can probably move some clause_builder functionality into this class.
+    /** Conflict state, represented as core (~negation of clause). */
     class conflict_core {
-        // constraint_ref_vector m_constraints;
         vector<constraint_literal> m_constraints;
-        bool m_needs_model = true;  ///< True iff the conflict depends on the current variable assignment. (If so, additional constraints must be added to the final learned clause.)
+
+        // /** Indicates how many variable assignments from the current assignment are part of the core (in order of assignment) */
+        // unsigned m_num_assignments = 0;
+        // TODO: unclear if we really need this, or m_needs_model is enough. (only one of them should be used).
+
+        /** True iff the conflict depends on the current variable assignment. (If so, additional constraints must be added to the final learned clause.) */
+        bool m_needs_model = false;
+        // NOTE: for now we keep this simple implementation.
+        //       The drawback is that we may get weaker lemmas in some cases (but they are still correct).
+        //       For example: if we have 4x+y=2 and y=0, then we have a conflict no matter the value of x, so we should drop x=? from the core.
 
     public:
-        vector<constraint_literal> const& constraints() const {
-            return m_constraints;
-        }
+
+        vector<constraint_literal> const& constraints() const { return m_constraints; }
+        bool needs_model() const { return m_needs_model; }
 
         bool empty() const {
-            return m_constraints.empty();
+            // return m_constraints.empty() && m_num_assignments == 0;
+            return m_constraints.empty() && !m_needs_model;
         }
 
         void reset() {
             m_constraints.reset();
-            m_needs_model = true;
-        }
-
-        // for bailing out with a conflict at the base level
-        void set(std::nullptr_t) {
-            SASSERT(empty());
-            m_constraints.push_back({});
+            // m_core_assignments = 0;
             m_needs_model = false;
+            SASSERT(empty());
         }
 
-        // void set(
-        
-        // TODO: set core from conflicting units
-        // TODO: set clause
-
-        // TODO: use iterator instead (this method is needed for marking so duplicates don't necessarily have to be skipped)
-        unsigned_vector vars(constraint_manager const& cm) const {
-            unsigned_vector vars;
-            for (auto const& c : m_constraints)
-                vars.append(c->vars());
-            return vars;
-        }
+        /** for bailing out with a conflict at the base level */
+        void set(std::nullptr_t);
+        /** conflict because the constraint c is false under current variable assignment */
+        void set(constraint_literal c);
+        /** conflict because there is no viable value for the variable v */
+        void set(pvar v, ptr_vector<constraint> const& cjust_v);
 
         std::ostream& display(std::ostream& out) const;
     };
