@@ -20,10 +20,6 @@ namespace polysat {
     class conflict_core {
         vector<constraint_literal> m_constraints;
 
-        // /** Indicates how many variable assignments from the current assignment are part of the core (in order of assignment) */
-        // unsigned m_num_assignments = 0;
-        // TODO: unclear if we really need this, or m_needs_model is enough. (only one of them should be used).
-
         /** True iff the conflict depends on the current variable assignment. (If so, additional constraints must be added to the final learned clause.) */
         bool m_needs_model = false;
         // NOTE: for now we keep this simple implementation.
@@ -36,13 +32,11 @@ namespace polysat {
         bool needs_model() const { return m_needs_model; }
 
         bool empty() const {
-            // return m_constraints.empty() && m_num_assignments == 0;
             return m_constraints.empty() && !m_needs_model;
         }
 
         void reset() {
             m_constraints.reset();
-            // m_core_assignments = 0;
             m_needs_model = false;
             SASSERT(empty());
         }
@@ -52,7 +46,7 @@ namespace polysat {
         /** conflict because the constraint c is false under current variable assignment */
         void set(constraint_literal c);
         /** conflict because there is no viable value for the variable v */
-        void set(pvar v, ptr_vector<constraint> const& cjust_v);
+        void set(pvar v, vector<constraint_literal> const& cjust_v);
 
         std::ostream& display(std::ostream& out) const;
     };
