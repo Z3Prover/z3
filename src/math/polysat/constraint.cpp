@@ -173,7 +173,7 @@ namespace polysat {
         for (unsigned i = vars().size(); i-- > 2; ) {
             unsigned other_v = vars()[i];
             if (!s.is_assigned(other_v)) {
-                s.add_watch(*this, other_v);
+                s.add_watch({this, is_positive}, other_v);
                 std::swap(vars()[idx], vars()[i]);
                 return true;
             }

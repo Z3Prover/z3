@@ -46,7 +46,7 @@ namespace polysat {
         void push_literal(sat::literal lit);
       
         /// Add a constraint to the clause that does not yet exist in the solver so far.
-        void push_new_constraint(constraint_literal c);
+        void push_new_constraint(constraint_literal_ref c);
     };
 
 }

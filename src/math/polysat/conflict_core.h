@@ -18,6 +18,7 @@ namespace polysat {
 
     /** Conflict state, represented as core (~negation of clause). */
     class conflict_core {
+        // TODO: core needs to own the constraint literals...
         vector<constraint_literal> m_constraints;
 
         /** True iff the conflict depends on the current variable assignment. (If so, additional constraints must be added to the final learned clause.) */

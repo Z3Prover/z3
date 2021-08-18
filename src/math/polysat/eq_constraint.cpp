@@ -31,28 +31,24 @@ namespace polysat {
         auto q = p().subst_val(s.assignment());
         LOG("Substituted: " << p() << " := " << q);
         if (q.is_zero()) {
-            if (is_positive)
-                return;
             if (!is_positive) {
                 LOG("Conflict (zero under current assignment)");
-                s.set_conflict(*this);
-                return;
+                s.set_conflict({this, is_positive});
             }
+            return;
         }
         if (q.is_never_zero()) {
             if (is_positive) {
                 LOG("Conflict (never zero under current assignment)");
-                s.set_conflict(*this);
-                return;
+                s.set_conflict({this, is_positive});
             }
-            if (!is_positive)
-                return;
+            return;
         }
 
         if (q.is_unilinear()) {
             // a*x + b == 0
             pvar v = q.var();
-            s.push_cjust(v, this);
+            s.push_cjust(v, {this, is_positive});
 
             rational a = q.hi().val();
             rational b = q.lo().val();
@@ -61,7 +57,7 @@ namespace polysat {
 
             rational val;
             if (s.m_viable.find_viable(v, val) == dd::find_t::singleton) 
-                s.propagate(v, val, *this);
+                s.propagate(v, val, {this, is_positive});
             return;
         }
 

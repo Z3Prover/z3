@@ -36,7 +36,7 @@ namespace polysat {
         LOG("Substituted RHS: " << rhs() << " := " << q);
 
         if (is_always_false(is_positive, p, q)) {
-            s.set_conflict(*this);
+            s.set_conflict({this, is_positive});
             return;
         }
         if (p.is_val() && q.is_val()) {
@@ -72,13 +72,13 @@ namespace polysat {
             d = q.lo().val();
         }
         if (v != null_var) {
-            s.push_cjust(v, this);
+            s.push_cjust(v, {this, is_positive});
 
             s.m_viable.intersect_ule(v, a, b, c, d, is_positive);
 
             rational val;
             if (s.m_viable.find_viable(v, val) == dd::find_t::singleton) 
-                s.propagate(v, val, *this);
+                s.propagate(v, val, {this, is_positive});
 
             return;
         }

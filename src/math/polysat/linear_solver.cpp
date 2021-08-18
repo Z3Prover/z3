@@ -134,7 +134,6 @@ namespace polysat {
         if (!fp)
             return;
         rational z(0), o(1);
-        SASSERT(!c.is_undef());
         if (is_positive) 
             fp->set_bounds(v, z, z, c_dep);
         else 
@@ -211,7 +210,6 @@ namespace polysat {
     void linear_solver::activate_constraint(bool is_positive, constraint& c) {
         m_active.push_back(&c);
         m_trail.push_back(trail_i::set_active_i);
-        SASSERT(!c.is_undef());
         switch (c.kind()) {
         case ckind_t::eq_t: 
             assert_eq(is_positive, c.to_eq());

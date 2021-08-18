@@ -52,12 +52,10 @@ namespace polysat {
         m_literals.push_back(lit);
     }
 
-    void clause_builder::push_new_constraint(constraint_literal c) {
+    void clause_builder::push_new_constraint(constraint_literal_ref c) {
         // TODO: assert that constraint is new (not 'inserted' into manager yet)
         SASSERT(c);
-        SASSERT(c->is_undef());
-        tmp_assign _t(c.get(), c.literal());
-        if (c->is_always_false())
+        if (c.get().is_always_false())
             return;
         m_level = std::max(m_level, c->level());
         m_literals.push_back(c.literal());

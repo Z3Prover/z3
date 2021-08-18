@@ -190,6 +190,7 @@ namespace polysat {
             SASSERT(constraint());
             SASSERT(literal().var() == constraint()->bvar());
         }
+        constraint_literal(constraint* c, bool is_positive): constraint_literal(sat::literal(c->bvar(), !is_positive), c) {}
 
         constraint_literal operator~() const {
             return {~m_literal, m_constraint};
@@ -198,6 +199,9 @@ namespace polysat {
         void negate() {
             m_literal = ~m_literal;
         }
+
+        bool is_positive() const { return !m_literal.sign(); }
+        bool is_negative() const { return m_literal.sign(); }
 
         bool propagate(solver& s, pvar v) { return constraint()->propagate(s, !literal().sign(), v); }
         void propagate_core(solver& s, pvar v, pvar other_v) { constraint()->propagate_core(s, !literal().sign(), v, other_v); }
@@ -221,6 +225,12 @@ namespace polysat {
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint_literal const& c) { return c.display(out); }
+
+    inline bool operator==(constraint_literal const& lhs, constraint_literal const& rhs) {
+        if (lhs.literal() == rhs.literal())
+            SASSERT(lhs.constraint() == rhs.constraint());
+        return lhs.literal() == rhs.literal();
+    }
 
 
     /// Version of constraint_literal that owns the constraint.
