@@ -109,16 +109,16 @@ namespace polysat {
         return *dynamic_cast<ule_constraint const*>(this);
     }
 
-    constraint_literal constraint_manager::eq(unsigned lvl, pdd const& p) {
-        return constraint_literal{alloc(eq_constraint, *this, lvl, p)};
+    constraint_literal_ref constraint_manager::eq(unsigned lvl, pdd const& p) {
+        return constraint_literal_ref{alloc(eq_constraint, *this, lvl, p)};
     }
 
 
-    constraint_literal constraint_manager::ule(unsigned lvl, pdd const& a, pdd const& b) {
-        return constraint_literal{alloc(ule_constraint, *this, lvl, a, b)};
+    constraint_literal_ref constraint_manager::ule(unsigned lvl, pdd const& a, pdd const& b) {
+        return constraint_literal_ref{alloc(ule_constraint, *this, lvl, a, b)};
     }
 
-    constraint_literal constraint_manager::ult(unsigned lvl, pdd const& a, pdd const& b) {
+    constraint_literal_ref constraint_manager::ult(unsigned lvl, pdd const& a, pdd const& b) {
         // a < b  <=>  !(b <= a)
         return ~ule(lvl, b, a);
     }
@@ -139,12 +139,12 @@ namespace polysat {
     //
     // Argument: flipping the msb swaps the negative and non-negative blocks
     //
-    constraint_literal constraint_manager::sle(unsigned lvl, pdd const& a, pdd const& b) {
+    constraint_literal_ref constraint_manager::sle(unsigned lvl, pdd const& a, pdd const& b) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
         return ule(lvl, a + shift, b + shift);
     }
 
-    constraint_literal constraint_manager::slt(unsigned lvl, pdd const& a, pdd const& b) {
+    constraint_literal_ref constraint_manager::slt(unsigned lvl, pdd const& a, pdd const& b) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
         return ult(lvl, a + shift, b + shift);
     }
@@ -185,7 +185,18 @@ namespace polysat {
         narrow(s);
     }
 
-    clause_ref clause::from_unit(constraint_literal c, p_dependency_ref d) {
+    std::ostream &constraint_literal::display(std::ostream &out) const {
+        if (*this)
+            return out << m_literal << "{ " << *m_constraint << " }";
+        else
+            return out << "<null>";
+    }
+
+    std::ostream &constraint_literal_ref::display(std::ostream &out) const {
+        return out << get();
+    }
+
+    clause_ref clause::from_unit(constraint_literal_ref c, p_dependency_ref d) {
         SASSERT(c);
         unsigned const lvl = c->level();
         sat::literal_vector lits;

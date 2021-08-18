@@ -26,6 +26,7 @@ namespace polysat {
     enum csign_t : bool { neg_t = false, pos_t = true };
 
     class constraint_literal;
+    class constraint_literal_ref;
     class constraint;
     class constraint_manager;
     class clause;
@@ -34,6 +35,7 @@ namespace polysat {
     class ule_constraint;
     using constraint_ref = ref<constraint>;
     using constraint_ref_vector = sref_vector<constraint>;
+    using constraint_literal_ref_vector = vector<constraint_literal_ref>;
     using clause_ref = ref<clause>;
     using clause_ref_vector = sref_vector<clause>;
 
@@ -76,11 +78,11 @@ namespace polysat {
         constraint* lookup(sat::bool_var var) const;
         constraint* lookup_external(unsigned dep) const { return m_external_constraints.get(dep, nullptr); }
 
-        constraint_literal eq(unsigned lvl, pdd const& p);
-        constraint_literal ule(unsigned lvl, pdd const& a, pdd const& b);
-        constraint_literal ult(unsigned lvl, pdd const& a, pdd const& b);
-        constraint_literal sle(unsigned lvl, pdd const& a, pdd const& b);
-        constraint_literal slt(unsigned lvl, pdd const& a, pdd const& b);
+        constraint_literal_ref eq(unsigned lvl, pdd const& p);
+        constraint_literal_ref ule(unsigned lvl, pdd const& a, pdd const& b);
+        constraint_literal_ref ult(unsigned lvl, pdd const& a, pdd const& b);
+        constraint_literal_ref sle(unsigned lvl, pdd const& a, pdd const& b);
+        constraint_literal_ref slt(unsigned lvl, pdd const& a, pdd const& b);
 
         // p_dependency_ref null_dep() const { return {nullptr, m_dm}; }
     };
@@ -192,36 +194,85 @@ namespace polysat {
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
 
 
-    /// Literal together with the constraint it represents.
-    /// (or: constraint with polarity)
+    /// Literal together with the constraint it represents (i.e., constraint with polarity).
+    /// Non-owning version.
     class constraint_literal {
+        sat::literal m_literal = sat::null_literal;
+        constraint* m_constraint = nullptr;
+
+    public:
+        constraint_literal() {}
+        constraint_literal(sat::literal lit, constraint* c):
+            m_literal(lit), m_constraint(c) {
+            SASSERT(constraint());
+            SASSERT(literal().var() == constraint()->bvar());
+        }
+
+        constraint_literal operator~() const {
+            return {~m_literal, m_constraint};
+        }
+
+        void negate() {
+            m_literal = ~m_literal;
+        }
+
+        sat::literal literal() const { return m_literal; }
+        polysat::constraint* constraint() const { return m_constraint; }
+
+        explicit operator bool() const { return !!m_constraint; }
+        bool operator!() const { return !m_constraint; }
+        polysat::constraint* operator->() const { return m_constraint; }
+        polysat::constraint const& operator*() const { return *m_constraint; }
+
+        constraint_literal& operator=(std::nullptr_t) { m_literal = sat::null_literal; m_constraint = nullptr; return *this; }
+
+        std::ostream& display(std::ostream& out) const;
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, constraint_literal const& c) { return c.display(out); }
+
+
+    /// Version of constraint_literal that owns the constraint.
+    class constraint_literal_ref {
         sat::literal m_literal = sat::null_literal;
         constraint_ref m_constraint = nullptr;
 
     public:
-        constraint_literal() {}
-        constraint_literal(sat::literal lit, constraint_ref c):
+        constraint_literal_ref() {}
+        constraint_literal_ref(sat::literal lit, constraint_ref c):
             m_literal(lit), m_constraint(std::move(c)) {
-            SASSERT(get());
-            SASSERT(literal().var() == get()->bvar());
+            SASSERT(constraint());
+            SASSERT(literal().var() == constraint()->bvar());
         }
-        constraint_literal operator~() const&& {
+        constraint_literal_ref(constraint_literal cl): constraint_literal_ref(cl.literal(), cl.constraint()) {}
+
+        constraint_literal_ref operator~() const&& {
             return {~m_literal, std::move(m_constraint)};
         }
+
+        void negate() {
+            m_literal = ~m_literal;
+        }
+
         sat::literal literal() const { return m_literal; }
-        constraint* get() const { return m_constraint.get(); }
+        polysat::constraint* constraint() const { return m_constraint.get(); }
+        constraint_literal get() const { return {literal(), constraint()}; }
         constraint_ref detach() { m_literal = sat::null_literal; return std::move(m_constraint); }
 
         explicit operator bool() const { return !!m_constraint; }
         bool operator!() const { return !m_constraint; }
-        constraint* operator->() const { return m_constraint.get(); }
-        constraint const& operator*() const { return *m_constraint; }
+        polysat::constraint* operator->() const { return m_constraint.operator->(); }
+        polysat::constraint const& operator*() const { return *m_constraint; }
 
-        constraint_literal& operator=(std::nullptr_t) { m_literal = sat::null_literal; m_constraint = nullptr; return *this; }
+        constraint_literal_ref& operator=(std::nullptr_t) { m_literal = sat::null_literal; m_constraint = nullptr; return *this; }
+
+        std::ostream& display(std::ostream& out) const;
     private:
         friend class constraint_manager;
-        explicit constraint_literal(constraint* c): constraint_literal(sat::literal(c->bvar()), c) {}
+        explicit constraint_literal_ref(polysat::constraint* c): constraint_literal_ref(sat::literal(c->bvar()), c) {}
     };
+
+    inline std::ostream& operator<<(std::ostream& out, constraint_literal_ref const& c) { return c.display(out); }
 
 
     /// Disjunction of constraints represented by boolean literals
@@ -254,7 +305,7 @@ namespace polysat {
         void inc_ref() { m_ref_count++; }
         void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (!m_ref_count) dealloc(this); }
 
-        static clause_ref from_unit(constraint_literal c, p_dependency_ref d);
+        static clause_ref from_unit(constraint_literal_ref c, p_dependency_ref d);
         static clause_ref from_literals(unsigned lvl, p_dependency_ref d, sat::literal_vector literals, constraint_ref_vector new_constraints);
 
         // Resolve with 'other' upon 'var'.

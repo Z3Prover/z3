@@ -112,36 +112,36 @@ namespace polysat {
         m_free_vars.del_var_eh(v);
     }
 
-    constraint_literal solver::mk_eq(pdd const& p) {
+    constraint_literal_ref solver::mk_eq(pdd const& p) {
         return m_constraints.eq(m_level, p);
     }
 
-    constraint_literal solver::mk_diseq(pdd const& p) {
+    constraint_literal_ref solver::mk_diseq(pdd const& p) {
         return ~m_constraints.eq(m_level, p);
     }
 
-    constraint_literal solver::mk_ule(pdd const& p, pdd const& q) {
+    constraint_literal_ref solver::mk_ule(pdd const& p, pdd const& q) {
         return m_constraints.ule(m_level, p, q);
     }
 
-    constraint_literal solver::mk_ult(pdd const& p, pdd const& q) {
+    constraint_literal_ref solver::mk_ult(pdd const& p, pdd const& q) {
         return m_constraints.ult(m_level, p, q);
     }
 
-    constraint_literal solver::mk_sle(pdd const& p, pdd const& q) {
+    constraint_literal_ref solver::mk_sle(pdd const& p, pdd const& q) {
         return m_constraints.sle(m_level, p, q);
     }
 
-    constraint_literal solver::mk_slt(pdd const& p, pdd const& q) {
+    constraint_literal_ref solver::mk_slt(pdd const& p, pdd const& q) {
         return m_constraints.slt(m_level, p, q);
     }
 
-    void solver::new_constraint(constraint_literal cl, unsigned dep, bool activate) {
+    void solver::new_constraint(constraint_literal_ref cl, unsigned dep, bool activate) {
         VERIFY(at_base_level());
         SASSERT(cl);
         SASSERT(activate || dep != null_dependency);  // if we don't activate the constraint, we need the dependency to access it again later.
         sat::literal lit = cl.literal();
-        constraint* c = cl.get();
+        constraint* c = cl.constraint();
         clause* unit = m_constraints.store(clause::from_unit(std::move(cl), mk_dep_ref(dep)));
         c->set_unit_clause(unit);
         if (dep != null_dependency)
