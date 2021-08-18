@@ -12,6 +12,7 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2020-5-22
+    Margus Veanes 2021
 
 --*/
 

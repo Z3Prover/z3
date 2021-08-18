@@ -117,20 +117,20 @@ class seq_rewriter {
     class op_cache {
         struct op_entry {
             decl_kind k;
-            expr* a, *b, *r;
-            op_entry(decl_kind k, expr* a, expr* b, expr* r): k(k), a(a), b(b), r(r) {}
-            op_entry():k(0), a(nullptr), b(nullptr), r(nullptr) {}
+            expr* a, *b, *c, *r;
+            op_entry(decl_kind k, expr* a, expr* b, expr* c, expr* r): k(k), a(a), b(b), c(c), r(r) {}
+            op_entry():k(0), a(nullptr), b(nullptr), c(nullptr), r(nullptr) {}
         };
 
         struct hash_entry {
             unsigned operator()(op_entry const& e) const { 
-                return mk_mix(e.k, e.a ? e.a->get_id() : 0, e.b ? e.b->get_id() : 0);
+                return combine_hash(mk_mix(e.k, e.a ? e.a->get_id() : 0, e.b ? e.b->get_id() : 0), e.c ? e.c->get_id() : 0);
             }
         };
 
         struct eq_entry {
-            bool operator()(op_entry const& a, op_entry const& b) const { 
-                return a.k == b.k && a.a == b.a && a.b == b.b;
+            bool operator()(op_entry const& a, op_entry const& b) const {
+                return a.k == b.k && a.a == b.a && a.b == b.b && a.c == b.c;
             }
         };
 
@@ -143,8 +143,8 @@ class seq_rewriter {
 
     public:
         op_cache(ast_manager& m);
-        expr* find(decl_kind op, expr* a, expr* b);
-        void insert(decl_kind op, expr* a, expr* b, expr* r);
+        expr* find(decl_kind op, expr* a, expr* b, expr* c);
+        void insert(decl_kind op, expr* a, expr* b, expr* c, expr* r);
     };
 
     seq_util       m_util;
@@ -208,8 +208,23 @@ class seq_rewriter {
     bool check_deriv_normal_form(expr* r, int level = 3);
     #endif
 
+    void mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref& result);
+
+    expr_ref mk_antimirov_deriv(expr* e, expr* r, expr* path);
+    expr_ref mk_in_antimirov_rec(expr* s, expr* d);
+    expr_ref mk_in_antimirov(expr* s, expr* d);
+
+    expr_ref mk_antimirov_deriv_intersection(expr* d1, expr* d2, expr* path);
+    expr_ref mk_antimirov_deriv_concat(expr* d, expr* r);
+    expr_ref mk_antimirov_deriv_negate(expr* d);
+    expr_ref mk_antimirov_deriv_union(expr* d1, expr* d2);
+    expr_ref mk_ite_simplify(expr* c, expr* t, expr* e);
+    expr_ref mk_regex_reverse(expr* r);
+    expr_ref mk_regex_concat(expr* r1, expr* r2);
+
     bool lt_char(expr* ch1, expr* ch2);
     bool eq_char(expr* ch1, expr* ch2);
+    bool neq_char(expr* ch1, expr* ch2);
     bool le_char(expr* ch1, expr* ch2);
     bool pred_implies(expr* a, expr* b);
     bool are_complements(expr* r1, expr* r2) const;
@@ -382,6 +397,7 @@ public:
     // Expose derivative and nullability check
     expr_ref is_nullable(expr* r);
     expr_ref mk_derivative(expr* ele, expr* r);
+    expr_ref mk_derivative(expr* r);
 
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.

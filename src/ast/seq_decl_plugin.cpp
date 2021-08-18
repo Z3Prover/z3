@@ -854,6 +854,48 @@ void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
     }
 }
 
+/*
+Returns true if s is an expression of the form (l = |u|) |u|-k or (-k)+|u| or |u|+(-k).
+Also returns true and assigns k=0 and l=s if s is |u|.
+*/
+bool seq_util::str::is_len_sub(expr const* s, expr*& l, expr*& u, unsigned& k) const
+{
+    expr* x;
+    rational v;
+    if (is_length(s, l)) {
+        k = 0;
+        return true;
+    }
+    else if (arith_util(m).is_sub(s, l, x) && is_length(l, u) && arith_util(m).is_numeral(x, v) && v.is_nonneg()) {
+        k = v.get_unsigned();
+        return true;
+    }
+    else if (arith_util(m).is_add(s, l, x) && is_length(l, u) && arith_util(m).is_numeral(x, v) && v.is_nonpos()) {
+        k = (0 - v.get_int32());
+        return true;
+    }
+    else if (arith_util(m).is_add(s, x, l) && is_length(l, u) && arith_util(m).is_numeral(x, v) && v.is_nonpos()) {
+        k = (0 - v.get_int32());
+        return true;
+    }
+    else
+        return false;
+}
+
+bool seq_util::str::is_unit_string(expr const* s, expr_ref& c) const {
+    zstring z;
+    expr* ch = nullptr;
+    if (is_string(s, z) && z.length() == 1) {
+        c = mk_char(z[0]);
+        return true;
+    }
+    else if (is_unit(s, ch)) {
+        c = ch;
+        return true;
+    }
+    return false;
+}
+
 void seq_util::str::get_concat_units(expr* e, expr_ref_vector& es) const {
     expr* e1, *e2;
     while (is_concat(e, e1, e2)) {
@@ -875,8 +917,6 @@ void seq_util::str::get_concat_units(expr* e, expr_ref_vector& es) const {
 app* seq_util::str::mk_is_empty(expr* s) const {
     return m.mk_eq(s, mk_empty(s->get_sort()));
 }
-
-
 
 unsigned seq_util::str::min_length(expr* s) const {
     SASSERT(u.is_seq(s));
@@ -1068,6 +1108,7 @@ app* seq_util::rex::mk_epsilon(sort* seq_sort) {
 std::ostream& seq_util::rex::pp::compact_helper_seq(std::ostream& out, expr* s) const {
     SASSERT(re.u.is_seq(s));
     zstring z;
+    expr* x, * j, * k, * l, * i, * x_;
     if (re.u.str.is_empty(s))
         out << "()";
     else if (re.u.str.is_unit(s))
@@ -1082,11 +1123,28 @@ std::ostream& seq_util::rex::pp::compact_helper_seq(std::ostream& out, expr* s) 
         for (unsigned i = 0; i < z.length(); i++)
             out << (char)z[i];
     }
-    //using braces to indicate 'full' output
-    //for example an uninterpreted constant X will be printed as {X}
-    //while a unit sequence "X" will be printed as X
-    //thus for example (concat "X" "Y" Z "W") where Z is uninterpreted is printed as XY{Z}W
-    else out << "{" << mk_pp(s, re.m) << "}";
+    else if (re.u.str.is_extract(s, x, j, k)) {
+        rational jv, iv;
+        if (arith_util(re.m).is_numeral(j, jv)) {
+            if (arith_util(re.m).is_numeral(k, iv))
+                // output X[j,k]
+                out << pp(re, x) << "[" << jv.get_int32() << "," << jv.get_int32() << "]";
+            else if (arith_util(re.m).is_sub(k, l, i) && re.u.str.is_length(l, x_) && x == x_ &&
+                arith_util(re.m).is_numeral(i, iv) && iv == jv)
+                // case X[j,|X|-j] is denoted by X[j..]
+                out << pp(re, x) << "[" << jv.get_int32() << "..]";
+            else if (((arith_util(re.m).is_add(k, l, i) && re.u.str.is_length(l, x_)) ||
+                    (arith_util(re.m).is_add(k, i, l) && re.u.str.is_length(l, x_))) && x == x_ && 
+                arith_util(re.m).is_numeral(i, iv) && iv.get_int32() + jv.get_int32() == 0)
+                // case X[j,|X|-j] is denoted by X[j..]
+                out << pp(re, x) << "[" << jv.get_int32() << "..]";
+            else 
+                out << pp(re, x) << "[" << jv.get_int32() << "," << pp(re, k) << "]";
+        }
+        else
+            out << pp(re, x) << "[" << pp(re, j) << "," << pp(re, k) << "]";
+    }
+    else out << mk_pp(s, re.m);
     return out;
 }
 
@@ -1112,7 +1170,7 @@ bool seq_util::rex::pp::can_skip_parenth(expr* r) const {
   Specialize output for a unit sequence converting to visible ASCII characters if possible.
 */
 std::ostream& seq_util::rex::pp::seq_unit(std::ostream& out, expr* s) const {
-    expr* e;
+    expr* e, * i;
     unsigned n = 0;
     if ((re.u.str.is_unit(s, e) && re.u.is_const_char(e, n)) || re.u.is_const_char(s, n)) {
         char c = (char)n;
@@ -1151,17 +1209,21 @@ std::ostream& seq_util::rex::pp::seq_unit(std::ostream& out, expr* s) const {
         else 
             out << "\\u" << std::hex << n;
     }
+    else if (re.u.str.is_nth_i(s, e, i)) {
+        out << mk_pp(e, re.m) << "[" << mk_pp(i, re.m) << "]";
+    }
     else
-        out << "{" << mk_pp(s, re.m) << "}";
+        out << mk_pp(s, re.m);
     return out;
 }
 
 /*
-  Pretty prints the regex r into the out stream
+  Pretty prints the regex r into the ostream out
 */
 std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
     expr* r1 = nullptr, * r2 = nullptr, * s = nullptr, * s2 = nullptr;
     unsigned lo = 0, hi = 0;
+    rational v;
     if (re.u.is_char(e))
         return seq_unit(out, e);
     else if (re.u.is_seq(e))
@@ -1172,28 +1234,28 @@ std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
         return out << ".*";
     else if (re.is_to_re(e, s))
         return compact_helper_seq(out, s);
-    else if (re.is_range(e, s, s2)) 
+    else if (re.is_range(e, s, s2))
         return compact_helper_range(out, s, s2);
     else if (re.is_epsilon(e))
         return out << "()";
     else if (re.is_empty(e))
         return out << "[]";
-    else if (re.is_concat(e, r1, r2)) 
+    else if (re.is_concat(e, r1, r2))
         return out << pp(re, r1) << pp(re, r2);
-    else if (re.is_union(e, r1, r2)) 
+    else if (re.is_antimorov_union(e, r1, r2) || re.is_union(e, r1, r2))
         return out << "(" << pp(re, r1) << "|" << pp(re, r2) << ")";
-    else if (re.is_intersection(e, r1, r2)) 
+    else if (re.is_intersection(e, r1, r2))
         return out << "(" << pp(re, r1) << "&amp;" /*(html_encode ? ")&amp;(" : ")&(")*/ << pp(re, r2) << ")";
     else if (re.is_complement(e, r1)) {
         if (can_skip_parenth(r1))
             return out << "~" << pp(re, r1);
-        else 
+        else
             return out << "~(" << pp(re, r1) << ")";
     }
     else if (re.is_plus(e, r1)) {
-        if (can_skip_parenth(r1)) 
+        if (can_skip_parenth(r1))
             return out << pp(re, r1) << "+";
-        else 
+        else
             return out << "(" << pp(re, r1) << ")+";
     }
     else if (re.is_star(e, r1)) {
@@ -1205,14 +1267,14 @@ std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
     else if (re.is_loop(e, r1, lo)) {
         if (can_skip_parenth(r1))
             return out << pp(re, r1) << "{" << lo << ",}";
-        else 
+        else
             return out << "(" << pp(re, r1) << "){" << lo << ",}";
     }
     else if (re.is_loop(e, r1, lo, hi)) {
         if (can_skip_parenth(r1)) {
             if (lo == hi)
                 return out << pp(re, r1) << "{" << lo << "}";
-            else 
+            else
                 return out << pp(re, r1) << "{" << lo << "," << hi << "}";
         }
         else {
@@ -1222,21 +1284,45 @@ std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
                 return out << "(" << pp(re, r1) << "){" << lo << "," << hi << "}";
         }
     }
-    else if (re.is_diff(e, r1, r2)) 
+    else if (re.is_diff(e, r1, r2))
         return out << "(" << pp(re, r1) << ")\\(" << pp(re, r2) << ")";
-    else if (re.m.is_ite(e, s, r1, r2)) 
-        return out << "if(" << mk_pp(s, re.m) << "," << pp(re, r1) << "," << pp(re, r2) << ")";
+    else if (re.m.is_ite(e, s, r1, r2))
+        return out << "(if " << pp(re, s) << " then " << pp(re, r1) << " else " << pp(re, r2) << ")";
     else if (re.is_opt(e, r1)) {
-        if (can_skip_parenth(r1)) 
+        if (can_skip_parenth(r1))
             return out << pp(re, r1) << "?";
-        else 
+        else
             return out << "(" << pp(re, r1) << ")?";
     }
-    else if (re.is_reverse(e, r1)) 
-        return out << "reverse(" << pp(re, r1) << ")";
+    else if (re.is_reverse(e, r1))
+        return out << "rev(" << pp(re, r1) << ")";
+    else if (re.m.is_eq(e, r1, r2))
+        return out << "(" << pp(re, r1) << "=" << pp(re, r2) << ")";
+    else if (re.m.is_not(e, r1))
+        return out << "!" << pp(re, r1);
+    else if (re.m.is_and(e)) {
+        out << "(";
+        for (unsigned i = 0; i < to_app(e)->get_num_args(); i++)
+            out << (i > 0 ? " and " : "") << pp(re, to_app(e)->get_arg(i));
+        out << ")";
+    }
+    else if (re.m.is_or(e)) {
+        out << "(";
+        for (unsigned i = 0; i < to_app(e)->get_num_args(); i++)
+            out << (i > 0 ? " or " : "") << pp(re, to_app(e)->get_arg(i));
+        out << ")";
+    }
+    else if (re.u.str.is_in_re(e, s, r1))
+        return out << "(" << pp(re, s) << " in " << pp(re, r1) << ")";
+    //else if (arith_util(re.m).is_add(e, s, r1) && re.u.str.is_length(r1, r2) && arith_util(re.m).is_numeral(s, v) && v.is_neg())
+    //    return out << "(|" << pp(re, r2) << "|" << "-" << (0 - v.get_int32()) << ")";
+    //else if (arith_util(re.m).is_add(e, r1, s) && re.u.str.is_length(r1, r2) && arith_util(re.m).is_numeral(s, v) && v.is_neg())
+    //    return out << "(|" << pp(re, r2) << "|" << "-" << (0 - v.get_int32()) << ")";
+    //else if (arith_util(re.m).is_sub(e, r1, s) && re.u.str.is_length(r1, r2) && arith_util(re.m).is_numeral(s, v) && v.is_pos())
+    //    return out << "(|" << pp(re, r2) << "|" << "-" << v.get_int32() << ")";
     else
-        // Else: derivative or is_of_pred
-        return out << "{" << mk_pp(e, re.m) << "}";
+        // for all remaining cases use the default pretty printer
+        return out << mk_pp(e, re.m);
 }
 
 /*

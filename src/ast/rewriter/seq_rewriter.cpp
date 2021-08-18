@@ -893,12 +893,17 @@ expr_ref seq_rewriter::mk_seq_first(expr* t) {
 */
 expr_ref seq_rewriter::mk_seq_rest(expr* t) {
     expr_ref result(m());
-    expr* s, * j, * k; 
-    expr_ref one(m_autil.mk_int(1), m());
-    if (str().is_extract(t, s, j, k))
-        result = str().mk_substr(s, m_autil.mk_add(j, one), m_autil.mk_sub(k, one));
+    expr* s, * j, * k, * s_, * l;
+    rational jv;
+    if (str().is_extract(t, s, j, k) && m_autil.is_numeral(j, jv) && jv.is_nonneg()) {
+        unsigned i;
+        expr_ref k_min_1(str().is_len_sub(k, l, s_, i) && s == s_ ? 
+            m_autil.mk_sub(l, m_autil.mk_int(i + 1)) : 
+            m_autil.mk_sub(k, m_autil.mk_int(1)), m());
+        result = str().mk_substr(s, m_autil.mk_int(jv.get_int32() + 1), k_min_1);
+    }
     else
-        result = str().mk_substr(t, one, m_autil.mk_sub(str().mk_length(t), one));
+        result = str().mk_substr(t, m_autil.mk_int(1), m_autil.mk_sub(str().mk_length(t), m_autil.mk_int(1)));
     return result;
 }
 
@@ -908,12 +913,18 @@ expr_ref seq_rewriter::mk_seq_rest(expr* t) {
 */
 expr_ref seq_rewriter::mk_seq_last(expr* t) {
     expr_ref result(m());
-    expr* s, * j, * k;
-    expr_ref one(m_autil.mk_int(1), m());
-    if (str().is_extract(t, s, j, k))
-        result = str().mk_nth_i(s, m_autil.mk_sub(m_autil.mk_add(j, k), one));
+    expr* s, * j, * k, * s_, * l;
+    rational jv;
+    if (str().is_extract(t, s, j, k) && m_autil.is_numeral(j, jv) && jv.is_nonneg()) {
+        unsigned i;
+        // k = |s_| - i, l = |s_| implies that lastpos = j + k - 1 = k + j - 1 = j + l - i - 1 = l + j - i - 1
+        expr_ref lastpos(str().is_len_sub(k, l, s_, i) && s == s_ ? 
+            m_autil.mk_add(l, m_autil.mk_int(jv.get_int32() - 1 - i)) :
+            m_autil.mk_add(k, m_autil.mk_int(jv.get_int32() - 1)), m());
+        result = str().mk_nth_i(s, lastpos);
+    }
     else
-        result = str().mk_nth_i(t, m_autil.mk_sub(str().mk_length(t), one));
+        result = str().mk_nth_i(t, m_autil.mk_sub(str().mk_length(t), m_autil.mk_int(1)));
     return result;
 }
 
@@ -924,11 +935,14 @@ expr_ref seq_rewriter::mk_seq_last(expr* t) {
 expr_ref seq_rewriter::mk_seq_butlast(expr* t) {
     expr_ref result(m());
     expr* s, * j, * k;
-    expr_ref one(m_autil.mk_int(1), m());
-    if (str().is_extract(t, s, j, k))
-        result = str().mk_substr(s, j, m_autil.mk_sub(k, one));
+    if (str().is_extract(t, s, j, k)) {
+        expr_ref_vector k_min_1(m());
+        k_min_1.push_back(k);
+        k_min_1.push_back(m_autil.mk_int(-1));
+        result = str().mk_substr(s, j, m_autil.mk_add_simplify(k_min_1));
+    }
     else
-        result = str().mk_substr(t, m_autil.mk_int(0), m_autil.mk_sub(str().mk_length(t), one));
+        result = str().mk_substr(t, m_autil.mk_int(0), m_autil.mk_sub(str().mk_length(t), m_autil.mk_int(1)));
     return result;
 }
 
@@ -2573,7 +2587,7 @@ bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
 }
 
 /*
-    s = head + tail where |head| = 1
+    s = [head] + tail where head is the first element of s
 */
 bool seq_rewriter::get_head_tail(expr* s, expr_ref& head, expr_ref& tail) {
     expr* h = nullptr, *t = nullptr;
@@ -2670,10 +2684,10 @@ expr_ref seq_rewriter::re_predicate(expr* cond, sort* seq_sort) {
 expr_ref seq_rewriter::is_nullable(expr* r) {
     STRACE("seq_verbose", tout << "is_nullable: "
                                << mk_pp(r, m()) << std::endl;);
-    expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr), m());
+    expr_ref result(m_op_cache.find(_OP_RE_IS_NULLABLE, r, nullptr, nullptr), m());
     if (!result) {
         result = is_nullable_rec(r);
-        m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, result);        
+        m_op_cache.insert(_OP_RE_IS_NULLABLE, r, nullptr, nullptr, result);        
     }
     STRACE("seq_verbose", tout << "is_nullable result: "
                                << result << std::endl;);
@@ -2691,7 +2705,7 @@ expr_ref seq_rewriter::is_nullable_rec(expr* r) {
         re().is_intersection(r, r1, r2)) { 
         m_br.mk_and(is_nullable(r1), is_nullable(r2), result);
     }
-    else if (re().is_union(r, r1, r2)) {
+    else if (re().is_union(r, r1, r2) || re().is_antimorov_union(r, r1, r2)) {
         m_br.mk_or(is_nullable(r1), is_nullable(r2), result);
     }
     else if (re().is_diff(r, r1, r2)) {
@@ -2701,6 +2715,7 @@ expr_ref seq_rewriter::is_nullable_rec(expr* r) {
     else if (re().is_star(r) || 
         re().is_opt(r) ||
         re().is_full_seq(r) ||
+        re().is_epsilon(r) ||
         (re().is_loop(r, r1, lo) && lo == 0) || 
         (re().is_loop(r, r1, lo, hi) && lo == 0)) {
         result = m().mk_true();
@@ -2724,7 +2739,7 @@ expr_ref seq_rewriter::is_nullable_rec(expr* r) {
         result = is_nullable(r1);
     }
     else if (m().is_ite(r, cond, r1, r2)) {
-        result = m().mk_ite(cond, is_nullable(r1), is_nullable(r2));
+        m_br.mk_ite(cond, is_nullable(r1), is_nullable(r2), result);
     }
     else if (m_util.is_re(r, seq_sort)) {
         result = is_nullable_symbolic_regex(r, seq_sort);
@@ -2977,25 +2992,364 @@ bool seq_rewriter::check_deriv_normal_form(expr* r, int level) {
 #endif
 
 /*
-    Memoized, recursive implementation of the symbolic derivative such that
-    the result is in normal form.
-
-    Functions without _rec are memoized wrappers, which call the _rec
-    version if lookup fails.
-
-    The main logic is in mk_der_op_rec for combining normal forms.
+    Memoized, recursive implementation of the symbolic derivative of r as a transition regex with .
+*/
+expr_ref seq_rewriter::mk_derivative(expr* r) {
+    return mk_antimirov_deriv(ele, r, m().mk_true());
+}
+/*
+    Memoized, recursive implementation of the symbolic derivative of r.
 */
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
-    STRACE("seq_verbose", tout << "derivative: " << mk_pp(ele, m())
+    /*STRACE("seq_verbose", tout << "derivative: " << mk_pp(ele, m())
                                << "," << mk_pp(r, m()) << std::endl;);
-    expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, ele, r), m());
+    expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, ele, r, nullptr), m());
     if (!result) {
         result = mk_derivative_rec(ele, r);
-        m_op_cache.insert(OP_RE_DERIVATIVE, ele, r, result);
+        m_op_cache.insert(OP_RE_DERIVATIVE, ele, r, nullptr, result);
     }
     STRACE("seq_verbose", tout << "derivative result: "
-                               << mk_pp(result, m()) << std::endl;);
+                               << re().to_str(result) << std::endl;);
     CASSERT("seq_regex", check_deriv_normal_form(r));
+    return result;*/
+    return mk_antimirov_deriv(ele, r, m().mk_true());
+}
+
+expr_ref seq_rewriter::mk_antimirov_deriv(expr* e, expr* r, expr* path) {
+    expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, e, r, path), m());
+    if (!result) {
+        mk_antimirov_deriv_rec(e, r, path, result);
+        m_op_cache.insert(OP_RE_DERIVATIVE, e, r, path, result);
+        STRACE("seq_regex", tout << "D(" << mk_pp(e, m()) << "," << mk_pp(r, m()) << "," << mk_pp(path, m()) << ")" << std::endl;);
+        STRACE("seq_regex", tout << "= " << mk_pp(result, m()) << std::endl;);
+    }
+    return result;
+}
+
+void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref& result) {
+    sort* seq_sort = nullptr, * ele_sort = nullptr;
+    VERIFY(m_util.is_re(r, seq_sort));
+    VERIFY(m_util.is_seq(seq_sort, ele_sort));
+    SASSERT(ele_sort == e->get_sort());
+    expr* r1 = nullptr, * r2 = nullptr, * c = nullptr;
+    expr_ref c1(m());
+    expr_ref c2(m());
+    auto nothing = [&]() { return expr_ref(re().mk_empty(r->get_sort()), m()); };
+    auto epsilon = [&]() { return expr_ref(re().mk_epsilon(seq_sort), m()); };
+    auto dotstar = [&]() { return expr_ref(re().mk_full_seq(r->get_sort()), m()); };
+    auto dotplus = [&]() { return expr_ref(re().mk_plus(re().mk_full_char(r->get_sort())), m()); };
+    unsigned lo = 0, hi = 0;
+    if (re().is_empty(r) || re().is_epsilon(r))
+        // D(e,[]) = D(e,()) = []
+        result = nothing();
+    else if (re().is_full_seq(r) || re().is_dot_plus(r))
+        // D(e,.*) = D(e,.+) = .*
+        result = dotstar();
+    else if (re().is_full_char(r))
+        // D(e,.) = ()
+        result = epsilon();
+    else if (re().is_to_re(r, r1)) {
+        expr_ref h(m());
+        expr_ref t(m());
+        // here r1 is a sequence
+        if (get_head_tail(r1, h, t)) {
+            if (eq_char(e, h))
+                result = re().mk_to_re(t);
+            else if (neq_char(e, h))
+                result = nothing();
+            else
+                result = mk_ite_simplify(m().mk_eq(e, h), re().mk_to_re(t), nothing());
+        }
+        else
+        {
+            // observe that the precondition |r1|>0 is is implied by c1 for use of mk_seq_first
+            m_br.mk_and(m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort))), m().mk_eq(mk_seq_first(r1), e), c1);
+            m_br.mk_and(path, c1, c2);
+            if (m().is_false(c2))
+                result = nothing();
+            else
+                // observe that the precondition |r1|>0 is implied by c1 for use of mk_seq_rest
+                result = m().mk_ite(c1, re().mk_to_re(mk_seq_rest(r1)), nothing());
+        }
+    }
+    else if (re().is_reverse(r, r2))
+        if (re().is_to_re(r2, r1)) {
+            // here r1 is a sequence
+            // observe that the precondition |r1|>0 of mk_seq_last is implied by c1
+            m_br.mk_and(m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort))), m().mk_eq(mk_seq_last(r1), e), c1);
+            m_br.mk_and(path, c1, c2);
+            if (m().is_false(c2))
+                result = nothing();
+            else
+                // observe that the precondition |r1|>0 of mk_seq_rest is implied by c1
+                result = mk_ite_simplify(c1, re().mk_reverse(mk_seq_butlast(r1)), nothing());
+        }
+        else {
+            result = mk_regex_reverse(r2);
+            if (result.get() == r)
+                //r2 is an uninterpreted regex that is stuck
+                //for example if r = (re.reverse R) where R is a regex variable then
+                //here result.get() == r
+                result = re().mk_derivative(e, result);
+            else
+                result = mk_antimirov_deriv(e, result, path);
+        }
+    else if (re().is_concat(r, r1, r2)) {
+        expr_ref r1nullable(is_nullable(r1), m());
+        c1 = mk_antimirov_deriv_concat(mk_antimirov_deriv(e, r1, path), r2);
+        expr_ref r1nullable_and_path(m());
+        m_br.mk_and(r1nullable, path, r1nullable_and_path);
+        if (m().is_false(r1nullable_and_path))
+            // D(e,r1)r2
+            result = c1;
+        else
+            // D(e,r1)r2|(ite (r1nullable) (D(e,r2)) [])
+            // observe that (mk_ite_simplify(true, D(e,r2), []) = D(e,r2)
+            result = mk_antimirov_deriv_union(c1, mk_ite_simplify(r1nullable, mk_antimirov_deriv(e, r2, path), nothing()));
+    }
+    else if (m().is_ite(r, c, r1, r2)) {
+        m_br.mk_and(path, c, c1);
+        m_br.mk_and(path, m_br.mk_not(c), c2);
+        // TODO: try to simplify c1 and c2 further to false when possible
+        // by checking cases when path is inconsistent with character constraint c
+        if (m().is_false(c1))
+            result = mk_antimirov_deriv(e, r2, c2);
+        else if (m().is_false(c2))
+            result = mk_antimirov_deriv(e, r1, c1);
+        else
+            result = mk_ite_simplify(c, mk_antimirov_deriv(e, r1, c1), mk_antimirov_deriv(e, r2, c2));
+    }
+    else if (re().is_range(r, r1, r2)) {
+        expr_ref range(m());
+        expr_ref psi(m());
+        if (str().is_unit_string(r1, c1) && str().is_unit_string(r2, c2)) {
+            SASSERT(u().is_char(c1));
+            SASSERT(u().is_char(c2));
+            // range represents c1 <= e <= c2
+            m_br.mk_and(u().mk_le(c1, e), u().mk_le(e, c2), range);
+            m_br.mk_and(path, range, psi);
+            if (m().is_false(psi))
+                result = nothing();
+            else
+                // D(e,c1..c2) = if (c1<=e<=c2) then () else []
+                result = mk_ite_simplify(range, epsilon(), nothing());
+        }
+        else
+            result = nothing();
+    }
+    else if (re().is_union(r, r1, r2))
+        result = mk_antimirov_deriv_union(mk_antimirov_deriv(e, r1, path), mk_antimirov_deriv(e, r2, path));
+    else if (re().is_intersection(r, r1, r2))
+        result = mk_antimirov_deriv_intersection(
+            mk_antimirov_deriv(e, r1, path),
+            mk_antimirov_deriv(e, r2, path), m().mk_true());
+    else if (re().is_star(r, r1) || re().is_plus(r, r1) || re().is_loop(r, r1, lo) && 0 <= lo && lo <= 1)
+        result = mk_antimirov_deriv_concat(mk_antimirov_deriv(e, r1, path), re().mk_star(r1));
+    else if (re().is_loop(r, r1, lo))
+        result = mk_antimirov_deriv_concat(mk_antimirov_deriv(e, r1, path), re().mk_loop(r1, lo - 1));
+    else if (re().is_loop(r, r1, lo, hi)) {
+        if (lo == 0 && hi == 0 || hi < lo)
+            result = nothing();
+        else
+            result = mk_antimirov_deriv_concat(mk_antimirov_deriv(e, r1, path), re().mk_loop(r1, (lo == 0 ? 0 : lo - 1), hi - 1));
+    }
+    else if (re().is_opt(r, r1))
+        result = mk_antimirov_deriv(e, r1, path);
+    else if (re().is_complement(r, r1))
+        // D(e,~r1) = ~D(e,r1)
+        result = mk_antimirov_deriv_negate(mk_antimirov_deriv(e, r1, path));
+    else if (re().is_diff(r, r1, r2))
+        result = mk_antimirov_deriv_intersection(
+            mk_antimirov_deriv(e, r1, path),
+            mk_antimirov_deriv_negate(mk_antimirov_deriv(e, r2, path)), m().mk_true());
+    else
+        // stuck cases
+        result = re().mk_derivative(e, r);
+}
+
+expr_ref seq_rewriter::mk_antimirov_deriv_intersection(expr* d1, expr* d2, expr* path) {
+    auto nothing = [&]() { return expr_ref(re().mk_empty(d1->get_sort()), m()); };
+    expr_ref result(m());
+    if (d1 == d2) {
+        result = d1;
+        return result;
+    }
+    expr* c1, * t1, * e1;
+    if (m().is_ite(d1, c1, t1, e1)) {
+        expr_ref path_and_c1(m());
+        expr_ref path_and_notc1(m());
+        m_br.mk_and(path, c1, path_and_c1);
+        m_br.mk_and(path, m_br.mk_not(c1), path_and_notc1);
+
+        if (m().is_false(path_and_c1))
+            result = mk_antimirov_deriv_intersection(e1, d2, path);
+        else if (m().is_false(path_and_notc1))
+            result = mk_antimirov_deriv_intersection(t1, d2, path);
+        else
+            result = m().mk_ite(c1, mk_antimirov_deriv_intersection(t1, d2, path_and_c1),
+                mk_antimirov_deriv_intersection(e1, d2, path_and_notc1));
+    }
+    else if (m().is_ite(d2))
+        // swap d1 and d2
+        result = mk_antimirov_deriv_intersection(d2, d1, path);
+    else
+        // in all other cases create the intersection regex
+        result = re().mk_inter(d1, d2);
+    return result;
+}
+
+expr_ref seq_rewriter::mk_antimirov_deriv_concat(expr* d, expr* r) {
+    expr_ref result(m());
+    expr* c, * t, * e;
+    if (m().is_ite(d, c, t, e))
+        result = m().mk_ite(c, mk_antimirov_deriv_concat(t, r), mk_antimirov_deriv_concat(e, r));
+    else if (re().is_union(d, t, e))
+        result = re().mk_union(mk_antimirov_deriv_concat(t, r), mk_antimirov_deriv_concat(e, r));
+    else
+        result = mk_re_append(d, r);
+    return result;
+}
+
+expr_ref seq_rewriter::mk_antimirov_deriv_negate(expr* d) {
+    sort* seq_sort = nullptr, * ele_sort = nullptr;
+    VERIFY(m_util.is_re(d, seq_sort));
+    auto nothing = [&]() { return expr_ref(re().mk_empty(d->get_sort()), m()); };
+    auto epsilon = [&]() { return expr_ref(re().mk_epsilon(seq_sort), m()); };
+    auto dotstar = [&]() { return expr_ref(re().mk_full_seq(d->get_sort()), m()); };
+    auto dotplus = [&]() { return expr_ref(re().mk_plus(re().mk_full_char(d->get_sort())), m()); };
+    expr_ref result(m());
+    expr* c, * t, * e;
+    if (re().is_empty(d))
+        result = dotstar();
+    else if (re().is_epsilon(d))
+        result = dotplus();
+    else if (re().is_full_seq(d))
+        result = nothing();
+    else if (re().is_dot_plus(d))
+        result = epsilon();
+    else if (m().is_ite(d, c, t, e))
+        result = m().mk_ite(c, mk_antimirov_deriv_negate(t), mk_antimirov_deriv_negate(e));
+    else if (re().is_union(d, t, e))
+        result = re().mk_inter(mk_antimirov_deriv_negate(t), mk_antimirov_deriv_negate(e));
+    else if (re().is_intersection(d, t, e))
+        result = re().mk_union(mk_antimirov_deriv_negate(t), mk_antimirov_deriv_negate(e));
+    else if (re().is_complement(d, t))
+        result = t;
+    else
+        result = re().mk_complement(d);
+    return result;
+}
+
+expr_ref seq_rewriter::mk_antimirov_deriv_union(expr* d1, expr* d2)
+{
+    expr_ref result(m());
+    if (re().is_empty(d1) || re().is_full_seq(d2))
+        result = d2;
+    else if (re().is_empty(d2) || re().is_full_seq(d1))
+        result = d1;
+    else if (re().is_dot_plus(d1) && re().get_info(d2).min_length > 0)
+        result = d1;
+    else if (re().is_dot_plus(d2) && re().get_info(d1).min_length > 0)
+        result = d2;
+    else
+        //TODO: flatten and order the union 
+        result = re().mk_union(d1, d2);
+    return result;
+}
+
+expr_ref seq_rewriter::mk_ite_simplify(expr* c, expr* t, expr* e)
+{
+    expr_ref result(m());
+    if (m().is_true(c) || t == e)
+        result = t;
+    else if (m().is_false(c))
+        result = e;
+    else
+        result = m().mk_ite(c, t, e);
+    return result;
+}
+
+expr_ref seq_rewriter::mk_regex_reverse(expr* r) {
+    expr* r1 = nullptr, * r2 = nullptr, * c = nullptr;
+    unsigned lo = 0, hi = 0;
+    expr_ref result(m());
+    if (re().is_empty(r) || re().is_range(r) || re().is_epsilon(r) || re().is_full_seq(r) ||
+        re().is_full_char(r) || re().is_dot_plus(r) || re().is_of_pred(r))
+        result = r;
+    else if (re().is_to_re(r))
+        result = re().mk_reverse(r);
+    else if (re().is_reverse(r, r1))
+        result = r1;
+    else if (re().is_concat(r, r1, r2))
+        result = mk_regex_concat(mk_regex_reverse(r2), mk_regex_reverse(r1));
+    else if (m().is_ite(r, c, r1, r2))
+        result = m().mk_ite(c, mk_regex_reverse(r1), mk_regex_reverse(r2));
+    else if (re().is_union(r, r1, r2))
+        result = re().mk_union(mk_regex_reverse(r1), mk_regex_reverse(r2));
+    else if (re().is_intersection(r, r1, r2))
+        result = re().mk_inter(mk_regex_reverse(r1), mk_regex_reverse(r2));
+    else if (re().is_diff(r, r1, r2))
+        result = re().mk_diff(mk_regex_reverse(r1), mk_regex_reverse(r2));
+    else if (re().is_star(r, r1))
+        result = re().mk_star(mk_regex_reverse(r1));
+    else if (re().is_plus(r, r1))
+        result = re().mk_plus(mk_regex_reverse(r1));
+    else if (re().is_loop(r, r1, lo))
+        result = re().mk_loop(mk_regex_reverse(r1), lo);
+    else if (re().is_loop(r, r1, lo, hi))
+        result = re().mk_loop(mk_regex_reverse(r1), lo, hi);
+    else if (re().is_opt(r, r1))
+        result = re().mk_opt(mk_regex_reverse(r1));
+    else if (re().is_complement(r, r1))
+        result = re().mk_complement(mk_regex_reverse(r1));
+    else
+        //stuck cases: such as r being a regex variable
+        //observe that re().mk_reverse(to_re(s)) is not a stuck case
+        result = re().mk_reverse(r);
+    return result;
+}
+
+expr_ref seq_rewriter::mk_regex_concat(expr* r, expr* s) {
+    sort* seq_sort = nullptr;
+    VERIFY(m_util.is_re(r, seq_sort));
+    SASSERT(r->get_sort() == s->get_sort());
+    expr_ref result(m());
+    expr* r1, * r2;
+    if (re().is_epsilon(r) || re().is_empty(s))
+        result = s;
+    else if (re().is_epsilon(s) || re().is_empty(r))
+        result = r;
+    else if (re().is_full_seq(r) && re().is_full_seq(s))
+        result = r;
+    else if (re().is_concat(r, r1, r2))
+        //create the resulting concatenation in right-associative form
+        result = mk_regex_concat(r1, mk_regex_concat(r2, s));
+    else {
+        //TODO: perhaps simplifiy some further cases such as .*. = ..* = .*.+ = .+.* = .+
+        result = re().mk_concat(r, s);
+    }
+}
+
+expr_ref seq_rewriter::mk_in_antimirov(expr* s, expr* d){
+    expr_ref result(mk_in_antimirov_rec(s, d), m());
+    return result;
+}
+
+expr_ref seq_rewriter::mk_in_antimirov_rec(expr* s, expr* d) {
+    expr* c, * d1, * d2;
+    expr_ref result(m());
+    if (re().is_full_seq(d) || (str().min_length(s) > 0 && re().is_dot_plus(d)))
+        // s in .* <==> true, also: s in .+ <==> true when |s|>0
+        result = m().mk_true();
+    else if (re().is_empty(d) || (str().min_length(s) > 0 && re().is_epsilon(d)))
+        // s in [] <==> false, also: s in () <==> false when |s|>0
+        result = m().mk_false();
+    else if (m().is_ite(d, c, d1, d2))
+        m_br.mk_ite(c, mk_in_antimirov_rec(s, d1), mk_in_antimirov_rec(s, d2), result);
+    else if (re().is_union(d, d1, d2))
+        m_br.mk_or(mk_in_antimirov_rec(s, d1), mk_in_antimirov_rec(s, d2), result);
+    else
+        result = re().mk_in_re(s, d);
     return result;
 }
 
@@ -3016,7 +3370,7 @@ expr_ref seq_rewriter::mk_der_concat(expr* r1, expr* r2) {
 }
 
 /*
-    Utility functions to decide char <, ==, and <=.
+    Utility functions to decide char <, ==, !=, and <=.
     Return true if deduced, false if unknown.
 */
 bool seq_rewriter::lt_char(expr* ch1, expr* ch2) {
@@ -3026,6 +3380,11 @@ bool seq_rewriter::lt_char(expr* ch1, expr* ch2) {
 }
 bool seq_rewriter::eq_char(expr* ch1, expr* ch2) {
     return ch1 == ch2;
+}
+bool seq_rewriter::neq_char(expr* ch1, expr* ch2) {
+    unsigned u1, u2;
+    return u().is_const_char(ch1, u1) &&
+        u().is_const_char(ch2, u2) && (u1 != u2);
 }
 bool seq_rewriter::le_char(expr* ch1, expr* ch2) {
     return eq_char(ch1, ch2) || lt_char(ch1, ch2);
@@ -3257,10 +3616,10 @@ expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
     default:
         break;
     }
-    result = m_op_cache.find(k, a, b);
+    result = m_op_cache.find(k, a, b, nullptr);
     if (!result) {
         result = mk_der_op_rec(k, a, b);
-        m_op_cache.insert(k, a, b, result);
+        m_op_cache.insert(k, a, b, nullptr, result);
     }
     CASSERT("seq_regex", check_deriv_normal_form(result));
     return result;
@@ -3269,7 +3628,7 @@ expr_ref seq_rewriter::mk_der_op(decl_kind k, expr* a, expr* b) {
 expr_ref seq_rewriter::mk_der_compl(expr* r) {
     STRACE("seq_verbose", tout << "mk_der_compl: " << mk_pp(r, m())
                                << std::endl;);
-    expr_ref result(m_op_cache.find(OP_RE_COMPLEMENT, r, nullptr), m());
+    expr_ref result(m_op_cache.find(OP_RE_COMPLEMENT, r, nullptr, nullptr), m());
     if (!result) {
         expr* c = nullptr, * r1 = nullptr, * r2 = nullptr;
         if (re().is_antimorov_union(r, r1, r2)) {
@@ -3285,7 +3644,7 @@ expr_ref seq_rewriter::mk_der_compl(expr* r) {
         }
         else if (BR_FAILED == mk_re_complement(r, result))
             result = re().mk_complement(r);        
-        m_op_cache.insert(OP_RE_COMPLEMENT, r, nullptr, result);
+        m_op_cache.insert(OP_RE_COMPLEMENT, r, nullptr, nullptr, result);
     }
     CASSERT("seq_regex", check_deriv_normal_form(result));
     return result;
@@ -3537,9 +3896,9 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
                 return mk_empty();
             }
         }
-        expr* e1 = nullptr, *e2 = nullptr;
+        expr* e1 = nullptr, * e2 = nullptr;
         if (str().is_unit(r1, e1) && str().is_unit(r2, e2)) {
-  	    SASSERT(u().is_char(e1));
+            SASSERT(u().is_char(e1));
             // Use mk_der_cond to normalize
             STRACE("seq_verbose", tout << "deriv range str" << std::endl;);
             expr_ref p1(u().mk_le(e1, ele), m());
@@ -3775,8 +4134,10 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
 
     expr_ref hd(m()), tl(m());
     if (get_head_tail(a, hd, tl)) {
-        result = re().mk_in_re(tl, re().mk_derivative(hd, b));
-        return BR_REWRITE2;
+        //result = re().mk_in_re(tl, re().mk_derivative(hd, b));
+        //result = re().mk_in_re(tl, mk_derivative(hd, b));
+        result = mk_in_antimirov(tl, mk_antimirov_deriv(hd, b, m().mk_true()));
+        return BR_DONE;
     }
 
     if (get_head_tail_reversed(a, hd, tl)) {
@@ -3912,6 +4273,10 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE2;
     }
     expr* a1 = nullptr, *b1 = nullptr;
+    if (re().is_to_re(a, a1) && re().is_to_re(b, b1)) {
+        result = re().mk_to_re(str().mk_concat(a1, b1));
+        return BR_DONE;
+    }
     if (re().is_star(a, a1) && re().is_star(b, b1) && a1 == b1) {
         result = a;
         return BR_DONE;
@@ -5275,19 +5640,20 @@ seq_rewriter::op_cache::op_cache(ast_manager& m):
     m_trail(m)
 {}
 
-expr* seq_rewriter::op_cache::find(decl_kind op, expr* a, expr* b) {
-    op_entry e(op, a, b, nullptr);
+expr* seq_rewriter::op_cache::find(decl_kind op, expr* a, expr* b, expr* c) {
+    op_entry e(op, a, b, c, nullptr);
     m_table.find(e, e);
 
     return e.r;
 }
 
-void seq_rewriter::op_cache::insert(decl_kind op, expr* a, expr* b, expr* r) {
+void seq_rewriter::op_cache::insert(decl_kind op, expr* a, expr* b, expr* c, expr* r) {
     cleanup();
     if (a) m_trail.push_back(a);
     if (b) m_trail.push_back(b);
+    if (c) m_trail.push_back(c);
     if (r) m_trail.push_back(r);
-    m_table.insert(op_entry(op, a, b, r));
+    m_table.insert(op_entry(op, a, b, c, r));
 }
 
 void seq_rewriter::op_cache::cleanup() {

@@ -350,6 +350,13 @@ public:
         bool is_from_code(expr const* n) const { return is_app_of(n, m_fid, OP_STRING_FROM_CODE); }
         bool is_to_code(expr const* n) const { return is_app_of(n, m_fid, OP_STRING_TO_CODE); }
 
+        bool is_len_sub(expr const* n, expr*& l, expr*& u, unsigned& k) const;
+
+        /*
+        tests if s is a single character string(c) or a unit (c)
+        */
+        bool is_unit_string(expr const* s, expr_ref& c) const;
+
         bool is_string_term(expr const * n) const {
             return u.is_string(n->get_sort());
         }
@@ -530,7 +537,20 @@ public:
         bool is_loop(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_LOOP); }
         bool is_empty(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_EMPTY_SET); }
         bool is_full_char(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_FULL_CHAR_SET); }
-        bool is_full_seq(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_FULL_SEQ_SET); }
+        bool is_full_seq(expr const* n)  const {
+            expr* s;
+            return is_app_of(n, m_fid, OP_RE_FULL_SEQ_SET) || (is_star(n, s) && is_full_char(s));
+        }
+        bool is_dot_plus(expr const* n)  const {
+            expr* s, * t;
+            if (is_plus(n, s) && is_full_char(s))
+                return true;
+            if (is_concat(n, s, t)) {
+                if ((is_full_char(s) && is_full_seq(t)) || (is_full_char(t) && is_full_seq(s)))
+                    return true;
+            }
+            return false;
+        }
         bool is_of_pred(expr const* n) const { return is_app_of(n, m_fid, OP_RE_OF_PRED); }
         bool is_reverse(expr const* n) const { return is_app_of(n, m_fid, OP_RE_REVERSE); }
         bool is_derivative(expr const* n) const { return is_app_of(n, m_fid, OP_RE_DERIVATIVE); }
