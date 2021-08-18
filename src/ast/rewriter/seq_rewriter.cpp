@@ -2992,10 +2992,15 @@ bool seq_rewriter::check_deriv_normal_form(expr* r, int level) {
 #endif
 
 /*
-    Memoized, recursive implementation of the symbolic derivative of r as a transition regex with .
+    Memoized, recursive implementation of the symbolic derivative of r as a transition regex wrt (:var 0).
 */
 expr_ref seq_rewriter::mk_derivative(expr* r) {
-    return mk_antimirov_deriv(ele, r, m().mk_true());
+    sort* seq_sort = nullptr, * elem_sort = nullptr;
+    VERIFY(u().is_re(r, seq_sort));
+    u().is_seq(seq_sort, elem_sort);
+    // Use the canonical variable (:var 0) for derivation
+    // essentially representing the transition regex \lambda x.deriv(x,r)
+    return mk_antimirov_deriv(m().mk_var(0, elem_sort), r, m().mk_true());
 }
 /*
     Memoized, recursive implementation of the symbolic derivative of r.
