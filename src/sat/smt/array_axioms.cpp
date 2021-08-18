@@ -120,9 +120,15 @@ namespace array {
         app* select = r.select->get_app();
         SASSERT(a.is_select(select));
         SASSERT(can_beta_reduce(r.n));
-        TRACE("array", display(tout << "select-axiom: ", r) << "\n";);
 
-        if (get_config().m_array_delay_exp_axiom && r.select->get_arg(0)->get_root() != r.n->get_root() && !r.is_delayed() && m_enable_delay) {
+        bool should_delay = 
+            get_config().m_array_delay_exp_axiom && 
+            r.select->get_arg(0)->get_root() != r.n->get_root() && 
+            !r.is_delayed() && m_enable_delay;
+
+        TRACE("array", display(tout << "select-axiom: " << (should_delay ? "delay " : ""), r) << "\n";);
+
+        if (should_delay) {
             IF_VERBOSE(11, verbose_stream() << "delay: " << mk_bounded_pp(child, m) << " " << mk_bounded_pp(select, m) << "\n");
             ctx.push(reset_new(*this, idx));
             r.set_delayed();
@@ -176,8 +182,6 @@ namespace array {
         unsigned num_args = select->get_num_args();
 
         expr* arg = select->get_arg(0);
-        if (false && arg != store && !can_beta_reduce(arg) && expr2enode(arg)->get_root() == expr2enode(store)->get_root()) 
-            return false;
         bool has_diff = false;
         for (unsigned i = 1; i < num_args; i++) 
             has_diff |= expr2enode(select->get_arg(i))->get_root() != expr2enode(store->get_arg(i))->get_root();
@@ -208,9 +212,6 @@ namespace array {
               tout << "select-store " << ctx.bpp(s1) << " " << ctx.bpp(s1->get_root()) << "\n";
               tout << "select-store " << ctx.bpp(s2) << " " << ctx.bpp(s2->get_root()) << "\n";);
 
-
-        if (s1->get_root() == s2->get_root())
-            return new_prop;
 
         sat::literal sel_eq = sat::null_literal;
         auto init_sel_eq = [&]() {
