@@ -238,6 +238,8 @@ private:
             }
         }
         else {            
+            if (!is_uninterp_const(fst_arg))
+                return false;
             bool first = true;
             for (expr* arg : *a) {
                 if (!is_app(arg))
