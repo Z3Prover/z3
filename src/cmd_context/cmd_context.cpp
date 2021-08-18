@@ -1201,7 +1201,11 @@ bool cmd_context::try_mk_pdecl_app(symbol const & s, unsigned num_args, expr * c
             return true;
         if (m().is_uninterp(ps) && ps->get_name().is_numerical()) {
             int index = ps->get_name().get_num();
+            if (index < 0)
+                return false;
             binding.reserve(index + 1);
+            if (binding.get(index) && binding.get(index) != s)
+                return false;
             binding[index] = s;
             return true;
         }

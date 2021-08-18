@@ -9581,7 +9581,7 @@ class FPNumRef(FPRef):
 
     def sign(self):
         num = (ctypes.c_int)()
-        nsign = Z3_fpa_get_numeral_sign(self.ctx.ref(), self.as_ast(), byref(l))
+        nsign = Z3_fpa_get_numeral_sign(self.ctx.ref(), self.as_ast(), byref(num))
         if nsign is False:
             raise Z3Exception("error retrieving the sign of a numeral.")
         return num.value != 0
