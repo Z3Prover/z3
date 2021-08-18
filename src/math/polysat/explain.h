@@ -26,7 +26,7 @@ namespace polysat {
         pvar m_var = null_var;
         ptr_vector<constraint> m_cjust_v;
 
-        // TODO: instead of listing methods, create and abstract class for each explanation method, register them in a vector and call them in turn
+        // TODO: instead of listing methods, create an abstract class for explanation methods, register them in a vector and call them in turn
         /* Conflict explanation methods */
         clause_ref by_polynomial_superposition();
         clause_ref by_ugt_x();

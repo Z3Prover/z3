@@ -143,7 +143,7 @@ namespace polysat {
         clause* unit = m_constraints.store(clause::from_unit(std::move(cl), mk_dep_ref(dep)));
         c->set_unit_clause(unit);
         if (dep != null_dependency)
-            m_constraints.register_external(c.constraint());
+            m_constraints.register_external(c.get_constraint());
         LOG("New constraint: " << c);
         m_original.push_back(c);
 #if ENABLE_LINEAR_SOLVER
@@ -310,7 +310,7 @@ namespace polysat {
 
     void solver::add_watch(constraint_literal c) {
         SASSERT(c);
-        auto const& vars = c.constraint()->vars();
+        auto const& vars = c.get_constraint()->vars();
         if (vars.size() > 0)
             add_watch(c, vars[0]);
         if (vars.size() > 1)
@@ -324,7 +324,7 @@ namespace polysat {
     }
 
     void solver::erase_watch(constraint_literal c) {
-        auto const& vars = c.constraint()->vars();
+        auto const& vars = c.get_constraint()->vars();
         if (vars.size() > 0)
             erase_watch(vars[0], c);
         if (vars.size() > 1)

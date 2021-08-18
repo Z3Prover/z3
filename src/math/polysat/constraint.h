@@ -187,8 +187,8 @@ namespace polysat {
         constraint_literal() {}
         constraint_literal(sat::literal lit, constraint* c):
             m_literal(lit), m_constraint(c) {
-            SASSERT(constraint());
-            SASSERT(literal().var() == constraint()->bvar());
+            SASSERT(get_constraint());
+            SASSERT(literal().var() == get_constraint()->bvar());
         }
         constraint_literal(constraint* c, bool is_positive): constraint_literal(sat::literal(c->bvar(), !is_positive), c) {}
 
@@ -203,21 +203,21 @@ namespace polysat {
         bool is_positive() const { return !m_literal.sign(); }
         bool is_negative() const { return m_literal.sign(); }
 
-        bool propagate(solver& s, pvar v) { return constraint()->propagate(s, !literal().sign(), v); }
-        void propagate_core(solver& s, pvar v, pvar other_v) { constraint()->propagate_core(s, !literal().sign(), v, other_v); }
-        bool is_always_false() { return constraint()->is_always_false(!literal().sign()); }
-        bool is_currently_false(solver& s) { return constraint()->is_currently_false(s, !literal().sign()); }
-        bool is_currently_true(solver& s) { return constraint()->is_currently_true(s, !literal().sign()); }
-        void narrow(solver& s) { constraint()->narrow(s, !literal().sign()); }
-        inequality as_inequality() const { return constraint()->as_inequality(!literal().sign()); }
+        bool propagate(solver& s, pvar v) { return get_constraint()->propagate(s, !literal().sign(), v); }
+        void propagate_core(solver& s, pvar v, pvar other_v) { get_constraint()->propagate_core(s, !literal().sign(), v, other_v); }
+        bool is_always_false() { return get_constraint()->is_always_false(!literal().sign()); }
+        bool is_currently_false(solver& s) { return get_constraint()->is_currently_false(s, !literal().sign()); }
+        bool is_currently_true(solver& s) { return get_constraint()->is_currently_true(s, !literal().sign()); }
+        void narrow(solver& s) { get_constraint()->narrow(s, !literal().sign()); }
+        inequality as_inequality() const { return get_constraint()->as_inequality(!literal().sign()); }
 
         sat::literal literal() const { return m_literal; }
-        polysat::constraint* constraint() const { return m_constraint; }
+        constraint* get_constraint() const { return m_constraint; }
 
         explicit operator bool() const { return !!m_constraint; }
         bool operator!() const { return !m_constraint; }
-        polysat::constraint* operator->() const { return m_constraint; }
-        polysat::constraint const& operator*() const { return *m_constraint; }
+        constraint* operator->() const { return m_constraint; }
+        constraint const& operator*() const { return *m_constraint; }
 
         constraint_literal& operator=(std::nullptr_t) { m_literal = sat::null_literal; m_constraint = nullptr; return *this; }
 
@@ -228,7 +228,7 @@ namespace polysat {
 
     inline bool operator==(constraint_literal const& lhs, constraint_literal const& rhs) {
         if (lhs.literal() == rhs.literal())
-            SASSERT(lhs.constraint() == rhs.constraint());
+            SASSERT(lhs.get_constraint() == rhs.get_constraint());
         return lhs.literal() == rhs.literal();
     }
 
@@ -242,10 +242,10 @@ namespace polysat {
         constraint_literal_ref() {}
         constraint_literal_ref(sat::literal lit, constraint_ref c):
             m_literal(lit), m_constraint(std::move(c)) {
-            SASSERT(constraint());
-            SASSERT(literal().var() == constraint()->bvar());
+            SASSERT(get_constraint());
+            SASSERT(literal().var() == get_constraint()->bvar());
         }
-        constraint_literal_ref(constraint_literal cl): constraint_literal_ref(cl.literal(), cl.constraint()) {}
+        constraint_literal_ref(constraint_literal cl): constraint_literal_ref(cl.literal(), cl.get_constraint()) {}
 
         constraint_literal_ref operator~() const&& {
             return {~m_literal, std::move(m_constraint)};
@@ -256,21 +256,21 @@ namespace polysat {
         }
 
         sat::literal literal() const { return m_literal; }
-        polysat::constraint* constraint() const { return m_constraint.get(); }
-        constraint_literal get() const { return {literal(), constraint()}; }
+        constraint* get_constraint() const { return m_constraint.get(); }
+        constraint_literal get() const { return {literal(), get_constraint()}; }
         constraint_ref detach() { m_literal = sat::null_literal; return std::move(m_constraint); }
 
         explicit operator bool() const { return !!m_constraint; }
         bool operator!() const { return !m_constraint; }
-        polysat::constraint* operator->() const { return m_constraint.operator->(); }
-        polysat::constraint const& operator*() const { return *m_constraint; }
+        constraint* operator->() const { return m_constraint.operator->(); }
+        constraint const& operator*() const { return *m_constraint; }
 
         constraint_literal_ref& operator=(std::nullptr_t) { m_literal = sat::null_literal; m_constraint = nullptr; return *this; }
 
         std::ostream& display(std::ostream& out) const;
     private:
         friend class constraint_manager;
-        explicit constraint_literal_ref(polysat::constraint* c): constraint_literal_ref(sat::literal(c->bvar()), c) {}
+        explicit constraint_literal_ref(constraint* c): constraint_literal_ref(sat::literal(c->bvar()), c) {}
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint_literal_ref const& c) { return c.display(out); }
