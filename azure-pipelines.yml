@@ -224,7 +224,7 @@ jobs:
         make -j3 test-z3
         ./cpp_example
         ./c_example
-        java -cp api/java/classes; JavaExample
+        java -cp api/java/classes JavaExample
         cd ..
 # Skip as dead-slow in debug mode:
 #  - template: scripts/test-z3.yml
