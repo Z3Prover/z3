@@ -93,6 +93,10 @@ namespace polysat {
         return get_bv2c(var);
     }
 
+    constraint_literal constraint_manager::lookup(sat::literal lit) const {
+        return {lit, lookup(lit.var())};
+    }
+
     eq_constraint& constraint::to_eq() { 
         return *dynamic_cast<eq_constraint*>(this); 
     }
@@ -109,16 +113,16 @@ namespace polysat {
         return *dynamic_cast<ule_constraint const*>(this);
     }
 
-    constraint_literal constraint_manager::eq(unsigned lvl, pdd const& p) {
-        return constraint_literal{alloc(eq_constraint, *this, lvl, p)};
+    constraint_literal_ref constraint_manager::eq(unsigned lvl, pdd const& p) {
+        return constraint_literal_ref{alloc(eq_constraint, *this, lvl, p)};
     }
 
 
-    constraint_literal constraint_manager::ule(unsigned lvl, pdd const& a, pdd const& b) {
-        return constraint_literal{alloc(ule_constraint, *this, lvl, a, b)};
+    constraint_literal_ref constraint_manager::ule(unsigned lvl, pdd const& a, pdd const& b) {
+        return constraint_literal_ref{alloc(ule_constraint, *this, lvl, a, b)};
     }
 
-    constraint_literal constraint_manager::ult(unsigned lvl, pdd const& a, pdd const& b) {
+    constraint_literal_ref constraint_manager::ult(unsigned lvl, pdd const& a, pdd const& b) {
         // a < b  <=>  !(b <= a)
         return ~ule(lvl, b, a);
     }
@@ -139,25 +143,26 @@ namespace polysat {
     //
     // Argument: flipping the msb swaps the negative and non-negative blocks
     //
-    constraint_literal constraint_manager::sle(unsigned lvl, pdd const& a, pdd const& b) {
+    constraint_literal_ref constraint_manager::sle(unsigned lvl, pdd const& a, pdd const& b) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
         return ule(lvl, a + shift, b + shift);
     }
 
-    constraint_literal constraint_manager::slt(unsigned lvl, pdd const& a, pdd const& b) {
+    constraint_literal_ref constraint_manager::slt(unsigned lvl, pdd const& a, pdd const& b) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
         return ult(lvl, a + shift, b + shift);
     }
 
-    std::ostream& constraint::display_extra(std::ostream& out) const {
+    std::ostream& constraint::display_extra(std::ostream& out, lbool status) const {
         out << " @" << level() << " (b" << bvar() << ")";
-        if (is_positive()) out << " [pos]";
-        if (is_negative()) out << " [neg]";
-        if (is_undef()) out << " [inactive]";
+        (void)status;
+        // if (is_positive()) out << " [pos]";
+        // if (is_negative()) out << " [neg]";
+        // if (is_undef()) out << " [inactive]";    // TODO: not sure if we still need/want this... decide later
         return out;
     }
 
-    bool constraint::propagate(solver& s, pvar v) {
+    bool constraint::propagate(solver& s, bool is_positive, pvar v) {
         LOG_H3("Propagate " << s.m_vars[v] << " in " << *this);
         SASSERT(!vars().empty());
         unsigned idx = 0;
@@ -168,24 +173,35 @@ namespace polysat {
         for (unsigned i = vars().size(); i-- > 2; ) {
             unsigned other_v = vars()[i];
             if (!s.is_assigned(other_v)) {
-                s.add_watch(*this, other_v);
+                s.add_watch({this, is_positive}, other_v);
                 std::swap(vars()[idx], vars()[i]);
                 return true;
             }
         }
         // at most one variable remains unassigned.
         unsigned other_v = vars()[idx];
-        propagate_core(s, v, other_v);
+        propagate_core(s, is_positive, v, other_v);
         return false;
     }
 
-    void constraint::propagate_core(solver& s, pvar v, pvar other_v) {
+    void constraint::propagate_core(solver& s, bool is_positive, pvar v, pvar other_v) {
         (void)v;
         (void)other_v;
-        narrow(s);
+        narrow(s, is_positive);
     }
 
-    clause_ref clause::from_unit(constraint_literal c, p_dependency_ref d) {
+    std::ostream &constraint_literal::display(std::ostream &out) const {
+        if (*this)
+            return out << m_literal << "{ " << *m_constraint << " }";
+        else
+            return out << "<null>";
+    }
+
+    std::ostream &constraint_literal_ref::display(std::ostream &out) const {
+        return out << get();
+    }
+
+    clause_ref clause::from_unit(constraint_literal_ref c, p_dependency_ref d) {
         SASSERT(c);
         unsigned const lvl = c->level();
         sat::literal_vector lits;
@@ -201,17 +217,15 @@ namespace polysat {
 
     bool clause::is_always_false(solver& s) const {
         return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
-            constraint *c = s.m_constraints.lookup(lit.var());
-            tmp_assign _t(c, lit);
-            return c->is_always_false();
+            constraint_literal c = s.m_constraints.lookup(lit);
+            return c.is_always_false();
         });
     }
 
     bool clause::is_currently_false(solver& s) const {
         return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
-            constraint *c = s.m_constraints.lookup(lit.var());
-            tmp_assign _t(c, lit);
-            return c->is_currently_false(s);
+            constraint_literal c = s.m_constraints.lookup(lit);
+            return c.is_currently_false(s);
         });
     }
 
@@ -251,22 +265,4 @@ namespace polysat {
         return out;
     }
 
-    std::ostream& constraints_and_clauses::display(std::ostream& out) const {
-        bool first = true;
-        for (auto c : units()) {
-            if (first)
-                first = false;
-            else
-                out << "  ;  ";
-            out << show_deref(c);
-        }
-        for (auto cl : clauses()) {
-            if (first)
-                first = false;
-            else
-                out << "  ;  ";
-            out << show_deref(cl);
-        }
-        return out;
-    }
 }

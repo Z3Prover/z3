@@ -20,9 +20,40 @@ Author:
 namespace polysat {
 
     std::ostream& conflict_core::display(std::ostream& out) const {
-        out << "TODO: display conflict_core";
-        // depending on sign:   A /\ B /\ C     or     ¬A \/ ¬B \/ ¬C
+        bool first = true;
+        for (auto c : m_constraints) {
+            if (first)
+                first = false;
+            else
+                out << "  ;  ";
+            out << c;
+        }
+        if (m_needs_model)
+            out << "  ;  + current model";
         return out;
+    }
+
+    void conflict_core::set(std::nullptr_t) {
+        SASSERT(empty());
+        m_constraints.push_back({});
+        m_needs_model = false;
+    }
+
+    void conflict_core::set(constraint_literal c) {
+        LOG("Conflict: " << c);
+        SASSERT(empty());
+        m_constraints.push_back(std::move(c));
+        m_needs_model = true;
+    }
+
+    void conflict_core::set(pvar v, vector<constraint_literal> const& cjust_v) {
+        LOG("Conflict for v" << v << ": " << cjust_v);
+        SASSERT(empty());
+        NOT_IMPLEMENTED_YET();
+        m_constraints.append(cjust_v);
+        if (cjust_v.empty())
+            m_constraints.push_back({});
+        m_needs_model = true;
     }
 
 }
