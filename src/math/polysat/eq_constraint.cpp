@@ -18,32 +18,34 @@ Author:
 
 namespace polysat {
 
-    std::ostream& eq_constraint::display(std::ostream& out) const {
-        out << p() << " == 0";
-        return display_extra(out);
+    std::ostream& eq_constraint::display(std::ostream& out, lbool status) const {
+        out << p();
+        if (status == l_true) out << " == 0";
+        else if (status == l_false) out << " != 0";
+        else out << " ==/!= 0";
+        return display_extra(out, status);
     }
 
-    void eq_constraint::narrow(solver& s) {
-        SASSERT(!is_undef());
+    void eq_constraint::narrow(solver& s, bool is_positive) {
         LOG("Assignment: " << assignments_pp(s));
         auto q = p().subst_val(s.assignment());
         LOG("Substituted: " << p() << " := " << q);
         if (q.is_zero()) {
-            if (is_positive())
+            if (is_positive)
                 return;
-            if (is_negative()) {
+            if (!is_positive) {
                 LOG("Conflict (zero under current assignment)");
                 s.set_conflict(*this);
                 return;
             }
         }
         if (q.is_never_zero()) {
-            if (is_positive()) {
+            if (is_positive) {
                 LOG("Conflict (never zero under current assignment)");
                 s.set_conflict(*this);
                 return;
             }
-            if (is_negative())
+            if (!is_positive)
                 return;
         }
 
@@ -54,7 +56,7 @@ namespace polysat {
 
             rational a = q.hi().val();
             rational b = q.lo().val();
-            s.m_viable.intersect_eq(a, v, b, is_positive());
+            s.m_viable.intersect_eq(a, v, b, is_positive);
 
 
             rational val;
@@ -63,37 +65,30 @@ namespace polysat {
             return;
         }
 
-
         // TODO: what other constraints can be extracted cheaply?
     }
 
-    bool eq_constraint::is_always_false() {
-        if (is_positive())
+    bool eq_constraint::is_always_false(bool is_positive) {
+        if (is_positive)
             return p().is_never_zero();
-        if (is_negative())
+        else
             return p().is_zero();
-        UNREACHABLE();
-        return false;
     }
 
-    bool eq_constraint::is_currently_false(solver& s) {
+    bool eq_constraint::is_currently_false(solver& s, bool is_positive) {
         pdd r = p().subst_val(s.assignment());
-        if (is_positive())
+        if (is_positive)
             return r.is_never_zero();
-        if (is_negative())
+        else
             return r.is_zero();
-        UNREACHABLE();
-        return false;
     }
 
-    bool eq_constraint::is_currently_true(solver& s) {
+    bool eq_constraint::is_currently_true(solver& s, bool is_positive) {
         pdd r = p().subst_val(s.assignment());
-        if (is_positive())
+        if (is_positive)
             return r.is_zero();
-        if (is_negative())
+        else
             return r.is_never_zero();
-        UNREACHABLE();
-        return false;
     }
 
 
@@ -130,10 +125,8 @@ namespace polysat {
 
 
     /// Compute forbidden interval for equality constraint by considering it as p <=u 0 (or p >u 0 for disequality)
-    bool eq_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, constraint_literal& out_neg_cond)
+    bool eq_constraint::forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, constraint_literal_ref& out_neg_cond)
     {
-        SASSERT(!is_undef());
-
         // Current only works when degree(v) is at most one
         unsigned const deg = p().degree(v);
         if (deg > 1)
@@ -182,7 +175,7 @@ namespace polysat {
         rational lo_val = (1 - e1s).val();
         pdd hi = -e1;
         rational hi_val = (-e1s).val();
-        if (is_negative()) {
+        if (!is_positive) {
             swap(lo, hi);
             lo_val.swap(hi_val);
         }
@@ -191,10 +184,9 @@ namespace polysat {
         return true;
     }
 
-    inequality eq_constraint::as_inequality() const {
-        SASSERT(!is_undef());
+    inequality eq_constraint::as_inequality(bool is_positive) const {
         pdd zero = p() - p();
-        if (is_positive()) 
+        if (is_positive)
             // p <= 0
             return inequality(p(), zero, false, this);
         else 

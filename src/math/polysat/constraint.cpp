@@ -93,6 +93,10 @@ namespace polysat {
         return get_bv2c(var);
     }
 
+    constraint_literal constraint_manager::lookup(sat::literal lit) const {
+        return {lit, lookup(lit.var())};
+    }
+
     eq_constraint& constraint::to_eq() { 
         return *dynamic_cast<eq_constraint*>(this); 
     }
@@ -149,15 +153,16 @@ namespace polysat {
         return ult(lvl, a + shift, b + shift);
     }
 
-    std::ostream& constraint::display_extra(std::ostream& out) const {
+    std::ostream& constraint::display_extra(std::ostream& out, lbool status) const {
         out << " @" << level() << " (b" << bvar() << ")";
-        if (is_positive()) out << " [pos]";
-        if (is_negative()) out << " [neg]";
-        if (is_undef()) out << " [inactive]";
+        (void)status;
+        // if (is_positive()) out << " [pos]";
+        // if (is_negative()) out << " [neg]";
+        // if (is_undef()) out << " [inactive]";    // TODO: not sure if we still need/want this... decide later
         return out;
     }
 
-    bool constraint::propagate(solver& s, pvar v) {
+    bool constraint::propagate(solver& s, bool is_positive, pvar v) {
         LOG_H3("Propagate " << s.m_vars[v] << " in " << *this);
         SASSERT(!vars().empty());
         unsigned idx = 0;
@@ -175,14 +180,14 @@ namespace polysat {
         }
         // at most one variable remains unassigned.
         unsigned other_v = vars()[idx];
-        propagate_core(s, v, other_v);
+        propagate_core(s, is_positive, v, other_v);
         return false;
     }
 
-    void constraint::propagate_core(solver& s, pvar v, pvar other_v) {
+    void constraint::propagate_core(solver& s, bool is_positive, pvar v, pvar other_v) {
         (void)v;
         (void)other_v;
-        narrow(s);
+        narrow(s, is_positive);
     }
 
     std::ostream &constraint_literal::display(std::ostream &out) const {
@@ -212,17 +217,15 @@ namespace polysat {
 
     bool clause::is_always_false(solver& s) const {
         return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
-            constraint *c = s.m_constraints.lookup(lit.var());
-            tmp_assign _t(c, lit);
-            return c->is_always_false();
+            constraint_literal c = s.m_constraints.lookup(lit);
+            return c.is_always_false();
         });
     }
 
     bool clause::is_currently_false(solver& s) const {
         return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
-            constraint *c = s.m_constraints.lookup(lit.var());
-            tmp_assign _t(c, lit);
-            return c->is_currently_false(s);
+            constraint_literal c = s.m_constraints.lookup(lit);
+            return c.is_currently_false(s);
         });
     }
 
@@ -262,22 +265,4 @@ namespace polysat {
         return out;
     }
 
-    std::ostream& constraints_and_clauses::display(std::ostream& out) const {
-        bool first = true;
-        for (auto c : units()) {
-            if (first)
-                first = false;
-            else
-                out << "  ;  ";
-            out << show_deref(c);
-        }
-        for (auto cl : clauses()) {
-            if (first)
-                first = false;
-            else
-                out << "  ;  ";
-            out << show_deref(cl);
-        }
-        return out;
-    }
 }

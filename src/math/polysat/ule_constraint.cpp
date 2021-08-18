@@ -18,12 +18,16 @@ Author:
 
 namespace polysat {
 
-    std::ostream& ule_constraint::display(std::ostream& out) const {
-        out << m_lhs << " <= " << m_rhs;
-        return display_extra(out);
+    std::ostream& ule_constraint::display(std::ostream& out, lbool status) const {
+        out << m_lhs;
+        if (status == l_true) out << " <= ";
+        else if (status == l_false) out << " > ";
+        else out << " <=/> ";
+        out << m_rhs;
+        return display_extra(out, status);
     }
 
-    void ule_constraint::narrow(solver& s) {
+    void ule_constraint::narrow(solver& s, bool is_positive) {
         LOG_H3("Narrowing " << *this);
         LOG("Assignment: " << assignments_pp(s));
         auto p = lhs().subst_val(s.assignment());
@@ -31,15 +35,13 @@ namespace polysat {
         auto q = rhs().subst_val(s.assignment());
         LOG("Substituted RHS: " << rhs() << " := " << q);
 
-        SASSERT(!is_undef());
-
-        if (is_always_false(p, q)) {
+        if (is_always_false(is_positive, p, q)) {
             s.set_conflict(*this);
             return;
         }
         if (p.is_val() && q.is_val()) {
-            SASSERT(!is_positive() || p.val() <= q.val());
-            SASSERT(!is_negative() || p.val() > q.val());
+            SASSERT(!is_positive || p.val() <= q.val());
+            SASSERT(is_positive || p.val() > q.val());
             return;
         }
 
@@ -72,7 +74,7 @@ namespace polysat {
         if (v != null_var) {
             s.push_cjust(v, this);
 
-            s.m_viable.intersect_ule(v, a, b, c, d, is_positive());
+            s.m_viable.intersect_ule(v, a, b, c, d, is_positive);
 
             rational val;
             if (s.m_viable.find_viable(v, val) == dd::find_t::singleton) 
@@ -84,39 +86,35 @@ namespace polysat {
         // TODO: other cheap constraints possible?
     }
 
-    bool ule_constraint::is_always_false(pdd const& lhs, pdd const& rhs) {
+    bool ule_constraint::is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) {
         // TODO: other conditions (e.g. when forbidden interval would be full)
-        VERIFY(!is_undef());
-        if (is_positive())
+        if (is_positive)
             return lhs.is_val() && rhs.is_val() && lhs.val() > rhs.val();
         else
             return (lhs.is_val() && rhs.is_val() && lhs.val() <= rhs.val()) || (lhs == rhs);
     }
 
-    bool ule_constraint::is_always_false() {
-        return is_always_false(lhs(), rhs());
+    bool ule_constraint::is_always_false(bool is_positive) {
+        return is_always_false(is_positive, lhs(), rhs());
     }
 
-    bool ule_constraint::is_currently_false(solver& s) {
+    bool ule_constraint::is_currently_false(solver& s, bool is_positive) {
         auto p = lhs().subst_val(s.assignment());
         auto q = rhs().subst_val(s.assignment());
-        return is_always_false(p, q);
+        return is_always_false(is_positive, p, q);
     }
 
-    bool ule_constraint::is_currently_true(solver& s) {
+    bool ule_constraint::is_currently_true(solver& s, bool is_positive) {
         auto p = lhs().subst_val(s.assignment());
         auto q = rhs().subst_val(s.assignment());
-        VERIFY(!is_undef());
-        if (is_positive())
+        if (is_positive)
             return p.is_val() && q.is_val() && p.val() <= q.val();
         else 
             return p.is_val() && q.is_val() && p.val() > q.val();
     }
 
-    bool ule_constraint::forbidden_interval(solver& s, pvar v, eval_interval& out_interval, constraint_literal& out_neg_cond)
+    bool ule_constraint::forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, constraint_literal_ref& out_neg_cond)
     {
-        SASSERT(!is_undef());
-
         // Current only works when degree(v) is at most one on both sides
         unsigned const deg1 = lhs().degree(v);
         unsigned const deg2 = rhs().degree(v);
@@ -249,7 +247,7 @@ namespace polysat {
             out_neg_cond = s.m_constraints.eq(level(), condition_body);
 
         if (is_trivial) {
-            if (is_positive())
+            if (is_positive)
                 // TODO: we cannot use empty intervals for interpolation. So we
                 // can remove the empty case (make it represent 'full' instead),
                 // and return 'false' here. Then we do not need the proper/full
@@ -276,7 +274,7 @@ namespace polysat {
             else
                 SASSERT(y_coeff.is_one());
 
-            if (is_negative()) {
+            if (!is_positive) {
                 swap(lo, hi);
                 lo_val.swap(hi_val);
             }
@@ -286,9 +284,8 @@ namespace polysat {
         return true;
     }
 
-    inequality ule_constraint::as_inequality() const {
-        SASSERT(!is_undef());
-        if (is_positive()) 
+    inequality ule_constraint::as_inequality(bool is_positive) const {
+        if (is_positive)
             return inequality(lhs(), rhs(), false, this);
         else 
             return inequality(rhs(), lhs(), true, this);
