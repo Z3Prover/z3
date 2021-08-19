@@ -181,7 +181,8 @@ namespace array {
         ptr_buffer<expr> sel1_args, sel2_args;
         unsigned num_args = select->get_num_args();
 
-        expr* arg = select->get_arg(0);
+        if (expr2enode(store->get_arg(0))->get_root() == expr2enode(select->get_arg(0))->get_root()) 
+            return false;
         bool has_diff = false;
         for (unsigned i = 1; i < num_args; i++) 
             has_diff |= expr2enode(select->get_arg(i))->get_root() != expr2enode(store->get_arg(i))->get_root();
@@ -189,7 +190,7 @@ namespace array {
             return false;
 
         sel1_args.push_back(store);
-        sel2_args.push_back(arg);       
+        sel2_args.push_back(store->get_arg(0));       
         
         for (unsigned i = 1; i < num_args; i++) {
             sel1_args.push_back(select->get_arg(i));
@@ -212,7 +213,9 @@ namespace array {
               tout << "select-store " << ctx.bpp(s1) << " " << ctx.bpp(s1->get_root()) << "\n";
               tout << "select-store " << ctx.bpp(s2) << " " << ctx.bpp(s2->get_root()) << "\n";);
 
-
+        if (s1->get_root() == s2->get_root())
+            return new_prop;
+        
         sat::literal sel_eq = sat::null_literal;
         auto init_sel_eq = [&]() {
             if (sel_eq != sat::null_literal) 
