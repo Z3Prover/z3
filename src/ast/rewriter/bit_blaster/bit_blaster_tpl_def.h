@@ -20,6 +20,7 @@ Revision History:
 #include "util/common_msgs.h"
 #include "ast/rewriter/bit_blaster/bit_blaster_tpl.h"
 #include "ast/ast_pp.h"
+#include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/rewriter_types.h"
 
 
@@ -29,17 +30,6 @@ void bit_blaster_tpl<Cfg>::checkpoint() {
         throw rewriter_exception(Z3_MAX_MEMORY_MSG);
     if (!m().inc())
         throw rewriter_exception(m().limit().get_cancel_msg());
-}
-
-/**
-   \brief Return true if all bits are true or false.
-*/
-template<typename Cfg>
-bool bit_blaster_tpl<Cfg>::is_numeral(unsigned sz, expr * const * bits) const {
-    for (unsigned i = 0; i < sz; i++)
-        if (!is_bool_const(bits[i])) 
-            return false;
-    return true;
 }
 
 /**
@@ -55,17 +45,6 @@ bool bit_blaster_tpl<Cfg>::is_numeral(unsigned sz, expr * const * bits, numeral 
         else if (!m().is_false(bits[i]))
             return false;
     }
-    return true;
-}
-
-/**
-   \brief Return true if all bits are true.
-*/
-template<typename Cfg>
-bool bit_blaster_tpl<Cfg>::is_minus_one(unsigned sz, expr * const * bits) const {
-    for (unsigned i = 0; i < sz; i++)
-        if (!m().is_true(bits[i]))
-            return false;
     return true;
 }
 
@@ -178,175 +157,70 @@ void bit_blaster_tpl<Cfg>::mk_subtracter(unsigned sz, expr * const * a_bits, exp
 
 template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
-    SASSERT(sz > 0);
-    numeral n_a, n_b;
     out_bits.reset();
-    if (is_numeral(sz, a_bits, n_b))
-        std::swap(a_bits, b_bits);
-    if (is_minus_one(sz, b_bits)) {
-        mk_neg(sz, a_bits, out_bits);
-        SASSERT(sz == out_bits.size());
-        return;
+
+    // TODO: share the bool_rewriter with the rest of the bit-blaster
+    bool_rewriter rewriter(m());
+
+    // First split a * b into constant and variable parts such that:
+    // a * b = (Ca + Va) * (Cb + Vb)
+    // TODO: allow callers to pass adders instead of just bits
+    bit_blaster_adder a(rewriter, sz, a_bits);
+    bit_blaster_adder b(rewriter, sz, b_bits);
+
+    numeral a_const, b_const;
+    expr_ref_vector a_var(m()), b_var(m());
+    a.constant_bits(a_const);
+    b.constant_bits(b_const);
+    a.variable_bits(a_var);
+    b.variable_bits(b_var);
+
+    // Then this multiplication can be split into four terms:
+    // a * b = Ca * Cb + Ca * Vb + Va * Cb + Va * Vb
+    // and of these,
+    // - Ca * Cb can be precomputed;
+    // - the two C*V terms might add fewer bits in non-adjacent form;
+    // - and Va * Vb must be done naively.
+    // Non-adjacent form subsumes special cases, like -1, that have multiple
+    // ones next to each other.
+
+    // Finally, do all the sums at once with a tree adder.
+    bit_blaster_adder total(rewriter, sz, a_const * b_const);
+    mk_const_multiplier(a_const, b_var, total);
+    mk_const_multiplier(b_const, a_var, total);
+
+    expr_ref tmp(m());
+    for (unsigned i = 0; i < sz; i++) {
+        expr * bit_a = a_var.get(i);
+        if (m().is_false(bit_a))
+            continue;
+
+        checkpoint();
+        bool b_zero = true;
+        for (unsigned j = 0; i + j < sz; j++) {
+            expr * bit_b = b_var.get(j);
+            if (m().is_false(bit_b))
+                continue;
+            b_zero = false;
+
+            mk_and(bit_a, bit_b, tmp);
+            total.add_bit(i + j, tmp);
+        }
+
+        // Once we see a prefix of b_var that's all 0, later prefixes will be
+        // shorter and therefore also all 0.
+        if (b_zero)
+            break;
     }
-    if (is_numeral(sz, a_bits, n_a)) {
-        n_a *= n_b;
-        num2bits(n_a, sz, out_bits);
-        SASSERT(sz == out_bits.size());
-        return;
-    }
-   
-    if (mk_const_multiplier(sz, a_bits, b_bits, out_bits)) {
-        SASSERT(sz == out_bits.size());
-        return;
-    }
-    if (mk_const_multiplier(sz, b_bits, a_bits, out_bits)) {
-        SASSERT(sz == out_bits.size());
-        return;
-    }
-    out_bits.reset();
-    if (!m_use_wtm) {
+
+    // TODO: return total so further linear operations can constant-fold more
+    total.total_bits(out_bits);
+
 #if 0
     static unsigned counter = 0;
     counter++;
     verbose_stream() << "MK_MULTIPLIER: " << counter << std::endl;
 #endif
-        
-        expr_ref_vector cins(m()), couts(m());
-        expr_ref out(m()), cout(m());
-
-        mk_and(a_bits[0], b_bits[0], out);
-        out_bits.push_back(out);
-
-        /*
-           out = a*b is encoded using the following circuit.
-      
-                      a[0]&b[0]         a[0]&b[1]          a[0]&b[2]         a[0]&b[3]  ...
-                          |                 |                  |                 |
-                          |     a[1]&b[0] - HA     a[1]&b[1] - HA    a[1]&b[2] - HA 
-                          |                 | \                | \               | \
-                          |                 |  --------------- |  -------------- |  --- ...
-                          |                 |                 \|                \
-                          |                 |      a[2]&b[0] - FA    a[2]&b[1] - FA
-                          |                 |                  | \               | \      
-                          |                 |                  |  -------------- |  -- ...
-                          |                 |                  |                \| 
-                          |                 |                  |     a[3]&b[0] - FA
-                          |                 |                  |                 | \
-                          |                 |                  |                 |  -- ....
-                         ...               ...                ...               ...
-                        out[0]            out[1]             out[2]            out[3]
-      
-           HA denotes a half-adder.
-           FA denotes a full-adder.
-        */
-
-        for (unsigned i = 1; i < sz; i++) {
-            checkpoint();
-            couts.reset();
-            expr_ref i1(m()), i2(m());
-            mk_and(a_bits[0], b_bits[i],   i1);
-            mk_and(a_bits[1], b_bits[i-1], i2);
-            if (i < sz - 1) {
-                mk_half_adder(i1, i2, out, cout);
-                couts.push_back(cout);
-                for (unsigned j = 2; j <= i; j++) {
-                    expr_ref prev_out(m());
-                    prev_out = out;
-                    expr_ref i3(m());
-                    mk_and(a_bits[j], b_bits[i-j], i3);
-                    mk_full_adder(i3, prev_out, cins.get(j-2), out, cout);
-                    couts.push_back(cout);
-                }
-                out_bits.push_back(out);
-                cins.swap(couts);
-            }
-            else {
-                // last step --> I don't need to generate/store couts.
-                mk_xor(i1, i2, out);
-                for (unsigned j = 2; j <= i; j++) {
-                    expr_ref i3(m());
-                    mk_and(a_bits[j], b_bits[i-j], i3);
-                    mk_xor3(i3, out, cins.get(j-2), out);
-                }
-                out_bits.push_back(out);
-            }
-        }
-    }
-    else { 
-        // WALLACE TREE MULTIPLIER        
-
-        if (sz == 1) {
-            expr_ref t(m());
-            mk_and(a_bits[0], b_bits[0], t);
-            out_bits.push_back(t);
-            return;
-        }
-
-        // There are sz numbers to add and we use a Wallace tree to reduce that to two. 
-        // In this tree, we reduce as early as possible, as opposed to the Dada tree where some 
-        // additions may be delayed if they don't increase the propagation delay [which may be 
-        // a little bit more efficient, but it's tricky to find out which additions create 
-        // additional delays].
-                
-        expr_ref zero(m());
-        zero = m().mk_false();
-
-        vector< expr_ref_vector > pps;
-        pps.resize(sz, expr_ref_vector(m()));
-               
-        for (unsigned i = 0; i < sz; i++) {
-            checkpoint();
-            // The partial product is a_bits AND b_bits[i] 
-            // [or alternatively ITE(b_bits[i], a_bits, bv0[sz])]
-
-            expr_ref_vector & pp = pps[i];
-            expr_ref t(m());
-            for (unsigned j = 0; j < i; j++)
-                pp.push_back(zero); // left shift by i bits
-            for (unsigned j = 0; j < (sz - i); j++) {
-                mk_and(a_bits[j], b_bits[i], t);
-                pp.push_back(t);
-            }
-
-            SASSERT(pps[i].size() == sz);            
-        }        
-        
-        while (pps.size() != 2) {            
-            unsigned save_inx = 0;
-            unsigned i = 0;
-            unsigned end = pps.size() - 3;
-            for ( ; i <= end; i += 3) {
-                checkpoint();
-                expr_ref_vector pp1(m()), pp2(m()), pp3(m());
-                pp1.swap(pps[i]);
-                pp2.swap(pps[i+1]);
-                pp3.swap(pps[i+2]);
-                expr_ref_vector & sum_bits = pps[save_inx];
-                expr_ref_vector & carry_bits = pps[save_inx+1];
-                SASSERT(sum_bits.empty() && carry_bits.empty());
-                carry_bits.push_back(zero);                
-                mk_carry_save_adder(pp1.size(), pp1.data(), pp2.data(), pp3.data(), sum_bits, carry_bits);
-                carry_bits.pop_back();
-                save_inx += 2;                
-            }
-
-            if (i == pps.size()-2) {
-                pps[save_inx++].swap(pps[i++]);
-                pps[save_inx++].swap(pps[i++]);
-            }
-            else if (i == pps.size()-1) {
-                pps[save_inx++].swap(pps[i++]);
-            }
-
-            SASSERT (save_inx < pps.size() && i == pps.size());            
-            pps.shrink(save_inx);
-        }        
-
-        SASSERT(pps.size() == 2);
-
-        // Now there are only two numbers to add, we can use a ripple carry adder here.
-        mk_adder(sz, pps[0].data(), pps[1].data(), out_bits);
-    }
 }
 
 
@@ -1181,164 +1055,43 @@ void bit_blaster_tpl<Cfg>::mk_comp(unsigned sz, expr * const * a_bits, expr * co
 }
 
 template<typename Cfg>
-void bit_blaster_tpl<Cfg>::mk_carry_save_adder(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr * const * c_bits, expr_ref_vector & sum_bits, expr_ref_vector & carry_bits) {    
-    expr_ref t(m());
-    for (unsigned i = 0; i < sz; i++) {            
-        mk_xor3(a_bits[i], b_bits[i], c_bits[i], t);
-        sum_bits.push_back(t);
-        mk_carry(a_bits[i], b_bits[i], c_bits[i], t);
-        carry_bits.push_back(t);
-    }
-}
+void bit_blaster_tpl<Cfg>::mk_const_multiplier(numeral & a, expr_ref_vector & b_bits, bit_blaster_adder & result) {
+    // If either a or b are definitely 0, then there's nothing to do here.
+    if (a.is_zero())
+        return;
 
-template<typename Cfg>
-bool bit_blaster_tpl<Cfg>::mk_const_case_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
-    unsigned case_size = 1;
-    unsigned circuit_size = sz*sz*5;
-    for (unsigned i = 0; case_size < circuit_size && i < sz; ++i) {
-        if (!is_bool_const(a_bits[i])) {
-            case_size *= 2;
+    unsigned i;
+    for (i = 0; i < b_bits.size(); i++)
+        if (!m().is_false(b_bits.get(i)))
+            break;
+    if (i == b_bits.size())
+        return;
+
+    // We're multiplying two non-zero numbers. Convert the constant operand (a)
+    // into non-adjacent form, which may reduce the number of non-zero bits,
+    // which in turn reduces the number of terms we have to add together.
+    // Unlike Booth encoding, this form can never increase the number of
+    // non-zero bits.
+    // https://en.m.wikipedia.org/wiki/Non-adjacent_form
+    numeral subtract = floor(a / 2);
+    numeral nonzero = bitwise_xor(subtract, a + subtract);
+
+    // Decompose twos-complement negation into bitwise-not followed by deferred
+    // addition of the constant 1. That combines adding the constants with all
+    // the other addition the multiplier is doing, rather than sticking an
+    // extra ripple-carry adder in front.
+    expr_ref_vector not_b_bits(m());
+    mk_not(b_bits.size(), b_bits.data(), not_b_bits);
+
+    for (unsigned i = 0; i < result.size(); i++) {
+        if (!nonzero.get_bit(i))
+            continue;
+
+        if (subtract.get_bit(i)) {
+            result.add_shifted(not_b_bits, i);
+            result.add_bit(i, true);
+        } else {
+            result.add_shifted(b_bits, i);
         }
-        if (!is_bool_const(b_bits[i])) {
-            case_size *= 2;
-        }
     }
-    if (case_size >= circuit_size) {
-        return false;
-    }
-    SASSERT(out_bits.empty());
-    ptr_buffer<expr, 128> na_bits;
-    na_bits.append(sz, a_bits);
-    ptr_buffer<expr, 128> nb_bits;
-    nb_bits.append(sz, b_bits);
-    mk_const_case_multiplier(true, 0, sz, na_bits, nb_bits, out_bits); 
-    return false;
-}
- 
-template<typename Cfg>
-void bit_blaster_tpl<Cfg>::mk_const_case_multiplier(bool is_a, unsigned i, unsigned sz, ptr_buffer<expr, 128>& a_bits, ptr_buffer<expr, 128>& b_bits, expr_ref_vector & out_bits) {
-    while (is_a && i < sz && is_bool_const(a_bits[i])) ++i;
-    if (is_a && i == sz) { is_a = false; i = 0; }
-    while (!is_a && i < sz && is_bool_const(b_bits[i])) ++i;
-    if (i < sz) {
-        expr_ref_vector out1(m()), out2(m());
-        expr_ref x(m());
-        x = is_a?a_bits[i]:b_bits[i];
-        if (is_a) a_bits[i] = m().mk_true(); else b_bits[i] = m().mk_true();
-        mk_const_case_multiplier(is_a, i+1, sz, a_bits, b_bits, out1);
-        if (is_a) a_bits[i] = m().mk_false(); else b_bits[i] = m().mk_false();
-        mk_const_case_multiplier(is_a, i+1, sz, a_bits, b_bits, out2);
-        if (is_a) a_bits[i] = x; else b_bits[i] = x;
-        SASSERT(out_bits.empty());
-        for (unsigned j = 0; j < sz; ++j) {
-            out_bits.push_back(m().mk_ite(x, out1[j].get(), out2[j].get()));
-        }        
-    }
-    else {
-        numeral n_a, n_b;
-        SASSERT(i == sz && !is_a);
-        VERIFY(is_numeral(sz, a_bits.data(), n_a));
-        VERIFY(is_numeral(sz, b_bits.data(), n_b));
-        n_a *= n_b;
-        num2bits(n_a, sz, out_bits);
-    }
-    SASSERT(out_bits.size() == sz);
-}
-
-template<typename Cfg>
-bool bit_blaster_tpl<Cfg>::mk_const_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
-    numeral n_a;
-    if (!is_numeral(sz, a_bits, n_a)) {
-        return false;
-    }
-    SASSERT(out_bits.empty());
-    
-    if (mk_const_case_multiplier(sz, a_bits, b_bits, out_bits)) {
-        SASSERT(sz == out_bits.size());
-        return true;
-    }    
-    out_bits.reset();
-    if (!m_use_bcm) {
-        return false;
-    }
-    expr_ref_vector minus_b_bits(m()), tmp(m());
-    mk_neg(sz, b_bits, minus_b_bits);
-        
-    out_bits.resize(sz, m().mk_false());
-    
-#if 1
-    bool last = false, now;
-    for (unsigned i = 0; i < sz; i++) {
-        now = m().is_true(a_bits[i]);
-        SASSERT(now || m().is_false(a_bits[i]));
-        tmp.reset();
-
-        if (now && !last) {            
-            mk_adder(sz - i, out_bits.data() + i, minus_b_bits.data(), tmp);
-            for (unsigned j = 0; j < (sz - i); j++)
-                out_bits.set(i+j, tmp.get(j)); // do not use [], it does not work on Linux.
-        }
-        else if (!now && last) {
-            mk_adder(sz - i, out_bits.data() + i, b_bits, tmp);
-            for (unsigned j = 0; j < (sz - i); j++)
-                out_bits.set(i+j, tmp.get(j)); // do not use [], it does not work on Linux.
-        }
-        
-        last = now; 
-    }
-#else
-    // Radix 4 Booth encoder
-    // B = b_bits, -B = minus_b_bits
-    // 2B = b2_bits, -2B = minus_b2_bits
-
-    expr_ref_vector b2_bits(m());
-    expr_ref_vector minus_b2_bits(m());
-
-    b2_bits.push_back(m().mk_false());
-    minus_b2_bits.push_back(m().mk_false());
-    for (unsigned i = 0; i < sz-1; i++) {
-        b2_bits.push_back(b_bits[i]);
-        minus_b2_bits.push_back(minus_b_bits.get(i));
-    }
-
-    bool last=false, now1, now2;
-    for (unsigned i = 0; i < sz; i += 2) {
-        now1 = m().is_true(a_bits[i]);
-        now2 = m().is_true(a_bits[i+1]);
-        SASSERT(now1 || m().is_false(a_bits[i]));
-        SASSERT(now2 || m().is_false(a_bits[i+1]));
-        tmp.reset();
-
-        if ((!now2 && !now1 && last) ||
-            (!now2 && now1 && !last)) { // Add B
-            mk_adder(sz - i, out_bits.c_ptr() + i, b_bits, tmp);
-            for (unsigned j = 0; j < (sz - i); j++)
-                out_bits.set(i+j, tmp.get(j));
-        }
-        else if (!now2 && now1 && last) { // Add 2B
-            mk_adder(sz - i, out_bits.c_ptr() + i, b2_bits.c_ptr(), tmp);
-            for (unsigned j = 0; j < (sz - i); j++)
-                out_bits.set(i+j, tmp.get(j));
-        }
-        else if (now2 && !now1 && !last) { // Add -2B
-            mk_adder(sz - i, out_bits.c_ptr() + i, minus_b2_bits.c_ptr(), tmp);
-            for (unsigned j = 0; j < (sz - i); j++)
-                out_bits.set(i+j, tmp.get(j));
-        }
-        else if ((now2 && !now1 && last) ||
-                 (now2 && now1 && !last)) { // Add -B        
-            mk_adder(sz - i, out_bits.c_ptr() + i, minus_b_bits.c_ptr(), tmp);
-            for (unsigned j = 0; j < (sz - i); j++)
-                out_bits.set(i+j, tmp.get(j));
-        }
-        
-        last = now2; 
-    }
-#endif
-
-    TRACE("bit_blaster_tpl_booth", for (unsigned i=0; i<out_bits.size(); i++)
-                                     tout << "Booth encoding: " << mk_pp(out_bits[i].get(), m()) << "\n"; );
-
-    SASSERT(out_bits.size() == sz);
-    return true;
 }

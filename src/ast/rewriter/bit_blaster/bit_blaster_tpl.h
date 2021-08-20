@@ -18,6 +18,7 @@ Revision History:
 --*/
 #pragma once
 
+#include "ast/rewriter/bit_blaster/bit_blaster_adder.h"
 #include "util/rational.h"
 
 template<typename Cfg>
@@ -73,9 +74,7 @@ public:
     //
 
 
-    bool is_numeral(unsigned sz, expr * const * bits) const;
     bool is_numeral(unsigned sz, expr * const * bits, numeral & r) const;
-    bool is_minus_one(unsigned sz, expr * const * bits) const;
     void num2bits(numeral const & v, unsigned sz, expr_ref_vector & out_bits) const;
     
     void mk_half_adder(expr * a, expr * b, expr_ref & out, expr_ref & cout);
@@ -120,12 +119,8 @@ public:
     void mk_smul_no_underflow(unsigned sz, expr * const * a_bits,  expr * const * b_bits, expr_ref & out);
     void mk_comp(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits);
 
-    void mk_carry_save_adder(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr * const * c_bits, expr_ref_vector & sum_bits, expr_ref_vector & carry_bits);
-    bool mk_const_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits);
-    bool mk_const_case_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits);
-    void mk_const_case_multiplier(bool is_a, unsigned i, unsigned sz, ptr_buffer<expr, 128>& a_bits, ptr_buffer<expr, 128>& b_bits, expr_ref_vector & out_bits);
+    void mk_const_multiplier(numeral & a, expr_ref_vector & b_bits, bit_blaster_adder & result);
 
-    bool is_bool_const(expr* e) const { return m().is_true(e) || m().is_false(e); }
     void mk_abs(unsigned sz, expr * const * a_bits, expr_ref_vector & out_bits);
 };
 
