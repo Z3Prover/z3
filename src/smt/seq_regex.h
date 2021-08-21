@@ -163,7 +163,7 @@ namespace smt {
         // Various support for unfolding derivative expressions that are
         // returned by derivative_wrapper
         expr_ref mk_deriv_accept(expr* s, unsigned i, expr* r);
-        void get_all_derivatives(expr* r, expr_ref_vector& results);
+        void get_targets(expr* r, expr_ref_vector& results);
         void get_cofactors(expr* r, expr_ref_pair_vector& result);
         void get_cofactors_rec(expr* r, expr_ref_vector& conds,
                                expr_ref_pair_vector& result);

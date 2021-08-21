@@ -460,12 +460,10 @@ namespace smt {
     expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
         STRACE("seq_regex", tout << "derivative(" << mk_pp(hd, m) << "): " << mk_pp(r, m) << std::endl;);
 
-        // Use canonical variable for head
-        expr_ref hd_canon(m.mk_var(0, hd->get_sort()), m);
-        expr_ref result(re().mk_derivative(hd_canon, r), m);
-        rewrite(result);
+        // Use canonical variable (:var 0) for the derivative element
+        expr_ref result(seq_rw().mk_derivative(r), m);
 
-        // Substitute with real head
+        // Substitute (:var 0) with the actual element
         var_subst subst(m);
         expr_ref_vector sub(m);
         sub.push_back(hd);
@@ -688,27 +686,26 @@ namespace smt {
     }
 
     /*
-        Return a list of all leaves in the derivative of a regex r,
+        Return a list of all target regexes in the derivative of a regex r,
         ignoring the conditions along each path.
 
-        Warning: Although the derivative
-        normal form tries to eliminate unsat condition paths, one cannot
-        assume that the path to each leaf is satisfiable in general
-        (e.g. when regexes are created using re.pred).
-        So not all results may correspond to satisfiable predicates.
-        It is OK to rely on the results being satisfiable for completeness,
-        but not soundness.
+        The derivative
+        construction tries to eliminate unsat condition paths, but one cannot
+        assume that the path to each leaf is satisfiable in general.
+        
+        In general, some of the target regexes in results may be unreachable from r.
     */
-    void seq_regex::get_all_derivatives(expr* r, expr_ref_vector& results) {
+    void seq_regex::get_targets(expr* r, expr_ref_vector& results) {
         // Get derivative
-        sort* seq_sort = nullptr;
+        /*sort* seq_sort = nullptr;
         VERIFY(u().is_re(r, seq_sort));
         expr_ref n(m.mk_fresh_const("re.char", seq_sort), m);
         expr_ref hd = mk_first(r, n);
         expr_ref d(m);
-        d = derivative_wrapper(hd, r);
+        d = derivative_wrapper(hd, r);*/
+        expr_ref d(seq_rw().mk_derivative(r), m);
 
-        // DFS
+        // use DFS to collect all the targets (leaf regexes) in d.
         vector<expr*> to_visit;
         to_visit.push_back(d);
         obj_map<expr, bool> visited; // set<expr> (bool is used as a unit type)
@@ -885,7 +882,7 @@ namespace smt {
         
         STRACE("state_graph",
             if (!m_state_graph.is_seen(r_id))
-                tout << std::endl << "state(" << r_id << ") = " << seq_util::rex::pp(re(), r) << std::endl << "info(" << r_id << ") = " << re().get_info(r) << std::endl;);
+                tout << std::endl << "state(" << r_id << ") = " << re().to_str(r) << std::endl << "info(" << r_id << ") = " << re().get_info(r) << std::endl;);
         // Add state
         m_state_graph.add_state(r_id);
         STRACE("seq_regex", tout << "Updating state graph for regex "
@@ -901,14 +898,14 @@ namespace smt {
             expr_ref_vector derivatives(m);
             STRACE("seq_regex_verbose", tout
                 << "getting all derivs: " << r_id << " " << std::endl;);
-            get_all_derivatives(r, derivatives);
+            get_targets(r, derivatives);
             for (auto const& dr: derivatives) {
                 unsigned dr_id = get_state_id(dr);
                 STRACE("seq_regex_verbose", tout
                     << std::endl << "  traversing deriv: " << dr_id << " ";);              
                 STRACE("state_graph",
                     if (!m_state_graph.is_seen(dr_id))
-                        tout << "state(" << dr_id << ") = " << seq_util::rex::pp(re(), dr) << std::endl << "info(" << dr_id << ") = " << re().get_info(dr) << std::endl;);
+                        tout << "state(" << dr_id << ") = " << re().to_str(dr) << std::endl << "info(" << dr_id << ") = " << re().get_info(dr) << std::endl;);
                 // Add state
                 m_state_graph.add_state(dr_id);
                 bool maybecycle = can_be_in_cycle(r, dr);

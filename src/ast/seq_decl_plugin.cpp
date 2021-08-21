@@ -1128,21 +1128,21 @@ std::ostream& seq_util::rex::pp::compact_helper_seq(std::ostream& out, expr* s) 
         if (arith_util(re.m).is_numeral(j, jv)) {
             if (arith_util(re.m).is_numeral(k, iv))
                 // output X[j,k]
-                out << pp(re, x) << "[" << jv.get_int32() << "," << jv.get_int32() << "]";
+                out << pp(re, x, html_encode) << "[" << jv.get_int32() << "," << jv.get_int32() << "]";
             else if (arith_util(re.m).is_sub(k, l, i) && re.u.str.is_length(l, x_) && x == x_ &&
                 arith_util(re.m).is_numeral(i, iv) && iv == jv)
                 // case X[j,|X|-j] is denoted by X[j..]
-                out << pp(re, x) << "[" << jv.get_int32() << "..]";
+                out << pp(re, x, html_encode) << "[" << jv.get_int32() << "..]";
             else if (((arith_util(re.m).is_add(k, l, i) && re.u.str.is_length(l, x_)) ||
                     (arith_util(re.m).is_add(k, i, l) && re.u.str.is_length(l, x_))) && x == x_ && 
                 arith_util(re.m).is_numeral(i, iv) && iv.get_int32() + jv.get_int32() == 0)
                 // case X[j,|X|-j] is denoted by X[j..]
-                out << pp(re, x) << "[" << jv.get_int32() << "..]";
+                out << pp(re, x, html_encode) << "[" << jv.get_int32() << "..]";
             else 
-                out << pp(re, x) << "[" << jv.get_int32() << "," << pp(re, k) << "]";
+                out << pp(re, x, html_encode) << "[" << jv.get_int32() << "," << pp(re, k, html_encode) << "]";
         }
         else
-            out << pp(re, x) << "[" << pp(re, j) << "," << pp(re, k) << "]";
+            out << pp(re, x, html_encode) << "[" << pp(re, j, html_encode) << "," << pp(re, k, html_encode) << "]";
     }
     else out << mk_pp(s, re.m);
     return out;
@@ -1181,9 +1181,11 @@ std::ostream& seq_util::rex::pp::seq_unit(std::ostream& out, expr* s) const {
         else if (c == '\f')
             out << "\\f";
         else if (c == ' ')
-            out << "\\s";
+            out << " ";
         else if (c == '(' || c == ')' || c == '{' || c == '}' || c == '[' || c == ']' || c == '.' || c == '\\')
             out << "\\" << c;
+        else if ('A' <= c && c <= 'Z' || 'a' <= c && c <= 'z' || '0' <= c && c <= '9' || c == '_' || c == '@' || c == ';' || c == ':' || c == '/' || c == '#' || c == '$')
+            out << c;
         else if (32 < n && n < 127) {
             if (html_encode) {
                 if (c == '<')
@@ -1241,79 +1243,79 @@ std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
     else if (re.is_empty(e))
         return out << "[]";
     else if (re.is_concat(e, r1, r2))
-        return out << pp(re, r1) << pp(re, r2);
+        return out << pp(re, r1, html_encode) << pp(re, r2, html_encode);
     else if (re.is_antimorov_union(e, r1, r2) || re.is_union(e, r1, r2))
-        return out << "(" << pp(re, r1) << "|" << pp(re, r2) << ")";
+        return out << "(" << pp(re, r1, html_encode) << "|" << pp(re, r2, html_encode) << ")";
     else if (re.is_intersection(e, r1, r2))
-        return out << "(" << pp(re, r1) << "&amp;" /*(html_encode ? ")&amp;(" : ")&(")*/ << pp(re, r2) << ")";
+        return out << "(" << pp(re, r1, html_encode) << (html_encode ? "&amp;" : "&") << pp(re, r2, html_encode) << ")";
     else if (re.is_complement(e, r1)) {
         if (can_skip_parenth(r1))
-            return out << "~" << pp(re, r1);
+            return out << "~" << pp(re, r1, html_encode);
         else
-            return out << "~(" << pp(re, r1) << ")";
+            return out << "~(" << pp(re, r1, html_encode) << ")";
     }
     else if (re.is_plus(e, r1)) {
         if (can_skip_parenth(r1))
-            return out << pp(re, r1) << "+";
+            return out << pp(re, r1, html_encode) << "+";
         else
-            return out << "(" << pp(re, r1) << ")+";
+            return out << "(" << pp(re, r1, html_encode) << ")+";
     }
     else if (re.is_star(e, r1)) {
         if (can_skip_parenth(r1))
-            return out << pp(re, r1) << "*";
+            return out << pp(re, r1, html_encode) << "*";
         else
-            return out << "(" << pp(re, r1) << ")*";
+            return out << "(" << pp(re, r1, html_encode) << ")*";
     }
     else if (re.is_loop(e, r1, lo)) {
         if (can_skip_parenth(r1))
-            return out << pp(re, r1) << "{" << lo << ",}";
+            return out << pp(re, r1, html_encode) << "{" << lo << ",}";
         else
-            return out << "(" << pp(re, r1) << "){" << lo << ",}";
+            return out << "(" << pp(re, r1, html_encode) << "){" << lo << ",}";
     }
     else if (re.is_loop(e, r1, lo, hi)) {
         if (can_skip_parenth(r1)) {
             if (lo == hi)
-                return out << pp(re, r1) << "{" << lo << "}";
+                return out << pp(re, r1, html_encode) << "{" << lo << "}";
             else
-                return out << pp(re, r1) << "{" << lo << "," << hi << "}";
+                return out << pp(re, r1, html_encode) << "{" << lo << "," << hi << "}";
         }
         else {
             if (lo == hi)
-                return out << "(" << pp(re, r1) << "){" << lo << "}";
+                return out << "(" << pp(re, r1, html_encode) << "){" << lo << "}";
             else
-                return out << "(" << pp(re, r1) << "){" << lo << "," << hi << "}";
+                return out << "(" << pp(re, r1, html_encode) << "){" << lo << "," << hi << "}";
         }
     }
     else if (re.is_diff(e, r1, r2))
-        return out << "(" << pp(re, r1) << ")\\(" << pp(re, r2) << ")";
+        return out << "(" << pp(re, r1, html_encode) << ")\\(" << pp(re, r2, html_encode) << ")";
     else if (re.m.is_ite(e, s, r1, r2))
-        return out << "(if " << pp(re, s) << " then " << pp(re, r1) << " else " << pp(re, r2) << ")";
+        return out << "(if " << pp(re, s, html_encode) << " then " << pp(re, r1, html_encode) << " else " << pp(re, r2, html_encode) << ")";
     else if (re.is_opt(e, r1)) {
         if (can_skip_parenth(r1))
-            return out << pp(re, r1) << "?";
+            return out << pp(re, r1, html_encode) << "?";
         else
-            return out << "(" << pp(re, r1) << ")?";
+            return out << "(" << pp(re, r1, html_encode) << ")?";
     }
     else if (re.is_reverse(e, r1))
-        return out << "rev(" << pp(re, r1) << ")";
+        return out << "rev(" << pp(re, r1, html_encode) << ")";
     else if (re.m.is_eq(e, r1, r2))
-        return out << "(" << pp(re, r1) << "=" << pp(re, r2) << ")";
+        return out << "(" << pp(re, r1, html_encode) << "=" << pp(re, r2, html_encode) << ")";
     else if (re.m.is_not(e, r1))
-        return out << "!" << pp(re, r1);
+        return out << "!" << pp(re, r1, html_encode);
     else if (re.m.is_and(e)) {
         out << "(";
         for (unsigned i = 0; i < to_app(e)->get_num_args(); i++)
-            out << (i > 0 ? " and " : "") << pp(re, to_app(e)->get_arg(i));
+            out << (i > 0 ? " and " : "") << pp(re, to_app(e)->get_arg(i), html_encode);
         out << ")";
     }
     else if (re.m.is_or(e)) {
         out << "(";
         for (unsigned i = 0; i < to_app(e)->get_num_args(); i++)
-            out << (i > 0 ? " or " : "") << pp(re, to_app(e)->get_arg(i));
+            out << (i > 0 ? " or " : "") << pp(re, to_app(e)->get_arg(i), html_encode);
         out << ")";
     }
     else if (re.u.str.is_in_re(e, s, r1))
-        return out << "(" << pp(re, s) << " in " << pp(re, r1) << ")";
+        return out << "(" << pp(re, s, html_encode) << " in " << pp(re, r1, html_encode) << ")";
     //else if (arith_util(re.m).is_add(e, s, r1) && re.u.str.is_length(r1, r2) && arith_util(re.m).is_numeral(s, v) && v.is_neg())
     //    return out << "(|" << pp(re, r2) << "|" << "-" << (0 - v.get_int32()) << ")";
     //else if (arith_util(re.m).is_add(e, r1, s) && re.u.str.is_length(r1, r2) && arith_util(re.m).is_numeral(s, v) && v.is_neg())
@@ -1330,7 +1332,7 @@ std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
 */
 std::string seq_util::rex::to_str(expr* r) const {
     std::ostringstream out;
-    out << pp(u.re, r);
+    out << pp(u.re, r, false);
     return out.str();
 }
 
@@ -1376,7 +1378,7 @@ seq_util::rex::info seq_util::rex::get_info_rec(expr* e) const {
     else 
         result = mk_info_rec(to_app(e));
     m_infos.setx(e->get_id(), result, invalid_info);
-    STRACE("re_info", tout << "compute_info(" << pp(u.re, e) << ")=" << result << std::endl;);
+    STRACE("re_info", tout << "compute_info(" << pp(u.re, e, false) << ")=" << result << std::endl;);
     return result;
 }
 

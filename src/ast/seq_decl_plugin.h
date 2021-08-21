@@ -590,7 +590,7 @@ public:
             std::ostream& compact_helper_range(std::ostream& out, expr* s1, expr* s2) const;
 
         public:
-            pp(seq_util::rex& r, expr* e, bool html = false) : re(r), e(e), html_encode(html) {}
+            pp(seq_util::rex& r, expr* e, bool html) : re(r), e(e), html_encode(html) {}
             std::ostream& display(std::ostream&) const;
         };
     };

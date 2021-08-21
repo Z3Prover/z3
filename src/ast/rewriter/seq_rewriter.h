@@ -222,6 +222,8 @@ class seq_rewriter {
     expr_ref mk_regex_reverse(expr* r);
     expr_ref mk_regex_concat(expr* r1, expr* r2);
 
+    expr_ref simplify_path(expr* path);
+
     bool lt_char(expr* ch1, expr* ch2);
     bool eq_char(expr* ch1, expr* ch2);
     bool neq_char(expr* ch1, expr* ch2);
@@ -394,9 +396,18 @@ public:
 
     void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_pair_vector& new_eqs);
 
-    // Expose derivative and nullability check
+    /*
+    create the nullability check for r
+    */
     expr_ref is_nullable(expr* r);
+    /*
+    make the derivative of r wrt the given element ele
+    */
     expr_ref mk_derivative(expr* ele, expr* r);
+    /*
+    make the derivative of r wrt the canonical variable v0 = (:var 0), 
+    for example mk_derivative(a+) = (if (v0 = 'a') then a* else [])
+    */
     expr_ref mk_derivative(expr* r);
 
     // heuristic elimination of element from condition that comes form a derivative.
