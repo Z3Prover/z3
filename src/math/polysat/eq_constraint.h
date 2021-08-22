@@ -17,7 +17,7 @@ Author:
 
 namespace polysat {
 
-    class eq_constraint : public constraint {
+    class eq_constraint final : public constraint {
         pdd m_poly;
     public:
         eq_constraint(constraint_manager& m, unsigned lvl, pdd const& p):

@@ -21,31 +21,36 @@ Author:
 
 namespace polysat {
 
-    constraint* constraint_manager::store(constraint_ref c) {
-        LOG_V("Store constraint: " << show_deref(c));
-        SASSERT(c);
-        SASSERT(c->bvar() != sat::null_bool_var);
-        SASSERT(get_bv2c(c->bvar()) == c.get());
-        while (m_constraints.size() <= c->level())
-            m_constraints.push_back({});
-        constraint* pc = c.get();
-        m_constraints[c->level()].push_back(std::move(c));
-        return pc;
+    void constraint_manager::assign_bv2c(sat::bool_var bv, constraint* c) {
+        SASSERT_EQ(get_bv2c(bv), nullptr);
+        SASSERT(!c->has_bvar());
+        SASSERT(!m_constraint_table.contains(c));
+        c->m_bvar = bv;
+        m_bv2constraint.setx(bv, c, nullptr);
+        m_constraint_table.insert(c);
     }
 
-    clause* constraint_manager::store(clause_ref cl) {
-        LOG_V("Store clause: " << show_deref(cl));
-        SASSERT(cl);
-        // Insert new constraints
-        for (constraint* c : cl->m_new_constraints)
-            store(c);
-        cl->m_new_constraints = {};  // free vector memory
-        // Insert clause
-        while (m_clauses.size() <= cl->level())
-            m_clauses.push_back({});
-        clause* pcl = cl.get();
-        m_clauses[cl->level()].push_back(std::move(cl));
-        return pcl;
+    void constraint_manager::erase_bv2c(constraint* c) {
+        SASSERT(c->has_bvar());
+        SASSERT_EQ(get_bv2c(c->bvar()), c);
+        SASSERT(m_constraint_table.contains(c));
+        m_bv2constraint[c->bvar()] = nullptr;
+        m_constraint_table.remove(c);
+        c->m_bvar = sat::null_bool_var;
+    }
+
+    constraint* constraint_manager::get_bv2c(sat::bool_var bv) const {
+        return m_bv2constraint.get(bv, nullptr);
+    }
+
+    constraint* constraint_manager::store(scoped_ptr<constraint> scoped_c) {
+        constraint* c = scoped_c.detach();
+        LOG_V("Store constraint: " << show_deref(c));
+        assign_bv2c(m_bvars.new_var(), c);
+        while (m_constraints.size() <= c->level())
+            m_constraints.push_back({});
+        m_constraints[c->level()].push_back(c);
+        return c;
     }
 
     void constraint_manager::register_external(constraint* c) {
@@ -60,18 +65,15 @@ namespace polysat {
     // Release constraints at the given level and above.
     void constraint_manager::release_level(unsigned lvl) {
         for (unsigned l = m_constraints.size(); l-- > lvl; ) {
-            for (auto const& c : m_constraints[l]) {
-                LOG_V("Removing constraint: " << show_deref(c));
-                if (c->m_ref_count > 2) {
-                    // NOTE: ref count could be two if the constraint was added twice (once as part of clause, and later as unit constraint)
-                    LOG_H1("Expected ref_count 1 or 2, got " << c->m_ref_count << " for " << *c);
-                }
+            for (auto* c : m_constraints[l]) {
+                LOG_V("Destroying constraint: " << show_deref(c));
                 auto* d = c->unit_dep();
                 if (d && d->is_leaf()) {
                     unsigned const dep = d->leaf_value();
                     SASSERT(m_external_constraints.contains(dep));
                     m_external_constraints.remove(dep);
                 }
+                erase_bv2c(c);
             }
             m_constraints[l].reset();
         }
@@ -93,36 +95,34 @@ namespace polysat {
         return get_bv2c(var);
     }
 
-    constraint_literal constraint_manager::lookup(sat::literal lit) const {
-        return {lit, lookup(lit.var())};
+    signed_constraint constraint_manager::lookup(sat::literal lit) const {
+        return {lookup(lit.var()), lit};
     }
 
-    eq_constraint& constraint::to_eq() { 
-        return *dynamic_cast<eq_constraint*>(this); 
+    /** Look up constraint among stored constraints. */
+    constraint* constraint_manager::dedup(constraint* c1) {
+        auto it = m_constraint_table.find(c1);
+        if (it == m_constraint_table.end())
+            return c1;
+        constraint* c0 = *it;
+        // TODO: can this assertion be violated?
+        // Yes, e.g.: constraint c was asserted at level 1, the conflict resolution derived ~c from c1,c2 at level 0...
+        // In that case we have to adjust c0's level in the storage.
+        // What about the level of the boolean variable? That depends on its position in the assignment stack and should probably stay where it is. Will be updated separately when we patch the assignment stack.
+        SASSERT(c0->level() <= c1->level());
+        dealloc(c1);
+        return c0;
     }
 
-    eq_constraint const& constraint::to_eq() const { 
-        return *dynamic_cast<eq_constraint const*>(this); 
+    signed_constraint constraint_manager::eq(unsigned lvl, pdd const& p) {
+        return {dedup(alloc(eq_constraint, *this, lvl, p)), true};
     }
 
-    ule_constraint& constraint::to_ule() {
-        return *dynamic_cast<ule_constraint*>(this);
+    signed_constraint constraint_manager::ule(unsigned lvl, pdd const& a, pdd const& b) {
+        return {dedup(alloc(ule_constraint, *this, lvl, a, b)), true};
     }
 
-    ule_constraint const& constraint::to_ule() const {
-        return *dynamic_cast<ule_constraint const*>(this);
-    }
-
-    constraint_literal_ref constraint_manager::eq(unsigned lvl, pdd const& p) {
-        return constraint_literal_ref{alloc(eq_constraint, *this, lvl, p)};
-    }
-
-
-    constraint_literal_ref constraint_manager::ule(unsigned lvl, pdd const& a, pdd const& b) {
-        return constraint_literal_ref{alloc(ule_constraint, *this, lvl, a, b)};
-    }
-
-    constraint_literal_ref constraint_manager::ult(unsigned lvl, pdd const& a, pdd const& b) {
+    signed_constraint constraint_manager::ult(unsigned lvl, pdd const& a, pdd const& b) {
         // a < b  <=>  !(b <= a)
         return ~ule(lvl, b, a);
     }
@@ -143,14 +143,30 @@ namespace polysat {
     //
     // Argument: flipping the msb swaps the negative and non-negative blocks
     //
-    constraint_literal_ref constraint_manager::sle(unsigned lvl, pdd const& a, pdd const& b) {
+    signed_constraint constraint_manager::sle(unsigned lvl, pdd const& a, pdd const& b) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
         return ule(lvl, a + shift, b + shift);
     }
 
-    constraint_literal_ref constraint_manager::slt(unsigned lvl, pdd const& a, pdd const& b) {
+    signed_constraint constraint_manager::slt(unsigned lvl, pdd const& a, pdd const& b) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
         return ult(lvl, a + shift, b + shift);
+    }
+
+    eq_constraint& constraint::to_eq() { 
+        return *dynamic_cast<eq_constraint*>(this); 
+    }
+
+    eq_constraint const& constraint::to_eq() const { 
+        return *dynamic_cast<eq_constraint const*>(this); 
+    }
+
+    ule_constraint& constraint::to_ule() {
+        return *dynamic_cast<ule_constraint*>(this);
+    }
+
+    ule_constraint const& constraint::to_ule() const {
+        return *dynamic_cast<ule_constraint const*>(this);
     }
 
     std::ostream& constraint::display_extra(std::ostream& out, lbool status) const {
@@ -190,41 +206,35 @@ namespace polysat {
         narrow(s, is_positive);
     }
 
-    std::ostream &constraint_literal::display(std::ostream &out) const {
-        if (*this)
-            return out << m_literal << "{ " << *m_constraint << " }";
+    std::ostream &signed_constraint::display(std::ostream &out) const {
+        if (m_constraint)
+            return m_constraint->display(out, to_lbool(is_positive()));
         else
             return out << "<null>";
     }
 
-    std::ostream &constraint_literal_ref::display(std::ostream &out) const {
-        return out << get();
-    }
-
-    clause_ref clause::from_unit(constraint_literal_ref c, p_dependency_ref d) {
-        SASSERT(c);
+    clause_ref clause::from_unit(signed_constraint c, p_dependency_ref d) {
+        SASSERT(c->has_bvar());
         unsigned const lvl = c->level();
         sat::literal_vector lits;
-        lits.push_back(c.literal());
-        constraint_ref_vector cs;
-        cs.push_back(c.detach());
-        return clause::from_literals(lvl, std::move(d), std::move(lits), std::move(cs));
+        lits.push_back(c.blit());
+        return clause::from_literals(lvl, std::move(d), std::move(lits));
     }
 
-    clause_ref clause::from_literals(unsigned lvl, p_dependency_ref d, sat::literal_vector literals, constraint_ref_vector constraints) {
-        return alloc(clause, lvl, std::move(d), std::move(literals), std::move(constraints));
+    clause_ref clause::from_literals(unsigned lvl, p_dependency_ref d, sat::literal_vector literals) {
+        return alloc(clause, lvl, std::move(d), std::move(literals));
     }
 
     bool clause::is_always_false(solver& s) const {
         return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
-            constraint_literal c = s.m_constraints.lookup(lit);
+            signed_constraint c = s.m_constraints.lookup(lit);
             return c.is_always_false();
         });
     }
 
     bool clause::is_currently_false(solver& s) const {
         return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
-            constraint_literal c = s.m_constraints.lookup(lit);
+            signed_constraint c = s.m_constraints.lookup(lit);
             return c.is_currently_false(s);
         });
     }
@@ -240,8 +250,6 @@ namespace polysat {
             SASSERT((this_has_pos && other_has_neg) || (this_has_neg && other_has_pos));
         });
         // The resolved var should not be one of the new constraints
-        SASSERT(std::all_of(new_constraints().begin(), new_constraints().end(), [var](constraint* c) { return c->bvar() != var; }));
-        SASSERT(std::all_of(other.new_constraints().begin(), other.new_constraints().end(), [var](constraint* c) { return c->bvar() != var; }));
         int j = 0;
         for (auto lit : m_literals)
             if (lit.var() != var)

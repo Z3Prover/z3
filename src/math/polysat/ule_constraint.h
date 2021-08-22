@@ -17,7 +17,7 @@ Author:
 
 namespace polysat {
 
-    class ule_constraint : public constraint {
+    class ule_constraint final : public constraint {
         pdd m_lhs;
         pdd m_rhs;
     public:
