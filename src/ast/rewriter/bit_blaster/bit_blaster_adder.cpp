@@ -32,14 +32,14 @@ bit_blaster_adder::bit_blaster_adder(bool_rewriter & rewriter, unsigned sz, expr
         add_bit(i, bits[i]);
 }
 
-void bit_blaster_adder::sum_bits(vector< expr_ref_vector > & columns, expr_ref_vector & out_bits) const {
+void bit_blaster_adder::variable_bits(expr_ref_vector & out_bits) {
     SASSERT(out_bits.empty());
 
     expr_ref_vector carries(m());
     expr_ref tmp1(m()), tmp2(m()), tmp3(m());
     expr_ref a(m()), b(m()), c(m());
 
-    for (auto & column : columns) {
+    for (auto & column : m_variable) {
         column.append(carries);
         carries.reset();
 
@@ -82,21 +82,15 @@ void bit_blaster_adder::sum_bits(vector< expr_ref_vector > & columns, expr_ref_v
     SASSERT(out_bits.size() == size());
 }
 
-void bit_blaster_adder::variable_bits(expr_ref_vector & out_bits) const {
-    vector< expr_ref_vector > columns(m_variable);
-    sum_bits(columns, out_bits);
-}
-
-void bit_blaster_adder::total_bits(expr_ref_vector & out_bits) const {
-    vector< expr_ref_vector > columns(m_variable);
-
+void bit_blaster_adder::total_bits(expr_ref_vector & out_bits) {
     expr_ref one(m());
     one = m().mk_true();
     for (unsigned i = 0; i < size(); i++)
         if (m_constant.get_bit(i))
-            columns[i].push_back(one);
+            m_variable[i].push_back(one);
 
-    sum_bits(columns, out_bits);
+    m_constant = numeral::zero();
+    variable_bits(out_bits);
 }
 
 bit_blaster_adder & bit_blaster_adder::add_shifted(bit_blaster_adder const & other, unsigned shift) {

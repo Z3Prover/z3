@@ -39,15 +39,16 @@ public:
     bit_blaster_adder(bit_blaster_adder &&) noexcept = default;
 
     // Return the sum of the known-constant inputs to this adder.
-    void constant_bits(numeral & value) const {
-        value = m_constant % power(size());
+    void constant_bits(numeral & value) {
+        m_constant %= power(size());
+        value = m_constant;
     }
 
     // Return the sum of the non-constant inputs to this adder.
-    void variable_bits(expr_ref_vector & out_bits) const;
+    void variable_bits(expr_ref_vector & out_bits);
 
     // Return the sum of all inputs to this adder.
-    void total_bits(expr_ref_vector & out_bits) const;
+    void total_bits(expr_ref_vector & out_bits);
 
     unsigned size() const {
         return m_variable.size();
@@ -100,6 +101,4 @@ protected:
     vector< expr_ref_vector > m_variable;
 
     numeral power(unsigned n) const { return numeral::power_of_two(n); }
-
-    void sum_bits(vector< expr_ref_vector > & columns, expr_ref_vector & out_bits) const;
 };
