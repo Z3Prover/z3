@@ -38,17 +38,18 @@ void bit_blaster_adder::sum_bits(vector< expr_ref_vector > & columns, expr_ref_v
 
     expr_ref_vector carries(m());
     expr_ref tmp1(m()), tmp2(m()), tmp3(m());
+    expr_ref a(m()), b(m()), c(m());
 
     for (auto & column : columns) {
         column.append(carries);
         carries.reset();
 
         while (column.size() >= 3) {
-            expr * a = column.back();
+            a = column.back();
             column.pop_back();
-            expr * b = column.back();
+            b = column.back();
             column.pop_back();
-            expr * c = column.back();
+            c = column.back();
             column.pop_back();
 
             m_rewriter.mk_xor(a, b, tmp1);
@@ -64,9 +65,9 @@ void bit_blaster_adder::sum_bits(vector< expr_ref_vector > & columns, expr_ref_v
         }
 
         if (column.size() == 2) {
-            expr * a = column.back();
+            a = column.back();
             column.pop_back();
-            expr * b = column.back();
+            b = column.back();
             column.pop_back();
 
             m_rewriter.mk_xor(a, b, tmp1);
