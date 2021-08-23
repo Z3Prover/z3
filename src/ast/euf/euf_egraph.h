@@ -104,7 +104,8 @@ namespace euf {
             struct value_assignment {};
             struct lbl_hash {};
             struct lbl_set {};
-            enum class tag_t { is_set_parent, is_add_node, is_toggle_merge, 
+            struct update_children {};
+            enum class tag_t { is_set_parent, is_add_node, is_toggle_merge, is_update_children,
                     is_add_th_var, is_replace_th_var, is_new_lit, is_new_th_eq,
                     is_lbl_hash, is_new_th_eq_qhead, is_new_lits_qhead, 
                     is_inconsistent, is_value_assignment, is_lbl_set };
@@ -148,6 +149,8 @@ namespace euf {
                 tag(tag_t::is_lbl_hash), r1(n), n1(nullptr), m_lbl_hash(n->m_lbl_hash) {}
             update_record(enode* n, lbl_set):
                 tag(tag_t::is_lbl_set), r1(n), n1(nullptr), m_lbls(n->m_lbls.get()) {}    
+            update_record(enode* n, update_children) :
+                tag(tag_t::is_update_children), r1(n), n1(nullptr), r2_num_parents(UINT_MAX) {}
         };
         ast_manager&           m;
         svector<to_merge>      m_to_merge;
@@ -211,7 +214,7 @@ namespace euf {
         void push_to_lca(enode* a, enode* lca);
         void push_congruence(enode* n1, enode* n2, bool commutative);
         void push_todo(enode* n);
-        void toggle_merge_enabled(enode* n);
+        void toggle_merge_enabled(enode* n, bool backtracking);
 
         enode_bool_pair insert_table(enode* p);
         void erase_from_table(enode* p);

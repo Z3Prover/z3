@@ -100,6 +100,7 @@ namespace euf {
         for (enode* child : enode_args(n)) 
             child->get_root()->add_parent(n);
         n->set_update_children();            
+        m_updates.push_back(update_record(n, update_record::update_children()));
     }
 
     enode* egraph::mk(expr* f, unsigned generation, unsigned num_args, enode *const* args) {
@@ -264,23 +265,21 @@ namespace euf {
 
     void egraph::set_merge_enabled(enode* n, bool enable_merge) {
         if (enable_merge != n->merge_enabled()) {
-            toggle_merge_enabled(n);
+            toggle_merge_enabled(n, false);
             m_updates.push_back(update_record(n, update_record::toggle_merge()));
-            if (enable_merge && n->num_args() > 0) {
-                auto [n2, comm] = insert_table(n);
-                if (n2 != n) 
-                    merge(n, n2, justification::congruence(comm));                        
-            }
         }
     }
 
-    void egraph::toggle_merge_enabled(enode* n) {
+    void egraph::toggle_merge_enabled(enode* n, bool backtracking) {
        bool enable_merge = !n->merge_enabled();
        n->set_merge_enabled(enable_merge);         
        if (n->num_args() > 0) {
-           if (enable_merge)
-               insert_table(n);
-           else if (m_table.contains_ptr(n))
+           if (enable_merge) {
+               auto [n2, comm] = insert_table(n);
+               if (n2 != n && !backtracking)
+                   m_to_merge.push_back(to_merge(n, n2, comm));
+           }
+           else if (n->is_cgr())
                erase_from_table(n);
        }
        VERIFY(n->num_args() == 0 || !n->merge_enabled() || m_table.contains(n));
@@ -337,14 +336,15 @@ namespace euf {
             m_nodes.pop_back();
             m_exprs.pop_back();
         };
-        for (unsigned i = m_updates.size(); i-- > num_updates; ) {
+        unsigned sz = m_updates.size();
+        for (unsigned i = sz; i-- > num_updates; ) {
             auto const& p = m_updates[i];
             switch (p.tag) {
             case update_record::tag_t::is_add_node:
                 undo_node();
                 break;
             case update_record::tag_t::is_toggle_merge:
-                toggle_merge_enabled(p.r1);
+                toggle_merge_enabled(p.r1, true);
                 break;
             case update_record::tag_t::is_set_parent:
                 undo_eq(p.r1, p.n1, p.r2_num_parents);
@@ -381,12 +381,18 @@ namespace euf {
             case update_record::tag_t::is_lbl_set:
                 p.r1->m_lbls.set(p.m_lbls);
                 break;
+            case update_record::tag_t::is_update_children:
+                for (unsigned i = 0; i < p.r1->num_args(); ++i) {
+                    SASSERT(p.r1->m_args[i]->get_root()->m_parents.back() == p.r1);
+                    p.r1->m_args[i]->get_root()->m_parents.pop_back();
+                }
+                break;
             default:
                 UNREACHABLE();
                 break;
-            }                
+            }                    
         }        
-       
+        SASSERT(m_updates.size() == sz);
         m_updates.shrink(num_updates);
         m_scopes.shrink(old_lim);        
         m_region.pop_scope(num_scopes);  

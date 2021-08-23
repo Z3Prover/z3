@@ -46,7 +46,6 @@ namespace euf {
         bool          m_mark1 = false;
         bool          m_mark2 = false;
         bool          m_commutative = false;
-        bool          m_update_children = false;
         bool          m_interpreted = false;
         bool          m_merge_enabled = true; 
         bool          m_is_equality = false;    // Does the expression represent an equality
@@ -124,10 +123,7 @@ namespace euf {
                 n->m_args[i] = nullptr;            
             return n;
         }    
-        
-        void set_update_children() { m_update_children = true; }
-
-
+       
         friend class add_th_var_trail;
         friend class replace_th_var_trail;
         void add_th_var(theory_var v, theory_id id, region & r) { m_th_vars.add_var(v, id, r); }
@@ -142,12 +138,6 @@ namespace euf {
         ~enode() { 
             SASSERT(m_root == this); 
             SASSERT(class_size() == 1); 
-            if (m_update_children) {
-                for (unsigned i = 0; i < num_args(); ++i) {
-                    SASSERT(m_args[i]->get_root()->m_parents.back() == this);
-                    m_args[i]->get_root()->m_parents.pop_back();
-                }
-            }
         }
 
         enode* const* args() const { return m_args; }
