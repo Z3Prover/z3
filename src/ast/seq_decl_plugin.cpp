@@ -1105,19 +1105,19 @@ app* seq_util::rex::mk_epsilon(sort* seq_sort) {
 /*
   Produces compact view of concrete concatenations such as (abcd).
 */
-std::ostream& seq_util::rex::pp::compact_helper_seq(std::ostream& out, expr* s) const {
+void seq_util::rex::pp::print_seq(std::ostream& out, expr* s) const {
     SASSERT(re.u.is_seq(s));
     zstring z;
     expr* x, * j, * k, * l, * i, * x_;
     if (re.u.str.is_empty(s))
         out << "()";
     else if (re.u.str.is_unit(s))
-        seq_unit(out, s);
+        print_unit(out, s);
     else if (re.u.str.is_concat(s)) {
         expr_ref_vector es(re.m);
         re.u.str.get_concat(s, es);
         for (expr* e : es)
-            compact_helper_seq(out, e);
+            print_seq(out, e);
     }
     else if (re.u.str.is_string(s, z)) {
         for (unsigned i = 0; i < z.length(); i++)
@@ -1125,37 +1125,50 @@ std::ostream& seq_util::rex::pp::compact_helper_seq(std::ostream& out, expr* s) 
     }
     else if (re.u.str.is_extract(s, x, j, k)) {
         rational jv, iv;
+        print(out, x);
         if (arith_util(re.m).is_numeral(j, jv)) {
-            if (arith_util(re.m).is_numeral(k, iv))
+            if (arith_util(re.m).is_numeral(k, iv)) {
                 // output X[j,k]
-                out << pp(re, x, html_encode) << "[" << jv.get_int32() << "," << jv.get_int32() << "]";
+                out << "[" << jv.get_int32() << "," << jv.get_int32() << "]";
+            }
             else if (arith_util(re.m).is_sub(k, l, i) && re.u.str.is_length(l, x_) && x == x_ &&
-                arith_util(re.m).is_numeral(i, iv) && iv == jv)
+                arith_util(re.m).is_numeral(i, iv) && iv == jv) {
                 // case X[j,|X|-j] is denoted by X[j..]
-                out << pp(re, x, html_encode) << "[" << jv.get_int32() << "..]";
+                out << "[" << jv.get_int32() << "..]";
+            }
             else if (((arith_util(re.m).is_add(k, l, i) && re.u.str.is_length(l, x_)) ||
-                    (arith_util(re.m).is_add(k, i, l) && re.u.str.is_length(l, x_))) && x == x_ && 
-                arith_util(re.m).is_numeral(i, iv) && iv.get_int32() + jv.get_int32() == 0)
+                (arith_util(re.m).is_add(k, i, l) && re.u.str.is_length(l, x_))) && x == x_ &&
+                arith_util(re.m).is_numeral(i, iv) && iv.get_int32() + jv.get_int32() == 0) {
                 // case X[j,|X|-j] is denoted by X[j..]
-                out << pp(re, x, html_encode) << "[" << jv.get_int32() << "..]";
-            else 
-                out << pp(re, x, html_encode) << "[" << jv.get_int32() << "," << pp(re, k, html_encode) << "]";
+                out << "[" << jv.get_int32() << "..]";
+            }
+            else {
+                out << "[" << jv.get_int32() << ",";
+                print(out, k);
+                out << "]";
+            }     
         }
-        else
-            out << pp(re, x, html_encode) << "[" << pp(re, j, html_encode) << "," << pp(re, k, html_encode) << "]";
+        else {
+            out << "[";
+            print(out, j);
+            out << ",";
+            print(out, k);
+            out << "]";
+        }
     }
-    else out << mk_pp(s, re.m);
-    return out;
+    else 
+        out << mk_pp(s, re.m);
 }
 
 /*
   Produces output such as [a-z] for a range.
 */
-std::ostream& seq_util::rex::pp::compact_helper_range(std::ostream& out, expr* s1, expr* s2) const {
+void seq_util::rex::pp::print_range(std::ostream& out, expr* s1, expr* s2) const {
     out << "[";
-    seq_unit(out, s1) << "-";
-    seq_unit(out, s2) << "]";
-    return out;
+    print_unit(out, s1);
+    out << "-";
+    print_unit(out, s2);
+    out << "]";
 }
 
 /*
@@ -1169,7 +1182,7 @@ bool seq_util::rex::pp::can_skip_parenth(expr* r) const {
 /*
   Specialize output for a unit sequence converting to visible ASCII characters if possible.
 */
-std::ostream& seq_util::rex::pp::seq_unit(std::ostream& out, expr* s) const {
+void seq_util::rex::pp::print_unit(std::ostream& out, expr* s) const {
     expr* e, * i;
     unsigned n = 0;
     if ((re.u.str.is_unit(s, e) && re.u.is_const_char(e, n)) || re.u.is_const_char(s, n)) {
@@ -1180,24 +1193,21 @@ std::ostream& seq_util::rex::pp::seq_unit(std::ostream& out, expr* s) const {
             out << "\\r";
         else if (c == '\f')
             out << "\\f";
-        else if (c == ' ')
-            out << " ";
-        else if (c == '(' || c == ')' || c == '{' || c == '}' || c == '[' || c == ']' || c == '.' || c == '\\')
-            out << "\\" << c;
-        else if ('A' <= c && c <= 'Z' || 'a' <= c && c <= 'z' || '0' <= c && c <= '9' || c == '_' || c == '@' || c == ';' || c == ':' || c == '/' || c == '#' || c == '$')
-            out << c;
-        else if (32 < n && n < 127) {
+        else if (32 <= n && n < 127 && n != '\"' && n != ' '
+            && n != '\\' && n != '\'' && n != '?' && n != '.' && n != '(' && n != ')' && n != '[' && n != ']'
+            && n != '{' && n != '}' && n != '&') {
             if (html_encode) {
                 if (c == '<')
                     out << "&lt;";
                 else if (c == '>')
                     out << "&gt;";
-                else if (c == '&')
-                    out << "&amp;";
-                else if (c == '\"')
-                    out << "&quot;";
+                //else if (c == '&')
+                //    out << "&amp;";
+                //else if (c == '\"')
+                //    out << "&quot;";
                 else
-                    out << "\\x" << std::hex << n;
+                    //out << "\\x" << std::hex << n;
+                    out << c;
             }
             else
                 out << c;
@@ -1212,119 +1222,189 @@ std::ostream& seq_util::rex::pp::seq_unit(std::ostream& out, expr* s) const {
             out << "\\u" << std::hex << n;
     }
     else if (re.u.str.is_nth_i(s, e, i)) {
-        out << mk_pp(e, re.m) << "[" << mk_pp(i, re.m) << "]";
+        print(out, e);
+        out << "[" << mk_pp(i, re.m) << "]";
+    }
+    else if (re.m.is_value(e))
+        out << mk_pp(e, re.m);
+    else if (is_app(e)) {
+        out << "(" << to_app(e)->get_decl()->get_name().str();
+        for (unsigned i = 0; i < to_app(e)->get_num_args(); i++) {
+            out << " ";
+            print(out, to_app(e)->get_arg(i));
+        }
+        out << ")";
     }
     else
         out << mk_pp(s, re.m);
-    return out;
 }
 
 /*
   Pretty prints the regex r into the ostream out
 */
-std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
+void seq_util::rex::pp::print(std::ostream& out, expr* e) const {
     expr* r1 = nullptr, * r2 = nullptr, * s = nullptr, * s2 = nullptr;
     unsigned lo = 0, hi = 0;
     rational v;
     if (re.u.is_char(e))
-        return seq_unit(out, e);
+        print_unit(out, e);
     else if (re.u.is_seq(e))
-        return compact_helper_seq(out, e);
+        print_seq(out, e);
     else if (re.is_full_char(e))
-        return out << ".";
+        out << ".";
     else if (re.is_full_seq(e))
-        return out << ".*";
+        out << ".*";
     else if (re.is_to_re(e, s))
-        return compact_helper_seq(out, s);
+        print_seq(out, s);
     else if (re.is_range(e, s, s2))
-        return compact_helper_range(out, s, s2);
+        print_range(out, s, s2);
     else if (re.is_epsilon(e))
-        return out << "()";
+        // &#X03B5; = epsilon
+        out << (html_encode ? "&#X03B5;" : "()");
     else if (re.is_empty(e))
-        return out << "[]";
-    else if (re.is_concat(e, r1, r2))
-        return out << pp(re, r1, html_encode) << pp(re, r2, html_encode);
-    else if (re.is_antimorov_union(e, r1, r2) || re.is_union(e, r1, r2))
-        return out << "(" << pp(re, r1, html_encode) << "|" << pp(re, r2, html_encode) << ")";
+        // &#X2205; = emptyset
+        out << (html_encode ? "&#X2205;" : "[]");
+    else if (re.is_concat(e, r1, r2)) {
+        print(out, r1);
+        print(out, r2);
+    }
+    else if (re.is_antimorov_union(e, r1, r2) || re.is_union(e, r1, r2)) {
+        out << "(";
+        print(out, r1);
+        out << (html_encode ? "&#X22C3;" : "|");
+        print(out, r2);
+        out << ")";
+    }
     else if (re.is_intersection(e, r1, r2))
-        return out << "(" << pp(re, r1, html_encode) << (html_encode ? "&amp;" : "&") << pp(re, r2, html_encode) << ")";
+    {
+        out << "(";
+        print(out, r1);
+        out << (html_encode ? "&#X22C2;" : "&");
+        print(out, r2);
+        out << ")";
+    }
     else if (re.is_complement(e, r1)) {
+        out << "~";
         if (can_skip_parenth(r1))
-            return out << "~" << pp(re, r1, html_encode);
-        else
-            return out << "~(" << pp(re, r1, html_encode) << ")";
+            print(out, r1);
+        else {
+            out << "(";
+            print(out, r1);
+            out << ")";
+        }
     }
     else if (re.is_plus(e, r1)) {
-        if (can_skip_parenth(r1))
-            return out << pp(re, r1, html_encode) << "+";
-        else
-            return out << "(" << pp(re, r1, html_encode) << ")+";
+        if (can_skip_parenth(r1)) {
+            print(out, r1);
+            out << "+";
+        }
+        else {
+            out << "(";
+            print(out, r1);
+            out << ")+";
+        }
     }
     else if (re.is_star(e, r1)) {
-        if (can_skip_parenth(r1))
-            return out << pp(re, r1, html_encode) << "*";
-        else
-            return out << "(" << pp(re, r1, html_encode) << ")*";
+        if (can_skip_parenth(r1)) {
+            print(out, r1);
+            out << "*";
+        }
+        else {
+            out << "(";
+            print(out, r1);
+            out << ")*";
+        }
     }
     else if (re.is_loop(e, r1, lo)) {
-        if (can_skip_parenth(r1))
-            return out << pp(re, r1, html_encode) << "{" << lo << ",}";
+        if (can_skip_parenth(r1)) {
+            print(out, r1);
+            out << "{" << lo << ",}";
+        }
         else
-            return out << "(" << pp(re, r1, html_encode) << "){" << lo << ",}";
+        {
+            out << "(";
+            print(out, r1);
+            out << "){" << lo << ",}";
+        }
     }
     else if (re.is_loop(e, r1, lo, hi)) {
         if (can_skip_parenth(r1)) {
+            print(out, r1);
             if (lo == hi)
-                return out << pp(re, r1, html_encode) << "{" << lo << "}";
+                out << "{" << lo << "}";
             else
-                return out << pp(re, r1, html_encode) << "{" << lo << "," << hi << "}";
+                out << "{" << lo << "," << hi << "}";
         }
         else {
+            out << "(";
+            print(out, r1);
             if (lo == hi)
-                return out << "(" << pp(re, r1, html_encode) << "){" << lo << "}";
+                out << "){" << lo << "}";
             else
-                return out << "(" << pp(re, r1, html_encode) << "){" << lo << "," << hi << "}";
+                out << "){" << lo << "," << hi << "}";
         }
     }
-    else if (re.is_diff(e, r1, r2))
-        return out << "(" << pp(re, r1, html_encode) << ")\\(" << pp(re, r2, html_encode) << ")";
-    else if (re.m.is_ite(e, s, r1, r2))
-        return out << "(if " << pp(re, s, html_encode) << " then " << pp(re, r1, html_encode) << " else " << pp(re, r2, html_encode) << ")";
+    else if (re.is_diff(e, r1, r2)) {
+        out << "(";
+        print(out, r1);
+        out << ")\\(";
+        print(out, r2);
+        out << ")";
+    }
+    else if (re.m.is_ite(e, s, r1, r2)) {
+        out << (html_encode ? "(&#X1D422;&#X1D41F; " : "(if ");
+        print(out, s);
+        out << (html_encode ? " &#X1D42D;&#X1D5F5;&#X1D41E;&#X1D427; " : " then ");
+        print(out, r1);
+        out << (html_encode ? " &#X1D41E;&#X1D425;&#X1D600;&#X1D41E; " : " else ");
+        print(out, r2);
+        out << ")";
+    }
     else if (re.is_opt(e, r1)) {
-        if (can_skip_parenth(r1))
-            return out << pp(re, r1, html_encode) << "?";
-        else
-            return out << "(" << pp(re, r1, html_encode) << ")?";
+        if (can_skip_parenth(r1)) {
+            print(out, r1);
+            out << "?";
+        }
+        else {
+            out << "(";
+            print(out, r1);
+            out << ")?";
+        }
     }
-    else if (re.is_reverse(e, r1))
-        return out << "rev(" << pp(re, r1, html_encode) << ")";
-    else if (re.m.is_eq(e, r1, r2))
-        return out << "(" << pp(re, r1, html_encode) << "=" << pp(re, r2, html_encode) << ")";
-    else if (re.m.is_not(e, r1))
-        return out << "!" << pp(re, r1, html_encode);
-    else if (re.m.is_and(e)) {
-        out << "(";
-        for (unsigned i = 0; i < to_app(e)->get_num_args(); i++)
-            out << (i > 0 ? " and " : "") << pp(re, to_app(e)->get_arg(i), html_encode);
+    else if (re.is_reverse(e, r1)) {
+        out << "(reverse ";
+        print(out, r1);
         out << ")";
     }
-    else if (re.m.is_or(e)) {
+    else if (re.m.is_eq(e, r1, r2)) {
         out << "(";
-        for (unsigned i = 0; i < to_app(e)->get_num_args(); i++)
-            out << (i > 0 ? " or " : "") << pp(re, to_app(e)->get_arg(i), html_encode);
+        print(out, r1);
+        out << "=";
+        print(out, r2);
         out << ")";
     }
-    else if (re.u.str.is_in_re(e, s, r1))
-        return out << "(" << pp(re, s, html_encode) << " in " << pp(re, r1, html_encode) << ")";
-    //else if (arith_util(re.m).is_add(e, s, r1) && re.u.str.is_length(r1, r2) && arith_util(re.m).is_numeral(s, v) && v.is_neg())
-    //    return out << "(|" << pp(re, r2) << "|" << "-" << (0 - v.get_int32()) << ")";
-    //else if (arith_util(re.m).is_add(e, r1, s) && re.u.str.is_length(r1, r2) && arith_util(re.m).is_numeral(s, v) && v.is_neg())
-    //    return out << "(|" << pp(re, r2) << "|" << "-" << (0 - v.get_int32()) << ")";
-    //else if (arith_util(re.m).is_sub(e, r1, s) && re.u.str.is_length(r1, r2) && arith_util(re.m).is_numeral(s, v) && v.is_pos())
-    //    return out << "(|" << pp(re, r2) << "|" << "-" << v.get_int32() << ")";
+    else if (re.m.is_not(e, r1)) {
+        out << "!";
+        print(out, r1);
+    }
+    else if (re.m.is_value(e))
+        out << mk_pp(e, re.m);
+    else if (is_app(e)) {
+        out << "(" << to_app(e)->get_decl()->get_name().str();
+        for (unsigned i = 0; i < to_app(e)->get_num_args(); i++) {
+            out << " ";
+            print(out, to_app(e)->get_arg(i));
+        }
+        out << ")";
+    }
     else
         // for all remaining cases use the default pretty printer
-        return out << mk_pp(e, re.m);
+        out << mk_pp(e, re.m);
+}
+
+std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
+    print(out, ex);
+    return out;
 }
 
 /*
@@ -1332,7 +1412,16 @@ std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
 */
 std::string seq_util::rex::to_str(expr* r) const {
     std::ostringstream out;
-    out << pp(u.re, r, false);
+    pp(u.re, r, false).display(out);
+    return out.str();
+}
+
+/*
+  Pretty prints the regex r into the output string that is htmlencoded 
+*/
+std::string seq_util::rex::to_strh(expr* r) const {
+    std::ostringstream out;
+    pp(u.re, r, true).display(out);
     return out.str();
 }
 

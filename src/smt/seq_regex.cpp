@@ -254,10 +254,8 @@ namespace smt {
      *             (accept s (i + 1) (derivative s[i] r)
      *
      * Acceptance of a derivative is unfolded into a disjunction over
-     * all derivatives. Effectively, this implements the following rule,
-     * but all in one step:
-     * (accept s i (ite c r1 r2)) =>
-     *             c & (accept s i r1) \/ ~c & (accept s i r2)
+     * all derivatives. Effectively, this implements the following rule:
+     * (accept s i (ite c r1 r2)) => (ite c (accept s i r1) (accept s i r2))
      */
      void seq_regex::propagate_accept(literal lit) {
         SASSERT(!lit.sign());
@@ -303,6 +301,7 @@ namespace smt {
         unsigned min_len = re().min_length(r);
         unsigned min_len_plus_i = u().max_plus(min_len, idx);
         literal len_s_ge_min = th.m_ax.mk_ge(th.mk_len(s), min_len_plus_i);
+        // Acc(s,i,r) ==> |s| >= i + minlength(r)
         th.propagate_lit(nullptr, 1, &lit, len_s_ge_min);
         // Axiom equivalent to the above: th.add_axiom(~lit, len_s_ge_min);
 
@@ -317,6 +316,8 @@ namespace smt {
                 STRACE("seq_regex_brief", tout
                     << " (Warning: min_length returned 0 for"
                     << " non-nullable regex)";);
+                // since nullable(r) = false:
+                // Acc(s,i,r) ==> |s|>i
                 th.propagate_lit(nullptr, 1, &lit, ~len_s_le_i);
             }
             else if (!m.is_true(is_nullable)) {
@@ -328,7 +329,9 @@ namespace smt {
                     << " (Warning: is_nullable did not simplify)";);
                 literal is_nullable_lit = th.mk_literal(is_nullable);
                 ctx.mark_as_relevant(is_nullable_lit);
+                // Acc(s,i,r) & |s|<=i  ==> nullable(r)
                 th.add_axiom(~lit, ~len_s_le_i, is_nullable_lit);
+                //TODO: what if is_nullable contains an in_re 
                 if (str().is_in_re(is_nullable))
                     th.add_unhandled_expr(is_nullable);
             }
@@ -336,14 +339,21 @@ namespace smt {
 
         // Rule 3: derivative unfolding
         literal_vector accept_next;
-        expr_ref hd = th.mk_nth(s, i);
+        expr_ref s_i = th.mk_nth(s, i);
         expr_ref deriv(m);
-        deriv = derivative_wrapper(hd, r);
+        deriv = mk_derivative_wrapper(s_i, r);
+        STRACE("here", tout
+            << "mk_pp: " << mk_pp(deriv, m) << std::endl;);
+        STRACE("here", tout
+            << "re().to_str: " << re().to_str(deriv) << std::endl;);
         expr_ref accept_deriv(m);
         accept_deriv = mk_deriv_accept(s, idx + 1, deriv);
         accept_next.push_back(~lit);
         accept_next.push_back(len_s_le_i);
         accept_next.push_back(th.mk_literal(accept_deriv));
+        // Acc(s, i, r) => (|s|<=i or Acc(s, i+1, D(s_i,r)))
+        // where Acc(s, i+1, ite(c, t, f)) = ite(c, Acc(s, i+1, t), Acc(s, i+1, t))
+        // and Acc(s, i+1, r U s) = Acc(s, i+1, r) or Acc(s, i+1, s)
         th.add_axiom(accept_next);
     }
 
@@ -419,20 +429,21 @@ namespace smt {
     /*
         Wrapper around calls to is_nullable from the seq rewriter.
 
-        Note: the nullable wrapper and derivative wrapper actually use
+        TODO: clean up the following:
+        Note: the is_nullable_wrapper and mk_derivative_wrapper actually use
         different sequence rewriters; these are at:
             m_seq_rewrite
                 (returned by seq_rw())
             th.m_rewrite.m_imp->m_cfg.m_seq_rw
                 (private, can't be accessed directly)
         As a result operations are cached separately for the nullable
-        and derivative calls. TBD if caching them using the same rewriter
-        makes any difference.
+        and derivative calls. 
     */
     expr_ref seq_regex::is_nullable_wrapper(expr* r) {
         STRACE("seq_regex", tout << "nullable: " << mk_pp(r, m) << std::endl;);
 
         expr_ref result = seq_rw().is_nullable(r);
+        //TODO: rewrite seems unnecessary here
         rewrite(result);
 
         STRACE("seq_regex", tout << "nullable result: " << mk_pp(result, m) << std::endl;);
@@ -443,37 +454,28 @@ namespace smt {
     }
 
     /*
-        Wrapper around the regex symbolic derivative from the seq rewriter.
-        Ensures that the derivative is written in a normalized BDD form
-        with optimizations for if-then-else expressions involving the head.
-
-        Note: the nullable wrapper and derivative wrapper actually use
-        different sequence rewriters; these are at:
-            m_seq_rewrite
-                (returned by seq_rw())
-            th.m_rewrite.m_imp->m_cfg.m_seq_rw
-                (private, can't be accessed directly)
-        As a result operations are cached separately for the nullable
-        and derivative calls. TBD if caching them using the same rewriter
-        makes any difference.
+       First creates a derivatrive of r wrt x=(:var 0) and then replaces x by ele.
+       This will create a cached entry for the generic derivative of r that is independent of ele.
     */
-    expr_ref seq_regex::derivative_wrapper(expr* hd, expr* r) {
-        STRACE("seq_regex", tout << "derivative(" << mk_pp(hd, m) << "): " << mk_pp(r, m) << std::endl;);
+    expr_ref seq_regex::mk_derivative_wrapper(expr* ele, expr* r) {
+        STRACE("seq_regex", tout << "derivative(" << mk_pp(ele, m) << "): " << mk_pp(r, m) << std::endl;);
 
-        // Use canonical variable (:var 0) for the derivative element
-        expr_ref result(seq_rw().mk_derivative(r), m);
+        // Uses canonical variable (:var 0) for the derivative element
+        expr_ref der(seq_rw().mk_derivative(r), m);
 
         // Substitute (:var 0) with the actual element
         var_subst subst(m);
         expr_ref_vector sub(m);
-        sub.push_back(hd);
-        result = subst(result, sub);
+        sub.push_back(ele);
+        der = subst(der, sub);
 
-        STRACE("seq_regex", tout << "derivative result: " << mk_pp(result, m) << std::endl;);
+        STRACE("seq_regex", tout << "derivative result: " << mk_pp(der, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "d(" << state_str(r) << ")="
-                                       << state_str(result) << " ";);
+                                       << state_str(der) << " ";);
 
-        return result;
+        //TODO: simplify der further, if ele implies further simplifications
+        //e.g. if ele='b' then de(ite (x='a') t f) simplifies to t
+        return der;
     }
 
     void seq_regex::propagate_eq(expr* r1, expr* r2) {
@@ -556,7 +558,7 @@ namespace smt {
         literal null_lit = th.mk_literal(is_nullable);
         expr_ref hd = mk_first(r, n);
         expr_ref d(m);
-        d = derivative_wrapper(hd, r);
+        d = mk_derivative_wrapper(hd, r);
 
         literal_vector lits;
         lits.push_back(~lit);
@@ -583,11 +585,10 @@ namespace smt {
     }
 
     /*
-        Given a string s, index i, and a derivative regex d, return an
+        Given a string s, index i, and a derivative r, return an
         expression that is equivalent to
             accept s i r
-        but which pushes accept s i r into the leaves (next derivatives to
-        explore).
+        but which pushes accept s i r into the leaves 
 
         Input r is of type regex; output is of type bool.
 
@@ -597,6 +598,8 @@ namespace smt {
                   (ite b (accept s i r3) (accept s i r4)))
     */
     expr_ref seq_regex::mk_deriv_accept(expr* s, unsigned i, expr* r) {
+        return mk_deriv_accept_rec(s, i, r);
+
         vector<expr*> to_visit;
         to_visit.push_back(r);
         obj_map<expr, expr*> re_to_bool;
@@ -685,52 +688,57 @@ namespace smt {
         return result;
     }
 
+
+    expr_ref seq_regex::mk_deriv_accept_rec(expr* s, unsigned i, expr* d) {
+        expr* c, * d1, * d2;
+        expr_ref result(m);
+        if (re().is_full_seq(d) || str().min_length(s) > i && re().is_dot_plus(d))
+            // s[i..] in .* <==> true, also: s[i..] in .+ <==> true when |s|>i
+            result = m.mk_true();
+        else if (re().is_empty(d) || (str().min_length(s) > i && re().is_epsilon(d)))
+            // s[i..] in [] <==> false, also: s[i..] in () <==> false when |s|>i
+            result = m.mk_false();
+        else if (m.is_ite(d, c, d1, d2))
+            result = re().mk_ite_simplify(c, mk_deriv_accept_rec(s, i, d1), mk_deriv_accept_rec(s, i, d2));
+        else if (re().is_union(d, d1, d2))
+            result = re().mk_or_simplify(mk_deriv_accept_rec(s, i, d1), mk_deriv_accept_rec(s, i, d2));
+        else
+            result = sk().mk_accept(s, a().mk_int(i + 1), d);
+        return result;
+    }
+
     /*
         Return a list of all target regexes in the derivative of a regex r,
         ignoring the conditions along each path.
 
-        The derivative
-        construction tries to eliminate unsat condition paths, but one cannot
-        assume that the path to each leaf is satisfiable in general.
-        
-        In general, some of the target regexes in results may be unreachable from r.
+        The derivative construction uses (:var 0) and tries 
+        to eliminate unsat condition paths but it does not perform 
+        full satisfiability checks and it is not guaranteed
+        that all targets are actually reachable
     */
-    void seq_regex::get_targets(expr* r, expr_ref_vector& results) {
-        // Get derivative
-        /*sort* seq_sort = nullptr;
-        VERIFY(u().is_re(r, seq_sort));
-        expr_ref n(m.mk_fresh_const("re.char", seq_sort), m);
-        expr_ref hd = mk_first(r, n);
-        expr_ref d(m);
-        d = derivative_wrapper(hd, r);*/
+    void seq_regex::get_derivative_targets(expr* r, expr_ref_vector& targets) {
+        // constructs the derivative wrt (:var 0)
         expr_ref d(seq_rw().mk_derivative(r), m);
 
         // use DFS to collect all the targets (leaf regexes) in d.
-        vector<expr*> to_visit;
-        to_visit.push_back(d);
-        obj_map<expr, bool> visited; // set<expr> (bool is used as a unit type)
-        while (to_visit.size() > 0) {
-            expr* e = to_visit.back();
-            to_visit.pop_back();
-            if (visited.contains(e)) continue;
-            visited.insert(e, true);
-            expr* econd = nullptr, *e1 = nullptr, *e2 = nullptr;
-            if (m.is_ite(e, econd, e1, e2) ||
-                re().is_union(e, e1, e2)) {
-                to_visit.push_back(e1);
-                to_visit.push_back(e2);
+        expr* _1 = nullptr, * e1 = nullptr, * e2 = nullptr;
+        obj_hashtable<expr>::entry* _2 = nullptr;
+        vector<expr*> workset;
+        workset.push_back(d);
+        obj_hashtable<expr> done;
+        done.insert(d);
+        while (workset.size() > 0) {
+            expr* e = workset.back();
+            workset.pop_back();
+            if (m.is_ite(e, _1, e1, e2) || re().is_union(e, e1, e2)) {
+                if (done.insert_if_not_there_core(e1, _2))
+                    workset.push_back(e1);
+                if (done.insert_if_not_there_core(e2, _2))
+                    workset.push_back(e2);
             }
-            else if (!re().is_empty(e)) {
-                results.push_back(e);
-                STRACE("seq_regex_verbose", tout
-                    << "get_all_derivatives: added deriv: "
-                    << mk_pp(e, m) << std::endl;);
-            }
+            else if (!re().is_empty(e))
+                targets.push_back(e);
         }
-
-        STRACE("seq_regex", tout << "Number of derivatives: "
-                                 << results.size() << std::endl;);
-        STRACE("seq_regex_brief", tout << "#derivs=" << results.size() << " ";);
     }
 
     /*
@@ -798,7 +806,7 @@ namespace smt {
         th.add_axiom(~lit, ~th.mk_literal(is_nullable));
         expr_ref hd = mk_first(r, n);
         expr_ref d(m);
-        d = derivative_wrapper(hd, r);
+        d = mk_derivative_wrapper(hd, r);
         literal_vector lits;
         expr_ref_pair_vector cofactors(m);
         get_cofactors(d, cofactors);        
@@ -898,7 +906,7 @@ namespace smt {
             expr_ref_vector derivatives(m);
             STRACE("seq_regex_verbose", tout
                 << "getting all derivs: " << r_id << " " << std::endl;);
-            get_targets(r, derivatives);
+            get_derivative_targets(r, derivatives);
             for (auto const& dr: derivatives) {
                 unsigned dr_id = get_state_id(dr);
                 STRACE("seq_regex_verbose", tout

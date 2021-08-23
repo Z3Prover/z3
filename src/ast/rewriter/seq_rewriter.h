@@ -218,7 +218,6 @@ class seq_rewriter {
     expr_ref mk_antimirov_deriv_concat(expr* d, expr* r);
     expr_ref mk_antimirov_deriv_negate(expr* d);
     expr_ref mk_antimirov_deriv_union(expr* d1, expr* d2);
-    expr_ref mk_ite_simplify(expr* c, expr* t, expr* e);
     expr_ref mk_regex_reverse(expr* r);
     expr_ref mk_regex_concat(expr* r1, expr* r2);
 

@@ -579,18 +579,48 @@ public:
         app* mk_epsilon(sort* seq_sort);
         info get_info(expr* r) const;
         std::string to_str(expr* r) const;
+        std::string to_strh(expr* r) const;
+
+        expr_ref mk_ite_simplify(expr* c, expr* t, expr* e)
+        {
+            expr_ref result(m);
+            if (m.is_true(c) || t == e)
+                result = t;
+            else if (m.is_false(c))
+                result = e;
+            else
+                result = m.mk_ite(c, t, e);
+            return result;
+        }
+
+        expr_ref mk_or_simplify(expr* a, expr* b)
+        {
+            expr_ref result(m);
+            if (m.is_true(a) || a == b)
+                result = a;
+            else if (m.is_true(b))
+                result = b;
+            else if (m.is_false(a))
+                result = b;
+            else if (m.is_false(b))
+                result = a;
+            else
+                result = m.mk_or(a, b);
+            return result;
+        }
 
         class pp {
             seq_util::rex& re;
-            expr* e;
+            expr* ex;
             bool html_encode;
             bool can_skip_parenth(expr* r) const;
-            std::ostream& seq_unit(std::ostream& out, expr* s) const;
-            std::ostream& compact_helper_seq(std::ostream& out, expr* s) const;
-            std::ostream& compact_helper_range(std::ostream& out, expr* s1, expr* s2) const;
+            void print_unit(std::ostream& out, expr* s) const;
+            void print_seq(std::ostream& out, expr* s) const;
+            void print_range(std::ostream& out, expr* s1, expr* s2) const;
+            void print(std::ostream& out, expr* e) const;
 
         public:
-            pp(seq_util::rex& r, expr* e, bool html) : re(r), e(e), html_encode(html) {}
+            pp(seq_util::rex& re, expr* ex, bool html) : re(re), ex(ex), html_encode(html) {}
             std::ostream& display(std::ostream&) const;
         };
     };

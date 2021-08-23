@@ -3057,7 +3057,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
             else if (neq_char(e, h))
                 result = nothing();
             else
-                result = mk_ite_simplify(m().mk_eq(e, h), re().mk_to_re(t), nothing());
+                result = re().mk_ite_simplify(m().mk_eq(e, h), re().mk_to_re(t), nothing());
         }
         else
         {
@@ -3081,7 +3081,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
                 result = nothing();
             else
                 // observe that the precondition |r1|>0 of mk_seq_rest is implied by c1
-                result = mk_ite_simplify(c1, re().mk_reverse(mk_seq_butlast(r1)), nothing());
+                result = re().mk_ite_simplify(c1, re().mk_reverse(mk_seq_butlast(r1)), nothing());
         }
         else {
             result = mk_regex_reverse(r2);
@@ -3104,7 +3104,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         else
             // D(e,r1)r2|(ite (r1nullable) (D(e,r2)) [])
             // observe that (mk_ite_simplify(true, D(e,r2), []) = D(e,r2)
-            result = mk_antimirov_deriv_union(c1, mk_ite_simplify(r1nullable, mk_antimirov_deriv(e, r2, path), nothing()));
+            result = mk_antimirov_deriv_union(c1, re().mk_ite_simplify(r1nullable, mk_antimirov_deriv(e, r2, path), nothing()));
     }
     else if (m().is_ite(r, c, r1, r2)) {
         c1 = simplify_path(m().mk_and(c, path));
@@ -3114,7 +3114,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         else if (m().is_false(c2))
             result = mk_antimirov_deriv(e, r1, c1);
         else
-            result = mk_ite_simplify(c, mk_antimirov_deriv(e, r1, c1), mk_antimirov_deriv(e, r2, c2));
+            result = re().mk_ite_simplify(c, mk_antimirov_deriv(e, r1, c1), mk_antimirov_deriv(e, r2, c2));
     }
     else if (re().is_range(r, r1, r2)) {
         expr_ref range(m());
@@ -3129,7 +3129,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
                 result = nothing();
             else
                 // D(e,c1..c2) = if (c1<=e<=c2) then () else []
-                result = mk_ite_simplify(range, epsilon(), nothing());
+                result = re().mk_ite_simplify(range, epsilon(), nothing());
         }
         else
             result = nothing();
@@ -3196,7 +3196,8 @@ expr_ref seq_rewriter::mk_antimirov_deriv_intersection(expr* d1, expr* d2, expr*
         result = mk_antimirov_deriv_union(mk_antimirov_deriv_intersection(d1, a, path), mk_antimirov_deriv_intersection(d1, b, path));
     else
         // in all other cases create the intersection regex
-        result = re().mk_inter(d1, d2);
+        // TODO: flatten, order and merge d1 and d2 to maintain equality under similarity
+        result = (d1->get_id() <= d2->get_id() ? re().mk_inter(d1, d2) : re().mk_inter(d2, d1));
     return result;
 }
 
@@ -3254,20 +3255,8 @@ expr_ref seq_rewriter::mk_antimirov_deriv_union(expr* d1, expr* d2)
     else if (re().is_dot_plus(d2) && re().get_info(d1).min_length > 0)
         result = d2;
     else
-        //TODO: flatten and order the union 
-        result = re().mk_union(d1, d2);
-    return result;
-}
-
-expr_ref seq_rewriter::mk_ite_simplify(expr* c, expr* t, expr* e)
-{
-    expr_ref result(m());
-    if (m().is_true(c) || t == e)
-        result = t;
-    else if (m().is_false(c))
-        result = e;
-    else
-        result = m().mk_ite(c, t, e);
+        // TODO: flatten, order and merge d1 and d2 to maintain equality under similarity
+        result = (d1->get_id() <= d2->get_id() ? re().mk_union(d1, d2) : re().mk_union(d2, d1));
     return result;
 }
 
@@ -3347,7 +3336,7 @@ expr_ref seq_rewriter::mk_in_antimirov_rec(expr* s, expr* d) {
         // s in [] <==> false, also: s in () <==> false when |s|>0
         result = m().mk_false();
     else if (m().is_ite(d, c, d1, d2))
-        m_br.mk_ite(c, mk_in_antimirov_rec(s, d1), mk_in_antimirov_rec(s, d2), result);
+        result = re().mk_ite_simplify(c, mk_in_antimirov_rec(s, d1), mk_in_antimirov_rec(s, d2));
     else if (re().is_union(d, d1, d2))
         m_br.mk_or(mk_in_antimirov_rec(s, d1), mk_in_antimirov_rec(s, d2), result);
     else
