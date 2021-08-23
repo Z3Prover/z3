@@ -161,6 +161,7 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
 
     // TODO: share the bool_rewriter with the rest of the bit-blaster
     bool_rewriter rewriter(m());
+    rewriter.set_flat(false);
 
     // First split a * b into constant and variable parts such that:
     // a * b = (Ca + Va) * (Cb + Vb)
