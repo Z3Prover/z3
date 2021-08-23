@@ -99,7 +99,6 @@ namespace euf {
     void egraph::update_children(enode* n) {
         for (enode* child : enode_args(n)) 
             child->get_root()->add_parent(n);
-        n->set_update_children();            
         m_updates.push_back(update_record(n, update_record::update_children()));
     }
 
