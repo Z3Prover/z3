@@ -49,7 +49,7 @@ void display(std::ostream & out, expr_ref_vector & r, bool ll=true) {
 }
 
 static unsigned to_int(model_core & mdl, expr_ref_vector & out) {
-    SASSERT(out.size() <= sizeof unsigned * 8);
+    SASSERT(out.size() <= sizeof(unsigned) * 8);
     ast_manager & m = mdl.get_manager();
     model_evaluator eval(mdl);
     expr_ref bit(m);
