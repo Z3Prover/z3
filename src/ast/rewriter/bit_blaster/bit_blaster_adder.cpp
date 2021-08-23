@@ -1,3 +1,20 @@
+/*++
+Copyright (c) 2021 Jamey Sharp
+
+Module Name:
+
+    bit_blaster_adder
+
+Abstract:
+
+    Combinational logic adder for bit-blasting
+
+Author:
+
+    Jamey Sharp <jamey@minilop.net> 2021-08-19
+
+--*/
+
 #include "ast/rewriter/bit_blaster/bit_blaster_adder.h"
 
 bit_blaster_adder::bit_blaster_adder(bool_rewriter & rewriter, unsigned sz, numeral const & value):
