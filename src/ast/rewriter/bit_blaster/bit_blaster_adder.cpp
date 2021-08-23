@@ -33,7 +33,7 @@ bit_blaster_adder::bit_blaster_adder(bool_rewriter & rewriter, unsigned sz, expr
         add_bit(i, bits[i]);
 }
 
-expr_ref bit_blaster_adder::sum_bits(vector< expr_ref_vector > & columns, expr_ref_vector & out_bits) const {
+void bit_blaster_adder::sum_bits(vector< expr_ref_vector > & columns, expr_ref_vector & out_bits) const {
     SASSERT(out_bits.empty());
 
     expr_ref_vector carries(m());
@@ -80,22 +80,14 @@ expr_ref bit_blaster_adder::sum_bits(vector< expr_ref_vector > & columns, expr_r
     }
 
     SASSERT(out_bits.size() == size());
-
-    // We return the carry separately in case the caller wants it.
-    tmp1 = m().mk_false();
-    for (auto & carry : carries) {
-        m_rewriter.mk_xor(tmp1, carry, tmp2);
-        tmp1 = tmp2;
-    }
-    return tmp1;
 }
 
-expr_ref bit_blaster_adder::variable_bits(expr_ref_vector & out_bits) const {
+void bit_blaster_adder::variable_bits(expr_ref_vector & out_bits) const {
     vector< expr_ref_vector > columns(m_variable);
-    return sum_bits(columns, out_bits);
+    sum_bits(columns, out_bits);
 }
 
-expr_ref bit_blaster_adder::total_bits(expr_ref_vector & out_bits) const {
+void bit_blaster_adder::total_bits(expr_ref_vector & out_bits) const {
     vector< expr_ref_vector > columns(m_variable);
 
     expr_ref one(m());
@@ -104,13 +96,7 @@ expr_ref bit_blaster_adder::total_bits(expr_ref_vector & out_bits) const {
         if (m_constant.get_bit(i))
             columns[i].push_back(one);
 
-    expr_ref carry(m());
-    carry = sum_bits(columns, out_bits);
-    if (m_constant.get_bit(size())) {
-        m_rewriter.mk_not(carry, one);
-        carry = one;
-    }
-    return carry;
+    sum_bits(columns, out_bits);
 }
 
 bit_blaster_adder & bit_blaster_adder::add_shifted(bit_blaster_adder const & other, unsigned shift) {

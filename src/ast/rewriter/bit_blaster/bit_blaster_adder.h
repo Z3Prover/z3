@@ -38,20 +38,16 @@ public:
 
     bit_blaster_adder(bit_blaster_adder &&) noexcept = default;
 
-    // The *_bits functions all return the final carry bit out of the addition;
-    // just ignore it if you don't need it.
-
     // Return the sum of the known-constant inputs to this adder.
-    bool constant_bits(numeral & value) const {
+    void constant_bits(numeral & value) const {
         value = m_constant % power(size());
-        return m_constant.get_bit(size());
     }
 
     // Return the sum of the non-constant inputs to this adder.
-    expr_ref variable_bits(expr_ref_vector & out_bits) const;
+    void variable_bits(expr_ref_vector & out_bits) const;
 
     // Return the sum of all inputs to this adder.
-    expr_ref total_bits(expr_ref_vector & out_bits) const;
+    void total_bits(expr_ref_vector & out_bits) const;
 
     unsigned size() const {
         return m_variable.size();
@@ -107,9 +103,8 @@ protected:
     numeral power(unsigned n) const { return numeral::power_of_two(n); }
 
     void reduce() {
-        // keep one extra bit in case somebody wants the final carry bit
-        m_constant %= power(size() + 1);
+        m_constant %= power(size());
     }
 
-    expr_ref sum_bits(vector< expr_ref_vector > & columns, expr_ref_vector & out_bits) const;
+    void sum_bits(vector< expr_ref_vector > & columns, expr_ref_vector & out_bits) const;
 };
