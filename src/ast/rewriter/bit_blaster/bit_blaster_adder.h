@@ -91,7 +91,6 @@ public:
 
     bit_blaster_adder & add_shifted(numeral const & value, unsigned shift) {
         m_constant += value * power(shift);
-        reduce();
         return *this;
     }
 
@@ -101,10 +100,6 @@ protected:
     vector< expr_ref_vector > m_variable;
 
     numeral power(unsigned n) const { return numeral::power_of_two(n); }
-
-    void reduce() {
-        m_constant %= power(size());
-    }
 
     void sum_bits(vector< expr_ref_vector > & columns, expr_ref_vector & out_bits) const;
 };

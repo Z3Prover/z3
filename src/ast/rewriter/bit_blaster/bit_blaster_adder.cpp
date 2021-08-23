@@ -21,7 +21,6 @@ bit_blaster_adder::bit_blaster_adder(bool_rewriter & rewriter, unsigned sz, nume
     m_rewriter(rewriter),
     m_constant(value)
 {
-    reduce();
     expr_ref_vector empty(m());
     m_variable.resize(sz, empty);
 }

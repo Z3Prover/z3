@@ -186,7 +186,7 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
     // ones next to each other.
 
     // Finally, do all the sums at once with a tree adder.
-    bit_blaster_adder total(rewriter, sz, a_const * b_const);
+    bit_blaster_adder total(rewriter, sz, (a_const * b_const) % power(sz));
     mk_const_multiplier(a_const, b_var, total);
     mk_const_multiplier(b_const, a_var, total);
 
