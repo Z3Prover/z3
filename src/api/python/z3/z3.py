@@ -680,6 +680,8 @@ def _to_sort_ref(s, ctx):
         return ReSortRef(s, ctx)
     elif k == Z3_SEQ_SORT:
         return SeqSortRef(s, ctx)
+    elif k == Z3_CHAR_SORT:
+        return CharSortRef(s, ctx)
     return SortRef(s, ctx)
 
 
@@ -10574,6 +10576,10 @@ class SeqSortRef(SortRef):
     def basis(self):
         return _to_sort_ref(Z3_get_seq_sort_basis(self.ctx_ref(), self.ast), self.ctx)
 
+class CharSortRef(SortRef):
+    """Character sort."""
+    
+
 
 def StringSort(ctx=None):
     """Create a string sort
@@ -10583,6 +10589,15 @@ def StringSort(ctx=None):
     """
     ctx = _get_ctx(ctx)
     return SeqSortRef(Z3_mk_string_sort(ctx.ref()), ctx)
+
+def CharSort(ctx=None):
+    """Create a character sort
+    >>> ch = CharSort()
+    >>> print(ch)
+    Char
+    """
+    ctx = _get_ctx(ctx)
+    return CharSortRef(Z3_mk_char_sort(ctx.ref()), ctx)
 
 
 def SeqSort(s):
@@ -11050,6 +11065,11 @@ def Range(lo, hi, ctx=None):
     lo = _coerce_seq(lo, ctx)
     hi = _coerce_seq(hi, ctx)
     return ReRef(Z3_mk_re_range(lo.ctx_ref(), lo.ast, hi.ast), lo.ctx)
+
+def AllChar(regex_sort, ctx=None):
+    """Create a regular expression that accepts all single character strings
+    """
+    return ReRef(Z3_mk_re_allchar(regex_sort.ctx_ref(), regex_sort.ast), regex_sort.ctx)
 
 # Special Relations
 

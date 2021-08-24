@@ -719,6 +719,9 @@ extern "C" {
         else if (fid == mk_c(c)->get_seq_fid() && k == RE_SORT) {
             return Z3_RE_SORT;
         }
+	else if (fid == mk_c(c)->get_char_fid() && k == CHAR_SORT) {
+            return Z3_SEQ_SORT;
+        }
         else {
             return Z3_UNKNOWN_SORT;
         }

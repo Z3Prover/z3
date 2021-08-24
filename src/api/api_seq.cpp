@@ -266,7 +266,8 @@ extern "C" {
     MK_NARY(Z3_mk_re_intersect, mk_c(c)->get_seq_fid(), OP_RE_INTERSECT, SKIP);
     MK_NARY(Z3_mk_re_concat, mk_c(c)->get_seq_fid(), OP_RE_CONCAT, SKIP);
     MK_BINARY(Z3_mk_re_range, mk_c(c)->get_seq_fid(), OP_RE_RANGE, SKIP);
-
+  
+    MK_SORTED(Z3_mk_re_allchar, mk_c(c)->sutil().re.mk_full_char);
     MK_SORTED(Z3_mk_re_empty, mk_c(c)->sutil().re.mk_empty);
     MK_SORTED(Z3_mk_re_full, mk_c(c)->sutil().re.mk_full_seq);
 
