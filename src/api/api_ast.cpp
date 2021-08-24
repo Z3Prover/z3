@@ -720,7 +720,7 @@ extern "C" {
             return Z3_RE_SORT;
         }
 	else if (fid == mk_c(c)->get_char_fid() && k == CHAR_SORT) {
-            return Z3_SEQ_SORT;
+            return Z3_CHAR_SORT;
         }
         else {
             return Z3_UNKNOWN_SORT;
