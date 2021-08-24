@@ -559,12 +559,13 @@ void mpz_manager<SYNCH>::machine_div_rem(mpz const & a, mpz const & b, mpz & q, 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::machine_div(mpz const & a, mpz const & b, mpz & c) {
     STRACE("mpz", tout << "[mpz-ext] machine-div(" << to_string(a) << ",  " << to_string(b) << ") == ";); 
-    if (is_small(a) && is_small(b)) {
+    if (is_small(b) && i64(b) == 0)
+        throw default_exception("division by 0"); 
+
+    if (is_small(a) && is_small(b)) 
         set_i64(c, i64(a) / i64(b));
-    }
-    else {
+    else 
         big_div(a, b, c);
-    }
     STRACE("mpz", tout << to_string(c) << "\n";);
 }
 
