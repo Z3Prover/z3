@@ -85,6 +85,8 @@ namespace fpa {
 
     sat::check_result solver::check() {
         SASSERT(m_converter.m_extra_assertions.empty());
+        if (unit_propagate())
+            return sat::check_result::CR_CONTINUE;
         SASSERT(m_nodes.size() <= m_nodes_qhead);
         return sat::check_result::CR_DONE;
     }
@@ -165,7 +167,6 @@ namespace fpa {
     }
 
     bool solver::unit_propagate() {
-
         if (m_nodes.size() <= m_nodes_qhead)
             return false;
         ctx.push(value_trail<unsigned>(m_nodes_qhead));
