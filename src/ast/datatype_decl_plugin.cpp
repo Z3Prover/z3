@@ -710,11 +710,9 @@ namespace datatype {
         ptr_vector<sort> todo, subsorts;
         sort* s0 = s;
         todo.push_back(s);
-        status st;
-        std::cout << "is recursive " << mk_pp(s, m) << "\n";
+        status st;        
         while (!todo.empty()) {
             s = todo.back();
-            std::cout << "is recursive - todo " << mk_pp(s, m) << "\n";
             if (already_found.find(datatype_name(s), st) && st == BLACK) {
                 todo.pop_back();
                 continue;
