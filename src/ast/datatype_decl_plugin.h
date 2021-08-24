@@ -323,6 +323,7 @@ namespace datatype {
         bool is_covariant(ast_mark& mark, ptr_vector<sort>& subsorts, sort* s) const;
         def& get_def(symbol const& s) { return plugin().get_def(s); }        
         void get_subsorts(sort* s, ptr_vector<sort>& sorts) const;        
+        symbol datatype_name(sort* s) const { return s->get_parameter(0).get_symbol(); }
 
     public:
         util(ast_manager & m);
