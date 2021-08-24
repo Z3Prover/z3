@@ -30,6 +30,7 @@ namespace q {
         expr_fast_mark1    m_mark;
         euf::enode_vector  m_eval;
         euf::enode_vector  m_indirect_nodes;
+        bool               m_freeze_swap = false;
 
         struct scoped_mark_reset;
 

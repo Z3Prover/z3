@@ -105,13 +105,19 @@ namespace q {
             return l_undef;
         if (!sn && !tn) 
             return compare_rec(n, binding, s, t, evidence);
+
+        // in recursive calls we ensure the first argument is decomposed
+        if (!tn && sn && m_freeze_swap)
+            return l_undef;
+        flet<bool> _freeze_swap(m_freeze_swap, true);
         if (!tn && sn) {
             std::swap(tn, sn);
             std::swap(t, s);
-        }
+        }        
         unsigned sz = evidence.size();
-        for (euf::enode* t1 : euf::enode_class(tn)) {            
-            if (c = compare_rec(n, binding, s, t1->get_expr(), evidence), c != l_undef) {
+        for (euf::enode* t1 : euf::enode_class(tn)) {      
+            expr* t2 = t1->get_expr();
+            if ((c = compare_rec(n, binding, s, t2, evidence), c != l_undef)) {
                 evidence.push_back(euf::enode_pair(t1, tn));
                 return c;
             }
