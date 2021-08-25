@@ -137,6 +137,8 @@ namespace smt {
         for (unsigned i = 0; i < src_af.get_num_formulas(); ++i) {
             expr_ref fml(dst_m);
             proof_ref pr(dst_m);
+            if (src_m.is_true(src_af.get_formula(i)))
+               continue;
             proof* pr_src = src_af.get_formula_proof(i);
             fml = tr(src_af.get_formula(i));
             if (pr_src) {
@@ -159,6 +161,8 @@ namespace smt {
             }
             expr_ref fml0(src_m), fml1(dst_m);
             src_ctx.literal2expr(lit, fml0);
+            if (src_m.is_true(fml0))
+                continue;
             fml1 = tr(fml0.get());
             dst_ctx.assert_expr(fml1);
         }
