@@ -530,15 +530,23 @@ namespace bv {
         expr* arg1 = n->get_arg(0);
         expr* arg2 = n->get_arg(1);
         mk_bits(get_th_var(n));
+	sat::literal eq_lit;
         if (p.hi_div0()) {
-            add_unit(eq_internalize(n, ibin(arg1, arg2)));
-            return;
-        }
-        unsigned sz = bv.get_bv_size(n);
-        expr_ref zero(bv.mk_numeral(0, sz), m);
-        expr_ref eq(m.mk_eq(arg2, zero), m);
-        expr_ref ite(m.mk_ite(eq, iun(arg1), ibin(arg1, arg2)), m);
-        add_unit(eq_internalize(n, ite));
+            eq_lit = eq_internalize(n, ibin(arg1, arg2));
+	    add_unit(eq_lit);
+	    ctx.add_root(eq_lit);
+	}
+	else {
+	    unsigned sz = bv.get_bv_size(n);
+	    expr_ref zero(bv.mk_numeral(0, sz), m);
+	    sat::literal eqZ = eq_internalize(arg2, zero);
+	    sat::literal eqU = mk_literal(iun(arg1));
+	    sat::literal eqI = mk_literal(ibin(arg1, arg2));
+	    add_clause(~eqZ, eqU);
+	    add_clause(eqZ, eqI);
+	    ctx.add_aux(~eqZ, eqU);
+	    ctx.add_aux(eqZ, eqI);
+	}
     }
 
     void solver::internalize_unary(app* n, std::function<void(unsigned, expr* const*, expr_ref_vector&)>& fn) {
