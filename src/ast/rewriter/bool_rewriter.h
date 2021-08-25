@@ -74,6 +74,7 @@ class bool_rewriter {
     bool simp_nested_eq_ite(expr * t, expr_fast_mark1 & neg_lits, expr_fast_mark2 & pos_lits, expr_ref & result);
     bool local_ctx_simp(unsigned num_args, expr * const * args, expr_ref & result);
     br_status try_ite_value(app * ite, app * val, expr_ref & result);
+    br_status mk_eq_core_pos(expr * lhs, expr * rhs, expr_ref & result);
 
     void push_new_arg(expr* arg, expr_ref_vector& new_args, expr_fast_mark1& neg_lits, expr_fast_mark2& pos_lits);
 
@@ -105,7 +106,6 @@ public:
     
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
     br_status mk_distinct_core(unsigned num_args, expr * const * args, expr_ref & result);
-    br_status mk_iff_core(expr * lhs, expr * rhs, expr_ref & result) { return mk_eq_core(lhs, rhs, result); }
     br_status mk_and_core(unsigned num_args, expr * const * args, expr_ref & result) {
         if (m_elim_and) {
             mk_and_as_or(num_args, args, result);

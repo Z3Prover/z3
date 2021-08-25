@@ -666,6 +666,36 @@ app* bool_rewriter::mk_eq(expr* lhs, expr* rhs) {
 }
 
 br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
+    // For equality on booleans, if the left or right operands are wrapped in
+    // (not), rewrite so the (not) is outside the equality, or removed entirely
+    // if both operands are inverted.
+    bool not_lhs = m().is_not(lhs);
+    bool not_rhs = m().is_not(rhs);
+    if (not_lhs)
+        lhs = to_app(lhs)->get_arg(0);
+    if (not_rhs)
+        rhs = to_app(rhs)->get_arg(0);
+
+    br_status r = mk_eq_core_pos(lhs, rhs, result);
+
+    // No simplifications but we still need to establish the invariant that
+    // neither operand is (not).
+    if (r == BR_FAILED && (not_lhs || not_rhs)) {
+        result = mk_eq(lhs, rhs);
+        r = BR_DONE;
+    }
+
+    if (not_lhs != not_rhs) {
+        SASSERT(r == BR_DONE);
+        expr_ref tmp(m());
+        tmp = result;
+        mk_not(tmp, result);
+    }
+
+    return r;
+}
+
+br_status bool_rewriter::mk_eq_core_pos(expr * lhs, expr * rhs, expr_ref & result) {
     if (m().are_equal(lhs, rhs)) {
         result = m().mk_true();
         return BR_DONE;
@@ -695,12 +725,6 @@ br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
     }
 
     if (m().is_bool(lhs)) {
-        bool unfolded = false;
-        if (m().is_not(lhs) && m().is_not(rhs)) {
-            lhs = to_app(lhs)->get_arg(0);
-            rhs = to_app(rhs)->get_arg(0);
-            unfolded = true;
-        }
         if (m().is_true(lhs)) {
             result = rhs;
             return BR_DONE;
@@ -717,24 +741,14 @@ br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             mk_not(lhs, result);
             return BR_DONE;
         }
-        if (m().is_complement(lhs, rhs)) {
-            result = m().mk_false();
-            return BR_DONE;
-        }
-        if (unfolded) {
-            result = mk_eq(lhs, rhs);
-            return BR_DONE;
-        }
 
         expr *la, *lb, *ra, *rb;
-        // fold (iff (iff a b) (iff (not a) b)) to false
+        // fold (= (= a b) (= a b)) to true
+        // note that any (not)s were previously removed by mk_eq_core
+        // XXX: if rewrites did hash-consing this would be redundant with the are_equal check above
         if (m().is_eq(lhs, la, lb) && m().is_eq(rhs, ra, rb)) {
-            expr *n;
-            if ((la == ra && ((m().is_not(rb, n) && n == lb) ||
-                (m().is_not(lb, n) && n == rb))) ||
-                (lb == rb && ((m().is_not(ra, n) && n == la) ||
-                    (m().is_not(la, n) && n == ra)))) {
-                result = m().mk_false();
+            if (la == ra && lb == rb) {
+                result = m().mk_true();
                 return BR_DONE;
             }
         }
@@ -989,19 +1003,13 @@ br_status bool_rewriter::mk_not_core(expr * t, expr_ref & result) {
         result = m().mk_true();
         return BR_DONE;
     }
-    if (is_eq(t) && m().is_bool(to_app(t)->get_arg(0))) {
-        expr_ref tmp(m());
-        mk_not(to_app(t)->get_arg(0), tmp);
-        mk_eq(tmp, to_app(t)->get_arg(1), result);
-        return BR_DONE;
-    }
     return BR_FAILED;
 }
 
 void bool_rewriter::mk_xor(expr * lhs, expr * rhs, expr_ref & result) {
     expr_ref tmp(m());
-    mk_not(lhs, tmp);
-    mk_eq(tmp, rhs, result);
+    mk_eq(lhs, rhs, tmp);
+    mk_not(tmp, result);
 }
 
 void bool_rewriter::mk_implies(expr * lhs, expr * rhs, expr_ref & result) {
