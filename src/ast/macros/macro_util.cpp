@@ -185,6 +185,7 @@ bool macro_util::is_left_simple_macro(expr * n, unsigned num_decls, app_ref & he
         return true;
     }
     if (m_manager.is_not(n, lhs) && m_manager.is_eq(lhs, lhs, rhs) &&
+        m_manager.is_bool(lhs) &&
         is_macro_head(lhs, num_decls) &&
         !is_forbidden(to_app(lhs)->get_decl()) &&
         !occurs(to_app(lhs)->get_decl(), rhs)) {
@@ -224,6 +225,7 @@ bool macro_util::is_right_simple_macro(expr * n, unsigned num_decls, app_ref & h
         return true;
     }
     if (m_manager.is_not(n, n) && m_manager.is_eq(n, lhs, rhs) &&
+        m_manager.is_bool(lhs) &&
         is_macro_head(rhs, num_decls) &&
         !is_forbidden(to_app(rhs)->get_decl()) &&
         !occurs(to_app(rhs)->get_decl(), lhs)) {

@@ -197,6 +197,7 @@ void macro_manager::get_head_def(quantifier * q, func_decl * d, app * & head, ex
     VERIFY(m.is_eq(body, lhs, rhs));
     SASSERT(is_app_of(lhs, d) || is_app_of(rhs, d));
     SASSERT(!is_app_of(lhs, d) || !is_app_of(rhs, d));
+    SASSERT(!is_not || m.is_bool(lhs));     
     if (is_app_of(lhs, d)) {
         revert = false;
         head = to_app(lhs);
