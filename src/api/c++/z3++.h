@@ -3883,8 +3883,8 @@ namespace z3 {
 
     public:
         user_propagator_base(solver* s): s(s), c(nullptr) {
-	        Z3_solver_propagate_init(ctx(), *s, push_eh, pop_eh, fresh_eh);
-	    }
+              Z3_solver_propagate_init(ctx(), *s, this, push_eh, pop_eh, fresh_eh);
+	}
 
         virtual void push() = 0;
         virtual void pop(unsigned num_scopes) = 0;
