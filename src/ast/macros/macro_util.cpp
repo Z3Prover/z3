@@ -184,6 +184,14 @@ bool macro_util::is_left_simple_macro(expr * n, unsigned num_decls, app_ref & he
         def  = rhs;
         return true;
     }
+    if (m_manager.is_not(n, lhs) && m_manager.is_eq(lhs, lhs, rhs) &&
+        is_macro_head(lhs, num_decls) &&
+        !is_forbidden(to_app(lhs)->get_decl()) &&
+        !occurs(to_app(lhs)->get_decl(), rhs)) {
+        head = to_app(lhs);
+        def  = m_manager.mk_not(rhs);
+        return true;
+    }
     return false;
 }
 
@@ -213,6 +221,14 @@ bool macro_util::is_right_simple_macro(expr * n, unsigned num_decls, app_ref & h
         !occurs(to_app(rhs)->get_decl(), lhs)) {
         head = to_app(rhs);
         def  = lhs;
+        return true;
+    }
+    if (m_manager.is_not(n, n) && m_manager.is_eq(n, lhs, rhs) &&
+        is_macro_head(rhs, num_decls) &&
+        !is_forbidden(to_app(rhs)->get_decl()) &&
+        !occurs(to_app(rhs)->get_decl(), lhs)) {
+        head = to_app(rhs);
+        def  = m_manager.mk_not(lhs);
         return true;
     }
     return false;
