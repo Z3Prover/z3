@@ -204,159 +204,83 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
         return;
     }
     out_bits.reset();
-    if (!m_use_wtm) {
 #if 0
     static unsigned counter = 0;
     counter++;
     verbose_stream() << "MK_MULTIPLIER: " << counter << std::endl;
 #endif
-        
-        expr_ref_vector cins(m()), couts(m());
-        expr_ref out(m()), cout(m());
 
-        mk_and(a_bits[0], b_bits[0], out);
-        out_bits.push_back(out);
+    expr_ref_vector cins(m()), couts(m());
+    expr_ref out(m()), cout(m());
 
-        /*
-           out = a*b is encoded using the following circuit.
-      
-                      a[0]&b[0]         a[0]&b[1]          a[0]&b[2]         a[0]&b[3]  ...
-                          |                 |                  |                 |
-                          |     a[1]&b[0] - HA     a[1]&b[1] - HA    a[1]&b[2] - HA 
-                          |                 | \                | \               | \
-                          |                 |  --------------- |  -------------- |  --- ...
-                          |                 |                 \|                \
-                          |                 |      a[2]&b[0] - FA    a[2]&b[1] - FA
-                          |                 |                  | \               | \      
-                          |                 |                  |  -------------- |  -- ...
-                          |                 |                  |                \| 
-                          |                 |                  |     a[3]&b[0] - FA
-                          |                 |                  |                 | \
-                          |                 |                  |                 |  -- ....
-                         ...               ...                ...               ...
-                        out[0]            out[1]             out[2]            out[3]
-      
-           HA denotes a half-adder.
-           FA denotes a full-adder.
-        */
+    mk_and(a_bits[0], b_bits[0], out);
+    out_bits.push_back(out);
 
-        for (unsigned i = 1; i < sz; i++) {
-            checkpoint();
-            couts.reset();
-            expr_ref i1(m()), i2(m());
-            mk_and(a_bits[0], b_bits[i],   i1);
-            mk_and(a_bits[1], b_bits[i-1], i2);
-            if (i < sz - 1) {
-                mk_half_adder(i1, i2, out, cout);
+    /*
+       out = a*b is encoded using the following circuit.
+
+                  a[0]&b[0]         a[0]&b[1]          a[0]&b[2]         a[0]&b[3]  ...
+                      |                 |                  |                 |
+                      |     a[1]&b[0] - HA     a[1]&b[1] - HA    a[1]&b[2] - HA
+                      |                 | \                | \               | \
+                      |                 |  --------------- |  -------------- |  --- ...
+                      |                 |                 \|                \
+                      |                 |      a[2]&b[0] - FA    a[2]&b[1] - FA
+                      |                 |                  | \               | \
+                      |                 |                  |  -------------- |  -- ...
+                      |                 |                  |                \|
+                      |                 |                  |     a[3]&b[0] - FA
+                      |                 |                  |                 | \
+                      |                 |                  |                 |  -- ....
+                     ...               ...                ...               ...
+                    out[0]            out[1]             out[2]            out[3]
+
+       HA denotes a half-adder.
+       FA denotes a full-adder.
+    */
+
+    for (unsigned i = 1; i < sz; i++) {
+        checkpoint();
+        couts.reset();
+        expr_ref i1(m()), i2(m());
+        mk_and(a_bits[0], b_bits[i], i1);
+        mk_and(a_bits[1], b_bits[i - 1], i2);
+        if (i < sz - 1) {
+            mk_half_adder(i1, i2, out, cout);
+            couts.push_back(cout);
+            for (unsigned j = 2; j <= i; j++) {
+                expr_ref prev_out(m());
+                prev_out = out;
+                expr_ref i3(m());
+                mk_and(a_bits[j], b_bits[i - j], i3);
+                mk_full_adder(i3, prev_out, cins.get(j - 2), out, cout);
                 couts.push_back(cout);
-                for (unsigned j = 2; j <= i; j++) {
-                    expr_ref prev_out(m());
-                    prev_out = out;
-                    expr_ref i3(m());
-                    mk_and(a_bits[j], b_bits[i-j], i3);
-                    mk_full_adder(i3, prev_out, cins.get(j-2), out, cout);
-                    couts.push_back(cout);
-                }
-                out_bits.push_back(out);
-                cins.swap(couts);
             }
-            else {
-                // last step --> I don't need to generate/store couts.
-                mk_xor(i1, i2, out);
-                for (unsigned j = 2; j <= i; j++) {
-                    expr_ref i3(m());
-                    mk_and(a_bits[j], b_bits[i-j], i3);
-                    mk_xor3(i3, out, cins.get(j-2), out);
-                }
-                out_bits.push_back(out);
+            out_bits.push_back(out);
+            cins.swap(couts);
+        }
+        else {
+            // last step --> I don't need to generate/store couts.
+            mk_xor(i1, i2, out);
+            for (unsigned j = 2; j <= i; j++) {
+                expr_ref i3(m());
+                mk_and(a_bits[j], b_bits[i - j], i3);
+                mk_xor3(i3, out, cins.get(j - 2), out);
             }
+            out_bits.push_back(out);
         }
     }
-    else { 
-        // WALLACE TREE MULTIPLIER        
 
-        if (sz == 1) {
-            expr_ref t(m());
-            mk_and(a_bits[0], b_bits[0], t);
-            out_bits.push_back(t);
-            return;
-        }
-
-        // There are sz numbers to add and we use a Wallace tree to reduce that to two. 
-        // In this tree, we reduce as early as possible, as opposed to the Dada tree where some 
-        // additions may be delayed if they don't increase the propagation delay [which may be 
-        // a little bit more efficient, but it's tricky to find out which additions create 
-        // additional delays].
-                
-        expr_ref zero(m());
-        zero = m().mk_false();
-
-        vector< expr_ref_vector > pps;
-        pps.resize(sz, expr_ref_vector(m()));
-               
-        for (unsigned i = 0; i < sz; i++) {
-            checkpoint();
-            // The partial product is a_bits AND b_bits[i] 
-            // [or alternatively ITE(b_bits[i], a_bits, bv0[sz])]
-
-            expr_ref_vector & pp = pps[i];
-            expr_ref t(m());
-            for (unsigned j = 0; j < i; j++)
-                pp.push_back(zero); // left shift by i bits
-            for (unsigned j = 0; j < (sz - i); j++) {
-                mk_and(a_bits[j], b_bits[i], t);
-                pp.push_back(t);
-            }
-
-            SASSERT(pps[i].size() == sz);            
-        }        
-        
-        while (pps.size() != 2) {            
-            unsigned save_inx = 0;
-            unsigned i = 0;
-            unsigned end = pps.size() - 3;
-            for ( ; i <= end; i += 3) {
-                checkpoint();
-                expr_ref_vector pp1(m()), pp2(m()), pp3(m());
-                pp1.swap(pps[i]);
-                pp2.swap(pps[i+1]);
-                pp3.swap(pps[i+2]);
-                expr_ref_vector & sum_bits = pps[save_inx];
-                expr_ref_vector & carry_bits = pps[save_inx+1];
-                SASSERT(sum_bits.empty() && carry_bits.empty());
-                carry_bits.push_back(zero);                
-                mk_carry_save_adder(pp1.size(), pp1.data(), pp2.data(), pp3.data(), sum_bits, carry_bits);
-                carry_bits.pop_back();
-                save_inx += 2;                
-            }
-
-            if (i == pps.size()-2) {
-                pps[save_inx++].swap(pps[i++]);
-                pps[save_inx++].swap(pps[i++]);
-            }
-            else if (i == pps.size()-1) {
-                pps[save_inx++].swap(pps[i++]);
-            }
-
-            SASSERT (save_inx < pps.size() && i == pps.size());            
-            pps.shrink(save_inx);
-        }        
-
-        SASSERT(pps.size() == 2);
-
-        // Now there are only two numbers to add, we can use a ripple carry adder here.
-        mk_adder(sz, pps[0].data(), pps[1].data(), out_bits);
-    }
 }
 
 
 template<typename Cfg>
-void bit_blaster_tpl<Cfg>::mk_umul_no_overflow(unsigned sz, expr * const * a_bits,  expr * const * b_bits, expr_ref & result) {
+void bit_blaster_tpl<Cfg>::mk_umul_no_overflow(unsigned sz, expr* const* a_bits, expr* const* b_bits, expr_ref& result) {
     SASSERT(sz > 0);
     expr_ref zero(m());
     zero = m().mk_false();
-    ptr_buffer<expr,128> ext_a_bits;
-    ptr_buffer<expr,128> ext_b_bits;
+    ptr_buffer<expr, 128> ext_a_bits;
+    ptr_buffer<expr, 128> ext_b_bits;
     ext_a_bits.append(sz, a_bits);
     ext_b_bits.append(sz, b_bits);
     ext_a_bits.push_back(zero);
@@ -1258,15 +1182,11 @@ bool bit_blaster_tpl<Cfg>::mk_const_multiplier(unsigned sz, expr * const * a_bit
         return true;
     }    
     out_bits.reset();
-    if (!m_use_bcm) {
-        return false;
-    }
     expr_ref_vector minus_b_bits(m()), tmp(m());
     mk_neg(sz, b_bits, minus_b_bits);
         
     out_bits.resize(sz, m().mk_false());
     
-#if 1
     bool last = false, now;
     for (unsigned i = 0; i < sz; i++) {
         now = m().is_true(a_bits[i]);
@@ -1286,55 +1206,6 @@ bool bit_blaster_tpl<Cfg>::mk_const_multiplier(unsigned sz, expr * const * a_bit
         
         last = now; 
     }
-#else
-    // Radix 4 Booth encoder
-    // B = b_bits, -B = minus_b_bits
-    // 2B = b2_bits, -2B = minus_b2_bits
-
-    expr_ref_vector b2_bits(m());
-    expr_ref_vector minus_b2_bits(m());
-
-    b2_bits.push_back(m().mk_false());
-    minus_b2_bits.push_back(m().mk_false());
-    for (unsigned i = 0; i < sz-1; i++) {
-        b2_bits.push_back(b_bits[i]);
-        minus_b2_bits.push_back(minus_b_bits.get(i));
-    }
-
-    bool last=false, now1, now2;
-    for (unsigned i = 0; i < sz; i += 2) {
-        now1 = m().is_true(a_bits[i]);
-        now2 = m().is_true(a_bits[i+1]);
-        SASSERT(now1 || m().is_false(a_bits[i]));
-        SASSERT(now2 || m().is_false(a_bits[i+1]));
-        tmp.reset();
-
-        if ((!now2 && !now1 && last) ||
-            (!now2 && now1 && !last)) { // Add B
-            mk_adder(sz - i, out_bits.c_ptr() + i, b_bits, tmp);
-            for (unsigned j = 0; j < (sz - i); j++)
-                out_bits.set(i+j, tmp.get(j));
-        }
-        else if (!now2 && now1 && last) { // Add 2B
-            mk_adder(sz - i, out_bits.c_ptr() + i, b2_bits.c_ptr(), tmp);
-            for (unsigned j = 0; j < (sz - i); j++)
-                out_bits.set(i+j, tmp.get(j));
-        }
-        else if (now2 && !now1 && !last) { // Add -2B
-            mk_adder(sz - i, out_bits.c_ptr() + i, minus_b2_bits.c_ptr(), tmp);
-            for (unsigned j = 0; j < (sz - i); j++)
-                out_bits.set(i+j, tmp.get(j));
-        }
-        else if ((now2 && !now1 && last) ||
-                 (now2 && now1 && !last)) { // Add -B        
-            mk_adder(sz - i, out_bits.c_ptr() + i, minus_b_bits.c_ptr(), tmp);
-            for (unsigned j = 0; j < (sz - i); j++)
-                out_bits.set(i+j, tmp.get(j));
-        }
-        
-        last = now2; 
-    }
-#endif
 
     TRACE("bit_blaster_tpl_booth", for (unsigned i=0; i<out_bits.size(); i++)
                                      tout << "Booth encoding: " << mk_pp(out_bits[i].get(), m()) << "\n"; );
