@@ -277,9 +277,15 @@ namespace euf {
             if (!tt && !mdl.is_true(e))
                 continue;
             IF_VERBOSE(0, 
-                       verbose_stream() << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(e) << "\n";
-                       for (auto* arg : euf::enode_args(n))
-                           verbose_stream() << bpp(arg) << "\n" << mdl(arg->get_expr()) << "\n";);
+                verbose_stream() << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(e) << "\n";
+                for (auto* arg : euf::enode_args(n)) {
+                    expr_ref val = mdl(arg->get_expr());
+                    expr_ref sval(m);
+                    th_rewriter rw(m);
+                    rw(val, sval);
+                    verbose_stream() << bpp(arg) << "\n" << sval << "\n";
+
+                });
             CTRACE("euf", first, 
                    tout << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(e) << "\n";
                    s().display(tout);
