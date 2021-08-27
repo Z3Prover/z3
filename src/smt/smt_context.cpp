@@ -2880,7 +2880,7 @@ namespace smt {
         solver::push_eh_t&       push_eh,
         solver::pop_eh_t&        pop_eh,
         solver::fresh_eh_t&      fresh_eh) {
-        setup_context(m_fparams.m_auto_config);
+        setup_context(false);
         m_user_propagator = alloc(user_propagator, *this);
         m_user_propagator->add(ctx, push_eh, pop_eh, fresh_eh);
         for (unsigned i = m_scopes.size(); i-- > 0; ) 
