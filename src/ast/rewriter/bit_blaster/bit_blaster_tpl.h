@@ -71,7 +71,6 @@ public:
 
     bool is_numeral(unsigned sz, expr * const * bits) const;
     bool is_numeral(unsigned sz, expr * const * bits, numeral & r) const;
-    bool is_minus_one(unsigned sz, expr * const * bits) const;
     void num2bits(numeral const & v, unsigned sz, expr_ref_vector & out_bits) const;
     
     void mk_half_adder(expr * a, expr * b, expr_ref & out, expr_ref & cout);
@@ -80,6 +79,7 @@ public:
     void mk_adder(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits);
     void mk_subtracter(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits, expr_ref & cout);
     void mk_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits);
+    void mk_multiplier_core(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits);
     void mk_udiv_urem(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & q_bits, expr_ref_vector & r_bits);
     void mk_udiv(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & q_bits);
     void mk_urem(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & r_bits);
@@ -118,6 +118,7 @@ public:
 
     bool mk_const_case_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits);
     void mk_const_case_multiplier(bool is_a, unsigned i, unsigned sz, ptr_buffer<expr, 128>& a_bits, ptr_buffer<expr, 128>& b_bits, expr_ref_vector & out_bits);
+    bool mk_const_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits);
 
     bool is_bool_const(expr* e) const { return m().is_true(e) || m().is_false(e); }
     void mk_abs(unsigned sz, expr * const * a_bits, expr_ref_vector & out_bits);

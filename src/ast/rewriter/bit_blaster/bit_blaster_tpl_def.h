@@ -58,17 +58,6 @@ bool bit_blaster_tpl<Cfg>::is_numeral(unsigned sz, expr * const * bits, numeral 
     return true;
 }
 
-/**
-   \brief Return true if all bits are true.
-*/
-template<typename Cfg>
-bool bit_blaster_tpl<Cfg>::is_minus_one(unsigned sz, expr * const * bits) const {
-    for (unsigned i = 0; i < sz; i++)
-        if (!m().is_true(bits[i]))
-            return false;
-    return true;
-}
-
 // hack to avoid GCC compilation error.
 static void _num2bits(ast_manager & m, rational const & v, unsigned sz, expr_ref_vector & out_bits) {
     SASSERT(v.is_nonneg());
@@ -183,11 +172,6 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
     out_bits.reset();
     if (is_numeral(sz, a_bits, n_b))
         std::swap(a_bits, b_bits);
-    if (is_minus_one(sz, b_bits)) {
-        mk_neg(sz, a_bits, out_bits);
-        SASSERT(sz == out_bits.size());
-        return;
-    }
     if (is_numeral(sz, a_bits, n_a)) {
         n_a *= n_b;
         num2bits(n_a, sz, out_bits);
@@ -199,7 +183,22 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
         SASSERT(sz == out_bits.size());
         return;
     }
-    out_bits.reset();
+    if (mk_const_multiplier(sz, a_bits, b_bits, out_bits)) {
+        SASSERT(sz == out_bits.size());
+        return;
+    }
+    if (mk_const_multiplier(sz, b_bits, a_bits, out_bits)) {
+        SASSERT(sz == out_bits.size());
+        return;
+    }
+
+    mk_multiplier_core(sz, a_bits, b_bits, out_bits);
+}
+
+template<typename Cfg>
+void bit_blaster_tpl<Cfg>::mk_multiplier_core(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
+    // Perform long multiplication, without any cleverness about special cases of operands.
+    SASSERT(out_bits.empty());
 #if 0
     static unsigned counter = 0;
     counter++;
@@ -1156,4 +1155,40 @@ void bit_blaster_tpl<Cfg>::mk_const_case_multiplier(bool is_a, unsigned i, unsig
         num2bits(n_a, sz, out_bits);
     }
     SASSERT(out_bits.size() == sz);
+}
+
+template<typename Cfg>
+bool bit_blaster_tpl<Cfg>::mk_const_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
+    numeral n_a;
+    if (!is_numeral(sz, a_bits, n_a))
+        return false;
+    SASSERT(out_bits.empty());
+
+    // Convert the constant operand (a) into non-adjacent form, which may
+    // reduce the number of non-zero bits, which in turn reduces the number of
+    // terms we have to add together. Unlike Booth encoding, this form can
+    // never increase the number of non-zero bits.
+    // https://en.m.wikipedia.org/wiki/Non-adjacent_form
+    expr_ref_vector pos_bits(m()), neg_bits(m()), pos_out(m()), neg_out(m());
+    {
+        numeral xh = floor(n_a / 2);
+        numeral x3 = n_a + xh;
+        numeral nonzero = bitwise_xor(xh, x3);
+        numeral pos = bitwise_and(x3, nonzero);
+        numeral neg = bitwise_and(xh, nonzero);
+        num2bits(pos, sz, pos_bits);
+        num2bits(neg, sz, neg_bits);
+    }
+
+    expr_ref_vector minus_b_bits(m());
+    mk_neg(sz, b_bits, minus_b_bits);
+    mk_multiplier_core(sz, pos_bits.data(), b_bits, pos_out);
+    mk_multiplier_core(sz, neg_bits.data(), minus_b_bits.data(), neg_out);
+    mk_adder(sz, pos_out.data(), neg_out.data(), out_bits);
+
+    TRACE("bit_blaster_tpl_naf", for (unsigned i=0; i<out_bits.size(); i++)
+                                     tout << "Non-adjacent form: " << mk_pp(out_bits[i].get(), m()) << "\n"; );
+
+    SASSERT(out_bits.size() == sz);
+    return true;
 }
