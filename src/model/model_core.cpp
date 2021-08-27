@@ -133,8 +133,12 @@ void model_core::add_lambda_defs() {
         quantifier* q = m.is_lambda_def(f);
         if (!q)
             continue;
-        func_interp* fi = alloc(func_interp, m, f->get_arity());
-        fi->set_else(q);
-        register_decl(f, fi);
+        if (f->get_arity() > 0) {
+            func_interp* fi = alloc(func_interp, m, f->get_arity());
+            fi->set_else(q);
+            register_decl(f, fi);
+        }
+        else
+            register_decl(f, q);
     }
 }
