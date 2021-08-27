@@ -194,7 +194,11 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
         SASSERT(sz == out_bits.size());
         return;
     }
-   
+
+    if (mk_const_case_multiplier(sz, a_bits, b_bits, out_bits)) {
+        SASSERT(sz == out_bits.size());
+        return;
+    }
     if (mk_const_multiplier(sz, a_bits, b_bits, out_bits)) {
         SASSERT(sz == out_bits.size());
         return;
@@ -203,7 +207,7 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
         SASSERT(sz == out_bits.size());
         return;
     }
-    out_bits.reset();
+
     if (!m_use_wtm) {
 #if 0
     static unsigned counter = 0;
@@ -1212,7 +1216,7 @@ bool bit_blaster_tpl<Cfg>::mk_const_case_multiplier(unsigned sz, expr * const * 
     ptr_buffer<expr, 128> nb_bits;
     nb_bits.append(sz, b_bits);
     mk_const_case_multiplier(true, 0, sz, na_bits, nb_bits, out_bits); 
-    return false;
+    return true;
 }
  
 template<typename Cfg>
@@ -1230,8 +1234,10 @@ void bit_blaster_tpl<Cfg>::mk_const_case_multiplier(bool is_a, unsigned i, unsig
         mk_const_case_multiplier(is_a, i+1, sz, a_bits, b_bits, out2);
         if (is_a) a_bits[i] = x; else b_bits[i] = x;
         SASSERT(out_bits.empty());
+        expr_ref bit(m());
         for (unsigned j = 0; j < sz; ++j) {
-            out_bits.push_back(m().mk_ite(x, out1[j].get(), out2[j].get()));
+            mk_ite(x, out1[j].get(), out2[j].get(), bit);
+            out_bits.push_back(bit);
         }        
     }
     else {
@@ -1247,20 +1253,16 @@ void bit_blaster_tpl<Cfg>::mk_const_case_multiplier(bool is_a, unsigned i, unsig
 
 template<typename Cfg>
 bool bit_blaster_tpl<Cfg>::mk_const_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
+    if (!m_use_bcm) {
+        return false;
+    }
+
     numeral n_a;
     if (!is_numeral(sz, a_bits, n_a)) {
         return false;
     }
     SASSERT(out_bits.empty());
-    
-    if (mk_const_case_multiplier(sz, a_bits, b_bits, out_bits)) {
-        SASSERT(sz == out_bits.size());
-        return true;
-    }    
-    out_bits.reset();
-    if (!m_use_bcm) {
-        return false;
-    }
+
     expr_ref_vector minus_b_bits(m()), tmp(m());
     mk_neg(sz, b_bits, minus_b_bits);
         
