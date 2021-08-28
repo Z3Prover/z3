@@ -23,6 +23,7 @@ Author:
 namespace euf {
 
     class solver::user_sort {
+        solver& s;
         ast_manager& m;
         model_ref& mdl;
         expr_ref_vector& values;
@@ -31,7 +32,7 @@ namespace euf {
         obj_map<sort, expr_ref_vector*>    sort2values;
     public:
         user_sort(solver& s, expr_ref_vector& values, model_ref& mdl) :
-            m(s.m), mdl(mdl), values(values), factory(m) {}
+            s(s), m(s.m), mdl(mdl), values(values), factory(m) {}
 
         ~user_sort() {
             for (auto kv : sort2values)
@@ -41,10 +42,11 @@ namespace euf {
         void add(enode* r, sort* srt) {
             unsigned id = r->get_expr_id();
             expr_ref value(m);
-            if (m.is_value(r->get_expr())) 
+            if (m.is_value(r->get_expr()))
                 value = r->get_expr();
-            else 
+            else
                 value = factory.get_fresh_value(srt);
+            TRACE("model", tout << s.bpp(r) << " := " << value << "\n";);
             values.set(id, value);
             expr_ref_vector* vals = nullptr;
             if (!sort2values.find(srt, vals)) {

@@ -181,8 +181,6 @@ namespace array {
         ptr_buffer<expr> sel1_args, sel2_args;
         unsigned num_args = select->get_num_args();
 
-        if (expr2enode(store->get_arg(0))->get_root() == expr2enode(select->get_arg(0))->get_root()) 
-            return false;
         bool has_diff = false;
         for (unsigned i = 1; i < num_args; i++) 
             has_diff |= expr2enode(select->get_arg(i))->get_root() != expr2enode(store->get_arg(i))->get_root();
