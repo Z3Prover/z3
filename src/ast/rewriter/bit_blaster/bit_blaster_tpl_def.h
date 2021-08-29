@@ -199,10 +199,6 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
         SASSERT(sz == out_bits.size());
         return;
     }
-    if (mk_const_case_multiplier(sz, b_bits, a_bits, out_bits)) {
-        SASSERT(sz == out_bits.size());
-        return;
-    }
     out_bits.reset();
 #if 0
     static unsigned counter = 0;
@@ -1120,16 +1116,14 @@ bool bit_blaster_tpl<Cfg>::mk_const_case_multiplier(unsigned sz, expr * const * 
     unsigned case_size = 1;
     unsigned circuit_size = sz*sz*5;
     for (unsigned i = 0; case_size < circuit_size && i < sz; ++i) {
-        if (!is_bool_const(a_bits[i])) {
-            case_size *= 2;
-        }
-        if (!is_bool_const(b_bits[i])) {
-            case_size *= 2;
-        }
+        if (!is_bool_const(a_bits[i])) 
+            case_size *= 2;        
+        if (!is_bool_const(b_bits[i])) 
+            case_size *= 2;        
     }
-    if (case_size >= circuit_size) {
+    if (case_size >= circuit_size) 
         return false;
-    }
+    
     SASSERT(out_bits.empty());
     ptr_buffer<expr, 128> na_bits;
     na_bits.append(sz, a_bits);
