@@ -877,7 +877,7 @@ extern "C" {
         CHECK_VALID_AST(s, 0);
         if (!is_fp_sort(c, s)) {
             SET_ERROR_CODE(Z3_INVALID_ARG, "fp sort expected");
-            RETURN_Z3(0);
+            return 0;
         }
         return mk_c(c)->fpautil().get_ebits(to_sort(s));
         Z3_CATCH_RETURN(0);
@@ -891,7 +891,7 @@ extern "C" {
         CHECK_VALID_AST(s, 0);
         if (!is_fp_sort(c, s)) {
             SET_ERROR_CODE(Z3_INVALID_ARG, "fp sort expected");
-            RETURN_Z3(0);
+            return 0;
         }
         return mk_c(c)->fpautil().get_sbits(to_sort(s));
         Z3_CATCH_RETURN(0);
