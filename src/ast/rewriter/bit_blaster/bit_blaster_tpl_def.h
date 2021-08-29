@@ -1101,17 +1101,6 @@ void bit_blaster_tpl<Cfg>::mk_comp(unsigned sz, expr * const * a_bits, expr * co
 }
 
 template<typename Cfg>
-void bit_blaster_tpl<Cfg>::mk_carry_save_adder(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr * const * c_bits, expr_ref_vector & sum_bits, expr_ref_vector & carry_bits) {    
-    expr_ref t(m());
-    for (unsigned i = 0; i < sz; i++) {            
-        mk_xor3(a_bits[i], b_bits[i], c_bits[i], t);
-        sum_bits.push_back(t);
-        mk_carry(a_bits[i], b_bits[i], c_bits[i], t);
-        carry_bits.push_back(t);
-    }
-}
-
-template<typename Cfg>
 bool bit_blaster_tpl<Cfg>::mk_const_case_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
     unsigned case_size = 1;
     unsigned circuit_size = sz*sz*5;
