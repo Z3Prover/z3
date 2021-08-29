@@ -325,6 +325,7 @@ extern "C" {
         RESET_ERROR_CODE();
         Z3_stats_ref * st = alloc(Z3_stats_ref, *mk_c(c));
         to_optimize_ptr(d)->collect_statistics(st->m_stats);
+        to_optimize_ptr(d)->collect_timer_stats(st->m_stats);
         mk_c(c)->save_object(st);
         Z3_stats r = of_stats(st);
         RETURN_Z3(r);
