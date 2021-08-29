@@ -270,10 +270,8 @@ namespace api {
     
     void context::invoke_error_handler(Z3_error_code c) {
         if (m_error_handler) {
-            if (g_z3_log) {
-                // error handler can do crazy stuff such as longjmp
-                g_z3_log_enabled = true;
-            }
+            // error handler can do crazy stuff such as longjmp
+            ctx_enable_logging();
             m_error_handler(reinterpret_cast<Z3_context>(this), c);
         }
     }
