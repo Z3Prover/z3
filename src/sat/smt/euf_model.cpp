@@ -263,6 +263,18 @@ namespace euf {
         return m_values.get(n->get_root_id(), nullptr);
     }
 
+    void solver::display_validation_failure(std::ostream& out, model& mdl, enode* n) {
+        out << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(n->get_expr()) << "\n";
+        for (auto* arg : euf::enode_args(n)) {
+            expr_ref val = mdl(arg->get_expr());
+            expr_ref sval(m);
+            th_rewriter rw(m);
+            rw(val, sval);
+            out << bpp(arg) << "\n" << sval << "\n";
+        }
+        out << mdl << "\n";
+    }
+
     void solver::validate_model(model& mdl) {
         bool first = true;
         for (enode* n : m_egraph.nodes()) {
@@ -278,24 +290,12 @@ namespace euf {
                 continue;
             if (!tt && !mdl.is_true(e))
                 continue;
-            IF_VERBOSE(0, 
-                verbose_stream() << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(e) << "\n";
-                for (auto* arg : euf::enode_args(n)) {
-                    expr_ref val = mdl(arg->get_expr());
-                    expr_ref sval(m);
-                    th_rewriter rw(m);
-                    rw(val, sval);
-                    verbose_stream() << bpp(arg) << "\n" << sval << "\n";
-
-                });
-            CTRACE("euf", first, 
-                   tout << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(e) << "\n";
-                   s().display(tout);
-                   tout << mdl << "\n";);
+            IF_VERBOSE(0, display_validation_failure(verbose_stream(), mdl, n););
+            CTRACE("euf", first, display_validation_failure(tout, mdl, n););
             (void)first;
+            exit(1);
             first = false;
-        }
-        
+        }        
     }
 
 
