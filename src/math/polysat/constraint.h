@@ -161,6 +161,7 @@ namespace polysat {
         ule_constraint const& to_ule() const;
         unsigned_vector& vars() { return m_vars; }
         unsigned_vector const& vars() const { return m_vars; }
+        unsigned var(unsigned idx) const { return m_vars[idx]; }
         unsigned level() const { return m_storage_level; }
         bool has_bvar() const { return m_bvar != sat::null_bool_var; }
         sat::bool_var bvar() const { return m_bvar; }
@@ -347,7 +348,7 @@ namespace polysat {
         static clause_ref from_literals(unsigned lvl, p_dependency_ref d, sat::literal_vector literals);
 
         // Resolve with 'other' upon 'var'.
-        bool resolve(sat::bool_var var, clause const& other);
+        // bool resolve(sat::bool_var var, clause const& other);
 
         p_dependency* dep() const { return m_dep; }
         unsigned level() const { return m_level; }

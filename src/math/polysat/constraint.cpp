@@ -221,9 +221,9 @@ namespace polysat {
         LOG_H3("Propagate " << s.m_vars[v] << " in " << *this);
         SASSERT(!vars().empty());
         unsigned idx = 0;
-        if (vars()[idx] != v)
+        if (var(idx) != v)
             idx = 1;
-        SASSERT(v == vars()[idx]);
+        SASSERT(v == var(idx));
         // find other watch variable.
         for (unsigned i = vars().size(); i-- > 2; ) {
             unsigned other_v = vars()[i];
@@ -234,7 +234,7 @@ namespace polysat {
             }
         }
         // at most one variable remains unassigned.
-        unsigned other_v = vars()[idx];
+        unsigned other_v = var(idx);
         propagate_core(s, is_positive, v, other_v);
         return false;
     }
@@ -271,6 +271,12 @@ namespace polysat {
         });
     }
 
+#if 0
+    // NB code review:
+    // resolve is done elsewhere or should be done elsewhere.
+    // by not having it as a method on clauses we can work with fixed literal arrays
+    // instead of dynamically expandable vectors.
+    
     bool clause::resolve(sat::bool_var var, clause const& other) {
         DEBUG_CODE({
             bool this_has_pos = std::count(begin(), end(), sat::literal(var)) > 0;
@@ -292,6 +298,7 @@ namespace polysat {
                 m_literals.push_back(lit);
         return true;
     }
+#endif
 
     std::ostream& clause::display(std::ostream& out) const {
         bool first = true;
