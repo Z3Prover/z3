@@ -46,7 +46,7 @@ namespace polysat {
         return m_bv2constraint.get(bv, nullptr);
     }
 
-    constraint* constraint_manager::store(scoped_ptr<constraint> scoped_c) {
+    constraint* constraint_manager::store(scoped_constraint_ptr scoped_c) {
         constraint* c = scoped_c.detach();
         LOG_V("Store constraint: " << show_deref(c));
         assign_bv2c(m_bvars.new_var(), c);

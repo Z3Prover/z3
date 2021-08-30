@@ -30,6 +30,8 @@ namespace polysat {
     class eq_constraint;
     class ule_constraint;
 
+    class scoped_constraint_ptr;
+
     template <bool is_owned>
     class signed_constraint_base;
     using signed_constraint = signed_constraint_base<false>;
@@ -74,7 +76,7 @@ namespace polysat {
          *  - Keeps the constraint until the corresponding level is popped
          *  - Allocates a boolean variable for the constraint
          */
-        constraint* store(scoped_ptr<constraint> c);
+        constraint* store(scoped_constraint_ptr c);
 
         clause* store(clause_ref cl);
 
@@ -121,7 +123,7 @@ namespace polysat {
         ckind_t             m_kind;
         unsigned_vector     m_vars;
         /** The boolean variable associated to this constraint, if any.
-         *  If this is not null_var, then the constraint corresponds to a literal on the assignment stack.
+         *  If this is not null_bool_var, then the constraint corresponds to a literal on the assignment stack.
          *  Convention: the plain constraint corresponds the positive sat::literal.
          */
         sat::bool_var       m_bvar = sat::null_bool_var;
@@ -178,10 +180,65 @@ namespace polysat {
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
 
 
+    // Like scoped_ptr<constraint>, but only deallocates the constraint if it is temporary (i.e., does not have a boolean variable).
+    // This is needed because when a constraint is created, due to deduplication, we might get either a new constraint or an existing one.
+    // (We want early deduplication because otherwise we might overlook possible boolean resolutions during conflict resolution.)
+    // (TODO: we could replace this class by std::unique_ptr with a custom deleter)
+    class scoped_constraint_ptr {
+        constraint* m_ptr;
+
+        void dealloc_ptr() const {
+            if (m_ptr && !m_ptr->has_bvar())
+                dealloc(m_ptr);
+        }
+
+    public:
+        scoped_constraint_ptr(constraint* ptr = nullptr): m_ptr(ptr) {}
+
+        scoped_constraint_ptr(scoped_constraint_ptr &&other) noexcept : m_ptr(nullptr) {
+            std::swap(m_ptr, other.m_ptr);
+        }
+
+        ~scoped_constraint_ptr() {
+            dealloc_ptr();
+        }
+
+        scoped_constraint_ptr& operator=(scoped_constraint_ptr&& other) {
+            *this = other.detach();
+            return *this;
+        };
+
+        scoped_constraint_ptr& operator=(constraint* n) {
+            if (m_ptr != n) {
+                dealloc_ptr();
+                m_ptr = n;
+            }
+            return *this;
+        }
+
+        void swap(scoped_constraint_ptr& p) {
+            std::swap(m_ptr, p.m_ptr);
+        }
+
+        constraint* detach() {
+            constraint* tmp = m_ptr;
+            m_ptr = nullptr;
+            return tmp;
+        }
+
+        explicit operator bool() const { return !!m_ptr; }
+        bool operator!() const { return !m_ptr; }
+        constraint* get() const { return m_ptr; }
+        constraint* operator->() const { return m_ptr; }
+        const constraint& operator*() const { return *m_ptr; }
+        constraint &operator*() { return *m_ptr; }
+    };
+
+
     template <bool is_owned>
     class signed_constraint_base final {
     public:
-        using ptr_t = std::conditional_t<is_owned, scoped_ptr<constraint>, constraint*>;
+        using ptr_t = std::conditional_t<is_owned, scoped_constraint_ptr, constraint*>;
 
     private:
         ptr_t m_constraint = nullptr;
@@ -221,6 +278,7 @@ namespace polysat {
         explicit operator bool() const { return !!m_constraint; }
         bool operator!() const { return !m_constraint; }
         constraint* operator->() const { return get(); }
+        constraint& operator*() { return *m_constraint; }
         constraint const& operator*() const { return *m_constraint; }
 
         signed_constraint_base<is_owned>& operator=(std::nullptr_t) { m_constraint = nullptr; return *this; }
