@@ -111,43 +111,44 @@ namespace polysat {
         m_free_vars.del_var_eh(v);
     }
 
-    constraint_literal_ref solver::mk_eq(pdd const& p) {
+    scoped_signed_constraint solver::mk_eq(pdd const& p) {
         return m_constraints.eq(m_level, p);
     }
 
-    constraint_literal_ref solver::mk_diseq(pdd const& p) {
+    scoped_signed_constraint solver::mk_diseq(pdd const& p) {
         return ~m_constraints.eq(m_level, p);
     }
 
-    constraint_literal_ref solver::mk_ule(pdd const& p, pdd const& q) {
+    scoped_signed_constraint solver::mk_ule(pdd const& p, pdd const& q) {
         return m_constraints.ule(m_level, p, q);
     }
 
-    constraint_literal_ref solver::mk_ult(pdd const& p, pdd const& q) {
+    scoped_signed_constraint solver::mk_ult(pdd const& p, pdd const& q) {
         return m_constraints.ult(m_level, p, q);
     }
 
-    constraint_literal_ref solver::mk_sle(pdd const& p, pdd const& q) {
+    scoped_signed_constraint solver::mk_sle(pdd const& p, pdd const& q) {
         return m_constraints.sle(m_level, p, q);
     }
 
-    constraint_literal_ref solver::mk_slt(pdd const& p, pdd const& q) {
+    scoped_signed_constraint solver::mk_slt(pdd const& p, pdd const& q) {
         return m_constraints.slt(m_level, p, q);
     }
 
-    void solver::new_constraint(constraint_literal_ref cl, unsigned dep, bool activate) {
+    void solver::new_constraint(scoped_signed_constraint sc, unsigned dep, bool activate) {
         VERIFY(at_base_level());
-        SASSERT(cl);
+        SASSERT(sc);
         SASSERT(activate || dep != null_dependency);  // if we don't activate the constraint, we need the dependency to access it again later.
-        constraint_literal c = cl.get();
-        clause* unit = m_constraints.store(clause::from_unit(std::move(cl), mk_dep_ref(dep)));
+        signed_constraint c = sc.get_signed();
+        m_constraints.store(sc.detach());
+        clause* unit = m_constraints.store(clause::from_unit(c, mk_dep_ref(dep)));
         c->set_unit_clause(unit);
         if (dep != null_dependency)
-            m_constraints.register_external(c.get_constraint());
+            m_constraints.register_external(c.get());
         LOG("New constraint: " << c);
         m_original.push_back(c);
 #if ENABLE_LINEAR_SOLVER
-        m_linear_solver.new_constraint(*c.constraint());
+        m_linear_solver.new_constraint(*c.get());
 #endif
         if (activate && !is_conflict())
             activate_constraint_base(c);
@@ -164,8 +165,8 @@ namespace polysat {
         }
         if (is_conflict())
             return;
-        // TODO: this is wrong. (e.g., if the external constraint was negative) we need to store constraint_literals
-        constraint_literal cl{c, is_true};
+        // TODO: this is wrong. (e.g., if the external constraint was negative) we need to store signed_constraints
+        signed_constraint cl{c, is_true};
         activate_constraint_base(cl);
         */
     }
@@ -202,7 +203,7 @@ namespace polysat {
 
     void solver::propagate(sat::literal lit) {
         LOG_H2("Propagate boolean literal " << lit);
-        constraint_literal c = m_constraints.lookup(lit);
+        signed_constraint c = m_constraints.lookup(lit);
         (void)c;
         SASSERT(c);
         // c->narrow(*this);
@@ -220,7 +221,7 @@ namespace polysat {
         wlist.shrink(j);
     }
 
-    void solver::propagate(pvar v, rational const& val, constraint_literal c) {
+    void solver::propagate(pvar v, rational const& val, signed_constraint c) {
         LOG("Propagation: " << assignment_pp(*this, v, val) << ", due to " << c);
         if (m_viable.is_viable(v, val)) {
             m_free_vars.del_var_eh(v);
@@ -276,7 +277,7 @@ namespace polysat {
             case trail_instr_t::assign_bool_i: {
                 sat::literal lit = m_search.back().lit();
                 LOG_V("Undo assign_bool_i: " << lit);
-                constraint_literal c = m_constraints.lookup(lit);
+                signed_constraint c = m_constraints.lookup(lit);
                 deactivate_constraint(c);
                 m_bvars.unassign(lit);
                 m_search.pop();
@@ -300,7 +301,7 @@ namespace polysat {
         SASSERT(m_level == target_level);
     }
 
-    void solver::pop_constraints(constraint_literals& cs) {
+    void solver::pop_constraints(signed_constraints& cs) {
         VERIFY(invariant(cs));
         while (!cs.empty() && cs.back()->level() > m_level) {
             deactivate_constraint(cs.back());
@@ -308,30 +309,30 @@ namespace polysat {
         }        
     }
 
-    void solver::add_watch(constraint_literal c) {
+    void solver::add_watch(signed_constraint c) {
         SASSERT(c);
-        auto const& vars = c.get_constraint()->vars();
+        auto const& vars = c->vars();
         if (vars.size() > 0)
             add_watch(c, vars[0]);
         if (vars.size() > 1)
             add_watch(c, vars[1]);
     }
 
-    void solver::add_watch(constraint_literal c, pvar v) {
+    void solver::add_watch(signed_constraint c, pvar v) {
         SASSERT(c);
         LOG("Watching v" << v << " in constraint " << c);
         m_watch[v].push_back(c);
     }
 
-    void solver::erase_watch(constraint_literal c) {
-        auto const& vars = c.get_constraint()->vars();
+    void solver::erase_watch(signed_constraint c) {
+        auto const& vars = c->vars();
         if (vars.size() > 0)
             erase_watch(vars[0], c);
         if (vars.size() > 1)
             erase_watch(vars[1], c);
     }
 
-    void solver::erase_watch(pvar v, constraint_literal c) {
+    void solver::erase_watch(pvar v, signed_constraint c) {
         if (v == null_var)
             return;
         auto& wlist = m_watch[v];
@@ -392,7 +393,7 @@ namespace polysat {
 #endif
     }
 
-    void solver::set_conflict(constraint_literal c) {
+    void solver::set_conflict(signed_constraint c) {
         m_conflict.set(c);
     }
 
@@ -699,7 +700,7 @@ namespace polysat {
         add_lemma(std::move(lemma));
         if (cl->size() == 1) {
             sat::literal lit = cl->literals()[0];
-            constraint_literal c = m_constraints.lookup(lit);
+            signed_constraint c = m_constraints.lookup(lit);
             c->set_unit_clause(cl);
             push_cjust(v, c);
             activate_constraint_base(c);
@@ -707,7 +708,7 @@ namespace polysat {
         else {
             sat::literal lit = decide_bool(*cl);
             SASSERT(lit != sat::null_literal);
-            constraint_literal c = m_constraints.lookup(lit);
+            signed_constraint c = m_constraints.lookup(lit);
             push_cjust(v, c);
         }
     }
@@ -724,7 +725,7 @@ namespace polysat {
             if (m_bvars.value(lit) == l_false)  // already assigned => cannot decide on this (comes from either lemma LHS or previously decided literals that are now changed to propagation)
                 return false;
             SASSERT(m_bvars.value(lit) != l_true);  // cannot happen in a valid lemma
-            constraint_literal c = m_constraints.lookup(lit);
+            signed_constraint c = m_constraints.lookup(lit);
             SASSERT(!c.is_currently_true(*this));  // should not happen in a valid lemma
             return !c.is_currently_false(*this);
         };
@@ -905,7 +906,7 @@ namespace polysat {
         SASSERT(reason);
         if (reason->literals().size() == 1) {
             SASSERT(reason->literals()[0] == lit);
-            constraint_literal c = m_constraints.lookup(lit);
+            signed_constraint c = m_constraints.lookup(lit);
             // m_redundant.push_back(c);
             activate_constraint_base(c);
         }
@@ -921,18 +922,18 @@ namespace polysat {
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
 
-        constraint_literal c = m_constraints.lookup(lit);
+        signed_constraint c = m_constraints.lookup(lit);
         activate_constraint(c);
     }
 
     /// Activate a constraint at the base level.
     /// Used for external unit constraints and unit consequences.
-    void solver::activate_constraint_base(constraint_literal c) {
+    void solver::activate_constraint_base(signed_constraint c) {
         SASSERT(c);
         LOG("\n" << *this);
         // c must be in m_original or m_redundant so it can be deactivated properly when popping the base level
         SASSERT_EQ(std::count(m_original.begin(), m_original.end(), c) + std::count(m_redundant.begin(), m_redundant.end(), c), 1);
-        assign_bool_core(c.literal(), nullptr, nullptr);
+        assign_bool_core(c.blit(), nullptr, nullptr);
         activate_constraint(c);
     }
 
@@ -948,19 +949,19 @@ namespace polysat {
     * constraints activated within the linear solver are de-activated when the linear
     * solver is popped.
     */
-    void solver::activate_constraint(constraint_literal c) {
+    void solver::activate_constraint(signed_constraint c) {
         SASSERT(c);
         LOG("Activating constraint: " << c);
-        SASSERT(m_bvars.value(c.literal()) == l_true);
+        SASSERT(m_bvars.value(c.blit()) == l_true);
         add_watch(c);
         c.narrow(*this);
 #if ENABLE_LINEAR_SOLVER
-        m_linear_solver.activate_constraint(c.is_positive(), c.constraint());   // TODO: linear solver should probably take a constraint_literal
+        m_linear_solver.activate_constraint(c.is_positive(), c.get());   // TODO: linear solver should probably take a signed_constraint
 #endif
     }
 
     /// Deactivate constraint
-    void solver::deactivate_constraint(constraint_literal c) {
+    void solver::deactivate_constraint(signed_constraint c) {
         LOG("Deactivating constraint: " << c);
         erase_watch(c);
     }
@@ -988,12 +989,12 @@ namespace polysat {
         clause* cl = m_constraints.store(std::move(lemma));
         m_redundant_clauses.push_back(cl);
         if (cl->size() == 1) {
-            constraint_literal c = m_constraints.lookup(cl->literals()[0]);
+            signed_constraint c = m_constraints.lookup(cl->literals()[0]);
             insert_constraint(m_redundant, c);
         }
     }
 
-    void solver::insert_constraint(constraint_literals& cs, constraint_literal c) {
+    void solver::insert_constraint(signed_constraints& cs, signed_constraint c) {
         SASSERT(c);
         LOG_V("INSERTING: " << c);
         cs.push_back(c);
@@ -1117,7 +1118,7 @@ namespace polysat {
     /**
      * constraints are sorted by levels so they can be removed when levels are popped.
      */
-    bool solver::invariant(constraint_literals const& cs) {
+    bool solver::invariant(signed_constraints const& cs) {
         unsigned sz = cs.size();
         for (unsigned i = 0; i + 1 < sz; ++i) 
             VERIFY(cs[i]->level() <= cs[i + 1]->level());
@@ -1128,7 +1129,7 @@ namespace polysat {
      * Check that two variables of each constraint are watched.
      */
     bool solver::wlist_invariant() {
-        constraint_literals cs;
+        signed_constraints cs;
         cs.append(m_original.size(), m_original.data());
         cs.append(m_redundant.size(), m_redundant.data());
         for (auto c : cs) {

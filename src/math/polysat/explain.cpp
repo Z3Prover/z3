@@ -561,4 +561,7 @@ namespace polysat {
 //         return true;
 //     }
 
+    void conflict_explainer::resolve()
+    {
+    }
 }

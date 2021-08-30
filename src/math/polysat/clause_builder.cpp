@@ -31,7 +31,7 @@ namespace polysat {
 
     clause_ref clause_builder::build() {
         // TODO: here we could set all the levels of the new constraints. so we do not have to compute the max at every use site.
-        clause_ref cl = clause::from_literals(m_level, std::move(m_dep), std::move(m_literals), std::move(m_new_constraints));
+        clause_ref cl = clause::from_literals(m_level, std::move(m_dep), std::move(m_literals));
         m_level = 0;
         SASSERT(empty());
         return cl;
@@ -52,13 +52,12 @@ namespace polysat {
         m_literals.push_back(lit);
     }
 
-    void clause_builder::push_new_constraint(constraint_literal_ref c) {
-        // TODO: assert that constraint is new (not 'inserted' into manager yet)
+    void clause_builder::push_new_constraint(scoped_signed_constraint c) {
         SASSERT(c);
-        if (c.get().is_always_false())
+        if (c.is_always_false())
             return;
         m_level = std::max(m_level, c->level());
-        m_literals.push_back(c.literal());
+        m_literals.push_back(c.blit());
         m_new_constraints.push_back(c.detach());
     }
 

@@ -23,10 +23,11 @@ Notes:
 
 namespace polysat {
   
+    // TODO: this is now incorporated in conflict_core
     class clause_builder {
         solver&               m_solver;
         sat::literal_vector   m_literals;
-        constraint_ref_vector m_new_constraints;
+        scoped_ptr_vector<constraint> m_new_constraints;
         p_dependency_ref      m_dep;
         unsigned              m_level = 0;
 
@@ -46,7 +47,7 @@ namespace polysat {
         void push_literal(sat::literal lit);
       
         /// Add a constraint to the clause that does not yet exist in the solver so far.
-        void push_new_constraint(constraint_literal_ref c);
+        void push_new_constraint(scoped_signed_constraint c);
     };
 
 }

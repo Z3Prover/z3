@@ -19,25 +19,29 @@ Author:
 #include "util/map.h"
 #include "util/ref.h"
 #include "util/ref_vector.h"
+#include <type_traits>
 
 namespace polysat {
 
     enum ckind_t { eq_t, ule_t };
     enum csign_t : bool { neg_t = false, pos_t = true };
 
-    class constraint_literal;
-    class constraint_literal_ref;
     class constraint;
-    class constraint_manager;
-    class clause;
-    class scoped_clause;
     class eq_constraint;
     class ule_constraint;
-    using constraint_ref = ref<constraint>;
-    using constraint_ref_vector = sref_vector<constraint>;
-    using constraint_literal_ref_vector = vector<constraint_literal_ref>;
+
+    class scoped_constraint_ptr;
+
+    template <bool is_owned>
+    class signed_constraint_base;
+    using signed_constraint = signed_constraint_base<false>;
+    using scoped_signed_constraint = signed_constraint_base<true>;
+
+    class clause;
     using clause_ref = ref<clause>;
     using clause_ref_vector = sref_vector<clause>;
+
+    using constraint_table = ptr_hashtable<constraint, obj_ptr_hash<constraint>, deref_eq<constraint>>;
 
     // Manage constraint lifetime, deduplication, and connection to boolean variables/literals.
     class constraint_manager {
@@ -45,28 +49,35 @@ namespace polysat {
 
         bool_var_manager& m_bvars;
 
-        // Association to boolean variables
-        ptr_vector<constraint>   m_bv2constraint;
-        void insert_bv2c(sat::bool_var bv, constraint* c) { /* NOTE: will be called with incompletely constructed c! */ m_bv2constraint.setx(bv, c, nullptr); }
-        void erase_bv2c(sat::bool_var bv) {  m_bv2constraint[bv] = nullptr; }
-        constraint* get_bv2c(sat::bool_var bv) const { return m_bv2constraint.get(bv, nullptr); }
+        // Constraints indexed by their boolean variable
+        ptr_vector<constraint> m_bv2constraint;
+        // Constraints that have a boolean variable, for deduplication
+        constraint_table m_constraint_table;
 
-        // Constraint storage per level; should be destructed before m_bv2constraint because constraint's destructor calls erase_bv2c
-        vector<vector<constraint_ref>> m_constraints;
+        // Constraint storage per level
+        vector<scoped_ptr_vector<constraint>> m_constraints;
         vector<vector<clause_ref>> m_clauses;
 
         // Association to external dependency values (i.e., external names for constraints)
         u_map<constraint*> m_external_constraints;
 
-        // TODO: some hashmaps to look up whether constraint (or its negation) already exists
+        // Manage association of constraints to boolean variables
+        void assign_bv2c(sat::bool_var bv, constraint* c);
+        void erase_bv2c(constraint* c);
+        constraint* get_bv2c(sat::bool_var bv) const;
+
+        constraint* dedup(constraint* c);
 
     public:
         constraint_manager(bool_var_manager& bvars): m_bvars(bvars) {}
-        // constraint_manager(bool_var_manager& bvars, poly_dep_manager& dm): m_bvars(bvars), m_dm(dm) {}
         ~constraint_manager();
 
-        // Start managing lifetime of the given constraint
-        constraint* store(constraint_ref c);
+        /** Start managing the lifetime of the given constraint
+         *  - Keeps the constraint until the corresponding level is popped
+         *  - Allocates a boolean variable for the constraint
+         */
+        constraint* store(scoped_constraint_ptr c);
+
         clause* store(clause_ref cl);
 
         /// Register a unit clause with an external dependency.
@@ -76,16 +87,14 @@ namespace polysat {
         void release_level(unsigned lvl);
 
         constraint* lookup(sat::bool_var var) const;
-        constraint_literal lookup(sat::literal lit) const;
+        signed_constraint lookup(sat::literal lit) const;
         constraint* lookup_external(unsigned dep) const { return m_external_constraints.get(dep, nullptr); }
 
-        constraint_literal_ref eq(unsigned lvl, pdd const& p);
-        constraint_literal_ref ule(unsigned lvl, pdd const& a, pdd const& b);
-        constraint_literal_ref ult(unsigned lvl, pdd const& a, pdd const& b);
-        constraint_literal_ref sle(unsigned lvl, pdd const& a, pdd const& b);
-        constraint_literal_ref slt(unsigned lvl, pdd const& a, pdd const& b);
-
-        // p_dependency_ref null_dep() const { return {nullptr, m_dm}; }
+        scoped_signed_constraint eq(unsigned lvl, pdd const& p);
+        scoped_signed_constraint ule(unsigned lvl, pdd const& a, pdd const& b);
+        scoped_signed_constraint ult(unsigned lvl, pdd const& a, pdd const& b);
+        scoped_signed_constraint sle(unsigned lvl, pdd const& a, pdd const& b);
+        scoped_signed_constraint slt(unsigned lvl, pdd const& a, pdd const& b);
     };
 
 
@@ -105,35 +114,28 @@ namespace polysat {
     class constraint {
         friend class constraint_manager;
         friend class clause;
-        friend class scoped_clause;
         friend class eq_constraint;
         friend class ule_constraint;
 
-        constraint_manager* m_manager;
+        // constraint_manager* m_manager;
         clause*             m_unit_clause = nullptr;  ///< If this constraint was asserted by a unit clause, we store that clause here.
-        unsigned            m_ref_count = 0;
         unsigned            m_storage_level;  ///< Controls lifetime of the constraint object. Always a base level.
         ckind_t             m_kind;
         unsigned_vector     m_vars;
-        sat::bool_var       m_bvar;  ///< boolean variable associated to this constraint; convention: a constraint itself always represents the positive sat::literal
+        /** The boolean variable associated to this constraint, if any.
+         *  If this is not null_bool_var, then the constraint corresponds to a literal on the assignment stack.
+         *  Convention: the plain constraint corresponds the positive sat::literal.
+         */
+        sat::bool_var       m_bvar = sat::null_bool_var;
 
         constraint(constraint_manager& m, unsigned lvl, ckind_t k):
-            m_manager(&m), m_storage_level(lvl), m_kind(k), m_bvar(m_manager->m_bvars.new_var()) {
-            SASSERT_EQ(m_manager->get_bv2c(bvar()), nullptr);
-            m_manager->insert_bv2c(bvar(), this);
-        }
+            /*m_manager(&m),*/ m_storage_level(lvl), m_kind(k) {}
 
     protected:
         std::ostream& display_extra(std::ostream& out, lbool status) const;
 
     public:
-        void inc_ref() { m_ref_count++; }
-        void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (!m_ref_count) dealloc(this); }
-        virtual ~constraint() {
-            SASSERT_EQ(m_manager->get_bv2c(bvar()), this);
-            m_manager->erase_bv2c(bvar());
-            m_manager->m_bvars.del_var(m_bvar);
-        }
+        virtual ~constraint() {}
 
 	    virtual unsigned hash() const = 0;
 	    virtual bool operator==(constraint const& other) const = 0;
@@ -158,6 +160,7 @@ namespace polysat {
         unsigned_vector& vars() { return m_vars; }
         unsigned_vector const& vars() const { return m_vars; }
         unsigned level() const { return m_storage_level; }
+        bool has_bvar() const { return m_bvar != sat::null_bool_var; }
         sat::bool_var bvar() const { return m_bvar; }
 
         clause* unit_clause() const { return m_unit_clause; }
@@ -171,121 +174,148 @@ namespace polysat {
          * \returns True iff a forbidden interval exists and the output parameters were set.
          */
         // TODO: we can probably remove this and unify the implementations for both cases by relying on as_inequality().
-        virtual bool forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, constraint_literal_ref& out_neg_cond) { return false; }
+        virtual bool forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, scoped_signed_constraint& out_neg_cond) { return false; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
 
 
-    /// Literal together with the constraint it represents (i.e., constraint with polarity).
-    /// Non-owning version.
-    class constraint_literal {
-        sat::literal m_literal = sat::null_literal;
-        constraint* m_constraint = nullptr;
+    // Like scoped_ptr<constraint>, but only deallocates the constraint if it is temporary (i.e., does not have a boolean variable).
+    // This is needed because when a constraint is created, due to deduplication, we might get either a new constraint or an existing one.
+    // (We want early deduplication because otherwise we might overlook possible boolean resolutions during conflict resolution.)
+    // (TODO: we could replace this class by std::unique_ptr with a custom deleter)
+    class scoped_constraint_ptr {
+        constraint* m_ptr;
+
+        void dealloc_ptr() const {
+            if (m_ptr && !m_ptr->has_bvar())
+                dealloc(m_ptr);
+        }
 
     public:
-        constraint_literal() {}
-        constraint_literal(sat::literal lit, constraint* c):
-            m_literal(lit), m_constraint(c) {
-            SASSERT(get_constraint());
-            SASSERT(literal().var() == get_constraint()->bvar());
-        }
-        constraint_literal(constraint* c, bool is_positive): constraint_literal(sat::literal(c->bvar(), !is_positive), c) {}
+        scoped_constraint_ptr(constraint* ptr = nullptr): m_ptr(ptr) {}
 
-        constraint_literal operator~() const {
-            return {~m_literal, m_constraint};
+        scoped_constraint_ptr(scoped_constraint_ptr &&other) noexcept : m_ptr(nullptr) {
+            std::swap(m_ptr, other.m_ptr);
+        }
+
+        ~scoped_constraint_ptr() {
+            dealloc_ptr();
+        }
+
+        scoped_constraint_ptr& operator=(scoped_constraint_ptr&& other) {
+            *this = other.detach();
+            return *this;
+        };
+
+        scoped_constraint_ptr& operator=(constraint* n) {
+            if (m_ptr != n) {
+                dealloc_ptr();
+                m_ptr = n;
+            }
+            return *this;
+        }
+
+        void swap(scoped_constraint_ptr& p) {
+            std::swap(m_ptr, p.m_ptr);
+        }
+
+        constraint* detach() {
+            constraint* tmp = m_ptr;
+            m_ptr = nullptr;
+            return tmp;
+        }
+
+        explicit operator bool() const { return !!m_ptr; }
+        bool operator!() const { return !m_ptr; }
+        constraint* get() const { return m_ptr; }
+        constraint* operator->() const { return m_ptr; }
+        const constraint& operator*() const { return *m_ptr; }
+        constraint &operator*() { return *m_ptr; }
+    };
+
+
+    template <bool is_owned>
+    class signed_constraint_base final {
+    public:
+        using ptr_t = std::conditional_t<is_owned, scoped_constraint_ptr, constraint*>;
+
+    private:
+        ptr_t m_constraint = nullptr;
+        bool m_positive = true;
+
+    public:
+        signed_constraint_base() {}
+        signed_constraint_base(constraint* c, bool is_positive):
+            m_constraint(c), m_positive(is_positive) {}
+        signed_constraint_base(constraint* c, sat::literal lit):
+            signed_constraint_base(c, !lit.sign()) {
+            SASSERT_EQ(blit(), lit);
         }
 
         void negate() {
-            m_literal = ~m_literal;
+            m_positive = !m_positive;
         }
 
-        bool is_positive() const { return !m_literal.sign(); }
-        bool is_negative() const { return m_literal.sign(); }
+        bool is_positive() const { return m_positive; }
+        bool is_negative() const { return !is_positive(); }
 
-        bool propagate(solver& s, pvar v) { return get_constraint()->propagate(s, !literal().sign(), v); }
-        void propagate_core(solver& s, pvar v, pvar other_v) { get_constraint()->propagate_core(s, !literal().sign(), v, other_v); }
-        bool is_always_false() { return get_constraint()->is_always_false(!literal().sign()); }
-        bool is_currently_false(solver& s) { return get_constraint()->is_currently_false(s, !literal().sign()); }
-        bool is_currently_true(solver& s) { return get_constraint()->is_currently_true(s, !literal().sign()); }
-        void narrow(solver& s) { get_constraint()->narrow(s, !literal().sign()); }
-        inequality as_inequality() const { return get_constraint()->as_inequality(!literal().sign()); }
+        bool propagate(solver& s, pvar v) { return get()->propagate(s, is_positive(), v); }
+        void propagate_core(solver& s, pvar v, pvar other_v) { get()->propagate_core(s, is_positive(), v, other_v); }
+        bool is_always_false() { return get()->is_always_false(is_positive()); }
+        bool is_currently_false(solver& s) { return get()->is_currently_false(s, is_positive()); }
+        bool is_currently_true(solver& s) { return get()->is_currently_true(s, is_positive()); }
+        void narrow(solver& s) { get()->narrow(s, is_positive()); }
+        inequality as_inequality() const { return get()->as_inequality(is_positive()); }
 
-        sat::literal literal() const { return m_literal; }
-        constraint* get_constraint() const { return m_constraint; }
+        sat::bool_var bvar() const { return m_constraint->bvar(); }
+        sat::literal blit() const { return sat::literal(bvar(), is_negative()); }
+        constraint* get() const { if constexpr (is_owned) return m_constraint.get(); else return m_constraint; }
+        signed_constraint get_signed() const { return {get(), m_positive}; }
+        template <bool Owned = is_owned>
+        std::enable_if_t<Owned, constraint*> detach() { return m_constraint.detach(); }
 
         explicit operator bool() const { return !!m_constraint; }
         bool operator!() const { return !m_constraint; }
-        constraint* operator->() const { return m_constraint; }
+        constraint* operator->() const { return get(); }
+        constraint& operator*() { return *m_constraint; }
         constraint const& operator*() const { return *m_constraint; }
 
-        constraint_literal& operator=(std::nullptr_t) { m_literal = sat::null_literal; m_constraint = nullptr; return *this; }
+        signed_constraint_base<is_owned>& operator=(std::nullptr_t) { m_constraint = nullptr; return *this; }
 
-        std::ostream& display(std::ostream& out) const;
+        bool operator==(signed_constraint_base<is_owned> const& other) const {
+            return get() == other.get() && is_positive() == other.is_positive();
+        }
+
+        std::ostream& display(std::ostream& out) const {
+            if (m_constraint)
+                return m_constraint->display(out, to_lbool(is_positive()));
+            else
+                return out << "<null>";
+        }
     };
 
-    inline std::ostream& operator<<(std::ostream& out, constraint_literal const& c) { return c.display(out); }
+    template <bool is_owned>
+    inline std::ostream& operator<<(std::ostream& out, signed_constraint_base<is_owned> const& c) { return c.display(out); }
 
-    inline bool operator==(constraint_literal const& lhs, constraint_literal const& rhs) {
-        if (lhs.literal() == rhs.literal())
-            SASSERT(lhs.get_constraint() == rhs.get_constraint());
-        return lhs.literal() == rhs.literal();
+    inline signed_constraint operator~(signed_constraint const& c) {
+        return {c.get(), !c.is_positive()};
     }
 
-
-    /// Version of constraint_literal that owns the constraint.
-    class constraint_literal_ref {
-        sat::literal m_literal = sat::null_literal;
-        constraint_ref m_constraint = nullptr;
-
-    public:
-        constraint_literal_ref() {}
-        constraint_literal_ref(sat::literal lit, constraint_ref c):
-            m_literal(lit), m_constraint(std::move(c)) {
-            SASSERT(get_constraint());
-            SASSERT(literal().var() == get_constraint()->bvar());
-        }
-        constraint_literal_ref(constraint_literal cl): constraint_literal_ref(cl.literal(), cl.get_constraint()) {}
-
-        constraint_literal_ref operator~() const&& {
-            return {~m_literal, std::move(m_constraint)};
-        }
-
-        void negate() {
-            m_literal = ~m_literal;
-        }
-
-        sat::literal literal() const { return m_literal; }
-        constraint* get_constraint() const { return m_constraint.get(); }
-        constraint_literal get() const { return {literal(), get_constraint()}; }
-        constraint_ref detach() { m_literal = sat::null_literal; return std::move(m_constraint); }
-
-        explicit operator bool() const { return !!m_constraint; }
-        bool operator!() const { return !m_constraint; }
-        constraint* operator->() const { return m_constraint.operator->(); }
-        constraint const& operator*() const { return *m_constraint; }
-
-        constraint_literal_ref& operator=(std::nullptr_t) { m_literal = sat::null_literal; m_constraint = nullptr; return *this; }
-
-        std::ostream& display(std::ostream& out) const;
-    private:
-        friend class constraint_manager;
-        explicit constraint_literal_ref(constraint* c): constraint_literal_ref(sat::literal(c->bvar()), c) {}
-    };
-
-    inline std::ostream& operator<<(std::ostream& out, constraint_literal_ref const& c) { return c.display(out); }
+    inline scoped_signed_constraint operator~(scoped_signed_constraint&& c) {
+        return {c.detach(), !c.is_positive()};
+    }
 
 
     /// Disjunction of constraints represented by boolean literals
     class clause {
         friend class constraint_manager;
 
-        unsigned m_ref_count = 0;
+        unsigned m_ref_count = 0;  // TODO: remove refcount once we confirm it's not needed anymore
         unsigned m_level;
         unsigned m_next_guess = 0;  // next guess for enumerative backtracking
         p_dependency_ref m_dep;
         sat::literal_vector m_literals;
-        constraint_ref_vector m_new_constraints;  // new constraints, temporarily owned by this clause
 
         /* TODO: embed literals to save an indirection?
         unsigned m_num_literals;
@@ -296,8 +326,8 @@ namespace polysat {
         }
         */
 
-        clause(unsigned lvl, p_dependency_ref d, sat::literal_vector literals, constraint_ref_vector new_constraints):
-            m_level(lvl), m_dep(std::move(d)), m_literals(std::move(literals)), m_new_constraints(std::move(new_constraints))
+        clause(unsigned lvl, p_dependency_ref d, sat::literal_vector literals):
+            m_level(lvl), m_dep(std::move(d)), m_literals(std::move(literals))
         {
             SASSERT(std::count(m_literals.begin(), m_literals.end(), sat::null_literal) == 0);
         }
@@ -306,8 +336,8 @@ namespace polysat {
         void inc_ref() { m_ref_count++; }
         void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (!m_ref_count) dealloc(this); }
 
-        static clause_ref from_unit(constraint_literal_ref c, p_dependency_ref d);
-        static clause_ref from_literals(unsigned lvl, p_dependency_ref d, sat::literal_vector literals, constraint_ref_vector new_constraints);
+        static clause_ref from_unit(signed_constraint c, p_dependency_ref d);
+        static clause_ref from_literals(unsigned lvl, p_dependency_ref d, sat::literal_vector literals);
 
         // Resolve with 'other' upon 'var'.
         bool resolve(sat::bool_var var, clause const& other);
@@ -316,7 +346,6 @@ namespace polysat {
         p_dependency* dep() const { return m_dep; }
         unsigned level() const { return m_level; }
 
-        constraint_ref_vector const& new_constraints() const { return m_new_constraints; }
         bool empty() const { return m_literals.empty(); }
         unsigned size() const { return m_literals.size(); }
         sat::literal operator[](unsigned idx) const { return m_literals[idx]; }

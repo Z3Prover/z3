@@ -121,7 +121,7 @@ namespace polysat {
 
 
     /// Compute forbidden interval for equality constraint by considering it as p <=u 0 (or p >u 0 for disequality)
-    bool eq_constraint::forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, constraint_literal_ref& out_neg_cond)
+    bool eq_constraint::forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, scoped_signed_constraint& out_neg_cond)
     {
         // Current only works when degree(v) is at most one
         unsigned const deg = p().degree(v);

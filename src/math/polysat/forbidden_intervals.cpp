@@ -22,8 +22,8 @@ namespace polysat {
 
     struct fi_record {
         eval_interval interval;
-        constraint_literal_ref neg_cond;  // could be multiple constraints later
-        constraint_literal src;
+        scoped_signed_constraint neg_cond;  // could be multiple constraints later
+        signed_constraint src;
     };
 
     /**
@@ -64,17 +64,17 @@ namespace polysat {
         return true;
     }
 
-    bool forbidden_intervals::explain(solver& s, vector<constraint_literal> const& conflict, pvar v, clause_ref& out_lemma) {
+    bool forbidden_intervals::explain(solver& s, vector<signed_constraint> const& conflict, pvar v, clause_ref& out_lemma) {
 
         // Extract forbidden intervals from conflicting constraints
         vector<fi_record> records;
         bool has_full = false;
         rational longest_len;
         unsigned longest_i = UINT_MAX;
-        for (constraint_literal c : conflict) {
+        for (signed_constraint c : conflict) {
             LOG_H3("Computing forbidden interval for: " << c);
             eval_interval interval = eval_interval::full();
-            constraint_literal_ref neg_cond;
+            scoped_signed_constraint neg_cond;
             if (c->forbidden_interval(s, c.is_positive(), v, interval, neg_cond)) {
                 LOG("interval: " << interval);
                 LOG("neg_cond: " << neg_cond);
@@ -102,7 +102,8 @@ namespace polysat {
             auto& full_record = records.back();
             SASSERT(full_record.interval.is_full());
             clause_builder clause(s);
-            clause.push_literal(~full_record.src.literal());
+            sat::literal src_lit = full_record.src.blit();
+            clause.push_literal(~src_lit);
             if (full_record.neg_cond)
                 clause.push_new_constraint(std::move(full_record.neg_cond));
             out_lemma = clause.build();
@@ -130,7 +131,7 @@ namespace polysat {
 
         unsigned lemma_lvl = 0;
         for (unsigned i : seq) {
-            constraint_literal const& c = records[i].src;
+            signed_constraint const& c = records[i].src;
             lemma_lvl = std::max(lemma_lvl, c->level());
         }
 
@@ -145,7 +146,7 @@ namespace polysat {
         clause_builder clause(s);
         // Add negation of src constraints as antecedents (may be resolved during backtracking)
         for (unsigned const i : seq) {
-            sat::literal src_lit = records[i].src.literal();
+            sat::literal src_lit = records[i].src.blit();
             clause.push_literal(~src_lit);
         }
         // Add side conditions and interval constraints
@@ -159,12 +160,12 @@ namespace polysat {
             auto const& next_hi = records[next_i].interval.hi();
             auto const& lhs = hi - next_lo;
             auto const& rhs = next_hi - next_lo;
-            constraint_literal_ref c = ~s.m_constraints.ult(lemma_lvl, lhs, rhs);
+            scoped_signed_constraint c = ~s.m_constraints.ult(lemma_lvl, lhs, rhs);
             LOG("constraint: " << c);
             clause.push_new_constraint(std::move(c));
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
-            constraint_literal_ref& neg_cond = records[i].neg_cond;
+            scoped_signed_constraint& neg_cond = records[i].neg_cond;
             if (neg_cond)
                 clause.push_new_constraint(std::move(neg_cond));
         }
