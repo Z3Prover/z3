@@ -19,6 +19,7 @@ Author:
 #include "util/map.h"
 #include "util/ref.h"
 #include "util/ref_vector.h"
+#include <type_traits>
 
 namespace polysat {
 
@@ -123,7 +124,7 @@ namespace polysat {
          *  If this is not null_var, then the constraint corresponds to a literal on the assignment stack.
          *  Convention: the plain constraint corresponds the positive sat::literal.
          */
-        sat::bool_var       m_bvar = null_var;
+        sat::bool_var       m_bvar = sat::null_bool_var;
 
         constraint(constraint_manager& m, unsigned lvl, ckind_t k):
             /*m_manager(&m),*/ m_storage_level(lvl), m_kind(k) {}
@@ -252,7 +253,7 @@ namespace polysat {
     class clause {
         friend class constraint_manager;
 
-        unsigned m_ref_count = 0;
+        unsigned m_ref_count = 0;  // TODO: remove refcount once we confirm it's not needed anymore
         unsigned m_level;
         unsigned m_next_guess = 0;  // next guess for enumerative backtracking
         p_dependency_ref m_dep;

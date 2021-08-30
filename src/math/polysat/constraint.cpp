@@ -56,9 +56,12 @@ namespace polysat {
         return c;
     }
 
-    clause* constraint_manager::store(clause_ref cl) {
-        // TODO
-        return nullptr;
+    clause* constraint_manager::store(clause_ref cl_ref) {
+        clause* cl = cl_ref.get();
+        while (m_clauses.size() <= cl->level())
+            m_clauses.push_back({});
+        m_clauses[cl->level()].push_back(std::move(cl_ref));
+        return cl;
     }
 
     void constraint_manager::register_external(constraint* c) {
