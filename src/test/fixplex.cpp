@@ -566,14 +566,15 @@ namespace polysat {
 
     static void test_lps() {
         random_gen r;
+	for (unsigned i = 0; i < 10000; ++i)
+            test_lps(r, 6, 3, 3, 3);
+	return;
         for (unsigned i = 0; i < 10000; ++i)
             test_lps(r, 6, 3, 3, 0);
         return;
         for (unsigned i = 0; i < 10000; ++i)
             test_lps(r, 6, 0, 0, 5);
 
-        for (unsigned i = 0; i < 10000; ++i)
-            test_lps(r, 6, 3, 3, 3);
 
     }
 }

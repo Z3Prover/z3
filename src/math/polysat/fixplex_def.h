@@ -696,7 +696,7 @@ namespace polysat {
                 return true;
             m_ineqs_to_propagate.remove(idx);
         }        
-        return true;
+        return r == l_true;
     }
 
     /**
