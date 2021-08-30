@@ -161,6 +161,7 @@ typedef enum
     Z3_ROUNDING_MODE_SORT,
     Z3_SEQ_SORT,
     Z3_RE_SORT,
+    Z3_CHAR_SORT,
     Z3_UNKNOWN_SORT = 1000
 } Z3_sort_kind;
 
@@ -3724,6 +3725,14 @@ extern "C" {
      */
     Z3_ast Z3_API Z3_mk_re_range(Z3_context c, Z3_ast lo, Z3_ast hi);
 
+
+    /**
+       \brief Create a regular expression that accepts all singleton sequences of the regular expression sort
+
+      def_API('Z3_mk_re_allchar', AST, (_in(CONTEXT), _in(SORT)))
+    */
+    Z3_ast Z3_API Z3_mk_re_allchar(Z3_context c, Z3_sort regex_sort);
+  
     /**
        \brief Create a regular expression loop. The supplied regular expression \c r is repeated
        between \c lo and \c hi times. The \c lo should be below \c hi with one exception: when

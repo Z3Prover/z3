@@ -721,9 +721,18 @@ br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             result = m().mk_false();
             return BR_DONE;
         }
+
+	    if (m().is_not(rhs))
+            std::swap(lhs, rhs);
+	
+	    if (m().is_not(lhs, lhs)) {
+	        result = m().mk_not(m().mk_eq(lhs, rhs));
+	        return BR_REWRITE2;
+        }
+	    
         if (unfolded) {
             result = mk_eq(lhs, rhs);
-            return BR_DONE;
+            return BR_REWRITE1;
         }
 
         expr *la, *lb, *ra, *rb;

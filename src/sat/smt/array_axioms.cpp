@@ -120,9 +120,15 @@ namespace array {
         app* select = r.select->get_app();
         SASSERT(a.is_select(select));
         SASSERT(can_beta_reduce(r.n));
-        TRACE("array", display(tout << "select-axiom: ", r) << "\n";);
 
-        if (get_config().m_array_delay_exp_axiom && r.select->get_arg(0)->get_root() != r.n->get_root() && !r.is_delayed() && m_enable_delay) {
+        bool should_delay = 
+            get_config().m_array_delay_exp_axiom && 
+            r.select->get_arg(0)->get_root() != r.n->get_root() && 
+            !r.is_delayed() && m_enable_delay;
+
+        TRACE("array", display(tout << "select-axiom: " << (should_delay ? "delay " : ""), r) << "\n";);
+
+        if (should_delay) {
             IF_VERBOSE(11, verbose_stream() << "delay: " << mk_bounded_pp(child, m) << " " << mk_bounded_pp(select, m) << "\n");
             ctx.push(reset_new(*this, idx));
             r.set_delayed();
@@ -175,18 +181,14 @@ namespace array {
         ptr_buffer<expr> sel1_args, sel2_args;
         unsigned num_args = select->get_num_args();
 
-        if (select->get_arg(0) != store && expr2enode(select->get_arg(0))->get_root() == expr2enode(store)->get_root()) 
-            return false;
         bool has_diff = false;
         for (unsigned i = 1; i < num_args; i++) 
             has_diff |= expr2enode(select->get_arg(i))->get_root() != expr2enode(store->get_arg(i))->get_root();
         if (!has_diff)
             return false;
 
-
         sel1_args.push_back(store);
-        sel2_args.push_back(store->get_arg(0));
-        
+        sel2_args.push_back(store->get_arg(0));       
         
         for (unsigned i = 1; i < num_args; i++) {
             sel1_args.push_back(select->get_arg(i));
@@ -209,10 +211,9 @@ namespace array {
               tout << "select-store " << ctx.bpp(s1) << " " << ctx.bpp(s1->get_root()) << "\n";
               tout << "select-store " << ctx.bpp(s2) << " " << ctx.bpp(s2->get_root()) << "\n";);
 
-
         if (s1->get_root() == s2->get_root())
             return new_prop;
-
+        
         sat::literal sel_eq = sat::null_literal;
         auto init_sel_eq = [&]() {
             if (sel_eq != sat::null_literal) 
@@ -272,7 +273,6 @@ namespace array {
      * e1 = e2 or select(e1, diff(e1,e2)) != select(e2, diff(e1, e2))
      */
     bool solver::assert_extensionality(expr* e1, expr* e2) {
-        TRACE("array", tout << "extensionality-axiom: " << mk_bounded_pp(e1, m) << " == " << mk_bounded_pp(e2, m) << "\n";);
         ++m_stats.m_num_extensionality_axiom;
         func_decl_ref_vector const& funcs = sort2diff(e1->get_sort());
         expr_ref_vector args1(m), args2(m);
@@ -287,6 +287,7 @@ namespace array {
         expr_ref sel2(a.mk_select(args2), m);
         literal lit1 = eq_internalize(e1, e2);
         literal lit2 = eq_internalize(sel1, sel2);
+        TRACE("array", tout << "extensionality-axiom: " << mk_bounded_pp(e1, m) << " == " << mk_bounded_pp(e2, m) << "\n" << lit1 << " " << ~lit2 << "\n";);
         return add_clause(lit1, ~lit2);
     }
 

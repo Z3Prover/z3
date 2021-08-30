@@ -757,6 +757,8 @@ class Formatter:
             if s.is_string():
                 return to_format("String")
             return seq1("Seq", (self.pp_sort(s.basis()), ))
+        elif isinstance(s, z3.CharSortRef):
+            return to_format("Char")
         else:
             return to_format(s.name())
 

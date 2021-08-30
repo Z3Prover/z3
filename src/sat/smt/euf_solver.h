@@ -157,6 +157,7 @@ namespace euf {
         void collect_dependencies(user_sort& us, deps_t& deps);
         void values2model(deps_t const& deps, model_ref& mdl);
         void validate_model(model& mdl);
+        void display_validation_failure(std::ostream& out, model& mdl, enode* n);
 
         // solving
         void propagate_literals();
@@ -276,7 +277,7 @@ namespace euf {
         bool propagated(literal l, ext_constraint_idx idx) override;
         bool unit_propagate() override;
         bool should_research(sat::literal_vector const& core) override;
-        void add_assumptions() override;
+        void add_assumptions(sat::literal_set& assumptions) override;
         bool tracking_assumptions() override;
 
         void propagate(literal lit, ext_justification_idx idx);

@@ -18,6 +18,7 @@ Revision History:
 --*/
 #pragma once
 
+#include "util/scoped_ptr_vector.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_context.h"
 #include "ast/ast_pp.h"

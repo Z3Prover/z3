@@ -72,6 +72,8 @@ public:
     void unregister_decl(func_decl * d);
     func_interp* update_func_interp(func_decl* f, func_interp* fi);
 
+    void add_lambda_defs();
+
     virtual expr * get_some_value(sort * s) = 0;
     virtual expr * get_fresh_value(sort * s) = 0;
     virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) = 0;

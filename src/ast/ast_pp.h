@@ -67,4 +67,7 @@ inline std::string operator+(std::string const& s, mk_pp const& pp) {
     return strm.str();
 }
 
+inline std::string& operator+=(std::string& s, mk_pp const& pp) {
+    return s = s + pp;
+}
 

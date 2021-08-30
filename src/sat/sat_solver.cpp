@@ -1895,9 +1895,7 @@ namespace sat {
             m_ext_assumption_set.reset();
             unsigned trail_size = m_trail.size();
             if (!inconsistent())
-                m_ext->add_assumptions();
-            for (unsigned i = trail_size; i < m_trail.size(); ++i)
-                m_ext_assumption_set.insert(m_trail[i]);
+                m_ext->add_assumptions(m_ext_assumption_set);
         }
     }
 
@@ -2225,6 +2223,7 @@ namespace sat {
     bool solver::should_restart() const {
         if (m_conflicts_since_restart <= m_restart_threshold) return false;
         if (scope_lvl() < 2 + search_lvl()) return false;
+        if (m_case_split_queue.empty()) return false;
         if (m_config.m_restart != RS_EMA) return true;
         return 
             m_fast_glue_avg + search_lvl() <= scope_lvl() && 
@@ -2315,9 +2314,9 @@ namespace sat {
     }
 
     unsigned solver::restart_level(bool to_base) {
-        if (to_base || scope_lvl() == search_lvl()) {
-            return scope_lvl() - search_lvl();
-        }
+        SASSERT(!m_case_split_queue.empty());
+        if (to_base || scope_lvl() == search_lvl()) 
+            return scope_lvl() - search_lvl();        
         else {
             bool_var next = m_case_split_queue.min_var();
 

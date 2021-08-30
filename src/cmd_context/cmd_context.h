@@ -425,6 +425,7 @@ public:
     bool try_mk_declared_app(symbol const & s, unsigned num_args, expr * const * args, 
                              unsigned num_indices, parameter const * indices, sort * range,
                              func_decls& fs, expr_ref & result) const;
+    bool try_mk_pdecl_app(symbol const & s, unsigned num_args, expr * const * args, unsigned num_indices, parameter const * indices, expr_ref & r) const;
     void erase_cmd(symbol const & s);
     void erase_func_decl(symbol const & s);
     void erase_func_decl(symbol const & s, func_decl * f);

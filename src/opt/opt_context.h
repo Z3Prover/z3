@@ -117,6 +117,17 @@ namespace opt {
             {}
         };
 
+      double m_time = 0;      
+      class scoped_time {
+        context& c;
+        timer t;
+      public:
+        scoped_time(context& c):c(c) { c.m_time = 0; }
+        ~scoped_time() { c.m_time = t.get_seconds(); }
+      };
+
+
+
         class scoped_state {
             ast_manager& m;
             arith_util   m_arith;
@@ -261,6 +272,13 @@ namespace opt {
             m_on_model_eh  = on_model; 
         }
 
+      
+        void collect_timer_stats(statistics& st) const {
+	  if (m_time != 0) 
+	    st.update("time", m_time);
+	}
+
+
     private:
         lbool execute(objective const& obj, bool committed, bool scoped);
         lbool execute_min_max(unsigned index, bool committed, bool scoped, bool is_max);        
@@ -340,6 +358,8 @@ namespace opt {
         // quantifiers
         bool is_qsat_opt();
         lbool run_qsat_opt();
+
+      
     };
 
 }

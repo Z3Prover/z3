@@ -266,6 +266,7 @@ namespace opt {
     }
 
     lbool context::optimize(expr_ref_vector const& _asms) {
+        scoped_time _st(*this);
         if (m_pareto) {
             return execute_pareto();
         }

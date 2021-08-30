@@ -52,21 +52,21 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     arith_util          m_a_util;
     bv_util             m_bv_util;
     expr_safe_replace   m_rep;
-    bool                m_new_subst { false };
     expr_ref_vector     m_pinned;
-    unsigned long long  m_max_memory; // in bytes
-    unsigned            m_max_steps;    
-    bool                m_pull_cheap_ite;
-    bool                m_flat;
-    bool                m_cache_all;
-    bool                m_push_ite_arith;
-    bool                m_push_ite_bv;
-    bool                m_ignore_patterns_on_ground_qbody;
-    bool                m_rewrite_patterns;
-
-    // substitution support
+      // substitution support
     expr_dependency_ref m_used_dependencies; // set of dependencies of used substitutions
-    expr_substitution * m_subst;
+    expr_substitution * m_subst = nullptr;
+    unsigned long long  m_max_memory; // in bytes
+    bool                m_new_subst = false;
+    unsigned            m_max_steps = UINT_MAX;    
+    bool                m_pull_cheap_ite = true;
+    bool                m_flat = true;
+    bool                m_cache_all = false;
+    bool                m_push_ite_arith = true;
+    bool                m_push_ite_bv = true;
+    bool                m_ignore_patterns_on_ground_qbody = true;
+    bool                m_rewrite_patterns = true;
+
 
     ast_manager & m() const { return m_b_rw.m(); }
 
@@ -805,8 +805,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_bv_util(m),
         m_rep(m),
         m_pinned(m),
-        m_used_dependencies(m),
-        m_subst(nullptr) {
+        m_used_dependencies(m) {
         updt_local_params(p);
     }
 

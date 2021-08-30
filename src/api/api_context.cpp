@@ -98,6 +98,7 @@ namespace api {
         m_datalog_fid = m().mk_family_id("datalog_relation");
         m_fpa_fid   = m().mk_family_id("fpa");
         m_seq_fid   = m().mk_family_id("seq");
+	m_char_fid   = m().mk_family_id("char");
         m_special_relations_fid   = m().mk_family_id("specrels");
         m_dt_plugin = static_cast<datatype_decl_plugin*>(m().get_plugin(m_dt_fid));
     
@@ -269,10 +270,8 @@ namespace api {
     
     void context::invoke_error_handler(Z3_error_code c) {
         if (m_error_handler) {
-            if (g_z3_log) {
-                // error handler can do crazy stuff such as longjmp
-                g_z3_log_enabled = true;
-            }
+            // error handler can do crazy stuff such as longjmp
+            ctx_enable_logging();
             m_error_handler(reinterpret_cast<Z3_context>(this), c);
         }
     }

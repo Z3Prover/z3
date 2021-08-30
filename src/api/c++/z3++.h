@@ -507,7 +507,6 @@ namespace z3 {
         ast(context & c):object(c), m_ast(0) {}
         ast(context & c, Z3_ast n):object(c), m_ast(n) { Z3_inc_ref(ctx(), m_ast); }
         ast(ast const & s) :object(s), m_ast(s.m_ast) { Z3_inc_ref(ctx(), m_ast); }
-        ast(ast && s) noexcept : object(std::forward<object>(s)), m_ast(s.m_ast) { s.m_ast = nullptr; }
         ~ast() { if (m_ast) Z3_dec_ref(*m_ctx, m_ast); }
         operator Z3_ast() const { return m_ast; }
         operator bool() const { return m_ast != 0; }
@@ -1210,6 +1209,7 @@ namespace z3 {
         friend expr implies(bool a, expr const & b);
 
         friend expr mk_or(expr_vector const& args);
+        friend expr mk_xor(expr_vector const& args);
         friend expr mk_and(expr_vector const& args);
 
         friend expr ite(expr const & c, expr const & t, expr const & e);
@@ -2383,6 +2383,14 @@ namespace z3 {
         Z3_ast r = Z3_mk_and(args.ctx(), _args.size(), _args.ptr());
         args.check_error();
         return expr(args.ctx(), r);
+    }
+    inline expr mk_xor(expr_vector const& args) {
+        if (args.empty())
+            return args.ctx().bool_val(false);
+        expr r = args[0];
+        for (unsigned i = 1; i < args.size(); ++i)
+            r = r ^ args[i];
+        return r;
     }
 
 
@@ -3874,8 +3882,11 @@ namespace z3 {
 
 
     public:
-        user_propagator_base(solver* s): s(s), c(nullptr) {}
-        user_propagator_base(Z3_context c): s(nullptr), c(c) {}
+        user_propagator_base(Z3_context c) : s(nullptr), c(c) {}
+        
+        user_propagator_base(solver* s): s(s), c(nullptr) {
+              Z3_solver_propagate_init(ctx(), *s, this, push_eh, pop_eh, fresh_eh);
+	    }
 
         virtual void push() = 0;
         virtual void pop(unsigned num_scopes) = 0;

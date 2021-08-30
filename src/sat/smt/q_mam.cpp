@@ -3344,8 +3344,8 @@ namespace q {
                 update_plbls(lbl2);
                 update_pp(m_lbl_hasher(lbl1), m_lbl_hasher(lbl2), curr_path, p, qa, mp);
             }
-            if (!found)
-                var_paths.push_back(p);
+            if (!found) 
+                var_paths.push_back(p);            
         }
 
         enode * get_ground_arg(app * pat, quantifier * qa, unsigned & pos) {
@@ -3413,7 +3413,7 @@ namespace q {
             unsigned num_vars = qa->get_num_decls();
             if (num_vars >= m_var_paths.size())
                 m_var_paths.resize(num_vars+1);
-            for (unsigned i = 0; i < num_vars; i++)
+            for (unsigned i = 0; i <= num_vars; i++)
                 m_var_paths[i].reset();
             m_tmp_region.reset();
             // Given a multi-pattern (p_1, ..., p_n)

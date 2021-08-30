@@ -209,7 +209,8 @@ namespace array {
         unsigned get_lambda_equiv_size(var_data const& d) const;
         bool should_set_prop_upward(var_data const& d) const;
         bool should_prop_upward(var_data const& d) const;
-        bool can_beta_reduce(euf::enode* n) const;
+        bool can_beta_reduce(euf::enode* n) const { return can_beta_reduce(n->get_expr()); }
+        bool can_beta_reduce(expr* e) const;
 
         var_data& get_var_data(euf::enode* n) { return get_var_data(n->get_th_var(get_id())); }
         var_data& get_var_data(theory_var v) { return *m_var_data[v]; }
@@ -218,7 +219,17 @@ namespace array {
         void pop_core(unsigned n) override;
         
         // models
+        euf::enode_vector   m_defaults;       // temporary field for model construction
+        ptr_vector<expr>    m_else_values;    // 
+        svector<int>        m_parents;        // temporary field for model construction
         bool have_different_model_values(theory_var v1, theory_var v2);
+        void collect_defaults();
+        void mg_merge(theory_var u, theory_var v);
+        theory_var mg_find(theory_var n);
+        void set_default(theory_var v, euf::enode* n);
+        euf::enode* get_default(theory_var v);
+        void set_else(theory_var v, expr* e);
+        expr* get_else(theory_var v);
 
         // diagnostics
         std::ostream& display_info(std::ostream& out, char const* id, euf::enode_vector const& v) const; 
@@ -243,6 +254,7 @@ namespace array {
         bool use_diseqs() const override { return true; }
         void new_diseq_eh(euf::th_eq const& eq) override;
         bool unit_propagate() override;
+        void init_model() override;
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
         bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;

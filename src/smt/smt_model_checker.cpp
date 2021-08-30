@@ -423,8 +423,14 @@ namespace smt {
         m_value2expr.reset();
 
         TRACE("model_checker", tout << "MODEL_CHECKER INVOKED\n";
-              tout << "model:\n"; model_pp(tout, *m_curr_model););
+        tout << "model:\n"; model_pp(tout, *m_curr_model););
 
+        for (quantifier* q : *m_qm)
+            if (m.is_lambda_def(q)) {
+                md->add_lambda_defs();
+                break;
+            }
+	
         md->compress();
 
         TRACE("model_checker", tout << "MODEL_CHECKER INVOKED\n";

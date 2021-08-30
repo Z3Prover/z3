@@ -148,6 +148,15 @@ bool quasi_macros::depends_on(expr * e, func_decl * f) const {
     return false;
 }
 
+bool quasi_macros::is_quasi_def(quantifier* q, expr* lhs, expr* rhs) const {
+  return
+    is_non_ground_uninterp(lhs) &&
+    is_unique(to_app(lhs)->get_decl()) &&
+    !depends_on(rhs, to_app(lhs)->get_decl()) &&
+    fully_depends_on(to_app(lhs), q);
+}
+
+
 bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
     // Our definition of a quasi-macro:
     // Forall X. f[X] = T[X], where f[X] is a term starting with symbol f, f is uninterpreted,
@@ -158,27 +167,39 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
         quantifier * q = to_quantifier(e);
         expr * qe = q->get_expr(), *lhs = nullptr, *rhs = nullptr;
         if (m.is_eq(qe, lhs, rhs)) {
-            if (is_non_ground_uninterp(lhs) && is_unique(to_app(lhs)->get_decl()) &&
-                !depends_on(rhs, to_app(lhs)->get_decl()) && fully_depends_on(to_app(lhs), q)) {
-                a = to_app(lhs);
+	  if (is_quasi_def(q, lhs, rhs)) {
+	        a = to_app(lhs);
                 t = rhs;
                 return true;
-            } else if (is_non_ground_uninterp(rhs) && is_unique(to_app(rhs)->get_decl()) &&
-                !depends_on(lhs, to_app(rhs)->get_decl()) && fully_depends_on(to_app(rhs), q)) {
-                a = to_app(rhs);
+	  } else if (is_quasi_def(q, rhs, lhs)) {
+	        a = to_app(rhs);
                 t = lhs;
                 return true;
             }
-        } else if (m.is_not(qe, lhs) && is_non_ground_uninterp(lhs) &&
+        }
+	else if (m.is_not(qe, lhs) && is_non_ground_uninterp(lhs) &&
                    is_unique(to_app(lhs)->get_decl())) { // this is like f(...) = false
             a = to_app(lhs);
             t = m.mk_false();
             return true;
-        } else if (is_non_ground_uninterp(qe) && is_unique(to_app(qe)->get_decl())) { // this is like f(...) = true
+        }
+	else if (is_non_ground_uninterp(qe) && is_unique(to_app(qe)->get_decl())) { // this is like f(...) = true
             a = to_app(qe);
             t = m.mk_true();
             return true;
         }
+	else if (m.is_not(qe, lhs) && m.is_eq(lhs, lhs, rhs) && m.is_bool(lhs)) {
+	  if (is_quasi_def(q, lhs, rhs)) {
+	        a = to_app(lhs);
+                t = m.mk_not(rhs);
+                return true;
+            } else if (is_quasi_def(q, rhs, lhs)) {
+	        a = to_app(rhs);
+                t = m.mk_not(lhs);
+                return true;
+            }
+	}
+
     }
 
     return false;

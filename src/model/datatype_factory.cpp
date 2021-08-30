@@ -35,13 +35,12 @@ expr * datatype_factory::get_some_value(sort * s) {
     func_decl * c = m_util.get_non_rec_constructor(s);
     ptr_vector<expr> args;
     unsigned num  = c->get_arity();
-    for (unsigned i = 0; i < num; i++) {
-        args.push_back(m_model.get_some_value(c->get_domain(i)));
-    }
+    for (unsigned i = 0; i < num; i++) 
+        args.push_back(m_model.get_some_value(c->get_domain(i)));    
     expr * r = m_manager.mk_app(c, args);
     register_value(r);
     TRACE("datatype", tout << mk_pp(r, m_util.get_manager()) << "\n";);
-    return r;
+    return r;    
 }
 
 /**

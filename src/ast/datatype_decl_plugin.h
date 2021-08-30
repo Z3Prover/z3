@@ -248,6 +248,8 @@ namespace datatype {
 
             def const& get_def(sort* s) const { return *(m_defs[datatype_name(s)]); }
             def& get_def(symbol const& s) { return *(m_defs[s]); }
+            ptr_vector<constructor> get_constructors(symbol const& s) const;
+            ptr_vector<accessor> get_accessors(symbol const& s) const;
             bool is_declared(sort* s) const { return m_defs.contains(datatype_name(s)); }
             unsigned get_axiom_base_id(symbol const& s) { return m_axiom_bases[s]; }
             util & u() const;
@@ -321,6 +323,7 @@ namespace datatype {
         bool is_covariant(ast_mark& mark, ptr_vector<sort>& subsorts, sort* s) const;
         def& get_def(symbol const& s) { return plugin().get_def(s); }        
         void get_subsorts(sort* s, ptr_vector<sort>& sorts) const;        
+        symbol datatype_name(sort* s) const { return s->get_parameter(0).get_symbol(); }
 
     public:
         util(ast_manager & m);

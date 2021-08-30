@@ -23,6 +23,7 @@ Author:
 namespace euf {
 
     class solver::user_sort {
+        solver& s;
         ast_manager& m;
         model_ref& mdl;
         expr_ref_vector& values;
@@ -31,7 +32,7 @@ namespace euf {
         obj_map<sort, expr_ref_vector*>    sort2values;
     public:
         user_sort(solver& s, expr_ref_vector& values, model_ref& mdl) :
-            m(s.m), mdl(mdl), values(values), factory(m) {}
+            s(s), m(s.m), mdl(mdl), values(values), factory(m) {}
 
         ~user_sort() {
             for (auto kv : sort2values)
@@ -41,10 +42,11 @@ namespace euf {
         void add(enode* r, sort* srt) {
             unsigned id = r->get_expr_id();
             expr_ref value(m);
-            if (m.is_value(r->get_expr())) 
+            if (m.is_value(r->get_expr()))
                 value = r->get_expr();
-            else 
+            else
                 value = factory.get_fresh_value(srt);
+            TRACE("model", tout << s.bpp(r) << " := " << value << "\n";);
             values.set(id, value);
             expr_ref_vector* vals = nullptr;
             if (!sort2values.find(srt, vals)) {
@@ -261,6 +263,18 @@ namespace euf {
         return m_values.get(n->get_root_id(), nullptr);
     }
 
+    void solver::display_validation_failure(std::ostream& out, model& mdl, enode* n) {
+        out << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(n->get_expr()) << "\n";
+        for (auto* arg : euf::enode_args(n)) {
+            expr_ref val = mdl(arg->get_expr());
+            expr_ref sval(m);
+            th_rewriter rw(m);
+            rw(val, sval);
+            out << bpp(arg) << "\n" << sval << "\n";
+        }
+        out << mdl << "\n";
+    }
+
     void solver::validate_model(model& mdl) {
         bool first = true;
         for (enode* n : m_egraph.nodes()) {
@@ -276,18 +290,12 @@ namespace euf {
                 continue;
             if (!tt && !mdl.is_true(e))
                 continue;
-            IF_VERBOSE(0, 
-                       verbose_stream() << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(e) << "\n";
-                       for (auto* arg : euf::enode_args(n))
-                           verbose_stream() << bpp(arg) << "\n" << mdl(arg->get_expr()) << "\n";);
-            CTRACE("euf", first, 
-                   tout << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(e) << "\n";
-                   s().display(tout);
-                   tout << mdl << "\n";);
+            IF_VERBOSE(0, display_validation_failure(verbose_stream(), mdl, n););
+            CTRACE("euf", first, display_validation_failure(tout, mdl, n););
             (void)first;
+            exit(1);
             first = false;
-        }
-        
+        }        
     }
 
 

@@ -699,9 +699,9 @@ namespace euf {
         return result;
     }
 
-    void solver::add_assumptions() {
+    void solver::add_assumptions(sat::literal_set& assumptions) {
         for (auto* e : m_solvers)
-            e->add_assumptions();
+            e->add_assumptions(assumptions);
     }
 
     bool solver::tracking_assumptions() {

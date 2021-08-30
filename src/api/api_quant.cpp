@@ -162,7 +162,7 @@ extern "C" {
         }
         result = mk_c(c)->m().mk_lambda(names.size(), ts, names.data(), to_expr(body));
         mk_c(c)->save_ast_trail(result.get());
-        return of_ast(result.get());
+        RETURN_Z3(of_ast(result.get()));
         Z3_CATCH_RETURN(nullptr);
     }
 
@@ -192,7 +192,7 @@ extern "C" {
         
         result = mk_c(c)->m().mk_lambda(_vars.size(), _vars.data(), _names.data(), result);
         mk_c(c)->save_ast_trail(result.get());
-        return of_ast(result.get());
+        RETURN_Z3(of_ast(result.get()));
         Z3_CATCH_RETURN(nullptr);
     }
 
