@@ -119,7 +119,35 @@ namespace polysat {
         // TODO: can this assertion be violated?
         // Yes, e.g.: constraint c was asserted at level 1, the conflict resolution derived ~c from c1,c2 at level 0...
         // In that case we have to adjust c0's level in the storage.
-        // What about the level of the boolean variable? That depends on its position in the assignment stack and should probably stay where it is. Will be updated separately when we patch the assignment stack.
+        // What about the level of the boolean variable? That depends on its position in the assignment stack and should probably stay where it is.
+        // Will be updated separately when we patch the assignment stack.
+
+        // NB code review: currently you separate dedup from insertion into the constraint table.
+        // It seems more convenient to also ensure that the new constraint is inserted into the table at this point.
+        // You also erase c from the constraint table in erase_bv2c.
+        // again association with m_constraint_table seems to be only for deduplication purposes.
+        //
+        // the store function is used separately from solver::new_constraint
+        // shouldn't it be combined with deduplication?
+        // in this way we can fix the level if a new duplicate constraint is created at a lower level
+#if 0
+        auto it = m_constraint_table.find(c1);
+        if (it == m_constraint_table.end()) {
+            store(c1);
+            m_constraint_table.insert(c1);
+            return c1;
+        }
+        constraint* c0 = *it;
+        if (c1->level() < c0->level()) {
+            m_constraints[c0->level()].erase(c0);
+            m_constraints[c1->level()].push_back(c0);
+            c0->m_level = c1->level();
+        }
+        dealloc(c1);
+        return c0;
+
+#endif
+        
         SASSERT(c0->level() <= c1->level());
         dealloc(c1);
         return c0;

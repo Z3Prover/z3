@@ -57,15 +57,6 @@ namespace polysat {
 
         vector<scoped_ptr_vector<constraint>> m_constraints;
         vector<vector<clause_ref>> m_clauses;
-
-        // NB code review: Elsewhere we use flat arrays for m_constraints, m_clauses and then
-        //         unsigned_vector m_constraints_lim;
-        //         unsigned        m_clauses_lim;
-        // The code for 'release_level' would require rewriting and the assumptions about how many
-        // scopes are released have to be revisited then. ~constraint_manager calls release_level
-        // to gc remaining constraints and ensure destruction. It's possible this call is not
-        // needed since memory management is scoped.
-
         
         // Association to external dependency values (i.e., external names for constraints)
         u_map<constraint*> m_external_constraints;
