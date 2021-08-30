@@ -699,8 +699,8 @@ namespace polysat {
         clause* cl = lemma.get();
         add_lemma(std::move(lemma));
         if (cl->size() == 1) {
-            sat::literal lit = cl->literals()[0];
-            signed_constraint c = m_constraints.lookup(lit);
+	    sat::literal lit = (*cl)[0];
+	    signed_constraint c = m_constraints.lookup(lit);
             c->set_unit_clause(cl);
             push_cjust(v, c);
             activate_constraint_base(c);
@@ -904,8 +904,8 @@ namespace polysat {
     void solver::propagate_bool(sat::literal lit, clause* reason) {
         LOG("Propagate boolean literal " << lit << " @ " << m_level << " by " << show_deref(reason));
         SASSERT(reason);
-        if (reason->literals().size() == 1) {
-            SASSERT(reason->literals()[0] == lit);
+        if (reason->size() == 1) {
+            SASSERT((*reason)[0] == lit);
             signed_constraint c = m_constraints.lookup(lit);
             // m_redundant.push_back(c);
             activate_constraint_base(c);
@@ -989,7 +989,7 @@ namespace polysat {
         clause* cl = m_constraints.store(std::move(lemma));
         m_redundant_clauses.push_back(cl);
         if (cl->size() == 1) {
-            signed_constraint c = m_constraints.lookup(cl->literals()[0]);
+            signed_constraint c = m_constraints.lookup((*cl)[0]);
             insert_constraint(m_redundant, c);
         }
     }

@@ -24,7 +24,6 @@ Author:
 namespace polysat {
 
     enum ckind_t { eq_t, ule_t };
-    enum csign_t : bool { neg_t = false, pos_t = true };
 
     class constraint;
     class eq_constraint;
@@ -55,9 +54,19 @@ namespace polysat {
         constraint_table m_constraint_table;
 
         // Constraint storage per level
+
         vector<scoped_ptr_vector<constraint>> m_constraints;
         vector<vector<clause_ref>> m_clauses;
 
+        // NB code review: Elsewhere we use flat arrays for m_constraints, m_clauses and then
+        //         unsigned_vector m_constraints_lim;
+        //         unsigned        m_clauses_lim;
+        // The code for 'release_level' would require rewriting and the assumptions about how many
+        // scopes are released have to be revisited then. ~constraint_manager calls release_level
+        // to gc remaining constraints and ensure destruction. It's possible this call is not
+        // needed since memory management is scoped.
+
+        
         // Association to external dependency values (i.e., external names for constraints)
         u_map<constraint*> m_external_constraints;
 
@@ -126,6 +135,8 @@ namespace polysat {
          *  If this is not null_bool_var, then the constraint corresponds to a literal on the assignment stack.
          *  Convention: the plain constraint corresponds the positive sat::literal.
          */
+        // NB code review: the convention would make sense. Unfortunately, elsewhere in z3 we use "true" for negative literals
+        // and "false" for positive literals. It is called the "sign" bit.
         sat::bool_var       m_bvar = sat::null_bool_var;
 
         constraint(constraint_manager& m, unsigned lvl, ckind_t k):
@@ -137,8 +148,8 @@ namespace polysat {
     public:
         virtual ~constraint() {}
 
-	    virtual unsigned hash() const = 0;
-	    virtual bool operator==(constraint const& other) const = 0;
+        virtual unsigned hash() const = 0;
+        virtual bool operator==(constraint const& other) const = 0;
 
         bool is_eq() const { return m_kind == ckind_t::eq_t; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }
@@ -296,7 +307,9 @@ namespace polysat {
     };
 
     template <bool is_owned>
-    inline std::ostream& operator<<(std::ostream& out, signed_constraint_base<is_owned> const& c) { return c.display(out); }
+    inline std::ostream& operator<<(std::ostream& out, signed_constraint_base<is_owned> const& c) {
+        return c.display(out);
+    }
 
     inline signed_constraint operator~(signed_constraint const& c) {
         return {c.get(), !c.is_positive()};
@@ -306,8 +319,12 @@ namespace polysat {
         return {c.detach(), !c.is_positive()};
     }
 
-
     /// Disjunction of constraints represented by boolean literals
+    // NB code review:
+    // right, ref-count is unlikely the right mechanism.
+    // In the SAT solver all clauses are managed in one arena (auxiliarary and redundant)
+    // and deleted when they exist the arena.
+    //
     class clause {
         friend class constraint_manager;
 
@@ -327,8 +344,7 @@ namespace polysat {
         */
 
         clause(unsigned lvl, p_dependency_ref d, sat::literal_vector literals):
-            m_level(lvl), m_dep(std::move(d)), m_literals(std::move(literals))
-        {
+            m_level(lvl), m_dep(std::move(d)), m_literals(std::move(literals)) {
             SASSERT(std::count(m_literals.begin(), m_literals.end(), sat::null_literal) == 0);
         }
 
@@ -342,7 +358,6 @@ namespace polysat {
         // Resolve with 'other' upon 'var'.
         bool resolve(sat::bool_var var, clause const& other);
 
-        sat::literal_vector const& literals() const { return m_literals; }
         p_dependency* dep() const { return m_dep; }
         unsigned level() const { return m_level; }
 
@@ -358,7 +373,7 @@ namespace polysat {
         bool is_currently_false(solver& s) const;
 
         unsigned next_guess() {
-            SASSERT(m_next_guess < m_literals.size());
+            SASSERT(m_next_guess < size());
             return m_next_guess++;
         }
 

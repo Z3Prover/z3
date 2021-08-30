@@ -259,7 +259,7 @@ namespace polysat {
             if (lit.var() != var)
                 m_literals[j++] = lit;
         m_literals.shrink(j);
-        for (sat::literal lit : other.literals())
+        for (sat::literal lit : other)
             if (lit.var() != var)
                 m_literals.push_back(lit);
         return true;
@@ -267,7 +267,7 @@ namespace polysat {
 
     std::ostream& clause::display(std::ostream& out) const {
         bool first = true;
-        for (auto lit : literals()) {
+        for (auto lit : *this) {
             if (first)
                 first = false;
             else

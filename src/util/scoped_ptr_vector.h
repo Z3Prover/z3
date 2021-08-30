@@ -81,6 +81,7 @@ public:
         m_vector[m_vector.size()-1] = tmp;
     }
 
+
     ptr_vector<T> detach() {
         ptr_vector<T> tmp(std::move(m_vector));
         SASSERT(m_vector.empty());
