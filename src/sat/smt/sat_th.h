@@ -182,6 +182,7 @@ namespace euf {
         sat::literal mk_literal(expr* e) const;
         theory_var get_th_var(enode* n) const { return n->get_th_var(get_id()); }
         theory_var get_th_var(expr* e) const;
+        theory_var get_representative(theory_var v) const;
         trail_stack& get_trail_stack();
         bool is_attached_to_var(enode* n) const;
         bool is_root(theory_var v) const { return var2enode(v)->is_root(); }
