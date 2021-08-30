@@ -56,6 +56,11 @@ namespace polysat {
         return c;
     }
 
+    clause* constraint_manager::store(clause_ref cl) {
+        // TODO
+        return nullptr;
+    }
+
     void constraint_manager::register_external(constraint* c) {
         SASSERT(c);
         SASSERT(c->unit_dep());

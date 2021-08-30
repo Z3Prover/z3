@@ -37,7 +37,7 @@ namespace polysat {
         bool is_currently_false(solver& s, bool is_positive) override;
         bool is_currently_true(solver& s, bool is_positive) override;
         void narrow(solver& s, bool is_positive) override;
-        bool forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, constraint_literal_ref& out_neg_cond) override;
+        bool forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, scoped_signed_constraint& out_neg_cond) override;
         inequality as_inequality(bool is_positive) const override;
         unsigned hash() const override;
         bool operator==(constraint const& other) const override;

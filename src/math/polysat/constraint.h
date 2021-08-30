@@ -75,6 +75,8 @@ namespace polysat {
          */
         constraint* store(scoped_ptr<constraint> c);
 
+        clause* store(clause_ref cl);
+
         /// Register a unit clause with an external dependency.
         void register_external(constraint* c);
 

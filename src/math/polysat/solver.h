@@ -61,7 +61,7 @@ namespace polysat {
         friend class assignments_pp;
 
         typedef ptr_vector<constraint> constraints;
-        typedef vector<constraint_literal> constraint_literals;
+        typedef vector<signed_constraint> signed_constraints;
 
         reslimit&                m_lim;
         params_ref               m_params;
@@ -84,8 +84,8 @@ namespace polysat {
 
         // Per constraint state
         constraint_manager       m_constraints;
-        constraint_literals      m_original;
-        constraint_literals      m_redundant;
+        signed_constraints       m_original;
+        signed_constraints       m_redundant;
         ptr_vector<clause>       m_redundant_clauses;
 
         svector<sat::bool_var>   m_disjunctive_lemma;
@@ -93,8 +93,8 @@ namespace polysat {
         // Per variable information
         vector<rational>         m_value;    // assigned value
         vector<justification>    m_justification; // justification for variable assignment
-        vector<constraint_literals> m_cjust;    // constraints justifying variable range.
-        vector<constraint_literals> m_watch;    // watch list datastructure into constraints.
+        vector<signed_constraints> m_cjust;    // constraints justifying variable range.
+        vector<signed_constraints> m_watch;    // watch list datastructure into constraints.
         unsigned_vector          m_activity; 
         vector<pdd>              m_vars;
         unsigned_vector          m_size;     // store size of variables.
@@ -128,7 +128,7 @@ namespace polysat {
             m_qhead_trail.pop_back();
         }
 
-        void push_cjust(pvar v, constraint_literal c) {
+        void push_cjust(pvar v, signed_constraint c) {
             if (m_cjust[v].contains(c))  // TODO: better check (flag on constraint?)
                 return;
             LOG_V("cjust[v" << v << "] += " << c);
@@ -151,14 +151,14 @@ namespace polysat {
 
         void push_level();
         void pop_levels(unsigned num_levels);
-        void pop_constraints(constraint_literals& cs);
+        void pop_constraints(signed_constraints& cs);
 
         void assign_bool_backtrackable(sat::literal lit, clause* reason, clause* lemma);
-        void activate_constraint_base(constraint_literal c);
+        void activate_constraint_base(signed_constraint c);
         void assign_bool_core(sat::literal lit, clause* reason, clause* lemma);
         // void assign_bool_base(sat::literal lit);
-        void activate_constraint(constraint_literal c);
-        void deactivate_constraint(constraint_literal c);
+        void activate_constraint(signed_constraint c);
+        void deactivate_constraint(signed_constraint c);
         sat::literal decide_bool(clause& lemma);
         void decide_bool(sat::literal lit, clause& lemma);
         void propagate_bool(sat::literal lit, clause* reason);
@@ -171,13 +171,13 @@ namespace polysat {
 
         void propagate(sat::literal lit);
         void propagate(pvar v);
-        void propagate(pvar v, rational const& val, constraint_literal c);
-        void erase_watch(pvar v, constraint_literal c);
-        void erase_watch(constraint_literal c);
-        void add_watch(constraint_literal c);
-        void add_watch(constraint_literal c, pvar v);
+        void propagate(pvar v, rational const& val, signed_constraint c);
+        void erase_watch(pvar v, signed_constraint c);
+        void erase_watch(signed_constraint c);
+        void add_watch(signed_constraint c);
+        void add_watch(signed_constraint c, pvar v);
 
-        void set_conflict(constraint_literal c);
+        void set_conflict(signed_constraint c);
         void set_conflict(pvar v);
 
         unsigned_vector m_marks;
@@ -219,17 +219,17 @@ namespace polysat {
         void backjump(unsigned new_level);
         void add_lemma(clause_ref lemma);
 
-        constraint_literal_ref mk_eq(pdd const& p);
-        constraint_literal_ref mk_diseq(pdd const& p);
-        constraint_literal_ref mk_ule(pdd const& p, pdd const& q);
-        constraint_literal_ref mk_ult(pdd const& p, pdd const& q);
-        constraint_literal_ref mk_sle(pdd const& p, pdd const& q);
-        constraint_literal_ref mk_slt(pdd const& p, pdd const& q);
-        void new_constraint(constraint_literal_ref c, unsigned dep, bool activate);
-        static void insert_constraint(constraint_literals& cs, constraint_literal c);
+        scoped_signed_constraint mk_eq(pdd const& p);
+        scoped_signed_constraint mk_diseq(pdd const& p);
+        scoped_signed_constraint mk_ule(pdd const& p, pdd const& q);
+        scoped_signed_constraint mk_ult(pdd const& p, pdd const& q);
+        scoped_signed_constraint mk_sle(pdd const& p, pdd const& q);
+        scoped_signed_constraint mk_slt(pdd const& p, pdd const& q);
+        void new_constraint(scoped_signed_constraint c, unsigned dep, bool activate);
+        static void insert_constraint(signed_constraints& cs, signed_constraint c);
 
         bool invariant();
-        static bool invariant(constraint_literals const& cs);
+        static bool invariant(signed_constraints const& cs);
         bool wlist_invariant();
         bool verify_sat();
 

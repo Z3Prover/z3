@@ -39,17 +39,18 @@ namespace polysat {
         m_needs_model = false;
     }
 
-    void conflict_core::set(constraint_literal c) {
+    void conflict_core::set(signed_constraint c) {
         LOG("Conflict: " << c);
         SASSERT(empty());
         m_constraints.push_back(std::move(c));
         m_needs_model = true;
     }
 
-    void conflict_core::set(pvar v, vector<constraint_literal> const& cjust_v) {
+    void conflict_core::set(pvar v, vector<signed_constraint> const& cjust_v) {
         LOG("Conflict for v" << v << ": " << cjust_v);
         SASSERT(empty());
         NOT_IMPLEMENTED_YET();
+        m_conflict_var = v;
         m_constraints.append(cjust_v);
         if (cjust_v.empty())
             m_constraints.push_back({});

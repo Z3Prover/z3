@@ -18,8 +18,14 @@ namespace polysat {
 
     /** Conflict state, represented as core (~negation of clause). */
     class conflict_core {
-        // TODO: core needs to own the constraint literals...
-        vector<constraint_literal> m_constraints;
+        vector<signed_constraint> m_constraints;
+
+        /** Storage for new constraints that may not yet have a boolean variable yet */
+        ptr_vector<constraint> m_storage;
+
+        // If this is not null_var, the conflict was due to empty viable set for this variable.
+        // Can be treated like "v = x" for any value x.
+        pvar m_conflict_var = null_var;
 
         /** True iff the conflict depends on the current variable assignment. (If so, additional constraints must be added to the final learned clause.) */
         bool m_needs_model = false;
@@ -28,8 +34,11 @@ namespace polysat {
         //       For example: if we have 4x+y=2 and y=0, then we have a conflict no matter the value of x, so we should drop x=? from the core.
 
     public:
+        ~conflict_core() {
+            gc();
+        }
 
-        vector<constraint_literal> const& constraints() const { return m_constraints; }
+        vector<signed_constraint> const& constraints() const { return m_constraints; }
         bool needs_model() const { return m_needs_model; }
 
         bool empty() const {
@@ -39,15 +48,24 @@ namespace polysat {
         void reset() {
             m_constraints.reset();
             m_needs_model = false;
+            gc();
             SASSERT(empty());
         }
 
         /** for bailing out with a conflict at the base level */
         void set(std::nullptr_t);
         /** conflict because the constraint c is false under current variable assignment */
-        void set(constraint_literal c);
+        void set(signed_constraint c);
         /** conflict because there is no viable value for the variable v */
-        void set(pvar v, vector<constraint_literal> const& cjust_v);
+        void set(pvar v, vector<signed_constraint> const& cjust_v);
+
+        /** Garbage-collect temporary constraints */
+        void gc() {
+            for (auto* c : m_storage)
+                if (!c->has_bvar())
+                    dealloc(c);
+            m_storage.reset();
+        }
 
         std::ostream& display(std::ostream& out) const;
     };

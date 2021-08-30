@@ -12,6 +12,7 @@ Author:
 
 --*/
 #pragma once
+#include "math/polysat/conflict_core.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/clause_builder.h"
 #include "math/polysat/interval.h"
@@ -43,13 +44,14 @@ namespace polysat {
         conflict_explainer(solver& s);
 
         /** resolve conflict state against assignment to v */
-        clause_ref resolve(pvar v, ptr_vector<constraint> const& cjust_v);
+        void resolve(pvar v, ptr_vector<constraint> const& cjust_v);
+        void resolve(sat::literal lit);
 
         // TODO: move conflict resolution from solver into this class.
         //       we have a single public method as entry point to conflict resolution.
         //       what do we need to return?
 
-        /** conflict resolution */
+        /** conflict resolution until first (relevant) decision */
         void resolve();
     };
 }
