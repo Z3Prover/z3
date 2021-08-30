@@ -21,6 +21,9 @@ Author:
 
 namespace polysat {
 
+    static_assert(!std::is_copy_assignable_v<scoped_signed_constraint>);
+    static_assert(!std::is_copy_constructible_v<scoped_signed_constraint>);
+
     void constraint_manager::assign_bv2c(sat::bool_var bv, constraint* c) {
         SASSERT_EQ(get_bv2c(bv), nullptr);
         SASSERT(!c->has_bvar());
@@ -114,15 +117,15 @@ namespace polysat {
         return c0;
     }
 
-    signed_constraint constraint_manager::eq(unsigned lvl, pdd const& p) {
+    scoped_signed_constraint constraint_manager::eq(unsigned lvl, pdd const& p) {
         return {dedup(alloc(eq_constraint, *this, lvl, p)), true};
     }
 
-    signed_constraint constraint_manager::ule(unsigned lvl, pdd const& a, pdd const& b) {
+    scoped_signed_constraint constraint_manager::ule(unsigned lvl, pdd const& a, pdd const& b) {
         return {dedup(alloc(ule_constraint, *this, lvl, a, b)), true};
     }
 
-    signed_constraint constraint_manager::ult(unsigned lvl, pdd const& a, pdd const& b) {
+    scoped_signed_constraint constraint_manager::ult(unsigned lvl, pdd const& a, pdd const& b) {
         // a < b  <=>  !(b <= a)
         return ~ule(lvl, b, a);
     }
@@ -143,12 +146,12 @@ namespace polysat {
     //
     // Argument: flipping the msb swaps the negative and non-negative blocks
     //
-    signed_constraint constraint_manager::sle(unsigned lvl, pdd const& a, pdd const& b) {
+    scoped_signed_constraint constraint_manager::sle(unsigned lvl, pdd const& a, pdd const& b) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
         return ule(lvl, a + shift, b + shift);
     }
 
-    signed_constraint constraint_manager::slt(unsigned lvl, pdd const& a, pdd const& b) {
+    scoped_signed_constraint constraint_manager::slt(unsigned lvl, pdd const& a, pdd const& b) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
         return ult(lvl, a + shift, b + shift);
     }
@@ -204,13 +207,6 @@ namespace polysat {
         (void)v;
         (void)other_v;
         narrow(s, is_positive);
-    }
-
-    std::ostream &signed_constraint::display(std::ostream &out) const {
-        if (m_constraint)
-            return m_constraint->display(out, to_lbool(is_positive()));
-        else
-            return out << "<null>";
     }
 
     clause_ref clause::from_unit(signed_constraint c, p_dependency_ref d) {

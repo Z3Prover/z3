@@ -26,29 +26,17 @@ namespace polysat {
     enum csign_t : bool { neg_t = false, pos_t = true };
 
     class constraint;
-
-    class signed_constraint;
-
-    class constraint_manager;
-    class clause;
-    class scoped_clause;
     class eq_constraint;
     class ule_constraint;
-    using constraint_ref = ref<constraint>;
-    using constraint_ref_vector = sref_vector<constraint>;
-    using constraint_literal_ref_vector = vector<constraint_literal_ref>;
+
+    template <bool is_owned>
+    class signed_constraint_base;
+    using signed_constraint = signed_constraint_base<false>;
+    using scoped_signed_constraint = signed_constraint_base<true>;
+
+    class clause;
     using clause_ref = ref<clause>;
     using clause_ref_vector = sref_vector<clause>;
-
-    // template <typename T>
-    // struct ptr_deref_hash {
-    //     unsigned operator()(T const* p) const { return p->hash(); }
-    // };
-
-    // template <typename T>
-    // struct ptr_deref_eq {
-    //     bool operator()(T const* p, T const* q) const { return *p == *q; }
-    // };
 
     using constraint_table = ptr_hashtable<constraint, obj_ptr_hash<constraint>, deref_eq<constraint>>;
 
@@ -97,11 +85,11 @@ namespace polysat {
         signed_constraint lookup(sat::literal lit) const;
         constraint* lookup_external(unsigned dep) const { return m_external_constraints.get(dep, nullptr); }
 
-        signed_constraint eq(unsigned lvl, pdd const& p);
-        signed_constraint ule(unsigned lvl, pdd const& a, pdd const& b);
-        signed_constraint ult(unsigned lvl, pdd const& a, pdd const& b);
-        signed_constraint sle(unsigned lvl, pdd const& a, pdd const& b);
-        signed_constraint slt(unsigned lvl, pdd const& a, pdd const& b);
+        scoped_signed_constraint eq(unsigned lvl, pdd const& p);
+        scoped_signed_constraint ule(unsigned lvl, pdd const& a, pdd const& b);
+        scoped_signed_constraint ult(unsigned lvl, pdd const& a, pdd const& b);
+        scoped_signed_constraint sle(unsigned lvl, pdd const& a, pdd const& b);
+        scoped_signed_constraint slt(unsigned lvl, pdd const& a, pdd const& b);
     };
 
 
@@ -181,27 +169,28 @@ namespace polysat {
          * \returns True iff a forbidden interval exists and the output parameters were set.
          */
         // TODO: we can probably remove this and unify the implementations for both cases by relying on as_inequality().
-        virtual bool forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, signed_constraint& out_neg_cond) { return false; }
+        virtual bool forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, scoped_signed_constraint& out_neg_cond) { return false; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
 
 
-    class signed_constraint {
-        constraint* m_constraint = nullptr;
-        bool m_positive;
+    template <bool is_owned>
+    class signed_constraint_base final {
+    public:
+        using ptr_t = std::conditional_t<is_owned, scoped_ptr<constraint>, constraint*>;
+
+    private:
+        ptr_t m_constraint = nullptr;
+        bool m_positive = true;
 
     public:
-        signed_constraint() {}
-        signed_constraint(constraint* c, bool is_positive):
+        signed_constraint_base() {}
+        signed_constraint_base(constraint* c, bool is_positive):
             m_constraint(c), m_positive(is_positive) {}
-        signed_constraint(constraint* c, sat::literal lit):
-            signed_constraint(c, !lit.sign()) {
+        signed_constraint_base(constraint* c, sat::literal lit):
+            signed_constraint_base(c, !lit.sign()) {
             SASSERT_EQ(blit(), lit);
-        }
-
-        signed_constraint operator~() const {
-            return {m_constraint, !m_positive};
         }
 
         void negate() {
@@ -221,22 +210,40 @@ namespace polysat {
 
         sat::bool_var bvar() const { return m_constraint->bvar(); }
         sat::literal blit() const { return sat::literal(bvar(), is_negative()); }
-        constraint* get() const { return m_constraint; }
+        constraint* get() const { if constexpr (is_owned) return m_constraint.get(); else return m_constraint; }
+        signed_constraint get_signed() const { return {get(), m_positive}; }
+        template <bool Owned = is_owned>
+        std::enable_if_t<Owned, constraint*> detach() { return m_constraint.detach(); }
 
         explicit operator bool() const { return !!m_constraint; }
         bool operator!() const { return !m_constraint; }
-        constraint* operator->() const { return m_constraint; }
+        constraint* operator->() const { return get(); }
         constraint const& operator*() const { return *m_constraint; }
 
-        signed_constraint& operator=(std::nullptr_t) { m_constraint = nullptr; return *this; }
+        signed_constraint_base<is_owned>& operator=(std::nullptr_t) { m_constraint = nullptr; return *this; }
 
-        std::ostream& display(std::ostream& out) const;
+        bool operator==(signed_constraint_base<is_owned> const& other) const {
+            return get() == other.get() && is_positive() == other.is_positive();
+        }
+
+        std::ostream& display(std::ostream& out) const {
+            if (m_constraint)
+                return m_constraint->display(out, to_lbool(is_positive()));
+            else
+                return out << "<null>";
+        }
     };
 
-    inline std::ostream& operator<<(std::ostream& out, signed_constraint const& c) { return c.display(out); }
+    template <bool is_owned>
+    inline std::ostream& operator<<(std::ostream& out, signed_constraint_base<is_owned> const& c) { return c.display(out); }
 
+    inline signed_constraint operator~(signed_constraint const& c) {
+        return {c.get(), !c.is_positive()};
+    }
 
-
+    inline scoped_signed_constraint operator~(scoped_signed_constraint&& c) {
+        return {c.detach(), !c.is_positive()};
+    }
 
 
     /// Disjunction of constraints represented by boolean literals
