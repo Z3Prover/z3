@@ -3206,7 +3206,7 @@ def Q(a, b, ctx=None):
     >>> Q(3,5).sort()
     Real
     """
-    return simplify(RatVal(a, b))
+    return simplify(RatVal(a, b, ctx=ctx))
 
 
 def Int(name, ctx=None):
@@ -10578,7 +10578,7 @@ class SeqSortRef(SortRef):
 
 class CharSortRef(SortRef):
     """Character sort."""
-    
+
 
 
 def StringSort(ctx=None):
