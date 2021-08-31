@@ -195,6 +195,8 @@ namespace q {
             }
             if (is_var(t)) {
                 m_mark.mark(t);
+                if (to_var(t)->get_idx() >= n)
+                    return nullptr;
                 m_eval.setx(t->get_id(), binding[n - 1 - to_var(t)->get_idx()], nullptr);
                 todo.pop_back();
                 continue;
