@@ -66,7 +66,7 @@ namespace lp_api {
         lp::constraint_index get_constraint(bool b) const { return m_constraints[b]; }
 
         inf_rational get_value(bool is_true) const {
-            if (is_true) 
+            if (is_true != get_lit().sign()) 
                 return inf_rational(m_value);                         // v >= value or v <= value
             if (m_is_int) {
                 SASSERT(m_value.is_int());

@@ -32,20 +32,12 @@ namespace arith {
     {
         m_solver = alloc(lp::lar_solver);
 
-        smt_params_helper lpar(ctx.s().params());
+        lp().updt_params(ctx.s().params());
         lp().settings().set_resource_limit(m_resource_limit);
-        lp().settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lpar.arith_simplex_strategy());
         lp().settings().bound_propagation() = bound_prop_mode::BP_NONE != propagation_mode();
-        lp().settings().enable_hnf() = lpar.arith_enable_hnf();
-        lp().settings().print_external_var_name() = lpar.arith_print_ext_var_names();
-        lp().set_track_pivoted_rows(lpar.arith_bprop_on_pivoted_rows());
-        lp().settings().report_frequency = lpar.arith_rep_freq();
-        lp().settings().print_statistics = lpar.arith_print_stats();
-        lp().settings().cheap_eqs() = lpar.arith_propagate_eqs();
-        lp().set_cut_strategy(get_config().m_arith_branch_cut_ratio);
         lp().settings().int_run_gcd_test() = get_config().m_arith_gcd_test;
         lp().settings().set_random_seed(get_config().m_random_seed);
-
+        
         m_lia = alloc(lp::int_solver, *m_solver.get());
     }
 
@@ -78,14 +70,15 @@ namespace arith {
         }
 
         // clone rows into m_solver, m_nla, m_lia
-        NOT_IMPLEMENTED_YET();
+        // NOT_IMPLEMENTED_YET();
 
         return result;        
     }
 
     bool solver::unit_propagate() {
+        TRACE("arith", tout << "unit propagate\n";);
         m_model_is_initialized = false;
-        if (!m_new_eq && m_new_bounds.empty() && m_asserted_qhead == m_asserted.size())
+        if (!m_solver->has_changed_columns() && !m_new_eq && m_new_bounds.empty() && m_asserted_qhead == m_asserted.size())
             return false;
 
         m_new_eq = false;
@@ -146,26 +139,31 @@ namespace arith {
         lp_api::bound_kind k = b.get_bound_kind();
         theory_var v = b.get_var();
         inf_rational val = b.get_value(is_true);
+        bool same_polarity = b.get_lit().sign() == lit1.sign();
         lp_bounds const& bounds = m_bounds[v];
         SASSERT(!bounds.empty());
         if (bounds.size() == 1) return;
         if (m_unassigned_bounds[v] == 0) return;
         bool v_is_int = b.is_int();
         literal lit2 = sat::null_literal;
-        bool find_glb = (is_true == (k == lp_api::lower_t));
-        TRACE("arith", tout << "v" << v << " find_glb: " << find_glb << " is_true: " << is_true << " k: " << k << " is_lower: " << (k == lp_api::lower_t) << "\n";);
+        bool find_glb = (same_polarity == (k == lp_api::lower_t));
+        TRACE("arith", tout << lit1 << " v" << v << " val " << val << " find_glb: " << find_glb << " is_true: " << is_true << " k: " << k << " is_lower: " << (k == lp_api::lower_t) << "\n";);
         if (find_glb) {
             rational glb;
             api_bound* lb = nullptr;
             for (api_bound* b2 : bounds) {
-                if (b2 == &b) continue;
+                if (b2 == &b) 
+                    continue;
                 rational const& val2 = b2->get_value();
-                if (((is_true || v_is_int) ? val2 < val : val2 <= val) && (!lb || glb < val2)) {
+                if (lb && glb >= val2)
+                    continue;
+                if (((same_polarity || v_is_int) ? val2 < val : val2 <= val)) {
                     lb = b2;
                     glb = val2;
                 }
             }
-            if (!lb) return;
+            if (!lb) 
+                return;
             bool sign = lb->get_bound_kind() != lp_api::lower_t;
             lit2 = lb->get_lit();
             if (sign)
@@ -175,14 +173,18 @@ namespace arith {
             rational lub;
             api_bound* ub = nullptr;
             for (api_bound* b2 : bounds) {
-                if (b2 == &b) continue;
+                if (b2 == &b) 
+                    continue;
                 rational const& val2 = b2->get_value();
-                if (((is_true || v_is_int) ? val < val2 : val <= val2) && (!ub || val2 < lub)) {
+                if (ub && val2 >= lub)
+                    continue;
+                if (((same_polarity || v_is_int) ? val < val2 : val <= val2)) {
                     ub = b2;
                     lub = val2;
                 }
             }
-            if (!ub) return;
+            if (!ub) 
+                return;
             bool sign = ub->get_bound_kind() != lp_api::upper_t;
             lit2 = ub->get_lit();
             if (sign)
@@ -195,6 +197,7 @@ namespace arith {
         m_params.push_back(parameter(m_farkas));
         m_params.push_back(parameter(rational(1)));
         m_params.push_back(parameter(rational(1)));
+        TRACE("arith", tout << lit2 << " <- " << m_core << "\n";);
         assign(lit2, m_core, m_eqs, m_params);
         ++m_stats.m_bounds_propagations;
     }
@@ -307,18 +310,16 @@ namespace arith {
             return;
         enode* n1 = var2enode(uv);
         enode* n2 = var2enode(vv);
-        if (!ctx.is_shared(n1) || !ctx.is_shared(n2))
-            return;
         expr* e1 = n1->get_expr();
         expr* e2 = n2->get_expr();
         if (m.is_ite(e1) || m.is_ite(e2))
             return;
-        if (m.get_sort(e1) != m.get_sort(e2))
+        if (e1->get_sort() != e2->get_sort())
             return;
         reset_evidence();
-        for (auto const& ev : e)
+        for (auto ev : e)
             set_evidence(ev.ci(), m_core, m_eqs);
-        auto* jst = euf::th_propagation::mk(*this, m_core, m_eqs);
+        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, n1, n2);
         ctx.propagate(n1, n2, jst->to_index());
     }
 
@@ -402,12 +403,13 @@ namespace arith {
 
     }
 
-    void solver::propagate_eqs(lp::tv t, lp::constraint_index ci, lp::lconstraint_kind k, api_bound& b, rational const& value) {
-        if (k == lp::GE && set_lower_bound(t, ci, value) && has_upper_bound(t.index(), ci, value)) {
-            fixed_var_eh(b.get_var(), value);
+    void solver::propagate_eqs(lp::tv t, lp::constraint_index ci1, lp::lconstraint_kind k, api_bound& b, rational const& value) {
+        lp::constraint_index ci2;
+        if (k == lp::GE && set_lower_bound(t, ci1, value) && has_upper_bound(t.index(), ci2, value)) {
+            fixed_var_eh(b.get_var(), ci1, ci2, value);
         }
-        else if (k == lp::LE && set_upper_bound(t, ci, value) && has_lower_bound(t.index(), ci, value)) {
-            fixed_var_eh(b.get_var(), value);
+        else if (k == lp::LE && set_upper_bound(t, ci1, value) && has_lower_bound(t.index(), ci2, value)) {
+            fixed_var_eh(b.get_var(), ci1, ci2, value);
         }
     }
 
@@ -423,7 +425,7 @@ namespace arith {
             if (b.first == UINT_MAX || (is_lower ? b.second < v : b.second > v)) {
                 TRACE("arith", tout << "tighter bound " << tv.to_string() << "\n";);
                 m_history.push_back(vec[ti]);
-                ctx.push(history_trail<euf::solver, constraint_bound>(vec, ti, m_history));
+                ctx.push(history_trail<constraint_bound>(vec, ti, m_history));
                 b.first = ci;
                 b.second = v;
             }
@@ -588,6 +590,7 @@ namespace arith {
                        verbose_stream() << n->bool_var() << " " << n->value() << " " << get_phase(n->bool_var()) << " " << ctx.bpp(n) << "\n";
                        verbose_stream() << *b << "\n";);
             IF_VERBOSE(0, ctx.display(verbose_stream()));
+            IF_VERBOSE(0, verbose_stream() << mdl << "\n");
             UNREACHABLE();
         }
     }
@@ -612,34 +615,42 @@ namespace arith {
             SASSERT("integer variables should have integer values: " && (!a.is_int(o) || r.is_int() || m.limit().is_canceled()));
             if (a.is_int(o) && !r.is_int()) 
                 r = floor(r);
-            value = a.mk_numeral(r, m.get_sort(o));
+            value = a.mk_numeral(r, o->get_sort());
         }
         else if (a.is_arith_expr(o)) {
             expr_ref_vector args(m);
-            for (auto* arg : euf::enode_args(n)) {
-                if (m.is_value(arg->get_expr()))
-                    args.push_back(arg->get_expr());
+            for (auto* arg : *to_app(o)) {
+                if (m.is_value(arg))
+                    args.push_back(arg);
                 else 
-                    args.push_back(values.get(arg->get_root_id()));
+                    args.push_back(values.get(ctx.get_enode(arg)->get_root_id()));
             }
-            value = m.mk_app(to_app(o)->get_decl(), args.size(), args.c_ptr());
+            value = m.mk_app(to_app(o)->get_decl(), args.size(), args.data());
             ctx.get_rewriter()(value);
         }
         else {
-            UNREACHABLE();
+            value = mdl.get_fresh_value(o->get_sort());
         }
+        mdl.register_value(value);
         values.set(n->get_root_id(), value);
     }
 
-    void solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
+    bool solver::add_dep(euf::enode* n, top_sort<euf::enode>& dep) {
+        theory_var v = n->get_th_var(get_id());
+        if (v == euf::null_theory_var && !a.is_arith_expr(n->get_expr()))
+            return false;
         expr* e = n->get_expr();
         if (a.is_arith_expr(e) && to_app(e)->get_num_args() > 0) {
-            for (auto* arg : euf::enode_args(n))
-                dep.add(n, arg);
+            for (auto* arg : *to_app(e)) {
+                auto* earg = expr2enode(arg);
+                if (earg)
+                    dep.add(n, earg);
+            }
         }
         else {
             dep.insert(n, nullptr); 
         }
+        return true;
     }
 
     void solver::push_core() {
@@ -718,7 +729,7 @@ namespace arith {
         set_evidence(ci4, m_core, m_eqs);
         enode* x = var2enode(v1);
         enode* y = var2enode(v2);
-        auto* jst = euf::th_propagation::mk(*this, m_core, m_eqs);
+        auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, x, y);
         ctx.propagate(x, y, jst->to_index());
     }
 
@@ -765,7 +776,7 @@ namespace arith {
 
     void solver::updt_unassigned_bounds(theory_var v, int inc) {
         TRACE("arith_verbose", tout << "v" << v << " " << m_unassigned_bounds[v] << " += " << inc << "\n";);
-        ctx.push(vector_value_trail<euf::solver, unsigned, false>(m_unassigned_bounds, v));
+        ctx.push(vector_value_trail<unsigned, false>(m_unassigned_bounds, v));
         m_unassigned_bounds[v] += inc;
     }
 
@@ -792,7 +803,7 @@ namespace arith {
     void solver::init_model() {
         if (m.inc() && m_solver.get() && get_num_vars() > 0) {
             TRACE("arith", display(tout << "update variable values\n"););
-            ctx.push(value_trail<euf::solver, bool>(m_model_is_initialized));
+            ctx.push(value_trail<bool>(m_model_is_initialized));
             m_model_is_initialized = true;
             lp().init_model();
         }
@@ -869,7 +880,7 @@ namespace arith {
             }
         }
         if (!vars.empty())
-            lp().random_update(vars.size(), vars.c_ptr());
+            lp().random_update(vars.size(), vars.data());
     }
 
     bool solver::assume_eqs() {
@@ -895,7 +906,7 @@ namespace arith {
         }
 
         if (m_assume_eq_candidates.size() > old_sz)
-            ctx.push(restore_size_trail<euf::solver, std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
+            ctx.push(restore_size_trail<std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
 
         return delayed_assume_eqs();
     }
@@ -904,7 +915,7 @@ namespace arith {
         if (m_assume_eq_head == m_assume_eq_candidates.size())
             return false;
 
-        ctx.push(value_trail<euf::solver, unsigned>(m_assume_eq_head));
+        ctx.push(value_trail<unsigned>(m_assume_eq_head));
         while (m_assume_eq_head < m_assume_eq_candidates.size()) {
             std::pair<theory_var, theory_var> const& p = m_assume_eq_candidates[m_assume_eq_head];
             theory_var v1 = p.first;
@@ -953,7 +964,7 @@ namespace arith {
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         SASSERT(lp().ax_is_correct());
 
-        if (lp().get_status() != lp::lp_status::OPTIMAL) {
+        if (lp().get_status() != lp::lp_status::OPTIMAL || lp().has_changed_columns()) {
             switch (make_feasible()) {
             case l_false:
                 get_infeasibility_explanation_and_set_conflict();
@@ -971,6 +982,9 @@ namespace arith {
         auto st = sat::check_result::CR_DONE;
 
         TRACE("arith", ctx.display(tout););
+
+        if (!check_delayed_eqs()) 
+            return sat::check_result::CR_CONTINUE;
 
         switch (check_lia()) {
         case l_true:
@@ -1002,6 +1016,8 @@ namespace arith {
             ++m_stats.m_assume_eqs;
             return sat::check_result::CR_CONTINUE;
         }
+        if (!check_delayed_eqs()) 
+            return sat::check_result::CR_CONTINUE;
         if (m_not_handled != nullptr) {
             TRACE("arith", tout << "unhandled operator " << mk_pp(m_not_handled, m) << "\n";);
             return sat::check_result::CR_GIVEUP;
@@ -1030,7 +1046,7 @@ namespace arith {
                 rational c1(0);
                 m_nla->am().set(r1, c1.to_mpq());
                 m_nla->am().add(r, r1, r);
-                for (auto const& arg : term) {
+                for (lp::lar_term::ival arg : term) {
                     auto wi = lp().column2tv(arg.column());
                     c1 = arg.coeff() * wcoeff;
                     if (wi.is_term()) {
@@ -1065,6 +1081,19 @@ namespace arith {
             TRACE("arith", tout << "status treated as inconclusive: " << status << "\n";);
             return l_undef;
         }
+    }
+
+    bool solver::check_delayed_eqs() {
+        for (auto p : m_delayed_eqs) {
+            auto const& e = p.first;
+            if (p.second)
+                new_eq_eh(e);
+            else if (is_eq(e.v1(), e.v2())) {
+                mk_diseq_axiom(e);
+                return false;
+            }
+        }
+        return true;
     }
 
     lbool solver::check_lia() {
@@ -1103,7 +1132,7 @@ namespace arith {
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
             reset_evidence();
-            for (auto const& ev : m_explanation)
+            for (auto ev : m_explanation)
                 set_evidence(ev.ci(), m_core, m_eqs);
             // The call mk_bound() can set the m_infeasible_column in lar_solver
             // so the explanation is safer to take before this call.
@@ -1141,7 +1170,7 @@ namespace arith {
             add_clause(m_core2);
         }
         else {
-            auto* jst = euf::th_propagation::mk(*this, core, eqs);
+            auto* jst = euf::th_explain::propagate(*this, core, eqs, lit);
             ctx.propagate(lit, jst->to_index());
         }
     }
@@ -1163,7 +1192,7 @@ namespace arith {
 
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
-        for (auto const& ev : m_explanation)
+        for (auto ev : m_explanation)
             set_evidence(ev.ci(), m_core, m_eqs);
         TRACE("arith",
             tout << "Lemma - " << (is_conflict ? "conflict" : "propagation") << "\n";
@@ -1300,7 +1329,7 @@ namespace arith {
 
     void solver::term2coeffs(lp::lar_term const& term, u_map<rational>& coeffs, rational const& coeff) {
         TRACE("arith", lp().print_term(term, tout) << "\n";);
-        for (const auto& ti : term) {
+        for (lp::lar_term::ival ti : term) {
             theory_var w;
             auto tv = lp().column2tv(ti.column());
             if (tv.is_term()) {
@@ -1339,7 +1368,7 @@ namespace arith {
         if (args.size() == 1)
             return app_ref(to_app(args[0].get()), m);
 
-        return app_ref(a.mk_add(args.size(), args.c_ptr()), m);        
+        return app_ref(a.mk_add(args.size(), args.data()), m);        
     }
 
     app_ref solver::mk_term(lp::lar_term const& term, bool is_int) {
@@ -1419,8 +1448,16 @@ namespace arith {
     }
 
     void solver::get_antecedents(literal l, sat::ext_justification_idx idx, literal_vector& r, bool probing) {
-        auto& jst = euf::th_propagation::from_index(idx);
+        auto& jst = euf::th_explain::from_index(idx);
         ctx.get_antecedents(l, jst, r, probing);
     }
 
+    bool solver::include_func_interp(func_decl* f) const {
+        return 
+            a.is_div0(f) ||
+            a.is_idiv0(f) ||
+            a.is_power0(f) ||
+            a.is_rem0(f) ||
+            a.is_mod0(f);        
+    }
 }

@@ -221,7 +221,7 @@ class create_cut {
         for (const auto & p : m_row) {
             dump_declaration(out, p.var());
         }
-        for (const auto& p : m_t) {
+        for (lar_term::ival p : m_t) {
             auto t = lia.lra.column2tv(p.column());
             if (t.is_term()) {
                 dump_declaration(out, t.id());
@@ -252,7 +252,7 @@ class create_cut {
     }
 
     std::ostream& dump_term_coefficients(std::ostream & out) const {
-        for (const auto& p : m_t) {
+        for (lar_term::ival p : m_t) {
             dump_coeff(out, p);
         }
         return out;

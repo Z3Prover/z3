@@ -141,6 +141,7 @@ namespace sat {
         m_participated.reset();
         m_canceled.reset();
         m_reasoned.reset();
+        m_case_split_queue.reset();
         m_simplifier.reset_todos();
         m_qhead = 0;
         m_trail.reset();
@@ -220,7 +221,7 @@ namespace sat {
                 if (c->glue() <= 2 || (c->size() <= 40 && c->glue() <= 8) || copy_learned) {
                     buffer.reset();
                     for (literal l : *c) buffer.push_back(l);
-                    clause* c1 = mk_clause_core(buffer.size(), buffer.c_ptr(), sat::status::redundant());
+                    clause* c1 = mk_clause_core(buffer.size(), buffer.data(), sat::status::redundant());
                     if (c1) {
                         ++num_learned;
                         c1->set_glue(c->glue());
@@ -328,14 +329,19 @@ namespace sat {
     }
 
     void solver::set_eliminated(bool_var v, bool f) { 
-        if (m_eliminated[v] && !f) 
+        if (m_eliminated[v] == f)
+            return;
+        if (!f) 
             reset_var(v, m_external[v], m_decision[v]);
+        else if (f && m_ext)
+            m_ext->set_eliminated(v);
         m_eliminated[v] = f; 
     }
 
 
     clause* solver::mk_clause(unsigned num_lits, literal * lits, sat::status st) {
         m_model_is_current = false;
+            
         for (unsigned i = 0; i < num_lits; i++) 
             VERIFY(!was_eliminated(lits[i]));
         
@@ -353,7 +359,7 @@ namespace sat {
             m_aux_literals.reset();
             m_aux_literals.append(num_lits, lits);
             m_aux_literals.append(m_user_scope_literals);
-            return mk_clause_core(m_aux_literals.size(), m_aux_literals.c_ptr(), st);
+            return mk_clause_core(m_aux_literals.size(), m_aux_literals.data(), st);
         }
     }
 
@@ -975,10 +981,10 @@ namespace sat {
         
         if (m_config.m_propagate_prefetch) {
 #if defined(__GNUC__) || defined(__clang__)
-            __builtin_prefetch((const char*)((m_watches[l.index()].c_ptr())));
+            __builtin_prefetch((const char*)((m_watches[l.index()].data())));
 #else
     #if !defined(_M_ARM) && !defined(_M_ARM64)
-            _mm_prefetch((const char*)((m_watches[l.index()].c_ptr())), _MM_HINT_T1);
+            _mm_prefetch((const char*)((m_watches[l.index()].data())), _MM_HINT_T1);
     #endif
 #endif
         }
@@ -1024,7 +1030,7 @@ namespace sat {
                     return false;
             } while (m_qhead < m_trail.size());
 
-            if (m_ext) 
+            if (m_ext && (!is_probing() || at_base_lvl())) 
                 m_ext->unit_propagate();            
         }
         if (m_inconsistent)
@@ -1291,14 +1297,15 @@ namespace sat {
             return do_local_search(num_lits, lits);
         }
         if ((m_config.m_num_threads > 1 || m_config.m_local_search_threads > 0 || 
-             m_config.m_ddfw_threads > 0) && !m_par) {
+             m_config.m_ddfw_threads > 0) && !m_par && !m_ext) {
             SASSERT(scope_lvl() == 0);
             return check_par(num_lits, lits);
         }
         flet<bool> _searching(m_searching, true);
         m_clone = nullptr;
         if (m_mc.empty() && gparams::get_ref().get_bool("model_validate", false)) {
-            m_clone = alloc(solver, m_params, m_rlimit);
+            
+            m_clone = alloc(solver, m_no_drat_params, m_rlimit);
             m_clone->copy(*this);
             m_clone->set_extension(nullptr);
         }
@@ -1342,17 +1349,8 @@ namespace sat {
                 m_conflicts_since_restart = 0;
                 m_restart_threshold = m_config.m_restart_initial;
             }
-            lbool is_sat = l_undef;
-            while (is_sat == l_undef && !should_cancel()) {
-                if (inconsistent()) is_sat = resolve_conflict_core();
-                else if (should_propagate()) propagate(true);
-                else if (do_cleanup(false)) continue;
-                else if (should_gc()) do_gc();
-                else if (should_rephase()) do_rephase();
-                else if (should_restart()) do_restart(!m_config.m_restart_fast);
-                else if (should_simplify()) do_simplify();
-                else if (!decide()) is_sat = final_check();
-            }
+
+            lbool is_sat = search();
             log_stats();
             return is_sat;
         }
@@ -1400,13 +1398,14 @@ namespace sat {
             }
         };
         scoped_ls _ls(*this);
-        if (inconsistent()) return l_false;
+        if (inconsistent()) 
+            return l_false;
         scoped_limits scoped_rl(rlimit());
         SASSERT(m_local_search);
         m_local_search->add(*this);
         m_local_search->updt_params(m_params);
         scoped_rl.push_child(&(m_local_search->rlimit()));
-        lbool r = m_local_search->check(_lits.size(), _lits.c_ptr(), nullptr);
+        lbool r = m_local_search->check(_lits.size(), _lits.data(), nullptr);
         if (r == l_true) {
             m_model = m_local_search->get_model();
             m_model_is_current = true;
@@ -1444,6 +1443,9 @@ namespace sat {
         if (!rlimit().inc()) {
             return l_undef;
         }
+        if (m_ext)
+            return l_undef;
+
         scoped_ptr_vector<i_local_search> ls;
         scoped_ptr_vector<solver> uw;
         int num_extra_solvers = m_config.m_num_threads - 1;
@@ -1682,6 +1684,9 @@ namespace sat {
             case PS_BASIC_CACHING:
                 phase = m_phase[next];
                 break;
+            case PS_FROZEN:
+                phase = m_best_phase[next];
+                break;
             case PS_SAT_CACHING:
                 if (m_search_state == s_unsat) {
                     phase = m_phase[next];
@@ -1707,6 +1712,12 @@ namespace sat {
     }
 
     lbool solver::bounded_search() {
+        flet<bool> _disable_simplify(m_simplify_enabled, false);
+        flet<bool> _restart_enabled(m_restart_enabled, false);
+        return search();
+    }
+
+    lbool solver::basic_search() {
         lbool is_sat = l_undef;
         while (is_sat == l_undef && !should_cancel()) {
             if (inconsistent()) is_sat = resolve_conflict_core();
@@ -1714,16 +1725,30 @@ namespace sat {
             else if (do_cleanup(false)) continue;
             else if (should_gc()) do_gc();
             else if (should_rephase()) do_rephase();
-            else if (should_restart()) return l_undef;
+            else if (should_restart()) { if (!m_restart_enabled) return l_undef; do_restart(!m_config.m_restart_fast); }
+            else if (should_simplify()) do_simplify();
             else if (!decide()) is_sat = final_check();
         }
         return is_sat;
     }
 
+    lbool solver::search() {
+        if (!m_ext || !m_ext->tracking_assumptions())
+            return basic_search();
+        while (true) {
+            pop_to_base_level();
+            reinit_assumptions();
+            lbool r = basic_search();
+            if (r != l_false) 
+                return r;
+            if (!m_ext->should_research(m_core))
+                return r;
+        }
+    }
+
     bool solver::should_propagate() const {        
         return !inconsistent() && m_qhead < m_trail.size();
     }
-
 
     lbool solver::final_check() {
         if (m_ext) {
@@ -1793,6 +1818,7 @@ namespace sat {
             add_assumption(lit);
             assign_scoped(lit);
         }
+
         m_search_lvl = scope_lvl(); 
         SASSERT(m_search_lvl == 1);
     }
@@ -1808,17 +1834,13 @@ namespace sat {
     void solver::reset_assumptions() {
         m_assumptions.reset();
         m_assumption_set.reset();
+        m_ext_assumption_set.reset();
     }
 
     void solver::add_assumption(literal lit) {
         m_assumption_set.insert(lit);
         m_assumptions.push_back(lit);
         set_external(lit.var());
-    }
-
-    void solver::pop_assumption() {
-        VERIFY(m_assumptions.back() == m_assumption_set.pop());
-        m_assumptions.pop_back();
     }
 
     void solver::reassert_min_core() {
@@ -1849,7 +1871,10 @@ namespace sat {
                 if (inconsistent()) break;
                 assign_scoped(lit);
             }
-            if (!inconsistent()) propagate(false);
+            init_ext_assumptions();
+
+            if (!inconsistent()) 
+                propagate(false);
             TRACE("sat",
                   tout << "consistent: " << !inconsistent() << "\n";
                   for (literal a : m_assumptions) {
@@ -1865,12 +1890,21 @@ namespace sat {
         }
     }
 
+    void solver::init_ext_assumptions() {
+        if (m_ext && m_ext->tracking_assumptions()) {
+            m_ext_assumption_set.reset();
+            unsigned trail_size = m_trail.size();
+            if (!inconsistent())
+                m_ext->add_assumptions(m_ext_assumption_set);
+        }
+    }
+
     bool solver::tracking_assumptions() const {
-        return !m_assumptions.empty() || !m_user_scope_literals.empty();
+        return !m_assumptions.empty() || !m_user_scope_literals.empty() || (m_ext && m_ext->tracking_assumptions());
     }
 
     bool solver::is_assumption(literal l) const {
-        return tracking_assumptions() && m_assumption_set.contains(l);
+        return tracking_assumptions() && (m_assumption_set.contains(l) || m_ext_assumption_set.contains(l));
     }
 
     void solver::set_activity(bool_var v, unsigned new_act) {
@@ -1911,7 +1945,8 @@ namespace sat {
         m_next_simplify           = m_config.m_simplify_delay;
         m_min_d_tk                = 1.0;
         m_search_lvl              = 0;
-        m_conflicts_since_gc      = 0;
+        if (m_learned.size() <= 2*m_clauses.size())
+            m_conflicts_since_gc      = 0;
         m_restart_next_out        = 0;
         m_asymm_branch.init_search();
         m_stopwatch.reset();
@@ -1927,7 +1962,7 @@ namespace sat {
     }
 
     bool solver::should_simplify() const {
-        return m_conflicts_since_init >= m_next_simplify;
+        return m_conflicts_since_init >= m_next_simplify && m_simplify_enabled;
     }
     /**
        \brief Apply all simplifications.
@@ -2071,6 +2106,7 @@ namespace sat {
             if (!was_eliminated(v)) {
                 m_model[v] = value(v);
                 m_phase[v] = value(v) == l_true;
+                m_best_phase[v] = value(v) == l_true;
             }
         }
         TRACE("sat_mc_bug", m_mc.display(tout););
@@ -2187,6 +2223,7 @@ namespace sat {
     bool solver::should_restart() const {
         if (m_conflicts_since_restart <= m_restart_threshold) return false;
         if (scope_lvl() < 2 + search_lvl()) return false;
+        if (m_case_split_queue.empty()) return false;
         if (m_config.m_restart != RS_EMA) return true;
         return 
             m_fast_glue_avg + search_lvl() <= scope_lvl() && 
@@ -2273,13 +2310,13 @@ namespace sat {
         IF_VERBOSE(30, display_status(verbose_stream()););
         TRACE("sat", tout << "restart " << restart_level(to_base) << "\n";);
         pop_reinit(restart_level(to_base));
-        set_next_restart();
+        set_next_restart();        
     }
 
     unsigned solver::restart_level(bool to_base) {
-        if (to_base || scope_lvl() == search_lvl()) {
-            return scope_lvl() - search_lvl();
-        }
+        SASSERT(!m_case_split_queue.empty());
+        if (to_base || scope_lvl() == search_lvl()) 
+            return scope_lvl() - search_lvl();        
         else {
             bool_var next = m_case_split_queue.min_var();
 
@@ -2557,7 +2594,7 @@ namespace sat {
             }
         }
         
-        unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());        
+        unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.data());        
         m_fast_glue_avg.update(glue);
         m_slow_glue_avg.update(glue);
     
@@ -2573,7 +2610,7 @@ namespace sat {
             ++m_stats.m_backtracks;
             pop_reinit(m_scope_lvl - backtrack_lvl + 1);
         }
-        clause * lemma = mk_clause_core(m_lemma.size(), m_lemma.c_ptr(), sat::status::redundant());
+        clause * lemma = mk_clause_core(m_lemma.size(), m_lemma.data(), sat::status::redundant());
         if (lemma) {
             lemma->set_glue(glue);
         }
@@ -2847,6 +2884,8 @@ namespace sat {
     }
 
     void solver::updt_phase_of_vars() {
+        if (m_config.m_phase == PS_FROZEN)
+            return;
         unsigned from_lvl = m_conflict_lvl;
         unsigned head = from_lvl == 0 ? 0 : m_scopes[from_lvl - 1].m_trail_lim;
         unsigned sz   = m_trail.size();
@@ -2911,6 +2950,8 @@ namespace sat {
             break;
         case PS_ALWAYS_FALSE:
             for (auto& p : m_phase) p = false;
+            break;
+        case PS_FROZEN:
             break;
         case PS_BASIC_CACHING:
             switch (m_rephase_lim % 4) {
@@ -3501,7 +3542,7 @@ namespace sat {
             else {
                 set_eliminated(v, true);
                 if (!is_external(v) || true) {
-                    m_free_vars.push_back(v);
+                    m_free_vars.push_back(v);                   
                 }
             }
         }
@@ -3516,12 +3557,13 @@ namespace sat {
             bool_var v = m_free_vars[i];
             cleanup_watch(literal(v, false));
             cleanup_watch(literal(v, true));
+            
         }
         TRACE("sat",
             tout << "clauses to reinit: " << (m_clauses_to_reinit.size() - old_sz) << "\n";
             tout << "new level:         " << new_lvl << "\n";
             tout << "vars to reinit:    " << m_vars_to_reinit << "\n";
-            tout << "free vars:         " << bool_var_vector(m_free_vars.size() - free_vars_head, m_free_vars.c_ptr() + free_vars_head) << "\n";
+            tout << "free vars:         " << bool_var_vector(m_free_vars.size() - free_vars_head, m_free_vars.data() + free_vars_head) << "\n";
             for (unsigned i = m_clauses_to_reinit.size(); i-- > old_sz; )
                 tout << "reinit:           " << m_clauses_to_reinit[i] << "\n";
             display(tout););        
@@ -3534,10 +3576,10 @@ namespace sat {
                 m_free_vars[j++] = w;
         m_free_vars.shrink(j);
 
-        for (bool_var i = v; i < m_justification.size(); ++i) {
-            m_case_split_queue.del_var_eh(i);
-            m_probing.reset_cache(literal(i, true));
-            m_probing.reset_cache(literal(i, false));
+        for (bool_var w = m_justification.size(); w-- > v;) {
+            m_case_split_queue.del_var_eh(w);
+            m_probing.reset_cache(literal(w, true));
+            m_probing.reset_cache(literal(w, false));
         }
         m_watches.shrink(2*v);
         m_assignment.shrink(2*v);
@@ -3560,6 +3602,7 @@ namespace sat {
     void solver::pop(unsigned num_scopes) {
         if (num_scopes == 0)
             return;
+        unsigned free_vars_head = m_free_vars.size();
         if (m_ext) {
             pop_vars(num_scopes);
             m_ext->pop(num_scopes);
@@ -3569,6 +3612,8 @@ namespace sat {
         scope & s        = m_scopes[new_lvl];
         m_inconsistent   = false; // TBD: use model seems to make this redundant: s.m_inconsistent;
         unassign_vars(s.m_trail_lim, new_lvl);
+        for (unsigned i = m_free_vars.size(); i-- > free_vars_head; )
+            m_case_split_queue.del_var_eh(m_free_vars[i]);
         m_scope_lvl -= num_scopes;
         reinit_clauses(s.m_clauses_to_reinit_lim);
         m_scopes.shrink(new_lvl);
@@ -3579,7 +3624,6 @@ namespace sat {
     void solver::unassign_vars(unsigned old_sz, unsigned new_lvl) {
         SASSERT(old_sz <= m_trail.size());
         SASSERT(m_replay_assign.empty());
-        unsigned i = m_trail.size();
         for (unsigned i = m_trail.size(); i-- > old_sz; ) {
             literal l  = m_trail[i];
             bool_var v = l.var();
@@ -3776,6 +3820,14 @@ namespace sat {
         }
     }
 
+    void solver::move_to_front(bool_var b) {
+        if (b >= num_vars())
+            return;
+        bool_var next = m_case_split_queue.min_var();
+        auto next_act = m_activity[next];
+        set_activity(b, next_act + 1);
+    }
+
     // -----------------------
     //
     // Iterators
@@ -3964,17 +4016,18 @@ namespace sat {
 
     void solver::display_wcnf(std::ostream & out, unsigned sz, literal const* lits, unsigned const* weights) const {
         unsigned max_weight = 0;
-        for (unsigned i = 0; i < sz; ++i) {
-            max_weight = std::max(max_weight, weights[i]);
-        }
+        for (unsigned i = 0; i < sz; ++i) 
+            max_weight += weights[i];
         ++max_weight;
+
+        if (m_ext)
+            throw default_exception("wcnf is only supported for pure CNF problems");
 
         out << "p wcnf " << num_vars() << " " << num_clauses() + sz << " " << max_weight << "\n";
         out << "c soft " << sz << "\n";
 
-        for (literal lit : m_trail) {
+        for (literal lit : m_trail) 
             out << max_weight << " " << dimacs_lit(lit) << " 0\n";
-        }
         unsigned l_idx = 0;
         for (watch_list const& wlist : m_watches) {
             literal l = ~to_literal(l_idx);
@@ -4190,7 +4243,7 @@ namespace sat {
         for (literal lit : gamma) {
             sat::literal_vector asms1(asms);
             asms1.push_back(~lit);
-            lbool r = s.check(asms1.size(), asms1.c_ptr());
+            lbool r = s.check(asms1.size(), asms1.data());
             if (r == l_false) {
                 conseq.push_back(s.get_core());
             }
@@ -4214,7 +4267,7 @@ namespace sat {
             while (true) {
                 sat::literal_vector asms1(asms);
                 asms1.append(omegaN);
-                lbool r = s.check(asms1.size(), asms1.c_ptr());
+                lbool r = s.check(asms1.size(), asms1.data());
                 if (r == l_true) {
                     IF_VERBOSE(1, verbose_stream() << "(sat) " << omegaN << "\n";);
                     prune_unfixed(lambda, s.get_model());
@@ -4264,7 +4317,7 @@ namespace sat {
             return get_bounded_consequences(asms, vars, conseq);
         }
         if (!m_model_is_current) {
-            is_sat = check(asms.size(), asms.c_ptr());
+            is_sat = check(asms.size(), asms.data());
         }
         if (is_sat != l_true) {
             return is_sat;
@@ -4335,7 +4388,7 @@ namespace sat {
             init_assumptions(1, &lit);
         }
         else {
-            init_assumptions(asms.size(), asms.c_ptr());
+            init_assumptions(asms.size(), asms.data());
         }
         propagate(false);
         if (check_inconsistent()) return l_false;
@@ -4394,7 +4447,7 @@ namespace sat {
             init_assumptions(1, &lit);
         }
         else {
-            init_assumptions(asms.size(), asms.c_ptr());
+            init_assumptions(asms.size(), asms.data());
         }
         propagate(false);
         if (check_inconsistent()) return l_false;

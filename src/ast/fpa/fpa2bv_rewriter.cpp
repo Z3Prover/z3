@@ -73,7 +73,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         SASSERT(num == 2);
         TRACE("fpa2bv_rw", tout << "(= " << mk_ismt2_pp(args[0], m()) << " " <<
             mk_ismt2_pp(args[1], m()) << ")" << std::endl;);
-        SASSERT(m().get_sort(args[0]) == m().get_sort(args[1]));
+        SASSERT(args[0]->get_sort() == args[1]->get_sort());
         sort * ds = f->get_domain()[0];
         if (m_conv.is_float(ds)) {
             m_conv.mk_eq(args[0], args[1], result);
@@ -225,7 +225,7 @@ bool fpa2bv_rewriter_cfg::reduce_quantifier(
             new_decl_names.push_back(n);
         }
     }
-    result = m().mk_quantifier(old_q->get_kind(), new_decl_sorts.size(), new_decl_sorts.c_ptr(), new_decl_names.c_ptr(),
+    result = m().mk_quantifier(old_q->get_kind(), new_decl_sorts.size(), new_decl_sorts.data(), new_decl_names.data(),
                                new_body, old_q->get_weight(), old_q->get_qid(), old_q->get_skid(),
                                old_q->get_num_patterns(), new_patterns, old_q->get_num_no_patterns(), new_no_patterns);
     result_pr = nullptr;

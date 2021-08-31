@@ -62,7 +62,7 @@ br_status bool_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * co
         return BR_DONE;
     case OP_XOR:
         switch (num_args) {
-        case 0: return BR_FAILED;
+        case 0: result = m().mk_false(); return BR_DONE;
         case 1: result = args[0]; return BR_DONE;
         case 2: mk_xor(args[0], args[1], result); return BR_DONE;
         default: UNREACHABLE(); return BR_FAILED;
@@ -80,7 +80,7 @@ void bool_rewriter::mk_and_as_or(unsigned num_args, expr * const * args, expr_re
         new_args.push_back(tmp);
     }
     expr_ref tmp(m());
-    mk_or(new_args.size(), new_args.c_ptr(), tmp);
+    mk_or(new_args.size(), new_args.data(), tmp);
     mk_not(tmp, result);
 }
 
@@ -173,7 +173,7 @@ br_status bool_rewriter::mk_flat_and_core(unsigned num_args, expr * const * args
                 flat_args.push_back(arg);
             }
         }
-        if (mk_nflat_and_core(flat_args.size(), flat_args.c_ptr(), result) == BR_FAILED)
+        if (mk_nflat_and_core(flat_args.size(), flat_args.data(), result) == BR_FAILED)
             result = m().mk_and(flat_args);
         return BR_DONE;
     }
@@ -245,13 +245,13 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
         return BR_DONE;
     default:
         if (m_local_ctx && m_local_ctx_cost <= m_local_ctx_limit) {
-            if (local_ctx_simp(sz, buffer.c_ptr(), result)) 
+            if (local_ctx_simp(sz, buffer.data(), result)) 
                 return BR_DONE;
         }
         if (s) {
             ast_lt lt;
             std::sort(buffer.begin(), buffer.end(), lt);       
-            result = m().mk_or(sz, buffer.c_ptr());
+            result = m().mk_or(sz, buffer.data());
             return BR_DONE;
         }
         return BR_FAILED;
@@ -285,7 +285,7 @@ br_status bool_rewriter::mk_flat_or_core(unsigned num_args, expr * const * args,
                 prev = arg;
             }
         }
-        if (mk_nflat_or_core(flat_args.size(), flat_args.c_ptr(), result) == BR_FAILED) {
+        if (mk_nflat_or_core(flat_args.size(), flat_args.data(), result) == BR_FAILED) {
             if (!ordered) {
                 ast_lt lt;
                 std::sort(flat_args.begin(), flat_args.end(), lt);
@@ -595,7 +595,7 @@ bool bool_rewriter::local_ctx_simp(unsigned num_args, expr * const * args, expr_
                 return false; // didn't simplify
             }
             // preserve the original order...
-            std::reverse(new_args.c_ptr(), new_args.c_ptr() + new_args.size());
+            std::reverse(new_args.data(), new_args.data() + new_args.size());
             modified = false;
             forward  = true;
         }
@@ -604,7 +604,7 @@ bool bool_rewriter::local_ctx_simp(unsigned num_args, expr * const * args, expr_
         old_args.reset();
         old_args.swap(new_args);
         SASSERT(new_args.empty());
-        args     = old_args.c_ptr();
+        args     = old_args.data();
         num_args = old_args.size();
     }
 }
@@ -721,9 +721,18 @@ br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             result = m().mk_false();
             return BR_DONE;
         }
+
+	    if (m().is_not(rhs))
+            std::swap(lhs, rhs);
+	
+	    if (m().is_not(lhs, lhs)) {
+	        result = m().mk_not(m().mk_eq(lhs, rhs));
+	        return BR_REWRITE2;
+        }
+	    
         if (unfolded) {
             result = mk_eq(lhs, rhs);
-            return BR_DONE;
+            return BR_REWRITE1;
         }
 
         expr *la, *lb, *ra, *rb;

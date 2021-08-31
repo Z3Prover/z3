@@ -115,7 +115,6 @@ namespace sat {
 
     public:
         npn3_finder(solver& s);
-        ~npn3_finder() {}
         void set_on_mux(std::function<void(literal head, literal cond, literal th, literal el)> const& f) { m_on_mux = f; }
         void set_on_maj(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_maj = f; }
         void set_on_orand(std::function<void(literal head, literal a, literal b, literal c)> const& f) { m_on_orand = f; }

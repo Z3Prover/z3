@@ -79,6 +79,10 @@ public:
 
     unsigned get_num_assertions() const override;
     expr * get_assertion(unsigned idx) const override;
+    void set_phase(expr* e) override { }
+    phase* get_phase() override { return nullptr; }
+    void set_phase(phase* p) override { }
+    void move_to_front(expr* e) override { }
 
 
     expr_ref_vector cube(expr_ref_vector& vars, unsigned ) override {
@@ -225,7 +229,7 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
     if (m_produce_unsat_cores) {
         ptr_vector<expr> core_elems;
         m.linearize(core, core_elems);
-        m_result->m_core.append(core_elems.size(), core_elems.c_ptr());
+        m_result->m_core.append(core_elems.size(), core_elems.data());
     }
     m_tactic->cleanup();
     return m_result->status();

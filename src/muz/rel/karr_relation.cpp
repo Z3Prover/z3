@@ -103,7 +103,7 @@ namespace datalog {
                 for (unsigned i = 0; i < M.size(); ++i) {
                     to_formula(M.A[i], M.b[i], M.eq[i], conj);
                 }
-                bool_rewriter(m).mk_and(conj.size(), conj.c_ptr(), fml);
+                bool_rewriter(m).mk_and(conj.size(), conj.data(), fml);
             }
         }
 
@@ -480,7 +480,7 @@ namespace datalog {
             if (!b.is_zero()) {
                 sum.push_back(a.mk_numeral(b, true));
             }
-            lhs = a.mk_add(sum.size(), sum.c_ptr());
+            lhs = a.mk_add(sum.size(), sum.data());
             if (is_eq) {
                 conj.push_back(m.mk_eq(lhs, zero));
             }
@@ -519,7 +519,7 @@ namespace datalog {
             karr_relation const& r2 = get(_r2);
             karr_relation_plugin& p = r1.get_plugin();
             karr_relation* result = dynamic_cast<karr_relation*>(p.mk_full(nullptr, get_result_signature()));
-            result->mk_join(r1, r2, m_cols1.size(), m_cols1.c_ptr(), m_cols2.c_ptr());
+            result->mk_join(r1, r2, m_cols1.size(), m_cols1.data(), m_cols2.data());
             return result;
         }
     };
@@ -544,7 +544,7 @@ namespace datalog {
             karr_relation const& r = get(_r);
             karr_relation_plugin& p = r.get_plugin();
             karr_relation* result = dynamic_cast<karr_relation*>(p.mk_full(nullptr, get_result_signature()));
-            result->mk_project(r, m_removed_cols.size(), m_removed_cols.c_ptr());
+            result->mk_project(r, m_removed_cols.size(), m_removed_cols.data());
             return result;
         }
     };
@@ -563,7 +563,7 @@ namespace datalog {
             karr_relation const& r = get(_r);
             karr_relation_plugin& p = r.get_plugin();
             karr_relation* result = dynamic_cast<karr_relation*>(p.mk_full(nullptr, get_result_signature()));
-            result->mk_rename(r, m_cycle.size(), m_cycle.c_ptr());
+            result->mk_rename(r, m_cycle.size(), m_cycle.data());
             return result;
         }
     };

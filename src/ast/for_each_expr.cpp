@@ -111,7 +111,7 @@ bool subterms::iterator::operator!=(iterator const& other) const {
 
 
 subterms_postorder::subterms_postorder(expr_ref_vector const& es): m_es(es) {}
-subterms_postorder::subterms_postorder(expr_ref& e) : m_es(e.m()) { m_es.push_back(e); }
+subterms_postorder::subterms_postorder(expr_ref const& e) : m_es(e.m()) { m_es.push_back(e); }
 subterms_postorder::iterator subterms_postorder::begin() { return iterator(*this, true); }
 subterms_postorder::iterator subterms_postorder::end() { return iterator(*this, false); }
 subterms_postorder::iterator::iterator(subterms_postorder& f, bool start): m_es(f.m_es) {

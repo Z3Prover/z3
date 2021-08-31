@@ -198,7 +198,7 @@ void rule_properties::insert(ptr_vector<rule>& rules, rule* r) {
 }
 
 void rule_properties::operator()(var* n) { 
-    check_sort(m.get_sort(n));
+    check_sort(n->get_sort());
 }
 
 void rule_properties::operator()(quantifier* n) {
@@ -216,7 +216,7 @@ void rule_properties::operator()(app* n) {
         m_uninterp_funs.insert(f, m_rule);
     }
     else if (m_dt.is_accessor(n)) {
-        sort* s = m.get_sort(n->get_arg(0));
+        sort* s = n->get_arg(0)->get_sort();
         SASSERT(m_dt.is_datatype(s));
         if (m_dt.get_datatype_constructors(s)->size() > 1) {
             bool found = false;
@@ -245,7 +245,7 @@ void rule_properties::operator()(app* n) {
     else if (m_rec.is_defined(f)) {
         m_uninterp_funs.insert(f, m_rule);
     }
-    check_sort(m.get_sort(n));
+    check_sort(n->get_sort());
 }
 
 bool rule_properties::evaluates_to_numeral(expr * n, rational& val) {    

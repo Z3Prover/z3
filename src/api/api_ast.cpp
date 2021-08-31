@@ -137,29 +137,34 @@ extern "C" {
         func_decl* d = to_func_decl(f);
         ast_manager& m = mk_c(c)->m();
         recfun::decl::plugin& p = mk_c(c)->recfun().get_plugin();
+        if (!p.has_def(d)) {
+            std::string msg = "function " + mk_pp(d, m) + " needs to be defined using rec_func_decl";
+            SET_ERROR_CODE(Z3_INVALID_ARG, msg.c_str());
+            return;
+        }
         expr_ref abs_body(m);
         expr_ref_vector _args(m);
         var_ref_vector _vars(m);
         for (unsigned i = 0; i < n; ++i) {
             _args.push_back(to_expr(args[i]));
-            _vars.push_back(m.mk_var(n - i - 1, m.get_sort(_args.back())));
-            if (m.get_sort(_args.back()) != d->get_domain(i)) {
+            _vars.push_back(m.mk_var(n - i - 1, _args.back()->get_sort()));
+            if (_args.back()->get_sort() != d->get_domain(i)) {
                 SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);            
                 return;            
             }
         }
-        expr_abstract(m, 0, n, _args.c_ptr(), to_expr(body), abs_body);
+        expr_abstract(m, 0, n, _args.data(), to_expr(body), abs_body);
         recfun::promise_def pd = p.get_promise_def(d);
         if (!pd.get_def()) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return;
         }
-        if (m.get_sort(abs_body) != d->get_range()) {
+        if (abs_body->get_sort() != d->get_range()) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);            
             return;
         }
         recfun_replace replace(m);
-        p.set_definition(replace, pd, n, _vars.c_ptr(), abs_body);
+        p.set_definition(replace, pd, true, n, _vars.data(), abs_body);
         Z3_CATCH;
     }
 
@@ -172,7 +177,7 @@ extern "C" {
             arg_list.push_back(to_expr(args[i]));
         }
         func_decl* _d = reinterpret_cast<func_decl*>(d);
-        app* a = mk_c(c)->m().mk_app(_d, num_args, arg_list.c_ptr());
+        app* a = mk_c(c)->m().mk_app(_d, num_args, arg_list.data());
         mk_c(c)->save_ast_trail(a);
         check_sorts(c, a);
         RETURN_Z3(of_ast(a));
@@ -365,7 +370,7 @@ extern "C" {
         case AST_APP: {
             expr * e = to_expr(_a);
             // Real algebraic numbers are not considered Z3_NUMERAL_AST
-            if (is_numeral_sort(c, of_sort(mk_c(c)->m().get_sort(e))) && mk_c(c)->m().is_unique_value(e))
+            if (is_numeral_sort(c, of_sort(e->get_sort())) && mk_c(c)->m().is_unique_value(e))
                 return Z3_NUMERAL_AST;
             return Z3_APP_AST;
         }
@@ -622,7 +627,7 @@ extern "C" {
         LOG_Z3_get_sort(c, a);
         RESET_ERROR_CODE();
         CHECK_IS_EXPR(a, nullptr);
-        Z3_sort r = of_sort(mk_c(c)->m().get_sort(to_expr(a)));
+        Z3_sort r = of_sort(to_expr(a)->get_sort());
         RETURN_Z3(r);
         Z3_CATCH_RETURN(nullptr);
     }
@@ -713,6 +718,9 @@ extern "C" {
         }
         else if (fid == mk_c(c)->get_seq_fid() && k == RE_SORT) {
             return Z3_RE_SORT;
+        }
+	else if (fid == mk_c(c)->get_char_fid() && k == CHAR_SORT) {
+            return Z3_CHAR_SORT;
         }
         else {
             return Z3_UNKNOWN_SORT;
@@ -847,7 +855,7 @@ extern "C" {
         expr * const * to   = to_exprs(num_exprs, _to);
         expr * r = nullptr;
         for (unsigned i = 0; i < num_exprs; i++) {
-            if (m.get_sort(from[i]) != m.get_sort(to[i])) {
+            if (from[i]->get_sort() != to[i]->get_sort()) {
                 SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
                 RETURN_Z3(of_expr(nullptr));
             }
@@ -1202,6 +1210,8 @@ extern "C" {
 
             case OP_STRING_STOI: return Z3_OP_STR_TO_INT;
             case OP_STRING_ITOS: return Z3_OP_INT_TO_STR;
+            case OP_STRING_UBVTOS: return Z3_OP_UBV_TO_STR;
+            case OP_STRING_SBVTOS: return Z3_OP_SBV_TO_STR;
             case OP_STRING_LT: return Z3_OP_STRING_LT;
             case OP_STRING_LE: return Z3_OP_STRING_LE;
 

@@ -23,6 +23,7 @@ Author:
 namespace euf {
 
     class solver::user_sort {
+        solver& s;
         ast_manager& m;
         model_ref& mdl;
         expr_ref_vector& values;
@@ -31,20 +32,21 @@ namespace euf {
         obj_map<sort, expr_ref_vector*>    sort2values;
     public:
         user_sort(solver& s, expr_ref_vector& values, model_ref& mdl) :
-            m(s.m), mdl(mdl), values(values), factory(m) {}
+            s(s), m(s.m), mdl(mdl), values(values), factory(m) {}
 
         ~user_sort() {
             for (auto kv : sort2values)
-                mdl->register_usort(kv.m_key, kv.m_value->size(), kv.m_value->c_ptr());
+                mdl->register_usort(kv.m_key, kv.m_value->size(), kv.m_value->data());
         }
 
         void add(enode* r, sort* srt) {
             unsigned id = r->get_expr_id();
             expr_ref value(m);
-            if (m.is_value(r->get_expr())) 
+            if (m.is_value(r->get_expr()))
                 value = r->get_expr();
-            else 
+            else
                 value = factory.get_fresh_value(srt);
+            TRACE("model", tout << s.bpp(r) << " := " << value << "\n";);
             values.set(id, value);
             expr_ref_vector* vals = nullptr;
             if (!sort2values.find(srt, vals)) {
@@ -61,6 +63,7 @@ namespace euf {
     };
 
     void solver::update_model(model_ref& mdl) {
+        mdl->reset_eval_cache();
         for (auto* mb : m_solvers)
             mb->init_model();
         m_values.reset();
@@ -73,46 +76,59 @@ namespace euf {
         values2model(deps, mdl);
         for (auto* mb : m_solvers)
             mb->finalize_model(*mdl);
-        // validate_model(*mdl);
+        TRACE("model", tout << "created model " << *mdl << "\n";);
+        validate_model(*mdl);
     }
 
     bool solver::include_func_interp(func_decl* f) {
-        if (f->is_skolem())
-            return false;
         if (f->get_family_id() == null_family_id)
             return true;
         if (f->get_family_id() == m.get_basic_family_id())
+            return false;
+        if (f->is_skolem())
             return false;
         euf::th_model_builder* mb = func_decl2solver(f);
         return mb && mb->include_func_interp(f);
     }
 
     void solver::collect_dependencies(user_sort& us, deps_t& deps) {
+        ptr_buffer<enode> fresh_values;
         for (enode* n : m_egraph.nodes()) {
             expr* e = n->get_expr();
-            sort* srt = m.get_sort(e);
+            sort* srt = e->get_sort();
             auto* mb = sort2solver(srt);
-            if (mb)
-                mb->add_dep(n, deps);
-            else
+            if (!mb) 
                 deps.insert(n, nullptr);
+            else if (!mb->add_dep(n, deps))
+                fresh_values.push_back(n);
             if (n->is_root() && m.is_uninterp(srt) && m.is_value(e))
                 us.register_value(e);
         }
 
+        // fresh values depend on all non-fresh values of the same sort
+        for (enode* n : fresh_values) {
+            n->mark1();
+            deps.insert(n, nullptr);
+        }
+        for (enode* n : fresh_values)
+            for (enode* r : m_egraph.nodes())
+                if (r->is_root() && r->get_sort() == n->get_sort() && !r->is_marked1())
+                    deps.add(n, r);
+        for (enode* n : fresh_values)
+            n->unmark1();
+        
         TRACE("euf",
               for (auto const& d : deps.deps()) 
                   if (d.m_value) {
-                      tout << mk_bounded_pp(d.m_key->get_expr(), m) << ":\n";
+                      tout << bpp(d.m_key) << ":\n";
                       for (auto* n : *d.m_value)
-                          tout << "   " << mk_bounded_pp(n->get_expr(), m) << "\n";
+                          tout << "   " << bpp(n) << "\n";
                   }
               );
     }
 
     void solver::dependencies2values(user_sort& us, deps_t& deps, model_ref& mdl) {
         for (enode* n : deps.top_sorted()) {
-            
             unsigned id = n->get_root_id();
             if (m_values.get(id, nullptr))
                 continue;
@@ -132,6 +148,16 @@ namespace euf {
                     m_values.set(id, m.mk_false());
                     continue;
                 }
+                switch (n->value()) {
+                case l_true:
+                    m_values.set(id, m.mk_true());
+                    continue;
+                case l_false:
+                    m_values.set(id, m.mk_false());
+                    continue;
+                default:
+                    break;
+                }
                 if (is_app(e) && to_app(e)->get_family_id() == m.get_basic_family_id())
                     continue;
                 sat::bool_var v = get_enode(e)->bool_var();
@@ -148,13 +174,17 @@ namespace euf {
                 }
                 continue;
             }
-            sort* srt = m.get_sort(e);
+            sort* srt = e->get_sort();
             if (m.is_uninterp(srt)) 
                 us.add(n->get_root(), srt);
             else if (auto* mbS = sort2solver(srt))
                 mbS->add_value(n, *mdl, m_values);
             else if (auto* mbE = expr2solver(e))
                 mbE->add_value(n, *mdl, m_values);
+            else if (is_app(e) && to_app(e)->get_family_id() != m.get_basic_family_id()) {
+                m_values.set(id, e);
+                IF_VERBOSE(1, verbose_stream() << "creating self-value for " << mk_pp(e, m) << "\n");
+            }
             else {
                 IF_VERBOSE(1, verbose_stream() << "no model values created for " << mk_pp(e, m) << "\n");
             }                
@@ -168,7 +198,7 @@ namespace euf {
             if (!is_app(e))
                 continue;
             app* a = to_app(e);
-            func_decl* f = a->get_decl();            
+            func_decl* f = a->get_decl();       
             if (!include_func_interp(f))
                 continue;
             if (m.is_bool(e) && is_uninterp_const(e) && mdl->get_const_interp(f))
@@ -187,12 +217,20 @@ namespace euf {
                     mdl->register_decl(f, fi);
                 }
                 args.reset();                
-                for (enode* arg : enode_args(n)) 
-                    args.push_back(m_values.get(arg->get_root_id()));                
-                DEBUG_CODE(for (expr* arg : args) VERIFY(arg););
+                for (expr* arg : *a) {
+                    enode* earg = get_enode(arg); 
+                    expr* val = m_values.get(earg->get_root_id());
+                    args.push_back(val);                
+                    CTRACE("euf", !val, tout << "no value for " << bpp(earg) << "\n";);
+                    SASSERT(val);
+                }
                 SASSERT(args.size() == arity);
-                if (!fi->get_entry(args.c_ptr()))
-                    fi->insert_new_entry(args.c_ptr(), v);
+                if (!fi->get_entry(args.data()))
+                    fi->insert_new_entry(args.data(), v);
+                TRACE("euf", tout << f->get_name() << "\n";
+                      for (expr* arg : args) tout << mk_pp(arg, m) << " ";
+                      tout << "\n -> " << mk_pp(v, m) << "\n";);
+
             }
         }
     }
@@ -201,17 +239,23 @@ namespace euf {
         // TODO
     }
 
+    void solver::model_updated(model_ref& mdl) {
+        m_values2root.reset();
+        for (enode* n : m_egraph.nodes())
+            if (n->is_root() && m_values.get(n->get_expr_id())) 
+                m_values[n->get_expr_id()] = (*mdl)(n->get_expr());            
+    }
+
     obj_map<expr,enode*> const& solver::values2root() {    
         if (!m_values2root.empty())
             return m_values2root;
         for (enode* n : m_egraph.nodes())
             if (n->is_root() && m_values.get(n->get_expr_id()))
                 m_values2root.insert(m_values.get(n->get_expr_id()), n);
-#if 0
-        for (auto kv : m_values2root) {
-            std::cout << mk_pp(kv.m_key, m) << " -> " << bpp(kv.m_value) << "\n";
-        }
-#endif
+        TRACE("model", 
+              for (auto kv : m_values2root) 
+                  tout << mk_pp(kv.m_key, m) << " -> " << bpp(kv.m_value) << "\n";);
+        
         return m_values2root;
     }
 
@@ -219,20 +263,39 @@ namespace euf {
         return m_values.get(n->get_root_id(), nullptr);
     }
 
+    void solver::display_validation_failure(std::ostream& out, model& mdl, enode* n) {
+        out << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(n->get_expr()) << "\n";
+        for (auto* arg : euf::enode_args(n)) {
+            expr_ref val = mdl(arg->get_expr());
+            expr_ref sval(m);
+            th_rewriter rw(m);
+            rw(val, sval);
+            out << bpp(arg) << "\n" << sval << "\n";
+        }
+        out << mdl << "\n";
+    }
+
     void solver::validate_model(model& mdl) {
+        bool first = true;
         for (enode* n : m_egraph.nodes()) {
             expr* e = n->get_expr();
             if (!m.is_bool(e))
                 continue;
-            unsigned id = n->get_root_id();
-            if (!m_values.get(id))
+            if (has_quantifiers(e))
                 continue;
-            bool tt = m.is_true(m_values.get(id));
-            if (mdl.is_true(e) != tt) {
-                IF_VERBOSE(0, verbose_stream() << "Failed to evaluate " << id << " " << mk_bounded_pp(e, m) << " " << mdl(e) << " " << mk_bounded_pp(m_values.get(id), m) << "\n");
-            }
-        }
-        
+            if (!is_relevant(n))
+                continue;
+            bool tt = l_true == s().value(n->bool_var());
+            if (tt && !mdl.is_false(e))
+                continue;
+            if (!tt && !mdl.is_true(e))
+                continue;
+            IF_VERBOSE(0, display_validation_failure(verbose_stream(), mdl, n););
+            CTRACE("euf", first, display_validation_failure(tout, mdl, n););
+            (void)first;
+            exit(1);
+            first = false;
+        }        
     }
 
 

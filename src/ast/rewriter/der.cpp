@@ -136,8 +136,12 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
     var * v = nullptr;
     expr_ref t(m);
 
-    if (m.is_or(e)) {
-        unsigned num_args = to_app(e)->get_num_args();
+    if (is_var_diseq(e, num_decls, v, t) && !occurs(v, t)) 
+        r = m.mk_false();
+    else {
+        expr_ref_vector ors(m);
+        flatten_or(e, ors);
+        unsigned num_args = ors.size();
         unsigned diseq_count = 0;
         unsigned largest_vinx = 0;
 
@@ -149,7 +153,7 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
 
         // Find all disequalities
         for (unsigned i = 0; i < num_args; i++) {
-            if (is_var_diseq(to_app(e)->get_arg(i), num_decls, v, t)) {
+            if (is_var_diseq(ors.get(i), num_decls, v, t)) {
                 unsigned idx = v->get_idx();
                 if (m_map.get(idx, nullptr) == nullptr) {
                     m_map.reserve(idx + 1);
@@ -170,7 +174,7 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
 
             if (!m_order.empty()) {
                 create_substitution(largest_vinx + 1);
-                apply_substitution(q, r);
+                apply_substitution(q, ors, r);
             }
         }
         else {
@@ -180,11 +184,6 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
     }
     // Remark: get_elimination_order/top-sort checks for cycles, but it is not invoked for unit clauses.
     // So, we must perform a occurs check here.
-    else if (is_var_diseq(e, num_decls, v, t) && !occurs(v, t)) {
-        r = m.mk_false();
-    }
-    else
-        r = q;
 
     if (m.proofs_enabled()) {
         pr = r == q ? nullptr : m.mk_der(q, r);
@@ -319,7 +318,7 @@ void der::create_substitution(unsigned sz) {
         expr_ref cur(m_map.get(m_order[i]), m);
 
         // do all the previous substitutions before inserting
-        expr_ref r = m_subst(cur, m_subst_map.size(), m_subst_map.c_ptr());
+        expr_ref r = m_subst(cur, m_subst_map.size(), m_subst_map.data());
 
         unsigned inx = sz - m_order[i]- 1;
         SASSERT(m_subst_map[inx]==0);
@@ -327,9 +326,8 @@ void der::create_substitution(unsigned sz) {
     }
 }
 
-void der::apply_substitution(quantifier * q, expr_ref & r) {
-    expr * e = q->get_expr();
-    unsigned num_args=to_app(e)->get_num_args();
+void der::apply_substitution(quantifier * q, expr_ref_vector& ors, expr_ref & r) {
+    unsigned num_args = ors.size();
 
     // get a new expression
     m_new_args.reset();
@@ -338,27 +336,25 @@ void der::apply_substitution(quantifier * q, expr_ref & r) {
         if (x != -1 && m_map.get(x) != nullptr)
             continue; // this is a disequality with definition (vanishes)
 
-        m_new_args.push_back(to_app(e)->get_arg(i));
+        m_new_args.push_back(ors.get(i));
     }
 
-    unsigned sz = m_new_args.size();
-    expr_ref t(m);
-    t = (sz == 1) ? m_new_args[0] : m.mk_or(sz, m_new_args.c_ptr());
-    expr_ref new_e = m_subst(t, m_subst_map.size(), m_subst_map.c_ptr());
+    expr_ref t(mk_or(m, m_new_args.size(), m_new_args.data()), m);
+    expr_ref new_e = m_subst(t, m_subst_map);
 
     // don't forget to update the quantifier patterns
     expr_ref_buffer  new_patterns(m);
     expr_ref_buffer  new_no_patterns(m);
     for (unsigned j = 0; j < q->get_num_patterns(); j++) {
-        new_patterns.push_back(m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.c_ptr()));
+        new_patterns.push_back(m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.data()));
     }
 
     for (unsigned j = 0; j < q->get_num_no_patterns(); j++) {
-        new_no_patterns.push_back(m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.c_ptr()));
+        new_no_patterns.push_back(m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.data()));
     }
 
-    r = m.update_quantifier(q, new_patterns.size(), new_patterns.c_ptr(),
-                            new_no_patterns.size(), new_no_patterns.c_ptr(), new_e);
+    r = m.update_quantifier(q, new_patterns.size(), new_patterns.data(),
+                            new_no_patterns.size(), new_no_patterns.data(), new_e);
 }
 
 

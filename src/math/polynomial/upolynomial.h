@@ -116,7 +116,7 @@ namespace upolynomial {
         numeral_vector    m_sqf_tmp2;
         numeral_vector    m_pw_tmp;
 
-        static bool is_alias(numeral const * p, numeral_vector & buffer) { return buffer.c_ptr() != nullptr && buffer.c_ptr() == p; }
+        static bool is_alias(numeral const * p, numeral_vector & buffer) { return buffer.data() != nullptr && buffer.data() == p; }
         void neg_core(unsigned sz1, numeral const * p1, numeral_vector & buffer);
         void add_core(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2, numeral_vector & buffer);
         void sub_core(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2, numeral_vector & buffer);
@@ -192,7 +192,7 @@ namespace upolynomial {
            \brief Copy p to buffer.
         */
         void set(unsigned sz, numeral const * p, numeral_vector & buffer);
-        void set(numeral_vector & target, numeral_vector const & source) { set(source.size(), source.c_ptr(), target);  }
+        void set(numeral_vector & target, numeral_vector const & source) { set(source.size(), source.data(), target);  }
 
         /**
            \brief Copy p to buffer.
@@ -206,42 +206,42 @@ namespace upolynomial {
         */
         void get_primitive_and_content(unsigned f_sz, numeral const * f, numeral_vector & pp, numeral & cont);
         void get_primitive_and_content(numeral_vector const & f, numeral_vector & pp, numeral & cont) {
-            get_primitive_and_content(f.size(), f.c_ptr(), pp, cont);
+            get_primitive_and_content(f.size(), f.data(), pp, cont);
         }
         void get_primitive(numeral_vector const & f, numeral_vector & pp) { 
             scoped_numeral cont(m());
-            get_primitive_and_content(f.size(), f.c_ptr(), pp, cont);
+            get_primitive_and_content(f.size(), f.data(), pp, cont);
         }
 
         /**
            \brief p := -p
         */
         void neg(unsigned sz, numeral * p);
-        void neg(numeral_vector & p) { neg(p.size(), p.c_ptr()); }
+        void neg(numeral_vector & p) { neg(p.size(), p.data()); }
 
         /**
            \brief buffer := -p
         */
         void neg(unsigned sz, numeral const * p, numeral_vector & buffer);
-        void neg(numeral_vector const & p, numeral_vector & p_neg) { neg(p.size(), p.c_ptr(), p_neg); }
+        void neg(numeral_vector const & p, numeral_vector & p_neg) { neg(p.size(), p.data(), p_neg); }
 
         /**
            \brief buffer := p1 + p2
         */
         void add(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2, numeral_vector & buffer);
-        void add(numeral_vector const & a, numeral_vector const & b, numeral_vector & c) { add(a.size(), a.c_ptr(), b.size(), b.c_ptr(), c); }
+        void add(numeral_vector const & a, numeral_vector const & b, numeral_vector & c) { add(a.size(), a.data(), b.size(), b.data(), c); }
 
         /**
            \brief buffer := p1 - p2
         */
         void sub(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2, numeral_vector & buffer);
-        void sub(numeral_vector const & a, numeral_vector const & b, numeral_vector & c) { sub(a.size(), a.c_ptr(), b.size(), b.c_ptr(), c); }
+        void sub(numeral_vector const & a, numeral_vector const & b, numeral_vector & c) { sub(a.size(), a.data(), b.size(), b.data(), c); }
 
         /**
            \brief buffer := p1 * p2
         */
         void mul(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2, numeral_vector & buffer);
-        void mul(numeral_vector const & a, numeral_vector const & b, numeral_vector & c) { mul(a.size(), a.c_ptr(), b.size(), b.c_ptr(), c); }
+        void mul(numeral_vector const & a, numeral_vector const & b, numeral_vector & c) { mul(a.size(), a.data(), b.size(), b.data(), c); }
 
         /**
            \brief r := p^k
@@ -252,7 +252,7 @@ namespace upolynomial {
            \brief buffer := dp/dx
         */
         void derivative(unsigned sz1, numeral const * p, numeral_vector & buffer);
-        void derivative(numeral_vector const & p, numeral_vector & d_p) { derivative(p.size(), p.c_ptr(), d_p); }
+        void derivative(numeral_vector const & p, numeral_vector & d_p) { derivative(p.size(), p.data(), d_p); }
 
         /**
            \brief Divide coefficients of p by their GCD
@@ -269,7 +269,7 @@ namespace upolynomial {
            This method assumes that every coefficient of p is a multiple of b, and b != 0.
         */
         void div(unsigned sz, numeral * p, numeral const & b);
-        void div(numeral_vector & p, numeral const & b) { div(p.size(), p.c_ptr(), b); }
+        void div(numeral_vector & p, numeral const & b) { div(p.size(), p.data(), b); }
 
         /**
            \brief Multiply the coefficients of p by b. 
@@ -312,7 +312,7 @@ namespace upolynomial {
         }
         
         void div_rem(numeral_vector const & p1, numeral_vector const & p2, numeral_vector & q, numeral_vector & r) { 
-            div_rem(p1.size(), p1.c_ptr(), p2.size(), p2.c_ptr(), q, r);
+            div_rem(p1.size(), p1.data(), p2.size(), p2.data(), q, r);
         }
 
         /**
@@ -343,14 +343,14 @@ namespace upolynomial {
            \brief Return true if p2 divides p1.
         */
         bool divides(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2);
-        bool divides(numeral_vector const & p1, numeral_vector const & p2) { return divides(p1.size(), p1.c_ptr(), p2.size(), p2.c_ptr()); }
+        bool divides(numeral_vector const & p1, numeral_vector const & p2) { return divides(p1.size(), p1.data(), p2.size(), p2.data()); }
 
         /**
            \brief Return true if p2 divides p1, and store the quotient in q.
         */
         bool exact_div(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2, numeral_vector & q);
         bool exact_div(numeral_vector const & p1, numeral_vector const & p2, numeral_vector & q) {
-            return exact_div(p1.size(), p1.c_ptr(), p2.size(), p2.c_ptr(), q);
+            return exact_div(p1.size(), p1.data(), p2.size(), p2.data(), q);
         }
 
         /**
@@ -360,7 +360,7 @@ namespace upolynomial {
         void mk_monic(unsigned sz, numeral * p, numeral & lc, numeral & lc_inv);        
         void mk_monic(unsigned sz, numeral * p, numeral & lc) { numeral lc_inv; mk_monic(sz, p, lc, lc_inv); m().del(lc_inv); }
         void mk_monic(unsigned sz, numeral * p) { numeral lc, lc_inv; mk_monic(sz, p, lc, lc_inv); m().del(lc); m().del(lc_inv); }
-        void mk_monic(numeral_vector & p) { mk_monic(p.size(), p.c_ptr()); }
+        void mk_monic(numeral_vector & p) { mk_monic(p.size(), p.data()); }
 
         /**
            \brief g := gcd(p1, p2)
@@ -370,10 +370,10 @@ namespace upolynomial {
         void euclid_gcd(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2, numeral_vector & g);
         void subresultant_gcd(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2, numeral_vector & g);
         void gcd(numeral_vector const & p1, numeral_vector const & p2, numeral_vector & g) {
-            gcd(p1.size(), p1.c_ptr(), p2.size(), p2.c_ptr(), g);
+            gcd(p1.size(), p1.data(), p2.size(), p2.data(), g);
         }
         void subresultant_gcd(numeral_vector const & p1, numeral_vector const & p2, numeral_vector & g) {
-            subresultant_gcd(p1.size(), p1.c_ptr(), p2.size(), p2.c_ptr(), g);
+            subresultant_gcd(p1.size(), p1.data(), p2.size(), p2.data(), g);
         }
         
         /**
@@ -390,7 +390,7 @@ namespace upolynomial {
            \brief Return true if p is a square-free polynomial.
         */
         bool is_square_free(numeral_vector const & p) {
-            return is_square_free(p.size(), p.c_ptr());
+            return is_square_free(p.size(), p.data());
         }
 
         /**
@@ -453,20 +453,20 @@ namespace upolynomial {
         */
         void ext_gcd(unsigned szA, numeral const * A, unsigned szB, numeral const * B, numeral_vector & U, numeral_vector & V, numeral_vector & D);
         void ext_gcd(numeral_vector const & A, numeral_vector const & B, numeral_vector & U, numeral_vector & V, numeral_vector & D) {
-            ext_gcd(A.size(), A.c_ptr(), B.size(), B.c_ptr(), U, V, D);
+            ext_gcd(A.size(), A.data(), B.size(), B.data(), U, V, D);
         }
 
         bool eq(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2);
-        bool eq(numeral_vector const & p1, numeral_vector const & p2) { return eq(p1.size(), p1.c_ptr(), p2.size(), p2.c_ptr()); }
+        bool eq(numeral_vector const & p1, numeral_vector const & p2) { return eq(p1.size(), p1.data(), p2.size(), p2.data()); }
 
         std::ostream& display(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x", bool use_star = false) const;
-        std::ostream& display(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { return display(out, p.size(), p.c_ptr(), var_name); }
+        std::ostream& display(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { return display(out, p.size(), p.data(), var_name); }
         std::ostream& display_star(std::ostream & out, unsigned sz, numeral const * p) { return display(out, sz, p, "x", true); }
-        std::ostream& display_star(std::ostream & out, numeral_vector const & p) { return display_star(out, p.size(), p.c_ptr()); }
+        std::ostream& display_star(std::ostream & out, numeral_vector const & p) { return display_star(out, p.size(), p.data()); }
 
         std::ostream& display_smt2(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x") const;
         std::ostream& display_smt2(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { 
-            return display_smt2(out, p.size(), p.c_ptr(), var_name); 
+            return display_smt2(out, p.size(), p.data(), var_name); 
         }
     };
 
@@ -531,7 +531,7 @@ namespace upolynomial {
         /**
            \brief Return the vector of coefficients for the i-th polynomial in the sequence.
         */
-        numeral const * coeffs(unsigned i) const { return m_seq_coeffs.c_ptr() + m_begins[i]; }
+        numeral const * coeffs(unsigned i) const { return m_seq_coeffs.data() + m_begins[i]; }
         
         /**
            \brief Return the size of the i-th polynomial in the sequence.
@@ -643,33 +643,33 @@ namespace upolynomial {
            \brief p(x) := p(x+1)
         */
         void translate(unsigned sz, numeral * p);
-        void translate(unsigned sz, numeral const * p, numeral_vector & buffer) { set(sz, p, buffer); translate(sz, buffer.c_ptr()); }
+        void translate(unsigned sz, numeral const * p, numeral_vector & buffer) { set(sz, p, buffer); translate(sz, buffer.data()); }
         
         /**
            \brief p(x) := p(x+2^k)
         */
         void translate_k(unsigned sz, numeral * p, unsigned k);
-        void translate_k(unsigned sz, numeral const * p, unsigned k, numeral_vector & buffer) { set(sz, p, buffer); translate_k(sz, buffer.c_ptr(), k); }
+        void translate_k(unsigned sz, numeral const * p, unsigned k, numeral_vector & buffer) { set(sz, p, buffer); translate_k(sz, buffer.data(), k); }
 
         /**
            \brief p(x) := p(x+c)
         */
         void translate_z(unsigned sz, numeral * p, numeral const & c);
-        void translate_z(unsigned sz, numeral const * p, numeral const & c, numeral_vector & buffer) { set(sz, p, buffer); translate_z(sz, buffer.c_ptr(), c); }
+        void translate_z(unsigned sz, numeral const * p, numeral const & c, numeral_vector & buffer) { set(sz, p, buffer); translate_z(sz, buffer.data(), c); }
 
         /**
            \brief p(x) := p(x+b) where b = c/2^k 
            buffer := (2^k)^n * p(x + c/(2^k))
         */
         void translate_bq(unsigned sz, numeral * p, mpbq const & b);
-        void translate_bq(unsigned sz, numeral const * p, mpbq const & b, numeral_vector & buffer) { set(sz, p, buffer); translate_bq(sz, buffer.c_ptr(), b); }
+        void translate_bq(unsigned sz, numeral const * p, mpbq const & b, numeral_vector & buffer) { set(sz, p, buffer); translate_bq(sz, buffer.data(), b); }
         
         /**
            \brief p(x) := p(x+b) where b = c/d
            buffer := d^n * p(x + c/d)
         */
         void translate_q(unsigned sz, numeral * p, mpq const & b);
-        void translate_q(unsigned sz, numeral const * p, mpq const & b, numeral_vector & buffer) { set(sz, p, buffer); translate_q(sz, buffer.c_ptr(), b); }
+        void translate_q(unsigned sz, numeral const * p, mpq const & b, numeral_vector & buffer) { set(sz, p, buffer); translate_q(sz, buffer.data(), b); }
         
         /**
            \brief p(x) := 2^n*p(x/2) where n = sz-1
@@ -905,7 +905,7 @@ namespace upolynomial {
            This can happen when limits (e.g., on the search space size) are set in params.
         */
         bool factor(unsigned sz, numeral const * p, factors & r, factor_params const & params = factor_params());
-        bool factor(numeral_vector const & p, factors & r, factor_params const & params = factor_params()) { return factor(p.size(), p.c_ptr(), r, params); }
+        bool factor(numeral_vector const & p, factors & r, factor_params const & params = factor_params()) { return factor(p.size(), p.data(), r, params); }
 
         std::ostream& display(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x", bool use_star = false) const { 
             return core_manager::display(out, sz, p, var_name); 

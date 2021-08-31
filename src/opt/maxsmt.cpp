@@ -72,7 +72,7 @@ namespace opt {
             fmls.push_back(s.s);
         }       
         pb_util pb(m);
-        tmp = pb.mk_ge(weights.size(), weights.c_ptr(), fmls.c_ptr(), k);
+        tmp = pb.mk_ge(weights.size(), weights.data(), fmls.data(), k);
         TRACE("opt", tout << "cost: " << cost << "\n" << tmp << "\n";);
         s().assert_expr(tmp);
     }
@@ -194,10 +194,10 @@ namespace opt {
             return;
         }
         maxsmt_compare_soft cmp(new_soft);
-        ptr_vector<expr> _mutex(mutex.size(), mutex.c_ptr());
+        ptr_vector<expr> _mutex(mutex.size(), mutex.data());
         std::sort(_mutex.begin(), _mutex.end(), cmp);
         mutex.reset();
-        mutex.append(_mutex.size(), _mutex.c_ptr());
+        mutex.append(_mutex.size(), _mutex.data());
 
         rational weight(0), sum1(0), sum2(0);
         vector<rational> weights;
@@ -208,7 +208,7 @@ namespace opt {
             new_soft.remove(e);
         }
         for (unsigned i = mutex.size(); i-- > 0; ) {
-            expr_ref soft(m.mk_or(i+1, mutex.c_ptr()), m);
+            expr_ref soft(m.mk_or(i+1, mutex.data()), m);
             m_trail.push_back(soft);
             rational w = weights[i];
             weight = w - weight;

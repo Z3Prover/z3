@@ -54,6 +54,8 @@ public:
     
     void operator()(model_ref & md) override;
 
+    void operator()(expr_ref& fml) override { UNREACHABLE(); }
+
     void cancel() override {}
 
     void display(std::ostream & out) override;
@@ -63,8 +65,6 @@ public:
     generic_model_converter* copy(ast_translation & translator);
 
     void set_env(ast_pp_util* visitor) override;
-
-    void operator()(expr_ref& fml) override; 
 
     void get_units(obj_map<expr, bool>& units) override;
 };

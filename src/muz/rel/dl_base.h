@@ -98,7 +98,7 @@ namespace datalog {
                 if (n!=o.size()) {
                     return false;
                 }
-                return memcmp(this->c_ptr(), o.c_ptr(), n*sizeof(sort))==0;
+                return memcmp(this->data(), o.data(), n*sizeof(sort))==0;
                 /*for (unsigned i=0; i<n; i++) {
                     if ((*this)[i]!=o[i]) {
                         return false;
@@ -178,7 +178,7 @@ namespace datalog {
 
         class base_fn {
         public:
-            base_fn() {}
+            base_fn() = default;
             virtual ~base_fn() {}
         private:
             //private and undefined copy constructor and operator= to avoid copying
@@ -219,8 +219,6 @@ namespace datalog {
         */
         class mutator_fn : public base_fn {
         public:
-            ~mutator_fn() override {}
-
             virtual void operator()(base_object & t) = 0;
 
             virtual bool supports_attachment(base_object& other) { return false; }
@@ -1075,7 +1073,7 @@ namespace datalog {
 
         virtual void remove_fact(const table_fact & fact) {
             SASSERT(fact.size() == get_signature().size());
-            remove_fact(fact.c_ptr()); }
+            remove_fact(fact.data()); }
 
         virtual void remove_fact(table_element const* fact) = 0;
         virtual void remove_facts(unsigned fact_cnt, const table_fact * facts);

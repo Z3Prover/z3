@@ -66,7 +66,10 @@ public:
     }
 
     void display(std::ostream & out) override {
-        out << "(ackr-model-converter)\n";
+        out << "(ackr-model-converter";
+        if (abstr_model)
+            out << *abstr_model;
+        out << ")\n";
     }
 
 protected:
@@ -102,16 +105,13 @@ void ackr_model_converter::convert_constants(model * source, model * destination
         func_decl * const c = source->get_constant(i);
         app * const term = info->find_term(c);
         expr * value = source->get_const_interp(c);
-        TRACE("ackermannize", tout << mk_ismt2_pp(c, m) << " " << term << "\n";);
-        if (!term) {
+        TRACE("ackermannize", tout << mk_ismt2_pp(c, m) << " " << mk_ismt2_pp(term, m) << "\n";);
+        if (!term) 
             destination->register_decl(c, value);
-        }
-        else if (autil.is_select(term)) {
+        else if (autil.is_select(term)) 
             add_entry(evaluator, term, value, array_interpretations);
-        }
-        else {
+        else 
             add_entry(evaluator, term, value, interpretations);
-        }
     }
 
     for (auto & kv : interpretations) {
@@ -133,7 +133,7 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
     app* A = to_app(term->get_arg(0));
     expr * e = nullptr, *c = nullptr;
     if (!array_interpretations.find(A, e)) {
-        e = autil.mk_const_array(m.get_sort(A), value);
+        e = autil.mk_const_array(A->get_sort(), value);
     }
     else {
         // avoid storing the same as the default value.
@@ -150,7 +150,7 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
             args.push_back(evaluator(info->abstract(arg)));
         }    
         args.push_back(value);
-        e = autil.mk_store(args.size(), args.c_ptr());
+        e = autil.mk_store(args.size(), args.data());
     }
     array_interpretations.insert(A, e);
 }
@@ -175,14 +175,14 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
     for (expr* arg : *term) {
         args.push_back(evaluator(info->abstract(arg)));
     }
-    if (fi->get_entry(args.c_ptr()) == nullptr) {
+    if (fi->get_entry(args.data()) == nullptr) {
         TRACE("ackermannize",
               tout << mk_ismt2_pp(declaration, m) << " args: " << std::endl;
               for (expr* arg : args) {
                   tout << mk_ismt2_pp(arg, m) << std::endl;
               }
               tout << " -> " << mk_ismt2_pp(value, m) << "\n"; );
-        fi->insert_new_entry(args.c_ptr(), value);
+        fi->insert_new_entry(args.data(), value);
     }
     else {
         TRACE("ackermannize", tout << "entry already present\n";);

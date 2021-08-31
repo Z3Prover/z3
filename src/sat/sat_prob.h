@@ -31,9 +31,8 @@ namespace sat {
     class prob : public i_local_search {
 
         struct clause_info {
-            clause_info(): m_trues(0), m_num_trues(0) {}
-            unsigned m_trues;        // set of literals that are true
-            unsigned m_num_trues;    // size of true set
+            unsigned m_trues = 0;        // set of literals that are true
+            unsigned m_num_trues = 0;    // size of true set
             bool is_true() const { return m_num_trues > 0; }
             void add(literal lit) { ++m_num_trues; m_trues += lit.index(); }
             void del(literal lit) { SASSERT(m_num_trues > 0); --m_num_trues; m_trues -= lit.index(); }
@@ -80,8 +79,8 @@ namespace sat {
         public:
             use_list(prob& p, literal lit):
                 p(p), i(lit.index()) {}
-            unsigned const* begin() { return p.m_flat_use_list.c_ptr() + p.m_use_list_index[i]; }
-            unsigned const* end() { return p.m_flat_use_list.c_ptr() + p.m_use_list_index[i+1]; }
+            unsigned const* begin() { return p.m_flat_use_list.data() + p.m_use_list_index[i]; }
+            unsigned const* end() { return p.m_flat_use_list.data() + p.m_use_list_index[i+1]; }
         };
 
         void flatten_use_list(); 
@@ -129,8 +128,6 @@ namespace sat {
         void add(unsigned sz, literal const* c);
 
     public:
-        prob() {}
-
         ~prob() override;
 
         lbool check(unsigned sz, literal const* assumptions, parallel* p) override;

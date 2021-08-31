@@ -166,9 +166,9 @@ public:
   }
 };
 
-class check_sat_using_tactict_cmd : public exec_given_tactic_cmd {
+class check_sat_using_tactic_cmd : public exec_given_tactic_cmd {
 public:
-    check_sat_using_tactict_cmd():
+    check_sat_using_tactic_cmd():
         exec_given_tactic_cmd("check-sat-using") {
     }
 
@@ -242,7 +242,7 @@ public:
         if (ctx.produce_unsat_cores()) {
             ptr_vector<expr> core_elems;
             m.linearize(core, core_elems);
-            result->m_core.append(core_elems.size(), core_elems.c_ptr());
+            result->m_core.append(core_elems.size(), core_elems.data());
             if (p.get_bool("print_unsat_core", false)) {
                 ctx.regular_stream() << "(unsat-core";
                 for (expr * e : core_elems) {
@@ -359,7 +359,7 @@ public:
                     for (unsigned i = 0; i < sz; i++) {
                         assertions.push_back(fg->form(i));
                     }
-                    ctx.display_smt2_benchmark(ctx.regular_stream(), assertions.size(), assertions.c_ptr());
+                    ctx.display_smt2_benchmark(ctx.regular_stream(), assertions.size(), assertions.data());
                 }
                 else {
                     // create a big OR
@@ -371,10 +371,10 @@ public:
                         if (formulas.size() == 1)
                             or_args.push_back(formulas[0]);
                         else
-                            or_args.push_back(m.mk_and(formulas.size(), formulas.c_ptr()));
+                            or_args.push_back(m.mk_and(formulas.size(), formulas.data()));
                     }
                     expr_ref assertion_ref(m);
-                    assertion_ref = m.mk_or(or_args.size(), or_args.c_ptr());
+                    assertion_ref = m.mk_or(or_args.size(), or_args.data());
                     expr * assertions[1] = { assertion_ref.get() };
                     ctx.display_smt2_benchmark(ctx.regular_stream(), 1, assertions);
                 }
@@ -397,7 +397,7 @@ void install_core_tactic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(declare_tactic_cmd));
     ctx.insert(alloc(get_user_tactics_cmd));
     ctx.insert(alloc(help_tactic_cmd));
-    ctx.insert(alloc(check_sat_using_tactict_cmd));
+    ctx.insert(alloc(check_sat_using_tactic_cmd));
     ctx.insert(alloc(apply_tactic_cmd));
     install_tactics(ctx);
 }
@@ -412,7 +412,7 @@ static tactic * mk_and_then(cmd_context & ctx, sexpr * n) {
     tactic_ref_buffer args;
     for (unsigned i = 1; i < num_children; i++)
         args.push_back(sexpr2tactic(ctx, n->get_child(i)));
-    return and_then(args.size(), args.c_ptr());
+    return and_then(args.size(), args.data());
 }
 
 static tactic * mk_or_else(cmd_context & ctx, sexpr * n) {
@@ -425,7 +425,7 @@ static tactic * mk_or_else(cmd_context & ctx, sexpr * n) {
     tactic_ref_buffer args;
     for (unsigned i = 1; i < num_children; i++)
         args.push_back(sexpr2tactic(ctx, n->get_child(i)));
-    return or_else(args.size(), args.c_ptr());
+    return or_else(args.size(), args.data());
 }
 
 static tactic * mk_par(cmd_context & ctx, sexpr * n) {
@@ -438,7 +438,7 @@ static tactic * mk_par(cmd_context & ctx, sexpr * n) {
     tactic_ref_buffer args;
     for (unsigned i = 1; i < num_children; i++)
         args.push_back(sexpr2tactic(ctx, n->get_child(i)));
-    return par(args.size(), args.c_ptr());
+    return par(args.size(), args.data());
 }
 
 static tactic * mk_par_then(cmd_context & ctx, sexpr * n) {
@@ -451,7 +451,7 @@ static tactic * mk_par_then(cmd_context & ctx, sexpr * n) {
     tactic_ref_buffer args;
     for (unsigned i = 1; i < num_children; i++)
         args.push_back(sexpr2tactic(ctx, n->get_child(i)));
-    return par_and_then(args.size(), args.c_ptr());
+    return par_and_then(args.size(), args.data());
 }
 
 static tactic * mk_try_for(cmd_context & ctx, sexpr * n) {

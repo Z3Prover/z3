@@ -56,7 +56,7 @@ namespace upolynomial {
         SASSERT(degree > 0);
         m_factors.push_back(numeral_vector());
         m_degrees.push_back(degree);
-        m_upm.set(p.size(), p.c_ptr(), m_factors.back());
+        m_upm.set(p.size(), p.data(), m_factors.back());
         m_total_factors += degree;
         m_total_degree += m_upm.degree(p)*degree;
     }
@@ -84,11 +84,11 @@ namespace upolynomial {
         for (unsigned i = 0; i < m_factors.size(); ++ i) {
             if (m_degrees[i] > 1) {
                 numeral_vector power;
-                m_upm.pw(m_factors[i].size(), m_factors[i].c_ptr(), m_degrees[i], power);
-                m_upm.mul(out.size(), out.c_ptr(), power.size(), power.c_ptr(), out);
+                m_upm.pw(m_factors[i].size(), m_factors[i].data(), m_degrees[i], power);
+                m_upm.mul(out.size(), out.data(), power.size(), power.data(), out);
                 m_upm.reset(power);
             } else {
-                m_upm.mul(out.size(), out.c_ptr(), m_factors[i].size(), m_factors[i].c_ptr(), out);
+                m_upm.mul(out.size(), out.data(), m_factors[i].size(), m_factors[i].data(), out);
             }
         }
     }
@@ -188,7 +188,7 @@ namespace upolynomial {
 
     // Copy elements from p to buffer.
     void core_manager::set(unsigned sz, numeral const * p, numeral_vector & buffer) {
-        if (p != nullptr && buffer.c_ptr() == p) {
+        if (p != nullptr && buffer.data() == p) {
             SASSERT(buffer.size() == sz);
             return;
         }
@@ -395,7 +395,7 @@ namespace upolynomial {
 
     // Divide coefficients of p by their GCD
     void core_manager::normalize(numeral_vector & p) {
-        normalize(p.size(), p.c_ptr());
+        normalize(p.size(), p.data());
     }
 
     void core_manager::div(unsigned sz, numeral * p, numeral const & b) {
@@ -423,7 +423,7 @@ namespace upolynomial {
             reset(p);
             return;
         }
-        mul(p.size(), p.c_ptr(), b);
+        mul(p.size(), p.data(), b);
     }
 
     // Pseudo division
@@ -568,7 +568,7 @@ namespace upolynomial {
         rem(sz1, p1, sz2, p2, d, buffer);
         // We don't need to flip the sign if d is odd and leading coefficient of p2 is negative
         if (d % 2 == 0 || (sz2 > 0 && m().is_pos(p2[sz2-1])))
-            neg(buffer.size(), buffer.c_ptr());
+            neg(buffer.size(), buffer.data());
     }
 
 
@@ -619,7 +619,7 @@ namespace upolynomial {
         _r.reserve(deg+1);
         numeral_vector & _p1 = m_div_tmp1;
         // std::cerr << "dividing with "; display(std::cerr, _p1); std::cerr << std::endl;
-        TRACE("factor_bug", tout << "sz1: " << sz1 << " p1: " << p1 << ", _p1.c_ptr(): " << _p1.c_ptr() << ", _p1.size(): " << _p1.size() << "\n";);
+        TRACE("factor_bug", tout << "sz1: " << sz1 << " p1: " << p1 << ", _p1.c_ptr(): " << _p1.data() << ", _p1.size(): " << _p1.size() << "\n";);
         set(sz1, p1, _p1);
         SASSERT(_p1.size() == sz1);
         while (true) {
@@ -750,8 +750,8 @@ namespace upolynomial {
             TRACE("mgcd", tout << "trying prime: " << p << "\n";);
             {
                 scoped_set_zp setZp(*this, p);
-                set(pp_u.size(), pp_u.c_ptr(), u_Zp);
-                set(pp_v.size(), pp_v.c_ptr(), v_Zp);
+                set(pp_u.size(), pp_u.data(), u_Zp);
+                set(pp_v.size(), pp_v.data(), v_Zp);
                 if (degree(u_Zp) < d_u) {
                     TRACE("mgcd", tout << "bad prime, leading coefficient vanished\n";);
                     continue; // bad prime
@@ -760,9 +760,9 @@ namespace upolynomial {
                     TRACE("mgcd", tout << "bad prime, leading coefficient vanished\n";);
                     continue; // bad prime
                 }
-                euclid_gcd(u_Zp.size(), u_Zp.c_ptr(), v_Zp.size(), v_Zp.c_ptr(), q);
+                euclid_gcd(u_Zp.size(), u_Zp.data(), v_Zp.size(), v_Zp.data(), q);
                 // normalize so that lc_g is leading coefficient of q
-                mk_monic(q.size(), q.c_ptr());
+                mk_monic(q.size(), q.data());
                 scoped_numeral c(m());
                 m().set(c, lc_g);
                 mul(q, c);
@@ -776,13 +776,13 @@ namespace upolynomial {
                 return;
             }
             if (i == 0) {
-                set(q.size(), q.c_ptr(), C);
+                set(q.size(), q.data(), C);
                 m().set(bound, p);
             }
             else if (q.size() < C.size() || m().m().is_even(p) || m().m().is_even(bound)) {
                 // discard accumulated image, it was affected by unlucky primes
                 TRACE("mgcd", tout << "discarding image\n";);
-                set(q.size(), q.c_ptr(), C);
+                set(q.size(), q.data(), C);
                 m().set(bound, p);
             }
             else {
@@ -829,7 +829,7 @@ namespace upolynomial {
         set(sz1, p1, A);
         set(sz2, p2, B);
         TRACE("upolynomial", tout << "sz1: " << sz1 << ", p1: " << p1 << ", sz2: " << sz2 << ", p2: " << p2 << "\nB.size(): " << B.size() <<
-              ", B.c_ptr(): " << B.c_ptr() << "\n";);
+              ", B.c_ptr(): " << B.data() << "\n";);
         while (m_limit.inc()) {
             TRACE("upolynomial", tout << "A: "; display(tout, A); tout <<"\nB: "; display(tout, B); tout << "\n";);
             if (B.empty()) {
@@ -837,7 +837,7 @@ namespace upolynomial {
                 buffer.swap(A);
                 // to be consistent, if in a field, we make gcd monic
                 if (is_field) {
-                    mk_monic(buffer.size(), buffer.c_ptr());
+                    mk_monic(buffer.size(), buffer.data());
                 }
                 else {
                     flip_sign_if_lm_neg(buffer);
@@ -846,7 +846,7 @@ namespace upolynomial {
                       display(tout, buffer); tout << "\n";);
                 return;
             }
-            rem(A.size(), A.c_ptr(), B.size(), B.c_ptr(), R);
+            rem(A.size(), A.data(), B.size(), B.data(), R);
             normalize(R);
             A.swap(B);
             B.swap(R);
@@ -906,7 +906,7 @@ namespace upolynomial {
                 buffer.swap(A);
                 // to be consistent, if in a field, we make gcd monic
                 if (field()) {
-                    mk_monic(buffer.size(), buffer.c_ptr());
+                    mk_monic(buffer.size(), buffer.data());
                 }
                 else {
                     flip_sign_if_lm_neg(buffer);
@@ -915,7 +915,7 @@ namespace upolynomial {
                       display(tout, buffer); tout << "\n";);
                 return;
             }
-            rem(A.size(), A.c_ptr(), B.size(), B.c_ptr(), d, R);
+            rem(A.size(), A.data(), B.size(), B.data(), d, R);
             unsigned pseudo_div_d = A.size() - B.size();
             if (d < pseudo_div_d + 1) {
                 // I used a standard subresultant implementation.
@@ -967,13 +967,13 @@ namespace upolynomial {
         numeral_vector & p_prime = m_sqf_tmp1;
         numeral_vector & g       = m_sqf_tmp2;
         derivative(sz, p, p_prime);
-        gcd(sz, p, p_prime.size(), p_prime.c_ptr(), g);
+        gcd(sz, p, p_prime.size(), p_prime.data(), g);
         // subresultant_gcd(sz, p, p_prime.size(), p_prime.c_ptr(), g);
         if (g.size() <= 1) {
             set(sz, p, buffer);
         }
         else {
-            div(sz, p, g.size(), g.c_ptr(), buffer);
+            div(sz, p, g.size(), g.data(), buffer);
             normalize(buffer);
         }
     }
@@ -985,7 +985,7 @@ namespace upolynomial {
         numeral_vector & p_prime = m_sqf_tmp1;
         numeral_vector & g       = m_sqf_tmp2;
         derivative(sz, p, p_prime);
-        gcd(sz, p, p_prime.size(), p_prime.c_ptr(), g);
+        gcd(sz, p, p_prime.size(), p_prime.data(), g);
         return g.size() <= 1;
     }
 
@@ -1006,7 +1006,7 @@ namespace upolynomial {
         numeral_vector & result = m_pw_tmp;
         set(sz, p, result);
         for (unsigned i = 1; i < k; i++)
-            mul(m_pw_tmp.size(), m_pw_tmp.c_ptr(), sz, p, m_pw_tmp);
+            mul(m_pw_tmp.size(), m_pw_tmp.data(), sz, p, m_pw_tmp);
         r.swap(result);
 #if 0
         unsigned mask  = 1;
@@ -1057,7 +1057,7 @@ namespace upolynomial {
         reset(U); U.push_back(numeral()); m().set(U.back(), 1);
         // D <- A
         set(szA, A, D);
-        mk_monic(szA, D.c_ptr());
+        mk_monic(szA, D.data());
         // V1 <- 0
         reset(V1);
         // V3 <- B
@@ -1069,30 +1069,30 @@ namespace upolynomial {
                 numeral_vector & AU   = V1;
                 numeral_vector & D_AU = V3;
                 // V <- (D - AU)/B
-                mul(szA, A, U.size(), U.c_ptr(), AU);
-                sub(D.size(), D.c_ptr(), AU.size(), AU.c_ptr(), D_AU);
-                div(D_AU.size(), D_AU.c_ptr(), szB, B, V);
+                mul(szA, A, U.size(), U.data(), AU);
+                sub(D.size(), D.data(), AU.size(), AU.data(), D_AU);
+                div(D_AU.size(), D_AU.data(), szB, B, V);
                 DEBUG_CODE({
                     scoped_numeral_vector BV(m());
                     scoped_numeral_vector expected_D(m());
-                    mul(szB, B, V.size(), V.c_ptr(), BV);
-                    add(AU.size(), AU.c_ptr(), BV.size(), BV.c_ptr(), expected_D);
+                    mul(szB, B, V.size(), V.data(), BV);
+                    add(AU.size(), AU.data(), BV.size(), BV.data(), expected_D);
                     SASSERT(eq(expected_D, D));
                 });
                 // if D is not monic, make it monic
                 scoped_numeral lc_inv(m()), lc(m());
-                mk_monic(D.size(), D.c_ptr(), lc, lc_inv);
+                mk_monic(D.size(), D.data(), lc, lc_inv);
                 mul(U, lc_inv);
                 mul(V, lc_inv);
                 return;
             }
 
             // D = QV3 + R
-            div_rem(D.size(), D.c_ptr(), V3.size(), V3.c_ptr(), Q, R);
+            div_rem(D.size(), D.data(), V3.size(), V3.data(), Q, R);
 
             // T <- U - V1Q
-            mul(V1.size(), V1.c_ptr(), Q.size(), Q.c_ptr(), V1Q);
-            sub(U.size(), U.c_ptr(), V1Q.size(), V1Q.c_ptr(), T);
+            mul(V1.size(), V1.data(), Q.size(), Q.data(), V1Q);
+            sub(U.size(), U.data(), V1Q.size(), V1Q.data(), T);
             // U <- V1
             U.swap(V1);
             // D <- V3
@@ -1413,21 +1413,21 @@ namespace upolynomial {
             TRACE("upolynomial", tout << "after translation\n"; display(tout, p_aux); tout << "\n";);
             scoped_mpbq b_a(bqm);
             bqm.sub(b, a, b_a);
-            compose_p_b_x(p_aux.size(), p_aux.c_ptr(), b_a);
+            compose_p_b_x(p_aux.size(), p_aux.data(), b_a);
             TRACE("upolynomial", tout << "after composition: " << bqm.to_string(b_a) << "\n"; display(tout, p_aux); tout << "\n";);
-            unsigned result = descartes_bound_0_1(p_aux.size(), p_aux.c_ptr());
+            unsigned result = descartes_bound_0_1(p_aux.size(), p_aux.data());
             return result;
         }
         else if (bqm.is_nonpos(b)) {
             // Basic idea: apply descartes_bound_a_b to p(-x) with intervals (-b, -a)
             numeral_vector & p_aux = m_dbab_tmp2;
             set(sz, p, p_aux);
-            p_minus_x(p_aux.size(), p_aux.c_ptr());
+            p_minus_x(p_aux.size(), p_aux.data());
             scoped_mpbq mb(bqm);
             scoped_mpbq ma(bqm);
             bqm.set(mb, b); bqm.neg(mb);
             bqm.set(ma, a); bqm.neg(ma);
-            unsigned result = descartes_bound_a_b(p_aux.size(), p_aux.c_ptr(), bqm, mb, ma);
+            unsigned result = descartes_bound_a_b(p_aux.size(), p_aux.data(), bqm, mb, ma);
             return result;
         }
         else if (!has_zero_roots(sz, p)) {
@@ -2118,7 +2118,7 @@ namespace upolynomial {
 
         // left child
         set(sz, p, p_aux);
-        compose_2n_p_x_div_2(p_aux.size(), p_aux.c_ptr());
+        compose_2n_p_x_div_2(p_aux.size(), p_aux.data());
         normalize(p_aux);
         for (unsigned i = 0; i < sz; i++) {
             p_stack.push_back(numeral());
@@ -2126,7 +2126,7 @@ namespace upolynomial {
         }
         frame_stack.push_back(drs_frame(parent_idx, sz, true));
         // right child
-        translate(sz, p_stack.end() - sz, p_aux);
+        translate(sz, p_stack.data() + p_stack.size() - sz, p_aux);
         normalize(p_aux);
         for (unsigned i = 0; i < sz; i++) {
             p_stack.push_back(numeral());
@@ -2215,7 +2215,7 @@ namespace upolynomial {
             TRACE("upolynomial", tout << "polynomial has a 1/2 root\n";);
             roots.push_back(mpbq(1, 1));
             remove_one_half_root(sz, p, q);
-            push_child_frames(q.size(), q.c_ptr(), p_stack, frame_stack);
+            push_child_frames(q.size(), q.data(), p_stack, frame_stack);
         }
         else {
             push_child_frames(sz, p, p_stack, frame_stack);
@@ -2226,7 +2226,7 @@ namespace upolynomial {
             drs_frame & fr    = frame_stack.back();
             unsigned sz       = fr.m_size;
             SASSERT(sz <= p_stack.size());
-            numeral const * p = p_stack.end() - sz;
+            numeral const * p = p_stack.data() + p_stack.size() - sz;
             TRACE("upolynomial", tout << "processing frame #" << frame_stack.size() - 1 << "\n"
                   << "first: " << fr.m_first << ", left: " << fr.m_left << ", sz: " << fr.m_size << ", parent_idx: ";
                   if (fr.m_parent_idx == UINT_MAX) tout << "<null>"; else tout << fr.m_parent_idx;
@@ -2253,7 +2253,7 @@ namespace upolynomial {
                 TRACE("upolynomial", tout << "1/2 is a root\n";);
                 add_root(frame_stack, bqm, roots);
                 remove_one_half_root(sz, p, q);
-                push_child_frames(q.size(), q.c_ptr(), p_stack, frame_stack);
+                push_child_frames(q.size(), q.data(), p_stack, frame_stack);
             }
             else {
                 push_child_frames(sz, p, p_stack, frame_stack);
@@ -2291,14 +2291,14 @@ namespace upolynomial {
         scoped_numeral_vector aux_p(m());
         set(sz, p, aux_p);
         pos_k = std::max(neg_k, pos_k);
-        compose_p_2k_x(sz, aux_p.c_ptr(), pos_k);
+        compose_p_2k_x(sz, aux_p.data(), pos_k);
 
         // p(x) := p(2^{pos_k} * x)
         // Since the desired positive roots of p(x) are in (0, 2^pos_k),
         TRACE("upolynomial", tout << "searching at (0, 1)\n";);
         unsigned old_roots_sz  = roots.size();
         unsigned old_lowers_sz = lowers.size();
-        drs_isolate_0_1_roots(sz, aux_p.c_ptr(), bqm, roots, lowers, uppers);
+        drs_isolate_0_1_roots(sz, aux_p.data(), bqm, roots, lowers, uppers);
         SASSERT(lowers.size() == uppers.size());
         adjust_pos(bqm, roots,  old_roots_sz,  pos_k);
         adjust_pos(bqm, lowers, old_lowers_sz, pos_k);
@@ -2330,7 +2330,7 @@ namespace upolynomial {
 
         TRACE("upolynomial",
               scoped_numeral U(m());
-              root_upper_bound(p1.size(), p1.c_ptr(), U);
+              root_upper_bound(p1.size(), p1.data(), U);
               unsigned U_k = m().log2(U) + 1;
               tout << "Cauchy     U: 2^" << U_k << "\n";
               tout << "Knuth  pos U: 2^" << knuth_positive_root_upper_bound(sz, p) << "\n";
@@ -2345,7 +2345,7 @@ namespace upolynomial {
         unsigned pos_k = m().log2(U) + 1;
         unsigned neg_k = pos_k;
 #endif
-        drs_isolate_roots(p1.size(), p1.c_ptr(), neg_k, pos_k, bqm, roots, lowers, uppers);
+        drs_isolate_roots(p1.size(), p1.data(), neg_k, pos_k, bqm, roots, lowers, uppers);
     }
 
     // Frame for root isolation in sturm_isolate_roots.
@@ -2477,7 +2477,7 @@ namespace upolynomial {
         unsigned pos_k = m().log2(U) + 1;
         unsigned neg_k = pos_k;
 #endif
-        sturm_isolate_roots_core(p1.size(), p1.c_ptr(), neg_k, pos_k, bqm, roots, lowers, uppers);
+        sturm_isolate_roots_core(p1.size(), p1.data(), neg_k, pos_k, bqm, roots, lowers, uppers);
     }
 
     // Isolate roots of a square free polynomial that does not have zero roots
@@ -2496,8 +2496,8 @@ namespace upolynomial {
             scoped_numeral_vector nz_p(m());
             remove_zero_roots(sz, p, nz_p);
             TRACE("upolynomial", tout << "after removing zero root:\n"; display(tout, nz_p); tout << "\n";);
-            SASSERT(!has_zero_roots(nz_p.size(), nz_p.c_ptr()));
-            sqf_nz_isolate_roots(nz_p.size(), nz_p.c_ptr(), bqm, roots, lowers, uppers);
+            SASSERT(!has_zero_roots(nz_p.size(), nz_p.data()));
+            sqf_nz_isolate_roots(nz_p.size(), nz_p.data(), bqm, roots, lowers, uppers);
         }
         else {
             sqf_nz_isolate_roots(sz, p, bqm, roots, lowers, uppers);
@@ -2510,7 +2510,7 @@ namespace upolynomial {
         scoped_numeral_vector sqf_p(m());
         square_free(sz, p, sqf_p);
         TRACE("upolynomial", tout << "square free part:\n"; display(tout, sqf_p); tout << "\n";);
-        sqf_isolate_roots(sqf_p.size(), sqf_p.c_ptr(), bqm, roots, lowers, uppers);
+        sqf_isolate_roots(sqf_p.size(), sqf_p.data(), bqm, roots, lowers, uppers);
     }
 
     // Keep expanding the Sturm sequence starting at seq
@@ -2522,7 +2522,7 @@ namespace upolynomial {
             if (is_zero(r))
                 return;
             normalize(r);
-            seq.push(r.size(), r.c_ptr());
+            seq.push(r.size(), r.data());
         }
     }
 
@@ -2538,7 +2538,7 @@ namespace upolynomial {
         scoped_numeral_vector p_prime(m());
         seq.push(m(), sz, p);
         derivative(sz, p, p_prime);
-        seq.push(p_prime.size(), p_prime.c_ptr());
+        seq.push(p_prime.size(), p_prime.data());
         sturm_seq_core(seq);
     }
 
@@ -2547,8 +2547,8 @@ namespace upolynomial {
         scoped_numeral_vector p1p2(m());
         seq.push(m(), sz1, p1);
         derivative(sz1, p1, p1p2);
-        mul(p1p2.size(), p1p2.c_ptr(), sz2, p2, p1p2);
-        seq.push(p1p2.size(), p1p2.c_ptr());
+        mul(p1p2.size(), p1p2.data(), sz2, p2, p1p2);
+        seq.push(p1p2.size(), p1p2.data());
         sturm_seq_core(seq);
     }
 
@@ -2563,7 +2563,7 @@ namespace upolynomial {
             unsigned sz = seq.size();
             derivative(seq.size(sz-1), seq.coeffs(sz-1), p_prime);
             normalize(p_prime);
-            seq.push(p_prime.size(), p_prime.c_ptr());
+            seq.push(p_prime.size(), p_prime.data());
         }
     }
 

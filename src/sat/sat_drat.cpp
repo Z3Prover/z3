@@ -37,9 +37,8 @@ namespace sat {
         if (s.get_config().m_drat && s.get_config().m_drat_file.is_non_empty_string()) {
             auto mode = s.get_config().m_drat_binary ? (std::ios_base::binary | std::ios_base::out | std::ios_base::trunc) : std::ios_base::out;
             m_out = alloc(std::ofstream, s.get_config().m_drat_file.str(), mode);
-            if (s.get_config().m_drat_binary) {
-                std::swap(m_out, m_bout);
-            }
+            if (s.get_config().m_drat_binary) 
+                std::swap(m_out, m_bout);            
         }
     }
 
@@ -50,9 +49,8 @@ namespace sat {
         dealloc(m_bout);
         for (unsigned i = 0; i < m_proof.size(); ++i) {
             clause* c = m_proof[i];
-            if (c) {
-                m_alloc.del_clause(c);
-            }
+            if (c) 
+                m_alloc.del_clause(c);            
         }
         m_proof.reset();
         m_out = nullptr;
@@ -133,7 +131,7 @@ namespace sat {
             memcpy(buffer + len, d, lastd - d);
             len += static_cast<unsigned>(lastd - d);
             buffer[len++] = ' ';
-            if (len + 50 > sizeof(buffer)) {
+            if (static_cast<size_t>(len) + 50 > sizeof(buffer)) {
                 m_out->write(buffer, len);
                 len = 0;
             }
@@ -208,15 +206,14 @@ namespace sat {
 
         declare(l);
         IF_VERBOSE(20, trace(verbose_stream(), 1, &l, st););
-        if (st.is_redundant() && st.is_sat()) {
+        if (st.is_redundant() && st.is_sat()) 
             verify(1, &l);
-        }
-        if (st.is_deleted()) {
+        
+        if (st.is_deleted()) 
             return;
-        }
-        if (m_check_unsat) {
-            assign_propagate(l);
-        }
+        
+        if (m_check_unsat) 
+            assign_propagate(l);        
 
         m_units.push_back(l);
     }
@@ -233,9 +230,9 @@ namespace sat {
             // don't record binary as deleted.
         }
         else {
-            if (st.is_redundant() && st.is_sat()) {
+            if (st.is_redundant() && st.is_sat()) 
                 verify(2, lits);
-            }
+            
             clause* c = m_alloc.mk_clause(2, lits, st.is_redundant());
             m_proof.push_back(c);
             m_status.push_back(st);
@@ -245,15 +242,12 @@ namespace sat {
             m_watches[(~l1).index()].push_back(idx);
             m_watches[(~l2).index()].push_back(idx);
 
-            if (value(l1) == l_false && value(l2) == l_false) {
-                m_inconsistent = true;
-            }
-            else if (value(l1) == l_false) {
-                assign_propagate(l2);
-            }
-            else if (value(l2) == l_false) {
-                assign_propagate(l1);
-            }
+            if (value(l1) == l_false && value(l2) == l_false) 
+                m_inconsistent = true;            
+            else if (value(l1) == l_false) 
+                assign_propagate(l2);            
+            else if (value(l2) == l_false) 
+                assign_propagate(l1);            
         }
     }
 
@@ -390,7 +384,7 @@ namespace sat {
         for (unsigned i = num_units; i < m_units.size(); ++i) {
             m_assignment[m_units[i].var()] = l_undef;
         }
-        units.append(m_units.size() - num_units, m_units.c_ptr() + num_units);
+        units.append(m_units.size() - num_units, m_units.data() + num_units);
         m_units.shrink(num_units);
         bool ok = m_inconsistent;
         m_inconsistent = false;
@@ -403,16 +397,14 @@ namespace sat {
         if (n == 0)
             return false;
         unsigned num_units = m_units.size();
-        for (unsigned i = 0; !m_inconsistent && i < n; ++i) {
+        for (unsigned i = 0; !m_inconsistent && i < n; ++i) 
             assign_propagate(~c[i]);
-        }
-        if (!m_inconsistent) {
-            DEBUG_CODE(validate_propagation(););
-        }
+        
+        DEBUG_CODE(if (!m_inconsistent) validate_propagation(););        
         DEBUG_CODE(
-            for (literal u : m_units) {
+            for (literal u : m_units) 
                 SASSERT(m_assignment[u.var()] != l_undef);
-            });
+            );
 
 #if 0
         if (!m_inconsistent) {
@@ -465,9 +457,9 @@ namespace sat {
         }
 #endif
 
-        for (unsigned i = num_units; i < m_units.size(); ++i) {
+        for (unsigned i = num_units; i < m_units.size(); ++i) 
             m_assignment[m_units[i].var()] = l_undef;
-        }
+        
         m_units.shrink(num_units);
         bool ok = m_inconsistent;
         m_inconsistent = false;
@@ -517,7 +509,7 @@ namespace sat {
                 if (j != c.size()) {
                     lits.append(j, c.begin());
                     lits.append(c.size() - j - 1, c.begin() + j + 1);
-                    if (!is_drup(lits.size(), lits.c_ptr()))
+                    if (!is_drup(lits.size(), lits.data()))
                         return false;
                     lits.resize(n);
                 }
@@ -788,7 +780,7 @@ namespace sat {
         }
     }
     void drat::add(literal_vector const& lits, status st) {
-        add(lits.size(), lits.c_ptr(), st);
+        add(lits.size(), lits.data(), st);
     }
 
     void drat::add(unsigned sz, literal const* lits, status st) {
@@ -822,7 +814,7 @@ namespace sat {
             case 1: append(c[0], status::redundant()); break;
             default: {
                 verify(c.size(), c.begin());
-                clause* cl = m_alloc.mk_clause(c.size(), c.c_ptr(), true);
+                clause* cl = m_alloc.mk_clause(c.size(), c.data(), true);
                 append(*cl, status::redundant());
                 break;
             }

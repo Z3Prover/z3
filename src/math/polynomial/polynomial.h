@@ -981,7 +981,7 @@ namespace polynomial {
         */
         polynomial * to_polynomial(unsigned sz, numeral const * p, var x);
         polynomial * to_polynomial(numeral_vector const & p, var x) {
-            return to_polynomial(p.size(), p.c_ptr(), x);
+            return to_polynomial(p.size(), p.data(), x);
         }
        
         /**
@@ -1003,7 +1003,7 @@ namespace polynomial {
         void translate(polynomial const * p, unsigned xs_sz, var const * xs, numeral const * vs, polynomial_ref & r);
         void translate(polynomial const * p, var_vector const & xs, numeral_vector const & vs, polynomial_ref & r) {
             SASSERT(xs.size() == vs.size());
-            translate(p, xs.size(), xs.c_ptr(), vs.c_ptr(), r); 
+            translate(p, xs.size(), xs.data(), vs.data(), r); 
         }
 
         /**

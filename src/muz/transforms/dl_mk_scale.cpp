@@ -60,7 +60,7 @@ namespace datalog {
 				subst.push_back(a.mk_numeral(rational(1), a.mk_real()));
 
 				SASSERT(!new_fi->is_partial() && new_fi->num_entries() == 0);
-				tmp = vs(new_fi->get_else(), subst.size(), subst.c_ptr());
+				tmp = vs(new_fi->get_else(), subst.size(), subst.data());
 				if (old_p->get_arity() == 0) {
 					old_model->register_decl(old_p, tmp);
 				}
@@ -154,7 +154,7 @@ namespace datalog {
             tail.append(m_eqs);
             tail.push_back(a.mk_gt(m.mk_var(num_vars, a.mk_real()), a.mk_numeral(rational(0), false)));
             neg.resize(tail.size(), false);
-            new_rule = rm.mk(new_pred, tail.size(), tail.c_ptr(), neg.c_ptr(), r.name(), true);
+            new_rule = rm.mk(new_pred, tail.size(), tail.data(), neg.data(), r.name(), true);
             result->add_rule(new_rule);
             if (source.is_output_predicate(r.get_decl())) {
                 result->set_output_predicate(new_rule->get_decl());
@@ -174,7 +174,7 @@ namespace datalog {
         ptr_vector<sort> domain(f->get_arity(), f->get_domain());
         domain.push_back(a.mk_real());
         func_decl_ref g(m);
-        g = m.mk_func_decl(f->get_name(), f->get_arity() + 1, domain.c_ptr(), f->get_range());
+        g = m.mk_func_decl(f->get_name(), f->get_arity() + 1, domain.data(), f->get_range());
         expr_ref_vector args(m);
         for (unsigned i = 0; i < q->get_num_args(); ++i) {
             expr* arg = q->get_arg(i);
@@ -200,7 +200,7 @@ namespace datalog {
         if (m_mc) {
             m_mc->add_new2old(g, f);
         }
-        return app_ref(m.mk_app(g, q->get_num_args() + 1, args.c_ptr()), m);
+        return app_ref(m.mk_app(g, q->get_num_args() + 1, args.data()), m);
     }
 
     app_ref mk_scale::mk_constraint(unsigned sigma_idx, app* q) {
@@ -227,7 +227,7 @@ namespace datalog {
             for (unsigned i = 0; i < ap->get_num_args(); ++i) {
                 args.push_back(linearize(sigma_idx, ap->get_arg(i)));
             }
-            result = m.mk_app(ap->get_decl(), args.size(), args.c_ptr());
+            result = m.mk_app(ap->get_decl(), args.size(), args.data());
         }
         else if (a.is_numeral(e)) {
             result = a.mk_mul(m.mk_var(sigma_idx, a.mk_real()), e);

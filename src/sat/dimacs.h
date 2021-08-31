@@ -53,7 +53,7 @@ namespace dimacs {
     };
 
     struct drat_record {
-        enum class tag_t { is_clause, is_node, is_decl, is_sort, is_bool_def };
+        enum class tag_t { is_clause, is_node, is_decl, is_sort, is_bool_def, is_var, is_quantifier };
         tag_t            m_tag{ tag_t::is_clause };
         // a clause populates m_lits and m_status
         // a node populates m_node_id, m_name, m_args
@@ -63,7 +63,6 @@ namespace dimacs {
         unsigned        m_node_id{ 0 };
         std::string     m_name;
         unsigned_vector m_args;
-        drat_record() {}
     };
 
     struct drat_pp {
@@ -84,6 +83,7 @@ namespace dimacs {
 
         char const* parse_sexpr();
         char const* parse_identifier();
+        char const* parse_quoted_symbol();
         int read_theory_id();
         bool next();
 
@@ -110,6 +110,3 @@ namespace dimacs {
 
     };
 };
-
-
-

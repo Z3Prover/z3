@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# -- /usr/bin/env python
 """
 Reads a pattern database and generates the corresponding
 header file.

@@ -23,18 +23,13 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
-#include "ast/bv_decl_plugin.h"
-#include <string>
+#include "ast/char_decl_plugin.h"
 #include "util/lbool.h"
-
-#define Z3_USE_UNICODE 0
+#include "util/zstring.h"
 
 enum seq_sort_kind {
     SEQ_SORT,
     RE_SORT,
-#if Z3_USE_UNICODE
-    _CHAR_SORT,     // internal only
-#endif
     _STRING_SORT,  
     _REGLAN_SORT
 };
@@ -84,16 +79,14 @@ enum seq_op_kind {
     OP_STRING_CONST,
     OP_STRING_ITOS,
     OP_STRING_STOI,
+    OP_STRING_UBVTOS,
+    OP_STRING_SBVTOS,
     OP_STRING_LT,
     OP_STRING_LE,
     OP_STRING_IS_DIGIT,
     OP_STRING_TO_CODE,
     OP_STRING_FROM_CODE,
 
-#if Z3_USE_UNICODE
-    OP_CHAR_CONST,    // constant character
-    OP_CHAR_LE,       // Unicode comparison
-#endif
     // internal only operators. Converted to SEQ variants.
     _OP_STRING_FROM_CHAR,
     _OP_STRING_STRREPL,
@@ -116,38 +109,6 @@ enum seq_op_kind {
 };
 
 
-class zstring {
-private:
-    buffer<unsigned> m_buffer;
-    bool well_formed() const;
-public:
-    static unsigned max_char() { return 196607; }
-    zstring() {}
-    zstring(char const* s);
-    zstring(const std::string &str) : zstring(str.c_str()) {}
-    zstring(unsigned sz, unsigned const* s) { m_buffer.append(sz, s); SASSERT(well_formed()); }
-    zstring(unsigned num_bits, bool const* ch);
-    zstring(unsigned ch);
-    zstring replace(zstring const& src, zstring const& dst) const;
-    zstring reverse() const;
-    std::string encode() const;
-    unsigned length() const { return m_buffer.size(); }
-    unsigned operator[](unsigned i) const { return m_buffer[i]; }
-    bool empty() const { return m_buffer.empty(); }
-    bool suffixof(zstring const& other) const;
-    bool prefixof(zstring const& other) const;
-    bool contains(zstring const& other) const;
-    int  indexofu(zstring const& other, unsigned offset) const;
-    int  last_indexof(zstring const& other) const;
-    zstring extract(unsigned lo, unsigned hi) const;
-    zstring operator+(zstring const& other) const;
-    bool operator==(const zstring& other) const;
-    bool operator!=(const zstring& other) const;
-
-    friend std::ostream& operator<<(std::ostream &os, const zstring &str);
-    friend bool operator<(const zstring& lhs, const zstring& rhs);
-};
-
 class seq_decl_plugin : public decl_plugin {
     struct psig {
         symbol          m_name;
@@ -168,12 +129,12 @@ class seq_decl_plugin : public decl_plugin {
     ptr_vector<sort> m_binding;
     bool             m_init;
     symbol           m_stringc_sym;
-    symbol           m_charc_sym;
     sort*            m_string;
     sort*            m_char;
     sort*            m_reglan;
     bool             m_has_re;
     bool             m_has_seq;
+    char_decl_plugin* m_char_plugin { nullptr };
 
     void match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
@@ -190,17 +151,22 @@ class seq_decl_plugin : public decl_plugin {
     func_decl* mk_assoc_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_string, decl_kind k_seq);
     func_decl* mk_left_assoc_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_string, decl_kind k_seq);
     func_decl* mk_assoc_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_string, decl_kind k_seq, bool is_right);
+    func_decl* mk_ubv2s(unsigned arity, sort* const* domain) const;
+    func_decl* mk_sbv2s(unsigned arity, sort* const* domain) const;
 
 
     void init();
 
     void set_manager(ast_manager * m, family_id id) override;
 
+    sort* mk_reglan();
+
 public:
     seq_decl_plugin();
 
-    ~seq_decl_plugin() override {}
     void finalize() override;
+
+    bool unicode() const { return get_char_plugin().unicode(); }
 
     decl_plugin * mk_fresh() override { return alloc(seq_decl_plugin); }
 
@@ -215,7 +181,7 @@ public:
 
     bool is_value(app * e) const override;
 
-    bool is_unique_value(app * e) const override { return false; }
+    bool is_unique_value(app * e) const override;
 
     bool are_equal(app* a, app* b) const override;
 
@@ -223,9 +189,11 @@ public:
 
     expr * get_some_value(sort * s) override;
 
-    bool is_char(ast* a) const { return a == m_char; }
+    bool is_char(sort* a) const { return a == m_char; }
 
-    app* mk_string(symbol const& s);
+    unsigned max_char() const { return get_char_plugin().max_char(); }
+    unsigned num_bits() const { return get_char_plugin().num_bits(); }
+
     app* mk_string(zstring const& s);
     app* mk_char(unsigned ch);
 
@@ -233,14 +201,19 @@ public:
     bool has_seq() const { return m_has_seq; }
 
     bool is_considered_uninterpreted(func_decl * f) override;
+
+    sort* char_sort() const { return m_char; }
+    sort* string_sort() const { return m_string; }
+
+    char_decl_plugin& get_char_plugin() const { return *m_char_plugin; }
+
 };
 
 class seq_util {
     ast_manager& m;
     seq_decl_plugin& seq;
+    char_decl_plugin& ch;
     family_id m_fid;
-    mutable scoped_ptr<bv_util> m_bv;
-    bv_util& bv() const;
 
 public:
 
@@ -249,30 +222,39 @@ public:
 
     ast_manager& get_manager() const { return m; }
 
+    sort* mk_char_sort() const { return seq.char_sort(); }
+    sort* mk_string_sort() const { return seq.string_sort(); }
+
     bool is_char(sort* s) const { return seq.is_char(s); }
-    bool is_string(sort* s) const { return is_seq(s) && seq.is_char(s->get_parameter(0).get_ast()); }
+    bool is_char(expr* e) const { return is_char(e->get_sort()); }
+    bool is_string(sort* s) const { return is_seq(s) && seq.is_char(to_sort(s->get_parameter(0).get_ast())); }
     bool is_seq(sort* s) const { return is_sort_of(s, m_fid, SEQ_SORT); }
     bool is_re(sort* s) const { return is_sort_of(s, m_fid, RE_SORT); }
     bool is_re(sort* s, sort*& seq) const { return is_sort_of(s, m_fid, RE_SORT)  && (seq = to_sort(s->get_parameter(0).get_ast()), true); }
-    bool is_seq(expr* e) const  { return is_seq(m.get_sort(e)); }
+    bool is_seq(expr* e) const  { return is_seq(e->get_sort()); }
     bool is_seq(sort* s, sort*& seq) const { return is_seq(s) && (seq = to_sort(s->get_parameter(0).get_ast()), true); }
-    bool is_re(expr* e) const { return is_re(m.get_sort(e)); }
-    bool is_re(expr* e, sort*& seq) const { return is_re(m.get_sort(e), seq); }
-    bool is_char(expr* e) const { return is_char(m.get_sort(e)); }
+    bool is_re(expr* e) const { return is_re(e->get_sort()); }
+    bool is_re(expr* e, sort*& seq) const { return is_re(e->get_sort(), seq); }
     bool is_const_char(expr* e, unsigned& c) const;
-#if Z3_USE_UNICODE
-    bool is_char_le(expr const* e) const { return is_app_of(e, m_fid, OP_CHAR_LE); }
-#else
-    bool is_char_le(expr const* e) const { return bv().is_bv_ule(e) && is_char(to_app(e)->get_arg(0)); }
-#endif
+    bool is_const_char(expr* e) const { unsigned c; return is_const_char(e, c); }
+    bool is_char_le(expr const* e) const;
+    bool is_char_is_digit(expr const* e, expr*& d) const { return ch.is_is_digit(e, d); }
+    bool is_char_is_digit(expr const* e) const { return ch.is_is_digit(e); }
+    bool is_char2int(expr const* e) const;
+    app* mk_char_bit(expr* e, unsigned i);
     app* mk_char(unsigned ch) const;
+    app* mk_char_is_digit(expr* e) { return ch.mk_is_digit(e); }
     app* mk_le(expr* ch1, expr* ch2) const;
-    app* mk_lt(expr* ch1, expr* ch2) const;
+    app* mk_lt(expr* ch1, expr* ch2) const;    
+    app* mk_char2int(expr* e) { return ch.mk_to_int(e); }
+    unsigned max_char() const { return seq.max_char(); }
+    unsigned num_bits() const { return seq.num_bits(); }
 
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
 
     MATCH_BINARY(is_char_le);
+    MATCH_UNARY(is_char2int);
 
     bool has_re() const { return seq.has_re(); }
     bool has_seq() const { return seq.has_seq(); }
@@ -282,9 +264,6 @@ public:
         ast_manager& m;
         family_id    m_fid;
 
-        app* mk_string(char const* s) { return mk_string(symbol(s)); }
-        app* mk_string(std::string const& s) { return mk_string(symbol(s.c_str())); }
-
 
     public:
         str(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
@@ -293,7 +272,6 @@ public:
         sort* mk_string_sort() const { return m.mk_sort(m_fid, _STRING_SORT, 0, nullptr); }
         app* mk_empty(sort* s) const { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, nullptr, 0, (expr*const*)nullptr, s)); }
         app* mk_string(zstring const& s) const;
-        app* mk_string(symbol const& s) const { return u.seq.mk_string(s); }
         app* mk_char(unsigned ch) const;
         app* mk_concat(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONCAT, 2, es); }
         app* mk_concat(expr* a, expr* b, expr* c) const { return mk_concat(a, mk_concat(b, c)); }
@@ -301,7 +279,7 @@ public:
             if (n == 0) return mk_empty(s);
             if (n == 1) return es[0]; 
             return m.mk_app(m_fid, OP_SEQ_CONCAT, n, es); }
-        expr* mk_concat(expr_ref_vector const& es, sort* s) const { return mk_concat(es.size(), es.c_ptr(), s); }
+        expr* mk_concat(expr_ref_vector const& es, sort* s) const { return mk_concat(es.size(), es.data(), s); }
         app* mk_length(expr* a) const { return m.mk_app(m_fid, OP_SEQ_LENGTH, 1, &a); }
         app* mk_at(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_AT, 2, es); }
         app* mk_nth(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH, 2, es); }
@@ -317,8 +295,11 @@ public:
         app* mk_replace(expr* a, expr* b, expr* c) const { expr* es[3] = { a, b, c}; return m.mk_app(m_fid, OP_SEQ_REPLACE, 3, es); }
         app* mk_unit(expr* u) const { return m.mk_app(m_fid, OP_SEQ_UNIT, 1, &u); }
         app* mk_char(zstring const& s, unsigned idx) const;
+        app* mk_char_bit(expr* e, unsigned i);
         app* mk_itos(expr* i) const { return m.mk_app(m_fid, OP_STRING_ITOS, 1, &i); }
         app* mk_stoi(expr* s) const { return m.mk_app(m_fid, OP_STRING_STOI, 1, &s); }
+        app* mk_ubv2s(expr* b) const { return m.mk_app(m_fid, OP_STRING_UBVTOS, 1, &b); }
+        app* mk_sbv2s(expr* b) const { return m.mk_app(m_fid, OP_STRING_SBVTOS, 1, &b); }
         app* mk_is_empty(expr* s) const;
         app* mk_lex_lt(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_STRING_LT, 2, es); }
         app* mk_lex_le(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_STRING_LE, 2, es); }
@@ -332,14 +313,12 @@ public:
         bool is_skolem(func_decl const* f)      const { return is_decl_of(f, m_fid, _OP_SEQ_SKOLEM); }
 
         bool is_string(expr const * n) const { return is_app_of(n, m_fid, OP_STRING_CONST); }
-        bool is_string(expr const* n, symbol& s) const {
-            return is_string(n) && (s = to_app(n)->get_decl()->get_parameter(0).get_symbol(), true);
-        }
         bool is_string(func_decl const* f) const { return is_decl_of(f, m_fid, OP_STRING_CONST); }
         bool is_string(expr const* n, zstring& s) const;
         bool is_string(func_decl const* f, zstring& s) const;
-        bool is_empty(expr const* n) const { symbol s;
-            return is_app_of(n, m_fid, OP_SEQ_EMPTY) || (is_string(n, s) && !s.is_numerical() && *s.bare_str() == 0);
+        bool is_empty(expr const* n) const {
+            zstring s;
+            return is_app_of(n, m_fid, OP_SEQ_EMPTY) || (is_string(n, s) && s.empty());
         }
         bool is_concat(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_CONCAT); }
         bool is_length(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_LENGTH); }
@@ -359,21 +338,22 @@ public:
         bool is_suffix(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_SUFFIX); }
         bool is_itos(expr const* n)     const { return is_app_of(n, m_fid, OP_STRING_ITOS); }
         bool is_stoi(expr const* n)     const { return is_app_of(n, m_fid, OP_STRING_STOI); }
+        bool is_ubv2s(expr const* n)    const { return is_app_of(n, m_fid, OP_STRING_UBVTOS); }
+        bool is_sbv2s(expr const* n)    const { return is_app_of(n, m_fid, OP_STRING_SBVTOS); }
         bool is_in_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_IN_RE); }
         bool is_unit(expr const* n)     const { return is_app_of(n, m_fid, OP_SEQ_UNIT); }
         bool is_lt(expr const* n)       const { return is_app_of(n, m_fid, OP_STRING_LT); }
         bool is_le(expr const* n)       const { return is_app_of(n, m_fid, OP_STRING_LE); }
         bool is_is_digit(expr const* n) const { return is_app_of(n, m_fid, OP_STRING_IS_DIGIT); }
-        bool is_from_code(expr const* n) const { return is_app_of(n, m_fid, OP_STRING_TO_CODE); }
-        bool is_to_code(expr const* n) const { return is_app_of(n, m_fid, OP_STRING_FROM_CODE); }
+        bool is_from_code(expr const* n) const { return is_app_of(n, m_fid, OP_STRING_FROM_CODE); }
+        bool is_to_code(expr const* n) const { return is_app_of(n, m_fid, OP_STRING_TO_CODE); }
 
         bool is_string_term(expr const * n) const {
-            sort * s = get_sort(n);
-            return u.is_string(s);
+            return u.is_string(n->get_sort());
         }
 
         bool is_non_string_sequence(expr const * n) const {
-            sort * s = get_sort(n);
+            sort * s = n->get_sort();
             return (u.is_seq(s) && !u.is_string(s));
         }
 
@@ -397,6 +377,8 @@ public:
         MATCH_BINARY(is_le);
         MATCH_UNARY(is_itos);
         MATCH_UNARY(is_stoi);
+        MATCH_UNARY(is_ubv2s);
+        MATCH_UNARY(is_sbv2s);
         MATCH_UNARY(is_is_digit);
         MATCH_UNARY(is_from_code);
         MATCH_UNARY(is_to_code);
@@ -596,12 +578,11 @@ public:
     seq_util(ast_manager& m):
         m(m),
         seq(*static_cast<seq_decl_plugin*>(m.get_plugin(m.mk_family_id("seq")))),
+        ch(seq.get_char_plugin()),
         m_fid(seq.get_family_id()),
         str(*this),
         re(*this) {
     }
-
-    ~seq_util() {}
 
     family_id get_family_id() const { return m_fid; }
 };

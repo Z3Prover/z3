@@ -56,7 +56,7 @@ struct well_sorted_proc {
         }
 
         for (unsigned i = 0; i < num_args; i++) {
-            sort * actual_sort   = m_manager.get_sort(n->get_arg(i));
+            sort * actual_sort   = n->get_arg(i)->get_sort();
             sort * expected_sort = decl->is_associative() ? decl->get_domain(0) : decl->get_domain(i);
             if (expected_sort != actual_sort) {
                 TRACE("tc", tout << "sort mismatch on argument #" << i << ".\n" << mk_ismt2_pp(n, m_manager);

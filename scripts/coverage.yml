@@ -1,0 +1,37 @@
+
+variables:
+  cmakeJulia: '-DZ3_BUILD_JULIA_BINDINGS=True'
+  cmakeJava: '-DZ3_BUILD_JAVA_BINDINGS=True'
+  cmakeNet: '-DZ3_BUILD_DOTNET_BINDINGS=True'
+  cmakePy:  '-DZ3_BUILD_PYTHON_BINDINGS=True'
+  cmakeStdArgs: '-DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -G "Ninja" ../'
+  cmakeCovArgs: '-DCMAKE_INSTALL_PREFIX=./install -G "Ninja" ../'
+  asanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=address -fno-omit-frame-pointer" CFLAGS="${CFLAGS} -fsanitize=address -fno-omit-frame-pointer"'
+  ubsanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=undefined" CFLAGS="${CFLAGS} -fsanitize=undefined"'
+  msanEnv: 'CC=clang LDFLAGS="-L../libcxx/libcxx_msan/lib -lc++abi -Wl,-rpath=../libcxx/libcxx_msan/lib" CXX=clang++ CXXFLAGS="${CXXFLAGS} -stdlib=libc++ -fsanitize-memory-track-origins -fsanitize=memory -fPIE -fno-omit-frame-pointer -g -O2" CFLAGS="${CFLAGS} -stdlib=libc -fsanitize=memory -fsanitize-memory-track-origins -fno-omit-frame-pointer -g -O2"'
+
+jobs:
+ 
+- job: "UbuntuCMakeCoverage"
+  displayName: "Ubuntu build - cmake w/ coverage"
+  pool:
+    vmImage: "ubuntu-latest"
+  steps:
+    - script: sudo apt-get install ninja-build 
+    - script: |
+        set -e
+        mkdir build
+        cd build
+        CXXFLAGS=--coverage LDFLAGS=-lgcov CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Debug $(cmakeCovArgs)
+        ninja
+        ninja test-z3
+        ninja install
+        cd ..
+    - script: |
+         cd build
+         ./test-z3 -a
+         cd ..
+    - template: test-examples-cmake.yml
+    - template: test-regressions-coverage.yml
+         
+

@@ -24,7 +24,6 @@ Revision History:
 #include "util/symbol.h"
 #include "util/gparams.h"
 #include "util/env_params.h"
-#include "params/context_params.h"
 
 extern "C" {
     void Z3_API Z3_global_param_set(Z3_string param_id, Z3_string param_value) {
@@ -47,16 +46,14 @@ extern "C" {
         gparams::reset();
         env_params::updt_params();
     }
-
-    static std::string g_Z3_global_param_get_buffer;
     
     Z3_bool_opt Z3_API Z3_global_param_get(Z3_string param_id, Z3_string_ptr param_value) {
         memory::initialize(UINT_MAX);
         LOG_Z3_global_param_get(param_id, param_value);
         *param_value = nullptr;
         try {
-            g_Z3_global_param_get_buffer = gparams::get_value(param_id);
-            *param_value = g_Z3_global_param_get_buffer.c_str();
+            gparams::g_buffer() = gparams::get_value(param_id);
+            *param_value = gparams::g_buffer().c_str();
             return true;
         }
         catch (z3_exception & ex) {
@@ -71,7 +68,7 @@ extern "C" {
         try {
             memory::initialize(UINT_MAX);
             LOG_Z3_mk_config();
-            Z3_config r = reinterpret_cast<Z3_config>(alloc(context_params));
+            Z3_config r = reinterpret_cast<Z3_config>(alloc(ast_context_params));
             RETURN_Z3(r);
         } catch (z3_exception & ex) {
             // The error handler is only available for contexts
@@ -83,13 +80,13 @@ extern "C" {
     
     void Z3_API Z3_del_config(Z3_config c) {
         LOG_Z3_del_config(c);
-        dealloc((reinterpret_cast<context_params*>(c)));
+        dealloc((reinterpret_cast<ast_context_params*>(c)));
     }
     
     void Z3_API Z3_set_param_value(Z3_config c, char const * param_id, char const * param_value) {
         LOG_Z3_set_param_value(c, param_id, param_value);
         try {
-            context_params * p = reinterpret_cast<context_params*>(c);
+            ast_context_params * p = reinterpret_cast<ast_context_params*>(c);
             p->set(param_id, param_value);
         }
         catch (z3_exception & ex) {

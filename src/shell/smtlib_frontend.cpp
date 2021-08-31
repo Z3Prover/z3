@@ -62,7 +62,7 @@ static void display_model() {
 
 static void on_timeout() {
     display_statistics();
-    exit(0);    
+    _Exit(0);
 }
 
 static void STD_CALL on_ctrl_c(int) {

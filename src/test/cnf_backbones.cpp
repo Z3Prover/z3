@@ -73,7 +73,7 @@ static void track_clause(sat::solver& dst,
     sat::literal lit = sat::literal(dst.mk_var(true, false), false);
     tracking_clauses.set(lit.var(), lits);
     lits.push_back(~lit);
-    dst.mk_clause(lits.size(), lits.c_ptr());
+    dst.mk_clause(lits.size(), lits.data());
     assumptions.push_back(lit);            
 }
 
@@ -145,7 +145,7 @@ static void brute_force_consequences(sat::solver& s, sat::literal_vector const& 
         sat::literal nlit = ~gamma[i];
         sat::literal_vector asms1(asms);
         asms1.push_back(nlit);
-        lbool r = s.check(asms1.size(), asms1.c_ptr());
+        lbool r = s.check(asms1.size(), asms1.data());
         if (r == l_false) {
             backbones.push_back(gamma[i]);
         }
@@ -153,7 +153,7 @@ static void brute_force_consequences(sat::solver& s, sat::literal_vector const& 
 }
 
 static lbool core_chunking(sat::solver& s, sat::bool_var_vector& vars, sat::literal_vector const& asms, vector<sat::literal_vector>& conseq, unsigned K) {
-    lbool r = s.check(asms.size(), asms.c_ptr());
+    lbool r = s.check(asms.size(), asms.data());
     if (r != l_true) {
         return r;
     }
@@ -174,7 +174,7 @@ static lbool core_chunking(sat::solver& s, sat::bool_var_vector& vars, sat::lite
         while (true) {
             sat::literal_vector asms1(asms);
             asms1.append(omegaN);
-            r = s.check(asms1.size(), asms1.c_ptr());
+            r = s.check(asms1.size(), asms1.data());
             if (r == l_true) {
                 IF_VERBOSE(1, verbose_stream() << "(sat) " << omegaN << "\n";);
                 prune_unfixed(lambda, s.get_model());

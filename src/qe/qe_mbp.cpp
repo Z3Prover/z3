@@ -55,7 +55,7 @@ class mbproj::impl {
     }
 
     mbp::project_plugin* get_plugin(app* var) {
-        family_id fid = m.get_sort(var)->get_family_id();
+        family_id fid = var->get_sort()->get_family_id();
         return m_plugins.get(fid, nullptr);
     }
 
@@ -168,7 +168,7 @@ class mbproj::impl {
             expr* e1, * e2;
             if (m_array.is_select(n)) {
                 for (expr* arg : *n) {
-                    if (m.get_sort(arg) == m.get_sort(m_var) && arg != m_var)
+                    if (arg->get_sort() == m_var->get_sort() && arg != m_var)
                         m_res.push_back(arg);
                 }
             }

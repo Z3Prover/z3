@@ -110,7 +110,7 @@ void model_evaluator_array_util::eval_array_eq(model& mdl, app* e, expr* arg1, e
         res = m.mk_true ();
         return;
     }
-    sort* s = m.get_sort(arg1);
+    sort* s = arg1->get_sort();
     sort* r = get_array_range(s);
     // give up evaluating finite domain/range arrays
     if (!r->is_infinite() && !r->is_very_big() && !s->is_infinite() && !s->is_very_big()) {
@@ -151,8 +151,8 @@ void model_evaluator_array_util::eval_array_eq(model& mdl, app* e, expr* arg1, e
     for (unsigned i = 0; i < store.size(); ++i) {
         args1.resize(1);
         args2.resize(1);
-        args1.append(store[i].size()-1, store[i].c_ptr());
-        args2.append(store[i].size()-1, store[i].c_ptr());
+        args1.append(store[i].size()-1, store[i].data());
+        args2.append(store[i].size()-1, store[i].data());
         s1 = m_array.mk_select(args1);
         s2 = m_array.mk_select(args2);
         eval (mdl, s1, w1);
@@ -198,7 +198,7 @@ void model_evaluator_array_util::eval(model& mdl, expr* e, expr_ref& r, bool mod
         expr_ref_vector args(m);
         expr_ref else_case(m);
         if (extract_array_func_interp(mdl, r, stores, else_case)) {
-            r = m_array.mk_const_array(m.get_sort(e), else_case);
+            r = m_array.mk_const_array(e->get_sort(), else_case);
             while (!stores.empty() && stores.back().back() == else_case) {
                 stores.pop_back();
             }

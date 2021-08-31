@@ -466,7 +466,7 @@ public:
             return false;
         TRACE("nla_solver", tout << "j" << j << " not blocked\n";);
         impq delta = get_column_value(j) - ival;
-        for (const auto &c : A_r().column(j)) {
+        for (auto c : A_r().column(j)) {
             unsigned row_index = c.var();
             const mpq & a = c.coeff();        
             unsigned rj = m_mpq_lar_core_solver.m_r_basis[row_index];      
@@ -515,6 +515,7 @@ public:
     unsigned column_to_reported_index(unsigned j) const;
     lp_settings & settings();
     lp_settings const & settings() const;
+    void updt_params(params_ref const& p);
     column_type get_column_type(unsigned j) const { return m_mpq_lar_core_solver.m_column_types()[j]; }
     const impq & get_lower_bound(unsigned j) const { return m_mpq_lar_core_solver.m_r_lower_bounds()[j]; }
     const impq & get_upper_bound(unsigned j) const { return m_mpq_lar_core_solver.m_r_upper_bounds()[j]; }
@@ -524,6 +525,8 @@ public:
     std::ostream& print_constraint_indices_only(const lar_base_constraint * c, std::ostream & out) const;
     std::ostream& print_implied_bound(const implied_bound& be, std::ostream & out) const;
     std::ostream& print_values(std::ostream& out) const;
+    std::ostream& display(std::ostream& out) const;
+
     bool init_model() const;
     mpq get_value(column_index const& j) const;
     mpq get_tv_value(tv const& t) const;
@@ -581,6 +584,8 @@ public:
         }
         return out;
     }
+    
+    void subst_known_terms(lar_term*);
 
     inline std::ostream& print_column_bound_info(unsigned j, std::ostream& out) const {
         return m_mpq_lar_core_solver.m_r_solver.print_column_bound_info(j, out);

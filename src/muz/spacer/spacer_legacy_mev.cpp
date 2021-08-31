@@ -363,7 +363,7 @@ void model_evaluator::inherit_value(expr* e, expr* v)
 {
     expr* w;
     SASSERT(!is_unknown(v));
-    SASSERT(m.get_sort(e) == m.get_sort(v));
+    SASSERT(e->get_sort() == v->get_sort());
     if (is_x(v)) {
         set_x(e);
     } else if (m.is_bool(e)) {
@@ -467,7 +467,7 @@ void model_evaluator::eval_array_eq(app* e, expr* arg1, expr* arg2)
         set_true(e);
         return;
     }
-    sort* s = m.get_sort(arg1);
+    sort* s = arg1->get_sort();
     sort* r = get_array_range(s);
     // give up evaluating finite domain/range arrays
     if (!r->is_infinite() && !r->is_very_big() && !s->is_infinite() && !s->is_very_big()) {
@@ -506,10 +506,10 @@ void model_evaluator::eval_array_eq(app* e, expr* arg1, expr* arg2)
     for (unsigned i = 0; i < store.size(); ++i) {
         args1.resize(1);
         args2.resize(1);
-        args1.append(store[i].size() - 1, store[i].c_ptr());
-        args2.append(store[i].size() - 1, store[i].c_ptr());
-        s1 = m_array.mk_select(args1.size(), args1.c_ptr());
-        s2 = m_array.mk_select(args2.size(), args2.c_ptr());
+        args1.append(store[i].size() - 1, store[i].data());
+        args2.append(store[i].size() - 1, store[i].data());
+        s1 = m_array.mk_select(args1.size(), args1.data());
+        s2 = m_array.mk_select(args2.size(), args2.data());
         w1 = (*m_model)(s1);
         w2 = (*m_model)(s2);
         if (w1 == w2) {
@@ -807,7 +807,7 @@ expr_ref model_evaluator::eval(const model_ref& model, expr* e){
         expr_ref_vector args(m);
         expr_ref else_case(m);
         if (extract_array_func_interp(result, stores, else_case)) {
-            result = m_array.mk_const_array(m.get_sort(e), else_case);
+            result = m_array.mk_const_array(e->get_sort(), else_case);
             while (!stores.empty() && stores.back().back() == else_case) {
                 stores.pop_back();
             }

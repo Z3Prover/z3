@@ -1,4 +1,7 @@
 include core/LICENSE.txt
+include core/z3.pc.cmake.in
+recursive-include core CMakeLists.txt
+recursive-include core *.cmake
 recursive-include core/src *
+recursive-include core/cmake *
 recursive-include core/scripts *
-recursive-include core/examples *

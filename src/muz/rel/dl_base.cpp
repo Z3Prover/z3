@@ -257,7 +257,7 @@ namespace datalog {
             k.get_fact(row);
             to_remove.push_back(row);
         }
-        remove_facts(to_remove.size(), to_remove.c_ptr());
+        remove_facts(to_remove.size(), to_remove.data());
     }
 
     bool table_base::contains_fact(const table_fact & f) const {
@@ -456,9 +456,9 @@ namespace datalog {
             for (unsigned i = 0; i < fact.size(); ++i) {
                 conjs.push_back(m.mk_eq(m.mk_var(i, sig[i]), util.mk_numeral(fact[i], sig[i])));
             }
-            brw.mk_and(conjs.size(), conjs.c_ptr(), fml);
+            brw.mk_and(conjs.size(), conjs.data(), fml);
             disjs.push_back(fml);
         }
-        brw.mk_or(disjs.size(), disjs.c_ptr(), fml);        
+        brw.mk_or(disjs.size(), disjs.data(), fml);        
     }
 }

@@ -64,7 +64,7 @@ void arith_eq_solver::prop_mod_const(expr * e, unsigned depth, numeral const& k,
             prop_mod_const(a->get_arg(i), depth - 1, k, tmp);
             args.push_back(tmp);
         }
-        m_arith_rewriter.mk_app(a->get_decl(), args.size(), args.c_ptr(), result);
+        m_arith_rewriter.mk_app(a->get_decl(), args.size(), args.data(), result);
     }
     else if (m_util.is_numeral(e, n, is_int) && is_int) {
         result = m_util.mk_numeral(mod(n, k), true);

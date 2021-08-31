@@ -144,7 +144,7 @@ public:
     array_recognizers(family_id fid):m_fid(fid) {}
     family_id get_family_id() const { return m_fid; }
     bool is_array(sort* s) const { return is_sort_of(s, m_fid, ARRAY_SORT);}
-    bool is_array(expr* n) const { return is_array(get_sort(n)); }
+    bool is_array(expr* n) const { return is_array(n->get_sort()); }
     bool is_select(expr* n) const { return is_app_of(n, m_fid, OP_SELECT); }
     bool is_store(expr* n) const { return is_app_of(n, m_fid, OP_STORE); }
     bool is_const(expr* n) const { return is_app_of(n, m_fid, OP_CONST_ARRAY); }
@@ -182,31 +182,32 @@ public:
 
     bool is_as_array_tree(expr * n);
 
-    app * mk_store(unsigned num_args, expr * const * args) {
+    app * mk_store(unsigned num_args, expr * const * args) const {
         return m_manager.mk_app(m_fid, OP_STORE, 0, nullptr, num_args, args);
     }
 
-    app * mk_store(expr_ref_vector const& args) {
-        return mk_store(args.size(), args.c_ptr());
-    }
-    app * mk_store(ptr_vector<expr> const& args) {
-        return mk_store(args.size(), args.c_ptr());
+    app * mk_store(expr_ref_vector const& args) const {
+        return mk_store(args.size(), args.data());
     }
 
-    app * mk_select(unsigned num_args, expr * const * args) {
+    app * mk_store(ptr_vector<expr> const& args) const {
+        return mk_store(args.size(), args.data());
+    }
+
+    app * mk_select(unsigned num_args, expr * const * args) const {
         return m_manager.mk_app(m_fid, OP_SELECT, 0, nullptr, num_args, args);
     }
 
-    app * mk_select(ptr_vector<expr> const& args) {
-        return mk_select(args.size(), args.c_ptr());
+    app * mk_select(ptr_vector<expr> const& args) const {
+        return mk_select(args.size(), args.data());
     }
 
-    app * mk_select(ptr_buffer<expr> const& args) {
-        return mk_select(args.size(), args.c_ptr());
+    app * mk_select(ptr_buffer<expr> const& args) const {
+        return mk_select(args.size(), args.data());
     }
 
-    app * mk_select(expr_ref_vector const& args) {
-        return mk_select(args.size(), args.c_ptr());
+    app * mk_select(expr_ref_vector const& args) const {
+        return mk_select(args.size(), args.data());
     }
 
     app * mk_map(func_decl * f, unsigned num_args, expr * const * args) {

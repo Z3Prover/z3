@@ -106,7 +106,7 @@ struct goal2nlsat::imp {
         }
         if (m_qm.is_neg(fs.get_constant()))             
             k = flip(k);            
-        return m_solver.mk_ineq_atom(k, ps.size(), ps.c_ptr(), is_even.c_ptr());
+        return m_solver.mk_ineq_atom(k, ps.size(), ps.data(), is_even.data());
     }
 
     nlsat::literal process_atom(app * f, nlsat::atom::kind k) {
@@ -248,7 +248,7 @@ struct goal2nlsat::imp {
         for (unsigned i = 0; i < num_lits; i++) {
             ls.push_back(process_literal(lits[i]));
         }
-        m_solver.mk_clause(ls.size(), ls.c_ptr(), dep);
+        m_solver.mk_clause(ls.size(), ls.data(), dep);
     }
 
     void operator()(goal const & g) {

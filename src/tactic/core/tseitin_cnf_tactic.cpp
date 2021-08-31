@@ -495,7 +495,7 @@ class tseitin_cnf_tactic : public tactic {
                 inv(lb, nlb);
                 mk_clause(la, nlb);
             }
-            mk_clause(lits.size(), lits.c_ptr());
+            mk_clause(lits.size(), lits.data());
             return DONE;
         }
         
@@ -575,13 +575,13 @@ class tseitin_cnf_tactic : public tactic {
             
 #define MK_ITE_ROOT_CLS(L1, L2) {               \
     ctx.push_back(L1); ctx.push_back(L2);       \
-    mk_clause(ctx.size(), ctx.c_ptr());         \
+    mk_clause(ctx.size(), ctx.data());         \
     ctx.pop_back(); ctx.pop_back();             \
 }
             
 #define MK_ITE_CLS(L1, L2, L3) {                                \
     ctx.push_back(L1); ctx.push_back(L2); ctx.push_back(L3);    \
-    mk_clause(ctx.size(), ctx.c_ptr());                         \
+    mk_clause(ctx.size(), ctx.data());                         \
     ctx.pop_back(); ctx.pop_back(); ctx.pop_back();             \
 }
             
@@ -643,9 +643,9 @@ class tseitin_cnf_tactic : public tactic {
                         MK_ITE_CLS(nlb, nlc, k);
                         
                         ex_neg_ctx.push_back(lb); ex_neg_ctx.push_back(lc); ex_neg_ctx.push_back(nk);
-                        mk_clause(ex_neg_ctx.size(), ex_neg_ctx.c_ptr());
+                        mk_clause(ex_neg_ctx.size(), ex_neg_ctx.data());
                         ex_pos_ctx.push_back(nlb); ex_pos_ctx.push_back(nlc); ex_pos_ctx.push_back(k);
-                        mk_clause(ex_pos_ctx.size(), ex_pos_ctx.c_ptr());
+                        mk_clause(ex_pos_ctx.size(), ex_pos_ctx.data());
                     }
                 }
                 break;
@@ -707,7 +707,7 @@ class tseitin_cnf_tactic : public tactic {
                     lits.push_back(l);
                 }
                 if (root) {
-                    mk_clause(lits.size(), lits.c_ptr());
+                    mk_clause(lits.size(), lits.data());
                 }
                 else {
                     for (unsigned i = 0; i < num; i++) {
@@ -715,7 +715,7 @@ class tseitin_cnf_tactic : public tactic {
                         mk_clause(l, k);
                     }
                     lits.push_back(nk);
-                    mk_clause(lits.size(), lits.c_ptr());
+                    mk_clause(lits.size(), lits.data());
                 }
             }
             else {
@@ -745,7 +745,7 @@ class tseitin_cnf_tactic : public tactic {
                             }
                             if (!root) {
                                 lits.push_back(k);
-                                mk_clause(lits.size(), lits.c_ptr());
+                                mk_clause(lits.size(), lits.data());
                             }
                             continue;
                         }
@@ -761,7 +761,7 @@ class tseitin_cnf_tactic : public tactic {
                 SASSERT(offsets.size() == num);
                 sbuffer<expr**> arg_lits;
                 ptr_buffer<expr> lits;
-                expr ** buffer_ptr = buffer.c_ptr();
+                expr ** buffer_ptr = buffer.data();
                 for (unsigned i = 0; i < num; i++) {
                     arg_lits.push_back(buffer_ptr + offsets[i]);
                 }
@@ -772,9 +772,9 @@ class tseitin_cnf_tactic : public tactic {
                     }
                     if (!root)
                         lits.push_back(nk);
-                    mk_clause(lits.size(), lits.c_ptr());
+                    mk_clause(lits.size(), lits.data());
                 }
-                while (product_iterator_next(szs.size(), szs.c_ptr(), it.c_ptr()));
+                while (product_iterator_next(szs.size(), szs.data(), it.data()));
             }
             return DONE;
         }

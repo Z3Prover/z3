@@ -55,7 +55,7 @@ bvarray2uf_rewriter_cfg::~bvarray2uf_rewriter_cfg() {
 void bvarray2uf_rewriter_cfg::reset() {}
 
 sort * bvarray2uf_rewriter_cfg::get_index_sort(expr * e) {
-    return get_index_sort(m_manager.get_sort(e));
+    return get_index_sort(e->get_sort());
 }
 
 sort * bvarray2uf_rewriter_cfg::get_index_sort(sort * s) {
@@ -71,7 +71,7 @@ sort * bvarray2uf_rewriter_cfg::get_index_sort(sort * s) {
 }
 
 sort * bvarray2uf_rewriter_cfg::get_value_sort(expr * e) {
-    return get_value_sort(m_manager.get_sort(e));
+    return get_value_sort(e->get_sort());
 }
 
 sort * bvarray2uf_rewriter_cfg::get_value_sort(sort * s) {
@@ -82,7 +82,7 @@ sort * bvarray2uf_rewriter_cfg::get_value_sort(sort * s) {
 }
 
 bool bvarray2uf_rewriter_cfg::is_bv_array(expr * e) {
-    return is_bv_array(m_manager.get_sort(e));
+    return is_bv_array(e->get_sort());
 }
 
 bool bvarray2uf_rewriter_cfg::is_bv_array(sort * s) {
@@ -144,7 +144,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
             func_decl_ref f_t(mk_uf_for_array(args[0]), m_manager);
             func_decl_ref f_s(mk_uf_for_array(args[1]), m_manager);
 
-            sort * sorts[1] = { get_index_sort(m_manager.get_sort(args[0])) };
+            sort * sorts[1] = { get_index_sort(args[0]->get_sort()) };
             symbol names[1] = { symbol("x") };
             var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
 
@@ -167,7 +167,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
         TRACE("bvarray2uf_rw", tout << "(ite " << c << ", " << f_t->get_name()
             << ", " << f_f->get_name() << ")" << std::endl;);
 
-        sort * sorts[1] = { get_index_sort(m_manager.get_sort(args[1])) };
+        sort * sorts[1] = { get_index_sort(args[1]->get_sort()) };
         symbol names[1] = { symbol("x") };
         var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
 
@@ -296,7 +296,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
 
                     expr_ref body(m_manager);
                     body = m_manager.mk_eq(m_manager.mk_app(f_t, x.get()),
-                                           m_manager.mk_app(map_f, num, new_args.c_ptr()));
+                                           m_manager.mk_app(map_f, num, new_args.data()));
 
                     expr_ref frllx(m_manager.mk_forall(1, sorts, names, body), m_manager);
                     extra_assertions.push_back(frllx);

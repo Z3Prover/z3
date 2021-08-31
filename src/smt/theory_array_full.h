@@ -29,7 +29,6 @@ namespace smt {
             ptr_vector<enode>  m_consts;
             ptr_vector<enode>  m_as_arrays;
             ptr_vector<enode>  m_parent_maps;
-            var_data_full() {}
         };
 
         ptr_vector<var_data_full> m_var_data_full;

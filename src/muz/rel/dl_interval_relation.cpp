@@ -64,7 +64,7 @@ namespace datalog {
             interval_relation const& r2 = get(_r2);
             interval_relation_plugin& p = r1.get_plugin();
             interval_relation* result = dynamic_cast<interval_relation*>(p.mk_full(nullptr, get_result_signature()));
-            result->mk_join(r1, r2, m_cols1.size(), m_cols1.c_ptr(), m_cols2.c_ptr());
+            result->mk_join(r1, r2, m_cols1.size(), m_cols1.data(), m_cols2.data());
             return result;
         }
     };
@@ -88,7 +88,7 @@ namespace datalog {
             interval_relation const& r = get(_r);
             interval_relation_plugin& p = r.get_plugin();
             interval_relation* result = dynamic_cast<interval_relation*>(p.mk_full(nullptr, get_result_signature()));
-            result->mk_project(r, m_removed_cols.size(), m_removed_cols.c_ptr());
+            result->mk_project(r, m_removed_cols.size(), m_removed_cols.data());
             return result;
         }
     };
@@ -108,7 +108,7 @@ namespace datalog {
             interval_relation const& r = get(_r);
             interval_relation_plugin& p = r.get_plugin();
             interval_relation* result = dynamic_cast<interval_relation*>(p.mk_full(nullptr, get_result_signature()));
-            result->mk_rename(r, m_cycle.size(), m_cycle.c_ptr());
+            result->mk_rename(r, m_cycle.size(), m_cycle.data());
             return result;
         }
     };
@@ -326,7 +326,7 @@ namespace datalog {
         for (unsigned i = 0; i < f.size(); ++i) {
             app_ref eq(m);
             expr* e = f[i];
-            eq = m.mk_eq(m.mk_var(i, m.get_sort(e)), e);
+            eq = m.mk_eq(m.mk_var(i, e->get_sort()), e);
             r.filter_interpreted(eq.get());
         }            
         mk_union(r, nullptr, false);
@@ -402,7 +402,7 @@ namespace datalog {
             }
         }
         bool_rewriter br(m);
-        br.mk_and(conjs.size(), conjs.c_ptr(), fml);
+        br.mk_and(conjs.size(), conjs.data(), fml);
     }
 
 

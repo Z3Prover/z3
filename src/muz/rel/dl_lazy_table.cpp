@@ -53,7 +53,7 @@ namespace datalog {
         table_base* operator()(const table_base& _t1, const table_base& _t2) override {
             lazy_table const& t1 = get(_t1);
             lazy_table const& t2 = get(_t2);
-            lazy_table_ref* tr = alloc(lazy_table_join, m_cols1.size(), m_cols1.c_ptr(), m_cols2.c_ptr(), t1, t2, get_result_signature());
+            lazy_table_ref* tr = alloc(lazy_table_join, m_cols1.size(), m_cols1.data(), m_cols2.data(), t1, t2, get_result_signature());
             return alloc(lazy_table, tr);
         }
     };
@@ -113,7 +113,7 @@ namespace datalog {
 
         table_base* operator()(table_base const& _t) override {
             lazy_table const& t = get(_t);
-            return alloc(lazy_table, alloc(lazy_table_project, m_removed_cols.size(), m_removed_cols.c_ptr(), t, get_result_signature()));
+            return alloc(lazy_table, alloc(lazy_table_project, m_removed_cols.size(), m_removed_cols.data(), t, get_result_signature()));
         }
     };
 
@@ -139,7 +139,7 @@ namespace datalog {
 
         table_base* operator()(table_base const& _t) override {
             lazy_table const& t = get(_t);
-            return alloc(lazy_table, alloc(lazy_table_rename, m_cycle.size(), m_cycle.c_ptr(), t, get_result_signature()));
+            return alloc(lazy_table, alloc(lazy_table_rename, m_cycle.size(), m_cycle.data(), t, get_result_signature()));
         }
     };
     
@@ -165,7 +165,7 @@ namespace datalog {
         
         void operator()(table_base& _t) override {
             lazy_table& t = get(_t);
-            t.set(alloc(lazy_table_filter_identical, m_cols.size(), m_cols.c_ptr(), t));
+            t.set(alloc(lazy_table_filter_identical, m_cols.size(), m_cols.data(), t));
         }
     };
     
@@ -326,7 +326,7 @@ namespace datalog {
         table_base* t1 = m_t1->eval();
         table_base* t2 = m_t2->eval();
         verbose_action _t("join");
-        table_join_fn* join = rm().mk_join_fn(*t1, *t2, m_cols1.size(), m_cols1.c_ptr(), m_cols2.c_ptr());
+        table_join_fn* join = rm().mk_join_fn(*t1, *t2, m_cols1.size(), m_cols1.data(), m_cols2.data());
         m_table = (*join)(*t1, *t2);
         dealloc(join);        
         return m_table.get();
@@ -349,7 +349,7 @@ namespace datalog {
         }
         case LAZY_TABLE_FILTER_INTERPRETED: {
             lazy_table_filter_interpreted& src = dynamic_cast<lazy_table_filter_interpreted&>(*m_src);
-            table_transformer_fn* tr = rm().mk_filter_interpreted_and_project_fn(*src.eval(), src.condition(), m_cols.size(), m_cols.c_ptr());
+            table_transformer_fn* tr = rm().mk_filter_interpreted_and_project_fn(*src.eval(), src.condition(), m_cols.size(), m_cols.data());
             if (tr) {
                 verbose_action _t("filter_interpreted_project");
                 m_table = (*tr)(*src.eval());
@@ -376,7 +376,7 @@ namespace datalog {
         }
         table_base* src = m_src->eval();
         verbose_action _t("project");
-        table_transformer_fn* project = rm().mk_project_fn(*src, m_cols.size(), m_cols.c_ptr());
+        table_transformer_fn* project = rm().mk_project_fn(*src, m_cols.size(), m_cols.data());
         SASSERT(project);
         m_table = (*project)(*src);
         dealloc(project);            
@@ -387,7 +387,7 @@ namespace datalog {
         SASSERT(!m_table);
         table_base* src = m_src->eval();
         verbose_action _t("rename");
-        table_transformer_fn* rename = rm().mk_rename_fn(*src, m_cols.size(), m_cols.c_ptr());
+        table_transformer_fn* rename = rm().mk_rename_fn(*src, m_cols.size(), m_cols.data());
         m_table = (*rename)(*src);
         dealloc(rename);                    
         return m_table.get();
@@ -399,7 +399,7 @@ namespace datalog {
         m_src->release_table();
         m_src = nullptr;
         verbose_action _t("filter_identical");
-        table_mutator_fn* m = rm().mk_filter_identical_fn(*m_table, m_cols.size(), m_cols.c_ptr());
+        table_mutator_fn* m = rm().mk_filter_identical_fn(*m_table, m_cols.size(), m_cols.data());
         SASSERT(m);
         (*m)(*m_table);
         dealloc(m);                    

@@ -68,7 +68,6 @@ private:
 
 public:
     linear_equation_manager(numeral_manager & _m, small_object_allocator & a):m_allocator(a), m(_m), m_int_buffer(m), m_val_buffer(m) {}
-    ~linear_equation_manager() {}
 
     linear_equation * mk(unsigned sz, mpq * as, var * xs, bool normalized = false);
     linear_equation * mk(unsigned sz, mpz * as, var * xs, bool normalized = false);

@@ -55,7 +55,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_params_dec_ref(c, p);
         RESET_ERROR_CODE();
-        to_params(p)->dec_ref();
+        if (p)
+            to_params(p)->dec_ref();
         Z3_CATCH;
     }
 

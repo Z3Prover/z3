@@ -33,7 +33,7 @@ class smt_checker {
         m_fresh_exprs.reserve(i + 1);
         expr* r = m_fresh_exprs.get(i);
         if (!r) {
-            r = m.mk_fresh_const("sk", m.get_sort(e));
+            r = m.mk_fresh_const("sk", e->get_sort());
             m_fresh_exprs[i] = r;
         }
         return r;
@@ -49,7 +49,7 @@ class smt_checker {
             expr_ref_vector args(m);
             for (expr* arg : *to_app(e)) 
                 args.push_back(define(arg, depth - 1));
-            r = m.mk_app(to_app(e)->get_decl(), args.size(), args.c_ptr());
+            r = m.mk_app(to_app(e)->get_decl(), args.size(), args.data());
         }
         return r;
     }
@@ -77,7 +77,7 @@ class smt_checker {
             m_lemma_solver->assert_expr(lit2expr(lit));
         }
 #endif
-        m_units.append(units.size() - m_units.size(), units.c_ptr() + m_units.size());
+        m_units.append(units.size() - m_units.size(), units.data() + m_units.size());
     }
 
     void check_assertion_redundant(sat::literal_vector const& input) {
@@ -111,7 +111,7 @@ class smt_checker {
         
         add_units();
         drup_units.reset();
-        if (m_drat.is_drup(lits.size(), lits.c_ptr(), drup_units)) {
+        if (m_drat.is_drup(lits.size(), lits.data(), drup_units)) {
             std::cout << "drup\n";
             return;
         }
@@ -122,12 +122,17 @@ class smt_checker {
             m_input_solver->assert_expr(lit2expr(~lit));
         lbool is_sat = m_input_solver->check_sat();
         if (is_sat != l_false) {
-            std::cout << "did not verify: " << lits << "\n";
-            for (sat::literal lit : lits) {
-                std::cout << lit2expr(lit) << "\n";
-            }
+            std::cout << "did not verify: " << is_sat << " " << lits << "\n";
+            for (sat::literal lit : lits) 
+                std::cout << lit2expr(lit) << "\n";            
             std::cout << "\n";
             m_input_solver->display(std::cout);
+            if (is_sat == l_true) {
+                model_ref mdl;
+                m_input_solver->get_model(mdl);
+                std::cout << *mdl << "\n";
+            }
+                
             exit(0);
         }
         m_input_solver->pop(1);
@@ -171,11 +176,54 @@ public:
     unsigned_vector params;
     ptr_vector<sort> sorts;
 
+    void parse_quantifier(sexpr_ref const& sexpr, cmd_context& ctx, quantifier_kind& k, sort_ref_vector& domain, svector<symbol>& names) {
+        k = quantifier_kind::forall_k;
+        symbol q;
+        unsigned sz;
+        if (sexpr->get_kind() != sexpr::kind_t::COMPOSITE)
+            goto bail;
+        sz = sexpr->get_num_children();
+        if (sz == 0)
+            goto bail;
+        q = sexpr->get_child(0)->get_symbol();
+        if (q == "forall")
+            k = quantifier_kind::forall_k;
+        else if (q == "exists")
+            k = quantifier_kind::exists_k;
+        else if (q == "lambda")            
+            k = quantifier_kind::lambda_k;
+        else
+            goto bail;
+        for (unsigned i = 1; i < sz; ++i) {
+            auto* e = sexpr->get_child(i);
+            if (e->get_kind() != sexpr::kind_t::COMPOSITE)
+                goto bail;
+            if (2 != e->get_num_children())
+                goto bail;
+            symbol name = e->get_child(0)->get_symbol();
+            std::ostringstream ostrm;
+            e->get_child(1)->display(ostrm);            
+            std::istringstream istrm(ostrm.str());
+            params_ref p;
+            auto srt = parse_smt2_sort(ctx, istrm, false, p, "quantifier");
+            if (!srt)
+                goto bail;
+            names.push_back(name);
+            domain.push_back(srt);            
+        }
+        return;
+    bail:
+        std::cout << "Could not parse expression\n";
+        sexpr->display(std::cout);
+        std::cout << "\n";
+        exit(0);        
+    }
+
     void parse_sexpr(sexpr_ref const& sexpr, cmd_context& ctx, expr_ref_vector const& args, expr_ref& result) {
         params.reset();
         sorts.reset();
         for (expr* arg : args) 
-            sorts.push_back(m.get_sort(arg));
+            sorts.push_back(arg->get_sort());
         sort_ref rng(m);
         func_decl* f = nullptr;
         switch (sexpr->get_kind()) {
@@ -194,7 +242,7 @@ public:
                 }
                 if (name == "is" && sz == 3) {
                     name = sexpr->get_child(2)->get_child(0)->get_symbol();
-                    f = ctx.find_func_decl(name, params.size(), params.c_ptr(), args.size(), sorts.c_ptr(), rng.get());
+                    f = ctx.find_func_decl(name, params.size(), params.data(), args.size(), sorts.data(), rng.get());
                     if (!f)
                         goto bail;
                     datatype_util dtu(m);
@@ -238,7 +286,7 @@ public:
         default:
             goto bail;
         }
-        f = ctx.find_func_decl(name, params.size(), params.c_ptr(), args.size(), sorts.c_ptr(), rng.get());
+        f = ctx.find_func_decl(name, params.size(), params.data(), args.size(), sorts.data(), rng.get());
         if (!f) 
             goto bail;
         result = ctx.m().mk_app(f, args);
@@ -310,7 +358,17 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
             std::istringstream strm(r.m_name);
             auto sexpr = parse_sexpr(ctx, strm, p, drat_file);
             checker.parse_sexpr(sexpr, ctx, args, e);
-            exprs.reserve(r.m_node_id+1);
+            exprs.reserve(r.m_node_id + 1);
+            exprs.set(r.m_node_id, e);
+            break;
+        }
+        case dimacs::drat_record::tag_t::is_var: {
+            var_ref e(m);
+            SASSERT(r.m_args.size() == 1);
+            std::istringstream strm(r.m_name);
+            auto srt = parse_smt2_sort(ctx, strm, false, p, drat_file);
+            e = m.mk_var(r.m_args[0], srt);
+            exprs.reserve(r.m_node_id + 1);
             exprs.set(r.m_node_id, e);
             break;
         }
@@ -328,15 +386,29 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
                 sargs.push_back(sorts.get(n));
             psort_decl* pd = ctx.find_psort_decl(name);
             if (pd) 
-                srt = pd->instantiate(ctx.pm(), sargs.size(), sargs.c_ptr());
+                srt = pd->instantiate(ctx.pm(), sargs.size(), sargs.data());
             else 
                 srt = m.mk_uninterpreted_sort(name);
-            sorts.reserve(r.m_node_id+1);
+            sorts.reserve(r.m_node_id + 1);
             sorts.set(r.m_node_id, srt);
             break;
         }
+        case dimacs::drat_record::tag_t::is_quantifier: {
+            VERIFY(r.m_args.size() == 1);          
+            quantifier_ref q(m);      
+            std::istringstream strm(r.m_name);
+            auto sexpr = parse_sexpr(ctx, strm, p, drat_file);
+            sort_ref_vector domain(m);
+            svector<symbol> names;
+            quantifier_kind k;
+            checker.parse_quantifier(sexpr, ctx, k, domain, names);
+            q = m.mk_quantifier(k, domain.size(), domain.data(), names.data(), exprs.get(r.m_args[0]));
+            exprs.reserve(r.m_node_id + 1);
+            exprs.set(r.m_node_id, q);
+            break;
+        }
         case dimacs::drat_record::tag_t::is_bool_def:
-            bool_var2expr.reserve(r.m_node_id+1);
+            bool_var2expr.reserve(r.m_node_id + 1);
             bool_var2expr.set(r.m_node_id, exprs.get(r.m_args[0]));
             break;
         default:
@@ -347,7 +419,6 @@ static void verify_smt(char const* drat_file, char const* smt_file) {
     statistics st;
     drat_checker.collect_statistics(st);
     std::cout << st << "\n";
-
 }
 
 
@@ -359,5 +430,3 @@ unsigned read_drat(char const* drat_file, char const* problem_file) {
     verify_smt(drat_file, problem_file);
     return 0;
 }
-
-

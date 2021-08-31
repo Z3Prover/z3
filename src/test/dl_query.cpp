@@ -17,7 +17,7 @@ Copyright (c) 2015 Microsoft Corporation
 using namespace datalog;
 
 void dl_query_ask_ground_query(context & ctx, func_decl * pred, relation_fact & f, bool should_be_successful) {
-    expr * const * q_args = reinterpret_cast<expr * const *>(f.c_ptr());
+    expr * const * q_args = reinterpret_cast<expr * const *>(f.data());
     app * query = ctx.get_manager().mk_app(pred, q_args);
 
     lbool is_sat = ctx.query(query);
@@ -36,7 +36,7 @@ void dl_query_ask_for_last_arg(context & ctx, func_decl * pred, relation_fact & 
     push_into_vector(query_args, f);
     query_args.pop_back();
     query_args.push_back(m.mk_var(0, pred->get_domain(query_args.size())));
-    app * query = ctx.get_manager().mk_app(pred, query_args.c_ptr());
+    app * query = ctx.get_manager().mk_app(pred, query_args.data());
 
     lbool is_sat = ctx.query(query);
     std::cerr << "@@ last arg query should succeed: " << should_be_successful << "\n";
@@ -178,7 +178,7 @@ void dl_query_test_wpa(smt_params & fparams, params_ref& params) {
         q_args.push_back(dl_util.mk_numeral(el1, var_sort));
         q_args.push_back(dl_util.mk_numeral(el2, var_sort));
 
-        app_ref query_lit(m.mk_app(v_pred, q_args.c_ptr()), m);
+        app_ref query_lit(m.mk_app(v_pred, q_args.data()), m);
         lbool is_sat = ctx.query(query_lit);
         ENSURE(is_sat != l_undef);
         bool found = is_sat == l_true;
@@ -190,7 +190,7 @@ void dl_query_test_wpa(smt_params & fparams, params_ref& params) {
         q_args.pop_back();
         q_args.push_back(m.mk_var(0, var_sort));
 
-        query_lit = m.mk_app(v_pred, q_args.c_ptr());
+        query_lit = m.mk_app(v_pred, q_args.data());
         is_sat = ctx.query(query_lit.get());
         ENSURE(is_sat != l_false);
         std::cerr<<"non-ground query finished\n";

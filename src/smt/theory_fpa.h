@@ -30,7 +30,6 @@ namespace smt {
 
     class theory_fpa : public theory {
     protected:
-        typedef trail_stack<theory_fpa> th_trail_stack;
 
 
         class fpa_value_proc : public model_value_proc {
@@ -84,7 +83,7 @@ namespace smt {
         th_rewriter               m_th_rw;
         fpa2bv_converter_wrapped  m_converter;
         fpa2bv_rewriter           m_rw;
-        th_trail_stack            m_trail_stack;
+        trail_stack               m_trail_stack;
         fpa_value_factory *       m_factory;
         fpa_util                & m_fpa_util;
         bv_util                 & m_bv_util;

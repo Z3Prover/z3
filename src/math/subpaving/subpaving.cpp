@@ -76,7 +76,7 @@ namespace subpaving {
                 m_ctx.nm().set(m_as[i], as[i]);
             }
             m_ctx.nm().set(m_c, c);
-            return m_ctx.mk_sum(m_c, sz, m_as.c_ptr(), xs);
+            return m_ctx.mk_sum(m_c, sz, m_as.data(), xs);
         }
         ineq * mk_ineq(var x, mpq const & k, bool lower, bool open) override {
             return reinterpret_cast<ineq*>(m_ctx.mk_ineq(x, k, lower, open)); 
@@ -119,7 +119,7 @@ namespace subpaving {
                     int2mpf(as[i], m_as[i]);
                 }
                 int2mpf(c, m_c);
-                return m_ctx.mk_sum(m_c, sz, m_as.c_ptr(), xs);
+                return m_ctx.mk_sum(m_c, sz, m_as.data(), xs);
             }
             catch (const f2n<mpf_manager>::exception &) {
                 throw subpaving::exception();
@@ -176,7 +176,7 @@ namespace subpaving {
                     int2hwf(as[i], m_as[i]);
                 }
                 int2hwf(c, m_c);
-                return m_ctx.mk_sum(m_c, sz, m_as.c_ptr(), xs);
+                return m_ctx.mk_sum(m_c, sz, m_as.data(), xs);
             }
             catch (const f2n<mpf_manager>::exception &) {
                 throw subpaving::exception();
@@ -234,7 +234,7 @@ namespace subpaving {
                     int2fpoint(as[i], m_as[i]);
                 }
                 int2fpoint(c, m_c);
-                return this->m_ctx.mk_sum(m_c, sz, m_as.c_ptr(), xs);
+                return this->m_ctx.mk_sum(m_c, sz, m_as.data(), xs);
             }
             catch (const typename context_fpoint::numeral_manager::exception &) {
                 throw subpaving::exception();

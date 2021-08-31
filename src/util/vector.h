@@ -40,18 +40,133 @@ Revision History:
 #pragma warning(disable:4127)
 #endif
 
+
+#if 0
+
+// portability guide to std::vector.
+// memory allocator should be based on memory_allocator<T>
+// 
+// template<typename T>
+// struct memory_allocator {
+//     typedef  T value_type;
+//     etc (interface seems to change between C++17, 20 versions)
+// };
+//
+
+// Note:
+// polynomial.h contains declaration
+// typedef svector<numeral>                        numeral_vector;
+// it is crucial that it uses svector and not vector. The destructors on elements of the numeral vector are handled outside.
+// Numeral gets instantiated by mpz and mpz does not support copy constructors.
+// porting svector to vector is therefore blocked on the semantics of svector being 
+// copy-constructor free.
+// 
+
+#include <vector>
+
+template<typename T, bool CallDestructors=true, typename SZ = unsigned>
+class vector : public std::vector<T> {
+public:
+    typedef T data_t;
+    typedef typename std::vector<T>::iterator iterator;
+
+    vector() {}
+    vector(SZ s) {
+        // TODO resize(s, T());
+    }
+    vector(SZ s, T const& e) {
+        // TODO resize(s, e);
+    }
+
+    vector(SZ s, T const* e) {
+        // TODO
+    }
+
+    void reset() { clear(); }
+    void finalize() { clear(); }
+    void reserve(SZ s, T const & d) {
+        if (s > size())
+            resize(s, d);
+    }
+    void reserve(SZ s) {
+        
+    }
+
+    void setx(SZ idx, T const & elem, T const & d) {
+        if (idx >= size()) 
+            resize(idx+1, d);
+        (*this)[idx] = elem;
+    }
+
+    T const & get(SZ idx, T const & d) const {
+        if (idx >= size()) {
+            return d;
+        }
+        return (*this)[idx];
+    }
+
+    void insert(T const & elem) {
+        push_back(elem);
+    }
+    
+    void erase(iterator pos) {
+        // TODO
+    }
+
+    void erase(T const& e) {
+        // TODO
+    }
+    void fill(T const & elem) {
+        for (auto& e : *this)
+            e = elem;
+    }
+
+    void fill(unsigned sz, T const & elem) {
+        resize(sz);
+        fill(elem);
+    }
+
+    void shrink(SZ s) {
+        resize(s);
+    }
+    void reverse() {
+        SZ sz = size();
+        for (SZ i = 0; i < sz/2; ++i) {
+            std::swap((*this)[i], (*this)[sz-i-1]);
+        }
+    }
+
+    void append(vector<T, CallDestructors> const & other) {
+        for(SZ i = 0; i < other.size(); ++i) {
+            push_back(other[i]);
+        }
+    }
+
+    void append(unsigned n,  T const* elems) {
+        // TODO
+    }
+
+    bool contains(T const & elem) const {
+        for (auto const& e : *this)
+            if (e == elem)
+                return true;
+        return false;
+    }
+
+    
+}; 
+
+
+#else
+
 template<typename T, bool CallDestructors=true, typename SZ = unsigned>
 class vector {
 #define SIZE_IDX     -1
 #define CAPACITY_IDX -2
-    T * m_data;
+    T * m_data = nullptr;
 
     void destroy_elements() {
-        iterator it = begin();
-        iterator e  = end();
-        for (; it != e; ++it) {
-            it->~T();
-        }
+        std::destroy_n(m_data, size());
     }
 
     void free_memory() { 
@@ -59,17 +174,21 @@ class vector {
     }
 
     void expand_vector() {
+        // ensure that the data is sufficiently aligned
+        // better fail to compile than produce code that may crash
+        static_assert((sizeof(SZ) * 2) % alignof(T) == 0);
+
         if (m_data == nullptr) {
             SZ capacity = 2;
             SZ * mem    = reinterpret_cast<SZ*>(memory::allocate(sizeof(T) * capacity + sizeof(SZ) * 2));
-            *mem              = capacity; 
+            *mem        = capacity;
             mem++;
-            *mem              = 0;        
+            *mem        = 0;
             mem++;
-            m_data            = reinterpret_cast<T *>(mem);
+            m_data      = reinterpret_cast<T *>(mem);
         }
         else {
-            static_assert(std::is_nothrow_move_constructible<T>::value, "");
+            static_assert(std::is_nothrow_move_constructible<T>::value);
             SASSERT(capacity() > 0);
             SZ old_capacity = reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX];
             SZ old_capacity_T = sizeof(T) * old_capacity + sizeof(SZ) * 2;
@@ -79,24 +198,17 @@ class vector {
                 throw default_exception("Overflow encountered when expanding vector");
             }
             SZ *mem, *old_mem = reinterpret_cast<SZ*>(m_data) - 2;
-#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 5
-            if (__has_trivial_copy(T)) {
-#else
             if (std::is_trivially_copyable<T>::value) {
-#endif
                 mem = (SZ*)memory::reallocate(old_mem, new_capacity_T);
                 m_data = reinterpret_cast<T *>(mem + 2);
             } else {
                 mem = (SZ*)memory::allocate(new_capacity_T);
-                auto old_data = m_data;
                 auto old_size = size();
                 mem[1] = old_size;
-                m_data  = reinterpret_cast<T *>(mem + 2);
-                for (unsigned i = 0; i < old_size; ++i) {
-                    new (&m_data[i]) T(std::move(old_data[i]));
-                    old_data[i].~T();
-                }
-                memory::deallocate(old_mem);
+                auto new_data = reinterpret_cast<T *>(mem + 2);
+                std::uninitialized_move_n(m_data, old_size, new_data);
+                destroy();
+                m_data = new_data;
             }
             *mem = new_capacity;
         }
@@ -124,16 +236,13 @@ class vector {
     }
 
 public:
-    typedef T data;
+    typedef T data_t;
     typedef T * iterator;
     typedef const T * const_iterator;
 
-    vector():
-        m_data(nullptr) {
-    }
+    vector() = default;
 
     vector(SZ s) {
-        m_data = nullptr;
         init(s);
     }
 
@@ -156,25 +265,22 @@ public:
         }
     }
 
-    vector(SZ s, T const & elem):
-        m_data(nullptr) {
+    vector(SZ s, T const & elem) {
         resize(s, elem);
     }
 
-    vector(vector const & source):
-        m_data(nullptr) {
+    vector(vector const & source) {
         if (source.m_data) {
             copy_core(source);
         }
         SASSERT(size() == source.size());
     }
 
-    vector(vector&& other) noexcept : m_data(nullptr) {
+    vector(vector&& other) noexcept {
         std::swap(m_data, other.m_data);
     }
 
-    vector(SZ s, T const * data):
-        m_data(nullptr) {
+    vector(SZ s, T const * data) {
         for (SZ i = 0; i < s; i++) {
             push_back(data[i]);
         }
@@ -206,7 +312,6 @@ public:
     bool operator!=(vector const & other) const {
         return !(*this == other);
     }
-
     
     vector & operator=(vector const & source) {
         if (this == &source) {
@@ -532,7 +637,7 @@ public:
         append(sz, data);
     }
 
-    T * c_ptr() const {
+    T * data() const {
         return m_data;
     }
 
@@ -606,6 +711,8 @@ public:
 
 };
 
+#endif
+
 template<typename T>
 class ptr_vector : public vector<T *, false> {
 public:
@@ -658,10 +765,10 @@ struct vector_hash_tpl {
 };
 
 template<typename Hash>
-struct vector_hash : public vector_hash_tpl<Hash, vector<typename Hash::data> > {};
+struct vector_hash : public vector_hash_tpl<Hash, vector<typename Hash::data_t> > {};
 
 template<typename Hash>
-struct svector_hash : public vector_hash_tpl<Hash, svector<typename Hash::data> > {};
+struct svector_hash : public vector_hash_tpl<Hash, svector<typename Hash::data_t> > {};
 
 
 template<typename T>

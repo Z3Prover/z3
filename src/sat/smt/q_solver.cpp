@@ -3,7 +3,7 @@ Copyright (c) 2020 Microsoft Corporation
 
 Module Name:
 
-    a_solver.cpp
+    q_solver.cpp
 
 Abstract:
 
@@ -15,18 +15,22 @@ Author:
 
 --*/
 
+#include "ast/ast_util.h"
+#include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/normal_forms/pull_quant.h"
 #include "sat/smt/q_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/sat_th.h"
-#include "ast/normal_forms/pull_quant.h"
-#include "ast/well_sorted.h"
+
 
 namespace q {
 
     solver::solver(euf::solver& ctx, family_id fid) :
         th_euf_solver(ctx, ctx.get_manager().get_family_name(fid), fid),
-        m_mbqi(ctx,  *this)
+        m_mbqi(ctx,  *this),
+        m_ematch(ctx, *this),
+        m_expanded(ctx.get_manager())
     {
     }
 
@@ -34,33 +38,62 @@ namespace q {
         expr* e = bool_var2expr(l.var());
         if (!is_forall(e) && !is_exists(e))
             return;
-        if (l.sign() == is_forall(e)) 
-            add_clause(~l, skolemize(to_quantifier(e)));        
-        else {            
-            // add_clause(~l, specialize(to_quantifier(e)));
-            ctx.push_vec(m_universal, l);
+        quantifier* q = to_quantifier(e);
+
+        if (l.sign() == is_forall(e)) {
+            sat::literal lit = skolemize(q);
+            add_clause(~l, lit);
+            ctx.add_root(~l, lit);
+        }
+        else {
+            auto const& exp = expand(q);
+            if (exp.size() > 1) {
+                for (expr* e : exp) {
+                    sat::literal lit = ctx.internalize(e, l.sign(), false, false); 
+                    add_clause(~l, lit);                    
+                    ctx.add_root(~l, lit);
+                }
+            }
+            else if (is_ground(q->get_expr())) {
+                auto lit = ctx.internalize(q->get_expr(), l.sign(), false, false);
+                add_clause(~l, lit);
+                ctx.add_root(~l, lit);
+            }
+            else {
+                ctx.push_vec(m_universal, l);
+                if (ctx.get_config().m_ematching)
+                    m_ematch.add(q);
+            }
         }
         m_stats.m_num_quantifier_asserts++;
     }
 
     sat::check_result solver::check() {
+        if (ctx.get_config().m_ematching && m_ematch())
+            return sat::check_result::CR_CONTINUE;
+
         if (ctx.get_config().m_mbqi) {
             switch (m_mbqi()) {
             case l_true:  return sat::check_result::CR_DONE;
             case l_false: return sat::check_result::CR_CONTINUE;
-            case l_undef: return sat::check_result::CR_GIVEUP;
+            case l_undef: break;
             }
         }
         return sat::check_result::CR_GIVEUP;
     }
 
     std::ostream& solver::display(std::ostream& out) const {
-        return out;
+        return m_ematch.display(out);
     }
 
+    std::ostream& solver::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const {
+        return m_ematch.display_constraint(out, idx);
+    }    
+
     void solver::collect_statistics(statistics& st) const {
-        st.update("quantifier asserts", m_stats.m_num_quantifier_asserts);
+        st.update("q asserts", m_stats.m_num_quantifier_asserts);
         m_mbqi.collect_statistics(st);
+        m_ematch.collect_statistics(st);
     }
 
     euf::th_solver* solver::clone(euf::solver& ctx) {
@@ -69,11 +102,10 @@ namespace q {
     }
 
     bool solver::unit_propagate() {
-        return false;
+        return ctx.get_config().m_ematching && m_ematch.propagate(false);
     }
 
     euf::theory_var solver::mk_var(euf::enode* n) {
-        SASSERT(is_forall(n->get_expr()) || is_exists(n->get_expr()));
         auto v = euf::th_euf_solver::mk_var(n);
         ctx.attach_th_var(n, this, v);        
         return v;
@@ -109,9 +141,9 @@ namespace q {
     }
 
     /*
-    * Find initial values to instantiate quantifier with so to make it as hard as possible for solver
-    * to find values to free variables. 
-    */
+     * Find initial values to instantiate quantifier with so to make it as hard as possible for solver
+     * to find values to free variables. 
+     */
     sat::literal solver::specialize(quantifier* q) {
         std::function<expr* (quantifier*, unsigned)> mk_var = [&](quantifier* q, unsigned i) {
             return get_unit(q->get_decl_sort(i));
@@ -126,8 +158,10 @@ namespace q {
     sat::literal solver::internalize(expr* e, bool sign, bool root, bool learned) {
         SASSERT(is_forall(e) || is_exists(e));
         sat::bool_var v = ctx.get_si().add_bool_var(e);
-        sat::literal lit = ctx.attach_lit(sat::literal(v, sign), e);
+        sat::literal lit = ctx.attach_lit(sat::literal(v, false), e);
         mk_var(ctx.get_egraph().find(e));
+        if (sign)
+            lit.neg();
         return lit;
     }
 
@@ -143,14 +177,19 @@ namespace q {
             return q_flat;
         proof_ref pr(m);
         expr_ref  new_q(m);
-        pull_quant pull(m);
-        pull(q, new_q, pr);
-        SASSERT(is_well_sorted(m, new_q));
+        if (is_forall(q)) {
+            pull_quant pull(m);
+            pull(q, new_q, pr);
+            SASSERT(is_well_sorted(m, new_q));
+        }
+        else {
+            new_q = q;
+        }
         q_flat = to_quantifier(new_q);
         m.inc_ref(q_flat);
         m.inc_ref(q);
         m_flat.insert(q, q_flat);
-        ctx.push(insert_ref2_map<euf::solver, ast_manager, quantifier, quantifier>(m, m_flat, q, q_flat));
+        ctx.push(insert_ref2_map<ast_manager, quantifier, quantifier>(m, m_flat, q, q_flat));
         return q_flat;
     }
 
@@ -158,14 +197,14 @@ namespace q {
         if (!m_unit_table.empty())
             return;
         for (euf::enode* n : ctx.get_egraph().nodes()) {
-            if (!n->interpreted() && !m.is_uninterp(m.get_sort(n->get_expr())))
+            if (!n->interpreted() && !m.is_uninterp(n->get_expr()->get_sort()))
                 continue;
             expr* e = n->get_expr();
-            sort* s = m.get_sort(e);
+            sort* s = e->get_sort();
             if (m_unit_table.contains(s))
                 continue;
             m_unit_table.insert(s, e);
-            ctx.push(insert_map<euf::solver, obj_map<sort, expr*>, sort*>(m_unit_table, s));
+            ctx.push(insert_map<obj_map<sort, expr*>, sort*>(m_unit_table, s));
         }
     }
 
@@ -180,28 +219,35 @@ namespace q {
         expr* val = mdl.get_some_value(s);
         m.inc_ref(val);
         m.inc_ref(s);
-        ctx.push(insert_ref2_map<euf::solver, ast_manager, sort, expr>(m, m_unit_table, s, val));
+        ctx.push(insert_ref2_map<ast_manager, sort, expr>(m, m_unit_table, s, val));
         return val;
     }
 
-    unsigned solver::get_max_generation(expr* e) const {
-        unsigned g = 0;
-        expr_fast_mark1 mark;
-        m_todo.push_back(e);
-        while (!m_todo.empty()) {
-            e = m_todo.back();
-            m_todo.pop_back();
-            if (mark.is_marked(e))
-                continue;
-            mark.mark(e);
-            euf::enode* n = ctx.get_egraph().find(e);
-            if (n) 
-                g = std::max(g, n->generation());
-            else if (is_app(e)) 
-                for (expr* arg : *to_app(e))
-                    m_todo.push_back(arg);
+    expr_ref_vector const& solver::expand(quantifier* q) {
+        m_expanded.reset();
+        if (is_forall(q)) 
+            flatten_and(q->get_expr(), m_expanded);
+        else if (is_exists(q)) 
+            flatten_or(q->get_expr(), m_expanded);
+        else
+            UNREACHABLE();
+
+        if (m_expanded.size() > 1) {
+            for (unsigned i = m_expanded.size(); i-- > 0; ) {
+                expr_ref tmp(m.update_quantifier(q, m_expanded.get(i)), m);
+                ctx.get_rewriter()(tmp);
+                m_expanded[i] = tmp;
+            }
         }
-        return g;
+        else {
+            m_expanded.reset();
+            m_expanded.push_back(q);
+        }
+        return m_expanded;
+    }
+
+    void solver::get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) {
+        m_ematch.get_antecedents(l, idx, r, probing);
     }
 
 }

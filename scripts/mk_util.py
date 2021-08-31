@@ -769,7 +769,7 @@ def parse_options():
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
 def extract_c_includes(fname):
-    result = []
+    result = {}
     # We look for well behaved #include directives
     std_inc_pat     = re.compile("[ \t]*#include[ \t]*\"(.*)\"[ \t]*")
     system_inc_pat  = re.compile("[ \t]*#include[ \t]*\<.*\>[ \t]*")
@@ -786,7 +786,7 @@ def extract_c_includes(fname):
             if slash_pos >= 0  and root_file_name.find("..") < 0 : #it is a hack for lp include files that behave as continued from "src"
                 # print(root_file_name)
                 root_file_name = root_file_name[slash_pos+1:]
-            result.append(root_file_name)
+            result[root_file_name] = m1.group(1)
         elif not system_inc_pat.match(line) and non_std_inc_pat.match(line):
             raise MKException("Invalid #include directive at '%s':%s" % (fname, line))
         linenum = linenum + 1
@@ -974,15 +974,52 @@ class Component:
     # Find fname in the include paths for the given component.
     # ownerfile is only used for creating error messages.
     # That is, we were looking for fname when processing ownerfile
-    def find_file(self, fname, ownerfile):
+    def find_file(self, fname, ownerfile, orig_include=None):
         full_fname = os.path.join(self.src_dir, fname)
+
+        # Store all our possible locations
+        possibilities = set()
+
+        # If the our file exists in the current directory, then we store it
         if os.path.exists(full_fname):
-            return self
+
+            # We cannot return here, as we might have files with the same
+            # basename, but different include paths
+            possibilities.add(self)
+
         for dep in self.deps:
             c_dep = get_component(dep)
             full_fname = os.path.join(c_dep.src_dir, fname)
             if os.path.exists(full_fname):
-                return c_dep
+                possibilities.add(c_dep)
+
+        if possibilities:
+
+            # We have ambiguity
+            if len(possibilities) > 1:
+
+                # We expect orig_path to be non-None here, so we can disambiguate
+                assert orig_include is not None
+
+                # Get the original directory name
+                orig_dir = os.path.dirname(orig_include)
+
+                # Iterate through all of the possibilities
+                for possibility in possibilities:
+
+                    path = possibility.path.replace("\\","/")
+                    # If we match the suffix of the path ...
+                    if path.endswith(orig_dir):
+
+                        # ... use our new match
+                        return possibility
+
+            # This means we didn't make an exact match ...
+            #
+            # We return any one possibility, just to ensure we don't break Z3's
+            # builds
+            return possibilities.pop()
+
         raise MKException("Failed to find include file '%s' for '%s' when processing '%s'." % (fname, ownerfile, self.name))
 
     # Display all dependencies of file basename located in the given component directory.
@@ -990,16 +1027,16 @@ class Component:
     def add_cpp_h_deps(self, out, basename):
         includes = extract_c_includes(os.path.join(self.src_dir, basename))
         out.write(os.path.join(self.to_src_dir, basename))
-        for include in includes:
-            owner = self.find_file(include, basename)
+        for include, orig_include in includes.items():
+            owner = self.find_file(include, basename, orig_include)
             out.write(' %s.node' % os.path.join(owner.build_dir, include))
 
     # Add a rule for each #include directive in the file basename located at the current component.
     def add_rule_for_each_include(self, out, basename):
         fullname = os.path.join(self.src_dir, basename)
         includes = extract_c_includes(fullname)
-        for include in includes:
-            owner = self.find_file(include, fullname)
+        for include, orig_include in includes.items():
+            owner = self.find_file(include, fullname, orig_include)
             owner.add_h_rule(out, include)
 
     # Display a Makefile rule for an include file located in the given component directory.
@@ -1045,8 +1082,8 @@ class Component:
                 dependencies.add(os.path.join(self.to_src_dir, cppfile))
                 self.add_rule_for_each_include(out, cppfile)
                 includes = extract_c_includes(os.path.join(self.src_dir, cppfile))
-                for include in includes:
-                    owner = self.find_file(include, cppfile)
+                for include, orig_include in includes.items():
+                    owner = self.find_file(include, cppfile, orig_include)
                     dependencies.add('%s.node' % os.path.join(owner.build_dir, include))
             for cppfile in cppfiles:
                 out.write('%s$(OBJ_EXT) ' % os.path.join(self.build_dir, os.path.splitext(cppfile)[0]))
@@ -1698,7 +1735,7 @@ class DotNetDLLComponent(Component):
             dotnetCmdLine.extend(['Release'])
 
         path = os.path.join(os.path.abspath(BUILD_DIR), ".")
-        dotnetCmdLine.extend(['-o', path])
+        dotnetCmdLine.extend(['-o', "\"%s\"" % path])
             
         MakeRuleCmd.write_cmd(out, ' '.join(dotnetCmdLine))
         out.write('\n')        
@@ -1917,11 +1954,11 @@ class MLComponent(Component):
             src_dir = self.to_src_dir
             mk_dir(os.path.join(BUILD_DIR, self.sub_dir))
             api_src = get_component(API_COMPONENT).to_src_dir
-            # remove /GL and -std=c++11; the ocaml tools don't like them.
-            if IS_WINDOWS:                
+            # remove /GL and -std=c++17; the ocaml tools don't like them.
+            if IS_WINDOWS:
                 out.write('CXXFLAGS_OCAML=$(CXXFLAGS:/GL=)\n')
             else:
-                out.write('CXXFLAGS_OCAML=$(subst -std=c++11,,$(CXXFLAGS))\n')
+                out.write('CXXFLAGS_OCAML=$(subst -std=c++17,,$(CXXFLAGS))\n')
 
             substitutions = { 'VERSION': "{}.{}.{}.{}".format(VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK) }
 
@@ -2361,6 +2398,7 @@ def mk_config():
     config = open(os.path.join(BUILD_DIR, 'config.mk'), 'w')
     global CXX, CC, GMP, GUARD_CF, STATIC_BIN, GIT_HASH, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, LOG_SYNC, SINGLE_THREADED
     if IS_WINDOWS:
+        CXXFLAGS = '/nologo /Zi /D WIN32 /D _WINDOWS /EHsc /GS /Gd /std:c++17'
         config.write(
             'CC=cl\n'
             'CXX=cl\n'
@@ -2401,7 +2439,7 @@ def mk_config():
                 'SLINK_FLAGS=/nologo /LDd\n' % static_opt)
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /Gd %s %s\n' % (extra_opt, static_opt))
+                    'CXXFLAGS=/c %s /W3 /WX- /Od /Oy- /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /Gm- /RTC1 %s %s\n' % (CXXFLAGS, extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (link_extra_opt, maybe_disable_dynamic_base, link_extra_opt))
@@ -2410,7 +2448,7 @@ def mk_config():
                 exit(1)
             else:
                 config.write(
-                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /Gd /arch:SSE2 %s %s\n' % (extra_opt, static_opt))
+                    'CXXFLAGS=/c %s /W3 /WX- /Od /Oy- /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /Gm- /RTC1 /arch:SSE2 %s %s\n' % (CXXFLAGS, extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (link_extra_opt, maybe_disable_dynamic_base, link_extra_opt))
@@ -2426,7 +2464,7 @@ def mk_config():
                 extra_opt = '%s /D _TRACE ' % extra_opt
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _LIB /D _WINDOWS /D _UNICODE /D UNICODE /Gm- /EHsc /GS /Gd /GF /Gy /TP %s %s\n' % (GL, extra_opt, static_opt))
+                    'CXXFLAGS=/c%s %s /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D NDEBUG /D _LIB /D UNICODE /Gm- /GF /Gy /TP %s %s\n' % (GL, CXXFLAGS, extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link%s /profile /MACHINE:X64 /SUBSYSTEM:CONSOLE /STACK:8388608 %s\n'
                     'SLINK_EXTRA_FLAGS=/link%s /profile /MACHINE:X64 /SUBSYSTEM:WINDOWS /STACK:8388608 %s\n' % (LTCG, link_extra_opt, LTCG, link_extra_opt))
@@ -2435,7 +2473,7 @@ def mk_config():
                 exit(1)
             else:
                 config.write(
-                    'CXXFLAGS=/nologo /c%s /Zi /W3 /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _CONSOLE /D _WINDOWS /D ASYNC_COMMANDS /Gm- /EHsc /GS /Gd /arch:SSE2 %s %s\n' % (GL, extra_opt, static_opt))
+                    'CXXFLAGS=/c%s %s /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D NDEBUG /D _CONSOLE /D ASYNC_COMMANDS /Gm- /arch:SSE2 %s %s\n' % (GL, CXXFLAGS, extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
                     'SLINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (LTCG, link_extra_opt, LTCG, maybe_disable_dynamic_base, link_extra_opt))
@@ -2476,8 +2514,8 @@ def mk_config():
             CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
         if GIT_HASH:
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
-        CXXFLAGS = '%s -std=c++11' % CXXFLAGS
-        CXXFLAGS = '%s -fvisibility=hidden -c' % CXXFLAGS
+        CXXFLAGS = '%s -std=c++17' % CXXFLAGS
+        CXXFLAGS = '%s -fvisibility=hidden -fvisibility-inlines-hidden -c' % CXXFLAGS
         FPMATH = test_fpmath(CXX)
         CXXFLAGS = '%s %s' % (CXXFLAGS, FPMATH_FLAGS)
         if LOG_SYNC:
@@ -2568,7 +2606,7 @@ def mk_config():
         config.write('CC=%s\n' % CC)
         config.write('CXX=%s\n' % CXX)
         config.write('CXXFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS))
-        config.write('CFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS.replace('-std=c++11', '')))
+        config.write('CFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS.replace('-std=c++17', '')))
         config.write('EXAMP_DEBUG_FLAG=%s\n' % EXAMP_DEBUG_FLAG)
         config.write('CXX_OUT_FLAG=-o \n')
         config.write('C_OUT_FLAG=-o \n')

@@ -27,7 +27,6 @@ class simplifier {
 public:
 
     simplifier(solver& s): s(s) {}
-    ~simplifier() {}
 
     void operator()();
 

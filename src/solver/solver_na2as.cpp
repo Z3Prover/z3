@@ -64,17 +64,17 @@ struct append_assumptions {
 lbool solver_na2as::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
     append_assumptions app(m_assumptions, num_assumptions, assumptions);
     TRACE("solver_na2as", display(tout););
-    return check_sat_core2(m_assumptions.size(), m_assumptions.c_ptr());
+    return check_sat_core2(m_assumptions.size(), m_assumptions.data());
 }
 
 lbool solver_na2as::check_sat_cc(const expr_ref_vector &assumptions, vector<expr_ref_vector> const &clauses) {
-    if (clauses.empty()) return check_sat(assumptions.size(), assumptions.c_ptr());
-    append_assumptions app(m_assumptions, assumptions.size(), assumptions.c_ptr());
+    if (clauses.empty()) return check_sat(assumptions.size(), assumptions.data());
+    append_assumptions app(m_assumptions, assumptions.size(), assumptions.data());
     return check_sat_cc_core(m_assumptions, clauses);
 }
 
 lbool solver_na2as::get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
-    append_assumptions app(m_assumptions, asms.size(), asms.c_ptr());
+    append_assumptions app(m_assumptions, asms.size(), asms.data());
     return get_consequences_core(m_assumptions, vars, consequences);
 }
 

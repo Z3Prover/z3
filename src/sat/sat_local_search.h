@@ -186,9 +186,9 @@ namespace sat {
         inline bool is_unit(literal l) const { return m_vars[l.var()].m_unit; }
 
         unsigned num_constraints() const { return m_constraints.size(); } // constraint index from 1 to num_constraint
-        
-        uint64_t constraint_slack(unsigned ci) const { return m_constraints[ci].m_slack; }
-        
+
+        int64_t constraint_slack(unsigned ci) const { return m_constraints[ci].m_slack; }
+
         void init();
         void reinit();
         void reinit_orig();

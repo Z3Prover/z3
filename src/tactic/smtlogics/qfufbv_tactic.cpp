@@ -22,7 +22,6 @@ Notes:
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"
 #include "tactic/core/elim_uncnstr_tactic.h"
-#include "smt/tactic/smt_tactic.h"
 #include "tactic/bv/max_bv_sharing_tactic.h"
 #include "tactic/bv/bv_size_reduction_tactic.h"
 #include "tactic/core/reduce_args_tactic.h"
@@ -37,7 +36,7 @@ Notes:
 #include "sat/sat_solver/inc_sat_solver.h"
 #include "tactic/smtlogics/qfaufbv_tactic.h"
 #include "tactic/smtlogics/qfbv_tactic.h"
-#include "tactic/smtlogics/smt_tactic_select.h"
+#include "tactic/smtlogics/smt_tactic.h"
 #include "solver/tactic2solver.h"
 #include "tactic/bv/bv_bound_chk_tactic.h"
 #include "ackermannization/ackermannize_bv_tactic.h"
@@ -186,7 +185,7 @@ tactic * mk_qfufbv_tactic(ast_manager & m, params_ref const & p) {
         and_then(preamble_st,
                  cond(mk_is_qfbv_probe(), 
                       mk_qfbv_tactic(m), 
-                      mk_smt_tactic_select(m, p))),
+                      mk_smt_tactic(m, p))),
         main_p);
 
     st->updt_params(p);
@@ -198,5 +197,5 @@ tactic * mk_qfufbv_ackr_tactic(ast_manager & m, params_ref const & p) {
 
     tactic * const actual_tactic = alloc(qfufbv_ackr_tactic, m, p);
     return and_then(preamble_t,
-                    cond(mk_is_qfufbv_probe(), actual_tactic, mk_smt_tactic_select(m, p)));
+                    cond(mk_is_qfufbv_probe(), actual_tactic, mk_smt_tactic(m, p)));
 }

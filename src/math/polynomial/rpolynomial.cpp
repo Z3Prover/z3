@@ -318,7 +318,7 @@ namespace rpolynomial {
             numeral * new_arg = mk_numeral();
             m_manager.set(*new_arg, 1);
             new_args.push_back(to_poly_or_num(new_arg));
-            return mk_poly(new_args.size(), new_args.c_ptr(), x);
+            return mk_poly(new_args.size(), new_args.data(), x);
         }
 
         poly_or_num * unpack(polynomial const * p) {
@@ -361,7 +361,7 @@ namespace rpolynomial {
                 for (unsigned i = 0; i < sz; i++) {
                     new_args.push_back(mul_core(c, _p->arg(i)));
                 }
-                return mk_poly_core(new_args.size(), new_args.c_ptr(), _p->max_var());
+                return mk_poly_core(new_args.size(), new_args.data(), _p->max_var());
             }
         }
 
@@ -401,7 +401,7 @@ namespace rpolynomial {
                 new_args.push_back(add_core(c, _p->arg(0)));
                 for (unsigned i = 1; i < sz; i++)
                     new_args.push_back(_p->arg(1));
-                return mk_poly_core(new_args.size(), new_args.c_ptr(), _p->max_var());
+                return mk_poly_core(new_args.size(), new_args.data(), _p->max_var());
             }
         }
 

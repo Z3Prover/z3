@@ -246,7 +246,7 @@ namespace datalog {
         relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
                 const unsigned_vector & cols1, const unsigned_vector & cols2, bool allow_product_relation=true) { 
             SASSERT(cols1.size()==cols2.size());
-            return mk_join_fn(t1, t2, cols1.size(), cols1.c_ptr(), cols2.c_ptr(), allow_product_relation);
+            return mk_join_fn(t1, t2, cols1.size(), cols1.data(), cols2.data(), allow_product_relation);
         }
 
         /**
@@ -259,7 +259,7 @@ namespace datalog {
             const unsigned * removed_cols);
 
         relation_transformer_fn * mk_project_fn(const relation_base & t, const unsigned_vector & removed_cols) { 
-            return mk_project_fn(t, removed_cols.size(), removed_cols.c_ptr()); 
+            return mk_project_fn(t, removed_cols.size(), removed_cols.data()); 
         }
 
         /**
@@ -272,14 +272,14 @@ namespace datalog {
         relation_join_fn * mk_join_project_fn(const relation_base & t1, const relation_base & t2,
                 const unsigned_vector & cols1, const unsigned_vector & cols2, 
                 const unsigned_vector & removed_cols, bool allow_product_relation_join=true) {
-            return mk_join_project_fn(t1, t2, cols1.size(), cols1.c_ptr(), cols2.c_ptr(), removed_cols.size(), 
-                removed_cols.c_ptr(), allow_product_relation_join);
+            return mk_join_project_fn(t1, t2, cols1.size(), cols1.data(), cols2.data(), removed_cols.size(), 
+                removed_cols.data(), allow_product_relation_join);
         }
 
         relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len, 
             const unsigned * permutation_cycle);
         relation_transformer_fn * mk_rename_fn(const relation_base & t, const unsigned_vector & permutation_cycle) { 
-            return mk_rename_fn(t, permutation_cycle.size(), permutation_cycle.c_ptr());
+            return mk_rename_fn(t, permutation_cycle.size(), permutation_cycle.data());
         }
 
         /**
@@ -291,7 +291,7 @@ namespace datalog {
         relation_transformer_fn * mk_permutation_rename_fn(const relation_base & t, 
                 const unsigned_vector & permutation) {
             SASSERT(t.get_signature().size()==permutation.size());
-            return mk_permutation_rename_fn(t, permutation.c_ptr());
+            return mk_permutation_rename_fn(t, permutation.data());
         }
 
 
@@ -344,7 +344,7 @@ namespace datalog {
         relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt, 
             const unsigned * identical_cols);
         relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, const unsigned_vector & identical_cols) {
-            return mk_filter_identical_fn(t, identical_cols.size(), identical_cols.c_ptr());
+            return mk_filter_identical_fn(t, identical_cols.size(), identical_cols.data());
         }
 
         relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value, 
@@ -378,7 +378,7 @@ namespace datalog {
         relation_intersection_filter_fn * mk_filter_by_intersection_fn(const relation_base & tgt, 
                 const relation_base & src, const unsigned_vector & tgt_cols, const unsigned_vector & src_cols) { 
             SASSERT(tgt_cols.size()==src_cols.size());
-            return mk_filter_by_intersection_fn(tgt, src, tgt_cols.size(), tgt_cols.c_ptr(), src_cols.c_ptr());
+            return mk_filter_by_intersection_fn(tgt, src, tgt_cols.size(), tgt_cols.data(), src_cols.data());
         }
         relation_intersection_filter_fn * mk_filter_by_intersection_fn(const relation_base & tgt, 
                 const relation_base & src);
@@ -396,7 +396,7 @@ namespace datalog {
                 const relation_base & negated_obj, const unsigned_vector & t_cols, 
                 const unsigned_vector & negated_cols) {
             SASSERT(t_cols.size()==negated_cols.size());
-            return mk_filter_by_negation_fn(t, negated_obj, t_cols.size(), t_cols.c_ptr(), negated_cols.c_ptr());
+            return mk_filter_by_negation_fn(t, negated_obj, t_cols.size(), t_cols.data(), negated_cols.data());
         }
 
 
@@ -413,7 +413,7 @@ namespace datalog {
         table_join_fn * mk_join_fn(const table_base & t1, const table_base & t2,
                 const unsigned_vector & cols1, const unsigned_vector & cols2) { 
             SASSERT(cols1.size()==cols2.size());
-            return mk_join_fn(t1, t2, cols1.size(), cols1.c_ptr(), cols2.c_ptr());
+            return mk_join_fn(t1, t2, cols1.size(), cols1.data(), cols2.data());
         }
 
         /**
@@ -429,7 +429,7 @@ namespace datalog {
             const unsigned * removed_cols);
 
         table_transformer_fn * mk_project_fn(const table_base & t, const unsigned_vector & removed_cols) { 
-            return mk_project_fn(t, removed_cols.size(), removed_cols.c_ptr()); 
+            return mk_project_fn(t, removed_cols.size(), removed_cols.data()); 
         }
 
         /**
@@ -453,14 +453,14 @@ namespace datalog {
         table_join_fn * mk_join_project_fn(const table_base & t1, const table_base & t2,
                 const unsigned_vector & cols1, const unsigned_vector & cols2, 
                 const unsigned_vector & removed_cols) {
-            return mk_join_project_fn(t1, t2, cols1.size(), cols1.c_ptr(), cols2.c_ptr(), removed_cols.size(), 
-                removed_cols.c_ptr());
+            return mk_join_project_fn(t1, t2, cols1.size(), cols1.data(), cols2.data(), removed_cols.size(), 
+                removed_cols.data());
         }
 
         table_transformer_fn * mk_rename_fn(const table_base & t, unsigned permutation_cycle_len, 
             const unsigned * permutation_cycle);
         table_transformer_fn * mk_rename_fn(const table_base & t, const unsigned_vector & permutation_cycle) { 
-            return mk_rename_fn(t, permutation_cycle.size(), permutation_cycle.c_ptr());
+            return mk_rename_fn(t, permutation_cycle.size(), permutation_cycle.data());
         }
 
         /**
@@ -470,7 +470,7 @@ namespace datalog {
         table_transformer_fn * mk_permutation_rename_fn(const table_base & t, const unsigned * permutation);
         table_transformer_fn * mk_permutation_rename_fn(const table_base & t, const unsigned_vector & permutation) {
             SASSERT(t.get_signature().size()==permutation.size());
-            return mk_permutation_rename_fn(t, permutation.c_ptr());
+            return mk_permutation_rename_fn(t, permutation.data());
         }
 
 
@@ -523,7 +523,7 @@ namespace datalog {
         table_mutator_fn * mk_filter_identical_fn(const table_base & t, unsigned col_cnt, 
             const unsigned * identical_cols);
         table_mutator_fn * mk_filter_identical_fn(const table_base & t, const unsigned_vector & identical_cols) {
-            return mk_filter_identical_fn(t, identical_cols.size(), identical_cols.c_ptr());
+            return mk_filter_identical_fn(t, identical_cols.size(), identical_cols.data());
         }
 
         table_mutator_fn * mk_filter_equal_fn(const table_base & t, const table_element & value, 
@@ -551,7 +551,7 @@ namespace datalog {
         table_intersection_filter_fn * mk_filter_by_intersection_fn(const table_base & t, 
                 const table_base & src, const unsigned_vector & t_cols, const unsigned_vector & src_cols) { 
             SASSERT(t_cols.size()==src_cols.size());
-            return mk_filter_by_intersection_fn(t, src, t_cols.size(), t_cols.c_ptr(), src_cols.c_ptr());
+            return mk_filter_by_intersection_fn(t, src, t_cols.size(), t_cols.data(), src_cols.data());
         }
 
         /**
@@ -565,7 +565,7 @@ namespace datalog {
         table_intersection_filter_fn * mk_filter_by_negation_fn(const table_base & t, const table_base & negated_obj, 
                 const unsigned_vector & t_cols, const unsigned_vector & negated_cols) {
             SASSERT(t_cols.size()==negated_cols.size());
-            return mk_filter_by_negation_fn(t, negated_obj, t_cols.size(), t_cols.c_ptr(), negated_cols.c_ptr());
+            return mk_filter_by_negation_fn(t, negated_obj, t_cols.size(), t_cols.data(), negated_cols.data());
         }
 
         /**

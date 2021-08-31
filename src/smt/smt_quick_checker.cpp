@@ -186,7 +186,7 @@ namespace smt {
             m_candidate_vectors[i].reset();
             sort * s = q->get_decl_sort(i);
             for (unsigned j = 0; j < num_candidates; j++) {
-                if (m_manager.get_sort(candidates[j]) == s) {
+                if (candidates[j]->get_sort() == s) {
                     expr * n = candidates[j];
                     m_context.internalize(n, false);
                     enode * e = m_context.get_enode(n);
@@ -222,7 +222,7 @@ namespace smt {
         do {
             for (unsigned i = 0; i < m_num_bindings; i++)
                 m_bindings[m_num_bindings - i - 1] = m_candidate_vectors[i][it[i]];
-            if (!m_context.contains_instance(q, m_num_bindings, m_bindings.c_ptr())) {
+            if (!m_context.contains_instance(q, m_num_bindings, m_bindings.data())) {
                 bool is_candidate = false;
                 TRACE("quick_checker", tout << "processing bindings:";
                       for (unsigned i = 0; i < m_num_bindings; i++) tout << " #" << m_bindings[i]->get_owner_id();
@@ -235,8 +235,8 @@ namespace smt {
                     TRACE("quick_checker", tout << "found new candidate\n";);
                     TRACE("quick_checker_sizes", tout << "found new candidate\n"; 
                           for (unsigned i = 0; i < m_num_bindings; i++) tout << "#" << m_bindings[i]->get_owner_id() << " "; tout << "\n";);
-                    unsigned max_generation = get_max_generation(m_num_bindings, m_bindings.c_ptr());
-                    if (m_context.add_instance(q, nullptr /* no pattern was used */, m_num_bindings, m_bindings.c_ptr(), nullptr, 
+                    unsigned max_generation = get_max_generation(m_num_bindings, m_bindings.data());
+                    if (m_context.add_instance(q, nullptr /* no pattern was used */, m_num_bindings, m_bindings.data(), nullptr, 
                                                max_generation,
                                                0,  // min_top_generation is only available for instances created by the MAM
                                                0,  // max_top_generation is only available for instances created by the MAM
@@ -245,7 +245,7 @@ namespace smt {
                 }
             }
         }
-        while (product_iterator_next(szs.size(), szs.c_ptr(), it.c_ptr()));
+        while (product_iterator_next(szs.size(), szs.data(), it.data()));
         return result;
     }
 
@@ -358,10 +358,10 @@ namespace smt {
             if (idx >= m_num_bindings)
                 return n;
             // VAR 0 is stored in the last position of m_bindings
-            return m_bindings[m_num_bindings - idx - 1]->get_root()->get_owner();
+            return m_bindings[m_num_bindings - idx - 1]->get_root()->get_expr();
         }
         if (m_context.e_internalized(n))
-            return m_context.get_enode(n)->get_root()->get_owner();
+            return m_context.get_enode(n)->get_root()->get_expr();
         if (!is_app(n) || to_app(n)->get_num_args() == 0)
             return n;
         expr * r;
@@ -380,10 +380,10 @@ namespace smt {
                 has_arg_enodes = false;
         }
         if (has_arg_enodes) {
-            enode * e = m_context.get_enode_eq_to(to_app(n)->get_decl(), num_args, new_arg_enodes.c_ptr());
+            enode * e = m_context.get_enode_eq_to(to_app(n)->get_decl(), num_args, new_arg_enodes.data());
             if (e) {
-                m_canonize_cache.insert(n, e->get_root()->get_owner());
-                return e->get_root()->get_owner();
+                m_canonize_cache.insert(n, e->get_root()->get_expr());
+                return e->get_root()->get_expr();
             }
         }
         // substitute by values in the model
@@ -398,7 +398,7 @@ namespace smt {
             }
         }
         expr_ref new_expr(m_manager);
-        new_expr = m_context.get_rewriter().mk_app(to_app(n)->get_decl(), num_args, new_args.c_ptr());
+        new_expr = m_context.get_rewriter().mk_app(to_app(n)->get_decl(), num_args, new_args.data());
         m_new_exprs.push_back(new_expr);
         m_canonize_cache.insert(n, new_expr);
         return new_expr;

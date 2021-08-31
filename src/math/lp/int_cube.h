@@ -35,7 +35,6 @@ namespace lp {
         impq get_cube_delta_for_term(const lar_term& t) const;
     public:
         int_cube(int_solver& lia);
-        ~int_cube() {}
         lia_move operator()();
     };
 }

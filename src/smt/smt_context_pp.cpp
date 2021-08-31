@@ -89,11 +89,11 @@ namespace smt {
     }
 
     std::ostream& context::display_literal(std::ostream & out, literal l) const {
-        l.display_compact(out, m_bool_var2expr.c_ptr()); return out;
+        smt::display_compact(out, l, m_bool_var2expr.data()); return out;
     }
 
     std::ostream& context::display_literals(std::ostream & out, unsigned num_lits, literal const * lits) const {
-        display_compact(out, num_lits, lits, m_bool_var2expr.c_ptr()); return out;
+        display_compact(out, num_lits, lits, m_bool_var2expr.data()); return out;
     }
 
     std::ostream& context::display_literal_verbose(std::ostream & out, literal lit) const {
@@ -101,7 +101,7 @@ namespace smt {
     }
 
     std::ostream& context::display_literals_verbose(std::ostream & out, unsigned num_lits, literal const * lits) const {
-        display_verbose(out, m, num_lits, lits, m_bool_var2expr.c_ptr(), "\n"); return out;
+        display_verbose(out, m, num_lits, lits, m_bool_var2expr.data(), "\n"); return out;
     }
 
     std::ostream& context::display_literal_smt2(std::ostream& out, literal l) const {
@@ -120,7 +120,7 @@ namespace smt {
     }
 
     void context::display_literal_info(std::ostream & out, literal l) const {
-        l.display_compact(out, m_bool_var2expr.c_ptr());
+        smt::display_compact(out, l, m_bool_var2expr.data());
         display_literal_smt2(out, l);
         out << "relevant: " << is_relevant(bool_var2expr(l.var())) << ", val: " << get_assignment(l) << "\n";
     }
@@ -146,7 +146,7 @@ namespace smt {
 
     void context::display_enode_defs(std::ostream & out) const {
         for (enode * x : m_enodes) {
-            expr * n = x->get_owner();
+            expr * n = x->get_expr();
             ast_def_ll_pp(out, m, n, get_pp_visited(), true, false);
         }
     }
@@ -171,7 +171,7 @@ namespace smt {
     }
 
     std::ostream& context::display_clause(std::ostream & out, clause const * cls) const {
-        cls->display_compact(out, m, m_bool_var2expr.c_ptr());
+        cls->display_compact(out, m, m_bool_var2expr.data());
         return out;
     }
 
@@ -220,12 +220,22 @@ namespace smt {
     void context::display_assignment(std::ostream & out) const {
         if (!m_assigned_literals.empty()) {
             out << "current assignment:\n";
+            unsigned level = 0;
             for (literal lit : m_assigned_literals) {
-                display_literal(out, lit);
+                if (level < get_assign_level(lit.var())) {
+                    level = get_assign_level(lit.var());
+                    out << "level " << level << "\n";
+                }
+                display_literal(out << lit << " ", lit);
                 if (!is_relevant(lit)) out << " n ";
                 out << ": ";
-                display_verbose(out, m, 1, &lit, m_bool_var2expr.c_ptr());
-                out << "\n";
+                display_verbose(out, m, 1, &lit, m_bool_var2expr.data());
+                if (level > 0) {
+                    auto j = get_justification(lit.var());
+                    display(out << " ", j);
+                }
+                else 
+                    out << "\n";
             }
         }
     }
@@ -246,8 +256,8 @@ namespace smt {
     void context::display_eqc(std::ostream & out) const {
         bool first = true;
         for (enode * x : m_enodes) {
-            expr * n = x->get_owner();
-            expr * r = x->get_root()->get_owner();
+            expr * n = x->get_expr();
+            expr * r = x->get_root()->get_expr();
             if (n != r) {
                 if (first) {
                     out << "equivalence classes:\n";
@@ -286,7 +296,7 @@ namespace smt {
 
     void context::display_hot_bool_vars(std::ostream & out) const {
         out << "hot bool vars:\n";
-        int num = get_num_bool_vars();
+        unsigned num = get_num_bool_vars();
         for (bool_var v = 0; v < num; v++) {
             double val = get_activity(v)/m_bvar_inc;
             if (val > 10.00) {
@@ -457,7 +467,7 @@ namespace smt {
         }
         for (unsigned i = 0; i < num_eq_antecedents; i++) {
             enode_pair const & p = eq_antecedents[i];
-            n = m.mk_eq(p.first->get_owner(), p.second->get_owner());
+            n = m.mk_eq(p.first->get_expr(), p.second->get_expr());
             fmls.push_back(n);
         }
         if (consequent != false_literal) {
@@ -509,14 +519,14 @@ namespace smt {
             out << std::left << n->get_owner_id() << " #";
             out.width(5);
             out << n->get_root()->get_owner_id() << " := " << std::right;
-            unsigned num = n->get_owner()->get_num_args();
+            unsigned num = n->get_expr()->get_num_args();
             if (num > 0)
                 out << "(";
             out << n->get_decl()->get_name();
             if (!n->get_decl()->private_parameters())
                 display_parameters(out, n->get_decl()->get_num_parameters(), n->get_decl()->get_parameters());
             for (unsigned i = 0; i < num; i++) {
-                expr * arg = n->get_owner()->get_arg(i);
+                expr * arg = n->get_expr()->get_arg(i);
                 if (e_internalized(arg)) {
                     enode * n = get_enode(arg)->get_root();
                     out << " #" << n->get_owner_id();
@@ -598,14 +608,14 @@ namespace smt {
             clause * cls = j.get_clause();
             out << "clause ";
             if (cls) out << literal_vector(cls->get_num_literals(), cls->begin());
-            if (cls) display_literals_smt2(out << "\n", cls->get_num_literals(), cls->begin());
+            // if (cls) display_literals_smt2(out << "\n", cls->get_num_literals(), cls->begin());
             break;
         }
         case b_justification::JUSTIFICATION: {
             literal_vector lits;
             const_cast<conflict_resolution&>(*m_conflict_resolution).justification2literals(j.get_justification(), lits);
             out << "justification " << j.get_justification()->get_from_theory() << ": ";
-            display_literals_smt2(out, lits);
+            // display_literals_smt2(out, lits);
             break;
         }
         default:
@@ -658,7 +668,7 @@ namespace smt {
     std::ostream& operator<<(std::ostream& out, enode_pp const& p) {
         ast_manager& m = p.ctx.get_manager();
         enode* n = p.n;
-        return out << "[#" << n->get_owner_id() << " " << mk_bounded_pp(n->get_owner(), m) << "]";
+        return out << "[#" << n->get_owner_id() << " " << mk_bounded_pp(n->get_expr(), m) << "]";
     }
 
     std::ostream& operator<<(std::ostream& out, enode_eq_pp const& p) {

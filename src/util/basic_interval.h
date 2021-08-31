@@ -33,7 +33,6 @@ public:
         bound m_lower;
         bound m_upper;
     public:
-        interval() {}
         bound const & lower() const { return m_lower; }
         bound const & upper() const { return m_upper; }
         bound & lower() { return m_lower; }

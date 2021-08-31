@@ -729,7 +729,7 @@ protected:
         while (tok != TK_ERROR && tok != TK_EOS) {            
             if (tok == TK_PERIOD) {
                 SASSERT(body.size()==polarity_vect.size());
-                add_rule(head, body.size(), body.c_ptr(), polarity_vect.c_ptr());
+                add_rule(head, body.size(), body.data(), polarity_vect.data());
                 return m_lexer->next_token();
             }
             char const* td = m_lexer->get_token_data();
@@ -805,10 +805,10 @@ protected:
             return unexpected(tok3, "at least one argument should be a variable");
         }
         if (v1) {
-            s = m.get_sort(v1);
+            s = v1->get_sort();
         }        
         else {
-            s = m.get_sort(v2);
+            s = v2->get_sort();
         }
         if (!v1) {
             v1 = mk_const(td1, s);
@@ -850,9 +850,9 @@ protected:
             unsigned arity = args.size();
             ptr_vector<sort> domain;
             for (unsigned i = 0; i < arity; ++i) {
-                domain.push_back(m.get_sort(args[i].get()));
+                domain.push_back(args[i]->get_sort());
             }
-            f = m.mk_func_decl(s, domain.size(), domain.c_ptr(), m.mk_bool_sort());
+            f = m.mk_func_decl(s, domain.size(), domain.data(), m.mk_bool_sort());
 
             m_context.register_predicate(f, true);
         
@@ -870,7 +870,7 @@ protected:
         }
         SASSERT(args.size()==f->get_arity());
         //TODO: we do not need to do the mk_app if we're in a declaration
-        pred = m.mk_app(f, args.size(), args.c_ptr());
+        pred = m.mk_app(f, args.size(), args.data());
         return tok;
     }
 
@@ -959,9 +959,9 @@ protected:
                     v = m.mk_var(idx, s);
                     m_vars.insert(data.bare_str(), v);
                 }
-                else if (s != m.get_sort(v)) {
+                else if (s != v->get_sort()) {
                     throw default_exception(default_exception::fmt(), "sort: %s expected, but got: %s\n",
-                        s->get_name().bare_str(), m.get_sort(v)->get_name().bare_str());
+                        s->get_name().bare_str(), v->get_sort()->get_name().bare_str());
                 }
                 args.push_back(v);
             }

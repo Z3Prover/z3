@@ -23,8 +23,7 @@ Revision History:
 
 class union_find_default_ctx {
 public:
-    typedef trail_stack<union_find_default_ctx> _trail_stack;
-    union_find_default_ctx() : m_stack(*this) {}
+    typedef trail_stack _trail_stack;
        
     void unmerge_eh(unsigned, unsigned) {}
     void merge_eh(unsigned, unsigned, unsigned, unsigned) {}
@@ -39,7 +38,7 @@ private:
 template<typename Ctx = union_find_default_ctx, typename StackCtx = Ctx>
 class union_find {
     Ctx &                         m_ctx;
-    trail_stack<StackCtx> &       m_trail_stack;
+    trail_stack &                 m_trail_stack;
     svector<unsigned>             m_find;
     svector<unsigned>             m_size;
     svector<unsigned>             m_next;
@@ -47,12 +46,11 @@ class union_find {
     class mk_var_trail;
     friend class mk_var_trail;
 
-    class mk_var_trail : public trail<StackCtx> {
+    class mk_var_trail : public trail {
         union_find & m_owner;
     public:
         mk_var_trail(union_find & o):m_owner(o) {}
-        ~mk_var_trail() override {}
-        void undo(StackCtx& ctx) override {
+        void undo() override {
             m_owner.m_find.pop_back();
             m_owner.m_size.pop_back();
             m_owner.m_next.pop_back();
@@ -64,13 +62,12 @@ class union_find {
     class merge_trail;
     friend class merge_trail;
 
-    class merge_trail : public trail<StackCtx> {
+    class merge_trail : public trail {
         union_find & m_owner;
         unsigned     m_r1;
     public:
         merge_trail(union_find & o, unsigned r1):m_owner(o), m_r1(r1) {}
-        ~merge_trail() override {}
-        void undo(StackCtx& ctx) override { m_owner.unmerge(m_r1); }
+        void undo() override { m_owner.unmerge(m_r1); }
     };
 
     void unmerge(unsigned r1) {
@@ -132,6 +129,14 @@ public:
         m_trail_stack.push(merge_trail(*this, r1));
         m_ctx.after_merge_eh(r2, r1, v2, v1);
         CASSERT("union_find", check_invariant());
+    }
+
+    void set_root(unsigned v, unsigned root) {
+        TRACE("union_find", tout << "merging " << v << " " << root << "\n";);
+        SASSERT(v != root);
+        m_find[v] = root;
+        m_size[root] += m_size[v];
+        std::swap(m_next[root], m_next[v]);
     }
 
     // dissolve equivalence class of v

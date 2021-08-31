@@ -93,7 +93,8 @@ class fm_tactic : public tactic {
                     expr * lhs = to_app(l)->get_arg(0);
                     expr * rhs = to_app(l)->get_arg(1);
                     rational c;
-                    u.is_numeral(rhs, c);
+                    if (!u.is_numeral(rhs, c))
+                        return NONE;
                     if (neg)
                         c.neg();
                     unsigned num_mons;
@@ -112,7 +113,8 @@ class fm_tactic : public tactic {
                         expr * xi;
                         rational ai_val;
                         if (u.is_mul(monomial, ai, xi)) {
-                            u.is_numeral(ai, ai_val);
+                            if (!u.is_numeral(ai, ai_val))
+                                return NONE;
                         }
                         else {
                             xi     = monomial;
@@ -120,7 +122,8 @@ class fm_tactic : public tactic {
                         }
                         if (u.is_to_real(xi))
                             xi = to_app(xi)->get_arg(0);
-                        SASSERT(is_uninterp_const(xi));
+                        if (!is_uninterp_const(xi))
+                            return NONE;
                         if (x == to_app(xi)->get_decl()) {
                             a_val = ai_val;
                             if (neg)
@@ -129,9 +132,9 @@ class fm_tactic : public tactic {
                         else {
                             expr_ref val(m);
                             val = ev(monomial);
-                            SASSERT(u.is_numeral(val));
                             rational tmp;
-                            u.is_numeral(val, tmp);
+                            if (!u.is_numeral(val, tmp))
+                                return NONE;
                             if (neg)
                                 tmp.neg();
                             c -= tmp;
@@ -162,20 +165,19 @@ class fm_tactic : public tactic {
         fm_model_converter(ast_manager & _m):m(_m) {}
 
         ~fm_model_converter() override {
-            m.dec_array_ref(m_xs.size(), m_xs.c_ptr());
-            vector<clauses>::iterator it  = m_clauses.begin();
-            vector<clauses>::iterator end = m_clauses.end();
-            for (; it != end; ++it)
-                m.dec_array_ref(it->size(), it->c_ptr());
+            m.dec_array_ref(m_xs.size(), m_xs.data());     
+            for (auto& c : m_clauses)
+                m.dec_array_ref(c.size(), c.data());
         }
         
         void insert(func_decl * x, clauses & c) {
             m.inc_ref(x);
-            m.inc_array_ref(c.size(), c.c_ptr());
+            m.inc_array_ref(c.size(), c.data());
             m_xs.push_back(x);
             m_clauses.push_back(clauses());
             m_clauses.back().swap(c);
         }
+
 
         void get_units(obj_map<expr, bool>& units) override { units.reset(); }
 
@@ -252,11 +254,8 @@ class fm_tactic : public tactic {
             for (unsigned i = 0; i < sz; i++) {
                 out << "\n(" << m_xs[i]->get_name();
                 clauses const & cs = m_clauses[i];
-                clauses::const_iterator it  = cs.begin();
-                clauses::const_iterator end = cs.end();
-                for (; it != end; ++it) {
-                    out << "\n  " << mk_ismt2_pp(*it, m, 2);
-                }
+                for (auto& c : cs)
+                    out << "\n  " << mk_ismt2_pp(c, m, 2);                
                 out << ")";
             }
             out << ")\n";
@@ -274,10 +273,8 @@ class fm_tactic : public tactic {
                 clauses const & cs = m_clauses[i];
                 res->m_clauses.push_back(clauses());
                 clauses & new_cs = res->m_clauses.back();
-                clauses::const_iterator it  = cs.begin();
-                clauses::const_iterator end = cs.end();
-                for (; it != end; ++it) {
-                    app * new_c = translator(*it);
+                for (auto& c : cs) {
+                    app * new_c = translator(c);
                     to_m.inc_ref(new_c);
                     new_cs.push_back(new_c);
                 }
@@ -531,7 +528,7 @@ class fm_tactic : public tactic {
         }
         
         void reset_constraints() {
-            del_constraints(m_constraints.size(), m_constraints.c_ptr());
+            del_constraints(m_constraints.size(), m_constraints.data());
             m_constraints.reset();
         }
         
@@ -802,7 +799,7 @@ class fm_tactic : public tactic {
             forbidden_proc(imp & o):m_owner(o) {}
             void operator()(::var * n) {}
             void operator()(app * n) {
-                if (is_uninterp_const(n) && m_owner.m.get_sort(n)->get_family_id() == m_owner.m_util.get_family_id()) {
+                if (is_uninterp_const(n) && n->get_sort()->get_family_id() == m_owner.m_util.get_family_id()) {
                     m_owner.m_forbidden_set.insert(n->get_decl());
                 }
             }
@@ -897,7 +894,7 @@ class fm_tactic : public tactic {
                 if (c.m_num_vars == 1)
                     lhs = ms[0];
                 else
-                    lhs = m_util.mk_add(ms.size(), ms.c_ptr());
+                    lhs = m_util.mk_add(ms.size(), ms.data());
                 expr * rhs = m_util.mk_numeral(c.m_c, int_cnstr);
                 if (c.m_strict) {
                     ineq = m.mk_not(m_util.mk_ge(lhs, rhs));
@@ -927,7 +924,7 @@ class fm_tactic : public tactic {
             if (lits.size() == 1)
                 return to_app(lits[0]);
             else
-                return m.mk_or(lits.size(), lits.c_ptr());
+                return m.mk_or(lits.size(), lits.data());
         }
         
         var mk_var(expr * t) {
@@ -1060,7 +1057,7 @@ class fm_tactic : public tactic {
                         if (!is_int(xs.back()))
                             all_int = false;
                     }
-                    mk_int(as.size(), as.c_ptr(), c);
+                    mk_int(as.size(), as.data(), c);
                     if (all_int && strict) {
                         strict = false;
                         c--;
@@ -1071,10 +1068,10 @@ class fm_tactic : public tactic {
             TRACE("to_var_bug", tout << "before mk_constraint: "; for (unsigned i = 0; i < xs.size(); i++) tout << " " << xs[i]; tout << "\n";);
             
             constraint * new_c = mk_constraint(lits.size(),
-                                               lits.c_ptr(),
+                                               lits.data(),
                                                xs.size(),
-                                               xs.c_ptr(),
-                                               as.c_ptr(),
+                                               xs.data(),
+                                               as.data(),
                                                c,
                                                strict,
                                                dep);
@@ -1428,10 +1425,10 @@ class fm_tactic : public tactic {
             }
             
             constraint * new_cnstr = mk_constraint(new_lits.size(),
-                                                   new_lits.c_ptr(),
+                                                   new_lits.data(),
                                                    new_xs.size(),
-                                                   new_xs.c_ptr(),
-                                                   new_as.c_ptr(),
+                                                   new_xs.data(),
+                                                   new_as.data(),
                                                    new_c,
                                                    new_strict,
                                                    new_dep);
@@ -1488,7 +1485,7 @@ class fm_tactic : public tactic {
                 for (unsigned j = 0; j < num_uppers; j++) {
                     if (m_inconsistent || num_new_cnstrs > limit) {
                         TRACE("fm", tout << "too many new constraints: " << num_new_cnstrs << "\n";);
-                        del_constraints(new_constraints.size(), new_constraints.c_ptr());
+                        del_constraints(new_constraints.size(), new_constraints.data());
                         return false;
                     }
                     constraint const & l_c = *(l[i]);
@@ -1598,7 +1595,7 @@ class fm_tactic : public tactic {
                 report_tactic_progress(":fm-cost", m_counter);
                 if (!m_inconsistent) {
                     copy_remaining();
-                    m_new_goal->add(concat(g->mc(), m_mc.get()));
+                    m_new_goal->add(m_mc.get());
                 }
             }
             reset_constraints();

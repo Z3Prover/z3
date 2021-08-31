@@ -193,7 +193,7 @@ func_decl * array_decl_plugin::mk_map(func_decl* f, unsigned arity, sort* const*
         parameters.push_back(domain[0]->get_parameter(i));
     }
     parameters.push_back(parameter(f->get_range()));
-    sort* range = mk_sort(ARRAY_SORT, parameters.size(), parameters.c_ptr());
+    sort* range = mk_sort(ARRAY_SORT, parameters.size(), parameters.data());
     parameter param(f);
     func_decl_info info(m_family_id, OP_ARRAY_MAP, 1, &param);
     //
@@ -265,7 +265,7 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
         new_domain.push_back(to_sort(parameters[i].get_ast()));
     }
     SASSERT(new_domain.size() == arity);
-    return m_manager->mk_func_decl(m_select_sym, arity, new_domain.c_ptr(), get_array_range(domain[0]),
+    return m_manager->mk_func_decl(m_select_sym, arity, new_domain.data(), get_array_range(domain[0]),
                                    func_decl_info(m_family_id, OP_SELECT));
 }
 
@@ -309,7 +309,7 @@ func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
         new_domain.push_back(to_sort(parameters[i].get_ast()));
     }
     SASSERT(new_domain.size() == arity);
-    return m_manager->mk_func_decl(m_store_sym, arity, new_domain.c_ptr(), domain[0],
+    return m_manager->mk_func_decl(m_store_sym, arity, new_domain.data(), domain[0],
                                    func_decl_info(m_family_id, OP_STORE));
 }
 
@@ -481,7 +481,7 @@ func_decl * array_decl_plugin::mk_as_array(func_decl * f) {
         parameters.push_back(parameter(f->get_domain(i)));
     }
     parameters.push_back(parameter(f->get_range()));
-    sort * s = mk_sort(ARRAY_SORT, parameters.size(), parameters.c_ptr());
+    sort * s = mk_sort(ARRAY_SORT, parameters.size(), parameters.data());
     parameter param(f);
     func_decl_info info(m_family_id, OP_AS_ARRAY, 1, &param);
     return m_manager->mk_const_decl(m_as_array_sym, s, info);
@@ -679,7 +679,7 @@ sort * array_util::mk_array_sort(unsigned arity, sort* const* domain, sort* rang
         params.push_back(parameter(domain[i]));
     }
     params.push_back(parameter(range));
-    return m_manager.mk_sort(m_fid, ARRAY_SORT, params.size(), params.c_ptr());
+    return m_manager.mk_sort(m_fid, ARRAY_SORT, params.size(), params.data());
 }
 
 func_decl* array_util::mk_array_ext(sort *domain, unsigned i) {    

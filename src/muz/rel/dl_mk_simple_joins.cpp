@@ -162,7 +162,7 @@ namespace datalog {
             for (expr* arg : *t) {
                 unsigned var_idx = to_var(arg)->get_idx();
                 if (!result.get(res_ofs - var_idx)) {
-                    result[res_ofs - var_idx] = m.mk_var(next_var++, m.get_sort(arg));
+                    result[res_ofs - var_idx] = m.mk_var(next_var++, arg->get_sort());
                 }
             }
         }
@@ -335,7 +335,7 @@ namespace datalog {
                 var * v = to_var(arg);
                 if (v->get_idx() == var_idx) {
                     args.push_back(v);
-                    domain.push_back(m.get_sort(v));
+                    domain.push_back(v->get_sort());
                     return true;
                 }
             }
@@ -381,9 +381,9 @@ namespace datalog {
 
             func_decl * decl = m_context.mk_fresh_head_predicate(
                 symbol(parent_name), symbol("split"), 
-                arity, domain.c_ptr(), parent_head);
+                arity, domain.data(), parent_head);
 
-            app_ref head(m.mk_app(decl, arity, args.c_ptr()), m);
+            app_ref head(m.mk_app(decl, arity, args.data()), m);
 
             app * tail[] = { t1, t2 };
 
@@ -594,7 +594,7 @@ namespace datalog {
 
 
         cost get_domain_size(expr* e) const {
-            return get_domain_size(m.get_sort(e));
+            return get_domain_size(e->get_sort());
         }
 
         cost get_domain_size(sort* s) const {
@@ -726,8 +726,8 @@ namespace datalog {
                     negs.push_back(orig_r->is_neg_tail(i));
                 }
 
-                rule * new_rule = rm.mk(orig_r->get_head(), tail.size(), tail.c_ptr(), 
-                    negs.c_ptr(), orig_r->name());
+                rule * new_rule = rm.mk(orig_r->get_head(), tail.size(), tail.data(), 
+                    negs.data(), orig_r->name());
 
                 new_rule->set_accounting_parent_object(m_context, orig_r);
                 rm.mk_rule_rewrite_proof(*orig_r, *new_rule);

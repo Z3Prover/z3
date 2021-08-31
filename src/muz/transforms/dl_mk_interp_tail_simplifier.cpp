@@ -85,7 +85,7 @@ namespace datalog {
         mk_rule_inliner::remove_duplicate_tails(m_tail, m_neg);
 
         SASSERT(m_tail.size() == m_neg.size());
-        res = m_context.get_rule_manager().mk(m_head, m_tail.size(), m_tail.c_ptr(), m_neg.c_ptr(),m_rule->name());
+        res = m_context.get_rule_manager().mk(m_head, m_tail.size(), m_tail.data(), m_neg.data(),m_rule->name());
         res->set_accounting_parent_object(m_context, m_rule);
         res->norm_vars(res.get_manager());
     }
@@ -334,7 +334,7 @@ namespace datalog {
             m_app_args.reset();
             m_app_args.append(num, args);
 
-            std::sort(m_app_args.c_ptr(), m_app_args.c_ptr()+m_app_args.size(), m_expr_cmp);
+            std::sort(m_app_args.data(), m_app_args.data()+m_app_args.size(), m_expr_cmp);
 
             remove_duplicates(m_app_args);
 
@@ -347,11 +347,11 @@ namespace datalog {
             }
             else {
                 if (m.is_and(f)) {
-                    result = m.mk_and(m_app_args.size(), m_app_args.c_ptr());
+                    result = m.mk_and(m_app_args.size(), m_app_args.data());
                 }
                 else {
                     SASSERT(m.is_or(f));
-                    result = m.mk_or(m_app_args.size(), m_app_args.c_ptr());
+                    result = m.mk_or(m_app_args.size(), m_app_args.data());
                 }
             }
 
@@ -529,7 +529,7 @@ namespace datalog {
                 m_itail_members.push_back(r->get_tail(i));
                 SASSERT(!r->is_neg_tail(i));
             }
-            itail = m.mk_and(m_itail_members.size(), m_itail_members.c_ptr());
+            itail = m.mk_and(m_itail_members.size(), m_itail_members.data());
             modified = true;
         }
 
@@ -559,7 +559,7 @@ namespace datalog {
             }
 
             SASSERT(m_tail.size() == m_tail_neg.size());
-            res = m_context.get_rule_manager().mk(head, m_tail.size(), m_tail.c_ptr(), m_tail_neg.c_ptr(), r->name());
+            res = m_context.get_rule_manager().mk(head, m_tail.size(), m_tail.data(), m_tail_neg.data(), r->name());
             res->set_accounting_parent_object(m_context, r);
         }
         else {

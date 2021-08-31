@@ -24,6 +24,7 @@ Revision History:
 #include "ast/datatype_decl_plugin.h"
 #include "ast/recfun_decl_plugin.h"
 #include "ast/dl_decl_plugin.h"
+#include "ast/char_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
@@ -47,6 +48,9 @@ void reg_decl_plugins(ast_manager & m) {
     }
     if (!m.get_plugin(m.mk_family_id(symbol("datalog_relation")))) {
         m.register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin));
+    }
+    if (!m.get_plugin(m.mk_family_id(symbol("char")))) {
+        m.register_plugin(symbol("char"), alloc(char_decl_plugin));
     }
     if (!m.get_plugin(m.mk_family_id(symbol("seq")))) {
         m.register_plugin(symbol("seq"), alloc(seq_decl_plugin));

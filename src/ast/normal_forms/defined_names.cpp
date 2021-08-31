@@ -119,9 +119,9 @@ app * defined_names::impl::gen_name(expr * e, sort_ref_buffer & var_sorts, buffe
         var_names.push_back(symbol(i));
     }
 
-    sort * range = m.get_sort(e);
-    func_decl * new_skolem_decl = m.mk_fresh_func_decl(m_z3name, symbol::null, domain.size(), domain.c_ptr(), range);
-    app * n = m.mk_app(new_skolem_decl, new_args.size(), new_args.c_ptr());
+    sort * range = e->get_sort();
+    func_decl * new_skolem_decl = m.mk_fresh_func_decl(m_z3name, symbol::null, domain.size(), domain.data(), range);
+    app * n = m.mk_app(new_skolem_decl, new_args.size(), new_args.data());
     if (is_lambda(e)) {
         m.add_lambda_def(new_skolem_decl, to_quantifier(e));
     }
@@ -159,8 +159,8 @@ void defined_names::impl::bound_vars(sort_ref_buffer const & sorts, buffer<symbo
         expr * patterns[1] = { m.mk_pattern(name) };
         quantifier_ref q(m);
         q = m.mk_forall(sorts.size(),
-                        sorts.c_ptr(),
-                        names.c_ptr(),
+                        sorts.data(),
+                        names.data(),
                         def_conjunct,
                         1, qid, symbol::null,
                         1, patterns);
@@ -223,10 +223,10 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
         array_util autil(m);
         func_decl * f = nullptr;
         if (autil.is_as_array(n2, f)) {
-            n3 = m.mk_app(f, args.size()-1, args.c_ptr() + 1);
+            n3 = m.mk_app(f, args.size()-1, args.data() + 1);
         }
         else {
-            n3 = autil.mk_select(args.size(), args.c_ptr());
+            n3 = autil.mk_select(args.size(), args.data());
         }
         bound_vars(var_sorts, var_names, MK_EQ(q->get_expr(), n3), to_app(n3), defs, m.lambda_def_qid());
         
@@ -234,7 +234,7 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
     else {
         bound_vars(var_sorts, var_names, MK_EQ(e, n), n, defs);
     }
-    new_def = mk_and(m, defs.size(), defs.c_ptr());
+    new_def = mk_and(m, defs.size(), defs.data());
 }
 
 
@@ -266,8 +266,8 @@ bool defined_names::impl::mk_name(expr * e, expr_ref & new_def, proof_ref & new_
 
         TRACE("mk_definition_bug", tout << "name: " << mk_ismt2_pp(n, m) << "\n";);
         // variables are in reverse order in quantifiers
-        std::reverse(var_sorts.c_ptr(), var_sorts.c_ptr() + var_sorts.size());
-        std::reverse(var_names.c_ptr(), var_names.c_ptr() + var_names.size());
+        std::reverse(var_sorts.data(), var_sorts.data() + var_sorts.size());
+        std::reverse(var_names.data(), var_names.data() + var_names.size());
 
         mk_definition(e, n, var_sorts, var_names, new_def);
 

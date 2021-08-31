@@ -61,7 +61,7 @@ namespace lp {
             return true;
         const lar_term* t = lra.terms()[i];
         impq delta = get_cube_delta_for_term(*t);
-        TRACE("cube", lra.print_term_as_indices(*t, tout); tout << ", delta = " << delta;);
+        TRACE("cube", lra.print_term_as_indices(*t, tout); tout << ", delta = " << delta << "\n";);
         if (is_zero(delta))
             return true;
         return lra.tighten_term_bounds_by_delta(tv::term(i), delta);
@@ -85,7 +85,7 @@ namespace lp {
         if (t.size() == 2) {
             bool seen_minus = false;
             bool seen_plus = false;
-            for(const auto & p : t) {
+            for(lar_term::ival p : t) {
                 if (!lia.column_is_int(p.column()))
                     goto usual_delta;
                 const mpq & c = p.coeff();
@@ -103,7 +103,7 @@ namespace lp {
         }
     usual_delta:
         mpq delta = zero_of_type<mpq>();
-        for (const auto & p : t)
+        for (lar_term::ival p : t)
             if (lia.column_is_int(p.column()))
                 delta += abs(p.coeff());
         

@@ -53,11 +53,11 @@ public:
         u(m), delim("!"), m_next(0) {}
     ~str_value_factory() override {}
     expr * get_some_value(sort * s) override {
-        return u.str.mk_string(symbol("some value"));
+        return u.str.mk_string("some value");
     }
     bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override {
-        v1 = u.str.mk_string(symbol("value 1"));
-        v2 = u.str.mk_string(symbol("value 2"));
+        v1 = u.str.mk_string("value 1");
+        v2 = u.str.mk_string("value 2");
         return true;
     }
     expr * get_fresh_value(sort * s) override {
@@ -65,10 +65,11 @@ public:
             while (true) {
                 std::ostringstream strm;
                 strm << delim << std::hex << (m_next++) << std::dec << delim;
-                symbol sym(strm.str());
+                std::string s(strm.str());
+                symbol sym(s);
                 if (m_strings.contains(sym)) continue;
                 m_strings.insert(sym);
-                return u.str.mk_string(sym);
+                return u.str.mk_string(s);
             }
         }
         sort* seq = nullptr;
@@ -86,14 +87,14 @@ public:
 class theory_str_contain_pair_bool_map_t : public obj_pair_map<expr, expr, expr*> {};
 
 template<typename Ctx>
-class binary_search_trail : public trail<Ctx> {
+class binary_search_trail : public trail {
     obj_map<expr, ptr_vector<expr> > & target;
     expr * entry;
 public:
     binary_search_trail(obj_map<expr, ptr_vector<expr> > & target, expr * entry) :
         target(target), entry(entry) {}
     ~binary_search_trail() override {}
-    void undo(Ctx & ctx) override {
+    void undo() override {
         TRACE("t_str_binary_search", tout << "in binary_search_trail::undo()" << std::endl;);
         if (target.contains(entry)) {
             if (!target[entry].empty()) {
@@ -105,54 +106,6 @@ public:
             TRACE("t_str_binary_search", tout << "WARNING: attempt to access length tester map via invalid key" << std::endl;);
         }
     }
-};
-
-struct c_hash { unsigned operator()(char u) const { return (unsigned)u; } };
-struct c_eq { bool operator()(char u1, char u2) const { return u1 == u2; } };
-
-class nfa {
-protected:
-    bool m_valid;
-    unsigned m_next_id;
-
-    unsigned next_id() {
-        unsigned retval = m_next_id;
-        ++m_next_id;
-        return retval;
-    }
-
-    unsigned m_start_state;
-    unsigned m_end_state;
-
-    std::map<unsigned, std::map<char, unsigned> > transition_map;
-    std::map<unsigned, std::set<unsigned> > epsilon_map;
-
-    void make_transition(unsigned start, char symbol, unsigned end) {
-        transition_map[start][symbol] = end;
-    }
-
-    void make_epsilon_move(unsigned start, unsigned end) {
-        epsilon_map[start].insert(end);
-    }
-
-    // Convert a regular expression to an e-NFA using Thompson's construction
-    void convert_re(expr * e, unsigned & start, unsigned & end, seq_util & u);
-
-public:
-    nfa(seq_util & u, expr * e)
-: m_valid(true), m_next_id(0), m_start_state(0), m_end_state(0) {
-        convert_re(e, m_start_state, m_end_state, u);
-    }
-
-    nfa() : m_valid(false), m_next_id(0), m_start_state(0), m_end_state(0) {}
-
-    bool is_valid() const {
-        return m_valid;
-    }
-
-    void epsilon_closure(unsigned start, std::set<unsigned> & closure);
-
-    bool matches(zstring input);
 };
 
 class regex_automaton_under_assumptions {
@@ -332,7 +285,6 @@ class theory_str : public theory {
         }
     };
 
-    typedef trail_stack<theory_str> th_trail_stack;
     typedef union_find<theory_str> th_union_find;
 
     typedef map<rational, expr*, obj_hash<rational>, default_eq<rational> > rational_map;
@@ -490,7 +442,6 @@ protected:
     obj_hashtable<expr> regex_terms;
     obj_map<expr, ptr_vector<expr> > regex_terms_by_string; // S --> [ (str.in.re S *) ]
     obj_map<expr, svector<regex_automaton_under_assumptions> > regex_automaton_assumptions; // RegEx --> [ aut+assumptions ]
-    obj_map<expr, nfa> regex_nfa_cache; // Regex term --> NFA
     obj_hashtable<expr> regex_terms_with_path_constraints; // set of string terms which have had path constraints asserted in the current scope
     obj_hashtable<expr> regex_terms_with_length_constraints; // set of regex terms which had had length constraints asserted in the current scope
     obj_map<expr, expr*> regex_term_to_length_constraint; // (str.in.re S R) -> (length constraint over S wrt. R)
@@ -509,10 +460,6 @@ protected:
 
     obj_map<expr, ptr_vector<expr> > string_chars; // S --> [S_0, S_1, ...] for character terms S_i
 
-    svector<char> char_set;
-    std::map<char, int>  charSetLookupTable;
-    int           charSetSize;
-
     obj_pair_map<expr, expr, expr*> concat_astNode_map;
 
     // all (str.to-int) and (int.to-str) terms
@@ -529,8 +476,8 @@ protected:
     // cache mapping each string S to Length(S)
     obj_map<expr, app*> length_ast_map;
 
-    th_trail_stack m_trail_stack;
-    th_trail_stack m_library_aware_trail_stack;
+    trail_stack m_trail_stack;
+    trail_stack m_library_aware_trail_stack;
     th_union_find m_find;
     theory_var get_var(expr * n) const;
     expr * get_eqc_next(expr * n);
@@ -540,13 +487,11 @@ protected:
     expr_ref_vector fixed_length_subterm_trail; // trail for subterms generated *in the subsolver*
     expr_ref_vector fixed_length_assumptions; // cache of boolean terms to assert *into the subsolver*, unsat core is a subset of these
     obj_map<expr, rational> fixed_length_used_len_terms; // constraints used in generating fixed length model
-    obj_map<expr, ptr_vector<expr> > var_to_char_subterm_map; // maps a var to a list of character terms *in the subsolver*
-    obj_map<expr, ptr_vector<expr> > uninterpreted_to_char_subterm_map; // maps an "uninterpreted" string term to a list of character terms *in the subsolver*
+    obj_map<expr, expr_ref_vector* > var_to_char_subterm_map; // maps a var to a list of character terms *in the subsolver*
+    obj_map<expr, expr_ref_vector* > uninterpreted_to_char_subterm_map; // maps an "uninterpreted" string term to a list of character terms *in the subsolver*
     obj_map<expr, std::tuple<rational, expr*, expr*>> fixed_length_lesson; //keep track of information for the lesson
     unsigned preprocessing_iteration_count; // number of attempts we've made to solve by preprocessing length information
     obj_map<expr, zstring> candidate_model;
-
-    expr_ref_vector bitvector_character_constants; // array-indexed map of bv.mk_numeral terms
     
     stats m_stats;
 
@@ -612,6 +557,9 @@ protected:
     void instantiate_axiom_Replace(enode * e);
     void instantiate_axiom_str_to_int(enode * e);
     void instantiate_axiom_int_to_str(enode * e);
+    void instantiate_axiom_is_digit(enode * e);
+    void instantiate_axiom_str_to_code(enode * e);
+    void instantiate_axiom_str_from_code(enode * e);
 
     void add_persisted_axiom(expr * a);
 
@@ -722,15 +670,14 @@ protected:
     void check_consistency_contains(expr * e, bool is_true);
 
     int ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr*, int> & freeVarMap,
-            std::map<expr*, std::set<expr*> > & unrollGroupMap, std::map<expr*, std::map<expr*, int> > & var_eq_concat_map);
+            std::map<expr*, std::map<expr*, int> > & var_eq_concat_map);
     void trace_ctx_dep(std::ofstream & tout,
             std::map<expr*, expr*> & aliasIndexMap,
             std::map<expr*, expr*> & var_eq_constStr_map,
             std::map<expr*, std::map<expr*, int> > & var_eq_concat_map,
             std::map<expr*, std::map<expr*, int> > & var_eq_unroll_map,
             std::map<expr*, expr*> & concat_eq_constStr_map,
-            std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map,
-            std::map<expr*, std::set<expr*> > & unrollGroupMap);
+            std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map);
 
     bool term_appears_as_subterm(expr * needle, expr * haystack);
     void classify_ast_by_type(expr * node, std::map<expr*, int> & varMap,
@@ -753,7 +700,7 @@ protected:
     lbool fixed_length_model_construction(expr_ref_vector formulas, expr_ref_vector &precondition,
             expr_ref_vector& free_variables,
             obj_map<expr, zstring> &model, expr_ref_vector &cex);
-    bool fixed_length_reduce_string_term(smt::kernel & subsolver, expr * term, ptr_vector<expr> & term_chars, expr_ref & cex);
+    bool fixed_length_reduce_string_term(smt::kernel & subsolver, expr * term, expr_ref_vector & term_chars, expr_ref & cex);
     bool fixed_length_get_len_value(expr * e, rational & val);
     bool fixed_length_reduce_eq(smt::kernel & subsolver, expr_ref lhs, expr_ref rhs, expr_ref & cex);
     bool fixed_length_reduce_diseq(smt::kernel & subsolver, expr_ref lhs, expr_ref rhs, expr_ref & cex);
@@ -766,7 +713,6 @@ protected:
     bool fixed_length_reduce_regex_membership(smt::kernel & subsolver, expr_ref f, expr_ref & cex, bool polarity);
 
     void dump_assignments();
-    void initialize_charset();
 
     void check_variable_scope();
     void recursive_check_variable_scope(expr * ex);
@@ -796,7 +742,7 @@ public:
 
     bool overlapping_variables_detected() const { return loopDetected; }
 
-    th_trail_stack& get_trail_stack() { return m_trail_stack; }
+    trail_stack& get_trail_stack() { return m_trail_stack; }
     void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2) {}
     void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { }
     void unmerge_eh(theory_var v1, theory_var v2) {}

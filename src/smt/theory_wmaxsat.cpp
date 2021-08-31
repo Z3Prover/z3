@@ -161,8 +161,8 @@ namespace smt {
             scoped_mpz w(m_mpz);
             w = m_zweights[tv];
             ctx.push_trail(numeral_trail(m_zcost, m_old_values));
-            ctx.push_trail(push_back_vector<context, svector<theory_var> >(m_costs));
-            ctx.push_trail(value_trail<context, bool>(m_assigned[tv]));
+            ctx.push_trail(push_back_vector<svector<theory_var> >(m_costs));
+            ctx.push_trail(value_trail<bool>(m_assigned[tv]));
             m_zcost += w;
             TRACE("opt", tout << "Assign v" << tv << " weight: " << w << " cost: " << m_zcost << " " << mk_pp(m_vars[m_bool2var[v]].get(), get_manager()) << "\n";);
             m_costs.push_back(tv);
@@ -248,13 +248,13 @@ namespace smt {
             TRACE("opt",
                   tout << "costs: ";
                   for (unsigned i = 0; i < m_costs.size(); ++i) {
-                      tout << mk_pp(get_enode(m_costs[i])->get_owner(), get_manager()) << " ";
+                      tout << pp(get_enode(m_costs[i]), get_manager()) << " ";
                   }
                   tout << "\n";
                   //ctx.display(tout);                      
                   );
         }
-        expr_ref result(m.mk_or(disj.size(), disj.c_ptr()), m);
+        expr_ref result(m.mk_or(disj.size(), disj.data()), m);
         TRACE("opt",
               tout << result << " weight: " << weight << "\n";
               tout << "cost: " << m_zcost << " min-cost: " << m_zmin_cost << "\n";);
@@ -283,7 +283,7 @@ namespace smt {
         
         ctx.set_conflict(
             ctx.mk_justification(
-                ext_theory_conflict_justification(get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), 0, nullptr, 0, nullptr)));
+                ext_theory_conflict_justification(get_id(), ctx.get_region(), lits.size(), lits.data(), 0, nullptr, 0, nullptr)));
     }     
 
     bool theory_wmaxsat::max_unassigned_is_blocked() {
@@ -299,7 +299,7 @@ namespace smt {
         }
         // 
         if (max_unassigned > m_max_unassigned_index) {
-            ctx.push_trail(value_trail<context, unsigned>(m_max_unassigned_index));
+            ctx.push_trail(value_trail<unsigned>(m_max_unassigned_index));
             m_max_unassigned_index = max_unassigned;
         }
         if (max_unassigned < m_sorted_vars.size() && 
@@ -325,13 +325,13 @@ namespace smt {
             lits.push_back(literal(w));        
         }
         TRACE("opt", 
-              ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); 
+              ctx.display_literals_verbose(tout, lits.size(), lits.data()); 
               ctx.display_literal_verbose(tout << " --> ", lit););
         
         region& r = ctx.get_region();
         ctx.assign(lit, ctx.mk_justification(
                        ext_theory_propagation_justification(
-                           get_id(), r, lits.size(), lits.c_ptr(), 0, nullptr, lit, 0, nullptr)));
+                           get_id(), r, lits.size(), lits.data(), 0, nullptr, lit, 0, nullptr)));
     }                
 
 

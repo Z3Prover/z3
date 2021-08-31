@@ -108,7 +108,7 @@ bool theory_seq::propagate_ne2lit(unsigned idx) {
     }
     else {
         TRACE("seq", tout << "propagate: " << undef_lit << "\n";);
-        propagate_lit(n.dep(), lits.size(), lits.c_ptr(), ~undef_lit);
+        propagate_lit(n.dep(), lits.size(), lits.data(), ~undef_lit);
     }
     return true;
 }
@@ -142,9 +142,9 @@ bool theory_seq::propagate_ne2eq(unsigned idx, expr_ref_vector const& es) {
     }
     ne const& n = m_nqs[idx];
     expr_ref e(m), head(m), tail(m);
-    e = mk_concat(es, m.get_sort(es[0]));
+    e = mk_concat(es, es[0]->get_sort());
     m_sk.decompose(e, head, tail);
-    propagate_eq(n.dep(), n.lits(), e, mk_concat(head, tail), false);
+    propagate_eq(n.dep(), n.lits(), e, mk_concat(head, tail), true);
     return true;
 }
  

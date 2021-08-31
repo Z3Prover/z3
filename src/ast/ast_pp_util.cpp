@@ -33,7 +33,7 @@ void ast_pp_util::collect(unsigned n, expr* const* es) {
 }
 
 void ast_pp_util::collect(expr_ref_vector const& es) {
-    collect(es.size(), es.c_ptr());
+    collect(es.size(), es.data());
 }
 
 void ast_pp_util::display_decls(std::ostream& out) {

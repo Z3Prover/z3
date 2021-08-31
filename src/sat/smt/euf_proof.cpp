@@ -31,22 +31,34 @@ namespace euf {
         if (is_app(e)) {
             app* a = to_app(e);
             drat_log_decl(a->get_decl());
-            if (a->get_num_parameters() == 0)
-                get_drat().def_begin('e', e->get_id(), a->get_decl()->get_name().str());
-            else {
-                std::stringstream strm;
-                strm << mk_ismt2_func(a->get_decl(), m);
-                get_drat().def_begin('e', e->get_id(), strm.str());
-            }
+            std::stringstream strm;
+            strm << mk_ismt2_func(a->get_decl(), m);
+            get_drat().def_begin('e', e->get_id(), strm.str());
             for (expr* arg : *a)
                 get_drat().def_add_arg(arg->get_id());
             get_drat().def_end();
-            m_drat_asts.insert(e);
-            push(insert_obj_trail<solver, ast>(m_drat_asts, e));
         }
-        else {
-            IF_VERBOSE(0, verbose_stream() << "logging binders is TBD\n");
+        else if (is_var(e)) {
+            var* v = to_var(e);
+            get_drat().def_begin('v', v->get_id(), "" + mk_pp(e->get_sort(), m));
+            get_drat().def_add_arg(v->get_idx());
+            get_drat().def_end();
         }
+        else if (is_quantifier(e)) {
+            quantifier* q = to_quantifier(e);
+            std::stringstream strm;           
+            strm << "(" << (is_forall(q) ? "forall" : (is_exists(q) ? "exists" : "lambda"));
+            for (unsigned i = 0; i < q->get_num_decls(); ++i) 
+                strm << " (" << q->get_decl_name(i) << " " << mk_pp(q->get_decl_sort(i), m) << ")";            
+            strm << ")";
+            get_drat().def_begin('q', q->get_id(), strm.str());
+            get_drat().def_add_arg(q->get_expr()->get_id());
+            get_drat().def_end();
+        }
+        else 
+            UNREACHABLE();
+        m_drat_asts.insert(e);
+        push(insert_obj_trail<ast>(m_drat_asts, e));
     }
 
     void solver::drat_log_expr(expr* e) {
@@ -61,9 +73,15 @@ namespace euf {
                 for (expr* arg : *to_app(e))
                     if (!m_drat_asts.contains(arg))
                         m_drat_todo.push_back(arg);
+            if (is_quantifier(e)) {
+                expr* arg = to_quantifier(e)->get_expr();
+                if (!m_drat_asts.contains(arg))
+                    m_drat_todo.push_back(arg);                
+            }                
             if (m_drat_todo.size() != sz)
                 continue;
-            drat_log_expr1(e);
+            if (!m_drat_asts.contains(e))
+                drat_log_expr1(e);
             m_drat_todo.pop_back();                   
         }
     }
@@ -82,7 +100,7 @@ namespace euf {
         if (m_drat_asts.contains(f))
             return;
         m_drat_asts.insert(f);
-        push(insert_obj_trail<solver, ast>(m_drat_asts, f));
+        push(insert_obj_trail< ast>(m_drat_asts, f));
         std::ostringstream strm;
         smt2_pp_environment_dbg env(m);
         ast_smt2_pp(strm, f, env);
@@ -126,27 +144,36 @@ namespace euf {
         }
     }
 
-    void solver::log_justification(literal l, th_propagation const& jst) {
+    void solver::log_justification(literal l, th_explain const& jst) {
         literal_vector lits;
-        for (auto lit : euf::th_propagation::lits(jst))
-            lits.push_back(~lit);
-        lits.push_back(l);
         unsigned nv = s().num_vars();
         expr_ref_vector eqs(m);
-        for (auto eq : euf::th_propagation::eqs(jst)) {
+        auto add_lit = [&](enode_pair const& eq) {
             ++nv;
             literal lit(nv, false);
             eqs.push_back(m.mk_eq(eq.first->get_expr(), eq.second->get_expr()));
             drat_eq_def(lit, eqs.back());            
-            lits.push_back(lit);
-        }
-        
+            return lit;
+        };
+
+        for (auto lit : euf::th_explain::lits(jst))
+            lits.push_back(~lit);
+        if (l != sat::null_literal)
+            lits.push_back(l);
+        for (auto eq : euf::th_explain::eqs(jst)) 
+            lits.push_back(~add_lit(eq));
+        if (jst.lit_consequent() != sat::null_literal && jst.lit_consequent() != l) 
+            lits.push_back(jst.lit_consequent());
+        if (jst.eq_consequent().first != nullptr) 
+            lits.push_back(add_lit(jst.eq_consequent()));
         get_drat().add(lits, sat::status::th(m_is_redundant, jst.ext().get_id()));
     }
 
     void solver::drat_eq_def(literal lit, expr* eq) {
         expr *a = nullptr, *b = nullptr;
         VERIFY(m.is_eq(eq, a, b));
+        drat_log_expr(a);
+        drat_log_expr(b);
         get_drat().def_begin('e', eq->get_id(), std::string("="));
         get_drat().def_add_arg(a->get_id());
         get_drat().def_add_arg(b->get_id());

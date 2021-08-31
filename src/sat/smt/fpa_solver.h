@@ -36,6 +36,8 @@ namespace fpa {
         bv_util                 & m_bv_util;
         arith_util              & m_arith_util;
         obj_map<expr, expr*>      m_conversions;
+        svector<std::tuple<enode*, bool, bool>> m_nodes;
+        unsigned                  m_nodes_qhead = 0;
 
         bool visit(expr* e) override;
         bool visited(expr* e) override;
@@ -45,6 +47,7 @@ namespace fpa {
         sat::literal_vector mk_side_conditions();
         void attach_new_th_var(enode* n);
         void activate(expr* e);
+        void unit_propagate(std::tuple<enode*, bool, bool> const& t);
         void ensure_equality_relation(theory_var x, theory_var y);      
 
     public:
@@ -64,12 +67,12 @@ namespace fpa {
         std::ostream& display_justification(std::ostream& out, sat::ext_justification_idx idx) const override { UNREACHABLE(); return out; }
         std::ostream& display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const override { UNREACHABLE(); return out; }
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
-        void add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
+        bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
         void finalize_model(model& mdl) override;
 
-        bool unit_propagate() override { return false; }
+        bool unit_propagate() override;
         void get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) override { UNREACHABLE(); }
-        sat::check_result check() override { return sat::check_result::CR_DONE; }
+      sat::check_result check() override;
 
         euf::th_solver* clone(euf::solver& ctx) override { return alloc(solver, ctx); }
 

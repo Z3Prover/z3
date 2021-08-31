@@ -14,9 +14,9 @@ See the [release notes](RELEASE_NOTES) for notes on various stable releases of Z
 
 ## Build status
 
-| Azure Pipelines | TravisCI |
-| --------------- | -------- |
-[![Build Status](https://dev.azure.com/Z3Public/Z3/_apis/build/status/Z3Prover.z3?branchName=master)](https://dev.azure.com/Z3Public/Z3/_build/latest?definitionId=1&branchName=master) | [![Build Status](https://travis-ci.org/Z3Prover/z3.svg?branch=master)](https://travis-ci.org/Z3Prover/z3)
+| Azure Pipelines | Code Coverage | Open Bugs |
+| --------------- | --------------|-----------|
+| [![Build Status](https://dev.azure.com/Z3Public/Z3/_apis/build/status/Z3Prover.z3?branchName=master)](https://dev.azure.com/Z3Public/Z3/_build/latest?definitionId=1&branchName=master) | [![CodeCoverage](https://github.com/Z3Prover/z3/actions/workflows/coverage.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/coverage.yml) | [![Open Issues](https://github.com/Z3Prover/z3/actions/workflows/wip.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wip.yml) |
 
 [1]: #building-z3-on-windows-using-visual-studio-command-prompt
 [2]: #building-z3-using-make-and-gccclang
@@ -43,6 +43,8 @@ then:
 cd build
 nmake
 ```
+
+Z3 uses C++17. The recommended version of Visual Studio is therefore VS2019. 
 
 ## Building Z3 using make and GCC/Clang
 
@@ -113,7 +115,7 @@ Z3 has bindings for various programming languages.
 
 ### ``.NET``
 
-You can install a nuget package for the latest release Z3 from [nuget.org](https://www.nuget.org/packages/Microsoft.Z3.x64/).
+You can install a nuget package for the latest release Z3 from [nuget.org](https://www.nuget.org/packages/Microsoft.Z3/).
 
 Use the ``--dotnet`` command line flag with ``mk_make.py`` to enable building these.
 

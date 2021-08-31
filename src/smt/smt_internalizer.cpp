@@ -248,7 +248,7 @@ namespace smt {
                     internalize_rec(arg, true);
                     lits.push_back(get_literal(arg));
                 }
-                mk_root_clause(lits.size(), lits.c_ptr(), pr);
+                mk_root_clause(lits.size(), lits.data(), pr);
                 add_or_rel_watches(to_app(n));
                 break;
             }
@@ -315,7 +315,7 @@ namespace smt {
             assert_default(n, pr);
             return;
         }
-        sort * s = m.get_sort(n->get_arg(0));
+        sort * s = n->get_arg(0)->get_sort();
         sort_ref u(m.mk_fresh_sort("distinct-elems"), m);
         func_decl_ref f(m.mk_fresh_func_decl("distinct-aux-f", "", 1, &s, u), m);
         for (expr * arg : *n) {
@@ -340,6 +340,8 @@ namespace smt {
     void context::ensure_internalized(expr* e) {
         if (!e_internalized(e)) 
             internalize(e, false);
+        if (is_app(e) && !m.is_bool(e))
+            internalize_term(to_app(e));
     }
 
     /**
@@ -354,9 +356,8 @@ namespace smt {
 
     void context::internalize(expr* const* exprs, unsigned num_exprs, bool gate_ctx) {
         internalize_deep(exprs, num_exprs);
-        for (unsigned i = 0; i < num_exprs; ++i) {
+        for (unsigned i = 0; i < num_exprs; ++i) 
             internalize_rec(exprs[i], gate_ctx);
-        }
     }
 
     void context::internalize_rec(expr * n, bool gate_ctx) {
@@ -448,7 +449,7 @@ namespace smt {
         d.set_eq_flag();
         TRACE("internalize", tout << mk_pp(n, m) << " " << literal(v, false) << "\n";);
         
-        sort * s    = m.get_sort(n->get_arg(0));
+        sort * s    = n->get_arg(0)->get_sort();
         theory * th = m_theories.get_plugin(s->get_family_id());
         if (th)
             th->internalize_eq_eh(n, v);
@@ -582,7 +583,7 @@ namespace smt {
         if (e_internalized(q)) {
             return;
         }
-        app_ref lam_name(m.mk_fresh_const("lambda", m.get_sort(q)), m);
+        app_ref lam_name(m.mk_fresh_const("lambda", q->get_sort()), m);
         app_ref eq(m), lam_app(m);
         expr_ref_vector vars(m);
         vars.push_back(lam_name);
@@ -591,7 +592,7 @@ namespace smt {
             vars.push_back(m.mk_var(sz - i - 1, q->get_decl_sort(i)));
         }
         array_util autil(m);
-        lam_app = autil.mk_select(vars.size(), vars.c_ptr());
+        lam_app = autil.mk_select(vars.size(), vars.data());
         eq = m.mk_eq(lam_app, q->get_expr());
         quantifier_ref fa(m);
         expr * patterns[1] = { m.mk_pattern(lam_app) };
@@ -601,6 +602,9 @@ namespace smt {
         m_app2enode.setx(q->get_id(), get_enode(lam_name), nullptr);
         m_l_internalized_stack.push_back(q);
         m_trail_stack.push_back(&m_mk_lambda_trail);
+        bool_var bv = get_bool_var(fa);
+        assign(literal(bv, false), nullptr);
+        mark_as_relevant(bv);
     }
 
     /**
@@ -701,13 +705,13 @@ namespace smt {
     /**
        \brief Trail object to disable the m_merge_tf flag of an enode.
     */
-    class set_merge_tf_trail : public trail<context> {
+    class set_merge_tf_trail : public trail {
         enode * m_node;
     public:
         set_merge_tf_trail(enode * n):
             m_node(n) {
         }
-        void undo(context & ctx) override {
+        void undo() override {
             m_node->m_merge_tf = false;
         }
     };
@@ -747,13 +751,15 @@ namespace smt {
        variable. The flag m_enode is true for a Boolean variable v,
        if there is an enode n associated with it.
     */
-    class set_enode_flag_trail : public trail<context> {
+    class set_enode_flag_trail : public trail {
+        context& ctx;
         bool_var m_var;
     public:
-        set_enode_flag_trail(bool_var v):
+        set_enode_flag_trail(context& ctx, bool_var v):
+            ctx(ctx),
             m_var(v) {
         }
-        void undo(context & ctx) override {
+        void undo() override {
             bool_var_data & data = ctx.m_bdata[m_var];
             data.reset_enode_flag();
         }
@@ -770,7 +776,7 @@ namespace smt {
         bool_var_data & data = m_bdata[v];
         if (!data.is_enode()) {
             if (!is_new_var)
-                push_trail(set_enode_flag_trail(v));
+                push_trail(set_enode_flag_trail(*this, v));
             data.set_enode_flag();
         }
     }
@@ -1363,7 +1369,7 @@ namespace smt {
             }
             DEBUG_CODE(for (literal lit : simp_lits) SASSERT(get_assignment(lit) == l_true););
             if (!simp_lits.empty()) {
-                j = mk_justification(unit_resolution_justification(m_region, j, simp_lits.size(), simp_lits.c_ptr()));
+                j = mk_justification(unit_resolution_justification(m_region, j, simp_lits.size(), simp_lits.data()));
             }
             break;
         }
@@ -1423,7 +1429,7 @@ namespace smt {
             bool save_atoms     = lemma && iscope_lvl > m_base_lvl;
             bool reinit         = save_atoms;
             SASSERT(!lemma || j == 0 || !j->in_region());
-            clause * cls = clause::mk(m, num_lits, lits, k, j, del_eh, save_atoms, m_bool_var2expr.c_ptr());
+            clause * cls = clause::mk(m, num_lits, lits, k, j, del_eh, save_atoms, m_bool_var2expr.data());
             m_clause_proof.add(*cls);
             if (lemma) {
                 cls->set_activity(activity);
@@ -1500,7 +1506,7 @@ namespace smt {
             literal_buffer tmp;
             neg_literals(num_lits, lits, tmp);
             SASSERT(tmp.size() == num_lits);
-            display_lemma_as_smt_problem(tmp.size(), tmp.c_ptr(), false_literal, m_fparams.m_logic);
+            display_lemma_as_smt_problem(tmp.size(), tmp.data(), false_literal, m_fparams.m_logic);
         }
         mk_clause(num_lits, lits, js, k);
     }
@@ -1526,7 +1532,7 @@ namespace smt {
         if (root_gate)
             new_lits.push_back(m.mk_not(root_gate));
         SASSERT(num_lits > 1);
-        expr * fact        = m.mk_or(new_lits.size(), new_lits.c_ptr());
+        expr * fact        = m.mk_or(new_lits.size(), new_lits.data());
         return m.mk_def_axiom(fact);
         
     }
@@ -1638,7 +1644,7 @@ namespace smt {
             mk_gate_clause(~l, l_arg);
             buffer.push_back(~l_arg);
         }
-        mk_gate_clause(buffer.size(), buffer.c_ptr());
+        mk_gate_clause(buffer.size(), buffer.data());
     }
 
     void context::mk_or_cnstr(app * n) {
@@ -1650,7 +1656,7 @@ namespace smt {
             mk_gate_clause(l, ~l_arg);
             buffer.push_back(l_arg);
         }
-        mk_gate_clause(buffer.size(), buffer.c_ptr());
+        mk_gate_clause(buffer.size(), buffer.data());
     }
 
     void context::mk_iff_cnstr(app * n, bool sign) {
@@ -1681,7 +1687,7 @@ namespace smt {
     /**
        \brief Trail for add_th_var
     */
-    class add_th_var_trail : public trail<context> {
+    class add_th_var_trail : public trail {
         enode *    m_enode;
         theory_id  m_th_id;
 #ifdef Z3DEBUG
@@ -1695,7 +1701,7 @@ namespace smt {
             SASSERT(m_th_var != null_theory_var);
         }
         
-        void undo(context & ctx) override {
+        void undo() override {
             theory_var v = m_enode->get_th_var(m_th_id);
             SASSERT(v != null_theory_var);
             SASSERT(m_th_var == v);
@@ -1709,7 +1715,7 @@ namespace smt {
     /**
        \brief Trail for replace_th_var
     */
-    class replace_th_var_trail : public trail<context> {
+    class replace_th_var_trail : public trail {
         enode *    m_enode;
         unsigned   m_th_id:8;
         unsigned   m_old_th_var:24;
@@ -1720,7 +1726,7 @@ namespace smt {
             m_old_th_var(old_var) {
         }
         
-        void undo(context & ctx) override {
+        void undo() override {
             SASSERT(m_enode->get_th_var(m_th_id) != null_theory_var);
             m_enode->replace_th_var(m_old_th_var, m_th_id);
         }
@@ -1762,7 +1768,7 @@ namespace smt {
             SASSERT(th->get_enode(old_v) != n); // this varialbe is not owned by n
             SASSERT(n->get_root()->get_th_var(th_id) != null_theory_var); // the root has also a variable in its var-list.
             n->replace_th_var(v, th_id);
-            push_trail(replace_th_var_trail(n, th_id, old_v));
+            push_trail(replace_th_var_trail( n, th_id, old_v));
             push_new_th_eq(th_id, v, old_v);
         }
         SASSERT(th->is_attached_to_var(n));

@@ -124,6 +124,12 @@ namespace smt {
                 }
             }
 
+            scoped_trace_stream(theory& th, literal_buffer const& lits) : m(th.get_manager()) {
+                if (m.has_trace_stream()) {
+                    th.log_axiom_instantiation(lits);
+                }
+            }
+
             scoped_trace_stream(theory& th, literal lit): m(th.get_manager()) {
                 if (m.has_trace_stream()) {
                     literal_vector lits;
@@ -404,7 +410,7 @@ namespace smt {
         }
 
         app * get_expr(theory_var v) const {
-            return get_enode(v)->get_owner();
+            return get_enode(v)->get_expr();
         }
 
         /**
@@ -447,9 +453,9 @@ namespace smt {
         
         std::ostream& display_flat_app(std::ostream & out, app * n) const;
         
-        std::ostream& display_var_def(std::ostream & out, theory_var v) const { return display_app(out, get_enode(v)->get_owner()); }
+        std::ostream& display_var_def(std::ostream & out, theory_var v) const { return display_app(out, get_enode(v)->get_expr()); }
         
-        std::ostream& display_var_flat_def(std::ostream & out, theory_var v) const { return display_flat_app(out, get_enode(v)->get_owner());  }
+        std::ostream& display_var_flat_def(std::ostream & out, theory_var v) const { return display_flat_app(out, get_enode(v)->get_expr());  }
 
     protected:
         void log_axiom_instantiation(app * r, unsigned axiom_id = UINT_MAX, unsigned num_bindings = 0, 
@@ -463,6 +469,8 @@ namespace smt {
         }
 
         void log_axiom_instantiation(literal_vector const& ls);
+
+        void log_axiom_instantiation(literal_buffer const& ls);
 
         void log_axiom_instantiation(app * r, unsigned num_blamed_enodes, enode ** blamed_enodes) {
             vector<std::tuple<enode *, enode *>> used_enodes;

@@ -135,6 +135,11 @@ public:
         return r;
     }
 
+    void set_phase(expr* e) override { m_solver1->set_phase(e); m_solver2->set_phase(e); }
+    solver::phase* get_phase() override { auto* p = m_solver1->get_phase(); if (!p) p = m_solver2->get_phase(); return p; }
+    void set_phase(solver::phase* p) override { m_solver1->set_phase(p); m_solver2->set_phase(p); }
+    void move_to_front(expr* e) override { m_solver1->move_to_front(e); m_solver2->move_to_front(e); }
+
     void updt_params(params_ref const & p) override {
         solver::updt_params(p);
         m_solver1->updt_params(p);

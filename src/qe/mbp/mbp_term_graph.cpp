@@ -42,7 +42,7 @@ namespace mbp {
     namespace {
         struct sort_lt_proc {
             bool operator()(const expr* a, const expr *b) const {
-                return get_sort(a)->get_id() < get_sort(b)->get_id();
+                return a->get_sort()->get_id() < b->get_sort()->get_id();
             }
         };
     }
@@ -266,7 +266,7 @@ namespace mbp {
         expr *a = nullptr, *b = nullptr;
         // deal with equality using sort of range
         if (m.is_eq (lit, a, b)) {
-            return get_sort (a)->get_family_id();
+            return a->get_sort()->get_family_id();
         }
         // extract family_id of top level app
         else if (is_app(lit)) {
@@ -424,7 +424,7 @@ namespace mbp {
             for (expr * arg : *a) {
                 kids.push_back (mk_app(arg));
             }
-            app* res = m.mk_app(a->get_decl(), a->get_num_args(), kids.c_ptr());
+            app* res = m.mk_app(a->get_decl(), a->get_num_args(), kids.data());
             m_pinned.push_back(res);
             return res;
         }
@@ -610,7 +610,7 @@ namespace mbp {
                 }
                 TRACE("qe_verbose", tout << *ch << " -> " << mk_pp(e, m) << "\n";);
             }
-            expr* pure = m.mk_app(a->get_decl(), kids.size(), kids.c_ptr());
+            expr* pure = m.mk_app(a->get_decl(), kids.size(), kids.data());
             m_pinned.push_back(pure);
             add_term2app(t, pure);
             return pure;
@@ -712,7 +712,7 @@ namespace mbp {
                         }
                     }
                     if (diff.size() > 1) {
-                        res.push_back(m.mk_distinct(diff.size(), diff.c_ptr()));
+                        res.push_back(m.mk_distinct(diff.size(), diff.data()));
                     }
                     else {
                         TRACE("qe", tout << "skipping " << mk_pp(lit, m) << "\n";);
@@ -802,7 +802,7 @@ namespace mbp {
                             args.push_back(r);
                         }
                         TRACE("qe", tout << "function: " << d->get_name() << "\n";);
-                        res.push_back(m.mk_distinct(args.size(), args.c_ptr()));
+                        res.push_back(m.mk_distinct(args.size(), args.data()));
                     }
                 }
             }
@@ -915,20 +915,20 @@ namespace mbp {
 
             // -- sort representatives, call mk_distinct on any range
             // -- of the same sort longer than 1
-            std::sort(reps.c_ptr(), reps.c_ptr() + reps.size(), sort_lt_proc());
+            std::sort(reps.data(), reps.data() + reps.size(), sort_lt_proc());
             unsigned i = 0;
             unsigned sz = reps.size();
             while (i < sz) {
-                sort* last_sort = get_sort(reps.get(i));
+                sort* last_sort = res.get(i)->get_sort();
                 unsigned j = i + 1;
-                while (j < sz && last_sort == get_sort(reps.get(j))) {++j;}
+                while (j < sz && last_sort == reps.get(j)->get_sort()) {++j;}
                 if (j - i == 2) {
                     expr_ref d(m);
                     d = mk_neq(m, reps.get(i), reps.get(i+1));
                     if (!m.is_true(d)) res.push_back(d);
                 }
                 else if (j - i > 2)
-                    res.push_back(m.mk_distinct(j - i, reps.c_ptr() + i));
+                    res.push_back(m.mk_distinct(j - i, reps.data() + i));
                 i = j;
             }
             TRACE("qe", tout << "after distinct: " << res << "\n";);
@@ -1044,7 +1044,7 @@ namespace mbp {
             expr_ref_vector result(m);
             for (term *t : m_tg.m_terms) {
                 expr* e = t->get_expr();
-                if (m.get_sort(e)->get_family_id() != fid) continue;
+                if (e->get_sort()->get_family_id() != fid) continue;
                 for (term * p : term::parents(t->get_root())) {
                     expr* pe = p->get_expr();
                     if (!is_app(pe)) continue;

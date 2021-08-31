@@ -34,7 +34,7 @@ void expr_rand::add_func_decl(func_decl* f) {
 }
 
 void expr_rand::add_expr(expr* t) {
-    sort* s = m_manager.get_sort(t);
+    sort* s = t->get_sort();
     expr_ref_vector* vals = nullptr;
     if (!m_nodes.find(s, vals)) {
         vals = alloc(expr_ref_vector, m_manager);
@@ -55,7 +55,7 @@ void expr_rand::walk() {
     for (unsigned i = 0; i < arity; ++i) {
         args.push_back(choose_expr(f->get_domain(i)));
     }
-    expr* r = m_manager.mk_app(f, args.size(), args.c_ptr());
+    expr* r = m_manager.mk_app(f, args.size(), args.data());
     add_expr(r);
 }
 

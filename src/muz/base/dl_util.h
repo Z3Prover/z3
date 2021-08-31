@@ -159,11 +159,11 @@ namespace datalog {
         }
 
         const unsigned * get_cols1() const {
-            return m_args1.c_ptr();
+            return m_args1.data();
         }
 
         const unsigned * get_cols2() const {
-            return m_args2.c_ptr();
+            return m_args2.data();
         }
 
         bool empty() const {
@@ -290,7 +290,7 @@ namespace datalog {
 
     template<class T>
     void project_out_vector_columns(T & container, const unsigned_vector & removed_cols) {
-        project_out_vector_columns(container, removed_cols.size(), removed_cols.c_ptr());
+        project_out_vector_columns(container, removed_cols.size(), removed_cols.data());
     }
 
 
@@ -321,7 +321,7 @@ namespace datalog {
         if (cycle_len<2) {
             return;
         }
-        typename T::data aux = container[permutation_cycle[0]];
+        auto aux = container[permutation_cycle[0]];
         for (unsigned i=1; i<cycle_len; i++) {
             container[permutation_cycle[i-1]]=container[permutation_cycle[i]];
         }
@@ -342,7 +342,7 @@ namespace datalog {
 
     template<class T>
     void permutate_by_cycle(T & container, const unsigned_vector & permutation_cycle) {
-        permutate_by_cycle(container, permutation_cycle.size(), permutation_cycle.c_ptr());
+        permutate_by_cycle(container, permutation_cycle.size(), permutation_cycle.data());
     }
 
 
@@ -387,9 +387,9 @@ namespace datalog {
         if (c1.size()!=c2.size()) {
             return false;
         }
-        typename T::data * it1 = c1.c_ptr();
-        typename T::data * end1 = c1.c_ptr()+c1.size();
-        typename U::data * it2 = c2.c_ptr();
+        auto * it1 = c1.data();
+        auto * end1 = c1.data()+c1.size();
+        auto * it2 = c2.data();
         for (; it1!=end1; ++it1, ++it2) {
             if (*it1!=*it2) { 
                 return false;
@@ -420,7 +420,7 @@ namespace datalog {
 
     template<class T>
     struct svector_hash_proc { 
-        unsigned operator()(const svector<typename T::data> & cont) const {
+        unsigned operator()(const svector<typename T::data_t> & cont) const {
             return svector_hash<T>()(cont);
         } 
     };
@@ -477,7 +477,7 @@ namespace datalog {
        is not preserved.
      */
     template<class T>
-    bool remove_from_vector(T & v, const typename T::data & el) {
+    bool remove_from_vector(T & v, const typename T::data_t & el) {
         unsigned sz = v.size();
         for (unsigned i=0; i<sz; i++) {
             if (v[i]==el) {

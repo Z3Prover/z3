@@ -19,7 +19,6 @@ Notes:
 --*/
 #include "util/gparams.h"
 #include "util/params.h"
-#include "ast/ast.h"
 #include "params/context_params.h"
 
 context_params::context_params() {
@@ -41,18 +40,11 @@ void context_params::set_bool(bool & opt, char const * param, char const * value
 }
 
 void context_params::set_uint(unsigned & opt, char const * param, char const * value) {
-    bool is_uint = true;
-    size_t sz = strlen(value);
-    for (unsigned i = 0; i < sz; i++) {
-        if (!(value[i] >= '0' && value[i] <= '9'))
-            is_uint = false;
-    }
+    char *endptr;
+    long val = strtol(value, &endptr, 10);
+    opt = static_cast<unsigned>(val);
 
-    if (is_uint) {
-        long val = strtol(value, nullptr, 10);
-        opt = static_cast<unsigned>(val);
-    }
-    else {
+    if (!*value || *endptr) {
         std::stringstream strm;
         strm << "invalid value '" << value << "' for unsigned int parameter '" << param << "'";
         throw default_exception(strm.str());
@@ -114,6 +106,9 @@ void context_params::set(char const * param, char const * value) {
     else if (p == "smtlib2_compliant") {
         set_bool(m_smtlib2_compliant, param, value);
     }
+    else if (p == "unicode") {
+        set_bool(m_unicode, param, value);
+    }
     else {
         param_descrs d;
         collect_param_descrs(d);
@@ -145,6 +140,7 @@ void context_params::updt_params(params_ref const & p) {
     m_debug_ref_count   = p.get_bool("debug_ref_count", m_debug_ref_count);
     m_smtlib2_compliant = p.get_bool("smtlib2_compliant", m_smtlib2_compliant);
     m_statistics        = p.get_bool("stats", m_statistics);
+    m_unicode           = p.get_bool("unicode", m_unicode);
 }
 
 void context_params::collect_param_descrs(param_descrs & d) {
@@ -161,6 +157,7 @@ void context_params::collect_param_descrs(param_descrs & d) {
     d.insert("debug_ref_count", CPK_BOOL, "debug support for AST reference counting", "false");
     d.insert("smtlib2_compliant", CPK_BOOL, "enable/disable SMT-LIB 2.0 compliance", "false");
     d.insert("stats", CPK_BOOL, "enable/disable statistics", "false");
+    d.insert("unicode", CPK_BOOL, "use unicode strings instead of ASCII strings");
     // statistics are hidden as they are controlled by the /st option.
     collect_solver_param_descrs(d);
 }
@@ -182,24 +179,12 @@ params_ref context_params::merge_default_params(params_ref const & p) {
     }
 }
 
-void context_params::get_solver_params(ast_manager const & m, params_ref & p, bool & proofs_enabled, bool & models_enabled, bool & unsat_core_enabled) {
-    proofs_enabled     = m.proofs_enabled() && p.get_bool("proof", m_proof);
-    models_enabled     = p.get_bool("model", m_model);
+void context_params::get_solver_params(params_ref & p, bool & proofs_enabled, bool & models_enabled, bool & unsat_core_enabled) {
+    proofs_enabled     &= p.get_bool("proof", m_proof);
+    models_enabled     &= p.get_bool("model", m_model);
     unsat_core_enabled = m_unsat_core || p.get_bool("unsat_core", false);
     p = merge_default_params(p);
 }
 
-ast_manager * context_params::mk_ast_manager() {
-    if (m_manager)
-        return m_manager;
-    ast_manager * r = alloc(ast_manager,
-                            m_proof ? PGM_ENABLED : PGM_DISABLED,
-                            m_trace ? m_trace_file_name.c_str() : nullptr);
-    if (m_smtlib2_compliant)
-        r->enable_int_real_coercions(false);
-    if (m_debug_ref_count)
-        r->debug_ref_count();
-    return r;
-}
 
 

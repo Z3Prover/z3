@@ -679,7 +679,7 @@ namespace datalog {
             for (; dit != dend; ++dit) {
                 heads.push_back(dit->m_key);
             }
-            return m_inner_ctx.rel_query(heads.size(), heads.c_ptr());
+            return m_inner_ctx.rel_query(heads.size(), heads.data());
         }
 
         bool compile_rules1(rule_set const& rules, rule_set& new_rules) {
@@ -709,7 +709,7 @@ namespace datalog {
                 compile_expr(r.get_tail(i), tmp);
                 body.push_back(to_app(tmp));
             }
-            rule* r_new = rm.mk(head, body.size(), body.c_ptr(), nullptr, r.name(), false);
+            rule* r_new = rm.mk(head, body.size(), body.data(), nullptr, r.name(), false);
             new_rules.add_rule(r_new);
             IF_VERBOSE(20, r_new->display(m_ctx, verbose_stream()););
             if (old_rules.is_output_predicate(r.get_decl())) {
@@ -723,10 +723,10 @@ namespace datalog {
             func_decl* d = p->get_decl();
             SASSERT(d->get_family_id() == null_family_id);
             for (unsigned i = 0; i < p->get_num_args(); ++i) {
-                domain.push_back(compile_sort(m.get_sort(p->get_arg(i))));
+                domain.push_back(compile_sort(p->get_arg(i)->get_sort()));
             }
             func_decl_ref fn(m);
-            fn = m.mk_func_decl(d->get_name(), domain.size(), domain.c_ptr(), m.mk_bool_sort());
+            fn = m.mk_func_decl(d->get_name(), domain.size(), domain.data(), m.mk_bool_sort());
             m_ctx.register_predicate(fn, false);
             expr_ref_vector args(m);
             expr_ref tmp(m);
@@ -734,7 +734,7 @@ namespace datalog {
                 compile_expr(p->get_arg(i), tmp);
                 args.push_back(tmp);
             }
-            result = m.mk_app(fn, args.size(), args.c_ptr());
+            result = m.mk_app(fn, args.size(), args.data());
         }
 
         void insert_cache(expr* e, expr* r) {
@@ -804,7 +804,7 @@ namespace datalog {
                     compile_expr(a->get_arg(i), tmp);
                     args.push_back(tmp);
                 } 
-                result = m.mk_app(a->get_decl(), args.size(), args.c_ptr());
+                result = m.mk_app(a->get_decl(), args.size(), args.data());
                 insert_cache(e, result);
                 return;
             }
@@ -850,7 +850,7 @@ namespace datalog {
             ddnf_nodes const& ns = m_ddnfs.lookup(num_bits, *t);
             ddnf_nodes::iterator it = ns.begin(), end = ns.end();
             expr_ref_vector eqs(m);
-            sort* s = m.get_sort(w);
+            sort* s = w->get_sort();
             for (; it != end; ++it) {
                 eqs.push_back(m.mk_eq(w, bv.mk_numeral(rational((*it)->get_id()), s)));
             }
@@ -863,7 +863,7 @@ namespace datalog {
                 result = eqs[0].get();
                 break;
             default:
-                result = m.mk_or(eqs.size(), eqs.c_ptr());
+                result = m.mk_or(eqs.size(), eqs.data());
                 break;
             }
         }

@@ -258,13 +258,13 @@ void mpfx_manager::set_core(mpfx & n, mpz_manager<SYNCH> & m, mpz const & v) {
         m_tmp_digits.reset();
         allocate_if_needed(n);
         n.m_sign = m.decompose(v, m_tmp_digits);
-        unsigned sz = m_tmp_digits.size();
+        auto sz = m_tmp_digits.size();
         if (sz > m_int_part_sz)
             throw overflow_exception();
         unsigned * w = words(n);
         for (unsigned i = 0; i < m_frac_part_sz; i++) 
             w[i] = 0;
-        ::copy(sz, m_tmp_digits.c_ptr(), m_int_part_sz, w + m_frac_part_sz);
+        ::copy(sz, m_tmp_digits.data(), m_int_part_sz, w + m_frac_part_sz);
     }
     SASSERT(check(n));
 }
@@ -299,11 +299,11 @@ void mpfx_manager::set_core(mpfx & n, mpq_manager<SYNCH> & m, mpq const & v) {
         }
         m_tmp_digits.reset();
         m.decompose(tmp, m_tmp_digits);
-        unsigned sz = m_tmp_digits.size();
+        auto sz = m_tmp_digits.size();
         if (sz > m_total_sz)
             throw overflow_exception();
         unsigned * w = words(n);
-        ::copy(sz, m_tmp_digits.c_ptr(), m_total_sz, w);
+        ::copy(sz, m_tmp_digits.data(), m_total_sz, w);
     }
     SASSERT(check(n));
 }
@@ -429,7 +429,7 @@ void mpfx_manager::mul(mpfx const & a, mpfx const & b, mpfx & c) {
     else {
         allocate_if_needed(c);
         c.m_sign      = a.m_sign ^ b.m_sign;
-        unsigned * r  = m_buffer0.c_ptr();
+        unsigned * r  = m_buffer0.data();
         m_mpn_manager.mul(words(a), m_total_sz, words(b), m_total_sz, r);
         // round result
         unsigned * _r = r + m_frac_part_sz;
@@ -460,7 +460,7 @@ void mpfx_manager::div(mpfx const & a, mpfx const & b, mpfx & c) {
         allocate_if_needed(c);
         c.m_sign    = a.m_sign ^ b.m_sign;
         unsigned * w_a       = words(a);
-        unsigned * w_a_shft  = m_buffer0.c_ptr();
+        unsigned * w_a_shft  = m_buffer0.data();
         unsigned a_shft_sz   = sz(w_a) + m_frac_part_sz; 
         // copy a to buffer 0, and shift by m_frac_part_sz
         for (unsigned i = 0; i < m_frac_part_sz; i++) 
@@ -469,7 +469,7 @@ void mpfx_manager::div(mpfx const & a, mpfx const & b, mpfx & c) {
             w_a_shft[i+m_frac_part_sz] = w_a[i];
         unsigned * w_b       = words(b);
         unsigned b_sz        = sz(w_b);
-        unsigned * w_q       = m_buffer1.c_ptr();
+        unsigned * w_q       = m_buffer1.data();
         if (b_sz > a_shft_sz) {
             if ((c.m_sign == 1) != m_to_plus_inf)
                 set_epsilon(c);
@@ -478,7 +478,7 @@ void mpfx_manager::div(mpfx const & a, mpfx const & b, mpfx & c) {
         }
         else {
             unsigned q_sz        = a_shft_sz - b_sz + 1; 
-            unsigned * w_r       = m_buffer2.c_ptr();
+            unsigned * w_r       = m_buffer2.data();
             unsigned r_sz        = b_sz;
             m_mpn_manager.div(w_a_shft, a_shft_sz,
                               w_b,      b_sz,
@@ -811,7 +811,7 @@ void mpfx_manager::display_smt2(std::ostream & out, mpfx const & n) const {
     out << m_mpn_manager.to_string(w, sz, str_buffer.begin(), str_buffer.size());
     if (!is_int(n)) {
         out << " ";
-        unsigned * w = m_buffer0.c_ptr();
+        unsigned * w = m_buffer0.data();
         for (unsigned i = 0; i < m_frac_part_sz; i++)
             w[i] = 0;
         w[m_frac_part_sz] = 1;
@@ -831,10 +831,10 @@ void mpfx_manager::display_decimal(std::ostream & out, mpfx const & n, unsigned 
     out << m_mpn_manager.to_string(w + m_frac_part_sz, m_int_part_sz, str_buffer.begin(), str_buffer.size());
     if (!is_int(n)) {
         out << ".";
-        unsigned * frac   = m_buffer0.c_ptr();
+        unsigned * frac   = m_buffer0.data();
         ::copy(m_frac_part_sz, w, m_frac_part_sz, frac);
         unsigned ten      = 10;
-        unsigned * n_frac = m_buffer1.c_ptr();
+        unsigned * n_frac = m_buffer1.data();
         bool frac_is_zero = false;
         unsigned i        = 0;
         while (!frac_is_zero) {

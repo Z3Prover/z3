@@ -3,13 +3,26 @@ RELEASE NOTES
 Version 4.8.next
 ================
 - Planned features
-  - self-contained character theory, direct support for UTF8, Unicode character sets
   - specialized solver support for QF_ABV and ABV based on lazy SMT and dual reduction
     - the smtfd solver and tactic implement this strategy, but is not prime for users.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
   - circuit optimization techniques for BV in-processing are available as the sat.cut
     option, but at this point does not translate into benefits. It is currently 
     turned off by default.
+
+
+Version 4.8.12
+==============
+Release provided to fix git tag discrepancy issues with 4.8.11  
+
+
+Version 4.8.11
+==============
+  - self-contained character theory, direct support for UTF8, Unicode character sets.
+    Characters are by default unicode with an 18 bit range.
+  - support for incremental any-time MaxSAT using the option opt.enable_lns. The API
+    allows registering a callback function that is invoked on each incremental improvement
+    to objectives. 
 
 Version 4.8.10
 ==============

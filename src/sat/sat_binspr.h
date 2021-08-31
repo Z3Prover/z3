@@ -97,8 +97,6 @@ namespace sat {
             memset(m_false, 0, sizeof(unsigned) * max_lits);
         }
 
-        ~binspr() {}
-
         void operator()();
 
         void updt_params(params_ref const& p) {}

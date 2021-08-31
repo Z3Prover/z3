@@ -45,13 +45,13 @@ namespace smt {
 
     template<typename Ext>
     inline app * theory_dense_diff_logic<Ext>::mk_zero_for(expr * n) {
-        return m_autil.mk_numeral(rational(0), m.get_sort(n));
+        return m_autil.mk_numeral(rational(0), n->get_sort());
     }
 
     template<typename Ext>
     theory_var theory_dense_diff_logic<Ext>::mk_var(enode * n) {
         theory_var v = theory::mk_var(n);
-        bool is_int  = m_autil.is_int(n->get_owner());
+        bool is_int  = m_autil.is_int(n->get_expr());
         m_is_int.push_back(is_int);
         m_f_targets.push_back(f_target());
         for (auto& rows : m_matrix) {
@@ -124,7 +124,7 @@ namespace smt {
     void theory_dense_diff_logic<Ext>::found_non_diff_logic_expr(expr * n) {
         if (!m_non_diff_logic_exprs) {
             TRACE("non_diff_logic", tout << "found non diff logic expression:\n" << mk_pp(n, m) << "\n";);
-            ctx.push_trail(value_trail<context, bool>(m_non_diff_logic_exprs));
+            ctx.push_trail(value_trail<bool>(m_non_diff_logic_exprs));
             IF_VERBOSE(0, verbose_stream() << "(smt.diff_logic: non-diff logic expression " << mk_pp(n, m) << ")\n";); 
             m_non_diff_logic_exprs = true;
         }
@@ -539,7 +539,7 @@ namespace smt {
         literal_vector & antecedents = m_tmp_literals;
         antecedents.reset();
         get_antecedents(source, target, antecedents);
-        ctx.assign(l, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), antecedents.size(), antecedents.c_ptr(), l)));
+        ctx.assign(l, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), antecedents.size(), antecedents.data(), l)));
     }
     
     template<typename Ext>
@@ -592,10 +592,10 @@ namespace smt {
             if (l != null_literal)
                 antecedents.push_back(l);
             region & r    = ctx.get_region();
-            ctx.set_conflict(ctx.mk_justification(theory_conflict_justification(get_id(), r, antecedents.size(), antecedents.c_ptr())));
+            ctx.set_conflict(ctx.mk_justification(theory_conflict_justification(get_id(), r, antecedents.size(), antecedents.data())));
 
             if (dump_lemmas()) {
-                ctx.display_lemma_as_smt_problem(antecedents.size(), antecedents.c_ptr(), false_literal);
+                ctx.display_lemma_as_smt_problem(antecedents.size(), antecedents.data(), false_literal);
             }
 
             return;
@@ -726,7 +726,7 @@ namespace smt {
         TRACE("ddl_model", 
               tout << "ddl model\n";
               for (theory_var v = 0; v < num_vars; v++) {
-                  tout << "#" << mk_pp(get_enode(v)->get_owner(), m) << " = " << m_assignment[v] << "\n";
+                  tout << "#" << mk_pp(get_enode(v)->get_expr(), m) << " = " << m_assignment[v] << "\n";
               });
     }
 
@@ -802,13 +802,13 @@ namespace smt {
         int num_vars = get_num_vars();
         for (int v = 0; v < num_vars && v < (int)m_assignment.size(); ++v) {
             enode * n = get_enode(v);
-            if (m_autil.is_zero(n->get_owner()) && !m_assignment[v].is_zero()) {
+            if (m_autil.is_zero(n->get_expr()) && !m_assignment[v].is_zero()) {
                 numeral val = m_assignment[v];
-                sort * s = m.get_sort(n->get_owner());
+                sort * s = n->get_expr()->get_sort();
                 // adjust the value of all variables that have the same sort.
                 for (int v2 = 0; v2 < num_vars; ++v2) {
                     enode * n2 = get_enode(v2);
-                    if (m.get_sort(n2->get_owner()) == s) {
+                    if (n2->get_expr()->get_sort() == s) {
                         m_assignment[v2] -= val;
                     }
                 }
@@ -818,7 +818,7 @@ namespace smt {
         TRACE("ddl_model", 
               tout << "ddl model\n";
               for (theory_var v = 0; v < num_vars; v++) {
-                  tout << "#" << mk_pp(get_enode(v)->get_owner(), m) << " = " << m_assignment[v] << "\n";
+                  tout << "#" << mk_pp(get_enode(v)->get_expr(), m) << " = " << m_assignment[v] << "\n";
               });
     }
 
@@ -941,7 +941,7 @@ namespace smt {
         }
         for (unsigned i = 0; i < num_nodes; ++i) {
             enode * n = get_enode(i);
-            if (m_autil.is_zero(n->get_owner())) {
+            if (m_autil.is_zero(n->get_expr())) {
                 S.set_lower(i, mpq_inf(mpq(0), mpq(0)));
                 S.set_upper(i, mpq_inf(mpq(0), mpq(0)));
                 break;
@@ -962,7 +962,7 @@ namespace smt {
             vars[0] = e.m_target;
             vars[1] = e.m_source;
             vars[2] = base_var;
-            S.add_row(base_var, 3, vars.c_ptr(), coeffs.c_ptr());
+            S.add_row(base_var, 3, vars.data(), coeffs.data());
             // t - s <= w
             // =>
             // t - s - b = 0, b <= w
@@ -984,7 +984,7 @@ namespace smt {
         }
         coeffs.push_back(mpq(1));
         vars.push_back(w);
-        Simplex::row row = S.add_row(w, vars.size(), vars.c_ptr(), coeffs.c_ptr());
+        Simplex::row row = S.add_row(w, vars.size(), vars.data(), coeffs.data());
         
         TRACE("opt", S.display(tout); display(tout););
         
@@ -1080,25 +1080,25 @@ namespace smt {
         expr_ref e(m), f(m), f2(m);
         TRACE("opt", tout << "mk_ineq " << v << " " << val << "\n";);
         if (t.size() == 1 && t[0].second.is_one()) {
-            f = get_enode(t[0].first)->get_owner();
+            f = get_enode(t[0].first)->get_expr();
         }
         else if (t.size() == 1 && t[0].second.is_minus_one()) {
-            f = m_autil.mk_uminus(get_enode(t[0].first)->get_owner());
+            f = m_autil.mk_uminus(get_enode(t[0].first)->get_expr());
         }
         else if (t.size() == 2 && t[0].second.is_one() && t[1].second.is_minus_one()) {
-            f = get_enode(t[0].first)->get_owner();
-            f2 = get_enode(t[1].first)->get_owner();
+            f = get_enode(t[0].first)->get_expr();
+            f2 = get_enode(t[1].first)->get_expr();
             f = m_autil.mk_sub(f, f2); 
         }
         else if (t.size() == 2 && t[1].second.is_one() && t[0].second.is_minus_one()) {
-            f = get_enode(t[1].first)->get_owner();
-            f2 = get_enode(t[0].first)->get_owner();
+            f = get_enode(t[1].first)->get_expr();
+            f2 = get_enode(t[0].first)->get_expr();
             f = m_autil.mk_sub(f, f2);
         }
         else {
             // 
             expr_ref_vector const& core = m_objective_assignments[v];
-            f = m.mk_and(core.size(), core.c_ptr());
+            f = m.mk_and(core.size(), core.data());
             if (is_strict) {
                 f = m.mk_not(f);
             }
@@ -1106,7 +1106,7 @@ namespace smt {
             return f;
         }
         
-        e = m_autil.mk_numeral(val.get_rational(), m.get_sort(f));
+        e = m_autil.mk_numeral(val.get_rational(), f->get_sort());
         
         if (val.get_infinitesimal().is_neg()) {
             if (is_strict) {
@@ -1114,7 +1114,7 @@ namespace smt {
             }
             else {
                 expr_ref_vector const& core = m_objective_assignments[v];
-                f = m.mk_and(core.size(), core.c_ptr());
+                f = m.mk_and(core.size(), core.data());
             }
         }
         else {

@@ -19,14 +19,14 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
-#include "smt/smt_quantifier_stat.h"
+#include "ast/quantifier_stat.h"
+#include "ast/rewriter/cached_var_subst.h"
+#include "parsers/util/cost_parser.h"
 #include "smt/smt_checker.h"
 #include "smt/smt_quantifier.h"
 #include "smt/fingerprints.h"
 #include "smt/params/qi_params.h"
-#include "parsers/util/cost_parser.h"
-#include "smt/cost_evaluator.h"
-#include "smt/cached_var_subst.h"
+#include "ast/cost_evaluator.h"
 #include "util/statistics.h"
 
 namespace smt {
@@ -71,7 +71,7 @@ namespace smt {
         svector<scope>                m_scopes;
 
         void init_parser_vars();
-        quantifier_stat * set_values(quantifier * q, app * pat, unsigned generation, unsigned min_top_generation, unsigned max_top_generation, float cost);
+        q::quantifier_stat * set_values(quantifier * q, app * pat, unsigned generation, unsigned min_top_generation, unsigned max_top_generation, float cost);
         float get_cost(quantifier * q, app * pat, unsigned generation, unsigned min_top_generation, unsigned max_top_generation);
         unsigned get_new_gen(quantifier * q, unsigned generation, float cost);
         void instantiate(entry & ent);

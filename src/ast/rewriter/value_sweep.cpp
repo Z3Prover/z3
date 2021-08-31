@@ -69,7 +69,7 @@ bool value_sweep::assign_next_value() {
         ++m_vhead;
         if (!get_value(v)) {
             unsigned index = m_rand() % m_range;
-            expr_ref val = m_gen.get_value(m.get_sort(v), index);
+            expr_ref val = m_gen.get_value(v->get_sort(), index);
             set_value_core(v, val);
             m_queue.push_back(v);
             return true;

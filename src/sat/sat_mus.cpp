@@ -89,7 +89,7 @@ namespace sat {
                 flet<unsigned> _restart_bound(s.m_config.m_restart_max, m_max_num_restarts);
                 scoped_append _sa(mus, core);
                 mus.push_back(~lit); 
-                is_sat = s.check(mus.size(), mus.c_ptr());
+                is_sat = s.check(mus.size(), mus.data());
                 TRACE("sat", tout << "mus: " << mus << "\n";);
             }
             IF_VERBOSE(1, verbose_stream() << "(sat.mus " << is_sat << ")\n";);
@@ -150,7 +150,7 @@ namespace sat {
         lbool is_sat = l_true;
         if (has_support) {
             scoped_append _sa(m_mus, support.to_vector());
-            is_sat = s.check(m_mus.size(), m_mus.c_ptr());            
+            is_sat = s.check(m_mus.size(), m_mus.data());            
             switch (is_sat) {
             case l_false: {
                 literal_set core(s.get_core());
@@ -230,7 +230,7 @@ namespace sat {
     }
 
     void mus::verify_core(literal_vector const& core) {
-        lbool is_sat = s.check(core.size(), core.c_ptr());
+        lbool is_sat = s.check(core.size(), core.data());
         IF_VERBOSE(3, verbose_stream() << "core verification: " << is_sat << " " << core << "\n";);
     }
 

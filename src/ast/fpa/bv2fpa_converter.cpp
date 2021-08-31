@@ -217,14 +217,14 @@ expr_ref bv2fpa_converter::rebuild_floats(model_core * mc, sort * s, expr * e) {
         app * a = to_app(e);
         expr_ref_vector new_args(m);
         for (expr* arg : *a) {
-            new_args.push_back(rebuild_floats(mc, m.get_sort(arg), arg));
+            new_args.push_back(rebuild_floats(mc, arg->get_sort(), arg));
         }
-        result = m.mk_app(a->get_decl(), new_args.size(), new_args.c_ptr());
+        result = m.mk_app(a->get_decl(), new_args.size(), new_args.data());
     }
     else if (is_var(e)) {
         result = e;
     }
-    SASSERT(!result || m.get_sort(result) == s);
+    SASSERT(!result || result->get_sort() == s);
     return result;
 }
 
@@ -247,7 +247,7 @@ bv2fpa_converter::array_model bv2fpa_converter::convert_array_func_interp(model_
 
     bv_f = arr_util.get_as_array_func_decl(to_app(as_arr_mdl));
 
-    am.new_float_fd = m.mk_fresh_func_decl(arity, array_domain.c_ptr(), rng);
+    am.new_float_fd = m.mk_fresh_func_decl(arity, array_domain.data(), rng);
     am.new_float_fi = convert_func_interp(mc, am.new_float_fd, bv_f);
     am.bv_fd = bv_f;
     am.result = arr_util.mk_as_array(am.new_float_fd);
@@ -295,12 +295,12 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
                   for (unsigned i = 0; i < new_args.size(); i++)
                       tout << " " << mk_ismt2_pp(new_args[i], m);
                   tout << ") = " << mk_ismt2_pp(ft_fres, m) << std::endl;);
-            func_entry * fe = result->get_entry(new_args.c_ptr());
+            func_entry * fe = result->get_entry(new_args.data());
             if (fe == nullptr) {
                 // Avoid over-specification of a partially interpreted theory function
                 if (f->get_family_id() != m_fpa_util.get_family_id() ||
-                    m_fpa_util.is_considered_uninterpreted(f, new_args.size(), new_args.c_ptr()))
-                    result->insert_new_entry(new_args.c_ptr(), ft_fres);
+                    m_fpa_util.is_considered_uninterpreted(f, new_args.size(), new_args.data()))
+                    result->insert_new_entry(new_args.data(), ft_fres);
             }
             else {
                 // The BV model may have multiple equivalent entries using different

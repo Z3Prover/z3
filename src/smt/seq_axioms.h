@@ -22,8 +22,9 @@ Revision History:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/seq_skolem.h"
+#include "ast/rewriter/seq_axioms.h"
 #include "smt/smt_theory.h"
-#include "smt/seq_skolem.h"
 
 namespace smt {
 
@@ -33,7 +34,8 @@ namespace smt {
         ast_manager&   m;
         arith_util     a;
         seq_util       seq;
-        seq_skolem     m_sk;
+        seq::skolem    m_sk;
+        seq::axioms    m_ax;
         bool           m_digits_initialized;
 
         literal mk_eq_empty(expr* e, bool phase = true) { return mk_eq_empty2(e, phase); }
@@ -52,16 +54,11 @@ namespace smt {
         void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, 
                        literal l4 = null_literal, literal l5 = null_literal) { add_axiom5(l1, l2, l3, l4, l5); }
 
-        void add_tail_axiom(expr* e, expr* s);
-        void add_drop_last_axiom(expr* e, expr* s);
-        bool is_drop_last(expr* s, expr* i, expr* l);
-        bool is_tail(expr* s, expr* i, expr* l);
-        bool is_extract_prefix0(expr* s, expr* i, expr* l);
-        bool is_extract_suffix(expr* s, expr* i, expr* l);
-        void add_extract_prefix_axiom(expr* e, expr* s, expr* l);
-        void add_extract_suffix_axiom(expr* e, expr* s, expr* i);
-        void tightest_prefix(expr* s, expr* x);
         void ensure_digit_axiom();
+        void add_clause(expr_ref_vector const& lits);
+        void set_phase(expr* e);
+
+
     public:
 
         seq_axioms(theory& th, th_rewriter& r);
@@ -70,34 +67,41 @@ namespace smt {
         std::function<void(literal l1, literal l2, literal l3, literal l4, literal l5)> add_axiom5;
         std::function<literal(expr*,bool)> mk_eq_empty2;
 
-        void add_suffix_axiom(expr* n);
-        void add_prefix_axiom(expr* n);
-        void add_extract_axiom(expr* n);
-        void add_indexof_axiom(expr* n);
-        void add_last_indexof_axiom(expr* n);
-        void add_replace_axiom(expr* n);
-        void add_at_axiom(expr* n);
-        void add_nth_axiom(expr* n);
-        void add_itos_axiom(expr* n);
-        void add_stoi_axiom(expr* n);
-        void add_stoi_axiom(expr* e, unsigned k);
-        void add_itos_axiom(expr* s, unsigned k);
-        void add_lt_axiom(expr* n);
-        void add_le_axiom(expr* n);
-        void add_is_digit_axiom(expr* n);
-        void add_str_to_code_axiom(expr* n);
-        void add_str_from_code_axiom(expr* n);
-        void add_unit_axiom(expr* n);
-        void add_length_axiom(expr* n);
-        void unroll_not_contains(expr* n);
+        void add_suffix_axiom(expr* n) { m_ax.suffix_axiom(n); }
+        void add_prefix_axiom(expr* n) { m_ax.prefix_axiom(n); }
+        void add_extract_axiom(expr* n) { m_ax.extract_axiom(n); }
+        void add_indexof_axiom(expr* n) { m_ax.indexof_axiom(n); }
+        void add_last_indexof_axiom(expr* n) { m_ax.last_indexof_axiom(n); }
+        void add_replace_axiom(expr* n) { m_ax.replace_axiom(n); }
+        void add_at_axiom(expr* n) { m_ax.at_axiom(n); }
+        void add_nth_axiom(expr* n) { m_ax.nth_axiom(n); }
+        void add_itos_axiom(expr* n) { m_ax.itos_axiom(n); }
+        void add_stoi_axiom(expr* n) { m_ax.stoi_axiom(n); }
+        void add_stoi_axiom(expr* e, unsigned k) { m_ax.stoi_axiom(e, k); }
+        void add_itos_axiom(expr* s, unsigned k) { m_ax.itos_axiom(s, k); }
+        void add_ubv2s_axiom(expr* b, unsigned k) { m_ax.ubv2s_axiom(b, k); }
+        void add_ubv2s_len_axiom(expr* b, unsigned k) { m_ax.ubv2s_len_axiom(b, k); }
+        void add_ubv2s_len_axiom(expr* b) { m_ax.ubv2s_len_axiom(b); }
+        void add_ubv2ch_axioms(sort* s) { m_ax.ubv2ch_axiom(s); }
+        void add_lt_axiom(expr* n) { m_ax.lt_axiom(n); }
+        void add_le_axiom(expr* n) { m_ax.le_axiom(n); }
+        void add_is_digit_axiom(expr* n) { m_ax.is_digit_axiom(n); }
+        void add_str_to_code_axiom(expr* n) { m_ax.str_to_code_axiom(n); }
+        void add_str_from_code_axiom(expr* n) { m_ax.str_from_code_axiom(n); }
+        void add_unit_axiom(expr* n) { m_ax.unit_axiom(n); }
+        void add_length_axiom(expr* n) { m_ax.length_axiom(n); }
+        void unroll_not_contains(expr* n) { m_ax.unroll_not_contains(n); }
 
-        literal is_digit(expr* ch);
+        literal is_digit(expr* ch) { return mk_literal(m_ax.is_digit(ch)); }
+        expr_ref add_length_limit(expr* s, unsigned k) { return m_ax.length_limit(s, k); }
+
         literal mk_ge(expr* e, int k) { return mk_ge_e(e, a.mk_int(k)); }
         literal mk_le(expr* e, int k) { return mk_le_e(e, a.mk_int(k)); }
         literal mk_ge(expr* e, rational const& k) { return mk_ge_e(e, a.mk_int(k)); }
         literal mk_le(expr* e, rational const& k) { return mk_le_e(e, a.mk_int(k)); }
 
-        expr_ref add_length_limit(expr* s, unsigned k);
+        seq::axioms& ax() { return m_ax; }
+
     };
 
 };

@@ -1260,6 +1260,8 @@ struct
   let mk_seq_length = Z3native.mk_seq_length
   let mk_seq_index = Z3native.mk_seq_index
   let mk_str_to_int = Z3native.mk_str_to_int
+  let mk_str_le = Z3native.mk_str_le
+  let mk_str_lt = Z3native.mk_str_lt
   let mk_int_to_str = Z3native.mk_int_to_str
   let mk_seq_to_re = Z3native.mk_seq_to_re
   let mk_seq_in_re = Z3native.mk_seq_in_re
@@ -1270,7 +1272,7 @@ struct
   let mk_re_concat ctx args = Z3native.mk_re_concat ctx (List.length args) args
   let mk_re_range = Z3native.mk_re_range
   let mk_re_loop = Z3native.mk_re_loop
-  let mk_re_intersect = Z3native.mk_re_intersect
+  let mk_re_intersect ctx args = Z3native.mk_re_intersect ctx (List.length args) args
   let mk_re_complement = Z3native.mk_re_complement
   let mk_re_empty = Z3native.mk_re_empty
   let mk_re_full = Z3native.mk_re_full

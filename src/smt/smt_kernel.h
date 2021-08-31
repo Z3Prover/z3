@@ -128,9 +128,9 @@ namespace smt {
         */
         lbool check(unsigned num_assumptions = 0, expr * const * assumptions = nullptr);
 
-        lbool check(expr_ref_vector const& asms) { return check(asms.size(), asms.c_ptr()); }
+        lbool check(expr_ref_vector const& asms) { return check(asms.size(), asms.data()); }
 
-        lbool check(app_ref_vector const& asms) { return check(asms.size(), (expr* const*)asms.c_ptr()); }
+        lbool check(app_ref_vector const& asms) { return check(asms.size(), (expr* const*)asms.data()); }
 
         lbool check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses);
 
@@ -149,6 +149,15 @@ namespace smt {
            \brief Preferential SAT. 
         */
         lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores);
+
+        /**
+           \brief control phase selection and variable ordering.
+           Base implementation is a no-op.
+        */
+        void set_phase(expr * e) { }
+        solver::phase* get_phase() { return nullptr; }
+        void set_phase(solver::phase* p) { }
+        void move_to_front(expr* e) { }
 
         /**
            \brief Return the model associated with the last check command.

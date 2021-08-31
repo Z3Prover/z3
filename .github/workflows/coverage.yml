@@ -1,0 +1,100 @@
+name: Code Coverage
+
+on:
+  push:
+    branches: [ master ]
+  schedule:
+    - cron: "0 11 * * *"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      CC: clang
+      CXX: clang++
+      BUILD_TYPE: Debug
+      CMAKE_GENERATOR: Ninja
+      COV_DETAILS_PATH: ${{github.workspace}}/cov-details
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup
+      run: |
+        sudo apt-get remove -y --purge man-db
+        sudo apt-get update -y
+        sudo apt-get install -y gcovr ninja-build llvm clang
+
+    ## Building
+    - name: Configure CMake Z3
+      run: CFLAGS=="--coverage" CXXFLAGS="--coverage" LDFLAGS="-lgcov" cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=./install
+
+    - name: Build Z3
+      run: cmake --build ${{github.workspace}}/build --target install --config ${{env.BUILD_TYPE}}
+
+    - name: Build test-z3
+      run: cmake --build ${{github.workspace}}/build --target test-z3 --config ${{env.BUILD_TYPE}}
+
+    - name: Build examples
+      run: |
+        cmake --build ${{github.workspace}}/build --target c_example
+        cmake --build ${{github.workspace}}/build --target cpp_example
+        cmake --build ${{github.workspace}}/build --target z3_tptp5
+        cmake --build ${{github.workspace}}/build --target c_maxsat_example
+
+    - name: Clone z3test
+      run: git clone https://github.com/z3prover/z3test z3test
+
+    ## Testing
+    - name: Run test-z3
+      run: |
+        cd ${{github.workspace}}/build
+        ./test-z3 -a
+        cd -
+
+    - name: Run examples
+      run: |
+        ${{github.workspace}}/build/examples/c_example_build_dir/c_example
+        ${{github.workspace}}/build/examples/cpp_example_build_dir/cpp_example
+        ${{github.workspace}}/build/examples/tptp_build_dir/z3_tptp5 --help
+        ${{github.workspace}}/build/examples/c_maxsat_example_build_dir/c_maxsat_example ${{github.workspace}}/examples/maxsat/ex.smt
+
+    - name: Run regressions
+      run: |
+        python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
+        python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2-debug
+        python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2-extra
+
+    - name: Run coverage tests
+      run: python z3test/scripts/test_coverage_tests.py ./install z3test/coverage/cpp
+
+    ## Artifact
+    - name: Gather coverage
+      run: |
+        cd ${{github.workspace}}
+        gcovr --html coverage.html --gcov-executable "llvm-cov gcov" .
+        cd -
+
+    - name: Gather detailed coverage
+      run: |
+        cd ${{github.workspace}}
+        mkdir cov-details
+        gcovr --html-details ${{env.COV_DETAILS_PATH}}/coverage.html --gcov-executable "llvm-cov gcov" -r `pwd`/src --object-directory `pwd`/build
+        cd -
+
+    - name: Get date
+      id: date
+      run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: coverage-${{steps.date.outputs.date}}
+        path: ${{github.workspace}}/coverage.html
+        retention-days: 4
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: coverage-details-${{steps.date.outputs.date}}
+        path: ${{env.COV_DETAILS_PATH}}
+        retention-days: 4

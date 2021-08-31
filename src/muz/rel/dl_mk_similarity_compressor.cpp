@@ -360,7 +360,7 @@ namespace datalog {
         symbol const& name_prefix = head_pred->get_name();
         std::string name_suffix = "sc_" + to_string(const_cnt);
         func_decl * aux_pred = m_context.mk_fresh_head_predicate(name_prefix, symbol(name_suffix.c_str()), 
-            aux_domain.size(), aux_domain.c_ptr(), head_pred);
+            aux_domain.size(), aux_domain.data(), head_pred);
         m_pinned.push_back(aux_pred);
 
         relation_fact val_fact(m_manager, const_cnt);
@@ -416,17 +416,17 @@ namespace datalog {
                 mod_args[inf.arg_index()] = mod_var;
             }
 
-            app * upd_tail = m_manager.mk_app(mod_tail->get_decl(), mod_args.c_ptr());
+            app * upd_tail = m_manager.mk_app(mod_tail->get_decl(), mod_args.data());
             m_pinned.push_back(upd_tail);
             mod_tail = upd_tail;
         }
 
-        app_ref aux_tail(m_manager.mk_app(aux_pred, aux_vars.c_ptr()), m_manager);
+        app_ref aux_tail(m_manager.mk_app(aux_pred, aux_vars.data()), m_manager);
         new_tail.push_back(aux_tail);
         new_negs.push_back(false);
 
-        rule * new_rule = m_context.get_rule_manager().mk(new_head, new_tail.size(), new_tail.c_ptr(), 
-            new_negs.c_ptr(), r->name());
+        rule * new_rule = m_context.get_rule_manager().mk(new_head, new_tail.size(), new_tail.data(), 
+            new_negs.data(), r->name());
         m_result_rules.push_back(new_rule);
 
         //TODO: allow for a rule to have multiple parent objects

@@ -60,6 +60,8 @@ namespace sat {
             m_phase = PS_SAT_CACHING;
         else if (s == symbol("random"))
             m_phase = PS_RANDOM;
+        else if (s == symbol("frozen"))
+            m_phase = PS_FROZEN;
         else
             throw sat_param_exception("invalid phase selection strategy: always_false, always_true, basic_caching, caching, random");
 

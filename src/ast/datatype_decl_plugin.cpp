@@ -38,7 +38,7 @@ namespace datatype {
         unsigned n = ps.size();
         SASSERT(m_range);
         SASSERT(n == get_def().params().size());
-        sort_ref range(m.substitute(m_range, n, get_def().params().c_ptr(), ps.c_ptr()), m);
+        sort_ref range(m.substitute(m_range, n, get_def().params().data(), ps.data()), m);
         sort_ref src(get_def().instantiate(ps));
         sort* srcs[1] = { src.get() };
         parameter pas[2] = { parameter(name()), parameter(get_constructor().name()) };
@@ -70,7 +70,7 @@ namespace datatype {
         }
         sort_ref range = get_def().instantiate(ps);
         parameter pas[1] = { parameter(name()) };
-        return func_decl_ref(m.mk_func_decl(u().get_family_id(), OP_DT_CONSTRUCTOR, 1, pas, domain.size(), domain.c_ptr(), range), m);        
+        return func_decl_ref(m.mk_func_decl(u().get_family_id(), OP_DT_CONSTRUCTOR, 1, pas, domain.size(), domain.data(), range), m);        
     }
 
     func_decl_ref constructor::instantiate(sort* dt) const {
@@ -94,12 +94,12 @@ namespace datatype {
             vector<parameter> ps;
             ps.push_back(parameter(m_name));
             for (sort * s : m_params) ps.push_back(parameter(s));
-            m_sort = m.mk_sort(u().get_family_id(), DATATYPE_SORT, ps.size(), ps.c_ptr());
+            m_sort = m.mk_sort(u().get_family_id(), DATATYPE_SORT, ps.size(), ps.data());
         }
         if (sorts.empty()) {
             return m_sort;
         }
-        return sort_ref(m.substitute(m_sort, sorts.size(), m_params.c_ptr(), sorts.c_ptr()), m);
+        return sort_ref(m.substitute(m_sort, sorts.size(), m_params.data(), sorts.data()), m);
     }
 
     def* def::translate(ast_translation& tr, util& u) {
@@ -108,7 +108,7 @@ namespace datatype {
         for (sort* p : m_params) {
             ps.push_back(to_sort(tr(p)));
         }
-        def* result = alloc(def, tr.to(), u, m_name, m_class_id, ps.size(), ps.c_ptr());
+        def* result = alloc(def, tr.to(), u, m_name, m_class_id, ps.size(), ps.data());
         for (constructor* c : *this) {
             result->add(c->translate(tr));
         }
@@ -367,6 +367,25 @@ namespace datatype {
             return m.mk_func_decl(name, arity, domain, range, info);
         }
 
+        ptr_vector<constructor> plugin::get_constructors(symbol const& s) const {
+            ptr_vector<constructor> result;
+            for (auto [k, d] : m_defs) 
+                for (auto* c : *d)
+                    if (c->name() == s)
+                        result.push_back(c);
+            return result;
+        }
+
+        ptr_vector<accessor> plugin::get_accessors(symbol const& s) const {
+            ptr_vector<accessor> result;
+            for (auto [k, d] : m_defs) 
+                for (auto* c : *d)
+                    for (auto* a : *c)
+                        if (a->name() == s)
+                            result.push_back(a);
+            return result;
+        }
+
         func_decl * decl::plugin::mk_recognizer(unsigned num_parameters, parameter const * parameters, 
                                                 unsigned arity, sort * const * domain, sort *) {
             ast_manager& m = *m_manager;
@@ -449,10 +468,10 @@ namespace datatype {
                     }
                 }
             }
-            if (!u().is_well_founded(sorts.size(), sorts.c_ptr())) {
+            if (!u().is_well_founded(sorts.size(), sorts.data())) {
                 m_manager->raise_exception("datatype is not well-founded");
             }
-            if (!u().is_covariant(sorts.size(), sorts.c_ptr())) {
+            if (!u().is_covariant(sorts.size(), sorts.data())) {
                 m_manager->raise_exception("datatype is not co-variant");
             }
 
@@ -556,9 +575,8 @@ namespace datatype {
 
         void plugin::remove(symbol const& s) {
             def* d = nullptr;
-            if (m_defs.find(s, d)) {
+            if (m_defs.find(s, d)) 
                 dealloc(d);
-            }
             m_defs.remove(s);
         }
 
@@ -640,6 +658,15 @@ namespace datatype {
         return result;
     }
 
+    bool util::is_considered_uninterpreted(func_decl * f, unsigned n, expr* const* args) {
+        if (!is_accessor(f)) 
+            return false;
+        func_decl* c = get_accessor_constructor(f);
+        SASSERT(n == 1);
+        if (is_constructor(args[0])) 
+            return to_app(args[0])->get_decl() != c;
+        return false;
+    }
 
     bool util::is_fully_interp(sort * s) const {
         SASSERT(is_datatype(s));
@@ -679,18 +706,18 @@ namespace datatype {
        \brief Return true if the inductive datatype is recursive.
     */
     bool util::is_recursive_core(sort* s) const {
-        obj_map<sort, status> already_found;
+        map<symbol, status, symbol_hash_proc, symbol_eq_proc> already_found;
         ptr_vector<sort> todo, subsorts;
         sort* s0 = s;
         todo.push_back(s);
-        status st;
+        status st;        
         while (!todo.empty()) {
             s = todo.back();
-            if (already_found.find(s, st) && st == BLACK) {
+            if (already_found.find(datatype_name(s), st) && st == BLACK) {
                 todo.pop_back();
                 continue;
             }
-            already_found.insert(s, GRAY);
+            already_found.insert(datatype_name(s), GRAY);
             def const& d = get_def(s);
             bool can_process       = true;
             for (constructor const* c : d) {
@@ -701,9 +728,9 @@ namespace datatype {
                     get_subsorts(d, subsorts);
                     for (sort * s2 : subsorts) {
                         if (is_datatype(s2)) {
-                            if (already_found.find(s2, st)) {
+                            if (already_found.find(datatype_name(s2), st)) {
                                 // type is recursive
-                                if (st == GRAY && s0 == s2) 
+                                if (st == GRAY && datatype_name(s0) == datatype_name(s2)) 
                                     return true;
                             }
                             else {
@@ -715,7 +742,7 @@ namespace datatype {
                 }
             }
             if (can_process) {
-                already_found.insert(s, BLACK);
+                already_found.insert(datatype_name(s), BLACK);
                 todo.pop_back();
             }
         }
@@ -1073,6 +1100,14 @@ namespace datatype {
         return r;
     }
 
+    bool util::is_recursive_array(sort* a) {
+        array_util autil(m);
+        if (!autil.is_array(a))
+            return false;
+        a = autil.get_array_range_rec(a);                
+        return is_datatype(a) && is_recursive(a);
+    }
+
     bool util::is_enum_sort(sort* s) {
         if (!is_datatype(s)) {
             return false;
@@ -1234,6 +1269,9 @@ namespace datatype {
        defined together in the same mutually recursive definition.
     */
     bool util::are_siblings(sort * s1, sort * s2) {
+        array_util autil(m);
+        s1 = autil.get_array_range_rec(s1);                
+        s2 = autil.get_array_range_rec(s2);                
         if (!is_datatype(s1) || !is_datatype(s2)) {
             return s1 == s2;
         }
@@ -1362,7 +1400,7 @@ namespace datatype {
             type_ref t(e.second);
             accd.push_back(mk_accessor_decl(m, e.first, t));
         }
-        auto* tuple = mk_constructor_decl(name, test, accd.size(), accd.c_ptr());
+        auto* tuple = mk_constructor_decl(name, test, accd.size(), accd.data());
         auto* dt = mk_datatype_decl(*this, name, 0, nullptr, 1, &tuple);
         sort_ref_vector sorts(m);
         VERIFY(plugin().mk_datatypes(1, &dt, 0, nullptr, sorts));

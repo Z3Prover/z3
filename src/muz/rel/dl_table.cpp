@@ -274,7 +274,7 @@ namespace datalog {
     }
     
     void bitvector_table::add_fact(const table_fact & f) {
-        m_bv.set(fact2offset(f.c_ptr()));        
+        m_bv.set(fact2offset(f.data()));        
     }
 
     void bitvector_table::remove_fact(const table_element* fact) {    
@@ -282,7 +282,7 @@ namespace datalog {
     }
 
     bool bitvector_table::contains_fact(const table_fact & f) const {
-        return m_bv.get(fact2offset(f.c_ptr()));
+        return m_bv.get(fact2offset(f.data()));
     }
 
     table_base::iterator bitvector_table::begin() const {

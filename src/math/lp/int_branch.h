@@ -32,7 +32,6 @@ namespace lp {
 
     public:
         int_branch(int_solver& lia);
-        ~int_branch() {}
         lia_move operator()();
     };
 }

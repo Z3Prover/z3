@@ -1,6 +1,6 @@
 ############################################
 # Copyright (c) 2012 Microsoft Corporation
-# 
+#
 # Z3 Python interface for Z3 polynomials
 #
 # Author: Leonardo de Moura (leonardo)
@@ -8,16 +8,17 @@
 
 from .z3 import *
 
+
 def subresultants(p, q, x):
     """
     Return the non-constant subresultants of 'p' and 'q' with respect to the "variable" 'x'.
 
     'p', 'q' and 'x' are Z3 expressions where 'p' and 'q' are arithmetic terms.
     Note that, any subterm that cannot be viewed as a polynomial is assumed to be a variable.
-    Example: f(a) is a considered to be a variable b in the polynomial       
+    Example: f(a) is a considered to be a variable b in the polynomial
 
-    f(a)*f(a) + 2*f(a) + 1 
-    
+    f(a)*f(a) + 2*f(a) + 1
+
     >>> x, y = Reals('x y')
     >>> subresultants(2*x + y, 3*x - 2*y + 2, x)
     [-7*y + 4]
@@ -28,6 +29,7 @@ def subresultants(p, q, x):
     -6*y**4 + -6*y
     """
     return AstVector(Z3_polynomial_subresultants(p.ctx_ref(), p.as_ast(), q.as_ast(), x.as_ast()), p.ctx)
+
 
 if __name__ == "__main__":
     import doctest

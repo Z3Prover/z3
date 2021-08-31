@@ -92,8 +92,6 @@ public:
         bool operator!=(row_iterator const& other) const { return m_index != other.m_index; }  
     };
 
-    bit_matrix() {}
-    ~bit_matrix() {}
     void reset(unsigned num_columns);
     
     row_iterator begin() { return row_iterator(*this, true); }

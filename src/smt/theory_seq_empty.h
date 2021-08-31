@@ -28,7 +28,7 @@ namespace smt {
     class theory_seq_empty : public theory {
         bool m_used;
         final_check_status final_check_eh() override { return m_used?FC_GIVEUP:FC_DONE; }
-        bool internalize_atom(app*, bool) override { if (!m_used) { get_context().push_trail(value_trail<context,bool>(m_used)); m_used = true; } return false; }
+        bool internalize_atom(app*, bool) override { if (!m_used) { get_context().push_trail(value_trail<bool>(m_used)); m_used = true; } return false; }
         bool internalize_term(app*) override { return internalize_atom(nullptr,false);  }
         void new_eq_eh(theory_var, theory_var) override { }
         void new_diseq_eh(theory_var, theory_var) override {}

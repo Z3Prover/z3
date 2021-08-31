@@ -16,7 +16,7 @@ static expr_ref mk_const(ast_manager& m, char const* name, sort* s) {
 
 static expr_ref mk_app(char const* name, expr_ref const& arg, sort* s) {
     ast_manager& m = arg.m();
-    func_decl_ref f(m.mk_func_decl(symbol(name), m.get_sort(arg), s), m);
+    func_decl_ref f(m.mk_func_decl(symbol(name), arg->get_sort(), s), m);
     return expr_ref(m.mk_app(f, arg.get()), m);
 }
 

@@ -25,14 +25,16 @@ quantifier_macro_info::quantifier_macro_info(ast_manager& m, quantifier* q) :
     m_is_auf(true),
     m_has_x_eq_y(false),
     m_the_one(m) {
-    SASSERT(is_forall(q));
     collect_macro_candidates(q);
 }
 
 void quantifier_macro_info::collect_macro_candidates(quantifier* q) {
     macro_util mutil(m);
     macro_util::macro_candidates candidates(m);
-    mutil.collect_macro_candidates(q, candidates);
+    quantifier_ref qa(q, m);
+    if (is_exists(q))
+        qa = m.update_quantifier(q, quantifier_kind::forall_k, m.mk_not(q->get_expr()));
+    mutil.collect_macro_candidates(qa, candidates);
     unsigned num_candidates = candidates.size();
     for (unsigned i = 0; i < num_candidates; i++) {
         cond_macro* mc = alloc(cond_macro, m, candidates.get_f(i), candidates.get_def(i), candidates.get_cond(i),

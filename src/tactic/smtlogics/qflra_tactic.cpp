@@ -21,10 +21,10 @@ Notes:
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"
 #include "tactic/core/elim_uncnstr_tactic.h"
-#include "smt/tactic/smt_tactic.h"
 #include "tactic/arith/recover_01_tactic.h"
 #include "tactic/core/ctx_simplify_tactic.h"
 #include "tactic/arith/probe_arith.h"
+#include "tactic/smtlogics/smt_tactic.h"
 
 tactic * mk_qflra_tactic(ast_manager & m, params_ref const & p) {
     params_ref pivot_p;

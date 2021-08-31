@@ -163,9 +163,9 @@ namespace {
 
 
     struct undo_bound {
-        expr* e;
+        expr* e { nullptr };
         interval b;
-        bool fresh;
+        bool fresh { false };
         undo_bound(expr* e, const interval& b, bool fresh) : e(e), b(b), fresh(fresh) {}
     };
 
@@ -331,11 +331,12 @@ namespace {
             } else if (m_bound.find(t1, ctx)) {
                 if (ctx.implies(b)) {
                     result = m.mk_true();
-                } else if (!b.intersect(ctx, intr)) {
+                } 
+                else if (!b.intersect(ctx, intr)) {
                     result = m.mk_false();
-                } else if (m_propagate_eq && intr.is_singleton()) {
-                    result = m.mk_eq(t1, m_bv.mk_numeral(rational(intr.l, rational::ui64()),
-                                                         m.get_sort(t1)));
+                } 
+                else if (m_propagate_eq && intr.is_singleton()) {
+                    result = m.mk_eq(t1, m_bv.mk_numeral(rational(intr.l, rational::ui64()), t1->get_sort()));
                 }
             }
 
@@ -630,7 +631,7 @@ namespace {
                 } 
                 else if (m_propagate_eq && intr.is_singleton()) {
                     r = m.mk_eq(t1, m_bv.mk_numeral(rational(intr.l, rational::ui64()),
-                                                    m.get_sort(t1)));
+                                                    t1->get_sort()));
                 }
                 else {
                     was_updated = false;

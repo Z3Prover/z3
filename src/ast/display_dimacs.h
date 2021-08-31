@@ -22,3 +22,5 @@ Revision History:
 
 std::ostream& display_dimacs(std::ostream& out, expr_ref_vector const& fmls, bool include_names);
 
+std::ostream& display_wcnf(std::ostream& out, expr_ref_vector const& fmls, svector<std::pair<expr*,unsigned>> const& soft);
+

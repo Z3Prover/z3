@@ -486,7 +486,7 @@ namespace datalog {
             relation_mutator_fn * fn;
             relation_base & r = *ctx.reg(m_reg);
             if (!find_fn(r, fn)) {
-                fn = r.get_manager().mk_filter_identical_fn(r, m_cols.size(), m_cols.c_ptr());
+                fn = r.get_manager().mk_filter_identical_fn(r, m_cols.size(), m_cols.data());
                 if (!fn) {
                     throw default_exception(default_exception::fmt(), 
                         "trying to perform unsupported filter_identical operation on a relation of kind %s",
@@ -590,7 +590,7 @@ namespace datalog {
             relation_base & reg = *ctx.reg(m_src);
             TRACE("dl_verbose", reg.display(tout <<"pre-filter-interpreted-and-project:\n"););
             if (!find_fn(reg, fn)) {
-                fn = reg.get_manager().mk_filter_interpreted_and_project_fn(reg, m_cond, m_cols.size(), m_cols.c_ptr());
+                fn = reg.get_manager().mk_filter_interpreted_and_project_fn(reg, m_cond, m_cols.size(), m_cols.data());
                 if (!fn) {
                     throw default_exception(default_exception::fmt(), 
                         "trying to perform unsupported filter_interpreted_and_project operation on a relation of kind %s",
@@ -766,10 +766,10 @@ namespace datalog {
             relation_base & r_src = *ctx.reg(m_src);
             if (!find_fn(r_src, fn)) {
                 if (m_projection) {
-                    fn = r_src.get_manager().mk_project_fn(r_src, m_cols.size(), m_cols.c_ptr());
+                    fn = r_src.get_manager().mk_project_fn(r_src, m_cols.size(), m_cols.data());
                 }
                 else {
-                    fn = r_src.get_manager().mk_rename_fn(r_src, m_cols.size(), m_cols.c_ptr());
+                    fn = r_src.get_manager().mk_rename_fn(r_src, m_cols.size(), m_cols.data());
                 }
                 if (!fn) {
                     std::stringstream sstm;
@@ -962,7 +962,7 @@ namespace datalog {
             relation_base & r1 = *ctx.reg(m_tgt);
             const relation_base & r2 = *ctx.reg(m_neg_rel);
             if (!find_fn(r1, r2, fn)) {
-                fn = r1.get_manager().mk_filter_by_negation_fn(r1, r2, m_cols1.size(), m_cols1.c_ptr(), m_cols2.c_ptr());
+                fn = r1.get_manager().mk_filter_by_negation_fn(r1, r2, m_cols1.size(), m_cols1.data(), m_cols2.data());
                 if (!fn) {
                     std::stringstream sstm;
                     sstm << "trying to perform unsupported filter_by_negation on relations of kinds ";

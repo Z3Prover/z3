@@ -236,12 +236,12 @@ struct expr2polynomial::imp {
 
     polynomial::polynomial * const * polynomial_args(unsigned num_args) {
         SASSERT(m_presult_stack.size() >= num_args);
-        return m_presult_stack.c_ptr() + m_presult_stack.size() - num_args;
+        return m_presult_stack.data() + m_presult_stack.size() - num_args;
     }
 
     polynomial::numeral const * denominator_args(unsigned num_args) {
         SASSERT(m_dresult_stack.size() >= num_args);
-        return m_dresult_stack.c_ptr() + m_dresult_stack.size() - num_args;
+        return m_dresult_stack.data() + m_dresult_stack.size() - num_args;
     }
 
     template<bool is_add>
@@ -442,7 +442,7 @@ struct expr2polynomial::imp {
                 args.push_back(margs[0]);
             }
             else {
-                args.push_back(m_autil.mk_mul(margs.size(), margs.c_ptr()));
+                args.push_back(m_autil.mk_mul(margs.size(), margs.data()));
             }
         }
 
@@ -453,7 +453,7 @@ struct expr2polynomial::imp {
             r = args[0];
         }
         else {
-            r = m_autil.mk_add(args.size(), args.c_ptr());
+            r = m_autil.mk_add(args.size(), args.data());
         }
     }
 

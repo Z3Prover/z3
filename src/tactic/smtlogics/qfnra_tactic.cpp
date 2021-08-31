@@ -20,8 +20,8 @@ Notes:
 #include "tactic/core/simplify_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/arith/nla2bv_tactic.h"
-#include "smt/tactic/smt_tactic.h"
 #include "nlsat/tactic/qfnra_nlsat_tactic.h"
+#include "tactic/smtlogics/smt_tactic.h"
 
 static tactic * mk_qfnra_sat_solver(ast_manager& m, params_ref const& p, unsigned bv_size) {
     params_ref nra2sat_p = p;

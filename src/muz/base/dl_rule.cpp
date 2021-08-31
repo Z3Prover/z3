@@ -197,10 +197,10 @@ namespace datalog {
 
 
         mk_negations(m_body, m_neg);
-        check_valid_rule(m_head, m_body.size(), m_body.c_ptr());
+        check_valid_rule(m_head, m_body.size(), m_body.data());
 
         rule_ref r(*this);
-        r = mk(m_head.get(), m_body.size(), m_body.c_ptr(), m_neg.c_ptr(), name);
+        r = mk(m_head.get(), m_body.size(), m_body.data(), m_neg.data(), name);
 
         expr_ref fml1(m);
         if (p) {
@@ -278,7 +278,7 @@ namespace datalog {
         qh.pull_quantifier(false, q, nullptr, &names);
         // retrieve free variables.
         m_free_vars(q);
-        vars.append(m_free_vars.size(), m_free_vars.c_ptr());
+        vars.append(m_free_vars.size(), m_free_vars.data());
         if (vars.contains(static_cast<sort*>(nullptr))) {
             var_subst sub(m, false);
             expr_ref_vector args(m);
@@ -293,10 +293,10 @@ namespace datalog {
                     args.push_back(m.mk_var(0, m.mk_bool_sort()));
                 }
             }
-            q = sub(q, args.size(), args.c_ptr());
+            q = sub(q, args.size(), args.data());
             vars.reset();
             m_free_vars(q);
-            vars.append(m_free_vars.size(), m_free_vars.c_ptr());
+            vars.append(m_free_vars.size(), m_free_vars.data());
         }
         SASSERT(!vars.contains(static_cast<sort*>(0)) && "Unused variables have been eliminated");
 
@@ -322,7 +322,7 @@ namespace datalog {
         }
         vars.reverse();
         names.reverse();
-        func_decl* qpred = m_ctx.mk_fresh_head_predicate(symbol("query"), symbol(), vars.size(), vars.c_ptr(), body_pred);
+        func_decl* qpred = m_ctx.mk_fresh_head_predicate(symbol("query"), symbol(), vars.size(), vars.data(), body_pred);
         m_ctx.register_predicate(qpred, false);
         rules.set_output_predicate(qpred);
 
@@ -336,11 +336,11 @@ namespace datalog {
         for (unsigned i = 0; i < vars.size(); i++) {
             qhead_args.push_back(m.mk_var(vars.size()-i-1, vars[i]));
         }
-        app_ref qhead(m.mk_app(qpred, qhead_args.c_ptr()), m);
+        app_ref qhead(m.mk_app(qpred, qhead_args.data()), m);
         app_ref impl(m.mk_implies(q, qhead), m);
         expr_ref rule_expr(impl.get(), m);
         if (!vars.empty()) {
-            rule_expr = m.mk_forall(vars.size(), vars.c_ptr(), names.c_ptr(), impl);
+            rule_expr = m.mk_forall(vars.size(), vars.data(), names.data(), impl);
         }
         TRACE("dl", tout << rule_expr << "\n";);
 
@@ -396,12 +396,12 @@ namespace datalog {
                 m_args.push_back(e);
             }
             else {
-                var* v = m.mk_var(num_bound++, m.get_sort(b));
+                var* v = m.mk_var(num_bound++, b->get_sort());
                 m_args.push_back(v);
                 body.push_back(m.mk_eq(v, b));
             }
         }
-        fml = m.mk_app(fml->get_decl(), m_args.size(), m_args.c_ptr());
+        fml = m.mk_app(fml->get_decl(), m_args.size(), m_args.data());
         TRACE("dl_rule", tout << mk_pp(fml.get(), m) << "\n";);
     }
 
@@ -567,7 +567,7 @@ namespace datalog {
         switch (body.size()) {
         case 0:  break;
         case 1:  fml = m.mk_implies(body[0].get(), fml); break;
-        default: fml = m.mk_implies(m.mk_and(body.size(), body.c_ptr()), fml); break;
+        default: fml = m.mk_implies(m.mk_and(body.size(), body.data()), fml); break;
         }
 
         m_free_vars.reset();        
@@ -594,7 +594,7 @@ namespace datalog {
                 }
             }
         }
-        fml = m.mk_forall(m_free_vars.size(), m_free_vars.c_ptr(), names.c_ptr(), fml);
+        fml = m.mk_forall(m_free_vars.size(), m_free_vars.data(), names.data(), fml);
     }
 
     std::ostream& rule_manager::display_smt2(rule const& r, std::ostream & out) {
@@ -638,7 +638,7 @@ namespace datalog {
                 tail.push_back(ensure_app(conjs[i].get()));
             }
             tail_neg.resize(tail.size(), false);
-            r = mk(r->get_head(), tail.size(), tail.c_ptr(), tail_neg.c_ptr(), r->name());
+            r = mk(r->get_head(), tail.size(), tail.data(), tail_neg.data(), r->name());
             TRACE("dl", r->display(m_ctx, tout << "reduced rule\n"););
         }
     }
@@ -703,7 +703,7 @@ namespace datalog {
             return;
         }
         expr_ref unbound_tail(m);
-        bool_rewriter(m).mk_and(tails_with_unbound.size(), tails_with_unbound.c_ptr(), unbound_tail);
+        bool_rewriter(m).mk_and(tails_with_unbound.size(), tails_with_unbound.data(), unbound_tail);
 
         unsigned q_var_cnt = unbound_vars.num_elems();
 
@@ -743,9 +743,9 @@ namespace datalog {
         expr_ref unbound_tail_pre_quant(m), fixed_tail(m), quant_tail(m);
 
         var_subst vs(m, false);
-        unbound_tail_pre_quant = vs(unbound_tail, subst.size(), subst.c_ptr());
+        unbound_tail_pre_quant = vs(unbound_tail, subst.size(), subst.data());
 
-        quant_tail = m.mk_exists(q_var_cnt, qsorts.c_ptr(), qnames.c_ptr(), unbound_tail_pre_quant);
+        quant_tail = m.mk_exists(q_var_cnt, qsorts.data(), qnames.data(), unbound_tail_pre_quant);
 
         if (try_quantifier_elimination) {
             TRACE("dl_rule_unbound_fix_pre_qe",
@@ -783,7 +783,7 @@ namespace datalog {
 
         SASSERT(tail.size()==tail_neg.size());
         rule_ref old_r = r;
-        r = mk(head, tail.size(), tail.c_ptr(), tail_neg.c_ptr(), old_r->name());
+        r = mk(head, tail.size(), tail.data(), tail_neg.data(), old_r->name());
         r->set_accounting_parent_object(m_ctx, old_r);
     }
 
@@ -821,7 +821,7 @@ namespace datalog {
             new_tail.push_back(to_app(tmp));
             tail_neg.push_back(r->is_neg_tail(i));
         }
-        r = mk(new_head.get(), new_tail.size(), new_tail.c_ptr(), tail_neg.c_ptr(), r->name(), false);
+        r = mk(new_head.get(), new_tail.size(), new_tail.data(), tail_neg.data(), r->name(), false);
 
         // keep old variable indices around so we can compose with substitutions.
         // r->norm_vars(*this);
@@ -1000,14 +1000,14 @@ namespace datalog {
 
         var_subst vs(m, false);
 
-        app_ref new_head_a = rm.ensure_app(vs(m_head, subst_vals.size(), subst_vals.c_ptr()));
+        app_ref new_head_a = rm.ensure_app(vs(m_head, subst_vals.size(), subst_vals.data()));
         m.inc_ref(new_head_a);
         m.dec_ref(m_head);
         m_head = new_head_a;
 
         for (unsigned i = 0; i < m_tail_size; i++) {
             app * old_tail = get_tail(i);
-            app_ref new_tail_a = rm.ensure_app(vs(old_tail, subst_vals.size(), subst_vals.c_ptr()));
+            app_ref new_tail_a = rm.ensure_app(vs(old_tail, subst_vals.size(), subst_vals.data()));
             bool  sign     = is_neg_tail(i);
             m.inc_ref(new_tail_a);
             m.dec_ref(old_tail);

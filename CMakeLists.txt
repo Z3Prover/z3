@@ -1,17 +1,8 @@
 # Enforce some CMake policies
 cmake_minimum_required(VERSION 3.4)
 
-if (POLICY CMP0054)
-  cmake_policy(SET CMP0054 NEW)
-endif()
-
-if (POLICY CMP0042)
-  # Enable `MACOSX_RPATH` by default.
-  cmake_policy(SET CMP0042 NEW)
-endif()
-
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
-project(Z3 VERSION 4.8.11.0 LANGUAGES CXX)
+project(Z3 VERSION 4.8.13.0 LANGUAGES CXX)
 
 ################################################################################
 # Project version
@@ -42,7 +33,7 @@ set(z3_polluted_tree_msg
 ################################################################################
 # Sanity check - Disallow building in source
 ################################################################################
-if ("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
+if (PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
   message(FATAL_ERROR "In source builds are not allowed. You should invoke "
           "CMake from a different directory.")
 endif()
@@ -140,7 +131,7 @@ else()
   if(NOT CMAKE_BUILD_TYPE)
     message(STATUS "CMAKE_BUILD_TYPE is not set. Setting default")
     message(STATUS "The available build types are: ${available_build_types}")
-    set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE String
+    set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING
         "Options are ${available_build_types}"
         FORCE)
     # Provide drop down menu options in cmake-gui
@@ -188,34 +179,34 @@ include(${PROJECT_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
 ################################################################################
 # C++ language version
 ################################################################################
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ################################################################################
 # Platform detection
 ################################################################################
-if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
   message(STATUS "Platform: Linux")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_LINUX_")
-  if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
+  if (TARGET_ARCHITECTURE STREQUAL "x86_64")
     list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_USE_THREAD_LOCAL")
   endif()
-elseif ("${CMAKE_SYSTEM_NAME}" STREQUAL "Android")
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Android")
   message(STATUS "Platform: Android")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_ANDROID_")
-elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "GNU")
+elseif (CMAKE_SYSTEM_NAME MATCHES "GNU")
   message(STATUS "Platform: GNU/Hurd")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_HURD_")
-elseif ("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   # Does macOS really not need any special flags?
   message(STATUS "Platform: Darwin")
-elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "FreeBSD")
+elseif (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
   message(STATUS "Platform: FreeBSD")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_FREEBSD_")
-elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "NetBSD")
+elseif (CMAKE_SYSTEM_NAME MATCHES "NetBSD")
   message(STATUS "Platform: NetBSD")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_NetBSD_")
-elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "OpenBSD")
+elseif (CMAKE_SYSTEM_NAME MATCHES "OpenBSD")
   message(STATUS "Platform: OpenBSD")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_OPENBSD_")
 elseif (CYGWIN)
@@ -251,8 +242,7 @@ if (Z3_USE_LIB_GMP)
   # can't be found
   find_package(GMP REQUIRED)
   message(STATUS "Using libgmp")
-  list(APPEND Z3_DEPENDENT_LIBS ${GMP_C_LIBRARIES})
-  list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS ${GMP_INCLUDE_DIRS})
+  list(APPEND Z3_DEPENDENT_LIBS GMP::GMP)
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_MP_GMP")
 else()
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_MP_INTERNAL")
@@ -292,18 +282,18 @@ endif()
 # FP math
 ################################################################################
 # FIXME: Support ARM "-mfpu=vfp -mfloat-abi=hard"
-if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" STREQUAL "i686"))
-  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel"))
-    if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
+if ((TARGET_ARCHITECTURE STREQUAL "x86_64") OR (TARGET_ARCHITECTURE STREQUAL "i686"))
+  if ((CMAKE_CXX_COMPILER_ID MATCHES "GNU") OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang") OR (CMAKE_CXX_COMPILER_ID MATCHES "Intel"))
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
       # Intel's compiler requires linking with libiomp5
       list(APPEND Z3_DEPENDENT_LIBS "iomp5")
     endif()
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
-  elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
+  elseif (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
     # Intel's compiler requires linking with libiomp5 
     list(APPEND Z3_DEPENDENT_LIBS "iomp5") 
-  elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(SSE_FLAGS "/arch:SSE2")
   else()
     message(FATAL_ERROR "Unknown compiler ${CMAKE_CXX_COMPILER_ID}")
@@ -320,7 +310,7 @@ endif()
 ################################################################################
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads)
-list(APPEND Z3_DEPENDENT_LIBS ${CMAKE_THREAD_LIBS_INIT})
+list(APPEND Z3_DEPENDENT_LIBS Threads::Threads)
 
 ################################################################################
 # Compiler warnings
@@ -361,6 +351,7 @@ option(Z3_BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise
 ################################################################################
 if (NOT MSVC)
   z3_add_cxx_flag("-fvisibility=hidden" REQUIRED)
+  z3_add_cxx_flag("-fvisibility-inlines-hidden" REQUIRED)
 endif()
 
 ################################################################################
@@ -411,7 +402,7 @@ if (Z3_ENABLE_CFI)
   if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     z3_add_cxx_flag("-fsanitize=cfi" REQUIRED)
     z3_add_cxx_flag("-fsanitize-cfi-cross-dso" REQUIRED)
-  elseif ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
+  elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     z3_add_cxx_flag("/guard:cf" REQUIRED)
     message(STATUS "Enabling CFI for MSVC")
     foreach (_build_type ${build_types_with_cfi})
@@ -428,14 +419,14 @@ endif()
 ################################################################################
 # MSVC specific flags inherited from old build system
 ################################################################################
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   include(${PROJECT_SOURCE_DIR}/cmake/msvc_legacy_quirks.cmake)
 endif()
 
 ################################################################################
 # Pass /RELEASE to the linker so that checksums in PE files are calculated.
 ################################################################################
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   string(APPEND CMAKE_EXE_LINKER_FLAGS " /RELEASE")
   string(APPEND CMAKE_SHARED_LINKER_FLAGS " /RELEASE")
 endif()

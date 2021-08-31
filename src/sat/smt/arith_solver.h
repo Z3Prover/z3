@@ -112,7 +112,7 @@ namespace arith {
             }
         };
         scoped_ptr_vector<internalize_state> m_internalize_states;
-        unsigned                      m_internalize_head{ 0 };
+        unsigned                      m_internalize_head = 0;
 
         class scoped_internalize_state {
             solver& m_imp;
@@ -149,10 +149,10 @@ namespace arith {
         vector<rational>         m_columns;
         var_coeffs               m_left_side;              // constraint left side
 
-        lpvar m_one_var   { UINT_MAX };
-        lpvar m_zero_var  { UINT_MAX };
-        lpvar m_rone_var  { UINT_MAX };
-        lpvar m_rzero_var { UINT_MAX };
+        lpvar m_one_var   = UINT_MAX;
+        lpvar m_zero_var  = UINT_MAX;
+        lpvar m_rone_var  = UINT_MAX;
+        lpvar m_rzero_var = UINT_MAX;
 
         enum constraint_source {
             inequality_source,
@@ -164,6 +164,7 @@ namespace arith {
         svector<literal>                              m_inequalities;    // asserted rows corresponding to inequality literals.
         svector<euf::enode_pair>                      m_equalities;      // asserted rows corresponding to equalities.
         svector<theory_var>                           m_definitions;     // asserted rows corresponding to definitions
+        svector<std::pair<euf::th_eq, bool>>          m_delayed_eqs;
 
         literal_vector  m_asserted;
         expr* m_not_handled{ nullptr };
@@ -176,7 +177,7 @@ namespace arith {
         vector<lp_bounds>      m_bounds;
         unsigned_vector        m_unassigned_bounds;
         unsigned_vector        m_bounds_trail;
-        unsigned               m_asserted_qhead{ 0 };
+        unsigned               m_asserted_qhead = 0;
 
         svector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates;
         unsigned                                          m_assume_eq_head{ 0 };
@@ -305,10 +306,11 @@ namespace arith {
         literal is_bound_implied(lp::lconstraint_kind k, rational const& value, api_bound const& b) const;
         void assert_bound(bool is_true, api_bound& b);
         void mk_eq_axiom(bool is_eq, euf::th_eq const& eq);
+        void mk_diseq_axiom(euf::th_eq const& eq);
         void assert_idiv_mod_axioms(theory_var u, theory_var v, theory_var w, rational const& r);
         api_bound* mk_var_bound(sat::literal lit, theory_var v, lp_api::bound_kind bk, rational const& bound);
         lp::lconstraint_kind bound2constraint_kind(bool is_int, lp_api::bound_kind bk, bool is_true);
-        void fixed_var_eh(theory_var v1, rational const& bound) {}
+        void fixed_var_eh(theory_var v1, lp::constraint_index ci1, lp::constraint_index ci2, rational const& bound);
         bool set_upper_bound(lp::tv t, lp::constraint_index ci, rational const& v) { return set_bound(t, ci, v, false); }
         bool set_lower_bound(lp::tv t, lp::constraint_index ci, rational const& v) { return set_bound(t, ci, v, true); }
         bool set_bound(lp::tv tv, lp::constraint_index ci, rational const& v, bool is_lower);
@@ -321,6 +323,11 @@ namespace arith {
         bool can_get_value(theory_var v) const {
             return is_registered_var(v) && m_model_is_initialized;
         }
+
+        vector<rational>     m_fixed_values;
+        map<rational, theory_var, rational::hash_proc, rational::eq_proc> m_value2var;
+        struct undo_value;
+        void register_fixed_var(theory_var v, rational const& value);
 
         // solving
         void report_equality_of_fixed_vars(unsigned vi1, unsigned vi2);
@@ -348,6 +355,7 @@ namespace arith {
         bool use_nra_model();
 
         lbool make_feasible();
+        bool  check_delayed_eqs();
         lbool check_lia();
         lbool check_nla();
         bool is_infeasible() const;
@@ -376,7 +384,7 @@ namespace arith {
 
         obj_map<expr, expr*>      m_predicate2term;
         obj_map<expr, bound_info> m_term2bound_info;
-        bool                      m_model_is_initialized{ false };
+        bool                      m_model_is_initialized = false;
 
         unsigned small_lemma_size() const { return get_config().m_arith_small_lemma_size; }
         bool propagate_eqs() const { return get_config().m_arith_propagate_eqs && m_num_conflicts < get_config().m_arith_propagation_threshold; }
@@ -423,19 +431,20 @@ namespace arith {
         void collect_statistics(statistics& st) const override;
         euf::th_solver* clone(euf::solver& ctx) override;
         bool use_diseqs() const override { return true; }
-        void new_eq_eh(euf::th_eq const& eq) override { mk_eq_axiom(true, eq); }
-        void new_diseq_eh(euf::th_eq const& de) override { mk_eq_axiom(false, de); }
+        void new_eq_eh(euf::th_eq const& eq) override;
+        void new_diseq_eh(euf::th_eq const& de) override;
         bool unit_propagate() override;
         void init_model() override;
         void finalize_model(model& mdl) override { DEBUG_CODE(dbg_finalize_model(mdl);); }
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
-        void add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
+        bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool redundant) override;
         void eq_internalized(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode* n, sort* s) override {}
         bool is_shared(theory_var v) const override;
         lbool get_phase(bool_var v) override;
+        bool include_func_interp(func_decl* f) const override;
 
         // bounds and equality propagation callbacks
         lp::lar_solver& lp() { return *m_solver; }

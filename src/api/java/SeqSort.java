@@ -27,3 +27,4 @@ public class SeqSort<R extends Sort> extends Sort
         super(ctx, obj);
     }
 }
+

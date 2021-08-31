@@ -114,7 +114,7 @@ expr* bv2real_util::mk_bv2real_c(expr* s, expr* t, rational const& d, rational c
     sig.m_r = r;
     func_decl* f;
     if (!m_sig2decl.find(sig, f)) {
-        sort* domain[2] = { m_manager.get_sort(s), m_manager.get_sort(t) };
+        sort* domain[2] = { s->get_sort(), t->get_sort() };
         sort* real = m_arith.mk_real();
         f = m_manager.mk_fresh_func_decl("bv2real", "", 2, domain, real);
         m_decls.push_back(f);

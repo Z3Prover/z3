@@ -391,8 +391,8 @@ namespace datalog {
        \brief Return true if the negation is indeed stratified.
     */
     bool rule_set::stratified_negation() {
-        ptr_vector<rule>::const_iterator it  = m_rules.c_ptr();
-        ptr_vector<rule>::const_iterator end = m_rules.c_ptr() + m_rules.size();
+        ptr_vector<rule>::const_iterator it  = m_rules.data();
+        ptr_vector<rule>::const_iterator end = m_rules.data() + m_rules.size();
         for (; it != end; it++) {
             rule * r = *it;
             func_decl * head_decl = r->get_decl();

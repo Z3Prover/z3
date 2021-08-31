@@ -32,7 +32,6 @@ namespace lp {
         lia_move cut(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row);
     public:
         gomory(int_solver& lia);
-        ~gomory() {}
         lia_move operator()();
     };
 }

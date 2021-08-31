@@ -53,12 +53,22 @@ public:
     unsigned size() const { return static_cast<unsigned>(m_coeffs.size()); }
 
     template <typename T>
-    const T & coeffs() const {
+    const T &   coeffs() const {
         return m_coeffs;
     }
     
+    void subst_by_term(const lar_term& t, unsigned term_column) {
+        auto it = this->m_coeffs.find_core(term_column);
+        if (it == nullptr) return;
+        mpq a = it->get_data().m_value;
+        this->m_coeffs.erase(term_column);
+        for (auto p : t) {
+            this->add_monomial(a * p.coeff(), p.column());
+        }
+    }
+
     lar_term(const vector<std::pair<mpq, unsigned>>& coeffs) {
-        for (const auto & p : coeffs) {
+        for (auto const& p : coeffs) {
             add_monomial(p.first, p.second);
         }
     }
@@ -94,7 +104,7 @@ public:
     }
 
     // j is the basic variable to substitute
-    void subst(unsigned j, indexed_vector<mpq> & li) {
+    void subst_in_row(unsigned j, indexed_vector<mpq> & li) {
         auto* it = m_coeffs.find_core(j);
         if (it == nullptr) return;
         const mpq & b = it->get_data().m_value;
@@ -158,13 +168,13 @@ public:
     bool is_normalized() const {
         lpvar min_var = -1;
         mpq c;
-        for (const auto & p : *this) {
+        for (ival p : *this) {
             if (p.column() < min_var) {
                 min_var = p.column();
             }
         }
         lar_term r;
-        for (const auto & p : *this) {
+        for (ival p : *this) {
             if (p.column() == min_var) {
                 return p.coeff().is_one();
             }

@@ -149,7 +149,7 @@ namespace karr {
         TD.display(std::cout << "TD:\n");
         for (unsigned i = 0; i < TD.size(); ++i) {
             vector<rational> v;
-            v.append(src.size(), TD.A[i].c_ptr() + src.size());
+            v.append(src.size(), TD.A[i].data() + src.size());
             dst.A.push_back(v);
             dst.b.push_back(TD.b[i]);
         }

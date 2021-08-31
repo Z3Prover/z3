@@ -213,7 +213,7 @@ namespace smt {
               tout << "k = " << k << ", _k = "<< _k << std::endl;
               );
         expr_ref bound(m);
-        expr* e = get_enode(v)->get_owner();
+        expr* e = get_enode(v)->get_expr();
         bound  = m_util.mk_ge(e, m_util.mk_numeral(_k, m_util.is_int(e)));
         context & ctx = get_context();
         {
@@ -371,11 +371,11 @@ namespace smt {
         }
         expr_ref p1(get_manager()), p2(get_manager());
         
-        mk_polynomial_ge(pol.size(), pol.c_ptr(), -unsat_row[0]+rational(1), p1);
+        mk_polynomial_ge(pol.size(), pol.data(), -unsat_row[0]+rational(1), p1);
         for (unsigned i = 0; i < pol.size(); ++i) {
             pol[i].m_coeff.neg();
         }
-        mk_polynomial_ge(pol.size(), pol.c_ptr(), unsat_row[0]+rational(1), p2);
+        mk_polynomial_ge(pol.size(), pol.data(), unsat_row[0]+rational(1), p2);
         
         {
             std::function<expr*(void)> fn = [&]() { return m.mk_or(p1, p2); };
@@ -411,7 +411,7 @@ namespace smt {
         for (; it != end; ++it) {
             if (!it->is_dead() && it->m_var != b && is_free(it->m_var)) {
                 theory_var v  = it->m_var;
-                expr* e = get_enode(v)->get_owner();
+                expr* e = get_enode(v)->get_expr();
                 bool _is_int = m_util.is_int(e);
                 expr_ref bound(m_util.mk_ge(e, m_util.mk_numeral(rational::zero(), _is_int)), get_manager());
                 context & ctx = get_context();
@@ -465,7 +465,7 @@ namespace smt {
         
         for (unsigned i = 0; i < num_args; i++) {
             rational _k = args[i].m_coeff.to_rational();
-            expr * x = get_enode(args[i].m_var)->get_owner();
+            expr * x = get_enode(args[i].m_var)->get_expr();
             if (m_util.is_int(x) && !all_int)
                 x = m_util.mk_to_real(x);
             if (_k.is_one())
@@ -475,7 +475,7 @@ namespace smt {
         }
 
         expr_ref pol(m);
-        pol = m_util.mk_add(_args.size(), _args.c_ptr());
+        pol = m_util.mk_add(_args.size(), _args.data());
         result = m_util.mk_ge(pol, m_util.mk_numeral(k, all_int));
         TRACE("arith_mk_polynomial", tout << "before simplification:\n" << result << "\n";);
         proof_ref pr(m);
@@ -635,9 +635,9 @@ namespace smt {
             }
             rational _k = k.to_rational();
             if (is_lower)
-                bound = m_util.mk_ge(get_enode(v)->get_owner(), m_util.mk_numeral(_k, is_int(v)));
+                bound = m_util.mk_ge(get_enode(v)->get_expr(), m_util.mk_numeral(_k, is_int(v)));
             else
-                bound = m_util.mk_le(get_enode(v)->get_owner(), m_util.mk_numeral(_k, is_int(v)));
+                bound = m_util.mk_le(get_enode(v)->get_expr(), m_util.mk_numeral(_k, is_int(v)));
         }
         else { 
             if (num_ints > 0) {
@@ -663,7 +663,7 @@ namespace smt {
                       }
                       tout << "k: " << k << "\n";);
             }
-            mk_polynomial_ge(pol.size(), pol.c_ptr(), k.to_rational(), bound);            
+            mk_polynomial_ge(pol.size(), pol.data(), k.to_rational(), bound);            
         }
         TRACE("gomory_cut", tout << "new cut:\n" << bound << "\n"; ante.display(tout););
         literal l     = null_literal;
@@ -680,8 +680,8 @@ namespace smt {
         auto js = ctx.mk_justification(
             gomory_cut_justification(
                 get_id(), ctx.get_region(),
-                ante.lits().size(), ante.lits().c_ptr(),
-                ante.eqs().size(), ante.eqs().c_ptr(), ante, l));
+                ante.lits().size(), ante.lits().data(),
+                ante.eqs().size(), ante.eqs().data(), ante, l));
 
         if (l == false_literal) {
             ctx.mk_clause(0, nullptr, js, CLS_TH_LEMMA, nullptr);
@@ -760,8 +760,8 @@ namespace smt {
             ctx.set_conflict(
                 ctx.mk_justification(
                     ext_theory_conflict_justification(
-                        get_id(), ctx.get_region(), ante.lits().size(), ante.lits().c_ptr(), 
-                        ante.eqs().size(), ante.eqs().c_ptr(), 
+                        get_id(), ctx.get_region(), ante.lits().size(), ante.lits().data(), 
+                        ante.eqs().size(), ante.eqs().data(), 
                         ante.num_params(), ante.params("gcd-test"))));
             return false;
         }
@@ -841,7 +841,7 @@ namespace smt {
                 ctx.mk_justification(
                     ext_theory_conflict_justification(
                         get_id(), ctx.get_region(), 
-                        ante.lits().size(), ante.lits().c_ptr(), ante.eqs().size(), ante.eqs().c_ptr(),
+                        ante.lits().size(), ante.lits().data(), ante.eqs().size(), ante.eqs().data(),
                         ante.num_params(), ante.params("gcd-test"))));
             return false;
         }

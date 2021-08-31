@@ -110,10 +110,9 @@ bool quasi_macros::fully_depends_on(app * a, quantifier * q) const {
     // direct argument of a, i.e., a->get_arg(i) == v for some i
     bit_vector bitset;
     bitset.resize(q->get_num_decls(), false);
-    for (unsigned i = 0 ; i < a->get_num_args() ; i++) {
-        if (is_var(a->get_arg(i)))
-            bitset.set(to_var(a->get_arg(i))->get_idx(), true);
-    }
+    for (expr* arg : *a)
+        if (is_var(arg))
+             bitset.set(to_var(arg)->get_idx(), true);
 
     for (unsigned i = 0; i < bitset.size() ; i++) {
         if (!bitset.get(i))
@@ -149,6 +148,15 @@ bool quasi_macros::depends_on(expr * e, func_decl * f) const {
     return false;
 }
 
+bool quasi_macros::is_quasi_def(quantifier* q, expr* lhs, expr* rhs) const {
+  return
+    is_non_ground_uninterp(lhs) &&
+    is_unique(to_app(lhs)->get_decl()) &&
+    !depends_on(rhs, to_app(lhs)->get_decl()) &&
+    fully_depends_on(to_app(lhs), q);
+}
+
+
 bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
     // Our definition of a quasi-macro:
     // Forall X. f[X] = T[X], where f[X] is a term starting with symbol f, f is uninterpreted,
@@ -159,27 +167,39 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
         quantifier * q = to_quantifier(e);
         expr * qe = q->get_expr(), *lhs = nullptr, *rhs = nullptr;
         if (m.is_eq(qe, lhs, rhs)) {
-            if (is_non_ground_uninterp(lhs) && is_unique(to_app(lhs)->get_decl()) &&
-                !depends_on(rhs, to_app(lhs)->get_decl()) && fully_depends_on(to_app(lhs), q)) {
-                a = to_app(lhs);
+	  if (is_quasi_def(q, lhs, rhs)) {
+	        a = to_app(lhs);
                 t = rhs;
                 return true;
-            } else if (is_non_ground_uninterp(rhs) && is_unique(to_app(rhs)->get_decl()) &&
-                !depends_on(lhs, to_app(rhs)->get_decl()) && fully_depends_on(to_app(rhs), q)) {
-                a = to_app(rhs);
+	  } else if (is_quasi_def(q, rhs, lhs)) {
+	        a = to_app(rhs);
                 t = lhs;
                 return true;
             }
-        } else if (m.is_not(qe, lhs) && is_non_ground_uninterp(lhs) &&
+        }
+	else if (m.is_not(qe, lhs) && is_non_ground_uninterp(lhs) &&
                    is_unique(to_app(lhs)->get_decl())) { // this is like f(...) = false
             a = to_app(lhs);
             t = m.mk_false();
             return true;
-        } else if (is_non_ground_uninterp(qe) && is_unique(to_app(qe)->get_decl())) { // this is like f(...) = true
+        }
+	else if (is_non_ground_uninterp(qe) && is_unique(to_app(qe)->get_decl())) { // this is like f(...) = true
             a = to_app(qe);
             t = m.mk_true();
             return true;
         }
+	else if (m.is_not(qe, lhs) && m.is_eq(lhs, lhs, rhs) && m.is_bool(lhs)) {
+	  if (is_quasi_def(q, lhs, rhs)) {
+	        a = to_app(lhs);
+                t = m.mk_not(rhs);
+                return true;
+            } else if (is_quasi_def(q, rhs, lhs)) {
+	        a = to_app(rhs);
+                t = m.mk_not(lhs);
+                return true;
+            }
+	}
+
     }
 
     return false;
@@ -198,6 +218,7 @@ bool quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
 
     bit_vector v_seen;
     v_seen.resize(q->get_num_decls(), false);
+    unsigned num_seen = 0;
     for (unsigned i = 0; i < a->get_num_args(); ++i) {
         expr* arg = a->get_arg(i);
         if (!is_var(arg) && !is_ground(arg))
@@ -215,8 +236,11 @@ bool quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
             var * v = to_var(arg);
             m_new_vars.push_back(v);
             v_seen.set(v->get_idx(), true);
+            ++num_seen;
         }
     }
+    if (num_seen < q->get_num_decls())
+        return false;
 
     // Reverse the new variable names and sorts. [CMW: There is a smarter way to do this.]
     vector<symbol> new_var_names_rev;
@@ -236,18 +260,18 @@ bool quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
 
     // Macro  :=  Forall m_new_vars . appl = ITE( m_new_eqs, t, f_else)
 
-    app_ref appl(m.mk_app(f, m_new_vars.size(), m_new_vars.c_ptr()), m);
+    app_ref appl(m.mk_app(f, m_new_vars.size(), m_new_vars.data()), m);
 
     func_decl * fd = m.mk_fresh_func_decl(f->get_name(), symbol("else"),
                                                   f->get_arity(), f->get_domain(),
                                                   f->get_range());
-    expr_ref f_else(m.mk_app(fd, m_new_vars.size(), m_new_vars.c_ptr()), m);
-    expr_ref ite(m.mk_ite(m.mk_and(m_new_eqs.size(), m_new_eqs.c_ptr()), t, f_else), m);
+    expr_ref f_else(m.mk_app(fd, m_new_vars.size(), m_new_vars.data()), m);
+    expr_ref ite(m.mk_ite(m.mk_and(m_new_eqs.size(), m_new_eqs.data()), t, f_else), m);
 
     expr_ref eq(m.mk_eq(appl, ite), m);
 
     macro = m.mk_quantifier(forall_k, new_var_names_rev.size(),
-                                    new_qsorts_rev.c_ptr(), new_var_names_rev.c_ptr(), eq);
+                                    new_qsorts_rev.data(), new_var_names_rev.data(), eq);
 
     return true;
 }
@@ -344,7 +368,7 @@ void quasi_macros::apply_macros(expr_ref_vector & exprs, proof_ref_vector & prs,
 
 bool quasi_macros::operator()(expr_ref_vector & exprs, proof_ref_vector & prs, expr_dependency_ref_vector & deps) {
     unsigned n = exprs.size();
-    if (find_macros(n, exprs.c_ptr())) {
+    if (find_macros(n, exprs.data())) {
         apply_macros(exprs, prs, deps);
         return true;
     }

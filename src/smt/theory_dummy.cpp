@@ -24,7 +24,7 @@ namespace smt {
 
     void theory_dummy::found_theory_expr() {
         if (!m_theory_exprs) {
-            get_context().push_trail(value_trail<context, bool>(m_theory_exprs));
+            get_context().push_trail(value_trail<bool>(m_theory_exprs));
             m_theory_exprs = true;
         }
     }

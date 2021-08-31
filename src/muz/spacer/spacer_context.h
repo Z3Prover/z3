@@ -24,6 +24,7 @@ Notes:
 
 #include <queue>
 #include <fstream>
+#include <algorithm>
 
 #include "util/scoped_ptr_vector.h"
 #include "muz/spacer/spacer_manager.h"
@@ -152,7 +153,7 @@ public:
     expr_ref_vector const &get_cube();
     void update_cube(pob_ref const &p, expr_ref_vector &cube);
 
-    bool has_pob() {return m_pob;}
+    bool has_pob() {return !!m_pob;}
     pob_ref &get_pob() {return m_pob;}
     unsigned weakness() {return m_weakness;}
 
@@ -186,7 +187,7 @@ public:
     }
 };
 
-struct lemma_lt_proc : public std::binary_function<lemma*, lemma *, bool> {
+struct lemma_lt_proc {
     bool operator() (lemma *a, lemma *b) {
         return (a->level () < b->level ()) ||
             (a->level () == b->level () &&
@@ -234,7 +235,6 @@ class pred_transformer {
     public:
         frames (pred_transformer &pt) : m_pt (pt),
                                         m_size(0), m_sorted (true) {}
-        ~frames() {}
         void simplify_formulas ();
 
         pred_transformer& pt() const {return m_pt;}
@@ -355,7 +355,6 @@ class pred_transformer {
         rule2ptrule m_rules;
         tag2ptrule m_tags;
     public:
-        pt_rules() {}
         ~pt_rules() {for (auto &kv : m_rules) {dealloc(kv.m_value);}}
 
         bool find_by_rule(const datalog::rule &r, pt_rule* &ptr) {
@@ -438,7 +437,6 @@ class pred_transformer {
 
 public:
     pred_transformer(context& ctx, manager& pm, func_decl* head);
-    ~pred_transformer() {}
 
     inline bool use_native_mbp ();
     bool mk_mdl_rf_consistent(const datalog::rule *r, model &mdl);
@@ -457,7 +455,7 @@ public:
     func_decl* head() const {return m_head;}
     ptr_vector<datalog::rule> const& rules() const {return m_rules;}
     func_decl* sig(unsigned i) const {return m_sig[i];} // signature
-    func_decl* const* sig() {return m_sig.c_ptr();}
+    func_decl* const* sig() {return m_sig.data();}
     unsigned  sig_size() const {return m_sig.size();}
     expr*  transition() const {return m_transition;}
     expr*  init() const {return m_init;}
@@ -729,11 +727,11 @@ inline std::ostream &operator<<(std::ostream &out, pob const &p) {
     return p.display(out);
 }
 
-struct pob_lt_proc : public std::binary_function<const pob*, const pob*, bool> {
+struct pob_lt_proc {
     bool operator() (const pob *pn1, const pob *pn2) const;
 };
 
-struct pob_gt_proc : public std::binary_function<const pob*, const pob*, bool> {
+struct pob_gt_proc {
     bool operator() (const pob *n1, const pob *n2) const {
         return pob_lt_proc()(n2, n1);
     }
@@ -824,7 +822,6 @@ class pob_queue {
 
 public:
     pob_queue(): m_root(nullptr), m_max_level(0), m_min_depth(0) {}
-    ~pob_queue() {}
 
     void reset();
     pob* top();

@@ -28,6 +28,7 @@ namespace sat {
         PS_ALWAYS_FALSE,
         PS_BASIC_CACHING,
         PS_SAT_CACHING,
+        PS_FROZEN,
         PS_RANDOM
     };
 

@@ -372,7 +372,7 @@ struct reduce_args_tactic::imp {
                     if (!bv.get(i))
                         domain.push_back(f->get_domain(i));
                 }
-                new_f = m.mk_fresh_func_decl(f->get_name(), symbol::null, domain.size(), domain.c_ptr(), f->get_range());
+                new_f = m.mk_fresh_func_decl(f->get_name(), symbol::null, domain.size(), domain.data(), f->get_range());
                 m.inc_ref(tmp);
                 m.inc_ref(new_f);
             }
@@ -382,7 +382,7 @@ struct reduce_args_tactic::imp {
                 if (!bv.get(i))
                     new_args.push_back(args[i]);
             }
-            result = m.mk_app(new_f, new_args.size(), new_args.c_ptr());
+            result = m.mk_app(new_f, new_args.size(), new_args.data());
             return BR_DONE;
         }
     };
@@ -421,7 +421,7 @@ struct reduce_args_tactic::imp {
                 func_decl * new_def = it2->m_value;
                 f_mc->hide(new_def);
                 SASSERT(new_def->get_arity() == new_args.size());
-                app * new_t = m_manager.mk_app(new_def, new_args.size(), new_args.c_ptr());
+                app * new_t = m_manager.mk_app(new_def, new_args.size(), new_args.data());
                 if (def == nullptr) {
                     def = new_t;
                 }
@@ -436,7 +436,7 @@ struct reduce_args_tactic::imp {
                     if (new_eqs.size() == 1)
                         cond = new_eqs[0];
                     else
-                        cond = m_manager.mk_and(new_eqs.size(), new_eqs.c_ptr());
+                        cond = m_manager.mk_and(new_eqs.size(), new_eqs.data());
                     def = m_manager.mk_ite(cond, new_t, def);
                 }
             }

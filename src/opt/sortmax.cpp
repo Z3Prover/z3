@@ -67,7 +67,7 @@ namespace opt {
                     --n;
                 }
             }
-            m_sort.sorting(in.size(), in.c_ptr(), out);
+            m_sort.sorting(in.size(), in.data(), out);
 
             // initialize sorting network outputs using the initial assignment.
             unsigned first = 0;

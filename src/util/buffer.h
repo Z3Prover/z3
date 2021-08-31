@@ -27,11 +27,11 @@ Revision History:
 template<typename T, bool CallDestructors=true, unsigned INITIAL_SIZE=16>
 class buffer {
 protected:
-    T *      m_buffer;
-    unsigned m_pos;
-    unsigned m_capacity;
-    char     m_initial_buffer[INITIAL_SIZE * sizeof(T)];
-    
+    T *      m_buffer = reinterpret_cast<T*>(m_initial_buffer);
+    unsigned m_pos = 0;
+    unsigned m_capacity = INITIAL_SIZE;
+    typename std::aligned_storage<sizeof(T), alignof(T)>::type m_initial_buffer[INITIAL_SIZE];
+
     void free_memory() {
         if (m_buffer != reinterpret_cast<T*>(m_initial_buffer)) {
             dealloc_svect(m_buffer);
@@ -39,7 +39,7 @@ protected:
     }
 
     void expand() {
-        static_assert(std::is_nothrow_move_constructible<T>::value, "");
+        static_assert(std::is_nothrow_move_constructible<T>::value);
         unsigned new_capacity = m_capacity << 1;
         T * new_buffer        = reinterpret_cast<T*>(memory::allocate(sizeof(T) * new_capacity));
         for (unsigned i = 0; i < m_pos; ++i) {
@@ -69,30 +69,34 @@ protected:
     }
 
 public:
-    typedef T data;
+    typedef T data_t;
     typedef T * iterator;
     typedef const T * const_iterator;
 
-    buffer():
-        m_buffer(reinterpret_cast<T *>(m_initial_buffer)),
-        m_pos(0),
-        m_capacity(INITIAL_SIZE) {
-    }
+    buffer() = default;
     
-    buffer(const buffer & source):
-        m_buffer(reinterpret_cast<T *>(m_initial_buffer)),
-        m_pos(0),
-        m_capacity(INITIAL_SIZE) {
-        unsigned sz = source.size();
-        for(unsigned i = 0; i < sz; i++) {
+    buffer(const buffer & source) {
+        for (unsigned i = 0, sz = source.size(); i < sz; ++i) {
             push_back(source.m_buffer[i]);
         }
     }
-    
-    buffer(unsigned sz, const T & elem):
-        m_buffer(reinterpret_cast<T *>(m_initial_buffer)),
-        m_pos(0),
-        m_capacity(INITIAL_SIZE) {
+
+    buffer(buffer && source) noexcept {
+        if (source.m_buffer == reinterpret_cast<T*>(source.m_initial_buffer)) {
+            for (unsigned i = 0, sz = source.size(); i < sz; ++i) {
+                push_back(std::move(source.m_buffer[i]));
+            }
+        } else {
+            m_buffer          = source.m_buffer;
+            m_pos             = source.m_pos;
+            m_capacity        = source.m_capacity;
+            source.m_buffer   = reinterpret_cast<T*>(source.m_initial_buffer);
+            source.m_pos      = 0;
+            source.m_capacity = INITIAL_SIZE;
+        }
+    }
+
+    buffer(unsigned sz, const T & elem) {
         for (unsigned i = 0; i < sz; i++) {
             push_back(elem);
         }
@@ -184,7 +188,7 @@ public:
         return m_buffer[m_pos - 1]; 
     }
     
-    T * c_ptr() const {
+    T * data() const {
         return m_buffer;
     }
 
@@ -195,7 +199,7 @@ public:
     }
 
     void append(const buffer& source) {
-        append(source.size(), source.c_ptr());
+        append(source.size(), source.data());
     }
 
     T & operator[](unsigned idx) { 

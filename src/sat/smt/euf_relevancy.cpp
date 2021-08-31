@@ -38,12 +38,22 @@ namespace euf {
         }
     }
 
+    /**
+     * Add a root clause. Root clauses must all be satisfied by the 
+     * final assignment. If a clause is added above search level it
+     * is subject to removal on backtracking. These clauses are therefore
+     * not tracked.
+     */
     void solver::add_root(unsigned n, sat::literal const* lits) {
+        if (!relevancy_enabled())
+            return;
         ensure_dual_solver();
         m_dual_solver->add_root(n, lits);
     }
 
     void solver::add_aux(unsigned n, sat::literal const* lits) {
+        if (!relevancy_enabled())
+            return;
         ensure_dual_solver();
         m_dual_solver->add_aux(n, lits);
     }
@@ -83,7 +93,7 @@ namespace euf {
             if (!is_app(e))
                 continue;
             expr* c = nullptr, *th = nullptr, *el = nullptr;
-            if (m.is_ite(e, c, th, el)) {
+            if (m.is_ite(e, c, th, el) && get_enode(c)) {
                 sat::literal lit = expr2literal(c);
                 todo.push_back(c);
                 switch (s().value(lit)) {
@@ -106,8 +116,8 @@ namespace euf {
 
         TRACE("euf",
             for (enode* n : m_egraph.nodes())
-                if (is_relevant(n))
-                    tout << "relevant " << mk_bounded_pp(n->get_expr(), m) << "\n";);
-        return true;
+                if (is_relevant(n)) 
+                    tout << "relevant " << n->get_expr_id() << " [r" << n->get_root_id() << "]: " << mk_bounded_pp(n->get_expr(), m) << "\n";);
+              return true;
     }
 }

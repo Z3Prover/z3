@@ -174,7 +174,7 @@ class subpaving_tactic : public tactic {
             for (unsigned i = 0; i < sz; i++) {
                 ineq_buffer.push_back(mk_ineq(args[i]));
             }
-            m_ctx->add_clause(sz, ineq_buffer.c_ptr());
+            m_ctx->add_clause(sz, ineq_buffer.data());
         }
         
         void internalize(goal const & g) {

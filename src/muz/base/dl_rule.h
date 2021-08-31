@@ -62,7 +62,7 @@ namespace datalog {
                 m_func = n->get_decl();
             }
             else if (m_dt.is_accessor(n)) {
-                sort* s = m.get_sort(n->get_arg(0));
+                sort* s = n->get_arg(0)->get_sort();
                 SASSERT(m_dt.is_datatype(s));
                 if (m_dt.get_datatype_constructors(s)->size() > 1) {
                     m_found = true;
@@ -313,7 +313,6 @@ namespace datalog {
         static unsigned get_obj_size(unsigned n) { return sizeof(rule) + n * sizeof(app *); }
 
         rule() : m_ref_cnt(0), m_name(symbol::null) {}
-        ~rule() {}
 
         void deallocate(ast_manager & m);
 

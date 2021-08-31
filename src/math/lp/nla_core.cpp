@@ -36,8 +36,10 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_emons(m_evars),
     m_reslim(lim),
     m_use_nra_model(false),
-    m_nra(s, lim, *this)
-{}
+    m_nra(s, m_nra_lim, *this)
+{
+    m_nlsat_delay = lp_settings().nlsat_delay();
+}
     
 bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const {
     switch(cmp) {
@@ -55,7 +57,7 @@ bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const 
 
 rational core::value(const lp::lar_term& r) const {
     rational ret(0);
-    for (const auto & t : r) {
+    for (lp::lar_term::ival t : r) {
         ret += t.coeff() * val(t.column());
     }
     return ret;
@@ -63,7 +65,7 @@ rational core::value(const lp::lar_term& r) const {
 
 lp::lar_term core::subs_terms_to_columns(const lp::lar_term& t) const {
     lp::lar_term r;
-    for (const auto& p : t) {
+    for (lp::lar_term::ival p : t) {
         lpvar j = p.column();
         if (lp::tv::is_term(j))
             j = m_lar_solver.map_term_index_to_column_index(j);
@@ -271,7 +273,7 @@ std::ostream& core::print_explanation(const lp::explanation& exp, std::ostream& 
 
 bool core::explain_upper_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const {
     rational b(0); // the bound
-    for (const auto& p : t) {
+    for (lp::lar_term::ival p : t) {
         rational pb;
         if (explain_coeff_upper_bound(p, pb, e)) {
             b += pb;
@@ -288,7 +290,7 @@ bool core::explain_upper_bound(const lp::lar_term& t, const rational& rs, lp::ex
 }
 bool core::explain_lower_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const {
     rational b(0); // the bound
-    for (const auto& p : t) {
+    for (lp::lar_term::ival p : t) {
         rational pb;
         if (explain_coeff_lower_bound(p, pb, e)) {
             b += pb;
@@ -587,7 +589,7 @@ std::ostream & core::print_ineqs(const lemma& l, std::ostream & out) const {
             auto & in = l.ineqs()[i]; 
             print_ineq(in, out);
             if (i + 1 < l.ineqs().size()) out << " or ";
-            for (const auto & p: in.term())
+            for (lp::lar_term::ival p: in.term())
                 vars.insert(p.column());
         }
         out << std::endl;
@@ -708,7 +710,7 @@ bool core::is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &
     bool seen_minus = false;
     bool seen_plus = false;
     i = null_lpvar;
-    for(const auto & p : t) {
+    for(lp::lar_term::ival p : t) {
         const auto & c = p.coeff();
         if (c == 1) {
             seen_plus = true;
@@ -851,11 +853,11 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
     };
     
     for (const auto& i : l.ineqs()) {
-        for (const auto& p : i.term()) {                
+        for (lp::lar_term::ival p : i.term()) {                
             insert_j(p.column());
         }
     }
-    for (const auto& p : l.expl()) {
+    for (auto p : l.expl()) {
         const auto& c = m_lar_solver.constraints()[p.ci()];
         for (const auto& r : c.coeffs()) {
             insert_j(r.second);
@@ -1507,12 +1509,16 @@ lbool core::check(vector<lemma>& l_vec) {
         run_grobner();                
 
     if (l_vec.empty() && !done()) 
-        m_basics.basic_lemma(true);    
+        m_basics.basic_lemma(true); 
 
     if (l_vec.empty() && !done()) 
         m_basics.basic_lemma(false);
 
-    if (l_vec.empty() && !done()) {
+    if (!conflict_found() && !done() && should_run_bounded_nlsat())
+        ret = bounded_nlsat();
+    
+
+    if (l_vec.empty() && !done() && ret == l_undef) {
         std::function<void(void)> check1 = [&]() { m_order.order_lemma(); };
         std::function<void(void)> check2 = [&]() { m_monotone.monotonicity_lemma(); };
         std::function<void(void)> check3 = [&]() { m_tangents.tangent_lemma(); };
@@ -1523,10 +1529,9 @@ lbool core::check(vector<lemma>& l_vec) {
               { 1, check3 }};
         check_weighted(3, checks);
 
-        if (!conflict_found() && m_nla_settings.run_nra() && random() % 30 == 0) {
-            ret = m_nra.check();
-            m_stats.m_nra_calls++;
-        }
+        unsigned num_calls = lp_settings().stats().m_nla_calls;
+        if (!conflict_found() && m_nla_settings.run_nra() && num_calls % 50 == 0 && num_calls > 500) 
+            ret = bounded_nlsat();
     }
 
     if (l_vec.empty() && !done() && m_nla_settings.run_nra() && ret == l_undef) {
@@ -1545,6 +1550,40 @@ lbool core::check(vector<lemma>& l_vec) {
     TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << l_vec.size() << "\n";);
     IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monics(verbose_stream());});
     CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monics(tout););
+    return ret;
+}
+
+bool core::should_run_bounded_nlsat() {
+    if (!m_nla_settings.run_nra())
+        return false;
+    if (m_nlsat_delay > m_nlsat_fails)
+        ++m_nlsat_fails;
+    return m_nlsat_delay <= m_nlsat_fails;
+}
+
+lbool core::bounded_nlsat() {
+    params_ref p;
+    lbool ret;
+    p.set_uint("max_conflicts", 100);
+    m_nra.updt_params(p);
+    {
+        scoped_limits sl(m_reslim);
+        sl.push_child(&m_nra_lim);
+        scoped_rlimit sr(m_nra_lim, 100000);
+        ret = m_nra.check();
+    }
+    p.set_uint("max_conflicts", UINT_MAX);           
+    m_nra.updt_params(p);
+    m_stats.m_nra_calls++;
+    if (ret == l_undef) 
+        ++m_nlsat_delay;    
+    else { 
+        m_nlsat_fails = 0;
+        m_nlsat_delay /= 2;
+    }
+    if (ret == l_true) {
+        m_lemma_vec->reset();
+    }
     return ret;
 }
 
@@ -1935,3 +1974,4 @@ void core::collect_statistics(::statistics & st) {
 
 
 } // end of nla
+

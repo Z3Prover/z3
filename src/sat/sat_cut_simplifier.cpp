@@ -70,7 +70,7 @@ namespace sat {
             IF_VERBOSE(10, verbose_stream() << "validate: " << clause << "\n");
             m_assumptions.reset();
             for (literal lit : clause) m_assumptions.push_back(~lit);           
-            lbool r = s.check(clause.size(), m_assumptions.c_ptr());
+            lbool r = s.check(clause.size(), m_assumptions.data());
             if (r != l_false) {
                 IF_VERBOSE(0, 
                            verbose_stream() << "not validated: " << clause << "\n";
@@ -131,7 +131,7 @@ namespace sat {
         m_lits.reset();
         m_lits.append(sz, lits);
         for (unsigned i = 0; i < sz; ++i) m_lits[i].neg();
-        m_aig_cuts.add_node(~head, and_op, sz, m_lits.c_ptr());
+        m_aig_cuts.add_node(~head, and_op, sz, m_lits.data());
         m_stats.m_num_ands++;
     }
 
@@ -188,7 +188,7 @@ namespace sat {
                
         std::function<void (literal head, literal_vector const& ands)> on_and = 
             [&,this](literal head, literal_vector const& ands) {
-            m_aig_cuts.add_node(head, and_op, ands.size(), ands.c_ptr());
+            m_aig_cuts.add_node(head, and_op, ands.size(), ands.data());
             m_stats.m_xands++;
         };
         std::function<void (literal head, literal c, literal t, literal e)> on_ite = 
@@ -228,7 +228,7 @@ namespace sat {
                 if (i != index) 
                     m_lits.push_back(xors[i]);
             }
-            m_aig_cuts.add_node(head, xor_op, sz, m_lits.c_ptr());
+            m_aig_cuts.add_node(head, xor_op, sz, m_lits.data());
             m_lits.reset();
             m_stats.m_xxors++;            
         };
@@ -242,7 +242,7 @@ namespace sat {
             [&,this](uint64_t lut, bool_var_vector const& vars, bool_var v) {
             m_stats.m_xluts++;
             // m_aig_cuts.add_cut(v, lut, vars);
-            m_aig_cuts.add_node(v, lut, vars.size(), vars.c_ptr());
+            m_aig_cuts.add_node(v, lut, vars.size(), vars.data());
         };
 
         if (s.m_config.m_cut_npn3) {
@@ -580,7 +580,7 @@ namespace sat {
             for (; i < sz; ++i) {
                 auto const& clause = clauses[i];
                 if (clause[0].sign()) {
-                    literal_vector cl(clause.size() - 1, clause.c_ptr() + 1);
+                    literal_vector cl(clause.size() - 1, clause.data() + 1);
                     clauses.push_back(cl);
                     s.m_drat.add(cl);
                 }

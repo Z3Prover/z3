@@ -231,10 +231,10 @@ void expr_context_simplifier::reduce_and_or(bool is_and, unsigned num_args, expr
     clean_trail(trail_size);
 
     if (is_and) {
-        m_simp.mk_and(args1.size(), args1.c_ptr(), result);
+        m_simp.mk_and(args1.size(), args1.data(), result);
     }
     else {
-        m_simp.mk_or(args1.size(), args1.c_ptr(), result);
+        m_simp.mk_or(args1.size(), args1.data(), result);
     }
 }
 

@@ -30,7 +30,7 @@ Revision History:
 template<class Set1, class Set2>
 void set_intersection(Set1 & tgt, const Set2 & src) {
     svector<typename Set1::data> to_remove;
-    for (auto const& itm : tgt) 
+    for (auto itm : tgt) 
         if (!src.contains(itm)) 
             to_remove.push_back(itm);
     while (!to_remove.empty()) {
@@ -41,7 +41,7 @@ void set_intersection(Set1 & tgt, const Set2 & src) {
 
 template<class Set>
 void set_difference(Set & tgt, const Set & to_remove) {
-    for (auto const& itm : to_remove) 
+    for (auto itm : to_remove) 
         tgt.remove(itm);
 }
 
@@ -85,7 +85,7 @@ void print_container(const T & cont, std::ostream & out) {
 
 template<class T, class M>
 void print_container(const ref_vector<T,M> & cont, std::ostream & out) {
-    print_container(cont.c_ptr(), cont.c_ptr() + cont.size(), out);
+    print_container(cont.data(), cont.data() + cont.size(), out);
 }
 
 template<class T>

@@ -80,7 +80,7 @@ linear_equation * linear_equation_manager::mk(unsigned sz, mpq * as, var * xs, b
         m_int_buffer.push_back(as[i].numerator());
     }
 
-    linear_equation * new_eq = mk(sz, m_int_buffer.c_ptr(), xs, normalized);
+    linear_equation * new_eq = mk(sz, m_int_buffer.data(), xs, normalized);
     
     m.del(r);
     m.del(l);
@@ -266,7 +266,7 @@ linear_equation * linear_equation_manager::mk(mpz const & b1, linear_equation co
     SASSERT(m_int_buffer.size() == m_var_buffer.size());
     if (m_int_buffer.empty())
         return nullptr;
-    return mk_core(m_int_buffer.size(), m_int_buffer.c_ptr(), m_var_buffer.c_ptr());
+    return mk_core(m_int_buffer.size(), m_int_buffer.data(), m_var_buffer.data());
 }
 
 void linear_equation_manager::del(linear_equation * eq) {

@@ -28,7 +28,7 @@ namespace sat {
         flet<bool> _init(m_initializing, true);
         m_unsat_stack.reset();
         for (unsigned i = 0; i < m_assumptions.size(); ++i) {
-            add_clause(1, m_assumptions.c_ptr() + i);
+            add_clause(1, m_assumptions.data() + i);
         }
         if (m_is_unsat)
             return;
@@ -380,16 +380,14 @@ namespace sat {
 
         if (m_config.phase_sticky()) {
             unsigned v = 0;
-            for (var_info& vi : m_vars) {
+            for (var_info& vi : m_vars) 
                 vi.m_bias = s.m_phase[v++] ? 98 : 2;
-            }
         }
 
         // copy units
         unsigned trail_sz = s.init_trail_size();
-        for (unsigned i = 0; i < trail_sz; ++i) {
-            add_clause(1, s.m_trail.c_ptr() + i);
-        }
+        for (unsigned i = 0; i < trail_sz; ++i) 
+            add_clause(1, s.m_trail.data() + i);
 
         // copy binary clauses
         {
@@ -410,9 +408,8 @@ namespace sat {
         }
 
         // copy clauses
-        for (clause* c : s.m_clauses) {
+        for (clause* c : s.m_clauses) 
             add_clause(c->size(), c->begin());
-        }
         m_num_non_binary_clauses = s.m_clauses.size();
 
 
@@ -422,7 +419,7 @@ namespace sat {
             [&](unsigned sz, literal const* c, unsigned k) { add_cardinality(sz, c, k); };
         std::function<void(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k)> pb = 
             [&](unsigned sz, literal const* c, unsigned const* coeffs, unsigned k) { add_pb(sz, c, coeffs, k); };
-        if (ext && !ext->extract_pb(card, pb))
+        if (ext && (!ext->is_pb() || !ext->extract_pb(card, pb)))
             throw default_exception("local search is incomplete with extensions beyond PB");
         
         if (_init) {

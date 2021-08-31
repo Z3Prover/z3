@@ -43,7 +43,7 @@ struct_factory::~struct_factory() {
 }
 
 void struct_factory::register_value(expr * new_value) {
-    sort * s        = m_manager.get_sort(new_value);
+    sort * s        = new_value->get_sort();
     value_set * set = get_value_set(s);
     if (!set->contains(new_value)) {
         m_values.push_back(new_value);

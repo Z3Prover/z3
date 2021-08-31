@@ -54,7 +54,6 @@ namespace array {
             euf::enode_vector   m_lambdas;             // equivalent nodes that have beta reduction properties
             euf::enode_vector   m_parent_lambdas;      // parents that have beta reduction properties
             euf::enode_vector   m_parent_selects;      // parents that use array in select position
-            var_data() {}
         };
 
 
@@ -90,17 +89,36 @@ namespace array {
                 is_default,
                 is_congruence
             };
+            enum class state_t {
+                is_new,
+                is_delayed,
+                is_applied
+            };
             kind_t      m_kind;
+            state_t     m_state { state_t::is_new };
             euf::enode* n;
             euf::enode* select;
-            bool        m_delayed { false };
             axiom_record(kind_t k, euf::enode* n, euf::enode* select = nullptr) : m_kind(k), n(n), select(select) {}
+
+            bool is_delayed() const { return m_state == state_t::is_delayed; }
+            bool is_applied() const { return m_state == state_t::is_applied; }
+            void set_new() { m_state = state_t::is_new; }
+            void set_applied() { m_state = state_t::is_applied; }
+            void set_delayed() { m_state = state_t::is_delayed; }
 
             struct hash {
                 solver& s;
                 hash(solver& s) :s(s) {}
+                unsigned hash_select(axiom_record const& r) const {
+                    unsigned h = mk_mix(r.n->get_expr_id(), (unsigned)r.m_kind, r.select->get_arg(1)->get_expr_id());
+                    for (unsigned i = 2; i < r.select->num_args(); ++i)
+                        h = mk_mix(h, h, r.select->get_arg(i)->get_expr_id());
+                    return h;
+                }
                 unsigned operator()(unsigned idx) const {
                     auto const& r = s.m_axiom_trail[idx];
+                    if (r.m_kind == kind_t::is_select) 
+                        return hash_select(r);
                     return mk_mix(r.n->get_expr_id(), (unsigned)r.m_kind, r.select ? r.select->get_expr_id() : 1);
                 }
             };
@@ -108,10 +126,20 @@ namespace array {
             struct eq {
                 solver& s;
                 eq(solver& s) :s(s) {}
+                bool eq_select(axiom_record const& p, axiom_record const& r) const {
+                    if (p.m_kind != r.m_kind || p.n != r.n)
+                        return false;
+                    for (unsigned i = p.select->num_args(); i-- > 1; )
+                        if (p.select->get_arg(i) != r.select->get_arg(i))
+                            return false;
+                    return true;                    
+                }
                 unsigned operator()(unsigned a, unsigned b) const {
                     auto const& p = s.m_axiom_trail[a];
                     auto const& r = s.m_axiom_trail[b];
-                    return p.n == r.n && p.select == r.select && p.m_kind == r.m_kind;
+                    if (p.m_kind == kind_t::is_select)
+                        return eq_select(p, r);
+                    return p.m_kind == r.m_kind && p.n == r.n && p.select == r.select;
                 }
             };
         };
@@ -122,12 +150,17 @@ namespace array {
         svector<axiom_record> m_axiom_trail;
         unsigned              m_qhead { 0 };
         unsigned              m_delay_qhead { 0 };
-        struct set_delay_bit;
+        bool                  m_enable_delay { true };
+        struct reset_new;
         void push_axiom(axiom_record const& r);
         bool propagate_axiom(unsigned idx);
         bool assert_axiom(unsigned idx);
         bool assert_select(unsigned idx, axiom_record & r);
         bool assert_default(axiom_record & r);
+        bool is_relevant(axiom_record const& r) const;
+        void set_applied(unsigned idx) { m_axiom_trail[idx].set_applied(); }
+        bool is_applied(unsigned idx) const { return m_axiom_trail[idx].is_applied(); }
+        bool is_delayed(unsigned idx) const { return m_axiom_trail[idx].is_delayed(); }
 
         axiom_record select_axiom(euf::enode* s, euf::enode* n) { return axiom_record(axiom_record::kind_t::is_select, n, s); }
         axiom_record default_axiom(euf::enode* n) { return axiom_record(axiom_record::kind_t::is_default, n); }
@@ -176,7 +209,8 @@ namespace array {
         unsigned get_lambda_equiv_size(var_data const& d) const;
         bool should_set_prop_upward(var_data const& d) const;
         bool should_prop_upward(var_data const& d) const;
-        bool can_beta_reduce(euf::enode* n) const;
+        bool can_beta_reduce(euf::enode* n) const { return can_beta_reduce(n->get_expr()); }
+        bool can_beta_reduce(expr* e) const;
 
         var_data& get_var_data(euf::enode* n) { return get_var_data(n->get_th_var(get_id())); }
         var_data& get_var_data(theory_var v) { return *m_var_data[v]; }
@@ -185,10 +219,24 @@ namespace array {
         void pop_core(unsigned n) override;
         
         // models
+        euf::enode_vector   m_defaults;       // temporary field for model construction
+        ptr_vector<expr>    m_else_values;    // 
+        svector<int>        m_parents;        // temporary field for model construction
         bool have_different_model_values(theory_var v1, theory_var v2);
+        void collect_defaults();
+        void mg_merge(theory_var u, theory_var v);
+        theory_var mg_find(theory_var n);
+        void set_default(theory_var v, euf::enode* n);
+        euf::enode* get_default(theory_var v);
+        void set_else(theory_var v, expr* e);
+        expr* get_else(theory_var v);
 
         // diagnostics
-        std::ostream& display_info(std::ostream& out, char const* id, euf::enode_vector const& v) const;
+        std::ostream& display_info(std::ostream& out, char const* id, euf::enode_vector const& v) const; 
+        std::ostream& display(std::ostream& out, axiom_record const& r) const;
+        void validate_check() const;
+        void validate_select_store(euf::enode* n) const;
+        void validate_extensionality(euf::enode* s, euf::enode* t) const;
     public:
         solver(euf::solver& ctx, theory_id id);
         ~solver() override;
@@ -206,8 +254,9 @@ namespace array {
         bool use_diseqs() const override { return true; }
         void new_diseq_eh(euf::th_eq const& eq) override;
         bool unit_propagate() override;
+        void init_model() override;
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
-        void add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
+        bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;
         void internalize(expr* e, bool redundant) override;
         euf::theory_var mk_var(euf::enode* n) override;

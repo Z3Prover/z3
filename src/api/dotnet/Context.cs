@@ -89,7 +89,6 @@ namespace Microsoft.Z3
         /// </remarks>
         public IntSymbol MkSymbol(int i)
         {
-
             return new IntSymbol(this, i);
         }
 
@@ -98,7 +97,6 @@ namespace Microsoft.Z3
         /// </summary>
         public StringSymbol MkSymbol(string name)
         {
-
             return new StringSymbol(this, name);
         }
 
@@ -107,7 +105,6 @@ namespace Microsoft.Z3
         /// </summary>
         internal Symbol[] MkSymbols(string[] names)
         {
-
             if (names == null) return null;
             Symbol[] result = new Symbol[names.Length];
             for (int i = 0; i < names.Length; ++i) result[i] = MkSymbol(names[i]);
@@ -120,6 +117,7 @@ namespace Microsoft.Z3
         private IntSort m_intSort = null;
         private RealSort m_realSort = null;
         private SeqSort m_stringSort = null;
+        private CharSort m_charSort = null;
 
         /// <summary>
         /// Retrieves the Boolean sort of the context.
@@ -154,6 +152,18 @@ namespace Microsoft.Z3
                 if (m_realSort == null) m_realSort = new RealSort(this); return m_realSort;
             }
         }
+
+        /// <summary>
+        /// Retrieves the String sort of the context.
+        /// </summary>
+        public CharSort CharSort
+        {
+            get
+            {
+                if (m_charSort == null) m_charSort = new CharSort(this); return m_charSort;
+            }
+        }
+
 
         /// <summary>
         /// Retrieves the String sort of the context.
@@ -546,18 +556,18 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Bind a definition to a recursive function declaration.
-	/// The function must have previously been created using
-	/// MkRecFuncDecl. The body may contain recursive uses of the function or
-	/// other mutually recursive functions. 
+        /// The function must have previously been created using
+        /// MkRecFuncDecl. The body may contain recursive uses of the function or
+        /// other mutually recursive functions. 
         /// </summary>
-	public void AddRecDef(FuncDecl f, Expr[] args, Expr body) 
-	{
-	    CheckContextMatch(f);
-	    CheckContextMatch<Expr>(args);
-	    CheckContextMatch(body);
+    public void AddRecDef(FuncDecl f, Expr[] args, Expr body) 
+    {
+        CheckContextMatch(f);
+        CheckContextMatch<Expr>(args);
+        CheckContextMatch(body);
             IntPtr[] argsNative = AST.ArrayToNative(args);
-	    Native.Z3_add_rec_def(nCtx, f.NativeObject, (uint)args.Length, argsNative, body.NativeObject);
-	}	
+        Native.Z3_add_rec_def(nCtx, f.NativeObject, (uint)args.Length, argsNative, body.NativeObject);
+    }	
 
         /// <summary>
         /// Creates a new function declaration.
@@ -2386,6 +2396,25 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Convert a bit-vector expression, represented as an unsigned number, to a string.
+        /// </summary>
+        public SeqExpr UbvToString(Expr e)
+        {
+            Debug.Assert(e != null);
+            Debug.Assert(e is ArithExpr);
+            return new SeqExpr(this, Native.Z3_mk_ubv_to_str(nCtx, e.NativeObject));
+        }
+
+        /// <summary>
+        /// Convert a bit-vector expression, represented as an signed number, to a string.
+        /// </summary>
+        public SeqExpr SbvToString(Expr e) {
+            Debug.Assert(e != null);
+            Debug.Assert(e is ArithExpr);
+            return new SeqExpr(this, Native.Z3_mk_sbv_to_str(nCtx, e.NativeObject));
+        }
+
+        /// <summary>
         /// Convert an integer expression to a string.
         /// </summary>
         public IntExpr StringToInt(Expr e) 
@@ -2454,7 +2483,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Check if the string s1 is lexicographically strictly less than s2.
         /// </summary>
-	public BoolExpr MkStringLt(SeqExpr s1, SeqExpr s2) 
+        public BoolExpr MkStringLt(SeqExpr s1, SeqExpr s2) 
         {
             Debug.Assert(s1 != null);
             Debug.Assert(s2 != null);
@@ -2465,7 +2494,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Check if the string s1 is lexicographically strictly less than s2.
         /// </summary>
-	public BoolExpr MkStringLe(SeqExpr s1, SeqExpr s2) 
+        public BoolExpr MkStringLe(SeqExpr s1, SeqExpr s2) 
         {
             Debug.Assert(s1 != null);
             Debug.Assert(s2 != null);
@@ -2635,7 +2664,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Create the empty regular expression.
-	/// The sort s should be a regular expression.
+        /// The sort s should be a regular expression.
         /// </summary>
         public ReExpr MkEmptyRe(Sort s) 
         {
@@ -2645,7 +2674,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Create the full regular expression.
-	/// The sort s should be a regular expression.
+        /// The sort s should be a regular expression.
         /// </summary>
         public ReExpr MkFullRe(Sort s) 
         {
@@ -3379,7 +3408,7 @@ namespace Microsoft.Z3
         {
             Debug.Assert(t1 != null);
             Debug.Assert(t2 != null);
-	    //  Debug.Assert(ts == null || Contract.ForAll(0, ts.Length, j => ts[j] != null));
+            //  Debug.Assert(ts == null || Contract.ForAll(0, ts.Length, j => ts[j] != null));
 
             return AndThen(t1, t2, ts);
         }
@@ -4676,7 +4705,7 @@ namespace Microsoft.Z3
             {
                 foreach (Z3Object a in arr)
                 {
-	            Debug.Assert(a != null); // It was an assume, now we added the precondition, and we made it into an assert
+                    Debug.Assert(a != null); // It was an assume, now we added the precondition, and we made it into an assert
                     CheckContextMatch(a);
                 }
             }
@@ -4808,16 +4837,6 @@ namespace Microsoft.Z3
         {
             // Console.WriteLine("Context Finalizer from " + System.Threading.Thread.CurrentThread.ManagedThreadId);
             Dispose();
-
-            if (refCount == 0 && m_ctx != IntPtr.Zero)
-            {
-                m_n_err_handler = null;
-                IntPtr ctx = m_ctx;
-                m_ctx = IntPtr.Zero;
-                Native.Z3_del_context(ctx);
-            }
-            else
-                GC.ReRegisterForFinalize(this);
         }
 
         /// <summary>
@@ -4847,6 +4866,15 @@ namespace Microsoft.Z3
             m_intSort = null;
             m_realSort = null;
             m_stringSort = null;
+            if (refCount == 0 && m_ctx != IntPtr.Zero)
+            {
+                m_n_err_handler = null;
+                IntPtr ctx = m_ctx;
+                m_ctx = IntPtr.Zero;
+                Native.Z3_del_context(ctx);
+            }
+            else 
+                GC.ReRegisterForFinalize(this);
         }
         #endregion
     }

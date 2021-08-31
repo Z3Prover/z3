@@ -131,7 +131,7 @@ namespace sat {
         unsigned idx = m_clauses.size();
         m_clauses.push_back(clause_info(cls, m_config.m_init_clause_weight));
         for (literal lit : *cls) {
-            m_use_list.reserve(lit.index()+1);
+            m_use_list.reserve(2*(lit.var()+1));
             m_vars.reserve(lit.var()+1);
             m_use_list[lit.index()].push_back(idx);
         }
@@ -147,7 +147,7 @@ namespace sat {
 
         unsigned trail_sz = s.init_trail_size();
         for (unsigned i = 0; i < trail_sz; ++i) {
-            add(1, s.m_trail.c_ptr() + i);
+            add(1, s.m_trail.data() + i);
         }
         unsigned sz = s.m_watches.size();
         for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
@@ -171,7 +171,7 @@ namespace sat {
 
     void ddfw::add_assumptions() {
         for (unsigned i = 0; i < m_assumptions.size(); ++i) {
-            add(1, m_assumptions.c_ptr() + i);
+            add(1, m_assumptions.data() + i);
         }
     }
 

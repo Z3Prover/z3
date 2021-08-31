@@ -38,6 +38,7 @@ Notes:
 class goal2sat {
     struct imp;
     imp *  m_imp;
+    unsigned m_scopes { 0 };
 
 public:
     goal2sat();
@@ -64,6 +65,8 @@ public:
     void get_interpreted_funs(func_decl_ref_vector& funs);
 
     bool has_interpreted_funs() const;
+
+    bool has_euf() const;
 
     sat::sat_internalizer& si(ast_manager& m, params_ref const& p, sat::solver_core& t, atom2bool_var& a2b, dep2asm_map& dep2asm, bool default_external = false);
 

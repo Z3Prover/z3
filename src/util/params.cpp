@@ -105,7 +105,7 @@ struct param_descrs::imp {
         if (!period) return false;
         svector<char> prefix_((unsigned)(period-str), str);
         prefix_.push_back(0);
-        prefix = symbol(prefix_.c_ptr());
+        prefix = symbol(prefix_.data());
         suffix = symbol(period + 1);
         return true;
     }

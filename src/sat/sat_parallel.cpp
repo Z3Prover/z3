@@ -130,7 +130,7 @@ namespace sat {
             lock_guard lock(m_mux);
             if (limit < m_units.size()) {
                 // this might repeat some literals.
-                out.append(m_units.size() - limit, m_units.c_ptr() + limit);
+                out.append(m_units.size() - limit, m_units.data() + limit);
             }
             for (unsigned i = 0; i < in.size(); ++i) {
                 literal lit = in[i];
@@ -192,7 +192,7 @@ namespace sat {
             IF_VERBOSE(3, verbose_stream() << s.m_par_id << ": retrieve " << m_lits << "\n";);
             SASSERT(n >= 2);
             if (usable_clause) {
-                s.mk_clause_core(m_lits.size(), m_lits.c_ptr(), sat::status::redundant());
+                s.mk_clause_core(m_lits.size(), m_lits.data(), sat::status::redundant());
             }
         }        
     }

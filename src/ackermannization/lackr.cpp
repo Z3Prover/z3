@@ -175,12 +175,12 @@ void lackr::abstract_fun(fun2terms_map const& apps) {
     for (auto const& kv : apps) {
         func_decl* fd = kv.m_key;
         for (app * t : kv.m_value->var_args) {
-            app * fc = m.mk_fresh_const(fd->get_name(), m.get_sort(t));
+            app * fc = m.mk_fresh_const(fd->get_name(), t->get_sort());
             SASSERT(t->get_decl() == fd);
             m_info->set_abstr(t, fc);
         }
         for (app * t : kv.m_value->const_args) {
-            app * fc = m.mk_fresh_const(fd->get_name(), m.get_sort(t));
+            app * fc = m.mk_fresh_const(fd->get_name(), t->get_sort());
             SASSERT(t->get_decl() == fd);
             m_info->set_abstr(t, fc);
         }
@@ -192,11 +192,11 @@ void lackr::abstract_sel(sel2terms_map const& apps) {
     for (auto const& kv : apps) {
         func_decl * fd = kv.m_key->get_decl();
         for (app * t : kv.m_value->const_args) {
-            app * fc = m.mk_fresh_const(fd->get_name(), m.get_sort(t));
+            app * fc = m.mk_fresh_const(fd->get_name(), t->get_sort());
             m_info->set_abstr(t, fc);
         }
         for (app * t : kv.m_value->var_args) {
-            app * fc = m.mk_fresh_const(fd->get_name(), m.get_sort(t));
+            app * fc = m.mk_fresh_const(fd->get_name(), t->get_sort());
             m_info->set_abstr(t, fc);
         }
     }
@@ -295,6 +295,8 @@ bool lackr::collect_terms() {
                 }                
                 if (m_autil.is_as_array(curr, f))
                     m_non_funs.mark(f, true);
+                if (m_autil.is_map(curr))
+                    m_non_funs.mark(m_autil.get_map_func_decl(curr), true);
                 break;
             }
             case AST_QUANTIFIER:
