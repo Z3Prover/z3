@@ -558,6 +558,7 @@ namespace array {
 
     bool solver::add_interface_equalities() {
         sbuffer<theory_var> roots;
+        collect_defaults();
         collect_shared_vars(roots);
         bool prop = false;
         for (unsigned i = roots.size(); i-- > 0; ) {

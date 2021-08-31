@@ -72,20 +72,6 @@ namespace array {
 
         if (!fi->get_else() && get_else(v))
             fi->set_else(get_else(v));
-        
-#if 0
-        // this functionality is already taken care of by model_init.
-
-        if (!fi->get_else())
-            for (euf::enode* k : euf::enode_class(n))
-                if (a.is_const(k->get_expr()))
-                    fi->set_else(values.get(k->get_arg(0)->get_root_id()));
-
-        if (!fi->get_else())
-            for (euf::enode* p : euf::enode_parents(n))
-                if (a.is_default(p->get_expr()))
-                    fi->set_else(values.get(p->get_root_id()));
-#endif
     
         if (!fi->get_else()) {
             expr* else_value = nullptr;
@@ -135,24 +121,16 @@ namespace array {
         euf::enode* n1 = var2enode(v1), *n2 = var2enode(v2);
         euf::enode* r1 = n1->get_root(), * r2 = n2->get_root();
         expr* e1 = n1->get_expr();
-        expr* e;
         if (!a.is_array(e1))
             return true;
-        auto find_else = [&](theory_var v, euf::enode* r) {
-            var_data& d = get_var_data(find(v));
-            for (euf::enode* c : d.m_lambdas)
-                if (a.is_const(c->get_expr(), e))
-                    return expr2enode(e)->get_root();
-            for (euf::enode* p : euf::enode_parents(r))
-                for (euf::enode* pe : euf::enode_class(p))
-                    if (a.is_default(pe->get_expr()))
-                        return pe->get_root();
-            return (euf::enode*)nullptr;
-        };
-        else1 = find_else(v1, r1);
-        else2 = find_else(v2, r2);
+        
+        else1 = get_default(v1);
+        else2 = get_default(v2);
         if (else1 && else2 && else1->get_root() != else2->get_root() && has_large_domain(e1))
             return true;
+
+        return false;
+#if 0
         struct eq {
             solver& s;
             eq(solver& s) :s(s) {}
@@ -196,6 +174,8 @@ namespace array {
         };
         
         return table_diff(r1, r2, else1) || table_diff(r2, r1, else2);
+
+#endif
     }
 
     void solver::collect_defaults() {

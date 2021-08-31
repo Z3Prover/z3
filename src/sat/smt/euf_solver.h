@@ -310,7 +310,7 @@ namespace euf {
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, ext_constraint_idx idx) const override;
-        euf::egraph::b_pp bpp(enode* n) { return m_egraph.bpp(n); }
+        euf::egraph::b_pp bpp(enode* n) const { return m_egraph.bpp(n); }
         clause_pp pp(literal_vector const& lits) { return clause_pp(*this, lits); }
         void collect_statistics(statistics& st) const override;
         extension* copy(sat::solver* s) override;
