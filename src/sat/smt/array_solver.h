@@ -267,6 +267,6 @@ namespace array {
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}
         void unmerge_eh(theory_var v1, theory_var v2) {}
 
-        euf::enode_vector const& parent_selects(euf::enode* n) const { return m_var_data[n->get_th_var(get_id())]->m_parent_selects; }
+        euf::enode_vector const& parent_selects(euf::enode* n) { return m_var_data[find(n->get_th_var(get_id()))]->m_parent_selects; }
     };
 }

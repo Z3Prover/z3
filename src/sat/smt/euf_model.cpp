@@ -63,6 +63,7 @@ namespace euf {
     };
 
     void solver::update_model(model_ref& mdl) {
+        TRACE("model", tout << "create model\n";);
         mdl->reset_eval_cache();
         for (auto* mb : m_solvers)
             mb->init_model();
@@ -117,7 +118,7 @@ namespace euf {
         for (enode* n : fresh_values)
             n->unmark1();
         
-        TRACE("euf",
+        TRACE("model",
               for (auto const& d : deps.deps()) 
                   if (d.m_value) {
                       tout << bpp(d.m_key) << ":\n";
@@ -254,7 +255,7 @@ namespace euf {
                 m_values2root.insert(m_values.get(n->get_expr_id()), n);
         TRACE("model", 
               for (auto kv : m_values2root) 
-                  tout << mk_pp(kv.m_key, m) << " -> " << bpp(kv.m_value) << "\n";);
+                  tout << mk_bounded_pp(kv.m_key, m) << "\n    -> " << bpp(kv.m_value) << "\n";);
         
         return m_values2root;
     }
