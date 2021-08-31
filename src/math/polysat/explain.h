@@ -20,6 +20,7 @@ Author:
 namespace polysat {
 
     class solver;
+    class conflict_explainer;
 
     class inference_engine {
     public:
