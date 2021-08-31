@@ -17,7 +17,28 @@ Author:
 
 namespace polysat {
 
-    conflict_explainer::conflict_explainer(solver& s): m_solver(s) {}
+    bool inf_polynomial_superposition:: perform(conflict_explainer& ce) {
+        // TODO
+        return false;
+    }
+
+    conflict_explainer::conflict_explainer(solver& s): m_solver(s) {
+        inference_engines.push_back(alloc(inf_polynomial_superposition));
+    }
+
+    bool conflict_explainer::saturate() {
+        for (auto* engine : inference_engines)
+            if (engine->perform(*this))
+                return true;
+        return false;
+    }
+
+
+
+
+
+
+
 
 //     clause_ref conflict_explainer::resolve(pvar v, ptr_vector<constraint> const& cjust) {
 //         LOG_H3("Attempting to explain conflict for v" << v);

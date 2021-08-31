@@ -57,4 +57,29 @@ namespace polysat {
         m_needs_model = true;
     }
 
+    void conflict_core::resolve(sat::bool_var var, clause const& cl) {
+        // TODO: fix the implementation: should resolve the given clause with the current conflict core.
+#if 0
+        DEBUG_CODE({
+            bool this_has_pos = std::count(begin(), end(), sat::literal(var)) > 0;
+            bool this_has_neg = std::count(begin(), end(), ~sat::literal(var)) > 0;
+            bool other_has_pos = std::count(other.begin(), other.end(), sat::literal(var)) > 0;
+            bool other_has_neg = std::count(other.begin(), other.end(), ~sat::literal(var)) > 0;
+            SASSERT(!this_has_pos || !this_has_neg);  // otherwise this is tautology
+            SASSERT(!other_has_pos || !other_has_neg);  // otherwise other is tautology
+            SASSERT((this_has_pos && other_has_neg) || (this_has_neg && other_has_pos));
+        });
+        // The resolved var should not be one of the new constraints
+        int j = 0;
+        for (auto lit : m_literals)
+            if (lit.var() != var)
+                m_literals[j++] = lit;
+        m_literals.shrink(j);
+        for (sat::literal lit : other)
+            if (lit.var() != var)
+                m_literals.push_back(lit);
+        return true;
+#endif
+    }
+
 }
