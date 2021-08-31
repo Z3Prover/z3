@@ -114,6 +114,8 @@ app * defined_names::impl::gen_name(expr * e, sort_ref_buffer & var_sorts, buffe
             var_sorts.push_back(s);
         }
         else {
+            domain.push_back(m.mk_bool_sort());
+            new_args.push_back(m.mk_true());
             var_sorts.push_back(m.mk_bool_sort()); // could be any sort.
         }
         var_names.push_back(symbol(i));
