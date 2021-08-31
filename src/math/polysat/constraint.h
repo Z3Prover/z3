@@ -28,13 +28,8 @@ namespace polysat {
     class constraint;
     class eq_constraint;
     class ule_constraint;
+    class signed_constraint;
 
-    class scoped_constraint_ptr;
-
-    template <bool is_owned>
-    class signed_constraint_base;
-    using signed_constraint = signed_constraint_base<false>;
-    using scoped_signed_constraint = signed_constraint_base<true>;
 
     class clause;
     using clause_ref = ref<clause>;
@@ -96,11 +91,11 @@ namespace polysat {
         signed_constraint lookup(sat::literal lit) const;
         constraint* lookup_external(unsigned dep) const { return m_external_constraints.get(dep, nullptr); }
 
-        scoped_signed_constraint eq(unsigned lvl, pdd const& p);
-        scoped_signed_constraint ule(unsigned lvl, pdd const& a, pdd const& b);
-        scoped_signed_constraint ult(unsigned lvl, pdd const& a, pdd const& b);
-        scoped_signed_constraint sle(unsigned lvl, pdd const& a, pdd const& b);
-        scoped_signed_constraint slt(unsigned lvl, pdd const& a, pdd const& b);
+        signed_constraint eq(unsigned lvl, pdd const& p);
+        signed_constraint ule(unsigned lvl, pdd const& a, pdd const& b);
+        signed_constraint ult(unsigned lvl, pdd const& a, pdd const& b);
+        signed_constraint sle(unsigned lvl, pdd const& a, pdd const& b);
+        signed_constraint slt(unsigned lvl, pdd const& a, pdd const& b);
     };
 
 
@@ -183,82 +178,25 @@ namespace polysat {
          * \returns True iff a forbidden interval exists and the output parameters were set.
          */
         // TODO: we can probably remove this and unify the implementations for both cases by relying on as_inequality().
-        virtual bool forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, scoped_signed_constraint& out_neg_cond) { return false; }
+        virtual bool forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, signed_constraint& out_neg_cond) { return false; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
 
-
-    // Like scoped_ptr<constraint>, but only deallocates the constraint if it is temporary (i.e., does not have a boolean variable).
-    // This is needed because when a constraint is created, due to deduplication, we might get either a new constraint or an existing one.
-    // (We want early deduplication because otherwise we might overlook possible boolean resolutions during conflict resolution.)
-    // (TODO: we could replace this class by std::unique_ptr with a custom deleter)
-    class scoped_constraint_ptr {
-        constraint* m_ptr;
-
-        void dealloc_ptr() const {
-            if (m_ptr && !m_ptr->has_bvar())
-                dealloc(m_ptr);
-        }
-
+    class signed_constraint final {
     public:
-        scoped_constraint_ptr(constraint* ptr = nullptr): m_ptr(ptr) {}
-
-        scoped_constraint_ptr(scoped_constraint_ptr &&other) noexcept : m_ptr(nullptr) {
-            std::swap(m_ptr, other.m_ptr);
-        }
-
-        ~scoped_constraint_ptr() {
-            dealloc_ptr();
-        }
-
-        scoped_constraint_ptr& operator=(scoped_constraint_ptr&& other) {
-            *this = other.detach();
-            return *this;
-        };
-
-        scoped_constraint_ptr& operator=(constraint* n) {
-            if (m_ptr != n) {
-                dealloc_ptr();
-                m_ptr = n;
-            }
-            return *this;
-        }
-
-        void swap(scoped_constraint_ptr& p) {
-            std::swap(m_ptr, p.m_ptr);
-        }
-
-        constraint* detach() {
-            constraint* tmp = m_ptr;
-            m_ptr = nullptr;
-            return tmp;
-        }
-
-        explicit operator bool() const { return !!m_ptr; }
-        bool operator!() const { return !m_ptr; }
-        constraint* get() const { return m_ptr; }
-        constraint* operator->() const { return m_ptr; }
-        const constraint& operator*() const { return *m_ptr; }
-        constraint &operator*() { return *m_ptr; }
-    };
-
-
-    template <bool is_owned>
-    class signed_constraint_base final {
-    public:
-        using ptr_t = std::conditional_t<is_owned, scoped_constraint_ptr, constraint*>;
+        using ptr_t = constraint*;
 
     private:
         ptr_t m_constraint = nullptr;
         bool m_positive = true;
 
     public:
-        signed_constraint_base() {}
-        signed_constraint_base(constraint* c, bool is_positive):
+        signed_constraint() {}
+        signed_constraint(constraint* c, bool is_positive):
             m_constraint(c), m_positive(is_positive) {}
-        signed_constraint_base(constraint* c, sat::literal lit):
-            signed_constraint_base(c, !lit.sign()) {
+        signed_constraint(constraint* c, sat::literal lit):
+            signed_constraint(c, !lit.sign()) {
             SASSERT_EQ(blit(), lit);
         }
 
@@ -279,10 +217,8 @@ namespace polysat {
 
         sat::bool_var bvar() const { return m_constraint->bvar(); }
         sat::literal blit() const { return sat::literal(bvar(), is_negative()); }
-        constraint* get() const { if constexpr (is_owned) return m_constraint.get(); else return m_constraint; }
-        signed_constraint get_signed() const { return {get(), m_positive}; }
-        template <bool Owned = is_owned>
-        std::enable_if_t<Owned, constraint*> detach() { return m_constraint.detach(); }
+        constraint* get() const { return m_constraint; }
+
 
         explicit operator bool() const { return !!m_constraint; }
         bool operator!() const { return !m_constraint; }
@@ -290,9 +226,9 @@ namespace polysat {
         constraint& operator*() { return *m_constraint; }
         constraint const& operator*() const { return *m_constraint; }
 
-        signed_constraint_base<is_owned>& operator=(std::nullptr_t) { m_constraint = nullptr; return *this; }
+        signed_constraint& operator=(std::nullptr_t) { m_constraint = nullptr; return *this; }
 
-        bool operator==(signed_constraint_base<is_owned> const& other) const {
+        bool operator==(signed_constraint const& other) const {
             return get() == other.get() && is_positive() == other.is_positive();
         }
 
@@ -304,8 +240,7 @@ namespace polysat {
         }
     };
 
-    template <bool is_owned>
-    inline std::ostream& operator<<(std::ostream& out, signed_constraint_base<is_owned> const& c) {
+    inline std::ostream& operator<<(std::ostream& out, signed_constraint const& c) {
         return c.display(out);
     }
 
@@ -313,9 +248,6 @@ namespace polysat {
         return {c.get(), !c.is_positive()};
     }
 
-    inline scoped_signed_constraint operator~(scoped_signed_constraint&& c) {
-        return {c.detach(), !c.is_positive()};
-    }
 
     /// Disjunction of constraints represented by boolean literals
     // NB code review:

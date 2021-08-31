@@ -22,7 +22,7 @@ namespace polysat {
 
     struct fi_record {
         eval_interval interval;
-        scoped_signed_constraint neg_cond;  // could be multiple constraints later
+        signed_constraint neg_cond;  // could be multiple constraints later
         signed_constraint src;
     };
 
@@ -74,7 +74,7 @@ namespace polysat {
         for (signed_constraint c : conflict) {
             LOG_H3("Computing forbidden interval for: " << c);
             eval_interval interval = eval_interval::full();
-            scoped_signed_constraint neg_cond;
+            signed_constraint neg_cond;
             if (c->forbidden_interval(s, c.is_positive(), v, interval, neg_cond)) {
                 LOG("interval: " << interval);
                 LOG("neg_cond: " << neg_cond);
@@ -160,12 +160,12 @@ namespace polysat {
             auto const& next_hi = records[next_i].interval.hi();
             auto const& lhs = hi - next_lo;
             auto const& rhs = next_hi - next_lo;
-            scoped_signed_constraint c = ~s.m_constraints.ult(lemma_lvl, lhs, rhs);
+            signed_constraint c = ~s.m_constraints.ult(lemma_lvl, lhs, rhs);
             LOG("constraint: " << c);
             clause.push_new_constraint(std::move(c));
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
-            scoped_signed_constraint& neg_cond = records[i].neg_cond;
+            signed_constraint& neg_cond = records[i].neg_cond;
             if (neg_cond)
                 clause.push_new_constraint(std::move(neg_cond));
         }

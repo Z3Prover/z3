@@ -113,7 +113,7 @@ namespace polysat {
             return p.is_val() && q.is_val() && p.val() > q.val();
     }
 
-    bool ule_constraint::forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, scoped_signed_constraint& out_neg_cond)
+    bool ule_constraint::forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, signed_constraint& out_neg_cond)
     {
         // Current only works when degree(v) is at most one on both sides
         unsigned const deg1 = lhs().degree(v);

@@ -114,36 +114,34 @@ namespace polysat {
         m_free_vars.del_var_eh(v);
     }
 
-    scoped_signed_constraint solver::mk_eq(pdd const& p) {
+    signed_constraint solver::mk_eq(pdd const& p) {
         return m_constraints.eq(m_level, p);
     }
 
-    scoped_signed_constraint solver::mk_diseq(pdd const& p) {
+    signed_constraint solver::mk_diseq(pdd const& p) {
         return ~m_constraints.eq(m_level, p);
     }
 
-    scoped_signed_constraint solver::mk_ule(pdd const& p, pdd const& q) {
+    signed_constraint solver::mk_ule(pdd const& p, pdd const& q) {
         return m_constraints.ule(m_level, p, q);
     }
 
-    scoped_signed_constraint solver::mk_ult(pdd const& p, pdd const& q) {
+    signed_constraint solver::mk_ult(pdd const& p, pdd const& q) {
         return m_constraints.ult(m_level, p, q);
     }
 
-    scoped_signed_constraint solver::mk_sle(pdd const& p, pdd const& q) {
+    signed_constraint solver::mk_sle(pdd const& p, pdd const& q) {
         return m_constraints.sle(m_level, p, q);
     }
 
-    scoped_signed_constraint solver::mk_slt(pdd const& p, pdd const& q) {
+    signed_constraint solver::mk_slt(pdd const& p, pdd const& q) {
         return m_constraints.slt(m_level, p, q);
     }
 
-    void solver::new_constraint(scoped_signed_constraint sc, unsigned dep, bool activate) {
+    void solver::new_constraint(signed_constraint c, unsigned dep, bool activate) {
         VERIFY(at_base_level());
-        SASSERT(sc);
+        SASSERT(c);
         SASSERT(activate || dep != null_dependency);  // if we don't activate the constraint, we need the dependency to access it again later.
-        signed_constraint c = sc.get_signed();
-        sc.detach();
         clause* unit = m_constraints.store(clause::from_unit(c, mk_dep_ref(dep)));
         c->set_unit_clause(unit);
         if (dep != null_dependency)
