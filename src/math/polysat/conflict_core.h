@@ -21,6 +21,7 @@ namespace polysat {
         vector<signed_constraint> m_constraints;
 
         /** Storage for new constraints that may not yet have a boolean variable yet */
+        // TODO: not necessary anymore, if we keep constraint_manager::gc()
         ptr_vector<constraint> m_storage;
 
         // If this is not null_var, the conflict was due to empty viable set for this variable.
@@ -66,6 +67,11 @@ namespace polysat {
                     dealloc(c);
             m_storage.reset();
         }
+
+        /** Perform boolean resolution with the clause upon variable 'var'.
+         * Precondition: core/clause contain complementary 'var'-literals.
+         */
+        void resolve(sat::bool_var var, clause const& cl);
 
         std::ostream& display(std::ostream& out) const;
     };

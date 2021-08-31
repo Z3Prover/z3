@@ -27,18 +27,14 @@ namespace polysat {
     void constraint_manager::assign_bv2c(sat::bool_var bv, constraint* c) {
         SASSERT_EQ(get_bv2c(bv), nullptr);
         SASSERT(!c->has_bvar());
-        SASSERT(!m_constraint_table.contains(c));
         c->m_bvar = bv;
         m_bv2constraint.setx(bv, c, nullptr);
-        m_constraint_table.insert(c);
     }
 
     void constraint_manager::erase_bv2c(constraint* c) {
         SASSERT(c->has_bvar());
         SASSERT_EQ(get_bv2c(c->bvar()), c);
-        SASSERT(m_constraint_table.contains(c));
         m_bv2constraint[c->bvar()] = nullptr;
-        m_constraint_table.remove(c);
         c->m_bvar = sat::null_bool_var;
     }
 
@@ -46,14 +42,42 @@ namespace polysat {
         return m_bv2constraint.get(bv, nullptr);
     }
 
-    constraint* constraint_manager::store(scoped_constraint_ptr scoped_c) {
-        constraint* c = scoped_c.detach();
-        LOG_V("Store constraint: " << show_deref(c));
+    void constraint_manager::assign_bvar(constraint* c) {
         assign_bv2c(m_bvars.new_var(), c);
+    }
+
+    void constraint_manager::erase_bvar(constraint* c) {
+        erase_bv2c(c);
+    }
+
+    /** Add constraint to per-level storage */
+    void constraint_manager::store(constraint* c) {
+        LOG_V("Store constraint: " << show_deref(c));
         while (m_constraints.size() <= c->level())
             m_constraints.push_back({});
         m_constraints[c->level()].push_back(c);
-        return c;
+    }
+
+    /** Remove the given constraint from the per-level storage (without deallocating it) */
+    void constraint_manager::erase(constraint* c) {
+        LOG_V("Erase constraint: " << show_deref(c));
+        auto& vec = m_constraints[c->level()];
+        for (unsigned i = vec.size(); i-- > 0; )
+            if (vec[i] == c) {
+                vec.swap(i, vec.size() - 1);
+                constraint* c0 = vec.detach_back();
+                SASSERT(c0 == c);
+                vec.pop_back();
+                return;
+            }
+        UNREACHABLE();
+    }
+
+    /** Change level of the given constraint, adjusting its storage position */
+    void constraint_manager::set_level(constraint* c, unsigned new_lvl) {
+        erase(c);
+        c->m_level = new_lvl;
+        store(c);
     }
 
     clause* constraint_manager::store(clause_ref cl_ref) {
@@ -84,6 +108,7 @@ namespace polysat {
                     SASSERT(m_external_constraints.contains(dep));
                     m_external_constraints.remove(dep);
                 }
+                m_constraint_table.erase(c);
                 erase_bv2c(c);
             }
             m_constraints[l].reset();
@@ -113,44 +138,51 @@ namespace polysat {
     /** Look up constraint among stored constraints. */
     constraint* constraint_manager::dedup(constraint* c1) {
         auto it = m_constraint_table.find(c1);
-        if (it == m_constraint_table.end())
-            return c1;
-        constraint* c0 = *it;
-        // TODO: can this assertion be violated?
-        // Yes, e.g.: constraint c was asserted at level 1, the conflict resolution derived ~c from c1,c2 at level 0...
-        // In that case we have to adjust c0's level in the storage.
-        // What about the level of the boolean variable? That depends on its position in the assignment stack and should probably stay where it is.
-        // Will be updated separately when we patch the assignment stack.
-
-        // NB code review: currently you separate dedup from insertion into the constraint table.
-        // It seems more convenient to also ensure that the new constraint is inserted into the table at this point.
-        // You also erase c from the constraint table in erase_bv2c.
-        // again association with m_constraint_table seems to be only for deduplication purposes.
-        //
-        // the store function is used separately from solver::new_constraint
-        // shouldn't it be combined with deduplication?
-        // in this way we can fix the level if a new duplicate constraint is created at a lower level
-#if 0
-        auto it = m_constraint_table.find(c1);
         if (it == m_constraint_table.end()) {
             store(c1);
             m_constraint_table.insert(c1);
+            // Assuming c is a temporary constraint, we need to:
+            //     1. erase(c);
+            //     2. m_constraint_table.remove(c);
+            // before we dealloc it.
+            // But even if we don't do this, there is not a real memory leak because the constraint will be deallocated properly when the level is popped.
+            // So maybe the best way is to just do periodic GC passes where we throw out constraints that do not have a boolean variable,
+            // instead of precise lifetime tracking for temprorary constraints.
+            // It should be safe to do a GC pass outside of conflict resolution.
+            // TODO: if this is the path we take, then we can drop the scoped_signed_constraint and the scoped_constraint_ptr classes.
+            // TODO: we could maintain a counter of temporary constraints (#constraints - #bvars) to decide when to do a GC, or just do it after every conflict resolution
             return c1;
         }
         constraint* c0 = *it;
-        if (c1->level() < c0->level()) {
-            m_constraints[c0->level()].erase(c0);
-            m_constraints[c1->level()].push_back(c0);
-            c0->m_level = c1->level();
-        }
+        if (c1->level() < c0->level())
+            set_level(c0, c1->level());
         dealloc(c1);
         return c0;
+    }
 
-#endif
-        
-        SASSERT(c0->level() <= c1->level());
-        dealloc(c1);
-        return c0;
+    void constraint_manager::gc() {
+        for (auto& vec : m_constraints)
+            for (int i = vec.size(); i-- > 0; ) {
+                constraint* c = vec[i];
+                if (!c->has_bvar()) {
+                    LOG_V("Destroying constraint: " << show_deref(c));
+                    m_constraint_table.erase(c);
+                    vec.swap(i, vec.size() - 1);
+                    vec.pop_back();
+                }
+            }
+        DEBUG_CODE({
+            for (auto const& vec : m_constraints)
+                for (auto* c : vec) {
+                    SASSERT(c->has_bvar());
+                    SASSERT(m_constraint_table.contains(c));
+                }
+        });
+    }
+
+    bool constraint_manager::should_gc() {
+        // TODO: maybe replace this by a better heuristic
+        return true;
     }
 
     scoped_signed_constraint constraint_manager::eq(unsigned lvl, pdd const& p) {
@@ -270,35 +302,6 @@ namespace polysat {
             return c.is_currently_false(s);
         });
     }
-
-#if 0
-    // NB code review:
-    // resolve is done elsewhere or should be done elsewhere.
-    // by not having it as a method on clauses we can work with fixed literal arrays
-    // instead of dynamically expandable vectors.
-    
-    bool clause::resolve(sat::bool_var var, clause const& other) {
-        DEBUG_CODE({
-            bool this_has_pos = std::count(begin(), end(), sat::literal(var)) > 0;
-            bool this_has_neg = std::count(begin(), end(), ~sat::literal(var)) > 0;
-            bool other_has_pos = std::count(other.begin(), other.end(), sat::literal(var)) > 0;
-            bool other_has_neg = std::count(other.begin(), other.end(), ~sat::literal(var)) > 0;
-            SASSERT(!this_has_pos || !this_has_neg);  // otherwise this is tautology
-            SASSERT(!other_has_pos || !other_has_neg);  // otherwise other is tautology
-            SASSERT((this_has_pos && other_has_neg) || (this_has_neg && other_has_pos));
-        });
-        // The resolved var should not be one of the new constraints
-        int j = 0;
-        for (auto lit : m_literals)
-            if (lit.var() != var)
-                m_literals[j++] = lit;
-        m_literals.shrink(j);
-        for (sat::literal lit : other)
-            if (lit.var() != var)
-                m_literals.push_back(lit);
-        return true;
-    }
-#endif
 
     std::ostream& clause::display(std::ostream& out) const {
         bool first = true;
