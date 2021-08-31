@@ -844,6 +844,7 @@ namespace polysat {
             unsigned rz = r_z.id();
             if (rz == rx)
                 continue;
+            TRACE("fixplex", display_row(tout << "eliminate ", r_z, false) << "\n";);
             VERIFY(eliminate_var(r_x, col, tz_b, old_value_y));
             TRACE("fixplex", display_row(tout << "eliminated ", r_z, false) << "\n";);
             add_patch(row2base(r_z));
