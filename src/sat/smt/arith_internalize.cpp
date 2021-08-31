@@ -47,7 +47,7 @@ namespace arith {
             get_one(false);
             get_zero(true);
             get_zero(false);
-            ctx.push(value_trail<euf::solver, bool>(m_internalize_initialized));
+            ctx.push(value_trail<bool>(m_internalize_initialized));
             m_internalize_initialized = true;
         }
     }
@@ -89,7 +89,7 @@ namespace arith {
     }
 
     void solver::found_unsupported(expr* n) {
-        ctx.push(value_trail<euf::solver, expr*>(m_not_handled));
+        ctx.push(value_trail<expr*>(m_not_handled));
         TRACE("arith", tout << "unsupported " << mk_pp(n, m) << "\n";);
         m_not_handled = n;
     }
@@ -125,7 +125,7 @@ namespace arith {
         if (var != UINT_MAX) {
             return var;
         }
-        ctx.push(value_trail<euf::solver, lpvar>(var));
+        ctx.push(value_trail<lpvar>(var));
         app_ref cnst(a.mk_numeral(rational(c), is_int), m);
         mk_enode(cnst);
         theory_var v = mk_evar(cnst);
@@ -164,7 +164,7 @@ namespace arith {
         unsigned index = 0;
         while (index < terms.size()) {
             SASSERT(index >= vars.size());
-            expr* n = terms[index].get();
+            expr* n = terms.get(index);
             st.to_ensure_enode().push_back(n);
             if (a.is_add(n)) {
                 for (expr* arg : *to_app(n)) {
@@ -275,6 +275,9 @@ namespace arith {
             else {
                 if (is_app(n)) {
                     internalize_args(to_app(n));
+                    for (expr* arg : *to_app(n)) 
+                        if (a.is_arith_expr(arg))
+                            internalize_term(arg);
                 }
                 theory_var v = mk_evar(n);
                 coeffs[vars.size()] = coeffs[index];
@@ -291,9 +294,8 @@ namespace arith {
         st.to_ensure_enode().reset();
         for (unsigned i = st.to_ensure_var().size(); i-- > 0; ) {
             expr* n = st.to_ensure_var()[i];
-            if (is_app(n)) {
+            if (is_app(n)) 
                 internalize_term(to_app(n));
-            }
         }
         st.to_ensure_var().reset();
     }
@@ -382,16 +384,15 @@ namespace arith {
         updt_unassigned_bounds(v, +1);
         m_bounds_trail.push_back(v);
         m_bool_var2bound.insert(bv, b);
-        TRACE("arith_verbose", tout << "Internalized " << bv << ": " << mk_pp(atom, m) << "\n";);
+        TRACE("arith_verbose", tout << "Internalized " << lit << ": " << mk_pp(atom, m) << " " << *b << "\n";);
         m_new_bounds.push_back(b);
         //add_use_lists(b);
         return true;
     }
 
-
     bool solver::internalize_term(expr* term) {
         if (!has_var(term))
-            internalize_def(term);
+            register_theory_var_in_lar_solver(internalize_def(term));
         return true;
     }
 
@@ -424,7 +425,7 @@ namespace arith {
         TRACE("arith", tout << mk_pp(t, m) << " " << force << " " << reflect(t) << "\n";);
         if (!force && !reflect(t))
             return;
-        for (expr* arg : *t)
+        for (expr* arg : *t) 
             e_internalize(arg);
     }
 
@@ -435,8 +436,8 @@ namespace arith {
         theory_var v = mk_evar(t);
         if (_has_var)
             return v;
-        theory_var w = mk_evar(n);
         internalize_term(n);
+        theory_var w = mk_evar(n);
 
         if (p == 0) {
             mk_power0_axioms(t, n);
@@ -447,7 +448,7 @@ namespace arith {
                 vars.push_back(register_theory_var_in_lar_solver(w));
             ensure_nla();
             m_solver->register_existing_terms();
-            m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
+            m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.data());
         }
         return v;
     }
@@ -470,7 +471,7 @@ namespace arith {
             TRACE("arith", tout << "v" << v << " := " << mk_pp(t, m) << "\n" << vars << "\n";);
             m_solver->register_existing_terms();
             ensure_nla();
-            m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
+            m_nla->add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.data());
         }
         return v;
     }
@@ -496,6 +497,7 @@ namespace arith {
                     vi = lp().add_var(v, a.is_int(term));
                     add_def_constraint_and_equality(vi, lp::GE, st.offset());
                     add_def_constraint_and_equality(vi, lp::LE, st.offset());
+                    register_fixed_var(v, st.offset());
                     return v;
                 }
                 if (!st.offset().is_zero()) {
@@ -571,7 +573,7 @@ namespace arith {
             if (reflect(e))
                 for (expr* arg : *to_app(e))
                     args.push_back(e_internalize(arg));
-            n = ctx.mk_enode(e, args.size(), args.c_ptr());
+            n = ctx.mk_enode(e, args.size(), args.data());
             ctx.attach_node(n);
         }
         return n;
@@ -582,11 +584,10 @@ namespace arith {
         if (e->is_attached_to(get_id()))
             return e->get_th_var(get_id());
         theory_var v = mk_var(e);
-        TRACE("arith", tout << "fresh var: v" << v << " " << mk_pp(n, m) << "\n";);
+        TRACE("arith_verbose", tout << "v" << v << " " << mk_pp(n, m) << "\n";);
         SASSERT(m_bounds.size() <= static_cast<unsigned>(v) || m_bounds[v].empty());
         reserve_bounds(v);
         ctx.attach_th_var(e, this, v);
-        TRACE("arith", tout << mk_pp(n, m) << " " << v << "\n";);
         SASSERT(euf::null_theory_var != v);
         return v;
     }
@@ -673,6 +674,25 @@ namespace arith {
         }
         return false;
     }
+
+    struct solver::undo_value : public trail {
+        solver& s;
+        undo_value(solver& s):s(s) {}
+        void undo() override {
+            s.m_value2var.erase(s.m_fixed_values.back());
+            s.m_fixed_values.pop_back();
+        }
+    };
+
+
+    void solver::register_fixed_var(theory_var v, rational const& value) {
+        if (m_value2var.contains(value)) 
+            return;
+        m_fixed_values.push_back(value);
+        m_value2var.insert(value, v);
+        ctx.push(undo_value(*this));
+    }
+
 
 }
 

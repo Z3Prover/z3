@@ -225,7 +225,7 @@ public:
 
     void insert(Key const* keys, Value const& val) {
         ++m_stats.m_num_inserts;
-        insert(m_root, num_keys(), keys, m_keys.c_ptr(), val);
+        insert(m_root, num_keys(), keys, m_keys.data(), val);
 #if 0
         if (m_stats.m_num_inserts == (1 << m_do_reshuffle)) {
             m_do_reshuffle++;
@@ -364,7 +364,7 @@ public:
             }
         }
         Key const* keys() {
-            return m_keys.c_ptr();
+            return m_keys.data();
         }
 
         Value const& value() const {
@@ -532,7 +532,7 @@ private:
                        }
                        verbose_stream() << " |-> " << it.value() << "\n";);
 
-            insert(new_root, num_keys(), it.keys(), sorted_keys.c_ptr(), it.value());
+            insert(new_root, num_keys(), it.keys(), sorted_keys.data(), it.value());
         }
         del_node(m_root);
         m_root = new_root;

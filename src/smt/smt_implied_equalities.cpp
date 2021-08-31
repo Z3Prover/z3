@@ -57,7 +57,7 @@ namespace {
         
         void partition_terms(unsigned num_terms, expr* const* terms, sort2term_ids& termids) {
             for (unsigned i = 0; i < num_terms; ++i) {
-                sort* s = m.get_sort(terms[i]);
+                sort* s = terms[i]->get_sort();
                 term_ids& vec = termids.insert_if_not_there(s, term_ids());
                 vec.push_back(term_id(expr_ref(terms[i],m), i));
             }
@@ -92,7 +92,7 @@ namespace {
                     if (j < i && non_values.contains(j)) continue;
                     if (found_root_value && !non_values.contains(j)) continue;
                     expr* s = terms[j].term;
-                    SASSERT(m.get_sort(t) == m.get_sort(s));
+                    SASSERT(t->get_sort() == s->get_sort());
                     ++m_stats_calls;
                     m_solver.push();
                     m_solver.assert_expr(m.mk_not(m.mk_eq(s, t)));
@@ -118,7 +118,7 @@ namespace {
                 expr* t = terms[i].term;
                 for (unsigned j = 0; j < i; ++j) {
                     expr* s = terms[j].term;
-                    SASSERT(m.get_sort(t) == m.get_sort(s));
+                    SASSERT(t->get_sort() == s->get_sort());
                     ++m_stats_calls;
                     m_stats_timer.start();
                     m_solver.push();
@@ -148,7 +148,7 @@ namespace {
             
             SASSERT(!terms.empty());
 
-            sort* srt = m.get_sort(terms[0].term);
+            sort* srt = terms[0].term->get_sort();
                        
             if (m_array_util.is_array(srt)) {
 
@@ -163,7 +163,7 @@ namespace {
                 }
                 for (unsigned i = 0; i < terms.size(); ++i) {
                     args[0] = terms[i].term;
-                    terms[i].term = m.mk_app(m_array_util.get_family_id(), OP_SELECT, 0, nullptr, args.size(), args.c_ptr());
+                    terms[i].term = m.mk_app(m_array_util.get_family_id(), OP_SELECT, 0, nullptr, args.size(), args.data());
                 }
                 assert_relevant(terms);
                 VERIFY(m_solver.check_sat(0,nullptr) != l_false);
@@ -249,7 +249,7 @@ namespace {
 
         void assert_relevant(unsigned num_terms, expr* const* terms) {
             for (unsigned i = 0; i < num_terms; ++i) {                
-                sort* srt = m.get_sort(terms[i]);
+                sort* srt = terms[i]->get_sort();
                 if (!m_array_util.is_array(srt)) {
                     m_solver.assert_expr(m.mk_app(m.mk_func_decl(symbol("Relevant!"), 1, &srt, m.mk_bool_sort()), terms[i]));
                 }
@@ -259,7 +259,7 @@ namespace {
         void assert_relevant(term_ids& terms) {
             for (unsigned i = 0; i < terms.size(); ++i) {
                 expr* t = terms[i].term;
-                sort* srt = m.get_sort(t);
+                sort* srt = t->get_sort();
                 if (!m_array_util.is_array(srt)) {
                     m_solver.assert_expr(m.mk_app(m.mk_func_decl(symbol("Relevant!"), 1, &srt, m.mk_bool_sort()), t));
                 }

@@ -26,6 +26,9 @@ class gparams {
 public:
     typedef default_exception exception;
 
+    static std::string& g_buffer();
+
+
     /**
        \brief Reset all global and module parameters.
     */

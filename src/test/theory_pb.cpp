@@ -72,7 +72,7 @@ private:
                     k += coeffs[i];
                 }
             }       
-            fml = pb.mk_ge(args.size(), coeffs.c_ptr(), args.c_ptr(), k);
+            fml = pb.mk_ge(args.size(), coeffs.data(), args.data(), k);
             rw(fml, tmp);
             rw(tmp, tmp);
             if (pb.is_ge(tmp)) {
@@ -142,7 +142,7 @@ void tst_theory_pb() {
             {
                 smt::context ctx(m, params);
                 ctx.push();
-                smt::literal l = smt::theory_pb::assert_ge(ctx, k+1, lits.size(), lits.c_ptr());
+                smt::literal l = smt::theory_pb::assert_ge(ctx, k+1, lits.size(), lits.data());
                 if (l != smt::false_literal) {
                     ctx.assign(l, nullptr, false);
                     TRACE("pb", tout << "assign: " << l << "\n";
@@ -154,7 +154,7 @@ void tst_theory_pb() {
             {
                 smt::context ctx(m, params);            
                 ctx.push();
-                smt::literal l = smt::theory_pb::assert_ge(ctx, k, lits.size(), lits.c_ptr());
+                smt::literal l = smt::theory_pb::assert_ge(ctx, k, lits.size(), lits.data());
                 ENSURE(l != smt::false_literal);
                 ctx.assign(l, nullptr, false);
                 TRACE("pb", ctx.display(tout););

@@ -23,14 +23,18 @@ Revision History:
 
 namespace dd {
 
-    pdd_manager::pdd_manager(unsigned num_vars, semantics s) {
+    pdd_manager::pdd_manager(unsigned num_vars, semantics s, unsigned power_of_2) {
         m_spare_entry = nullptr;
         m_max_num_nodes = 1 << 24; // up to 16M nodes
         m_mark_level = 0;
         m_dmark_level = 0;
         m_disable_gc = false;
         m_is_new_node = false;
+        if (s == mod2N_e && power_of_2 == 1)
+            s = mod2_e;
         m_semantics = s;
+        m_mod2N = rational::power_of_two(power_of_2);
+        m_power_of_2 = power_of_2;
         unsigned_vector l2v;
         for (unsigned i = 0; i < num_vars; ++i) l2v.push_back(i);
         init_nodes(l2v);
@@ -109,6 +113,56 @@ namespace dd {
     pdd pdd_manager::mk_xor(pdd const& p, unsigned x) { pdd q(mk_val(x)); if (m_semantics == mod2_e) return p + q; return (p*q*2) - p - q; }
     pdd pdd_manager::mk_not(pdd const& p) { return 1 - p; }
 
+    pdd pdd_manager::subst_val(pdd const& p, unsigned v, rational const& val) {
+        pdd r = mk_var(v) + val;
+        return pdd(apply(p.root, r.root, pdd_subst_val_op), this);
+    }
+
+
+    /**
+     * A polynomial is non-zero if the constant coefficient
+     * is a power of two such that none of the coefficients to
+     * non-constant monomials divide it.
+     * Example: 2^4*x + 2 is non-zero for every x.
+     */
+
+    bool pdd_manager::is_non_zero(PDD p) {
+        if (is_val(p))
+            return !is_zero(p);
+        if (m_semantics != mod2N_e)
+            return false;
+        PDD q = p;
+        while (!is_val(q))
+            q = lo(q);
+        auto const& v = val(q);
+        if (v.is_zero())
+            return false;
+        unsigned p2 = v.trailing_zeros();
+        init_mark();
+        SASSERT(m_todo.empty());
+        m_todo.push_back(hi(p));
+        while (!is_val(lo(p))) {
+            p = lo(p);
+            m_todo.push_back(hi(p));
+        }
+        while (!m_todo.empty()) {
+            PDD r = m_todo.back();
+            m_todo.pop_back();
+            if (is_marked(r)) 
+                continue;
+            set_mark(r);
+            if (!is_val(r)) {
+                m_todo.push_back(lo(r));
+                m_todo.push_back(hi(r));
+            }
+            else if (val(r).trailing_zeros() <= p2) {
+                m_todo.reset();
+                return false;
+            }
+        }
+        return true;
+    }
+
     pdd pdd_manager::subst_val(pdd const& p, vector<std::pair<unsigned, rational>> const& _s) {
         typedef std::pair<unsigned, rational> pr;
         vector<pr> s(_s);        
@@ -116,9 +170,8 @@ namespace dd {
             [&](pr const& a, pr const& b) { return m_var2level[a.first] < m_var2level[b.first]; };
         std::sort(s.begin(), s.end(), compare_level);
         pdd r(one());
-        for (auto const& q : s) {
+        for (auto const& q : s) 
             r = (r*mk_var(q.first)) + q.second;            
-        }
         return pdd(apply(p.root, r.root, pdd_subst_val_op), this);
     }
 
@@ -256,7 +309,7 @@ namespace dd {
                 r = make_node(level_p, read(2), read(1));
             }
             else if (level_p == level_q) {
-                if (m_semantics != free_e) {
+                if (m_semantics != free_e && m_semantics != mod2N_e) {
                     //
                     // (xa+b)*(xc+d)  == x(ac+bc+ad) + bd
                     //                == x((a+b)(c+d)-bd) + bd
@@ -334,9 +387,9 @@ namespace dd {
         case pdd_subst_val_op:
             SASSERT(!is_val(p));
             SASSERT(!is_val(q));
-            SASSERT(level_p = level_q);
-            push(apply_rec(lo(p), hi(q), pdd_subst_val_op));   // lo := subst(lo(p), s)
-            push(apply_rec(hi(p), hi(q), pdd_subst_val_op));   // hi := subst(hi(p), s)
+            SASSERT(level_p == level_q);
+            push(apply_rec(lo(p), q, pdd_subst_val_op));   // lo := subst(lo(p), s)
+            push(apply_rec(hi(p), q, pdd_subst_val_op));   // hi := subst(hi(p), s)
             push(apply_rec(lo(q), read(1), pdd_mul_op));       // hi := hi*s[var(p)]
             r = apply_rec(read(1), read(3), pdd_add_op);       // r := hi + lo := subst(lo(p),s) + s[var(p)]*subst(hi(p),s)
             npop = 3;
@@ -634,12 +687,61 @@ namespace dd {
         return p;
     }
 
+    /**
+     * factor p into lc*v^degree + rest
+     * such that degree(rest, v) < degree
+     * Initial implementation is very naive
+     * - memoize intermediary results
+     */
+    void pdd_manager::factor(pdd const& p, unsigned v, unsigned degree, pdd& lc, pdd& rest) {
+        unsigned level_v = m_var2level[v];
+        if (degree == 0) {
+            lc = p;
+            rest = zero();
+        }
+        else if (level(p.root) < level_v) {
+            lc = zero();
+            rest = p;
+        }
+        else if (level(p.root) > level_v) {
+            pdd lc1 = zero(), rest1 = zero();
+            pdd vv = mk_var(p.var());
+            factor(p.hi(), v, degree, lc,  rest);
+            factor(p.lo(), v, degree, lc1, rest1);
+            lc   += lc1;
+            rest += rest1;
+            lc   *= vv;
+            rest *= vv;
+        }
+        else {
+            unsigned d = 0;
+            pdd r = p;
+            while (d < degree && !r.is_val() && level(r.root) == level_v) {
+                d++;
+                r = r.hi();
+            }
+            if (d == degree) {
+                lc = r;
+                r = p;
+                rest = zero();
+                pdd pow = one();
+                for (unsigned i = 0; i < degree; r = r.hi(), pow *= mk_var(v), ++i) 
+                    rest += pow * r.lo();
+            }
+            else {
+                lc = zero();
+                rest = p;
+            }
+        }
+    }
+
+
     bool pdd_manager::is_linear(pdd const& p) { 
         return is_linear(p.root); 
     }
 
     /*
-      Determine whether p is a binary polynomials 
+      Determine whether p is a binary polynomial 
       of the form v1, x*v1 + v2, or x*v1 + y*v2 + v3
       where v1, v2 are values.      
      */
@@ -721,9 +823,14 @@ namespace dd {
     }
 
     pdd_manager::PDD pdd_manager::imk_val(rational const& r) {
-        if (r.is_zero()) return zero_pdd;
-        if (r.is_one()) return one_pdd;
-        if (m_semantics == mod2_e) return imk_val(mod(r, rational(2)));
+        if (r.is_zero()) 
+            return zero_pdd;
+        if (r.is_one()) 
+            return one_pdd;
+        if (m_semantics == mod2_e) 
+            return imk_val(mod(r, rational(2)));
+        if (m_semantics == mod2N_e && (r < 0 || r >= m_mod2N)) 
+            return imk_val(mod(r, m_mod2N));
         const_info info;
         if (!m_mpq_table.find(r, info)) {
             init_value(info, r);
@@ -895,6 +1002,37 @@ namespace dd {
         }
         return m_degree[p];
     }
+
+    unsigned pdd_manager::degree(PDD p, unsigned v) {
+        init_mark();
+        unsigned level_v = level(v);
+        unsigned max_d = 0, d = 0;
+        m_todo.push_back(p);
+        while (!m_todo.empty()) {
+            PDD r = m_todo.back();
+            if (is_marked(r))
+                m_todo.pop_back();
+            else if (is_val(r))
+                m_todo.pop_back();
+            else if (level(r) < level_v)
+                m_todo.pop_back();
+            else if (level(r) == level_v) {
+                d = 1;
+                while (!is_val(hi(r)) && level(hi(r)) == level_v) {
+                    ++d;
+                    r = hi(r);
+                }
+                max_d = std::max(d, max_d);
+                m_todo.pop_back();
+            }
+            else {
+                m_todo.push_back(lo(r));
+                m_todo.push_back(hi(r));
+            }
+        }
+        return max_d;
+    }
+
 
 
     double pdd_manager::tree_size(pdd const& p) {
@@ -1073,13 +1211,12 @@ namespace dd {
         auto mons = to_monomials(b);
         bool first = true;
         for (auto& m : mons) {
-            if (!first) {
-                if (m.first.is_neg()) out << " - ";
-                else out << " + ";
-            }
-            else {
-                if (m.first.is_neg()) out << "- ";
-            }
+            if (!first)
+                out << " ";
+            if (m.first.is_neg()) 
+                out << "- ";
+            else if (!first)
+                out << "+ ";
             first = false;
             rational c = abs(m.first);
             m.second.reverse();

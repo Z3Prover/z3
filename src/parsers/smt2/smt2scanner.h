@@ -75,9 +75,7 @@ namespace smt2 {
             EOF_TOKEN
         };
         
-        scanner(cmd_context & ctx, std::istream& stream, bool interactive = false);
-        
-        ~scanner() {}    
+        scanner(cmd_context & ctx, std::istream& stream, bool interactive = false);  
         
         int get_line() const { return m_line; }
         int get_pos() const { return m_pos; }

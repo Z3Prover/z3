@@ -656,6 +656,7 @@ namespace sat {
         s.propagate_core(false); // must not use propagate(), since s.m_clauses is not in a consistent state.
         if (s.inconsistent())
             return;
+        m_use_list.reserve(s.num_vars());
         unsigned new_trail_sz = s.m_trail.size();
         for (unsigned i = old_trail_sz; i < new_trail_sz; i++) {
             literal l = s.m_trail[i];
@@ -1376,7 +1377,7 @@ namespace sat {
             bool first = true;
             unsigned sz = 0, sz0 = m_covered_clause.size();     
             for (literal l : m_covered_clause) s.mark_visited(l);
-            shuffle<literal>(m_covered_clause.size(), m_covered_clause.c_ptr(), s.s.m_rand);
+            shuffle<literal>(m_covered_clause.size(), m_covered_clause.data(), s.s.m_rand);
             m_tautology.reset();
             m_mc.stackv().reset();
             m_ala_qhead = 0;
@@ -2003,7 +2004,7 @@ namespace sat {
                         s.m_stats.m_mk_ter_clause++;
                     else
                         s.m_stats.m_mk_clause++;
-                    clause * new_c = s.alloc_clause(m_new_cls.size(), m_new_cls.c_ptr(), false);
+                    clause * new_c = s.alloc_clause(m_new_cls.size(), m_new_cls.data(), false);
 
                     if (s.m_config.m_drat) s.m_drat.add(*new_c, status::redundant());
                     s.m_clauses.push_back(new_c);
@@ -2021,10 +2022,14 @@ namespace sat {
         }
         remove_bin_clauses(pos_l);
         remove_bin_clauses(neg_l);
-        remove_clauses(pos_occs, pos_l);
-        remove_clauses(neg_occs, neg_l);
-        pos_occs.reset();
-        neg_occs.reset();
+        {
+            clause_use_list& pos_occs = m_use_list.get(pos_l);
+            clause_use_list& neg_occs = m_use_list.get(neg_l);
+            remove_clauses(pos_occs, pos_l);
+            remove_clauses(neg_occs, neg_l);
+            pos_occs.reset();
+            neg_occs.reset();
+        }
         return true;
     }
 

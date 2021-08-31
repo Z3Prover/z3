@@ -76,6 +76,8 @@ public:
     virtual void operator()(model_ref & m) = 0;
 
     virtual void operator()(labels_vec & r) {}
+
+    virtual void operator()(expr_ref& fml) { UNREACHABLE(); }
     
     virtual model_converter * translate(ast_translation & translator) = 0;
     
@@ -86,7 +88,6 @@ public:
        The operator has as side effect of adding definitions as assertions to the
        formula and removing these definitions from the model converter.
      */
-    virtual void operator()(expr_ref& formula) { UNREACHABLE(); }
 
     virtual void get_units(obj_map<expr, bool>& fmls) { UNREACHABLE(); }
 };

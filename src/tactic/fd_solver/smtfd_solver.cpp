@@ -178,7 +178,7 @@ namespace smtfd {
                 return m.mk_fresh_const(name, m.mk_bool_sort());
             }        
             else if (m_butil.is_bv(t)) {
-                return m.mk_fresh_const(name, m.get_sort(t));
+                return m.mk_fresh_const(name, t->get_sort());
             }
             else {
                 ++m_nv;
@@ -317,13 +317,13 @@ namespace smtfd {
                         r = m.mk_eq(m_args.get(0), m_args.get(1));
                     }
                     else if (m.is_distinct(a)) {
-                        r = m.mk_distinct(m_args.size(), m_args.c_ptr());
+                        r = m.mk_distinct(m_args.size(), m_args.data());
                     }
                     else if (m.is_ite(a)) {
                         r = m.mk_ite(m_args.get(0), m_args.get(1), m_args.get(2));
                     }
                     else if (bvfid == fid || bfid == fid || pbfid == fid) {
-                        r = m.mk_app(a->get_decl(), m_args.size(), m_args.c_ptr());
+                        r = m.mk_app(a->get_decl(), m_args.size(), m_args.data());
                     }
                     else if (is_uninterp_const(t) && m.is_bool(t)) {
                         r = t;
@@ -690,14 +690,14 @@ namespace smtfd {
         for (unsigned i = 0; i < a.m_t->get_num_args(); ++i) {
             if (p.values().get(a.m_val_offset+i) != p.values().get(b.m_val_offset+i)) 
                 return false;
-            if (p.get_manager().get_sort(a.m_t->get_arg(i)) != p.get_manager().get_sort(b.m_t->get_arg(i)))
+            if (a.m_t->get_arg(i)->get_sort() != b.m_t->get_arg(i)->get_sort())
                 return false;
         }
         return true;
     }
 
     unsigned f_app_hash::operator()(f_app const& a) const {
-        return get_composite_hash(p.values().c_ptr() + a.m_val_offset, a.m_t->get_num_args(), *this, *this);
+        return get_composite_hash(p.values().data() + a.m_val_offset, a.m_t->get_num_args(), *this, *this);
     }
     
     class basic_plugin : public theory_plugin {
@@ -779,7 +779,7 @@ namespace smtfd {
                 values.push_back(m.mk_model_value(values.size(), s));
                 m_pinned.push_back(values.back());                
             }
-            m_context.get_model().register_usort(s, values.size(), values.c_ptr());
+            m_context.get_model().register_usort(s, values.size(), values.data());
             for (unsigned i = 0; i < keys.size(); ++i) {
                 v2e.insert(keys[i], values[i]);
             }
@@ -793,7 +793,7 @@ namespace smtfd {
         {}
         
         void check_term(expr* t, unsigned round) override {
-            sort* s = m.get_sort(t);
+            sort* s = t->get_sort();
             if (round == 0 && is_uf(t)) {
                 TRACE("smtfd_verbose", tout << "check-term: " << mk_bounded_pp(t, m, 2) << "\n";);
                 enforce_congruence(to_app(t)->get_decl(), to_app(t), s);
@@ -816,7 +816,7 @@ namespace smtfd {
         }
 
         bool term_covered(expr* t) override {
-            sort* s = m.get_sort(t);
+            sort* s = t->get_sort();
             if (sort_covered(s)) {
                 val2elem_t& v2e = get_table(s);
                 expr_ref v = eval_abs(t);
@@ -859,12 +859,12 @@ namespace smtfd {
                     }
                     expr_ref val = model_value(f.m_t);
                     TRACE("smtfd_verbose", tout << mk_bounded_pp(f.m_t, m, 2) << " := " << val << "\n";);
-                    fi->insert_new_entry(args.c_ptr(), val);
+                    fi->insert_new_entry(args.data(), val);
                 }
                 mdl->register_decl(fn, fi);
             }
             for (expr* t : subterms(terms)) {
-                if (is_uninterp_const(t) && sort_covered(m.get_sort(t))) {
+                if (is_uninterp_const(t) && sort_covered(t->get_sort())) {
                     expr_ref val = model_value(t);
                     mdl->register_decl(to_app(t)->get_decl(), val);
                 }
@@ -872,7 +872,7 @@ namespace smtfd {
         }
 
         expr_ref model_value_core(expr* t) override { 
-            sort* s = m.get_sort(t);
+            sort* s = t->get_sort();
             if (sort_covered(s)) {
                 auto& v2e = ensure_table(s);
                 return expr_ref(v2e[eval_abs(t)], m);
@@ -922,14 +922,14 @@ namespace smtfd {
         void insert_select(app* t) {
             expr* a = t->get_arg(0);
             expr_ref vA = eval_abs(a);
-            check_congruence(vA, t, m.get_sort(a));
+            check_congruence(vA, t, a->get_sort());
         }
 
         void check_select(app* t) {
             expr* a = t->get_arg(0);
             expr_ref vA = eval_abs(a);
             TRACE("smtfd", tout << mk_bounded_pp(t, m, 2) << "\n";);
-            enforce_congruence(vA, t, m.get_sort(a));                                 
+            enforce_congruence(vA, t, a->get_sort());                                 
         }
 
         // check that (select(t, t.args) = t.value)
@@ -1018,8 +1018,8 @@ namespace smtfd {
             expr_ref vT = eval_abs(t);
             expr_ref vA = eval_abs(arg);
 
-            table& tT = ast2table(vT, m.get_sort(t)); // select table of t
-            table& tA = ast2table(vA, m.get_sort(arg)); // select table of arg
+            table& tT = ast2table(vT, t->get_sort()); // select table of t
+            table& tA = ast2table(vA, arg->get_sort()); // select table of arg
 
             if (vT == vA) {                
                 return;
@@ -1049,7 +1049,7 @@ namespace smtfd {
                 if (m_context.at_max()) {
                     break;
                 }
-                if (m.get_sort(t) != m.get_sort(fA.m_t->get_arg(0))) {
+                if (t->get_sort() != fA.m_t->get_arg(0)->get_sort()) {
                     continue;
                 }
                 if (!tT.find(fA, fT) || (value_of(fA) != value_of(fT) && !eq(m_vargs, fA))) {
@@ -1064,7 +1064,7 @@ namespace smtfd {
                 if (m_context.at_max()) {
                     break;
                 }
-                if (!tA.find(fT, fA) && m.get_sort(t) == m.get_sort(fT.m_t->get_arg(0))) {
+                if (!tA.find(fT, fA) && t->get_sort() == m.get_sort(fT.m_t->get_arg(0))) {
                     TRACE("smtfd", tout << "not found\n";);
                     add_select_store_axiom(t, fT);
                     ++r;
@@ -1080,7 +1080,7 @@ namespace smtfd {
             for (expr* arg : *f.m_t) {
                 m_args.push_back(arg);
             }
-            SASSERT(m.get_sort(t) == m.get_sort(a));
+            SASSERT(t->get_sort() == a->get_sort());
             TRACE("smtfd", tout << mk_bounded_pp(t, m, 2) << " " << mk_bounded_pp(f.m_t, m, 2) << "\n";);
             expr_ref eq = mk_eq_idxs(t, f.m_t);
             m_args[0] = t;
@@ -1094,7 +1094,7 @@ namespace smtfd {
         }
 
         bool same_array_sort(f_app const& fA, f_app const& fT) const {
-            return m.get_sort(fA.m_t->get_arg(0)) == m.get_sort(fT.m_t->get_arg(0));
+            return fA.m_t->get_arg(0)->get_sort() == fT.m_t->get_arg(0)->get_sort();
         }
 
         /**
@@ -1105,9 +1105,9 @@ namespace smtfd {
                 m_autil.is_const(t) ||
                 is_lambda(t)) {
                 expr_ref vT = eval_abs(t);
-                table& tT = ast2table(vT, m.get_sort(t));
+                table& tT = ast2table(vT, t->get_sort());
                 for (f_app & f : tT) {
-                    if (m.get_sort(t) != m.get_sort(f.m_t->get_arg(0))) 
+                    if (t->get_sort() != f.m_t->get_arg(0)->get_sort())
                         continue;
                     if (m_context.at_max()) 
                         break;
@@ -1165,7 +1165,7 @@ namespace smtfd {
         }
 
         void enforce_extensionality(expr* a, expr* b) {
-            sort* s = m.get_sort(a);
+            sort* s = a->get_sort();
             unsigned arity = get_array_arity(s);
             expr_ref_vector args(m);
             args.push_back(a);
@@ -1190,7 +1190,7 @@ namespace smtfd {
                 SASSERT(m_autil.is_select(f.m_t));
                 expr_ref v = model_value(f.m_t);
                 if (!value) {
-                    sort* s = m.get_sort(f.m_t->get_arg(0));
+                    sort* s = f.m_t->get_arg(0)->get_sort();
                     default_value = v;
                     value = m_autil.mk_const_array(s, default_value);
                 }
@@ -1256,7 +1256,7 @@ namespace smtfd {
             if (m_autil.is_select(t)) {
                 expr* a = to_app(t)->get_arg(0);
                 expr_ref vA = eval_abs(a);
-                insert(mk_app(vA, to_app(t), m.get_sort(a)));                
+                insert(mk_app(vA, to_app(t), a->get_sort()));                
                 
             }
             return 
@@ -1285,9 +1285,9 @@ namespace smtfd {
         expr_ref model_value_core(expr* t) override { 
             if (m_autil.is_array(t)) {
                 expr_ref vT = eval_abs(t);
-                table& tb = ast2table(vT, m.get_sort(t));
+                table& tb = ast2table(vT, t->get_sort());
                 if (tb.empty()) {
-                    return model_value_core(m.get_sort(t));
+                    return model_value_core(t->get_sort());
                 }
                 else {
                     return mk_array_value(tb);
@@ -1345,7 +1345,7 @@ namespace smtfd {
                 for (unsigned j = i + 1; !m_context.at_max() && j < shared.size(); ++j) {
                     expr* s2 = shared.get(j);
                     expr* v2 = sharedvals.get(j);
-                    if (v1 != v2 && m.get_sort(s1) == m.get_sort(s2) && same_table(v1, m.get_sort(s1), v2, m.get_sort(s2))) {
+                    if (v1 != v2 && s1->get_sort() == s2->get_sort() && same_table(v1, s1->get_sort(), v2, s2->get_sort())) {
                         enforce_extensionality(s1, s2);
                     }
                 }
@@ -1380,7 +1380,7 @@ namespace smtfd {
         }
 
         void register_value(expr* e) {
-            sort* s = m.get_sort(e);
+            sort* s = e->get_sort();
             obj_hashtable<expr>* values = nullptr;
             if (!m_fresh.find(s, values)) {
                 values = alloc(obj_hashtable<expr>);
@@ -1410,7 +1410,7 @@ namespace smtfd {
                 for (expr* arg : *to_app(e)) {
                     args.push_back(replace_model_value(arg));
                 }
-                return expr_ref(m.mk_app(to_app(e)->get_decl(), args.size(), args.c_ptr()), m);
+                return expr_ref(m.mk_app(to_app(e)->get_decl(), args.size(), args.data()), m);
             }
             return expr_ref(e, m);
         }
@@ -1450,7 +1450,7 @@ namespace smtfd {
                 }
             }
             var_subst subst(m);
-            expr_ref body = subst(tmp, vars.size(), vars.c_ptr());
+            expr_ref body = subst(tmp, vars.size(), vars.data());
             
             if (is_forall(q)) {
                 body = m.mk_not(body);
@@ -1478,7 +1478,7 @@ namespace smtfd {
                         break;
                     }                    
                     expr* t = nullptr;
-                    if (m_val2term.find(val, m.get_sort(v), t)) {
+                    if (m_val2term.find(val, v->get_sort(), t)) {
                         val = t;
                     }
                     else {
@@ -1489,7 +1489,7 @@ namespace smtfd {
             }
 
             if (r == l_true) {                
-                body = subst(q->get_expr(), vals.size(), vals.c_ptr());
+                body = subst(q->get_expr(), vals.size(), vals.data());
                 m_context.rewrite(body);
                 TRACE("smtfd", tout << "vals: " << vals << "\n" << body << "\n";);
                 if (is_forall(q)) {
@@ -1518,7 +1518,7 @@ namespace smtfd {
                 vars[i] = m.mk_fresh_const(q->get_decl_name(i), q->get_decl_sort(i));    
             }
             var_subst subst(m);
-            expr_ref body = subst(q->get_expr(), vars.size(), vars.c_ptr());
+            expr_ref body = subst(q->get_expr(), vars.size(), vars.data());
             if (is_exists(q)) {
                 body = m.mk_implies(q, body);
             }
@@ -1533,8 +1533,8 @@ namespace smtfd {
         void init_term(expr* t) {
             if (!m.is_bool(t) && is_ground(t)) {
                 expr_ref v = eval_abs(t);
-                if (!m_val2term.contains(v, m.get_sort(t))) {
-                    m_val2term.insert(v, m.get_sort(t), t);
+                if (!m_val2term.contains(v, t->get_sort())) {
+                    m_val2term.insert(v, t->get_sort(), t);
                     m_val2term_trail.push_back(v);
                 }
             }
@@ -1646,7 +1646,7 @@ namespace smtfd {
             unsigned sz = m_assertions.size() - m_assertions_qhead;
             if (sz > 0) {
                 m_assertions.push_back(m_toggles.back());                
-                expr_ref fml(m.mk_and(sz + 1, m_assertions.c_ptr() + m_assertions_qhead), m);
+                expr_ref fml(m.mk_and(sz + 1, m_assertions.data() + m_assertions_qhead), m);
                 m_assertions.pop_back();                
                 expr* toggle = add_toggle(m.mk_fresh_const("toggle", m.mk_bool_sort()));
                 m_assertions_qhead = m_assertions.size();
@@ -1725,7 +1725,7 @@ namespace smtfd {
                 }
             }
             for (expr* t : subterms(terms)) {
-                if (!is_forall(t) && !is_exists(t) && (!m_context.term_covered(t) || !m_context.sort_covered(m.get_sort(t)))) {
+                if (!is_forall(t) && !is_exists(t) && (!m_context.term_covered(t) || !m_context.sort_covered(t->get_sort()))) {
                     is_decided = l_false;
                 }
             }
@@ -1736,12 +1736,12 @@ namespace smtfd {
                   for (expr* a : subterms(terms)) {
                       expr_ref val0 = (*m_model)(a);
                       expr_ref val1 = (*m_model)(abs(a));
-                      if (is_ground(a) && val0 != val1 && m.get_sort(val0) == m.get_sort(val1)) {
+                      if (is_ground(a) && val0 != val1 && val0->get_sort() == val1->get_sort()) {
                           tout << mk_bounded_pp(a, m, 2) << " := " << val0 << " " << val1 << "\n";
                       }
-                      if (!is_forall(a) && !is_exists(a) && (!m_context.term_covered(a) || !m_context.sort_covered(m.get_sort(a)))) {
-                          tout << "not covered: " << mk_pp(a, m) << " " << mk_pp(m.get_sort(a), m) << " "; 
-                          tout << m_context.term_covered(a) << " " << m_context.sort_covered(m.get_sort(a)) << "\n";
+                      if (!is_forall(a) && !is_exists(a) && (!m_context.term_covered(a) || !m_context.sort_covered(a->get_sort()))) {
+                          tout << "not covered: " << mk_pp(a, m) << " " << mk_pp(a->get_sort(), m) << " "; 
+                          tout << m_context.term_covered(a) << " " << m_context.sort_covered(a->get_sort()) << "\n";
                       }
                   }
                   tout << "has quantifier: " << has_q << "\n" << core << "\n";
@@ -1753,7 +1753,7 @@ namespace smtfd {
                 for (expr* a : subterms(core)) {
                     expr_ref val0 = (*m_model)(a);
                     expr_ref val1 = (*m_model)(abs(a));
-                    if (is_ground(a) && val0 != val1 && m.get_sort(val0) == m.get_sort(val1)) {
+                    if (is_ground(a) && val0 != val1 && val0->get_sort() == val1->get_sort()) {
                         std::cout << mk_bounded_pp(a, m, 2) << " := " << val0 << " " << val1 << "\n";
                         found_bad = true;
                     }
@@ -2010,7 +2010,7 @@ namespace smtfd {
                 }        
                 m_stats.m_num_lemmas += m_context.size();
                 m_context.reset(m_model);
-                r = check_abs(core.size(), core.c_ptr());
+                r = check_abs(core.size(), core.data());
                 update_reason_unknown(r, m_fd_sat_solver);
                 switch (r) {
                 case l_false:
@@ -2030,6 +2030,11 @@ namespace smtfd {
             SASSERT(r == l_true);
             return r;
         }
+
+        void set_phase(expr* e) override {}
+        phase* get_phase() override { return nullptr; }
+        void set_phase(phase* p) override { }
+        void move_to_front(expr* e) override { }
 
         void updt_params(params_ref const & p) override { 
             ::solver::updt_params(p); 

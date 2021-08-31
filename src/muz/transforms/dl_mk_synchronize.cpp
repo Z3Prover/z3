@@ -82,7 +82,7 @@ namespace datalog {
                 was_added = true;
                 func_decl* orig = decls_buf[0];
                 func_decl* product_pred = m_ctx.mk_fresh_head_predicate(new_name,
-                    symbol::null, domain.size(), domain.c_ptr(), orig);
+                    symbol::null, domain.size(), domain.data(), orig);
                 m_cache.insert(new_name, product_pred);
             }
             return;
@@ -130,7 +130,7 @@ namespace datalog {
 
         rule_ref new_rule(rm);
         new_rule = rm.mk(r.get_head(), tail_idx + 1,
-            new_tail.c_ptr(), new_tail_neg.c_ptr(), symbol::null, false);
+            new_tail.data(), new_tail_neg.data(), symbol::null, false);
         rules.replace_rule(&r, new_rule.get());
     }
 
@@ -150,7 +150,7 @@ namespace datalog {
 
         rule_ref new_rule(rm);
         new_rule = rm.mk(r);
-        rm.substitute(new_rule, revsub.size(), revsub.c_ptr());
+        rm.substitute(new_rule, revsub.size(), revsub.data());
         return new_rule;
     }
 
@@ -246,7 +246,7 @@ namespace datalog {
                 args[idx] = a->get_arg(i);
         }
 
-        return app_ref(m.mk_app(pred, args_num, args.c_ptr()), m);
+        return app_ref(m.mk_app(pred, args_num, args.data()), m);
     }
 
     rule_ref mk_synchronize::product_rule(rule_ref_vector const & rules) {
@@ -302,7 +302,7 @@ namespace datalog {
 
         rule_ref new_rule(rm);
         new_rule = rm.mk(product_head, tail_idx + 1,
-            new_tail.c_ptr(), new_tail_neg.c_ptr(), symbol(buffer.c_str()), false);
+            new_tail.data(), new_tail_neg.data(), symbol(buffer.c_str()), false);
         rm.fix_unbound_vars(new_rule, false);
         return new_rule;
     }

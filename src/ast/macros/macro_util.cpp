@@ -184,6 +184,15 @@ bool macro_util::is_left_simple_macro(expr * n, unsigned num_decls, app_ref & he
         def  = rhs;
         return true;
     }
+    if (m_manager.is_not(n, lhs) && m_manager.is_eq(lhs, lhs, rhs) &&
+        m_manager.is_bool(lhs) &&
+        is_macro_head(lhs, num_decls) &&
+        !is_forbidden(to_app(lhs)->get_decl()) &&
+        !occurs(to_app(lhs)->get_decl(), rhs)) {
+        head = to_app(lhs);
+        def  = m_manager.mk_not(rhs);
+        return true;
+    }
     return false;
 }
 
@@ -213,6 +222,15 @@ bool macro_util::is_right_simple_macro(expr * n, unsigned num_decls, app_ref & h
         !occurs(to_app(rhs)->get_decl(), lhs)) {
         head = to_app(rhs);
         def  = lhs;
+        return true;
+    }
+    if (m_manager.is_not(n, n) && m_manager.is_eq(n, lhs, rhs) &&
+        m_manager.is_bool(lhs) &&
+        is_macro_head(rhs, num_decls) &&
+        !is_forbidden(to_app(rhs)->get_decl()) &&
+        !occurs(to_app(rhs)->get_decl(), lhs)) {
+        head = to_app(rhs);
+        def  = m_manager.mk_not(lhs);
         return true;
     }
     return false;
@@ -289,7 +307,7 @@ bool macro_util::is_arith_macro(expr * n, unsigned num_decls, app_ref & head, ex
         return false;
     head = to_app(h);
     expr_ref tmp(m_manager);
-    tmp = m_arith.mk_add(args.size(), args.c_ptr());
+    tmp = m_arith.mk_add(args.size(), args.data());
     if (inv)
         mk_sub(tmp, rhs, def);
     else
@@ -307,7 +325,7 @@ bool macro_util::is_pseudo_head(expr * n, unsigned num_decls, app_ref & head, ap
         return false;
     if (!is_ground(lhs) && !is_ground(rhs))
         return false;
-    sort * s = m_manager.get_sort(lhs);
+    sort * s = lhs->get_sort();
     if (m_manager.is_uninterp(s))
         return false;
     sort_size sz = s->get_num_elements();
@@ -448,14 +466,14 @@ void macro_util::quasi_macro_head_to_macro_head(app * qhead, unsigned & num_decl
                 continue;
             }
         }
-        var * new_var   = m_manager.mk_var(next_var_idx, m_manager.get_sort(arg));
+        var * new_var   = m_manager.mk_var(next_var_idx, arg->get_sort());
         next_var_idx++;
         expr * new_cond = m_manager.mk_eq(new_var, arg);
         new_args.push_back(new_var);
         new_conds.push_back(new_cond);
     }
-    bool_rewriter(m_manager).mk_and(new_conds.size(), new_conds.c_ptr(), cond);
-    head = m_manager.mk_app(qhead->get_decl(), new_args.size(), new_args.c_ptr());
+    bool_rewriter(m_manager).mk_and(new_conds.size(), new_conds.data(), cond);
+    head = m_manager.mk_app(qhead->get_decl(), new_args.size(), new_args.data());
     num_decls = next_var_idx;
 }
 
@@ -467,7 +485,7 @@ void macro_util::quasi_macro_head_to_macro_head(app * qhead, unsigned & num_decl
    See normalize_expr
 */
 void macro_util::mk_macro_interpretation(app * head, unsigned num_decls, expr * def, expr_ref & interp) const {
-    TRACE("macro_util", tout << mk_pp(head, m_manager) << "\n";);
+    TRACE("macro_util", tout << mk_pp(head, m_manager) << "\n" << mk_pp(def, m_manager) << "\n";);
     SASSERT(is_macro_head(head, head->get_num_args()) ||
             is_quasi_macro_ok(head, head->get_num_args(), def));
     SASSERT(!occurs(head->get_decl(), def));
@@ -515,7 +533,7 @@ void macro_util::normalize_expr(app * head, unsigned num_decls, expr * t, expr_r
                   if (var_mapping[i] != 0)
                       tout << "#" << i << " -> " << mk_ll_pp(var_mapping[i], m_manager);
               });
-        norm_t = subst(t, var_mapping.size(), var_mapping.c_ptr());
+        norm_t = subst(t, var_mapping.size(), var_mapping.data());
     }
     else {
         norm_t = t;
@@ -609,11 +627,11 @@ void hint_to_macro_head(ast_manager & m, app * head, unsigned & num_decls, app_r
                 continue;
             }
         }
-        var * new_var   = m.mk_var(next_var_idx, m.get_sort(arg));
+        var * new_var   = m.mk_var(next_var_idx, arg->get_sort());
         next_var_idx++;
         new_args.push_back(new_var);
     }
-    new_head = m.mk_app(head->get_decl(), new_args.size(), new_args.c_ptr());
+    new_head = m.mk_app(head->get_decl(), new_args.size(), new_args.data());
     num_decls = next_var_idx;
 }
 
@@ -759,7 +777,7 @@ void macro_util::get_rest_clause_as_cond(expr * except_lit, expr_ref & extra_con
     }
     if (neg_other_lits.empty())
         return;
-    bool_rewriter(m_manager).mk_and(neg_other_lits.size(), neg_other_lits.c_ptr(), extra_cond);
+    bool_rewriter(m_manager).mk_and(neg_other_lits.size(), neg_other_lits.data(), extra_cond);
 }
 
 void macro_util::collect_poly_args(expr * n, expr * exception, ptr_buffer<expr> & args) {
@@ -820,7 +838,7 @@ void macro_util::collect_arith_macro_candidates(expr * lhs, expr * rhs, expr * a
         if (_is_arith_macro || _is_poly_hint) {
             collect_poly_args(lhs, arg, args);
             expr_ref rest(m_manager);
-            mk_add(args.size(), args.c_ptr(), m_manager.get_sort(arg), rest);
+            mk_add(args.size(), args.data(), arg->get_sort(), rest);
             expr_ref def(m_manager);
             mk_sub(rhs, rest, def);
             // If is_poly_hint, rhs may contain variables that do not occur in to_app(arg).
@@ -841,7 +859,7 @@ void macro_util::collect_arith_macro_candidates(expr * lhs, expr * rhs, expr * a
             if (_is_arith_macro || _is_poly_hint) {
                 collect_poly_args(lhs, arg, args);
                 expr_ref rest(m_manager);
-                mk_add(args.size(), args.c_ptr(), m_manager.get_sort(arg), rest);
+                mk_add(args.size(), args.data(), arg->get_sort(), rest);
                 expr_ref def(m_manager);
                 mk_sub(rest, rhs, def);
                 // If is_poly_hint, rhs may contain variables that do not occur in to_app(neg_arg).

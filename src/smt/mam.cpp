@@ -56,23 +56,8 @@ using namespace smt;
 #define IS_CGR_SUPPORT true
 
 namespace {
-    // ------------------------------------
-    //
-    // Trail
-    //
-    // ------------------------------------
 
     class mam_impl;
-
-    typedef trail_stack<mam_impl> mam_trail_stack;
-
-    typedef trail<mam_impl> mam_trail;
-
-    template<typename T>
-    class mam_value_trail : public value_trail<mam_impl, T> {
-    public:
-        mam_value_trail(T & value):value_trail<mam_impl, T>(value) {}
-    };
 
 
     // ------------------------------------
@@ -136,7 +121,7 @@ namespace {
 
     struct instruction {
         opcode         m_opcode;
-        instruction *  m_next;
+        instruction* m_next = nullptr;
 #ifdef _PROFILE_MAM
         unsigned       m_counter; // how often it was executed
 #endif
@@ -603,7 +588,7 @@ namespace {
 
     class code_tree_manager {
         label_hasher &    m_lbl_hasher;
-        mam_trail_stack & m_trail_stack;
+        trail_stack &     m_trail_stack;
         region &          m_region;
 
         template<typename OP>
@@ -636,7 +621,7 @@ namespace {
         }
 
     public:
-        code_tree_manager(label_hasher & h, mam_trail_stack & s):
+        code_tree_manager(label_hasher & h, trail_stack & s):
             m_lbl_hasher(h),
             m_trail_stack(s),
             m_region(s.get_region()) {
@@ -761,20 +746,20 @@ namespace {
         }
 
         void set_next(instruction * instr, instruction * new_next) {
-            m_trail_stack.push(mam_value_trail<instruction*>(instr->m_next));
+            m_trail_stack.push(value_trail<instruction*>(instr->m_next));
             instr->m_next = new_next;
         }
 
         void save_num_regs(code_tree * tree) {
-            m_trail_stack.push(mam_value_trail<unsigned>(tree->m_num_regs));
+            m_trail_stack.push(value_trail<unsigned>(tree->m_num_regs));
         }
 
         void save_num_choices(code_tree * tree) {
-            m_trail_stack.push(mam_value_trail<unsigned>(tree->m_num_choices));
+            m_trail_stack.push(value_trail<unsigned>(tree->m_num_choices));
         }
 
         void insert_new_lbl_hash(filter * instr, unsigned h) {
-            m_trail_stack.push(mam_value_trail<approx_set>(instr->m_lbl_set));
+            m_trail_stack.push(value_trail<approx_set>(instr->m_lbl_set));
             instr->m_lbl_set.insert(h);
         }
     };
@@ -1014,7 +999,7 @@ namespace {
                         SASSERT(m_vars[to_var(arg)->get_idx()] != -1);
                         iregs.push_back(m_vars[to_var(arg)->get_idx()]);
                     }
-                    m_seq.push_back(m_ct_manager.mk_is_cgr(lbl, first_app_reg, num_args, iregs.c_ptr()));
+                    m_seq.push_back(m_ct_manager.mk_is_cgr(lbl, first_app_reg, num_args, iregs.data()));
                 }
                 else {
                     // Generate a BIND operation for this application.
@@ -1095,7 +1080,7 @@ namespace {
             }
             unsigned oreg        = m_tree->m_num_regs;
             m_tree->m_num_regs  += 1;
-            m_seq.push_back(m_ct_manager.mk_get_cgr(n->get_decl(), oreg, num_args, iregs.c_ptr()));
+            m_seq.push_back(m_ct_manager.mk_get_cgr(n->get_decl(), oreg, num_args, iregs.data()));
             return oreg;
         }
 
@@ -1209,7 +1194,7 @@ namespace {
                         }
                     }
                     SASSERT(joints.size() == num_args);
-                    m_seq.push_back(m_ct_manager.mk_cont(lbl, num_args, oreg, s, joints.c_ptr()));
+                    m_seq.push_back(m_ct_manager.mk_cont(lbl, num_args, oreg, s, joints.data()));
                     m_num_choices++;
                     while (!m_todo.empty())
                         linearise_core();
@@ -1233,19 +1218,16 @@ namespace {
                 linearise_multi_pattern(first_idx);
             }
 
-#ifdef Z3DEBUG
-            for (unsigned i = 0; i < m_qa->get_num_decls(); i++) {
-                CTRACE("mam_new_bug", m_vars[i] < 0, tout << mk_ismt2_pp(m_qa, m) << "\ni: " << i << " m_vars[i]: " << m_vars[i] << "\n";
-                       tout << "m_mp:\n" << mk_ismt2_pp(m_mp, m) << "\n";
-                       tout << "tree:\n" << *m_tree << "\n";
-                       );
-                SASSERT(m_vars[i] >= 0);
-            }
-#endif
+            // check that all variables are captured by pattern.
+            for (unsigned i = 0; i < m_qa->get_num_decls(); i++) 
+                if (m_vars[i] == -1) 
+                    return;
+
             SASSERT(head->m_next == 0);
+
             m_seq.push_back(m_ct_manager.mk_yield(m_qa, m_mp, m_qa->get_num_decls(), reinterpret_cast<unsigned*>(m_vars.begin())));
 
-            for (instruction * curr : m_seq) {
+            for (instruction* curr : m_seq) {
                 head->m_next = curr;
                 head = curr;
             }
@@ -1680,6 +1662,8 @@ namespace {
 
                 if (m_incompatible.empty()) {
                     // sequence starting at head is fully compatible
+                    if (!curr)
+                        return;
                     SASSERT(curr != 0);
                     SASSERT(curr->m_opcode == CHOOSE);
                     choose * first_child = static_cast<choose *>(curr);
@@ -1858,7 +1842,7 @@ namespace {
         enode_vector        m_bindings;
         enode_vector        m_args;
         backtrack_stack     m_backtrack_stack;
-        unsigned            m_top;
+        unsigned            m_top { 0 };
         const instruction * m_pc;
 
         // auxiliary temporary variables
@@ -2027,7 +2011,7 @@ namespace {
             init(t);
             if (t->filter_candidates()) {
                 for (enode* app : t->get_candidates()) {
-                    TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_owner(), m) << "\n";);
+                    TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_expr(), m) << "\n";);
                     if (!app->is_marked() && app->is_cgr()) {
                         if (m_context.resource_limits_exceeded() || !execute_core(t, app))
                             return;
@@ -2041,7 +2025,7 @@ namespace {
             }
             else {
                 for (enode* app : t->get_candidates()) {
-                    TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_owner(), m) << "\n";);
+                    TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_expr(), m) << "\n";);
                     if (app->is_cgr()) {
                         TRACE("trigger_bug", tout << "is_cgr\n";);
                         if (m_context.resource_limits_exceeded() || !execute_core(t, app))
@@ -2225,8 +2209,13 @@ namespace {
             if (curr->get_num_args() == expected_num_args && m_context.is_relevant(curr))
                 break;
         }
-        if (bp.m_it == bp.m_end)
+        if (bp.m_it == bp.m_end) {
+            if (best_v) {
+                bp.m_to_recycle = nullptr; 
+                recycle_enode_vector(best_v);
+            }
             return nullptr;
+        }
         m_top++;
         update_max_generation(*(bp.m_it), nullptr);
         return *(bp.m_it);
@@ -2244,7 +2233,7 @@ namespace {
             if (m_use_filters)
                 out << ", lbls: " << n->get_root()->get_lbls() << " ";
             out << "\n";
-            out << mk_pp(n->get_owner(), m) << "\n";
+            out << mk_pp(n->get_expr(), m) << "\n";
         }
     }
 
@@ -2287,7 +2276,7 @@ namespace {
 #endif
 
     bool interpreter::execute_core(code_tree * t, enode * n) {
-        TRACE("trigger_bug", tout << "interpreter::execute_core\n"; t->display(tout); tout << "\nenode\n" << mk_ismt2_pp(n->get_owner(), m) << "\n";);
+        TRACE("trigger_bug", tout << "interpreter::execute_core\n"; t->display(tout); tout << "\nenode\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";);
         unsigned since_last_check = 0;
 
 #ifdef _PROFILE_MAM
@@ -2321,7 +2310,10 @@ namespace {
 
     main_loop:
 
+        if (!m_pc)
+            goto backtrack;
         TRACE("mam_int", display_pc_info(tout););
+        
 #ifdef _PROFILE_MAM
         const_cast<instruction*>(m_pc)->m_counter++;
 #endif
@@ -2473,7 +2465,7 @@ namespace {
                  m_app  = get_first_f_app(static_cast<const bind *>(m_pc)->m_label, static_cast<const bind *>(m_pc)->m_num_args, m_n1); \
                  if (!m_app)                                                                                            \
                      goto backtrack;                                                                                    \
-                 TRACE("mam_int", tout << "bind candidate: " << mk_pp(m_app->get_owner(), m) << "\n";);     \
+                 TRACE("mam_int", tout << "bind candidate: " << mk_pp(m_app->get_expr(), m) << "\n";);     \
                  m_backtrack_stack[m_top].m_instr              = m_pc;                                                  \
                  m_backtrack_stack[m_top].m_old_max_generation = m_curr_max_generation;                                 \
                  m_backtrack_stack[m_top].m_old_used_enodes_size = m_curr_used_enodes_size;                             \
@@ -2607,7 +2599,7 @@ namespace {
 
         case GET_CGR1:
 #define GET_CGR_COMMON()                                                                                                                                                \
-            m_n1 = m_context.get_enode_eq_to(static_cast<const get_cgr *>(m_pc)->m_label, static_cast<const get_cgr *>(m_pc)->m_num_args, m_args.c_ptr());              \
+            m_n1 = m_context.get_enode_eq_to(static_cast<const get_cgr *>(m_pc)->m_label, static_cast<const get_cgr *>(m_pc)->m_num_args, m_args.data());              \
             if (m_n1 == 0 || !m_context.is_relevant(m_n1))                                                                                                              \
                 goto backtrack;                                                                                                                                         \
             update_max_generation(m_n1, nullptr);                                                                                                                       \
@@ -2623,7 +2615,7 @@ namespace {
 #define SET_VAR(IDX)                                                    \
             m_args[IDX] = m_registers[static_cast<const get_cgr *>(m_pc)->m_iregs[IDX]]; \
             if (m_use_filters && static_cast<const get_cgr *>(m_pc)->m_lbl_set.empty_intersection(m_args[IDX]->get_root()->get_plbls())) { \
-                TRACE("trigger_bug", tout << "m_args[IDX]->get_root():\n" << mk_ismt2_pp(m_args[IDX]->get_root()->get_owner(), m) << "\n"; \
+                TRACE("trigger_bug", tout << "m_args[IDX]->get_root():\n" << mk_ismt2_pp(m_args[IDX]->get_root()->get_expr(), m) << "\n"; \
                       tout << "cgr  set: "; static_cast<const get_cgr *>(m_pc)->m_lbl_set.display(tout); tout << "\n"; \
                       tout << "node set: "; m_args[IDX]->get_root()->get_plbls().display(tout); tout << "\n";); \
                 goto backtrack;                                         \
@@ -2687,7 +2679,7 @@ namespace {
             if (m_app == nullptr)
                 goto backtrack;
             m_pattern_instances.push_back(m_app);
-            TRACE("mam_int", tout << "continue candidate:\n" << mk_ll_pp(m_app->get_owner(), m););
+            TRACE("mam_int", tout << "continue candidate:\n" << mk_ll_pp(m_app->get_expr(), m););
             for (unsigned i = 0; i < m_num_args; i++)
                 m_registers[m_oreg+i] = m_app->get_arg(i);
             m_pc = m_pc->m_next;
@@ -2750,7 +2742,7 @@ namespace {
                            goto backtrack;                                                                                      \
                        }                                                                                                        \
                        bp.m_curr = m_app;                                                                                       \
-                       TRACE("mam_int", tout << "bind next candidate:\n" << mk_ll_pp(m_app->get_owner(), m););      \
+                       TRACE("mam_int", tout << "bind next candidate:\n" << mk_ll_pp(m_app->get_expr(), m););      \
                        m_oreg    = m_b->m_oreg
 
             BBIND_COMMON();
@@ -2830,7 +2822,7 @@ namespace {
                     m_pattern_instances.push_back(m_app);
                     // continue succeeded
                     update_max_generation(m_app, nullptr); // null indicates a top-level match
-                    TRACE("mam_int", tout << "continue next candidate:\n" << mk_ll_pp(m_app->get_owner(), m););
+                    TRACE("mam_int", tout << "continue next candidate:\n" << mk_ll_pp(m_app->get_expr(), m););
                     m_num_args = c->m_num_args;
                     m_oreg     = c->m_oreg;
                     for (unsigned i = 0; i < m_num_args; i++)
@@ -2873,24 +2865,24 @@ namespace {
         ast_manager &               m;
         compiler &                  m_compiler;
         ptr_vector<code_tree>       m_trees;       // mapping: func_label -> tree
-        mam_trail_stack &           m_trail_stack;
+        trail_stack &               m_trail_stack;
 #ifdef Z3DEBUG
         context *                   m_context;
 #endif
 
-        class mk_tree_trail : public mam_trail {
+        class mk_tree_trail : public trail {
             ptr_vector<code_tree> & m_trees;
             unsigned                m_lbl_id;
         public:
             mk_tree_trail(ptr_vector<code_tree> & t, unsigned id):m_trees(t), m_lbl_id(id) {}
-            void undo(mam_impl & m) override {
+            void undo() override {
                 dealloc(m_trees[m_lbl_id]);
                 m_trees[m_lbl_id] = nullptr;
             }
         };
 
     public:
-        code_tree_map(ast_manager & m, compiler & c, mam_trail_stack & s):
+        code_tree_map(ast_manager & m, compiler & c, trail_stack & s):
             m(m),
             m_compiler(c),
             m_trail_stack(s) {
@@ -2936,7 +2928,7 @@ namespace {
                 }
             }
             DEBUG_CODE(m_trees[lbl_id]->get_patterns().push_back(mp);
-                       m_trail_stack.push(push_back_trail<mam_impl, app*, false>(m_trees[lbl_id]->get_patterns())););
+                       m_trail_stack.push(push_back_trail<app*, false>(m_trees[lbl_id]->get_patterns())););
             TRACE("trigger_bug", tout << "after add_pattern, first_idx: " << first_idx << "\n"; m_trees[lbl_id]->display(tout););
         }
 
@@ -3096,7 +3088,7 @@ namespace {
     protected:
         ast_manager &               m;
         bool                        m_use_filters;
-        mam_trail_stack             m_trail_stack;
+        trail_stack                 m_trail_stack;
         label_hasher                m_lbl_hasher;
         code_tree_manager           m_ct_manager;
         compiler                    m_compiler;
@@ -3139,11 +3131,12 @@ namespace {
         class add_shared_enode_trail;
         friend class add_shared_enode_trail;
 
-        class add_shared_enode_trail : public mam_trail {
+        class add_shared_enode_trail : public trail {
+            mam_impl& m;
             enode * m_enode;
         public:
-            add_shared_enode_trail(enode * n):m_enode(n) {}
-            void undo(mam_impl & m) override { m.m_shared_enodes.erase(m_enode); }
+            add_shared_enode_trail(mam_impl& m, enode * n):m(m), m_enode(n) {}
+            void undo() override { m.m_shared_enodes.erase(m_enode); }
         };
 
 #ifdef Z3DEBUG
@@ -3162,7 +3155,7 @@ namespace {
 
         void add_candidate(code_tree * t, enode * app) {
             if (t != nullptr) {
-                TRACE("mam_candidate", tout << "adding candidate:\n" << mk_ll_pp(app->get_owner(), m););
+                TRACE("mam_candidate", tout << "adding candidate:\n" << mk_ll_pp(app->get_expr(), m););
                 if (!t->has_candidates())
                     m_to_match.push_back(t);
                 t->add_candidate(app);
@@ -3186,7 +3179,7 @@ namespace {
         void update_lbls(enode * n, unsigned elem) {
             approx_set & r_lbls = n->get_root()->get_lbls();
             if (!r_lbls.may_contain(elem)) {
-                m_trail_stack.push(mam_value_trail<approx_set>(r_lbls));
+                m_trail_stack.push(value_trail<approx_set>(r_lbls));
                 r_lbls.insert(elem);
             }
         }
@@ -3198,7 +3191,7 @@ namespace {
             TRACE("mam_bug", tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
             if (m_is_clbl[lbl_id])
                 return;
-            m_trail_stack.push(set_bitvector_trail<mam_impl>(m_is_clbl, lbl_id));
+            m_trail_stack.push(set_bitvector_trail(m_is_clbl, lbl_id));
             SASSERT(m_is_clbl[lbl_id]);
             unsigned h = m_lbl_hasher(lbl);
             for (enode* app : m_context.enodes_of(lbl)) {
@@ -3218,9 +3211,9 @@ namespace {
                 enode * c            = app->get_arg(i);
                 approx_set & r_plbls = c->get_root()->get_plbls();
                 if (!r_plbls.may_contain(elem)) {
-                    m_trail_stack.push(mam_value_trail<approx_set>(r_plbls));
+                    m_trail_stack.push(value_trail<approx_set>(r_plbls));
                     r_plbls.insert(elem);
-                    TRACE("trigger_bug", tout << "updating plabels of:\n" << mk_ismt2_pp(c->get_root()->get_owner(), m) << "\n";
+                    TRACE("trigger_bug", tout << "updating plabels of:\n" << mk_ismt2_pp(c->get_root()->get_expr(), m) << "\n";
                           tout << "new_elem: " << static_cast<unsigned>(elem) << "\n";
                           tout << "plbls:    " << c->get_root()->get_plbls() << "\n";);
                     TRACE("mam_bug", tout << "updating plabels of: #" << c->get_root()->get_owner_id() << "\n";
@@ -3239,7 +3232,7 @@ namespace {
             TRACE("mam_bug", tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << "\n";);
             if (m_is_plbl[lbl_id])
                 return;
-            m_trail_stack.push(set_bitvector_trail<mam_impl>(m_is_plbl, lbl_id));
+            m_trail_stack.push(set_bitvector_trail(m_is_plbl, lbl_id));
             SASSERT(m_is_plbl[lbl_id]);
             SASSERT(is_plbl(lbl));
             unsigned h = m_lbl_hasher(lbl);
@@ -3286,7 +3279,7 @@ namespace {
                 p = p->m_child;
             }
             curr->m_code = mk_code(qa, mp, pat_idx);
-            m_trail_stack.push(new_obj_trail<mam_impl, code_tree>(curr->m_code));
+            m_trail_stack.push(new_obj_trail<code_tree>(curr->m_code));
             return head;
         }
 
@@ -3309,7 +3302,7 @@ namespace {
                                 insert_code(t, qa, mp, p->m_pattern_idx);
                             }
                             else {
-                                m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(t->m_first_child));
+                                m_trail_stack.push(set_ptr_trail<path_tree>(t->m_first_child));
                                 t->m_first_child = mk_path_tree(p->m_child, qa, mp);
                             }
                         }
@@ -3319,9 +3312,9 @@ namespace {
                                     insert_code(t, qa, mp, p->m_pattern_idx);
                                 }
                                 else {
-                                    m_trail_stack.push(set_ptr_trail<mam_impl, code_tree>(t->m_code));
+                                    m_trail_stack.push(set_ptr_trail<code_tree>(t->m_code));
                                     t->m_code = mk_code(qa, mp, p->m_pattern_idx);
-                                    m_trail_stack.push(new_obj_trail<mam_impl, code_tree>(t->m_code));
+                                    m_trail_stack.push(new_obj_trail< code_tree>(t->m_code));
                                 }
                             }
                             else {
@@ -3334,10 +3327,10 @@ namespace {
                 prev_sibling = t;
                 t = t->m_sibling;
             }
-            m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(prev_sibling->m_sibling));
+            m_trail_stack.push(set_ptr_trail<path_tree>(prev_sibling->m_sibling));
             prev_sibling->m_sibling = mk_path_tree(p, qa, mp);
             if (!found_label) {
-                m_trail_stack.push(value_trail<mam_impl, approx_set>(head->m_filter));
+                m_trail_stack.push(value_trail<approx_set>(head->m_filter));
                 head->m_filter.insert(m_lbl_hasher(p->m_label));
             }
         }
@@ -3347,7 +3340,7 @@ namespace {
                 insert(m_pc[h1][h2], p, qa, mp);
             }
             else {
-                m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(m_pc[h1][h2]));
+                m_trail_stack.push(set_ptr_trail<path_tree>(m_pc[h1][h2]));
                 m_pc[h1][h2] = mk_path_tree(p, qa, mp);
             }
             TRACE("mam_path_tree_updt",
@@ -3364,7 +3357,7 @@ namespace {
                         insert(m_pp[h1][h2].first, p2, qa, mp);
                 }
                 else {
-                    m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(m_pp[h1][h2].first));
+                    m_trail_stack.push(set_ptr_trail<path_tree>(m_pp[h1][h2].first));
                     m_pp[h1][h2].first = mk_path_tree(p1, qa, mp);
                     insert(m_pp[h1][h2].first, p2, qa, mp);
                 }
@@ -3382,8 +3375,8 @@ namespace {
                 }
                 else {
                     SASSERT(m_pp[h1][h2].second == 0);
-                    m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(m_pp[h1][h2].first));
-                    m_trail_stack.push(set_ptr_trail<mam_impl, path_tree>(m_pp[h1][h2].second));
+                    m_trail_stack.push(set_ptr_trail<path_tree>(m_pp[h1][h2].first));
+                    m_trail_stack.push(set_ptr_trail<path_tree>(m_pp[h1][h2].second));
                     m_pp[h1][h2].first  = mk_path_tree(p1, qa, mp);
                     m_pp[h1][h2].second = mk_path_tree(p2, qa, mp);
                 }
@@ -3609,7 +3602,7 @@ namespace {
                         bool is_flat_assoc         = lbl->is_flat_associative();
                         enode * curr_parent_root   = curr_parent->get_root();
                         enode * curr_parent_cg     = curr_parent->get_cg();
-                        TRACE("mam_path_tree", tout << "processing parent:\n" << mk_pp(curr_parent->get_owner(), m) << "\n";);
+                        TRACE("mam_path_tree", tout << "processing parent:\n" << mk_pp(curr_parent->get_expr(), m) << "\n";);
                         TRACE("mam_path_tree", tout << "parent is marked: " << curr_parent->is_marked() << "\n";);
                         if (filter.may_contain(m_lbl_hasher(lbl)) &&
                             !curr_parent->is_marked() &&
@@ -3638,7 +3631,7 @@ namespace {
                                          is_eq(curr_tree->m_ground_arg, curr_parent->get_arg(curr_tree->m_ground_arg_idx))
                                          )) {
                                         if (curr_tree->m_code) {
-                                            TRACE("mam_path_tree", tout << "found candidate " << expr_ref(curr_parent->get_owner(), m) << "\n";);
+                                            TRACE("mam_path_tree", tout << "found candidate " << expr_ref(curr_parent->get_expr(), m) << "\n";);
                                             add_candidate(curr_tree->m_code, curr_parent);
                                         }
                                         if (curr_tree->m_first_child) {
@@ -3667,8 +3660,8 @@ namespace {
                 recycle(t->m_todo);
                 t->m_todo = nullptr;
                 // remove both marks.
-                unmark_enodes(to_unmark->size(), to_unmark->c_ptr());
-                unmark_enodes2(to_unmark2->size(), to_unmark2->c_ptr());
+                unmark_enodes(to_unmark->size(), to_unmark->data());
+                unmark_enodes2(to_unmark2->size(), to_unmark2->data());
                 to_unmark->reset();
                 to_unmark2->reset();
             }
@@ -3796,7 +3789,7 @@ namespace {
                 todo.pop_back();
                 if (n->is_ground()) {
                     enode * e = mk_enode(m_context, qa, n);
-                    m_trail_stack.push(add_shared_enode_trail(e));
+                    m_context.push_trail(add_shared_enode_trail(*this, e));
                     m_shared_enodes.insert(e);
                 }
                 else {
@@ -3815,7 +3808,7 @@ namespace {
             mam(ctx),
             m(ctx.get_manager()),
             m_use_filters(use_filters),
-            m_trail_stack(*this),
+            m_trail_stack(),
             m_ct_manager(m_lbl_hasher, m_trail_stack),
             m_compiler(ctx, m_ct_manager, m_lbl_hasher, use_filters),
             m_interpreter(ctx, *this, use_filters),
@@ -3940,7 +3933,7 @@ namespace {
                     TRACE("missing_instance",
                           tout << "qa:\n" << mk_ll_pp(qa, m) << "\npat:\n" << mk_ll_pp(pat, m);
                           for (unsigned i = 0; i < num_bindings; i++)
-                              tout << "#" << bindings[i]->get_expr_id() << "\n" << mk_ll_pp(bindings[i]->get_owner(), m) << "\n";
+                              tout << "#" << bindings[i]->get_expr_id() << "\n" << mk_ll_pp(bindings[i]->get_expr(), m) << "\n";
                           );
                     UNREACHABLE();
                 }
@@ -3962,7 +3955,7 @@ namespace {
         // This method is invoked when n becomes relevant.
         // If lazy == true, then n is not added to the list of candidate enodes for matching. That is, the method just updates the lbls.
         void relevant_eh(enode * n, bool lazy) override {
-            TRACE("trigger_bug", tout << "relevant_eh:\n" << mk_ismt2_pp(n->get_owner(), m) << "\n";
+            TRACE("trigger_bug", tout << "relevant_eh:\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";
                   tout << "mam: " << this << "\n";);
             TRACE("mam", tout << "relevant_eh: #" << n->get_owner_id() << "\n";);
             if (n->has_lbl_hash())
@@ -3978,7 +3971,7 @@ namespace {
                     update_lbls(n, h);
                 if (is_plbl(lbl))
                     update_children_plbls(n, h);
-                TRACE("mam_bug", tout << "adding relevant candidate:\n" << mk_ll_pp(n->get_owner(), m) << "\n";);
+                TRACE("mam_bug", tout << "adding relevant candidate:\n" << mk_ll_pp(n->get_expr(), m) << "\n";);
                 if (!lazy)
                     add_candidate(n);
             }
@@ -4010,8 +4003,8 @@ namespace {
             approx_set   r1_lbls  = r1->get_lbls();
             approx_set & r2_lbls  = r2->get_lbls();
 
-            m_trail_stack.push(mam_value_trail<approx_set>(r2_lbls));
-            m_trail_stack.push(mam_value_trail<approx_set>(r2_plbls));
+            m_trail_stack.push(value_trail<approx_set>(r2_lbls));
+            m_trail_stack.push(value_trail<approx_set>(r2_plbls));
             r2_lbls  |= r1_lbls;
             r2_plbls |= r1_plbls;
             TRACE("mam_inc_bug",

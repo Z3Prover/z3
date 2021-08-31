@@ -57,7 +57,7 @@ struct is_non_qffplra_predicate {
     void operator()(quantifier *) { throw found(); }
 
     void operator()(app * n) {
-        sort * s = get_sort(n);
+        sort * s = n->get_sort();
         if (!m.is_bool(s) && !fu.is_float(s) && !fu.is_rm(s) && !bu.is_bv_sort(s) && !au.is_real(s))
             throw found();
         family_id fid = n->get_family_id();

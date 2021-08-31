@@ -46,22 +46,22 @@ set(CLANG_WARNINGS_AS_ERRORS
 ################################################################################
 set(WARNING_FLAGS_TO_CHECK "")
 set(WARNING_AS_ERROR_FLAGS_TO_CHECK "")
-if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   list(APPEND WARNING_FLAGS_TO_CHECK ${GCC_AND_CLANG_WARNINGS})
   list(APPEND WARNING_FLAGS_TO_CHECK ${GCC_ONLY_WARNINGS})
   list(APPEND WARNING_AS_ERROR_FLAGS_TO_CHECK ${GCC_AND_CLANG_WARNINGS_AS_ERRORS})
   list(APPEND WARNING_AS_ERROR_FLAGS_TO_CHECK ${GCC_WARNINGS_AS_ERRORS})
-elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   list(APPEND WARNING_FLAGS_TO_CHECK ${GCC_AND_CLANG_WARNINGS})
   list(APPEND WARNING_FLAGS_TO_CHECK ${CLANG_ONLY_WARNINGS})
   list(APPEND WARNING_AS_ERROR_FLAGS_TO_CHECK ${GCC_AND_CLANG_WARNINGS_AS_ERRORS})
   list(APPEND WARNING_AS_ERROR_FLAGS_TO_CHECK ${CLANG_WARNINGS_AS_ERRORS})
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   list(APPEND WARNING_FLAGS_TO_CHECK ${MSVC_WARNINGS})
 
   # CMake's default flags include /W3 already so remove them if
   # they already exist.
-  if ("${CMAKE_CXX_FLAGS}" MATCHES "/W3")
+  if (CMAKE_CXX_FLAGS MATCHES "/W3")
     string(REPLACE "/W3" "" _cmake_cxx_flags_remove_w3 "${CMAKE_CXX_FLAGS}")
     set(CMAKE_CXX_FLAGS "${_cmake_cxx_flags_remove_w3}" CACHE STRING "" FORCE)
   endif()
@@ -84,7 +84,7 @@ get_property(
   PROPERTY
   TYPE
 )
-if ("${WARNINGS_AS_ERRORS_CACHE_VAR_TYPE}" STREQUAL "BOOL")
+if (WARNINGS_AS_ERRORS_CACHE_VAR_TYPE STREQUAL "BOOL")
   message(WARNING "Detected legacy WARNINGS_AS_ERRORS option. Upgrading")
   set(WARNINGS_AS_ERRORS_DEFAULT "${WARNINGS_AS_ERRORS}")
   # Delete old entry
@@ -106,25 +106,25 @@ set_property(
   "ON;OFF;SERIOUS_ONLY"
 )
 
-if ("${WARNINGS_AS_ERRORS}" STREQUAL "ON")
+if (WARNINGS_AS_ERRORS STREQUAL "ON")
   message(STATUS "Treating compiler warnings as errors")
-  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU"))
+  if ((CMAKE_CXX_COMPILER_ID MATCHES "Clang") OR (CMAKE_CXX_COMPILER_ID MATCHES "GNU"))
     list(APPEND Z3_COMPONENT_CXX_FLAGS "-Werror")
-  elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     list(APPEND Z3_COMPONENT_CXX_FLAGS "/WX")
   else()
     message(AUTHOR_WARNING "Unknown compiler")
   endif()
-elseif ("${WARNINGS_AS_ERRORS}" STREQUAL "SERIOUS_ONLY")
+elseif (WARNINGS_AS_ERRORS STREQUAL "SERIOUS_ONLY")
   message(STATUS "Treating only serious compiler warnings as errors")
   # Loop through the flags
   foreach (flag ${WARNING_AS_ERROR_FLAGS_TO_CHECK})
     # Add globally because some flags need to be passed at link time.
     z3_add_cxx_flag("${flag}" GLOBAL)
   endforeach()
-elseif ("${WARNINGS_AS_ERRORS}" STREQUAL "OFF")
+elseif (WARNINGS_AS_ERRORS STREQUAL "OFF")
   message(STATUS "Not treating compiler warnings as errors")
-  if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     # Warnings as errors is off by default for MSVC so setting this
     # is not necessary but this duplicates the behaviour of the old
     # build system.

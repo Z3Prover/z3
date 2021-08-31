@@ -30,7 +30,7 @@ func_decl * mk_aux_decl_for_array_sort(ast_manager & m, sort * s) {
     for (unsigned i = 0; i < arity; i++) {
         domain.push_back(get_array_domain(s, i));
     }
-    return m.mk_fresh_func_decl(symbol::null, symbol::null, arity, domain.c_ptr(), range);
+    return m.mk_fresh_func_decl(symbol::null, symbol::null, arity, domain.data(), range);
 }
 
 array_factory::array_factory(ast_manager & m, model_core & md):
@@ -88,8 +88,8 @@ bool array_factory::mk_two_diff_values_for(sort * s) {
     func_interp * fi2;
     mk_array_interp(s, fi1);    
     mk_array_interp(s, fi2);
-    fi1->insert_entry(args.c_ptr(), r1);
-    fi2->insert_entry(args.c_ptr(), r2);
+    fi1->insert_entry(args.data(), r1);
+    fi2->insert_entry(args.data(), r2);
     DEBUG_CODE({
         value_set * set = 0;
         SASSERT(m_sort2value_set.find(s, set) && set->size() >= 2);
@@ -132,13 +132,19 @@ expr * array_factory::get_fresh_value(sort * s) {
         return get_some_value(s);
     }
     sort * range    = get_array_range(s);
-    expr * range_val = m_model.get_fresh_value(range);
-    if (range_val != nullptr) {
-        // easy case
-        func_interp * fi;
-        expr * val = mk_array_interp(s, fi);
-        fi->set_else(range_val);
-        return val;
+    expr* range_val = nullptr;
+    
+    if (!m_ranges.contains(range)) {
+        ptr_vector<sort>::scoped_stack _s(m_ranges);
+        m_ranges.push_back(range);
+        range_val = m_model.get_fresh_value(range);
+        if (range_val != nullptr) {
+            // easy case
+            func_interp* fi;
+            expr* val = mk_array_interp(s, fi);
+            fi->set_else(range_val);
+            return val;
+        }
     }
 
     TRACE("array_factory_bug", tout << "array fresh value: using fresh index, range: " << mk_pp(range, m_manager) << "\n";);
@@ -175,8 +181,8 @@ expr * array_factory::get_fresh_value(sort * s) {
         if (found) {
             func_interp * fi;
             expr * val = mk_array_interp(s, fi);
-            fi->insert_entry(args1.c_ptr(), v1);
-            fi->insert_entry(args2.c_ptr(), v2);
+            fi->insert_entry(args1.data(), v1);
+            fi->insert_entry(args2.data(), v2);
             return val;
         }
     }

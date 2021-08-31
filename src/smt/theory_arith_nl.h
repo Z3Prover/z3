@@ -660,7 +660,7 @@ theory_var theory_arith<Ext>::find_nl_var_for_branching() {
         bool computed_epsilon = false;
         bool r = check_monomial_assignment(v, computed_epsilon);
         if (!r) {
-            expr * m = get_enode(v)->get_owner();
+            expr * m = get_enode(v)->get_expr();
             SASSERT(is_pure_monomial(m));
             for (expr * arg : *to_app(m)) {
                 theory_var curr = ctx.get_enode(arg)->get_th_var(get_id());
@@ -1184,7 +1184,7 @@ expr_ref theory_arith<Ext>::p2expr(buffer<coeff_expr> & p) {
         }
     }
     SASSERT(!args.empty());
-    expr_ref r(mk_nary_add(args.size(), args.c_ptr()), get_manager());
+    expr_ref r(mk_nary_add(args.size(), args.data()), get_manager());
     m_nl_new_exprs.push_back(r);
     return r;
 }
@@ -1367,7 +1367,7 @@ expr * theory_arith<Ext>::factor(expr * m, expr * var, unsigned d) {
     insert(m);
     SASSERT(idx == d);
     TRACE("factor_bug", tout << "new_args:\n"; for(unsigned i = 0; i < new_args.size(); i++) tout << mk_pp(new_args[i], get_manager()) << "\n";);
-    expr * result = mk_nary_mul(new_args.size(), new_args.c_ptr(), m_util.is_int(var));
+    expr * result = mk_nary_mul(new_args.size(), new_args.data(), m_util.is_int(var));
     m_nl_new_exprs.push_back(result);
     TRACE("factor", tout << "result: " << mk_pp(result, get_manager()) << "\n";);
     return result;
@@ -1720,7 +1720,7 @@ grobner::monomial * theory_arith<Ext>::mk_gb_monomial(rational const & _coeff, e
     proc_var(m);
 
     if (!coeff.is_zero())
-        return gb.mk_monomial(coeff, vars.size(), vars.c_ptr());
+        return gb.mk_monomial(coeff, vars.size(), vars.data());
     else
         return nullptr;
 }
@@ -1748,7 +1748,7 @@ void theory_arith<Ext>::add_row_to_gb(row const & r, grobner & gb) {
                 monomials.push_back(new_m);
         }
     }
-    gb.assert_eq_0(monomials.size(), monomials.c_ptr(), dep);
+    gb.assert_eq_0(monomials.size(), monomials.data(), dep);
 }
 
 /**
@@ -1776,7 +1776,7 @@ void theory_arith<Ext>::add_monomial_def_to_gb(theory_var v, grobner & gb) {
     else {
         monomials.push_back(gb.mk_monomial(coeff, 1, &m));
     }
-    gb.assert_eq_0(monomials.size(), monomials.c_ptr(), dep);
+    gb.assert_eq_0(monomials.size(), monomials.data(), dep);
 }
 
 /**
@@ -2059,7 +2059,7 @@ bool theory_arith<Ext>::is_inconsistent2(grobner::equation const * eq, grobner &
     if (monomials.size() == num)
         return false; // didn't find any perfect square.
     interval ge_zero(m_dep_manager, rational(0), false, true, nullptr);
-    if (is_inconsistent(ge_zero, monomials.size(), monomials.c_ptr(), eq->get_dependency())) {
+    if (is_inconsistent(ge_zero, monomials.size(), monomials.data(), eq->get_dependency())) {
         TRACE("non_linear", tout << "found conflict\n"; gb.display_equation(tout, *eq););
         return true;
     }
@@ -2074,7 +2074,7 @@ expr * theory_arith<Ext>::monomial2expr(grobner::monomial const * m, bool is_int
         args.push_back(m_util.mk_numeral(m->get_coeff(), is_int));
     for (unsigned j = 0; j < num_vars; j++)
         args.push_back(m->get_var(j));
-    return mk_nary_mul(args.size(), args.c_ptr(), is_int);
+    return mk_nary_mul(args.size(), args.data(), is_int);
 }
 
 /**
@@ -2104,7 +2104,7 @@ bool theory_arith<Ext>::internalize_gb_eq(grobner::equation const * eq) {
     th_rewriter& s = ctx.get_rewriter();
     expr_ref pol(get_manager());
     SASSERT(!args.empty());
-    pol = mk_nary_add(args.size(), args.c_ptr());
+    pol = mk_nary_add(args.size(), args.data());
     expr_ref s_pol(get_manager());
     proof_ref pr(get_manager());
     TRACE("gb_bug", tout << mk_ll_pp(pol, get_manager()) << "\n";);
@@ -2138,7 +2138,7 @@ void theory_arith<Ext>::update_statistics(grobner & gb) {
 template<typename Ext>
 void theory_arith<Ext>::set_gb_exhausted() {
     IF_VERBOSE(3, verbose_stream() << "Grobner basis computation interrupted. Increase threshold using NL_ARITH_GB_THRESHOLD=<limit>\n";);
-    ctx.push_trail(value_trail<context, bool>(m_nl_gb_exhausted));
+    ctx.push_trail(value_trail<bool>(m_nl_gb_exhausted));
     m_nl_gb_exhausted = true;
 }
 
@@ -2314,7 +2314,7 @@ final_check_status theory_arith<Ext>::process_non_linear() {
         return FC_GIVEUP;
     }
 
-    ctx.push_trail(value_trail<context, unsigned>(m_nl_rounds));
+    ctx.push_trail(value_trail<unsigned>(m_nl_rounds));
     m_nl_rounds++;
 
     elim_quasi_base_rows();
@@ -2338,7 +2338,7 @@ final_check_status theory_arith<Ext>::process_non_linear() {
 
     bool progress;
     unsigned old_idx = m_nl_strategy_idx;
-    ctx.push_trail(value_trail<context, unsigned>(m_nl_strategy_idx));
+    ctx.push_trail(value_trail<unsigned>(m_nl_strategy_idx));
 
     do {
         progress = false;

@@ -65,7 +65,7 @@ static void validate_quant_solutions(app* x, expr* fml, expr_ref_vector& guards)
     expr_abstract(m, 0, 1, &_x, fml, fml2);
     std::cout << mk_pp(fml2, m) << "\n";
     symbol name(x->get_decl()->get_name());
-    sort* s = m.get_sort(x);
+    sort* s = x->get_sort();
     fml2 = m.mk_exists(1, &s, &name, fml2);
     std::cout << mk_pp(fml2, m) << "\n";
     tmp = m.mk_not(m.mk_iff(fml2, tmp));
@@ -146,7 +146,7 @@ static void parse_fml(char const* str, app_ref_vector& vars, expr_ref& fml) {
         }
         fml = q->get_expr();
         var_subst vs(m, true);
-        fml = vs(fml, vars.size(), (expr*const*)vars.c_ptr());
+        fml = vs(fml, vars.size(), (expr*const*)vars.data());
     }
 }
 
@@ -164,7 +164,7 @@ static void test_quant_solver(ast_manager& m, char const* str, bool validate = t
     expr_ref fml(m);
     app_ref_vector vars(m);
     parse_fml(str, vars, fml);
-    test_quant_solver(m, vars.size(), vars.c_ptr(), fml, validate);
+    test_quant_solver(m, vars.size(), vars.data(), fml, validate);
 }
 
 

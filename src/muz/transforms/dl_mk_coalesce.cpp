@@ -48,12 +48,12 @@ namespace datalog {
         for (unsigned i = 0; i < sz; ++i) {
             expr* a = p1->get_arg(i);
             expr* b = p2->get_arg(i);
-            SASSERT(m.get_sort(a) == m.get_sort(b));
+            SASSERT(a->get_sort() == b->get_sort());
             m_sub1.push_back(a);
             m_sub2.push_back(b);
-            args.push_back(m.mk_var(m_idx++, m.get_sort(a)));
+            args.push_back(m.mk_var(m_idx++, a->get_sort()));
         }
-        pred = m.mk_app(p1->get_decl(), args.size(), args.c_ptr());
+        pred = m.mk_app(p1->get_decl(), args.size(), args.data());
     }
 
     void mk_coalesce::extract_conjs(expr_ref_vector const& sub, rule const& rl, expr_ref& result) {
@@ -67,7 +67,7 @@ namespace datalog {
         bool_vector valid(sorts.size(), true);
         for (unsigned i = 0; i < sub.size(); ++i) {
             expr* e = sub[i];
-            sort* s = m.get_sort(e);
+            sort* s = e->get_sort();
             expr_ref w(m.mk_var(i, s), m);
             if (is_var(e)) {
                 unsigned v = to_var(e)->get_idx();
@@ -80,14 +80,14 @@ namespace datalog {
                     }
                     else {
                         SASSERT(revsub[v].get());
-                        SASSERT(m.get_sort(revsub[v].get()) == s);
+                        SASSERT(revsub[v]->get_sort() == s);
                         conjs.push_back(m.mk_eq(revsub[v].get(), w));    
                     }
                 }
             }
             else {
                 SASSERT(m.is_value(e));
-                SASSERT(m.get_sort(e) == m.get_sort(w));
+                SASSERT(e->get_sort() == w->get_sort());
                 conjs.push_back(m.mk_eq(e, w));
             }
         }
@@ -98,10 +98,10 @@ namespace datalog {
         }
         var_subst vs(m, false);
         for (unsigned i = r->get_uninterpreted_tail_size(); i < r->get_tail_size(); ++i) {
-            result = vs(r->get_tail(i), revsub.size(), revsub.c_ptr());
+            result = vs(r->get_tail(i), revsub.size(), revsub.data());
             conjs.push_back(result);
         }
-        bwr.mk_and(conjs.size(), conjs.c_ptr(), result);
+        bwr.mk_and(conjs.size(), conjs.data(), result);
     }
 
     void mk_coalesce::merge_rules(rule_ref& tgt, rule const& src) {
@@ -132,7 +132,7 @@ namespace datalog {
         SASSERT(is_app(fml));
         tail.push_back(to_app(fml));
         is_neg.push_back(false);
-        res = rm.mk(head, tail.size(), tail.c_ptr(), is_neg.c_ptr(), tgt->name());
+        res = rm.mk(head, tail.size(), tail.data(), is_neg.data(), tgt->name());
         if (m_ctx.generate_proof_trace()) {
             rm.to_formula(src, fml1);
             rm.to_formula(*tgt.get(),fml2);
@@ -177,7 +177,7 @@ namespace datalog {
         rule_set::decl2rules::iterator it = source.begin_grouped_rules(), end = source.end_grouped_rules();
         for (; it != end; ++it) {
             rule_ref_vector d_rules(rm);
-            d_rules.append(it->m_value->size(), it->m_value->c_ptr());
+            d_rules.append(it->m_value->size(), it->m_value->data());
             for (unsigned i = 0; i < d_rules.size(); ++i) {
                 rule_ref r1(d_rules[i].get(), rm);
                 for (unsigned j = i + 1; j < d_rules.size(); ++j) {

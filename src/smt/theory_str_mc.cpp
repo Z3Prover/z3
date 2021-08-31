@@ -85,7 +85,7 @@ namespace smt {
         expr_ref haystack(full, m);
         expr_ref needle(suff, m);
 
-        ptr_vector<expr> full_chars, suff_chars;
+        expr_ref_vector full_chars(m), suff_chars(m);
 
         if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)
                 || !fixed_length_reduce_string_term(subsolver, needle, suff_chars, cex)) {
@@ -147,7 +147,7 @@ namespace smt {
         expr_ref haystack(full, m);
         expr_ref needle(suff, m);
 
-        ptr_vector<expr> full_chars, suff_chars;
+        expr_ref_vector full_chars(m), suff_chars(m);
         if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)
                 || !fixed_length_reduce_string_term(subsolver, needle, suff_chars, cex)) {
             return false;
@@ -201,7 +201,7 @@ namespace smt {
         expr_ref haystack(full, m);
         expr_ref needle(pref, m);
 
-        ptr_vector<expr> full_chars, pref_chars;
+        expr_ref_vector full_chars(m), pref_chars(m);
         if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)
                 || !fixed_length_reduce_string_term(subsolver, needle, pref_chars, cex)) {
             return false;
@@ -262,7 +262,7 @@ namespace smt {
         expr_ref haystack(full, m);
         expr_ref needle(pref, m);
 
-        ptr_vector<expr> full_chars, pref_chars;
+        expr_ref_vector full_chars(m), pref_chars(m);
         if (!fixed_length_reduce_string_term(subsolver, haystack, full_chars, cex)
                 || !fixed_length_reduce_string_term(subsolver, needle, pref_chars, cex)) {
             return false;
@@ -316,7 +316,7 @@ namespace smt {
         expr_ref haystack(full, m);
         expr_ref needle(small, m);
 
-        ptr_vector<expr> haystack_chars, needle_chars;
+        expr_ref_vector haystack_chars(m), needle_chars(m);
         if (!fixed_length_reduce_string_term(subsolver, haystack, haystack_chars, cex)
                 || !fixed_length_reduce_string_term(subsolver, needle, needle_chars, cex)) {
             return false;
@@ -382,7 +382,7 @@ namespace smt {
         expr_ref haystack(full, m);
         expr_ref needle(small, m);
 
-        ptr_vector<expr> haystack_chars, needle_chars;
+        expr_ref_vector haystack_chars(m), needle_chars(m);
         if (!fixed_length_reduce_string_term(subsolver, haystack, haystack_chars, cex)
                 || !fixed_length_reduce_string_term(subsolver, needle, needle_chars, cex)) {
             return false;
@@ -447,11 +447,6 @@ namespace smt {
 
         ast_manager & sub_m = subsolver.m();
 
-        // NSB code review: to remove dependencies on subsolver.get_context(). 
-        // It uses a method that should be removed from smt_kernel.
-        // currently sub_ctx is used to retrieve a rewriter. Theory_str already has a rewriter attahed.
-        context & sub_ctx = subsolver.get_context();
-
         expr * str = nullptr, *re = nullptr;
         VERIFY(u.str.is_in_re(f, str, re));
 
@@ -459,7 +454,7 @@ namespace smt {
         eautomaton * aut = m_mk_aut(re);
         aut->compress();
 
-        ptr_vector<expr> str_chars;
+        expr_ref_vector str_chars(m);
         if (!fixed_length_reduce_string_term(subsolver, str, str_chars, cex)) {
             return false;
         }
@@ -554,7 +549,8 @@ namespace smt {
                 }
             }
             expr_ref result(mk_or(ors), sub_m);
-            sub_ctx.get_rewriter()(result);
+            th_rewriter rw(sub_m);
+            rw(result);
             TRACE("str_fl", tout << "regex path constraint: " << mk_pp(result, sub_m) << std::endl;);
 
             if (sub_m.is_false(result)) {
@@ -614,13 +610,10 @@ namespace smt {
      * this conflict clause exists in the main solver.
      */
     bool theory_str::fixed_length_reduce_string_term(smt::kernel & subsolver, expr * term,
-            ptr_vector<expr> & eqc_chars, expr_ref & cex) {
+            expr_ref_vector & eqc_chars, expr_ref & cex) {
         ast_manager & m = get_manager();
 
         ast_manager & sub_m = subsolver.m();
-
-        bv_util bv(m);
-        sort * bv8_sort = bv.mk_sort(8);
 
         expr * arg0;
         expr * arg1;
@@ -629,12 +622,14 @@ namespace smt {
         zstring strConst;
         if (u.str.is_string(term, strConst)) {
             for (unsigned i = 0; i < strConst.length(); ++i) {
-                expr_ref chTerm(bitvector_character_constants.get(strConst[i]), m);
+                expr_ref chTerm(u.mk_char(strConst[i]), m);
                 eqc_chars.push_back(chTerm);
+                fixed_length_subterm_trail.push_back(chTerm);
             }
         } else if (to_app(term)->get_num_args() == 0 && !u.str.is_string(term)) {
             // this is a variable; get its length and create/reuse character terms
-            if (!var_to_char_subterm_map.contains(term)) {
+            expr_ref_vector * chars = nullptr;
+            if (!var_to_char_subterm_map.find(term, chars)) {
                 rational varLen_value;
                 bool var_hasLen = fixed_length_get_len_value(term, varLen_value);
                 if (!var_hasLen || varLen_value.is_neg()) {
@@ -643,21 +638,23 @@ namespace smt {
                     return false;
                 }
                 TRACE("str_fl", tout << "creating character terms for variable " << mk_pp(term, m) << ", length = " << varLen_value << std::endl;);
-                ptr_vector<expr> new_chars;
+                chars = alloc(expr_ref_vector, m);
                 for (rational i = rational::zero(); i < varLen_value; ++i) {
                     // TODO we can probably name these better for the sake of debugging
-                    expr_ref ch(mk_fresh_const("char", bv8_sort), m);
-                    new_chars.push_back(ch);
+                    expr_ref ch(mk_fresh_const("char", u.mk_char_sort()), m);
+                    chars->push_back(ch);
                     fixed_length_subterm_trail.push_back(ch);
                 }
-                var_to_char_subterm_map.insert(term, new_chars);
+                var_to_char_subterm_map.insert(term, chars);
                 fixed_length_used_len_terms.insert(term, varLen_value);
             }
-            var_to_char_subterm_map.find(term, eqc_chars);
+            for (auto c : *chars) {
+                eqc_chars.push_back(c);
+            }
         } else if (u.str.is_concat(term, arg0, arg1)) {
             expr_ref first(arg0, sub_m);
             expr_ref second(arg1, sub_m);
-            ptr_vector<expr> chars0, chars1;
+            expr_ref_vector chars0(m), chars1(m);
             if (!fixed_length_reduce_string_term(subsolver, first, chars0, cex)
                     || !fixed_length_reduce_string_term(subsolver, second, chars1, cex)) {
                 return false;
@@ -669,7 +666,7 @@ namespace smt {
             expr_ref first(arg0, sub_m);
             expr_ref second(arg1, sub_m);
             expr_ref third(arg2, sub_m);
-            ptr_vector<expr> base_chars;
+            expr_ref_vector base_chars(m);
             if (!fixed_length_reduce_string_term(subsolver, first, base_chars, cex)) {
                 return false;
             }
@@ -715,7 +712,7 @@ namespace smt {
             // (str.at Base Pos)
             expr_ref base(arg0, sub_m);
             expr_ref pos(arg1, sub_m);
-            ptr_vector<expr> base_chars;
+            expr_ref_vector base_chars(m);
             if (!fixed_length_reduce_string_term(subsolver, base, base_chars, cex)) {
                 return false;
             }
@@ -773,14 +770,15 @@ namespace smt {
                 // convert iValue to a constant
                 zstring iValue_str(iValue.to_string());
                 for (unsigned idx = 0; idx < iValue_str.length(); ++idx) {
-                    expr_ref chTerm(bitvector_character_constants.get(iValue_str[idx]), sub_m);
+                    expr_ref chTerm(u.mk_char(iValue_str[idx]), m);
                     eqc_chars.push_back(chTerm);
                 }
                 return true;
             }
         } else {
             TRACE("str_fl", tout << "string term " << mk_pp(term, m) << " handled as uninterpreted function" << std::endl;);
-            if (!uninterpreted_to_char_subterm_map.contains(term)) {
+            expr_ref_vector *chars = nullptr;
+            if (!uninterpreted_to_char_subterm_map.find(term, chars)) {
                 rational ufLen_value;
                 bool uf_hasLen = fixed_length_get_len_value(term, ufLen_value);
                 if (!uf_hasLen || ufLen_value.is_neg()) {
@@ -789,16 +787,18 @@ namespace smt {
                     return false;
                 }
                 TRACE("str_fl", tout << "creating character terms for uninterpreted function " << mk_pp(term, m) << ", length = " << ufLen_value << std::endl;);
-                ptr_vector<expr> new_chars;
+                chars = alloc(expr_ref_vector, m);
                 for (rational i = rational::zero(); i < ufLen_value; ++i) {
-                    expr_ref ch(mk_fresh_const("char", bv8_sort), m);
-                    new_chars.push_back(ch);
+                    expr_ref ch(mk_fresh_const("char", u.mk_char_sort()), m);
+                    chars->push_back(ch);
                     fixed_length_subterm_trail.push_back(ch);
                 }
-                uninterpreted_to_char_subterm_map.insert(term, new_chars);
+                uninterpreted_to_char_subterm_map.insert(term, chars);
                 fixed_length_used_len_terms.insert(term, ufLen_value);
             }
-            uninterpreted_to_char_subterm_map.find(term, eqc_chars);
+            for (auto c : *chars) {
+                eqc_chars.push_back(c);
+            }
         }
         return true;
     }
@@ -808,7 +808,7 @@ namespace smt {
 
         ast_manager & sub_m = subsolver.m();
 
-        ptr_vector<expr> lhs_chars, rhs_chars;
+        expr_ref_vector lhs_chars(m), rhs_chars(m);
 
         if (!fixed_length_reduce_string_term(subsolver, lhs, lhs_chars, cex)
                 || !fixed_length_reduce_string_term(subsolver, rhs, rhs_chars, cex)) {
@@ -854,7 +854,7 @@ namespace smt {
             return false;
         }
 
-        ptr_vector<expr> lhs_chars, rhs_chars;
+        expr_ref_vector lhs_chars(m), rhs_chars(m);
         if (!fixed_length_reduce_string_term(subsolver, lhs, lhs_chars, cex)
                 || !fixed_length_reduce_string_term(subsolver, rhs, rhs_chars, cex)) {
             return false;
@@ -887,17 +887,6 @@ namespace smt {
 
         ast_manager & m = get_manager();
 
-        if (bitvector_character_constants.empty()) {
-            bv_util bv(m);
-            sort * bv8_sort = bv.mk_sort(8);
-            for (unsigned i = 0; i < 256; ++i) {
-                rational ch(i);
-                expr_ref chTerm(bv.mk_numeral(ch, bv8_sort), m);
-                bitvector_character_constants.push_back(chTerm);
-                fixed_length_subterm_trail.push_back(chTerm);
-            }
-        }
-
         TRACE("str",
             ast_manager & m = get_manager();
             tout << "dumping all formulas:" << std::endl;
@@ -910,7 +899,10 @@ namespace smt {
         fixed_length_subterm_trail.reset();
         fixed_length_used_len_terms.reset();
         fixed_length_assumptions.reset();
+
+        for (auto& kv: var_to_char_subterm_map) dealloc(kv.m_value);
         var_to_char_subterm_map.reset();
+        for (auto& kv: uninterpreted_to_char_subterm_map) dealloc(kv.m_value);
         uninterpreted_to_char_subterm_map.reset();
         fixed_length_lesson.reset();
 
@@ -921,9 +913,9 @@ namespace smt {
         expr_ref_vector abstracted_boolean_formulas(m);
 
         smt_params subsolver_params;
+        subsolver_params.m_string_solver = symbol("char");
         smt::kernel subsolver(m, subsolver_params);
-        subsolver.set_logic(symbol("QF_BV"));
-
+        subsolver.set_logic(symbol("QF_S"));
         sort * str_sort = u.str.mk_string_sort();
         sort * bool_sort = m.mk_bool_sort();
 
@@ -937,7 +929,7 @@ namespace smt {
                 add_persisted_axiom(var_len_assertion);
                 return l_undef;
             }
-            ptr_vector<expr> var_chars;
+            expr_ref_vector var_chars(m);
             expr_ref str_counterexample(m);
             if (!fixed_length_reduce_string_term(subsolver, var, var_chars, str_counterexample)) {
                 TRACE("str_fl", tout << "free variable " << mk_pp(var, m) << " caused a conflict; asserting and continuing" << std::endl;);
@@ -962,14 +954,14 @@ namespace smt {
                 }
             }
             // reduce string formulas only. ignore others
-            sort * fSort = m.get_sort(f);
+            sort * fSort = f->get_sort();
             if (fSort == bool_sort && !is_quantifier(f)) {
                 // extracted terms
                 expr * subterm;
                 expr * lhs;
                 expr * rhs;
                 if (m.is_eq(f, lhs, rhs)) {
-                    sort * lhs_sort = m.get_sort(lhs);
+                    sort * lhs_sort = lhs->get_sort();
                     if (lhs_sort == str_sort) {
                         TRACE("str_fl", tout << "reduce string equality: " << mk_pp(lhs, m) << " == " << mk_pp(rhs, m) << std::endl;);
                         expr_ref cex(m);
@@ -1035,7 +1027,7 @@ namespace smt {
                 }else if (m.is_not(f, subterm)) {
                     // if subterm is a string formula such as an equality, reduce it as a disequality
                     if (m.is_eq(subterm, lhs, rhs)) {
-                        sort * lhs_sort = m.get_sort(lhs);
+                        sort * lhs_sort = lhs->get_sort();
                         if (lhs_sort == str_sort) {
                             TRACE("str_fl", tout << "reduce string disequality: " << mk_pp(lhs, m) << " != " << mk_pp(rhs, m) << std::endl;);
                             expr_ref cex(m);
@@ -1156,6 +1148,30 @@ namespace smt {
                         TRACE("str_fl", tout << "integer theory has no assignment for " << mk_pp(e, get_manager()) << std::endl;);
                         // consistency needs to be checked after the string is assigned
                     }
+                } else if (u.str.is_to_code(e, _arg)) {
+                    expr_ref arg(_arg, m);
+                    rational ival;
+                    if (v.get_value(e, ival)) {
+                        TRACE("str_fl", tout << "integer theory assigns " << ival << " to " << mk_pp(e, m) << std::endl;);
+                        if (ival >= rational::zero() && ival <= rational(u.max_char())) {
+                            zstring ival_str(ival.get_unsigned());
+                            expr_ref arg_char_expr(mk_string(ival_str), m);
+                            expr_ref stoi_cex(m);
+                            // Add (e == ival) as a precondition
+                            precondition.push_back(m.mk_eq(e, mk_int(ival)));
+                            if (!fixed_length_reduce_eq(subsolver, arg, arg_char_expr, stoi_cex)) {
+                                // Counterexample: (str.to_code arg) == ival AND arg == arg_char_expr cannot both be true.
+                                stoi_cex = expr_ref(m.mk_not(m.mk_and(m.mk_eq(e, mk_int(ival)), m.mk_eq(arg, arg_char_expr))), m);
+                                assert_axiom(stoi_cex);
+                                add_persisted_axiom(stoi_cex);
+                                return l_undef;
+                            }
+                            fixed_length_reduced_boolean_formulas.push_back(m.mk_eq(e, mk_int(ival)));
+                        }
+                    } else {
+                        TRACE("str_fl", tout << "integer theory has no assignment for " << mk_pp(e, m) << std::endl;);
+                        // consistency needs to be checked after the string is assigned
+                    }
                 } else if (u.str.is_itos(e, _arg)) {
                     expr_ref arg(_arg, m);
                     rational slen;
@@ -1198,6 +1214,31 @@ namespace smt {
                         TRACE("str_fl", tout << "integer theory has no assignment for " << mk_pp(arg, get_manager()) << std::endl;);
                         // consistency needs to be checked after the string is assigned
                     }
+                } else if (u.str.is_from_code(e, _arg)) {
+                    expr_ref arg(_arg, m);
+                    rational ival;
+                    if (v.get_value(arg, ival)) {
+                        TRACE("str_fl", tout << "integer theory assigns " << ival << " to " << mk_pp(arg, m) << std::endl;);
+                        if (ival >= rational::zero() && ival <= rational(u.max_char())) {
+                            zstring ival_str(ival.get_unsigned());
+                            expr_ref arg_char_expr(mk_string(ival_str), m);
+                            expr_ref itos_cex(m);
+                            // Add (arg == ival) as a precondition
+                            precondition.push_back(m.mk_eq(arg, mk_int(ival)));
+                            expr_ref _e(e, m);
+                            if (!fixed_length_reduce_eq(subsolver, _e, arg_char_expr, itos_cex)) {
+                                // Counterexample: (str.from_code arg) == arg_char AND arg == ival cannot both be true.
+                                itos_cex = expr_ref(m.mk_not(m.mk_and(m.mk_eq(arg, mk_int(ival)), m.mk_eq(e, arg_char_expr))), m);
+                                assert_axiom(itos_cex);
+                                add_persisted_axiom(itos_cex);
+                                return l_undef;
+                            }
+                            fixed_length_reduced_boolean_formulas.push_back(m.mk_eq(e, mk_int(ival)));
+                        }
+                    } else {
+                        TRACE("str_fl", tout << "integer theory has no assignment for " << mk_pp(arg, m) << std::endl;);
+                        // consistency needs to be checked after the string is assigned
+                    }
                 }
             }
         }
@@ -1209,30 +1250,29 @@ namespace smt {
         }
 
         TRACE("str_fl",
-            tout << "formulas asserted to bitvector subsolver:" << std::endl;
-            for (auto e : fixed_length_assumptions) {
-                tout << mk_pp(e, subsolver.m()) << std::endl;
-            }
-            tout << "variable to character mappings:" << std::endl;
-            for (auto &entry : var_to_char_subterm_map) {
-                tout << mk_pp(entry.m_key, get_manager()) << ":";
-                for (auto e : entry.m_value) {
-                    tout << " " << mk_pp(e, subsolver.m());
-                }
-                tout << std::endl;
-            }
-            tout << "reduced boolean formulas:" << std::endl;
-              for (auto e : fixed_length_reduced_boolean_formulas) {
+              tout << "formulas asserted to subsolver:" << std::endl;
+              for (auto e : fixed_length_assumptions) {
+                  tout << mk_pp(e, subsolver.m()) << std::endl;
+              }
+              tout << "variable to character mappings:" << std::endl;
+              for (auto &entry : var_to_char_subterm_map) {
+                  tout << mk_pp(entry.m_key, get_manager()) << ":";
+                  for (auto e : *entry.m_value) {
+                      tout << " " << mk_pp(e, subsolver.m());
+                  }
+                  tout << std::endl;
+              }
+              tout << "reduced boolean formulas:" << std::endl;
+              for (expr* e : fixed_length_reduced_boolean_formulas) {
                   tout << mk_pp(e, m) << std::endl;
               }
-        );
-
+              );
+        
         TRACE("str_fl", tout << "calling subsolver" << std::endl;);
 
         lbool subproblem_status = subsolver.check(fixed_length_assumptions);
 
         if (subproblem_status == l_true) {
-            bv_util bv(m);
             TRACE("str_fl", tout << "subsolver found SAT; reconstructing model" << std::endl;);
             model_ref subModel;
             subsolver.get_model(subModel);
@@ -1243,17 +1283,16 @@ namespace smt {
             for (auto entry : var_to_char_subterm_map) {
                 svector<unsigned> assignment;
                 expr * var = entry.m_key;
-                ptr_vector<expr> char_subterms(entry.m_value);
-                for (expr * chExpr : char_subterms) {
+                for (expr * chExpr : *(entry.m_value)) {
                     expr_ref chAssignment(subModel->get_const_interp(to_app(chExpr)->get_decl()), m);
-                    rational n;
-                    if (chAssignment != nullptr && bv.is_numeral(chAssignment, n) && n.is_unsigned()) {
-                        assignment.push_back(n.get_unsigned());
+                    unsigned n = 0;
+                    if (chAssignment != nullptr && u.is_const_char(chAssignment, n)) {
+                        assignment.push_back(n);
                     } else {
                         assignment.push_back((unsigned)'?');
                     }
                 }
-                zstring strValue(assignment.size(), assignment.c_ptr());
+                zstring strValue(assignment.size(), assignment.data());
                 model.insert(var, strValue);
                 subst.insert(var, mk_string(strValue));
             }
@@ -1265,17 +1304,16 @@ namespace smt {
             for (auto entry : uninterpreted_to_char_subterm_map) {
                 svector<unsigned> assignment;
                 expr * var = entry.m_key;
-                ptr_vector<expr> char_subterms(entry.m_value);
-                for (expr * chExpr : char_subterms) {
+                for (expr * chExpr : *(entry.m_value)) {
                     expr_ref chAssignment(subModel->get_const_interp(to_app(chExpr)->get_decl()), m);
-                    rational n;
-                    if (chAssignment != nullptr && bv.is_numeral(chAssignment, n) && n.is_unsigned()) {
-                        assignment.push_back(n.get_unsigned());
+                    unsigned n = 0;
+                    if (chAssignment != nullptr && u.is_const_char(chAssignment, n)) {
+                        assignment.push_back(n);
                     } else {
                         assignment.push_back((unsigned)'?');
                     }
                 }
-                zstring strValue(assignment.size(), assignment.c_ptr());
+                zstring strValue(assignment.size(), assignment.data());
                 model.insert(var, strValue);
                 subst.insert(var, mk_string(strValue));
             }
@@ -1299,9 +1337,8 @@ namespace smt {
                             rw(arg_subst);
                             TRACE("str_fl", tout << "ival = " << ival << ", string arg evaluates to " << mk_pp(arg_subst, m) << std::endl;);
 
-                            symbol arg_str;
-                            if (u.str.is_string(arg_subst, arg_str)) {
-                                zstring arg_zstr(arg_str.bare_str());
+                            zstring arg_zstr;
+                            if (u.str.is_string(arg_subst, arg_zstr)) {
                                 rational arg_value;
                                 if (string_integer_conversion_valid(arg_zstr, arg_value)) {
                                     if (ival != arg_value) {
@@ -1319,6 +1356,35 @@ namespace smt {
                                 }
                             }
                         }
+                    } else if (u.str.is_to_code(e, _arg)) {
+                        expr_ref arg(_arg, m);
+                        rational ival;
+                        if (v.get_value(e, ival)) {
+                            expr_ref arg_subst(arg, m);
+                            (*replacer)(arg, arg_subst);
+                            rw(arg_subst);
+                            TRACE("str_fl", tout << "ival = " << ival << ", string arg evaluates to " << mk_pp(arg_subst, m) << std::endl;);
+                            zstring arg_zstr;
+                            if (u.str.is_string(arg_subst, arg_zstr)) {
+                                if (ival >= rational::zero() && ival <= rational(u.max_char())) {
+                                    // check that arg_subst has length 1 and that the codepoints are the same
+                                    if (arg_zstr.length() != 1 || rational(arg_zstr[0]) != ival) {
+                                        // contradiction
+                                        expr_ref cex(m.mk_not(m.mk_and(ctx.mk_eq_atom(arg, mk_string(arg_zstr)), ctx.mk_eq_atom(e, mk_int(ival)))), m);
+                                        assert_axiom(cex);
+                                        return l_undef;
+                                    }
+                                } else {
+                                    // arg_subst must not be a singleton char
+                                    if (arg_zstr.length() == 1) {
+                                        // contradiction
+                                        expr_ref cex(m.mk_not(m.mk_and(ctx.mk_eq_atom(arg, mk_string(arg_zstr)), ctx.mk_eq_atom(e, mk_int(ival)))), m);
+                                        assert_axiom(cex);
+                                        return l_undef;
+                                    }
+                                }
+                            }
+                        }
                     } else if (u.str.is_itos(e, _arg)) {
                         expr_ref arg(_arg, m);
                         rational ival;
@@ -1328,9 +1394,8 @@ namespace smt {
                             rw(e_subst);
                             TRACE("str_fl", tout << "ival = " << ival << ", string arg evaluates to " << mk_pp(e_subst, m) << std::endl;);
 
-                            symbol e_str;
-                            if (u.str.is_string(e_subst, e_str)) {
-                                zstring e_zstr(e_str.bare_str());
+                            zstring e_zstr;
+                            if (u.str.is_string(e_subst, e_zstr)) {
                                 // if arg is negative, e must be empty
                                 // if arg is non-negative, e must be valid AND cannot contain leading zeroes
 
@@ -1354,6 +1419,40 @@ namespace smt {
                                     } else {
                                         // contradiction
                                         expr_ref cex(m.mk_not(m.mk_and(ctx.mk_eq_atom(arg, mk_int(ival)), ctx.mk_eq_atom(e, mk_string(e_zstr)))), m);
+                                        assert_axiom(cex);
+                                        return l_undef;
+                                    }
+                                }
+                            }
+                        }
+                    } else if (u.str.is_from_code(e, _arg)) {
+                        expr_ref arg(_arg, m);
+                        rational ival;
+                        if (v.get_value(arg, ival)) {
+                            expr_ref e_subst(e, m);
+                            (*replacer)(e, e_subst);
+                            rw(e_subst);
+                            TRACE("str_fl", tout << "ival = " << ival << ", string arg evaluates to " << mk_pp(e_subst, m) << std::endl;);
+                            zstring e_zstr;
+                            if (u.str.is_string(e_subst, e_zstr)) {
+                                // if arg is out of range, e must be empty
+                                // if arg is in range, e must be valid
+                                if (ival <= rational::zero() || ival >= rational(u.max_char())) {
+                                    if (!e_zstr.empty()) {
+                                        // contradiction
+                                        expr_ref cex(ctx.mk_eq_atom(
+                                            m.mk_or(m_autil.mk_le(arg, mk_int(0)), m_autil.mk_ge(arg, mk_int(u.max_char() + 1))),
+                                            ctx.mk_eq_atom(e, mk_string(""))
+                                        ), m);
+                                        assert_axiom(cex);
+                                        return l_undef;
+                                    }
+                                } else {
+                                    if (e_zstr.length() != 1 || e_zstr[0] != ival.get_unsigned()) {
+                                        // contradiction
+                                        expr_ref premise(ctx.mk_eq_atom(arg, mk_int(ival)), m);
+                                        expr_ref conclusion(ctx.mk_eq_atom(e, mk_string(zstring(ival.get_unsigned()))), m);
+                                        expr_ref cex(rewrite_implication(premise, conclusion), m);
                                         assert_axiom(cex);
                                         return l_undef;
                                     }

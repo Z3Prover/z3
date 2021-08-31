@@ -84,7 +84,7 @@ class elim_small_bv_tactic : public tactic {
 
             // (VAR num_decls) ... (VAR num_decls+sz-1); are in positions num_decls .. num_decls+sz-1
 
-            std::reverse(substitution.c_ptr(), substitution.c_ptr() + substitution.size());
+            std::reverse(substitution.data(), substitution.data() + substitution.size());
 
             // (VAR 0) should be in the last position of substitution.
 
@@ -98,7 +98,7 @@ class elim_small_bv_tactic : public tactic {
                                     });
 
             var_subst vsbst(m);
-            res = vsbst(e, substitution.size(), substitution.c_ptr());
+            res = vsbst(e, substitution.size(), substitution.data());
             SASSERT(is_well_sorted(m, res));
 
             proof_ref pr(m);
@@ -171,8 +171,8 @@ class elim_small_bv_tactic : public tactic {
                       for (unsigned k = 0; k < new_bodies.size(); k++)
                           tout << mk_ismt2_pp(new_bodies[k].get(), m) << std::endl; );
                 
-                body = is_forall(q) ? m.mk_and(new_bodies.size(), new_bodies.c_ptr()) :
-                    m.mk_or(new_bodies.size(), new_bodies.c_ptr());
+                body = is_forall(q) ? m.mk_and(new_bodies.size(), new_bodies.data()) :
+                    m.mk_or(new_bodies.size(), new_bodies.data());
                 SASSERT(is_well_sorted(m, body));
                 
                 proof_ref pr(m);

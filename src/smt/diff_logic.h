@@ -640,7 +640,7 @@ public:
             }
             );
 
-        if (!check_explanation(edges.size(), edges.c_ptr())) {
+        if (!check_explanation(edges.size(), edges.data())) {
             throw default_exception("edges are not inconsistent");
         }
        

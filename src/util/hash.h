@@ -129,33 +129,33 @@ template<typename Composite>
 struct default_kind_hash_proc { unsigned operator()(Composite const & c) const { return 17; } };
 
 struct int_hash {
-    typedef int data;
+    typedef int data_t;
     unsigned operator()(int x) const { return static_cast<unsigned>(x); }
 };
 
 struct unsigned_hash {
-    typedef unsigned data;
+    typedef unsigned data_t;
     unsigned operator()(unsigned x) const { return x; }
 };
 
 struct size_t_hash {
-    typedef size_t data;
+    typedef size_t data_t;
     unsigned operator()(size_t x) const { return static_cast<unsigned>(x); }
 };
 
 struct uint64_hash {
-    typedef uint64_t data;
+    typedef uint64_t data_t;
     unsigned operator()(uint64_t x) const { return static_cast<unsigned>(x); }
 };
 
 struct bool_hash {
-    typedef bool data;
+    typedef bool data_t;
     unsigned operator()(bool x) const { return static_cast<unsigned>(x); }
 };
 
 template<typename T>
 struct obj_hash {
-    typedef T data;
+    typedef T data_t;
     unsigned operator()(const T & e) const { 
         return e.hash();
     }
@@ -163,7 +163,7 @@ struct obj_hash {
 
 template<typename T>
 struct obj_ptr_hash {
-    typedef T * data;
+    typedef T * data_t;
     unsigned operator()(T * a) const {
         return a->hash();
     }
@@ -171,8 +171,8 @@ struct obj_ptr_hash {
 
 template<typename T1, typename T2>
 struct obj_ptr_pair_hash {
-    typedef std::pair<T1*, T2*> data;
-    unsigned operator()(data const & d) const {
+    typedef std::pair<T1*, T2*> data_t;
+    unsigned operator()(data_t const & d) const {
         return combine_hash(d.first->hash(), d.second->hash());
     }
 };
@@ -197,22 +197,22 @@ template<typename Hash1, typename Hash2, typename Hash3>
 struct triple_hash : private Hash1 {
     Hash2 m_hash2;
     Hash3 m_hash3;
-    typedef triple<typename Hash1::data, typename Hash2::data, typename Hash3::data> data;
+    typedef triple<typename Hash1::data_t, typename Hash2::data_t, typename Hash3::data> data_t;
     triple_hash(Hash1 const & h1 = Hash1(), Hash2 const & h2 = Hash2(), Hash3 const & h3 = Hash3()):
         Hash1(h1),
         m_hash2(h2),
         m_hash3(h3) {
     }
 
-    unsigned operator()(std::pair<typename Hash1::data, typename Hash2::data> const & p) const {
+    unsigned operator()(std::pair<typename Hash1::data_t, typename Hash2::data_t> const & p) const {
         return combine_hash(combine_hash(Hash1::operator()(p.first), m_hash2.operator()(p.second)), m_hash3.operator()(p.third));
     }
 };
 
 template<typename T1, typename T2, typename T3>
 struct obj_ptr_triple_hash {
-    typedef triple<T1*, T2*, T3*> data;
-    unsigned operator()(data const & d) const {
+    typedef triple<T1*, T2*, T3*> data_t;
+    unsigned operator()(data_t const & d) const {
         return combine_hash(combine_hash(d.first->hash(), d.second->hash()), d.third->hash());
     }
 };
@@ -220,13 +220,13 @@ struct obj_ptr_triple_hash {
 template<typename Hash1, typename Hash2>
 struct pair_hash : private Hash1 {
     Hash2 m_hash2;
-    typedef std::pair<typename Hash1::data, typename Hash2::data> data;
+    typedef std::pair<typename Hash1::data_t, typename Hash2::data_t> data_t;
     pair_hash(Hash1 const & h1 = Hash1(), Hash2 const & h2 = Hash2()):
         Hash1(h1),
         m_hash2(h2) {
     }
 
-    unsigned operator()(std::pair<typename Hash1::data, typename Hash2::data> const & p) const {
+    unsigned operator()(std::pair<typename Hash1::data_t, typename Hash2::data_t> const & p) const {
         return combine_hash(Hash1::operator()(p.first), m_hash2.operator()(p.second));
     }
 };
@@ -238,7 +238,7 @@ inline unsigned get_ptr_hash(T * ptr) {
 
 template<typename T>
 struct ptr_hash {
-    typedef T * data;
+    typedef T * data_t;
     unsigned operator()(T * ptr) const { 
         return get_ptr_hash(ptr);
     }

@@ -78,7 +78,7 @@ struct mus::imp {
     }
 
     lbool get_mus1(expr_ref_vector& mus) {
-        ptr_vector<expr> unknown(m_lit2expr.size(), m_lit2expr.c_ptr());
+        ptr_vector<expr> unknown(m_lit2expr.size(), m_lit2expr.data());
         expr_ref_vector core_exprs(m);
         TRACE("mus", m_solver.display(tout););
         while (!unknown.empty()) { 
@@ -129,7 +129,7 @@ struct mus::imp {
     lbool get_mus2(expr_ref_vector& mus) {
         expr* lit = nullptr;
         lbool is_sat;
-        ptr_vector<expr> unknown(m_lit2expr.size(), m_lit2expr.c_ptr());
+        ptr_vector<expr> unknown(m_lit2expr.size(), m_lit2expr.data());
         while (!unknown.empty()) { 
             IF_VERBOSE(12, verbose_stream() << "(mus reducing core: " << unknown.size() << " new core: " << mus.size() << ")\n";);
             {
@@ -281,7 +281,7 @@ struct mus::imp {
         scoped_append(imp& imp, expr_ref_vector& fmls1, ptr_vector<expr> const& fmls2):
             m_fmls(fmls1),
             m_size(fmls1.size()) {
-            fmls1.append(fmls2.size(), fmls2.c_ptr());
+            fmls1.append(fmls2.size(), fmls2.data());
         }
         scoped_append(imp& imp, expr_ref_vector& fmls1, expr* fml):
             m_fmls(fmls1),

@@ -798,15 +798,15 @@ public:
         unsigned arity = m_f->get_arity();
         for (unsigned i = 0; i < arity; i++) {
             array_sort_args.push_back(m_f->get_domain(i));
-            domain.push_back(array_sort->instantiate(ctx.pm(), array_sort_args.size(), array_sort_args.c_ptr()));
+            domain.push_back(array_sort->instantiate(ctx.pm(), array_sort_args.size(), array_sort_args.data()));
             array_sort_args.pop_back();
         }
         sort_ref range(ctx.m());
         array_sort_args.push_back(m_f->get_range());
-        range = array_sort->instantiate(ctx.pm(), array_sort_args.size(), array_sort_args.c_ptr());
+        range = array_sort->instantiate(ctx.pm(), array_sort_args.size(), array_sort_args.data());
         parameter p[1] = { parameter(m_f) };
         func_decl_ref new_map(ctx.m());
-        new_map = ctx.m().mk_func_decl(get_array_fid(ctx), OP_ARRAY_MAP, 1, p, domain.size(), domain.c_ptr(), range.get());
+        new_map = ctx.m().mk_func_decl(get_array_fid(ctx), OP_ARRAY_MAP, 1, p, domain.size(), domain.data(), range.get());
         if (new_map == 0)
             throw cmd_exception("invalid array map operator");
         ctx.insert(m_name, new_map);
@@ -836,8 +836,8 @@ public:
     void execute(cmd_context & ctx) override {
         ast_manager& m = ctx.m();
         expr_ref_vector assumptions(m), variables(m), consequences(m);
-        assumptions.append(m_assumptions.size(), m_assumptions.c_ptr());
-        variables.append(m_variables.size(), m_variables.c_ptr());
+        assumptions.append(m_assumptions.size(), m_assumptions.data());
+        variables.append(m_variables.size(), m_variables.data());
         ctx.get_consequences(assumptions, variables, consequences);
         ctx.regular_stream() << consequences << "\n";
     }

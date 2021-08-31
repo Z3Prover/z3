@@ -81,16 +81,16 @@ class mpfx_manager {
     unsigned          m_int_part_sz;
     unsigned          m_frac_part_sz;
     unsigned          m_total_sz;       //!< == m_int_part_sz + m_frac_part_sz
-    unsigned_vector   m_words;          //!< Array containing all words
+    mutable unsigned_vector   m_words;          //!< Array containing all words
     unsigned          m_capacity;       //!< Number of mpfx numerals that can be stored in m_words.
     bool              m_to_plus_inf;    //!< If True, then round to plus infinity, otherwise to minus infinity
     id_gen            m_id_gen;
-    unsigned_vector   m_buffer0, m_buffer1, m_buffer2;
+    mutable unsigned_vector   m_buffer0, m_buffer1, m_buffer2;
     unsigned_vector   m_tmp_digits;
     mpfx              m_one;
     mpn_manager       m_mpn_manager;
 
-    unsigned * words(mpfx const & n) const { return m_words.c_ptr() + (n.m_sig_idx * m_total_sz); }
+    unsigned * words(mpfx const & n) const { return m_words.data() + (n.m_sig_idx * m_total_sz); }
     unsigned sz(unsigned * ws) const;
 
     void ensure_capacity(unsigned sig_idx) {

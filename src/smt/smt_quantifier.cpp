@@ -18,9 +18,9 @@ Revision History:
 --*/
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/quantifier_stat.h"
 #include "smt/smt_quantifier.h"
 #include "smt/smt_context.h"
-#include "smt/smt_quantifier_stat.h"
 #include "smt/smt_model_finder.h"
 #include "smt/smt_model_checker.h"
 #include "smt/smt_quick_checker.h"
@@ -129,8 +129,8 @@ namespace smt {
         context &                              m_context;
         smt_params &                           m_params;
         qi_queue                               m_qi_queue;
-        obj_map<quantifier, quantifier_stat *> m_quantifier_stat;
-        quantifier_stat_gen                    m_qstat_gen;
+        obj_map<quantifier, q::quantifier_stat *> m_quantifier_stat;
+        q::quantifier_stat_gen                    m_qstat_gen;
         ptr_vector<quantifier>                 m_quantifiers;
         scoped_ptr<quantifier_manager_plugin>  m_plugin;
         unsigned                               m_num_instances;
@@ -150,7 +150,7 @@ namespace smt {
         bool has_trace_stream() const { return m().has_trace_stream(); }
         std::ostream & trace_stream() { return m().trace_stream(); }
 
-        quantifier_stat * get_stat(quantifier * q) const {
+        q::quantifier_stat * get_stat(quantifier * q) const {
             return m_quantifier_stat.find(q);
         }
 
@@ -159,7 +159,7 @@ namespace smt {
         }
 
         void add(quantifier * q, unsigned generation) {
-            quantifier_stat * stat = m_qstat_gen(q, generation);
+            q::quantifier_stat * stat = m_qstat_gen(q, generation);
             m_quantifier_stat.insert(q, stat);
             m_quantifiers.push_back(q);
             m_plugin->add(q);
@@ -168,7 +168,7 @@ namespace smt {
         bool has_quantifiers() const { return !m_quantifiers.empty(); }
 
         void display_stats(std::ostream & out, quantifier * q) {
-            quantifier_stat * s     = get_stat(q);
+            q::quantifier_stat * s     = get_stat(q);
             unsigned num_instances  = s->get_num_instances();
             unsigned num_instances_simplify_true = s->get_num_instances_simplify_true();
             unsigned num_instances_checker_sat  = s->get_num_instances_checker_sat();
@@ -316,7 +316,7 @@ namespace smt {
             CTRACE("bindings", f != nullptr, 
                   tout << expr_ref(q, m()) << "\n";
                   for (unsigned i = 0; i < num_bindings; ++i) {
-                      tout << expr_ref(bindings[i]->get_owner(), m()) << " [r " << bindings[i]->get_root()->get_owner_id() << "] ";
+                      tout << expr_ref(bindings[i]->get_expr(), m()) << " [r " << bindings[i]->get_root()->get_owner_id() << "] ";
                   }
                   tout << "\n";
                   );
@@ -460,7 +460,7 @@ namespace smt {
         return m_imp->is_shared(n);
     }
 
-    quantifier_stat * quantifier_manager::get_stat(quantifier * q) const {
+    q::quantifier_stat * quantifier_manager::get_stat(quantifier * q) const {
         return m_imp->get_stat(q);
     }
 
@@ -754,7 +754,7 @@ namespace smt {
                 ptr_vector<enode>::const_iterator end = m_context->end_enodes();
                 unsigned sz = static_cast<unsigned>(end - it);
                 if (sz > m_new_enode_qhead) {
-                    m_context->push_trail(value_trail<context, unsigned>(m_new_enode_qhead));
+                    m_context->push_trail(value_trail<unsigned>(m_new_enode_qhead));
                     it += m_new_enode_qhead;
                     while (m_new_enode_qhead < sz) {
                         enode * e = *it;
@@ -799,7 +799,7 @@ namespace smt {
             if (use_ematching()) {
                 if (m_lazy_matching_idx < m_fparams->m_qi_max_lazy_multipattern_matching) {
                     m_lazy_mam->rematch();
-                    m_context->push_trail(value_trail<context, unsigned>(m_lazy_matching_idx));
+                    m_context->push_trail(value_trail<unsigned>(m_lazy_matching_idx));
                     m_lazy_matching_idx++;
                 }
             }

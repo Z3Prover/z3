@@ -101,7 +101,7 @@ namespace smt {
         out << "(clause";
         for (unsigned i = 0; i < m_num_literals; i++) {
             out << " ";
-            m_lits[i].display(out, m, bool_var2expr_map);
+            smt::display(out, m_lits[i], m, bool_var2expr_map);
         }
         return out << ")";
     }
@@ -110,7 +110,7 @@ namespace smt {
         out << "(clause";
         for (unsigned i = 0; i < m_num_literals; i++) {
             out << " ";
-            m_lits[i].display_compact(out, bool_var2expr_map);
+            smt::display_compact(out, m_lits[i], bool_var2expr_map);
         }
         return out << ")";
     }
@@ -122,7 +122,7 @@ namespace smt {
             args.push_back(bool_var2expr_map[lit.var()]);
             if (lit.sign()) args[args.size()-1] = m.mk_not(args.back());
         }
-        expr_ref disj(m.mk_or(args.size(), args.c_ptr()), m);
+        expr_ref disj(m.mk_or(args.size(), args.data()), m);
         return out << mk_pp(disj, m, 3);
     }
 

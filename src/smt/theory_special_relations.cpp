@@ -472,7 +472,7 @@ namespace smt {
             ctx.mk_justification(
                 ext_theory_conflict_justification(
                     get_id(), ctx.get_region(),
-                    lits.size(), lits.c_ptr(), 0, 0, params.size(), params.c_ptr())));
+                    lits.size(), lits.data(), 0, 0, params.size(), params.data())));
     }
 
     lbool theory_special_relations::final_check(relation& r) {
@@ -532,9 +532,9 @@ namespace smt {
                     r.m_graph.find_shortest_zero_edge_path(i, j, timestamp, r);
                     r.m_graph.find_shortest_zero_edge_path(j, i, timestamp, r);
                     literal_vector const& lits = r.m_explanation;
-                    TRACE("special_relations", ctx.display_literals_verbose(tout << mk_pp(x->get_owner(), m) << " = " << mk_pp(y->get_owner(), m) << "\n", lits) << "\n";);
-                    IF_VERBOSE(20, ctx.display_literals_verbose(verbose_stream() << mk_pp(x->get_owner(), m) << " = " << mk_pp(y->get_owner(), m) << "\n", lits) << "\n";);
-                    eq_justification js(ctx.mk_justification(ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), 0, nullptr, 
+                    TRACE("special_relations", ctx.display_literals_verbose(tout << mk_pp(x->get_expr(), m) << " = " << mk_pp(y->get_expr(), m) << "\n", lits) << "\n";);
+                    IF_VERBOSE(20, ctx.display_literals_verbose(verbose_stream() << mk_pp(x->get_expr(), m) << " = " << mk_pp(y->get_expr(), m) << "\n", lits) << "\n";);
+                    eq_justification js(ctx.mk_justification(ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), lits.size(), lits.data(), 0, nullptr, 
                                                                                                      x, y)));
                     ctx.assign_eq(x, y, js);
                 }
@@ -739,7 +739,8 @@ namespace smt {
     bool theory_special_relations::disconnected(graph const& g, dl_var u, dl_var v) const {
         s_integer val_u = g.get_assignment(u);
         s_integer val_v = g.get_assignment(v);
-        if (val_u == val_v) return u != v;
+        if (val_u == val_v) 
+            return u != v;
         if (val_u < val_v) {
             std::swap(u, v);
             std::swap(val_u, val_v);
@@ -902,7 +903,7 @@ namespace smt {
                                          m.mk_app(memf, x, m.mk_app(tl, S))));            
             recfun_replace rep(m);
             var* vars[2] = { xV, SV };
-            p.set_definition(rep, mem, 2, vars, mem_body);
+            p.set_definition(rep, mem, false, 2, vars, mem_body);
         }
 
         sort_ref tup(dt.mk_pair_datatype(listS, listS, fst, snd, pair), m);
@@ -925,7 +926,7 @@ namespace smt {
 
             recfun_replace rep(m);
             var* vars[5] = { aV, bV, AV, SV, tupV };
-            p.set_definition(rep, nxt, 5, vars, next_body);
+            p.set_definition(rep, nxt, false, 5, vars, next_body);
         }
 
         {
@@ -944,8 +945,8 @@ namespace smt {
                 atom& a = *ap;
                 if (!a.phase()) continue;
                 SASSERT(ctx.get_assignment(a.var()) == l_true);
-                expr* x = get_enode(a.v1())->get_root()->get_owner();
-                expr* y = get_enode(a.v2())->get_root()->get_owner();
+                expr* x = get_enode(a.v1())->get_root()->get_expr();
+                expr* y = get_enode(a.v2())->get_root()->get_expr();
                 expr* cb = connected_body;
                 expr* args[5] = { x, y, A, S, cb };
                 connected_body = m.mk_app(nextf, 5, args);
@@ -960,7 +961,7 @@ namespace smt {
             TRACE("special_relations", tout << connected_body << "\n";);
             recfun_replace rep(m);
             var* vars[3] = { AV, dstV, SV };
-            p.set_definition(rep, connected, 3, vars, connected_body);            
+            p.set_definition(rep, connected, false, 3, vars, connected_body);
         }
 
         {
@@ -1015,7 +1016,7 @@ namespace smt {
 
         return
             g.is_enabled(edge) &&
-            g.get_assignment(g.get_source(edge)) + s_integer(1) == g.get_assignment(g.get_target(edge));
+            g.get_assignment(g.get_source(edge)) - s_integer(1) == g.get_assignment(g.get_target(edge));
     }
 
     bool theory_special_relations::is_strict_neighbour_edge(graph const& g, edge_id e) const {

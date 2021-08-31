@@ -102,6 +102,9 @@ namespace bv {
             unsigned   m_is_true:1;
             zero_one_bit(theory_var v = euf::null_theory_var, unsigned idx = UINT_MAX, bool is_true = false):
                 m_owner(v), m_idx(idx), m_is_true(is_true) {}
+            std::ostream& display(std::ostream& out) const {
+                return out << "v" << m_owner << " @ " << m_idx << " " << (m_is_true?"T":"F");
+            }
         };
 
         typedef svector<zero_one_bit> zero_one_bits;
@@ -124,7 +127,7 @@ namespace bv {
             eq_occurs* m_first;
         public:
             eq_occurs_it(eq_occurs* c) : m_first(c) {}
-            eq_occurs operator*() { return *m_first; }
+            eq_occurs const& operator*() { return *m_first; }
             eq_occurs_it& operator++() { m_first = m_first->m_next; return *this; }
             eq_occurs_it operator++(int) { eq_occurs_it tmp = *this; ++*this; return tmp; }
             bool operator==(eq_occurs_it const& other) const { return m_first == other.m_first; }
@@ -204,6 +207,7 @@ namespace bv {
         svector<propagation_item>  m_prop_queue;
         unsigned_vector            m_prop_queue_lim;
         unsigned                   m_prop_queue_head { 0 };
+        sat::literal               m_true { sat::null_literal };
 
         // internalize
         void insert_bv2a(bool_var bv, atom * a) { m_bool_var2atom.setx(bv, a, 0); }
@@ -235,9 +239,9 @@ namespace bv {
         bool internalize_circuit(app* a);
         void internalize_unary(app* n, std::function<void(unsigned, expr* const*, expr_ref_vector&)>& fn);
         void internalize_binary(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn);
-        void internalize_ac_binary(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref_vector&)>& fn);
         void internalize_par_unary(app* n, std::function<void(unsigned, expr* const*, unsigned p, expr_ref_vector&)>& fn);
         void internalize_novfl(app* n, std::function<void(unsigned, expr* const*, expr* const*, expr_ref&)>& fn);
+        void internalize_interp(app* n, std::function<expr*(expr*, expr*)>& ibin, std::function<expr*(expr*)>& un);
         void internalize_num(app * n);       
         void internalize_concat(app * n);        
         void internalize_bv2int(app* n);
@@ -247,14 +251,15 @@ namespace bv {
         void internalize_carry(app* n);
         void internalize_sub(app* n);
         void internalize_extract(app* n);
+        void internalize_repeat(app* n);
         void internalize_bit2bool(app* n);
-        void internalize_udiv(app* n);
         void internalize_udiv_i(app* n);
         template<bool Signed, bool Reverse, bool Negated>
         void internalize_le(app* n);
         void assert_bv2int_axiom(app * n);
         void assert_int2bv_axiom(app* n);
         void assert_ackerman(theory_var v1, theory_var v2);
+        bool reflect() const { return get_config().m_bv_reflect; }
 
         // delay internalize
         enum class internalize_mode {
@@ -294,6 +299,7 @@ namespace bv {
         bool propagate_bits(var_pos entry);
         bool propagate_eq_occurs(eq_occurs const& occ);
         numeral const& power2(unsigned i) const;
+        sat::literal mk_true();
 
 
         // invariants
@@ -357,16 +363,19 @@ namespace bv {
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { SASSERT(check_zero_one_bits(r1)); }
         void unmerge_eh(theory_var v1, theory_var v2);
-        trail_stack<euf::solver>& get_trail_stack();
+        trail_stack& get_trail_stack();
 
         // diagnostics
         std::ostream& display(std::ostream& out, theory_var v) const;        
         typedef std::pair<solver const*, theory_var> pp_var;
         pp_var pp(theory_var v) const { return pp_var(this, v); }
 
+        friend std::ostream& operator<<(std::ostream& out, solver::zero_one_bit const& zo) { return zo.display(out); }
+
     };
 
     inline std::ostream& operator<<(std::ostream& out, solver::pp_var const& p) { return p.first->display(out, p.second); }
+
 
 
 }

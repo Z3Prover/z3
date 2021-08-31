@@ -30,7 +30,7 @@ namespace smt {
         m_th_rw(ctx.get_manager()),
         m_converter(ctx.get_manager(), m_th_rw),
         m_rw(ctx.get_manager(), m_converter, params_ref()),
-        m_trail_stack(*this),
+        m_trail_stack(),
         m_fpa_util(m_converter.fu()),
         m_bv_util(m_converter.bu()),
         m_arith_util(m_converter.au()),
@@ -188,7 +188,7 @@ namespace smt {
             m_conversions.insert(e, res);
             m.inc_ref(e);
             m.inc_ref(res);
-            m_trail_stack.push(insert_ref2_map<theory_fpa, ast_manager, expr, expr>(m, m_conversions, e, res.get()));
+            m_trail_stack.push(insert_ref2_map<ast_manager, expr, expr>(m, m_conversions, e, res.get()));
         }
 
         return res;
@@ -228,7 +228,7 @@ namespace smt {
     void theory_fpa::attach_new_th_var(enode * n) {
         theory_var v = mk_var(n);
         ctx.attach_th_var(n, this, v);
-        TRACE("t_fpa", tout << "new theory var: " << mk_ismt2_pp(n->get_owner(), m) << " := " << v << "\n";);
+        TRACE("t_fpa", tout << "new theory var: " << mk_ismt2_pp(n->get_expr(), m) << " := " << v << "\n";);
     }
 
     bool theory_fpa::internalize_atom(app * atom, bool gate_ctx) {
@@ -290,13 +290,13 @@ namespace smt {
     }
 
     void theory_fpa::apply_sort_cnstr(enode * n, sort * s) {
-        TRACE("t_fpa", tout << "apply sort cnstr for: " << mk_ismt2_pp(n->get_owner(), m) << "\n";);
+        TRACE("t_fpa", tout << "apply sort cnstr for: " << mk_ismt2_pp(n->get_expr(), m) << "\n";);
         SASSERT(s->get_family_id() == get_family_id());
         SASSERT(m_fpa_util.is_float(s) || m_fpa_util.is_rm(s));
-        SASSERT(m_fpa_util.is_float(n->get_owner()) || m_fpa_util.is_rm(n->get_owner()));
-        SASSERT(n->get_owner()->get_decl()->get_range() == s);
+        SASSERT(m_fpa_util.is_float(n->get_expr()) || m_fpa_util.is_rm(n->get_expr()));
+        SASSERT(n->get_expr()->get_decl()->get_range() == s);
 
-        app * owner = n->get_owner();
+        app * owner = n->get_expr();
 
         if (!is_attached_to_var(n)) {
             attach_new_th_var(n);
@@ -322,13 +322,13 @@ namespace smt {
         enode * e_y = get_enode(y);
 
         TRACE("t_fpa", tout << "new eq: " << x << " = " << y << std::endl;
-                       tout << mk_ismt2_pp(e_x->get_owner(), m) << std::endl << " = " << std::endl <<
-                               mk_ismt2_pp(e_y->get_owner(), m) << std::endl;);
+                       tout << mk_ismt2_pp(e_x->get_expr(), m) << std::endl << " = " << std::endl <<
+                               mk_ismt2_pp(e_y->get_expr(), m) << std::endl;);
 
         fpa_util & fu = m_fpa_util;
 
-        expr * xe = e_x->get_owner();
-        expr * ye = e_y->get_owner();
+        expr * xe = e_x->get_expr();
+        expr * ye = e_y->get_expr();
 
         if (m_fpa_util.is_bvwrap(xe) || m_fpa_util.is_bvwrap(ye))
             return;
@@ -361,13 +361,13 @@ namespace smt {
         enode * e_y = get_enode(y);
 
         TRACE("t_fpa", tout << "new diseq: " << x << " != " << y << std::endl;
-                       tout << mk_ismt2_pp(e_x->get_owner(), m) << std::endl << " != " << std::endl <<
-                           mk_ismt2_pp(e_y->get_owner(), m) << std::endl;);
+                       tout << mk_ismt2_pp(e_x->get_expr(), m) << std::endl << " != " << std::endl <<
+                           mk_ismt2_pp(e_y->get_expr(), m) << std::endl;);
 
         fpa_util & fu = m_fpa_util;
 
-        expr * xe = e_x->get_owner();
-        expr * ye = e_y->get_owner();
+        expr * xe = e_x->get_expr();
+        expr * ye = e_y->get_expr();
 
         if (m_fpa_util.is_bvwrap(xe) || m_fpa_util.is_bvwrap(ye))
             return;
@@ -454,12 +454,17 @@ namespace smt {
                     expr * args[] = { bv_val_a->get_arg(0), bv_val_a->get_arg(1), bv_val_a->get_arg(2) };
                     cc_args = m_bv_util.mk_concat(3, args);
                     c = m.mk_eq(wrapped, cc_args);
+		    // NB code review: #5454 exposes a bug in fpa_solver that
+		    // could be latent here as well. It needs also the equality
+		    // n == bv_val_e to be asserted such that whenever something is assigned th
+		    // bit-vector value cc_args it is equated with n
+		    // I don't see another way this constraint would be enforced.
                     assert_cnstr(c);
                     assert_cnstr(mk_side_conditions());
                 }
                 else {
                     expr_ref wu(m);
-                    wu = m.mk_eq(m_converter.unwrap(wrapped, m.get_sort(n)), n);
+                    wu = m.mk_eq(m_converter.unwrap(wrapped, n->get_sort()), n);
                     TRACE("t_fpa", tout << "w/u eq: " << std::endl << mk_ismt2_pp(wu, m) << std::endl;);
                     assert_cnstr(wu);
                 }
@@ -532,11 +537,11 @@ namespace smt {
     }
 
     model_value_proc * theory_fpa::mk_value(enode * n, model_generator & mg) {
-        TRACE("t_fpa", tout << "mk_value for: " << mk_ismt2_pp(n->get_owner(), m) <<
-                            " (sort " << mk_ismt2_pp(m.get_sort(n->get_owner()), m) << ")\n";);
+        TRACE("t_fpa", tout << "mk_value for: " << mk_ismt2_pp(n->get_expr(), m) <<
+                            " (sort " << mk_ismt2_pp(n->get_expr()->get_sort(), m) << ")\n";);
 
         app_ref owner(m);
-        owner = get_ite_value(n->get_owner());
+        owner = get_ite_value(n->get_expr());
 
         // If the owner is not internalized, it doesn't have an enode associated.
         SASSERT(ctx.e_internalized(owner));
@@ -564,16 +569,16 @@ namespace smt {
             a0 = to_app(owner->get_arg(0));
             a1 = to_app(owner->get_arg(1));
             a2 = to_app(owner->get_arg(2));
-            unsigned ebits = m_fpa_util.get_ebits(m.get_sort(owner));
-            unsigned sbits = m_fpa_util.get_sbits(m.get_sort(owner));
+            unsigned ebits = m_fpa_util.get_ebits(owner->get_sort());
+            unsigned sbits = m_fpa_util.get_sbits(owner->get_sort());
             fpa_value_proc * vp = alloc(fpa_value_proc, this, ebits, sbits);
             vp->add_dependency(ctx.get_enode(a0));
             vp->add_dependency(ctx.get_enode(a1));
             vp->add_dependency(ctx.get_enode(a2));
             TRACE("t_fpa_detail", tout << "Depends on: " <<
-                  mk_ismt2_pp(a0, m) << " eq. cls. #" << get_enode(a0)->get_root()->get_owner()->get_id() << std::endl <<
-                  mk_ismt2_pp(a1, m) << " eq. cls. #" << get_enode(a1)->get_root()->get_owner()->get_id() << std::endl <<
-                  mk_ismt2_pp(a2, m) << " eq. cls. #" << get_enode(a2)->get_root()->get_owner()->get_id() << std::endl;);
+                  mk_ismt2_pp(a0, m) << " eq. cls. #" << get_enode(a0)->get_root()->get_expr()->get_id() << std::endl <<
+                  mk_ismt2_pp(a1, m) << " eq. cls. #" << get_enode(a1)->get_root()->get_expr()->get_id() << std::endl <<
+                  mk_ismt2_pp(a2, m) << " eq. cls. #" << get_enode(a2)->get_root()->get_expr()->get_id() << std::endl;);
             res = vp;
         }
         else if (m_fpa_util.is_bv2rm(owner)) {
@@ -583,7 +588,7 @@ namespace smt {
             fpa_rm_value_proc * vp = alloc(fpa_rm_value_proc, this);
             vp->add_dependency(ctx.get_enode(a0));
             TRACE("t_fpa_detail", tout << "Depends on: " <<
-                mk_ismt2_pp(a0, m) << " eq. cls. #" << get_enode(a0)->get_root()->get_owner()->get_id() << std::endl;);
+                mk_ismt2_pp(a0, m) << " eq. cls. #" << get_enode(a0)->get_root()->get_expr()->get_id() << std::endl;);
             res = vp;
         }
         else if (ctx.e_internalized(wrapped)) {
@@ -593,18 +598,18 @@ namespace smt {
                 res = vp;
             }
             else if (m_fpa_util.is_float(owner)) {
-                unsigned ebits = m_fpa_util.get_ebits(m.get_sort(owner));
-                unsigned sbits = m_fpa_util.get_sbits(m.get_sort(owner));
+                unsigned ebits = m_fpa_util.get_ebits(owner->get_sort());
+                unsigned sbits = m_fpa_util.get_sbits(owner->get_sort());
                 fpa_value_proc * vp = alloc(fpa_value_proc, this, ebits, sbits);
                 enode * en = ctx.get_enode(wrapped);
                 vp->add_dependency(en);
-                TRACE("t_fpa_detail", tout << "Depends on: " << mk_ismt2_pp(wrapped, m) << " eq. cls. #" << en->get_root()->get_owner()->get_id() << std::endl;);
+                TRACE("t_fpa_detail", tout << "Depends on: " << mk_ismt2_pp(wrapped, m) << " eq. cls. #" << en->get_root()->get_expr()->get_id() << std::endl;);
                 res = vp;
             }
         }
         else {
-            unsigned ebits = m_fpa_util.get_ebits(m.get_sort(owner));
-            unsigned sbits = m_fpa_util.get_sbits(m.get_sort(owner));
+            unsigned ebits = m_fpa_util.get_ebits(owner->get_sort());
+            unsigned sbits = m_fpa_util.get_sbits(owner->get_sort());
             return alloc(expr_wrapper_proc, m_fpa_util.mk_pzero(ebits, sbits));
         }
 
@@ -646,7 +651,7 @@ namespace smt {
             if (v != -1) {
                 if (first) out << "fpa theory variables:" << std::endl;
                 out << v << " -> " <<
-                    mk_ismt2_pp(n->get_owner(), m) << std::endl;
+                    mk_ismt2_pp(n->get_expr(), m) << std::endl;
                 first = false;
             }
         }
@@ -657,20 +662,20 @@ namespace smt {
         for (enode * n : ctx.enodes()) {
             theory_var v = n->get_th_var(m_bv_util.get_family_id());
             if (v != -1) out << v << " -> " <<
-                mk_ismt2_pp(n->get_owner(), m) << std::endl;
+                mk_ismt2_pp(n->get_expr(), m) << std::endl;
         }
 
         out << "arith theory variables:" << std::endl;
         for (enode* n : ctx.enodes()) {
             theory_var v = n->get_th_var(m_arith_util.get_family_id());
             if (v != -1) out << v << " -> " <<
-                mk_ismt2_pp(n->get_owner(), m) << std::endl;
+                mk_ismt2_pp(n->get_expr(), m) << std::endl;
         }
 
         out << "equivalence classes:\n";
         for (enode * n : ctx.enodes()) {
-            expr * e = n->get_owner();
-            expr * r = n->get_root()->get_owner();
+            expr * e = n->get_expr();
+            expr * r = n->get_root()->get_expr();
             out << r->get_id() << " --> " << mk_ismt2_pp(e, m) << std::endl;
         }
     }

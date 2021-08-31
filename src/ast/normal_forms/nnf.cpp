@@ -27,6 +27,7 @@ Notes:
 #include "ast/rewriter/var_subst.h"
 #include "ast/normal_forms/name_exprs.h"
 #include "ast/ast_smt2_pp.h"
+#include <array>
 
 /**
    \brief NNF translation mode.  The cheapest mode is NNF_SKOLEM, and
@@ -71,6 +72,7 @@ class skolemizer {
     cache         m_cache;
     cache         m_cache_pr;
     bool          m_proofs_enabled;
+    used_vars     m_uv;
 
 
     void process(quantifier * q, expr_ref & r, proof_ref & p) {
@@ -80,14 +82,14 @@ class skolemizer {
             p = nullptr;
             return;
         }
-        used_vars uv;
-        uv(q);
+        m_uv.reset();
+        m_uv(q);
         SASSERT(is_well_sorted(m, q));
-        unsigned sz = uv.get_max_found_var_idx_plus_1();
+        unsigned sz = m_uv.get_max_found_var_idx_plus_1();
         ptr_buffer<sort> sorts;
         expr_ref_vector args(m);
         for (unsigned i = 0; i < sz; i++) {
-            sort * s = uv.get(i);
+            sort * s = m_uv.get(i);
             if (s != nullptr) {
                 sorts.push_back(s);
                 args.push_back(m.mk_var(i, s));
@@ -101,8 +103,8 @@ class skolemizer {
         for (unsigned i = num_decls; i > 0; ) {
             --i;
             sort * r            = q->get_decl_sort(i);
-            func_decl * sk_decl = m.mk_fresh_func_decl(q->get_decl_name(i), q->get_skid(), sorts.size(), sorts.c_ptr(), r);
-            app * sk            = m.mk_app(sk_decl, args.size(), args.c_ptr());
+            func_decl * sk_decl = m.mk_fresh_func_decl(q->get_decl_name(i), q->get_skid(), sorts.size(), sorts.data(), r);
+            app * sk            = m.mk_app(sk_decl, args.size(), args.data());
             substitution.push_back(sk);
         }
         //
@@ -110,7 +112,7 @@ class skolemizer {
         // (VAR num_decls-1) is in the last position.
         //
         for (unsigned i = 0; i < sz; i++) {
-            sort * s = uv.get(i);
+            sort * s = m_uv.get(i);
             if (s != nullptr)
                 substitution.push_back(m.mk_var(i, s));
             else
@@ -120,7 +122,7 @@ class skolemizer {
         // (VAR num_decls) ... (VAR num_decls+sz-1)
         // are in positions num_decls .. num_decls+sz-1
         //
-        std::reverse(substitution.c_ptr(), substitution.c_ptr() + substitution.size());
+        std::reverse(substitution.data(), substitution.data() + substitution.size());
         //
         // (VAR 0) should be in the last position of substitution.
         //
@@ -234,7 +236,7 @@ struct nnf::imp {
     expr_ref_vector        m_result_stack;
 
     typedef act_cache      cache;
-    cache *                m_cache[4];
+    std::array<cache, 4>   m_cache;
 
     expr_ref_vector        m_todo_defs;
     proof_ref_vector       m_todo_proofs;
@@ -259,13 +261,13 @@ struct nnf::imp {
     imp(ast_manager & m, defined_names & n, params_ref const & p):
         m(m),
         m_result_stack(m),
+        m_cache{m, m, m, m},
         m_todo_defs(m),
         m_todo_proofs(m),
         m_result_pr_stack(m),
         m_skolemizer(m) {
         updt_params(p);
         for (unsigned i = 0; i < 4; i++) {
-            m_cache[i] = alloc(act_cache, m);
             if (proofs_enabled())
                 m_cache_pr[i] = alloc(act_cache, m);
         }
@@ -277,7 +279,6 @@ struct nnf::imp {
 
     ~imp() {
         for (unsigned i = 0; i < 4; i++) {
-            dealloc(m_cache[i]);
             if (proofs_enabled())
                 dealloc(m_cache_pr[i]);
         }
@@ -318,7 +319,7 @@ struct nnf::imp {
 
     void reset_cache() {
         for (unsigned i = 0; i < 4; i++) {
-            m_cache[i]->reset();
+            m_cache[i].reset();
             if (proofs_enabled())
                 m_cache_pr[i]->reset();
         }
@@ -334,13 +335,13 @@ struct nnf::imp {
 
     void cache_result(expr * t, bool pol, bool in_q, expr * v, proof * pr) {
         unsigned idx = get_cache_idx(pol, in_q);
-        m_cache[idx]->insert(t, v);
+        m_cache[idx].insert(t, v);
         if (proofs_enabled())
             m_cache_pr[idx]->insert(t, pr);
     }
 
-    expr * get_cached(expr * t, bool pol, bool in_q) const {
-        return m_cache[get_cache_idx(pol, in_q)]->find(t);
+    expr * get_cached(expr * t, bool pol, bool in_q) {
+        return m_cache[get_cache_idx(pol, in_q)].find(t);
     }
 
     proof * get_cached_pr(expr * t, bool pol, bool in_q) const {
@@ -464,14 +465,14 @@ struct nnf::imp {
         }
         app * r;
         if (m.is_and(t) == fr.m_pol)
-            r = m.mk_and(t->get_num_args(), m_result_stack.c_ptr() + fr.m_spos);
+            r = m.mk_and(t->get_num_args(), m_result_stack.data() + fr.m_spos);
         else
-            r = m.mk_or(t->get_num_args(), m_result_stack.c_ptr() + fr.m_spos);
+            r = m.mk_or(t->get_num_args(), m_result_stack.data() + fr.m_spos);
         
         m_result_stack.shrink(fr.m_spos);
         m_result_stack.push_back(r);
         if (proofs_enabled()) {
-            proof * pr = mk_proof(fr.m_pol, t->get_num_args(), m_result_pr_stack.c_ptr() + fr.m_spos, t, r);
+            proof * pr = mk_proof(fr.m_pol, t->get_num_args(), m_result_pr_stack.data() + fr.m_spos, t, r);
             m_result_pr_stack.shrink(fr.m_spos);
             m_result_pr_stack.push_back(pr);
             SASSERT(m_result_stack.size() == m_result_pr_stack.size());
@@ -516,14 +517,14 @@ struct nnf::imp {
 
         app * r;
         if (fr.m_pol)
-            r = m.mk_or(2, m_result_stack.c_ptr() + fr.m_spos);
+            r = m.mk_or(2, m_result_stack.data() + fr.m_spos);
         else
-            r = m.mk_and(2, m_result_stack.c_ptr() + fr.m_spos);
+            r = m.mk_and(2, m_result_stack.data() + fr.m_spos);
         
         m_result_stack.shrink(fr.m_spos);
         m_result_stack.push_back(r);
         if (proofs_enabled()) {
-            proof * pr = mk_proof(fr.m_pol, 2, m_result_pr_stack.c_ptr() + fr.m_spos, t, r);
+            proof * pr = mk_proof(fr.m_pol, 2, m_result_pr_stack.data() + fr.m_spos, t, r);
             m_result_pr_stack.shrink(fr.m_spos);
             m_result_pr_stack.push_back(pr);
             SASSERT(m_result_stack.size() == m_result_pr_stack.size());
@@ -554,7 +555,7 @@ struct nnf::imp {
             break;
         }
 
-        expr * const * rs = m_result_stack.c_ptr() + fr.m_spos;
+        expr * const * rs = m_result_stack.data() + fr.m_spos;
         expr * _cond      = rs[0];
         expr * _not_cond  = rs[1];
         expr * _then      = rs[2];
@@ -564,7 +565,7 @@ struct nnf::imp {
         m_result_stack.shrink(fr.m_spos);
         m_result_stack.push_back(r);
         if (proofs_enabled()) {
-            proof * pr = mk_proof(fr.m_pol, 4, m_result_pr_stack.c_ptr() + fr.m_spos, t, r);
+            proof * pr = mk_proof(fr.m_pol, 4, m_result_pr_stack.data() + fr.m_spos, t, r);
             m_result_pr_stack.shrink(fr.m_spos);
             m_result_pr_stack.push_back(pr);
             SASSERT(m_result_stack.size() == m_result_pr_stack.size());
@@ -598,7 +599,7 @@ struct nnf::imp {
             break;
         }
 
-        expr * const * rs = m_result_stack.c_ptr() + fr.m_spos;
+        expr * const * rs = m_result_stack.data() + fr.m_spos;
         expr * lhs      = rs[0];
         expr * not_lhs  = rs[1];
         expr * rhs      = rs[2];
@@ -612,7 +613,7 @@ struct nnf::imp {
         m_result_stack.shrink(fr.m_spos);
         m_result_stack.push_back(r);
         if (proofs_enabled()) {
-            proof * pr = mk_proof(fr.m_pol, 4, m_result_pr_stack.c_ptr() + fr.m_spos, t, r);
+            proof * pr = mk_proof(fr.m_pol, 4, m_result_pr_stack.data() + fr.m_spos, t, r);
             m_result_pr_stack.shrink(fr.m_spos);
             m_result_pr_stack.push_back(pr);
             SASSERT(m_result_stack.size() == m_result_pr_stack.size());
@@ -675,11 +676,11 @@ struct nnf::imp {
         expr_ref r(m);
         proof_ref pr(m);
         if (fr.m_pol == pos) {
-            expr * lbl_lit = m.mk_label_lit(names.size(), names.c_ptr());
+            expr * lbl_lit = m.mk_label_lit(names.size(), names.data());
             r              = m.mk_and(arg, lbl_lit);
             if (proofs_enabled()) {
                 expr_ref aux(m);
-                aux = m.mk_label(true, names.size(), names.c_ptr(), arg);
+                aux = m.mk_label(true, names.size(), names.data(), arg);
                 pr = m.mk_transitivity(mk_proof(fr.m_pol, 1, &arg_pr, t, to_app(aux)),
                                          m.mk_iff_oeq(m.mk_rewrite(aux, r)));
             }
@@ -786,7 +787,7 @@ struct nnf::imp {
             quantifier * new_q = nullptr;
             proof * new_q_pr   = nullptr;
             if (fr.m_pol) {
-                new_q = m.update_quantifier(q, new_patterns.size(), new_patterns.c_ptr(), new_expr);
+                new_q = m.update_quantifier(q, new_patterns.size(), new_patterns.data(), new_expr);
                 if (proofs_enabled()) {
                     new_expr_pr = m.mk_bind_proof(q, new_expr_pr);
                     new_q_pr = m.mk_nnf_pos(q, new_q, 1, &new_expr_pr);
@@ -794,7 +795,7 @@ struct nnf::imp {
             }
             else {
                 quantifier_kind k = is_forall(q)? exists_k : forall_k;
-                new_q = m.update_quantifier(q, k, new_patterns.size(), new_patterns.c_ptr(), new_expr);
+                new_q = m.update_quantifier(q, k, new_patterns.size(), new_patterns.data(), new_expr);
                 if (proofs_enabled()) {
                     new_expr_pr = m.mk_bind_proof(q, new_expr_pr);
                     new_q_pr = m.mk_nnf_neg(q, new_q, 1, &new_expr_pr);
@@ -898,8 +899,8 @@ struct nnf::imp {
                 new_def_proofs.push_back(new_pr); 
             }
         }
-        std::reverse(new_defs.c_ptr() + old_sz1, new_defs.c_ptr() + new_defs.size());
-        std::reverse(new_def_proofs.c_ptr() + old_sz2, new_def_proofs.c_ptr() + new_def_proofs.size());
+        std::reverse(new_defs.data() + old_sz1, new_defs.data() + new_defs.size());
+        std::reverse(new_def_proofs.data() + old_sz2, new_def_proofs.data() + new_def_proofs.size());
     }
 };
 

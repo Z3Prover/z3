@@ -38,7 +38,7 @@ static void STD_CALL on_ctrl_c(int) {
 
 static void on_timeout() {
     display_statistics();
-    exit(0);    
+    _Exit(0);
 }
 
 struct front_end_resource_limit : public lp::lp_resource_limit {

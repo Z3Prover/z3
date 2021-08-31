@@ -19,6 +19,7 @@ Notes:
 #include<math.h>
 
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/used_vars.h"
@@ -264,9 +265,9 @@ expr_ref fpa2bv_converter::extra_quantify(expr * e)
 
     expr_ref res(m);
     var_subst vsubst(m);
-    res = vsubst.operator()(e, nv, subst_map.c_ptr());
+    res = vsubst.operator()(e, nv, subst_map.data());
     TRACE("fpa2bv", tout << "subst'd = " << mk_ismt2_pp(res, m) << std::endl; );
-    res = m.mk_forall(nv, new_decl_sorts.c_ptr(), new_decl_names.c_ptr(), res);
+    res = m.mk_forall(nv, new_decl_sorts.data(), new_decl_names.data(), res);
     return res;
 }
 
@@ -2415,7 +2416,7 @@ void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args
     }
     else if (num == 2 &&
         m_util.is_rm(args[0]) &&
-        m_util.is_float(m.get_sort(args[1]))) {
+        m_util.is_float(args[1]->get_sort())) {
         // rm + float -> float
         mk_to_fp_float(f, f->get_range(), args[0], args[1], result);
     }
@@ -2475,8 +2476,8 @@ void fpa2bv_converter::mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr *
 }
 
 void fpa2bv_converter::mk_to_fp_float(sort * to_srt, expr * rm, expr * x, expr_ref & result) {
-    unsigned from_sbits = m_util.get_sbits(m.get_sort(x));
-    unsigned from_ebits = m_util.get_ebits(m.get_sort(x));
+    unsigned from_sbits = m_util.get_sbits(x->get_sort());
+    unsigned from_ebits = m_util.get_ebits(x->get_sort());
     unsigned to_sbits = m_util.get_sbits(to_srt);
     unsigned to_ebits = m_util.get_ebits(to_srt);
 
@@ -2844,7 +2845,7 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
     SASSERT(is_app_of(args[0], m_plugin->get_family_id(), OP_FPA_FP));
 
     expr * x = args[0];
-    sort * s = m.get_sort(x);
+    sort * s = x->get_sort();
     unsigned ebits = m_util.get_ebits(s);
     unsigned sbits = m_util.get_sbits(s);
 
@@ -3223,7 +3224,7 @@ void fpa2bv_converter::mk_to_ieee_bv_unspecified(func_decl * f, unsigned num, ex
     else {
         expr_ref nw = nan_wrap(args[0]);
 
-        sort * domain[1] = { m.get_sort(nw) };
+        sort * domain[1] = { nw->get_sort() };
         func_decl * f_bv = mk_bv_uf(f, domain, f->get_range());
         result = m.mk_app(f_bv, nw);
 
@@ -3252,7 +3253,7 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
 
     expr * rm = to_app(args[0])->get_arg(0);
     expr * x = args[1];
-    sort * xs = m.get_sort(x);
+    sort * xs = x->get_sort();
     sort * bv_srt = f->get_range();
 
     expr_ref sgn(m), sig(m), exp(m), lz(m);
@@ -3421,7 +3422,7 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
 expr_ref fpa2bv_converter::nan_wrap(expr * n) {
     expr_ref n_bv(m), arg_is_nan(m), nan(m), nan_bv(m), res(m);
     mk_is_nan(n, arg_is_nan);
-    mk_nan(m.get_sort(n), nan);
+    mk_nan(n->get_sort(), nan);
     join_fp(nan, nan_bv);
     join_fp(n, n_bv);
     res = expr_ref(m.mk_ite(arg_is_nan, nan_bv, n_bv), m);
@@ -3439,7 +3440,7 @@ void fpa2bv_converter::mk_to_bv_unspecified(func_decl * f, unsigned num, expr * 
     else {
         expr * rm_bv = to_app(args[0])->get_arg(0);
         expr_ref nw = nan_wrap(args[1]);
-        sort * domain[2] = { m.get_sort(rm_bv), m.get_sort(nw) };
+        sort * domain[2] = { rm_bv->get_sort(), nw->get_sort() };
         func_decl * f_bv = mk_bv_uf(f, domain, f->get_range());
         result = m.mk_app(f_bv, rm_bv, nw);
     }
@@ -3456,7 +3457,7 @@ void fpa2bv_converter::mk_to_real_unspecified(func_decl * f, unsigned num, expr 
     else {
         expr * n = args[0];
         expr_ref nw = nan_wrap(n);
-        sort * domain[1] = { m.get_sort(nw) };
+        sort * domain[1] = { nw->get_sort() };
         func_decl * f_bv = mk_bv_uf(f, domain, f->get_range());
         result = m.mk_app(f_bv, nw);
     }
@@ -3845,7 +3846,7 @@ void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {
     }
     else {
         expr_ref new_e(m), new_e_eq_e(m);
-        new_e = m.mk_fresh_const(prefix, m.get_sort(e));
+        new_e = m.mk_fresh_const(prefix, e->get_sort());
         new_e_eq_e = m.mk_eq(new_e, e);
         m_extra_assertions.push_back(new_e_eq_e);
         e = new_e;
@@ -4279,7 +4280,7 @@ app_ref fpa2bv_converter_wrapped::wrap(expr* e) {
         res = to_app(tmp);
     }
     else {
-        sort* es = m.get_sort(e);
+        sort* es = e->get_sort();
 
         sort_ref bv_srt(m);
         if (is_rm(es))
@@ -4430,7 +4431,7 @@ expr* fpa2bv_converter_wrapped::bv2fpa_value(sort* s, expr* a, expr* b, expr* c)
     mpfm.set(f, ebits, sbits, mpzm.is_one(sgn_z), mpzm.get_int64(exp_u), sig_z);
     result = m_util.mk_value(f);
 
-    TRACE("t_fpa", tout << "result: [" <<
+    TRACE("t_fpa", tout << mk_pp(a, m) << " " << mk_pp(b, m) << " " << mk_pp(c, m) << " result: [" <<
           mpzm.to_string(sgn_z) << "," <<
           mpzm.to_string(exp_z) << "," <<
           mpzm.to_string(sig_z) << "] --> " <<

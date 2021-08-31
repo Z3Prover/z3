@@ -14,6 +14,7 @@ import subprocess
 import shutil
 
 ML_ENABLED=False
+MLD_ENABLED=False
 BUILD_DIR='../build'
 DOXYGEN_EXE='doxygen'
 TEMP_DIR=os.path.join(os.getcwd(), 'tmp')
@@ -27,7 +28,7 @@ JAVA_API_SEARCH_PATHS=['../src/api/java']
 SCRIPT_DIR=os.path.abspath(os.path.dirname(__file__))
 
 def parse_options():
-    global ML_ENABLED, BUILD_DIR, DOXYGEN_EXE, TEMP_DIR, OUTPUT_DIRECTORY
+    global ML_ENABLED, MLD_ENABLED, BUILD_DIR, DOXYGEN_EXE, TEMP_DIR, OUTPUT_DIRECTORY
     global Z3PY_PACKAGE_PATH, Z3PY_ENABLED, DOTNET_ENABLED, JAVA_ENABLED
     global DOTNET_API_SEARCH_PATHS, JAVA_API_SEARCH_PATHS
     parser = argparse.ArgumentParser(description=__doc__)
@@ -37,6 +38,11 @@ def parse_options():
         help='Directory where Z3 is built (default: %(default)s)',
     )
     parser.add_argument('--ml',
+        action='store_true',
+        default=False,
+        help='Include ML/OCaml API documentation'
+    )
+    parser.add_argument('--mld',
         action='store_true',
         default=False,
         help='Include ML/OCaml API documentation'
@@ -98,6 +104,7 @@ def parse_options():
     )
     pargs = parser.parse_args()
     ML_ENABLED = pargs.ml
+    MLD_ENABLED = pargs.mld
     BUILD_DIR = pargs.build
     DOXYGEN_EXE = pargs.doxygen_executable
     TEMP_DIR = pargs.temp_dir
@@ -259,7 +266,7 @@ try:
                 prefix=bullet_point_prefix)
     else:
         website_dox_substitutions['JAVA_API'] = ''
-    if ML_ENABLED:
+    if ML_ENABLED or MLD_ENABLED:
         website_dox_substitutions['OCAML_API'] = (
             '{prefix}<a class="el" href="ml/index.html">ML/OCaml API</a>'
             ).format(
@@ -326,7 +333,7 @@ try:
     if ML_ENABLED:
         ml_output_dir = os.path.join(OUTPUT_DIRECTORY, 'html', 'ml')
         mk_dir(ml_output_dir)
-        if subprocess.call(['ocamldoc', '-html', '-d', ml_output_dir, '-sort', '-hide', 'Z3', '-I', '+zarith', '-I', '%s/api/ml' % BUILD_DIR, '%s/api/ml/z3enums.mli' % BUILD_DIR, '%s/api/ml/z3.mli' % BUILD_DIR]) != 0:
+        if subprocess.call(['ocamldoc', '-html', '-d', ml_output_dir, '-sort', '-hide', 'Z3', '-I', '$(ocamlfind query zarith)', '-I', '%s/api/ml' % BUILD_DIR, '%s/api/ml/z3enums.mli' % BUILD_DIR, '%s/api/ml/z3.mli' % BUILD_DIR]) != 0:
             print("ERROR: ocamldoc failed.")
             exit(1)
         print("Generated ML/OCaml documentation.")

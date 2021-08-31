@@ -363,7 +363,7 @@ namespace sat {
         svector<std::pair<unsigned, unsigned>> vl(nv);
 
         for (unsigned i = 0; i < nv; ++i) var2id[i] = i;
-        shuffle(var2id.size(), var2id.c_ptr(), s.rand());
+        shuffle(var2id.size(), var2id.data(), s.rand());
         for (unsigned i = 0; i < nv; ++i) id2var[var2id[i]] = i;
         for (unsigned i = 0; i < nv; ++i) vl[i] = std::make_pair(i, var2id[i]);
         std::sort(vl.begin(), vl.end());

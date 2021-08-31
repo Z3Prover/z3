@@ -24,3 +24,4 @@ bool parse_smt2_commands(cmd_context & ctx, std::istream & is, bool interactive 
 
 sexpr_ref parse_sexpr(cmd_context& ctx, std::istream& is, params_ref const& ps, char const* filename);
 
+sort_ref parse_smt2_sort(cmd_context & ctx, std::istream & is, bool interactive, params_ref const & ps, char const * filename);

@@ -94,11 +94,11 @@ namespace smt {
         for (enode * r : m_context->enodes()) {
             if (r == r->get_root() && (m_context->is_relevant(r) || m.is_value(r->get_expr()))) {
                 roots.push_back(r);
-                sort * s      = m.get_sort(r->get_owner());
+                sort * s      = r->get_sort();
                 model_value_proc * proc = nullptr;
                 if (m.is_bool(s)) {
                     CTRACE("model", m_context->get_assignment(r) == l_undef, 
-                           tout << mk_pp(r->get_owner(), m) << "\n";);
+                           tout << mk_pp(r->get_expr(), m) << "\n";);
                     SASSERT(m_context->get_assignment(r) != l_undef);
                     if (m_context->get_assignment(r) == l_true)
                         proc = alloc(expr_wrapper_proc, m.mk_true());
@@ -116,8 +116,8 @@ namespace smt {
                             SASSERT(proc);
                         }
                         else {
-                            TRACE("model", tout << "creating fresh value for #" << r->get_owner_id() << "\n";);
-                            proc = alloc(fresh_value_proc, mk_extra_fresh_value(m.get_sort(r->get_owner())));
+                            TRACE("model", tout << "creating fresh value for #" << mk_pp(r->get_expr(), m) << "\n";);
+                            proc = alloc(fresh_value_proc, mk_extra_fresh_value(r->get_sort()));
                         }
                     }
                     else {
@@ -134,12 +134,12 @@ namespace smt {
     
     model_value_proc* model_generator::mk_model_value(enode* r) {
         SASSERT(r == r->get_root());
-        expr * n = r->get_owner();
+        expr * n = r->get_expr();
         if (!m.is_model_value(n)) {
-            sort * s = m.get_sort(r->get_owner());
+            sort * s = r->get_sort();
             n = m_model->get_fresh_value(s);
             CTRACE("model", n == 0, 
-                   tout << mk_pp(r->get_owner(), m) << "\nsort:\n" << mk_pp(s, m) << "\n";
+                   tout << mk_pp(r->get_expr(), m) << "\nsort:\n" << mk_pp(s, m) << "\n";
                    tout << "is_finite: " << m_model->is_finite(s) << "\n";);
         }
         return alloc(expr_wrapper_proc, to_app(n));
@@ -183,12 +183,12 @@ namespace smt {
                 return true;
             bool visited = true;
             for (enode * r : roots) {
-                if (m.get_sort(r->get_owner()) != s)
+                if (r->get_sort() != s)
                     continue;
                 SASSERT(r == r->get_root());
                 if (root2proc[r]->is_fresh()) 
                     continue; // r is associated with a fresh value...
-                TRACE("mg_top_sort", tout << "fresh!" << src.get_value()->get_idx() << " -> #" << r->get_owner_id() << " " << mk_pp(m.get_sort(r->get_owner()), m) << "\n";);
+                TRACE("mg_top_sort", tout << "fresh!" << src.get_value()->get_idx() << " -> #" << r->get_owner_id() << " " << mk_pp(r->get_sort(), m) << "\n";);
                 visit_child(source(r), colors, todo, visited);
                 TRACE("mg_top_sort", tout << "visited: " << visited << ", todo.size(): " << todo.size() << "\n";);
             }
@@ -209,7 +209,7 @@ namespace smt {
         }
         TRACE("mg_top_sort",
               tout << "src: " << src << " ";
-              tout << mk_pp(n->get_owner(), m) << "\n";
+              tout << mk_pp(n->get_expr(), m) << "\n";
               for (model_value_dependency const& dep : dependencies) {
                   tout << "#" << n->get_owner_id() << " -> " << dep << " already visited: " << visited << "\n";
               }
@@ -293,6 +293,7 @@ namespace smt {
         obj_map<enode, model_value_proc *> root2proc;
         ptr_vector<enode> roots;
         ptr_vector<model_value_proc> procs;
+        scoped_reset _scoped_reset(*this, procs);
         svector<source> sources;
         buffer<model_value_dependency> dependencies;
         expr_ref_vector dependency_values(m);
@@ -306,8 +307,8 @@ namespace smt {
                   else {
                       enode * n = curr.get_enode();
                       SASSERT(n->get_root() == n);
-                      tout << mk_pp(n->get_owner(), m) << "\n";
-                      sort * s = m.get_sort(n->get_owner());
+                      tout << mk_pp(n->get_expr(), m) << "\n";
+                      sort * s = n->get_sort();
                       tout << curr << " " << mk_pp(s, m);
                       tout << " is_fresh: " << root2proc[n]->is_fresh() << "\n";
                   }
@@ -315,7 +316,6 @@ namespace smt {
               m_context->display(tout);
               );
 
-        scoped_reset _scoped_reset(*this, procs);
 
         for (source const& curr : sources) {
             if (curr.is_fresh_value()) {
@@ -338,14 +338,14 @@ namespace smt {
                 for (model_value_dependency const& d : dependencies) {
                     if (d.is_fresh_value()) {
                         CTRACE("mg_top_sort", !d.get_value()->get_value(), 
-                               tout << "#" << n->get_owner_id() << " " << mk_pp(n->get_owner(), m) << " -> " << d << "\n";);
+                               tout << "#" << n->get_owner_id() << " " << mk_pp(n->get_expr(), m) << " -> " << d << "\n";);
                         SASSERT(d.get_value()->get_value());
                         dependency_values.push_back(d.get_value()->get_value());
                     }
                     else {
                         enode * child = d.get_enode();
-                        TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << " (" << mk_pp(n->get_owner(), m) << "): " 
-                              << mk_pp(child->get_owner(), m) << " " << mk_pp(child->get_root()->get_owner(), m) << "\n";);
+                        TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << " (" << mk_pp(n->get_expr(), m) << "): " 
+                              << mk_pp(child->get_expr(), m) << " " << mk_pp(child->get_root()->get_expr(), m) << "\n";);
                         child = child->get_root();
                         dependency_values.push_back(m_root2value[child]);
                     }
@@ -358,8 +358,8 @@ namespace smt {
         }        
         // send model
         for (enode * n : m_context->enodes()) {
-            if (is_uninterp_const(n->get_owner()) && m_context->is_relevant(n)) {
-                func_decl * d = n->get_owner()->get_decl();
+            if (is_uninterp_const(n->get_expr()) && m_context->is_relevant(n)) {
+                func_decl * d = n->get_expr()->get_decl();
                 TRACE("mg_top_sort", tout << d->get_name() << " " << (m_hidden_ufs.contains(d)?"hidden":"visible") << "\n";);
                 if (m_hidden_ufs.contains(d)) continue;
                 expr * val    = get_value(n);
@@ -389,8 +389,7 @@ namespace smt {
         if (fid == null_family_id) return !m_hidden_ufs.contains(f); 
         if (fid == m.get_basic_family_id()) return false;
         theory * th = m_context->get_theory(fid);
-        if (!th) return true;
-        return th->include_func_interp(f);
+        return !th || th->include_func_interp(f);
     }
     
     /**
@@ -427,7 +426,7 @@ namespace smt {
                 SASSERT(m_model->get_func_interp(f) == fi);
                 // The entry must be new because n->get_cg() == n
                 TRACE("model", 
-                      tout << "insert new entry for:\n" << mk_ismt2_pp(n->get_owner(), m) << "\nargs: ";
+                      tout << "insert new entry for:\n" << mk_ismt2_pp(n->get_expr(), m) << "\nargs: ";
                       for (unsigned i = 0; i < num_args; i++) {
                           tout << "#" << n->get_arg(i)->get_owner_id() << " ";
                       }
@@ -437,8 +436,8 @@ namespace smt {
                       }
                       tout << "\n";
                       tout << "value: #" << n->get_owner_id() << "\n" << mk_ismt2_pp(result, m) << "\n";);
-                if (fi->get_entry(args.c_ptr()) == nullptr)
-                    fi->insert_new_entry(args.c_ptr(), result);
+                if (fi->get_entry(args.data()) == nullptr)
+                    fi->insert_new_entry(args.data(), result);
             }
         }
     }
@@ -468,7 +467,7 @@ namespace smt {
     void model_generator::register_existing_model_values() {
         for (enode * r : m_context->enodes()) {
             if (r == r->get_root() && m_context->is_relevant(r)) {
-                expr * n = r->get_owner();
+                expr * n = r->get_expr();
                 if (m.is_model_value(n)) {
                     register_value(n);
                 }

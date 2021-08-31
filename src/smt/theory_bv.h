@@ -37,7 +37,6 @@ namespace smt {
 
     class theory_bv : public theory {
         typedef rational numeral;
-        typedef trail_stack<theory_bv> th_trail_stack;
         typedef union_find<theory_bv>  th_union_find;
         typedef std::pair<theory_var, unsigned> var_pos;
 
@@ -108,7 +107,7 @@ namespace smt {
         bv_util                  m_util;
         arith_util               m_autil;
         bit_blaster              m_bb;
-        th_trail_stack           m_trail_stack;
+        trail_stack              m_trail_stack;
         th_union_find            m_find;
         vector<literal_vector>   m_bits;     // per var, the bits of a given variable.
         ptr_vector<expr>         m_bits_expr;
@@ -145,14 +144,14 @@ namespace smt {
         theory_var next(theory_var v) const { return m_find.next(v); }
         bool is_root(theory_var v) const { return m_find.is_root(v); }
         unsigned get_bv_size(app const * n) const { return m_util.get_bv_size(n); }
-        unsigned get_bv_size(enode const * n) const { return m_util.get_bv_size(n->get_owner()); }
+        unsigned get_bv_size(enode const * n) const { return m_util.get_bv_size(n->get_expr()); }
         unsigned get_bv_size(theory_var v) const { return get_bv_size(get_enode(v)); }
-        bool is_bv(app const* n) const { return m_util.is_bv_sort(get_manager().get_sort(n)); }
-        bool is_bv(enode const* n) const { return is_bv(n->get_owner()); }
+        bool is_bv(app const* n) const { return m_util.is_bv_sort(n->get_sort()); }
+        bool is_bv(enode const* n) const { return is_bv(n->get_expr()); }
         bool is_bv(theory_var v) const { return is_bv(get_enode(v)); }
         region & get_region() { return m_trail_stack.get_region(); }
 
-        bool is_numeral(theory_var v) const { return m_util.is_numeral(get_enode(v)->get_owner()); }
+        bool is_numeral(theory_var v) const { return m_util.is_numeral(get_enode(v)->get_expr()); }
         app * mk_bit2bool(app * bv, unsigned idx);
         void mk_bits(theory_var v);
         friend class mk_atom_trail;
@@ -268,7 +267,7 @@ namespace smt {
 
         char const * get_name() const override { return "bit-vector"; }
 
-        th_trail_stack & get_trail_stack() { return m_trail_stack; }
+        trail_stack & get_trail_stack() { return m_trail_stack; }
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { SASSERT(check_zero_one_bits(r1)); }
         void unmerge_eh(theory_var v1, theory_var v2);

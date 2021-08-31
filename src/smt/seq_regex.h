@@ -20,8 +20,8 @@ Author:
 #include "util/state_graph.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/seq_skolem.h"
 #include "smt/smt_context.h"
-#include "smt/seq_skolem.h"
 
 /*
     *** Tracing and debugging in this module and related modules ***
@@ -137,7 +137,7 @@ namespace smt {
         class seq_util::rex& re();
         class seq_util::str& str();
         seq_rewriter& seq_rw();
-        seq_skolem& sk();
+        seq::skolem& sk();
         arith_util& a();
 
         bool is_string_equality(literal lit);

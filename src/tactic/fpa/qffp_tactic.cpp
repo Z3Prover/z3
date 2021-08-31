@@ -25,7 +25,7 @@ Notes:
 #include "tactic/smtlogics/qfnra_tactic.h"
 #include "sat/tactic/sat_tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
-#include "smt/tactic/smt_tactic.h"
+#include "tactic/smtlogics/smt_tactic.h"
 #include "ackermannization/ackermannize_bv_tactic.h"
 
 #include "tactic/fpa/qffp_tactic.h"
@@ -48,7 +48,7 @@ struct is_non_fp_qfnra_predicate {
         if (fid != null_family_id && fid != fu.get_family_id())
             throw found();
 
-        sort * s = get_sort(n);
+        sort * s = n->get_sort();
         if (fid == fu.get_family_id()) {
             if (!fu.is_float(s) && !fu.is_rm(s) &&
                 to_app(n)->get_decl_kind() != OP_FPA_TO_REAL)
@@ -123,7 +123,7 @@ struct is_non_qffp_predicate {
     void operator()(quantifier *) { throw found(); }
 
     void operator()(app * n) {
-        sort * s = get_sort(n);
+        sort * s = n->get_sort();
         if (!m.is_bool(s) && !fu.is_float(s) && !fu.is_rm(s) && !bu.is_bv_sort(s) && !au.is_real(s))
             throw found();
         family_id fid = n->get_family_id();

@@ -33,13 +33,48 @@ stages:
         artifactName: 'Ubuntu'
         targetPath: $(Build.ArtifactStagingDirectory)
 
+  - job: UbuntuDoc
+    displayName: "Ubuntu Doc build"
+    pool:
+      vmImage: "Ubuntu-18.04"
+    steps:
+    - script: sudo apt-get install ocaml opam libgmp-dev
+    - script: sudo apt-get install doxygen
+    - script: sudo apt-get install graphviz
+    - script: opam init -y
+    - script: eval `opam config env`; opam install zarith ocamlfind -y
+    - script: python scripts/mk_make.py --ml --staticlib
+    - script: |
+        set -e
+        cd build
+        eval `opam config env` 
+        make -j3
+        make -j3 examples
+        make -j3 test-z3
+        ./ml_example
+        cd ..
+    - script: |
+        set -e
+        eval `opam config env` 
+        cd doc
+        python mk_api_doc.py --mld --z3py-package-path=../build/python/z3
+        mkdir api/html/ml
+        ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build/api/ml ../build/api/ml/z3enums.mli ../build/api/ml/z3.mli
+        cd ..
+    - script: zip -r z3doc.zip doc/api
+    - script: cp z3doc.zip $(Build.ArtifactStagingDirectory)/.
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'UbuntuDoc'
+        targetPath: $(Build.ArtifactStagingDirectory)
+
   - job: Manylinux
     displayName: "Manylinux build"
     pool:
-      vmImage: "ubuntu-latest"
+      vmImage: "Ubuntu-18.04"
     container: "quay.io/pypa/manylinux2010_x86_64:latest"
     variables:
-      python: "/opt/python/cp35-cp35m/bin/python"
+      python: "/opt/python/cp37-cp37m/bin/python"
     steps:
     - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
     - script: git clone https://github.com/z3prover/z3test z3test
@@ -53,12 +88,12 @@ stages:
   - job: Windows32
     displayName: "Windows 32-bit build"
     pool:
-      vmImage: "vs2017-win2016"
+      vmImage: "windows-latest"
     steps:
     - task: CmdLine@2
       inputs:
         script:
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars32.bat" &&
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86 &
           python scripts\mk_win_dist.py
             --x86-only
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
@@ -76,12 +111,12 @@ stages:
   - job: Windows64
     displayName: "Windows 64-bit build"
     pool:
-      vmImage: "vs2017-win2016"
+      vmImage: "windows-latest"
     steps:
     - task: CmdLine@2
       inputs:
         script:
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 &
           python scripts\mk_win_dist.py
             --x64-only
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
@@ -115,6 +150,11 @@ stages:
         artifact: 'Windows64'
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
+      displayName: 'Download Win32 Build'
+      inputs:
+        artifact: 'Windows32'
+        path: $(Agent.TempDirectory)\package
+    - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu Build'
       inputs:
         artifact: 'Ubuntu'
@@ -146,13 +186,13 @@ stages:
       displayName: 'NuGet Pack Symbols'
       inputs:
         command: custom
-        arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.sym.nuspec -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
+        arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.sym.nuspec -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
     - task: EsrpCodeSigning@1
       displayName: 'Sign Package'
       inputs:
-        ConnectedServiceName: 'z3-esrp-signing'
+        ConnectedServiceName: 'z3-esrp-signing-2'
         FolderPath: $(Build.ArtifactStagingDirectory)
-        Pattern: Microsoft.Z3.x64.$(ReleaseVersion).nupkg
+        Pattern: Microsoft.Z3.$(ReleaseVersion).nupkg
         signConfigType: 'inlineSignParams'
         inlineOperation: |
           [
@@ -177,9 +217,9 @@ stages:
     - task: EsrpCodeSigning@1
       displayName: 'Sign Symbol Package'
       inputs:
-        ConnectedServiceName: 'z3-esrp-signing'
+        ConnectedServiceName: 'z3-esrp-signing-2'
         FolderPath: $(Build.ArtifactStagingDirectory)
-        Pattern: Microsoft.Z3.x64.$(ReleaseVersion).snupkg
+        Pattern: Microsoft.Z3.$(ReleaseVersion).snupkg
         signConfigType: 'inlineSignParams'
         inlineOperation: |
           [
@@ -229,7 +269,7 @@ stages:
         artifactName: 'Mac'
         targetPath: $(Agent.TempDirectory)
     - script: cd $(Agent.TempDirectory); mkdir osx-bin; cd osx-bin; unzip ../*osx*.zip
-    - script: cd $(Agent.TempDirectory); mkdir linux-bin; cd linux-bin; unzip ../*centos*.zip
+    - script: cd $(Agent.TempDirectory); mkdir linux-bin; cd linux-bin; unzip ../*glibc*.zip
     - script: cd $(Agent.TempDirectory); mkdir win32-bin; cd win32-bin; unzip ../*x86-win*.zip
     - script: cd $(Agent.TempDirectory); mkdir win64-bin; cd win64-bin; unzip ../*x64-win*.zip
     - script: python3 -m pip install --user -U setuptools wheel
@@ -268,6 +308,11 @@ stages:
       displayName: "Download Ubuntu"
       inputs:
         artifactName: 'Ubuntu'
+        targetPath: tmp
+    - task: DownloadPipelineArtifact@2
+      displayName: "Download Doc"
+      inputs:
+        artifactName: 'UbuntuDoc'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
       displayName: "Download Python"

@@ -171,11 +171,11 @@ namespace datalog {
             }
 
             mag_pred = m_context.mk_fresh_head_predicate(l_pred->get_name(), symbol("ms"), 
-                mag_arity, mag_domain.c_ptr(), l_pred);
+                mag_arity, mag_domain.data(), l_pred);
             m_pinned.push_back(mag_pred);
         }
 
-        app * res = m.mk_app(mag_pred, bound_args.c_ptr());
+        app * res = m.mk_app(mag_pred, bound_args.data());
         m_pinned.push_back(res);
         return res;
     }
@@ -194,7 +194,7 @@ namespace datalog {
                 continue;
             }
             app * mag_head = create_magic_literal(tail[i]);
-            rule * r = m_context.get_rule_manager().mk(mag_head, i+1, new_tail.c_ptr(), negations.c_ptr());
+            rule * r = m_context.get_rule_manager().mk(mag_head, i+1, new_tail.data(), negations.data());
             TRACE("dl", r->display(m_context,tout); );
             result.add_rule(r);
         }
@@ -265,7 +265,7 @@ namespace datalog {
         app * new_head = m.mk_app(new_head_pred, head->get_args());
 
         SASSERT(new_tail.size()==r->get_uninterpreted_tail_size());
-        create_magic_rules(new_head, new_tail.size(), new_tail.c_ptr(), negations.c_ptr(), result);
+        create_magic_rules(new_head, new_tail.size(), new_tail.data(), negations.data(), result);
 
         unsigned tail_len = r->get_tail_size();
         for (unsigned i=processed_tail_len; i<tail_len; i++) {
@@ -276,7 +276,7 @@ namespace datalog {
         new_tail.push_back(create_magic_literal(new_head));
         negations.push_back(false);
 
-        rule * nr = m_context.get_rule_manager().mk(new_head, new_tail.size(), new_tail.c_ptr(), negations.c_ptr(), r->name());
+        rule * nr = m_context.get_rule_manager().mk(new_head, new_tail.size(), new_tail.data(), negations.data(), r->name());
         result.add_rule(nr);
         nr->set_accounting_parent_object(m_context, r);
     }
@@ -291,8 +291,8 @@ namespace datalog {
             args.push_back(m.mk_var(i, adn_pred->get_domain(i)));
         }
 
-        app * lit = m.mk_app(d.m_pred, args.c_ptr());
-        app * adn_lit = m.mk_app(adn_pred, args.c_ptr());
+        app * lit = m.mk_app(d.m_pred, args.data());
+        app * adn_lit = m.mk_app(adn_pred, args.data());
         app * mag_lit = create_magic_literal(adn_lit);
 
         app * tail[] = {lit, mag_lit};

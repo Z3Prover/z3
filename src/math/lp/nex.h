@@ -54,7 +54,6 @@ public:
     virtual unsigned size() const { return 1; }
     virtual expr_type type() const = 0;
     virtual std::ostream& print(std::ostream&) const = 0;    
-    nex() {}
     bool is_elementary() const {
         switch(type()) {
         case expr_type::SUM:
@@ -345,8 +344,8 @@ public:
         return degree;
     }
     nex const* operator[](unsigned j) const { return m_children[j]; }
-    const nex * const* begin() const { return m_children.c_ptr(); }
-    const nex * const* end() const { return m_children.c_ptr() + m_children.size(); }
+    const nex * const* begin() const { return m_children.data(); }
+    const nex * const* end() const { return m_children.data() + m_children.size(); }
 
 #ifdef Z3DEBUG
     void sort() override {

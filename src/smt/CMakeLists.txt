@@ -2,9 +2,6 @@ z3_add_component(smt
   SOURCES
     arith_eq_adapter.cpp
     arith_eq_solver.cpp
-    asserted_formulas.cpp
-    cached_var_subst.cpp
-    cost_evaluator.cpp
     dyn_ack.cpp
     expr_context_simplifier.cpp
     fingerprints.cpp
@@ -16,8 +13,6 @@ z3_add_component(smt
     seq_ne_solver.cpp
     seq_offset_eq.cpp
     seq_regex.cpp
-    seq_skolem.cpp
-    seq_unicode.cpp
     smt_almost_cg_table.cpp
     smt_arith_value.cpp
     smt_case_split_queue.cpp
@@ -35,7 +30,6 @@ z3_add_component(smt
     smt_farkas_util.cpp
     smt_for_each_relevant_expr.cpp
     smt_implied_equalities.cpp
-    smt_induction.cpp
     smt_internalizer.cpp
     smt_justification.cpp
     smt_kernel.cpp
@@ -46,7 +40,6 @@ z3_add_component(smt
     smt_model_generator.cpp
     smt_parallel.cpp
     smt_quantifier.cpp
-    smt_quantifier_stat.cpp
     smt_quick_checker.cpp
     smt_relevancy.cpp
     smt_setup.cpp
@@ -61,6 +54,7 @@ z3_add_component(smt
     theory_array.cpp
     theory_array_full.cpp
     theory_bv.cpp
+    theory_char.cpp
     theory_datatype.cpp
     theory_dense_diff_logic.cpp
     theory_diff_logic.cpp
@@ -82,6 +76,7 @@ z3_add_component(smt
     uses_theory.cpp
     watch_list.cpp
   COMPONENT_DEPENDENCIES
+    solver_assertions
     bit_blaster
     cmd_context
     fpa

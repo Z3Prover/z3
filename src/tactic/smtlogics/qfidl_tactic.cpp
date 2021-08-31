@@ -24,7 +24,7 @@ Notes:
 #include "tactic/core/elim_uncnstr_tactic.h"
 #include "tactic/arith/normalize_bounds_tactic.h"
 #include "tactic/arith/fix_dl_var_tactic.h"
-#include "smt/tactic/smt_tactic.h"
+#include "tactic/smtlogics/smt_tactic.h"
 #include "tactic/arith/lia2pb_tactic.h"
 #include "tactic/arith/pb2bv_tactic.h"
 #include "tactic/arith/diff_neq_tactic.h"

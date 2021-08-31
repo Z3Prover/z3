@@ -59,23 +59,6 @@ struct theory_array_params {
 
     void updt_params(params_ref const & _p);
 
-#if 0
-    void register_params(ini_params & p) {
-        p.register_int_param("array_solver", 0, 3, reinterpret_cast<int&>(m_array_mode), "0 - no array, 1 - simple, 2 - model based, 3 - full");
-        p.register_bool_param("array_weak", m_array_weak);
-        p.register_bool_param("array_extensional", m_array_extensional);
-        p.register_unsigned_param("array_laziness", m_array_laziness);
-        p.register_bool_param("array_delay_exp_axiom", m_array_delay_exp_axiom);
-        p.register_bool_param("array_cg", m_array_cg);
-        p.register_bool_param("array_always_prop_upward", m_array_always_prop_upward, 
-                              "Disable the built-in filter upwards propagation");
-        p.register_bool_param("array_lazy_ieq", m_array_lazy_ieq);
-        p.register_unsigned_param("array_lazy_ieq_delay", m_array_lazy_ieq_delay);
-        p.register_bool_param("array_canonize", m_array_canonize_simplify, 
-                              "Normalize arrays into normal form during simplification");
-    }
-#endif
-
     void display(std::ostream & out) const;
 };
 

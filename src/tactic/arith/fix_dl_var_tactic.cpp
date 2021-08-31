@@ -51,7 +51,7 @@ class fix_dl_var_tactic : public tactic {
         }
         
         bool is_arith(expr * n) {
-            sort * s = m.get_sort(n);
+            sort * s = n->get_sort();
             return s->get_family_id() == m_util.get_family_id();
         }
 

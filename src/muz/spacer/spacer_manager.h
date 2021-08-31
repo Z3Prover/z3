@@ -46,7 +46,7 @@ struct relation_info {
     func_decl_ref_vector  m_vars;
     expr_ref              m_body;
     relation_info(ast_manager& m, func_decl* pred, ptr_vector<func_decl> const& vars, expr* b):
-        m_pred(pred, m), m_vars(m, vars.size(), vars.c_ptr()), m_body(b, m) {}
+        m_pred(pred, m), m_vars(m, vars.size(), vars.data()), m_body(b, m) {}
 };
 
 class unknown_exception {};

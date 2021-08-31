@@ -161,9 +161,9 @@ namespace smt {
     }
 
     enode* theory::ensure_enode(expr* e) {
-        if (!ctx.e_internalized(e)) {
+        if (!ctx.e_internalized(e)) 
             ctx.internalize(e, is_quantifier(e));
-        }
+        ctx.ensure_internalized(e); // make sure theory variables are attached.
         enode* n = ctx.get_enode(e);
         ctx.mark_as_relevant(n);
         return n;
@@ -185,6 +185,18 @@ namespace smt {
     }
 
     void theory::log_axiom_instantiation(literal_vector const& ls) {
+        ast_manager& m = get_manager();
+        expr_ref_vector fmls(m);
+        expr_ref tmp(m);
+        for (literal l : ls) {
+            ctx.literal2expr(l, tmp);
+            fmls.push_back(tmp);
+        }
+        log_axiom_instantiation(mk_or(fmls));
+    }
+
+
+    void theory::log_axiom_instantiation(literal_buffer const& ls) {
         ast_manager& m = get_manager();
         expr_ref_vector fmls(m);
         expr_ref tmp(m);

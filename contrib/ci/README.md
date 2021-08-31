@@ -42,8 +42,8 @@ the future.
 * `Z3_BUILD_TYPE` - CMake build type (`RelWithDebInfo`, `Release`, `Debug`, or `MinSizeRel`)
 * `Z3_CMAKE_GENERATOR` - CMake generator (`Ninja` or `Unix Makefiles`)
 * `Z3_VERBOSE_BUILD_OUTPUT` - Show compile commands in CMake builds (`0` or `1`)
-* `Z3_STATIC_BUILD` - Build Z3 binaries and libraries statically (`0` or `1`)
-* `Z3_SYSTEM_TEST_GIT_REVISION` - Git revision of [z3test](https://github.com/Z3Prover/z3test). If empty lastest revision will be used.
+* `Z3_BUILD_LIBZ3_SHARED` - Build Z3 binaries and libraries dynamically/statically (`0` or `1`)
+* `Z3_SYSTEM_TEST_GIT_REVISION` - Git revision of [z3test](https://github.com/Z3Prover/z3test). If empty latest revision will be used.
 * `Z3_WARNINGS_AS_ERRORS` - Set the `WARNINGS_AS_ERRORS` CMake option passed to Z3 (`OFF`, `ON`, or `SERIOUS_ONLY`)
 
 ### Linux

@@ -36,6 +36,7 @@ namespace sat {
         virtual bool_var to_bool_var(expr* e) = 0;
         virtual bool_var add_bool_var(expr* e)  = 0;
         virtual void cache(app* t, literal l) = 0;
+        virtual void uncache(literal l) = 0;
         virtual void push() = 0;
         virtual void pop(unsigned n) = 0;
         virtual void set_expr2var_replay(obj_map<expr, sat::bool_var>* r) = 0;

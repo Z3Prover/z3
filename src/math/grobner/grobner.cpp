@@ -175,7 +175,7 @@ void grobner::display_monomials(std::ostream & out, unsigned num_monomials, mono
 }
 
 void grobner::display_equation(std::ostream & out, equation const & eq) const {
-    display_monomials(out, eq.m_monomials.size(), eq.m_monomials.c_ptr());
+    display_monomials(out, eq.m_monomials.size(), eq.m_monomials.data());
     out << " = 0\n";
 }
 
@@ -383,7 +383,7 @@ void grobner::assert_eq(expr * eq, v_dependency * ex) {
         new_c = m_util.mk_numeral(c, is_int);
         monomials.push_back(new_c);
     }
-    assert_eq_0(monomials.size(), monomials.c_ptr(), ex);
+    assert_eq_0(monomials.size(), monomials.data(), ex);
 }
 
 void grobner::assert_monomial_tautology(expr * m) {
@@ -424,7 +424,7 @@ bool grobner::is_eq_monomial_body(monomial const * m1, monomial const * m2) {
    \remark This method assumes the monomials are sorted.
 */
 void grobner::merge_monomials(ptr_vector<monomial> & monomials) {
-    TRACE("grobner", tout << "before merging monomials:\n"; display_monomials(tout, monomials.size(), monomials.c_ptr()); tout << "\n";);
+    TRACE("grobner", tout << "before merging monomials:\n"; display_monomials(tout, monomials.size(), monomials.data()); tout << "\n";);
     unsigned j  = 0;
     unsigned sz = monomials.size();
     if (sz == 0)
@@ -456,7 +456,7 @@ void grobner::merge_monomials(ptr_vector<monomial> & monomials) {
         j++;
     monomials.shrink(j);
     del_monomials(to_delete);    
-    TRACE("grobner", tout << "after merging monomials:\n"; display_monomials(tout, monomials.size(), monomials.c_ptr()); tout << "\n";);
+    TRACE("grobner", tout << "after merging monomials:\n"; display_monomials(tout, monomials.size(), monomials.data()); tout << "\n";);
 }
 
 /**
@@ -527,7 +527,7 @@ bool grobner::is_subset(monomial const * m1, monomial const * m2, ptr_vector<exp
                 TRACE("grobner", 
                       tout << "monomail: "; display_monomial(tout, *m1); tout << " is a subset of "; 
                       display_monomial(tout, *m2); tout << "\n";
-                      tout << "rest: "; display_vars(tout, rest.size(), rest.c_ptr()); tout << "\n";);
+                      tout << "rest: "; display_vars(tout, rest.size(), rest.data()); tout << "\n";);
                 return true;
             }
             if (i2 >= sz2)
@@ -565,8 +565,8 @@ void grobner::mul_append(unsigned start_idx, equation const * source, rational c
         monomial * new_m   = alloc(monomial);
         new_m->m_coeff     = m->m_coeff;
         new_m->m_coeff    *= coeff;
-        new_m->m_vars.append(m->m_vars.size(), m->m_vars.c_ptr());
-        new_m->m_vars.append(vars.size(), vars.c_ptr());
+        new_m->m_vars.append(m->m_vars.size(), m->m_vars.data());
+        new_m->m_vars.append(vars.size(), vars.data());
         for (expr* e : new_m->m_vars) 
             m_manager.inc_ref(e);
         std::stable_sort(new_m->m_vars.begin(), new_m->m_vars.end(), m_var_lt);
@@ -652,7 +652,7 @@ grobner::equation * grobner::simplify(equation const * source, equation * target
         }
         if (simplified) {
             target->m_monomials.shrink(j);
-            target->m_monomials.append(new_monomials.size(), new_monomials.c_ptr());
+            target->m_monomials.append(new_monomials.size(), new_monomials.data());
             simplify(target);
         }
     }
@@ -857,8 +857,8 @@ void grobner::superpose(equation * eq1, equation * eq2) {
     rest2.reset();
     if (unify(eq1->m_monomials[0], eq2->m_monomials[0], rest1, rest2)) {
         TRACE("grobner", tout << "superposing:\n"; display_equation(tout, *eq1); display_equation(tout, *eq2); 
-              tout << "rest1: "; display_vars(tout, rest1.size(), rest1.c_ptr()); tout << "\n";
-              tout << "rest2: "; display_vars(tout, rest2.size(), rest2.c_ptr()); tout << "\n";);
+              tout << "rest1: "; display_vars(tout, rest1.size(), rest1.data()); tout << "\n";
+              tout << "rest2: "; display_vars(tout, rest2.size(), rest2.data()); tout << "\n";);
         ptr_vector<monomial> & new_monomials = m_tmp_monomials;
         new_monomials.reset();
         mul_append(1, eq1, eq2->m_monomials[0]->m_coeff, rest2, new_monomials);
@@ -866,7 +866,7 @@ void grobner::superpose(equation * eq1, equation * eq2) {
         c.neg();
         mul_append(1, eq2, c, rest1, new_monomials);
         simplify(new_monomials);
-        TRACE("grobner", tout << "resulting monomials: "; display_monomials(tout, new_monomials.size(), new_monomials.c_ptr()); tout << "\n";);
+        TRACE("grobner", tout << "resulting monomials: "; display_monomials(tout, new_monomials.size(), new_monomials.data()); tout << "\n";);
         if (new_monomials.empty())
             return;
         m_num_new_equations++;

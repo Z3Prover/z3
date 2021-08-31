@@ -33,6 +33,7 @@ Revision History:
 #include "smt/theory_dl.h"
 #include "smt/theory_seq_empty.h"
 #include "smt/theory_seq.h"
+#include "smt/theory_char.h"
 #include "smt/theory_special_relations.h"
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
@@ -149,7 +150,7 @@ namespace smt {
             IF_VERBOSE(100, verbose_stream() << "(smt.collecting-features)\n";);
             ptr_vector<expr> fmls;
             m_context.get_asserted_formulas(fmls);
-            st.collect(fmls.size(), fmls.c_ptr());
+            st.collect(fmls.size(), fmls.data());
             TRACE("setup", st.display_primitive(tout););
             IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
             if (m_logic == "QF_UF") 
@@ -227,7 +228,7 @@ namespace smt {
     void setup::setup_QF_BVRE() {
         setup_QF_BV();
         setup_QF_LIA();
-        m_context.register_plugin(alloc(theory_seq, m_context));
+        setup_seq();
     }
 
     void setup::setup_QF_UF(static_features const & st) {        
@@ -542,6 +543,8 @@ namespace smt {
         if (st.m_has_real)
             throw default_exception("Benchmark has real variables but it is marked as QF_UFLIA (uninterpreted functions and linear integer arithmetic).");
         setup_QF_UFLIA();
+        if (st.m_has_bv) 
+            setup_QF_BV();
     }
 
     void setup::setup_QF_UFLRA() {
@@ -718,12 +721,16 @@ namespace smt {
         else if (m_params.m_string_solver == "seq") {
             setup_unknown();
         }
+        else if (m_params.m_string_solver == "char") {
+            setup_QF_BV();
+            setup_char();
+        }
         else if (m_params.m_string_solver == "auto") {
             setup_unknown();
         }
  
         else if (m_params.m_string_solver == "empty") {
-            m_context.register_plugin(alloc(smt::theory_seq_empty, m_context));
+            setup_seq();
         }
         else if (m_params.m_string_solver == "none") {
             // don't register any solver.
@@ -774,7 +781,7 @@ namespace smt {
         IF_VERBOSE(100, verbose_stream() << "(smt.collecting-features)\n";);
         ptr_vector<expr> fmls;
         m_context.get_asserted_formulas(fmls);
-        st.collect(fmls.size(), fmls.c_ptr());
+        st.collect(fmls.size(), fmls.data());
         IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
         bool fixnum = st.arith_k_sum_is_small() && m_params.m_arith_fixnum;
         bool int_only = !st.m_has_rational && !st.m_has_real && m_params.m_arith_int_only;
@@ -893,7 +900,7 @@ namespace smt {
             setup_seq();
         } 
         else if (m_params.m_string_solver == "empty") {
-            m_context.register_plugin(alloc(smt::theory_seq_empty, m_context));
+            setup_seq();
         }
         else if (m_params.m_string_solver == "none") {
             // don't register any solver.
@@ -927,6 +934,11 @@ namespace smt {
 
     void setup::setup_seq() {
         m_context.register_plugin(alloc(smt::theory_seq, m_context));
+        setup_char();
+    }
+
+    void setup::setup_char() {
+        m_context.register_plugin(alloc(smt::theory_char, m_context));        
     }
 
     void setup::setup_special_relations() {
@@ -937,7 +949,7 @@ namespace smt {
         static_features st(m_manager);
         ptr_vector<expr> fmls;
         m_context.get_asserted_formulas(fmls);
-        st.collect(fmls.size(), fmls.c_ptr());
+        st.collect(fmls.size(), fmls.data());
         TRACE("setup", tout << "setup_unknown\n";);
         setup_arith();
         setup_arrays();

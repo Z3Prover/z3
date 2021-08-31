@@ -18,25 +18,34 @@ Author:
 
 namespace sat {
 
-    dual_solver::no_drat_params::no_drat_params() {
-        set_sym("drat.file", symbol());
-    }
-
     dual_solver::dual_solver(reslimit& l):
         m_solver(m_params, l)
     {
         SASSERT(!m_solver.get_config().m_drat);
     }
 
-    void dual_solver::push() {
-        m_solver.user_push(); 
-        m_roots.push_scope();
-        m_tracked_vars.push_scope();
-        m_units.push_scope();
-        m_vars.push_scope();
+    void dual_solver::flush() {
+        while (m_num_scopes > 0) {
+            m_solver.user_push();
+            m_roots.push_scope();
+            m_tracked_vars.push_scope();
+            m_units.push_scope();
+            m_vars.push_scope();
+            --m_num_scopes;
+        }
     }
 
-    void dual_solver::pop(unsigned num_scopes) {
+    void dual_solver::push() {
+        ++m_num_scopes;
+    }
+
+    void dual_solver::pop(unsigned num_scopes) {        
+        if (m_num_scopes >= num_scopes) {
+            m_num_scopes -= num_scopes;
+            return;
+        }
+        num_scopes -= m_num_scopes;
+        m_num_scopes = 0;
         m_solver.user_pop(num_scopes);
         unsigned old_sz = m_tracked_vars.old_size(num_scopes);
         for (unsigned i = m_tracked_vars.size(); i-- > old_sz; )
@@ -66,6 +75,7 @@ namespace sat {
     }
 
     void dual_solver::track_relevancy(bool_var w) {
+        flush();
         bool_var v = ext2var(w);
         if (!m_is_tracked.get(v, false)) {
             m_is_tracked.setx(v, true, false);
@@ -81,37 +91,55 @@ namespace sat {
         return literal(m_var2ext[lit.var()], lit.sign());
     }
 
-    void dual_solver::add_root(unsigned sz, literal const* clause) {
-        TRACE("dual", tout << "root: " << literal_vector(sz, clause) << "\n";);
-        if (sz == 1) {
+    void dual_solver::add_root(unsigned sz, literal const* clause) {      
+        flush();
+        if (false && sz == 1) {
+            TRACE("dual", tout << "unit: " << clause[0] << "\n";);
             m_units.push_back(clause[0]);
             return;
         }
-        literal root(m_solver.mk_var(), false);
-        for (unsigned i = 0; i < sz; ++i)
-            m_solver.mk_clause(root, ~ext2lit(clause[i]), status::input());
+        literal root;
+        if (sz == 1) 
+            root = ext2lit(clause[0]);
+        else {
+            root = literal(m_solver.mk_var(), false);
+            for (unsigned i = 0; i < sz; ++i)
+                m_solver.mk_clause(root, ~ext2lit(clause[i]), status::input());
+        }
         m_roots.push_back(~root);
+        TRACE("dual", tout << "root: " << ~root << " => " << literal_vector(sz, clause) << "\n";);
     }
 
     void dual_solver::add_aux(unsigned sz, literal const* clause) {
-        TRACE("dual", tout << "aux: " << literal_vector(sz, clause) << "\n";);
+        flush();        
         m_lits.reset();
         for (unsigned i = 0; i < sz; ++i) 
             m_lits.push_back(ext2lit(clause[i]));
-        m_solver.mk_clause(sz, m_lits.c_ptr(), status::input());
+        TRACE("dual", tout << "aux: " << literal_vector(sz, clause) << " -> " << m_lits << "\n";);
+        m_solver.mk_clause(sz, m_lits.data(), status::input());
     }
 
-    bool dual_solver::operator()(solver const& s) {
+    void dual_solver::add_assumptions(solver const& s) {
+        flush();
+        m_lits.reset();
+        for (bool_var v : m_tracked_vars)
+            m_lits.push_back(literal(v, l_false == s.value(m_var2ext[v])));
+        for (auto lit : m_units) {
+            bool_var w = m_ext2var.get(lit.var(), null_bool_var);
+            if (w != null_bool_var)
+                m_lits.push_back(ext2lit(lit));            
+        }
+    }
+
+    bool dual_solver::operator()(solver const& s) {        
         m_core.reset();
         m_core.append(m_units);
         if (m_roots.empty())
             return true;
         m_solver.user_push();
-        m_solver.add_clause(m_roots.size(), m_roots.c_ptr(), status::input());
-        m_lits.reset();
-        for (bool_var v : m_tracked_vars)
-            m_lits.push_back(literal(v, l_false == s.value(m_var2ext[v])));
-        lbool is_sat = m_solver.check(m_lits.size(), m_lits.c_ptr());
+        m_solver.add_clause(m_roots.size(), m_roots.data(), status::input());
+        add_assumptions(s);
+        lbool is_sat = m_solver.check(m_lits.size(), m_lits.data());
         if (is_sat == l_false) 
             for (literal lit : m_solver.get_core())
                 m_core.push_back(lit2ext(lit));        
@@ -147,6 +175,7 @@ namespace sat {
             if (m_solver.value(r) == l_true)
                 lits.push_back(r);
         out << "roots: " << lits << "\n";
+        m_solver.display(out);
 
         return out;
     }

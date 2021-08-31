@@ -137,6 +137,11 @@ public:
         mk_eq(lhs, rhs, r);
         return r;
     }
+    expr_ref mk_xor(expr* a, expr* b) {
+       expr_ref result(m());
+       mk_xor(a, b, result);
+       return result;
+    }
     void mk_iff(expr * lhs, expr * rhs, expr_ref & result) { mk_eq(lhs, rhs, result); }
     void mk_xor(expr * lhs, expr * rhs, expr_ref & result);
     void mk_and(unsigned num_args, expr * const * args, expr_ref & result) {
@@ -161,13 +166,23 @@ public:
     }
     expr_ref mk_or(expr_ref_vector const& args) {
         expr_ref result(m());
-        mk_or(args.size(), args.c_ptr(), result);
+        mk_or(args.size(), args.data(), result);
         return result;
     }
     expr_ref mk_and(expr_ref_vector const& args) {
         expr_ref result(m());
-        mk_and(args.size(), args.c_ptr(), result);
+        mk_and(args.size(), args.data(), result);
         return result;
+    }
+    expr_ref mk_and(expr* a, expr* b) {
+        expr_ref result(m());
+        mk_and(a, b, result);
+        return result;     
+    }
+    expr_ref mk_or(expr* a, expr* b) {
+        expr_ref result(m());
+        mk_or(a, b, result);
+        return result;     
     }
 
     void mk_and(expr * arg1, expr * arg2, expr_ref & result) {

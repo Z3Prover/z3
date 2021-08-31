@@ -21,8 +21,8 @@ void tst_model2expr() {
     ints.push_back(a.mk_int());
 
     func_decl_ref p(m), q(m), x(m);
-    p = m.mk_func_decl(symbol("p"), 2, ints.c_ptr(), a.mk_int());
-    q = m.mk_func_decl(symbol("q"), 2, ints.c_ptr(), a.mk_int());
+    p = m.mk_func_decl(symbol("p"), 2, ints.data(), a.mk_int());
+    q = m.mk_func_decl(symbol("q"), 2, ints.data(), a.mk_int());
     x = m.mk_const_decl(symbol("x"), a.mk_int());
     expr_ref n0(m), n1(m), n2(m);
     n0 = a.mk_numeral(rational(0), true);
@@ -35,12 +35,12 @@ void tst_model2expr() {
     expr_ref_vector args(m);
     args.push_back(n1);
     args.push_back(n2);
-    fip->insert_entry(args.c_ptr(), n1);
-    fiq->insert_entry(args.c_ptr(), n1);
+    fip->insert_entry(args.data(), n1);
+    fiq->insert_entry(args.data(), n1);
     args[0] = n0;
     args[1] = n1;
-    fip->insert_entry(args.c_ptr(), n2);
-    fiq->insert_entry(args.c_ptr(), n2);
+    fip->insert_entry(args.data(), n2);
+    fiq->insert_entry(args.data(), n2);
    
     fip->set_else(n0);
 

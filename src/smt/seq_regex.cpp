@@ -32,7 +32,7 @@ namespace smt {
     class seq_util::rex& seq_regex::re() { return th.m_util.re; }
     class seq_util::str& seq_regex::str() { return th.m_util.str; }
     seq_rewriter& seq_regex::seq_rw() { return th.m_seq_rewrite; }
-    seq_skolem& seq_regex::sk() { return th.m_sk; }
+    seq::skolem& seq_regex::sk() { return th.m_sk; }
     arith_util& seq_regex::a() { return th.m_autil; }
     void seq_regex::rewrite(expr_ref& e) { th.m_rewrite(e); }
 
@@ -55,7 +55,7 @@ namespace smt {
         expr* e = ctx.bool_var2expr(lit.var());
         expr_ref id(a().mk_int(e->get_id()), m);
         VERIFY(str().is_in_re(e, s, r));
-        sort* seq_sort = m.get_sort(s);
+        sort* seq_sort = s->get_sort();
         vector<expr_ref_vector> patterns;
         auto mk_cont = [&](unsigned idx) { 
             return sk().mk("seq.cont", id, a().mk_int(idx), seq_sort);
@@ -158,7 +158,7 @@ namespace smt {
             }
             else {
                 //add the literal back
-                expr_ref r_alias(m.mk_fresh_const(symbol(r->get_id()), m.get_sort(r), false), m);
+                expr_ref r_alias(m.mk_fresh_const(symbol(r->get_id()), r->get_sort(), false), m);
                 expr_ref s_in_r_alias(re().mk_in_re(s, r_alias), m);
                 literal s_in_r_alias_lit = th.mk_literal(s_in_r_alias);
                 m_const_to_expr.insert(r_alias, r, nullptr);
@@ -192,7 +192,7 @@ namespace smt {
     */
     expr_ref seq_regex::get_overapprox_regex(expr* s) {
         expr_ref s_to_re(re().mk_to_re(s), m);
-        expr_ref dotstar(re().mk_full_seq(m.get_sort(s_to_re)), m);
+        expr_ref dotstar(re().mk_full_seq(s_to_re->get_sort()), m);
         if (m.is_value(s)) 
             return s_to_re;
         
@@ -209,7 +209,7 @@ namespace smt {
                 last = e_approx;
             }
             if (!s_approx)
-                s_approx = re().mk_epsilon(m.get_sort(s));
+                s_approx = re().mk_epsilon(s->get_sort());
         
             return s_approx;
         }
@@ -272,13 +272,15 @@ namespace smt {
                                        << "PA(" << mk_pp(s, m) << "@" << idx
                                        << "," << state_str(r) << ") ";);
 
-        if (re().is_empty(r)) {
+        auto info = re().get_info(r);
+
+        //if the minlength of the regex is UINT_MAX then the regex is a deadend
+        if (re().is_empty(r) || info.min_length == UINT_MAX) {
             STRACE("seq_regex_brief", tout << "(empty) ";);
             th.add_axiom(~lit);
             return;
         }
 
-        auto info = re().get_info(r);
         if (info.interpreted) {
             update_state_graph(r);
             
@@ -379,7 +381,7 @@ namespace smt {
             if (entry.m_re == regex) 
                 continue;
 
-            th.m_trail_stack.push(vector_value_trail<theory_seq, s_in_re, true>(m_s_in_re, i));
+            th.m_trail_stack.push(vector_value_trail<s_in_re, true>(m_s_in_re, i));
             m_s_in_re[i].m_active = false;
             IF_VERBOSE(11, verbose_stream() << "Intersect " << regex << " " << 
                        mk_pp(entry.m_re, m) << " " << mk_pp(s, m) << " " << mk_pp(entry.m_s, m) << std::endl;);
@@ -387,10 +389,10 @@ namespace smt {
             rewrite(regex);
             lits.push_back(~entry.m_lit);
             if (n1 != n2) 
-                lits.push_back(~th.mk_eq(n1->get_owner(), n2->get_owner(), false));
+                lits.push_back(~th.mk_eq(n1->get_expr(), n2->get_expr(), false));
         }
         m_s_in_re.push_back(s_in_re(lit, s, regex));
-        th.get_trail_stack().push(push_back_vector<theory_seq, vector<s_in_re>>(m_s_in_re));
+        th.get_trail_stack().push(push_back_vector<vector<s_in_re>>(m_s_in_re));
         if (lits.empty())
             return false;
         lits.push_back(~lit);
@@ -402,7 +404,7 @@ namespace smt {
     expr_ref seq_regex::symmetric_diff(expr* r1, expr* r2) {
         expr_ref r(m);
         if (r1 == r2)
-            r = re().mk_empty(m.get_sort(r1));
+            r = re().mk_empty(r1->get_sort());
         else if (re().is_empty(r1)) 
             r = r2;
         else if (re().is_empty(r2))
@@ -458,7 +460,7 @@ namespace smt {
         STRACE("seq_regex", tout << "derivative(" << mk_pp(hd, m) << "): " << mk_pp(r, m) << std::endl;);
 
         // Use canonical variable for head
-        expr_ref hd_canon(m.mk_var(0, m.get_sort(hd)), m);
+        expr_ref hd_canon(m.mk_var(0, hd->get_sort()), m);
         expr_ref result(re().mk_derivative(hd_canon, r), m);
         rewrite(result);
 
@@ -496,7 +498,7 @@ namespace smt {
         if (re().is_empty(r))
             //trivially true
             return;
-        expr_ref emp(re().mk_empty(m.get_sort(r)), m);
+        expr_ref emp(re().mk_empty(r->get_sort()), m);
         expr_ref f(m.mk_fresh_const("re.char", seq_sort), m); 
         expr_ref is_empty = sk().mk_is_empty(r, r, f);
         // is_empty : (re,re,seq) -> Bool is a Skolem function 
@@ -516,7 +518,7 @@ namespace smt {
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
         expr_ref r = symmetric_diff(r1, r2);
-        expr_ref emp(re().mk_empty(m.get_sort(r)), m);
+        expr_ref emp(re().mk_empty(r->get_sort()), m);
         expr_ref n(m.mk_fresh_const("re.char", seq_sort), m); 
         expr_ref is_non_empty = sk().mk_is_non_empty(r, r, n);
         th.add_axiom(th.mk_eq(r1, r2, false), th.mk_literal(is_non_empty));

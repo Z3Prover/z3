@@ -108,6 +108,7 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   BitVecSort.java
   BoolExpr.java
   BoolSort.java
+  CharSort.java
   ConstructorDecRefQueue.java
   Constructor.java
   ConstructorListDecRefQueue.java

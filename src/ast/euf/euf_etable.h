@@ -83,12 +83,12 @@ namespace euf {
         
         struct cg_comm_eq {
             bool & m_commutativity;
-            cg_comm_eq( bool & c): m_commutativity(c) {}
+            cg_comm_eq(bool & c): m_commutativity(c) {}
             bool operator()(enode * n1, enode * n2) const {
                 SASSERT(n1->num_args() == 2);
                 SASSERT(n2->num_args() == 2);
-
-                SASSERT(n1->get_decl() == n2->get_decl());
+                if (n1->get_decl() != n2->get_decl())
+                    return false;
                 enode* c1_1 = get_root(n1, 0);  
                 enode* c1_2 = get_root(n1, 1); 
                 enode* c2_1 = get_root(n2, 0); 
@@ -125,7 +125,7 @@ namespace euf {
 
 
         ast_manager &                 m_manager;
-        bool                          m_commutativity{ false }; //!< true if the last found congruence used commutativity
+        bool                          m_commutativity = false; //!< true if the last found congruence used commutativity
         ptr_vector<void>              m_tables;
         map<decl_info, unsigned, decl_hash, decl_eq>  m_func_decl2id;
 

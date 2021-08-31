@@ -137,7 +137,7 @@ namespace smt {
     void enode::set_generation(context & ctx, unsigned generation) {
         if (m_generation == generation)
             return;
-        ctx.push_trail(value_trail<context, unsigned>(m_generation));
+        ctx.push_trail(value_trail<unsigned>(m_generation));
         m_generation = generation;
     }
 
@@ -147,13 +147,13 @@ namespace smt {
         // m_lbl_hash should be different from -1, if and only if,
         // there is a pattern that contains the enode. So,
         // I use a trail to restore the value of m_lbl_hash to -1.
-        ctx.push_trail(value_trail<context, signed char>(m_lbl_hash));
+        ctx.push_trail(value_trail<signed char>(m_lbl_hash));
         unsigned h = hash_u(get_owner_id());
         m_lbl_hash = h & (APPROX_SET_CAPACITY - 1);
         // propagate modification to the root m_lbls set.
         approx_set & r_lbls = m_root->m_lbls;
         if (!r_lbls.may_contain(m_lbl_hash)) {
-            ctx.push_trail(value_trail<context, approx_set>(r_lbls));
+            ctx.push_trail(value_trail<approx_set>(r_lbls));
             r_lbls.insert(m_lbl_hash);
         }
     }
@@ -277,7 +277,7 @@ namespace smt {
 
     bool congruent(enode * n1, enode * n2, bool & comm) {
         comm          = false;
-        if (n1->get_owner()->get_decl() != n2->get_owner()->get_decl())
+        if (n1->get_expr()->get_decl() != n2->get_expr()->get_decl())
             return false;
         unsigned num_args = n1->get_num_args();
         if (num_args != n2->get_num_args())

@@ -165,13 +165,13 @@ public:
             asms.push_back(a);
         }
         VERIFY(l_true == internalize_formulas());
-        VERIFY(l_true == internalize_assumptions(sz, asms.c_ptr()));
+        VERIFY(l_true == internalize_assumptions(sz, asms.data()));
         svector<unsigned> nweights;
         for (unsigned i = 0; i < m_asms.size(); ++i) {
             nweights.push_back((unsigned) m_weights[i]);
         }
         m_weights.reset();
-        m_solver.display_wcnf(out, m_asms.size(), m_asms.c_ptr(), nweights.c_ptr());
+        m_solver.display_wcnf(out, m_asms.size(), m_asms.data(), nweights.data());
     }
 
     bool is_literal(expr* e) const {
@@ -204,7 +204,7 @@ public:
         m_dep2asm.reset();
         lbool r = internalize_formulas();
         if (r != l_true) return r;
-        r = internalize_assumptions(sz, _assumptions.c_ptr());
+        r = internalize_assumptions(sz, _assumptions.data());
         if (r != l_true) return r;
 
         init_reason_unknown();
@@ -212,12 +212,14 @@ public:
         bool reason_set = false;
         try {
             // IF_VERBOSE(0, m_solver.display(verbose_stream()));
-            r = m_solver.check(m_asms.size(), m_asms.c_ptr());
+            r = m_solver.check(m_asms.size(), m_asms.data());
         }
         catch (z3_exception& ex) {
-            IF_VERBOSE(10, verbose_stream() << "exception: " << ex.msg() << "\n";);
-            reason_set = true;
-            set_reason_unknown(std::string("(sat.giveup ") + ex.msg() + ')');
+            IF_VERBOSE(1, verbose_stream() << "exception: " << ex.msg() << "\n";);
+            if (m.inc()) {
+                reason_set = true;
+                set_reason_unknown(std::string("(sat.giveup ") + ex.msg() + ')');
+            }
             r = l_undef;            
         }
         switch (r) {
@@ -294,6 +296,33 @@ public:
         }
     }
 
+    void set_phase(expr* e) override { 
+        bool is_not = m.is_not(e, e);
+        sat::bool_var b = m_map.to_bool_var(e);
+        if (b != sat::null_bool_var)
+            m_solver.set_phase(sat::literal(b, is_not));
+    }
+
+    class sat_phase : public phase, public sat::literal_vector {};
+
+    phase* get_phase() override { 
+        sat_phase* p = alloc(sat_phase);
+        for (unsigned v = m_solver.num_vars(); v-- > 0; ) {
+            p->push_back(sat::literal(v, !m_solver.get_phase(v)));
+        }
+        return p;
+    }
+    void set_phase(phase* p) override { 
+        for (auto lit : *static_cast<sat_phase*>(p))
+            m_solver.set_phase(lit);
+    }
+    void move_to_front(expr* e) override { 
+        m.is_not(e, e);
+        sat::bool_var b = m_map.to_bool_var(e);
+        if (b != sat::null_bool_var)
+            m_solver.move_to_front(b);
+    }
+
     unsigned get_scope_level() const override {
         return m_num_scopes;
     }
@@ -308,7 +337,7 @@ public:
                 expr_ref_vector args(m);
                 args.push_back(::mk_not(m, a));
                 args.append(to_app(t)->get_num_args(), to_app(t)->get_args());
-                assert_expr_core(m.mk_or(args.size(), args.c_ptr()));
+                assert_expr_core(m.mk_or(args.size(), args.data()));
             }
             else {
                 m_is_cnf = false;
@@ -348,7 +377,7 @@ public:
     }
     void get_unsat_core(expr_ref_vector & r) override {
         r.reset();
-        r.append(m_core.size(), m_core.c_ptr());
+        r.append(m_core.size(), m_core.data());
     }
 
     void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
@@ -446,7 +475,7 @@ public:
         if (r != l_true) return r;
         r = internalize_vars(vars, bvars);
         if (r != l_true) return r;
-        r = internalize_assumptions(assumptions.size(), assumptions.c_ptr());
+        r = internalize_assumptions(assumptions.size(), assumptions.data());
         if (r != l_true) return r;
         r = m_solver.get_consequences(m_asms, bvars, lconseq);
         if (r == l_false) {
@@ -825,7 +854,7 @@ private:
             SASSERT(value.size() == 1);
             val = value[0].sign() ? m.mk_not(v) : v;
         }
-        else if (is_uninterp_const(v) && bvutil.is_bv_sort(m.get_sort(v))) {
+        else if (is_uninterp_const(v) && bvutil.is_bv_sort(v->get_sort())) {
             SASSERT(value.size() == bvutil.get_bv_size(v));
             if (m_exps.empty()) {
                 m_exps.push_back(rational::one());
@@ -1028,7 +1057,7 @@ private:
             CTRACE("sat", !m.is_true(tmp),
                    tout << "Evaluation failed: " << mk_pp(f, m) << " to " << tmp << "\n";
                    model_smt2_pp(tout, m, *(mdl.get()), 0););
-            if (!m.is_true(tmp)) {
+            if (m.is_false(tmp)) {
                 IF_VERBOSE(0, verbose_stream() << "failed to verify: " << mk_pp(f, m) << "\n");
                 IF_VERBOSE(0, verbose_stream() << "evaluated to " << tmp << "\n");
                 all_true = false;
@@ -1061,7 +1090,7 @@ void inc_sat_display(std::ostream& out, solver& _s, unsigned sz, expr*const* sof
         }
         weights.push_back(_weights[i].get_unsigned());
     }
-    s.display_weighted(out, sz, soft, weights.c_ptr());
+    s.display_weighted(out, sz, soft, weights.data());
 }
 
 

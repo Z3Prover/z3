@@ -117,6 +117,8 @@ public:
 
     bool shift_var(unsigned j, unsigned range);
     std::ostream&  display_row_info(std::ostream & out, unsigned row_index) const;
+    std::ostream & display_row(std::ostream & out, vector<row_cell<rational>> const & row) const;
+
 private:
     unsigned random();
     bool has_inf_int() const;

@@ -22,8 +22,6 @@ template<typename T>
 class lim_svector : public svector<T, unsigned> {
     unsigned_vector  m_lim;
 public:
-    lim_svector() {}
-
     void push_scope() {
         m_lim.push_back(this->size());
     }

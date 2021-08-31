@@ -43,7 +43,7 @@ protected:
     }
 
 public:
-    typedef T * data;
+    typedef T * data_t;
 
     ref_buffer_core(Ref const & r = Ref()):
         Ref(r) {
@@ -79,16 +79,16 @@ public:
         return m_buffer.back();
     }
     
-    T ** c_ptr() const {
-        return m_buffer.c_ptr();
+    T ** data() const {
+        return m_buffer.data();
     }
 
     T * operator[](unsigned idx) const {
         return m_buffer[idx];
     }
 
-    T* const* begin() const { return c_ptr(); }
-    T* const* end() const { return c_ptr() + size(); }
+    T* const* begin() const { return data(); }
+    T* const* end() const { return data() + size(); }
 
     void set(unsigned idx, T * n) {
         inc_ref(n);
@@ -121,7 +121,7 @@ public:
     }
 
     void append(ref_buffer_core const & other) {
-        append(other.size(), other.c_ptr());
+        append(other.size(), other.data());
     }
 
     void resize(unsigned sz) {

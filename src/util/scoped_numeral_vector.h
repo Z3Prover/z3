@@ -39,7 +39,7 @@ public:
     }
 
     void reset() {
-        unsigned sz = this->size();
+        auto sz = this->size();
         for (unsigned i = 0; i < sz; i++) {
             m().del(this->operator[](i));
         }

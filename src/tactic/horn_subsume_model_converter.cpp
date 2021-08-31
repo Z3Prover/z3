@@ -73,7 +73,7 @@ bool horn_subsume_model_converter::mk_horn(
     for (unsigned i = 0; i < arity; ++i) {
         expr* arg = head->get_arg(i);
         var_ref v(m);
-        v = m.mk_var(fv.size()+i, m.get_sort(arg));
+        v = m.mk_var(fv.size()+i, arg->get_sort());
         
         if (is_var(arg)) {
             unsigned w = to_var(arg)->get_idx();
@@ -92,11 +92,11 @@ bool horn_subsume_model_converter::mk_horn(
         }
     }
     expr_ref body_expr(m);
-    body_expr = m.mk_and(conjs.size(), conjs.c_ptr());
+    body_expr = m.mk_and(conjs.size(), conjs.data());
 
     // substitute variables directly.
     if (!subst.empty()) {
-        body_expr = vs(body_expr, subst.size(), subst.c_ptr());
+        body_expr = vs(body_expr, subst.size(), subst.data());
     }    
 
     if (fv.empty()) {
@@ -104,7 +104,7 @@ bool horn_subsume_model_converter::mk_horn(
         body_res = body_expr;
     }   
     else {
-        body_res  = m.mk_exists(fv.size(), fv.c_ptr(), names.c_ptr(), body_expr.get()); 
+        body_res  = m.mk_exists(fv.size(), fv.data(), names.data(), body_expr.get()); 
         m_rewrite(body_res);
         
     }
@@ -168,10 +168,6 @@ void horn_subsume_model_converter::add_default_false_interpretation(expr* e, mod
     for_each_expr(proc, e);
 }
 
-
-void horn_subsume_model_converter::operator()(expr_ref& fml) {
-    NOT_IMPLEMENTED_YET();
-}
 
 void horn_subsume_model_converter::operator()(model_ref& mr) {
 

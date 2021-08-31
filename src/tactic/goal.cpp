@@ -443,7 +443,7 @@ void goal::display_as_and(std::ostream & out) const {
     for (unsigned i = 0; i < sz; i++)
         args.push_back(form(i));
     expr_ref tmp(m());
-    tmp = m().mk_and(args.size(), args.c_ptr());
+    tmp = m().mk_and(args.size(), args.data());
     out << mk_ismt2_pp(tmp, m()) << "\n";
 }
 

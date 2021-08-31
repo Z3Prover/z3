@@ -71,20 +71,16 @@ namespace nlsat {
     }
 
     bool check_interval(anum_manager & am, interval const & i) {
-        if (i.m_lower_inf) {
-            SASSERT(i.m_lower_open);
-        }
-        if (i.m_upper_inf) {
-            SASSERT(i.m_upper_open);
-        }
+        SASSERT(!i.m_lower_inf || i.m_lower_open);        
+        SASSERT(!i.m_upper_inf || i.m_upper_open);
+        
         if (!i.m_lower_inf && !i.m_upper_inf) {
             auto s = am.compare(i.m_lower, i.m_upper);
+            (void)s;
             TRACE("nlsat_interval", tout << "lower: "; am.display_decimal(tout, i.m_lower); tout << ", upper: "; am.display_decimal(tout, i.m_upper);
                   tout << "\ns: " << s << "\n";);
             SASSERT(s <= 0);
-            if (::is_zero(s)) {
-                SASSERT(!i.m_lower_open && !i.m_upper_open);
-            }
+            SASSERT(!is_zero(s) || (!i.m_lower_open && !i.m_upper_open));
         }
         return true;
     }
@@ -92,12 +88,11 @@ namespace nlsat {
     bool check_no_overlap(anum_manager & am, interval const & curr, interval const & next) {
         SASSERT(!curr.m_upper_inf);
         SASSERT(!next.m_lower_inf);
-        int sign = am.compare(curr.m_upper, next.m_lower);
-        CTRACE("nlsat", sign > 0, display(tout, am, curr); tout << "  "; display(tout, am, next); tout << "\n";);
-        SASSERT(sign <= 0);
-        if (sign == 0) {
-            SASSERT(curr.m_upper_open || next.m_lower_open);
-        }
+        sign s = am.compare(curr.m_upper, next.m_lower);
+        CTRACE("nlsat", s > 0, display(tout, am, curr); tout << "  "; display(tout, am, next); tout << "\n";);
+        SASSERT(s <= 0);
+        SASSERT(!is_zero(s) || curr.m_upper_open || next.m_lower_open);        
+        (void)s;
         return true;
     }
     
@@ -107,9 +102,7 @@ namespace nlsat {
             for (unsigned i = 0; i < sz; i++) {
                 interval const & curr = ints[i];
                 SASSERT(check_interval(am, curr));
-                if (i < sz - 1) {
-                    SASSERT(check_no_overlap(am, curr, ints[i+1]));
-                }
+                SASSERT(i >= sz - 1 || check_no_overlap(am, curr, ints[i+1]));                
             });
         return true;
     }
@@ -270,16 +263,15 @@ namespace nlsat {
         new_set->m_full = full;
         new_set->m_ref_count  = 0;
         new_set->m_num_intervals = sz;
-        memcpy(new_set->m_intervals, buf.c_ptr(), sizeof(interval)*sz);
+        memcpy(new_set->m_intervals, buf.data(), sizeof(interval)*sz);
         return new_set;
     }
 
     interval_set * interval_set_manager::mk_union(interval_set const * s1, interval_set const * s2) {
 #if 0
-        // issue #2867:
         static unsigned s_count = 0;
         s_count++;
-        if (s_count == 8442) {
+        if (s_count == 4470) {
             enable_trace("nlsat_interval");
             enable_trace("algebraic");
         }
@@ -416,7 +408,7 @@ namespace nlsat {
             else {
                 SASSERT(l1_l2_sign > 0);
                 if (u1_u2_sign == 0) {
-                    TRACE("nlsat_interval", tout << "l1_l2_sign > 0, u1_u2_sign == 0\n";);
+                    TRACE("nlsat_interval", tout << "l2 < l1 <= u1 = u2\n";);
                     // Case:
                     // 1)    [  ]
                     //    [     ]
@@ -426,7 +418,7 @@ namespace nlsat {
                     i2++;
                 }
                 else if (u1_u2_sign < 0) {
-                    TRACE("nlsat_interval", tout << "l1_l2_sign > 0, u1_u2_sign > 0\n";);
+                    TRACE("nlsat_interval", tout << "l2 < l1 <= u2 < u2\n";);
                     // Case:
                     // 1)   [   ]
                     //    [       ]
@@ -436,7 +428,7 @@ namespace nlsat {
                 else {
                     auto u2_l1_sign = compare_upper_lower(m_am, int2, int1);
                     if (u2_l1_sign < 0) {
-                        TRACE("nlsat_interval", tout << "l1_l2_sign > 0, u1_u2_sign > 0, u2_l1_sign < 0\n";);
+                        TRACE("nlsat_interval", tout << "l2 <= u2 < l1 <= u1\n";);
                         // Case:
                         // 1)           [      ]
                         //     [     ]
@@ -457,7 +449,7 @@ namespace nlsat {
                         i2++;
                     }
                     else {
-                        TRACE("nlsat_interval", tout << "l1_l2_sign > 0, u1_u2_sign > 0, u2_l1_sign > 0\n";);
+                        TRACE("nlsat_interval", tout << "l2 < l1 < u2 < u1\n";);
                         SASSERT(l1_l2_sign > 0);
                         SASSERT(u1_u2_sign > 0);
                         SASSERT(u2_l1_sign > 0);
@@ -474,10 +466,11 @@ namespace nlsat {
             }
             SASSERT(result.size() <= 1 ||
                     check_no_overlap(m_am, result[result.size() - 2], result[result.size() - 1]));
+
         }
 
         SASSERT(!result.empty());
-        SASSERT(check_interval_set(m_am, result.size(), result.c_ptr()));
+        SASSERT(check_interval_set(m_am, result.size(), result.data()));
         // Compress
         // Remark: we only combine adjacent intervals when they have the same justification
         unsigned j  = 0;
@@ -513,7 +506,7 @@ namespace nlsat {
             m_am.del(curr.m_upper);
         }
         result.shrink(j);
-        SASSERT(check_interval_set(m_am, result.size(), result.c_ptr()));
+        SASSERT(check_interval_set(m_am, result.size(), result.data()));
         sz = j;
         SASSERT(sz >= 1);
         bool found_slack  = !result[0].m_lower_inf || !result[sz-1].m_upper_inf;

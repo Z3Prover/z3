@@ -28,9 +28,7 @@ namespace api {
         // TODO: add support for caching expressions -> polynomial and back
     public:
         pmanager(reslimit& lim) : m_pm(lim, m_nm) {}
-        ~pmanager() {}
         polynomial::manager & pm() { return m_pm; }
     };
 
-};
-
+}

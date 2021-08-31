@@ -36,8 +36,6 @@ class matcher {
     void reset();
 
 public:
-    matcher() {}
-
     /**
        \brief Return true if e2 is an instance of e1.
        In case of success (result is true), it will store the substitution that makes e1 equals to e2 into s.

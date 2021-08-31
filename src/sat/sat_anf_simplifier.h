@@ -111,7 +111,6 @@ namespace sat {
 
     public:
         anf_simplifier(solver& s) : s(s), m_eval_ts(0) {}
-        ~anf_simplifier() {}
         
         void operator()();
         void set(config const& cfg) { m_config = cfg; }

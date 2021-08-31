@@ -61,7 +61,7 @@ class emonics {
             
         unsigned operator()(lpvar v) const {
             auto const& vec = v != UINT_MAX? em.m_monics[em.m_var2index[v]].rvars() : em.m_find_key;
-            return string_hash(reinterpret_cast<char const*>(vec.c_ptr()), sizeof(lpvar)*vec.size(), 10);
+            return string_hash(reinterpret_cast<char const*>(vec.data()), sizeof(lpvar)*vec.size(), 10);
         }
     };
         
@@ -82,7 +82,7 @@ class emonics {
     };
     
     union_find<emonics>          m_u_f;
-    trail_stack<emonics>         m_u_f_stack;
+    trail_stack                  m_u_f_stack;
     mutable svector<lpvar>       m_find_key; // the key used when looking for a monic with the specific variables
     var_eqs<emonics>&            m_ve;
     mutable vector<monic>        m_monics;     // set of monics
@@ -124,7 +124,7 @@ public:
     */
     emonics(var_eqs<emonics>& ve):
         m_u_f(*this),
-        m_u_f_stack(*this),
+        m_u_f_stack(),
         m_ve(ve), 
         m_visited(0), 
         m_cg_hash(*this),
@@ -141,7 +141,7 @@ public:
     void after_merge_eh(unsigned r2, unsigned r1, unsigned v2, unsigned v1) {}
 
     // this method is required by union_find
-    trail_stack<emonics> & get_trail_stack() { return m_u_f_stack; }
+    trail_stack & get_trail_stack() { return m_u_f_stack; }
 
     /**
        \brief push/pop scopes. 
@@ -155,7 +155,7 @@ public:
        \brief create a monic from an equality v := vs
     */
     void add(lpvar v, unsigned sz, lpvar const* vs);
-    void add(lpvar v, svector<lpvar> const& vs) { add(v, vs.size(), vs.c_ptr()); }
+    void add(lpvar v, svector<lpvar> const& vs) { add(v, vs.size(), vs.data()); }
     void add(lpvar v, lpvar x, lpvar y) { lpvar vs[2] = { x, y }; add(v, 2, vs); }
     void add(lpvar v, lpvar x, lpvar y, lpvar z) { lpvar vs[3] = { x, y, z }; add(v, 3, vs); }
 

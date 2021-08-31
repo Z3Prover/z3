@@ -31,6 +31,7 @@ struct mk_pp : public mk_ismt2_pp {
     }
 };
 
+
 //<! print vector of ASTs
 class mk_pp_vec {
     ast_manager &   m;
@@ -53,4 +54,20 @@ inline std::ostream& operator<<(std::ostream & out, mk_pp_vec const & pp) {
     return out;
 }
 
+
+inline std::string operator+(char const* s, mk_pp const& pp) {
+    std::ostringstream strm;
+    strm << s << pp;
+    return strm.str();
+}
+
+inline std::string operator+(std::string const& s, mk_pp const& pp) {
+    std::ostringstream strm;
+    strm << s << pp;
+    return strm.str();
+}
+
+inline std::string& operator+=(std::string& s, mk_pp const& pp) {
+    return s = s + pp;
+}
 

@@ -147,7 +147,7 @@ class der {
 
     void get_elimination_order();
     void create_substitution(unsigned sz);
-    void apply_substitution(quantifier * q, expr_ref & r);
+    void apply_substitution(quantifier * q, expr_ref_vector& ors, expr_ref & r);
 
     void reduce1(quantifier * q, expr_ref & r, proof_ref & pr);
 

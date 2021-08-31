@@ -23,6 +23,7 @@ Revision History:
 #include "util/region.h"
 #include "util/string_buffer.h"
 #include <cstring>
+#include <optional>
 #ifndef SINGLE_THREAD
 #include <thread>
 #endif
@@ -35,6 +36,7 @@ const symbol symbol::null;
 /**
    \brief Symbol table manager. It stores the symbol strings created at runtime.
 */
+namespace {
 class internal_symbol_table {
     region        m_region; //!< Region used to store symbol strings.
     str_hashtable m_table;  //!< Table of created symbol strings.
@@ -73,6 +75,22 @@ public:
         return result;
     }
 };
+}
+
+#ifdef SINGLE_THREAD
+static std::optional<internal_symbol_table> g_symbol_tables;
+
+void initialize_symbols() {
+    if (!g_symbol_tables) {
+        g_symbol_tables.emplace();
+    }
+}
+
+void finalize_symbols() {
+    g_symbol_tables.reset();
+}
+
+#else
 
 struct internal_symbol_tables {
     unsigned sz;
@@ -101,11 +119,7 @@ static internal_symbol_tables* g_symbol_tables = nullptr;
 
 void initialize_symbols() {
     if (!g_symbol_tables) {
-#ifdef SINGLE_THREAD
-        unsigned num_tables = 1;
-#else
         unsigned num_tables = 2 * std::min((unsigned) std::thread::hardware_concurrency(), 64u);
-#endif
         g_symbol_tables = alloc(internal_symbol_tables, num_tables);
         
     }
@@ -115,6 +129,7 @@ void finalize_symbols() {
     dealloc(g_symbol_tables);
     g_symbol_tables = nullptr;
 }
+#endif
 
 symbol::symbol(char const * d) {
     if (d == nullptr)
@@ -130,11 +145,8 @@ symbol & symbol::operator=(char const * d) {
 
 std::string symbol::str() const {
     SASSERT(!is_marked());
-    if (GET_TAG(m_data) == 0) { 
-        if (m_data)
-            return m_data;
-        else
-            return "<null>";
+    if (GET_TAG(m_data) == 0) {
+        return m_data ? m_data : "<null>";
     }
     else {
         string_buffer<128> buffer;

@@ -323,8 +323,8 @@ br_status bv_bounds::rewrite(unsigned limit, func_decl * f, unsigned num, expr *
     switch (nargs.size()) {
         case 0: result = negated ? m_m.mk_false() : m_m.mk_true(); return BR_DONE;
         case 1: result = nargs.get(0); return BR_DONE;
-        default: result = negated ? m_m.mk_or(nargs.size(), nargs.c_ptr())
-                                  : m_m.mk_and(nargs.size(), nargs.c_ptr());
+        default: result = negated ? m_m.mk_or(nargs.size(), nargs.data())
+                                  : m_m.mk_and(nargs.size(), nargs.data());
                  return BR_DONE;
     }
 }

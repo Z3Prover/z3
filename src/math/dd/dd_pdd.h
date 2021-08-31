@@ -43,7 +43,7 @@ namespace dd {
 
     class pdd_manager {
     public:
-        enum semantics { free_e, mod2_e, zero_one_vars_e };
+        enum semantics { free_e, mod2_e, zero_one_vars_e, mod2N_e };
     private:
         friend test;
         friend pdd;
@@ -140,7 +140,7 @@ namespace dd {
 
         typedef ptr_hashtable<op_entry, hash_entry, eq_entry> op_table;
 
-        svector<node>          m_nodes;
+        svector<node>              m_nodes;
         vector<rational>           m_values;
         op_table                   m_op_cache;
         node_table                 m_node_table;
@@ -163,6 +163,8 @@ namespace dd {
         unsigned_vector            m_free_vars;
         unsigned_vector            m_free_values;
         rational                   m_freeze_value;
+        rational                   m_mod2N;
+        unsigned                   m_power_of_2 { 0 };
 
         void reset_op_cache();
         void init_nodes(unsigned_vector const& l2v);
@@ -204,6 +206,7 @@ namespace dd {
         inline bool is_one(PDD p) const { return p == one_pdd; } 
         inline bool is_val(PDD p) const { return m_nodes[p].is_val(); }
         inline bool is_internal(PDD p) const { return m_nodes[p].is_internal(); }
+        bool is_non_zero(PDD p);
         inline unsigned level(PDD p) const { return m_nodes[p].m_level; }
         inline unsigned var(PDD p) const { return m_level2var[level(p)]; }
         inline PDD lo(PDD p) const { return m_nodes[p].m_lo; }
@@ -222,6 +225,9 @@ namespace dd {
         bool is_dmarked(unsigned i) const { return m_dmark[i] == m_dmark_level; }
         unsigned degree(pdd const& p) const;
         unsigned degree(PDD p) const;
+        unsigned degree(PDD p, unsigned v);
+
+        void factor(pdd const& p, unsigned v, unsigned degree, pdd& lc, pdd& rest);
 
         bool var_is_leaf(PDD p, unsigned v);
 
@@ -252,7 +258,7 @@ namespace dd {
 
         struct mem_out {};
 
-        pdd_manager(unsigned nodes, semantics s = free_e);
+        pdd_manager(unsigned nodes, semantics s = free_e, unsigned power_of_2 = 0);
         ~pdd_manager();
 
         semantics get_semantics() const { return m_semantics; }
@@ -278,6 +284,7 @@ namespace dd {
         pdd mk_not(pdd const& p);
         pdd reduce(pdd const& a, pdd const& b);
         pdd subst_val(pdd const& a, vector<std::pair<unsigned, rational>> const& s);
+        pdd subst_val(pdd const& a, unsigned v, rational const& val);
 
         bool is_linear(PDD p) { return degree(p) == 1; }
         bool is_linear(pdd const& p);
@@ -299,6 +306,8 @@ namespace dd {
         bool different_leading_term(pdd const& a, pdd const& b);
         double tree_size(pdd const& p);
         unsigned num_vars() const { return m_var2pdd.size(); }
+
+        unsigned power_of_2() const { return m_power_of_2; }
 
         unsigned_vector const& free_vars(pdd const& p);
 
@@ -334,6 +343,7 @@ namespace dd {
         bool is_unary() const { return !is_val() && lo().is_zero() && hi().is_val(); } 
         bool is_binary() const { return m.is_binary(root); }
         bool is_monomial() const { return m.is_monomial(root); }
+        bool is_non_zero() const { return m.is_non_zero(root); }
         bool var_is_leaf(unsigned v) const { return m.var_is_leaf(root, v); }
 
         pdd operator-() const { return m.minus(*this); }
@@ -351,16 +361,21 @@ namespace dd {
         pdd rev_sub(rational const& r) const { return m.sub(m.mk_val(r), *this); }
         pdd reduce(pdd const& other) const { return m.reduce(*this, other); }
         bool different_leading_term(pdd const& other) const { return m.different_leading_term(*this, other); }
+        void factor(unsigned v, unsigned degree, pdd& lc, pdd& rest) { m.factor(*this, v, degree, lc, rest); }
 
         pdd subst_val(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val(*this, s); }
+        pdd subst_val(unsigned v, rational const& val) const { return m.subst_val(*this, v, val); }
 
         std::ostream& display(std::ostream& out) const { return m.display(out, *this); }
         bool operator==(pdd const& other) const { return root == other.root; }
         bool operator!=(pdd const& other) const { return root != other.root; }
 
+        unsigned power_of_2() const { return m.power_of_2(); }
+
         unsigned dag_size() const { return m.dag_size(*this); }
         double tree_size() const { return m.tree_size(*this); }
         unsigned degree() const { return m.degree(*this); }
+        unsigned degree(unsigned v) const { return m.degree(root, v); }
         unsigned_vector const& free_vars() const { return m.free_vars(*this); }
 
 

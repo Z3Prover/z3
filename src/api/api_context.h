@@ -36,7 +36,6 @@ Revision History:
 #include "smt/smt_kernel.h"
 #include "smt/smt_solver.h"
 #include "cmd_context/tactic_manager.h"
-#include "params/context_params.h"
 #include "cmd_context/cmd_context.h"
 #include "solver/solver.h"
 #include "api/z3.h"
@@ -74,7 +73,7 @@ namespace api {
 
     class context : public tactic_manager {
         struct add_plugins {  add_plugins(ast_manager & m); };
-        context_params             m_params;
+        ast_context_params                m_params;
         bool                       m_user_ref_count; //!< if true, the user is responsible for managing reference counters.
         scoped_ptr<ast_manager>    m_manager;
         scoped_ptr<cmd_context>    m_cmd;
@@ -92,22 +91,20 @@ namespace api {
         smt_params                 m_fparams;
         // -------------------------------
 
-        ast_ref_vector             m_last_result; //!< used when m_user_ref_count == true
-        ast_ref_vector             m_ast_trail;   //!< used when m_user_ref_count == false
+        ast_ref_vector             m_ast_trail;
 
         ref<api::object>           m_last_obj; //!< reference to the last API object returned by the APIs
         u_map<api::object*>        m_allocated_objects; // !< table containing current set of allocated API objects
         unsigned_vector            m_free_object_ids;   // !< free list of identifiers available for allocated objects.
 
-        family_id                  m_basic_fid;
         family_id                  m_array_fid;
-        family_id                  m_arith_fid;
         family_id                  m_bv_fid;
         family_id                  m_dt_fid;
         family_id                  m_datalog_fid;
         family_id                  m_pb_fid;
         family_id                  m_fpa_fid;
         family_id                  m_seq_fid;
+        family_id                  m_char_fid;
         family_id                  m_special_relations_fid;
         datatype_decl_plugin *     m_dt_plugin;
         
@@ -116,7 +113,6 @@ namespace api {
         Z3_error_code              m_error_code;
         Z3_error_handler *         m_error_handler;
         std::string                m_exception_msg; // catch the message associated with a Z3 exception
-        bool                       m_searching;
         Z3_ast_print_mode          m_print_mode;
 
         event_handler *            m_interruptable; // Reference to an object that can be interrupted by Z3_interrupt
@@ -136,11 +132,11 @@ namespace api {
         //
         // ------------------------
         
-        context(context_params * p, bool user_ref_count = false);
+        context(ast_context_params * p, bool user_ref_count = false);
         ~context();
         ast_manager & m() const { return *(m_manager.get()); }
 
-        context_params & params() { m_params.updt_params(); return m_params; }
+        ast_context_params & params() { m_params.updt_params(); return m_params; }
         scoped_ptr<cmd_context>& cmd() { return m_cmd; }
         bool produce_proofs() const { return m().proofs_enabled(); }
         bool produce_models() const { return m_params.m_model; }
@@ -155,15 +151,16 @@ namespace api {
         datatype_util& dtutil() { return m_dt_plugin->u(); }
         seq_util& sutil() { return m_sutil; }
         recfun::util& recfun() { return m_recfun; }
-        family_id get_basic_fid() const { return m_basic_fid; }
+        family_id get_basic_fid() const { return basic_family_id; }
         family_id get_array_fid() const { return m_array_fid; }
-        family_id get_arith_fid() const { return m_arith_fid; }
+        family_id get_arith_fid() const { return arith_family_id; }
         family_id get_bv_fid() const { return m_bv_fid; }
         family_id get_dt_fid() const { return m_dt_fid; }
         family_id get_datalog_fid() const { return m_datalog_fid; }
         family_id get_pb_fid() const { return m_pb_fid; }
         family_id get_fpa_fid() const { return m_fpa_fid; }
         family_id get_seq_fid() const { return m_seq_fid; }
+        family_id get_char_fid() const { return m_char_fid; }
         datatype_decl_plugin * get_dt_plugin() const { return m_dt_plugin; }
         family_id get_special_relations_fid() const { return m_special_relations_fid; }
 
@@ -172,8 +169,6 @@ namespace api {
         void set_error_code(Z3_error_code err, char const* opt_msg);
         void set_error_code(Z3_error_code err, std::string &&opt_msg);
         void set_error_handler(Z3_error_handler h) { m_error_handler = h; }
-        // Sign an error if solver is searching
-        void check_searching();
 
         unsigned add_object(api::object* o);
         void del_object(api::object* o);
@@ -261,7 +256,6 @@ inline api::context * mk_c(Z3_context c) { return reinterpret_cast<api::context*
 #define SET_ERROR_CODE(ERR, MSG) { mk_c(c)->set_error_code(ERR, MSG); }
 #define CHECK_NON_NULL(_p_,_ret_) { if (_p_ == 0) { SET_ERROR_CODE(Z3_INVALID_ARG, "ast is null"); return _ret_; } }
 #define CHECK_VALID_AST(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_)) { SET_ERROR_CODE(Z3_INVALID_ARG, "not a valid ast"); return _ret_; } }
-#define CHECK_SEARCHING(c) mk_c(c)->check_searching();
 inline bool is_expr(Z3_ast a) { return is_expr(to_ast(a)); }
 #define CHECK_IS_EXPR(_p_, _ret_) { if (_p_ == 0 || !is_expr(_p_)) { SET_ERROR_CODE(Z3_INVALID_ARG, "ast is not an expression"); return _ret_; } }
 inline bool is_bool_expr(Z3_context c, Z3_ast a) { return is_expr(a) && mk_c(c)->m().is_bool(to_expr(a)); }

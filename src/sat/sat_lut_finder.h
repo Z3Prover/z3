@@ -69,7 +69,6 @@ namespace sat {
         lut_finder(solver& s) : s(s), m_max_lut_size(5) { 
             memset(m_masks, 0, sizeof(uint64_t)*7);
         }
-        ~lut_finder() {}        
 
         void set(std::function<void (uint64_t, bool_var_vector const&, bool_var)>& f) { m_on_lut = f; }
 

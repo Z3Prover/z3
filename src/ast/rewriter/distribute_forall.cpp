@@ -92,7 +92,7 @@ void distribute_forall::reduce1_app(app * a) {
     }
 
     if (reduced) {
-        na = m_manager.mk_app(a->get_decl(), num_args, m_new_args.c_ptr());
+        na = m_manager.mk_app(a->get_decl(), num_args, m_new_args.data());
     }
 
     cache_result(a, na);
@@ -131,7 +131,7 @@ void distribute_forall::reduce1_quantifier(quantifier * q) {
         expr_ref result(m_manager);
         // m_bsimp.mk_and actually constructs a (not (or ...)) formula,
         // it will also apply basic simplifications.
-        br.mk_and(new_args.size(), new_args.c_ptr(), result);
+        br.mk_and(new_args.size(), new_args.data(), result);
         cache_result(q, result);
     }
     else {

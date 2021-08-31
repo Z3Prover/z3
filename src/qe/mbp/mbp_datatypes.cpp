@@ -53,7 +53,7 @@ namespace mbp {
 
 
             try {
-                if (dt.is_recursive(m.get_sort(var))) {
+                if (dt.is_recursive(var->get_sort())) {
                     project_rec(model, vars, lits);
                 }
                 else {
@@ -81,7 +81,7 @@ namespace mbp {
                 model.register_decl(arg->get_decl(), m_val->get_arg(i));
                 args.push_back(arg);
             }
-            val = m.mk_app(f, args.size(), args.c_ptr());
+            val = m.mk_app(f, args.size(), args.data());
             TRACE("qe", tout << mk_pp(m_var->x(), m) << " |-> " << val << "\n";);
             reduce(val, lits);
         }
@@ -198,7 +198,7 @@ namespace mbp {
             bool inserted = false;
             for (app* v : vars) {
                 if (m.is_bool(v)) continue;
-                if (dt.is_datatype(m.get_sort(v))) continue;
+                if (dt.is_datatype(v->get_sort())) continue;
                 inserted = true;
                 has_var.mark(v);
                 visited.mark(v);

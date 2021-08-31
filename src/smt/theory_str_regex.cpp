@@ -45,9 +45,6 @@ namespace smt {
 
     // Returns false if we need to give up solving, e.g. because we found symbolic expressions in an automaton.
     bool theory_str::solve_regex_automata() {
-
-        // TODO since heuristics might fail, the "no progress" flag might need to be handled specially here
-        bool regex_axiom_add = false;
         for (auto str_in_re : regex_terms) {
             expr * str = nullptr;
             expr * re = nullptr;
@@ -107,8 +104,7 @@ namespace smt {
                     }
 
                     regex_terms_with_length_constraints.insert(str_in_re);
-                    m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_length_constraints, str_in_re));
-                    regex_axiom_add = true;
+                    m_trail_stack.push(insert_obj_trail<expr>(regex_terms_with_length_constraints, str_in_re));
                 }
             } // re not in regex_terms_with_length_constraints
 
@@ -179,7 +175,7 @@ namespace smt {
                             expr_ref rhs(ctx.mk_eq_atom(str, mk_string("")), m);
                             assert_implication(lhs, rhs);
                             regex_terms_with_path_constraints.insert(str_in_re);
-                            m_trail_stack.push(insert_obj_trail<theory_str, expr>(regex_terms_with_path_constraints, str_in_re));
+                            m_trail_stack.push(insert_obj_trail<expr>(regex_terms_with_path_constraints, str_in_re));
                         } else {
                             TRACE("str", tout << "zero-length solution not admitted by this automaton -- asserting conflict clause" << std::endl;);
                             expr_ref_vector lhs_terms(m);
@@ -193,7 +189,6 @@ namespace smt {
                             expr_ref conflict(m.mk_not(lhs), m);
                             assert_axiom(conflict);
                         }
-                        regex_axiom_add = true;
                         regex_inc_counter(regex_length_attempt_count, re);
                         continue;
                     } else {
@@ -219,7 +214,6 @@ namespace smt {
                         }
                         regex_automaton_assumptions[re].push_back(new_aut);
                         TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
-                        regex_axiom_add = true;
                         find_automaton_initial_bounds(str_in_re, aut);
                     } else {
                         regex_inc_counter(regex_fail_count, str_in_re);
@@ -337,7 +331,6 @@ namespace smt {
                             expr_ref lhs_terms(mk_and(lhs), m);
                             expr_ref rhs_terms(mk_and(rhs), m);
                             assert_implication(lhs_terms, rhs_terms);
-                            regex_axiom_add = true;
                         }
                     }
                 } else {
@@ -359,23 +352,11 @@ namespace smt {
                         }
                         regex_automaton_assumptions[re].push_back(new_aut);
                         TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
-                        regex_axiom_add = true;
                         find_automaton_initial_bounds(str_in_re, aut);
                     } else {
-                        // TODO check negation?
-                        // TODO construct a partial automaton for R to the given upper bound?
-                        if (false) {
-
-                        } else {
-                            regex_inc_counter(regex_fail_count, str_in_re);
-                        }
+                        regex_inc_counter(regex_fail_count, str_in_re);
                     }
                     continue;
-                }
-                // if we have *any* automaton for R, and the upper bound is not too large,
-                // finitize the automaton (if we have not already done so) and assert all solutions
-                if (upper_bound_value < 50) { // TODO better metric for threshold
-                    // NOT_IMPLEMENTED_YET(); // TODO(mtrberzi)
                 }
             } else { // !upper_bound_exists
                 // no upper bound information
@@ -460,7 +441,6 @@ namespace smt {
                                 expr_ref lhs_terms(mk_and(lhs), m);
                                 expr_ref rhs_terms(mk_and(rhs), m);
                                 assert_implication(lhs_terms, rhs_terms);
-                                regex_axiom_add = true;
                             }
                         }
                     } else {
@@ -482,7 +462,6 @@ namespace smt {
                             }
                             regex_automaton_assumptions[re].push_back(new_aut);
                             TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
-                            regex_axiom_add = true;
                             find_automaton_initial_bounds(str_in_re, aut);
                         } else {
                             // TODO check negation?
@@ -519,7 +498,6 @@ namespace smt {
                             }
                             regex_automaton_assumptions[re].push_back(new_aut);
                             TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
-                            regex_axiom_add = true;
                             find_automaton_initial_bounds(str_in_re, aut);
                         } else {
                             regex_inc_counter(regex_fail_count, str_in_re);
@@ -704,7 +682,6 @@ namespace smt {
                         expr_ref rhs2(ctx.mk_eq_atom(mk_strlen(str), m_autil.mk_numeral(rational::zero(), true)), m);
                         expr_ref rhs(m.mk_and(rhs1, rhs2), m);
                         assert_implication(conflict_lhs, rhs);
-                        regex_axiom_add = true;
                     }
                 }
             }
@@ -714,11 +691,8 @@ namespace smt {
                 expr_ref conflict_clause(m.mk_not(mk_and(conflict_terms)), m);
                 assert_axiom(conflict_clause);
                 add_persisted_axiom(conflict_clause);
-                regex_axiom_add = true;
             }
         } // foreach (entry in regex_terms_by_string)
-        // NSB: compiler warns that regex_axiom_add is set but not used.
-        (void)regex_axiom_add;
         return true;
     }
 
@@ -1340,7 +1314,7 @@ namespace smt {
                 SASSERT(new_arg);
                 rewritten_args.push_back(new_arg);
             }
-            retval = m.mk_app(a_cond->get_decl(), rewritten_args.c_ptr());
+            retval = m.mk_app(a_cond->get_decl(), rewritten_args.data());
             TRACE("str", tout << "final rewritten term is " << mk_pp(retval, m) << std::endl;);
             return retval;
         } else {
@@ -1464,12 +1438,6 @@ namespace smt {
                         if (u.is_const_char(range_lo, lo_val) && u.is_const_char(range_hi, hi_val)) {
                             TRACE("str", tout << "make range predicate from " << lo_val << " to " << hi_val << std::endl;);
                             expr_ref cond_rhs(m);
-
-                            if (hi_val < lo_val) {
-                                // NSB: why? The range would be empty.
-                                std::swap(lo_val, hi_val);
-                            }
-
                             expr_ref_vector cond_rhs_terms(m);
                             for (unsigned i = lo_val; i <= hi_val; ++i) {
                                 zstring str_const(i);

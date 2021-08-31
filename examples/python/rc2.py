@@ -8,8 +8,6 @@
 
 from z3 import *
 
-from z3 import *
-
 def tt(s, f):
     return is_true(s.model().eval(f))
 

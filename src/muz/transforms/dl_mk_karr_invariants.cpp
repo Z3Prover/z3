@@ -156,7 +156,7 @@ namespace datalog {
             for (unsigned i = 0; i < M.size(); ++i) {
                 mk_body(M.A[i], M.b[i], M.eq[i], conj);
             }
-            bool_rewriter(m).mk_and(conj.size(), conj.c_ptr(), body);
+            bool_rewriter(m).mk_and(conj.size(), conj.data(), body);
         }
 
         void mk_body(vector<rational> const& row, rational const& b, bool is_eq, expr_ref_vector& conj) {
@@ -179,7 +179,7 @@ namespace datalog {
             if (!b.is_zero()) {
                 sum.push_back(a.mk_numeral(b, true));
             }
-            lhs = a.mk_add(sum.size(), sum.c_ptr());
+            lhs = a.mk_add(sum.size(), sum.data());
             if (is_eq) {
                 conj.push_back(m.mk_eq(lhs, zero));
             }
@@ -240,7 +240,7 @@ namespace datalog {
         for (; dit != dend; ++dit) {
             heads.push_back(dit->m_key);
         }
-        m_inner_ctx.rel_query(heads.size(), heads.c_ptr());
+        m_inner_ctx.rel_query(heads.size(), heads.data());
 
         // retrieve invariants.
         dit = src.begin_grouped_rules();
@@ -306,7 +306,7 @@ namespace datalog {
         }
         rule* new_rule = &r;
         if (tail.size() != tsz) {
-            new_rule = rm.mk(r.get_head(), tail.size(), tail.c_ptr(), nullptr, r.name());
+            new_rule = rm.mk(r.get_head(), tail.size(), tail.data(), nullptr, r.name());
         }
         rules.add_rule(new_rule);
         rm.mk_rule_rewrite_proof(r, *new_rule); // should be weakening rule.        

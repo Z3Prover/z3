@@ -22,20 +22,21 @@ def mk_dir(d):
         os.makedirs(d)
 
 
-os_info = {"z64-ubuntu-14" : ('so', 'ubuntu.14.04-x64'),
-           'ubuntu-18' : ('so', 'ubuntu-x64'),
-           'ubuntu-20' : ('so', 'ubuntu-x64'),
+os_info = {"z64-ubuntu-14" : ('so', 'linux-x64'),
+           'ubuntu-18' : ('so', 'linux-x64'),
+           'ubuntu-20' : ('so', 'linux-x64'),
+           'glibc-2.31' : ('so', 'linux-x64'),
            'x64-win' : ('dll', 'win-x64'),
-# Skip x86 as I can't get dotnet build to produce AnyCPU TargetPlatform           
-#          'x86-win' : ('dll', 'win-x86'),
-           'osx' : ('dylib', 'macos'),
-           'debian' : ('so', 'debian.8-x64') }
+           'x86-win' : ('dll', 'win-x86'),
+           'osx' : ('dylib', 'osx-x64'),
+           'debian' : ('so', 'linux-x64') }
 
 def classify_package(f):
     for os_name in os_info:
         if os_name in f:
             ext, dst = os_info[os_name]
             return os_name, f[:-4], ext, dst
+    print("Could not classify", f)
     return None
 
 def replace(src, dst):
@@ -50,10 +51,8 @@ def unpack(packages, symbols):
     # +- runtimes
     #    +- win-x64
     #    +- win-x86
-    #    +- ubuntu.16.04-x64
-    #    +- ubuntu.14.04-x64
-    #    +- debian.8-x64
-    #    +- macos
+    #    +- linux-x64
+    #    +- osx-x64
     # +
     tmp = "tmp" if not symbols else "tmpsym"
     for f in os.listdir(packages):
@@ -79,7 +78,7 @@ def unpack(packages, symbols):
 
 def mk_targets(source_root):
     mk_dir("out/build")
-    shutil.copy(f"{source_root}/src/api/dotnet/Microsoft.Z3.targets.in", "out/build/Microsoft.Z3.x64.targets")
+    shutil.copy(f"{source_root}/src/api/dotnet/Microsoft.Z3.targets.in", "out/build/Microsoft.Z3.targets")
 
 def mk_icon(source_root):
     mk_dir("out/content")
@@ -90,7 +89,7 @@ def create_nuget_spec(version, repo, branch, commit, symbols):
     contents = """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
-        <id>Microsoft.Z3.x64</id>
+        <id>Microsoft.Z3</id>
         <version>{0}</version>
         <authors>Microsoft</authors>
         <description>
@@ -114,7 +113,7 @@ Linux Dependencies:
 </package>""".format(version, repo, branch, commit)
     print(contents)
     sym = "sym." if symbols else ""
-    file = f"out/Microsoft.Z3.x64.{sym}nuspec"
+    file = f"out/Microsoft.Z3.{sym}nuspec"
     print(file)
     with open(file, 'w') as f:
         f.write(contents)

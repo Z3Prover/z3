@@ -123,7 +123,7 @@ public:
     }
     void execute(cmd_context & ctx) override {
         beta_reducer p(ctx.m());
-        expr_ref r = p(m_source, m_subst.size(), m_subst.c_ptr());
+        expr_ref r = p(m_source, m_subst.size(), m_subst.data());
         store_expr_ref(ctx, m_target, r.get());
     }
 };
@@ -293,7 +293,7 @@ public:
             throw cmd_exception("invalid command, mismatch between the number of quantified variables and the number of arguments.");
         unsigned i = num;
         while (i-- > 0) {
-            sort * s = ctx.m().get_sort(ts[i]);
+            sort * s = ts[i]->get_sort();
             if (s != m_q->get_decl_sort(i)) {
                 std::ostringstream buffer;
                 buffer << "invalid command, sort mismatch at position " << i;
@@ -304,7 +304,7 @@ public:
     }
 
     void execute(cmd_context & ctx) override {
-        expr_ref r = instantiate(ctx.m(), m_q, m_args.c_ptr());
+        expr_ref r = instantiate(ctx.m(), m_q, m_args.data());
         ctx.display(ctx.regular_stream(), r);
         ctx.regular_stream() << std::endl;
     }

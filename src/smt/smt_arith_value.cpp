@@ -119,7 +119,7 @@ namespace smt {
         expr_ref _val(m);
         enode* next = m_ctx->get_enode(e), *n = next;
         do { 
-            e = next->get_owner();
+            e = next->get_expr();
             if (m_tha && m_tha->get_value(next, _val) && a.is_numeral(_val, val)) return true;
             if (m_thi && m_thi->get_value(next, _val) && a.is_numeral(_val, val)) return true;
             if (m_thr && m_thr->get_value(next, val)) return true;
@@ -134,7 +134,7 @@ namespace smt {
         rational lo;
         bool s = false;
         if ((a.is_int_real(e) || b.is_bv(e)) && get_lo(e, lo, s) && !s) {
-            return expr_ref(a.mk_numeral(lo, m.get_sort(e)), m);
+            return expr_ref(a.mk_numeral(lo, e->get_sort()), m);
         }
         return expr_ref(e, m);
     }
@@ -143,7 +143,7 @@ namespace smt {
         rational up;
         bool s = false;
         if ((a.is_int_real(e) || b.is_bv(e)) && get_up(e, up, s) && !s) {
-            return expr_ref(a.mk_numeral(up, m.get_sort(e)), m);
+            return expr_ref(a.mk_numeral(up, e->get_sort()), m);
         }
         return expr_ref(e, m);
     }
@@ -152,7 +152,7 @@ namespace smt {
         rational lo, up;
         bool s = false;
         if (a.is_int_real(e) && get_lo(e, lo, s) && !s && get_up(e, up, s) && !s && lo == up) {
-            return expr_ref(a.mk_numeral(lo, m.get_sort(e)), m);
+            return expr_ref(a.mk_numeral(lo, e->get_sort()), m);
         }
         return expr_ref(e, m);
     }    

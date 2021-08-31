@@ -269,8 +269,8 @@ namespace datalog {
         void display_deps(std::ostream & out) const;
 
         typedef rule * const * iterator;
-        iterator begin() const { return m_rules.c_ptr(); }
-        iterator end() const { return m_rules.c_ptr()+m_rules.size(); }
+        iterator begin() const { return m_rules.data(); }
+        iterator end() const { return m_rules.data()+m_rules.size(); }
 
         decl2rules::iterator begin_grouped_rules() const { return m_head2rules.begin(); }
         decl2rules::iterator end_grouped_rules() const { return m_head2rules.end(); }

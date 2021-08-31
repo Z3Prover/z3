@@ -103,10 +103,9 @@ namespace datatype {
 
     namespace param_size {
         class size {
-            unsigned m_ref;
+            unsigned m_ref{ 0 };
         public:
-            size(): m_ref(0) {}
-            virtual ~size() {}
+            virtual ~size() { }
             void inc_ref() { ++m_ref; }
             void dec_ref();
             static size* mk_offset(sort_size const& s); 
@@ -124,7 +123,6 @@ namespace datatype {
         struct offset : public size {
             sort_size m_offset;
             offset(sort_size const& s): m_offset(s) {}
-            ~offset() override {}
             size* subst(obj_map<sort,size*>& S) override { return this; }
             sort_size eval(obj_map<sort, sort_size> const& S) override { return m_offset; }
         };
@@ -152,7 +150,6 @@ namespace datatype {
         struct sparam : public size {
             sort_ref m_param;
             sparam(sort_ref& p): m_param(p) {}
-            ~sparam() override {}
             size* subst(obj_map<sort, size*>& S) override;
             sort_size eval(obj_map<sort, sort_size> const& S) override { return S[m_param]; }
         };
@@ -197,7 +194,7 @@ namespace datatype {
         sort_ref_vector const& params() const { return m_params; }
         util& u() const { return m_util; }
         param_size::size* sort_size() { return m_sort_size; }
-        void set_sort_size(param_size::size* p) { m_sort_size = p; if (p) p->inc_ref(); m_sort = nullptr; }
+        void set_sort_size(param_size::size* p) { auto* q = m_sort_size;  m_sort_size = p; if (p) p->inc_ref(); if (q) q->dec_ref(); m_sort = nullptr; }
         def* translate(ast_translation& tr, util& u);
     };
 
@@ -251,6 +248,8 @@ namespace datatype {
 
             def const& get_def(sort* s) const { return *(m_defs[datatype_name(s)]); }
             def& get_def(symbol const& s) { return *(m_defs[s]); }
+            ptr_vector<constructor> get_constructors(symbol const& s) const;
+            ptr_vector<accessor> get_accessors(symbol const& s) const;
             bool is_declared(sort* s) const { return m_defs.contains(datatype_name(s)); }
             unsigned get_axiom_base_id(symbol const& s) { return m_axiom_bases[s]; }
             util & u() const;
@@ -324,6 +323,7 @@ namespace datatype {
         bool is_covariant(ast_mark& mark, ptr_vector<sort>& subsorts, sort* s) const;
         def& get_def(symbol const& s) { return plugin().get_def(s); }        
         void get_subsorts(sort* s, ptr_vector<sort>& sorts) const;        
+        symbol datatype_name(sort* s) const { return s->get_parameter(0).get_symbol(); }
 
     public:
         util(ast_manager & m);
@@ -333,6 +333,7 @@ namespace datatype {
         bool is_datatype(sort const* s) const { return is_sort_of(s, fid(), DATATYPE_SORT); }
         bool is_enum_sort(sort* s);
         bool is_recursive(sort * ty);
+        bool is_recursive_array(sort * ty);
         bool is_constructor(func_decl * f) const { return is_decl_of(f, fid(), OP_DT_CONSTRUCTOR); }
         bool is_recognizer(func_decl * f) const { return is_recognizer0(f) || is_is(f); }
         bool is_recognizer0(func_decl * f) const { return is_decl_of(f, fid(), OP_DT_RECOGNISER); }
@@ -345,6 +346,8 @@ namespace datatype {
         bool is_is(app const * f) const { return is_app_of(f, fid(), OP_DT_IS);} 
         bool is_is(expr const * e) const { return is_app(e) && is_is(to_app(e)); }
         bool is_recognizer(expr const * f) const { return is_app(f) && (is_recognizer0(to_app(f)) || is_is(to_app(f))); }
+        bool is_considered_uninterpreted(func_decl * f, unsigned n, expr* const* args);
+
         MATCH_UNARY(is_recognizer);
         bool is_accessor(expr const* e) const { return is_app(e) && is_app_of(to_app(e), fid(), OP_DT_ACCESSOR); }
         MATCH_UNARY(is_accessor);

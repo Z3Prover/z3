@@ -63,9 +63,9 @@ namespace datalog {
             }
             sorts.reverse();
             names.reverse();
-            q = m.mk_app(r, args.size(), args.c_ptr());
+            q = m.mk_app(r, args.size(), args.data());
             if (!args.empty()) {
-                q = m.mk_exists(sorts.size(), sorts.c_ptr(), names.c_ptr(), q);
+                q = m.mk_exists(sorts.size(), sorts.data(), names.data(), q);
             }
             return query(q);
         }

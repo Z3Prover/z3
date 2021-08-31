@@ -34,7 +34,6 @@ protected:
     typedef chashtable<obj_pair, hash_proc, eq_proc> set;
     set m_set;
 public:
-    obj_pair_set() {}
     void insert(T1 * t1, T2 * t2) { m_set.insert(obj_pair(t1, t2)); }
     void insert(obj_pair const & p) { m_set.insert(p); }
     bool insert_if_not_there(T1 * t1, T2 * t2) { return m_set.insert_if_not_there2(obj_pair(t1, t2)); }

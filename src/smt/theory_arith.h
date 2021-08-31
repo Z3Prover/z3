@@ -254,8 +254,8 @@ namespace smt {
             void append(unsigned sz, literal const* ls) { m_lits.append(sz, ls); }
             void append(unsigned sz, enode_pair const* ps) { m_eqs.append(sz, ps); }
             unsigned num_params() const { return empty()?0:m_eq_coeffs.size() + m_lit_coeffs.size() + 1; }
-            numeral const* lit_coeffs() const { return m_lit_coeffs.c_ptr(); }
-            numeral const* eq_coeffs() const { return m_eq_coeffs.c_ptr(); }
+            numeral const* lit_coeffs() const { return m_lit_coeffs.data(); }
+            numeral const* eq_coeffs() const { return m_eq_coeffs.data(); }
             parameter* params(char const* name);
             std::ostream& display(theory_arith& th, std::ostream& out) const;
         };
@@ -531,7 +531,7 @@ namespace smt {
 
         bool has_var(expr * v) const { return get_context().e_internalized(v) && get_context().get_enode(v)->get_th_var(get_id()) != null_theory_var; }
         theory_var expr2var(expr * v) const { SASSERT(get_context().e_internalized(v)); return get_context().get_enode(v)->get_th_var(get_id()); }
-        expr * var2expr(theory_var v) const { return get_enode(v)->get_owner(); }
+        expr * var2expr(theory_var v) const { return get_enode(v)->get_expr(); }
         bool reflection_enabled() const;
         bool reflect(app * n) const;
         unsigned lazy_pivoting_lvl() const { return m_params.m_arith_lazy_pivoting_lvl; }
@@ -973,7 +973,7 @@ namespace smt {
            \brief A monomial is 'pure' if does not have a numeric coefficient.
         */
         bool is_pure_monomial(expr * m) const { return m_util.is_mul(m) && (to_app(m)->get_num_args() > 2 || !m_util.is_numeral(to_app(m)->get_arg(0))); }
-        bool is_pure_monomial(theory_var v) const { return is_pure_monomial(get_enode(v)->get_owner()); }
+        bool is_pure_monomial(theory_var v) const { return is_pure_monomial(get_enode(v)->get_expr()); }
         void mark_var(theory_var v, svector<theory_var> & vars, var_set & already_found);
         void mark_dependents(theory_var v, svector<theory_var> & vars, var_set & already_found, row_set & already_visited_rows);
         void get_non_linear_cluster(svector<theory_var> & vars);

@@ -85,12 +85,11 @@ namespace smt {
         cacheHitCount(0),
         cacheMissCount(0),
         m_fresh_id(0),
-        m_trail_stack(*this),
-        m_library_aware_trail_stack(*this),
+        m_trail_stack(),
+        m_library_aware_trail_stack(),
         m_find(*this),
         fixed_length_subterm_trail(m),
-        fixed_length_assumptions(m),
-        bitvector_character_constants(m)
+        fixed_length_assumptions(m)
     {
     }
 
@@ -100,10 +99,11 @@ namespace smt {
             dealloc(aut);
         }
         regex_automata.clear();
+        for (auto& kv: var_to_char_subterm_map) dealloc(kv.m_value);
+        for (auto& kv: uninterpreted_to_char_subterm_map) dealloc(kv.m_value);
     }
 
     void theory_str::init() {
-        initialize_charset();
         m_mk_aut.set_solver(alloc(seq_expr_solver, get_manager(), ctx.get_fparams()));
     }
 
@@ -139,7 +139,6 @@ namespace smt {
         regex_terms.reset();
         regex_terms_by_string.reset();
         regex_automaton_assumptions.reset();
-        regex_nfa_cache.reset();
         regex_terms_with_path_constraints.reset();
         regex_terms_with_length_constraints.reset();
         regex_term_to_length_constraint.reset();
@@ -164,11 +163,13 @@ namespace smt {
         fixed_length_subterm_trail.reset();
         fixed_length_assumptions.reset();
         fixed_length_used_len_terms.reset();
+
+        for (auto& kv: var_to_char_subterm_map) dealloc(kv.m_value);
         var_to_char_subterm_map.reset();
+        for (auto& kv: uninterpreted_to_char_subterm_map) dealloc(kv.m_value);
         uninterpreted_to_char_subterm_map.reset();
         fixed_length_lesson.reset();
         candidate_model.reset();
-        bitvector_character_constants.reset();
     }
 
     expr * theory_str::mk_string(zstring const& str) {
@@ -189,8 +190,7 @@ namespace smt {
     }
 
     expr * theory_str::mk_string(const char * str) {
-        symbol sym(str);
-        return u.str.mk_string(sym);
+        return u.str.mk_string(str);
     }
 
     void theory_str::collect_statistics(::statistics & st) const {
@@ -198,79 +198,6 @@ namespace smt {
         st.update("str refine negated equation", m_stats.m_refine_neq);
         st.update("str refine function", m_stats.m_refine_f);
         st.update("str refine negated function", m_stats.m_refine_nf);
-    }
-
-    void theory_str::initialize_charset() {
-        bool defaultCharset = true;
-        if (defaultCharset) {
-            // valid C strings can't contain the null byte ('\0')
-            charSetSize = 255;
-            char_set.resize(256, 0);
-            int idx = 0;
-            // small letters
-            for (int i = 97; i < 123; i++) {
-                char_set[idx] = (char) i;
-                charSetLookupTable[char_set[idx]] = idx;
-                idx++;
-            }
-            // caps
-            for (int i = 65; i < 91; i++) {
-                char_set[idx] = (char) i;
-                charSetLookupTable[char_set[idx]] = idx;
-                idx++;
-            }
-            // numbers
-            for (int i = 48; i < 58; i++) {
-                char_set[idx] = (char) i;
-                charSetLookupTable[char_set[idx]] = idx;
-                idx++;
-            }
-            // printable marks - 1
-            for (int i = 32; i < 48; i++) {
-                char_set[idx] = (char) i;
-                charSetLookupTable[char_set[idx]] = idx;
-                idx++;
-            }
-            // printable marks - 2
-            for (int i = 58; i < 65; i++) {
-                char_set[idx] = (char) i;
-                charSetLookupTable[char_set[idx]] = idx;
-                idx++;
-            }
-            // printable marks - 3
-            for (int i = 91; i < 97; i++) {
-                char_set[idx] = (char) i;
-                charSetLookupTable[char_set[idx]] = idx;
-                idx++;
-            }
-            // printable marks - 4
-            for (int i = 123; i < 127; i++) {
-                char_set[idx] = (char) i;
-                charSetLookupTable[char_set[idx]] = idx;
-                idx++;
-            }
-            // non-printable - 1
-            for (int i = 1; i < 32; i++) {
-                char_set[idx] = (char) i;
-                charSetLookupTable[char_set[idx]] = idx;
-                idx++;
-            }
-            // non-printable - 2
-            for (int i = 127; i < 256; i++) {
-                char_set[idx] = (char) i;
-                charSetLookupTable[char_set[idx]] = idx;
-                idx++;
-            }
-        } else {
-            const char setset[] = { 'a', 'b', 'c' };
-            int fSize = sizeof(setset) / sizeof(char);
-            char_set.resize(fSize, 0);
-            charSetSize = fSize;
-            for (int i = 0; i < charSetSize; i++) {
-                char_set[i] = setset[i];
-                charSetLookupTable[setset[i]] = i;
-            }
-        }
     }
 
     void theory_str::assert_axiom(expr * _e) {
@@ -285,8 +212,6 @@ namespace smt {
         if (m.is_true(_e)) return;
         TRACE("str", tout << "asserting " << mk_ismt2_pp(_e, m) << std::endl;);
         expr_ref e(_e, m);
-        //th_rewriter rw(m);
-        //rw(e);
         if (!ctx.b_internalized(e)) {
             ctx.internalize(e, false);
         }
@@ -308,6 +233,7 @@ namespace smt {
         ast_manager & m = get_manager();
         expr_ref _e(e, m);
         ctx.get_rewriter()(_e);
+        if (m.is_true(_e)) return;
         assert_axiom(_e);
     }
 
@@ -378,19 +304,17 @@ namespace smt {
     }
 
     void theory_str::refresh_theory_var(expr * e) {
-        ast_manager & m = get_manager();
         enode * en = ensure_enode(e);
         theory_var v = mk_var(en); (void)v;
         TRACE("str", tout << "refresh " << mk_pp(e, get_manager()) << ": v#" << v << std::endl;);
-        if (m.get_sort(e) == u.str.mk_string_sort()) {
+        if (e->get_sort() == u.str.mk_string_sort()) {
             m_basicstr_axiom_todo.push_back(en);
         }
     }
 
     theory_var theory_str::mk_var(enode* n) {
-        TRACE("str", tout << "mk_var for " << mk_pp(n->get_owner(), get_manager()) << std::endl;);
-        ast_manager & m = get_manager();
-        if (!(m.get_sort(n->get_owner()) == u.str.mk_string_sort())) {
+        TRACE("str", tout << "mk_var for " << mk_pp(n->get_expr(), get_manager()) << std::endl;);
+        if (!(n->get_expr()->get_sort() == u.str.mk_string_sort())) {
             return null_theory_var;
         }
         if (is_attached_to_var(n)) {
@@ -824,7 +748,7 @@ namespace smt {
             for (auto el : childrenVector) {
                 items.push_back(mk_strlen(el));
             }
-            expr_ref lenAssert(ctx.mk_eq_atom(concat_length, m_autil.mk_add(items.size(), items.c_ptr())), m);
+            expr_ref lenAssert(ctx.mk_eq_atom(concat_length, m_autil.mk_add(items.size(), items.data())), m);
             assert_axiom(lenAssert);
         }
         return concatAst;
@@ -883,7 +807,7 @@ namespace smt {
                 unsigned start_count = m_library_aware_axiom_todo.size();
                 ptr_vector<enode> axioms_tmp(m_library_aware_axiom_todo);
                 for (auto const& e : axioms_tmp) {
-                    app * a = e->get_owner();
+                    app * a = e->get_expr();
                     if (u.str.is_stoi(a)) {
                         instantiate_axiom_str_to_int(e);
                     } else if (u.str.is_itos(a)) {
@@ -904,8 +828,14 @@ namespace smt {
                         instantiate_axiom_Replace(e);
                     } else if (u.str.is_in_re(a)) {
                         instantiate_axiom_RegexIn(e);
+                    } else if (u.str.is_is_digit(a)) {
+                        instantiate_axiom_is_digit(e);
+                    } else if (u.str.is_from_code(a)) {
+                        instantiate_axiom_str_from_code(e);
+                    } else if (u.str.is_to_code(a)) {
+                        instantiate_axiom_str_to_code(e);
                     } else {
-                        TRACE("str", tout << "BUG: unhandled library-aware term " << mk_pp(e->get_owner(), get_manager()) << std::endl;);
+                        TRACE("str", tout << "BUG: unhandled library-aware term " << mk_pp(e->get_expr(), get_manager()) << std::endl;);
                         NOT_IMPLEMENTED_YET();
                     }
                 }
@@ -952,7 +882,7 @@ namespace smt {
      */
 
     void theory_str::try_eval_concat(enode * cat) {
-        app * a_cat = cat->get_owner();
+        app * a_cat = cat->get_expr();
         SASSERT(u.str.is_concat(a_cat));
 
         ast_manager & m = get_manager();
@@ -1002,7 +932,7 @@ namespace smt {
      */
     void theory_str::instantiate_concat_axiom(enode * cat) {
         ast_manager & m = get_manager();
-        app * a_cat = cat->get_owner();
+        app * a_cat = cat->get_expr();
         TRACE("str", tout << "instantiating concat axiom for " << mk_ismt2_pp(a_cat, m) << std::endl;);
         if (!u.str.is_concat(a_cat)) {
             return;
@@ -1047,13 +977,13 @@ namespace smt {
     void theory_str::instantiate_basic_string_axioms(enode * str) {
         ast_manager & m = get_manager();
 
-        TRACE("str", tout << "set up basic string axioms on " << mk_pp(str->get_owner(), m) << std::endl;);
+        TRACE("str", tout << "set up basic string axioms on " << mk_pp(str->get_expr(), m) << std::endl;);
 
         {
-            sort * a_sort = m.get_sort(str->get_owner());
+            sort * a_sort = str->get_expr()->get_sort();
             sort * str_sort = u.str.mk_string_sort();
             if (a_sort != str_sort) {
-                TRACE("str", tout << "WARNING: not setting up string axioms on non-string term " << mk_pp(str->get_owner(), m) << std::endl;);
+                TRACE("str", tout << "WARNING: not setting up string axioms on non-string term " << mk_pp(str->get_expr(), m) << std::endl;);
                 return;
             }
         }
@@ -1065,7 +995,7 @@ namespace smt {
         }
 
         // generate a stronger axiom for constant strings
-        app * a_str = str->get_owner();
+        app * a_str = str->get_expr();
 
         if (u.str.is_string(a_str)) {
             expr_ref len_str(m);
@@ -1073,7 +1003,7 @@ namespace smt {
             SASSERT(len_str);
 
             zstring strconst;
-            u.str.is_string(str->get_owner(), strconst);
+            u.str.is_string(str->get_expr(), strconst);
             TRACE("str", tout << "instantiating constant string axioms for \"" << strconst.encode() << '"' << std::endl;);
             unsigned int l = strconst.length();
             expr_ref len(m_autil.mk_numeral(rational(l), true), m);
@@ -1139,8 +1069,8 @@ namespace smt {
     void theory_str::instantiate_str_eq_length_axiom(enode * lhs, enode * rhs) {
         ast_manager & m = get_manager();
 
-        app * a_lhs = lhs->get_owner();
-        app * a_rhs = rhs->get_owner();
+        app * a_lhs = lhs->get_expr();
+        app * a_rhs = rhs->get_expr();
 
         // build premise: (lhs == rhs)
         expr_ref premise(ctx.mk_eq_atom(a_lhs, a_rhs), m);
@@ -1160,7 +1090,7 @@ namespace smt {
     void theory_str::instantiate_axiom_CharAt(enode * e) {
         ast_manager & m = get_manager();
         expr* arg0, *arg1;
-        app * expr = e->get_owner();
+        app * expr = e->get_expr();
         if (axiomatized_terms.contains(expr)) {
             TRACE("str", tout << "already set up CharAt axiom for " << mk_pp(expr, m) << std::endl;);
             return;
@@ -1195,7 +1125,7 @@ namespace smt {
     void theory_str::instantiate_axiom_prefixof(enode * e) {
         ast_manager & m = get_manager();
 
-        app * expr = e->get_owner();
+        app * expr = e->get_expr();
         if (axiomatized_terms.contains(expr)) {
             TRACE("str", tout << "already set up prefixof axiom for " << mk_pp(expr, m) << std::endl;);
             return;
@@ -1211,7 +1141,7 @@ namespace smt {
         innerItems.push_back(ctx.mk_eq_atom(expr->get_arg(1), mk_concat(ts0, ts1)));
         innerItems.push_back(ctx.mk_eq_atom(mk_strlen(ts0), mk_strlen(expr->get_arg(0))));
         innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts0, expr->get_arg(0)), expr, mk_not(m, expr)));
-        expr_ref then1(m.mk_and(innerItems.size(), innerItems.c_ptr()), m);
+        expr_ref then1(m.mk_and(innerItems.size(), innerItems.data()), m);
         SASSERT(then1);
 
         // the top-level condition is Length(arg0) >= Length(arg1)
@@ -1231,7 +1161,7 @@ namespace smt {
     void theory_str::instantiate_axiom_suffixof(enode * e) {
         ast_manager & m = get_manager();
 
-        app * expr = e->get_owner();
+        app * expr = e->get_expr();
         if (axiomatized_terms.contains(expr)) {
             TRACE("str", tout << "already set up suffixof axiom for " << mk_pp(expr, m) << std::endl;);
             return;
@@ -1247,7 +1177,7 @@ namespace smt {
         innerItems.push_back(ctx.mk_eq_atom(expr->get_arg(1), mk_concat(ts0, ts1)));
         innerItems.push_back(ctx.mk_eq_atom(mk_strlen(ts1), mk_strlen(expr->get_arg(0))));
         innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts1, expr->get_arg(0)), expr, mk_not(m, expr)));
-        expr_ref then1(m.mk_and(innerItems.size(), innerItems.c_ptr()), m);
+        expr_ref then1(m.mk_and(innerItems.size(), innerItems.data()), m);
         SASSERT(then1);
 
         // the top-level condition is Length(arg0) >= Length(arg1)
@@ -1267,7 +1197,7 @@ namespace smt {
     void theory_str::instantiate_axiom_Contains(enode * e) {
         ast_manager & m = get_manager();
 
-        app * ex = e->get_owner();
+        app * ex = e->get_expr();
         if (axiomatized_terms.contains(ex)) {
             TRACE("str", tout << "already set up Contains axiom for " << mk_pp(ex, m) << std::endl;);
             return;
@@ -1317,7 +1247,7 @@ namespace smt {
         th_rewriter & rw = ctx.get_rewriter();
         ast_manager & m = get_manager();
 
-        app * ex = e->get_owner();
+        app * ex = e->get_expr();
         if (axiomatized_terms.contains(ex)) {
             TRACE("str", tout << "already set up str.indexof axiom for " << mk_pp(ex, m) << std::endl;);
             return;
@@ -1395,8 +1325,7 @@ namespace smt {
         SASSERT(elseBranch);
 
         expr_ref breakdownAssert(m.mk_ite(condAst, thenBranch, elseBranch), m);
-        rw(breakdownAssert);
-        assert_axiom(breakdownAssert);
+        assert_axiom_rw(breakdownAssert);
 
         {
             // heuristic: integrate with str.contains information
@@ -1419,7 +1348,7 @@ namespace smt {
         th_rewriter & rw = ctx.get_rewriter();
         ast_manager & m = get_manager();
 
-        app * e = _e->get_owner();
+        app * e = _e->get_expr();
         if (axiomatized_terms.contains(e)) {
             TRACE("str", tout << "already set up extended str.indexof axiom for " << mk_pp(e, m) << std::endl;);
             return;
@@ -1453,7 +1382,8 @@ namespace smt {
         {
             expr_ref premise(m_autil.mk_le(i, minus_one), m);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
-            assert_implication(premise, conclusion);
+            expr_ref ax(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(ax);
         }
 
         // case 1.1: N == "" and i out of range
@@ -1466,8 +1396,7 @@ namespace smt {
             expr_ref premise(m.mk_and(premiseNEmpty, m.mk_not(premiseRange)), m);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
             expr_ref finalAxiom(rewrite_implication(premise, conclusion), m);
-            rw(finalAxiom);
-            assert_axiom(finalAxiom);
+            assert_axiom_rw(finalAxiom);
         }
 
         // case 1.2: N == "" and i within range
@@ -1480,8 +1409,7 @@ namespace smt {
             expr_ref premise(m.mk_and(premiseNEmpty, premiseRange), m);
             expr_ref conclusion(ctx.mk_eq_atom(e, i), m);
             expr_ref finalAxiom(rewrite_implication(premise, conclusion), m);
-            rw(finalAxiom);
-            assert_axiom(finalAxiom);
+            assert_axiom_rw(finalAxiom);
         }
 
         // case 2: i = 0
@@ -1489,30 +1417,26 @@ namespace smt {
             expr_ref premise1(ctx.mk_eq_atom(i, zero), m);
             expr_ref premise2(m.mk_not(ctx.mk_eq_atom(N, empty_string)), m);
             expr_ref premise(m.mk_and(premise1, premise2), m);
-            rw(premise);
             // reduction to simpler case
             expr_ref conclusion(ctx.mk_eq_atom(e, mk_indexof(H, N)), m);
-            assert_implication(premise, conclusion);
+            expr_ref ax(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(ax);
         }
         // case 3: i >= len(H)
         {
-            //expr_ref _premise(m_autil.mk_ge(i, mk_strlen(H)), m);
-            //expr_ref premise(_premise);
-            //th_rewriter rw(m);
-            //rw(premise);
             expr_ref premise1(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero), m);
             expr_ref premise2(m.mk_not(ctx.mk_eq_atom(N, empty_string)), m);
             expr_ref premise(m.mk_and(premise1, premise2), m);
-            rw(premise);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
-            assert_implication(premise, conclusion);
+            expr_ref ax(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(ax);
         }
         // case 3.5: H doesn't contain N
         {
             expr_ref premise(m.mk_not(u.str.mk_contains(H, N)), m);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
-            rw(premise);
-            assert_implication(premise, conclusion);
+            expr_ref ax(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(ax);
         }
         // case 4: 0 < i < len(H), N non-empty, and H contains N
         {
@@ -1527,9 +1451,7 @@ namespace smt {
             premises.push_back(premise2);
             premises.push_back(premise3);
             premises.push_back(premise4);
-            expr_ref _premise(mk_and(premises), m);
-            expr_ref premise(_premise);
-            rw(premise);
+            expr_ref premise(mk_and(premises), m);
 
             expr_ref hd(mk_str_var("hd"), m);
             expr_ref tl(mk_str_var("tl"), m);
@@ -1541,7 +1463,8 @@ namespace smt {
             conclusion_terms.push_back(ctx.mk_eq_atom(e, m_autil.mk_add(i, mk_indexof(tl, N))));
 
             expr_ref conclusion(mk_and(conclusion_terms), m);
-            assert_implication(premise, conclusion);
+            expr_ref ax(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(ax);
         }
 
         {
@@ -1569,7 +1492,7 @@ namespace smt {
     void theory_str::instantiate_axiom_LastIndexof(enode * e) {
         ast_manager & m = get_manager();
 
-        app * expr = e->get_owner();
+        app * expr = e->get_expr();
         if (axiomatized_terms.contains(expr)) {
             TRACE("str", tout << "already set up LastIndexof axiom for " << mk_pp(expr, m) << std::endl;);
             return;
@@ -1621,9 +1544,9 @@ namespace smt {
         expr_ref_vector elseItems(m);
         elseItems.push_back(ctx.mk_eq_atom(indexAst, mk_int(-1)));
 
-        items.push_back(m.mk_ite(condAst, m.mk_and(thenItems.size(), thenItems.c_ptr()), m.mk_and(elseItems.size(), elseItems.c_ptr())));
+        items.push_back(m.mk_ite(condAst, m.mk_and(thenItems.size(), thenItems.data()), m.mk_and(elseItems.size(), elseItems.data())));
 
-        expr_ref breakdownAssert(m.mk_and(items.size(), items.c_ptr()), m);
+        expr_ref breakdownAssert(m.mk_and(items.size(), items.data()), m);
         SASSERT(breakdownAssert);
 
         expr_ref reduceToIndex(ctx.mk_eq_atom(expr, indexAst), m);
@@ -1631,120 +1554,124 @@ namespace smt {
 
         expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToIndex), m);
         SASSERT(finalAxiom);
-        assert_axiom(finalAxiom);
+        assert_axiom_rw(finalAxiom);
     }
 
-    void theory_str::instantiate_axiom_Substr(enode * e) {
+    void theory_str::instantiate_axiom_Substr(enode * _e) {
         ast_manager & m = get_manager();
-        expr* substrBase = nullptr;
-        expr* substrPos = nullptr;
-        expr* substrLen = nullptr;
+        expr* s = nullptr;
+        expr* i = nullptr;
+        expr* l = nullptr;
 
-        app * expr = e->get_owner();
-        if (axiomatized_terms.contains(expr)) {
-            TRACE("str", tout << "already set up Substr axiom for " << mk_pp(expr, m) << std::endl;);
+        app * e = _e->get_expr();
+        if (axiomatized_terms.contains(e)) {
+            TRACE("str", tout << "already set up Substr axiom for " << mk_pp(e, m) << std::endl;);
             return;
         }
-        axiomatized_terms.insert(expr);
+        axiomatized_terms.insert(e);
 
-        TRACE("str", tout << "instantiate Substr axiom for " << mk_pp(expr, m) << std::endl;);
+        TRACE("str", tout << "instantiate Substr axiom for " << mk_pp(e, m) << std::endl;);
 
-        VERIFY(u.str.is_extract(expr, substrBase, substrPos, substrLen));
+        VERIFY(u.str.is_extract(e, s, i, l));
 
-        expr_ref zero(m_autil.mk_numeral(rational::zero(), true), m);
-        expr_ref minusOne(m_autil.mk_numeral(rational::minus_one(), true), m);
-        SASSERT(zero);
-        SASSERT(minusOne);
+        // e = substr(s, i, l)
+        expr_ref x(mk_str_var("substrPre"), m);
+        expr_ref ls(mk_strlen(s), m);
+        expr_ref lx(mk_strlen(x), m);
+        expr_ref le(mk_strlen(e), m);
+        expr_ref ls_minus_i_l(m_autil.mk_sub(m_autil.mk_sub(ls, i), l), m);
+        expr_ref y(mk_str_var("substrPost"), m);
+        expr_ref xe(mk_concat(x, e), m);
+        expr_ref xey(mk_concat(xe, y), m);
+        expr_ref zero(mk_int(0), m);
 
-        expr_ref_vector argumentsValid_terms(m);
-        // pos >= 0
-        argumentsValid_terms.push_back(m_autil.mk_ge(substrPos, zero));
-        // pos < strlen(base)
-        // --> pos + -1*strlen(base) < 0
-        argumentsValid_terms.push_back(mk_not(m, m_autil.mk_ge(
-                                                    m_autil.mk_add(substrPos, m_autil.mk_mul(minusOne, mk_strlen(substrBase))),
-                                                    zero)));
+        expr_ref i_ge_0(m_autil.mk_ge(i, zero), m);
+        expr_ref i_le_ls(m_autil.mk_le(m_autil.mk_sub(i, ls), zero), m);
+        expr_ref ls_le_i(m_autil.mk_le(m_autil.mk_sub(ls, i), zero), m);
+        expr_ref ls_ge_li(m_autil.mk_ge(ls_minus_i_l, zero), m);
+        expr_ref l_ge_0(m_autil.mk_ge(l, zero), m);
+        expr_ref l_le_0(m_autil.mk_le(l, zero), m);
+        expr_ref ls_le_0(m_autil.mk_le(ls, zero), m);
+        expr_ref le_is_0(ctx.mk_eq_atom(le, zero), m);
 
-        // len >= 0
-        argumentsValid_terms.push_back(m_autil.mk_ge(substrLen, zero));
-
-
-        // (pos+len) >= strlen(base)
-        // --> pos + len + -1*strlen(base) >= 0
-        expr_ref lenOutOfBounds(m_autil.mk_ge(
-                                    m_autil.mk_add(substrPos, substrLen, m_autil.mk_mul(minusOne, mk_strlen(substrBase))),
-                                    zero), m);
-        expr_ref argumentsValid = mk_and(argumentsValid_terms);
-
-        // Case 1: pos < 0 or pos >= strlen(base) or len < 0
-        // ==> (Substr ...) = ""
-        expr_ref case1_premise(m.mk_not(argumentsValid), m);
-        expr_ref case1_conclusion(ctx.mk_eq_atom(expr, mk_string("")), m);
-        expr_ref case1(m.mk_implies(case1_premise, case1_conclusion), m);
-
-        // Case 2: (pos >= 0 and pos < strlen(base) and len >= 0) and (pos+len) >= strlen(base)
-        // ==> base = t0.t1 AND len(t0) = pos AND (Substr ...) = t1
-        expr_ref t0(mk_str_var("t0"), m);
-        expr_ref t1(mk_str_var("t1"), m);
-        expr_ref case2_conclusion(m.mk_and(
-                                      ctx.mk_eq_atom(substrBase, mk_concat(t0,t1)),
-                                      ctx.mk_eq_atom(mk_strlen(t0), substrPos),
-                                      ctx.mk_eq_atom(expr, t1)), m);
-        expr_ref case2(m.mk_implies(m.mk_and(argumentsValid, lenOutOfBounds), case2_conclusion), m);
-
-        // Case 3: (pos >= 0 and pos < strlen(base) and len >= 0) and (pos+len) < strlen(base)
-        // ==> base = t2.t3.t4 AND len(t2) = pos AND len(t3) = len AND (Substr ...) = t3
-
-        expr_ref t2(mk_str_var("t2"), m);
-        expr_ref t3(mk_str_var("t3"), m);
-        expr_ref t4(mk_str_var("t4"), m);
-        expr_ref_vector case3_conclusion_terms(m);
-        case3_conclusion_terms.push_back(ctx.mk_eq_atom(substrBase, mk_concat(t2, mk_concat(t3, t4))));
-        case3_conclusion_terms.push_back(ctx.mk_eq_atom(mk_strlen(t2), substrPos));
-        case3_conclusion_terms.push_back(ctx.mk_eq_atom(mk_strlen(t3), substrLen));
-        case3_conclusion_terms.push_back(ctx.mk_eq_atom(expr, t3));
-        expr_ref case3_conclusion(mk_and(case3_conclusion_terms), m);
-        expr_ref case3(m.mk_implies(m.mk_and(argumentsValid, m.mk_not(lenOutOfBounds)), case3_conclusion), m);
-
+        // 0 <= i & i <= |s| & 0 <= l => xey = s
         {
-            th_rewriter rw(m);
-
-            expr_ref case1_rw(case1, m);
-            rw(case1_rw);
-            assert_axiom(case1_rw);
-
-            expr_ref case2_rw(case2, m);
-            rw(case2_rw);
-            assert_axiom(case2_rw);
-
-            expr_ref case3_rw(case3, m);
-            rw(case3_rw);
-            assert_axiom(case3_rw);
+            expr_ref clause(m.mk_or(~i_ge_0, ~i_le_ls, ~l_ge_0, ctx.mk_eq_atom(xey, s)), m);
+            assert_axiom_rw(clause);
+        }
+        // 0 <= i & i <= |s| => |x| = i
+        {
+            expr_ref clause(m.mk_or(~i_ge_0, ~i_le_ls, ctx.mk_eq_atom(lx, i)), m);
+            assert_axiom_rw(clause);
+        }
+        // 0 <= i & i <= |s| & l >= 0 & |s| >= l + i => |e| = l
+        {
+            expr_ref_vector terms(m);
+            terms.push_back(~i_ge_0);
+            terms.push_back(~i_le_ls);
+            terms.push_back(~l_ge_0);
+            terms.push_back(~ls_ge_li);
+            terms.push_back(ctx.mk_eq_atom(le, l));
+            expr_ref clause(mk_or(terms), m);
+            assert_axiom_rw(clause);
+        }
+        // 0 <= i & i <= |s| & |s| < l + i => |e| = |s| - i
+        {
+            expr_ref_vector terms(m);
+            terms.push_back(~i_ge_0);
+            terms.push_back(~i_le_ls);
+            terms.push_back(~l_ge_0);
+            terms.push_back(ls_ge_li);
+            terms.push_back(ctx.mk_eq_atom(le, m_autil.mk_sub(ls, i)));
+            expr_ref clause(mk_or(terms), m);
+            assert_axiom_rw(clause);
+        }
+        // i < 0 => |e| = 0
+        {
+            expr_ref clause(m.mk_or(i_ge_0,   le_is_0), m);
+            assert_axiom_rw(clause);
+        }
+        // |s| <= i => |e| = 0
+        {
+            expr_ref clause(m.mk_or(~ls_le_i, le_is_0), m);
+            assert_axiom_rw(clause);
+        }
+        // |s| <= 0 => |e| = 0
+        {
+            expr_ref clause(m.mk_or(~ls_le_0, le_is_0), m);
+            assert_axiom_rw(clause);
+        }
+        // l <= 0 => |e| = 0
+        {
+            expr_ref clause(m.mk_or(~l_le_0,  le_is_0), m);
+            assert_axiom_rw(clause);
+        }
+        // |e| = 0 & i >= 0 & |s| > i & |s| > 0 => l <= 0
+        {
+            expr_ref_vector terms(m);
+            terms.push_back(~le_is_0);
+            terms.push_back(~i_ge_0);
+            terms.push_back(ls_le_i);
+            terms.push_back(ls_le_0);
+            terms.push_back(l_le_0);
+            expr_ref clause(mk_or(terms), m);
+            assert_axiom_rw(clause);
         }
 
         // Auxiliary axioms
+
+        // |e| <= |s|
         {
-            // base = "" --> (str.substr base pos len) = ""
-            {
-                expr_ref premise(ctx.mk_eq_atom(substrBase, mk_string("")), m);
-                expr_ref conclusion(ctx.mk_eq_atom(expr, mk_string("")), m);
-                expr_ref axiom(m.mk_implies(premise, conclusion), m);
-                assert_axiom_rw(axiom);
-            }
+            expr_ref axiom(m_autil.mk_le(le, ls), m);
+            assert_axiom_rw(axiom);
+        }
 
-            // len( (str.substr base pos len) ) <= len(base)
-            {
-                expr_ref axiom(m_autil.mk_le(mk_strlen(expr), mk_strlen(substrBase)), m);
-                assert_axiom_rw(axiom);
-            }
-
-            // len >= 0 --> len( (str.substr base pos len) ) <= len
-            {
-                expr_ref premise(m_autil.mk_ge(substrLen, mk_int(0)), m);
-                expr_ref conclusion(m_autil.mk_le(mk_strlen(expr), substrLen), m);
-                expr_ref axiom(m.mk_implies(premise, conclusion), m);
-                assert_axiom_rw(axiom);
-            }
+        // l >= 0 => |e| <= len
+        {
+            expr_ref premise(m_autil.mk_ge(l, zero), m);
+            expr_ref conclusion(m_autil.mk_le(le, l), m);
+            expr_ref axiom(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(axiom);
         }
     }
 
@@ -1754,7 +1681,7 @@ namespace smt {
     void theory_str::instantiate_axiom_Replace(enode * e) {
         ast_manager & m = get_manager();
 
-        app * ex = e->get_owner();
+        app * ex = e->get_expr();
         if (axiomatized_terms.contains(ex)) {
             TRACE("str", tout << "already set up Replace axiom for " << mk_pp(ex, m) << std::endl;);
             return;
@@ -1798,24 +1725,20 @@ namespace smt {
         // false branch
         expr_ref elseBranch(ctx.mk_eq_atom(result, ex->get_arg(0)), m);
 
-        th_rewriter rw(m);
-
         expr_ref breakdownAssert(m.mk_ite(emptySrcAst, prependTPrimeToS,
                 m.mk_ite(condAst, mk_and(thenItems), elseBranch)), m);
         expr_ref breakdownAssert_rw(breakdownAssert, m);
-        rw(breakdownAssert_rw);
-        assert_axiom(breakdownAssert_rw);
+        assert_axiom_rw(breakdownAssert_rw);
 
         expr_ref reduceToResult(ctx.mk_eq_atom(ex, result), m);
         expr_ref reduceToResult_rw(reduceToResult, m);
-        rw(reduceToResult_rw);
-        assert_axiom(reduceToResult_rw);
+        assert_axiom_rw(reduceToResult_rw);
     }
 
     void theory_str::instantiate_axiom_str_to_int(enode * e) {
         ast_manager & m = get_manager();
 
-        app * ex = e->get_owner();
+        app * ex = e->get_expr();
         if (axiomatized_terms.contains(ex)) {
             TRACE("str", tout << "already set up str.to-int axiom for " << mk_pp(ex, m) << std::endl;);
             return;
@@ -1865,7 +1788,7 @@ namespace smt {
     void theory_str::instantiate_axiom_int_to_str(enode * e) {
         ast_manager & m = get_manager();
 
-        app * ex = e->get_owner();
+        app * ex = e->get_expr();
         if (axiomatized_terms.contains(ex)) {
             TRACE("str", tout << "already set up str.from-int axiom for " << mk_pp(ex, m) << std::endl;);
             return;
@@ -1897,6 +1820,99 @@ namespace smt {
         }
     }
 
+    void theory_str::instantiate_axiom_is_digit(enode * e) {
+        ast_manager & m = get_manager();
+
+        app * ex = e->get_expr();
+        if (axiomatized_terms.contains(ex)) {
+            TRACE("str", tout << "already set up str.is_digit axiom for " << mk_pp(ex, m) << std::endl;);
+            return;
+        }
+        axiomatized_terms.insert(ex);
+
+        TRACE("str", tout << "instantiate str.is_digit axiom for " << mk_pp(ex, m) << std::endl;);
+        expr * string_term = nullptr;
+        u.str.is_is_digit(ex, string_term);
+        SASSERT(string_term);
+
+        expr_ref_vector rhs_terms(m);
+
+        for (unsigned c = 0x30; c <= 0x39; ++c) {
+            zstring ch(c);
+            expr_ref rhs_term(ctx.mk_eq_atom(string_term, mk_string(ch)), m);
+            rhs_terms.push_back(rhs_term);
+        }
+
+        expr_ref rhs(mk_or(rhs_terms), m);
+        expr_ref axiom(ctx.mk_eq_atom(ex, rhs), m);
+        assert_axiom_rw(axiom);
+    }
+    
+    void theory_str::instantiate_axiom_str_from_code(enode * e) {
+        ast_manager & m = get_manager();
+
+        app * ex = e->get_expr();
+        if (axiomatized_terms.contains(ex)) {
+            TRACE("str", tout << "already set up str.from_code axiom for " << mk_pp(ex, m) << std::endl;);
+            return;
+        }
+        axiomatized_terms.insert(ex);
+        TRACE("str", tout << "instantiate str.from_code axiom for " << mk_pp(ex, m) << std::endl;);
+
+        expr * arg = nullptr;
+        VERIFY(u.str.is_from_code(ex, arg));
+        // (str.from_code N) == "" if N is not in the range [0, max_char].
+        {
+            expr_ref premise(m.mk_or(m_autil.mk_le(arg, mk_int(-1)), m_autil.mk_ge(arg, mk_int(u.max_char() + 1))), m);
+            expr_ref conclusion(ctx.mk_eq_atom(ex, mk_string("")), m);
+            expr_ref axiom(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(axiom);
+        }
+        // len (str.from_code N) == 1 if N is in the range [0, max_char].
+        {
+            expr_ref premise(m.mk_and(m_autil.mk_ge(arg, mk_int(0)), m_autil.mk_le(arg, mk_int(u.max_char() + 1))), m);
+            expr_ref conclusion(ctx.mk_eq_atom(mk_strlen(ex), mk_int(1)), m);
+            expr_ref axiom(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(axiom);
+        }
+        // If N is in the range [0, max_char], then to_code(from_code(e)) == e.
+        {
+            expr_ref premise(m.mk_and(m_autil.mk_ge(arg, mk_int(0)), m_autil.mk_le(arg, mk_int(u.max_char() + 1))), m);
+            expr_ref conclusion(ctx.mk_eq_atom(u.str.mk_to_code(ex), arg), m);
+            expr_ref axiom(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(axiom);
+        }
+    }
+
+    void theory_str::instantiate_axiom_str_to_code(enode * e) {
+        ast_manager & m = get_manager();
+
+        app * ex = e->get_expr();
+        if (axiomatized_terms.contains(ex)) {
+            TRACE("str", tout << "already set up str.to_code axiom for " << mk_pp(ex, m) << std::endl;);
+            return;
+        }
+        axiomatized_terms.insert(ex);
+        TRACE("str", tout << "instantiate str.to_code axiom for " << mk_pp(ex, m) << std::endl;);
+
+        expr * arg = nullptr;
+        VERIFY(u.str.is_to_code(ex, arg));
+        // (str.to_code S) == -1 if len(S) != 1.
+        {
+            expr_ref premise(m.mk_not(ctx.mk_eq_atom(mk_strlen(arg), mk_int(1))), m);
+            expr_ref conclusion(ctx.mk_eq_atom(ex, mk_int(-1)), m);
+            expr_ref axiom(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(axiom);
+        }
+        // (str.to_code S) is in [0, max_char] if len(S) == 1.
+        {
+            expr_ref premise(ctx.mk_eq_atom(mk_strlen(arg), mk_int(1)), m);
+            expr_ref conclusion(m.mk_and(m_autil.mk_ge(ex, mk_int(0)), m_autil.mk_le(ex, mk_int(u.max_char()))), m);
+            expr_ref axiom(rewrite_implication(premise, conclusion), m);
+            assert_axiom_rw(axiom);
+        }
+    }
+
     expr * theory_str::mk_RegexIn(expr * str, expr * regexp) {
         app * regexIn = u.re.mk_in_re(str, regexp);
         // immediately force internalization so that axiom setup does not fail
@@ -1908,7 +1924,7 @@ namespace smt {
     void theory_str::instantiate_axiom_RegexIn(enode * e) {
         ast_manager & m = get_manager();
 
-        app * ex = e->get_owner();
+        app * ex = e->get_expr();
         if (axiomatized_terms.contains(ex)) {
             TRACE("str", tout << "already set up RegexIn axiom for " << mk_pp(ex, m) << std::endl;);
             return;
@@ -1929,7 +1945,7 @@ namespace smt {
     void theory_str::attach_new_th_var(enode * n) {
         theory_var v = mk_var(n);
         ctx.attach_th_var(n, this, v);
-        TRACE("str", tout << "new theory var: " << mk_ismt2_pp(n->get_owner(), get_manager()) << " := v#" << v << std::endl;);
+        TRACE("str", tout << "new theory var: " << mk_ismt2_pp(n->get_expr(), get_manager()) << " := v#" << v << std::endl;);
     }
 
     void theory_str::reset_eh() {
@@ -2004,7 +2020,7 @@ namespace smt {
     // support for user_smt_theory-style EQC handling
 
     app * theory_str::get_ast(theory_var v) {
-        return get_enode(v)->get_owner();
+        return get_enode(v)->get_expr();
     }
 
     theory_var theory_str::get_var(expr * n) const {
@@ -2148,7 +2164,7 @@ namespace smt {
             for (auto &e_parent : current_parents) {
                 SASSERT(e_parent != nullptr);
 
-                app * a_parent = e_parent->get_owner();
+                app * a_parent = e_parent->get_expr();
                 TRACE("str", tout << "considering parent " << mk_ismt2_pp(a_parent, m) << std::endl;);
 
                 if (u.str.is_concat(a_parent)) {
@@ -2158,7 +2174,7 @@ namespace smt {
                     rational parentLen;
                     bool parentLen_exists = get_len_value(a_parent, parentLen);
 
-                    if (arg0 == n_eq_enode->get_owner()) {
+                    if (arg0 == n_eq_enode->get_expr()) {
                         rational arg0Len, arg1Len;
                         bool arg0Len_exists = get_len_value(eq_str, arg0Len);
                         bool arg1Len_exists = get_len_value(arg1, arg1Len);
@@ -2227,9 +2243,9 @@ namespace smt {
                                 assert_implication(implyL, implyR);
                             }
                         }
-                    } // if (arg0 == n_eq_enode->get_owner())
+                    } // if (arg0 == n_eq_enode->get_expr())
 
-                    if (arg1 == n_eq_enode->get_owner()) {
+                    if (arg1 == n_eq_enode->get_expr()) {
                         rational arg0Len, arg1Len;
                         bool arg0Len_exists = get_len_value(arg0, arg0Len);
                         bool arg1Len_exists = get_len_value(eq_str, arg1Len);
@@ -2353,7 +2369,7 @@ namespace smt {
                     if (arg1 == n_eqNode) {
                         expr_ref_vector concat_parents(m);
                         for (auto& e_concat_parent : e_parent->get_parents()) {
-                            concat_parents.push_back(e_concat_parent->get_owner());
+                            concat_parents.push_back(e_concat_parent->get_expr());
                         }
                         for (auto& _concat_parent : concat_parents) {
                             app* concat_parent = to_app(_concat_parent);
@@ -2381,7 +2397,7 @@ namespace smt {
                     if (arg0 == n_eqNode) {
                         expr_ref_vector concat_parents(m);
                         for (auto& e_concat_parent : e_parent->get_parents()) {
-                            concat_parents.push_back(e_concat_parent->get_owner());
+                            concat_parents.push_back(e_concat_parent->get_expr());
                         }
                         for (auto& _concat_parent : concat_parents) {
                             app* concat_parent = to_app(_concat_parent);
@@ -2485,7 +2501,7 @@ namespace smt {
                 l_items.push_back(ctx.mk_eq_atom(mk_strlen(arg1), mk_int(arg1_len)));
             }
 
-            expr_ref axl(m.mk_and(l_items.size(), l_items.c_ptr()), m);
+            expr_ref axl(m.mk_and(l_items.size(), l_items.data()), m);
             rational nnLen = arg0_len + arg1_len;
             expr_ref axr(ctx.mk_eq_atom(mk_strlen(n), mk_int(nnLen)), m);
             TRACE("str", tout << "inferred (Length " << mk_pp(n, m) << ") = " << nnLen << std::endl;);
@@ -2546,7 +2562,7 @@ namespace smt {
         }
 
         if (axr) {
-            expr_ref axl(m.mk_and(l_items.size(), l_items.c_ptr()), m);
+            expr_ref axl(m.mk_and(l_items.size(), l_items.data()), m);
             assert_implication(axl, axr);
         }
     }
@@ -2622,7 +2638,7 @@ namespace smt {
             literal l = ctx.get_literal(e);
             ls.push_back(l);
         }
-        ctx.mk_th_case_split(ls.size(), ls.c_ptr());
+        ctx.mk_th_case_split(ls.size(), ls.data());
     }
 
     void theory_str::print_cut_var(expr * node, std::ofstream & xout) {
@@ -3942,7 +3958,7 @@ namespace smt {
             zstring suffixStr = strValue.extract(prefixLen.get_unsigned(), str_sub_prefix.get_unsigned());
             expr_ref prefixAst(mk_string(prefixStr), mgr);
             expr_ref suffixAst(mk_string(suffixStr), mgr);
-            expr_ref ax_l(mgr.mk_and(litems.size(), litems.c_ptr()), mgr);
+            expr_ref ax_l(mgr.mk_and(litems.size(), litems.data()), mgr);
 
             expr_ref suf_n_concat(mk_concat(suffixAst, n), mgr);
             if (can_two_nodes_eq(x, prefixAst) && can_two_nodes_eq(y, suf_n_concat)) {
@@ -3991,7 +4007,7 @@ namespace smt {
                 tmpLen = x_len - str_len;
                 litems.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len)));
             }
-            expr_ref ax_l(mgr.mk_and(litems.size(), litems.c_ptr()), mgr);
+            expr_ref ax_l(mgr.mk_and(litems.size(), litems.data()), mgr);
 
             expr_ref str_temp1(mk_concat(strAst, temp1), mgr);
             expr_ref temp1_y(mk_concat(temp1, y), mgr);
@@ -4605,8 +4621,8 @@ namespace smt {
          // if an integer constant exists in the eqc, it should be the root
          enode * en_e = ctx.get_enode(e);
          enode * root_e = en_e->get_root();
-         if (m_autil.is_numeral(root_e->get_owner(), val) && val.is_int()) {
-             TRACE("str", tout << mk_pp(e, get_manager()) << " ~= " << mk_pp(root_e->get_owner(), get_manager()) << std::endl;);
+         if (m_autil.is_numeral(root_e->get_expr(), val) && val.is_int()) {
+             TRACE("str", tout << mk_pp(e, get_manager()) << " ~= " << mk_pp(root_e->get_expr(), get_manager()) << std::endl;);
              return true;
          } else {
              TRACE("str", tout << "root of eqc of " << mk_pp(e, get_manager()) << " is not a numeral" << std::endl;);
@@ -4689,7 +4705,7 @@ namespace smt {
                                 enode * nNode = ctx.get_enode(len);
                                 enode * eqcNode = nNode;
                                 do {
-                                    app * ast = eqcNode->get_owner();
+                                    app * ast = eqcNode->get_expr();
                                     tout << mk_pp(ast, get_manager()) << std::endl;
                                     eqcNode = eqcNode->get_next();
                                 } while (eqcNode != nNode);
@@ -4997,7 +5013,6 @@ namespace smt {
                     }
                 }
 
-                //for (keysItor2 = contain_pair_idx_map[n2].begin(); keysItor2 != contain_pair_idx_map[n2].end(); keysItor2++) {
                 for (auto const& key2 : contain_pair_idx_map[n2]) {
                     // keysItor2 is on set {<.., n2>, ..., <n2, ...>, ...}
                     //std::pair<expr*, expr*> key2 = *keysItor2;
@@ -5094,11 +5109,7 @@ namespace smt {
                                 // * key1.first = key2.first
                                 //   check eqc(key1.second) and eqc(key2.second)
                                 // -----------------------------------------------------------
-                                //expr_ref_vector::iterator eqItorSub1 = subAst1Eqc.begin();
-                                //for (; eqItorSub1 != subAst1Eqc.end(); eqItorSub1++) {
                                 for (auto eqSubVar1 : subAst1Eqc) {
-                                    //expr_ref_vector::iterator eqItorSub2 = subAst2Eqc.begin();
-                                    //for (; eqItorSub2 != subAst2Eqc.end(); eqItorSub2++) {
                                     for (auto eqSubVar2 : subAst2Eqc) {
                                         // ------------
                                         // key1.first = key2.first /\ containPairBoolMap[<eqc(key1.second), eqc(key2.second)>]
@@ -5438,23 +5449,21 @@ namespace smt {
                 get_grounded_concats(depth + 1, arg0DeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
                 get_grounded_concats(depth + 1, arg1DeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
 
-                std::map<std::vector<expr*>, std::set<expr*> >::iterator arg0_grdItor = groundedMap[arg0DeAlias].begin();
                 std::map<std::vector<expr*>, std::set<expr*> >::iterator arg1_grdItor;
-                for (; arg0_grdItor != groundedMap[arg0DeAlias].end(); arg0_grdItor++) {
-                    arg1_grdItor = groundedMap[arg1DeAlias].begin();
-                    for (; arg1_grdItor != groundedMap[arg1DeAlias].end(); arg1_grdItor++) {
+                for (auto const &arg0_grdItor : groundedMap[arg0DeAlias]) {
+                    for (auto const &arg1_grdItor : groundedMap[arg1DeAlias]) {
                         std::vector<expr*> ndVec;
-                        ndVec.insert(ndVec.end(), arg0_grdItor->first.begin(), arg0_grdItor->first.end());
-                        size_t arg0VecSize = arg0_grdItor->first.size();
-                        size_t arg1VecSize = arg1_grdItor->first.size();
-                        if (arg0VecSize > 0 && arg1VecSize > 0 && u.str.is_string(arg0_grdItor->first[arg0VecSize - 1]) && u.str.is_string(arg1_grdItor->first[0])) {
+                        ndVec.insert(ndVec.end(), arg0_grdItor.first.begin(), arg0_grdItor.first.end());
+                        size_t arg0VecSize = arg0_grdItor.first.size();
+                        size_t arg1VecSize = arg1_grdItor.first.size();
+                        if (arg0VecSize > 0 && arg1VecSize > 0 && u.str.is_string(arg0_grdItor.first[arg0VecSize - 1]) && u.str.is_string(arg1_grdItor.first[0])) {
                             ndVec.pop_back();
-                            ndVec.push_back(mk_concat(arg0_grdItor->first[arg0VecSize - 1], arg1_grdItor->first[0]));
+                            ndVec.push_back(mk_concat(arg0_grdItor.first[arg0VecSize - 1], arg1_grdItor.first[0]));
                             for (size_t i = 1; i < arg1VecSize; i++) {
-                                ndVec.push_back(arg1_grdItor->first[i]);
+                                ndVec.push_back(arg1_grdItor.first[i]);
                             }
                         } else {
-                            ndVec.insert(ndVec.end(), arg1_grdItor->first.begin(), arg1_grdItor->first.end());
+                            ndVec.insert(ndVec.end(), arg1_grdItor.first.begin(), arg1_grdItor.first.end());
                         }
                         // only insert if we don't know "node = concat(ndVec)" since one set of condition leads to this is enough
                         if (groundedMap[node].find(ndVec) == groundedMap[node].end()) {
@@ -5462,12 +5471,12 @@ namespace smt {
                             if (arg0 != arg0DeAlias) {
                                 groundedMap[node][ndVec].insert(ctx.mk_eq_atom(arg0, arg0DeAlias));
                             }
-                            groundedMap[node][ndVec].insert(arg0_grdItor->second.begin(), arg0_grdItor->second.end());
+                            groundedMap[node][ndVec].insert(arg0_grdItor.second.begin(), arg0_grdItor.second.end());
 
                             if (arg1 != arg1DeAlias) {
                                 groundedMap[node][ndVec].insert(ctx.mk_eq_atom(arg1, arg1DeAlias));
                             }
-                            groundedMap[node][ndVec].insert(arg1_grdItor->second.begin(), arg1_grdItor->second.end());
+                            groundedMap[node][ndVec].insert(arg1_grdItor.second.begin(), arg1_grdItor.second.end());
                         }
                     }
                 }
@@ -5488,16 +5497,15 @@ namespace smt {
                 expr * deAliasedEqConcat = dealias_node(eqConcat, varAliasMap, concatAliasMap);
                 get_grounded_concats(depth + 1, deAliasedEqConcat, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
 
-                std::map<std::vector<expr*>, std::set<expr*> >::iterator grdItor = groundedMap[deAliasedEqConcat].begin();
-                for (; grdItor != groundedMap[deAliasedEqConcat].end(); grdItor++) {
+                for (auto const &grdItor : groundedMap[deAliasedEqConcat]) {
                     std::vector<expr*> ndVec;
-                    ndVec.insert(ndVec.end(), grdItor->first.begin(), grdItor->first.end());
+                    ndVec.insert(ndVec.end(), grdItor.first.begin(), grdItor.first.end());
                     // only insert if we don't know "node = concat(ndVec)" since one set of condition leads to this is enough
                     if (groundedMap[node].find(ndVec) == groundedMap[node].end()) {
                         // condition: node = deAliasedEqConcat
                         groundedMap[node][ndVec].insert(ctx.mk_eq_atom(node, deAliasedEqConcat));
                         // appending conditions for "deAliasedEqConcat = CONCAT(ndVec)"
-                        groundedMap[node][ndVec].insert(grdItor->second.begin(), grdItor->second.end());
+                        groundedMap[node][ndVec].insert(grdItor.second.begin(), grdItor.second.end());
                     }
                 }
             }
@@ -5514,19 +5522,17 @@ namespace smt {
     void theory_str::print_grounded_concat(expr * node, std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap) {
         TRACE("str", tout << mk_pp(node, get_manager()) << std::endl;);
         if (groundedMap.find(node) != groundedMap.end()) {
-            std::map<std::vector<expr*>, std::set<expr*> >::iterator itor = groundedMap[node].begin();
-            for (; itor != groundedMap[node].end(); ++itor) {
+            for (auto const &itor : groundedMap[node]) {
+                (void) itor;
                 TRACE("str",
                       tout << "\t[grounded] ";
-                      std::vector<expr*>::const_iterator vIt = itor->first.begin();
-                      for (; vIt != itor->first.end(); ++vIt) {
-                          tout << mk_pp(*vIt, get_manager()) << ", ";
+                      for (auto const &vIt : itor.first) {
+                          tout << mk_pp(vIt, get_manager()) << ", ";
                       }
                       tout << std::endl;
                       tout << "\t[condition] ";
-                      std::set<expr*>::iterator sIt = itor->second.begin();
-                      for (; sIt != itor->second.end(); sIt++) {
-                          tout << mk_pp(*sIt, get_manager()) << ", ";
+                      for (auto const &sIt : itor.second) {
+                          tout << mk_pp(sIt, get_manager()) << ", ";
                       }
                       tout << std::endl;
                       );
@@ -5641,12 +5647,9 @@ namespace smt {
                                        std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap) {
 
         ast_manager & m = get_manager();
-        std::map<std::vector<expr*>, std::set<expr*> >::iterator itorStr = groundedMap[strDeAlias].begin();
-        std::map<std::vector<expr*>, std::set<expr*> >::iterator itorSubStr;
-        for (; itorStr != groundedMap[strDeAlias].end(); itorStr++) {
-            itorSubStr = groundedMap[subStrDeAlias].begin();
-            for (; itorSubStr != groundedMap[subStrDeAlias].end(); itorSubStr++) {
-                bool contain = is_partial_in_grounded_concat(itorStr->first, itorSubStr->first);
+        for (auto const &itorStr : groundedMap[strDeAlias]) {
+            for (auto const &itorSubStr : groundedMap[subStrDeAlias]) {
+                bool contain = is_partial_in_grounded_concat(itorStr.first, itorSubStr.first);
                 if (contain) {
                     expr_ref_vector litems(m);
                     if (str != strDeAlias) {
@@ -5656,15 +5659,11 @@ namespace smt {
                         litems.push_back(ctx.mk_eq_atom(subStr, subStrDeAlias));
                     }
 
-                    //litems.insert(itorStr->second.begin(), itorStr->second.end());
-                    //litems.insert(itorSubStr->second.begin(), itorSubStr->second.end());
-                    for (std::set<expr*>::const_iterator i1 = itorStr->second.begin();
-                         i1 != itorStr->second.end(); ++i1) {
-                        litems.push_back(*i1);
+                    for (auto const &i1: itorStr.second) {
+                        litems.push_back(i1);
                     }
-                    for (std::set<expr*>::const_iterator i1 = itorSubStr->second.begin();
-                         i1 != itorSubStr->second.end(); ++i1) {
-                        litems.push_back(*i1);
+                    for (auto const &i1 : itorSubStr.second) {
+                        litems.push_back(i1);
                     }
 
                     expr_ref implyR(boolVar, m);
@@ -6076,201 +6075,6 @@ namespace smt {
         return no_assertions;
     }
 
-    // Convert a regular expression to an e-NFA using Thompson's construction
-    void nfa::convert_re(expr * e, unsigned & start, unsigned & end, seq_util & u) {
-        start = next_id();
-        end = next_id();
-        if (u.re.is_to_re(e)) {
-            app * a = to_app(e);
-            expr * arg_str = a->get_arg(0);
-            zstring str;
-            if (u.str.is_string(arg_str, str)) {
-                if (str.length() == 0) {
-                    // transitioning on the empty string is handled specially
-                    TRACE("str", tout << "empty string epsilon-move " << start << " --> " << end << std::endl;);
-                    make_epsilon_move(start, end);
-                } else {
-                    TRACE("str", tout << "build NFA for '" << str << "'" << "\n";);
-                    /*
-                     * For an n-character string, we make (n-1) intermediate states,
-                     * labelled i_(0) through i_(n-2).
-                     * Then we construct the following transitions:
-                     * start --str[0]--> i_(0) --str[1]--> i_(1) --...--> i_(n-2) --str[n-1]--> final
-                     */
-                    unsigned last = start;
-                    for (int i = 0; i <= ((int)str.length()) - 2; ++i) {
-                        unsigned i_state = next_id();
-                        make_transition(last, str[i], i_state);
-                        TRACE("str", tout << "string transition " << last << "--" << str[i] << "--> " << i_state << "\n";);
-                        last = i_state;
-                    }
-                    make_transition(last, str[(str.length() - 1)], end);
-                    TRACE("str", tout << "string transition " << last << "--" << str[(str.length() - 1)] << "--> " << end << "\n";);
-                }
-            } else { // ! u.str.is_string(arg_str, str)
-                TRACE("str", tout << "WARNING: invalid string constant in str.to.re! Cancelling." << std::endl;);
-                u.get_manager().raise_exception("invalid term in str.to.re, argument must be a string constant");
-                m_valid = false;
-                return;
-            }
-        } else if (u.re.is_concat(e)){
-            app * a = to_app(e);
-            expr * re1 = a->get_arg(0);
-            expr * re2 = a->get_arg(1);
-            unsigned start1, end1;
-            convert_re(re1, start1, end1, u);
-            unsigned start2, end2;
-            convert_re(re2, start2, end2, u);
-            // start --e--> start1 --...--> end1 --e--> start2 --...--> end2 --e--> end
-            make_epsilon_move(start, start1);
-            make_epsilon_move(end1, start2);
-            make_epsilon_move(end2, end);
-            TRACE("str", tout << "concat NFA: start = " << start << ", end = " << end << std::endl;);
-        } else if (u.re.is_union(e)) {
-            app * a = to_app(e);
-            expr * re1 = a->get_arg(0);
-            expr * re2 = a->get_arg(1);
-            unsigned start1, end1;
-            convert_re(re1, start1, end1, u);
-            unsigned start2, end2;
-            convert_re(re2, start2, end2, u);
-
-            // start --e--> start1 ; start --e--> start2
-            // end1 --e--> end ; end2 --e--> end
-            make_epsilon_move(start, start1);
-            make_epsilon_move(start, start2);
-            make_epsilon_move(end1, end);
-            make_epsilon_move(end2, end);
-            TRACE("str", tout << "union NFA: start = " << start << ", end = " << end << std::endl;);
-        } else if (u.re.is_star(e)) {
-            app * a = to_app(e);
-            expr * subex = a->get_arg(0);
-            unsigned start_subex, end_subex;
-            convert_re(subex, start_subex, end_subex, u);
-            // start --e--> start_subex, start --e--> end
-            // end_subex --e--> start_subex, end_subex --e--> end
-            make_epsilon_move(start, start_subex);
-            make_epsilon_move(start, end);
-            make_epsilon_move(end_subex, start_subex);
-            make_epsilon_move(end_subex, end);
-            TRACE("str", tout << "star NFA: start = " << start << ", end = " << end << std::endl;);
-        } else if (u.re.is_range(e)) {
-            // range('a', 'z')
-            // start --'a'--> end
-            // start --'b'--> end
-            // ...
-            // start --'z'--> end
-            app * a = to_app(e);
-            expr * c1 = a->get_arg(0);
-            expr * c2 = a->get_arg(1);
-            zstring s_c1, s_c2;
-            u.str.is_string(c1, s_c1);
-            u.str.is_string(c2, s_c2);
-
-            unsigned int id1 = s_c1[0];
-            unsigned int id2 = s_c2[0];
-            if (id1 > id2) {
-                unsigned int tmp = id1;
-                id1 = id2;
-                id2 = tmp;
-            }
-
-            for (unsigned int i = id1; i <= id2; ++i) {
-                char ch = (char)i;
-                make_transition(start, ch, end);
-            }
-
-            TRACE("str", tout << "range NFA: start = " << start << ", end = " << end << std::endl;);
-        } else if (u.re.is_full_seq(e)) {
-            // effectively the same as .* where . can be any single character
-            // start --e--> tmp
-            // tmp --e--> end
-            // tmp --C--> tmp for every character C
-            unsigned tmp = next_id();
-            make_epsilon_move(start, tmp);
-            make_epsilon_move(tmp, end);
-            for (unsigned int i = 0; i < 256; ++i) {
-                char ch = (char)i;
-                make_transition(tmp, ch, tmp);
-            }
-            TRACE("str", tout << "re.all NFA: start = " << start << ", end = " << end << std::endl;);
-        } else if (u.re.is_full_char(e)) {
-            // effectively . (match any one character)
-            for (unsigned int i = 0; i < 256; ++i) {
-                char ch = (char)i;
-                make_transition(start, ch, end);
-            }
-            TRACE("str", tout << "re.allchar NFA: start = " << start << ", end = " << end << std::endl;);
-        } else {
-            TRACE("str", tout << "invalid regular expression" << std::endl;);
-            m_valid = false;
-            return;
-        }
-    }
-
-    void nfa::epsilon_closure(unsigned start, std::set<unsigned> & closure) {
-        std::deque<unsigned> worklist;
-        closure.insert(start);
-        worklist.push_back(start);
-
-        while(!worklist.empty()) {
-            unsigned state = worklist.front();
-            worklist.pop_front();
-            if (epsilon_map.find(state) != epsilon_map.end()) {
-                for (std::set<unsigned>::iterator it = epsilon_map[state].begin();
-                     it != epsilon_map[state].end(); ++it) {
-                    unsigned new_state = *it;
-                    if (closure.find(new_state) == closure.end()) {
-                        closure.insert(new_state);
-                        worklist.push_back(new_state);
-                    }
-                }
-            }
-        }
-    }
-
-    bool nfa::matches(zstring input) {
-        /*
-         * Keep a set of all states the NFA can currently be in.
-         * Initially this is the e-closure of m_start_state
-         * For each character A in the input string,
-         * the set of next states contains
-         * all states in transition_map[S][A] for each S in current_states,
-         * and all states in epsilon_map[S] for each S in current_states.
-         * After consuming the entire input string,
-         * the match is successful iff current_states contains m_end_state.
-         */
-        std::set<unsigned> current_states;
-        epsilon_closure(m_start_state, current_states);
-        for (unsigned i = 0; i < input.length(); ++i) {
-            char A = (char)input[i];
-            std::set<unsigned> next_states;
-            for (std::set<unsigned>::iterator it = current_states.begin();
-                 it != current_states.end(); ++it) {
-                unsigned S = *it;
-                // check transition_map
-                if (transition_map[S].find(A) != transition_map[S].end()) {
-                    next_states.insert(transition_map[S][A]);
-                }
-            }
-
-            // take e-closure over next_states to compute the actual next_states
-            std::set<unsigned> epsilon_next_states;
-            for (std::set<unsigned>::iterator it = next_states.begin(); it != next_states.end(); ++it) {
-                unsigned S = *it;
-                std::set<unsigned> closure;
-                epsilon_closure(S, closure);
-                epsilon_next_states.insert(closure.begin(), closure.end());
-            }
-            current_states = epsilon_next_states;
-        }
-        if (current_states.find(m_end_state) != current_states.end()) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
     /*
      * strArgmt::solve_concat_eq_str()
      * Solve concatenations of the form:
@@ -6614,10 +6418,9 @@ namespace smt {
     }
 
     void theory_str::handle_equality(expr * lhs, expr * rhs) {
-        ast_manager & m = get_manager();
         // both terms must be of sort String
-        sort * lhs_sort = m.get_sort(lhs);
-        sort * rhs_sort = m.get_sort(rhs);
+        sort * lhs_sort = lhs->get_sort();
+        sort * rhs_sort = rhs->get_sort();
         sort * str_sort = u.str.mk_string_sort();
 
         // Pick up new terms added during the search (e.g. recursive function expansion).
@@ -6693,35 +6496,29 @@ namespace smt {
         TRACE("str",
               tout << "lhs eqc:" << std::endl;
               tout << "Concats:" << std::endl;
-              for (std::set<expr*>::iterator it = eqc_concat_lhs.begin(); it != eqc_concat_lhs.end(); ++it) {
-                  expr * ex = *it;
+              for (auto const &ex : eqc_concat_lhs) {
                   tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
               }
               tout << "Variables:" << std::endl;
-              for (std::set<expr*>::iterator it = eqc_var_lhs.begin(); it != eqc_var_lhs.end(); ++it) {
-                  expr * ex = *it;
+              for (auto const &ex : eqc_var_lhs) {
                   tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
               }
               tout << "Constants:" << std::endl;
-              for (std::set<expr*>::iterator it = eqc_const_lhs.begin(); it != eqc_const_lhs.end(); ++it) {
-                  expr * ex = *it;
+              for (auto const &ex : eqc_const_lhs) {
                   tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
               }
 
               tout << "rhs eqc:" << std::endl;
               tout << "Concats:" << std::endl;
-              for (std::set<expr*>::iterator it = eqc_concat_rhs.begin(); it != eqc_concat_rhs.end(); ++it) {
-                  expr * ex = *it;
+              for (auto const &ex : eqc_concat_rhs) {
                   tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
               }
               tout << "Variables:" << std::endl;
-              for (std::set<expr*>::iterator it = eqc_var_rhs.begin(); it != eqc_var_rhs.end(); ++it) {
-                  expr * ex = *it;
+              for (auto const &ex : eqc_var_rhs) {
                   tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
               }
               tout << "Constants:" << std::endl;
-              for (std::set<expr*>::iterator it = eqc_const_rhs.begin(); it != eqc_const_rhs.end(); ++it) {
-                  expr * ex = *it;
+              for (auto const &ex : eqc_const_rhs) {
                   tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
               }
               );
@@ -6733,15 +6530,13 @@ namespace smt {
 
         if (!eqc_const_lhs.empty()) {
             expr * conStr = *(eqc_const_lhs.begin());
-            std::set<expr*>::iterator itor2 = eqc_concat_rhs.begin();
-            for (; itor2 != eqc_concat_rhs.end(); itor2++) {
-                solve_concat_eq_str(*itor2, conStr);
+            for (auto const &itor2 : eqc_concat_rhs) {
+                solve_concat_eq_str(itor2, conStr);
             }
         } else if (!eqc_const_rhs.empty()) {
             expr* conStr = *(eqc_const_rhs.begin());
-            std::set<expr*>::iterator itor1 = eqc_concat_lhs.begin();
-            for (; itor1 != eqc_concat_lhs.end(); itor1++) {
-                solve_concat_eq_str(*itor1, conStr);
+            for (auto const &itor1 : eqc_concat_lhs) {
+                solve_concat_eq_str(itor1, conStr);
             }
         }
 
@@ -6794,16 +6589,14 @@ namespace smt {
 
         int hasCommon = 0;
         if (!eqc_concat_lhs.empty() && !eqc_concat_rhs.empty()) {
-            std::set<expr*>::iterator itor1 = eqc_concat_lhs.begin();
-            std::set<expr*>::iterator itor2 = eqc_concat_rhs.begin();
-            for (; itor1 != eqc_concat_lhs.end(); itor1++) {
-                if (eqc_concat_rhs.find(*itor1) != eqc_concat_rhs.end()) {
+            for (auto const &itor1 : eqc_concat_lhs) {
+                if (eqc_concat_rhs.find(itor1) != eqc_concat_rhs.end()) {
                     hasCommon = 1;
                     break;
                 }
             }
-            for (; itor2 != eqc_concat_rhs.end(); itor2++) {
-                if (eqc_concat_lhs.find(*itor2) != eqc_concat_lhs.end()) {
+            for (auto const &itor2 : eqc_concat_rhs) {
+                if (eqc_concat_lhs.find(itor2) != eqc_concat_lhs.end()) {
                     hasCommon = 1;
                     break;
                 }
@@ -6812,10 +6605,11 @@ namespace smt {
                 if (opt_ConcatOverlapAvoid) {
                     bool found = false;
                     // check each pair and take the first ones that won't immediately overlap
-                    for (itor1 = eqc_concat_lhs.begin(); itor1 != eqc_concat_lhs.end() && !found; ++itor1) {
-                        expr * concat_lhs = *itor1;
-                        for (itor2 = eqc_concat_rhs.begin(); itor2 != eqc_concat_rhs.end() && !found; ++itor2) {
-                            expr * concat_rhs = *itor2;
+                    for (auto const &concat_lhs : eqc_concat_lhs) {
+                        if (found) {
+                            break;
+                        }
+                        for (auto const &concat_rhs : eqc_concat_rhs) {
                             if (will_result_in_overlap(concat_lhs, concat_rhs)) {
                                 TRACE("str", tout << "Concats " << mk_pp(concat_lhs, m) << " and "
                                         << mk_pp(concat_rhs, m) << " will result in overlap; skipping." << std::endl;);
@@ -6842,13 +6636,13 @@ namespace smt {
 
     bool theory_str::is_var(expr * e) const {
         ast_manager & m = get_manager();
-        sort * ex_sort = m.get_sort(e);
+        sort * ex_sort = e->get_sort();
         sort * str_sort = u.str.mk_string_sort();
         // non-string-sort terms cannot be string variables
         if (ex_sort != str_sort) return false;
         // string constants cannot be variables
         if (u.str.is_string(e)) return false;
-        if (u.str.is_concat(e) || u.str.is_at(e) || u.str.is_extract(e) || u.str.is_replace(e) || u.str.is_itos(e))
+        if (u.str.is_concat(e) || u.str.is_at(e) || u.str.is_extract(e) || u.str.is_replace(e) || u.str.is_itos(e) || u.str.is_from_code(e))
             return false;
         if (m.is_ite(e))
             return false;
@@ -6864,7 +6658,7 @@ namespace smt {
         // expression throughout the lifetime of theory_str
         m_trail.push_back(ex);
 
-        sort * ex_sort = m.get_sort(ex);
+        sort * ex_sort = ex->get_sort();
         sort * str_sort = u.str.mk_string_sort();
         sort * bool_sort = m.mk_bool_sort();
 
@@ -6872,8 +6666,7 @@ namespace smt {
         sort * int_sort = m.mk_sort(m_arith_fid, INT_SORT);
 
         // reject unhandled expressions
-        if (u.str.is_replace_all(ex) || u.str.is_replace_re(ex) || u.str.is_replace_re_all(ex) || u.str.is_from_code(ex)
-            || u.str.is_to_code(ex) || u.str.is_is_digit(ex)) {
+        if (u.str.is_replace_all(ex) || u.str.is_replace_re(ex) || u.str.is_replace_re_all(ex)) {
             TRACE("str", tout << "ERROR: Z3str3 has encountered an unsupported operator. Aborting." << std::endl;);
             m.raise_exception("Z3str3 encountered an unsupported operator.");
         }
@@ -6898,12 +6691,17 @@ namespace smt {
                     m_concat_eval_todo.push_back(n);
                 } else if (u.str.is_at(ap) || u.str.is_extract(ap) || u.str.is_replace(ap)) {
                     m_library_aware_axiom_todo.push_back(n);
-                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
+                    m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
                 } else if (u.str.is_itos(ap)) {
                     TRACE("str", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
                     string_int_conversion_terms.push_back(ap);
                     m_library_aware_axiom_todo.push_back(n);
-                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
+                    m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
+                } else if (u.str.is_from_code(ap)) {
+                    TRACE("str", tout << "found string-codepoint conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
+                    string_int_conversion_terms.push_back(ap);
+                    m_library_aware_axiom_todo.push_back(n);
+                    m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
                 } else if (is_var(ex)) {
                     // if ex is a variable, add it to our list of variables
                     TRACE("str", tout << "tracking variable " << mk_ismt2_pp(ap, get_manager()) << std::endl;);
@@ -6927,9 +6725,9 @@ namespace smt {
 
                 if (is_app(ex)) {
                     app * ap = to_app(ex);
-                    if (u.str.is_prefix(ap) || u.str.is_suffix(ap) || u.str.is_contains(ap) || u.str.is_in_re(ap)) {
+                    if (u.str.is_prefix(ap) || u.str.is_suffix(ap) || u.str.is_contains(ap) || u.str.is_in_re(ap) || u.str.is_is_digit(ap)) {
                         m_library_aware_axiom_todo.push_back(n);
-                        m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
+                        m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
                     }
                 }
             } else {
@@ -6949,12 +6747,17 @@ namespace smt {
                 app * ap = to_app(ex);
                 if (u.str.is_index(ap)) {
                     m_library_aware_axiom_todo.push_back(n);
-                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
+                    m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
                 } else if (u.str.is_stoi(ap)) {
                     TRACE("str", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
                     string_int_conversion_terms.push_back(ap);
                     m_library_aware_axiom_todo.push_back(n);
-                    m_library_aware_trail_stack.push(push_back_trail<theory_str, enode*, false>(m_library_aware_axiom_todo));
+                    m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
+                } else if (u.str.is_to_code(ex)) {
+                    TRACE("str", tout << "found string-codepoint conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
+                    string_int_conversion_terms.push_back(ap);
+                    m_library_aware_axiom_todo.push_back(n);
+                    m_library_aware_trail_stack.push(push_back_trail<enode*, false>(m_library_aware_axiom_todo));
                 }
             }
         } else {
@@ -7019,8 +6822,7 @@ namespace smt {
             expr_ref_vector formulas(get_manager());
             ctx.get_assignments(formulas);
             tout << "dumping all formulas:" << std::endl;
-            for (expr_ref_vector::iterator i = formulas.begin(); i != formulas.end(); ++i) {
-                expr * ex = *i;
+            for (auto const &ex : formulas) {
                 tout << mk_pp(ex, get_manager()) << (ctx.is_relevant(ex) ? "" : " (NOT REL)") << std::endl;
             }
         );
@@ -7042,8 +6844,8 @@ namespace smt {
 
     void theory_str::new_eq_eh(theory_var x, theory_var y) {
         //TRACE("str", tout << "new eq: v#" << x << " = v#" << y << std::endl;);
-        TRACE("str", tout << "new eq: " << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " = " <<
-              mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
+        TRACE("str", tout << "new eq: " << mk_ismt2_pp(get_enode(x)->get_expr(), get_manager()) << " = " <<
+              mk_ismt2_pp(get_enode(y)->get_expr(), get_manager()) << std::endl;);
         candidate_model.reset();
 
         /*
@@ -7051,7 +6853,7 @@ namespace smt {
           return;
           }
         */
-        handle_equality(get_enode(x)->get_owner(), get_enode(y)->get_owner());
+        handle_equality(get_enode(x)->get_expr(), get_enode(y)->get_expr());
 
         // replicate Z3str2 behaviour: merge eqc **AFTER** handle_equality
         m_find.merge(x, y);
@@ -7059,8 +6861,8 @@ namespace smt {
 
     void theory_str::new_diseq_eh(theory_var x, theory_var y) {
         //TRACE("str", tout << "new diseq: v#" << x << " != v#" << y << std::endl;);
-        TRACE("str", tout << "new diseq: " << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " != " <<
-              mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
+        TRACE("str", tout << "new diseq: " << mk_ismt2_pp(get_enode(x)->get_expr(), get_manager()) << " != " <<
+              mk_ismt2_pp(get_enode(y)->get_expr(), get_manager()) << std::endl;);
         candidate_model.reset();
     }
 
@@ -7188,13 +6990,12 @@ namespace smt {
     }
 
     void theory_str::recursive_check_variable_scope(expr * ex) {
-        ast_manager & m = get_manager();
 
         if (is_app(ex)) {
             app * a = to_app(ex);
             if (a->get_num_args() == 0) {
                 // we only care about string variables
-                sort * s = m.get_sort(ex);
+                sort * s = ex->get_sort();
                 sort * string_sort = u.str.mk_string_sort();
                 if (s != string_sort) {
                     return;
@@ -7232,8 +7033,7 @@ namespace smt {
 
         expr_ref_vector assignments(m);
         ctx.get_assignments(assignments);
-        for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
-            expr * ex = *i;
+        for (auto const &ex : assignments) {
             recursive_check_variable_scope(ex);
         }
     }
@@ -7250,7 +7050,6 @@ namespace smt {
         m_basicstr_axiom_todo.reset();
         m_concat_axiom_todo.reset();
         m_concat_eval_todo.reset();
-        m_library_aware_axiom_todo.reset();
         m_delayed_axiom_setup_terms.reset();
         m_delayed_assertions_todo.reset();
         
@@ -7259,9 +7058,8 @@ namespace smt {
         // list of expr* to remove from cut_var_map
         ptr_vector<expr> cutvarmap_removes;
 
-        obj_map<expr, std::stack<T_cut *> >::iterator varItor = cut_var_map.begin();
-        while (varItor != cut_var_map.end()) {
-            std::stack<T_cut*> & val = cut_var_map[varItor->m_key];
+        for (auto const &varItor : cut_var_map) {
+            std::stack<T_cut*> & val = cut_var_map[varItor.m_key];
             while ((!val.empty()) && (val.top()->level != 0) && (val.top()->level >= sLevel)) {
                 // TRACE("str", tout << "remove cut info for " << mk_pp(e, get_manager()) << std::endl; print_cut_var(e, tout););
                 // T_cut * aCut = val.top();
@@ -7269,23 +7067,16 @@ namespace smt {
                 // dealloc(aCut);
             }
             if (val.empty()) {
-                cutvarmap_removes.insert(varItor->m_key);
+                cutvarmap_removes.insert(varItor.m_key);
             }
-            varItor++;
         }
 
-        if (!cutvarmap_removes.empty()) {
-            ptr_vector<expr>::iterator it = cutvarmap_removes.begin();
-            for (; it != cutvarmap_removes.end(); ++it) {
-                expr * ex = *it;
-                cut_var_map.remove(ex);
-            }
-        }
+        for (expr* ex : cutvarmap_removes)
+            cut_var_map.remove(ex);
 
         ptr_vector<enode> new_m_basicstr;
-        for (ptr_vector<enode>::iterator it = m_basicstr_axiom_todo.begin(); it != m_basicstr_axiom_todo.end(); ++it) {
-            enode * e = *it;
-            TRACE("str", tout << "consider deleting " << mk_pp(e->get_owner(), get_manager())
+        for (enode* e : m_basicstr_axiom_todo) {
+            TRACE("str", tout << "consider deleting " << mk_pp(e->get_expr(), get_manager())
                   << ", enode scope level is " << e->get_iscope_lvl()
                   << std::endl;);
             if (e->get_iscope_lvl() <= (unsigned)sLevel) {
@@ -7303,6 +7094,8 @@ namespace smt {
         }
 
         m_trail_stack.pop_scope(num_scopes);
+        // m_library_aware_trail_stack owns m_library_aware_todo vector.
+        // the vector cannot be reset outside.
         m_library_aware_trail_stack.pop_scope(num_scopes);
         theory::pop_scope_eh(num_scopes);
 
@@ -7315,11 +7108,10 @@ namespace smt {
             tout << "dumping all assignments:" << std::endl;
             expr_ref_vector assignments(m);
             ctx.get_assignments(assignments);
-            for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
-                expr * ex = *i;
+            for (auto const &ex : assignments) {
                 tout << mk_ismt2_pp(ex, m) << (ctx.is_relevant(ex) ? "" : " (NOT REL)") << std::endl;
             }
-                   );
+        );
     }
 
     // returns true if needle appears as a subterm anywhere under haystack,
@@ -7391,8 +7183,6 @@ namespace smt {
         }
     }
 
-    // NOTE: this function used to take an argument `Z3_ast node`;
-    // it was not used and so was removed from the signature
     void theory_str::classify_ast_by_type_in_positive_context(std::map<expr*, int> & varMap,
                                                               std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap) {
 
@@ -7400,8 +7190,7 @@ namespace smt {
         expr_ref_vector assignments(m);
         ctx.get_assignments(assignments);
 
-        for (expr_ref_vector::iterator it = assignments.begin(); it != assignments.end(); ++it) {
-            expr * argAst = *it;
+        for (auto const &argAst : assignments) {
             // the original code jumped through some hoops to check whether the AST node
             // is a function, then checked whether that function is "interesting".
             // however, the only thing that's considered "interesting" is an equality predicate.
@@ -7410,7 +7199,7 @@ namespace smt {
             if (m.is_eq(argAst)) {
                 TRACE("str", tout
                       << "eq ast " << mk_pp(argAst, m) << " is between args of sort "
-                      << m.get_sort(to_app(argAst)->get_arg(0))->get_name()
+                      << to_app(argAst)->get_arg(0)->get_sort()->get_name()
                       << std::endl;);
                 classify_ast_by_type(argAst, varMap, concatMap, unrollMap);
             }
@@ -7450,25 +7239,21 @@ namespace smt {
                                    std::map<expr*, std::map<expr*, int> > & var_eq_concat_map,
                                    std::map<expr*, std::map<expr*, int> > & var_eq_unroll_map,
                                    std::map<expr*, expr*> & concat_eq_constStr_map,
-                                   std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map,
-                                   std::map<expr*, std::set<expr*> > & unrollGroupMap) {
+                                   std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map) {
 #ifdef _TRACE
         ast_manager & mgr = get_manager();
         {
             tout << "(0) alias: variables" << std::endl;
             std::map<expr*, std::map<expr*, int> > aliasSumMap;
-            std::map<expr*, expr*>::iterator itor0 = aliasIndexMap.begin();
-            for (; itor0 != aliasIndexMap.end(); itor0++) {
-                aliasSumMap[itor0->second][itor0->first] = 1;
+            for (auto const &itor0 : aliasIndexMap) {
+                aliasSumMap[itor0.second][itor0.first] = 1;
             }
-            std::map<expr*, std::map<expr*, int> >::iterator keyItor = aliasSumMap.begin();
-            for (; keyItor != aliasSumMap.end(); keyItor++) {
+            for (auto const &keyItor : aliasSumMap) {
                 tout << "    * ";
-                tout << mk_pp(keyItor->first, mgr);
+                tout << mk_pp(keyItor.first, mgr);
                 tout << " : ";
-                std::map<expr*, int>::iterator innerItor = keyItor->second.begin();
-                for (; innerItor != keyItor->second.end(); innerItor++) {
-                    tout << mk_pp(innerItor->first, mgr);
+                for (auto const &innerItor : keyItor.second) {
+                    tout << mk_pp(innerItor.first, mgr);
                     tout << ", ";
                 }
                 tout << std::endl;
@@ -7478,13 +7263,12 @@ namespace smt {
 
         {
             tout << "(1) var = constStr:" << std::endl;
-            std::map<expr*, expr*>::iterator itor1 = var_eq_constStr_map.begin();
-            for (; itor1 != var_eq_constStr_map.end(); itor1++) {
+            for (auto const &itor1 : var_eq_constStr_map) {
                 tout << "    * ";
-                tout << mk_pp(itor1->first, mgr);
+                tout << mk_pp(itor1.first, mgr);
                 tout << " = ";
-                tout << mk_pp(itor1->second, mgr);
-                if (!in_same_eqc(itor1->first, itor1->second)) {
+                tout << mk_pp(itor1.second, mgr);
+                if (!in_same_eqc(itor1.first, itor1.second)) {
                     tout << "   (not true in ctx)";
                 }
                 tout << std::endl;
@@ -7494,14 +7278,12 @@ namespace smt {
 
         {
             tout << "(2) var = concat:" << std::endl;
-            std::map<expr*, std::map<expr*, int> >::iterator itor2 = var_eq_concat_map.begin();
-            for (; itor2 != var_eq_concat_map.end(); itor2++) {
+            for (auto const &itor2 : var_eq_concat_map) {
                 tout << "    * ";
-                tout << mk_pp(itor2->first, mgr);
+                tout << mk_pp(itor2.first, mgr);
                 tout << " = { ";
-                std::map<expr*, int>::iterator i_itor = itor2->second.begin();
-                for (; i_itor != itor2->second.end(); i_itor++) {
-                    tout << mk_pp(i_itor->first, mgr);
+                for (auto const &i_itor : itor2.second) {
+                    tout << mk_pp(i_itor.first, mgr);
                     tout << ", ";
                 }
                 tout << std::endl;
@@ -7511,12 +7293,10 @@ namespace smt {
 
         {
             tout << "(3) var = unrollFunc:" << std::endl;
-            std::map<expr*, std::map<expr*, int> >::iterator itor2 = var_eq_unroll_map.begin();
-            for (; itor2 != var_eq_unroll_map.end(); itor2++) {
-                tout << "    * " << mk_pp(itor2->first, mgr) << " = { ";
-                std::map<expr*, int>::iterator i_itor = itor2->second.begin();
-                for (; i_itor != itor2->second.end(); i_itor++) {
-                    tout << mk_pp(i_itor->first, mgr) << ", ";
+            for (auto const &itor2 : var_eq_unroll_map) {
+                tout << "    * " << mk_pp(itor2.first, mgr) << " = { ";
+                for (auto const &i_itor : itor2.second) {
+                    tout << mk_pp(i_itor.first, mgr) << ", ";
                 }
                 tout << " }" << std::endl;
             }
@@ -7525,12 +7305,11 @@ namespace smt {
 
         {
             tout << "(4) concat = constStr:" << std::endl;
-            std::map<expr*, expr*>::iterator itor3 = concat_eq_constStr_map.begin();
-            for (; itor3 != concat_eq_constStr_map.end(); itor3++) {
+            for (auto const &itor3 : concat_eq_constStr_map) {
                 tout << "    * ";
-                tout << mk_pp(itor3->first, mgr);
+                tout << mk_pp(itor3.first, mgr);
                 tout << " = ";
-                tout << mk_pp(itor3->second, mgr);
+                tout << mk_pp(itor3.second, mgr);
                 tout << std::endl;
 
             }
@@ -7539,13 +7318,11 @@ namespace smt {
 
         {
             tout << "(5) eq concats:" << std::endl;
-            std::map<expr*, std::map<expr*, int> >::iterator itor4 = concat_eq_concat_map.begin();
-            for (; itor4 != concat_eq_concat_map.end(); itor4++) {
-                if (itor4->second.size() > 1) {
-                    std::map<expr*, int>::iterator i_itor = itor4->second.begin();
+            for (auto const &itor4 : concat_eq_concat_map) {
+                if (itor4.second.size() > 1) {
                     tout << "    * ";
-                    for (; i_itor != itor4->second.end(); i_itor++) {
-                        tout << mk_pp(i_itor->first, mgr);
+                    for (auto const &i_itor : itor4.second) {
+                        tout << mk_pp(i_itor.first, mgr);
                         tout << " , ";
                     }
                     tout << std::endl;
@@ -7554,40 +7331,6 @@ namespace smt {
             tout << std::endl;
         }
 
-        {
-            tout << "(6) eq unrolls:" << std::endl;
-            std::map<expr*, std::set<expr*> >::iterator itor5 = unrollGroupMap.begin();
-            for (; itor5 != unrollGroupMap.end(); itor5++) {
-                tout << "    * ";
-                std::set<expr*>::iterator i_itor = itor5->second.begin();
-                for (; i_itor != itor5->second.end(); i_itor++) {
-                    tout << mk_pp(*i_itor, mgr) << ",  ";
-                }
-                tout << std::endl;
-            }
-            tout << std::endl;
-        }
-
-        {
-            tout << "(7) unroll = concats:" << std::endl;
-            std::map<expr*, std::set<expr*> >::iterator itor5 = unrollGroupMap.begin();
-            for (; itor5 != unrollGroupMap.end(); itor5++) {
-                tout << "    * ";
-                expr * unroll = itor5->first;
-                tout << mk_pp(unroll, mgr) << std::endl;
-                enode * e_curr = ctx.get_enode(unroll);
-                enode * e_curr_end = e_curr;
-                do {
-                    app * curr = e_curr->get_owner();
-                    if (u.str.is_concat(curr)) {
-                        tout << "      >>> " << mk_pp(curr, mgr) << std::endl;
-                    }
-                    e_curr = e_curr->get_next();
-                } while (e_curr != e_curr_end);
-                tout << std::endl;
-            }
-            tout << std::endl;
-        }
 #else
         return;
 #endif // _TRACE
@@ -7607,7 +7350,7 @@ namespace smt {
      *        > should split the unroll function so that var2 and var3 are bounded by new unrolls
      */
     int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr*, int> & freeVarMap,
-                                     std::map<expr*, std::set<expr*> > & unrollGroupMap, std::map<expr*, std::map<expr*, int> > & var_eq_concat_map) {
+                                      std::map<expr*, std::map<expr*, int> > & var_eq_concat_map) {
         std::map<expr*, int> concatMap;
         std::map<expr*, int> unrollMap;
         std::map<expr*, expr*> aliasIndexMap;
@@ -7628,8 +7371,6 @@ namespace smt {
         // the thing we iterate over should just be variable_set - internal_variable_set
         // so we avoid computing the set difference (but this might be slower)
         for (expr* var : variable_set) {
-        //for(obj_hashtable<expr>::iterator it = variable_set.begin(); it != variable_set.end(); ++it) {
-            //expr* var = *it;
             if (internal_variable_set.find(var) == internal_variable_set.end()) {
                 TRACE("str", tout << "new variable: " << mk_pp(var, m) << std::endl;);
                 strVarMap[var] = 1;
@@ -7732,13 +7473,12 @@ namespace smt {
         // --------------------------------------------------
 
         std::map<expr*, expr*> concats_eq_index_map;
-        std::map<expr*, int>::iterator concatItor = concatMap.begin();
-        for(; concatItor != concatMap.end(); ++concatItor) {
-            if (concats_eq_index_map.find(concatItor->first) != concats_eq_index_map.end()) {
+        for(auto const &concatItor : concatMap) {
+            if (concats_eq_index_map.find(concatItor.first) != concats_eq_index_map.end()) {
                 continue;
             }
             expr * aRoot = nullptr;
-            expr * curr = concatItor->first;
+            expr * curr = concatItor.first;
             do {
                 if (u.str.is_concat(to_app(curr))) {
                     if (aRoot == nullptr) {
@@ -7748,16 +7488,15 @@ namespace smt {
                     }
                 }
                 curr = get_eqc_next(curr);
-            } while (curr != concatItor->first);
+            } while (curr != concatItor.first);
         }
 
-        concatItor = concatMap.begin();
-        for(; concatItor != concatMap.end(); ++concatItor) {
+        for(auto const &concatItor : concatMap) {
             expr * deAliasConcat = nullptr;
-            if (concats_eq_index_map.find(concatItor->first) != concats_eq_index_map.end()) {
-                deAliasConcat = concats_eq_index_map[concatItor->first];
+            if (concats_eq_index_map.find(concatItor.first) != concats_eq_index_map.end()) {
+                deAliasConcat = concats_eq_index_map[concatItor.first];
             } else {
-                deAliasConcat = concatItor->first;
+                deAliasConcat = concatItor.first;
             }
 
             // (3) concat_eq_conststr, e.g. concat(a,b) = "str1"
@@ -7788,7 +7527,7 @@ namespace smt {
         // print some debugging info
         TRACE("str", trace_ctx_dep(tout, aliasIndexMap, var_eq_constStr_map,
                                    var_eq_concat_map, var_eq_unroll_map,
-                                   concat_eq_constStr_map, concat_eq_concat_map, unrollGroupMap););
+                                   concat_eq_constStr_map, concat_eq_concat_map););
 
         /*
         if (!contain_pair_bool_map.empty()) {
@@ -7799,25 +7538,23 @@ namespace smt {
         // step 4: dependence analysis
 
         // (1) var = string constant
-        for (std::map<expr*, expr*>::iterator itor = var_eq_constStr_map.begin();
-             itor != var_eq_constStr_map.end(); ++itor) {
-            expr * var = get_alias_index_ast(aliasIndexMap, itor->first);
-            expr * strAst = itor->second;
+        for (auto const &itor : var_eq_constStr_map) {
+            expr * var = get_alias_index_ast(aliasIndexMap, itor.first);
+            expr * strAst = itor.second;
             depMap[var][strAst] = 1;
         }
 
         // (2) var = concat
-        for (std::map<expr*, std::map<expr*, int> >::iterator itor = var_eq_concat_map.begin();
-             itor != var_eq_concat_map.end(); ++itor) {
-            expr * var = get_alias_index_ast(aliasIndexMap, itor->first);
-            for (std::map<expr*, int>::iterator itor1 = itor->second.begin(); itor1 != itor->second.end(); ++itor1) {
-                expr * concat = itor1->first;
+        for (auto const &itor : var_eq_concat_map) {
+            expr * var = get_alias_index_ast(aliasIndexMap, itor.first);
+            for (auto const &itor1 : itor.second) {
+                expr * concat = itor1.first;
                 std::map<expr*, int> inVarMap;
                 std::map<expr*, int> inConcatMap;
                 std::map<expr*, int> inUnrollMap;
                 classify_ast_by_type(concat, inVarMap, inConcatMap, inUnrollMap);
-                for (std::map<expr*, int>::iterator itor2 = inVarMap.begin(); itor2 != inVarMap.end(); ++itor2) {
-                    expr * varInConcat = get_alias_index_ast(aliasIndexMap, itor2->first);
+                for (auto const &itor2 : inVarMap) {
+                    expr * varInConcat = get_alias_index_ast(aliasIndexMap, itor2.first);
                     if (!(depMap[var].find(varInConcat) != depMap[var].end() && depMap[var][varInConcat] == 1)) {
                         depMap[var][varInConcat] = 2;
                     }
@@ -7825,20 +7562,19 @@ namespace smt {
             }
         }
 
-        for (std::map<expr*, std::map<expr*, int> >::iterator itor = var_eq_unroll_map.begin();
-             itor != var_eq_unroll_map.end(); itor++) {
-            expr * var = get_alias_index_ast(aliasIndexMap, itor->first);
-            for (std::map<expr*, int>::iterator itor1 = itor->second.begin(); itor1 != itor->second.end(); itor1++) {
-                expr * unrollFunc = itor1->first;
+        for (auto const &itor : var_eq_unroll_map) {
+            expr * var = get_alias_index_ast(aliasIndexMap, itor.first);
+            for (auto const &itor1 : itor.second) {
+                expr * unrollFunc = itor1.first;
                 std::map<expr*, int> inVarMap;
                 std::map<expr*, int> inConcatMap;
                 std::map<expr*, int> inUnrollMap;
                 classify_ast_by_type(unrollFunc, inVarMap, inConcatMap, inUnrollMap);
-                for (std::map<expr*, int>::iterator itor2 = inVarMap.begin(); itor2 != inVarMap.end(); itor2++) {
-                    expr * varInFunc = get_alias_index_ast(aliasIndexMap, itor2->first);
+                for (auto const &itor2 : inVarMap) {
+                    expr * varInFunc = get_alias_index_ast(aliasIndexMap, itor2.first);
 
                     TRACE("str", tout << "var in unroll = " <<
-                          mk_ismt2_pp(itor2->first, m) << std::endl
+                          mk_ismt2_pp(itor2.first, m) << std::endl
                           << "dealiased var = " << mk_ismt2_pp(varInFunc, m) << std::endl;);
 
                     // it's possible that we have both (Unroll $$_regVar_0 $$_unr_0) /\ (Unroll abcd $$_unr_0),
@@ -7857,16 +7593,15 @@ namespace smt {
         }
 
         // (3) concat = string constant
-        for (std::map<expr*, expr*>::iterator itor = concat_eq_constStr_map.begin();
-             itor != concat_eq_constStr_map.end(); itor++) {
-            expr * concatAst = itor->first;
-            expr * constStr = itor->second;
+        for (auto const &itor : concat_eq_constStr_map) {
+            expr * concatAst = itor.first;
+            expr * constStr = itor.second;
             std::map<expr*, int> inVarMap;
             std::map<expr*, int> inConcatMap;
             std::map<expr*, int> inUnrollMap;
             classify_ast_by_type(concatAst, inVarMap, inConcatMap, inUnrollMap);
-            for (std::map<expr*, int>::iterator itor2 = inVarMap.begin(); itor2 != inVarMap.end(); itor2++) {
-                expr * varInConcat = get_alias_index_ast(aliasIndexMap, itor2->first);
+            for (auto const &itor2 : inVarMap) {
+                expr * varInConcat = get_alias_index_ast(aliasIndexMap, itor2.first);
                 if (!(depMap[varInConcat].find(constStr) != depMap[varInConcat].end() && depMap[varInConcat][constStr] == 1))
                     depMap[varInConcat][constStr] = 3;
             }
@@ -7888,16 +7623,15 @@ namespace smt {
         std::map<int, std::set<expr*> > mRMap;
         std::set<expr*> nSet;
 
-        for (std::map<expr*, std::map<expr*, int> >::iterator itor = concat_eq_concat_map.begin();
-             itor != concat_eq_concat_map.end(); itor++) {
+        for (auto const &itor : concat_eq_concat_map) {
             mostLeftNodes.clear();
             mostRightNodes.clear();
 
             expr * mLConst = nullptr;
             expr * mRConst = nullptr;
 
-            for (std::map<expr*, int>::iterator itor1 = itor->second.begin(); itor1 != itor->second.end(); itor1++) {
-                expr * concatNode = itor1->first;
+            for (auto const &itor1 : itor.second) {
+                expr * concatNode = itor1.first;
                 expr * mLNode = getMostLeftNodeInConcat(concatNode);
                 zstring strval;
                 if (u.str.is_string(to_app(mLNode), strval)) {
@@ -7924,9 +7658,8 @@ namespace smt {
                 // -------------------------------------------------------------------------------------
                 // e.g. Concat(x, ...) = Concat("abc", ...)
                 // -------------------------------------------------------------------------------------
-                for (std::map<expr*, expr*>::iterator itor1 = mostLeftNodes.begin();
-                     itor1 != mostLeftNodes.end(); itor1++) {
-                    expr * deVar = get_alias_index_ast(aliasIndexMap, itor1->first);
+                for (auto const &itor1 : mostLeftNodes) {
+                    expr * deVar = get_alias_index_ast(aliasIndexMap, itor1.first);
                     if (depMap[deVar].find(mLConst) == depMap[deVar].end() || depMap[deVar][mLConst] != 1) {
                         depMap[deVar][mLConst] = 4;
                     }
@@ -7941,41 +7674,39 @@ namespace smt {
                 //      x and u are constrained by each other
                 // -------------------------------------------------------------------------------------
                 nSet.clear();
-                std::map<expr*, expr*>::iterator itl = mostLeftNodes.begin();
-                for (; itl != mostLeftNodes.end(); itl++) {
+                for (auto const &itl : mostLeftNodes) {
                     bool lfHasEqcValue = false;
-                    get_eqc_value(itl->first, lfHasEqcValue);
+                    get_eqc_value(itl.first, lfHasEqcValue);
                     if (lfHasEqcValue)
                         continue;
-                    expr * deVar = get_alias_index_ast(aliasIndexMap, itl->first);
+                    expr * deVar = get_alias_index_ast(aliasIndexMap, itl.first);
                     nSet.insert(deVar);
                 }
 
                 if (nSet.size() > 1) {
                     int lId = -1;
-                    for (std::set<expr*>::iterator itor2 = nSet.begin(); itor2 != nSet.end(); itor2++) {
-                        if (mLIdxMap.find(*itor2) != mLIdxMap.end()) {
-                            lId = mLIdxMap[*itor2];
+                    for (auto const &itor2 : nSet) {
+                        if (mLIdxMap.find(itor2) != mLIdxMap.end()) {
+                            lId = mLIdxMap[itor2];
                             break;
                         }
                     }
                     if (lId == -1)
                         lId = static_cast<int>(mLMap.size());
-                    for (std::set<expr*>::iterator itor2 = nSet.begin(); itor2 != nSet.end(); itor2++) {
+                    for (auto const &itor2 : nSet) {
                         bool itorHasEqcValue = false;
-                        get_eqc_value(*itor2, itorHasEqcValue);
+                        get_eqc_value(itor2, itorHasEqcValue);
                         if (itorHasEqcValue)
                             continue;
-                        mLIdxMap[*itor2] = lId;
-                        mLMap[lId].insert(*itor2);
+                        mLIdxMap[itor2] = lId;
+                        mLMap[lId].insert(itor2);
                     }
                 }
             }
 
             if (mRConst != nullptr) {
-                for (std::map<expr*, expr*>::iterator itor1 = mostRightNodes.begin();
-                     itor1 != mostRightNodes.end(); itor1++) {
-                    expr * deVar = get_alias_index_ast(aliasIndexMap, itor1->first);
+                for (auto const &itor1 : mostRightNodes) {
+                    expr * deVar = get_alias_index_ast(aliasIndexMap, itor1.first);
                     if (depMap[deVar].find(mRConst) == depMap[deVar].end() || depMap[deVar][mRConst] != 1) {
                         depMap[deVar][mRConst] = 5;
                     }
@@ -7984,29 +7715,27 @@ namespace smt {
 
             {
                 nSet.clear();
-                std::map<expr*, expr*>::iterator itr = mostRightNodes.begin();
-                for (; itr != mostRightNodes.end(); itr++) {
-                    expr * deVar = get_alias_index_ast(aliasIndexMap, itr->first);
+                for (auto const &itr : mostRightNodes) {
+                    expr * deVar = get_alias_index_ast(aliasIndexMap, itr.first);
                     nSet.insert(deVar);
                 }
                 if (nSet.size() > 1) {
                     int rId = -1;
-                    std::set<expr*>::iterator itor2 = nSet.begin();
-                    for (; itor2 != nSet.end(); itor2++) {
-                        if (mRIdxMap.find(*itor2) != mRIdxMap.end()) {
-                            rId = mRIdxMap[*itor2];
+                    for (auto const &itor2 : nSet) {
+                        if (mRIdxMap.find(itor2) != mRIdxMap.end()) {
+                            rId = mRIdxMap[itor2];
                             break;
                         }
                     }
                     if (rId == -1)
                         rId = static_cast<int>(mRMap.size());
-                    for (itor2 = nSet.begin(); itor2 != nSet.end(); itor2++) {
+                    for (auto const &itor2 : nSet) {
                         bool rHasEqcValue = false;
-                        get_eqc_value(*itor2, rHasEqcValue);
+                        get_eqc_value(itor2, rHasEqcValue);
                         if (rHasEqcValue)
                             continue;
-                        mRIdxMap[*itor2] = rId;
-                        mRMap[rId].insert(*itor2);
+                        mRIdxMap[itor2] = rId;
+                        mRMap[rId].insert(itor2);
                     }
                 }
             }
@@ -8015,13 +7744,13 @@ namespace smt {
         // print the dependence map
         TRACE("str",
               tout << "Dependence Map" << std::endl;
-              for(std::map<expr*, std::map<expr*, int> >::iterator itor = depMap.begin(); itor != depMap.end(); itor++) {
-                  tout << mk_pp(itor->first, m);
+              for(auto const &itor : depMap) {
+                  tout << mk_pp(itor.first, m);
                   rational nnLen;
-                  bool nnLen_exists = get_len_value(itor->first, nnLen);
+                  bool nnLen_exists = get_len_value(itor.first, nnLen);
                   tout << "  [len = " << (nnLen_exists ? nnLen.to_string() : "?") << "] \t-->\t";
-                  for (std::map<expr*, int>::iterator itor1 = itor->second.begin(); itor1 != itor->second.end(); itor1++) {
-                      tout << mk_pp(itor1->first, m) << "(" << itor1->second << "), ";
+                  for (auto const &itor1 : itor.second) {
+                      tout << mk_pp(itor1.first, m) << "(" << itor1.second << "), ";
                   }
                   tout << std::endl;
               }
@@ -8033,11 +7762,11 @@ namespace smt {
         //---------------------------------------------------------------
         // remove L/R most var in eq concat since they are constrained with each other
         std::map<expr*, std::map<expr*, int> > lrConstrainedMap;
-        for (std::map<int, std::set<expr*> >::iterator itor = mLMap.begin(); itor != mLMap.end(); itor++) {
-            for (std::set<expr*>::iterator it1 = itor->second.begin(); it1 != itor->second.end(); it1++) {
+        for (auto const &itor : mLMap) {
+            for (std::set<expr*>::iterator it1 = itor.second.begin(); it1 != itor.second.end(); it1++) {
                 std::set<expr*>::iterator it2 = it1;
                 it2++;
-                for (; it2 != itor->second.end(); it2++) {
+                for (; it2 != itor.second.end(); it2++) {
                     expr * n1 = *it1;
                     expr * n2 = *it2;
                     lrConstrainedMap[n1][n2] = 1;
@@ -8045,11 +7774,11 @@ namespace smt {
                 }
             }
         }
-        for (std::map<int, std::set<expr*> >::iterator itor = mRMap.begin(); itor != mRMap.end(); itor++) {
-            for (std::set<expr*>::iterator it1 = itor->second.begin(); it1 != itor->second.end(); it1++) {
+        for (auto const &itor : mRMap) {
+            for (std::set<expr*>::iterator it1 = itor.second.begin(); it1 != itor.second.end(); it1++) {
                 std::set<expr*>::iterator it2 = it1;
                 it2++;
-                for (; it2 != itor->second.end(); it2++) {
+                for (; it2 != itor.second.end(); it2++) {
                     expr * n1 = *it1;
                     expr * n2 = *it2;
                     lrConstrainedMap[n1][n2] = 1;
@@ -8059,16 +7788,14 @@ namespace smt {
         }
 
         if (depMap.empty()) {
-            std::map<expr*, int>::iterator itor = strVarMap.begin();
-            for (; itor != strVarMap.end(); itor++) {
-                expr * var = get_alias_index_ast(aliasIndexMap, itor->first);
+            for (auto const &itor : strVarMap) {
+                expr * var = get_alias_index_ast(aliasIndexMap, itor.first);
                 if (lrConstrainedMap.find(var) == lrConstrainedMap.end()) {
                     freeVarMap[var] = 1;
                 } else {
                     int lrConstrained = 0;
-                    std::map<expr*, int>::iterator lrit = freeVarMap.begin();
-                    for (; lrit != freeVarMap.end(); lrit++) {
-                        if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
+                    for (auto const &lrit : freeVarMap) {
+                        if (lrConstrainedMap[var].find(lrit.first) != lrConstrainedMap[var].end()) {
                             lrConstrained = 1;
                             break;
                         }
@@ -8084,18 +7811,16 @@ namespace smt {
             //        aliasIndexMap[y]= x, aliasIndexMap[z] = x
             //        depMap        t ~ "abc"(1)
             //        x should be free
-            std::map<expr*, int>::iterator itor2 = strVarMap.begin();
-            for (; itor2 != strVarMap.end(); itor2++) {
-                if (aliasIndexMap.find(itor2->first) != aliasIndexMap.end()) {
-                    expr * var = aliasIndexMap[itor2->first];
+            for (auto const &itor2 : strVarMap) {
+                if (aliasIndexMap.find(itor2.first) != aliasIndexMap.end()) {
+                    expr * var = aliasIndexMap[itor2.first];
                     if (depMap.find(var) == depMap.end()) {
                         if (lrConstrainedMap.find(var) == lrConstrainedMap.end()) {
                             freeVarMap[var] = 1;
                         } else {
                             int lrConstrained = 0;
-                            std::map<expr*, int>::iterator lrit = freeVarMap.begin();
-                            for (; lrit != freeVarMap.end(); lrit++) {
-                                if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
+                            for (auto const &lrit : freeVarMap) {
+                                if (lrConstrainedMap[var].find(lrit.first) != lrConstrainedMap[var].end()) {
                                     lrConstrained = 1;
                                     break;
                                 }
@@ -8105,17 +7830,16 @@ namespace smt {
                             }
                         }
                     }
-                } else if (aliasIndexMap.find(itor2->first) == aliasIndexMap.end()) {
+                } else if (aliasIndexMap.find(itor2.first) == aliasIndexMap.end()) {
                     // if a variable is not in aliasIndexMap and not in depMap, it's free
-                    if (depMap.find(itor2->first) == depMap.end()) {
-                        expr * var = itor2->first;
+                    if (depMap.find(itor2.first) == depMap.end()) {
+                        expr * var = itor2.first;
                         if (lrConstrainedMap.find(var) == lrConstrainedMap.end()) {
                             freeVarMap[var] = 1;
                         } else {
                             int lrConstrained = 0;
-                            std::map<expr*, int>::iterator lrit = freeVarMap.begin();
-                            for (; lrit != freeVarMap.end(); lrit++) {
-                                if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
+                            for (auto const &lrit : freeVarMap) {
+                                if (lrConstrainedMap[var].find(lrit.first) != lrConstrainedMap[var].end()) {
                                     lrConstrained = 1;
                                     break;
                                 }
@@ -8128,11 +7852,10 @@ namespace smt {
                 }
             }
 
-            std::map<expr*, std::map<expr*, int> >::iterator itor = depMap.begin();
-            for (; itor != depMap.end(); itor++) {
-                for (std::map<expr*, int>::iterator itor1 = itor->second.begin(); itor1 != itor->second.end(); itor1++) {
-                    if (variable_set.find(itor1->first) != variable_set.end()) { // expr type = var
-                        expr * var = get_alias_index_ast(aliasIndexMap, itor1->first);
+            for (auto const &itor : depMap) {
+                for (auto const &itor1 : itor.second) {
+                    if (variable_set.find(itor1.first) != variable_set.end()) { // expr type = var
+                        expr * var = get_alias_index_ast(aliasIndexMap, itor1.first);
                         // if a var is dep on itself and all dependence are type 2, it's a free variable
                         // e.g {y --> x(2), y(2), m --> m(2), n(2)} y,m are free
                         {
@@ -8142,9 +7865,8 @@ namespace smt {
                                         freeVarMap[var] = 1;
                                     } else {
                                         int lrConstrained = 0;
-                                        std::map<expr*, int>::iterator lrit = freeVarMap.begin();
-                                        for (; lrit != freeVarMap.end(); lrit++) {
-                                            if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
+                                        for (auto const &lrit : freeVarMap) {
+                                            if (lrConstrainedMap[var].find(lrit.first) != lrConstrainedMap[var].end()) {
                                                 lrConstrained = 1;
                                                 break;
                                             }
@@ -8222,7 +7944,7 @@ namespace smt {
                         if (!string_int_axioms.contains(axiom)) {
                             string_int_axioms.insert(axiom);
                             assert_axiom(axiom);
-                            m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
+                            m_trail_stack.push(insert_obj_trail<expr>(string_int_axioms, axiom));
                             axiomAdd = true;
                         }
                     } else {
@@ -8256,7 +7978,7 @@ namespace smt {
                 if (!string_int_axioms.contains(axiom)) {
                     string_int_axioms.insert(axiom);
                     assert_axiom(axiom);
-                    m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
+                    m_trail_stack.push(insert_obj_trail<expr>(string_int_axioms, axiom));
                     axiomAdd = true;
                 }
             } else {
@@ -8266,7 +7988,7 @@ namespace smt {
                 if (!string_int_axioms.contains(axiom)) {
                     string_int_axioms.insert(axiom);
                     assert_axiom(axiom);
-                    m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
+                    m_trail_stack.push(insert_obj_trail<expr>(string_int_axioms, axiom));
                     axiomAdd = true;
                 }
             }
@@ -8310,7 +8032,7 @@ namespace smt {
                     if (!string_int_axioms.contains(axiom)) {
                         string_int_axioms.insert(axiom);
                         assert_axiom(axiom);
-                        m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
+                        m_trail_stack.push(insert_obj_trail<expr>(string_int_axioms, axiom));
                         axiomAdd = true;
                     }
                 } else {
@@ -8403,7 +8125,7 @@ namespace smt {
                 expr_ref lenEqNum(ctx.mk_eq_atom(nodeWithLenExpr, varLenExpr), m);
                 l_items.push_back(lenEqNum);
 
-                expr_ref axl(m.mk_and(l_items.size(), l_items.c_ptr()), m);
+                expr_ref axl(m.mk_and(l_items.size(), l_items.data()), m);
                 expr_ref varLen(mk_strlen(var), m);
                 expr_ref axr(ctx.mk_eq_atom(varLen, mk_int(varLen)), m);
                 assert_implication(axl, axr);
@@ -8420,18 +8142,17 @@ namespace smt {
         ctx.get_assignments(assignments);
         bool axiomAdded = false;
         // collect all concats in context
-        for (expr_ref_vector::iterator it = assignments.begin(); it != assignments.end(); ++it) {
-            if (! ctx.is_relevant(*it)) {
+        for (auto const &it : assignments) {
+            if (! ctx.is_relevant(it)) {
                 continue;
             }
-            if (m.is_eq(*it)) {
-                collect_var_concat(*it, varSet, concatSet);
+            if (m.is_eq(it)) {
+                collect_var_concat(it, varSet, concatSet);
             }
         }
         // iterate each concat
         // if a concat doesn't have length info, check if the length of all leaf nodes can be resolved
-        for (std::set<expr*>::iterator it = concatSet.begin(); it != concatSet.end(); it++) {
-            expr * concat = *it;
+        for (auto const &concat : concatSet) {
             rational lenValue;
             expr_ref concatlenExpr (mk_strlen(concat), m) ;
             bool allLeafResolved = true;
@@ -8443,10 +8164,10 @@ namespace smt {
                     std::set<expr*> leafNodes;
                     get_unique_non_concat_nodes(concat, leafNodes);
                     expr_ref_vector l_items(m);
-                    for (std::set<expr*>::iterator leafIt = leafNodes.begin(); leafIt != leafNodes.end(); ++leafIt) {
+                    for (auto const &leafIt : leafNodes) {
                         rational leafLenValue;
-                        if (get_len_value(*leafIt, leafLenValue)) {
-                            expr_ref leafItLenExpr (mk_strlen(*leafIt), m);
+                        if (get_len_value(leafIt, leafLenValue)) {
+                            expr_ref leafItLenExpr (mk_strlen(leafIt), m);
                             expr_ref leafLenValueExpr (mk_int(leafLenValue), m);
                             expr_ref lcExpr (ctx.mk_eq_atom(leafItLenExpr, leafLenValueExpr), m);
                             l_items.push_back(lcExpr);
@@ -8456,7 +8177,7 @@ namespace smt {
                         }
                     }
                     if (allLeafResolved) {
-                        expr_ref axl(m.mk_and(l_items.size(), l_items.c_ptr()), m);
+                        expr_ref axl(m.mk_and(l_items.size(), l_items.data()), m);
                         expr_ref lenValueExpr (mk_int(lenValue), m);
                         expr_ref axr(ctx.mk_eq_atom(concatlenExpr, lenValueExpr), m);
                         assert_implication(axl, axr);
@@ -8468,8 +8189,7 @@ namespace smt {
         }
         // if no concat length is propagated, check the length of variables.
         if (! axiomAdded) {
-            for (std::set<expr*>::iterator it = varSet.begin(); it != varSet.end(); it++) {
-                expr * var = *it;
+            for (auto const &var : varSet) {
                 rational lenValue;
                 expr_ref varlen (mk_strlen(var), m) ;
                 if (! get_arith_value(varlen, lenValue)) {
@@ -8514,18 +8234,16 @@ namespace smt {
         if (opt_DeferEQCConsistencyCheck) {
             TRACE("str", tout << "performing deferred EQC consistency check" << std::endl;);
             std::set<enode*> eqc_roots;
-            for (ptr_vector<enode>::const_iterator it = ctx.begin_enodes(); it != ctx.end_enodes(); ++it) {
-                enode * e = *it;
+            for (auto const &e : ctx.enodes()) {
                 enode * root = e->get_root();
                 eqc_roots.insert(root);
             }
 
             bool found_inconsistency = false;
 
-            for (std::set<enode*>::iterator it = eqc_roots.begin(); it != eqc_roots.end(); ++it) {
-                enode * e = *it;
-                app * a = e->get_owner();
-                if (!(m.get_sort(a) == u.str.mk_string_sort())) {
+            for (auto const &e : eqc_roots) {
+                app * a = e->get_expr();
+                if (!(a->get_sort() == u.str.mk_string_sort())) {
                     TRACE("str", tout << "EQC root " << mk_pp(a, m) << " not a string term; skipping" << std::endl;);
                 } else {
                     TRACE("str", tout << "EQC root " << mk_pp(a, m) << " is a string term. Checking this EQC" << std::endl;);
@@ -8533,9 +8251,9 @@ namespace smt {
                     enode * e_it = e;
                     enode * e_root = e_it;
                     do {
-                        bool status = check_concat_len_in_eqc(e_it->get_owner());
+                        bool status = check_concat_len_in_eqc(e_it->get_expr());
                         if (!status) {
-                            TRACE("str", tout << "concat-len check asserted an axiom on " << mk_pp(e_it->get_owner(), m) << std::endl;);
+                            TRACE("str", tout << "concat-len check asserted an axiom on " << mk_pp(e_it->get_expr(), m) << std::endl;);
                             found_inconsistency = true;
                         }
                         e_it = e_it->get_next();
@@ -8545,8 +8263,8 @@ namespace smt {
                     enode * e1 = e;
                     enode * e2 = e1->get_next();
                     if (e1 != e2) {
-                        TRACE("str", tout << "deferred new_eq_check() over EQC of " << mk_pp(e1->get_owner(), m) << " and " << mk_pp(e2->get_owner(), m) << std::endl;);
-                        bool result = new_eq_check(e1->get_owner(), e2->get_owner());
+                        TRACE("str", tout << "deferred new_eq_check() over EQC of " << mk_pp(e1->get_expr(), m) << " and " << mk_pp(e2->get_expr(), m) << std::endl;);
+                        bool result = new_eq_check(e1->get_expr(), e2->get_expr());
                         if (!result) {
                             TRACE("str", tout << "new_eq_check found inconsistencies" << std::endl;);
                             found_inconsistency = true;
@@ -8566,9 +8284,8 @@ namespace smt {
         // run dependence analysis to find free string variables
         std::map<expr*, int> varAppearInAssign;
         std::map<expr*, int> freeVar_map;
-        std::map<expr*, std::set<expr*> > unrollGroup_map;
         std::map<expr*, std::map<expr*, int> > var_eq_concat_map;
-        int conflictInDep = ctx_dep_analysis(varAppearInAssign, freeVar_map, unrollGroup_map, var_eq_concat_map);
+        int conflictInDep = ctx_dep_analysis(varAppearInAssign, freeVar_map, var_eq_concat_map);
         if (conflictInDep == -1) {
             m_stats.m_solved_by = 2;
             return FC_DONE;
@@ -8576,12 +8293,10 @@ namespace smt {
 
         // enhancement: improved backpropagation of string constants into var=concat terms
         bool backpropagation_occurred = false;
-        for (std::map<expr*, std::map<expr*, int> >::iterator veqc_map_it = var_eq_concat_map.begin();
-             veqc_map_it != var_eq_concat_map.end(); ++veqc_map_it) {
-            expr * var = veqc_map_it->first;
-            for (std::map<expr*, int>::iterator concat_map_it = veqc_map_it->second.begin();
-                 concat_map_it != veqc_map_it->second.end(); ++concat_map_it) {
-                app * concat = to_app(concat_map_it->first);
+        for (auto const &veqc_map_it : var_eq_concat_map) {
+            expr * var = veqc_map_it.first;
+            for (auto const &concat_map_it : veqc_map_it.second) {
+                app * concat = to_app(concat_map_it.first);
                 expr * concat_lhs = concat->get_arg(0);
                 expr * concat_rhs = concat->get_arg(1);
                 // If the concat LHS and RHS both have a string constant in their EQC,
@@ -8652,24 +8367,18 @@ namespace smt {
         expr_ref_vector free_variables(m);
         std::set<expr*> unused_internal_variables;
         { // Z3str2 free variables check
-            std::map<expr*, int>::iterator itor = varAppearInAssign.begin();
-            for (; itor != varAppearInAssign.end(); ++itor) {
-                /*
-                  std::string vName = std::string(Z3_ast_to_string(ctx, itor->first));
-                  if (vName.length() >= 3 && vName.substr(0, 3) == "$$_")
-                  continue;
-                */
-                if (internal_variable_set.find(itor->first) != internal_variable_set.end()) {
+            for (auto const &itor : varAppearInAssign) {
+                if (internal_variable_set.find(itor.first) != internal_variable_set.end()) {
                     // this can be ignored, I think
-                    TRACE("str", tout << "free internal variable " << mk_pp(itor->first, m) << " ignored" << std::endl;);
+                    TRACE("str", tout << "free internal variable " << mk_pp(itor.first, m) << " ignored" << std::endl;);
                     continue;
                 }
                 bool hasEqcValue = false;
-                get_eqc_value(itor->first, hasEqcValue);
+                get_eqc_value(itor.first, hasEqcValue);
                 if (!hasEqcValue) {
-                    TRACE("str", tout << "found free variable " << mk_pp(itor->first, m) << std::endl;);
+                    TRACE("str", tout << "found free variable " << mk_pp(itor.first, m) << std::endl;);
                     needToAssignFreeVars = true;
-                    free_variables.push_back(itor->first);
+                    free_variables.push_back(itor.first);
                     // break;
                 } else {
                     // debug
@@ -8694,8 +8403,6 @@ namespace smt {
                     if (axiomAdd) {
                         addedStrIntAxioms = true;
                     }
-                } else {
-                    UNREACHABLE();
                 }
             }
             if (addedStrIntAxioms) {
@@ -8755,8 +8462,7 @@ namespace smt {
                     return FC_DONE;
                 } else {
                     TRACE("str", tout << "Assigning decoy values to free internal variables." << std::endl;);
-                    for (std::set<expr*>::iterator it = unused_internal_variables.begin(); it != unused_internal_variables.end(); ++it) {
-                        expr * var = *it;
+                    for (auto const &var : unused_internal_variables) {
                         expr_ref assignment(m.mk_eq(var, mk_string("**unused**")), m);
                         assert_axiom(assignment);
                     }
@@ -8777,96 +8483,15 @@ namespace smt {
                }
                );
 
-        // -----------------------------------------------------------
-        // variables in freeVar are those not bounded by Concats
-        // classify variables in freeVarMap:
-        // (1) freeVar = unroll(r1, t1)
-        // (2) vars are not bounded by either concat or unroll
-        // -----------------------------------------------------------
-        std::map<expr*, std::set<expr*> > fv_unrolls_map;
-
-        // erase var bounded by an unroll function from freeVar_map
-        for (std::map<expr*, std::set<expr*> >::iterator fvIt3 = fv_unrolls_map.begin();
-             fvIt3 != fv_unrolls_map.end(); fvIt3++) {
-            expr * var = fvIt3->first;
-            TRACE("str", tout << "erase free variable " << mk_pp(var, m) << " from freeVar_map, it is bounded by an Unroll" << std::endl;);
-            freeVar_map.erase(var);
-        }
-
-        // collect the case:
-        //   * Concat(X, Y) = unroll(r1, t1) /\ Concat(X, Y) = unroll(r2, t2)
-        //     concatEqUnrollsMap[Concat(X, Y)] = {unroll(r1, t1), unroll(r2, t2)}
-
-        std::map<expr*, std::set<expr*> > concatEqUnrollsMap;
-        for (std::map<expr*, std::set<expr*> >::iterator urItor = unrollGroup_map.begin();
-             urItor != unrollGroup_map.end(); urItor++) {
-            expr * unroll = urItor->first;
-            expr * curr = unroll;
-            do {
-                if (u.str.is_concat(to_app(curr))) {
-                    concatEqUnrollsMap[curr].insert(unroll);
-                    concatEqUnrollsMap[curr].insert(unrollGroup_map[unroll].begin(), unrollGroup_map[unroll].end());
-                }
-                enode * e_curr = ctx.get_enode(curr);
-                curr = e_curr->get_next()->get_owner();
-                // curr = get_eqc_next(curr);
-            } while (curr != unroll);
-        }
-
-        std::map<expr*, std::set<expr*> > concatFreeArgsEqUnrollsMap;
-        std::set<expr*> fvUnrollSet;
-        for (std::map<expr*, std::set<expr*> >::iterator concatItor = concatEqUnrollsMap.begin();
-             concatItor != concatEqUnrollsMap.end(); concatItor++) {
-            expr * concat = concatItor->first;
-            expr * concatArg1 = to_app(concat)->get_arg(0);
-            expr * concatArg2 = to_app(concat)->get_arg(1);
-            bool arg1Bounded = false;
-            bool arg2Bounded = false;
-            // arg1
-            if (variable_set.find(concatArg1) != variable_set.end()) {
-                if (freeVar_map.find(concatArg1) == freeVar_map.end()) {
-                    arg1Bounded = true;
-                } else {
-                    fvUnrollSet.insert(concatArg1);
-                }
-            } else if (u.str.is_concat(to_app(concatArg1))) {
-                if (concatEqUnrollsMap.find(concatArg1) == concatEqUnrollsMap.end()) {
-                    arg1Bounded = true;
-                }
-            }
-            // arg2
-            if (variable_set.find(concatArg2) != variable_set.end()) {
-                if (freeVar_map.find(concatArg2) == freeVar_map.end()) {
-                    arg2Bounded = true;
-                } else {
-                    fvUnrollSet.insert(concatArg2);
-                }
-            } else if (u.str.is_concat(to_app(concatArg2))) {
-                if (concatEqUnrollsMap.find(concatArg2) == concatEqUnrollsMap.end()) {
-                    arg2Bounded = true;
-                }
-            }
-            if (!arg1Bounded && !arg2Bounded) {
-                concatFreeArgsEqUnrollsMap[concat].insert(
-                    concatEqUnrollsMap[concat].begin(),
-                    concatEqUnrollsMap[concat].end());
-            }
-        }
-        for (std::set<expr*>::iterator vItor = fvUnrollSet.begin(); vItor != fvUnrollSet.end(); vItor++) {
-            TRACE("str", tout << "remove " << mk_pp(*vItor, m) << " from freeVar_map" << std::endl;);
-            freeVar_map.erase(*vItor);
-        }
-
         // Assign free variables
-        std::set<expr*> fSimpUnroll;
 
         {
             TRACE("str", tout << "free var map (#" << freeVar_map.size() << "):" << std::endl;
-                  for (std::map<expr*, int>::iterator freeVarItor1 = freeVar_map.begin(); freeVarItor1 != freeVar_map.end(); freeVarItor1++) {
-                      expr * freeVar = freeVarItor1->first;
+                  for (auto const &freeVarItor1 : freeVar_map) {
+                      expr * freeVar = freeVarItor1.first;
                       rational lenValue;
                       bool lenValue_exists = get_len_value(freeVar, lenValue);
-                      tout << mk_pp(freeVar, m) << " [depCnt = " << freeVarItor1->second << ", length = "
+                      tout << mk_pp(freeVar, m) << " [depCnt = " << freeVarItor1.second << ", length = "
                            << (lenValue_exists ? lenValue.to_string() : "?")
                            << "]" << std::endl;
                   }
@@ -9020,11 +8645,11 @@ namespace smt {
     }
 
     model_value_proc * theory_str::mk_value(enode * n, model_generator & mg) {
-        TRACE("str", tout << "mk_value for: " << mk_ismt2_pp(n->get_owner(), get_manager()) <<
-              " (sort " << mk_ismt2_pp(get_manager().get_sort(n->get_owner()), get_manager()) << ")" << std::endl;);
+        TRACE("str", tout << "mk_value for: " << mk_ismt2_pp(n->get_expr(), get_manager()) <<
+              " (sort " << mk_ismt2_pp(n->get_expr()->get_sort(), get_manager()) << ")" << std::endl;);
         ast_manager & m = get_manager();
         app_ref owner(m);
-        owner = n->get_owner();
+        owner = n->get_expr();
 
         // If the owner is not internalized, it doesn't have an enode associated.
         SASSERT(ctx.e_internalized(owner));
@@ -9252,10 +8877,10 @@ namespace smt {
             diseqs.push_back(extra_right_cond);
         }
         if (extra_deps.size() > 0) {
-            diseqs.push_back(m.mk_and(extra_deps.size(), extra_deps.c_ptr()));
+            diseqs.push_back(m.mk_and(extra_deps.size(), extra_deps.data()));
             TRACE("str", tout << "extra_deps " << mk_pp(diseqs.get(diseqs.size()-1), m) << std::endl;);
         }
-        expr* final_diseq = m.mk_and(diseqs.size(), diseqs.c_ptr());
+        expr* final_diseq = m.mk_and(diseqs.size(), diseqs.data());
         TRACE("str", tout << "learning not " << mk_pp(final_diseq, m) << std::endl;);
         return final_diseq;
     }
@@ -9276,16 +8901,14 @@ namespace smt {
     }
 
     bool theory_str::flatten(expr* ex, expr_ref_vector & flat) {
-        ast_manager & m = get_manager();
-        // TRACE("str", tout << "ex " << mk_pp(ex, m)  << " target " << target << " length " << length << " sublen " << mk_pp(sublen, m) << " extra " << mk_pp(extra, m) << std::endl;);
 
-        sort * ex_sort = m.get_sort(ex);
+        sort * ex_sort = ex->get_sort();
         sort * str_sort = u.str.mk_string_sort();
 
         if (ex_sort == str_sort) {
             if (is_app(ex)) {
                 app * ap = to_app(ex);
-                if(u.str.is_concat(ap)){
+                if(u.str.is_concat(ap)) {
                     unsigned num_args = ap->get_num_args();
                     bool success = true;
                     for (unsigned i = 0; i < num_args; i++) {

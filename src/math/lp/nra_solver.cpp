@@ -120,13 +120,13 @@ struct solver::imp {
         for (auto v : m.vars()) {
             vars.push_back(lp2nl(v));
         }
-        polynomial::monomial_ref m1(pm.mk_monomial(vars.size(), vars.c_ptr()), pm);
+        polynomial::monomial_ref m1(pm.mk_monomial(vars.size(), vars.data()), pm);
         polynomial::monomial_ref m2(pm.mk_monomial(lp2nl(m.var()), 1), pm);
         polynomial::monomial * mls[2] = { m1, m2 };
         polynomial::scoped_numeral_vector coeffs(pm.m());
         coeffs.push_back(mpz(1));
         coeffs.push_back(mpz(-1));
-        polynomial::polynomial_ref p(pm.mk_polynomial(2, coeffs.c_ptr(), mls),  pm);
+        polynomial::polynomial_ref p(pm.mk_polynomial(2, coeffs.data(), mls),  pm);
         polynomial::polynomial* ps[1] = { p };
         bool even[1] = { false };
         nlsat::literal lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, even);
@@ -151,7 +151,7 @@ struct solver::imp {
             coeffs.push_back(den * kv.first);
         }
         rhs *= den;
-        polynomial::polynomial_ref p(pm.mk_linear(sz, coeffs.c_ptr(), vars.c_ptr(), -rhs), pm);
+        polynomial::polynomial_ref p(pm.mk_linear(sz, coeffs.data(), vars.data(), -rhs), pm);
         polynomial::polynomial* ps[1] = { p };
         bool is_even[1] = { false };
         nlsat::literal lit;
@@ -204,7 +204,7 @@ struct solver::imp {
         // variable representing the term.
         svector<polynomial::var> vars;
         rational den(1);
-        for (const auto& kv : t) {
+        for (lp::lar_term::ival kv : t) {
             vars.push_back(lp2nl(kv.column().index()));
             den = lcm(den, denominator(kv.coeff()));
         }
@@ -216,7 +216,7 @@ struct solver::imp {
         }
         coeffs.push_back(-den);
         polynomial::manager& pm = m_nlsat->pm();
-        polynomial::polynomial_ref p(pm.mk_linear(coeffs.size(), coeffs.c_ptr(), vars.c_ptr(), rational(0)), pm);
+        polynomial::polynomial_ref p(pm.mk_linear(coeffs.size(), coeffs.data(), vars.data(), rational(0)), pm);
         polynomial::polynomial* ps[1] = { p };
         bool is_even[1] = { false };
         nlsat::literal lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, is_even);                
@@ -234,6 +234,11 @@ struct solver::imp {
     nlsat::anum_manager& am() {
         return m_nlsat->am();
     }
+
+    void updt_params(params_ref& p) {
+        m_params.append(p);
+    }
+
 
     std::ostream& display(std::ostream& out) const {
         for (auto m : m_nla_core.emons()) {
@@ -274,6 +279,10 @@ nlsat::anum const& solver::value(lp::var_index v) const {
 
 nlsat::anum_manager& solver::am() {
     return m_imp->am();
+}
+
+void solver::updt_params(params_ref& p) {
+    m_imp->updt_params(p);
 }
 
 }

@@ -23,13 +23,7 @@ namespace arith {
 
     
     std::ostream& solver::display(std::ostream& out) const { 
-            out << lp().constraints();
-            lp().print_terms(out);
-            // the tableau
-            lp().pp(out).print();
-            for (unsigned j = 0; j < lp().number_of_vars(); j++) {
-                lp().print_column_info(j, out);
-            }
+        lp().display(out);
         
         if (m_nla) {
             m_nla->display(out);
@@ -56,7 +50,7 @@ namespace arith {
                     scoped_anum an(m_nla->am());
                     m_nla->am().display(out << " = ", nl_value(v, an));
                 }
-                else if (can_get_value(v))  
+                else if (can_get_value(v) && !m_solver->has_changed_columns())  
                     out << " = " << get_value(v);
                 if (is_int(v)) 
                     out << ", int";
@@ -69,7 +63,7 @@ namespace arith {
     }
 
     std::ostream& solver::display_justification(std::ostream& out, sat::ext_justification_idx idx) const { 
-        return euf::th_propagation::from_index(idx).display(out);
+        return euf::th_explain::from_index(idx).display(out);
     }
 
     std::ostream& solver::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const { 

@@ -26,7 +26,6 @@ class recfun_rewriter {
     recfun::util  m_rec;
 public:
     recfun_rewriter(ast_manager& m): m(m), m_rec(m) {}
-    ~recfun_rewriter() {}
     
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
 

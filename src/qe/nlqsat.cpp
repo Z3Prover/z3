@@ -209,13 +209,13 @@ namespace qe {
             }
             
             void display_assumptions(std::ostream& out) {
-                m_solver.display(out << "assumptions: ", m_asms.size(), m_asms.c_ptr());
+                m_solver.display(out << "assumptions: ", m_asms.size(), m_asms.data());
                 out << "\n";
             }
             
             void display_preds(std::ostream& out) {
                 for (unsigned i = 0; i < m_preds.size(); ++i) {                
-                    m_solver.display(out << i << ": ", m_preds[i]->size(), m_preds[i]->c_ptr());
+                    m_solver.display(out << i << ": ", m_preds[i]->size(), m_preds[i]->data());
                     out << "\n";
                 }
             }
@@ -361,8 +361,8 @@ namespace qe {
                 out << "(declare-const x" << kv.m_key << " Real)\n";
             }
             s.m_solver.display(out << "(assert (not (exists ((", v) << " Real)) \n";
-            s.m_solver.display_smt2(out << "(and ", r1.size(), r1.c_ptr()) << "))))\n";
-            s.m_solver.display_smt2(out << "(assert (and ", r2.size(), r2.c_ptr()); out << "))\n";
+            s.m_solver.display_smt2(out << "(and ", r1.size(), r1.data()) << "))))\n";
+            s.m_solver.display_smt2(out << "(assert (and ", r2.size(), r2.data()); out << "))\n";
             out << "(check-sat)\n(reset)\n";            
         }
 
@@ -380,13 +380,13 @@ namespace qe {
                     result.push_back(lit);
                 }
             }
-            TRACE("qe", s.m_solver.display(tout, result.size(), result.c_ptr()); tout << "\n";);
+            TRACE("qe", s.m_solver.display(tout, result.size(), result.data()); tout << "\n";);
             // project quantified real variables.
             // They are sorted by size, so we project the largest variables first to avoid 
             // renaming variables. 
             for (unsigned i = vars.size(); i-- > 0;) {
                 new_result.reset();
-                ex.project(vars[i], result.size(), result.c_ptr(), new_result);
+                ex.project(vars[i], result.size(), result.data(), new_result);
                 TRACE("qe", display_project(tout, vars[i], result, new_result););                
                 TRACE("qe", display_project(std::cout, vars[i], result, new_result););
                 result.swap(new_result);
@@ -413,12 +413,12 @@ namespace qe {
                 cl.push_back(~s.m_solver.mk_true());
             }
             SASSERT(!cl.empty());
-            nlsat::literal_vector lits(cl.size(), cl.c_ptr());
-            s.m_solver.mk_clause(lits.size(), lits.c_ptr());
+            nlsat::literal_vector lits(cl.size(), cl.data());
+            s.m_solver.mk_clause(lits.size(), lits.data());
         }
 
         max_level get_level(clause const& cl) {
-            return get_level(cl.size(), cl.c_ptr());
+            return get_level(cl.size(), cl.data());
         }
 
         max_level get_level(unsigned n, nlsat::literal const* ls) {
@@ -857,7 +857,7 @@ namespace qe {
             ptr_vector<expr> fmls;
             expr_ref fml(m);
             in->get_formulas(fmls);
-            fml = mk_and(m, fmls.size(), fmls.c_ptr());
+            fml = mk_and(m, fmls.size(), fmls.data());
             if (m_mode == elim_t) {
                 fml = m.mk_not(fml);
             }                         

@@ -126,7 +126,7 @@ static bool parse_dimacs_core(Buffer & in, std::ostream& err, sat::solver & solv
             }
             else {
                 read_clause(in, err, solver, lits);
-                solver.mk_clause(lits.size(), lits.c_ptr());
+                solver.mk_clause(lits.size(), lits.data());
             }
         }
     }
@@ -165,6 +165,10 @@ namespace dimacs {
             return out << "f " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
         case drat_record::tag_t::is_bool_def:
             return out << "b " << r.m_node_id << " " << r.m_args << "0\n";
+        case drat_record::tag_t::is_var:
+            return out << "v " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
+        case drat_record::tag_t::is_quantifier:
+            return out << "q " << r.m_node_id << " " << r.m_name << " " << r.m_args << "0\n";
         }
         return out;
     }
@@ -176,10 +180,36 @@ namespace dimacs {
             ++in;
         }
         m_buffer.push_back(0);
-        return m_buffer.c_ptr();
+        return m_buffer.data();
+    }
+
+    char const* drat_parser::parse_quoted_symbol() {
+        SASSERT(*in == '|');
+        m_buffer.reset();
+        m_buffer.push_back(*in);
+        bool escape = false;
+        ++in;
+        while (true) {
+            auto c = *in;
+            if (c == EOF) 
+                throw lex_error();
+            else if (c == '\n') 
+                ;
+            else if (c == '|' && !escape) {
+                ++in;
+                m_buffer.push_back(c);
+                m_buffer.push_back(0);
+                return m_buffer.data();
+            }
+            escape = (c == '\\');
+            m_buffer.push_back(c);
+            ++in;
+        }
     }
 
     char const* drat_parser::parse_sexpr() {
+        if (*in == '|')
+            return parse_quoted_symbol();
         m_buffer.reset();
         unsigned lp = 0;
         while (!is_whitespace(in) || lp > 0) {
@@ -195,7 +225,7 @@ namespace dimacs {
             ++in;
         }
         m_buffer.push_back(0);
-        return m_buffer.c_ptr();        
+        return m_buffer.data();        
     }
 
     int drat_parser::read_theory_id() {
@@ -230,6 +260,23 @@ namespace dimacs {
                 m_record.m_args.push_back(n);
             }
         };
+        auto parse_var = [&]() {
+            ++in;
+            skip_whitespace(in);
+            n = parse_int(in, err);                    
+            skip_whitespace(in);
+            m_record.m_name = parse_sexpr();
+            m_record.m_tag = drat_record::tag_t::is_var;
+            m_record.m_node_id = n;
+            m_record.m_args.reset();
+            n = parse_int(in, err);
+            if (n < 0)
+                throw lex_error();
+            m_record.m_args.push_back(n);
+            n = parse_int(in, err);
+            if (n != 0)
+                throw lex_error();
+        };
         try {
         loop:
             skip_whitespace(in);
@@ -263,6 +310,12 @@ namespace dimacs {
             case 'e':
                 // parse expression definition
                 parse_ast(drat_record::tag_t::is_node);
+                break;
+            case 'v':
+                parse_var();
+                break;
+            case 'q':
+                parse_ast(drat_record::tag_t::is_quantifier);
                 break;
             case 'f':
                 // parse function declaration

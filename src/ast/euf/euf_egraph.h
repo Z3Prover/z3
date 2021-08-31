@@ -74,7 +74,7 @@ namespace euf {
     
     class egraph {        
 
-        typedef ptr_vector<trail<egraph> > trail_stack;
+        typedef ptr_vector<trail> trail_stack;
 
         struct to_merge {
             enode* a, * b;
@@ -102,9 +102,13 @@ namespace euf {
             struct new_lits_qhead {};
             struct inconsistent {};
             struct value_assignment {};
-            enum class tag_t { is_set_parent, is_add_node, is_toggle_merge, 
-                         is_add_th_var, is_replace_th_var, is_new_lit, is_new_th_eq,
-                         is_new_th_eq_qhead, is_new_lits_qhead, is_inconsistent, is_value_assignment };
+            struct lbl_hash {};
+            struct lbl_set {};
+            struct update_children {};
+            enum class tag_t { is_set_parent, is_add_node, is_toggle_merge, is_update_children,
+                    is_add_th_var, is_replace_th_var, is_new_lit, is_new_th_eq,
+                    is_lbl_hash, is_new_th_eq_qhead, is_new_lits_qhead, 
+                    is_inconsistent, is_value_assignment, is_lbl_set };
             tag_t  tag;
             enode* r1;
             enode* n1;
@@ -116,6 +120,8 @@ namespace euf {
                 };
                 unsigned qhead;
                 bool     m_inconsistent;
+                signed char m_lbl_hash;
+                unsigned long long m_lbls;
             };
             update_record(enode* r1, enode* n1, unsigned r2_num_parents) :
                 tag(tag_t::is_set_parent), r1(r1), n1(n1), r2_num_parents(r2_num_parents) {}
@@ -139,6 +145,12 @@ namespace euf {
                 tag(tag_t::is_inconsistent), r1(nullptr), n1(nullptr), m_inconsistent(inc) {}
             update_record(enode* n, value_assignment) :
                 tag(tag_t::is_value_assignment), r1(n), n1(nullptr), qhead(0) {}
+            update_record(enode* n, lbl_hash):
+                tag(tag_t::is_lbl_hash), r1(n), n1(nullptr), m_lbl_hash(n->m_lbl_hash) {}
+            update_record(enode* n, lbl_set):
+                tag(tag_t::is_lbl_set), r1(n), n1(nullptr), m_lbls(n->m_lbls.get()) {}    
+            update_record(enode* n, update_children) :
+                tag(tag_t::is_update_children), r1(n), n1(nullptr), r2_num_parents(UINT_MAX) {}
         };
         ast_manager&           m;
         svector<to_merge>      m_to_merge;
@@ -147,24 +159,29 @@ namespace euf {
         svector<update_record> m_updates;
         unsigned_vector        m_scopes;
         enode_vector           m_expr2enode;
-        enode*                 m_tmp_eq { nullptr };
+        enode*                 m_tmp_eq = nullptr;
+        enode*                 m_tmp_node = nullptr;
+        unsigned               m_tmp_node_capacity = 0;
+        tmp_app                m_tmp_app;
         enode_vector           m_nodes;
         expr_ref_vector        m_exprs;
         vector<enode_vector>   m_decl2enodes;
         enode_vector           m_empty_enodes;
-        unsigned               m_num_scopes { 0 };
-        bool                   m_inconsistent { false };
-        enode                  *m_n1 { nullptr };
-        enode                  *m_n2 { nullptr };
+        unsigned               m_num_scopes = 0;
+        bool                   m_inconsistent = false;
+        enode                  *m_n1 = nullptr;
+        enode                  *m_n2 = nullptr;
         justification          m_justification;
-        unsigned               m_new_lits_qhead { 0 };
-        unsigned               m_new_th_eqs_qhead { 0 };
+        unsigned               m_new_lits_qhead = 0;
+        unsigned               m_new_th_eqs_qhead = 0;
         svector<enode_bool_pair>  m_new_lits;
         svector<th_eq>         m_new_th_eqs;
         bool_vector            m_th_propagates_diseqs;
         enode_vector           m_todo;
         stats                  m_stats;
-        bool                   m_uses_congruence { false };
+        bool                   m_uses_congruence = false;
+        std::function<void(enode*,enode*)>     m_on_merge;
+        std::function<void(enode*)>            m_on_make;
         std::function<void(expr*,expr*,expr*)> m_used_eq;
         std::function<void(app*,app*)>         m_used_cc;  
         std::function<void(std::ostream&, void*)>   m_display_justification;
@@ -197,7 +214,7 @@ namespace euf {
         void push_to_lca(enode* a, enode* lca);
         void push_congruence(enode* n1, enode* n2, bool commutative);
         void push_todo(enode* n);
-        void toggle_merge_enabled(enode* n);
+        void toggle_merge_enabled(enode* n, bool backtracking);
 
         enode_bool_pair insert_table(enode* p);
         void erase_from_table(enode* p);
@@ -218,9 +235,10 @@ namespace euf {
         egraph(ast_manager& m);
         ~egraph();
         enode* find(expr* f) const { return m_expr2enode.get(f->get_id(), nullptr); }
+        enode* find(expr* f, unsigned n, enode* const* args);
         enode* mk(expr* f, unsigned generation, unsigned n, enode *const* args);
         enode_vector const& enodes_of(func_decl* f);
-        void push() { ++m_num_scopes; }
+        void push() { if (!m_to_merge.empty()) propagate(); ++m_num_scopes; }
         void pop(unsigned num_scopes);
 
         /**
@@ -247,6 +265,8 @@ namespace euf {
         */
         bool are_diseq(enode* a, enode* b) const;
 
+        enode* get_enode_eq_to(func_decl* f, unsigned num_args, enode* const* args);
+
         /**
            \brief Maintain and update cursor into propagated consequences.
            The result of get_literal() is a pair (n, is_eq)
@@ -261,12 +281,17 @@ namespace euf {
         void       next_literal() { force_push();  SASSERT(m_new_lits_qhead < m_new_lits.size()); m_new_lits_qhead++; }
         void       next_th_eq() { force_push(); SASSERT(m_new_th_eqs_qhead < m_new_th_eqs.size()); m_new_th_eqs_qhead++; }
 
+        void set_lbl_hash(enode* n);
+
+
         void add_th_var(enode* n, theory_var v, theory_id id);
         void set_th_propagates_diseqs(theory_id id);
         void set_merge_enabled(enode* n, bool enable_merge);
         void set_value(enode* n, lbool value);
         void set_bool_var(enode* n, unsigned v) { n->set_bool_var(v); }
 
+        void set_on_merge(std::function<void(enode* root,enode* other)>& on_merge) { m_on_merge = on_merge; }
+        void set_on_make(std::function<void(enode* n)>& on_make) { m_on_make = on_make; }
         void set_used_eq(std::function<void(expr*,expr*,expr*)>& used_eq) { m_used_eq = used_eq; }
         void set_used_cc(std::function<void(app*,app*)>& used_cc) { m_used_cc = used_cc; }
         void set_display_justification(std::function<void (std::ostream&, void*)> & d) { m_display_justification = d; }
@@ -278,7 +303,12 @@ namespace euf {
         void explain(ptr_vector<T>& justifications);
         template <typename T>
         void explain_eq(ptr_vector<T>& justifications, enode* a, enode* b);
+        template <typename T>
+        unsigned explain_diseq(ptr_vector<T>& justifications, enode* a, enode* b);
         enode_vector const& nodes() const { return m_nodes; }
+
+        ast_manager& get_manager() { return m; }
+
         void invariant();
         void copy_from(egraph const& src, std::function<void*(void*)>& copy_justification);
         struct e_pp {
@@ -292,7 +322,7 @@ namespace euf {
             egraph const& g;
             enode* n;
             b_pp(egraph const& g, enode* n) : g(g), n(n) {}
-            std::ostream& display(std::ostream& out) const { return out << n->get_expr_id() << ": " << mk_bounded_pp(n->get_expr(), g.m); }
+            std::ostream& display(std::ostream& out) const { return n ? (out << n->get_expr_id() << ": " << mk_bounded_pp(n->get_expr(), g.m)) : out << "null"; }
         };
         b_pp bpp(enode* n) const { return b_pp(*this, n); }
         std::ostream& display(std::ostream& out) const; 
@@ -300,6 +330,7 @@ namespace euf {
         void collect_statistics(statistics& st) const;
 
         unsigned num_scopes() const { return m_scopes.size() + m_num_scopes; }
+        unsigned num_nodes() const { return m_nodes.size(); }
     };
 
     inline std::ostream& operator<<(std::ostream& out, egraph const& g) { return g.display(out); }

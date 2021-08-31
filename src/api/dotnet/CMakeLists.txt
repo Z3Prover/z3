@@ -55,6 +55,7 @@ set(Z3_DOTNET_ASSEMBLY_SOURCES_IN_SRC_TREE
     BitVecSort.cs
     BoolExpr.cs
     BoolSort.cs
+    CharSort.cs
     Constructor.cs
     ConstructorList.cs
     Context.cs
@@ -140,7 +141,7 @@ endforeach()
 # Note, nuget package file names do not have the ${VER_REV} part.
 
 set(Z3_DOTNET_NUPKG_VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_BUILD}")
-if("${TARGET_ARCHITECTURE}" STREQUAL "i686")
+if(TARGET_ARCHITECTURE STREQUAL "i686")
     set(Z3_DOTNET_PLATFORM "x86")
 else()
     set(Z3_DOTNET_PLATFORM "AnyCPU")

@@ -928,7 +928,7 @@ static void tst_substitute(polynomial_ref const & p,
     std::cout << "---------------\n";
     std::cout << "p: " << p << std::endl;
     polynomial_ref r(p.m());
-    r = p.m().substitute(p, 2, xs, vs.c_ptr());
+    r = p.m().substitute(p, 2, xs, vs.data());
     std::cout << "r: " << r << std::endl;
     std::cout << "expected: " << expected << std::endl;
     ENSURE(eq(r, expected));
@@ -969,7 +969,7 @@ static void tst_qsubstitute(polynomial_ref const & p,
     std::cout << "---------------\n";
     std::cout << "p: " << p << std::endl;
     polynomial_ref r(p.m());
-    r = p.m().substitute(p, 2, xs, vs.c_ptr());
+    r = p.m().substitute(p, 2, xs, vs.data());
     std::cout << "r: " << r << std::endl;
     std::cout << "expected (modulo a constant): " << expected << std::endl;
     ENSURE(eq(r, normalize(expected)));
@@ -1666,7 +1666,7 @@ static void tst_newton_interpolation() {
     polynomial_ref r(m);
     {
         polynomial::scoped_set_zp setZ97(m, 97);
-        m.newton_interpolation(0, 2, ins.c_ptr(), outs, r);
+        m.newton_interpolation(0, 2, ins.data(), outs, r);
     }
     std::cout << "interpolation result: " << r << "\n";
     ENSURE(m.eq((x^2)*y + 5*x*y + 41*x - 9*y - 21, r));
@@ -1721,17 +1721,17 @@ void tst_linear_solver() {
 
     as.reset();
     as.push_back(mpq(2));  as.push_back(mpq(1));  as.push_back(mpq(-1)); qm.set(b, 8);
-    solver.add(0, as.c_ptr(), b);
+    solver.add(0, as.data(), b);
 
     as.reset();
     as.push_back(mpq(-3)); as.push_back(mpq(-1)); as.push_back(mpq(2));  qm.set(b, -11);
-    solver.add(1, as.c_ptr(), b);
+    solver.add(1, as.data(), b);
 
     as.reset();
     as.push_back(mpq(-2)); as.push_back(mpq(1));  as.push_back(mpq(2));  qm.set(b, -3);
-    solver.add(2, as.c_ptr(), b);
+    solver.add(2, as.data(), b);
 
-    VERIFY(solver.solve(xs.c_ptr()));
+    VERIFY(solver.solve(xs.data()));
     ENSURE(qm.eq(xs[0], mpq(2)));
     ENSURE(qm.eq(xs[1], mpq(3)));
     ENSURE(qm.eq(xs[2], mpq(-1)));

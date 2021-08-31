@@ -21,7 +21,6 @@ Notes:
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"
 #include "tactic/core/elim_uncnstr_tactic.h"
-#include "smt/tactic/smt_tactic.h"
 #include "tactic/bv/bit_blaster_tactic.h"
 #include "tactic/bv/max_bv_sharing_tactic.h"
 #include "sat/tactic/sat_tactic.h"
@@ -30,6 +29,7 @@ Notes:
 #include "tactic/arith/card2bv_tactic.h"
 #include "tactic/core/ctx_simplify_tactic.h"
 #include "tactic/core/cofactor_term_ite_tactic.h"
+#include "tactic/smtlogics/smt_tactic.h"
 #include "nlsat/tactic/qfnra_nlsat_tactic.h"
 
 static tactic * mk_qfnia_bv_solver(ast_manager & m, params_ref const & p_ref) {

@@ -18,6 +18,7 @@ Notes:
 
 --*/
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/ast_util.h"
 #include "ast/occurs.h"
@@ -31,9 +32,10 @@ Notes:
 generic_model_converter::~generic_model_converter() {
 }
 
+
 void generic_model_converter::add(func_decl * d, expr* e) {
     VERIFY(e);
-    VERIFY(d->get_range() == m.get_sort(e));
+    VERIFY(d->get_range() == e->get_sort());
     m_first_idx.insert_if_not_there(d, m_entries.size());
     m_entries.push_back(entry(d, e, m, ADD));
 }
@@ -135,68 +137,6 @@ void generic_model_converter::set_env(ast_pp_util* visitor) {
             if (e.m_def) visitor->coll.visit(e.m_def);
         }
     }
-}
-
-struct min_app_idx_proc {
-    unsigned m_min;
-    obj_map<func_decl, unsigned>& m_idxs;
-    min_app_idx_proc(obj_map<func_decl, unsigned>& idxs) : m_min(UINT_MAX), m_idxs(idxs) {}
-    void operator()(app * n) {
-        unsigned idx;
-        if (m_idxs.find(n->get_decl(), idx)) {
-            m_min = std::min(m_min, idx);
-        }
-    }
-    void operator()(var * n) {}
-    void operator()(quantifier * n) {}
-};
-
-void generic_model_converter::operator()(expr_ref& fml) {
-    min_app_idx_proc min_proc(m_first_idx);
-    for_each_expr(min_proc, fml);
-    unsigned min_idx = min_proc.m_min;
-    if (min_idx == UINT_MAX) return;
-    expr_ref_vector fmls(m);
-    fmls.push_back(fml);
-    for (unsigned i = m_entries.size(); i-- > min_idx;) {
-        entry const& e = m_entries[i];
-        if (e.m_instruction != instruction::ADD) {
-            continue;
-        }
-        unsigned arity = e.m_f->get_arity();
-        if (arity == 0) {
-            fmls.push_back(simplify_def(e));
-        }
-        else {
-            expr_ref_vector args(m);
-            sort_ref_vector sorts(m);
-            svector<symbol> names;
-            for (unsigned i = 0; i < arity; ++i) {
-                sorts.push_back(e.m_f->get_domain(i));
-                names.push_back(symbol(i));
-                args.push_back(m.mk_var(i, sorts.back()));
-            }
-            // TBD: check if order is correct with respect to quantifier binding ordering
-            expr_ref lhs(m.mk_app(e.m_f, arity, args.c_ptr()), m);
-            expr_ref body(m.mk_eq(lhs, e.m_def), m);
-            fmls.push_back(m.mk_forall(arity, sorts.c_ptr(), names.c_ptr(), body));
-        }
-        if (m_first_idx[e.m_f] == i) {
-            m_first_idx.remove(e.m_f);
-        }
-    }
-    unsigned j = min_idx;
-    for (unsigned i = min_idx; i < m_entries.size(); ++i) {
-        entry& e = m_entries[i];
-        if (e.m_instruction == instruction::HIDE) {
-            if (i != j) {
-                m_entries[j] = e;
-            }
-            ++j;
-        }
-    }
-    m_entries.shrink(j);
-    fml = mk_and(fmls);
 }
 
 void generic_model_converter::get_units(obj_map<expr, bool>& units) {

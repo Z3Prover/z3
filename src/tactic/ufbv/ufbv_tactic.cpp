@@ -23,7 +23,7 @@ Notes:
 #include "tactic/core/distribute_forall_tactic.h"
 #include "tactic/core/der_tactic.h"
 #include "tactic/core/reduce_args_tactic.h"
-#include "smt/tactic/smt_tactic.h"
+#include "tactic/smtlogics/smt_tactic.h"
 #include "tactic/core/nnf_tactic.h"
 #include "tactic/ufbv/macro_finder_tactic.h"
 #include "tactic/ufbv/ufbv_rewriter_tactic.h"

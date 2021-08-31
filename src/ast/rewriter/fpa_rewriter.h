@@ -38,7 +38,6 @@ class fpa_rewriter {
 
 public:
     fpa_rewriter(ast_manager & m, params_ref const & p = params_ref());
-    ~fpa_rewriter();
 
     ast_manager & m() const { return m_util.m(); }
     family_id get_fid() const { return m_util.get_fid(); }

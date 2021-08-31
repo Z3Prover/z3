@@ -51,7 +51,7 @@ namespace sat {
                     s.m_ext->is_extended_binary(w.get_ext_constraint_idx(), r)) {
                     seen_idx.insert(w.get_ext_constraint_idx(), true);
                     for (unsigned i = 0; i < std::min(4u, r.size()); ++i) {
-                        shuffle<literal>(r.size(), r.c_ptr(), m_rand);
+                        shuffle<literal>(r.size(), r.data(), m_rand);
                         literal u = r[0];
                         for (unsigned j = 1; j < r.size(); ++j) {
                             literal v = ~r[j];
@@ -91,7 +91,7 @@ namespace sat {
 
     void big::done_adding_edges() {
         for (auto& edges : m_dag) {
-            shuffle<literal>(edges.size(), edges.c_ptr(), m_rand);
+            shuffle<literal>(edges.size(), edges.data(), m_rand);
         }
         init_dfs_num();
     }
@@ -128,7 +128,7 @@ namespace sat {
                 todo.push_back(pframe(null_literal, u));
             }
         }
-        shuffle<pframe>(todo.size(), todo.c_ptr(), m_rand);
+        shuffle<pframe>(todo.size(), todo.data(), m_rand);
         int dfs_num = 0;
         while (!todo.empty()) {
             literal u = todo.back().child();
@@ -166,13 +166,14 @@ namespace sat {
 
 
     bool big::in_del(literal u, literal v) const {
-        if (u.index() > v.index()) std::swap(u, v);
+        if (u.index() > v.index()) 
+            std::swap(u, v);
         return m_del_bin[u.index()].contains(v);
     }
 
     void big::add_del(literal u, literal v) {
-        if (u.index() > v.index()) std::swap(u, v);
-		
+        if (u.index() > v.index()) 
+            std::swap(u, v);		
         m_del_bin[u.index()].push_back(v);
     }
 
@@ -182,23 +183,23 @@ namespace sat {
         m_del_bin.reset();
         m_del_bin.reserve(s.m_watches.size());
         for (watch_list & wlist : s.m_watches) {
-            if (s.inconsistent()) break;
+            if (s.inconsistent()) 
+                break;
             literal u = to_literal(idx++);
-            watch_list::iterator it     = wlist.begin();
-            watch_list::iterator itprev = it;
-            watch_list::iterator end    = wlist.end();
-            for (; it != end; ++it) {
-                watched& w = *it;
+            unsigned j = 0, sz = wlist.size();            
+            for (unsigned i = 0; i < sz; ++i) {
+                watched& w = wlist[i];
                 if (learned() ? w.is_binary_learned_clause() : w.is_binary_clause()) {
                     literal v = w.get_literal();
                     if (u != get_parent(v) && ~u != get_parent(v) && safe_reach(u, v)) {
                         ++elim;
                         add_del(~u, v);
-                        if (s.get_config().m_drat) s.m_drat.del(~u, v);
+                        if (s.get_config().m_drat) 
+                            s.m_drat.del(~u, v);
                         s.m_mc.stackv().reset(); // TBD: brittle code
                         s.add_ate(~u, v);
                         if (find_binary_watch(wlist, ~v)) {
-                            IF_VERBOSE(10, verbose_stream() << "binary: " << ~u << "\n");
+                            IF_VERBOSE(20, verbose_stream() << "binary: " << ~u << "\n");
                             s.assign_unit(~u);
                         }
                         // could turn non-learned non-binary tautology into learned binary.
@@ -206,22 +207,24 @@ namespace sat {
                         continue;
                     }
                 }
-                *itprev = *it;
-                itprev++;
+                wlist[j++] = wlist[i];
             }
-            wlist.set_end(itprev);
+            wlist.shrink(j);
         }        
         s.propagate(false);
         return elim;
     }
 
     bool big::safe_reach(literal u, literal v) {
-        if (!reaches(u, v)) return false;
+        if (!reaches(u, v)) 
+            return false;
         while (u != v) {
             literal w = next(u, v);
-            if (in_del(~u, w)) {
+            if (in_del(~u, w)) 
                 return false;
-            }
+            // ~u is a unit. removing binary clause destroy's property
+            if (w == ~v)
+                return false;
             u = w;
         }
         return true;
@@ -267,12 +270,10 @@ namespace sat {
         for (auto& next : m_dag) {
             if (!next.empty()) {
                 out << to_literal(idx) << " : " << m_left[idx] << ":" << m_right[idx] << " -> " << next << "\n";
-#if 1
                 for (literal n : next) {
                     out << n << "[" << m_left[n.index()] << ":" << m_right[n.index()] << "] ";
                 }
                 out << "\n";
-#endif
             }
             ++idx;
         }

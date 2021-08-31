@@ -233,14 +233,10 @@ public:
    executed in different threads.
 */
 class arith_recognizers {
-protected:
-    family_id           m_afid;
 public:
-    arith_recognizers(family_id id):m_afid(id) {}
+    family_id get_family_id() const { return arith_family_id; }
 
-    family_id get_family_id() const { return m_afid; }
-
-    bool is_arith_expr(expr const * n) const { return is_app(n) && to_app(n)->get_family_id() == m_afid; }
+    bool is_arith_expr(expr const * n) const { return is_app(n) && to_app(n)->get_family_id() == arith_family_id; }
     bool is_irrational_algebraic_numeral(expr const * n) const;
     bool is_unsigned(expr const * n, unsigned& u) const { 
         rational val;
@@ -249,7 +245,7 @@ public:
     }
     bool is_numeral(expr const * n, rational & val, bool & is_int) const;
     bool is_numeral(expr const * n, rational & val) const { bool is_int; return is_numeral(n, val, is_int); }
-    bool is_numeral(expr const * n) const { return is_app_of(n, m_afid, OP_NUM); }
+    bool is_numeral(expr const * n) const { return is_app_of(n, arith_family_id, OP_NUM); }
     bool is_zero(expr const * n) const { rational val; return is_numeral(n, val) && val.is_zero(); }
     bool is_minus_one(expr * n) const { rational tmp; return is_numeral(n, tmp) && tmp.is_minus_one(); }
     // return true if \c n is a term of the form (* -1 r)
@@ -263,58 +259,58 @@ public:
 
     bool is_int_expr(expr const * e) const;
 
-    bool is_le(expr const * n) const { return is_app_of(n, m_afid, OP_LE); }
-    bool is_ge(expr const * n) const { return is_app_of(n, m_afid, OP_GE); }
-    bool is_lt(expr const * n) const { return is_app_of(n, m_afid, OP_LT); }
-    bool is_gt(expr const * n) const { return is_app_of(n, m_afid, OP_GT); }
-    bool is_le(func_decl const * n) const { return is_decl_of(n, m_afid, OP_LE); }
-    bool is_ge(func_decl const * n) const { return is_decl_of(n, m_afid, OP_GE); }
-    bool is_lt(func_decl const * n) const { return is_decl_of(n, m_afid, OP_LT); }
-    bool is_gt(func_decl const * n) const { return is_decl_of(n, m_afid, OP_GT); }
+    bool is_le(expr const * n) const { return is_app_of(n, arith_family_id, OP_LE); }
+    bool is_ge(expr const * n) const { return is_app_of(n, arith_family_id, OP_GE); }
+    bool is_lt(expr const * n) const { return is_app_of(n, arith_family_id, OP_LT); }
+    bool is_gt(expr const * n) const { return is_app_of(n, arith_family_id, OP_GT); }
+    bool is_le(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_LE); }
+    bool is_ge(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_GE); }
+    bool is_lt(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_LT); }
+    bool is_gt(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_GT); }
 
-    bool is_div0(func_decl const * n) const { return is_decl_of(n, m_afid, OP_DIV0); }
-    bool is_idiv0(func_decl const * n) const { return is_decl_of(n, m_afid, OP_IDIV0); }
-    bool is_rem0(func_decl const * n) const { return is_decl_of(n, m_afid, OP_REM0); }
-    bool is_mod0(func_decl const * n) const { return is_decl_of(n, m_afid, OP_MOD0); }
-    bool is_power0(func_decl const * n) const { return is_decl_of(n, m_afid, OP_POWER0); }
+    bool is_div0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_DIV0); }
+    bool is_idiv0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_IDIV0); }
+    bool is_rem0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_REM0); }
+    bool is_mod0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_MOD0); }
+    bool is_power0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_POWER0); }
 
-    bool is_add(expr const * n) const { return is_app_of(n, m_afid, OP_ADD); }
-    bool is_sub(expr const * n) const { return is_app_of(n, m_afid, OP_SUB); }
-    bool is_uminus(expr const * n) const { return is_app_of(n, m_afid, OP_UMINUS); }
-    bool is_mul(expr const * n) const { return is_app_of(n, m_afid, OP_MUL); }
-    bool is_div(expr const * n) const { return is_app_of(n, m_afid, OP_DIV); }
-    bool is_div0(expr const * n) const { return is_app_of(n, m_afid, OP_DIV0); }
-    bool is_idiv(expr const * n) const { return is_app_of(n, m_afid, OP_IDIV); }
-    bool is_idiv0(expr const * n) const { return is_app_of(n, m_afid, OP_IDIV0); }
-    bool is_mod(expr const * n) const { return is_app_of(n, m_afid, OP_MOD); }
-    bool is_rem(expr const * n) const { return is_app_of(n, m_afid, OP_REM); }
-    bool is_mod0(expr const * n) const { return is_app_of(n, m_afid, OP_MOD0); }
-    bool is_rem0(expr const * n) const { return is_app_of(n, m_afid, OP_REM0); }
-    bool is_to_real(expr const * n) const { return is_app_of(n, m_afid, OP_TO_REAL); }
-    bool is_to_int(expr const * n) const { return is_app_of(n, m_afid, OP_TO_INT); }
-    bool is_is_int(expr const * n) const { return is_app_of(n, m_afid, OP_IS_INT); }
-    bool is_power(expr const * n) const { return is_app_of(n, m_afid, OP_POWER); }
-    bool is_power0(expr const * n) const { return is_app_of(n, m_afid, OP_POWER0); }
+    bool is_add(expr const * n) const { return is_app_of(n, arith_family_id, OP_ADD); }
+    bool is_sub(expr const * n) const { return is_app_of(n, arith_family_id, OP_SUB); }
+    bool is_uminus(expr const * n) const { return is_app_of(n, arith_family_id, OP_UMINUS); }
+    bool is_mul(expr const * n) const { return is_app_of(n, arith_family_id, OP_MUL); }
+    bool is_div(expr const * n) const { return is_app_of(n, arith_family_id, OP_DIV); }
+    bool is_div0(expr const * n) const { return is_app_of(n, arith_family_id, OP_DIV0); }
+    bool is_idiv(expr const * n) const { return is_app_of(n, arith_family_id, OP_IDIV); }
+    bool is_idiv0(expr const * n) const { return is_app_of(n, arith_family_id, OP_IDIV0); }
+    bool is_mod(expr const * n) const { return is_app_of(n, arith_family_id, OP_MOD); }
+    bool is_rem(expr const * n) const { return is_app_of(n, arith_family_id, OP_REM); }
+    bool is_mod0(expr const * n) const { return is_app_of(n, arith_family_id, OP_MOD0); }
+    bool is_rem0(expr const * n) const { return is_app_of(n, arith_family_id, OP_REM0); }
+    bool is_to_real(expr const * n) const { return is_app_of(n, arith_family_id, OP_TO_REAL); }
+    bool is_to_int(expr const * n) const { return is_app_of(n, arith_family_id, OP_TO_INT); }
+    bool is_is_int(expr const * n) const { return is_app_of(n, arith_family_id, OP_IS_INT); }
+    bool is_power(expr const * n) const { return is_app_of(n, arith_family_id, OP_POWER); }
+    bool is_power0(expr const * n) const { return is_app_of(n, arith_family_id, OP_POWER0); }
 
-    bool is_int(sort const * s) const { return is_sort_of(s, m_afid, INT_SORT); }
-    bool is_int(expr const * n) const { return is_int(get_sort(n)); }
-    bool is_real(sort const * s) const { return is_sort_of(s, m_afid, REAL_SORT); }
-    bool is_real(expr const * n) const { return is_real(get_sort(n)); }
-    bool is_int_real(sort const * s) const { return s->get_family_id() == m_afid; }
-    bool is_int_real(expr const * n) const { return is_int_real(get_sort(n)); }
+    bool is_int(sort const * s) const { return is_sort_of(s, arith_family_id, INT_SORT); }
+    bool is_int(expr const * n) const { return is_int(n->get_sort()); }
+    bool is_real(sort const * s) const { return is_sort_of(s, arith_family_id, REAL_SORT); }
+    bool is_real(expr const * n) const { return is_real(n->get_sort()); }
+    bool is_int_real(sort const * s) const { return s->get_family_id() == arith_family_id; }
+    bool is_int_real(expr const * n) const { return is_int_real(n->get_sort()); }
 
-    bool is_sin(expr const* n) const { return is_app_of(n, m_afid, OP_SIN); }
-    bool is_cos(expr const* n) const { return is_app_of(n, m_afid, OP_COS); }
-    bool is_tan(expr const* n) const { return is_app_of(n, m_afid, OP_TAN); }
-    bool is_tanh(expr const* n) const { return is_app_of(n, m_afid, OP_TANH); }
-    bool is_asin(expr const* n) const { return is_app_of(n, m_afid, OP_ASIN); }
-    bool is_acos(expr const* n) const { return is_app_of(n, m_afid, OP_ACOS); }
-    bool is_atan(expr const* n) const { return is_app_of(n, m_afid, OP_ATAN); }
-    bool is_asinh(expr const* n) const { return is_app_of(n, m_afid, OP_ASINH); }
-    bool is_acosh(expr const* n) const { return is_app_of(n, m_afid, OP_ACOSH); }
-    bool is_atanh(expr const* n) const { return is_app_of(n, m_afid, OP_ATANH); }
-    bool is_pi(expr const * arg) const { return is_app_of(arg, m_afid, OP_PI); }
-    bool is_e(expr const * arg) const { return is_app_of(arg, m_afid, OP_E); }
+    bool is_sin(expr const* n) const { return is_app_of(n, arith_family_id, OP_SIN); }
+    bool is_cos(expr const* n) const { return is_app_of(n, arith_family_id, OP_COS); }
+    bool is_tan(expr const* n) const { return is_app_of(n, arith_family_id, OP_TAN); }
+    bool is_tanh(expr const* n) const { return is_app_of(n, arith_family_id, OP_TANH); }
+    bool is_asin(expr const* n) const { return is_app_of(n, arith_family_id, OP_ASIN); }
+    bool is_acos(expr const* n) const { return is_app_of(n, arith_family_id, OP_ACOS); }
+    bool is_atan(expr const* n) const { return is_app_of(n, arith_family_id, OP_ATAN); }
+    bool is_asinh(expr const* n) const { return is_app_of(n, arith_family_id, OP_ASINH); }
+    bool is_acosh(expr const* n) const { return is_app_of(n, arith_family_id, OP_ACOSH); }
+    bool is_atanh(expr const* n) const { return is_app_of(n, arith_family_id, OP_ATANH); }
+    bool is_pi(expr const * arg) const { return is_app_of(arg, arith_family_id, OP_PI); }
+    bool is_e(expr const * arg) const { return is_app_of(arg, arith_family_id, OP_E); }
     bool is_non_algebraic(expr const* n) const {
         return is_sin(n) ||
             is_cos(n) ||
@@ -345,6 +341,10 @@ public:
     MATCH_BINARY(is_rem);
     MATCH_BINARY(is_div);
     MATCH_BINARY(is_idiv);
+    MATCH_BINARY(is_mod0);
+    MATCH_BINARY(is_rem0);
+    MATCH_BINARY(is_div0);
+    MATCH_BINARY(is_idiv0);
     MATCH_BINARY(is_power);
 
     MATCH_UNARY(is_sin);
@@ -384,8 +384,8 @@ public:
     bool is_irrational_algebraic_numeral2(expr const * n, algebraic_numbers::anum & val);
     algebraic_numbers::anum const & to_irrational_algebraic_numeral(expr const * n);
 
-    sort * mk_int() { return m_manager.mk_sort(m_afid, INT_SORT); }
-    sort * mk_real() { return m_manager.mk_sort(m_afid, REAL_SORT); }
+    sort * mk_int() { return m_manager.mk_sort(arith_family_id, INT_SORT); }
+    sort * mk_real() { return m_manager.mk_sort(arith_family_id, REAL_SORT); }
 
     func_decl* mk_rem0();
     func_decl* mk_div0();
@@ -423,56 +423,58 @@ public:
     app * mk_real(rational const& r) {
         return mk_numeral(r, false);
     }
-    app * mk_le(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_LE, arg1, arg2); }
-    app * mk_ge(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_GE, arg1, arg2); }
-    app * mk_lt(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_LT, arg1, arg2); }
-    app * mk_gt(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_GT, arg1, arg2); }
-    app * mk_divides(expr* arg1, expr* arg2) { return m_manager.mk_app(m_afid, OP_IDIVIDES, arg1, arg2); }
+    app * mk_le(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_LE, arg1, arg2); }
+    app * mk_ge(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_GE, arg1, arg2); }
+    app * mk_lt(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_LT, arg1, arg2); }
+    app * mk_gt(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_GT, arg1, arg2); }
+    app * mk_divides(expr* arg1, expr* arg2) { return m_manager.mk_app(arith_family_id, OP_IDIVIDES, arg1, arg2); }
 
-    app * mk_add(unsigned num_args, expr * const * args) const { return num_args == 1 && is_app(args[0]) ? to_app(args[0]) : m_manager.mk_app(m_afid, OP_ADD, num_args, args); }
-    app * mk_add(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_ADD, arg1, arg2); }
-    app * mk_add(expr * arg1, expr * arg2, expr* arg3) const { return m_manager.mk_app(m_afid, OP_ADD, arg1, arg2, arg3); }
+    app * mk_add(unsigned num_args, expr * const * args) const { return num_args == 1 && is_app(args[0]) ? to_app(args[0]) : m_manager.mk_app(arith_family_id, OP_ADD, num_args, args); }
+    app * mk_add(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_ADD, arg1, arg2); }
+    app * mk_add(expr * arg1, expr * arg2, expr* arg3) const { return m_manager.mk_app(arith_family_id, OP_ADD, arg1, arg2, arg3); }
+    app * mk_add(expr_ref_vector const& args) const { return mk_add(args.size(), args.data()); }
+    app * mk_add(expr_ref_buffer const& args) const { return mk_add(args.size(), args.data()); }
 
-    app * mk_sub(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_SUB, arg1, arg2); }
-    app * mk_sub(unsigned num_args, expr * const * args) const { return m_manager.mk_app(m_afid, OP_SUB, num_args, args); }
-    app * mk_mul(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_MUL, arg1, arg2); }
-    app * mk_mul(expr * arg1, expr * arg2, expr* arg3) const { return m_manager.mk_app(m_afid, OP_MUL, arg1, arg2, arg3); }
-    app * mk_mul(unsigned num_args, expr * const * args) const { return num_args == 1 && is_app(args[0]) ? to_app(args[0]) : m_manager.mk_app(m_afid, OP_MUL, num_args, args); }
-    app * mk_uminus(expr * arg) const { return m_manager.mk_app(m_afid, OP_UMINUS, arg); }
-    app * mk_div(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_DIV, arg1, arg2); }
-    app * mk_idiv(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_IDIV, arg1, arg2); }
-    app * mk_rem(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_REM, arg1, arg2); }
-    app * mk_mod(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_MOD, arg1, arg2); }
-    app * mk_div0(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_DIV0, arg1, arg2); }
-    app * mk_idiv0(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_IDIV0, arg1, arg2); }
-    app * mk_rem0(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_REM0, arg1, arg2); }
-    app * mk_mod0(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_MOD0, arg1, arg2); }
-    app * mk_to_real(expr * arg1) { return m_manager.mk_app(m_afid, OP_TO_REAL, arg1); }
-    app * mk_to_int(expr * arg1) { return m_manager.mk_app(m_afid, OP_TO_INT, arg1); }
-    app * mk_is_int(expr * arg1) { return m_manager.mk_app(m_afid, OP_IS_INT, arg1); }
-    app * mk_power(expr* arg1, expr* arg2) { return m_manager.mk_app(m_afid, OP_POWER, arg1, arg2); }
-    app * mk_power0(expr* arg1, expr* arg2) { return m_manager.mk_app(m_afid, OP_POWER0, arg1, arg2); }
+    app * mk_sub(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_SUB, arg1, arg2); }
+    app * mk_sub(unsigned num_args, expr * const * args) const { return m_manager.mk_app(arith_family_id, OP_SUB, num_args, args); }
+    app * mk_mul(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_MUL, arg1, arg2); }
+    app * mk_mul(expr * arg1, expr * arg2, expr* arg3) const { return m_manager.mk_app(arith_family_id, OP_MUL, arg1, arg2, arg3); }
+    app * mk_mul(unsigned num_args, expr * const * args) const { return num_args == 1 && is_app(args[0]) ? to_app(args[0]) : m_manager.mk_app(arith_family_id, OP_MUL, num_args, args); }
+    app * mk_uminus(expr * arg) const { return m_manager.mk_app(arith_family_id, OP_UMINUS, arg); }
+    app * mk_div(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_DIV, arg1, arg2); }
+    app * mk_idiv(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_IDIV, arg1, arg2); }
+    app * mk_rem(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_REM, arg1, arg2); }
+    app * mk_mod(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_MOD, arg1, arg2); }
+    app * mk_div0(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_DIV0, arg1, arg2); }
+    app * mk_idiv0(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_IDIV0, arg1, arg2); }
+    app * mk_rem0(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_REM0, arg1, arg2); }
+    app * mk_mod0(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_MOD0, arg1, arg2); }
+    app * mk_to_real(expr * arg1) { return m_manager.mk_app(arith_family_id, OP_TO_REAL, arg1); }
+    app * mk_to_int(expr * arg1) { return m_manager.mk_app(arith_family_id, OP_TO_INT, arg1); }
+    app * mk_is_int(expr * arg1) { return m_manager.mk_app(arith_family_id, OP_IS_INT, arg1); }
+    app * mk_power(expr* arg1, expr* arg2) { return m_manager.mk_app(arith_family_id, OP_POWER, arg1, arg2); }
+    app * mk_power0(expr* arg1, expr* arg2) { return m_manager.mk_app(arith_family_id, OP_POWER0, arg1, arg2); }
 
-    app * mk_sin(expr * arg) { return m_manager.mk_app(m_afid, OP_SIN, arg); }
-    app * mk_cos(expr * arg) { return m_manager.mk_app(m_afid, OP_COS, arg); }
-    app * mk_tan(expr * arg) { return m_manager.mk_app(m_afid, OP_TAN, arg); }
-    app * mk_asin(expr * arg) { return m_manager.mk_app(m_afid, OP_ASIN, arg); }
-    app * mk_acos(expr * arg) { return m_manager.mk_app(m_afid, OP_ACOS, arg); }
-    app * mk_atan(expr * arg) { return m_manager.mk_app(m_afid, OP_ATAN, arg); }
+    app * mk_sin(expr * arg) { return m_manager.mk_app(arith_family_id, OP_SIN, arg); }
+    app * mk_cos(expr * arg) { return m_manager.mk_app(arith_family_id, OP_COS, arg); }
+    app * mk_tan(expr * arg) { return m_manager.mk_app(arith_family_id, OP_TAN, arg); }
+    app * mk_asin(expr * arg) { return m_manager.mk_app(arith_family_id, OP_ASIN, arg); }
+    app * mk_acos(expr * arg) { return m_manager.mk_app(arith_family_id, OP_ACOS, arg); }
+    app * mk_atan(expr * arg) { return m_manager.mk_app(arith_family_id, OP_ATAN, arg); }
 
-    app * mk_sinh(expr * arg) { return m_manager.mk_app(m_afid, OP_SINH, arg); }
-    app * mk_cosh(expr * arg) { return m_manager.mk_app(m_afid, OP_COSH, arg); }
-    app * mk_tanh(expr * arg) { return m_manager.mk_app(m_afid, OP_TANH, arg); }
-    app * mk_asinh(expr * arg) { return m_manager.mk_app(m_afid, OP_ASINH, arg); }
-    app * mk_acosh(expr * arg) { return m_manager.mk_app(m_afid, OP_ACOSH, arg); }
-    app * mk_atanh(expr * arg) { return m_manager.mk_app(m_afid, OP_ATANH, arg); }
+    app * mk_sinh(expr * arg) { return m_manager.mk_app(arith_family_id, OP_SINH, arg); }
+    app * mk_cosh(expr * arg) { return m_manager.mk_app(arith_family_id, OP_COSH, arg); }
+    app * mk_tanh(expr * arg) { return m_manager.mk_app(arith_family_id, OP_TANH, arg); }
+    app * mk_asinh(expr * arg) { return m_manager.mk_app(arith_family_id, OP_ASINH, arg); }
+    app * mk_acosh(expr * arg) { return m_manager.mk_app(arith_family_id, OP_ACOSH, arg); }
+    app * mk_atanh(expr * arg) { return m_manager.mk_app(arith_family_id, OP_ATANH, arg); }
 
     app * mk_pi() { return plugin().mk_pi(); }
     app * mk_e()  { return plugin().mk_e(); }
 
-    app * mk_neg_root(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_NEG_ROOT, arg1, arg2); }
-    app * mk_u_asin(expr * arg) { return m_manager.mk_app(m_afid, OP_U_ASIN, arg); }
-    app * mk_u_acos(expr * arg) { return m_manager.mk_app(m_afid, OP_U_ACOS, arg); }
+    app * mk_neg_root(expr * arg1, expr * arg2) { return m_manager.mk_app(arith_family_id, OP_NEG_ROOT, arg1, arg2); }
+    app * mk_u_asin(expr * arg) { return m_manager.mk_app(arith_family_id, OP_U_ASIN, arg); }
+    app * mk_u_acos(expr * arg) { return m_manager.mk_app(arith_family_id, OP_U_ACOS, arg); }
 
     /**
        \brief Return the equality (= lhs rhs), but it makes sure that

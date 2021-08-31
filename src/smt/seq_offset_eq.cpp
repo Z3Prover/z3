@@ -59,10 +59,10 @@ void seq_offset_eq::len_offset(expr* e, int val) {
         enode* r1 = th.get_root(x);
         enode* r2 = th.get_root(y);
         for (enode* n1 : *r1) {
-            if (!seq.str.is_length(n1->get_owner(), e1)) 
+            if (!seq.str.is_length(n1->get_expr(), e1)) 
                 continue;
             for (enode* n2 : *r2) {
-                if (!seq.str.is_length(n2->get_owner(), e2)) 
+                if (!seq.str.is_length(n2->get_expr(), e2)) 
                     continue;
                 if (r1->get_owner_id() > r2->get_owner_id()) {
                     std::swap(r1, r2);
@@ -83,11 +83,11 @@ void seq_offset_eq::len_offset(expr* e, int val) {
 void seq_offset_eq::prop_arith_to_len_offset() {
     rational val;
     for (enode* n : th.get_context().enodes()) {
-        if (a.is_numeral(n->get_owner(), val) && val.is_int32() && INT_MIN < val.get_int32()) {
-            TRACE("seq", tout << "offset: " << mk_pp(n->get_owner(), m) << "\n";);
+        if (a.is_numeral(n->get_expr(), val) && val.is_int32() && INT_MIN < val.get_int32()) {
+            TRACE("seq", tout << "offset: " << mk_pp(n->get_expr(), m) << "\n";);
             enode *next = n->get_next();
             while (next != n) {
-                len_offset(next->get_owner(), val.get_int32());
+                len_offset(next->get_expr(), val.get_int32());
                 next = next->get_next();
             }
         }
@@ -100,14 +100,14 @@ bool seq_offset_eq::find(enode* n1, enode* n2, int& offset) const {
     if (n1->get_owner_id() > n2->get_owner_id()) 
         std::swap(n1, n2);
     return 
-        !a.is_numeral(n1->get_owner()) && 
-        !a.is_numeral(n2->get_owner()) && 
+        !a.is_numeral(n1->get_expr()) && 
+        !a.is_numeral(n2->get_expr()) && 
         m_offset_equalities.find(n1, n2, offset);
 }
 
 bool seq_offset_eq::contains(enode* r) {
     r = r->get_root();
-    return !a.is_numeral(r->get_owner()) && m_has_offset_equality.contains(r);
+    return !a.is_numeral(r->get_expr()) && m_has_offset_equality.contains(r);
 }
 
 bool seq_offset_eq::propagate() {

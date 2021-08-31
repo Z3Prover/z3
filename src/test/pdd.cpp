@@ -284,6 +284,44 @@ public :
         
     }
 
+    /**
+     * Test polynomials mod 2^2
+     */
+    static void mod4_operations() {
+        std::cout << "operations mod4\n";
+        pdd_manager m(4, pdd_manager::mod2N_e, 2);
+        unsigned va = 0;
+        unsigned vb = 1;
+        unsigned vc = 2;
+        unsigned vd = 3;
+        pdd a = m.mk_var(va);
+        pdd b = m.mk_var(vb);
+        pdd c = m.mk_var(vc);
+        pdd d = m.mk_var(vd);
+        pdd p = a - b;
+        std::cout << p << "\n";
+
+        // should be reduced to 0:
+        p = a*a*(a*a - 1);
+        std::cout << p << "\n"; 
+        vector<std::pair<unsigned, rational>> sub0, sub1, sub2, sub3;
+        sub0.push_back(std::make_pair(va, rational(0)));
+        sub1.push_back(std::make_pair(va, rational(1)));
+        sub2.push_back(std::make_pair(va, rational(2)));
+        sub3.push_back(std::make_pair(va, rational(3)));
+        std::cout << "sub 0 " << p.subst_val(sub0) << "\n";
+        std::cout << "sub 1 " << p.subst_val(sub1) << "\n";
+        std::cout << "sub 2 " << p.subst_val(sub2) << "\n";
+        std::cout << "sub 3 " << p.subst_val(sub3) << "\n";
+
+        std::cout << "expect 1 " << (2*a + 1).is_non_zero() << "\n";
+        std::cout << "expect 1 " << (2*a*b + 2*b + 1).is_non_zero() << "\n";
+        std::cout << "expect 0 " << (2*a + 2).is_non_zero() << "\n";
+        SASSERT((2*a + 1).is_non_zero());
+        SASSERT((2*a + 2*b + 1).is_non_zero());
+        SASSERT(!(2*a*b + 3*b + 2).is_non_zero());
+    }
+
 };
 
 }
@@ -297,4 +335,5 @@ void tst_pdd() {
     dd::test::iterator();
     dd::test::order();
     dd::test::order_lm();
+    dd::test::mod4_operations();
 }

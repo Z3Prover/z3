@@ -98,8 +98,8 @@ namespace q {
         if (!m_q2info.find(q, info)) {
             info = alloc(quantifier_macro_info, m, m_qs.flatten(q));
             m_q2info.insert(q, info);
-            ctx.push(new_obj_trail<euf::solver, quantifier_macro_info>(info));
-            ctx.push(insert_obj_map<euf::solver, quantifier, quantifier_macro_info*>(m_q2info, q));
+            ctx.push(new_obj_trail<quantifier_macro_info>(info));
+            ctx.push(insert_obj_map<quantifier, quantifier_macro_info*>(m_q2info, q));
         }
         return info;
     }
@@ -111,6 +111,18 @@ namespace q {
             add_projection_functions(mdl, f);
     }
 
+    /**
+    *  we are given f with interpretation:
+    *      if x = v0 and y = w0 then f0
+    *      else if x = v1 and y = w1 then f1
+    *      ...
+    * Create a new interpretation for f as follows:
+    * f := f_aux(project1(x), project2(y))
+    * f_aux uses the original interpretation of f
+    * project1 sorts the values of v0, v1, ..., and maps arguments below v0 to v0, between v0, v1 to v1 etc.
+    * project2 sorts values of w0, w1, ... and maps argument y to values w0, w1, ..
+    * 
+    */
     void model_fixer::add_projection_functions(model& mdl, func_decl* f) {
         // update interpretation of f so that the graph of f is fully determined by the
         // ground values of its arguments.
@@ -141,6 +153,19 @@ namespace q {
         mdl.register_decl(f_new, fi);
     }
 
+    /*
+    * For function f(...,t_idx, ..) collect the values of terms at position idx of f 
+    * as "values". 
+    * Map t_idx |-> mdl(t_idx)
+    * and mdl(t_idx) |-> t_idx
+    * Sort the values as [v_1, v_2, ..., v_n] with corresponding terms
+    * [t_1, t_2, ..., t_n]
+    * 
+    * Create the term if p(x) = if x <= v_1 then t_1 else if x <= v_2 then t_2 else ...  t_n
+    * where p is a fresh function 
+    * and return p(x)
+    */
+
     expr_ref model_fixer::add_projection_function(model& mdl, func_decl* f, unsigned idx) {
         sort* srt = f->get_domain(idx);
         projection_function* proj = get_projection(srt);
@@ -162,7 +187,7 @@ namespace q {
             bool operator()(expr* a, expr* b) const { return (*p)(a, b); }
         };
         lt _lt(proj);
-        std::sort(values.c_ptr(), values.c_ptr() + values.size(), _lt);
+        std::sort(values.data(), values.data() + values.size(), _lt);
         unsigned j = 0;
         for (unsigned i = 0; i < values.size(); ++i)
             if (i == 0 || values.get(i - 1) != values.get(i))
@@ -200,8 +225,8 @@ namespace q {
         if (!proj)
             return nullptr;
         m_projections.insert(srt, proj);
-        ctx.push(new_obj_trail<euf::solver, projection_function>(proj));
-        ctx.push(insert_obj_map<euf::solver, sort, projection_function*>(m_projections, srt));
+        ctx.push(new_obj_trail<projection_function>(proj));
+        ctx.push(insert_obj_map<sort, projection_function*>(m_projections, srt));
         return proj;
     }
 
@@ -218,16 +243,26 @@ namespace q {
 
     expr* model_fixer::invert_app(app* t, expr* value) {
         euf::enode* r = nullptr;
+        auto& v2r = ctx.values2root();
         TRACE("q",
-            tout << "invert-app " << mk_pp(t, m) << " = " << mk_pp(value, m) << "\n";
-              if (ctx.values2root().find(value, r)) 
+              tout << "invert-app " << mk_pp(t, m) << " = " << mk_pp(value, m) << "\n";
+              if (v2r.find(value, r)) 
                   tout << "inverse " << mk_pp(r->get_expr(), m) << "\n";
-              ctx.display(tout);
+              ctx.display(tout);              
               );
-        if (ctx.values2root().find(value, r))
+        if (v2r.find(value, r)) 
             return r->get_expr();
         return value;
     }
+
+    /**
+    * We are given a term f(...,arg_i,..) and value = mdl(arg_i)
+    * Create 
+    * 1 the bounds t_j <= arg_i < t_{j+1} where 
+    *   v_j <= value < v_{j+1} for the corresponding values of t_j, t_{j+1}
+    * 2 or the bound arg_i < t_0     if value < v_0
+    * 3 or the bound arg_i >= t_last if value > v_last
+    */
 
     void model_fixer::invert_arg(app* t, unsigned i, expr* value, expr_ref_vector& lits) {
         TRACE("q", tout << "invert-arg " << mk_pp(t, m) << " " << i << " " << mk_pp(value, m) << "\n";);

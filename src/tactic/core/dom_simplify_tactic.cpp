@@ -290,7 +290,7 @@ expr_ref dom_simplify_tactic::simplify_rec(expr * e0) {
                 // for fn applications.
                 m_args.push_back(m.is_bool(arg) ? arg : simplify_arg(arg));
             }
-            r = m.mk_app(to_app(e)->get_decl(), m_args.size(), m_args.c_ptr());
+            r = m.mk_app(to_app(e)->get_decl(), m_args.size(), m_args.data());
         }
         else {
             r = e;

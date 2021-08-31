@@ -39,9 +39,8 @@ namespace sat {
             void next(unsigned& index);
             unsigned get_owner(unsigned index) const { return m_vectors[index]; }
             unsigned get_length(unsigned index) const { return m_vectors[index+1]; }
-            unsigned const* get_ptr(unsigned index) const { return m_vectors.c_ptr() + index + 2; }
+            unsigned const* get_ptr(unsigned index) const { return m_vectors.data() + index + 2; }
         public:
-            vector_pool() {}
             void reserve(unsigned num_owners, unsigned sz);
             void begin_add_vector(unsigned owner, unsigned n);
             void end_add_vector();

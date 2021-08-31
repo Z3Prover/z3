@@ -96,7 +96,7 @@ expr_ref pb_rewriter::translate_pb2lia(obj_map<expr,expr*>& vars, expr* fml) {
             tmp = a.mk_numeral(rational(0), true);
         }
         else {
-            tmp = a.mk_add(es.size(), es.c_ptr());
+            tmp = a.mk_add(es.size(), es.data());
         }
         if (util.is_at_most_k(fml)) {
             result = a.mk_le(tmp, a.mk_numeral(util.get_k(fml), false));
@@ -113,7 +113,7 @@ expr_ref pb_rewriter::translate_pb2lia(obj_map<expr,expr*>& vars, expr* fml) {
             tmp = a.mk_numeral(rational(0), true);
         }
         else {
-            tmp = a.mk_add(es.size(), es.c_ptr());
+            tmp = a.mk_add(es.size(), es.data());
         }
         rational k = util.get_k(fml);
         if (util.is_le(fml)) {
@@ -172,7 +172,7 @@ expr_ref pb_rewriter::mk_validate_rewrite(app_ref& e1, app_ref& e2) {
     expr_ref fml2 = translate_pb2lia(vars, e2);    
     tmp = m.mk_not(m.mk_eq(fml1, fml2));
     fmls.push_back(tmp);
-    tmp = m.mk_and(fmls.size(), fmls.c_ptr());
+    tmp = m.mk_and(fmls.size(), fmls.data());
     return tmp;
 }
 
@@ -267,23 +267,23 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
                 result = k.is_zero()?m.mk_true():m.mk_false();
             }
             else if (k.is_zero()) {
-                result = mk_not(m, mk_or(m, sz, m_args.c_ptr()));
+                result = mk_not(m, mk_or(m, sz, m_args.data()));
             }
             else if (k.is_one() && all_unit && m_args.size() == 1) {
                 result = m_args.back();
             }
             else if (slack == k) {
-                result = mk_and(m, sz, m_args.c_ptr());
+                result = mk_and(m, sz, m_args.data());
             }
             else {
-                result = m_util.mk_eq(sz, m_coeffs.c_ptr(), m_args.c_ptr(), k);
+                result = m_util.mk_eq(sz, m_coeffs.data(), m_args.data(), k);
             }
         }
         else if (all_unit && k.is_one() && sz < 10) {
-            result = mk_or(m, sz, m_args.c_ptr());
+            result = mk_or(m, sz, m_args.data());
         }
         else if (all_unit && k == rational(sz)) {
-            result = mk_and(m, sz, m_args.c_ptr());
+            result = mk_and(m, sz, m_args.data());
         }
         else {
             expr_ref_vector conj(m), disj(m);
@@ -309,7 +309,7 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
             m_coeffs.shrink(j);
             sz = j;
             if (sz > 0) {
-                disj.push_back(m_util.mk_ge(sz, m_coeffs.c_ptr(), m_args.c_ptr(), k));
+                disj.push_back(m_util.mk_ge(sz, m_coeffs.data(), m_args.data(), k));
             }
             if (!disj.empty()) {
                 conj.push_back(mk_or(disj));

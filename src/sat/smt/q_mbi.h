@@ -20,6 +20,7 @@ Author:
 #include "qe/mbp/mbp_plugin.h"
 #include "sat/smt/sat_th.h"
 #include "sat/smt/q_model_fixer.h"
+#include "sat/sat_solver.h"
 
 namespace euf {
     class solver;
@@ -60,6 +61,7 @@ namespace q {
         stats                                  m_stats;
         model_fixer                            m_model_fixer;
         model_ref                              m_model;
+        sat::no_drat_params                    m_no_drat_params;
         ref<::solver>                          m_solver;
         scoped_ptr_vector<obj_hashtable<expr>> m_values;
         scoped_ptr_vector<mbp::project_plugin> m_plugins;
@@ -96,7 +98,7 @@ namespace q {
         bool check_forall_default(quantifier* q, q_body& qb, model& mdl);
         bool check_forall_subst(quantifier* q, q_body& qb, model& mdl);
 
-        bool quick_check(quantifier* q, q_body& qb);
+        bool quick_check(quantifier* q, quantifier* q_flat, q_body& qb);
         bool next_offset(unsigned_vector& offsets, app_ref_vector const& vars);
         bool first_offset(unsigned_vector& offsets, app_ref_vector const& vars);
         bool next_offset(unsigned_vector& offsets, app_ref_vector const& vars, unsigned i, unsigned start);

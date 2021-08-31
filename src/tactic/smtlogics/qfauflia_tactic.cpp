@@ -22,7 +22,8 @@ Notes:
 #include "tactic/arith/propagate_ineqs_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"
 #include "tactic/core/elim_uncnstr_tactic.h"
-#include "smt/tactic/smt_tactic.h"
+#include "tactic/smtlogics/smt_tactic.h"
+
 
 tactic * mk_qfauflia_tactic(ast_manager & m, params_ref const & p) {
     params_ref main_p;

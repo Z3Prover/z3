@@ -46,7 +46,7 @@ struct pull_quant::imp {
             if (m.is_not(d)) {
                 SASSERT(num_children == 1);
                 expr * child = children[0];
-                if (is_quantifier(child)) {
+                if (is_quantifier(child) && (is_forall(child) || is_exists(child))) {
                     quantifier * q = to_quantifier(child);
                     expr * body = q->get_expr();
                     quantifier_kind k = q->get_kind() == forall_k ? exists_k : forall_k;
@@ -63,16 +63,14 @@ struct pull_quant::imp {
             
             for (unsigned i = 0; i < num_children; i++) {
                 expr * child = children[i];
-                if (is_quantifier(child)) {
+                if (is_quantifier(child) && !is_lambda(child)) {
                     
-                    if (!found_quantifier) {
+                    if (!found_quantifier && (is_forall(child) || is_exists(child))) {
                         found_quantifier = true;
-                        forall_children  = is_forall(child);
+                        forall_children = is_forall(child);
                     }
-                    else {
-                        // Since the initial formula was in SNF, all children must be EXISTS or FORALL.
-                        SASSERT(forall_children == is_forall(child));
-                    }
+                    else if (forall_children != is_forall(child))
+                        return false;
                     
                     quantifier * nested_q = to_quantifier(child);
                     if (var_sorts.empty()) {
@@ -152,9 +150,9 @@ struct pull_quant::imp {
                 std::reverse(var_names.begin(), var_names.end());
                 result = m.mk_quantifier(forall_children ? forall_k : exists_k,
                                                  var_sorts.size(),
-                                                 var_sorts.c_ptr(),
-                                                 var_names.c_ptr(),
-                                                 m.mk_app(d, new_adjusted_children.size(), new_adjusted_children.c_ptr()),
+                                                 var_sorts.data(),
+                                                 var_names.data(),
+                                                 m.mk_app(d, new_adjusted_children.size(), new_adjusted_children.data()),
                                                  w,
                                                  qid);
                 return true;
@@ -186,11 +184,11 @@ struct pull_quant::imp {
             // Remark: patterns are ignored.
             // See comment in reduce1_app
             result = m.mk_forall(var_sorts.size(),
-                                         var_sorts.c_ptr(),
-                                         var_names.c_ptr(),
-                                         nested_q->get_expr(),
-                                         std::min(q->get_weight(), nested_q->get_weight()),
-                                         q->get_qid());
+				 var_sorts.data(),
+				 var_names.data(),
+				 nested_q->get_expr(),
+				 std::min(q->get_weight(), nested_q->get_weight()),
+				 m.is_lambda_def(q) ? symbol("pulled-lambda") : q->get_qid());
         }
 
         void pull_quant1(quantifier * q, expr * new_expr, expr_ref & result) {
@@ -227,10 +225,10 @@ struct pull_quant::imp {
                     if (new_arg != arg)
                         proofs.push_back(m.mk_pull_quant(arg, to_quantifier(new_arg)));
                 }
-                pull_quant1(to_app(n)->get_decl(), new_args.size(), new_args.c_ptr(), r);
+                pull_quant1(to_app(n)->get_decl(), new_args.size(), new_args.data(), r);
                 if (m.proofs_enabled()) {
-                    app   * r1 = m.mk_app(to_app(n)->get_decl(), new_args.size(), new_args.c_ptr());
-                    proof * p1 = proofs.empty() ? nullptr : m.mk_congruence(to_app(n), r1, proofs.size(), proofs.c_ptr());
+                    app   * r1 = m.mk_app(to_app(n)->get_decl(), new_args.size(), new_args.data());
+                    proof * p1 = proofs.empty() ? nullptr : m.mk_congruence(to_app(n), r1, proofs.size(), proofs.data());
                     proof * p2 = r1 == r ? nullptr : m.mk_pull_quant(r1, to_quantifier(r));
                     pr = m.mk_transitivity(p1, p2);
                 }
@@ -278,14 +276,14 @@ struct pull_quant::imp {
 
             if (is_exists(old_q)) {
                 result = m.mk_not(new_body);
-                result = m.mk_not(m.update_quantifier(old_q, exists_k, result));
+                result = m.mk_not(m.update_quantifier(old_q, forall_k, result));
                 if (m.proofs_enabled()) 
                     m.mk_rewrite(old_q, result);
                 return true;
             }
-            if (is_lambda(old_q)) {
-                return false;
-            }
+
+            if (is_lambda(old_q)) 
+                return false;            
 
             if (!is_forall(new_body))
                 return false;

@@ -133,7 +133,7 @@ public:
             result = args[0];
             return BR_DONE;
         }
-        set_curr_sort(m().get_sort(args[0]));
+        set_curr_sort(args[0]->get_sort());
         return m_flat ?
             mk_flat_mul_core(num_args, args, result) :
             mk_nflat_mul_core(num_args, args, result);
@@ -144,7 +144,7 @@ public:
             result = args[0];
             return BR_DONE;
         }
-        set_curr_sort(m().get_sort(args[0]));
+        set_curr_sort(args[0]->get_sort());
         return m_flat ?
             mk_flat_add_core(num_args, args, result) :
             mk_nflat_add_core(num_args, args, result);

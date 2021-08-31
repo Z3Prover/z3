@@ -23,9 +23,6 @@ Author:
 namespace sat {
 
     class dual_solver {
-        struct no_drat_params : public params_ref {
-            no_drat_params();
-        };
         no_drat_params  m_params;
         solver          m_solver;
         lim_svector<literal> m_units, m_roots;
@@ -35,6 +32,7 @@ namespace sat {
         unsigned_vector m_ext2var;
         unsigned_vector m_var2ext;
         lim_svector<unsigned> m_vars;
+        unsigned        m_num_scopes = 0;
         void add_literal(literal lit);
 
         bool_var ext2var(bool_var v);
@@ -42,7 +40,11 @@ namespace sat {
         literal  ext2lit(literal lit);
         literal  lit2ext(literal lit);
 
+        void add_assumptions(solver const& s);
+
         std::ostream& display(solver const& s, std::ostream& out) const;
+
+        void flush();
 
     public:
         dual_solver(reslimit& l);

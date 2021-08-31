@@ -71,7 +71,7 @@ void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clause
             }
             SASSERT(clause.size() > 1);
             expr_ref cls(m);
-            cls = mk_or(m, clause.size(), clause.c_ptr());
+            cls = mk_or(m, clause.size(), clause.data());
             clauses.push_back(cls);
         }
     }
@@ -110,7 +110,7 @@ public:
         TRACE("solver2tactic", tout << "clauses asserted\n";);
         lbool r;
         try {
-            r = local_solver->check_sat(assumptions.size(), assumptions.c_ptr()); 
+            r = local_solver->check_sat(assumptions.size(), assumptions.data()); 
         }
         catch (...) {
             local_solver->collect_statistics(m_st);

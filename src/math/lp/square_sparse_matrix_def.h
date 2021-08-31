@@ -27,7 +27,7 @@ template <typename T, typename X>
 template <typename M>
 void square_sparse_matrix<T, X>::copy_column_from_input(unsigned input_column, const M& A, unsigned j) {
     vector<indexed_value<T>> & new_column_vector = m_columns[j].m_values;
-    for (const auto & c : A.column(input_column)) {
+    for (auto c : A.column(input_column)) {
         unsigned col_offset = static_cast<unsigned>(new_column_vector.size());
         vector<indexed_value<T>> & row_vector = m_rows[c.var()];
         unsigned row_offset = static_cast<unsigned>(row_vector.size());
@@ -41,7 +41,7 @@ template <typename T, typename X>
 template <typename M>
 void square_sparse_matrix<T, X>::copy_column_from_input_with_possible_zeros(const M& A, unsigned j) {
     vector<indexed_value<T>> & new_column_vector = m_columns[j].m_values;
-    for (const auto & c : A.column(j)) {
+    for (auto c : A.column(j)) {
         if (is_zero(c.coeff()))
             continue;
         unsigned col_offset = static_cast<unsigned>(new_column_vector.size());

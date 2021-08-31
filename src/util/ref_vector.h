@@ -20,6 +20,7 @@ Revision History:
 
 #include "util/vector.h"
 #include "util/obj_ref.h"
+#include "util/ref.h"
 
 /**
    \brief Vector of smart pointers.
@@ -46,7 +47,7 @@ protected:
         }
     };
 public:
-    typedef T * data;
+    typedef T * data_t;
 
     ref_vector_core() = default;
     ref_vector_core(Ref const & r) : Ref(r) {}
@@ -58,28 +59,28 @@ public:
     ref_vector_core(ref_vector_core &&) noexcept = default;
     
     ~ref_vector_core() {
-        dec_range_ref(m_nodes.begin(), m_nodes.end());
+        dec_range_ref(m_nodes.data(), m_nodes.data() + m_nodes.size());
     }
     
     void reset() {
-        dec_range_ref(m_nodes.begin(), m_nodes.end());
+        dec_range_ref(m_nodes.data(), m_nodes.data() + m_nodes.size());
         m_nodes.reset();
     }
 
     void finalize() {
-        dec_range_ref(m_nodes.begin(), m_nodes.end());
+        dec_range_ref(m_nodes.data(), m_nodes.data() + m_nodes.size());
         m_nodes.finalize();
     }
 
     void resize(unsigned sz) {
         if (sz < m_nodes.size())
-            dec_range_ref(m_nodes.begin() + sz, m_nodes.end());
+            dec_range_ref(m_nodes.data() + sz, m_nodes.data() + m_nodes.size());
         m_nodes.resize(sz);
     }
 
     void resize(unsigned sz, T * d) {
         if (sz < m_nodes.size()) {
-            dec_range_ref(m_nodes.begin() + sz, m_nodes.end());
+            dec_range_ref(m_nodes.data() + sz, m_nodes.data() + m_nodes.size());
             m_nodes.shrink(sz); 
         }
         else {
@@ -113,6 +114,11 @@ public:
         return *this;
     }
 
+    ref_vector_core& push_back(ref<T>&& n) {
+        m_nodes.push_back(n.detach());
+        return *this;
+    }
+
     void pop_back() {
         SASSERT(!m_nodes.empty());
         T * n = m_nodes.back();
@@ -130,11 +136,11 @@ public:
 
     T * get(unsigned idx, T * d) const { return m_nodes.get(idx, d); }
 
-    T * const * c_ptr() const { return m_nodes.begin(); }
+    T * const * data() const { return m_nodes.data(); }
 
     typedef T* const* iterator;
 
-    T ** c_ptr() { return m_nodes.begin(); }
+    T ** data() { return m_nodes.data(); }
 
     unsigned hash() const {
         unsigned sz = size();

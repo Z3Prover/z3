@@ -43,6 +43,7 @@ namespace mbp {
         expr_mark        m_non_ground;
         expr_ref_vector  m_cache, m_args, m_pure_eqs;
 
+        bool reduce(model_evaluator& eval, model& model, expr* fml, expr_ref_vector& fmls);
         void extract_bools(model_evaluator& eval, expr_ref_vector& fmls, unsigned i, expr* fml, bool is_true);
         void visit_app(expr* e);
         bool visit_ite(model_evaluator& eval, expr* e, expr_ref_vector& fmls);

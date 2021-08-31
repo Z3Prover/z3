@@ -345,9 +345,9 @@ namespace upolynomial {
         void left(numeral_vector & out) const {
             SASSERT(m_current_size > 0);
             zp_manager & upm = m_factors.upm();
-            upm.set(m_factors[m_current[0]].size(), m_factors[m_current[0]].c_ptr(), out);
+            upm.set(m_factors[m_current[0]].size(), m_factors[m_current[0]].data(), out);
             for (int i = 1; i < m_current_size; ++ i) {
-                upm.mul(out.size(), out.c_ptr(), m_factors[m_current[i]].size(), m_factors[m_current[i]].c_ptr(), out);
+                upm.mul(out.size(), out.data(), m_factors[m_current[i]].size(), m_factors[m_current[i]].data(), out);
             }
         }
 
@@ -401,9 +401,9 @@ namespace upolynomial {
                     if (selection_i >= m_current.size() || (int) current < m_current[selection_i]) {
                         SASSERT(m_factors.get_degree(current) == 1);
                         if (out.empty()) {
-                            upm.set(m_factors[current].size(), m_factors[current].c_ptr(), out);
+                            upm.set(m_factors[current].size(), m_factors[current].data(), out);
                         } else {
-                            upm.mul(out.size(), out.c_ptr(), m_factors[current].size(), m_factors[current].c_ptr(), out);
+                            upm.mul(out.size(), out.data(), m_factors[current].size(), m_factors[current].data(), out);
                         }
                         current ++;
                     } else {

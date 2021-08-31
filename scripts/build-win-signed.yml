@@ -6,7 +6,7 @@ jobs:
 - job: WindowsBuild${{parameters.BuildArchitecture}}
   displayName: "Windows build (${{parameters.BuildArchitecture}})"
   pool:
-    vmImage: "vs2017-win2016"
+    vmImage: "windows-latest"
   steps:
   - powershell: write-host $(System.TeamProjectId)
     displayName: 'System.TeamProjectId'
@@ -18,14 +18,14 @@ jobs:
     displayName: Build
     inputs:
       script:
-        call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{parameters.BuildArchitecture}} &&
+        call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{parameters.BuildArchitecture}} &&
         python scripts\mk_win_dist.py
             --${{parameters.BuildArchitecture}}-only
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
   - task: EsrpCodeSigning@1
     displayName: Sign
     inputs:
-      ConnectedServiceName: 'z3-esrp-signing'
+      ConnectedServiceName: 'z3-esrp-signing-2'
       FolderPath: 'dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
       Pattern: 'Microsoft.Z3.dll,libz3.dll,libz3java.dll,z3.exe'
       signConfigType: 'inlineSignParams'

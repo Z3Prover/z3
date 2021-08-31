@@ -173,7 +173,7 @@ expr* proto_model::cleanup_expr(expr_ref_vector& trail, expr* fi_else, func_decl
                     TRACE("model_bug", tout << f->get_name() << "\n";);
                     found_aux_fs.insert(f);
                 }
-                new_t = m_rewrite.mk_app(f, args.size(), args.c_ptr());                
+                new_t = m_rewrite.mk_app(f, args.size(), args.data());                
                 if (t != new_t.get())
                     trail.push_back(new_t);
                 todo.pop_back();
@@ -213,11 +213,12 @@ void proto_model::cleanup() {
     TRACE("model_bug", model_v2_pp(tout, *this););
     func_decl_set found_aux_fs;
     expr_ref_vector trail(m);
-    for (auto const& kv : m_finterp) {
-        TRACE("model_bug", tout << kv.m_key->get_name() << "\n";);
-        func_interp * fi = kv.m_value;
+    ptr_buffer<func_interp> finterps;
+    for (auto const& kv : m_finterp)
+        finterps.push_back(kv.m_value);
+    for (auto* fi : finterps)         
         cleanup_func_interp(trail, fi, found_aux_fs);
-    }
+    
     for (unsigned i = 0; i < m_const_decls.size(); ++i) {
         func_decl* d = m_const_decls[i];
         expr* e = m_interp[d].second;
@@ -326,7 +327,7 @@ expr * proto_model::get_fresh_value(sort * s) {
 }
 
 void proto_model::register_value(expr * n) {
-    sort * s = m.get_sort(n);
+    sort * s = n->get_sort();
     if (m.is_uninterp(s)) {
         m_user_sort_factory->register_value(n);
     }
@@ -400,7 +401,7 @@ model * proto_model::mk_model() {
         sort * s = get_uninterpreted_sort(i);
         TRACE("proto_model", tout << "copying uninterpreted sorts...\n" << mk_pp(s, m) << "\n";);
         ptr_vector<expr> const& buf = get_universe(s);
-        mdl->register_usort(s, buf.size(), buf.c_ptr());
+        mdl->register_usort(s, buf.size(), buf.data());
     }
 
     return mdl;

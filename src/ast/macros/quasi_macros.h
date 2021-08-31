@@ -49,6 +49,7 @@ class quasi_macros {
     bool depends_on(expr * e, func_decl * f) const;
 
     bool is_quasi_macro(expr * e, app_ref & a, expr_ref &v) const;
+    bool is_quasi_def(quantifier* q, expr* lhs, expr* rhs) const;
     bool quasi_macro_to_macro(quantifier * q, app * a, expr * t, quantifier_ref & macro);
 
     void find_occurrences(expr * e);

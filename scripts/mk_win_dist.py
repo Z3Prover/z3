@@ -181,10 +181,10 @@ def exec_cmds(cmds):
 def mk_z3(x64):
     cmds = []
     if x64:
-        cmds.append('call "%VCINSTALLDIR%vcvarsall.bat" amd64')
+        cmds.append('call "%VCINSTALLDIR%Auxiliary\\build\\vcvarsall.bat" amd64')
         cmds.append('cd %s' % BUILD_X64_DIR)
     else:
-        cmds.append('call "%VCINSTALLDIR%vcvarsall.bat" x86')
+        cmds.append('call "%VCINSTALLDIR%Auxiliary\\build\\vcvarsall.bat" x86')
         cmds.append('cd %s' % BUILD_X86_DIR)
     cmds.append('nmake')
     if exec_cmds(cmds) != 0:
@@ -216,8 +216,8 @@ def mk_dist_dir(x64):
     mk_dir(dist_path)
     mk_win_dist(build_path, dist_path)
     if is_verbose():
-        print("Generated %s distribution folder at '%s'" % (platform, dist_path))
-
+        print(f"Generated {platform} distribution folder at '{dist_path}'")
+        
 def mk_dist_dirs():
     mk_dist_dir(False)
     mk_dist_dir(True)

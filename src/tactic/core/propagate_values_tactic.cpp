@@ -146,6 +146,9 @@ class propagate_values_tactic : public tactic {
         if (m_max_rounds == 0)
             goto end;
 
+        if (m_goal->proofs_enabled())
+            goto end;
+
         m_subst = alloc(expr_substitution, m, g->unsat_core_enabled(), g->proofs_enabled());
         m_r.set_substitution(m_subst.get());
         m_occs(*m_goal);

@@ -502,7 +502,7 @@ namespace dd {
                 unsigned_vector& vars;
                 hash(unsigned_vector& vars):vars(vars) {}
                 bool operator()(mon const& m) const {
-                    return unsigned_ptr_hash(vars.c_ptr() + m.offset, m.sz, 1);
+                    return unsigned_ptr_hash(vars.data() + m.offset, m.sz, 1);
                 };
             };
             struct eq {
@@ -539,7 +539,7 @@ namespace dd {
         for (pdd const& p : eqs) {
             for (auto const& m : p) {
                 if (m.vars.size() <= 1) continue;
-                insert_mon(m.vars.size(), m.vars.c_ptr());
+                insert_mon(m.vars.size(), m.vars.data());
             }
         }
         
@@ -572,7 +572,7 @@ namespace dd {
                 }
                 unsigned n = m.vars.size();
                 mon mm(n, vars.size());
-                vars.append(n, m.vars.c_ptr());
+                vars.append(n, m.vars.data());
                 VERIFY(mon2idx.find(mm, mm));
                 vars.shrink(vars.size() - n);
                 row.set(mm.index);

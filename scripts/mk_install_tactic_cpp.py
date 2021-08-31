@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# -- /usr/bin/env python
 """
 Determines the available tactics from a list of header files and generates a
 ``install_tactic.cpp`` file in the destination directory that defines a

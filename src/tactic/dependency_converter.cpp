@@ -84,7 +84,7 @@ public:
     dependency_converter * translate(ast_translation & translator) override {
         goal_ref_buffer goals;
         for (goal_ref g : m_goals) goals.push_back(g->translate(translator));
-        return alloc(goal_dependency_converter, goals.size(), goals.c_ptr());
+        return alloc(goal_dependency_converter, goals.size(), goals.data());
     }
 
     void display(std::ostream& out) override { out << "goal-dep\n"; }

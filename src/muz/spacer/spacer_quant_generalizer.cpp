@@ -36,7 +36,7 @@ Revision History:
 using namespace spacer;
 
 namespace {
-struct index_lt_proc : public std::binary_function<app*, app *, bool> {
+struct index_lt_proc {
     arith_util m_arith;
     index_lt_proc(ast_manager &m) : m_arith(m) {}
     bool operator() (app *a, app *b) {
@@ -184,7 +184,7 @@ void lemma_quantifier_generalizer::find_candidates(expr *e,
         }
     }
 
-    std::sort(candidates.c_ptr(), candidates.c_ptr() + candidates.size(),
+    std::sort(candidates.data(), candidates.data() + candidates.size(),
               index_lt_proc(m));
     // keep actual select indices in the order found at the back of
     // candidate list. There is no particular reason for this order
@@ -226,7 +226,7 @@ expr* times_minus_one(expr *e, arith_util &arith) {
     expr *r;
     if (arith.is_times_minus_one (e, r)) { return r; }
 
-    return arith.mk_mul(arith.mk_numeral(rational(-1), arith.is_int(get_sort(e))), e);
+    return arith.mk_mul(arith.mk_numeral(rational(-1), arith.is_int(e->get_sort())), e);
 }
 }
 
@@ -276,8 +276,8 @@ void lemma_quantifier_generalizer::cleanup(expr_ref_vector &cube,
             }
             if (!found) continue;
 
-            rep = arith.mk_add(kids.size(), kids.c_ptr());
-            bind = arith.mk_add(kids_bind.size(), kids_bind.c_ptr());
+            rep = arith.mk_add(kids.size(), kids.data());
+            bind = arith.mk_add(kids_bind.size(), kids_bind.data());
             TRACE("spacer_qgen",
                   tout << "replace " << mk_pp(idx, m) << " with " << mk_pp(rep, m) << "\n"
                   << "bind is: " << bind << "\n";);
@@ -502,7 +502,7 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
     expr_ref_vector abs_cube(m);
 
     var_ref var(m);
-    var = m.mk_var (m_offset, get_sort(term));
+    var = m.mk_var (m_offset, term->get_sort());
 
     mk_abs_cube(lemma, term, var, gnd_cube, abs_cube, lb, ub, stride);
     if (abs_cube.empty()) {return false;}

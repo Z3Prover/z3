@@ -27,9 +27,6 @@ fpa_rewriter::fpa_rewriter(ast_manager & m, params_ref const & p) :
     updt_params(p);
 }
 
-fpa_rewriter::~fpa_rewriter() {
-}
-
 void fpa_rewriter::updt_params(params_ref const & _p) {
     fpa_rewriter_params p(_p);
     m_hi_fp_unspecified = p.hi_fp_unspecified();
@@ -313,12 +310,12 @@ br_status fpa_rewriter::mk_neg(expr * arg1, expr_ref & result) {
     }
     if (m_util.is_pinf(arg1)) {
         // - +oo --> -oo
-        result = m_util.mk_ninf(m().get_sort(arg1));
+        result = m_util.mk_ninf(arg1->get_sort());
         return BR_DONE;
     }
     if (m_util.is_ninf(arg1)) {
         // - -oo -> +oo
-        result = m_util.mk_pinf(m().get_sort(arg1));
+        result = m_util.mk_pinf(arg1->get_sort());
         return BR_DONE;
     }
     if (m_util.is_neg(arg1)) {
@@ -476,7 +473,7 @@ br_status fpa_rewriter::mk_float_eq(expr * arg1, expr * arg2, expr_ref & result)
 
 // Return (= arg NaN)
 app * fpa_rewriter::mk_eq_nan(expr * arg) {
-    return m().mk_eq(arg, m_util.mk_nan(m().get_sort(arg)));
+    return m().mk_eq(arg, m_util.mk_nan(arg->get_sort()));
 }
 
 // Return (not (= arg NaN))

@@ -83,6 +83,9 @@ ${Z3_DOTNET_COMPILE_ITEMS}
     <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.so" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.so')">
       <PackagePath>runtimes\linux-x64\native</PackagePath>
     </Content>
+    <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.dylib" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.dylib')">
+      <PackagePath>runtimes\osx-x64\native</PackagePath>
+    </Content>
   </ItemGroup>
 
   <!-- Native binaries for x86; currently only Windows is supported. -->

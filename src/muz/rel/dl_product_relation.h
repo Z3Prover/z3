@@ -43,8 +43,8 @@ namespace datalog {
         class filter_identical_fn;
         class filter_interpreted_fn;
         struct fid_hash {
-            typedef family_id data;
-            unsigned operator()(data x) const { return static_cast<unsigned>(x); }
+            typedef family_id data_t;
+            unsigned operator()(data_t x) const { return static_cast<unsigned>(x); }
         };
 
         rel_spec_store<rel_spec, svector_hash<fid_hash> > m_spec_store;

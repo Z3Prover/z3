@@ -163,7 +163,7 @@ namespace datalog {
             relation_signature candidate_rel_sig;
             unsigned rel_sig_ofs = s.size()/2;
             unsigned rel_sig_sz = s.size()-rel_sig_ofs;
-            candidate_rel_sig.append(rel_sig_sz, s.c_ptr()+rel_sig_ofs);
+            candidate_rel_sig.append(rel_sig_sz, s.data()+rel_sig_ofs);
             if(m_inner_plugin.can_handle_signature(candidate_rel_sig)) {
                 for(unsigned i=rel_sig_ofs; i<s_sz; i++) {
                     table_columns[i] = false;
@@ -172,7 +172,7 @@ namespace datalog {
 
         }
 #endif
-        return mk_empty(s, table_columns.c_ptr());
+        return mk_empty(s, table_columns.data());
     }
 
     finite_product_relation * finite_product_relation_plugin::mk_empty(const relation_signature & s,
@@ -199,7 +199,7 @@ namespace datalog {
     relation_base * finite_product_relation_plugin::mk_empty(const relation_signature & s, family_id kind) {
         rel_spec spec;
         m_spec_store.get_relation_spec(s, kind, spec);
-        return mk_empty(s, spec.m_table_cols.c_ptr(), spec.m_inner_kind);
+        return mk_empty(s, spec.m_table_cols.data(), spec.m_inner_kind);
     }
 
 
@@ -276,7 +276,7 @@ namespace datalog {
         scoped_rel<table_base> res_table = (*join_fun)(t, *idx_singleton);
 
         bool_vector table_cols(sig.size(), true);
-        finite_product_relation * res = mk_empty(sig, table_cols.c_ptr());
+        finite_product_relation * res = mk_empty(sig, table_cols.data());
 
         //this one does not need to be deleted -- it will be taken over by \c res in the \c init function
         relation_base * inner_rel = get_inner_plugin().mk_full(pred, inner_sig, get_inner_plugin().get_kind());
@@ -302,7 +302,7 @@ namespace datalog {
         idx_singleton->add_fact(idx_singleton_fact);
 
         bool_vector table_cols(sig.size(), false);
-        finite_product_relation * res = mk_empty(sig, table_cols.c_ptr());
+        finite_product_relation * res = mk_empty(sig, table_cols.data());
 
         relation_vector rels;
         rels.push_back(r.clone());
@@ -426,7 +426,7 @@ namespace datalog {
                 }
             }
             m_tjoin_fn = r1.get_manager().mk_join_fn(r1.get_table(), r2.get_table(), m_t_joined_cols1.size(),
-                m_t_joined_cols1.c_ptr(), m_t_joined_cols2.c_ptr());
+                m_t_joined_cols1.data(), m_t_joined_cols2.data());
             SASSERT(m_tjoin_fn);
 
 
@@ -482,7 +482,7 @@ namespace datalog {
             //It would however need to be somehow inferred for the new signature.
 
             finite_product_relation * res = alloc(finite_product_relation, r1.get_plugin(), get_result_signature(),
-                m_res_table_columns.c_ptr(), res_table->get_plugin(), res_oplugin, null_family_id);
+                m_res_table_columns.data(), res_table->get_plugin(), res_oplugin, null_family_id);
 
             res->init(*res_table, joined_orelations, true);
 
@@ -491,7 +491,7 @@ namespace datalog {
                 //We enforce those equalities here.
                 if(!m_filter_tr_identities) {
                     m_filter_tr_identities = plugin.mk_filter_identical_pairs(*res, m_tr_table_joined_cols.size(),
-                        m_tr_table_joined_cols.c_ptr(), m_tr_rel_joined_cols.c_ptr());
+                        m_tr_table_joined_cols.data(), m_tr_rel_joined_cols.data());
                     SASSERT(m_filter_tr_identities);
                 }
                 (*m_filter_tr_identities)(*res);
@@ -603,7 +603,7 @@ namespace datalog {
             else {
                 project_reducer * preducer = alloc(project_reducer, *this, res_relations);
                 scoped_ptr<table_transformer_fn> tproject =
-                    rmgr.mk_project_with_reduce_fn(rtable, m_removed_table_cols.size(), m_removed_table_cols.c_ptr(), preducer);
+                    rmgr.mk_project_with_reduce_fn(rtable, m_removed_table_cols.size(), m_removed_table_cols.data(), preducer);
                 res_table = (*tproject)(rtable);
             }
 
@@ -635,7 +635,7 @@ namespace datalog {
             //It would however need to be somehow inferred for the new signature.
 
             finite_product_relation * res = alloc(finite_product_relation, r.get_plugin(), get_result_signature(),
-                m_res_table_columns.c_ptr(), res_table->get_plugin(), *res_oplugin, null_family_id);
+                m_res_table_columns.data(), res_table->get_plugin(), *res_oplugin, null_family_id);
 
             res->init(*res_table, res_relations, false);
 
@@ -733,7 +733,7 @@ namespace datalog {
             //It would however need to be somehow inferred for the new signature.
 
             finite_product_relation * res = alloc(finite_product_relation, r.get_plugin(), get_result_signature(),
-                m_res_table_columns.c_ptr(), res_table->get_plugin(), r.m_other_plugin, null_family_id);
+                m_res_table_columns.data(), res_table->get_plugin(), r.m_other_plugin, null_family_id);
 
             res->init(*res_table, res_relations, false);
 
@@ -1143,7 +1143,7 @@ namespace datalog {
             }
             if(m_table_cols.size()>1) {
                 m_table_filter = r.get_manager().mk_filter_identical_fn(r.get_table(), m_table_cols.size(),
-                    m_table_cols.c_ptr());
+                    m_table_cols.data());
                 SASSERT(m_table_filter);
             }
             if(!m_table_cols.empty() && !m_rel_cols.empty()) {
@@ -1159,7 +1159,7 @@ namespace datalog {
             if(m_rel_filter) {
                 return;
             }
-            m_rel_filter = orel.get_manager().mk_filter_identical_fn(orel, m_rel_cols.size(), m_rel_cols.c_ptr());
+            m_rel_filter = orel.get_manager().mk_filter_identical_fn(orel, m_rel_cols.size(), m_rel_cols.data());
             SASSERT(m_rel_filter);
         }
 
@@ -1310,7 +1310,7 @@ namespace datalog {
             if(m_rel_cond_columns.empty()) {
                 expr_ref_vector renaming(m_manager);
                 get_renaming_args(r.m_sig2table, r.get_signature(), renaming);
-                expr_ref table_cond = m_subst(condition, renaming.size(), renaming.c_ptr());
+                expr_ref table_cond = m_subst(condition, renaming.size(), renaming.data());
                 m_table_filter = rmgr.mk_filter_interpreted_fn(r.get_table(), to_app(table_cond));
             }
             else {
@@ -1359,7 +1359,7 @@ namespace datalog {
                         continue;
                     }
                     if(!m_rel_filter) {
-                        expr_ref inner_cond = m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr());
+                        expr_ref inner_cond = m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.data());
                         m_rel_filter = rmgr.mk_filter_interpreted_fn(*inner, to_app(inner_cond));
                     }
                     (*m_rel_filter)(*inner);
@@ -1407,7 +1407,7 @@ namespace datalog {
 
                 //create the condition with table values substituted in and relation values properly renamed
                 expr_ref inner_cond(m_manager);
-                inner_cond = m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr());
+                inner_cond = m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.data());
                 th_rewriter rw(m_manager);
                 rw(inner_cond);
                 if (m_manager.is_false(inner_cond)) {
@@ -1660,7 +1660,7 @@ namespace datalog {
             unsigned_vector removed_cols;
             add_sequence_without_set(0, t_sz-1, m_table_cols, removed_cols);
             if(!removed_cols.empty()) {
-                m_tproject_fn = r.get_manager().mk_project_fn(r.get_table(), removed_cols.size(), removed_cols.c_ptr());
+                m_tproject_fn = r.get_manager().mk_project_fn(r.get_table(), removed_cols.size(), removed_cols.data());
             }
         }
 
@@ -1744,7 +1744,7 @@ namespace datalog {
         SASSERT(filtered_table.get_signature().functional_columns()==1);
 
         unsigned_vector rtable_joined_cols;
-        rtable_joined_cols.append(selected_col_cnt, selected_columns.c_ptr()); //filtered table cols
+        rtable_joined_cols.append(selected_col_cnt, selected_columns.data()); //filtered table cols
         rtable_joined_cols.push_back(rtable_sig_sz-1); //unfiltered relation indexes
 
         unsigned_vector filtered_joined_cols;
@@ -2073,7 +2073,7 @@ namespace datalog {
                 removed_cols[i] = i;
             }
             live_rel_collection_reducer * reducer = alloc(live_rel_collection_reducer, m_live_rel_collection_acc);
-            m_live_rel_collection_project = get_manager().mk_project_with_reduce_fn(get_table(), removed_cols.size(), removed_cols.c_ptr(), reducer);
+            m_live_rel_collection_project = get_manager().mk_project_with_reduce_fn(get_table(), removed_cols.size(), removed_cols.data(), reducer);
             SASSERT(m_live_rel_collection_project);
         }
 
@@ -2172,7 +2172,7 @@ namespace datalog {
         it = rels.begin();
         for(; it!=end; ++it) {
             finite_product_relation & rel = **it;
-            if(!rel.try_modify_specification(table_cols.c_ptr())) {
+            if(!rel.try_modify_specification(table_cols.data())) {
                 return false;
             }
         }
@@ -2226,7 +2226,7 @@ namespace datalog {
         bool_vector moved_cols_table_flags(moved_cols_sig.size(), false);
 
         scoped_rel<finite_product_relation> moved_cols_rel = get_plugin().mk_empty(moved_cols_sig,
-            moved_cols_table_flags.c_ptr());
+            moved_cols_table_flags.data());
 
         scoped_ptr<relation_union_fn> union_fun =
             get_manager().mk_union_fn(*moved_cols_rel, *moved_cols_trel);
@@ -2369,9 +2369,9 @@ namespace datalog {
             }
             sh(tmp, fact_sz-1, tmp);
             conjs.push_back(tmp);
-            disjs.push_back(m.mk_and(conjs.size(), conjs.c_ptr()));
+            disjs.push_back(m.mk_and(conjs.size(), conjs.data()));
         }
-        bool_rewriter(m).mk_or(disjs.size(), disjs.c_ptr(), fml);
+        bool_rewriter(m).mk_or(disjs.size(), disjs.data(), fml);
     }
 
 };

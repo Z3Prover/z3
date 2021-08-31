@@ -291,9 +291,9 @@ namespace qel {
             if (m.is_eq(e, lhs, rhs) && trivial_solve(lhs, rhs, e, vs, ts)) {
                 return true;
             }
-            family_id fid = get_sort(e)->get_family_id();
+            family_id fid = e->get_sort()->get_family_id();
             if (m.is_eq(e, lhs, rhs)) {
-                fid = get_sort(lhs)->get_family_id();
+                fid = lhs->get_sort()->get_family_id();
             }
             auto* p = m_solvers.get_plugin(fid);
             if (p) {
@@ -337,7 +337,7 @@ namespace qel {
             m_subst_map.reset();
             m_subst_map.resize(sz, nullptr);
             m_subst.reset();
-            m_subst.set_inv_bindings(sz, m_subst_map.c_ptr());
+            m_subst.set_inv_bindings(sz, m_subst_map.data());
             for (unsigned idx : m_order) {
                 // do all the previous substitutions before inserting
                 expr* cur = m_map[idx];
@@ -389,33 +389,33 @@ namespace qel {
             expr_ref t(m);
             switch (q->get_kind()) {
             case forall_k:
-                rw.mk_or(m_new_args.size(), m_new_args.c_ptr(), t);
+                rw.mk_or(m_new_args.size(), m_new_args.data(), t);
                 break;
             case exists_k:
-                rw.mk_and(m_new_args.size(), m_new_args.c_ptr(), t);
+                rw.mk_and(m_new_args.size(), m_new_args.data(), t);
                 break;
             default:
                 t = e;
                 break;
             }
-            expr_ref new_e = m_subst(t, m_subst_map.size(), m_subst_map.c_ptr());
+            expr_ref new_e = m_subst(t, m_subst_map.size(), m_subst_map.data());
             TRACE("qe_lite", tout << new_e << "\n";);
 
             // don't forget to update the quantifier patterns
             expr_ref_buffer  new_patterns(m);
             expr_ref_buffer  new_no_patterns(m);
             for (unsigned j = 0; j < q->get_num_patterns(); j++) {
-                expr_ref new_pat = m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.c_ptr());
+                expr_ref new_pat = m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.data());
                 new_patterns.push_back(new_pat);
             }
 
             for (unsigned j = 0; j < q->get_num_no_patterns(); j++) {
-                expr_ref new_nopat = m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.c_ptr());
+                expr_ref new_nopat = m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.data());
                 new_no_patterns.push_back(new_nopat);
             }
 
-            r = m.update_quantifier(q, new_patterns.size(), new_patterns.c_ptr(),
-                                    new_no_patterns.size(), new_no_patterns.c_ptr(), new_e);
+            r = m.update_quantifier(q, new_patterns.size(), new_patterns.data(),
+                                    new_no_patterns.size(), new_no_patterns.data(), new_e);
         }
 
         void reduce_quantifier1(quantifier * q, expr_ref & r, proof_ref & pr) {
@@ -548,7 +548,7 @@ namespace qel {
         void flatten_definitions(expr_ref_vector& conjs) {
             TRACE("qe_lite",
                   expr_ref tmp(m);
-                  tmp = m.mk_and(conjs.size(), conjs.c_ptr());
+                  tmp = m.mk_and(conjs.size(), conjs.data());
                   tout << mk_pp(tmp, m) << "\n";);
             for (unsigned i = 0; i < conjs.size(); ++i) {
                 expr* c = conjs[i].get();
@@ -584,7 +584,7 @@ namespace qel {
             }
             TRACE("qe_lite",
                   expr_ref tmp(m);
-                  tmp = m.mk_and(conjs.size(), conjs.c_ptr());
+                  tmp = m.mk_and(conjs.size(), conjs.data());
                   tout << "after flatten\n" << mk_pp(tmp, m) << "\n";);
         }
 
@@ -615,7 +615,7 @@ namespace qel {
         }
 
         bool is_unconstrained(var* x, expr* t, unsigned i, expr_ref_vector const& conjs) {
-            sort* s = m.get_sort(x);
+            sort* s = x->get_sort();
             if (!m.is_fully_interp(s) || !s->get_num_elements().is_infinite()) return false;
             bool occ = occurs_var(x->get_idx(), t);
             for (unsigned j = 0; !occ && j < conjs.size(); ++j) {
@@ -655,7 +655,7 @@ namespace qel {
 
             flatten_definitions(conjs);
 
-            find_definitions(conjs.size(), conjs.c_ptr(), true, def_count, largest_vinx);
+            find_definitions(conjs.size(), conjs.data(), true, def_count, largest_vinx);
 
             if (def_count > 0) {
                 get_elimination_order();
@@ -663,9 +663,9 @@ namespace qel {
 
                 if (!m_order.empty()) {
                     expr_ref r(m), new_r(m);
-                    r = m.mk_and(conjs.size(), conjs.c_ptr());
+                    r = m.mk_and(conjs.size(), conjs.data());
                     create_substitution(largest_vinx + 1);
-                    new_r = m_subst(r, m_subst_map.size(), m_subst_map.c_ptr());
+                    new_r = m_subst(r, m_subst_map.size(), m_subst_map.data());
                     m_rewriter(new_r);
                     conjs.reset();
                     flatten_and(new_r, conjs);
@@ -802,7 +802,7 @@ namespace qel {
                 args.push_back(A);
                 args.append(a1->get_num_args()-1, a1->get_args()+1);
                 args.push_back(e2);
-                expr* B = a.mk_store(args.size(), args.c_ptr());
+                expr* B = a.mk_store(args.size(), args.data());
                 expr_safe_replace rep(m);
                 rep.insert(A, B);
                 expr_ref tmp(m);
@@ -1145,7 +1145,7 @@ namespace fm {
         }
 
         void reset_constraints() {
-            del_constraints(m_constraints.size(), m_constraints.c_ptr());
+            del_constraints(m_constraints.size(), m_constraints.data());
             m_constraints.reset();
         }
 
@@ -1421,7 +1421,7 @@ namespace fm {
             fm & m_owner;
             forbidden_proc(fm & o):m_owner(o) {}
             void operator()(::var * n) {
-                if (m_owner.is_var(n) && m_owner.m.get_sort(n)->get_family_id() == m_owner.m_util.get_family_id()) {
+                if (m_owner.is_var(n) && n->get_sort()->get_family_id() == m_owner.m_util.get_family_id()) {
                     m_owner.m_forbidden_set.insert(n->get_idx());
                 }
             }
@@ -1518,7 +1518,7 @@ namespace fm {
                 if (c.m_num_vars == 1)
                     lhs = ms[0];
                 else
-                    lhs = m_util.mk_add(ms.size(), ms.c_ptr());
+                    lhs = m_util.mk_add(ms.size(), ms.data());
                 expr * rhs = m_util.mk_numeral(c.m_c, int_cnstr);
                 if (c.m_strict) {
                     ineq = m.mk_not(m_util.mk_ge(lhs, rhs));
@@ -1548,7 +1548,7 @@ namespace fm {
             if (lits.size() == 1)
                 return to_app(lits[0]);
             else
-                return m.mk_or(lits.size(), lits.c_ptr());
+                return m.mk_or(lits.size(), lits.data());
         }
 
         var mk_var(expr * t) {
@@ -1683,7 +1683,7 @@ namespace fm {
                         if (!is_int(xs.back()))
                             all_int = false;
                     }
-                    mk_int(as.size(), as.c_ptr(), c);
+                    mk_int(as.size(), as.data(), c);
                     if (all_int && strict) {
                         strict = false;
                         c--;
@@ -1694,10 +1694,10 @@ namespace fm {
             TRACE("qe_lite", tout << "before mk_constraint: "; for (unsigned i = 0; i < xs.size(); i++) tout << " " << xs[i]; tout << "\n";);
 
             constraint * new_c = mk_constraint(lits.size(),
-                                               lits.c_ptr(),
+                                               lits.data(),
                                                xs.size(),
-                                               xs.c_ptr(),
-                                               as.c_ptr(),
+                                               xs.data(),
+                                               as.data(),
                                                c,
                                                strict,
                                                dep);
@@ -2032,10 +2032,10 @@ namespace fm {
             }
 
             constraint * new_cnstr = mk_constraint(new_lits.size(),
-                                                   new_lits.c_ptr(),
+                                                   new_lits.data(),
                                                    new_xs.size(),
-                                                   new_xs.c_ptr(),
-                                                   new_as.c_ptr(),
+                                                   new_xs.data(),
+                                                   new_as.data(),
                                                    new_c,
                                                    new_strict,
                                                    new_dep);
@@ -2092,7 +2092,7 @@ namespace fm {
                 for (unsigned j = 0; j < num_uppers; j++) {
                     if (m_inconsistent || num_new_cnstrs > limit) {
                         TRACE("qe_lite", tout << "too many new constraints: " << num_new_cnstrs << "\n";);
-                        del_constraints(new_constraints.size(), new_constraints.c_ptr());
+                        del_constraints(new_constraints.size(), new_constraints.data());
                         return false;
                     }
                     constraint const & l_c = *(l[i]);
@@ -2303,22 +2303,22 @@ public:
         quantifier_ref q(m);
         proof_ref pr(m);
         symbol qe_lite("QE");
-        expr_abstract(m, 0, vars.size(), (expr*const*)vars.c_ptr(), fml, tmp);
+        expr_abstract(m, 0, vars.size(), (expr*const*)vars.data(), fml, tmp);
         ptr_vector<sort> sorts;
         svector<symbol> names;
         for (unsigned i = 0; i < vars.size(); ++i) {
-            sorts.push_back(m.get_sort(vars[i].get()));
+            sorts.push_back(vars[i]->get_sort());
             names.push_back(vars[i]->get_decl()->get_name());
         }
-        q = m.mk_exists(vars.size(), sorts.c_ptr(), names.c_ptr(), tmp, 1, qe_lite);
+        q = m.mk_exists(vars.size(), sorts.data(), names.data(), tmp, 1, qe_lite);
         m_der.reduce_quantifier(q, tmp, pr);
         // assumes m_der just updates the quantifier and does not change things more.
         if (is_exists(tmp) && to_quantifier(tmp)->get_qid() == qe_lite) {
             used_vars used;
             tmp = to_quantifier(tmp)->get_expr();
-            used.process(tmp);
+            used(tmp);
             var_subst vs(m, true);
-            fml = vs(tmp, vars.size(), (expr*const*)vars.c_ptr());
+            fml = vs(tmp, vars.size(), (expr*const*)vars.data());
             // collect set of variables that were used.
             unsigned j = 0;
             for (unsigned i = 0; i < vars.size(); ++i) {
@@ -2350,10 +2350,10 @@ public:
             conjs.reset();
             conjs.push_back(disjs[i].get());
             (*this)(index_set, index_of_bound, conjs);
-            bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), fml);
+            bool_rewriter(m).mk_and(conjs.size(), conjs.data(), fml);
             disjs[i] = std::move(fml);
         }
-        bool_rewriter(m).mk_or(disjs.size(), disjs.c_ptr(), fml);
+        bool_rewriter(m).mk_or(disjs.size(), disjs.data(), fml);
     }
 
 

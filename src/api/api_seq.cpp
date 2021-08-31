@@ -61,8 +61,8 @@ extern "C" {
         LOG_Z3_mk_string(c, str);
         RESET_ERROR_CODE();
         unsigned_vector chs;
-        for (unsigned i = 0; i < sz; ++i) chs.push_back(str[i]);
-        zstring s(sz, chs.c_ptr());
+        for (unsigned i = 0; i < sz; ++i) chs.push_back((unsigned char)str[i]);
+        zstring s(sz, chs.data());
         app* a = mk_c(c)->sutil().str.mk_string(s);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
@@ -74,6 +74,16 @@ extern "C" {
         LOG_Z3_mk_string_sort(c);
         RESET_ERROR_CODE();
         sort* ty = mk_c(c)->sutil().str.mk_string_sort();
+        mk_c(c)->save_ast_trail(ty);
+        RETURN_Z3(of_sort(ty));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+     Z3_sort Z3_API Z3_mk_char_sort(Z3_context c) {
+        Z3_TRY;
+        LOG_Z3_mk_char_sort(c);
+        RESET_ERROR_CODE();
+        sort* ty = mk_c(c)->sutil().mk_char_sort();
         mk_c(c)->save_ast_trail(ty);
         RETURN_Z3(of_sort(ty));
         Z3_CATCH_RETURN(nullptr);
@@ -120,6 +130,15 @@ extern "C" {
         RETURN_Z3(of_sort(r));
         Z3_CATCH_RETURN(nullptr);
     }
+
+    bool Z3_API Z3_is_char_sort(Z3_context c, Z3_sort s) {
+        Z3_TRY;
+        LOG_Z3_is_char_sort(c, s);
+        RESET_ERROR_CODE();
+        return mk_c(c)->sutil().is_char(to_sort(s));
+        Z3_CATCH_RETURN(false);
+    }
+
 
     bool Z3_API Z3_is_string_sort(Z3_context c, Z3_sort s) {
         Z3_TRY;
@@ -188,7 +207,7 @@ extern "C" {
             }
         }
         *length = buffer.size();
-        return buffer.c_ptr();
+        return buffer.data();
         Z3_CATCH_RETURN("");
     }
 
@@ -225,6 +244,8 @@ extern "C" {
 
     MK_UNARY(Z3_mk_int_to_str, mk_c(c)->get_seq_fid(), OP_STRING_ITOS, SKIP);
     MK_UNARY(Z3_mk_str_to_int, mk_c(c)->get_seq_fid(), OP_STRING_STOI, SKIP);
+    MK_UNARY(Z3_mk_ubv_to_str, mk_c(c)->get_seq_fid(), OP_STRING_UBVTOS, SKIP);
+    MK_UNARY(Z3_mk_sbv_to_str, mk_c(c)->get_seq_fid(), OP_STRING_SBVTOS, SKIP);
 
 
     Z3_ast Z3_API Z3_mk_re_loop(Z3_context c, Z3_ast r, unsigned lo, unsigned hi) {
@@ -245,7 +266,8 @@ extern "C" {
     MK_NARY(Z3_mk_re_intersect, mk_c(c)->get_seq_fid(), OP_RE_INTERSECT, SKIP);
     MK_NARY(Z3_mk_re_concat, mk_c(c)->get_seq_fid(), OP_RE_CONCAT, SKIP);
     MK_BINARY(Z3_mk_re_range, mk_c(c)->get_seq_fid(), OP_RE_RANGE, SKIP);
-
+  
+    MK_SORTED(Z3_mk_re_allchar, mk_c(c)->sutil().re.mk_full_char);
     MK_SORTED(Z3_mk_re_empty, mk_c(c)->sutil().re.mk_empty);
     MK_SORTED(Z3_mk_re_full, mk_c(c)->sutil().re.mk_full_seq);
 

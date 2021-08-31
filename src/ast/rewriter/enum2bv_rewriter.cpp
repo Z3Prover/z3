@@ -43,6 +43,8 @@ struct enum2bv_rewriter::imp {
         ast_manager&         m;        
         datatype_util        m_dt;
         bv_util              m_bv;
+        bool                 m_enable_unate { false };
+        unsigned             m_unate_bound { 30 };
 
         rw_cfg(imp& i, ast_manager & m) :
             m_imp(i),
@@ -50,6 +52,38 @@ struct enum2bv_rewriter::imp {
             m_dt(m),
             m_bv(m)
         {}
+
+        bool is_unate(sort* s) {
+            if (!m_enable_unate)
+                return false;
+            unsigned nc = m_dt.get_datatype_num_constructors(s);
+            return 1 < nc && nc <= m_unate_bound;            
+        }
+
+        expr* value2bv(unsigned idx, sort* s) {
+            unsigned bv_size = get_bv_size(s);
+            sort_ref bv_sort(m_bv.mk_sort(bv_size), m);
+            if (is_unate(s))
+                return m_bv.mk_numeral(rational((1 << idx) - 1), bv_sort.get());
+            else 
+                return m_bv.mk_numeral(rational(idx), bv_sort.get());
+        }
+
+        void constrain_domain(expr_ref_vector& bounds, expr* x, sort* s, sort* bv_sort) {
+            unsigned domain_size = m_dt.get_datatype_num_constructors(s);
+            if (is_unate(s)) {
+                expr_ref one(m_bv.mk_numeral(rational::one(), 1), m);
+                for (unsigned i = 0; i + 2 < domain_size; ++i) {                    
+                    bounds.push_back(m.mk_implies(m.mk_eq(one, m_bv.mk_extract(i + 1, i + 1, x)),
+                                                          m.mk_eq(one, m_bv.mk_extract(i, i, x))));
+                }
+            }
+            else {
+                if (!is_power_of_two(domain_size) || domain_size == 1) {
+                    bounds.push_back(m_bv.mk_ule(x, value2bv(domain_size - 1, s)));
+                }             
+            }   
+        }
 
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
             expr_ref a0(m), a1(m);
@@ -60,12 +94,12 @@ struct enum2bv_rewriter::imp {
                 return BR_DONE;
             }
             else if (m.is_distinct(f) && reduce_args(num, args, _args)) {
-                result = m.mk_distinct(_args.size(), _args.c_ptr());
+                result = m.mk_distinct(_args.size(), _args.data());
                 return BR_DONE;
             }
             else if (m_dt.is_recognizer(f) && reduce_arg(args[0], a0)) {
                 unsigned idx = m_dt.get_recognizer_constructor_idx(f);
-                a1 = m_bv.mk_numeral(rational(idx), get_sort(a0));
+                a1 = value2bv(idx, args[0]->get_sort());
                 result = m.mk_eq(a0, a1);
                 return BR_DONE;
             }
@@ -92,7 +126,7 @@ struct enum2bv_rewriter::imp {
 
         void check_for_fd(unsigned n, expr* const* args) {
             for (unsigned i = 0; i < n; ++i) {
-                if (m_imp.is_fd(get_sort(args[i]))) {
+                if (m_imp.is_fd(args[i]->get_sort())) {
                     throw_non_fd(args[i]);
                 }
             }
@@ -100,11 +134,12 @@ struct enum2bv_rewriter::imp {
 
         bool reduce_arg(expr* a, expr_ref& result) {
 
-            sort* s = get_sort(a);
+            sort* s = a->get_sort();
             if (!m_imp.is_fd(s)) {
                 return false;
             }
             unsigned bv_size = get_bv_size(s);
+            sort_ref bv_sort(m_bv.mk_sort(bv_size), m);
 
             if (is_var(a)) {
                 result = m.mk_var(to_var(a)->get_idx(), m_bv.mk_sort(bv_size));
@@ -114,7 +149,7 @@ struct enum2bv_rewriter::imp {
             func_decl* f = to_app(a)->get_decl();
             if (m_dt.is_constructor(f)) {
                 unsigned idx = m_dt.get_constructor_idx(f);
-                result = m_bv.mk_numeral(idx, bv_size);
+                result = value2bv(idx, s);
             }
             else if (is_uninterp_const(a)) {
                 func_decl* f_fresh;
@@ -125,17 +160,14 @@ struct enum2bv_rewriter::imp {
 
                 // create a fresh variable, add bounds constraints for it.
                 unsigned nc = m_dt.get_datatype_num_constructors(s);
-                result = m.mk_fresh_const(f->get_name(), m_bv.mk_sort(bv_size));
+                result = m.mk_fresh_const(f->get_name(), bv_sort);
                 f_fresh = to_app(result)->get_decl();
-                if (!is_power_of_two(nc) || nc == 1) {
-                    m_imp.m_bounds.push_back(m_bv.mk_ule(result, m_bv.mk_numeral(nc-1, bv_size)));
-                }                
+                constrain_domain(m_imp.m_bounds, result, s, bv_sort);
                 expr_ref f_def(m);
                 ptr_vector<func_decl> const& cs = *m_dt.get_datatype_constructors(s);
                 f_def = m.mk_const(cs[nc-1]);
-                for (unsigned i = nc - 1; i > 0; ) {
-                    --i;
-                    f_def = m.mk_ite(m.mk_eq(result, m_bv.mk_numeral(i,bv_size)), m.mk_const(cs[i]), f_def);
+                for (unsigned i = nc - 1; i-- > 0; ) {
+                    f_def = m.mk_ite(m.mk_eq(result, value2bv(i, s)), m.mk_const(cs[i]), f_def);
                 }
                 m_imp.m_enum2def.insert(f, f_def);
                 m_imp.m_enum2bv.insert(f, f_fresh);
@@ -169,11 +201,10 @@ struct enum2bv_rewriter::imp {
                 sort* s = q->get_decl_sort(i);
                 if (m_imp.is_fd(s)) {
                     unsigned bv_size = get_bv_size(s);
-                    m_sorts.push_back(m_bv.mk_sort(bv_size));
-                    unsigned nc = m_dt.get_datatype_num_constructors(s);
-                    if (!is_power_of_two(nc) || nc == 1) {
-                        bounds.push_back(m_bv.mk_ule(m.mk_var(q->get_num_decls()-i-1, m_sorts[i]), m_bv.mk_numeral(nc-1, bv_size)));
-                    }                
+                    sort* bv_sort = m_bv.mk_sort(bv_size);
+                    m_sorts.push_back(bv_sort);
+                    expr_ref var(m.mk_var(q->get_num_decls()-i-1, bv_sort), m);
+                    constrain_domain(bounds, var, s, bv_sort);
                     found = true;
                 }
                 else {
@@ -198,7 +229,7 @@ struct enum2bv_rewriter::imp {
                     break;
                 }
             }
-            result = m.mk_quantifier(q->get_kind(), q->get_num_decls(), m_sorts.c_ptr(), q->get_decl_names(), new_body_ref, 
+            result = m.mk_quantifier(q->get_kind(), q->get_num_decls(), m_sorts.data(), q->get_decl_names(), new_body_ref, 
                                      q->get_weight(), q->get_qid(), q->get_skid(), 
                                      q->get_num_patterns(), new_patterns,
                                      q->get_num_no_patterns(), new_no_patterns);
@@ -209,6 +240,8 @@ struct enum2bv_rewriter::imp {
 
         unsigned get_bv_size(sort* s) {
             unsigned nc = m_dt.get_datatype_num_constructors(s);
+            if (is_unate(s))
+                return nc - 1;
             unsigned bv_size = 1;
             while ((unsigned)(1 << bv_size) < nc) {
                 ++bv_size;

@@ -540,7 +540,7 @@ struct purify_arith_proc {
                 }
             }
             SASSERT(args.size() >= 2);
-            push_cnstr(EQ(u().mk_add(args.size(), args.c_ptr()), mk_real_zero()));
+            push_cnstr(EQ(u().mk_add(args.size(), args.data()), mk_real_zero()));
             push_cnstr_pr(result_pr);
             push_cnstr(u().mk_lt(u().mk_numeral(lower, false), k));
             push_cnstr_pr(result_pr);

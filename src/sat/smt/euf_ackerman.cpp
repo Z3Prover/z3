@@ -34,6 +34,7 @@ namespace euf {
             m.dec_ref(inf->a);
             m.dec_ref(inf->b);
             m.dec_ref(inf->c);
+            dealloc(inf);
         }
         m_table.reset();
         m_queue = nullptr;        

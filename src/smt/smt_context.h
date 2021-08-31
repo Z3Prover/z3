@@ -18,6 +18,7 @@ Revision History:
 --*/
 #pragma once
 
+#include "ast/quantifier_stat.h"
 #include "smt/smt_clause.h"
 #include "smt/smt_setup.h"
 #include "smt/smt_enode.h"
@@ -29,15 +30,12 @@ Revision History:
 #include "smt/smt_clause_proof.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_quantifier.h"
-#include "smt/smt_quantifier_stat.h"
 #include "smt/smt_statistics.h"
 #include "smt/smt_conflict_resolution.h"
 #include "smt/smt_relevancy.h"
-#include "smt/smt_induction.h"
 #include "smt/smt_case_split_queue.h"
 #include "smt/smt_almost_cg_table.h"
 #include "smt/smt_failure.h"
-#include "smt/asserted_formulas.h"
 #include "smt/smt_types.h"
 #include "smt/dyn_ack.h"
 #include "ast/ast_smt_pp.h"
@@ -51,6 +49,7 @@ Revision History:
 #include "smt/user_propagator.h"
 #include "model/model.h"
 #include "solver/progress_callback.h"
+#include "solver/assertions/asserted_formulas.h"
 #include <tuple>
 
 // there is a significant space overhead with allocating 1000+ contexts in
@@ -110,9 +109,9 @@ namespace smt {
 
         unsigned                    m_final_check_idx; // circular counter used for implementing fairness
 
-        bool                        m_is_auxiliary; // used to prevent unwanted information from being logged.
-        class parallel*             m_par;
-        unsigned                    m_par_index;
+        bool                        m_is_auxiliary { false }; // used to prevent unwanted information from being logged.
+        class parallel*             m_par { nullptr };
+        unsigned                    m_par_index { 0 };
 
         // -----------------------------------
         //
@@ -151,7 +150,7 @@ namespace smt {
         svector<new_th_eq>          m_propagated_th_diseqs;
         svector<enode_pair>         m_diseq_vector;
 #endif
-        enode *                     m_is_diseq_tmp; // auxiliary enode used to find congruent equality atoms.
+        enode *                     m_is_diseq_tmp { nullptr }; // auxiliary enode used to find congruent equality atoms.
 
         tmp_enode                   m_tmp_enode;
         ptr_vector<almost_cg_table> m_almost_cg_tables; // temporary field for is_ext_diseq
@@ -180,15 +179,14 @@ namespace smt {
         literal_vector              m_assigned_literals;
         typedef std::pair<clause*, literal_vector> tmp_clause;
         vector<tmp_clause>          m_tmp_clauses;
-        unsigned                    m_qhead;
-        unsigned                    m_simp_qhead;
-        int                         m_simp_counter; //!< can become negative
+        unsigned                    m_qhead { 0 };
+        unsigned                    m_simp_qhead { 0 };
+        int                         m_simp_counter { 0 }; //!< can become negative
         scoped_ptr<case_split_queue> m_case_split_queue;
-        scoped_ptr<induction>       m_induction;
-        double                      m_bvar_inc;
-        bool                        m_phase_cache_on;
-        unsigned                    m_phase_counter; //!< auxiliary variable used to decide when to turn on/off phase caching
-        bool                        m_phase_default; //!< default phase when using phase caching
+        double                      m_bvar_inc { 1.0 };
+        bool                        m_phase_cache_on { true };
+        unsigned                    m_phase_counter { 0 }; //!< auxiliary variable used to decide when to turn on/off phase caching
+        bool                        m_phase_default { false }; //!< default phase when using phase caching
 
         // A conflict is usually a single justification. That is, a justification
         // for false. If m_not_l is not null_literal, then m_conflict is a
@@ -297,7 +295,7 @@ namespace smt {
         }
 
         bool_var get_bool_var(enode const * n) const {
-            return get_bool_var(n->get_owner());
+            return get_bool_var(n->get_expr());
         }
 
         bool_var get_bool_var_of_id(unsigned id) const {
@@ -600,10 +598,10 @@ namespace smt {
         //
         // -----------------------------------
     protected:
-        typedef ptr_vector<trail<context> >   trail_stack;
+        typedef ptr_vector<trail >   trail_stack;
         trail_stack                           m_trail_stack;
 #ifdef Z3DEBUG
-        bool                                  m_trail_enabled;
+        bool                                  m_trail_enabled { true };
 #endif
 
     public:
@@ -613,15 +611,15 @@ namespace smt {
             m_trail_stack.push_back(new (m_region) TrailObject(obj));
         }
 
-        void push_trail_ptr(trail<context> * ptr) {
+        void push_trail_ptr(trail * ptr) {
             m_trail_stack.push_back(ptr);
         }
 
     protected:
 
-        unsigned                    m_scope_lvl;
-        unsigned                    m_base_lvl;
-        unsigned                    m_search_lvl; // It is greater than m_base_lvl when assumptions are used.  Otherwise, it is equals to m_base_lvl
+        unsigned                    m_scope_lvl { 0 };
+        unsigned                    m_base_lvl { 0 };
+        unsigned                    m_search_lvl { 0 }; // It is greater than m_base_lvl when assumptions are used.  Otherwise, it is equals to m_base_lvl
         struct scope {
             unsigned                m_assigned_literals_lim;
             unsigned                m_trail_stack_lim;
@@ -724,7 +722,7 @@ namespace smt {
         }
 
     protected:
-        unsigned m_generation; //!< temporary variable used during internalization
+        unsigned m_generation { 0 }; //!< temporary variable used during internalization
 
     public:
         bool binary_clause_opt_enabled() const {
@@ -793,25 +791,31 @@ namespace smt {
         void internalize_uninterpreted(app * n);
 
         friend class mk_bool_var_trail;
-        class mk_bool_var_trail : public trail<context> {
+        class mk_bool_var_trail : public trail {
+            context& ctx;
         public:
-            void undo(context & ctx) override { ctx.undo_mk_bool_var(); }
+            mk_bool_var_trail(context& ctx) :ctx(ctx) {}
+            void undo() override { ctx.undo_mk_bool_var(); }
         };
         mk_bool_var_trail   m_mk_bool_var_trail;
         void undo_mk_bool_var();
 
         friend class mk_enode_trail;
-        class mk_enode_trail : public trail<context> {
+        class mk_enode_trail : public trail {
+            context& ctx;
         public:
-            void undo(context & ctx) override { ctx.undo_mk_enode(); }
+            mk_enode_trail(context& ctx) :ctx(ctx) {}
+            void undo() override { ctx.undo_mk_enode(); }
         };
         mk_enode_trail   m_mk_enode_trail;
         void undo_mk_enode();
 
         friend class mk_lambda_trail;
-        class mk_lambda_trail : public trail<context> {
+        class mk_lambda_trail : public trail {
+            context& ctx;
         public:
-            void undo(context & ctx) override { ctx.undo_mk_lambda(); }
+            mk_lambda_trail(context& ctx) :ctx(ctx) {}
+            void undo() override { ctx.undo_mk_lambda(); }
         };
         mk_lambda_trail   m_mk_lambda_trail;
         void undo_mk_lambda();
@@ -904,7 +908,7 @@ namespace smt {
         void mk_th_axiom(theory_id tid, literal l1, literal l2, literal l3, unsigned num_params = 0, parameter * params = nullptr);
 
         void mk_th_axiom(theory_id tid, literal_vector const& ls, unsigned num_params = 0, parameter * params = nullptr) {
-            mk_th_axiom(tid, ls.size(), ls.c_ptr(), num_params, params);
+            mk_th_axiom(tid, ls.size(), ls.data(), num_params, params);
         }
 
         void mk_th_lemma(theory_id tid, literal l1, literal l2, unsigned num_params = 0, parameter * params = nullptr) {
@@ -922,7 +926,7 @@ namespace smt {
         }
 
         void mk_th_lemma(theory_id tid, literal_vector const& ls, unsigned num_params = 0, parameter * params = nullptr) {
-            mk_th_lemma(tid, ls.size(), ls.c_ptr(), num_params, params);
+            mk_th_lemma(tid, ls.size(), ls.data(), num_params, params);
         }
 
         /*
@@ -970,10 +974,10 @@ namespace smt {
         //
         // -----------------------------------
     protected:
-        lbool              m_last_search_result;
-        failure            m_last_search_failure;
+        lbool              m_last_search_result { l_undef };
+        failure            m_last_search_failure { UNKNOWN };
         ptr_vector<theory> m_incomplete_theories; //!< theories that failed to produce a model
-        bool               m_searching;
+        bool               m_searching { false };
         unsigned           m_num_conflicts;
         unsigned           m_num_conflicts_since_restart;
         unsigned           m_num_conflicts_since_lemma_gc;
@@ -1078,7 +1082,7 @@ namespace smt {
 
         void push_eq(enode * lhs, enode * rhs, eq_justification const & js) {
             if (lhs->get_root() != rhs->get_root()) {
-                SASSERT(m.get_sort(lhs->get_owner()) == m.get_sort(rhs->get_owner()));
+                SASSERT(lhs->get_expr()->get_sort() == rhs->get_expr()->get_sort());
                 m_eq_propagation_queue.push_back(new_eq(lhs, rhs, js));
             }
         }
@@ -1263,7 +1267,7 @@ namespace smt {
         }
 
         bool is_relevant(enode * n) const {
-            return is_relevant(n->get_owner());
+            return is_relevant(n->get_expr());
         }
 
         bool is_relevant(bool_var v) const {
@@ -1281,7 +1285,7 @@ namespace smt {
 
         void mark_as_relevant(expr * n) { m_relevancy_propagator->mark_as_relevant(n); m_relevancy_propagator->propagate(); }
 
-        void mark_as_relevant(enode * n) { mark_as_relevant(n->get_owner()); }
+        void mark_as_relevant(enode * n) { mark_as_relevant(n->get_expr()); }
 
         void mark_as_relevant(bool_var v) { mark_as_relevant(bool_var2expr(v)); }
 
@@ -1317,7 +1321,6 @@ namespace smt {
     public:
         bool can_propagate() const;
 
-        induction& get_induction(); 
 
         // Retrieve arithmetic values. 
         bool get_arith_lo(expr* e, rational& lo, bool& strict);
@@ -1351,14 +1354,14 @@ namespace smt {
 
         std::ostream& display_literal(std::ostream & out, literal l) const;
 
-        std::ostream& display_detailed_literal(std::ostream & out, literal l) const { l.display(out, m, m_bool_var2expr.c_ptr()); return out; }
+        std::ostream& display_detailed_literal(std::ostream & out, literal l) const { return smt::display(out, l, m, m_bool_var2expr.data()); }
 
         void display_literal_info(std::ostream & out, literal l) const;
 
         std::ostream& display_literals(std::ostream & out, unsigned num_lits, literal const * lits) const;
 
         std::ostream& display_literals(std::ostream & out, literal_vector const& lits) const {
-            return display_literals(out, lits.size(), lits.c_ptr());
+            return display_literals(out, lits.size(), lits.data());
         }
 
         std::ostream& display_literal_smt2(std::ostream& out, literal lit) const;
@@ -1367,14 +1370,14 @@ namespace smt {
 
         std::ostream& display_literals_smt2(std::ostream& out, unsigned num_lits, literal const* lits) const;
 
-        std::ostream& display_literals_smt2(std::ostream& out, literal_vector const& ls) const { return display_literals_smt2(out, ls.size(), ls.c_ptr()); }
+        std::ostream& display_literals_smt2(std::ostream& out, literal_vector const& ls) const { return display_literals_smt2(out, ls.size(), ls.data()); }
 
         std::ostream& display_literal_verbose(std::ostream & out, literal lit) const;
 
         std::ostream& display_literals_verbose(std::ostream & out, unsigned num_lits, literal const * lits) const;
         
         std::ostream& display_literals_verbose(std::ostream & out, literal_vector const& lits) const {
-            return display_literals_verbose(out, lits.size(), lits.c_ptr());
+            return display_literals_verbose(out, lits.size(), lits.data());
         }
 
         void display_watch_list(std::ostream & out, literal l) const;
@@ -1727,7 +1730,7 @@ namespace smt {
         void assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain);
 
         void assign_fixed(enode* n, expr* val, literal_vector const& explain) {
-            assign_fixed(n, val, explain.size(), explain.c_ptr());
+            assign_fixed(n, val, explain.size(), explain.data());
         }
 
         void assign_fixed(enode* n, expr* val, literal explain) {
@@ -1772,7 +1775,7 @@ namespace smt {
         literal const *lits;
         unsigned len;
         pp_lits(context & ctx, unsigned len, literal const *lits) : ctx(ctx), lits(lits), len(len) {}
-        pp_lits(context & ctx, literal_vector const& ls) : ctx(ctx), lits(ls.c_ptr()), len(ls.size()) {}
+        pp_lits(context & ctx, literal_vector const& ls) : ctx(ctx), lits(ls.data()), len(ls.size()) {}
     };
 
     inline std::ostream & operator<<(std::ostream & out, pp_lits const & pp) {

@@ -67,7 +67,7 @@ namespace nlarith {
             ast_manager& m = m_lits.get_manager();
             std::string name = m_x->get_decl()->get_name().str();
             name += suffix;
-            sort* r = m.get_sort(m_x);
+            sort* r = m_x->get_sort();
             v= m.mk_const(symbol(name.c_str()), r);
         }
     };
@@ -528,7 +528,7 @@ namespace nlarith {
                       tout << " 0 [-oo] --> " << mk_pp(t1.get(), m()) << "\n";);
             }
             TRACE("nlarith", tout << "inf-branch\n";);
-            bc.add_branch(mk_and(es.size(), es.c_ptr()), m().mk_true(), subst, mk_inf(bc), z(), z(), z());
+            bc.add_branch(mk_and(es.size(), es.data()), m().mk_true(), subst, mk_inf(bc), z(), z(), z());
         }
 
         void create_branch_l(unsigned j, unsigned i, polys const& polys, comps const& comps, 
@@ -552,7 +552,7 @@ namespace nlarith {
                 rp->set_substitution(&sub);
                 if (a != z()) es.push_back(mk_eq(a));
                 es.push_back(mk_ne(b));
-                cond = mk_and(es.size(), es.c_ptr());
+                cond = mk_and(es.size(), es.data());
                 es.push_back(bc.preds(i));
                 for (unsigned k = 0; k < polys.size(); ++k) {
                     mk_subst(cmp, polys[k], comps[k], e0, t1);
@@ -560,7 +560,7 @@ namespace nlarith {
                     es.push_back(m().mk_implies(bc.preds(k), t2));
                     subst.push_back(t1);
                 }
-                bc.add_branch(mk_and(es.size(), es.c_ptr()), cond, subst, mk_def(cmp, abc_poly(*this, z(), b, c), e0), a, b, c);
+                bc.add_branch(mk_and(es.size(), es.data()), cond, subst, mk_def(cmp, abc_poly(*this, z(), b, c), e0), a, b, c);
             }
 
             if (i == j && a != z()) {
@@ -579,7 +579,7 @@ namespace nlarith {
                     es.push_back(m().mk_implies(bc.preds(k), t1));
                     subst.push_back(t1);
                 }
-                bc.add_branch(mk_and(es.size(), es.c_ptr()), cond, subst, mk_def(cmp, abc_poly(*this, a2, b, z()),e1), a, b, c);
+                bc.add_branch(mk_and(es.size(), es.data()), cond, subst, mk_def(cmp, abc_poly(*this, a2, b, z()),e1), a, b, c);
             }
         }
 
@@ -616,7 +616,7 @@ namespace nlarith {
                 rp->set_substitution(&sub);
                 if (a != z()) es.push_back(mk_eq(a));
                 es.push_back(mk_ne(b));
-                cond = mk_and(es.size(), es.c_ptr());
+                cond = mk_and(es.size(), es.data());
                 es.push_back(bc.preds(i));
                 for (unsigned j = 0; j < polys.size(); ++j) {
                     mk_subst(cmp, polys[j], comps[j], e0, t1);
@@ -624,7 +624,7 @@ namespace nlarith {
                     es.push_back(m().mk_implies(bc.preds(j), t2));
                     subst.push_back(t2);
                 }
-                branch = mk_and(es.size(), es.c_ptr());
+                branch = mk_and(es.size(), es.data());
                 bc.add_branch(branch, cond, subst, mk_def(cmp, abc_poly(*this, z(), b, c), e0), a, b, c); 
             }
 
@@ -635,14 +635,14 @@ namespace nlarith {
                 subst.reset();
                 es.push_back(mk_ne(a));
                 es.push_back(mk_ge(d));
-                cond = mk_and(es.size(), es.c_ptr());
+                cond = mk_and(es.size(), es.data());
                 es.push_back(bc.preds(i));
                 for (unsigned j = 0; j < polys.size(); ++j) {
                     mk_subst(cmp, polys[j], comps[j], e1, t1);
                     es.push_back(m().mk_implies(bc.preds(j), t1));
                     subst.push_back(t1);
                 }
-                branch = mk_and(es.size(), es.c_ptr());
+                branch = mk_and(es.size(), es.data());
                 bc.add_branch(branch, cond, subst, mk_def(cmp, abc_poly(*this, a, b, c), e1), a, b, c);
                 TRACE("nlarith", tout << mk_pp(branch,m()) << "\n";);
 
@@ -657,7 +657,7 @@ namespace nlarith {
                     es.push_back(m().mk_implies(bc.preds(j), t1));
                     subst.push_back(t1);
                 }
-                branch = mk_and(es.size(), es.c_ptr());
+                branch = mk_and(es.size(), es.data());
                 bc.add_branch(branch, cond, subst, mk_def(cmp, abc_poly(*this, a, b, c), e2), a, b, c);
                 TRACE("nlarith", tout << mk_pp(branch,m()) << "\n";);
             }
@@ -953,7 +953,7 @@ namespace nlarith {
             }
             TRACE("nlarith_verbose", display(tout, r); display(tout <<" * ", other); display(tout << " = ", result); tout <<"\n";);
             r.reset();
-            r.append(result.size(), result.c_ptr());
+            r.append(result.size(), result.data());
         }
 
         void mk_mul(poly& p, expr* e) {
@@ -1261,13 +1261,13 @@ namespace nlarith {
                 tmp.push_back(mk_mul(xx.get(), p[i]));
                 xx = mk_mul(x, xx.get());                      
             }
-            result = mk_add(tmp.size(), tmp.c_ptr());
+            result = mk_add(tmp.size(), tmp.data());
         }
 
         app* mk_zero(poly const& p) {
             app_ref_vector tmp(m());
             mk_zero(p, tmp);
-            return mk_and(tmp.size(), reinterpret_cast<expr*const*>(tmp.c_ptr()));
+            return mk_and(tmp.size(), reinterpret_cast<expr*const*>(tmp.data()));
         }
 
         void mk_zero(poly const& p, app_ref_vector& zeros) {
@@ -1495,7 +1495,7 @@ namespace nlarith {
                 equivs.push_back(m().mk_implies(literals.literal(i), tmp));
                 new_atoms.push_back(tmp);
             }
-            fml = mk_and(equivs.size(), equivs.c_ptr());
+            fml = mk_and(equivs.size(), equivs.data());
         }
         void mk_plus_inf_sign(util::literal_set const& literals, app_ref& fml, app_ref_vector& new_atoms) {
             plus_inf_subst sub(*this);
@@ -1520,7 +1520,7 @@ namespace nlarith {
             mk_same_sign  (literals, false, conjs, new_atoms);
             mk_lt(literals.x(), literals.x_inf(), conjs, new_atoms);
             mk_lt(literals.x_sup(), literals.x(), conjs, new_atoms);
-            fml = mk_and(conjs.size(), conjs.c_ptr());
+            fml = mk_and(conjs.size(), conjs.data());
         }
         void mk_lt(app* x, app* y, expr_ref_vector& conjs, app_ref_vector& new_atoms) {
             app* atm = mk_lt(mk_sub(x,y));
@@ -1545,7 +1545,7 @@ namespace nlarith {
                 new_atoms.push_back(fml);
                 ors.push_back(fml);
             }
-            conjs.push_back(mk_or(ors.size(), ors.c_ptr()));
+            conjs.push_back(mk_or(ors.size(), ors.data()));
         }
 
         /*
@@ -1831,7 +1831,7 @@ namespace nlarith {
             // p'(x) > 0 -> r(y+epsilon) > 0 & r(z-epsilon) > 0
             mk_bound_ext(p1_lt0, p1,   p, lits.x_sup(), lits.x_inf(), conjs, new_atoms);
             mk_bound_ext(p1_gt0, p1_m, p, lits.x_sup(), lits.x_inf(), conjs, new_atoms);
-            fml = mk_and(conjs.size(), conjs.c_ptr());
+            fml = mk_and(conjs.size(), conjs.data());
             simple_branch* br = alloc(simple_branch, m(), fml);
             swap_atoms(br, lits.lits(), new_atoms);
             return br;

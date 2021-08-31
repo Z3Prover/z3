@@ -72,13 +72,9 @@ public:
     }
 
     bool empty() const {
-        svector<unsigned>::const_iterator it  = m_timestamps.begin();
-        svector<unsigned>::const_iterator end = m_timestamps.end();
-        for (; it != end; ++it) {
-            if (*it > m_curr_timestamp) {
+        for (auto const& t : m_timestamps)
+            if (t > m_curr_timestamp) 
                 return false;
-            }
-        }
         return true;
     }
 };

@@ -16,6 +16,8 @@ Abstract:
 
 template<typename T> using atomic = T;
 
+#define ATOMIC_EXCHANGE(ret, var, val) ret = var; var = val
+
 struct mutex {
   void lock() {}
   void unlock() {}
@@ -38,6 +40,7 @@ template<typename T> using atomic = std::atomic<T>;
 typedef std::mutex mutex;
 typedef std::lock_guard<std::mutex> lock_guard;
 
+#define ATOMIC_EXCHANGE(ret, var, val) ret = var.exchange(val)
 #define DECLARE_MUTEX(name) mutex *name = nullptr
 #define DECLARE_INIT_MUTEX(name) mutex *name = new mutex
 #define ALLOC_MUTEX(name) name = alloc(mutex)

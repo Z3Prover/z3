@@ -164,7 +164,7 @@ private:
         for (unsigned i = 0; i < g.size(); ++i) {
             conjs.push_back(g.form(i));
         }
-        fml = m().mk_and(conjs.size(), conjs.c_ptr());
+        fml = m().mk_and(conjs.size(), conjs.data());
         normalize(fml);
     }
 
@@ -248,17 +248,15 @@ private:
     }
 
     class sort_colors {
-        ast_manager& m_manager;
         app_map& m_app2sortid;
         obj_map<sort,unsigned>  m_sort2id;
         unsigned m_max_id;
 
     public:
-        sort_colors(ast_manager& m, app_map& app2sort): 
-          m_manager(m), m_app2sortid(app2sort), m_max_id(0) {}
+        sort_colors(app_map& app2sort) : m_app2sortid(app2sort), m_max_id(0) {}
 
         void operator()(app* n) {
-            sort* s = m_manager.get_sort(n);
+            sort* s = n->get_sort();
             unsigned id;
             if (!m_sort2id.find(s, id)) {
                 id = m_max_id++;
@@ -273,7 +271,7 @@ private:
 
     void compute_sort_colors(expr* fml, app_map& app2sortId) {
         app2sortId.reset();
-        sort_colors sc(m(), app2sortId);
+        sort_colors sc(app2sortId);
         for_each_expr(sc, fml);
     }
 
@@ -340,10 +338,8 @@ private:
         app_parents const& get_parents() { return m_use_funs; }
 
         void operator()(app* n) {
-            func_decl* f;
-            unsigned sz = n->get_num_args();
-            for (unsigned i = 0; i < sz; ++i) {
-                expr* e = n->get_arg(i);
+            func_decl* f = n->get_decl();
+            for (expr* e : *n) {
                 if (is_app(e)) {
                     auto& value = m_use_funs.insert_if_not_there(to_app(e), 0);
                     if (!value) value = alloc(fun_set);
@@ -615,7 +611,7 @@ private:
         for (unsigned i = 0; i < C.size(); ++i) {
             eqs.push_back(m().mk_eq(t, C[i]));
         }
-        return m().mk_or(eqs.size(), eqs.c_ptr());
+        return m().mk_or(eqs.size(), eqs.data());
     }
 };
 
