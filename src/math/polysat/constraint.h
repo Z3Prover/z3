@@ -57,7 +57,7 @@ namespace polysat {
 
         vector<scoped_ptr_vector<constraint>> m_constraints;
         vector<vector<clause_ref>> m_clauses;
-        
+
         // Association to external dependency values (i.e., external names for constraints)
         u_map<constraint*> m_external_constraints;
 
@@ -66,17 +66,19 @@ namespace polysat {
         void erase_bv2c(constraint* c);
         constraint* get_bv2c(sat::bool_var bv) const;
 
+        void store(constraint* c);
+        void erase(constraint* c);
+        void set_level(constraint* c, unsigned new_lvl);
+
         constraint* dedup(constraint* c);
 
     public:
         constraint_manager(bool_var_manager& bvars): m_bvars(bvars) {}
         ~constraint_manager();
 
-        /** Start managing the lifetime of the given constraint
-         *  - Keeps the constraint until the corresponding level is popped
-         *  - Allocates a boolean variable for the constraint
-         */
-        constraint* store(scoped_constraint_ptr c);
+        void assign_bvar(constraint* c);
+        void erase_bvar(constraint* c);
+        sat::literal get_or_assign_blit(signed_constraint& c);
 
         clause* store(clause_ref cl);
 
@@ -85,6 +87,10 @@ namespace polysat {
 
         /// Release constraints at the given level and above.
         void release_level(unsigned lvl);
+
+        /// Garbage-collect temporary constraints (i.e., those that do not have a boolean variable).
+        void gc();
+        bool should_gc();
 
         constraint* lookup(sat::bool_var var) const;
         signed_constraint lookup(sat::literal lit) const;
@@ -119,7 +125,7 @@ namespace polysat {
 
         // constraint_manager* m_manager;
         clause*             m_unit_clause = nullptr;  ///< If this constraint was asserted by a unit clause, we store that clause here.
-        unsigned            m_storage_level;  ///< Controls lifetime of the constraint object. Always a base level.
+        unsigned            m_level;  ///< Controls lifetime of the constraint object. Always a base level.
         ckind_t             m_kind;
         unsigned_vector     m_vars;
         /** The boolean variable associated to this constraint, if any.
@@ -131,7 +137,7 @@ namespace polysat {
         sat::bool_var       m_bvar = sat::null_bool_var;
 
         constraint(constraint_manager& m, unsigned lvl, ckind_t k):
-            /*m_manager(&m),*/ m_storage_level(lvl), m_kind(k) {}
+            /*m_manager(&m),*/ m_level(lvl), m_kind(k) {}
 
     protected:
         std::ostream& display_extra(std::ostream& out, lbool status) const;
@@ -162,7 +168,7 @@ namespace polysat {
         unsigned_vector& vars() { return m_vars; }
         unsigned_vector const& vars() const { return m_vars; }
         unsigned var(unsigned idx) const { return m_vars[idx]; }
-        unsigned level() const { return m_storage_level; }
+        unsigned level() const { return m_level; }
         bool has_bvar() const { return m_bvar != sat::null_bool_var; }
         sat::bool_var bvar() const { return m_bvar; }
 

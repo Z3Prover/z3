@@ -140,7 +140,7 @@ namespace polysat {
         SASSERT(sc);
         SASSERT(activate || dep != null_dependency);  // if we don't activate the constraint, we need the dependency to access it again later.
         signed_constraint c = sc.get_signed();
-        m_constraints.store(sc.detach());
+        sc.detach();
         clause* unit = m_constraints.store(clause::from_unit(c, mk_dep_ref(dep)));
         c->set_unit_clause(unit);
         if (dep != null_dependency)
