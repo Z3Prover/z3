@@ -21,27 +21,40 @@ namespace polysat {
 
     class solver;
 
+    class inference_engine {
+    public:
+        virtual ~inference_engine() {}
+        /** Try to apply an inference rule. Returns true if a new constraint was added to the core. */
+        virtual bool perform(conflict_explainer& ce) = 0;
+    };
+
+    class inf_polynomial_superposition : public inference_engine {
+    public:
+        bool perform(conflict_explainer& ce) override;
+    };
+
+    // TODO: other rules
+    // clause_ref by_ugt_x();
+    // clause_ref by_ugt_y();
+    // clause_ref by_ugt_z();
+    // clause_ref y_ule_ax_and_x_ule_z();
+
     class conflict_explainer {
         solver& m_solver;
 
-        pvar m_var = null_var;
-        ptr_vector<constraint> m_cjust_v;
+        conflict_core m_conflict;
 
-        // TODO: instead of listing methods, create an abstract class for explanation methods, register them in a vector and call them in turn
-        /* Conflict explanation methods */
-        clause_ref by_polynomial_superposition();
-        clause_ref by_ugt_x();
-        clause_ref by_ugt_y();
-        clause_ref by_ugt_z();
-        clause_ref y_ule_ax_and_x_ule_z();
+        scoped_ptr_vector<inference_engine> inference_engines;
 
-        p_dependency_ref null_dep();
-        // p_dependency_ref null_dep() const { return m_solver.mk_dep_ref(null_dependency); }
         bool push_omega_mul(clause_builder& clause, unsigned level, unsigned p, pdd const& x, pdd const& y);
-
     public:
         /** Create empty conflict */
         conflict_explainer(solver& s);
+
+        /** Perform one step of core saturation, if possible.
+         *  Core saturation derives new constraints according applicable inference rules.
+         */
+        bool saturate();
 
         /** resolve conflict state against assignment to v */
         void resolve(pvar v, ptr_vector<constraint> const& cjust_v);

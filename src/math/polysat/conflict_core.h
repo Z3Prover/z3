@@ -21,6 +21,7 @@ namespace polysat {
         vector<signed_constraint> m_constraints;
 
         /** Storage for new constraints that may not yet have a boolean variable yet */
+        // TODO: not necessary anymore, if we keep constraint_manager::gc()
         ptr_vector<constraint> m_storage;
 
         // If this is not null_var, the conflict was due to empty viable set for this variable.
