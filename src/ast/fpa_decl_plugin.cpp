@@ -927,9 +927,8 @@ bool fpa_decl_plugin::is_unique_value(app* e) const {
     case OP_FPA_NUM: /* see NaN */
         return false;
     case OP_FPA_FP:
-        return m_manager->is_unique_value(e->get_arg(0)) &&
-            m_manager->is_unique_value(e->get_arg(1)) &&
-            m_manager->is_unique_value(e->get_arg(2));
+        return false; /*No; generally not because of clashes with +oo, -oo, +zero, -zero, NaN */
+        // a refinement would require to return true only if there is no clash with these cases.
     default:
         return false;
     }
