@@ -58,7 +58,7 @@ namespace polysat {
         m_constraints[c->level()].push_back(c);
     }
 
-    /** Remove the given constraint from the per-level storage */
+    /** Remove the given constraint from the per-level storage (without deallocating it) */
     void constraint_manager::erase(constraint* c) {
         LOG_V("Erase constraint: " << show_deref(c));
         auto& vec = m_constraints[c->level()];
@@ -137,21 +137,6 @@ namespace polysat {
 
     /** Look up constraint among stored constraints. */
     constraint* constraint_manager::dedup(constraint* c1) {
-        // TODO: can this assertion be violated?
-        // Yes, e.g.: constraint c was asserted at level 1, the conflict resolution derived ~c from c1,c2 at level 0...
-        // In that case we have to adjust c0's level in the storage.
-        // What about the level of the boolean variable? That depends on its position in the assignment stack and should probably stay where it is.
-        // Will be updated separately when we patch the assignment stack.
-
-        // NB code review: currently you separate dedup from insertion into the constraint table.
-        // It seems more convenient to also ensure that the new constraint is inserted into the table at this point.
-        // You also erase c from the constraint table in erase_bv2c.
-        // again association with m_constraint_table seems to be only for deduplication purposes.
-        //
-        // the store function is used separately from solver::new_constraint
-        // shouldn't it be combined with deduplication?
-        // in this way we can fix the level if a new duplicate constraint is created at a lower level
-        // JR: Ok, makes sense. But then the question is how to unregister temporary constraints from the dedup table when they are deallocated. -> gc() method
         auto it = m_constraint_table.find(c1);
         if (it == m_constraint_table.end()) {
             store(c1);
