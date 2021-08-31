@@ -67,6 +67,11 @@ namespace polysat {
             m_storage.reset();
         }
 
+        /** Perform boolean resolution with the clause upon variable 'var'.
+         * Precondition: core/clause contain complementary 'var'-literals.
+         */
+        void resolve(sat::bool_var var, clause const& cl);
+
         std::ostream& display(std::ostream& out) const;
     };
 
