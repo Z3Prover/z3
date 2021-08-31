@@ -422,6 +422,11 @@ namespace euf {
             set_conflict(n1, n2, j);
             return;
         }
+        if (r1->value() != r2->value() && r1->value() != l_undef && r2->value() != l_undef) {
+            SASSERT(m.is_bool(r1->get_expr()));
+            set_conflict(n1, n2, j);
+            return;
+        }
         if (!r2->interpreted() && 
              (r1->class_size() > r2->class_size() || r1->interpreted() || r1->value() != l_undef)) {
             std::swap(r1, r2);
