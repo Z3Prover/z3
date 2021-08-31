@@ -66,6 +66,9 @@ namespace polysat {
             if (!m_conflict.empty()) LOG("Conflict:       " << m_conflict);
             IF_LOGGING(m_viable.log());
 
+            if (!is_conflict() && m_constraints.should_gc())
+                m_constraints.gc();
+
             if (pending_disjunctive_lemma()) { LOG_H2("UNDEF (handle lemma externally)"); return l_undef; }
             else if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
             else if (is_conflict()) resolve_conflict();
