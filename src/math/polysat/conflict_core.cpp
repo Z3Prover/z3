@@ -16,6 +16,7 @@ Author:
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
 #include "math/polysat/log_helper.h"
+#include <algorithm>
 
 namespace polysat {
 
@@ -57,29 +58,32 @@ namespace polysat {
         m_needs_model = true;
     }
 
-    void conflict_core::resolve(sat::bool_var var, clause const& cl) {
-        // TODO: fix the implementation: should resolve the given clause with the current conflict core.
-#if 0
+
+    void conflict_core::resolve(constraint_manager const& m, sat::bool_var var, clause const& cl) {
+        // Note: core: x, y, z; corresponds to clause ~x \/ ~y \/ ~z
+        //       clause: x \/ u \/ v
+        //       resolvent: ~y \/ ~z \/ u \/ v; as core: y, z, ~u, ~v
+
+        SASSERT(var != sat::null_bool_var);
         DEBUG_CODE({
-            bool this_has_pos = std::count(begin(), end(), sat::literal(var)) > 0;
-            bool this_has_neg = std::count(begin(), end(), ~sat::literal(var)) > 0;
-            bool other_has_pos = std::count(other.begin(), other.end(), sat::literal(var)) > 0;
-            bool other_has_neg = std::count(other.begin(), other.end(), ~sat::literal(var)) > 0;
-            SASSERT(!this_has_pos || !this_has_neg);  // otherwise this is tautology
-            SASSERT(!other_has_pos || !other_has_neg);  // otherwise other is tautology
-            SASSERT((this_has_pos && other_has_neg) || (this_has_neg && other_has_pos));
+            bool core_has_pos = std::count_if(begin(), end(), [var](auto c){ return c.blit() == sat::literal(var); }) > 0;
+            bool core_has_neg = std::count_if(begin(), end(), [var](auto c){ return c.blit() == ~sat::literal(var); }) > 0;
+            bool clause_has_pos = std::count(cl.begin(), cl.end(), sat::literal(var)) > 0;
+            bool clause_has_neg = std::count(cl.begin(), cl.end(), ~sat::literal(var)) > 0;
+            SASSERT(!core_has_pos || !core_has_neg);  // otherwise core is tautology
+            SASSERT(!clause_has_pos || !clause_has_neg);  // otherwise clause is tautology
+            SASSERT((core_has_pos && clause_has_pos) || (core_has_neg && clause_has_neg));
         });
-        // The resolved var should not be one of the new constraints
+
         int j = 0;
-        for (auto lit : m_literals)
+        for (auto c : m_constraints)
+            if (c->bvar() == var)
+                m_constraints[j++] = c;
+        m_constraints.shrink(j);
+
+        for (sat::literal lit : cl)
             if (lit.var() != var)
-                m_literals[j++] = lit;
-        m_literals.shrink(j);
-        for (sat::literal lit : other)
-            if (lit.var() != var)
-                m_literals.push_back(lit);
-        return true;
-#endif
+                m_constraints.push_back(m.lookup(~lit));
     }
 
 }
