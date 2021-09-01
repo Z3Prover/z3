@@ -294,7 +294,7 @@ static struct custom_operations Z3_ast_plus_custom_ops = {
   Z3_ast_compare_ext
 };
 
-MK_CTX_OF(ast, 0, 1)
+MK_CTX_OF(ast, 1, 100000)
 
 #define MK_PLUS_OBJ_NO_REF(X, USED, MAX)                                \
   typedef struct {                                                      \
@@ -410,7 +410,7 @@ MK_CTX_OF(ast, 0, 1)
                                                                         \
   MK_CTX_OF(X, USED, MAX)
 
-MK_PLUS_OBJ_NO_REF(symbol, 0, 1)
+MK_PLUS_OBJ_NO_REF(symbol, 1, 5000)
 MK_PLUS_OBJ_NO_REF(constructor, 0, 1)
 MK_PLUS_OBJ_NO_REF(constructor_list, 0, 1)
 MK_PLUS_OBJ_NO_REF(rcf_num, 0, 1)
