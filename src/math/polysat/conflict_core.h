@@ -33,14 +33,18 @@ namespace polysat {
     public:
         vector<signed_constraint> const& constraints() const { return m_constraints; }
         bool needs_model() const { return m_needs_model; }
+        pvar conflict_var() const { return m_conflict_var; }
+
+        bool is_bailout() const { return m_constraints.size() == 1 && !m_constraints[0]; }
 
         bool empty() const {
-            return m_constraints.empty() && !m_needs_model;
+            return m_constraints.empty() && !m_needs_model && m_conflict_var == null_var;
         }
 
         void reset() {
             m_constraints.reset();
             m_needs_model = false;
+            m_conflict_var = null_var;
             SASSERT(empty());
         }
 
@@ -49,7 +53,9 @@ namespace polysat {
         /** conflict because the constraint c is false under current variable assignment */
         void set(signed_constraint c);
         /** conflict because there is no viable value for the variable v */
-        void set(pvar v, vector<signed_constraint> const& cjust_v);
+        void set(pvar v);
+
+        void push(signed_constraint c);
 
         /** Perform boolean resolution with the clause upon variable 'var'.
          * Precondition: core/clause contain complementary 'var'-literals.

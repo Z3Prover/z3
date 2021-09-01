@@ -47,17 +47,17 @@ namespace polysat {
         m_needs_model = true;
     }
 
-    void conflict_core::set(pvar v, vector<signed_constraint> const& cjust_v) {
-        LOG("Conflict for v" << v << ": " << cjust_v);
+    void conflict_core::set(pvar v) {
+        LOG("Conflict: v" << v);
         SASSERT(empty());
-        NOT_IMPLEMENTED_YET();
         m_conflict_var = v;
-        m_constraints.append(cjust_v);
-        if (cjust_v.empty())
-            m_constraints.push_back({});
         m_needs_model = true;
     }
 
+    void conflict_core::push(signed_constraint c) {
+        SASSERT(!empty());  // should use set() to enter conflict state
+        m_constraints.push_back(c);
+    }
 
     void conflict_core::resolve(constraint_manager const& m, sat::bool_var var, clause const& cl) {
         // Note: core: x, y, z; corresponds to clause ~x \/ ~y \/ ~z

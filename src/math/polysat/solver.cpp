@@ -400,17 +400,19 @@ namespace polysat {
     }
 
     void solver::set_conflict(pvar v) {
-        m_conflict.set(v, m_cjust[v]);
+        m_conflict.set(v);
     }
 
     void solver::set_marks(conflict_core const& cc) {
+        if (cc.conflict_var() != null_var)
+            set_mark(cc.conflict_var());
         for (auto c : cc.constraints())
             if (c)
                 set_marks(*c);
     }
 
     void solver::set_marks(constraint const& c) {
-        if (c.bvar() != sat::null_bool_var)
+        if (c.has_bvar())
             m_bvars.set_mark(c.bvar());
         for (auto v : c.vars())
             set_mark(v);
@@ -1011,6 +1013,7 @@ namespace polysat {
     }
     
     void solver::reset_marks() {
+        m_bvars.reset_marks();
         LOG_V("-------------------------- (reset variable marks)");
         m_marks.reserve(m_vars.size());
         m_clock++;
