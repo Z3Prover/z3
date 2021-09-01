@@ -19,7 +19,7 @@ class tactic;
 tactic * mk_solver_subsumption_tactic(ast_manager & m, params_ref const & p = params_ref());
 
 /*
-  ADD_TACTIC("solver_subsumption", "remove assertions that are subsumed.", "mk_solver_subsumption_tactic(m, p)")
+  ADD_TACTIC("solver-subsumption", "remove assertions that are subsumed.", "mk_solver_subsumption_tactic(m, p)")
 */
 
 
