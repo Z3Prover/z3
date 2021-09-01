@@ -13,6 +13,7 @@ Author:
 --*/
 
 #include "math/polysat/constraint.h"
+#include "math/polysat/clause.h"
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
 #include "math/polysat/log_helper.h"
@@ -20,9 +21,6 @@ Author:
 #include "math/polysat/ule_constraint.h"
 
 namespace polysat {
-
-    //static_assert(!std::is_copy_assignable_v<scoped_signed_constraint>);
-    //static_assert(!std::is_copy_constructible_v<scoped_signed_constraint>);
 
     void constraint_manager::assign_bv2c(sat::bool_var bv, constraint* c) {
         SASSERT_EQ(get_bv2c(bv), nullptr);
@@ -269,44 +267,6 @@ namespace polysat {
         (void)v;
         (void)other_v;
         narrow(s, is_positive);
-    }
-
-    clause_ref clause::from_unit(signed_constraint c, p_dependency_ref d) {
-        SASSERT(c->has_bvar());
-        unsigned const lvl = c->level();
-        sat::literal_vector lits;
-        lits.push_back(c.blit());
-        return clause::from_literals(lvl, std::move(d), std::move(lits));
-    }
-
-    clause_ref clause::from_literals(unsigned lvl, p_dependency_ref d, sat::literal_vector literals) {
-        return alloc(clause, lvl, std::move(d), std::move(literals));
-    }
-
-    bool clause::is_always_false(solver& s) const {
-        return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
-            signed_constraint c = s.m_constraints.lookup(lit);
-            return c.is_always_false();
-        });
-    }
-
-    bool clause::is_currently_false(solver& s) const {
-        return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
-            signed_constraint c = s.m_constraints.lookup(lit);
-            return c.is_currently_false(s);
-        });
-    }
-
-    std::ostream& clause::display(std::ostream& out) const {
-        bool first = true;
-        for (auto lit : *this) {
-            if (first)
-                first = false;
-            else
-                out << " \\/ ";
-            out << lit;
-        }
-        return out;
     }
 
 }
