@@ -21,8 +21,8 @@ Author:
 
 namespace polysat {
 
-    static_assert(!std::is_copy_assignable_v<scoped_signed_constraint>);
-    static_assert(!std::is_copy_constructible_v<scoped_signed_constraint>);
+    //static_assert(!std::is_copy_assignable_v<scoped_signed_constraint>);
+    //static_assert(!std::is_copy_constructible_v<scoped_signed_constraint>);
 
     void constraint_manager::assign_bv2c(sat::bool_var bv, constraint* c) {
         SASSERT_EQ(get_bv2c(bv), nullptr);
@@ -185,15 +185,15 @@ namespace polysat {
         return true;
     }
 
-    scoped_signed_constraint constraint_manager::eq(unsigned lvl, pdd const& p) {
+    signed_constraint constraint_manager::eq(unsigned lvl, pdd const& p) {
         return {dedup(alloc(eq_constraint, *this, lvl, p)), true};
     }
 
-    scoped_signed_constraint constraint_manager::ule(unsigned lvl, pdd const& a, pdd const& b) {
+    signed_constraint constraint_manager::ule(unsigned lvl, pdd const& a, pdd const& b) {
         return {dedup(alloc(ule_constraint, *this, lvl, a, b)), true};
     }
 
-    scoped_signed_constraint constraint_manager::ult(unsigned lvl, pdd const& a, pdd const& b) {
+    signed_constraint constraint_manager::ult(unsigned lvl, pdd const& a, pdd const& b) {
         // a < b  <=>  !(b <= a)
         return ~ule(lvl, b, a);
     }
@@ -214,12 +214,12 @@ namespace polysat {
     //
     // Argument: flipping the msb swaps the negative and non-negative blocks
     //
-    scoped_signed_constraint constraint_manager::sle(unsigned lvl, pdd const& a, pdd const& b) {
+    signed_constraint constraint_manager::sle(unsigned lvl, pdd const& a, pdd const& b) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
         return ule(lvl, a + shift, b + shift);
     }
 
-    scoped_signed_constraint constraint_manager::slt(unsigned lvl, pdd const& a, pdd const& b) {
+    signed_constraint constraint_manager::slt(unsigned lvl, pdd const& a, pdd const& b) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
         return ult(lvl, a + shift, b + shift);
     }
