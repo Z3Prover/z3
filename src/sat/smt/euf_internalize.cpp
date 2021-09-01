@@ -342,7 +342,9 @@ namespace euf {
                 break;
             }
         }
-
+        if (m.is_bool(n->get_expr()) && th_id != m.get_basic_family_id())
+            return true;
+        
         for (enode* parent : euf::enode_parents(n)) {
             app* p = to_app(parent->get_expr());
             family_id fid = p->get_family_id();

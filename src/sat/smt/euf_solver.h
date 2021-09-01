@@ -165,6 +165,7 @@ namespace euf {
         bool is_self_propagated(th_eq const& e);
         void get_antecedents(literal l, constraint& j, literal_vector& r, bool probing);
         void new_diseq(enode* a, enode* b, literal lit);
+        bool merge_shared_bools();
 
         // proofs
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
@@ -286,6 +287,7 @@ namespace euf {
 
         void propagate(literal lit, th_explain* p) { propagate(lit, p->to_index()); }
         bool propagate(enode* a, enode* b, th_explain* p) { return propagate(a, b, p->to_index()); }
+        size_t* to_justification(sat::literal l) { return to_ptr(l); }
         void set_conflict(th_explain* p) { set_conflict(p->to_index()); }
 
         bool set_root(literal l, literal r) override;
