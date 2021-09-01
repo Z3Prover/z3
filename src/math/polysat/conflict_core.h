@@ -20,10 +20,6 @@ namespace polysat {
     class conflict_core {
         vector<signed_constraint> m_constraints;
 
-        /** Storage for new constraints that may not yet have a boolean variable yet */
-        // TODO: not necessary anymore, if we keep constraint_manager::gc()
-        ptr_vector<constraint> m_storage;
-
         // If this is not null_var, the conflict was due to empty viable set for this variable.
         // Can be treated like "v = x" for any value x.
         pvar m_conflict_var = null_var;
@@ -35,10 +31,6 @@ namespace polysat {
         //       For example: if we have 4x+y=2 and y=0, then we have a conflict no matter the value of x, so we should drop x=? from the core.
 
     public:
-        ~conflict_core() {
-            gc();
-        }
-
         vector<signed_constraint> const& constraints() const { return m_constraints; }
         bool needs_model() const { return m_needs_model; }
 
@@ -49,7 +41,6 @@ namespace polysat {
         void reset() {
             m_constraints.reset();
             m_needs_model = false;
-            gc();
             SASSERT(empty());
         }
 
@@ -59,14 +50,6 @@ namespace polysat {
         void set(signed_constraint c);
         /** conflict because there is no viable value for the variable v */
         void set(pvar v, vector<signed_constraint> const& cjust_v);
-
-        /** Garbage-collect temporary constraints */
-        void gc() {
-            for (auto* c : m_storage)
-                if (!c->has_bvar())
-                    dealloc(c);
-            m_storage.reset();
-        }
 
         /** Perform boolean resolution with the clause upon variable 'var'.
          * Precondition: core/clause contain complementary 'var'-literals.
