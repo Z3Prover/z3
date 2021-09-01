@@ -18,9 +18,11 @@ Author:
 namespace polysat {
 
     class ule_constraint final : public constraint {
+        friend class constraint_manager;
+
         pdd m_lhs;
         pdd m_rhs;
-    public:
+
         ule_constraint(constraint_manager& m, unsigned lvl, pdd const& l, pdd const& r):
             constraint(m, lvl, ckind_t::ule_t), m_lhs(l), m_rhs(r) {
             m_vars.append(l.free_vars());
@@ -28,6 +30,8 @@ namespace polysat {
                 if (!m_vars.contains(v))
                     m_vars.push_back(v);
         }
+
+    public:
         ~ule_constraint() override {}
         pdd const& lhs() const { return m_lhs; }
         pdd const& rhs() const { return m_rhs; }
