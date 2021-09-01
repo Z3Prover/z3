@@ -22,6 +22,7 @@ namespace polysat {
         return false;
     }
 
+#if 0
     conflict_explainer::conflict_explainer(solver& s): m_solver(s) {
         inference_engines.push_back(alloc(inf_polynomial_superposition));
     }
@@ -32,6 +33,7 @@ namespace polysat {
                 return true;
         return false;
     }
+#endif
 
 
 
@@ -582,7 +584,4 @@ namespace polysat {
 //         return true;
 //     }
 
-    void conflict_explainer::resolve()
-    {
-    }
 }

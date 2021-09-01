@@ -13,13 +13,9 @@ Author:
 --*/
 #pragma once
 #include "math/polysat/boolean.h"
+#include "math/polysat/clause.h"
 #include "math/polysat/types.h"
 #include "math/polysat/interval.h"
-#include "math/polysat/log.h"
-#include "util/map.h"
-#include "util/ref.h"
-#include "util/ref_vector.h"
-#include <type_traits>
 
 namespace polysat {
 
@@ -29,11 +25,6 @@ namespace polysat {
     class eq_constraint;
     class ule_constraint;
     class signed_constraint;
-
-
-    class clause;
-    using clause_ref = ref<clause>;
-    using clause_ref_vector = sref_vector<clause>;
 
     using constraint_table = ptr_hashtable<constraint, obj_ptr_hash<constraint>, deref_eq<constraint>>;
 
@@ -71,9 +62,9 @@ namespace polysat {
         constraint_manager(bool_var_manager& bvars): m_bvars(bvars) {}
         ~constraint_manager();
 
-        void assign_bvar(constraint* c);
+        void ensure_bvar(constraint* c);
         void erase_bvar(constraint* c);
-        sat::literal get_or_assign_blit(signed_constraint& c);
+        // sat::literal get_or_assign_blit(signed_constraint& c);
 
         clause* store(clause_ref cl);
 
@@ -129,6 +120,7 @@ namespace polysat {
          */
         // NB code review: the convention would make sense. Unfortunately, elsewhere in z3 we use "true" for negative literals
         // and "false" for positive literals. It is called the "sign" bit.
+        // TODO: replace parameter 'is_positive' everywhere by 'sign'? (also in signed_constraint)
         sat::bool_var       m_bvar = sat::null_bool_var;
 
         constraint(constraint_manager& m, unsigned lvl, ckind_t k):
@@ -169,7 +161,7 @@ namespace polysat {
 
         clause* unit_clause() const { return m_unit_clause; }
         void set_unit_clause(clause* cl) { SASSERT(cl); SASSERT(!m_unit_clause || m_unit_clause == cl); m_unit_clause = cl; }
-        p_dependency* unit_dep() const;
+        p_dependency* unit_dep() const { return m_unit_clause ? m_unit_clause->dep() : nullptr; }
 
         /** Precondition: all variables other than v are assigned.
          *
@@ -200,9 +192,8 @@ namespace polysat {
             SASSERT_EQ(blit(), lit);
         }
 
-        void negate() {
-            m_positive = !m_positive;
-        }
+        void negate() { m_positive = !m_positive; }
+        signed_constraint operator~() const { return {get(), !is_positive()}; }
 
         bool is_positive() const { return m_positive; }
         bool is_negative() const { return !is_positive(); }
@@ -210,6 +201,7 @@ namespace polysat {
         bool propagate(solver& s, pvar v) { return get()->propagate(s, is_positive(), v); }
         void propagate_core(solver& s, pvar v, pvar other_v) { get()->propagate_core(s, is_positive(), v, other_v); }
         bool is_always_false() { return get()->is_always_false(is_positive()); }
+        bool is_always_true() { return get()->is_always_false(is_negative()); }
         bool is_currently_false(solver& s) { return get()->is_currently_false(s, is_positive()); }
         bool is_currently_true(solver& s) { return get()->is_currently_true(s, is_positive()); }
         void narrow(solver& s) { get()->narrow(s, is_positive()); }
@@ -218,7 +210,6 @@ namespace polysat {
         sat::bool_var bvar() const { return m_constraint->bvar(); }
         sat::literal blit() const { return sat::literal(bvar(), is_negative()); }
         constraint* get() const { return m_constraint; }
-
 
         explicit operator bool() const { return !!m_constraint; }
         bool operator!() const { return !m_constraint; }
@@ -243,71 +234,4 @@ namespace polysat {
     inline std::ostream& operator<<(std::ostream& out, signed_constraint const& c) {
         return c.display(out);
     }
-
-    inline signed_constraint operator~(signed_constraint const& c) {
-        return {c.get(), !c.is_positive()};
-    }
-
-
-    /// Disjunction of constraints represented by boolean literals
-    // NB code review:
-    // right, ref-count is unlikely the right mechanism.
-    // In the SAT solver all clauses are managed in one arena (auxiliarary and redundant)
-    // and deleted when they exist the arena.
-    //
-    class clause {
-        friend class constraint_manager;
-
-        unsigned m_ref_count = 0;  // TODO: remove refcount once we confirm it's not needed anymore
-        unsigned m_level;
-        unsigned m_next_guess = 0;  // next guess for enumerative backtracking
-        p_dependency_ref m_dep;
-        sat::literal_vector m_literals;
-
-        /* TODO: embed literals to save an indirection?
-        unsigned m_num_literals;
-        constraint* m_literals[0];
-
-        static size_t object_size(unsigned m_num_literals) {
-            return sizeof(clause) + m_num_literals * sizeof(constraint*);
-        }
-        */
-
-        clause(unsigned lvl, p_dependency_ref d, sat::literal_vector literals):
-            m_level(lvl), m_dep(std::move(d)), m_literals(std::move(literals)) {
-            SASSERT(std::count(m_literals.begin(), m_literals.end(), sat::null_literal) == 0);
-        }
-
-    public:
-        void inc_ref() { m_ref_count++; }
-        void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (!m_ref_count) dealloc(this); }
-
-        static clause_ref from_unit(signed_constraint c, p_dependency_ref d);
-        static clause_ref from_literals(unsigned lvl, p_dependency_ref d, sat::literal_vector literals);
-
-        p_dependency* dep() const { return m_dep; }
-        unsigned level() const { return m_level; }
-
-        bool empty() const { return m_literals.empty(); }
-        unsigned size() const { return m_literals.size(); }
-        sat::literal operator[](unsigned idx) const { return m_literals[idx]; }
-
-        using const_iterator = typename sat::literal_vector::const_iterator;
-        const_iterator begin() const { return m_literals.begin(); }
-        const_iterator end() const { return m_literals.end(); }
-
-        bool is_always_false(solver& s) const;
-        bool is_currently_false(solver& s) const;
-
-        unsigned next_guess() {
-            SASSERT(m_next_guess < size());
-            return m_next_guess++;
-        }
-
-        std::ostream& display(std::ostream& out) const;
-    };
-
-    inline std::ostream& operator<<(std::ostream& out, clause const& c) { return c.display(out); }
-
-    inline p_dependency* constraint::unit_dep() const { return m_unit_clause ? m_unit_clause->dep() : nullptr; }
 }

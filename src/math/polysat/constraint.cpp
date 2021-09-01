@@ -13,6 +13,7 @@ Author:
 --*/
 
 #include "math/polysat/constraint.h"
+#include "math/polysat/clause.h"
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
 #include "math/polysat/log_helper.h"
@@ -20,9 +21,6 @@ Author:
 #include "math/polysat/ule_constraint.h"
 
 namespace polysat {
-
-    //static_assert(!std::is_copy_assignable_v<scoped_signed_constraint>);
-    //static_assert(!std::is_copy_constructible_v<scoped_signed_constraint>);
 
     void constraint_manager::assign_bv2c(sat::bool_var bv, constraint* c) {
         SASSERT_EQ(get_bv2c(bv), nullptr);
@@ -42,8 +40,9 @@ namespace polysat {
         return m_bv2constraint.get(bv, nullptr);
     }
 
-    void constraint_manager::assign_bvar(constraint* c) {
-        assign_bv2c(m_bvars.new_var(), c);
+    void constraint_manager::ensure_bvar(constraint* c) {
+        if (!c->has_bvar())
+            assign_bv2c(m_bvars.new_var(), c);
     }
 
     void constraint_manager::erase_bvar(constraint* c) {
@@ -141,16 +140,6 @@ namespace polysat {
         if (it == m_constraint_table.end()) {
             store(c1);
             m_constraint_table.insert(c1);
-            // Assuming c is a temporary constraint, we need to:
-            //     1. erase(c);
-            //     2. m_constraint_table.remove(c);
-            // before we dealloc it.
-            // But even if we don't do this, there is not a real memory leak because the constraint will be deallocated properly when the level is popped.
-            // So maybe the best way is to just do periodic GC passes where we throw out constraints that do not have a boolean variable,
-            // instead of precise lifetime tracking for temprorary constraints.
-            // It should be safe to do a GC pass outside of conflict resolution.
-            // TODO: if this is the path we take, then we can drop the scoped_signed_constraint and the scoped_constraint_ptr classes.
-            // TODO: we could maintain a counter of temporary constraints (#constraints - #bvars) to decide when to do a GC, or just do it after every conflict resolution
             return c1;
         }
         constraint* c0 = *it;
@@ -182,6 +171,7 @@ namespace polysat {
 
     bool constraint_manager::should_gc() {
         // TODO: maybe replace this by a better heuristic
+        // maintain a counter of temporary constraints? (#constraints - #bvars)
         return true;
     }
 
@@ -241,7 +231,9 @@ namespace polysat {
     }
 
     std::ostream& constraint::display_extra(std::ostream& out, lbool status) const {
-        out << " @" << level() << " (b" << bvar() << ")";
+        out << " @" << level() << " (b";
+        if (has_bvar()) { out << bvar(); } else { out << "_"; }
+        out << ")";
         (void)status;
         // if (is_positive()) out << " [pos]";
         // if (is_negative()) out << " [neg]";
@@ -275,44 +267,6 @@ namespace polysat {
         (void)v;
         (void)other_v;
         narrow(s, is_positive);
-    }
-
-    clause_ref clause::from_unit(signed_constraint c, p_dependency_ref d) {
-        SASSERT(c->has_bvar());
-        unsigned const lvl = c->level();
-        sat::literal_vector lits;
-        lits.push_back(c.blit());
-        return clause::from_literals(lvl, std::move(d), std::move(lits));
-    }
-
-    clause_ref clause::from_literals(unsigned lvl, p_dependency_ref d, sat::literal_vector literals) {
-        return alloc(clause, lvl, std::move(d), std::move(literals));
-    }
-
-    bool clause::is_always_false(solver& s) const {
-        return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
-            signed_constraint c = s.m_constraints.lookup(lit);
-            return c.is_always_false();
-        });
-    }
-
-    bool clause::is_currently_false(solver& s) const {
-        return std::all_of(m_literals.begin(), m_literals.end(), [&s](sat::literal lit) {
-            signed_constraint c = s.m_constraints.lookup(lit);
-            return c.is_currently_false(s);
-        });
-    }
-
-    std::ostream& clause::display(std::ostream& out) const {
-        bool first = true;
-        for (auto lit : *this) {
-            if (first)
-                first = false;
-            else
-                out << " \\/ ";
-            out << lit;
-        }
-        return out;
     }
 
 }

@@ -18,12 +18,16 @@ Author:
 namespace polysat {
 
     class eq_constraint final : public constraint {
+        friend class constraint_manager;
+
         pdd m_poly;
-    public:
+
         eq_constraint(constraint_manager& m, unsigned lvl, pdd const& p):
             constraint(m, lvl, ckind_t::eq_t), m_poly(p) {
             m_vars.append(p.free_vars());
         }
+
+    public:
         ~eq_constraint() override {}
         pdd const & p() const { return m_poly; }
         std::ostream& display(std::ostream& out, lbool status) const override;
