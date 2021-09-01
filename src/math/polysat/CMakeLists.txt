@@ -15,6 +15,7 @@ z3_add_component(polysat
     solver.cpp
     ule_constraint.cpp
     viable.cpp
+    variable_elimination.cpp
   COMPONENT_DEPENDENCIES
     util
     dd

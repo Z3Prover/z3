@@ -53,6 +53,7 @@ namespace polysat {
         friend class ule_constraint;
         friend class clause;
         friend class clause_builder;
+        friend class conflict_core;
         friend class conflict_explainer;
         friend class forbidden_intervals;
         friend class linear_solver;
@@ -212,10 +213,10 @@ namespace polysat {
         bool resolve_value(pvar v);
         void resolve_bool(sat::literal lit);
         void resolve_bailout(unsigned i);
+        void revert_decision(pvar v);
+        void revert_bool_decision(sat::literal lit);
 
         void report_unsat();
-        void revert_decision(pvar v, clause_ref reason);
-        void revert_bool_decision(sat::literal lit, clause_ref reason);
         void learn_lemma(pvar v, clause_ref lemma);
         void backjump(unsigned new_level);
         void add_lemma(clause_ref lemma);

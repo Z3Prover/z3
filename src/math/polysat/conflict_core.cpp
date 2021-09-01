@@ -56,6 +56,11 @@ namespace polysat {
 
     void conflict_core::push(signed_constraint c) {
         SASSERT(!empty());  // should use set() to enter conflict state
+        // Skip trivial constraints
+        // (e.g., constant ones such as "4 > 1"... only true ones should appear, otherwise the lemma would be a tautology)
+        if (c.is_always_true())
+            return;
+        SASSERT(!c.is_always_false());
         m_constraints.push_back(c);
     }
 
@@ -86,4 +91,27 @@ namespace polysat {
                 m_constraints.push_back(m.lookup(~lit));
     }
 
+    clause_ref conflict_core::build_lemma(solver& s, unsigned trail_idx) {
+        sat::literal_vector literals;
+        p_dependency_ref dep = s.mk_dep_ref(null_dependency);
+        unsigned lvl = 0;
+
+        // TODO: another core reduction step?
+
+        for (auto c : m_constraints) {
+            if (c->unit_clause()) {
+                dep = s.m_dm.mk_join(dep, c->unit_dep());
+                continue;
+            }
+            lvl = std::max(lvl, c->level());
+            s.m_constraints.ensure_bvar(c.get());
+            literals.push_back(~c.blit());
+        }
+
+        if (m_needs_model) {
+            // TODO: add equalities corresponding to model up to trail_idx
+        }
+
+        return clause::from_literals(lvl, std::move(dep), std::move(literals));
+    }
 }

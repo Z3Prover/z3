@@ -201,6 +201,7 @@ namespace polysat {
         bool propagate(solver& s, pvar v) { return get()->propagate(s, is_positive(), v); }
         void propagate_core(solver& s, pvar v, pvar other_v) { get()->propagate_core(s, is_positive(), v, other_v); }
         bool is_always_false() { return get()->is_always_false(is_positive()); }
+        bool is_always_true() { return get()->is_always_false(is_negative()); }
         bool is_currently_false(solver& s) { return get()->is_currently_false(s, is_positive()); }
         bool is_currently_true(solver& s) { return get()->is_currently_true(s, is_positive()); }
         void narrow(solver& s) { get()->narrow(s, is_positive()); }

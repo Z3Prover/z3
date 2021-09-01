@@ -20,6 +20,7 @@ Author:
 #include "math/polysat/explain.h"
 #include "math/polysat/log.h"
 #include "math/polysat/forbidden_intervals.h"
+#include "math/polysat/variable_elimination.h"
 
 // For development; to be removed once the linear solver works well enough
 #define ENABLE_LINEAR_SOLVER 0
@@ -448,10 +449,8 @@ namespace polysat {
             return;
         }
 
-        // TODO: case where conflict_core.conflict_var is set
-        //      this corresponds to a propagation of conflict_var (except it's not explicitly on the stack)
-        //      -> do resolve_value(conflict_var)
         if (m_conflict.conflict_var() != null_var) {
+            // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
             resolve_value(m_conflict.conflict_var());
         }
 
@@ -472,12 +471,10 @@ namespace polysat {
                 if (j.level() <= base_level())
                     break;
                 if (j.is_decision()) {
-                    NOT_IMPLEMENTED_YET();
-                    // revert_decision(v, lemma);
+                    revert_decision(v);
                     return;
                 }
                 SASSERT(j.is_propagation());
-
                 if (!resolve_value(v)) {
                     resolve_bailout(i);
                     return;
@@ -496,12 +493,10 @@ namespace polysat {
                 if (m_bvars.level(var) <= base_level())
                     break;
                 if (m_bvars.is_decision(var)) {
-                    NOT_IMPLEMENTED_YET();
-                    // revert_bool_decision(lit, lemma);
+                    revert_bool_decision(lit);
                     return;
                 }
                 SASSERT(m_bvars.is_propagation(var));
-
                 resolve_bool(lit);
                 reset_marks();
                 set_marks(m_conflict);
@@ -527,7 +522,15 @@ namespace polysat {
             // TODO:
             // 1. Try variable elimination of 'v'
             // 2. If not possible, try saturation and core reduction (actually reduction could be one specific VE method?).
-            NOT_IMPLEMENTED_YET();
+            // 3. as a last resort, substitute v by m_value[v]?
+
+            variable_elimination ve;
+            if (ve.perform(v, m_conflict))
+                return true;
+
+            core_saturation cs;
+            if (!cs.saturate(v, m_conflict))
+                return false;
         }
 
         return false;
@@ -694,7 +697,7 @@ namespace polysat {
      * In general form it can rely on factoring.
      * Root finding can further prune viable.
      */
-    void solver::revert_decision(pvar v, clause_ref reason) {
+    void solver::revert_decision(pvar v) {
         rational val = m_value[v];
         LOG_H3("Reverting decision: pvar " << v << " := " << val);
         NOT_IMPLEMENTED_YET();
@@ -746,7 +749,7 @@ namespace polysat {
         */
     }
     
-    void solver::revert_bool_decision(sat::literal lit, clause_ref reason) {
+    void solver::revert_bool_decision(sat::literal lit) {
         sat::bool_var const var = lit.var();
         LOG_H3("Reverting boolean decision: " << lit);
         SASSERT(m_bvars.is_decision(var));

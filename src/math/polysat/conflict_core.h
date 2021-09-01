@@ -16,6 +16,8 @@ Author:
 
 namespace polysat {
 
+    class solver;
+
     /** Conflict state, represented as core (~negation of clause). */
     class conflict_core {
         vector<signed_constraint> m_constraints;
@@ -61,6 +63,9 @@ namespace polysat {
          * Precondition: core/clause contain complementary 'var'-literals.
          */
         void resolve(constraint_manager const& m, sat::bool_var var, clause const& cl);
+
+        /** Convert the core into a lemma to be learned. */
+        clause_ref build_lemma(solver& s, unsigned trail_idx);
 
         using const_iterator = decltype(m_constraints)::const_iterator;
         const_iterator begin() { return constraints().begin(); }
