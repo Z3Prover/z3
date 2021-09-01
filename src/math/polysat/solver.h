@@ -191,8 +191,6 @@ namespace polysat {
 
         unsigned                 m_conflict_level { 0 };
 
-        clause_ref resolve_bool(sat::literal lit);
-
         bool can_decide() const { return !m_free_vars.empty(); }
         void decide();
         void decide(pvar v);
@@ -211,7 +209,10 @@ namespace polysat {
         unsigned base_level() const;
 
         void resolve_conflict();
-        void backtrack(unsigned i, clause_ref lemma);
+        bool resolve_value(pvar v);
+        void resolve_bool(sat::literal lit);
+        void resolve_bailout(unsigned i);
+
         void report_unsat();
         void revert_decision(pvar v, clause_ref reason);
         void revert_bool_decision(sat::literal lit, clause_ref reason);

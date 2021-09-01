@@ -443,183 +443,108 @@ namespace polysat {
 
         SASSERT(is_conflict());
 
-        NOT_IMPLEMENTED_YET();  // TODO: needs to be refactored to use conflict_core, will be moved to conflict_explainer
-
-        /*
-        if (m_conflict.units().size() == 1 && !m_conflict.units()[0]) {
+        if (m_conflict.is_bailout()) {
             report_unsat();
             return;
         }
 
-        pvar conflict_var = null_var;
-        clause_ref lemma;
-        for (auto v : m_conflict.vars(m_constraints))
-            if (!m_viable.has_viable(v)) {
-                SASSERT(conflict_var == null_var || conflict_var == v);  // at most one variable can be empty
-                conflict_var = v;
-            }
-        reset_marks();
-        m_bvars.reset_marks();
-        set_marks(m_conflict);
-
-        if (m_conflict.clauses().empty() && conflict_var != null_var) {
-            LOG_H2("Conflict due to empty viable set for pvar " << conflict_var);
-            clause_ref new_lemma;
-            if (forbidden_intervals::explain(*this, m_conflict.units(), conflict_var, new_lemma)) {
-                SASSERT(new_lemma);
-                clause& cl = *new_lemma.get();
-                LOG_H3("Lemma from forbidden intervals (size: " << cl.size() << ")");
-                for (sat::literal lit : cl) {
-                    LOG("Literal: " << lit);
-                    constraint* c = m_constraints.lookup(lit.var());
-                    for (auto v : c->vars())
-                        set_mark(v);
-                }
-                SASSERT(cl.size() > 0);
-                lemma = std::move(new_lemma);
-                m_conflict.reset();
-                m_conflict.push_back(lemma);
-                reset_marks();
-                m_bvars.reset_marks();
-                set_marks(*lemma.get());
-            }
-            else {
-                conflict_explainer cx(*this, m_conflict);
-                lemma = cx.resolve(conflict_var, {});
-                LOG("resolved: " << show_deref(lemma));
-                // SASSERT(false && "pause on explanation");
-            }
+        // TODO: case where conflict_core.conflict_var is set
+        //      this corresponds to a propagation of conflict_var (except it's not explicitly on the stack)
+        //      -> do resolve_value(conflict_var)
+        if (m_conflict.conflict_var() != null_var) {
+            resolve_value(m_conflict.conflict_var());
         }
 
+        reset_marks();
+        set_marks(m_conflict);
+
         for (unsigned i = m_search.size(); i-- > 0; ) {
+            LOG("Conflict: " << m_conflict);
             auto const& item = m_search[i];
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();
-                LOG_H2("Working on pvar " << v);
+                LOG_H2("Working on pvar v" << v);
                 if (!is_marked(v))
                     continue;
                 justification& j = m_justification[v];
                 LOG("Justification: " << j);
-                if (j.level() <= base_level()) {
-                    report_unsat();
-                    return;
-                }
+                if (j.level() <= base_level())
+                    break;
                 if (j.is_decision()) {
-                    revert_decision(v, lemma);
+                    NOT_IMPLEMENTED_YET();
+                    // revert_decision(v, lemma);
                     return;
                 }
                 SASSERT(j.is_propagation());
-                LOG("Lemma: " << show_deref(lemma));
-                clause_ref new_lemma = resolve(v);
-                LOG("New Lemma: " << show_deref(new_lemma));
-                // SASSERT(new_lemma); // TODO: only for debugging, to have a breakpoint on resolution failure
-                if (!new_lemma) {
-                    backtrack(i, lemma);
+
+                if (!resolve_value(v)) {
+                    resolve_bailout(i);
                     return;
                 }
-                if (new_lemma->is_always_false(*this)) {
-                    clause* cl = new_lemma.get();
-                    learn_lemma(v, std::move(new_lemma));
-                    m_conflict.reset();
-                    m_conflict.push_back(cl);
-                    report_unsat();
-                    return;
-                }
-                if (!new_lemma->is_currently_false(*this)) {
-                    backtrack(i, lemma);
-                    return;
-                }
-                lemma = std::move(new_lemma);
                 reset_marks();
-                m_bvars.reset_marks();
-                set_marks(*lemma.get());
-                m_conflict.reset();
-                m_conflict.push_back(lemma.get());
+                set_marks(m_conflict);
             }
             else {
                 // Resolve over boolean literal
                 SASSERT(item.is_boolean());
                 sat::literal const lit = item.lit();
-                LOG_H2("Working on boolean literal " << lit);
+                LOG_H2("Working on blit " << lit);
                 sat::bool_var const var = lit.var();
                 if (!m_bvars.is_marked(var))
                     continue;
-                if (m_bvars.level(var) <= base_level()) {
-                    report_unsat();
-                    return;
-                }
+                if (m_bvars.level(var) <= base_level())
+                    break;
                 if (m_bvars.is_decision(var)) {
-                    // SASSERT(std::count(lemma->begin(), lemma->end(), ~lit) > 0);
-                    revert_bool_decision(lit, lemma);
+                    NOT_IMPLEMENTED_YET();
+                    // revert_bool_decision(lit, lemma);
                     return;
                 }
                 SASSERT(m_bvars.is_propagation(var));
-                LOG("Lemma: " << show_deref(lemma));
-                clause_ref new_lemma = resolve_bool(lit);
-                if (!new_lemma) {
-                    backtrack(i, lemma);
-                    return;
-                }
-                SASSERT(new_lemma);
-                LOG("new_lemma: " << show_deref(new_lemma));
-                LOG("new_lemma is always false: " << new_lemma->is_always_false(*this));
-                if (new_lemma->is_always_false(*this)) {
-                    // learn_lemma(v, new_lemma);
-                    m_conflict.reset();
-                    m_conflict.push_back(std::move(new_lemma));
-                    report_unsat();
-                    return;
-                }
-                LOG("new_lemma is currently false: " << new_lemma->is_currently_false(*this));
-                // if (!new_lemma->is_currently_false(*this)) {
-                //     backtrack(i, lemma);
-                //     return;
-                // }
-                lemma = std::move(new_lemma);
+
+                resolve_bool(lit);
                 reset_marks();
-                m_bvars.reset_marks();
-                set_marks(*lemma.get());
-                m_conflict.reset();
-                m_conflict.push_back(lemma.get());
+                set_marks(m_conflict);
             }
         }
         report_unsat();
-        */
     }
 
-    clause_ref solver::resolve_bool(sat::literal lit) {
-        NOT_IMPLEMENTED_YET();  return nullptr;
-        /*
-        if (m_conflict.size() != 1)
-            return nullptr;
-        if (m_conflict.clauses().size() != 1)
-            return nullptr;
-        LOG_H3("resolve_bool");
-        clause* lemma = m_conflict.clauses()[0];
-        SASSERT(lemma);
-        SASSERT(m_bvars.is_propagation(lit.var()));
-        clause* other = m_bvars.reason(lit.var());
-        SASSERT(other);
-        LOG("lemma: " << show_deref(lemma));
-        LOG("other: " << show_deref(other));
-        VERIFY(lemma->resolve(lit.var(), *other));
-        LOG("resolved: " << show_deref(lemma));
+    /** Conflict resolution case where propagation 'v := ...' is on top of the stack */
+    bool solver::resolve_value(pvar v) {
+        SASSERT(m_justification[v].is_propagation());
+        // Conceptually:
+        // - Value Resolution
+        // - Variable Elimination
+        // - if VE isn't possible, try to derive new constraints using core saturation
 
-        // unassign constraints whose current value does not agree with their occurrence in the lemma
-        for (sat::literal lit : *lemma) {
-            constraint *c = m_constraints.lookup(lit.var());
-            if (!c->is_undef() && c ->blit() != lit) {
-                LOG("unassigning: " << show_deref(c));
-                c->unassign();
-            }
+        // Value Resolution
+        for (auto c : m_cjust[v])
+            m_conflict.push(c);
+
+        // Variable elimination
+        while (true) {
+            // TODO:
+            // 1. Try variable elimination of 'v'
+            // 2. If not possible, try saturation and core reduction (actually reduction could be one specific VE method?).
+            NOT_IMPLEMENTED_YET();
         }
 
-        return lemma;  // currently modified in-place
-        */
+        return false;
     }
 
-    void solver::backtrack(unsigned i, clause_ref lemma) {
+    /** Conflict resolution case where boolean literal 'lit' is on top of the stack */
+    void solver::resolve_bool(sat::literal lit) {
+        LOG_H3("resolve_bool: " << lit);
+        SASSERT(m_bvars.is_propagation(lit.var()));
+
+        clause* other = m_bvars.reason(lit.var());
+        m_conflict.resolve(m_constraints, lit.var(), *other);
+    }
+
+    void solver::resolve_bailout(unsigned i) {
+        // TODO: conflict resolution failed or was aborted. what to do with the current conflict core?
+        //      (we could still use it as lemma, but it probably doesn't help much)
         NOT_IMPLEMENTED_YET();
         /*
         do {
