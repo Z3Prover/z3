@@ -233,7 +233,9 @@ namespace polysat {
     }
 
     std::ostream& constraint::display_extra(std::ostream& out, lbool status) const {
-        out << " @" << level() << " (b" << bvar() << ")";
+        out << " @" << level() << " (b";
+        if (has_bvar()) { out << bvar(); } else { out << "_"; }
+        out << ")";
         (void)status;
         // if (is_positive()) out << " [pos]";
         // if (is_negative()) out << " [neg]";
