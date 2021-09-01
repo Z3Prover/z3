@@ -187,14 +187,18 @@ extern "C" {
         svector<char> buff;
         for (unsigned i = 0; i < str.length(); ++i) {
             unsigned ch = str[i];
-            if (ch >= 256) {
+            if (ch <= 32 || ch >= 127) {
                 buff.reset();
                 buffer.push_back('\\');
                 buffer.push_back('\\');  // possibly replace by native non-escaped version?
                 buffer.push_back('u');
                 buffer.push_back('{');
                 while (ch > 0) {
-                    buff.push_back('0' + (ch & 0xF));
+                    unsigned d = ch & 0xF;
+                    if (d < 10)
+                        buff.push_back('0' + d);
+                    else
+                        buff.push_back('a' + (d - 10));
                     ch /= 16;
                 }
                 for (unsigned j = buff.size(); j-- > 0; ) {
