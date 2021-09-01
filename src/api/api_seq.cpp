@@ -190,7 +190,7 @@ extern "C" {
             if (ch <= 32 || ch >= 127) {
                 buff.reset();
                 buffer.push_back('\\');
-                buffer.push_back('\\');  // possibly replace by native non-escaped version?
+//                buffer.push_back('\\');  // possibly replace by native non-escaped version?
                 buffer.push_back('u');
                 buffer.push_back('{');
                 while (ch > 0) {
