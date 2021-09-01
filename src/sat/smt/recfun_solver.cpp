@@ -40,7 +40,6 @@ namespace recfun {
     }
 
     void solver::reset() {
-        m_propagation_queue.reset();
         m_stats.reset();
         m_disabled_guards.reset();
         m_enabled_guards.reset();
@@ -229,7 +228,7 @@ namespace recfun {
     }
 
     void solver::push_prop(propagation_item* p) {
-        m_propagation_queue.push_back(p);         
+        m_propagation_queue.push_back(p);        
         ctx.push(push_back_vector<scoped_ptr_vector<propagation_item>>(m_propagation_queue));        
     }
 
@@ -273,7 +272,8 @@ namespace recfun {
         if (!n) 
             n = mk_enode(e, false);
         SASSERT(!n->is_attached_to(get_id()));
-        mk_var(n);
+        euf::theory_var w = mk_var(n);
+        ctx.attach_th_var(n, this, w);
         if (u().is_defined(e) && u().has_defs()) 
             push_case_expand(e);
         return true;
@@ -292,6 +292,8 @@ namespace recfun {
                 s().assign_scoped(assumption);
             }
         }
+        for (expr* g : m_enabled_guards)
+            push_guard(g);
     }
     
     bool solver::should_research(sat::literal_vector const& core) {
@@ -322,14 +324,11 @@ namespace recfun {
             if (to_delete) {
                 m_disabled_guards.erase(to_delete);
                 m_enabled_guards.push_back(to_delete);
-                push_guard(to_delete);
                 IF_VERBOSE(2, verbose_stream() << "(smt.recfun :enable-guard " << mk_pp(to_delete, m) << ")\n");
             }
             else {
                 IF_VERBOSE(2, verbose_stream() << "(smt.recfun :increment-round)\n");
             }
-            for (expr* g : m_enabled_guards)
-                push_guard(g);
         }
         return found;
     }
