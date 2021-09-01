@@ -181,23 +181,25 @@ namespace q {
         while (!todo.empty()) {
             expr* t = todo.back();
             SASSERT(!is_ground(t) || ctx.get_egraph().find(t));
-            if (is_ground(t) || (has_quantifiers(t) && !has_free_vars(t))) {
-                m_mark.mark(t);
-                m_eval.setx(t->get_id(), ctx.get_egraph().find(t), nullptr);                
-                if (!m_eval[t->get_id()])
-                    return nullptr;
-                todo.pop_back();
-                continue;
-            }
             if (m_mark.is_marked(t)) {
                 todo.pop_back();
                 continue;
             }
-            if (is_var(t)) {
+            if (is_ground(t) || (has_quantifiers(t) && !has_free_vars(t))) {
+                m_eval.setx(t->get_id(), ctx.get_egraph().find(t), nullptr);                
+                if (!m_eval[t->get_id()])
+                    return nullptr;
                 m_mark.mark(t);
+                todo.pop_back();
+                continue;
+            }
+            if (is_var(t)) {
                 if (to_var(t)->get_idx() >= n)
                     return nullptr;
                 m_eval.setx(t->get_id(), binding[n - 1 - to_var(t)->get_idx()], nullptr);
+                if (!m_eval[t->get_id()])
+                    return nullptr;
+                m_mark.mark(t);
                 todo.pop_back();
                 continue;
             }
