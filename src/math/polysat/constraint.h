@@ -71,9 +71,9 @@ namespace polysat {
         constraint_manager(bool_var_manager& bvars): m_bvars(bvars) {}
         ~constraint_manager();
 
-        void assign_bvar(constraint* c);
+        void ensure_bvar(constraint* c);
         void erase_bvar(constraint* c);
-        sat::literal get_or_assign_blit(signed_constraint& c);
+        // sat::literal get_or_assign_blit(signed_constraint& c);
 
         clause* store(clause_ref cl);
 
@@ -129,6 +129,7 @@ namespace polysat {
          */
         // NB code review: the convention would make sense. Unfortunately, elsewhere in z3 we use "true" for negative literals
         // and "false" for positive literals. It is called the "sign" bit.
+        // TODO: replace parameter 'is_positive' everywhere by 'sign'? (also in signed_constraint)
         sat::bool_var       m_bvar = sat::null_bool_var;
 
         constraint(constraint_manager& m, unsigned lvl, ckind_t k):
@@ -200,9 +201,8 @@ namespace polysat {
             SASSERT_EQ(blit(), lit);
         }
 
-        void negate() {
-            m_positive = !m_positive;
-        }
+        void negate() { m_positive = !m_positive; }
+        signed_constraint operator~() const { return {get(), !is_positive()}; }
 
         bool is_positive() const { return m_positive; }
         bool is_negative() const { return !is_positive(); }
@@ -218,7 +218,6 @@ namespace polysat {
         sat::bool_var bvar() const { return m_constraint->bvar(); }
         sat::literal blit() const { return sat::literal(bvar(), is_negative()); }
         constraint* get() const { return m_constraint; }
-
 
         explicit operator bool() const { return !!m_constraint; }
         bool operator!() const { return !m_constraint; }
@@ -242,10 +241,6 @@ namespace polysat {
 
     inline std::ostream& operator<<(std::ostream& out, signed_constraint const& c) {
         return c.display(out);
-    }
-
-    inline signed_constraint operator~(signed_constraint const& c) {
-        return {c.get(), !c.is_positive()};
     }
 
 

@@ -142,6 +142,7 @@ namespace polysat {
         VERIFY(at_base_level());
         SASSERT(c);
         SASSERT(activate || dep != null_dependency);  // if we don't activate the constraint, we need the dependency to access it again later.
+        m_constraints.ensure_bvar(c.get());
         clause* unit = m_constraints.store(clause::from_unit(c, mk_dep_ref(dep)));
         c->set_unit_clause(unit);
         if (dep != null_dependency)

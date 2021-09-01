@@ -42,8 +42,9 @@ namespace polysat {
         return m_bv2constraint.get(bv, nullptr);
     }
 
-    void constraint_manager::assign_bvar(constraint* c) {
-        assign_bv2c(m_bvars.new_var(), c);
+    void constraint_manager::ensure_bvar(constraint* c) {
+        if (!c->has_bvar())
+            assign_bv2c(m_bvars.new_var(), c);
     }
 
     void constraint_manager::erase_bvar(constraint* c) {
@@ -141,16 +142,6 @@ namespace polysat {
         if (it == m_constraint_table.end()) {
             store(c1);
             m_constraint_table.insert(c1);
-            // Assuming c is a temporary constraint, we need to:
-            //     1. erase(c);
-            //     2. m_constraint_table.remove(c);
-            // before we dealloc it.
-            // But even if we don't do this, there is not a real memory leak because the constraint will be deallocated properly when the level is popped.
-            // So maybe the best way is to just do periodic GC passes where we throw out constraints that do not have a boolean variable,
-            // instead of precise lifetime tracking for temprorary constraints.
-            // It should be safe to do a GC pass outside of conflict resolution.
-            // TODO: if this is the path we take, then we can drop the scoped_signed_constraint and the scoped_constraint_ptr classes.
-            // TODO: we could maintain a counter of temporary constraints (#constraints - #bvars) to decide when to do a GC, or just do it after every conflict resolution
             return c1;
         }
         constraint* c0 = *it;
@@ -182,6 +173,7 @@ namespace polysat {
 
     bool constraint_manager::should_gc() {
         // TODO: maybe replace this by a better heuristic
+        // maintain a counter of temporary constraints? (#constraints - #bvars)
         return true;
     }
 
