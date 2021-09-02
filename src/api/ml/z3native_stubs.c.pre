@@ -351,7 +351,7 @@ MK_CTX_OF(ast, 16) // let's say 16 bytes per ast
                                                                         \
   MK_CTX_OF(X, USED)
 
-#define MK_PLUS_OBJ(X, USED, MAX)                                       \
+#define MK_PLUS_OBJ(X, USED)                                            \
   typedef struct {                                                      \
     Z3_context_plus cp;                                                 \
     Z3_ ## X p;                                                         \
