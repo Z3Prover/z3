@@ -599,7 +599,7 @@ namespace z3 {
         iterator begin() const noexcept { return iterator(this, 0); }
         iterator end() const { return iterator(this, size()); }
         friend std::ostream & operator<<(std::ostream & out, ast_vector_tpl const & v) { out << Z3_ast_vector_to_string(v.ctx(), v); return out; }
-        std::string to_string() const { return std::string(Z3_ast_vector_to_string(ctx(), m_vector); }
+        std::string to_string() const { return std::string(Z3_ast_vector_to_string(ctx(), m_vector)); }
     };
 
 
