@@ -1286,6 +1286,20 @@ static void string_issue_2298() {
     s.pop();
 }
 
+void iterate_args() {
+    std::cout << "iterate arguments\n";
+    context c;
+    expr x      = c.int_const("x");
+    expr y      = c.int_const("y");
+    sort I      = c.int_sort();
+    func_decl g = function("g", I, I, I);
+    expr e = g(x, y);
+    std::cout << "expression " << e << "\n";
+    for (expr arg : e)
+        std::cout << "arg " << arg << "\n";
+
+}
+
 int main() {
 
     try {
@@ -1339,6 +1353,7 @@ int main() {
         recfun_example(); std::cout << "\n";
         string_values(); std::cout << "\n";
         string_issue_2298(); std::cout << "\n";
+	iterate_args(); std::cout << "\n";
         std::cout << "done\n";
     }
     catch (exception & ex) {

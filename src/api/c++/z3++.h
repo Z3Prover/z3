@@ -1495,6 +1495,26 @@ namespace z3 {
         */
         expr substitute(expr_vector const& dst);
 
+
+	class iterator {
+            expr& e;
+            unsigned i;
+        public:
+            iterator(expr& e, unsigned i): e(e), i(i) {}
+            bool operator==(iterator const& other) noexcept {
+                return i == other.i;
+            }
+            bool operator!=(iterator const& other) noexcept {
+                return i != other.i;
+            }
+            expr operator*() const { return e.arg(i); }
+            iterator& operator++() { ++i; return *this; }
+            iterator operator++(int) { assert(false); return *this; }
+        };
+
+        iterator begin() { return iterator(*this, 0); }
+        iterator end() { return iterator(*this, is_app() ? num_args() : 0); }
+
    };
 
 #define _Z3_MK_BIN_(a, b, binop)                        \
