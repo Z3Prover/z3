@@ -251,7 +251,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             return;
         }
         n -= m_num_scopes;
-        m_num_scopes = 0;
+        m_num_scopes = 0;        
         m_map.pop(n);
         unsigned k = m_cache_lim[m_cache_lim.size() - n];
         for (unsigned i = m_cache_trail.size(); i-- > k; ) {
@@ -284,7 +284,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
         m_cache_trail.push_back(t);
     }
     
-    void convert_atom(expr * t, bool root, bool sign) {
+    void convert_atom(expr * t, bool root, bool sign) {       
         SASSERT(m.is_bool(t));
         sat::literal  l;
         sat::bool_var v = m_map.to_bool_var(t);
@@ -954,9 +954,11 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     void user_push() {
+        push();
     }
 
     void user_pop(unsigned n) {
+        pop(n);
     }
 
 };
@@ -1010,15 +1012,7 @@ void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver_core
         for (unsigned i = 0; i < m_scopes; ++i)
             m_imp->user_push();
     }
-    (*m_imp)(g);
-    
-    if (!t.get_extension() && m_imp->interpreted_funs().empty()) {
-        dealloc(m_imp);
-        m_imp = nullptr;
-    }
-    else 
-        m_scopes = 0;
-
+    (*m_imp)(g);    
 }
 
 void goal2sat::get_interpreted_funs(func_decl_ref_vector& funs) {

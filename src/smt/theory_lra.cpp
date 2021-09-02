@@ -807,10 +807,10 @@ class theory_lra::imp {
             return st.vars()[0];
         }
         else if (is_one(st) && a.is_numeral(term)) {
-            return get_one(a.is_int(term));
+            return lp().local_to_external(get_one(a.is_int(term)));
         }
         else if (is_zero(st) && a.is_numeral(term)) {
-            return get_zero(a.is_int(term));
+            return lp().local_to_external(get_zero(a.is_int(term)));
         }
         else {
             init_left_side(st);

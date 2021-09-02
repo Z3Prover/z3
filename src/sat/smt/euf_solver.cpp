@@ -300,7 +300,7 @@ namespace euf {
         size_t* c = to_ptr(l);
         SASSERT(is_literal(c));
         SASSERT(l == get_literal(c));
-	    if (n->value_conflict()) {
+        if (n->value_conflict()) {
             euf::enode* nb = sign ? mk_false() : mk_true();
             euf::enode* r = n->get_root();
             euf::enode* rb = sign ? mk_true() : mk_false();
@@ -458,6 +458,8 @@ namespace euf {
             give_up = true;
         
         unsigned num_nodes = m_egraph.num_nodes();
+        if (merge_shared_bools())
+            cont = true;
         for (auto* e : m_solvers) {
             if (!m.inc())
                 return sat::check_result::CR_GIVEUP;
@@ -483,6 +485,24 @@ namespace euf {
             return m_qsolver->check();
         TRACE("after_search", s().display(tout););
         return sat::check_result::CR_DONE;
+    }
+
+    bool solver::merge_shared_bools() {
+        bool merged = false;
+        for (unsigned i = m_egraph.nodes().size(); i-- > 0; ) {
+            euf::enode* n = m_egraph.nodes()[i];
+            if (!is_shared(n) || !m.is_bool(n->get_expr()))
+                continue;
+            if (n->value() == l_true && !m.is_true(n->get_root()->get_expr())) {
+                m_egraph.merge(n, mk_true(), to_ptr(sat::literal(n->bool_var())));
+                merged = true;                    
+            }
+            if (n->value() == l_false && !m.is_false(n->get_root()->get_expr())) {
+                m_egraph.merge(n, mk_false(), to_ptr(~sat::literal(n->bool_var())));
+                merged = true;
+            }
+        }
+        return merged;
     }
 
     void solver::push() {

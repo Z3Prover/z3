@@ -532,14 +532,14 @@ void asserted_formulas::propagate_values() {
     flush_cache();
 
     unsigned num_prop = 0;
-    unsigned delta_prop = m_formulas.size();
-    while (!inconsistent() && m_formulas.size()/20 < delta_prop) {
+    unsigned sz = m_formulas.size();
+    unsigned delta_prop = sz;
+    while (!inconsistent() && sz/20 < delta_prop) {
         m_expr2depth.reset();
         m_scoped_substitution.push();
         unsigned prop = num_prop;
         TRACE("propagate_values", display(tout << "before:\n"););
         unsigned i  = m_qhead;
-        unsigned sz = m_formulas.size();
         for (; i < sz; i++) {
             prop += propagate_values(i);
         }
@@ -558,6 +558,9 @@ void asserted_formulas::propagate_values() {
         TRACE("propagate_values", tout << "after:\n"; display(tout););
         delta_prop = prop - num_prop;
         num_prop = prop;
+        if (sz <= m_formulas.size())
+            break;
+        sz = m_formulas.size();
     }
     TRACE("asserted_formulas", tout << num_prop << "\n";);
     if (num_prop > 0)

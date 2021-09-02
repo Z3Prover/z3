@@ -451,6 +451,7 @@ namespace array {
         expr_ref alpha(a.mk_select(args), m);
         expr_ref beta(alpha);
         rewrite(beta);
+        TRACE("array", tout << alpha << " == " << beta << "\n";);
         return ctx.propagate(e_internalize(alpha), e_internalize(beta), array_axiom());
     }
 
