@@ -79,6 +79,8 @@ namespace user {
 
         sat::justification mk_justification(unsigned propagation_index);
 
+	void validate_propagation();
+
     public:
         solver(euf::solver& ctx);
         

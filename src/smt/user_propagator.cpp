@@ -128,6 +128,7 @@ void user_propagator::propagate() {
 	DEBUG_CODE(for (unsigned id : prop.m_ids) VERIFY(m_fixed.contains(id)););
 	DEBUG_CODE(for (literal lit : m_lits) VERIFY(ctx.get_assignment(lit) == l_true););
 
+	
         if (m.is_false(prop.m_conseq)) {
             js = ctx.mk_justification(
                 ext_theory_conflict_justification(

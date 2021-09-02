@@ -44,6 +44,7 @@ namespace user {
         unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs,
         expr* conseq) {
         m_prop.push_back(prop_info(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, expr_ref(conseq, m)));
+        DEBUG_CODE(validate_propagation(););
     }
 
     sat::check_result solver::check() {
@@ -95,7 +96,7 @@ namespace user {
         ctx.push(value_trail<unsigned>(m_qhead));
         unsigned np = m_stats.m_num_propagations;
         for (; m_qhead < m_prop.size() && !s().inconsistent(); ++m_qhead) {
-            auto const& prop = m_prop[m_qhead];
+            auto const& prop = m_prop[m_qhead];            
             sat::literal lit = ctx.internalize(prop.m_conseq, false, false, true);
             if (s().value(lit) != l_true) {
                 s().assign(lit, mk_justification(m_qhead));
@@ -124,6 +125,19 @@ namespace user {
             r.append(m_id2justification[id]);
         for (auto const& p : prop.m_eqs)
             ctx.add_antecedent(var2enode(p.first), var2enode(p.second));
+    }
+
+    /*
+     * All assumptions and equalities have to be true in the current scope.
+     * A caller could mistakingly supply some assumption that isn't set.
+     */
+    void solver::validate_propagation() {
+        auto const& prop = m_prop.back();
+        for (unsigned id : prop.m_ids)
+            for (auto lit: m_id2justification[id])
+                VERIFY(s().value(lit) == l_true);
+        for (auto const& p : prop.m_eqs)
+            VERIFY(var2enode(p.first)->get_root() == var2enode(p.second)->get_root());
     }
 
     std::ostream& solver::display(std::ostream& out) const {
