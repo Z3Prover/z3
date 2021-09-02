@@ -125,6 +125,8 @@ void user_propagator::propagate() {
         for (auto const& p : prop.m_eqs)
             m_eqs.push_back(enode_pair(get_enode(p.first), get_enode(p.second)));
         DEBUG_CODE(for (auto const& p : m_eqs) VERIFY(p.first->get_root() == p.second->get_root()););
+	DEBUG_CODE(for (unsigned id : prop.m_ids) VERIFY(m_fixed.contains(id)););
+	DEBUG_CODE(for (literal lit : m_lits) VERIFY(ctx.get_assignment(lit) == l_true););
 
         if (m.is_false(prop.m_conseq)) {
             js = ctx.mk_justification(
