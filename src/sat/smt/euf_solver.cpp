@@ -489,7 +489,8 @@ namespace euf {
 
     bool solver::merge_shared_bools() {
         bool merged = false;
-        for (euf::enode* n : m_egraph.nodes()) {
+        for (unsigned i = m_egraph.nodes().size(); i-- > 0; ) {
+            euf::enode* n = m_egraph.nodes()[i];
             if (!is_shared(n) || !m.is_bool(n->get_expr()))
                 continue;
             if (n->value() == l_true && !m.is_true(n->get_root()->get_expr())) {
