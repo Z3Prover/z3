@@ -1050,6 +1050,8 @@ private:
         eval.set_model_completion(true);
         bool all_true = true;
         for (expr * f : m_fmls) {
+            if (has_quantifiers(f))
+                continue;
             expr_ref tmp(m);
             eval(f, tmp);
             if (m.limit().is_canceled())
