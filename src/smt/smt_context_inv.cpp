@@ -371,7 +371,7 @@ namespace smt {
             case l_true:
                 if (!m_proto_model->eval(n, res, false)) 
                     return true;
-                CTRACE("model", !m.is_true(res), tout << n << " evaluates to " << res << "\n";); 
+                CTRACE("model", !m.is_true(res), tout << n << " evaluates to " << res << "\n" << *m_proto_model << "\n";); 
                 if (m.is_false(res)) {
                     return false;
                 }
@@ -379,7 +379,7 @@ namespace smt {
             case l_false:
                 if (!m_proto_model->eval(n, res, false)) 
                     return true;
-                CTRACE("model", !m.is_false(res), tout << n << " evaluates to " << res << "\n";); 
+                CTRACE("model", !m.is_false(res), tout << n << " evaluates to " << res << "\n" << *m_proto_model << "\n";); 
                 if (m.is_true(res)) {
                     return false;
                 }
