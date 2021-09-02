@@ -3745,7 +3745,7 @@ namespace q {
             // However, the simplifier may turn a non-ground pattern into a ground one.
             // So, we should check it again here.
             for (expr* arg : *mp)
-                if (is_ground(arg))
+                if (is_ground(arg) || has_quantifiers(arg))
                     return; // ignore multi-pattern containing ground pattern.
             update_filters(qa, mp);
             m_new_patterns.push_back(qp_pair(qa, mp));
