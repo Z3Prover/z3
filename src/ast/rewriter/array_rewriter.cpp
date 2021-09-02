@@ -31,7 +31,7 @@ void array_rewriter::updt_params(params_ref const & _p) {
     m_expand_store_eq = p.expand_store_eq();
     m_expand_nested_stores = p.expand_nested_stores();
     m_blast_select_store = p.blast_select_store();
-    m_expand_select_ite = false;
+    m_expand_select_ite = p.expand_select_ite();
 }
 
 void array_rewriter::get_param_descrs(param_descrs & r) {
@@ -226,8 +226,7 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
         result = subst(q->get_expr(), _args.size(), _args.data());
         inv_var_shifter invsh(m());
         invsh(result, _args.size(), result);
-        return BR_REWRITE_FULL;
-        
+        return BR_REWRITE_FULL;        
     }
 
     if (m_util.is_map(args[0])) {
@@ -698,7 +697,7 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
     if (m_util.is_const(lhs, v) && m_util.is_store(rhs)) {
         unsigned n = to_app(rhs)->get_num_args();
         result = m().mk_and(m().mk_eq(lhs, to_app(rhs)->get_arg(0)),
- 			  m().mk_eq(v, to_app(rhs)->get_arg(n - 1)));
+                            m().mk_eq(v, to_app(rhs)->get_arg(n - 1)));
         return BR_REWRITE2;
     }
     if (m_util.is_const(lhs, v) && m_util.is_const(rhs, w)) {
