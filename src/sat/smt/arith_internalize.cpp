@@ -42,6 +42,7 @@ namespace arith {
     void solver::init_internalize() {
         force_push();
         // initialize 0, 1 variables:
+        
         if (!m_internalize_initialized) {
             get_one(true);
             get_one(false);
@@ -484,10 +485,10 @@ namespace arith {
             return st.vars()[0];
         }
         else if (is_one(st) && a.is_numeral(term)) {
-            return get_one(a.is_int(term));
+            return lp().local_to_external(get_one(a.is_int(term)));
         }
         else if (is_zero(st) && a.is_numeral(term)) {
-            return get_zero(a.is_int(term));
+            return lp().local_to_external(get_zero(a.is_int(term)));
         }
         else {
             init_left_side(st);
