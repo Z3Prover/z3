@@ -336,21 +336,18 @@ namespace arith {
         }
         else if (a.is_le(atom, n1, n2)) {
             expr_ref n3(a.mk_sub(n1, n2), m);
-            rewrite(n3);
             v = internalize_def(n3);
             k = lp_api::upper_t;
             r = 0;
         }
         else if (a.is_ge(atom, n1, n2)) {
             expr_ref n3(a.mk_sub(n1, n2), m);
-            rewrite(n3);
             v = internalize_def(n3);
             k = lp_api::lower_t;
             r = 0;
         }
         else if (a.is_lt(atom, n1, n2)) {
             expr_ref n3(a.mk_sub(n1, n2), m);
-            rewrite(n3);
             v = internalize_def(n3);
             k = lp_api::lower_t;
             r = 0;
@@ -358,7 +355,6 @@ namespace arith {
         }
         else if (a.is_gt(atom, n1, n2)) {
             expr_ref n3(a.mk_sub(n1, n2), m);
-            rewrite(n3);
             v = internalize_def(n3);
             k = lp_api::upper_t;
             r = 0;
