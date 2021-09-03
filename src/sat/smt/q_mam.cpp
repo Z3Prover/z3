@@ -3333,6 +3333,8 @@ namespace q {
         }
 
         void update_vars(unsigned short var_id, path * p, quantifier * qa, app * mp) {
+            if (var_id >= qa->get_num_decls())
+                return;
             paths & var_paths = m_var_paths[var_id];
             bool found = false;
             for (path* curr_path : var_paths) {
