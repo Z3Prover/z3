@@ -33,6 +33,8 @@ namespace polysat {
 
     conflict_core::~conflict_core() {}
 
+    constraint_manager& conflict_core::cm() { return m_solver->m_constraints; }
+
     std::ostream& conflict_core::display(std::ostream& out) const {
         bool first = true;
         for (auto c : m_constraints) {
@@ -77,6 +79,11 @@ namespace polysat {
         m_constraints.push_back(c);
     }
 
+    void conflict_core::insert(signed_constraint c, vector<signed_constraint> premises) {
+        insert(c);
+        m_saturation_premises.insert(c, std::move(premises));  // TODO: map doesn't have move-insertion, so this still copies the vector. Maybe we want a clause_ref (but this doesn't work either since c doesn't have a boolean variable yet).
+    }
+
     void conflict_core::resolve(constraint_manager const& m, sat::bool_var var, clause const& cl) {
         // Note: core: x, y, z; corresponds to clause ~x \/ ~y \/ ~z
         //       clause: x \/ u \/ v
@@ -108,25 +115,55 @@ namespace polysat {
                 m_constraints.push_back(m.lookup(~lit));
     }
 
-    clause_ref conflict_core::build_lemma(unsigned trail_idx) {
+    clause_ref conflict_core::build_lemma() {
         sat::literal_vector literals;
         p_dependency_ref dep = m_solver->mk_dep_ref(null_dependency);
         unsigned lvl = 0;
 
-        // TODO: another core reduction step?
+        // TODO: try a final core reduction step?
 
         for (auto c : m_constraints) {
+            if (!c->has_bvar()) {
+                // temporary constraint -> keep it
+                cm().ensure_bvar(c.get());
+                // Insert the temporary constraint from saturation into \Gamma.
+                auto it = m_saturation_premises.find_iterator(c);
+                if (it != m_saturation_premises.end()) {
+                    auto& premises = it->m_value;
+                    clause_builder c_lemma(*m_solver);
+                    for (auto premise : premises)
+                        c_lemma.push_literal(~premise.blit());
+                    c_lemma.push_literal(c.blit());
+                    clause* cl = cm().store(c_lemma.build());
+                    if (cl->size() == 1)
+                        c->set_unit_clause(cl);
+                    // TODO: actually, this should be backtrackable (unless clause is unit). But currently we cannot insert in the middle of the stack!
+                    //      (or do it like MCSAT... they keep "theory-propagated" literals also at the end and restore them on backtracking)
+                    m_solver->assign_bool_core(c.blit(), cl, nullptr);
+                    m_solver->activate_constraint(c);
+                }
+            }
             if (c->unit_clause()) {
                 dep = m_solver->m_dm.mk_join(dep, c->unit_dep());
                 continue;
             }
             lvl = std::max(lvl, c->level());
-            m_solver->m_constraints.ensure_bvar(c.get());
             literals.push_back(~c.blit());
         }
 
         if (m_needs_model) {
-            // TODO: add equalities corresponding to model up to trail_idx
+            // TODO: add equalities corresponding to current model.
+            //       until we properly track variables (use marks from solver?), we just use all of them (reverted decision and the following ones should have been popped from the stack)
+            uint_set vars;
+            for (auto c : m_constraints)
+                for (pvar v : c->vars())
+                    vars.insert(v);
+            // Add v != val for each variable
+            for (pvar v : vars) {
+                auto diseq = ~cm().eq(lvl, m_solver->var(v) - m_solver->m_value[v]);
+                cm().ensure_bvar(diseq.get());
+                literals.push_back(diseq.blit());
+            }
         }
 
         return clause::from_literals(lvl, std::move(dep), std::move(literals));

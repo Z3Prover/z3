@@ -269,4 +269,9 @@ namespace polysat {
         narrow(s, is_positive);
     }
 
+    void constraint::set_unit_clause(clause *cl) {
+        // can be seen as a cache... store the lowest-level unit clause for this constraint.
+        if (!cl || !m_unit_clause || m_unit_clause->level() > cl->level())
+            m_unit_clause = cl;
+    }
 }

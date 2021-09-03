@@ -27,6 +27,7 @@ namespace polysat {
         // TODO: use indexing/marking for this instead of allocating a temporary vector
         // TODO: core saturation premises are from \Gamma (i.e., has_bvar)... but here we further restrict to the core; might need to revise
         //       -- especially: should take into account results from previous saturations (they will be in \Gamma, but only if we use the constraint or one of its descendants for the lemma)
+        //       actually: we want to take one from the current cjust (currently true) and one from the conflict (currently false)
         vector<signed_constraint> candidates;
         for (auto c : core)
             if (c->has_bvar() && c.is_positive() && c->is_eq() && c->contains_var(v))
@@ -46,8 +47,15 @@ namespace polysat {
                 if (!a.resolve(v, b, r) && !b.resolve(v, a, r))
                     continue;
                 unsigned const lvl = std::max(c1->level(), c2->level());
+                signed_constraint c = cm().eq(lvl, r);
+                if (!c.is_currently_false(s()))
+                    continue;
                 // TODO: we need to track the premises somewhere. also that we need to patch \Gamma if the constraint is used in the lemma.
-                core.insert(cm().eq(lvl, r));
+                // TODO: post-check to make sure r is false under current assignment. otherwise the rule makes no sense.
+                vector<signed_constraint> premises;
+                premises.push_back(c1);
+                premises.push_back(c2);
+                core.insert(c, std::move(premises));
 
 //             clause_builder clause(m_solver);
 //             clause.push_literal(~c1->blit());

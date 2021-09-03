@@ -127,6 +127,7 @@ namespace polysat {
         void set_value(pvar v, rational const& value, unsigned dep);
         void set_bound(pvar v, rational const& lo, rational const& hi, unsigned dep);
         void activate_constraint(bool is_positive, constraint& c);
+        void activate_constraint(signed_constraint c) { activate_constraint(c.is_positive(), *c.get()); }
 
         // check integer modular feasibility under current bounds.
         lbool check();

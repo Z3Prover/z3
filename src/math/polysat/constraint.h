@@ -26,7 +26,9 @@ namespace polysat {
     class ule_constraint;
     class signed_constraint;
 
-    using constraint_table = ptr_hashtable<constraint, obj_ptr_hash<constraint>, deref_eq<constraint>>;
+    using constraint_hash = obj_ptr_hash<constraint>;
+    using constraint_eq = deref_eq<constraint>;
+    using constraint_table = ptr_hashtable<constraint, constraint_hash, constraint_eq>;
 
     // Manage constraint lifetime, deduplication, and connection to boolean variables/literals.
     class constraint_manager {
@@ -162,7 +164,7 @@ namespace polysat {
         sat::bool_var bvar() const { return m_bvar; }
 
         clause* unit_clause() const { return m_unit_clause; }
-        void set_unit_clause(clause* cl) { SASSERT(cl); SASSERT(!m_unit_clause || m_unit_clause == cl); m_unit_clause = cl; }
+        void set_unit_clause(clause* cl);
         p_dependency* unit_dep() const { return m_unit_clause ? m_unit_clause->dep() : nullptr; }
 
         /** Precondition: all variables other than v are assigned.
@@ -222,6 +224,9 @@ namespace polysat {
 
         signed_constraint& operator=(std::nullptr_t) { m_constraint = nullptr; return *this; }
 
+        unsigned hash() const {
+            return combine_hash(get_ptr_hash(get()), bool_hash()(is_positive()));
+        }
         bool operator==(signed_constraint const& other) const {
             return get() == other.get() && is_positive() == other.is_positive();
         }

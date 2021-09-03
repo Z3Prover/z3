@@ -45,4 +45,14 @@ namespace polysat {
     // clause_ref by_ugt_y();
     // clause_ref by_ugt_z();
     // clause_ref y_ule_ax_and_x_ule_z();
+
+    /*
+     * TODO: we could resolve constraints in cjust[v] against each other to
+     * obtain stronger propagation. Example:
+     *  (x + 1)*P = 0 and (x + 1)*Q = 0, where gcd(P,Q) = 1, then we have x + 1 = 0.
+     * We refer to this process as narrowing.
+     * In general form it can rely on factoring.
+     * Root finding can further prune viable.
+     */
+
 }

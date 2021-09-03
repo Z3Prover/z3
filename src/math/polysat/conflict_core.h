@@ -36,9 +36,12 @@ namespace polysat {
         //       For example: if we have 4x+y=2 and y=0, then we have a conflict no matter the value of x, so we should drop x=? from the core.
 
         solver* m_solver = nullptr;
+        constraint_manager& cm();
         scoped_ptr_vector<variable_elimination_engine> ve_engines;
         scoped_ptr_vector<inference_engine> inf_engines;
 
+        // ptr_addr_map<constraint, vector<signed_constraint>> m_saturation_premises;
+        map<signed_constraint, vector<signed_constraint>, obj_hash<signed_constraint>, default_eq<signed_constraint>> m_saturation_premises;
     public:
         conflict_core(solver& s);
         ~conflict_core();
@@ -57,6 +60,7 @@ namespace polysat {
             m_constraints.reset();
             m_needs_model = false;
             m_conflict_var = null_var;
+            m_saturation_premises.reset();
             SASSERT(empty());
         }
 
@@ -68,6 +72,7 @@ namespace polysat {
         void set(pvar v);
 
         void insert(signed_constraint c);
+        void insert(signed_constraint c, vector<signed_constraint> premises);
         void remove(signed_constraint c);
 
         /** Perform boolean resolution with the clause upon variable 'var'.
@@ -76,7 +81,7 @@ namespace polysat {
         void resolve(constraint_manager const& m, sat::bool_var var, clause const& cl);
 
         /** Convert the core into a lemma to be learned. */
-        clause_ref build_lemma(unsigned trail_idx);
+        clause_ref build_lemma();
 
         bool try_eliminate(pvar v);
         bool try_saturate(pvar v);
