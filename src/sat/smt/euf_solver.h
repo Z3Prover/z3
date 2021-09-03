@@ -348,6 +348,7 @@ namespace euf {
         void attach_node(euf::enode* n);
         expr_ref mk_eq(expr* e1, expr* e2);
         expr_ref mk_eq(euf::enode* n1, euf::enode* n2) { return mk_eq(n1->get_expr(), n2->get_expr()); }
+        euf::enode* e_internalize(expr* e);
         euf::enode* mk_enode(expr* e, unsigned n, enode* const* args) { return m_egraph.mk(e, m_generation, n, args); }
         expr* bool_var2expr(sat::bool_var v) const { return m_bool_var2expr.get(v, nullptr); }
         expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return lit.sign() ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }

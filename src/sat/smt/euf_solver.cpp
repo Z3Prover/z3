@@ -584,14 +584,16 @@ namespace euf {
         TRACE("euf", for (auto const& kv : replay.m) tout << kv.m_value << "\n";);
         for (auto const& [e, generation, v] : m_reinit) {
             scoped_generation _sg(*this, generation);
-            TRACE("euf", tout << "replay: " << v << " " << mk_bounded_pp(e, m) << "\n";);
+            TRACE("euf", tout << "replay: " << v << " " << e->get_id() << " " << mk_bounded_pp(e, m) << " " << si.is_bool_op(e) << "\n";);
             sat::literal lit;
             if (si.is_bool_op(e)) 
                 lit = literal(replay.m[e], false);
             else 
                 lit = si.internalize(e, true);
-            VERIFY(lit.var() == v);
-            
+            VERIFY(lit.var() == v);          
+            if (is_app(e))
+                for (expr* arg : *to_app(e))
+                    e_internalize(arg);
             attach_lit(lit, e);            
         }
         

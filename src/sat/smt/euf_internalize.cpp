@@ -158,8 +158,9 @@ namespace euf {
         m_bool_var2expr[v] = e;
         m_var_trail.push_back(v);
         enode* n = m_egraph.find(e);
-        if (!n) 
-            n = m_egraph.mk(e, m_generation, 0, nullptr); 
+        if (!n) {
+            n = m_egraph.mk(e, m_generation, 0, nullptr);
+        }
         SASSERT(n->bool_var() == sat::null_bool_var || n->bool_var() == v);
         m_egraph.set_bool_var(n, v);
         if (m.is_eq(e) || m.is_or(e) || m.is_and(e) || m.is_not(e))
@@ -417,6 +418,15 @@ namespace euf {
                     m_todo.push_back(arg);
         }
         return g;
+    }
+
+    euf::enode* solver::e_internalize(expr* e) {
+        euf::enode* n = m_egraph.find(e);
+        if (!n) {
+            internalize(e, m_is_redundant);
+            n = m_egraph.find(e);
+        }
+        return n;
     }
 
 }
