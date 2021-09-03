@@ -17,6 +17,8 @@ Author:
 namespace polysat {
 
     class solver;
+    class inference_engine;
+    class variable_elimination_engine;
 
     /** Conflict state, represented as core (~negation of clause). */
     class conflict_core {
@@ -24,6 +26,7 @@ namespace polysat {
 
         // If this is not null_var, the conflict was due to empty viable set for this variable.
         // Can be treated like "v = x" for any value x.
+        // TODO: we could always set this to the variable we're currently focusing on.
         pvar m_conflict_var = null_var;
 
         /** True iff the conflict depends on the current variable assignment. (If so, additional constraints must be added to the final learned clause.) */
@@ -32,7 +35,14 @@ namespace polysat {
         //       The drawback is that we may get weaker lemmas in some cases (but they are still correct).
         //       For example: if we have 4x+y=2 and y=0, then we have a conflict no matter the value of x, so we should drop x=? from the core.
 
+        solver* m_solver = nullptr;
+        scoped_ptr_vector<variable_elimination_engine> ve_engines;
+        scoped_ptr_vector<inference_engine> inf_engines;
+
     public:
+        conflict_core(solver& s);
+        ~conflict_core();
+
         vector<signed_constraint> const& constraints() const { return m_constraints; }
         bool needs_model() const { return m_needs_model; }
         pvar conflict_var() const { return m_conflict_var; }
@@ -57,7 +67,8 @@ namespace polysat {
         /** conflict because there is no viable value for the variable v */
         void set(pvar v);
 
-        void push(signed_constraint c);
+        void insert(signed_constraint c);
+        void remove(signed_constraint c);
 
         /** Perform boolean resolution with the clause upon variable 'var'.
          * Precondition: core/clause contain complementary 'var'-literals.
@@ -65,7 +76,10 @@ namespace polysat {
         void resolve(constraint_manager const& m, sat::bool_var var, clause const& cl);
 
         /** Convert the core into a lemma to be learned. */
-        clause_ref build_lemma(solver& s, unsigned trail_idx);
+        clause_ref build_lemma(unsigned trail_idx);
+
+        bool try_eliminate(pvar v);
+        bool try_saturate(pvar v);
 
         using const_iterator = decltype(m_constraints)::const_iterator;
         const_iterator begin() { return constraints().begin(); }

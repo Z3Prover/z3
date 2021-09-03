@@ -16,9 +16,22 @@ Author:
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
 #include "math/polysat/log_helper.h"
+#include "math/polysat/saturation.h"
+#include "math/polysat/variable_elimination.h"
 #include <algorithm>
 
 namespace polysat {
+
+    conflict_core::conflict_core(solver& s) {
+        m_solver = &s;
+        ve_engines.push_back(alloc(ve_reduction));
+        // ve_engines.push_back(alloc(ve_forbidden_intervals));
+        inf_engines.push_back(alloc(inf_polynomial_superposition));
+        for (auto* engine : inf_engines)
+            engine->set_solver(s);
+    }
+
+    conflict_core::~conflict_core() {}
 
     std::ostream& conflict_core::display(std::ostream& out) const {
         bool first = true;
@@ -43,8 +56,8 @@ namespace polysat {
     void conflict_core::set(signed_constraint c) {
         LOG("Conflict: " << c);
         SASSERT(empty());
-        m_constraints.push_back(std::move(c));
         m_needs_model = true;
+        insert(c);
     }
 
     void conflict_core::set(pvar v) {
@@ -54,7 +67,7 @@ namespace polysat {
         m_needs_model = true;
     }
 
-    void conflict_core::push(signed_constraint c) {
+    void conflict_core::insert(signed_constraint c) {
         SASSERT(!empty());  // should use set() to enter conflict state
         // Skip trivial constraints
         // (e.g., constant ones such as "4 > 1"... only true ones should appear, otherwise the lemma would be a tautology)
@@ -69,6 +82,7 @@ namespace polysat {
         //       clause: x \/ u \/ v
         //       resolvent: ~y \/ ~z \/ u \/ v; as core: y, z, ~u, ~v
 
+        SASSERT(!is_bailout());
         SASSERT(var != sat::null_bool_var);
         DEBUG_CODE({
             bool core_has_pos = std::count_if(begin(), end(), [var](auto c){ return c.blit() == sat::literal(var); }) > 0;
@@ -80,6 +94,9 @@ namespace polysat {
             SASSERT((core_has_pos && clause_has_pos) || (core_has_neg && clause_has_neg));
         });
 
+        // TODO: maybe implement by marking literals instead (like SAT solvers are doing); if we need to iterate, keep an indexed_uint_set (from util/uint_set.h)
+        //       (i.e., instead of keeping an explicit list of constraints as core, we just mark them.)
+        //       (we still need the list though, for new/temporary constraints.)
         int j = 0;
         for (auto c : m_constraints)
             if (c->bvar() == var)
@@ -91,20 +108,20 @@ namespace polysat {
                 m_constraints.push_back(m.lookup(~lit));
     }
 
-    clause_ref conflict_core::build_lemma(solver& s, unsigned trail_idx) {
+    clause_ref conflict_core::build_lemma(unsigned trail_idx) {
         sat::literal_vector literals;
-        p_dependency_ref dep = s.mk_dep_ref(null_dependency);
+        p_dependency_ref dep = m_solver->mk_dep_ref(null_dependency);
         unsigned lvl = 0;
 
         // TODO: another core reduction step?
 
         for (auto c : m_constraints) {
             if (c->unit_clause()) {
-                dep = s.m_dm.mk_join(dep, c->unit_dep());
+                dep = m_solver->m_dm.mk_join(dep, c->unit_dep());
                 continue;
             }
             lvl = std::max(lvl, c->level());
-            s.m_constraints.ensure_bvar(c.get());
+            m_solver->m_constraints.ensure_bvar(c.get());
             literals.push_back(~c.blit());
         }
 
@@ -113,5 +130,31 @@ namespace polysat {
         }
 
         return clause::from_literals(lvl, std::move(dep), std::move(literals));
+    }
+
+    bool conflict_core::try_eliminate(pvar v) {
+        // TODO: could be tracked incrementally when constraints are added/removed
+        vector<signed_constraint> v_constraints;
+        for (auto c : *this)
+            if (c->contains_var(v)) {
+                v_constraints.push_back(c);
+                break;
+            }
+
+        // Variable already eliminated trivially (does this ever happen?)
+        if (v_constraints.empty())
+            return true;
+
+        for (auto* engine : ve_engines)
+            if (engine->perform(*m_solver, v, *this))
+                return true;
+        return false;
+    }
+
+    bool conflict_core::try_saturate(pvar v) {
+        for (auto* engine : inf_engines)
+            if (engine->perform(v, *this))
+                return true;
+        return false;
     }
 }

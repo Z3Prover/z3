@@ -39,6 +39,7 @@ namespace polysat {
         m_viable(*this),
         m_dm(m_value_manager, m_alloc),
         m_linear_solver(*this),
+        m_conflict(*this),
         m_free_vars(m_activity),
         m_bvars(),
         m_constraints(m_bvars) {
@@ -513,9 +514,11 @@ namespace polysat {
         // - Variable Elimination
         // - if VE isn't possible, try to derive new constraints using core saturation
 
+        // m_conflict.set_var(v);
+
         // Value Resolution
         for (auto c : m_cjust[v])
-            m_conflict.push(c);
+            m_conflict.insert(c);
 
         // Variable elimination
         while (true) {
@@ -524,13 +527,13 @@ namespace polysat {
             // 2. If not possible, try saturation and core reduction (actually reduction could be one specific VE method?).
             // 3. as a last resort, substitute v by m_value[v]?
 
-            variable_elimination ve;
-            if (ve.perform(v, m_conflict))
+            // TODO: maybe we shouldn't try to split up VE/Saturation in the implementation.
+            //       it might be better to just have more general "core inferences" that may combine elimination/saturation steps that fit together...
+            //       or even keep the whole "value resolution + VE/Saturation" as a single step. we might want to know which constraints come from the current cjusts?
+            if (m_conflict.try_eliminate(v))
                 return true;
-
-            core_saturation cs;
-            if (!cs.saturate(v, m_conflict))
-                return false;
+            if (m_conflict.try_saturate(v))
+                return true;
         }
 
         return false;

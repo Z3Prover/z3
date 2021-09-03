@@ -55,6 +55,7 @@ namespace polysat {
         friend class clause_builder;
         friend class conflict_core;
         friend class conflict_explainer;
+        friend class inference_engine;
         friend class forbidden_intervals;
         friend class linear_solver;
         friend class viable;
