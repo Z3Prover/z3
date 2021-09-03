@@ -16,37 +16,21 @@ Author:
 
 namespace polysat {
 
+    class solver;
+
     class variable_elimination_engine {
     public:
         virtual ~variable_elimination_engine() {}
-        virtual bool perform(pvar v, conflict_core& core) = 0;
+        virtual bool perform(solver& s, pvar v, conflict_core& core) = 0;
     };
 
-    // discovers when a variable has already been removed... (special case of ve_reduction?)
-    class ve_trivial final : public variable_elimination_engine {
+    class ve_reduction : public variable_elimination_engine {
     public:
-        bool perform(pvar v, conflict_core& core) override { NOT_IMPLEMENTED_YET(); return false; }
+        bool perform(solver& s, pvar v, conflict_core& core) override;
     };
 
-    // ve by core reduction: try core reduction on all constraints that contain the variable to be eliminated.
-    // if we cannot eliminate all such constraints, then should we keep all of them instead of eliminating only some? since they might still be useful for saturation.
-    class ve_reduction final : public variable_elimination_engine {
+    class ve_forbidden_intervals : public variable_elimination_engine {
     public:
-        bool perform(pvar v, conflict_core& core) override { NOT_IMPLEMENTED_YET(); return false; }
-    };
-
-    class ve_forbidden_intervals final : public variable_elimination_engine {
-    public:
-        bool perform(pvar v, conflict_core& core) override { NOT_IMPLEMENTED_YET(); return false; }
-    };
-
-    class variable_elimination final {
-        scoped_ptr_vector<variable_elimination_engine> ve_engines;
-
-    public:
-        variable_elimination() {}
-
-        /// Try to eliminate the variable v from the given core
-        bool perform(pvar v, conflict_core& core) { NOT_IMPLEMENTED_YET(); return false; }
+        bool perform(solver& s, pvar v, conflict_core& core) override;
     };
 }

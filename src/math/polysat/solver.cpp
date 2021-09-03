@@ -39,6 +39,7 @@ namespace polysat {
         m_viable(*this),
         m_dm(m_value_manager, m_alloc),
         m_linear_solver(*this),
+        m_conflict(*this),
         m_free_vars(m_activity),
         m_bvars(),
         m_constraints(m_bvars) {
@@ -449,13 +450,18 @@ namespace polysat {
             return;
         }
 
-        if (m_conflict.conflict_var() != null_var) {
-            // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
-            resolve_value(m_conflict.conflict_var());
-        }
-
         reset_marks();
         set_marks(m_conflict);
+
+        if (m_conflict.conflict_var() != null_var) {
+            // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
+            if (!resolve_value(m_conflict.conflict_var())) {
+                resolve_bailout(m_search.size() - 1);
+                return;
+            }
+            reset_marks();
+            set_marks(m_conflict);
+        }
 
         for (unsigned i = m_search.size(); i-- > 0; ) {
             LOG("Conflict: " << m_conflict);
@@ -507,15 +513,17 @@ namespace polysat {
 
     /** Conflict resolution case where propagation 'v := ...' is on top of the stack */
     bool solver::resolve_value(pvar v) {
-        SASSERT(m_justification[v].is_propagation());
+        // SASSERT(m_justification[v].is_propagation());   // doesn't hold if we enter because of conflict_var
         // Conceptually:
         // - Value Resolution
         // - Variable Elimination
         // - if VE isn't possible, try to derive new constraints using core saturation
 
+        // m_conflict.set_var(v);
+
         // Value Resolution
         for (auto c : m_cjust[v])
-            m_conflict.push(c);
+            m_conflict.insert(c);
 
         // Variable elimination
         while (true) {
@@ -524,12 +532,12 @@ namespace polysat {
             // 2. If not possible, try saturation and core reduction (actually reduction could be one specific VE method?).
             // 3. as a last resort, substitute v by m_value[v]?
 
-            variable_elimination ve;
-            if (ve.perform(v, m_conflict))
+            // TODO: maybe we shouldn't try to split up VE/Saturation in the implementation.
+            //       it might be better to just have more general "core inferences" that may combine elimination/saturation steps that fit together...
+            //       or even keep the whole "value resolution + VE/Saturation" as a single step. we might want to know which constraints come from the current cjusts?
+            if (m_conflict.try_eliminate(v))
                 return true;
-
-            core_saturation cs;
-            if (!cs.saturate(v, m_conflict))
+            if (!m_conflict.try_saturate(v))
                 return false;
         }
 
@@ -548,6 +556,8 @@ namespace polysat {
     void solver::resolve_bailout(unsigned i) {
         // TODO: conflict resolution failed or was aborted. what to do with the current conflict core?
         //      (we could still use it as lemma, but it probably doesn't help much)
+        //      or use a fallback lemma which just contains v/=val for each decision variable v up to i
+        //      (goal is to have strong enough explanation to avoid this function as much as possible)
         NOT_IMPLEMENTED_YET();
         /*
         do {
@@ -623,16 +633,16 @@ namespace polysat {
     }
 
     void solver::learn_lemma(pvar v, clause_ref lemma) {
+        LOG("Learning: " << show_deref(lemma));
         if (!lemma)
             return;
-        LOG("Learning: " << show_deref(lemma));
         SASSERT(lemma->size() > 0);
-        SASSERT(m_conflict_level <= m_justification[v].level());
+        SASSERT(m_conflict_level <= m_justification[v].level());  // ???
         clause* cl = lemma.get();
         add_lemma(std::move(lemma));
         if (cl->size() == 1) {
-	    sat::literal lit = (*cl)[0];
-	    signed_constraint c = m_constraints.lookup(lit);
+            sat::literal lit = (*cl)[0];
+            signed_constraint c = m_constraints.lookup(lit);
             c->set_unit_clause(cl);
             push_cjust(v, c);
             activate_constraint_base(c);
@@ -641,7 +651,7 @@ namespace polysat {
             sat::literal lit = decide_bool(*cl);
             SASSERT(lit != sat::null_literal);
             signed_constraint c = m_constraints.lookup(lit);
-            push_cjust(v, c);
+            push_cjust(v, c);   // TODO: Ok, this works for the first guess. but what if we update the guess later?? the next guess should then be part of cjust[v] instead.
         }
     }
 
@@ -663,7 +673,7 @@ namespace polysat {
         };
 
         sat::literal choice = sat::null_literal;
-        unsigned num_choices = 0;  // TODO: should probably cache this?
+        unsigned num_choices = 0;  // TODO: should probably cache this? (or rather the suitability of each literal... it won't change until we backtrack beyond the current point)
 
         for (sat::literal lit : lemma) {
             if (is_suitable(lit)) {
@@ -689,58 +699,37 @@ namespace polysat {
     /**
      * Revert a decision that caused a conflict.
      * Variable v was assigned by a decision at position i in the search stack.
-     *
-     * TODO: we could resolve constraints in cjust[v] against each other to 
-     * obtain stronger propagation. Example:
-     *  (x + 1)*P = 0 and (x + 1)*Q = 0, where gcd(P,Q) = 1, then we have x + 1 = 0.
-     * We refer to this process as narrowing.
-     * In general form it can rely on factoring.
-     * Root finding can further prune viable.
      */
     void solver::revert_decision(pvar v) {
         rational val = m_value[v];
         LOG_H3("Reverting decision: pvar " << v << " := " << val);
-        NOT_IMPLEMENTED_YET();
-        /*
         SASSERT(m_justification[v].is_decision());
+
         backjump(m_justification[v].level()-1);
 
-        m_viable.add_non_viable(v, val);
-
-        auto confl = std::move(m_conflict);
+        clause_ref lemma = m_conflict.build_lemma();
         m_conflict.reset();
 
-        for (constraint* c : confl.units()) {
-            // Add the conflict as justification for the exclusion of 'val'
-            push_cjust(v, c);
-            // NOTE: in general, narrow may change the conflict.
-            //       But since we just backjumped, narrowing should not result in an additional conflict.
-            // TODO: this call to "narrow" may still lead to a conflict,
-            //       because we do not detect all conflicts immediately.
-            //       Consider:
-            //       - Assert constraint zx > yx, watching y and z.
-            //       - Guess x = 0.
-            //       - We have a conflict but we don't know. It will be discovered when y and z are assigned,
-            //         and then may lead to an assertion failure through this call to narrow.
-            // TODO: what to do with "unassigned" constraints at this point? (we probably should have resolved those away, even in the 'backtrack' case.)
-            //       NOTE: they are constraints from clauses that were added to cjust… how to deal with that? should we add the whole clause to cjust?
-            SASSERT(!c->is_undef());
-            // if (!c->is_undef())  // TODO: this check to be removed once this is fixed properly.
-                c->narrow(*this);
-            if (is_conflict()) {
-                LOG_H1("Conflict during revert_decision/narrow!");
-                return;
-            }
-        }
-        // m_conflict.reset();
+        // TODO: we need to decide_bool on the clause (learn_lemma takes care of this).
+        //       if the lemma was asserting, then this will propagate the last literal. otherwise we do the enumerative guessing as normal.
+        //       we need to exclude the current value of v. narrowing of the guessed constraint *should* take care of it but we cannot count on that.
+        //       the narrow/decide we are doing now will be done implicitly by the solver loop.
 
-        learn_lemma(v, std::move(reason));
+        // TODO: what do we add as 'cjust' for this restriction? the guessed
+        // constraint from the lemma should be the right choice. but, how to
+        // carry this over when the guess is reverted? need to remember the
+        // variable 'v' somewhere on the lemma.
+        // the restriction v /= val can live before the guess... (probably should ensure that the guess stays close to the current position in the stack to prevent confusion...)
+        m_viable.add_non_viable(v, val);
 
+        learn_lemma(v, std::move(lemma));
+
+        // TODO: check if still necessary... won't the next solver iteration do this anyway? (well, it might choose a different variable... so this "unrolls" the next loop iteration to get a stable variable order)
+        /*
         if (is_conflict()) {
             LOG_H1("Conflict during revert_decision/learn_lemma!");
             return;
         }
-
         narrow(v);
         if (m_justification[v].is_unassigned()) {
             m_free_vars.del_var_eh(v);
@@ -754,9 +743,17 @@ namespace polysat {
         LOG_H3("Reverting boolean decision: " << lit);
         SASSERT(m_bvars.is_decision(var));
 
+        // TODO:
+        // Current situation: we have a decision for boolean literal L on top of the stack, and a conflict core.
+        //
+        // In a CDCL solver, this means ~L is in the lemma (actually, as the asserting literal). We drop the decision and replace it by the propagation (~L)^lemma.
+        //
+        // - we know L must be false
+        // - if L isn't in the core, we can still add it (weakening the lemma) to obtain "core => ~L"
+        // - then we can add the propagation (~L)^lemma and continue with the next guess
+
         NOT_IMPLEMENTED_YET();
         /*
-
         if (reason) {
             LOG("Reason: " << show_deref(reason));
             bool contains_var = std::any_of(reason->begin(), reason->end(), [var](sat::literal reason_lit) { return reason_lit.var() == var; });
@@ -888,7 +885,7 @@ namespace polysat {
         add_watch(c);
         c.narrow(*this);
 #if ENABLE_LINEAR_SOLVER
-        m_linear_solver.activate_constraint(c.is_positive(), c.get());   // TODO: linear solver should probably take a signed_constraint
+        m_linear_solver.activate_constraint(c);
 #endif
     }
 
@@ -896,6 +893,7 @@ namespace polysat {
     void solver::deactivate_constraint(signed_constraint c) {
         LOG("Deactivating constraint: " << c);
         erase_watch(c);
+        c->set_unit_clause(nullptr);
     }
 
     void solver::backjump(unsigned new_level) {

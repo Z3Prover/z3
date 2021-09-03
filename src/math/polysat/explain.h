@@ -19,40 +19,6 @@ Author:
 
 namespace polysat {
 
-    class solver;
-    class conflict_explainer;
-
-    class inference_engine {
-    public:
-        virtual ~inference_engine() {}
-        /** Try to apply an inference rule. Returns true if a new constraint was added to the core. */
-        virtual bool perform(conflict_explainer& ce) = 0;
-    };
-
-    class inf_polynomial_superposition final : public inference_engine {
-    public:
-        bool perform(conflict_explainer& ce) override;
-    };
-
-    // TODO: other rules
-    // clause_ref by_ugt_x();
-    // clause_ref by_ugt_y();
-    // clause_ref by_ugt_z();
-    // clause_ref y_ule_ax_and_x_ule_z();
-
-
-    class core_saturation final {
-        scoped_ptr_vector<inference_engine> inference_engines;
-    public:
-        /// Derive new constraints from constraints containing the variable v (i.e., at least one premise must contain v)
-        bool saturate(pvar v, conflict_core& core) { NOT_IMPLEMENTED_YET(); return false; }
-    };
-
-
-
-
-
-
 
 #if 0
     class conflict_explainer {
