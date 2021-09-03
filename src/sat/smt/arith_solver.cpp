@@ -605,8 +605,7 @@ namespace arith {
         else if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
             anum const& an = nl_value(v, *m_a1);
             if (a.is_int(o) && !m_nla->am().is_int(an))
-                value = a.mk_numeral(rational::zero(), a.is_int(o));
-            else
+                value = a.mk_numeral(rational::zero(), a.is_int(o));             
                 value = a.mk_numeral(m_nla->am(), nl_value(v, *m_a1), a.is_int(o));
         }
         else if (v != euf::null_theory_var) {
@@ -617,7 +616,7 @@ namespace arith {
                 r = floor(r);
             value = a.mk_numeral(r, o->get_sort());
         }
-        else if (a.is_arith_expr(o)) {
+        else if (a.is_arith_expr(o) && reflect(o)) {
             expr_ref_vector args(m);
             for (auto* arg : *to_app(o)) {
                 if (m.is_value(arg))
