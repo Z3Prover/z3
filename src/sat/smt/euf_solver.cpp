@@ -591,6 +591,7 @@ namespace euf {
             else 
                 lit = si.internalize(e, true);
             VERIFY(lit.var() == v);
+            
             attach_lit(lit, e);            
         }
         
@@ -654,10 +655,10 @@ namespace euf {
             break;
         }
         case OP_TRUE:
-            add_root(lit);
+            add_aux(lit);
             break;
         case OP_FALSE:
-            add_root(~lit);
+            add_aux(~lit);
             break;
         case OP_ITE: {
             auto lit1 = si.internalize(to_app(e)->get_arg(0), true);

@@ -369,6 +369,7 @@ namespace euf {
         void add_root(sat::literal a, sat::literal b) { sat::literal lits[2] = {a, b}; add_root(2, lits); }
         void add_aux(sat::literal_vector const& lits) { add_aux(lits.size(), lits.data()); }
         void add_aux(unsigned n, sat::literal const* lits);
+        void add_aux(sat::literal a) { sat::literal lits[1] = { a }; add_aux(1, lits); }
         void add_aux(sat::literal a, sat::literal b) { sat::literal lits[2] = {a, b}; add_aux(2, lits); } 
         void add_aux(sat::literal a, sat::literal b, sat::literal c) { sat::literal lits[3] = { a, b, c }; add_aux(3, lits); }
         void track_relevancy(sat::bool_var v);
