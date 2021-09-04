@@ -67,6 +67,7 @@ namespace sat {
         bool_var w = m_ext2var.get(v, null_bool_var);
         if (null_bool_var == w) {
             w = m_solver.mk_var();
+            m_solver.set_external(w);
             m_ext2var.setx(v, w, null_bool_var);
             m_var2ext.setx(w, v, null_bool_var);
             m_vars.push_back(v);
@@ -103,6 +104,7 @@ namespace sat {
             root = ext2lit(clause[0]);
         else {
             root = literal(m_solver.mk_var(), false);
+            m_solver.set_external(root.var());
             for (unsigned i = 0; i < sz; ++i)
                 m_solver.mk_clause(root, ~ext2lit(clause[i]), status::input());
         }
