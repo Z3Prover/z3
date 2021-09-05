@@ -581,6 +581,17 @@ namespace arith {
                 value = ~value;
             if (!found_bad && value == get_phase(n->bool_var()))
                 continue;
+
+            TRACE("arith",
+                ptr_vector<expr> nodes;
+                nodes.push_back(n->get_expr());
+                for (unsigned i = 0; i < nodes.size(); ++i) {
+                    expr* r = nodes[i];
+                    if (is_app(r))
+                        for (expr* arg : *to_app(r))
+                            nodes.push_back(arg);
+                    tout << r->get_id() << ": " << mk_bounded_pp(r, m, 1) << " := " << mdl(r) << "\n";
+                });
             TRACE("arith",
                 tout << eval << " " << value << " " << ctx.bpp(n) << "\n";
                 tout << mdl << "\n";
