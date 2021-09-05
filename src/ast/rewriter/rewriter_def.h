@@ -195,7 +195,9 @@ bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
             if (process_const<ProofGen>(to_app(t))) 
                 return true; 
             TRACE("rewriter", tout << "process const: " << mk_bounded_pp(t, m()) << " -> " << mk_bounded_pp(m_r,m()) << "\n";);
-            t = m_r;
+	        set_new_child_flag(t, m_r);
+	        result_stack().push_back(m_r);
+	        return true;
         }
         if (max_depth != RW_UNBOUNDED_DEPTH)
             max_depth--;
