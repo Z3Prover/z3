@@ -266,14 +266,25 @@ namespace euf {
 
     void solver::display_validation_failure(std::ostream& out, model& mdl, enode* n) {
         out << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(n->get_expr()) << "\n";
-        for (auto* arg : euf::enode_args(n)) {
-            expr_ref val = mdl(arg->get_expr());
+        euf::enode_vector nodes;
+        nodes.push_back(n);
+        for (unsigned i = 0; i < nodes.size(); ++i) {
+            euf::enode* r = nodes[i];
+            if (r->is_marked1())
+                continue;
+            r->mark1();
+            for (auto* arg : euf::enode_args(r))
+                nodes.push_back(arg);           
+            expr_ref val = mdl(r->get_expr());
             expr_ref sval(m);
             th_rewriter rw(m);
             rw(val, sval);
-            out << bpp(arg) << "\n" << sval << "\n";
+            out << bpp(r) << " := " << sval << " " << mdl(r->get_root()->get_expr()) << "\n";
         }
+        for (euf::enode* r : nodes)
+            r->unmark1();
         out << mdl << "\n";
+        s().display(out);
     }
 
     void solver::validate_model(model& mdl) {

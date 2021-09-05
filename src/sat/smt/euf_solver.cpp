@@ -454,6 +454,9 @@ namespace euf {
         bool give_up = false;
         bool cont = false;
 
+        if (unit_propagate())
+            return sat::check_result::CR_CONTINUE;
+
         if (!init_relevancy())
             give_up = true;
         
@@ -590,10 +593,14 @@ namespace euf {
                 lit = literal(replay.m[e], false);
             else 
                 lit = si.internalize(e, true);
-            VERIFY(lit.var() == v);          
-            if (is_app(e))
-                for (expr* arg : *to_app(e))
-                    e_internalize(arg);
+            VERIFY(lit.var() == v);     
+            if (!m_egraph.find(e) && (!m.is_iff(e) && !m.is_or(e) && !m.is_and(e) && !m.is_not(e))) {
+                ptr_buffer<euf::enode> args;
+                if (is_app(e))
+                    for (expr* arg : *to_app(e))
+                        args.push_back(e_internalize(arg));
+                mk_enode(e, args.size(), args.data());
+            }
             attach_lit(lit, e);            
         }
         
