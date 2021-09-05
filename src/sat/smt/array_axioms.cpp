@@ -570,7 +570,7 @@ namespace array {
                 expr* e2 = var2expr(v2);
                 if (e1->get_sort() != e2->get_sort())
                     continue;
-                if (have_different_model_values(v1, v2))
+                if (must_have_different_model_values(v1, v2))
                     continue;
                 if (ctx.get_egraph().are_diseq(var2enode(v1), var2enode(v2)))
                     continue;              
@@ -600,7 +600,7 @@ namespace array {
             r->mark1();
             to_unmark.push_back(r);            
         }
-        TRACE("array", tout << "collecting shared vars...\n" << unsigned_vector(roots.size(), (unsigned*)roots.data())  << "\n";);
+        TRACE("array", tout << "collecting shared vars...\n"; for (auto v : roots) tout << ctx.bpp(var2enode(v)) << "\n";);
         for (auto* n : to_unmark)
             n->unmark1();
     }

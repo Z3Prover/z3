@@ -222,7 +222,7 @@ namespace array {
         euf::enode_vector   m_defaults;       // temporary field for model construction
         ptr_vector<expr>    m_else_values;    // 
         svector<int>        m_parents;        // temporary field for model construction
-        bool have_different_model_values(theory_var v1, theory_var v2);
+        bool must_have_different_model_values(theory_var v1, theory_var v2);
         void collect_defaults();
         void mg_merge(theory_var u, theory_var v);
         theory_var mg_find(theory_var n);
@@ -262,6 +262,7 @@ namespace array {
         euf::theory_var mk_var(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode* n, sort* s) override;
         bool is_shared(theory_var v) const override;
+        bool enable_self_propagate() const override { return true; }
 
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}

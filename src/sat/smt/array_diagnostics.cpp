@@ -24,7 +24,7 @@ namespace array {
             out << "array\n";
         for (unsigned i = 0; i < get_num_vars(); ++i) {
             auto& d = get_var_data(i);
-            out << var2enode(i)->get_expr_id() << " " << (d.m_prop_upward?"up":"fx") << " " << mk_bounded_pp(var2expr(i), m, 2) << "\n";
+            out << "v" << i << ": " << var2enode(i)->get_expr_id() << " " << (d.m_prop_upward?"up":"fx") << " " << mk_bounded_pp(var2expr(i), m, 2) << "\n";
             display_info(out, "parent lambdas", d.m_parent_lambdas);
             display_info(out, "parent select", d.m_parent_selects);
             display_info(out, "lambdas", d.m_lambdas);

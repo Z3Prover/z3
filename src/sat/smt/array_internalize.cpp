@@ -75,10 +75,11 @@ namespace array {
     }
 
     void solver::internalize_lambda(euf::enode* n) {
-        set_prop_upward(n);
-        if (!a.is_store(n->get_expr()))
-            push_axiom(default_axiom(n));
-        add_lambda(n->get_th_var(get_id()), n);
+        SASSERT(is_lambda(n->get_expr()) || a.is_const(n->get_expr()) || a.is_as_array(n->get_expr()));
+        theory_var v = n->get_th_var(get_id());
+        push_axiom(default_axiom(n));
+        add_lambda(v, n);
+        set_prop_upward(v);
     }
 
     void solver::internalize_select(euf::enode* n) {

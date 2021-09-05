@@ -90,6 +90,14 @@ namespace q {
 
         univ.append(residue);
         add_projection_functions(mdl, univ);
+	for (unsigned i = mdl.get_num_functions(); i-- > 0; ) {
+            func_decl* f = mdl.get_function(i);
+            func_interp* fi = mdl.get_func_interp(f);
+            if (fi->is_partial())
+                fi->set_else(fi->get_max_occ_result());
+            if (fi->is_partial())
+                fi->set_else(mdl.get_some_value(f->get_range()));
+	}
         TRACE("q", tout << "end: " << mdl << "\n";);
     }
 
