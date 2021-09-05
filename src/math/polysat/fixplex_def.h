@@ -154,6 +154,8 @@ namespace polysat {
         m_base_vars.reset();
     }
 
+    // TBD: where does parity test go?
+
     template<typename Ext>
     lbool fixplex<Ext>::make_feasible() {
         ++m_stats.m_num_checks;
@@ -1073,8 +1075,14 @@ namespace polysat {
     bool fixplex<Ext>::propagate_row_eqs() {
         if (!m_to_patch.empty())
             return true;
+        if (m_eq_rows.empty())
+            return true;
+        if (!m_propagate_eqs_backoff.should_propagate())
+            return true;
+        unsigned sz = m_var_eqs.size();
         for (unsigned i : m_eq_rows)
-            get_offset_eqs(row(i));  
+            get_offset_eqs(row(i));
+        m_propagate_eqs_backoff.update(sz < m_var_eqs.size());
         m_eq_rows.reset();
         return !inconsistent();
     }
@@ -1167,16 +1175,21 @@ namespace polysat {
 
     template<typename Ext>
     bool fixplex<Ext>::propagate_row_bounds() {
-        return true;
+        // return true;
         // TBD
         if (inconsistent())
             return false;
         if (!m_to_patch.empty())
-            return true;        
+            return true;
+        if (m_bound_rows.empty())
+            return true;
+        if (!m_propagate_bounds_backoff.should_propagate())
+            return true;
         for (unsigned i : m_bound_rows)
             if (!propagate_row(row(i)))
                 return false;
         m_bound_rows.reset();
+        m_propagate_bounds_backoff.update(false); // should backoff be adjusted?
         return true;
     }
 
@@ -1199,7 +1212,6 @@ namespace polysat {
         ineq i0 = m_ineqs[i0_idx];
         numeral old_lo = m_vars[i0.w].lo;
         SASSERT(!m_inconsistent);
-        // std::cout << "propagate " << i0 << "\n";
         if (!propagate_ineq(i0))
             return l_false;
         on_stack.reset();
@@ -1216,9 +1228,6 @@ namespace polysat {
                 auto& i_out = m_ineqs[ineqs[ineq_out]];
                 if (i.w != i_out.v) 
                     continue;
-//                for (unsigned j = 0; j < stack.size(); ++j) 
-//                    std::cout << " ";
-//                std::cout << " -> " << i_out << "\n";
                 old_lo = m_vars[i_out.w].lo;
                 if (!propagate_ineq(i_out))
                     return l_false;      
@@ -1320,7 +1329,7 @@ namespace polysat {
                 return res;
             // SASSERT(in_bounds(v));
         }
-        return l_true;
+        return true;
     }
 
     template<typename Ext>
@@ -1422,7 +1431,7 @@ namespace polysat {
     template<typename Ext>
     bool fixplex<Ext>::new_bound(row const& r, var_t x, mod_interval<numeral> const& range) {
         if (range.contains(m_vars[x]))
-            return l_true;
+            return true;
         SASSERT(!inconsistent());
         bool was_fixed = is_fixed(x);
         u_dependency* dep = row2dep(r);
