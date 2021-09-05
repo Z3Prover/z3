@@ -19,35 +19,22 @@ Author:
 
 namespace polysat {
 
-    class solver;
-    class conflict_explainer;
 
-    class inference_engine {
-    public:
-        virtual ~inference_engine() {}
-        /** Try to apply an inference rule. Returns true if a new constraint was added to the core. */
-        virtual bool perform(conflict_explainer& ce) = 0;
-    };
-
-    class inf_polynomial_superposition : public inference_engine {
-    public:
-        bool perform(conflict_explainer& ce) override;
-    };
-
-    // TODO: other rules
-    // clause_ref by_ugt_x();
-    // clause_ref by_ugt_y();
-    // clause_ref by_ugt_z();
-    // clause_ref y_ule_ax_and_x_ule_z();
-
+#if 0
     class conflict_explainer {
         solver& m_solver;
 
-        conflict_core m_conflict;
+        // conflict_core m_conflict;
+        vector<constraint> m_new_assertions;  // to be inserted into Gamma (conclusions from saturation)
 
         scoped_ptr_vector<inference_engine> inference_engines;
 
         bool push_omega_mul(clause_builder& clause, unsigned level, unsigned p, pdd const& x, pdd const& y);
+
+        // Gamma
+        // search_state& search() { return m_solver.m_search; }
+        // Core
+        // conflict_core& conflict() { return m_solver.m_conflict; }
     public:
         /** Create empty conflict */
         conflict_explainer(solver& s);
@@ -58,7 +45,7 @@ namespace polysat {
         bool saturate();
 
         /** resolve conflict state against assignment to v */
-        void resolve(pvar v, ptr_vector<constraint> const& cjust_v);
+        void resolve(pvar v, ptr_vector<constraint> const& cjust_v);  // TODO: try variable elimination of 'v', if not possible, core saturation and core reduction. (actually reduction could be one specific VE method).
         void resolve(sat::literal lit);
 
         // TODO: move conflict resolution from solver into this class.
@@ -68,4 +55,5 @@ namespace polysat {
         /** conflict resolution until first (relevant) decision */
         void resolve();
     };
+#endif
 }

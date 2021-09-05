@@ -846,9 +846,9 @@ namespace polysat {
             unsigned rz = r_z.id();
             if (rz == rx)
                 continue;
-            TRACE("fixplex,", display_row(tout << "eliminate ", r_z, false) << "\n";);
+            TRACE("fixplex", display_row(tout << "eliminate ", r_z, false) << "\n";);
             VERIFY(eliminate_var(r_x, col, tz_b, old_value_y));
-            TRACE("fixplex,", display_row(tout << "eliminated ", r_z, false) << "\n";);
+            TRACE("fixplex", display_row(tout << "eliminated ", r_z, false) << "\n";);
             add_patch(row2base(r_z));
         }
         SASSERT(well_formed());
@@ -1354,7 +1354,7 @@ namespace polysat {
         if (m_vars[v].max() >= m_vars[w].max() && !new_bound(i, v, 0, m_vars[w].max(), vlo, vhi, wlo, whi))
             return false;
 
-        if (value(v) >= value(w) && !is_base(w) && value(v) + 1 != 0 && m_vars[w].contains(value(v) + 1))
+        if (!is_base(w) && value(v) >= value(w) && value(v) + 1 != 0 &&  m_vars[w].contains(value(v) + 1))
             update_value(w, value(v) - value(w) + 1);
         
         return true;
@@ -1484,6 +1484,7 @@ namespace polysat {
             if (s == null_var)
                 continue;
             SASSERT(i == base2row(s).id());
+            
             VERIFY(well_formed_row(r));
         }
         for (unsigned i = 0; i < m_vars.size(); ++i) {

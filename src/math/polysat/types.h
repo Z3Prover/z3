@@ -14,6 +14,7 @@ Author:
 #include "util/dependency.h"
 #include "util/trail.h"
 #include "util/lbool.h"
+#include "util/map.h"
 #include "util/rlimit.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/var_queue.h"

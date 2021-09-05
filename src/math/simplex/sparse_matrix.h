@@ -289,7 +289,7 @@ namespace simplex {
         col_entries_t col_entries(int v) { return col_entries_t(*this, v); }
 
         void display(std::ostream& out);
-        void display_row(std::ostream& out, row const& r);
+        void display_row(std::ostream& out, row const& r) const;
         bool well_formed() const;
 
         void collect_statistics(::statistics & st) const;

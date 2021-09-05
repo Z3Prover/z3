@@ -1,6 +1,7 @@
 z3_add_component(polysat
   SOURCES
     boolean.cpp
+    clause.cpp
     clause_builder.cpp
     conflict_core.cpp
     constraint.cpp
@@ -10,10 +11,12 @@ z3_add_component(polysat
     justification.cpp
     linear_solver.cpp
     log.cpp
+    saturation.cpp
     search_state.cpp
     solver.cpp
     ule_constraint.cpp
     viable.cpp
+    variable_elimination.cpp
   COMPONENT_DEPENDENCIES
     util
     dd
