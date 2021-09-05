@@ -281,6 +281,26 @@ namespace polysat {
         bool propagate_row_bounds();
         bool is_satisfied();
 
+        struct backoff {
+            unsigned m_tries = 0;
+            unsigned m_delay = 1;
+            bool should_propagate() {
+                return ++m_tries >= m_delay;
+            }
+            void update(bool progress) {
+                m_tries = 0;
+                if (progress)
+                    m_delay = 1;
+                else
+                    ++m_delay;
+            }
+        };
+
+        backoff m_propagate_eqs_backoff;
+        backoff m_propagate_bounds_backoff;
+
+
+
         var_t select_smallest_var() { return m_to_patch.empty()?null_var:m_to_patch.erase_min(); }
         lbool make_var_feasible(var_t x_i);
         bool is_infeasible_row(var_t x);

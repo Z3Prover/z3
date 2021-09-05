@@ -465,7 +465,7 @@ namespace polysat {
                 solver.assert_expr(m.mk_or(A, B));            
         }
 
-        lbool r1 = solver.check();
+        lbool r1 = l_undef; // solver.check();
         lbool r2 = fp.make_feasible();
 
         std::cout << r1 << " " << r2 << "\n";
@@ -566,9 +566,9 @@ namespace polysat {
 
     static void test_lps() {
         random_gen r;
-	for (unsigned i = 0; i < 10000; ++i)
+    	for (unsigned i = 0; i < 10000; ++i)
             test_lps(r, 6, 3, 3, 3);
-	return;
+	    return;
         for (unsigned i = 0; i < 10000; ++i)
             test_lps(r, 6, 3, 3, 0);
         return;
