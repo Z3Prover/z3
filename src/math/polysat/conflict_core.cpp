@@ -49,12 +49,6 @@ namespace polysat {
         return out;
     }
 
-    void conflict_core::set(std::nullptr_t) {
-        SASSERT(empty());
-        m_constraints.push_back({});
-        m_needs_model = false;
-    }
-
     void conflict_core::set(signed_constraint c) {
         LOG("Conflict: " << c);
         SASSERT(empty());

@@ -215,7 +215,7 @@ namespace polysat {
         bool resolve_value(pvar v);
         void resolve_bool(sat::literal lit);
         void resolve_bailout(unsigned i);
-        void revert_decision(pvar v, bool bailout = false);
+        void revert_decision(pvar v);
         void revert_bool_decision(sat::literal lit);
 
         void report_unsat();

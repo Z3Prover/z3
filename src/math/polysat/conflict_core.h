@@ -35,6 +35,9 @@ namespace polysat {
         //       The drawback is that we may get weaker lemmas in some cases (but they are still correct).
         //       For example: if we have 4x+y=2 and y=0, then we have a conflict no matter the value of x, so we should drop x=? from the core.
 
+        /** Whether we are in a bailout state. We enter a bailout state when we give up on proper conflict resolution.  */
+        bool m_bailout = false;
+
         solver* m_solver = nullptr;
         constraint_manager& cm();
         scoped_ptr_vector<variable_elimination_engine> ve_engines;
@@ -50,7 +53,8 @@ namespace polysat {
         bool needs_model() const { return m_needs_model; }
         pvar conflict_var() const { return m_conflict_var; }
 
-        bool is_bailout() const { return m_constraints.size() == 1 && !m_constraints[0]; }
+        bool is_bailout() const { return m_bailout; }
+        void set_bailout() { m_bailout = true; }
 
         bool empty() const {
             return m_constraints.empty() && !m_needs_model && m_conflict_var == null_var;
@@ -61,11 +65,10 @@ namespace polysat {
             m_needs_model = false;
             m_conflict_var = null_var;
             m_saturation_premises.reset();
+            m_bailout = false;
             SASSERT(empty());
         }
 
-        /** for bailing out with a conflict at the base level */
-        void set(std::nullptr_t);
         /** conflict because the constraint c is false under current variable assignment */
         void set(signed_constraint c);
         /** conflict because there is no viable value for the variable v */

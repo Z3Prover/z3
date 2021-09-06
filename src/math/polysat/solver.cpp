@@ -445,17 +445,13 @@ namespace polysat {
 
         SASSERT(is_conflict());
 
-        if (m_conflict.is_bailout()) {
-            report_unsat();
-            return;
-        }
-
         reset_marks();
         set_marks(m_conflict);
 
         if (m_conflict.conflict_var() != null_var) {
             // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
             if (!resolve_value(m_conflict.conflict_var())) {
+                m_conflict.set_bailout();
                 resolve_bailout(m_search.size() - 1);
                 return;
             }
@@ -482,6 +478,7 @@ namespace polysat {
                 }
                 SASSERT(j.is_propagation());
                 if (!resolve_value(v)) {
+                    m_conflict.set_bailout();
                     resolve_bailout(i);
                     return;
                 }
@@ -553,6 +550,7 @@ namespace polysat {
     }
 
     void solver::resolve_bailout(unsigned i) {
+        // TODO: add bailout bit to conflict state, then merge this function into resolve_conflict...; check the bailout bit in revert_decision and in resolve_value.
         ++m_stats.m_num_bailouts;
         // TODO: conflict resolution failed or was aborted. what to do with the current conflict core?
         //      (we could still use it as lemma, but it probably doesn't help much)
@@ -570,7 +568,7 @@ namespace polysat {
                 if (j.level() <= base_level())
                     break;
                 if (j.is_decision()) {
-                    revert_decision(v, true);
+                    revert_decision(v);
                     return;
                 }
                 // retrieve constraint used for propagation
@@ -698,14 +696,14 @@ namespace polysat {
      * Revert a decision that caused a conflict.
      * Variable v was assigned by a decision at position i in the search stack.
      */
-    void solver::revert_decision(pvar v, bool bailout) {
+    void solver::revert_decision(pvar v) {
         rational val = m_value[v];
         LOG_H3("Reverting decision: pvar " << v << " := " << val);
         SASSERT(m_justification[v].is_decision());
 
         backjump(m_justification[v].level()-1);
 
-        if (bailout) {
+        if (m_conflict.is_bailout()) {
             m_viable.add_non_viable(v, val);
             return;
         }
