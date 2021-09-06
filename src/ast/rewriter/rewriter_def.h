@@ -192,12 +192,16 @@ bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
     switch (t->get_kind()) {
     case AST_APP:
         if (to_app(t)->get_num_args() == 0) {
-            if (process_const<ProofGen>(to_app(t))) 
-                return true; 
-            TRACE("rewriter", tout << "process const: " << mk_bounded_pp(t, m()) << " -> " << mk_bounded_pp(m_r,m()) << "\n";);
-	        set_new_child_flag(t, m_r);
-	        result_stack().push_back(m_r);
-	        return true;
+            if (process_const<ProofGen>(to_app(t)))
+                return true;
+            TRACE("rewriter_const", tout << "process const: " << mk_bounded_pp(t, m()) << " -> " << mk_bounded_pp(m_r, m()) << "\n";);
+            rewriter_tpl rw(m(), false, m_cfg);
+            expr_ref result(m());
+            rw(m_r, result, m_pr);
+            m_r = result;
+            set_new_child_flag(t, m_r);
+            result_stack().push_back(m_r);
+            return true;
         }
         if (max_depth != RW_UNBOUNDED_DEPTH)
             max_depth--;

@@ -190,7 +190,7 @@ namespace array {
         std::pair<app*, func_decl*> mk_epsilon(sort* s);
         void collect_shared_vars(sbuffer<theory_var>& roots);
         bool add_interface_equalities();
-        bool is_select_arg(euf::enode* r);
+        bool is_shared_arg(euf::enode* r);
         bool is_array(euf::enode* n) const { return a.is_array(n->get_expr()); }
 
         // solving          

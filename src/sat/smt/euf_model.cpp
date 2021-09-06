@@ -228,9 +228,12 @@ namespace euf {
                 SASSERT(args.size() == arity);
                 if (!fi->get_entry(args.data()))
                     fi->insert_new_entry(args.data(), v);
-                TRACE("euf", tout << f->get_name() << "\n";
+                TRACE("euf", tout << bpp(n) << " " << f->get_name() << "\n";
                       for (expr* arg : args) tout << mk_pp(arg, m) << " ";
-                      tout << "\n -> " << mk_pp(v, m) << "\n";);
+                      tout << "\n -> " << mk_pp(v, m) << "\n";
+		      for (euf::enode* arg : euf::enode_args(n)) tout << bpp(arg) << " ";
+		      tout << "\n";
+		      );
 
             }
         }

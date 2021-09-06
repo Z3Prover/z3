@@ -570,10 +570,12 @@ namespace array {
                 expr* e2 = var2expr(v2);
                 if (e1->get_sort() != e2->get_sort())
                     continue;
-                if (must_have_different_model_values(v1, v2))
+                if (must_have_different_model_values(v1, v2)) {
                     continue;
-                if (ctx.get_egraph().are_diseq(var2enode(v1), var2enode(v2)))
-                    continue;              
+                }
+                if (ctx.get_egraph().are_diseq(var2enode(v1), var2enode(v2))) {
+                    continue;
+                }
                 sat::literal lit = eq_internalize(e1, e2);
                 if (s().value(lit) == l_undef) 
                     prop = true;
@@ -594,7 +596,7 @@ namespace array {
             if (r->is_marked1()) 
                 continue;            
             // arrays used as indices in other arrays have to be treated as shared issue #3532, #3529            
-            if (ctx.is_shared(r) || is_select_arg(r)) 
+            if (ctx.is_shared(r) || is_shared_arg(r)) 
                 roots.push_back(r->get_th_var(get_id()));
             
             r->mark1();
@@ -605,13 +607,18 @@ namespace array {
             n->unmark1();
     }
 
-    bool solver::is_select_arg(euf::enode* r) {
+    bool solver::is_shared_arg(euf::enode* r) {
         SASSERT(r->is_root());
-        for (euf::enode* n : euf::enode_parents(r)) 
-            if (a.is_select(n->get_expr())) 
-                for (unsigned i = 1; i < n->num_args(); ++i) 
-                    if (r == n->get_arg(i)->get_root()) 
+        for (euf::enode* n : euf::enode_parents(r)) {
+            expr* e = n->get_expr();
+            if (a.is_select(e))
+                for (unsigned i = 1; i < n->num_args(); ++i)
+                    if (r == n->get_arg(i)->get_root())
                         return true;
+            if (a.is_const(e))
+                return true;
+        }
+            
         return false;
     }
 

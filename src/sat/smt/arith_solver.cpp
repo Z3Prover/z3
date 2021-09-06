@@ -584,13 +584,23 @@ namespace arith {
 
             TRACE("arith",
                 ptr_vector<expr> nodes;
+                expr_mark marks;
                 nodes.push_back(n->get_expr());
                 for (unsigned i = 0; i < nodes.size(); ++i) {
                     expr* r = nodes[i];
+                    if (marks.is_marked(r))
+                        continue;
+                    marks.mark(r);
                     if (is_app(r))
                         for (expr* arg : *to_app(r))
                             nodes.push_back(arg);
-                    tout << r->get_id() << ": " << mk_bounded_pp(r, m, 1) << " := " << mdl(r) << "\n";
+                    expr_ref rval(m);                    
+                    expr_ref mval = mdl(r);
+                    if (ctx.get_egraph().find(r))
+                        rval = mdl(ctx.get_egraph().find(r)->get_root()->get_expr());
+                    tout << r->get_id() << ": " << mk_bounded_pp(r, m, 1) << " := " << mval;
+                    if (rval != mval) tout << " " << rval;
+                    tout << "\n";
                 });
             TRACE("arith",
                 tout << eval << " " << value << " " << ctx.bpp(n) << "\n";

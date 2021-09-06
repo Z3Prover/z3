@@ -118,10 +118,6 @@ public:
 
     void print_basis_heading();
 
-    void print_bottom_line() {
-        m_out << "----------------------" << std::endl;
-    }
-
     void print_cost();
 
     void print_given_row(vector<string> & row, vector<string> & signs, X rst);

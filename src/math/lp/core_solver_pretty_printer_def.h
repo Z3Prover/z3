@@ -345,12 +345,6 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::print()
     for (unsigned i = 0; i < nrows(); i++) {
         print_row(i);
     }
-    print_bottom_line();
-    print_cost();
-    print_x();
-    print_basis_heading();
-    print_lows();
-    print_upps();
     print_exact_norms();
     if (!m_core_solver.m_column_norms.empty())
         print_approx_norms();
