@@ -65,6 +65,10 @@ namespace polysat {
         void push_boolean(sat::literal lit);
         void pop();
 
+        using const_iterator = decltype(m_items)::const_iterator;
+        const_iterator begin() const { return m_items.begin(); }
+        const_iterator end() const { return m_items.end(); }
+
         std::ostream& display(std::ostream& out) const;
     };
 

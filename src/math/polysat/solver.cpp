@@ -661,17 +661,14 @@ namespace polysat {
         LOG_H3("Reverting decision: pvar " << v << " := " << val);
         SASSERT(m_justification[v].is_decision());
 
-        backjump(m_justification[v].level()-1);
-
-        if (m_conflict.is_bailout()) {
-            m_viable.add_non_viable(v, val);
-            // TODO: need to add fallback lemma
-            return;
-        }
-
-        clause_ref lemma = m_conflict.build_lemma();
+        clause_ref lemma;
+        if (m_conflict.is_bailout())
+            lemma = mk_fallback_lemma(m_justification[v].level());
+        else
+            lemma = m_conflict.build_lemma();
         m_conflict.reset();
 
+        backjump(m_justification[v].level()-1);
         // TODO: we need to decide_bool on the clause (learn_lemma takes care of this).
         //       if the lemma was asserting, then this will propagate the last literal. otherwise we do the enumerative guessing as normal.
         //       we need to exclude the current value of v. narrowing of the guessed constraint *should* take care of it but we cannot count on that.
@@ -698,15 +695,44 @@ namespace polysat {
         }
         */
     }
-    
+
+    bool solver::is_decision(search_item const& item) const {
+        if (item.is_assignment())
+            return m_justification[item.var()].is_decision();
+        else
+            return m_bvars.is_decision(item.lit().var());
+    }
+
+    /** Create fallback lemma that excludes the current search state */
+    clause_ref solver::mk_fallback_lemma(unsigned lvl) {
+        LOG_H3("Creating fallback lemma for level " << lvl);
+        LOG_V("m_search: " << m_search);
+        clause_builder lemma(*this);
+        unsigned todo = lvl;
+        unsigned i = 0;
+        while (todo > 0) {
+            auto const& item = m_search[i++];
+            if (!is_decision(item))
+                continue;
+            LOG_V("Adding: " << item);
+            if (item.is_assignment()) {
+                pvar v = item.var();
+                auto c = ~m_constraints.eq(0, var(v) - m_value[v]);
+                m_constraints.ensure_bvar(c.get());
+                lemma.push_literal(c.blit());
+            } else {
+                sat::literal lit = item.lit();
+                lemma.push_literal(~lit);
+            }
+            --todo;
+        }
+        return lemma.build();
+    }
+
     void solver::revert_bool_decision(sat::literal lit) {
         sat::bool_var const var = lit.var();
         LOG_H3("Reverting boolean decision: " << lit);
         SASSERT(m_bvars.is_decision(var));
-
-        if (m_conflict.is_bailout()) {
-            NOT_IMPLEMENTED_YET();
-        }
 
         // TODO:
         // Current situation: we have a decision for boolean literal L on top of the stack, and a conflict core.
@@ -726,7 +752,11 @@ namespace polysat {
         //      (L')^{L' \/ ¬L \/ ...}
         //      again L is in core, unless we core-reduced it away
 
-        clause_ref reason = m_conflict.build_lemma();
+        clause_ref reason;
+        if (m_conflict.is_bailout())
+            reason = mk_fallback_lemma(m_bvars.level(var));
+        else
+            reason = m_conflict.build_lemma();
         m_conflict.reset();
 
         bool contains_lit = std::any_of(reason->begin(), reason->end(), [lit](auto reason_lit) { return reason_lit == ~lit; });
@@ -747,6 +777,7 @@ namespace polysat {
         }
 
         // The lemma where 'lit' comes from.
+        // Currently, boolean decisions always come from guessing a literal of a learned non-unit lemma.
         clause* lemma = m_bvars.lemma(var);  // need to grab this while 'lit' is still assigned
         SASSERT(lemma);
 

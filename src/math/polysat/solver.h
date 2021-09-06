@@ -168,6 +168,7 @@ namespace polysat {
 
         void assign_core(pvar v, rational const& val, justification const& j);
         bool is_assigned(pvar v) const { return !m_justification[v].is_unassigned(); }
+        bool is_decision(search_item const& item) const;
 
 
         bool should_search();
@@ -216,6 +217,7 @@ namespace polysat {
         void resolve_bool(sat::literal lit);
         void revert_decision(pvar v);
         void revert_bool_decision(sat::literal lit);
+        clause_ref mk_fallback_lemma(unsigned lvl);
 
         void report_unsat();
         void learn_lemma(pvar v, clause_ref lemma);
