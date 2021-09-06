@@ -133,6 +133,7 @@ namespace polysat {
                         c->set_unit_clause(cl);
                     // TODO: actually, this should be backtrackable (unless clause is unit). But currently we cannot insert in the middle of the stack!
                     //      (or do it like MCSAT... they keep "theory-propagated" literals also at the end and restore them on backtracking)
+                    // => add at the end and update pop_levels to replay appropriately
                     m_solver->assign_bool_core(c.blit(), cl, nullptr);
                     m_solver->activate_constraint(c);
                 }

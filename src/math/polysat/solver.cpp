@@ -244,6 +244,8 @@ namespace polysat {
     }
 
     void solver::pop_levels(unsigned num_levels) {
+        // TODO: replay mechanism for saturation results
+        // NOTE: we only need to replay boolean literal propagations (might be unit clauses but not necessarily... no, unit clauses do not need to go on the stack. but we still have to pop them if the solver level is popped.)
         SASSERT(m_level >= num_levels);
         unsigned const target_level = m_level - num_levels;
         (void)target_level;
@@ -447,6 +449,7 @@ namespace polysat {
 
         reset_marks();
         set_marks(m_conflict);
+        // TODO: subsequent changes to the conflict should update the marks incrementally
 
         if (m_conflict.conflict_var() != null_var) {
             // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
@@ -510,6 +513,12 @@ namespace polysat {
 
         // m_conflict.set_var(v);
 
+        // TODO:
+        // 1. try "perfect" rules if any match, e.g., poly superposition allows us to eliminate variable immediately if it works
+        // 2. if none match, then apply any saturation rules that do
+        // 3. following saturation, check if we can apply other variable elimination
+        // 4. fallback lemma if we have to (collect decisions)
+
         if (m_conflict.is_bailout()) {
             for (auto c : m_cjust[v])
                 m_conflict.insert(c);
@@ -517,6 +526,10 @@ namespace polysat {
         }
 
         // Value Resolution
+        // TODO: maybe don't do this automatically, because cjust-constraints are true and core constraints are false.
+        //       issue: what if viable(v) is empty? then we only have cjust constraints and none of them is evaluable (at least not immediately because no value is set for this variable.)
+        //                  => think about what we want to do in this case (choose a value and evaluate? try all possible superpositions without caring about the value of the premises?)
+        // the last value_resolution method can then be the one that adds the cjusts and calls saturation and more general VE.
         for (auto c : m_cjust[v])
             m_conflict.insert(c);
 
@@ -652,6 +665,7 @@ namespace polysat {
 
         if (m_conflict.is_bailout()) {
             m_viable.add_non_viable(v, val);
+            // TODO: need to add fallback lemma
             return;
         }
 
@@ -717,6 +731,16 @@ namespace polysat {
 
         bool contains_lit = std::any_of(reason->begin(), reason->end(), [lit](auto reason_lit) { return reason_lit == ~lit; });
         if (!contains_lit) {
+            // Problem:
+            // a(x), b(x) => c(y)    [ i.e., a(x) no longer in the core ]
+            // but now what to do with decision a(x)^?
+            //
+            // Alternative (to be considered later):
+            // - 'reason' itself (without ~L) would already be an explanation for ~L
+            // - however if it doesn't contain ~L, it breaks the boolean resolution invariant
+            // - would need to check what we can gain by relaxing that invariant
+            // - drawback: might have to bail out at boolean resolution
+            // Also: maybe we can skip ~L in some cases? but in that case it shouldn't be marked.
             SASSERT(false); // debugging: just to find a case when this happens.
             // lemma does not contain ~L, so we add it (thus weakening the lemma)
             NOT_IMPLEMENTED_YET();  // should add it to the core before calling build_lemma.
@@ -775,6 +799,10 @@ namespace polysat {
         LOG("\n" << *this);
         // c must be in m_original or m_redundant so it can be deactivated properly when popping the base level
         SASSERT_EQ(std::count(m_original.begin(), m_original.end(), c) + std::count(m_redundant.begin(), m_redundant.end(), c), 1);
+        // TODO: how is the boolean assignment for this undone? when we remove the constraint by popping a solver level.
+        //       if the constraint is deleted by popping it, then it's fine because we will remove the boolean variable.
+        //       however, we now dedup constraints so it might have been promoted to a lower level and thus live longer.
+        //       so this bool assignment needs to be backtrackable too...
         assign_bool_core(c.blit(), nullptr, nullptr);
         activate_constraint(c);
     }

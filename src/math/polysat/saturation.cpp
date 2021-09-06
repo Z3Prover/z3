@@ -33,6 +33,10 @@ namespace polysat {
             if (c->has_bvar() && c.is_positive() && c->is_eq() && c->contains_var(v))
                 candidates.push_back(c);
 
+        // TODO: c1 should a currently true constraint, while c2 should take a currently false constraint.
+        //       remove candidates vector (premature optimization)
+        //      we may want to apply this multiple times (a single resolve might not eliminate the variable).
+
         LOG_H3("Trying polynomial superposition...");
         for (auto it1 = candidates.begin(); it1 != candidates.end(); ++it1) {
             for (auto it2 = it1 + 1; it2 != candidates.end(); ++it2) {
@@ -52,8 +56,6 @@ namespace polysat {
                 LOG("resolved: " << c << "        currently false? " << c.is_currently_false(s()));
                 if (!c.is_currently_false(s()))
                     continue;
-                // TODO: we need to track the premises somewhere. also that we need to patch \Gamma if the constraint is used in the lemma.
-                // TODO: post-check to make sure r is false under current assignment. otherwise the rule makes no sense.
                 vector<signed_constraint> premises;
                 premises.push_back(c1);
                 premises.push_back(c2);
