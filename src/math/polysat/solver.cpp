@@ -450,11 +450,7 @@ namespace polysat {
 
         if (m_conflict.conflict_var() != null_var) {
             // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
-            if (!resolve_value(m_conflict.conflict_var())) {
-                m_conflict.set_bailout();
-                resolve_bailout(m_search.size() - 1);
-                return;
-            }
+            resolve_value(m_conflict.conflict_var());
             reset_marks();
             set_marks(m_conflict);
         }
@@ -477,11 +473,7 @@ namespace polysat {
                     return;
                 }
                 SASSERT(j.is_propagation());
-                if (!resolve_value(v)) {
-                    m_conflict.set_bailout();
-                    resolve_bailout(i);
-                    return;
-                }
+                resolve_value(v);
                 reset_marks();
                 set_marks(m_conflict);
             }
@@ -509,7 +501,7 @@ namespace polysat {
     }
 
     /** Conflict resolution case where propagation 'v := ...' is on top of the stack */
-    bool solver::resolve_value(pvar v) {
+    void solver::resolve_value(pvar v) {
         // SASSERT(m_justification[v].is_propagation());   // doesn't hold if we enter because of conflict_var
         // Conceptually:
         // - Value Resolution
@@ -517,6 +509,12 @@ namespace polysat {
         // - if VE isn't possible, try to derive new constraints using core saturation
 
         // m_conflict.set_var(v);
+
+        if (m_conflict.is_bailout()) {
+            for (auto c : m_cjust[v])
+                m_conflict.insert(c);
+            return;
+        }
 
         // Value Resolution
         for (auto c : m_cjust[v])
@@ -532,12 +530,14 @@ namespace polysat {
             //       it might be better to just have more general "core inferences" that may combine elimination/saturation steps that fit together...
             //       or even keep the whole "value resolution + VE/Saturation" as a single step. we might want to know which constraints come from the current cjusts?
             if (m_conflict.try_eliminate(v))
-                return true;
+                return;
             if (!m_conflict.try_saturate(v))
-                return false;
+                break;
         }
 
-        return false;
+        // Failed to resolve => bail out
+        ++m_stats.m_num_bailouts;
+        m_conflict.set_bailout();
     }
 
     /** Conflict resolution case where boolean literal 'lit' is on top of the stack */
@@ -545,68 +545,15 @@ namespace polysat {
         LOG_H3("resolve_bool: " << lit);
         SASSERT(m_bvars.is_propagation(lit.var()));
 
+        if (m_conflict.is_bailout()) {
+            NOT_IMPLEMENTED_YET();
+            // clause* other = m_bvars.reason(var);
+            // set_marks(*other);
+            // m_conflict.push_back(other);
+        }
+
         clause* other = m_bvars.reason(lit.var());
         m_conflict.resolve(m_constraints, lit.var(), *other);
-    }
-
-    void solver::resolve_bailout(unsigned i) {
-        // TODO: add bailout bit to conflict state, then merge this function into resolve_conflict...; check the bailout bit in revert_decision and in resolve_value.
-        ++m_stats.m_num_bailouts;
-        // TODO: conflict resolution failed or was aborted. what to do with the current conflict core?
-        //      (we could still use it as lemma, but it probably doesn't help much)
-        //      or use a fallback lemma which just contains v/=val for each decision variable v up to i
-        //      (goal is to have strong enough explanation to avoid this function as much as possible)
-        do {
-            auto const& item = m_search[i];
-            if (item.is_assignment()) {
-                // Backtrack over variable assignment
-                auto v = item.var();
-                LOG_H2("Working on pvar " << v);
-                if (!is_marked(v))
-                    continue;
-                justification& j = m_justification[v];
-                if (j.level() <= base_level())
-                    break;
-                if (j.is_decision()) {
-                    revert_decision(v);
-                    return;
-                }
-                // retrieve constraint used for propagation
-                // add variables to COI
-                SASSERT(j.is_propagation());
-                for (auto c : m_cjust[v]) {
-                    for (auto w : c->vars())
-                        set_mark(w);
-                    m_bvars.set_mark(c->bvar());
-                    m_conflict.insert(c);
-                }
-            }
-            else {
-                // Backtrack over boolean literal
-                SASSERT(item.is_boolean());
-                sat::literal lit = item.lit();
-                LOG_H2("Working on boolean literal " << lit);
-                sat::bool_var var = lit.var();
-                SASSERT(m_bvars.is_assigned(var));
-                if (!m_bvars.is_marked(var))
-                    continue;
-                if (m_bvars.level(var) <= base_level())
-                    break;
-                if (m_bvars.is_decision(var)) {
-                    NOT_IMPLEMENTED_YET();
-                    // revert_bool_decision(lit);
-                    return;
-                }
-                SASSERT(m_bvars.is_propagation(var));
-                NOT_IMPLEMENTED_YET();
-                // clause* other = m_bvars.reason(var);
-                // set_marks(*other);
-                // m_conflict.push_back(other);
-            }
-        }
-        while (i-- > 0);
-        // add_lemma(lemma);  // TODO: this lemma is stored but otherwise "lost" because it will not be activated / not added to any watch data structures
-        report_unsat();
     }
 
     void solver::report_unsat() {
@@ -742,6 +689,10 @@ namespace polysat {
         sat::bool_var const var = lit.var();
         LOG_H3("Reverting boolean decision: " << lit);
         SASSERT(m_bvars.is_decision(var));
+
+        if (m_conflict.is_bailout()) {
+            NOT_IMPLEMENTED_YET();
+        }
 
         // TODO:
         // Current situation: we have a decision for boolean literal L on top of the stack, and a conflict core.
