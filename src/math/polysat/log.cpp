@@ -39,7 +39,7 @@ static LogLevel get_max_log_level(std::string const& fn, std::string const& pret
   if (fn.find("set_mark") != std::string::npos)
     return LogLevel::Default;
 
-  return LogLevel::Verbose;
+  // return LogLevel::Verbose;
   return LogLevel::Default;
 }
 

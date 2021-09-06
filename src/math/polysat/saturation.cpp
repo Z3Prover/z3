@@ -33,6 +33,7 @@ namespace polysat {
             if (c->has_bvar() && c.is_positive() && c->is_eq() && c->contains_var(v))
                 candidates.push_back(c);
 
+        LOG_H3("Trying polynomial superposition...");
         for (auto it1 = candidates.begin(); it1 != candidates.end(); ++it1) {
             for (auto it2 = it1 + 1; it2 != candidates.end(); ++it2) {
                 signed_constraint c1 = *it1;
@@ -48,6 +49,7 @@ namespace polysat {
                     continue;
                 unsigned const lvl = std::max(c1->level(), c2->level());
                 signed_constraint c = cm().eq(lvl, r);
+                LOG("resolved: " << c << "        currently false? " << c.is_currently_false(s()));
                 if (!c.is_currently_false(s()))
                     continue;
                 // TODO: we need to track the premises somewhere. also that we need to patch \Gamma if the constraint is used in the lemma.
@@ -56,6 +58,7 @@ namespace polysat {
                 premises.push_back(c1);
                 premises.push_back(c2);
                 core.insert(c, std::move(premises));
+                return true;
 
 //             clause_builder clause(m_solver);
 //             clause.push_literal(~c1->blit());

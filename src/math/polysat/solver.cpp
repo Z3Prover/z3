@@ -531,7 +531,6 @@ namespace polysat {
             // 1. Try variable elimination of 'v'
             // 2. If not possible, try saturation and core reduction (actually reduction could be one specific VE method?).
             // 3. as a last resort, substitute v by m_value[v]?
-
             // TODO: maybe we shouldn't try to split up VE/Saturation in the implementation.
             //       it might be better to just have more general "core inferences" that may combine elimination/saturation steps that fit together...
             //       or even keep the whole "value resolution + VE/Saturation" as a single step. we might want to know which constraints come from the current cjusts?
@@ -554,12 +553,11 @@ namespace polysat {
     }
 
     void solver::resolve_bailout(unsigned i) {
+        ++m_stats.m_num_bailouts;
         // TODO: conflict resolution failed or was aborted. what to do with the current conflict core?
         //      (we could still use it as lemma, but it probably doesn't help much)
         //      or use a fallback lemma which just contains v/=val for each decision variable v up to i
         //      (goal is to have strong enough explanation to avoid this function as much as possible)
-        NOT_IMPLEMENTED_YET();
-        /*
         do {
             auto const& item = m_search[i];
             if (item.is_assignment()) {
@@ -572,18 +570,17 @@ namespace polysat {
                 if (j.level() <= base_level())
                     break;
                 if (j.is_decision()) {
-                    revert_decision(v, lemma);
+                    revert_decision(v, true);
                     return;
                 }
                 // retrieve constraint used for propagation
                 // add variables to COI
                 SASSERT(j.is_propagation());
-                for (auto* c : m_cjust[v]) {
+                for (auto c : m_cjust[v]) {
                     for (auto w : c->vars())
                         set_mark(w);
-                    if (c->bvar() != sat::null_bool_var)
-                        m_bvars.set_mark(c->bvar());
-                    m_conflict.push_back(c);
+                    m_bvars.set_mark(c->bvar());
+                    m_conflict.insert(c);
                 }
             }
             else {
@@ -598,19 +595,20 @@ namespace polysat {
                 if (m_bvars.level(var) <= base_level())
                     break;
                 if (m_bvars.is_decision(var)) {
-                    revert_bool_decision(lit, lemma);
+                    NOT_IMPLEMENTED_YET();
+                    // revert_bool_decision(lit);
                     return;
                 }
                 SASSERT(m_bvars.is_propagation(var));
-                clause* other = m_bvars.reason(var);
-                set_marks(*other);
-                m_conflict.push_back(other);
+                NOT_IMPLEMENTED_YET();
+                // clause* other = m_bvars.reason(var);
+                // set_marks(*other);
+                // m_conflict.push_back(other);
             }
         }
         while (i-- > 0);
-        add_lemma(lemma);  // TODO: this lemma is stored but otherwise "lost" because it will not be activated / not added to any watch data structures
+        // add_lemma(lemma);  // TODO: this lemma is stored but otherwise "lost" because it will not be activated / not added to any watch data structures
         report_unsat();
-        */
     }
 
     void solver::report_unsat() {
@@ -700,12 +698,17 @@ namespace polysat {
      * Revert a decision that caused a conflict.
      * Variable v was assigned by a decision at position i in the search stack.
      */
-    void solver::revert_decision(pvar v) {
+    void solver::revert_decision(pvar v, bool bailout) {
         rational val = m_value[v];
         LOG_H3("Reverting decision: pvar " << v << " := " << val);
         SASSERT(m_justification[v].is_decision());
 
         backjump(m_justification[v].level()-1);
+
+        if (bailout) {
+            m_viable.add_non_viable(v, val);
+            return;
+        }
 
         clause_ref lemma = m_conflict.build_lemma();
         m_conflict.reset();
@@ -713,7 +716,6 @@ namespace polysat {
         // TODO: we need to decide_bool on the clause (learn_lemma takes care of this).
         //       if the lemma was asserting, then this will propagate the last literal. otherwise we do the enumerative guessing as normal.
         //       we need to exclude the current value of v. narrowing of the guessed constraint *should* take care of it but we cannot count on that.
-        //       the narrow/decide we are doing now will be done implicitly by the solver loop.
 
         // TODO: what do we add as 'cjust' for this restriction? the guessed
         // constraint from the lemma should be the right choice. but, how to
@@ -752,76 +754,38 @@ namespace polysat {
         // - if L isn't in the core, we can still add it (weakening the lemma) to obtain "core => ~L"
         // - then we can add the propagation (~L)^lemma and continue with the next guess
 
-        NOT_IMPLEMENTED_YET();
-        /*
-        if (reason) {
-            LOG("Reason: " << show_deref(reason));
-            bool contains_var = std::any_of(reason->begin(), reason->end(), [var](sat::literal reason_lit) { return reason_lit.var() == var; });
-            if (!contains_var) {
-                // TODO: in this case, we got here via 'backtrack'. What to do if the reason does not contain lit?
-                // * 'reason' is still a perfectly good lemma and a summary of the conflict (the lemma roughly corresponds to ~conflict)
-                // * the conflict is the reason for flipping 'lit'
-                // * thus we just add '~lit' to 'reason' and see it as "conflict => ~lit".
-                auto lits = reason->literals();
-                lits.push_back(~lit);
-                reason = clause::from_literals(reason->level(), {reason->dep(), m_dm}, lits, reason->new_constraints());
-            }
-            SASSERT(std::any_of(reason->begin(), reason->end(), [lit](sat::literal reason_lit) { return reason_lit == ~lit; }));
-        }
-        else {
-            LOG_H3("Empty reason");
-            LOG("Conflict: " << m_conflict);
-            // TODO: what to do when reason is NULL?
-            // * this means we were unable to build a lemma for the current conflict.
-            // * the reason for reverting this decision then needs to be the (negation of the) conflicting literals. Or we give up on resolving this lemma?
-            SASSERT(m_conflict.clauses().empty());  // not sure how to handle otherwise
-            clause_builder clause(*this);
-            // unsigned reason_lvl = m_constraints.lookup(lit.var())->level();
-            // p_dependency_ref reason_dep(m_constraints.lookup(lit.var())->dep(), m_dm);
-            clause.push_literal(~lit);  // propagated literal
-            for (auto c : m_conflict.units()) {
-                if (c->bvar() == var)
-                    continue;
-                if (c->is_undef())  // TODO: see revert_decision for a note on this.
-                    continue;
-                // reason_lvl = std::max(reason_lvl, c->level());
-                // reason_dep = m_dm.mk_join(reason_dep, c->dep());
-                clause.push_literal(c->blit());
-            }
-            reason = clause.build();
-            LOG("Made-up reason: " << show_deref(reason));
+        // Note that if we arrive at this point, the variables in L are "relevant" to the conflict (otherwise we would have skipped L).
+        // So the subsequent steps must have contained one of these:
+        // - propagation of some variable v from L (and maybe other constraints)
+        //      (v := val)^{L, ...}
+        //      this means L is in core, unless we core-reduced it away
+        // - propagation of L' from L
+        //      (L')^{L' \/ ¬L \/ ...}
+        //      again L is in core, unless we core-reduced it away
+
+        clause_ref reason = m_conflict.build_lemma();
+        m_conflict.reset();
+
+        bool contains_lit = std::any_of(reason->begin(), reason->end(), [lit](auto reason_lit) { return reason_lit == ~lit; });
+        if (!contains_lit) {
+            SASSERT(false); // debugging: just to find a case when this happens.
+            // lemma does not contain ~L, so we add it (thus weakening the lemma)
+            NOT_IMPLEMENTED_YET();  // should add it to the core before calling build_lemma.
         }
 
+        // The lemma where 'lit' comes from.
         clause* lemma = m_bvars.lemma(var);  // need to grab this while 'lit' is still assigned
         SASSERT(lemma);
 
         backjump(m_bvars.level(var) - 1);
 
-        for (constraint* c : m_conflict.units()) {
-            if (c->bvar() == var)
-                continue;
-            // NOTE: in general, narrow may change the conflict.
-            //       But since we just backjumped, narrowing should not result in an additional conflict.
-            if (c->is_undef())  // TODO: see revert_decision for a note on this.
-                continue;
-            c->narrow(*this);
-            if (is_conflict()) {
-                LOG_H1("Conflict during revert_bool_decision/narrow!");
-                return;
-            }
-        }
-        m_conflict.reset();
-
-        clause* reason_cl = reason.get();
-        add_lemma(std::move(reason));
-        propagate_bool(~lit, reason_cl);
+        add_lemma(reason);
+        propagate_bool(~lit, reason.get());
         if (is_conflict()) {
             LOG_H1("Conflict during revert_bool_decision/propagate_bool!");
             return;
         }
-
         decide_bool(*lemma);
-        */
     }
 
     void solver::decide_bool(sat::literal lit, clause& lemma) {
@@ -1037,6 +1001,7 @@ namespace polysat {
         st.update("polysat iterations",   m_stats.m_num_iterations);
         st.update("polysat decisions",    m_stats.m_num_decisions);
         st.update("polysat conflicts",    m_stats.m_num_conflicts);
+        st.update("polysat bailouts",     m_stats.m_num_bailouts);
         st.update("polysat propagations", m_stats.m_num_propagations);
     }
 

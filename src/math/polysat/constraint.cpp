@@ -46,7 +46,8 @@ namespace polysat {
     }
 
     void constraint_manager::erase_bvar(constraint* c) {
-        erase_bv2c(c);
+        if (c->has_bvar())
+            erase_bv2c(c);
     }
 
     /** Add constraint to per-level storage */
@@ -108,7 +109,7 @@ namespace polysat {
                     m_external_constraints.remove(dep);
                 }
                 m_constraint_table.erase(c);
-                erase_bv2c(c);
+                erase_bvar(c);
             }
             m_constraints[l].reset();
         }
@@ -235,14 +236,11 @@ namespace polysat {
         if (has_bvar()) { out << bvar(); } else { out << "_"; }
         out << ")";
         (void)status;
-        // if (is_positive()) out << " [pos]";
-        // if (is_negative()) out << " [neg]";
-        // if (is_undef()) out << " [inactive]";    // TODO: not sure if we still need/want this... decide later
         return out;
     }
 
     bool constraint::propagate(solver& s, bool is_positive, pvar v) {
-        LOG_H3("Propagate " << s.m_vars[v] << " in " << *this);
+        LOG_H3("Propagate " << s.m_vars[v] << " in " << signed_constraint(this, is_positive));
         SASSERT(!vars().empty());
         unsigned idx = 0;
         if (var(idx) != v)
