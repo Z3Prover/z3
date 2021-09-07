@@ -308,7 +308,8 @@ namespace polysat {
         pop_constraints(m_redundant);
         m_constraints.release_level(m_level + 1);
         SASSERT(m_level == target_level);
-        for (auto c : replay) {
+        for (unsigned j = replay.size(); j-- > 0; ) {
+            auto c = replay[j];
             m_trail.push_back(trail_instr_t::assign_bool_i);
             m_search.push_boolean(c.blit());
             c.narrow(*this);
