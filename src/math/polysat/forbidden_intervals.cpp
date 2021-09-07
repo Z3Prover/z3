@@ -155,11 +155,14 @@ namespace polysat {
             unsigned const next_i = seq[(seq_i+1) % seq.size()];
             // Build constraint: upper bound of each interval is not contained in the next interval,
             // using the equivalence:  t \in [l;h[  <=>  t-l < h-l
-            auto const& hi = records[i].interval.hi();
-            auto const& next_lo = records[next_i].interval.lo();
-            auto const& next_hi = records[next_i].interval.hi();
-            auto const& lhs = hi - next_lo;
-            auto const& rhs = next_hi - next_lo;
+            auto hi = records[i].interval.hi();
+            auto next_lo = records[next_i].interval.lo();
+            auto next_hi = records[next_i].interval.hi();
+            auto lhs = hi - next_lo;
+            auto rhs = next_hi - next_lo;
+            // NB: do we really have to pass in the level to this new literal?
+            // seems separating the level from the constraint is what we want
+            // the level of a literal is when it was assigned. Lemmas could have unassigned literals.
             signed_constraint c = ~s.m_constraints.ult(lemma_lvl, lhs, rhs);
             LOG("constraint: " << c);
             clause.push_new_constraint(std::move(c));
