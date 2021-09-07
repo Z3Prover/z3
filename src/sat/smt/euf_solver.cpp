@@ -599,7 +599,8 @@ namespace euf {
                 if (is_app(e))
                     for (expr* arg : *to_app(e))
                         args.push_back(e_internalize(arg));
-                mk_enode(e, args.size(), args.data());
+                if (!m_egraph.find(e))
+                    mk_enode(e, args.size(), args.data());
             }
             attach_lit(lit, e);            
         }
