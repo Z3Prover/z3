@@ -19,6 +19,30 @@ Author:
 
 namespace polysat {
 
+    class solver;
+    class constraint_manager;
+
+    class explainer {
+        friend class conflict_core;
+        solver* m_solver = nullptr;
+        void set_solver(solver& s) { m_solver = &s; }
+    protected:
+        solver& s() { return *m_solver; }
+        constraint_manager& cm();
+    public:
+        virtual ~explainer() {}
+        virtual bool try_explain(pvar v, vector<signed_constraint> const& cjust_v, conflict_core& core) = 0;
+    };
+
+    class ex_polynomial_superposition : public explainer {
+        bool try_explain(pvar v, vector<signed_constraint> const& cjust_v, conflict_core& core) override;
+    };
+
+
+
+
+
+
 
 #if 0
     class conflict_explainer {
@@ -45,7 +69,7 @@ namespace polysat {
         bool saturate();
 
         /** resolve conflict state against assignment to v */
-        void resolve(pvar v, ptr_vector<constraint> const& cjust_v);  // TODO: try variable elimination of 'v', if not possible, core saturation and core reduction. (actually reduction could be one specific VE method).
+        void resolve(pvar v, ptr_vector<constraint> const& cjust_v);
         void resolve(sat::literal lit);
 
         // TODO: move conflict resolution from solver into this class.

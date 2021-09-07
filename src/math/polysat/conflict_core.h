@@ -82,6 +82,11 @@ namespace polysat {
          */
         void resolve(constraint_manager const& m, sat::bool_var var, clause const& cl);
 
+        /** Perform value resolution by applying various inference rules.
+         *  Returns true if it was possible to eliminate the variable 'v'.
+         */
+        bool resolve_value(pvar v, vector<signed_constraint> const& cjust_v);
+
         /** Convert the core into a lemma to be learned. */
         clause_ref build_lemma();
 

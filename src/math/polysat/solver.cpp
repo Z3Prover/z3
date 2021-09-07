@@ -526,31 +526,11 @@ namespace polysat {
         }
 
         // Value Resolution
-        // TODO: maybe don't do this automatically, because cjust-constraints are true and core constraints are false.
-        //       issue: what if viable(v) is empty? then we only have cjust constraints and none of them is evaluable (at least not immediately because no value is set for this variable.)
-        //                  => think about what we want to do in this case (choose a value and evaluate? try all possible superpositions without caring about the value of the premises?)
-        // the last value_resolution method can then be the one that adds the cjusts and calls saturation and more general VE.
-        for (auto c : m_cjust[v])
-            m_conflict.insert(c);
-
-        // Variable elimination
-        while (true) {
-            // TODO:
-            // 1. Try variable elimination of 'v'
-            // 2. If not possible, try saturation and core reduction (actually reduction could be one specific VE method?).
-            // 3. as a last resort, substitute v by m_value[v]?
-            // TODO: maybe we shouldn't try to split up VE/Saturation in the implementation.
-            //       it might be better to just have more general "core inferences" that may combine elimination/saturation steps that fit together...
-            //       or even keep the whole "value resolution + VE/Saturation" as a single step. we might want to know which constraints come from the current cjusts?
-            if (m_conflict.try_eliminate(v))
-                return;
-            if (!m_conflict.try_saturate(v))
-                break;
+        if (!m_conflict.resolve_value(v, m_cjust[v])) {
+            // Failed to resolve => bail out
+            ++m_stats.m_num_bailouts;
+            m_conflict.set_bailout();
         }
-
-        // Failed to resolve => bail out
-        ++m_stats.m_num_bailouts;
-        m_conflict.set_bailout();
     }
 
     /** Conflict resolution case where boolean literal 'lit' is on top of the stack */

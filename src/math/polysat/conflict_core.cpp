@@ -165,6 +165,30 @@ namespace polysat {
         return clause::from_literals(lvl, std::move(dep), std::move(literals));
     }
 
+    bool conflict_core::resolve_value(pvar v, vector<signed_constraint> const& cjust_v) {
+        // TODO: maybe don't do this automatically, because cjust-constraints are true and core constraints are false.
+        //       issue: what if viable(v) is empty? then we only have cjust constraints and none of them is evaluable (at least not immediately because no value is set for this variable.)
+        //                  => think about what we want to do in this case (choose a value and evaluate? try all possible superpositions without caring about the value of the premises?)
+        // the last value_resolution method can then be the one that adds the cjusts and calls saturation and more general VE.
+
+        // No value resolution method was successful => fall back to saturation and variable elimination
+        for (auto c : cjust_v)
+            insert(c);
+
+        // Variable elimination
+        while (true) {  // TODO: limit?
+            // TODO: maybe we shouldn't try to split up VE/Saturation in the implementation.
+            //       it might be better to just have more general "core inferences" that may combine elimination/saturation steps that fit together...
+            //       or even keep the whole "value resolution + VE/Saturation" as a single step. we might want to know which constraints come from the current cjusts?
+            // TODO: as a last resort, substitute v by m_value[v]?
+            if (!try_saturate(v))
+                break;
+            if (try_eliminate(v))
+                return true;
+        }
+        return false;
+    }
+
     bool conflict_core::try_eliminate(pvar v) {
         // TODO: could be tracked incrementally when constraints are added/removed
         vector<signed_constraint> v_constraints;
