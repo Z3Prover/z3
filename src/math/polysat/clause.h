@@ -34,7 +34,7 @@ namespace polysat {
 
         unsigned m_ref_count = 0;  // TODO: remove refcount once we confirm it's not needed anymore
         unsigned m_level;
-        unsigned m_next_guess = 0;  // next guess for enumerative backtracking
+        pvar m_justified_var = null_var;  // The variable that was restricted by learning this lemma.
         p_dependency_ref m_dep;
         sat::literal_vector m_literals;
 
@@ -62,6 +62,9 @@ namespace polysat {
         p_dependency* dep() const { return m_dep; }
         unsigned level() const { return m_level; }
 
+        pvar justified_var() const { return m_justified_var; }
+        void set_justified_var(pvar v) { SASSERT(m_justified_var == null_var); m_justified_var = v; }
+
         bool empty() const { return m_literals.empty(); }
         unsigned size() const { return m_literals.size(); }
         sat::literal operator[](unsigned idx) const { return m_literals[idx]; }
@@ -72,11 +75,6 @@ namespace polysat {
 
         bool is_always_false(solver& s) const;
         bool is_currently_false(solver& s) const;
-
-        unsigned next_guess() {
-            SASSERT(m_next_guess < size());
-            return m_next_guess++;
-        }
 
         std::ostream& display(std::ostream& out) const;
     };

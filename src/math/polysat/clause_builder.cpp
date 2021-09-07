@@ -55,13 +55,4 @@ namespace polysat {
         m_literals.push_back(c.blit());
     }
 
-    // void clause_builder::push_new_constraint(signed_constraint c) {
-    //     SASSERT(c);
-    //     if (c.is_always_false())
-    //         return;
-    //     m_level = std::max(m_level, c->level());
-    //     m_literals.push_back(c.blit());
-    //     m_new_constraints.push_back(c.get());
-    // }
-
 }

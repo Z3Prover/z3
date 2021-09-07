@@ -576,6 +576,7 @@ namespace polysat {
             return;
         SASSERT(lemma->size() > 0);
         SASSERT(m_conflict_level <= m_justification[v].level());  // ???
+        lemma->set_justified_var(v);
         clause* cl = lemma.get();
         add_lemma(std::move(lemma));
         if (cl->size() == 1) {
@@ -589,7 +590,6 @@ namespace polysat {
             sat::literal lit = decide_bool(*cl);
             SASSERT(lit != sat::null_literal);
             signed_constraint c = m_constraints.lookup(lit);
-            push_cjust(v, c);   // TODO: Ok, this works for the first guess. but what if we update the guess later?? the next guess should then be part of cjust[v] instead.
         }
     }
 
@@ -621,6 +621,9 @@ namespace polysat {
             }
         }
         LOG_V("num_choices: " << num_choices);
+
+        signed_constraint c = m_constraints.lookup(choice);
+        push_cjust(lemma.justified_var(), c);
 
         if (num_choices == 0) {
             // This case may happen when all undefined literals are false under the current variable assignment.
@@ -709,7 +712,6 @@ namespace polysat {
         m_conflict.reset();
 
         bool contains_lit = std::find(reason_builder.begin(), reason_builder.end(), ~lit);
-        // bool contains_lit = std::any_of(reason_builder->begin(), reason_builder->end(), [lit](auto reason_lit) { return reason_lit == ~lit; });
         if (!contains_lit) {
             // At this point, we do not have ~lit in the reason.
             // For now, we simply add it (thus weakening the reason)
@@ -892,18 +894,6 @@ namespace polysat {
     unsigned solver::base_level() const {
         return m_base_levels.empty() ? 0 : m_base_levels.back();
     }
-
-    // bool solver::active_at_base_level(sat::bool_var bvar) const {
-    //     // NOTE: this active_at_base_level is actually not what we want!!!
-    //     //          first of all, it might not really be a base level: could be a non-base level between previous base levels.
-    //     //          in that case, how do we determine the right dependencies???
-    //     //          secondly, we are interested in "unit clauses", not as much whether we assigned something on the base level...
-    //     //          TODO: however, propagating stuff at the base level... need to be careful with dependencies there... might need to turn all base-level propagations into unit clauses...
-    //     VERIFY(false);
-    //     // bool res = m_bvars.is_assigned(bvar) && m_bvars.level(bvar) <= base_level();
-    //     // SASSERT_EQ(res, !!m_constraints.lookup(bvar)->unit_clause());
-    //     // return res;
-    // }
 
     bool solver::try_eval(pdd const& p, rational& out_value) const {
         pdd r = p.subst_val(assignment());
