@@ -558,15 +558,8 @@ namespace polysat {
         LOG_H3("resolve_bool: " << lit);
         sat::bool_var const var = lit.var();
         SASSERT(m_bvars.is_propagation(var));
-
+        // NOTE: boolean resolution should work normally even in bailout mode.
         clause* other = m_bvars.reason(var);
-
-        // if (m_conflict.is_bailout()) {
-        //     for (sat::literal l : *other)
-        //         set_marks(*m_constraints.lookup(l));
-        //     // m_conflict.push_back(other);  // ???
-        // }
-
         m_conflict.resolve(m_constraints, var, *other);
     }
 
