@@ -43,7 +43,9 @@ namespace polysat {
     class inf_saturate : public inference_engine {
         bool push_omega_mul(conflict_core& core, unsigned level, pdd const& x, pdd const& y);
         void push_l(conflict_core& core, unsigned level, bool strict, pdd const& lhs, pdd const& rhs);
+
         bool try_ugt_x(pvar v, conflict_core& core, inequality const& c);
+
         bool try_ugt_y(pvar v, conflict_core& core, inequality const& c);
         bool try_ugt_y(pvar v, conflict_core& core, inequality const& l_y, inequality const& yx_l_zx, pdd const& x, pdd const& z);
 
@@ -62,19 +64,20 @@ namespace polysat {
 
         // c := X*y ~ X*Z
         bool is_Xy_l_XZ(pvar y, inequality const& c, pdd& x, pdd& z);
+        bool verify_Xy_l_XZ(pvar y, inequality const& c, pdd const& x, pdd const& z);
 
         // c := Y ~ Ax
-        bool is_y_l_ax(pvar x, inequality const& d, pdd& a, pdd& y);
+        bool is_Y_l_Ax(pvar x, inequality const& d, pdd& a, pdd& y);
+        bool verify_Y_l_Ax(pvar x, inequality const& d, pdd const& a, pdd const& y); 
 
         // c := Y*X ~ z*X
         bool is_YX_l_zX(pvar z, inequality const& c, pdd& x, pdd& y);
+        bool verify_YX_l_zX(pvar z, inequality const& c, pdd const& x, pdd const& y); 
+
     public:
+
         bool perform(pvar v, conflict_core& core) override;
     };
-
-    // TODO: other rules
-    // clause_ref by_ugt_z();
-
 
     /*
      * TODO: we could resolve constraints in cjust[v] against each other to

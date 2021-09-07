@@ -16,6 +16,11 @@ TODO:
 - per calculus it really adds a propagation to the stack
 - then it adds the propagated literal to the core and removes the premise that needed to be simplified from core.
 
+TODO: preserve falsification
+- each rule selects a certain premise that is problematic, 
+  We assume that problematic premises are false in the current assignment
+  The derived consequence should also be false in the current assignment to be effective, but simpler so that we can resolve.
+
 TODO:
 - remove level information from created constraints.
 - 
@@ -83,7 +88,6 @@ namespace polysat {
     }
 
     bool inf_saturate::perform(pvar v, conflict_core& core) {
-
         for (auto c1 : core) {
             auto c = c1.as_inequality();
             if (try_ugt_x(v, core, c))
@@ -209,9 +213,14 @@ namespace polysat {
     /*
     * Match [x] y <= a*x
     */
-    bool inf_saturate::is_y_l_ax(pvar x, inequality const& d, pdd& a, pdd& y) {
+    bool inf_saturate::is_Y_l_Ax(pvar x, inequality const& d, pdd& a, pdd& y) {
         y = d.lhs;
         return d.rhs.degree(x) == 1 && d.rhs.factor(x, 1, a);
+    }
+
+    bool inf_saturate::verify_Y_l_Ax(pvar x, inequality const& d, pdd const& a, pdd const& y) {
+        pdd A = a, Y = y;
+        return is_Y_l_Ax(x, d, A, Y) && a == A && y == Y;
     }
 
     /**
@@ -240,6 +249,13 @@ namespace polysat {
         return true;
     }
 
+    bool inf_saturate::verify_Xy_l_XZ(pvar v, inequality const& c, pdd const& x, pdd const& z) {
+        pdd X = x, Z = z;
+        return is_Xy_l_XZ(v, c, X, Z) && x == X && z == Z;
+    }
+
+
+
     /**
     * Match [z] yx <= zx
     */
@@ -260,6 +276,11 @@ namespace polysat {
         return c.lhs.try_div(x_coeff, xy) && xy.factor(x_var, 1, y);
     }
 
+    bool inf_saturate::verify_YX_l_zX(pvar z, inequality const& c, pdd const& x, pdd const& y) {
+        pdd X = x, Y = y;
+        return is_YX_l_zX(z, c, X, Y) && x == X && y == Y;
+    }
+
     /// [y] z' <= y /\ zx > yx  ==>  Ω*(x,y) \/ zx > z'x
     /// [y] z' <= y /\ yx <= zx  ==>  Ω*(x,y) \/ z'x <= zx
     bool inf_saturate::try_ugt_y(pvar v, conflict_core& core, inequality const& le_y, inequality const& yx_l_zx, pdd const& x, pdd const& z) {
@@ -267,7 +288,7 @@ namespace polysat {
         pdd const y = s().var(v);
 
         SASSERT(is_l_v(v, le_y));
-        // SASSERT(is_yx_l_zx(v, yx_l_zx, x, z));
+        SASSERT(verify_Xy_l_XZ(v, yx_l_zx, x, z));
           
         unsigned const lvl = std::max(yx_l_zx.src->level(), le_y.src->level());
         pdd const& z_prime = le_y.lhs;
@@ -308,7 +329,7 @@ namespace polysat {
         pdd a = y;
         for (auto dd : core) {
             auto d = dd.as_inequality();
-            if (is_y_l_ax(x, d, a, y) && try_y_l_ax_and_x_l_z(x, core, c, d, a, y))
+            if (is_Y_l_Ax(x, d, a, y) && try_y_l_ax_and_x_l_z(x, core, c, d, a, y))
                 return true;
         }
         return false;
@@ -317,7 +338,7 @@ namespace polysat {
     bool inf_saturate::try_y_l_ax_and_x_l_z(pvar x, conflict_core& core, inequality const& x_l_z, inequality const& y_l_ax, pdd const& a, pdd const& y) {
 
         SASSERT(is_g_v(x, x_l_z));
-        // SASSERT(is_y_l_ax(x, y_l_ax, a, y));
+        SASSERT(verify_Y_l_Ax(x, y_l_ax, a, y));
 
         LOG_H3("Try y <= ax && x <= z where x := v" << x);
         pdd z = x_l_z.rhs;
@@ -356,7 +377,7 @@ namespace polysat {
     bool inf_saturate::try_ugt_z(pvar z, conflict_core& core, inequality const& c, inequality const& d, pdd const& x, pdd const& y) {
         LOG_H3("Try z <= y' && zx > yx where z := v" << z);
         SASSERT(is_g_v(z, c));
-        // SASSERT(is_YX_l_zX(x, d, x, y));
+        SASSERT(verify_YX_l_zX(z, d, x, y));
 
         unsigned const lvl = std::max(c.src->level(), d.src->level());
         pdd const& y_prime = c.rhs;
