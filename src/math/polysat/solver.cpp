@@ -244,11 +244,9 @@ namespace polysat {
     }
 
     void solver::pop_levels(unsigned num_levels) {
-        // TODO: replay mechanism for saturation results
-        // NOTE: we only need to replay boolean literal propagations (might be unit clauses but not necessarily... no, unit clauses do not need to go on the stack. but we still have to pop them if the solver level is popped.)
         SASSERT(m_level >= num_levels);
         unsigned const target_level = m_level - num_levels;
-        (void)target_level;
+        vector<signed_constraint> replay;
         LOG("Pop " << num_levels << " levels (lvl " << m_level << " -> " << target_level << ")");
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
@@ -284,8 +282,13 @@ namespace polysat {
                 sat::literal lit = m_search.back().lit();
                 LOG_V("Undo assign_bool_i: " << lit);
                 signed_constraint c = m_constraints.lookup(lit);
-                deactivate_constraint(c);
-                m_bvars.unassign(lit);
+
+                if (c.level() <= target_level) 
+                    replay.push_back(c);                
+                else {
+                    deactivate_constraint(c);
+                    m_bvars.unassign(lit);
+                }
                 m_search.pop();
                 break;
             }
@@ -305,6 +308,11 @@ namespace polysat {
         pop_constraints(m_redundant);
         m_constraints.release_level(m_level + 1);
         SASSERT(m_level == target_level);
+        for (auto c : replay) {
+            m_trail.push_back(trail_instr_t::assign_bool_i);
+            m_search.push_boolean(c.blit());
+            c.narrow(*this);
+        }
     }
 
     void solver::pop_constraints(signed_constraints& cs) {
@@ -679,6 +687,11 @@ namespace polysat {
     }
 
     /** Create fallback lemma that excludes the current search state */
+    /**
+    * revisit: can prune literals further by slicing base on cone of influence
+    * based on marked literals/variables on the stack. Only decisions that affect
+    * marked items need to be included.
+    */
     clause_ref solver::mk_fallback_lemma(unsigned lvl) {
         LOG_H3("Creating fallback lemma for level " << lvl);
         LOG_V("m_search: " << m_search);

@@ -214,6 +214,7 @@ namespace polysat {
 
         sat::bool_var bvar() const { return m_constraint->bvar(); }
         sat::literal blit() const { return sat::literal(bvar(), is_negative()); }
+        unsigned level() const { return m_constraint->level(); }
         constraint* get() const { return m_constraint; }
 
         explicit operator bool() const { return !!m_constraint; }

@@ -126,7 +126,7 @@ namespace polysat {
             c->set_unit_clause(cl);
         // TODO: this should be backtrackable (unless clause is unit).
         // => add at the end and update pop_levels to replay appropriately
-        m_solver->assign_bool_core(c.blit(), cl, nullptr);
+        m_solver->assign_bool_backtrackable(c.blit(), cl, nullptr);
         m_solver->activate_constraint(c);
     }
 
