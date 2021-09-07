@@ -66,6 +66,9 @@ namespace polysat {
 
     bool forbidden_intervals::explain(solver& s, vector<signed_constraint> const& conflict, pvar v, clause_ref& out_lemma) {
 
+        return false;
+
+#if 0
         // Extract forbidden intervals from conflicting constraints
         vector<fi_record> records;
         bool has_full = false;
@@ -174,6 +177,7 @@ namespace polysat {
         }
         out_lemma = clause.build();
         return true;
+#endif
     }
 
 }
