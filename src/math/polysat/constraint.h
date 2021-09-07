@@ -167,14 +167,8 @@ namespace polysat {
         void set_unit_clause(clause* cl);
         p_dependency* unit_dep() const { return m_unit_clause ? m_unit_clause->dep() : nullptr; }
 
-        /** Precondition: all variables other than v are assigned.
-         *
-         * \param[out] out_interval     The forbidden interval for this constraint
-         * \param[out] out_neg_cond     Negation of the side condition (the side condition is true when the forbidden interval is trivial). May be NULL if the condition is constant.
-         * \returns True iff a forbidden interval exists and the output parameters were set.
-         */
-        // TODO: we can probably remove this and unify the implementations for both cases by relying on as_inequality().
-        virtual bool forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, signed_constraint& out_neg_cond) { return false; }
+
+
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }

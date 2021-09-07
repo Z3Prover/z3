@@ -22,6 +22,7 @@ namespace polysat {
 
     class forbidden_intervals : public variable_elimination_engine {
         void full_interval_conflict(signed_constraint c, signed_constraint neg_cond, conflict_core& core);
+        bool get_interval(solver& s, signed_constraint const& c, pvar v, eval_interval& out_interval, signed_constraint& out_neg_cond);
     public:
         bool perform(solver& s, pvar v, conflict_core& core) override;
     };

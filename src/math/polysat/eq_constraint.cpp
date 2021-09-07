@@ -120,66 +120,6 @@ namespace polysat {
     // }
 
 
-    /// Compute forbidden interval for equality constraint by considering it as p <=u 0 (or p >u 0 for disequality)
-    bool eq_constraint::forbidden_interval(solver& s, bool is_positive, pvar v, eval_interval& out_interval, signed_constraint& out_neg_cond)
-    {
-        // Current only works when degree(v) is at most one
-        unsigned const deg = p().degree(v);
-        if (deg > 1)
-            return false;
-
-        if (deg == 0) {
-            return false;
-            UNREACHABLE();  // this case is not useful for conflict resolution (but it could be handled in principle)
-            // i is empty or full, condition would be this constraint itself?
-            return true;
-        }
-
-        unsigned const sz = s.size(v);
-        dd::pdd_manager& m = s.sz2pdd(sz);
-
-        pdd p1 = m.zero();
-        pdd e1 = m.zero();
-        p().factor(v, 1, p1, e1);
-
-        pdd e2 = m.zero();
-
-        // Currently only works if coefficient is a power of two
-        if (!p1.is_val())
-            return false;
-        rational a1 = p1.val();
-        // TODO: to express the interval for coefficient 2^i symbolically, we need right-shift/upper-bits-extract in the language.
-        // So currently we can only do it if the coefficient is 1.
-        if (!a1.is_zero() && !a1.is_one())
-            return false;
-        /*
-        unsigned j1 = 0;
-        if (!a1.is_zero() && !a1.is_power_of_two(j1))
-            return false;
-        */
-
-        // Concrete values of evaluable terms
-        auto e1s = e1.subst_val(s.assignment());
-        if (!e1s.is_val())
-            return false;
-        SASSERT(e1s.is_val());
-
-        // e1 + t <= 0, with t = 2^j1*y
-        // condition for empty/full: 0 == -1, never satisfied, so we always have a proper interval!
-        SASSERT(!a1.is_zero());
-        pdd lo = 1 - e1;
-        rational lo_val = (1 - e1s).val();
-        pdd hi = -e1;
-        rational hi_val = (-e1s).val();
-        if (!is_positive) {
-            swap(lo, hi);
-            lo_val.swap(hi_val);
-        }
-        out_interval = eval_interval::proper(lo, lo_val, hi, hi_val);
-        out_neg_cond = nullptr;
-        return true;
-    }
-
     inequality eq_constraint::as_inequality(bool is_positive) const {
         pdd zero = p() - p();
         if (is_positive)
