@@ -195,14 +195,15 @@ bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
             if (process_const<ProofGen>(to_app(t)))
                 return true;
             TRACE("rewriter_const", tout << "process const: " << mk_bounded_pp(t, m()) << " -> " << mk_bounded_pp(m_r, m()) << "\n";);
-#if 1
-#else
-            // disabled pending fix for loop/stack overflow in case of recursive expansion (possible)
-            rewriter_tpl rw(m(), false, m_cfg);
-            expr_ref result(m());
-            rw(m_r, result, m_pr);
-            m_r = result;
-#endif
+            if (!is_blocked(t)) {
+                rewriter_tpl rw(m(), false, m_cfg);
+                for (auto* s : m_blocked)
+                    rw.block(s);
+                rw.block(t);
+                expr_ref result(m());
+                rw(m_r, result, m_pr);
+                m_r = result;
+            }
             set_new_child_flag(t, m_r);
             result_stack().push_back(m_r);
             return true;
