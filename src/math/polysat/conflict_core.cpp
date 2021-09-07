@@ -130,11 +130,40 @@ namespace polysat {
         m_solver->activate_constraint(c);
     }
 
-    clause_ref conflict_core::build_lemma(unsigned model_level) {
+    /** Create fallback lemma that excludes the current search state */
+    /**
+    * revisit: can prune literals further by slicing base on cone of influence
+    * based on marked literals/variables on the stack. Only decisions that affect
+    * marked items need to be included.
+    */
+    clause_builder conflict_core::build_fallback_lemma(unsigned lvl) {
+        LOG_H3("Creating fallback lemma for level " << lvl);
+        LOG_V("m_search: " << m_solver->m_search);
+        clause_builder lemma(*m_solver);
+        unsigned todo = lvl;
+        unsigned i = 0;
+        while (todo > 0) {
+            auto const& item = m_solver->m_search[i++];
+            if (!m_solver->is_decision(item))
+                continue;
+            LOG_V("Adding: " << item);
+            if (item.is_assignment()) {
+                pvar v = item.var();
+                auto c = ~cm().eq(0, m_solver->var(v) - m_solver->m_value[v]);
+                cm().ensure_bvar(c.get());
+                lemma.push_literal(c.blit());
+            } else {
+                sat::literal lit = item.lit();
+                lemma.push_literal(~lit);
+            }
+            --todo;
+        }
+        return lemma;
+    }
+
+    clause_builder conflict_core::build_core_lemma(unsigned model_level) {
         LOG_H3("build lemma from core");
-        sat::literal_vector literals;
-        p_dependency_ref dep = m_solver->mk_dep_ref(null_dependency);
-        unsigned lvl = 0;
+        clause_builder lemma(*m_solver);
 
         // TODO: try a final core reduction step?
 
@@ -146,12 +175,7 @@ namespace polysat {
                 // Insert the temporary constraint from saturation into \Gamma.
                 handle_saturation_premises(c);
             }
-            if (c->unit_clause()) {
-                dep = m_solver->m_dm.mk_join(dep, c->unit_dep());
-                continue;
-            }
-            lvl = std::max(lvl, c->level());
-            literals.push_back(~c.blit());
+            lemma.push(c);
         }
 
         if (m_needs_model) {
@@ -166,13 +190,20 @@ namespace polysat {
                 // SASSERT(!m_solver->m_justification[v].is_unassigned());  // TODO: why does this trigger????
                 if (m_solver->m_justification[v].level() > model_level)
                     continue;
-                auto diseq = ~cm().eq(lvl, m_solver->var(v) - m_solver->m_value[v]);
+                auto diseq = ~cm().eq(lemma.level(), m_solver->var(v) - m_solver->m_value[v]);
                 cm().ensure_bvar(diseq.get());
-                literals.push_back(diseq.blit());
+                lemma.push(diseq);
             }
         }
 
-        return clause::from_literals(lvl, std::move(dep), std::move(literals));
+        return lemma;
+    }
+
+    clause_builder conflict_core::build_lemma(unsigned reverted_level) {
+        if (is_bailout())
+            return build_fallback_lemma(reverted_level);
+        else
+            return build_core_lemma(reverted_level - 1);
     }
 
     bool conflict_core::resolve_value(pvar v, vector<signed_constraint> const& cjust_v) {

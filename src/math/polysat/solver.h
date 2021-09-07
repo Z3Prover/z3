@@ -218,7 +218,6 @@ namespace polysat {
         void resolve_bool(sat::literal lit);
         void revert_decision(pvar v);
         void revert_bool_decision(sat::literal lit);
-        clause_ref mk_fallback_lemma(unsigned lvl);
 
         void report_unsat();
         void learn_lemma(pvar v, clause_ref lemma);
