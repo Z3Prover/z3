@@ -40,11 +40,41 @@ namespace polysat {
         bool perform(pvar v, conflict_core& core) override;
     };
 
+    class inf_saturate : public inference_engine {
+        bool push_omega_mul(conflict_core& core, unsigned level, pdd const& x, pdd const& y);
+        void push_l(conflict_core& core, unsigned level, bool strict, pdd const& lhs, pdd const& rhs);
+        bool try_ugt_x(pvar v, conflict_core& core, inequality const& c);
+        bool try_ugt_y(pvar v, conflict_core& core, inequality const& c);
+        bool try_ugt_y(pvar v, conflict_core& core, inequality const& l_y, inequality const& yx_l_zx, pdd const& x, pdd const& z);
+
+        bool try_y_l_ax_and_x_l_z(pvar x, conflict_core& core, inequality const& c);
+        bool try_y_l_ax_and_x_l_z(pvar x, conflict_core& core, inequality const& x_l_z, inequality const& y_l_ax, pdd const& a, pdd const& y);
+            
+        bool try_ugt_z(pvar z, conflict_core& core, inequality const& c);
+        bool try_ugt_z(pvar z, conflict_core& core, inequality const& x_l_z0, inequality const& yz_l_xz, pdd const& y, pdd const& x);
+
+        // c := lhs ~ v 
+        //  where ~ is < or <=         
+        bool is_l_v(pvar v, inequality const& c);
+
+        // c := v ~ rhs
+        bool is_g_v(pvar v, inequality const& c);
+
+        // c := X*y ~ X*Z
+        bool is_Xy_l_XZ(pvar y, inequality const& c, pdd& x, pdd& z);
+
+        // c := Y ~ Ax
+        bool is_y_l_ax(pvar x, inequality const& d, pdd& a, pdd& y);
+
+        // c := Y*X ~ z*X
+        bool is_YX_l_zX(pvar z, inequality const& c, pdd& x, pdd& y);
+    public:
+        bool perform(pvar v, conflict_core& core) override;
+    };
+
     // TODO: other rules
-    // clause_ref by_ugt_x();
-    // clause_ref by_ugt_y();
     // clause_ref by_ugt_z();
-    // clause_ref y_ule_ax_and_x_ule_z();
+
 
     /*
      * TODO: we could resolve constraints in cjust[v] against each other to

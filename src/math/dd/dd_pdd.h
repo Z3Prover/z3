@@ -271,6 +271,7 @@ namespace dd {
         template <class Fn> pdd map_coefficients(pdd const& p, Fn f);
 
         void factor(pdd const& p, unsigned v, unsigned degree, pdd& lc, pdd& rest);
+        bool factor(pdd const& p, unsigned v, unsigned degree, pdd& lc);
 
         bool var_is_leaf(PDD p, unsigned v);
 
@@ -414,6 +415,7 @@ namespace dd {
         pdd reduce(pdd const& other) const { return m.reduce(*this, other); }
         bool different_leading_term(pdd const& other) const { return m.different_leading_term(*this, other); }
         void factor(unsigned v, unsigned degree, pdd& lc, pdd& rest) const { m.factor(*this, v, degree, lc, rest); }
+        bool factor(unsigned v, unsigned degree, pdd& lc) const { return m.factor(*this, v, degree, lc); }
         bool resolve(unsigned v, pdd const& other, pdd& result) { return m.resolve(v, *this, other, result); }
 
         pdd subst_val(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val(*this, s); }
@@ -437,6 +439,8 @@ namespace dd {
 
         pdd_iterator begin() const;
         pdd_iterator end() const;
+
+        pdd_manager& manager() const { return m; }
     };
 
     inline pdd operator*(rational const& r, pdd const& b) { return b * r; }

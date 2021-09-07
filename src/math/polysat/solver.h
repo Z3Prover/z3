@@ -63,6 +63,7 @@ namespace polysat {
         friend class viable;
         friend class assignment_pp;
         friend class assignments_pp;
+        friend class inf_saturate;
 
         typedef ptr_vector<constraint> constraints;
         typedef vector<signed_constraint> signed_constraints;

@@ -867,6 +867,12 @@ namespace dd {
         e->m_rest = rest.root;
     }
 
+    bool pdd_manager::factor(pdd const& p, unsigned v, unsigned degree, pdd& lc) {
+        pdd rest = lc;
+        factor(p, v, degree, lc, rest);
+        return rest.is_zero();
+     }
+
     /**
      * Apply function f to all coefficients of the polynomial.
      * The function should be of type
