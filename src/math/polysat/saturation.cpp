@@ -132,7 +132,7 @@ namespace polysat {
         return true;
     }
 
-
+    // TODO: needs to be justified by the reason lemma that is created on the fly.
     void inf_saturate::push_l(conflict_core& core, unsigned lvl, bool is_strict, pdd const& lhs, pdd const& rhs) {
         if (is_strict)
             core.insert(s().m_constraints.ult(lvl, lhs, rhs));
@@ -191,6 +191,8 @@ namespace polysat {
         auto c1 = s().m_constraints.ule(level, pddm.mk_val(rational::power_of_two(k)), x);
         // y > 2^{p-k}
         auto c2 = s().m_constraints.ult(level, pddm.mk_val(rational::power_of_two(p - k)), y);
+
+        // TODO: these need to be justified as well.
         core.insert(~c1);
         core.insert(~c2);
         return true;
@@ -300,8 +302,7 @@ namespace polysat {
         // z'x <= zx
         push_l(core, lvl, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x);
 
-        // TODO core.remove(*le_y.src);
-        // core.remove(*yx_l_zs.src);
+        // TODO core.remove(*yx_l_zs.src);
         return true;
     }
 
@@ -348,11 +349,8 @@ namespace polysat {
 
         push_l(core, lvl, x_l_z.is_strict || y_l_ax.is_strict, y, a * z);
 
-        // core.remove(*x_l_z.src);
+        // TODO core.remove(*x_l_z.src); or
         // core.remove(*y_l_ax.src);
-        // 
-        // TBD justify all propagations into the core with the corresponding lemma
-        //
 
         return true;
     }
@@ -387,6 +385,8 @@ namespace polysat {
             return false;
         // yx <= y'x
         push_l(core, lvl, c.is_strict || d.is_strict, y * x, y_prime * x);
+
+        // TODO remove appropriate c or d
 
         return true;
     }
