@@ -174,15 +174,12 @@ namespace polysat {
     }
 
 
-    // TODO:
-    // review translation from is_positive to ineq.strict
-
     /** Precondition: all variables other than v are assigned.
-         *
-         * \param[out] out_interval     The forbidden interval for this constraint
-         * \param[out] out_neg_cond     Negation of the side condition (the side condition is true when the forbidden interval is trivial). May be NULL if the condition is constant.
-         * \returns True iff a forbidden interval exists and the output parameters were set.
-         */
+     *
+     * \param[out] out_interval     The forbidden interval for this constraint
+     * \param[out] out_neg_cond     Negation of the side condition (the side condition is true when the forbidden interval is trivial). May be NULL if the condition is constant.
+     * \returns True iff a forbidden interval exists and the output parameters were set.
+     */
 
     bool forbidden_intervals::get_interval(solver& s, signed_constraint const& c, pvar v, eval_interval& out_interval, signed_constraint& out_neg_cond)
     {

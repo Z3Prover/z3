@@ -87,39 +87,6 @@ namespace polysat {
             return r.is_never_zero();
     }
 
-
-    /**
-     * Equality constraints
-     */
-
-    // constraint_ref eq_constraint::eq_resolve(solver& s, pvar v) {
-    //     LOG("Resolve " << *this << " upon v" << v);
-    //     if (s.m_conflict.size() != 1)
-    //         return nullptr;
-    //     if (!s.m_conflict.clauses().empty())
-    //         return nullptr;
-    //     constraint* c = s.m_conflict.units()[0];
-    //     SASSERT(c->is_currently_false(s));
-    //     // 'c == this' can happen if propagation was from decide() with only one value left
-    //     // (e.g., if there's an unsatisfiable clause and we try all values).
-    //     // Resolution would give us '0 == 0' in this case, which is useless.
-    //     if (c == this)
-    //         return nullptr;
-    //     SASSERT(is_currently_true(s));  // TODO: might not always hold (due to similar case as in comment above?)
-    //     if (c->is_eq() && c->is_positive()) {
-    //         pdd a = c->to_eq().p();
-    //         pdd b = p();
-    //         pdd r = a;
-    //         if (!a.resolve(v, b, r)) 
-    //             return nullptr;
-    //         p_dependency_ref d(s.m_dm.mk_join(c->dep(), dep()), s.m_dm);
-    //         unsigned lvl = std::max(c->level(), level());
-    //         return s.m_constraints.eq(lvl, pos_t, r, d);
-    //     }
-    //     return nullptr;
-    // }
-
-
     inequality eq_constraint::as_inequality(bool is_positive) const {
         pdd zero = p() - p();
         if (is_positive)
