@@ -44,6 +44,7 @@ namespace polysat {
 
         // ptr_addr_map<constraint, vector<signed_constraint>> m_saturation_premises;
         map<signed_constraint, vector<signed_constraint>, obj_hash<signed_constraint>, default_eq<signed_constraint>> m_saturation_premises;
+        void handle_saturation_premises(signed_constraint c);
     public:
         conflict_core(solver& s);
         ~conflict_core();
@@ -88,7 +89,7 @@ namespace polysat {
         bool resolve_value(pvar v, vector<signed_constraint> const& cjust_v);
 
         /** Convert the core into a lemma to be learned. */
-        clause_ref build_lemma();
+        clause_ref build_lemma(unsigned model_level);
 
         bool try_eliminate(pvar v);
         bool try_saturate(pvar v);

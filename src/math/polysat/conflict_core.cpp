@@ -108,7 +108,29 @@ namespace polysat {
                 m_constraints.push_back(m.lookup(~lit));
     }
 
-    clause_ref conflict_core::build_lemma() {
+    /** If the constraint c is a temporary constraint derived by core saturation, insert it (and recursively, its premises) into \Gamma */
+    void conflict_core::handle_saturation_premises(signed_constraint c) {
+        // NOTE: maybe we should skip intermediate steps and just collect the leaf premises for c?
+        auto it = m_saturation_premises.find_iterator(c);
+        if (it == m_saturation_premises.end())
+            return;
+        auto& premises = it->m_value;
+        clause_builder c_lemma(*m_solver);
+        for (auto premise : premises) {
+            handle_saturation_premises(c);
+            c_lemma.push_literal(~premise.blit());
+        }
+        c_lemma.push_literal(c.blit());
+        clause* cl = cm().store(c_lemma.build());
+        if (cl->size() == 1)
+            c->set_unit_clause(cl);
+        // TODO: this should be backtrackable (unless clause is unit).
+        // => add at the end and update pop_levels to replay appropriately
+        m_solver->assign_bool_core(c.blit(), cl, nullptr);
+        m_solver->activate_constraint(c);
+    }
+
+    clause_ref conflict_core::build_lemma(unsigned model_level) {
         LOG_H3("build lemma from core");
         sat::literal_vector literals;
         p_dependency_ref dep = m_solver->mk_dep_ref(null_dependency);
@@ -122,22 +144,7 @@ namespace polysat {
                 cm().ensure_bvar(c.get());
                 LOG("new constraint: " << c);
                 // Insert the temporary constraint from saturation into \Gamma.
-                auto it = m_saturation_premises.find_iterator(c);
-                if (it != m_saturation_premises.end()) {
-                    auto& premises = it->m_value;
-                    clause_builder c_lemma(*m_solver);
-                    for (auto premise : premises)
-                        c_lemma.push_literal(~premise.blit());
-                    c_lemma.push_literal(c.blit());
-                    clause* cl = cm().store(c_lemma.build());
-                    if (cl->size() == 1)
-                        c->set_unit_clause(cl);
-                    // TODO: actually, this should be backtrackable (unless clause is unit). But currently we cannot insert in the middle of the stack!
-                    //      (or do it like MCSAT... they keep "theory-propagated" literals also at the end and restore them on backtracking)
-                    // => add at the end and update pop_levels to replay appropriately
-                    m_solver->assign_bool_core(c.blit(), cl, nullptr);
-                    m_solver->activate_constraint(c);
-                }
+                handle_saturation_premises(c);
             }
             if (c->unit_clause()) {
                 dep = m_solver->m_dm.mk_join(dep, c->unit_dep());
@@ -156,6 +163,9 @@ namespace polysat {
                     vars.insert(v);
             // Add v != val for each variable
             for (pvar v : vars) {
+                // SASSERT(!m_solver->m_justification[v].is_unassigned());  // TODO: why does this trigger????
+                if (m_solver->m_justification[v].level() > model_level)
+                    continue;
                 auto diseq = ~cm().eq(lvl, m_solver->var(v) - m_solver->m_value[v]);
                 cm().ensure_bvar(diseq.get());
                 literals.push_back(diseq.blit());
@@ -166,20 +176,19 @@ namespace polysat {
     }
 
     bool conflict_core::resolve_value(pvar v, vector<signed_constraint> const& cjust_v) {
-        // TODO: maybe don't do this automatically, because cjust-constraints are true and core constraints are false.
-        //       issue: what if viable(v) is empty? then we only have cjust constraints and none of them is evaluable (at least not immediately because no value is set for this variable.)
-        //                  => think about what we want to do in this case (choose a value and evaluate? try all possible superpositions without caring about the value of the premises?)
-        // the last value_resolution method can then be the one that adds the cjusts and calls saturation and more general VE.
+        // NOTE:
+        // In the "standard" case where "v = val" is on the stack:
+        //      - cjust_v contains true constraints
+        //      - core contains both false and true constraints... (originally only false ones, but additional true ones may come from saturation).
+        // In the case where no assignment to v is on the stack, i.e., conflict_var == v and viable(v) = \emptyset:
+        //      - the constraints in cjust_v cannot be evaluated.
+        //      - TODO: what to do here? pick some value?
 
-        // No value resolution method was successful => fall back to saturation and variable elimination
         for (auto c : cjust_v)
             insert(c);
 
-        // Variable elimination
+        // No value resolution method was successful => fall back to saturation and variable elimination
         while (true) {  // TODO: limit?
-            // TODO: maybe we shouldn't try to split up VE/Saturation in the implementation.
-            //       it might be better to just have more general "core inferences" that may combine elimination/saturation steps that fit together...
-            //       or even keep the whole "value resolution + VE/Saturation" as a single step. we might want to know which constraints come from the current cjusts?
             // TODO: as a last resort, substitute v by m_value[v]?
             if (!try_saturate(v))
                 break;

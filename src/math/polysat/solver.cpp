@@ -634,15 +634,17 @@ namespace polysat {
         rational val = m_value[v];
         LOG_H3("Reverting decision: pvar " << v << " := " << val);
         SASSERT(m_justification[v].is_decision());
+        unsigned const lvl = m_justification[v].level();
 
         clause_ref lemma;
         if (m_conflict.is_bailout())
-            lemma = mk_fallback_lemma(m_justification[v].level());
+            lemma = mk_fallback_lemma(lvl);  // must call this before backjump
         else
-            lemma = m_conflict.build_lemma();
+            lemma = m_conflict.build_lemma(lvl - 1);
         m_conflict.reset();
 
-        backjump(m_justification[v].level()-1);
+        backjump(lvl - 1);
+
         // TODO: we need to decide_bool on the clause (learn_lemma takes care of this).
         //       if the lemma was asserting, then this will propagate the last literal. otherwise we do the enumerative guessing as normal.
         //       we need to exclude the current value of v. narrowing of the guessed constraint *should* take care of it but we cannot count on that.
@@ -724,12 +726,13 @@ namespace polysat {
         // - propagation of L' from L
         //      (L')^{L' \/ ¬L \/ ...}
         //      again L is in core, unless we core-reduced it away
+        unsigned const lvl = m_bvars.level(var);
 
         clause_ref reason;
         if (m_conflict.is_bailout())
-            reason = mk_fallback_lemma(m_bvars.level(var));
+            reason = mk_fallback_lemma(lvl);
         else
-            reason = m_conflict.build_lemma();
+            reason = m_conflict.build_lemma(lvl - 1);
         m_conflict.reset();
 
         bool contains_lit = std::any_of(reason->begin(), reason->end(), [lit](auto reason_lit) { return reason_lit == ~lit; });
@@ -754,7 +757,7 @@ namespace polysat {
         clause* lemma = m_bvars.lemma(var);  // need to grab this while 'lit' is still assigned
         SASSERT(lemma);
 
-        backjump(m_bvars.level(var) - 1);
+        backjump(lvl - 1);
 
         add_lemma(reason);
         propagate_bool(~lit, reason.get());

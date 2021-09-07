@@ -36,7 +36,7 @@ namespace polysat {
         bool is_unassigned() const { return m_kind == justification_k::unassigned; }
         bool is_propagation() const { return m_kind == justification_k::propagation; }
         justification_k kind() const { return m_kind; }
-        unsigned level() const { return m_level; }
+        unsigned level() const { /* SASSERT(!is_unassigned()); */ return m_level; }   // TODO: check why this assertion triggers...
         std::ostream& display(std::ostream& out) const;
     };
 

@@ -31,11 +31,11 @@ namespace polysat {
         constraint_manager& cm();
     public:
         virtual ~explainer() {}
-        virtual bool try_explain(pvar v, vector<signed_constraint> const& cjust_v, conflict_core& core) = 0;
+        virtual bool try_explain(pvar v, /* vector<signed_constraint> const& cjust_v, */ conflict_core& core) = 0;
     };
 
     class ex_polynomial_superposition : public explainer {
-        bool try_explain(pvar v, vector<signed_constraint> const& cjust_v, conflict_core& core) override;
+        bool try_explain(pvar v, /* vector<signed_constraint> const& cjust_v, */ conflict_core& core) override;
     };
 
 

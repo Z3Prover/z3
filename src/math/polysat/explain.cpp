@@ -19,31 +19,44 @@ namespace polysat {
 
     constraint_manager& explainer::cm() { return s().m_constraints; }
 
-    bool ex_polynomial_superposition::try_explain(pvar v, vector<signed_constraint> const& cjust_v, conflict_core& core) {
-        // TODO: check superposition into disequality again (see notes)
-
-        // TODO: use indexing/marking for this instead of allocating a temporary vector
+    // TODO(later): check superposition into disequality again (see notes)
+    bool ex_polynomial_superposition::try_explain(pvar v, /* vector<signed_constraint> const& cjust_v, */ conflict_core& core) {
         // TODO: core saturation premises are from \Gamma (i.e., has_bvar)... but here we further restrict to the core; might need to revise
         //       -- especially: should take into account results from previous saturations (they will be in \Gamma, but only if we use the constraint or one of its descendants for the lemma)
         //       actually: we want to take one from the current cjust (currently true) and one from the conflict (currently false)
-        vector<signed_constraint> candidates;
-        for (auto c : core)
-            if (c->has_bvar() && c.is_positive() && c->is_eq() && c->contains_var(v))
-                candidates.push_back(c);
 
-        // TODO: c1 should a currently true constraint, while c2 should take a currently false constraint.
-        //       remove candidates vector (premature optimization)
-        //      we may want to apply this multiple times (a single resolve might not eliminate the variable).
+        // TODO: resolve multiple times... a single time might not be enough to eliminate the variable.
 
         LOG_H3("Trying polynomial superposition...");
-        for (auto it1 = candidates.begin(); it1 != candidates.end(); ++it1) {
-            for (auto it2 = it1 + 1; it2 != candidates.end(); ++it2) {
-                signed_constraint c1 = *it1;
+        for (auto it1 = core.begin(); it1 != core.end(); ++it1) {
+            signed_constraint c1 = *it1;
+            if (!c1->has_bvar())
+                continue;
+            if (!c1.is_positive())
+                continue;
+            if (!c1->is_eq())
+                continue;
+            if (!c1->contains_var(v))
+                continue;
+            if (!c1.is_currently_true(s()))
+                continue;
+
+            for (auto it2 = core.begin(); it2 != core.end(); ++it2) {
                 signed_constraint c2 = *it2;
-                SASSERT(c1 != c2);
+                if (!c2->has_bvar())
+                    continue;
+                if (!c2.is_positive())
+                    continue;
+                if (!c2->is_eq())
+                    continue;
+                if (!c2->contains_var(v))
+                    continue;
+                if (!c2.is_currently_false(s()))
+                    continue;
+
+                // c1 is true, c2 is false
                 LOG("c1: " << c1);
                 LOG("c2: " << c2);
-
                 pdd a = c1->to_eq().p();
                 pdd b = c2->to_eq().p();
                 pdd r = a;
@@ -57,19 +70,25 @@ namespace polysat {
                 vector<signed_constraint> premises;
                 premises.push_back(c1);
                 premises.push_back(c2);
-                core.insert(c, std::move(premises));
-                return true;
-
-//             clause_builder clause(m_solver);
-//             clause.push_literal(~c1->blit());
-//             clause.push_literal(~c2->blit());
-//             clause.push_new_constraint(m_solver.m_constraints.eq(lvl, r));
-//             return clause.build();
+                if (!c->contains_var(v)) {
+                    core.reset();
+                    core.insert(c, std::move(premises));
+                    return true;
+                } else {
+                    core.insert(c, std::move(premises));
+                }
             }
         }
 
         return false;
     }
+
+
+
+
+
+
+
 
 //         LOG_H3("Attempting to explain conflict for v" << v);
 //         m_var = v;
