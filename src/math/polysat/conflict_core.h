@@ -26,7 +26,6 @@ namespace polysat {
 
         // If this is not null_var, the conflict was due to empty viable set for this variable.
         // Can be treated like "v = x" for any value x.
-        // TODO: we could always set this to the variable we're currently focusing on.
         pvar m_conflict_var = null_var;
 
         /** True iff the conflict depends on the current variable assignment. (If so, additional constraints must be added to the final learned clause.) */

@@ -83,7 +83,6 @@ namespace polysat {
         //       clause: x \/ u \/ v
         //       resolvent: ~y \/ ~z \/ u \/ v; as core: y, z, ~u, ~v
 
-        SASSERT(!is_bailout());
         SASSERT(var != sat::null_bool_var);
         DEBUG_CODE({
             bool core_has_pos = std::count_if(begin(), end(), [var](auto c){ return c.blit() == sat::literal(var); }) > 0;
@@ -110,6 +109,7 @@ namespace polysat {
     }
 
     clause_ref conflict_core::build_lemma() {
+        LOG_H3("build lemma from core");
         sat::literal_vector literals;
         p_dependency_ref dep = m_solver->mk_dep_ref(null_dependency);
         unsigned lvl = 0;
@@ -120,6 +120,7 @@ namespace polysat {
             if (!c->has_bvar()) {
                 // temporary constraint -> keep it
                 cm().ensure_bvar(c.get());
+                LOG("new constraint: " << c);
                 // Insert the temporary constraint from saturation into \Gamma.
                 auto it = m_saturation_premises.find_iterator(c);
                 if (it != m_saturation_premises.end()) {

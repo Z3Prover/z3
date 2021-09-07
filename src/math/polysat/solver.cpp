@@ -556,17 +556,18 @@ namespace polysat {
     /** Conflict resolution case where boolean literal 'lit' is on top of the stack */
     void solver::resolve_bool(sat::literal lit) {
         LOG_H3("resolve_bool: " << lit);
-        SASSERT(m_bvars.is_propagation(lit.var()));
+        sat::bool_var const var = lit.var();
+        SASSERT(m_bvars.is_propagation(var));
 
-        if (m_conflict.is_bailout()) {
-            NOT_IMPLEMENTED_YET();
-            // clause* other = m_bvars.reason(var);
-            // set_marks(*other);
-            // m_conflict.push_back(other);
-        }
+        clause* other = m_bvars.reason(var);
 
-        clause* other = m_bvars.reason(lit.var());
-        m_conflict.resolve(m_constraints, lit.var(), *other);
+        // if (m_conflict.is_bailout()) {
+        //     for (sat::literal l : *other)
+        //         set_marks(*m_constraints.lookup(l));
+        //     // m_conflict.push_back(other);  // ???
+        // }
+
+        m_conflict.resolve(m_constraints, var, *other);
     }
 
     void solver::report_unsat() {
@@ -682,18 +683,17 @@ namespace polysat {
 
         learn_lemma(v, std::move(lemma));
 
-        // TODO: check if still necessary... won't the next solver iteration do this anyway? (well, it might choose a different variable... so this "unrolls" the next loop iteration to get a stable variable order)
-        /*
         if (is_conflict()) {
             LOG_H1("Conflict during revert_decision/learn_lemma!");
             return;
         }
+
         narrow(v);
+
         if (m_justification[v].is_unassigned()) {
             m_free_vars.del_var_eh(v);
             decide(v);
         }
-        */
     }
 
     bool solver::is_decision(search_item const& item) const {
@@ -887,6 +887,8 @@ namespace polysat {
         if (!lemma)
             return;
         LOG("Lemma: " << show_deref(lemma));
+        for (sat::literal l : *lemma)
+            LOG("   Literal " << l << " is: " << m_constraints.lookup(l));
         SASSERT(lemma->size() > 0);
         clause* cl = m_constraints.store(std::move(lemma));
         m_redundant_clauses.push_back(cl);
