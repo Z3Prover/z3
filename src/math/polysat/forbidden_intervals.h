@@ -16,13 +16,13 @@ Author:
 #pragma once
 #include "math/polysat/constraint.h"
 #include "math/polysat/solver.h"
+#include "math/polysat/variable_elimination.h"
 
 namespace polysat {
 
-    class forbidden_intervals {
-
+    class forbidden_intervals : public variable_elimination_engine {
+        void full_interval_conflict(signed_constraint c, signed_constraint neg_cond, conflict_core& core);
     public:
-        static bool explain(solver& s, vector<signed_constraint> const& conflict, pvar v, clause_ref& out_lemma);
-
+        bool perform(solver& s, pvar v, conflict_core& core) override;
     };
 }

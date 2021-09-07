@@ -29,8 +29,4 @@ namespace polysat {
         bool perform(solver& s, pvar v, conflict_core& core) override;
     };
 
-    class ve_forbidden_intervals : public variable_elimination_engine {
-    public:
-        bool perform(solver& s, pvar v, conflict_core& core) override;
-    };
 }

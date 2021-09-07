@@ -77,7 +77,7 @@ namespace polysat {
 
         void insert(signed_constraint c);
         void insert(signed_constraint c, vector<signed_constraint> premises);
-        void remove(signed_constraint c);
+        void remove(signed_constraint c) { NOT_IMPLEMENTED_YET(); }
 
         /** Perform boolean resolution with the clause upon variable 'var'.
          * Precondition: core/clause contain complementary 'var'-literals.

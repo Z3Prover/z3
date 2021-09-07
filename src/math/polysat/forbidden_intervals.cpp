@@ -12,6 +12,10 @@ Author:
     Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-6
 
+
+TODO:
+move "forbidden interval method from constraints
+
 --*/
 #include "math/polysat/forbidden_intervals.h"
 #include "math/polysat/clause_builder.h"
@@ -64,17 +68,24 @@ namespace polysat {
         return true;
     }
 
-    bool forbidden_intervals::explain(solver& s, vector<signed_constraint> const& conflict, pvar v, clause_ref& out_lemma) {
+    /**
+    * A single constraint implies an empty interval.
+    * We assume that neg_cond is a consequence of src that  
+    * does not mention the variable v to be eliminated.
+    */
+    void forbidden_intervals::full_interval_conflict(signed_constraint src, signed_constraint neg_cond, conflict_core& core) {
+        SASSERT(neg_cond);
+        core.insert(~neg_cond);
+        core.remove(src); // or add a lemma?
+    }
 
-        return false;
+    bool forbidden_intervals::perform(solver& s, pvar v, conflict_core& core) {
 
-#if 0
         // Extract forbidden intervals from conflicting constraints
         vector<fi_record> records;
-        bool has_full = false;
         rational longest_len;
         unsigned longest_i = UINT_MAX;
-        for (signed_constraint c : conflict) {
+        for (signed_constraint c : core) {
             LOG_H3("Computing forbidden interval for: " << c);
             eval_interval interval = eval_interval::full();
             signed_constraint neg_cond;
@@ -83,8 +94,12 @@ namespace polysat {
                 LOG("neg_cond: " << neg_cond);
                 if (interval.is_currently_empty())
                     continue;
-                if (interval.is_full())
-                    has_full = true;
+                if (interval.is_full()) {
+                    // We have a single interval covering the whole domain
+                    // => the side conditions of that interval are enough to produce a conflict
+                    full_interval_conflict(c, neg_cond, core);
+                    return true;
+                }
                 else {
                     auto const len = interval.current_len();
                     if (len > longest_len) {
@@ -92,31 +107,15 @@ namespace polysat {
                         longest_i = records.size();
                     }
                 }
-                records.push_back({std::move(interval), std::move(neg_cond), c});
-                if (has_full)
-                    break;
+                records.push_back({ std::move(interval), std::move(neg_cond), c });
             }
-        }
-
-        LOG("has_full: " << std::boolalpha << has_full);
-        if (has_full) {
-            // We have a single interval covering the whole domain
-            // => the side conditions of that interval are enough to produce a conflict
-            auto& full_record = records.back();
-            SASSERT(full_record.interval.is_full());
-            clause_builder clause(s);
-            sat::literal src_lit = full_record.src.blit();
-            clause.push_literal(~src_lit);
-            if (full_record.neg_cond)
-                clause.push_new_constraint(std::move(full_record.neg_cond));
-            out_lemma = clause.build();
-            return true;
         }
 
         if (records.empty()) {
             LOG("aborted (no intervals)");
             return false;
         }
+
 
         SASSERT(longest_i != UINT_MAX);
         LOG("longest: i=" << longest_i << "; " << records[longest_i].interval);
@@ -138,24 +137,18 @@ namespace polysat {
             lemma_lvl = std::max(lemma_lvl, c->level());
         }
 
-        // Create lemma
+        // Update the conflict state
         // Idea:
         // - If the src constraints hold, and
         // - if the side conditions hold, and
         // - the upper bound of each interval is contained in the next interval,
         // then the forbidden intervals cover the whole domain and we have a conflict.
-        // We learn the negation of this conjunction.
+        // 
 
-        clause_builder clause(s);
-        // Add negation of src constraints as antecedents (may be resolved during backtracking)
-        for (unsigned const i : seq) {
-            sat::literal src_lit = records[i].src.blit();
-            clause.push_literal(~src_lit);
-        }
         // Add side conditions and interval constraints
         for (unsigned seq_i = seq.size(); seq_i-- > 0; ) {
             unsigned const i = seq[seq_i];
-            unsigned const next_i = seq[(seq_i+1) % seq.size()];
+            unsigned const next_i = seq[(seq_i + 1) % seq.size()];
             // Build constraint: upper bound of each interval is not contained in the next interval,
             // using the equivalence:  t \in [l;h[  <=>  t-l < h-l
             auto hi = records[i].interval.hi();
@@ -166,18 +159,18 @@ namespace polysat {
             // NB: do we really have to pass in the level to this new literal?
             // seems separating the level from the constraint is what we want
             // the level of a literal is when it was assigned. Lemmas could have unassigned literals.
-            signed_constraint c = ~s.m_constraints.ult(lemma_lvl, lhs, rhs);
+            signed_constraint c = s.m_constraints.ult(lemma_lvl, lhs, rhs);
             LOG("constraint: " << c);
-            clause.push_new_constraint(std::move(c));
+            core.insert(c);
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
             signed_constraint& neg_cond = records[i].neg_cond;
             if (neg_cond)
-                clause.push_new_constraint(std::move(neg_cond));
+                core.insert(std::move(~neg_cond));
+
+            core.remove(records[i].src);
         }
-        out_lemma = clause.build();
         return true;
-#endif
     }
 
 }

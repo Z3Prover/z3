@@ -35,9 +35,4 @@ namespace polysat {
         return false;
     }
 
-    bool ve_forbidden_intervals::perform(solver& s, pvar v, conflict_core& core) {
-        NOT_IMPLEMENTED_YET();
-        return false;
-    }
-
 }
