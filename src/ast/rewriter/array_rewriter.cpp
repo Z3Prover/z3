@@ -693,12 +693,6 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
     if (m_util.is_const(rhs) && m_util.is_store(lhs)) {
         std::swap(lhs, rhs);
     }
-    if (m_util.is_const(lhs, v) && m_util.is_store(rhs)) {
-        unsigned n = to_app(rhs)->get_num_args();
-        result = m().mk_and(m().mk_eq(lhs, to_app(rhs)->get_arg(0)),
-                            m().mk_eq(v, to_app(rhs)->get_arg(n - 1)));
-        return BR_REWRITE2;
-    }
     if (m_util.is_const(lhs, v) && m_util.is_const(rhs, w)) {
         result = m().mk_eq(v, w);
         return BR_REWRITE1;

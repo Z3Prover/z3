@@ -710,11 +710,10 @@ void model_evaluator::operator()(expr * t, expr_ref & result) {
     TRACE("model_evaluator", tout << mk_ismt2_pp(t, m()) << "\n";);
     m_imp->operator()(t, result);
     m_imp->expand_stores(result);
-    TRACE("model_evaluator", tout << result << "\n";);
+    TRACE("model_evaluator", tout << "eval: " << mk_ismt2_pp(t, m()) << " --> " << result << "\n";);
 }
 
 expr_ref model_evaluator::operator()(expr * t) {
-    TRACE("model_evaluator", tout << mk_ismt2_pp(t, m()) << "\n";);
     expr_ref result(m());
     this->operator()(t, result);
     return result;

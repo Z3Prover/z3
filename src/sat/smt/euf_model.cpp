@@ -189,7 +189,7 @@ namespace euf {
             else {
                 IF_VERBOSE(1, verbose_stream() << "no model values created for " << mk_pp(e, m) << "\n");
             }                
-        }
+        }           
     }
 
     void solver::values2model(deps_t const& deps, model_ref& mdl) {
@@ -291,6 +291,18 @@ namespace euf {
     }
 
     void solver::validate_model(model& mdl) {
+        model_evaluator ev(mdl);
+        ev.set_model_completion(true);
+        TRACE("model",
+            for (enode* n : m_egraph.nodes()) {
+                unsigned id = n->get_root_id();
+                expr* val = m_values.get(id, nullptr);
+                if (!val)
+                    continue;
+                expr_ref mval = ev(n->get_expr());
+                if (m.is_value(mval) && val != mval)
+                    tout << "#" << bpp(n) << " := " << mk_pp(val, m) << " ~ " << mval << "\n";
+            });
         bool first = true;
         for (enode* n : m_egraph.nodes()) {
             expr* e = n->get_expr();
