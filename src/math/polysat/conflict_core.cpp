@@ -65,6 +65,7 @@ namespace polysat {
 
     void conflict_core::insert(signed_constraint c) {
         SASSERT(!empty());  // should use set() to enter conflict state
+        LOG("inserting:" << c);
         // Skip trivial constraints
         // (e.g., constant ones such as "4 > 1"... only true ones should appear, otherwise the lemma would be a tautology)
         if (c.is_always_true())
