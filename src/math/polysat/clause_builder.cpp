@@ -23,7 +23,6 @@ namespace polysat {
 
     void clause_builder::reset() {
         m_literals.reset();
-        m_new_constraints.reset();
         m_level = 0;
         m_dep = nullptr;
         SASSERT(empty());
@@ -42,23 +41,27 @@ namespace polysat {
     }
 
     void clause_builder::push_literal(sat::literal lit) {
-        constraint* c = m_solver.m_constraints.lookup(lit.var());
+        push(m_solver.m_constraints.lookup(lit));
+    }
+
+    void clause_builder::push(signed_constraint c) {
         SASSERT(c);
+        SASSERT(c->has_bvar());
         if (c->unit_clause()) {
-            add_dependency(c->unit_clause()->dep());
+            add_dependency(c->unit_dep());
             return;
         }
         m_level = std::max(m_level, c->level());
-        m_literals.push_back(lit);
+        m_literals.push_back(c.blit());
     }
 
-    void clause_builder::push_new_constraint(signed_constraint c) {
-        SASSERT(c);
-        if (c.is_always_false())
-            return;
-        m_level = std::max(m_level, c->level());
-        m_literals.push_back(c.blit());
-        m_new_constraints.push_back(c.get());
-    }
+    // void clause_builder::push_new_constraint(signed_constraint c) {
+    //     SASSERT(c);
+    //     if (c.is_always_false())
+    //         return;
+    //     m_level = std::max(m_level, c->level());
+    //     m_literals.push_back(c.blit());
+    //     m_new_constraints.push_back(c.get());
+    // }
 
 }

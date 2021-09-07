@@ -636,11 +636,7 @@ namespace polysat {
         SASSERT(m_justification[v].is_decision());
         unsigned const lvl = m_justification[v].level();
 
-        clause_ref lemma;
-        if (m_conflict.is_bailout())
-            lemma = mk_fallback_lemma(lvl);  // must call this before backjump
-        else
-            lemma = m_conflict.build_lemma(lvl - 1);
+        clause_ref lemma = m_conflict.build_lemma(lvl).build();
         m_conflict.reset();
 
         backjump(lvl - 1);
@@ -678,38 +674,11 @@ namespace polysat {
             return m_bvars.is_decision(item.lit().var());
     }
 
-    /** Create fallback lemma that excludes the current search state */
-    clause_ref solver::mk_fallback_lemma(unsigned lvl) {
-        LOG_H3("Creating fallback lemma for level " << lvl);
-        LOG_V("m_search: " << m_search);
-        clause_builder lemma(*this);
-        unsigned todo = lvl;
-        unsigned i = 0;
-        while (todo > 0) {
-            auto const& item = m_search[i++];
-            if (!is_decision(item))
-                continue;
-            LOG_V("Adding: " << item);
-            if (item.is_assignment()) {
-                pvar v = item.var();
-                auto c = ~m_constraints.eq(0, var(v) - m_value[v]);
-                m_constraints.ensure_bvar(c.get());
-                lemma.push_literal(c.blit());
-            } else {
-                sat::literal lit = item.lit();
-                lemma.push_literal(~lit);
-            }
-            --todo;
-        }
-        return lemma.build();
-    }
-
     void solver::revert_bool_decision(sat::literal lit) {
         sat::bool_var const var = lit.var();
         LOG_H3("Reverting boolean decision: " << lit);
         SASSERT(m_bvars.is_decision(var));
 
-        // TODO:
         // Current situation: we have a decision for boolean literal L on top of the stack, and a conflict core.
         //
         // In a CDCL solver, this means ~L is in the lemma (actually, as the asserting literal). We drop the decision and replace it by the propagation (~L)^lemma.
@@ -728,18 +697,14 @@ namespace polysat {
         //      again L is in core, unless we core-reduced it away
         unsigned const lvl = m_bvars.level(var);
 
-        clause_ref reason;
-        if (m_conflict.is_bailout())
-            reason = mk_fallback_lemma(lvl);
-        else
-            reason = m_conflict.build_lemma(lvl - 1);
+        clause_builder reason_builder = m_conflict.build_lemma(lvl);
         m_conflict.reset();
 
-        bool contains_lit = std::any_of(reason->begin(), reason->end(), [lit](auto reason_lit) { return reason_lit == ~lit; });
+        bool contains_lit = std::find(reason_builder.begin(), reason_builder.end(), ~lit);
+        // bool contains_lit = std::any_of(reason_builder->begin(), reason_builder->end(), [lit](auto reason_lit) { return reason_lit == ~lit; });
         if (!contains_lit) {
-            // Problem:
-            // a(x), b(x) => c(y)    [ i.e., a(x) no longer in the core ]
-            // but now what to do with decision a(x)^?
+            // At this point, we do not have ~lit in the reason.
+            // For now, we simply add it (thus weakening the reason)
             //
             // Alternative (to be considered later):
             // - 'reason' itself (without ~L) would already be an explanation for ~L
@@ -747,10 +712,10 @@ namespace polysat {
             // - would need to check what we can gain by relaxing that invariant
             // - drawback: might have to bail out at boolean resolution
             // Also: maybe we can skip ~L in some cases? but in that case it shouldn't be marked.
-            SASSERT(false); // debugging: just to find a case when this happens.
-            // lemma does not contain ~L, so we add it (thus weakening the lemma)
-            NOT_IMPLEMENTED_YET();  // should add it to the core before calling build_lemma.
+            //
+            reason_builder.push_literal(~lit);
         }
+        clause_ref reason = reason_builder.build();
 
         // The lemma where 'lit' comes from.
         // Currently, boolean decisions always come from guessing a literal of a learned non-unit lemma.

@@ -13,6 +13,7 @@ Author:
 --*/
 #pragma once
 #include "math/polysat/constraint.h"
+#include "math/polysat/clause_builder.h"
 
 namespace polysat {
 
@@ -89,7 +90,9 @@ namespace polysat {
         bool resolve_value(pvar v, vector<signed_constraint> const& cjust_v);
 
         /** Convert the core into a lemma to be learned. */
-        clause_ref build_lemma(unsigned model_level);
+        clause_builder build_lemma(unsigned reverted_level);
+        clause_builder build_core_lemma(unsigned model_level);
+        clause_builder build_fallback_lemma(unsigned lvl);
 
         bool try_eliminate(pvar v);
         bool try_saturate(pvar v);

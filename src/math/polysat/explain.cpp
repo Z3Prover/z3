@@ -54,6 +54,7 @@ namespace polysat {
                 if (!c2.is_currently_false(s()))
                     continue;
 
+                // TODO: separate method for this; then try_explain1 and try_explain* for multi-steps; replace the false constraint in the core.
                 // c1 is true, c2 is false
                 LOG("c1: " << c1);
                 LOG("c2: " << c2);
@@ -71,7 +72,7 @@ namespace polysat {
                 premises.push_back(c1);
                 premises.push_back(c2);
                 if (!c->contains_var(v)) {
-                    core.reset();
+                    core.reset(); // TODO: doesn't work; this removes the premises as well... / instead: remove the false one.
                     core.insert(c, std::move(premises));
                     return true;
                 } else {
