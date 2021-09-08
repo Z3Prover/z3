@@ -590,7 +590,6 @@ namespace polysat {
         LOG_H3("Guessing literal in lemma: " << lemma);
         IF_LOGGING(m_viable.log());
         LOG("Boolean assignment: " << m_bvars);
-        SASSERT(lemma.size() >= 2);
 
         // To make a guess, we need to find an unassigned literal that is not false in the current model.
         auto is_suitable = [this](sat::literal lit) -> bool {
@@ -940,18 +939,25 @@ namespace polysat {
         signed_constraints cs;
         cs.append(m_original.size(), m_original.data());
         cs.append(m_redundant.size(), m_redundant.data());
+        // Skip boolean literals that aren't active yet
+        uint_set skip;
+        for (unsigned i = m_qhead; i < m_search.size(); ++i)
+            if (m_search[i].is_boolean())
+                skip.insert(m_search[i].lit().to_uint());
         for (auto c : cs) {
+            SASSERT(c->has_bvar());
+            if (skip.contains(c.blit().to_uint()))
+                continue;
             int64_t num_watches = 0;
             for (auto const& wlist : m_watch) {
                 auto n = std::count(wlist.begin(), wlist.end(), c);
                 VERIFY(n <= 1);  // no duplicates in the watchlist
                 num_watches += n;
             }
-            switch (c->vars().size()) {
-                case 0:  VERIFY(num_watches == 0); break;
-                case 1:  VERIFY(num_watches == 1); break;
-                default: VERIFY(num_watches == 2); break;
-            }
+            unsigned expected_watches = std::min(2u, c->vars().size());
+            if (num_watches != expected_watches)
+                LOG("wrong number of watches: " << c);
+            SASSERT_EQ(num_watches, expected_watches);
         }
         return true;
     }

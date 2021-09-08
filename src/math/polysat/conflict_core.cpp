@@ -129,7 +129,7 @@ namespace polysat {
         //       (we still need the list though, for new/temporary constraints.)
         int j = 0;
         for (auto c : m_constraints)
-            if (c->bvar() == var)
+            if (c->bvar() != var)
                 m_constraints[j++] = c;
         m_constraints.shrink(j);
 
@@ -189,7 +189,9 @@ namespace polysat {
     }
 
     clause_builder conflict_core::build_core_lemma(unsigned model_level) {
-        LOG_H3("build lemma from core");
+        LOG_H3("Build lemma from core");
+        LOG("core: " << *this);
+        LOG("model_level: " << model_level);
         clause_builder lemma(*m_solver);
 
         // TODO: try a final core reduction step?
@@ -197,7 +199,7 @@ namespace polysat {
         for (auto c : m_constraints) {
             if (!c->has_bvar())
                 keep(c);
-            lemma.push(c);
+            lemma.push(~c);
         }
 
         if (m_needs_model) {
@@ -210,6 +212,8 @@ namespace polysat {
             // Add v != val for each variable
             for (pvar v : vars) {
                 // SASSERT(!m_solver->m_justification[v].is_unassigned());  // TODO: why does this trigger????
+                if (m_solver->m_justification[v].is_unassigned())
+                    continue;
                 if (m_solver->m_justification[v].level() > model_level)
                     continue;
                 auto diseq = ~cm().eq(lemma.level(), m_solver->var(v) - m_solver->m_value[v]);
@@ -225,7 +229,7 @@ namespace polysat {
         if (is_bailout())
             return build_fallback_lemma(reverted_level);
         else
-            return build_core_lemma(reverted_level - 1);
+            return build_core_lemma(reverted_level);
     }
 
     bool conflict_core::resolve_value(pvar v, vector<signed_constraint> const& cjust_v) {
