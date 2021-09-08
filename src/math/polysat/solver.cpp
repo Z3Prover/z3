@@ -516,20 +516,6 @@ namespace polysat {
 
     /** Conflict resolution case where propagation 'v := ...' is on top of the stack */
     void solver::resolve_value(pvar v) {
-        // SASSERT(m_justification[v].is_propagation());   // doesn't hold if we enter because of conflict_var
-        // Conceptually:
-        // - Value Resolution
-        // - Variable Elimination
-        // - if VE isn't possible, try to derive new constraints using core saturation
-
-        // m_conflict.set_var(v);
-
-        // TODO:
-        // 1. try "perfect" rules if any match, e.g., poly superposition allows us to eliminate variable immediately if it works
-        // 2. if none match, then apply any saturation rules that do
-        // 3. following saturation, check if we can apply other variable elimination
-        // 4. fallback lemma if we have to (collect decisions)
-
         if (m_conflict.is_bailout()) {
             for (auto c : m_cjust[v])
                 m_conflict.insert(c);

@@ -17,6 +17,7 @@ Author:
 #include "math/polysat/log.h"
 #include "math/polysat/log_helper.h"
 #include "math/polysat/explain.h"
+#include "math/polysat/forbidden_intervals.h"
 #include "math/polysat/saturation.h"
 #include "math/polysat/variable_elimination.h"
 #include <algorithm>
@@ -252,6 +253,15 @@ namespace polysat {
             m_solver->assign_core(v, m_solver->m_value[v], justification::propagation(m_solver->m_level));
         }
         */
+       if (conflict_var() == v) {
+           clause_builder lemma(s());
+           forbidden_intervals fi;
+           if (fi.perform(s(), v, *this, lemma)) {
+               set_bailout();
+               m_bailout_lemma = std::move(lemma);
+               return true;
+           }
+       }
 
         for (auto c : cjust_v)
             insert(c);

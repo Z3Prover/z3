@@ -16,7 +16,6 @@ Author:
 #pragma once
 #include "math/polysat/constraint.h"
 #include "math/polysat/solver.h"
-#include "math/polysat/variable_elimination.h"
 
 namespace polysat {
 

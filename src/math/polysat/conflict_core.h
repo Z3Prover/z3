@@ -42,6 +42,7 @@ namespace polysat {
         std::optional<clause_builder> m_bailout_lemma;
 
         solver* m_solver = nullptr;
+        solver& s() { return *m_solver; }
         constraint_manager& cm();
         scoped_ptr_vector<explainer> ex_engines;
         scoped_ptr_vector<variable_elimination_engine> ve_engines;
