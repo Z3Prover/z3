@@ -73,13 +73,13 @@ namespace polysat {
     * We assume that neg_cond is a consequence of src that  
     * does not mention the variable v to be eliminated.
     */
-    void forbidden_intervals::full_interval_conflict(signed_constraint src, signed_constraint neg_cond, conflict_core& core) {
+    void forbidden_intervals::full_interval_conflict(signed_constraint src, signed_constraint neg_cond, clause_builder& lemma) {
         SASSERT(neg_cond);
-        core.insert(~neg_cond);
-        core.remove(src); // or add a lemma?
+        lemma.push(neg_cond);
+        lemma.push(~src);
     }
 
-    bool forbidden_intervals::perform(solver& s, pvar v, conflict_core& core) {
+    bool forbidden_intervals::perform(solver& s, pvar v, conflict_core& core, clause_builder& lemma) {
 
         // Extract forbidden intervals from conflicting constraints
         vector<fi_record> records;
@@ -97,7 +97,7 @@ namespace polysat {
                 if (interval.is_full()) {
                     // We have a single interval covering the whole domain
                     // => the side conditions of that interval are enough to produce a conflict
-                    full_interval_conflict(c, neg_cond, core);
+                    full_interval_conflict(c, neg_cond, lemma);
                     return true;
                 }
                 else {
@@ -161,14 +161,14 @@ namespace polysat {
             // the level of a literal is when it was assigned. Lemmas could have unassigned literals.
             signed_constraint c = s.m_constraints.ult(lemma_lvl, lhs, rhs);
             LOG("constraint: " << c);
-            core.insert(c);
+            lemma.push(~c);
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
             signed_constraint& neg_cond = records[i].neg_cond;
             if (neg_cond)
-                core.insert(std::move(~neg_cond));
+                lemma.push(std::move(neg_cond));
 
-            core.remove(records[i].src);
+            lemma.push(~records[i].src);
         }
         return true;
     }
