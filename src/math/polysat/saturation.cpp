@@ -11,10 +11,8 @@ Author:
     Jakob Rath 2021-04-6
 
 TODO:
-- currently saturation just removes premise or premises and adds new clauses
-- this needs to be fixed as follows:
-- per calculus it really adds a propagation to the stack
-- then it adds the propagated literal to the core and removes the premise that needed to be simplified from core.
+- saturation instantiates lemmas that are used for unit propagation.
+- the unit propagated constraint should/could be added to Gamma & core and enable simpler conflict resolution.
 
 TODO: preserve falsification
 - each rule selects a certain premise that is problematic, 
@@ -101,36 +99,7 @@ namespace polysat {
         }
         return false;
     }
-    /**
-    * Implement the inferences
-    *  [x] zx > yx  ==>  Ω*(x,y) \/ z > y
-    *  [x] yx <= zx  ==>  Ω*(x,y) \/ y <= z
-    */
-    bool inf_saturate::try_ugt_x(pvar v, conflict_core& core, inequality const& c) {
-        LOG_H3("Try zx > yx where x := v" << v);
-        if (c.lhs.degree(v) != 1)
-            return false;
-        if (c.rhs.degree(v) != 1)
-            return false;
-        pdd const x = s().var(v);
 
-        pdd y = x;
-        if (!c.lhs.factor(v, 1, y))
-            return false;
-        pdd z = x;
-        if (!c.rhs.factor(v, 1, z))
-            return false;
-
-        unsigned const lvl = c.src->level();
-
-        // Omega^*(x, y)
-        if (!push_omega_mul(core, lvl, x, y))
-            return false;
-        push_l(core, lvl, c.is_strict, y, z);
-        // TODO
-        // requires signed constraint: core.remove(*c.src);
-        return true;
-    }
 
     // TODO: needs to be justified by the reason lemma that is created on the fly.
     void inf_saturate::push_l(conflict_core& core, unsigned lvl, bool is_strict, pdd const& lhs, pdd const& rhs) {
@@ -220,9 +189,8 @@ namespace polysat {
         return d.rhs.degree(x) == 1 && d.rhs.factor(x, 1, a);
     }
 
-    bool inf_saturate::verify_Y_l_Ax(pvar x, inequality const& d, pdd const& a, pdd const& y) {
-        pdd A = a, Y = y;
-        return is_Y_l_Ax(x, d, A, Y) && a == A && y == Y;
+    bool inf_saturate::verify_Y_l_Ax(pvar x, inequality const& d, pdd const& a, pdd const& y) {        
+        return d.lhs == y && d.rhs == a * s().var(x);
     }
 
     /**
@@ -252,11 +220,8 @@ namespace polysat {
     }
 
     bool inf_saturate::verify_Xy_l_XZ(pvar v, inequality const& c, pdd const& x, pdd const& z) {
-        pdd X = x, Z = z;
-        return is_Xy_l_XZ(v, c, X, Z) && x == X && z == Z;
+        return c.lhs == s().var(v) * x && c.rhs == z * x;
     }
-
-
 
     /**
     * Match [z] yx <= zx
@@ -279,8 +244,36 @@ namespace polysat {
     }
 
     bool inf_saturate::verify_YX_l_zX(pvar z, inequality const& c, pdd const& x, pdd const& y) {
-        pdd X = x, Y = y;
-        return is_YX_l_zX(z, c, X, Y) && x == X && y == Y;
+        return c.lhs == y * x && c.rhs == s().var(z) * x;
+    }
+
+    /**
+     * Implement the inferences
+     *  [x] zx > yx  ==>  Ω*(x,y) \/ z > y
+     *  [x] yx <= zx  ==>  Ω*(x,y) \/ y <= z
+     */
+    bool inf_saturate::try_ugt_x(pvar v, conflict_core& core, inequality const& c) {
+        if (c.lhs.degree(v) != 1)
+            return false;
+        if (c.rhs.degree(v) != 1)
+            return false;
+        pdd const x = s().var(v);
+
+        pdd y = x;
+        if (!c.lhs.factor(v, 1, y))
+            return false;
+        pdd z = x;
+        if (!c.rhs.factor(v, 1, z))
+            return false;
+
+        unsigned const lvl = c.src->level();
+
+        // Omega^*(x, y)
+        if (!push_omega_mul(core, lvl, x, y))
+            return false;
+        push_l(core, lvl, c.is_strict, y, z);
+
+        return true;
     }
 
     /// [y] z' <= y /\ zx > yx  ==>  Ω*(x,y) \/ zx > z'x
@@ -302,7 +295,6 @@ namespace polysat {
         // z'x <= zx
         push_l(core, lvl, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x);
 
-        // TODO core.remove(*yx_l_zs.src);
         return true;
     }
 
@@ -340,18 +332,11 @@ namespace polysat {
 
         SASSERT(is_g_v(x, x_l_z));
         SASSERT(verify_Y_l_Ax(x, y_l_ax, a, y));
-
-        LOG_H3("Try y <= ax && x <= z where x := v" << x);
         pdd z = x_l_z.rhs;
         unsigned const lvl = std::max(x_l_z.src->level(), y_l_ax.src->level());
         if (!push_omega_mul(core, lvl, a, z))
             return false;
-
         push_l(core, lvl, x_l_z.is_strict || y_l_ax.is_strict, y, a * z);
-
-        // TODO core.remove(*x_l_z.src); or
-        // core.remove(*y_l_ax.src);
-
         return true;
     }
 
@@ -373,7 +358,6 @@ namespace polysat {
     }
 
     bool inf_saturate::try_ugt_z(pvar z, conflict_core& core, inequality const& c, inequality const& d, pdd const& x, pdd const& y) {
-        LOG_H3("Try z <= y' && zx > yx where z := v" << z);
         SASSERT(is_g_v(z, c));
         SASSERT(verify_YX_l_zX(z, d, x, y));
 
@@ -385,9 +369,6 @@ namespace polysat {
             return false;
         // yx <= y'x
         push_l(core, lvl, c.is_strict || d.is_strict, y * x, y_prime * x);
-
-        // TODO remove appropriate c or d
-
         return true;
     }
 
