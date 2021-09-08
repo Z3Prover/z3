@@ -35,7 +35,12 @@ namespace polysat {
     };
 
     class ex_polynomial_superposition : public explainer {
-        bool try_explain(pvar v, /* vector<signed_constraint> const& cjust_v, */ conflict_core& core) override;
+    private:
+        bool is_positive_equality_over(pvar v, signed_constraint const& c);
+        signed_constraint resolve1(pvar v, signed_constraint c1, signed_constraint c2);
+        lbool try_explain1(pvar v, conflict_core& core);
+    public:
+        bool try_explain(pvar v, conflict_core& core) override;
     };
 
 

@@ -25,9 +25,12 @@ namespace polysat {
 
     conflict_core::conflict_core(solver& s) {
         m_solver = &s;
+        ex_engines.push_back(alloc(ex_polynomial_superposition));
+        for (auto* engine : ex_engines)
+            engine->set_solver(s);
         ve_engines.push_back(alloc(ve_reduction));
         // ve_engines.push_back(alloc(ve_forbidden_intervals));
-        inf_engines.push_back(alloc(inf_polynomial_superposition));
+        // inf_engines.push_back(alloc(inf_polynomial_superposition));
         for (auto* engine : inf_engines)
             engine->set_solver(s);
     }
@@ -244,6 +247,10 @@ namespace polysat {
 
         for (auto c : cjust_v)
             insert(c);
+
+        for (auto* engine : ex_engines)
+            if (engine->try_explain(v, *this))
+                return true;
 
         // No value resolution method was successful => fall back to saturation and variable elimination
         while (true) {  // TODO: limit?
