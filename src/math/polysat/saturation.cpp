@@ -74,8 +74,10 @@ namespace polysat {
             inequality bound = b.as_inequality();
             if (is_x_l_Y(x, bound, y) && y.is_val()) {
                 rational value = y.val();
-                if (bound.is_strict && value > 0)   // TODO: should we return something for "x < 0"? (is always false, should lead to conflict earlier)
+                if (bound.is_strict) {
+                    SASSERT(value > 0);  // "x < 0" is always false and should have led to a conflict earlier
                     value = value - 1;
+                }
                 if (value < best_bound) {
                     best_bound = value;
                     c = b;
