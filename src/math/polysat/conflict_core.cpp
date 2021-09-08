@@ -95,7 +95,7 @@ namespace polysat {
     void conflict_core::remove_var(pvar v) {
         unsigned j = 0;
         for (unsigned i = 0; i < m_constraints.size(); ++i)
-            if (m_constraints[i]->contains_var(v))
+            if (!m_constraints[i]->contains_var(v))
                 m_constraints[j++] = m_constraints[i];
         m_constraints.shrink(j);
     }
