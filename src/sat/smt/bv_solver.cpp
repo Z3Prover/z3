@@ -673,25 +673,33 @@ namespace bv {
         for (theory_var i = 0; i < static_cast<theory_var>(get_num_vars()); ++i)
             if (find(i) != i)
                 result->m_find.set_root(i, find(i));
-        result->m_prop_queue.append(m_prop_queue);
-        for (unsigned i = 0; i < m_bool_var2atom.size(); ++i) {
-            atom* a = m_bool_var2atom[i];
-            if (!a)
-                continue;
 
-            atom* new_a = new (result->get_region()) atom(i);
-            result->m_bool_var2atom.setx(i, new_a, nullptr);
-            for (auto vp : *a)
-                new_a->m_occs = new (result->get_region()) var_pos_occ(vp.first, vp.second, new_a->m_occs);
-            for (eq_occurs const& occ : a->eqs()) {
+        auto clone_atom = [&](atom const& a) {
+            atom* new_a = new (result->get_region()) atom(a.m_bv);
+            result->m_bool_var2atom.setx(a.m_bv, new_a, nullptr);
+            for (auto [v, p] : a)
+                new_a->m_occs = new (result->get_region()) var_pos_occ(v, p, new_a->m_occs);
+            for (eq_occurs const& occ : a.eqs()) {
                 expr* e = occ.m_node->get_expr();
                 expr_ref e2(tr(e), tr.to());
                 euf::enode* n = ctx.get_enode(e2);
+                SASSERT(tr.to().contains(e2));
                 new_a->m_eqs = new (result->get_region()) eq_occurs(occ.m_bv1, occ.m_bv2, occ.m_idx, occ.m_v1, occ.m_v2, occ.m_literal, n, new_a->m_eqs);
             }
-            new_a->m_def = a->m_def;
-            new_a->m_var = a->m_var;
-            // validate_atoms();
+            new_a->m_def = a.m_def;
+            new_a->m_var = a.m_var;           
+        };
+
+        for (atom* a : m_bool_var2atom) 
+            if (a)
+                clone_atom(*a);
+        // validate_atoms();        
+
+        for (auto p : m_prop_queue) {
+            propagation_item q = p;
+            if (p.is_atom())
+                q = propagation_item(result->get_bv2a(p.m_atom->m_bv));
+            result->m_prop_queue.push_back(q);
         }
         return result;
     }
