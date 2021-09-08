@@ -90,8 +90,11 @@ namespace polysat {
         // TODO: other conditions (e.g. when forbidden interval would be full)
         if (is_positive)
             return lhs.is_val() && rhs.is_val() && lhs.val() > rhs.val();
-        else
+        else {
+            if (lhs.is_zero())
+                return true;  // 0 > ... is always false
             return (lhs.is_val() && rhs.is_val() && lhs.val() <= rhs.val()) || (lhs == rhs);
+        }
     }
 
     bool ule_constraint::is_always_false(bool is_positive) {

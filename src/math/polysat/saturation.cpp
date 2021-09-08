@@ -65,25 +65,26 @@ namespace polysat {
         push_c(core, c, reason);
     }
 
-#if 0
-    bool find_upper_bound(pvar x, signed_constraint& c, rational& bound) {
-
-        auto & bounds = s().cjust[x];
-        rational best_bound = -1;
+    /// Find smallest upper bound for the variable x, i.e., a constraint 'x <= bound' where the rhs is constant.
+    bool inf_saturate::find_upper_bound(pvar x, signed_constraint& c, rational& bound) {
+        auto& bounds = s().m_cjust[x];
+        rational best_bound(-1);
+        pdd y = s().var(x);
         for (auto& b : bounds) {
             inequality bound = b.as_inequality();
-            if (is_x_l_Y(x, bound, y) && y.is_value()) {
-                if (y.value() < best_bound) {
-                    if (bound.is_strict)
-                        value = y.value() - 1;
+            if (is_x_l_Y(x, bound, y) && y.is_val()) {
+                rational value = y.val();
+                if (bound.is_strict && value > 0)   // TODO: should we return something for "x < 0"? (is always false, should lead to conflict earlier)
+                    value = value - 1;
+                if (value < best_bound) {
                     best_bound = value;
-                    c = bound;
+                    c = b;
                 }
             }
         }
         return best_bound != -1;
     }
-#endif
+
     /// Add Ω*(x, y) to the conflict state.
     ///
     /// @param[in] p    bit width
@@ -169,6 +170,14 @@ namespace polysat {
     */
     bool inf_saturate::is_g_v(pvar v, inequality const& i) {
         return i.lhs == s().var(v);
+    }
+
+    /*
+    * Match [x] x <= y
+    */
+    bool inf_saturate::is_x_l_Y(pvar x, inequality const& c, pdd& y) {
+        y = c.rhs;
+        return is_g_v(x, c);
     }
 
     /*
