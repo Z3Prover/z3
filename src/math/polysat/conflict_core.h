@@ -18,6 +18,7 @@ Author:
 namespace polysat {
 
     class solver;
+    class explainer;
     class inference_engine;
     class variable_elimination_engine;
 
@@ -40,6 +41,7 @@ namespace polysat {
 
         solver* m_solver = nullptr;
         constraint_manager& cm();
+        scoped_ptr_vector<explainer> ex_engines;
         scoped_ptr_vector<variable_elimination_engine> ve_engines;
         scoped_ptr_vector<inference_engine> inf_engines;
 
@@ -77,7 +79,13 @@ namespace polysat {
 
         void insert(signed_constraint c);
         void insert(signed_constraint c, vector<signed_constraint> premises);
-        void remove(signed_constraint c) { NOT_IMPLEMENTED_YET(); }
+        void remove(signed_constraint c);
+        void replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> c_new_premises);
+
+        /** remove all constraints that contain the variable v */
+        void remove_var(pvar v);
+
+        void keep(signed_constraint c);
 
         /** Perform boolean resolution with the clause upon variable 'var'.
          * Precondition: core/clause contain complementary 'var'-literals.

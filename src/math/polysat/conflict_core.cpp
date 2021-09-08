@@ -16,6 +16,7 @@ Author:
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
 #include "math/polysat/log_helper.h"
+#include "math/polysat/explain.h"
 #include "math/polysat/saturation.h"
 #include "math/polysat/variable_elimination.h"
 #include <algorithm>
@@ -77,6 +78,31 @@ namespace polysat {
     void conflict_core::insert(signed_constraint c, vector<signed_constraint> premises) {
         insert(c);
         m_saturation_premises.insert(c, std::move(premises));  // TODO: map doesn't have move-insertion, so this still copies the vector. Maybe we want a clause_ref (but this doesn't work either since c doesn't have a boolean variable yet).
+    }
+
+    void conflict_core::remove(signed_constraint c) {
+        m_constraints.erase(c);
+    }
+
+    void conflict_core::replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> c_new_premises) {
+        remove(c_old);
+        insert(c_new, c_new_premises);
+    }
+
+    void conflict_core::remove_var(pvar v) {
+        unsigned j = 0;
+        for (unsigned i = 0; i < m_constraints.size(); ++i)
+            if (m_constraints[i]->contains_var(v))
+                m_constraints[j++] = m_constraints[i];
+        m_constraints.shrink(j);
+    }
+
+    void conflict_core::keep(signed_constraint c) {
+        SASSERT(!c->has_bvar());
+        cm().ensure_bvar(c.get());
+        LOG("new constraint: " << c);
+        // Insert the temporary constraint from saturation into \Gamma.
+        handle_saturation_premises(c);
     }
 
     void conflict_core::resolve(constraint_manager const& m, sat::bool_var var, clause const& cl) {
@@ -166,13 +192,8 @@ namespace polysat {
         // TODO: try a final core reduction step?
 
         for (auto c : m_constraints) {
-            if (!c->has_bvar()) {
-                // temporary constraint -> keep it
-                cm().ensure_bvar(c.get());
-                LOG("new constraint: " << c);
-                // Insert the temporary constraint from saturation into \Gamma.
-                handle_saturation_premises(c);
-            }
+            if (!c->has_bvar())
+                keep(c);
             lemma.push(c);
         }
 
