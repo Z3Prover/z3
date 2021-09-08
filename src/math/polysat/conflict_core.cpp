@@ -118,17 +118,14 @@ namespace polysat {
         auto& premises = it->m_value;
         clause_builder c_lemma(*m_solver);
         for (auto premise : premises) {
-            handle_saturation_premises(c);
+            handle_saturation_premises(premise);
             c_lemma.push_literal(~premise.blit());
         }
         c_lemma.push_literal(c.blit());
         clause* cl = cm().store(c_lemma.build());
         if (cl->size() == 1)
             c->set_unit_clause(cl);
-        // TODO: this should be backtrackable (unless clause is unit).
-        // => add at the end and update pop_levels to replay appropriately
-        m_solver->assign_bool_backtrackable(c.blit(), cl, nullptr);
-        m_solver->activate_constraint(c);
+        m_solver->assign_bool(c.blit(), cl, nullptr);
     }
 
     /** Create fallback lemma that excludes the current search state */

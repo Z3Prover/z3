@@ -155,7 +155,7 @@ namespace polysat {
         m_linear_solver.new_constraint(*c.get());
 #endif
         if (activate && !is_conflict())
-            activate_constraint_base(c);
+            propagate_bool(c.blit(), unit);
     }
 
     void solver::assign_eh(unsigned dep, bool is_true) {
@@ -191,6 +191,8 @@ namespace polysat {
         }
         linear_propagate();
         SASSERT(wlist_invariant());
+        if (!is_conflict())
+            SASSERT(assignment_invariant());
     }
 
     void solver::linear_propagate() {
@@ -208,9 +210,8 @@ namespace polysat {
     void solver::propagate(sat::literal lit) {
         LOG_H2("Propagate boolean literal " << lit);
         signed_constraint c = m_constraints.lookup(lit);
-        (void)c;
         SASSERT(c);
-        // c->narrow(*this);
+        activate_constraint(c);
     }
 
     void solver::propagate(pvar v) {
@@ -576,22 +577,10 @@ namespace polysat {
         if (!lemma)
             return;
         SASSERT(lemma->size() > 0);
-        SASSERT(m_conflict_level <= m_justification[v].level());  // ???
         lemma->set_justified_var(v);
-        clause* cl = lemma.get();
-        add_lemma(std::move(lemma));
-        if (cl->size() == 1) {
-            sat::literal lit = (*cl)[0];
-            signed_constraint c = m_constraints.lookup(lit);
-            c->set_unit_clause(cl);
-            push_cjust(v, c);
-            activate_constraint_base(c);
-        }
-        else {
-            sat::literal lit = decide_bool(*cl);
-            SASSERT(lit != sat::null_literal);
-            signed_constraint c = m_constraints.lookup(lit);
-        }
+        add_lemma(lemma);
+        sat::literal lit = decide_bool(*lemma);
+        SASSERT(lit != sat::null_literal);
     }
 
     // Guess a literal from the given clause; returns the guessed constraint
@@ -747,53 +736,23 @@ namespace polysat {
     void solver::decide_bool(sat::literal lit, clause& lemma) {
         push_level();
         LOG_H2("Decide boolean literal " << lit << " @ " << m_level);
-        assign_bool_backtrackable(lit, nullptr, &lemma);
+        assign_bool(lit, nullptr, &lemma);
     }
 
     void solver::propagate_bool(sat::literal lit, clause* reason) {
         LOG("Propagate boolean literal " << lit << " @ " << m_level << " by " << show_deref(reason));
         SASSERT(reason);
-        if (reason->size() == 1) {
-            SASSERT((*reason)[0] == lit);
-            signed_constraint c = m_constraints.lookup(lit);
-            // m_redundant.push_back(c);
-            activate_constraint_base(c);
-        }
-        else
-            assign_bool_backtrackable(lit, reason, nullptr);
+        assign_bool(lit, reason, nullptr);
     }
 
     /// Assign a boolean literal and put it on the search stack,
     /// and activate the corresponding constraint.
-    void solver::assign_bool_backtrackable(sat::literal lit, clause* reason, clause* lemma) {
-        assign_bool_core(lit, reason, lemma);
+    void solver::assign_bool(sat::literal lit, clause* reason, clause* lemma) {
+        LOG("Assigning boolean literal: " << lit);
+        m_bvars.assign(lit, m_level, reason, lemma);
 
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
-
-        signed_constraint c = m_constraints.lookup(lit);
-        activate_constraint(c);
-    }
-
-    /// Activate a constraint at the base level.
-    /// Used for external unit constraints and unit consequences.
-    void solver::activate_constraint_base(signed_constraint c) {
-        SASSERT(c);
-        LOG("\n" << *this);
-        // c must be in m_original or m_redundant so it can be deactivated properly when popping the base level
-        SASSERT_EQ(std::count(m_original.begin(), m_original.end(), c) + std::count(m_redundant.begin(), m_redundant.end(), c), 1);
-        // TODO: how is the boolean assignment for this undone? when we remove the constraint by popping a solver level.
-        //       if the constraint is deleted by popping it, then it's fine because we will remove the boolean variable.
-        //       however, we now dedup constraints so it might have been promoted to a lower level and thus live longer.
-        //       so this bool assignment needs to be backtrackable too...
-        assign_bool_core(c.blit(), nullptr, nullptr);
-        activate_constraint(c);
-    }
-
-    /// Assign a boolean literal
-    void solver::assign_bool_core(sat::literal lit, clause* reason, clause* lemma) {
-        LOG("Assigning boolean literal: " << lit);
-        m_bvars.assign(lit, m_level, reason, lemma);
     }
 
     /** 
@@ -817,7 +776,7 @@ namespace polysat {
     void solver::deactivate_constraint(signed_constraint c) {
         LOG("Deactivating constraint: " << c);
         erase_watch(c);
-        c->set_unit_clause(nullptr);
+        // c->set_unit_clause(nullptr);
     }
 
     void solver::backjump(unsigned new_level) {
@@ -846,6 +805,7 @@ namespace polysat {
         m_redundant_clauses.push_back(cl);
         if (cl->size() == 1) {
             signed_constraint c = m_constraints.lookup((*cl)[0]);
+            c->set_unit_clause(cl);
             insert_constraint(m_redundant, c);
         }
     }
@@ -990,6 +950,18 @@ namespace polysat {
                 case 1:  VERIFY(num_watches == 1); break;
                 default: VERIFY(num_watches == 2); break;
             }
+        }
+        return true;
+    }
+
+    /** Check that boolean assignment and constraint evaluation are consistent */
+    bool solver::assignment_invariant() {
+        for (sat::bool_var v = m_bvars.size(); v-- > 0; ) {
+            sat::literal lit(v);
+            if (m_bvars.value(lit) == l_true)
+                SASSERT(!m_constraints.lookup(lit).is_currently_false(*this));
+            if (m_bvars.value(lit) == l_false)
+                SASSERT(!m_constraints.lookup(lit).is_currently_true(*this));
         }
         return true;
     }
