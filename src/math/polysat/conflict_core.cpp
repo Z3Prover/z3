@@ -229,17 +229,18 @@ namespace polysat {
         // NOTE:
         // In the "standard" case where "v = val" is on the stack:
         //      - cjust_v contains true constraints
-        //      - core contains both false and true constraints... (originally only false ones, but additional true ones may come from saturation).
+        //      - core contains both false and true constraints... (originally only false ones, but additional true ones may come from saturation?).
         // In the case where no assignment to v is on the stack, i.e., conflict_var == v and viable(v) = \emptyset:
         //      - the constraints in cjust_v cannot be evaluated.
         //      - for now, we just pick a value. TODO: revise later
-
+        /*
         if (conflict_var() == v) {
             // Temporary assignment
             // (actually we shouldn't just pick any value, but one that makes at least one constraint true...)
             LOG_H1("WARNING: temporary assignment of conflict_var");
             m_solver->assign_core(v, m_solver->m_value[v], justification::propagation(m_solver->m_level));
         }
+        */
 
         for (auto c : cjust_v)
             insert(c);
