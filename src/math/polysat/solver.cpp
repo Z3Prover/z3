@@ -256,6 +256,11 @@ namespace polysat {
             switch (m_trail.back()) {
             case trail_instr_t::qhead_i: {
                 pop_qhead();
+                for (unsigned i = m_search.size(); i-- > m_qhead; )
+                    if (m_search[i].is_boolean()) {
+                        auto c = m_constraints.lookup(m_search[i].lit());
+                        deactivate_constraint(c);
+                    }
                 break;
             }
             case trail_instr_t::add_var_i: {
@@ -282,14 +287,12 @@ namespace polysat {
             case trail_instr_t::assign_bool_i: {
                 sat::literal lit = m_search.back().lit();
                 LOG_V("Undo assign_bool_i: " << lit);
+                // TODO: we should use the level of the boolean literal here, but that isn't yet set correctly.
                 signed_constraint c = m_constraints.lookup(lit);
-
                 if (c.level() <= target_level) 
                     replay.push_back(c);                
-                else {
-                    deactivate_constraint(c);
+                else
                     m_bvars.unassign(lit);
-                }
                 m_search.pop();
                 break;
             }
@@ -313,7 +316,6 @@ namespace polysat {
             auto c = replay[j];
             m_trail.push_back(trail_instr_t::assign_bool_i);
             m_search.push_boolean(c.blit());
-            c.narrow(*this);
         }
     }
 
