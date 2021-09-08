@@ -101,18 +101,29 @@ namespace polysat {
     }
 
 
-    // TODO: needs to be justified by the reason lemma that is created on the fly.
-    void inf_saturate::push_l(conflict_core& core, unsigned lvl, bool is_strict, pdd const& lhs, pdd const& rhs) {
+    signed_constraint inf_saturate::ineq(unsigned lvl, bool is_strict, pdd const& lhs, pdd const& rhs) {
         if (is_strict)
-            core.insert(s().m_constraints.ult(lvl, lhs, rhs));
+            return s().m_constraints.ult(lvl, lhs, rhs);
         else
-            core.insert(s().m_constraints.ule(lvl, lhs, rhs));
+            return s().m_constraints.ule(lvl, lhs, rhs);
+    }
+
+    void inf_saturate::push_c(conflict_core& core, signed_constraint const& c, clause_builder& reason) {
+        core.insert(c);
+        clause_ref lemma = reason.build();
+        s().add_lemma(lemma);
+        s().propagate_bool(c.blit(), lemma.get());
+    }
+
+    void inf_saturate::push_l(conflict_core& core, unsigned lvl, bool is_strict, pdd const& lhs, pdd const& rhs, clause_builder& reason) {
+        signed_constraint c = ineq(lvl, is_strict, lhs, rhs);
+        push_c(core, c, reason);
     }
 
     /// Add Ω*(x, y) to the conflict state.
     ///
     /// @param[in] p    bit width
-    bool inf_saturate::push_omega_mul(conflict_core& core, unsigned level, pdd const& x, pdd const& y) {
+    bool inf_saturate::push_omega_mul(conflict_core& core, clause_builder & reason, unsigned level, pdd const& x, pdd const& y) {
         LOG_H3("Omega^*(x, y)");
         LOG("x = " << x);
         LOG("y = " << y);
@@ -123,20 +134,22 @@ namespace polysat {
         unsigned k = p / 2;
 
         rational x_val;
-        if (s().try_eval(x, x_val)) {
-            unsigned x_bits = x_val.bitsize();
-            LOG("eval x: " << x << " := " << x_val << " (x_bits: " << x_bits << ")");
-            SASSERT(x_val < rational::power_of_two(x_bits));
-            min_k = x_bits;
-        }
+        if (!s().try_eval(x, x_val))
+            return false;
 
         rational y_val;
-        if (s().try_eval(y, y_val)) {
-            unsigned y_bits = y_val.bitsize();
-            LOG("eval y: " << y << " := " << y_val << " (y_bits: " << y_bits << ")");
-            SASSERT(y_val < rational::power_of_two(y_bits));
-            max_k = p - y_bits;
-        }
+        if (!s().try_eval(y, y_val))
+            return false;
+
+        unsigned x_bits = x_val.bitsize();
+        LOG("eval x: " << x << " := " << x_val << " (x_bits: " << x_bits << ")");
+        SASSERT(x_val < rational::power_of_two(x_bits));
+        min_k = x_bits;
+
+        unsigned y_bits = y_val.bitsize();
+        LOG("eval y: " << y << " := " << y_val << " (y_bits: " << y_bits << ")");
+        SASSERT(y_val < rational::power_of_two(y_bits));
+        max_k = p - y_bits;
 
         if (min_k > max_k) {
             // In this case, we cannot choose k such that both literals are false.
@@ -153,17 +166,30 @@ namespace polysat {
         else
             k = min_k;
 
-        LOG("k = " << k << "; min_k = " << min_k << "; max_k = " << max_k << "; p = " << p);
         SASSERT(min_k <= k && k <= max_k);
 
-        // x >= 2^k
-        auto c1 = s().m_constraints.ule(level, pddm.mk_val(rational::power_of_two(k)), x);
-        // y > 2^{p-k}
-        auto c2 = s().m_constraints.ult(level, pddm.mk_val(rational::power_of_two(p - k)), y);
+        // x < 2^k
+        auto c1 = s().m_constraints.ult(level, x, pddm.mk_val(rational::power_of_two(k)));
+        // y <= 2^{p-k}
+        auto c2 = s().m_constraints.ule(level, y, pddm.mk_val(rational::power_of_two(p - k)));
 
-        // TODO: these need to be justified as well.
-        core.insert(~c1);
-        core.insert(~c2);
+        // bail-out explanation uses equality constraint based on current assignment to variables.
+        // TODO: extract stronger explanations.
+        // for example if they appear already in Gamma
+        // or if some strengthening appears in gamma
+        // or using the current value assignment
+
+        clause_builder bound(s());
+        bound.push(s().m_constraints.eq(level, x - pddm.mk_val(x_val)));
+        push_c(core, c1, bound);
+        bound.reset();
+
+        bound.push(s().m_constraints.eq(level, y - pddm.mk_val(y_val)));
+        push_c(core, c2, bound);
+
+
+        reason.push(c1);
+        reason.push(c2);
         return true;
     }
 
@@ -186,7 +212,7 @@ namespace polysat {
     */
     bool inf_saturate::is_Y_l_Ax(pvar x, inequality const& d, pdd& a, pdd& y) {
         y = d.lhs;
-        return d.rhs.degree(x) == 1 && d.rhs.factor(x, 1, a);
+        return is_xY(x, d.rhs, a);
     }
 
     bool inf_saturate::verify_Y_l_Ax(pvar x, inequality const& d, pdd const& a, pdd const& y) {        
@@ -197,10 +223,7 @@ namespace polysat {
     * Match [v] v*x <= z*x
     */
     bool inf_saturate::is_Xy_l_XZ(pvar v, inequality const& c, pdd& x, pdd& z) {
-        if (c.lhs.degree(v) != 1)
-            return false;
-
-        if (!c.lhs.factor(v, 1, x))
+        if (!is_xY(v, c.lhs, x))
             return false;
 
         // TODO: in principle, 'x' could be any polynomial. However, we need to divide the lhs by x, and we don't have general polynomial division yet.
@@ -227,9 +250,7 @@ namespace polysat {
     * Match [z] yx <= zx
     */
     bool inf_saturate::is_YX_l_zX(pvar z, inequality const& c, pdd& x, pdd& y) {
-        if (c.rhs.degree(z) != 1)
-            return false;
-        if (!c.rhs.factor(z, 1, x))
+        if (!is_xY(z, c.rhs, x))
             return false;
         // TODO: in principle, 'x' could be any polynomial. However, we need to divide the lhs by x, and we don't have general polynomial division yet.
         //       so for now we just allow the form 'value*variable'.
@@ -248,30 +269,38 @@ namespace polysat {
     }
 
     /**
+    * Match [x] xY <= xZ
+    */
+    bool inf_saturate::is_xY_l_xZ(pvar x, inequality const& c, pdd& y, pdd& z) {
+        return is_xY(x, c.lhs, y) && is_xY(x, c.rhs, z);
+    }
+
+    /**
+    * Match xy = x * Y
+    */
+    bool inf_saturate::is_xY(pvar x, pdd const& xy, pdd& y) {
+        return xy.degree(x) == 1 && xy.factor(x, 1, y);
+    }
+
+    /**
      * Implement the inferences
      *  [x] zx > yx  ==>  Ω*(x,y) \/ z > y
      *  [x] yx <= zx  ==>  Ω*(x,y) \/ y <= z
      */
     bool inf_saturate::try_ugt_x(pvar v, conflict_core& core, inequality const& c) {
-        if (c.lhs.degree(v) != 1)
-            return false;
-        if (c.rhs.degree(v) != 1)
-            return false;
-        pdd const x = s().var(v);
-
+        pdd x = s().var(v);
         pdd y = x;
-        if (!c.lhs.factor(v, 1, y))
-            return false;
         pdd z = x;
-        if (!c.rhs.factor(v, 1, z))
+        if (!is_xY_l_xZ(v, c, y, z))
             return false;
 
         unsigned const lvl = c.src->level();
 
+        clause_builder reason(s());
         // Omega^*(x, y)
-        if (!push_omega_mul(core, lvl, x, y))
+        if (!push_omega_mul(core, reason, lvl, x, y))
             return false;
-        push_l(core, lvl, c.is_strict, y, z);
+        push_l(core, lvl, c.is_strict, y, z, reason);
 
         return true;
     }
@@ -288,12 +317,13 @@ namespace polysat {
         unsigned const lvl = std::max(yx_l_zx.src->level(), le_y.src->level());
         pdd const& z_prime = le_y.lhs;
 
+        clause_builder reason(s());
         // Omega^*(x, y)
-        if (!push_omega_mul(core, lvl, x, y))
+        if (!push_omega_mul(core, reason, lvl, x, y))
             return false;
 
         // z'x <= zx
-        push_l(core, lvl, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x);
+        push_l(core, lvl, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x, reason);
 
         return true;
     }
@@ -334,9 +364,10 @@ namespace polysat {
         SASSERT(verify_Y_l_Ax(x, y_l_ax, a, y));
         pdd z = x_l_z.rhs;
         unsigned const lvl = std::max(x_l_z.src->level(), y_l_ax.src->level());
-        if (!push_omega_mul(core, lvl, a, z))
+        clause_builder reason(s());
+        if (!push_omega_mul(core, reason, lvl, a, z))
             return false;
-        push_l(core, lvl, x_l_z.is_strict || y_l_ax.is_strict, y, a * z);
+        push_l(core, lvl, x_l_z.is_strict || y_l_ax.is_strict, y, a * z, reason);
         return true;
     }
 
@@ -360,15 +391,14 @@ namespace polysat {
     bool inf_saturate::try_ugt_z(pvar z, conflict_core& core, inequality const& c, inequality const& d, pdd const& x, pdd const& y) {
         SASSERT(is_g_v(z, c));
         SASSERT(verify_YX_l_zX(z, d, x, y));
-
         unsigned const lvl = std::max(c.src->level(), d.src->level());
         pdd const& y_prime = c.rhs;
-
+        clause_builder reason(s());
         // Omega^*(x, y')
-        if (!push_omega_mul(core, lvl, x, y_prime))
+        if (!push_omega_mul(core, reason, lvl, x, y_prime))
             return false;
         // yx <= y'x
-        push_l(core, lvl, c.is_strict || d.is_strict, y * x, y_prime * x);
+        push_l(core, lvl, c.is_strict || d.is_strict, y * x, y_prime * x, reason);
         return true;
     }
 

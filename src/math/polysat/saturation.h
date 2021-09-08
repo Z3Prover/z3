@@ -41,8 +41,10 @@ namespace polysat {
     };
 
     class inf_saturate : public inference_engine {
-        bool push_omega_mul(conflict_core& core, unsigned level, pdd const& x, pdd const& y);
-        void push_l(conflict_core& core, unsigned level, bool strict, pdd const& lhs, pdd const& rhs);
+        bool push_omega_mul(conflict_core& core, clause_builder& reason, unsigned level, pdd const& x, pdd const& y);
+        signed_constraint ineq(unsigned level, bool strict, pdd const& lhs, pdd const& rhs);
+        void push_c(conflict_core& core, signed_constraint const& c, clause_builder& reason);
+        void push_l(conflict_core& core, unsigned level, bool strict, pdd const& lhs, pdd const& rhs, clause_builder& reason);
 
         bool try_ugt_x(pvar v, conflict_core& core, inequality const& c);
 
@@ -73,6 +75,12 @@ namespace polysat {
         // c := Y*X ~ z*X
         bool is_YX_l_zX(pvar z, inequality const& c, pdd& x, pdd& y);
         bool verify_YX_l_zX(pvar z, inequality const& c, pdd const& x, pdd const& y); 
+
+        // c := xY <= xZ
+        bool is_xY_l_xZ(pvar x, inequality const& c, pdd& y, pdd& z);
+
+        // xy := x * Y
+        bool is_xY(pvar x, pdd const& xy, pdd& y);
 
     public:
 
