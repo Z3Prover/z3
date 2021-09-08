@@ -144,17 +144,19 @@ namespace polysat {
         auto it = m_saturation_premises.find_iterator(c);
         if (it == m_saturation_premises.end())
             return;
+        unsigned active_level = 0;
         auto& premises = it->m_value;
         clause_builder c_lemma(*m_solver);
         for (auto premise : premises) {
             handle_saturation_premises(premise);
             c_lemma.push_literal(~premise.blit());
+            active_level = std::max(active_level, m_solver->m_bvars.level(premise.blit()));
         }
         c_lemma.push_literal(c.blit());
         clause* cl = cm().store(c_lemma.build());
         if (cl->size() == 1)
             c->set_unit_clause(cl);
-        m_solver->assign_bool(c.blit(), cl, nullptr);
+        m_solver->propagate_bool_at(active_level, c.blit(), cl);
     }
 
     /** Create fallback lemma that excludes the current search state */

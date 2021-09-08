@@ -156,12 +156,13 @@ namespace polysat {
         void pop_levels(unsigned num_levels);
         void pop_constraints(signed_constraints& cs);
 
-        void assign_bool(sat::literal lit, clause* reason, clause* lemma);
+        void assign_bool(unsigned level, sat::literal lit, clause* reason, clause* lemma);
         void activate_constraint(signed_constraint c);
         void deactivate_constraint(signed_constraint c);
         sat::literal decide_bool(clause& lemma);
         void decide_bool(sat::literal lit, clause& lemma);
         void propagate_bool(sat::literal lit, clause* reason);
+        void propagate_bool_at(unsigned level, sat::literal lit, clause* reason);
 
         void assign_core(pvar v, rational const& val, justification const& j);
         bool is_assigned(pvar v) const { return !m_justification[v].is_unassigned(); }

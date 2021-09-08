@@ -44,12 +44,12 @@ namespace polysat {
         bool is_assigned(sat::bool_var var) const { return value(var) != l_undef; }
         bool is_assigned(sat::literal lit) const { return value(lit) != l_undef; }
         bool is_decision(sat::bool_var var) const { return is_assigned(var) && !reason(var); }
-        // bool is_decision(bool_lit lit) const { return is_decision(lit.var()); }
+        bool is_decision(sat::literal lit) const { return is_decision(lit.var()); }
         bool is_propagation(sat::bool_var var) const { return is_assigned(var) && reason(var); }
         lbool value(sat::bool_var var) const { return value(sat::literal(var)); }
         lbool value(sat::literal lit) const { return m_value[lit.index()]; }
         unsigned level(sat::bool_var var) const { SASSERT(is_assigned(var)); return m_level[var]; }
-        // unsigned level(sat::literal lit) const { return level(lit.var()); }
+        unsigned level(sat::literal lit) const { return level(lit.var()); }
         clause* reason(sat::bool_var var) const { SASSERT(is_assigned(var)); return m_reason[var]; }
 
         clause* lemma(sat::bool_var var) const { SASSERT(is_decision(var)); return m_lemma[var]; }

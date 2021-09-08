@@ -247,7 +247,7 @@ namespace polysat {
     void solver::pop_levels(unsigned num_levels) {
         SASSERT(m_level >= num_levels);
         unsigned const target_level = m_level - num_levels;
-        vector<signed_constraint> replay;
+        vector<sat::literal> replay;
         LOG("Pop " << num_levels << " levels (lvl " << m_level << " -> " << target_level << ")");
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.pop(num_levels);
@@ -287,10 +287,9 @@ namespace polysat {
             case trail_instr_t::assign_bool_i: {
                 sat::literal lit = m_search.back().lit();
                 LOG_V("Undo assign_bool_i: " << lit);
-                // TODO: we should use the level of the boolean literal here, but that isn't yet set correctly.
-                signed_constraint c = m_constraints.lookup(lit);
-                if (c.level() <= target_level) 
-                    replay.push_back(c);                
+                unsigned active_level = m_bvars.level(lit);
+                if (active_level <= target_level)
+                    replay.push_back(lit);
                 else
                     m_bvars.unassign(lit);
                 m_search.pop();
@@ -313,9 +312,9 @@ namespace polysat {
         m_constraints.release_level(m_level + 1);
         SASSERT(m_level == target_level);
         for (unsigned j = replay.size(); j-- > 0; ) {
-            auto c = replay[j];
+            auto lit = replay[j];
             m_trail.push_back(trail_instr_t::assign_bool_i);
-            m_search.push_boolean(c.blit());
+            m_search.push_boolean(lit);
         }
     }
 
@@ -737,21 +736,25 @@ namespace polysat {
     void solver::decide_bool(sat::literal lit, clause& lemma) {
         push_level();
         LOG_H2("Decide boolean literal " << lit << " @ " << m_level);
-        assign_bool(lit, nullptr, &lemma);
+        assign_bool(m_level, lit, nullptr, &lemma);
     }
 
     void solver::propagate_bool(sat::literal lit, clause* reason) {
-        LOG("Propagate boolean literal " << lit << " @ " << m_level << " by " << show_deref(reason));
+        propagate_bool_at(m_level, lit, reason);
+    }
+
+    void solver::propagate_bool_at(unsigned level, sat::literal lit, clause* reason) {
+        LOG("Propagate boolean literal " << lit << " @ " << level << " by " << show_deref(reason));
         SASSERT(reason);
-        assign_bool(lit, reason, nullptr);
+        SASSERT(level <= m_level);
+        assign_bool(level, lit, reason, nullptr);
     }
 
     /// Assign a boolean literal and put it on the search stack,
     /// and activate the corresponding constraint.
-    void solver::assign_bool(sat::literal lit, clause* reason, clause* lemma) {
+    void solver::assign_bool(unsigned level, sat::literal lit, clause* reason, clause* lemma) {
         LOG("Assigning boolean literal: " << lit);
-        m_bvars.assign(lit, m_level, reason, lemma);
-
+        m_bvars.assign(lit, level, reason, lemma);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
     }
@@ -777,7 +780,6 @@ namespace polysat {
     void solver::deactivate_constraint(signed_constraint c) {
         LOG("Deactivating constraint: " << c);
         erase_watch(c);
-        // c->set_unit_clause(nullptr);
     }
 
     void solver::backjump(unsigned new_level) {
