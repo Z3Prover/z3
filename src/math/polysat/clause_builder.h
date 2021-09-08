@@ -23,7 +23,6 @@ Notes:
 
 namespace polysat {
   
-    // TODO: this is now incorporated in conflict_core
     class clause_builder {
         solver*               m_solver;
         sat::literal_vector   m_literals;

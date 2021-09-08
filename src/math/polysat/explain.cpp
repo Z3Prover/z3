@@ -23,6 +23,7 @@ namespace polysat {
             // c1 is true, c2 is false
             SASSERT(c1.is_currently_true(s()));
             SASSERT(c2.is_currently_false(s()));
+            LOG_H3("Resolving upon v" << v);
             LOG("c1: " << c1);
             LOG("c2: " << c2);
             pdd a = c1->to_eq().p();

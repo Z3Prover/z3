@@ -154,6 +154,7 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.new_constraint(*c.get());
 #endif
+        // TODO: there is an issue when the input contains both c and ~c. (see test_ineq_basic2)
         if (activate && !is_conflict())
             propagate_bool(c.blit(), unit);
     }
