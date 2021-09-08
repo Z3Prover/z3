@@ -17,8 +17,13 @@ Author:
 
 namespace polysat {
 
+    static_assert(!std::is_copy_assignable_v<clause_builder>);
+    static_assert(!std::is_copy_constructible_v<clause_builder>);
+    static_assert(std::is_move_assignable_v<clause_builder>);
+    static_assert(std::is_move_constructible_v<clause_builder>);
+
     clause_builder::clause_builder(solver& s):
-        m_solver(s), m_dep(nullptr, s.m_dm)
+        m_solver(&s), m_dep(nullptr, s.m_dm)
     {}
 
     void clause_builder::reset() {
@@ -29,7 +34,6 @@ namespace polysat {
     }
 
     clause_ref clause_builder::build() {
-        // TODO: here we could set all the levels of the new constraints. so we do not have to compute the max at every use site.
         clause_ref cl = clause::from_literals(m_level, std::move(m_dep), std::move(m_literals));
         m_level = 0;
         SASSERT(empty());
@@ -37,11 +41,11 @@ namespace polysat {
     }
 
     void clause_builder::add_dependency(p_dependency* d) {
-        m_dep = m_solver.m_dm.mk_join(m_dep, d);
+        m_dep = m_solver->m_dm.mk_join(m_dep, d);
     }
 
-    void clause_builder::push_literal(sat::literal lit) {
-        push(m_solver.m_constraints.lookup(lit));
+    void clause_builder::push(sat::literal lit) {
+        push(m_solver->m_constraints.lookup(lit));
     }
 
     void clause_builder::push(signed_constraint c) {

@@ -14,6 +14,7 @@ Author:
 #pragma once
 #include "math/polysat/constraint.h"
 #include "math/polysat/clause_builder.h"
+#include <optional>
 
 namespace polysat {
 
@@ -38,6 +39,7 @@ namespace polysat {
 
         /** Whether we are in a bailout state. We enter a bailout state when we give up on proper conflict resolution.  */
         bool m_bailout = false;
+        std::optional<clause_builder> m_bailout_lemma;
 
         solver* m_solver = nullptr;
         constraint_manager& cm();
@@ -69,6 +71,7 @@ namespace polysat {
             m_conflict_var = null_var;
             m_saturation_premises.reset();
             m_bailout = false;
+            m_bailout_lemma.reset();
             SASSERT(empty());
         }
 

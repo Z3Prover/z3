@@ -713,7 +713,7 @@ namespace polysat {
             // - drawback: might have to bail out at boolean resolution
             // Also: maybe we can skip ~L in some cases? but in that case it shouldn't be marked.
             //
-            reason_builder.push_literal(~lit);
+            reason_builder.push(~lit);
         }
         clause_ref reason = reason_builder.build();
 

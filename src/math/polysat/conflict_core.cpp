@@ -149,10 +149,10 @@ namespace polysat {
         clause_builder c_lemma(*m_solver);
         for (auto premise : premises) {
             handle_saturation_premises(premise);
-            c_lemma.push_literal(~premise.blit());
+            c_lemma.push(~premise.blit());
             active_level = std::max(active_level, m_solver->m_bvars.level(premise.blit()));
         }
-        c_lemma.push_literal(c.blit());
+        c_lemma.push(c.blit());
         clause* cl = cm().store(c_lemma.build());
         if (cl->size() == 1)
             c->set_unit_clause(cl);
@@ -180,10 +180,10 @@ namespace polysat {
                 pvar v = item.var();
                 auto c = ~cm().eq(0, m_solver->var(v) - m_solver->m_value[v]);
                 cm().ensure_bvar(c.get());
-                lemma.push_literal(c.blit());
+                lemma.push(c.blit());
             } else {
                 sat::literal lit = item.lit();
-                lemma.push_literal(~lit);
+                lemma.push(~lit);
             }
             --todo;
         }
@@ -228,10 +228,12 @@ namespace polysat {
     }
 
     clause_builder conflict_core::build_lemma(unsigned reverted_level) {
-        if (is_bailout())
-            return build_fallback_lemma(reverted_level);
-        else
+        if (!is_bailout())
             return build_core_lemma(reverted_level);
+        else if (m_bailout_lemma)
+            return *std::move(m_bailout_lemma);
+        else
+            return build_fallback_lemma(reverted_level);
     }
 
     bool conflict_core::resolve_value(pvar v, vector<signed_constraint> const& cjust_v) {
