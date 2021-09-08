@@ -231,15 +231,9 @@ namespace polysat {
         //        (extension to arbitrary monomials for 'x' should be fairly easy too)
         if (!x.is_unary())
             return false;
-        unsigned x_var = x.var();
         rational x_coeff = x.hi().val();
         pdd xz = x;
-        if (!c.rhs.try_div(x_coeff, xz))
-            return false;
-        if (!xz.factor(x_var, 1, z))
-            return false;
-        LOG("zx > yx: " << show_deref(c.src));
-        return true;
+        return c.rhs.try_div(x_coeff, xz) && xz.factor(x.var(), 1, z);
     }
 
     bool inf_saturate::verify_Xy_l_XZ(pvar v, inequality const& c, pdd const& x, pdd const& z) {
