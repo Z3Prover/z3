@@ -16,6 +16,7 @@ Author:
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
 #include "math/polysat/log_helper.h"
+#include "math/polysat/explain.h"
 #include "math/polysat/saturation.h"
 #include "math/polysat/variable_elimination.h"
 #include <algorithm>
@@ -24,9 +25,12 @@ namespace polysat {
 
     conflict_core::conflict_core(solver& s) {
         m_solver = &s;
+        ex_engines.push_back(alloc(ex_polynomial_superposition));
+        for (auto* engine : ex_engines)
+            engine->set_solver(s);
         ve_engines.push_back(alloc(ve_reduction));
         // ve_engines.push_back(alloc(ve_forbidden_intervals));
-        inf_engines.push_back(alloc(inf_polynomial_superposition));
+        // inf_engines.push_back(alloc(inf_polynomial_superposition));
         for (auto* engine : inf_engines)
             engine->set_solver(s);
     }
@@ -79,6 +83,31 @@ namespace polysat {
         m_saturation_premises.insert(c, std::move(premises));  // TODO: map doesn't have move-insertion, so this still copies the vector. Maybe we want a clause_ref (but this doesn't work either since c doesn't have a boolean variable yet).
     }
 
+    void conflict_core::remove(signed_constraint c) {
+        m_constraints.erase(c);
+    }
+
+    void conflict_core::replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> c_new_premises) {
+        remove(c_old);
+        insert(c_new, c_new_premises);
+    }
+
+    void conflict_core::remove_var(pvar v) {
+        unsigned j = 0;
+        for (unsigned i = 0; i < m_constraints.size(); ++i)
+            if (m_constraints[i]->contains_var(v))
+                m_constraints[j++] = m_constraints[i];
+        m_constraints.shrink(j);
+    }
+
+    void conflict_core::keep(signed_constraint c) {
+        SASSERT(!c->has_bvar());
+        cm().ensure_bvar(c.get());
+        LOG("new constraint: " << c);
+        // Insert the temporary constraint from saturation into \Gamma.
+        handle_saturation_premises(c);
+    }
+
     void conflict_core::resolve(constraint_manager const& m, sat::bool_var var, clause const& cl) {
         // Note: core: x, y, z; corresponds to clause ~x \/ ~y \/ ~z
         //       clause: x \/ u \/ v
@@ -118,17 +147,14 @@ namespace polysat {
         auto& premises = it->m_value;
         clause_builder c_lemma(*m_solver);
         for (auto premise : premises) {
-            handle_saturation_premises(c);
+            handle_saturation_premises(premise);
             c_lemma.push_literal(~premise.blit());
         }
         c_lemma.push_literal(c.blit());
         clause* cl = cm().store(c_lemma.build());
         if (cl->size() == 1)
             c->set_unit_clause(cl);
-        // TODO: this should be backtrackable (unless clause is unit).
-        // => add at the end and update pop_levels to replay appropriately
-        m_solver->assign_bool_backtrackable(c.blit(), cl, nullptr);
-        m_solver->activate_constraint(c);
+        m_solver->assign_bool(c.blit(), cl, nullptr);
     }
 
     /** Create fallback lemma that excludes the current search state */
@@ -169,13 +195,8 @@ namespace polysat {
         // TODO: try a final core reduction step?
 
         for (auto c : m_constraints) {
-            if (!c->has_bvar()) {
-                // temporary constraint -> keep it
-                cm().ensure_bvar(c.get());
-                LOG("new constraint: " << c);
-                // Insert the temporary constraint from saturation into \Gamma.
-                handle_saturation_premises(c);
-            }
+            if (!c->has_bvar())
+                keep(c);
             lemma.push(c);
         }
 
@@ -211,13 +232,25 @@ namespace polysat {
         // NOTE:
         // In the "standard" case where "v = val" is on the stack:
         //      - cjust_v contains true constraints
-        //      - core contains both false and true constraints... (originally only false ones, but additional true ones may come from saturation).
+        //      - core contains both false and true constraints... (originally only false ones, but additional true ones may come from saturation?).
         // In the case where no assignment to v is on the stack, i.e., conflict_var == v and viable(v) = \emptyset:
         //      - the constraints in cjust_v cannot be evaluated.
-        //      - TODO: what to do here? pick some value?
+        //      - for now, we just pick a value. TODO: revise later
+        /*
+        if (conflict_var() == v) {
+            // Temporary assignment
+            // (actually we shouldn't just pick any value, but one that makes at least one constraint true...)
+            LOG_H1("WARNING: temporary assignment of conflict_var");
+            m_solver->assign_core(v, m_solver->m_value[v], justification::propagation(m_solver->m_level));
+        }
+        */
 
         for (auto c : cjust_v)
             insert(c);
+
+        for (auto* engine : ex_engines)
+            if (engine->try_explain(v, *this))
+                return true;
 
         // No value resolution method was successful => fall back to saturation and variable elimination
         while (true) {  // TODO: limit?

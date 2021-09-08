@@ -113,8 +113,6 @@ namespace polysat {
         svector<trail_instr_t>   m_trail;
         unsigned_vector          m_qhead_trail;
         unsigned_vector          m_cjust_trail;
-        ptr_vector<constraint>   m_activate_trail;
-
 
         unsigned_vector          m_base_levels;  // External clients can push/pop scope. 
 
@@ -158,10 +156,7 @@ namespace polysat {
         void pop_levels(unsigned num_levels);
         void pop_constraints(signed_constraints& cs);
 
-        void assign_bool_backtrackable(sat::literal lit, clause* reason, clause* lemma);
-        void activate_constraint_base(signed_constraint c);
-        void assign_bool_core(sat::literal lit, clause* reason, clause* lemma);
-        // void assign_bool_base(sat::literal lit);
+        void assign_bool(sat::literal lit, clause* reason, clause* lemma);
         void activate_constraint(signed_constraint c);
         void deactivate_constraint(signed_constraint c);
         sat::literal decide_bool(clause& lemma);
@@ -194,8 +189,6 @@ namespace polysat {
 
         void set_marks(conflict_core const& cc);
         void set_marks(constraint const& c);
-
-        unsigned                 m_conflict_level { 0 };
 
         bool can_decide() const { return !m_free_vars.empty(); }
         void decide();
@@ -237,6 +230,7 @@ namespace polysat {
         bool invariant();
         static bool invariant(signed_constraints const& cs);
         bool wlist_invariant();
+        bool assignment_invariant();
         bool verify_sat();
 
     public:

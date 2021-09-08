@@ -99,7 +99,7 @@ namespace polysat {
         pdd lhs;
         pdd rhs;
         bool is_strict;
-        constraint const* src;
+        constraint const* src;  // TODO: should be signed_constraint now
         inequality(pdd const & lhs, pdd const & rhs, bool is_strict, constraint const* src):
             lhs(lhs), rhs(rhs), is_strict(is_strict), src(src) {}
     };

@@ -30,10 +30,10 @@ namespace polysat {
         unsigned_vector         m_marks;
         unsigned                m_clock { 0 };
 
+    public:
         // allocated size (not the number of active variables)
         unsigned size() const { return m_level.size(); }
 
-    public:
         sat::bool_var new_var();
         void del_var(sat::bool_var var);
 
