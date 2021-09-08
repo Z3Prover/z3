@@ -30,61 +30,7 @@ TODO:
 namespace polysat {
 
     constraint_manager& inference_engine::cm() { return s().m_constraints; }
-
-    /** Polynomial superposition between two equalities that contain v.
-     */
-    bool inf_polynomial_superposition::perform(pvar v, conflict_core& core) {
-        // TODO: check superposition into disequality again (see notes)
-
-        // TODO: use indexing/marking for this instead of allocating a temporary vector
-        // TODO: core saturation premises are from \Gamma (i.e., has_bvar)... but here we further restrict to the core; might need to revise
-        //       -- especially: should take into account results from previous saturations (they will be in \Gamma, but only if we use the constraint or one of its descendants for the lemma)
-        //       actually: we want to take one from the current cjust (currently true) and one from the conflict (currently false)
-        vector<signed_constraint> candidates;
-        for (auto c : core)
-            if (c->has_bvar() && c.is_positive() && c->is_eq() && c->contains_var(v))
-                candidates.push_back(c);
-
-        // TODO: c1 should a currently true constraint, while c2 should take a currently false constraint.
-        //       remove candidates vector (premature optimization)
-        //      we may want to apply this multiple times (a single resolve might not eliminate the variable).
-
-        LOG_H3("Trying polynomial superposition...");
-        for (auto it1 = candidates.begin(); it1 != candidates.end(); ++it1) {
-            for (auto it2 = it1 + 1; it2 != candidates.end(); ++it2) {
-                signed_constraint c1 = *it1;
-                signed_constraint c2 = *it2;
-                SASSERT(c1 != c2);
-                LOG("c1: " << c1);
-                LOG("c2: " << c2);
-
-                pdd a = c1->to_eq().p();
-                pdd b = c2->to_eq().p();
-                pdd r = a;
-                if (!a.resolve(v, b, r) && !b.resolve(v, a, r))
-                    continue;
-                unsigned const lvl = std::max(c1->level(), c2->level());
-                signed_constraint c = cm().eq(lvl, r);
-                LOG("resolved: " << c << "        currently false? " << c.is_currently_false(s()));
-                if (!c.is_currently_false(s()))
-                    continue;
-                vector<signed_constraint> premises;
-                premises.push_back(c1);
-                premises.push_back(c2);
-                core.insert(c, std::move(premises));
-                return true;
-
-//             clause_builder clause(m_solver);
-//             clause.push_literal(~c1->blit());
-//             clause.push_literal(~c2->blit());
-//             clause.push_new_constraint(m_solver.m_constraints.eq(lvl, r));
-//             return clause.build();
-            }
-        }
-
-        return false;
-    }
-
+    
     bool inf_saturate::perform(pvar v, conflict_core& core) {
         for (auto c1 : core) {
             auto c = c1.as_inequality();
@@ -99,7 +45,6 @@ namespace polysat {
         }
         return false;
     }
-
 
     signed_constraint inf_saturate::ineq(unsigned lvl, bool is_strict, pdd const& lhs, pdd const& rhs) {
         if (is_strict)
@@ -120,6 +65,25 @@ namespace polysat {
         push_c(core, c, reason);
     }
 
+#if 0
+    bool find_upper_bound(pvar x, signed_constraint& c, rational& bound) {
+
+        auto & bounds = s().cjust[x];
+        rational best_bound = -1;
+        for (auto& b : bounds) {
+            inequality bound = b.as_inequality();
+            if (is_x_l_Y(x, bound, y) && y.is_value()) {
+                if (y.value() < best_bound) {
+                    if (bound.is_strict)
+                        value = y.value() - 1;
+                    best_bound = value;
+                    c = bound;
+                }
+            }
+        }
+        return best_bound != -1;
+    }
+#endif
     /// Add Ω*(x, y) to the conflict state.
     ///
     /// @param[in] p    bit width

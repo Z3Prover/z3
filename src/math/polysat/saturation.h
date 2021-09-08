@@ -35,11 +35,6 @@ namespace polysat {
         virtual bool perform(pvar v, conflict_core& core) = 0;
     };
 
-    class inf_polynomial_superposition : public inference_engine {
-    public:
-        bool perform(pvar v, conflict_core& core) override;
-    };
-
     class inf_saturate : public inference_engine {
         bool push_omega_mul(conflict_core& core, clause_builder& reason, unsigned level, pdd const& x, pdd const& y);
         signed_constraint ineq(unsigned level, bool strict, pdd const& lhs, pdd const& rhs);
