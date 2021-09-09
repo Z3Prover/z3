@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
+#include "ast/for_each_expr.h"
 #include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
 #include "ast/rewriter/bool_rewriter.h"
@@ -278,6 +279,9 @@ struct evaluator_cfg : public default_rewriter_cfg {
         }
         expr_ref tmp(m);
         func_interp* fi = m_model.get_func_interp(g);
+        if (fi && !fi->get_else()) {
+            fi->set_else(m_model.get_some_value(g->get_range()));
+        }
         if (fi && (tmp = fi->get_array_interp(g))) {
             model_evaluator ev(m_model, m_params);
             ev.set_model_completion(false);
@@ -287,6 +291,10 @@ struct evaluator_cfg : public default_rewriter_cfg {
             TRACE("model_evaluator", tout << mk_pp(g, m) << " " << result << "\n";);
             return true;
         }
+        
+        TRACE("model_evaluator",
+            tout << "could not get array interpretation " << mk_pp(g, m) << " " << fi << "\n";
+            tout << m_model << "\n";);                    
 
         return false;
     }
@@ -403,8 +411,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     }
 
     br_status mk_array_eq(expr* a, expr* b, expr_ref& result) {
-        TRACE("model_evaluator", tout << "mk_array_eq " << m_array_equalities << " " 
-              << mk_pp(a, m) << " " << mk_pp(b, m) << "\n";);
+
         if (a == b) {
             result = m.mk_true();
             return BR_DONE;
@@ -412,6 +419,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
         if (!m_array_equalities) {
             return m_ar_rw.mk_eq_core(a, b, result);
         }
+        TRACE("model_evaluator", tout << "mk_array_eq " << m_array_equalities << " "
+            << mk_pp(a, m) << " " << mk_pp(b, m) << "\n";);
 
         vector<expr_ref_vector> stores1, stores2;
         bool args_are_unique1, args_are_unique2;
@@ -701,11 +710,10 @@ void model_evaluator::operator()(expr * t, expr_ref & result) {
     TRACE("model_evaluator", tout << mk_ismt2_pp(t, m()) << "\n";);
     m_imp->operator()(t, result);
     m_imp->expand_stores(result);
-    TRACE("model_evaluator", tout << result << "\n";);
+    TRACE("model_evaluator", tout << "eval: " << mk_ismt2_pp(t, m()) << " --> " << result << "\n";);
 }
 
 expr_ref model_evaluator::operator()(expr * t) {
-    TRACE("model_evaluator", tout << mk_ismt2_pp(t, m()) << "\n";);
     expr_ref result(m());
     this->operator()(t, result);
     return result;

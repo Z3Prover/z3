@@ -111,6 +111,7 @@ namespace array {
             }
         }
         
+        TRACE("array", tout << "array-as-function " << ctx.bpp(n) << " := " << mk_pp(f, m) << "\n" << "default " << mk_pp(fi->get_else(), m) << "\n";);
         parameter p(f);
         values.set(n->get_expr_id(), m.mk_app(get_id(), OP_AS_ARRAY, 1, &p));
     }
@@ -215,8 +216,8 @@ namespace array {
     }
 
     void solver::set_default(theory_var v, euf::enode* n) {
-        TRACE("array", tout << "set default: " << v << " " << ctx.bpp(n) << "\n";);
         v = mg_find(v);
+        CTRACE("array", !m_defaults[v], tout << "set default: " << v << " " << ctx.bpp(n) << "\n";);
         if (!m_defaults[v]) 
             m_defaults[v] = n;
     }

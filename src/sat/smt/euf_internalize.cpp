@@ -335,12 +335,14 @@ namespace euf {
 
         // the variable is shared if the equivalence class of n
         // contains a parent application.
-
+        
         family_id th_id = m.get_basic_family_id();
         for (auto p : euf::enode_th_vars(n)) {
-            if (m.get_basic_family_id() != p.get_id()) {
-                th_id = p.get_id();
-                break;
+            family_id id = p.get_id();
+            if (m.get_basic_family_id() != id) {
+                if (th_id != m.get_basic_family_id())
+                    return true;
+                th_id = id;               
             }
         }
         if (m.is_bool(n->get_expr()) && th_id != m.get_basic_family_id())

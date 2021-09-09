@@ -21,6 +21,7 @@ Notes:
 #include "ast/ast.h"
 #include "ast/rewriter/rewriter_types.h"
 #include "ast/act_cache.h"
+#include "util/obj_hashtable.h"
 
 /**
    \brief Common infrastructure for AST rewriters.
@@ -60,6 +61,7 @@ protected:
     proof_ref_vector           m_result_pr_stack;
     // --------------------------
 
+    obj_hashtable<expr>        m_blocked;
     expr *                     m_root;
     unsigned                   m_num_qvars;
     struct scope {
@@ -112,6 +114,8 @@ protected:
     void set_new_child_flag(expr * old_t, expr * new_t) { if (old_t != new_t) set_new_child_flag(old_t); }
     
     void elim_reflex_prs(unsigned spos);
+    void block(expr* t) { m_blocked.insert(t); }
+    bool is_blocked(expr* t) const { return m_blocked.contains(t); }
 public:
     rewriter_core(ast_manager & m, bool proof_gen);
     virtual ~rewriter_core();

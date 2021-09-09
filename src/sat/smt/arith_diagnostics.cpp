@@ -57,7 +57,11 @@ namespace arith {
                 if (ctx.is_shared(var2enode(v))) 
                     out << ", shared";
             }
-            out << " := " << mk_bounded_pp(var2expr(v), m) << "\n";
+            expr* e = var2expr(v);
+            out << " := ";
+            if (e)
+                out << "#" << e->get_id() << ": ";
+            out << mk_bounded_pp(var2expr(v), m) << "\n";
         }
         return out; 
     }

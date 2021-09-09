@@ -189,7 +189,7 @@ namespace euf {
             else {
                 IF_VERBOSE(1, verbose_stream() << "no model values created for " << mk_pp(e, m) << "\n");
             }                
-        }
+        }           
     }
 
     void solver::values2model(deps_t const& deps, model_ref& mdl) {
@@ -228,9 +228,12 @@ namespace euf {
                 SASSERT(args.size() == arity);
                 if (!fi->get_entry(args.data()))
                     fi->insert_new_entry(args.data(), v);
-                TRACE("euf", tout << f->get_name() << "\n";
+                TRACE("euf", tout << bpp(n) << " " << f->get_name() << "\n";
                       for (expr* arg : args) tout << mk_pp(arg, m) << " ";
-                      tout << "\n -> " << mk_pp(v, m) << "\n";);
+                      tout << "\n -> " << mk_pp(v, m) << "\n";
+		      for (euf::enode* arg : euf::enode_args(n)) tout << bpp(arg) << " ";
+		      tout << "\n";
+		      );
 
             }
         }
@@ -288,6 +291,18 @@ namespace euf {
     }
 
     void solver::validate_model(model& mdl) {
+        model_evaluator ev(mdl);
+        ev.set_model_completion(true);
+        TRACE("model",
+            for (enode* n : m_egraph.nodes()) {
+                unsigned id = n->get_root_id();
+                expr* val = m_values.get(id, nullptr);
+                if (!val)
+                    continue;
+                expr_ref mval = ev(n->get_expr());
+                if (m.is_value(mval) && val != mval)
+                    tout << "#" << bpp(n) << " := " << mk_pp(val, m) << " ~ " << mval << "\n";
+            });
         bool first = true;
         for (enode* n : m_egraph.nodes()) {
             expr* e = n->get_expr();
