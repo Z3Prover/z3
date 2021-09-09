@@ -53,16 +53,22 @@ namespace polysat {
             return s().m_constraints.ule(lvl, lhs, rhs);
     }
 
-    void inf_saturate::push_c(conflict_core& core, signed_constraint const& c, clause_builder& reason) {
+    bool inf_saturate::push_c(conflict_core& core, signed_constraint const& c, clause_builder& reason) {
+#if 0
+        TODO: check if c is already true.
+        if (is_true(c))
+            return false;
+#endif
         core.insert(c);
         clause_ref lemma = reason.build();
         s().add_lemma(lemma);
         s().propagate_bool(c.blit(), lemma.get());
+        return true;
     }
 
-    void inf_saturate::push_l(conflict_core& core, unsigned lvl, bool is_strict, pdd const& lhs, pdd const& rhs, clause_builder& reason) {
+    bool inf_saturate::push_l(conflict_core& core, unsigned lvl, bool is_strict, pdd const& lhs, pdd const& rhs, clause_builder& reason) {
         signed_constraint c = ineq(lvl, is_strict, lhs, rhs);
-        push_c(core, c, reason);
+        return push_c(core, c, reason);
     }
 
     /// Add premises for Ω*(x, y)
@@ -271,9 +277,7 @@ namespace polysat {
         clause_builder reason(s());        
         reason.push(c);
         push_omega(reason, lvl, x, y);
-        push_l(core, lvl, c.is_strict, y, z, reason);
-
-        return true;
+        return push_l(core, lvl, c.is_strict, y, z, reason);
     }
 
     /// [y] z' <= y /\ zx > yx  ==>  Ω*(x,y) \/ zx > z'x
@@ -295,9 +299,7 @@ namespace polysat {
         reason.push(yx_l_zx);
         push_omega(reason, lvl, x, y);
         // z'x <= zx
-        push_l(core, lvl, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x, reason);
-
-        return true;
+        return push_l(core, lvl, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x, reason);
     }
 
     bool inf_saturate::try_ugt_y(pvar v, conflict_core& core, inequality const& c) {
@@ -342,8 +344,7 @@ namespace polysat {
         reason.push(x_l_z);
         reason.push(y_l_ax);
         push_omega(reason, lvl, a, z);
-        push_l(core, lvl, x_l_z.is_strict || y_l_ax.is_strict, y, a * z, reason);
-        return true;
+        return push_l(core, lvl, x_l_z.is_strict || y_l_ax.is_strict, y, a * z, reason);
     }
 
 
@@ -375,8 +376,7 @@ namespace polysat {
         reason.push(d);
         push_omega(reason, lvl, x, y_prime);
         // yx <= y'x
-        push_l(core, lvl, c.is_strict || d.is_strict, y * x, y_prime * x, reason);
-        return true;
+        return push_l(core, lvl, c.is_strict || d.is_strict, y * x, y_prime * x, reason);
     }
 
 

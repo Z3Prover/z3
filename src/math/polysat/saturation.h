@@ -41,8 +41,8 @@ namespace polysat {
         void push_omega(clause_builder& reason, unsigned level, pdd const& x, pdd const& y);
         void push_omega_bisect(clause_builder& reason, unsigned level, pdd const& x, rational x_max, pdd const& y, rational y_max);
         signed_constraint ineq(unsigned level, bool strict, pdd const& lhs, pdd const& rhs);
-        void push_c(conflict_core& core, signed_constraint const& c, clause_builder& reason);
-        void push_l(conflict_core& core, unsigned level, bool strict, pdd const& lhs, pdd const& rhs, clause_builder& reason);
+        bool push_c(conflict_core& core, signed_constraint const& c, clause_builder& reason);
+        bool push_l(conflict_core& core, unsigned level, bool strict, pdd const& lhs, pdd const& rhs, clause_builder& reason);
 
         bool try_ugt_x(pvar v, conflict_core& core, inequality const& c);
 
