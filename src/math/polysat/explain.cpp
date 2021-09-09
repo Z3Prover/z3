@@ -33,7 +33,7 @@ namespace polysat {
                 return {};
             // Only keep result if the degree in c2 was reduced.
             // (this condition might be too strict, but we use it for now to prevent looping)
-            if (b.degree(v) >= r.degree(v))
+            if (b.degree(v) <= r.degree(v))
                 return {};
             unsigned const lvl = std::max(c1->level(), c2->level());
             signed_constraint c = cm().eq(lvl, r);
