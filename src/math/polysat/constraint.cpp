@@ -215,6 +215,10 @@ namespace polysat {
         return ult(lvl, a + shift, b + shift);
     }
 
+    signed_constraint inequality::as_signed_constraint() const {
+        return signed_constraint(const_cast<constraint*>(src), !is_strict);
+    }
+
     eq_constraint& constraint::to_eq() { 
         return *dynamic_cast<eq_constraint*>(this); 
     }
