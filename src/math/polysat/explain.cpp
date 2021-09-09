@@ -31,6 +31,10 @@ namespace polysat {
             pdd r = a;
             if (!a.resolve(v, b, r) && !b.resolve(v, a, r))
                 return {};
+            // Only keep result if the degree in c2 was reduced.
+            // (this condition might be too strict, but we use it for now to prevent looping)
+            if (b.degree(v) >= r.degree(v))
+                return {};
             unsigned const lvl = std::max(c1->level(), c2->level());
             signed_constraint c = cm().eq(lvl, r);
             LOG("resolved: " << c << "        currently false? " << c.is_currently_false(s()));
@@ -43,9 +47,9 @@ namespace polysat {
         return c.is_positive() && c->is_eq() && c->contains_var(v);
     }
 
-    // TODO(later): check superposition into disequality again (see notes)
-    // true = done, false = abort, undef = continue
-    lbool ex_polynomial_superposition::try_explain1(pvar v, conflict_core& core) {
+    // c2 ... constraint that is currently false
+    // Try to replace it with a new false constraint (derived from superposition with a true constraint)
+    signed_constraint ex_polynomial_superposition::find_replacement(signed_constraint c2, pvar v, conflict_core& core) {
         for (auto it1 = core.begin(); it1 != core.end(); ++it1) {
             signed_constraint c1 = *it1;
             if (!is_positive_equality_over(v, c1))
@@ -53,27 +57,40 @@ namespace polysat {
             if (!c1.is_currently_true(s()))
                 continue;
 
-            for (auto it2 = core.begin(); it2 != core.end(); ++it2) {
-                signed_constraint c2 = *it2;
-                if (!is_positive_equality_over(v, c2))
-                    continue;
-                if (!c2.is_currently_false(s()))
-                    continue;
+            signed_constraint c = resolve1(v, c1, c2);
+            if (!c)
+                continue;
+            vector<signed_constraint> premises;
+            premises.push_back(c1);
+            premises.push_back(c2);
+            core.replace(c2, c, std::move(premises));
+            return c;
+        }
+        return {};
+    }
 
-                signed_constraint c = resolve1(v, c1, c2);
-                if (!c)
-                    continue;
-                vector<signed_constraint> premises;
-                premises.push_back(c1);
-                premises.push_back(c2);
-                core.replace(c2, c, std::move(premises));
-                if (!c->contains_var(v)) {
-                    core.keep(c);
-                    core.remove_var(v);
-                    return l_true;
-                } else
-                    return l_undef;
+    // TODO(later): check superposition into disequality again (see notes)
+    // true = done, false = abort, undef = continue
+    lbool ex_polynomial_superposition::try_explain1(pvar v, conflict_core& core) {
+        for (auto it2 = core.begin(); it2 != core.end(); ++it2) {
+            signed_constraint c2 = *it2;
+            if (!is_positive_equality_over(v, c2))
+                continue;
+            if (!c2.is_currently_false(s()))
+                continue;
+
+            // TODO: can try multiple replacements at once; then the it2 loop needs to be done only once... (requires some reorganization for storing the premises)
+            signed_constraint c = find_replacement(c2, v, core);
+            if (!c)
+                continue;
+
+            if (!c->contains_var(v)) {
+                core.keep(c);
+                core.remove_var(v);
+                return l_true;
             }
+            else
+                return l_undef;
         }
         return l_false;
     }
