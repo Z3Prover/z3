@@ -28,7 +28,7 @@ namespace polysat {
         svector<clause*>        m_lemma;
 
         unsigned_vector         m_marks;
-        unsigned                m_clock { 0 };
+        unsigned                m_clock = 0;
 
     public:
         // allocated size (not the number of active variables)

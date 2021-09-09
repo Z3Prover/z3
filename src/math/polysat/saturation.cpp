@@ -161,7 +161,7 @@ namespace polysat {
         return true;
     }
 
-    // special case viable sets.
+    // special case viable sets used by variables.
     bool inf_saturate::push_omega_viable(conflict_core& core, clause_builder& reason, unsigned level, pdd const& px, pdd const& py) {
         if (!px.is_var() || !py.is_var())
             return false;
@@ -171,7 +171,8 @@ namespace polysat {
         rational y_max = s().m_viable.max_viable(y);
         auto& pddm = px.manager();
         unsigned bit_size = pddm.power_of_2();
-        if (x_max * y_max < rational::power_of_two(bit_size)) {
+        rational bound = rational::power_of_two(bit_size);
+        if (x_max * y_max < bound) {
             // max values don't overflow, we can justify no-overflow using cjust for x, y
             for (auto c : s().m_cjust[x])
                 reason.push(c);
@@ -183,13 +184,55 @@ namespace polysat {
         rational x_val = s().get_value(x);
         rational y_val = s().get_value(y);
 
-        if (x_val * y_val >= rational::power_of_two(bit_size))
+        if (x_val * y_val >= bound)
             return false;
 
-        // TODO: try bisection approach to find values between x_val and y_val and x_max, y_max
-        // find x_mid, y_mid that doesn't overflow.
+        rational x_lo = x_val, x_hi = x_max, y_lo = y_val, y_hi = y_max;
+        rational two(2);
+        while (x_lo < x_hi || y_lo < y_hi) {
+            rational x_mid = div(x_hi + x_lo, two);
+            rational y_mid = div(y_hi + y_lo, two);
+            if (x_mid * y_mid >= bound)
+                x_hi = x_mid - 1, y_hi = y_mid - 1;
+            else
+                x_lo = x_mid, y_lo = y_mid;            
+        }
+        SASSERT(x_hi == x_lo && y_hi == y_lo);
+        SASSERT(x_lo * y_lo < bound);
+        SASSERT((x_lo + 1) * (y_lo + 1) >= bound);
+        if ((x_lo + 1) * y_lo < bound) {
+            x_hi = x_max;
+            while (x_lo < x_hi) {
+                rational x_mid = div(x_hi + x_lo, two);
+                if (x_mid * y_lo >= bound)
+                    x_hi = x_mid - 1;
+                else
+                    x_lo = x_mid;
+            }
+        }
+        else if (x_lo * (y_lo + 1) < bound) {
+            y_hi = y_max;
+            while (y_lo < y_hi) {
+                rational y_mid = div(y_hi + y_lo, two);
+                if (y_mid * x_lo >= bound)
+                    y_hi = y_mid - 1;
+                else
+                    y_lo = y_mid;
+            }
+        }
+        SASSERT(x_lo * y_lo < bound);
+        SASSERT((x_lo + 1) * y_lo >= bound);
+        SASSERT(x_lo * (y_lo + 1) >= bound);
 
-        return false;
+        // inequalities are justified by current assignments to px, py
+        // conflict resolution should be able to pick up this as a valid justification.
+        // or we resort to the same extension as in the original mul_overflow code
+        // where we add explicit equality propagations from the current assignment.
+        auto c1 = s().m_constraints.ule(level, px, pddm.mk_val(x_lo));
+        auto c2 = s().m_constraints.ule(level, py, pddm.mk_val(y_lo));
+        reason.push(c1);
+        reason.push(c2);
+        return true;
     }
 
     /*
