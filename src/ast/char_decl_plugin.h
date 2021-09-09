@@ -40,7 +40,6 @@ enum char_op_kind {
 class char_decl_plugin : public decl_plugin {
     sort* m_char { nullptr };
     symbol m_charc_sym;
-    bool m_unicode { true };
 
     void set_manager(ast_manager * m, family_id id) override;
 
@@ -96,8 +95,7 @@ public:
     MATCH_UNARY(is_to_int);
     MATCH_BINARY(is_le);
 
-    bool unicode() const { return m_unicode; }
-    unsigned max_char() const { return m_unicode ? zstring::unicode_max_char() : zstring::ascii_max_char(); }
-    unsigned num_bits() const { return m_unicode ? zstring::unicode_num_bits() : zstring::ascii_num_bits(); }
+    static unsigned max_char() { return zstring::max_char(); }
 
+    static unsigned num_bits() { return zstring::num_bits(); }
 };

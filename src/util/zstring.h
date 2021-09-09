@@ -21,17 +21,47 @@ Author:
 #include "util/buffer.h"
 #include "util/rational.h"
 
+enum string_encoding {
+  ascii, // exactly 8 bits
+  unicode,
+  bmp // basic multilingual plane; exactly 16 bits
+};
+
 class zstring {
 private:
     buffer<uint32_t> m_buffer;
     bool well_formed() const;
-    bool uses_unicode() const;
     bool is_escape_char(char const *& s, unsigned& result);
 public:
     static unsigned unicode_max_char() { return 196607; }
     static unsigned unicode_num_bits() { return 18; }
+    static unsigned bmp_max_char() { return 65535; }
+    static unsigned bmp_num_bits() { return 16; }
     static unsigned ascii_max_char() { return 255; }
     static unsigned ascii_num_bits() { return 8; }
+    static unsigned max_char() {
+      switch (get_encoding()) {
+        case unicode:
+          return unicode_max_char();
+        case bmp:
+          return bmp_max_char();
+        case ascii:
+          return ascii_max_char();
+      }
+      return unicode_max_char();
+    }
+    static unsigned num_bits() {
+      switch (get_encoding()) {
+        case unicode:
+          return unicode_num_bits();
+        case bmp:
+          return bmp_num_bits();
+        case ascii:
+          return ascii_num_bits();
+      }
+      return unicode_num_bits();
+    }
+    static string_encoding get_encoding();
     zstring() = default;
     zstring(char const* s);
     zstring(const std::string &str) : zstring(str.c_str()) {}

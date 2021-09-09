@@ -166,8 +166,6 @@ public:
 
     void finalize() override;
 
-    bool unicode() const { return get_char_plugin().unicode(); }
-
     decl_plugin * mk_fresh() override { return alloc(seq_decl_plugin); }
 
     sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
