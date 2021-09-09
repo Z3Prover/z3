@@ -20,6 +20,7 @@ Notes:
 #pragma once
 
 #include "util/params.h"
+#include "util/zstring.h"
 
 class context_params {
     void set_bool(bool & opt, char const * param, char const * value);
@@ -28,21 +29,21 @@ class context_params {
     unsigned    m_rlimit { 0 };
 
 public:
-    unsigned    m_timeout { UINT_MAX } ;
-    std::string m_dot_proof_file;
-    std::string m_trace_file_name;
-    bool        m_auto_config { true };
-    bool        m_proof { false };
-    bool        m_debug_ref_count { false };
-    bool        m_trace { false };
-    bool        m_well_sorted_check { false };
-    bool        m_model { true };
-    bool        m_model_validate { false };
-    bool        m_dump_models { false };
-    bool        m_unsat_core { false };
-    bool        m_smtlib2_compliant { false }; // it must be here because it enable/disable the use of coercions in the ast_manager.
-    bool        m_statistics { false };
-    bool        m_unicode { true };
+    unsigned         m_timeout { UINT_MAX } ;
+    std::string      m_dot_proof_file;
+    std::string      m_trace_file_name;
+    bool             m_auto_config { true };
+    bool             m_proof { false };
+    bool             m_debug_ref_count { false };
+    bool             m_trace { false };
+    bool             m_well_sorted_check { false };
+    bool             m_model { true };
+    bool             m_model_validate { false };
+    bool             m_dump_models { false };
+    bool             m_unsat_core { false };
+    bool             m_smtlib2_compliant { false }; // it must be here because it enable/disable the use of coercions in the ast_manager.
+    bool             m_statistics { false };
+    std::string      m_encoding { "unicode" };
 
     unsigned rlimit() const { return m_rlimit; }
     context_params();
