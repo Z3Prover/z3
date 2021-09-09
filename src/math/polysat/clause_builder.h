@@ -48,6 +48,9 @@ namespace polysat {
 
         void push(sat::literal lit);
         void push(signed_constraint c);
+        void push(inequality const& i) {
+            NOT_IMPLEMENTED_YET();
+        }
       
         using const_iterator = decltype(m_literals)::const_iterator;
         const_iterator begin() const { return m_literals.begin(); }

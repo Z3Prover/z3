@@ -38,8 +38,8 @@ namespace polysat {
     class inf_saturate : public inference_engine {
         bool find_upper_bound(pvar x, signed_constraint& c, rational& bound);
 
-        bool push_omega_viable(conflict_core& core, clause_builder& reason, unsigned level, pdd const& x, pdd const& y);
-        bool push_omega_mul(conflict_core& core, clause_builder& reason, unsigned level, pdd const& x, pdd const& y);
+        void push_omega(clause_builder& reason, unsigned level, pdd const& x, pdd const& y);
+        void push_omega_bisect(clause_builder& reason, unsigned level, pdd const& x, rational x_max, pdd const& y, rational y_max);
         signed_constraint ineq(unsigned level, bool strict, pdd const& lhs, pdd const& rhs);
         void push_c(conflict_core& core, signed_constraint const& c, clause_builder& reason);
         void push_l(conflict_core& core, unsigned level, bool strict, pdd const& lhs, pdd const& rhs, clause_builder& reason);
@@ -82,6 +82,9 @@ namespace polysat {
 
         // xy := x * Y
         bool is_xY(pvar x, pdd const& xy, pdd& y);
+
+        // a * b does not overflow
+        bool is_non_overflow(pdd const& a, pdd const& b);
 
     public:
 
