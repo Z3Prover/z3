@@ -180,6 +180,12 @@ namespace polysat {
          */
         void add_non_viable(pvar v, rational const& val);
 
+        /*
+        * Extract min and max viable values for v
+        */
+        rational min_viable(pvar v);
+
+        rational max_viable(pvar v);
 
         /**
          * Find a next viable value for variable.

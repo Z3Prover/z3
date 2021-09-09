@@ -246,6 +246,7 @@ namespace dd {
         inline bool is_one(PDD p) const { return p == one_pdd; } 
         inline bool is_val(PDD p) const { return m_nodes[p].is_val(); }
         inline bool is_internal(PDD p) const { return m_nodes[p].is_internal(); }
+        inline bool is_var(PDD p) const { return !is_val(p) && is_zero(lo(p)) && is_one(hi(p)); }
         bool is_never_zero(PDD p);
         inline unsigned level(PDD p) const { return m_nodes[p].m_level; }
         inline unsigned var(PDD p) const { return m_level2var[level(p)]; }
@@ -388,6 +389,7 @@ namespace dd {
         bool is_one() const { return m.is_one(root); }
         bool is_zero() const { return m.is_zero(root); }
         bool is_linear() const { return m.is_linear(root); }
+        bool is_var() const { return m.is_var(root); }
         /** Polynomial is of the form: a * x + b */
         bool is_unilinear() const { return !is_val() && lo().is_val() && hi().is_val(); }
         bool is_unary() const { return !is_val() && lo().is_zero() && hi().is_val(); } 

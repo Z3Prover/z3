@@ -332,5 +332,35 @@ namespace dd {
         return true;
     }
 
+    rational fdd::max(bdd b) const {
+        SASSERT(!b.is_false());
+        rational result(0);
+        for (unsigned i = num_bits(); i-- > 0; ) {
+            unsigned v = m_pos2var[i];
+            bdd w = m->mk_var(v);
+            bdd hi = b.cofactor(w);
+            if (!hi.is_false()) {
+                b = hi;
+                result += rational::power_of_two(i);
+            }
+        }
+        return result;
+    }
+
+    rational fdd::min(bdd b) const {
+        SASSERT(!b.is_false());
+        rational result(0);
+        for (unsigned i = num_bits(); i-- > 0; ) {
+            unsigned v = m_pos2var[i];
+            bdd nw = m->mk_nvar(v);
+            bdd lo = b.cofactor(nw);
+            if (lo.is_false())
+                result += rational::power_of_two(i);
+            else
+                b = lo;
+        }
+        return result;
+    }
+
 
 }

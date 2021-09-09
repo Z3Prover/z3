@@ -87,6 +87,7 @@ namespace polysat {
         return best_bound != -1;
     }
 
+
     /// Add Ω*(x, y) to the conflict state.
     ///
     /// @param[in] p    bit width
@@ -158,6 +159,37 @@ namespace polysat {
         reason.push(c1);
         reason.push(c2);
         return true;
+    }
+
+    // special case viable sets.
+    bool inf_saturate::push_omega_viable(conflict_core& core, clause_builder& reason, unsigned level, pdd const& px, pdd const& py) {
+        if (!px.is_var() || !py.is_var())
+            return false;
+        pvar x = px.var();
+        pvar y = py.var();
+        rational x_max = s().m_viable.max_viable(x);
+        rational y_max = s().m_viable.max_viable(y);
+        auto& pddm = px.manager();
+        unsigned bit_size = pddm.power_of_2();
+        if (x_max * y_max < rational::power_of_two(bit_size)) {
+            // max values don't overflow, we can justify no-overflow using cjust for x, y
+            for (auto c : s().m_cjust[x])
+                reason.push(c);
+            for (auto c : s().m_cjust[y])
+                reason.push(c);
+            return true;
+        }
+        
+        rational x_val = s().get_value(x);
+        rational y_val = s().get_value(y);
+
+        if (x_val * y_val >= rational::power_of_two(bit_size))
+            return false;
+
+        // TODO: try bisection approach to find values between x_val and y_val and x_max, y_max
+        // find x_mid, y_mid that doesn't overflow.
+
+        return false;
     }
 
     /*

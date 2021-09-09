@@ -78,26 +78,31 @@ namespace dd {
         /** Like find, but returns hint if it is contained in the BDD. */
         find_t find_hint(bdd b, rational const& hint, rational& out_val) const;
 
+        /*
+         * find largest value at lo or above such that bdd b evaluates to true
+         * at lo and all values between.
+         * dually, find smallest value below hi that evaluates b to true
+         * and all values between the value and hi also evaluate b to true.
+         * \param b - a bdd using variables from this
+         * \param lo/hi - bound to be traversed.
+         * \return false if b is false at lo/hi
+         * \pre variables in b are a subset of variables from the fdd
+         */
+        bool sup(bdd const& b, bool_vector& lo) const;
 
-
-	/*
-	 * find largest value at lo or above such that bdd b evaluates to true
-	 * at lo and all values between.
-	 * dually, find smallest value below hi that evaluates b to true
-	 * and all values between the value and hi also evaluate b to true.
-	 * \param b - a bdd using variables from this
-	 * \param lo/hi - bound to be traversed.
-	 * \return false if b is false at lo/hi
-	 * \pre variables in b are a subset of variables from the fdd
-	 */ 
-	bool sup(bdd const& b, bool_vector& lo) const;
-      
-	bool inf(bdd const& b, bool_vector& hi) const; 
+        bool inf(bdd const& b, bool_vector& hi) const;
 
         bool sup(bdd const& b, rational& lo) const;
 
         bool inf(bdd const& b, rational& hi) const;
-      
+
+        /*
+        * Find the min-max satisfying assignment.
+        * \pre b is not false.
+        */
+        rational max(bdd b) const;
+
+        rational min(bdd b) const;
     };
 
 }

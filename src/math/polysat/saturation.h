@@ -38,6 +38,7 @@ namespace polysat {
     class inf_saturate : public inference_engine {
         bool find_upper_bound(pvar x, signed_constraint& c, rational& bound);
 
+        bool push_omega_viable(conflict_core& core, clause_builder& reason, unsigned level, pdd const& x, pdd const& y);
         bool push_omega_mul(conflict_core& core, clause_builder& reason, unsigned level, pdd const& x, pdd const& y);
         signed_constraint ineq(unsigned level, bool strict, pdd const& lhs, pdd const& rhs);
         void push_c(conflict_core& core, signed_constraint const& c, clause_builder& reason);
