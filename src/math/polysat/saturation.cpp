@@ -25,9 +25,8 @@ TODO: when we check that 'x' is "unary":
    (extension to arbitrary monomials for 'x' should be fairly easy too)
 
 TODO: 
-- resolve away the "problematic" premise (non-linear inequality etc) that is reduced by a saturation rule.
-  - it would work by adding the explanations for the resolved premises to the reason clause 
-  - and removing the literal from the core
+- remove the "problematic" literal from the core itself such that reference counts on variable assignments are decreased.
+
 --*/
 #include "math/polysat/saturation.h"
 #include "math/polysat/solver.h"
@@ -52,11 +51,11 @@ namespace polysat {
         return false;
     }
 
-    signed_constraint inf_saturate::ineq(unsigned lvl, bool is_strict, pdd const& lhs, pdd const& rhs) {
+    signed_constraint inf_saturate::ineq(bool is_strict, pdd const& lhs, pdd const& rhs) {
         if (is_strict)
-            return cm().ult(lvl, lhs, rhs);
+            return cm().ult(lhs, rhs);
         else
-            return cm().ule(lvl, lhs, rhs);
+            return cm().ule(lhs, rhs);
     }
 
     /**
@@ -72,13 +71,13 @@ namespace polysat {
         return true;
     }
 
-    bool inf_saturate::propagate(conflict_core& core, unsigned lvl, bool is_strict, pdd const& lhs, pdd const& rhs, clause_builder& reason) {
-        signed_constraint c = ineq(lvl, is_strict, lhs, rhs);
+    bool inf_saturate::propagate(conflict_core& core, bool is_strict, pdd const& lhs, pdd const& rhs, clause_builder& reason) {
+        signed_constraint c = ineq(is_strict, lhs, rhs);
         return propagate(core, c, reason);
     }
 
     /// Add premises for Ω*(x, y)
-    void inf_saturate::push_omega_bisect(clause_builder& reason, unsigned level, pdd const& x, rational x_max, pdd const& y, rational y_max) {
+    void inf_saturate::push_omega_bisect(clause_builder& reason, pdd const& x, rational x_max, pdd const& y, rational y_max) {
         rational x_val, y_val;
         auto& pddm = x.manager();
         unsigned bit_size = pddm.power_of_2();
@@ -128,15 +127,15 @@ namespace polysat {
         // conflict resolution should be able to pick up this as a valid justification.
         // or we resort to the same extension as in the original mul_overflow code
         // where we add explicit equality propagations from the current assignment.
-        auto c1 = cm().ule(level, x, pddm.mk_val(x_lo));
-        auto c2 = cm().ule(level, y, pddm.mk_val(y_lo));
+        auto c1 = cm().ule(x, pddm.mk_val(x_lo));
+        auto c2 = cm().ule(y, pddm.mk_val(y_lo));
         reason.push(~c1);
         reason.push(~c2);
     }
 
     // determine worst case upper bounds for x, y
     // then extract premises for a non-worst-case bound.
-    void inf_saturate::push_omega(clause_builder& reason, unsigned level, pdd const& x, pdd const& y) {     
+    void inf_saturate::push_omega(clause_builder& reason, pdd const& x, pdd const& y) {     
         auto& pddm = x.manager();
         unsigned bit_size = pddm.power_of_2();
         rational bound = rational::power_of_two(bit_size);
@@ -149,7 +148,7 @@ namespace polysat {
             y_max = s().m_viable.max_viable(y.var());        
 
         if (x_max * y_max  >= bound)            
-            push_omega_bisect(reason, level, x, x_max, y, y_max);
+            push_omega_bisect(reason, x, x_max, y, y_max);
         else {
             for (auto c : s().m_cjust[y.var()])
                 reason.push(~c);
@@ -263,13 +262,12 @@ namespace polysat {
         if (!c.is_strict && s().get_value(v).is_zero())
             return false;
 
-        unsigned const lvl = c.src->level();
         clause_builder reason(s());   
         if (!c.is_strict)
-            reason.push(cm().eq(lvl, x - x.manager().mk_val(rational(0))));
+            reason.push(cm().eq(x - x.manager().mk_val(rational(0))));
         reason.push(~c.as_signed_constraint());
-        push_omega(reason, lvl, x, y);        
-        return propagate(core, lvl, c.is_strict, y, z, reason);
+        push_omega(reason, x, y);        
+        return propagate(core, c.is_strict, y, z, reason);
     }
 
     /// [y] z' <= y /\ zx > yx  ==>  Ω*(x,y) \/ zx > z'x
@@ -282,15 +280,14 @@ namespace polysat {
         if (!is_non_overflow(x, y))
             return false;
           
-        unsigned const lvl = std::max(yx_l_zx.src->level(), le_y.src->level());
         pdd const& z_prime = le_y.lhs;
 
         clause_builder reason(s());
         reason.push(~le_y.as_signed_constraint());
         reason.push(~yx_l_zx.as_signed_constraint());
-        push_omega(reason, lvl, x, y);
+        push_omega(reason, x, y);
         // z'x <= zx
-        return propagate(core, lvl, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x, reason);
+        return propagate(core, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x, reason);
     }
 
     bool inf_saturate::try_ugt_y(pvar v, conflict_core& core, inequality const& c) {
@@ -329,12 +326,11 @@ namespace polysat {
         pdd z = x_l_z.rhs;
         if (!is_non_overflow(a, z))
             return false;
-        unsigned const lvl = std::max(x_l_z.src->level(), y_l_ax.src->level());
         clause_builder reason(s());
         reason.push(~x_l_z.as_signed_constraint());
         reason.push(~y_l_ax.as_signed_constraint());
-        push_omega(reason, lvl, a, z);
-        return propagate(core, lvl, x_l_z.is_strict || y_l_ax.is_strict, y, a * z, reason);
+        push_omega(reason, a, z);
+        return propagate(core, x_l_z.is_strict || y_l_ax.is_strict, y, a * z, reason);
     }
 
 
@@ -356,16 +352,15 @@ namespace polysat {
     bool inf_saturate::try_ugt_z(pvar z, conflict_core& core, inequality const& c, inequality const& d, pdd const& x, pdd const& y) {
         SASSERT(is_g_v(z, c));
         SASSERT(verify_YX_l_zX(z, d, x, y));
-        unsigned const lvl = std::max(c.src->level(), d.src->level());
         pdd const& y_prime = c.rhs;
         if (!is_non_overflow(x, y_prime))
             return false;
         clause_builder reason(s());
         reason.push(~c.as_signed_constraint());
         reason.push(~d.as_signed_constraint());
-        push_omega(reason, lvl, x, y_prime);
+        push_omega(reason, x, y_prime);
         // yx <= y'x
-        return propagate(core, lvl, c.is_strict || d.is_strict, y * x, y_prime * x, reason);
+        return propagate(core, c.is_strict || d.is_strict, y * x, y_prime * x, reason);
     }
 
 

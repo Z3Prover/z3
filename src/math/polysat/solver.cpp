@@ -117,27 +117,27 @@ namespace polysat {
     }
 
     signed_constraint solver::mk_eq(pdd const& p) {
-        return m_constraints.eq(m_level, p);
+        return m_constraints.eq(p);
     }
 
     signed_constraint solver::mk_diseq(pdd const& p) {
-        return ~m_constraints.eq(m_level, p);
+        return ~m_constraints.eq(p);
     }
 
     signed_constraint solver::mk_ule(pdd const& p, pdd const& q) {
-        return m_constraints.ule(m_level, p, q);
+        return m_constraints.ule(p, q);
     }
 
     signed_constraint solver::mk_ult(pdd const& p, pdd const& q) {
-        return m_constraints.ult(m_level, p, q);
+        return m_constraints.ult(p, q);
     }
 
     signed_constraint solver::mk_sle(pdd const& p, pdd const& q) {
-        return m_constraints.sle(m_level, p, q);
+        return m_constraints.sle(p, q);
     }
 
     signed_constraint solver::mk_slt(pdd const& p, pdd const& q) {
-        return m_constraints.slt(m_level, p, q);
+        return m_constraints.slt(p, q);
     }
 
     void solver::new_constraint(signed_constraint c, unsigned dep, bool activate) {
@@ -150,7 +150,7 @@ namespace polysat {
         if (dep != null_dependency)
             m_constraints.register_external(c.get());
         LOG("New constraint: " << c);
-        m_original.push_back(c);
+
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.new_constraint(*c.get());
 #endif
@@ -308,8 +308,6 @@ namespace polysat {
             }
             m_trail.pop_back();
         }
-        pop_constraints(m_original);
-        pop_constraints(m_redundant);
         m_constraints.release_level(m_level + 1);
         SASSERT(m_level == target_level);
         for (unsigned j = replay.size(); j-- > 0; ) {
@@ -319,13 +317,6 @@ namespace polysat {
         }
     }
 
-    void solver::pop_constraints(signed_constraints& cs) {
-        VERIFY(invariant(cs));
-        while (!cs.empty() && cs.back()->level() > m_level) {
-            deactivate_constraint(cs.back());
-            cs.pop_back();
-        }        
-    }
 
     void solver::add_watch(signed_constraint c) {
         SASSERT(c);
@@ -796,7 +787,6 @@ namespace polysat {
         if (cl->size() == 1) {
             signed_constraint c = m_constraints.lookup((*cl)[0]);
             c->set_unit_clause(cl);
-            insert_constraint(m_redundant, c);
         }
     }
 
@@ -804,13 +794,6 @@ namespace polysat {
         SASSERT(c);
         LOG_V("INSERTING: " << c);
         cs.push_back(c);
-        for (unsigned i = cs.size() - 1; i-- > 0; ) {
-            auto c1 = cs[i + 1];
-            auto c2 = cs[i];
-            if (c1->level() >= c2->level())
-                break;
-            std::swap(cs[i], cs[i+1]);
-        }
         SASSERT(invariant(cs)); 
     }
     
@@ -864,11 +847,8 @@ namespace polysat {
             // out << m_viable[v] << "\n";
         }
         out << "Boolean assignment:\n\t" << m_bvars << "\n";
-        out << "Original:\n";
-        for (auto c : m_original)
-            out << "\t" << c << "\n";
-        out << "Redundant:\n";
-        for (auto c : m_redundant)
+        out << "Constraints:\n";
+        for (auto c : m_constraints)
             out << "\t" << c << "\n";
         out << "Redundant clauses:\n";
         for (auto* cl : m_redundant_clauses) {
@@ -906,18 +886,13 @@ namespace polysat {
     }
 
     bool solver::invariant() {
-        invariant(m_original);
-        invariant(m_redundant);
         return true;
     }
 
     /**
-     * constraints are sorted by levels so they can be removed when levels are popped.
+     * levels are gone
      */
     bool solver::invariant(signed_constraints const& cs) {
-        unsigned sz = cs.size();
-        for (unsigned i = 0; i + 1 < sz; ++i) 
-            VERIFY(cs[i]->level() <= cs[i + 1]->level());
         return true;
     }
 
@@ -925,21 +900,25 @@ namespace polysat {
      * Check that two variables of each constraint are watched.
      */
     bool solver::wlist_invariant() {
-        signed_constraints cs;
-        cs.append(m_original.size(), m_original.data());
-        cs.append(m_redundant.size(), m_redundant.data());
-        // Skip boolean literals that aren't active yet
+        // Skip boolean variables that aren't active yet
         uint_set skip;
         for (unsigned i = m_qhead; i < m_search.size(); ++i)
             if (m_search[i].is_boolean())
-                skip.insert(m_search[i].lit().to_uint());
-        for (auto c : cs) {
-            SASSERT(c->has_bvar());
-            if (skip.contains(c.blit().to_uint()))
+                skip.insert(m_search[i].lit().var());
+        for (auto c : m_constraints) {
+            if (!c->has_bvar())
                 continue;
+            if (skip.contains(c->bvar()))
+                continue;
+
+            lbool value = m_bvars.value(c->bvar());
+            if (value == l_undef)
+                continue;
+            bool is_positive = value == l_true;
             int64_t num_watches = 0;
+            signed_constraint sc(c, is_positive);
             for (auto const& wlist : m_watch) {
-                auto n = std::count(wlist.begin(), wlist.end(), c);
+                auto n = std::count(wlist.begin(), wlist.end(), sc);
                 VERIFY(n <= 1);  // no duplicates in the watchlist
                 num_watches += n;
             }
@@ -968,10 +947,12 @@ namespace polysat {
         LOG_H1("Checking current model...");
         LOG("Assignment: " << assignments_pp(*this));
         bool all_ok = true;
-        for (auto c : m_original) {
-            bool ok = c.is_currently_true(*this);
-            LOG((ok ? "PASS" : "FAIL") << ": " << c);
-            all_ok = all_ok && ok;
+        for (auto s : m_search) {
+            if (s.is_boolean()) {
+                bool ok = m_bvars.value(s.lit()) == l_true;
+                LOG((ok ? "PASS" : "FAIL") << ": " << s.lit());
+                all_ok = all_ok && ok;
+            }
         }
         if (all_ok) LOG("All good!");
         return true;

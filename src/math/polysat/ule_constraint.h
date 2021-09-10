@@ -23,8 +23,8 @@ namespace polysat {
         pdd m_lhs;
         pdd m_rhs;
 
-        ule_constraint(constraint_manager& m, unsigned lvl, pdd const& l, pdd const& r):
-            constraint(m, lvl, ckind_t::ule_t), m_lhs(l), m_rhs(r) {
+        ule_constraint(constraint_manager& m, pdd const& l, pdd const& r):
+            constraint(m, ckind_t::ule_t), m_lhs(l), m_rhs(r) {
             m_vars.append(l.free_vars());
             for (auto v : r.free_vars())
                 if (!m_vars.contains(v))

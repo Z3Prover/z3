@@ -89,8 +89,6 @@ namespace polysat {
 
         // Per constraint state
         constraint_manager       m_constraints;
-        signed_constraints       m_original;
-        signed_constraints       m_redundant;
         ptr_vector<clause>       m_redundant_clauses;
 
         svector<sat::bool_var>   m_disjunctive_lemma;
@@ -154,7 +152,6 @@ namespace polysat {
 
         void push_level();
         void pop_levels(unsigned num_levels);
-        void pop_constraints(signed_constraints& cs);
 
         void assign_bool(unsigned level, sat::literal lit, clause* reason, clause* lemma);
         void activate_constraint(signed_constraint c);

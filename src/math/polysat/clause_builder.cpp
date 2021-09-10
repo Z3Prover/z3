@@ -54,8 +54,7 @@ namespace polysat {
         if (c->unit_clause()) {
             add_dependency(c->unit_dep());
             return;
-        }
-        m_level = std::max(m_level, c->level());
+        }       
         m_literals.push_back(c.blit());
     }
 

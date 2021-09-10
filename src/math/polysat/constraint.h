@@ -40,10 +40,9 @@ namespace polysat {
         ptr_vector<constraint> m_bv2constraint;
         // Constraints that have a boolean variable, for deduplication
         constraint_table m_constraint_table;
+        scoped_ptr_vector<constraint> m_constraints;
 
-        // Constraint storage per level
-
-        vector<scoped_ptr_vector<constraint>> m_constraints;
+        // Clause storage per level
         vector<vector<clause_ref>> m_clauses;
 
         // Association to external dependency values (i.e., external names for constraints)
@@ -56,7 +55,6 @@ namespace polysat {
 
         void store(constraint* c);
         void erase(constraint* c);
-        void set_level(constraint* c, unsigned new_lvl);
 
         constraint* dedup(constraint* c);
 
@@ -84,11 +82,14 @@ namespace polysat {
         signed_constraint lookup(sat::literal lit) const;
         constraint* lookup_external(unsigned dep) const { return m_external_constraints.get(dep, nullptr); }
 
-        signed_constraint eq(unsigned lvl, pdd const& p);
-        signed_constraint ule(unsigned lvl, pdd const& a, pdd const& b);
-        signed_constraint ult(unsigned lvl, pdd const& a, pdd const& b);
-        signed_constraint sle(unsigned lvl, pdd const& a, pdd const& b);
-        signed_constraint slt(unsigned lvl, pdd const& a, pdd const& b);
+        signed_constraint eq(pdd const& p);
+        signed_constraint ule(pdd const& a, pdd const& b);
+        signed_constraint ult(pdd const& a, pdd const& b);
+        signed_constraint sle(pdd const& a, pdd const& b);
+        signed_constraint slt(pdd const& a, pdd const& b);
+
+        constraint *const* begin() const { return m_constraints.data(); }
+        constraint *const* end() const { return m_constraints.data() + m_constraints.size(); }
     };
 
 
@@ -114,7 +115,6 @@ namespace polysat {
 
         // constraint_manager* m_manager;
         clause*             m_unit_clause = nullptr;  ///< If this constraint was asserted by a unit clause, we store that clause here.
-        unsigned            m_level;  ///< Controls lifetime of the constraint object. Always a base level.
         ckind_t             m_kind;
         unsigned_vector     m_vars;
         /** The boolean variable associated to this constraint, if any.
@@ -126,8 +126,8 @@ namespace polysat {
         // TODO: replace parameter 'is_positive' everywhere by 'sign'? (also in signed_constraint)
         sat::bool_var       m_bvar = sat::null_bool_var;
 
-        constraint(constraint_manager& m, unsigned lvl, ckind_t k):
-            /*m_manager(&m),*/ m_level(lvl), m_kind(k) {}
+        constraint(constraint_manager& m, ckind_t k):
+            /*m_manager(&m),*/ m_kind(k) {}
 
     protected:
         std::ostream& display_extra(std::ostream& out, lbool status) const;
@@ -160,16 +160,12 @@ namespace polysat {
         unsigned_vector const& vars() const { return m_vars; }
         unsigned var(unsigned idx) const { return m_vars[idx]; }
         bool contains_var(pvar v) const { return m_vars.contains(v); }
-        unsigned level() const { return m_level; }
         bool has_bvar() const { return m_bvar != sat::null_bool_var; }
         sat::bool_var bvar() const { return m_bvar; }
 
         clause* unit_clause() const { return m_unit_clause; }
         void set_unit_clause(clause* cl);
         p_dependency* unit_dep() const { return m_unit_clause ? m_unit_clause->dep() : nullptr; }
-
-
-
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }
@@ -209,7 +205,6 @@ namespace polysat {
 
         sat::bool_var bvar() const { return m_constraint->bvar(); }
         sat::literal blit() const { return sat::literal(bvar(), is_negative()); }
-        unsigned level() const { return m_constraint->level(); }
         constraint* get() const { return m_constraint; }
 
         explicit operator bool() const { return !!m_constraint; }

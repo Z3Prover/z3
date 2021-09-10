@@ -186,7 +186,7 @@ namespace polysat {
             LOG_V("Adding: " << item);
             if (item.is_assignment()) {
                 pvar v = item.var();
-                auto c = ~cm().eq(0, m_solver->var(v) - m_solver->m_value[v]);
+                auto c = ~cm().eq(m_solver->var(v) - m_solver->m_value[v]);
                 cm().ensure_bvar(c.get());
                 lemma.push(c.blit());
             } else {
@@ -226,7 +226,7 @@ namespace polysat {
                     continue;
                 if (m_solver->m_justification[v].level() > model_level)
                     continue;
-                auto diseq = ~cm().eq(lemma.level(), m_solver->var(v) - m_solver->m_value[v]);
+                auto diseq = ~cm().eq(m_solver->var(v) - m_solver->m_value[v]);
                 cm().ensure_bvar(diseq.get());
                 lemma.push(diseq);
             }

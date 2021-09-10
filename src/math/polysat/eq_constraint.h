@@ -22,8 +22,8 @@ namespace polysat {
 
         pdd m_poly;
 
-        eq_constraint(constraint_manager& m, unsigned lvl, pdd const& p):
-            constraint(m, lvl, ckind_t::eq_t), m_poly(p) {
+        eq_constraint(constraint_manager& m, pdd const& p):
+            constraint(m, ckind_t::eq_t), m_poly(p) {
             m_vars.append(p.free_vars());
         }
 

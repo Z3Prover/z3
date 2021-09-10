@@ -131,11 +131,8 @@ namespace polysat {
         LOG("seq: " << seq);
         SASSERT(seq.size() >= 2);  // otherwise has_full should have been true
 
+        // TODO lemma level depends on clauses used to derive it, not on levels of constraints
         unsigned lemma_lvl = 0;
-        for (unsigned i : seq) {
-            signed_constraint const& c = records[i].src;
-            lemma_lvl = std::max(lemma_lvl, c->level());
-        }
 
         // Update the conflict state
         // Idea:
@@ -159,7 +156,7 @@ namespace polysat {
             // NB: do we really have to pass in the level to this new literal?
             // seems separating the level from the constraint is what we want
             // the level of a literal is when it was assigned. Lemmas could have unassigned literals.
-            signed_constraint c = s.m_constraints.ult(lemma_lvl, lhs, rhs);
+            signed_constraint c = s.m_constraints.ult(lhs, rhs);
             LOG("constraint: " << c);
             lemma.push(~c);
             // Side conditions
@@ -315,9 +312,9 @@ namespace polysat {
             out_neg_cond = nullptr;
         }
         else if (is_trivial)
-            out_neg_cond = ~s.m_constraints.eq(0, condition_body);
+            out_neg_cond = ~s.m_constraints.eq(condition_body);
         else
-            out_neg_cond = s.m_constraints.eq(0, condition_body);
+            out_neg_cond = s.m_constraints.eq(condition_body);
 
         if (is_trivial) {
             if (!ineq.is_strict)

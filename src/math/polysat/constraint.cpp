@@ -53,32 +53,9 @@ namespace polysat {
     /** Add constraint to per-level storage */
     void constraint_manager::store(constraint* c) {
         LOG_V("Store constraint: " << show_deref(c));
-        while (m_constraints.size() <= c->level())
-            m_constraints.push_back({});
-        m_constraints[c->level()].push_back(c);
+        m_constraints.push_back(c);
     }
 
-    /** Remove the given constraint from the per-level storage (without deallocating it) */
-    void constraint_manager::erase(constraint* c) {
-        LOG_V("Erase constraint: " << show_deref(c));
-        auto& vec = m_constraints[c->level()];
-        for (unsigned i = vec.size(); i-- > 0; )
-            if (vec[i] == c) {
-                vec.swap(i, vec.size() - 1);
-                constraint* c0 = vec.detach_back();
-                SASSERT(c0 == c);
-                vec.pop_back();
-                return;
-            }
-        UNREACHABLE();
-    }
-
-    /** Change level of the given constraint, adjusting its storage position */
-    void constraint_manager::set_level(constraint* c, unsigned new_lvl) {
-        erase(c);
-        c->m_level = new_lvl;
-        store(c);
-    }
 
     clause* constraint_manager::store(clause_ref cl_ref) {
         clause* cl = cl_ref.get();
@@ -99,20 +76,6 @@ namespace polysat {
 
     // Release constraints at the given level and above.
     void constraint_manager::release_level(unsigned lvl) {
-        for (unsigned l = m_constraints.size(); l-- > lvl; ) {
-            for (auto* c : m_constraints[l]) {
-                LOG_V("Destroying constraint: " << show_deref(c));
-                auto* d = c->unit_dep();
-                if (d && d->is_leaf()) {
-                    unsigned const dep = d->leaf_value();
-                    SASSERT(m_external_constraints.contains(dep));
-                    m_external_constraints.remove(dep);
-                }
-                m_constraint_table.erase(c);
-                erase_bvar(c);
-            }
-            m_constraints[l].reset();
-        }
         for (unsigned l = m_clauses.size(); l-- > lvl; ) {
             for (auto const& cl : m_clauses[l]) {
                 SASSERT_EQ(cl->m_ref_count, 1);  // otherwise there is a leftover reference somewhere
@@ -137,37 +100,20 @@ namespace polysat {
 
     /** Look up constraint among stored constraints. */
     constraint* constraint_manager::dedup(constraint* c1) {
-        auto it = m_constraint_table.find(c1);
-        if (it == m_constraint_table.end()) {
-            store(c1);
+        constraint* c2 = nullptr;
+        if (m_constraint_table.find(c1, c2)) {
+            dealloc(c1);
+            return c2;
+        }
+        else {
             m_constraint_table.insert(c1);
             return c1;
         }
-        constraint* c0 = *it;
-        if (c1->level() < c0->level())
-            set_level(c0, c1->level());
-        dealloc(c1);
-        return c0;
     }
 
     void constraint_manager::gc() {
-        for (auto& vec : m_constraints)
-            for (int i = vec.size(); i-- > 0; ) {
-                constraint* c = vec[i];
-                if (!c->has_bvar()) {
-                    LOG_V("Destroying constraint: " << show_deref(c));
-                    m_constraint_table.erase(c);
-                    vec.swap(i, vec.size() - 1);
-                    vec.pop_back();
-                }
-            }
-        DEBUG_CODE({
-            for (auto const& vec : m_constraints)
-                for (auto* c : vec) {
-                    SASSERT(c->has_bvar());
-                    SASSERT(m_constraint_table.contains(c));
-                }
-        });
+        // collect used literals from lemmas and stack
+        // walk constraints to remove unused.
     }
 
     bool constraint_manager::should_gc() {
@@ -176,17 +122,17 @@ namespace polysat {
         return true;
     }
 
-    signed_constraint constraint_manager::eq(unsigned lvl, pdd const& p) {
-        return {dedup(alloc(eq_constraint, *this, lvl, p)), true};
+    signed_constraint constraint_manager::eq(pdd const& p) {
+        return {dedup(alloc(eq_constraint, *this, p)), true};
     }
 
-    signed_constraint constraint_manager::ule(unsigned lvl, pdd const& a, pdd const& b) {
-        return {dedup(alloc(ule_constraint, *this, lvl, a, b)), true};
+    signed_constraint constraint_manager::ule(pdd const& a, pdd const& b) {
+        return {dedup(alloc(ule_constraint, *this, a, b)), true};
     }
 
-    signed_constraint constraint_manager::ult(unsigned lvl, pdd const& a, pdd const& b) {
+    signed_constraint constraint_manager::ult(pdd const& a, pdd const& b) {
         // a < b  <=>  !(b <= a)
-        return ~ule(lvl, b, a);
+        return ~ule(b, a);
     }
 
     // To do signed comparison of bitvectors, flip the msb and do unsigned comparison:
@@ -205,14 +151,14 @@ namespace polysat {
     //
     // Argument: flipping the msb swaps the negative and non-negative blocks
     //
-    signed_constraint constraint_manager::sle(unsigned lvl, pdd const& a, pdd const& b) {
+    signed_constraint constraint_manager::sle(pdd const& a, pdd const& b) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
-        return ule(lvl, a + shift, b + shift);
+        return ule(a + shift, b + shift);
     }
 
-    signed_constraint constraint_manager::slt(unsigned lvl, pdd const& a, pdd const& b) {
+    signed_constraint constraint_manager::slt(pdd const& a, pdd const& b) {
         auto shift = rational::power_of_two(a.power_of_2() - 1);
-        return ult(lvl, a + shift, b + shift);
+        return ult(a + shift, b + shift);
     }
 
     signed_constraint inequality::as_signed_constraint() const {
@@ -236,7 +182,7 @@ namespace polysat {
     }
 
     std::ostream& constraint::display_extra(std::ostream& out, lbool status) const {
-        out << " @" << level() << " (b";
+        out << " (b";
         if (has_bvar()) { out << bvar(); } else { out << "_"; }
         out << ")";
         (void)status;
