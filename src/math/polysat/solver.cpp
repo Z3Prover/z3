@@ -472,9 +472,10 @@ namespace polysat {
             set_marks(m_conflict);
         }
 
-        for (unsigned i = m_search.size(); i-- > 0; ) {
+        search_iterator search_it(m_search);
+        while (search_it.next()) {
             LOG("Conflict: " << m_conflict);
-            auto const& item = m_search[i];
+            auto const& item = *search_it;
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();

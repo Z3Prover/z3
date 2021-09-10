@@ -74,4 +74,60 @@ namespace polysat {
 
     inline std::ostream& operator<<(std::ostream& out, search_state const& s) { return s.display(out); }
 
+
+    // Go backwards over the search_state
+    class search_iterator {
+
+        search_state*   m_search;
+
+        unsigned current;
+        unsigned first;
+
+        struct idx_range {
+            unsigned current;
+            unsigned first;  // highest index + 1
+        };
+        vector<idx_range>     m_index_stack;
+
+    public:
+        search_iterator(search_state& search):
+            m_search(&search) {
+            first = m_search->size();
+            current = first;  // we start one before the beginning, then it also works for empty m_search
+        }
+
+        search_item const& operator*() const {
+            return (*m_search)[current];
+        }
+
+        unsigned last() {
+            return m_index_stack.empty() ? 0 : m_index_stack.back().first;
+        }
+
+        bool next() {
+            if (current > last()) {
+                --current;
+                return true;
+            }
+            else {
+                SASSERT(current == last());
+                if (m_index_stack.empty())
+                    return false;
+                current = m_index_stack.back().current;
+                first = m_index_stack.back().first;
+                m_index_stack.pop_back();
+                return true;
+            }
+        }
+
+        // to be called after all saturations for a step are done
+        void push_block() {
+            if (first != m_search->size()) {
+                m_index_stack.push_back({current, first});
+                first = m_search->size();
+                current = first - 1;
+            }
+        }
+    };
+
 }
