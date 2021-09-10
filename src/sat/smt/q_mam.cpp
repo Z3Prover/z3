@@ -2082,11 +2082,9 @@ namespace q {
                 p = p->get_root();
                 for (enode* p2 : euf::enode_parents(p)) {
                     if (p2->get_decl() == f &&
-                        num_args == n->num_args() && 
-                        num_args == p2->num_args() &&
                         ctx.is_relevant(p2) &&
                         p2->is_cgr() &&
-                        i < num_args && 
+                        i < p2->num_args() && 
                         p2->get_arg(i)->get_root() == p) {
                         v->push_back(p2);
                     }
