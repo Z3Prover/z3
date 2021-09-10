@@ -80,7 +80,7 @@ namespace polysat {
 
     void conflict_core::insert(signed_constraint c) {
         SASSERT(!empty());  // should use set() to enter conflict state
-        LOG("inserting:" << c);
+        LOG("inserting: " << c);
         // Skip trivial constraints
         // (e.g., constant ones such as "4 > 1"... only true ones should appear, otherwise the lemma would be a tautology)
         if (c.is_always_true())
@@ -156,7 +156,10 @@ namespace polysat {
         auto& premises = it->m_value;
         clause_builder c_lemma(*m_solver);
         for (auto premise : premises) {
+            cm().ensure_bvar(premise.get());
+            // keep(premise);
             handle_saturation_premises(premise);
+            SASSERT(premise->has_bvar());
             c_lemma.push(~premise.blit());
             active_level = std::max(active_level, m_solver->m_bvars.level(premise.blit()));
         }

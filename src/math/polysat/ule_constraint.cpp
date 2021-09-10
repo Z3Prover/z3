@@ -110,8 +110,11 @@ namespace polysat {
     bool ule_constraint::is_currently_true(solver& s, bool is_positive) {
         auto p = lhs().subst_val(s.assignment());
         auto q = rhs().subst_val(s.assignment());
-        if (is_positive)
+        if (is_positive) {
+            if (p.is_zero())
+                return true;
             return p.is_val() && q.is_val() && p.val() <= q.val();
+        }
         else 
             return p.is_val() && q.is_val() && p.val() > q.val();
     }

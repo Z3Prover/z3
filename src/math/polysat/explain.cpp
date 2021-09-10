@@ -35,6 +35,7 @@ namespace polysat {
             // (this condition might be too strict, but we use it for now to prevent looping)
             if (b.degree(v) <= r.degree(v))
                 return {};
+            SASSERT(r.degree(v) < b.degree(v));
             unsigned const lvl = std::max(c1->level(), c2->level());
             signed_constraint c = cm().eq(lvl, r);
             LOG("resolved: " << c << "        currently false? " << c.is_currently_false(s()));
