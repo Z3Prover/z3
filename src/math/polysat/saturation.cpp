@@ -62,18 +62,19 @@ namespace polysat {
     * Propagate c. It is added to reason and core all other literals in reason are false in current stack.
     * The lemmas outlines in the rules are valid and therefore c is implied.
     */
-    bool inf_saturate::propagate(conflict_core& core, signed_constraint& c, clause_builder& reason) {        
+    bool inf_saturate::propagate(conflict_core& core, inequality const& crit, signed_constraint& c, clause_builder& reason) {        
         if (c.is_currently_true(s()))
             return false;
         core.insert(c);
         reason.push(c);
+        // TODO core.erase(crit.as_signed_constraint());
         s().propagate_bool(c.blit(), reason.build().get());
         return true;
     }
 
-    bool inf_saturate::propagate(conflict_core& core, bool is_strict, pdd const& lhs, pdd const& rhs, clause_builder& reason) {
+    bool inf_saturate::propagate(conflict_core& core, inequality const& crit, bool is_strict, pdd const& lhs, pdd const& rhs, clause_builder& reason) {
         signed_constraint c = ineq(is_strict, lhs, rhs);
-        return propagate(core, c, reason);
+        return propagate(core, crit, c, reason);
     }
 
     /// Add premises for Ω*(x, y)
@@ -267,7 +268,7 @@ namespace polysat {
             reason.push(cm().eq(x - x.manager().mk_val(rational(0))));
         reason.push(~c.as_signed_constraint());
         push_omega(reason, x, y);        
-        return propagate(core, c.is_strict, y, z, reason);
+        return propagate(core, c, c.is_strict, y, z, reason);
     }
 
     /// [y] z' <= y /\ zx > yx  ==>  Ω*(x,y) \/ zx > z'x
@@ -287,7 +288,7 @@ namespace polysat {
         reason.push(~yx_l_zx.as_signed_constraint());
         push_omega(reason, x, y);
         // z'x <= zx
-        return propagate(core, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x, reason);
+        return propagate(core, yx_l_zx, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x, reason);
     }
 
     bool inf_saturate::try_ugt_y(pvar v, conflict_core& core, inequality const& c) {
@@ -330,7 +331,7 @@ namespace polysat {
         reason.push(~x_l_z.as_signed_constraint());
         reason.push(~y_l_ax.as_signed_constraint());
         push_omega(reason, a, z);
-        return propagate(core, x_l_z.is_strict || y_l_ax.is_strict, y, a * z, reason);
+        return propagate(core, y_l_ax, x_l_z.is_strict || y_l_ax.is_strict, y, a * z, reason);
     }
 
 
@@ -360,7 +361,7 @@ namespace polysat {
         reason.push(~d.as_signed_constraint());
         push_omega(reason, x, y_prime);
         // yx <= y'x
-        return propagate(core, c.is_strict || d.is_strict, y * x, y_prime * x, reason);
+        return propagate(core, d, c.is_strict || d.is_strict, y * x, y_prime * x, reason);
     }
 
 

@@ -17,9 +17,8 @@ Author:
 
 namespace polysat {
 
-    clause_ref clause::from_unit(signed_constraint c, p_dependency_ref d) {
+    clause_ref clause::from_unit(unsigned lvl, signed_constraint c, p_dependency_ref d) {
         SASSERT(c->has_bvar());
-        unsigned const lvl = 0; // level from literal?
         sat::literal_vector lits;
         lits.push_back(c.blit());
         return clause::from_literals(lvl, std::move(d), std::move(lits));

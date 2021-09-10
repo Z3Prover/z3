@@ -53,6 +53,7 @@ namespace polysat {
         SASSERT(c->has_bvar());
         if (c->unit_clause()) {
             add_dependency(c->unit_dep());
+            m_level = std::max(m_level, c->unit_clause()->level());
             return;
         }       
         m_literals.push_back(c.blit());
