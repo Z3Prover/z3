@@ -245,7 +245,7 @@ namespace polysat {
     /**
      * Implement the inferences
      *  [x] zx > yx  ==>  Ω*(x,y) \/ z > y
-     *  [x] yx <= zx  ==>  Ω*(x,y) \/ y <= z
+     *  [x] yx <= zx  ==>  Ω*(x,y) \/ y <= z \/ x = 0
      */
     bool inf_saturate::try_ugt_x(pvar v, conflict_core& core, inequality const& c) {
         pdd x = s().var(v);
@@ -255,12 +255,15 @@ namespace polysat {
             return false;
         if (!is_non_overflow(x, y))
             return false;
+        if (!c.is_strict && s().get_value(v).is_zero())
+            return false;
 
         unsigned const lvl = c.src->level();
-
-        clause_builder reason(s());        
+        clause_builder reason(s());   
+        if (!c.is_strict)
+            reason.push(s().m_constraints.eq(lvl, x - x.manager().mk_val(rational(0))));
         reason.push(~c.as_signed_constraint());
-        push_omega(reason, lvl, x, y);
+        push_omega(reason, lvl, x, y);        
         return propagate(core, lvl, c.is_strict, y, z, reason);
     }
 
