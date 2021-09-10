@@ -10,6 +10,17 @@ Author:
     Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-6
 
+Notes:
+
+ TODO: constraints containing v could be tracked incrementally when constraints are added/removed using an index.
+
+ TODO: try a final core reduction step or other core minimization
+
+
+ TODO: maybe implement by marking literals instead (like SAT solvers are doing); if we need to iterate, keep an indexed_uint_set (from util/uint_set.h)
+       (i.e., instead of keeping an explicit list of constraints as core, we just mark them.)
+       (we still need the list though, for new/temporary constraints.)
+
 --*/
 
 #include "math/polysat/conflict_core.h"
@@ -124,9 +135,6 @@ namespace polysat {
             SASSERT((core_has_pos && clause_has_pos) || (core_has_neg && clause_has_neg));
         });
 
-        // TODO: maybe implement by marking literals instead (like SAT solvers are doing); if we need to iterate, keep an indexed_uint_set (from util/uint_set.h)
-        //       (i.e., instead of keeping an explicit list of constraints as core, we just mark them.)
-        //       (we still need the list though, for new/temporary constraints.)
         int j = 0;
         for (auto c : m_constraints)
             if (c->bvar() != var)
@@ -196,14 +204,14 @@ namespace polysat {
         LOG("model_level: " << model_level);
         clause_builder lemma(*m_solver);
 
-        // TODO: try a final core reduction step?
-
         for (auto c : m_constraints) {
             if (!c->has_bvar())
                 keep(c);
             lemma.push(~c);
         }
 
+
+        // TODO: need to revisit this for when there are literals obtained by semantic propagation 
         if (m_needs_model) {
             // TODO: add equalities corresponding to current model.
             //       until we properly track variables (use marks from solver?), we just use all of them (reverted decision and the following ones should have been popped from the stack)
@@ -270,7 +278,7 @@ namespace polysat {
                 return true;
 
         // No value resolution method was successful => fall back to saturation and variable elimination
-        while (true) {  // TODO: limit?
+        while (s().inc()) { 
             // TODO: as a last resort, substitute v by m_value[v]?
             if (!try_saturate(v))
                 break;
@@ -280,19 +288,12 @@ namespace polysat {
         return false;
     }
 
-    bool conflict_core::try_eliminate(pvar v) {
-        // TODO: could be tracked incrementally when constraints are added/removed
-        vector<signed_constraint> v_constraints;
+    bool conflict_core::try_eliminate(pvar v) {       
+        bool has_v = false;
         for (auto c : *this)
-            if (c->contains_var(v)) {
-                v_constraints.push_back(c);
-                break;
-            }
-
-        // Variable already eliminated trivially (does this ever happen?)
-        if (v_constraints.empty())
+            has_v |= c->contains_var(v);
+        if (!has_v)
             return true;
-
         for (auto* engine : ve_engines)
             if (engine->perform(*m_solver, v, *this))
                 return true;

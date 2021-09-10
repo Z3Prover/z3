@@ -228,7 +228,7 @@ namespace polysat {
         void new_constraint(signed_constraint c, unsigned dep, bool activate);
         static void insert_constraint(signed_constraints& cs, signed_constraint c);
 
-        viable& get_viable() { return m_viable; }
+        bool inc() { return m_lim.inc(); }
 
         bool invariant();
         static bool invariant(signed_constraints const& cs);

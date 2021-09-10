@@ -23,6 +23,11 @@ TODO: when we check that 'x' is "unary":
 - in principle, 'x' could be any polynomial. However, we need to divide the lhs by x, and we don't have general polynomial division yet.
   so for now we just allow the form 'value*variable'.
    (extension to arbitrary monomials for 'x' should be fairly easy too)
+
+TODO: 
+- resolve away the "problematic" premise (non-linear inequality etc) that is reduced by a saturation rule.
+  - it would work by adding the explanations for the resolved premises to the reason clause 
+  - and removing the literal from the core
 --*/
 #include "math/polysat/saturation.h"
 #include "math/polysat/solver.h"
