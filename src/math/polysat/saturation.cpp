@@ -49,9 +49,9 @@ namespace polysat {
 
     signed_constraint inf_saturate::ineq(unsigned lvl, bool is_strict, pdd const& lhs, pdd const& rhs) {
         if (is_strict)
-            return s().m_constraints.ult(lvl, lhs, rhs);
+            return cm().ult(lvl, lhs, rhs);
         else
-            return s().m_constraints.ule(lvl, lhs, rhs);
+            return cm().ule(lvl, lhs, rhs);
     }
 
     /**
@@ -123,8 +123,8 @@ namespace polysat {
         // conflict resolution should be able to pick up this as a valid justification.
         // or we resort to the same extension as in the original mul_overflow code
         // where we add explicit equality propagations from the current assignment.
-        auto c1 = s().m_constraints.ule(level, x, pddm.mk_val(x_lo));
-        auto c2 = s().m_constraints.ule(level, y, pddm.mk_val(y_lo));
+        auto c1 = cm().ule(level, x, pddm.mk_val(x_lo));
+        auto c2 = cm().ule(level, y, pddm.mk_val(y_lo));
         reason.push(~c1);
         reason.push(~c2);
     }
@@ -261,7 +261,7 @@ namespace polysat {
         unsigned const lvl = c.src->level();
         clause_builder reason(s());   
         if (!c.is_strict)
-            reason.push(s().m_constraints.eq(lvl, x - x.manager().mk_val(rational(0))));
+            reason.push(cm().eq(lvl, x - x.manager().mk_val(rational(0))));
         reason.push(~c.as_signed_constraint());
         push_omega(reason, lvl, x, y);        
         return propagate(core, lvl, c.is_strict, y, z, reason);
