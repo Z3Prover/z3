@@ -446,6 +446,8 @@ namespace polysat {
         LOG_H2("Resolve conflict");
         LOG("\n" << *this);
         LOG("search state: " << m_search);
+        for (pvar v = 0; v < m_cjust.size(); ++v)
+            LOG("cjust[v" << v << "]: " << m_cjust[v]);
         ++m_stats.m_num_conflicts;
 
         SASSERT(is_conflict());
@@ -461,9 +463,10 @@ namespace polysat {
             set_marks(m_conflict);
         }
 
-        for (unsigned i = m_search.size(); i-- > 0; ) {
+        search_iterator search_it(m_search);
+        while (search_it.next()) {
             LOG("Conflict: " << m_conflict);
-            auto const& item = m_search[i];
+            auto const& item = *search_it;
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();
@@ -620,17 +623,9 @@ namespace polysat {
 
         backjump(lvl - 1);
 
-        // TODO: we need to decide_bool on the clause (learn_lemma takes care of this).
-        //       if the lemma was asserting, then this will propagate the last literal. otherwise we do the enumerative guessing as normal.
-        //       we need to exclude the current value of v. narrowing of the guessed constraint *should* take care of it but we cannot count on that.
-
-        // TODO: what do we add as 'cjust' for this restriction? the guessed
-        // constraint from the lemma should be the right choice. but, how to
-        // carry this over when the guess is reverted? need to remember the
-        // variable 'v' somewhere on the lemma.
-        // the restriction v /= val can live before the guess... (probably should ensure that the guess stays close to the current position in the stack to prevent confusion...)
+        // The justification for this restriction is the guessed constraint from the lemma.
+        // cjust[v] will be updated accordingly by decide_bool.
         m_viable.add_non_viable(v, val);
-
         learn_lemma(v, std::move(lemma));
 
         if (is_conflict()) {
@@ -779,8 +774,13 @@ namespace polysat {
         if (!lemma)
             return;
         LOG("Lemma: " << show_deref(lemma));
-        for (sat::literal l : *lemma)
-            LOG("   Literal " << l << " is: " << m_constraints.lookup(l));
+        for (sat::literal lit : *lemma) {
+            LOG("   Literal " << lit << " is: " << m_constraints.lookup(lit));
+            // TODO: fully evaluated constraints must be put onto the stack as propagations.
+            signed_constraint c = m_constraints.lookup(lit);
+            SASSERT(m_bvars.is_assigned(lit) && !c.is_currently_false(*this));
+            SASSERT(m_bvars.is_assigned(lit) && !c.is_currently_true(*this));
+        }
         SASSERT(lemma->size() > 0);
         clause* cl = m_constraints.store(std::move(lemma));
         m_redundant_clauses.push_back(cl);
