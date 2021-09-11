@@ -33,6 +33,8 @@ namespace polysat {
     
     bool inf_saturate::perform(pvar v, conflict_core& core) {
         for (auto c1 : core) {
+            if (!c1->is_ule())
+                continue;
             auto c = c1.as_inequality();
             if (try_ugt_x(v, core, c))
                 return true;
@@ -292,6 +294,8 @@ namespace polysat {
         pdd x = s().var(v);
         pdd z = x;
         for (auto dd : core) {
+            if (!dd->is_ule())
+                continue;
             auto d = dd.as_inequality();
             if (is_Xy_l_XZ(v, d, x, z) && try_ugt_y(v, core, c, d, x, z))
                 return true;
@@ -308,6 +312,8 @@ namespace polysat {
         pdd y = s().var(x);
         pdd a = y;
         for (auto dd : core) {
+            if (!dd->is_ule())
+                continue;
             auto d = dd.as_inequality();
             if (is_Y_l_Ax(x, d, a, y) && try_y_l_ax_and_x_l_z(x, core, c, d, a, y))
                 return true;
@@ -338,6 +344,8 @@ namespace polysat {
         pdd y = s().var(z);
         pdd x = y;
         for (auto dd : core) {
+            if (!dd->is_ule())
+                continue;
             auto d = dd.as_inequality();
             if (is_YX_l_zX(z, d, x, y) && try_ugt_z(z, core, c, d, x, y))
                 return true;

@@ -56,20 +56,18 @@ namespace polysat {
             (m_stats.m_num_conflicts < m_max_conflicts) &&
             (m_stats.m_num_decisions < m_max_decisions);
     }
-    
+   
     lbool solver::check_sat() { 
         LOG("Starting");
         m_disjunctive_lemma.reset();
-        while (m_lim.inc()) {
+        while (inc()) {
             m_stats.m_num_iterations++;
             LOG_H1("Next solving loop iteration (#" << m_stats.m_num_iterations << ")");
             LOG("Free variables: " << m_free_vars);
             LOG("Assignment:     " << assignments_pp(*this));
             if (!m_conflict.empty()) LOG("Conflict:       " << m_conflict);
             IF_LOGGING(m_viable.log());
-
-            if (!is_conflict() && m_constraints.should_gc())
-                m_constraints.gc();
+            if (!is_conflict() && m_constraints.should_gc()) m_constraints.gc(*this);
 
             if (pending_disjunctive_lemma()) { LOG_H2("UNDEF (handle lemma externally)"); return l_undef; }
             else if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
@@ -116,31 +114,31 @@ namespace polysat {
         m_free_vars.del_var_eh(v);
     }
 
-    signed_constraint solver::mk_eq(pdd const& p) {
+    signed_constraint solver::eq(pdd const& p) {
         return m_constraints.eq(p);
     }
 
-    signed_constraint solver::mk_diseq(pdd const& p) {
+    signed_constraint solver::diseq(pdd const& p) {
         return ~m_constraints.eq(p);
     }
 
-    signed_constraint solver::mk_ule(pdd const& p, pdd const& q) {
+    signed_constraint solver::ule(pdd const& p, pdd const& q) {
         return m_constraints.ule(p, q);
     }
 
-    signed_constraint solver::mk_ult(pdd const& p, pdd const& q) {
+    signed_constraint solver::ult(pdd const& p, pdd const& q) {
         return m_constraints.ult(p, q);
     }
 
-    signed_constraint solver::mk_sle(pdd const& p, pdd const& q) {
+    signed_constraint solver::sle(pdd const& p, pdd const& q) {
         return m_constraints.sle(p, q);
     }
 
-    signed_constraint solver::mk_slt(pdd const& p, pdd const& q) {
+    signed_constraint solver::slt(pdd const& p, pdd const& q) {
         return m_constraints.slt(p, q);
     }
 
-    void solver::new_constraint(signed_constraint c, unsigned dep, bool activate) {
+    void solver::ext_constraint(signed_constraint c, unsigned dep, bool activate) {
         VERIFY(at_base_level());
         SASSERT(c);
         SASSERT(activate || dep != null_dependency);  // if we don't activate the constraint, we need the dependency to access it again later.
@@ -148,7 +146,11 @@ namespace polysat {
         clause* unit = m_constraints.store(clause::from_unit(m_level, c, mk_dep_ref(dep)));
         c->set_unit_clause(unit);
         if (dep != null_dependency)
-            m_constraints.register_external(c.get());
+            if (!c->is_external()) {
+                m_constraints.register_external(c.get());
+                m_trail.push_back(trail_instr_t::ext_constraint_i);
+                m_ext_constraint_trail.push_back(c.get());
+            }
         LOG("New constraint: " << c);
 
 #if ENABLE_LINEAR_SOLVER
@@ -303,6 +305,11 @@ namespace polysat {
                 m_cjust_trail.pop_back();
                 break;
             }
+            case trail_instr_t::ext_constraint_i: {
+                constraint* c = m_ext_constraint_trail.back();
+                m_constraints.unregister_external(c);
+                m_ext_constraint_trail.pop_back();
+            }                                      
             default:
                 UNREACHABLE();
             }

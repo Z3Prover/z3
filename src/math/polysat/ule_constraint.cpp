@@ -20,7 +20,9 @@ namespace polysat {
 
     std::ostream& ule_constraint::display(std::ostream& out, lbool status) const {
         out << m_lhs;
-        if (status == l_true) out << " <= ";
+        if (is_eq() && status == l_true) out << " == ";
+        else if (is_eq() && status == l_false) out << " != ";
+        else if (status == l_true) out << " <= ";
         else if (status == l_false) out << " > ";
         else out << " <=/> ";
         out << m_rhs;
@@ -42,6 +44,23 @@ namespace polysat {
         if (p.is_val() && q.is_val()) {
             SASSERT(!is_positive || p.val() <= q.val());
             SASSERT(is_positive || p.val() > q.val());
+            return;
+        }
+
+        // p <= 0, e.g., p == 0
+        if (q.is_zero() && p.is_unilinear()) {
+            // a*x + b == 0
+            pvar v = q.var();
+            s.push_cjust(v, { this, is_positive });
+
+            rational a = q.hi().val();
+            rational b = q.lo().val();
+            s.m_viable.intersect_eq(a, v, b, is_positive);
+
+
+            rational val;
+            if (s.m_viable.find_viable(v, val) == dd::find_t::singleton)
+                s.propagate(v, val, { this, is_positive });
             return;
         }
 
@@ -88,8 +107,11 @@ namespace polysat {
 
     bool ule_constraint::is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) const {
         // TODO: other conditions (e.g. when forbidden interval would be full)
-        if (is_positive)
+        if (is_positive) {
+            if (rhs.is_zero())
+                return lhs.is_never_zero();
             return lhs.is_val() && rhs.is_val() && lhs.val() > rhs.val();
+        }
         else {
             if (lhs.is_zero())
                 return true;  // 0 > ... is always false

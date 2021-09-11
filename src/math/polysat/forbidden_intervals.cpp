@@ -180,11 +180,12 @@ namespace polysat {
 
     bool forbidden_intervals::get_interval(solver& s, signed_constraint const& c, pvar v, eval_interval& out_interval, signed_constraint& out_neg_cond)
     {
-        inequality ineq = c.as_inequality();
+        if (!c->is_ule())
+            return false;
         // Current only works when degree(v) is at most one on both sides
-        pdd lhs = ineq.lhs;
-        pdd rhs = ineq.rhs;
-        if (ineq.is_strict)
+        pdd lhs = c->to_ule().lhs();
+        pdd rhs = c->to_ule().rhs();
+        if (!c.is_positive())
             swap(lhs, rhs);
         unsigned const deg1 = lhs.degree(v);
         unsigned const deg2 = rhs.degree(v);
@@ -317,7 +318,7 @@ namespace polysat {
             out_neg_cond = s.m_constraints.eq(condition_body);
 
         if (is_trivial) {
-            if (!ineq.is_strict)
+            if (c.is_positive())
                 // TODO: we cannot use empty intervals for interpolation. So we
                 // can remove the empty case (make it represent 'full' instead),
                 // and return 'false' here. Then we do not need the proper/full
@@ -345,7 +346,7 @@ namespace polysat {
             else
                 SASSERT(y_coeff.is_one());
 
-            if (ineq.is_strict) {
+            if (!c.is_positive()) {
                 swap(lo, hi);
                 lo_val.swap(hi_val);
             }

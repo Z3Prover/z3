@@ -29,7 +29,6 @@ Author:
 #include "util/small_object_allocator.h"
 #include "math/polysat/fixplex.h"
 #include "math/polysat/constraint.h"
-#include "math/polysat/eq_constraint.h"
 #include "math/polysat/ule_constraint.h"
 
 namespace polysat {
@@ -98,9 +97,7 @@ namespace polysat {
         var_t fresh_var(unsigned sz);
 
         var_t internalize_pdd(pdd const& p);
-        void new_eq(eq_constraint& eq);
         void new_le(ule_constraint& le);
-        void assert_eq(bool is_positive, eq_constraint& eq);
         void assert_le(bool is_positive, ule_constraint& le);
 
         // bind monomial to variable.

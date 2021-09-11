@@ -26,8 +26,8 @@ namespace polysat {
             LOG_H3("Resolving upon v" << v);
             LOG("c1: " << c1);
             LOG("c2: " << c2);
-            pdd a = c1->to_eq().p();
-            pdd b = c2->to_eq().p();
+            pdd a = c1->to_ule().p();
+            pdd b = c2->to_ule().p();
             pdd r = a;
             if (!a.resolve(v, b, r) && !b.resolve(v, a, r))
                 return {};

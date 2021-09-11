@@ -17,7 +17,6 @@ Author:
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
 #include "math/polysat/log_helper.h"
-#include "math/polysat/eq_constraint.h"
 #include "math/polysat/ule_constraint.h"
 
 namespace polysat {
@@ -67,11 +66,21 @@ namespace polysat {
 
     void constraint_manager::register_external(constraint* c) {
         SASSERT(c);
-        SASSERT(c->unit_dep());
-        SASSERT(c->unit_dep()->is_leaf());
-        unsigned const dep = c->unit_dep()->leaf_value();
-        SASSERT(!m_external_constraints.contains(dep));
-        m_external_constraints.insert(dep, c);
+        SASSERT(!c->is_external());
+        if (c->unit_dep() && c->unit_dep()->is_leaf()) {
+            unsigned const dep = c->unit_dep()->leaf_value();
+            SASSERT(!m_external_constraints.contains(dep));
+            m_external_constraints.insert(dep, c);
+        }
+        c->set_external();
+        ++m_num_external;
+    }
+
+    void constraint_manager::unregister_external(constraint* c) {
+        if (c->unit_dep() && c->unit_dep()->is_leaf()) 
+            m_external_constraints.remove(c->unit_dep()->leaf_value());        
+        c->unset_external();
+        --m_num_external;
     }
 
     // Release constraints at the given level and above.
@@ -111,31 +120,32 @@ namespace polysat {
         }
     }
 
-    void constraint_manager::gc() {
-        gc_clauses();
-        gc_constraints();
+    void constraint_manager::gc(solver& s) {
+        gc_clauses(s);
+        gc_constraints(s);
     }
 
-    void constraint_manager::gc_clauses() {
+    void constraint_manager::gc_clauses(solver& s) {
         // place to gc redundant clauses
     }
 
-    void constraint_manager::gc_constraints() {
+    void constraint_manager::gc_constraints(solver& s) {
         uint_set used_vars;
         for (auto const& cls : m_clauses)
             for (auto const& cl : cls)
                 for (auto lit : *cl)
                     used_vars.insert(lit.var());
-#if 0
         // anything on the search stack is justified by a clause?
-        for (auto const& a : s().m_search)
+        for (auto const& a : s.m_search)
             if (a.is_boolean())
                 used_vars.insert(a.lit().var());
-#endif
         for (unsigned i = 0; i < m_constraints.size(); ++i) {
-            constraint* c = m_constraints[i];
+            constraint* c = m_constraints[i];            
             if (c->has_bvar() && used_vars.contains(c->bvar()))
                 continue;
+            if (c->is_external())
+                continue;
+            erase_bvar(c);
             m_constraints.swap(i, m_constraints.size() - 1);
             m_constraints.pop_back();
             --i;
@@ -144,13 +154,13 @@ namespace polysat {
     }
 
     bool constraint_manager::should_gc() {
-        // TODO: maybe replace this by a better heuristic
-        // maintain a counter of temporary constraints? (#constraints - #bvars)
-        return true;
+        // TODO control gc decay rate
+        return m_constraints.size() > m_num_external + 100;
     }
 
     signed_constraint constraint_manager::eq(pdd const& p) {
-        return {dedup(alloc(eq_constraint, *this, p)), true};
+        pdd z = p.manager().zero();
+        return {dedup(alloc(ule_constraint, *this, p, z)), true};
     }
 
     signed_constraint constraint_manager::ule(pdd const& a, pdd const& b) {
@@ -190,14 +200,6 @@ namespace polysat {
 
     signed_constraint inequality::as_signed_constraint() const {
         return signed_constraint(const_cast<constraint*>(src), !is_strict);
-    }
-
-    eq_constraint& constraint::to_eq() { 
-        return *dynamic_cast<eq_constraint*>(this); 
-    }
-
-    eq_constraint const& constraint::to_eq() const { 
-        return *dynamic_cast<eq_constraint const*>(this); 
     }
 
     ule_constraint& constraint::to_ule() {

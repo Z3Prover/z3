@@ -113,32 +113,14 @@ namespace polysat {
      * when equality is asserted, set range on v as v == 0 or v > 0.
      */
         
-    void linear_solver::new_eq(eq_constraint& c) {
-        var_t v = internalize_pdd(c.p());
-        auto pr = std::make_pair(v, v);
-        m_bool_var2row.setx(c.bvar(), pr, pr);
-    }
+
 
     void linear_solver::new_le(ule_constraint& c) {
         var_t v = internalize_pdd(c.lhs());
         var_t w = internalize_pdd(c.rhs());
         auto pr = std::make_pair(v, w);
         m_bool_var2row.setx(c.bvar(), pr, pr);
-    }
-    
-    void linear_solver::assert_eq(bool is_positive, eq_constraint& c) {
-        unsigned c_dep = constraint_idx2dep(m_active.size() - 1);
-        var_t v = m_bool_var2row[c.bvar()].first;
-        unsigned sz = c.p().power_of_2();
-        auto* fp = sz2fixplex(sz);    
-        if (!fp)
-            return;
-        rational z(0), o(1);
-        if (is_positive) 
-            fp->set_bounds(v, z, z, c_dep);
-        else 
-            fp->set_bounds(v, o, z, c_dep);
-    }
+    }   
 
     //
     // v <= w:
@@ -194,33 +176,16 @@ namespace polysat {
 
 
     void linear_solver::new_constraint(constraint& c) {
-        switch (c.kind()) {
-        case ckind_t::eq_t: 
-            new_eq(c.to_eq());
-            break;        
-        case ckind_t::ule_t:
+        if (c.is_ule())
             new_le(c.to_ule());
-            break;
-        default:
-            UNREACHABLE();
-            break;
-        }
     }
 
     void linear_solver::activate_constraint(bool is_positive, constraint& c) {
+        if (!c.is_ule())
+            return;
         m_active.push_back(&c);
         m_trail.push_back(trail_i::set_active_i);
-        switch (c.kind()) {
-        case ckind_t::eq_t: 
-            assert_eq(is_positive, c.to_eq());
-            break;        
-        case ckind_t::ule_t:
-            assert_le(is_positive, c.to_ule());
-            break;
-        default:
-            UNREACHABLE();
-            break;
-        }
+        assert_le(is_positive, c.to_ule());
     }
 
     void linear_solver::linearize(pdd const& p) {
