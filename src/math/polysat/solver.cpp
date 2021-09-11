@@ -309,6 +309,7 @@ namespace polysat {
                 constraint* c = m_ext_constraint_trail.back();
                 m_constraints.unregister_external(c);
                 m_ext_constraint_trail.pop_back();
+                break;
             }                                      
             default:
                 UNREACHABLE();
