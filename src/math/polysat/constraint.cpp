@@ -112,8 +112,35 @@ namespace polysat {
     }
 
     void constraint_manager::gc() {
-        // collect used literals from lemmas and stack
-        // walk constraints to remove unused.
+        gc_clauses();
+        gc_constraints();
+    }
+
+    void constraint_manager::gc_clauses() {
+        // place to gc redundant clauses
+    }
+
+    void constraint_manager::gc_constraints() {
+        uint_set used_vars;
+        for (auto const& cls : m_clauses)
+            for (auto const& cl : cls)
+                for (auto lit : *cl)
+                    used_vars.insert(lit.var());
+#if 0
+        // anything on the search stack is justified by a clause?
+        for (auto const& a : s().m_search)
+            if (a.is_boolean())
+                used_vars.insert(a.lit().var());
+#endif
+        for (unsigned i = 0; i < m_constraints.size(); ++i) {
+            constraint* c = m_constraints[i];
+            if (c->has_bvar() && used_vars.contains(c->bvar()))
+                continue;
+            m_constraints.swap(i, m_constraints.size() - 1);
+            m_constraints.pop_back();
+            --i;
+        }
+            
     }
 
     bool constraint_manager::should_gc() {

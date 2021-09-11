@@ -64,14 +64,14 @@ namespace polysat {
         // TODO: what other constraints can be extracted cheaply?
     }
 
-    bool eq_constraint::is_always_false(bool is_positive) {
+    bool eq_constraint::is_always_false(bool is_positive) const {
         if (is_positive)
             return p().is_never_zero();
         else
             return p().is_zero();
     }
 
-    bool eq_constraint::is_currently_false(solver& s, bool is_positive) {
+    bool eq_constraint::is_currently_false(solver& s, bool is_positive) const {
         pdd r = p().subst_val(s.assignment());
         if (is_positive)
             return r.is_never_zero();
@@ -79,7 +79,7 @@ namespace polysat {
             return r.is_zero();
     }
 
-    bool eq_constraint::is_currently_true(solver& s, bool is_positive) {
+    bool eq_constraint::is_currently_true(solver& s, bool is_positive) const {
         pdd r = p().subst_val(s.assignment());
         if (is_positive)
             return r.is_zero();

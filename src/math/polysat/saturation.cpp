@@ -12,20 +12,15 @@ Author:
 
 
 TODO: preserve falsification
-- each rule selects a certain premise that is problematic, 
-  We assume that problematic premises are false in the current assignment
-  The derived consequence should also be false in the current assignment to be effective, but simpler so that we can resolve.
+- each rule selects a certain premises that are problematic.
+  If the problematic premise is false under the current assignment, the newly inferred
+  literal should also be false in the assignment in order to preserve conflicts.
 
-TODO:
-- remove level information from created constraints.
 
 TODO: when we check that 'x' is "unary":
 - in principle, 'x' could be any polynomial. However, we need to divide the lhs by x, and we don't have general polynomial division yet.
   so for now we just allow the form 'value*variable'.
    (extension to arbitrary monomials for 'x' should be fairly easy too)
-
-TODO: 
-- remove the "problematic" literal from the core itself such that reference counts on variable assignments are decreased.
 
 --*/
 #include "math/polysat/saturation.h"
@@ -63,11 +58,11 @@ namespace polysat {
     * The lemmas outlines in the rules are valid and therefore c is implied.
     */
     bool inf_saturate::propagate(conflict_core& core, inequality const& crit, signed_constraint& c, clause_builder& reason) {        
-        if (c.is_currently_true(s()))
+        if (crit.as_signed_constraint().is_currently_false(s()) && c.is_currently_true(s()))
             return false;
         core.insert(c);
         reason.push(c);
-        // TODO core.erase(crit.as_signed_constraint());
+        core.remove(crit.as_signed_constraint());
         s().propagate_bool(c.blit(), reason.build().get());
         return true;
     }
@@ -265,7 +260,7 @@ namespace polysat {
 
         clause_builder reason(s());   
         if (!c.is_strict)
-            reason.push(cm().eq(x - x.manager().mk_val(rational(0))));
+            reason.push(cm().eq(x));
         reason.push(~c.as_signed_constraint());
         push_omega(reason, x, y);        
         return propagate(core, c, c.is_strict, y, z, reason);

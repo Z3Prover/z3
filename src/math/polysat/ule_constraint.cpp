@@ -86,7 +86,7 @@ namespace polysat {
         // TODO: other cheap constraints possible?
     }
 
-    bool ule_constraint::is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) {
+    bool ule_constraint::is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) const {
         // TODO: other conditions (e.g. when forbidden interval would be full)
         if (is_positive)
             return lhs.is_val() && rhs.is_val() && lhs.val() > rhs.val();
@@ -97,17 +97,17 @@ namespace polysat {
         }
     }
 
-    bool ule_constraint::is_always_false(bool is_positive) {
+    bool ule_constraint::is_always_false(bool is_positive) const {
         return is_always_false(is_positive, lhs(), rhs());
     }
 
-    bool ule_constraint::is_currently_false(solver& s, bool is_positive) {
+    bool ule_constraint::is_currently_false(solver& s, bool is_positive) const {
         auto p = lhs().subst_val(s.assignment());
         auto q = rhs().subst_val(s.assignment());
         return is_always_false(is_positive, p, q);
     }
 
-    bool ule_constraint::is_currently_true(solver& s, bool is_positive) {
+    bool ule_constraint::is_currently_true(solver& s, bool is_positive) const {
         auto p = lhs().subst_val(s.assignment());
         auto q = rhs().subst_val(s.assignment());
         if (is_positive) {

@@ -58,6 +58,9 @@ namespace polysat {
 
         constraint* dedup(constraint* c);
 
+        void gc_constraints();
+        void gc_clauses();
+
     public:
         constraint_manager(bool_var_manager& bvars): m_bvars(bvars) {}
         ~constraint_manager();
@@ -71,7 +74,7 @@ namespace polysat {
         /// Register a unit clause with an external dependency.
         void register_external(constraint* c);
 
-        /// Release constraints at the given level and above.
+        /// Release clauses at the given level and above.
         void release_level(unsigned lvl);
 
         /// Garbage-collect temporary constraints (i.e., those that do not have a boolean variable).
@@ -121,13 +124,9 @@ namespace polysat {
          *  If this is not null_bool_var, then the constraint corresponds to a literal on the assignment stack.
          *  Convention: the plain constraint corresponds the positive sat::literal.
          */
-        // NB code review: the convention would make sense. Unfortunately, elsewhere in z3 we use "true" for negative literals
-        // and "false" for positive literals. It is called the "sign" bit.
-        // TODO: replace parameter 'is_positive' everywhere by 'sign'? (also in signed_constraint)
         sat::bool_var       m_bvar = sat::null_bool_var;
 
-        constraint(constraint_manager& m, ckind_t k):
-            /*m_manager(&m),*/ m_kind(k) {}
+        constraint(constraint_manager& m, ckind_t k): m_kind(k) {}
 
     protected:
         std::ostream& display_extra(std::ostream& out, lbool status) const;
@@ -146,9 +145,9 @@ namespace polysat {
 
         bool propagate(solver& s, bool is_positive, pvar v);
         virtual void propagate_core(solver& s, bool is_positive, pvar v, pvar other_v);
-        virtual bool is_always_false(bool is_positive) = 0;
-        virtual bool is_currently_false(solver& s, bool is_positive) = 0;
-        virtual bool is_currently_true(solver& s, bool is_positive) = 0;
+        virtual bool is_always_false(bool is_positive) const = 0;
+        virtual bool is_currently_false(solver& s, bool is_positive) const = 0;
+        virtual bool is_currently_true(solver& s, bool is_positive) const = 0;
         virtual void narrow(solver& s, bool is_positive) = 0;
         virtual inequality as_inequality(bool is_positive) const = 0;
 
@@ -196,10 +195,10 @@ namespace polysat {
 
         bool propagate(solver& s, pvar v) { return get()->propagate(s, is_positive(), v); }
         void propagate_core(solver& s, pvar v, pvar other_v) { get()->propagate_core(s, is_positive(), v, other_v); }
-        bool is_always_false() { return get()->is_always_false(is_positive()); }
-        bool is_always_true() { return get()->is_always_false(is_negative()); }
-        bool is_currently_false(solver& s) { return get()->is_currently_false(s, is_positive()); }
-        bool is_currently_true(solver& s) { return get()->is_currently_true(s, is_positive()); }
+        bool is_always_false() const { return get()->is_always_false(is_positive()); }
+        bool is_always_true() const { return get()->is_always_false(is_negative()); }
+        bool is_currently_false(solver& s) const { return get()->is_currently_false(s, is_positive()); }
+        bool is_currently_true(solver& s) const { return get()->is_currently_true(s, is_positive()); }
         void narrow(solver& s) { get()->narrow(s, is_positive()); }
         inequality as_inequality() const { return get()->as_inequality(is_positive()); }
 
