@@ -25,7 +25,6 @@ namespace polysat {
         void set_solver(solver& s) { m_solver = &s; }
     protected:
         solver& s() { return *m_solver; }
-        constraint_manager& cm();
     public:
         virtual ~inference_engine() {}
         /** Try to apply an inference rule.

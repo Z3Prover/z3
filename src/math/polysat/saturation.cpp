@@ -28,8 +28,6 @@ TODO: when we check that 'x' is "unary":
 #include "math/polysat/log.h"
 
 namespace polysat {
-
-    constraint_manager& inference_engine::cm() { return s().m_constraints; }
     
     bool inf_saturate::perform(pvar v, conflict_core& core) {
         for (auto c1 : core) {
@@ -50,9 +48,9 @@ namespace polysat {
 
     signed_constraint inf_saturate::ineq(bool is_strict, pdd const& lhs, pdd const& rhs) {
         if (is_strict)
-            return cm().ult(lhs, rhs);
+            return s().ult(lhs, rhs);
         else
-            return cm().ule(lhs, rhs);
+            return s().ule(lhs, rhs);
     }
 
     /**
@@ -125,8 +123,8 @@ namespace polysat {
         // conflict resolution should be able to pick up this as a valid justification.
         // or we resort to the same extension as in the original mul_overflow code
         // where we add explicit equality propagations from the current assignment.
-        auto c1 = cm().ule(x, pddm.mk_val(x_lo));
-        auto c2 = cm().ule(y, pddm.mk_val(y_lo));
+        auto c1 = s().ule(x, pddm.mk_val(x_lo));
+        auto c2 = s().ule(y, pddm.mk_val(y_lo));
         reason.push(~c1);
         reason.push(~c2);
     }
@@ -262,7 +260,7 @@ namespace polysat {
 
         clause_builder reason(s());   
         if (!c.is_strict)
-            reason.push(cm().eq(x));
+            reason.push(s().eq(x));
         reason.push(~c.as_signed_constraint());
         push_omega(reason, x, y);        
         return propagate(core, c, c.is_strict, y, z, reason);
