@@ -456,6 +456,7 @@ namespace polysat {
         while (search_it.next()) {
             LOG("Conflict: " << m_conflict);
             auto const& item = *search_it;
+            LOG_H2("Working on " << item);
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();
@@ -477,7 +478,6 @@ namespace polysat {
                 // Resolve over boolean literal
                 SASSERT(item.is_boolean());
                 sat::literal const lit = item.lit();
-                LOG_H2("Working on blit " << lit);
                 sat::bool_var const var = lit.var();
                 if (!m_conflict.is_bmarked(var))
                     continue;

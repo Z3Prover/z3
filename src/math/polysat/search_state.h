@@ -75,13 +75,14 @@ namespace polysat {
     inline std::ostream& operator<<(std::ostream& out, search_state const& s) { return s.display(out); }
 
 
-    // Go backwards over the search_state
+    // Go backwards over the search_state.
+    // If new entries are added during processing an item, they will be queued for processing next after the current item.
     class search_iterator {
 
         search_state*   m_search;
 
         unsigned current;
-        unsigned first;
+        unsigned first;  // highest index + 1
 
         struct idx_range {
             unsigned current;
@@ -89,22 +90,41 @@ namespace polysat {
         };
         vector<idx_range>     m_index_stack;
 
-    public:
-        search_iterator(search_state& search):
-            m_search(&search) {
+        void init() {
             first = m_search->size();
-            current = first;  // we start one before the beginning, then it also works for empty m_search
+            current = first - 1;
         }
 
-        search_item const& operator*() const {
-            return (*m_search)[current];
+        void try_push_block() {
+            if (first != m_search->size()) {
+                m_index_stack.push_back({current, first});
+                init();
+            }
+        }
+
+        void pop_block() {
+            current = m_index_stack.back().current;
+            first = m_index_stack.back().first;
+            m_index_stack.pop_back();
         }
 
         unsigned last() {
             return m_index_stack.empty() ? 0 : m_index_stack.back().first;
         }
 
+    public:
+        search_iterator(search_state& search):
+            m_search(&search) {
+            init();
+            current++;  // we start one before the beginning, then it also works for empty m_search
+        }
+
+        search_item const& operator*() const {
+            return (*m_search)[current];
+        }
+
         bool next() {
+            try_push_block();
             if (current > last()) {
                 --current;
                 return true;
@@ -113,19 +133,8 @@ namespace polysat {
                 SASSERT(current == last());
                 if (m_index_stack.empty())
                     return false;
-                current = m_index_stack.back().current;
-                first = m_index_stack.back().first;
-                m_index_stack.pop_back();
+                pop_block();
                 return true;
-            }
-        }
-
-        // to be called after all saturations for a step are done
-        void push_block() {
-            if (first != m_search->size()) {
-                m_index_stack.push_back({current, first});
-                first = m_search->size();
-                current = first - 1;
             }
         }
     };

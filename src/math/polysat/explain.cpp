@@ -17,8 +17,6 @@ Author:
 
 namespace polysat {
 
-    constraint_manager& explainer::cm() { return s().m_constraints; }
-
     signed_constraint ex_polynomial_superposition::resolve1(pvar v, signed_constraint c1, signed_constraint c2) {
         // c1 is true, c2 is false
         SASSERT(c1.is_currently_true(s()));
@@ -35,7 +33,7 @@ namespace polysat {
         // (this condition might be too strict, but we use it for now to prevent looping)
         if (b.degree(v) <= r.degree(v))
             return {};
-        signed_constraint c = cm().eq(r);
+        signed_constraint c = s().eq(r);
         LOG("resolved: " << c << "        currently false? " << c.is_currently_false(s()));
         if (!c.is_currently_false(s()))
             return {};
