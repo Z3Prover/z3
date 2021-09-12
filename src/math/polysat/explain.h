@@ -20,7 +20,6 @@ Author:
 namespace polysat {
 
     class solver;
-    class constraint_manager;
 
     class explainer {
         friend class conflict_core;
@@ -28,7 +27,6 @@ namespace polysat {
         void set_solver(solver& s) { m_solver = &s; }
     protected:
         solver& s() { return *m_solver; }
-        constraint_manager& cm();
     public:
         virtual ~explainer() {}
         virtual bool try_explain(pvar v, /* vector<signed_constraint> const& cjust_v, */ conflict_core& core) = 0;
