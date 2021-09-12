@@ -20,26 +20,26 @@ namespace polysat {
     constraint_manager& explainer::cm() { return s().m_constraints; }
 
     signed_constraint ex_polynomial_superposition::resolve1(pvar v, signed_constraint c1, signed_constraint c2) {
-            // c1 is true, c2 is false
-            SASSERT(c1.is_currently_true(s()));
-            SASSERT(c2.is_currently_false(s()));
-            LOG_H3("Resolving upon v" << v);
-            LOG("c1: " << c1);
-            LOG("c2: " << c2);
-            pdd a = c1->to_ule().p();
-            pdd b = c2->to_ule().p();
-            pdd r = a;
-            if (!a.resolve(v, b, r) && !b.resolve(v, a, r))
-                return {};
-            // Only keep result if the degree in c2 was reduced.
-            // (this condition might be too strict, but we use it for now to prevent looping)
-            if (b.degree(v) <= r.degree(v))
-                return {};
-            signed_constraint c = cm().eq(r);
-            LOG("resolved: " << c << "        currently false? " << c.is_currently_false(s()));
-            if (!c.is_currently_false(s()))
-                return {};
-            return c;
+        // c1 is true, c2 is false
+        SASSERT(c1.is_currently_true(s()));
+        SASSERT(c2.is_currently_false(s()));
+        LOG_H3("Resolving upon v" << v);
+        LOG("c1: " << c1);
+        LOG("c2: " << c2);
+        pdd a = c1->to_ule().p();
+        pdd b = c2->to_ule().p();
+        pdd r = a;
+        if (!a.resolve(v, b, r) && !b.resolve(v, a, r))
+            return {};
+        // Only keep result if the degree in c2 was reduced.
+        // (this condition might be too strict, but we use it for now to prevent looping)
+        if (b.degree(v) <= r.degree(v))
+            return {};
+        signed_constraint c = cm().eq(r);
+        LOG("resolved: " << c << "        currently false? " << c.is_currently_false(s()));
+        if (!c.is_currently_false(s()))
+            return {};
+        return c;
     }
 
     bool ex_polynomial_superposition::is_positive_equality_over(pvar v, signed_constraint const& c) {

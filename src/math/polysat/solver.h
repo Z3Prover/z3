@@ -180,15 +180,6 @@ namespace polysat {
         void set_conflict(signed_constraint c);
         void set_conflict(pvar v);
 
-        unsigned_vector m_marks;
-        unsigned        m_clock { 0 };
-        void reset_marks();
-        bool is_marked(pvar v) const { return m_clock == m_marks[v]; }
-        void set_mark(pvar v) { LOG_V("Marking: v" << v); m_marks[v] = m_clock; }
-
-        void set_marks(conflict_core const& cc);
-        void set_marks(constraint const& c);
-
         bool can_decide() const { return !m_free_vars.empty(); }
         void decide();
         void decide(pvar v);

@@ -25,17 +25,28 @@ namespace polysat {
 
     /** Conflict state, represented as core (~negation of clause). */
     class conflict_core {
-        vector<signed_constraint> m_constraints;
+        vector<signed_constraint> m_constraints;  // constraints used as premises
+        uint_set m_vars;                          // variable assignments used as premises
 
         // If this is not null_var, the conflict was due to empty viable set for this variable.
         // Can be treated like "v = x" for any value x.
         pvar m_conflict_var = null_var;
 
-        /** True iff the conflict depends on the current variable assignment. (If so, additional constraints must be added to the final learned clause.) */
-        bool m_needs_model = false;
         // NOTE: for now we keep this simple implementation.
         //       The drawback is that we may get weaker lemmas in some cases (but they are still correct).
         //       For example: if we have 4x+y=2 and y=0, then we have a conflict no matter the value of x, so we should drop x=? from the core.
+
+        unsigned_vector m_pvar2count;             // reference count of variables
+        void inc_pref(pvar v);
+        void dec_pref(pvar v);
+
+        bool_vector m_bvar2mark;                  // mark of Boolean variables
+        void set_bmark(sat::bool_var b);
+        void unset_bmark(sat::bool_var b);
+
+        void set_mark(constraint* c);
+        void unset_mark(constraint* c);
+
 
         /** Whether we are in a bailout state. We enter a bailout state when we give up on proper conflict resolution.  */
         bool m_bailout = false;
@@ -56,25 +67,29 @@ namespace polysat {
         ~conflict_core();
 
         vector<signed_constraint> const& constraints() const { return m_constraints; }
-        bool needs_model() const { return m_needs_model; }
         pvar conflict_var() const { return m_conflict_var; }
 
         bool is_bailout() const { return m_bailout; }
         void set_bailout() { SASSERT(!is_bailout()); m_bailout = true; }
 
         bool empty() const {
-            return m_constraints.empty() && !m_needs_model && m_conflict_var == null_var;
+            return m_constraints.empty() && m_vars.empty() && conflict_var() == null_var;
         }
 
         void reset() {
+            for (auto c : m_constraints)
+                unset_mark(c.get());
             m_constraints.reset();
-            m_needs_model = false;
+            m_vars.reset();
             m_conflict_var = null_var;
             m_saturation_premises.reset();
             m_bailout = false;
             m_bailout_lemma.reset();
             SASSERT(empty());
         }
+
+        bool is_pmarked(pvar v) const;
+        bool is_bmarked(sat::bool_var b) const;
 
         /** conflict because the constraint c is false under current variable assignment */
         void set(signed_constraint c);

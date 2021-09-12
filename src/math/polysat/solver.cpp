@@ -418,21 +418,6 @@ namespace polysat {
         m_conflict.set(v);
     }
 
-    void solver::set_marks(conflict_core const& cc) {
-        if (cc.conflict_var() != null_var)
-            set_mark(cc.conflict_var());
-        for (auto c : cc.constraints())
-            if (c)
-                set_marks(*c);
-    }
-
-    void solver::set_marks(constraint const& c) {
-        if (c.has_bvar())
-            m_bvars.set_mark(c.bvar());
-        for (auto v : c.vars())
-            set_mark(v);
-    }
-
     /**
      * Conflict resolution.
      * - m_conflict are constraints that are infeasible in the current assignment.
@@ -460,15 +445,11 @@ namespace polysat {
 
         SASSERT(is_conflict());
 
-        reset_marks();
-        set_marks(m_conflict);
         // TODO: subsequent changes to the conflict should update the marks incrementally
 
         if (m_conflict.conflict_var() != null_var) {
             // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
             resolve_value(m_conflict.conflict_var());
-            reset_marks();
-            set_marks(m_conflict);
         }
 
         search_iterator search_it(m_search);
@@ -479,7 +460,7 @@ namespace polysat {
                 // Resolve over variable assignment
                 pvar v = item.var();
                 LOG_H2("Working on pvar v" << v);
-                if (!is_marked(v))
+                if (!m_conflict.is_pmarked(v))
                     continue;
                 justification& j = m_justification[v];
                 LOG("Justification: " << j);
@@ -491,8 +472,6 @@ namespace polysat {
                 }
                 SASSERT(j.is_propagation());
                 resolve_value(v);
-                reset_marks();
-                set_marks(m_conflict);
             }
             else {
                 // Resolve over boolean literal
@@ -500,7 +479,7 @@ namespace polysat {
                 sat::literal const lit = item.lit();
                 LOG_H2("Working on blit " << lit);
                 sat::bool_var const var = lit.var();
-                if (!m_bvars.is_marked(var))
+                if (!m_conflict.is_bmarked(var))
                     continue;
                 if (m_bvars.level(var) <= base_level())
                     break;
@@ -508,10 +487,9 @@ namespace polysat {
                     revert_bool_decision(lit);
                     return;
                 }
+                
                 SASSERT(m_bvars.is_propagation(var));
                 resolve_bool(lit);
-                reset_marks();
-                set_marks(m_conflict);
             }
         }
         report_unsat();
@@ -803,18 +781,7 @@ namespace polysat {
         LOG_V("INSERTING: " << c);
         cs.push_back(c);
         SASSERT(invariant(cs)); 
-    }
-    
-    void solver::reset_marks() {
-        m_bvars.reset_marks();
-        LOG_V("-------------------------- (reset variable marks)");
-        m_marks.reserve(m_vars.size());
-        m_clock++;
-        if (m_clock != 0)
-            return;
-        m_clock++;
-        m_marks.fill(0);        
-    }
+    }   
 
     void solver::push() {
         LOG("Push user scope");

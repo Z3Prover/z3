@@ -61,9 +61,9 @@ namespace polysat {
         if (crit.as_signed_constraint().is_currently_false(s()) && c.is_currently_true(s()))
             return false;
         core.insert(c);
-        reason.push(c);
-        core.remove(crit.as_signed_constraint());
+        reason.push(c);        
         s().propagate_bool(c.blit(), reason.build().get());
+        core.remove(crit.as_signed_constraint()); // needs to be after propagation so we know it is propagated
         return true;
     }
 

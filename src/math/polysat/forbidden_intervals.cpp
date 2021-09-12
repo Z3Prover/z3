@@ -79,13 +79,13 @@ namespace polysat {
         lemma.push(~src);
     }
 
-    bool forbidden_intervals::perform(solver& s, pvar v, conflict_core& core, clause_builder& lemma) {
+    bool forbidden_intervals::perform(solver& s, pvar v, vector<signed_constraint> const& just, clause_builder& lemma) {
 
         // Extract forbidden intervals from conflicting constraints
         vector<fi_record> records;
         rational longest_len;
         unsigned longest_i = UINT_MAX;
-        for (signed_constraint c : core) {
+        for (signed_constraint c : just) {
             LOG_H3("Computing forbidden interval for: " << c);
             eval_interval interval = eval_interval::full();
             signed_constraint neg_cond;
