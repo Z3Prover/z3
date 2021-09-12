@@ -44,7 +44,7 @@ namespace polysat {
         inequality as_inequality(bool is_positive) const override;
         unsigned hash() const override;
         bool operator==(constraint const& other) const override;
-        bool is_eq() const { return m_rhs.is_zero(); }
+        bool is_eq() const override { return m_rhs.is_zero(); }
         pdd const& p() const { SASSERT(is_eq()); return m_lhs; }
     };
 

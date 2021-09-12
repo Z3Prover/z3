@@ -111,14 +111,6 @@ namespace polysat {
         m_constraints.shrink(j);
     }
 
-    void conflict_core::keep(signed_constraint c) {
-        SASSERT(!c->has_bvar());
-        cm().ensure_bvar(c.get());
-        LOG("new constraint: " << c);
-        // Insert the temporary constraint from saturation into \Gamma.
-        handle_saturation_premises(c);
-    }
-
     void conflict_core::resolve(constraint_manager const& m, sat::bool_var var, clause const& cl) {
         // Note: core: x, y, z; corresponds to clause ~x \/ ~y \/ ~z
         //       clause: x \/ u \/ v
@@ -147,7 +139,9 @@ namespace polysat {
     }
 
     /** If the constraint c is a temporary constraint derived by core saturation, insert it (and recursively, its premises) into \Gamma */
-    void conflict_core::handle_saturation_premises(signed_constraint c) {
+    void conflict_core::keep(signed_constraint c) {
+        cm().ensure_bvar(c.get());
+        LOG_H3("keeping: " << c);
         // NOTE: maybe we should skip intermediate steps and just collect the leaf premises for c?
         auto it = m_saturation_premises.find_iterator(c);
         if (it == m_saturation_premises.end())
@@ -156,9 +150,7 @@ namespace polysat {
         auto& premises = it->m_value;
         clause_builder c_lemma(*m_solver);
         for (auto premise : premises) {
-            cm().ensure_bvar(premise.get());
-            // keep(premise);
-            handle_saturation_premises(premise);
+            keep(premise);
             SASSERT(premise->has_bvar());
             c_lemma.push(~premise.blit());
             active_level = std::max(active_level, m_solver->m_bvars.level(premise.blit()));
