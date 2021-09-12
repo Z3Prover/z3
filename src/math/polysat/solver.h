@@ -211,6 +211,10 @@ namespace polysat {
 
         signed_constraint eq(pdd const& p);
         signed_constraint diseq(pdd const& p);
+        signed_constraint eq(pdd const& p, pdd const& q) { return eq(p - q); }
+        signed_constraint diseq(pdd const& p, pdd const& q) { return diseq(p - q); }
+        signed_constraint eq(pdd const& p, rational const& q) { return eq(p - q); }
+        signed_constraint diseq(pdd const& p, rational const& q) { return diseq(p - q); }
         signed_constraint ule(pdd const& p, pdd const& q);
         signed_constraint ult(pdd const& p, pdd const& q);
         signed_constraint sle(pdd const& p, pdd const& q);
@@ -275,9 +279,11 @@ namespace polysat {
         pdd value(rational const& v, unsigned sz);
 
         /**
-         * Return value of v in the current model (only meaningful if check_sat() returned l_true).
+         * Return value / level of v in the current model (only meaningful if check_sat() returned l_true).
          */
-        rational get_value(pvar v) const { SASSERT(!m_justification[v].is_unassigned()); return m_value[v]; }
+        rational get_value(pvar v) const { SASSERT(is_assigned(v)); return m_value[v]; }
+
+        unsigned get_level(pvar v) const { SASSERT(is_assigned(v)); return m_justification[v].level(); }
 
         /**
          * Create polynomial constraints (but do not activate them).

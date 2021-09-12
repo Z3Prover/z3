@@ -201,7 +201,7 @@ namespace polysat {
     clause_builder conflict_core::build_fallback_lemma(unsigned lvl) {
         LOG_H3("Creating fallback lemma for level " << lvl);
         LOG_V("m_search: " << s().m_search);
-        clause_builder lemma(*m_solver);
+        clause_builder lemma(s());
         unsigned todo = lvl;
         unsigned i = 0;
         while (todo > 0) {
@@ -211,7 +211,7 @@ namespace polysat {
             LOG_V("Adding: " << item);
             if (item.is_assignment()) {
                 pvar v = item.var();
-                auto c = ~cm().eq(s().var(v) - s().m_value[v]);
+                auto c = ~s().eq(s().var(v), s().get_value(v));
                 cm().ensure_bvar(c.get());
                 lemma.push(c.blit());
             } else {
@@ -227,7 +227,7 @@ namespace polysat {
         LOG_H3("Build lemma from core");
         LOG("core: " << *this);
         LOG("model_level: " << model_level);
-        clause_builder lemma(*m_solver);
+        clause_builder lemma(s());
 
         for (auto c : m_constraints) {
             if (!c->has_bvar())
@@ -241,9 +241,9 @@ namespace polysat {
             // SASSERT(!s().is_assigned(v));  // TODO: why does this trigger????
             if (!s().is_assigned(v))
                 continue;
-            if (s().m_justification[v].level() > model_level)
+            if (s().get_level(v) > model_level)
                 continue;
-            auto diseq = ~cm().eq(s().var(v) - s().m_value[v]);
+            auto diseq = ~s().eq(s().var(v), s().get_value(v));
             cm().ensure_bvar(diseq.get());
             lemma.push(diseq);
         }        
@@ -288,10 +288,10 @@ namespace polysat {
         // No value resolution method was successful => fall back to saturation and variable elimination
         while (s().inc()) { 
             // TODO: as a last resort, substitute v by m_value[v]?
-            if (!try_saturate(v))
-                break;
             if (try_eliminate(v))
                 return true;
+            if (!try_saturate(v))
+                break;
         }
         m_vars.insert(v);
         return false;
