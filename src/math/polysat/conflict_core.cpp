@@ -61,9 +61,9 @@ namespace polysat {
     constraint_manager& conflict_core::cm() { return s().m_constraints; }
 
     std::ostream& conflict_core::display(std::ostream& out) const {
-        bool first = true;
+        char* sep = "";
         for (auto c : m_constraints) 
-            out << (first ? "" : " ; ") << c, first = false;        
+            out << sep << c, sep = " ; ";
         if (!m_vars.empty())
             out << " vars";
         for (auto v : m_vars)
