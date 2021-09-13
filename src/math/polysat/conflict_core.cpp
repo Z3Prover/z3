@@ -219,10 +219,12 @@ namespace polysat {
         clause_builder lemma(s());
 
         for (auto c : m_constraints) {
-            if (!c->has_bvar())
-                keep(c);
-            lemma.push(~c);
+            SASSERT(!c->has_bvar());
+            keep(c);
         }
+
+        for (auto c : *this)
+            lemma.push(~c);
 
         for (unsigned v : m_vars) {
             if (!is_pmarked(v))
