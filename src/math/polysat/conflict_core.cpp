@@ -66,7 +66,7 @@ namespace polysat {
 
     void conflict_core::reset() {
         for (auto c : *this)
-            unset_mark(c.get());
+            unset_mark(c);
         m_constraints.reset();
         m_literals.reset();
         m_vars.reset();
@@ -113,7 +113,7 @@ namespace polysat {
         SASSERT(!c.is_always_false());
         if (c->is_marked())
             return;
-        set_mark(c.get());
+        set_mark(c);
         if (c->has_bvar())
             insert_literal(c.blit());
         else
@@ -126,7 +126,7 @@ namespace polysat {
     }
 
     void conflict_core::remove(signed_constraint c) {
-        unset_mark(c.get());       
+        unset_mark(c);       
         if (c->has_bvar()) {
             SASSERT(std::count(m_constraints.begin(), m_constraints.end(), c) == 0);
             remove_literal(c.blit());
@@ -144,7 +144,7 @@ namespace polysat {
         unsigned j = 0;
         for (unsigned i = 0; i < m_constraints.size(); ++i)
             if (m_constraints[i]->contains_var(v))
-                unset_mark(m_constraints[i].get());
+                unset_mark(m_constraints[i]);
             else
                 m_constraints[j++] = m_constraints[i];           
                 
@@ -172,7 +172,7 @@ namespace polysat {
             if (c->bvar() != var)
                 m_constraints[j++] = c;
             else
-                unset_mark(c.get());
+                unset_mark(c);
         }
         m_constraints.shrink(j);
 
@@ -333,10 +333,10 @@ namespace polysat {
         return false;
     }
 
-    void conflict_core::set_mark(constraint* c) {
+    void conflict_core::set_mark(signed_constraint c) {
         if (c->is_marked())
             return;
-        bool bool_propagated = c->has_bvar() && s().m_bvars.is_assigned(c->bvar());
+        bool bool_propagated = c->has_bvar() && s().m_bvars.value(c.blit()) == l_true;
         c->set_mark();
         if (c->has_bvar())
             set_bmark(c->bvar());    
@@ -347,7 +347,7 @@ namespace polysat {
                 inc_pref(v);
     }
 
-    void conflict_core::unset_mark(constraint* c) {
+    void conflict_core::unset_mark(signed_constraint c) {
         if (!c->is_marked())
             return;
         c->unset_mark();

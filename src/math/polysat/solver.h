@@ -282,6 +282,7 @@ namespace polysat {
 
         unsigned get_level(pvar v) const { SASSERT(is_assigned(v)); return m_justification[v].level(); }
 
+
         /**
          * Create polynomial constraints (but do not activate them).
          * Each constraint is tracked by a dependency.

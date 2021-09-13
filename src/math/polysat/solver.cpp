@@ -99,7 +99,6 @@ namespace polysat {
         return sz2pdd(sz).mk_val(v);
     }
 
-
     void solver::del_var() {
         // TODO also remove v from all learned constraints.
         pvar v = m_value.size() - 1;

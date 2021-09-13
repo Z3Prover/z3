@@ -42,8 +42,8 @@ namespace polysat {
         void set_bmark(sat::bool_var b);
         void unset_bmark(sat::bool_var b);
 
-        void set_mark(constraint* c);
-        void unset_mark(constraint* c);
+        void set_mark(signed_constraint c);
+        void unset_mark(signed_constraint c);
 
         void insert_literal(sat::literal lit);
         void remove_literal(sat::literal lit);
