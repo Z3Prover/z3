@@ -460,7 +460,6 @@ namespace polysat {
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();
-                LOG_H2("Working on pvar v" << v);
                 if (!m_conflict.is_pmarked(v))
                     continue;
                 justification& j = m_justification[v];

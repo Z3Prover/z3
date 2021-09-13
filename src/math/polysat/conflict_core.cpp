@@ -61,7 +61,7 @@ namespace polysat {
     constraint_manager& conflict_core::cm() { return s().m_constraints; }
 
     std::ostream& conflict_core::display(std::ostream& out) const {
-        char* sep = "";
+        char const* sep = "";
         for (auto c : m_constraints) 
             out << sep << c, sep = " ; ";
         if (!m_vars.empty())
@@ -99,7 +99,6 @@ namespace polysat {
     }
 
     void conflict_core::insert(signed_constraint c) {
-        SASSERT(!empty());  // should use set() to enter conflict state
         LOG("inserting: " << c);
         // Skip trivial constraints
         // (e.g., constant ones such as "4 > 1"... only true ones should appear, otherwise the lemma would be a tautology)
@@ -238,7 +237,7 @@ namespace polysat {
         for (unsigned v : m_vars) {
             if (!is_pmarked(v))
                 continue;
-            // SASSERT(!s().is_assigned(v));  // TODO: why does this trigger????
+            SASSERT(s().is_assigned(v));  // note that we may have added too many variables: e.g., y disappears in x*y if x=0
             if (!s().is_assigned(v))
                 continue;
             if (s().get_level(v) > model_level)
@@ -264,7 +263,7 @@ namespace polysat {
         // NOTE:
         // In the "standard" case where "v = val" is on the stack:
         //      - cjust_v contains true constraints
-        //      - core contains both false and true constraints... (originally only false ones, but additional true ones may come from saturation?).
+        //      - core contains both false and true constraints (originally only false ones, but additional true ones may come from saturation)
 
         if (conflict_var() == v) {
             clause_builder lemma(s());
