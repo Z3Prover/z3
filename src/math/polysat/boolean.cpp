@@ -25,20 +25,20 @@ namespace polysat {
             m_lemma.push_back(nullptr);
             return var;
         }
-	else {
+        else {
             sat::bool_var var = m_unused.back();
             m_unused.pop_back();
             SASSERT_EQ(m_level[var], UINT_MAX);
-	    SASSERT_EQ(m_value[2*var], l_undef);
-	    SASSERT_EQ(m_value[2*var+1], l_undef);
-	    SASSERT_EQ(m_reason[var], nullptr);
-	    SASSERT_EQ(m_lemma[var], nullptr);
+            SASSERT_EQ(m_value[2*var], l_undef);
+            SASSERT_EQ(m_value[2*var+1], l_undef);
+            SASSERT_EQ(m_reason[var], nullptr);
+            SASSERT_EQ(m_lemma[var], nullptr);
             return var;
         }
     }
 
     void bool_var_manager::del_var(sat::bool_var var) {
-        SASSERT(std::all_of(m_unused.begin(), m_unused.end(), [var](unsigned unused_var) { return var != unused_var; }));
+        SASSERT(std::count(m_unused.begin(), m_unused.end(), var) == 0);
         auto lit = sat::literal(var);
         m_value[lit.index()]    = l_undef;
         m_value[(~lit).index()] = l_undef;
@@ -65,22 +65,6 @@ namespace polysat {
         m_level[lit.var()] = UINT_MAX;
         m_reason[lit.var()] = nullptr;
         m_lemma[lit.var()] = nullptr;
-    }
-
-    void bool_var_manager::reset_marks() {
-        LOG_V("-------------------------- (reset boolean marks)");
-        m_marks.reserve(size());
-        m_clock++;
-        if (m_clock != 0)
-            return;
-        m_clock++;
-        m_marks.fill(0);
-    }
-
-    void bool_var_manager::set_mark(sat::bool_var var) {
-        LOG_V("Marking: b" << var);
-        SASSERT(var != sat::null_bool_var);
-        m_marks[var] = m_clock;
     }
 
     std::ostream& bool_var_manager::display(std::ostream& out) const {

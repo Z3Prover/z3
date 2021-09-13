@@ -27,19 +27,12 @@ namespace polysat {
         // For enumerative backtracking we store the lemma we're handling with a certain decision
         svector<clause*>        m_lemma;
 
-        unsigned_vector         m_marks;
-        unsigned                m_clock = 0;
-
     public:
         // allocated size (not the number of active variables)
         unsigned size() const { return m_level.size(); }
 
         sat::bool_var new_var();
         void del_var(sat::bool_var var);
-
-        void reset_marks();
-        bool is_marked(sat::bool_var var) const { return m_clock == m_marks[var]; }
-        void set_mark(sat::bool_var var);
 
         bool is_assigned(sat::bool_var var) const { return value(var) != l_undef; }
         bool is_assigned(sat::literal lit) const { return value(lit) != l_undef; }
