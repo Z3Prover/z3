@@ -30,7 +30,7 @@ Notes:
 
 #include "tactic/goal.h"
 #include "sat/sat_model_converter.h"
-#include "sat/sat_solver_core.h"
+#include "sat/sat_solver.h"
 #include "tactic/generic_model_converter.h"
 #include "sat/smt/atom2bool_var.h"
 
@@ -53,7 +53,7 @@ public:
         mc(ast_manager& m);
         ~mc() override {}
         // flush model converter from SAT solver to this structure.
-        void flush_smc(sat::solver_core& s, atom2bool_var const& map);
+        void flush_smc(sat::solver& s, atom2bool_var const& map);
         void operator()(sat::model& m);
         void operator()(model_ref& md) override;
         void operator()(expr_ref& fml) override; 
@@ -79,6 +79,6 @@ public:
        \warning conversion throws a tactic_exception, if it is interrupted (by set_cancel),
        or memory consumption limit is reached (set with param :max-memory).
     */
-    void operator()(sat::solver_core & t, atom2bool_var const & m, params_ref const & p, goal & s, ref<mc> & mc);
+    void operator()(sat::solver & t, atom2bool_var const & m, params_ref const & p, goal & s, ref<mc> & mc);
     
 };

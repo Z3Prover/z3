@@ -49,7 +49,7 @@ Notes:
 
 sat2goal::mc::mc(ast_manager& m): m(m), m_var2expr(m) {}
 
-void sat2goal::mc::flush_smc(sat::solver_core& s, atom2bool_var const& map) {
+void sat2goal::mc::flush_smc(sat::solver& s, atom2bool_var const& map) {
     s.flush(m_smc);
     m_var2expr.resize(s.num_vars());
     map.mk_var_inv(m_var2expr);
@@ -223,7 +223,7 @@ struct sat2goal::imp {
         return m_lit2expr.get(l.index());
     }
 
-    void assert_clauses(ref<mc>& mc, sat::solver_core const & s, sat::clause_vector const& clauses, goal & r, bool asserted) {
+    void assert_clauses(ref<mc>& mc, sat::solver const & s, sat::clause_vector const& clauses, goal & r, bool asserted) {
         ptr_buffer<expr> lits;
         unsigned small_lbd = 3; // s.get_config().m_gc_small_lbd;
         for (sat::clause* cp : clauses) {
@@ -239,7 +239,7 @@ struct sat2goal::imp {
         }
     }
 
-    void operator()(sat::solver_core & s, atom2bool_var const & map, goal & r, ref<mc> & mc) {
+    void operator()(sat::solver & s, atom2bool_var const & map, goal & r, ref<mc> & mc) {
         if (s.at_base_lvl() && s.inconsistent()) {
             r.assert_expr(m.mk_false());
             return;
@@ -323,7 +323,7 @@ struct sat2goal::scoped_set_imp {
     }
 };
 
-void sat2goal::operator()(sat::solver_core & t, atom2bool_var const & m, params_ref const & p, 
+void sat2goal::operator()(sat::solver & t, atom2bool_var const & m, params_ref const & p,
                           goal & g, ref<mc> & mc) {
     imp proc(g.m(), p);
     scoped_set_imp set(this, &proc);

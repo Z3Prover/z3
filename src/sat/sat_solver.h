@@ -244,12 +244,13 @@ namespace sat {
         // Misc
         //
         // -----------------------
-        void updt_params(params_ref const & p) override;        
+        void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
 
-        void collect_statistics(statistics & st) const override;
+        // collect statistics from sat solver
+        void collect_statistics(statistics & st) const;
         void reset_statistics();
-        void display_status(std::ostream & out) const override;
+        void display_status(std::ostream & out) const;
         
         /**
            \brief Copy (non learned) clauses from src to this solver.
@@ -351,14 +352,19 @@ namespace sat {
         //
         // -----------------------
     public:
-        bool inconsistent() const override { return m_inconsistent; }
-        unsigned num_vars() const override { return m_justification.size(); }
-        unsigned num_clauses() const override;
+        // is the state inconsistent?
+        bool inconsistent() const { return m_inconsistent; }
+
+        // number of variables and clauses
+        unsigned num_vars() const { return m_justification.size(); }
+        unsigned num_clauses() const;
+
         void num_binary(unsigned& given, unsigned& learned) const;
         unsigned num_restarts() const { return m_restarts; }
-        bool is_external(bool_var v) const override { return m_external[v]; }
+        bool is_external(bool_var v) const { return m_external[v]; }
+        bool is_external(literal l) const { return is_external(l.var()); }
         void set_external(bool_var v) override;
-        void set_non_external(bool_var v) override;
+        void set_non_external(bool_var v);
         bool was_eliminated(bool_var v) const { return m_eliminated[v]; }
         void set_eliminated(bool_var v, bool f) override;
         bool was_eliminated(literal l) const { return was_eliminated(l.var()); }
@@ -368,16 +374,14 @@ namespace sat {
         unsigned scope_lvl() const { return m_scope_lvl; }
         unsigned search_lvl() const { return m_search_lvl; }
         bool  at_search_lvl() const { return m_scope_lvl == m_search_lvl; }
-        bool  at_base_lvl() const override { return m_scope_lvl == 0; }
+        bool  at_base_lvl() const { return m_scope_lvl == 0; }
         lbool value(literal l) const { return m_assignment[l.index()]; }
         lbool value(bool_var v) const { return m_assignment[literal(v, false).index()]; }
         justification get_justification(literal l) const { return m_justification[l.var()]; }
         justification get_justification(bool_var v) const { return m_justification[v]; }
         unsigned lvl(bool_var v) const { return m_justification[v].level(); }
         unsigned lvl(literal l) const { return m_justification[l.var()].level(); }
-        unsigned init_trail_size() const override { return at_base_lvl() ? m_trail.size() : m_scopes[0].m_trail_lim; }
         unsigned trail_size() const { return m_trail.size(); }
-        literal  trail_literal(unsigned i) const override { return m_trail[i]; }
         literal  scope_literal(unsigned n) const { return m_trail[m_scopes[n].m_trail_lim]; }
         void assign(literal l, justification j) {
             TRACE("sat_assign", tout << l << " previous value: " << value(l) << " j: " << j << "\n";);
@@ -430,7 +434,7 @@ namespace sat {
         bool canceled() { return !m_rlimit.inc(); }
         config const& get_config() const { return m_config; }
         drat& get_drat() { return m_drat; }
-        drat* get_drat_ptr() override { return &m_drat;  }
+        drat* get_drat_ptr() { return &m_drat;  }
         void set_incremental(bool b) { m_config.m_incremental = b; }
         bool is_incremental() const { return m_config.m_incremental; }
         extension* get_extension() const override { return m_ext.get(); }
@@ -472,15 +476,37 @@ namespace sat {
         //
         // -----------------------
     public:
-        lbool check(unsigned num_lits = 0, literal const* lits = nullptr) override;
+        lbool check(unsigned num_lits = 0, literal const* lits = nullptr);
 
-        model const & get_model() const override { return m_model; }
+        // retrieve model if solver return sat
+        model const & get_model() const { return m_model; }
         bool model_is_current() const { return m_model_is_current; }
-        literal_vector const& get_core() const override { return m_core; }
+
+        // retrieve core from assumptions
+        literal_vector const& get_core() const { return m_core; }
+
         model_converter const & get_model_converter() const { return m_mc; }
-        void flush(model_converter& mc) override { mc.flush(m_mc); }
+
+        // The following methods are used when converting the state from the SAT solver back
+        // to a set of assertions.
+
+        // retrieve model converter that handles variable elimination and other transformations
+        void flush(model_converter& mc) { mc.flush(m_mc); }
+
+        // size of initial trail containing unit clauses
+        unsigned init_trail_size() const { return at_base_lvl() ? m_trail.size() : m_scopes[0].m_trail_lim; }
+
+        // literal at trail index i
+        literal  trail_literal(unsigned i) const { return m_trail[i]; }
+
+        // collect n-ary clauses
+        clause_vector const& clauses() const { return m_clauses; }
+
+        // collect binary clauses
+        void collect_bin_clauses(svector<bin_clause> & r, bool learned, bool learned_only) const;
+
         void set_model(model const& mdl, bool is_current);
-        char const* get_reason_unknown() const override { return m_reason_unknown.c_str(); }
+        char const* get_reason_unknown() const { return m_reason_unknown.c_str(); }
         bool check_clauses(model const& m) const;
         bool is_assumption(bool_var v) const;
         void set_activity(bool_var v, unsigned act);
@@ -688,7 +714,7 @@ namespace sat {
     public:
         void user_push() override;
         void user_pop(unsigned num_scopes) override;
-        void pop_to_base_level() override;
+        void pop_to_base_level();
         unsigned num_user_scopes() const override { return m_user_scope_literals.size(); }
         unsigned num_scopes() const override { return m_scopes.size(); }
         reslimit& rlimit() { return m_rlimit; }
@@ -788,8 +814,6 @@ namespace sat {
         clause * const * begin_learned() const { return m_learned.begin(); }
         clause * const * end_learned() const { return m_learned.end(); }
         clause_vector const& learned() const { return m_learned; }
-        clause_vector const& clauses() const override { return m_clauses; }
-        void collect_bin_clauses(svector<bin_clause> & r, bool learned, bool learned_only) const override;
 
 
         // -----------------------
@@ -798,11 +822,11 @@ namespace sat {
         //
         // -----------------------
     public:
-        bool check_invariant() const override;
+        bool check_invariant() const;
         void display(std::ostream & out) const;
         void display_watches(std::ostream & out) const;
         void display_watches(std::ostream & out, literal lit) const;
-        void display_dimacs(std::ostream & out) const override;
+        void display_dimacs(std::ostream & out) const;
         std::ostream& display_model(std::ostream& out) const;
         void display_wcnf(std::ostream & out, unsigned sz, literal const* lits, unsigned const* weights) const;
         void display_assignment(std::ostream & out) const;

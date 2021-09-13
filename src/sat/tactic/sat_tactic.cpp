@@ -30,7 +30,7 @@ class sat_tactic : public tactic {
         ast_manager &   m;
         goal2sat        m_goal2sat;
         sat2goal        m_sat2goal;
-        scoped_ptr<sat::solver_core>   m_solver;
+        scoped_ptr<sat::solver> m_solver;
         params_ref      m_params;
         
         imp(ast_manager & _m, params_ref const & p):
