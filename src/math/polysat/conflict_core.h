@@ -68,7 +68,7 @@ namespace polysat {
         pvar conflict_var() const { return m_conflict_var; }
 
         bool is_bailout() const { return m_bailout; }
-        void set_bailout() { SASSERT(!is_bailout()); m_bailout = true; }
+        void set_bailout() { SASSERT(!is_bailout()); m_bailout = true; s().m_stats.m_num_bailouts++; }
 
         bool empty() const {
             return m_constraints.empty() && m_vars.empty() && m_literals.empty() && m_conflict_var == null_var;
@@ -105,9 +105,8 @@ namespace polysat {
         bool resolve_value(pvar v, vector<signed_constraint> const& cjust_v);
 
         /** Convert the core into a lemma to be learned. */
-        clause_builder build_lemma(unsigned reverted_level);
-        clause_builder build_core_lemma(unsigned model_level);
-        clause_builder build_fallback_lemma(unsigned lvl);
+        clause_builder build_lemma();
+        clause_builder build_core_lemma();
 
         bool try_eliminate(pvar v);
         bool try_saturate(pvar v);

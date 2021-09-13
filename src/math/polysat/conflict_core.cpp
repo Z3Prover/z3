@@ -16,11 +16,6 @@ Notes:
 
  TODO: try a final core reduction step or other core minimization
 
-TODO: fallback lemma is redundant:
-      The core lemma uses m_vars and m_conflict directly instead of walking the stack.
-      It should be an invariant that the core is false (the negation of the core is valid modulo assertions).
-      The fallback lemma prunes at least the last value assignment.
-
 TODO: If we have e.g. 4x+y=2 and y=0, then we have a conflict no matter the value of x, so we should drop x=? from the core.
       (works currently if x is unassigned; for other cases we would need extra info from constraint::is_currently_false)
 
@@ -209,41 +204,9 @@ namespace polysat {
         s().propagate_bool_at(active_level, c.blit(), cl);
     }
 
-    /** Create fallback lemma that excludes the current search state */
-    /**
-    * revisit: can prune literals further by slicing base on cone of influence
-    * based on marked literals/variables on the stack. Only decisions that affect
-    * marked items need to be included.
-    */
-    clause_builder conflict_core::build_fallback_lemma(unsigned lvl) {
-        LOG_H3("Creating fallback lemma for level " << lvl);
-        LOG_V("m_search: " << s().m_search);
-        clause_builder lemma(s());
-        unsigned todo = lvl;
-        unsigned i = 0;
-        while (todo > 0) {
-            auto const& item = s().m_search[i++];
-            if (!s().is_decision(item))
-                continue;
-            LOG_V("Adding: " << item);
-            if (item.is_assignment()) {
-                pvar v = item.var();
-                auto c = ~s().eq(s().var(v), s().get_value(v));
-                cm().ensure_bvar(c.get());
-                lemma.push(c.blit());
-            } else {
-                sat::literal lit = item.lit();
-                lemma.push(~lit);
-            }
-            --todo;
-        }
-        return lemma;
-    }
-
-    clause_builder conflict_core::build_core_lemma(unsigned model_level) {
+    clause_builder conflict_core::build_core_lemma() {
         LOG_H3("Build lemma from core");
         LOG("core: " << *this);
-        LOG("model_level: " << model_level);
         clause_builder lemma(s());
 
         for (auto c : m_constraints) {
@@ -258,8 +221,6 @@ namespace polysat {
             SASSERT(s().is_assigned(v));  // note that we may have added too many variables: e.g., y disappears in x*y if x=0
             if (!s().is_assigned(v))
                 continue;
-            if (s().get_level(v) > model_level)
-                continue;
             auto diseq = ~s().eq(s().var(v), s().get_value(v));
             cm().ensure_bvar(diseq.get());
             lemma.push(diseq);
@@ -268,13 +229,11 @@ namespace polysat {
         return lemma;
     }
 
-    clause_builder conflict_core::build_lemma(unsigned reverted_level) {
-        if (!is_bailout())
-            return build_core_lemma(reverted_level);
-        else if (m_bailout_lemma)
+    clause_builder conflict_core::build_lemma() {
+        if (m_bailout_lemma)
             return *std::move(m_bailout_lemma);
         else
-            return build_fallback_lemma(reverted_level);
+            return build_core_lemma();
     }
 
     bool conflict_core::resolve_value(pvar v, vector<signed_constraint> const& cjust_v) {
@@ -298,18 +257,23 @@ namespace polysat {
         for (auto c : cjust_v) 
             insert(c);        
 
-        for (auto* engine : ex_engines)
-            if (engine->try_explain(v, *this))
-                return true;
+        if (!is_bailout()) {
+            for (auto* engine : ex_engines)
+                if (engine->try_explain(v, *this))
+                    return true;
 
-        // No value resolution method was successful => fall back to saturation and variable elimination
-        while (s().inc()) { 
-            // TODO: as a last resort, substitute v by m_value[v]?
-            if (try_eliminate(v))
-                return true;
-            if (!try_saturate(v))
-                break;
+            // No value resolution method was successful => fall back to saturation and variable elimination
+            while (s().inc()) { 
+                // TODO: as a last resort, substitute v by m_value[v]?
+                if (try_eliminate(v))
+                    return true;
+                if (!try_saturate(v))
+                    break;
+            }
+
+            set_bailout();
         }
+
         m_vars.insert(v);
         return false;
     }
