@@ -50,12 +50,12 @@ namespace polysat {
 
     std::ostream& conflict_core::display(std::ostream& out) const {
         char const* sep = "";
-        for (auto c : m_constraints) 
+        for (auto c : *this) 
             out << sep << c, sep = " ; ";
         if (!m_vars.empty())
             out << " vars";
         for (auto v : m_vars)
-            out << "  " << v;
+            out << " v" << v;
         return out;
     }
 
@@ -136,14 +136,29 @@ namespace polysat {
     }
 
     void conflict_core::remove_var(pvar v) {
+        LOG("Removing v" << v << " from core");
         unsigned j = 0;
         for (unsigned i = 0; i < m_constraints.size(); ++i)
             if (m_constraints[i]->contains_var(v))
                 unset_mark(m_constraints[i]);
             else
-                m_constraints[j++] = m_constraints[i];           
-                
+                m_constraints[j++] = m_constraints[i];
         m_constraints.shrink(j);
+        indexed_uint_set literals_copy = m_literals;  // TODO: can avoid copy (e.g., add a filter method for indexed_uint_set)
+        for (unsigned lit_idx : literals_copy) {
+            signed_constraint c = cm().lookup(sat::to_literal(lit_idx));
+            if (c->contains_var(v)) {
+                unset_mark(c);
+                m_literals.remove(lit_idx);
+            }
+        }
+        m_vars.remove(v);
+    }
+
+    void conflict_core::set_bailout() {
+        SASSERT(!is_bailout());
+        m_bailout = true;
+        s().m_stats.m_num_bailouts++;
     }
 
     void conflict_core::resolve(constraint_manager const& m, sat::bool_var var, clause const& cl) {
@@ -152,9 +167,10 @@ namespace polysat {
         //       resolvent: ~y \/ ~z \/ u \/ v; as core: y, z, ~u, ~v
 
         SASSERT(var != sat::null_bool_var);
+        SASSERT(std::all_of(m_constraints.begin(), m_constraints.end(), [](auto c){ return !c->has_bvar(); }));
+        bool core_has_pos = contains_literal(sat::literal(var));
+        bool core_has_neg = contains_literal(~sat::literal(var));
         DEBUG_CODE({
-            bool core_has_pos = std::count_if(begin(), end(), [var](auto c){ return c.blit() == sat::literal(var); }) > 0;
-            bool core_has_neg = std::count_if(begin(), end(), [var](auto c){ return c.blit() == ~sat::literal(var); }) > 0;
             bool clause_has_pos = std::count(cl.begin(), cl.end(), sat::literal(var)) > 0;
             bool clause_has_neg = std::count(cl.begin(), cl.end(), ~sat::literal(var)) > 0;
             SASSERT(!core_has_pos || !core_has_neg);  // otherwise core is tautology
@@ -162,14 +178,10 @@ namespace polysat {
             SASSERT((core_has_pos && clause_has_pos) || (core_has_neg && clause_has_neg));
         });
 
-        int j = 0;
-        for (auto c : m_constraints) {
-            if (c->bvar() != var)
-                m_constraints[j++] = c;
-            else
-                unset_mark(c);
-        }
-        m_constraints.shrink(j);
+        if (core_has_pos)
+            remove_literal(sat::literal(var));
+        if (core_has_neg)
+            remove_literal(~sat::literal(var));
 
         for (sat::literal lit : cl)
             if (lit.var() != var)
@@ -179,9 +191,9 @@ namespace polysat {
     /** If the constraint c is a temporary constraint derived by core saturation, insert it (and recursively, its premises) into \Gamma */
     void conflict_core::keep(signed_constraint c) {
         if (!c->has_bvar()) {
-            m_constraints.erase(c);
+            remove(c);
             cm().ensure_bvar(c.get());
-            insert_literal(c.blit());
+            insert(c);
         }
         LOG_H3("keeping: " << c);
         // NOTE: maybe we should skip intermediate steps and just collect the leaf premises for c?
@@ -194,6 +206,7 @@ namespace polysat {
         for (auto premise : premises) {
             keep(premise);
             SASSERT(premise->has_bvar());
+            SASSERT(s().m_bvars.value(premise.blit()) == l_true);  // otherwise the propagation doesn't make sense
             c_lemma.push(~premise.blit());
             active_level = std::max(active_level, s().m_bvars.level(premise.blit()));
         }
@@ -210,10 +223,12 @@ namespace polysat {
         clause_builder lemma(s());
 
         for (auto c : m_constraints) {
-            if (!c->has_bvar())
-                keep(c);
-            lemma.push(~c);
+            SASSERT(!c->has_bvar());
+            keep(c);
         }
+
+        for (auto c : *this)
+            lemma.push(~c);
 
         for (unsigned v : m_vars) {
             if (!is_pmarked(v))
@@ -353,6 +368,10 @@ namespace polysat {
 
     bool conflict_core::is_bmarked(sat::bool_var b) const {
         return m_bvar2mark.get(b, false);
+    }
+
+    bool conflict_core::contains_literal(sat::literal lit) const {
+        return m_literals.contains(lit.to_uint());
     }
 
     void conflict_core::insert_literal(sat::literal lit) {

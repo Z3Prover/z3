@@ -45,6 +45,7 @@ namespace polysat {
         void set_mark(signed_constraint c);
         void unset_mark(signed_constraint c);
 
+        bool contains_literal(sat::literal lit) const;
         void insert_literal(sat::literal lit);
         void remove_literal(sat::literal lit);
 
@@ -68,7 +69,7 @@ namespace polysat {
         pvar conflict_var() const { return m_conflict_var; }
 
         bool is_bailout() const { return m_bailout; }
-        void set_bailout() { SASSERT(!is_bailout()); m_bailout = true; s().m_stats.m_num_bailouts++; }
+        void set_bailout();
 
         bool empty() const {
             return m_constraints.empty() && m_vars.empty() && m_literals.empty() && m_conflict_var == null_var;
@@ -135,11 +136,11 @@ namespace polysat {
         conflict_core_iterator(constraint_manager& cm, it1_t it1, it1_t end1, it2_t it2):
             m_cm(&cm), m_it1(it1), m_end1(end1), m_it2(it2) {}
 
-        static conflict_core_iterator begin(constraint_manager& cm, signed_constraints cs, indexed_uint_set lits) {
+        static conflict_core_iterator begin(constraint_manager& cm, signed_constraints const& cs, indexed_uint_set const& lits) {
             return {cm, cs.begin(), cs.end(), lits.begin()};
         }
 
-        static conflict_core_iterator end(constraint_manager& cm, signed_constraints cs, indexed_uint_set lits) {
+        static conflict_core_iterator end(constraint_manager& cm, signed_constraints const& cs, indexed_uint_set const& lits) {
             return {cm, cs.end(), cs.end(), lits.end()};
         }
 

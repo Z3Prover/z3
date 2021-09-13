@@ -19,9 +19,9 @@ namespace polysat {
     std::ostream& search_item::display(std::ostream& out) const {
         switch (kind()) {
         case search_item_k::assignment:
-            return out << "assignment(v" << var() << ")";
+            return out << "v" << var() << "=?";
         case search_item_k::boolean:
-            return out << "boolean(" << lit() << ")";
+            return out << lit();
         }
         UNREACHABLE();
         return out;
