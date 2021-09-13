@@ -92,7 +92,7 @@ namespace polysat {
 
         void init() {
             first = m_search->size();
-            current = first - 1;
+            current = first;  // we start one before the beginning
         }
 
         void try_push_block() {
@@ -104,7 +104,8 @@ namespace polysat {
 
         void pop_block() {
             current = m_index_stack.back().current;
-            first = m_index_stack.back().first;
+            // We don't restore 'first', otherwise 'next()' will immediately push a new block again.
+            // Instead, the current block is merged with the popped one.
             m_index_stack.pop_back();
         }
 
@@ -116,7 +117,6 @@ namespace polysat {
         search_iterator(search_state& search):
             m_search(&search) {
             init();
-            current++;  // we start one before the beginning, then it also works for empty m_search
         }
 
         search_item const& operator*() const {
@@ -134,7 +134,7 @@ namespace polysat {
                 if (m_index_stack.empty())
                     return false;
                 pop_block();
-                return true;
+                return next();
             }
         }
     };

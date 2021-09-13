@@ -136,6 +136,7 @@ namespace polysat {
     }
 
     void conflict_core::remove_var(pvar v) {
+        LOG("Removing v" << v << " from core");
         unsigned j = 0;
         for (unsigned i = 0; i < m_constraints.size(); ++i)
             if (m_constraints[i]->contains_var(v))
@@ -146,8 +147,10 @@ namespace polysat {
         indexed_uint_set literals_copy = m_literals;  // TODO: can avoid copy (e.g., add a filter method for indexed_uint_set)
         for (unsigned lit_idx : literals_copy) {
             signed_constraint c = cm().lookup(sat::to_literal(lit_idx));
-            if (c->contains_var(v))
+            if (c->contains_var(v)) {
                 unset_mark(c);
+                m_literals.remove(lit_idx);
+            }
         }
         m_vars.remove(v);
     }
@@ -188,9 +191,9 @@ namespace polysat {
     /** If the constraint c is a temporary constraint derived by core saturation, insert it (and recursively, its premises) into \Gamma */
     void conflict_core::keep(signed_constraint c) {
         if (!c->has_bvar()) {
-            m_constraints.erase(c);
+            remove(c);
             cm().ensure_bvar(c.get());
-            insert_literal(c.blit());
+            insert(c);
         }
         LOG_H3("keeping: " << c);
         // NOTE: maybe we should skip intermediate steps and just collect the leaf premises for c?
