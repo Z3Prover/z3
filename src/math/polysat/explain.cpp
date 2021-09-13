@@ -47,8 +47,7 @@ namespace polysat {
     // c2 ... constraint that is currently false
     // Try to replace it with a new false constraint (derived from superposition with a true constraint)
     signed_constraint ex_polynomial_superposition::find_replacement(signed_constraint c2, pvar v, conflict_core& core) {
-        for (auto it1 = core.begin(); it1 != core.end(); ++it1) {
-            signed_constraint c1 = *it1;
+        for (auto c1 : core) {
             if (!is_positive_equality_over(v, c1))
                 continue;
             if (!c1.is_currently_true(s()))
@@ -69,14 +68,13 @@ namespace polysat {
     // TODO(later): check superposition into disequality again (see notes)
     // true = done, false = abort, undef = continue
     lbool ex_polynomial_superposition::try_explain1(pvar v, conflict_core& core) {
-        for (auto it2 = core.begin(); it2 != core.end(); ++it2) {
-            signed_constraint c2 = *it2;
+        for (auto c2 : core) {
             if (!is_positive_equality_over(v, c2))
                 continue;
             if (!c2.is_currently_false(s()))
                 continue;
 
-            // TODO: can try multiple replacements at once; then the it2 loop needs to be done only once... (requires some reorganization for storing the premises)
+            // TODO: can try multiple replacements at once; then the c2 loop needs to be done only once... (requires some reorganization for storing the premises)
             signed_constraint c = find_replacement(c2, v, core);
             if (!c)
                 continue;

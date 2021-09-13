@@ -136,11 +136,11 @@ namespace polysat {
         conflict_core_iterator(constraint_manager& cm, it1_t it1, it1_t end1, it2_t it2):
             m_cm(&cm), m_it1(it1), m_end1(end1), m_it2(it2) {}
 
-        static conflict_core_iterator begin(constraint_manager& cm, signed_constraints cs, indexed_uint_set lits) {
+        static conflict_core_iterator begin(constraint_manager& cm, signed_constraints const& cs, indexed_uint_set const& lits) {
             return {cm, cs.begin(), cs.end(), lits.begin()};
         }
 
-        static conflict_core_iterator end(constraint_manager& cm, signed_constraints cs, indexed_uint_set lits) {
+        static conflict_core_iterator end(constraint_manager& cm, signed_constraints const& cs, indexed_uint_set const& lits) {
             return {cm, cs.end(), cs.end(), lits.end()};
         }
 
