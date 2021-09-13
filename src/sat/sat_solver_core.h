@@ -18,7 +18,7 @@ Revision History:
 --*/
 #pragma once
 
-
+#include "sat/sat_model_converter.h"
 #include "sat/sat_types.h"
 
 namespace sat {

@@ -20,6 +20,7 @@ Notes:
 #include "model/model_v2_pp.h"
 #include "tactic/tactical.h"
 #include "sat/tactic/goal2sat.h"
+#include "sat/tactic/sat2goal.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_params.hpp"
 

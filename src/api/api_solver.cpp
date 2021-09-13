@@ -42,6 +42,7 @@ Revision History:
 #include "sat/dimacs.h"
 #include "sat/sat_solver.h"
 #include "sat/tactic/goal2sat.h"
+#include "sat/tactic/sat2goal.h"
 
 
 extern "C" {
