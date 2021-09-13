@@ -50,12 +50,12 @@ namespace polysat {
 
     std::ostream& conflict_core::display(std::ostream& out) const {
         char const* sep = "";
-        for (auto c : m_constraints) 
+        for (auto c : *this) 
             out << sep << c, sep = " ; ";
         if (!m_vars.empty())
             out << " vars";
         for (auto v : m_vars)
-            out << "  " << v;
+            out << " v" << v;
         return out;
     }
 
@@ -141,9 +141,14 @@ namespace polysat {
             if (m_constraints[i]->contains_var(v))
                 unset_mark(m_constraints[i]);
             else
-                m_constraints[j++] = m_constraints[i];           
-                
+                m_constraints[j++] = m_constraints[i];
         m_constraints.shrink(j);
+        indexed_uint_set literals_copy = m_literals;  // TODO: can avoid copy (e.g., add a filter method for indexed_uint_set)
+        for (unsigned lit_idx : literals_copy) {
+            signed_constraint c = cm().lookup(sat::to_literal(lit_idx));
+            if (c->contains_var(v))
+                unset_mark(c);
+        }
     }
 
     void conflict_core::set_bailout() {
@@ -158,9 +163,10 @@ namespace polysat {
         //       resolvent: ~y \/ ~z \/ u \/ v; as core: y, z, ~u, ~v
 
         SASSERT(var != sat::null_bool_var);
+        SASSERT(std::all_of(m_constraints.begin(), m_constraints.end(), [](auto c){ return !c->has_bvar(); }));
+        bool core_has_pos = contains_literal(sat::literal(var));
+        bool core_has_neg = contains_literal(~sat::literal(var));
         DEBUG_CODE({
-            bool core_has_pos = std::count_if(begin(), end(), [var](auto c){ return c.blit() == sat::literal(var); }) > 0;
-            bool core_has_neg = std::count_if(begin(), end(), [var](auto c){ return c.blit() == ~sat::literal(var); }) > 0;
             bool clause_has_pos = std::count(cl.begin(), cl.end(), sat::literal(var)) > 0;
             bool clause_has_neg = std::count(cl.begin(), cl.end(), ~sat::literal(var)) > 0;
             SASSERT(!core_has_pos || !core_has_neg);  // otherwise core is tautology
@@ -168,14 +174,10 @@ namespace polysat {
             SASSERT((core_has_pos && clause_has_pos) || (core_has_neg && clause_has_neg));
         });
 
-        int j = 0;
-        for (auto c : m_constraints) {
-            if (c->bvar() != var)
-                m_constraints[j++] = c;
-            else
-                unset_mark(c);
-        }
-        m_constraints.shrink(j);
+        if (core_has_pos)
+            remove_literal(sat::literal(var));
+        if (core_has_neg)
+            remove_literal(~sat::literal(var));
 
         for (sat::literal lit : cl)
             if (lit.var() != var)
