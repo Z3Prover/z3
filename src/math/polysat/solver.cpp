@@ -746,7 +746,6 @@ namespace polysat {
         }
         SASSERT(lemma->size() > 0);
         clause* cl = m_constraints.store(std::move(lemma));
-        m_redundant_clauses.push_back(cl);
         if (cl->size() == 1) {
             signed_constraint c = m_constraints.lookup((*cl)[0]);
             c->set_unit_clause(cl);
@@ -801,13 +800,15 @@ namespace polysat {
         out << "Boolean assignment:\n\t" << m_bvars << "\n";
         out << "Constraints:\n";
         for (auto c : m_constraints)
-            out << "\t" << c << "\n";
-        out << "Redundant clauses:\n";
-        for (auto* cl : m_redundant_clauses) {
-            out << "\t" << *cl << "\n";
-            for (auto lit : *cl) {
-                auto c = m_constraints.lookup(lit);
-                out << "\t\t" << lit << ": " << c << "\n";
+            out << "\t" << *c << "\n";
+        out << "Clauses:\n";
+        for (auto cls : m_constraints.clauses()) {
+            for (auto cl : cls) {
+                out << "\t" << *cl << "\n";
+                for (auto lit : *cl) {
+                    auto c = m_constraints.lookup(lit);
+                    out << "\t\t" << lit << ": " << c << "\n";
+                }
             }
         }
         return out;

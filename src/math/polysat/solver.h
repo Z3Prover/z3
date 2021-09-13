@@ -86,7 +86,6 @@ namespace polysat {
 
         // Per constraint state
         constraint_manager       m_constraints;
-        ptr_vector<clause>       m_redundant_clauses;
 
         svector<sat::bool_var>   m_disjunctive_lemma;
 

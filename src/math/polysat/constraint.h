@@ -97,6 +97,19 @@ namespace polysat {
 
         constraint *const* begin() const { return m_constraints.data(); }
         constraint *const* end() const { return m_constraints.data() + m_constraints.size(); }
+
+        using clause_iterator = decltype(m_clauses)::const_iterator;
+        clause_iterator clauses_begin() const { return m_clauses.begin(); }
+        clause_iterator clauses_end() const { return m_clauses.end(); }
+
+        class clauses_t {
+            constraint_manager const* m_cm;
+        public:
+            clauses_t(constraint_manager const& cm): m_cm(&cm) {}
+            auto begin() const { return m_cm->clauses_begin(); }
+            auto end() const { return m_cm->clauses_end(); }
+        };
+        clauses_t clauses() const { return {*this}; }
     };
 
 

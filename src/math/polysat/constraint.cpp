@@ -116,6 +116,7 @@ namespace polysat {
         }
         else {
             m_constraint_table.insert(c1);
+            store(c1);
             return c1;
         }
     }
