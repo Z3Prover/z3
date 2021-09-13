@@ -37,11 +37,11 @@ namespace polysat {
     class inf_saturate : public inference_engine {
         bool find_upper_bound(pvar x, signed_constraint& c, rational& bound);
 
-        void push_omega(clause_builder& reason, pdd const& x, pdd const& y);
-        void push_omega_bisect(clause_builder& reason, pdd const& x, rational x_max, pdd const& y, rational y_max);
+        void push_omega(vector<signed_constraint>& new_constraints, pdd const& x, pdd const& y);
+        void push_omega_bisect(vector<signed_constraint>& new_constraints, pdd const& x, rational x_max, pdd const& y, rational y_max);
         signed_constraint ineq(bool strict, pdd const& lhs, pdd const& rhs);
-        bool propagate(conflict_core& core, inequality const& crit, signed_constraint& c, clause_builder& reason);
-        bool propagate(conflict_core& core, inequality const& crit, bool strict, pdd const& lhs, pdd const& rhs, clause_builder& reason);
+        bool propagate(conflict_core& core, inequality const& crit1, inequality const& crit2, signed_constraint& c, vector<signed_constraint>& new_constraints);
+        bool propagate(conflict_core& core, inequality const& crit1, inequality const& crit2, bool strict, pdd const& lhs, pdd const& rhs, vector<signed_constraint>& new_constraints);
 
         bool try_ugt_x(pvar v, conflict_core& core, inequality const& c);
 

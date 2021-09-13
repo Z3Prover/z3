@@ -55,25 +55,26 @@ namespace polysat {
 
     /**
     * Propagate c. It is added to reason and core all other literals in reason are false in current stack.
-    * The lemmas outlines in the rules are valid and therefore c is implied.
+    * The lemmas outlined in the rules are valid and therefore c is implied.
     */
-    bool inf_saturate::propagate(conflict_core& core, inequality const& crit, signed_constraint& c, clause_builder& reason) {        
-        if (crit.as_signed_constraint().is_currently_false(s()) && c.is_currently_true(s()))
+    bool inf_saturate::propagate(conflict_core& core, inequality const& crit1, inequality const& crit2, signed_constraint& c, vector<signed_constraint>& new_constraints) {
+        bool crit1_false = crit1.as_signed_constraint().is_currently_false(s());
+        bool crit2_false = crit2.as_signed_constraint().is_currently_false(s());
+        if ((crit1_false || crit2_false) && c.is_currently_true(s()))  // TODO: check filter
             return false;
+        for (auto d : new_constraints)
+            core.insert(d);
         core.insert(c);
-        reason.push(c);        
-        s().propagate_bool(c.blit(), reason.build().get());
-        core.remove(crit.as_signed_constraint()); // needs to be after propagation so we know it is propagated
         return true;
     }
 
-    bool inf_saturate::propagate(conflict_core& core, inequality const& crit, bool is_strict, pdd const& lhs, pdd const& rhs, clause_builder& reason) {
+    bool inf_saturate::propagate(conflict_core& core, inequality const& crit1, inequality const& crit2, bool is_strict, pdd const& lhs, pdd const& rhs, vector<signed_constraint>& new_constraints) {
         signed_constraint c = ineq(is_strict, lhs, rhs);
-        return propagate(core, crit, c, reason);
+        return propagate(core, crit1, crit2, c, new_constraints);
     }
 
     /// Add premises for Ω*(x, y)
-    void inf_saturate::push_omega_bisect(clause_builder& reason, pdd const& x, rational x_max, pdd const& y, rational y_max) {
+    void inf_saturate::push_omega_bisect(vector<signed_constraint>& new_constraints, pdd const& x, rational x_max, pdd const& y, rational y_max) {
         rational x_val, y_val;
         auto& pddm = x.manager();
         unsigned bit_size = pddm.power_of_2();
@@ -125,13 +126,13 @@ namespace polysat {
         // where we add explicit equality propagations from the current assignment.
         auto c1 = s().ule(x, pddm.mk_val(x_lo));
         auto c2 = s().ule(y, pddm.mk_val(y_lo));
-        reason.push(~c1);
-        reason.push(~c2);
+        new_constraints.insert(c1);
+        new_constraints.insert(c2);
     }
 
     // determine worst case upper bounds for x, y
     // then extract premises for a non-worst-case bound.
-    void inf_saturate::push_omega(clause_builder& reason, pdd const& x, pdd const& y) {     
+    void inf_saturate::push_omega(vector<signed_constraint>& new_constraints, pdd const& x, pdd const& y) {     
         auto& pddm = x.manager();
         unsigned bit_size = pddm.power_of_2();
         rational bound = rational::power_of_two(bit_size);
@@ -144,12 +145,12 @@ namespace polysat {
             y_max = s().m_viable.max_viable(y.var());        
 
         if (x_max * y_max  >= bound)            
-            push_omega_bisect(reason, x, x_max, y, y_max);
+            push_omega_bisect(new_constraints, x, x_max, y, y_max);
         else {
             for (auto c : s().m_cjust[y.var()])
-                reason.push(~c);
+                new_constraints.insert(c);
             for (auto c : s().m_cjust[x.var()])
-                reason.push(~c);
+                new_constraints.insert(c);
         }
     }
 
@@ -258,12 +259,11 @@ namespace polysat {
         if (!c.is_strict && s().get_value(v).is_zero())
             return false;
 
-        clause_builder reason(s());   
+        vector<signed_constraint> new_constraints;   
         if (!c.is_strict)
-            reason.push(s().eq(x));
-        reason.push(~c.as_signed_constraint());
-        push_omega(reason, x, y);        
-        return propagate(core, c, c.is_strict, y, z, reason);
+            new_constraints.push_back(~s().eq(x));
+        push_omega(new_constraints, x, y);
+        return propagate(core, c, c, c.is_strict, y, z, new_constraints);
     }
 
     /// [y] z' <= y /\ zx > yx  ==>  Ω*(x,y) \/ zx > z'x
@@ -278,12 +278,12 @@ namespace polysat {
           
         pdd const& z_prime = le_y.lhs;
 
-        clause_builder reason(s());
-        reason.push(~le_y.as_signed_constraint());
-        reason.push(~yx_l_zx.as_signed_constraint());
-        push_omega(reason, x, y);
+        vector<signed_constraint> new_constraints;
+        new_constraints.push_back(le_y.as_signed_constraint());
+        new_constraints.push_back(yx_l_zx.as_signed_constraint());
+        push_omega(new_constraints, x, y);
         // z'x <= zx
-        return propagate(core, yx_l_zx, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x, reason);
+        return propagate(core, le_y, yx_l_zx, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x, new_constraints);
     }
 
     bool inf_saturate::try_ugt_y(pvar v, conflict_core& core, inequality const& c) {
@@ -326,11 +326,11 @@ namespace polysat {
         pdd z = x_l_z.rhs;
         if (!is_non_overflow(a, z))
             return false;
-        clause_builder reason(s());
-        reason.push(~x_l_z.as_signed_constraint());
-        reason.push(~y_l_ax.as_signed_constraint());
-        push_omega(reason, a, z);
-        return propagate(core, y_l_ax, x_l_z.is_strict || y_l_ax.is_strict, y, a * z, reason);
+        vector<signed_constraint> new_constraints;
+        new_constraints.push_back(x_l_z.as_signed_constraint());
+        new_constraints.push_back(y_l_ax.as_signed_constraint());
+        push_omega(new_constraints, a, z);
+        return propagate(core, x_l_z, y_l_ax, x_l_z.is_strict || y_l_ax.is_strict, y, a * z, new_constraints);
     }
 
 
@@ -351,19 +351,18 @@ namespace polysat {
         return false;
     }
 
-    bool inf_saturate::try_ugt_z(pvar z, conflict_core& core, inequality const& c, inequality const& d, pdd const& x, pdd const& y) {
-        SASSERT(is_g_v(z, c));
-        SASSERT(verify_YX_l_zX(z, d, x, y));
-        pdd const& y_prime = c.rhs;
+    bool inf_saturate::try_ugt_z(pvar z, conflict_core& core, inequality const& z_l_y, inequality const& yx_l_zx, pdd const& x, pdd const& y) {
+        SASSERT(is_g_v(z, z_l_y));
+        SASSERT(verify_YX_l_zX(z, yx_l_zx, x, y));
+        pdd const& y_prime = z_l_y.rhs;
         if (!is_non_overflow(x, y_prime))
             return false;
-        clause_builder reason(s());
-        reason.push(~c.as_signed_constraint());
-        reason.push(~d.as_signed_constraint());
-        push_omega(reason, x, y_prime);
+        vector<signed_constraint> new_constraints;
+        new_constraints.push_back(z_l_y.as_signed_constraint());
+        new_constraints.push_back(yx_l_zx.as_signed_constraint());
+        push_omega(new_constraints, x, y_prime);
         // yx <= y'x
-        return propagate(core, d, c.is_strict || d.is_strict, y * x, y_prime * x, reason);
+        return propagate(core, z_l_y, yx_l_zx, z_l_y.is_strict || yx_l_zx.is_strict, y * x, y_prime * x, new_constraints);
     }
-
 
 }

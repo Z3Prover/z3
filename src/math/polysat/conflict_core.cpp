@@ -200,6 +200,7 @@ namespace polysat {
         for (auto premise : premises) {
             keep(premise);
             SASSERT(premise->has_bvar());
+            SASSERT(s().m_bvars.value(premise.blit()) == l_true);  // otherwise the propagation doesn't make sense
             c_lemma.push(~premise.blit());
             active_level = std::max(active_level, s().m_bvars.level(premise.blit()));
         }
