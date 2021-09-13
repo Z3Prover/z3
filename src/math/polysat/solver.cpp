@@ -601,12 +601,11 @@ namespace polysat {
         rational val = m_value[v];
         LOG_H3("Reverting decision: pvar " << v << " := " << val);
         SASSERT(m_justification[v].is_decision());
-        unsigned const lvl = m_justification[v].level();
 
-        clause_ref lemma = m_conflict.build_lemma(lvl).build();
+        clause_ref lemma = m_conflict.build_lemma().build();
         m_conflict.reset();
 
-        backjump(lvl - 1);
+        backjump(m_justification[v].level() - 1);
 
         // The justification for this restriction is the guessed constraint from the lemma.
         // cjust[v] will be updated accordingly by decide_bool.
@@ -654,9 +653,8 @@ namespace polysat {
         // - propagation of L' from L
         //      (L')^{L' \/ ¬L \/ ...}
         //      again L is in core, unless we core-reduced it away
-        unsigned const lvl = m_bvars.level(var);
 
-        clause_builder reason_builder = m_conflict.build_lemma(lvl);
+        clause_builder reason_builder = m_conflict.build_lemma();
         m_conflict.reset();
 
         bool contains_lit = std::find(reason_builder.begin(), reason_builder.end(), ~lit);
@@ -680,7 +678,7 @@ namespace polysat {
         clause* lemma = m_bvars.lemma(var);  // need to grab this while 'lit' is still assigned
         SASSERT(lemma);
 
-        backjump(lvl - 1);
+        backjump(m_bvars.level(var) - 1);
 
         add_lemma(reason);
         propagate_bool(~lit, reason.get());

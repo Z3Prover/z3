@@ -105,9 +105,8 @@ namespace polysat {
         bool resolve_value(pvar v, vector<signed_constraint> const& cjust_v);
 
         /** Convert the core into a lemma to be learned. */
-        clause_builder build_lemma(unsigned reverted_level);
-        clause_builder build_core_lemma(unsigned model_level);
-        clause_builder build_fallback_lemma(unsigned lvl);
+        clause_builder build_lemma();
+        clause_builder build_core_lemma();
 
         bool try_eliminate(pvar v);
         bool try_saturate(pvar v);

@@ -209,41 +209,9 @@ namespace polysat {
         s().propagate_bool_at(active_level, c.blit(), cl);
     }
 
-    /** Create fallback lemma that excludes the current search state */
-    /**
-    * revisit: can prune literals further by slicing base on cone of influence
-    * based on marked literals/variables on the stack. Only decisions that affect
-    * marked items need to be included.
-    */
-    clause_builder conflict_core::build_fallback_lemma(unsigned lvl) {
-        LOG_H3("Creating fallback lemma for level " << lvl);
-        LOG_V("m_search: " << s().m_search);
-        clause_builder lemma(s());
-        unsigned todo = lvl;
-        unsigned i = 0;
-        while (todo > 0) {
-            auto const& item = s().m_search[i++];
-            if (!s().is_decision(item))
-                continue;
-            LOG_V("Adding: " << item);
-            if (item.is_assignment()) {
-                pvar v = item.var();
-                auto c = ~s().eq(s().var(v), s().get_value(v));
-                cm().ensure_bvar(c.get());
-                lemma.push(c.blit());
-            } else {
-                sat::literal lit = item.lit();
-                lemma.push(~lit);
-            }
-            --todo;
-        }
-        return lemma;
-    }
-
-    clause_builder conflict_core::build_core_lemma(unsigned model_level) {
+    clause_builder conflict_core::build_core_lemma() {
         LOG_H3("Build lemma from core");
         LOG("core: " << *this);
-        LOG("model_level: " << model_level);
         clause_builder lemma(s());
 
         for (auto c : m_constraints) {
@@ -258,8 +226,6 @@ namespace polysat {
             SASSERT(s().is_assigned(v));  // note that we may have added too many variables: e.g., y disappears in x*y if x=0
             if (!s().is_assigned(v))
                 continue;
-            if (s().get_level(v) > model_level)
-                continue;
             auto diseq = ~s().eq(s().var(v), s().get_value(v));
             cm().ensure_bvar(diseq.get());
             lemma.push(diseq);
@@ -268,13 +234,11 @@ namespace polysat {
         return lemma;
     }
 
-    clause_builder conflict_core::build_lemma(unsigned reverted_level) {
-        if (!is_bailout())
-            return build_core_lemma(reverted_level);
-        else if (m_bailout_lemma)
+    clause_builder conflict_core::build_lemma() {
+        if (m_bailout_lemma)
             return *std::move(m_bailout_lemma);
         else
-            return build_fallback_lemma(reverted_level);
+            return build_core_lemma();
     }
 
     bool conflict_core::resolve_value(pvar v, vector<signed_constraint> const& cjust_v) {
