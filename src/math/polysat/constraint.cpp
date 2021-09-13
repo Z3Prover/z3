@@ -251,4 +251,8 @@ namespace polysat {
         if (!cl || !m_unit_clause || m_unit_clause->level() > cl->level())
             m_unit_clause = cl;
     }
+
+    lbool signed_constraint::bvalue(solver& s) const {
+        return s.m_bvars.value(blit());
+    }
 }

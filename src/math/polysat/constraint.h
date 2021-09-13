@@ -216,6 +216,7 @@ namespace polysat {
         bool is_always_true() const { return get()->is_always_false(is_negative()); }
         bool is_currently_false(solver& s) const { return get()->is_currently_false(s, is_positive()); }
         bool is_currently_true(solver& s) const { return get()->is_currently_true(s, is_positive()); }
+        lbool bvalue(solver& s) const;
         void narrow(solver& s) { get()->narrow(s, is_positive()); }
         inequality as_inequality() const { return get()->as_inequality(is_positive()); }
 
@@ -228,6 +229,7 @@ namespace polysat {
         constraint* operator->() const { return get(); }
         constraint& operator*() { return *m_constraint; }
         constraint const& operator*() const { return *m_constraint; }
+
 
         signed_constraint& operator=(std::nullptr_t) { m_constraint = nullptr; return *this; }
 

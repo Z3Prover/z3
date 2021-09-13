@@ -48,9 +48,8 @@ namespace polysat {
         };
 
         friend class constraint;
-        friend class eq_constraint;
-        friend class var_constraint;
         friend class ule_constraint;
+        friend class signed_constraint;
         friend class clause;
         friend class clause_builder;
         friend class conflict_core;

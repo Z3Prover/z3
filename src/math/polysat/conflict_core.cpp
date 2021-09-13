@@ -206,7 +206,7 @@ namespace polysat {
         for (auto premise : premises) {
             keep(premise);
             SASSERT(premise->has_bvar());
-            SASSERT(s().m_bvars.value(premise.blit()) == l_true);  // otherwise the propagation doesn't make sense
+            SASSERT(premise.bvalue(s()) == l_true);  // otherwise the propagation doesn't make sense
             c_lemma.push(~premise.blit());
             active_level = std::max(active_level, s().m_bvars.level(premise.blit()));
         }
@@ -315,7 +315,7 @@ namespace polysat {
     void conflict_core::set_mark(signed_constraint c) {
         if (c->is_marked())
             return;
-        bool bool_propagated = c->has_bvar() && s().m_bvars.value(c.blit()) == l_true;
+        bool bool_propagated = c->has_bvar() && c.bvalue(s()) == l_true;
         c->set_mark();
         if (c->has_bvar())
             set_bmark(c->bvar());    

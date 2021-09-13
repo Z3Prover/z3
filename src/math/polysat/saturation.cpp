@@ -60,11 +60,26 @@ namespace polysat {
     bool inf_saturate::propagate(conflict_core& core, inequality const& crit1, inequality const& crit2, signed_constraint& c, vector<signed_constraint>& new_constraints) {
         bool crit1_false = crit1.as_signed_constraint().is_currently_false(s());
         bool crit2_false = crit2.as_signed_constraint().is_currently_false(s());
-        if ((crit1_false || crit2_false) && c.is_currently_true(s()))  // TODO: check filter
+        if (!crit1_false && !crit2_false)
             return false;
+        bool is_bool_false = c.bvalue(s()) == l_false;
+        bool is_model_false = c.is_currently_false(s());
+        if (!is_bool_false && !is_model_false)
+            return false;
+        
+        // refresh dependencies for crit1, crit2
+        // this is called before core.set, which 
+        // rehashes the variable dependencies
+        core.keep(crit1.as_signed_constraint());
+        core.keep(crit2.as_signed_constraint());
+        if (is_bool_false)
+            core.insert(~c);
+        else 
+            core.set(c);
+
+        // add fresh constraints
         for (auto d : new_constraints)
             core.insert(d);
-        core.insert(c);
         return true;
     }
 
