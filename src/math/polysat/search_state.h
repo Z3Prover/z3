@@ -124,7 +124,9 @@ namespace polysat {
         }
 
         bool next() {
+#if 0  // If you want to resolve over constraints that have been added during conflict resolution, enable this.
             try_push_block();
+#endif
             if (current > last()) {
                 --current;
                 return true;

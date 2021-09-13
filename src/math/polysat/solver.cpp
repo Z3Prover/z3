@@ -453,6 +453,7 @@ namespace polysat {
 
         search_iterator search_it(m_search);
         while (search_it.next()) {
+            LOG("search state: " << m_search);
             LOG("Conflict: " << m_conflict);
             auto const& item = *search_it;
             LOG_H2("Working on " << item);
@@ -479,7 +480,7 @@ namespace polysat {
                 sat::bool_var const var = lit.var();
                 if (!m_conflict.is_bmarked(var))
                     continue;
-                if (m_bvars.level(var) <= base_level())
+                if (m_bvars.level(var) <= base_level())  // TODO: this doesn't work with out-of-level-order iteration.
                     break;
                 if (m_bvars.is_decision(var)) {
                     revert_bool_decision(lit);
@@ -600,17 +601,8 @@ namespace polysat {
         m_viable.add_non_viable(v, val);
         learn_lemma(v, std::move(lemma));
 
-        if (is_conflict()) {
-            LOG_H1("Conflict during revert_decision/learn_lemma!");
-            return;
-        }
-
-        narrow(v);
-
-        if (m_justification[v].is_unassigned()) {
-            m_free_vars.del_var_eh(v);
-            decide(v);
-        }
+        if (!is_conflict())
+            narrow(v);
     }
 
     bool solver::is_decision(search_item const& item) const {
@@ -814,8 +806,8 @@ namespace polysat {
         for (auto* cl : m_redundant_clauses) {
             out << "\t" << *cl << "\n";
             for (auto lit : *cl) {
-                auto c = m_constraints.lookup(lit.var());
-                out << "\t\t" << lit.var() << ": " << *c << "\n";
+                auto c = m_constraints.lookup(lit);
+                out << "\t\t" << lit << ": " << c << "\n";
             }
         }
         return out;
