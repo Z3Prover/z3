@@ -146,6 +146,12 @@ namespace polysat {
         m_constraints.shrink(j);
     }
 
+    void conflict_core::set_bailout() {
+        SASSERT(!is_bailout());
+        m_bailout = true;
+        s().m_stats.m_num_bailouts++;
+    }
+
     void conflict_core::resolve(constraint_manager const& m, sat::bool_var var, clause const& cl) {
         // Note: core: x, y, z; corresponds to clause ~x \/ ~y \/ ~z
         //       clause: x \/ u \/ v
