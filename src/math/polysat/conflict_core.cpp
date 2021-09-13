@@ -16,11 +16,6 @@ Notes:
 
  TODO: try a final core reduction step or other core minimization
 
-TODO: fallback lemma is redundant:
-      The core lemma uses m_vars and m_conflict directly instead of walking the stack.
-      It should be an invariant that the core is false (the negation of the core is valid modulo assertions).
-      The fallback lemma prunes at least the last value assignment.
-
 TODO: If we have e.g. 4x+y=2 and y=0, then we have a conflict no matter the value of x, so we should drop x=? from the core.
       (works currently if x is unassigned; for other cases we would need extra info from constraint::is_currently_false)
 

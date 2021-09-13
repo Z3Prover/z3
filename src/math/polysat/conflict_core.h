@@ -68,7 +68,7 @@ namespace polysat {
         pvar conflict_var() const { return m_conflict_var; }
 
         bool is_bailout() const { return m_bailout; }
-        void set_bailout() { SASSERT(!is_bailout()); m_bailout = true; }
+        void set_bailout() { SASSERT(!is_bailout()); m_bailout = true; s().m_stats.m_num_bailouts++; }
 
         bool empty() const {
             return m_constraints.empty() && m_vars.empty() && m_literals.empty() && m_conflict_var == null_var;
