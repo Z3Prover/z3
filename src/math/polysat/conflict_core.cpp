@@ -262,18 +262,23 @@ namespace polysat {
         for (auto c : cjust_v) 
             insert(c);        
 
-        for (auto* engine : ex_engines)
-            if (engine->try_explain(v, *this))
-                return true;
+        if (!is_bailout()) {
+            for (auto* engine : ex_engines)
+                if (engine->try_explain(v, *this))
+                    return true;
 
-        // No value resolution method was successful => fall back to saturation and variable elimination
-        while (s().inc()) { 
-            // TODO: as a last resort, substitute v by m_value[v]?
-            if (try_eliminate(v))
-                return true;
-            if (!try_saturate(v))
-                break;
+            // No value resolution method was successful => fall back to saturation and variable elimination
+            while (s().inc()) { 
+                // TODO: as a last resort, substitute v by m_value[v]?
+                if (try_eliminate(v))
+                    return true;
+                if (!try_saturate(v))
+                    break;
+            }
+
+            set_bailout();
         }
+
         m_vars.insert(v);
         return false;
     }

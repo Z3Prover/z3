@@ -496,18 +496,7 @@ namespace polysat {
 
     /** Conflict resolution case where propagation 'v := ...' is on top of the stack */
     void solver::resolve_value(pvar v) {
-        if (m_conflict.is_bailout()) {
-            for (auto c : m_cjust[v])
-                m_conflict.insert(c);
-            return;
-        }
-
-        // Value Resolution
-        if (!m_conflict.resolve_value(v, m_cjust[v])) {
-            // Failed to resolve => bail out
-            ++m_stats.m_num_bailouts;
-            m_conflict.set_bailout();
-        }
+        m_conflict.resolve_value(v, m_cjust[v]);
     }
 
     /** Conflict resolution case where boolean literal 'lit' is on top of the stack */
