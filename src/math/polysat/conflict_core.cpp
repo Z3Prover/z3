@@ -242,6 +242,9 @@ namespace polysat {
         //      - cjust_v contains true constraints
         //      - core contains both false and true constraints (originally only false ones, but additional true ones may come from saturation)
 
+        if (is_bailout())
+            return false;
+
         if (conflict_var() == v) {
             clause_builder lemma(s());
             forbidden_intervals fi;
@@ -250,30 +253,27 @@ namespace polysat {
                 m_bailout_lemma = std::move(lemma);
                 return true;
             }
+            // TODO: add a dummy value for v?
         }
 
         m_vars.remove(v);
 
-        for (auto c : cjust_v) 
-            insert(c);        
+        for (auto c : cjust_v)
+            insert(c);
 
-        if (!is_bailout()) {
-            for (auto* engine : ex_engines)
-                if (engine->try_explain(v, *this))
-                    return true;
+        for (auto* engine : ex_engines)
+            if (engine->try_explain(v, *this))
+                return true;
 
-            // No value resolution method was successful => fall back to saturation and variable elimination
-            while (s().inc()) { 
-                // TODO: as a last resort, substitute v by m_value[v]?
-                if (try_eliminate(v))
-                    return true;
-                if (!try_saturate(v))
-                    break;
-            }
-
-            set_bailout();
+        // No value resolution method was successful => fall back to saturation and variable elimination
+        while (s().inc()) {
+            // TODO: as a last resort, substitute v by m_value[v]?
+            if (try_eliminate(v))
+                return true;
+            if (!try_saturate(v))
+                break;
         }
-
+        set_bailout();
         m_vars.insert(v);
         return false;
     }
