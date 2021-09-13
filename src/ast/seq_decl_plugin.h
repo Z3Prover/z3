@@ -239,6 +239,8 @@ public:
     bool is_char_is_digit(expr const* e, expr*& d) const { return ch.is_is_digit(e, d); }
     bool is_char_is_digit(expr const* e) const { return ch.is_is_digit(e); }
     bool is_char2int(expr const* e) const;
+    bool is_bv2char(expr const* e) const;
+    bool is_char2bv(expr const* e) const;
     app* mk_char_bit(expr* e, unsigned i);
     app* mk_char(unsigned ch) const;
     app* mk_char_is_digit(expr* e) { return ch.mk_is_digit(e); }
@@ -253,6 +255,8 @@ public:
 
     MATCH_BINARY(is_char_le);
     MATCH_UNARY(is_char2int);
+    MATCH_UNARY(is_char2bv);
+    MATCH_UNARY(is_bv2char);
 
     bool has_re() const { return seq.has_re(); }
     bool has_seq() const { return seq.has_seq(); }

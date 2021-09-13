@@ -798,6 +798,15 @@ bool seq_util::is_char2int(expr const* e) const {
     return ch.is_to_int(e);
 }
 
+bool seq_util::is_bv2char(expr const* e) const {
+    return ch.is_bv2char(e);
+}
+
+bool seq_util::is_char2bv(expr const* e) const {
+    return ch.is_char2bv(e);
+}
+
+
 app* seq_util::mk_char(unsigned ch) const {
     return seq.mk_char(ch);
 }

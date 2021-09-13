@@ -34,6 +34,8 @@ enum char_op_kind {
     OP_CHAR_CONST,
     OP_CHAR_LE,
     OP_CHAR_TO_INT,
+    OP_CHAR_TO_BV,
+    OP_CHAR_FROM_BV,
     OP_CHAR_IS_DIGIT
 };
 
@@ -91,8 +93,14 @@ public:
 
     bool is_is_digit(expr const* e) const { return is_app_of(e, m_family_id, OP_CHAR_IS_DIGIT); }
 
+    bool is_char2bv(expr const* e) const { return is_app_of(e, m_family_id, OP_CHAR_TO_BV); }
+    
+    bool is_bv2char(expr const* e) const { return is_app_of(e, m_family_id, OP_CHAR_FROM_BV); }
+
     MATCH_UNARY(is_is_digit);
     MATCH_UNARY(is_to_int);
+    MATCH_UNARY(is_char2bv);
+    MATCH_UNARY(is_bv2char);
     MATCH_BINARY(is_le);
 
     static unsigned max_char() { return zstring::max_char(); }

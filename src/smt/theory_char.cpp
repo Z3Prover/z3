@@ -16,6 +16,7 @@ Author:
 --*/
 
 #include "ast/ast_ll_pp.h"
+#include "ast/bv_decl_plugin.h"
 #include "smt/theory_char.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
@@ -84,6 +85,11 @@ namespace smt {
         expr* n = nullptr;
         if (seq.is_char2int(term, n)) 
             new_char2int(v, n);
+        else if (seq.is_char2bv(term, n))
+            new_char2bv(term, n);
+        else if (seq.is_bv2char(term, n))
+            new_bv2char(v, n);
+            
         return true;
     }
 
@@ -264,6 +270,34 @@ namespace smt {
                 ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), n1, n2));
         ctx.assign_eq(n1, n2, eq_justification(j));
     }
+
+    void theory_char::new_char2bv(expr* b, expr* c) {
+        theory_var w = ctx.get_enode(c)->get_th_var(get_id());
+        init_bits(w);
+        auto const& bits = get_bits(w);
+        bv_util bv(m);
+        SASSERT(bits.size() == bv.get_bv_size(b));
+        unsigned i = 0;
+        for (auto bit1 : bits) {
+            auto bit2 = mk_literal(bv.mk_bit2bool(b, i++));
+            ctx.mk_th_axiom(get_id(), ~bit1, bit2);
+            ctx.mk_th_axiom(get_id(), bit1, ~bit2);
+        }
+    }
+
+    void theory_char::new_bv2char(theory_var v, expr* b) {
+        init_bits(v);
+        auto const& bits = get_bits(v);
+        bv_util bv(m);
+        SASSERT(bits.size() == bv.get_bv_size(b));
+        unsigned i = 0;
+        for (auto bit1 : bits) {
+            auto bit2 = mk_literal(bv.mk_bit2bool(b, i++));
+            ctx.mk_th_axiom(get_id(), ~bit1, bit2);
+            ctx.mk_th_axiom(get_id(), bit1, ~bit2);
+        }        
+    }
+    
 
 
     /**

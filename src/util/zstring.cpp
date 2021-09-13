@@ -86,16 +86,13 @@ zstring::zstring(char const* s) {
 }
 
 string_encoding zstring::get_encoding() {
-  if (gparams::get_value("encoding") == "unicode") {
+    if (gparams::get_value("encoding") == "unicode") 
+        return unicode;
+    if (gparams::get_value("encoding") == "bmp") 
+        return bmp;
+    if (gparams::get_value("encoding") == "ascii") 
+        return ascii;
     return unicode;
-  }
-  if (gparams::get_value("encoding") == "bmp") {
-    return bmp;
-  }
-  if (gparams::get_value("encoding") == "ascii") {
-    return ascii;
-  }
-  return unicode;
 }
 
 bool zstring::well_formed() const {
