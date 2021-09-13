@@ -210,14 +210,14 @@ namespace polysat {
     }
 
     void solver::propagate(sat::literal lit) {
-        LOG_H2("Propagate boolean literal " << lit);
+        LOG_H2("Propagate bool " << lit);
         signed_constraint c = m_constraints.lookup(lit);
         SASSERT(c);
         activate_constraint(c);
     }
 
     void solver::propagate(pvar v) {
-        LOG_H2("Propagate pvar " << v);
+        LOG_H2("Propagate v" << v);
         auto& wlist = m_watch[v];
         unsigned i = 0, j = 0, sz = wlist.size();
         for (; i < sz && !is_conflict(); ++i) 

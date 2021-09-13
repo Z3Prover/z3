@@ -50,13 +50,12 @@ namespace polysat {
         // p <= 0, e.g., p == 0
         if (q.is_zero() && p.is_unilinear()) {
             // a*x + b == 0
-            pvar v = q.var();
+            pvar v = p.var();
             s.push_cjust(v, { this, is_positive });
 
-            rational a = q.hi().val();
-            rational b = q.lo().val();
+            rational a = p.hi().val();
+            rational b = p.lo().val();
             s.m_viable.intersect_eq(a, v, b, is_positive);
-
 
             rational val;
             if (s.m_viable.find_viable(v, val) == dd::find_t::singleton)

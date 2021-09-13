@@ -149,6 +149,7 @@ namespace polysat {
             if (c->contains_var(v))
                 unset_mark(c);
         }
+        m_vars.remove(v);
     }
 
     void conflict_core::set_bailout() {
@@ -364,6 +365,10 @@ namespace polysat {
 
     bool conflict_core::is_bmarked(sat::bool_var b) const {
         return m_bvar2mark.get(b, false);
+    }
+
+    bool conflict_core::contains_literal(sat::literal lit) const {
+        return m_literals.contains(lit.to_uint());
     }
 
     void conflict_core::insert_literal(sat::literal lit) {
