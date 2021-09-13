@@ -16,20 +16,13 @@ Notes:
 
  TODO: try a final core reduction step or other core minimization
 
-
- TODO: maybe implement by marking literals instead (like SAT solvers are doing); if we need to iterate, keep an indexed_uint_set (from util/uint_set.h)
-       (i.e., instead of keeping an explicit list of constraints as core, we just mark them.)
-       (we still need the list though, for new/temporary constraints.)
-       The approach would be as follows:
-       m_vars - set of variables used in conflict
-       m_constraints - set of new constraints used in conflict
-       indexed_uint_set - for Boolean variables that are in the conflict
-       When iterating over the core acessing the uint_set would require some support
-
 TODO: fallback lemma is redundant:
       The core lemma uses m_vars and m_conflict directly instead of walking the stack.
       It should be an invariant that the core is false (the negation of the core is valid modulo assertions).
       The fallback lemma prunes at least the last value assignment.
+
+TODO: If we have e.g. 4x+y=2 and y=0, then we have a conflict no matter the value of x, so we should drop x=? from the core.
+      (works currently if x is unassigned; for other cases we would need extra info from constraint::is_currently_false)
 
 --*/
 
@@ -58,7 +51,7 @@ namespace polysat {
 
     conflict_core::~conflict_core() {}
 
-    constraint_manager& conflict_core::cm() { return s().m_constraints; }
+    constraint_manager& conflict_core::cm() const { return s().m_constraints; }
 
     std::ostream& conflict_core::display(std::ostream& out) const {
         char const* sep = "";
@@ -69,6 +62,19 @@ namespace polysat {
         for (auto v : m_vars)
             out << "  " << v;
         return out;
+    }
+
+    void conflict_core::reset() {
+        for (auto c : *this)
+            unset_mark(c.get());
+        m_constraints.reset();
+        m_literals.reset();
+        m_vars.reset();
+        m_conflict_var = null_var;
+        m_saturation_premises.reset();
+        m_bailout = false;
+        m_bailout_lemma.reset();
+        SASSERT(empty());
     }
 
     /**
@@ -108,17 +114,25 @@ namespace polysat {
         if (c->is_marked())
             return;
         set_mark(c.get());
-        m_constraints.push_back(c);
+        if (c->has_bvar())
+            insert_literal(c.blit());
+        else
+            m_constraints.push_back(c);
     }
 
     void conflict_core::insert(signed_constraint c, vector<signed_constraint> premises) {
         insert(c);
-        m_saturation_premises.insert(c, std::move(premises));  // TODO: map doesn't have move-insertion, so this still copies the vector. Maybe we want a clause_ref (but this doesn't work either since c doesn't have a boolean variable yet).
+        m_saturation_premises.insert(c, std::move(premises));  // TODO: map doesn't have move-insertion, so this still copies the vector.
     }
 
     void conflict_core::remove(signed_constraint c) {
         unset_mark(c.get());       
-        m_constraints.erase(c);
+        if (c->has_bvar()) {
+            SASSERT(std::count(m_constraints.begin(), m_constraints.end(), c) == 0);
+            remove_literal(c.blit());
+        }
+        else
+            m_constraints.erase(c);
     }
 
     void conflict_core::replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> c_new_premises) {
@@ -169,7 +183,11 @@ namespace polysat {
 
     /** If the constraint c is a temporary constraint derived by core saturation, insert it (and recursively, its premises) into \Gamma */
     void conflict_core::keep(signed_constraint c) {
-        cm().ensure_bvar(c.get());
+        if (!c->has_bvar()) {
+            m_constraints.erase(c);
+            cm().ensure_bvar(c.get());
+            insert_literal(c.blit());
+        }
         LOG_H3("keeping: " << c);
         // NOTE: maybe we should skip intermediate steps and just collect the leaf premises for c?
         auto it = m_saturation_premises.find_iterator(c);
@@ -372,4 +390,13 @@ namespace polysat {
     bool conflict_core::is_bmarked(sat::bool_var b) const {
         return m_bvar2mark.get(b, false);
     }
+
+    void conflict_core::insert_literal(sat::literal lit) {
+        m_literals.insert(lit.to_uint());
+    }
+
+    void conflict_core::remove_literal(sat::literal lit) {
+        m_literals.remove(lit.to_uint());
+    }
+
 }

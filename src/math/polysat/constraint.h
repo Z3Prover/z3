@@ -29,6 +29,9 @@ namespace polysat {
     using constraint_eq = deref_eq<constraint>;
     using constraint_table = ptr_hashtable<constraint, constraint_hash, constraint_eq>;
 
+    using constraints = ptr_vector<constraint>;
+    using signed_constraints = vector<signed_constraint>;
+
     // Manage constraint lifetime, deduplication, and connection to boolean variables/literals.
     class constraint_manager {
         friend class constraint;

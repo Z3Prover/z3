@@ -22,19 +22,17 @@ namespace polysat {
     class explainer;
     class inference_engine;
     class variable_elimination_engine;
+    class conflict_core_iterator;
 
     /** Conflict state, represented as core (~negation of clause). */
     class conflict_core {
-        vector<signed_constraint> m_constraints;  // constraints used as premises
-        uint_set m_vars;                          // variable assignments used as premises
+        signed_constraints m_constraints;   // new constraints used as premises
+        indexed_uint_set m_literals;        // set of boolean literals in the conflict
+        uint_set m_vars;                    // variable assignments used as premises
 
         // If this is not null_var, the conflict was due to empty viable set for this variable.
         // Can be treated like "v = x" for any value x.
         pvar m_conflict_var = null_var;
-
-        // NOTE: for now we keep this simple implementation.
-        //       The drawback is that we may get weaker lemmas in some cases (but they are still correct).
-        //       For example: if we have 4x+y=2 and y=0, then we have a conflict no matter the value of x, so we should drop x=? from the core.
 
         unsigned_vector m_pvar2count;             // reference count of variables
         void inc_pref(pvar v);
@@ -47,14 +45,16 @@ namespace polysat {
         void set_mark(constraint* c);
         void unset_mark(constraint* c);
 
+        void insert_literal(sat::literal lit);
+        void remove_literal(sat::literal lit);
 
         /** Whether we are in a bailout state. We enter a bailout state when we give up on proper conflict resolution.  */
         bool m_bailout = false;
         std::optional<clause_builder> m_bailout_lemma;
 
         solver* m_solver = nullptr;
-        solver& s() { return *m_solver; }
-        constraint_manager& cm();
+        solver& s() const { return *m_solver; }
+        constraint_manager& cm() const;
         scoped_ptr_vector<explainer> ex_engines;
         scoped_ptr_vector<variable_elimination_engine> ve_engines;
         scoped_ptr_vector<inference_engine> inf_engines;
@@ -65,27 +65,16 @@ namespace polysat {
         conflict_core(solver& s);
         ~conflict_core();
 
-        vector<signed_constraint> const& constraints() const { return m_constraints; }
         pvar conflict_var() const { return m_conflict_var; }
 
         bool is_bailout() const { return m_bailout; }
         void set_bailout() { SASSERT(!is_bailout()); m_bailout = true; }
 
         bool empty() const {
-            return m_constraints.empty() && m_vars.empty() && conflict_var() == null_var;
+            return m_constraints.empty() && m_vars.empty() && m_literals.empty() && m_conflict_var == null_var;
         }
 
-        void reset() {
-            for (auto c : m_constraints)
-                unset_mark(c.get());
-            m_constraints.reset();
-            m_vars.reset();
-            m_conflict_var = null_var;
-            m_saturation_premises.reset();
-            m_bailout = false;
-            m_bailout_lemma.reset();
-            SASSERT(empty());
-        }
+        void reset();
 
         bool is_pmarked(pvar v) const;
         bool is_bmarked(sat::bool_var b) const;
@@ -123,13 +112,68 @@ namespace polysat {
         bool try_eliminate(pvar v);
         bool try_saturate(pvar v);
 
-        using const_iterator = decltype(m_constraints)::const_iterator;
-        const_iterator begin() { return constraints().begin(); }
-        const_iterator end() { return constraints().end(); }
+        using const_iterator = conflict_core_iterator;
+        const_iterator begin() const;
+        const_iterator end() const;
 
         std::ostream& display(std::ostream& out) const;
     };
 
     inline std::ostream& operator<<(std::ostream& out, conflict_core const& c) { return c.display(out); }
 
+
+    class conflict_core_iterator {
+        friend class conflict_core;
+
+        using it1_t = signed_constraints::const_iterator;
+        using it2_t = indexed_uint_set::iterator;
+
+        constraint_manager* m_cm;
+        it1_t m_it1;
+        it1_t m_end1;
+        it2_t m_it2;
+
+        conflict_core_iterator(constraint_manager& cm, it1_t it1, it1_t end1, it2_t it2):
+            m_cm(&cm), m_it1(it1), m_end1(end1), m_it2(it2) {}
+
+        static conflict_core_iterator begin(constraint_manager& cm, signed_constraints cs, indexed_uint_set lits) {
+            return {cm, cs.begin(), cs.end(), lits.begin()};
+        }
+
+        static conflict_core_iterator end(constraint_manager& cm, signed_constraints cs, indexed_uint_set lits) {
+            return {cm, cs.end(), cs.end(), lits.end()};
+        }
+
+    public:
+        using value_type = signed_constraint;
+        using difference_type = unsigned;
+        using pointer = signed_constraint const*;
+        using reference = signed_constraint const&;
+        using iterator_category = std::input_iterator_tag;
+
+        conflict_core_iterator& operator++() {
+            if (m_it1 != m_end1)
+                ++m_it1;
+            else
+                ++m_it2;
+            return *this;
+        }
+
+        signed_constraint operator*() const {
+            if (m_it1 != m_end1)
+                return *m_it1;
+            else
+                return m_cm->lookup(sat::to_literal(*m_it2));
+        }
+
+        bool operator==(conflict_core_iterator const& other) const {
+            return m_it1 == other.m_it1 && m_it2 == other.m_it2;
+        }
+
+        bool operator!=(conflict_core_iterator const& other) const { return !operator==(other); }
+    };
+
+
+    inline conflict_core::const_iterator conflict_core::begin() const { return conflict_core_iterator::begin(cm(), m_constraints, m_literals); }
+    inline conflict_core::const_iterator conflict_core::end() const { return conflict_core_iterator::end(cm(), m_constraints, m_literals); }
 }

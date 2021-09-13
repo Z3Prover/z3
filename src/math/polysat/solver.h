@@ -66,9 +66,6 @@ namespace polysat {
         friend class inf_saturate;
         friend class constraint_manager;
 
-        typedef ptr_vector<constraint> constraints;
-        typedef vector<signed_constraint> signed_constraints;
-
         reslimit&                m_lim;
         params_ref               m_params;
         viable                   m_viable;   // viable sets per variable
