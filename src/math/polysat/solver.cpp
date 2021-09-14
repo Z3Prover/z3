@@ -141,6 +141,8 @@ namespace polysat {
         VERIFY(at_base_level());
         SASSERT(c);
         SASSERT(activate || dep != null_dependency);  // if we don't activate the constraint, we need the dependency to access it again later.
+        if (is_conflict())
+            return;  // no need to do anything if we already have a conflict at base level
         m_constraints.ensure_bvar(c.get());
         clause* unit = m_constraints.store(clause::from_unit(m_level, c, mk_dep_ref(dep)));
         c->set_unit_clause(unit);
@@ -155,9 +157,12 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.new_constraint(*c.get());
 #endif
-        // TODO: there is an issue when the input contains both c and ~c. (see test_ineq_basic2)
-        if (activate && !is_conflict())
-            propagate_bool(c.blit(), unit);
+        if (activate) {
+            if (c.bvalue(*this) == l_false)
+                m_conflict.set(c);  // we already added ~c => conflict at base level
+            else
+                propagate_bool(c.blit(), unit);
+        }
     }
 
     void solver::assign_eh(unsigned dep, bool is_true) {
@@ -486,7 +491,6 @@ namespace polysat {
                     revert_bool_decision(lit);
                     return;
                 }
-                
                 SASSERT(m_bvars.is_propagation(var));
                 resolve_bool(lit);
             }
