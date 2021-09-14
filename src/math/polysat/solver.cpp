@@ -749,6 +749,7 @@ namespace polysat {
             // Check that fully evaluated constraints are on the stack
             SASSERT(m_bvars.is_assigned(lit) || !c.is_currently_false(*this));
             SASSERT(m_bvars.is_assigned(lit) || !c.is_currently_true(*this));
+            // TODO: work out invariant for the lemma. It should be impossible to extend the model in a way that makes the lemma true.
         }
         SASSERT(lemma->size() > 0);
         clause* cl = m_constraints.store(std::move(lemma));
@@ -901,14 +902,14 @@ namespace polysat {
         return true;
     }
 
-    /// Check that all original constraints are satisfied by the current model.
+    /// Check that all constraints on the stack are satisfied by the current model.
     bool solver::verify_sat() {
         LOG_H1("Checking current model...");
         LOG("Assignment: " << assignments_pp(*this));
         bool all_ok = true;
         for (auto s : m_search) {
             if (s.is_boolean()) {
-                bool ok = m_bvars.value(s.lit()) == l_true;
+                bool ok = m_constraints.lookup(s.lit()).is_currently_true(*this);
                 LOG((ok ? "PASS" : "FAIL") << ": " << s.lit());
                 all_ok = all_ok && ok;
             }
