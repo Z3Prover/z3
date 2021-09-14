@@ -96,6 +96,12 @@ namespace polysat {
         LOG("Conflict: v" << v);
         SASSERT(empty());
         m_conflict_var = v;
+        for (auto c : s().m_cjust[v]) {
+            insert(c);
+            for (auto v : c->vars())
+                if (s().is_assigned(v))
+                    m_vars.insert(v);
+        }
     }
 
     void conflict_core::insert(signed_constraint c) {
@@ -253,7 +259,7 @@ namespace polysat {
         //      - cjust_v contains true constraints
         //      - core contains both false and true constraints (originally only false ones, but additional true ones may come from saturation)
 
-        if (is_bailout())   // TODO: don't we still need to track cjust/m_vars?
+        if (is_bailout())
             return false;
 
         if (conflict_var() == v) {
