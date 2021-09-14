@@ -192,7 +192,7 @@ void fpa2bv_converter::mk_const(func_decl * f, expr_ref & result) {
 
         app_ref sgn(m), s(m), e(m);
 
-#ifdef Z3DEBUG
+#ifdef Z3DEBUG_FPA2BV_NAMES
         std::string p("fpa2bv");
         std::string name = f->get_name().str();
 
@@ -326,7 +326,7 @@ void fpa2bv_converter::mk_rm_const(func_decl * f, expr_ref & result) {
 
         expr_ref bv3(m);
         bv3 = m.mk_fresh_const(
-#ifdef Z3DEBUG
+#ifdef Z3DEBUG_FPA2BV_NAMES
             "fpa2bv_rm"
 #else
             nullptr
@@ -3839,7 +3839,7 @@ void fpa2bv_converter::mk_rounding_mode(decl_kind k, expr_ref & result)
 }
 
 void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {
-#ifdef Z3DEBUG
+#ifdef Z3DEBUG_FPA2BV_NAMES
     return;
     // CMW: This works only for quantifier-free formulas.
     if (m_util.is_fp(e)) {
