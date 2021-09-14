@@ -68,7 +68,6 @@ namespace polysat {
         m_conflict_var = null_var;
         m_saturation_premises.reset();
         m_bailout = false;
-        m_bailout_lemma.reset();
         SASSERT(empty());
     }
 
@@ -245,10 +244,7 @@ namespace polysat {
     }
 
     clause_builder conflict_core::build_lemma() {
-        if (m_bailout_lemma)
-            return *std::move(m_bailout_lemma);
-        else
-            return build_core_lemma();
+        return build_core_lemma();
     }
 
     bool conflict_core::resolve_value(pvar v, vector<signed_constraint> const& cjust_v) {
@@ -257,15 +253,20 @@ namespace polysat {
         //      - cjust_v contains true constraints
         //      - core contains both false and true constraints (originally only false ones, but additional true ones may come from saturation)
 
-        if (is_bailout())
+        if (is_bailout())   // TODO: don't we still need to track cjust/m_vars?
             return false;
 
         if (conflict_var() == v) {
             clause_builder lemma(s());
             forbidden_intervals fi;
             if (fi.perform(s(), v, cjust_v, lemma)) {
+                // TODO: pass core to FI instead of a clause_builder?
+                reset();
+                for (auto lit : lemma) {
+                    auto c = cm().lookup(lit);
+                    insert(~c);
+                }
                 set_bailout();
-                m_bailout_lemma = std::move(lemma);
                 return true;
             }
             // TODO: add a dummy value for v?
