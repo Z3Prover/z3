@@ -80,10 +80,9 @@ namespace polysat {
                 continue;
 
             if (!c->contains_var(v)) {
-                core.keep(c);
-                // NOTE: more variables than 'v' might have been removed here (see polysat::test_p3), so remove_var(v) isn't enough.
-                //       also, c alone (+ variables) is now enough to represent the conflict.
-                // core.remove_var(v);
+                core.keep(c);  // adds propagation of c to the search stack
+                // NOTE: more variables than just 'v' might have been removed here (see polysat::test_p3).
+                // c alone (+ variables) is now enough to represent the conflict.
                 core.reset();
                 core.set(c);
                 return l_true;

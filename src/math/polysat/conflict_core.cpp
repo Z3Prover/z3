@@ -141,26 +141,6 @@ namespace polysat {
         insert(c_new, c_new_premises);
     }
 
-    void conflict_core::remove_var(pvar v) {
-        LOG("Removing v" << v << " from core");
-        unsigned j = 0;
-        for (unsigned i = 0; i < m_constraints.size(); ++i)
-            if (m_constraints[i]->contains_var(v))
-                unset_mark(m_constraints[i]);
-            else
-                m_constraints[j++] = m_constraints[i];
-        m_constraints.shrink(j);
-        indexed_uint_set literals_copy = m_literals;  // TODO: can avoid copy (e.g., add a filter method for indexed_uint_set)
-        for (unsigned lit_idx : literals_copy) {
-            signed_constraint c = cm().lookup(sat::to_literal(lit_idx));
-            if (c->contains_var(v)) {
-                unset_mark(c);
-                m_literals.remove(lit_idx);
-            }
-        }
-        m_vars.remove(v);
-    }
-
     void conflict_core::set_bailout() {
         SASSERT(!is_bailout());
         m_bailout = true;

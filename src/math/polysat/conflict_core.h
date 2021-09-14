@@ -89,9 +89,6 @@ namespace polysat {
         void remove(signed_constraint c);
         void replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> c_new_premises);
 
-        /** remove all constraints that contain the variable v */
-        void remove_var(pvar v);
-
         void keep(signed_constraint c);
 
         /** Perform boolean resolution with the clause upon variable 'var'.
