@@ -38,7 +38,7 @@ namespace smt {
     {
         params_ref p;
         p.set_bool("arith_lhs", true);
-        m_th_rw.updt_params(p);        
+        m_th_rw.updt_params(p);
     }
 
     theory_fpa::~theory_fpa()
@@ -284,6 +284,9 @@ namespace smt {
             }
             default: /* ignore */;
             }
+
+            if (!ctx.relevancy())
+                relevant_eh(term);
         }
 
         return true;
@@ -623,7 +626,7 @@ namespace smt {
         bv2fp.convert_min_max_specials(&mdl, &new_model, seen);
         bv2fp.convert_uf2bvuf(&mdl, &new_model, seen);
 
-        for (func_decl* f : seen) 
+        for (func_decl* f : seen)
             mdl.unregister_decl(f);
 
         for (unsigned i = 0; i < new_model.get_num_constants(); i++) {
