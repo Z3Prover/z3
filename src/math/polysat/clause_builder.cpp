@@ -51,6 +51,7 @@ namespace polysat {
     void clause_builder::push(signed_constraint c) {
         SASSERT(c);
         SASSERT(c->has_bvar());
+        SASSERT(!c.is_always_true());  // clause would be a tautology
         if (c->unit_clause()) {
             add_dependency(c->unit_dep());
             m_level = std::max(m_level, c->unit_clause()->level());
@@ -59,4 +60,11 @@ namespace polysat {
         m_literals.push_back(c.blit());
     }
 
+    void clause_builder::push_new(signed_constraint c) {
+        if (c.is_always_false())  // filter out trivial constraints such as "4 < 2" (may come in from forbidden intervals)
+            return;
+        if (!c->has_bvar())
+            m_solver->m_constraints.ensure_bvar(c.get());
+        push(c);
+    }
 }

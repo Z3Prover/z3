@@ -51,6 +51,9 @@ namespace polysat {
         void push(inequality const& i) {
             push(i.as_signed_constraint());
         }
+
+        /// Push a new constraint. Allocates a boolean variable for the constraint, if necessary.
+        void push_new(signed_constraint c);
       
         using const_iterator = decltype(m_literals)::const_iterator;
         const_iterator begin() const { return m_literals.begin(); }

@@ -75,7 +75,7 @@ namespace polysat {
     */
     void forbidden_intervals::full_interval_conflict(signed_constraint src, signed_constraint neg_cond, clause_builder& lemma) {
         SASSERT(neg_cond);
-        lemma.push(neg_cond);
+        lemma.push_new(neg_cond);
         lemma.push(~src);
     }
 
@@ -158,12 +158,12 @@ namespace polysat {
             // the level of a literal is when it was assigned. Lemmas could have unassigned literals.
             signed_constraint c = s.m_constraints.ult(lhs, rhs);
             LOG("constraint: " << c);
-            lemma.push(~c);
+            lemma.push_new(~c);
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
             signed_constraint& neg_cond = records[i].neg_cond;
             if (neg_cond)
-                lemma.push(std::move(neg_cond));
+                lemma.push_new(std::move(neg_cond));
 
             lemma.push(~records[i].src);
         }
@@ -185,8 +185,6 @@ namespace polysat {
         // Current only works when degree(v) is at most one on both sides
         pdd lhs = c->to_ule().lhs();
         pdd rhs = c->to_ule().rhs();
-        if (!c.is_positive())
-            swap(lhs, rhs);
         unsigned const deg1 = lhs.degree(v);
         unsigned const deg2 = rhs.degree(v);
         if (deg1 > 1 || deg2 > 1)
