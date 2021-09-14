@@ -79,9 +79,11 @@ namespace polysat {
         LOG("Conflict: " << c);
         SASSERT(empty());
         insert(c);
-        for (auto v : c->vars())
+        for (auto v : c->vars()) {
             if (s().is_assigned(v))
                 m_vars.insert(v);
+            // inc_pref(v);  // hack to be able to test the rest of the conflict resolution loop, TODO: proper fix
+        }
         SASSERT(!empty());
     }
 
