@@ -706,6 +706,17 @@ namespace polysat {
      *
      * The original version had signed comparisons but that doesn't matter for the UNSAT result.
      * UNSAT can be seen easily by substituting the equality.
+     *
+     * Possible ways to solve:
+     * - Integrate AC congruence closure
+     *      See: Deepak Kapur. A Modular Associative Commutative (AC) Congruence Closure Algorithm, FSCD 2021. https://doi.org/10.4230/LIPIcs.FSCD.2021.15
+     * - Propagate equalities as substitutions
+     *      x=t /\ p(x) ==> p(t)
+     *      Ackermann-like reduction
+     *   (index, watch lists over boolean literals)
+     * - Augment explain:
+     *      conflict: y=x+1 /\ y^2 > z
+     *      explain could then derive (x+1)^2 > z
      */
     static void test_subst(unsigned bw = 32) {
         scoped_solver s(__func__);
