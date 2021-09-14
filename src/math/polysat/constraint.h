@@ -160,7 +160,8 @@ namespace polysat {
         virtual bool is_eq() const { return false; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }
         ckind_t kind() const { return m_kind; }
-        virtual std::ostream& display(std::ostream& out, lbool status = l_undef) const = 0;
+        virtual std::ostream& display(std::ostream& out, lbool status) const = 0;
+        virtual std::ostream& display(std::ostream& out) const = 0;
 
         bool propagate(solver& s, bool is_positive, pvar v);
         virtual void propagate_core(solver& s, bool is_positive, pvar v, pvar other_v);
