@@ -743,10 +743,10 @@ namespace polysat {
         LOG("Lemma: " << show_deref(lemma));
         for (sat::literal lit : *lemma) {
             LOG("   Literal " << lit << " is: " << m_constraints.lookup(lit));
-            // TODO: fully evaluated constraints must be put onto the stack as propagations.
             signed_constraint c = m_constraints.lookup(lit);
-            SASSERT(m_bvars.is_assigned(lit) && !c.is_currently_false(*this));
-            SASSERT(m_bvars.is_assigned(lit) && !c.is_currently_true(*this));
+            // Check that fully evaluated constraints are on the stack
+            SASSERT(m_bvars.is_assigned(lit) || !c.is_currently_false(*this));
+            SASSERT(m_bvars.is_assigned(lit) || !c.is_currently_true(*this));
         }
         SASSERT(lemma->size() > 0);
         clause* cl = m_constraints.store(std::move(lemma));
