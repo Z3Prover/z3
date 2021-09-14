@@ -64,15 +64,15 @@ namespace polysat {
         return cl;
     }
 
-    void constraint_manager::register_external(constraint* c) {
+    void constraint_manager::register_external(signed_constraint c) {
         SASSERT(c);
         SASSERT(!c->is_external());
         if (c->unit_dep() && c->unit_dep()->is_leaf()) {
             unsigned const dep = c->unit_dep()->leaf_value();
             SASSERT(!m_external_constraints.contains(dep));
-            m_external_constraints.insert(dep, c);
+            m_external_constraints.insert(dep, c.get());
         }
-        c->set_external();
+        c->set_external(c.is_negative());
         ++m_num_external;
     }
 
@@ -81,6 +81,14 @@ namespace polysat {
             m_external_constraints.remove(c->unit_dep()->leaf_value());        
         c->unset_external();
         --m_num_external;
+    }
+
+    signed_constraint constraint_manager::lookup_external(unsigned dep) const {
+        constraint* c = m_external_constraints.get(dep, nullptr);
+        if (c)
+            return {c, !c->external_sign()};
+        else
+            return {};
     }
 
     // Release constraints at the given level and above.

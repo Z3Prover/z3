@@ -216,6 +216,7 @@ namespace polysat {
         signed_constraint slt(pdd const& p, pdd const& q);
         void ext_constraint(signed_constraint c, unsigned dep, bool activate);
         static void insert_constraint(signed_constraints& cs, signed_constraint c);
+        void assert_ext_constraint(signed_constraint c);
 
         bool inc() { return m_lim.inc(); }
 

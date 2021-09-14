@@ -75,8 +75,9 @@ namespace polysat {
         clause* store(clause_ref cl);
 
         /// Register a unit clause with an external dependency.
-        void register_external(constraint* c);
+        void register_external(signed_constraint c);
         void unregister_external(constraint* c);
+        signed_constraint lookup_external(unsigned dep) const;
 
         /// Release clauses at the given level and above.
         void release_level(unsigned lvl);
@@ -87,7 +88,6 @@ namespace polysat {
 
         constraint* lookup(sat::bool_var var) const;
         signed_constraint lookup(sat::literal lit) const;
-        constraint* lookup_external(unsigned dep) const { return m_external_constraints.get(dep, nullptr); }
 
         signed_constraint eq(pdd const& p);
         signed_constraint ule(pdd const& a, pdd const& b);
@@ -136,7 +136,7 @@ namespace polysat {
         clause*             m_unit_clause = nullptr;  ///< If this constraint was asserted by a unit clause, we store that clause here.
         ckind_t             m_kind;
         unsigned_vector     m_vars;
-        bool                m_is_external = false;
+        lbool               m_external_sign = l_undef;
         bool                m_is_marked = false;
         bool                m_is_bool_propagated = false;
         /** The boolean variable associated to this constraint, if any.
@@ -169,7 +169,6 @@ namespace polysat {
         virtual bool is_currently_true(solver& s, bool is_positive) const = 0;
         virtual void narrow(solver& s, bool is_positive) = 0;
         virtual inequality as_inequality(bool is_positive) const = 0;
-        
 
         ule_constraint& to_ule();
         ule_constraint const& to_ule() const;
@@ -184,9 +183,10 @@ namespace polysat {
         void set_unit_clause(clause* cl);
         p_dependency* unit_dep() const { return m_unit_clause ? m_unit_clause->dep() : nullptr; }
 
-        void set_external() { m_is_external = true; }
-        void unset_external() { m_is_external = false; }
-        bool is_external() const { return m_is_external; }
+        void set_external(bool sign) { m_external_sign = to_lbool(sign); }
+        void unset_external() { m_external_sign = l_undef; }
+        bool is_external() const { return m_external_sign != l_undef; }
+        bool external_sign() const { SASSERT(is_external()); return m_external_sign == l_true; }
 
         void set_mark() { m_is_marked = true; }
         void unset_mark() { m_is_marked = false; }

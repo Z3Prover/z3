@@ -148,7 +148,7 @@ namespace polysat {
         c->set_unit_clause(unit);
         if (dep != null_dependency)
             if (!c->is_external()) {
-                m_constraints.register_external(c.get());
+                m_constraints.register_external(c);
                 m_trail.push_back(trail_instr_t::ext_constraint_i);
                 m_ext_constraint_trail.push_back(c.get());
             }
@@ -157,31 +157,31 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.new_constraint(*c.get());
 #endif
-        if (activate) {
-            if (c.bvalue(*this) == l_false)
-                m_conflict.set(c);  // we already added ~c => conflict at base level
-            else
-                propagate_bool(c.blit(), unit);
-        }
+        if (activate)
+            assert_ext_constraint(c);
     }
 
     void solver::assign_eh(unsigned dep, bool is_true) {
         VERIFY(at_base_level());
-        NOT_IMPLEMENTED_YET();
-        /*
-        constraint* c = m_constraints.lookup_external(dep);
+        if (is_conflict())
+            return;  // no need to do anything if we already have a conflict at base level
+        signed_constraint c = m_constraints.lookup_external(dep);
         if (!c) {
             LOG("WARN: there is no constraint for dependency " << dep);
             return;
         }
-        if (is_conflict())
-            return;
-        // TODO: this is wrong. (e.g., if the external constraint was negative) we need to store signed_constraints
-        signed_constraint cl{c, is_true};
-        activate_constraint_base(cl);
-        */
+        assert_ext_constraint(is_true ? c : ~c);
     }
 
+    void solver::assert_ext_constraint(signed_constraint c) {
+        SASSERT(at_base_level());
+        SASSERT(!is_conflict());
+        SASSERT(c->unit_clause());
+        if (c.bvalue(*this) == l_false)
+            m_conflict.set(c);  // we already added ~c => conflict at base level
+        else
+            propagate_bool(c.blit(), c->unit_clause());
+    }
 
     bool solver::can_propagate() {
         return m_qhead < m_search.size() && !is_conflict();
