@@ -10,6 +10,19 @@ Author:
     Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-6
 
+Notes:
+
+    TODO: Maybe we want to rewrite some of the following into equalities? (i.e., into p<=0)
+
+         p <= 0   <==>  p = 0
+         -1 <= p  <==>  p = -1
+         1 <= p   <==>  p != 0
+         p <= -2  <==>  p != -1
+
+         e.g.
+         x - 2 >= 1   <==>  x != 2
+         2 - x >= -1  <==>  x = 3
+
 --*/
 
 #include "math/polysat/constraint.h"
