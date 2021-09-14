@@ -102,7 +102,7 @@ expr_ref bv2fpa_converter::convert_bv2fp(sort * s, expr * sgn, expr * exp, expr 
     rational exp_unbiased_q;
     exp_unbiased_q = exp_q - m_fpa_util.fm().m_powers2.m1(ebits - 1);
 
-    scoped_mpz sig_z(mpzm); 
+    scoped_mpz sig_z(mpzm);
     mpf_exp_t exp_z;
     mpzm.set(sig_z, sig_q.to_mpq().numerator());
     exp_z = mpzm.get_int64(exp_unbiased_q.to_mpq().numerator());
