@@ -178,7 +178,9 @@ namespace polysat {
         SASSERT(!is_conflict());
         SASSERT(c->unit_clause());
         if (c.bvalue(*this) == l_false)
-            m_conflict.set(c);  // we already added ~c => conflict at base level
+            m_conflict.set(~c);  // we already added ~c => conflict
+        else if (c.is_always_false())
+            m_conflict.set(c);
         else
             propagate_bool(c.blit(), c->unit_clause());
     }

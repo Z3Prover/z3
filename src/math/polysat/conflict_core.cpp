@@ -82,6 +82,7 @@ namespace polysat {
         for (auto v : c->vars())
             if (s().is_assigned(v))
                 m_vars.insert(v);
+        SASSERT(!empty());
     }
 
     /**
@@ -102,6 +103,7 @@ namespace polysat {
                 if (s().is_assigned(v))
                     m_vars.insert(v);
         }
+        SASSERT(!empty());
     }
 
     void conflict_core::insert(signed_constraint c) {
@@ -110,7 +112,6 @@ namespace polysat {
         // (e.g., constant ones such as "4 > 1"... only true ones should appear, otherwise the lemma would be a tautology)
         if (c.is_always_true())
             return;
-        SASSERT(!c.is_always_false());
         if (c->is_marked())
             return;
         set_mark(c);
