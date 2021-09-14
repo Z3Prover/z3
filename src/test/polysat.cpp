@@ -235,9 +235,8 @@ namespace polysat {
     static void test_ineq_basic1() {
         scoped_solver s(__func__);
         auto u = s.var(s.add_var(4));
-        auto zero = u - u;
-        s.add_ule(u, zero + 5);
-        s.add_ule(zero + 5, u);
+        s.add_ule(u, 5);
+        s.add_ule(5, u);
         s.check();
         s.expect_sat({{u, 5}});
     }
@@ -246,9 +245,8 @@ namespace polysat {
     static void test_ineq_basic2() {
         scoped_solver s(__func__);
         auto u = s.var(s.add_var(4));
-        auto zero = u - u;
-        s.add_ult(u, zero + 5);
-        s.add_ule(zero + 5, u);
+        s.add_ult(u, 5);
+        s.add_ule(5, u);
         s.check();
         s.expect_unsat();
     }
@@ -287,9 +285,8 @@ namespace polysat {
         scoped_solver s(__func__);
         auto u = s.var(s.add_var(4));
         auto v = s.var(s.add_var(4));
-        auto zero = u - u;
-        s.add_ule(zero + 12, u + v);
-        s.add_ule(v, zero + 2);
+        s.add_ule(12, u + v);
+        s.add_ule(v, 2);
         s.check();
         s.expect_sat();  // e.g., u = 12, v = 0
     }
@@ -299,9 +296,8 @@ namespace polysat {
         scoped_solver s(__func__);
         auto u = s.var(s.add_var(4));
         auto v = s.var(s.add_var(4));
-        auto zero = u - u;
-        s.add_ule(zero + 14, u + v);
-        s.add_ule(v, zero + 2);
+        s.add_ule(14, u + v);
+        s.add_ule(v, 2);
         s.check();
         s.expect_sat();
     }
@@ -453,14 +449,12 @@ namespace polysat {
         auto max_int = s.var(s.add_var(bw));
         s.add_eq(max_int - max_int_const);
 
-        auto zero = max_int - max_int;
-
         // "input" variables
         auto a = s.var(s.add_var(bw));
         s.add_ule(a, max_int);
         auto b = s.var(s.add_var(bw));
         s.add_ule(b, max_int);
-        s.add_ult(zero, b); // b > 0
+        s.add_ult(0, b); // b > 0
 
         // scaling factor (setting it, somewhat arbitrarily, to max_int/3)
         auto sf = s.var(s.add_var(bw));
@@ -527,14 +521,12 @@ namespace polysat {
         auto max_int = s.var(s.add_var(bw));
         s.add_eq(max_int - max_int_const);
 
-        auto zero = max_int - max_int;
-
         // "input" variables
         auto a = s.var(s.add_var(bw));
         s.add_ule(a, max_int);
         auto b = s.var(s.add_var(bw));
         s.add_ule(b, max_int);
-        s.add_ult(zero, b); // b > 0
+        s.add_ult(0, b); // b > 0
 
         // scaling factor (setting it, somewhat arbitrarily, to max_int/3)
         auto sf = s.var(s.add_var(bw));
@@ -595,8 +587,7 @@ namespace polysat {
         auto y = s.var(s.add_var(bw));
         auto z = s.var(s.add_var(bw));
         auto x = s.var(s.add_var(bw));
-        auto zero = x - x;
-        auto bound = (zero + 2).pow(base_bw);
+        auto bound = rational::power_of_two(base_bw);
 #if 1
         s.add_ult(x, bound);
         s.add_ult(y, bound);
@@ -606,7 +597,7 @@ namespace polysat {
         s.add_ule(y, bound - 1);
         // s.add_ule(z, bound - 1);   // not required
 #endif
-        auto a = zero + 13;
+        unsigned a = 13;
         s.add_ule(z, y);
         s.add_ult(x*y, a);
         s.add_ule(a, x*z);
@@ -632,8 +623,7 @@ namespace polysat {
         auto y = s.var(s.add_var(bw));
         auto x = s.var(s.add_var(bw));
         auto z = s.var(s.add_var(bw));
-        auto zero = x - x;
-        auto bound = (zero + 2).pow(base_bw);
+        auto bound = rational::power_of_two(base_bw);
         s.add_ult(x, bound);
         s.add_ult(y, bound);
         s.add_ult(z, bound);
@@ -656,8 +646,6 @@ namespace polysat {
         auto const bw = 2 * base_bw;
         auto const max_int = s.var(s.add_var(bw));
         s.add_eq(max_int - max_int_const);
-
-        auto const zero = max_int - max_int;
 
         auto const first = s.var(s.add_var(bw));
         s.add_ule(first, max_int);

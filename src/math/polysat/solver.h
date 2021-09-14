@@ -300,6 +300,15 @@ namespace polysat {
         void add_ult(pdd const& p, pdd const& q, unsigned dep = null_dependency) { ext_constraint(ult(p, q), dep, true); }
         void add_sle(pdd const& p, pdd const& q, unsigned dep = null_dependency) { ext_constraint(sle(p, q), dep, true); }
         void add_slt(pdd const& p, pdd const& q, unsigned dep = null_dependency) { ext_constraint(slt(p, q), dep, true); }
+
+        void add_ule(pdd const& p, rational const& q, unsigned dep = null_dependency) { add_ule(p, p.manager().mk_val(q), dep); }
+        void add_ule(rational const& p, pdd const& q, unsigned dep = null_dependency) { add_ule(q.manager().mk_val(p), q, dep); }
+        void add_ule(pdd const& p, unsigned q, unsigned dep = null_dependency) { add_ule(p, rational(q), dep); }
+        void add_ule(unsigned p, pdd const& q, unsigned dep = null_dependency) { add_ule(rational(p), q, dep); }
+        void add_ult(pdd const& p, rational const& q, unsigned dep = null_dependency) { add_ult(p, p.manager().mk_val(q), dep); }
+        void add_ult(rational const& p, pdd const& q, unsigned dep = null_dependency) { add_ult(q.manager().mk_val(p), q, dep); }
+        void add_ult(pdd const& p, unsigned q, unsigned dep = null_dependency) { add_ult(p, rational(q), dep); }
+        void add_ult(unsigned p, pdd const& q, unsigned dep = null_dependency) { add_ult(rational(p), q, dep); }
         
         /**
          * Activate the constraint corresponding to the given boolean variable.
