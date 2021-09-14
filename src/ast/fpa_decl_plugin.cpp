@@ -207,7 +207,7 @@ sort * fpa_decl_plugin::mk_float_sort(unsigned ebits, unsigned sbits) {
         m_manager->raise_exception("minimum number of exponent bits is 2");
     if (ebits > 63)
         m_manager->raise_exception("maximum number of exponent bits is 63");
-    
+
     parameter p1(ebits), p2(sbits);
     parameter ps[2] = { p1, p2 };
     sort_size sz;
@@ -929,16 +929,22 @@ bool fpa_decl_plugin::is_unique_value(app* e) const {
     case OP_FPA_RM_TOWARD_NEGATIVE:
     case OP_FPA_RM_TOWARD_ZERO:
         return true;
-    case OP_FPA_PLUS_INF:  /* No; +oo == fp(#b0 #b11 #b00) */
-    case OP_FPA_MINUS_INF: /* No; -oo == fp #b1 #b11 #b00) */
-    case OP_FPA_PLUS_ZERO: /* No; +zero == fp #b0 #b00 #b000) */
-    case OP_FPA_MINUS_ZERO: /* No; -zero == fp #b1 #b00 #b000) */
+    case OP_FPA_PLUS_INF:  /* No; +oo == (fp #b0 #b11 #b00) */
+    case OP_FPA_MINUS_INF: /* No; -oo == (fp #b1 #b11 #b00) */
+    case OP_FPA_PLUS_ZERO: /* No; +zero == (fp #b0 #b00 #b000) */
+    case OP_FPA_MINUS_ZERO: /* No; -zero == (fp #b1 #b00 #b000) */
     case OP_FPA_NAN: /* No; NaN == (fp #b0 #b111111 #b0000001) */
     case OP_FPA_NUM: /* see NaN */
         return false;
-    case OP_FPA_FP:
-        return false; /*No; generally not because of clashes with +oo, -oo, +zero, -zero, NaN */
-        // a refinement would require to return true only if there is no clash with these cases.
+    case OP_FPA_FP: {
+        if (m_manager->is_value(e->get_arg(0)) &&
+            m_manager->is_value(e->get_arg(1)) &&
+            m_manager->is_value(e->get_arg(2))) {
+          bv_util bu(*m_manager);
+          return !bu.is_allone(e->get_arg(1)) && !bu.is_zero(e->get_arg(1));
+        }
+        return false;
+    }
     default:
         return false;
     }
