@@ -1445,6 +1445,26 @@ namespace z3 {
             check_error();
             return expr(ctx(), r);
         }
+        expr char_to_int() const {
+            Z3_ast r = Z3_mk_char_to_int(ctx(), *this);
+            check_error();
+            return expr(ctx(), r);
+        }
+        expr char_to_bv() const {
+            Z3_ast r = Z3_mk_char_to_bv(ctx(), *this);
+            check_error();
+            return expr(ctx(), r);
+        }
+        expr char_from_bv() const {
+            Z3_ast r = Z3_mk_char_from_bv(ctx(), *this);
+            check_error();
+            return expr(ctx(), r);
+        }
+        expr is_digit() const {
+            Z3_ast r = Z3_mk_char_is_digit(ctx(), *this);
+            check_error();
+            return expr(ctx(), r);
+        }
  
         friend expr range(expr const& lo, expr const& hi);
         /**

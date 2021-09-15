@@ -567,7 +567,7 @@ namespace Microsoft.Z3
         CheckContextMatch(body);
             IntPtr[] argsNative = AST.ArrayToNative(args);
         Native.Z3_add_rec_def(nCtx, f.NativeObject, (uint)args.Length, argsNative, body.NativeObject);
-    }	
+    }
 
         /// <summary>
         /// Creates a new function declaration.
@@ -2693,7 +2693,53 @@ namespace Microsoft.Z3
             CheckContextMatch(lo, hi);
             return new ReExpr(this, Native.Z3_mk_re_range(nCtx, lo.NativeObject, hi.NativeObject));
         }
-    
+
+        /// <summary>
+        /// Create less than or equal to between two characters.
+        /// </summary>
+        public BoolExpr MkCharLe(Expr ch1, Expr ch2) 
+        {
+            Debug.Assert(ch1 != null);
+            Debug.Assert(ch2 != null);
+            return new BoolExpr(this, Native.Z3_mk_char_le(nCtx, ch1.NativeObject, ch2.NativeObject));
+        }
+
+        /// <summary>
+        /// Create an integer (code point) from character.
+        /// </summary>
+        public IntExpr CharToInt(Expr ch) 
+        {
+            Debug.Assert(ch != null);
+            return new IntExpr(this, Native.Z3_mk_char_to_int(nCtx, ch.NativeObject));
+        }
+
+        /// <summary>
+        /// Create a bit-vector (code point) from character.
+        /// </summary>
+        public BitVecExpr CharToBV(Expr ch) 
+        {
+            Debug.Assert(ch != null);
+            return new BitVecExpr(this, Native.Z3_mk_char_to_bv(nCtx, ch.NativeObject));
+        }
+
+        /// <summary>
+        /// Create a character from a bit-vector (code point).
+        /// </summary>
+        public Expr CharFromBV(BitVecExpr bv) 
+        {
+            Debug.Assert(bv != null);
+            return new Expr(this, Native.Z3_mk_char_from_bv(nCtx, bv.NativeObject));
+        }
+
+        /// <summary>
+        /// Create a check if the character is a digit.
+        /// </summary>
+        public BoolExpr MkIsDigit(Expr ch) 
+        {
+            Debug.Assert(ch != null);
+            return new BoolExpr(this, Native.Z3_mk_char_is_digit(nCtx, ch.NativeObject));
+        }
+
         #endregion
 
         #region Pseudo-Boolean constraints
