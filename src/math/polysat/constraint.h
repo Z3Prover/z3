@@ -138,7 +138,7 @@ namespace polysat {
         unsigned_vector     m_vars;
         lbool               m_external_sign = l_undef;
         bool                m_is_marked = false;
-        bool                m_is_bool_propagated = false;
+        bool                m_is_var_dependent = false;
         /** The boolean variable associated to this constraint, if any.
          *  If this is not null_bool_var, then the constraint corresponds to a literal on the assignment stack.
          *  Convention: the plain constraint corresponds the positive sat::literal.
@@ -193,9 +193,9 @@ namespace polysat {
         void unset_mark() { m_is_marked = false; }
         bool is_marked() const { return m_is_marked; }
 
-        void set_bool_propagated() { m_is_bool_propagated = true; }
-        void unset_bool_propagated() { m_is_bool_propagated = false; }
-        bool is_bool_propagated() { return m_is_bool_propagated;  }
+        void set_var_dependent() { m_is_var_dependent = true; }
+        void unset_var_dependent() { m_is_var_dependent = false; }
+        bool is_var_dependent() { return m_is_var_dependent;  }
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }

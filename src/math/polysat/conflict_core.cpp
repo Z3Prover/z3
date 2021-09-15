@@ -78,12 +78,8 @@ namespace polysat {
     void conflict_core::set(signed_constraint c) {
         LOG("Conflict: " << c);
         SASSERT(empty());
-        insert(c);
-        for (auto v : c->vars()) {
-            if (s().is_assigned(v))
-                m_vars.insert(v);
-            // inc_pref(v);  // hack to be able to test the rest of the conflict resolution loop, TODO: proper fix
-        }
+        c->set_var_dependent();
+        insert(c);       
         SASSERT(!empty());
     }
 
@@ -100,10 +96,8 @@ namespace polysat {
         SASSERT(empty());
         m_conflict_var = v;
         for (auto c : s().m_cjust[v]) {
+            c->set_var_dependent();
             insert(c);
-            for (auto v : c->vars())
-                if (s().is_assigned(v))
-                    m_vars.insert(v);
         }
         SASSERT(!empty());
     }
@@ -305,15 +299,16 @@ namespace polysat {
     void conflict_core::set_mark(signed_constraint c) {
         if (c->is_marked())
             return;
-        bool bool_propagated = c->has_bvar() && c.bvalue(s()) == l_true;
         c->set_mark();
         if (c->has_bvar())
             set_bmark(c->bvar());    
-        if (bool_propagated)
-            c->set_bool_propagated();
-        else 
-            for (auto v : c->vars())
+        if (c->is_var_dependent()) {
+            for (auto v : c->vars()) {
+                if (s().is_assigned(v))
+                    m_vars.insert(v);
                 inc_pref(v);
+            }
+        }
     }
 
     void conflict_core::unset_mark(signed_constraint c) {
@@ -322,11 +317,11 @@ namespace polysat {
         c->unset_mark();
         if (c->has_bvar())
             unset_bmark(c->bvar());
-        if (c->is_bool_propagated())
-            c->unset_bool_propagated();
-        else
+        if (c->is_var_dependent()) {
+            c->unset_var_dependent();
             for (auto v : c->vars())
                 dec_pref(v);
+        }
     }
 
     void conflict_core::inc_pref(pvar v) {

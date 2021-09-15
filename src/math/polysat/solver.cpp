@@ -497,6 +497,8 @@ namespace polysat {
                 resolve_bool(lit);
             }
         }
+        // here we build conflict clause if it has free variables.
+        // the last decision is reverted.
         report_unsat();
     }
 

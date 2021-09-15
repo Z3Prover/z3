@@ -493,7 +493,6 @@ namespace polysat {
         s.expect_unsat();
         s.pop();
 
-        NOT_IMPLEMENTED_YET();  // this is just a note to continue here once we get the above expect_unsat to pass.
 
         // s.push();
         // s.add_ult(quot3 + em, a);
@@ -868,14 +867,25 @@ namespace polysat {
 
 
 void tst_polysat() {
-    polysat::test_subst();
-    // polysat::test_monot_bounds(8);
+    // not working
+    // polysat::test_fixed_point_arith_div_mul_inverse();
+    // polysat::test_cjust();
+    polysat::test_ineq_basic5();
+    // polysat::test_ineq_basic6();
+    // polysat::test_monot_bounds_full();
     // polysat::test_monot_bounds_simple(8);
+    // working
     return;
+
+    polysat::test_fixed_point_arith_mul_div_inverse();
+
+
+        
+    polysat::test_subst();
+    polysat::test_monot_bounds(8);
 
     polysat::test_add_conflicts();
     polysat::test_wlist();
-    polysat::test_cjust();
     polysat::test_l1();
     polysat::test_l2();
     polysat::test_l3();
@@ -888,12 +898,8 @@ void tst_polysat() {
     polysat::test_ineq_basic2();
     polysat::test_ineq_basic3();
     polysat::test_ineq_basic4();
-    polysat::test_ineq_basic5();
-    polysat::test_ineq_basic6();
-    polysat::test_fixed_point_arith_div_mul_inverse();
     polysat::test_monot_bounds(2);
-    polysat::test_monot_bounds_full();
-    polysat::test_fixed_point_arith_mul_div_inverse();
+
 #if 0
     // worry about this later
     polysat::test_ineq1();
