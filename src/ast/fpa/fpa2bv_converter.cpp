@@ -2561,9 +2561,7 @@ void fpa2bv_converter::mk_to_fp_float(sort * to_srt, expr * rm, expr * x, expr_r
             res_sig = sig;
 
         res_sig = m_bv_util.mk_zero_extend(1, res_sig); // extra zero in the front for the rounder.
-        unsigned sig_sz = m_bv_util.get_bv_size(res_sig);
-        (void) sig_sz;
-        SASSERT(sig_sz == to_sbits + 4);
+        SASSERT(m_bv_util.get_bv_size(res_sig) == to_sbits + 4);
 
         expr_ref exponent_overflow(m), exponent_underflow(m);
         exponent_overflow = m.mk_false();
@@ -2577,7 +2575,7 @@ void fpa2bv_converter::mk_to_fp_float(sort * to_srt, expr * rm, expr * x, expr_r
             lz_ext = m_bv_util.mk_zero_extend(to_ebits - from_ebits + 2, lz);
             res_exp = m_bv_util.mk_bv_sub(res_exp, lz_ext);
         }
-        else if (from_ebits > (to_ebits + 2)) {
+        else if (from_ebits >= (to_ebits + 2)) {
             unsigned ebits_diff = from_ebits - (to_ebits + 2);
 
             // subtract lz for subnormal numbers.
@@ -2616,9 +2614,6 @@ void fpa2bv_converter::mk_to_fp_float(sort * to_srt, expr * rm, expr * x, expr_r
             res_exp = exp_in_range;
             res_exp = m.mk_ite(ovf_cond, max_exp, res_exp);
             res_exp = m.mk_ite(udf_cond, min_exp, res_exp);
-        }
-        else { // from_ebits == (to_ebits + 2)
-            res_exp = m_bv_util.mk_bv_sub(exp, lz);
         }
 
         SASSERT(m_bv_util.get_bv_size(res_exp) == to_ebits + 2);
