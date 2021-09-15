@@ -148,7 +148,7 @@ namespace polysat {
         constraint(constraint_manager& m, ckind_t k): m_kind(k) {}
 
     protected:
-        std::ostream& display_extra(std::ostream& out, lbool status) const;
+        std::ostream& display_extra(std::ostream& out) const;
 
     public:
         virtual ~constraint() {}
@@ -179,6 +179,7 @@ namespace polysat {
         bool contains_var(pvar v) const { return m_vars.contains(v); }
         bool has_bvar() const { return m_bvar != sat::null_bool_var; }
         sat::bool_var bvar() const { return m_bvar; }
+        unsigned level(solver& s) const;
 
         clause* unit_clause() const { return m_unit_clause; }
         void set_unit_clause(clause* cl);
@@ -231,12 +232,14 @@ namespace polysat {
         bool is_currently_false(solver& s) const { return get()->is_currently_false(s, is_positive()); }
         bool is_currently_true(solver& s) const { return get()->is_currently_true(s, is_positive()); }
         lbool bvalue(solver& s) const;
+        unsigned level(solver& s) const { return get()->level(s); }
         void narrow(solver& s) { get()->narrow(s, is_positive()); }
         inequality as_inequality() const { return get()->as_inequality(is_positive()); }
 
         sat::bool_var bvar() const { return m_constraint->bvar(); }
         sat::literal blit() const { return sat::literal(bvar(), is_negative()); }
         constraint* get() const { return m_constraint; }
+        
 
         explicit operator bool() const { return !!m_constraint; }
         bool operator!() const { return !m_constraint; }

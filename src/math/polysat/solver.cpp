@@ -744,15 +744,22 @@ namespace polysat {
     void solver::add_lemma(clause_ref lemma) {
         if (!lemma)
             return;
+        bool non_propagated_literal = false;
         LOG("Lemma: " << show_deref(lemma));
         for (sat::literal lit : *lemma) {
             LOG("   Literal " << lit << " is: " << m_constraints.lookup(lit));
             signed_constraint c = m_constraints.lookup(lit);
             // Check that fully evaluated constraints are on the stack
-            SASSERT(m_bvars.is_assigned(lit) || !c.is_currently_false(*this));
-            SASSERT(m_bvars.is_assigned(lit) || !c.is_currently_true(*this));
+            SASSERT(!c.is_currently_true(*this));
+            // literals that are added from m_conflict.m_vars have not been assigned.
+            // they are false in the current model.
+            if (!m_bvars.is_assigned(lit) && c.is_currently_false(*this)) {
+                non_propagated_literal = true;
+            }
+            // SASSERT(m_bvars.is_assigned(lit) || !c.is_currently_false(*this));
             // TODO: work out invariant for the lemma. It should be impossible to extend the model in a way that makes the lemma true.
         }
+        // SASSERT(!non_propagated_literal);
         SASSERT(lemma->size() > 0);
         clause* cl = m_constraints.store(std::move(lemma));
         if (cl->size() == 1) {

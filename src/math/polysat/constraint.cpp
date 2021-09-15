@@ -219,11 +219,10 @@ namespace polysat {
         return *dynamic_cast<ule_constraint const*>(this);
     }
 
-    std::ostream& constraint::display_extra(std::ostream& out, lbool status) const {
+    std::ostream& constraint::display_extra(std::ostream& out) const {
         out << " (b";
         if (has_bvar()) { out << bvar(); } else { out << "_"; }
         out << ")";
-        (void)status;
         return out;
     }
 
@@ -259,6 +258,15 @@ namespace polysat {
         // can be seen as a cache... store the lowest-level unit clause for this constraint.
         if (!cl || !m_unit_clause || m_unit_clause->level() > cl->level())
             m_unit_clause = cl;
+    }
+
+    unsigned constraint::level(solver& s) const {
+        if (s.m_bvars.value(sat::literal(bvar())) != l_undef)
+            return s.m_bvars.level(bvar());
+        unsigned level = 0;
+        for (auto v : vars())
+            level = std::max(level, s.get_level(v));
+        return level;
     }
 
     lbool signed_constraint::bvalue(solver& s) const {

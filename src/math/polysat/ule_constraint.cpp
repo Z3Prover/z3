@@ -39,7 +39,7 @@ namespace polysat {
         else if (status == l_false) out << " > ";
         else out << " <=/> ";
         out << m_rhs;
-        return display_extra(out, status);
+        return display_extra(out);
     }
 
     std::ostream& ule_constraint::display(std::ostream& out) const {
@@ -48,7 +48,8 @@ namespace polysat {
             out << " == ";
         else
             out << " <= ";
-        return out << m_rhs;        
+        out << m_rhs;
+        return display_extra(out);
     }
 
     void ule_constraint::narrow(solver& s, bool is_positive) {

@@ -186,11 +186,13 @@ namespace polysat {
         auto& premises = it->m_value;
         clause_builder c_lemma(s());
         for (auto premise : premises) {
+            LOG_H3("premise: " << premise);
             keep(premise);
-            SASSERT(premise->has_bvar());
-            SASSERT(premise.bvalue(s()) == l_true);  // otherwise the propagation doesn't make sense
+            SASSERT(premise->has_bvar());            
+            SASSERT(premise.is_currently_true(s()) || premise.bvalue(s()) == l_true);
+            // otherwise the propagation doesn't make sense
             c_lemma.push(~premise.blit());
-            active_level = std::max(active_level, s().m_bvars.level(premise.blit()));
+            active_level = std::max(active_level, premise.level(s()));
         }
         c_lemma.push(c.blit());
         clause* cl = cm().store(c_lemma.build());
