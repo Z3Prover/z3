@@ -240,19 +240,9 @@ namespace polysat {
             return false;
 
         if (conflict_var() == v) {
-            clause_builder lemma(s());
             forbidden_intervals fi;
-            if (fi.perform(s(), v, cjust_v, lemma)) {
-                // TODO: pass core to FI instead of a clause_builder?
-                reset();
-                for (auto lit : lemma) {
-                    auto c = cm().lookup(lit);
-                    insert(~c);
-                }
-                set_bailout();
+            if (fi.perform(s(), v, cjust_v, *this))
                 return true;
-            }
-            // TODO: add a dummy value for v?
         }
 
         m_vars.remove(v);

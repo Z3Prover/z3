@@ -18,7 +18,6 @@ move "forbidden interval method from constraints
 
 --*/
 #include "math/polysat/forbidden_intervals.h"
-#include "math/polysat/clause_builder.h"
 #include "math/polysat/interval.h"
 #include "math/polysat/log.h"
 
@@ -73,14 +72,16 @@ namespace polysat {
     * We assume that neg_cond is a consequence of src that  
     * does not mention the variable v to be eliminated.
     */
-    void forbidden_intervals::full_interval_conflict(signed_constraint src, signed_constraint neg_cond, clause_builder& lemma) {
+    void forbidden_intervals::full_interval_conflict(signed_constraint src, signed_constraint neg_cond, conflict_core& core) {
         SASSERT(neg_cond);
-        lemma.push_new(neg_cond);
-        lemma.push(~src);
+        core.reset();
+        core.insert(~neg_cond);
+        core.insert(src);
+        core.set_bailout();
     }
 
-    bool forbidden_intervals::perform(solver& s, pvar v, vector<signed_constraint> const& just, clause_builder& lemma) {
-
+    bool forbidden_intervals::perform(solver& s, pvar v, vector<signed_constraint> const& just, conflict_core& core) {
+        
         // Extract forbidden intervals from conflicting constraints
         vector<fi_record> records;
         rational longest_len;
@@ -97,7 +98,7 @@ namespace polysat {
                 if (interval.is_full()) {
                     // We have a single interval covering the whole domain
                     // => the side conditions of that interval are enough to produce a conflict
-                    full_interval_conflict(c, neg_cond, lemma);
+                    full_interval_conflict(c, neg_cond, core);
                     return true;
                 }
                 else {
@@ -131,9 +132,6 @@ namespace polysat {
         LOG("seq: " << seq);
         SASSERT(seq.size() >= 2);  // otherwise has_full should have been true
 
-        // TODO lemma level depends on clauses used to derive it, not on levels of constraints
-        unsigned lemma_lvl = 0;
-
         // Update the conflict state
         // Idea:
         // - If the src constraints hold, and
@@ -142,6 +140,7 @@ namespace polysat {
         // then the forbidden intervals cover the whole domain and we have a conflict.
         // 
 
+        core.reset();
         // Add side conditions and interval constraints
         for (unsigned seq_i = seq.size(); seq_i-- > 0; ) {
             unsigned const i = seq[seq_i];
@@ -158,15 +157,16 @@ namespace polysat {
             // the level of a literal is when it was assigned. Lemmas could have unassigned literals.
             signed_constraint c = s.m_constraints.ult(lhs, rhs);
             LOG("constraint: " << c);
-            lemma.push_new(~c);
+            core.insert(c);
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
             signed_constraint& neg_cond = records[i].neg_cond;
             if (neg_cond)
-                lemma.push_new(std::move(neg_cond));
-
-            lemma.push(~records[i].src);
+                core.insert(~neg_cond);
+            
+            core.insert(records[i].src);
         }
+        core.set_bailout();
         return true;
     }
 
