@@ -275,6 +275,11 @@ extern "C" {
     MK_SORTED(Z3_mk_re_empty, mk_c(c)->sutil().re.mk_empty);
     MK_SORTED(Z3_mk_re_full, mk_c(c)->sutil().re.mk_full_seq);
 
+    MK_BINARY(Z3_mk_char_le, mk_c(c)->get_char_fid(), OP_CHAR_LE, SKIP);
+    MK_UNARY(Z3_mk_char_to_int, mk_c(c)->get_char_fid(), OP_CHAR_TO_INT, SKIP);
+    MK_UNARY(Z3_mk_char_to_bv, mk_c(c)->get_char_fid(), OP_CHAR_TO_BV, SKIP);
+    MK_UNARY(Z3_mk_char_from_bv, mk_c(c)->get_char_fid(), OP_CHAR_FROM_BV, SKIP);
+    MK_UNARY(Z3_mk_char_is_digit, mk_c(c)->get_char_fid(), OP_CHAR_IS_DIGIT, SKIP);
 
 
 };

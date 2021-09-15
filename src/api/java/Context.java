@@ -508,11 +508,11 @@ public class Context implements AutoCloseable {
      */
     public <R extends Sort> void AddRecDef(FuncDecl<R> f, Expr<?>[] args, Expr<R> body)
     {
-	checkContextMatch(f);
-	checkContextMatch(args);
-	checkContextMatch(body);
-	long[] argsNative = AST.arrayToNative(args);
-	Native.addRecDef(nCtx(), f.getNativeObject(), args.length, argsNative, body.getNativeObject());
+        checkContextMatch(f);
+        checkContextMatch(args);
+        checkContextMatch(body);
+        long[] argsNative = AST.arrayToNative(args);
+        Native.addRecDef(nCtx(), f.getNativeObject(), args.length, argsNative, body.getNativeObject());
     }
 
     /**
@@ -2025,7 +2025,7 @@ public class Context implements AutoCloseable {
      */
     public SeqExpr<CharSort> intToString(Expr<IntSort> e)
     {
-	return (SeqExpr<CharSort>) Expr.create(this, Native.mkIntToStr(nCtx(), e.getNativeObject()));
+        return (SeqExpr<CharSort>) Expr.create(this, Native.mkIntToStr(nCtx(), e.getNativeObject()));
     }
 
     /**
@@ -2033,7 +2033,7 @@ public class Context implements AutoCloseable {
      */
     public SeqExpr<CharSort> ubvToString(Expr<BitVecSort> e)
     {
-	return (SeqExpr<CharSort>) Expr.create(this, Native.mkUbvToStr(nCtx(), e.getNativeObject()));
+        return (SeqExpr<CharSort>) Expr.create(this, Native.mkUbvToStr(nCtx(), e.getNativeObject()));
     }
     
     /**
@@ -2041,7 +2041,7 @@ public class Context implements AutoCloseable {
      */
     public SeqExpr<CharSort> sbvToString(Expr<BitVecSort> e)
     {
-    return (SeqExpr<CharSort>) Expr.create(this, Native.mkSbvToStr(nCtx(), e.getNativeObject()));
+        return (SeqExpr<CharSort>) Expr.create(this, Native.mkSbvToStr(nCtx(), e.getNativeObject()));
     }
     
     /**
@@ -2049,7 +2049,7 @@ public class Context implements AutoCloseable {
      */
     public IntExpr stringToInt(Expr<SeqSort<CharSort>> e)
     {
-	return (IntExpr) Expr.create(this, Native.mkStrToInt(nCtx(), e.getNativeObject()));
+        return (IntExpr) Expr.create(this, Native.mkStrToInt(nCtx(), e.getNativeObject()));
     }
 
     /**
@@ -2111,7 +2111,7 @@ public class Context implements AutoCloseable {
     /**
      *  Retrieve element at index.
      */
-    public <R extends Sort> Expr<R> MkNth(Expr<SeqSort<R>> s, Expr<IntSort> index)
+    public <R extends Sort> Expr<R> mkNth(Expr<SeqSort<R>> s, Expr<IntSort> index)
     {
         checkContextMatch(s, index);
         return (Expr<R>) Expr.create(this, Native.mkSeqNth(nCtx(), s.getNativeObject(), index.getNativeObject()));
@@ -2252,7 +2252,7 @@ public class Context implements AutoCloseable {
      */
     public <R extends Sort> ReExpr<R> mkEmptyRe(R s)
     {
-	return (ReExpr<R>) Expr.create(this, Native.mkReEmpty(nCtx(), s.getNativeObject()));
+        return (ReExpr<R>) Expr.create(this, Native.mkReEmpty(nCtx(), s.getNativeObject()));
     }
 
     /**
@@ -2260,7 +2260,7 @@ public class Context implements AutoCloseable {
      */
     public <R extends Sort> ReExpr<R> mkFullRe(R s)
     {
-	return (ReExpr<R>) Expr.create(this, Native.mkReFull(nCtx(), s.getNativeObject()));
+        return (ReExpr<R>) Expr.create(this, Native.mkReFull(nCtx(), s.getNativeObject()));
     }
 
     /**
@@ -2272,6 +2272,50 @@ public class Context implements AutoCloseable {
         return (ReExpr<R>) Expr.create(this, Native.mkReRange(nCtx(), lo.getNativeObject(), hi.getNativeObject()));
     }
 
+    /**
+     * Create less than or equal to between two characters.
+     */
+    public BoolExpr mkCharLe(Expr<CharSort> ch1, Expr<CharSort> ch2) 
+    {
+        checkContextMatch(ch1, ch2);
+        return (BoolExpr) Expr.create(this, Native.mkCharLe(nCtx(), ch1.getNativeObject(), ch2.getNativeObject()));
+    }
+
+    /**
+     * Create an integer (code point) from character.
+     */
+    public IntExpr charToInt(Expr<CharSort> ch) 
+    {
+        checkContextMatch(ch);
+        return (IntExpr) Expr.create(this, Native.mkCharToInt(nCtx(), ch.getNativeObject()));
+    }
+
+    /**
+     * Create a bit-vector (code point) from character.
+     */
+    public BitVecExpr charToBv(Expr<CharSort> ch) 
+    {
+        checkContextMatch(ch);
+        return (BitVecExpr) Expr.create(this, Native.mkCharToBv(nCtx(), ch.getNativeObject()));
+    }
+
+    /**
+     * Create a character from a bit-vector (code point).
+     */
+    public Expr<CharSort> charFromBv(BitVecExpr bv) 
+    {
+        checkContextMatch(bv);
+        return (Expr<CharSort>) Expr.create(this, Native.mkCharFromBv(nCtx(), bv.getNativeObject()));
+    }
+
+    /**
+     * Create a check if the character is a digit.
+     */
+    public BoolExpr mkIsDigit(Expr<CharSort> ch) 
+    {
+        checkContextMatch(ch);
+        return (BoolExpr) Expr.create(this, Native.mkCharIsDigit(nCtx(), ch.getNativeObject()));
+    }
 
     /**
      * Create an at-most-k constraint.

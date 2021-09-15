@@ -90,7 +90,7 @@ func_decl* char_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         else if (!b.is_bv_sort(domain[0]) || b.get_bv_size(domain[0]) != num_bits())
             msg << "expected bit-vector sort argument with " << num_bits();
         else {
-            m.mk_func_decl(symbol("char.to_bv"), arity, domain, m_char, func_decl_info(m_family_id, k, 0, nullptr));
+            return m.mk_func_decl(symbol("char.from_bv"), arity, domain, m_char, func_decl_info(m_family_id, k, 0, nullptr));
         }
         m.raise_exception(msg.str());
     }
