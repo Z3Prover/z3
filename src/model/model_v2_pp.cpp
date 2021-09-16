@@ -40,7 +40,7 @@ static void display_function(std::ostream & out, model_core const & md, func_dec
         out << "\n";
     }
     if (partial) {
-        out << else_str << "#unspecified\n";
+        out << else_str << "...\n";
     }
     else {
         expr * else_val = g->get_else();
