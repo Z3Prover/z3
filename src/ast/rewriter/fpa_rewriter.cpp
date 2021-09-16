@@ -66,6 +66,8 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_ABS:       SASSERT(num_args == 1); st = mk_abs(args[0], result); break;
     case OP_FPA_MIN:       SASSERT(num_args == 2); st = mk_min(args[0], args[1], result); break;
     case OP_FPA_MAX:       SASSERT(num_args == 2); st = mk_max(args[0], args[1], result); break;
+    case OP_FPA_MIN_I:     SASSERT(num_args == 2); st = mk_min(args[0], args[1], result); break;
+    case OP_FPA_MAX_I:     SASSERT(num_args == 2); st = mk_max(args[0], args[1], result); break;
     case OP_FPA_FMA:       SASSERT(num_args == 4); st = mk_fma(args[0], args[1], args[2], args[3], result); break;
     case OP_FPA_SQRT:      SASSERT(num_args == 2); st = mk_sqrt(args[0], args[1], result); break;
     case OP_FPA_ROUND_TO_INTEGRAL: SASSERT(num_args == 2); st = mk_round_to_integral(args[0], args[1], result); break;

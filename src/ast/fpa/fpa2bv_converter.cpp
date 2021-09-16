@@ -1267,6 +1267,16 @@ void fpa2bv_converter::mk_abs(sort * s, expr_ref & x, expr_ref & result) {
     result = m_util.mk_fp(m_bv_util.mk_numeral(0, 1), exp, sig);
 }
 
+void fpa2bv_converter::mk_min_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_MIN, 0, nullptr, num, args), m);
+    mk_min(fu, num, args, result);
+}
+
+void fpa2bv_converter::mk_max_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_MAX, 0, nullptr, num, args), m);
+    mk_max(fu, num, args, result);
+}
+
 void fpa2bv_converter::mk_min(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
 

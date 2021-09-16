@@ -124,6 +124,8 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_ABS: m_conv.mk_abs(f, num, args, result); return BR_DONE;
         case OP_FPA_MIN: m_conv.mk_min(f, num, args, result); return BR_DONE;
         case OP_FPA_MAX: m_conv.mk_max(f, num, args, result); return BR_DONE;
+        case OP_FPA_MIN_I: m_conv.mk_min_i(f, num, args, result); return BR_DONE;
+        case OP_FPA_MAX_I: m_conv.mk_max_i(f, num, args, result); return BR_DONE;
         case OP_FPA_FMA: m_conv.mk_fma(f, num, args, result); return BR_DONE;
         case OP_FPA_SQRT: m_conv.mk_sqrt(f, num, args, result); return BR_DONE;
         case OP_FPA_ROUND_TO_INTEGRAL: m_conv.mk_round_to_integral(f, num, args, result); return BR_DONE;

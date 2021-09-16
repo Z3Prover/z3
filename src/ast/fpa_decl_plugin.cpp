@@ -375,6 +375,8 @@ func_decl * fpa_decl_plugin::mk_binary_decl(decl_kind k, unsigned num_parameters
     case OP_FPA_REM: name = "fp.rem"; break;
     case OP_FPA_MIN: name = "fp.min"; break;
     case OP_FPA_MAX: name = "fp.max"; break;
+    case OP_FPA_MIN_I: name = "fp.min_i"; break;
+    case OP_FPA_MAX_I: name = "fp.max_i"; break;
     default:
         UNREACHABLE();
         break;
@@ -756,6 +758,8 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_FPA_REM:
     case OP_FPA_MIN:
     case OP_FPA_MAX:
+    case OP_FPA_MIN_I:
+    case OP_FPA_MAX_I:
         return mk_binary_decl(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_ADD:
     case OP_FPA_MUL:
@@ -829,6 +833,8 @@ void fpa_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("fp.roundToIntegral", OP_FPA_ROUND_TO_INTEGRAL));
     op_names.push_back(builtin_name("fp.min", OP_FPA_MIN));
     op_names.push_back(builtin_name("fp.max", OP_FPA_MAX));
+    op_names.push_back(builtin_name("fp.min_i", OP_FPA_MIN_I));
+    op_names.push_back(builtin_name("fp.max_i", OP_FPA_MAX_I));
     op_names.push_back(builtin_name("fp.leq", OP_FPA_LE));
     op_names.push_back(builtin_name("fp.lt",  OP_FPA_LT));
     op_names.push_back(builtin_name("fp.geq", OP_FPA_GE));
