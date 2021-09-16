@@ -11,6 +11,7 @@ Author:
 
 --*/
 #include "math/polysat/boolean.h"
+#include "math/polysat/clause.h"
 #include "math/polysat/log.h"
 
 namespace polysat {
@@ -69,10 +70,10 @@ namespace polysat {
 
     std::ostream& bool_var_manager::display(std::ostream& out) const {
         for (sat::bool_var v = 0; v < size(); ++v) {
-            sat::literal lit{v};
+            sat::literal lit(v);
             if (value(lit) == l_true)
                 out << " " << lit;
-            if (value(lit) == l_false)
+            else if (value(lit) == l_false)
                 out << " " << ~lit;
         }
         return out;

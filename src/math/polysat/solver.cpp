@@ -508,12 +508,12 @@ namespace polysat {
     }
 
     /** Conflict resolution case where boolean literal 'lit' is on top of the stack */
-    void solver::resolve_bool(sat::literal lit) {
-        LOG_H3("resolve_bool: " << lit);
+    void solver::resolve_bool(sat::literal lit) {       
         sat::bool_var const var = lit.var();
         SASSERT(m_bvars.is_propagation(var));
         // NOTE: boolean resolution should work normally even in bailout mode.
         clause* other = m_bvars.reason(var);
+        LOG_H3("resolve_bool: " << lit << " " << *other);
         m_conflict.resolve(m_constraints, var, *other);
     }
 
@@ -543,12 +543,11 @@ namespace polysat {
         SASSERT(lemma->size() > 0);
         lemma->set_justified_var(v);
         add_lemma(lemma);
-        sat::literal lit = decide_bool(*lemma);
-        SASSERT(lit != sat::null_literal);
+        decide_bool(*lemma);
     }
 
     // Guess a literal from the given clause; returns the guessed constraint
-    sat::literal solver::decide_bool(clause& lemma) {
+    void solver::decide_bool(clause& lemma) {
         LOG_H3("Guessing literal in lemma: " << lemma);
         IF_LOGGING(m_viable.log());
         LOG("Boolean assignment: " << m_bvars);
@@ -574,20 +573,21 @@ namespace polysat {
             }
         }
         LOG_V("num_choices: " << num_choices);
+        if (choice == sat::null_literal) {
+            // This case may happen when all undefined literals are false under the current variable assignment.
+            // TODO: The question is whether such lemmas should be generated? Check test_monot() for such a case.
+            for (auto lit : lemma) 
+                set_conflict(~m_constraints.lookup(lit));
+            return;
+        }
 
         signed_constraint c = m_constraints.lookup(choice);
         push_cjust(lemma.justified_var(), c);
 
-        if (num_choices == 0) {
-            // This case may happen when all undefined literals are false under the current variable assignment.
-            // TODO: The question is whether such lemmas should be generated? Check test_monot() for such a case.
-            // set_conflict(lemma);
-            NOT_IMPLEMENTED_YET();
-        } else if (num_choices == 1)
+        if (num_choices == 1)
             propagate_bool(choice, &lemma);
         else
             decide_bool(choice, lemma);
-        return choice;
     }
 
     /**
@@ -603,7 +603,7 @@ namespace polysat {
         m_conflict.reset();
 
         backjump(m_justification[v].level() - 1);
-
+        
         // The justification for this restriction is the guessed constraint from the lemma.
         // cjust[v] will be updated accordingly by decide_bool.
         m_viable.add_non_viable(v, val);
@@ -805,15 +805,23 @@ namespace polysat {
 
     std::ostream& solver::display(std::ostream& out) const {
         out << "Assignment:\n";
-        for (auto [v, val] : assignment()) {
-            auto j = m_justification[v];
-            out << "\t" << assignment_pp(*this, v, val) << " @" << j.level();
-            if (j.is_propagation())
-                out << " " << m_cjust[v];
-            out << "\n";
-            // out << m_viable[v] << "\n";
+        for (auto item : m_search) {
+            if (item.is_assignment()) {
+                pvar v = item.var();
+                auto j = m_justification[v];
+                out << "\t" << assignment_pp(*this, v, get_value(v)) << " @" << j.level();
+                if (j.is_propagation())
+                    out << " " << m_cjust[v];
+                out << "\n";
+            }
+            else {
+                sat::bool_var v = item.lit().var();
+                out << "\t" << item.lit() << " @" << m_bvars.level(v);
+                if (m_bvars.reason(v))
+                    out << " " << *m_bvars.reason(v);
+                out << "\n";
+            }
         }
-        out << "Boolean assignment:\n\t" << m_bvars << "\n";
         out << "Constraints:\n";
         for (auto c : m_constraints)
             out << "\t" << *c << "\n";

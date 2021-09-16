@@ -103,7 +103,7 @@ namespace polysat {
     }
 
     void conflict_core::insert(signed_constraint c) {
-        LOG("inserting: " << c);
+        LOG("inserting: " << c << " " << c.is_always_true() << " " << c->is_marked() << " " << c->has_bvar());
         // Skip trivial constraints
         // (e.g., constant ones such as "4 > 1"... only true ones should appear, otherwise the lemma would be a tautology)
         if (c.is_always_true())
@@ -164,6 +164,7 @@ namespace polysat {
             remove_literal(sat::literal(var));
         if (core_has_neg)
             remove_literal(~sat::literal(var));
+        unset_bmark(var);
 
         for (sat::literal lit : cl)
             if (lit.var() != var)

@@ -78,17 +78,16 @@ namespace polysat {
             signed_constraint c = find_replacement(c2, v, core);
             if (!c)
                 continue;
-
-            if (!c->contains_var(v)) {
-                core.keep(c);  // adds propagation of c to the search stack
-                // NOTE: more variables than just 'v' might have been removed here (see polysat::test_p3).
-                // c alone (+ variables) is now enough to represent the conflict.
-                core.reset();
-                core.set(c);
-                return l_true;
-            }
-            else
+            if (c->contains_var(v))
                 return l_undef;
+            if (!c->has_bvar() || l_undef == c.bvalue(s()))
+                core.keep(c);  // adds propagation of c to the search stack
+
+            // NOTE: more variables than just 'v' might have been removed here (see polysat::test_p3).
+            // c alone (+ variables) is now enough to represent the conflict.
+            core.reset();
+            core.set(c);
+            return l_true;
         }
         return l_false;
     }
