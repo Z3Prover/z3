@@ -40,8 +40,9 @@ namespace polysat {
         m_dm(m_value_manager, m_alloc),
         m_linear_solver(*this),
         m_conflict(*this),
-        m_free_vars(m_activity),
         m_bvars(),
+        m_free_pvars(m_activity),
+        m_free_bvars(m_bvars.activity()),
         m_constraints(m_bvars) {
     }
 
@@ -63,12 +64,11 @@ namespace polysat {
         while (inc()) {
             m_stats.m_num_iterations++;
             LOG_H1("Next solving loop iteration (#" << m_stats.m_num_iterations << ")");
-            LOG("Free variables: " << m_free_vars);
+            LOG("Free variables: " << m_free_pvars);
             LOG("Assignment:     " << assignments_pp(*this));
-            if (!m_conflict.empty()) LOG("Conflict:       " << m_conflict);
+            COND_LOG(is_conflict(), "Conflict:       " << m_conflict);
             IF_LOGGING(m_viable.log());
             if (!is_conflict() && m_constraints.should_gc()) m_constraints.gc(*this);
-
             if (pending_disjunctive_lemma()) { LOG_H2("UNDEF (handle lemma externally)"); return l_undef; }
             else if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
             else if (is_conflict()) resolve_conflict();
@@ -86,12 +86,12 @@ namespace polysat {
         m_justification.push_back(justification::unassigned());
         m_viable.push(sz);
         m_cjust.push_back({});
-        m_watch.push_back({});
+        m_pwatch.push_back({});
         m_activity.push_back(0);
         m_vars.push_back(sz2pdd(sz).mk_var(v));
         m_size.push_back(sz);
         m_trail.push_back(trail_instr_t::add_var_i);
-        m_free_vars.mk_var_eh(v);
+        m_free_pvars.mk_var_eh(v);
         return v;
     }
 
@@ -106,11 +106,11 @@ namespace polysat {
         m_cjust.pop_back();
         m_value.pop_back();
         m_justification.pop_back();
-        m_watch.pop_back();
+        m_pwatch.pop_back();
         m_activity.pop_back();
         m_vars.pop_back();
         m_size.pop_back();
-        m_free_vars.del_var_eh(v);
+        m_free_pvars.del_var_eh(v);
     }
 
     signed_constraint solver::eq(pdd const& p) {
@@ -146,12 +146,11 @@ namespace polysat {
         m_constraints.ensure_bvar(c.get());
         clause* unit = m_constraints.store(clause::from_unit(m_level, c, mk_dep_ref(dep)));
         c->set_unit_clause(unit);
-        if (dep != null_dependency)
-            if (!c->is_external()) {
-                m_constraints.register_external(c);
-                m_trail.push_back(trail_instr_t::ext_constraint_i);
-                m_ext_constraint_trail.push_back(c.get());
-            }
+        if (dep != null_dependency && !c->is_external()) {
+            m_constraints.register_external(c);
+            m_trail.push_back(trail_instr_t::ext_constraint_i);
+            m_ext_constraint_trail.push_back(c.get());
+        }
         LOG("New constraint: " << c);
 
 #if ENABLE_LINEAR_SOLVER
@@ -200,8 +199,43 @@ namespace polysat {
         }
         linear_propagate();
         SASSERT(wlist_invariant());
-        if (!is_conflict())
-            SASSERT(assignment_invariant());
+        SASSERT(assignment_invariant());
+    }
+
+    void solver::propagate_watch(sat::literal lit) {
+        auto& wlist = m_bvars.watch(~lit);
+        unsigned end = 0;
+        unsigned sz = wlist.size();
+        bool flush = false;
+        for (unsigned j = 0; j < sz && !is_conflict(); ++j) {
+            clause& cl = *wlist[j];
+            SASSERT(cl.size() >= 2);
+            unsigned idx = cl[0] == lit ? 1 : 0;
+            SASSERT(cl[1 - idx] == lit);
+            if (flush || m_bvars.is_true(cl[idx])) {
+                wlist[end++] = &cl;
+                continue;
+            }
+            unsigned i = 2;
+            for (; i < cl.size() && m_bvars.is_false(cl[i]); ++i);
+            if (i < cl.size()) {
+                m_bvars.watch(cl[i]).push_back(&cl);
+                std::swap(cl[1 - idx], cl[i]);
+                continue;
+            }
+            wlist[end++] = &cl;
+            if (m_bvars.is_false(cl[idx])) {
+                set_conflict(cl);
+                flush = true;
+                continue;
+            }
+            unsigned level = 0;
+            for (i = 0; i < cl.size(); ++i)
+                if (cl[i] != lit)
+                    level = std::max(level, m_bvars.level(cl[i]));
+            assign_bool(level, cl[1 - idx], &cl, nullptr);
+        }
+        wlist.shrink(end);
     }
 
     void solver::linear_propagate() {
@@ -221,11 +255,12 @@ namespace polysat {
         signed_constraint c = m_constraints.lookup(lit);
         SASSERT(c);
         activate_constraint(c);
+        propagate_watch(lit);
     }
 
     void solver::propagate(pvar v) {
         LOG_H2("Propagate v" << v);
-        auto& wlist = m_watch[v];
+        auto& wlist = m_pwatch[v];
         unsigned i = 0, j = 0, sz = wlist.size();
         for (; i < sz && !is_conflict(); ++i) 
             if (!wlist[i].propagate(*this, v))
@@ -238,7 +273,7 @@ namespace polysat {
     void solver::propagate(pvar v, rational const& val, signed_constraint c) {
         LOG("Propagation: " << assignment_pp(*this, v, val) << ", due to " << c);
         if (m_viable.is_viable(v, val)) {
-            m_free_vars.del_var_eh(v);
+            m_free_pvars.del_var_eh(v);
             assign_core(v, val, justification::propagation(m_level));        
         }
         else 
@@ -288,7 +323,7 @@ namespace polysat {
             case trail_instr_t::assign_i: {
                 auto v = m_search.back().var();
                 LOG_V("Undo assign_i: v" << v);
-                m_free_vars.unassign_var_eh(v);
+                m_free_pvars.unassign_var_eh(v);
                 m_justification[v] = justification::unassigned();
                 m_search.pop();
                 break;
@@ -344,7 +379,7 @@ namespace polysat {
     void solver::add_watch(signed_constraint c, pvar v) {
         SASSERT(c);
         LOG("Watching v" << v << " in constraint " << c);
-        m_watch[v].push_back(c);
+        m_pwatch[v].push_back(c);
     }
 
     void solver::erase_watch(signed_constraint c) {
@@ -358,7 +393,7 @@ namespace polysat {
     void solver::erase_watch(pvar v, signed_constraint c) {
         if (v == null_var)
             return;
-        auto& wlist = m_watch[v];
+        auto& wlist = m_pwatch[v];
         unsigned sz = wlist.size();
         for (unsigned i = 0; i < sz; ++i) {
             if (c == wlist[i]) {
@@ -372,10 +407,13 @@ namespace polysat {
     void solver::decide() {
         LOG_H2("Decide");
         SASSERT(can_decide());
-        decide(m_free_vars.next_var());
+        if (!m_free_bvars.empty())
+            bdecide(m_free_bvars.next_var());
+        else
+            pdecide(m_free_pvars.next_var());
     }
 
-    void solver::decide(pvar v) {
+    void solver::pdecide(pvar v) {
         LOG("Decide v" << v);
         IF_LOGGING(m_viable.log(v));
         rational val;
@@ -384,7 +422,7 @@ namespace polysat {
             // NOTE: all such cases should be discovered elsewhere (e.g., during propagation/narrowing)
             //       (fail here in debug mode so we notice if we miss some)
             DEBUG_CODE( UNREACHABLE(); );
-            m_free_vars.unassign_var_eh(v);
+            m_free_pvars.unassign_var_eh(v);
             set_conflict(v);
             break;
         case dd::find_t::singleton:
@@ -396,6 +434,10 @@ namespace polysat {
             assign_core(v, val, justification::decision(m_level));
             break;
         }
+    }
+
+    void solver::bdecide(sat::bool_var b) {
+
     }
 
     void solver::assign_core(pvar v, rational const& val, justification const& j) {
@@ -422,6 +464,11 @@ namespace polysat {
 
     void solver::set_conflict(pvar v) {
         m_conflict.set(v);
+    }
+
+    void solver::set_conflict(clause& cl) {
+        for (auto lit : cl)
+            set_conflict(~m_constraints.lookup(lit));
     }
 
     /**
@@ -576,8 +623,7 @@ namespace polysat {
         if (choice == sat::null_literal) {
             // This case may happen when all undefined literals are false under the current variable assignment.
             // TODO: The question is whether such lemmas should be generated? Check test_monot() for such a case.
-            for (auto lit : lemma) 
-                set_conflict(~m_constraints.lookup(lit));
+            set_conflict(lemma);
             return;
         }
 
@@ -694,8 +740,7 @@ namespace polysat {
         assign_bool(level, lit, reason, nullptr);
     }
 
-    /// Assign a boolean literal and put it on the search stack,
-    /// and activate the corresponding constraint.
+    /// Assign a boolean literal and put it on the search stack
     void solver::assign_bool(unsigned level, sat::literal lit, clause* reason, clause* lemma) {
         LOG("Assigning boolean literal: " << lit);
         m_bvars.assign(lit, level, reason, lemma);
@@ -804,7 +849,7 @@ namespace polysat {
     }
 
     std::ostream& solver::display(std::ostream& out) const {
-        out << "Assignment:\n";
+        out << "Search Stack:\n";
         for (auto item : m_search) {
             if (item.is_assignment()) {
                 pvar v = item.var();
@@ -894,7 +939,7 @@ namespace polysat {
             bool is_positive = value == l_true;
             int64_t num_watches = 0;
             signed_constraint sc(c, is_positive);
-            for (auto const& wlist : m_watch) {
+            for (auto const& wlist : m_pwatch) {
                 auto n = std::count(wlist.begin(), wlist.end(), sc);
                 VERIFY(n <= 1);  // no duplicates in the watchlist
                 num_watches += n;
@@ -909,14 +954,22 @@ namespace polysat {
 
     /** Check that boolean assignment and constraint evaluation are consistent */
     bool solver::assignment_invariant() {
+        if (is_conflict())
+            return true;
+        bool ok = true;
         for (sat::bool_var v = m_bvars.size(); v-- > 0; ) {
-            sat::literal lit(v);
-            if (m_bvars.value(lit) == l_true)
-                SASSERT(!m_constraints.lookup(lit).is_currently_false(*this));
-            if (m_bvars.value(lit) == l_false)
-                SASSERT(!m_constraints.lookup(lit).is_currently_true(*this));
+            sat::literal lit(v);            
+            auto c = m_constraints.lookup(lit);  
+            if (!std::all_of(c->vars().begin(), c->vars().end(), [&](auto v) { return is_assigned(v); }))
+                continue;
+            ok &= (m_bvars.value(lit) != l_true) || !c.is_currently_false(*this);
+            ok &= (m_bvars.value(lit) != l_false) || !c.is_currently_true(*this);
+            if (!ok) {
+                LOG("assignment invariant is broken " << v << "\n" << *this);
+                break;
+            }
         }
-        return true;
+        return ok;
     }
 
     /// Check that all constraints on the stack are satisfied by the current model.

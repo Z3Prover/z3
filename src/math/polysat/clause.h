@@ -36,7 +36,9 @@ namespace polysat {
         unsigned m_level;
         pvar m_justified_var = null_var;  // The variable that was restricted by learning this lemma.
         p_dependency_ref m_dep;
+        bool m_redundant = false;
         sat::literal_vector m_literals;
+
 
         /* TODO: embed literals to save an indirection?
         unsigned m_num_literals;
@@ -68,6 +70,7 @@ namespace polysat {
         bool empty() const { return m_literals.empty(); }
         unsigned size() const { return m_literals.size(); }
         sat::literal operator[](unsigned idx) const { return m_literals[idx]; }
+        sat::literal& operator[](unsigned idx) { return m_literals[idx]; }
 
         using const_iterator = typename sat::literal_vector::const_iterator;
         const_iterator begin() const { return m_literals.begin(); }
@@ -77,6 +80,9 @@ namespace polysat {
         bool is_currently_false(solver& s) const;
 
         std::ostream& display(std::ostream& out) const;
+
+        void set_redundant(bool r) { m_redundant = r; }
+        bool is_redundant() const { return m_redundant; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, clause const& c) { return c.display(out); }

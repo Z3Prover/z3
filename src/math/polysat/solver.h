@@ -73,16 +73,16 @@ namespace polysat {
         small_object_allocator   m_alloc;
         poly_dep_manager         m_dm;
         linear_solver            m_linear_solver;
-        conflict_core            m_conflict;
-        // constraints              m_stash_just;
-        var_queue                m_free_vars;
+        conflict_core            m_conflict;        
+        bool_var_manager         m_bvars;       // Map boolean variables to constraints
+        var_queue                m_free_pvars;  // free poly vars
+        var_queue                m_free_bvars;  // free Boolean variables
         stats                    m_stats;
 
-        uint64_t                 m_max_conflicts { std::numeric_limits<uint64_t>::max() };
-        uint64_t                 m_max_decisions { std::numeric_limits<uint64_t>::max() };
+        uint64_t                 m_max_conflicts = std::numeric_limits<uint64_t>::max();
+        uint64_t                 m_max_decisions = std::numeric_limits<uint64_t>::max();
 
-        // Map boolean variables to constraints
-        bool_var_manager         m_bvars;
+
 
         // Per constraint state
         constraint_manager       m_constraints;
@@ -90,10 +90,11 @@ namespace polysat {
         svector<sat::bool_var>   m_disjunctive_lemma;
 
         // Per variable information
-        vector<rational>         m_value;    // assigned value
+        vector<rational>         m_value;         // assigned value
         vector<justification>    m_justification; // justification for variable assignment
-        vector<signed_constraints> m_cjust;    // constraints justifying variable range.
-        vector<signed_constraints> m_watch;    // watch list datastructure into constraints.
+        vector<signed_constraints> m_cjust;       // constraints justifying variable range.
+        vector<signed_constraints> m_pwatch;      // watch list datastructure into constraints.
+
         unsigned_vector          m_activity; 
         vector<pdd>              m_vars;
         unsigned_vector          m_size;     // store size of variables.
@@ -168,17 +169,20 @@ namespace polysat {
         void propagate(sat::literal lit);
         void propagate(pvar v);
         void propagate(pvar v, rational const& val, signed_constraint c);
+        void propagate_watch(sat::literal lit);
         void erase_watch(pvar v, signed_constraint c);
         void erase_watch(signed_constraint c);
         void add_watch(signed_constraint c);
         void add_watch(signed_constraint c, pvar v);
 
         void set_conflict(signed_constraint c);
+        void set_conflict(clause& cl);
         void set_conflict(pvar v);
 
-        bool can_decide() const { return !m_free_vars.empty(); }
+        bool can_decide() const { return !m_free_pvars.empty() || !m_free_bvars.empty(); }
         void decide();
-        void decide(pvar v);
+        void pdecide(pvar v);
+        void bdecide(sat::bool_var b);
 
         void narrow(pvar v);
         void linear_propagate();

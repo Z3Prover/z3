@@ -24,6 +24,8 @@ namespace polysat {
             m_level.push_back(UINT_MAX);
             m_reason.push_back(nullptr);
             m_lemma.push_back(nullptr);
+            m_watch.push_back({});
+            m_watch.push_back({});
             return var;
         }
         else {
@@ -46,6 +48,8 @@ namespace polysat {
         m_level[var] = UINT_MAX;
         m_reason[var] = nullptr;
         m_lemma[var] = nullptr;
+        m_watch[lit.index()].reset();
+        m_watch[(~lit).index()].reset();
         // TODO: this is disabled for now, since re-using variables for different constraints may be confusing during debugging. Should be enabled later.
         // m_unused.push_back(var);
     }
