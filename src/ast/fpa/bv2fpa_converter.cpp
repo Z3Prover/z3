@@ -19,6 +19,7 @@ Notes:
 #include<math.h>
 
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/fpa_rewriter.h"
@@ -412,24 +413,32 @@ void bv2fpa_converter::convert_min_max_specials(model_core * mc, model_core * ta
         app * np_cnst = kv.m_value.second;
 
         expr_ref pzero(m), nzero(m);
-        pzero = m_fpa_util.mk_pzero(f->get_range());
-        nzero = m_fpa_util.mk_nzero(f->get_range());
+        sort* srt = f->get_range();
+        pzero = m_fpa_util.mk_pzero(srt);
+        nzero = m_fpa_util.mk_nzero(srt);
 
         expr_ref pn(m), np(m);
-        if (!mc->eval(pn_cnst->get_decl(), pn)) pn = pzero;
-        if (!mc->eval(np_cnst->get_decl(), np)) np = pzero;
+        if (!mc->eval(pn_cnst->get_decl(), pn)) pn = m_bv_util.mk_numeral(0, 1);
+        if (!mc->eval(np_cnst->get_decl(), np)) np = m_bv_util.mk_numeral(0, 1);
         seen.insert(pn_cnst->get_decl());
         seen.insert(np_cnst->get_decl());
 
         rational pn_num, np_num;
         unsigned bv_sz;
-        m_bv_util.is_numeral(pn, pn_num, bv_sz);
-        m_bv_util.is_numeral(np, np_num, bv_sz);
+        VERIFY(m_bv_util.is_numeral(pn, pn_num, bv_sz));
+        VERIFY(m_bv_util.is_numeral(np, np_num, bv_sz));
 
         func_interp * flt_fi = alloc(func_interp, m, f->get_arity());
         expr * pn_args[2] = { pzero, nzero };
-        if (pn != np) flt_fi->insert_new_entry(pn_args, (pn_num.is_one() ? nzero : pzero));
-        flt_fi->set_else(np_num.is_one() ? nzero : pzero);
+        expr * np_args[2] = { nzero, pzero };
+        flt_fi->insert_new_entry(pn_args, (pn_num.is_one() ? nzero : pzero));
+        flt_fi->insert_new_entry(np_args, (np_num.is_one() ? nzero : pzero));
+
+        auto fid = m_fpa_util.get_family_id();
+        auto k = is_decl_of(f, fid, OP_FPA_MIN) ? OP_FPA_MIN_I : OP_FPA_MAX_I;
+        func_decl_ref min_max_i(m.mk_func_decl(fid, k, 0, nullptr, 2, pn_args), m);
+        expr_ref else_value(m.mk_app(min_max_i, m.mk_var(0, srt), m.mk_var(1, srt)), m);
+        flt_fi->set_else(else_value);
 
         target_model->register_decl(f, flt_fi);
         TRACE("bv2fpa", tout << "fp.min/fp.max special: " << std::endl <<
