@@ -141,6 +141,8 @@ public:
 
     void mk_to_ubv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_sbv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_ubv_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_sbv_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_bv_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_real_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result);

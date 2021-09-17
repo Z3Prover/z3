@@ -88,8 +88,10 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_FP:        SASSERT(num_args == 3); st = mk_fp(args[0], args[1], args[2], result); break;
     case OP_FPA_TO_FP:     st = mk_to_fp(f, num_args, args, result); break;
     case OP_FPA_TO_FP_UNSIGNED: SASSERT(num_args == 2); st = mk_to_fp_unsigned(f, args[0], args[1], result); break;
-    case OP_FPA_TO_UBV:    SASSERT(num_args == 2); st = mk_to_ubv(f, args[0], args[1], result); break;
-    case OP_FPA_TO_SBV:    SASSERT(num_args == 2); st = mk_to_sbv(f, args[0], args[1], result); break;
+    case OP_FPA_TO_UBV:     SASSERT(num_args == 2); st = mk_to_ubv(f, args[0], args[1], result); break;
+    case OP_FPA_TO_SBV:     SASSERT(num_args == 2); st = mk_to_sbv(f, args[0], args[1], result); break;
+    case OP_FPA_TO_UBV_I:   SASSERT(num_args == 2); st = mk_to_ubv(f, args[0], args[1], result); break;
+    case OP_FPA_TO_SBV_I:   SASSERT(num_args == 2); st = mk_to_sbv(f, args[0], args[1], result); break;
     case OP_FPA_TO_IEEE_BV: SASSERT(num_args == 1); st = mk_to_ieee_bv(f, args[0], result); break;
     case OP_FPA_TO_REAL:   SASSERT(num_args == 1); st = mk_to_real(args[0], result); break;
 

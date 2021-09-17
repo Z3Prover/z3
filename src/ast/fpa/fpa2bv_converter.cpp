@@ -3429,6 +3429,16 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
     mk_to_bv(f, num, args, true, result);
 }
 
+void fpa2bv_converter::mk_to_ubv_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_TO_UBV, 0, nullptr, num, args), m);
+    mk_to_bv(f, num, args, false, result);
+}
+
+void fpa2bv_converter::mk_to_sbv_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_TO_SBV, 0, nullptr, num, args), m);
+    mk_to_bv(f, num, args, true, result);
+}
+
 expr_ref fpa2bv_converter::nan_wrap(expr * n) {
     expr_ref n_bv(m), arg_is_nan(m), nan(m), nan_bv(m), res(m);
     mk_is_nan(n, arg_is_nan);

@@ -146,6 +146,8 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_FP: m_conv.mk_fp(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_UBV: m_conv.mk_to_ubv(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_SBV: m_conv.mk_to_sbv(f, num, args, result); return BR_DONE;
+        case OP_FPA_TO_UBV_I: m_conv.mk_to_ubv_i(f, num, args, result); return BR_DONE;
+        case OP_FPA_TO_SBV_I: m_conv.mk_to_sbv_i(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_REAL: m_conv.mk_to_real(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
 

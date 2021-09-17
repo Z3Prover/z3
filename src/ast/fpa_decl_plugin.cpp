@@ -778,8 +778,10 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_FPA_FP:
         return mk_fp(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_TO_UBV:
+    case OP_FPA_TO_UBV_I:
         return mk_to_ubv(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_TO_SBV:
+    case OP_FPA_TO_SBV_I:
         return mk_to_sbv(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_TO_REAL:
         return mk_to_real(k, num_parameters, parameters, arity, domain, range);
@@ -852,6 +854,8 @@ void fpa_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("fp", OP_FPA_FP));
     op_names.push_back(builtin_name("fp.to_ubv", OP_FPA_TO_UBV));
     op_names.push_back(builtin_name("fp.to_sbv", OP_FPA_TO_SBV));
+    op_names.push_back(builtin_name("fp.to_ubv_I", OP_FPA_TO_UBV_I));
+    op_names.push_back(builtin_name("fp.to_sbv_I", OP_FPA_TO_SBV_I));
     op_names.push_back(builtin_name("fp.to_real", OP_FPA_TO_REAL));
 
     op_names.push_back(builtin_name("to_fp", OP_FPA_TO_FP));
@@ -1070,10 +1074,12 @@ bool fpa_util::is_considered_uninterpreted(func_decl * f, unsigned n, expr* cons
         return is_nan(x);
     }
     else if (is_decl_of(f, ffid, OP_FPA_TO_SBV) ||
-             is_decl_of(f, ffid, OP_FPA_TO_UBV)) {
+             is_decl_of(f, ffid, OP_FPA_TO_UBV) ||
+             is_decl_of(f, ffid, OP_FPA_TO_SBV_I) ||
+             is_decl_of(f, ffid, OP_FPA_TO_UBV_I)) {
         SASSERT(n == 2);
         SASSERT(f->get_num_parameters() == 1);
-        bool is_signed = f->get_decl_kind() == OP_FPA_TO_SBV;
+        bool is_signed = f->get_decl_kind() == OP_FPA_TO_SBV || f->get_decl_kind() == OP_FPA_TO_SBV_I;
         expr* rm = args[0];
         expr* x = args[1];
         unsigned bv_sz = f->get_parameter(0).get_int();
