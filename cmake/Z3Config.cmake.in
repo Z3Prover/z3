@@ -10,6 +10,21 @@
 # This file was built for the @CONFIG_FILE_TYPE@.
 ################################################################################
 
+
+# Handle dependencies (necessary when compiling the static library)
+if(NOT @Z3_BUILD_LIBZ3_SHARED@)
+  include(CMakeFindDependencyMacro)
+
+  # Threads::Threads
+  set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+  find_dependency(Threads)
+
+  # GMP::GMP
+  if(@Z3_USE_LIB_GMP@)
+    find_dependency(GMP)
+  endif()
+endif()
+
 # Exported targets
 include("${CMAKE_CURRENT_LIST_DIR}/Z3Targets.cmake")
 
