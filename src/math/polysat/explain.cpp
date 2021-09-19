@@ -93,7 +93,7 @@ namespace polysat {
     }
 
     void ex_polynomial_superposition::reduce_by(pvar v, conflict_core& core) {
-        return;
+        //return;
         bool progress = true;
         while (progress) {
             progress = false;
@@ -111,6 +111,10 @@ namespace polysat {
         for (auto c : core) {
             if (c == eq)
                 continue;
+            if (is_positive_equality_over(v, c))
+                continue;
+            if (!c.is_currently_false(s()))
+                continue;
             if (c->is_ule()) {
                 auto lhs = c->to_ule().lhs();
                 auto rhs = c->to_ule().rhs();
@@ -121,10 +125,11 @@ namespace polysat {
                 auto c2 = s().ule(a, b);
                 if (!c.is_positive())
                     c2 = ~c2;
-                vector<signed_constraint> premises;
-                premises.push_back(eq);
-                premises.push_back(c);
-                core.replace(c, c2, premises);
+                SASSERT(c2.is_currently_false(s()));
+                if (!c2->has_bvar() || l_undef == c2.bvalue(s()))
+                    core.keep(c2);  // adds propagation of c to the search stack
+                core.reset();
+                core.set(c2);                
                 return true;
             }
         }

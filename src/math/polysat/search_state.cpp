@@ -16,19 +16,29 @@ Author:
 
 namespace polysat {
 
-    std::ostream& search_item::display(std::ostream& out) const {
-        switch (kind()) {
+    std::ostream& search_state::display(search_item const& item, std::ostream& out) const {
+        switch (item.kind()) {
         case search_item_k::assignment:
-            return out << "v" << var() << "=?";
+            return out << "v" << item.var() << " := " << value(item.var());
         case search_item_k::boolean:
-            return out << lit();
+            return out << item.lit();
         }
         UNREACHABLE();
         return out;
     }
 
     std::ostream& search_state::display(std::ostream& out) const {
-        return out << m_items;
+        for (auto const& item : m_items)
+            display(item, out) << " ";
+        return out;        
+    }
+
+    rational search_state::value(pvar v) const {
+        for (auto const& [p, r] : m_assignment)
+            if (v == p)
+                return r;
+        UNREACHABLE();
+        return rational::zero();
     }
 
     void search_state::push_assignment(pvar p, rational const& r) {
@@ -42,9 +52,8 @@ namespace polysat {
 
     void search_state::pop() {
         auto const& item = m_items.back();
-        if (item.is_assignment()) {
-            m_assignment.pop_back();
-        }
+        if (item.is_assignment()) 
+            m_assignment.pop_back();        
         m_items.pop_back();
     }
 

@@ -104,7 +104,7 @@ namespace polysat {
     // if clause is unsat then assign arbitrary
     // solver handles unsat clauses by creating a conflict.
     // solver also can propagate, but need to check that it does indeed.
-    void constraint_manager::watch(clause& cl, solver& s) {
+    void constraint_manager::watch(clause& cl, solver& s) {      
         if (cl.size() <= 1)
             return;
         bool first = true;

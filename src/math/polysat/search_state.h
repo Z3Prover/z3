@@ -42,17 +42,15 @@ namespace polysat {
         bool is_boolean() const { return m_kind == search_item_k::boolean; }
         search_item_k kind() const { return m_kind; }
         pvar var() const { SASSERT(is_assignment()); return m_var; }
-        sat::literal lit() const { SASSERT(is_boolean()); return m_lit; }
-        std::ostream& display(std::ostream& out) const;
+        sat::literal lit() const { SASSERT(is_boolean()); return m_lit; }        
     };
-
-    inline std::ostream& operator<<(std::ostream& out, search_item const& s) { return s.display(out); }
-
 
     class search_state {
 
         vector<search_item> m_items;
         assignment_t        m_assignment;  // First-order part of the search state
+        
+        rational value(pvar v) const;
 
     public:
         unsigned size() const { return m_items.size(); }
@@ -70,10 +68,19 @@ namespace polysat {
         const_iterator end() const { return m_items.end(); }
 
         std::ostream& display(std::ostream& out) const;
+        std::ostream& display(search_item const& item, std::ostream& out) const;
+        
+    };
+
+    struct search_item_pp {
+        search_state const& s;
+        search_item const& i;
+        search_item_pp(search_state const& s, search_item const& i) : s(s), i(i) {}
     };
 
     inline std::ostream& operator<<(std::ostream& out, search_state const& s) { return s.display(out); }
 
+    inline std::ostream& operator<<(std::ostream& out, search_item_pp const& p) { return p.s.display(p.i, out); }
 
     // Go backwards over the search_state.
     // If new entries are added during processing an item, they will be queued for processing next after the current item.

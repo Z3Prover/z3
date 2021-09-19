@@ -339,7 +339,6 @@ namespace polysat {
         }
     }
 
-
     void solver::add_watch(signed_constraint c) {
         SASSERT(c);
         auto const& vars = c->vars();
@@ -468,7 +467,7 @@ namespace polysat {
             LOG("search state: " << m_search);
             LOG("Conflict: " << m_conflict);
             auto const& item = *search_it;
-            LOG_H2("Working on " << item);
+            LOG_H2("Working on " << search_item_pp(m_search, item));
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();
@@ -543,7 +542,7 @@ namespace polysat {
 
     void solver::learn_lemma(pvar v, clause& lemma) {
         LOG("Learning: "<< lemma);
-        SASSERT(lemma.size() > 0);
+        SASSERT(!lemma.empty());
         lemma.set_justified_var(v);
         add_lemma(lemma);
         decide_bool(lemma);
@@ -624,7 +623,7 @@ namespace polysat {
 
     void solver::revert_bool_decision(sat::literal lit) {
         sat::bool_var const var = lit.var();
-        LOG_H3("Reverting boolean decision: " << lit);
+        LOG_H3("Reverting boolean decision: " << lit << " " << m_conflict);
         SASSERT(m_bvars.is_decision(var));
 
         // Current situation: we have a decision for boolean literal L on top of the stack, and a conflict core.
@@ -662,6 +661,8 @@ namespace polysat {
             reason_builder.push(~lit);
         }
         clause_ref reason = reason_builder.build();
+
+        std::cout << "reason " << *reason << "\n";
 
         // The lemma where 'lit' comes from.
         // Currently, boolean decisions always come from guessing a literal of a learned non-unit lemma.
@@ -748,7 +749,6 @@ namespace polysat {
         LOG("Lemma: " << lemma);
         for (sat::literal lit : lemma) {
             LOG("   Literal " << lit << " is: " << lit2cnstr(lit));
-            SASSERT(!lit2cnstr(lit).is_currently_true(*this));
             SASSERT(m_bvars.value(lit) != l_true);
         }
         SASSERT(!lemma.empty());

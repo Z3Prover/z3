@@ -962,7 +962,6 @@ namespace dd {
 
         quot_rem(a1, b1, q, r);
         if (r.is_zero()) {
-            std::cout << a1 << " " << b1 << " " << q << "\n";
             SASSERT(q * b1 == a1);
             a1 = -q * pow(mk_var(v), l - m) * b2;
             if (l > m)
