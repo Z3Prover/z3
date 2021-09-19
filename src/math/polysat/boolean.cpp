@@ -17,8 +17,9 @@ Author:
 namespace polysat {
 
     sat::bool_var bool_var_manager::new_var() {
+        sat::bool_var var;
         if (m_unused.empty()) {
-            sat::bool_var var = size();
+            var = size();
             m_value.push_back(l_undef);
             m_value.push_back(l_undef);
             m_level.push_back(UINT_MAX);
@@ -26,18 +27,19 @@ namespace polysat {
             m_lemma.push_back(nullptr);
             m_watch.push_back({});
             m_watch.push_back({});
-            return var;
+            m_activity.push_back(0);
         }
         else {
-            sat::bool_var var = m_unused.back();
+            var = m_unused.back();
             m_unused.pop_back();
             SASSERT_EQ(m_level[var], UINT_MAX);
             SASSERT_EQ(m_value[2*var], l_undef);
             SASSERT_EQ(m_value[2*var+1], l_undef);
             SASSERT_EQ(m_reason[var], nullptr);
             SASSERT_EQ(m_lemma[var], nullptr);
-            return var;
         }
+        m_free_vars.mk_var_eh(var);
+        return var;
     }
 
     void bool_var_manager::del_var(sat::bool_var var) {
@@ -50,6 +52,7 @@ namespace polysat {
         m_lemma[var] = nullptr;
         m_watch[lit.index()].reset();
         m_watch[(~lit).index()].reset();
+        m_free_vars.del_var_eh(var);
         // TODO: this is disabled for now, since re-using variables for different constraints may be confusing during debugging. Should be enabled later.
         // m_unused.push_back(var);
     }
@@ -61,6 +64,7 @@ namespace polysat {
         m_level[lit.var()] = lvl;
         m_reason[lit.var()] = reason;
         m_lemma[lit.var()] = lemma;
+        m_free_vars.del_var_eh(lit.var());
     }
 
     void bool_var_manager::unassign(sat::literal lit) {
@@ -70,6 +74,7 @@ namespace polysat {
         m_level[lit.var()] = UINT_MAX;
         m_reason[lit.var()] = nullptr;
         m_lemma[lit.var()] = nullptr;
+        m_free_vars.unassign_var_eh(lit.var());
     }
 
     std::ostream& bool_var_manager::display(std::ostream& out) const {

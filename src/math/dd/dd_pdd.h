@@ -23,6 +23,11 @@ Abstract:
 
     - try_spoly(a, b, c) returns true if lt(a) and lt(b) have a non-trivial overlap. c is the resolvent (S polynomial).
 
+    - reduce(v, a, b) reduces 'a' using b = 0 with respect to eliminating v.
+      Given b = v^l*b1 + b2, where l is the leading coefficient of v in b
+      Given a = v^m*a1 + b2, where m >= l is the leading coefficient of v in b.
+      reduce(a1, b1)*v^{m - l} + reduce(v, a2, b);
+
 Author:
 
     Nikolaj Bjorner (nbjorner) 2019-12-17
@@ -333,6 +338,8 @@ namespace dd {
         pdd subst_val(pdd const& a, vector<std::pair<unsigned, rational>> const& s);
         pdd subst_val(pdd const& a, unsigned v, rational const& val);
         bool resolve(unsigned v, pdd const& p, pdd const& q, pdd& r);
+        pdd reduce(unsigned v, pdd const& a, pdd const& b);
+        void quot_rem(pdd const& a, pdd const& b, pdd& q, pdd& r);
         pdd pow(pdd const& p, unsigned j);
 
         bool is_linear(PDD p) { return degree(p) == 1; }
@@ -419,6 +426,7 @@ namespace dd {
         void factor(unsigned v, unsigned degree, pdd& lc, pdd& rest) const { m.factor(*this, v, degree, lc, rest); }
         bool factor(unsigned v, unsigned degree, pdd& lc) const { return m.factor(*this, v, degree, lc); }
         bool resolve(unsigned v, pdd const& other, pdd& result) { return m.resolve(v, *this, other, result); }
+        pdd reduce(unsigned v, pdd const& other) const { return m.reduce(v, *this, other); }
 
         pdd subst_val(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val(*this, s); }
         pdd subst_val(unsigned v, rational const& val) const { return m.subst_val(*this, v, val); }

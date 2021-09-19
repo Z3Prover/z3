@@ -64,6 +64,9 @@ namespace polysat {
         void gc_constraints(solver& s);
         void gc_clauses(solver& s);
 
+        void watch(clause& cl, solver& s);
+        void unwatch(clause& cl);
+
     public:
         constraint_manager(bool_var_manager& bvars): m_bvars(bvars) {}
         ~constraint_manager();
@@ -72,7 +75,7 @@ namespace polysat {
         void erase_bvar(constraint* c);
         // sat::literal get_or_assign_blit(signed_constraint& c);
 
-        clause* store(clause_ref cl);
+        void store(clause* cl, solver& s);
 
         /// Register a unit clause with an external dependency.
         void register_external(signed_constraint c);
@@ -146,9 +149,7 @@ namespace polysat {
         sat::bool_var       m_bvar = sat::null_bool_var;
 
         constraint(constraint_manager& m, ckind_t k): m_kind(k) {}
-
-    protected:
-        std::ostream& display_extra(std::ostream& out) const;
+        
 
     public:
         virtual ~constraint() {}
@@ -179,6 +180,7 @@ namespace polysat {
         bool contains_var(pvar v) const { return m_vars.contains(v); }
         bool has_bvar() const { return m_bvar != sat::null_bool_var; }
         sat::bool_var bvar() const { return m_bvar; }
+        std::string bvar2string() const;
         unsigned level(solver& s) const;
 
         clause* unit_clause() const { return m_unit_clause; }

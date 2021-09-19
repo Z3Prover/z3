@@ -867,29 +867,35 @@ namespace polysat {
 
 
 void tst_polysat() {
+
+    polysat::test_p3();
+
+    polysat::test_l2();
+
+    // polysat::test_subst();
+    // return;
     // not working
     // polysat::test_fixed_point_arith_div_mul_inverse();
-    // polysat::test_cjust();
-    polysat::test_monot_bounds_simple(8);
-    return;
+    
+    //polysat::test_monot_bounds_simple(8);
 
 
     // working
     polysat::test_fixed_point_arith_mul_div_inverse();
         
-    polysat::test_subst();
+    
     polysat::test_monot_bounds(8);
 
     polysat::test_add_conflicts();
     polysat::test_wlist();
     polysat::test_l1();
-    polysat::test_l2();
+
     polysat::test_l3();
     polysat::test_l4();
     polysat::test_l5();
     polysat::test_p1();
     polysat::test_p2();
-    polysat::test_p3();
+
     polysat::test_ineq_basic1();
     polysat::test_ineq_basic2();
     polysat::test_ineq_basic3();
@@ -897,6 +903,8 @@ void tst_polysat() {
     polysat::test_ineq_basic5();
     polysat::test_ineq_basic6();
     polysat::test_monot_bounds(2);
+    polysat::test_cjust();
+
 
     // inefficient conflicts:
     // Takes time: polysat::test_monot_bounds_full();

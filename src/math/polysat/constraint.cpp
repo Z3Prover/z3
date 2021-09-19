@@ -55,13 +55,11 @@ namespace polysat {
         m_constraints.push_back(c);
     }
 
-
-    clause* constraint_manager::store(clause_ref cl_ref) {
-        clause* cl = cl_ref.get();
+    void constraint_manager::store(clause* cl, solver& s) {       
         while (m_clauses.size() <= cl->level())
             m_clauses.push_back({});
-        m_clauses[cl->level()].push_back(std::move(cl_ref));
-        return cl;
+        m_clauses[cl->level()].push_back(cl);
+        watch(*cl, s);
     }
 
     void constraint_manager::register_external(signed_constraint c) {
@@ -94,11 +92,46 @@ namespace polysat {
     // Release constraints at the given level and above.
     void constraint_manager::release_level(unsigned lvl) {
         for (unsigned l = m_clauses.size(); l-- > lvl; ) {
-            for (auto const& cl : m_clauses[l]) {
+            for (auto& cl : m_clauses[l]) {
+                unwatch(*cl);
                 SASSERT_EQ(cl->m_ref_count, 1);  // otherwise there is a leftover reference somewhere
             }
             m_clauses[l].reset();
         }
+    }
+
+    // find literals that are not propagated to false
+    // if clause is unsat then assign arbitrary
+    // solver handles unsat clauses by creating a conflict.
+    // solver also can propagate, but need to check that it does indeed.
+    void constraint_manager::watch(clause& cl, solver& s) {
+        if (cl.size() <= 1)
+            return;
+        bool first = true;
+        for (unsigned i = 0; i < cl.size(); ++i) {
+            if (m_bvars.is_false(cl[i]))
+                continue;
+            m_bvars.watch(cl[i]).push_back(&cl);
+            std::swap(cl[!first], cl[i]);
+            if (!first)
+                return;
+            first = false;
+        }
+       
+        if (first)
+            m_bvars.watch(cl[0]).push_back(&cl);
+        m_bvars.watch(cl[1]).push_back(&cl);
+        if (first) 
+            s.set_conflict(cl);        
+        else 
+            s.propagate_bool_at(s.level(cl), cl[0], &cl);
+    }
+
+    void constraint_manager::unwatch(clause& cl) {
+        if (cl.size() <= 1)
+            return;
+        m_bvars.watch(~cl[0]).erase(&cl);
+        m_bvars.watch(~cl[1]).erase(&cl);
     }
 
     constraint_manager::~constraint_manager() {
@@ -219,11 +252,12 @@ namespace polysat {
         return *dynamic_cast<ule_constraint const*>(this);
     }
 
-    std::ostream& constraint::display_extra(std::ostream& out) const {
+    std::string constraint::bvar2string() const {
+        std::stringstream out;
         out << " (b";
         if (has_bvar()) { out << bvar(); } else { out << "_"; }
         out << ")";
-        return out;
+        return out.str();
     }
 
     bool constraint::propagate(solver& s, bool is_positive, pvar v) {
@@ -265,7 +299,8 @@ namespace polysat {
             return s.m_bvars.level(bvar());
         unsigned level = 0;
         for (auto v : vars())
-            level = std::max(level, s.get_level(v));
+            if (s.is_assigned(v))
+                level = std::max(level, s.get_level(v));
         return level;
     }
 

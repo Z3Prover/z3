@@ -92,8 +92,48 @@ namespace polysat {
         return l_false;
     }
 
+    void ex_polynomial_superposition::reduce_by(pvar v, conflict_core& core) {
+        return;
+        bool progress = true;
+        while (progress) {
+            progress = false;
+            for (auto c : core) {
+                if (is_positive_equality_over(v, c) && reduce_by(v, c, core)) {
+                    progress = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    bool ex_polynomial_superposition::reduce_by(pvar v, signed_constraint eq, conflict_core& core) {
+        pdd p = eq->to_ule().p();
+        for (auto c : core) {
+            if (c == eq)
+                continue;
+            if (c->is_ule()) {
+                auto lhs = c->to_ule().lhs();
+                auto rhs = c->to_ule().rhs();
+                auto a = lhs.reduce(v, p);
+                auto b = rhs.reduce(v, p);
+                if (a == lhs && b == rhs)
+                    continue;
+                auto c2 = s().ule(a, b);
+                if (!c.is_positive())
+                    c2 = ~c2;
+                vector<signed_constraint> premises;
+                premises.push_back(eq);
+                premises.push_back(c);
+                core.replace(c, c2, premises);
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool ex_polynomial_superposition::try_explain(pvar v, conflict_core& core) {
         LOG_H3("Trying polynomial superposition...");
+        reduce_by(v, core);
         lbool result = l_undef;
         while (result == l_undef)
             result = try_explain1(v, core);

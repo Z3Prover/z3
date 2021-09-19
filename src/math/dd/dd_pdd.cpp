@@ -914,14 +914,10 @@ namespace dd {
     bool pdd_manager::resolve(unsigned v, pdd const& p, pdd const& q, pdd& r) {
         unsigned const l = p.degree(v);
         unsigned const m = q.degree(v);
-        if (l < m) {
-            // no reduction
+        // no reduction
+        if (l < m || m == 0)
             return false;
-        }
-        if (m == 0) {
-            // no reduction (result would still contain v^l)
-            return false;
-        }
+               
         pdd a = zero();
         pdd b = zero();
         pdd c = zero();
@@ -936,6 +932,100 @@ namespace dd {
         pdd vv = pow(mk_var(v), l - m);
         r = b * cc - aa * d * vv;
         return true;
+    }
+
+    /**
+    * Reduce polynomial a with respect to b by eliminating terms using v
+    * 
+    * a := a1*v^l + a2
+    * b := b1*v^m + b2
+    * l >= m
+    * q, r := quot_rem(a1, b1) 
+    * r = 0
+    * result := reduce(v, q*b2*v^{l-m}, b) + reduce(v, a2, b)
+    */
+    pdd pdd_manager::reduce(unsigned v, pdd const& a, pdd const& b) {
+        unsigned const l = a.degree(v);
+        unsigned const m = b.degree(v);
+        // no reduction
+        if (l < m || m == 0)
+            return a;
+                    
+        pdd a1 = zero();
+        pdd a2 = zero();
+        pdd b1 = zero();
+        pdd b2 = zero();
+        pdd q = zero();
+        pdd r = zero();
+        a.factor(v, l, a1, a2);
+        b.factor(v, m, b1, b2);
+
+        quot_rem(a1, b1, q, r);
+        if (r.is_zero()) {
+            std::cout << a1 << " " << b1 << " " << q << "\n";
+            SASSERT(q * b1 == a1);
+            a1 = -q * pow(mk_var(v), l - m) * b2;
+            if (l > m)
+                a1 = reduce(v, a1, b);
+        }
+        else 
+            a1 = a1 * pow(mk_var(v), l);        
+        a2 = a2.reduce(v, b);
+
+        pdd result = a1 + a2;
+        return result;
+    }
+
+    /**
+    * quotient/remainder of 'a' divided by 'b'  
+    * a := x*hi + lo
+    * x > level(b):
+    *    hi = q1*b + r1
+    *    lo = q2*b + r2
+    *    x*hi + lo = (x*q1 + q2)*b + (x*r1 + r2)
+    *    q := x*q1 + q2
+    *    r := x*r1 + r2
+    *  Some special cases.
+    *  General multi-variable polynomial division is TBD.
+    */
+    void pdd_manager::quot_rem(pdd const& a, pdd const& b, pdd& q, pdd& r) {
+        if (level(a.root) > level(b.root)) {
+            pdd q1(*this), q2(*this), r1(*this), r2(*this);
+            quot_rem(a.hi(), b, q1, r1);
+            quot_rem(a.lo(), b, q2, r2);
+            q = mk_var(a.var()) * q1 + q2;
+            r = mk_var(a.var()) * r1 + r2;
+        }
+        else if (level(a.root) < level(b.root)) {
+            q = zero();
+            r = a;
+        }
+        else if (a == b) {
+            q = one();
+            r = zero();
+        }
+        else if (a.is_val() && b.is_val() && divides(b.val(), a.val())) {
+            q = mk_val(a.val() / b.val());
+            r = zero();
+        }
+        else if (a.is_val() || b.is_val()) {
+            q = zero();
+            r = a;
+        }
+        else {
+            SASSERT(level(a.root) == level(b.root));
+            pdd q1(*this), q2(*this), r1(*this), r2(*this);
+            quot_rem(a.hi(), b.hi(), q1, r1);
+            quot_rem(a.lo(), b.lo(), q2, r2);
+            if (q1 == q2 && r1.is_zero() && r2.is_zero()) {
+                q = q1;
+                r = zero();
+            }
+            else {
+                q = zero();
+                r = a;
+            }
+        }
     }
 
     /**

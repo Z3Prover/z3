@@ -52,7 +52,7 @@ public:
     
     void mk_var_eh(var v) {
         m_queue.reserve(v+1);
-        m_queue.insert(v);
+        unassign_var_eh(v);
     }
     
     void del_var_eh(var v) {

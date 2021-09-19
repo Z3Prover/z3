@@ -83,6 +83,8 @@ namespace polysat {
         void set(signed_constraint c);
         /** conflict because there is no viable value for the variable v */
         void set(pvar v);
+        /** all literals in clause are false */
+        void set(clause const& cl);
 
         void insert(signed_constraint c);
         void insert(signed_constraint c, vector<signed_constraint> premises);

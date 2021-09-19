@@ -51,7 +51,7 @@ namespace polysat {
     std::ostream& conflict_core::display(std::ostream& out) const {
         char const* sep = "";
         for (auto c : *this) 
-            out << sep << c, sep = " ; ";
+            out << sep << c->bvar2string() << " " << c, sep = " ; ";
         if (!m_vars.empty())
             out << " vars";
         for (auto v : m_vars)
@@ -102,8 +102,19 @@ namespace polysat {
         SASSERT(!empty());
     }
 
+    void conflict_core::set(clause const& cl) {
+        LOG("Conflict: " << cl);
+        SASSERT(empty());
+        for (auto lit : cl) {
+            auto c = s().lit2cnstr(lit);
+            c->set_var_dependent();
+            insert(~c);
+        }
+        SASSERT(!empty());
+    }
+
     void conflict_core::insert(signed_constraint c) {
-        LOG("inserting: " << c << " " << c.is_always_true() << " " << c->is_marked() << " " << c->has_bvar());
+        LOG("inserting: " << c);
         // Skip trivial constraints
         // (e.g., constant ones such as "4 > 1"... only true ones should appear, otherwise the lemma would be a tautology)
         if (c.is_always_true())
@@ -152,6 +163,8 @@ namespace polysat {
         SASSERT(std::all_of(m_constraints.begin(), m_constraints.end(), [](auto c){ return !c->has_bvar(); }));
         bool core_has_pos = contains_literal(sat::literal(var));
         bool core_has_neg = contains_literal(~sat::literal(var));
+        std::cout << cl << "\n";
+        std::cout << *this << "\n";
         DEBUG_CODE({
             bool clause_has_pos = std::count(cl.begin(), cl.end(), sat::literal(var)) > 0;
             bool clause_has_neg = std::count(cl.begin(), cl.end(), ~sat::literal(var)) > 0;
@@ -183,23 +196,23 @@ namespace polysat {
         auto it = m_saturation_premises.find_iterator(c);
         if (it == m_saturation_premises.end())
             return;
-        unsigned active_level = 0;
         auto& premises = it->m_value;
         clause_builder c_lemma(s());
         for (auto premise : premises) {
             LOG_H3("premise: " << premise);
             keep(premise);
-            SASSERT(premise->has_bvar());            
+            SASSERT(premise->has_bvar());
             SASSERT(premise.is_currently_true(s()) || premise.bvalue(s()) == l_true);
             // otherwise the propagation doesn't make sense
             c_lemma.push(~premise.blit());
-            active_level = std::max(active_level, premise.level(s()));
         }
         c_lemma.push(c.blit());
-        clause* cl = cm().store(c_lemma.build());
-        if (cl->size() == 1)
-            c->set_unit_clause(cl);
-        s().propagate_bool_at(active_level, c.blit(), cl);
+        clause_ref lemma = c_lemma.build();
+        cm().store(lemma.get(), s());
+        if (lemma->size() == 1)
+            c->set_unit_clause(lemma.get());
+        if (s().m_bvars.value(c.blit()) == l_undef)
+            s().propagate_bool_at(s().level(*lemma), c.blit(), lemma.get());
     }
 
     clause_builder conflict_core::build_core_lemma() {
@@ -207,7 +220,8 @@ namespace polysat {
         LOG("core: " << *this);
         clause_builder lemma(s());
 
-        for (auto c : m_constraints) {
+        while (!m_constraints.empty()) {
+            signed_constraint c = m_constraints.back();
             SASSERT(!c->has_bvar());
             keep(c);
         }

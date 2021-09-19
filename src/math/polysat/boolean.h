@@ -28,9 +28,13 @@ namespace polysat {
         // For enumerative backtracking we store the lemma we're handling with a certain decision
         svector<clause*>        m_lemma;
 
+        var_queue                   m_free_vars;  // free Boolean variables
         vector<ptr_vector<clause>>  m_watch;      // watch list for literals into clauses
 
     public:
+
+        bool_var_manager(): m_free_vars(m_activity) {}
+
         // allocated size (not the number of active variables)
         unsigned size() const { return m_level.size(); }
 
@@ -52,8 +56,16 @@ namespace polysat {
 
         clause* lemma(sat::bool_var var) const { SASSERT(is_decision(var)); return m_lemma[var]; }
 
+        
+
         ptr_vector<clause>& watch(sat::literal lit) { return m_watch[lit.index()]; }
         unsigned_vector& activity() { return m_activity; }
+        bool can_decide() const { return !m_free_vars.empty(); }
+        sat::bool_var next_var() { return m_free_vars.next_var(); }
+
+        // TODO connect activity updates with solver
+        void inc_activity(sat::literal lit) { m_activity[lit.var()]++; }
+        void dec_activity(sat::literal lit) { m_activity[lit.var()] /= 2; }
 
         /// Set the given literal to true
         void assign(sat::literal lit, unsigned lvl, clause* reason, clause* lemma);

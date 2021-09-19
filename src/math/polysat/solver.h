@@ -76,7 +76,6 @@ namespace polysat {
         conflict_core            m_conflict;        
         bool_var_manager         m_bvars;       // Map boolean variables to constraints
         var_queue                m_free_pvars;  // free poly vars
-        var_queue                m_free_bvars;  // free Boolean variables
         stats                    m_stats;
 
         uint64_t                 m_max_conflicts = std::numeric_limits<uint64_t>::max();
@@ -155,9 +154,10 @@ namespace polysat {
         void activate_constraint(signed_constraint c);
         void deactivate_constraint(signed_constraint c);
         void decide_bool(clause& lemma);
-        void decide_bool(sat::literal lit, clause& lemma);
+        void decide_bool(sat::literal lit, clause* lemma);
         void propagate_bool(sat::literal lit, clause* reason);
         void propagate_bool_at(unsigned level, sat::literal lit, clause* reason);
+        unsigned level(clause const& cl);
 
         void assign_core(pvar v, rational const& val, justification const& j);
         bool is_assigned(pvar v) const { return !m_justification[v].is_unassigned(); }
@@ -179,7 +179,7 @@ namespace polysat {
         void set_conflict(clause& cl);
         void set_conflict(pvar v);
 
-        bool can_decide() const { return !m_free_pvars.empty() || !m_free_bvars.empty(); }
+        bool can_decide() const { return !m_free_pvars.empty() || m_bvars.can_decide(); }
         void decide();
         void pdecide(pvar v);
         void bdecide(sat::bool_var b);
@@ -206,7 +206,7 @@ namespace polysat {
         void report_unsat();
         void learn_lemma(pvar v, clause_ref lemma);
         void backjump(unsigned new_level);
-        void add_lemma(clause_ref lemma);
+        void add_lemma(clause& lemma);
 
         signed_constraint eq(pdd const& p);
         signed_constraint diseq(pdd const& p);
@@ -218,6 +218,7 @@ namespace polysat {
         signed_constraint ult(pdd const& p, pdd const& q);
         signed_constraint sle(pdd const& p, pdd const& q);
         signed_constraint slt(pdd const& p, pdd const& q);
+        signed_constraint lit2cnstr(sat::literal lit) const { return m_constraints.lookup(lit); }
         void ext_constraint(signed_constraint c, unsigned dep, bool activate);
         static void insert_constraint(signed_constraints& cs, signed_constraint c);
         void assert_ext_constraint(signed_constraint c);

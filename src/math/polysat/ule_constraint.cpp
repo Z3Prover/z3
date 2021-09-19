@@ -38,18 +38,11 @@ namespace polysat {
         else if (status == l_true) out << " <= ";
         else if (status == l_false) out << " > ";
         else out << " <=/> ";
-        out << m_rhs;
-        return display_extra(out);
+        return out << m_rhs;
     }
 
     std::ostream& ule_constraint::display(std::ostream& out) const {
-        out << m_lhs;
-        if (is_eq())
-            out << " == ";
-        else
-            out << " <= ";
-        out << m_rhs;
-        return display_extra(out);
+        return out << m_lhs << (is_eq() ? " == " : " <= ") << m_rhs;
     }
 
     void ule_constraint::narrow(solver& s, bool is_positive) {
