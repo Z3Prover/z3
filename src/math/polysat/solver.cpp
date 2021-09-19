@@ -163,6 +163,8 @@ namespace polysat {
     }
 
     void solver::propagate() {
+        if (!can_propagate())
+            return;
         push_qhead();
         while (can_propagate()) {
             auto const& item = m_search[m_qhead++];
@@ -677,6 +679,8 @@ namespace polysat {
     }
 
     void solver::decide_bool(sat::literal lit, clause* lemma) {
+        SASSERT(!can_propagate());
+        SASSERT(!is_conflict());
         push_level();
         LOG_H2("Decide boolean literal " << lit << " @ " << m_level);
         assign_bool(m_level, lit, nullptr, lemma);
@@ -747,25 +751,21 @@ namespace polysat {
 
     }
 
-    // Add lemma to storage but do not activate it
+    // Add lemma to storage
     void solver::add_lemma(clause& lemma) {
-
         LOG("Lemma: " << lemma);
         for (sat::literal lit : lemma) {
             LOG("   Literal " << lit << " is: " << lit2cnstr(lit));
-            // Check that fully evaluated constraints are on the stack
             SASSERT(!lit2cnstr(lit).is_currently_true(*this));
-            // literals that are added from m_conflict.m_vars have not been assigned.
-            // they are false in the current model.
-            // SASSERT(m_bvars.is_assigned(lit) || !c.is_currently_false(*this));
-            // TODO: work out invariant for the lemma. It should be impossible to extend the model in a way that makes the lemma true.
+            SASSERT(m_bvars.value(lit) != l_true);
         }
-        SASSERT(lemma.size() > 0);
+        SASSERT(!lemma.empty());
         m_constraints.store(&lemma, *this);
         if (lemma.size() == 1) {
             signed_constraint c = lit2cnstr(lemma[0]);
             c->set_unit_clause(&lemma);
         }
+        propagate();
     }
 
     void solver::insert_constraint(signed_constraints& cs, signed_constraint c) {
