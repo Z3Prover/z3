@@ -47,6 +47,28 @@ public:
         value const& leaf_value() const { SASSERT(is_leaf()); return static_cast<leaf const*>(this)->m_value; }
     };
 
+    static void linearize_todo(ptr_vector<dependency>& todo, vector<value, false>& vs) {
+        unsigned qhead = 0;
+        while (qhead < todo.size()) {
+            dependency* d = todo[qhead];
+            qhead++;
+            if (d->is_leaf()) {
+                vs.push_back(to_leaf(d)->m_value);
+            }
+            else {
+                for (unsigned i = 0; i < 2; i++) {
+                    dependency* child = to_join(d)->m_children[i];
+                    if (!child->is_marked()) {
+                        todo.push_back(child);
+                        child->mark();
+                    }
+                }
+            }
+        }
+        for (auto* d : todo)
+            d->unmark();
+    }
+
 private:
     struct join : public dependency {
         dependency *    m_children[2];
@@ -191,26 +213,7 @@ public:
         return false;
     }
 
-    void linearize(vector<value, false>& vs) {
-        unsigned qhead = 0;
-        while (qhead < m_todo.size()) {
-            dependency * d = m_todo[qhead];
-            qhead++;
-            if (d->is_leaf()) {
-                vs.push_back(to_leaf(d)->m_value);
-            }
-            else {
-                for (unsigned i = 0; i < 2; i++) {
-                    dependency * child = to_join(d)->m_children[i];
-                    if (!child->is_marked()) {
-                        m_todo.push_back(child);
-                        child->mark();
-                    }
-                }
-            }
-        }
-        unmark_todo();
-    }
+
 
     void linearize(dependency * d, vector<value, false> & vs) {
         if (!d) 
@@ -218,7 +221,7 @@ public:
         m_todo.reset();
         d->mark();
         m_todo.push_back(d);
-        linearize(vs);
+        linearize_todo(m_todo, vs);
     }
 
     void linearize(ptr_vector<dependency>& deps, vector<value, false> & vs) {
@@ -231,7 +234,7 @@ public:
                 m_todo.push_back(d);
             }
         }
-        linearize(vs);
+        linearize_todo(m_todo, vs);
     }
 };
 

@@ -51,6 +51,14 @@ namespace polysat {
                 out << " \\/ ";
             out << lit;
         }
+        if (m_dep) {
+            ptr_vector<p_dependency> todo;
+            todo.push_back(m_dep.get());
+            vector<unsigned, false> vs;
+            poly_dep_manager::linearize_todo(todo, vs);
+            out << " deps ...";
+     //       out << "| " << vs;
+        }
         return out;
     }
 

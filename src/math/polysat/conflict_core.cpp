@@ -215,7 +215,7 @@ namespace polysat {
             s().assign_bool(s().level(*lemma), c.blit(), lemma.get(), nullptr);
     }
 
-    clause_builder conflict_core::build_core_lemma() {
+    clause_builder conflict_core::build_lemma() {
         LOG_H3("Build lemma from core");
         LOG("core: " << *this);
         clause_builder lemma(s());
@@ -243,9 +243,6 @@ namespace polysat {
         return lemma;
     }
 
-    clause_builder conflict_core::build_lemma() {
-        return build_core_lemma();
-    }
 
     bool conflict_core::resolve_value(pvar v, vector<signed_constraint> const& cjust_v) {
         // NOTE:

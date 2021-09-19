@@ -386,6 +386,7 @@ namespace dd {
         pdd(pdd const& other): root(other.root), m(other.m) { m.inc_ref(root); }
         pdd(pdd && other) noexcept : root(0), m(other.m) { std::swap(root, other.root); }
         pdd& operator=(pdd const& other);
+        pdd& operator=(unsigned k);
         ~pdd() { m.dec_ref(root); }
         pdd lo() const { return pdd(m.lo(root), m); }
         pdd hi() const { return pdd(m.hi(root), m); }

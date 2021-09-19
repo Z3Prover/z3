@@ -57,7 +57,7 @@ namespace polysat {
             (m_stats.m_num_decisions < m_max_decisions);
     }
    
-    lbool solver::check_sat() { 
+    lbool solver::check_sat() {         
         LOG("Starting");
         while (inc()) {
             m_stats.m_num_iterations++;
@@ -520,7 +520,7 @@ namespace polysat {
         LOG_H3("resolve_bool: " << lit << " " << other);
         m_conflict.resolve(m_constraints, var, other);
     }
-
+    
     void solver::report_unsat() {
         backjump(base_level());
         SASSERT(!m_conflict.empty());
@@ -565,9 +565,11 @@ namespace polysat {
                 return;
             case l_false:
                 continue;
-            default:
-                if (lit2cnstr(lit).is_currently_false(*this))
+            default:                
+                if (lit2cnstr(lit).is_currently_false(*this)) {
+                    num_choices++;
                     continue;
+                }
                 break;
             }
             num_choices++;
@@ -601,6 +603,10 @@ namespace polysat {
         SASSERT(m_justification[v].is_decision());
 
         clause_ref lemma = m_conflict.build_lemma().build();
+        if (lemma->empty()) {
+            report_unsat();
+            return;
+        }
         m_conflict.reset();
 
         backjump(get_level(v) - 1);
@@ -644,7 +650,7 @@ namespace polysat {
         //      again L is in core, unless we core-reduced it away
 
         clause_builder reason_builder = m_conflict.build_lemma();
-        m_conflict.reset();
+        
 
         bool contains_lit = std::find(reason_builder.begin(), reason_builder.end(), ~lit);
         if (!contains_lit) {
@@ -661,6 +667,12 @@ namespace polysat {
             reason_builder.push(~lit);
         }
         clause_ref reason = reason_builder.build();
+
+        if (reason->empty()) {
+            report_unsat();
+            return;
+        }
+        m_conflict.reset();
 
         std::cout << "reason " << *reason << "\n";
 
@@ -751,6 +763,8 @@ namespace polysat {
             LOG("   Literal " << lit << " is: " << lit2cnstr(lit));
             SASSERT(m_bvars.value(lit) != l_true);
         }
+        if (lemma.empty())
+            std::cout << lemma << "\n";
         SASSERT(!lemma.empty());
         m_constraints.store(&lemma, *this);
         if (lemma.size() == 1) {

@@ -23,13 +23,7 @@ namespace polysat {
         pdd m_lhs;
         pdd m_rhs;
 
-        ule_constraint(constraint_manager& m, pdd const& l, pdd const& r):
-            constraint(m, ckind_t::ule_t), m_lhs(l), m_rhs(r) {
-            m_vars.append(l.free_vars());
-            for (auto v : r.free_vars())
-                if (!m_vars.contains(v))
-                    m_vars.push_back(v);
-        }
+        ule_constraint(constraint_manager& m, pdd const& l, pdd const& r);
 
     public:
         ~ule_constraint() override {}

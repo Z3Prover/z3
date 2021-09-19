@@ -31,6 +31,20 @@ Notes:
 
 namespace polysat {
 
+    ule_constraint::ule_constraint(constraint_manager& m, pdd const& l, pdd const& r) :
+        constraint(m, ckind_t::ule_t), m_lhs(l), m_rhs(r) {
+        m_vars.append(l.free_vars());
+        for (auto v : r.free_vars())
+            if (!m_vars.contains(v))
+                m_vars.push_back(v);
+        if (m_lhs.is_val() && m_rhs.is_val()) {
+            if (m_lhs.val() <= m_rhs.val())
+                m_lhs = m_rhs = 0;
+            else
+                m_lhs = 1, m_rhs = 0;
+        }
+    }
+
     std::ostream& ule_constraint::display(std::ostream& out, lbool status) const {
         out << m_lhs;
         if (is_eq() && status == l_true) out << " == ";

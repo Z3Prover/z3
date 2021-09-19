@@ -722,6 +722,18 @@ namespace polysat {
         s.expect_unsat();
     }
 
+    void permute_args(unsigned k, pdd& a, pdd& b, pdd& c) {
+        SASSERT(k < 6);
+        unsigned i = k % 3;
+        unsigned j = i % 2;
+        if (i == 1)
+            std::swap(a, b);
+        else if (i == 2)
+            std::swap(a, c);
+        if (j == 1)
+            std::swap(b, c);
+    }
+
     // xy < xz and !Omega(x*y) => y < z
     static void test_ineq_axiom1(unsigned bw = 32) {
         auto const bound = rational::power_of_two(bw-1);
@@ -751,53 +763,37 @@ namespace polysat {
             s.expect_unsat();
         }
 
-        for (unsigned i = 0; i < 3; ++i) {
-            for (unsigned j = 0; j < 2; ++j) {
-                scoped_solver s(__func__);
-                auto a = s.var(s.add_var(bw));
-                auto b = s.var(s.add_var(bw));
-                auto c = s.var(s.add_var(bw));
-                auto x = a, y = b, z = c;
-                if (i == 1)
-                    std::swap(x, y);
-                else if (i == 2)
-                    std::swap(x, z);
-                if (j == 1)
-                    std::swap(y, z);
-                s.add_ult(x * y, x * z);
-                s.add_ule(z, y);
-                s.add_ult(x, bound);
-                s.add_ult(y, bound);
-                s.check();
-                s.expect_unsat();
-            }
+        for (unsigned i = 0; i < 6; ++i) {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto z = s.var(s.add_var(bw));
+            permute_args(i, x, y, z);
+            s.add_ult(x * y, x * z);
+            s.add_ule(z, y);
+            s.add_ult(x, bound);
+            s.add_ult(y, bound);
+            s.check();
+            s.expect_unsat();
         }
     }
 
     // xy <= xz & !Omega(x*y) => y <= z or x = 0
     static void test_ineq_axiom2(unsigned bw = 32) {
         auto const bound = rational::power_of_two(bw - 1);
-        for (unsigned i = 0; i < 3; ++i) {
-            for (unsigned j = 0; j < 2; ++j) {
-                scoped_solver s(__func__);
-                auto a = s.var(s.add_var(bw));
-                auto b = s.var(s.add_var(bw));
-                auto c = s.var(s.add_var(bw));
-                auto x = a, y = b, z = c;
-                if (i == 1)
-                    std::swap(x, y);
-                else if (i == 2)
-                    std::swap(x, z);
-                if (j == 1)
-                    std::swap(y, z);
-                s.add_ult(x * y, x * z);
-                s.add_ult(z, y);
-                s.add_ult(x, bound);
-                s.add_ult(y, bound);
-                s.add_diseq(x);
-                s.check();
-                s.expect_unsat();
-            }
+        for (unsigned i = 0; i < 6; ++i) {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto z = s.var(s.add_var(bw));
+            permute_args(i, x, y, z);
+            s.add_ult(x * y, x * z);
+            s.add_ult(z, y);
+            s.add_ult(x, bound);
+            s.add_ult(y, bound);
+            s.add_diseq(x);
+            s.check();
+            s.expect_unsat();
         }
     }
 

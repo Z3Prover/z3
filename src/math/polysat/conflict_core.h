@@ -105,7 +105,6 @@ namespace polysat {
 
         /** Convert the core into a lemma to be learned. */
         clause_builder build_lemma();
-        clause_builder build_core_lemma();
 
         bool try_eliminate(pvar v);
         bool try_saturate(pvar v);

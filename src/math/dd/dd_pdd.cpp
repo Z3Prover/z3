@@ -1643,6 +1643,13 @@ namespace dd {
         return *this; 
     }
 
+    pdd& pdd::operator=(unsigned k) {
+        m.dec_ref(root);
+        root = m.mk_val(k).root;
+        m.inc_ref(root);
+        return *this;
+    }
+
     std::ostream& operator<<(std::ostream& out, pdd const& b) { return b.display(out); }
 
     void pdd_iterator::next() {
