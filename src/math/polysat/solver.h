@@ -153,7 +153,6 @@ namespace polysat {
         void deactivate_constraint(signed_constraint c);
         void decide_bool(clause& lemma);
         void decide_bool(sat::literal lit, clause* lemma);
-        void propagate_bool(sat::literal lit, clause* reason);
         void propagate_bool_at(unsigned level, sat::literal lit, clause* reason);
         unsigned level(clause const& cl);
 
@@ -167,7 +166,7 @@ namespace polysat {
         void propagate(sat::literal lit);
         void propagate(pvar v);
         void propagate(pvar v, rational const& val, signed_constraint c);
-        void propagate_watch(sat::literal lit);
+        bool propagate(sat::literal lit, clause& cl);
         void erase_watch(pvar v, signed_constraint c);
         void erase_watch(signed_constraint c);
         void add_watch(signed_constraint c);

@@ -155,7 +155,7 @@ namespace polysat {
         else if (c.is_always_false())
             m_conflict.set(c);
         else
-            propagate_bool(c.blit(), c->unit_clause());
+            propagate_bool_at(m_level, c.blit(), c->unit_clause());
     }
 
     bool solver::can_propagate() {
@@ -178,37 +178,24 @@ namespace polysat {
         SASSERT(assignment_invariant());
     }
 
-    void solver::propagate_watch(sat::literal lit) {
-        LOG("propagate " << lit);
-        auto& wlist = m_bvars.watch(~lit);
-        unsigned j = 0, end = 0;
-        unsigned sz = wlist.size();
-        for (; j < sz && !is_conflict(); ++j) {            
-            clause& cl = *wlist[j];
-            SASSERT(cl.size() >= 2);
-            unsigned idx = cl[0] == ~lit ? 1 : 0;
-            SASSERT(cl[1 - idx] == ~lit);
-            if (m_bvars.is_true(cl[idx])) {
-                wlist[end++] = &cl;
-                continue;
-            }
-            unsigned i = 2;
-            for (; i < cl.size() && m_bvars.is_false(cl[i]); ++i);
-            if (i < cl.size()) {
-                m_bvars.watch(cl[i]).push_back(&cl);
-                std::swap(cl[1 - idx], cl[i]);
-                continue;
-            }
-            wlist[end++] = &cl;
-            if (m_bvars.is_false(cl[idx])) {
-                set_conflict(cl);
-                continue;
-            }
-            assign_bool(level(cl), cl[idx], &cl, nullptr);
+    bool solver::propagate(sat::literal lit, clause& cl) {
+        SASSERT(cl.size() >= 2);
+        unsigned idx = cl[0] == ~lit ? 1 : 0;
+        SASSERT(cl[1 - idx] == ~lit);
+        if (m_bvars.is_true(cl[idx]))
+            return true;
+        unsigned i = 2;
+        for (; i < cl.size() && m_bvars.is_false(cl[i]); ++i);
+        if (i < cl.size()) {
+            m_bvars.watch(cl[i]).push_back(&cl);
+            std::swap(cl[1 - idx], cl[i]);
+            return false;
         }
-        for (; j < sz; ++j)
-            wlist[end++] = wlist[j];
-        wlist.shrink(end);
+        if (m_bvars.is_false(cl[idx]))
+            set_conflict(cl);
+        else
+            assign_bool(level(cl), cl[idx], &cl, nullptr);
+        return true;
     }
 
     void solver::linear_propagate() {
@@ -223,14 +210,27 @@ namespace polysat {
 #endif
     }
 
+    /**
+    * Propagate assignment to a Boolean variable
+    */
     void solver::propagate(sat::literal lit) {
         LOG_H2("Propagate bool " << lit);
         signed_constraint c = lit2cnstr(lit);
         SASSERT(c);
         activate_constraint(c);
-        propagate_watch(lit);
+        auto& wlist = m_bvars.watch(~lit);
+        unsigned i = 0, j = 0, sz = wlist.size();
+        for (; i < sz && !is_conflict(); ++i)
+            if (!propagate(lit, *wlist[i]))
+                wlist[j++] = wlist[i];
+        for (; i < sz; ++i)
+            wlist[j++] = wlist[i];
+        wlist.shrink(j);
     }
 
+    /**
+    * Propagate assignment to a pvar
+    */
     void solver::propagate(pvar v) {
         LOG_H2("Propagate v" << v);
         auto& wlist = m_pwatch[v];
@@ -587,7 +587,7 @@ namespace polysat {
         push_cjust(lemma.justified_var(), c);
 
         if (num_choices == 1)
-            propagate_bool(choice, &lemma);
+            propagate_bool_at(level(lemma), choice, &lemma);
         else
             decide_bool(choice, &lemma);
     }
@@ -686,9 +686,6 @@ namespace polysat {
         assign_bool(m_level, lit, nullptr, lemma);
     }
 
-    void solver::propagate_bool(sat::literal lit, clause* reason) {
-        propagate_bool_at(m_level, lit, reason);
-    }
 
     void solver::propagate_bool_at(unsigned level, sat::literal lit, clause* reason) {
         LOG("Propagate boolean literal " << lit << " @ " << level << " by " << show_deref(reason));
