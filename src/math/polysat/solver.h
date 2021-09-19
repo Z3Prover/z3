@@ -86,8 +86,6 @@ namespace polysat {
         // Per constraint state
         constraint_manager       m_constraints;
 
-        svector<sat::bool_var>   m_disjunctive_lemma;
-
         // Per variable information
         vector<rational>         m_value;         // assigned value
         vector<justification>    m_justification; // justification for variable assignment
@@ -252,12 +250,6 @@ namespace polysat {
          */
         lbool check_sat();
 
-        /**
-         * Returns the disjunctive lemma that should be learned,
-         * or an empty vector if check_sat() terminated for a different reason.
-         */
-        svector<sat::bool_var> get_lemma() { return m_disjunctive_lemma; }
-        bool pending_disjunctive_lemma() { return !m_disjunctive_lemma.empty(); }
 
         /**
          * retrieve unsat core dependencies

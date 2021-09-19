@@ -196,6 +196,7 @@ namespace polysat {
     }
 
     bool constraint_manager::should_gc() {
+        return false;
         // TODO control gc decay rate
         return m_constraints.size() > m_num_external + 100;
     }

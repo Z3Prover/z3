@@ -16,31 +16,6 @@ namespace polysat {
         std::string m_name;
         lbool m_last_result = l_undef;
 
-        lbool check_rec() {
-            lbool result = check_sat();
-            if (result != l_undef)
-                return result;
-            auto const new_lemma = get_lemma();
-            // Empty lemma => check_sat() terminated for another reason, e.g., resource limits
-            if (new_lemma.empty())
-                return l_undef;
-            for (auto lit : new_lemma) {
-                push();
-                assign_eh(lit, true);
-                result = check_rec();
-                pop();
-                // Found a model => done
-                if (result == l_true)
-                    return l_true;
-                if (result == l_undef)
-                    return l_undef;
-                // Unsat => try next literal
-                SASSERT(result == l_false);
-            }
-            // No literal worked? unsat
-            return l_false;
-        }
-
     public:
         scoped_solver(std::string name): solver(lim), m_name(name) {
             std::cout << "\n\n\n" << std::string(78, '#') << "\n";
@@ -48,7 +23,7 @@ namespace polysat {
         }
 
         void check() {
-            m_last_result = check_rec();
+            m_last_result = check_sat();
             std::cout << m_name << ": " << m_last_result << "\n";
             statistics st;
             collect_statistics(st);
