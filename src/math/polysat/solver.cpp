@@ -110,30 +110,6 @@ namespace polysat {
         m_free_pvars.del_var_eh(v);
     }
 
-    signed_constraint solver::eq(pdd const& p) {
-        return m_constraints.eq(p);
-    }
-
-    signed_constraint solver::diseq(pdd const& p) {
-        return ~m_constraints.eq(p);
-    }
-
-    signed_constraint solver::ule(pdd const& p, pdd const& q) {
-        return m_constraints.ule(p, q);
-    }
-
-    signed_constraint solver::ult(pdd const& p, pdd const& q) {
-        return m_constraints.ult(p, q);
-    }
-
-    signed_constraint solver::sle(pdd const& p, pdd const& q) {
-        return m_constraints.sle(p, q);
-    }
-
-    signed_constraint solver::slt(pdd const& p, pdd const& q) {
-        return m_constraints.slt(p, q);
-    }
-
     void solver::ext_constraint(signed_constraint c, unsigned dep, bool activate) {
         VERIFY(at_base_level());
         SASSERT(c);
@@ -224,8 +200,7 @@ namespace polysat {
             wlist[end++] = &cl;
             if (m_bvars.is_false(cl[idx])) {
                 set_conflict(cl);
-                ++j;
-                break;
+                continue;
             }
             assign_bool(level(cl), cl[idx], &cl, nullptr);
         }
@@ -454,18 +429,6 @@ namespace polysat {
 #endif
     }
 
-    void solver::set_conflict(signed_constraint c) {
-        m_conflict.set(c);
-    }
-
-    void solver::set_conflict(pvar v) {
-        m_conflict.set(v);
-    }
-
-    void solver::set_conflict(clause& cl) {
-        m_conflict.set(cl);
-    }
-
     /**
      * Conflict resolution.
      * - m_conflict are constraints that are infeasible in the current assignment.
@@ -552,9 +515,9 @@ namespace polysat {
         sat::bool_var const var = lit.var();
         SASSERT(m_bvars.is_propagation(var));
         // NOTE: boolean resolution should work normally even in bailout mode.
-        clause* other = m_bvars.reason(var);
-        LOG_H3("resolve_bool: " << lit << " " << *other);
-        m_conflict.resolve(m_constraints, var, *other);
+        clause other = *m_bvars.reason(var);
+        LOG_H3("resolve_bool: " << lit << " " << other);
+        m_conflict.resolve(m_constraints, var, other);
     }
 
     void solver::report_unsat() {
@@ -576,14 +539,12 @@ namespace polysat {
         */
     }
 
-    void solver::learn_lemma(pvar v, clause_ref lemma) {
-        if (!lemma)
-            return;
-        LOG("Learning: " << show_deref(lemma));
-        SASSERT(lemma->size() > 0);
-        lemma->set_justified_var(v);
-        add_lemma(*lemma);
-        decide_bool(*lemma);
+    void solver::learn_lemma(pvar v, clause& lemma) {
+        LOG("Learning: "<< lemma);
+        SASSERT(lemma.size() > 0);
+        lemma.set_justified_var(v);
+        add_lemma(lemma);
+        decide_bool(lemma);
     }
 
     // Guess a literal from the given clause; returns the guessed constraint
@@ -641,12 +602,12 @@ namespace polysat {
         clause_ref lemma = m_conflict.build_lemma().build();
         m_conflict.reset();
 
-        backjump(m_justification[v].level() - 1);
+        backjump(get_level(v) - 1);
         
         // The justification for this restriction is the guessed constraint from the lemma.
         // cjust[v] will be updated accordingly by decide_bool.
         m_viable.add_non_viable(v, val);
-        learn_lemma(v, std::move(lemma));
+        learn_lemma(v, *lemma);
 
         if (!is_conflict())
             narrow(v);
@@ -707,7 +668,6 @@ namespace polysat {
         backjump(m_bvars.level(var) - 1);
 
         add_lemma(*reason);
-        // propagate_bool(~lit, reason.get());
         if (is_conflict()) {
             LOG_H1("Conflict during revert_bool_decision/propagate_bool!");
             return;

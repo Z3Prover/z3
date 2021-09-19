@@ -173,9 +173,9 @@ namespace polysat {
         void add_watch(signed_constraint c);
         void add_watch(signed_constraint c, pvar v);
 
-        void set_conflict(signed_constraint c);
-        void set_conflict(clause& cl);
-        void set_conflict(pvar v);
+        void set_conflict(signed_constraint c) { m_conflict.set(c); }
+        void set_conflict(clause& cl) { m_conflict.set(cl); }
+        void set_conflict(pvar v) { m_conflict.set(v); }
 
         bool can_decide() const { return !m_free_pvars.empty() || m_bvars.can_decide(); }
         void decide();
@@ -202,20 +202,20 @@ namespace polysat {
         void revert_bool_decision(sat::literal lit);
 
         void report_unsat();
-        void learn_lemma(pvar v, clause_ref lemma);
+        void learn_lemma(pvar v, clause& lemma);
         void backjump(unsigned new_level);
         void add_lemma(clause& lemma);
 
-        signed_constraint eq(pdd const& p);
-        signed_constraint diseq(pdd const& p);
+        signed_constraint eq(pdd const& p) { return m_constraints.eq(p); }
+        signed_constraint diseq(pdd const& p) { return ~m_constraints.eq(p); }
         signed_constraint eq(pdd const& p, pdd const& q) { return eq(p - q); }
         signed_constraint diseq(pdd const& p, pdd const& q) { return diseq(p - q); }
         signed_constraint eq(pdd const& p, rational const& q) { return eq(p - q); }
         signed_constraint diseq(pdd const& p, rational const& q) { return diseq(p - q); }
-        signed_constraint ule(pdd const& p, pdd const& q);
-        signed_constraint ult(pdd const& p, pdd const& q);
-        signed_constraint sle(pdd const& p, pdd const& q);
-        signed_constraint slt(pdd const& p, pdd const& q);
+        signed_constraint ule(pdd const& p, pdd const& q) { return m_constraints.ule(p, q); }
+        signed_constraint ult(pdd const& p, pdd const& q) { return m_constraints.ult(p, q); }
+        signed_constraint sle(pdd const& p, pdd const& q) { return m_constraints.sle(p, q); }
+        signed_constraint slt(pdd const& p, pdd const& q) { return m_constraints.slt(p, q); }
         signed_constraint lit2cnstr(sat::literal lit) const { return m_constraints.lookup(lit); }
         void ext_constraint(signed_constraint c, unsigned dep, bool activate);
         static void insert_constraint(signed_constraints& cs, signed_constraint c);
