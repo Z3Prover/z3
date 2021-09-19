@@ -155,7 +155,7 @@ namespace polysat {
         else if (c.is_always_false())
             m_conflict.set(c);
         else
-            propagate_bool_at(m_level, c.blit(), c->unit_clause());
+            assign_bool(m_level, c.blit(), c->unit_clause(), nullptr);
     }
 
     bool solver::can_propagate() {
@@ -176,6 +176,39 @@ namespace polysat {
         linear_propagate();
         SASSERT(wlist_invariant());
         SASSERT(assignment_invariant());
+    }
+
+    /**
+    * Propagate assignment to a Boolean variable
+    */
+    void solver::propagate(sat::literal lit) {
+        LOG_H2("Propagate bool " << lit);
+        signed_constraint c = lit2cnstr(lit);
+        SASSERT(c);
+        activate_constraint(c);
+        auto& wlist = m_bvars.watch(~lit);
+        unsigned i = 0, j = 0, sz = wlist.size();
+        for (; i < sz && !is_conflict(); ++i)
+            if (!propagate(lit, *wlist[i]))
+                wlist[j++] = wlist[i];
+        for (; i < sz; ++i)
+            wlist[j++] = wlist[i];
+        wlist.shrink(j);
+    }
+
+    /**
+    * Propagate assignment to a pvar
+    */
+    void solver::propagate(pvar v) {
+        LOG_H2("Propagate v" << v);
+        auto& wlist = m_pwatch[v];
+        unsigned i = 0, j = 0, sz = wlist.size();
+        for (; i < sz && !is_conflict(); ++i)
+            if (!wlist[i].propagate(*this, v))
+                wlist[j++] = wlist[i];
+        for (; i < sz; ++i)
+            wlist[j++] = wlist[i];
+        wlist.shrink(j);
     }
 
     bool solver::propagate(sat::literal lit, clause& cl) {
@@ -208,39 +241,6 @@ namespace polysat {
             break;
         }
 #endif
-    }
-
-    /**
-    * Propagate assignment to a Boolean variable
-    */
-    void solver::propagate(sat::literal lit) {
-        LOG_H2("Propagate bool " << lit);
-        signed_constraint c = lit2cnstr(lit);
-        SASSERT(c);
-        activate_constraint(c);
-        auto& wlist = m_bvars.watch(~lit);
-        unsigned i = 0, j = 0, sz = wlist.size();
-        for (; i < sz && !is_conflict(); ++i)
-            if (!propagate(lit, *wlist[i]))
-                wlist[j++] = wlist[i];
-        for (; i < sz; ++i)
-            wlist[j++] = wlist[i];
-        wlist.shrink(j);
-    }
-
-    /**
-    * Propagate assignment to a pvar
-    */
-    void solver::propagate(pvar v) {
-        LOG_H2("Propagate v" << v);
-        auto& wlist = m_pwatch[v];
-        unsigned i = 0, j = 0, sz = wlist.size();
-        for (; i < sz && !is_conflict(); ++i) 
-            if (!wlist[i].propagate(*this, v))
-                wlist[j++] = wlist[i];
-        for (; i < sz; ++i)
-            wlist[j++] = wlist[i];
-        wlist.shrink(j);
     }
 
     void solver::propagate(pvar v, rational const& val, signed_constraint c) {
@@ -587,7 +587,7 @@ namespace polysat {
         push_cjust(lemma.justified_var(), c);
 
         if (num_choices == 1)
-            propagate_bool_at(level(lemma), choice, &lemma);
+            assign_bool(level(lemma), choice, &lemma, nullptr);
         else
             decide_bool(choice, &lemma);
     }
@@ -681,17 +681,8 @@ namespace polysat {
     void solver::decide_bool(sat::literal lit, clause* lemma) {
         SASSERT(!can_propagate());
         SASSERT(!is_conflict());
-        push_level();
-        LOG_H2("Decide boolean literal " << lit << " @ " << m_level);
+        push_level();        
         assign_bool(m_level, lit, nullptr, lemma);
-    }
-
-
-    void solver::propagate_bool_at(unsigned level, sat::literal lit, clause* reason) {
-        LOG("Propagate boolean literal " << lit << " @ " << level << " by " << show_deref(reason));
-        SASSERT(reason);
-        SASSERT(level <= m_level);
-        assign_bool(level, lit, reason, nullptr);
     }
 
     unsigned solver::level(clause const& cl) {
@@ -707,7 +698,11 @@ namespace polysat {
     /// Assign a boolean literal and put it on the search stack
     void solver::assign_bool(unsigned level, sat::literal lit, clause* reason, clause* lemma) {
         SASSERT(!m_bvars.is_true(lit));
-        LOG("Assigning boolean literal: " << lit);
+        if (reason)
+            LOG("Propagate literal " << lit << " @ " << level << " by " << *reason);
+        else
+            LOG("Decide literal " << lit << " @ " << m_level);
+        
         m_bvars.assign(lit, level, reason, lemma);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);

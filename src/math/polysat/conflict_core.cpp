@@ -212,7 +212,7 @@ namespace polysat {
         if (lemma->size() == 1)
             c->set_unit_clause(lemma.get());
         if (s().m_bvars.value(c.blit()) == l_undef)
-            s().propagate_bool_at(s().level(*lemma), c.blit(), lemma.get());
+            s().assign_bool(s().level(*lemma), c.blit(), lemma.get(), nullptr);
     }
 
     clause_builder conflict_core::build_core_lemma() {
