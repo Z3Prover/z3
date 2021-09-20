@@ -26,8 +26,6 @@ namespace polysat {
     class clause_builder {
         solver*               m_solver;
         sat::literal_vector   m_literals;
-        p_dependency_ref      m_dep;
-        unsigned              m_level = 0;
 
     public:
         clause_builder(solver& s);
@@ -36,21 +34,17 @@ namespace polysat {
         clause_builder& operator=(clause_builder const& s) = delete;
         clause_builder& operator=(clause_builder&& s) = default;
 
-        bool empty() const { return m_literals.empty() && m_dep == nullptr && m_level == 0; }
+        bool empty() const { return m_literals.empty(); }
         void reset();
 
-        unsigned level() const { return m_level; }
 
         /// Build the clause. This will reset the clause builder so it can be reused.
         clause_ref build();
 
-        void add_dependency(p_dependency* d);
 
         void push(sat::literal lit);
         void push(signed_constraint c);
-        void push(inequality const& i) {
-            push(i.as_signed_constraint());
-        }
+        void push(inequality const& i) { push(i.as_signed_constraint()); }
 
         /// Push a new constraint. Allocates a boolean variable for the constraint, if necessary.
         void push_new(signed_constraint c);

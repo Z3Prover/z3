@@ -21,12 +21,13 @@ namespace polysat {
     class bool_var_manager {
         svector<sat::bool_var>  m_unused;   // previously deleted variables that can be reused by new_var();
         svector<lbool>          m_value;    // current value (indexed by literal)
-        svector<unsigned>       m_level;    // level of assignment (indexed by variable)
+        unsigned_vector         m_level;    // level of assignment (indexed by variable)
+        unsigned_vector         m_deps;     // dependencies of external asserts
         unsigned_vector         m_activity; // 
-        svector<clause*>        m_reason;   // propagation reason, NULL for decisions (indexed by variable)
+        ptr_vector<clause>      m_reason;   // propagation reason, NULL for decisions and external asserts (indexed by variable)
 
         // For enumerative backtracking we store the lemma we're handling with a certain decision
-        svector<clause*>        m_lemma;
+        ptr_vector<clause>      m_lemma;
 
         var_queue                   m_free_vars;  // free Boolean variables
         vector<ptr_vector<clause>>  m_watch;      // watch list for literals into clauses
@@ -68,7 +69,7 @@ namespace polysat {
         void dec_activity(sat::literal lit) { m_activity[lit.var()] /= 2; }
 
         /// Set the given literal to true
-        void assign(sat::literal lit, unsigned lvl, clause* reason, clause* lemma);
+        void assign(sat::literal lit, unsigned lvl, clause* reason, clause* lemma, unsigned dep = null_dependency);
         void unassign(sat::literal lit);
 
         std::ostream& display(std::ostream& out) const;

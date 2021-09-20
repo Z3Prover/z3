@@ -69,9 +69,6 @@ namespace polysat {
         params_ref               m_params;
         viable                   m_viable;   // viable sets per variable
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
-        dep_value_manager        m_value_manager;
-        small_object_allocator   m_alloc;
-        poly_dep_manager         m_dm;
         linear_solver            m_linear_solver;
         conflict                 m_conflict;        
         bool_var_manager         m_bvars;       // Map boolean variables to constraints
@@ -105,7 +102,6 @@ namespace polysat {
         svector<trail_instr_t>   m_trail;
         unsigned_vector          m_qhead_trail;
         unsigned_vector          m_cjust_trail;
-        ptr_vector<constraint>   m_ext_constraint_trail;
 
         unsigned_vector          m_base_levels;  // External clients can push/pop scope. 
 
@@ -183,9 +179,6 @@ namespace polysat {
         void narrow(pvar v);
         void linear_propagate();
 
-        p_dependency* mk_dep(unsigned dep) { return dep == null_dependency ? nullptr : m_dm.mk_leaf(dep); }
-        p_dependency_ref mk_dep_ref(unsigned dep) { return p_dependency_ref(mk_dep(dep), m_dm); }
-
         /// Evaluate term under the current assignment.
         bool try_eval(pdd const& p, rational& out_value) const;
 
@@ -204,20 +197,9 @@ namespace polysat {
         void backjump(unsigned new_level);
         void add_lemma(clause& lemma);
 
-        signed_constraint eq(pdd const& p) { return m_constraints.eq(p); }
-        signed_constraint diseq(pdd const& p) { return ~m_constraints.eq(p); }
-        signed_constraint eq(pdd const& p, pdd const& q) { return eq(p - q); }
-        signed_constraint diseq(pdd const& p, pdd const& q) { return diseq(p - q); }
-        signed_constraint eq(pdd const& p, rational const& q) { return eq(p - q); }
-        signed_constraint diseq(pdd const& p, rational const& q) { return diseq(p - q); }
-        signed_constraint ule(pdd const& p, pdd const& q) { return m_constraints.ule(p, q); }
-        signed_constraint ult(pdd const& p, pdd const& q) { return m_constraints.ult(p, q); }
-        signed_constraint sle(pdd const& p, pdd const& q) { return m_constraints.sle(p, q); }
-        signed_constraint slt(pdd const& p, pdd const& q) { return m_constraints.slt(p, q); }
         signed_constraint lit2cnstr(sat::literal lit) const { return m_constraints.lookup(lit); }
-        void ext_constraint(signed_constraint c, unsigned dep, bool activate);
+        void assert_constraint(signed_constraint c, unsigned dep);
         static void insert_constraint(signed_constraints& cs, signed_constraint c);
-        void assert_ext_constraint(signed_constraint c);
 
         bool inc() { return m_lim.inc(); }
 
@@ -277,24 +259,25 @@ namespace polysat {
         unsigned get_level(pvar v) const { SASSERT(is_assigned(v)); return m_justification[v].level(); }
 
 
-        /**
-         * Create polynomial constraints (but do not activate them).
-         * Each constraint is tracked by a dependency.
-         */
-        void new_eq(pdd const& p, unsigned dep)                { ext_constraint(eq(p), dep, false); }
-        void new_diseq(pdd const& p, unsigned dep)             { ext_constraint(diseq(p), dep, false); }
-        void new_ule(pdd const& p, pdd const& q, unsigned dep) { ext_constraint(ule(p, q), dep, false); }
-        void new_ult(pdd const& p, pdd const& q, unsigned dep) { ext_constraint(ult(p, q), dep, false); }
-        void new_sle(pdd const& p, pdd const& q, unsigned dep) { ext_constraint(sle(p, q), dep, false); }
-        void new_slt(pdd const& p, pdd const& q, unsigned dep) { ext_constraint(slt(p, q), dep, false); }
+        /** Create constraints */
+        signed_constraint eq(pdd const& p) { return m_constraints.eq(p); }
+        signed_constraint diseq(pdd const& p) { return ~m_constraints.eq(p); }
+        signed_constraint eq(pdd const& p, pdd const& q) { return eq(p - q); }
+        signed_constraint diseq(pdd const& p, pdd const& q) { return diseq(p - q); }
+        signed_constraint eq(pdd const& p, rational const& q) { return eq(p - q); }
+        signed_constraint diseq(pdd const& p, rational const& q) { return diseq(p - q); }
+        signed_constraint ule(pdd const& p, pdd const& q) { return m_constraints.ule(p, q); }
+        signed_constraint ult(pdd const& p, pdd const& q) { return m_constraints.ult(p, q); }
+        signed_constraint sle(pdd const& p, pdd const& q) { return m_constraints.sle(p, q); }
+        signed_constraint slt(pdd const& p, pdd const& q) { return m_constraints.slt(p, q); }
 
         /** Create and activate polynomial constraints. */
-        void add_eq(pdd const& p, unsigned dep = null_dependency)                { ext_constraint(eq(p), dep, true); }
-        void add_diseq(pdd const& p, unsigned dep = null_dependency)             { ext_constraint(diseq(p), dep, true); }
-        void add_ule(pdd const& p, pdd const& q, unsigned dep = null_dependency) { ext_constraint(ule(p, q), dep, true); }
-        void add_ult(pdd const& p, pdd const& q, unsigned dep = null_dependency) { ext_constraint(ult(p, q), dep, true); }
-        void add_sle(pdd const& p, pdd const& q, unsigned dep = null_dependency) { ext_constraint(sle(p, q), dep, true); }
-        void add_slt(pdd const& p, pdd const& q, unsigned dep = null_dependency) { ext_constraint(slt(p, q), dep, true); }
+        void add_eq(pdd const& p, unsigned dep = null_dependency)                { assign_eh(eq(p), dep); }
+        void add_diseq(pdd const& p, unsigned dep = null_dependency)             { assign_eh(diseq(p), dep); }
+        void add_ule(pdd const& p, pdd const& q, unsigned dep = null_dependency) { assign_eh(ule(p, q), dep); }
+        void add_ult(pdd const& p, pdd const& q, unsigned dep = null_dependency) { assign_eh(ult(p, q), dep); }
+        void add_sle(pdd const& p, pdd const& q, unsigned dep = null_dependency) { assign_eh(sle(p, q), dep); }
+        void add_slt(pdd const& p, pdd const& q, unsigned dep = null_dependency) { assign_eh(slt(p, q), dep); }
 
         void add_ule(pdd const& p, rational const& q, unsigned dep = null_dependency) { add_ule(p, p.manager().mk_val(q), dep); }
         void add_ule(rational const& p, pdd const& q, unsigned dep = null_dependency) { add_ule(q.manager().mk_val(p), q, dep); }
@@ -309,7 +292,7 @@ namespace polysat {
          * Activate the constraint corresponding to the given boolean variable.
          * Note: to deactivate, use push/pop.
          */
-        void assign_eh(unsigned dep, bool is_true);
+        void assign_eh(signed_constraint c, unsigned dep);
 
         /**
          * main state transitions.

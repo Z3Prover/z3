@@ -37,7 +37,6 @@ namespace polysat {
     solver::solver(reslimit& lim): 
         m_lim(lim),
         m_viable(*this),
-        m_dm(m_value_manager, m_alloc),
         m_linear_solver(*this),
         m_conflict(*this),
         m_bvars(),
@@ -110,53 +109,31 @@ namespace polysat {
         m_free_pvars.del_var_eh(v);
     }
 
-    void solver::ext_constraint(signed_constraint c, unsigned dep, bool activate) {
-        VERIFY(at_base_level());
+    void solver::assign_eh(signed_constraint c, unsigned dep) {
+        SASSERT(at_base_level());
         SASSERT(c);
-        SASSERT(activate || dep != null_dependency);  // if we don't activate the constraint, we need the dependency to access it again later.
         if (is_conflict())
             return;  // no need to do anything if we already have a conflict at base level
         m_constraints.ensure_bvar(c.get());
-        clause_ref unit = clause::from_unit(m_level, c, mk_dep_ref(dep));
+        clause_ref unit = clause::from_unit(c);
         m_constraints.store(unit.get(), *this);
         c->set_unit_clause(unit.get());
-        if (dep != null_dependency && !c->is_external()) {
-            m_constraints.register_external(c);
-            m_trail.push_back(trail_instr_t::ext_constraint_i);
-            m_ext_constraint_trail.push_back(c.get());
-        }
         LOG("New constraint: " << c);
 
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.new_constraint(*c.get());
 #endif
-        if (activate)
-            assert_ext_constraint(c);
+        (void) dep; // dependencies go into justification
+        assign_bool(m_level, c.blit(), c->unit_clause(), nullptr);
+#if 0
+        // just add them as axioms, tracked by dependencies
+        literal lit = c.blit();
+        m_bvars.assign(lit, m_level, nullptr, nullptr, dep);
+        m_trail.push_back(trail_instr_t::assign_bool_i);
+        m_search.push_boolean(lit);
+#endif
     }
 
-    void solver::assign_eh(unsigned dep, bool is_true) {
-        VERIFY(at_base_level());
-        if (is_conflict())
-            return;  // no need to do anything if we already have a conflict at base level
-        signed_constraint c = m_constraints.lookup_external(dep);
-        if (!c) {
-            LOG("WARN: there is no constraint for dependency " << dep);
-            return;
-        }
-        assert_ext_constraint(is_true ? c : ~c);
-    }
-
-    void solver::assert_ext_constraint(signed_constraint c) {
-        SASSERT(at_base_level());
-        SASSERT(!is_conflict());
-        SASSERT(c->unit_clause());
-        if (c.bvalue(*this) == l_false)
-            m_conflict.set(~c);  // we already added ~c => conflict
-        else if (c.is_always_false())
-            m_conflict.set(c);
-        else
-            assign_bool(m_level, c.blit(), c->unit_clause(), nullptr);
-    }
 
     bool solver::can_propagate() {
         return m_qhead < m_search.size() && !is_conflict();
@@ -319,12 +296,6 @@ namespace polysat {
                 m_cjust_trail.pop_back();
                 break;
             }
-            case trail_instr_t::ext_constraint_i: {
-                constraint* c = m_ext_constraint_trail.back();
-                m_constraints.unregister_external(c);
-                m_ext_constraint_trail.pop_back();
-                break;
-            }                                      
             default:
                 UNREACHABLE();
             }
@@ -699,7 +670,7 @@ namespace polysat {
     }
 
     unsigned solver::level(clause const& cl) {
-        unsigned lvl = 0;
+        unsigned lvl = base_level();
         for (auto lit : cl) {
             auto c = lit2cnstr(lit);
             if (m_bvars.is_false(lit) || c.is_currently_false(*this))

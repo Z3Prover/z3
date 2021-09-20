@@ -77,11 +77,6 @@ namespace polysat {
 
         void store(clause* cl, solver& s);
 
-        /// Register a unit clause with an external dependency.
-        void register_external(signed_constraint c);
-        void unregister_external(constraint* c);
-        signed_constraint lookup_external(unsigned dep) const;
-
         /// Release clauses at the given level and above.
         void release_level(unsigned lvl);
 
@@ -185,7 +180,6 @@ namespace polysat {
 
         clause* unit_clause() const { return m_unit_clause; }
         void set_unit_clause(clause* cl);
-        p_dependency* unit_dep() const { return m_unit_clause ? m_unit_clause->dep() : nullptr; }
 
         void set_external(bool sign) { m_external_sign = to_lbool(sign); }
         void unset_external() { m_external_sign = l_undef; }

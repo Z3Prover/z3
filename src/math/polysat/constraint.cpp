@@ -56,37 +56,10 @@ namespace polysat {
     }
 
     void constraint_manager::store(clause* cl, solver& s) {       
-        while (m_clauses.size() <= cl->level())
+        while (m_clauses.size() <= s.base_level())
             m_clauses.push_back({});
-        m_clauses[cl->level()].push_back(cl);
+        m_clauses[s.base_level()].push_back(cl);
         watch(*cl, s);
-    }
-
-    void constraint_manager::register_external(signed_constraint c) {
-        SASSERT(c);
-        SASSERT(!c->is_external());
-        if (c->unit_dep() && c->unit_dep()->is_leaf()) {
-            unsigned const dep = c->unit_dep()->leaf_value();
-            SASSERT(!m_external_constraints.contains(dep));
-            m_external_constraints.insert(dep, c.get());
-        }
-        c->set_external(c.is_negative());
-        ++m_num_external;
-    }
-
-    void constraint_manager::unregister_external(constraint* c) {
-        if (c->unit_dep() && c->unit_dep()->is_leaf()) 
-            m_external_constraints.remove(c->unit_dep()->leaf_value());        
-        c->unset_external();
-        --m_num_external;
-    }
-
-    signed_constraint constraint_manager::lookup_external(unsigned dep) const {
-        constraint* c = m_external_constraints.get(dep, nullptr);
-        if (c)
-            return {c, !c->external_sign()};
-        else
-            return {};
     }
 
     // Release constraints at the given level and above.
@@ -292,14 +265,14 @@ namespace polysat {
 
     void constraint::set_unit_clause(clause *cl) {
         // can be seen as a cache... store the lowest-level unit clause for this constraint.
-        if (!cl || !m_unit_clause || m_unit_clause->level() > cl->level())
+        if (!cl || !m_unit_clause)
             m_unit_clause = cl;
     }
 
     unsigned constraint::level(solver& s) const {
         if (s.m_bvars.value(sat::literal(bvar())) != l_undef)
             return s.m_bvars.level(bvar());
-        unsigned level = 0;
+        unsigned level = s.base_level();
         for (auto v : vars())
             if (s.is_assigned(v))
                 level = std::max(level, s.get_level(v));

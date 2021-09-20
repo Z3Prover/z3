@@ -33,9 +33,7 @@ namespace polysat {
         friend class constraint_manager;
 
         unsigned m_ref_count = 0;  // TODO: remove refcount once we confirm it's not needed anymore
-        unsigned m_level;
         pvar m_justified_var = null_var;  // The variable that was restricted by learning this lemma.
-        p_dependency_ref m_dep;
         bool m_redundant = false;
         sat::literal_vector m_literals;
 
@@ -49,8 +47,8 @@ namespace polysat {
         }
         */
 
-        clause(unsigned lvl, p_dependency_ref d, sat::literal_vector literals):
-            m_level(lvl), m_dep(std::move(d)), m_literals(std::move(literals)) {
+        clause(sat::literal_vector literals):
+            m_literals(std::move(literals)) {
             SASSERT(std::count(m_literals.begin(), m_literals.end(), sat::null_literal) == 0);
         }
 
@@ -58,11 +56,9 @@ namespace polysat {
         void inc_ref() { m_ref_count++; }
         void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (!m_ref_count) dealloc(this); }
 
-        static clause_ref from_unit(unsigned lvl, signed_constraint c, p_dependency_ref d);
-        static clause_ref from_literals(unsigned lvl, p_dependency_ref d, sat::literal_vector literals);
+        static clause_ref from_unit(signed_constraint c);
+        static clause_ref from_literals(sat::literal_vector literals);
 
-        p_dependency* dep() const { return m_dep; }
-        unsigned level() const { return m_level; }
 
         pvar justified_var() const { return m_justified_var; }
         void set_justified_var(pvar v) { SASSERT(m_justified_var == null_var); m_justified_var = v; }
