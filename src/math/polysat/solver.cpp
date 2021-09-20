@@ -63,7 +63,7 @@ namespace polysat {
             LOG_H1("Next solving loop iteration (#" << m_stats.m_num_iterations << ")");
             LOG("Free variables: " << m_free_pvars);
             LOG("Assignment:     " << assignments_pp(*this));
-            COND_LOG(is_conflict(), "Conflict:       " << m_conflict);
+            if (is_conflict()) LOG("Conflict:       " << m_conflict);
             IF_LOGGING(m_viable.log());
             if (!is_conflict() && m_constraints.should_gc()) m_constraints.gc(*this);
             else if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
