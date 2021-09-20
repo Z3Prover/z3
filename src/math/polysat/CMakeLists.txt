@@ -3,7 +3,7 @@ z3_add_component(polysat
     boolean.cpp
     clause.cpp
     clause_builder.cpp
-    conflict_core.cpp
+    conflict.cpp
     constraint.cpp
     explain.cpp
     forbidden_intervals.cpp

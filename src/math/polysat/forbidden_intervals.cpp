@@ -72,7 +72,7 @@ namespace polysat {
     * We assume that neg_cond is a consequence of src that  
     * does not mention the variable v to be eliminated.
     */
-    void forbidden_intervals::full_interval_conflict(signed_constraint src, signed_constraint neg_cond, conflict_core& core) {
+    void forbidden_intervals::full_interval_conflict(signed_constraint src, signed_constraint neg_cond, conflict& core) {
         SASSERT(neg_cond);
         core.reset();
         core.insert(~neg_cond);
@@ -80,7 +80,7 @@ namespace polysat {
         core.set_bailout();
     }
 
-    bool forbidden_intervals::perform(solver& s, pvar v, vector<signed_constraint> const& just, conflict_core& core) {
+    bool forbidden_intervals::perform(solver& s, pvar v, vector<signed_constraint> const& just, conflict& core) {
         
         // Extract forbidden intervals from conflicting constraints
         vector<fi_record> records;

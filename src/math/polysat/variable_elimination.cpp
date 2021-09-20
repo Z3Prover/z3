@@ -17,7 +17,7 @@ Author:
 
 namespace polysat {
 
-    bool ve_reduction::perform(solver& s, pvar v, conflict_core& core) {
+    bool ve_reduction::perform(solver& s, pvar v, conflict& core) {
         // without any further hints, we just do core reduction with the stronger premise "C contains a c' that evaluates to false",
         // and kick out all other constraints.
         auto pred = [&s, v](signed_constraint c) -> bool {

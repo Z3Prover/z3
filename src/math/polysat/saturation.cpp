@@ -29,7 +29,7 @@ TODO: when we check that 'x' is "unary":
 
 namespace polysat {
     
-    bool inf_saturate::perform(pvar v, conflict_core& core) {
+    bool inf_saturate::perform(pvar v, conflict& core) {
         for (auto c1 : core) {
             if (!c1->is_ule())
                 continue;
@@ -57,7 +57,7 @@ namespace polysat {
     * Propagate c. It is added to reason and core all other literals in reason are false in current stack.
     * The lemmas outlined in the rules are valid and therefore c is implied.
     */
-    bool inf_saturate::propagate(conflict_core& core, inequality const& crit1, inequality const& crit2, signed_constraint& c, vector<signed_constraint>& new_constraints) {
+    bool inf_saturate::propagate(conflict& core, inequality const& crit1, inequality const& crit2, signed_constraint& c, vector<signed_constraint>& new_constraints) {
         bool crit1_false = crit1.as_signed_constraint().is_currently_false(s());
         bool crit2_false = crit2.as_signed_constraint().is_currently_false(s());
         if (!crit1_false && !crit2_false)
@@ -83,7 +83,7 @@ namespace polysat {
         return true;
     }
 
-    bool inf_saturate::propagate(conflict_core& core, inequality const& crit1, inequality const& crit2, bool is_strict, pdd const& lhs, pdd const& rhs, vector<signed_constraint>& new_constraints) {
+    bool inf_saturate::propagate(conflict& core, inequality const& crit1, inequality const& crit2, bool is_strict, pdd const& lhs, pdd const& rhs, vector<signed_constraint>& new_constraints) {
         signed_constraint c = ineq(is_strict, lhs, rhs);
         return propagate(core, crit1, crit2, c, new_constraints);
     }
@@ -263,7 +263,7 @@ namespace polysat {
      *  [x] zx > yx  ==>  Ω*(x,y) \/ z > y
      *  [x] yx <= zx  ==>  Ω*(x,y) \/ y <= z \/ x = 0
      */
-    bool inf_saturate::try_ugt_x(pvar v, conflict_core& core, inequality const& c) {
+    bool inf_saturate::try_ugt_x(pvar v, conflict& core, inequality const& c) {
         pdd x = s().var(v);
         pdd y = x;
         pdd z = x;
@@ -283,7 +283,7 @@ namespace polysat {
 
     /// [y] z' <= y /\ zx > yx  ==>  Ω*(x,y) \/ zx > z'x
     /// [y] z' <= y /\ yx <= zx  ==>  Ω*(x,y) \/ z'x <= zx
-    bool inf_saturate::try_ugt_y(pvar v, conflict_core& core, inequality const& le_y, inequality const& yx_l_zx, pdd const& x, pdd const& z) {
+    bool inf_saturate::try_ugt_y(pvar v, conflict& core, inequality const& le_y, inequality const& yx_l_zx, pdd const& x, pdd const& z) {
         pdd const y = s().var(v);
 
         SASSERT(is_l_v(v, le_y));
@@ -301,7 +301,7 @@ namespace polysat {
         return propagate(core, le_y, yx_l_zx, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x, new_constraints);
     }
 
-    bool inf_saturate::try_ugt_y(pvar v, conflict_core& core, inequality const& c) {
+    bool inf_saturate::try_ugt_y(pvar v, conflict& core, inequality const& c) {
         if (!is_l_v(v, c))
             return false;
         pdd x = s().var(v);
@@ -319,7 +319,7 @@ namespace polysat {
 
     /// [x]  y <= ax /\ x <= z  (non-overflow case)
     ///     ==>   Ω*(a, z)  \/  y <= az
-    bool inf_saturate::try_y_l_ax_and_x_l_z(pvar x, conflict_core& core, inequality const& c) {
+    bool inf_saturate::try_y_l_ax_and_x_l_z(pvar x, conflict& core, inequality const& c) {
         if (!is_g_v(x, c))
             return false;
         pdd y = s().var(x);
@@ -334,7 +334,7 @@ namespace polysat {
         return false;
     }
 
-    bool inf_saturate::try_y_l_ax_and_x_l_z(pvar x, conflict_core& core, inequality const& x_l_z, inequality const& y_l_ax, pdd const& a, pdd const& y) {
+    bool inf_saturate::try_y_l_ax_and_x_l_z(pvar x, conflict& core, inequality const& x_l_z, inequality const& y_l_ax, pdd const& a, pdd const& y) {
 
         SASSERT(is_g_v(x, x_l_z));
         SASSERT(verify_Y_l_Ax(x, y_l_ax, a, y));
@@ -351,7 +351,7 @@ namespace polysat {
 
     /// [z] z <= y' /\ zx > yx  ==>  Ω*(x,y') \/ y'x > yx
     /// [z] z <= y' /\ yx <= zx  ==>  Ω*(x,y') \/ yx <= y'x
-    bool inf_saturate::try_ugt_z(pvar z, conflict_core& core, inequality const& c) {
+    bool inf_saturate::try_ugt_z(pvar z, conflict& core, inequality const& c) {
         if (!is_g_v(z, c))
             return false;
         pdd y = s().var(z);
@@ -366,7 +366,7 @@ namespace polysat {
         return false;
     }
 
-    bool inf_saturate::try_ugt_z(pvar z, conflict_core& core, inequality const& z_l_y, inequality const& yx_l_zx, pdd const& x, pdd const& y) {
+    bool inf_saturate::try_ugt_z(pvar z, conflict& core, inequality const& z_l_y, inequality const& yx_l_zx, pdd const& x, pdd const& y) {
         SASSERT(is_g_v(z, z_l_y));
         SASSERT(verify_YX_l_zX(z, yx_l_zx, x, y));
         pdd const& y_prime = z_l_y.rhs;

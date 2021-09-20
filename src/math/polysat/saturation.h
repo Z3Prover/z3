@@ -12,7 +12,7 @@ Author:
 
 --*/
 #pragma once
-#include "math/polysat/conflict_core.h"
+#include "math/polysat/conflict.h"
 
 namespace polysat {
 
@@ -20,7 +20,7 @@ namespace polysat {
     class constraint_manager;
 
     class inference_engine {
-        friend class conflict_core;
+        friend class conflict;
         solver* m_solver = nullptr;
         void set_solver(solver& s) { m_solver = &s; }
     protected:
@@ -31,7 +31,7 @@ namespace polysat {
          *  Derive new constraints from constraints containing the variable v (i.e., at least one premise must contain v).
          *  Returns true if a new constraint was added to the core.
          */
-        virtual bool perform(pvar v, conflict_core& core) = 0;
+        virtual bool perform(pvar v, conflict& core) = 0;
     };
 
     class inf_saturate : public inference_engine {
@@ -40,19 +40,19 @@ namespace polysat {
         void push_omega(vector<signed_constraint>& new_constraints, pdd const& x, pdd const& y);
         void push_omega_bisect(vector<signed_constraint>& new_constraints, pdd const& x, rational x_max, pdd const& y, rational y_max);
         signed_constraint ineq(bool strict, pdd const& lhs, pdd const& rhs);
-        bool propagate(conflict_core& core, inequality const& crit1, inequality const& crit2, signed_constraint& c, vector<signed_constraint>& new_constraints);
-        bool propagate(conflict_core& core, inequality const& crit1, inequality const& crit2, bool strict, pdd const& lhs, pdd const& rhs, vector<signed_constraint>& new_constraints);
+        bool propagate(conflict& core, inequality const& crit1, inequality const& crit2, signed_constraint& c, vector<signed_constraint>& new_constraints);
+        bool propagate(conflict& core, inequality const& crit1, inequality const& crit2, bool strict, pdd const& lhs, pdd const& rhs, vector<signed_constraint>& new_constraints);
 
-        bool try_ugt_x(pvar v, conflict_core& core, inequality const& c);
+        bool try_ugt_x(pvar v, conflict& core, inequality const& c);
 
-        bool try_ugt_y(pvar v, conflict_core& core, inequality const& c);
-        bool try_ugt_y(pvar v, conflict_core& core, inequality const& l_y, inequality const& yx_l_zx, pdd const& x, pdd const& z);
+        bool try_ugt_y(pvar v, conflict& core, inequality const& c);
+        bool try_ugt_y(pvar v, conflict& core, inequality const& l_y, inequality const& yx_l_zx, pdd const& x, pdd const& z);
 
-        bool try_y_l_ax_and_x_l_z(pvar x, conflict_core& core, inequality const& c);
-        bool try_y_l_ax_and_x_l_z(pvar x, conflict_core& core, inequality const& x_l_z, inequality const& y_l_ax, pdd const& a, pdd const& y);
+        bool try_y_l_ax_and_x_l_z(pvar x, conflict& core, inequality const& c);
+        bool try_y_l_ax_and_x_l_z(pvar x, conflict& core, inequality const& x_l_z, inequality const& y_l_ax, pdd const& a, pdd const& y);
             
-        bool try_ugt_z(pvar z, conflict_core& core, inequality const& c);
-        bool try_ugt_z(pvar z, conflict_core& core, inequality const& x_l_z0, inequality const& yz_l_xz, pdd const& y, pdd const& x);
+        bool try_ugt_z(pvar z, conflict& core, inequality const& c);
+        bool try_ugt_z(pvar z, conflict& core, inequality const& x_l_z0, inequality const& yz_l_xz, pdd const& y, pdd const& x);
 
         // c := lhs ~ v 
         //  where ~ is < or <=         
@@ -90,7 +90,7 @@ namespace polysat {
 
     public:
 
-        bool perform(pvar v, conflict_core& core) override;
+        bool perform(pvar v, conflict& core) override;
     };
 
     /*

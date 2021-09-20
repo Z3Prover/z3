@@ -22,10 +22,10 @@ namespace polysat {
     class explainer;
     class inference_engine;
     class variable_elimination_engine;
-    class conflict_core_iterator;
+    class conflict_iterator;
 
     /** Conflict state, represented as core (~negation of clause). */
-    class conflict_core {
+    class conflict {
         signed_constraints m_constraints;   // new constraints used as premises
         indexed_uint_set m_literals;        // set of boolean literals in the conflict
         uint_set m_vars;                    // variable assignments used as premises
@@ -62,8 +62,8 @@ namespace polysat {
         // ptr_addr_map<constraint, vector<signed_constraint>> m_saturation_premises;
         map<signed_constraint, vector<signed_constraint>, obj_hash<signed_constraint>, default_eq<signed_constraint>> m_saturation_premises;
     public:
-        conflict_core(solver& s);
-        ~conflict_core();
+        conflict(solver& s);
+        ~conflict();
 
         pvar conflict_var() const { return m_conflict_var; }
 
@@ -109,18 +109,18 @@ namespace polysat {
         bool try_eliminate(pvar v);
         bool try_saturate(pvar v);
 
-        using const_iterator = conflict_core_iterator;
+        using const_iterator = conflict_iterator;
         const_iterator begin() const;
         const_iterator end() const;
 
         std::ostream& display(std::ostream& out) const;
     };
 
-    inline std::ostream& operator<<(std::ostream& out, conflict_core const& c) { return c.display(out); }
+    inline std::ostream& operator<<(std::ostream& out, conflict const& c) { return c.display(out); }
 
 
-    class conflict_core_iterator {
-        friend class conflict_core;
+    class conflict_iterator {
+        friend class conflict;
 
         using it1_t = signed_constraints::const_iterator;
         using it2_t = indexed_uint_set::iterator;
@@ -130,14 +130,14 @@ namespace polysat {
         it1_t m_end1;
         it2_t m_it2;
 
-        conflict_core_iterator(constraint_manager& cm, it1_t it1, it1_t end1, it2_t it2):
+        conflict_iterator(constraint_manager& cm, it1_t it1, it1_t end1, it2_t it2):
             m_cm(&cm), m_it1(it1), m_end1(end1), m_it2(it2) {}
 
-        static conflict_core_iterator begin(constraint_manager& cm, signed_constraints const& cs, indexed_uint_set const& lits) {
+        static conflict_iterator begin(constraint_manager& cm, signed_constraints const& cs, indexed_uint_set const& lits) {
             return {cm, cs.begin(), cs.end(), lits.begin()};
         }
 
-        static conflict_core_iterator end(constraint_manager& cm, signed_constraints const& cs, indexed_uint_set const& lits) {
+        static conflict_iterator end(constraint_manager& cm, signed_constraints const& cs, indexed_uint_set const& lits) {
             return {cm, cs.end(), cs.end(), lits.end()};
         }
 
@@ -148,7 +148,7 @@ namespace polysat {
         using reference = signed_constraint const&;
         using iterator_category = std::input_iterator_tag;
 
-        conflict_core_iterator& operator++() {
+        conflict_iterator& operator++() {
             if (m_it1 != m_end1)
                 ++m_it1;
             else
@@ -163,14 +163,14 @@ namespace polysat {
                 return m_cm->lookup(sat::to_literal(*m_it2));
         }
 
-        bool operator==(conflict_core_iterator const& other) const {
+        bool operator==(conflict_iterator const& other) const {
             return m_it1 == other.m_it1 && m_it2 == other.m_it2;
         }
 
-        bool operator!=(conflict_core_iterator const& other) const { return !operator==(other); }
+        bool operator!=(conflict_iterator const& other) const { return !operator==(other); }
     };
 
 
-    inline conflict_core::const_iterator conflict_core::begin() const { return conflict_core_iterator::begin(cm(), m_constraints, m_literals); }
-    inline conflict_core::const_iterator conflict_core::end() const { return conflict_core_iterator::end(cm(), m_constraints, m_literals); }
+    inline conflict::const_iterator conflict::begin() const { return conflict_iterator::begin(cm(), m_constraints, m_literals); }
+    inline conflict::const_iterator conflict::end() const { return conflict_iterator::end(cm(), m_constraints, m_literals); }
 }

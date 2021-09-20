@@ -12,7 +12,7 @@ Author:
 
 --*/
 #pragma once
-#include "math/polysat/conflict_core.h"
+#include "math/polysat/conflict.h"
 
 namespace polysat {
 
@@ -21,12 +21,12 @@ namespace polysat {
     class variable_elimination_engine {
     public:
         virtual ~variable_elimination_engine() {}
-        virtual bool perform(solver& s, pvar v, conflict_core& core) = 0;
+        virtual bool perform(solver& s, pvar v, conflict& core) = 0;
     };
 
     class ve_reduction : public variable_elimination_engine {
     public:
-        bool perform(solver& s, pvar v, conflict_core& core) override;
+        bool perform(solver& s, pvar v, conflict& core) override;
     };
 
 }

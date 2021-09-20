@@ -12,7 +12,7 @@ Author:
 
 --*/
 #pragma once
-#include "math/polysat/conflict_core.h"
+#include "math/polysat/conflict.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/clause_builder.h"
 #include "math/polysat/interval.h"
@@ -22,26 +22,26 @@ namespace polysat {
     class solver;
 
     class explainer {
-        friend class conflict_core;
+        friend class conflict;
         solver* m_solver = nullptr;
         void set_solver(solver& s) { m_solver = &s; }
     protected:
         solver& s() { return *m_solver; }
     public:
         virtual ~explainer() {}
-        virtual bool try_explain(pvar v, /* vector<signed_constraint> const& cjust_v, */ conflict_core& core) = 0;
+        virtual bool try_explain(pvar v, /* vector<signed_constraint> const& cjust_v, */ conflict& core) = 0;
     };
 
     class ex_polynomial_superposition : public explainer {
     private:
         bool is_positive_equality_over(pvar v, signed_constraint const& c);
         signed_constraint resolve1(pvar v, signed_constraint c1, signed_constraint c2);
-        signed_constraint find_replacement(signed_constraint c2, pvar v, conflict_core& core);
-        void reduce_by(pvar v, conflict_core& core);
-        bool reduce_by(pvar, signed_constraint c, conflict_core& core);
-        lbool try_explain1(pvar v, conflict_core& core);
+        signed_constraint find_replacement(signed_constraint c2, pvar v, conflict& core);
+        void reduce_by(pvar v, conflict& core);
+        bool reduce_by(pvar, signed_constraint c, conflict& core);
+        lbool try_explain1(pvar v, conflict& core);
     public:
-        bool try_explain(pvar v, conflict_core& core) override;
+        bool try_explain(pvar v, conflict& core) override;
     };
 
 
@@ -54,7 +54,7 @@ namespace polysat {
     class conflict_explainer {
         solver& m_solver;
 
-        // conflict_core m_conflict;
+        // conflict m_conflict;
         vector<constraint> m_new_assertions;  // to be inserted into Gamma (conclusions from saturation)
 
         scoped_ptr_vector<inference_engine> inference_engines;
@@ -64,7 +64,7 @@ namespace polysat {
         // Gamma
         // search_state& search() { return m_solver.m_search; }
         // Core
-        // conflict_core& conflict() { return m_solver.m_conflict; }
+        // conflict& conflict() { return m_solver.m_conflict; }
     public:
         /** Create empty conflict */
         conflict_explainer(solver& s);

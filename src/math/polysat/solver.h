@@ -21,7 +21,7 @@ Author:
 #include "util/statistics.h"
 #include "util/params.h"
 #include "math/polysat/boolean.h"
-#include "math/polysat/conflict_core.h"
+#include "math/polysat/conflict.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/clause_builder.h"
 #include "math/polysat/explain.h"
@@ -52,7 +52,7 @@ namespace polysat {
         friend class signed_constraint;
         friend class clause;
         friend class clause_builder;
-        friend class conflict_core;
+        friend class conflict;
         friend class conflict_explainer;
         friend class explainer;
         friend class inference_engine;
@@ -73,7 +73,7 @@ namespace polysat {
         small_object_allocator   m_alloc;
         poly_dep_manager         m_dm;
         linear_solver            m_linear_solver;
-        conflict_core            m_conflict;        
+        conflict                 m_conflict;        
         bool_var_manager         m_bvars;       // Map boolean variables to constraints
         var_queue                m_free_pvars;  // free poly vars
         stats                    m_stats;

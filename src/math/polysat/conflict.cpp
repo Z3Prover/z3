@@ -21,7 +21,7 @@ TODO: If we have e.g. 4x+y=2 and y=0, then we have a conflict no matter the valu
 
 --*/
 
-#include "math/polysat/conflict_core.h"
+#include "math/polysat/conflict.h"
 #include "math/polysat/solver.h"
 #include "math/polysat/log.h"
 #include "math/polysat/log_helper.h"
@@ -33,7 +33,7 @@ TODO: If we have e.g. 4x+y=2 and y=0, then we have a conflict no matter the valu
 
 namespace polysat {
 
-    conflict_core::conflict_core(solver& s) {
+    conflict::conflict(solver& s) {
         m_solver = &s;
         ex_engines.push_back(alloc(ex_polynomial_superposition));
         for (auto* engine : ex_engines)
@@ -44,11 +44,11 @@ namespace polysat {
             engine->set_solver(s);
     }
 
-    conflict_core::~conflict_core() {}
+    conflict::~conflict() {}
 
-    constraint_manager& conflict_core::cm() const { return s().m_constraints; }
+    constraint_manager& conflict::cm() const { return s().m_constraints; }
 
-    std::ostream& conflict_core::display(std::ostream& out) const {
+    std::ostream& conflict::display(std::ostream& out) const {
         char const* sep = "";
         for (auto c : *this) 
             out << sep << c->bvar2string() << " " << c, sep = " ; ";
@@ -59,7 +59,7 @@ namespace polysat {
         return out;
     }
 
-    void conflict_core::reset() {
+    void conflict::reset() {
         for (auto c : *this)
             unset_mark(c);
         m_constraints.reset();
@@ -75,7 +75,7 @@ namespace polysat {
     * The constraint is false under the current assignment of variables.
     * The core is then the conjuction of this constraint and assigned variables.
     */
-    void conflict_core::set(signed_constraint c) {
+    void conflict::set(signed_constraint c) {
         LOG("Conflict: " << c);
         SASSERT(empty());
         c->set_var_dependent();
@@ -91,7 +91,7 @@ namespace polysat {
     * A consistent approach could be to add these constraints to the core and then also include the
     * variable assignments.
     */
-    void conflict_core::set(pvar v) {
+    void conflict::set(pvar v) {
         LOG("Conflict: v" << v);
         SASSERT(empty());
         m_conflict_var = v;
@@ -102,7 +102,7 @@ namespace polysat {
         SASSERT(!empty());
     }
 
-    void conflict_core::set(clause const& cl) {
+    void conflict::set(clause const& cl) {
         LOG("Conflict: " << cl);
         SASSERT(empty());
         for (auto lit : cl) {
@@ -113,7 +113,7 @@ namespace polysat {
         SASSERT(!empty());
     }
 
-    void conflict_core::insert(signed_constraint c) {
+    void conflict::insert(signed_constraint c) {
         LOG("inserting: " << c);
         // Skip trivial constraints
         // (e.g., constant ones such as "4 > 1"... only true ones should appear, otherwise the lemma would be a tautology)
@@ -128,12 +128,12 @@ namespace polysat {
             m_constraints.push_back(c);
     }
 
-    void conflict_core::insert(signed_constraint c, vector<signed_constraint> premises) {
+    void conflict::insert(signed_constraint c, vector<signed_constraint> premises) {
         insert(c);
         m_saturation_premises.insert(c, std::move(premises));  // TODO: map doesn't have move-insertion, so this still copies the vector.
     }
 
-    void conflict_core::remove(signed_constraint c) {
+    void conflict::remove(signed_constraint c) {
         unset_mark(c);       
         if (c->has_bvar()) {
             SASSERT(std::count(m_constraints.begin(), m_constraints.end(), c) == 0);
@@ -143,18 +143,18 @@ namespace polysat {
             m_constraints.erase(c);
     }
 
-    void conflict_core::replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> c_new_premises) {
+    void conflict::replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> c_new_premises) {
         remove(c_old);
         insert(c_new, c_new_premises);
     }
 
-    void conflict_core::set_bailout() {
+    void conflict::set_bailout() {
         SASSERT(!is_bailout());
         m_bailout = true;
         s().m_stats.m_num_bailouts++;
     }
 
-    void conflict_core::resolve(constraint_manager const& m, sat::bool_var var, clause const& cl) {
+    void conflict::resolve(constraint_manager const& m, sat::bool_var var, clause const& cl) {
         // Note: core: x, y, z; corresponds to clause ~x \/ ~y \/ ~z
         //       clause: x \/ u \/ v
         //       resolvent: ~y \/ ~z \/ u \/ v; as core: y, z, ~u, ~v
@@ -185,7 +185,7 @@ namespace polysat {
     }
 
     /** If the constraint c is a temporary constraint derived by core saturation, insert it (and recursively, its premises) into \Gamma */
-    void conflict_core::keep(signed_constraint c) {
+    void conflict::keep(signed_constraint c) {
         if (!c->has_bvar()) {
             remove(c);
             cm().ensure_bvar(c.get());
@@ -215,7 +215,7 @@ namespace polysat {
             s().assign_bool(s().level(*lemma), c.blit(), lemma.get(), nullptr);
     }
 
-    clause_builder conflict_core::build_lemma() {
+    clause_builder conflict::build_lemma() {
         LOG_H3("Build lemma from core");
         LOG("core: " << *this);
         clause_builder lemma(s());
@@ -244,7 +244,7 @@ namespace polysat {
     }
 
 
-    bool conflict_core::resolve_value(pvar v, vector<signed_constraint> const& cjust_v) {
+    bool conflict::resolve_value(pvar v, vector<signed_constraint> const& cjust_v) {
         // NOTE:
         // In the "standard" case where "v = val" is on the stack:
         //      - cjust_v contains true constraints
@@ -281,7 +281,7 @@ namespace polysat {
         return false;
     }
 
-    bool conflict_core::try_eliminate(pvar v) {       
+    bool conflict::try_eliminate(pvar v) {       
         bool has_v = false;
         for (auto c : *this)
             has_v |= c->contains_var(v);
@@ -293,14 +293,14 @@ namespace polysat {
         return false;
     }
 
-    bool conflict_core::try_saturate(pvar v) {
+    bool conflict::try_saturate(pvar v) {
         for (auto* engine : inf_engines)
             if (engine->perform(v, *this))
                 return true;
         return false;
     }
 
-    void conflict_core::set_mark(signed_constraint c) {
+    void conflict::set_mark(signed_constraint c) {
         if (c->is_marked())
             return;
         c->set_mark();
@@ -315,7 +315,7 @@ namespace polysat {
         }
     }
 
-    void conflict_core::unset_mark(signed_constraint c) {
+    void conflict::unset_mark(signed_constraint c) {
         if (!c->is_marked())
             return;
         c->unset_mark();
@@ -328,46 +328,46 @@ namespace polysat {
         }
     }
 
-    void conflict_core::inc_pref(pvar v) {
+    void conflict::inc_pref(pvar v) {
         if (v >= m_pvar2count.size())
             m_pvar2count.resize(v + 1);
         m_pvar2count[v]++;
     }
 
-    void conflict_core::dec_pref(pvar v) {
+    void conflict::dec_pref(pvar v) {
         SASSERT(m_pvar2count[v] > 0);
         m_pvar2count[v]--;
     }
 
-    bool conflict_core::is_pmarked(pvar v) const {
+    bool conflict::is_pmarked(pvar v) const {
         return m_pvar2count.get(v, 0) > 0;
     }
 
-    void conflict_core::set_bmark(sat::bool_var b) {
+    void conflict::set_bmark(sat::bool_var b) {
         if (b >= m_bvar2mark.size())
             m_bvar2mark.resize(b + 1);
         SASSERT(!m_bvar2mark[b]);
         m_bvar2mark[b] = true;
     }
 
-    void conflict_core::unset_bmark(sat::bool_var b) {
+    void conflict::unset_bmark(sat::bool_var b) {
         SASSERT(m_bvar2mark[b]);
         m_bvar2mark[b] = false;
     }
 
-    bool conflict_core::is_bmarked(sat::bool_var b) const {
+    bool conflict::is_bmarked(sat::bool_var b) const {
         return m_bvar2mark.get(b, false);
     }
 
-    bool conflict_core::contains_literal(sat::literal lit) const {
+    bool conflict::contains_literal(sat::literal lit) const {
         return m_literals.contains(lit.to_uint());
     }
 
-    void conflict_core::insert_literal(sat::literal lit) {
+    void conflict::insert_literal(sat::literal lit) {
         m_literals.insert(lit.to_uint());
     }
 
-    void conflict_core::remove_literal(sat::literal lit) {
+    void conflict::remove_literal(sat::literal lit) {
         m_literals.remove(lit.to_uint());
     }
 

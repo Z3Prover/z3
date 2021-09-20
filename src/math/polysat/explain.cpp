@@ -46,7 +46,7 @@ namespace polysat {
 
     // c2 ... constraint that is currently false
     // Try to replace it with a new false constraint (derived from superposition with a true constraint)
-    signed_constraint ex_polynomial_superposition::find_replacement(signed_constraint c2, pvar v, conflict_core& core) {
+    signed_constraint ex_polynomial_superposition::find_replacement(signed_constraint c2, pvar v, conflict& core) {
         for (auto c1 : core) {
             if (!is_positive_equality_over(v, c1))
                 continue;
@@ -67,7 +67,7 @@ namespace polysat {
 
     // TODO(later): check superposition into disequality again (see notes)
     // true = done, false = abort, undef = continue
-    lbool ex_polynomial_superposition::try_explain1(pvar v, conflict_core& core) {
+    lbool ex_polynomial_superposition::try_explain1(pvar v, conflict& core) {
         for (auto c2 : core) {
             if (!is_positive_equality_over(v, c2))
                 continue;
@@ -92,7 +92,7 @@ namespace polysat {
         return l_false;
     }
 
-    void ex_polynomial_superposition::reduce_by(pvar v, conflict_core& core) {
+    void ex_polynomial_superposition::reduce_by(pvar v, conflict& core) {
         //return;
         bool progress = true;
         while (progress) {
@@ -106,7 +106,7 @@ namespace polysat {
         }
     }
 
-    bool ex_polynomial_superposition::reduce_by(pvar v, signed_constraint eq, conflict_core& core) {
+    bool ex_polynomial_superposition::reduce_by(pvar v, signed_constraint eq, conflict& core) {
         pdd p = eq->to_ule().p();
         for (auto c : core) {
             if (c == eq)
@@ -136,7 +136,7 @@ namespace polysat {
         return false;
     }
 
-    bool ex_polynomial_superposition::try_explain(pvar v, conflict_core& core) {
+    bool ex_polynomial_superposition::try_explain(pvar v, conflict& core) {
         LOG_H3("Trying polynomial superposition...");
         reduce_by(v, core);
         lbool result = l_undef;

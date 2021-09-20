@@ -274,6 +274,7 @@ namespace polysat {
             if (!s.is_assigned(other_v)) {
                 s.add_watch({this, is_positive}, other_v);
                 std::swap(vars()[idx], vars()[i]);
+               // narrow(s, is_positive);
                 return true;
             }
         }
