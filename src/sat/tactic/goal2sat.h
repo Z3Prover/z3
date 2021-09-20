@@ -29,11 +29,9 @@ Notes:
 #pragma once
 
 #include "tactic/goal.h"
-#include "sat/sat_solver.h"
-#include "tactic/model_converter.h"
-#include "tactic/generic_model_converter.h"
+#include "sat/sat_solver_core.h"
 #include "sat/smt/atom2bool_var.h"
-#include "sat/smt/sat_smt.h"
+#include "sat/smt/sat_internalizer.h"
 
 class goal2sat {
     struct imp;
@@ -77,54 +75,3 @@ public:
     void user_pop(unsigned n);
 
 };
-
-
-class sat2goal {
-    struct imp;
-    imp *  m_imp;
-    struct scoped_set_imp;
-public:
-
-    class mc : public model_converter {
-        ast_manager&            m;
-        sat::model_converter    m_smc;
-        generic_model_converter_ref m_gmc;
-        expr_ref_vector          m_var2expr;
-
-        // flushes from m_smc to m_gmc;
-        void flush_gmc();
-        
-    public:
-        mc(ast_manager& m);
-        ~mc() override {}
-        // flush model converter from SAT solver to this structure.
-        void flush_smc(sat::solver_core& s, atom2bool_var const& map);
-        void operator()(sat::model& m);
-        void operator()(model_ref& md) override;
-        void operator()(expr_ref& fml) override; 
-        model_converter* translate(ast_translation& translator) override;
-        void set_env(ast_pp_util* visitor) override;
-        void display(std::ostream& out) override;
-        void get_units(obj_map<expr, bool>& units) override;
-        expr* var2expr(sat::bool_var v) const { return m_var2expr.get(v, nullptr); }
-        expr_ref lit2expr(sat::literal l);
-        void insert(sat::bool_var v, expr * atom, bool aux);
-    };
-
-    sat2goal();
-
-
-    static void collect_param_descrs(param_descrs & r);
-
-    /**
-       \brief Translate the state of the SAT engine back into a goal.
-       The SAT solver may use variables that are not in \c m. The translator
-       creates fresh boolean AST variables for them. They are stored in fvars.
-       
-       \warning conversion throws a tactic_exception, if it is interrupted (by set_cancel),
-       or memory consumption limit is reached (set with param :max-memory).
-    */
-    void operator()(sat::solver_core & t, atom2bool_var const & m, params_ref const & p, goal & s, ref<mc> & mc);
-    
-};
-

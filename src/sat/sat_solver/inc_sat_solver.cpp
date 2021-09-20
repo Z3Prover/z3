@@ -42,6 +42,7 @@ Notes:
 #include "sat/sat_params.hpp"
 #include "sat/smt/euf_solver.h"
 #include "sat/tactic/goal2sat.h"
+#include "sat/tactic/sat2goal.h"
 #include "sat/tactic/sat_tactic.h"
 #include "sat/sat_simplifier_params.hpp"
 

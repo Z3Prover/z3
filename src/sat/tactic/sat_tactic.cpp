@@ -20,6 +20,7 @@ Notes:
 #include "model/model_v2_pp.h"
 #include "tactic/tactical.h"
 #include "sat/tactic/goal2sat.h"
+#include "sat/tactic/sat2goal.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_params.hpp"
 
@@ -29,7 +30,7 @@ class sat_tactic : public tactic {
         ast_manager &   m;
         goal2sat        m_goal2sat;
         sat2goal        m_sat2goal;
-        scoped_ptr<sat::solver_core>   m_solver;
+        scoped_ptr<sat::solver> m_solver;
         params_ref      m_params;
         
         imp(ast_manager & _m, params_ref const & p):
