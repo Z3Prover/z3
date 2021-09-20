@@ -619,7 +619,7 @@ namespace smtfd {
             return false;
         }
         else if (round < max_rounds) {
-            for (expr* t : subterms(core)) {
+            for (expr* t : subterms::ground(core)) {
                 for (theory_plugin* p : m_plugins) {
                     p->check_term(t, round);
                 }
@@ -863,7 +863,7 @@ namespace smtfd {
                 }
                 mdl->register_decl(fn, fi);
             }
-            for (expr* t : subterms(terms)) {
+            for (expr* t : subterms::ground(terms)) {
                 if (is_uninterp_const(t) && sort_covered(t->get_sort())) {
                     expr_ref val = model_value(t);
                     mdl->register_decl(to_app(t)->get_decl(), val);
@@ -1305,7 +1305,7 @@ namespace smtfd {
 
 
         void populate_model(model_ref& mdl, expr_ref_vector const& terms) override {
-            for (expr* t : subterms(terms)) {
+            for (expr* t : subterms::ground(terms)) {
                 if (is_uninterp_const(t) && m_autil.is_array(t)) {
                     mdl->register_decl(to_app(t)->get_decl(), model_value_core(t));
                 }
@@ -1317,7 +1317,7 @@ namespace smtfd {
         void global_check(expr_ref_vector const& core) override {  
             expr_mark seen;
             expr_ref_vector shared(m), sharedvals(m);
-            for (expr* t : subterms(core)) {
+            for (expr* t : subterms::ground(core)) {
                 if (!is_app(t)) continue;
                 app* a = to_app(t);
                 unsigned offset = 0;
@@ -1463,7 +1463,7 @@ namespace smtfd {
             
             if (r == l_true) {
                 expr_ref qq(q->get_expr(), m);
-                for (expr* t : subterms(qq)) {
+                for (expr* t : subterms::ground(qq)) {
                     init_term(t);
                 }
                 m_solver->get_model(mdl);
@@ -1558,10 +1558,10 @@ namespace smtfd {
         void init_val2term(expr_ref_vector const& fmls, expr_ref_vector const& core) {
             m_val2term_trail.reset();
             m_val2term.reset();
-            for (expr* t : subterms(core)) {
+            for (expr* t : subterms::ground(core)) {
                 init_term(t);
             }
-            for (expr* t : subterms(fmls)) {
+            for (expr* t : subterms::ground(fmls)) {
                 init_term(t);
             }
         }
@@ -1719,12 +1719,12 @@ namespace smtfd {
             m_context.reset(m_model);
             expr_ref_vector terms(core);
             terms.append(m_axioms);
-            for (expr* t : subterms(core)) {
+            for (expr* t : subterms::ground(core)) {
                 if (is_forall(t) || is_exists(t)) {
                     has_q = true;
                 }
             }
-            for (expr* t : subterms(terms)) {
+            for (expr* t : subterms::ground(terms)) {
                 if (!is_forall(t) && !is_exists(t) && (!m_context.term_covered(t) || !m_context.sort_covered(t->get_sort()))) {
                     is_decided = l_false;
                 }
@@ -1733,7 +1733,7 @@ namespace smtfd {
 
             TRACE("smtfd", 
                   tout << "axioms: " << m_axioms << "\n";
-                  for (expr* a : subterms(terms)) {
+                  for (expr* a : subterms::ground(terms)) {
                       expr_ref val0 = (*m_model)(a);
                       expr_ref val1 = (*m_model)(abs(a));
                       if (is_ground(a) && val0 != val1 && val0->get_sort() == val1->get_sort()) {
@@ -1750,7 +1750,7 @@ namespace smtfd {
 
             DEBUG_CODE(
                 bool found_bad = false;
-                for (expr* a : subterms(core)) {
+                for (expr* a : subterms::ground(core)) {
                     expr_ref val0 = (*m_model)(a);
                     expr_ref val1 = (*m_model)(abs(a));
                     if (is_ground(a) && val0 != val1 && val0->get_sort() == val1->get_sort()) {

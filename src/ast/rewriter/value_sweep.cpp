@@ -124,14 +124,14 @@ void value_sweep::init(expr_ref_vector const& terms) {
     m_vars.reset();
     m_qhead = 0;
     m_vhead = 0;
-    for (expr* t : subterms(terms)) {
+    for (expr* t : subterms::ground(terms)) {
         m_parents.reserve(t->get_id() + 1);
         if (get_value(t)) 
             m_queue.push_back(t);
         else if (!is_reducible(t))
             m_vars.push_back(t);
     }
-    for (expr* t : subterms(terms)) {
+    for (expr* t : subterms::ground(terms)) {
         if (!is_app(t)) 
             continue;
         for (expr* arg : *to_app(t)) {

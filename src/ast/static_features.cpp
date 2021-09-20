@@ -406,7 +406,7 @@ void static_features::process(expr * e, bool form_ctx, bool or_and_ctx, bool ite
     }    
 
     if (stack_depth > m_max_stack_depth) {
-        for (expr* arg : subterms(expr_ref(e, m)))
+        for (expr* arg : subterms::ground(expr_ref(e, m)))
             if (get_depth(arg) <= 3 || is_quantifier(arg)) 
                 process(arg, form_ctx, or_and_ctx, ite_ctx, stack_depth - 10);
         return;

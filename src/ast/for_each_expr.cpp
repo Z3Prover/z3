@@ -64,11 +64,11 @@ bool has_skolem_functions(expr * n) {
     return false;
 }
 
-subterms::subterms(expr_ref_vector const& es): m_es(es) {}
-subterms::subterms(expr_ref const& e) : m_es(e.m()) { m_es.push_back(e); }
+subterms::subterms(expr_ref_vector const& es, bool include_bound): m_include_bound(include_bound), m_es(es) {}
+subterms::subterms(expr_ref const& e, bool include_bound) : m_include_bound(include_bound), m_es(e.m()) { m_es.push_back(e); }
 subterms::iterator subterms::begin() { return iterator(*this, true); }
 subterms::iterator subterms::end() { return iterator(*this, false); }
-subterms::iterator::iterator(subterms& f, bool start): m_es(f.m_es) {
+subterms::iterator::iterator(subterms& f, bool start): m_include_bound(f.m_include_bound), m_es(f.m_es) {
     if (!start) m_es.reset();
 }
 expr* subterms::iterator::operator*() {
@@ -82,14 +82,15 @@ subterms::iterator subterms::iterator::operator++(int) {
 subterms::iterator& subterms::iterator::operator++() {
     expr* e = m_es.back();
     m_visited.mark(e, true);
-    if (is_app(e)) {
-        for (expr* arg : *to_app(e)) {
-            m_es.push_back(arg);
-        }
-    }
-    while (!m_es.empty() && m_visited.is_marked(m_es.back())) {
+    if (is_app(e)) 
+        for (expr* arg : *to_app(e)) 
+            m_es.push_back(arg);            
+    else if (is_quantifier(e) && m_include_bound)
+        m_es.push_back(to_quantifier(e)->get_expr());
+
+    while (!m_es.empty() && m_visited.is_marked(m_es.back())) 
         m_es.pop_back();
-    }
+    
     return *this;
 }
 

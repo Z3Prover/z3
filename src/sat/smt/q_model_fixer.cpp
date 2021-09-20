@@ -243,7 +243,7 @@ namespace q {
             auto* info = (*this)(q);
             quantifier* flat_q = info->get_flat_q();
             expr_ref body(flat_q->get_expr(), m);
-            for (expr* t : subterms(body))
+            for (expr* t : subterms::ground(body))
                 if (is_uninterp(t) && !to_app(t)->is_ground())
                     fns.insert(to_app(t)->get_decl());
         }

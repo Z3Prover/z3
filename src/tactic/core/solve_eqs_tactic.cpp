@@ -21,6 +21,7 @@ Revision History:
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 #include "ast/pb_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/hoist_rewriter.h"
@@ -407,6 +408,9 @@ class solve_eqs_tactic : public tactic {
         }
 
         void insert_solution(goal const& g, unsigned idx, expr* f, app* var, expr* def, proof* pr) {
+
+            if (!is_safe(var))
+                return;
             m_vars.push_back(var);
             m_candidates.push_back(f);
             m_candidate_set.mark(f);
@@ -707,8 +711,21 @@ class solve_eqs_tactic : public tactic {
                 pr1 = m().mk_transitivity(pr1, pr2);
                 if (!pr1) pr1 = g.pr(idx); else pr1 = m().mk_modus_ponens(g.pr(idx), pr1);
                 g.update(idx, tmp2, pr1, g.dep(idx));
-            }
-            
+            }            
+        }
+
+        expr_mark m_unsafe_vars;        
+
+        void filter_unsafe_vars() {
+            m_unsafe_vars.reset();
+            recfun::util rec(m());
+            for (func_decl* f : rec.get_rec_funs()) 
+                for (expr* term : subterms::all(expr_ref(rec.get_def(f).get_rhs(), m())))
+                    m_unsafe_vars.mark(term);            
+        }
+
+        bool is_safe(expr* f) {
+            return !m_unsafe_vars.is_marked(f);
         }
         
         void sort_vars() {
@@ -1020,6 +1037,8 @@ class solve_eqs_tactic : public tactic {
                 m_subst      = alloc(expr_substitution, m(), m_produce_unsat_cores, m_produce_proofs);
                 m_norm_subst = alloc(expr_substitution, m(), m_produce_unsat_cores, m_produce_proofs);
                 unsigned rounds = 0;
+
+                filter_unsafe_vars();
                 while (rounds < 20) {
                     ++rounds;
                     if (!m_produce_proofs && m_context_solve && rounds < 3) {

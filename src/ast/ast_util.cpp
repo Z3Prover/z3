@@ -379,7 +379,7 @@ bool has_uninterpreted(ast_manager& m, expr* _e) {
     expr_ref e(_e, m);
     arith_util au(m);
     func_decl_ref f_out(m);
-    for (expr* arg : subterms(e)) {
+    for (expr* arg : subterms::all(e)) {
         if (!is_app(arg)) 
             continue;
         app* a = to_app(arg);
