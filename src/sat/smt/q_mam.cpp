@@ -3558,12 +3558,14 @@ namespace q {
                                     //    For every application f(x_1, ..., x_n) of a function symbol f, n = f->get_arity().
                                     // Starting at Z3 3.0, this is only true if !f->is_flat_associative().
                                     // Thus, we need the extra checks.
-                                    (!is_flat_assoc || (curr_tree->m_arg_idx < curr_parent->num_args() &&
-                                                        curr_tree->m_ground_arg_idx < curr_parent->num_args()))) {
+                                    curr_tree->m_arg_idx < curr_parent->num_args() && 
+                                    (!is_flat_assoc || curr_tree->m_ground_arg_idx < curr_parent->num_args())) {
                                     enode * curr_parent_child = curr_parent->get_arg(curr_tree->m_arg_idx)->get_root();
                                     if (// Filter 1. the curr_child is equal to child of the current parent.
                                         curr_child == curr_parent_child &&
-                                        // Filter 2.
+                                        // Filter 2. m_ground_arg_idx is a valid argument
+                                        curr_tree->m_ground_arg_idx < curr_parent->num_args() && 
+                                        // Filter 3.
                                         (
                                          // curr_tree has no support for the filter based on a ground argument.
                                          curr_tree->m_ground_arg == nullptr ||
