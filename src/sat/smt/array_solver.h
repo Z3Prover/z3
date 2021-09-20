@@ -184,6 +184,7 @@ namespace array {
         bool assert_default_store_axiom(app* store);
         bool assert_congruent_axiom(expr* e1, expr* e2);
         bool add_delayed_axioms();
+        bool add_as_array_eqs(euf::enode* n);
         
         bool has_unitary_domain(app* array_term);
         bool has_large_domain(expr* array_term);

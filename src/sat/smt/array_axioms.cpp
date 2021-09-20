@@ -532,19 +532,22 @@ namespace array {
         if (!get_config().m_array_delay_exp_axiom)
             return false;
         unsigned num_vars = get_num_vars();
+        bool change = false;
         for (unsigned v = 0; v < num_vars; v++) {
             propagate_parent_select_axioms(v);
             auto& d = get_var_data(v);
             if (!d.m_prop_upward)
                 continue;
             euf::enode* n = var2enode(v);
+            if (add_as_array_eqs(n))
+                change = true;
             bool has_default = false;
             for (euf::enode* p : euf::enode_parents(n))
                 has_default |= a.is_default(p->get_expr());
             if (has_default)
                 propagate_parent_default(v);      
         }
-        bool change = false;
+
         unsigned sz = m_axiom_trail.size();
         m_delay_qhead = 0;
         
@@ -554,6 +557,27 @@ namespace array {
         flet<bool> _enable_delay(m_enable_delay, false);
         if (unit_propagate())
             change = true;
+        return change;
+    }
+
+    bool solver::add_as_array_eqs(euf::enode* n) {
+        func_decl* f = nullptr;
+        bool change = false;
+        if (!a.is_as_array(n->get_expr(), f))
+            return false;
+        for (unsigned i = 0; i < ctx.get_egraph().enodes_of(f).size(); ++i) {
+            euf::enode* p = ctx.get_egraph().enodes_of(f)[i];
+            expr_ref_vector select(m);
+            select.push_back(n->get_expr());
+            for (expr* arg : *to_app(p->get_expr()))
+                select.push_back(arg);
+            expr_ref _e(a.mk_select(select.size(), select.data()), m);
+            euf::enode* e = e_internalize(_e);
+            if (e->get_root() != p->get_root()) {
+                add_unit(eq_internalize(_e, p->get_expr()));
+                change = true;
+            }
+        }
         return change;
     }
 
