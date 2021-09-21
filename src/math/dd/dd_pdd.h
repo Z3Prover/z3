@@ -205,8 +205,9 @@ namespace dd {
         unsigned_vector            m_free_values;
         rational                   m_freeze_value;
         rational                   m_mod2N;
-        unsigned                   m_power_of_2 { 0 };
-        unsigned                   m_gc_generation { 0 };  ///< will be incremented on each GC
+        unsigned                   m_power_of_2 = 0;
+        rational                   m_max_value;
+        unsigned                   m_gc_generation = 0;  ///< will be incremented on each GC
 
         void reset_op_cache();
         void init_nodes(unsigned_vector const& l2v);
@@ -364,6 +365,8 @@ namespace dd {
         unsigned num_vars() const { return m_var2pdd.size(); }
 
         unsigned power_of_2() const { return m_power_of_2; }
+        rational const& max_value() const { return m_max_value; }
+        rational const& two_to_N() const { return m_mod2N; }
 
         unsigned_vector const& free_vars(pdd const& p);
 
@@ -387,12 +390,14 @@ namespace dd {
         pdd(pdd && other) noexcept : root(0), m(other.m) { std::swap(root, other.root); }
         pdd& operator=(pdd const& other);
         pdd& operator=(unsigned k);
+        pdd& operator=(rational const& k);
         ~pdd() { m.dec_ref(root); }
         pdd lo() const { return pdd(m.lo(root), m); }
         pdd hi() const { return pdd(m.hi(root), m); }
         unsigned index() const { return root; }
         unsigned var() const { return m.var(root); }
         rational const& val() const { SASSERT(is_val()); return m.val(root); }
+        rational const& leading_coefficient() const;
         bool is_val() const { return m.is_val(root); }
         bool is_one() const { return m.is_one(root); }
         bool is_zero() const { return m.is_zero(root); }
@@ -472,10 +477,13 @@ namespace dd {
 
     inline pdd& operator&=(pdd & p, pdd const& q) { p = p & q; return p; }
     inline pdd& operator^=(pdd & p, pdd const& q) { p = p ^ q; return p; }
-    inline pdd& operator*=(pdd & p, pdd const& q) { p = p * q; return p; }
     inline pdd& operator|=(pdd & p, pdd const& q) { p = p | q; return p; }
+    inline pdd& operator*=(pdd & p, pdd const& q) { p = p * q; return p; }
     inline pdd& operator-=(pdd & p, pdd const& q) { p = p - q; return p; }
     inline pdd& operator+=(pdd & p, pdd const& q) { p = p + q; return p; }
+    inline pdd& operator*=(pdd & p, rational const& q) { p = p * q; return p; }
+    inline pdd& operator-=(pdd & p, rational const& q) { p = p - q; return p; }
+    inline pdd& operator+=(pdd & p, rational const& q) { p = p + q; return p; }
 
     inline void swap(pdd& p, pdd& q) { p.swap(q); }
 

@@ -94,48 +94,47 @@ namespace polysat {
     void inf_saturate::push_omega_bisect(vector<signed_constraint>& new_constraints, pdd const& x, rational x_max, pdd const& y, rational y_max) {
         rational x_val, y_val;
         auto& pddm = x.manager();
-        unsigned bit_size = pddm.power_of_2();
-        rational bound = rational::power_of_two(bit_size);
+        rational bound = pddm.max_value();
         VERIFY(s().try_eval(x, x_val));
         VERIFY(s().try_eval(y, y_val));
-        SASSERT(x_val * y_val < bound);
+        SASSERT(x_val * y_val <= bound);
 
         rational x_lo = x_val, x_hi = x_max, y_lo = y_val, y_hi = y_max;
         rational two(2);
         while (x_lo < x_hi || y_lo < y_hi) {
             rational x_mid = div(x_hi + x_lo, two);
             rational y_mid = div(y_hi + y_lo, two);
-            if (x_mid * y_mid >= bound)
+            if (x_mid * y_mid > bound)
                 x_hi = x_mid - 1, y_hi = y_mid - 1;
             else
                 x_lo = x_mid, y_lo = y_mid;
         }
         SASSERT(x_hi == x_lo && y_hi == y_lo);
-        SASSERT(x_lo * y_lo < bound);
-        SASSERT((x_lo + 1) * (y_lo + 1) >= bound);
-        if ((x_lo + 1) * y_lo < bound) {
+        SASSERT(x_lo * y_lo <= bound);
+        SASSERT((x_lo + 1) * (y_lo + 1) > bound);
+        if ((x_lo + 1) * y_lo <= bound) {
             x_hi = x_max;
             while (x_lo < x_hi) {
                 rational x_mid = div(x_hi + x_lo, two);
-                if (x_mid * y_lo >= bound)
+                if (x_mid * y_lo > bound)
                     x_hi = x_mid - 1;
                 else
                     x_lo = x_mid;
             }
         }
-        else if (x_lo * (y_lo + 1) < bound) {
+        else if (x_lo * (y_lo + 1) <= bound) {
             y_hi = y_max;
             while (y_lo < y_hi) {
                 rational y_mid = div(y_hi + y_lo, two);
-                if (y_mid * x_lo >= bound)
+                if (y_mid * x_lo > bound)
                     y_hi = y_mid - 1;
                 else
                     y_lo = y_mid;
             }
         }
-        SASSERT(x_lo * y_lo < bound);
-        SASSERT((x_lo + 1) * y_lo >= bound);
-        SASSERT(x_lo * (y_lo + 1) >= bound);
+        SASSERT(x_lo * y_lo <= bound);
+        SASSERT((x_lo + 1) * y_lo > bound);
+        SASSERT(x_lo * (y_lo + 1) > bound);
 
         // inequalities are justified by current assignments to x, y
         // conflict resolution should be able to pick up this as a valid justification.
@@ -151,17 +150,15 @@ namespace polysat {
     // then extract premises for a non-worst-case bound.
     void inf_saturate::push_omega(vector<signed_constraint>& new_constraints, pdd const& x, pdd const& y) {     
         auto& pddm = x.manager();
-        unsigned bit_size = pddm.power_of_2();
-        rational bound = rational::power_of_two(bit_size);
-        rational x_max = bound - 1;
-        rational y_max = bound - 1;
-
+        rational x_max = pddm.max_value();
+        rational y_max = pddm.max_value();
+        
         if (x.is_var()) 
             x_max = s().m_viable.max_viable(x.var());
         if (y.is_var()) 
             y_max = s().m_viable.max_viable(y.var());        
 
-        if (x_max * y_max  >= bound)            
+        if (x_max * y_max  > pddm.max_value())            
             push_omega_bisect(new_constraints, x, x_max, y, y_max);
         else {
             for (auto c : s().m_cjust[y.var()])

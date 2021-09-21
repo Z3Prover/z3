@@ -12,15 +12,16 @@ Author:
 
 Notes:
 
-   TODO: add rewrite rules to simplify expressions
+   Rewrite rules to simplify expressions
   
    - k1 <= k2   ==> 0 <= 0 if k1 <= k2
    - k1 <= k2   ==> 1 <= 0 if k1 >  k2
    - 0 <= p     ==> 0 <= 0
    - p <= -1    ==> 0 <= 0
-   - k*p <= 0   ==> p <= 0 if k is odd
+   - k*2^n*p <= 0   ==> 2^n*p <= 0 if k is odd, leading coeffient is always a power of 2.
+   - k <= p     ==> p - k <= - k - 1
 
-   - k <= p     ==> p - k <= k - 1
+  TODO:
    - p <= p + q ==> p <= -q - 1
    - p + k <= p ==> p + k <= k - 1   for k > 0
 
@@ -45,11 +46,35 @@ namespace polysat {
     }
 
     void ule_constraint::simplify() {
+        if (m_lhs.is_zero()) {
+            m_rhs = 0;
+            return;
+        }
+        if (m_rhs.is_val() && m_rhs.val() == m_rhs.manager().max_value()) {
+            m_lhs = 0, m_rhs = 0;
+            return;
+        }        
         if (m_lhs.is_val() && m_rhs.is_val()) {
             if (m_lhs.val() <= m_rhs.val())
                 m_lhs = m_rhs = 0;
             else
                 m_lhs = 1, m_rhs = 0;
+            return;
+        }
+        // k <= p => p - k <= - k - 1
+        if (m_lhs.is_val()) {
+            pdd k = m_lhs;
+            m_lhs = m_rhs - k;
+            m_rhs = - k - 1;
+        }
+        // normalize leading coefficient to be a power of 2
+        if (m_rhs.is_zero() && !m_lhs.leading_coefficient().is_power_of_two()) {
+            rational lc = m_lhs.leading_coefficient();
+            rational x, y;
+            gcd(lc, m_lhs.manager().two_to_N(), x, y);
+            if (x.is_neg())
+                x = mod(x, m_lhs.manager().two_to_N());
+            m_lhs *= x;
         }
     }
 

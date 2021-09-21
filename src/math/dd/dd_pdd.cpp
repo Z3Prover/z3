@@ -34,6 +34,7 @@ namespace dd {
             s = mod2_e;
         m_semantics = s;
         m_mod2N = rational::power_of_two(power_of_2);
+        m_max_value = m_mod2N - 1;
         m_power_of_2 = power_of_2;
         unsigned_vector l2v;
         for (unsigned i = 0; i < num_vars; ++i) l2v.push_back(i);
@@ -1648,6 +1649,20 @@ namespace dd {
         root = m.mk_val(k).root;
         m.inc_ref(root);
         return *this;
+    }
+
+    pdd& pdd::operator=(rational const& k) {
+        m.dec_ref(root);
+        root = m.mk_val(k).root;
+        m.inc_ref(root);
+        return *this;
+    }
+
+    rational const& pdd::leading_coefficient() const {
+        pdd p = *this;
+        while (!p.is_val())
+            p = p.hi();
+        return p.val();
     }
 
     std::ostream& operator<<(std::ostream& out, pdd const& b) { return b.display(out); }

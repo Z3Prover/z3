@@ -16,9 +16,18 @@ Notes:
 
  TODO: try a final core reduction step or other core minimization
 
-TODO: If we have e.g. 4x+y=2 and y=0, then we have a conflict no matter the value of x, so we should drop x=? from the core.
-      (works currently if x is unassigned; for other cases we would need extra info from constraint::is_currently_false)
+ TODO: If we have e.g. 4x+y=2 and y=0, then we have a conflict no matter the value of x, so we should drop x=? from the core.
+       (works currently if x is unassigned; for other cases we would need extra info from constraint::is_currently_false)
 
+ TODO: keep is buggy. The assert 
+                   SASSERT(premise.is_currently_true(s()) || premise.bvalue(s()) == l_true);
+       does not necessarily hold. A saturation premise could be inserted that is a resolvent that evaluates to false
+       and therefore not a current Boolean literal on the search stack.
+
+ TODO: revert(pvar v) is too weak. 
+       It should apply saturation rules currently only available for for propagated values.
+
+ TODO: dependency tracking for constraints evaluating to false should be minimized.
 --*/
 
 #include "math/polysat/conflict.h"
