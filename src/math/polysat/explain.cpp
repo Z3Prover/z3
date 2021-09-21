@@ -98,7 +98,7 @@ namespace polysat {
         while (progress) {
             progress = false;
             for (auto c : core) {
-                if (is_positive_equality_over(v, c) && reduce_by(v, c, core)) {
+                if (is_positive_equality_over(v, c) && c.is_currently_true(s()) && reduce_by(v, c, core)) {
                     progress = true;
                     break;
                 }
@@ -125,10 +125,16 @@ namespace polysat {
                 auto c2 = s().ule(a, b);
                 if (!c.is_positive())
                     c2 = ~c2;
-                SASSERT(c2.is_currently_false(s()));
+                SASSERT(c2.is_currently_false(s()));                
                 if (!c2->has_bvar() || l_undef == c2.bvalue(s()))
                     core.keep(c2);  // adds propagation of c to the search stack
                 core.reset();
+                if (c2.bvalue(s()) == l_false) {
+                    core.insert(eq);
+                    core.insert(c);
+                    core.insert(~c2);
+                    return false;
+                }
                 core.set(c2);                
                 return true;
             }

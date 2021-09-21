@@ -68,7 +68,7 @@ namespace polysat {
         m_conflict_var = null_var;
         m_saturation_premises.reset();
         m_bailout = false;
-        SASSERT(empty());
+        SASSERT(empty());        
     }
 
     /**
@@ -163,8 +163,6 @@ namespace polysat {
         SASSERT(std::all_of(m_constraints.begin(), m_constraints.end(), [](auto c){ return !c->has_bvar(); }));
         bool core_has_pos = contains_literal(sat::literal(var));
         bool core_has_neg = contains_literal(~sat::literal(var));
-        std::cout << cl << "\n";
-        std::cout << *this << "\n";
         DEBUG_CODE({
             bool clause_has_pos = std::count(cl.begin(), cl.end(), sat::literal(var)) > 0;
             bool clause_has_neg = std::count(cl.begin(), cl.end(), ~sat::literal(var)) > 0;
@@ -173,12 +171,14 @@ namespace polysat {
             SASSERT((core_has_pos && clause_has_pos) || (core_has_neg && clause_has_neg));
         });
 
+        sat::literal var_lit(var);
         if (core_has_pos)
-            remove_literal(sat::literal(var));
+            remove_literal(var_lit);
         if (core_has_neg)
-            remove_literal(~sat::literal(var));
-        unset_bmark(var);
-
+            remove_literal(~var_lit);
+        
+        unset_mark(m.lookup(var_lit));
+        
         for (sat::literal lit : cl)
             if (lit.var() != var)
                 insert(m.lookup(~lit));
