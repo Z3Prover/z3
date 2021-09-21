@@ -641,7 +641,7 @@ public:
         return m_data;
     }
 
-    void swap(vector & other) {
+    void swap(vector & other) noexcept {
         std::swap(m_data, other.m_data);
     }
 
@@ -720,6 +720,17 @@ public:
     ptr_vector(unsigned s):vector<T *, false>(s) {}
     ptr_vector(unsigned s, T * elem):vector<T *, false>(s, elem) {}
     ptr_vector(unsigned s, T * const * data):vector<T *, false>(s, const_cast<T**>(data)) {}
+    std::ostream& display(std::ostream& out, char const* delim = " ") const {
+        char const* d = "";
+        for (auto const* u : *this) {
+            if (u)
+                out << d << *u;
+            else
+                out << d << "<NULL>";
+            d = delim;
+        }
+        return out;
+    }
 };
 
 template<typename T, typename SZ = unsigned>
@@ -744,6 +755,11 @@ template<typename T>
 inline std::ostream& operator<<(std::ostream& out, svector<T> const& v) {
     for (unsigned u : v) out << u << " ";
     return out;
+}
+
+template<typename T>
+inline std::ostream& operator<<(std::ostream& out, ptr_vector<T> const& v) {
+    return v.display(out);
 }
 
 

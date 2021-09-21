@@ -269,6 +269,11 @@ public:
         return *this;
     }
 
+    scoped_ptr& operator=(scoped_ptr&& other) {
+        *this = other.detach();
+        return *this;
+    };
+
     T * detach() {
         T* tmp = m_ptr;
         m_ptr = nullptr;
