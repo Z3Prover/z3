@@ -554,7 +554,7 @@ namespace polysat {
         }
 
         signed_constraint c = lit2cnstr(choice);
-        if (num_choices > 0)
+        if (num_choices > 1)
             push_level();        
         push_cjust(lemma.justified_var(), c);
 
