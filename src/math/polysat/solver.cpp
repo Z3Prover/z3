@@ -121,18 +121,9 @@ namespace polysat {
             set_conflict(c /*, dep */);
             return;
         }
-#if 0
-        clause_ref unit = clause::from_unit(c);
-        m_constraints.store(unit.get(), *this);
-        c->set_unit_clause(unit.get());
-        (void) dep; // dependencies go into justification
-        assign_bool(m_level, lit, c->unit_clause(), nullptr);
-#else
-        // just add them as axioms, tracked by dependencies
         m_bvars.assign(lit, m_level, nullptr, nullptr, dep);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
-#endif
 
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.new_constraint(*c.get());
@@ -743,14 +734,8 @@ namespace polysat {
             LOG("   Literal " << lit << " is: " << lit2cnstr(lit));
             SASSERT(m_bvars.value(lit) != l_true);
         }
-        if (lemma.empty())
-            std::cout << lemma << "\n";
         SASSERT(!lemma.empty());
         m_constraints.store(&lemma, *this);
-        if (lemma.size() == 1) {
-            signed_constraint c = lit2cnstr(lemma[0]);
-            c->set_unit_clause(&lemma);
-        }
         propagate();
     }
 

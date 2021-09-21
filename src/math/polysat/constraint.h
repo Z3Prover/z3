@@ -131,7 +131,6 @@ namespace polysat {
         friend class ule_constraint;
 
         // constraint_manager* m_manager;
-        clause*             m_unit_clause = nullptr;  ///< If this constraint was asserted by a unit clause, we store that clause here.
         ckind_t             m_kind;
         unsigned_vector     m_vars;
         lbool               m_external_sign = l_undef;
@@ -177,9 +176,6 @@ namespace polysat {
         sat::bool_var bvar() const { return m_bvar; }
         std::string bvar2string() const;
         unsigned level(solver& s) const;
-
-        clause* unit_clause() const { return m_unit_clause; }
-        void set_unit_clause(clause* cl);
 
         void set_external(bool sign) { m_external_sign = to_lbool(sign); }
         void unset_external() { m_external_sign = l_undef; }

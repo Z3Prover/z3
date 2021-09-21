@@ -263,11 +263,6 @@ namespace polysat {
         narrow(s, is_positive);
     }
 
-    void constraint::set_unit_clause(clause *cl) {
-        // can be seen as a cache... store the lowest-level unit clause for this constraint.
-        if (!cl || !m_unit_clause)
-            m_unit_clause = cl;
-    }
 
     unsigned constraint::level(solver& s) const {
         if (s.m_bvars.value(sat::literal(bvar())) != l_undef)

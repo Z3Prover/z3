@@ -209,8 +209,6 @@ namespace polysat {
         c_lemma.push(c.blit());
         clause_ref lemma = c_lemma.build();
         cm().store(lemma.get(), s());
-        if (lemma->size() == 1)
-            c->set_unit_clause(lemma.get());
         if (s().m_bvars.value(c.blit()) == l_undef)
             s().assign_bool(s().level(*lemma), c.blit(), lemma.get(), nullptr);
     }

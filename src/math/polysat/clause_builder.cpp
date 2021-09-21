@@ -57,9 +57,11 @@ namespace polysat {
         SASSERT(c);
         SASSERT(c->has_bvar());
         SASSERT(!c.is_always_true());  // clause would be a tautology
+#if 0
         if (c->unit_clause()) {
             return;
         }       
+#endif
         m_literals.push_back(c.blit());
     }
 
