@@ -42,10 +42,8 @@ bool zstring::is_escape_char(char const *& s, unsigned& result) {
                 result = 16*result + d;
             }
             else if (*(s+3+i) == '}') {
-                if (result > 255 && !uses_unicode())
-                    throw default_exception("unicode characters outside of byte range are not supported");
-                if (result > unicode_max_char()) 
-                    throw default_exception("unicode characters outside of byte range are not supported");
+                if (result > max_char())
+                    return false;
                 s += 4 + i;
                 return true;                
             }
@@ -65,8 +63,8 @@ bool zstring::is_escape_char(char const *& s, unsigned& result) {
         result = 16*result + d2;
         result = 16*result + d3;
         result = 16*result + d4;
-        if (result > unicode_max_char()) 
-            throw default_exception("unicode characters outside of byte range are not supported");
+        if (result > max_char())
+            return false;
         s += 6;
         return true;
     }
@@ -87,14 +85,19 @@ zstring::zstring(char const* s) {
     SASSERT(well_formed());
 }
 
-
-bool zstring::uses_unicode() const {
-    return gparams::get_value("unicode") != "false";
+string_encoding zstring::get_encoding() {
+    if (gparams::get_value("encoding") == "unicode") 
+        return unicode;
+    if (gparams::get_value("encoding") == "bmp") 
+        return bmp;
+    if (gparams::get_value("encoding") == "ascii") 
+        return ascii;
+    return unicode;
 }
 
 bool zstring::well_formed() const {
     for (unsigned ch : m_buffer) {
-        if (ch > unicode_max_char()) {
+        if (ch > max_char()) {
             IF_VERBOSE(0, verbose_stream() << "large character: " << ch << "\n";);
             return false;
         }
@@ -147,7 +150,7 @@ std::string zstring::encode() const {
 #define _flush() if (offset > 0) { buffer[offset] = 0; strm << buffer; offset = 0; }
     for (unsigned i = 0; i < m_buffer.size(); ++i) {
         unsigned ch = m_buffer[i];
-        if (ch < 32 || ch >= 128) {
+        if (ch < 32 || ch >= 128 || ('\\' == ch && i + 1 < m_buffer.size() && 'u' == m_buffer[i+1])) {
             _flush();
             strm << "\\u{" << std::hex << ch << std::dec << "}";
         }

@@ -466,7 +466,7 @@ namespace recfun {
             obj_map<expr, ptr_vector<expr>> parents;
             expr_ref tmp(e, m());
             parents.insert(e, ptr_vector<expr>());
-            for (expr* t : subterms(tmp)) {
+            for (expr* t : subterms::ground(tmp)) {
                 if (is_app(t)) {
                     for (expr* arg : *to_app(t)) {
                         parents.insert_if_not_there(arg, ptr_vector<expr>()).push_back(t);        

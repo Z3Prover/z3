@@ -359,17 +359,21 @@ namespace q {
         for (unsigned i = 0; i < c.num_decls(); ++i)
             _binding.push_back(binding[i]->get_expr());
         var_subst subst(m);
+        auto sub = [&](expr* e) {
+            expr_ref r = subst(e, _binding);
+            //ctx.rewrite(r);
+            return l.sign ? ~ctx.mk_literal(r) : ctx.mk_literal(r);
+        };
         if (m.is_true(l.rhs)) {
             SASSERT(!l.sign);
-            return ctx.mk_literal(subst(l.lhs, _binding));
+            return sub(l.lhs);
         }
         else if (m.is_false(l.rhs)) {
             SASSERT(!l.sign);
-            return ~ctx.mk_literal(subst(l.lhs, _binding));
+            return ~sub(l.lhs);
         }        
         expr_ref fml(m.mk_eq(l.lhs, l.rhs), m);
-        fml = subst(fml, _binding);
-        return l.sign ? ~ctx.mk_literal(fml) : ctx.mk_literal(fml);
+        return sub(fml);
     }
 
     struct ematch::reset_in_queue : public trail {

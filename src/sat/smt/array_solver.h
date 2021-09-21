@@ -184,13 +184,14 @@ namespace array {
         bool assert_default_store_axiom(app* store);
         bool assert_congruent_axiom(expr* e1, expr* e2);
         bool add_delayed_axioms();
+        bool add_as_array_eqs(euf::enode* n);
         
         bool has_unitary_domain(app* array_term);
         bool has_large_domain(expr* array_term);
         std::pair<app*, func_decl*> mk_epsilon(sort* s);
         void collect_shared_vars(sbuffer<theory_var>& roots);
         bool add_interface_equalities();
-        bool is_select_arg(euf::enode* r);
+        bool is_shared_arg(euf::enode* r);
         bool is_array(euf::enode* n) const { return a.is_array(n->get_expr()); }
 
         // solving          
@@ -222,7 +223,7 @@ namespace array {
         euf::enode_vector   m_defaults;       // temporary field for model construction
         ptr_vector<expr>    m_else_values;    // 
         svector<int>        m_parents;        // temporary field for model construction
-        bool have_different_model_values(theory_var v1, theory_var v2);
+        bool must_have_different_model_values(theory_var v1, theory_var v2);
         void collect_defaults();
         void mg_merge(theory_var u, theory_var v);
         theory_var mg_find(theory_var n);
@@ -262,11 +263,12 @@ namespace array {
         euf::theory_var mk_var(euf::enode* n) override;
         void apply_sort_cnstr(euf::enode* n, sort* s) override;
         bool is_shared(theory_var v) const override;
+        bool enable_self_propagate() const override { return true; }
 
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}
         void unmerge_eh(theory_var v1, theory_var v2) {}
 
-        euf::enode_vector const& parent_selects(euf::enode* n) const { return m_var_data[n->get_th_var(get_id())]->m_parent_selects; }
+        euf::enode_vector const& parent_selects(euf::enode* n) { return m_var_data[find(n->get_th_var(get_id()))]->m_parent_selects; }
     };
 }

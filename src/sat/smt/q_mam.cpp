@@ -2082,11 +2082,9 @@ namespace q {
                 p = p->get_root();
                 for (enode* p2 : euf::enode_parents(p)) {
                     if (p2->get_decl() == f &&
-                        num_args == n->num_args() && 
-                        num_args == p2->num_args() &&
                         ctx.is_relevant(p2) &&
                         p2->is_cgr() &&
-                        i < num_args && 
+                        i < p2->num_args() && 
                         p2->get_arg(i)->get_root() == p) {
                         v->push_back(p2);
                     }
@@ -3333,6 +3331,8 @@ namespace q {
         }
 
         void update_vars(unsigned short var_id, path * p, quantifier * qa, app * mp) {
+            if (var_id >= qa->get_num_decls())
+                return;
             paths & var_paths = m_var_paths[var_id];
             bool found = false;
             for (path* curr_path : var_paths) {
@@ -3558,12 +3558,14 @@ namespace q {
                                     //    For every application f(x_1, ..., x_n) of a function symbol f, n = f->get_arity().
                                     // Starting at Z3 3.0, this is only true if !f->is_flat_associative().
                                     // Thus, we need the extra checks.
-                                    (!is_flat_assoc || (curr_tree->m_arg_idx < curr_parent->num_args() &&
-                                                        curr_tree->m_ground_arg_idx < curr_parent->num_args()))) {
+                                    curr_tree->m_arg_idx < curr_parent->num_args() && 
+                                    (!is_flat_assoc || curr_tree->m_ground_arg_idx < curr_parent->num_args())) {
                                     enode * curr_parent_child = curr_parent->get_arg(curr_tree->m_arg_idx)->get_root();
                                     if (// Filter 1. the curr_child is equal to child of the current parent.
                                         curr_child == curr_parent_child &&
-                                        // Filter 2.
+                                        // Filter 2. m_ground_arg_idx is a valid argument
+                                        curr_tree->m_ground_arg_idx < curr_parent->num_args() && 
+                                        // Filter 3.
                                         (
                                          // curr_tree has no support for the filter based on a ground argument.
                                          curr_tree->m_ground_arg == nullptr ||
@@ -3745,7 +3747,7 @@ namespace q {
             // However, the simplifier may turn a non-ground pattern into a ground one.
             // So, we should check it again here.
             for (expr* arg : *mp)
-                if (is_ground(arg))
+                if (is_ground(arg) || has_quantifiers(arg))
                     return; // ignore multi-pattern containing ground pattern.
             update_filters(qa, mp);
             m_new_patterns.push_back(qp_pair(qa, mp));

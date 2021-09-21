@@ -127,6 +127,7 @@ namespace euf {
         void add_not_distinct_axiom(app* e, euf::enode* const* args);
         void axiomatize_basic(enode* n);
         bool internalize_root(app* e, bool sign, ptr_vector<enode> const& args);
+        void ensure_merged_tf(euf::enode* n);
         euf::enode* mk_true();
         euf::enode* mk_false();
 
@@ -165,6 +166,7 @@ namespace euf {
         bool is_self_propagated(th_eq const& e);
         void get_antecedents(literal l, constraint& j, literal_vector& r, bool probing);
         void new_diseq(enode* a, enode* b, literal lit);
+        bool merge_shared_bools();
 
         // proofs
         void log_antecedents(std::ostream& out, literal l, literal_vector const& r);
@@ -286,6 +288,7 @@ namespace euf {
 
         void propagate(literal lit, th_explain* p) { propagate(lit, p->to_index()); }
         bool propagate(enode* a, enode* b, th_explain* p) { return propagate(a, b, p->to_index()); }
+        size_t* to_justification(sat::literal l) { return to_ptr(l); }
         void set_conflict(th_explain* p) { set_conflict(p->to_index()); }
 
         bool set_root(literal l, literal r) override;
@@ -310,7 +313,7 @@ namespace euf {
         std::ostream& display(std::ostream& out) const override;
         std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const override;
         std::ostream& display_constraint(std::ostream& out, ext_constraint_idx idx) const override;
-        euf::egraph::b_pp bpp(enode* n) { return m_egraph.bpp(n); }
+        euf::egraph::b_pp bpp(enode* n) const { return m_egraph.bpp(n); }
         clause_pp pp(literal_vector const& lits) { return clause_pp(*this, lits); }
         void collect_statistics(statistics& st) const override;
         extension* copy(sat::solver* s) override;
@@ -346,9 +349,10 @@ namespace euf {
         void attach_node(euf::enode* n);
         expr_ref mk_eq(expr* e1, expr* e2);
         expr_ref mk_eq(euf::enode* n1, euf::enode* n2) { return mk_eq(n1->get_expr(), n2->get_expr()); }
-        euf::enode* mk_enode(expr* e, unsigned n, enode* const* args) { return m_egraph.mk(e, m_generation, n, args); }
+        euf::enode* e_internalize(expr* e);
+        euf::enode* mk_enode(expr* e, unsigned n, enode* const* args);
         expr* bool_var2expr(sat::bool_var v) const { return m_bool_var2expr.get(v, nullptr); }
-        expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return lit.sign() ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }
+        expr_ref literal2expr(sat::literal lit) const { expr* e = bool_var2expr(lit.var()); return (e && lit.sign()) ? expr_ref(m.mk_not(e), m) : expr_ref(e, m); }
         unsigned generation() const { return m_generation; }
 
         sat::literal attach_lit(sat::literal lit, expr* e);
@@ -367,6 +371,7 @@ namespace euf {
         void add_root(sat::literal a, sat::literal b) { sat::literal lits[2] = {a, b}; add_root(2, lits); }
         void add_aux(sat::literal_vector const& lits) { add_aux(lits.size(), lits.data()); }
         void add_aux(unsigned n, sat::literal const* lits);
+        void add_aux(sat::literal a) { sat::literal lits[1] = { a }; add_aux(1, lits); }
         void add_aux(sat::literal a, sat::literal b) { sat::literal lits[2] = {a, b}; add_aux(2, lits); } 
         void add_aux(sat::literal a, sat::literal b, sat::literal c) { sat::literal lits[3] = { a, b, c }; add_aux(3, lits); }
         void track_relevancy(sat::bool_var v);

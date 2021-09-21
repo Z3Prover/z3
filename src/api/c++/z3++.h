@@ -599,6 +599,7 @@ namespace z3 {
         iterator begin() const noexcept { return iterator(this, 0); }
         iterator end() const { return iterator(this, size()); }
         friend std::ostream & operator<<(std::ostream & out, ast_vector_tpl const & v) { out << Z3_ast_vector_to_string(v.ctx(), v); return out; }
+        std::string to_string() const { return std::string(Z3_ast_vector_to_string(ctx(), m_vector)); }
     };
 
 
@@ -1444,6 +1445,26 @@ namespace z3 {
             check_error();
             return expr(ctx(), r);
         }
+        expr char_to_int() const {
+            Z3_ast r = Z3_mk_char_to_int(ctx(), *this);
+            check_error();
+            return expr(ctx(), r);
+        }
+        expr char_to_bv() const {
+            Z3_ast r = Z3_mk_char_to_bv(ctx(), *this);
+            check_error();
+            return expr(ctx(), r);
+        }
+        expr char_from_bv() const {
+            Z3_ast r = Z3_mk_char_from_bv(ctx(), *this);
+            check_error();
+            return expr(ctx(), r);
+        }
+        expr is_digit() const {
+            Z3_ast r = Z3_mk_char_is_digit(ctx(), *this);
+            check_error();
+            return expr(ctx(), r);
+        }
  
         friend expr range(expr const& lo, expr const& hi);
         /**
@@ -1493,6 +1514,26 @@ namespace z3 {
            \brief Apply substitution. Replace bound variables by expressions.
         */
         expr substitute(expr_vector const& dst);
+
+
+	class iterator {
+            expr& e;
+            unsigned i;
+        public:
+            iterator(expr& e, unsigned i): e(e), i(i) {}
+            bool operator==(iterator const& other) noexcept {
+                return i == other.i;
+            }
+            bool operator!=(iterator const& other) noexcept {
+                return i != other.i;
+            }
+            expr operator*() const { return e.arg(i); }
+            iterator& operator++() { ++i; return *this; }
+            iterator operator++(int) { assert(false); return *this; }
+        };
+
+        iterator begin() { return iterator(*this, 0); }
+        iterator end() { return iterator(*this, is_app() ? num_args() : 0); }
 
    };
 

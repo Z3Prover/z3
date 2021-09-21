@@ -161,11 +161,11 @@ namespace bv {
 
         struct atom {
             bool_var      m_bv;
-            eq_occurs*    m_eqs;
-            var_pos_occ * m_occs;
+            eq_occurs*    m_eqs = nullptr;
+            var_pos_occ * m_occs = nullptr;
             svector<std::pair<atom*, eq_occurs*>> m_bit2occ;
-            literal    m_var { sat::null_literal };
-            literal    m_def { sat::null_literal };
+            literal    m_var = sat::null_literal;
+            literal    m_def = sat::null_literal;
             atom(bool_var b) :m_bv(b), m_eqs(nullptr), m_occs(nullptr) {}
             ~atom() { m_bit2occ.clear(); }
             var_pos_it begin() const { return var_pos_it(m_occs); }
@@ -174,11 +174,12 @@ namespace bv {
         };
 
         struct propagation_item {
-            var_pos m_vp { var_pos(0, 0) };
-            atom* m_atom{ nullptr };
+            var_pos m_vp = var_pos(0, 0) ;
+            atom* m_atom = nullptr;
             explicit propagation_item(atom* a) : m_atom(a) {}
             explicit propagation_item(var_pos const& vp) : m_vp(vp) {}            
             bool operator==(propagation_item const& other) const { if (m_atom) return m_atom == other.m_atom; return false; }
+            bool is_atom() const { return m_atom != nullptr; }
         };
 
 

@@ -168,9 +168,13 @@ bool has_skolem_functions(expr * n);
 
 // pre-order traversal of subterms
 class subterms {
+    bool            m_include_bound = false;
     expr_ref_vector m_es;
+    subterms(expr_ref const& e, bool include_bound);
+    subterms(expr_ref_vector const& es, bool include_bound);
 public:
     class iterator {
+        bool            m_include_bound = false;
         expr_ref_vector m_es;
         expr_mark       m_visited;        
     public:
@@ -181,8 +185,12 @@ public:
         bool operator==(iterator const& other) const;
         bool operator!=(iterator const& other) const;
     };
-    subterms(expr_ref_vector const& es);
-    subterms(expr_ref const& e);
+
+
+    static subterms all(expr_ref const& e) { return subterms(e, true); }
+    static subterms ground(expr_ref const& e) { return subterms(e, false); }
+    static subterms all(expr_ref_vector const& e) { return subterms(e, true); }
+    static subterms ground(expr_ref_vector const& e) { return subterms(e, false); }
     iterator begin();
     iterator end();
 };

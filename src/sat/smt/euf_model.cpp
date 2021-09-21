@@ -63,6 +63,7 @@ namespace euf {
     };
 
     void solver::update_model(model_ref& mdl) {
+        TRACE("model", tout << "create model\n";);
         mdl->reset_eval_cache();
         for (auto* mb : m_solvers)
             mb->init_model();
@@ -117,7 +118,7 @@ namespace euf {
         for (enode* n : fresh_values)
             n->unmark1();
         
-        TRACE("euf",
+        TRACE("model",
               for (auto const& d : deps.deps()) 
                   if (d.m_value) {
                       tout << bpp(d.m_key) << ":\n";
@@ -188,7 +189,7 @@ namespace euf {
             else {
                 IF_VERBOSE(1, verbose_stream() << "no model values created for " << mk_pp(e, m) << "\n");
             }                
-        }
+        }           
     }
 
     void solver::values2model(deps_t const& deps, model_ref& mdl) {
@@ -227,9 +228,12 @@ namespace euf {
                 SASSERT(args.size() == arity);
                 if (!fi->get_entry(args.data()))
                     fi->insert_new_entry(args.data(), v);
-                TRACE("euf", tout << f->get_name() << "\n";
+                TRACE("euf", tout << bpp(n) << " " << f->get_name() << "\n";
                       for (expr* arg : args) tout << mk_pp(arg, m) << " ";
-                      tout << "\n -> " << mk_pp(v, m) << "\n";);
+                      tout << "\n -> " << mk_pp(v, m) << "\n";
+		      for (euf::enode* arg : euf::enode_args(n)) tout << bpp(arg) << " ";
+		      tout << "\n";
+		      );
 
             }
         }
@@ -254,7 +258,7 @@ namespace euf {
                 m_values2root.insert(m_values.get(n->get_expr_id()), n);
         TRACE("model", 
               for (auto kv : m_values2root) 
-                  tout << mk_pp(kv.m_key, m) << " -> " << bpp(kv.m_value) << "\n";);
+                  tout << mk_bounded_pp(kv.m_key, m) << "\n    -> " << bpp(kv.m_value) << "\n";);
         
         return m_values2root;
     }
@@ -265,17 +269,40 @@ namespace euf {
 
     void solver::display_validation_failure(std::ostream& out, model& mdl, enode* n) {
         out << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(n->get_expr()) << "\n";
-        for (auto* arg : euf::enode_args(n)) {
-            expr_ref val = mdl(arg->get_expr());
+        euf::enode_vector nodes;
+        nodes.push_back(n);
+        for (unsigned i = 0; i < nodes.size(); ++i) {
+            euf::enode* r = nodes[i];
+            if (r->is_marked1())
+                continue;
+            r->mark1();
+            for (auto* arg : euf::enode_args(r))
+                nodes.push_back(arg);           
+            expr_ref val = mdl(r->get_expr());
             expr_ref sval(m);
             th_rewriter rw(m);
             rw(val, sval);
-            out << bpp(arg) << "\n" << sval << "\n";
+            out << bpp(r) << " := " << sval << " " << mdl(r->get_root()->get_expr()) << "\n";
         }
+        for (euf::enode* r : nodes)
+            r->unmark1();
         out << mdl << "\n";
+        s().display(out);
     }
 
     void solver::validate_model(model& mdl) {
+        model_evaluator ev(mdl);
+        ev.set_model_completion(true);
+        TRACE("model",
+            for (enode* n : m_egraph.nodes()) {
+                unsigned id = n->get_root_id();
+                expr* val = m_values.get(id, nullptr);
+                if (!val)
+                    continue;
+                expr_ref mval = ev(n->get_expr());
+                if (m.is_value(mval) && val != mval)
+                    tout << "#" << bpp(n) << " := " << mk_pp(val, m) << " ~ " << mval << "\n";
+            });
         bool first = true;
         for (enode* n : m_egraph.nodes()) {
             expr* e = n->get_expr();

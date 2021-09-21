@@ -244,8 +244,9 @@ namespace bv {
             expr_ref b2b(bv.mk_bit2bool(e, i), m);
             m_bits[v].push_back(sat::null_literal);
             sat::literal lit = ctx.internalize(b2b, false, false, m_is_redundant);
-            (void)lit;
             TRACE("bv", tout << "add-bit: " << lit << " " << literal2expr(lit) << "\n";);
+            if (m_bits[v].back() == sat::null_literal)
+                m_bits[v].back() = lit;
             SASSERT(m_bits[v].back() == lit);
         }
     }

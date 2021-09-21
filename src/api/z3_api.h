@@ -1221,6 +1221,13 @@ typedef enum {
     Z3_OP_RE_FULL_SET,
     Z3_OP_RE_COMPLEMENT,
 
+    // char
+    Z3_OP_CHAR_LE,
+    Z3_OP_CHAR_TO_INT,
+    Z3_OP_CHAR_TO_BV,
+    Z3_OP_CHAR_FROM_BV,
+    Z3_OP_CHAR_IS_DIGIT,
+
     // Auxiliary
     Z3_OP_LABEL = 0x700,
     Z3_OP_LABEL_LIT,
@@ -1533,6 +1540,7 @@ extern "C" {
             - model                      model generation for solvers, this parameter can be overwritten when creating a solver
             - model_validate             validate models produced by solvers
             - unsat_core                 unsat-core generation for solvers, this parameter can be overwritten when creating a solver
+            - encoding                   the string encoding used internally (must be either "unicode" - 18 bit, "bmp" - 16 bit or "ascii" - 8 bit)
 
         \sa Z3_set_param_value
         \sa Z3_del_config
@@ -3442,7 +3450,7 @@ extern "C" {
     /**
        \brief Create a sort for unicode strings.
 
-       def_API('Z3_mk_string_sort', SORT ,(_in(CONTEXT), ))
+       def_API('Z3_mk_string_sort', SORT, (_in(CONTEXT), ))
      */
     Z3_sort Z3_API Z3_mk_string_sort(Z3_context c);
 
@@ -3452,7 +3460,7 @@ extern "C" {
        The sort for characters can be changed to ASCII by setting
        the global parameter \c unicode to \c false.
 
-       def_API('Z3_mk_char_sort', SORT ,(_in(CONTEXT), ))
+       def_API('Z3_mk_char_sort', SORT, (_in(CONTEXT), ))
     */
     Z3_sort Z3_API Z3_mk_char_sort(Z3_context c);
 
@@ -3472,7 +3480,7 @@ extern "C" {
 
     /**
        \brief Create a string constant out of the string that is passed in
-       def_API('Z3_mk_string' ,AST ,(_in(CONTEXT), _in(STRING)))
+       def_API('Z3_mk_string', AST, (_in(CONTEXT), _in(STRING)))
      */
     Z3_ast Z3_API Z3_mk_string(Z3_context c, Z3_string s);
 
@@ -3481,7 +3489,7 @@ extern "C" {
        It takes the length of the string as well to take into account
        0 characters. The string is unescaped.
 
-       def_API('Z3_mk_lstring' ,AST ,(_in(CONTEXT), _in(UINT), _in(STRING)))
+       def_API('Z3_mk_lstring', AST, (_in(CONTEXT), _in(UINT), _in(STRING)))
      */
     Z3_ast Z3_API Z3_mk_lstring(Z3_context c, unsigned len, Z3_string s);
 
@@ -3497,7 +3505,7 @@ extern "C" {
 
        \pre  Z3_is_string(c, s)
 
-       def_API('Z3_get_string' ,STRING ,(_in(CONTEXT), _in(AST)))
+       def_API('Z3_get_string', STRING, (_in(CONTEXT), _in(AST)))
      */
     Z3_string Z3_API Z3_get_string(Z3_context c, Z3_ast s);
 
@@ -3506,7 +3514,7 @@ extern "C" {
 
        \pre  Z3_is_string(c, s)
 
-       def_API('Z3_get_lstring' ,CHAR_PTR ,(_in(CONTEXT), _in(AST), _out(UINT)))
+       def_API('Z3_get_lstring', CHAR_PTR, (_in(CONTEXT), _in(AST), _out(UINT)))
      */
     Z3_char_ptr Z3_API Z3_get_lstring(Z3_context c, Z3_ast s, unsigned* length);
 
@@ -3515,14 +3523,14 @@ extern "C" {
 
        \pre s is a sequence sort.
 
-       def_API('Z3_mk_seq_empty' ,AST ,(_in(CONTEXT), _in(SORT)))
+       def_API('Z3_mk_seq_empty', AST ,(_in(CONTEXT), _in(SORT)))
      */
     Z3_ast Z3_API Z3_mk_seq_empty(Z3_context c, Z3_sort seq);
 
     /**
        \brief Create a unit sequence of \c a.
 
-       def_API('Z3_mk_seq_unit' ,AST ,(_in(CONTEXT), _in(AST)))
+       def_API('Z3_mk_seq_unit', AST ,(_in(CONTEXT), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_unit(Z3_context c, Z3_ast a);
 
@@ -3531,7 +3539,7 @@ extern "C" {
 
        \pre n > 0
 
-       def_API('Z3_mk_seq_concat' ,AST ,(_in(CONTEXT), _in(UINT), _in_array(1, AST)))
+       def_API('Z3_mk_seq_concat', AST ,(_in(CONTEXT), _in(UINT), _in_array(1, AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_concat(Z3_context c, unsigned n, Z3_ast const args[]);
 
@@ -3540,7 +3548,7 @@ extern "C" {
 
        \pre prefix and s are the same sequence sorts.
 
-       def_API('Z3_mk_seq_prefix' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+       def_API('Z3_mk_seq_prefix', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_prefix(Z3_context c, Z3_ast prefix, Z3_ast s);
 
@@ -3549,7 +3557,7 @@ extern "C" {
 
        \pre \c suffix and \c s are the same sequence sorts.
 
-       def_API('Z3_mk_seq_suffix' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+       def_API('Z3_mk_seq_suffix', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_suffix(Z3_context c, Z3_ast suffix, Z3_ast s);
 
@@ -3558,7 +3566,7 @@ extern "C" {
 
        \pre \c container and \c containee are the same sequence sorts.
 
-       def_API('Z3_mk_seq_contains' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+       def_API('Z3_mk_seq_contains', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_contains(Z3_context c, Z3_ast container, Z3_ast containee);
 
@@ -3568,7 +3576,7 @@ extern "C" {
 
        \pre \c s1 and \c s2 are strings
 
-       def_API('Z3_mk_str_lt' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+       def_API('Z3_mk_str_lt', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_str_lt(Z3_context c, Z3_ast prefix, Z3_ast s);
 
@@ -3577,21 +3585,21 @@ extern "C" {
 
        \pre \c s1 and \c s2 are strings
 
-       def_API('Z3_mk_str_le' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+       def_API('Z3_mk_str_le', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_str_le(Z3_context c, Z3_ast prefix, Z3_ast s);
 
     /**
        \brief Extract subsequence starting at \c offset of \c length.
 
-       def_API('Z3_mk_seq_extract' ,AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
+       def_API('Z3_mk_seq_extract', AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_extract(Z3_context c, Z3_ast s, Z3_ast offset, Z3_ast length);
 
     /**
        \brief Replace the first occurrence of \c src with \c dst in \c s.
 
-       def_API('Z3_mk_seq_replace' ,AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
+       def_API('Z3_mk_seq_replace', AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_replace(Z3_context c, Z3_ast s, Z3_ast src, Z3_ast dst);
 
@@ -3599,7 +3607,7 @@ extern "C" {
        \brief Retrieve from \c s the unit sequence positioned at position \c index.
        The sequence is empty if the index is out of bounds.
 
-       def_API('Z3_mk_seq_at' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+       def_API('Z3_mk_seq_at', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_at(Z3_context c, Z3_ast s, Z3_ast index);
 
@@ -3607,14 +3615,14 @@ extern "C" {
        \brief Retrieve from \c s the element positioned at position \c index.
        The function is under-specified if the index is out of bounds.
 
-       def_API('Z3_mk_seq_nth' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+       def_API('Z3_mk_seq_nth', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_nth(Z3_context c, Z3_ast s, Z3_ast index);
 
     /**
        \brief Return the length of the sequence \c s.
 
-       def_API('Z3_mk_seq_length' ,AST ,(_in(CONTEXT), _in(AST)))
+       def_API('Z3_mk_seq_length', AST ,(_in(CONTEXT), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_length(Z3_context c, Z3_ast s);
 
@@ -3624,7 +3632,7 @@ extern "C" {
        If \c s does not contain \c substr, then the value is -1, if \c offset is the length of \c s, then the value is -1 as well.
        The value is -1 if \c offset is negative or larger than the length of \c s.
 
-       def_API('Z3_mk_seq_index' ,AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
+       def_API('Z3_mk_seq_index', AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_index(Z3_context c, Z3_ast s, Z3_ast substr, Z3_ast offset);
 
@@ -3638,7 +3646,7 @@ extern "C" {
     /**
        \brief Convert string to integer.
 
-       def_API('Z3_mk_str_to_int' ,AST ,(_in(CONTEXT), _in(AST)))
+       def_API('Z3_mk_str_to_int', AST ,(_in(CONTEXT), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_str_to_int(Z3_context c, Z3_ast s);
 
@@ -3646,56 +3654,56 @@ extern "C" {
     /**
        \brief Integer to string conversion.
 
-       def_API('Z3_mk_int_to_str' ,AST ,(_in(CONTEXT), _in(AST)))
+       def_API('Z3_mk_int_to_str', AST ,(_in(CONTEXT), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_int_to_str(Z3_context c, Z3_ast s);
 
     /**
        \brief Unsigned bit-vector to string conversion.
 
-       def_API('Z3_mk_ubv_to_str' ,AST ,(_in(CONTEXT), _in(AST)))
+       def_API('Z3_mk_ubv_to_str', AST ,(_in(CONTEXT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_ubv_to_str(Z3_context c, Z3_ast s);
   
     /**
        \brief Signed bit-vector to string conversion.
 
-       def_API('Z3_mk_sbv_to_str' ,AST ,(_in(CONTEXT), _in(AST)))
+       def_API('Z3_mk_sbv_to_str', AST ,(_in(CONTEXT), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_sbv_to_str(Z3_context c, Z3_ast s);
 
     /**
        \brief Create a regular expression that accepts the sequence \c seq.
 
-       def_API('Z3_mk_seq_to_re' ,AST ,(_in(CONTEXT), _in(AST)))
+       def_API('Z3_mk_seq_to_re', AST ,(_in(CONTEXT), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_to_re(Z3_context c, Z3_ast seq);
 
     /**
        \brief Check if \c seq is in the language generated by the regular expression \c re.
 
-       def_API('Z3_mk_seq_in_re' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+       def_API('Z3_mk_seq_in_re', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_in_re(Z3_context c, Z3_ast seq, Z3_ast re);
 
     /**
        \brief Create the regular language \c re+.
 
-       def_API('Z3_mk_re_plus' ,AST ,(_in(CONTEXT), _in(AST)))
+       def_API('Z3_mk_re_plus', AST ,(_in(CONTEXT), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_re_plus(Z3_context c, Z3_ast re);
 
     /**
        \brief Create the regular language \c re*.
 
-       def_API('Z3_mk_re_star' ,AST ,(_in(CONTEXT), _in(AST)))
+       def_API('Z3_mk_re_star', AST ,(_in(CONTEXT), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_re_star(Z3_context c, Z3_ast re);
 
     /**
        \brief Create the regular language \c [re].
 
-       def_API('Z3_mk_re_option' ,AST ,(_in(CONTEXT), _in(AST)))
+       def_API('Z3_mk_re_option', AST ,(_in(CONTEXT), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_re_option(Z3_context c, Z3_ast re);
 
@@ -3704,7 +3712,7 @@ extern "C" {
 
        \pre n > 0
 
-       def_API('Z3_mk_re_union' ,AST ,(_in(CONTEXT), _in(UINT), _in_array(1, AST)))
+       def_API('Z3_mk_re_union', AST ,(_in(CONTEXT), _in(UINT), _in_array(1, AST)))
      */
     Z3_ast Z3_API Z3_mk_re_union(Z3_context c, unsigned n, Z3_ast const args[]);
 
@@ -3713,7 +3721,7 @@ extern "C" {
 
        \pre n > 0
 
-       def_API('Z3_mk_re_concat' ,AST ,(_in(CONTEXT), _in(UINT), _in_array(1, AST)))
+       def_API('Z3_mk_re_concat', AST ,(_in(CONTEXT), _in(UINT), _in_array(1, AST)))
      */
     Z3_ast Z3_API Z3_mk_re_concat(Z3_context c, unsigned n, Z3_ast const args[]);
 
@@ -3721,7 +3729,7 @@ extern "C" {
     /**
        \brief Create the range regular expression over two sequences of length 1.
 
-       def_API('Z3_mk_re_range' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+       def_API('Z3_mk_re_range', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_re_range(Z3_context c, Z3_ast lo, Z3_ast hi);
 
@@ -3748,14 +3756,14 @@ extern "C" {
 
        \pre n > 0
 
-       def_API('Z3_mk_re_intersect' ,AST ,(_in(CONTEXT), _in(UINT), _in_array(1, AST)))
+       def_API('Z3_mk_re_intersect', AST ,(_in(CONTEXT), _in(UINT), _in_array(1, AST)))
      */
     Z3_ast Z3_API Z3_mk_re_intersect(Z3_context c, unsigned n, Z3_ast const args[]);
 
     /**
        \brief Create the complement of the regular language \c re.
 
-       def_API('Z3_mk_re_complement' ,AST ,(_in(CONTEXT), _in(AST)))
+       def_API('Z3_mk_re_complement', AST ,(_in(CONTEXT), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_re_complement(Z3_context c, Z3_ast re);
 
@@ -3764,7 +3772,7 @@ extern "C" {
 
        \pre re is a regular expression sort.
 
-       def_API('Z3_mk_re_empty' ,AST ,(_in(CONTEXT), _in(SORT)))
+       def_API('Z3_mk_re_empty', AST ,(_in(CONTEXT), _in(SORT)))
      */
     Z3_ast Z3_API Z3_mk_re_empty(Z3_context c, Z3_sort re);
 
@@ -3774,9 +3782,44 @@ extern "C" {
 
        \pre re is a regular expression sort.
 
-       def_API('Z3_mk_re_full' ,AST ,(_in(CONTEXT), _in(SORT)))
+       def_API('Z3_mk_re_full', AST ,(_in(CONTEXT), _in(SORT)))
      */
     Z3_ast Z3_API Z3_mk_re_full(Z3_context c, Z3_sort re);
+
+    /**
+         \brief Create less than or equal to between two characters.
+
+         def_API('Z3_mk_char_le', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_char_le(Z3_context c, Z3_ast ch1, Z3_ast ch2);
+
+    /**
+         \brief Create an integer (code point) from character.
+
+         def_API('Z3_mk_char_to_int', AST, (_in(CONTEXT), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_char_to_int(Z3_context c, Z3_ast ch);
+
+    /**
+         \brief Create a bit-vector (code point) from character.
+
+         def_API('Z3_mk_char_to_bv', AST, (_in(CONTEXT), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_char_to_bv(Z3_context c, Z3_ast ch);
+
+    /**
+         \brief Create a character from a bit-vector (code point).
+
+         def_API('Z3_mk_char_from_bv', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_char_from_bv(Z3_context c, Z3_ast bv);
+
+    /**
+         \brief Create a check if the character is a digit.
+
+         def_API('Z3_mk_char_is_digit', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_char_is_digit(Z3_context c, Z3_ast ch);
 
     /*@}*/
 

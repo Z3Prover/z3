@@ -35,7 +35,6 @@ void theory_arith_params::updt_params(params_ref const & _p) {
     m_arith_ignore_int = p.arith_ignore_int();
     m_arith_bound_prop = static_cast<bound_prop_mode>(p.arith_propagation_mode());
     m_arith_dump_lemmas = p.arith_dump_lemmas();
-    m_arith_reflect = p.arith_reflect();
     m_arith_eager_eq_axioms = p.arith_eager_eq_axioms();
     m_arith_auto_config_simplex = p.arith_auto_config_simplex();
 

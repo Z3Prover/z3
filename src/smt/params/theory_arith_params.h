@@ -51,110 +51,64 @@ enum class arith_pivot_strategy {
 inline std::ostream& operator<<(std::ostream& out, arith_pivot_strategy st) { return out << (int)st; }
 
 struct theory_arith_params {
-    bool                    m_arith_eq2ineq;
-    bool                    m_arith_process_all_eqs;
-    arith_solver_id         m_arith_mode;
-    bool                    m_arith_auto_config_simplex; //!< force simplex solver in auto_config
-    unsigned                m_arith_blands_rule_threshold;
-    bool                    m_arith_propagate_eqs;
-    bound_prop_mode         m_arith_bound_prop; 
-    bool                    m_arith_stronger_lemmas;
-    bool                    m_arith_skip_rows_with_big_coeffs;
-    unsigned                m_arith_max_lemma_size; 
-    unsigned                m_arith_small_lemma_size;
-    bool                    m_arith_reflect;
-    bool                    m_arith_ignore_int;
-    unsigned                m_arith_lazy_pivoting_lvl;
-    unsigned                m_arith_random_seed;
-    bool                    m_arith_random_initial_value;
-    int                     m_arith_random_lower;
-    int                     m_arith_random_upper;
-    bool                    m_arith_adaptive;
-    double                  m_arith_adaptive_assertion_threshold;
-    double                  m_arith_adaptive_propagation_threshold;
-    bool                    m_arith_dump_lemmas;
-    bool                    m_arith_eager_eq_axioms;
-    unsigned                m_arith_branch_cut_ratio;
-    bool                    m_arith_int_eq_branching;
-    bool                    m_arith_enum_const_mod;
+    bool                    m_arith_eq2ineq = false;
+    bool                    m_arith_process_all_eqs = false;
+    arith_solver_id         m_arith_mode = arith_solver_id::AS_NEW_ARITH;
+    bool                    m_arith_auto_config_simplex = false; //!< force simplex solver in auto_config
+    unsigned                m_arith_blands_rule_threshold = 1000;
+    bool                    m_arith_propagate_eqs = true;
+    bound_prop_mode         m_arith_bound_prop = bound_prop_mode::BP_REFINE;
+    bool                    m_arith_stronger_lemmas = true;
+    bool                    m_arith_skip_rows_with_big_coeffs = true;
+    unsigned                m_arith_max_lemma_size = 128; 
+    unsigned                m_arith_small_lemma_size = 16;
+    bool                    m_arith_reflect = true;
+    bool                    m_arith_ignore_int = false;
+    unsigned                m_arith_lazy_pivoting_lvl = 0;
+    unsigned                m_arith_random_seed = 0;
+    bool                    m_arith_random_initial_value = false;
+    int                     m_arith_random_lower = -1000;
+    int                     m_arith_random_upper = 1000;
+    bool                    m_arith_adaptive = false;
+    double                  m_arith_adaptive_assertion_threshold = 0.2;
+    double                  m_arith_adaptive_propagation_threshold = 0.4;
+    bool                    m_arith_dump_lemmas = false;
+    bool                    m_arith_eager_eq_axioms = true;
+    unsigned                m_arith_branch_cut_ratio = 2;
+    bool                    m_arith_int_eq_branching = false;
+    bool                    m_arith_enum_const_mod = false;
 
-    bool                    m_arith_gcd_test;
-    bool                    m_arith_eager_gcd;
-    bool                    m_arith_adaptive_gcd;
-    unsigned                m_arith_propagation_threshold;
+    bool                    m_arith_gcd_test = true;
+    bool                    m_arith_eager_gcd = false;
+    bool                    m_arith_adaptive_gcd = false;
+    unsigned                m_arith_propagation_threshold = UINT_MAX;
 
-    arith_pivot_strategy    m_arith_pivot_strategy;
+    arith_pivot_strategy    m_arith_pivot_strategy = arith_pivot_strategy::ARITH_PIVOT_SMALLEST;
 
     // used in diff-logic
-    bool                    m_arith_add_binary_bounds;
-    arith_prop_strategy     m_arith_propagation_strategy;
+    bool                    m_arith_add_binary_bounds = false;
+    arith_prop_strategy     m_arith_propagation_strategy = arith_prop_strategy::ARITH_PROP_PROPORTIONAL;
 
     // used arith_eq_adapter
-    bool                    m_arith_eq_bounds;
-    bool                    m_arith_lazy_adapter;
+    bool                    m_arith_eq_bounds = false;
+    bool                    m_arith_lazy_adapter = false;
 
     // performance debugging flags
-    bool                    m_arith_fixnum;
-    bool                    m_arith_int_only;
+    bool                    m_arith_fixnum = false;
+    bool                    m_arith_int_only = false;
 
     // non linear support
-    bool                    m_nl_arith;  
-    bool                    m_nl_arith_gb;
-    unsigned                m_nl_arith_gb_threshold;
-    bool                    m_nl_arith_gb_eqs;
-    bool                    m_nl_arith_gb_perturbate;
-    unsigned                m_nl_arith_max_degree;
-    bool                    m_nl_arith_branching;
-    unsigned                m_nl_arith_rounds;
+    bool                    m_nl_arith = true;  
+    bool                    m_nl_arith_gb = true;
+    unsigned                m_nl_arith_gb_threshold = 512;
+    bool                    m_nl_arith_gb_eqs = false;
+    bool                    m_nl_arith_gb_perturbate = true;
+    unsigned                m_nl_arith_max_degree = 6;
+    bool                    m_nl_arith_branching = true;
+    unsigned                m_nl_arith_rounds = 1024;
 
 
-
-    theory_arith_params(params_ref const & p = params_ref()):
-        m_arith_eq2ineq(false),
-        m_arith_process_all_eqs(false),
-        m_arith_mode(arith_solver_id::AS_NEW_ARITH),
-        m_arith_auto_config_simplex(false),
-        m_arith_blands_rule_threshold(1000),
-        m_arith_propagate_eqs(true),
-        m_arith_bound_prop(bound_prop_mode::BP_REFINE),
-        m_arith_stronger_lemmas(true),
-        m_arith_skip_rows_with_big_coeffs(true),
-        m_arith_max_lemma_size(128),
-        m_arith_small_lemma_size(16),
-        m_arith_reflect(true),
-        m_arith_ignore_int(false),
-        m_arith_lazy_pivoting_lvl(0),
-        m_arith_random_seed(0),
-        m_arith_random_initial_value(false),
-        m_arith_random_lower(-1000),
-        m_arith_random_upper(1000),
-        m_arith_adaptive(false),
-        m_arith_adaptive_assertion_threshold(0.2),
-        m_arith_adaptive_propagation_threshold(0.4),
-        m_arith_dump_lemmas(false),
-        m_arith_eager_eq_axioms(true),
-        m_arith_branch_cut_ratio(2),
-        m_arith_int_eq_branching(false),
-        m_arith_enum_const_mod(false),
-        m_arith_gcd_test(true),
-        m_arith_eager_gcd(false),
-        m_arith_adaptive_gcd(false),
-        m_arith_propagation_threshold(UINT_MAX),
-        m_arith_pivot_strategy(arith_pivot_strategy::ARITH_PIVOT_SMALLEST),
-        m_arith_add_binary_bounds(false),
-        m_arith_propagation_strategy(arith_prop_strategy::ARITH_PROP_PROPORTIONAL),
-        m_arith_eq_bounds(false),
-        m_arith_lazy_adapter(false),
-        m_arith_fixnum(false),
-        m_arith_int_only(false),
-        m_nl_arith(true),
-        m_nl_arith_gb(true),
-        m_nl_arith_gb_threshold(512),
-        m_nl_arith_gb_eqs(false),
-        m_nl_arith_gb_perturbate(true),
-        m_nl_arith_max_degree(6),
-        m_nl_arith_branching(true),
-        m_nl_arith_rounds(1024) {
+    theory_arith_params(params_ref const & p = params_ref()) {
         updt_params(p);
     }
 

@@ -1267,6 +1267,16 @@ void fpa2bv_converter::mk_abs(sort * s, expr_ref & x, expr_ref & result) {
     result = m_util.mk_fp(m_bv_util.mk_numeral(0, 1), exp, sig);
 }
 
+void fpa2bv_converter::mk_min_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_MIN, 0, nullptr, num, args), m);
+    mk_min(fu, num, args, result);
+}
+
+void fpa2bv_converter::mk_max_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_MAX, 0, nullptr, num, args), m);
+    mk_max(fu, num, args, result);
+}
+
 void fpa2bv_converter::mk_min(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
 
@@ -3416,6 +3426,16 @@ void fpa2bv_converter::mk_to_ubv(func_decl * f, unsigned num, expr * const * arg
 void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     TRACE("fpa2bv_to_sbv", for (unsigned i = 0; i < num; i++)
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
+    mk_to_bv(f, num, args, true, result);
+}
+
+void fpa2bv_converter::mk_to_ubv_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_TO_UBV, 0, nullptr, num, args), m);
+    mk_to_bv(f, num, args, false, result);
+}
+
+void fpa2bv_converter::mk_to_sbv_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_TO_SBV, 0, nullptr, num, args), m);
     mk_to_bv(f, num, args, true, result);
 }
 

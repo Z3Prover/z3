@@ -451,6 +451,7 @@ namespace array {
         expr_ref alpha(a.mk_select(args), m);
         expr_ref beta(alpha);
         rewrite(beta);
+        TRACE("array", tout << alpha << " == " << beta << "\n";);
         return ctx.propagate(e_internalize(alpha), e_internalize(beta), array_axiom());
     }
 
@@ -531,19 +532,22 @@ namespace array {
         if (!get_config().m_array_delay_exp_axiom)
             return false;
         unsigned num_vars = get_num_vars();
+        bool change = false;
         for (unsigned v = 0; v < num_vars; v++) {
             propagate_parent_select_axioms(v);
             auto& d = get_var_data(v);
             if (!d.m_prop_upward)
                 continue;
             euf::enode* n = var2enode(v);
+            if (add_as_array_eqs(n))
+                change = true;
             bool has_default = false;
             for (euf::enode* p : euf::enode_parents(n))
                 has_default |= a.is_default(p->get_expr());
             if (has_default)
                 propagate_parent_default(v);      
         }
-        bool change = false;
+
         unsigned sz = m_axiom_trail.size();
         m_delay_qhead = 0;
         
@@ -556,8 +560,30 @@ namespace array {
         return change;
     }
 
+    bool solver::add_as_array_eqs(euf::enode* n) {
+        func_decl* f = nullptr;
+        bool change = false;
+        if (!a.is_as_array(n->get_expr(), f))
+            return false;
+        for (unsigned i = 0; i < ctx.get_egraph().enodes_of(f).size(); ++i) {
+            euf::enode* p = ctx.get_egraph().enodes_of(f)[i];
+            expr_ref_vector select(m);
+            select.push_back(n->get_expr());
+            for (expr* arg : *to_app(p->get_expr()))
+                select.push_back(arg);
+            expr_ref _e(a.mk_select(select.size(), select.data()), m);
+            euf::enode* e = e_internalize(_e);
+            if (e->get_root() != p->get_root()) {
+                add_unit(eq_internalize(_e, p->get_expr()));
+                change = true;
+            }
+        }
+        return change;
+    }
+
     bool solver::add_interface_equalities() {
         sbuffer<theory_var> roots;
+        collect_defaults();
         collect_shared_vars(roots);
         bool prop = false;
         for (unsigned i = roots.size(); i-- > 0; ) {
@@ -568,10 +594,12 @@ namespace array {
                 expr* e2 = var2expr(v2);
                 if (e1->get_sort() != e2->get_sort())
                     continue;
-                if (have_different_model_values(v1, v2))
+                if (must_have_different_model_values(v1, v2)) {
                     continue;
-                if (ctx.get_egraph().are_diseq(var2enode(v1), var2enode(v2)))
-                    continue;              
+                }
+                if (ctx.get_egraph().are_diseq(var2enode(v1), var2enode(v2))) {
+                    continue;
+                }
                 sat::literal lit = eq_internalize(e1, e2);
                 if (s().value(lit) == l_undef) 
                     prop = true;
@@ -592,24 +620,29 @@ namespace array {
             if (r->is_marked1()) 
                 continue;            
             // arrays used as indices in other arrays have to be treated as shared issue #3532, #3529            
-            if (ctx.is_shared(r) || is_select_arg(r)) 
+            if (ctx.is_shared(r) || is_shared_arg(r)) 
                 roots.push_back(r->get_th_var(get_id()));
             
             r->mark1();
             to_unmark.push_back(r);            
         }
-        TRACE("array", tout << "collecting shared vars...\n" << unsigned_vector(roots.size(), (unsigned*)roots.data())  << "\n";);
+        TRACE("array", tout << "collecting shared vars...\n"; for (auto v : roots) tout << ctx.bpp(var2enode(v)) << "\n";);
         for (auto* n : to_unmark)
             n->unmark1();
     }
 
-    bool solver::is_select_arg(euf::enode* r) {
+    bool solver::is_shared_arg(euf::enode* r) {
         SASSERT(r->is_root());
-        for (euf::enode* n : euf::enode_parents(r)) 
-            if (a.is_select(n->get_expr())) 
-                for (unsigned i = 1; i < n->num_args(); ++i) 
-                    if (r == n->get_arg(i)->get_root()) 
+        for (euf::enode* n : euf::enode_parents(r)) {
+            expr* e = n->get_expr();
+            if (a.is_select(e))
+                for (unsigned i = 1; i < n->num_args(); ++i)
+                    if (r == n->get_arg(i)->get_root())
                         return true;
+            if (a.is_const(e))
+                return true;
+        }
+            
         return false;
     }
 

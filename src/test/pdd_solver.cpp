@@ -182,7 +182,7 @@ namespace dd {
     void collect_id2var(unsigned_vector& id2var, expr_ref_vector const& fmls) {
         svector<std::pair<unsigned, unsigned>> ds;
         unsigned maxid = 0;
-        for (expr* e : subterms(fmls)) {
+        for (expr* e : subterms::ground(fmls)) {
             ds.push_back(std::make_pair(to_app(e)->get_depth(), e->get_id()));
             maxid = std::max(maxid, e->get_id());
         }
@@ -202,11 +202,11 @@ namespace dd {
         pdd_manager p(id2var.size(), use_mod2 ? pdd_manager::mod2_e : pdd_manager::zero_one_vars_e);
         solver g(m.limit(), p);
 
-        for (expr* e : subterms(fmls)) {
+        for (expr* e : subterms::ground(fmls)) {
             add_def(id2var, to_app(e), m, p, g);
         }
         if (!use_mod2) { // should be built-in 
-            for (expr* e : subterms(fmls)) {
+            for (expr* e : subterms::ground(fmls)) {
                 pdd v = p.mk_var(id2var[e->get_id()]);
                 g.add(v*v - v);
             }

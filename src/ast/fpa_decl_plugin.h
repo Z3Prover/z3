@@ -58,6 +58,8 @@ enum fpa_op_kind {
     OP_FPA_ABS,
     OP_FPA_MIN,
     OP_FPA_MAX,
+    OP_FPA_MIN_I,
+    OP_FPA_MAX_I,
     OP_FPA_FMA, // x*y + z
     OP_FPA_SQRT,
     OP_FPA_ROUND_TO_INTEGRAL,
@@ -81,6 +83,9 @@ enum fpa_op_kind {
     OP_FPA_TO_UBV,
     OP_FPA_TO_SBV,
     OP_FPA_TO_REAL,
+
+    OP_FPA_TO_SBV_I,
+    OP_FPA_TO_UBV_I,
 
     /* Extensions */
     OP_FPA_TO_IEEE_BV,

@@ -42,6 +42,7 @@ Notes:
 #include "sat/sat_params.hpp"
 #include "sat/smt/euf_solver.h"
 #include "sat/tactic/goal2sat.h"
+#include "sat/tactic/sat2goal.h"
 #include "sat/tactic/sat_tactic.h"
 #include "sat/sat_simplifier_params.hpp"
 
@@ -1050,6 +1051,8 @@ private:
         eval.set_model_completion(true);
         bool all_true = true;
         for (expr * f : m_fmls) {
+            if (has_quantifiers(f))
+                continue;
             expr_ref tmp(m);
             eval(f, tmp);
             if (m.limit().is_canceled())

@@ -389,19 +389,7 @@ namespace smt {
         if (q) {
             // the variables in q are maybe not consecutive.
             var_subst sub(m, false);
-            expr_free_vars fv;
-            fv(q);
-            expr_ref_vector es(m);
-            es.resize(fv.size());
-            for (unsigned i = 0, j = 0; i < e->get_num_args(); ++i) {
-                SASSERT(j < es.size());
-                while (!fv[j]) {
-                    ++j; 
-                    SASSERT(j < es.size());
-                }
-                es[j++] = e->get_arg(i);
-            }
-            f = sub(q, es.size(), es.data());
+            f = sub(q, e->get_num_args(), e->get_args());
         }
         return f;
     }

@@ -719,7 +719,7 @@ extern "C" {
         else if (fid == mk_c(c)->get_seq_fid() && k == RE_SORT) {
             return Z3_RE_SORT;
         }
-	else if (fid == mk_c(c)->get_char_fid() && k == CHAR_SORT) {
+        else if (fid == mk_c(c)->get_char_fid() && k == CHAR_SORT) {
             return Z3_CHAR_SORT;
         }
         else {
@@ -1226,6 +1226,18 @@ extern "C" {
             //case OP_RE_FULL_CHAR_SET: return Z3_OP_RE_FULL_SET;
             case OP_RE_EMPTY_SET: return Z3_OP_RE_EMPTY_SET;
             default:
+                return Z3_OP_INTERNAL;
+            }
+        }
+
+        if (mk_c(c)->get_char_fid() == _d->get_family_id()) {
+            switch (_d->get_decl_kind()) {
+            case OP_CHAR_LE: return Z3_OP_CHAR_LE;
+            case OP_CHAR_TO_INT: return Z3_OP_CHAR_TO_INT;
+            case OP_CHAR_TO_BV: return Z3_OP_CHAR_TO_BV;
+            case OP_CHAR_FROM_BV: return Z3_OP_CHAR_FROM_BV;
+            case OP_CHAR_IS_DIGIT: return Z3_OP_CHAR_IS_DIGIT;
+            default: 
                 return Z3_OP_INTERNAL;
             }
         }

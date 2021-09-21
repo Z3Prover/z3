@@ -27,21 +27,15 @@ enum class dyn_ack_strategy {
 };
 
 struct dyn_ack_params {
-    dyn_ack_strategy m_dack;
-    bool             m_dack_eq;
-    double           m_dack_factor;
-    unsigned         m_dack_threshold;
-    unsigned         m_dack_gc;
-    double           m_dack_gc_inv_decay;
+    dyn_ack_strategy m_dack = dyn_ack_strategy::DACK_ROOT;
+    bool             m_dack_eq = false;
+    double           m_dack_factor = 0.1;
+    unsigned         m_dack_threshold = 10;
+    unsigned         m_dack_gc = 2000;
+    double           m_dack_gc_inv_decay = 0.8;
 
 public:
-    dyn_ack_params(params_ref const & p = params_ref()) :
-        m_dack(dyn_ack_strategy::DACK_ROOT),
-        m_dack_eq(false),
-        m_dack_factor(0.1),
-        m_dack_threshold(10),
-        m_dack_gc(2000), 
-        m_dack_gc_inv_decay(0.8) {
+    dyn_ack_params(params_ref const & p = params_ref()) {
         updt_params(p);
     }
 

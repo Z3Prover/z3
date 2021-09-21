@@ -80,6 +80,9 @@ class ll_printer {
                 display_child_ref(n);
             }
             break;
+        case AST_FUNC_DECL:
+            m_out << to_func_decl(n)->get_name();
+            break;
         default:
             display_child_ref(n);
         }

@@ -72,7 +72,7 @@ namespace euf {
     void * etable::mk_table_for(unsigned arity, func_decl * d) {
         void * r;
         SASSERT(d->get_arity() >= 1);
-        SASSERT(arity >= d->get_arity() || d->is_associative());
+        SASSERT(arity >= d->get_arity() || d->is_associative() || d->is_left_associative());
         switch (arity) {
         case 1:
             r = TAG(void*, alloc(unary_table), UNARY);

@@ -22,14 +22,10 @@ struct theory_seq_params {
     /*
      * Enable splitting guided by length constraints
      */
-    bool m_split_w_len;
-    bool m_seq_validate;
+    bool m_split_w_len = false;
+    bool m_seq_validate = false;
 
-
-    theory_seq_params(params_ref const & p = params_ref()):
-        m_split_w_len(false),
-        m_seq_validate(false)
-    {
+    theory_seq_params(params_ref const & p = params_ref()) {
         updt_params(p);
     }
 

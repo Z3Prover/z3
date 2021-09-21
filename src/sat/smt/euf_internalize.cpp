@@ -85,7 +85,7 @@ namespace euf {
         if (auto* s = expr2solver(e))
             s->internalize(e, m_is_redundant);            
         else 
-            attach_node(m_egraph.mk(e, m_generation, 0, nullptr));        
+            attach_node(mk_enode(e, 0, nullptr));        
         return true;
     }
 
@@ -100,7 +100,7 @@ namespace euf {
         if (auto* s = expr2solver(e)) 
             s->internalize(e, m_is_redundant);        
         else 
-            attach_node(m_egraph.mk(e, m_generation, num, m_args.data()));        
+            attach_node(mk_enode(e, num, m_args.data()));        
         return true;
     }
 
@@ -158,8 +158,9 @@ namespace euf {
         m_bool_var2expr[v] = e;
         m_var_trail.push_back(v);
         enode* n = m_egraph.find(e);
-        if (!n) 
-            n = m_egraph.mk(e, m_generation, 0, nullptr); 
+        if (!n) {
+            n = mk_enode(e, 0, nullptr);
+        }
         SASSERT(n->bool_var() == sat::null_bool_var || n->bool_var() == v);
         m_egraph.set_bool_var(n, v);
         if (m.is_eq(e) || m.is_or(e) || m.is_and(e) || m.is_not(e))
@@ -262,7 +263,7 @@ namespace euf {
             for (unsigned i = 0; i < sz; ++i) {
                 expr_ref fapp(m.mk_app(f, e->get_arg(i)), m);
                 expr_ref fresh(m.mk_fresh_const("dist-value", u), m);
-                enode* n = m_egraph.mk(fresh, m_generation, 0, nullptr);
+                enode* n = mk_enode(fresh, 0, nullptr);
                 n->mark_interpreted();
                 expr_ref eq = mk_eq(fapp, fresh);
                 sat::literal lit = mk_literal(eq);
@@ -334,15 +335,19 @@ namespace euf {
 
         // the variable is shared if the equivalence class of n
         // contains a parent application.
-
+        
         family_id th_id = m.get_basic_family_id();
         for (auto p : euf::enode_th_vars(n)) {
-            if (m.get_basic_family_id() != p.get_id()) {
-                th_id = p.get_id();
-                break;
+            family_id id = p.get_id();
+            if (m.get_basic_family_id() != id) {
+                if (th_id != m.get_basic_family_id())
+                    return true;
+                th_id = id;               
             }
         }
-
+        if (m.is_bool(n->get_expr()) && th_id != m.get_basic_family_id())
+            return true;
+        
         for (enode* parent : euf::enode_parents(n)) {
             app* p = to_app(parent->get_expr());
             family_id fid = p->get_family_id();
@@ -415,6 +420,37 @@ namespace euf {
                     m_todo.push_back(arg);
         }
         return g;
+    }
+
+    euf::enode* solver::e_internalize(expr* e) {
+        euf::enode* n = m_egraph.find(e);
+        if (!n) {
+            internalize(e, m_is_redundant);
+            n = m_egraph.find(e);
+        }
+        return n;
+    }
+
+    euf::enode* solver::mk_enode(expr* e, unsigned n, enode* const* args) { 
+        euf::enode* r = m_egraph.mk(e, m_generation, n, args); 
+        for (unsigned i = 0; i < n; ++i)
+            ensure_merged_tf(args[i]);
+        return r;
+    }
+
+    void solver::ensure_merged_tf(euf::enode* n) {
+        switch (n->value()) {
+        case l_undef:
+            break;
+        case l_true:
+            if (n->get_root() != mk_true())
+                m_egraph.merge(n, mk_true(), to_ptr(sat::literal(n->bool_var())));
+            break;
+        case l_false:
+            if (n->get_root() != mk_false())
+                m_egraph.merge(n, mk_false(), to_ptr(~sat::literal(n->bool_var())));
+            break;
+        }
     }
 
 }

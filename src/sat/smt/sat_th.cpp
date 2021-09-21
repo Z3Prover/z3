@@ -218,12 +218,7 @@ namespace euf {
     }
 
     euf::enode* th_euf_solver::e_internalize(expr* e) {
-        euf::enode* n = expr2enode(e);
-        if (!n) {
-            ctx.internalize(e, m_is_redundant);
-            n = expr2enode(e);
-        }
-        return n;
+        return ctx.e_internalize(e);
     }
 
     unsigned th_euf_solver::random() {

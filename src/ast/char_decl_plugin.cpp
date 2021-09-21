@@ -22,7 +22,6 @@ Author:
 
 char_decl_plugin::char_decl_plugin(): 
     m_charc_sym("Char") {
-    m_unicode = gparams::get_value("unicode") != "false";
 }
 
 char_decl_plugin::~char_decl_plugin() {
@@ -49,7 +48,7 @@ func_decl* char_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         if (num_parameters != 1)
             msg << "incorrect number of parameters passed. Expected 1, received " << num_parameters;
         else if (arity != 0)
-            msg << "incorrect number of arguments passed. Expected 1, received " << arity;
+            msg << "incorrect number of arguments passed. Expected 0, received " << arity;
         else if (!parameters[0].is_int())
             msg << "integer parameter expected";
         else if (parameters[0].get_int() < 0)
@@ -69,6 +68,32 @@ func_decl* char_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             return m.mk_func_decl(symbol("char.to_int"), arity, domain, a.mk_int(), func_decl_info(m_family_id, k, 0, nullptr));
         }
         m.raise_exception(msg.str());
+    case OP_CHAR_TO_BV:
+        if (num_parameters != 0)
+            msg << "incorrect number of parameters passed. Expected 0, received " << num_parameters;
+        else if (arity != 1)
+            msg << "incorrect number of arguments passed. Expected one character, received " << arity;
+        else if (m_char != domain[0])
+            msg << "expected character sort argument";
+        else {
+            bv_util b(m);
+            unsigned sz = num_bits();
+            return m.mk_func_decl(symbol("char.to_bv"), arity, domain, b.mk_sort(sz), func_decl_info(m_family_id, k, 0, nullptr));
+        }
+        m.raise_exception(msg.str());
+    case OP_CHAR_FROM_BV: {
+        bv_util b(m);
+        if (num_parameters != 0)
+            msg << "incorrect number of parameters passed. Expected 0, received " << num_parameters;
+        else if (arity != 1)
+            msg << "incorrect number of arguments passed. Expected one character, received " << arity;
+        else if (!b.is_bv_sort(domain[0]) || b.get_bv_size(domain[0]) != num_bits())
+            msg << "expected bit-vector sort argument with " << num_bits();
+        else {
+            return m.mk_func_decl(symbol("char.from_bv"), arity, domain, m_char, func_decl_info(m_family_id, k, 0, nullptr));
+        }
+        m.raise_exception(msg.str());
+    }
     case OP_CHAR_IS_DIGIT:
         if (num_parameters != 0)
             msg << "incorrect number of parameters passed. Expected 0, received " << num_parameters;
@@ -78,6 +103,7 @@ func_decl* char_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             return m.mk_func_decl(symbol("char.is_digit"), arity, domain, m.mk_bool_sort(), func_decl_info(m_family_id, k, 0, nullptr));
         }
         m.raise_exception(msg.str());
+        
     default:
         UNREACHABLE();
     }    
@@ -95,6 +121,8 @@ void char_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol cons
     op_names.push_back(builtin_name("Char", OP_CHAR_CONST));
     op_names.push_back(builtin_name("char.to_int", OP_CHAR_TO_INT));
     op_names.push_back(builtin_name("char.is_digit", OP_CHAR_IS_DIGIT));
+    op_names.push_back(builtin_name("char.to_bv", OP_CHAR_TO_BV));
+    op_names.push_back(builtin_name("char.from_bv", OP_CHAR_FROM_BV));
 }
 
 void char_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const& logic) {

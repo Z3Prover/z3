@@ -300,7 +300,7 @@ namespace euf {
         size_t* c = to_ptr(l);
         SASSERT(is_literal(c));
         SASSERT(l == get_literal(c));
-	    if (n->value_conflict()) {
+        if (n->value_conflict()) {
             euf::enode* nb = sign ? mk_false() : mk_true();
             euf::enode* r = n->get_root();
             euf::enode* rb = sign ? mk_true() : mk_false();
@@ -454,35 +454,65 @@ namespace euf {
         bool give_up = false;
         bool cont = false;
 
+        if (unit_propagate())
+            return sat::check_result::CR_CONTINUE;
+
         if (!init_relevancy())
             give_up = true;
         
         unsigned num_nodes = m_egraph.num_nodes();
-        for (auto* e : m_solvers) {
-            if (!m.inc())
-                return sat::check_result::CR_GIVEUP;
-            if (e == m_qsolver)
-                continue;
+        auto apply_solver = [&](th_solver* e) {
             switch (e->check()) {
             case sat::check_result::CR_CONTINUE: cont = true; break;
             case sat::check_result::CR_GIVEUP: give_up = true; break;
             default: break;
             }
+        };
+        if (merge_shared_bools())
+            cont = true;
+        for (auto* e : m_solvers) {
+            if (!m.inc())
+                return sat::check_result::CR_GIVEUP;
+            if (e == m_qsolver)
+                continue;
+            apply_solver(e);
             if (s().inconsistent())
                 return sat::check_result::CR_CONTINUE;
         }
+
+
+        if (s().inconsistent())
+            return sat::check_result::CR_CONTINUE;
         if (cont)
             return sat::check_result::CR_CONTINUE;
-        if (give_up)
-            return sat::check_result::CR_GIVEUP;
+        if (m_qsolver)
+            apply_solver(m_qsolver);
         if (num_nodes < m_egraph.num_nodes()) {
             IF_VERBOSE(1, verbose_stream() << "new nodes created, but not detected\n");
-            return sat::check_result::CR_CONTINUE;           
+            return sat::check_result::CR_CONTINUE;
         }
-        if (m_qsolver)
-            return m_qsolver->check();
         TRACE("after_search", s().display(tout););
+        if (give_up)
+            return sat::check_result::CR_GIVEUP;
         return sat::check_result::CR_DONE;
+    }
+
+    bool solver::merge_shared_bools() {
+        bool merged = false;
+        for (unsigned i = m_egraph.nodes().size(); i-- > 0; ) {
+            euf::enode* n = m_egraph.nodes()[i];
+            if (!is_shared(n) || !m.is_bool(n->get_expr()))
+                continue;
+            if (n->value() == l_true && !m.is_true(n->get_root()->get_expr())) {
+                m_egraph.merge(n, mk_true(), to_ptr(sat::literal(n->bool_var())));
+                merged = true;                    
+            }
+            if (n->value() == l_false && !m.is_false(n->get_root()->get_expr())) {
+                m_egraph.merge(n, mk_false(), to_ptr(~sat::literal(n->bool_var())));
+                merged = true;
+            }
+        }
+        return merged;
     }
 
     void solver::push() {
@@ -564,13 +594,21 @@ namespace euf {
         TRACE("euf", for (auto const& kv : replay.m) tout << kv.m_value << "\n";);
         for (auto const& [e, generation, v] : m_reinit) {
             scoped_generation _sg(*this, generation);
-            TRACE("euf", tout << "replay: " << v << " " << mk_bounded_pp(e, m) << "\n";);
+            TRACE("euf", tout << "replay: " << v << " " << e->get_id() << " " << mk_bounded_pp(e, m) << " " << si.is_bool_op(e) << "\n";);
             sat::literal lit;
             if (si.is_bool_op(e)) 
                 lit = literal(replay.m[e], false);
             else 
                 lit = si.internalize(e, true);
-            VERIFY(lit.var() == v);
+            VERIFY(lit.var() == v);     
+            if (!m_egraph.find(e) && (!m.is_iff(e) && !m.is_or(e) && !m.is_and(e) && !m.is_not(e))) {
+                ptr_buffer<euf::enode> args;
+                if (is_app(e))
+                    for (expr* arg : *to_app(e))
+                        args.push_back(e_internalize(arg));
+                if (!m_egraph.find(e))
+                    mk_enode(e, args.size(), args.data());
+            }
             attach_lit(lit, e);            
         }
         
@@ -634,10 +672,10 @@ namespace euf {
             break;
         }
         case OP_TRUE:
-            add_root(lit);
+            add_aux(lit);
             break;
         case OP_FALSE:
-            add_root(~lit);
+            add_aux(~lit);
             break;
         case OP_ITE: {
             auto lit1 = si.internalize(to_app(e)->get_arg(0), true);
@@ -826,6 +864,14 @@ namespace euf {
         };
         r->m_egraph.copy_from(m_egraph, copy_justification);        
         r->set_solver(s);
+        for (euf::enode* n : r->m_egraph.nodes()) {
+            auto b = n->bool_var();
+            if (b != sat::null_bool_var) {
+                m_bool_var2expr.setx(b, n->get_expr(), nullptr);
+                SASSERT(r->m.is_bool(n->get_sort()));
+                IF_VERBOSE(11, verbose_stream() << "set bool_var " << r->bpp(n) << "\n");
+            }
+        }
         for (auto* s_orig : m_id2solver) {
             if (s_orig) {
                 auto* s_clone = s_orig->clone(*r);

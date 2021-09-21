@@ -448,7 +448,7 @@ namespace q {
     */
     void mbqi::extract_var_args(expr* _t, q_body& qb) {
         expr_ref t(_t, m);
-        for (expr* s : subterms(t)) {
+        for (expr* s : subterms::ground(t)) {
             if (is_ground(s))
                 continue;
             if (is_uninterp(s) && to_app(s)->get_num_args() > 0) {

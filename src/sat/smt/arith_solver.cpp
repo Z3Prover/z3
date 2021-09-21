@@ -581,6 +581,27 @@ namespace arith {
                 value = ~value;
             if (!found_bad && value == get_phase(n->bool_var()))
                 continue;
+
+            TRACE("arith",
+                ptr_vector<expr> nodes;
+                expr_mark marks;
+                nodes.push_back(n->get_expr());
+                for (unsigned i = 0; i < nodes.size(); ++i) {
+                    expr* r = nodes[i];
+                    if (marks.is_marked(r))
+                        continue;
+                    marks.mark(r);
+                    if (is_app(r))
+                        for (expr* arg : *to_app(r))
+                            nodes.push_back(arg);
+                    expr_ref rval(m);                    
+                    expr_ref mval = mdl(r);
+                    if (ctx.get_egraph().find(r))
+                        rval = mdl(ctx.get_egraph().find(r)->get_root()->get_expr());
+                    tout << r->get_id() << ": " << mk_bounded_pp(r, m, 1) << " := " << mval;
+                    if (rval != mval) tout << " " << rval;
+                    tout << "\n";
+                });
             TRACE("arith",
                 tout << eval << " " << value << " " << ctx.bpp(n) << "\n";
                 tout << mdl << "\n";
@@ -605,8 +626,7 @@ namespace arith {
         else if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
             anum const& an = nl_value(v, *m_a1);
             if (a.is_int(o) && !m_nla->am().is_int(an))
-                value = a.mk_numeral(rational::zero(), a.is_int(o));
-            else
+                value = a.mk_numeral(rational::zero(), a.is_int(o));             
                 value = a.mk_numeral(m_nla->am(), nl_value(v, *m_a1), a.is_int(o));
         }
         else if (v != euf::null_theory_var) {
@@ -617,7 +637,7 @@ namespace arith {
                 r = floor(r);
             value = a.mk_numeral(r, o->get_sort());
         }
-        else if (a.is_arith_expr(o)) {
+        else if (a.is_arith_expr(o) && reflect(o)) {
             expr_ref_vector args(m);
             for (auto* arg : *to_app(o)) {
                 if (m.is_value(arg))

@@ -3206,7 +3206,7 @@ def Q(a, b, ctx=None):
     >>> Q(3,5).sort()
     Real
     """
-    return simplify(RatVal(a, b))
+    return simplify(RatVal(a, b, ctx=ctx))
 
 
 def Int(name, ctx=None):
@@ -10578,7 +10578,7 @@ class SeqSortRef(SortRef):
 
 class CharSortRef(SortRef):
     """Character sort."""
-    
+
 
 
 def StringSort(ctx=None):
@@ -10706,12 +10706,11 @@ def is_string_value(a):
     """
     return isinstance(a, SeqRef) and a.is_string_value()
 
-
 def StringVal(s, ctx=None):
     """create a string expression"""
-    s = "".join(str(ch) if ord(ch) < 128 else "\\u{%x}" % (ord(ch)) for ch in s)
+    s = "".join(str(ch) if 32 <= ord(ch) and ord(ch) < 127 else "\\u{%x}" % (ord(ch)) for ch in s)
     ctx = _get_ctx(ctx)
-    return SeqRef(Z3_mk_lstring(ctx.ref(), len(s), s), ctx)
+    return SeqRef(Z3_mk_string(ctx.ref(), s), ctx)
 
 
 def String(name, ctx=None):
