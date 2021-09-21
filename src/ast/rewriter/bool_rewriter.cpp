@@ -924,7 +924,6 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
 
 
     if (m().is_ite(t) && m_ite_extra_rules && m_elim_ite) {
-        std::cout << "extra rules\n";
         // (ite c1 (ite c2 t1 t2) t1) ==> (ite (and c1 (not c2)) t2 t1)
         if (e == to_app(t)->get_arg(1)) {
             expr_ref not_c2(m());
