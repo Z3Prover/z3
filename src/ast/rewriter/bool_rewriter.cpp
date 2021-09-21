@@ -905,7 +905,26 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
         }
     }
 
+#if 0
+    expr* t1, *t2;
+    // (ite c (not (= t1 t2)) t1) ==> (not (= t1 (and c t2)))
+    if (m().is_not(t, t1) && m().is_eq(t1, t1, t2) && e == t1) {
+        expr_ref a(m());
+        mk_and(c, t2, a);
+        result = m().mk_not(m().mk_eq(t1, a));
+        return BR_REWRITE2;
+    }
+    if (m().is_not(t, t1) && m().is_eq(t1, t2, t1) && e == t1) {
+        expr_ref a(m());
+        mk_and(c, t2, a);
+        result = m().mk_eq(t1, a);
+        return BR_REWRITE2;
+    }
+#endif
+
+
     if (m().is_ite(t) && m_ite_extra_rules && m_elim_ite) {
+        std::cout << "extra rules\n";
         // (ite c1 (ite c2 t1 t2) t1) ==> (ite (and c1 (not c2)) t2 t1)
         if (e == to_app(t)->get_arg(1)) {
             expr_ref not_c2(m());
@@ -922,6 +941,7 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
             result = m().mk_ite(new_c, to_app(t)->get_arg(1), e);
             return BR_REWRITE1;
         }
+
 
         if (m().is_ite(e)) {
             // (ite c1 (ite c2 t1 t2) (ite c3 t1 t2)) ==> (ite (or (and c1 c2) (and (not c1) c3)) t1 t2)
