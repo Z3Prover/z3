@@ -115,23 +115,29 @@ namespace polysat {
         if (is_conflict())
             return;  // no need to do anything if we already have a conflict at base level
         m_constraints.ensure_bvar(c.get());
+        sat::literal lit = c.blit();
+        LOG("New constraint: " << c);
+        if (m_bvars.is_false(lit) || c.is_currently_false(*this)) {
+            set_conflict(c /*, dep */);
+            return;
+        }
+#if 0
         clause_ref unit = clause::from_unit(c);
         m_constraints.store(unit.get(), *this);
         c->set_unit_clause(unit.get());
-        LOG("New constraint: " << c);
-
-#if ENABLE_LINEAR_SOLVER
-        m_linear_solver.new_constraint(*c.get());
-#endif
         (void) dep; // dependencies go into justification
-        assign_bool(m_level, c.blit(), c->unit_clause(), nullptr);
-#if 0
+        assign_bool(m_level, lit, c->unit_clause(), nullptr);
+#else
         // just add them as axioms, tracked by dependencies
-        literal lit = c.blit();
         m_bvars.assign(lit, m_level, nullptr, nullptr, dep);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
 #endif
+
+#if ENABLE_LINEAR_SOLVER
+        m_linear_solver.new_constraint(*c.get());
+#endif
+
     }
 
 
@@ -537,6 +543,7 @@ namespace polysat {
             case l_false:
                 continue;
             default:                
+                
                 if (lit2cnstr(lit).is_currently_false(*this)) {
                     num_choices++;
                     continue;
@@ -556,12 +563,14 @@ namespace polysat {
         }
 
         signed_constraint c = lit2cnstr(choice);
+        if (num_choices > 0)
+            push_level();        
         push_cjust(lemma.justified_var(), c);
 
         if (num_choices == 1)
             assign_bool(level(lemma), choice, &lemma, nullptr);
-        else
-            decide_bool(choice, &lemma);
+        else 
+            assign_bool(m_level, choice, nullptr, &lemma);
     }
 
     /**

@@ -927,8 +927,11 @@ namespace polysat {
 
 void tst_polysat() {
 
-    polysat::test_ineq_axiom1();
-    return;
+    polysat::test_subst();
+
+
+//    polysat::test_ineq_axiom1();
+//    return;
 
     // not working
     // polysat::test_fixed_point_arith_div_mul_inverse();
@@ -961,7 +964,6 @@ void tst_polysat() {
     polysat::test_ineq_basic6();
     polysat::test_monot_bounds(2);
     polysat::test_cjust();
-    polysat::test_subst();
 
     // inefficient conflicts:
     // Takes time: polysat::test_monot_bounds_full();
