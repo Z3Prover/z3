@@ -42,6 +42,8 @@ namespace polysat {
                 return true;
             if (try_y_l_ax_and_x_l_z(v, core, c))
                 return true;
+            if (try_tangent(v, core, c))
+                return true;
         }
         return false;
     }
@@ -378,6 +380,29 @@ namespace polysat {
         push_omega(new_constraints, x, y_prime);
         // yx <= y'x
         return propagate(core, z_l_y, yx_l_zx, z_l_y.is_strict || yx_l_zx.is_strict, y * x, y_prime * x, new_constraints);
+    }
+
+    // [x] p(x) <= q(x) where value(p) > value(q)
+    //     ==> q <= value(q) => p <= value(q)
+
+    bool inf_saturate::try_tangent(pvar v, conflict& core, inequality const& c) {
+        if (!c.src->contains_var(v))
+            return false;
+        if (c.lhs.is_val() || c.rhs.is_val())
+            return false;
+        if (!c.as_signed_constraint().is_currently_false(s()))
+            return false;
+        rational l_val, r_val;
+        if (!s().try_eval(c.lhs, l_val))
+            return false;
+        if (!s().try_eval(c.rhs, r_val))
+            return false;
+        SASSERT(c.is_strict || l_val > r_val);
+        SASSERT(!c.is_strict || l_val >= r_val);
+        vector<signed_constraint> new_constraints;
+        new_constraints.push_back(c.as_signed_constraint());
+        new_constraints.push_back(s().ule(c.rhs, r_val));
+        return propagate(core, c, c, c.is_strict ? s().ult(c.lhs, r_val) : s().ule(c.lhs, r_val), new_constraints);
     }
 
 }

@@ -12,16 +12,17 @@ Author:
 
 Notes:
 
-    TODO: Maybe we want to rewrite some of the following into equalities? (i.e., into p<=0)
+   TODO: add rewrite rules to simplify expressions
+  
+   - k1 <= k2   ==> 0 <= 0 if k1 <= k2
+   - k1 <= k2   ==> 1 <= 0 if k1 >  k2
+   - 0 <= p     ==> 0 <= 0
+   - p <= -1    ==> 0 <= 0
+   - k*p <= 0   ==> p <= 0 if k is odd
 
-         p <= 0   <==>  p = 0
-         -1 <= p  <==>  p = -1
-         1 <= p   <==>  p != 0
-         p <= -2  <==>  p != -1
-
-         e.g.
-         x - 2 >= 1   <==>  x != 2
-         2 - x >= -1  <==>  x = 3
+   - k <= p     ==> p - k <= k - 1
+   - p <= p + q ==> p <= -q - 1
+   - p + k <= p ==> p + k <= k - 1   for k > 0
 
 --*/
 
@@ -33,10 +34,17 @@ namespace polysat {
 
     ule_constraint::ule_constraint(constraint_manager& m, pdd const& l, pdd const& r) :
         constraint(m, ckind_t::ule_t), m_lhs(l), m_rhs(r) {
-        m_vars.append(l.free_vars());
-        for (auto v : r.free_vars())
+
+        simplify();
+
+        m_vars.append(m_lhs.free_vars());
+        for (auto v : m_rhs.free_vars())
             if (!m_vars.contains(v))
                 m_vars.push_back(v);
+
+    }
+
+    void ule_constraint::simplify() {
         if (m_lhs.is_val() && m_rhs.is_val()) {
             if (m_lhs.val() <= m_rhs.val())
                 m_lhs = m_rhs = 0;

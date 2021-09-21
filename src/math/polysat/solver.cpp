@@ -640,8 +640,6 @@ namespace polysat {
         }
         m_conflict.reset();
 
-        std::cout << "reason " << *reason << "\n";
-
         // The lemma where 'lit' comes from.
         // Currently, boolean decisions always come from guessing a literal of a learned non-unit lemma.
         clause* lemma = m_bvars.lemma(var);  // need to grab this while 'lit' is still assigned

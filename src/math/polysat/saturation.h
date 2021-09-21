@@ -54,6 +54,8 @@ namespace polysat {
         bool try_ugt_z(pvar z, conflict& core, inequality const& c);
         bool try_ugt_z(pvar z, conflict& core, inequality const& x_l_z0, inequality const& yz_l_xz, pdd const& y, pdd const& x);
 
+        bool try_tangent(pvar v, conflict& core, inequality const& c);
+
         // c := lhs ~ v 
         //  where ~ is < or <=         
         bool is_l_v(pvar v, inequality const& c);

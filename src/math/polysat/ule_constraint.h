@@ -24,6 +24,7 @@ namespace polysat {
         pdd m_rhs;
 
         ule_constraint(constraint_manager& m, pdd const& l, pdd const& r);
+        void simplify();
 
     public:
         ~ule_constraint() override {}
