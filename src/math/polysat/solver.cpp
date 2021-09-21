@@ -532,18 +532,13 @@ namespace polysat {
             case l_true:
                 return;
             case l_false:
-                continue;
-            default:                
-                
-                if (lit2cnstr(lit).is_currently_false(*this)) {
-                    num_choices++;
-                    continue;
-                }
+                break;
+            case l_undef:
+                num_choices++;                
+                if (!lit2cnstr(lit).is_currently_false(*this)) 
+                    choice = lit;
                 break;
             }
-            num_choices++;
-            if (choice == sat::null_literal)
-                choice = lit;
         }
         LOG_V("num_choices: " << num_choices);
         if (choice == sat::null_literal) {
