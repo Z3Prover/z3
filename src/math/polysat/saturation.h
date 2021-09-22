@@ -21,11 +21,10 @@ namespace polysat {
 
     class inference_engine {
         friend class conflict;
-        solver* m_solver = nullptr;
-        void set_solver(solver& s) { m_solver = &s; }
     protected:
-        solver& s() { return *m_solver; }
+        solver& s;
     public:
+        inference_engine(solver& s) :s(s) {}
         virtual ~inference_engine() {}
         /** Try to apply an inference rule.
          *  Derive new constraints from constraints containing the variable v (i.e., at least one premise must contain v).
@@ -91,7 +90,7 @@ namespace polysat {
         bool is_coeffxY(pdd const& coeff_x, pdd const& p, pdd& y);
 
     public:
-
+        inf_saturate(solver& s) : inference_engine(s) {}
         bool perform(pvar v, conflict& core) override;
     };
 

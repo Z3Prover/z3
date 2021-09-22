@@ -50,9 +50,9 @@ namespace polysat {
 
     signed_constraint inf_saturate::ineq(bool is_strict, pdd const& lhs, pdd const& rhs) {
         if (is_strict)
-            return s().ult(lhs, rhs);
+            return s.ult(lhs, rhs);
         else
-            return s().ule(lhs, rhs);
+            return s.ule(lhs, rhs);
     }
 
     /**
@@ -60,12 +60,12 @@ namespace polysat {
     * The lemmas outlined in the rules are valid and therefore c is implied.
     */
     bool inf_saturate::propagate(conflict& core, inequality const& crit1, inequality const& crit2, signed_constraint& c, vector<signed_constraint>& new_constraints) {
-        bool crit1_false = crit1.as_signed_constraint().is_currently_false(s());
-        bool crit2_false = crit2.as_signed_constraint().is_currently_false(s());
+        bool crit1_false = crit1.as_signed_constraint().is_currently_false(s);
+        bool crit2_false = crit2.as_signed_constraint().is_currently_false(s);
         if (!crit1_false && !crit2_false)
             return false;
-        bool is_bool_false = c.bvalue(s()) == l_false;
-        bool is_model_false = c.is_currently_false(s());
+        bool is_bool_false = c.bvalue(s) == l_false;
+        bool is_model_false = c.is_currently_false(s);
         if (!is_bool_false && !is_model_false)
             return false;
         
@@ -95,8 +95,8 @@ namespace polysat {
         rational x_val, y_val;
         auto& pddm = x.manager();
         rational bound = pddm.max_value();
-        VERIFY(s().try_eval(x, x_val));
-        VERIFY(s().try_eval(y, y_val));
+        VERIFY(s.try_eval(x, x_val));
+        VERIFY(s.try_eval(y, y_val));
         SASSERT(x_val * y_val <= bound);
 
         rational x_lo = x_val, x_hi = x_max, y_lo = y_val, y_hi = y_max;
@@ -140,8 +140,8 @@ namespace polysat {
         // conflict resolution should be able to pick up this as a valid justification.
         // or we resort to the same extension as in the original mul_overflow code
         // where we add explicit equality propagations from the current assignment.
-        auto c1 = s().ule(x, pddm.mk_val(x_lo));
-        auto c2 = s().ule(y, pddm.mk_val(y_lo));
+        auto c1 = s.ule(x, pddm.mk_val(x_lo));
+        auto c2 = s.ule(y, pddm.mk_val(y_lo));
         new_constraints.insert(c1);
         new_constraints.insert(c2);
     }
@@ -154,16 +154,16 @@ namespace polysat {
         rational y_max = pddm.max_value();
         
         if (x.is_var()) 
-            x_max = s().m_viable.max_viable(x.var());
+            x_max = s.m_viable.max_viable(x.var());
         if (y.is_var()) 
-            y_max = s().m_viable.max_viable(y.var());        
+            y_max = s.m_viable.max_viable(y.var());        
 
         if (x_max * y_max  > pddm.max_value())            
             push_omega_bisect(new_constraints, x, x_max, y, y_max);
         else {
-            for (auto c : s().m_cjust[y.var()])
+            for (auto c : s.m_cjust[y.var()])
                 new_constraints.insert(c);
-            for (auto c : s().m_cjust[x.var()])
+            for (auto c : s.m_cjust[x.var()])
                 new_constraints.insert(c);
         }
     }
@@ -172,14 +172,14 @@ namespace polysat {
     * Match [v] .. <= v 
     */
     bool inf_saturate::is_l_v(pvar v, inequality const& i) {
-        return i.rhs == s().var(v);
+        return i.rhs == s.var(v);
     }
 
     /*
     * Match [v] v <= ...
     */
     bool inf_saturate::is_g_v(pvar v, inequality const& i) {
-        return i.lhs == s().var(v);
+        return i.lhs == s.var(v);
     }
 
     /*
@@ -199,7 +199,7 @@ namespace polysat {
     }
 
     bool inf_saturate::verify_Y_l_Ax(pvar x, inequality const& d, pdd const& a, pdd const& y) {        
-        return d.lhs == y && d.rhs == a * s().var(x);
+        return d.lhs == y && d.rhs == a * s.var(x);
     }
 
     /**
@@ -218,7 +218,7 @@ namespace polysat {
         rational x_val, y_val;
         auto& pddm = x.manager();
         rational bound = rational::power_of_two(pddm.power_of_2());
-        return s().try_eval(x, x_val) && s().try_eval(y, y_val) && x_val * y_val < bound;       
+        return s.try_eval(x, x_val) && s.try_eval(y, y_val) && x_val * y_val < bound;       
     }
 
     /**
@@ -229,7 +229,7 @@ namespace polysat {
     }
 
     bool inf_saturate::verify_Xy_l_XZ(pvar v, inequality const& c, pdd const& x, pdd const& z) {
-        return c.lhs == s().var(v) * x && c.rhs == z * x;
+        return c.lhs == s.var(v) * x && c.rhs == z * x;
     }
 
     /**
@@ -240,7 +240,7 @@ namespace polysat {
     }
 
     bool inf_saturate::verify_YX_l_zX(pvar z, inequality const& c, pdd const& x, pdd const& y) {
-        return c.lhs == y * x && c.rhs == s().var(z) * x;
+        return c.lhs == y * x && c.rhs == s.var(z) * x;
     }
 
     /**
@@ -263,19 +263,19 @@ namespace polysat {
      *  [x] yx <= zx  ==>  Ω*(x,y) \/ y <= z \/ x = 0
      */
     bool inf_saturate::try_ugt_x(pvar v, conflict& core, inequality const& c) {
-        pdd x = s().var(v);
+        pdd x = s.var(v);
         pdd y = x;
         pdd z = x;
         if (!is_xY_l_xZ(v, c, y, z))
             return false;
         if (!is_non_overflow(x, y))
             return false;
-        if (!c.is_strict && s().get_value(v).is_zero())
+        if (!c.is_strict && s.get_value(v).is_zero())
             return false;
 
         vector<signed_constraint> new_constraints;   
         if (!c.is_strict)
-            new_constraints.push_back(~s().eq(x));
+            new_constraints.push_back(~s.eq(x));
         push_omega(new_constraints, x, y);
         return propagate(core, c, c, c.is_strict, y, z, new_constraints);
     }
@@ -283,7 +283,7 @@ namespace polysat {
     /// [y] z' <= y /\ zx > yx  ==>  Ω*(x,y) \/ zx > z'x
     /// [y] z' <= y /\ yx <= zx  ==>  Ω*(x,y) \/ z'x <= zx
     bool inf_saturate::try_ugt_y(pvar v, conflict& core, inequality const& le_y, inequality const& yx_l_zx, pdd const& x, pdd const& z) {
-        pdd const y = s().var(v);
+        pdd const y = s.var(v);
 
         SASSERT(is_l_v(v, le_y));
         SASSERT(verify_Xy_l_XZ(v, yx_l_zx, x, z));
@@ -303,7 +303,7 @@ namespace polysat {
     bool inf_saturate::try_ugt_y(pvar v, conflict& core, inequality const& c) {
         if (!is_l_v(v, c))
             return false;
-        pdd x = s().var(v);
+        pdd x = s.var(v);
         pdd z = x;
         for (auto dd : core) {
             if (!dd->is_ule())
@@ -321,7 +321,7 @@ namespace polysat {
     bool inf_saturate::try_y_l_ax_and_x_l_z(pvar x, conflict& core, inequality const& c) {
         if (!is_g_v(x, c))
             return false;
-        pdd y = s().var(x);
+        pdd y = s.var(x);
         pdd a = y;
         for (auto dd : core) {
             if (!dd->is_ule())
@@ -353,7 +353,7 @@ namespace polysat {
     bool inf_saturate::try_ugt_z(pvar z, conflict& core, inequality const& c) {
         if (!is_g_v(z, c))
             return false;
-        pdd y = s().var(z);
+        pdd y = s.var(z);
         pdd x = y;
         for (auto dd : core) {
             if (!dd->is_ule())
@@ -387,19 +387,19 @@ namespace polysat {
             return false;
         if (c.lhs.is_val() || c.rhs.is_val())
             return false;
-        if (!c.as_signed_constraint().is_currently_false(s()))
+        if (!c.as_signed_constraint().is_currently_false(s))
             return false;
         rational l_val, r_val;
-        if (!s().try_eval(c.lhs, l_val))
+        if (!s.try_eval(c.lhs, l_val))
             return false;
-        if (!s().try_eval(c.rhs, r_val))
+        if (!s.try_eval(c.rhs, r_val))
             return false;
         SASSERT(c.is_strict || l_val > r_val);
         SASSERT(!c.is_strict || l_val >= r_val);
         vector<signed_constraint> new_constraints;
         new_constraints.push_back(c.as_signed_constraint());
-        new_constraints.push_back(s().ule(c.rhs, r_val));
-        return propagate(core, c, c, c.is_strict ? s().ult(c.lhs, r_val) : s().ule(c.lhs, r_val), new_constraints);
+        new_constraints.push_back(s.ule(c.rhs, r_val));
+        return propagate(core, c, c, c.is_strict ? s.ult(c.lhs, r_val) : s.ule(c.lhs, r_val), new_constraints);
     }
 
 }

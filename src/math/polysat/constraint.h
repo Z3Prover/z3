@@ -90,7 +90,7 @@ namespace polysat {
 
         signed_constraint eq(pdd const& p);
         signed_constraint ule(pdd const& a, pdd const& b);
-        signed_constraint ult(pdd const& a, pdd const& b);
+        signed_constraint ult(pdd const& a, pdd const& b); 
         signed_constraint sle(pdd const& a, pdd const& b);
         signed_constraint slt(pdd const& a, pdd const& b);
 
@@ -224,6 +224,8 @@ namespace polysat {
         bool is_always_true() const { return get()->is_always_false(is_negative()); }        
         bool is_currently_false(solver& s) const;
         bool is_currently_true(solver& s) const;
+        bool is_currently_false(assignment_t const& a) const { return get()->is_currently_false(a, is_positive()); }
+        bool is_currently_true(assignment_t const& a) const { return get()->is_currently_true(a, is_positive()); }
         lbool bvalue(solver& s) const;
         unsigned level(solver& s) const { return get()->level(s); }
         void narrow(solver& s) { get()->narrow(s, is_positive()); }

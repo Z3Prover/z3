@@ -50,6 +50,8 @@ namespace polysat {
         void insert_literal(sat::literal lit);
         void remove_literal(sat::literal lit);
 
+        void minimize_vars(signed_constraint c);
+
         /** Whether we are in a bailout state. We enter a bailout state when we give up on proper conflict resolution.  */
         bool m_bailout = false;
 
@@ -65,6 +67,7 @@ namespace polysat {
         pvar conflict_var() const { return m_conflict_var; }
 
         bool is_bailout() const { return m_bailout; }
+
         void set_bailout();
 
         bool empty() const {

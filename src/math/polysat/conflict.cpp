@@ -22,6 +22,7 @@ Notes:
        It should apply saturation rules currently only available for propagated values.
 
  TODO: dependency tracking for constraints evaluating to false should be minimized.
+
 --*/
 
 #include "math/polysat/conflict.h"
@@ -39,9 +40,7 @@ namespace polysat {
     conflict::conflict(solver& s):s(s) {
         ex_engines.push_back(alloc(ex_polynomial_superposition, s));
         ve_engines.push_back(alloc(ve_reduction));
-        inf_engines.push_back(alloc(inf_saturate));
-        for (auto* engine : inf_engines)
-            engine->set_solver(s);
+        inf_engines.push_back(alloc(inf_saturate, s));
     }
 
     conflict::~conflict() {}
@@ -219,6 +218,9 @@ namespace polysat {
             keep(m_constraints.back());
 
         for (auto c : *this)
+            minimize_vars(c);
+
+        for (auto c : *this)
             lemma.push(~c);
 
         for (unsigned v : m_vars) {
@@ -230,6 +232,34 @@ namespace polysat {
         }        
 
         return lemma;
+    }
+
+    void conflict::minimize_vars(signed_constraint c) {
+        if (m_vars.empty())
+            return;
+        if (!c.is_currently_false(s))
+            return;
+        assignment_t a;
+        for (auto v : m_vars)
+            a.push_back(std::make_pair(v, s.get_value(v)));
+        for (unsigned i = 0; i < a.size(); ++i) {
+            auto save = a[i];
+            auto last = a.back();
+            a[i] = last;
+            a.pop_back();
+            if (c.is_currently_false(a)) 
+                --i;
+            else {
+                a.push_back(last);
+                a[i] = save;
+            }
+        }
+        if (a.size() == m_vars.num_elems())
+            return;
+        m_vars.reset();
+        for (auto [v, val] : a)
+            m_vars.insert(v);
+        LOG("reduced " << m_vars);
     }
 
 

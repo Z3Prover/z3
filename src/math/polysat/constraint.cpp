@@ -122,11 +122,11 @@ namespace polysat {
     }
 
     bool signed_constraint::is_currently_false(solver& s) const { 
-        return get()->is_currently_false(s.assignment(), is_positive());
+        return is_currently_false(s.assignment());
     }
 
     bool signed_constraint::is_currently_true(solver& s) const { 
-        return get()->is_currently_true(s.assignment(), is_positive());
+        return is_currently_true(s.assignment());
     }
 
     /** Look up constraint among stored constraints. */
@@ -182,19 +182,19 @@ namespace polysat {
         return m_constraints.size() > m_num_external + 100;
     }
 
-    signed_constraint constraint_manager::eq(pdd const& p) {
-        pdd z = p.manager().zero();
-        return {dedup(alloc(ule_constraint, *this, p, z)), true};
-    }
-
     signed_constraint constraint_manager::ule(pdd const& a, pdd const& b) {
-        return {dedup(alloc(ule_constraint, *this, a, b)), true};
+        return { dedup(alloc(ule_constraint, *this, a, b)), true };
     }
 
-    signed_constraint constraint_manager::ult(pdd const& a, pdd const& b) {
-        // a < b  <=>  !(b <= a)
-        return ~ule(b, a);
+    signed_constraint constraint_manager::eq(pdd const& p) { 
+        return ule(p, p.manager().zero()); 
     }
+
+    signed_constraint constraint_manager::ult(pdd const& a, pdd const& b) { 
+        return ~ule(b, a); 
+    }
+
+
 
     // To do signed comparison of bitvectors, flip the msb and do unsigned comparison:
     //
