@@ -25,7 +25,7 @@ Notes:
        and therefore not a current Boolean literal on the search stack.
 
  TODO: revert(pvar v) is too weak. 
-       It should apply saturation rules currently only available for for propagated values.
+       It should apply saturation rules currently only available for propagated values.
 
  TODO: dependency tracking for constraints evaluating to false should be minimized.
 --*/
@@ -42,8 +42,7 @@ Notes:
 
 namespace polysat {
 
-    conflict::conflict(solver& s) {
-        m_solver = &s;
+    conflict::conflict(solver& s):s(s) {
         ex_engines.push_back(alloc(ex_polynomial_superposition));
         for (auto* engine : ex_engines)
             engine->set_solver(s);
@@ -55,7 +54,7 @@ namespace polysat {
 
     conflict::~conflict() {}
 
-    constraint_manager& conflict::cm() const { return s().m_constraints; }
+    constraint_manager& conflict::cm() const { return s.m_constraints; }
 
     std::ostream& conflict::display(std::ostream& out) const {
         char const* sep = "";
@@ -104,7 +103,7 @@ namespace polysat {
         LOG("Conflict: v" << v);
         SASSERT(empty());
         m_conflict_var = v;
-        for (auto c : s().m_cjust[v]) {
+        for (auto c : s.m_cjust[v]) {
             c->set_var_dependent();
             insert(c);
         }
@@ -115,7 +114,7 @@ namespace polysat {
         LOG("Conflict: " << cl);
         SASSERT(empty());
         for (auto lit : cl) {
-            auto c = s().lit2cnstr(lit);
+            auto c = s.lit2cnstr(lit);
             c->set_var_dependent();
             insert(~c);
         }
@@ -160,7 +159,7 @@ namespace polysat {
     void conflict::set_bailout() {
         SASSERT(!is_bailout());
         m_bailout = true;
-        s().m_stats.m_num_bailouts++;
+        s.m_stats.m_num_bailouts++;
     }
 
     void conflict::resolve(constraint_manager const& m, sat::literal lit, clause const& cl) {
@@ -198,26 +197,26 @@ namespace polysat {
         if (it == m_saturation_premises.end())
             return;
         auto& premises = it->m_value;
-        clause_builder c_lemma(s());
+        clause_builder c_lemma(s);
         for (auto premise : premises) {
             LOG_H3("premise: " << premise);
             keep(premise);
             SASSERT(premise->has_bvar());
-            SASSERT(premise.is_currently_true(s()) || premise.bvalue(s()) == l_true);
+            SASSERT(premise.is_currently_true(s) || premise.bvalue(s) == l_true);
             // otherwise the propagation doesn't make sense
             c_lemma.push(~premise.blit());
         }
         c_lemma.push(c.blit());
         clause_ref lemma = c_lemma.build();
-        cm().store(lemma.get(), s());
-        if (s().m_bvars.value(c.blit()) == l_undef)
-            s().assign_bool(s().level(*lemma), c.blit(), lemma.get(), nullptr);
+        cm().store(lemma.get(), s);
+        if (s.m_bvars.value(c.blit()) == l_undef)
+            s.assign_bool(s.level(*lemma), c.blit(), lemma.get(), nullptr);
     }
 
     clause_builder conflict::build_lemma() {
         LOG_H3("Build lemma from core");
         LOG("core: " << *this);
-        clause_builder lemma(s());
+        clause_builder lemma(s);
 
         while (!m_constraints.empty()) {
             signed_constraint c = m_constraints.back();
@@ -231,10 +230,10 @@ namespace polysat {
         for (unsigned v : m_vars) {
             if (!is_pmarked(v))
                 continue;
-            SASSERT(s().is_assigned(v));  // note that we may have added too many variables: e.g., y disappears in x*y if x=0
-            if (!s().is_assigned(v))
+            SASSERT(s.is_assigned(v));  // note that we may have added too many variables: e.g., y disappears in x*y if x=0
+            if (!s.is_assigned(v))
                 continue;
-            auto diseq = ~s().eq(s().var(v), s().get_value(v));
+            auto diseq = ~s.eq(s.var(v), s.get_value(v));
             cm().ensure_bvar(diseq.get());
             lemma.push(diseq);
         }        
@@ -254,7 +253,7 @@ namespace polysat {
 
         if (conflict_var() == v) {
             forbidden_intervals fi;
-            if (fi.perform(s(), v, cjust_v, *this))
+            if (fi.perform(s, v, cjust_v, *this))
                 return true;
         }
 
@@ -268,7 +267,7 @@ namespace polysat {
                 return true;
 
         // No value resolution method was successful => fall back to saturation and variable elimination
-        while (s().inc()) {
+        while (s.inc()) {
             // TODO: as a last resort, substitute v by m_value[v]?
             if (try_eliminate(v))
                 return true;
@@ -287,7 +286,7 @@ namespace polysat {
         if (!has_v)
             return true;
         for (auto* engine : ve_engines)
-            if (engine->perform(s(), v, *this))
+            if (engine->perform(s, v, *this))
                 return true;
         return false;
     }
@@ -307,7 +306,7 @@ namespace polysat {
             set_bmark(c->bvar());    
         if (c->is_var_dependent()) {
             for (auto v : c->vars()) {
-                if (s().is_assigned(v))
+                if (s.is_assigned(v))
                     m_vars.insert(v);
                 inc_pref(v);
             }

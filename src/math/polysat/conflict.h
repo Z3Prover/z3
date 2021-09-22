@@ -26,6 +26,7 @@ namespace polysat {
 
     /** Conflict state, represented as core (~negation of clause). */
     class conflict {
+        solver& s;
         signed_constraints m_constraints;   // new constraints used as premises
         indexed_uint_set m_literals;        // set of boolean literals in the conflict
         uint_set m_vars;                    // variable assignments used as premises
@@ -52,8 +53,6 @@ namespace polysat {
         /** Whether we are in a bailout state. We enter a bailout state when we give up on proper conflict resolution.  */
         bool m_bailout = false;
 
-        solver* m_solver = nullptr;
-        solver& s() const { return *m_solver; }
         constraint_manager& cm() const;
         scoped_ptr_vector<explainer> ex_engines;
         scoped_ptr_vector<variable_elimination_engine> ve_engines;
