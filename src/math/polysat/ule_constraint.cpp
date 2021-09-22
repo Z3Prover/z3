@@ -24,14 +24,19 @@ Notes:
 
 TODO: clause simplifications:
 
-   - p + k <= p  ==> p + k <= k or p = 0   for k != 0
+   - p + k <= p  ==> p + k <= k & p != 0   for k != 0  
    - p*q = 0     ==> p = 0 or q = 0        applies to any factoring
    - 2*p <= 2*q  ==> (p >= 2^n-1 & q < 2^n-1) or (p >= 2^n-1 = q >= 2^n-1 & p <= q)
                  ==> (p >= 2^n-1 => q < 2^n-1 or p <= q) &
                      (p < 2^n-1 => p <= q) &
                      (p < 2^n-1 => q < 2^n-1)
-   
-   
+
+   - 3*p <= 3*q ==> ?
+
+Note:
+     case p <= p + k is already covered because we test (lhs - rhs).is_val()
+      
+     It can be seen as an instance of lemma 5.2 of Supratik and John.
 
 --*/
 
@@ -106,11 +111,12 @@ namespace polysat {
     }
 
     void ule_constraint::narrow(solver& s, bool is_positive) {
+        auto p = lhs().subst_val(s.assignment());
+        auto q = rhs().subst_val(s.assignment());
+
         LOG_H3("Narrowing " << *this);
         LOG("Assignment: " << assignments_pp(s));
-        auto p = lhs().subst_val(s.assignment());
         LOG("Substituted LHS: " << lhs() << " := " << p);
-        auto q = rhs().subst_val(s.assignment());
         LOG("Substituted RHS: " << rhs() << " := " << q);
 
         if (is_always_false(is_positive, p, q)) {
