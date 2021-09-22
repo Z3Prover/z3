@@ -19,9 +19,10 @@ Notes:
 --*/
 #include "math/subpaving/tactic/expr2subpaving.h"
 #include "ast/expr2var.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/ast_pp.h"
 #include "util/ref_util.h"
 #include "util/z3_exception.h"
-#include "ast/arith_decl_plugin.h"
 #include "util/scoped_numeral_buffer.h"
 #include "util/common_msgs.h"
 
@@ -309,6 +310,10 @@ struct expr2subpaving::imp {
         case OP_MOD:
         case OP_REM:
         case OP_IRRATIONAL_ALGEBRAIC_NUM:
+        case OP_DIV0:
+        case OP_REM0:
+        case OP_MOD0:
+        case OP_IDIV0:
             throw default_exception("you must apply arithmetic purifier before internalizing expressions into the subpaving module.");
         case OP_SIN:
         case OP_COS:
@@ -325,6 +330,7 @@ struct expr2subpaving::imp {
             // TODO
             throw default_exception("transcendental and hyperbolic functions are not supported yet.");
         default:
+            throw default_exception("unhandled arithmetic operator in subpaving");
             UNREACHABLE();
         }
         return subpaving::null_var;
