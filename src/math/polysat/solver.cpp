@@ -486,7 +486,7 @@ namespace polysat {
         // NOTE: boolean resolution should work normally even in bailout mode.
         clause other = *m_bvars.reason(var);
         LOG_H3("resolve_bool: " << lit << " " << other);
-        m_conflict.resolve(m_constraints, var, other);
+        m_conflict.resolve(m_constraints, lit, other);
     }
     
     void solver::report_unsat() {

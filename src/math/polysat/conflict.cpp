@@ -163,34 +163,26 @@ namespace polysat {
         s().m_stats.m_num_bailouts++;
     }
 
-    void conflict::resolve(constraint_manager const& m, sat::bool_var var, clause const& cl) {
+    void conflict::resolve(constraint_manager const& m, sat::literal lit, clause const& cl) {
         // Note: core: x, y, z; corresponds to clause ~x \/ ~y \/ ~z
         //       clause: x \/ u \/ v
         //       resolvent: ~y \/ ~z \/ u \/ v; as core: y, z, ~u, ~v
 
-        SASSERT(var != sat::null_bool_var);
+        SASSERT(lit != sat::null_literal);
+        SASSERT(~lit != sat::null_literal);
         SASSERT(std::all_of(m_constraints.begin(), m_constraints.end(), [](auto c){ return !c->has_bvar(); }));
-        bool core_has_pos = contains_literal(sat::literal(var));
-        bool core_has_neg = contains_literal(~sat::literal(var));
-        DEBUG_CODE({
-            bool clause_has_pos = std::count(cl.begin(), cl.end(), sat::literal(var)) > 0;
-            bool clause_has_neg = std::count(cl.begin(), cl.end(), ~sat::literal(var)) > 0;
-            SASSERT(!core_has_pos || !core_has_neg);  // otherwise core is tautology
-            SASSERT(!clause_has_pos || !clause_has_neg);  // otherwise clause is tautology
-            SASSERT((core_has_pos && clause_has_pos) || (core_has_neg && clause_has_neg));
-        });
-
-        sat::literal var_lit(var);
-        if (core_has_pos)
-            remove_literal(var_lit);
-        if (core_has_neg)
-            remove_literal(~var_lit);
+        SASSERT(contains_literal(lit));
+        SASSERT(std::count(cl.begin(), cl.end(), lit) > 0);
+        SASSERT(!contains_literal(~lit));
+        SASSERT(std::count(cl.begin(), cl.end(), ~lit) == 0);
         
-        unset_mark(m.lookup(var_lit));
+        remove_literal(lit);
         
-        for (sat::literal lit : cl)
-            if (lit.var() != var)
-                insert(m.lookup(~lit));
+        unset_mark(m.lookup(lit));
+        
+        for (sat::literal lit2 : cl)
+            if (lit2 != lit)
+                insert(m.lookup(~lit2));
     }
 
     /** If the constraint c is a temporary constraint derived by core saturation, insert it (and recursively, its premises) into \Gamma */
