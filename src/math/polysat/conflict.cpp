@@ -19,6 +19,9 @@ Notes:
  TODO: If we have e.g. 4x+y=2 and y=0, then we have a conflict no matter the value of x, so we should drop x=? from the core.
        (works currently if x is unassigned; for other cases we would need extra info from constraint::is_currently_false)
 
+ TODO: build_lemma:
+       note that we may have added too many variables: e.g., y disappears in x*y if x=0
+
  TODO: keep is buggy. The assert 
                    SASSERT(premise.is_currently_true(s()) || premise.bvalue(s()) == l_true);
        does not necessarily hold. A saturation premise could be inserted that is a resolvent that evaluates to false
@@ -110,6 +113,9 @@ namespace polysat {
         SASSERT(!empty());
     }
 
+    /**
+     * The clause is conflicting in the current search state.
+     */
     void conflict::set(clause const& cl) {
         LOG("Conflict: " << cl);
         SASSERT(empty());
@@ -121,14 +127,18 @@ namespace polysat {
         SASSERT(!empty());
     }
 
+    /**
+     * Insert constraint into conflict state
+     * Skip trivial constraints
+     *  - e.g., constant ones such as "4 > 1"... only true ones 
+     *   should appear, otherwise the lemma would be a tautology
+     */
     void conflict::insert(signed_constraint c) {
-        LOG("inserting: " << c);
-        // Skip trivial constraints
-        // (e.g., constant ones such as "4 > 1"... only true ones should appear, otherwise the lemma would be a tautology)
         if (c.is_always_true())
             return;
         if (c->is_marked())
             return;
+        LOG("inserting: " << c);
         set_mark(c);
         if (c->has_bvar())
             insert_literal(c.blit());
@@ -184,7 +194,10 @@ namespace polysat {
                 insert(m.lookup(~lit2));
     }
 
-    /** If the constraint c is a temporary constraint derived by core saturation, insert it (and recursively, its premises) into \Gamma */
+    /** 
+     * If the constraint c is a temporary constraint derived by core saturation, 
+     * insert it (and recursively, its premises) into \Gamma 
+     */
     void conflict::keep(signed_constraint c) {
         if (!c->has_bvar()) {
             remove(c);
@@ -214,24 +227,21 @@ namespace polysat {
     }
 
     clause_builder conflict::build_lemma() {
+        SASSERT(std::all_of(m_vars.begin(), m_vars.end(), [&](pvar v) { return s.is_assigned(v); }));
+        SASSERT(std::all_of(m_constraints.begin(), m_constraints.end(), [](auto c) { return !c->has_bvar(); }));
+
         LOG_H3("Build lemma from core");
         LOG("core: " << *this);
         clause_builder lemma(s);
 
-        while (!m_constraints.empty()) {
-            signed_constraint c = m_constraints.back();
-            SASSERT(!c->has_bvar());
-            keep(c);
-        }
+        while (!m_constraints.empty()) 
+            keep(m_constraints.back());
 
         for (auto c : *this)
             lemma.push(~c);
 
         for (unsigned v : m_vars) {
             if (!is_pmarked(v))
-                continue;
-            SASSERT(s.is_assigned(v));  // note that we may have added too many variables: e.g., y disappears in x*y if x=0
-            if (!s.is_assigned(v))
                 continue;
             auto diseq = ~s.eq(s.var(v), s.get_value(v));
             cm().ensure_bvar(diseq.get());
