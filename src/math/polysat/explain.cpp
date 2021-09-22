@@ -46,48 +46,65 @@ namespace polysat {
 
     // c2 ... constraint that is currently false
     // Try to replace it with a new false constraint (derived from superposition with a true constraint)
-    signed_constraint ex_polynomial_superposition::find_replacement(signed_constraint c2, pvar v, conflict& core) {
+    lbool ex_polynomial_superposition::find_replacement(signed_constraint c2, pvar v, conflict& core) {
+        vector<signed_constraint> premises;
         for (auto c1 : core) {
             if (!is_positive_equality_over(v, c1))
                 continue;
             if (!c1.is_currently_true(s()))
                 continue;
-
             signed_constraint c = resolve1(v, c1, c2);
             if (!c)
                 continue;
-            vector<signed_constraint> premises;
-            premises.push_back(c1);
-            premises.push_back(c2);
-            core.replace(c2, c, std::move(premises));
-            return c;
+            if (!c->has_bvar())
+                s().m_constraints.ensure_bvar(c.get());
+
+            switch (c.bvalue(s())) {
+            case l_false:
+                // new conflict state based on propagation and theory conflict
+                core.reset();
+                core.insert(c1);
+                core.insert(c2);
+                core.insert(~c);
+                return l_true;
+            case l_undef:
+                // Ensure that c is assigned and justified                    
+                premises.push_back(c1);
+                premises.push_back(c2);
+                core.replace(c2, c, premises);
+                SASSERT(l_true == c.bvalue(s()));
+                SASSERT(c.is_currently_false(s()));
+                break;
+            default:
+                break;
+            }
+
+            // NOTE: more variables than just 'v' might have been removed here (see polysat::test_p3).
+            // c alone (+ variables) is now enough to represent the conflict.
+            core.reset();
+            core.set(c);
+            return c->contains_var(v) ? l_undef : l_true;
         }
-        return {};
+        return l_false;
     }
 
     // TODO(later): check superposition into disequality again (see notes)
     // true = done, false = abort, undef = continue
+    // TODO: can try multiple replacements at once; then the c2 loop needs to be done only once... (requires some reorganization for storing the premises)
     lbool ex_polynomial_superposition::try_explain1(pvar v, conflict& core) {
         for (auto c2 : core) {
             if (!is_positive_equality_over(v, c2))
                 continue;
             if (!c2.is_currently_false(s()))
                 continue;
-
-            // TODO: can try multiple replacements at once; then the c2 loop needs to be done only once... (requires some reorganization for storing the premises)
-            signed_constraint c = find_replacement(c2, v, core);
-            if (!c)
-                continue;
-            if (c->contains_var(v))
+            switch (find_replacement(c2, v, core)) {
+            case l_undef:
                 return l_undef;
-            if (!c->has_bvar() || l_undef == c.bvalue(s()))
-                core.keep(c);  // adds propagation of c to the search stack
-
-            // NOTE: more variables than just 'v' might have been removed here (see polysat::test_p3).
-            // c alone (+ variables) is now enough to represent the conflict.
-            core.reset();
-            core.set(c);
-            return l_true;
+            case l_true:
+                return l_true;
+            case l_false:
+                continue;
+            }
         }
         return l_false;
     }

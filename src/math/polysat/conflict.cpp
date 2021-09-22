@@ -146,22 +146,35 @@ namespace polysat {
             m_constraints.push_back(c);
     }
 
-    void conflict::insert(signed_constraint c, vector<signed_constraint> premises) {
+    void conflict::insert(signed_constraint c, vector<signed_constraint> const& premises) {
         insert(c);
-        m_saturation_premises.insert(c, std::move(premises));  // TODO: map doesn't have move-insertion, so this still copies the vector.
+        // NOTE: maybe we should skip intermediate steps and just collect the leaf premises for c?
+        clause_builder c_lemma(s);
+        for (auto premise : premises) {
+            LOG_H3("premise: " << premise);
+            keep(premise);
+            SASSERT(premise->has_bvar());
+            SASSERT(premise.bvalue(s) == l_true);         
+            // otherwise the propagation doesn't make sense
+            c_lemma.push(~premise.blit());
+        }
+        c_lemma.push(c.blit());
+        clause_ref lemma = c_lemma.build();
+        cm().store(lemma.get(), s);
+        if (s.m_bvars.value(c.blit()) == l_undef)
+            s.assign_bool(s.level(*lemma), c.blit(), lemma.get(), nullptr);
     }
 
     void conflict::remove(signed_constraint c) {
+        SASSERT(!c->has_bvar() || std::count(m_constraints.begin(), m_constraints.end(), c) == 0);
         unset_mark(c);       
-        if (c->has_bvar()) {
-            SASSERT(std::count(m_constraints.begin(), m_constraints.end(), c) == 0);
-            remove_literal(c.blit());
-        }
+        if (c->has_bvar())             
+            remove_literal(c.blit());        
         else
             m_constraints.erase(c);
     }
 
-    void conflict::replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> c_new_premises) {
+    void conflict::replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> const& c_new_premises) {
         remove(c_old);
         insert(c_new, c_new_premises);
     }
@@ -185,10 +198,8 @@ namespace polysat {
         SASSERT(!contains_literal(~lit));
         SASSERT(std::count(cl.begin(), cl.end(), ~lit) == 0);
         
-        remove_literal(lit);
-        
-        unset_mark(m.lookup(lit));
-        
+        remove_literal(lit);        
+        unset_mark(m.lookup(lit));        
         for (sat::literal lit2 : cl)
             if (lit2 != lit)
                 insert(m.lookup(~lit2));
@@ -205,25 +216,6 @@ namespace polysat {
             insert(c);
         }
         LOG_H3("keeping: " << c);
-        // NOTE: maybe we should skip intermediate steps and just collect the leaf premises for c?
-        auto it = m_saturation_premises.find_iterator(c);
-        if (it == m_saturation_premises.end())
-            return;
-        auto& premises = it->m_value;
-        clause_builder c_lemma(s);
-        for (auto premise : premises) {
-            LOG_H3("premise: " << premise);
-            keep(premise);
-            SASSERT(premise->has_bvar());
-            SASSERT(premise.is_currently_true(s) || premise.bvalue(s) == l_true);
-            // otherwise the propagation doesn't make sense
-            c_lemma.push(~premise.blit());
-        }
-        c_lemma.push(c.blit());
-        clause_ref lemma = c_lemma.build();
-        cm().store(lemma.get(), s);
-        if (s.m_bvars.value(c.blit()) == l_undef)
-            s.assign_bool(s.level(*lemma), c.blit(), lemma.get(), nullptr);
     }
 
     clause_builder conflict::build_lemma() {

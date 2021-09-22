@@ -36,7 +36,7 @@ namespace polysat {
     private:
         bool is_positive_equality_over(pvar v, signed_constraint const& c);
         signed_constraint resolve1(pvar v, signed_constraint c1, signed_constraint c2);
-        signed_constraint find_replacement(signed_constraint c2, pvar v, conflict& core);
+        lbool find_replacement(signed_constraint c2, pvar v, conflict& core);
         void reduce_by(pvar v, conflict& core);
         bool reduce_by(pvar, signed_constraint c, conflict& core);
         lbool try_explain1(pvar v, conflict& core);

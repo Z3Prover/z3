@@ -86,9 +86,9 @@ namespace polysat {
         void set(clause const& cl);
 
         void insert(signed_constraint c);
-        void insert(signed_constraint c, vector<signed_constraint> premises);
+        void insert(signed_constraint c, vector<signed_constraint> const& premises);
         void remove(signed_constraint c);
-        void replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> c_new_premises);
+        void replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> const& c_new_premises);
 
         void keep(signed_constraint c);
 
