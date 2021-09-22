@@ -818,9 +818,13 @@ namespace euf {
                 args.push_back(old_expr2new_enode[n1->get_arg(j)->get_expr_id()]);
             expr*  e2 = tr(e1);
             enode* n2 = mk(e2, n1->generation(), args.size(), args.data());
+            
             old_expr2new_enode.setx(e1->get_id(), n2, nullptr);
-            n2->set_value(n2->value());
+            n2->set_value(n1->value());
             n2->m_bool_var = n1->m_bool_var;
+            n2->m_commutative = n1->m_commutative;
+            n2->m_merge_enabled = n1->m_merge_enabled;
+            n2->m_is_equality = n1->m_is_equality;            
         }
         for (unsigned i = 0; i < src.m_nodes.size(); ++i) {             
             enode* n1 = src.m_nodes[i];

@@ -316,6 +316,7 @@ namespace euf {
         }
         if (n->is_equality()) {
             SASSERT(!m.is_iff(e));
+            SASSERT(m.is_eq(e));
             if (sign)
                 m_egraph.new_diseq(n);
             else                 
@@ -867,9 +868,9 @@ namespace euf {
         for (euf::enode* n : r->m_egraph.nodes()) {
             auto b = n->bool_var();
             if (b != sat::null_bool_var) {
-                m_bool_var2expr.setx(b, n->get_expr(), nullptr);
+                r->m_bool_var2expr.setx(b, n->get_expr(), nullptr);
                 SASSERT(r->m.is_bool(n->get_sort()));
-                IF_VERBOSE(11, verbose_stream() << "set bool_var " << r->bpp(n) << "\n");
+                IF_VERBOSE(11, verbose_stream() << "set bool_var " << b << " " << r->bpp(n) << " " << mk_bounded_pp(n->get_expr(), m) << "\n");
             }
         }
         for (auto* s_orig : m_id2solver) {
