@@ -725,13 +725,47 @@ namespace polysat {
     void permute_args(unsigned k, pdd& a, pdd& b, pdd& c) {
         SASSERT(k < 6);
         unsigned i = k % 3;
-        unsigned j = i % 2;
+        unsigned j = k % 2;
         if (i == 1)
             std::swap(a, b);
         else if (i == 2)
             std::swap(a, c);
         if (j == 1)
             std::swap(b, c);
+    }
+
+    void permute_args(unsigned n, pdd& a, pdd& b, pdd& c, pdd& d) {
+        SASSERT(n < 24);
+        switch (n % 4) {
+        case 1: 
+            std::swap(a, b);
+            break;
+        case 2:
+            std::swap(a, c);
+            break;
+        case 3:
+            std::swap(a, d);
+            break;
+        default:
+            break;
+        }
+        switch (n % 3) {
+        case 1:
+            std::swap(b, c);
+            break;
+        case 2:
+            std::swap(b, d);
+            break;
+        default:
+            break;
+        }
+        switch (n % 2) {
+        case 1:
+            std::swap(c, d);
+            break;
+        default:
+            break;
+        }
     }
 
     // xy < xz and !Omega(x*y) => y < z
@@ -798,9 +832,84 @@ namespace polysat {
     }
 
     // xy < b & a <= x  & !Omega(x*y) => a*y < b
+    static void test_ineq_axiom3(unsigned bw = 32) {
+        auto const bound = rational::power_of_two(bw - 1);
+        for (unsigned i = 0; i < 24; ++i) {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto a = s.var(s.add_var(bw));
+            auto b = s.var(s.add_var(bw));
+            permute_args(i, x, y, a, b);
+            s.add_ult(x * y, b);
+            s.add_ule(a, x);
+            s.add_ult(x, bound);
+            s.add_ult(y, bound);
+            s.add_ule(b, a * y);
+            s.check();
+            s.expect_unsat();
+        }
+    }
+
     // xy <= b & a <= x & !Omega(x*y) => a*y <= b
+    static void test_ineq_axiom4(unsigned bw = 32) {
+        auto const bound = rational::power_of_two(bw - 1);
+        for (unsigned i = 0; i < 24; ++i) {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto a = s.var(s.add_var(bw));
+            auto b = s.var(s.add_var(bw));
+            permute_args(i, x, y, a, b);
+            s.add_ule(x * y, b);
+            s.add_ule(a, x);
+            s.add_ult(x, bound);
+            s.add_ult(y, bound);
+            s.add_ult(b, a * y);
+            s.check();
+            s.expect_unsat();
+        }
+    }
+
     // a < xy & x <= b  & !Omega(x*y) => a < b*y
-    // a <= xy & x <= b & !omega(x*y) => a <= b*y
+    static void test_ineq_axiom5(unsigned bw = 32) {
+        auto const bound = rational::power_of_two(bw - 1);
+        for (unsigned i = 0; i < 24; ++i) {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto a = s.var(s.add_var(bw));
+            auto b = s.var(s.add_var(bw));
+            permute_args(i, x, y, a, b);
+            s.add_ult(a, x * y);
+            s.add_ule(x, b);
+            s.add_ult(x, bound);
+            s.add_ult(y, bound);
+            s.add_ule(b * y, a);
+            s.check();
+            s.expect_unsat();
+        }
+    }
+
+    // a <= xy & x <= b & !Omega(x*y) => a <= b*y
+    static void test_ineq_axiom6(unsigned bw = 32) {
+        auto const bound = rational::power_of_two(bw - 1);
+        for (unsigned i = 0; i < 24; ++i) {
+            scoped_solver s(__func__);
+            auto x = s.var(s.add_var(bw));
+            auto y = s.var(s.add_var(bw));
+            auto a = s.var(s.add_var(bw));
+            auto b = s.var(s.add_var(bw));
+            permute_args(i, x, y, a, b);
+            s.add_ule(a, x * y);
+            s.add_ule(x, b);
+            s.add_ult(x, bound);
+            s.add_ult(y, bound);
+            s.add_ult(b * y, a);
+            s.check();
+            s.expect_unsat();
+        }
+    }
 
 
     // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
@@ -930,14 +1039,10 @@ void tst_polysat() {
     polysat::test_subst();
 
 
-//    polysat::test_ineq_axiom1();
-//    return;
 
     // not working
-    // polysat::test_fixed_point_arith_div_mul_inverse();
-    
-    //polysat::test_monot_bounds_simple(8);
-
+    // polysat::test_fixed_point_arith_div_mul_inverse();    
+    // polysat::test_monot_bounds_simple(8);
 
     // working
     polysat::test_fixed_point_arith_mul_div_inverse();
@@ -964,6 +1069,13 @@ void tst_polysat() {
     polysat::test_ineq_basic6();
     polysat::test_monot_bounds(2);
     polysat::test_cjust();
+
+    polysat::test_ineq_axiom1();
+    polysat::test_ineq_axiom2();
+    polysat::test_ineq_axiom3();
+    polysat::test_ineq_axiom4();
+    polysat::test_ineq_axiom5();
+    polysat::test_ineq_axiom6();
 
     // inefficient conflicts:
     // Takes time: polysat::test_monot_bounds_full();

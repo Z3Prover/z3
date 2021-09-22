@@ -12,7 +12,8 @@ Author:
 
 Notes:
 
-   Rewrite rules to simplify expressions
+   Rewrite rules to simplify expressions.
+   In the following let k, k1, k2 be values.
   
    - k1 <= k2   ==> 0 <= 0 if k1 <= k2
    - k1 <= k2   ==> 1 <= 0 if k1 >  k2
@@ -21,9 +22,16 @@ Notes:
    - k*2^n*p <= 0   ==> 2^n*p <= 0 if k is odd, leading coeffient is always a power of 2.
    - k <= p     ==> p - k <= - k - 1
 
-  TODO:
-   - p <= p + q ==> p <= -q - 1
-   - p + k <= p ==> p + k <= k - 1   for k > 0
+TODO: clause simplifications:
+
+   - p + k <= p  ==> p + k <= k or p = 0   for k != 0
+   - p*q = 0     ==> p = 0 or q = 0        applies to any factoring
+   - 2*p <= 2*q  ==> (p >= 2^n-1 & q < 2^n-1) or (p >= 2^n-1 = q >= 2^n-1 & p <= q)
+                 ==> (p >= 2^n-1 => q < 2^n-1 or p <= q) &
+                     (p < 2^n-1 => p <= q) &
+                     (p < 2^n-1 => q < 2^n-1)
+   
+   
 
 --*/
 
@@ -53,7 +61,11 @@ namespace polysat {
         if (m_rhs.is_val() && m_rhs.val() == m_rhs.manager().max_value()) {
             m_lhs = 0, m_rhs = 0;
             return;
-        }        
+        }
+        if (m_lhs == m_rhs) {
+            m_lhs = m_rhs = 0;
+            return;
+        }
         if (m_lhs.is_val() && m_rhs.is_val()) {
             if (m_lhs.val() <= m_rhs.val())
                 m_lhs = m_rhs = 0;
@@ -75,6 +87,7 @@ namespace polysat {
             if (x.is_neg())
                 x = mod(x, m_lhs.manager().two_to_N());
             m_lhs *= x;
+            SASSERT(m_lhs.leading_coefficient().is_power_of_two());
         }
     }
 
