@@ -19,8 +19,8 @@ namespace polysat {
 
     signed_constraint ex_polynomial_superposition::resolve1(pvar v, signed_constraint c1, signed_constraint c2) {
         // c1 is true, c2 is false
-        SASSERT(c1.is_currently_true(s()));
-        SASSERT(c2.is_currently_false(s()));
+        SASSERT(c1.is_currently_true(s));
+        SASSERT(c2.is_currently_false(s));
         LOG_H3("Resolving upon v" << v);
         LOG("c1: " << c1);
         LOG("c2: " << c2);
@@ -33,9 +33,9 @@ namespace polysat {
         // (this condition might be too strict, but we use it for now to prevent looping)
         if (b.degree(v) <= r.degree(v))
             return {};
-        signed_constraint c = s().eq(r);
-        LOG("resolved: " << c << "        currently false? " << c.is_currently_false(s()));
-        if (!c.is_currently_false(s()))
+        signed_constraint c = s.eq(r);
+        LOG("resolved: " << c << "        currently false? " << c.is_currently_false(s));
+        if (!c.is_currently_false(s))
             return {};
         return c;
     }
@@ -51,15 +51,15 @@ namespace polysat {
         for (auto c1 : core) {
             if (!is_positive_equality_over(v, c1))
                 continue;
-            if (!c1.is_currently_true(s()))
+            if (!c1.is_currently_true(s))
                 continue;
             signed_constraint c = resolve1(v, c1, c2);
             if (!c)
                 continue;
             if (!c->has_bvar())
-                s().m_constraints.ensure_bvar(c.get());
+                s.m_constraints.ensure_bvar(c.get());
 
-            switch (c.bvalue(s())) {
+            switch (c.bvalue(s)) {
             case l_false:
                 // new conflict state based on propagation and theory conflict
                 core.reset();
@@ -72,8 +72,8 @@ namespace polysat {
                 premises.push_back(c1);
                 premises.push_back(c2);
                 core.replace(c2, c, premises);
-                SASSERT(l_true == c.bvalue(s()));
-                SASSERT(c.is_currently_false(s()));
+                SASSERT(l_true == c.bvalue(s));
+                SASSERT(c.is_currently_false(s));
                 break;
             default:
                 break;
@@ -95,7 +95,7 @@ namespace polysat {
         for (auto c2 : core) {
             if (!is_positive_equality_over(v, c2))
                 continue;
-            if (!c2.is_currently_false(s()))
+            if (!c2.is_currently_false(s))
                 continue;
             switch (find_replacement(c2, v, core)) {
             case l_undef:
@@ -115,7 +115,7 @@ namespace polysat {
         while (progress) {
             progress = false;
             for (auto c : core) {
-                if (is_positive_equality_over(v, c) && c.is_currently_true(s()) && reduce_by(v, c, core)) {
+                if (is_positive_equality_over(v, c) && c.is_currently_true(s) && reduce_by(v, c, core)) {
                     progress = true;
                     break;
                 }
@@ -130,7 +130,7 @@ namespace polysat {
                 continue;
             if (is_positive_equality_over(v, c))
                 continue;
-            if (!c.is_currently_false(s()))
+            if (!c.is_currently_false(s))
                 continue;
             if (c->is_ule()) {
                 auto lhs = c->to_ule().lhs();
@@ -139,14 +139,14 @@ namespace polysat {
                 auto b = rhs.reduce(v, p);
                 if (a == lhs && b == rhs)
                     continue;
-                auto c2 = s().ule(a, b);
+                auto c2 = s.ule(a, b);
                 if (!c.is_positive())
                     c2 = ~c2;
-                SASSERT(c2.is_currently_false(s()));                
-                if (!c2->has_bvar() || l_undef == c2.bvalue(s()))
+                SASSERT(c2.is_currently_false(s));                
+                if (!c2->has_bvar() || l_undef == c2.bvalue(s))
                     core.keep(c2);  // adds propagation of c to the search stack
                 core.reset();
-                if (c2.bvalue(s()) == l_false) {
+                if (c2.bvalue(s) == l_false) {
                     core.insert(eq);
                     core.insert(c);
                     core.insert(~c2);

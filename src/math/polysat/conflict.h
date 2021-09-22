@@ -58,8 +58,6 @@ namespace polysat {
         scoped_ptr_vector<variable_elimination_engine> ve_engines;
         scoped_ptr_vector<inference_engine> inf_engines;
 
-        // ptr_addr_map<constraint, vector<signed_constraint>> m_saturation_premises;
-        map<signed_constraint, vector<signed_constraint>, obj_hash<signed_constraint>, default_eq<signed_constraint>> m_saturation_premises;
     public:
         conflict(solver& s);
         ~conflict();

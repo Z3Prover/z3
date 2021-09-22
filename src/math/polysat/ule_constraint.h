@@ -34,8 +34,8 @@ namespace polysat {
         std::ostream& display(std::ostream& out) const override;
         bool is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) const;
         bool is_always_false(bool is_positive) const override;
-        bool is_currently_false(solver& s, bool is_positive) const override;
-        bool is_currently_true(solver& s, bool is_positive) const override;
+        bool is_currently_false(assignment_t const& a, bool is_positive) const override;
+        bool is_currently_true(assignment_t const& a, bool is_positive) const override;
         void narrow(solver& s, bool is_positive) override;
         inequality as_inequality(bool is_positive) const override;
         unsigned hash() const override;

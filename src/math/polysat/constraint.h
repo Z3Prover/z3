@@ -16,6 +16,7 @@ Author:
 #include "math/polysat/clause.h"
 #include "math/polysat/types.h"
 #include "math/polysat/interval.h"
+#include "math/polysat/search_state.h"
 
 namespace polysat {
 
@@ -161,8 +162,8 @@ namespace polysat {
         bool propagate(solver& s, bool is_positive, pvar v);
         virtual void propagate_core(solver& s, bool is_positive, pvar v, pvar other_v);
         virtual bool is_always_false(bool is_positive) const = 0;
-        virtual bool is_currently_false(solver& s, bool is_positive) const = 0;
-        virtual bool is_currently_true(solver& s, bool is_positive) const = 0;
+        virtual bool is_currently_false(assignment_t const& a, bool is_positive) const = 0;
+        virtual bool is_currently_true(assignment_t const& a, bool is_positive) const = 0;
         virtual void narrow(solver& s, bool is_positive) = 0;
         virtual inequality as_inequality(bool is_positive) const = 0;
 
@@ -220,9 +221,9 @@ namespace polysat {
         bool propagate(solver& s, pvar v) { return get()->propagate(s, is_positive(), v); }
         void propagate_core(solver& s, pvar v, pvar other_v) { get()->propagate_core(s, is_positive(), v, other_v); }
         bool is_always_false() const { return get()->is_always_false(is_positive()); }
-        bool is_always_true() const { return get()->is_always_false(is_negative()); }
-        bool is_currently_false(solver& s) const { return get()->is_currently_false(s, is_positive()); }
-        bool is_currently_true(solver& s) const { return get()->is_currently_true(s, is_positive()); }
+        bool is_always_true() const { return get()->is_always_false(is_negative()); }        
+        bool is_currently_false(solver& s) const;
+        bool is_currently_true(solver& s) const;
         lbool bvalue(solver& s) const;
         unsigned level(solver& s) const { return get()->level(s); }
         void narrow(solver& s) { get()->narrow(s, is_positive()); }

@@ -23,11 +23,10 @@ namespace polysat {
 
     class explainer {
         friend class conflict;
-        solver* m_solver = nullptr;
-        void set_solver(solver& s) { m_solver = &s; }
     protected:
-        solver& s() { return *m_solver; }
+        solver& s;
     public:
+        explainer(solver& s) :s(s) {}
         virtual ~explainer() {}
         virtual bool try_explain(pvar v, /* vector<signed_constraint> const& cjust_v, */ conflict& core) = 0;
     };
@@ -41,6 +40,7 @@ namespace polysat {
         bool reduce_by(pvar, signed_constraint c, conflict& core);
         lbool try_explain1(pvar v, conflict& core);
     public:
+        ex_polynomial_superposition(solver& s) : explainer(s) {}
         bool try_explain(pvar v, conflict& core) override;
     };
 

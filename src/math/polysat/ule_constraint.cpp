@@ -204,15 +204,15 @@ namespace polysat {
         return is_always_false(is_positive, lhs(), rhs());
     }
 
-    bool ule_constraint::is_currently_false(solver& s, bool is_positive) const {
-        auto p = lhs().subst_val(s.assignment());
-        auto q = rhs().subst_val(s.assignment());
+    bool ule_constraint::is_currently_false(assignment_t const& a, bool is_positive) const {
+        auto p = lhs().subst_val(a);
+        auto q = rhs().subst_val(a);
         return is_always_false(is_positive, p, q);
     }
 
-    bool ule_constraint::is_currently_true(solver& s, bool is_positive) const {
-        auto p = lhs().subst_val(s.assignment());
-        auto q = rhs().subst_val(s.assignment());
+    bool ule_constraint::is_currently_true(assignment_t const& a, bool is_positive) const {
+        auto p = lhs().subst_val(a);
+        auto q = rhs().subst_val(a);
         if (is_positive) {
             if (p.is_zero())
                 return true;

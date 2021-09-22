@@ -12,20 +12,11 @@ Author:
 
 Notes:
 
- TODO: constraints containing v could be tracked incrementally when constraints are added/removed using an index.
-
  TODO: try a final core reduction step or other core minimization
 
  TODO: If we have e.g. 4x+y=2 and y=0, then we have a conflict no matter the value of x, so we should drop x=? from the core.
        (works currently if x is unassigned; for other cases we would need extra info from constraint::is_currently_false)
-
- TODO: build_lemma:
        note that we may have added too many variables: e.g., y disappears in x*y if x=0
-
- TODO: keep is buggy. The assert 
-                   SASSERT(premise.is_currently_true(s()) || premise.bvalue(s()) == l_true);
-       does not necessarily hold. A saturation premise could be inserted that is a resolvent that evaluates to false
-       and therefore not a current Boolean literal on the search stack.
 
  TODO: revert(pvar v) is too weak. 
        It should apply saturation rules currently only available for propagated values.
@@ -46,9 +37,7 @@ Notes:
 namespace polysat {
 
     conflict::conflict(solver& s):s(s) {
-        ex_engines.push_back(alloc(ex_polynomial_superposition));
-        for (auto* engine : ex_engines)
-            engine->set_solver(s);
+        ex_engines.push_back(alloc(ex_polynomial_superposition, s));
         ve_engines.push_back(alloc(ve_reduction));
         inf_engines.push_back(alloc(inf_saturate));
         for (auto* engine : inf_engines)
@@ -77,7 +66,6 @@ namespace polysat {
         m_literals.reset();
         m_vars.reset();
         m_conflict_var = null_var;
-        m_saturation_premises.reset();
         m_bailout = false;
         SASSERT(empty());        
     }
@@ -146,16 +134,17 @@ namespace polysat {
             m_constraints.push_back(c);
     }
 
+
+    // NOTE: maybe we should skip intermediate steps and just collect the leaf premises for c?
+    // Ensure that c is assigned and justified
     void conflict::insert(signed_constraint c, vector<signed_constraint> const& premises) {
         insert(c);
-        // NOTE: maybe we should skip intermediate steps and just collect the leaf premises for c?
         clause_builder c_lemma(s);
         for (auto premise : premises) {
             LOG_H3("premise: " << premise);
             keep(premise);
             SASSERT(premise->has_bvar());
             SASSERT(premise.bvalue(s) == l_true);         
-            // otherwise the propagation doesn't make sense
             c_lemma.push(~premise.blit());
         }
         c_lemma.push(c.blit());
@@ -210,12 +199,12 @@ namespace polysat {
      * insert it (and recursively, its premises) into \Gamma 
      */
     void conflict::keep(signed_constraint c) {
-        if (!c->has_bvar()) {
-            remove(c);
-            cm().ensure_bvar(c.get());
-            insert(c);
-        }
+        if (c->has_bvar())
+            return;
         LOG_H3("keeping: " << c);
+        remove(c);
+        cm().ensure_bvar(c.get());
+        insert(c);        
     }
 
     clause_builder conflict::build_lemma() {
