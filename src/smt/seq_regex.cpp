@@ -342,10 +342,8 @@ namespace smt {
         expr_ref s_i = th.mk_nth(s, i);
         expr_ref deriv(m);
         deriv = mk_derivative_wrapper(s_i, r);
-        STRACE("here", tout
-            << "mk_pp: " << mk_pp(deriv, m) << std::endl;);
-        STRACE("here", tout
-            << "re().to_str: " << re().to_str(deriv) << std::endl;);
+        STRACE("seq_regex", tout
+            << "mk_derivative_wrapper: " << re().to_str(deriv) << std::endl;);
         expr_ref accept_deriv(m);
         accept_deriv = mk_deriv_accept(s, idx + 1, deriv);
         accept_next.push_back(~lit);
@@ -598,18 +596,20 @@ namespace smt {
                   (ite b (accept s i r3) (accept s i r4)))
     */
     expr_ref seq_regex::mk_deriv_accept(expr* s, unsigned i, expr* r) {
-        return mk_deriv_accept_rec(s, i, r);
-
         vector<expr*> to_visit;
         to_visit.push_back(r);
-        obj_map<expr, expr*> re_to_bool;
+        obj_map<expr, expr*> re_to_accept;
         expr_ref_vector _temp_bool_owner(m); // temp owner for bools we create
 
-        // DFS
+        bool s_is_longer_than_i = str().min_length(s) > i;
+        expr* i_int = a().mk_int(i);
+        _temp_bool_owner.push_back(i_int);
+
+        // DFS, avoids duplicating derivative construction that has already been done
         while (to_visit.size() > 0) {
             expr* e = to_visit.back();
             expr* econd = nullptr, *e1 = nullptr, *e2 = nullptr;
-            if (!re_to_bool.contains(e)) {
+            if (!re_to_accept.contains(e)) {
                 // First visit: add children
                 STRACE("seq_regex_verbose", tout << "1";);
                 if (m.is_ite(e, econd, e1, e2) ||
@@ -618,36 +618,40 @@ namespace smt {
                     to_visit.push_back(e2);
                 }
                 // Mark first visit by adding nullptr to the map
-                re_to_bool.insert(e, nullptr);
+                re_to_accept.insert(e, nullptr);
             }
-            else if (re_to_bool.find(e) == nullptr) {
+            else if (re_to_accept.find(e) == nullptr) {
                 // Second visit: set value
                 STRACE("seq_regex_verbose", tout << "2";);
                 to_visit.pop_back();
                 if (m.is_ite(e, econd, e1, e2)) {
-                    expr* b1 = re_to_bool.find(e1);
-                    expr* b2 = re_to_bool.find(e2);
-                    expr* b = m.mk_ite(econd, b1, b2);
+                    expr* b1 = re_to_accept.find(e1);
+                    expr* b2 = re_to_accept.find(e2);
+                    expr* b = m.is_true(econd) || b1 == b2 ? b1 : m.is_false(econd) ? b2 : m.mk_ite(econd, b1, b2);
                     _temp_bool_owner.push_back(b);
-                    re_to_bool.find(e) = b;
+                    re_to_accept.find(e) = b;
+                }
+                else if (re().is_empty(e) || (s_is_longer_than_i && re().is_epsilon(e)))
+                {
+                    // s[i..] in [] <==> false, also: s[i..] in () <==> false when |s|>i
+                    re_to_accept.find(e) = m.mk_false();
+                }
+                else if (re().is_full_seq(e) || s_is_longer_than_i && re().is_dot_plus(e))
+                {
+                    // s[i..] in .* <==> true, also: s[i..] in .+ <==> true when |s|>i
+                    re_to_accept.find(e) = m.mk_true();
                 }
                 /*
-                else if (re().is_empty(e))
-                {
-                    re_to_bool.find(e) = m.mk_false();
-                }
                 else if (re().is_epsilon(e))
                 {
-                    expr* iplus1 = a().mk_int(i);
                     expr* one = a().mk_int(1);
-                    _temp_bool_owner.push_back(iplus1);
                     _temp_bool_owner.push_back(one);
-                    //the substring starting after position iplus1 must be empty
-                    expr* s_end = str().mk_substr(s, iplus1, one);
+                    //the substring starting after position i must be empty
+                    expr* s_end = str().mk_substr(s, i_int, one);
                     expr* s_end_is_epsilon = m.mk_eq(s_end, str().mk_empty(m.get_sort(s)));
 
                     _temp_bool_owner.push_back(s_end_is_epsilon);
-                    re_to_bool.find(e) = s_end_is_epsilon;
+                    re_to_accept.find(e) = s_end_is_epsilon;
 
                     STRACE("seq_regex_verbose", tout
                         << "added empty sequence leaf: "
@@ -655,18 +659,16 @@ namespace smt {
                 }
                 */
                 else if (re().is_union(e, e1, e2)) {
-                    expr* b1 = re_to_bool.find(e1);
-                    expr* b2 = re_to_bool.find(e2);
-                    expr* b = m.mk_or(b1, b2);
+                    expr* b1 = re_to_accept.find(e1);
+                    expr* b2 = re_to_accept.find(e2);
+                    expr* b = m.is_false(b1) || b1 == b2 ? b2 : m.is_false(b2) ? b1 : m.mk_or(b1, b2);
                     _temp_bool_owner.push_back(b);
-                    re_to_bool.find(e) = b;
+                    re_to_accept.find(e) = b;
                 }
                 else {
-                    expr* iplus1 = a().mk_int(i);
-                    _temp_bool_owner.push_back(iplus1);
-                    expr_ref acc_leaf = sk().mk_accept(s, iplus1, e);
+                    expr_ref acc_leaf = sk().mk_accept(s, i_int, e);
                     _temp_bool_owner.push_back(acc_leaf);
-                    re_to_bool.find(e) = acc_leaf;
+                    re_to_accept.find(e) = acc_leaf;
 
                     STRACE("seq_regex_verbose", tout
                         << "mk_deriv_accept: added accept leaf: "
@@ -682,28 +684,9 @@ namespace smt {
 
         // Finalize
         expr_ref result(m);
-        result = re_to_bool.find(r); // Assigns ownership of all exprs in
-                                     // re_to_bool for after this completes
+        result = re_to_accept.find(r); // Assigns ownership of all exprs in
+                                       // re_to_accept for after this completes
         rewrite(result);
-        return result;
-    }
-
-
-    expr_ref seq_regex::mk_deriv_accept_rec(expr* s, unsigned i, expr* d) {
-        expr* c, * d1, * d2;
-        expr_ref result(m);
-        if (re().is_full_seq(d) || str().min_length(s) > i && re().is_dot_plus(d))
-            // s[i..] in .* <==> true, also: s[i..] in .+ <==> true when |s|>i
-            result = m.mk_true();
-        else if (re().is_empty(d) || (str().min_length(s) > i && re().is_epsilon(d)))
-            // s[i..] in [] <==> false, also: s[i..] in () <==> false when |s|>i
-            result = m.mk_false();
-        else if (m.is_ite(d, c, d1, d2))
-            result = re().mk_ite_simplify(c, mk_deriv_accept_rec(s, i, d1), mk_deriv_accept_rec(s, i, d2));
-        else if (re().is_union(d, d1, d2))
-            result = re().mk_or_simplify(mk_deriv_accept_rec(s, i, d1), mk_deriv_accept_rec(s, i, d2));
-        else
-            result = sk().mk_accept(s, a().mk_int(i + 1), d);
         return result;
     }
 
