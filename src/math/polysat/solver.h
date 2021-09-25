@@ -77,6 +77,7 @@ namespace polysat {
 
         uint64_t                 m_max_conflicts = std::numeric_limits<uint64_t>::max();
         uint64_t                 m_max_decisions = std::numeric_limits<uint64_t>::max();
+        bool                     m_branch_bool = false;
 
 
 
@@ -171,7 +172,7 @@ namespace polysat {
         void set_conflict(clause& cl) { m_conflict.set(cl); }
         void set_conflict(pvar v) { m_conflict.set(v); }
 
-        bool can_decide() const { return !m_free_pvars.empty() || m_bvars.can_decide(); }
+        bool can_decide() const { return !m_free_pvars.empty() || (m_branch_bool && m_bvars.can_decide()); }
         void decide();
         void pdecide(pvar v);
         void bdecide(sat::bool_var b);
@@ -187,7 +188,7 @@ namespace polysat {
         unsigned base_level() const;
 
         void resolve_conflict();
-        void resolve_value(pvar v);
+        bool resolve_value(pvar v);
         void resolve_bool(sat::literal lit);
         void revert_decision(pvar v);
         void revert_bool_decision(sat::literal lit);
@@ -313,7 +314,11 @@ namespace polysat {
 
         void collect_statistics(statistics& st) const;
 
-        params_ref& params() { return m_params;  }
+        params_ref const & params() const { return m_params;  }
+
+        void updt_params(params_ref const& p);
+
+        void get_param_descrs(param_descrs& pd);
 
     };
 

@@ -33,6 +33,8 @@ namespace polysat {
         for (auto c1 : core) {
             if (!c1->is_ule())
                 continue;
+            if (!c1.is_currently_false(s))
+                continue;
             auto c = c1.as_inequality();
             if (try_ugt_x(v, core, c))
                 return true;
@@ -59,29 +61,27 @@ namespace polysat {
     * Propagate c. It is added to reason and core all other literals in reason are false in current stack.
     * The lemmas outlined in the rules are valid and therefore c is implied.
     */
-    bool inf_saturate::propagate(conflict& core, inequality const& crit1, inequality const& crit2, signed_constraint& c, vector<signed_constraint>& new_constraints) {
-        bool crit1_false = crit1.as_signed_constraint().is_currently_false(s);
-        bool crit2_false = crit2.as_signed_constraint().is_currently_false(s);
-        if (!crit1_false && !crit2_false)
-            return false;
-        bool is_bool_false = c.bvalue(s) == l_false;
-        bool is_model_false = c.is_currently_false(s);
-        if (!is_bool_false && !is_model_false)
+    bool inf_saturate::propagate(conflict& core, inequality const& _crit1, inequality const& _crit2, signed_constraint& c, vector<signed_constraint>& new_constraints) {
+        auto crit1 = _crit1.as_signed_constraint();
+        auto crit2 = _crit2.as_signed_constraint();
+        new_constraints.push_back(crit1);
+        new_constraints.push_back(crit2);
+
+        SASSERT(crit1.is_currently_false(s));
+        if (c.bvalue(s) == l_false) {
+            core.reset();
+            for (auto d : new_constraints)
+                core.insert(d);
+            core.insert(~c);
+            return true;
+        }
+      
+        if (!c.is_currently_false(s))
             return false;
         
-        // refresh dependencies for crit1, crit2
-        // this is called before core.set, which 
-        // rehashes the variable dependencies
-        core.keep(crit1.as_signed_constraint());
-        core.keep(crit2.as_signed_constraint());
-        if (is_bool_false)
-            core.insert(~c);
-        else 
-            core.set(c);
-
-        // add fresh constraints
-        for (auto d : new_constraints)
-            core.insert(d);
+        core.replace(crit1, c, new_constraints);
+        core.reset();
+        core.set(c);
         return true;
     }
 
@@ -305,7 +305,10 @@ namespace polysat {
             return false;
         pdd x = s.var(v);
         pdd z = x;
-        for (auto dd : core) {
+        for (auto si : s.m_search) {
+            if (!si.is_boolean())
+                continue;
+            auto dd = s.lit2cnstr(si.lit());
             if (!dd->is_ule())
                 continue;
             auto d = dd.as_inequality();
@@ -323,7 +326,10 @@ namespace polysat {
             return false;
         pdd y = s.var(x);
         pdd a = y;
-        for (auto dd : core) {
+        for (auto si : s.m_search) {
+            if (!si.is_boolean())
+                continue;
+            auto dd = s.lit2cnstr(si.lit());
             if (!dd->is_ule())
                 continue;
             auto d = dd.as_inequality();
@@ -355,7 +361,10 @@ namespace polysat {
             return false;
         pdd y = s.var(z);
         pdd x = y;
-        for (auto dd : core) {
+        for (auto si : s.m_search) {
+            if (!si.is_boolean())
+                continue;
+            auto dd = s.lit2cnstr(si.lit());
             if (!dd->is_ule())
                 continue;
             auto d = dd.as_inequality();

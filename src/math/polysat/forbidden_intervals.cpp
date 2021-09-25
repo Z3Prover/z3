@@ -14,7 +14,10 @@ Author:
 
 
 TODO:
-move "forbidden interval method from constraints
+compute forbidden interval coefficients a1, a2 modulo current assignment to handle pseudo-linear cases.
+test_mont_bounds(8) produces constraint 13 <= v1*v2, where v2 = 1, then v1 is linear and is constrained above 13.
+
+
 
 --*/
 #include "math/polysat/forbidden_intervals.h"
@@ -217,9 +220,15 @@ namespace polysat {
             rhs.factor(v, 1, p2, e2);
 
         // Interval extraction only works if v-coefficients are the same
+        // LOG("factored " << deg1 << " " << deg2 << " " << p1 << " " << p2);
         if (deg1 != 0 && deg2 != 0 && p1 != p2)
             return false;
 
+        // LOG("valued " << p1.is_val() << " " << p2.is_val());
+        // TODO: p1, p2 could be values under assignment.
+        // It could allow applying forbidden interval elimination under the assignment.
+        // test_monot_bounds(8)
+        // 
         // Currently only works if coefficient is a power of two
         if (!p1.is_val())
             return false;
@@ -229,6 +238,7 @@ namespace polysat {
         rational a2 = p2.val();
         // TODO: to express the interval for coefficient 2^i symbolically, we need right-shift/upper-bits-extract in the language.
         // So currently we can only do it if the coefficient is 1 or -1.
+        LOG("values " << a1 << " " << a2);
         if (!a1.is_zero() && !a1.is_one() && a1 != minus_one)
             return false;
         if (!a2.is_zero() && !a2.is_one() && a2 != minus_one)

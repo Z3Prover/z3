@@ -94,6 +94,8 @@ namespace polysat {
         if (first)
             m_bvars.watch(cl[0]).push_back(&cl);
         m_bvars.watch(cl[1]).push_back(&cl);
+        if (m_bvars.is_true(cl[0]))
+            return;
         if (first) 
             s.set_conflict(cl);        
         else 
@@ -283,6 +285,6 @@ namespace polysat {
     }
 
     lbool signed_constraint::bvalue(solver& s) const {
-        return s.m_bvars.value(blit());
+        return get()->has_bvar() ? s.m_bvars.value(blit()) : l_undef;
     }
 }

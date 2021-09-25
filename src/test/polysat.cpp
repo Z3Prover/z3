@@ -675,6 +675,17 @@ namespace polysat {
         s.pop();
     }
 
+    static void test_var_minimize(unsigned bw = 32) {
+        scoped_solver s(__func__);
+        auto x = s.var(s.add_var(bw));
+        auto y = s.var(s.add_var(bw));
+        auto z = s.var(s.add_var(bw));
+        s.add_eq(x);
+        s.add_eq(4 * y + 8 * z + x + 2); // should only depend on assignment to x
+        s.check();
+        s.expect_unsat();
+    }
+
 
     /**
      * x*x <= z
@@ -1036,6 +1047,11 @@ namespace polysat {
 
 void tst_polysat() {
 
+    polysat::test_p3();
+
+    polysat::test_var_minimize();
+    //return;
+
     polysat::test_subst();
 
 
@@ -1045,10 +1061,10 @@ void tst_polysat() {
     // polysat::test_monot_bounds_simple(8);
 
     // working
-    polysat::test_fixed_point_arith_mul_div_inverse();
+    // NOT: polysat::test_fixed_point_arith_mul_div_inverse();
         
     
-    polysat::test_monot_bounds(8);
+    // polysat::test_monot_bounds(8);
 
     polysat::test_add_conflicts();
     polysat::test_wlist();
@@ -1069,6 +1085,8 @@ void tst_polysat() {
     polysat::test_ineq_basic6();
     polysat::test_monot_bounds(2);
     polysat::test_cjust();
+
+    return;
 
     polysat::test_ineq_axiom1();
     polysat::test_ineq_axiom2();

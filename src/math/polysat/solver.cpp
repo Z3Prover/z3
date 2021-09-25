@@ -49,6 +49,11 @@ namespace polysat {
         m_conflict.reset();
     }
 
+    void solver::updt_params(params_ref const& p) {
+        m_params.append(p);
+        m_branch_bool = m_params.get_bool("branch_bool", false);
+    }
+
     bool solver::should_search() {
         return 
             m_lim.inc() && 
@@ -347,7 +352,7 @@ namespace polysat {
     void solver::decide() {
         LOG_H2("Decide");
         SASSERT(can_decide());
-        if (m_bvars.can_decide())
+        if (m_bvars.can_decide() && m_branch_bool)
             bdecide(m_bvars.next_var());
         else
             pdecide(m_free_pvars.next_var());
@@ -445,12 +450,12 @@ namespace polysat {
                 LOG("Justification: " << j);
                 if (j.level() <= base_level())
                     break;
-                if (j.is_decision()) {
+                if (!resolve_value(v) && j.is_decision()) {               
                     revert_decision(v);
                     return;
                 }
-                SASSERT(j.is_propagation());
-                resolve_value(v);
+                //SASSERT(j.is_propagation());
+                //resolve_value(v);
             }
             else {
                 // Resolve over boolean literal
@@ -475,8 +480,8 @@ namespace polysat {
     }
 
     /** Conflict resolution case where propagation 'v := ...' is on top of the stack */
-    void solver::resolve_value(pvar v) {
-        m_conflict.resolve_value(v, m_cjust[v]);
+    bool solver::resolve_value(pvar v) {
+        return m_conflict.resolve_value(v, m_cjust[v]);
     }
 
     /** Conflict resolution case where boolean literal 'lit' is on top of the stack */
@@ -858,6 +863,8 @@ namespace polysat {
             signed_constraint sc(c, is_positive);
             for (auto const& wlist : m_pwatch) {
                 auto n = std::count(wlist.begin(), wlist.end(), sc);
+                if (n > 1)
+                    std::cout << sc << "\n" << * this << "\n";
                 VERIFY(n <= 1);  // no duplicates in the watchlist
                 num_watches += n;
             }

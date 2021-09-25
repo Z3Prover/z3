@@ -79,7 +79,7 @@ namespace polysat {
             return;
         }
         // k <= p => p - k <= - k - 1
-        if (m_lhs.is_val()) {
+        if (m_lhs.is_val() && false) {
             pdd k = m_lhs;
             m_lhs = m_rhs - k;
             m_rhs = - k - 1;
