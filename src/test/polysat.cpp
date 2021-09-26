@@ -1047,6 +1047,9 @@ namespace polysat {
 
 void tst_polysat() {
 
+    polysat::test_ineq_basic4();
+    return;
+
     polysat::test_p3();
 
     polysat::test_var_minimize();

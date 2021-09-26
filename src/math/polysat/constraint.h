@@ -137,6 +137,7 @@ namespace polysat {
         lbool               m_external_sign = l_undef;
         bool                m_is_marked = false;
         bool                m_is_var_dependent = false;
+        bool                m_is_active = false;
         /** The boolean variable associated to this constraint, if any.
          *  If this is not null_bool_var, then the constraint corresponds to a literal on the assignment stack.
          *  Convention: the plain constraint corresponds the positive sat::literal.
@@ -189,7 +190,10 @@ namespace polysat {
 
         void set_var_dependent() { m_is_var_dependent = true; }
         void unset_var_dependent() { m_is_var_dependent = false; }
-        bool is_var_dependent() { return m_is_var_dependent;  }
+        bool is_var_dependent() const { return m_is_var_dependent;  }
+
+        bool is_active() const { return m_is_active; }
+        void set_active(bool f) { m_is_active = f; }
     };
 
     inline std::ostream& operator<<(std::ostream& out, constraint const& c) { return c.display(out); }

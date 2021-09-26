@@ -78,8 +78,9 @@ namespace polysat {
     // solver handles unsat clauses by creating a conflict.
     // solver also can propagate, but need to check that it does indeed.
     void constraint_manager::watch(clause& cl, solver& s) {      
-        if (cl.size() <= 1)
+        if (cl.empty())
             return;
+
         bool first = true;
         for (unsigned i = 0; i < cl.size(); ++i) {
             if (m_bvars.is_false(cl[i]))
@@ -93,7 +94,8 @@ namespace polysat {
        
         if (first)
             m_bvars.watch(cl[0]).push_back(&cl);
-        m_bvars.watch(cl[1]).push_back(&cl);
+        if (cl.size() > 1)
+            m_bvars.watch(cl[1]).push_back(&cl);
         if (m_bvars.is_true(cl[0]))
             return;
         if (first) 

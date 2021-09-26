@@ -90,7 +90,7 @@ namespace polysat {
         SASSERT(empty());
         m_conflict_var = v;
         for (auto c : s.m_cjust[v]) {
-            c->set_var_dependent();
+            c->set_var_dependent(); // ??
             insert(c);
         }
         SASSERT(!empty());
@@ -103,8 +103,8 @@ namespace polysat {
         LOG("Conflict: " << cl);
         SASSERT(empty());
         for (auto lit : cl) {
-            auto c = s.lit2cnstr(lit);
-            c->set_var_dependent();
+            auto c = s.lit2cnstr(lit);           
+            // no c->set_var_dependent();
             insert(~c);
         }
         SASSERT(!empty());

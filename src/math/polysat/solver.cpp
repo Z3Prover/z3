@@ -161,7 +161,7 @@ namespace polysat {
     * Propagate assignment to a Boolean variable
     */
     void solver::propagate(sat::literal lit) {
-        LOG_H2("Propagate bool " << lit);
+        LOG_H2("Propagate bool " << lit << "@" << m_bvars.level(lit) << " " << m_level << " qhead: " << m_qhead);
         signed_constraint c = lit2cnstr(lit);
         SASSERT(c);
         activate_constraint(c);
@@ -192,22 +192,23 @@ namespace polysat {
 
     bool solver::propagate(sat::literal lit, clause& cl) {
         SASSERT(cl.size() >= 2);
+        std::cout << lit << ": " << cl << "\n";
         unsigned idx = cl[0] == ~lit ? 1 : 0;
         SASSERT(cl[1 - idx] == ~lit);
         if (m_bvars.is_true(cl[idx]))
-            return true;
+            return false;
         unsigned i = 2;
         for (; i < cl.size() && m_bvars.is_false(cl[i]); ++i);
         if (i < cl.size()) {
             m_bvars.watch(cl[i]).push_back(&cl);
             std::swap(cl[1 - idx], cl[i]);
-            return false;
+            return true;
         }
         if (m_bvars.is_false(cl[idx]))
             set_conflict(cl);
         else
             assign_bool(level(cl), cl[idx], &cl, nullptr);
-        return true;
+        return false;
     }
 
     void solver::linear_propagate() {
@@ -254,9 +255,6 @@ namespace polysat {
             switch (m_trail.back()) {
             case trail_instr_t::qhead_i: {
                 pop_qhead();
-                for (unsigned i = m_search.size(); i-- > m_qhead; )
-                    if (m_search[i].is_boolean()) 
-                        deactivate_constraint(lit2cnstr(m_search[i].lit()));                    
                 break;
             }
             case trail_instr_t::add_var_i: {
@@ -282,12 +280,17 @@ namespace polysat {
             }
             case trail_instr_t::assign_bool_i: {
                 sat::literal lit = m_search.back().lit();
+                signed_constraint c = lit2cnstr(lit);
                 LOG_V("Undo assign_bool_i: " << lit);
                 unsigned active_level = m_bvars.level(lit);
+
+                if (c->is_active())
+                    deactivate_constraint(c);
+
                 if (active_level <= target_level)
                     replay.push_back(lit);
-                else
-                    m_bvars.unassign(lit);
+                else 
+                    m_bvars.unassign(lit);                
                 m_search.pop();
                 break;
             }
@@ -454,8 +457,6 @@ namespace polysat {
                     revert_decision(v);
                     return;
                 }
-                //SASSERT(j.is_propagation());
-                //resolve_value(v);
             }
             else {
                 // Resolve over boolean literal
@@ -484,12 +485,12 @@ namespace polysat {
         return m_conflict.resolve_value(v, m_cjust[v]);
     }
 
-    /** Conflict resolution case where boolean literal 'lit' is on top of the stack */
+    /** Conflict resolution case where boolean literal 'lit' is on top of the stack 
+    *   NOTE: boolean resolution should work normally even in bailout mode.
+    */
     void solver::resolve_bool(sat::literal lit) {       
-        sat::bool_var const var = lit.var();
-        SASSERT(m_bvars.is_propagation(var));
-        // NOTE: boolean resolution should work normally even in bailout mode.
-        clause other = *m_bvars.reason(var);
+        SASSERT(m_bvars.is_propagation(lit.var()));
+        clause other = *m_bvars.reason(lit.var());
         LOG_H3("resolve_bool: " << lit << " " << other);
         m_conflict.resolve(m_constraints, lit, other);
     }
@@ -635,6 +636,7 @@ namespace polysat {
             // - drawback: might have to bail out at boolean resolution
             // Also: maybe we can skip ~L in some cases? but in that case it shouldn't be marked.
             //
+            std::cout << "ADD extra " << ~lit << "\n";
             reason_builder.push(~lit);
         }
         clause_ref reason = reason_builder.build();
@@ -700,6 +702,8 @@ namespace polysat {
         SASSERT(c);
         LOG("Activating constraint: " << c);
         SASSERT(m_bvars.value(c.blit()) == l_true);
+        SASSERT(!c->is_active());
+        c->set_active(true);
         add_watch(c);
         c.narrow(*this);
 #if ENABLE_LINEAR_SOLVER
@@ -709,7 +713,8 @@ namespace polysat {
 
     /// Deactivate constraint
     void solver::deactivate_constraint(signed_constraint c) {
-        LOG("Deactivating constraint: " << c);
+        LOG("Deactivating constraint: " << c.blit());
+        c->set_active(false);
         erase_watch(c);
     }
 
