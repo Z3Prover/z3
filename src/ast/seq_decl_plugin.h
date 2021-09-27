@@ -614,10 +614,10 @@ public:
             expr* ex;
             bool html_encode;
             bool can_skip_parenth(expr* r) const;
-            void print_unit(std::ostream& out, expr* s) const;
-            void print_seq(std::ostream& out, expr* s) const;
-            void print_range(std::ostream& out, expr* s1, expr* s2) const;
-            void print(std::ostream& out, expr* e) const;
+            std::ostream& print_unit(std::ostream& out, expr* s) const;
+            std::ostream& print_seq(std::ostream& out, expr* s) const;
+            std::ostream& print_range(std::ostream& out, expr* s1, expr* s2) const;
+            std::ostream& print(std::ostream& out, expr* e) const;
 
         public:
             pp(seq_util::rex& re, expr* ex, bool html) : re(re), ex(ex), html_encode(html) {}

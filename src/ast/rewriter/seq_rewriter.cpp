@@ -921,7 +921,7 @@ expr_ref seq_rewriter::mk_seq_last(expr* t) {
         expr_ref lastpos(str().is_len_sub(k, l, s_, i) && s == s_ ? 
             m_autil.mk_add(l, m_autil.mk_int(jv.get_int32() - 1 - i)) :
             m_autil.mk_add(k, m_autil.mk_int(jv.get_int32() - 1)), m());
-        result = str().mk_nth_i(s, lastpos);
+        result = str().mk_nth_i(s, lastpos.get());
     }
     else
         result = str().mk_nth_i(t, m_autil.mk_sub(str().mk_length(t), m_autil.mk_int(1)));
@@ -3140,7 +3140,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         result = mk_antimirov_deriv_intersection(
             mk_antimirov_deriv(e, r1, path),
             mk_antimirov_deriv(e, r2, path), m().mk_true());
-    else if (re().is_star(r, r1) || re().is_plus(r, r1) || re().is_loop(r, r1, lo) && 0 <= lo && lo <= 1)
+    else if (re().is_star(r, r1) || re().is_plus(r, r1) || (re().is_loop(r, r1, lo) && 0 <= lo && lo <= 1))
         result = mk_antimirov_deriv_concat(mk_antimirov_deriv(e, r1, path), re().mk_star(r1));
     else if (re().is_loop(r, r1, lo))
         result = mk_antimirov_deriv_concat(mk_antimirov_deriv(e, r1, path), re().mk_loop(r1, lo - 1));
@@ -3319,6 +3319,7 @@ expr_ref seq_rewriter::mk_regex_concat(expr* r, expr* s) {
         //TODO: perhaps simplifiy some further cases such as .*. = ..* = .*.+ = .+.* = .+
         result = re().mk_concat(r, s);
     }
+    return result;
 }
 
 expr_ref seq_rewriter::mk_in_antimirov(expr* s, expr* d){

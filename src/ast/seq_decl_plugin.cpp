@@ -1105,7 +1105,7 @@ app* seq_util::rex::mk_epsilon(sort* seq_sort) {
 /*
   Produces compact view of concrete concatenations such as (abcd).
 */
-void seq_util::rex::pp::print_seq(std::ostream& out, expr* s) const {
+std::ostream& seq_util::rex::pp::print_seq(std::ostream& out, expr* s) const {
     SASSERT(re.u.is_seq(s));
     zstring z;
     expr* x, * j, * k, * l, * i, * x_;
@@ -1158,17 +1158,19 @@ void seq_util::rex::pp::print_seq(std::ostream& out, expr* s) const {
     }
     else 
         out << mk_pp(s, re.m);
+    return out;
 }
 
 /*
   Produces output such as [a-z] for a range.
 */
-void seq_util::rex::pp::print_range(std::ostream& out, expr* s1, expr* s2) const {
+std::ostream& seq_util::rex::pp::print_range(std::ostream& out, expr* s1, expr* s2) const {
     out << "[";
     print_unit(out, s1);
     out << "-";
     print_unit(out, s2);
     out << "]";
+    return out;
 }
 
 /*
@@ -1182,7 +1184,7 @@ bool seq_util::rex::pp::can_skip_parenth(expr* r) const {
 /*
   Specialize output for a unit sequence converting to visible ASCII characters if possible.
 */
-void seq_util::rex::pp::print_unit(std::ostream& out, expr* s) const {
+std::ostream& seq_util::rex::pp::print_unit(std::ostream& out, expr* s) const {
     expr* e, * i;
     unsigned n = 0;
     if ((re.u.str.is_unit(s, e) && re.u.is_const_char(e, n)) || re.u.is_const_char(s, n)) {
@@ -1237,12 +1239,13 @@ void seq_util::rex::pp::print_unit(std::ostream& out, expr* s) const {
     }
     else
         out << mk_pp(s, re.m);
+    return out;
 }
 
 /*
   Pretty prints the regex r into the ostream out
 */
-void seq_util::rex::pp::print(std::ostream& out, expr* e) const {
+std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
     expr* r1 = nullptr, * r2 = nullptr, * s = nullptr, * s2 = nullptr;
     unsigned lo = 0, hi = 0;
     rational v;
@@ -1400,6 +1403,7 @@ void seq_util::rex::pp::print(std::ostream& out, expr* e) const {
     else
         // for all remaining cases use the default pretty printer
         out << mk_pp(e, re.m);
+    return out;
 }
 
 std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
