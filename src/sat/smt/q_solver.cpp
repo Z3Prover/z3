@@ -232,6 +232,14 @@ namespace q {
         else
             UNREACHABLE();
 
+        expr* a, *b;
+        if (m_expanded.size() == 1 && m.is_iff(m_expanded.get(0), a, b)) {
+            expr_ref f1(m.mk_implies(a, b), m);
+            expr_ref f2(m.mk_implies(b, a), m);
+            m_expanded.reset();
+            m_expanded.push_back(f1);
+            m_expanded.push_back(f2);
+        }
         if (m_expanded.size() > 1) {
             for (unsigned i = m_expanded.size(); i-- > 0; ) {
                 expr_ref tmp(m.update_quantifier(q, m_expanded.get(i)), m);

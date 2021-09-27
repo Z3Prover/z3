@@ -171,10 +171,10 @@ namespace q {
     }
 
     euf::enode* eval::operator()(unsigned n, euf::enode* const* binding, expr* e, euf::enode_pair_vector& evidence) {
-        if (is_ground(e))
-            return ctx.get_egraph().find(e);
         if (m_mark.is_marked(e))
             return m_eval[e->get_id()];
+        if (is_ground(e))
+            return ctx.get_egraph().find(e);
         ptr_buffer<expr> todo;
         ptr_buffer<euf::enode> args;
         todo.push_back(e);

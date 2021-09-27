@@ -112,6 +112,7 @@ namespace q {
 
         void attach_ground_pattern_terms(expr* pat);
         clause* clausify(quantifier* q);
+        lit clausify_literal(expr* arg);
 
         fingerprint* add_fingerprint(clause& c, binding& b, unsigned max_generation);
         void set_tmp_binding(fingerprint& fp);
