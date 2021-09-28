@@ -41,6 +41,7 @@ namespace q {
             unsigned m_num_propagations;
             unsigned m_num_conflicts;
             unsigned m_num_redundant;
+            unsigned m_num_delayed_bindings;
             
             stats() { reset(); }
 

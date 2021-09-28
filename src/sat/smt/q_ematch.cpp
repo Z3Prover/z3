@@ -240,6 +240,7 @@ namespace q {
             b->m_nodes[i] = _binding[i];        
         binding::push_to_front(c.m_bindings, b);
         ctx.push(remove_binding(ctx, c, b));
+        ++m_stats.m_num_delayed_bindings;
     }
 
     void ematch::on_binding(quantifier* q, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_gen, unsigned max_gen) {
@@ -612,6 +613,7 @@ namespace q {
         st.update("q redundant", m_stats.m_num_redundant);
         st.update("q units",     m_stats.m_num_propagations);
         st.update("q conflicts", m_stats.m_num_conflicts);
+        st.update("q delayed bindings", m_stats.m_num_delayed_bindings);
     }
 
     std::ostream& ematch::display(std::ostream& out) const {
