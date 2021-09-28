@@ -279,21 +279,15 @@ namespace polysat {
             if (fi.perform(s, v, cjust_v, *this))
                 return true;
         }
-
-        std::cout << "vars " << m_vars << " contains: " << m_vars.contains(v) << "\n";
         
         m_vars.remove(v);
 
         for (auto c : cjust_v)
             insert(c);
 
-        std::cout << "try explain v" << v << "\n";
-
         for (auto* engine : ex_engines)
             if (engine->try_explain(v, *this))
                 return true;
-
-        std::cout << "try elim v" << v << "\n";
 
         // No value resolution method was successful => fall back to saturation and variable elimination
         while (s.inc()) {
@@ -306,7 +300,6 @@ namespace polysat {
         set_bailout();
         if (s.is_assigned(v))
             m_vars.insert(v);
-        std::cout << "vars " << m_vars << "\n";
         return false;
     }
 

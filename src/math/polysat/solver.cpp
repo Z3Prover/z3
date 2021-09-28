@@ -192,7 +192,6 @@ namespace polysat {
 
     bool solver::propagate(sat::literal lit, clause& cl) {
         SASSERT(cl.size() >= 2);
-        std::cout << lit << ": " << cl << "\n";
         unsigned idx = cl[0] == ~lit ? 1 : 0;
         SASSERT(cl[1 - idx] == ~lit);
         if (m_bvars.is_true(cl[idx]))
@@ -636,7 +635,6 @@ namespace polysat {
             // - drawback: might have to bail out at boolean resolution
             // Also: maybe we can skip ~L in some cases? but in that case it shouldn't be marked.
             //
-            std::cout << "ADD extra " << ~lit << "\n";
             reason_builder.push(~lit);
         }
         clause_ref reason = reason_builder.build();
@@ -869,7 +867,7 @@ namespace polysat {
             for (auto const& wlist : m_pwatch) {
                 auto n = std::count(wlist.begin(), wlist.end(), sc);
                 if (n > 1)
-                    std::cout << sc << "\n" << * this << "\n";
+                    LOG("violated watch constraint " << sc << "\n" << *this);
                 VERIFY(n <= 1);  // no duplicates in the watchlist
                 num_watches += n;
             }
