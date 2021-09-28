@@ -1047,15 +1047,13 @@ namespace polysat {
 
 void tst_polysat() {
 
-    polysat::test_ineq_basic4();
-    return;
+    polysat::test_cjust();
 
-    polysat::test_p3();
+    
 
-    polysat::test_var_minimize();
-    //return;
 
-    polysat::test_subst();
+
+    
 
 
 
@@ -1086,8 +1084,12 @@ void tst_polysat() {
     polysat::test_ineq_basic4();
     polysat::test_ineq_basic5();
     polysat::test_ineq_basic6();
-    polysat::test_monot_bounds(2);
+
     polysat::test_cjust();
+    polysat::test_subst();
+    polysat::test_monot_bounds(2);
+
+    polysat::test_var_minimize();
 
     return;
 

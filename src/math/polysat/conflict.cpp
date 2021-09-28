@@ -230,6 +230,8 @@ namespace polysat {
                 continue;
             auto diseq = ~s.eq(s.var(v), s.get_value(v));
             cm().ensure_bvar(diseq.get());
+            //if (diseq.bvalue(s) == l_undef) 
+            //    s.assign_bool(s.get_level(v), ~diseq.blit(), nullptr, nullptr);            
             lemma.push(diseq);
         }        
 
@@ -271,8 +273,11 @@ namespace polysat {
         //      - cjust_v contains true constraints
         //      - core contains both false and true constraints (originally only false ones, but additional true ones may come from saturation)
 
-        if (is_bailout())
+        if (is_bailout()) {
+            if (!s.m_justification[v].is_decision())
+                m_vars.remove(v);
             return false;
+        }
 
         if (conflict_var() == v) {
             forbidden_intervals fi;
@@ -359,7 +364,7 @@ namespace polysat {
 
     void conflict::inc_pref(pvar v) {
         if (v >= m_pvar2count.size())
-            m_pvar2count.resize(v + 1);
+            m_pvar2count.resize(v + 1);        
         m_pvar2count[v]++;
     }
 

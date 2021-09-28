@@ -621,24 +621,9 @@ namespace polysat {
         //      (L')^{L' \/ ¬L \/ ...}
         //      again L is in core, unless we core-reduced it away
 
-        clause_builder reason_builder = m_conflict.build_lemma();
-        
+        clause_builder reason_builder = m_conflict.build_lemma();        
+        SASSERT(std::find(reason_builder.begin(), reason_builder.end(), ~lit));
 
-        bool contains_lit = std::find(reason_builder.begin(), reason_builder.end(), ~lit);
-        if (!contains_lit) {
-            // At this point, we do not have ~lit in the reason.
-            // For now, we simply add it (thus weakening the reason)
-            //
-            // Alternative (to be considered later):
-            // - 'reason' itself (without ~L) would already be an explanation for ~L
-            // - however if it doesn't contain ~L, it breaks the boolean resolution invariant
-            // - would need to check what we can gain by relaxing that invariant
-            // - drawback: might have to bail out at boolean resolution
-            // Also: maybe we can skip ~L in some cases? but in that case it shouldn't be marked.
-            //
-            std::cout << "ADD extra " << ~lit << "\n";
-            reason_builder.push(~lit);
-        }
         clause_ref reason = reason_builder.build();
 
         if (reason->empty()) {
@@ -868,8 +853,6 @@ namespace polysat {
             signed_constraint sc(c, is_positive);
             for (auto const& wlist : m_pwatch) {
                 auto n = std::count(wlist.begin(), wlist.end(), sc);
-                if (n > 1)
-                    std::cout << sc << "\n" << * this << "\n";
                 VERIFY(n <= 1);  // no duplicates in the watchlist
                 num_watches += n;
             }
