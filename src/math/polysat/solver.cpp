@@ -192,7 +192,6 @@ namespace polysat {
 
     bool solver::propagate(sat::literal lit, clause& cl) {
         SASSERT(cl.size() >= 2);
-        std::cout << lit << ": " << cl << "\n";
         unsigned idx = cl[0] == ~lit ? 1 : 0;
         SASSERT(cl[1 - idx] == ~lit);
         if (m_bvars.is_true(cl[idx]))
@@ -623,7 +622,6 @@ namespace polysat {
 
         clause_builder reason_builder = m_conflict.build_lemma();        
         SASSERT(std::find(reason_builder.begin(), reason_builder.end(), ~lit));
-
         clause_ref reason = reason_builder.build();
 
         if (reason->empty()) {
