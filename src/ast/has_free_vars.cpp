@@ -18,9 +18,10 @@ Revision History:
 --*/
 #include "ast/ast.h"
 #include "ast/expr_delta_pair.h"
+#include "ast/has_free_vars.h"
 #include "util/hashtable.h"
 
-class contains_vars {
+class contains_vars::imp {
     typedef hashtable<expr_delta_pair, obj_hash<expr_delta_pair>, default_eq<expr_delta_pair> > cache;
     cache                    m_cache;
     svector<expr_delta_pair> m_todo;
@@ -85,6 +86,18 @@ public:
         return false;
     }
 };
+
+contains_vars::contains_vars() {
+    m_imp = alloc(imp);
+}
+
+contains_vars::~contains_vars() {
+    dealloc(m_imp);
+}
+
+bool contains_vars::operator()(expr* e) {
+    return (*m_imp)(e);
+}
 
 bool has_free_vars(expr * n) {
     contains_vars p;

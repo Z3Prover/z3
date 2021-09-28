@@ -198,7 +198,7 @@ namespace q {
                 todo.pop_back();
                 continue;
             }
-            if (is_ground(t) || (has_quantifiers(t) && !has_free_vars(t))) {
+            if (is_ground(t) || (has_quantifiers(t) && !m_contains_vars(t))) {
                 m_eval.setx(t->get_id(), ctx.get_egraph().find(t), nullptr);                
                 if (!m_eval[t->get_id()])
                     return nullptr;

@@ -16,6 +16,7 @@ Author:
 --*/
 #pragma once
 
+#include "ast/has_free_vars.h"
 #include "sat/smt/q_clause.h"
 
 namespace euf {
@@ -32,6 +33,7 @@ namespace q {
         euf::enode_vector  m_indirect_nodes;
         bool               m_freeze_swap = false;
         euf::enode_pair    m_diseq_undef;
+        contains_vars      m_contains_vars;
 
         struct scoped_mark_reset;
 

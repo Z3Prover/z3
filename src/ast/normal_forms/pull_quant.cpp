@@ -20,6 +20,7 @@ Notes:
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 
 struct pull_quant::imp {
     
@@ -50,7 +51,7 @@ struct pull_quant::imp {
                     quantifier * q = to_quantifier(child);
                     expr * body = q->get_expr();
                     quantifier_kind k = q->get_kind() == forall_k ? exists_k : forall_k;
-                    result = m.update_quantifier(q, k, m.mk_not(body));
+                    result = m.update_quantifier(q, k, mk_not(m, body));
                     return true;
                 }
                 else {
@@ -78,9 +79,8 @@ struct pull_quant::imp {
                         qid = nested_q->get_qid();
                     }
                     w = std::min(w, nested_q->get_weight());
-                    unsigned j = nested_q->get_num_decls();
-                    while (j > 0) {
-                        --j;
+                    
+                    for (unsigned j = nested_q->get_num_decls(); j-- > 0; ) {
                         var_sorts.push_back(nested_q->get_decl_sort(j));
                         symbol s = nested_q->get_decl_name(j);
                         if (std::find(var_names.begin(), var_names.end(), s) != var_names.end())
@@ -254,6 +254,10 @@ struct pull_quant::imp {
         }
 
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
+            if (m.is_not(f) && m.is_not(args[0])) {
+                result = to_app(args[0])->get_arg(0);
+                return BR_REWRITE1;
+            }
             if (!m.is_or(f) && !m.is_and(f) && !m.is_not(f))
                 return BR_FAILED;
 
@@ -275,7 +279,7 @@ struct pull_quant::imp {
                                proof_ref & result_pr) {
 
             if (is_exists(old_q)) {
-                result = m.mk_not(new_body);
+                result = mk_not(m, new_body);
                 result = m.mk_not(m.update_quantifier(old_q, forall_k, result));
                 if (m.proofs_enabled()) 
                     m.mk_rewrite(old_q, result);
