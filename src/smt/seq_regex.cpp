@@ -636,7 +636,7 @@ namespace smt {
                     // s[i..] in [] <==> false, also: s[i..] in () <==> false when |s|>i
                     re_to_accept.find(e) = m.mk_false();
                 }
-                else if (re().is_full_seq(e) || s_is_longer_than_i && re().is_dot_plus(e))
+                else if (re().is_full_seq(e) || (s_is_longer_than_i && re().is_dot_plus(e)))
                 {
                     // s[i..] in .* <==> true, also: s[i..] in .+ <==> true when |s|>i
                     re_to_accept.find(e) = m.mk_true();
