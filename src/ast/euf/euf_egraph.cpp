@@ -129,7 +129,7 @@ namespace euf {
         return n;
     }
 
-    egraph::egraph(ast_manager& m) : m(m), m_table(m), m_tmp_app(2), m_exprs(m) {
+    egraph::egraph(ast_manager& m) : m(m), m_table(m), m_tmp_app(2), m_exprs(m), m_eq_decls(m) {
         m_tmp_eq = enode::mk_tmp(m_region, 2);
     }
 
@@ -592,7 +592,7 @@ namespace euf {
         SASSERT(!n1->get_root()->m_target);
     }
 
-    bool egraph::are_diseq(enode* a, enode* b) const {
+    bool egraph::are_diseq(enode* a, enode* b) {
         enode* ra = a->get_root(), * rb = b->get_root();
         if (ra == rb)
             return false;
@@ -600,12 +600,16 @@ namespace euf {
             return true;
         if (ra->get_sort() != rb->get_sort())
             return true;
-        expr_ref eq(m.mk_eq(a->get_expr(), b->get_expr()), m);
-        m_tmp_eq->m_args[0] = a;
-        m_tmp_eq->m_args[1] = b;
-        m_tmp_eq->m_expr = eq;
-        SASSERT(m_tmp_eq->num_args() == 2);
-        enode* r = m_table.find(m_tmp_eq);
+        if (ra->num_parents() > rb->num_parents())
+            std::swap(ra, rb);
+        if (ra->num_parents() <= 3) {
+            for (enode* p : enode_parents(ra))
+                if (p->is_equality() && p->get_root()->value() == l_false && 
+                    (rb == p->get_arg(0)->get_root() || rb == p->get_arg(1)->get_root())) 
+                    return true;
+            return false;
+        }
+        enode* r = tmp_eq(ra, rb);
         if (r && r->get_root()->value() == l_false)
             return true;
         return false;
@@ -615,6 +619,24 @@ namespace euf {
         m_tmp_app.set_decl(f);
         m_tmp_app.set_num_args(num_args);
         return find(m_tmp_app.get_app(), num_args, args);
+    }
+
+    enode* egraph::tmp_eq(enode* a, enode* b) {
+        func_decl* f = nullptr;
+        for (unsigned i = m_eq_decls.size(); i-- > 0; ) {
+            auto e = m_eq_decls.get(i);
+            if (e->get_domain(0) == a->get_sort()) {
+                f = e;
+                break;
+            }                
+        }
+        if (!f) {
+            app_ref eq(m.mk_eq(a->get_expr(), b->get_expr()), m);
+            m_eq_decls.push_back(eq->get_decl());
+            f = eq->get_decl();            
+        }
+        enode* args[2] = { a, b };
+        return get_enode_eq_to(f, 2, args);
     }
 
     /**
@@ -714,12 +736,7 @@ namespace euf {
             explain_eq(justifications, b, rb);
             return sat::null_bool_var;
         }
-        expr_ref eq(m.mk_eq(a->get_expr(), b->get_expr()), m);
-        m_tmp_eq->m_args[0] = a;
-        m_tmp_eq->m_args[1] = b;
-        m_tmp_eq->m_expr = eq;
-        SASSERT(m_tmp_eq->num_args() == 2);
-        enode* r = m_table.find(m_tmp_eq);
+        enode* r = tmp_eq(a, b);
         SASSERT(r && r->get_root()->value() == l_false);
         explain_eq(justifications, r, r->get_root());
         return r->get_root()->bool_var();

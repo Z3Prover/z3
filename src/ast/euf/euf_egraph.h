@@ -165,6 +165,7 @@ namespace euf {
         tmp_app                m_tmp_app;
         enode_vector           m_nodes;
         expr_ref_vector        m_exprs;
+        func_decl_ref_vector   m_eq_decls;
         vector<enode_vector>   m_decl2enodes;
         enode_vector           m_empty_enodes;
         unsigned               m_num_scopes = 0;
@@ -263,9 +264,11 @@ namespace euf {
         /**
         * \brief check if two nodes are known to be disequal.
         */
-        bool are_diseq(enode* a, enode* b) const;
+        bool are_diseq(enode* a, enode* b);
 
         enode* get_enode_eq_to(func_decl* f, unsigned num_args, enode* const* args);
+
+        enode* tmp_eq(enode* a, enode* b);
 
         /**
            \brief Maintain and update cursor into propagated consequences.

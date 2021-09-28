@@ -31,6 +31,7 @@ namespace q {
         euf::enode_vector  m_eval;
         euf::enode_vector  m_indirect_nodes;
         bool               m_freeze_swap = false;
+        euf::enode_pair    m_diseq_undef;
 
         struct scoped_mark_reset;
 
