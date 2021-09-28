@@ -722,10 +722,6 @@ namespace euf {
             return sat::null_bool_var;
         }
         enode* r = tmp_eq(ra, rb);
-        if (!r) {
-            std::cout << bpp(a) << " " << bpp(b) << "\n";
-            display(std::cout);
-        }
         SASSERT(r && r->get_root()->value() == l_false);
         explain_eq(justifications, r, r->get_root());
         return r->get_root()->bool_var();
