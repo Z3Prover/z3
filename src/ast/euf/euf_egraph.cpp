@@ -600,15 +600,6 @@ namespace euf {
             return true;
         if (ra->get_sort() != rb->get_sort())
             return true;
-        if (ra->num_parents() > rb->num_parents())
-            std::swap(ra, rb);
-        if (ra->num_parents() <= 3) {
-            for (enode* p : enode_parents(ra))
-                if (p->is_equality() && p->get_root()->value() == l_false && 
-                    (rb == p->get_arg(0)->get_root() || rb == p->get_arg(1)->get_root())) 
-                    return true;
-            return false;
-        }
         enode* r = tmp_eq(ra, rb);
         if (r && r->get_root()->value() == l_false)
             return true;
@@ -622,21 +613,15 @@ namespace euf {
     }
 
     enode* egraph::tmp_eq(enode* a, enode* b) {
-        func_decl* f = nullptr;
-        for (unsigned i = m_eq_decls.size(); i-- > 0; ) {
-            auto e = m_eq_decls.get(i);
-            if (e->get_domain(0) == a->get_sort()) {
-                f = e;
-                break;
-            }                
-        }
-        if (!f) {
-            app_ref eq(m.mk_eq(a->get_expr(), b->get_expr()), m);
-            m_eq_decls.push_back(eq->get_decl());
-            f = eq->get_decl();            
-        }
-        enode* args[2] = { a, b };
-        return get_enode_eq_to(f, 2, args);
+        SASSERT(a->is_root());
+        SASSERT(b->is_root());
+        if (a->num_parents() > b->num_parents())
+            std::swap(a, b);
+        for (enode* p : enode_parents(a))
+            if (p->is_equality() && 
+                (b == p->get_arg(0)->get_root() || b == p->get_arg(1)->get_root()))
+                return p;
+        return nullptr;
     }
 
     /**
@@ -736,7 +721,11 @@ namespace euf {
             explain_eq(justifications, b, rb);
             return sat::null_bool_var;
         }
-        enode* r = tmp_eq(a, b);
+        enode* r = tmp_eq(ra, rb);
+        if (!r) {
+            std::cout << bpp(a) << " " << bpp(b) << "\n";
+            display(std::cout);
+        }
         SASSERT(r && r->get_root()->value() == l_false);
         explain_eq(justifications, r, r->get_root());
         return r->get_root()->bool_var();
