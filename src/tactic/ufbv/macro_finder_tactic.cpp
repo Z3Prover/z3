@@ -17,6 +17,7 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
+#include "ast/recfun_decl_plugin.h"
 #include "ast/macros/macro_manager.h"
 #include "ast/macros/macro_finder.h"
 #include "tactic/generic_model_converter.h"
@@ -41,6 +42,12 @@ class macro_finder_tactic : public tactic {
                         goal_ref_buffer & result) {
             tactic_report report("macro-finder", *g);
             TRACE("macro-finder", g->display(tout););
+
+            recfun::util rec(m());
+            if (!rec.get_rec_funs().empty()) {
+                result.push_back(g.get());
+                return;
+            }
 
             bool produce_proofs = g->proofs_enabled();
             bool unsat_core_enabled = g->unsat_core_enabled();
