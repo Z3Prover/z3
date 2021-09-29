@@ -280,8 +280,8 @@ namespace polysat {
         }
 
         if (conflict_var() == v) {
-            forbidden_intervals fi;
-            if (fi.perform(s, v, cjust_v, *this))
+            forbidden_intervals fi(s);
+            if (fi.perform(v, cjust_v, *this))
                 return true;
         }
         
@@ -303,7 +303,7 @@ namespace polysat {
                 break;
         }
         set_bailout();
-        if (s.is_assigned(v))
+        if (s.is_assigned(v) && s.m_justification[v].is_decision())
             m_vars.insert(v);
         return false;
     }

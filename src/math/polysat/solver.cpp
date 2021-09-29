@@ -523,6 +523,8 @@ namespace polysat {
 
     // Guess a literal from the given clause; returns the guessed constraint
     void solver::decide_bool(clause& lemma) {
+        if (is_conflict())
+            return;
         LOG_H3("Guessing literal in lemma: " << lemma);
         IF_LOGGING(m_viable.log());
         LOG("Boolean assignment: " << m_bvars);

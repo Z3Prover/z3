@@ -83,7 +83,7 @@ namespace polysat {
         core.set_bailout();
     }
 
-    bool forbidden_intervals::perform(solver& s, pvar v, vector<signed_constraint> const& just, conflict& core) {
+    bool forbidden_intervals::perform(pvar v, vector<signed_constraint> const& just, conflict& core) {
         
         // Extract forbidden intervals from conflicting constraints
         vector<fi_record> records;
@@ -93,7 +93,7 @@ namespace polysat {
             LOG_H3("Computing forbidden interval for: " << c);
             eval_interval interval = eval_interval::full();
             signed_constraint neg_cond;
-            if (get_interval(s, c, v, interval, neg_cond)) {
+            if (get_interval(c, v, interval, neg_cond)) {
                 LOG("interval: " << interval);
                 LOG("neg_cond: " << neg_cond);
                 if (interval.is_currently_empty())
@@ -102,6 +102,7 @@ namespace polysat {
                     // We have a single interval covering the whole domain
                     // => the side conditions of that interval are enough to produce a conflict
                     full_interval_conflict(c, neg_cond, core);
+                    revert_core(core);
                     return true;
                 }
                 else {
@@ -170,6 +171,7 @@ namespace polysat {
             core.insert(records[i].src);
         }
         core.set_bailout();
+        revert_core(core);
         return true;
     }
 
@@ -181,7 +183,7 @@ namespace polysat {
      * \returns True iff a forbidden interval exists and the output parameters were set.
      */
 
-    bool forbidden_intervals::get_interval(solver& s, signed_constraint const& c, pvar v, eval_interval& out_interval, signed_constraint& out_neg_cond)
+    bool forbidden_intervals::get_interval(signed_constraint const& c, pvar v, eval_interval& out_interval, signed_constraint& out_neg_cond)
     {
         if (!c->is_ule())
             return false;
@@ -362,6 +364,17 @@ namespace polysat {
         }
 
         return true;
+    }
+
+
+    void forbidden_intervals::revert_core(conflict& core) {
+        for (auto c : core) {
+            if (c.bvalue(s) == l_false) {
+                core.reset();
+                core.set(~c);
+                return;
+            }
+        }
     }
 
 }

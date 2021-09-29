@@ -20,9 +20,12 @@ Author:
 namespace polysat {
 
     class forbidden_intervals {
+        solver& s;
+        void revert_core(conflict& core);
         void full_interval_conflict(signed_constraint c, signed_constraint neg_cond, conflict& core);
-        bool get_interval(solver& s, signed_constraint const& c, pvar v, eval_interval& out_interval, signed_constraint& out_neg_cond);
+        bool get_interval(signed_constraint const& c, pvar v, eval_interval& out_interval, signed_constraint& out_neg_cond);
     public:
-        bool perform(solver& s, pvar v, vector<signed_constraint> const& just, conflict& core);
+        forbidden_intervals(solver& s) :s(s) {}
+        bool perform(pvar v, vector<signed_constraint> const& just, conflict& core);
     };
 }
