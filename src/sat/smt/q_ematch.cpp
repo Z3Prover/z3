@@ -605,7 +605,9 @@ namespace q {
         }
         if (propagate(true))
             return true;
-        return m_inst_queue.lazy_propagate();
+        if (m_inst_queue.lazy_propagate())
+            return true;
+        return false;
     }
 
     void ematch::collect_statistics(statistics& st) const {

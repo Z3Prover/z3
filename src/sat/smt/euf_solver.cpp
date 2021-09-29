@@ -490,6 +490,8 @@ namespace euf {
             apply_solver(m_qsolver);
         if (num_nodes < m_egraph.num_nodes()) 
             return sat::check_result::CR_CONTINUE;
+        if (cont)
+            return sat::check_result::CR_CONTINUE;
         TRACE("after_search", s().display(tout););
         if (give_up)
             return sat::check_result::CR_GIVEUP;
