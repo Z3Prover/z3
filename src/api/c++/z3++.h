@@ -3927,7 +3927,7 @@ namespace z3 {
         
         user_propagator_base(solver* s): s(s), c(nullptr) {
               Z3_solver_propagate_init(ctx(), *s, this, push_eh, pop_eh, fresh_eh);
-	    }
+        }
 
         virtual void push() = 0;
         virtual void pop(unsigned num_scopes) = 0;
@@ -3948,13 +3948,13 @@ namespace z3 {
            that were created using a solver. 
         */
 
-        void fixed(fixed_eh_t& f) { 
+        void register_fixed(fixed_eh_t& f) { 
             assert(s);
             m_fixed_eh = f; 
             Z3_solver_propagate_fixed(ctx(), *s, fixed_eh); 
         }
 
-        void eq(eq_eh_t& f) { 
+        void register_eq(eq_eh_t& f) { 
             assert(s);
             m_eq_eh = f; 
             Z3_solver_propagate_eq(ctx(), *s, eq_eh); 
