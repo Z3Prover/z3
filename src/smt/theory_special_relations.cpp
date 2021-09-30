@@ -325,14 +325,12 @@ namespace smt {
                           );
                     continue;
                 }
-                expr_ref f_app(m.mk_app(f, arg1, arg2), m);                
+                expr_ref f_app(m.mk_app(f, arg1, arg2), m);   
                 ensure_enode(f_app);
                 literal f_lit = ctx.get_literal(f_app);
                 switch (ctx.get_assignment(f_lit)) {
                 case l_true:
-                    UNREACHABLE(); 
-                    // it should already be the case that v1 and reach v2 in the graph.
-                    // whenever f(n1, n2) is asserted.
+                    SASSERT(new_assertion);
                     break;
                 case l_false: {
                     //
