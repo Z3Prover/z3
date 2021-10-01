@@ -2996,7 +2996,8 @@ expr_ref seq_rewriter::mk_derivative(expr* r) {
     sort* seq_sort = nullptr, * ele_sort = nullptr;
     VERIFY(m_util.is_re(r, seq_sort));
     VERIFY(m_util.is_seq(seq_sort, ele_sort));
-    return mk_antimirov_deriv(m().mk_var(0, ele_sort), r, m().mk_true());
+    expr_ref v(m().mk_var(0, ele_sort), m());
+    return mk_antimirov_deriv(v, r, m().mk_true());
 }
 
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
@@ -3123,7 +3124,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
             SASSERT(u().is_char(c1));
             SASSERT(u().is_char(c2));
             // range represents c1 <= e <= c2
-            range = m().mk_and(u().mk_le(c1, e), u().mk_le(e, c2));
+            range = simplify_path(m().mk_and(u().mk_le(c1, e), u().mk_le(e, c2)));
             psi = simplify_path(m().mk_and(path, range));
             if (m().is_false(psi))
                 result = nothing();
@@ -3356,7 +3357,9 @@ expr_ref  seq_rewriter::simplify_path(expr* path) {
     expr* h = nullptr, * t = nullptr, * lhs = nullptr, * rhs = nullptr, * h1 = nullptr;
     if (m().is_and(path, h, t)) {
         if (m().is_true(h))
-            result = t;
+            result = simplify_path(t);
+        else if (m().is_true(t))
+            result = simplify_path(h);
         else if (m().is_eq(h, lhs, rhs) || m().is_not(h, h1) && m().is_eq(h1, lhs, rhs))
             elim_condition(lhs, result);
     }
