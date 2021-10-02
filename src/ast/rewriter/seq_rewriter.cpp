@@ -3082,7 +3082,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
                 result = nothing();
             else
                 // observe that the precondition |r1|>0 of mk_seq_rest is implied by c1
-                result = re().mk_ite_simplify(c1, re().mk_reverse(mk_seq_butlast(r1)), nothing());
+                result = re().mk_ite_simplify(c1, re().mk_reverse(re().mk_to_re(mk_seq_butlast(r1))), nothing());
         }
         else {
             result = mk_regex_reverse(r2);
