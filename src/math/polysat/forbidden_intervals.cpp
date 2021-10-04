@@ -28,7 +28,7 @@ namespace polysat {
 
     struct fi_record {
         eval_interval interval;
-        signed_constraint neg_cond;  // could be multiple constraints later
+        vector<signed_constraint> side_cond;  
         signed_constraint src;
     };
 
@@ -75,10 +75,10 @@ namespace polysat {
     * We assume that neg_cond is a consequence of src that  
     * does not mention the variable v to be eliminated.
     */
-    void forbidden_intervals::full_interval_conflict(signed_constraint src, signed_constraint neg_cond, conflict& core) {
-        SASSERT(neg_cond);
+    void forbidden_intervals::full_interval_conflict(signed_constraint src, vector<signed_constraint> const& side_cond, conflict& core) {
         core.reset();
-        core.insert(~neg_cond);
+        for (auto c : side_cond)
+            core.insert(c);
         core.insert(src);
         core.set_bailout();
     }
@@ -92,16 +92,16 @@ namespace polysat {
         for (signed_constraint c : just) {
             LOG_H3("Computing forbidden interval for: " << c);
             eval_interval interval = eval_interval::full();
-            signed_constraint neg_cond;
-            if (get_interval(c, v, interval, neg_cond)) {
+            vector<signed_constraint> side_cond;
+            if (get_interval(c, v, interval, side_cond)) {
                 LOG("interval: " << interval);
-                LOG("neg_cond: " << neg_cond);
+                LOG("neg_cond: " << side_cond);
                 if (interval.is_currently_empty())
                     continue;
                 if (interval.is_full()) {
                     // We have a single interval covering the whole domain
                     // => the side conditions of that interval are enough to produce a conflict
-                    full_interval_conflict(c, neg_cond, core);
+                    full_interval_conflict(c, side_cond, core);
                     revert_core(core);
                     return true;
                 }
@@ -112,7 +112,7 @@ namespace polysat {
                         longest_i = records.size();
                     }
                 }
-                records.push_back({ std::move(interval), std::move(neg_cond), c });
+                records.push_back({ std::move(interval), std::move(side_cond), c });
             }
         }
 
@@ -164,9 +164,8 @@ namespace polysat {
             core.insert(c);
             // Side conditions
             // TODO: check whether the condition is subsumed by c?  maybe at the end do a "lemma reduction" step, to try and reduce branching?
-            signed_constraint& neg_cond = records[i].neg_cond;
-            if (neg_cond)
-                core.insert(~neg_cond);
+            for (auto sc : records[i].side_cond)
+                core.insert(sc);
             
             core.insert(records[i].src);
         }
@@ -183,7 +182,7 @@ namespace polysat {
      * \returns True iff a forbidden interval exists and the output parameters were set.
      */
 
-    bool forbidden_intervals::get_interval(signed_constraint const& c, pvar v, eval_interval& out_interval, signed_constraint& out_neg_cond)
+    bool forbidden_intervals::get_interval(signed_constraint const& c, pvar v, eval_interval& out_interval, vector<signed_constraint>& out_side_cond)
     {
         if (!c->is_ule())
             return false;
@@ -232,10 +231,19 @@ namespace polysat {
         // test_monot_bounds(8)
         // 
         // Currently only works if coefficient is a power of two
-        if (!p1.is_val())
-            return false;
-        if (!p2.is_val())
-            return false;
+        if (!p1.is_val()) {
+            pdd q1 = p1.subst_val(s.assignment());
+            if (!q1.is_val())
+                return false;
+            out_side_cond.push_back(s.eq(q1, p1));
+        }
+        if (!p2.is_val()) {
+            pdd q2 = p2.subst_val(s.assignment());
+            if (!q2.is_val())
+                return false;
+            out_side_cond.push_back(s.eq(q2, p2));
+            p2 = q2;
+        }
         rational a1 = p1.val();
         rational a2 = p2.val();
         // TODO: to express the interval for coefficient 2^i symbolically, we need right-shift/upper-bits-extract in the language.
@@ -320,12 +328,11 @@ namespace polysat {
         if (condition_body.is_val()) {
             // Condition is trivial; no need to create a constraint for that.
             SASSERT(is_trivial == condition_body.is_zero());
-            out_neg_cond = nullptr;
         }
         else if (is_trivial)
-            out_neg_cond = ~s.m_constraints.eq(condition_body);
+            out_side_cond.push_back(s.m_constraints.eq(condition_body));
         else
-            out_neg_cond = s.m_constraints.eq(condition_body);
+            out_side_cond.push_back(~s.m_constraints.eq(condition_body));
 
         if (is_trivial) {
             if (c.is_positive())

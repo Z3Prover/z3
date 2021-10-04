@@ -268,11 +268,14 @@ namespace polysat {
         signed_constraint eq(pdd const& p, rational const& q) { return eq(p - q); }
         signed_constraint diseq(pdd const& p, rational const& q) { return diseq(p - q); }
         signed_constraint ule(pdd const& p, pdd const& q) { return m_constraints.ule(p, q); }
-        signed_constraint ule(pdd const& p, rational const& q) { return m_constraints.ule(p, p.manager().mk_val(q)); }
+        signed_constraint ule(pdd const& p, rational const& q) { return ule(p, p.manager().mk_val(q)); }
+        signed_constraint ule(rational const& p, pdd const& q) { return ule(q.manager().mk_val(p), q); }
         signed_constraint ult(pdd const& p, pdd const& q) { return m_constraints.ult(p, q); }
-        signed_constraint ult(pdd const& p, rational const& q) { return m_constraints.ult(p, p.manager().mk_val(q)); }
+        signed_constraint ult(pdd const& p, rational const& q) { return ult(p, p.manager().mk_val(q)); }
+        signed_constraint ult(rational const& p, pdd const& q) { return ult(q.manager().mk_val(p), q); }
         signed_constraint sle(pdd const& p, pdd const& q) { return m_constraints.sle(p, q); }
         signed_constraint slt(pdd const& p, pdd const& q) { return m_constraints.slt(p, q); }
+
 
         /** Create and activate polynomial constraints. */
         void add_eq(pdd const& p, unsigned dep = null_dependency)                { assign_eh(eq(p), dep); }

@@ -115,7 +115,7 @@ namespace polysat {
         if ((x_lo + 1) * y_lo <= bound) {
             x_hi = x_max;
             while (x_lo < x_hi) {
-                rational x_mid = div(x_hi + x_lo, two);
+                rational x_mid = div(x_hi + x_lo + 1, two);
                 if (x_mid * y_lo > bound)
                     x_hi = x_mid - 1;
                 else
@@ -125,7 +125,7 @@ namespace polysat {
         else if (x_lo * (y_lo + 1) <= bound) {
             y_hi = y_max;
             while (y_lo < y_hi) {
-                rational y_mid = div(y_hi + y_lo, two);
+                rational y_mid = div(y_hi + y_lo + 1, two);
                 if (y_mid * x_lo > bound)
                     y_hi = y_mid - 1;
                 else
@@ -144,6 +144,7 @@ namespace polysat {
         auto c2 = s.ule(y, pddm.mk_val(y_lo));
         new_constraints.insert(c1);
         new_constraints.insert(c2);
+        LOG("bounded " << bound << " : " << c1 << " " << c2);
     }
 
     // determine worst case upper bounds for x, y
@@ -390,8 +391,14 @@ namespace polysat {
 
     // [x] p(x) <= q(x) where value(p) > value(q)
     //     ==> q <= value(q) => p <= value(q)
+    // 
+    // for strict?
+    //     p(x) < q(x) where value(p) >= value(q)
+    //     ==> value(p) <= p => value(p) < q
 
-    bool inf_saturate::try_tangent(pvar v, conflict& core, inequality const& c) {
+    bool inf_saturate::try_tangent(pvar v, conflict& core, inequality const& c) {        
+        if (c.is_strict)
+            return false;
         if (!c.src->contains_var(v))
             return false;
         if (c.lhs.is_val() || c.rhs.is_val())
@@ -407,8 +414,14 @@ namespace polysat {
         SASSERT(!c.is_strict || l_val >= r_val);
         vector<signed_constraint> new_constraints;
         new_constraints.push_back(c.as_signed_constraint());
-        new_constraints.push_back(s.ule(c.rhs, r_val));
-        return propagate(core, c, c, c.is_strict ? s.ult(c.lhs, r_val) : s.ule(c.lhs, r_val), new_constraints);
+        if (c.is_strict) {
+            new_constraints.push_back(s.ule(l_val, c.lhs));
+            return propagate(core, c, c, s.ult(r_val, c.rhs), new_constraints);
+        }
+        else {
+            new_constraints.push_back(s.ule(c.rhs, r_val));
+            return propagate(core, c, c, s.ule(c.lhs, r_val), new_constraints);
+        }
     }
 
 }

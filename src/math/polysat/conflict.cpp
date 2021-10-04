@@ -72,8 +72,19 @@ namespace polysat {
     void conflict::set(signed_constraint c) {
         LOG("Conflict: " << c);
         SASSERT(empty());
-        c->set_var_dependent();
-        insert(c);       
+        if (c.bvalue(s) == l_false) {
+            auto* cl = s.m_bvars.reason(c.blit().var());
+            if (cl)
+                set(*cl);
+            else
+                insert(c);
+        }
+        else {
+            SASSERT(c.is_currently_false(s));
+            SASSERT(c.bvalue(s) == l_true);
+            c->set_var_dependent();
+            insert(c);
+        }
         SASSERT(!empty());
     }
 
@@ -102,11 +113,8 @@ namespace polysat {
     void conflict::set(clause const& cl) {
         LOG("Conflict: " << cl);
         SASSERT(empty());
-        for (auto lit : cl) {
-            auto c = s.lit2cnstr(lit);           
-            // no c->set_var_dependent();
-            insert(~c);
-        }
+        for (auto lit : cl)          
+            insert(~s.lit2cnstr(lit));        
         SASSERT(!empty());
     }
 
@@ -117,11 +125,13 @@ namespace polysat {
      *   should appear, otherwise the lemma would be a tautology
      */
     void conflict::insert(signed_constraint c) {
+
         if (c.is_always_true())
             return;
         if (c->is_marked())
             return;
         LOG("inserting: " << c);
+        SASSERT(!c->vars().empty());
         set_mark(c);
         if (c->has_bvar())
             insert_literal(c.blit());
@@ -230,8 +240,8 @@ namespace polysat {
                 continue;
             auto diseq = ~s.eq(s.var(v), s.get_value(v));
             cm().ensure_bvar(diseq.get());
-            //if (diseq.bvalue(s) == l_undef) 
-            //    s.assign_bool(s.get_level(v), ~diseq.blit(), nullptr, nullptr);            
+            if (diseq.bvalue(s) == l_undef) 
+                s.assign_bool(s.get_level(v), ~diseq.blit(), nullptr, nullptr);            
             lemma.push(diseq);
         }        
 

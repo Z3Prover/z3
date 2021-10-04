@@ -122,13 +122,16 @@ namespace polysat {
         m_constraints.ensure_bvar(c.get());
         sat::literal lit = c.blit();
         LOG("New constraint: " << c);
-        if (m_bvars.is_false(lit) || c.is_currently_false(*this)) {
-            set_conflict(c /*, dep */);
+        if (m_bvars.is_false(lit)) {
+            set_conflict(c /*, dep*/);
             return;
         }
         m_bvars.assign(lit, m_level, nullptr, nullptr, dep);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
+        if (c.is_currently_false(*this)) 
+            set_conflict(c /*, dep */);
+        
 
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.new_constraint(*c.get());
@@ -197,13 +200,13 @@ namespace polysat {
         if (m_bvars.is_true(cl[idx]))
             return false;
         unsigned i = 2;
-        for (; i < cl.size() && m_bvars.is_false(cl[i]); ++i);
+        for (; i < cl.size() && (m_bvars.is_false(cl[i]) || lit2cnstr(cl[i]).is_currently_false(*this)); ++i);
         if (i < cl.size()) {
             m_bvars.watch(cl[i]).push_back(&cl);
             std::swap(cl[1 - idx], cl[i]);
             return true;
         }
-        if (m_bvars.is_false(cl[idx]))
+        if (m_bvars.is_false(cl[idx]) || lit2cnstr(cl[idx]).is_currently_false(*this))
             set_conflict(cl);
         else
             assign_bool(level(cl), cl[idx], &cl, nullptr);
