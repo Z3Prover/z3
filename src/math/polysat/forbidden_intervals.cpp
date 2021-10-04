@@ -236,6 +236,7 @@ namespace polysat {
             if (!q1.is_val())
                 return false;
             out_side_cond.push_back(s.eq(q1, p1));
+            p1 = q1;
         }
         if (!p2.is_val()) {
             pdd q2 = p2.subst_val(s.assignment());
