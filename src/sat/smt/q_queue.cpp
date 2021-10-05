@@ -146,7 +146,7 @@ namespace q {
                 
         unsigned gen = get_new_gen(f, ent.m_cost);
         bool new_propagation = false;
-        if (em.propagate(true, f.nodes(), gen, *f.c, new_propagation))
+        if (false && em.propagate(true, f.nodes(), gen, *f.c, new_propagation))
             return;
 
         auto* ebindings = m_subst(q, num_bindings);
@@ -223,15 +223,14 @@ namespace q {
             }
         }
         bool instantiated = false;
-        unsigned idx = 0;
-        for (entry & e : m_delayed_entries) {
+        for (unsigned idx = 0; idx < m_delayed_entries.size(); ++idx) {
+            entry & e = m_delayed_entries[idx];
             if (!e.m_instantiated && e.m_cost <= cost_limit) {
                 instantiated = true;
                 ctx.push(reset_instantiated(*this, idx));
                 m_stats.m_num_lazy_instances++;
                 instantiate(e);
             }
-            ++idx;
         }
         return instantiated;
     }

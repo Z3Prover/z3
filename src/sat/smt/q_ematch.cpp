@@ -236,9 +236,10 @@ namespace q {
     }
 
     binding* ematch::alloc_binding(clause& c, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top) {
+
         binding* b = tmp_binding(c, pat, _binding);
 
-        if (m_bindings.contains(b))
+        if (m_bindings.contains(b)) 
             return nullptr;
 
         for (unsigned i = c.num_decls(); i-- > 0; )
@@ -260,12 +261,12 @@ namespace q {
         return b;
     }
 
-    euf::enode* const* ematch::alloc_nodes(clause& c, euf::enode* const* _binding) {
+    euf::enode* const* ematch::copy_nodes(clause& c, euf::enode* const* nodes) {
         unsigned sz = sizeof(euf::enode* const*) * c.num_decls();
-        euf::enode** binding = (euf::enode**)ctx.get_region().allocate(sz);
+        euf::enode** new_nodes = (euf::enode**)ctx.get_region().allocate(sz);
         for (unsigned i = 0; i < c.num_decls(); ++i)
-            binding[i] = _binding[i];
-        return binding;
+            new_nodes[i] = nodes[i];
+        return new_nodes;
     }
 
     void ematch::on_binding(quantifier* q, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_gen, unsigned max_gen) {
@@ -277,7 +278,7 @@ namespace q {
         if (!b)
             return;
 
-        if (propagate(false, _binding, max_generation, c, new_propagation))
+        if (false && propagate(false, _binding, max_generation, c, new_propagation))
             return;
 
         binding::push_to_front(c.m_bindings, b);
@@ -305,7 +306,7 @@ namespace q {
         if (ev == l_undef && max_generation > m_generation_propagation_threshold)
             return false;
         if (!is_owned) 
-            binding = alloc_nodes(c, binding); 
+            binding = copy_nodes(c, binding); 
 
         auto j_idx = mk_justification(idx, c, binding);     
 
@@ -568,7 +569,7 @@ namespace q {
                 continue;
 
             do {                
-                if (propagate(true, b->m_nodes, b->m_max_generation, c, propagated)) 
+                if (false && propagate(true, b->m_nodes, b->m_max_generation, c, propagated)) 
                     to_remove.push_back(b);
                 else if (flush) {
                     instantiate(*b);
@@ -613,6 +614,7 @@ namespace q {
         for (unsigned i = 0; i < m_clauses.size(); ++i)
             if (m_clauses[i]->m_bindings)
                 std::cout << "missed propagation " << i << "\n";
+
         TRACE("q", tout << "no more propagation\n";);
         return false;
     }

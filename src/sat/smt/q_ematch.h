@@ -89,7 +89,7 @@ namespace q {
         unsigned_vector               m_clause_queue;
         euf::enode_pair_vector        m_evidence;
 
-        euf::enode* const* alloc_nodes(clause& c, euf::enode* const* _binding);
+        euf::enode* const* copy_nodes(clause& c, euf::enode* const* _binding);
         binding* tmp_binding(clause& c, app* pat, euf::enode* const* _binding);
         binding* alloc_binding(clause& c, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top);
         
@@ -127,7 +127,6 @@ namespace q {
 
         bool unit_propagate();        
 
-        // void init_search();
 
         void add(quantifier* q);
 
