@@ -80,7 +80,7 @@ namespace q {
         unsigned num_patterns = q->get_num_patterns();
         for (unsigned i = 0; i < num_patterns; i++) 
             ensure_ground_enodes(q->get_pattern(i));
-        for (auto lit : c.m_lits) {
+        for (auto const& lit : c.m_lits) {
             ensure_ground_enodes(lit.lhs);
             ensure_ground_enodes(lit.rhs);
         }
@@ -186,7 +186,7 @@ namespace q {
 
     void ematch::init_watch(clause& c) {
         unsigned idx = c.index();
-        for (auto lit : c.m_lits) {
+        for (auto const& lit : c.m_lits) {
             if (!is_ground(lit.lhs))
                 init_watch(lit.lhs, idx);
             if (!is_ground(lit.rhs))
