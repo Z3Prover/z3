@@ -1987,33 +1987,36 @@ namespace q {
                 m_backtrack_stack.resize(t->get_num_choices());
         }
 
+        struct scoped_unmark {
+            code_tree* t;
+            scoped_unmark(code_tree* t) : t(t) {}
+            ~scoped_unmark() {
+                for (enode* app : t->get_candidates()) 
+                    if (app->is_marked1())
+                        app->unmark1();                
+            }
+        };
+
         void execute(code_tree * t) {
             TRACE("trigger_bug", tout << "execute for code tree:\n"; t->display(tout););
             init(t);
-            if (t->filter_candidates()) {
-                for (unsigned i = 0; i < t->get_candidates().size(); ++i) {
+            if (t->filter_candidates()) {                
+                scoped_unmark _unmark(t);
+                for (unsigned i = 0; i < t->get_candidates().size() && !ctx.resource_limits_exceeded(); ++i) {
                     enode* app = t->get_candidates()[i];
                     TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_expr(), m) << "\n";);
                     if (!app->is_marked1() && app->is_cgr()) {
-                        if (ctx.resource_limits_exceeded() || !execute_core(t, app))
-                            return;
+                        execute_core(t, app);                       
                         app->mark1();
                     }
                 }
-                for (enode* app : t->get_candidates()) {
-                    if (app->is_marked1())
-                        app->unmark1();
-                }
             }
             else {
-                for (unsigned i = 0; i < t->get_candidates().size(); ++i) {
+                for (unsigned i = 0; i < t->get_candidates().size() && !ctx.resource_limits_exceeded(); ++i) {
                     enode* app = t->get_candidates()[i];
                     TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_expr(), m) << "\n";);
-                    if (app->is_cgr()) {
-                        TRACE("trigger_bug", tout << "is_cgr\n";);
-                        if (ctx.resource_limits_exceeded() || !execute_core(t, app))
-                            return;
-                    }
+                    if (app->is_cgr()) 
+                        execute_core(t, app);                                              
                 }
             }
         }

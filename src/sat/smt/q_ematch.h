@@ -90,10 +90,10 @@ namespace q {
         unsigned_vector               m_clause_queue;
         euf::enode_pair_vector        m_evidence;
 
-        binding* alloc_binding(unsigned n, app* pat, unsigned max_generation, unsigned min_top, unsigned max_top);
         euf::enode* const* alloc_binding(clause& c, euf::enode* const* _binding);
+        binding* alloc_binding(clause& c, app* pat, euf::enode* const* _bidning, unsigned max_generation, unsigned min_top, unsigned max_top);
         void add_binding(clause& c, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top);
-
+        
         sat::ext_justification_idx mk_justification(unsigned idx, clause& c, euf::enode* const* b);
 
         void ensure_ground_enodes(expr* e);
@@ -121,13 +121,15 @@ namespace q {
         bool flush_prop_queue();
         void propagate(bool is_conflict, unsigned idx, sat::ext_justification_idx j_idx);
 
+        bool propagate(bool flush);
+
     public:
         
         ematch(euf::solver& ctx, solver& s);
             
         bool operator()();
 
-        bool propagate(bool flush);
+        bool unit_propagate();        
 
         // void init_search();
 

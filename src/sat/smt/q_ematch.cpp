@@ -218,11 +218,17 @@ namespace q {
         }
     };
 
-    binding* ematch::alloc_binding(unsigned n, app* pat, unsigned max_generation, unsigned min_top, unsigned max_top) {
-        unsigned sz = sizeof(binding) + sizeof(euf::enode* const*)*n;
+
+    binding* ematch::alloc_binding(clause& c, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top) {
+        unsigned n = c.num_decls();
+        unsigned sz = sizeof(binding) + sizeof(euf::enode* const*) * n;
         void* mem = ctx.get_region().allocate(sz);
-        return new (mem) binding(pat, max_generation, min_top, max_top);
-    }  
+        binding* b = new (mem) binding(pat, max_generation, min_top, max_top);
+        b->init(b);
+        for (unsigned i = 0; i < n; ++i)
+            b->m_nodes[i] = _binding[i];
+        return b;
+    }
 
     euf::enode* const* ematch::alloc_binding(clause& c, euf::enode* const* _binding) {
         unsigned sz = sizeof(euf::enode* const*) * c.num_decls();
@@ -232,24 +238,22 @@ namespace q {
         return binding;
     }
 
-    void ematch::add_binding(clause& c, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top) {
-        unsigned n = c.num_decls();
-        binding* b = alloc_binding(n, pat, max_generation, min_top, max_top);
-        b->init(b);
-        for (unsigned i = 0; i < n; ++i)
-            b->m_nodes[i] = _binding[i];        
-        binding::push_to_front(c.m_bindings, b);
-        ctx.push(remove_binding(ctx, c, b));
-        ++m_stats.m_num_delayed_bindings;
-    }
-
     void ematch::on_binding(quantifier* q, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_gen, unsigned max_gen) {
         TRACE("q", tout << "on-binding " << mk_pp(q, m) << "\n";);
         unsigned idx = m_q2clauses[q];
         clause& c = *m_clauses[idx];
         bool new_propagation = false;
-        if (!propagate(false, _binding, max_generation, c, new_propagation)) 
-            add_binding(c, pat, _binding, max_generation, min_gen, max_gen);
+        binding* b = alloc_binding(c, pat, _binding, max_generation, min_gen, max_gen);
+        fingerprint* f = add_fingerprint(c, *b, max_generation);
+        if (!f)
+            return;
+
+        if (propagate(false, _binding, max_generation, c, new_propagation))
+            return;
+
+        binding::push_to_front(c.m_bindings, b);
+        ctx.push(remove_binding(ctx, c, b));
+        ++m_stats.m_num_delayed_bindings;
     }
 
     bool ematch::propagate(bool is_owned, euf::enode* const* binding, unsigned max_generation, clause& c, bool& propagated) {
@@ -546,6 +550,10 @@ namespace q {
         }
     }
 
+
+    bool ematch::unit_propagate() {
+        return ctx.get_config().m_ematching && propagate(false);
+    }
 
     bool ematch::propagate(bool flush) {
         m_mam->propagate();
