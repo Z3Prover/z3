@@ -240,6 +240,7 @@ namespace q {
             b->m_nodes[i] = _binding[i];        
         binding::push_to_front(c.m_bindings, b);
         ctx.push(remove_binding(ctx, c, b));
+        ++m_stats.m_num_delayed_bindings;
     }
 
     void ematch::on_binding(quantifier* q, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_gen, unsigned max_gen) {
@@ -427,33 +428,11 @@ namespace q {
             expr_ref body(mk_not(m, q->get_expr()), m);
             q = m.update_quantifier(q, forall_k, body);
         }        
-        expr_ref_vector ors(m);        
+        expr_ref_vector ors(m);
         flatten_or(q->get_expr(), ors);
-        for (expr* arg : ors) {
-            bool sign = m.is_not(arg, arg);
-            expr* l, *r;
-            if (m.is_distinct(arg) && to_app(arg)->get_num_args() == 2) {
-                l = to_app(arg)->get_arg(0);
-                r = to_app(arg)->get_arg(1);
-                sign = !sign;
-            }
-            else if (!m.is_eq(arg, l, r) || is_ground(arg)) {
-                l = arg;
-                r = sign ? m.mk_false() : m.mk_true();
-                sign = false;
-            }
-            if (m.is_true(l) || m.is_false(l))
-                std::swap(l, r);
-            if (sign && m.is_false(r)) {
-                r = m.mk_true();
-                sign = false;
-            }
-            else if (sign && m.is_true(r)) {
-                r = m.mk_false();
-                sign = false;
-            }
-            cl->m_lits.push_back(lit(expr_ref(l, m), expr_ref(r, m), sign));
-        }
+        for (expr* arg : ors) 
+            cl->m_lits.push_back(clausify_literal(arg));
+
         if (q->get_num_patterns() == 0) {
             expr_ref tmp(m);
             m_infer_patterns(q, tmp); 
@@ -466,6 +445,41 @@ namespace q {
         cl->m_stat = m_qstat_gen(_q, generation);
         SASSERT(ctx.s().value(cl->m_literal) == l_true);
         return cl;
+    }
+
+    lit ematch::clausify_literal(expr* arg) {
+        bool sign = m.is_not(arg, arg);
+        expr* _l, *_r;
+        expr_ref l(m), r(m);
+
+        // convert into equality or equivalence
+        if (m.is_distinct(arg) && to_app(arg)->get_num_args() == 2) {
+            l = to_app(arg)->get_arg(0);
+            r = to_app(arg)->get_arg(1);
+            sign = !sign;
+        }
+        else if (!is_ground(arg) && m.is_eq(arg, _l, _r)) {
+            l = _l;
+            r = _r;
+        }
+        else {
+            l = arg;
+            r = sign ? m.mk_false() : m.mk_true();
+            sign = false;
+        }
+
+        // convert Boolean disequalities into equality
+        if (m.is_true(l) || m.is_false(l))
+            std::swap(l, r);
+        if (sign && m.is_false(r)) {
+            r = m.mk_true();
+            sign = false;
+        }
+        else if (sign && m.is_true(r)) {
+            r = m.mk_false();
+            sign = false;
+        }
+        return lit(l, r, sign);
     }
 
     /**
@@ -591,7 +605,9 @@ namespace q {
         }
         if (propagate(true))
             return true;
-        return m_inst_queue.lazy_propagate();
+        if (m_inst_queue.lazy_propagate())
+            return true;
+        return false;
     }
 
     void ematch::collect_statistics(statistics& st) const {
@@ -599,6 +615,7 @@ namespace q {
         st.update("q redundant", m_stats.m_num_redundant);
         st.update("q units",     m_stats.m_num_propagations);
         st.update("q conflicts", m_stats.m_num_conflicts);
+        st.update("q delayed bindings", m_stats.m_num_delayed_bindings);
     }
 
     std::ostream& ematch::display(std::ostream& out) const {

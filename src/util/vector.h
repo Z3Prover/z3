@@ -721,15 +721,13 @@ public:
     ptr_vector(unsigned s, T * elem):vector<T *, false>(s, elem) {}
     ptr_vector(unsigned s, T * const * data):vector<T *, false>(s, const_cast<T**>(data)) {}
     std::ostream& display(std::ostream& out, char const* delim = " ") const {
-        bool first = true;
+        char const* d = "";
         for (auto const* u : *this) {
-            if (!first)
-                out << delim;
-            first = false;
             if (u)
-                out << *u;
+                out << d << *u;
             else
-                out << "<NULL>";
+                out << d << "<NULL>";
+            d = delim;
         }
         return out;
     }

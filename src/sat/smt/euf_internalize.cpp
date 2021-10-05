@@ -13,6 +13,20 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2020-08-25
 
+Notes:
+
+(*) From smt_internalizer.cpp
+    This code is necessary because some theories may decide
+    not to create theory variables for a nested application.
+    Example:
+      Suppose (+ (* 2 x) y) is internalized by arithmetic
+      and an enode is created for the + and * applications,
+      but a theory variable is only created for the + application.
+      The (* 2 x) is internal to the arithmetic module.
+      Later, the core tries to internalize (f (* 2 x)).
+      Now, (* 2 x) is not internal to arithmetic anymore,
+     and a theory variable must be created for it.
+
 --*/
 
 #include "ast/pb_decl_plugin.h"
@@ -72,6 +86,12 @@ namespace euf {
 
     bool solver::visit(expr* e) {
         euf::enode* n = m_egraph.find(e);
+        th_solver* s = nullptr;        
+        if (n && !si.is_bool_op(e) && (s = expr2solver(e), s && euf::null_theory_var == n->get_th_var(s->get_id()))) {
+            // ensure that theory variables are attached in shared contexts. See notes (*)
+            s->internalize(e, false);
+            return true;
+        }
         if (n)
             return true;
         if (si.is_bool_op(e)) {

@@ -18,6 +18,7 @@ Author:
 
 #include "util/obj_hashtable.h"
 #include "ast/ast_trail.h"
+#include "ast/rewriter/der.h"
 #include "sat/smt/sat_th.h"
 #include "sat/smt/q_mbi.h"
 #include "sat/smt/q_ematch.h"
@@ -47,6 +48,7 @@ namespace q {
         sat::literal_vector    m_universal;
         obj_map<sort, expr*>   m_unit_table;
         expr_ref_vector        m_expanded;
+        der_rewriter           m_der;
 
         sat::literal instantiate(quantifier* q, bool negate, std::function<expr* (quantifier*, unsigned)>& mk_var);
         sat::literal skolemize(quantifier* q);
@@ -54,7 +56,9 @@ namespace q {
         void init_units();
         expr* get_unit(sort* s);
         
-        expr_ref_vector const& expand(quantifier* q);
+        bool expand(quantifier* q);
+        bool split(expr* arg, expr_ref& e1, expr_ref& e2);
+        bool is_literal(expr* arg);
 
         friend class ematch;
 

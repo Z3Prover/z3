@@ -25,7 +25,10 @@ namespace q {
     struct eval::scoped_mark_reset {
         eval& e;
         scoped_mark_reset(eval& e): e(e) {}
-        ~scoped_mark_reset() { e.m_mark.reset(); }
+        ~scoped_mark_reset() { 
+            e.m_mark.reset(); 
+            e.m_diseq_undef = euf::enode_pair(); 
+        }
     };
 
     eval::eval(euf::solver& ctx):
@@ -97,12 +100,18 @@ namespace q {
         if (sn && sn == tn) 
             return l_true;
         
+        if (sn && sn == m_diseq_undef.first && tn == m_diseq_undef.second) 
+            return l_undef;
+
         if (sn && tn && ctx.get_egraph().are_diseq(sn, tn)) {
             evidence.push_back(euf::enode_pair(sn, tn));
             return l_false;
         }
-        if (sn && tn)
+        if (sn && tn) {
+            m_diseq_undef = euf::enode_pair(sn, tn);
             return l_undef;
+        }
+
         if (!sn && !tn) 
             return compare_rec(n, binding, s, t, evidence);
 
@@ -115,7 +124,11 @@ namespace q {
             std::swap(t, s);
         }        
         unsigned sz = evidence.size();
-        for (euf::enode* t1 : euf::enode_class(tn)) {      
+        unsigned count = 0;
+        for (euf::enode* t1 : euf::enode_class(tn)) { 
+            if (!t1->is_cgr())
+                continue;
+            ++count;
             expr* t2 = t1->get_expr();
             if ((c = compare_rec(n, binding, s, t2, evidence), c != l_undef)) {
                 evidence.push_back(euf::enode_pair(t1, tn));
@@ -171,10 +184,10 @@ namespace q {
     }
 
     euf::enode* eval::operator()(unsigned n, euf::enode* const* binding, expr* e, euf::enode_pair_vector& evidence) {
-        if (is_ground(e))
-            return ctx.get_egraph().find(e);
         if (m_mark.is_marked(e))
             return m_eval[e->get_id()];
+        if (is_ground(e))
+            return ctx.get_egraph().find(e);
         ptr_buffer<expr> todo;
         ptr_buffer<euf::enode> args;
         todo.push_back(e);
@@ -185,7 +198,7 @@ namespace q {
                 todo.pop_back();
                 continue;
             }
-            if (is_ground(t) || (has_quantifiers(t) && !has_free_vars(t))) {
+            if (is_ground(t) || (has_quantifiers(t) && !m_contains_vars(t))) {
                 m_eval.setx(t->get_id(), ctx.get_egraph().find(t), nullptr);                
                 if (!m_eval[t->get_id()])
                     return nullptr;

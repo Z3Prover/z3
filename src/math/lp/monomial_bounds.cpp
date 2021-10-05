@@ -24,6 +24,11 @@ namespace nla {
         }
     }
 
+    bool monomial_bounds::is_too_big(mpq const& q) const {
+        return rational(q).bitsize() > 256;
+    }
+
+
     /**
      * Accumulate product of variables in monomial starting at position 'start'
      */
@@ -51,6 +56,8 @@ namespace nla {
             lp::explanation ex;
             dep.get_upper_dep(range, ex);
             auto const& upper = dep.upper(range);
+            if (is_too_big(upper))
+                return false;
             auto cmp = dep.upper_is_open(range) ? llc::LT : llc::LE;
             new_lemma lemma(c(), "propagate value - upper bound of range is below value");
             lemma &= ex;
@@ -62,6 +69,8 @@ namespace nla {
             lp::explanation ex;
             dep.get_lower_dep(range, ex);
             auto const& lower = dep.lower(range);
+            if (is_too_big(lower))
+                return false;
             auto cmp = dep.lower_is_open(range) ? llc::GT : llc::GE;
             new_lemma lemma(c(), "propagate value - lower bound of range is above value");
             lemma &= ex;
@@ -106,7 +115,7 @@ namespace nla {
                     auto le = dep.upper_is_open(range) ? llc::LT : llc::LE;
                     new_lemma lemma(c(), "propagate value - root case - upper bound of range is below value");
                     lemma &= ex;
-                    lemma |= ineq(v, le, r); 
+                    lemma |= ineq(v, le, r);
                     return true;
                 }
                 if (p % 2 == 0 && val_v.is_neg()) {
@@ -114,7 +123,7 @@ namespace nla {
                     auto ge = dep.upper_is_open(range) ? llc::GT : llc::GE;
                     new_lemma lemma(c(), "propagate value - root case - upper bound of range is below negative value");
                     lemma &= ex;
-                    lemma |= ineq(v, ge, -r); 
+                    lemma |= ineq(v, ge, -r);
                     return true;
                 }
             }

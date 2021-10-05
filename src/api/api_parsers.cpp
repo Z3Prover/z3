@@ -23,8 +23,12 @@ Revision History:
 #include "api/api_ast_vector.h"
 #include "cmd_context/cmd_context.h"
 #include "smt/smt_solver.h"
+#include "smt/smt2_extra_cmds.h"
 #include "parsers/smt2/smt2parser.h"
 #include "solver/solver_na2as.h"
+#include "muz/fp/dl_cmds.h"
+#include "opt/opt_cmds.h"
+
 
 
 extern "C" {
@@ -42,6 +46,10 @@ extern "C" {
         Z3_TRY;
         ast_manager& m = mk_c(c)->m();
         scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(m));
+        install_dl_cmds(*ctx.get());
+        install_opt_cmds(*ctx.get());
+        install_smt2_extra_cmds(*ctx.get());
+
         ctx->register_plist();
         ctx->set_ignore_check(true);
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), m);

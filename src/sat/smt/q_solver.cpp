@@ -30,7 +30,8 @@ namespace q {
         th_euf_solver(ctx, ctx.get_manager().get_family_name(fid), fid),
         m_mbqi(ctx,  *this),
         m_ematch(ctx, *this),
-        m_expanded(ctx.get_manager())
+        m_expanded(ctx.get_manager()),
+        m_der(ctx.get_manager())
     {
     }
 
@@ -45,25 +46,22 @@ namespace q {
             add_clause(~l, lit);
             ctx.add_root(~l, lit);
         }
-        else {
-            auto const& exp = expand(q);
-            if (exp.size() > 1) {
-                for (expr* e : exp) {
-                    sat::literal lit = ctx.internalize(e, l.sign(), false, false); 
-                    add_clause(~l, lit);                    
-                    ctx.add_root(~l, lit);
-                }
-            }
-            else if (is_ground(q->get_expr())) {
-                auto lit = ctx.internalize(q->get_expr(), l.sign(), false, false);
+        else if (expand(q)) {
+            for (expr* e : m_expanded) {
+                sat::literal lit = ctx.internalize(e, l.sign(), false, false);
                 add_clause(~l, lit);
                 ctx.add_root(~l, lit);
             }
-            else {
-                ctx.push_vec(m_universal, l);
-                if (ctx.get_config().m_ematching)
-                    m_ematch.add(q);
-            }
+        }
+        else if (is_ground(q->get_expr())) {
+            auto lit = ctx.internalize(q->get_expr(), l.sign(), false, false);
+            add_clause(~l, lit);
+            ctx.add_root(~l, lit);
+        }
+        else {
+            ctx.push_vec(m_universal, l);
+            if (ctx.get_config().m_ematching)
+                m_ematch.add(q);
         }
         m_stats.m_num_quantifier_asserts++;
     }
@@ -223,8 +221,16 @@ namespace q {
         return val;
     }
 
-    expr_ref_vector const& solver::expand(quantifier* q) {
+    bool solver::expand(quantifier* q) {
+        expr_ref r(m);
+        proof_ref pr(m);
+        m_der(q, r, pr);
         m_expanded.reset();
+        if (r != q) {
+            ctx.get_rewriter()(r);
+            m_expanded.push_back(r);
+            return true;
+        }
         if (is_forall(q)) 
             flatten_and(q->get_expr(), m_expanded);
         else if (is_exists(q)) 
@@ -232,18 +238,71 @@ namespace q {
         else
             UNREACHABLE();
 
+        if (m_expanded.size() == 1 && is_forall(q)) {
+            m_expanded.reset();
+            flatten_or(q->get_expr(), m_expanded);
+            expr_ref split1(m), split2(m), e1(m), e2(m);
+            unsigned idx = 0;
+            for (unsigned i = m_expanded.size(); i-- > 0; ) {
+                expr* arg = m_expanded.get(i);
+                if (split(arg, split1, split2)) {
+                    if (e1)
+                        return false;
+                    e1 = split1;
+                    e2 = split2;
+                    idx = i;
+                }
+            }
+            if (!e1)
+                return false;
+
+            m_expanded[idx] = e1;
+            e1 = mk_or(m_expanded);
+            m_expanded[idx] = e2;
+            e2 = mk_or(m_expanded);
+            m_expanded.reset();
+            m_expanded.push_back(e1);
+            m_expanded.push_back(e2);
+        }
         if (m_expanded.size() > 1) {
             for (unsigned i = m_expanded.size(); i-- > 0; ) {
                 expr_ref tmp(m.update_quantifier(q, m_expanded.get(i)), m);
                 ctx.get_rewriter()(tmp);
                 m_expanded[i] = tmp;
             }
+            return true;
         }
-        else {
-            m_expanded.reset();
-            m_expanded.push_back(q);
+        return false;
+    }
+
+    bool solver::split(expr* arg, expr_ref& e1, expr_ref& e2) {
+        expr* x, * y, * z;
+        if (m.is_not(arg, x) && m.is_or(x, y, z) && is_literal(y) && is_literal(z)) {
+            e1 = mk_not(m, y);
+            e2 = mk_not(m, z);
+            return true;
         }
-        return m_expanded;
+        if (m.is_iff(arg, x, y) && is_literal(x) && is_literal(y)) {
+            e1 = m.mk_implies(x, y);
+            e2 = m.mk_implies(y, x);
+            return true;
+        }
+        if (m.is_and(arg, x, y) && is_literal(x) && is_literal(y)) {
+            e1 = x;
+            e2 = y;
+            return true;
+        }
+        if (m.is_not(arg, z) && m.is_iff(z, x, y) && is_literal(x) && is_literal(y)) {
+            e1 = m.mk_or(x, y);
+            e2 = m.mk_or(mk_not(m, x), mk_not(m, y));
+            return true;
+        }
+        return false;
+    }
+
+    bool solver::is_literal(expr* arg) {
+        m.is_not(arg, arg);
+        return !m.is_and(arg) && !m.is_or(arg) && !m.is_iff(arg) && !m.is_implies(arg);
     }
 
     void solver::get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) {

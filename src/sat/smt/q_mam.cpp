@@ -2070,7 +2070,6 @@ namespace q {
         enode * n = m_registers[j2->m_reg]->get_root();
         if (n->num_parents() == 0)
             return nullptr;
-        unsigned num_args = n->num_args();
         enode_vector * v  = mk_enode_vector();
         for (enode* p : euf::enode_parents(n)) {
             if (p->get_decl() == j2->m_decl &&
