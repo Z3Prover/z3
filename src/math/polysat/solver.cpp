@@ -122,16 +122,13 @@ namespace polysat {
         m_constraints.ensure_bvar(c.get());
         sat::literal lit = c.blit();
         LOG("New constraint: " << c);
-        if (m_bvars.is_false(lit)) {
-            set_conflict(c /*, dep*/);
+        if (m_bvars.is_false(lit) || c.is_currently_false(*this)) {
+            set_conflict(c /*, dep */);
             return;
         }
         m_bvars.assign(lit, m_level, nullptr, nullptr, dep);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
-        if (c.is_currently_false(*this)) 
-            set_conflict(c /*, dep */);
-        
 
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.new_constraint(*c.get());
@@ -200,13 +197,13 @@ namespace polysat {
         if (m_bvars.is_true(cl[idx]))
             return false;
         unsigned i = 2;
-        for (; i < cl.size() && (m_bvars.is_false(cl[i]) || lit2cnstr(cl[i]).is_currently_false(*this)); ++i);
+        for (; i < cl.size() && m_bvars.is_false(cl[i]); ++i);
         if (i < cl.size()) {
             m_bvars.watch(cl[i]).push_back(&cl);
             std::swap(cl[1 - idx], cl[i]);
             return true;
         }
-        if (m_bvars.is_false(cl[idx]) || lit2cnstr(cl[idx]).is_currently_false(*this))
+        if (m_bvars.is_false(cl[idx]))
             set_conflict(cl);
         else
             assign_bool(level(cl), cl[idx], &cl, nullptr);
@@ -526,8 +523,6 @@ namespace polysat {
 
     // Guess a literal from the given clause; returns the guessed constraint
     void solver::decide_bool(clause& lemma) {
-        if (is_conflict())
-            return;
         LOG_H3("Guessing literal in lemma: " << lemma);
         IF_LOGGING(m_viable.log());
         LOG("Boolean assignment: " << m_bvars);
@@ -625,8 +620,24 @@ namespace polysat {
         //      (L')^{L' \/ ¬L \/ ...}
         //      again L is in core, unless we core-reduced it away
 
-        clause_builder reason_builder = m_conflict.build_lemma();        
-        SASSERT(std::find(reason_builder.begin(), reason_builder.end(), ~lit));
+        clause_builder reason_builder = m_conflict.build_lemma();
+        
+
+        bool contains_lit = std::find(reason_builder.begin(), reason_builder.end(), ~lit);
+        if (!contains_lit) {
+            // At this point, we do not have ~lit in the reason.
+            // For now, we simply add it (thus weakening the reason)
+            //
+            // Alternative (to be considered later):
+            // - 'reason' itself (without ~L) would already be an explanation for ~L
+            // - however if it doesn't contain ~L, it breaks the boolean resolution invariant
+            // - would need to check what we can gain by relaxing that invariant
+            // - drawback: might have to bail out at boolean resolution
+            // Also: maybe we can skip ~L in some cases? but in that case it shouldn't be marked.
+            //
+            std::cout << "ADD extra " << ~lit << "\n";
+            reason_builder.push(~lit);
+        }
         clause_ref reason = reason_builder.build();
 
         if (reason->empty()) {
@@ -856,6 +867,8 @@ namespace polysat {
             signed_constraint sc(c, is_positive);
             for (auto const& wlist : m_pwatch) {
                 auto n = std::count(wlist.begin(), wlist.end(), sc);
+                if (n > 1)
+                    std::cout << sc << "\n" << * this << "\n";
                 VERIFY(n <= 1);  // no duplicates in the watchlist
                 num_watches += n;
             }

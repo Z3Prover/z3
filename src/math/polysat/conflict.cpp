@@ -125,7 +125,6 @@ namespace polysat {
      *   should appear, otherwise the lemma would be a tautology
      */
     void conflict::insert(signed_constraint c) {
-
         if (c.is_always_true())
             return;
         if (c->is_marked())
@@ -321,7 +320,7 @@ namespace polysat {
     bool conflict::try_eliminate(pvar v) {       
         bool has_v = false;
         for (auto c : *this)
-            has_v |= c->contains_var(v);
+            has_v |= c->is_var_dependent() && c->contains_var(v);
         if (!has_v)
             return true;
         for (auto* engine : ve_engines)

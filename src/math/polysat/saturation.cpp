@@ -78,11 +78,14 @@ namespace polysat {
       
         if (!c.is_currently_false(s))
             return false;
-        
-        core.replace(crit1, c, new_constraints);
+
         core.reset();
-        core.set(c);
+        for (auto d : new_constraints)
+            core.insert(d);
+        c->set_var_dependent();
+        core.insert(~c);
         return true;
+        
     }
 
     bool inf_saturate::propagate(conflict& core, inequality const& crit1, inequality const& crit2, bool is_strict, pdd const& lhs, pdd const& rhs, vector<signed_constraint>& new_constraints) {
