@@ -593,7 +593,7 @@ public:
             return result;
         }
 
-        expr_ref mk_or_simplify(expr* a, expr* b)
+ /*       expr_ref mk_or_simplify(expr* a, expr* b)
         {
             expr_ref result(m);
             if (m.is_true(a) || a == b)
@@ -607,7 +607,7 @@ public:
             else
                 result = m.mk_or(a, b);
             return result;
-        }
+        }*/
 
         class pp {
             seq_util::rex& re;
