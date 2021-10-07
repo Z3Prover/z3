@@ -3016,6 +3016,8 @@ expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
 }
 
 expr_ref seq_rewriter::mk_antimirov_deriv(expr* e, expr* r, expr* path) {
+    // Take reference count of path and r
+    expr_ref _path(path, m()), _r(r, m());
     expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, e, r, path), m());
     if (!result) {
         mk_antimirov_deriv_rec(e, r, path, result);
@@ -3204,6 +3206,8 @@ expr_ref seq_rewriter::mk_antimirov_deriv_intersection(expr* d1, expr* d2, expr*
 
 expr_ref seq_rewriter::mk_antimirov_deriv_concat(expr* d, expr* r) {
     expr_ref result(m());
+    // Take reference count of r and d
+    expr_ref _r(r, m()), _d(d, m());
     expr* c, * t, * e;
     if (m().is_ite(d, c, t, e))
         result = m().mk_ite(c, mk_antimirov_deriv_concat(t, r), mk_antimirov_deriv_concat(e, r));
@@ -4151,7 +4155,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         //result = re().mk_in_re(tl, re().mk_derivative(hd, b));
         //result = re().mk_in_re(tl, mk_derivative(hd, b));
         result = mk_in_antimirov(tl, mk_antimirov_deriv(hd, b, m().mk_true()));
-        return BR_DONE;
+        return BR_REWRITE1;
     }
 
     if (get_head_tail_reversed(a, hd, tl)) {
