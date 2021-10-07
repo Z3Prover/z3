@@ -1231,7 +1231,6 @@ std::ostream& seq_util::rex::pp::print_unit(std::ostream& out, expr* s) const {
         out << mk_pp(e, re.m);
     else if (is_app(e)) {
         out << "(" << to_app(e)->get_decl()->get_name().str();
-        //for (unsigned i = 0; i < to_app(e)->get_num_args(); i++) {
         for (expr * arg : *to_app(e))
             print(out << " ", arg);
         out << ")";
