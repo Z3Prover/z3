@@ -3162,6 +3162,13 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         result = mk_antimirov_deriv_intersection(
             mk_antimirov_deriv(e, r1, path),
             mk_antimirov_deriv_negate(mk_antimirov_deriv(e, r2, path)), m().mk_true());
+    else if (re().is_of_pred(r, r1)) {
+        array_util array(m());
+        expr* args[2] = { r1, e };
+        result = array.mk_select(2, args);
+        // Use mk_der_cond to normalize
+        result = mk_der_cond(result, e, seq_sort);
+    }
     else
         // stuck cases
         result = re().mk_derivative(e, r);
@@ -4155,7 +4162,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         //result = re().mk_in_re(tl, re().mk_derivative(hd, b));
         //result = re().mk_in_re(tl, mk_derivative(hd, b));
         result = mk_in_antimirov(tl, mk_antimirov_deriv(hd, b, m().mk_true()));
-        return BR_REWRITE1;
+        return BR_REWRITE_FULL;
     }
 
     if (get_head_tail_reversed(a, hd, tl)) {
