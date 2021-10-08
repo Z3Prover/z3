@@ -839,7 +839,7 @@ bool seq_util::str::is_nth_i(expr const* n, expr*& s, unsigned& idx) const {
     return arith_util(m).is_unsigned(i, idx);
 }
 
-app* seq_util::str::mk_nth_i(expr* s, unsigned i) const {
+app* seq_util::str::mk_nth_c(expr* s, unsigned i) const {
     return mk_nth_i(s, arith_util(m).mk_int(i));
 }
 

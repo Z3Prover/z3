@@ -882,7 +882,7 @@ expr_ref seq_rewriter::mk_seq_first(expr* t) {
     if (str().is_extract(t, s, j, k))
         result = str().mk_nth_i(s, j);
     else
-        result = str().mk_nth_i(t, zero());
+        result = str().mk_nth_c(t, 0);
     return result;
 }
 
@@ -928,7 +928,7 @@ expr_ref seq_rewriter::mk_seq_last(expr* t) {
         str().is_len_sub(k, len_s, s_, i) &&
         s == s_ && jv == i) {
         expr_ref lastpos = mk_sub(len_s, 1);
-        result = str().mk_nth_i(s, lastpos.get());
+        result = str().mk_nth_i(s, lastpos);
     }
     else
         result = str().mk_nth_i(t, m_autil.mk_sub(str().mk_length(t), one()));
