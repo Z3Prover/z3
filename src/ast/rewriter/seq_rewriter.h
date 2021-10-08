@@ -302,6 +302,8 @@ class seq_rewriter {
     expr_ref zero() { return expr_ref(m_autil.mk_int(0), m()); }
     expr_ref one() { return expr_ref(m_autil.mk_int(1), m()); }
     expr_ref minus_one() { return expr_ref(m_autil.mk_int(-1), m()); }
+    expr_ref mk_sub(expr* a, rational const& n);
+    expr_ref mk_sub(expr* a, unsigned n) { return mk_sub(a, rational(n)); }
 
     bool is_suffix(expr* s, expr* offset, expr* len);
     bool is_prefix(expr* s, expr* offset, expr* len);

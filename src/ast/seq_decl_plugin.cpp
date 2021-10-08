@@ -858,24 +858,24 @@ void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
 Returns true if s is an expression of the form (l = |u|) |u|-k or (-k)+|u| or |u|+(-k).
 Also returns true and assigns k=0 and l=s if s is |u|.
 */
-bool seq_util::str::is_len_sub(expr const* s, expr*& l, expr*& u, unsigned& k) const
-{
+bool seq_util::str::is_len_sub(expr const* s, expr*& l, expr*& u, rational& k) const {
     expr* x;
     rational v;
+    arith_util a(m);
     if (is_length(s, l)) {
         k = 0;
         return true;
     }
-    else if (arith_util(m).is_sub(s, l, x) && is_length(l, u) && arith_util(m).is_numeral(x, v) && v.is_nonneg()) {
-        k = v.get_unsigned();
+    else if (a.is_sub(s, l, x) && is_length(l, u) && a.is_numeral(x, v) && v.is_nonneg()) {
+        k = v;
         return true;
     }
-    else if (arith_util(m).is_add(s, l, x) && is_length(l, u) && arith_util(m).is_numeral(x, v) && v.is_nonpos()) {
-        k = (0 - v.get_int32());
+    else if (a.is_add(s, l, x) && is_length(l, u) && a.is_numeral(x, v) && v.is_nonpos()) {
+        k = - v;
         return true;
     }
-    else if (arith_util(m).is_add(s, x, l) && is_length(l, u) && arith_util(m).is_numeral(x, v) && v.is_nonpos()) {
-        k = (0 - v.get_int32());
+    else if (a.is_add(s, x, l) && is_length(l, u) && a.is_numeral(x, v) && v.is_nonpos()) {
+        k = - v;
         return true;
     }
     else

@@ -859,13 +859,12 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         // elif offset >= len(s) then 0
         // elif offset + length > len(s) then len(s) - offset
         // else length
-        expr_ref zero(m_autil.mk_int(0), m());
         result = length;
         result = m().mk_ite(m_autil.mk_gt(m_autil.mk_add(offset, length), len_s),
                             m_autil.mk_sub(len_s, offset),
                             result);
-        result = m().mk_ite(m().mk_or(m_autil.mk_le(len_s, offset), m_autil.mk_le(length, zero), m_autil.mk_lt(offset, zero)),
-                            zero,
+        result = m().mk_ite(m().mk_or(m_autil.mk_le(len_s, offset), m_autil.mk_le(length, zero()), m_autil.mk_lt(offset, zero())),
+                            zero(),
                             result);
         return BR_REWRITE_FULL;
     }
@@ -883,9 +882,23 @@ expr_ref seq_rewriter::mk_seq_first(expr* t) {
     if (str().is_extract(t, s, j, k))
         result = str().mk_nth_i(s, j);
     else
-        result = str().mk_nth_i(t, m_autil.mk_int(0));
+        result = str().mk_nth_i(t, zero());
     return result;
 }
+
+expr_ref seq_rewriter::mk_sub(expr* a, rational const& n) {
+    expr* a1, *a2;
+    SASSERT(n.is_int());
+    rational k;
+    if (m_autil.is_sub(a, a1, a2) && m_autil.is_numeral(a2, k))
+        return expr_ref(m_autil.mk_sub(a1, m_autil.mk_int(k + n)), m());
+    if (m_autil.is_add(a, a1, a2) && m_autil.is_numeral(a2, k))
+        return expr_ref(m_autil.mk_add(a1, m_autil.mk_int(k - n)), m());        
+    if (m_autil.is_add(a, a1, a2) && m_autil.is_numeral(a1, k))
+        return expr_ref(m_autil.mk_add(a2, m_autil.mk_int(k - n)), m());
+    return expr_ref(m_autil.mk_sub(a, m_autil.mk_int(n)), m());
+}
+
 
 /*
 *  In general constructs substring(t,1,|t|-1) but if t = substring(s,j,k) then simplifies to substring(s,j+1,k-1)
@@ -893,38 +906,32 @@ expr_ref seq_rewriter::mk_seq_first(expr* t) {
 */
 expr_ref seq_rewriter::mk_seq_rest(expr* t) {
     expr_ref result(m());
-    expr* s, * j, * k, * s_, * l;
+    expr* s, * j, * k;
     rational jv;
-    if (str().is_extract(t, s, j, k) && m_autil.is_numeral(j, jv) && jv.is_nonneg()) {
-        unsigned i;
-        expr_ref k_min_1(str().is_len_sub(k, l, s_, i) && s == s_ ? 
-            m_autil.mk_sub(l, m_autil.mk_int(i + 1)) : 
-            m_autil.mk_sub(k, m_autil.mk_int(1)), m());
-        result = str().mk_substr(s, m_autil.mk_int(jv.get_int32() + 1), k_min_1);
-    }
-    else
-        result = str().mk_substr(t, m_autil.mk_int(1), m_autil.mk_sub(str().mk_length(t), m_autil.mk_int(1)));
+    if (str().is_extract(t, s, j, k) &&  m_autil.is_numeral(j, jv) && jv >= 0) 
+        result = str().mk_substr(s, m_autil.mk_int(jv + 1), mk_sub(k, 1));
+    else 
+        result = str().mk_substr(t, one(), mk_sub(str().mk_length(t), 1));
     return result;
 }
 
 /*
-*  In general constructs nth(t,|t|-1) but if t = substring(s,j,k) then simplifies to nth(s,j+k-1) 
+*  In general constructs nth(t,|t|-1) but if t = substring(s,j,|s|-j) j >= 0, then simplifies to nth(s,|s|-1) 
 *  This method assumes that |t| > 0.
 */
 expr_ref seq_rewriter::mk_seq_last(expr* t) {
     expr_ref result(m());
-    expr* s, * j, * k, * s_, * l;
-    rational jv;
-    if (str().is_extract(t, s, j, k) && m_autil.is_numeral(j, jv) && jv.is_nonneg()) {
-        unsigned i;
-        // k = |s_| - i, l = |s_| implies that lastpos = j + k - 1 = k + j - 1 = j + l - i - 1 = l + j - i - 1
-        expr_ref lastpos(str().is_len_sub(k, l, s_, i) && s == s_ ? 
-            m_autil.mk_add(l, m_autil.mk_int(jv.get_int32() - 1 - i)) :
-            m_autil.mk_add(k, m_autil.mk_int(jv.get_int32() - 1)), m());
+    expr* s, * j, * k, * s_, * len_s;
+    rational jv, i;
+    if (str().is_extract(t, s, j, k) &&
+        m_autil.is_numeral(j, jv) && jv >= 0 &&
+        str().is_len_sub(k, len_s, s_, i) &&
+        s == s_ && jv == i) {
+        expr_ref lastpos = mk_sub(len_s, 1);
         result = str().mk_nth_i(s, lastpos.get());
     }
     else
-        result = str().mk_nth_i(t, m_autil.mk_sub(str().mk_length(t), m_autil.mk_int(1)));
+        result = str().mk_nth_i(t, m_autil.mk_sub(str().mk_length(t), one()));
     return result;
 }
 
@@ -938,11 +945,11 @@ expr_ref seq_rewriter::mk_seq_butlast(expr* t) {
     if (str().is_extract(t, s, j, k)) {
         expr_ref_vector k_min_1(m());
         k_min_1.push_back(k);
-        k_min_1.push_back(m_autil.mk_int(-1));
+        k_min_1.push_back(minus_one());
         result = str().mk_substr(s, j, m_autil.mk_add_simplify(k_min_1));
     }
     else
-        result = str().mk_substr(t, m_autil.mk_int(0), m_autil.mk_sub(str().mk_length(t), m_autil.mk_int(1)));
+        result = str().mk_substr(t, zero(), m_autil.mk_sub(str().mk_length(t), one()));
     return result;
 }
 
@@ -1692,7 +1699,7 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
         return BR_DONE;
     }
     if (m_autil.is_numeral(c, r) && r.is_neg()) {
-        result = m_autil.mk_int(-1);
+        result = minus_one();
         return BR_DONE;
     }
     
@@ -1702,10 +1709,10 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
     }
 
     if (str().is_empty(b)) {
-        result = m().mk_ite(m().mk_and(m_autil.mk_le(m_autil.mk_int(0), c),
+        result = m().mk_ite(m().mk_and(m_autil.mk_le(zero(), c),
                                        m_autil.mk_le(c, str().mk_length(a))),
                             c,
-                            m_autil.mk_int(-1));
+                            minus_one());
         return BR_REWRITE2;
     }
 
@@ -2321,7 +2328,7 @@ br_status seq_rewriter::mk_str_to_code(expr* a, expr_ref& result) {
         if (s.length() == 1) 
             result = m_autil.mk_int(s[0]);
         else
-            result = m_autil.mk_int(-1);
+            result = minus_one();
         return BR_DONE;
     }    
     return BR_FAILED;
@@ -2462,7 +2469,7 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
             result = m_autil.mk_int(ch - '0');
         }
         else {
-            result = m_autil.mk_int(-1);
+            result = minus_one();
         }
         return BR_DONE;
     }        
@@ -2470,7 +2477,7 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
     expr_ref_vector as(m());
     str().get_concat_units(a, as);
     if (as.empty()) {
-        result = m_autil.mk_int(-1);
+        result = minus_one();
         return BR_DONE;
     }
     if (str().is_unit(as.back())) {
@@ -2480,11 +2487,11 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
         expr_ref tail(str().mk_stoi(as.back()), m());
         expr_ref head(str().mk_concat(as.size() - 1, as.data(), a->get_sort()), m());
         expr_ref stoi_head(str().mk_stoi(head), m());
-        result = m().mk_ite(m_autil.mk_ge(stoi_head, m_autil.mk_int(0)), 
+        result = m().mk_ite(m_autil.mk_ge(stoi_head, zero()), 
                             m_autil.mk_add(m_autil.mk_mul(m_autil.mk_int(10), stoi_head), tail),
-                            m_autil.mk_int(-1));
+                            minus_one());
         
-        result = m().mk_ite(m_autil.mk_ge(tail, m_autil.mk_int(0)), 
+        result = m().mk_ite(m_autil.mk_ge(tail, zero()), 
                             result,
                             tail);
         result = m().mk_ite(str().mk_is_empty(head), 
@@ -2495,7 +2502,7 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
     if (str().is_unit(as.get(0), u) && m_util.is_const_char(u, ch) && '0' == ch) {
         result = str().mk_concat(as.size() - 1, as.data() + 1, as[0]->get_sort());
         result = m().mk_ite(str().mk_is_empty(result),
-                            m_autil.mk_int(0),
+                            zero(),
                             str().mk_stoi(result));
         return BR_REWRITE_FULL;
     }
@@ -3001,23 +3008,12 @@ expr_ref seq_rewriter::mk_derivative(expr* r) {
 }
 
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
-    /*STRACE("seq_verbose", tout << "derivative: " << mk_pp(ele, m())
-                               << "," << mk_pp(r, m()) << std::endl;);
-    expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, ele, r, nullptr), m());
-    if (!result) {
-        result = mk_derivative_rec(ele, r);
-        m_op_cache.insert(OP_RE_DERIVATIVE, ele, r, nullptr, result);
-    }
-    STRACE("seq_verbose", tout << "derivative result: "
-                               << re().to_str(result) << std::endl;);
-    CASSERT("seq_regex", check_deriv_normal_form(r));
-    return result;*/
     return mk_antimirov_deriv(ele, r, m().mk_true());
 }
 
 expr_ref seq_rewriter::mk_antimirov_deriv(expr* e, expr* r, expr* path) {
-    // Take reference count of path and r
-    expr_ref _path(path, m()), _r(r, m());
+    // Ensure references are owned
+    expr_ref _e(e, m()), _path(path, m()), _r(r, m());
     expr_ref result(m_op_cache.find(OP_RE_DERIVATIVE, e, r, path), m());
     if (!result) {
         mk_antimirov_deriv_rec(e, r, path, result);
@@ -3062,8 +3058,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
             else
                 result = re().mk_ite_simplify(m().mk_eq(e, h), re().mk_to_re(t), nothing());
         }
-        else
-        {
+        else {
             // observe that the precondition |r1|>0 is is implied by c1 for use of mk_seq_first
             m_br.mk_and(m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort))), m().mk_eq(mk_seq_first(r1), e), c1);
             m_br.mk_and(path, c1, c2);
@@ -3255,8 +3250,7 @@ expr_ref seq_rewriter::mk_antimirov_deriv_negate(expr* d) {
     return result;
 }
 
-expr_ref seq_rewriter::mk_antimirov_deriv_union(expr* d1, expr* d2)
-{
+expr_ref seq_rewriter::mk_antimirov_deriv_union(expr* d1, expr* d2) {
     expr_ref result(m());
     if (re().is_empty(d1) || re().is_full_seq(d2))
         result = d2;
@@ -3893,7 +3887,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
                 // construct the term (if (r2 != () and (ele = (last r2)) then reverse(to_re (butlast r2)) else []))
                 // hd = first of reverse(r2) i.e. last of r2
                 // tl = rest of reverse(r2) i.e. butlast of r2
-                //hd = str().mk_nth_i(r2, m_autil.mk_sub(str().mk_length(r2), m_autil.mk_int(1)));
+                //hd = str().mk_nth_i(r2, m_autil.mk_sub(str().mk_length(r2), one()));
                 hd = mk_seq_last(r2);
                 m_br.mk_and(m().mk_not(m().mk_eq(r2, str().mk_empty(seq_sort))), m().mk_eq(hd, ele), result);
                 tl = re().mk_to_re(mk_seq_butlast(r2));
@@ -4144,7 +4138,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         (re().is_union(b, b1, eps) && re().is_epsilon(eps)) ||
         (re().is_union(b, eps, b1) && re().is_epsilon(eps)))
     {
-        result = m().mk_ite(m().mk_eq(str().mk_length(a), m_autil.mk_int(0)),
+        result = m().mk_ite(m().mk_eq(str().mk_length(a), zero()),
             m().mk_true(),
             re().mk_in_re(a, b1));
         return BR_REWRITE_FULL;
@@ -4177,7 +4171,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         expr_ref len_a(str().mk_length(a), m());
         expr_ref len_tl(m_autil.mk_sub(len_a, len_hd), m());
         result = m().mk_and(m_autil.mk_ge(len_a, len_hd),
-                            re().mk_in_re(str().mk_substr(a, m_autil.mk_int(0), len_hd), hd),
+                            re().mk_in_re(str().mk_substr(a, zero(), len_hd), hd),
                             re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl));
         return BR_REWRITE_FULL;
     }
@@ -4188,7 +4182,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         expr_ref len_hd(m_autil.mk_sub(len_a, len_tl), m());
         expr* s = nullptr;
         result = m().mk_and(m_autil.mk_ge(len_a, len_tl),
-            re().mk_in_re(str().mk_substr(a, m_autil.mk_int(0), len_hd), hd),
+            re().mk_in_re(str().mk_substr(a, zero(), len_hd), hd),
             (re().is_to_re(tl, s) ? m().mk_eq(s, str().mk_substr(a, len_hd, len_tl)) :
                 re().mk_in_re(str().mk_substr(a, len_hd, len_tl), tl)));
         return BR_REWRITE_FULL;
@@ -5541,15 +5535,15 @@ bool seq_rewriter::reduce_eq_empty(expr* l, expr* r, expr_ref& result) {
     if (str().is_extract(r, s, offset, len)) {
         expr_ref len_s(str().mk_length(s), m()); 
         expr_ref_vector fmls(m());
-        fmls.push_back(m_autil.mk_lt(offset, m_autil.mk_int(0)));
+        fmls.push_back(m_autil.mk_lt(offset, zero()));
         fmls.push_back(m().mk_eq(s, l));
-        fmls.push_back(m_autil.mk_le(len, m_autil.mk_int(0)));
+        fmls.push_back(m_autil.mk_le(len, zero()));
         fmls.push_back(m_autil.mk_le(len_s, offset));
         result = m().mk_or(fmls);
         return true;
     }
     if (str().is_itos(r, s)) {
-        result = m_autil.mk_lt(s, m_autil.mk_int(0));
+        result = m_autil.mk_lt(s, zero());
         return true;
     }
     return false;
