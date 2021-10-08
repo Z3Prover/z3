@@ -850,7 +850,7 @@ namespace seq {
             add_clause(~eq, ge10k);
 
         for (unsigned i = 0; i < k; ++i) {
-            expr* ch = seq.str.mk_nth_i(ubvs, i);
+            expr* ch = seq.str.mk_nth_c(ubvs, i);
             is_digit = seq.mk_char_is_digit(ch);
             add_clause(~ge_len, is_digit);
         }
