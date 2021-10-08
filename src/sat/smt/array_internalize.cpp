@@ -120,8 +120,8 @@ namespace array {
         SASSERT(!n || !n->is_attached_to(get_id()));
         if (!n) 
             n = mk_enode(e, false);
-        SASSERT(!n->is_attached_to(get_id()));
-        mk_var(n);
+        if (!n->is_attached_to(get_id())) 
+            mk_var(n);
         for (auto* arg : euf::enode_args(n))
             ensure_var(arg);  
         switch (a->get_decl_kind()) {
