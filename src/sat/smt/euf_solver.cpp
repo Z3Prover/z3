@@ -994,7 +994,7 @@ namespace euf {
         ::solver::push_eh_t& push_eh,
         ::solver::pop_eh_t& pop_eh,
         ::solver::fresh_eh_t& fresh_eh) {
-        m_user_propagator = alloc(user::solver, *this);
+        m_user_propagator = alloc(user_solver::solver, *this);
         m_user_propagator->add(ctx, push_eh, pop_eh, fresh_eh);
         for (unsigned i = m_scopes.size(); i-- > 0; )
             m_user_propagator->push();
