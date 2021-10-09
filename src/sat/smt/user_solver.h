@@ -23,7 +23,7 @@ Author:
 #include "solver/solver.h"
 
 
-namespace user {
+namespace user_solver {
 
     class solver : public euf::th_euf_solver, public ::solver::propagate_callback {
 

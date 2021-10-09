@@ -101,7 +101,7 @@ namespace euf {
         sat::sat_internalizer* m_to_si;
         scoped_ptr<euf::ackerman>    m_ackerman;
         scoped_ptr<sat::dual_solver> m_dual_solver;
-        user::solver*          m_user_propagator = nullptr;
+        user_solver::solver*          m_user_propagator = nullptr;
         th_solver*             m_qsolver = nullptr;
         unsigned               m_generation = 0;
         mutable ptr_vector<expr> m_todo;
