@@ -932,7 +932,10 @@ unsigned seq_util::str::min_length(expr* s) const {
             return 0u;
     };
     while (is_concat(s, s1, s2)) {
-        result += get_length(s1);
+        if (is_concat(s1))
+            result += min_length(s1);
+        else
+            result += get_length(s1);
         s = s2;
     }
     result += get_length(s);
@@ -960,7 +963,10 @@ unsigned seq_util::str::max_length(expr* s) const {
             return UINT_MAX;
     };
     while (is_concat(s, s1, s2)) {
-        result = u.max_plus(get_length(s1), result);
+        if (is_concat(s1))
+            result = u.max_plus(max_length(s1), result);
+        else
+            result = u.max_plus(get_length(s1), result);
         s = s2;
     }
     result = u.max_plus(get_length(s), result);
