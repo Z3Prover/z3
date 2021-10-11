@@ -13,11 +13,6 @@ Author:
     Jakob Rath 2021-04-6
 
 
-TODO:
-compute forbidden interval coefficients a1, a2 modulo current assignment to handle pseudo-linear cases.
-test_mont_bounds(8) produces constraint 13 <= v1*v2, where v2 = 1, then v1 is linear and is constrained above 13.
-
-
 
 --*/
 #include "math/polysat/forbidden_intervals.h"
@@ -175,6 +170,7 @@ namespace polysat {
     }
 
 
+
     /** Precondition: all variables other than v are assigned.
      *
      * \param[out] out_interval     The forbidden interval for this constraint
@@ -186,6 +182,20 @@ namespace polysat {
     {
         if (!c->is_ule())
             return false;
+        
+        struct backtrack {
+            bool released = false;
+            vector<signed_constraint>& side_cond;
+            unsigned sz;
+            backtrack(vector<signed_constraint>& s):side_cond(s), sz(s.size()) {}
+            ~backtrack() {
+                if (!released)
+                    side_cond.shrink(sz);
+            }
+        };
+
+        backtrack _backtrack(out_side_cond);
+        
         // Current only works when degree(v) is at most one on both sides
         pdd lhs = c->to_ule().lhs();
         pdd rhs = c->to_ule().rhs();
@@ -205,6 +215,16 @@ namespace polysat {
         dd::pdd_manager& m = s.sz2pdd(sz);
         rational const pow2 = rational::power_of_two(sz);
         rational const minus_one = pow2 - 1;
+
+        /**
+        * TODO: to express the interval for coefficient 2^i symbolically,
+        * we need right-shift/upper-bits-extract in the language.
+        * So currently we can only do it if the coefficient is 1 or -1.
+        */
+
+        auto coefficient_is_handled = [&](rational const& r) {
+            return r.is_zero() || r.is_one() || r == minus_one;
+        };
 
         pdd p1 = m.zero();
         pdd e1 = m.zero();
@@ -247,13 +267,13 @@ namespace polysat {
         }
         rational a1 = p1.val();
         rational a2 = p2.val();
-        // TODO: to express the interval for coefficient 2^i symbolically, we need right-shift/upper-bits-extract in the language.
-        // So currently we can only do it if the coefficient is 1 or -1.
+
         LOG("values " << a1 << " " << a2);
-        if (!a1.is_zero() && !a1.is_one() && a1 != minus_one)
+        if (!coefficient_is_handled(a1)) 
             return false;
-        if (!a2.is_zero() && !a2.is_one() && a2 != minus_one)
+        if (!coefficient_is_handled(a2))
             return false;
+        
         /*
         unsigned j1 = 0;
         unsigned j2 = 0;
@@ -269,7 +289,9 @@ namespace polysat {
         // Concrete values of evaluable terms
         auto e1s = e1.subst_val(s.assignment());
         auto e2s = e2.subst_val(s.assignment());
-        // TODO: this is not always true! cjust[v]/conflict may contain unassigned variables (they're coming from a previous conflict, but together they lead to a conflict. need something else to handle that.)
+        // TODO: this is not always true! cjust[v]/conflict may contain unassigned variables
+        // (they're coming from a previous conflict, but together they lead to a conflict.
+        // need something else to handle that.)
         if (!e1s.is_val())
             return false;
         if (!e2s.is_val())
@@ -280,9 +302,9 @@ namespace polysat {
         bool is_trivial;
         pdd condition_body = m.zero();
         pdd lo = m.zero();
-        rational lo_val = rational::zero();
+        rational lo_val(0);
         pdd hi = m.zero();
-        rational hi_val = rational::zero();
+        rational hi_val(0);
 
         if (a2.is_zero()) {
             SASSERT(!a1.is_zero());
@@ -325,6 +347,8 @@ namespace polysat {
                 hi_val = (-e1s).val();
             }
         }
+
+        _backtrack.released = true;
 
         if (condition_body.is_val()) {
             // Condition is trivial; no need to create a constraint for that.
