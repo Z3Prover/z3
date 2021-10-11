@@ -406,7 +406,7 @@ namespace datatype {
             VALIDATE_PARAM(arity == 1 && num_parameters == 1 && parameters[0].is_ast() && is_func_decl(parameters[0].get_ast()));
             VALIDATE_PARAM(u().is_datatype(domain[0]));
             VALIDATE_PARAM_PP(domain[0] == to_func_decl(parameters[0].get_ast())->get_range(), "invalid sort argument passed to recognizer");
-            // blindly trust that parameter is a constructor
+            VALIDATE_PARAM_PP(u().is_constructor(to_func_decl(parameters[0].get_ast())), "expecting constructor argument to recognizer");
             sort* range = m_manager->mk_bool_sort();
             func_decl_info info(m_family_id, OP_DT_IS, num_parameters, parameters);
             info.m_private_parameters = true;
