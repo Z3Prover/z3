@@ -22,10 +22,9 @@ Author:
     
 br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     if (m_rec.is_defined(f) && num_args > 0) {
-        for (unsigned i = 0; i < num_args; ++i) {
+        for (unsigned i = 0; i < num_args; ++i) 
             if (!m.is_value(args[i]))
                 return BR_FAILED;
-        }
         if (!m_rec.has_def(f))
             return BR_FAILED;
         recfun::def const& d = m_rec.get_def(f);
@@ -35,9 +34,8 @@ br_status recfun_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
         result = sub(d.get_rhs(), num_args, args);
         return BR_REWRITE_FULL;
     }
-    else {
+    else 
         return BR_FAILED;
-    }
 }
 
 
