@@ -413,6 +413,7 @@ namespace smt {
         // of justification are considered level zero.
         if (m_conflict_lvl <= m_ctx.get_search_level()) {
             TRACE("conflict", tout << "problem is unsat\n";);
+            TRACE("conflict", m_ctx.display(tout););
             if (m.proofs_enabled())
                 mk_conflict_proof(conflict, not_l);
             if (m_ctx.tracking_assumptions())
@@ -1359,9 +1360,8 @@ namespace smt {
 
     void conflict_resolution::process_antecedent_for_unsat_core(literal antecedent) {
         bool_var var = antecedent.var();
-        TRACE("conflict", tout << "processing antecedent: ";
+        CTRACE("conflict", !m_ctx.is_marked(var), tout << "processing antecedent: ";
           m_ctx.display_literal_info(tout << antecedent << " ", antecedent);
-          tout << (m_ctx.is_marked(var)?"marked":"not marked");
           tout << "\n";);
 
         if (!m_ctx.is_marked(var)) {
