@@ -1,0 +1,35 @@
+name: Android Build
+
+on:
+  push:
+    branches: [ master ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        android-abi: [arm64-v8a, armeabi-v7a, x86, x86_64]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Configure CMake and build
+      run:  |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_SYSTEM_NAME=Android -DCMAKE_SYSTEM_VERSION=21 -DCMAKE_ANDROID_ARCH_ABI=${{ matrix.android-abi }} -DCMAKE_ANDROID_NDK=$ANDROID_NDK_HOME -DZ3_BUILD_JAVA_BINDINGS=TRUE -G "Unix Makefiles" -DJAVA_AWT_LIBRARY=NotNeeded -DJAVA_JVM_LIBRARY=NotNeeded -DJAVA_INCLUDE_PATH2=NotNeeded -DJAVA_AWT_INCLUDE_PATH=NotNeeded ../
+        make -j $(nproc)
+        tar -cvf z3-build-${{ matrix.android-abi }}.tar *.jar *.so
+        
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: android-build-${{ matrix.android-abi }}
+        path: build/z3-build-${{ matrix.android-abi }}.tar
