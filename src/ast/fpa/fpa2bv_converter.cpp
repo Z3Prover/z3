@@ -192,7 +192,7 @@ void fpa2bv_converter::mk_const(func_decl * f, expr_ref & result) {
 
         app_ref sgn(m), s(m), e(m);
 
-#ifdef Z3DEBUG
+#ifdef Z3DEBUG_FPA2BV_NAMES
         std::string p("fpa2bv");
         std::string name = f->get_name().str();
 
@@ -326,7 +326,7 @@ void fpa2bv_converter::mk_rm_const(func_decl * f, expr_ref & result) {
 
         expr_ref bv3(m);
         bv3 = m.mk_fresh_const(
-#ifdef Z3DEBUG
+#ifdef Z3DEBUG_FPA2BV_NAMES
             "fpa2bv_rm"
 #else
             nullptr
@@ -465,7 +465,7 @@ void fpa2bv_converter::add_core(unsigned sbits, unsigned ebits,
 
     SASSERT(is_well_sorted(m, big_d_sig));
     if (ebits > sbits)
-        throw default_exception("there is no floating point support for division for representations with non-standard bit representations");
+        throw default_exception("addition/subtract with ebits > sbits not supported");
 
 
     expr_ref shifted_big(m), shifted_d_sig(m), sticky_raw(m), sticky(m);
@@ -950,7 +950,7 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     unsigned ebits = m_util.get_ebits(s);
     unsigned sbits = m_util.get_sbits(s);
     if (ebits > sbits)
-        throw default_exception("there is no floating point support for division for representations with non-standard bit representations");
+        throw default_exception("division with ebits > sbits not supported");
     SASSERT(ebits <= sbits);
 
     expr_ref a_sgn(m), a_sig(m), a_exp(m), a_lz(m), b_sgn(m), b_sig(m), b_exp(m), b_lz(m);
@@ -2561,9 +2561,7 @@ void fpa2bv_converter::mk_to_fp_float(sort * to_srt, expr * rm, expr * x, expr_r
             res_sig = sig;
 
         res_sig = m_bv_util.mk_zero_extend(1, res_sig); // extra zero in the front for the rounder.
-        unsigned sig_sz = m_bv_util.get_bv_size(res_sig);
-        (void) sig_sz;
-        SASSERT(sig_sz == to_sbits + 4);
+        SASSERT(m_bv_util.get_bv_size(res_sig) == to_sbits + 4);
 
         expr_ref exponent_overflow(m), exponent_underflow(m);
         exponent_overflow = m.mk_false();
@@ -2577,7 +2575,7 @@ void fpa2bv_converter::mk_to_fp_float(sort * to_srt, expr * rm, expr * x, expr_r
             lz_ext = m_bv_util.mk_zero_extend(to_ebits - from_ebits + 2, lz);
             res_exp = m_bv_util.mk_bv_sub(res_exp, lz_ext);
         }
-        else if (from_ebits > (to_ebits + 2)) {
+        else if (from_ebits >= (to_ebits + 2)) {
             unsigned ebits_diff = from_ebits - (to_ebits + 2);
 
             // subtract lz for subnormal numbers.
@@ -2616,9 +2614,6 @@ void fpa2bv_converter::mk_to_fp_float(sort * to_srt, expr * rm, expr * x, expr_r
             res_exp = exp_in_range;
             res_exp = m.mk_ite(ovf_cond, max_exp, res_exp);
             res_exp = m.mk_ite(udf_cond, min_exp, res_exp);
-        }
-        else { // from_ebits == (to_ebits + 2)
-            res_exp = m_bv_util.mk_bv_sub(exp, lz);
         }
 
         SASSERT(m_bv_util.get_bv_size(res_exp) == to_ebits + 2);
@@ -3839,7 +3834,7 @@ void fpa2bv_converter::mk_rounding_mode(decl_kind k, expr_ref & result)
 }
 
 void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {
-#ifdef Z3DEBUG
+#ifdef Z3DEBUG_FPA2BV_NAMES
     return;
     // CMW: This works only for quantifier-free formulas.
     if (m_util.is_fp(e)) {

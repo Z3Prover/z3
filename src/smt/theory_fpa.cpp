@@ -38,7 +38,7 @@ namespace smt {
     {
         params_ref p;
         p.set_bool("arith_lhs", true);
-        m_th_rw.updt_params(p);        
+        m_th_rw.updt_params(p);
     }
 
     theory_fpa::~theory_fpa()
@@ -284,6 +284,9 @@ namespace smt {
             }
             default: /* ignore */;
             }
+
+            if (!ctx.relevancy())
+                relevant_eh(term);
         }
 
         return true;
@@ -454,13 +457,9 @@ namespace smt {
                     expr * args[] = { bv_val_a->get_arg(0), bv_val_a->get_arg(1), bv_val_a->get_arg(2) };
                     cc_args = m_bv_util.mk_concat(3, args);
                     c = m.mk_eq(wrapped, cc_args);
-		    // NB code review: #5454 exposes a bug in fpa_solver that
-		    // could be latent here as well. It needs also the equality
-		    // n == bv_val_e to be asserted such that whenever something is assigned th
-		    // bit-vector value cc_args it is equated with n
-		    // I don't see another way this constraint would be enforced.
                     assert_cnstr(c);
                     assert_cnstr(mk_side_conditions());
+                    assert_cnstr(m.mk_eq(n, bv_val_e));
                 }
                 else {
                     expr_ref wu(m);
@@ -627,7 +626,7 @@ namespace smt {
         bv2fp.convert_min_max_specials(&mdl, &new_model, seen);
         bv2fp.convert_uf2bvuf(&mdl, &new_model, seen);
 
-        for (func_decl* f : seen) 
+        for (func_decl* f : seen)
             mdl.unregister_decl(f);
 
         for (unsigned i = 0; i < new_model.get_num_constants(); i++) {
