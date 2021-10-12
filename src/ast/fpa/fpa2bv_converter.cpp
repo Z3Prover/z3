@@ -982,8 +982,6 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     // b_sig_ext can't be 0 here, so it's safe to use OP_BUDIV_I
     quotient = m.mk_app(m_bv_util.get_fid(), OP_BUDIV_I, a_sig_ext, b_sig_ext);
 
-    dbg_decouple("fpa2bv_div_a_sig_ext", a_sig_ext);
-    dbg_decouple("fpa2bv_div_b_sig_ext", b_sig_ext);
     dbg_decouple("fpa2bv_div_quotient", quotient);
 
     SASSERT(m_bv_util.get_bv_size(quotient) == (sbits + sbits + extra_bits));
@@ -991,7 +989,6 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     expr_ref sticky(m);
     sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, m_bv_util.mk_extract(extra_bits-2, 0, quotient));
     res_sig = m_bv_util.mk_concat(m_bv_util.mk_extract(extra_bits+sbits+1, extra_bits-1, quotient), sticky);
-    dbg_decouple("fpa2bv_div_sticky", sticky);
 
     SASSERT(m_bv_util.get_bv_size(res_sig) == (sbits + 4));
 
@@ -999,21 +996,15 @@ void fpa2bv_converter::mk_div(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
     mk_leading_zeros(res_sig, sbits + 4, res_sig_lz);
     dbg_decouple("fpa2bv_div_res_sig_lz", res_sig_lz);
     expr_ref res_sig_shift_amount(m);
-    res_sig_shift_amount = m_bv_util.mk_bv_sub(res_sig_lz, m_bv_util.mk_numeral(2, sbits + 4));
+    res_sig_shift_amount = m_bv_util.mk_bv_sub(res_sig_lz, m_bv_util.mk_numeral(1, sbits + 4));
     dbg_decouple("fpa2bv_div_res_sig_shift_amount", res_sig_shift_amount);
     expr_ref shift_cond(m);
     shift_cond = m_bv_util.mk_ule(res_sig_lz, m_bv_util.mk_numeral(1, sbits + 4));
     expr_ref res_sig_shifted(m), res_exp_shifted(m);
     res_sig_shifted = m_bv_util.mk_bv_shl(res_sig, res_sig_shift_amount);
     res_exp_shifted = m_bv_util.mk_bv_sub(res_exp, m_bv_util.mk_extract(ebits + 1, 0, res_sig_shift_amount));
-    dbg_decouple("fpa2bv_div_res_sig", res_sig);
-    dbg_decouple("fpa2bv_div_res_exp", res_exp);
-    dbg_decouple("fpa2bv_div_res_sig_shifted", res_sig_shifted);
-    dbg_decouple("fpa2bv_div_res_exp_shifted", res_exp_shifted);
     m_simp.mk_ite(shift_cond, res_sig, res_sig_shifted, res_sig);
     m_simp.mk_ite(shift_cond, res_exp, res_exp_shifted, res_exp);
-    dbg_decouple("fpa2bv_div_shift_cond", shift_cond);
-
 
     round(s, rm, res_sgn, res_sig, res_exp, v8);
 
