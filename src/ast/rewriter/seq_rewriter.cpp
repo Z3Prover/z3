@@ -1603,23 +1603,33 @@ br_status seq_rewriter::mk_seq_nth(expr* a, expr* b, expr_ref& result) {
         result = s;
         return BR_DONE;
     }
-    if (str().is_extract(a, s, p, len) && m_autil.is_numeral(p, pos1)) {
+    if (str().is_extract(a, s, p, len) && m_autil.is_numeral(p, pos1) && pos1 > 0) {
         expr_ref_vector lens(m());
         rational pos2;
+        /*
+         * nth(s[k, |s| - k], b) =
+         *   b < 0             -> nth_u(a, b)
+         *   b + k < |s|       -> nth(s, b + k)
+         *   k >= |s|          -> nth_u(empty, b)
+         *   k < |s| <= b + k  -> nth_u(a, b)
+         */
         if (get_lengths(len, lens, pos2) && (pos1 == -pos2) && (lens.size() == 1) && (lens.get(0) == s)) {
-            expr_ref idx(m_autil.mk_int(pos1), m());
-            idx = m_autil.mk_add(b, idx);
-            expr* es[2] = { s, idx };
-            result = m().mk_app(m_util.get_family_id(), OP_SEQ_NTH, 2, es);
+            expr_ref k(m_autil.mk_int(pos1), m());
+            expr_ref case1(str().mk_nth_i(s, m_autil.mk_add(b, k)), m());
+            expr_ref case2(str().mk_nth_u(str().mk_empty(s->get_sort()), b), m());
+            expr_ref case3(str().mk_nth_u(a, b), m());
+            result = case3;
+            result = m().mk_ite(m_autil.mk_lt(m_autil.mk_add(k, b), str().mk_length(s)), case1, result);
+            result = m().mk_ite(m_autil.mk_ge(k, str().mk_length(s)), case2, result);
+            result = m().mk_ite(m_autil.mk_lt(b, zero()), case3, result);   
             return BR_REWRITE_FULL;
         }
     }
 
-    expr* es[2] = { a, b};
     expr* la = str().mk_length(a);
     result = m().mk_ite(m().mk_and(m_autil.mk_ge(b, zero()), m().mk_not(m_autil.mk_le(la, b))), 
-                        m().mk_app(m_util.get_family_id(), OP_SEQ_NTH_I, 2, es), 
-                        m().mk_app(m_util.get_family_id(), OP_SEQ_NTH_U, 2, es));
+                        str().mk_nth_i(a, b),
+                        str().mk_nth_u(a, b));
     return BR_REWRITE_FULL;
 }
 
