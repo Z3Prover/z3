@@ -1142,8 +1142,8 @@ namespace seq {
 
     /**
        ~contains(a, b) => ~prefix(b, a)
-       ~contains(a, b) => ~contains(tail(a), b) or a = empty
-       ~contains(a, b) & a = empty => b != empty
+       ~contains(a, b) => ~contains(tail(a), b) 
+       a = empty => tail(a) = empty
        ~(a = empty) => a = head + tail 
     */
     void axioms::unroll_not_contains(expr* e) {
@@ -1165,7 +1165,7 @@ namespace seq {
         expr_ref bound_tracker = m_sk.mk_length_limit(s, k);
         expr* s0 = nullptr;
         if (seq.str.is_stoi(s, s0)) 
-            s = s0; 
+            s = s0;
         add_clause(~bound_tracker, mk_le(mk_len(s), k));
         return bound_tracker;
     }

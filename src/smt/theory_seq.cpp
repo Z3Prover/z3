@@ -726,7 +726,7 @@ void theory_seq::linearize(dependency* dep, enode_pair_vector& eqs, literal_vect
     svector<assumption> assumptions;
     const_cast<dependency_manager&>(m_dm).linearize(dep, assumptions);
     for (assumption const& a : assumptions) {
-        if (a.lit != null_literal) {
+        if (a.lit != null_literal && a.lit != true_literal) {            
             lits.push_back(a.lit);
             SASSERT(ctx.get_assignment(a.lit) == l_true);
         }
@@ -743,7 +743,7 @@ bool theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits
         return false;
     if (ctx.get_assignment(lit) == l_true)
         return false;
-    
+
     literal_vector lits(n, _lits);
 
     if (lit == false_literal) {
@@ -2858,7 +2858,7 @@ void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, liter
 }
 
 void theory_seq::add_axiom(literal_vector & lits) {
-    TRACE("seq", ctx.display_literals_verbose(tout << "assert:", lits) << "\n";);
+    TRACE("seq", ctx.display_literals_verbose(tout << "assert " << lits << " :", lits) << "\n";);
     for (literal lit : lits)
         ctx.mark_as_relevant(lit);
 
@@ -2898,6 +2898,7 @@ bool theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, exp
     if (n1->get_root() == n2->get_root()) {
         return false;
     }
+    
     ctx.mark_as_relevant(n1);
     ctx.mark_as_relevant(n2);
     
@@ -2979,8 +2980,8 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
         m_rewrite(se1);
         m_rewrite(se2);
         if (is_true) {
-            expr_ref f1 = m_sk.mk_indexof_left(se1, se2);
-            expr_ref f2 = m_sk.mk_indexof_right(se1, se2);
+            expr_ref f1 = m_sk.mk_contains_left(se1, se2);
+            expr_ref f2 = m_sk.mk_contains_right(se1, se2);
             f = mk_concat(f1, se2, f2);
             propagate_eq(lit, f, e1, true);
             propagate_eq(lit, mk_len(f), mk_len(e1), false);

@@ -28,8 +28,8 @@ skolem::skolem(ast_manager& m, th_rewriter& rw):
     m_tail           = "seq.tail";
     m_seq_first      = "seq.first";
     m_seq_last       = "seq.last";
-    m_indexof_left   = "seq.idx.left";
-    m_indexof_right  = "seq.idx.right";
+    m_indexof_left   = "seq.idx.l";
+    m_indexof_right  = "seq.idx.r";
     m_aut_step       = "aut.step";
     m_pre            = "seq.pre";  // (seq.pre s l):  prefix of string s of length l
     m_post           = "seq.post"; // (seq.post s l): suffix of string s of length k, based on extract starting at index i of length l

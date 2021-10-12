@@ -474,7 +474,8 @@ namespace smt {
 
         TRACE("conflict",
               tout << "new scope level:     " << m_new_scope_lvl << "\n";
-              tout << "intern. scope level: " << m_lemma_iscope_lvl << "\n";);
+              tout << "intern. scope level: " << m_lemma_iscope_lvl << "\n";
+              tout << "lemma: " << m_lemma << "\n";);
 
         if (m.proofs_enabled())
             mk_conflict_proof(conflict, not_l);
@@ -761,6 +762,7 @@ namespace smt {
         m_lemma      .shrink(j);
         m_lemma_atoms.shrink(j);
         m_ctx.m_stats.m_num_minimized_lits += sz - j;
+        TRACE("conflict", tout << "lemma: " << m_lemma << "\n";);
     }
 
     /**

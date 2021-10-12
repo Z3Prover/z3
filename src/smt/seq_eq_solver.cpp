@@ -684,11 +684,12 @@ bool theory_seq::branch_quat_variable(depeq const& e) {
             cond = true;
     }
     // xs and ys cannot align
-    else if (!can_align_from_lhs(xs, ys) && !can_align_from_rhs(xs, ys))
+    else if (!can_align_from_lhs(xs, ys) && !can_align_from_rhs(xs, ys) && !can_align_from_lhs(ys, xs) && !can_align_from_rhs(ys, xs))
         cond = true;
 
     if (!cond)
         return false;
+
     
     literal_vector lits;
     if (xs == ys) {
@@ -724,7 +725,7 @@ bool theory_seq::branch_quat_variable(depeq const& e) {
         }
     }
     else {
-        TRACE("seq", tout << mk_pp(x1, m) << " > " << mk_pp(y1, m) << "\n";);
+        TRACE("seq", tout << mk_pp(x1, m) << " >\n" << mk_pp(y1, m) << "\n";);
         if (ctx.get_assignment(lit3) == l_undef) {
             ctx.mark_as_relevant(lit3);
             return true;

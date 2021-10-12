@@ -113,9 +113,17 @@ namespace smt {
     }
 
     std::ostream& context::display_literals_smt2(std::ostream& out, unsigned num_lits, literal const* lits) const {
-        for (unsigned i = 0; i < num_lits; ++i) {
+        out << literal_vector(num_lits, lits) << ":\n";
+#if 1
+        expr_ref_vector fmls(m);
+        for (unsigned i = 0; i < num_lits; ++i)
+            fmls.push_back(literal2expr(lits[i]));
+        expr_ref c = mk_or(fmls);
+        out << c << "\n";
+#else
+        for (unsigned i = 0; i < num_lits; ++i) 
             display_literal_smt2(out, lits[i]) << "\n";
-        }
+#endif
         return out;
     }
 
