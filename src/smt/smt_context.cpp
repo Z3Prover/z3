@@ -1546,6 +1546,7 @@ namespace smt {
 
     void context::get_specrels(func_decl_set& rels) const {
         family_id fid = m.get_family_id("specrels");
+        theory* th = get_theory(fid);
         if (th)
             dynamic_cast<theory_special_relations*>(th)->get_specrels(rels);
     }
