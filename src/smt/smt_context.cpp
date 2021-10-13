@@ -34,6 +34,7 @@ Revision History:
 #include "smt/smt_context.h"
 #include "smt/smt_quick_checker.h"
 #include "smt/uses_theory.h"
+#include "smt/theory_special_relations.h"
 #include "smt/smt_for_each_relevant_expr.h"
 #include "smt/smt_model_generator.h"
 #include "smt/smt_model_checker.h"
@@ -1542,6 +1543,13 @@ namespace smt {
             assignments.push_back(std::move(e));
         }
     }
+
+    void context::get_specrels(func_decl_set& rels) const {
+        family_id fid = m.get_family_id("specrels");
+        if (th)
+            dynamic_cast<theory_special_relations*>(th)->get_specrels(rels);
+    }
+
 
     void context::relevant_eh(expr * n) {
         if (b_internalized(n)) {

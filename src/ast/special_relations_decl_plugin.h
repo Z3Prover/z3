@@ -87,6 +87,7 @@ public:
     bool is_special_relation(app* e) const { return is_special_relation(e->get_decl()); }
     sr_property get_property(func_decl* f) const;
     sr_property get_property(app* e) const { return get_property(e->get_decl()); }
+    func_decl* get_relation(func_decl* f) const { SASSERT(is_special_relation(f)); return to_func_decl(f->get_parameter(0).get_ast()); }
 
     func_decl* mk_to_decl(func_decl* f) { return mk_rel_decl(f, OP_SPECIAL_RELATION_TO); }
     func_decl* mk_po_decl(func_decl* f) { return mk_rel_decl(f, OP_SPECIAL_RELATION_PO); }

@@ -401,6 +401,7 @@ namespace smt {
 
             expr_ref_vector*          m_new_constraints{ nullptr };
             random_gen                m_rand;
+            func_decl_set             m_specrels;
 
 
             void reset_sort2k() {
@@ -470,6 +471,7 @@ namespace smt {
             ast_manager& get_manager() const { return m; }
 
             void reset() {
+                m_specrels.reset();
                 flush_nodes();
                 m_nodes.reset();
                 m_next_node_id = 0;
@@ -477,6 +479,11 @@ namespace smt {
                 m_A_f_is.reset();
                 m_root_nodes.reset();
                 reset_sort2k();
+            }
+
+            void set_specrels(context& c) {
+                m_specrels.reset();
+                c.get_specrels(m_specrels);
             }
 
             void set_model(proto_model* m) {
@@ -1049,8 +1056,12 @@ namespace smt {
              */
             void complete_partial_funcs(func_decl_set const& partial_funcs) {
                 for (func_decl* f : partial_funcs) {
+
                     // Complete the current interpretation
                     m_model->complete_partial_func(f, true);
+
+                    if (m_specrels.contains(f))
+                        continue;
 
                     unsigned arity = f->get_arity();
                     func_interp* fi = m_model->get_func_interp(f);
@@ -2399,9 +2410,11 @@ namespace smt {
         }
     }
 
+
     void model_finder::process_auf(ptr_vector<quantifier> const& qs, proto_model* mdl) {
         m_auf_solver->reset();
         m_auf_solver->set_model(mdl);
+        m_auf_solver->set_specrels(*m_context);
 
         for (quantifier* q : qs) {
             quantifier_info* qi = get_quantifier_info(q);

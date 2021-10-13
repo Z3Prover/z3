@@ -279,6 +279,9 @@ namespace smt {
             return m_app2enode[n->get_id()];
         }
 
+        void get_specrels(func_decl_set& rels) const;
+
+
         /**
            \brief Similar to get_enode, but returns 0 if n is to e_internalized.
         */
