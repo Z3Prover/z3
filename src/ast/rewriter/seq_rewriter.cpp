@@ -3139,6 +3139,20 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
                 // D(e,c1..c2) = if (c1<=e<=c2) then () else []
                 result = re().mk_ite_simplify(range, epsilon(), nothing());
         }
+        else if (!str().is_string(r1) && str().is_unit_string(r2, c2)) {
+            SASSERT(u().is_char(c2));
+            // range represents |r1|=1 & r1[0] <= e <= c2
+            expr_ref one(m_autil.mk_int(1), m());
+            expr_ref zero(m_autil.mk_int(0), m());
+            expr_ref r1_length_eq_one(m().mk_eq(str().mk_length(r1), one), m());
+            expr_ref r1_0(str().mk_nth_i(r1, zero), m());
+            range = simplify_path(m().mk_and(r1_length_eq_one, m().mk_and(u().mk_le(r1_0, e), u().mk_le(e, c2))));
+            psi = simplify_path(m().mk_and(path, range));
+            if (m().is_false(psi))
+                result = nothing();
+            else
+                result = re().mk_ite_simplify(range, epsilon(), nothing());
+        }
         else
             result = nothing();
     }
