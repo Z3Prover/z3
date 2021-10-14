@@ -131,16 +131,16 @@ namespace opt {
                 soft.set_value(l_undef);
             }
             model_ref mdl;
-            s().get_model(mdl);
+            s().get_model(mdl);            
             if (mdl) {
+                TRACE("opt", tout << *mdl << "\n";);
                 for (auto & soft : m_soft) {
-                    if (!mdl->is_true(soft.s)) {
+                    if (!mdl->is_true(soft.s)) 
                         break;
-                    }
                     soft.set_value(l_true);
                     assert_value(soft);
                 }
-                update_bounds();
+                update_assignment();
             }
         }
 
