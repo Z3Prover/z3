@@ -76,14 +76,14 @@ int compare_pointers(void* pt1, void* pt2) {
     return +1;
 }
 
-#define MK_CTX_OF(X)                                                    \
+#define MK_CTX_OF(X, USED)                                         \
   CAMLprim DLL_PUBLIC value n_context_of_ ## X(value v) {               \
     CAMLparam1(v);                                                      \
     CAMLlocal1(result);                                                 \
     Z3_context_plus cp;                                                 \
     Z3_ ## X ## _plus * p = (Z3_ ## X ## _plus *) Data_custom_val(v);   \
     cp = p->cp;                                                         \
-    result = caml_alloc_custom(&Z3_context_plus_custom_ops, sizeof(Z3_context_plus), 0, 1); \
+    result = caml_alloc_custom_mem(&Z3_context_plus_custom_ops, sizeof(Z3_context_plus), USED); \
     *(Z3_context_plus *)Data_custom_val(result) = cp;                   \
     /* We increment the usage counter of the context, as we just        \
        created a second custom block holding that context        */     \
@@ -102,7 +102,7 @@ int compare_pointers(void* pt1, void* pt2) {
     CAMLlocal1(result);                                                 \
     Z3_context_plus cp = *(Z3_context_plus*)(Data_custom_val(v));       \
     Z3_ ## X ## _plus a = Z3_ ## X ## _plus_mk(cp, NULL);               \
-    result = caml_alloc_custom(&Z3_ ## X ## _plus_custom_ops, sizeof(Z3_ ## X ## _plus), 0, 1); \
+    result = caml_alloc_custom_mem(&Z3_ ## X ## _plus_custom_ops, sizeof(Z3_ ## X ## _plus), USED); \
     *(Z3_ ## X ## _plus*)(Data_custom_val(result)) = a;                 \
     CAMLreturn(result);                                                 \
   }
@@ -294,9 +294,9 @@ static struct custom_operations Z3_ast_plus_custom_ops = {
   Z3_ast_compare_ext
 };
 
-MK_CTX_OF(ast)
+MK_CTX_OF(ast, 16) // let's say 16 bytes per ast
 
-#define MK_PLUS_OBJ_NO_REF(X)                                           \
+#define MK_PLUS_OBJ_NO_REF(X, USED)                                \
   typedef struct {                                                      \
     Z3_context_plus cp;                                                 \
     Z3_ ## X p;                                                         \
@@ -349,9 +349,9 @@ MK_CTX_OF(ast)
     Z3_ ## X ## _compare_ext                                            \
   };                                                                    \
                                                                         \
-  MK_CTX_OF(X)
+  MK_CTX_OF(X, USED)
 
-#define MK_PLUS_OBJ(X)                                                  \
+#define MK_PLUS_OBJ(X, USED)                                            \
   typedef struct {                                                      \
     Z3_context_plus cp;                                                 \
     Z3_ ## X p;                                                         \
@@ -408,27 +408,27 @@ MK_CTX_OF(ast)
     Z3_ ## X ## _compare_ext                                            \
   };                                                                    \
                                                                         \
-  MK_CTX_OF(X)
+  MK_CTX_OF(X, USED)
 
-MK_PLUS_OBJ_NO_REF(symbol)
-MK_PLUS_OBJ_NO_REF(constructor)
-MK_PLUS_OBJ_NO_REF(constructor_list)
-MK_PLUS_OBJ_NO_REF(rcf_num)
-MK_PLUS_OBJ(params)
-MK_PLUS_OBJ(param_descrs)
-MK_PLUS_OBJ(model)
-MK_PLUS_OBJ(func_interp)
-MK_PLUS_OBJ(func_entry)
-MK_PLUS_OBJ(goal)
-MK_PLUS_OBJ(tactic)
-MK_PLUS_OBJ(probe)
-MK_PLUS_OBJ(apply_result)
-MK_PLUS_OBJ(solver)
-MK_PLUS_OBJ(stats)
-MK_PLUS_OBJ(ast_map)
-MK_PLUS_OBJ(ast_vector)
-MK_PLUS_OBJ(fixedpoint)
-MK_PLUS_OBJ(optimize)
+MK_PLUS_OBJ_NO_REF(symbol, 32)
+MK_PLUS_OBJ_NO_REF(constructor, 32)
+MK_PLUS_OBJ_NO_REF(constructor_list, 32)
+MK_PLUS_OBJ_NO_REF(rcf_num, 32)
+MK_PLUS_OBJ(params, 128)
+MK_PLUS_OBJ(param_descrs, 128)
+MK_PLUS_OBJ(model, 512)
+MK_PLUS_OBJ(func_interp, 128)
+MK_PLUS_OBJ(func_entry, 128)
+MK_PLUS_OBJ(goal, 128)
+MK_PLUS_OBJ(tactic, 128)
+MK_PLUS_OBJ(probe, 128)
+MK_PLUS_OBJ(apply_result, 128)
+MK_PLUS_OBJ(solver, 20 * 1000 * 1000) // pretend a solver is 20MB
+MK_PLUS_OBJ(stats, 128)
+MK_PLUS_OBJ(ast_map, 1024 * 2)
+MK_PLUS_OBJ(ast_vector, 128)
+MK_PLUS_OBJ(fixedpoint, 20 * 1000 * 1000)
+MK_PLUS_OBJ(optimize, 20 * 1000 * 1000)
 
 #ifdef __cplusplus
 extern "C" {
