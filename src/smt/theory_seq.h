@@ -458,6 +458,7 @@ namespace smt {
         void add_unhandled_expr(expr* e);
 
         bool check_extensionality();
+        bool check_extensionality(expr* e1, enode* n1, enode* n2);
         bool check_contains();
         bool check_lts();
         dependency* m_eq_deps { nullptr };
