@@ -43,15 +43,15 @@ jobs:
     - ${{if eq(variables['runRegressions'], 'True')}}:
       - template: scripts/test-regressions.yml
 
-- job: "Ubuntu18Python"
-  displayName: "Ubuntu 18 with ocaml"
+- job: "Ubuntu20OCaml"
+  displayName: "Ubuntu 20 with ocaml"
   pool:
-    vmImage: "Ubuntu-18.04"
+    vmImage: "Ubuntu-20.04"
   steps:
     - script: sudo apt-get install ocaml opam libgmp-dev
     - script: opam init -y
     - script: eval `opam config env`; opam install zarith ocamlfind -y
-    - script: python scripts/mk_make.py --ml --staticlib
+    - script: eval `opam config env`; python scripts/mk_make.py --ml --staticlib
     - script: |
         set -e
         cd build
