@@ -1233,11 +1233,11 @@ std::ostream& seq_util::rex::pp::print_unit(std::ostream& out, expr* s) const {
         print(out, e);
         out << "[" << mk_pp(i, re.m) << "]";
     }
-    else if (re.m.is_value(e))
-        out << mk_pp(e, re.m);
-    else if (is_app(e)) {
-        out << "(" << to_app(e)->get_decl()->get_name().str();
-        for (expr * arg : *to_app(e))
+    else if (re.m.is_value(s))
+        out << mk_pp(s, re.m);
+    else if (is_app(s)) {
+        out << "(" << to_app(s)->get_decl()->get_name().str();
+        for (expr * arg : *to_app(s))
             print(out << " ", arg);
         out << ")";
     }
@@ -1266,11 +1266,11 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
     else if (re.is_range(e, s, s2))
         print_range(out, s, s2);
     else if (re.is_epsilon(e))
-        // &#X03B5; = epsilon
-        out << (html_encode ? "&#X03B5;" : "()");
+        // &#x03B5; = epsilon
+        out << (html_encode ? "&#x03B5;" : "()");
     else if (re.is_empty(e))
-        // &#X2205; = emptyset
-        out << (html_encode ? "&#X2205;" : "[]");
+        // &#x2205; = emptyset
+        out << (html_encode ? "&#x2205;" : "[]");
     else if (re.is_concat(e, r1, r2)) {
         print(out, r1);
         print(out, r2);
@@ -1278,7 +1278,7 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
     else if (re.is_antimorov_union(e, r1, r2) || re.is_union(e, r1, r2)) {
         out << "(";
         print(out, r1);
-        out << (html_encode ? "&#X22C3;" : "|");
+        out << (html_encode ? "&#x22C3;" : "|");
         print(out, r2);
         out << ")";
     }
@@ -1286,7 +1286,7 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
     {
         out << "(";
         print(out, r1);
-        out << (html_encode ? "&#X22C2;" : "&");
+        out << (html_encode ? "&#x22C2;" : "&");
         print(out, r2);
         out << ")";
     }
@@ -1359,11 +1359,11 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
         out << ")";
     }
     else if (re.m.is_ite(e, s, r1, r2)) {
-        out << (html_encode ? "(&#X1D422;&#X1D41F; " : "(if ");
+        out << (html_encode ? "(&#x1D422;&#x1D41F; " : "(if ");
         print(out, s);
-        out << (html_encode ? " &#X1D42D;&#X1D5F5;&#X1D41E;&#X1D427; " : " then ");
+        out << (html_encode ? " &#x1D42D;&#x1D5F5;&#x1D41E;&#x1D427; " : " then ");
         print(out, r1);
-        out << (html_encode ? " &#X1D41E;&#X1D425;&#X1D600;&#X1D41E; " : " else ");
+        out << (html_encode ? " &#x1D41E;&#x1D425;&#x1D600;&#x1D41E; " : " else ");
         print(out, r2);
         out << ")";
     }
