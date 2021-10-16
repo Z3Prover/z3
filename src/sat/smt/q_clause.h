@@ -79,7 +79,7 @@ namespace q {
 
         euf::enode* operator[](unsigned i) const { return m_nodes[i]; }
 
-        std::ostream& display(euf::solver& ctx, unsigned num_nodes, std::ostream& out) const;
+        std::ostream& display(euf::solver& ctx, std::ostream& out) const;
 
         unsigned size() const { return c->num_decls(); }
         

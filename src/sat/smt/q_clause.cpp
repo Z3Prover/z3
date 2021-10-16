@@ -32,8 +32,8 @@ namespace q {
                 << mk_bounded_pp(rhs, m, 2);
     }
 
-    std::ostream& binding::display(euf::solver& ctx, unsigned num_nodes, std::ostream& out) const {
-        for (unsigned i = 0; i < num_nodes; ++i) 
+    std::ostream& binding::display(euf::solver& ctx, std::ostream& out) const {
+        for (unsigned i = 0; i < size(); ++i) 
             out << ctx.bpp((*this)[i]) << " ";
         return out;
     }
@@ -46,7 +46,7 @@ namespace q {
         if (!b)
             return out;
         do {
-            b->display(ctx, num_decls(), out) << "\n";
+            b->display(ctx, out) << "\n";
             b = b->next();
         } 
         while (b != m_bindings);

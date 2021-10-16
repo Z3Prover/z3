@@ -270,13 +270,14 @@ namespace q {
     }
 
     void ematch::on_binding(quantifier* q, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_gen, unsigned max_gen) {
-        TRACE("q", tout << "on-binding " << mk_pp(q, m) << "\n";);
         unsigned idx = m_q2clauses[q];
         clause& c = *m_clauses[idx];
         bool new_propagation = false;
         binding* b = alloc_binding(c, pat, _binding, max_generation, min_gen, max_gen);
         if (!b)
             return;
+        TRACE("q", b->display(ctx, tout << "on-binding " << mk_pp(q, m) << "\n") << "\n";);
+
 
         if (false && propagate(false, _binding, max_generation, c, new_propagation))
             return;
@@ -558,7 +559,7 @@ namespace q {
         m_mam->propagate();
         bool propagated = flush_prop_queue();
         if (m_qhead >= m_clause_queue.size())
-            return m_inst_queue.propagate();
+            return m_inst_queue.propagate() || propagated;
         ctx.push(value_trail<unsigned>(m_qhead));
         ptr_buffer<binding> to_remove;
         for (; m_qhead < m_clause_queue.size(); ++m_qhead) {
@@ -613,8 +614,8 @@ namespace q {
             return true;
         for (unsigned i = 0; i < m_clauses.size(); ++i)
             if (m_clauses[i]->m_bindings)
-                std::cout << "missed propagation " << i << "\n";
-
+                IF_VERBOSE(0, verbose_stream() << "missed propagation " << i << "\n");
+        
         TRACE("q", tout << "no more propagation\n";);
         return false;
     }

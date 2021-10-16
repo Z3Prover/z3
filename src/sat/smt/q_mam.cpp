@@ -409,16 +409,17 @@ namespace q {
         unsigned                   m_num_args; //!< we need this information to avoid the nary *,+ crash bug
         bool                       m_filter_candidates;
         unsigned                   m_num_regs;
-        unsigned                   m_num_choices;
-        instruction *              m_root;
+        unsigned                   m_num_choices = 0;
+        instruction *              m_root = nullptr;
         enode_vector               m_candidates;
+        unsigned                   m_qhead = 0;
 #ifdef Z3DEBUG
-        egraph *                   m_egraph;
+        egraph *                   m_egraph = nullptr;
         svector<std::pair<quantifier*, app*>>            m_patterns;
 #endif
 #ifdef _PROFILE_MAM
         stopwatch                  m_watch;
-        unsigned                   m_counter;
+        unsigned                   m_counter = 0;
 #endif
         friend class compiler;
         friend class code_tree_manager;
@@ -492,13 +493,7 @@ namespace q {
             m_root_lbl(lbl),
             m_num_args(num_args),
             m_filter_candidates(filter_candidates),
-            m_num_regs(num_args + 1),
-            m_num_choices(0),
-            m_root(nullptr) {
-            DEBUG_CODE(m_egraph = nullptr;);
-#ifdef _PROFILE_MAM
-            m_counter = 0;
-#endif
+            m_num_regs(num_args + 1) {
             (void)m_lbl_hasher;
         }
 
@@ -546,16 +541,40 @@ namespace q {
             return m_root;
         }
 
-        void add_candidate(enode * n) {
+        void add_candidate(euf::solver& ctx, enode * n) {
             m_candidates.push_back(n);
+            ctx.push(push_back_trail<enode*, false>(m_candidates));
         }
+
+        void unmark(unsigned head) {
+            for (unsigned i = m_candidates.size(); i-- > head; ) {
+                enode* app = m_candidates[i];
+                if (app->is_marked1())
+                    app->unmark1();
+            }
+        }
+
+        struct scoped_unmark {
+            unsigned   m_qhead;
+            code_tree* t;
+            scoped_unmark(code_tree* t) : m_qhead(t->m_qhead), t(t) {}
+            ~scoped_unmark() { t->unmark(m_qhead); }
+        };
+
 
         bool has_candidates() const {
-            return !m_candidates.empty();
+            return m_qhead < m_candidates.size();
         }
 
-        void reset_candidates() {
-            m_candidates.reset();
+        void save_qhead(euf::solver& ctx) {
+            ctx.push(value_trail<unsigned>(m_qhead));
+        }
+
+        enode* next_candidate() {
+            if (m_qhead < m_candidates.size())
+                return m_candidates[m_qhead++];
+            else
+                return nullptr;
         }
 
         enode_vector const & get_candidates() const {
@@ -1987,24 +2006,18 @@ namespace q {
                 m_backtrack_stack.resize(t->get_num_choices());
         }
 
-        struct scoped_unmark {
-            code_tree* t;
-            scoped_unmark(code_tree* t) : t(t) {}
-            ~scoped_unmark() {
-                for (enode* app : t->get_candidates()) 
-                    if (app->is_marked1())
-                        app->unmark1();                
-            }
-        };
 
         void execute(code_tree * t) {
+            if (!t->has_candidates())
+                return;
             TRACE("trigger_bug", tout << "execute for code tree:\n"; t->display(tout););
             init(t);
+            t->save_qhead(ctx);
+            enode* app;
             if (t->filter_candidates()) {                
-                scoped_unmark _unmark(t);
-                for (unsigned i = 0; i < t->get_candidates().size() && !ctx.resource_limits_exceeded(); ++i) {
-                    enode* app = t->get_candidates()[i];
-                    TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_expr(), m) << "\n";);
+                code_tree::scoped_unmark _unmark(t);
+                while ((app = t->next_candidate()) && !ctx.resource_limits_exceeded()) {
+                    TRACE("trigger_bug", tout << "candidate\n" << ctx.bpp(app) << "\n";);
                     if (!app->is_marked1() && app->is_cgr()) {
                         execute_core(t, app);                       
                         app->mark1();
@@ -2012,9 +2025,8 @@ namespace q {
                 }
             }
             else {
-                for (unsigned i = 0; i < t->get_candidates().size() && !ctx.resource_limits_exceeded(); ++i) {
-                    enode* app = t->get_candidates()[i];
-                    TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_expr(), m) << "\n";);
+                while ((app = t->next_candidate()) && !ctx.resource_limits_exceeded()) {
+                    TRACE("trigger_bug", tout << "candidate\n" << ctx.bpp(app) << "\n";);
                     if (app->is_cgr()) 
                         execute_core(t, app);                                              
                 }
@@ -2477,17 +2489,18 @@ namespace q {
 
         case YIELD1:
             m_bindings[0] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[0]];
-#define ON_MATCH(NUM)                                                   \
+#define ON_MATCH(NUM)                                                                                   \
             m_max_generation = std::max(m_max_generation, get_max_generation(NUM, m_bindings.begin())); \
-            if (!m.inc()) {                          \
-                return false;                                           \
-            }                                                           \
+            if (!m.inc())                                                                               \
+                return false;                                                                           \
+                                                                                                        \
             m_mam.on_match(static_cast<const yield *>(m_pc)->m_qa,                                      \
                            static_cast<const yield *>(m_pc)->m_pat,                                     \
                            NUM,                                                                         \
                            m_bindings.begin(),                                                          \
                            m_max_generation)
 
+            SASSERT(static_cast<const yield *>(m_pc)->m_qa->get_decl_sort(0) == m_bindings[0]->get_expr()->get_sort());
             ON_MATCH(1);
             goto backtrack;
 
@@ -3059,29 +3072,9 @@ namespace q {
         // temporary field used to collect candidates
         ptr_vector<path_tree>       m_todo;
 
-        enode *                     m_root { nullptr };  // temp field
-        enode *                     m_other { nullptr }; // temp field
-        bool                        m_check_missing_instances { false };
-
-        class pop_to_match : public trail {
-            mam_impl& i;
-        public:
-            pop_to_match(mam_impl& i):i(i) {}
-            void undo() override {
-                code_tree* t = i.m_to_match.back();
-                t->reset_candidates();
-                i.m_to_match.pop_back();
-            }
-        };
-        
-        class reset_new_patterns : public trail {
-            mam_impl& i;
-        public:
-            reset_new_patterns(mam_impl& i):i(i) {}
-            void undo() override {
-                i.m_new_patterns.reset();
-            }
-        };
+        enode *                     m_root = nullptr;  // temp field
+        enode *                     m_other = nullptr; // temp field
+        bool                        m_check_missing_instances = false;        
 
         enode_vector * mk_tmp_vector() {
             enode_vector * r = m_pool.mk();
@@ -3094,14 +3087,14 @@ namespace q {
         }
 
         void add_candidate(code_tree * t, enode * app) {
-            if (t) {
-                TRACE("mam_candidate", tout << "adding candidate:\n" << mk_ll_pp(app->get_expr(), m););
-                if (!t->has_candidates()) {
-                    ctx.push(pop_to_match(*this));
-                    m_to_match.push_back(t);
-                }
-                t->add_candidate(app);
+            if (!t)
+                return;
+            TRACE("q", tout << "candidate " << t << " " << ctx.bpp(app) << "\n";);
+            if (!t->has_candidates()) {
+                ctx.push(push_back_trail<code_tree*, false>(m_to_match));
+                m_to_match.push_back(t);
             }
+            t->add_candidate(ctx, app);
         }
 
         void add_candidate(enode * app) {
@@ -3678,14 +3671,20 @@ namespace q {
             }
         }
 
-        void match_new_patterns() {
+        unsigned m_new_patterns_qhead = 0;
+
+        void propagate_new_patterns() {
+            if (m_new_patterns_qhead >= m_new_patterns.size())
+                return;
+            ctx.push(value_trail<unsigned>(m_new_patterns_qhead));
+
             TRACE("mam_new_pat", tout << "matching new patterns:\n";);
             m_tmp_trees_to_delete.reset();
-            for (auto const& kv : m_new_patterns) {
+            for (; m_new_patterns_qhead < m_new_patterns.size(); ++m_new_patterns_qhead) {
                 if (!m.inc()) 
                     break;
-                quantifier * qa    = kv.first;
-                app *        mp    = kv.second;
+                auto [qa, mp] = m_new_patterns[m_new_patterns_qhead];
+
                 SASSERT(m.is_pattern(mp));
                 app *        p     = to_app(mp->get_arg(0));
                 func_decl *  lbl   = p->get_decl();
@@ -3717,7 +3716,6 @@ namespace q {
                 m_tmp_trees[lbl_id] = nullptr;
                 dealloc(tmp_tree);
             }
-            m_new_patterns.reset();
         }
 
     public:
@@ -3753,7 +3751,7 @@ namespace q {
                     return; // ignore multi-pattern containing ground pattern.
             update_filters(qa, mp);
             m_new_patterns.push_back(qp_pair(qa, mp));
-            ctx.push(reset_new_patterns(*this));
+            ctx.push(push_back_trail<qp_pair, false>(m_new_patterns));
             // The matching abstract machine implements incremental
             // e-matching. So, for a multi-pattern [ p_1, ..., p_n ],
             // we have to make n insertions. In the i-th insertion,
@@ -3764,7 +3762,6 @@ namespace q {
 
         void reset() override {
             m_trees.reset();
-            m_new_patterns.reset();
             m_is_plbl.reset();
             m_is_clbl.reset();
             reset_pp_pc();
@@ -3779,22 +3776,18 @@ namespace q {
             return out;
         }
 
-        void propagate() override {
-            TRACE("trigger_bug", tout << "match\n"; display(tout););
-            if (m_to_match_head >= m_to_match.size())
+        void propagate_to_match() {
+            if (m_to_match_head >= m_to_match.size()) 
                 return;
             ctx.push(value_trail<unsigned>(m_to_match_head));
-            for (; m_to_match_head < m_to_match.size(); ++m_to_match_head) {
-                code_tree* t = m_to_match[m_to_match_head];
-                if (t->has_candidates()) {
-                    m_interpreter.execute(t);
-                    t->reset_candidates();
-                }
-            }
-            if (!m_new_patterns.empty()) {
-                match_new_patterns();
-                m_new_patterns.reset();
-            }
+            for (; m_to_match_head < m_to_match.size(); ++m_to_match_head) 
+                m_interpreter.execute(m_to_match[m_to_match_head]);
+        }
+
+        void propagate() override {
+            TRACE("trigger_bug", tout << "match\n"; display(tout););
+            propagate_to_match();
+            propagate_new_patterns();
         }
 
         void rematch(bool use_irrelevant) override {
