@@ -1111,24 +1111,23 @@ app* seq_util::rex::mk_epsilon(sort* seq_sort) {
 /*
   Produces compact view of concrete concatenations such as (abcd).
 */
-std::ostream& seq_util::rex::pp::print_seq(std::ostream& out, expr* s) const {
-    SASSERT(re.u.is_seq(s));
+bool seq_util::rex::pp::print_seq(std::ostream& out, expr* s) const {
     zstring z;
     expr* x, * j, * k, * l, * i, * x_;
     if (re.u.str.is_empty(s))
         out << "()";
-    else if (re.u.str.is_unit(s))
-        print_unit(out, s);
     else if (re.u.str.is_concat(s)) {
         expr_ref_vector es(re.m);
         re.u.str.get_concat(s, es);
         for (expr* e : es)
-            print_seq(out, e);
+            print(out, e);
     }
     else if (re.u.str.is_string(s, z)) {
         for (unsigned i = 0; i < z.length(); i++)
             out << (char)z[i];
     }
+    else if (re.u.str.is_at(s, x, i))
+        print(out, x) << "@", print(out, i);
     else if (re.u.str.is_extract(s, x, j, k)) {
         rational jv, iv;
         print(out, x);
@@ -1152,7 +1151,7 @@ std::ostream& seq_util::rex::pp::print_seq(std::ostream& out, expr* s) const {
                 out << "[" << jv.get_int32() << ",";
                 print(out, k);
                 out << "]";
-            }     
+            }
         }
         else {
             out << "[";
@@ -1162,9 +1161,9 @@ std::ostream& seq_util::rex::pp::print_seq(std::ostream& out, expr* s) const {
             out << "]";
         }
     }
-    else 
-        out << mk_pp(s, re.m);
-    return out;
+    else
+        return false;
+    return true;
 }
 
 /*
@@ -1172,9 +1171,9 @@ std::ostream& seq_util::rex::pp::print_seq(std::ostream& out, expr* s) const {
 */
 std::ostream& seq_util::rex::pp::print_range(std::ostream& out, expr* s1, expr* s2) const {
     out << "[";
-    print_unit(out, s1);
+    print(out, s1);
     out << "-";
-    print_unit(out, s2);
+    print(out, s2);
     out << "]";
     return out;
 }
@@ -1190,9 +1189,10 @@ bool seq_util::rex::pp::can_skip_parenth(expr* r) const {
 /*
   Specialize output for a unit sequence converting to visible ASCII characters if possible.
 */
-std::ostream& seq_util::rex::pp::print_unit(std::ostream& out, expr* s) const {
+bool seq_util::rex::pp::print_unit(std::ostream& out, expr* s) const {
     expr* e, * i;
     unsigned n = 0;
+
     if ((re.u.str.is_unit(s, e) && re.u.is_const_char(e, n)) || re.u.is_const_char(s, n)) {
         char c = (char)n;
         if (c == '\n')
@@ -1226,24 +1226,18 @@ std::ostream& seq_util::rex::pp::print_unit(std::ostream& out, expr* s) const {
             out << "\\x" << std::hex << n;
         else if (n <= 0xFFF)
             out << "\\u0" << std::hex << n;
-        else 
+        else
             out << "\\u" << std::hex << n;
     }
     else if (re.u.str.is_nth_i(s, e, i)) {
-        print(out, e);
-        out << "[" << mk_pp(i, re.m) << "]";
+        print(out, e) << "[";
+        print(out, i) << "]";
     }
-    else if (re.m.is_value(s))
-        out << mk_pp(s, re.m);
-    else if (is_app(s)) {
-        out << "(" << to_app(s)->get_decl()->get_name().str();
-        for (expr * arg : *to_app(s))
-            print(out << " ", arg);
-        out << ")";
-    }
+    else if (re.u.str.is_length(s, e))
+        print(out << "|", e) << "|";    
     else
-        out << mk_pp(s, re.m);
-    return out;
+        return false;
+    return true;
 }
 
 /*
@@ -1252,17 +1246,20 @@ std::ostream& seq_util::rex::pp::print_unit(std::ostream& out, expr* s) const {
 std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
     expr* r1 = nullptr, * r2 = nullptr, * s = nullptr, * s2 = nullptr;
     unsigned lo = 0, hi = 0;
+    arith_util a(re.m);
     rational v;
-    if (re.u.is_char(e))
-        print_unit(out, e);
-    else if (re.u.is_seq(e))
-        print_seq(out, e);
+    if (!e)
+        out << "null";
+    else if (print_unit(out, e))
+        ;
+    else if (print_seq(out, e))
+        ;
     else if (re.is_full_char(e))
         out << ".";
     else if (re.is_full_seq(e))
         out << ".*";
     else if (re.is_to_re(e, s))
-        print_seq(out, s);
+        print(out, s);
     else if (re.is_range(e, s, s2))
         print_range(out, s, s2);
     else if (re.is_epsilon(e))
@@ -1282,8 +1279,7 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
         print(out, r2);
         out << ")";
     }
-    else if (re.is_intersection(e, r1, r2))
-    {
+    else if (re.is_intersection(e, r1, r2)) {
         out << "(";
         print(out, r1);
         out << (html_encode ? "&#x22C2;" : "&");
@@ -1323,12 +1319,9 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
         }
     }
     else if (re.is_loop(e, r1, lo)) {
-        if (can_skip_parenth(r1)) {
-            print(out, r1);
-            out << "{" << lo << ",}";
-        }
-        else
-        {
+        if (can_skip_parenth(r1)) 
+            print(out, r1) << "{" << lo << ",}";
+        else {
             out << "(";
             print(out, r1);
             out << "){" << lo << ",}";
@@ -1368,10 +1361,8 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
         out << ")";
     }
     else if (re.is_opt(e, r1)) {
-        if (can_skip_parenth(r1)) {
-            print(out, r1);
-            out << "?";
-        }
+        if (can_skip_parenth(r1)) 
+            print(out, r1) << "?";
         else {
             out << "(";
             print(out, r1);
@@ -1386,7 +1377,7 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
     else if (re.m.is_eq(e, r1, r2)) {
         out << "(";
         print(out, r1);
-        out << "=";
+        out << " = ";
         print(out, r2);
         out << ")";
     }
@@ -1394,10 +1385,22 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
         out << "!";
         print(out, r1);
     }
+    else if (a.is_add(e, s, s2) && a.is_numeral(s, v) && v < 0) 
+        print(out, s2) << " - " << -v;
+    else if (a.is_add(e, s, s2) && a.is_numeral(s2, v) && v < 0)
+        print(out, s) << " - " << -v;
+    else if (a.is_add(e, s, s2))
+        print(out, s) << " + ", print(out, s2);
+    else if (a.is_sub(e, s, s2) && a.is_numeral(s2, v) && v > 0)
+        print(out, s) << " - " << v;
+    else if (a.is_le(e, s, s2))
+        print(out << "(", s) << " <= ", print(out, s2) << ")";
     else if (re.m.is_value(e))
         out << mk_pp(e, re.m);
+    else if (is_app(e) && to_app(e)->get_num_args() == 0)
+        out << mk_pp(e, re.m);
     else if (is_app(e)) {
-        out << "(" << to_app(e)->get_decl()->get_name().str();
+        out << "(" << to_app(e)->get_decl()->get_name();
         for (expr* arg : *to_app(e))
             print(out << " ", arg);
         out << ")";
@@ -1409,8 +1412,7 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
 }
 
 std::ostream& seq_util::rex::pp::display(std::ostream& out) const {
-    print(out, ex);
-    return out;
+    return print(out, ex);
 }
 
 /*

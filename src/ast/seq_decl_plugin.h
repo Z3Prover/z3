@@ -599,8 +599,8 @@ public:
             expr* ex;
             bool html_encode;
             bool can_skip_parenth(expr* r) const;
-            std::ostream& print_unit(std::ostream& out, expr* s) const;
-            std::ostream& print_seq(std::ostream& out, expr* s) const;
+            bool print_unit(std::ostream& out, expr* s) const;
+            bool print_seq(std::ostream& out, expr* s) const;
             std::ostream& print_range(std::ostream& out, expr* s1, expr* s2) const;
             std::ostream& print(std::ostream& out, expr* e) const;
 
