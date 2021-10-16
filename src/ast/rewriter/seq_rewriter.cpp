@@ -936,13 +936,14 @@ expr_ref seq_rewriter::mk_seq_last(expr* t) {
 }
 
 /*
-*  In general constructs substring(t,0,|t|-1) but if t = substring(s,j,k) then simplifies to substring(s,j,k-1) 
-*  This method assumes that |t| > 0 holds.
+*  In general constructs substring(t,0,|t|-1) but if t = substring(s,0,k) then simplifies to substring(s,0,k-1) 
+*  This method assumes that |t| > 0, thus, if t = substring(s,0,k) then k > 0 so substring(s,0,k-1) is correct.
 */
 expr_ref seq_rewriter::mk_seq_butlast(expr* t) {
     expr_ref result(m());
     expr* s, * j, * k;
-    if (str().is_extract(t, s, j, k)) {
+    rational v;
+    if (str().is_extract(t, s, j, k) && m_autil.is_numeral(j, v) && v.is_zero()) {
         expr_ref_vector k_min_1(m());
         k_min_1.push_back(k);
         k_min_1.push_back(minus_one());
