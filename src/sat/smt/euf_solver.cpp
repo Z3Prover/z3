@@ -528,6 +528,7 @@ namespace euf {
         m_egraph.push();
         if (m_dual_solver)
             m_dual_solver->push();
+        push_relevant();
     }
 
     void solver::pop(unsigned n) {
@@ -537,6 +538,7 @@ namespace euf {
             e->pop(n);
         si.pop(n);
         m_egraph.pop(n);
+        pop_relevant(n);
         scope const & sc = m_scopes[m_scopes.size() - n];
         for (unsigned i = m_var_trail.size(); i-- > sc.m_var_lim; ) {
             bool_var v = m_var_trail[i];
