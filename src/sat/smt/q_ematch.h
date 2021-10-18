@@ -19,6 +19,7 @@ Author:
 #include "util/nat_set.h"
 #include "ast/quantifier_stat.h"
 #include "ast/pattern/pattern_inference.h"
+#include "ast/normal_forms/nnf.h"
 #include "solver/solver.h"
 #include "sat/smt/sat_th.h"
 #include "sat/smt/q_mam.h"
@@ -118,6 +119,13 @@ namespace q {
         void propagate(bool is_conflict, unsigned idx, sat::ext_justification_idx j_idx);
 
         bool propagate(bool flush);
+
+        expr_ref_vector m_new_defs;
+        proof_ref_vector m_new_proofs;
+        defined_names    m_dn;
+        nnf              m_nnf;
+        
+        quantifier_ref nnf_skolem(quantifier* q);
 
     public:
         

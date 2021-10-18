@@ -22,6 +22,31 @@ Author:
 
 namespace euf {
 
+    void solver::add_auto_relevant(expr* e) {
+        if (!relevancy_enabled())
+            return;
+        for (; m_auto_relevant_scopes > 0; --m_auto_relevant_scopes) 
+            m_auto_relevant_lim.push_back(m_auto_relevant.size());
+        m_auto_relevant.push_back(e);
+    }
+    
+    void solver::pop_relevant(unsigned n) {
+        if (m_auto_relevant_scopes >= n) {
+            m_auto_relevant_scopes -= n;
+            return;
+        }
+        n -= m_auto_relevant_scopes;
+        m_auto_relevant_scopes = 0;
+        unsigned top = m_auto_relevant_lim.size() - n;
+        unsigned lim = m_auto_relevant_lim[top];
+        m_auto_relevant_lim.shrink(top);
+        m_auto_relevant.shrink(lim);        
+    }
+    
+    void solver::push_relevant() {
+        ++m_auto_relevant_scopes;
+    }
+
     bool solver::is_relevant(expr* e) const { 
         return m_relevant_expr_ids.get(e->get_id(), true); 
     }
@@ -31,11 +56,11 @@ namespace euf {
     }
 
     void solver::ensure_dual_solver() {
-        if (!m_dual_solver) {
-            m_dual_solver = alloc(sat::dual_solver, s().rlimit());
-            for (unsigned i = s().num_user_scopes(); i-- > 0; )
-                m_dual_solver->push();
-        }
+        if (m_dual_solver)
+            return;
+        m_dual_solver = alloc(sat::dual_solver, s().rlimit());
+        for (unsigned i = s().num_user_scopes(); i-- > 0; )
+            m_dual_solver->push();        
     }
 
     /**
@@ -65,8 +90,6 @@ namespace euf {
 
     bool solver::init_relevancy() {
         m_relevant_expr_ids.reset();
-        bool_vector visited;
-        ptr_vector<expr> todo;
         if (!relevancy_enabled())
             return true;
         if (!m_dual_solver)
@@ -77,12 +100,16 @@ namespace euf {
         for (enode* n : m_egraph.nodes())
             max_id = std::max(max_id, n->get_expr_id());
         m_relevant_expr_ids.resize(max_id + 1, false);
+        ptr_vector<expr>& todo = m_relevant_todo;
+        bool_vector& visited = m_relevant_visited;
         auto const& core = m_dual_solver->core();
+        todo.reset();
         for (auto lit : core) {
             expr* e = m_bool_var2expr.get(lit.var(), nullptr);
             if (e)
                 todo.push_back(e);
         }
+        todo.append(m_auto_relevant);
         for (unsigned i = 0; i < todo.size(); ++i) {
             expr* e = todo[i];
             if (visited.get(e->get_id(), false))
@@ -113,6 +140,9 @@ namespace euf {
             for (expr* arg : *to_app(e))
                 todo.push_back(arg);
         }
+
+        for (auto * e : todo)
+            visited[e->get_id()] = false;
 
         TRACE("euf",
             for (enode* n : m_egraph.nodes())

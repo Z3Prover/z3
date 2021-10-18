@@ -99,8 +99,7 @@ namespace euf {
         sat::lookahead*        m_lookahead = nullptr;
         ast_manager*           m_to_m;
         sat::sat_internalizer* m_to_si;
-        scoped_ptr<euf::ackerman>    m_ackerman;
-        scoped_ptr<sat::dual_solver> m_dual_solver;
+        scoped_ptr<euf::ackerman>     m_ackerman;
         user_solver::solver*          m_user_propagator = nullptr;
         th_solver*             m_qsolver = nullptr;
         unsigned               m_generation = 0;
@@ -182,6 +181,8 @@ namespace euf {
 
         // relevancy
         bool_vector m_relevant_expr_ids;
+        bool_vector m_relevant_visited;
+        ptr_vector<expr> m_relevant_todo;
         void ensure_dual_solver();
         bool init_relevancy();
 
@@ -363,6 +364,11 @@ namespace euf {
 
         // relevancy
         bool m_relevancy = true;
+        scoped_ptr<sat::dual_solver>  m_dual_solver;
+        ptr_vector<expr>              m_auto_relevant;
+        unsigned_vector               m_auto_relevant_lim;
+        unsigned                      m_auto_relevant_scopes = 0;
+
         bool relevancy_enabled() const { return m_relevancy && get_config().m_relevancy_lvl > 0; }
         void disable_relevancy(expr* e) { IF_VERBOSE(0, verbose_stream() << "disabling relevancy " << mk_pp(e, m) << "\n"); m_relevancy = false;  }
         void add_root(unsigned n, sat::literal const* lits);
@@ -377,6 +383,9 @@ namespace euf {
         void track_relevancy(sat::bool_var v);
         bool is_relevant(expr* e) const;
         bool is_relevant(enode* n) const;
+        void add_auto_relevant(expr* e);
+        void pop_relevant(unsigned n);
+        void push_relevant();
 
 
         // model construction

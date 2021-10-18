@@ -183,6 +183,7 @@ namespace euf {
     }
 
     void solver::propagate(literal lit, ext_justification_idx idx) {
+        add_auto_relevant(bool_var2expr(lit.var()));
         s().assign(lit, sat::justification::mk_ext_justification(s().scope_lvl(), idx));
     }
 

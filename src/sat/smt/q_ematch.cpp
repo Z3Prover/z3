@@ -54,7 +54,11 @@ namespace q {
         m_eval(ctx),
         m_qstat_gen(m, ctx.get_region()),
         m_inst_queue(*this, ctx),
-        m_infer_patterns(m, ctx.get_config())       
+        m_infer_patterns(m, ctx.get_config()),
+        m_new_defs(m),
+        m_new_proofs(m),
+        m_dn(m),
+        m_nnf(m, m_dn)
     {
         std::function<void(euf::enode*, euf::enode*)> _on_merge = 
             [&](euf::enode* root, euf::enode* other) { 
@@ -104,6 +108,20 @@ namespace q {
     void ematch::get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) {
         m_eval.explain(l, justification::from_index(idx), r, probing);
     }
+
+    quantifier_ref ematch::nnf_skolem(quantifier* q) {
+        expr_ref r(m);
+        proof_ref p(m);
+        m_new_defs.reset();
+        m_new_proofs.reset();
+        m_nnf(q, m_new_defs, m_new_proofs, r, p);
+        SASSERT(is_quantifier(r));
+        for (expr* d : m_new_defs)
+            m_qs.add_unit(m_qs.mk_literal(d));
+        CTRACE("q", r != q, tout << mk_pp(q, m) << " -->\n" << r << "\n" << m_new_defs << "\n";);
+        return quantifier_ref(to_quantifier(r), m);
+    }
+
 
     std::ostream& ematch::display_constraint(std::ostream& out, sat::ext_constraint_idx idx) const {
         auto& j = justification::from_index(idx);
@@ -217,8 +235,6 @@ namespace q {
             SASSERT(!c.m_bindings || c.m_bindings->invariant());
         }
     };
-
-
 
     binding* ematch::tmp_binding(clause& c, app* pat, euf::enode* const* b) {
         if (c.num_decls() > m_tmp_binding_capacity) {
@@ -430,7 +446,10 @@ namespace q {
             cl->m_literal.neg();
             expr_ref body(mk_not(m, q->get_expr()), m);
             q = m.update_quantifier(q, forall_k, body);
-        }        
+        }
+        q = nnf_skolem(q);
+        
+        
         expr_ref_vector ors(m);
         flatten_or(q->get_expr(), ors);
         for (expr* arg : ors) 
