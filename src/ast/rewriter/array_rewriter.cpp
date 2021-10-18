@@ -703,8 +703,60 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         result = m().update_quantifier(lam, quantifier_kind::forall_k, e);
         return BR_REWRITE2; 
     }
-    expr_ref lh1(m()), rh1(m());
+
+    expr_ref_vector fmls(m());
+
+
+    auto has_large_domain = [&](sort* s, unsigned num_stores) {
+        unsigned sz = get_array_arity(s);
+        uint64_t dsz = 1;
+        for (unsigned i = 0; i < sz; ++i) {
+            sort* d = get_array_domain(s, i);
+            if (d->is_infinite() || d->is_very_big())
+                return true;
+            auto const& n = d->get_num_elements();
+            if (n.size() > num_stores)
+                return true;
+            dsz *= n.size();
+            if (dsz > num_stores)
+                return true;
+        }
+        return false;        
+    };
+
+
+    if (m_expand_store_eq) {
+        expr* lhs1 = lhs;
+        expr* rhs1 = rhs;
+        unsigned num_lhs = 0, num_rhs = 0;
+        while (m_util.is_store(lhs1)) {
+            lhs1 = to_app(lhs1)->get_arg(0);
+            ++num_lhs;
+        }
+        while (m_util.is_store(rhs1)) {
+            rhs1 = to_app(rhs1)->get_arg(0);
+            ++num_rhs;
+        }
+        if (lhs1 == rhs1) {
+            mk_eq(lhs, lhs, rhs, fmls);
+            mk_eq(rhs, lhs, rhs, fmls);
+            result = m().mk_and(fmls);
+            return BR_REWRITE_FULL;
+        }
+
+        if (m_util.is_const(lhs1, v) && m_util.is_const(rhs1, w) &&
+            has_large_domain(lhs->get_sort(), std::max(num_lhs, num_rhs))) {
+            mk_eq(lhs, lhs, rhs, fmls);
+            mk_eq(rhs, lhs, rhs, fmls);
+            fmls.push_back(m().mk_eq(v, w));
+            result = m().mk_and(fmls);
+            return BR_REWRITE_FULL;
+        }
+    }
+
+
     if (m_expand_nested_stores) {
+        expr_ref lh1(m()), rh1(m());
         if (is_expandable_store(lhs)) {
             lh1 = expand_store(lhs);        
         }
@@ -719,10 +771,6 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         }
     }
 
-    if (!m_expand_store_eq) {
-        return BR_FAILED;
-    }
-    expr_ref_vector fmls(m());
 
 #if 0
     // lambda friendly version of array equality rewriting.
@@ -744,46 +792,5 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
     }
 #endif
 
-    expr* lhs1 = lhs;
-    unsigned num_lhs = 0, num_rhs = 0;
-    while (m_util.is_store(lhs1)) {
-        lhs1 = to_app(lhs1)->get_arg(0);
-        ++num_lhs;
-    }
-    expr* rhs1 = rhs;
-    while (m_util.is_store(rhs1)) {
-        rhs1 = to_app(rhs1)->get_arg(0);
-        ++num_rhs;
-    }
-    if (lhs1 == rhs1) {
-        mk_eq(lhs, lhs, rhs, fmls);
-        mk_eq(rhs, lhs, rhs, fmls);
-        result = m().mk_and(fmls);
-        return BR_REWRITE_FULL;
-    }
-    auto has_large_domain = [&](sort* s, unsigned num_stores) {
-        unsigned sz = get_array_arity(s);
-        uint64_t dsz = 1;
-        for (unsigned i = 0; i < sz; ++i) {
-            sort* d = get_array_domain(s, i);
-            if (d->is_infinite() || d->is_very_big())
-                return true;
-            auto const& n = d->get_num_elements();
-            if (n.size() > num_stores)
-                return true;
-            dsz *= n.size();
-            if (dsz > num_stores)
-                return true;
-        }
-        return false;        
-    };
-    if (m_util.is_const(lhs1, v) && m_util.is_const(rhs1, w) &&
-        has_large_domain(lhs->get_sort(), std::max(num_lhs, num_rhs))) {
-        mk_eq(lhs, lhs, rhs, fmls);
-        mk_eq(rhs, lhs, rhs, fmls);
-        fmls.push_back(m().mk_eq(v, w));
-        result = m().mk_and(fmls);
-        return BR_REWRITE_FULL;
-    }
     return BR_FAILED;    
 }
