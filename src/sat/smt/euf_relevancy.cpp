@@ -27,6 +27,7 @@ namespace euf {
             return;
         for (; m_auto_relevant_scopes > 0; --m_auto_relevant_scopes) 
             m_auto_relevant_lim.push_back(m_auto_relevant.size());
+        std::cout << "add-auto " << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
         m_auto_relevant.push_back(e);
     }
     
@@ -109,6 +110,9 @@ namespace euf {
             if (e)
                 todo.push_back(e);
         }
+        std::cout << "init-relevant\n";
+        for (expr* e : m_auto_relevant)
+            std::cout << "auto-relevant " << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
         todo.append(m_auto_relevant);
         for (unsigned i = 0; i < todo.size(); ++i) {
             expr* e = todo[i];
