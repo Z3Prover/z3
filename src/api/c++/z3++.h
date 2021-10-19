@@ -1516,7 +1516,7 @@ namespace z3 {
         expr substitute(expr_vector const& dst);
 
 
-	class iterator {
+    class iterator {
             expr& e;
             unsigned i;
         public:
@@ -1912,14 +1912,14 @@ namespace z3 {
         Z3_ast r;
         if (a.is_int()) {
             expr zero = a.ctx().int_val(0);
-	    expr ge = a >= zero;
-	    expr na = -a;
+        expr ge = a >= zero;
+        expr na = -a;
             r = Z3_mk_ite(a.ctx(), ge, a, na);	    
         }
         else if (a.is_real()) {
             expr zero = a.ctx().real_val(0);
-	    expr ge = a >= zero;
-	    expr na = -a;
+        expr ge = a >= zero;
+        expr na = -a;
             r = Z3_mk_ite(a.ctx(), ge, a, na);
         }
         else {
@@ -3954,10 +3954,26 @@ namespace z3 {
             Z3_solver_propagate_fixed(ctx(), *s, fixed_eh); 
         }
 
+        void register_fixed() {
+            assert(s);
+            m_fixed_eh = [this](unsigned id, expr const& e) {
+                fixed(id, e);
+            };
+            Z3_solver_propagate_fixed(ctx(), *s, fixed_eh);
+        }
+
         void register_eq(eq_eh_t& f) { 
             assert(s);
             m_eq_eh = f; 
             Z3_solver_propagate_eq(ctx(), *s, eq_eh); 
+        }
+
+        void register_eq() {
+            assert(s);
+            m_eq_eh = [this](unsigned x, unsigned y) {
+                eq(x, y);
+            };
+            Z3_solver_propagate_eq(ctx(), *s, eq_eh);
         }
 
         /**
@@ -3973,6 +3989,21 @@ namespace z3 {
             m_final_eh = f; 
             Z3_solver_propagate_final(ctx(), *s, final_eh); 
         }
+        
+        void register_final() { 
+            assert(s);
+            m_final_eh = [this]() {
+                final();
+            };
+            Z3_solver_propagate_final(ctx(), *s, final_eh); 
+        }
+
+
+        virtual void fixed(unsigned id, expr const& e) { }
+
+        virtual void eq(unsigned x, unsigned y) { }
+
+        virtual void final() { }
 
         /**
            \brief tracks \c e by a unique identifier that is returned by the call.
