@@ -2013,6 +2013,9 @@ class MLComponent(Component):
                 LIBZ3 = z3linkdep
 
             LIBZ3 = LIBZ3 + ' ' + ' '.join(map(lambda x: '-cclib ' + x, LDFLAGS.split()))
+            if not STATIC_LIB:
+                dllpath = '-dllpath $$(%s printconf path)/stublibs' % OCAMLFIND
+                LIBZ3 = LIBZ3 + ' ' + dllpath
 
             if DEBUG_MODE and not(is_cygwin()):
                 # Some ocamlmklib's don't like -g; observed on cygwin, but may be others as well.
@@ -2020,10 +2023,14 @@ class MLComponent(Component):
 
             z3mls = os.path.join(self.sub_dir, 'z3ml')
 
+            LIBZ3ML = ''
+            if STATIC_LIB:
+                LIBZ3ML = '-oc ' + os.path.join(self.sub_dir, 'z3ml-static')
+
             out.write('%s.cma: %s %s %s\n' % (z3mls, cmos, stubso, z3linkdep))
-            out.write('\t%s -o %s -I %s -L. %s %s %s\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmos, LIBZ3))
+            out.write('\t%s -o %s %s -I %s -L. %s %s %s\n' % (OCAMLMKLIB, z3mls, LIBZ3ML, self.sub_dir, stubso, cmos, LIBZ3))
             out.write('%s.cmxa: %s %s %s %s.cma\n' % (z3mls, cmxs, stubso, z3linkdep, z3mls))
-            out.write('\t%s -o %s -I %s -L. %s %s %s\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmxs, LIBZ3))
+            out.write('\t%s -o %s %s -I %s -L. %s %s %s\n' % (OCAMLMKLIB, z3mls, LIBZ3ML, self.sub_dir, stubso, cmxs, LIBZ3))
             out.write('%s.cmxs: %s.cmxa\n' % (z3mls, z3mls))
             out.write('\t%s -linkall -shared -o %s.cmxs -I . -I %s %s.cmxa\n' % (OCAMLOPTF, z3mls, self.sub_dir, z3mls))
 
@@ -2041,6 +2048,7 @@ class MLComponent(Component):
                 self.mk_uninstall(out)
                 out.write('\n')
 
+    # The following three functions may be out of date.
     def mk_install_deps(self, out):
         if is_ml_enabled() and self._install_bindings():
             out.write(get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT) ')
