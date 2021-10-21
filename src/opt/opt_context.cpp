@@ -967,12 +967,12 @@ namespace opt {
                   tout << "Convert minimization " << orig_term << "\n";
                   tout << "to maxsat: " << term << "\n";
                   for (unsigned i = 0; i < weights.size(); ++i) {
-                      tout << mk_pp(terms[i].get(), m) << ": " << weights[i] << "\n";
+                      tout << mk_pp(terms.get(i), m) << ": " << weights[i] << "\n";
                   }
                   tout << "offset: " << offset << "\n";
                   );
             std::ostringstream out;
-            out << orig_term << ':' << index;
+            out << mk_bounded_pp(orig_term, m, 2) << ':' << index;
             id = symbol(out.str());
             return true;
         }
@@ -995,7 +995,7 @@ namespace opt {
             }
             neg = true;
             std::ostringstream out;
-            out << orig_term << ':' << index;
+            out << mk_bounded_pp(orig_term, m) << ':' << index;
             id = symbol(out.str());
             return true;
         }
@@ -1014,7 +1014,7 @@ namespace opt {
             }
             neg = is_max;
             std::ostringstream out;
-            out << orig_term << ':' << index;
+            out << mk_bounded_pp(orig_term, m, 2) << ':' << index;
             id = symbol(out.str());
             return true;
         }
