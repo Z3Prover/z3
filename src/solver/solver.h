@@ -51,7 +51,7 @@ class solver : public check_sat_result {
     params_ref  m_params;
     symbol      m_cancel_backup_file;
 public:
-     solver() {}
+    solver() {}
     ~solver() override {}
 
     /**

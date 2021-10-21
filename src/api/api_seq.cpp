@@ -187,10 +187,9 @@ extern "C" {
         svector<char> buff;
         for (unsigned i = 0; i < str.length(); ++i) {
             unsigned ch = str[i];
-            if (ch <= 32 || ch >= 127) {
+            if (ch <= 32 || ch >= 127 || (ch == '\\' && i + 1 < str.length() && str[i+1] == 'u')) {
                 buff.reset();
                 buffer.push_back('\\');
-//                buffer.push_back('\\');  // possibly replace by native non-escaped version?
                 buffer.push_back('u');
                 buffer.push_back('{');
                 while (ch > 0) {

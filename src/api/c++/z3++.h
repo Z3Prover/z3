@@ -1100,23 +1100,24 @@ namespace z3 {
         bool is_string_value() const { return Z3_is_string(ctx(), m_ast); }
 
         /**
-           \brief for a string value expression return an escaped or unescaped string value.
+           \brief for a string value expression return an escaped string value.
            \pre expression is for a string value.
          */
 
-        std::string get_escaped_string() const {            
+        std::string get_string() const {            
             assert(is_string_value());
             char const* s = Z3_get_string(ctx(), m_ast);
             check_error();
             return std::string(s);
         }
 
-        std::string get_string() const {
+        std::vector<unsigned> get_wstring() const {
             assert(is_string_value());
-            unsigned n;
-            char const* s = Z3_get_lstring(ctx(), m_ast, &n);
-            check_error();
-            return std::string(s, n);
+            unsigned n = Z3_get_string_length(ctx(), m_ast);
+            std::vector<unsigned> buffer;
+            buffer.resize(n);
+            Z3_get_string_contents(ctx(), m_ast, n, buffer.data());
+            return buffer;
         }
 
         operator Z3_app() const { assert(is_app()); return reinterpret_cast<Z3_app>(m_ast); }

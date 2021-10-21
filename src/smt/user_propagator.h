@@ -48,7 +48,7 @@ namespace smt {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
 
-        void*                  m_user_context;
+        void*                  m_user_context = nullptr;
         solver::push_eh_t      m_push_eh;
         solver::pop_eh_t       m_pop_eh;
         solver::fresh_eh_t     m_fresh_eh;
@@ -56,13 +56,13 @@ namespace smt {
         solver::fixed_eh_t     m_fixed_eh;
         solver::eq_eh_t        m_eq_eh;
         solver::eq_eh_t        m_diseq_eh;
-        solver::context_obj*   m_api_context { nullptr };
-        unsigned               m_qhead { 0 };
+        solver::context_obj*   m_api_context = nullptr;
+        unsigned               m_qhead = 0;
         uint_set               m_fixed;
         vector<prop_info>      m_prop;
         unsigned_vector        m_prop_lim;
         vector<literal_vector> m_id2justification;
-        unsigned               m_num_scopes { 0 };
+        unsigned               m_num_scopes = 0;
         literal_vector         m_lits;
         enode_pair_vector      m_eqs;
         stats                  m_stats;
