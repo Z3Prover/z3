@@ -215,6 +215,38 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
+    unsigned Z3_API Z3_get_string_length(Z3_context c, Z3_ast s) {
+        Z3_TRY;
+        LOG_Z3_get_string_length(c, s);
+        RESET_ERROR_CODE();
+        zstring str;
+        if (!mk_c(c)->sutil().str.is_string(to_expr(s), str)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "expression is not a string literal");
+        }
+        return str.length();
+        Z3_CATCH_RETURN(0);
+    }    
+
+    void Z3_API Z3_get_string_contents(Z3_context c, Z3_ast s, unsigned length, unsigned* contents) {
+        Z3_TRY;
+        LOG_Z3_get_string_contents(c, s, length, contents);
+        RESET_ERROR_CODE();
+        zstring str;
+        if (!mk_c(c)->sutil().str.is_string(to_expr(s), str)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "expression is not a string literal");
+            return;
+        }
+        if (str.length() != length) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "string size disagrees with supplied buffer length");
+            return;
+        }
+        for (unsigned i = 0; i < length; ++i)
+            contents[i] = str[i];
+        
+        Z3_CATCH;
+    }
+
+
 #define MK_SORTED(NAME, FN )                                    \
     Z3_ast Z3_API NAME(Z3_context c, Z3_sort s) {               \
     Z3_TRY;                                                     \

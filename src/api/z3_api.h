@@ -3510,14 +3510,34 @@ extern "C" {
     Z3_string Z3_API Z3_get_string(Z3_context c, Z3_ast s);
 
     /**
-       \brief Retrieve the unescaped string constant stored in \c s.
+       \brief Retrieve the string constant stored in \c s. The string can contain escape sequences.
 
        \pre  Z3_is_string(c, s)
 
        def_API('Z3_get_lstring', CHAR_PTR, (_in(CONTEXT), _in(AST), _out(UINT)))
      */
     Z3_char_ptr Z3_API Z3_get_lstring(Z3_context c, Z3_ast s, unsigned* length);
+    
+    /**
+       \brief Retrieve the length of the unescaped string constant stored in \c s. 
 
+       \pre  Z3_is_string(c, s)
+
+       def_API('Z3_get_string_length', UINT, (_in(CONTEXT), _in(AST)))
+    */
+    unsigned Z3_API Z3_get_string_length(Z3_context c, Z3_ast s);
+    
+    /**
+       \brief Retrieve the unescaped string constant stored in \c s. 
+
+       \pre  Z3_is_string(c, s)
+
+       \pre length contains the number of characters in s
+
+       def_API('Z3_get_string_contents', VOID, (_in(CONTEXT), _in(AST), _in(UINT), _out_array(2, UINT)))
+     */
+    void Z3_API Z3_get_string_contents(Z3_context c, Z3_ast s, unsigned length, unsigned* buffer);
+    
     /**
        \brief Create an empty sequence of the sequence sort \c seq.
 
