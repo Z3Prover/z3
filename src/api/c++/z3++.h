@@ -379,6 +379,7 @@ namespace z3 {
         expr string_val(char const* s);
         expr string_val(char const* s, unsigned n);
         expr string_val(std::string const& s);
+        expr string_val(std::u32string const& s);
 
         expr num_val(int n, sort const & s);
 
@@ -1111,13 +1112,21 @@ namespace z3 {
             return std::string(s);
         }
 
-        std::vector<unsigned> get_wstring() const {
+        /**
+           \brief for a string value expression return an unespaced string value.
+           \pre expression is for a string value.
+        */
+
+        std::u32string get_u32string() const {
             assert(is_string_value());
             unsigned n = Z3_get_string_length(ctx(), m_ast);
             std::vector<unsigned> buffer;
             buffer.resize(n);
             Z3_get_string_contents(ctx(), m_ast, n, buffer.data());
-            return buffer;
+            std::u32string s;
+            for (auto ch : buffer)
+                s.push_back(ch);
+            return s;
         }
 
         operator Z3_app() const { assert(is_app()); return reinterpret_cast<Z3_app>(m_ast); }
@@ -3481,6 +3490,7 @@ namespace z3 {
     inline expr context::string_val(char const* s, unsigned n) { Z3_ast r = Z3_mk_lstring(m_ctx, n, s); check_error(); return expr(*this, r); }
     inline expr context::string_val(char const* s) { Z3_ast r = Z3_mk_string(m_ctx, s); check_error(); return expr(*this, r); }
     inline expr context::string_val(std::string const& s) { Z3_ast r = Z3_mk_string(m_ctx, s.c_str()); check_error(); return expr(*this, r); }
+    inline expr context::string_val(std::u32string const& s) { Z3_ast r = Z3_mk_u32string(m_ctx, (unsigned)s.size(), (unsigned const*)s.c_str()); check_error(); return expr(*this, r); }
 
     inline expr context::num_val(int n, sort const & s) { Z3_ast r = Z3_mk_int(m_ctx, n, s); check_error(); return expr(*this, r); }
 

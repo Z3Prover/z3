@@ -1254,7 +1254,7 @@ static void string_values() {
     std::cout << s << "\n";
     std::string s1 = s.get_string();
     std::cout << s1 << "\n";
-    std::vector<unsigned> buffer = s.get_wstring();
+    std::u32string buffer = s.get_u32string();
     for (unsigned ch : buffer)
         std::cout << "char: " << ch << "\n";
 }
