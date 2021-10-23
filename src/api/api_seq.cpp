@@ -198,7 +198,7 @@ extern "C" {
         svector<char> buff;
         for (unsigned i = 0; i < str.length(); ++i) {
             unsigned ch = str[i];
-            if (ch <= 32 || ch >= 127 || (ch == '\\' && i + 1 < str.length() && str[i+1] == 'u')) {
+            if (ch == 0 || ch >= 256 || (ch == '\\' && i + 1 < str.length() && str[i+1] == 'u')) {
                 buff.reset();
                 buffer.push_back('\\');
                 buffer.push_back('u');

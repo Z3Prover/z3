@@ -1120,12 +1120,9 @@ namespace z3 {
         std::u32string get_u32string() const {
             assert(is_string_value());
             unsigned n = Z3_get_string_length(ctx(), m_ast);
-            std::vector<unsigned> buffer;
-            buffer.resize(n);
-            Z3_get_string_contents(ctx(), m_ast, n, buffer.data());
             std::u32string s;
-            for (auto ch : buffer)
-                s.push_back(ch);
+            s.resize(n);
+            Z3_get_string_contents(ctx(), m_ast, n, (unsigned*)s.data());
             return s;
         }
 

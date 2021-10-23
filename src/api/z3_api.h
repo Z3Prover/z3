@@ -3480,6 +3480,11 @@ extern "C" {
 
     /**
        \brief Create a string constant out of the string that is passed in
+       The string may contain escape encoding for non-printable characters
+       or characters outside of the basic printable ASCII range. For example, 
+       the escape encoding \u{0} represents the character 0 and the encoding
+       \u{100} represents the character 256.
+
        def_API('Z3_mk_string', AST, (_in(CONTEXT), _in(STRING)))
      */
     Z3_ast Z3_API Z3_mk_string(Z3_context c, Z3_string s);
@@ -3487,7 +3492,8 @@ extern "C" {
     /**
        \brief Create a string constant out of the string that is passed in
        It takes the length of the string as well to take into account
-       0 characters. The string is unescaped.
+       0 characters. The string is treated as if it is unescaped so a sequence
+       of characters \u{0} is treated as 5 characters and not the character 0.
 
        def_API('Z3_mk_lstring', AST, (_in(CONTEXT), _in(UINT), _in(STRING)))
      */
@@ -3511,6 +3517,7 @@ extern "C" {
 
     /**
        \brief Retrieve the string constant stored in \c s.
+       Characters outside the basic printiable ASCII range are escaped.
 
        \pre  Z3_is_string(c, s)
 
@@ -3520,6 +3527,8 @@ extern "C" {
 
     /**
        \brief Retrieve the string constant stored in \c s. The string can contain escape sequences.
+       Characters in the range 1 to 255 are literal. 
+       Characters in the range 0, and 256 above are escaped.
 
        \pre  Z3_is_string(c, s)
 
