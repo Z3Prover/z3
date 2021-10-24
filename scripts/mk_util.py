@@ -2014,8 +2014,10 @@ class MLComponent(Component):
 
             LIBZ3 = LIBZ3 + ' ' + ' '.join(map(lambda x: '-cclib ' + x, LDFLAGS.split()))
             if not STATIC_LIB:
-                dllpath = '-dllpath $$(%s printconf path)/stublibs' % OCAMLFIND
-                LIBZ3 = LIBZ3 + ' ' + dllpath
+                stubs_install_path = '$$(%s printconf path)/stublibs' % OCAMLFIND
+                loadpath = '-ccopt -L' + stubs_install_path
+                dllpath = '-dllpath ' + stubs_install_path
+                LIBZ3 = LIBZ3 + ' ' + loadpath + ' ' + dllpath
 
             if DEBUG_MODE and not(is_cygwin()):
                 # Some ocamlmklib's don't like -g; observed on cygwin, but may be others as well.
