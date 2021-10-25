@@ -298,3 +298,37 @@ jobs:
 #   - template: scripts/test-examples-cmake.yml
     - template: scripts/test-regressions.yml
 #   - template: scripts/test-java-cmake.yml
+
+
+- job: "MacOSOCaml"
+  displayName: "MacOS build with OCaml"
+  pool:
+    vmImage: "macOS-latest"
+  steps:
+    - script: brew install opam
+    - script: opam init -y
+    - script: eval `opam config env`; opam install zarith ocamlfind -y
+    - script: eval `opam config env`; python scripts/mk_make.py --ml
+    - script: |
+        set -e
+        cd build
+        make -j3
+        make -j3 examples
+        make -j3 test-z3
+        ./ml_example.byte
+        ./ml_example
+        cd ..
+    - script: eval `opam config env`; ocamlfind install z3 build/api/ml/* -dll build/libz3.*
+    - script: |
+        set -e
+        cd build
+        eval `opam config env`
+        make -j3
+        make -j3 _ex_ml_example_post_install
+        ./ml_example_shared.byte
+        ./ml_example_shared_custom.byte
+        ./ml_example_shared
+      cd ..
+# Skip as dead-slow in debug mode:
+#  - template: scripts/test-z3.yml
+    - template: scripts/test-regressions.yml
