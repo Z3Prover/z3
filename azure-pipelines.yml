@@ -44,7 +44,42 @@ jobs:
       - template: scripts/test-regressions.yml
 
 - job: "Ubuntu20OCaml"
-  displayName: "Ubuntu 20 with ocaml"
+  displayName: "Ubuntu 20 with OCaml"
+  pool:
+    vmImage: "Ubuntu-20.04"
+  steps:
+    - script: sudo apt-get install ocaml opam libgmp-dev
+    - script: opam init -y
+    - script: eval `opam config env`; opam install zarith ocamlfind -y
+    - script: eval `opam config env`; python scripts/mk_make.py --ml
+    - script: |
+        set -e
+        cd build
+        eval `opam config env`
+        make -j3
+        make -j3 examples
+        make -j3 test-z3
+        ./ml_example.byte
+        ./ml_example
+        cd ..
+    - script: eval `opam config env`; ocamlfind install z3 build/api/ml/* -dll build/libz3.*
+    - script: |
+        set -e
+        cd build
+        eval `opam config env`
+        make -j3
+        make -j3 _ex_ml_example_post_install
+        ./ml_example_shared.byte
+        ./ml_example_shared_custom.byte
+        ./ml_example_shared
+      cd ..
+    - template: scripts/test-z3.yml
+    - template: scripts/test-regressions.yml
+    - template: scripts/generate-doc.yml
+
+
+- job: "Ubuntu20OCamlStatic"
+  displayName: "Ubuntu 20 with OCaml on z3-static"
   pool:
     vmImage: "Ubuntu-20.04"
   steps:
@@ -55,16 +90,27 @@ jobs:
     - script: |
         set -e
         cd build
-        eval `opam config env` 
+        eval `opam config env`
         make -j3
         make -j3 examples
         make -j3 test-z3
+        ./ml_example.byte
         ./ml_example
         cd ..
+    - script: eval `opam config env`; ocamlfind install z3-static build/api/ml/* build/libz3-static.a
+    - script: |
+        set -e
+        cd build
+        eval `opam config env`
+        make -j3
+        make -j3 _ex_ml_example_post_install
+        ./ml_example_static.byte
+        ./ml_example_static_custom.byte
+        ./ml_example_static
+      cd ..
     - template: scripts/test-z3.yml
     - template: scripts/test-regressions.yml
     - template: scripts/generate-doc.yml
-
 
 - job: "LinuxMSan"
   displayName: "Ubuntu build - cmake"
@@ -252,3 +298,37 @@ jobs:
 #   - template: scripts/test-examples-cmake.yml
     - template: scripts/test-regressions.yml
 #   - template: scripts/test-java-cmake.yml
+
+
+- job: "MacOSOCaml"
+  displayName: "MacOS build with OCaml"
+  pool:
+    vmImage: "macOS-latest"
+  steps:
+    - script: brew install opam
+    - script: opam init -y
+    - script: eval `opam config env`; opam install zarith ocamlfind -y
+    - script: eval `opam config env`; python scripts/mk_make.py --ml
+    - script: |
+        set -e
+        cd build
+        make -j3
+        make -j3 examples
+        make -j3 test-z3
+        ./ml_example.byte
+        ./ml_example
+        cd ..
+    - script: eval `opam config env`; ocamlfind install z3 build/api/ml/* -dll build/libz3.*
+    - script: |
+        set -e
+        cd build
+        eval `opam config env`
+        make -j3
+        make -j3 _ex_ml_example_post_install
+        ./ml_example_shared.byte
+        ./ml_example_shared_custom.byte
+        ./ml_example_shared
+      cd ..
+# Skip as dead-slow in debug mode:
+#  - template: scripts/test-z3.yml
+    - template: scripts/test-regressions.yml
