@@ -213,13 +213,13 @@ void asserted_formulas::force_push() {
 }
 
 void asserted_formulas::pop_scope(unsigned num_scopes) {
-    if (m_lazy_scopes > 0) {
-        unsigned n = std::min(num_scopes, m_lazy_scopes);
-        m_lazy_scopes -= n;
-        num_scopes -= n;
-        if (num_scopes == 0)
-            return;
+    if (num_scopes <= m_lazy_scopes) {
+        m_lazy_scopes -= num_scopes;
+        return;
     }
+    num_scopes -= m_lazy_scopes;
+    m_lazy_scopes = 0;
+    
     TRACE("asserted_formulas_scopes", tout << "before pop " << num_scopes << " of " << m_scopes.size() << "\n";);
     m_bv_sharing.pop_scope(num_scopes);
     m_macro_manager.pop_scope(num_scopes);

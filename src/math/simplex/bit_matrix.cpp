@@ -15,6 +15,7 @@ Notes:
 
 #include "math/simplex/bit_matrix.h"
 #include "util/stopwatch.h"
+#include "util/trace.h"
 #include <cstring>
 
 
