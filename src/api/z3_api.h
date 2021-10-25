@@ -3554,7 +3554,7 @@ extern "C" {
 
        def_API('Z3_get_string_contents', VOID, (_in(CONTEXT), _in(AST), _in(UINT), _out_array(2, UINT)))
      */
-    void Z3_API Z3_get_string_contents(Z3_context c, Z3_ast s, unsigned length, unsigned buffer[]);
+    void Z3_API Z3_get_string_contents(Z3_context c, Z3_ast s, unsigned length, unsigned contents[]);
     
     /**
        \brief Create an empty sequence of the sequence sort \c seq.

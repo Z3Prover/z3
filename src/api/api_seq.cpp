@@ -237,7 +237,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }    
 
-    void Z3_API Z3_get_string_contents(Z3_context c, Z3_ast s, unsigned length, unsigned* contents) {
+    void Z3_API Z3_get_string_contents(Z3_context c, Z3_ast s, unsigned length, unsigned contents[]) {
         Z3_TRY;
         LOG_Z3_get_string_contents(c, s, length, contents);
         RESET_ERROR_CODE();
