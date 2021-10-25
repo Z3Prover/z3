@@ -44,7 +44,7 @@ jobs:
       - template: scripts/test-regressions.yml
 
 - job: "Ubuntu20OCaml"
-  displayName: "Ubuntu 20 with ocaml"
+  displayName: "Ubuntu 20 with OCaml"
   pool:
     vmImage: "Ubuntu-20.04"
   steps:
@@ -79,7 +79,7 @@ jobs:
 
 
 - job: "Ubuntu20OCamlStatic"
-  displayName: "Ubuntu 20 with ocaml"
+  displayName: "Ubuntu 20 with OCaml on z3-static"
   pool:
     vmImage: "Ubuntu-20.04"
   steps:
