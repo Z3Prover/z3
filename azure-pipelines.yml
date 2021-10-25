@@ -72,7 +72,7 @@ jobs:
         ./ml_example_shared.byte
         ./ml_example_shared_custom.byte
         ./ml_example_shared
-      cd ..
+        cd ..
     - template: scripts/test-z3.yml
     - template: scripts/test-regressions.yml
     - template: scripts/generate-doc.yml
