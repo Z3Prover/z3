@@ -51,20 +51,66 @@ jobs:
     - script: sudo apt-get install ocaml opam libgmp-dev
     - script: opam init -y
     - script: eval `opam config env`; opam install zarith ocamlfind -y
-    - script: eval `opam config env`; python scripts/mk_make.py --ml --staticlib
+    - script: eval `opam config env`; python scripts/mk_make.py --ml
     - script: |
         set -e
         cd build
-        eval `opam config env` 
+        eval `opam config env`
         make -j3
         make -j3 examples
         make -j3 test-z3
+        ./ml_example.byte
         ./ml_example
         cd ..
+    - script: eval `opam config env`; ocamlfind install z3 build/api/ml/* -dll build/libz3.*
+    - script: |
+        set -e
+        cd build
+        eval `opam config env`
+        make -j3
+        make -j3 _ex_ml_example_post_install
+        ./ml_example_shared.byte
+        ./ml_example_shared_custom.byte
+        ./ml_example_shared
+      cd ..
     - template: scripts/test-z3.yml
     - template: scripts/test-regressions.yml
     - template: scripts/generate-doc.yml
 
+
+- job: "Ubuntu20OCamlStatic"
+  displayName: "Ubuntu 20 with ocaml"
+  pool:
+    vmImage: "Ubuntu-20.04"
+  steps:
+    - script: sudo apt-get install ocaml opam libgmp-dev
+    - script: opam init -y
+    - script: eval `opam config env`; opam install zarith ocamlfind -y
+    - script: eval `opam config env`; python scripts/mk_make.py --ml --staticlib
+    - script: |
+        set -e
+        cd build
+        eval `opam config env`
+        make -j3
+        make -j3 examples
+        make -j3 test-z3
+        ./ml_example.byte
+        ./ml_example
+        cd ..
+    - script: eval `opam config env`; ocamlfind install z3-static build/api/ml/* build/libz3-static.a
+    - script: |
+        set -e
+        cd build
+        eval `opam config env`
+        make -j3
+        make -j3 _ex_ml_example_post_install
+        ./ml_example_static.byte
+        ./ml_example_static_custom.byte
+        ./ml_example_static
+      cd ..
+    - template: scripts/test-z3.yml
+    - template: scripts/test-regressions.yml
+    - template: scripts/generate-doc.yml
 
 - job: "LinuxMSan"
   displayName: "Ubuntu build - cmake"

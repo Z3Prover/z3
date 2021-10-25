@@ -2300,6 +2300,41 @@ class MLExampleComponent(ExampleComponent):
             out.write('\n')
             out.write('_ex_%s: ml_example.byte ml_example$(EXE_EXT)\n\n' % self.name)
 
+        debug_opt = '-g ' if DEBUG_MODE else ''
+
+        if STATIC_LIB:
+            opam_z3_opts = '-thread -package z3-static -linkpkg'
+            ml_post_install_tests = [
+                (OCAMLC,              'ml_example_static.byte'),
+                (OCAMLC + ' -custom', 'ml_example_static_custom.byte'),
+                (OCAMLOPT,            'ml_example_static$(EXE_EXT)')
+            ]
+        else:
+            opam_z3_opts = '-thread -package z3 -linkpkg'
+            ml_post_install_tests = [
+                (OCAMLC,              'ml_example_shared.byte'),
+                (OCAMLC + ' -custom', 'ml_example_shared_custom.byte'),
+                (OCAMLOPT,            'ml_example_shared$(EXE_EXT)')
+            ]
+
+        for ocaml_compiler, testname in ml_post_install_tests:
+            out.write(testname + ':')
+            for mlfile in get_ml_files(self.ex_dir):
+                out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))
+            out.write('\n')
+            out.write('\tocamlfind %s -o %s %s %s ' % (ocaml_compiler, debug_opt, testname, opam_z3_opts))
+            for mlfile in get_ml_files(self.ex_dir):
+                out.write(' %s/%s' % (self.to_ex_dir, mlfile))
+            out.write('\n')
+
+        if STATIC_LIB:
+            out.write('_ex_ml_example_post_install: ml_example_static.byte ml_example_static_custom.byte ml_example_static$(EXE_EXT)\n')
+        else:
+            out.write('_ex_ml_example_post_install: ml_example_shared.byte ml_example_shared_custom.byte ml_example_shared$(EXE_EXT)\n')
+
+        out.write('\n')
+
+
 class PythonExampleComponent(ExampleComponent):
     def __init__(self, name, path):
         ExampleComponent.__init__(self, name, path)
