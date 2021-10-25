@@ -328,7 +328,7 @@ jobs:
         ./ml_example_shared.byte
         ./ml_example_shared_custom.byte
         ./ml_example_shared
-      cd ..
+        cd ..
 # Skip as dead-slow in debug mode:
 #  - template: scripts/test-z3.yml
     - template: scripts/test-regressions.yml
