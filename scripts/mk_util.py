@@ -2013,8 +2013,9 @@ class MLComponent(Component):
                 LIBZ3 = z3linkdep
 
             LIBZ3 = LIBZ3 + ' ' + ' '.join(map(lambda x: '-cclib ' + x, LDFLAGS.split()))
+
+            stubs_install_path = '$$(%s printconf path)/stublibs' % OCAMLFIND
             if not STATIC_LIB:
-                stubs_install_path = '$$(%s printconf path)/stublibs' % OCAMLFIND
                 loadpath = '-ccopt -L' + stubs_install_path
                 dllpath = '-dllpath ' + stubs_install_path
                 LIBZ3 = LIBZ3 + ' ' + loadpath + ' ' + dllpath
@@ -2038,6 +2039,9 @@ class MLComponent(Component):
 
             out.write('\n')
             out.write('ml: %s.cma %s.cmxa %s.cmxs\n' % (z3mls, z3mls, z3mls))
+            if IS_OSX:
+                out.write('\tinstall_name_tool -id libz3.dylib %s/libz3.dylib libz3.dylib\n' % (stubs_install_path))
+                out.write('\tinstall_name_tool -change libz3.dylib %s/libz3.dylib api/ml/dllz3ml.so\n' % (stubs_install_path))                
             out.write('\n')
 
             if IS_WINDOWS:
