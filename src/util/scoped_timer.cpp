@@ -47,7 +47,6 @@ struct scoped_timer_state {
 static std::vector<scoped_timer_state*> available_workers;
 static std::mutex workers;
 static atomic<unsigned> num_workers(0);
-static scoped_timer_work_state working = WORKING;
 
 static void thread_func(scoped_timer_state *s) {
     workers.lock();
@@ -64,6 +63,7 @@ static void thread_func(scoped_timer_state *s) {
 
         while (!s->m_mutex.try_lock_until(end)) {
             if (std::chrono::steady_clock::now() >= end) {
+                scoped_timer_work_state working = WORKING;
                 if (s->work.compare_exchange_strong(working, EXPIRED)) {
                     s->eh->operator()(TIMEOUT_EH_CALLER);
                     s->work = IDLE;
@@ -115,6 +115,7 @@ public:
     }
 
     ~imp() {
+        scoped_timer_work_state working = WORKING;
         bool ret = s->work.compare_exchange_strong(working, IDLE);
         s->m_mutex.unlock();
         if (!ret) {
