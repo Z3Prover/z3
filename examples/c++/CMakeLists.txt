@@ -25,8 +25,11 @@ message(STATUS "Found Z3 ${Z3_VERSION_STRING}")
 message(STATUS "Z3_DIR: ${Z3_DIR}")
 
 add_executable(cpp_example example.cpp)
+add_executable(userPropagator userPropagator.cpp)
 target_include_directories(cpp_example PRIVATE ${Z3_CXX_INCLUDE_DIRS})
+target_include_directories(userPropagator PRIVATE ${Z3_CXX_INCLUDE_DIRS})
 target_link_libraries(cpp_example PRIVATE ${Z3_LIBRARIES})
+target_link_libraries(userPropagator PRIVATE ${Z3_LIBRARIES})
 
 if (CMAKE_SYSTEM_NAME MATCHES "[Ww]indows")
   # On Windows we need to copy the Z3 libraries
