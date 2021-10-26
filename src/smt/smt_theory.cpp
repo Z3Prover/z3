@@ -208,10 +208,11 @@ namespace smt {
     }
 
     void theory::log_axiom_instantiation(app * r, unsigned axiom_id, unsigned num_bindings, app * const * bindings, unsigned pattern_id, const vector<std::tuple<enode *, enode *>> & used_enodes) {
-        ast_manager & m = get_manager();
-        app_ref _r(r, m);
+        ast_manager & m = get_manager();   
+        SASSERT(r->get_ref_count() > 0);
         std::ostream& out = m.trace_stream();
         symbol const & family_name = m.get_family_name(get_family_id());
+
         if (pattern_id == UINT_MAX) {
             out << "[inst-discovered] theory-solving " << static_cast<void *>(nullptr) << " " << family_name << "#";
             if (axiom_id != UINT_MAX)
@@ -235,8 +236,8 @@ namespace smt {
                 enode *orig = std::get<0>(n);
                 enode *substituted = std::get<1>(n);
                 if (orig != nullptr) {
-                    quantifier_manager::log_justification_to_root(out, orig, already_visited, ctx, get_manager());
-                    quantifier_manager::log_justification_to_root(out, substituted, already_visited, ctx, get_manager());
+//                    quantifier_manager::log_justification_to_root(out, orig, already_visited, ctx, get_manager());
+//                    quantifier_manager::log_justification_to_root(out, substituted, already_visited, ctx, get_manager());
                 }
             }
             out << "[new-match] " << static_cast<void *>(nullptr) << " " << family_name << "#" << axiom_id << " " << family_name << "#" << pattern_id;

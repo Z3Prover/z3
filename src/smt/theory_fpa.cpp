@@ -215,11 +215,12 @@ namespace smt {
     }
 
     void theory_fpa::assert_cnstr(expr * e) {
+        expr_ref _e(e, m);
         if (m.is_true(e)) return;
         TRACE("t_fpa_detail", tout << "asserting " << mk_ismt2_pp(e, m) << "\n";);
         if (m.has_trace_stream()) log_axiom_instantiation(e);
         ctx.internalize(e, false);
-        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";        
         literal lit(ctx.get_literal(e));
         ctx.mark_as_relevant(lit);
         ctx.mk_th_axiom(get_id(), 1, &lit);
