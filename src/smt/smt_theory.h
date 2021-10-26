@@ -481,6 +481,7 @@ namespace smt {
         }
 
         void log_axiom_unit(app* r) {
+            expr_ref _r(r, m);
             log_axiom_instantiation(r);
             m.trace_stream() << "[end-of-instance]\n";
         }
