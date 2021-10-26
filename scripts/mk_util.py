@@ -2040,7 +2040,7 @@ class MLComponent(Component):
             out.write('\n')
             out.write('ml: %s.cma %s.cmxa %s.cmxs\n' % (z3mls, z3mls, z3mls))
             if IS_OSX:
-                out.write('\tinstall_name_tool -id libz3.dylib %s/libz3.dylib libz3.dylib\n' % (stubs_install_path))
+                out.write('\tinstall_name_tool -id %s/libz3.dylib libz3.dylib\n' % (stubs_install_path))
                 out.write('\tinstall_name_tool -change libz3.dylib %s/libz3.dylib api/ml/dllz3ml.so\n' % (stubs_install_path))                
             out.write('\n')
 
