@@ -59,8 +59,6 @@ jobs:
         make -j3
         make -j3 examples
         make -j3 test-z3
-        ./ml_example.byte
-        ./ml_example
         cd ..
     - script: eval `opam config env`; ocamlfind install z3 build/api/ml/* -dll build/libz3.*
     - script: |
@@ -94,8 +92,6 @@ jobs:
         make -j3
         make -j3 examples
         make -j3 test-z3
-        ./ml_example.byte
-        ./ml_example
         cd ..
     - script: eval `opam config env`; ocamlfind install z3-static build/api/ml/* build/libz3-static.a
     - script: |
@@ -316,8 +312,6 @@ jobs:
         make -j3
         make -j3 examples
         make -j3 test-z3
-        ./ml_example.byte
-        ./ml_example
         cd ..
     - script: eval `opam config env`; ocamlfind install z3 build/api/ml/* -dll build/libz3.*
     - script: |
