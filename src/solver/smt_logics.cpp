@@ -160,6 +160,6 @@ bool smt_logics::logic_has_pb(symbol const& s) {
 }
 
 bool smt_logics::logic_has_datatype(symbol const& s) {
-    return s == "QF_FD" || s == "QF_UFDT" || logic_is_all(s) || s == "QF_DT";
+    return s == "QF_FD" || s == "QF_UFDT" || logic_is_all(s) || s == "QF_DT" || logic_has_horn(s);
 }
 
