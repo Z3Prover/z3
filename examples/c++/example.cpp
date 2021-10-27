@@ -304,7 +304,7 @@ void error_example() {
         // The next call fails because x is a Boolean.
         expr n = x + 1;
     }
-    catch (exception ex) {
+    catch (exception & ex) {
         std::cout << "failed: " << ex << "\n";
     }
 
@@ -312,7 +312,7 @@ void error_example() {
     try {
         expr arg = to_expr(c, Z3_get_app_arg(c, x, 0));
     }
-    catch (exception ex) {
+    catch (exception & ex) {
         std::cout << "failed: " << ex << "\n";
     }
 }
