@@ -23,10 +23,10 @@ extern "C" {
 #endif // __cplusplus
 
     /** \defgroup capi C API */
-    /*@{*/
+    /**@{*/
 
     /** @name Fixedpoint facilities */
-    /*@{*/
+    /**@{*/
     /**
        \brief Create a new fixedpoint context.
 
@@ -373,8 +373,8 @@ extern "C" {
 
     void Z3_API Z3_fixedpoint_add_constraint (Z3_context c, Z3_fixedpoint d, Z3_ast e, unsigned lvl);
 
-    /*@}*/
-    /*@}*/
+    /**@}*/
+    /**@}*/
 
 #ifdef __cplusplus
 }

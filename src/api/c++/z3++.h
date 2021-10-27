@@ -36,12 +36,12 @@ Notes:
    \defgroup cppapi C++ API
 
 */
-/*@{*/
+/**@{*/
 
 /**
    @name C++ API classes and functions
 */
-/*@{*/
+/**@{*/
 
 /**
    \brief Z3 C++ namespace
@@ -4059,7 +4059,7 @@ namespace z3 {
 
 }
 
-/*@}*/
-/*@}*/
+/**@}*/
+/**@}*/
 #undef Z3_THROW
 

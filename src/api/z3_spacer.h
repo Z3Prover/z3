@@ -23,10 +23,10 @@ extern "C" {
 #endif // __cplusplus
 
     /** \defgroup capi C API */
-    /*@{*/
+    /**@{*/
 
     /** @name Spacer facilities */
-    /*@{*/
+    /**@{*/
     /**
         \brief Pose a query against the asserted rules at the given level.
 
@@ -132,8 +132,8 @@ extern "C" {
        Z3_ast_vector vars,
        Z3_ast body);
 
-    /*@}*/
-    /*@}*/
+    /**@}*/
+    /**@}*/
 
 #ifdef __cplusplus
 }
