@@ -15,7 +15,7 @@ Copyright (c) 2015 Microsoft Corporation
 /** 
    \defgroup maxsat_ex MaxSAT/MaxSMT examples
 */
-/*@{*/
+/**@{*/
 
 /**
    \brief Exit gracefully in case of error.
@@ -638,5 +638,5 @@ int main(int argc, char * argv[]) {
     return 0;
 }
 
-/*@}*/
+/**@}*/
 

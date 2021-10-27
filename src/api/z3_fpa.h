@@ -23,10 +23,10 @@ extern "C" {
 #endif // __cplusplus
 
     /** \defgroup capi C API */
-    /*@{*/
+    /**@{*/
 
     /** @name Floating-Point Arithmetic */
-    /*@{*/
+    /**@{*/
     /**
         \brief Create the RoundingMode sort.
 
@@ -841,7 +841,7 @@ extern "C" {
 
 
     /** @name Z3-specific floating-point extensions */
-    /*@{*/
+    /**@{*/
     /**
         \brief Retrieves the number of bits reserved for the exponent in a FloatingPoint sort.
 
@@ -1080,9 +1080,9 @@ extern "C" {
         def_API('Z3_mk_fpa_to_fp_int_real', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST),_in(SORT)))
     */
     Z3_ast Z3_API Z3_mk_fpa_to_fp_int_real(Z3_context c, Z3_ast rm, Z3_ast exp, Z3_ast sig, Z3_sort s);
-    /*@}*/
-    /*@}*/
-    /*@}*/
+    /**@}*/
+    /**@}*/
+    /**@}*/
 
 #ifdef __cplusplus
 }

@@ -25,10 +25,10 @@ extern "C" {
 #endif // __cplusplus
 
     /** \defgroup capi C API */
-    /*@{*/
+    /**@{*/
 
     /** @name Algebraic Numbers */
-    /*@{*/
+    /**@{*/
     /**
        \brief Return \c true if \c a can be used as value in the Z3 real algebraic
        number package.
@@ -240,8 +240,8 @@ extern "C" {
     */
     unsigned Z3_API Z3_algebraic_get_i(Z3_context c, Z3_ast a);
 
-    /*@}*/
-    /*@}*/
+    /**@}*/
+    /**@}*/
 
 #ifdef __cplusplus
 }
