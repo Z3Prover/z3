@@ -39,6 +39,7 @@ namespace seq {
 
     class eq_solver_context {
     public:
+        virtual ~eq_solver_context() = default;
         virtual void  add_consequence(bool uses_dep, expr_ref_vector const& clause) = 0;
         virtual void  add_solution(expr* var, expr* term) = 0;
         virtual expr* expr2rep(expr* e) = 0;

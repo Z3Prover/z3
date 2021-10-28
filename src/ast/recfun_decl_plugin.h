@@ -93,6 +93,7 @@ namespace recfun {
     // closure for computing whether a `rhs` expression is immediate
     struct is_immediate_pred {
         virtual bool operator()(expr * rhs) = 0;
+        virtual ~is_immediate_pred() = default;
     };
 
     class def {

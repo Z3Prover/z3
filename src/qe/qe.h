@@ -34,6 +34,7 @@ namespace qe {
 
     class i_nnf_atom {
     public:
+        virtual ~i_nnf_atom() = default;
         virtual void operator()(expr* e, bool pol, expr_ref& result) = 0;
     };
 

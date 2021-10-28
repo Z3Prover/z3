@@ -120,6 +120,8 @@ struct factorization_factory {
         m_vars(vars), m_monic(m) {
     }
 
+    virtual ~factorization_factory() = default;
+
     bool_vector get_mask() const {
         // we keep the last element always in the first factor to avoid
         // repeating a pair twice, that is why m_mask is shorter by one then m_vars

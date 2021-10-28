@@ -270,6 +270,7 @@ public:
     class check_value {
     public:
         virtual bool operator()(Value const& v) = 0;
+        virtual ~check_value() = default;
     };
 
     bool find_le(Key const* keys, check_value& check) {

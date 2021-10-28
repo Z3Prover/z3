@@ -23,6 +23,7 @@ Revision History:
 
 class is_variable_proc {
 public:
+    virtual ~is_variable_proc() = default;
     virtual bool operator()(const expr* e) const = 0;
 };
 

@@ -175,6 +175,8 @@ namespace upolynomial {
             m_current_size = 0;
         }
 
+        virtual ~factorization_combination_iterator_base() = default;
+
         /**
            \brief Returns the factors we are enumerating through.
         */

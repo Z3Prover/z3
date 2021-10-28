@@ -37,6 +37,7 @@ namespace realclosure {
 
     class mk_interval {
     public:
+        virtual ~mk_interval() = default;
         virtual void operator()(unsigned k, mpqi_manager & im, mpqi_manager::interval & r) = 0;
     };
 

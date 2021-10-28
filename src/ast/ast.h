@@ -1399,6 +1399,7 @@ inline bool has_labels(expr const * n) {
 class some_value_proc {
 public:
     virtual expr * operator()(sort * s) = 0;
+    virtual ~some_value_proc() = default;
 };
 
 // -----------------------------------
