@@ -238,15 +238,13 @@ void model::compress(bool force_inline) {
         top_sort ts(m);
         collect_deps(ts);
         ts.topological_sort();
-        for (func_decl * f : ts.top_sorted()) {
+        for (func_decl * f : ts.top_sorted())
             cleanup_interp(ts, f, force_inline);
-        }
 
         func_decl_set removed;
         ts.m_occur_count.reset();
-        for (func_decl * f : ts.top_sorted()) {
+        for (func_decl * f : ts.top_sorted()) 
             collect_occs(ts, f);
-        }
         
         // remove auxiliary declarations that are not used.
         for (func_decl * f : ts.top_sorted()) {
@@ -256,7 +254,8 @@ void model::compress(bool force_inline) {
                 removed.insert(f);
             }
         }
-        if (removed.empty()) break;
+        if (removed.empty())
+            break;
         TRACE("model", tout << "remove\n"; for (func_decl* f : removed) tout << f->get_name() << "\n";);
         remove_decls(m_decls, removed);
         remove_decls(m_func_decls, removed);
@@ -268,12 +267,14 @@ void model::compress(bool force_inline) {
 
 
 void model::collect_deps(top_sort& ts) {
-    for (auto const& kv : m_finterp) {
-        ts.insert(kv.m_key, collect_deps(ts, kv.m_value));
-    }
-    for (auto const& kv : m_interp) {
-        ts.insert(kv.m_key, collect_deps(ts, kv.m_value.second));
-    }
+    recfun::util u(m);
+    for (auto const& [f, v] : m_finterp) 
+        if (!u.has_def(f))
+            ts.insert(f, collect_deps(ts, v));
+        
+    for (auto const& [f,v] : m_interp)
+        if (!u.has_def(f))
+            ts.insert(f, collect_deps(ts, v.second));
 }
 
 struct model::deps_collector {
@@ -334,6 +335,7 @@ model::func_decl_set* model::collect_deps(top_sort& ts, func_interp * fi) {
 */
 
 void model::cleanup_interp(top_sort& ts, func_decl* f, bool force_inline) {
+    
     unsigned pid = ts.partition_id(f);
     expr * e1 = get_const_interp(f);
     if (e1) {

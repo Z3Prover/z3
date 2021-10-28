@@ -1828,9 +1828,8 @@ void cmd_context::add_declared_functions(model& mdl) {
                 mdl.register_decl(f, fi);
             }
         }
-        mdl.add_rec_funs();
     }
-    
+    mdl.add_rec_funs();    
 }
 
 void cmd_context::display_sat_result(lbool r) {
