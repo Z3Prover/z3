@@ -39,6 +39,10 @@ set(CLANG_WARNINGS_AS_ERRORS
   "-Werror=delete-non-virtual-dtor"
   # https://clang.llvm.org/docs/DiagnosticsReference.html#woverloaded-virtual
   "-Werror=overloaded-virtual"
+  # warn the user if a class with virtual functions has a
+  # non-virtual destructor. This helps catch hard to
+  # track down memory errors
+  "-Werror=non-virtual-dtor"
 )
 
 ################################################################################
