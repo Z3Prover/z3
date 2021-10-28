@@ -3940,6 +3940,8 @@ namespace z3 {
         virtual void push() = 0;
         virtual void pop(unsigned num_scopes) = 0;
 
+        virtual ~user_propagator_base() = default;
+
         /**
            \brief user_propagators created using \c fresh() are created during 
            search and their lifetimes are restricted to search time. They should
