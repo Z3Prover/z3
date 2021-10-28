@@ -43,6 +43,23 @@ set(CLANG_WARNINGS_AS_ERRORS
   # non-virtual destructor. This helps catch hard to
   # track down memory errors
   "-Werror=non-virtual-dtor"
+  # warn if a null dereference is detected
+  "-Werror=null-dereference"
+  # warn for potential performance problem casts
+  # "-Werror=cast-align"
+  # warn if float is implicit promoted to double
+  # "-Werror=double-promotion"
+  "-Werror=no-unreachable-code-return"
+  # warn the user if a variable declaration shadows one from a parent context
+  # "-Werror=shadow"
+  # warn for c-style casts
+  # "-Werror=old-style-cast"
+  # warn on sign conversions
+  # "-Werror=sign-conversion"
+  # warn on type conversions that may lose data
+  # "-Werror=conversion"
+  # warn on anything being unused
+  # "-Werror=unused"
 )
 
 ################################################################################
