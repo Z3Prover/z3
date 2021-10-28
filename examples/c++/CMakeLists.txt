@@ -28,6 +28,8 @@ add_executable(cpp_example example.cpp)
 target_include_directories(cpp_example PRIVATE ${Z3_CXX_INCLUDE_DIRS})
 target_link_libraries(cpp_example PRIVATE ${Z3_LIBRARIES})
 
+target_compile_options(cpp_example PRIVATE ${Z3_COMPONENT_CXX_FLAGS})
+
 if (CMAKE_SYSTEM_NAME MATCHES "[Ww]indows")
   # On Windows we need to copy the Z3 libraries
   # into the same directory as the executable
