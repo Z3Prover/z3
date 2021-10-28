@@ -1893,7 +1893,6 @@ namespace sat {
     void solver::init_ext_assumptions() {
         if (m_ext && m_ext->tracking_assumptions()) {
             m_ext_assumption_set.reset();
-            unsigned trail_size = m_trail.size();
             if (!inconsistent())
                 m_ext->add_assumptions(m_ext_assumption_set);
         }
