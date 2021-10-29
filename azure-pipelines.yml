@@ -132,7 +132,7 @@ jobs:
 #   - template: scripts/test-java-cmake.yml
 #   - template: scripts/test-regressions.yml
   
-- job: "Ubuntu16CMake"
+- job: "UbuntuCMake"
   displayName: "Ubuntu build - cmake"
   pool:
     vmImage: "Ubuntu-latest"
