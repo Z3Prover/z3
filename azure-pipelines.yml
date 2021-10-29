@@ -60,16 +60,20 @@ jobs:
         make -j3 examples
         make -j3 test-z3
         cd ..
-    - script: eval `opam config env`; ocamlfind install z3 build/api/ml/* -dll build/libz3.*
+    - script: eval `opam config env`; ocamlfind install z3 build/api/ml/* -dll build/libz3.*        
     - script: |
         set -e
+        set -x
         cd build
-        eval `opam config env`
+        eval `opam config env`;
         make -j3
+        ocamlopt -config
         make -j3 _ex_ml_example_post_install
+        ocamlopt -config
+        ldd ./ml_example_shared
+        ./ml_example_shared
         ./ml_example_shared.byte
         ./ml_example_shared_custom.byte
-        ./ml_example_shared
         cd ..
     - template: scripts/test-z3.yml
     - template: scripts/test-regressions.yml
@@ -93,16 +97,18 @@ jobs:
         make -j3 examples
         make -j3 test-z3
         cd ..
-    - script: eval `opam config env`; ocamlfind install z3-static build/api/ml/* build/libz3-static.a
+    - script: eval `opam config env`; ocamlfind install z3-static build/api/ml/* -dll build/libz3.*
     - script: |
         set -e
+        set -x
         cd build
-        eval `opam config env`
+        eval `opam config env`; 
         make -j3
         make -j3 _ex_ml_example_post_install
+        ldd ./ml_example_static
+        ./ml_example_static
         ./ml_example_static.byte
         ./ml_example_static_custom.byte
-        ./ml_example_static
         cd ..
     - template: scripts/test-z3.yml
     - template: scripts/test-regressions.yml

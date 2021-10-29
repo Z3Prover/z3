@@ -2322,7 +2322,7 @@ class MLExampleComponent(ExampleComponent):
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))
             out.write('\n')
-            out.write('\tocamlfind %s -o %s %s %s ' % (ocaml_compiler, debug_opt, testname, opam_z3_opts))
+            out.write('\teval `opam config env` ; ocamlfind %s -o %s %s %s ' % (ocaml_compiler, debug_opt, testname, opam_z3_opts))
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s/%s' % (self.to_ex_dir, mlfile))
             out.write('\n')
