@@ -3046,7 +3046,6 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
     auto nothing = [&]() { return expr_ref(re().mk_empty(r->get_sort()), m()); };
     auto epsilon = [&]() { return expr_ref(re().mk_epsilon(seq_sort), m()); };
     auto dotstar = [&]() { return expr_ref(re().mk_full_seq(r->get_sort()), m()); };
-    auto dotplus = [&]() { return expr_ref(re().mk_plus(re().mk_full_char(r->get_sort())), m()); };
     unsigned lo = 0, hi = 0;
     if (re().is_empty(r) || re().is_epsilon(r))
         // D(e,[]) = D(e,()) = []
@@ -3182,7 +3181,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
     else if (re().is_loop(r, r1, lo))
         result = mk_antimirov_deriv_concat(mk_antimirov_deriv(e, r1, path), re().mk_loop(r1, lo - 1));
     else if (re().is_loop(r, r1, lo, hi)) {
-        if (lo == 0 && hi == 0 || hi < lo)
+        if ((lo == 0 && hi == 0) || hi < lo)
             result = nothing();
         else
             result = mk_antimirov_deriv_concat(mk_antimirov_deriv(e, r1, path), re().mk_loop(r1, (lo == 0 ? 0 : lo - 1), hi - 1));
@@ -3260,7 +3259,7 @@ expr_ref seq_rewriter::mk_antimirov_deriv_concat(expr* d, expr* r) {
 }
 
 expr_ref seq_rewriter::mk_antimirov_deriv_negate(expr* d) {
-    sort* seq_sort = nullptr, * ele_sort = nullptr;
+    sort* seq_sort = nullptr;
     VERIFY(m_util.is_re(d, seq_sort));
     auto nothing = [&]() { return expr_ref(re().mk_empty(d->get_sort()), m()); };
     auto epsilon = [&]() { return expr_ref(re().mk_epsilon(seq_sort), m()); };
@@ -3404,7 +3403,7 @@ expr_ref  seq_rewriter::simplify_path(expr* path) {
             result = simplify_path(t);
         else if (m().is_true(t))
             result = simplify_path(h);
-        else if (m().is_eq(h, lhs, rhs) || m().is_not(h, h1) && m().is_eq(h1, lhs, rhs))
+        else if (m().is_eq(h, lhs, rhs) || (m().is_not(h, h1) && m().is_eq(h1, lhs, rhs)))
             elim_condition(lhs, result);
     }
     return result;

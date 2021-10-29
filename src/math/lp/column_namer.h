@@ -23,6 +23,7 @@ Revision History:
 namespace lp {
 class column_namer {
 public:
+    virtual ~column_namer() = default;
     virtual std::string get_variable_name(unsigned j) const = 0;
     template <typename T>
     std::ostream & print_row(const row_strip<T> & row, std::ostream & out) const {

@@ -23,6 +23,7 @@ Notes:
 
 class expr_predicate {
 public:
+    virtual ~expr_predicate() = default;
     virtual bool operator()(expr * t) = 0;
 };
 

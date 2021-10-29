@@ -50,6 +50,7 @@ namespace smt {
 
         class evaluator {
         public:
+            virtual ~evaluator() = default;
             virtual expr* eval(expr* n, bool model_completion) = 0;
         };
 

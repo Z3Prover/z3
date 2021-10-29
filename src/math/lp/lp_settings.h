@@ -99,6 +99,7 @@ template <typename X> bool is_epsilon_small(const X & v, const double& eps);    
 
 class lp_resource_limit {
 public:
+    virtual ~lp_resource_limit() = default;
     virtual bool get_cancel_flag() = 0;
 };
 

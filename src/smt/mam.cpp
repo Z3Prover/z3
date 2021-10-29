@@ -2091,7 +2091,6 @@ namespace {
         enode * n = m_registers[j2->m_reg]->get_root();
         if (n->get_num_parents() == 0)
             return nullptr;
-        unsigned num_args = n->get_num_args();
         enode_vector * v  = mk_enode_vector();
         enode_vector::const_iterator it1  = n->begin_parents();
         enode_vector::const_iterator end1 = n->end_parents();

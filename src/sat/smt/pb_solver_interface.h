@@ -35,6 +35,7 @@ namespace pb {
 
     class solver_interface {
     public:
+        virtual ~solver_interface() = default;
         virtual lbool value(bool_var v) const = 0;
         virtual lbool value(literal lit) const = 0;
         virtual bool is_false(literal lit) const = 0;

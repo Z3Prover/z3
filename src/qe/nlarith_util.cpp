@@ -989,6 +989,7 @@ namespace nlarith {
             imp& m_imp;
         public:
             isubst(imp& i) : m_imp(i) {}
+            virtual ~isubst() = default;
             virtual void mk_lt(poly const& p, app_ref& r) = 0;
             virtual void mk_eq(poly const& p, app_ref& r) = 0;
             virtual void mk_le(poly const& p, app_ref& r) { 

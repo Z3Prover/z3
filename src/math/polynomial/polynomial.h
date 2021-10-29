@@ -71,6 +71,7 @@ namespace polynomial {
     template<typename ValManager, typename Value = typename ValManager::numeral>
     class var2value {
     public:
+        virtual ~var2value() = default;
         virtual ValManager & m() const = 0;
         virtual bool contains(var x) const = 0;
         virtual Value const & operator()(var x) const = 0;
@@ -100,6 +101,7 @@ namespace polynomial {
 
     struct display_var_proc {
         virtual std::ostream& operator()(std::ostream & out, var x) const { return out << "x" << x; }
+        virtual ~display_var_proc() = default;
     };
 
     class polynomial;
@@ -228,6 +230,7 @@ namespace polynomial {
             del_eh * m_next;
         public:
             del_eh():m_next(nullptr) {}
+            virtual ~del_eh() = default;
             virtual void operator()(polynomial * p) = 0;
         };
 

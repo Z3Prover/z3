@@ -26,6 +26,7 @@ namespace opt {
    
     class pareto_callback {
     public:
+        virtual ~pareto_callback() = default;
         virtual unsigned num_objectives() = 0;
         virtual expr_ref mk_gt(unsigned i, model_ref& model) = 0;
         virtual expr_ref mk_ge(unsigned i, model_ref& model) = 0;

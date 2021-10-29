@@ -71,6 +71,7 @@ class asserted_formulas {
         char const*            m_id;
     public:
         simplify_fmls(asserted_formulas& af, char const* id): af(af), m(af.m), m_id(id) {}
+        virtual ~simplify_fmls() = default;
         char const* id() const { return m_id; }
         virtual void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) = 0;
         virtual bool should_apply() const { return true;}

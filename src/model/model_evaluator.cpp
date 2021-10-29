@@ -162,7 +162,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
         result_pr = nullptr;
         family_id fid = f->get_family_id();
         bool _is_uninterp = fid != null_family_id && m.get_plugin(fid)->is_considered_uninterpreted(f);
-        func_decl* g = nullptr;
         br_status st = BR_FAILED;
 #if 0
         struct pp {

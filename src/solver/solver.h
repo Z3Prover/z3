@@ -241,6 +241,7 @@ public:
 
     class propagate_callback {
     public:
+         virtual ~propagate_callback() = default;
         virtual void propagate_cb(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr* conseq) = 0;
     };
     class context_obj {
