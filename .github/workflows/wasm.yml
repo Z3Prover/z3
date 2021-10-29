@@ -16,8 +16,8 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Configure CMake and build
-      uses: mymindstorm/setup-emsdk@v9
-      run:  |
+    - uses: mymindstorm/setup-emsdk@v9
+    - run:  |
         mkdir build
         cd build
 
