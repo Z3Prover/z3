@@ -16,15 +16,19 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Configure CMake and build
+      uses: mymindstorm/setup-emsdk@v9
       run:  |
         mkdir build
         cd build
-        cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_SYSTEM_NAME=WASM -DCMAKE_SYSTEM_VERSION=21 
-        make -j $(nproc)
-        tar -cvf z3-build-wasm.tar *.jar *.so
-        
-    - name: Archive production artifacts
-      uses: actions/upload-artifact@v2
-      with:
-        name: build-wasm
-        path: build/z3-build-wasm.tar
+
+        emcmake cmake \
+          -DCMAKE_BUILD_TYPE=MinSizeRel \
+          -DCMAKE_INSTALL_PREFIX=/emsdk/upstream/emscripten/system \
+          -DZ3_BUILD_LIBZ3_SHARED=OFF \
+          -DZ3_ENABLE_EXAMPLE_TARGETS=OFF \
+          -DZ3_BUILD_TEST_EXECUTABLES=OFF \
+          -DZ3_BUILD_EXECUTABLE=OFF \
+          -DZ3_SINGLE_THREADED=ON \
+          -DCMAKE_CXX_FLAGS="-s DISABLE_EXCEPTION_CATCHING=0" \
+          ..; \
+        make ; make install; \
