@@ -33,7 +33,7 @@ jobs:
           -DCMAKE_CXX_FLAGS="-s DISABLE_EXCEPTION_CATCHING=0" \
           ..; 
         make
-        tar -cvf z3-build-wasm.tar *.jar *.so
+        tar -cvf z3-build-wasm.tar *.a
         
     - name: Archive production artifacts
       uses: actions/upload-artifact@v2
