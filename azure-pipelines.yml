@@ -61,16 +61,6 @@ jobs:
         make -j3 test-z3
         cd ..
     - script: eval `opam config env`; ocamlfind install z3 build/api/ml/* -dll build/libz3.*
-    - script: |
-        set -e
-        cd build
-        eval `opam config env`
-        make -j3
-        make -j3 _ex_ml_example_post_install
-        ./ml_example_shared.byte
-        ./ml_example_shared_custom.byte
-        ./ml_example_shared
-        cd ..
     - template: scripts/test-z3.yml
     - template: scripts/test-regressions.yml
     - template: scripts/generate-doc.yml
