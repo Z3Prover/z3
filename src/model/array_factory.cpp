@@ -38,7 +38,7 @@ array_factory::array_factory(ast_manager & m, model_core & md):
 }
 
 /**
-   \brieft Return as-array[f] where f is a fresh function symbol with the right domain and range for the array sort s.
+   \brief Return as-array[f] where f is a fresh function symbol with the right domain and range for the array sort s.
    Store in fi the function interpretation for f.
 */
 expr * array_factory::mk_array_interp(sort * s, func_interp * & fi) {
