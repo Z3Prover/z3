@@ -16,7 +16,7 @@
  * 3) Bit-Vector constraints + Simple solver + Adding contradictions in the propagator
  * 4) Constraints only implicit via the propagator + Simple solver + Adding contradictions in the propagator
  *
- * Runs 1 + 2 are done for comparision with 3 + 4
+ * Runs 1 + 2 are done for comparison with 3 + 4
  */
 
 using namespace std::chrono;
@@ -27,7 +27,7 @@ using std::to_string;
 
 #define SIZE(x) std::extent<decltype(x)>::value
 
-#if LOG
+#ifdef LOG
 #define WriteEmptyLine std::cout << std::endl
 #define WriteLine(x) std::cout << (x) << std::endl
 #define Write(x) std::cout << x
@@ -37,59 +37,14 @@ using std::to_string;
 #define Write(x)
 #endif
 
-class model {
-
-public:
-
-    unsigned *values;
-    unsigned cnt;
-
-    model(unsigned cnt) : cnt(cnt), values(nullptr) {
-        values = (unsigned*) malloc(sizeof(unsigned) * cnt);
-    }
-
-    ~model() {
-        free(values);
-        values = nullptr;
-    }
-
-    unsigned &operator[](const int id) {
-        return values[id];
-    }
-
-    void set(unsigned pos, unsigned value) const {
-        values[pos] = value;
-    }
-
-    bool operator==(const model &other) const {
-        if (cnt != other.cnt) {
-            return false;
-        }
-        for (unsigned i = 0; i < cnt; i++) {
-            if (values[i] != other.values[i]) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    bool operator!=(const model &other) const {
-        return !this->operator==(other);
-    }
-
-    model* clone() const {
-        model *newModel = new model(cnt);
-        memcpy(newModel->values, values, sizeof(unsigned) * cnt);
-        return newModel;
-    }
-};
+typedef std::vector<unsigned> model;
 
 struct model_hash_function {
     std::size_t operator()(const model &m) const {
         size_t hash = 0;
-        for (unsigned i = 0; i < m.cnt; i++) {
-            hash *= m.cnt;
-            hash += m.values[i];
+        for (unsigned i = 0; i < m.size(); i++) {
+            hash *= m.size();
+            hash += m[i];
         }
         return hash;
     }
@@ -99,12 +54,12 @@ class user_propagator : public z3::user_propagator_base {
 
 protected:
 
-    std::unordered_map<unsigned, unsigned> *id_mapping;
-    model *currentModel;
+    unsigned board;
+    std::unordered_map<unsigned, unsigned>& id_mapping;
+    model currentModel;
     std::unordered_set<model, model_hash_function> modelSet;
     std::vector<unsigned> fixedValues;
     std::stack<unsigned> fixedCnt;
-    unsigned board;
 
     int solutionId = 1;
 
@@ -116,20 +71,18 @@ public:
 
     void final() final {
         this->conflict((unsigned) fixedValues.size(), fixedValues.data());
-        if (modelSet.find(*currentModel) != modelSet.end()) {
+        if (modelSet.find(currentModel) != modelSet.end()) {
             WriteLine("Got already computed model");
             return;
         }
         Write("Model #" << solutionId << ":\n");
         solutionId++;
-        for (int i = 0; i < fixedValues.size(); i++) {
+        for (unsigned i = 0; i < fixedValues.size(); i++) {
             unsigned id = fixedValues[i];
-            WriteLine("q" + to_string((*id_mapping)[id]) + " = " + to_string((*currentModel)[id]));
+            WriteLine("q" + to_string(id_mapping[id]) + " = " + to_string(currentModel[id]));
         }
-        modelSet.insert(*currentModel);
+        modelSet.insert(currentModel);
         WriteEmptyLine;
-
-        currentModel = currentModel->clone();
     }
 
     static unsigned bvToInt(z3::expr e) {
@@ -139,22 +92,17 @@ public:
     void fixed(unsigned id, z3::expr const &e) override {
         fixedValues.push_back(id);
         unsigned value = bvToInt(e);
-        currentModel->set((*id_mapping)[id], value);
+        currentModel[id_mapping[id]] = value;
     }
 
-    user_propagator(z3::solver *s, std::unordered_map<unsigned, unsigned> *idMapping, unsigned board)
-            : user_propagator_base(s), id_mapping(idMapping), board(board) {
-
-        currentModel = new model(board);
+    user_propagator(z3::solver *s, std::unordered_map<unsigned, unsigned>& idMapping, unsigned board)
+            : user_propagator_base(s), board(board), id_mapping(idMapping), currentModel(board, (unsigned)-1) {
 
         this->register_fixed();
         this->register_final();
     }
 
-    ~user_propagator() {
-        delete currentModel;
-        currentModel = nullptr;
-    }
+    ~user_propagator() override = default;
 
     void push() override {
         fixedCnt.push((unsigned) fixedValues.size());
@@ -164,14 +112,14 @@ public:
         for (unsigned i = 0; i < num_scopes; i++) {
             unsigned lastCnt = fixedCnt.top();
             fixedCnt.pop();
-            for (unsigned j = (unsigned) fixedValues.size(); j > lastCnt; j--) {
-                currentModel->set(fixedValues[j - 1], -1);
+            for (auto j = fixedValues.size(); j > lastCnt; j--) {
+                currentModel[fixedValues[j - 1]] = (unsigned)-1;
             }
             fixedValues.resize(lastCnt);
         }
     }
 
-    user_propagator_base *fresh(Z3_context ctx) override { return this; }
+    user_propagator_base *fresh(Z3_context) override { return this; }
 };
 
 class user_propagator_with_theory : public user_propagator {
@@ -179,7 +127,7 @@ class user_propagator_with_theory : public user_propagator {
 public:
 
     void fixed(unsigned id, z3::expr const &e) override {
-        unsigned queenId = (*id_mapping)[id];
+        unsigned queenId = id_mapping[id];
         unsigned queenPos = bvToInt(e);
 
         if (queenPos >= board) {
@@ -188,8 +136,8 @@ public:
         }
 
         for (unsigned fixed : fixedValues) {
-            int otherId = (*id_mapping)[fixed];
-            int otherPos = (*currentModel)[fixed];
+            unsigned otherId = id_mapping[fixed];
+            unsigned otherPos = currentModel[fixed];
 
             if (queenPos == otherPos) {
                 const unsigned conflicting[] = {id, fixed};
@@ -197,8 +145,8 @@ public:
                 continue;
             }
 #ifdef QUEEN
-            int diffY = abs((int) queenId - otherId);
-            int diffX = abs((int) queenPos - otherPos);
+            int diffY = abs((int)queenId - (int)otherId);
+            int diffX = abs((int)queenPos - (int)otherPos);
             if (diffX == diffY) {
                 const unsigned conflicting[] = {id, fixed};
                 this->conflict(2, conflicting);
@@ -207,10 +155,10 @@ public:
         }
 
         fixedValues.push_back(id);
-        currentModel->set((*id_mapping)[id], queenPos);
+        currentModel[id_mapping[id]] = queenPos;
     }
 
-    user_propagator_with_theory(z3::solver *s, std::unordered_map<unsigned, unsigned> *idMapping, int board)
+    user_propagator_with_theory(z3::solver *s, std::unordered_map<unsigned, unsigned>& idMapping, unsigned board)
             : user_propagator(s, idMapping, board) {}
 };
 
@@ -240,7 +188,7 @@ std::vector<z3::expr> createQueens(z3::context &context, unsigned num) {
 }
 
 void createConstraints(z3::context &context, z3::solver &solver, const std::vector<z3::expr> &queens) {
-    for (int i = 0; i < queens.size(); i++) {
+    for (unsigned i = 0; i < queens.size(); i++) {
         // assert column range
         solver.add(z3::uge(queens[i], 0));
         solver.add(z3::ule(queens[i], (int) (queens.size() - 1)));
@@ -254,10 +202,10 @@ void createConstraints(z3::context &context, z3::solver &solver, const std::vect
     solver.add(z3::distinct(distinct));
 
 #ifdef QUEEN
-    for (int i = 0; i < queens.size(); i++) {
-        for (int j = i + 1; j < queens.size(); j++) {
-            solver.add((j - i) != (queens[j] - queens[i]));
-            solver.add((j - i) != (queens[i] - queens[j]));
+    for (unsigned i = 0; i < queens.size(); i++) {
+        for (unsigned j = i + 1; j < queens.size(); j++) {
+            solver.add((int)(j - i) != (queens[j] - queens[i]));
+            solver.add((int)(j - i) != (queens[i] - queens[j]));
         }
     }
 #endif
@@ -315,15 +263,15 @@ int test23(unsigned num, bool withTheory) {
 
     user_propagator *propagator;
     if (!withTheory) {
-        propagator = new user_propagator(&solver, &idMapping, num);
+        propagator = new user_propagator(&solver, idMapping, num);
     }
     else {
-        propagator = new user_propagator_with_theory(&solver, &idMapping, num);
+        propagator = new user_propagator_with_theory(&solver, idMapping, num);
     }
 
     std::vector<z3::expr> queens = createQueens(context, num);
 
-    for (int i = 0; i < queens.size(); i++) {
+    for (unsigned i = 0; i < queens.size(); i++) {
         unsigned id = propagator->add(queens[i]);
         idMapping[id] = i;
     }
@@ -348,7 +296,7 @@ inline int test3(unsigned num) {
 
 int main() {
 
-    for (int num = 4; num <= 12; num++) {
+    for (int num = 4; num <= 11; num++) {
 
         std::cout << "num = " << num << ":\n" << std::endl;
 
@@ -405,7 +353,7 @@ int main() {
 
         std::cout << "\n" << std::endl;
 
-        for (int i = 0; i < SIZE(permutation); i++) {
+        for (unsigned i = 0; i < SIZE(permutation); i++) {
             std::cout << testName[i];
             double sum = 0;
             for (int j = 0; j < REPETITIONS; j++) {

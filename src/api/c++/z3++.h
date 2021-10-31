@@ -4007,9 +4007,9 @@ namespace z3 {
         }
 
 
-        virtual void fixed(unsigned id, expr const& e) { }
+        virtual void fixed(unsigned /*id*/, expr const& /*e*/) { }
 
-        virtual void eq(unsigned x, unsigned y) { }
+        virtual void eq(unsigned /*x*/, unsigned /*y*/) { }
 
         virtual void final() { }
 
