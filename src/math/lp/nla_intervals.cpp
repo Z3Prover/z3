@@ -9,7 +9,7 @@ typedef enum dep_intervals::with_deps_t e_with_deps;
 const nex* intervals::get_inf_interval_child(const nex_sum& e) const {
     for (auto * c : e) {
         if (has_inf_interval(*c))
-            return c;        
+            return c;
     }
     return nullptr;
 }
@@ -19,7 +19,7 @@ bool intervals::mul_has_inf_interval(const nex_mul& e) const {
     for (const auto & p : e) {
         const nex &c = *p.e();
         if (!c.is_elementary())
-            return false; 
+            return false;
         if (has_zero_interval(c))
             return false;
         has_inf |= has_inf_interval(c);
@@ -30,13 +30,13 @@ bool intervals::mul_has_inf_interval(const nex_mul& e) const {
 bool intervals::has_inf_interval(const nex& e) const {
     if (e.is_var())
         return m_core->no_bounds(e.to_var().var());
-    if (e.is_mul()) 
-        return mul_has_inf_interval(e.to_mul());    
+    if (e.is_mul())
+        return mul_has_inf_interval(e.to_mul());
     if (e.is_scalar())
         return false;
-    for (auto * c : e.to_sum()) 
+    for (auto * c : e.to_sum())
         if (has_inf_interval(*c))
-            return true;            
+            return true;
     return false;
 }
 
@@ -49,7 +49,7 @@ const nex* intervals::get_zero_interval_child(const nex_mul& e) const {
     for (const auto & p : e) {
         const nex * c = p.e();
         if (has_zero_interval(*c))
-            return c;        
+            return c;
     }
     return nullptr;
 }
@@ -96,7 +96,7 @@ bool intervals::check_nex(const nex* n, u_dependency* initial_deps) {
     }
     scoped_dep_interval interv_wd(get_dep_intervals());
     interval_of_expr<e_with_deps::with_deps>(n, 1, interv_wd, f);
-    TRACE("nla_intervals", display_separating_interval(tout, n, interv_wd, initial_deps););    
+    TRACE("nla_intervals", display_separating_interval(tout, n, interv_wd, initial_deps););
     m_dep_intervals.check_interval_for_conflict_on_zero(interv_wd, initial_deps, f);
     return true;
 }
@@ -115,7 +115,7 @@ void intervals::add_linear_to_vector(const nex* e, vector<std::pair<rational, lp
     switch (e->type()) {
     case expr_type::MUL:
         add_mul_of_degree_one_to_vector(to_mul(e), v);
-        break; 
+        break;
     case expr_type::VAR:
         v.push_back(std::make_pair(rational(1), to_var(e)->var()));
         break;
@@ -156,7 +156,7 @@ lp::lar_term intervals::expression_to_normalized_term(const nex_sum* e, rational
     } else {
         for (unsigned k = 0; k < v.size(); k++) {
             auto& p = v[k];
-            if (k != a_index) 
+            if (k != a_index)
                 t.add_monomial(p.first/a, p.second);
             else
                 t.add_var(p.second);
@@ -226,13 +226,13 @@ std::ostream& intervals::display(std::ostream& out, const interval& i) const {
     if (m_dep_intervals.lower_is_inf(i)) {
         out << "(-oo";
     } else {
-        out << (m_dep_intervals.lower_is_open(i)? "(":"[") << rational(m_dep_intervals.lower(i));        
+        out << (m_dep_intervals.lower_is_open(i)? "(":"[") << rational(m_dep_intervals.lower(i));
     }
     out << ",";
     if (m_dep_intervals.upper_is_inf(i)) {
         out << "oo)";
     } else {
-        out << rational(m_dep_intervals.upper(i)) << (m_dep_intervals.upper_is_open(i)? ")":"]");         
+        out << rational(m_dep_intervals.upper(i)) << (m_dep_intervals.upper_is_open(i)? ")":"]");
     }
     svector<lp::constraint_index> expl;
     if (i.m_lower_dep) {
@@ -241,7 +241,7 @@ std::ostream& intervals::display(std::ostream& out, const interval& i) const {
     }
     if (i.m_upper_dep) {
         out << "\nupper deps\n";
-        print_dependencies(i.m_upper_dep, out);   
+        print_dependencies(i.m_upper_dep, out);
     }
     return out;
 }
@@ -315,7 +315,7 @@ bool intervals::interval_of_sum_no_term(const nex_sum& e, scoped_dep_interval & 
         SASSERT(m_dep_intervals.lower_is_inf(sdi) && m_dep_intervals.upper_is_inf(sdi));
         return true; // no conflict
     }
-    
+
     if (!interval_of_expr<wd>(e[0], 1, sdi, f))
         return false;
     for (unsigned k = 1; k < e.size(); k++) {
@@ -327,7 +327,7 @@ bool intervals::interval_of_sum_no_term(const nex_sum& e, scoped_dep_interval & 
         scoped_dep_interval  c(get_dep_intervals());
 
         TRACE("nla_intervals_details", tout << "sdi = "; display(tout, sdi) << "\nb = "; display(tout, b) << "\n";);
-        m_dep_intervals.add<wd>(sdi, b, c);        
+        m_dep_intervals.add<wd>(sdi, b, c);
         m_dep_intervals.set<wd>(sdi, c);
         TRACE("nla_intervals_details", tout << *e[k] << ", ";
               display(tout, sdi); tout << "\n";);
@@ -371,18 +371,18 @@ bool intervals::interval_of_sum(const nex_sum& e, scoped_dep_interval& a, const 
             scoped_dep_interval r(get_dep_intervals());
             m_dep_intervals.intersect<wd>(a, i_from_term, r);
             TRACE("nla_intervals_details", tout << "intersection="; display(tout, r) << "\n";);
-            
+
             if (m_dep_intervals.is_empty(r)) {
                 TRACE("nla_intervals_details", tout << "empty\n";);
                 if (wd == e_with_deps::with_deps) {
                     T expl;
                     if (conflict_u_l(a, i_from_term)) {
                         get_dep_intervals().linearize(a.get().m_upper_dep, expl);
-                        get_dep_intervals().linearize(r.get().m_lower_dep, expl);                        
+                        get_dep_intervals().linearize(r.get().m_lower_dep, expl);
                     } else {
                         get_dep_intervals().linearize(r.get().m_upper_dep, expl);
-                        get_dep_intervals().linearize(a.get().m_lower_dep, expl);                        
-                    }                        
+                        get_dep_intervals().linearize(a.get().m_lower_dep, expl);
+                    }
                     f(expl);
                 } else {
                     // need to recalculate the interval with dependencies
@@ -404,7 +404,7 @@ bool intervals::interval_of_mul(const nex_mul& e, scoped_dep_interval& a, const 
     if (zero_interval_child) {
         bool r = interval_of_expr<wd>(zero_interval_child, 1, a, f);
         SASSERT(r);
-        (void)r;        
+        (void)r;
         if(wd == e_with_deps::with_deps)
             set_zero_interval_deps_for_mult(a);
         TRACE("nla_intervals_details", tout << "zero_interval_child = " << *zero_interval_child << std::endl << "a = "; display(tout, a); );
@@ -470,7 +470,7 @@ bool intervals::interval_of_expr(const nex* e, unsigned p, scoped_dep_interval& 
         break;
     default:
         TRACE("nla_intervals_details", tout << e->type() << "\n";);
-        UNREACHABLE();        
+        UNREACHABLE();
     }
     return true; // no conflict
 }
@@ -480,6 +480,10 @@ lp::lar_solver& intervals::ls() { return m_core->m_lar_solver; }
 
 const lp::lar_solver& intervals::ls() const { return m_core->m_lar_solver; }
 
+// NOTE (robkelly): This needs to be added for HHVM compilation
+template void intervals::set_var_interval<dep_intervals::with_deps_t::with_deps>(
+    lpvar v, intervals::interval& b);
+template void intervals::set_var_interval<dep_intervals::with_deps_t::without_deps>(
+    lpvar v, intervals::interval& b);
 
 } // end of nla namespace
-
