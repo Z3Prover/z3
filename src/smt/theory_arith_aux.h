@@ -2239,17 +2239,17 @@ namespace smt {
 
         ctx.push_trail(value_trail<unsigned>(m_assume_eq_head));
         while (m_assume_eq_head < m_assume_eq_candidates.size()) {
-            std::pair<theory_var, theory_var> const & p = m_assume_eq_candidates[m_assume_eq_head];
-            theory_var v1 = p.first;
-            theory_var v2 = p.second;
+            auto const& [v1, v2] = m_assume_eq_candidates[m_assume_eq_head];
+            enode* n1 = get_enode(v1);
+            enode* n2 = get_enode(v2);
             m_assume_eq_head++;
             CTRACE("func_interp_bug", 
                    get_value(v1) == get_value(v2) && 
-                   get_enode(v1)->get_root() != get_enode(v2)->get_root(),
-                   tout << "assuming eq: #" << get_enode(v1)->get_owner_id() << " = #" << get_enode(v2)->get_owner_id() << "\n";);
+                   n1->get_root() != n2->get_root(),
+                   tout << "assuming eq: #" << n1->get_owner_id() << " = #" << n2->get_owner_id() << "\n";);
             if (get_value(v1) == get_value(v2) && 
-                get_enode(v1)->get_root() != get_enode(v2)->get_root() &&
-                assume_eq(get_enode(v1), get_enode(v2))) {
+                n1->get_root() != n2->get_root() &&
+                assume_eq(n1, n2)) {
                 ++m_stats.m_assume_eqs;
                 return true;
             }

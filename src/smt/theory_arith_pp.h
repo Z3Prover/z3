@@ -82,18 +82,17 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::display_row(std::ostream & out, row const & r, bool compact) const {
-        typename vector<row_entry>::const_iterator it  = r.begin_entries();
-        typename vector<row_entry>::const_iterator end = r.end_entries();
+        
         out << "(v" << r.get_base_var() << ") : ";
         bool first = true;
-        for (; it != end; ++it) {
-            if (!it->is_dead()) {
+        for (auto const& e : r) {
+            if (!e.is_dead()) {
                 if (first)
                     first = false;
                 else
                     out << " + ";
-                theory_var s      = it->m_var;
-                numeral const & c = it->m_coeff;
+                theory_var s      = e.m_var;
+                numeral const & c = e.m_coeff;
                 if (!c.is_one())
                     out << c << "*";
                 if (compact) {
@@ -103,7 +102,7 @@ namespace smt {
                     }
                 }
                 else
-                    display_var_flat_def(out, s);
+                    out << enode_pp(get_enode(s), ctx);
             }
         }
         out << "\n";
@@ -117,20 +116,16 @@ namespace smt {
         else
             out << "rows (expanded view):\n";
         unsigned num = m_rows.size();
-        for (unsigned r_id = 0; r_id < num; r_id++) {
-            if (m_rows[r_id].m_base_var != null_theory_var) {
+        for (unsigned r_id = 0; r_id < num; r_id++) 
+            if (m_rows[r_id].m_base_var != null_theory_var) 
                 display_row(out, r_id, compact);
-            }
-        }
     }
 
     template<typename Ext>
     void theory_arith<Ext>::display_row_shape(std::ostream & out, row const & r) const {
-        typename vector<row_entry>::const_iterator it  = r.begin_entries();
-        typename vector<row_entry>::const_iterator end = r.end_entries();
-        for (; it != end; ++it) {
-            if (!it->is_dead()) {
-                numeral const & c = it->m_coeff;
+        for (auto const& e : r) {
+            if (!e.is_dead()) {
+                numeral const & c = e.m_coeff;
                 if (c.is_one())
                     out << "1";
                 else if (c.is_minus_one())
@@ -150,11 +145,9 @@ namespace smt {
 
     template<typename Ext>
     bool theory_arith<Ext>::is_one_minus_one_row(row const & r) const {
-        typename vector<row_entry>::const_iterator it  = r.begin_entries();
-        typename vector<row_entry>::const_iterator end = r.end_entries();
-        for (; it != end; ++it) {
-            if (!it->is_dead()) {
-                numeral const & c = it->m_coeff;
+        for (auto const& e : r) {
+            if (!e.is_dead()) {
+                numeral const & c = e.m_coeff;
                 if (!c.is_one() && !c.is_minus_one())
                     return false;
             }
@@ -184,11 +177,9 @@ namespace smt {
         for (unsigned r_id = 0; r_id < num; r_id++) {
             row const & r = m_rows[r_id];
             if (r.m_base_var != null_theory_var) {
-                typename vector<row_entry>::const_iterator it  = r.begin_entries();
-                typename vector<row_entry>::const_iterator end = r.end_entries();
-                for (; it != end; ++it) {
-                    if (!it->is_dead()) {
-                        numeral const & c = it->m_coeff;
+                for (auto const& e : r) {
+                    if (!e.is_dead()) {
+                        numeral const & c = e.m_coeff;
                         if (c.to_rational().is_big()) {
                             std::string str = c.to_rational().to_string();
                             if (str.length() > 48) 
@@ -215,11 +206,9 @@ namespace smt {
             row const & r = m_rows[r_id];
             if (r.m_base_var != null_theory_var) {
                 num_rows++;
-                typename vector<row_entry>::const_iterator it  = r.begin_entries();
-                typename vector<row_entry>::const_iterator end = r.end_entries();
-                for (; it != end; ++it) {
-                    if (!it->is_dead()) {
-                        numeral const & c = it->m_coeff;
+                for (auto const& e : r) {
+                    if (!e.is_dead()) {
+                        numeral const & c = e.m_coeff;
                         num_non_zeros++;
                         if (c.is_one())
                             num_ones++;
@@ -284,11 +273,9 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::display_row_info(std::ostream & out, row const & r) const {
         display_row(out, r, true);
-        typename vector<row_entry>::const_iterator it  = r.begin_entries();
-        typename vector<row_entry>::const_iterator end = r.end_entries();
-        for (; it != end; ++it) 
-            if (!it->is_dead())
-                display_var(out, it->m_var);
+        for (auto const& e : r) 
+            if (!e.is_dead())
+                display_var(out, e.m_var);
     }
 
     /**
@@ -298,15 +285,14 @@ namespace smt {
     void theory_arith<Ext>::display_simplified_row(std::ostream & out, row const & r) const {
         bool has_rat_coeff = false;
         numeral k;
-        typename vector<row_entry>::const_iterator it  = r.begin_entries();
-        typename vector<row_entry>::const_iterator end = r.end_entries();
+        
         out << "(v" << r.get_base_var() << ") : ";
         bool first = true;
-        for (; it != end; ++it) {
-            if (it->is_dead())
+        for (auto const& e : r) {
+            if (e.is_dead())
                 continue;
-            theory_var v      = it->m_var;
-            numeral const & c = it->m_coeff;
+            theory_var v      = e.m_var;
+            numeral const & c = e.m_coeff;
             if (is_fixed(v)) {
                 k += c * lower_bound(v).get_rational(); 
                 continue;
@@ -328,11 +314,9 @@ namespace smt {
         }
         out << "\n";
         if (has_rat_coeff) {
-            typename vector<row_entry>::const_iterator it  = r.begin_entries();
-            typename vector<row_entry>::const_iterator end = r.end_entries();
-            for (; it != end; ++it) 
-                if (!it->is_dead() && (is_base(it->m_var) || (!is_fixed(it->m_var) && (lower(it->m_var) || upper(it->m_var)))))
-                    display_var(out, it->m_var);
+            for (auto const& e : r) 
+                if (!e.is_dead() && (is_base(e.m_var) || (!is_fixed(e.m_var) && (lower(e.m_var) || upper(e.m_var)))))
+                    display_var(out, e.m_var);
         }
     }
 
@@ -385,8 +369,7 @@ namespace smt {
         out << ", shared: " << get_context().is_shared(get_enode(v));
         out << ", unassigned: " << m_unassigned_atoms[v];
         out << ", rel: " << get_context().is_relevant(get_enode(v));
-        out << ", def: ";
-        display_var_flat_def(out, v);
+        out << ", def: " << enode_pp(get_enode(v), ctx);
         out << "\n";
     }
 
@@ -477,28 +460,17 @@ namespace smt {
         theory_var      v = a->get_var();
         inf_numeral const & k = a->get_k();
         enode *         e = get_enode(v);
-        if (show_sign) {
-            if (!a->is_true()) 
-                out << "not ";
-            else 
-                out << "    ";
-        }
+        if (show_sign)
+            out << (a->is_true()?"    ":"not ");
         out << "v";
         out.width(3);
         out << std::left << v << " #";
         out.width(3);
         out << e->get_owner_id();
         out << std::right;
-        out << " ";
-        if (a->get_atom_kind() == A_LOWER)
-            out << ">=";
-        else
-            out << "<=";
-        out << " ";
+        out << " " << ((a->get_atom_kind() == A_LOWER)? ">=" : "<=") << " ";
         out.width(6);
-        out << k << "    ";
-        display_var_flat_def(out, v);
-        out << "\n";
+        out << k << "    " << enode_pp(get_enode(v), ctx) << "\n";
     }
 
     template<typename Ext>

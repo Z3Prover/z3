@@ -301,26 +301,27 @@ namespace arith {
         m_explanation.add_pair(j, v);
     }
 
-    void solver::add_eq(lpvar u, lpvar v, lp::explanation const& e) {
+    bool solver::add_eq(lpvar u, lpvar v, lp::explanation const& e, bool is_fixed) {
         if (s().inconsistent())
-            return;
+            return false;
         theory_var uv = lp().local_to_external(u); // variables that are returned should have external representations
         theory_var vv = lp().local_to_external(v); // so maybe better to have them already transformed to external form
         if (is_equal(uv, vv))
-            return;
+            return false;
         enode* n1 = var2enode(uv);
         enode* n2 = var2enode(vv);
         expr* e1 = n1->get_expr();
         expr* e2 = n2->get_expr();
-        if (m.is_ite(e1) || m.is_ite(e2))
-            return;
+        if (!is_fixed && !a.is_numeral(e1) && !a.is_numeral(e2) && (m.is_ite(e1) || m.is_ite(e2)))
+            return false;
         if (e1->get_sort() != e2->get_sort())
-            return;
+            return false;
         reset_evidence();
         for (auto ev : e)
             set_evidence(ev.ci(), m_core, m_eqs);
         auto* jst = euf::th_explain::propagate(*this, m_core, m_eqs, n1, n2);
         ctx.propagate(n1, n2, jst->to_index());
+        return true;
     }
 
     bool solver::bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational& bval) const {

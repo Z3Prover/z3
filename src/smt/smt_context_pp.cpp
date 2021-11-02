@@ -262,22 +262,30 @@ namespace smt {
     }
 
     void context::display_eqc(std::ostream & out) const {
-        bool first = true;
-        for (enode * x : m_enodes) {
-            expr * n = x->get_expr();
-            expr * r = x->get_root()->get_expr();
-            if (n != r) {
-                if (first) {
-                    out << "equivalence classes:\n";
-                    first = false;
-                }
-                out << "#" << n->get_id() << " -> #" << r->get_id() << ": ";
-                out << mk_pp(n, m) << " -> " << mk_pp(r, m) << "\n";
+        if (m_enodes.empty())
+            return;
+        unsigned count = 0;
+        for (enode * r : m_enodes) 
+            if (r->is_root())
+                ++count;
+            
+        out << "equivalence classes: " << count << "\n";        
+        for (enode * r : m_enodes) {
+            if (!r->is_root())
+                continue;
+            out << "#" << enode_pp(r, *this) << "\n";
+            if (r->get_class_size() == 1)
+                continue;
+            for (enode* n : *r) {
+                if (n != r)
+                    out << "   #" << enode_pp(n, *this) << "\n";
             }
         }
     }
 
     void context::display_app_enode_map(std::ostream & out) const {
+        return;
+        // mainly useless 
         if (!m_e_internalized_stack.empty()) {
             out << "expression -> enode:\n";
             unsigned sz = m_e_internalized_stack.size();

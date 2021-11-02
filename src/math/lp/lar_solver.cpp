@@ -16,6 +16,9 @@ namespace lp {
 
     lp_settings const& lar_solver::settings() const { return m_settings; }
 
+    statistics& lar_solver::stats() { return m_settings.stats(); }
+
+
     void lar_solver::updt_params(params_ref const& _p) {
         smt_params_helper p(_p);
         set_track_pivoted_rows(p.arith_bprop_on_pivoted_rows());
@@ -23,17 +26,9 @@ namespace lp {
         m_settings.updt_params(_p);
     }
 
-
-    void clear() {
-        lp_assert(false); // not implemented
-    }
-
     lar_solver::lar_solver() :
-        m_status(lp_status::UNKNOWN),
         m_crossed_bounds_column(-1),
         m_mpq_lar_core_solver(m_settings, *this),
-        m_int_solver(nullptr),
-        m_need_register_terms(false),
         m_var_register(false),
         m_term_register(true),
         m_constraints(*this) {}
@@ -197,11 +192,11 @@ namespace lp {
     void lar_solver::set_status(lp_status s) { m_status = s; }
 
     lp_status lar_solver::find_feasible_solution() {
-        m_settings.stats().m_make_feasible++;
-        if (A_r().column_count() > m_settings.stats().m_max_cols)
-            m_settings.stats().m_max_cols = A_r().column_count();
-        if (A_r().row_count() > m_settings.stats().m_max_rows)
-            m_settings.stats().m_max_rows = A_r().row_count();
+        stats().m_make_feasible++;
+        if (A_r().column_count() > stats().m_max_cols)
+            stats().m_max_cols = A_r().column_count();
+        if (A_r().row_count() > stats().m_max_rows)
+            stats().m_max_rows = A_r().row_count();
         if (strategy_is_undecided())
             decide_on_strategy_and_adjust_initial_state();
 
@@ -248,7 +243,7 @@ namespace lp {
         m_constraints.push();
         m_usage_in_terms.push();
     }
-
+    
     void lar_solver::clean_popped_elements(unsigned n, u_set& set) {
         vector<int> to_remove;
         for (unsigned j : set)
@@ -269,9 +264,8 @@ namespace lp {
         m_crossed_bounds_column.pop(k);
         unsigned n = m_columns_to_ul_pairs.peek_size(k);
         m_var_register.shrink(n);
-        if (m_settings.use_tableau()) {
+        if (m_settings.use_tableau()) 
             pop_tableau();
-        }
         lp_assert(A_r().column_count() == n);
         TRACE("lar_solver_details",
             for (unsigned j = 0; j < n; j++) {
@@ -284,6 +278,10 @@ namespace lp {
         remove_non_fixed_from_fixed_var_table();
         clean_popped_elements(n, m_columns_with_changed_bounds);
         clean_popped_elements(n, m_incorrect_columns);
+
+        for (auto rid : m_row_bounds_to_replay)
+            insert_row_with_changed_bounds(rid);
+        m_row_bounds_to_replay.reset();
 
         unsigned m = A_r().row_count();
         clean_popped_elements(m, m_rows_with_changed_bounds);
@@ -633,6 +631,9 @@ namespace lp {
                 left_side.push_back(std::make_pair(p.second, p.first));
     }
 
+    void lar_solver::insert_row_with_changed_bounds(unsigned rid) {
+        m_rows_with_changed_bounds.insert(rid);
+    }
 
     void lar_solver::detect_rows_of_bound_change_column_for_nbasic_column(unsigned j) {
         if (A_r().row_count() != m_column_buffer.data_size())
@@ -643,14 +644,14 @@ namespace lp {
 
         m_mpq_lar_core_solver.m_r_solver.solve_Bd(j, m_column_buffer);
         for (unsigned i : m_column_buffer.m_index)
-            m_rows_with_changed_bounds.insert(i);
+            insert_row_with_changed_bounds(i);
     }
 
 
 
     void lar_solver::detect_rows_of_bound_change_column_for_nbasic_column_tableau(unsigned j) {
         for (auto& rc : m_mpq_lar_core_solver.m_r_A.m_columns[j])
-            m_rows_with_changed_bounds.insert(rc.var());
+            insert_row_with_changed_bounds(rc.var());
     }
 
     bool lar_solver::use_tableau() const { return m_settings.use_tableau(); }
@@ -743,7 +744,7 @@ namespace lp {
 
     void lar_solver::detect_rows_with_changed_bounds_for_column(unsigned j) {
         if (m_mpq_lar_core_solver.m_r_heading[j] >= 0) {
-            m_rows_with_changed_bounds.insert(m_mpq_lar_core_solver.m_r_heading[j]);
+            insert_row_with_changed_bounds(m_mpq_lar_core_solver.m_r_heading[j]);
             return;
         }
 
@@ -793,7 +794,7 @@ namespace lp {
             update_x_and_inf_costs_for_columns_with_changed_bounds();
         m_mpq_lar_core_solver.solve();
         set_status(m_mpq_lar_core_solver.m_r_solver.get_status());
-        lp_assert(((m_settings.stats().m_make_feasible% 100) != 0) || m_status != lp_status::OPTIMAL || all_constraints_hold());
+        lp_assert(((stats().m_make_feasible% 100) != 0) || m_status != lp_status::OPTIMAL || all_constraints_hold());
     }
 
 
@@ -974,9 +975,7 @@ namespace lp {
 
     bool lar_solver::the_left_sides_sum_to_zero(const vector<std::pair<mpq, unsigned>>& evidence) const {
         std::unordered_map<var_index, mpq> coeff_map;
-        for (auto& it : evidence) {
-            mpq coeff = it.first;
-            constraint_index con_ind = it.second;
+        for (auto const & [coeff, con_ind] : evidence) {
             lp_assert(m_constraints.valid_index(con_ind));
             register_in_map(coeff_map, m_constraints[con_ind], coeff);
         }
@@ -1337,7 +1336,7 @@ namespace lp {
     void lar_solver::mark_rows_for_bound_prop(lpvar j) {
         auto& column = A_r().m_columns[j];
         for (auto const& r : column) 
-            m_rows_with_changed_bounds.insert(r.var());        
+            insert_row_with_changed_bounds(r.var());        
     }
 
 
@@ -1659,7 +1658,7 @@ namespace lp {
             m_mpq_lar_core_solver.m_r_heading.push_back(m_mpq_lar_core_solver.m_r_basis.size());
             m_mpq_lar_core_solver.m_r_basis.push_back(j);
             if (m_settings.bound_propagation())
-                m_rows_with_changed_bounds.insert(A_r().row_count() - 1);
+                insert_row_with_changed_bounds(A_r().row_count() - 1);
         }
         else {
             m_mpq_lar_core_solver.m_r_heading.push_back(-static_cast<int>(m_mpq_lar_core_solver.m_r_nbasis.size()) - 1);
@@ -1755,7 +1754,7 @@ namespace lp {
         if (use_tableau() && !coeffs.empty()) {
             add_row_from_term_no_constraint(m_terms.back(), ret);
             if (m_settings.bound_propagation())
-                m_rows_with_changed_bounds.insert(A_r().row_count() - 1);
+                insert_row_with_changed_bounds(A_r().row_count() - 1);
         }
         lp_assert(m_var_register.size() == A_r().column_count());
         if (m_need_register_terms) {
