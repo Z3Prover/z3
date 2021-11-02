@@ -107,6 +107,24 @@ ExternalProject_Add(z3_tptp5
 set_target_properties(z3_tptp5 PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
 ################################################################################
+# Build example user-propagator project using libz3's C++ API as an external project
+################################################################################
+ExternalProject_Add(userPropagator
+        DEPENDS libz3
+        # Configure step
+        SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/userPropagator"
+        CMAKE_ARGS
+        "-DZ3_DIR=${PROJECT_BINARY_DIR}"
+        "${EXTERNAL_PROJECT_CMAKE_BUILD_TYPE_ARG}"
+        # Build step
+        ${EXTERNAL_PROJECT_BUILD_ALWAYS_ARG}
+        BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/userPropagator_build_dir"
+        # Install Step
+        INSTALL_COMMAND "${CMAKE_COMMAND}" -E echo "" # Dummy command
+        )
+set_target_properties(userPropagator PROPERTIES EXCLUDE_FROM_ALL TRUE)
+
+################################################################################
 # Build Python examples
 ################################################################################
 if (Z3_BUILD_PYTHON_BINDINGS)

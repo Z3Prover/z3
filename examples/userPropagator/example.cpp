@@ -77,10 +77,12 @@ public:
         }
         Write("Model #" << solutionId << ":\n");
         solutionId++;
+#ifdef LOG
         for (unsigned i = 0; i < fixedValues.size(); i++) {
             unsigned id = fixedValues[i];
             WriteLine("q" + to_string(id_mapping[id]) + " = " + to_string(currentModel[id]));
         }
+#endif
         modelSet.insert(currentModel);
         WriteEmptyLine;
     }
@@ -102,7 +104,7 @@ public:
         this->register_final();
     }
 
-    ~user_propagator() override = default;
+    virtual ~user_propagator() = default;
 
     void push() override {
         fixedCnt.push((unsigned) fixedValues.size());
