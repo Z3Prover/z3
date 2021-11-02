@@ -425,11 +425,13 @@ namespace polysat {
         new_constraints.push_back(c.as_signed_constraint());
         if (c.is_strict) {
             new_constraints.push_back(s.ule(l_val, c.lhs));
-            return propagate(core, c, c, s.ult(r_val, c.rhs), new_constraints);
+            auto conseq = s.ult(r_val, c.rhs);
+            return propagate(core, c, c, conseq, new_constraints);
         }
         else {
             new_constraints.push_back(s.ule(c.rhs, r_val));
-            return propagate(core, c, c, s.ule(c.lhs, r_val), new_constraints);
+            auto conseq = s.ule(c.lhs, r_val);
+            return propagate(core, c, c, conseq, new_constraints);
         }
     }
 
