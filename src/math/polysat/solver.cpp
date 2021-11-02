@@ -489,7 +489,7 @@ namespace polysat {
     */
     void solver::resolve_bool(sat::literal lit) {       
         SASSERT(m_bvars.is_propagation(lit.var()));
-        clause other = *m_bvars.reason(lit.var());
+        clause const& other = *m_bvars.reason(lit.var());
         LOG_H3("resolve_bool: " << lit << " " << other);
         m_conflict.resolve(m_constraints, lit, other);
     }
@@ -518,7 +518,8 @@ namespace polysat {
         SASSERT(!lemma.empty());
         lemma.set_justified_var(v);
         add_lemma(lemma);
-        decide_bool(lemma);
+        if (!is_conflict())
+            decide_bool(lemma);
     }
 
     // Guess a literal from the given clause; returns the guessed constraint

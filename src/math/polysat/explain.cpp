@@ -146,7 +146,7 @@ namespace polysat {
                 if (!c2->has_bvar() || l_undef == c2.bvalue(s))
                     core.keep(c2);  // adds propagation of c to the search stack
                 core.reset();
-                LOG("reduced to " << c2);
+                LOG_H3("Polynomial superposition " << eq << " " << c << " reduced to " << c2);
                 if (c2.bvalue(s) == l_false) {
                     core.insert(eq);
                     core.insert(c);
@@ -161,12 +161,10 @@ namespace polysat {
     }
 
     bool ex_polynomial_superposition::try_explain(pvar v, conflict& core) {
-        LOG_H3("Trying polynomial superposition...");
         reduce_by(v, core);
         lbool result = l_undef;
         while (result == l_undef)
             result = try_explain1(v, core);
-        LOG("success? " << result);
         return result == l_true;
     }
 
