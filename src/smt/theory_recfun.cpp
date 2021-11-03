@@ -254,14 +254,16 @@ namespace smt {
             ctx.internalize_assertions();
             lit = mk_literal(fn);
         }
-        else if (m.is_true(r) || m.is_false(r)) 
-            std::swap(l, r);        
-        else if (m.is_true(l)) 
-            lit = mk_literal(r);        
-        else if (m.is_false(l)) 
-            lit = ~mk_literal(r);        
-        else 
-            lit = mk_eq(l, r, false);                
+        else {
+            if (m.is_true(r) || m.is_false(r))
+                std::swap(l, r);
+            if (m.is_true(l))
+                lit = mk_literal(r);
+            else if (m.is_false(l))
+                lit = ~mk_literal(r);
+            else
+                lit = mk_eq(l, r, false);
+        }
         ctx.mark_as_relevant(lit);
         return lit;
     }
