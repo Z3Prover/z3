@@ -191,7 +191,7 @@ namespace polysat {
 
         SASSERT(lit != sat::null_literal);
         SASSERT(~lit != sat::null_literal);
-        SASSERT(std::all_of(m_constraints.begin(), m_constraints.end(), [](auto c){ return !c->has_bvar(); }));
+        SASSERT(std::all_of(m_constraints.begin(), m_constraints.end(), [](signed_constraint const& c){ return !c->has_bvar(); }));
         SASSERT(contains_literal(lit));
         SASSERT(std::count(cl.begin(), cl.end(), lit) > 0);
         SASSERT(!contains_literal(~lit));
@@ -219,7 +219,7 @@ namespace polysat {
 
     clause_builder conflict::build_lemma() {
         SASSERT(std::all_of(m_vars.begin(), m_vars.end(), [&](pvar v) { return s.is_assigned(v); }));
-        SASSERT(std::all_of(m_constraints.begin(), m_constraints.end(), [](auto c) { return !c->has_bvar(); }));
+        SASSERT(std::all_of(m_constraints.begin(), m_constraints.end(), [](signed_constraint const& c) { return !c->has_bvar(); }));
 
         LOG_H3("Build lemma from core");
         LOG("core: " << *this);

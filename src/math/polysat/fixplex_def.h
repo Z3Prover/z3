@@ -1335,7 +1335,7 @@ namespace polysat {
     template<typename Ext>
     bool fixplex<Ext>::propagate_strict_bounds(ineq const& i) {
         var_t v = i.v, w = i.w;
-        bool s = i.strict;
+        //bool s = i.strict;
         auto* vlo = m_vars[v].m_lo_dep, *vhi = m_vars[v].m_hi_dep;
         auto* wlo = m_vars[w].m_lo_dep, *whi = m_vars[w].m_hi_dep;
 
@@ -1363,7 +1363,7 @@ namespace polysat {
     template<typename Ext>
     bool fixplex<Ext>::propagate_non_strict_bounds(ineq const& i) {
         var_t v = i.v, w = i.w;
-        bool s = i.strict;
+        // bool s = i.strict;
         auto* vlo = m_vars[v].m_lo_dep, *vhi = m_vars[v].m_hi_dep;
         auto* wlo = m_vars[w].m_lo_dep, *whi = m_vars[w].m_hi_dep;
 

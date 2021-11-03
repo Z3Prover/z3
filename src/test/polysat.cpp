@@ -876,23 +876,27 @@ namespace polysat {
     }
 
     // x*y <= b & a <= x & !Omega(x*y) => a*y <= b
-    static void test_ineq_non_axiom4(unsigned bw = 32) {
+    static void test_ineq_non_axiom4(unsigned bw, unsigned i) {
         auto const bound = rational::power_of_two(bw - 1);
-        for (unsigned i = 0; i < 24; ++i) {
-            scoped_solver s(__func__);
-            auto x = s.var(s.add_var(bw));
-            auto y = s.var(s.add_var(bw));
-            auto a = s.var(s.add_var(bw));
-            auto b = s.var(s.add_var(bw));
-            permute_args(i, x, y, a, b);
-            s.add_ule(x * y, b);
-            s.add_ule(a, x);
-            s.add_ult(x, bound);
-            s.add_ult(y, bound);
-            s.add_ult(b, a * y);
-            s.check();
-            s.expect_sat();
-        }
+        scoped_solver s(__func__);
+        LOG("permutation: " << i);
+        auto x = s.var(s.add_var(bw));
+        auto y = s.var(s.add_var(bw));
+        auto a = s.var(s.add_var(bw));
+        auto b = s.var(s.add_var(bw));
+        permute_args(i, x, y, a, b);
+        s.add_ule(x * y, b);
+        s.add_ule(a, x);
+        s.add_ult(x, bound);
+        s.add_ult(y, bound);
+        s.add_ult(b, a * y);
+        s.check();
+        s.expect_sat();
+    }
+    
+    static void test_ineq_non_axiom4(unsigned bw = 32) {
+        for (unsigned i = 0; i < 24; ++i)
+            test_ineq_non_axiom4(bw, i);
     }
 
     // a < xy & x <= b  & !Omega(x*y) => a < b*y
@@ -1063,8 +1067,8 @@ void tst_polysat() {
 //    polysat::test_ineq_axiom1();
 //    polysat::test_ineq_axiom2();
 //    polysat::test_ineq_axiom3();
-    polysat::test_ineq_non_axiom1();
-    polysat::test_ineq_non_axiom4();
+ //   polysat::test_ineq_non_axiom1();
+    polysat::test_ineq_non_axiom4(32, 5);
     polysat::test_ineq_axiom4();
     polysat::test_ineq_axiom5();
     polysat::test_ineq_axiom6();

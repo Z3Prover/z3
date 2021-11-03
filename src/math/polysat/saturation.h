@@ -89,6 +89,8 @@ namespace polysat {
         // p := coeff*x*y where coeff_x = coeff*x, x a variable
         bool is_coeffxY(pdd const& coeff_x, pdd const& p, pdd& y);
 
+        rational max_value(pdd const& x);
+
     public:
         inf_saturate(solver& s) : inference_engine(s) {}
         bool perform(pvar v, conflict& core) override;

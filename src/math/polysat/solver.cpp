@@ -450,9 +450,7 @@ namespace polysat {
                     continue;
                 justification& j = m_justification[v];
                 LOG("Justification: " << j);
-                if (j.level() <= base_level())
-                    break;
-                if (!resolve_value(v) && j.is_decision()) {               
+                if (j.level() > base_level() && !resolve_value(v) && j.is_decision()) {
                     revert_decision(v);
                     return;
                 }
@@ -464,8 +462,8 @@ namespace polysat {
                 sat::bool_var const var = lit.var();
                 if (!m_conflict.is_bmarked(var))
                     continue;
-                if (m_bvars.level(var) <= base_level())  // TODO: this doesn't work with out-of-level-order iteration.
-                    break;
+                if (m_bvars.level(var) <= base_level())  
+                    continue;
                 if (m_bvars.is_decision(var)) {
                     revert_bool_decision(lit);
                     return;
@@ -489,7 +487,7 @@ namespace polysat {
     */
     void solver::resolve_bool(sat::literal lit) {       
         SASSERT(m_bvars.is_propagation(lit.var()));
-        clause other = *m_bvars.reason(lit.var());
+        clause const& other = *m_bvars.reason(lit.var());
         LOG_H3("resolve_bool: " << lit << " " << other);
         m_conflict.resolve(m_constraints, lit, other);
     }
@@ -518,7 +516,8 @@ namespace polysat {
         SASSERT(!lemma.empty());
         lemma.set_justified_var(v);
         add_lemma(lemma);
-        decide_bool(lemma);
+        if (!is_conflict())
+            decide_bool(lemma);
     }
 
     // Guess a literal from the given clause; returns the guessed constraint
@@ -623,7 +622,8 @@ namespace polysat {
         clause_builder reason_builder = m_conflict.build_lemma();
         
 
-        bool contains_lit = std::find(reason_builder.begin(), reason_builder.end(), ~lit);
+        SASSERT(std::find(reason_builder.begin(), reason_builder.end(), ~lit));
+#if 0
         if (!contains_lit) {
             // At this point, we do not have ~lit in the reason.
             // For now, we simply add it (thus weakening the reason)
@@ -638,6 +638,7 @@ namespace polysat {
             std::cout << "ADD extra " << ~lit << "\n";
             reason_builder.push(~lit);
         }
+#endif
         clause_ref reason = reason_builder.build();
 
         if (reason->empty()) {

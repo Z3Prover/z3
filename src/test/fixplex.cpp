@@ -389,7 +389,7 @@ namespace polysat {
         std::cout << "    test_lp(rows, ineqs, bounds); \n }\n";
     }
 
-    static unsigned num_test = 0;
+    //    static unsigned num_test = 0;
 
     static void test_lp(
         vector<svector<std::pair<unsigned, uint64_t>>> const& rows,
@@ -566,9 +566,9 @@ namespace polysat {
 
     static void test_lps() {
         random_gen r;
-    	for (unsigned i = 0; i < 10000; ++i)
+    	for (unsigned i = 0; i < 10000; ++i) 
             test_lps(r, 6, 3, 3, 3);
-	    return;
+        return;
         for (unsigned i = 0; i < 10000; ++i)
             test_lps(r, 6, 3, 3, 0);
         return;

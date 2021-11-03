@@ -147,20 +147,26 @@ namespace polysat {
         auto c2 = s.ule(y, pddm.mk_val(y_lo));
         new_constraints.insert(c1);
         new_constraints.insert(c2);
-        LOG("bounded " << bound << " : " << c1 << " " << c2);
+        LOG("bounded " << bound << " : " << x << " " << x_max << " " << y << " " << y_max << " " << c1 << " " << c2);
+    }
+
+    rational inf_saturate::max_value(pdd const& x) {
+        if (x.is_var())
+            return s.m_viable.max_viable(x.var());
+        else if (x.is_val())
+            return x.val();
+        else
+            return x.manager().max_value();
     }
 
     // determine worst case upper bounds for x, y
     // then extract premises for a non-worst-case bound.
     void inf_saturate::push_omega(vector<signed_constraint>& new_constraints, pdd const& x, pdd const& y) {     
         auto& pddm = x.manager();
-        rational x_max = pddm.max_value();
-        rational y_max = pddm.max_value();
+        rational x_max = max_value(x);
+        rational y_max = max_value(y);
         
-        if (x.is_var()) 
-            x_max = s.m_viable.max_viable(x.var());
-        if (y.is_var()) 
-            y_max = s.m_viable.max_viable(y.var());        
+        LOG("pushing " << x << " " << y);
 
         if (x_max * y_max  > pddm.max_value())            
             push_omega_bisect(new_constraints, x, x_max, y, y_max);
@@ -419,11 +425,13 @@ namespace polysat {
         new_constraints.push_back(c.as_signed_constraint());
         if (c.is_strict) {
             new_constraints.push_back(s.ule(l_val, c.lhs));
-            return propagate(core, c, c, s.ult(r_val, c.rhs), new_constraints);
+            auto conseq = s.ult(r_val, c.rhs);
+            return propagate(core, c, c, conseq, new_constraints);
         }
         else {
             new_constraints.push_back(s.ule(c.rhs, r_val));
-            return propagate(core, c, c, s.ule(c.lhs, r_val), new_constraints);
+            auto conseq = s.ule(c.lhs, r_val);
+            return propagate(core, c, c, conseq, new_constraints);
         }
     }
 
