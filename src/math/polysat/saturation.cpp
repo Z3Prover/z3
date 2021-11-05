@@ -33,7 +33,7 @@ namespace polysat {
         for (auto c1 : core) {
             if (!c1->is_ule())
                 continue;
-            if (!c1.is_currently_false(s))
+            if (c1.is_currently_true(s))
                 continue;
             auto c = c1.as_inequality();
             if (try_ugt_x(v, core, c))
@@ -61,40 +61,37 @@ namespace polysat {
     * Propagate c. It is added to reason and core all other literals in reason are false in current stack.
     * The lemmas outlined in the rules are valid and therefore c is implied.
     */
-    bool inf_saturate::propagate(conflict& core, inequality const& _crit1, inequality const& _crit2, signed_constraint& c, vector<signed_constraint>& new_constraints) {
+    bool inf_saturate::propagate(conflict& core, inequality const& _crit1, inequality const& _crit2, signed_constraint& c) {
+
         auto crit1 = _crit1.as_signed_constraint();
         auto crit2 = _crit2.as_signed_constraint();
-        new_constraints.push_back(crit1);
-        new_constraints.push_back(crit2);
+        m_new_constraints.push_back(crit1);
+        m_new_constraints.push_back(crit2);
+        SASSERT(!crit1.is_currently_true(s));
 
-        SASSERT(crit1.is_currently_false(s));
-        if (c.bvalue(s) == l_false) {
-            core.reset();
-            for (auto d : new_constraints)
-                core.insert(d);
-            core.insert(~c);
-            return true;
-        }
-      
-        if (!c.is_currently_false(s))
+        LOG("critical " << m_rule << " " << crit1);
+        LOG("consequent " << c << " value: " << c.bvalue(s));
+
+        if (!c.is_currently_false(s) && c.bvalue(s) != l_false)
             return false;
 
         core.reset();
-        for (auto d : new_constraints)
+        for (auto d : m_new_constraints)
             core.insert(d);
-        c->set_var_dependent();
-        core.insert(~c);
-        return true;
-        
+        if (c.bvalue(s) != l_false)
+            c->set_var_dependent();
+        core.insert(~c);       
+        LOG("Core " << core);
+        return true;        
     }
 
-    bool inf_saturate::propagate(conflict& core, inequality const& crit1, inequality const& crit2, bool is_strict, pdd const& lhs, pdd const& rhs, vector<signed_constraint>& new_constraints) {
+    bool inf_saturate::propagate(conflict& core, inequality const& crit1, inequality const& crit2, bool is_strict, pdd const& lhs, pdd const& rhs) {
         signed_constraint c = ineq(is_strict, lhs, rhs);
-        return propagate(core, crit1, crit2, c, new_constraints);
+        return propagate(core, crit1, crit2, c);
     }
 
     /// Add premises for Ω*(x, y)
-    void inf_saturate::push_omega_bisect(vector<signed_constraint>& new_constraints, pdd const& x, rational x_max, pdd const& y, rational y_max) {
+    void inf_saturate::push_omega_bisect(pdd const& x, rational x_max, pdd const& y, rational y_max) {
         rational x_val, y_val;
         auto& pddm = x.manager();
         rational bound = pddm.max_value();
@@ -103,12 +100,15 @@ namespace polysat {
         SASSERT(x_val * y_val <= bound);
 
         rational x_lo = x_val, x_hi = x_max, y_lo = y_val, y_hi = y_max;
+        SASSERT(x_lo <= x_hi && y_lo <= y_hi);
         rational two(2);
         while (x_lo < x_hi || y_lo < y_hi) {
-            rational x_mid = div(x_hi + x_lo, two);
-            rational y_mid = div(y_hi + y_lo, two);
-            if (x_mid * y_mid > bound)
-                x_hi = x_mid - 1, y_hi = y_mid - 1;
+            rational x_mid = div(x_hi + x_lo + 1, two);
+            rational y_mid = div(y_hi + y_lo + 1, two);
+            if (x_mid * y_mid > bound) {
+                x_hi = x_lo < x_hi ? x_mid - 1 : x_lo;
+                y_hi = y_lo < y_hi ? y_mid - 1 : y_lo;
+            }
             else
                 x_lo = x_mid, y_lo = y_mid;
         }
@@ -136,8 +136,8 @@ namespace polysat {
             }
         }
         SASSERT(x_lo * y_lo <= bound);
-        SASSERT((x_lo + 1) * y_lo > bound);
-        SASSERT(x_lo * (y_lo + 1) > bound);
+        SASSERT((x_lo + 1) * y_lo > bound || x_val == x_max);
+        SASSERT(x_lo * (y_lo + 1) > bound || y_val == y_max);
 
         // inequalities are justified by current assignments to x, y
         // conflict resolution should be able to pick up this as a valid justification.
@@ -145,8 +145,8 @@ namespace polysat {
         // where we add explicit equality propagations from the current assignment.
         auto c1 = s.ule(x, pddm.mk_val(x_lo));
         auto c2 = s.ule(y, pddm.mk_val(y_lo));
-        new_constraints.insert(c1);
-        new_constraints.insert(c2);
+        m_new_constraints.insert(c1);
+        m_new_constraints.insert(c2);
         LOG("bounded " << bound << " : " << x << " " << x_max << " " << y << " " << y_max << " " << c1 << " " << c2);
     }
 
@@ -161,7 +161,7 @@ namespace polysat {
 
     // determine worst case upper bounds for x, y
     // then extract premises for a non-worst-case bound.
-    void inf_saturate::push_omega(vector<signed_constraint>& new_constraints, pdd const& x, pdd const& y) {     
+    void inf_saturate::push_omega(pdd const& x, pdd const& y) {     
         auto& pddm = x.manager();
         rational x_max = max_value(x);
         rational y_max = max_value(y);
@@ -169,12 +169,12 @@ namespace polysat {
         LOG("pushing " << x << " " << y);
 
         if (x_max * y_max  > pddm.max_value())            
-            push_omega_bisect(new_constraints, x, x_max, y, y_max);
+            push_omega_bisect(x, x_max, y, y_max);
         else {
             for (auto c : s.m_cjust[y.var()])
-                new_constraints.insert(c);
+                m_new_constraints.insert(c);
             for (auto c : s.m_cjust[x.var()])
-                new_constraints.insert(c);
+                m_new_constraints.insert(c);
         }
     }
 
@@ -273,6 +273,7 @@ namespace polysat {
      *  [x] yx <= zx  ==>  Ω*(x,y) \/ y <= z \/ x = 0
      */
     bool inf_saturate::try_ugt_x(pvar v, conflict& core, inequality const& c) {
+        set_rule("zx <= yx");
         pdd x = s.var(v);
         pdd y = x;
         pdd z = x;
@@ -283,11 +284,11 @@ namespace polysat {
         if (!c.is_strict && s.get_value(v).is_zero())
             return false;
 
-        vector<signed_constraint> new_constraints;   
+        m_new_constraints.reset();
         if (!c.is_strict)
-            new_constraints.push_back(~s.eq(x));
-        push_omega(new_constraints, x, y);
-        return propagate(core, c, c, c.is_strict, y, z, new_constraints);
+            m_new_constraints.push_back(~s.eq(x));
+        push_omega(x, y);
+        return propagate(core, c, c, c.is_strict, y, z);
     }
 
     /// [y] z' <= y /\ zx > yx  ==>  Ω*(x,y) \/ zx > z'x
@@ -301,16 +302,14 @@ namespace polysat {
             return false;
           
         pdd const& z_prime = le_y.lhs;
-
-        vector<signed_constraint> new_constraints;
-        new_constraints.push_back(le_y.as_signed_constraint());
-        new_constraints.push_back(yx_l_zx.as_signed_constraint());
-        push_omega(new_constraints, x, y);
+        m_new_constraints.reset();
+        push_omega(x, y);
         // z'x <= zx
-        return propagate(core, le_y, yx_l_zx, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x, new_constraints);
+        return propagate(core, le_y, yx_l_zx, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x);
     }
 
     bool inf_saturate::try_ugt_y(pvar v, conflict& core, inequality const& c) {
+        set_rule("z' <= y & yx <= zx");
         if (!is_l_v(v, c))
             return false;
         pdd x = s.var(v);
@@ -332,41 +331,44 @@ namespace polysat {
     /// [x]  y <= ax /\ x <= z  (non-overflow case)
     ///     ==>   Ω*(a, z)  \/  y <= az
     bool inf_saturate::try_y_l_ax_and_x_l_z(pvar x, conflict& core, inequality const& c) {
-        if (!is_g_v(x, c))
-            return false;
+        set_rule("y <= ax & x <= z");
         pdd y = s.var(x);
         pdd a = y;
+        if (!is_Y_l_Ax(x, c, a, y))
+            return false;
+
         for (auto si : s.m_search) {
             if (!si.is_boolean())
                 continue;
             auto dd = s.lit2cnstr(si.lit());
             if (!dd->is_ule())
                 continue;
+            if (dd.is_currently_true(s))
+                continue;
             auto d = dd.as_inequality();
-            if (is_Y_l_Ax(x, d, a, y) && try_y_l_ax_and_x_l_z(x, core, c, d, a, y))
+            if (is_g_v(x, d) && try_y_l_ax_and_x_l_z(x, core, c, d, a, y))
                 return true;
         }
         return false;
     }
 
-    bool inf_saturate::try_y_l_ax_and_x_l_z(pvar x, conflict& core, inequality const& x_l_z, inequality const& y_l_ax, pdd const& a, pdd const& y) {
+    bool inf_saturate::try_y_l_ax_and_x_l_z(pvar x, conflict& core, inequality const& y_l_ax, inequality const& x_l_z,  pdd const& a, pdd const& y) {
 
         SASSERT(is_g_v(x, x_l_z));
         SASSERT(verify_Y_l_Ax(x, y_l_ax, a, y));
         pdd z = x_l_z.rhs;
         if (!is_non_overflow(a, z))
             return false;
-        vector<signed_constraint> new_constraints;
-        new_constraints.push_back(x_l_z.as_signed_constraint());
-        new_constraints.push_back(y_l_ax.as_signed_constraint());
-        push_omega(new_constraints, a, z);
-        return propagate(core, x_l_z, y_l_ax, x_l_z.is_strict || y_l_ax.is_strict, y, a * z, new_constraints);
+        m_new_constraints.reset();       
+        push_omega(a, z);
+        return propagate(core, x_l_z, y_l_ax, x_l_z.is_strict || y_l_ax.is_strict, y, a * z);
     }
 
 
     /// [z] z <= y' /\ zx > yx  ==>  Ω*(x,y') \/ y'x > yx
     /// [z] z <= y' /\ yx <= zx  ==>  Ω*(x,y') \/ yx <= y'x
     bool inf_saturate::try_ugt_z(pvar z, conflict& core, inequality const& c) {
+        set_rule("ugt_z");
         if (!is_g_v(z, c))
             return false;
         pdd y = s.var(z);
@@ -376,6 +378,8 @@ namespace polysat {
                 continue;
             auto dd = s.lit2cnstr(si.lit());
             if (!dd->is_ule())
+                continue;
+            if (!dd.is_currently_false(s))
                 continue;
             auto d = dd.as_inequality();
             if (is_YX_l_zX(z, d, x, y) && try_ugt_z(z, core, c, d, x, y))
@@ -390,12 +394,10 @@ namespace polysat {
         pdd const& y_prime = z_l_y.rhs;
         if (!is_non_overflow(x, y_prime))
             return false;
-        vector<signed_constraint> new_constraints;
-        new_constraints.push_back(z_l_y.as_signed_constraint());
-        new_constraints.push_back(yx_l_zx.as_signed_constraint());
-        push_omega(new_constraints, x, y_prime);
+        m_new_constraints.reset();
+        push_omega(x, y_prime);
         // yx <= y'x
-        return propagate(core, z_l_y, yx_l_zx, z_l_y.is_strict || yx_l_zx.is_strict, y * x, y_prime * x, new_constraints);
+        return propagate(core, yx_l_zx, z_l_y, z_l_y.is_strict || yx_l_zx.is_strict, y * x, y_prime * x);
     }
 
     // [x] p(x) <= q(x) where value(p) > value(q)
@@ -405,7 +407,8 @@ namespace polysat {
     //     p(x) < q(x) where value(p) >= value(q)
     //     ==> value(p) <= p => value(p) < q
 
-    bool inf_saturate::try_tangent(pvar v, conflict& core, inequality const& c) {        
+    bool inf_saturate::try_tangent(pvar v, conflict& core, inequality const& c) {   
+        set_rule("tangent");
         if (c.is_strict)
             return false;
         if (!c.src->contains_var(v))
@@ -421,17 +424,23 @@ namespace polysat {
             return false;
         SASSERT(c.is_strict || l_val > r_val);
         SASSERT(!c.is_strict || l_val >= r_val);
-        vector<signed_constraint> new_constraints;
-        new_constraints.push_back(c.as_signed_constraint());
+        m_new_constraints.reset();
+        m_new_constraints.push_back(c.as_signed_constraint());
         if (c.is_strict) {
-            new_constraints.push_back(s.ule(l_val, c.lhs));
+            auto d = s.ule(l_val, c.lhs);
+            if (d.bvalue(s) == l_false) // it is a different value conflict that contains v
+                return false;
+            m_new_constraints.push_back(d);
             auto conseq = s.ult(r_val, c.rhs);
-            return propagate(core, c, c, conseq, new_constraints);
+            return propagate(core, c, c, conseq);
         }
         else {
-            new_constraints.push_back(s.ule(c.rhs, r_val));
+            auto d = s.ule(c.rhs, r_val);
+            if (d.bvalue(s) == l_false) // it is a different value conflict that contains v
+                return false;
+            m_new_constraints.push_back(d);
             auto conseq = s.ule(c.lhs, r_val);
-            return propagate(core, c, c, conseq, new_constraints);
+            return propagate(core, c, c, conseq);
         }
     }
 
