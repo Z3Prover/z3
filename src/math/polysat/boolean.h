@@ -32,6 +32,8 @@ namespace polysat {
         var_queue                   m_free_vars;  // free Boolean variables
         vector<ptr_vector<clause>>  m_watch;      // watch list for literals into clauses
 
+        void assign(sat::literal lit, unsigned lvl, clause* reason, clause* lemma, unsigned dep = null_dependency);
+
     public:
 
         bool_var_manager(): m_free_vars(m_activity) {}
@@ -56,9 +58,7 @@ namespace polysat {
         clause* reason(sat::bool_var var) const { SASSERT(is_assigned(var)); return m_reason[var]; }
 
         clause* lemma(sat::bool_var var) const { SASSERT(is_decision(var)); return m_lemma[var]; }
-
-        
-
+       
         ptr_vector<clause>& watch(sat::literal lit) { return m_watch[lit.index()]; }
         unsigned_vector& activity() { return m_activity; }
         bool can_decide() const { return !m_free_vars.empty(); }
@@ -69,7 +69,10 @@ namespace polysat {
         void dec_activity(sat::literal lit) { m_activity[lit.var()] /= 2; }
 
         /// Set the given literal to true
-        void assign(sat::literal lit, unsigned lvl, clause* reason, clause* lemma, unsigned dep = null_dependency);
+        void propagate(sat::literal lit, unsigned lvl, clause& reason);
+        void decide(sat::literal lit, unsigned lvl, clause* lemma);
+        void eval(sat::literal lit, unsigned lvl);
+        void asserted(sat::literal lit, unsigned lvl, unsigned dep);
         void unassign(sat::literal lit);
 
         std::ostream& display(std::ostream& out) const;

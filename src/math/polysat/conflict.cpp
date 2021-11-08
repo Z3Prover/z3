@@ -161,7 +161,7 @@ namespace polysat {
         clause_ref lemma = c_lemma.build();
         cm().store(lemma.get(), s);
         if (s.m_bvars.value(c.blit()) == l_undef)
-            s.assign_bool(s.level(*lemma), c.blit(), lemma.get(), nullptr);
+            s.assign_propagate(c.blit(), *lemma);
     }
 
     void conflict::remove(signed_constraint c) {
@@ -176,6 +176,14 @@ namespace polysat {
     void conflict::replace(signed_constraint c_old, signed_constraint c_new, vector<signed_constraint> const& c_new_premises) {
         remove(c_old);
         insert(c_new, c_new_premises);
+    }
+
+
+    bool conflict::contains(signed_constraint c) {
+        if (c->has_bvar())
+            return m_literals.contains(c.blit().index());
+        else
+            return m_constraints.contains(c);
     }
 
     void conflict::set_bailout() {
@@ -237,11 +245,11 @@ namespace polysat {
         for (unsigned v : m_vars) {
             if (!is_pmarked(v))
                 continue;
-            auto diseq = ~s.eq(s.var(v), s.get_value(v));
-            cm().ensure_bvar(diseq.get());
-            if (diseq.bvalue(s) == l_undef) 
-                s.assign_bool(s.get_level(v), ~diseq.blit(), nullptr, nullptr);            
-            lemma.push(diseq);
+            auto eq = s.eq(s.var(v), s.get_value(v));
+            cm().ensure_bvar(eq.get());
+            if (eq.bvalue(s) == l_undef) 
+                s.assign_eval(s.get_level(v), eq.blit());            
+            lemma.push(~eq);
         }        
 
         return lemma;

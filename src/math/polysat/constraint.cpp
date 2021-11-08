@@ -104,7 +104,7 @@ namespace polysat {
         if (first) 
             s.set_conflict(cl);        
         else 
-            s.assign_bool(s.level(cl), cl[0], &cl, nullptr);
+            s.assign_propagate(cl[0], cl);
     }
 
     void constraint_manager::unwatch(clause& cl) {

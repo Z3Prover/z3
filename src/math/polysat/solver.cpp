@@ -126,7 +126,7 @@ namespace polysat {
             set_conflict(c /*, dep */);
             return;
         }
-        m_bvars.assign(lit, m_level, nullptr, nullptr, dep);
+        m_bvars.asserted(lit, m_level, dep);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
 
@@ -206,7 +206,7 @@ namespace polysat {
         if (m_bvars.is_false(cl[idx]))
             set_conflict(cl);
         else
-            assign_bool(level(cl), cl[idx], &cl, nullptr);
+            assign_propagate(cl[idx], cl);
         return false;
     }
 
@@ -539,7 +539,11 @@ namespace polysat {
                 break;
             case l_undef:
                 num_choices++;                
-                if (!lit2cnstr(lit).is_currently_false(*this)) 
+                if (lit2cnstr(lit).is_currently_false(*this)) {
+                    unsigned level = m_level; // TODO
+                    assign_eval(level, lit);
+                }
+                else
                     choice = lit;
                 break;
             }
@@ -558,9 +562,9 @@ namespace polysat {
         push_cjust(lemma.justified_var(), c);
 
         if (num_choices == 1)
-            assign_bool(level(lemma), choice, &lemma, nullptr);
+            assign_propagate(choice, lemma);
         else 
-            assign_bool(m_level, choice, nullptr, &lemma);
+            assign_decision(choice, &lemma);
     }
 
     /**
@@ -597,48 +601,31 @@ namespace polysat {
             return m_bvars.is_decision(item.lit().var());
     }
 
+    // Current situation: we have a decision for boolean literal L on top of the stack, and a conflict core.
+    //
+    // In a CDCL solver, this means ~L is in the lemma (actually, as the asserting literal). We drop the decision and replace it by the propagation (~L)^lemma.
+    //
+    // - we know L must be false
+    // - if L isn't in the core, we can still add it (weakening the lemma) to obtain "core => ~L"
+    // - then we can add the propagation (~L)^lemma and continue with the next guess
+
+    // Note that if we arrive at this point, the variables in L are "relevant" to the conflict (otherwise we would have skipped L).
+    // So the subsequent steps must have contained one of these:
+    // - propagation of some variable v from L (and maybe other constraints)
+    //      (v := val)^{L, ...}
+    //      this means L is in core, unless we core-reduced it away
+    // - propagation of L' from L
+    //      (L')^{L' \/ ¬L \/ ...}
+    //      again L is in core, unless we core-reduced it away
+
     void solver::revert_bool_decision(sat::literal lit) {
         sat::bool_var const var = lit.var();
         LOG_H3("Reverting boolean decision: " << lit << " " << m_conflict);
         SASSERT(m_bvars.is_decision(var));
 
-        // Current situation: we have a decision for boolean literal L on top of the stack, and a conflict core.
-        //
-        // In a CDCL solver, this means ~L is in the lemma (actually, as the asserting literal). We drop the decision and replace it by the propagation (~L)^lemma.
-        //
-        // - we know L must be false
-        // - if L isn't in the core, we can still add it (weakening the lemma) to obtain "core => ~L"
-        // - then we can add the propagation (~L)^lemma and continue with the next guess
-
-        // Note that if we arrive at this point, the variables in L are "relevant" to the conflict (otherwise we would have skipped L).
-        // So the subsequent steps must have contained one of these:
-        // - propagation of some variable v from L (and maybe other constraints)
-        //      (v := val)^{L, ...}
-        //      this means L is in core, unless we core-reduced it away
-        // - propagation of L' from L
-        //      (L')^{L' \/ ¬L \/ ...}
-        //      again L is in core, unless we core-reduced it away
-
-        clause_builder reason_builder = m_conflict.build_lemma();
-        
+        clause_builder reason_builder = m_conflict.build_lemma();        
 
         SASSERT(std::find(reason_builder.begin(), reason_builder.end(), ~lit));
-#if 0
-        if (!contains_lit) {
-            // At this point, we do not have ~lit in the reason.
-            // For now, we simply add it (thus weakening the reason)
-            //
-            // Alternative (to be considered later):
-            // - 'reason' itself (without ~L) would already be an explanation for ~L
-            // - however if it doesn't contain ~L, it breaks the boolean resolution invariant
-            // - would need to check what we can gain by relaxing that invariant
-            // - drawback: might have to bail out at boolean resolution
-            // Also: maybe we can skip ~L in some cases? but in that case it shouldn't be marked.
-            //
-            std::cout << "ADD extra " << ~lit << "\n";
-            reason_builder.push(~lit);
-        }
-#endif
         clause_ref reason = reason_builder.build();
 
         if (reason->empty()) {
@@ -666,7 +653,7 @@ namespace polysat {
         SASSERT(!can_propagate());
         SASSERT(!is_conflict());
         push_level();        
-        assign_bool(m_level, lit, nullptr, lemma);
+        assign_decision(lit, lemma);
     }
 
     unsigned solver::level(clause const& cl) {
@@ -679,15 +666,20 @@ namespace polysat {
         return lvl;
     }
 
-    /// Assign a boolean literal and put it on the search stack
-    void solver::assign_bool(unsigned level, sat::literal lit, clause* reason, clause* lemma) {
-        SASSERT(!m_bvars.is_true(lit));
-        if (reason)
-            LOG("Propagate literal " << lit << " @ " << level << " by " << *reason);
-        else
-            LOG("Decide literal " << lit << " @ " << m_level);
-        
-        m_bvars.assign(lit, level, reason, lemma);
+    void solver::assign_propagate(sat::literal lit, clause& reason) {
+        m_bvars.propagate(lit, level(reason), reason);
+        m_trail.push_back(trail_instr_t::assign_bool_i);
+        m_search.push_boolean(lit);
+    }
+
+    void solver::assign_decision(sat::literal lit, clause* lemma) {
+        m_bvars.decide(lit, m_level, lemma);
+        m_trail.push_back(trail_instr_t::assign_bool_i);
+        m_search.push_boolean(lit);
+    }
+
+    void solver::assign_eval(unsigned level, sat::literal lit) {
+        m_bvars.eval(lit, level);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
     }

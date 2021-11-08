@@ -93,6 +93,8 @@ namespace polysat {
 
         void keep(signed_constraint c);
 
+        bool contains(signed_constraint c);
+
         /** Perform boolean resolution with the clause upon variable 'var'.
          * Precondition: core/clause contain complementary 'var'-literals.
          */

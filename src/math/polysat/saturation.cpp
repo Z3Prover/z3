@@ -70,9 +70,15 @@ namespace polysat {
         SASSERT(!crit1.is_currently_true(s));
 
         LOG("critical " << m_rule << " " << crit1);
-        LOG("consequent " << c << " value: " << c.bvalue(s));
+        LOG("consequent " << c << " value: " << c.bvalue(s) << " " << c.is_currently_false(s) << " " << core.contains(~c));
 
+
+        // ensure new core is a conflict
         if (!c.is_currently_false(s) && c.bvalue(s) != l_false)
+            return false;
+
+        // avoid loops
+        if (core.contains(~c))
             return false;
 
         core.reset();
@@ -272,12 +278,12 @@ namespace polysat {
      *  [x] zx > yx  ==>  Ω*(x,y) \/ z > y
      *  [x] yx <= zx  ==>  Ω*(x,y) \/ y <= z \/ x = 0
      */
-    bool inf_saturate::try_ugt_x(pvar v, conflict& core, inequality const& c) {
+    bool inf_saturate::try_ugt_x(pvar v, conflict& core, inequality const& xy_l_xz) {
         set_rule("zx <= yx");
         pdd x = s.var(v);
         pdd y = x;
         pdd z = x;
-        if (!is_xY_l_xZ(v, c, y, z))
+        if (!is_xY_l_xZ(v, xy_l_xz, y, z))
             return false;
         if (!is_non_overflow(x, y))
             return false;
@@ -288,40 +294,37 @@ namespace polysat {
         if (!c.is_strict)
             m_new_constraints.push_back(~s.eq(x));
         push_omega(x, y);
-        return propagate(core, c, c, c.is_strict, y, z);
+        return propagate(core, xy_l_xz, xy_l_xz, xy_l_xz.is_strict, y, z);
     }
 
     /// [y] z' <= y /\ zx > yx  ==>  Ω*(x,y) \/ zx > z'x
     /// [y] z' <= y /\ yx <= zx  ==>  Ω*(x,y) \/ z'x <= zx
     bool inf_saturate::try_ugt_y(pvar v, conflict& core, inequality const& le_y, inequality const& yx_l_zx, pdd const& x, pdd const& z) {
-        pdd const y = s.var(v);
-
         SASSERT(is_l_v(v, le_y));
         SASSERT(verify_Xy_l_XZ(v, yx_l_zx, x, z));
+        pdd const y = s.var(v);
         if (!is_non_overflow(x, y))
-            return false;
-          
+            return false;          
         pdd const& z_prime = le_y.lhs;
         m_new_constraints.reset();
         push_omega(x, y);
-        // z'x <= zx
         return propagate(core, le_y, yx_l_zx, yx_l_zx.is_strict || le_y.is_strict, z_prime * x, z * x);
     }
 
-    bool inf_saturate::try_ugt_y(pvar v, conflict& core, inequality const& c) {
-        set_rule("z' <= y & yx <= zx");
-        if (!is_l_v(v, c))
-            return false;
+    bool inf_saturate::try_ugt_y(pvar v, conflict& core, inequality const& yx_l_zx) {
+        set_rule("[y] z' <= y & yx <= zx");
         pdd x = s.var(v);
         pdd z = x;
+        if (!is_Xy_l_XZ(v, yx_l_zx, x, z))
+            return false;
         for (auto si : s.m_search) {
             if (!si.is_boolean())
                 continue;
             auto dd = s.lit2cnstr(si.lit());
             if (!dd->is_ule())
                 continue;
-            auto d = dd.as_inequality();
-            if (is_Xy_l_XZ(v, d, x, z) && try_ugt_y(v, core, c, d, x, z))
+            auto le_y = dd.as_inequality();
+            if (is_l_v(v, le_y) && try_ugt_y(v, core, le_y, yx_l_zx, x, z))
                 return true;
         }
         return false;
@@ -330,30 +333,26 @@ namespace polysat {
 
     /// [x]  y <= ax /\ x <= z  (non-overflow case)
     ///     ==>   Ω*(a, z)  \/  y <= az
-    bool inf_saturate::try_y_l_ax_and_x_l_z(pvar x, conflict& core, inequality const& c) {
-        set_rule("y <= ax & x <= z");
+    bool inf_saturate::try_y_l_ax_and_x_l_z(pvar x, conflict& core, inequality const& y_l_ax) {
+        set_rule("[x] y <= ax & x <= z");
         pdd y = s.var(x);
         pdd a = y;
-        if (!is_Y_l_Ax(x, c, a, y))
+        if (!is_Y_l_Ax(x, y_l_ax, a, y))
             return false;
-
         for (auto si : s.m_search) {
             if (!si.is_boolean())
                 continue;
             auto dd = s.lit2cnstr(si.lit());
             if (!dd->is_ule())
                 continue;
-            if (dd.is_currently_true(s))
-                continue;
-            auto d = dd.as_inequality();
-            if (is_g_v(x, d) && try_y_l_ax_and_x_l_z(x, core, c, d, a, y))
+            auto x_l_z = dd.as_inequality();
+            if (is_g_v(x, x_l_z) && try_y_l_ax_and_x_l_z(x, core, y_l_ax, x_l_z, a, y))
                 return true;
         }
         return false;
     }
 
     bool inf_saturate::try_y_l_ax_and_x_l_z(pvar x, conflict& core, inequality const& y_l_ax, inequality const& x_l_z,  pdd const& a, pdd const& y) {
-
         SASSERT(is_g_v(x, x_l_z));
         SASSERT(verify_Y_l_Ax(x, y_l_ax, a, y));
         pdd z = x_l_z.rhs;
@@ -361,28 +360,26 @@ namespace polysat {
             return false;
         m_new_constraints.reset();       
         push_omega(a, z);
-        return propagate(core, x_l_z, y_l_ax, x_l_z.is_strict || y_l_ax.is_strict, y, a * z);
+        return propagate(core, y_l_ax, x_l_z, x_l_z.is_strict || y_l_ax.is_strict, y, a * z);
     }
 
 
     /// [z] z <= y' /\ zx > yx  ==>  Ω*(x,y') \/ y'x > yx
     /// [z] z <= y' /\ yx <= zx  ==>  Ω*(x,y') \/ yx <= y'x
-    bool inf_saturate::try_ugt_z(pvar z, conflict& core, inequality const& c) {
-        set_rule("ugt_z");
-        if (!is_g_v(z, c))
-            return false;
+    bool inf_saturate::try_ugt_z(pvar z, conflict& core, inequality const& yx_l_zx) {
+        set_rule("[z] z <= y' /\ zx > yx");
         pdd y = s.var(z);
         pdd x = y;
+        if (!is_YX_l_zX(z, yx_l_zx, x, y))
+            return false;
         for (auto si : s.m_search) {
             if (!si.is_boolean())
                 continue;
             auto dd = s.lit2cnstr(si.lit());
             if (!dd->is_ule())
                 continue;
-            if (!dd.is_currently_false(s))
-                continue;
-            auto d = dd.as_inequality();
-            if (is_YX_l_zX(z, d, x, y) && try_ugt_z(z, core, c, d, x, y))
+            auto z_l_y = dd.as_inequality();
+            if (is_g_v(z, z_l_y) && try_ugt_z(z, core, z_l_y, yx_l_zx, x, y))
                 return true;
         }
         return false;
@@ -408,7 +405,7 @@ namespace polysat {
     //     ==> value(p) <= p => value(p) < q
 
     bool inf_saturate::try_tangent(pvar v, conflict& core, inequality const& c) {   
-        set_rule("tangent");
+        set_rule("[x] p(x) <= q(x) where value(p) > value(q)");
         if (c.is_strict)
             return false;
         if (!c.src->contains_var(v))

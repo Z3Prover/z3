@@ -60,6 +60,26 @@ namespace polysat {
         // m_unused.push_back(var);
     }
 
+    void bool_var_manager::propagate(sat::literal lit, unsigned lvl, clause& reason) {
+        LOG("Propagate literal " << lit << " @ " << lvl << " by " << reason);
+        assign(lit, lvl, &reason, nullptr, null_dependency);
+    }
+
+    void bool_var_manager::decide(sat::literal lit, unsigned lvl, clause* lemma) {
+        LOG("Decide literal " << lit << " @ " << lvl);
+        assign(lit, lvl, nullptr, lemma);
+    }
+
+    void bool_var_manager::eval(sat::literal lit, unsigned lvl) {
+        LOG("Eval literal " << lit << " @ " << lvl);
+        assign(lit, lvl, nullptr, nullptr);
+    }
+
+    void bool_var_manager::asserted(sat::literal lit, unsigned lvl, unsigned dep) {
+        LOG("Asserted " << lit << " @ " << lvl);
+        assign(lit, lvl, nullptr, nullptr, dep);
+    }
+
     void bool_var_manager::assign(sat::literal lit, unsigned lvl, clause* reason, clause* lemma, unsigned dep) {
         SASSERT(!is_assigned(lit));
         m_value[lit.index()] = l_true;
