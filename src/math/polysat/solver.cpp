@@ -52,6 +52,9 @@ namespace polysat {
     void solver::updt_params(params_ref const& p) {
         m_params.append(p);
         m_branch_bool = m_params.get_bool("branch_bool", false);
+        m_max_conflicts = m_params.get_uint("max_conflicts", UINT_MAX);
+        m_max_decisions = m_params.get_uint("max_decisions", UINT_MAX);
+        std::cout << m_max_conflicts << "\n";
     }
 
     bool solver::should_search() {
@@ -63,7 +66,7 @@ namespace polysat {
    
     lbool solver::check_sat() {         
         LOG("Starting");
-        while (inc()) {
+        while (should_search()) {
             m_stats.m_num_iterations++;
             LOG_H1("Next solving loop iteration (#" << m_stats.m_num_iterations << ")");
             LOG("Free variables: " << m_free_pvars);

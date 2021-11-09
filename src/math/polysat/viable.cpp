@@ -242,11 +242,19 @@ namespace polysat {
     }
 
     rational viable::min_viable(pvar v) {
+#if !NEW_VIABLE
         return var2bits(v).min(m_viable[v]);
+#else
+        return rational(0);
+#endif
     }
 
     rational viable::max_viable(pvar v) {
+#if NEW_VIABLE
+        return m_viable[v]->max();
+#else
         return var2bits(v).max(m_viable[v]);
+#endif
     }
 
     dd::fdd const& viable::sz2bits(unsigned sz) {

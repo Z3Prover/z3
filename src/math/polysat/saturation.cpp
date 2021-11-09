@@ -33,7 +33,7 @@ namespace polysat {
         for (auto c1 : core) {
             if (!c1->is_ule())
                 continue;
-            if (c1.is_currently_true(s))
+            if (!c1.is_currently_false(s))
                 continue;
             auto c = c1.as_inequality();
             if (try_ugt_x(v, core, c))
@@ -287,11 +287,11 @@ namespace polysat {
             return false;
         if (!is_non_overflow(x, y))
             return false;
-        if (!c.is_strict && s.get_value(v).is_zero())
+        if (!xy_l_xz.is_strict && s.get_value(v).is_zero())
             return false;
 
         m_new_constraints.reset();
-        if (!c.is_strict)
+        if (!xy_l_xz.is_strict)
             m_new_constraints.push_back(~s.eq(x));
         push_omega(x, y);
         return propagate(core, xy_l_xz, xy_l_xz, xy_l_xz.is_strict, y, z);

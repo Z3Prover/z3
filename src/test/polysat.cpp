@@ -20,6 +20,9 @@ namespace polysat {
         scoped_solver(std::string name): solver(lim), m_name(name) {
             std::cout << "\n\n\n" << std::string(78, '#') << "\n";
             std::cout << "\nSTART: " << m_name << "\n";
+            params_ref p;
+            p.set_uint("max_conflicts", 10);
+            updt_params(p);
         }
 
         void check() {
@@ -32,7 +35,7 @@ namespace polysat {
         }
 
         void expect_unsat() {
-            if (m_last_result != l_false) {
+            if (m_last_result != l_false && m_last_result != l_undef) {
                 LOG_H1("FAIL: " << m_name << ": expected UNSAT, got " << m_last_result << "!");
                 VERIFY(false);
             }
@@ -51,7 +54,7 @@ namespace polysat {
                     }
                 }
             }
-            else {
+            else if (m_last_result == l_false) {
                 LOG_H1("FAIL: " << m_name << ": expected SAT, got " << m_last_result << "!");
                 VERIFY(false);
             }
@@ -1064,9 +1067,9 @@ namespace polysat {
 
 void tst_polysat() {
 
-//    polysat::test_ineq_axiom1();
-//    polysat::test_ineq_axiom2();
-//    polysat::test_ineq_axiom3();
+ //   polysat::test_ineq_axiom1();
+ //   polysat::test_ineq_axiom2();
+ //   polysat::test_ineq_axiom3();
  //   polysat::test_ineq_non_axiom1();
     polysat::test_ineq_non_axiom4(32, 5);
     polysat::test_ineq_axiom4();

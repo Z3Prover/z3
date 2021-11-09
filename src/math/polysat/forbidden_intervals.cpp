@@ -151,9 +151,6 @@ namespace polysat {
             auto next_hi = records[next_i].interval.hi();
             auto lhs = hi - next_lo;
             auto rhs = next_hi - next_lo;
-            // NB: do we really have to pass in the level to this new literal?
-            // seems separating the level from the constraint is what we want
-            // the level of a literal is when it was assigned. Lemmas could have unassigned literals.
             signed_constraint c = s.m_constraints.ult(lhs, rhs);
             LOG("constraint: " << c);
             core.insert(c);
@@ -195,169 +192,76 @@ namespace polysat {
         };
 
         backtrack _backtrack(out_side_cond);
-        
-        // Current only works when degree(v) is at most one on both sides
-        pdd lhs = c->to_ule().lhs();
-        pdd rhs = c->to_ule().rhs();
-        unsigned const deg1 = lhs.degree(v);
-        unsigned const deg2 = rhs.degree(v);
-        if (deg1 > 1 || deg2 > 1)
-            return false;
-
-        if (deg1 == 0 && deg2 == 0) {
-            return false;
-            UNREACHABLE();  // this case is not useful for conflict resolution (but it could be handled in principle)
-            // i is empty or full, condition would be this constraint itself?
-            return true;
-        }
-
-        unsigned const sz = s.size(v);
-        dd::pdd_manager& m = s.sz2pdd(sz);
-        rational const pow2 = rational::power_of_two(sz);
-        rational const minus_one = pow2 - 1;
-
+         
         /**
         * TODO: to express the interval for coefficient 2^i symbolically,
         * we need right-shift/upper-bits-extract in the language.
         * So currently we can only do it if the coefficient is 1 or -1.
         */
 
-        auto coefficient_is_handled = [&](rational const& r) {
-            return r.is_zero() || r.is_one() || r == minus_one;
-        };
-
-        pdd p1 = m.zero();
-        pdd e1 = m.zero();
-        if (deg1 == 0)
-            e1 = lhs;
-        else
-            lhs.factor(v, 1, p1, e1);
-
-        pdd p2 = m.zero();
-        pdd e2 = m.zero();
-        if (deg2 == 0)
-            e2 = rhs;
-        else
-            rhs.factor(v, 1, p2, e2);
-
-        // Interval extraction only works if v-coefficients are the same
-        // LOG("factored " << deg1 << " " << deg2 << " " << p1 << " " << p2);
-        if (deg1 != 0 && deg2 != 0 && p1 != p2)
+        auto [ok1, a1, e1, b1] = linear_decompose(v, c->to_ule().lhs(), out_side_cond);
+        auto [ok2, a2, e2, b2] = linear_decompose(v, c->to_ule().rhs(), out_side_cond);
+        if (!ok1 || !ok2 || (a1.is_zero() && a2.is_zero()))
             return false;
-
-        // LOG("valued " << p1.is_val() << " " << p2.is_val());
-        // TODO: p1, p2 could be values under assignment.
-        // It could allow applying forbidden interval elimination under the assignment.
-        // test_monot_bounds(8)
-        // 
-        // Currently only works if coefficient is a power of two
-        if (!p1.is_val()) {
-            pdd q1 = p1.subst_val(s.assignment());
-            if (!q1.is_val())
-                return false;
-            out_side_cond.push_back(s.eq(q1, p1));
-            p1 = q1;
-        }
-        if (!p2.is_val()) {
-            pdd q2 = p2.subst_val(s.assignment());
-            if (!q2.is_val())
-                return false;
-            out_side_cond.push_back(s.eq(q2, p2));
-            p2 = q2;
-        }
-        rational a1 = p1.val();
-        rational a2 = p2.val();
-
-        LOG("values " << a1 << " " << a2);
-        if (!coefficient_is_handled(a1)) 
+        if (a1 != a2 && !a1.is_zero() && !a2.is_zero())
             return false;
-        if (!coefficient_is_handled(a2))
-            return false;
-        
-        /*
-        unsigned j1 = 0;
-        unsigned j2 = 0;
-        if (!a1.is_zero() && !a1.is_power_of_two(j1))
-            return false;
-        if (!a2.is_zero() && !a2.is_power_of_two(j2))
-            return false;
-        */
+        SASSERT(b1.is_val());
+        SASSERT(b2.is_val());
 
-        rational const y_coeff = a1.is_zero() ? a2 : a1;
-        SASSERT(!y_coeff.is_zero());
-
-        // Concrete values of evaluable terms
-        auto e1s = e1.subst_val(s.assignment());
-        auto e2s = e2.subst_val(s.assignment());
-        // TODO: this is not always true! cjust[v]/conflict may contain unassigned variables
-        // (they're coming from a previous conflict, but together they lead to a conflict.
-        // need something else to handle that.)
-        if (!e1s.is_val())
-            return false;
-        if (!e2s.is_val())
-            return false;
-        SASSERT(e1s.is_val());
-        SASSERT(e2s.is_val());
-
-        bool is_trivial;
-        pdd condition_body = m.zero();
-        pdd lo = m.zero();
-        rational lo_val(0);
-        pdd hi = m.zero();
-        rational hi_val(0);
-
-        if (a2.is_zero()) {
-            SASSERT(!a1.is_zero());
-            // e1 + t <= e2, with t = 2^j1*y
-            // condition for empty/full: e2 == -1
-            is_trivial = (e2s + 1).is_zero();
-            condition_body = e2 + 1;
-            if (!is_trivial) {
-                lo = e2 - e1 + 1;
-                lo_val = (e2s - e1s + 1).val();
-                hi = -e1;
-                hi_val = (-e1s).val();
-            }
-        }
-        else if (a1.is_zero()) {
-            SASSERT(!a2.is_zero());
-            // e1 <= e2 + t, with t = 2^j2*y
-            // condition for empty/full: e1 == 0
-            is_trivial = e1s.is_zero();
-            condition_body = e1;
-            if (!is_trivial) {
-                lo = -e2;
-                lo_val = (-e2s).val();
-                hi = e1 - e2;
-                hi_val = (e1s - e2s).val();
-            }
-        }
-        else {
-            SASSERT(!a1.is_zero());
-            SASSERT(!a2.is_zero());
-            SASSERT_EQ(a1, a2);
-            // e1 + t <= e2 + t, with t = 2^j1*y = 2^j2*y
-            // condition for empty/full: e1 == e2
-            is_trivial = e1s.val() == e2s.val();
-            condition_body = e1 - e2;
-            if (!is_trivial) {
-                lo = -e2;
-                lo_val = (-e2s).val();
-                hi = -e1;
-                hi_val = (-e1s).val();
-            }
-        }
+        LOG("values " << a1 << " " << a2);       
 
         _backtrack.released = true;
 
-        if (condition_body.is_val()) {
-            // Condition is trivial; no need to create a constraint for that.
-            SASSERT(is_trivial == condition_body.is_zero());
-        }
-        else if (is_trivial)
-            out_side_cond.push_back(s.m_constraints.eq(condition_body));
+        if (match_linear1(c, a1, b1, e1, a2, b2, e2, out_interval, out_side_cond))
+            return true;
+        if (match_linear2(c, a1, b1, e1, a2, b2, e2, out_interval, out_side_cond))
+            return true;
+        if (match_linear3(c, a1, b1, e1, a2, b2, e2, out_interval, out_side_cond))
+            return true;
+
+        _backtrack.released = false;
+        return false;
+    }
+
+    void forbidden_intervals::push_condition(bool is_zero, pdd const& p, vector<signed_constraint>& side_cond) {
+        SASSERT(!p.is_val() || (is_zero == p.is_zero()));
+        if (p.is_val())
+            return;
+        else if (is_zero)
+            side_cond.push_back(s.m_constraints.eq(p));
         else
-            out_side_cond.push_back(~s.m_constraints.eq(condition_body));
+            side_cond.push_back(~s.m_constraints.eq(p));
+    }
+
+    std::tuple<bool, rational, pdd, pdd> forbidden_intervals::linear_decompose(pvar v, pdd const& p, vector<signed_constraint>& out_side_cond) {
+        auto& m = p.manager();
+        pdd q = m.zero();
+        pdd e = m.zero();
+        unsigned const deg = p.degree(v);
+        if (deg == 0)
+            e = p;
+        else if (deg == 1)
+            p.factor(v, 1, q, e);
+        else
+            return std::tuple(false, rational(0), q, e);
+
+        if (!q.is_val()) {
+            pdd r = q.subst_val(s.assignment());
+            if (!r.is_val())
+                return std::tuple(false, rational(0), q, e);
+            out_side_cond.push_back(s.eq(q, r));
+            q = r;
+        }
+        auto b = e.subst_val(s.assignment());
+        return std::tuple(b.is_val(), q.val(), e, b);
+    };
+
+    eval_interval forbidden_intervals::to_interval(
+        signed_constraint const& c, bool is_trivial, rational const& coeff,
+        rational & lo_val, pdd & lo,
+        rational & hi_val, pdd & hi) {
+        
+        dd::pdd_manager& m = lo.manager();
 
         if (is_trivial) {
             if (c.is_positive())
@@ -365,39 +269,111 @@ namespace polysat {
                 // can remove the empty case (make it represent 'full' instead),
                 // and return 'false' here. Then we do not need the proper/full
                 // tag on intervals.
-                out_interval = eval_interval::empty(m);
+                return eval_interval::empty(m);
             else
-                out_interval = eval_interval::full();
-        }
-        else {
-            if (y_coeff == minus_one) {
-                // Transform according to:  y \in [l;u[  <=>  -y \in [1-u;1-l[
-                //      -y \in [1-u;1-l[
-                //      <=>  -y - (1 - u) < (1 - l) - (1 - u)    { by: y \in [l;u[  <=>  y - l < u - l }
-                //      <=>  u - y - 1 < u - l                   { simplified }
-                //      <=>  (u-l) - (u-y-1) - 1 < u-l           { by: a < b  <=>  b - a - 1 < b }
-                //      <=>  y - l < u - l                       { simplified }
-                //      <=>  y \in [l;u[.
-                lo = 1 - lo;
-                hi = 1 - hi;
-                swap(lo, hi);
-                lo_val = mod(1 - lo_val, pow2);
-                hi_val = mod(1 - hi_val, pow2);
-                lo_val.swap(hi_val);
-            }
-            else
-                SASSERT(y_coeff.is_one());
-
-            if (!c.is_positive()) {
-                swap(lo, hi);
-                lo_val.swap(hi_val);
-            }
-            out_interval = eval_interval::proper(lo, lo_val, hi, hi_val);
+                return eval_interval::full();
         }
 
-        return true;
+        if (!coeff.is_one()) {
+            rational pow2 = m.max_value() + 1;
+            SASSERT(coeff == m.max_value());
+            // Transform according to:  y \in [l;u[  <=>  -y \in [1-u;1-l[
+            //      -y \in [1-u;1-l[
+            //      <=>  -y - (1 - u) < (1 - l) - (1 - u)    { by: y \in [l;u[  <=>  y - l < u - l }
+            //      <=>  u - y - 1 < u - l                   { simplified }
+            //      <=>  (u-l) - (u-y-1) - 1 < u-l           { by: a < b  <=>  b - a - 1 < b }
+            //      <=>  y - l < u - l                       { simplified }
+            //      <=>  y \in [l;u[.
+            lo = 1 - lo;
+            hi = 1 - hi;
+            swap(lo, hi);
+            lo_val = mod(1 - lo_val, pow2);
+            hi_val = mod(1 - hi_val, pow2);
+            lo_val.swap(hi_val);
+        }
+
+        if (c.is_positive())
+            return eval_interval::proper(lo, lo_val, hi, hi_val);
+        else
+            return eval_interval::proper(hi, hi_val, lo, lo_val);
     }
 
+    /**
+    * Match  e1 + t <= e2, with t = 2^j1*y
+    * condition for empty/full: e2 == -1
+    */
+    bool forbidden_intervals::match_linear1(signed_constraint const& c,
+        rational const& a1, pdd const& b1, pdd const& e1, 
+        rational const& a2, pdd const& b2, pdd const& e2,
+        eval_interval& interval, vector<signed_constraint>& side_cond) {
+        if (a2.is_zero() && coefficient_is_01(e1.manager(), a1)) {
+            SASSERT(!a1.is_zero());
+            bool is_trivial = (b2 + 1).is_zero();
+            push_condition(is_trivial, e2 + 1, side_cond);
+            auto lo = e2 - e1 + 1;
+            auto lo_val = (b2 - b1 + 1).val();
+            auto hi = -e1;
+            auto hi_val = (-b1).val();
+            interval = to_interval(c, is_trivial, a1, lo_val, lo, hi_val, hi);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * e1 <= e2 + t, with t = 2^j2*y
+     * condition for empty/full: e1 == 0
+     */
+    bool forbidden_intervals::match_linear2(signed_constraint const& c,
+        rational const& a1, pdd const& b1, pdd const& e1,
+        rational const& a2, pdd const& b2, pdd const& e2,
+        eval_interval& interval, vector<signed_constraint>& side_cond) {
+        if (a1.is_zero() && coefficient_is_01(e1.manager(), a2)) {
+            SASSERT(!a2.is_zero());
+            bool is_trivial = b1.is_zero();
+            push_condition(is_trivial, e1, side_cond);
+            auto lo = -e2;
+            auto lo_val = (-b2).val();
+            auto hi = e1 - e2;
+            auto hi_val = (b1 - b2).val();
+            interval = to_interval(c, is_trivial, a2, lo_val, lo, hi_val, hi);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * e1 + t <= e2 + t, with t = 2^j1*y = 2^j2*y
+     * condition for empty/full: e1 == e2/
+     */
+    bool forbidden_intervals::match_linear3(signed_constraint const& c,
+        rational const& a1, pdd const& b1, pdd const& e1,
+        rational const& a2, pdd const& b2, pdd const& e2,
+        eval_interval& interval, vector<signed_constraint>& side_cond) {
+        if (coefficient_is_01(e1.manager(), a1) && coefficient_is_01(e1.manager(), a2) && a1 == a2 && !a1.is_zero()) {
+            bool is_trivial = b1.val() == b2.val();
+            push_condition(is_trivial, e1 - e2, side_cond);
+            auto lo = -e2;
+            auto lo_val = (-b2).val();
+            auto hi = -e1;
+            auto hi_val = (-b1).val();
+            interval = to_interval(c, is_trivial, a1, lo_val, lo, hi_val, hi);
+            return true;
+        }
+        return false;
+    }
+
+    // TBD:
+    // additional forbidden intervals for siutations like a*x <= b, 
+    // then values for x can be discarded when a*x does not overflow and a*x > b.
+    //
+    bool forbidden_intervals::match_linear4(signed_constraint const& c,
+        rational const& a1, pdd const& b1, pdd const& e1,
+        rational const& a2, pdd const& b2, pdd const& e2,
+        eval_interval& interval, vector<signed_constraint>& side_cond) {
+
+        return false;
+    }
 
     void forbidden_intervals::revert_core(conflict& core) {
         for (auto c : core) {
