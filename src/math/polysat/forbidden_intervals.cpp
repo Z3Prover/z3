@@ -175,8 +175,7 @@ namespace polysat {
      * \returns True iff a forbidden interval exists and the output parameters were set.
      */
 
-    bool forbidden_intervals::get_interval(signed_constraint const& c, pvar v, eval_interval& out_interval, vector<signed_constraint>& out_side_cond)
-    {
+    bool forbidden_intervals::get_interval(signed_constraint const& c, pvar v, eval_interval& out_interval, vector<signed_constraint>& out_side_cond) {
         if (!c->is_ule())
             return false;
         
@@ -218,12 +217,14 @@ namespace polysat {
             return true;
         if (match_linear3(c, a1, b1, e1, a2, b2, e2, out_interval, out_side_cond))
             return true;
+        if (match_linear4(c, a1, b1, e1, a2, b2, e2, out_interval, out_side_cond))
+            return true;
 
         _backtrack.released = false;
         return false;
     }
 
-    void forbidden_intervals::push_condition(bool is_zero, pdd const& p, vector<signed_constraint>& side_cond) {
+    void forbidden_intervals::push_eq(bool is_zero, pdd const& p, vector<signed_constraint>& side_cond) {
         SASSERT(!p.is_val() || (is_zero == p.is_zero()));
         if (p.is_val())
             return;
@@ -309,7 +310,7 @@ namespace polysat {
         if (a2.is_zero() && coefficient_is_01(e1.manager(), a1)) {
             SASSERT(!a1.is_zero());
             bool is_trivial = (b2 + 1).is_zero();
-            push_condition(is_trivial, e2 + 1, side_cond);
+            push_eq(is_trivial, e2 + 1, side_cond);
             auto lo = e2 - e1 + 1;
             auto lo_val = (b2 - b1 + 1).val();
             auto hi = -e1;
@@ -331,7 +332,7 @@ namespace polysat {
         if (a1.is_zero() && coefficient_is_01(e1.manager(), a2)) {
             SASSERT(!a2.is_zero());
             bool is_trivial = b1.is_zero();
-            push_condition(is_trivial, e1, side_cond);
+            push_eq(is_trivial, e1, side_cond);
             auto lo = -e2;
             auto lo_val = (-b2).val();
             auto hi = e1 - e2;
@@ -352,7 +353,7 @@ namespace polysat {
         eval_interval& interval, vector<signed_constraint>& side_cond) {
         if (coefficient_is_01(e1.manager(), a1) && coefficient_is_01(e1.manager(), a2) && a1 == a2 && !a1.is_zero()) {
             bool is_trivial = b1.val() == b2.val();
-            push_condition(is_trivial, e1 - e2, side_cond);
+            push_eq(is_trivial, e1 - e2, side_cond);
             auto lo = -e2;
             auto lo_val = (-b2).val();
             auto hi = -e1;
@@ -363,15 +364,69 @@ namespace polysat {
         return false;
     }
 
-    // TBD:
-    // additional forbidden intervals for siutations like a*x <= b, 
-    // then values for x can be discarded when a*x does not overflow and a*x > b.
-    //
+    /**
+    * a1*y + e1 = 0, with a1 odd
+    */
     bool forbidden_intervals::match_linear4(signed_constraint const& c,
         rational const& a1, pdd const& b1, pdd const& e1,
         rational const& a2, pdd const& b2, pdd const& e2,
         eval_interval& interval, vector<signed_constraint>& side_cond) {
+        if (a1.is_odd() && a2.is_zero() && b2.val().is_zero()) {
+            push_eq(false, e2, side_cond);
+            rational a_inv, pow2 = e1.manager().max_value() + 1;
+            VERIFY(a1.mult_inverse(e1.manager().power_of_2(), a_inv));
+            auto lo = -e1 * a_inv;
+            auto lo_val = mod(-b1.val() * a_inv, pow2);
+            auto hi = lo + 1;
+            auto hi_val = mod(lo_val + 1, pow2);
+            interval = to_interval(c, false, rational::one(), lo_val, lo, hi_val, hi);
+            return true;
+        }
+        return false;
+    }
 
+    /**
+     * ax <= b, b != -1, a < b:     x not in [ceil((b+1)/a) .. floor((2^K-1)/a)]
+     * b <= ax, 0 < a < b:          x not in [0 .. floor((b-1)/a)] 
+     * ax < b, a < b:               x not in [ceil(b/a) .. floor((2^K-1)/a)]
+     * b < ax, 0 < a <= b:          x not in [0 .. floor(b/a)]     
+     */
+    bool forbidden_intervals::match_linear5(signed_constraint const& c,
+        rational const& a1, pdd const& b1, pdd const& e1,
+        rational const& a2, pdd const& b2, pdd const& e2,
+        eval_interval& interval, vector<signed_constraint>& side_cond) {
+        auto& m = e1.manager();
+        if (c.is_positive() && 
+            !a1.is_zero() && !a1.is_one() && 
+            a2.is_zero() && b1.is_zero() && e2.is_val() && 
+            a1 < b2.val() && b2.val() != m.max_value()) {
+            if (!e1.is_val())
+                side_cond.push_back(s.eq(e1));
+            auto lo_val = ceil((b2.val() + 1) / a1);
+            auto hi_val = floor(m.max_value() / a1) + 1;
+            auto lo = m.mk_val(lo_val);
+            auto hi = m.mk_val(hi_val);
+            interval = eval_interval::proper(lo, lo_val, hi, hi_val);
+            return true;            
+        }
+        if (c.is_positive() && 
+            !a2.is_zero() && !a2.is_one() && 
+            a1.is_zero() && b2.is_zero() &&
+            a2 < b1.val() && e1.is_val()) {
+            if (!e2.is_val())
+                side_cond.push_back(s.eq(e2));
+            auto lo_val = rational::zero();
+            auto hi_val = floor((b1.val() - 1) / a2) + 1;
+            auto lo = m.mk_val(lo_val);
+            auto hi = m.mk_val(hi_val);
+            interval = eval_interval::proper(lo, lo_val, hi, hi_val);
+            return true;
+        }
+        if (c.is_negative() && 
+            !a2.is_zero() && !a2.is_one() && 
+            a1.is_zero() && false) {
+
+        }
         return false;
     }
 
