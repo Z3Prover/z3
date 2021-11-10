@@ -1076,9 +1076,6 @@ void tst_polysat() {
     polysat::test_ineq_axiom5();
     polysat::test_ineq_axiom6();
 
-    // not working
-    // polysat::test_fixed_point_arith_div_mul_inverse();    
-    // polysat::test_monot_bounds_simple(8);
 
     // working
     // NOT: polysat::test_fixed_point_arith_mul_div_inverse();
@@ -1127,6 +1124,14 @@ void tst_polysat() {
     polysat::test_ineq1();
     polysat::test_ineq2();
 #endif
+
+    // not working
+    polysat::test_monot_bounds_simple(8);
+    polysat::test_fixed_point_arith_div_mul_inverse();
+    polysat::test_monot();
+    polysat::test_ineq2();
+    polysat::test_ineq1();
+
 }
 
 
