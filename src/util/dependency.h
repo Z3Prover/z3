@@ -106,6 +106,7 @@ private:
 
     void del(dependency * d) {
         SASSERT(d);
+        SASSERT(m_todo.empty());
         m_todo.push_back(d);
         while (!m_todo.empty()) {
             d = m_todo.back();
@@ -218,16 +219,17 @@ public:
     void linearize(dependency * d, vector<value, false> & vs) {
         if (!d) 
             return;
-        m_todo.reset();
+        SASSERT(m_todo.empty());
         d->mark();
         m_todo.push_back(d);
         linearize_todo(m_todo, vs);
+        m_todo.reset();
     }
 
     void linearize(ptr_vector<dependency>& deps, vector<value, false> & vs) {
         if (deps.empty())
             return;
-        m_todo.reset();
+        SASSERT(m_todo.empty());
         for (auto* d : deps) {
             if (d && !d->is_marked()) {
                 d->mark();
@@ -235,6 +237,7 @@ public:
             }
         }
         linearize_todo(m_todo, vs);
+        m_todo.reset();
     }
 };
 
