@@ -24,7 +24,7 @@ namespace polysat {
         solver& s;
         void revert_core(conflict& core);
         void full_interval_conflict(signed_constraint c, vector<signed_constraint> const & side_cond, conflict& core);
-        bool get_interval(signed_constraint const& c, pvar v, eval_interval& out_interval, vector<signed_constraint>& side_cond);
+
         void push_eq(bool is_trivial, pdd const& p, vector<signed_constraint>& side_cond);
         eval_interval to_interval(signed_constraint const& c, bool is_trivial, rational const& coeff,
                                   rational & lo_val, pdd & lo, rational & hi_val, pdd & hi);
@@ -61,5 +61,6 @@ namespace polysat {
     public:
         forbidden_intervals(solver& s) :s(s) {}
         bool perform(pvar v, vector<signed_constraint> const& just, conflict& core);
+        bool get_interval(signed_constraint const& c, pvar v, eval_interval& out_interval, vector<signed_constraint>& side_cond);
     };
 }

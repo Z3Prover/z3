@@ -60,6 +60,7 @@ namespace polysat {
         friend class forbidden_intervals;
         friend class linear_solver;
         friend class viable;
+        friend class viable2;
         friend class assignment_pp;
         friend class assignments_pp;
         friend class ex_polynomial_superposition;

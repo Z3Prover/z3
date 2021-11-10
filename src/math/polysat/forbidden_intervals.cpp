@@ -147,9 +147,9 @@ namespace polysat {
             unsigned const next_i = seq[(seq_i + 1) % seq.size()];
             // Build constraint: upper bound of each interval is not contained in the next interval,
             // using the equivalence:  t \in [l;h[  <=>  t-l < h-l
-            auto hi = records[i].interval.hi();
-            auto next_lo = records[next_i].interval.lo();
-            auto next_hi = records[next_i].interval.hi();
+            auto const& hi = records[i].interval.hi();
+            auto const& next_lo = records[next_i].interval.lo();
+            auto const& next_hi = records[next_i].interval.hi();
             auto lhs = hi - next_lo;
             auto rhs = next_hi - next_lo;
             signed_constraint c = s.m_constraints.ult(lhs, rhs);
@@ -315,9 +315,9 @@ namespace polysat {
             bool is_trivial = (b2 + 1).is_zero();
             push_eq(is_trivial, e2 + 1, side_cond);
             auto lo = e2 - e1 + 1;
-            auto lo_val = (b2 - b1 + 1).val();
+            rational lo_val = (b2 - b1 + 1).val();
             auto hi = -e1;
-            auto hi_val = (-b1).val();
+            rational hi_val = (-b1).val();
             interval = to_interval(c, is_trivial, a1, lo_val, lo, hi_val, hi);
             return true;
         }
@@ -337,9 +337,9 @@ namespace polysat {
             bool is_trivial = b1.is_zero();
             push_eq(is_trivial, e1, side_cond);
             auto lo = -e2;
-            auto lo_val = (-b2).val();
+            rational lo_val = (-b2).val();
             auto hi = e1 - e2;
-            auto hi_val = (b1 - b2).val();
+            rational hi_val = (b1 - b2).val();
             interval = to_interval(c, is_trivial, a2, lo_val, lo, hi_val, hi);
             return true;
         }
@@ -358,9 +358,9 @@ namespace polysat {
             bool is_trivial = b1.val() == b2.val();
             push_eq(is_trivial, e1 - e2, side_cond);
             auto lo = -e2;
-            auto lo_val = (-b2).val();
+            rational lo_val = (-b2).val();
             auto hi = -e1;
-            auto hi_val = (-b1).val();
+            rational hi_val = (-b1).val();
             interval = to_interval(c, is_trivial, a1, lo_val, lo, hi_val, hi);
             return true;
         }
@@ -432,8 +432,8 @@ namespace polysat {
             a2 < b1.val() && e1.is_val()) {
             if (!e2.is_val())
                 side_cond.push_back(s.eq(e2));
-            auto lo_val = rational::zero();
-            auto hi_val = floor((b1.val() - 1) / a2) + 1;
+            rational lo_val = rational::zero();
+            rational hi_val = floor((b1.val() - 1) / a2) + 1;
             SASSERT(lo_val < hi_val);
             auto lo = m.mk_val(lo_val);
             auto hi = m.mk_val(hi_val);
@@ -447,8 +447,8 @@ namespace polysat {
             a1.is_zero() && e1.is_val() && a2 < b1.val()) {
             if (!e2.is_val())
                 side_cond.push_back(s.eq(e2));
-            auto lo_val = ceil(b1.val() / a2);
-            auto hi_val = floor(m.max_value() / a2) + 1;
+            rational lo_val = ceil(b1.val() / a2);
+            rational hi_val = floor(m.max_value() / a2) + 1;
             auto lo = m.mk_val(lo_val);
             auto hi = m.mk_val(hi_val);
             interval = eval_interval::proper(lo, lo_val, hi, hi_val);
@@ -461,8 +461,8 @@ namespace polysat {
             a2.is_zero() && e2.is_val() && a1 <= b2.val()) { 
             if (!e1.is_val())
                 side_cond.push_back(s.eq(e2));
-            auto lo_val = rational::zero();
-            auto hi_val = floor(b2.val() / a1) + 1;
+            rational lo_val = rational::zero();
+            rational hi_val = floor(b2.val() / a1) + 1;
             auto lo = m.mk_val(lo_val);
             auto hi = m.mk_val(hi_val);
             interval = eval_interval::proper(lo, lo_val, hi, hi_val);

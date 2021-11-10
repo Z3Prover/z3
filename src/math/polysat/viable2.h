@@ -4,58 +4,46 @@ Copyright (c) 2021 Microsoft Corporation
 Module Name:
 
     maintain viable domains
-
+    It uses the interval extraction functions from forbidden intervals.
+    An empty viable set corresponds directly to a conflict that does not rely on 
+    the non-viable variable.
 
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-6
 
-Notes:
-
-    NEW_VIABLE uses cheaper book-keeping, but is partial.
-  
-
 --*/
 #pragma once
 
+
 #include <limits>
-#include "math/dd/dd_bdd.h"
+
 #include "math/polysat/types.h"
+#include "math/polysat/constraint.h"
 
 
 namespace polysat {
 
     class solver;
 
+    class viable2 {
+        solver& s;
 
-    class viable {
-        typedef dd::bdd bdd;
-        typedef dd::fdd fdd;
-        solver&                      s;
-        dd::bdd_manager              m_bdd;
-        scoped_ptr_vector<dd::fdd>   m_bits;        
-        vector<bdd>                  m_viable;   // set of viable values.
-        vector<std::pair<pvar, bdd>> m_viable_trail;
-
-
-        /**
-         * Register all values that are not contained in vals as non-viable.
-         */
-        void intersect_viable(pvar v, bdd vals);
-
-        dd::bdd_manager& get_bdd() { return m_bdd; }
-        dd::fdd const& sz2bits(unsigned sz);
-        dd::fdd const& var2bits(pvar v);
+        typedef std::tuple<eval_interval, vector<signed_constraint>> entry;
+        typedef vector<entry> state;
+        
+        vector<state>                          m_viable;   // set of viable values.
+        vector<std::pair<pvar, state>>         m_trail;
 
 
     public:
-        viable(solver& s);
+        viable2(solver& s);
 
-        ~viable();
+        ~viable2();
 
-        void push(unsigned num_bits) { 
-            m_viable.push_back(m_bdd.mk_true()); 
+        void push(unsigned) {
+            m_viable.push_back({});
         }
 
         void pop() { 
@@ -70,10 +58,7 @@ namespace polysat {
          * update state of viable for pvar v
          * based on affine constraints
          */
-
-        void intersect_eq(rational const& a, pvar v, rational const& b, bool is_positive);
-
-        void intersect_ule(pvar v, rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive);
+        void intersect(pvar v, signed_constraint const& c);
 
         /**
          * Check whether variable v has any viable values left according to m_viable.

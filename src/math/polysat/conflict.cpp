@@ -264,8 +264,8 @@ namespace polysat {
         for (auto v : m_vars)
             a.push_back(std::make_pair(v, s.get_value(v)));
         for (unsigned i = 0; i < a.size(); ++i) {
-            auto save = a[i];
-            auto last = a.back();
+            std::pair<pvar, rational> save = a[i];
+            std::pair<pvar, rational> last = a.back();
             a[i] = last;
             a.pop_back();
             if (c.is_currently_false(a)) 
@@ -278,7 +278,7 @@ namespace polysat {
         if (a.size() == m_vars.num_elems())
             return;
         m_vars.reset();
-        for (auto [v, val] : a)
+        for (auto const& [v, val] : a)
             m_vars.insert(v);
         LOG("reduced " << m_vars);
     }
