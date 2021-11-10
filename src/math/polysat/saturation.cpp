@@ -367,7 +367,7 @@ namespace polysat {
     /// [z] z <= y' /\ zx > yx  ==>  Ω*(x,y') \/ y'x > yx
     /// [z] z <= y' /\ yx <= zx  ==>  Ω*(x,y') \/ yx <= y'x
     bool inf_saturate::try_ugt_z(pvar z, conflict& core, inequality const& yx_l_zx) {
-        set_rule("[z] z <= y' /\ zx > yx");
+        set_rule("[z] z <= y' && zx > yx");
         pdd y = s.var(z);
         pdd x = y;
         if (!is_YX_l_zX(z, yx_l_zx, x, y))

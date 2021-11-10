@@ -19,7 +19,6 @@ Author:
 #include "math/polysat/solver.h"
 #include "math/polysat/explain.h"
 #include "math/polysat/log.h"
-#include "math/polysat/forbidden_intervals.h"
 #include "math/polysat/variable_elimination.h"
 
 // For development; to be removed once the linear solver works well enough
@@ -39,6 +38,7 @@ namespace polysat {
         m_viable(*this),
         m_linear_solver(*this),
         m_conflict(*this),
+        m_forbidden_intervals(*this),
         m_bvars(),
         m_free_pvars(m_activity),
         m_constraints(m_bvars) {

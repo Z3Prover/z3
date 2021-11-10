@@ -168,8 +168,6 @@ namespace polysat {
          */
         bool has_viable(pvar v);
 
-        bool is_false(pvar v) { return !has_viable(v); }
-
         /**
          * check if value is viable according to m_viable.
          */

@@ -296,11 +296,8 @@ namespace polysat {
             return false;
         }
 
-        if (conflict_var() == v) {
-            forbidden_intervals fi(s);
-            if (fi.perform(v, cjust_v, *this))
-                return true;
-        }
+        if (conflict_var() == v && s.m_forbidden_intervals.perform(v, cjust_v, *this))
+            return true;        
         
         m_vars.remove(v);
 

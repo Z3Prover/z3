@@ -29,6 +29,7 @@ Author:
 #include "math/polysat/justification.h"
 #include "math/polysat/linear_solver.h"
 #include "math/polysat/search_state.h"
+#include "math/polysat/forbidden_intervals.h"
 #include "math/polysat/trail.h"
 #include "math/polysat/viable.h"
 #include "math/polysat/log.h"
@@ -71,6 +72,7 @@ namespace polysat {
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
         linear_solver            m_linear_solver;
         conflict                 m_conflict;        
+        forbidden_intervals      m_forbidden_intervals;
         bool_var_manager         m_bvars;       // Map boolean variables to constraints
         var_queue                m_free_pvars;  // free poly vars
         stats                    m_stats;

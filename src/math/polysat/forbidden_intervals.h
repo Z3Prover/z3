@@ -14,10 +14,11 @@ Author:
 
 --*/
 #pragma once
-#include "math/polysat/constraint.h"
-#include "math/polysat/solver.h"
+#include "math/polysat/conflict.h"
 
 namespace polysat {
+
+    class solver;
 
     class forbidden_intervals {
         solver& s;
