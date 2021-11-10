@@ -268,4 +268,16 @@ namespace polysat {
     inline std::ostream& operator<<(std::ostream& out, signed_constraint const& c) {
         return c.display(out);
     }
+
+    struct fi_record {
+        eval_interval               interval;
+        vector<signed_constraint>   side_cond;
+        signed_constraint           src;
+
+        struct less {
+            bool operator()(fi_record const& a, fi_record const& b) const {
+                return a.interval.lo_val() < b.interval.lo_val();
+            }
+        };
+    };
 }

@@ -49,6 +49,8 @@ namespace polysat {
         dd::fdd const& var2bits(pvar v);
 
 
+        void push_viable(pvar v);
+
     public:
         viable(solver& s);
 
@@ -58,11 +60,9 @@ namespace polysat {
             m_viable.push_back(m_bdd.mk_true()); 
         }
 
-        void pop() { 
-            m_viable.pop_back(); 
+        void pop() {
+            m_viable.pop_back();
         }
-
-        void push_viable(pvar v);
 
         void pop_viable();
 

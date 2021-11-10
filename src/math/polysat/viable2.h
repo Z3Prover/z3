@@ -18,9 +18,12 @@ Author:
 
 
 #include <limits>
-
+#include "util/dlist.h"
+#include "util/small_object_allocator.h"
 #include "math/polysat/types.h"
 #include "math/polysat/constraint.h"
+
+
 
 
 namespace polysat {
@@ -29,13 +32,15 @@ namespace polysat {
 
     class viable2 {
         solver& s;
-
-        typedef std::tuple<eval_interval, vector<signed_constraint>> entry;
-        typedef vector<entry> state;
         
-        vector<state>                          m_viable;   // set of viable values.
-        vector<std::pair<pvar, state>>         m_trail;
-
+        struct entry : public dll_base<entry>, public fi_record { 
+        public: 
+            entry() : fi_record({ eval_interval::full(), {}, {} }) {}
+        };
+        
+        small_object_allocator               m_alloc;
+        ptr_vector<entry>                    m_viable;   // set of viable values.
+        svector<std::pair<pvar, entry*>>     m_trail;    // undo stack
 
     public:
         viable2(solver& s);
@@ -43,14 +48,12 @@ namespace polysat {
         ~viable2();
 
         void push(unsigned) {
-            m_viable.push_back({});
+            m_viable.push_back(nullptr);
         }
 
         void pop() { 
             m_viable.pop_back(); 
         }
-
-        void push_viable(pvar v);
 
         void pop_viable();
 

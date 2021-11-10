@@ -109,11 +109,6 @@ namespace polysat {
 
         unsigned_vector          m_base_levels;  // External clients can push/pop scope. 
 
-
-        void push_viable(pvar v) {
-            m_viable.push_viable(v);
-        }
-
         void push_qhead() { 
             m_trail.push_back(trail_instr_t::qhead_i);
             m_qhead_trail.push_back(m_qhead);

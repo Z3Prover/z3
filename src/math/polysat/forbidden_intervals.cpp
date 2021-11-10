@@ -22,12 +22,6 @@ Author:
 
 namespace polysat {
 
-    struct fi_record {
-        eval_interval interval;
-        vector<signed_constraint> side_cond;  
-        signed_constraint src;
-    };
-
     /**
      * Find a sequence of intervals that covers all of Z_modulus.
      *

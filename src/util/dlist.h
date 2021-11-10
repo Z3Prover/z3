@@ -40,6 +40,14 @@ public:
         remove_from(list, head);
         return head;
     }
+
+    void insert(T* elem) {
+        T* next = this->m_next;
+        elem->m_prev = next->m_prev;
+        elem->m_next = next;
+        this->m_next = elem;
+        next->m_prev = elem;
+    }
     
     static void remove_from(T*& list, T* elem) {
         if (list->m_next == list) {
