@@ -77,8 +77,10 @@ namespace seq {
 
         expr_ref mk_indexof_left(expr* t, expr* s, expr* offset = nullptr) { return mk(m_indexof_left, t, s, offset); }
         expr_ref mk_indexof_right(expr* t, expr* s, expr* offset = nullptr) { return mk(m_indexof_right, t, s, offset); }
-        expr_ref mk_last_indexof_left(expr* t, expr* s, expr* offset = nullptr) { return mk("seq.last_indexof_left", t, s, offset); }
-        expr_ref mk_last_indexof_right(expr* t, expr* s, expr* offset = nullptr) { return mk("seq.last_indexof_right", t, s, offset); }
+        expr_ref mk_contains_left(expr* t, expr* s, expr* offset = nullptr) { return mk("seq.cnt.l", t, s, offset); }
+        expr_ref mk_contains_right(expr* t, expr* s, expr* offset = nullptr) { return mk("seq.cnt.r", t, s, offset); }
+        expr_ref mk_last_indexof_left(expr* t, expr* s, expr* offset = nullptr) { return mk("seq.lidx.l", t, s, offset); }
+        expr_ref mk_last_indexof_right(expr* t, expr* s, expr* offset = nullptr) { return mk("seq.lidx.r", t, s, offset); }
 
         expr_ref mk_tail(expr* s, expr* i) { return mk(m_tail, s, i); }
         expr_ref mk_post(expr* s, expr* i) { return mk(m_post, s, i); }

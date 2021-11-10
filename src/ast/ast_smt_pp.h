@@ -46,6 +46,7 @@ public:
     public:
         virtual bool operator()(func_decl* d) const { return false; }
         virtual bool operator()(sort* s) const { return false; }
+        virtual ~is_declared() = default;
     };
 private:
     ast_manager& m_manager;

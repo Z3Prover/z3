@@ -22,11 +22,11 @@ Copyright (c) 2015 Microsoft Corporation
 /**
    \defgroup capi_ex C API examples
 */
-/*@{*/
+/**@{*/
 /**
    @name Auxiliary Functions
 */
-/*@{*/
+/**@{*/
 
 /**
    \brief exit gracefully in case of error.
@@ -694,12 +694,12 @@ void display_version()
     Z3_get_version(&major, &minor, &build, &revision);
     printf("Z3 %d.%d.%d.%d\n", major, minor, build, revision);
 }
-/*@}*/
+/**@}*/
 
 /**
    @name Examples
 */
-/*@{*/
+/**@{*/
 /**
    \brief "Hello world" example: create a Z3 logical context, and delete it.
 */
@@ -2947,8 +2947,8 @@ void mk_model_example() {
     Z3_del_context(ctx);
 }
 
-/*@}*/
-/*@}*/
+/**@}*/
+/**@}*/
 
 
 

@@ -21,6 +21,7 @@ Revision History:
 
 #include "util/machine.h"
 #include "util/debug.h"
+#include "util/trace.h"
 
 class small_object_allocator {
     static const unsigned CHUNK_SIZE     = (8192 - sizeof(void*)*2);

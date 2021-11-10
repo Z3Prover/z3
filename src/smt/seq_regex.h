@@ -158,12 +158,12 @@ namespace smt {
         expr_ref symmetric_diff(expr* r1, expr* r2);
 
         expr_ref is_nullable_wrapper(expr* r);
-        expr_ref derivative_wrapper(expr* hd, expr* r);
+        expr_ref mk_derivative_wrapper(expr* hd, expr* r);
 
         // Various support for unfolding derivative expressions that are
         // returned by derivative_wrapper
         expr_ref mk_deriv_accept(expr* s, unsigned i, expr* r);
-        void get_all_derivatives(expr* r, expr_ref_vector& results);
+        void get_derivative_targets(expr* r, expr_ref_vector& targets);
         void get_cofactors(expr* r, expr_ref_pair_vector& result);
         void get_cofactors_rec(expr* r, expr_ref_vector& conds,
                                expr_ref_pair_vector& result);

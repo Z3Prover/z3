@@ -119,7 +119,7 @@ namespace array {
 
     bool solver::must_have_different_model_values(theory_var v1, theory_var v2) {
         euf::enode* else1 = nullptr, * else2 = nullptr;
-        euf::enode* n1 = var2enode(v1), *n2 = var2enode(v2);
+        euf::enode* n1 = var2enode(v1);
         expr* e1 = n1->get_expr();
         if (!a.is_array(e1))
             return true;

@@ -42,7 +42,7 @@ namespace datalog {
             /**
                \brief Number of rules longer than two that contain this pair.
 
-               This number is being updated by \c add_rule and \remove rule. Even though between
+               This number is being updated by \c add_rule and \c remove_rule. Even though between
                adding a rule and removing it, the length of a rule can decrease without this pair
                being notified about it, it will surely see the decrease from length 3 to 2 which
                the threshold for rule being counted in this counter.

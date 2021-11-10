@@ -286,7 +286,8 @@ public:
         app* mk_at(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_AT, 2, es); }
         app* mk_nth(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH, 2, es); }
         app* mk_nth_i(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH_I, 2, es); }
-        app* mk_nth_i(expr* s, unsigned i) const;
+        app* mk_nth_u(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH_U, 2, es); }
+        app* mk_nth_c(expr* s, unsigned i) const;
 
         app* mk_substr(expr* a, expr* b, expr* c) const { expr* es[3] = { a, b, c }; return m.mk_app(m_fid, OP_SEQ_EXTRACT, 3, es); }
         app* mk_contains(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONTAINS, 2, es); }
@@ -349,6 +350,13 @@ public:
         bool is_is_digit(expr const* n) const { return is_app_of(n, m_fid, OP_STRING_IS_DIGIT); }
         bool is_from_code(expr const* n) const { return is_app_of(n, m_fid, OP_STRING_FROM_CODE); }
         bool is_to_code(expr const* n) const { return is_app_of(n, m_fid, OP_STRING_TO_CODE); }
+
+        bool is_len_sub(expr const* n, expr*& l, expr*& u, rational& k) const;
+
+        /*
+        tests if s is a single character string(c) or a unit (c)
+        */
+        bool is_unit_string(expr const* s, expr_ref& c) const;
 
         bool is_string_term(expr const * n) const {
             return u.is_string(n->get_sort());
@@ -530,7 +538,20 @@ public:
         bool is_loop(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_LOOP); }
         bool is_empty(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_EMPTY_SET); }
         bool is_full_char(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_FULL_CHAR_SET); }
-        bool is_full_seq(expr const* n)  const { return is_app_of(n, m_fid, OP_RE_FULL_SEQ_SET); }
+        bool is_full_seq(expr const* n)  const {
+            expr* s;
+            return is_app_of(n, m_fid, OP_RE_FULL_SEQ_SET) || (is_star(n, s) && is_full_char(s));
+        }
+        bool is_dot_plus(expr const* n)  const {
+            expr* s, * t;
+            if (is_plus(n, s) && is_full_char(s))
+                return true;
+            if (is_concat(n, s, t)) {
+                if ((is_full_char(s) && is_full_seq(t)) || (is_full_char(t) && is_full_seq(s)))
+                    return true;
+            }
+            return false;
+        }
         bool is_of_pred(expr const* n) const { return is_app_of(n, m_fid, OP_RE_OF_PRED); }
         bool is_reverse(expr const* n) const { return is_app_of(n, m_fid, OP_RE_REVERSE); }
         bool is_derivative(expr const* n) const { return is_app_of(n, m_fid, OP_RE_DERIVATIVE); }
@@ -559,18 +580,32 @@ public:
         app* mk_epsilon(sort* seq_sort);
         info get_info(expr* r) const;
         std::string to_str(expr* r) const;
+        std::string to_strh(expr* r) const;
+
+        expr_ref mk_ite_simplify(expr* c, expr* t, expr* e)
+        {
+            expr_ref result(m);
+            if (m.is_true(c) || t == e)
+                result = t;
+            else if (m.is_false(c))
+                result = e;
+            else
+                result = m.mk_ite(c, t, e);
+            return result;
+        }
 
         class pp {
             seq_util::rex& re;
-            expr* e;
+            expr* ex;
             bool html_encode;
             bool can_skip_parenth(expr* r) const;
-            std::ostream& seq_unit(std::ostream& out, expr* s) const;
-            std::ostream& compact_helper_seq(std::ostream& out, expr* s) const;
-            std::ostream& compact_helper_range(std::ostream& out, expr* s1, expr* s2) const;
+            bool print_unit(std::ostream& out, expr* s) const;
+            bool print_seq(std::ostream& out, expr* s) const;
+            std::ostream& print_range(std::ostream& out, expr* s1, expr* s2) const;
+            std::ostream& print(std::ostream& out, expr* e) const;
 
         public:
-            pp(seq_util::rex& r, expr* e, bool html = false) : re(r), e(e), html_encode(html) {}
+            pp(seq_util::rex& re, expr* ex, bool html) : re(re), ex(ex), html_encode(html) {}
             std::ostream& display(std::ostream&) const;
         };
     };

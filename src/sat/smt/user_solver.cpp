@@ -18,7 +18,7 @@ Author:
 #include "sat/smt/user_solver.h"
 #include "sat/smt/euf_solver.h"
 
-namespace user {
+namespace user_solver {
 
     solver::solver(euf::solver& ctx) :
         th_euf_solver(ctx, symbol("user"), ctx.get_manager().mk_family_id("user"))

@@ -279,6 +279,9 @@ namespace smt {
             return m_app2enode[n->get_id()];
         }
 
+        void get_specrels(func_decl_set& rels) const;
+
+
         /**
            \brief Similar to get_enode, but returns 0 if n is to e_internalized.
         */
@@ -1189,7 +1192,6 @@ namespace smt {
 
         bool more_than_k_unassigned_literals(clause * cls, unsigned k);
 
-        void internalize_assertions();
 
         void asserted_inconsistent();
 
@@ -1605,6 +1607,8 @@ namespace smt {
         void assert_expr(expr * e);
 
         void assert_expr(expr * e, proof * pr);
+
+        void internalize_assertions();
 
         void push();
 

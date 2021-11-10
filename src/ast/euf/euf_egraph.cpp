@@ -681,6 +681,7 @@ namespace euf {
     void egraph::begin_explain() {
         SASSERT(m_todo.empty());
         m_uses_congruence = false;
+        DEBUG_CODE(for (enode* n : m_nodes) SASSERT(!n->is_marked1()););
     }
 
     void egraph::end_explain() {

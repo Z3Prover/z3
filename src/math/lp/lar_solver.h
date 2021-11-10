@@ -76,13 +76,13 @@ class lar_solver : public column_namer {
     
     //////////////////// fields //////////////////////////
     lp_settings                                         m_settings;
-    lp_status                                           m_status;
+    lp_status                                           m_status = lp_status::UNKNOWN;
     stacked_value<simplex_strategy_enum>                m_simplex_strategy;
     // such can be found at the initialization step: u < l
     stacked_value<int>                                  m_crossed_bounds_column; 
     lar_core_solver                                     m_mpq_lar_core_solver;
-    int_solver *                                        m_int_solver;
-    bool                                                m_need_register_terms;
+    int_solver *                                        m_int_solver = nullptr;
+    bool                                                m_need_register_terms = false;
     var_register                                        m_var_register;
     var_register                                        m_term_register;
     stacked_vector<ul_pair>                             m_columns_to_ul_pairs;
@@ -90,6 +90,8 @@ class lar_solver : public column_namer {
     // the set of column indices j such that bounds have changed for j
     u_set                                               m_columns_with_changed_bounds;
     u_set                                               m_rows_with_changed_bounds;
+    unsigned_vector                                     m_row_bounds_to_replay;
+    
     u_set                                               m_basic_columns_with_changed_cost;
     // these are basic columns with the value changed, so the the corresponding row in the tableau
     // does not sum to zero anymore
@@ -164,7 +166,6 @@ class lar_solver : public column_namer {
     void adjust_initial_state_for_lu();
     void adjust_initial_state_for_tableau_rows();
     void fill_last_row_of_A_d(static_matrix<double, double> & A, const lar_term* ls);
-    void clear();
     bool use_lu() const;
     bool sizes_are_correct() const;
     bool implied_bound_is_correctly_explained(implied_bound const & be, const vector<std::pair<mpq, unsigned>> & explanation) const;
@@ -219,6 +220,7 @@ class lar_solver : public column_namer {
     void change_basic_columns_dependend_on_a_given_nb_column(unsigned j, const numeric_pair<mpq> & delta);
     void update_x_and_inf_costs_for_column_with_changed_bounds(unsigned j);
     unsigned num_changed_bounds() const { return m_rows_with_changed_bounds.size(); }
+    void insert_row_with_changed_bounds(unsigned rid);
     void detect_rows_with_changed_bounds_for_column(unsigned j);
     void detect_rows_with_changed_bounds();
     void set_value_for_nbasic_column(unsigned j, const impq & new_val);
@@ -368,19 +370,18 @@ public:
         // these two loops should be run sequentially
         // since the first loop might change column bounds
         // and add fixed columns this way
-        if (settings().cheap_eqs()) {
+        if (settings().propagate_eqs()) {
             bp.clear_for_eq();
             for (unsigned i : m_rows_with_changed_bounds) {
-                calculate_cheap_eqs_for_row(i, bp);
+                unsigned offset_eqs = stats().m_offset_eqs;
+                bp.cheap_eq_tree(i);                
                 if (settings().get_cancel_flag())
                     return;
+                if (stats().m_offset_eqs > offset_eqs)
+                    m_row_bounds_to_replay.push_back(i);
             }
         }
         m_rows_with_changed_bounds.clear();
-    }
-    template <typename T>
-    void calculate_cheap_eqs_for_row(unsigned i, lp_bound_propagator<T> & bp) {
-        bp.cheap_eq_tree(i);
     }
     
     bool is_fixed(column_index const& j) const { return column_is_fixed(j); }
@@ -515,6 +516,8 @@ public:
     unsigned column_to_reported_index(unsigned j) const;
     lp_settings & settings();
     lp_settings const & settings() const;
+    statistics& stats();
+ 
     void updt_params(params_ref const& p);
     column_type get_column_type(unsigned j) const { return m_mpq_lar_core_solver.m_column_types()[j]; }
     const impq & get_lower_bound(unsigned j) const { return m_mpq_lar_core_solver.m_r_lower_bounds()[j]; }

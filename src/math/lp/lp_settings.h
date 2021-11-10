@@ -99,6 +99,7 @@ template <typename X> bool is_epsilon_small(const X & v, const double& eps);    
 
 class lp_resource_limit {
 public:
+    virtual ~lp_resource_limit() = default;
     virtual bool get_cancel_flag() = 0;
 };
 
@@ -125,7 +126,7 @@ struct statistics {
     unsigned m_cross_nested_forms;
     unsigned m_grobner_calls;
     unsigned m_grobner_conflicts;
-    unsigned m_cheap_eqs;
+    unsigned m_offset_eqs;
     statistics() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
     void collect_statistics(::statistics& st) const {
@@ -146,7 +147,7 @@ struct statistics {
         st.update("arith-horner-cross-nested-forms", m_cross_nested_forms);
         st.update("arith-grobner-calls", m_grobner_calls);
         st.update("arith-grobner-conflicts", m_grobner_conflicts);
-        st.update("arith-cheap-eqs", m_cheap_eqs);
+        st.update("arith-offset-eqs", m_offset_eqs);
 
     }
 };
@@ -241,10 +242,10 @@ private:
     unsigned         m_nlsat_delay;
     bool             m_enable_hnf { true };
     bool             m_print_external_var_name { false };
-    bool             m_cheap_eqs { false };
+    bool             m_propagate_eqs { false };
 public:
     bool print_external_var_name() const { return m_print_external_var_name; }
-    bool cheap_eqs() const { return m_cheap_eqs;}
+    bool propagate_eqs() const { return m_propagate_eqs;}
     unsigned hnf_cut_period() const { return m_hnf_cut_period; }
     void set_hnf_cut_period(unsigned period) { m_hnf_cut_period = period;  }
     unsigned random_next() { return m_rand(); }

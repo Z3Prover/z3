@@ -413,6 +413,7 @@ namespace smt {
         // of justification are considered level zero.
         if (m_conflict_lvl <= m_ctx.get_search_level()) {
             TRACE("conflict", tout << "problem is unsat\n";);
+            TRACE("conflict", m_ctx.display(tout););
             if (m.proofs_enabled())
                 mk_conflict_proof(conflict, not_l);
             if (m_ctx.tracking_assumptions())
@@ -473,7 +474,8 @@ namespace smt {
 
         TRACE("conflict",
               tout << "new scope level:     " << m_new_scope_lvl << "\n";
-              tout << "intern. scope level: " << m_lemma_iscope_lvl << "\n";);
+              tout << "intern. scope level: " << m_lemma_iscope_lvl << "\n";
+              tout << "lemma: " << m_lemma << "\n";);
 
         if (m.proofs_enabled())
             mk_conflict_proof(conflict, not_l);
@@ -760,6 +762,7 @@ namespace smt {
         m_lemma      .shrink(j);
         m_lemma_atoms.shrink(j);
         m_ctx.m_stats.m_num_minimized_lits += sz - j;
+        TRACE("conflict", tout << "lemma: " << m_lemma << "\n";);
     }
 
     /**
@@ -1359,9 +1362,8 @@ namespace smt {
 
     void conflict_resolution::process_antecedent_for_unsat_core(literal antecedent) {
         bool_var var = antecedent.var();
-        TRACE("conflict", tout << "processing antecedent: ";
+        CTRACE("conflict", !m_ctx.is_marked(var), tout << "processing antecedent: ";
           m_ctx.display_literal_info(tout << antecedent << " ", antecedent);
-          tout << (m_ctx.is_marked(var)?"marked":"not marked");
           tout << "\n";);
 
         if (!m_ctx.is_marked(var)) {

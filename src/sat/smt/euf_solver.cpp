@@ -183,6 +183,7 @@ namespace euf {
     }
 
     void solver::propagate(literal lit, ext_justification_idx idx) {
+        add_auto_relevant(bool_var2expr(lit.var()));
         s().assign(lit, sat::justification::mk_ext_justification(s().scope_lvl(), idx));
     }
 
@@ -527,6 +528,7 @@ namespace euf {
         m_egraph.push();
         if (m_dual_solver)
             m_dual_solver->push();
+        push_relevant();
     }
 
     void solver::pop(unsigned n) {
@@ -536,6 +538,7 @@ namespace euf {
             e->pop(n);
         si.pop(n);
         m_egraph.pop(n);
+        pop_relevant(n);
         scope const & sc = m_scopes[m_scopes.size() - n];
         for (unsigned i = m_var_trail.size(); i-- > sc.m_var_lim; ) {
             bool_var v = m_var_trail[i];
@@ -994,7 +997,7 @@ namespace euf {
         ::solver::push_eh_t& push_eh,
         ::solver::pop_eh_t& pop_eh,
         ::solver::fresh_eh_t& fresh_eh) {
-        m_user_propagator = alloc(user::solver, *this);
+        m_user_propagator = alloc(user_solver::solver, *this);
         m_user_propagator->add(ctx, push_eh, pop_eh, fresh_eh);
         for (unsigned i = m_scopes.size(); i-- > 0; )
             m_user_propagator->push();

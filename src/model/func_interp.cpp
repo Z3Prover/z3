@@ -280,6 +280,9 @@ void func_interp::compress() {
     }
     // other compression, if else is a default branch.
     // or function encode identity.
+#if 0
+    // breaks array interpretations
+    // #5604
     if (m().is_false(m_else)) {
         expr_ref new_else(get_interp(), m());
         for (func_entry * curr : m_entries) {
@@ -291,7 +294,9 @@ void func_interp::compress() {
         m().dec_ref(m_else);
         m_else = new_else;
     }
-    else if (!m_entries.empty() && is_identity()) {
+    else
+#endif
+        if (!m_entries.empty() && is_identity()) {
         for (func_entry * curr : m_entries) {
             curr->deallocate(m(), m_arity);
         }
@@ -335,14 +340,11 @@ expr * func_interp::get_interp_core() const {
     expr * r = m_else;
     ptr_buffer<expr> vars;
     for (func_entry * curr : m_entries) {
-        if (m_else == curr->get_result()) {
+        if (m_else == curr->get_result()) 
             continue;
-        }
-        if (vars.empty()) {
-            for (unsigned i = 0; i < m_arity; i++) {
+        if (vars.empty()) 
+            for (unsigned i = 0; i < m_arity; i++)                 
                 vars.push_back(m().mk_var(i, curr->get_arg(i)->get_sort()));
-            }
-        }
         ptr_buffer<expr> eqs;
         for (unsigned i = 0; i < m_arity; i++) {
             eqs.push_back(m().mk_eq(vars[i], curr->get_arg(i)));

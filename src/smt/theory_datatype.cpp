@@ -297,7 +297,7 @@ namespace smt {
         TRACE("datatype", tout << "internalizing term:\n" << mk_pp(term, m) << "\n";);
         unsigned num_args = term->get_num_args();
         for (unsigned i = 0; i < num_args; i++)
-            ctx.internalize(term->get_arg(i), false);
+            ctx.internalize(term->get_arg(i), has_quantifiers(term));
         // the internalization of the arguments may trigger the internalization of term.
         if (ctx.e_internalized(term))
             return true;

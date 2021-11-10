@@ -11102,33 +11102,34 @@ class PropClosures:
         self.bases = {}
         self.lock = None
 
-    def set_threaded():
+    def set_threaded(self):
         if self.lock is None:
             import threading
-            self.lock = threading.thread.Lock()
+            self.lock = threading.Lock()
 
     def get(self, ctx):
         if self.lock:
-            self.lock.acquire()
-        r = self.bases[ctx]
-        if self.lock:
-            self.lock.release()
+            with self.lock:
+                r = self.bases[ctx]
+        else:
+            r = self.bases[ctx]            
         return r
 
     def set(self, ctx, r):
         if self.lock:
-            self.lock.acquire()
-        self.bases[ctx] = r
-        if self.lock:
-            self.lock.release()
+            with self.lock:
+                self.bases[ctx] = r
+        else:
+            self.bases[ctx] = r
 
     def insert(self, r):
         if self.lock:
-            self.lock.acquire()
-        id = len(self.bases) + 3
-        self.bases[id] = r
-        if self.lock:
-            self.lock.release()
+            with self.lock:
+                id = len(self.bases) + 3
+                self.bases[id] = r
+        else:
+            id = len(self.bases) + 3
+            self.bases[id] = r
         return id
 
 
@@ -11151,8 +11152,9 @@ def user_prop_pop(ctx, num_scopes):
 
 def user_prop_fresh(id, ctx):
     _prop_closures.set_threaded()
-    new_prop = UsePropagateBase(None, ctx)
-    _prop_closures.set(new_prop.id, new_prop.fresh())
+    prop = _prop_closures.get(id)
+    new_prop = prop.fresh()
+    _prop_closures.set(new_prop.id, new_prop)
     return ctypes.c_void_p(new_prop.id)
 
 
@@ -11214,11 +11216,12 @@ class UserPropagateBase:
         self.eq = None
         self.diseq = None
         if ctx:
+            # TBD fresh is broken: ctx is not of the right type when we reach here.
             self._ctx = Context()
-            Z3_del_context(self._ctx.ctx)
-            self._ctx.ctx = ctx
-            self._ctx.eh = Z3_set_error_handler(ctx, z3_error_handler)
-            Z3_set_ast_print_mode(ctx, Z3_PRINT_SMTLIB2_COMPLIANT)
+            #Z3_del_context(self._ctx.ctx)
+            #self._ctx.ctx = ctx
+            #self._ctx.eh = Z3_set_error_handler(ctx, z3_error_handler)
+            #Z3_set_ast_print_mode(ctx, Z3_PRINT_SMTLIB2_COMPLIANT)
         if s:
             Z3_solver_propagate_init(self.ctx_ref(),
                                      s.solver,

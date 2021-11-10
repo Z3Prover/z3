@@ -37,6 +37,8 @@ public:
         m_ignore_quantifiers(ignore_quantifiers) {
     }
 
+    virtual ~num_occurs() = default;
+
     void validate();
     virtual void reset() { m_num_occurs.reset(); }
     

@@ -122,6 +122,7 @@ namespace datalog {
 
     class register_engine_base {
     public:
+        virtual ~register_engine_base() = default;
         virtual engine_base* mk_engine(DL_ENGINE engine_type) = 0;
         virtual void set_context(context* ctx) = 0;
     };

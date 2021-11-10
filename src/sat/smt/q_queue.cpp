@@ -86,13 +86,13 @@ namespace q {
         m_parser.add_var("cs_factor");
     }
 
-    void queue::set_values(fingerprint& f, float cost) {
+    void queue::set_values(binding& f, float cost) {
         quantifier_stat * stat  = f.c->m_stat;
         quantifier* q = f.q();
-        app* pat = f.b->m_pattern;
+        app* pat = f.m_pattern;
         m_vals[COST]               = cost;
-        m_vals[MIN_TOP_GENERATION] = static_cast<float>(f.b->m_min_top_generation);
-        m_vals[MAX_TOP_GENERATION] = static_cast<float>(f.b->m_max_top_generation);
+        m_vals[MIN_TOP_GENERATION] = static_cast<float>(f.m_min_top_generation);
+        m_vals[MAX_TOP_GENERATION] = static_cast<float>(f.m_max_top_generation);
         m_vals[INSTANCES]          = static_cast<float>(stat->get_num_instances_curr_branch());
         m_vals[SIZE]               = static_cast<float>(stat->get_size());
         m_vals[DEPTH]              = static_cast<float>(stat->get_depth());
@@ -108,14 +108,14 @@ namespace q {
         TRACE("q_detail", for (unsigned i = 0; i < m_vals.size(); i++) { tout << m_vals[i] << " "; } tout << "\n";);
     }
 
-    float queue::get_cost(fingerprint& f) {
+    float queue::get_cost(binding& f) {
         set_values(f, 0);
         float r = m_evaluator(m_cost_function, m_vals.size(), m_vals.data());
         f.c->m_stat->update_max_cost(r);
         return r;
     }
 
-    unsigned queue::get_new_gen(fingerprint& f, float cost) {
+    unsigned queue::get_new_gen(binding& f, float cost) {
         set_values(f, cost);
         float r = m_evaluator(m_new_gen_function, m_vals.size(), m_vals.data());
         return std::max(f.m_max_generation + 1, static_cast<unsigned>(r));
@@ -129,7 +129,7 @@ namespace q {
         }
     };
 
-    void queue::insert(fingerprint* f) {
+    void queue::insert(binding* f) {
         float cost = get_cost(*f);
         if (m_new_entries.empty()) 
             ctx.push(reset_new_entries(m_new_entries));
@@ -137,7 +137,7 @@ namespace q {
     }
 
     void queue::instantiate(entry& ent) {
-        fingerprint & f          = *ent.m_qb;
+        binding& f               = *ent.m_qb;
         quantifier * q           = f.q();
         unsigned num_bindings    = f.size();
         quantifier_stat * stat   = f.c->m_stat;
@@ -146,12 +146,18 @@ namespace q {
                 
         unsigned gen = get_new_gen(f, ent.m_cost);
         bool new_propagation = false;
-        if (em.propagate(true, f.nodes(), gen, *f.c, new_propagation))
+        if (false && em.propagate(true, f.nodes(), gen, *f.c, new_propagation))
             return;
 
+#if 0
+        std::cout << mk_pp(q, m) << "\n";
+        std::cout << num_bindings << "\n";
+        for (unsigned i = 0; i < num_bindings; ++i)
+            std::cout << mk_pp(f[i]->get_expr(), m) << " " << mk_pp(f[i]->get_sort(), m) << "\n";
+#endif
         auto* ebindings = m_subst(q, num_bindings);
         for (unsigned i = 0; i < num_bindings; ++i)
-            ebindings[i] = f.nodes()[i]->get_expr();
+            ebindings[i] = f[i]->get_expr();
         expr_ref instance = m_subst();
         ctx.get_rewriter()(instance);
         if (m.is_true(instance)) {
@@ -161,10 +167,13 @@ namespace q {
         stat->inc_num_instances();
 
         m_stats.m_num_instances++;
+
+        // f.display(ctx, std::cout << mk_pp(f.q(), m) << "\n" << instance << "\n") <<  "\n";
+
         
         euf::solver::scoped_generation _sg(ctx, gen);
         sat::literal result_l = ctx.mk_literal(instance);
-        em.add_instantiation(*f.c, *f.b, result_l);
+        em.add_instantiation(*f.c, f, result_l);
     }
 
     bool queue::propagate() {
@@ -178,7 +187,7 @@ namespace q {
             if (0 == since_last_check && ctx.resource_limits_exceeded()) 
                 break;
 
-            fingerprint& f = *curr.m_qb;
+            binding& f = *curr.m_qb;
 
             if (curr.m_cost <= m_eager_cost_threshold) 
                 instantiate(curr);
@@ -223,15 +232,14 @@ namespace q {
             }
         }
         bool instantiated = false;
-        unsigned idx = 0;
-        for (entry & e : m_delayed_entries) {
+        for (unsigned idx = 0; idx < m_delayed_entries.size(); ++idx) {
+            entry & e = m_delayed_entries[idx];
             if (!e.m_instantiated && e.m_cost <= cost_limit) {
                 instantiated = true;
                 ctx.push(reset_instantiated(*this, idx));
                 m_stats.m_num_lazy_instances++;
                 instantiate(e);
             }
-            ++idx;
         }
         return instantiated;
     }

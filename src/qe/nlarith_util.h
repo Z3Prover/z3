@@ -96,8 +96,6 @@ namespace nlarith {
         bool create_branches(app* x, unsigned nl, expr* const* lits, branch_conditions& bc);
         /**
            \brief Extract non-linear variables from ground formula.
-           
-           \requires a ground formula.
         */
         void extract_non_linear(expr* e, ptr_vector<app>& nl_vars);
 

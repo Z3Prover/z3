@@ -155,7 +155,7 @@ public:
     };
     
     class const_iterator {
-        u_map< mpq>::iterator m_it;
+        u_map<mpq>::iterator m_it;
     public:
         ival operator*() const { return ival(m_it->m_key, m_it->m_value); }        
         const_iterator operator++() { const_iterator i = *this; m_it++; return i;  }

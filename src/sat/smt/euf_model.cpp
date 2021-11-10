@@ -46,6 +46,7 @@ namespace euf {
                 value = r->get_expr();
             else
                 value = factory.get_fresh_value(srt);
+            (void)s;
             TRACE("model", tout << s.bpp(r) << " := " << value << "\n";);
             values.set(id, value);
             expr_ref_vector* vals = nullptr;

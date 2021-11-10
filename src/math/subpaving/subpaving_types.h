@@ -42,6 +42,7 @@ public:
 };
 
 struct display_var_proc {
+    virtual ~display_var_proc() = default;
     virtual void operator()(std::ostream & out, var x) const { out << "x" << x; }
 };
 

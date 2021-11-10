@@ -173,8 +173,8 @@ class theory_lra::imp {
     unsigned_vector        m_bounds_trail;
     unsigned               m_asserted_qhead;
 
-    svector<unsigned>       m_to_check;    // rows that should be checked for theory propagation
-
+    svector<unsigned>       m_bv_to_propagate;      // Boolean variables that can be propagated
+    
     svector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates; 
     unsigned                                          m_assume_eq_head;
     lp::u_set                                         m_tmp_var_set;
@@ -233,6 +233,7 @@ class theory_lra::imp {
     resource_limit               m_resource_limit;
     lp_bounds                    m_new_bounds;
     symbol                       m_farkas;
+    vector<parameter>            m_bound_params;
     lp::lp_bound_propagator<imp> m_bp;
 
     context& ctx() const { return th.get_context(); }
@@ -870,6 +871,10 @@ public:
         m_bound_terms(m),
         m_bound_predicate(m)
     {
+        m_bound_params.push_back(parameter(m_farkas));
+        m_bound_params.push_back(parameter(rational(1)));
+        m_bound_params.push_back(parameter(rational(1)));
+
     }
         
     ~imp() {
@@ -1071,7 +1076,7 @@ public:
         lp().pop(num_scopes);
         // VERIFY(l_false != make_feasible());
         m_new_bounds.reset();
-        m_to_check.reset();
+        m_bv_to_propagate.reset();
         if (m_nla)
             m_nla->pop(num_scopes);
         TRACE("arith", tout << "num scopes: " << num_scopes << " new scope level: " << m_scopes.size() << "\n";);
@@ -1493,29 +1498,24 @@ public:
             
         ctx().push_trail(value_trail<unsigned>(m_assume_eq_head));
         while (m_assume_eq_head < m_assume_eq_candidates.size()) {
-            std::pair<theory_var, theory_var> const & p = m_assume_eq_candidates[m_assume_eq_head];
-            theory_var v1 = p.first;
-            theory_var v2 = p.second;
+            auto const [v1, v2] = m_assume_eq_candidates[m_assume_eq_head];
             enode* n1 = get_enode(v1);
             enode* n2 = get_enode(v2);
             m_assume_eq_head++;
             CTRACE("arith", 
                    is_eq(v1, v2) && n1->get_root() != n2->get_root(),
                    tout << "assuming eq: v" << v1 << " = v" << v2 << "\n";);
-            if (is_eq(v1, v2) &&  n1->get_root() != n2->get_root() && th.assume_eq(n1, n2)) {
+            if (is_eq(v1, v2) &&  n1->get_root() != n2->get_root() && th.assume_eq(n1, n2)) 
                 return true;
-            }
         }
         return false;
     }
 
     bool is_eq(theory_var v1, theory_var v2) {
-        if (use_nra_model()) {
+        if (use_nra_model()) 
             return m_nla->am().eq(nl_value(v1, *m_a1), nl_value(v2, *m_a2));
-        }
-        else {
+        else 
             return get_ivalue(v1) == get_ivalue(v2); 
-        }
     }
 
     bool has_delayed_constraints() const {
@@ -1523,6 +1523,8 @@ public:
     }
 
     final_check_status final_check_eh() {
+        if (propagate_core())
+            return FC_CONTINUE;
         m_model_is_initialized = false;
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         lbool is_sat = l_true;
@@ -1534,9 +1536,7 @@ public:
 
         switch (is_sat) {
         case l_true:
-            TRACE("arith", display(tout);
-                  /* ctx().display(tout);*/
-                  );
+            TRACE("arith", display(tout));
 
             switch (check_lia()) {
             case l_true:
@@ -2048,41 +2048,59 @@ public:
         return false;
     }
 
-    bool m_new_def{ false };
+    bool m_new_def = false ;
+
+    bool adaptive() const { return ctx().get_fparams().m_arith_adaptive; }
+    double adaptive_assertion_threshold() const { return ctx().get_fparams().m_arith_adaptive_assertion_threshold; }
+
+    bool process_atoms() const {
+        if (!adaptive())
+            return true;
+        unsigned total_conflicts = ctx().get_num_conflicts();
+        if (total_conflicts < 10)
+            return true;
+        double f = static_cast<double>(m_num_conflicts)/static_cast<double>(total_conflicts);
+        return f >= adaptive_assertion_threshold();
+    }
 
     bool can_propagate() {
+        return process_atoms() && can_propagate_core();
+    }
+    
+    bool can_propagate_core() {
         return m_asserted_atoms.size() > m_asserted_qhead || m_new_def;
     }
 
-    void propagate() {
+    bool propagate() {
+        return process_atoms() && propagate_core();        
+    }
+
+    bool propagate_core() {
         m_model_is_initialized = false;
         flush_bound_axioms();
-        if (!can_propagate()) {
-            return;
-        }
-        m_new_def = false;
+        if (!can_propagate_core())
+            return false;
+        m_new_def = false;        
         while (m_asserted_qhead < m_asserted_atoms.size() && !ctx().inconsistent() && m.inc()) {
-            bool_var bv = m_asserted_atoms[m_asserted_qhead].m_bv;
-            bool is_true = m_asserted_atoms[m_asserted_qhead].m_is_true;
-            m_to_check.push_back(bv);
+            auto [bv, is_true] = m_asserted_atoms[m_asserted_qhead];
+            
+            m_bv_to_propagate.push_back(bv);
+            
             api_bound* b = nullptr;
-            TRACE("arith", tout << "propagate: " << literal(bv, !is_true) << "\n";);
-            if (m_bool_var2bound.find(bv, b)) {
+            TRACE("arith", tout << "propagate: " << literal(bv, !is_true) << "\n";
+                  if (!m_bool_var2bound.contains(bv)) tout << "not found\n");
+            if (m_bool_var2bound.find(bv, b)) 
                 assert_bound(bv, is_true, *b);
-            }
-            else {
-                TRACE("arith", tout << "not found " << bv << "\n";);
-            }
             ++m_asserted_qhead;
         }
         if (ctx().inconsistent()) {
-            m_to_check.reset();
-            return;
+            m_bv_to_propagate.reset();
+            return true;
         }
 
         lbool lbl = make_feasible();
         if (!m.inc())
-            return;
+            return false;
         
         switch(lbl) {
         case l_false:
@@ -2096,7 +2114,7 @@ public:
         case l_undef:
             break;
         }
-            
+        return true;            
     }
 
     bool should_propagate() const {
@@ -2246,26 +2264,28 @@ public:
         assign(bound, m_core, m_eqs, m_params);              
     }
 
-    void add_eq(lpvar u, lpvar v, lp::explanation const& e) {
+    bool add_eq(lpvar u, lpvar v, lp::explanation const& e, bool is_fixed) {
         if (ctx().inconsistent())
-            return;
+            return false;
         theory_var uv = lp().local_to_external(u); // variables that are returned should have external representations
         theory_var vv = lp().local_to_external(v); // so maybe better to have them already transformed to external form
         enode* n1 = get_enode(uv);
         enode* n2 = get_enode(vv);
+
         TRACE("arith", tout << "add-eq " << mk_pp(n1->get_expr(), m) << " == " << mk_pp(n2->get_expr(), m) << " " << n1->get_expr_id() << " == " << n2->get_expr_id() << "\n";);
         if (n1->get_root() == n2->get_root())
-            return;
+            return false;
         expr* e1 = n1->get_expr();
         expr* e2 = n2->get_expr();
         if (e1->get_sort() != e2->get_sort())
-            return;
-        if (m.is_ite(e1) || m.is_ite(e2))
-            return;
+            return false;
+        if (!is_fixed && !a.is_numeral(e1) && !a.is_numeral(e2) && (m.is_ite(e1) || m.is_ite(e2))) 
+            return false;
         reset_evidence();
         for (auto ev : e) 
             set_evidence(ev.ci(), m_core, m_eqs);
         assign_eq(uv, vv);
+        return true;
     }
 
     literal_vector m_core2;
@@ -2440,6 +2460,7 @@ public:
     typedef lp_bounds::iterator iterator;
 
     void flush_bound_axioms() {
+        
         CTRACE("arith", !m_new_bounds.empty(), tout << "flush bound axioms\n";);
 
         while (!m_new_bounds.empty()) {
@@ -2458,7 +2479,7 @@ public:
             CTRACE("arith", atoms.size() > 1, 
                    for (auto* a : atoms) a->display(tout) << "\n";);
             lp_bounds occs(m_bounds[v]);
-                
+            
             std::sort(atoms.begin(), atoms.end(), compare_bounds());
             std::sort(occs.begin(), occs.end(), compare_bounds());
                 
@@ -2558,14 +2579,15 @@ public:
     }
 
     void propagate_basic_bounds() {
-        for (auto const& bv : m_to_check) {
+        for (auto const& bv : m_bv_to_propagate) {
             api_bound* b = nullptr;
             if (m_bool_var2bound.find(bv, b)) {
                 propagate_bound(bv, ctx().get_assignment(bv) == l_true, *b);
-                if (ctx().inconsistent()) break;
+                if (ctx().inconsistent())
+                    break;
             }
         }
-        m_to_check.reset();
+        m_bv_to_propagate.reset();
     }
         
     // for glb lo': lo' < lo:
@@ -2633,10 +2655,7 @@ public:
               ctx().display_literals_verbose(tout, m_core);
               ctx().display_literal_verbose(tout << " => ", lit2);
               tout << "\n";);
-        m_params.push_back(parameter(m_farkas));
-        m_params.push_back(parameter(rational(1)));
-        m_params.push_back(parameter(rational(1)));
-        assign(lit2, m_core, m_eqs, m_params);
+        assign(lit2, m_core, m_eqs, m_bound_params);
         ++m_stats.m_bounds_propagations;
     }
 
@@ -3194,7 +3213,7 @@ public:
         m_assume_eq_head = 0;
         m_scopes.reset();
         m_stats.reset();
-        m_to_check.reset();
+        m_bv_to_propagate.reset();
         m_model_is_initialized = false;
     }
 
@@ -3661,7 +3680,7 @@ public:
             else if (can_get_value(v)) out << " = " << get_value(v); 
             if (is_int(v)) out << ", int";
             if (ctx().is_shared(get_enode(v))) out << ", shared";
-            out << " := "; th.display_var_flat_def(out, v) << "\n";
+            out << " := " << enode_pp(get_enode(v), ctx()) << "\n";
         }
     }
 

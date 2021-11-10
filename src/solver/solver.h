@@ -51,7 +51,7 @@ class solver : public check_sat_result {
     params_ref  m_params;
     symbol      m_cancel_backup_file;
 public:
-     solver() {}
+    solver() {}
     ~solver() override {}
 
     /**
@@ -241,6 +241,7 @@ public:
 
     class propagate_callback {
     public:
+         virtual ~propagate_callback() = default;
         virtual void propagate_cb(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr* conseq) = 0;
     };
     class context_obj {

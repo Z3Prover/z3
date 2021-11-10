@@ -19,11 +19,11 @@ Author:
 #include "util/nat_set.h"
 #include "ast/quantifier_stat.h"
 #include "ast/pattern/pattern_inference.h"
+#include "ast/normal_forms/nnf.h"
 #include "solver/solver.h"
 #include "sat/smt/sat_th.h"
 #include "sat/smt/q_mam.h"
 #include "sat/smt/q_clause.h"
-#include "sat/smt/q_fingerprint.h"
 #include "sat/smt/q_queue.h"
 #include "sat/smt/q_eval.h"
 
@@ -69,7 +69,7 @@ namespace q {
         ast_manager&                  m;
         eval                          m_eval;
         quantifier_stat_gen           m_qstat_gen;
-        fingerprints                  m_fingerprints;
+        bindings                      m_bindings;
         scoped_ptr<binding>           m_tmp_binding;
         unsigned                      m_tmp_binding_capacity = 0;
         queue                         m_inst_queue;
@@ -90,16 +90,16 @@ namespace q {
         unsigned_vector               m_clause_queue;
         euf::enode_pair_vector        m_evidence;
 
-        binding* alloc_binding(unsigned n, app* pat, unsigned max_generation, unsigned min_top, unsigned max_top);
-        euf::enode* const* alloc_binding(clause& c, euf::enode* const* _binding);
-        void add_binding(clause& c, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top);
-
+        euf::enode* const* copy_nodes(clause& c, euf::enode* const* _binding);
+        binding* tmp_binding(clause& c, app* pat, euf::enode* const* _binding);
+        binding* alloc_binding(clause& c, app* pat, euf::enode* const* _binding, unsigned max_generation, unsigned min_top, unsigned max_top);
+        
         sat::ext_justification_idx mk_justification(unsigned idx, clause& c, euf::enode* const* b);
 
         void ensure_ground_enodes(expr* e);
         void ensure_ground_enodes(clause const& c);
 
-        void instantiate(binding& b, clause& c);
+        void instantiate(binding& b);
         sat::literal instantiate(clause& c, euf::enode* const* binding, lit const& l);
 
         // register as callback into egraph.
@@ -115,11 +115,17 @@ namespace q {
         clause* clausify(quantifier* q);
         lit clausify_literal(expr* arg);
 
-        fingerprint* add_fingerprint(clause& c, binding& b, unsigned max_generation);
-        void set_tmp_binding(fingerprint& fp);
-
         bool flush_prop_queue();
         void propagate(bool is_conflict, unsigned idx, sat::ext_justification_idx j_idx);
+
+        bool propagate(bool flush);
+
+        expr_ref_vector m_new_defs;
+        proof_ref_vector m_new_proofs;
+        defined_names    m_dn;
+        nnf              m_nnf;
+        
+        quantifier_ref nnf_skolem(quantifier* q);
 
     public:
         
@@ -127,9 +133,8 @@ namespace q {
             
         bool operator()();
 
-        bool propagate(bool flush);
+        bool unit_propagate();        
 
-        // void init_search();
 
         void add(quantifier* q);
 

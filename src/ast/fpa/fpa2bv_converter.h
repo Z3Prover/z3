@@ -61,7 +61,7 @@ protected:
 public:
 
     fpa2bv_converter(ast_manager & m);
-    ~fpa2bv_converter();
+    virtual ~fpa2bv_converter();
 
     fpa_util & fu() { return m_util; }
     bv_util & bu() { return m_bv_util; }

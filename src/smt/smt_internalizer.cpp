@@ -1387,7 +1387,7 @@ namespace smt {
         default:
             break;
         }
-        TRACE("mk_clause", display_literals_verbose(tout << "after simplification:\n", num_lits, lits) << "\n";);
+        TRACE("mk_clause", display_literals_verbose(tout << "after simplification: " << literal_vector(num_lits, lits) << "\n", num_lits, lits) << "\n";);
 
         unsigned activity = 1;
         bool  lemma = is_lemma(k);

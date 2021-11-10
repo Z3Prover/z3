@@ -131,16 +131,18 @@ namespace opt {
                 soft.set_value(l_undef);
             }
             model_ref mdl;
-            s().get_model(mdl);
+            s().get_model(mdl);            
             if (mdl) {
+                TRACE("opt", tout << *mdl << "\n";);
                 for (auto & soft : m_soft) {
                     if (!mdl->is_true(soft.s)) {
-                        break;
+                        update_bounds();
+                        return;
                     }
                     soft.set_value(l_true);
                     assert_value(soft);
                 }
-                update_bounds();
+                update_assignment();
             }
         }
 
@@ -151,9 +153,8 @@ namespace opt {
             unsigned sz = m_soft.size();
             for (unsigned i = 0; i < sz; ++i) {
                 auto& soft = m_soft[i];
-                if (soft.value != l_undef) {
+                if (soft.value != l_undef) 
                     continue;
-                }
                 expr_ref_vector asms(m);
                 asms.push_back(soft.s);
                 lbool is_sat = s().check_sat(asms);

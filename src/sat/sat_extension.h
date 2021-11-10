@@ -40,6 +40,7 @@ namespace sat {
     class literal_occs_fun {
     public:
         virtual double operator()(literal l) = 0;        
+        virtual ~literal_occs_fun() = default;
     };
 
 

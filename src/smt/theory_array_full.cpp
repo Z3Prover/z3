@@ -710,6 +710,38 @@ namespace smt {
             // let A = store(B, i, v)
             // 
             // Add:
+            //  default(A) = A[epsilon]
+            //  default(B) = B[epsilon]
+            //
+            //
+            expr_ref_vector args1(m), args2(m);
+            args1.push_back(store_app->get_arg(0));
+            args2.push_back(store_app);
+
+            for (unsigned i = 1; i + 1 < num_args; ++i) {
+                expr* arg = store_app->get_arg(i);
+                sort* srt = arg->get_sort();
+                auto ep = mk_epsilon(srt);
+                args1.push_back(ep.first);
+                args2.push_back(ep.first);
+            }            
+            app_ref sel1(m), sel2(m);
+            sel1 = mk_select(args1);
+            sel2 = mk_select(args2);
+            ctx.internalize(def1, false);
+            ctx.internalize(def2, false);
+            is_new = try_assign_eq(def1, sel1) || try_assign_eq(def2, sel2);
+            return is_new;
+
+            
+#if 0
+            //
+            // This is incorrect, issue #5593.
+            //
+
+            // let A = store(B, i, v)
+            // 
+            // Add:
             //   default(A) = ite(epsilon1 = i, v, default(B))
             //   A[diag(i)] = B[diag(i)]
             // 
@@ -731,7 +763,9 @@ namespace smt {
             app_ref sel1(m), sel2(m);
             sel1 = mk_select(args1);
             sel2 = mk_select(args2);
+            std::cout << "small domain " << sel1 << " " << sel2 << "\n";
             is_new = try_assign_eq(sel1, sel2);
+#endif
         }
 
         ctx.internalize(def1, false);

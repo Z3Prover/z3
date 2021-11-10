@@ -199,6 +199,8 @@ namespace smt {
         bool can_propagate() override { return m_can_propagate; }
         void propagate() override;
         void display(std::ostream & out) const override;
+
+        void get_specrels(func_decl_set& rels) const;
    
     };
 }

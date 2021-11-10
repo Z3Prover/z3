@@ -1146,5 +1146,11 @@ namespace smt {
         expr* e = ctx.bool_var2expr(a.var());
         out << (a.phase() ? "" : "(not ") << mk_pp(e, get_manager()) << (a.phase() ? "" : ")") << "\n";
     }
-    
+
+
+    void theory_special_relations::get_specrels(func_decl_set& rels) const {
+        for (auto [f, r] : m_relations)
+            rels.insert(m_util.get_relation(r->m_decl));
+    }
+
 }

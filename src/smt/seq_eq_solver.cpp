@@ -684,11 +684,12 @@ bool theory_seq::branch_quat_variable(depeq const& e) {
             cond = true;
     }
     // xs and ys cannot align
-    else if (!can_align_from_lhs(xs, ys) && !can_align_from_rhs(xs, ys))
+    else if (!can_align_from_lhs(xs, ys) && !can_align_from_rhs(xs, ys) && !can_align_from_lhs(ys, xs) && !can_align_from_rhs(ys, xs))
         cond = true;
 
     if (!cond)
         return false;
+
     
     literal_vector lits;
     if (xs == ys) {
@@ -724,7 +725,7 @@ bool theory_seq::branch_quat_variable(depeq const& e) {
         }
     }
     else {
-        TRACE("seq", tout << mk_pp(x1, m) << " > " << mk_pp(y1, m) << "\n";);
+        TRACE("seq", tout << mk_pp(x1, m) << " >\n" << mk_pp(y1, m) << "\n";);
         if (ctx.get_assignment(lit3) == l_undef) {
             ctx.mark_as_relevant(lit3);
             return true;
@@ -1144,7 +1145,7 @@ bool theory_seq::solve_nth_eq(expr_ref_vector const& ls, expr_ref_vector const& 
         m.inc_ref(rhs);
         m.inc_ref(ls[0]);
         m_nth_eq2_cache.insert(std::make_pair(rhs, ls[0]));
-        ctx.push_trail(remove_obj_pair_map(m, m_nth_eq2_cache, rhs, ls[0]));
+        get_trail_stack().push(remove_obj_pair_map(m, m_nth_eq2_cache, rhs, ls[0]));
         ls1.push_back(s);        
         if (!idx_is_zero) rs1.push_back(m_sk.mk_pre(s, idx)); 
         rs1.push_back(m_util.str.mk_unit(rhs)); 

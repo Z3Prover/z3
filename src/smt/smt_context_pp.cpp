@@ -113,9 +113,17 @@ namespace smt {
     }
 
     std::ostream& context::display_literals_smt2(std::ostream& out, unsigned num_lits, literal const* lits) const {
-        for (unsigned i = 0; i < num_lits; ++i) {
+        out << literal_vector(num_lits, lits) << ":\n";
+#if 1
+        expr_ref_vector fmls(m);
+        for (unsigned i = 0; i < num_lits; ++i)
+            fmls.push_back(literal2expr(lits[i]));
+        expr_ref c = mk_or(fmls);
+        out << c << "\n";
+#else
+        for (unsigned i = 0; i < num_lits; ++i) 
             display_literal_smt2(out, lits[i]) << "\n";
-        }
+#endif
         return out;
     }
 
@@ -254,22 +262,30 @@ namespace smt {
     }
 
     void context::display_eqc(std::ostream & out) const {
-        bool first = true;
-        for (enode * x : m_enodes) {
-            expr * n = x->get_expr();
-            expr * r = x->get_root()->get_expr();
-            if (n != r) {
-                if (first) {
-                    out << "equivalence classes:\n";
-                    first = false;
-                }
-                out << "#" << n->get_id() << " -> #" << r->get_id() << ": ";
-                out << mk_pp(n, m) << " -> " << mk_pp(r, m) << "\n";
+        if (m_enodes.empty())
+            return;
+        unsigned count = 0;
+        for (enode * r : m_enodes) 
+            if (r->is_root())
+                ++count;
+            
+        out << "equivalence classes: " << count << "\n";        
+        for (enode * r : m_enodes) {
+            if (!r->is_root())
+                continue;
+            out << "#" << enode_pp(r, *this) << "\n";
+            if (r->get_class_size() == 1)
+                continue;
+            for (enode* n : *r) {
+                if (n != r)
+                    out << "   #" << enode_pp(n, *this) << "\n";
             }
         }
     }
 
     void context::display_app_enode_map(std::ostream & out) const {
+        return;
+        // mainly useless 
         if (!m_e_internalized_stack.empty()) {
             out << "expression -> enode:\n";
             unsigned sz = m_e_internalized_stack.size();
@@ -668,7 +684,7 @@ namespace smt {
     std::ostream& operator<<(std::ostream& out, enode_pp const& p) {
         ast_manager& m = p.ctx.get_manager();
         enode* n = p.n;
-        return out << "[#" << n->get_owner_id() << " " << mk_bounded_pp(n->get_expr(), m) << "]";
+        return out << n->get_owner_id() << ": " << mk_bounded_pp(n->get_expr(), m);
     }
 
     std::ostream& operator<<(std::ostream& out, enode_eq_pp const& p) {

@@ -169,12 +169,12 @@ namespace smt {
         bool enabled() const;
 
         /**
-           \Brief Return the region allocator for the smt::context that owns this propagator.
+           \brief Return the region allocator for the smt::context that owns this propagator.
         */
         region & get_region() const;
 
         /**
-           \Brief Return the ast_manager for the smt::context that owns this propagator.
+           \brief Return the ast_manager for the smt::context that owns this propagator.
         */
         ast_manager & get_manager() const;
         

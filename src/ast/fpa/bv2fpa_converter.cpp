@@ -102,7 +102,7 @@ expr_ref bv2fpa_converter::convert_bv2fp(sort * s, expr * sgn, expr * exp, expr 
     rational exp_unbiased_q;
     exp_unbiased_q = exp_q - m_fpa_util.fm().m_powers2.m1(ebits - 1);
 
-    scoped_mpz sig_z(mpzm); 
+    scoped_mpz sig_z(mpzm);
     mpf_exp_t exp_z;
     mpzm.set(sig_z, sig_q.to_mpq().numerator());
     exp_z = mpzm.get_int64(exp_unbiased_q.to_mpq().numerator());
@@ -346,7 +346,7 @@ void bv2fpa_converter::convert_consts(model_core * mc, model_core * target_model
         app * a0 = to_app(val->get_arg(0));
 
         expr_ref v0(m), v1(m), v2(m);
-#ifdef Z3DEBUG
+#ifdef Z3DEBUG_FPA2BV_NAMES
         app * a1 = to_app(val->get_arg(1));
         app * a2 = to_app(val->get_arg(2));
         v0 = mc->get_const_interp(a0->get_decl());
@@ -378,7 +378,7 @@ void bv2fpa_converter::convert_consts(model_core * mc, model_core * target_model
 
         SASSERT(val->is_app_of(m_fpa_util.get_family_id(), OP_FPA_FP));
 
-#ifdef Z3DEBUG
+#ifdef Z3DEBUG_FPA2BV_NAMES
         SASSERT(to_app(val->get_arg(0))->get_decl()->get_arity() == 0);
         SASSERT(to_app(val->get_arg(1))->get_decl()->get_arity() == 0);
         SASSERT(to_app(val->get_arg(2))->get_decl()->get_arity() == 0);
@@ -386,9 +386,10 @@ void bv2fpa_converter::convert_consts(model_core * mc, model_core * target_model
         seen.insert(to_app(val->get_arg(1))->get_decl());
         seen.insert(to_app(val->get_arg(2))->get_decl());
 #else
-        SASSERT(a->get_arg(0)->get_kind() == OP_EXTRACT);
-        SASSERT(to_app(a->get_arg(0))->get_arg(0)->get_kind() == OP_EXTRACT);
+        SASSERT(is_app(val->get_arg(0)));
+        SASSERT(m_bv_util.is_extract(val->get_arg(0)));
         seen.insert(to_app(to_app(val->get_arg(0))->get_arg(0))->get_decl());
+
 #endif
 
         if (!sgn && !sig && !exp)

@@ -52,7 +52,7 @@ namespace euf {
         virtual void apply_sort_cnstr(enode* n, sort* s) {}
 
         /**
-           \record that an equality has been internalized.
+           \brief Record that an equality has been internalized.
          */
         virtual void eq_internalized(enode* n) {}
 

@@ -28,10 +28,10 @@ extern "C" {
 #endif // __cplusplus
 
     /** \defgroup capi C API */
-    /*@{*/
+    /**@{*/
 
     /** @name Optimization facilities */
-    /*@{*/
+    /**@{*/
     /**
        \brief Create a new optimize context.
 
@@ -368,8 +368,8 @@ extern "C" {
         Z3_model_eh  model_eh);
 
 
-    /*@}*/
-    /*@}*/
+    /**@}*/
+    /**@}*/
 
 #ifdef __cplusplus
 }

@@ -304,7 +304,7 @@ void error_example() {
         // The next call fails because x is a Boolean.
         expr n = x + 1;
     }
-    catch (exception ex) {
+    catch (exception & ex) {
         std::cout << "failed: " << ex << "\n";
     }
 
@@ -312,7 +312,7 @@ void error_example() {
     try {
         expr arg = to_expr(c, Z3_get_app_arg(c, x, 0));
     }
-    catch (exception ex) {
+    catch (exception & ex) {
         std::cout << "failed: " << ex << "\n";
     }
 }
@@ -1249,10 +1249,14 @@ void recfun_example() {
 
 static void string_values() {
     context c;
+    std::cout << "string_values\n";
     expr s = c.string_val("abc\n\n\0\0", 7);
     std::cout << s << "\n";
     std::string s1 = s.get_string();
     std::cout << s1 << "\n";
+    std::u32string buffer = s.get_u32string();
+    for (unsigned ch : buffer)
+        std::cout << "char: " << ch << "\n";
 }
 
 expr MakeStringConstant(context* context, std::string value) {

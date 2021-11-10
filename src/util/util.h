@@ -169,37 +169,11 @@ void set_verbosity_level(unsigned lvl);
 unsigned get_verbosity_level();
 std::ostream& verbose_stream();
 void set_verbose_stream(std::ostream& str);
-#ifdef SINGLE_THREAD
-# define is_threaded() false
-#else
-bool is_threaded();
-#endif
 
   
-#define IF_VERBOSE(LVL, CODE) {                                 \
-    if (get_verbosity_level() >= LVL) {                         \
-        if (is_threaded()) {                                    \
-            LOCK_CODE(CODE);                                    \
-        }                                                       \
-        else {                                                  \
-            CODE;                                               \
-        }                                                       \
-    } } ((void) 0)              
+#define IF_VERBOSE(LVL, CODE) { if (get_verbosity_level() >= LVL) { THREAD_LOCK(CODE); } } ((void) 0)              
 
 
-#ifdef SINGLE_THREAD
-#define LOCK_CODE(CODE) CODE;
-#else
-void verbose_lock();
-void verbose_unlock();
-
-#define LOCK_CODE(CODE)                                         \
-    {                                                           \
-        verbose_lock();                                         \
-        CODE;                                                   \
-        verbose_unlock();                                       \
-    }
-#endif
 
 template<typename T>
 struct default_eq {

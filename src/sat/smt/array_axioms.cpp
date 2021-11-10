@@ -621,8 +621,7 @@ namespace array {
                 continue;            
             // arrays used as indices in other arrays have to be treated as shared issue #3532, #3529            
             if (ctx.is_shared(r) || is_shared_arg(r)) 
-                roots.push_back(r->get_th_var(get_id()));
-            
+                roots.push_back(r->get_th_var(get_id()));           
             r->mark1();
             to_unmark.push_back(r);            
         }

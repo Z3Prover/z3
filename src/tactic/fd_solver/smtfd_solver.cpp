@@ -509,6 +509,8 @@ namespace smtfd {
             m_context.add_plugin(this);
         }
 
+        virtual ~theory_plugin() = default;
+
         table& ast2table(ast* f, sort* s) {
             unsigned idx = 0;
             if (!m_ast2table.find(f, s, idx)) {

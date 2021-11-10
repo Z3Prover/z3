@@ -24,6 +24,7 @@ Notes:
 #include "ast/pb_decl_plugin.h"
 #include "ast/ast_smt_pp.h"
 #include "ast/ast_pp_util.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/display_dimacs.h"
 #include "model/model_smt2_pp.h"
 #include "tactic/goal.h"
@@ -966,12 +967,12 @@ namespace opt {
                   tout << "Convert minimization " << orig_term << "\n";
                   tout << "to maxsat: " << term << "\n";
                   for (unsigned i = 0; i < weights.size(); ++i) {
-                      tout << mk_pp(terms[i].get(), m) << ": " << weights[i] << "\n";
+                      tout << mk_pp(terms.get(i), m) << ": " << weights[i] << "\n";
                   }
                   tout << "offset: " << offset << "\n";
                   );
             std::ostringstream out;
-            out << orig_term << ':' << index;
+            out << mk_bounded_pp(orig_term, m, 2) << ':' << index;
             id = symbol(out.str());
             return true;
         }
@@ -994,7 +995,7 @@ namespace opt {
             }
             neg = true;
             std::ostringstream out;
-            out << orig_term << ':' << index;
+            out << mk_bounded_pp(orig_term, m) << ':' << index;
             id = symbol(out.str());
             return true;
         }
@@ -1013,7 +1014,7 @@ namespace opt {
             }
             neg = is_max;
             std::ostringstream out;
-            out << orig_term << ':' << index;
+            out << mk_bounded_pp(orig_term, m, 2) << ':' << index;
             id = symbol(out.str());
             return true;
         }
@@ -1200,7 +1201,7 @@ namespace opt {
 
     app* context::purify(generic_model_converter_ref& fm, expr* term) {
        std::ostringstream out;
-       out << mk_pp(term, m);
+       out << mk_bounded_pp(term, m, 3);
        app* q = m.mk_fresh_const(out.str(), term->get_sort());
        if (!fm) fm = alloc(generic_model_converter, m, "opt");
        if (m_arith.is_int_real(term)) {

@@ -45,6 +45,7 @@ namespace opt {
 
     class maxsat_context {
     public:        
+        virtual ~maxsat_context() = default;
         virtual generic_model_converter& fm() = 0;   // converter that removes fresh names introduced by simplification.
         virtual bool sat_enabled() const = 0;       // is using th SAT solver core enabled?
         virtual solver& get_solver() = 0;           // retrieve solver object (SAT or SMT solver)

@@ -42,7 +42,7 @@ namespace smt {
         seq_offset_eq(theory& th, ast_manager& m);
         bool empty() const { return m_offset_equalities.empty(); }
         /**
-           \breif determine if r1 = r2 + offset
+           \brief determine if r1 = r2 + offset
          */
         bool find(enode* r1, enode* r2, int& offset) const;
         bool contains(enode* r1, enode* r2) const { int offset = 0; return find(r1, r2, offset); }
