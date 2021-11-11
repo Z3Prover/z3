@@ -406,12 +406,25 @@ void static_features::process(expr * e, bool form_ctx, bool or_and_ctx, bool ite
     }    
 
     if (stack_depth > m_max_stack_depth) {
-        for (expr* arg : subterms::ground(expr_ref(e, m)))
-            if (get_depth(arg) <= 3 || is_quantifier(arg)) 
-                process(arg, form_ctx, or_and_ctx, ite_ctx, stack_depth - 10);
+        ptr_vector<expr> todo;
+        todo.push_back(e);
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            e = todo[i];
+            if (is_marked(e))
+                continue;
+            if (is_basic_expr(e)) {
+                mark(e);
+                todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+            }
+            else {
+                process(e, form_ctx, or_and_ctx, ite_ctx, stack_depth - 10);
+            }
+        }
         return;
     }
+
     mark(e);
+
     update_core(e);
 
     if (is_quantifier(e)) {
