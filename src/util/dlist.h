@@ -41,12 +41,20 @@ public:
         return head;
     }
 
-    void insert(T* elem) {
+    void insert_after(T* elem) {
         T* next = this->m_next;
         elem->m_prev = next->m_prev;
         elem->m_next = next;
         this->m_next = elem;
         next->m_prev = elem;
+    }
+
+    void insert_before(T* elem) {
+        T* prev = this->m_prev;
+        elem->m_next = prev->m_next;
+        elem->m_prev = prev;
+        prev->m_next = elem;
+        this->m_prev = elem;
     }
     
     static void remove_from(T*& list, T* elem) {

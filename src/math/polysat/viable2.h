@@ -42,6 +42,8 @@ namespace polysat {
         ptr_vector<entry>                    m_viable;   // set of viable values.
         svector<std::pair<pvar, entry*>>     m_trail;    // undo stack
 
+        bool is_sorted(entry* e);
+
     public:
         viable2(solver& s);
 
