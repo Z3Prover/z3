@@ -134,7 +134,9 @@ class lp_bound_propagator {
             m_val2fixed_row.insert(val(v1), r1);
             return;
         }
-
+        if (v1 == v2)
+            return;
+        
         explanation ex;
         explain_fixed_in_row(r1, ex);
         explain_fixed_in_row(r2, ex);
