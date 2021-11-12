@@ -146,7 +146,7 @@ class lp_bound_propagator {
         unsigned v_j = v->column();
         unsigned j = null_lpvar;
         if (!lp().find_in_fixed_tables(val(v_j), is_int(v_j), j)) {
-            // try_add_equation_with_internal_fixed_tables(row_index, v);
+            try_add_equation_with_internal_fixed_tables(row_index, v);
             return;
         }
        

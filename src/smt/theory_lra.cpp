@@ -2084,7 +2084,7 @@ public:
         while (m_asserted_qhead < m_asserted_atoms.size() && !ctx().inconsistent() && m.inc()) {
             auto [bv, is_true] = m_asserted_atoms[m_asserted_qhead];
             
-            m_bv_to_propagate.push_back(bv);
+            // m_bv_to_propagate.push_back(bv);
             
             api_bound* b = nullptr;
             TRACE("arith", tout << "propagate: " << literal(bv, !is_true) << "\n";
