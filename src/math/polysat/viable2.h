@@ -38,11 +38,13 @@ namespace polysat {
             entry() : fi_record({ eval_interval::full(), {}, {} }) {}
         };
         
-        small_object_allocator               m_alloc;
+        ptr_vector<entry>                    m_alloc;
         ptr_vector<entry>                    m_viable;   // set of viable values.
         svector<std::pair<pvar, entry*>>     m_trail;    // undo stack
 
-        bool is_sorted(entry* e);
+        bool well_formed(entry* e);
+
+        entry* alloc_entry();
 
     public:
         viable2(solver& s);
@@ -58,6 +60,8 @@ namespace polysat {
         }
 
         void pop_viable();
+
+        void push_viable();
 
         /**
          * update state of viable for pvar v

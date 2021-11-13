@@ -20,7 +20,8 @@ namespace polysat {
         qhead_i,
         add_var_i,
         inc_level_i,
-        viable_i,
+        viable_add_i,
+        viable_rem_i,
         assign_i,
         just_i,
         assign_bool_i

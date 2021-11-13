@@ -94,6 +94,17 @@ namespace polysat {
             else
                 return val < hi_val() || val >= lo_val();
         }
+        bool contains(eval_interval const& other) const {
+            if (is_full())
+                return true;
+            if (lo_val() <= other.lo_val() && other.hi_val() <= hi_val())
+                return true;
+            if (hi_val() < lo_val() && lo_val() <= other.lo_val() && other.lo_val() <= other.hi_val())
+                return true;
+            if (hi_val() < lo_val() && other.lo_val() < hi_val() && other.hi_val() <= hi_val())
+                return true;
+            return false;
+        }
     };
 
     inline std::ostream& operator<<(std::ostream& os, eval_interval const& i) {

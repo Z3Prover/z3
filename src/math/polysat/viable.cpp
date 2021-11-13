@@ -29,13 +29,13 @@ namespace polysat {
     }
 
     void viable::push_viable(pvar v) {
-        s.m_trail.push_back(trail_instr_t::viable_i);
+        s.m_trail.push_back(trail_instr_t::viable_add_i);
         m_viable_trail.push_back(std::make_pair(v, m_viable[v]));
 
     }
 
     void viable::pop_viable() {
-        auto p = m_viable_trail.back();
+        auto const & p = m_viable_trail.back();
         m_viable.set(p.first, p.second);
         m_viable_trail.pop_back();
     }

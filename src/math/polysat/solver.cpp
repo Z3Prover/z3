@@ -268,8 +268,12 @@ namespace polysat {
                 --num_levels;
                 break;
             }
-            case trail_instr_t::viable_i: {
+            case trail_instr_t::viable_add_i: {
                 m_viable.pop_viable();
+                break;
+            }
+            case trail_instr_t::viable_rem_i: {
+                m_viable.push_viable();
                 break;
             }
             case trail_instr_t::assign_i: {
@@ -311,7 +315,7 @@ namespace polysat {
         m_constraints.release_level(m_level + 1);
         SASSERT(m_level == target_level);
         for (unsigned j = replay.size(); j-- > 0; ) {
-            auto lit = replay[j];
+            sat::literal lit = replay[j];
             m_trail.push_back(trail_instr_t::assign_bool_i);
             m_search.push_boolean(lit);
         }
@@ -777,7 +781,7 @@ namespace polysat {
         for (auto item : m_search) {
             if (item.is_assignment()) {
                 pvar v = item.var();
-                auto j = m_justification[v];
+                auto const& j = m_justification[v];
                 out << "\t" << assignment_pp(*this, v, get_value(v)) << " @" << j.level();               
                 if (j.is_propagation())
                     out << " " << m_cjust[v];
@@ -795,8 +799,8 @@ namespace polysat {
         for (auto c : m_constraints)
             out << "\t" << c->bvar2string() << ": " << *c << "\n";
         out << "Clauses:\n";
-        for (auto cls : m_constraints.clauses()) {
-            for (auto cl : cls) {
+        for (auto const& cls : m_constraints.clauses()) {
+            for (auto const& cl : cls) {
                 out << "\t" << *cl << "\n";
                 for (auto lit : *cl) 
                     out << "\t\t" << lit << ": " << lit2cnstr(lit) << "\n";                
@@ -806,7 +810,7 @@ namespace polysat {
     }
 
     std::ostream& assignments_pp::display(std::ostream& out) const {
-        for (auto [var, val] : s.assignment())
+        for (auto const& [var, val] : s.assignment())
             out << assignment_pp(s, var, val) << " ";
         return out;
     }

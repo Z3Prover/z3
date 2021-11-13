@@ -66,6 +66,7 @@ namespace polysat {
 
         void pop_viable();
 
+        void push_viable() {}
         /**
          * update state of viable for pvar v
          * based on affine constraints
