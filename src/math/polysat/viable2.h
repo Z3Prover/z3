@@ -46,6 +46,10 @@ namespace polysat {
 
         entry* alloc_entry();
 
+        void intersect(pvar v, entry* e);
+
+        std::ostream& display(std::ostream& out, pvar v) const;
+
     public:
         viable2(solver& s);
 
@@ -82,7 +86,7 @@ namespace polysat {
         /**
          * register that val is non-viable for var.
          */
-        void add_non_viable(pvar v, rational const& val);
+        void add_non_viable(pvar v, rational const& val, signed_constraint const& c);
 
         /*
         * Extract min and max viable values for v
@@ -104,7 +108,12 @@ namespace polysat {
         /** Like log(v) but for all variables */
         void log();
 
+        std::ostream& display(std::ostream& out) const;
     };
+
+    inline std::ostream& operator<<(std::ostream& out, viable2 const& v) {
+        return v.display(out);
+    }
 }
 
 

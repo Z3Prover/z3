@@ -266,4 +266,5 @@ int main(int argc, char ** argv) {
     TST_ARGV(polysat_argv);
     TST(fixplex);
     TST(mod_interval);
+    TST(viable);
 }

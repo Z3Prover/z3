@@ -129,6 +129,7 @@ add_executable(test-z3
   value_generator.cpp
   value_sweep.cpp
   var_subst.cpp
+  viable.cpp	
   vector.cpp
   lp/lp.cpp
   lp/nla_solver_test.cpp

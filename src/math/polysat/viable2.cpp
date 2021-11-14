@@ -32,6 +32,7 @@ namespace polysat {
         if (m_alloc.empty())
             return alloc(entry);
         auto* e = m_alloc.back();
+        e->side_cond.reset();
         m_alloc.pop_back();
         return e;
     }
@@ -56,21 +57,25 @@ namespace polysat {
     }
 
     void viable2::intersect(pvar v, signed_constraint const& c) {
+        auto& fi = s.m_forbidden_intervals;
+        entry* ne = alloc_entry();
+        if (!fi.get_interval(c, v, ne->interval, ne->side_cond) || ne->interval.is_currently_empty())
+            m_alloc.push_back(ne);
+        else {
+            ne->src = c;
+            intersect(v, ne);
+        }
+    }
+
+    void viable2::intersect(pvar v, entry* ne) {
         entry* e = m_viable[v];
         if (e && e->interval.is_full())
             return;
 
-        auto& fi = s.m_forbidden_intervals;
-        entry* ne = alloc_entry();
-        if (!fi.get_interval(c, v, ne->interval, ne->side_cond)) {
-            m_alloc.push_back(ne);
-            return;
-        }
-        ne->init(ne);
-
         auto create_entry = [&]() {
             m_trail.push_back({ v, ne });
             s.m_trail.push_back(trail_instr_t::viable_add_i);
+            ne->init(ne);            
             return ne;
         };
 
@@ -89,18 +94,19 @@ namespace polysat {
                     m_alloc.push_back(ne);
                     return;
                 }
-                if (ne->interval.contains(e->interval)) {
+                while (ne->interval.contains(e->interval)) {
                     entry* n = e->next();
                     remove_entry(e);
-                    if (e == n) {
+                    if (!m_viable[v]) {
                         m_viable[v] = create_entry();
-                        break;
+                        return;
                     }
+                    if (e == first) 
+                        first = n;                    
                     e = n;
-                    continue;
                 }             
                 SASSERT(e->interval.lo_val() != ne->interval.lo_val());
-                if (e->interval.lo_val() >= ne->interval.lo_val()) {
+                if (e->interval.lo_val() > ne->interval.lo_val()) {
                     e->insert_before(create_entry());
                     if (e == first)
                         m_viable[v] = e->prev();
@@ -121,6 +127,7 @@ namespace polysat {
         if (!e)
             return true;
         entry* first = e;
+        auto const& max_value = s.m_pdd[v]->max_value();
         do {
             if (e->interval.is_full())
                 return false;
@@ -128,8 +135,7 @@ namespace polysat {
             if (n == e)
                 return true;
             if (n == first)
-                return e->interval.hi_val() != e->interval.hi().manager().max_value();
-
+                return e->interval.hi_val() != max_value;
             if (e->interval.hi_val() < n->interval.lo_val())
                 return true;
             e = n;
@@ -143,19 +149,27 @@ namespace polysat {
         if (!e)
             return true;
         entry* first = e;
-        do {
+        entry* last = first->prev();
+        if (last->interval.currently_contains(val))
+            return false;
+        for (; e != last; e = e->next()) {        
             if (e->interval.currently_contains(val))
                 return false;
             if (e->interval.lo_val() < val)
-                return !first->prev()->interval.currently_contains(val);
-            e = e->next();
+                return true;
         }         
-        while (e != first);
         return true; 
     }
 
-    void viable2::add_non_viable(pvar v, rational const& val) { 
-        NOT_IMPLEMENTED_YET();
+    void viable2::add_non_viable(pvar v, rational const& lo_val, signed_constraint const& c) { 
+        entry* ne = alloc_entry();
+        rational const& max_value = s.m_pdd[v]->max_value();
+        rational hi_val = (lo_val == max_value) ? rational::zero() : lo_val + 1;
+        pdd lo = s.m_pdd[v]->mk_val(lo_val);
+        pdd hi = s.m_pdd[v]->mk_val(hi_val);
+        ne->interval = eval_interval::proper(lo, lo_val, hi, hi_val); 
+        ne->src = c;     
+        intersect(v, ne);
     }
 
     rational viable2::min_viable(pvar v) { 
@@ -164,62 +178,74 @@ namespace polysat {
         if (!e)
             return lo;
         entry* first = e;
-        if (first->prev()->interval.currently_contains(lo))
-            lo = first->prev()->interval.hi_val();
-        do {
+        entry* last = first->prev();
+        if (last->interval.currently_contains(lo))
+            lo = last->interval.hi_val();
+        do {        
             if (!e->interval.currently_contains(lo))
-                return lo;
+                break;
             lo = e->interval.hi_val();
             e = e->next();
         }         
         while (e != first);
+        SASSERT(is_viable(v, lo));        
         return lo;
     }
 
     rational viable2::max_viable(pvar v) { 
-        return rational::zero(); 
+        rational hi = s.m_pdd[s.size(v)]->max_value();
+        auto* e = m_viable[v];
+        if (!e)
+            return hi;
+        entry* last = e->prev();
+        e = last;
+        do {
+            if (!e->interval.currently_contains(hi))
+                break;
+            hi = e->interval.lo_val() - 1;
+            e = e->prev();
+        }           
+        while (e != last);
+        SASSERT(is_viable(v, hi));
+        return hi;
     }
 
-    dd::find_t viable2::find_viable(pvar v, rational& val) { 
+    dd::find_t viable2::find_viable(pvar v, rational& lo) { 
+        lo = 0;
         auto* e = m_viable[v];
-        val = 0;
-        if (!e) 
+        if (!e)
             return dd::find_t::multiple;
-
+        if (e->interval.is_full())
+            return dd::find_t::empty;
 
         entry* first = e;
+        entry* last = first->prev();
+        if (last->interval.currently_contains(lo))
+            lo = last->interval.hi_val();
         do {
-            if (e->interval.is_full())
-                return dd::find_t::empty;
-            entry* n = e->next();
-            if (n == e && e->interval.lo_val() != 0) {
-                val = 0;
-                if (e->interval.lo_val() > 1 || e->interval.hi_val() < e->interval.hi().manager().max_value())
-                    return dd::find_t::multiple;
-                return dd::find_t::singleton;
-            }
-            if (n == first) {
-                if (e->interval.hi_val() == e->interval.hi().manager().max_value())
-                    ;
-            }
-            e = n;
+            if (!e->interval.currently_contains(lo))
+                break;
+            lo = e->interval.hi_val();
+            e = e->next();
         }         
         while (e != first);
-        
-#if 0
-        // TODO
-        entry* first = e;
-        do {
-            if (e->interval.is_full())
-                return dd::find_t::empty;
-            if (e->interval.currently_contains(val)) {
-                val = e->interval.hi_val();
-            }
-        }         
-        while (e != first);
-#endif
 
-        return dd::find_t::multiple;
+        if (e->interval.currently_contains(lo))
+            return dd::find_t::empty;
+
+        rational hi = s.m_pdd[s.size(v)]->max_value();
+        e = last;
+        do {
+            if (!e->interval.currently_contains(hi))
+                break;
+            hi = e->interval.lo_val() - 1;
+            e = e->prev();
+        }         
+        while (e != last);
+        if (lo == hi)
+            return dd::find_t::singleton;
+        else
+            return dd::find_t::multiple;
     }
 
     void viable2::log(pvar v) {
@@ -239,6 +265,25 @@ namespace polysat {
             log(v);
     }
 
+    std::ostream& viable2::display(std::ostream& out, pvar v) const {
+        auto* e = m_viable[v];
+        if (!e)
+            return out;
+        entry* first = e;
+        do {
+            out << "v" << v << ": " << e->interval << " " << e->side_cond << " " << e->src << "\n";
+            e = e->next();
+        }         
+        while (e != first);
+        return out;
+    }
+
+    std::ostream& viable2::display(std::ostream& out) const {
+        for (pvar v = 0; v < m_viable.size(); ++v)
+            display(out, v);
+        return out;
+    }
+
     /*
     * Lower bounds are strictly ascending.
     * intervals don't contain each-other (since lower bounds are ascending, 
@@ -249,6 +294,8 @@ namespace polysat {
         while (true) {
             if (e->interval.is_full())
                 return e->next() == e;
+            if (e->interval.is_currently_empty())
+                return false;
             auto* n = e->next();
             if (n != e && e->interval.contains(n->interval))
                 return false;

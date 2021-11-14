@@ -97,11 +97,19 @@ namespace polysat {
         bool contains(eval_interval const& other) const {
             if (is_full())
                 return true;
-            if (lo_val() <= other.lo_val() && other.hi_val() <= hi_val())
+            // lo <= lo' <= hi' <= hi'
+            if (lo_val() <= other.lo_val() && other.lo_val() <= other.hi_val() && other.hi_val() <= hi_val())
                 return true;
-            if (hi_val() < lo_val() && lo_val() <= other.lo_val() && other.lo_val() <= other.hi_val())
+            if (lo_val() <= hi_val())
+                return false;
+            // hi < lo <= lo' <= hi'
+            if (lo_val() <= other.lo_val() && other.lo_val() <= other.hi_val())
                 return true;
-            if (hi_val() < lo_val() && other.lo_val() < hi_val() && other.hi_val() <= hi_val())
+            // lo' <= hi' <= hi < lo 
+            if (other.lo_val() <= other.hi_val() && other.hi_val() <= hi_val())
+                return true;
+            // hi' <= hi < lo <= lo'
+            if (other.hi_val() <= hi_val() && lo_val() <= other.lo_val())
                 return true;
             return false;
         }
