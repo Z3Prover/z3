@@ -200,11 +200,11 @@ namespace polysat {
         if (a1 != a2 && !a1.is_zero() && !a2.is_zero())
             return false;
         SASSERT(b1.is_val());
-        SASSERT(b2.is_val());
-
-        LOG("values " << a1 << " " << a2);       
+        SASSERT(b2.is_val());    
 
         _backtrack.released = true;
+
+        // LOG("add " << c << " " << a1 << " " << b1 << " " << a2 << " " << b2);
 
         if (match_linear1(c, a1, b1, e1, a2, b2, e2, out_interval, out_side_cond))
             return true;

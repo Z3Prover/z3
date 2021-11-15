@@ -85,6 +85,8 @@ namespace polysat {
             e->remove_from(m_viable[v], e);
         };
 
+        //LOG("intersect " << ne->interval);
+
         if (!e) 
             m_viable[v] = create_entry();
         else {
@@ -107,6 +109,10 @@ namespace polysat {
                 }             
                 SASSERT(e->interval.lo_val() != ne->interval.lo_val());
                 if (e->interval.lo_val() > ne->interval.lo_val()) {
+                    if (first->prev()->interval.contains(ne->interval)) {
+                        m_alloc.push_back(ne);
+                        return;
+                    }
                     e->insert_before(create_entry());
                     if (e == first)
                         m_viable[v] = e->prev();
@@ -155,7 +161,7 @@ namespace polysat {
         for (; e != last; e = e->next()) {        
             if (e->interval.currently_contains(val))
                 return false;
-            if (e->interval.lo_val() < val)
+            if (val < e->interval.lo_val())
                 return true;
         }         
         return true; 
@@ -294,11 +300,13 @@ namespace polysat {
         while (true) {
             if (e->interval.is_full())
                 return e->next() == e;
-            if (e->interval.is_currently_empty())
+            if (e->interval.is_currently_empty()) 
                 return false;
+            
             auto* n = e->next();
-            if (n != e && e->interval.contains(n->interval))
+            if (n != e && e->interval.contains(n->interval)) 
                 return false;
+            
             if (n == first)
                 break;            
             if (e->interval.lo_val() >= n->interval.lo_val())

@@ -66,6 +66,7 @@ namespace polysat {
         friend class ex_polynomial_superposition;
         friend class inf_saturate;
         friend class constraint_manager;
+        friend class scoped_solverv;
 
         reslimit&                m_lim;
         params_ref               m_params;
