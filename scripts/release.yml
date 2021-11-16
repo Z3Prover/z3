@@ -6,7 +6,7 @@
 trigger: none
 
 variables:
-  ReleaseVersion: '4.8.12'
+  ReleaseVersion: '4.8.13'
 
 stages:
 
@@ -310,6 +310,7 @@ stages:
   jobs:
 
   - job: GitHubPublish
+    condition: eq(1,0)
     displayName: "Publish to GitHub"
     pool:
       vmImage: "windows-latest"
@@ -387,7 +388,7 @@ stages:
 
   # Enable on release:
   - job: PyPIPublish
-    condition: eq(1,1)
+    condition: eq(0,1)
     displayName: "Publish to PyPI"
     pool:
       vmImage: "ubuntu-latest"
