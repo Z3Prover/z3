@@ -72,6 +72,11 @@ namespace polysat {
         if (e && e->interval.is_full())
             return;
 
+        if (ne->interval.is_currently_empty()) {
+            m_alloc.push_back(ne);
+            return;
+        }
+
         auto create_entry = [&]() {
             m_trail.push_back({ v, ne });
             s.m_trail.push_back(trail_instr_t::viable_add_i);
