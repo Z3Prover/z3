@@ -36,14 +36,14 @@ stages:
   - job: UbuntuDoc
     displayName: "Ubuntu Doc build"
     pool:
-      vmImage: "Ubuntu-18.04"
+      vmImage: "Ubuntu-20.04"
     steps:
     - script: sudo apt-get install ocaml opam libgmp-dev
-    - script: sudo apt-get install doxygen
-    - script: sudo apt-get install graphviz
     - script: opam init -y
     - script: eval `opam config env`; opam install zarith ocamlfind -y
-    - script: python scripts/mk_make.py --ml --staticlib
+    - script: eval `opam config env`; python scripts/mk_make.py --ml
+    - script: sudo apt-get install doxygen
+    - script: sudo apt-get install graphviz
     - script: |
         set -e
         cd build
