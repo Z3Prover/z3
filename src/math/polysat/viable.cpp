@@ -90,13 +90,6 @@ namespace polysat {
         return var2bits(v).contains(m_viable[v], val);
     }
 
-    void viable::add_non_viable(pvar v, rational const& val) {
-        LOG("pvar " << v << " /= " << val);
-        SASSERT(is_viable(v, val));
-        auto const& bits = var2bits(v);
-        intersect_viable(v, bits.var() != val);
-    }
-
     void viable::intersect_viable(pvar v, bdd vals) {
         push_viable(v);
         m_viable[v] &= vals;

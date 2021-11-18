@@ -83,11 +83,6 @@ namespace polysat {
          */
         bool is_viable(pvar v, rational const& val);
 
-        /**
-         * register that val is non-viable for var.
-         */
-        void add_non_viable(pvar v, rational const& val, signed_constraint const& c);
-
         /*
         * Extract min and max viable values for v
         */

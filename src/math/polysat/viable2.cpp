@@ -170,17 +170,6 @@ namespace polysat {
         return true; 
     }
 
-    void viable2::add_non_viable(pvar v, rational const& lo_val, signed_constraint const& c) { 
-        entry* ne = alloc_entry();
-        rational const& max_value = s.var2pdd(v).max_value();
-        rational hi_val = (lo_val == max_value) ? rational::zero() : lo_val + 1;
-        pdd lo = s.var2pdd(v).mk_val(lo_val);
-        pdd hi = s.var2pdd(v).mk_val(hi_val);
-        ne->interval = eval_interval::proper(lo, lo_val, hi, hi_val); 
-        ne->src = c;     
-        intersect(v, ne);
-    }
-
     rational viable2::min_viable(pvar v) { 
         rational lo(0);
         auto* e = m_viable[v];
