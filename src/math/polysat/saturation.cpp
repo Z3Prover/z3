@@ -77,6 +77,9 @@ namespace polysat {
         if (!c.is_currently_false(s) && c.bvalue(s) != l_false)
             return false;
 
+        if (c.bvalue(s) == l_true)
+            return false;
+
         // avoid loops
         if (core.contains(~c))
             return false;

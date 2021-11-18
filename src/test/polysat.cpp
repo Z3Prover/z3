@@ -1071,11 +1071,12 @@ void tst_polysat() {
  //   polysat::test_ineq_axiom2();
  //   polysat::test_ineq_axiom3();
  //   polysat::test_ineq_non_axiom1();
+#if 0
     polysat::test_ineq_non_axiom4(32, 5);
     polysat::test_ineq_axiom4();
     polysat::test_ineq_axiom5();
     polysat::test_ineq_axiom6();
-
+#endif
 
     // working
     // NOT: polysat::test_fixed_point_arith_mul_div_inverse();

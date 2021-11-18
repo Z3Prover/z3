@@ -10,7 +10,6 @@ Author:
     Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-6
 
-
 --*/
 
 
@@ -46,13 +45,12 @@ namespace polysat {
 
     void viable2::push_viable() {
         auto& [v, e] = m_trail.back();
+        SASSERT(e->prev() != e || !m_viable[v]);
+        SASSERT(e->prev() != e || e->next() == e);
         if (e->prev() != e) 
             e->prev()->insert_after(e);        
-        else {
-            SASSERT(!m_viable[v]);
-            SASSERT(e->next() == e);
-            m_viable[v] = e;
-        }
+        else 
+            m_viable[v] = e;        
         m_trail.pop_back();
     }
 

@@ -125,13 +125,15 @@ namespace polysat {
         m_constraints.ensure_bvar(c.get());
         sat::literal lit = c.blit();
         LOG("New constraint: " << c);
-        if (m_bvars.is_false(lit) || c.is_currently_false(*this)) {
-            set_conflict(c /*, dep */);
-            return;
+        if (m_bvars.is_false(lit)) 
+            set_conflict(c);
+        else {
+            m_bvars.asserted(lit, m_level, dep);
+            m_trail.push_back(trail_instr_t::assign_bool_i);
+            m_search.push_boolean(lit);
+            if (c.is_currently_false(*this))
+                set_conflict(c);
         }
-        m_bvars.asserted(lit, m_level, dep);
-        m_trail.push_back(trail_instr_t::assign_bool_i);
-        m_search.push_boolean(lit);
 
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.new_constraint(*c.get());
@@ -577,6 +579,13 @@ namespace polysat {
     /**
      * Revert a decision that caused a conflict.
      * Variable v was assigned by a decision at position i in the search stack.
+     * 
+     * C & v = val is conflict.
+     * 
+     * C => v != val
+     * 
+     * l1 \/ l2 \/ ... \/ lk \/ v != val     
+     *      
      */
     void solver::revert_decision(pvar v) {
         rational val = m_value[v];
@@ -594,7 +603,11 @@ namespace polysat {
         
         // The justification for this restriction is the guessed constraint from the lemma.
         // cjust[v] will be updated accordingly by decide_bool.
-        m_viable.add_non_viable(v, val);
+        //        m_viable.add_non_viable(v, val);
+        // TBD: review with Jakob: add_non_viable seems redundant. The lemma contains the disjunction that v != val
+        // other literals in the lemma could be chosen, but they prune decisions further down.
+        // when the v != val literal is selected the viability constraint gets asserted.
+
         learn_lemma(v, *lemma);
 
         if (!is_conflict())
