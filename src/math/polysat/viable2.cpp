@@ -138,7 +138,7 @@ namespace polysat {
         if (!e)
             return true;
         entry* first = e;
-        auto const& max_value = s.m_pdd[v]->max_value();
+        auto const& max_value = s.var2pdd(v).max_value();
         do {
             if (e->interval.is_full())
                 return false;
@@ -174,10 +174,10 @@ namespace polysat {
 
     void viable2::add_non_viable(pvar v, rational const& lo_val, signed_constraint const& c) { 
         entry* ne = alloc_entry();
-        rational const& max_value = s.m_pdd[v]->max_value();
+        rational const& max_value = s.var2pdd(v).max_value();
         rational hi_val = (lo_val == max_value) ? rational::zero() : lo_val + 1;
-        pdd lo = s.m_pdd[v]->mk_val(lo_val);
-        pdd hi = s.m_pdd[v]->mk_val(hi_val);
+        pdd lo = s.var2pdd(v).mk_val(lo_val);
+        pdd hi = s.var2pdd(v).mk_val(hi_val);
         ne->interval = eval_interval::proper(lo, lo_val, hi, hi_val); 
         ne->src = c;     
         intersect(v, ne);
@@ -204,7 +204,7 @@ namespace polysat {
     }
 
     rational viable2::max_viable(pvar v) { 
-        rational hi = s.m_pdd[s.size(v)]->max_value();
+        rational hi = s.var2pdd(v).max_value();
         auto* e = m_viable[v];
         if (!e)
             return hi;
@@ -244,7 +244,7 @@ namespace polysat {
         if (e->interval.currently_contains(lo))
             return dd::find_t::empty;
 
-        rational hi = s.m_pdd[s.size(v)]->max_value();
+        rational hi = s.var2pdd(v).max_value();
         e = last;
         do {
             if (!e->interval.currently_contains(hi))

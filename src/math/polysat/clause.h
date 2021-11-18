@@ -33,7 +33,6 @@ namespace polysat {
         friend class constraint_manager;
 
         unsigned m_ref_count = 0;  // TODO: remove refcount once we confirm it's not needed anymore
-        pvar m_justified_var = null_var;  // The variable that was restricted by learning this lemma.
         bool m_redundant = false;
         sat::literal_vector m_literals;
 
@@ -59,9 +58,6 @@ namespace polysat {
         static clause_ref from_unit(signed_constraint c);
         static clause_ref from_literals(sat::literal_vector literals);
 
-
-        pvar justified_var() const { return m_justified_var; }
-        void set_justified_var(pvar v) { SASSERT(m_justified_var == null_var); m_justified_var = v; }
 
         bool empty() const { return m_literals.empty(); }
         unsigned size() const { return m_literals.size(); }

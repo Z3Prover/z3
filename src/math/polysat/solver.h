@@ -44,6 +44,7 @@ namespace polysat {
             unsigned m_num_propagations;
             unsigned m_num_conflicts;
             unsigned m_num_bailouts;
+            unsigned m_num_restarts;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };
@@ -140,6 +141,7 @@ namespace polysat {
         void del_var();
 
         dd::pdd_manager& sz2pdd(unsigned sz);
+        dd::pdd_manager& var2pdd(pvar v);
 
         void push_level();
         void pop_levels(unsigned num_levels);
@@ -195,9 +197,19 @@ namespace polysat {
         void revert_bool_decision(sat::literal lit);
 
         void report_unsat();
-        void learn_lemma(pvar v, clause& lemma);
+        void learn_lemma(clause& lemma);
         void backjump(unsigned new_level);
         void add_lemma(clause& lemma);
+
+        bool should_simplify();
+        void simplify();
+
+        unsigned m_conflicts_at_restart = 0;
+        unsigned m_restart_threshold = UINT_MAX;
+        unsigned m_restart_init = 100;
+        unsigned m_luby_idx = 0;
+        bool should_restart();
+        void restart();
 
         signed_constraint lit2cnstr(sat::literal lit) const { return m_constraints.lookup(lit); }
         void assert_constraint(signed_constraint c, unsigned dep);

@@ -20,18 +20,14 @@ Author:
 #include "math/polysat/explain.h"
 #include "math/polysat/log.h"
 #include "math/polysat/variable_elimination.h"
+#include "util/luby.h"
 
 // For development; to be removed once the linear solver works well enough
 #define ENABLE_LINEAR_SOLVER 0
 
 namespace polysat {
 
-    dd::pdd_manager& solver::sz2pdd(unsigned sz) {
-        m_pdd.reserve(sz + 1);
-        if (!m_pdd[sz]) 
-            m_pdd.set(sz, alloc(dd::pdd_manager, 1000, dd::pdd_manager::semantics::mod2N_e, sz));
-        return *m_pdd[sz];
-    }
+
 
     solver::solver(reslimit& lim): 
         m_lim(lim),
@@ -73,15 +69,28 @@ namespace polysat {
             LOG("Assignment:     " << assignments_pp(*this));
             if (is_conflict()) LOG("Conflict:       " << m_conflict);
             IF_LOGGING(m_viable.log());
-            if (!is_conflict() && m_constraints.should_gc()) m_constraints.gc(*this);
-            else if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
+            if (is_conflict() && at_base_level()) { LOG_H2("UNSAT"); return l_false; }
             else if (is_conflict()) resolve_conflict();
             else if (can_propagate()) propagate();
             else if (!can_decide()) { LOG_H2("SAT"); SASSERT(verify_sat()); return l_true; }
+            else if (m_constraints.should_gc()) m_constraints.gc(*this);
+            else if (should_simplify()) simplify();
+            else if (should_restart()) restart();
             else decide();
         }
         LOG_H2("UNDEF (resource limit)");
         return l_undef;
+    }
+
+    dd::pdd_manager& solver::sz2pdd(unsigned sz) {
+        m_pdd.reserve(sz + 1);
+        if (!m_pdd[sz])
+            m_pdd.set(sz, alloc(dd::pdd_manager, 1000, dd::pdd_manager::semantics::mod2N_e, sz));
+        return *m_pdd[sz];
+    }
+
+    dd::pdd_manager& solver::var2pdd(pvar v) {
+        return sz2pdd(size(v));
     }
         
     unsigned solver::add_var(unsigned sz) {
@@ -136,7 +145,6 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.new_constraint(*c.get());
 #endif
-
     }
 
 
@@ -241,6 +249,37 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.push();
 #endif
+    }
+
+    /*
+    * This is a place holder for in-processing simplification
+    */
+    bool solver::should_simplify() {
+        return false;
+    }
+
+    void solver::simplify() {
+
+    }
+
+    /*
+    * Basic restart functionality.
+    * restarts make more sense when the order of variable 
+    * assignments and the values assigned to variables can be diversified.
+    */
+    bool solver::should_restart() {
+        if (m_stats.m_num_conflicts - m_conflicts_at_restart < m_restart_threshold)
+            return false;
+        if (base_level() + 2 > m_level)
+            return false;
+        return true;        
+    }
+
+    void solver::restart() {
+        ++m_stats.m_num_restarts;
+        pop_levels(m_level - base_level());
+        m_conflicts_at_restart = m_stats.m_num_conflicts;
+        m_restart_threshold = m_restart_init * get_luby(++m_luby_idx);
     }
 
     void solver::pop_levels(unsigned num_levels) {
@@ -518,10 +557,9 @@ namespace polysat {
         */
     }
 
-    void solver::learn_lemma(pvar v, clause& lemma) {
+    void solver::learn_lemma(clause& lemma) {
         LOG("Learning: "<< lemma);
         SASSERT(!lemma.empty());
-        lemma.set_justified_var(v);
         add_lemma(lemma);
         if (!is_conflict())
             decide_bool(lemma);
@@ -566,7 +604,6 @@ namespace polysat {
         signed_constraint c = lit2cnstr(choice);
         if (num_choices > 1)
             push_level();        
-        push_cjust(lemma.justified_var(), c);
 
         if (num_choices == 1)
             assign_propagate(choice, lemma);
@@ -594,8 +631,8 @@ namespace polysat {
         
         // The justification for this restriction is the guessed constraint from the lemma.
         // cjust[v] will be updated accordingly by decide_bool.
-        m_viable.add_non_viable(v, val);
-        learn_lemma(v, *lemma);
+        // m_viable.add_non_viable(v, val);
+        learn_lemma(*lemma);
 
         if (!is_conflict())
             narrow(v);
@@ -831,6 +868,7 @@ namespace polysat {
         st.update("polysat conflicts",    m_stats.m_num_conflicts);
         st.update("polysat bailouts",     m_stats.m_num_bailouts);
         st.update("polysat propagations", m_stats.m_num_propagations);
+        st.update("polysat restarts",     m_stats.m_num_restarts);
     }
 
     bool solver::invariant() {
