@@ -399,7 +399,7 @@ stages:
     - task: DownloadSecureFile@1
       name: pypirc
       inputs:
-        secureFile: 'pypirc2'
+        secureFile: 'pypircs'
     - script: python3 -m pip install --upgrade pip
     - script: python3 -m pip install --user -U setuptools importlib_metadata wheel twine 
-    - script: python3 -m twine upload --config-file $(pypirc2) -r $(pypiReleaseServer) dist/*
+    - script: python3 -m twine upload --config-file $(pypircs.secureFilePath) -r $(pypiReleaseServer) dist/*
