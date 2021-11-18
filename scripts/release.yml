@@ -309,7 +309,7 @@ stages:
   jobs:
 
   - job: GitHubPublish
-    condition: eq(1,1)
+    condition: eq(0,1)
     displayName: "Publish to GitHub"
     pool:
       vmImage: "windows-latest"
@@ -399,7 +399,7 @@ stages:
     - task: DownloadSecureFile@1
       name: pypirc
       inputs:
-        secureFile: 'pypirc'
+        secureFile: 'pypirc2'
     - script: python3 -m pip install --upgrade pip
     - script: python3 -m pip install --user -U setuptools importlib_metadata wheel twine 
-    - script: python3 -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
+    - script: python3 -m twine upload --config-file $(pypirc2.secureFilePath) -r $(pypiReleaseServer) dist/*
