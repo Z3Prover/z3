@@ -369,7 +369,7 @@ namespace polysat {
         rational const& a2, pdd const& b2, pdd const& e2,
         eval_interval& interval, vector<signed_constraint>& side_cond) {
         if (a1.is_odd() && a2.is_zero() && b2.val().is_zero()) {
-            push_eq(false, e2, side_cond);
+            push_eq(true, e2, side_cond);
             rational a_inv, pow2 = e1.manager().max_value() + 1;
             VERIFY(a1.mult_inverse(e1.manager().power_of_2(), a_inv));
             auto lo = -e1 * a_inv;

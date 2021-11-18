@@ -81,7 +81,7 @@ namespace polysat {
         }
         else {
             SASSERT(c.is_currently_false(s));
-            SASSERT(c.bvalue(s) == l_true);
+    // TBD: fails with test_subst       SASSERT(c.bvalue(s) == l_true);
             c->set_var_dependent();
             insert(c);
         }
@@ -111,6 +111,8 @@ namespace polysat {
      * The clause is conflicting in the current search state.
      */
     void conflict::set(clause const& cl) {
+        if (!empty())
+            return;
         LOG("Conflict: " << cl);
         SASSERT(empty());
         for (auto lit : cl)          

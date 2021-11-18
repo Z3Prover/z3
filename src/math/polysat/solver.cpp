@@ -134,13 +134,15 @@ namespace polysat {
         m_constraints.ensure_bvar(c.get());
         sat::literal lit = c.blit();
         LOG("New constraint: " << c);
-        if (m_bvars.is_false(lit) || c.is_currently_false(*this)) {
-            set_conflict(c /*, dep */);
-            return;
+        if (m_bvars.is_false(lit)) 
+            set_conflict(c);
+        else {
+            m_bvars.asserted(lit, m_level, dep);
+            m_trail.push_back(trail_instr_t::assign_bool_i);
+            m_search.push_boolean(lit);
+            if (c.is_currently_false(*this))
+                set_conflict(c);
         }
-        m_bvars.asserted(lit, m_level, dep);
-        m_trail.push_back(trail_instr_t::assign_bool_i);
-        m_search.push_boolean(lit);
 
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.new_constraint(*c.get());
@@ -582,38 +584,43 @@ namespace polysat {
                 return;
             case l_false:
                 break;
-            case l_undef:
-                num_choices++;                
+            case l_undef:               
                 if (lit2cnstr(lit).is_currently_false(*this)) {
                     unsigned level = m_level; // TODO
                     assign_eval(level, lit);
                 }
-                else
+                else {
+                    num_choices++;
                     choice = lit;
+                }
                 break;
             }
         }
         LOG_V("num_choices: " << num_choices);
-        if (choice == sat::null_literal) {
-            // This case may happen when all undefined literals are false under the current variable assignment.
-            // TODO: The question is whether such lemmas should be generated? Check test_monot() for such a case.
+        switch (num_choices) {
+        case 0:
             set_conflict(lemma);
-            return;
-        }
-
-        signed_constraint c = lit2cnstr(choice);
-        if (num_choices > 1)
-            push_level();        
-
-        if (num_choices == 1)
+            break;
+        case 1:
             assign_propagate(choice, lemma);
-        else 
+            break;
+        default:
+            push_level();
             assign_decision(choice, &lemma);
+            break;
+        }
     }
 
     /**
      * Revert a decision that caused a conflict.
      * Variable v was assigned by a decision at position i in the search stack.
+     * 
+     * C & v = val is conflict.
+     * 
+     * C => v != val
+     * 
+     * l1 \/ l2 \/ ... \/ lk \/ v != val     
+     *      
      */
     void solver::revert_decision(pvar v) {
         rational val = m_value[v];
@@ -621,21 +628,14 @@ namespace polysat {
         SASSERT(m_justification[v].is_decision());
 
         clause_ref lemma = m_conflict.build_lemma().build();
-        if (lemma->empty()) {
+        if (lemma->empty())
             report_unsat();
-            return;
-        }
-        m_conflict.reset();
-
-        backjump(get_level(v) - 1);
-        
-        // The justification for this restriction is the guessed constraint from the lemma.
-        // cjust[v] will be updated accordingly by decide_bool.
-        // m_viable.add_non_viable(v, val);
-        learn_lemma(*lemma);
-
-        if (!is_conflict())
+        else {
+            m_conflict.reset();
+            backjump(get_level(v) - 1);
+            learn_lemma(*lemma);
             narrow(v);
+        }
     }
 
     bool solver::is_decision(search_item const& item) const {
@@ -685,11 +685,8 @@ namespace polysat {
         backjump(m_bvars.level(var) - 1);
 
         add_lemma(*reason);
-        if (is_conflict()) {
-            LOG_H1("Conflict during revert_bool_decision/propagate_bool!");
-            return;
-        }
-        if (lemma)
+
+        if (!is_conflict() && lemma)
             decide_bool(*lemma);
     }
 
@@ -763,7 +760,8 @@ namespace polysat {
      * placeholder for factoring/gcd common factors
      */
     void solver::narrow(pvar v) {
-
+        if (is_conflict())
+            return;
     }
 
     // Add lemma to storage
