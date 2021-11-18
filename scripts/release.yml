@@ -402,4 +402,4 @@ stages:
         secureFile: 'pypirc2'
     - script: python3 -m pip install --upgrade pip
     - script: python3 -m pip install --user -U setuptools importlib_metadata wheel twine 
-    - script: python3 -m twine upload --config-file $(pypirc2.secureFilePath) -r $(pypiReleaseServer) dist/*
+    - script: python3 -m twine upload --config-file $(pypirc2) -r $(pypiReleaseServer) dist/*
