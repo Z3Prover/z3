@@ -1222,6 +1222,7 @@ typedef enum {
     Z3_OP_RE_COMPLEMENT,
 
     // char
+    Z3_OP_CHAR_CONST,
     Z3_OP_CHAR_LE,
     Z3_OP_CHAR_TO_INT,
     Z3_OP_CHAR_TO_BV,

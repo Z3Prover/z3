@@ -1232,6 +1232,7 @@ extern "C" {
 
         if (mk_c(c)->get_char_fid() == _d->get_family_id()) {
             switch (_d->get_decl_kind()) {
+            case OP_CHAR_CONST: return Z3_OP_CHAR_CONST;
             case OP_CHAR_LE: return Z3_OP_CHAR_LE;
             case OP_CHAR_TO_INT: return Z3_OP_CHAR_TO_INT;
             case OP_CHAR_TO_BV: return Z3_OP_CHAR_TO_BV;
