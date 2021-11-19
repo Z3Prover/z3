@@ -561,7 +561,6 @@ void display_ast(Z3_context c, FILE * out, Z3_ast v)
     }
     case Z3_QUANTIFIER_AST: {
         fprintf(out, "quantifier");
-        ;
     }
     default:
         fprintf(out, "#unknown");

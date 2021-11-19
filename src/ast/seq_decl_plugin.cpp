@@ -705,6 +705,17 @@ bool seq_decl_plugin::is_value(app* e) const {
     }
 }
 
+bool seq_decl_plugin::is_model_value(app* e) const {
+    if (is_app_of(e, m_family_id, OP_SEQ_EMPTY)) 
+        return true;
+    if (is_app_of(e, m_family_id, OP_STRING_CONST)) 
+        return true;
+    if (is_app_of(e, m_family_id, OP_SEQ_UNIT) &&
+        m_manager->is_value(e->get_arg(0))) 
+        return true;
+    return false;
+}
+
 bool seq_decl_plugin::are_equal(app* a, app* b) const {
     if (a == b) return true;
     // handle concatenations

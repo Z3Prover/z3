@@ -3477,7 +3477,7 @@ public:
                 st = lp::lp_status::FEASIBLE;
                 lp().restore_x();
             }
-            if (m_nla && st == lp::lp_status::OPTIMAL) {
+            if (m_nla && (st == lp::lp_status::OPTIMAL || st == lp::lp_status::UNBOUNDED)) {
                 st = lp::lp_status::FEASIBLE;
                 lp().restore_x();
             }                

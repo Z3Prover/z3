@@ -309,7 +309,7 @@ stages:
   jobs:
 
   - job: GitHubPublish
-    condition: eq(1,0)
+    condition: eq(0,1)
     displayName: "Publish to GitHub"
     pool:
       vmImage: "windows-latest"
@@ -387,7 +387,7 @@ stages:
 
   # Enable on release:
   - job: PyPIPublish
-    condition: eq(0,1)
+    condition: eq(1,1)
     displayName: "Publish to PyPI"
     pool:
       vmImage: "ubuntu-latest"
@@ -397,9 +397,9 @@ stages:
         artifact: 'PythonPackage'
         path: dist
     - task: DownloadSecureFile@1
-      name: pypirc
+      name: pypircs
       inputs:
-        secureFile: 'pypirc'
+        secureFile: 'pypircs'
     - script: python3 -m pip install --upgrade pip
     - script: python3 -m pip install --user -U setuptools importlib_metadata wheel twine 
-    - script: python3 -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
+    - script: python3 -m twine upload --config-file $(pypircs.secureFilePath) -r $(pypiReleaseServer) dist/*

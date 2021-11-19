@@ -179,6 +179,8 @@ public:
 
     bool is_value(app * e) const override;
 
+    bool is_model_value(app* e) const override;
+
     bool is_unique_value(app * e) const override;
 
     bool are_equal(app* a, app* b) const override;
