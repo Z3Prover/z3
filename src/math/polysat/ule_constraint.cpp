@@ -129,6 +129,31 @@ namespace polysat {
             return;
         }
 
+#if 0
+        // setup with viable2:
+        // we no longer need cjust
+        pvar v = null_var;
+        if (p.is_unilinear())
+            v = p.var();
+        else if (q.is_unilinear())
+            v = q.var();
+        if (v != null_var) {
+            signed_constraint sc(this, is_positive);
+            s.m_viable2.intersect(v, sc);
+            rational val;
+            switch (s.m_viable2.find_viable(v, val)) {
+            case dd::find_t::singleton:
+                s.propagate(v, val, sc);
+                break;
+            case dd::find_t::empty:
+                s.set_conflict(v);
+                break;
+            default:
+                break;
+            }                
+        }
+#else
+
         // p <= 0, e.g., p == 0
         if (q.is_zero() && p.is_unilinear()) {
             // a*x + b == 0
@@ -184,6 +209,7 @@ namespace polysat {
         }
 
         // TODO: other cheap constraints possible?
+#endif
     }
 
     bool ule_constraint::is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) const {

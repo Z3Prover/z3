@@ -21,10 +21,8 @@ Author:
 #include "util/dlist.h"
 #include "util/small_object_allocator.h"
 #include "math/polysat/types.h"
+#include "math/polysat/conflict.h"
 #include "math/polysat/constraint.h"
-
-
-
 
 namespace polysat {
 
@@ -94,6 +92,12 @@ namespace polysat {
          * Find a next viable value for variable.
          */
         dd::find_t find_viable(pvar v, rational & val);
+
+        /**
+        * Retrieve the unsat core for v.
+        * \pre there are no viable values for v
+        */
+        void get_core(pvar v, conflict& core);
 
         /** Log all viable values for the given variable.
          * (Inefficient, but useful for debugging small instances.)

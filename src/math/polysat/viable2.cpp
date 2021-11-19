@@ -246,6 +246,42 @@ namespace polysat {
             return dd::find_t::multiple;
     }
 
+    void viable2::get_core(pvar v, conflict& core) {
+        core.reset();
+        auto* e = m_viable[v];
+        entry* first = e;
+        SASSERT(e);
+        SASSERT(!has_viable(v));
+        do {
+            // Build constraint: upper bound of each interval is not contained in the next interval,
+            // using the equivalence:  t \in [l;h[  <=>  t-l < h-l
+            entry* n = e->next();
+            if (!e->interval.is_full()) {
+                auto const& hi = e->interval.hi();
+                auto const& next_lo = n->interval.lo();
+                auto const& next_hi = n->interval.hi();
+                auto lhs = hi - next_lo;
+                auto rhs = next_hi - next_lo;
+                signed_constraint c = s.m_constraints.ult(lhs, rhs);
+                core.insert(c);
+            }
+            for (auto sc : e->side_cond)
+                core.insert(sc);
+            core.insert(e->src);
+            e = n;
+        }             
+        while (e != first);
+
+        core.set_bailout();
+        for (auto c : core) {
+            if (c.bvalue(s) == l_false) {
+                core.reset();
+                core.set(~c);
+                break;
+            }
+        }
+    }
+
     void viable2::log(pvar v) {
         auto* e = m_viable[v];
         if (!e)
