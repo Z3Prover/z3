@@ -1159,7 +1159,7 @@ class Formatter:
                 return self.pp_pbcmp(a, d, f, xs)
             elif k == Z3_OP_SEQ_UNIT and z3.is_app(a.arg(0)) and a.arg(0).decl().kind() == Z3_OP_CHAR_CONST:
                 n = a.arg(0).params()[0]
-                return to_format(f"\"{chr(n)}\"")
+                return to_format("\"" + f"{chr(n)}" + "\"")
             elif z3.is_pattern(a):
                 return self.pp_pattern(a, d, xs)
             elif self.is_infix(k):
