@@ -397,7 +397,7 @@ stages:
         artifact: 'PythonPackage'
         path: dist
     - task: DownloadSecureFile@1
-      name: pypirc
+      name: pypircs
       inputs:
         secureFile: 'pypircs'
     - script: python3 -m pip install --upgrade pip
