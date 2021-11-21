@@ -103,7 +103,7 @@ namespace polysat {
         /** Perform value resolution by applying various inference rules.
          *  Returns true if it was possible to eliminate the variable 'v'.
          */
-        bool resolve_value(pvar v, vector<signed_constraint> const& cjust_v);
+        bool resolve_value(pvar v);
 
         /** Convert the core into a lemma to be learned. */
         clause_builder build_lemma();

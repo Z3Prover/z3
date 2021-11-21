@@ -97,7 +97,7 @@ namespace polysat {
         * Retrieve the unsat core for v.
         * \pre there are no viable values for v
         */
-        void get_core(pvar v, conflict& core);
+        bool resolve(pvar v, conflict& core);
 
         /** Log all viable values for the given variable.
          * (Inefficient, but useful for debugging small instances.)
@@ -108,6 +108,46 @@ namespace polysat {
         void log();
 
         std::ostream& display(std::ostream& out) const;
+
+        class iterator {
+            entry* curr = nullptr;
+            bool   visited = false;
+        public:
+            iterator(entry* curr, bool visited) : 
+                curr(curr), visited(visited || !curr) {}
+
+            iterator& operator++() {
+                visited = true;
+                curr = curr->next();
+                return *this;
+            }
+
+            signed_constraint& operator*() { 
+                return curr->src; 
+            }
+
+            bool operator==(iterator const& other) const {
+                return visited == other.visited && curr == other.curr;
+            }
+
+            bool operator!=(iterator const& other) const {
+                return !(*this == other);
+            }
+        };
+
+        class constraints {
+            viable2& viable;
+            pvar var;
+        public:
+            constraints(viable2& viable, pvar var) : viable(viable), var(var) {}
+            iterator begin() const { return iterator(viable.m_viable[var], false); }
+            iterator end() const { return iterator(viable.m_viable[var], true); }
+        };
+
+        constraints get_constraints(pvar v) { 
+            return constraints(*this, v); 
+        }
+       
     };
 
     inline std::ostream& operator<<(std::ostream& out, viable2 const& v) {

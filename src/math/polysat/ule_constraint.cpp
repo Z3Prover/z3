@@ -129,7 +129,7 @@ namespace polysat {
             return;
         }
 
-#if 0
+#if NEW_VIABLE
         // setup with viable2:
         // we no longer need cjust
         pvar v = null_var;
@@ -139,9 +139,9 @@ namespace polysat {
             v = q.var();
         if (v != null_var) {
             signed_constraint sc(this, is_positive);
-            s.m_viable2.intersect(v, sc);
+            s.m_viable.intersect(v, sc);
             rational val;
-            switch (s.m_viable2.find_viable(v, val)) {
+            switch (s.m_viable.find_viable(v, val)) {
             case dd::find_t::singleton:
                 s.propagate(v, val, sc);
                 break;

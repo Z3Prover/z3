@@ -246,12 +246,13 @@ namespace polysat {
             return dd::find_t::multiple;
     }
 
-    void viable2::get_core(pvar v, conflict& core) {
-        core.reset();
+    bool viable2::resolve(pvar v, conflict& core) {
+        if (has_viable(v))
+            return false;
         auto* e = m_viable[v];
         entry* first = e;
         SASSERT(e);
-        SASSERT(!has_viable(v));
+        core.reset();
         do {
             // Build constraint: upper bound of each interval is not contained in the next interval,
             // using the equivalence:  t \in [l;h[  <=>  t-l < h-l
@@ -280,6 +281,7 @@ namespace polysat {
                 break;
             }
         }
+        return true;
     }
 
     void viable2::log(pvar v) {

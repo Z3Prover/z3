@@ -81,7 +81,7 @@ namespace polysat {
         }
         else {
             SASSERT(c.is_currently_false(s));
-    // TBD: fails with test_subst       SASSERT(c.bvalue(s) == l_true);
+            // TBD: fails with test_subst       SASSERT(c.bvalue(s) == l_true);
             c->set_var_dependent();
             insert(c);
         }
@@ -100,10 +100,12 @@ namespace polysat {
         LOG("Conflict: v" << v);
         SASSERT(empty());
         m_conflict_var = v;
+#if !NEW_VIABLE
         for (auto c : s.m_cjust[v]) {
             c->set_var_dependent(); // ??
             insert(c);
         }
+#endif
         SASSERT(!empty());
     }
 
@@ -286,7 +288,7 @@ namespace polysat {
     }
 
 
-    bool conflict::resolve_value(pvar v, vector<signed_constraint> const& cjust_v) {
+    bool conflict::resolve_value(pvar v) {
         // NOTE:
         // In the "standard" case where "v = val" is on the stack:
         //      - cjust_v contains true constraints
@@ -298,13 +300,23 @@ namespace polysat {
             return false;
         }
 
+#if NEW_VIABLE
+        if (conflict_var() == v && s.m_viable.resolve(v, *this))
+            return true;
+#else
         if (conflict_var() == v && s.m_forbidden_intervals.perform(v, cjust_v, *this))
             return true;        
+#endif
         
         m_vars.remove(v);
 
+#if NEW_VIABLE
+        for (auto const& c : s.m_viable.get_constraints(v))
+            insert(c);
+#else
         for (auto c : cjust_v)
             insert(c);
+#endif
 
         for (auto* engine : ex_engines)
             if (engine->try_explain(v, *this))
