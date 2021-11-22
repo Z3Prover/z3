@@ -1,6 +1,6 @@
 #include "math/polysat/log.h"
 #include "math/polysat/solver.h"
-#include "math/polysat/viable2.h"
+#include "math/polysat/viable.h"
 
 namespace polysat {
 
@@ -10,7 +10,7 @@ namespace polysat {
 
     class scoped_solverv : public solver_scopev, public solver {
     public:
-        viable2 v;
+        viable v;
         scoped_solverv(): solver(lim), v(*this) {}
         ~scoped_solverv() {
             for (unsigned i = m_trail.size(); i-- > 0;) {

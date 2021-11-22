@@ -129,9 +129,6 @@ namespace polysat {
             return;
         }
 
-#if NEW_VIABLE
-        // setup with viable2:
-        // we no longer need cjust
         pvar v = null_var;
         if (p.is_unilinear())
             v = p.var();
@@ -152,64 +149,6 @@ namespace polysat {
                 break;
             }                
         }
-#else
-
-        // p <= 0, e.g., p == 0
-        if (q.is_zero() && p.is_unilinear()) {
-            // a*x + b == 0
-            pvar v = p.var();
-            s.push_cjust(v, { this, is_positive });
-
-            rational a = p.hi().val();
-            rational b = p.lo().val();
-            s.m_viable.intersect_eq(a, v, b, is_positive);
-
-            rational val;
-            if (s.m_viable.find_viable(v, val) == dd::find_t::singleton)
-                s.propagate(v, val, { this, is_positive });
-            return;
-        }
-
-        pvar v = null_var;
-        rational a, b, c, d;
-        if (p.is_unilinear() && q.is_unilinear() && p.var() == q.var()) {
-            // a*x + b <=u c*x + d
-            v = p.var();
-            a = p.hi().val();
-            b = p.lo().val();
-            c = q.hi().val();
-            d = q.lo().val();
-        }
-        else if (p.is_unilinear() && q.is_val()) {
-            // a*x + b <=u d
-            v = p.var();
-            a = p.hi().val();
-            b = p.lo().val();
-            c = rational::zero();
-            d = q.val();
-        }
-        else if (p.is_val() && q.is_unilinear()) {
-            // b <=u c*x + d
-            v = q.var();
-            a = rational::zero();
-            b = p.val();
-            c = q.hi().val();
-            d = q.lo().val();
-        }
-        if (v != null_var) {
-            s.push_cjust(v, {this, is_positive});
-
-            s.m_viable.intersect_ule(v, a, b, c, d, is_positive);
-
-            rational val;
-            if (s.m_viable.find_viable(v, val) == dd::find_t::singleton) 
-                s.propagate(v, val, {this, is_positive});
-
-            return;
-        }
-
-        // TODO: other cheap constraints possible?
-#endif
     }
 
     bool ule_constraint::is_always_false(bool is_positive, pdd const& lhs, pdd const& rhs) const {

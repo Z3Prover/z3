@@ -98,9 +98,6 @@ namespace polysat {
         m_value.push_back(rational::zero());
         m_justification.push_back(justification::unassigned());
         m_viable.push(sz);
-#if !NEW_VIABLE
-        m_cjust.push_back({});
-#endif
         m_pwatch.push_back({});
         m_activity.push_back(0);
         m_vars.push_back(sz2pdd(sz).mk_var(v));
@@ -118,9 +115,6 @@ namespace polysat {
         // TODO also remove v from all learned constraints.
         pvar v = m_value.size() - 1;
         m_viable.pop();
-#if !NEW_VIABLE
-        m_cjust.pop_back();
-#endif
         m_value.pop_back();
         m_justification.pop_back();
         m_pwatch.pop_back();
@@ -345,15 +339,6 @@ namespace polysat {
                 m_search.pop();
                 break;
             }
-            case trail_instr_t::just_i: {
-#if !NEW_VIABLE
-                auto v = m_cjust_trail.back();
-                LOG_V("Undo just_i");
-                m_cjust[v].pop_back();
-                m_cjust_trail.pop_back();
-#endif
-                break;
-            }
             default:
                 UNREACHABLE();
             }
@@ -480,12 +465,8 @@ namespace polysat {
         LOG_H2("Resolve conflict");
         LOG("\n" << *this);
         LOG("search state: " << m_search);
-#if NEW_VIABLE
-        m_viable.log();
-#else
-        for (pvar v = 0; v < m_cjust.size(); ++v)
-            LOG("cjust[v" << v << "]: " << m_cjust[v]);
-#endif
+        for (pvar v = 0; v < m_justification.size(); ++v)
+            LOG("v" << v << " " << viable::var_pp(m_viable, v));
         ++m_stats.m_num_conflicts;
 
         SASSERT(is_conflict());
@@ -829,10 +810,6 @@ namespace polysat {
                 pvar v = item.var();
                 auto const& j = m_justification[v];
                 out << "\t" << assignment_pp(*this, v, get_value(v)) << " @" << j.level();   
-#if !NEW_VIABLE
-                if (j.is_propagation())
-                    out << " " << m_cjust[v];
-#endif
                 out << "\n";
             }
             else {

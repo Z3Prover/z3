@@ -32,11 +32,9 @@ Author:
 #include "math/polysat/forbidden_intervals.h"
 #include "math/polysat/trail.h"
 #include "math/polysat/viable.h"
-#include "math/polysat/viable2.h"
 #include "math/polysat/log.h"
 
 
-#define NEW_VIABLE 1
 
 namespace polysat {
 
@@ -77,11 +75,7 @@ namespace polysat {
         params_ref               m_params;
 
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
-#if NEW_VIABLE
-        viable2                  m_viable;
-#else
         viable                   m_viable;   // viable sets per variable
-#endif
         linear_solver            m_linear_solver;
         conflict                 m_conflict;        
         forbidden_intervals      m_forbidden_intervals;
@@ -101,9 +95,6 @@ namespace polysat {
         // Per variable information
         vector<rational>         m_value;         // assigned value
         vector<justification>    m_justification; // justification for variable assignment
-#if !NEW_VIABLE
-        vector<signed_constraints> m_cjust;       // constraints justifying variable range.
-#endif
         vector<signed_constraints> m_pwatch;      // watch list datastructure into constraints.
 
         unsigned_vector          m_activity; 
@@ -132,17 +123,6 @@ namespace polysat {
             m_qhead_trail.pop_back();
         }
 
-#if !NEW_VIABLE
-        void push_cjust(pvar v, signed_constraint c) {
-            if (m_cjust[v].contains(c))  // TODO: better check (flag on constraint?)
-                return;
-            LOG_V("cjust[v" << v << "] += " << c);
-            SASSERT(c);
-            m_cjust[v].push_back(c);
-            m_trail.push_back(trail_instr_t::just_i);
-            m_cjust_trail.push_back(v);
-        }
-#endif
 
         unsigned size(pvar v) const { return m_size[v]; }
 

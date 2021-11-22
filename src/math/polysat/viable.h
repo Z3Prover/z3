@@ -4,77 +4,67 @@ Copyright (c) 2021 Microsoft Corporation
 Module Name:
 
     maintain viable domains
-
+    It uses the interval extraction functions from forbidden intervals.
+    An empty viable set corresponds directly to a conflict that does not rely on 
+    the non-viable variable.
 
 Author:
 
     Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-6
 
-Notes:
-
-    NEW_VIABLE uses cheaper book-keeping, but is partial.
-  
-
 --*/
 #pragma once
 
-#include <limits>
-#include "math/dd/dd_bdd.h"
-#include "math/polysat/types.h"
 
+#include <limits>
+#include "util/dlist.h"
+#include "util/small_object_allocator.h"
+#include "math/polysat/types.h"
+#include "math/polysat/conflict.h"
+#include "math/polysat/constraint.h"
 
 namespace polysat {
 
     class solver;
 
-
     class viable {
-        typedef dd::bdd bdd;
-        typedef dd::fdd fdd;
-        solver&                      s;
-        dd::bdd_manager              m_bdd;
-        scoped_ptr_vector<dd::fdd>   m_bits;        
-        vector<bdd>                  m_viable;   // set of viable values.
-        vector<std::pair<pvar, bdd>> m_viable_trail;
+        solver& s;
+        
+        struct entry : public dll_base<entry>, public fi_record { 
+        public: 
+            entry() : fi_record({ eval_interval::full(), {}, {} }) {}
+        };
+        
+        ptr_vector<entry>                    m_alloc;
+        ptr_vector<entry>                    m_viable;   // set of viable values.
+        svector<std::pair<pvar, entry*>>     m_trail;    // undo stack
 
+        bool well_formed(entry* e);
 
-        /**
-         * Register all values that are not contained in vals as non-viable.
-         */
-        void intersect_viable(pvar v, bdd vals);
+        entry* alloc_entry();
 
-        dd::bdd_manager& get_bdd() { return m_bdd; }
-        dd::fdd const& sz2bits(unsigned sz);
-        dd::fdd const& var2bits(pvar v);
-
-
-        void push_viable(pvar v);
+        void intersect(pvar v, entry* e);
 
     public:
         viable(solver& s);
 
         ~viable();
 
-        void push(unsigned num_bits) { 
-            m_viable.push_back(m_bdd.mk_true()); 
-        }
+        // declare and remove var
+        void push(unsigned) { m_viable.push_back(nullptr); }
 
-        void pop() {
-            m_viable.pop_back();
-        }
+        void pop() { m_viable.pop_back(); }
 
         void pop_viable();
 
-        void push_viable() {}
+        void push_viable();
+
         /**
          * update state of viable for pvar v
          * based on affine constraints
          */
-
-        void intersect_eq(rational const& a, pvar v, rational const& b, bool is_positive);
-
-        void intersect_ule(pvar v, rational const& a, rational const& b, rational const& c, rational const& d, bool is_positive);
+        void intersect(pvar v, signed_constraint const& c);
 
         /**
          * Check whether variable v has any viable values left according to m_viable.
@@ -98,6 +88,12 @@ namespace polysat {
          */
         dd::find_t find_viable(pvar v, rational & val);
 
+        /**
+        * Retrieve the unsat core for v.
+        * \pre there are no viable values for v
+        */
+        bool resolve(pvar v, conflict& core);
+
         /** Log all viable values for the given variable.
          * (Inefficient, but useful for debugging small instances.)
          */
@@ -106,7 +102,64 @@ namespace polysat {
         /** Like log(v) but for all variables */
         void log();
 
+        std::ostream& display(std::ostream& out) const;
+
+        class iterator {
+            entry* curr = nullptr;
+            bool   visited = false;
+        public:
+            iterator(entry* curr, bool visited) : 
+                curr(curr), visited(visited || !curr) {}
+
+            iterator& operator++() {
+                visited = true;
+                curr = curr->next();
+                return *this;
+            }
+
+            signed_constraint& operator*() { 
+                return curr->src; 
+            }
+
+            bool operator==(iterator const& other) const {
+                return visited == other.visited && curr == other.curr;
+            }
+
+            bool operator!=(iterator const& other) const {
+                return !(*this == other);
+            }
+        };
+
+        class constraints {
+            viable& v;
+            pvar var;
+        public:
+            constraints(viable& v, pvar var) : v(v), var(var) {}
+            iterator begin() const { return iterator(v.m_viable[var], false); }
+            iterator end() const { return iterator(v.m_viable[var], true); }
+        };
+
+        constraints get_constraints(pvar v) { 
+            return constraints(*this, v); 
+        }
+
+        std::ostream& display(std::ostream& out, pvar v) const;
+
+        struct var_pp {
+            viable& v;
+            pvar var;        
+            var_pp(viable& v, pvar var) : v(v), var(var) {}
+        };
+       
     };
+
+    inline std::ostream& operator<<(std::ostream& out, viable const& v) {
+        return v.display(out);
+    }
+
+    inline std::ostream& operator<<(std::ostream& out, viable::var_pp const& v) {
+        return v.v.display(out, v.var);
+    }
 }
 
 

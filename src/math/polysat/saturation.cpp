@@ -180,17 +180,10 @@ namespace polysat {
         if (x_max * y_max  > pddm.max_value())            
             push_omega_bisect(x, x_max, y, y_max);
         else {
-#if NEW_VIABLE
             for (auto const& c : s.m_viable.get_constraints(y.var()))
                 m_new_constraints.insert(c);
             for (auto const& c : s.m_viable.get_constraints(x.var()))
                 m_new_constraints.insert(c);            
-#else
-            for (auto c : s.m_cjust[y.var()])
-                m_new_constraints.insert(c);
-            for (auto c : s.m_cjust[x.var()])
-                m_new_constraints.insert(c);
-#endif
         }
     }
 
