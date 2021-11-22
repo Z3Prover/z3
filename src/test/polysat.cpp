@@ -1080,8 +1080,7 @@ void tst_polysat() {
 
     // working
     // NOT: polysat::test_fixed_point_arith_mul_div_inverse();
-        
-    
+            
     // polysat::test_monot_bounds(8);
 
     polysat::test_add_conflicts();

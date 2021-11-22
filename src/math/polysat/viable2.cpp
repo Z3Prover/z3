@@ -23,8 +23,8 @@ namespace polysat {
     viable2::viable2(solver& s) : s(s) {}
 
     viable2::~viable2() {
-        for (entry* e : m_alloc)
-            dealloc(e);
+        for (entry* e : m_alloc) 
+            dealloc(e);        
     }
 
     viable2::entry* viable2::alloc_entry() {
@@ -47,8 +47,11 @@ namespace polysat {
         auto& [v, e] = m_trail.back();
         SASSERT(e->prev() != e || !m_viable[v]);
         SASSERT(e->prev() != e || e->next() == e);
-        if (e->prev() != e) 
-            e->prev()->insert_after(e);        
+        if (e->prev() != e) {
+            e->prev()->insert_after(e);
+            if (e->interval.lo_val() < e->next()->interval.lo_val())
+                m_viable[v] = e;
+        }
         else 
             m_viable[v] = e;        
         m_trail.pop_back();
@@ -143,10 +146,10 @@ namespace polysat {
             entry* n = e->next();
             if (n == e)
                 return true;
-            if (n == first)
-                return e->interval.hi_val() != max_value;
             if (e->interval.hi_val() < n->interval.lo_val())
                 return true;
+            if (n == first)
+                return e->interval.lo_val() <= e->interval.hi_val();
             e = n;
         }         
         while (e != first);
@@ -268,6 +271,7 @@ namespace polysat {
             }
             for (auto sc : e->side_cond)
                 core.insert(sc);
+            e->src->set_var_dependent(); // ?
             core.insert(e->src);
             e = n;
         }             
@@ -285,6 +289,8 @@ namespace polysat {
     }
 
     void viable2::log(pvar v) {
+        if (!well_formed(m_viable[v]))
+            LOG("v" << v << " not well formed");
         auto* e = m_viable[v];
         if (!e)
             return;
@@ -326,6 +332,8 @@ namespace polysat {
     * it suffices to check containment in one direction).
     */
     bool viable2::well_formed(entry* e) {
+        if (!e)
+            return true;
         entry* first = e;
         while (true) {
             if (e->interval.is_full())

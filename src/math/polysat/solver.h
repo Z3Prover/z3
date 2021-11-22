@@ -36,7 +36,7 @@ Author:
 #include "math/polysat/log.h"
 
 
-#define NEW_VIABLE 0
+#define NEW_VIABLE 1
 
 namespace polysat {
 
@@ -75,12 +75,13 @@ namespace polysat {
 
         reslimit&                m_lim;
         params_ref               m_params;
+
+        scoped_ptr_vector<dd::pdd_manager> m_pdd;
 #if NEW_VIABLE
         viable2                  m_viable;
 #else
         viable                   m_viable;   // viable sets per variable
 #endif
-        scoped_ptr_vector<dd::pdd_manager> m_pdd;
         linear_solver            m_linear_solver;
         conflict                 m_conflict;        
         forbidden_intervals      m_forbidden_intervals;
@@ -224,7 +225,6 @@ namespace polysat {
         void restart();
 
         signed_constraint lit2cnstr(sat::literal lit) const { return m_constraints.lookup(lit); }
-        void assert_constraint(signed_constraint c, unsigned dep);
         static void insert_constraint(signed_constraints& cs, signed_constraint c);
 
         bool inc() { return m_lim.inc(); }
@@ -347,8 +347,6 @@ namespace polysat {
         params_ref const & params() const { return m_params;  }
 
         void updt_params(params_ref const& p);
-
-        void get_param_descrs(param_descrs& pd);
 
     };
 

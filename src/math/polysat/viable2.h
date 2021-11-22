@@ -53,13 +53,10 @@ namespace polysat {
 
         ~viable2();
 
-        void push(unsigned) {
-            m_viable.push_back(nullptr);
-        }
+        // declare and remove var
+        void push(unsigned) { m_viable.push_back(nullptr); }
 
-        void pop() { 
-            m_viable.pop_back(); 
-        }
+        void pop() { m_viable.pop_back(); }
 
         void pop_viable();
 
