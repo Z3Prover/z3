@@ -65,7 +65,7 @@ bool has_skolem_functions(expr * n) {
 }
 
 subterms::subterms(expr_ref_vector const& es, bool include_bound): m_include_bound(include_bound), m_es(es) {}
-subterms::subterms(expr_ref const& e, bool include_bound) : m_include_bound(include_bound), m_es(e.m()) { m_es.push_back(e); }
+subterms::subterms(expr_ref const& e, bool include_bound) : m_include_bound(include_bound), m_es(e.m()) {if (e)  m_es.push_back(e); }
 subterms::iterator subterms::begin() { return iterator(*this, true); }
 subterms::iterator subterms::end() { return iterator(*this, false); }
 subterms::iterator::iterator(subterms& f, bool start): m_include_bound(f.m_include_bound), m_es(f.m_es) {
@@ -112,7 +112,7 @@ bool subterms::iterator::operator!=(iterator const& other) const {
 
 
 subterms_postorder::subterms_postorder(expr_ref_vector const& es): m_es(es) {}
-subterms_postorder::subterms_postorder(expr_ref const& e) : m_es(e.m()) { m_es.push_back(e); }
+subterms_postorder::subterms_postorder(expr_ref const& e) : m_es(e.m()) { if (e) m_es.push_back(e); }
 subterms_postorder::iterator subterms_postorder::begin() { return iterator(*this, true); }
 subterms_postorder::iterator subterms_postorder::end() { return iterator(*this, false); }
 subterms_postorder::iterator::iterator(subterms_postorder& f, bool start): m_es(f.m_es) {
