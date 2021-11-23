@@ -294,8 +294,8 @@ namespace polysat {
             return false;
         }
 
-        if (conflict_var() == v && s.m_viable.resolve(v, *this))
-            return true;
+        // forbidden interval projection is performed at top level
+        SASSERT(v != conflict_var());
         
         m_vars.remove(v);
 
