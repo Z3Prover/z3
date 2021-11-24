@@ -2206,8 +2206,9 @@ expr_ref theory_seq::elim_skolem(expr* e) {
         if (m_sk.is_post(a, x, y) && cache.contains(x) && cache.contains(y)) {
             x = cache[x];
             y = cache[y];
+            auto mk_max = [&](expr* x, expr* y) { return m.mk_ite(m_autil.mk_ge(x, y), x, y); };
             result = m_util.str.mk_length(x);
-            result = m_util.str.mk_substr(x, y, m_autil.mk_sub(result, y));
+            result = m_util.str.mk_substr(x, mk_max(y,m_autil.mk_int(0)), m_autil.mk_sub(result, y));
             trail.push_back(result);
             cache.insert(a, result);
             todo.pop_back();            
@@ -2277,16 +2278,14 @@ expr_ref theory_seq::elim_skolem(expr* e) {
 
         args.reset();
         for (expr* arg : *to_app(a)) {
-            if (cache.find(arg, b)) {
+            if (cache.find(arg, b)) 
                 args.push_back(b);
-            }
-            else {
+            else 
                 todo.push_back(arg);
-            }
         }
-        if (args.size() < to_app(a)->get_num_args()) {
+        
+        if (args.size() < to_app(a)->get_num_args()) 
             continue;
-        }
 
         if (m_util.is_skolem(a)) {
             IF_VERBOSE(0, verbose_stream() << "unhandled skolem " << mk_pp(a, m) << "\n");
@@ -2367,11 +2366,12 @@ void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector cons
     if (r == l_true) {
         model_ref mdl;
         k.get_model(mdl);
+        TRACE("seq", tout << "failed to validate\n" << *mdl << "\n");
         IF_VERBOSE(0, 
                    verbose_stream() << r << "\n" << fmls << "\n";
                    verbose_stream() << *mdl.get() << "\n";
-                   k.display(verbose_stream()));
-        UNREACHABLE();
+                   k.display(verbose_stream()) << "\n");
+        //UNREACHABLE();
     }
 
 }

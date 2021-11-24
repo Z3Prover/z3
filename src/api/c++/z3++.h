@@ -1911,7 +1911,7 @@ namespace z3 {
     }
     inline expr bvredand(expr const & a) {
         assert(a.is_bv());
-        Z3_ast r = Z3_mk_bvredor(a.ctx(), a);
+        Z3_ast r = Z3_mk_bvredand(a.ctx(), a);
         a.check_error();
         return expr(a.ctx(), r);
     }
