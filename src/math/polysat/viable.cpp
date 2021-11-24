@@ -141,7 +141,7 @@ namespace polysat {
         SASSERT(well_formed(m_viable[v]));
     }
 
-    bool viable::has_viable(pvar v) { 
+    bool viable::has_viable(pvar v) {         
         auto* e = m_viable[v];
         if (!e)
             return true;
@@ -150,17 +150,16 @@ namespace polysat {
 
         // quick check: last interval doesn't wrap around, so hi_val
         // has not been covered
-        if (last->interval.lo_val() < last->interval.hi_val())
-            return true;
-
-        auto const& max_value = s.var2pdd(v).max_value();
+        if (last->interval.lo_val() < last->interval.hi_val()) 
+            return true;        
+        
         do {
             if (e->interval.is_full())
                 return false;
             entry* n = e->next();
             if (n == e)
                 return true;
-            if (e->interval.hi_val() < n->interval.lo_val())
+            if (!n->interval.currently_contains(e->interval.hi_val()))
                 return true;
             if (n == first)
                 return e->interval.lo_val() <= e->interval.hi_val();
@@ -276,6 +275,7 @@ namespace polysat {
     }
 
     bool viable::resolve(pvar v, conflict& core) {
+        std::cout << "resolve " << v << "\n";
         if (has_viable(v))
             return false;
         auto* e = m_viable[v];
