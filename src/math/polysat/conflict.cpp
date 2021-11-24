@@ -285,7 +285,6 @@ namespace polysat {
     bool conflict::resolve_value(pvar v) {
         // NOTE:
         // In the "standard" case where "v = val" is on the stack:
-        //      - cjust_v contains true constraints
         //      - core contains both false and true constraints (originally only false ones, but additional true ones may come from saturation)
 
         if (is_bailout()) {
