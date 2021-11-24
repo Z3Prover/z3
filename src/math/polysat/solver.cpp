@@ -147,7 +147,6 @@ namespace polysat {
 #endif
     }
 
-
     bool solver::can_propagate() {
         return m_qhead < m_search.size() && !is_conflict();
     }
@@ -175,6 +174,8 @@ namespace polysat {
         LOG_H2("Propagate bool " << lit << "@" << m_bvars.level(lit) << " " << m_level << " qhead: " << m_qhead);
         signed_constraint c = lit2cnstr(lit);
         SASSERT(c);
+        if (c->is_active())
+            return;
         activate_constraint(c);
         auto& wlist = m_bvars.watch(~lit);
         unsigned i = 0, j = 0, sz = wlist.size();
@@ -460,8 +461,7 @@ namespace polysat {
      *    viable solutions by excluding the previous guess.
      *
      */
-    void solver::resolve_conflict() {
-        IF_VERBOSE(1, verbose_stream() << "resolve conflict\n");
+    void solver::resolve_conflict() {        
         LOG_H2("Resolve conflict");
         LOG("\n" << *this);
         LOG("search state: " << m_search);
@@ -521,6 +521,36 @@ namespace polysat {
         return m_conflict.resolve_value(v);
     }
 
+    /**
+    * Variable activity accounting.
+    * As a placeholder we increment activity 
+    * 1. when a variable assignment is used in a conflict.
+    * 2. when a variable propagation is resolved against.
+    * The hypothesis that this is useful should be tested against a 
+    * broader suite of benchmarks and tested with micro-benchmarks.
+    * It should be tested in conjunction with restarts.
+    */
+    void solver::inc_activity(pvar v) {
+        unsigned& act = m_activity[v];
+        act += m_activity_inc;
+        m_free_pvars.activity_increased_eh(v);
+        if (act > (1 << 24))
+            rescale_activity();
+    }
+
+    void solver::decay_activity() {
+        m_activity_inc *= m_variable_decay;
+        m_activity_inc /= 100;
+    }
+
+    void solver::rescale_activity() {
+        for (unsigned& act : m_activity) {
+            act >>= 14;
+        }
+        m_activity_inc >>= 14;
+    }
+
+
     /** Conflict resolution case where boolean literal 'lit' is on top of the stack 
     *   NOTE: boolean resolution should work normally even in bailout mode.
     */
@@ -537,17 +567,12 @@ namespace polysat {
     }
 
     void solver::unsat_core(unsigned_vector& deps) {
-        NOT_IMPLEMENTED_YET();   // TODO: needs to be fixed to work with conflict_core
-        /*
         deps.reset();
-        p_dependency_ref conflict_dep(m_dm);
-        for (auto& c : m_conflict.units())
-            if (c)
-                conflict_dep = m_dm.mk_join(c->unit_dep(), conflict_dep);
-        for (auto& c : m_conflict.clauses())
-            conflict_dep = m_dm.mk_join(c->dep(), conflict_dep);
-        m_dm.linearize(conflict_dep, deps);
-        */
+        for (auto c : m_conflict) {
+            auto d = m_bvars.dep(c.blit());
+            if (d != null_dependency)
+                deps.push_back(d);
+        }
     }
 
     void solver::learn_lemma(clause& lemma) {

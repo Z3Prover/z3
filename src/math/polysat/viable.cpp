@@ -10,13 +10,20 @@ Author:
     Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-6
 
+Notes:
+
+TODO: Investigate in depth a notion of phase caching for variables.
+The Linear solver can be used to supply a phase in some cases.
+In other cases, the phase of a variable assignment across branches
+might be used in a call to is_viable. With phase caching on, it may
+just check if the cached phase is viable without detecting that it is a propagation.
+
 --*/
 
 
 #include "util/debug.h"
 #include "math/polysat/viable.h"
 #include "math/polysat/solver.h"
-
 
 namespace polysat {
 
@@ -139,6 +146,13 @@ namespace polysat {
         if (!e)
             return true;
         entry* first = e;
+        entry* last = e->prev();
+
+        // quick check: last interval doesn't wrap around, so hi_val
+        // has not been covered
+        if (last->interval.lo_val() < last->interval.hi_val())
+            return true;
+
         auto const& max_value = s.var2pdd(v).max_value();
         do {
             if (e->interval.is_full())
@@ -221,6 +235,17 @@ namespace polysat {
 
         entry* first = e;
         entry* last = first->prev();
+
+        // quick check: last interval does not wrap around
+        // and has space for 2 unassigned values.
+        auto& max_value = s.var2pdd(v).max_value();
+        if (last->interval.lo_val() < last->interval.hi_val() &&
+            last->interval.hi_val() < max_value) {
+            lo = last->interval.hi_val();
+            return dd::find_t::multiple;
+        }
+
+        // find lower bound
         if (last->interval.currently_contains(lo))
             lo = last->interval.hi_val();
         do {
@@ -234,7 +259,8 @@ namespace polysat {
         if (e->interval.currently_contains(lo))
             return dd::find_t::empty;
 
-        rational hi = s.var2pdd(v).max_value();
+        // find upper bound
+        rational hi = max_value;
         e = last;
         do {
             if (!e->interval.currently_contains(hi))
@@ -271,7 +297,7 @@ namespace polysat {
             }
             for (auto sc : e->side_cond)
                 core.insert(sc);
-            e->src->set_var_dependent(); // ?
+            e->src->set_var_dependent(); 
             core.insert(e->src);
             e = n;
         }             

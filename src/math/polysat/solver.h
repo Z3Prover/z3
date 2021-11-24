@@ -189,6 +189,13 @@ namespace polysat {
         void revert_decision(pvar v);
         void revert_bool_decision(sat::literal lit);
 
+        // activity of variables based on standard VSIDS
+        unsigned m_activity_inc = 128;
+        unsigned m_variable_decay = 110;
+        void inc_activity(pvar v);
+        void decay_activity();
+        void rescale_activity();
+
         void report_unsat();
         void learn_lemma(clause& lemma);
         void backjump(unsigned new_level);
@@ -198,7 +205,7 @@ namespace polysat {
         void simplify();
 
         unsigned m_conflicts_at_restart = 0;
-        unsigned m_restart_threshold = UINT_MAX;
+        unsigned m_restart_threshold = 100;
         unsigned m_restart_init = 100;
         unsigned m_luby_idx = 0;
         bool should_restart();

@@ -243,6 +243,7 @@ namespace polysat {
         for (unsigned v : m_vars) {
             if (!is_pmarked(v))
                 continue;
+            s.inc_activity(v);
             auto eq = s.eq(s.var(v), s.get_value(v));
             cm().ensure_bvar(eq.get());
             if (eq.bvalue(s) == l_undef) 
@@ -285,7 +286,11 @@ namespace polysat {
     bool conflict::resolve_value(pvar v) {
         // NOTE:
         // In the "standard" case where "v = val" is on the stack:
-        //      - core contains both false and true constraints (originally only false ones, but additional true ones may come from saturation)
+        //      - core contains both false and true constraints 
+        //        (originally only false ones, but additional true ones may come from saturation)
+
+        // forbidden interval projection is performed at top level
+        SASSERT(v != conflict_var());
 
         if (is_bailout()) {
             if (!s.m_justification[v].is_decision())
@@ -293,8 +298,7 @@ namespace polysat {
             return false;
         }
 
-        // forbidden interval projection is performed at top level
-        SASSERT(v != conflict_var());
+        s.inc_activity(v); 
         
         m_vars.remove(v);
 

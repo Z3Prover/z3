@@ -56,6 +56,7 @@ namespace polysat {
         unsigned level(sat::bool_var var) const { SASSERT(is_assigned(var)); return m_level[var]; }
         unsigned level(sat::literal lit) const { return level(lit.var()); }
         clause* reason(sat::bool_var var) const { SASSERT(is_assigned(var)); return m_reason[var]; }
+        unsigned dep(sat::literal lit) const { return lit == sat::null_literal ? null_dependency : m_deps[lit.var()]; }
 
         clause* lemma(sat::bool_var var) const { SASSERT(is_decision(var)); return m_lemma[var]; }
        

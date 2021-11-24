@@ -318,7 +318,7 @@ namespace polysat {
         s.add_eq(n*q1 - a + b);
         s.add_eq(n*q2 + r2 - c*a + c*b);
         s.add_ult(r2, n);
-        s.add_diseq(n);
+        s.add_diseq(r2);
         s.check();
         s.expect_unsat();
     }
@@ -1067,19 +1067,7 @@ namespace polysat {
 
 void tst_polysat() {
 
- //   polysat::test_ineq_axiom1();
- //   polysat::test_ineq_axiom2();
- //   polysat::test_ineq_axiom3();
- //   polysat::test_ineq_non_axiom1();
-#if 0
-    polysat::test_ineq_non_axiom4(32, 5);
-    polysat::test_ineq_axiom4();
-    polysat::test_ineq_axiom5();
-    polysat::test_ineq_axiom6();
-#endif
 
-    // working
-    // NOT: polysat::test_fixed_point_arith_mul_div_inverse();
             
     // polysat::test_monot_bounds(8);
 
@@ -1107,6 +1095,10 @@ void tst_polysat() {
 
     polysat::test_var_minimize();
 
+    polysat::test_ineq1();
+    polysat::test_ineq2();
+    polysat::test_monot();
+
     return;
 
     polysat::test_ineq_axiom1();
@@ -1115,22 +1107,15 @@ void tst_polysat() {
     polysat::test_ineq_axiom4();
     polysat::test_ineq_axiom5();
     polysat::test_ineq_axiom6();
+#if 0
+    polysat::test_ineq_non_axiom4(32, 5);
+#endif
 
     // inefficient conflicts:
     // Takes time: polysat::test_monot_bounds_full();
 
-#if 0
-    // worry about this later
-    polysat::test_ineq1();
-    polysat::test_ineq2();
-#endif
-
-    // not working
     polysat::test_monot_bounds_simple(8);
     polysat::test_fixed_point_arith_div_mul_inverse();
-    polysat::test_monot();
-    polysat::test_ineq2();
-    polysat::test_ineq1();
 
 }
 
