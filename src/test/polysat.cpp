@@ -18,8 +18,7 @@ namespace polysat {
 
     public:
         scoped_solver(std::string name): solver(lim), m_name(name) {
-            std::cout << "\n\n\n" << std::string(78, '#') << "\n";
-            std::cout << "\nSTART: " << m_name << "\n";
+            LOG("\n\n\n" << std::string(78, '#') << "\n\nSTART: " << m_name << "\n");
             params_ref p;
             p.set_uint("max_conflicts", 10);
             updt_params(p);
@@ -27,11 +26,10 @@ namespace polysat {
 
         void check() {
             m_last_result = check_sat();
-            std::cout << m_name << ": " << m_last_result << "\n";
+            LOG(m_name << ": " << m_last_result << "\n");
             statistics st;
             collect_statistics(st);
-            std::cout << st << "\n";
-            std::cout << *this << "\n";
+            LOG(st << "\n" << *this << "\n");
         }
 
         void expect_unsat() {
@@ -1067,6 +1065,9 @@ namespace polysat {
 
 void tst_polysat() {
 
+
+    polysat::test_l5();
+    return;
 
     polysat::test_ineq_basic6();
             

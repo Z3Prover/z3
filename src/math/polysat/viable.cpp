@@ -278,7 +278,6 @@ namespace polysat {
     }
 
     bool viable::resolve(pvar v, conflict& core) {
-        std::cout << "resolve " << v << "\n";
         if (has_viable(v))
             return false;
         auto* e = m_viable[v];

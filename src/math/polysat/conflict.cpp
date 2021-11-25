@@ -298,12 +298,16 @@ namespace polysat {
             return false;
         }
 
+        auto const& j = s.m_justification[v];
+
         s.inc_activity(v); 
         
         m_vars.remove(v);
 
-        for (auto const& c : s.m_viable.get_constraints(v))
-            insert(c);
+        if (!j.is_decision()) {
+            for (auto const& c : s.m_viable.get_constraints(v))
+                insert(c);
+        }
 
         for (auto* engine : ex_engines)
             if (engine->try_explain(v, *this))
@@ -318,7 +322,7 @@ namespace polysat {
                 break;
         }
         set_bailout();
-        if (s.is_assigned(v) && s.m_justification[v].is_decision())
+        if (s.is_assigned(v) && j.is_decision())
             m_vars.insert(v);
         return false;
     }

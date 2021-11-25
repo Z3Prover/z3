@@ -50,7 +50,6 @@ namespace polysat {
         m_branch_bool = m_params.get_bool("branch_bool", false);
         m_max_conflicts = m_params.get_uint("max_conflicts", UINT_MAX);
         m_max_decisions = m_params.get_uint("max_decisions", UINT_MAX);
-        std::cout << m_max_conflicts << "\n";
     }
 
     bool solver::should_search() {
