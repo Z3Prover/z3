@@ -23,7 +23,13 @@ Author:
 namespace sat {
 
     class dual_solver {
-        no_drat_params  m_params;
+        class dual_params : public no_drat_params {
+        public:
+            dual_params() {
+                set_bool("core.minimize", false);
+            }
+        };
+        dual_params     m_params;
         solver          m_solver;
         lim_svector<literal> m_units, m_roots;
         lim_svector<bool_var> m_tracked_vars;
