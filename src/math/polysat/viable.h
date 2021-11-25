@@ -44,7 +44,7 @@ namespace polysat {
 
         entry* alloc_entry();
 
-        void intersect(pvar v, entry* e);
+        bool intersect(pvar v, entry* e);
 
     public:
         viable(solver& s);
@@ -64,7 +64,7 @@ namespace polysat {
          * update state of viable for pvar v
          * based on affine constraints
          */
-        void intersect(pvar v, signed_constraint const& c);
+        bool intersect(pvar v, signed_constraint const& c);
 
         /**
          * Check whether variable v has any viable values left according to m_viable.

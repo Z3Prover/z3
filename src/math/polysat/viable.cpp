@@ -64,25 +64,29 @@ namespace polysat {
         m_trail.pop_back();
     }
 
-    void viable::intersect(pvar v, signed_constraint const& c) {
+    bool viable::intersect(pvar v, signed_constraint const& c) {
         auto& fi = s.m_forbidden_intervals;
         entry* ne = alloc_entry();
-        if (!fi.get_interval(c, v, ne->interval, ne->side_cond) || ne->interval.is_currently_empty())
+        if (!fi.get_interval(c, v, ne->interval, ne->side_cond) || ne->interval.is_currently_empty()) {
             m_alloc.push_back(ne);
+            return false;
+        }
         else {
             ne->src = c;
-            intersect(v, ne);
+            return intersect(v, ne);
         }
     }
 
-    void viable::intersect(pvar v, entry* ne) {
+    bool viable::intersect(pvar v, entry* ne) {
         entry* e = m_viable[v];
-        if (e && e->interval.is_full())
-            return;
+        if (e && e->interval.is_full()) {
+            m_alloc.push_back(ne);
+            return false;
+        }
 
         if (ne->interval.is_currently_empty()) {
             m_alloc.push_back(ne);
-            return;
+            return false;
         }
 
         auto create_entry = [&]() {
@@ -98,8 +102,6 @@ namespace polysat {
             e->remove_from(m_viable[v], e);
         };
 
-        //LOG("intersect " << ne->interval);
-
         if (!e) 
             m_viable[v] = create_entry();
         else {
@@ -107,14 +109,14 @@ namespace polysat {
             do {
                 if (e->interval.contains(ne->interval)) {
                     m_alloc.push_back(ne);
-                    return;
+                    return false;
                 }
                 while (ne->interval.contains(e->interval)) {
                     entry* n = e->next();
                     remove_entry(e);
                     if (!m_viable[v]) {
                         m_viable[v] = create_entry();
-                        return;
+                        return true;
                     }
                     if (e == first) 
                         first = n;                    
@@ -124,13 +126,13 @@ namespace polysat {
                 if (e->interval.lo_val() > ne->interval.lo_val()) {
                     if (first->prev()->interval.contains(ne->interval)) {
                         m_alloc.push_back(ne);
-                        return;
+                        return false;
                     }
                     e->insert_before(create_entry());
                     if (e == first)
                         m_viable[v] = e->prev();
                     SASSERT(well_formed(m_viable[v]));
-                    return;
+                    return true;
                 }
                 e = e->next();
             }             
@@ -139,6 +141,7 @@ namespace polysat {
             first->insert_before(create_entry());
         }
         SASSERT(well_formed(m_viable[v]));
+        return true;
     }
 
     bool viable::has_viable(pvar v) {         

@@ -38,9 +38,7 @@ namespace polysat {
         vector<signed_constraint> m_new_constraints;
         char const* m_rule = nullptr;
 
-        void set_rule(char const* r) { m_rule = r; }
-
-        bool find_upper_bound(pvar x, signed_constraint& c, rational& bound);
+        void set_rule(char const* r) { m_rule = r; }      
 
         void push_omega(pdd const& x, pdd const& y);
         void push_omega_bisect(pdd const& x, rational x_max, pdd const& y, rational y_max);

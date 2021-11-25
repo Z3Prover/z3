@@ -134,20 +134,22 @@ namespace polysat {
             v = p.var();
         else if (q.is_unilinear())
             v = q.var();
-        if (v != null_var) {
-            signed_constraint sc(this, is_positive);
-            s.m_viable.intersect(v, sc);
-            rational val;
-            switch (s.m_viable.find_viable(v, val)) {
-            case dd::find_t::singleton:
-                s.propagate(v, val, sc);
-                break;
-            case dd::find_t::empty:
-                s.set_conflict(v);
-                break;
-            default:
-                break;
-            }                
+        else
+            return;
+
+        signed_constraint sc(this, is_positive);
+        if (!s.m_viable.intersect(v, sc))
+            return;
+        rational val;
+        switch (s.m_viable.find_viable(v, val)) {
+        case dd::find_t::singleton:
+            s.propagate(v, val, sc); // TBD why is sc used as justification? It should be all of viable
+            break;
+        case dd::find_t::empty:
+            s.set_conflict(v);
+            break;
+        default:
+            break;
         }
     }
 
