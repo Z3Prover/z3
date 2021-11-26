@@ -486,14 +486,17 @@ namespace polysat {
             if (item.is_assignment()) {
                 // Resolve over variable assignment
                 pvar v = item.var();
-                if (!m_conflict.is_pmarked(v) && !m_conflict.is_bailout())
+                if (!m_conflict.is_pmarked(v) && !m_conflict.is_bailout()) {
+                    m_search.pop_asssignment();
                     continue;
+                }
                 justification& j = m_justification[v];
                 LOG("Justification: " << j);
                 if (j.level() > base_level() && !resolve_value(v) && j.is_decision()) {
                     revert_decision(v);
                     return;
                 }
+                m_search.pop_asssignment();
             }
             else {
                 // Resolve over boolean literal
@@ -714,9 +717,11 @@ namespace polysat {
         assign_decision(lit, lemma);
     }
 
-    unsigned solver::level(clause const& cl) {
+    unsigned solver::level(sat::literal lit0, clause const& cl) {
         unsigned lvl = base_level();
         for (auto lit : cl) {
+            if (lit == lit0)
+                continue;
             auto c = lit2cnstr(lit);
             if (m_bvars.is_false(lit) || c.is_currently_false(*this))
                 lvl = std::max(lvl, c.level(*this));
@@ -725,7 +730,7 @@ namespace polysat {
     }
 
     void solver::assign_propagate(sat::literal lit, clause& reason) {
-        m_bvars.propagate(lit, level(reason), reason);
+        m_bvars.propagate(lit, level(lit, reason), reason);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);
     }

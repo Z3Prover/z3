@@ -54,7 +54,7 @@ namespace polysat {
         // after some variable decision was already processed. Then the 
         // behavior of evaluating literals "is_currently_true" and bvalue
         // uses the full search stack
-#if 0
+#if 1
         for (auto si : s.m_search) {
             if (!si.is_boolean())
                 continue;

@@ -146,7 +146,7 @@ namespace polysat {
         void deactivate_constraint(signed_constraint c);
         void decide_bool(clause& lemma);
         void decide_bool(sat::literal lit, clause* lemma);
-        unsigned level(clause const& cl);
+        unsigned level(sat::literal lit, clause const& cl);
 
         void assign_core(pvar v, rational const& val, justification const& j);
         bool is_assigned(pvar v) const { return !m_justification[v].is_unassigned(); }

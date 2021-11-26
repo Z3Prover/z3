@@ -50,7 +50,7 @@ namespace polysat {
         vector<search_item> m_items;
         assignment_t        m_assignment;  // First-order part of the search state
         
-        rational value(pvar v) const;
+        bool value(pvar v, rational& r) const;
 
     public:
         unsigned size() const { return m_items.size(); }
@@ -62,6 +62,8 @@ namespace polysat {
         void push_assignment(pvar p, rational const& r);
         void push_boolean(sat::literal lit);
         void pop();
+
+        void pop_asssignment();
 
         using const_iterator = decltype(m_items)::const_iterator;
         const_iterator begin() const { return m_items.begin(); }
