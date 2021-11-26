@@ -341,7 +341,7 @@ namespace polysat {
             return out;
         entry* first = e;
         do {
-            out << "v" << v << ": " << e->interval << " " << e->side_cond << " " << e->src << "\n";
+            out << e->interval << " " << e->side_cond << " " << e->src << " ";
             e = e->next();
         }         
         while (e != first);
@@ -350,7 +350,7 @@ namespace polysat {
 
     std::ostream& viable::display(std::ostream& out) const {
         for (pvar v = 0; v < m_viable.size(); ++v)
-            display(out, v);
+            display(out << "v" << v << ": ", v);
         return out;
     }
 

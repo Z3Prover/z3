@@ -48,7 +48,21 @@ namespace polysat {
     // Try to replace it with a new false constraint (derived from superposition with a true constraint)
     lbool ex_polynomial_superposition::find_replacement(signed_constraint c2, pvar v, conflict& core) {
         vector<signed_constraint> premises;
+
+        // TBD: replacement can be obtained from stack not just core.
+        // see test_l5. Exposes unsoundness bug: a new consequence is derived 
+        // after some variable decision was already processed. Then the 
+        // behavior of evaluating literals "is_currently_true" and bvalue
+        // uses the full search stack
+#if 0
+        for (auto si : s.m_search) {
+            if (!si.is_boolean())
+                continue;
+            auto c1 = s.lit2cnstr(si.lit());
+        
+#else
         for (auto c1 : core) {
+#endif
             if (!is_positive_equality_over(v, c1))
                 continue;
             if (!c1.is_currently_true(s))

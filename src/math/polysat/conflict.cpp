@@ -304,10 +304,9 @@ namespace polysat {
         
         m_vars.remove(v);
 
-        if (!j.is_decision()) {
+        if (j.is_propagation()) 
             for (auto const& c : s.m_viable.get_constraints(v))
-                insert(c);
-        }
+                insert(c);        
 
         for (auto* engine : ex_engines)
             if (engine->try_explain(v, *this))

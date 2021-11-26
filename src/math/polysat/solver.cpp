@@ -473,6 +473,8 @@ namespace polysat {
         if (m_conflict.conflict_var() != null_var) {
             // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
             VERIFY(m_viable.resolve(m_conflict.conflict_var(), m_conflict));
+            // TBD: make sure last value decision is blocked by this conflict.
+            // A conflict in test_l5 reverts v1 = 2 more than once.
         }
 
         search_iterator search_it(m_search);
