@@ -346,7 +346,6 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
     unsigned row_index;
     lp_assert(settings().use_tableau());
     const auto & A = lra.A_r();
-    unsigned rounds = 0;
     for (auto c : A.column(j)) {
         row_index = c.var();
         const mpq & a = c.coeff();
@@ -391,7 +390,6 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
                 SET_BOUND(set_upper, u, inf_u, a, xi, lrac.m_r_lower_bounds()[i]);
             }
         }
-        ++rounds;
     }
 
     l += xj;
