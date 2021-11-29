@@ -37,7 +37,8 @@ namespace seq {
         symbol         m_aut_step;                        // regex unfolding state
         symbol         m_accept;                          // regex
         symbol         m_is_empty, m_is_non_empty;        // regex emptiness check
-        symbol         m_pre, m_post;                     // inverse of at: (pre s i) + (at s i) + (post s i) = s if 0 <= i < (len s)
+        symbol         m_pre, m_post;           // inverse of at: (pre s i) + (at s i) + (post s i) = s if 0 <= i < (len s)
+        symbol         m_postp;
         symbol         m_eq;                              // equality atom
         symbol         m_max_unfolding, m_length_limit;
 
@@ -84,6 +85,7 @@ namespace seq {
 
         expr_ref mk_tail(expr* s, expr* i) { return mk(m_tail, s, i); }
         expr_ref mk_post(expr* s, expr* i) { return mk(m_post, s, i); }
+        expr_ref mk_postp(expr* s, expr* i) { return mk(m_postp, s, i); }
         expr_ref mk_ite(expr* c, expr* t, expr* e) { return mk(symbol("seq.if"), c, t, e, nullptr, t->get_sort()); }
         expr_ref mk_last(expr* s);
         expr_ref mk_first(expr* s);

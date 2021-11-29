@@ -855,6 +855,16 @@ br_status bv_rewriter::mk_bv_shl(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_REWRITE2;
     }
 
+    expr* x = nullptr, *y = nullptr;    
+    if (m_util.is_bv_shl(arg1, x, y)) {
+        expr_ref sum(m_util.mk_bv_add(y, arg2), m());
+        expr_ref cond(m_util.mk_ule(y, sum), m());
+        result = m().mk_ite(cond, 
+                            m_util.mk_bv_shl(x, sum),
+                            mk_numeral(0, bv_size));
+        return BR_REWRITE3;
+    }
+
     return BR_FAILED;
 }
 

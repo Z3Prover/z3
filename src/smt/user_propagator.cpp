@@ -52,7 +52,9 @@ void user_propagator::propagate_cb(
     unsigned num_fixed, unsigned const* fixed_ids, 
     unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, 
     expr* conseq) {
-    if (ctx.lit_internalized(conseq) && ctx.get_assignment(ctx.get_literal(conseq)) == l_true)
+    CTRACE("user_propagate", ctx.lit_internalized(conseq) && ctx.get_assignment(ctx.get_literal(conseq)) == l_true,
+           tout << "redundant consequence: " << mk_pp(conseq, m) << " relevant " << ctx.is_relevant(ctx.get_literal(conseq)) << "\n");
+    if (ctx.lit_internalized(conseq) && ctx.get_assignment(ctx.get_literal(conseq)) == l_true) 
         return;
     m_prop.push_back(prop_info(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, expr_ref(conseq, m)));
 }
@@ -113,6 +115,7 @@ bool user_propagator::can_propagate() {
 }
 
 void user_propagator::propagate() {
+    TRACE("user_propagate", tout << "propagating queue head: " << m_qhead << " prop queue: " << m_prop.size() << "\n");
     if (m_qhead == m_prop.size())
         return;
     force_push();
@@ -130,6 +133,7 @@ void user_propagator::propagate() {
 	DEBUG_CODE(for (unsigned id : prop.m_ids) VERIFY(m_fixed.contains(id)););
 	DEBUG_CODE(for (literal lit : m_lits) VERIFY(ctx.get_assignment(lit) == l_true););
 
+        TRACE("user_propagate", tout << "propagating: " << prop.m_conseq << "\n");
 	
         if (m.is_false(prop.m_conseq)) {
             js = ctx.mk_justification(
