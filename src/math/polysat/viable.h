@@ -32,13 +32,14 @@ namespace polysat {
         solver& s;
         
         struct entry : public dll_base<entry>, public fi_record { 
-        public: 
-            entry() : fi_record({ eval_interval::full(), {}, {} }) {}
+            rational coeff;
+            entry(rational const& m) : fi_record({ eval_interval::full(), {}, {} }), coeff(m) {}
         };
         
         ptr_vector<entry>                    m_alloc;
-        ptr_vector<entry>                    m_viable;   // set of viable values.
-        svector<std::pair<pvar, entry*>>     m_trail;    // undo stack
+        ptr_vector<entry>                    m_units;        // set of viable values based on unit multipliers
+        ptr_vector<entry>                    m_non_units;    // entries that have non-unit multipliers
+        svector<std::tuple<pvar, bool, entry*>>     m_trail; // undo stack
 
         bool well_formed(entry* e);
 
@@ -46,15 +47,19 @@ namespace polysat {
 
         bool intersect(pvar v, entry* e);
 
+        bool refine_viable(pvar v, rational const& val);
+
+        std::ostream& display(std::ostream& out, pvar v, entry* e) const;
+
     public:
         viable(solver& s);
 
         ~viable();
 
         // declare and remove var
-        void push(unsigned) { m_viable.push_back(nullptr); }
+        void push(unsigned) { m_units.push_back(nullptr); m_non_units.push_back(nullptr); }
 
-        void pop() { m_viable.pop_back(); }
+        void pop() { m_units.pop_back(); m_non_units.pop_back(); }
 
         void pop_viable();
 
@@ -135,8 +140,8 @@ namespace polysat {
             pvar var;
         public:
             constraints(viable& v, pvar var) : v(v), var(var) {}
-            iterator begin() const { return iterator(v.m_viable[var], false); }
-            iterator end() const { return iterator(v.m_viable[var], true); }
+            iterator begin() const { return iterator(v.m_units[var], false); }
+            iterator end() const { return iterator(v.m_units[var], true); }
         };
 
         constraints get_constraints(pvar v) { 
