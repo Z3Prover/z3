@@ -46,7 +46,7 @@ Revision History:
 #include "util/statistics.h"
 #include "smt/fingerprints.h"
 #include "smt/proto_model/proto_model.h"
-#include "smt/user_propagator.h"
+#include "smt/theory_user_propagator.h"
 #include "model/model.h"
 #include "solver/progress_callback.h"
 #include "solver/assertions/asserted_formulas.h"

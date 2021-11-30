@@ -3,7 +3,7 @@ Copyright (c) 2020 Microsoft Corporation
 
 Module Name:
 
-    user_propagator.cpp
+    theory_user_propagator.cpp
 
 Abstract:
 
@@ -17,7 +17,7 @@ Author:
 
 
 #include "ast/ast_pp.h"
-#include "smt/user_propagator.h"
+#include "smt/theory_user_propagator.h"
 #include "smt/smt_context.h"
 
 using namespace smt;
