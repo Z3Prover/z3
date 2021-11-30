@@ -24,7 +24,7 @@ namespace user_propagator {
     typedef std::function<void(void*,unsigned)>        pop_eh_t;
 
 
-    class base {
+    class core {
     public:
         
         virtual void user_propagate_init(
@@ -33,8 +33,7 @@ namespace user_propagator {
             pop_eh_t&                                    pop_eh,
             fresh_eh_t&                                  fresh_eh) {
             throw default_exception("user-propagators are only supported on the SMT solver");
-        }
-        
+        }        
         
         virtual void user_propagate_register_fixed(fixed_eh_t& fixed_eh) {
             throw default_exception("user-propagators are only supported on the SMT solver");

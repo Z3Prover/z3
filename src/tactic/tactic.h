@@ -20,11 +20,11 @@ Notes:
 --*/
 #pragma once
 
-#include "tactic/goal.h"
 #include "util/params.h"
-#include "util/statistics.h"
-#include "tactic/tactic_exception.h"
 #include "util/lbool.h"
+#include "util/statistics.h"
+#include "tactic/goal.h"
+#include "tactic/tactic_exception.h"
 
 class progress_callback;
 

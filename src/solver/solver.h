@@ -48,7 +48,7 @@ solver* mk_smt2_solver(ast_manager& m, params_ref const& p);
      - statistics
      - results based on check_sat_result API
 */
-class solver : public check_sat_result, public user_propagator::base{
+class solver : public check_sat_result, public user_propagator::core {
     params_ref  m_params;
     symbol      m_cancel_backup_file;
 public:
