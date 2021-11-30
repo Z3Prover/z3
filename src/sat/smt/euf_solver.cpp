@@ -295,7 +295,7 @@ namespace euf {
             return;
         bool sign = l.sign();   
         m_egraph.set_value(n, sign ? l_false : l_true);
-        for (auto th : enode_th_vars(n))
+        for (auto const& th : enode_th_vars(n))
             m_id2solver[th.get_id()]->asserted(l);
 
         size_t* c = to_ptr(l);
@@ -519,8 +519,7 @@ namespace euf {
 
     void solver::push() {
         si.push();
-        scope s;
-        s.m_var_lim = m_var_trail.size();
+        scope s(m_var_trail.size());
         m_scopes.push_back(s);
         m_trail.push_scope();
         for (auto* e : m_solvers)
@@ -994,9 +993,9 @@ namespace euf {
 
     void solver::user_propagate_init(
         void* ctx,
-        ::solver::push_eh_t& push_eh,
-        ::solver::pop_eh_t& pop_eh,
-        ::solver::fresh_eh_t& fresh_eh) {
+        user_propagator::push_eh_t& push_eh,
+        user_propagator::pop_eh_t& pop_eh,
+        user_propagator::fresh_eh_t& fresh_eh) {
         m_user_propagator = alloc(user_solver::solver, *this);
         m_user_propagator->add(ctx, push_eh, pop_eh, fresh_eh);
         for (unsigned i = m_scopes.size(); i-- > 0; )

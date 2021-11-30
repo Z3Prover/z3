@@ -215,25 +215,25 @@ namespace {
 
         void user_propagate_init(
             void*                ctx, 
-            solver::push_eh_t&   push_eh,
-            solver::pop_eh_t&    pop_eh,
-            solver::fresh_eh_t&  fresh_eh) override {
+            user_propagator::push_eh_t&   push_eh,
+            user_propagator::pop_eh_t&    pop_eh,
+            user_propagator::fresh_eh_t&  fresh_eh) override {
             m_context.user_propagate_init(ctx, push_eh, pop_eh, fresh_eh);
         }
         
-        void user_propagate_register_fixed(solver::fixed_eh_t& fixed_eh) override {
+        void user_propagate_register_fixed(user_propagator::fixed_eh_t& fixed_eh) override {
             m_context.user_propagate_register_fixed(fixed_eh);
         }
 
-        void user_propagate_register_final(solver::final_eh_t& final_eh) override {
+        void user_propagate_register_final(user_propagator::final_eh_t& final_eh) override {
             m_context.user_propagate_register_final(final_eh);
         }
         
-        void user_propagate_register_eq(solver::eq_eh_t& eq_eh) override {
+        void user_propagate_register_eq(user_propagator::eq_eh_t& eq_eh) override {
             m_context.user_propagate_register_eq(eq_eh);
         }
         
-        void user_propagate_register_diseq(solver::eq_eh_t& diseq_eh) override {
+        void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh) override {
             m_context.user_propagate_register_diseq(diseq_eh);
         }
 

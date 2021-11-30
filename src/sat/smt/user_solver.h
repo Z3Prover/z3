@@ -21,11 +21,12 @@ Author:
 
 #include "sat/smt/sat_th.h"
 #include "solver/solver.h"
+#include "tactic/user_propagator_base.h"
 
 
 namespace user_solver {
 
-    class solver : public euf::th_euf_solver, public ::solver::propagate_callback {
+    class solver : public euf::th_euf_solver, public user_propagator::callback {
 
         struct prop_info {
             unsigned_vector m_ids;
@@ -47,15 +48,15 @@ namespace user_solver {
         };
 
         void*                  m_user_context;
-        ::solver::push_eh_t      m_push_eh;
-        ::solver::pop_eh_t       m_pop_eh;
-        ::solver::fresh_eh_t     m_fresh_eh;
-        ::solver::final_eh_t     m_final_eh;
-        ::solver::fixed_eh_t     m_fixed_eh;
-        ::solver::eq_eh_t        m_eq_eh;
-        ::solver::eq_eh_t        m_diseq_eh;
-        ::solver::context_obj*   m_api_context { nullptr };
-        unsigned               m_qhead { 0 };
+        user_propagator::push_eh_t      m_push_eh;
+        user_propagator::pop_eh_t       m_pop_eh;
+        user_propagator::fresh_eh_t     m_fresh_eh;
+        user_propagator::final_eh_t     m_final_eh;
+        user_propagator::fixed_eh_t     m_fixed_eh;
+        user_propagator::eq_eh_t        m_eq_eh;
+        user_propagator::eq_eh_t        m_diseq_eh;
+        user_propagator::context_obj*   m_api_context = nullptr;
+        unsigned               m_qhead = 0;
         vector<prop_info>      m_prop;
         unsigned_vector        m_prop_lim;
         vector<sat::literal_vector> m_id2justification;
@@ -91,9 +92,9 @@ namespace user_solver {
          */
         void add(
             void*                 ctx, 
-            ::solver::push_eh_t&    push_eh,
-            ::solver::pop_eh_t&     pop_eh,
-            ::solver::fresh_eh_t&   fresh_eh) {
+            user_propagator::push_eh_t&    push_eh,
+            user_propagator::pop_eh_t&     pop_eh,
+            user_propagator::fresh_eh_t&   fresh_eh) {
             m_user_context = ctx;
             m_push_eh      = push_eh;
             m_pop_eh       = pop_eh;
@@ -102,10 +103,10 @@ namespace user_solver {
 
         unsigned add_expr(expr* e);
 
-        void register_final(::solver::final_eh_t& final_eh) { m_final_eh = final_eh; }
-        void register_fixed(::solver::fixed_eh_t& fixed_eh) { m_fixed_eh = fixed_eh; }
-        void register_eq(::solver::eq_eh_t& eq_eh) { m_eq_eh = eq_eh; }
-        void register_diseq(::solver::eq_eh_t& diseq_eh) { m_diseq_eh = diseq_eh; }
+        void register_final(user_propagator::final_eh_t& final_eh) { m_final_eh = final_eh; }
+        void register_fixed(user_propagator::fixed_eh_t& fixed_eh) { m_fixed_eh = fixed_eh; }
+        void register_eq(user_propagator::eq_eh_t& eq_eh) { m_eq_eh = eq_eh; }
+        void register_diseq(user_propagator::eq_eh_t& diseq_eh) { m_diseq_eh = diseq_eh; }
 
         bool has_fixed() const { return (bool)m_fixed_eh; }
 
