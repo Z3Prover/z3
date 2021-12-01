@@ -157,6 +157,9 @@ extern "C" {
         LOG_Z3_eval_smtlib2_string(c, str);
         if (!mk_c(c)->cmd()) {
             mk_c(c)->cmd() = alloc(cmd_context, false, &(mk_c(c)->m()));
+            install_dl_cmds(*mk_c(c)->cmd());
+            install_opt_cmds(*mk_c(c)->cmd());
+            install_smt2_extra_cmds(*mk_c(c)->cmd());
             mk_c(c)->cmd()->set_solver_factory(mk_smt_strategic_solver_factory());
         }
         scoped_ptr<cmd_context>& ctx = mk_c(c)->cmd();
