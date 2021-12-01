@@ -3451,6 +3451,10 @@ extern "C" {
     /**
        \brief Create a sort for unicode strings.
 
+       The sort for characters can be changed to ASCII by setting
+       the global parameter \c encoding to \c ascii, or alternative
+       to 16 bit characters by setting \c encoding to \c bmp.
+
        def_API('Z3_mk_string_sort', SORT, (_in(CONTEXT), ))
      */
     Z3_sort Z3_API Z3_mk_string_sort(Z3_context c);
@@ -3459,7 +3463,8 @@ extern "C" {
        \brief Create a sort for unicode characters.
 
        The sort for characters can be changed to ASCII by setting
-       the global parameter \c unicode to \c false.
+       the global parameter \c encoding to \c ascii, or alternative
+       to 16 bit characters by setting \c encoding to \c bmp.
 
        def_API('Z3_mk_char_sort', SORT, (_in(CONTEXT), ))
     */

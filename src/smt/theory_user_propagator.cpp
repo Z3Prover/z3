@@ -146,20 +146,10 @@ void theory_user_propagator::propagate() {
                 lit.neg();
             for (auto const& [a,b] : m_eqs)
                 m_lits.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
-            literal lit;
-            if (has_quantifiers(prop.m_conseq)) {
-                expr_ref fn(m.mk_fresh_const("user-conseq", m.mk_bool_sort()), m);
-                expr_ref eq(m.mk_eq(fn, prop.m_conseq), m);
-                ctx.assert_expr(eq);
-                ctx.internalize_assertions();
-                lit = mk_literal(fn);
-            }
-            else {
-                lit = mk_literal(prop.m_conseq);
-            }
+            literal lit = mk_literal(prop.m_conseq);            
             ctx.mark_as_relevant(lit);
             m_lits.push_back(lit);
-            ctx.mk_th_axiom(get_id(), m_lits);
+            ctx.mk_th_lemma(get_id(), m_lits);
             TRACE("user_propagate", ctx.display(tout););
         }
         ++m_stats.m_num_propagations;

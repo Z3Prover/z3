@@ -150,6 +150,13 @@ namespace smt {
 
     literal theory::mk_literal(expr* _e) {
         expr_ref e(_e, m);
+        if (has_quantifiers(e)) {
+            expr_ref fn(m.mk_fresh_const("aux-literal", m.mk_bool_sort()), m);
+            expr_ref eq(m.mk_eq(fn, e), m);
+            ctx.assert_expr(eq);
+            ctx.internalize_assertions();
+            return mk_literal(fn);
+        }
         bool is_not = m.is_not(_e, _e);
         if (!ctx.e_internalized(_e)) {
             ctx.internalize(_e, is_quantifier(_e));
