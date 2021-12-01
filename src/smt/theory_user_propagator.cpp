@@ -53,7 +53,7 @@ void theory_user_propagator::propagate_cb(
     unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, 
     expr* conseq) {
     CTRACE("user_propagate", ctx.lit_internalized(conseq) && ctx.get_assignment(ctx.get_literal(conseq)) == l_true,
-           tout << "redundant consequence: " << mk_pp(conseq, m) << "\n");
+           ctx.display(tout << "redundant consequence: " << mk_pp(conseq, m) << "\n"));
     if (ctx.lit_internalized(conseq) && ctx.get_assignment(ctx.get_literal(conseq)) == l_true) 
         return;
     m_prop.push_back(prop_info(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, expr_ref(conseq, m)));
