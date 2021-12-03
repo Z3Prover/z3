@@ -336,59 +336,52 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
     l = u = zero_of_type<impq>();
     m = mpq(1);
 
-    if (has_lower(j)) {
+    if (has_lower(j)) 
         set_lower(l, inf_l, lower_bound(j) - xj);
-    }
-    if (has_upper(j)) {
+    
+    if (has_upper(j)) 
         set_upper(u, inf_u, upper_bound(j) - xj);
-    }
+    
 
-    unsigned row_index;
     lp_assert(settings().use_tableau());
     const auto & A = lra.A_r();
-    for (auto c : A.column(j)) {
-        row_index = c.var();
-        const mpq & a = c.coeff();
-        unsigned i = lrac.m_r_basis[row_index];
-        TRACE("random_update", tout << "i = " << i << ", a = " << a << "\n";);
-        if (column_is_int(i) && !a.is_int())
-            m = lcm(m, denominator(a));
-    }
     TRACE("random_update", tout <<  "m = " << m << "\n";);
 
+    auto delta = [](mpq const& x, impq const& y, impq const& z) {
+        if (x.is_one())
+            return y - z;
+        if (x.is_minus_one())
+            return z - y;
+        return (y - z) / x;
+    };
+
     for (auto c : A.column(j)) {
-        if (!inf_l && !inf_u && l >= u) break;
-        row_index = c.var();
+        unsigned row_index = c.var();
         const mpq & a = c.coeff();
         unsigned i = lrac.m_r_basis[row_index];
         impq const & xi = get_value(i);
 
-#define SET_BOUND(_fn_, a, b, x, y, z)                                  \
-        if (x.is_one())                                                 \
-            _fn_(a, b, y - z);                                          \
-        else if (x.is_minus_one())                                      \
-            _fn_(a, b, z - y);                                          \
-        else if (z == y)                                                \
-            _fn_(a, b, zero_of_type<impq>());                           \
-        else                                                            \
-            {  _fn_(a, b, (y - z)/x);  }   \
+        if (column_is_int(i) && !a.is_int())
+            m = lcm(m, denominator(a));
 
+        if (!inf_l && !inf_u) {
+            if (l > u)
+                break;
+            if (l == u) 
+                continue;            
+        }
 
         if (a.is_neg()) {
-            if (has_lower(i)) {
-                SET_BOUND(set_lower, l, inf_l, a, xi, lrac.m_r_lower_bounds()[i]);
-            }
-            if (has_upper(i)) {
-                SET_BOUND(set_upper, u, inf_u, a, xi, lrac.m_r_upper_bounds()[i]);
-            }
+            if (has_lower(i)) 
+                set_lower(l, inf_l, delta(a, xi, lrac.m_r_lower_bounds()[i]));
+            if (has_upper(i)) 
+                set_upper(u, inf_u, delta(a, xi, lrac.m_r_upper_bounds()[i]));
         }
         else {
-            if (has_upper(i)) {
-                SET_BOUND(set_lower, l, inf_l, a, xi, lrac.m_r_upper_bounds()[i]);
-            }
-            if (has_lower(i)) {
-                SET_BOUND(set_upper, u, inf_u, a, xi, lrac.m_r_lower_bounds()[i]);
-            }
+            if (has_upper(i)) 
+                set_lower(l, inf_l, delta(a, xi, lrac.m_r_upper_bounds()[i]));
+            if (has_lower(i)) 
+                set_upper(u, inf_u, delta(a, xi, lrac.m_r_lower_bounds()[i]));
         }
     }
 
