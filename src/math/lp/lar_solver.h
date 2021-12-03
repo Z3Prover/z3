@@ -555,6 +555,10 @@ public:
         return m_mpq_lar_core_solver.column_is_bounded(j);
     }
 
+    bool check_feasible() const {
+        return m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis();
+    }
+
     std::pair<constraint_index, constraint_index> add_equality(lpvar j, lpvar k);
     
     inline void get_bound_constraint_witnesses_for_column(unsigned j, constraint_index & lc, constraint_index & uc) const {

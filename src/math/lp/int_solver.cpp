@@ -536,7 +536,7 @@ for (const auto &c : row)
 }
 std::ostream& int_solver::display_row_info(std::ostream & out, unsigned row_index) const  {    
     auto & rslv = lrac.m_r_solver;
-    auto row = rslv.m_A.m_rows[row_index];
+    auto const& row = rslv.m_A.m_rows[row_index];
     return display_row(out, row);
 }
 
