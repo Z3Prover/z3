@@ -106,6 +106,12 @@ public:
     }
 
     void cleanup() override {
+        m_user_ctx = nullptr;
+        m_vars.reset();
+        m_fixed_eh = nullptr;
+        m_final_eh = nullptr;
+        m_eq_eh = nullptr;
+        m_diseq_eh = nullptr;
     }
 
     void reset_statistics() override {
@@ -319,22 +325,91 @@ public:
     user_propagator::eq_eh_t    m_eq_eh;
     user_propagator::eq_eh_t    m_diseq_eh;
     expr_ref_vector             m_vars;
+    unsigned_vector             m_var2internal;
+    unsigned_vector             m_internal2var;
+
+    user_propagator::fixed_eh_t i_fixed_eh;
+    user_propagator::final_eh_t i_final_eh;
+    user_propagator::eq_eh_t    i_eq_eh;
+    user_propagator::eq_eh_t    i_diseq_eh;
+
+
+
+    struct callback : public user_propagator::callback {
+        smt_tactic* t = nullptr;
+        user_propagator::callback* cb = nullptr;
+        unsigned_vector fixed;
+        void propagate_cb(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr* conseq) override {
+            fixed.reset();
+            for (unsigned i = 0; i < num_fixed; ++i)
+                fixed.push_back(t->m_var2internal[i]);
+            cb->propagate_cb(num_fixed, fixed.data(), num_eqs, eq_lhs, eq_rhs, conseq);
+        }
+    };
+
+    callback i_cb;
+
+    void init_i_fixed_eh() {
+        if (!m_fixed_eh)
+            return;
+        i_fixed_eh = [this](void* ctx, user_propagator::callback* cb, unsigned id, expr* value) {
+            i_cb.t = this;
+            i_cb.cb = cb;
+            m_fixed_eh(ctx, &i_cb, m_internal2var[id], value);
+        };
+        m_ctx->user_propagate_register_fixed(i_fixed_eh);
+    }
+
+    void init_i_final_eh() {
+        if (!m_final_eh)
+            return;
+        i_final_eh = [this](void* ctx, user_propagator::callback* cb) {
+            i_cb.t = this;
+            i_cb.cb = cb;
+            m_final_eh(ctx, &i_cb);
+        };
+        m_ctx->user_propagate_register_final(i_final_eh);
+    }
+
+    void init_i_eq_eh() {
+        if (!m_eq_eh)
+            return;
+        i_eq_eh = [this](void* ctx, user_propagator::callback* cb, unsigned u, unsigned v) {
+            i_cb.t = this;
+            i_cb.cb = cb;
+            m_eq_eh(ctx, &i_cb, m_internal2var[u], m_internal2var[v]);
+        };
+        m_ctx->user_propagate_register_eq(i_eq_eh);
+    }
+
+    void init_i_diseq_eh() {
+        if (!m_diseq_eh)
+            return;
+        i_diseq_eh = [this](void* ctx, user_propagator::callback* cb, unsigned u, unsigned v) {
+            i_cb.t = this;
+            i_cb.cb = cb;
+            m_diseq_eh(ctx, &i_cb, m_internal2var[u], m_internal2var[v]);
+        };
+        m_ctx->user_propagate_register_diseq(i_eq_eh);
+    }
+
 
     void user_propagate_delay_init() {
         if (!m_user_ctx)
             return;
         m_ctx->user_propagate_init(m_user_ctx, m_push_eh, m_pop_eh, m_fresh_eh);
-        if (m_fixed_eh)
-            m_ctx->user_propagate_register_fixed(m_fixed_eh);            
-        if (m_final_eh)
-            m_ctx->user_propagate_register_final(m_final_eh);
-        if (m_eq_eh)
-            m_ctx->user_propagate_register_eq(m_eq_eh);
-        if (m_diseq_eh)
-            m_ctx->user_propagate_register_diseq(m_diseq_eh);
+        init_i_fixed_eh();
+        init_i_final_eh();
+        init_i_eq_eh();
+        init_i_diseq_eh();
+
         unsigned i = 0;
-        for (expr* v : m_vars)
-            VERIFY(i++ == m_ctx->user_propagate_register(v));        
+        for (expr* v : m_vars) {
+            unsigned j = m_ctx->user_propagate_register(v);
+            m_var2internal.setx(i, j, 0);
+            m_internal2var.setx(j, i, 0);
+            ++i;
+        }    
     }
 
     void user_propagate_init(
@@ -342,6 +417,7 @@ public:
         user_propagator::push_eh_t& push_eh,
         user_propagator::pop_eh_t& pop_eh,
         user_propagator::fresh_eh_t& fresh_eh) override {
+        SASSERT(!m_user_ctx);
         m_user_ctx = ctx;
         m_push_eh = push_eh;
         m_pop_eh = pop_eh;
