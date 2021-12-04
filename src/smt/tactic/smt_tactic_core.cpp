@@ -390,7 +390,7 @@ public:
             i_cb.cb = cb;
             m_diseq_eh(ctx, &i_cb, m_internal2var[u], m_internal2var[v]);
         };
-        m_ctx->user_propagate_register_diseq(i_eq_eh);
+        m_ctx->user_propagate_register_diseq(i_diseq_eh);
     }
 
 
