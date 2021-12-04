@@ -163,14 +163,20 @@ namespace polysat {
     /**
     * Traverse all interval constraints with coefficients to check whether current value 'val' for
     * 'v' is feasible. If not, extract a (maximal) interval to block 'v' from being assigned val.
+    * 
+    * To investigate:
+    * - side conditions are stronger than for unit intervals. They constrain the lower and upper bounds to
+    *   be precisely the assigned values. This is to ensure that lo/hi that are computed based on lo_val 
+    *   and division with coeff are valid. Is there a more relaxed scheme?
     */
     bool viable::refine_viable(pvar v, rational const& val) {
         auto* e = m_non_units[v];
         if (!e)
             return true;
         entry* first = e;
+        rational const& max_value = s.var2pdd(v).max_value();
         do {
-            rational coeff_val = mod(e->coeff * val, s.var2pdd(v).max_value() + 1);
+            rational coeff_val = mod(e->coeff * val, max_value + 1);
             if (e->interval.currently_contains(coeff_val)) {
                 rational delta_l = floor((coeff_val - e->interval.lo_val()) / e->coeff);
                 rational delta_u = floor((e->interval.hi_val() - coeff_val - 1) / e->coeff);
@@ -181,21 +187,25 @@ namespace polysat {
                     // pass
                 }
                 else if (e->interval.lo_val() <= coeff_val) {
-                    hi = val + 1;
-                    if (hi > s.var2pdd(v).max_value())
+                    rational lambda_u = floor((max_value - coeff_val - 1) / e->coeff);
+                    hi = val + lambda_u + 1;
+                    if (hi > max_value)
                         hi = 0;
                 }
                 else {
                     SASSERT(coeff_val < e->interval.hi_val());
-                    lo = val;
+                    rational lambda_l = floor(coeff_val / e->coeff);
+                    lo = val - lambda_l;                   
                 }
                 SASSERT(hi <= s.var2pdd(v).max_value());
-                LOG("forbidden interval [" << lo << ", " << hi << "[\n");
+                LOG("forbidden interval " << e->interval << " [" << lo << ", " << hi << "[");
                 entry* ne = alloc_entry();
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
+                ne->side_cond.push_back(s.eq(e->interval.hi(), e->interval.hi_val()));
+                ne->side_cond.push_back(s.eq(e->interval.lo(), e->interval.lo_val()));
                 ne->coeff = 1;
-                pdd lop = s.var2pdd(v).mk_val(lo); // TODO?
+                pdd lop = s.var2pdd(v).mk_val(lo);
                 pdd hip = s.var2pdd(v).mk_val(hi);
                 ne->interval = eval_interval::proper(lop, lo, hip, hi);
                 intersect(v, ne);
@@ -435,7 +445,7 @@ namespace polysat {
         do {
             if (e->coeff != 1)
                 out << e->coeff << " * v" << v << " ";
-            out << e->interval << " " << e->side_cond << " " << e->src << " ";
+            out << e->interval << " " << e->side_cond << " " << e->src << "; ";
             e = e->next();
         }         
         while (e != first);

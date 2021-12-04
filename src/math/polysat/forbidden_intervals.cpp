@@ -63,7 +63,7 @@ namespace polysat {
         SASSERT(b1.is_val());
         SASSERT(b2.is_val());    
 
-        coeff = a1;
+        coeff = a1.is_zero() ? a2 : a1;
 
         _backtrack.released = true;
 
@@ -77,12 +77,6 @@ namespace polysat {
             return true;
 
 
-#if 0
-        if (match_linear4(c, a1, b1, e1, a2, b2, e2, out_interval, out_side_cond))
-            return true;
-        if (match_linear5(c, a1, b1, e1, a2, b2, e2, out_interval, out_side_cond))
-            return true;
-#endif
         _backtrack.released = false;
         return false;
     }
@@ -230,110 +224,4 @@ namespace polysat {
         }
         return false;
     }
-
-#if 0
-    /**
-    * a1*y + e1 = 0, with a1 odd
-    */
-    bool forbidden_intervals::match_linear4(signed_constraint const& c,
-        rational & a1, pdd const& b1, pdd const& e1,
-        rational & a2, pdd const& b2, pdd const& e2,
-        eval_interval& interval, vector<signed_constraint>& side_cond) {
-        if (a1.is_odd() && a2.is_zero() && b2.val().is_zero()) {
-            push_eq(true, e2, side_cond);
-            rational a_inv, pow2 = e1.manager().max_value() + 1;
-            VERIFY(a1.mult_inverse(e1.manager().power_of_2(), a_inv));
-            auto lo = -e1 * a_inv;
-            auto lo_val = mod(-b1.val() * a_inv, pow2);
-            auto hi = lo + 1;
-            auto hi_val = mod(lo_val + 1, pow2);
-            interval = to_interval(c, false, rational::one(), lo_val, lo, hi_val, hi);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Ad-hoc linear forbidden intervals 
-     * ax <= b, b != -1, a < b:     x not in [ceil((b+1)/a) .. floor((2^K-1)/a)]
-     * b <= ax, 0 < a < b:          x not in [0 .. floor((b-1)/a)] 
-     * ax < b, a < b:               x not in [ceil(b/a) .. floor((2^K-1)/a)]
-     * b < ax, 0 < a <= b:          x not in [0 .. floor(b/a)]     
-     * 
-     * TODO: generalize to ax + b <= c scenarios where ax does not overflow 
-     * and ax+b does not overflow, but is larger than c
-     * Scenarios:
-     *  - ax + b <= c
-     *  - ax + b < c
-     *  - c <= ax + b
-     *  - c < ax + b
-     */
-    bool forbidden_intervals::match_linear5(signed_constraint const& c,
-        rational & a1, pdd const& b1, pdd const& e1,
-        rational & a2, pdd const& b2, pdd const& e2,
-        eval_interval& interval, vector<signed_constraint>& side_cond) {
-        auto& m = e1.manager();
-
-        // ax <= b, b != -1, a < b:     x not in [ceil((b+1)/a) .. floor((2^K-1)/a)]
-        if (c.is_positive() && 
-            !a1.is_zero() && !a1.is_one() && 
-            a2.is_zero() && b1.is_zero() && e2.is_val() && 
-            a1 < b2.val() && b2.val() != m.max_value()) {
-            if (!e1.is_val())
-                side_cond.push_back(s.eq(e1));
-            auto lo_val = ceil((b2.val() + 1) / a1);
-            auto hi_val = floor(m.max_value() / a1) + 1;
-            SASSERT(lo_val < hi_val);
-            auto lo = m.mk_val(lo_val);
-            auto hi = m.mk_val(hi_val);
-            interval = eval_interval::proper(lo, lo_val, hi, hi_val);
-            return true;            
-        }
-
-        // b <= ax, 0 < a < b:          x not in [0 .. floor((b-1)/a)] 
-        if (c.is_positive() && 
-            !a2.is_zero() && !a2.is_one() && 
-            a1.is_zero() && b2.is_zero() &&
-            a2 < b1.val() && e1.is_val()) {
-            if (!e2.is_val())
-                side_cond.push_back(s.eq(e2));
-            rational lo_val = rational::zero();
-            rational hi_val = floor((b1.val() - 1) / a2) + 1;
-            SASSERT(lo_val < hi_val);
-            auto lo = m.mk_val(lo_val);
-            auto hi = m.mk_val(hi_val);
-            interval = eval_interval::proper(lo, lo_val, hi, hi_val);
-            return true;
-        }
-
-        // ax < b, a < b:               x not in [ceil(b/a) .. floor((2^K-1)/a)]
-        if (c.is_negative() && 
-            !a2.is_zero() && !a2.is_one() && b2.is_zero() && 
-            a1.is_zero() && e1.is_val() && a2 < b1.val()) {
-            if (!e2.is_val())
-                side_cond.push_back(s.eq(e2));
-            rational lo_val = ceil(b1.val() / a2);
-            rational hi_val = floor(m.max_value() / a2) + 1;
-            auto lo = m.mk_val(lo_val);
-            auto hi = m.mk_val(hi_val);
-            interval = eval_interval::proper(lo, lo_val, hi, hi_val);
-            return true;
-        }
-
-        // b < ax, 0 < a <= b:          x not in [0 .. floor(b/a)]     
-        if (c.is_negative() &&
-            !a1.is_zero() && !a1.is_one() && b1.is_zero() &&
-            a2.is_zero() && e2.is_val() && a1 <= b2.val()) { 
-            if (!e1.is_val())
-                side_cond.push_back(s.eq(e2));
-            rational lo_val = rational::zero();
-            rational hi_val = floor(b2.val() / a1) + 1;
-            auto lo = m.mk_val(lo_val);
-            auto hi = m.mk_val(hi_val);
-            interval = eval_interval::proper(lo, lo_val, hi, hi_val);
-            return true;
-        }
-        return false;
-    }
-#endif
 }
