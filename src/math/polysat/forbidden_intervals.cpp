@@ -9,10 +9,8 @@ Module Name:
 
 Author:
 
-    Nikolaj Bjorner (nbjorner) 2021-03-19
     Jakob Rath 2021-04-6
-
-
+    Nikolaj Bjorner (nbjorner) 2021-03-19
 
 --*/
 #include "math/polysat/forbidden_intervals.h"
@@ -46,13 +44,7 @@ namespace polysat {
             }
         };
 
-        backtrack _backtrack(out_side_cond);
-         
-        /**
-        * TODO: to express the interval for coefficient 2^i symbolically,
-        * we need right-shift/upper-bits-extract in the language.
-        * So currently we can only do it if the coefficient is 1 or -1.
-        */
+        backtrack _backtrack(out_side_cond);        
 
         auto [ok1, a1, e1, b1] = linear_decompose(v, c->to_ule().lhs(), out_side_cond);
         auto [ok2, a2, e2, b2] = linear_decompose(v, c->to_ule().rhs(), out_side_cond);
@@ -63,19 +55,14 @@ namespace polysat {
         SASSERT(b1.is_val());
         SASSERT(b2.is_val());    
 
-        coeff = a1.is_zero() ? a2 : a1;
-
         _backtrack.released = true;
 
-        // LOG("add " << c << " " << a1 << " " << b1 << " " << a2 << " " << b2);
-
-        if (match_linear1(c, coeff, b1, e1, a2, b2, e2, out_interval, out_side_cond))
+        if (match_linear1(c, a1, b1, e1, a2, b2, e2, coeff, out_interval, out_side_cond))
             return true;
-        if (match_linear2(c, coeff, b1, e1, a2, b2, e2, out_interval, out_side_cond))
+        if (match_linear2(c, a1, b1, e1, a2, b2, e2, coeff, out_interval, out_side_cond))
             return true;
-        if (match_linear3(c, coeff, b1, e1, a2, b2, e2, out_interval, out_side_cond))
+        if (match_linear3(c, a1, b1, e1, a2, b2, e2, coeff, out_interval, out_side_cond))
             return true;
-
 
         _backtrack.released = false;
         return false;
@@ -164,9 +151,9 @@ namespace polysat {
     * condition for empty/full: e2 == -1
     */
     bool forbidden_intervals::match_linear1(signed_constraint const& c,
-        rational & a1, pdd const& b1, pdd const& e1, 
+        rational const & a1, pdd const& b1, pdd const& e1, 
         rational const & a2, pdd const& b2, pdd const& e2,
-        eval_interval& interval, vector<signed_constraint>& side_cond) {
+        rational& coeff, eval_interval& interval, vector<signed_constraint>& side_cond) {
         if (a2.is_zero() && !a1.is_zero()) {
             SASSERT(!a1.is_zero());
             bool is_trivial = (b2 + 1).is_zero();
@@ -175,7 +162,8 @@ namespace polysat {
             rational lo_val = (b2 - b1 + 1).val();
             auto hi = -e1;
             rational hi_val = (-b1).val();
-            interval = to_interval(c, is_trivial, a1, lo_val, lo, hi_val, hi);
+            coeff = a1;
+            interval = to_interval(c, is_trivial, coeff, lo_val, lo, hi_val, hi);
             return true;
         }
         return false;
@@ -186,19 +174,19 @@ namespace polysat {
      * condition for empty/full: e1 == 0
      */
     bool forbidden_intervals::match_linear2(signed_constraint const& c,
-        rational & a1, pdd const& b1, pdd const& e1,
+        rational const & a1, pdd const& b1, pdd const& e1,
         rational const & a2, pdd const& b2, pdd const& e2,
-        eval_interval& interval, vector<signed_constraint>& side_cond) {
+        rational& coeff, eval_interval& interval, vector<signed_constraint>& side_cond) {
         if (a1.is_zero() && !a2.is_zero()) {
             SASSERT(!a2.is_zero());
-            a1 = a2;
             bool is_trivial = b1.is_zero();
             push_eq(is_trivial, e1, side_cond);
             auto lo = -e2;
             rational lo_val = (-b2).val();
             auto hi = e1 - e2;
             rational hi_val = (b1 - b2).val();
-            interval = to_interval(c, is_trivial, a1, lo_val, lo, hi_val, hi);
+            coeff = a2;
+            interval = to_interval(c, is_trivial, coeff, lo_val, lo, hi_val, hi);
             return true;
         }
         return false;
@@ -209,9 +197,9 @@ namespace polysat {
      * condition for empty/full: e1 == e2
      */
     bool forbidden_intervals::match_linear3(signed_constraint const& c,
-        rational & a1, pdd const& b1, pdd const& e1,
+        rational const & a1, pdd const& b1, pdd const& e1,
         rational const & a2, pdd const& b2, pdd const& e2,
-        eval_interval& interval, vector<signed_constraint>& side_cond) {
+        rational& coeff, eval_interval& interval, vector<signed_constraint>& side_cond) {
         if (a1 == a2 && !a1.is_zero()) {
             bool is_trivial = b1.val() == b2.val();
             push_eq(is_trivial, e1 - e2, side_cond);
@@ -219,7 +207,8 @@ namespace polysat {
             rational lo_val = (-b2).val();
             auto hi = -e1;
             rational hi_val = (-b1).val();
-            interval = to_interval(c, is_trivial, a1, lo_val, lo, hi_val, hi);
+            coeff = a1;
+            interval = to_interval(c, is_trivial, coeff, lo_val, lo, hi_val, hi);
             return true;
         }
         return false;
