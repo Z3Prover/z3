@@ -333,12 +333,18 @@ public:
     struct callback : public user_propagator::callback {
         smt_tactic* t = nullptr;
         user_propagator::callback* cb = nullptr;
-        unsigned_vector fixed;
+        unsigned_vector fixed, lhs, rhs;
         void propagate_cb(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr* conseq) override {
             fixed.reset();
+            lhs.reset();
+            rhs.reset();
             for (unsigned i = 0; i < num_fixed; ++i)
                 fixed.push_back(t->m_var2internal[i]);
-            cb->propagate_cb(num_fixed, fixed.data(), num_eqs, eq_lhs, eq_rhs, conseq);
+            for (unsigned i = 0; i < num_eqs; ++i) {
+                lhs.push_back(t->m_var2internal[eq_lhs[i]]);
+                rhs.push_back(t->m_var2internal[eq_rhs[i]]);
+            }
+            cb->propagate_cb(num_fixed, fixed.data(), num_eqs, lhs.data(), rhs.data(), conseq);
         }
     };
 
