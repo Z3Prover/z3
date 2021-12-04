@@ -140,6 +140,7 @@ public:
         ~scoped_init_ctx() {
             smt::kernel * d = m_owner.m_ctx;
             m_owner.m_ctx = nullptr;
+            m_owner.m_user_ctx = nullptr;
 
             if (d)
                 dealloc(d);
