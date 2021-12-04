@@ -200,7 +200,7 @@ public:
 
             lbool r;
             try {
-                if (assumptions.empty())
+                if (assumptions.empty() && !m_user_ctx)
                     r = m_ctx->setup_and_check();
                 else
                     r = m_ctx->check(assumptions.size(), assumptions.data());
