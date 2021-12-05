@@ -365,6 +365,8 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
             m = lcm(m, denominator(a));
 
         if (!inf_l && !inf_u) {
+            if (l > u)
+                break;
             if (l == u) 
                 continue;            
         }
@@ -382,7 +384,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
                 set_upper(u, inf_u, delta(a, xi, lrac.m_r_lower_bounds()[i]));
         }
     }
-    VERIFY(l <= zero_of_type<impq>() && zero_of_type<impq>() <= u);
+
     l += xj;
     u += xj;
 
@@ -397,7 +399,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
           tout << "val = " << get_value(j) << "\n";
           tout << "return " << (inf_l || inf_u || l <= u);
           );
-    return true;
+    return (inf_l || inf_u || l <= u);
 }
 
 
