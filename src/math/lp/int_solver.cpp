@@ -324,6 +324,7 @@ static void set_upper(impq & u, bool & inf_u, impq const & v) {
     }
 }
 
+// this function assumes that all basic columns dependend on j are feasible
 bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m) {
     if (lrac.m_r_heading[j] >= 0) // the basic var
         return false;
@@ -360,13 +361,12 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
         const mpq & a = c.coeff();
         unsigned i = lrac.m_r_basis[row_index];
         impq const & xi = get_value(i);
-
+        lp_assert(lrac.m_r_solver.column_is_feasible(i));
         if (column_is_int(i) && !a.is_int())
             m = lcm(m, denominator(a));
 
+
         if (!inf_l && !inf_u) {
-            if (l > u)
-                break;
             if (l == u) 
                 continue;            
         }
