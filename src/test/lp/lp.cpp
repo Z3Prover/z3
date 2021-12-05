@@ -1396,10 +1396,7 @@ void update_settings(argument_parser & args_parser, lp_settings& settings) {
 }
 
 template <typename T, typename X>
-void setup_solver(unsigned max_iterations, unsigned time_limit, bool look_for_min, argument_parser & args_parser, lp_solver<T, X> * solver) {
-    if (max_iterations > 0)
-        solver->set_max_iterations_per_stage(max_iterations);
-
+void setup_solver(unsigned time_limit, bool look_for_min, argument_parser & args_parser, lp_solver<T, X> * solver) {
     if (time_limit > 0)
         solver->set_time_limit(time_limit);
 
@@ -1429,7 +1426,7 @@ void compare_solutions(mps_reader<double, double> & reader, lp_solver<double, do
 }
 
 
-void solve_mps_double(std::string file_name, bool look_for_min, unsigned max_iterations, unsigned time_limit, bool dual, bool compare_with_primal, argument_parser & args_parser) {
+void solve_mps_double(std::string file_name, bool look_for_min, unsigned time_limit, bool dual, bool compare_with_primal, argument_parser & args_parser) {
     mps_reader<double, double> reader(file_name);
     reader.read();
     if (!reader.is_ok()) {
@@ -1438,7 +1435,7 @@ void solve_mps_double(std::string file_name, bool look_for_min, unsigned max_ite
     }
     
     lp_solver<double, double> * solver =  reader.create_solver(dual);
-    setup_solver(max_iterations, time_limit, look_for_min, args_parser, solver);
+    setup_solver(time_limit, look_for_min, args_parser, solver);
     stopwatch sw;
     sw.start();
     if (dual) {
@@ -1461,7 +1458,7 @@ void solve_mps_double(std::string file_name, bool look_for_min, unsigned max_ite
     std::cout << "processed in " << span / 1000.0  << " seconds, running for " << solver->m_total_iterations << " iterations" << "  one iter for " << (double)span/solver->m_total_iterations << " ms" << std::endl;
     if (compare_with_primal) {
         auto * primal_solver = reader.create_solver(false);
-        setup_solver(max_iterations, time_limit, look_for_min, args_parser, primal_solver);
+        setup_solver(time_limit, look_for_min, args_parser, primal_solver);
         primal_solver->find_maximal_solution();
         if (solver->get_status() != primal_solver->get_status()) {
             std::cout << "statuses are different: dual " << lp_status_to_string(solver->get_status()) << " primal = " << lp_status_to_string(primal_solver->get_status()) << std::endl;
@@ -1489,12 +1486,12 @@ void solve_mps_double(std::string file_name, bool look_for_min, unsigned max_ite
     delete solver;
 }
 
-void solve_mps_rational(std::string file_name, bool look_for_min, unsigned max_iterations, unsigned time_limit, bool dual, argument_parser & args_parser) {
+void solve_mps_rational(std::string file_name, bool look_for_min, unsigned time_limit, bool dual, argument_parser & args_parser) {
     mps_reader<lp::mpq, lp::mpq> reader(file_name);
     reader.read();
     if (reader.is_ok()) {
         auto * solver =  reader.create_solver(dual);
-        setup_solver(max_iterations, time_limit, look_for_min, args_parser, solver);
+        setup_solver(time_limit, look_for_min, args_parser, solver);
         stopwatch sw;
         sw.start();
         solver->find_maximal_solution();
@@ -1516,27 +1513,27 @@ void solve_mps_rational(std::string file_name, bool look_for_min, unsigned max_i
         std::cout << "cannot process " << file_name << std::endl;
     }
 }
-void get_time_limit_and_max_iters_from_parser(argument_parser & args_parser, unsigned & time_limit, unsigned & max_iters); // forward definition
+void get_time_limit_and_max_iters_from_parser(argument_parser & args_parser, unsigned & time_limit); // forward definition
 
-void solve_mps(std::string file_name, bool look_for_min, unsigned max_iterations, unsigned time_limit, bool solve_for_rational, bool dual, bool compare_with_primal, argument_parser & args_parser) {
+void solve_mps(std::string file_name, bool look_for_min, unsigned time_limit, bool solve_for_rational, bool dual, bool compare_with_primal, argument_parser & args_parser) {
     if (!solve_for_rational) {
         std::cout << "solving " << file_name << std::endl;
-        solve_mps_double(file_name, look_for_min, max_iterations, time_limit, dual, compare_with_primal, args_parser);
+        solve_mps_double(file_name, look_for_min, time_limit, dual, compare_with_primal, args_parser);
     }
     else {
         std::cout << "solving " << file_name << " in rationals " << std::endl;
-        solve_mps_rational(file_name, look_for_min, max_iterations, time_limit, dual, args_parser);
+        solve_mps_rational(file_name, look_for_min, time_limit, dual, args_parser);
     }
 }
 
 void solve_mps(std::string file_name, argument_parser & args_parser) {
     bool look_for_min = args_parser.option_is_used("--min");
-    unsigned max_iterations, time_limit;
+    unsigned time_limit;
     bool solve_for_rational = args_parser.option_is_used("--mpq");
     bool dual = args_parser.option_is_used("--dual");
     bool compare_with_primal = args_parser.option_is_used("--compare_with_primal");
-    get_time_limit_and_max_iters_from_parser(args_parser, time_limit, max_iterations);
-    solve_mps(file_name, look_for_min, max_iterations, time_limit, solve_for_rational, dual, compare_with_primal, args_parser);
+    get_time_limit_and_max_iters_from_parser(args_parser, time_limit);
+    solve_mps(file_name, look_for_min, time_limit, solve_for_rational, dual, compare_with_primal, args_parser);
 }
 
 void solve_mps_in_rational(std::string file_name, bool dual, argument_parser & /*args_parser*/) {
@@ -1903,7 +1900,7 @@ void process_test_file(std::string test_dir, std::string test_file_name, argumen
 
 void solve_some_mps(argument_parser & args_parser) {
     unsigned max_iters, time_limit;
-    get_time_limit_and_max_iters_from_parser(args_parser, time_limit, max_iters);
+    get_time_limit_and_max_iters_from_parser(args_parser, time_limit);
     unsigned successes = 0;
     unsigned failures = 0;
     unsigned inconclusives = 0;
@@ -2315,14 +2312,7 @@ void finalize(unsigned ret) {
     //    return ret;
 }
 
-void get_time_limit_and_max_iters_from_parser(argument_parser & args_parser, unsigned & time_limit, unsigned & max_iters) {
-    std::string s = args_parser.get_option_value("--max_iters");
-    if (!s.empty()) {
-        max_iters = atoi(s.c_str());
-    } else {
-        max_iters = 0;
-    }
-
+void get_time_limit_and_max_iters_from_parser(argument_parser & args_parser, unsigned & time_limit) {
     std::string time_limit_string = args_parser.get_option_value("--time_limit");
     if (!time_limit_string.empty()) {
         time_limit = atoi(time_limit_string.c_str());
@@ -2504,7 +2494,7 @@ void process_test_file(std::string test_dir, std::string test_file_name, argumen
         if (args_parser.option_is_used("--lar"))
             test_lar_on_file(input_file_name, args_parser);
         else
-            solve_mps(input_file_name, minimize, max_iters, time_limit, use_mpq, dual, false, args_parser);
+            solve_mps(input_file_name, minimize, time_limit, use_mpq, dual, false, args_parser);
     }
     catch(...) {
         std::cout << "catching the failure" << std::endl;
@@ -2624,7 +2614,7 @@ void test_files_from_directory(std::string test_file_dir, argument_parser & args
       vector<std::pair<std::string, int>> files = get_file_list_of_dir(test_file_dir);
       std::sort(files.begin(), files.end(), sort_pred());
       unsigned max_iters, time_limit;
-      get_time_limit_and_max_iters_from_parser(args_parser, time_limit, max_iters);
+      get_time_limit_and_max_iters_from_parser(args_parser, time_limit);
       unsigned successes = 0, failures = 0, inconclusives = 0;
       for  (auto & t : files) {
       process_test_file(test_file_dir, t.first, args_parser, out_dir, max_iters, time_limit, successes, failures, inconclusives);
@@ -4070,14 +4060,13 @@ void test_lp_local(int argn, char**argv) {
         ret = 0;
         return finalize(ret);
     }
-    unsigned max_iters;
     unsigned time_limit;
-    get_time_limit_and_max_iters_from_parser(args_parser, time_limit, max_iters);
+    get_time_limit_and_max_iters_from_parser(args_parser, time_limit);
     bool dual = args_parser.option_is_used("--dual");
     bool solve_for_rational = args_parser.option_is_used("--mpq");
     std::string file_name = args_parser.get_option_value("--file");
     if (!file_name.empty()) {
-        solve_mps(file_name, args_parser.option_is_used("--min"), max_iters, time_limit, solve_for_rational, dual, args_parser.option_is_used("--compare_with_primal"), args_parser);
+        solve_mps(file_name, args_parser.option_is_used("--min"), time_limit, solve_for_rational, dual, args_parser.option_is_used("--compare_with_primal"), args_parser);
         ret = 0;
         return finalize(ret);
     }
