@@ -797,8 +797,10 @@ namespace lp {
         lp_assert(((stats().m_make_feasible% 100) != 0) || m_status != lp_status::OPTIMAL || all_constraints_hold());
     }
 
-    bool lar_solver::status_is_feasible(lp_status st) {
-        switch (st) {
+
+    // this function just looks at the status    
+    bool lar_solver::is_feasible() const {
+        switch (this->get_status()) {
         case lp_status::OPTIMAL:
         case lp_status::FEASIBLE:
         case lp_status::UNBOUNDED:

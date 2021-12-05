@@ -296,7 +296,8 @@ class lar_solver : public column_namer {
     mutable mpq m_delta;
 
 public:
-    bool status_is_feasible(lp_status);
+    // this function just looks at the status
+    bool is_feasible() const;
     const map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table_int() const {
         return m_fixed_var_table_int;
     }
