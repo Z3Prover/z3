@@ -339,7 +339,7 @@ public:
             lhs.reset();
             rhs.reset();
             for (unsigned i = 0; i < num_fixed; ++i)
-                fixed.push_back(t->m_var2internal[fixed_ids[i]]);
+                fixed.push_back(t->m_var2internal[i]);
             for (unsigned i = 0; i < num_eqs; ++i) {
                 lhs.push_back(t->m_var2internal[eq_lhs[i]]);
                 rhs.push_back(t->m_var2internal[eq_rhs[i]]);
