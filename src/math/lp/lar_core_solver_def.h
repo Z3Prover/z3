@@ -179,11 +179,17 @@ void lar_core_solver::solve() {
         }
         lp_assert(!settings().use_tableau() || r_basis_is_OK());
     }
-    if (m_r_solver.get_status() == lp_status::INFEASIBLE) {
+    switch (m_r_solver.get_status())
+    {
+    case lp_status::INFEASIBLE:
         fill_not_improvable_zero_sum();
-    } 
-    else if (m_r_solver.get_status() != lp_status::UNBOUNDED) {
+        break;
+    case lp_status::CANCELLED:
+    case lp_status::UNBOUNDED: // do nothing in these cases
+        break;
+    default:  // adjust the status to optimal
         m_r_solver.set_status(lp_status::OPTIMAL);
+        break;
     }
     lp_assert(r_basis_is_OK());
     lp_assert(m_r_solver.non_basic_columns_are_set_correctly());

@@ -31,9 +31,6 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::decide_on_status_a
         break;
     case lp_status::DUAL_UNBOUNDED:
         lp_unreachable();
-    case lp_status::ITERATIONS_EXHAUSTED:
-        this->m_status = lp_status::ITERATIONS_EXHAUSTED;
-        break;
     case lp_status::TIME_EXHAUSTED:
         this->m_status = lp_status::TIME_EXHAUSTED;
         break;

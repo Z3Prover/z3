@@ -2651,10 +2651,6 @@ void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_read
         solver->settings().presolve_with_double_solver_for_lar = true;
     }
     
-    std::string iter = args_parser.get_option_value("--max_iters");
-    if (!iter.empty()) {
-        solver->settings().max_total_number_of_iterations = atoi(iter.c_str());
-    }
     if (args_parser.option_is_used("--compare_with_primal")){
         if (reader == nullptr) {
             std::cout << "cannot compare with primal, the reader is null " << std::endl;
