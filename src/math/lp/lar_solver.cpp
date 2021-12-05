@@ -797,7 +797,17 @@ namespace lp {
         lp_assert(((stats().m_make_feasible% 100) != 0) || m_status != lp_status::OPTIMAL || all_constraints_hold());
     }
 
-
+    bool lar_solver::status_is_feasible(lp_status st) {
+        switch (st) {
+        case lp_status::OPTIMAL:
+        case lp_status::FEASIBLE:
+        case lp_status::UNBOUNDED:
+            return true;
+        default:
+            return false;
+        }
+    }
+    
     numeric_pair<mpq> lar_solver::get_basic_var_value_from_row(unsigned i) {
         numeric_pair<mpq> r = zero_of_type<numeric_pair<mpq>>();
 
