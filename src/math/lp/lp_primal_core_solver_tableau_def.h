@@ -182,9 +182,7 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
         if (this->m_settings.get_cancel_flag()
             ||
             this->iters_with_no_cost_growing() > this->m_settings.max_number_of_iterations_with_no_improvements
-            ||
-            this->total_iterations() > this->m_settings.max_total_number_of_iterations
-            ) {            
+            ) {         
             this->set_status(lp_status::CANCELLED);
             break; // from the loop
         }

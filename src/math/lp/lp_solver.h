@@ -158,13 +158,7 @@ public:
         m_settings.time_limit = time_limit_in_seconds;
     }
 
-    void set_max_iterations_per_stage(unsigned max_iterations) {
-        m_settings.max_total_number_of_iterations = max_iterations;
-    }
-
-    unsigned get_max_iterations_per_stage() const {
-        return m_settings.max_total_number_of_iterations;
-    }
+    
 protected:
     bool problem_is_empty();
 

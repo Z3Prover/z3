@@ -3095,7 +3095,7 @@ public:
         default:
             TRACE("arith", tout << "status treated as inconclusive: " << status << "\n";);
             // TENTATIVE_UNBOUNDED, UNBOUNDED, TENTATIVE_DUAL_UNBOUNDED, DUAL_UNBOUNDED, 
-            // FLOATING_POINT_ERROR, TIME_EXAUSTED, ITERATIONS_EXHAUSTED, EMPTY, UNSTABLE
+            // FLOATING_POINT_ERROR, TIME_EXAUSTED, EMPTY, UNSTABLE
             return l_undef;
         }
     }
