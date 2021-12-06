@@ -1932,7 +1932,7 @@ void solve_some_mps(argument_parser & args_parser) {
         return;
     }
     if (!solve_for_rational) {
-        solve_mps(file_names[6], false, 0, time_limit, false, dual, compare_with_primal, args_parser);
+        solve_mps(file_names[6], false, time_limit, false, dual, compare_with_primal, args_parser);
         solve_mps_with_known_solution(file_names[3], nullptr, lp_status::INFEASIBLE, dual); // chvatal: 135(d)
         std::unordered_map<std::string, double> sol;
         sol["X1"] = 0;
@@ -1957,11 +1957,11 @@ void solve_some_mps(argument_parser & args_parser) {
         solve_mps_with_known_solution(file_names[4], &sol, lp_status::OPTIMAL, dual); // chvatal: 135(e)
         solve_mps_with_known_solution(file_names[2], nullptr, lp_status::UNBOUNDED, dual); // chvatal: 135(c)
         solve_mps_with_known_solution(file_names[1], nullptr, lp_status::UNBOUNDED, dual); // chvatal: 135(b)
-        solve_mps(file_names[8], false, 0, time_limit, false, dual, compare_with_primal, args_parser);
+        solve_mps(file_names[8], false, time_limit, false, dual, compare_with_primal, args_parser);
         // return;
         for (auto& s : file_names) {
             try {
-                solve_mps(s, minimums.find(s) != minimums.end(), max_iters, time_limit, false, dual, compare_with_primal, args_parser);
+                solve_mps(s, minimums.find(s) != minimums.end(),  time_limit, false, dual, compare_with_primal, args_parser);
             }
             catch(const char *s){
                 std::cout<< "exception: "<< s << std::endl;
