@@ -3083,21 +3083,14 @@ public:
         TRACE("pcs",  tout << lp().constraints(););
         auto status = lp().find_feasible_solution();
         TRACE("arith_verbose", display(tout););
-        switch (status) {
-        case lp::lp_status::INFEASIBLE:
-            return l_false;
-        case lp::lp_status::FEASIBLE:
-        case lp::lp_status::OPTIMAL:
-        case lp::lp_status::UNBOUNDED:
-            // SASSERT(lp().all_constraints_hold());
-            SASSERT(!lp().has_changed_columns());
+        if (lp().is_feasible())
             return l_true;
-        default:
-            TRACE("arith", tout << "status treated as inconclusive: " << status << "\n";);
-            // TENTATIVE_UNBOUNDED, TENTATIVE_DUAL_UNBOUNDED, DUAL_UNBOUNDED, 
-            // FLOATING_POINT_ERROR, TIME_EXAUSTED, EMPTY, UNSTABLE, TIME_EXHAUSTED
-            return l_undef;
-        }
+        if (status == lp::lp_status::INFEASIBLE)  
+            return l_false;
+        TRACE("arith", tout << "status treated as inconclusive: " << status << "\n";);
+            // TENTATIVE_UNBOUNDED, UNBOUNDED, TENTATIVE_DUAL_UNBOUNDED, DUAL_UNBOUNDED, 
+            // FLOATING_POINT_ERROR, TIME_EXAUSTED, EMPTY, UNSTABLE
+        return l_undef;
     }
  
     lp::explanation     m_explanation;
