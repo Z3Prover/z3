@@ -1529,7 +1529,7 @@ public:
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         lbool is_sat = l_true;
         SASSERT(lp().ax_is_correct());
-        if (lp().get_status() != lp::lp_status::OPTIMAL || lp().has_changed_columns()) {
+        if (!lp().is_feasible() || lp().has_changed_columns()) {
             is_sat = make_feasible();
         }
         final_check_status st = FC_DONE;
@@ -3088,14 +3088,14 @@ public:
             return l_false;
         case lp::lp_status::FEASIBLE:
         case lp::lp_status::OPTIMAL:
-            //            SASSERT(lp().all_constraints_hold());
+        case lp::lp_status::UNBOUNDED:
+            // SASSERT(lp().all_constraints_hold());
+            SASSERT(!lp().has_changed_columns());
             return l_true;
-        case lp::lp_status::TIME_EXHAUSTED:
-                
         default:
             TRACE("arith", tout << "status treated as inconclusive: " << status << "\n";);
-            // TENTATIVE_UNBOUNDED, UNBOUNDED, TENTATIVE_DUAL_UNBOUNDED, DUAL_UNBOUNDED, 
-            // FLOATING_POINT_ERROR, TIME_EXAUSTED, EMPTY, UNSTABLE
+            // TENTATIVE_UNBOUNDED, TENTATIVE_DUAL_UNBOUNDED, DUAL_UNBOUNDED, 
+            // FLOATING_POINT_ERROR, TIME_EXAUSTED, EMPTY, UNSTABLE, TIME_EXHAUSTED
             return l_undef;
         }
     }
@@ -3467,7 +3467,7 @@ public:
             st = lp::lp_status::UNBOUNDED;
         }
         else {
-            if (lp().get_status() != lp::lp_status::OPTIMAL || lp().has_changed_columns()) 
+            if (!lp().is_feasible() || lp().has_changed_columns())
                 make_feasible();
             
             vi = get_lpvar(v);
