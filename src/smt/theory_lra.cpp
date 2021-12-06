@@ -1529,7 +1529,7 @@ public:
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         lbool is_sat = l_true;
         SASSERT(lp().ax_is_correct());
-        if (lp().get_status() != lp::lp_status::OPTIMAL || lp().has_changed_columns()) {
+        if (!lp().is_feasible() || lp().has_changed_columns()) {
             is_sat = make_feasible();
         }
         final_check_status st = FC_DONE;
@@ -3083,21 +3083,14 @@ public:
         TRACE("pcs",  tout << lp().constraints(););
         auto status = lp().find_feasible_solution();
         TRACE("arith_verbose", display(tout););
-        switch (status) {
-        case lp::lp_status::INFEASIBLE:
-            return l_false;
-        case lp::lp_status::FEASIBLE:
-        case lp::lp_status::OPTIMAL:
-            //            SASSERT(lp().all_constraints_hold());
+        if (lp().is_feasible())
             return l_true;
-        case lp::lp_status::TIME_EXHAUSTED:
-                
-        default:
-            TRACE("arith", tout << "status treated as inconclusive: " << status << "\n";);
+        if (status == lp::lp_status::INFEASIBLE)  
+            return l_false;
+        TRACE("arith", tout << "status treated as inconclusive: " << status << "\n";);
             // TENTATIVE_UNBOUNDED, UNBOUNDED, TENTATIVE_DUAL_UNBOUNDED, DUAL_UNBOUNDED, 
             // FLOATING_POINT_ERROR, TIME_EXAUSTED, EMPTY, UNSTABLE
-            return l_undef;
-        }
+        return l_undef;
     }
  
     lp::explanation     m_explanation;
@@ -3467,7 +3460,7 @@ public:
             st = lp::lp_status::UNBOUNDED;
         }
         else {
-            if (lp().get_status() != lp::lp_status::OPTIMAL || lp().has_changed_columns()) 
+            if (!lp().is_feasible() || lp().has_changed_columns()) 
                 make_feasible();
             
             vi = get_lpvar(v);
