@@ -3460,7 +3460,7 @@ public:
             st = lp::lp_status::UNBOUNDED;
         }
         else {
-            if (!lp().is_feasible() || lp().has_changed_columns()) 
+            if (!lp().is_feasible() || lp().has_changed_columns())
                 make_feasible();
             
             vi = get_lpvar(v);
