@@ -950,7 +950,7 @@ extern "C" {
 
     unsigned Z3_API Z3_solver_propagate_register_cb(Z3_context c, Z3_solver_callback s, Z3_ast e) {
         Z3_TRY;
-        Z3_solver_propagate_register_cb(c, s, e);
+        LOG_Z3_solver_propagate_register_cb(c, s, e);
         RESET_ERROR_CODE();
         return reinterpret_cast<user_propagator::callback*>(s)->register_cb(to_expr(e));
         Z3_CATCH_RETURN(0);
