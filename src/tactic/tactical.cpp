@@ -189,10 +189,12 @@ public:
     }
 
     unsigned user_propagate_register(expr* e) override {
+        m_t1->user_propagate_register(e);
         return m_t2->user_propagate_register(e);
     }
 
     void user_propagate_clear() override {
+        m_t1->user_propagate_clear();
         m_t2->user_propagate_clear();
     }
 

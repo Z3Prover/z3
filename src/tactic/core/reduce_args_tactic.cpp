@@ -64,6 +64,7 @@ Notes:
 class reduce_args_tactic : public tactic {
     struct     imp;
     imp *      m_imp;
+
 public:
     reduce_args_tactic(ast_manager & m);
 
@@ -75,6 +76,8 @@ public:
     
     void operator()(goal_ref const & g, goal_ref_buffer & result) override;
     void cleanup() override;
+    unsigned user_propagate_register(expr* e) override;
+    void user_propagate_clear() override;
 };
 
 tactic * mk_reduce_args_tactic(ast_manager & m, params_ref const & p) {
@@ -82,6 +85,7 @@ tactic * mk_reduce_args_tactic(ast_manager & m, params_ref const & p) {
 }
 
 struct reduce_args_tactic::imp {
+    expr_ref_vector m_vars;
     ast_manager &            m_manager;
     bv_util                  m_bv;
     array_util               m_ar;
@@ -89,6 +93,7 @@ struct reduce_args_tactic::imp {
     ast_manager & m() const { return m_manager; }
     
     imp(ast_manager & m):
+        m_vars(m),
         m_manager(m),
         m_bv(m),
         m_ar(m) {
@@ -164,6 +169,9 @@ struct reduce_args_tactic::imp {
     */
     void find_non_candidates(goal const & g, obj_hashtable<func_decl> & non_candidates) {
         non_candidates.reset();
+        for (expr* v : m_vars)
+            if (is_app(v))
+                non_candidates.insert(to_app(v)->get_decl());
         find_non_candidates_proc proc(m_manager, m_bv, m_ar, non_candidates);
         expr_fast_mark1 visited;
         unsigned sz = g.size();
@@ -173,12 +181,9 @@ struct reduce_args_tactic::imp {
         }
         
         TRACE("reduce_args", tout << "non_candidates:\n";
-              obj_hashtable<func_decl>::iterator it  = non_candidates.begin();
-              obj_hashtable<func_decl>::iterator end = non_candidates.end();
-              for (; it != end; ++it) {
-                  func_decl * d = *it;
-                  tout << d->get_name() << "\n";
-              });
+                for (func_decl* d : non_candidates)
+                    tout << d->get_name() << "\n";
+              );
     }
 
     struct populate_decl2args_proc {
@@ -482,6 +487,7 @@ struct reduce_args_tactic::imp {
 };
 
 reduce_args_tactic::reduce_args_tactic(ast_manager & m) {
+    expr_ref_vector vars(m);
     m_imp = alloc(imp, m);
 }
 
@@ -502,7 +508,20 @@ void reduce_args_tactic::operator()(goal_ref const & g,
 
 void reduce_args_tactic::cleanup() {
     ast_manager & m   = m_imp->m();
+    expr_ref_vector vars = m_imp->m_vars;
     m_imp->~imp();
     m_imp = new (m_imp) imp(m);
+    m_imp->m_vars.append(vars);
 }
+
+unsigned reduce_args_tactic::user_propagate_register(expr* e) {
+    m_imp->m_vars.push_back(e);
+    return 0;
+}
+
+void reduce_args_tactic::user_propagate_clear() {
+    m_imp->m_vars.reset();
+}
+
+
 

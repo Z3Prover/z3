@@ -85,6 +85,8 @@ public:
         throw default_exception("tactic does not support user propagation");
     }
 
+    unsigned user_propagate_register(expr* e) override { return 0; }
+
 protected:
     friend class nary_tactical;
     friend class binary_tactical;
