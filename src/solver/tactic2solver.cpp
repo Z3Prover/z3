@@ -112,6 +112,11 @@ public:
         return m_tactic->user_propagate_register(e);
     }
 
+    void user_propagate_clear() override {
+        if (m_tactic)
+            m_tactic->user_propagate_clear();
+    }
+
 
     expr_ref_vector cube(expr_ref_vector& vars, unsigned ) override {
         set_reason_unknown("cubing is not supported on tactics");
@@ -148,6 +153,7 @@ tactic2solver::tactic2solver(ast_manager & m, tactic * t, params_ref const & p, 
 }
 
 tactic2solver::~tactic2solver() {
+    user_propagate_clear();
 }
 
 void tactic2solver::updt_params(params_ref const & p) {

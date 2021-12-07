@@ -192,6 +192,10 @@ public:
         return m_t2->user_propagate_register(e);
     }
 
+    void user_propagate_clear() override {
+        m_t2->user_propagate_clear();
+    }
+
 };
 
 tactic * and_then(tactic * t1, tactic * t2) {

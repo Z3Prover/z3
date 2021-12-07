@@ -413,16 +413,21 @@ public:
         }    
     }
 
-    void user_propagate_init(
-        void* ctx,
-        user_propagator::push_eh_t& push_eh,
-        user_propagator::pop_eh_t& pop_eh,
-        user_propagator::fresh_eh_t& fresh_eh) override {
+    void user_propagate_clear() override {
+        m_user_ctx = nullptr;
         m_vars.reset();
         m_fixed_eh = nullptr;
         m_final_eh = nullptr;
         m_eq_eh = nullptr;
         m_diseq_eh = nullptr;
+    }
+
+    void user_propagate_init(
+        void* ctx,
+        user_propagator::push_eh_t& push_eh,
+        user_propagator::pop_eh_t& pop_eh,
+        user_propagator::fresh_eh_t& fresh_eh) override {
+        user_propagate_clear();
         m_user_ctx = ctx;
         m_push_eh = push_eh;
         m_pop_eh = pop_eh;

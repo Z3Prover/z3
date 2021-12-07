@@ -56,6 +56,9 @@ namespace user_propagator {
         virtual unsigned user_propagate_register(expr* e) { 
             throw default_exception("user-propagators are only supported on the SMT solver");
         }
+
+        virtual void user_propagate_clear() {
+        }
        
     };
 
