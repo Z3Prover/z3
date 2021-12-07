@@ -263,8 +263,8 @@ struct reduce_args_tactic::imp {
         TRACE("reduce_args", tout << "decl2args:" << std::endl;
               for (auto const& [k, v] : decl2args) {
                   tout << k->get_name() << ": ";
-                  for (auto b : v)
-                      tout << (b ? "1" : "0");                            
+                  for (unsigned i = 0; i < v.size(); ++i)
+                      tout << (v.get(i) ? "1" : "0");
                   tout << std::endl;
               });
     }
