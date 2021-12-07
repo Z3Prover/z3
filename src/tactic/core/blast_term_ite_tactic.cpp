@@ -171,6 +171,8 @@ public:
         dealloc(m_imp);
     }
 
+    char const* name() const override { return "blast_term_ite"; }
+
     void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->m_rw.m_cfg.updt_params(p);

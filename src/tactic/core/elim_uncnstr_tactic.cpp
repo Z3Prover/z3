@@ -853,6 +853,8 @@ public:
         updt_params(p);
     }
 
+   char const* name() const override { return "elim_uncstr"; }
+
     tactic * translate(ast_manager & m) override {
         return alloc(elim_uncnstr_tactic, m, m_params);
     }

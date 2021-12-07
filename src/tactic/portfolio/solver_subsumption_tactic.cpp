@@ -133,6 +133,8 @@ public:
 
     ~solver_subsumption_tactic() override {}
 
+    char const* name() const override { return "solver_subsumption"; }
+
     void updt_params(params_ref const& p) override { 
         m_params = p; 
         unsigned max_conflicts = p.get_uint("max_conflicts", 2);

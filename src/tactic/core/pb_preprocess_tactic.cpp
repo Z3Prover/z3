@@ -107,6 +107,8 @@ public:
     tactic * translate(ast_manager & m) override {
         return alloc(pb_preprocess_tactic, m);
     }
+
+    char const* name() const override { return "pb_preprocess"; }
     
     void operator()(
         goal_ref const & g, 

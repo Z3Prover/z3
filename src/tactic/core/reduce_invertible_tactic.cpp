@@ -47,6 +47,8 @@ public:
 
     ~reduce_invertible_tactic() override { }
 
+    char const* name() const override { return "reduce_invertible"; }
+
     tactic * translate(ast_manager & m) override {
         return alloc(reduce_invertible_tactic, m);
     }

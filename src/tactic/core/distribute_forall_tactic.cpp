@@ -102,6 +102,8 @@ public:
         return alloc(distribute_forall_tactic);
     }
 
+    char const* name() const override { return "distribute_forall"; }
+
     void operator()(goal_ref const & g,
                     goal_ref_buffer & result) override {
         ast_manager & m = g->m();

@@ -186,6 +186,8 @@ public:
     tactic * translate(ast_manager & m) override {
         return alloc(solver2tactic, m_solver->translate(m, m_params));
     }    
+
+    char const* name() const override { return "solver2tactic"; }
 };
 
 tactic* mk_solver2tactic(solver* s) { return alloc(solver2tactic, s); }

@@ -196,6 +196,8 @@ public:
         dealloc(m_imp);
     }
 
+    char const* name() const override { return "occf"; }
+
     void updt_params(params_ref const & p) override {}
     void collect_param_descrs(param_descrs & r) override {}
     

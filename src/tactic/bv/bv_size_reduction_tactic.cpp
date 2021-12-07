@@ -54,6 +54,8 @@ public:
         return alloc(bv_size_reduction_tactic, m);
     }
 
+    char const* name() const override { return "bv_size"; }
+
     void operator()(goal_ref const & g, goal_ref_buffer & result) override;
 
     void cleanup() override {

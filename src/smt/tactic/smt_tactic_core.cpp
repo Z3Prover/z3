@@ -41,18 +41,16 @@ class smt_tactic : public tactic {
     smt_params                   m_params;
     params_ref                   m_params_ref;
     statistics                   m_stats;
-    smt::kernel *                m_ctx;
+    smt::kernel*                 m_ctx = nullptr;
     symbol                       m_logic;
-    progress_callback *          m_callback;
-    bool                         m_candidate_models;
-    bool                         m_fail_if_inconclusive;
+    progress_callback*           m_callback = nullptr;
+    bool                         m_candidate_models = false;
+    bool                         m_fail_if_inconclusive = false;
 
 public:
     smt_tactic(ast_manager& m, params_ref const & p):
         m(m),
         m_params_ref(p),
-        m_ctx(nullptr),
-        m_callback(nullptr),
         m_vars(m) {
         updt_params_core(p);
         TRACE("smt_tactic", tout << "p: " << p << "\n";);
@@ -65,6 +63,8 @@ public:
     ~smt_tactic() override {
         SASSERT(m_ctx == nullptr);
     }
+
+    char const* name() const override { return "smt"; }
 
     smt_params & fparams() {
         return m_params;

@@ -90,6 +90,8 @@ public:
 
     void cleanup() override {}
 
+    char const* name() const override { return "fail"; }
+
     tactic * translate(ast_manager & m) override { return this; }
 };
 

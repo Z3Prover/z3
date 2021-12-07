@@ -59,6 +59,8 @@ public:
 
     tactic * translate(ast_manager & m) override { return alloc(special_relations_tactic, m, m_params); }
 
+    char const* name() const override { return "special_relations"; }
+
 };
 
 tactic * mk_special_relations_tactic(ast_manager & m, params_ref const & p = params_ref());

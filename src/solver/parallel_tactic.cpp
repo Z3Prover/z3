@@ -757,6 +757,8 @@ public:
         init();
     }
 
+    char const* name() const override { return "parallel_tactic"; }
+
     void operator()(const goal_ref & g,goal_ref_buffer & result) override {
         cleanup();
         fail_if_proof_generation("parallel-tactic", g);

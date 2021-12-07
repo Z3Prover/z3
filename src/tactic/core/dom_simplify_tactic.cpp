@@ -182,6 +182,7 @@ tactic * dom_simplify_tactic::translate(ast_manager & m) {
     return alloc(dom_simplify_tactic, m, m_simplifier->translate(m), m_params);
 }
 
+
 void dom_simplify_tactic::operator()(goal_ref const & in, goal_ref_buffer & result) {
     tactic_report report("dom-simplify", *in.get());
     simplify_goal(*(in.get()));

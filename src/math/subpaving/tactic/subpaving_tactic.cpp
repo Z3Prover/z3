@@ -220,6 +220,8 @@ public:
         dealloc(m_imp);
     }
 
+    char const* name() const override { return "subpaving"; }
+
     tactic * translate(ast_manager & m) override {
         return alloc(subpaving_tactic, m, m_params);
     }

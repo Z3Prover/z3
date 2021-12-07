@@ -63,6 +63,8 @@ public:
         m_fns.reset();
     }
 
+    char const* name() const override { return "ctx_solver_simplify"; }
+
     void updt_params(params_ref const & p) override {
         m_solver.updt_params(p);
     }

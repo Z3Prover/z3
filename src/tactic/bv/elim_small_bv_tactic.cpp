@@ -234,6 +234,8 @@ public:
         m_params(p) {
     }
 
+    char const* name() const override { return "elim_small_bv"; }
+
     tactic * translate(ast_manager & m) override {
         return alloc(elim_small_bv_tactic, m, m_params);
     }

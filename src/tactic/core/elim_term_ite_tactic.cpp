@@ -136,6 +136,8 @@ public:
         dealloc(m_imp);
     }
 
+    char const* name() const override { return "elim_term_ite"; }
+
     tactic * translate(ast_manager & m) override {
         return alloc(elim_term_ite_tactic, m, m_params);
     }

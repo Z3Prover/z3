@@ -2459,6 +2459,8 @@ public:
         m_params(p),
         m_qe(m, p, true) {}
 
+    char const* name() const override { return "qe_lite"; }
+
     tactic * translate(ast_manager & m) override {
         return alloc(qe_lite_tactic, m, m_params);
     }

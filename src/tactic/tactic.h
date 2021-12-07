@@ -86,6 +86,7 @@ public:
     }
 
     unsigned user_propagate_register(expr* e) override { return 0; }
+    virtual char const* name() const = 0;
 
 protected:
     friend class nary_tactical;
@@ -116,6 +117,7 @@ public:
     void operator()(goal_ref const & in, goal_ref_buffer& result) override;
     void cleanup() override {}
     tactic * translate(ast_manager & m) override { return this; } 
+    char const* name() const { return "skip"; }
 };
 
 tactic * mk_skip_tactic();

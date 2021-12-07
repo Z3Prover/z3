@@ -49,6 +49,8 @@ public:
 
     ~propagate_ineqs_tactic() override;
 
+    char const* name() const override { return "propagate_ineqs"; }
+
     void updt_params(params_ref const & p) override;
     void collect_param_descrs(param_descrs & r) override {}
 

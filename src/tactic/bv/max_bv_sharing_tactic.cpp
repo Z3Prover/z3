@@ -277,6 +277,8 @@ public:
         dealloc(m_imp);
     }
 
+    char const* name() const override { return "max_bv_sharing"; }
+
     void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->m_rw.cfg().updt_params(p);

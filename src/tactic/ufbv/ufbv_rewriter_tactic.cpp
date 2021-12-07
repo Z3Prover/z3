@@ -28,6 +28,8 @@ public:
     ufbv_rewriter_tactic(ast_manager & m, params_ref const & p):
         m_manager(m), m_params(p) {}
 
+    char const* name() const override { return "ufbv"; }
+
     tactic * translate(ast_manager & m) override {
         return alloc(ufbv_rewriter_tactic, m, m_params);
     }

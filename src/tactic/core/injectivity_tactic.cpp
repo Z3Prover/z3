@@ -255,6 +255,8 @@ public:
         dealloc(m_map);
     }
 
+    char const* name() const override { return "injectivity"; }
+
     void updt_params(params_ref const & p) override {
         m_params = p;
         m_finder->updt_params(p);

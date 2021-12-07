@@ -132,6 +132,8 @@ public:
         dealloc(m_todo);
     }
 
+    char const* name() const override { return "lia2card"; }
+
     void updt_params(params_ref const & p) override {
         m_params = p;
         m_compile_equality = p.get_bool("compile_equality", true);
