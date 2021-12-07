@@ -98,6 +98,7 @@ namespace smt {
         bool has_fixed() const { return (bool)m_fixed_eh; }
 
         void propagate_cb(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* lhs, unsigned const* rhs, expr* conseq) override;
+        unsigned register_cb(expr* e) override;
 
         void new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits);
 

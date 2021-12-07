@@ -948,6 +948,14 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    unsigned Z3_API Z3_solver_propagate_register_cb(Z3_context c, Z3_solver_callback s, Z3_ast e) {
+        Z3_TRY;
+        Z3_solver_propagate_register_cb(c, s, e);
+        RESET_ERROR_CODE();
+        return reinterpret_cast<user_propagator::callback*>(s)->register_cb(to_expr(e));
+        Z3_CATCH_RETURN(0);
+    }
+
     void Z3_API Z3_solver_propagate_consequence(Z3_context c, Z3_solver_callback s, unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, Z3_ast conseq) {
         Z3_TRY;
         LOG_Z3_solver_propagate_consequence(c, s, num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, conseq);

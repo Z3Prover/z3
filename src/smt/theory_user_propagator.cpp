@@ -59,6 +59,10 @@ void theory_user_propagator::propagate_cb(
     m_prop.push_back(prop_info(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, expr_ref(conseq, m)));
 }
 
+unsigned theory_user_propagator::register_cb(expr* e) {
+    return add_expr(e);
+}
+
 theory * theory_user_propagator::mk_fresh(context * new_ctx) {
     auto* th = alloc(theory_user_propagator, *new_ctx); 
     void* ctx = m_fresh_eh(m_user_context, new_ctx->get_manager(), th->m_api_context);

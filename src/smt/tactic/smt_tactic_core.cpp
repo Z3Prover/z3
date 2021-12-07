@@ -346,6 +346,15 @@ public:
             }
             cb->propagate_cb(num_fixed, fixed.data(), num_eqs, lhs.data(), rhs.data(), conseq);
         }
+
+        unsigned register_cb(expr* e) override {
+            unsigned j = t->m_vars.size();
+            t->m_vars.push_back(e);
+            unsigned i = cb->register_cb(e);
+            t->m_var2internal.setx(j, i, 0);
+            t->m_internal2var.setx(i, j, 0);
+            return j;
+        }
     };
 
     callback i_cb;

@@ -9,6 +9,7 @@ namespace user_propagator {
     public:
         virtual ~callback() = default;
         virtual void propagate_cb(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr* conseq) = 0;
+        virtual unsigned register_cb(expr* e) = 0;
     };
     
     class context_obj {
