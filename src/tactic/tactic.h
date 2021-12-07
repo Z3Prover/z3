@@ -117,7 +117,7 @@ public:
     void operator()(goal_ref const & in, goal_ref_buffer& result) override;
     void cleanup() override {}
     tactic * translate(ast_manager & m) override { return this; } 
-    char const* name() const { return "skip"; }
+    char const* name() const override { return "skip"; }
 };
 
 tactic * mk_skip_tactic();
