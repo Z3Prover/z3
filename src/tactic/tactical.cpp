@@ -817,6 +817,9 @@ public:
     void reset() override { m_t->reset(); }
     void set_logic(symbol const& l) override { m_t->set_logic(l); }    
     void set_progress_callback(progress_callback * callback) override { m_t->set_progress_callback(callback); }
+    unsigned user_propagate_register(expr* e) override { return m_t->user_propagate_register(e); }
+    void user_propagate_clear() override { m_t->user_propagate_clear(); }
+
 protected:
 
     template<typename T>
