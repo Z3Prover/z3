@@ -1030,6 +1030,29 @@ namespace seq {
         add_clause(le, emp);
     }
 
+    /**
+     * Assume that r has the property that if r accepts string p
+     * then r does *not* accept any suffix of p. It is conceptually easy to 
+     * convert a deterministic automaton for a regex to a suffix blocking acceptor
+     * by redirecting removing outgoing edges from accepting states and redirecting them
+     * to a sink. Alternative, introduce a different string membership predicate that is 
+     * prefix sensitive. 
+     *
+     * Let e = replace_re(s, r, t)
+     * Then a claim is that the following axioms suffice to encode str.replace_re
+     * 
+     * s = "" => e = t
+     * r = "" => e = s + t
+     * s not in .*r.* => e = t
+     * s = x + y + [z] + u & y + [z] in r & x + y not in .*r.* => e = x + t + u
+     */
+    void axioms::replace_re_axiom(expr* e) {
+        expr* s = nullptr, *r = nullptr, *t = nullptr;
+        VERIFY(seq.str.is_replace_re(e, s, r, t)); 
+        NOT_IMPLEMENTED_YET();
+    }
+
+
 
     /**
        Unit is injective:
@@ -1170,5 +1193,6 @@ namespace seq {
         add_clause(~bound_tracker, mk_le(mk_len(s), k));
         return bound_tracker;
     }
+
 
 }

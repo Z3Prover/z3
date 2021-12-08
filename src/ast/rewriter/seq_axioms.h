@@ -106,6 +106,7 @@ namespace seq {
         void unit_axiom(expr* n);
         void length_axiom(expr* n);
         void unroll_not_contains(expr* e);
+        void replace_re_axiom(expr* e);
 
         expr_ref length_limit(expr* s, unsigned k);
         expr_ref is_digit(expr* ch);
