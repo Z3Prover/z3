@@ -1034,7 +1034,7 @@ namespace seq {
      * Assume that r has the property that if r accepts string p
      * then r does *not* accept any suffix of p. It is conceptually easy to 
      * convert a deterministic automaton for a regex to a suffix blocking acceptor
-     * by redirecting removing outgoing edges from accepting states and redirecting them
+     * by removing outgoing edges from accepting states and redirecting them
      * to a sink. Alternative, introduce a different string membership predicate that is 
      * prefix sensitive. 
      *
