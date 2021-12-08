@@ -190,7 +190,7 @@ namespace polysat {
                     lo = val;
                 }
                 SASSERT(hi <= s.var2pdd(v).max_value());
-                LOG("forbidden interval [" << lo << ", " << hi << "[\n");
+                LOG("forbidden interval " << e->interval << " - " << val << " " << coeff_val << " [" << lo << ", " << hi << "[");
                 entry* ne = alloc_entry();
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;

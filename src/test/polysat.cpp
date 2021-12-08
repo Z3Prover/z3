@@ -1065,9 +1065,16 @@ namespace polysat {
 
 void tst_polysat() {
 
-
-    polysat::test_l5();
+    polysat::test_ineq_axiom1();
+    polysat::test_ineq_axiom2();
+    polysat::test_ineq_axiom3();
+    polysat::test_ineq_axiom4();
+    polysat::test_ineq_axiom5();
+    polysat::test_ineq_axiom6();
     return;
+
+    polysat::test_ineq_basic4();
+    //return;
 
     polysat::test_ineq_basic6();
             

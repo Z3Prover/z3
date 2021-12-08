@@ -61,7 +61,7 @@ namespace polysat {
 
     void search_state::pop() {
         auto const& item = m_items.back();
-        if (item.is_assignment() && item.var() == m_assignment.back().first) 
+        if (item.is_assignment() && !m_assignment.empty() && item.var() == m_assignment.back().first) 
             m_assignment.pop_back();        
         m_items.pop_back();
     }
