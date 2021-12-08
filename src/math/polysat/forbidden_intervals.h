@@ -31,33 +31,20 @@ namespace polysat {
         std::tuple<bool, rational, pdd, pdd> linear_decompose(pvar v, pdd const& p, vector<signed_constraint>& out_side_cond);
 
         bool match_linear1(signed_constraint const& c, 
-            rational & a1, pdd const& b1, pdd const& e1, 
+            rational const & a1, pdd const& b1, pdd const& e1, 
             rational const & a2, pdd const& b2, pdd const& e2,
-            eval_interval& interval, vector<signed_constraint>& side_cond);
+            rational& coeff, eval_interval& interval, vector<signed_constraint>& side_cond);
 
         bool match_linear2(signed_constraint const& c,
-            rational & a1, pdd const& b1, pdd const& e1,
+            rational const & a1, pdd const& b1, pdd const& e1,
             rational const & a2, pdd const& b2, pdd const& e2,
-            eval_interval& interval, vector<signed_constraint>& side_cond);
+            rational& coeff, eval_interval& interval, vector<signed_constraint>& side_cond);
 
         bool match_linear3(signed_constraint const& c,
-            rational & a1, pdd const& b1, pdd const& e1,
+            rational const & a1, pdd const& b1, pdd const& e1,
             rational const & a2, pdd const& b2, pdd const& e2,
-            eval_interval& interval, vector<signed_constraint>& side_cond);
+            rational& coeff, eval_interval& interval, vector<signed_constraint>& side_cond);
 
-#if 0
-        bool match_linear4(signed_constraint const& c,
-            rational & a1, pdd const& b1, pdd const& e1,
-            rational & a2, pdd const& b2, pdd const& e2,
-            eval_interval& interval, vector<signed_constraint>& side_cond);
-
-        bool match_linear5(signed_constraint const& c,
-            rational & a1, pdd const& b1, pdd const& e1,
-            rational & a2, pdd const& b2, pdd const& e2,
-            eval_interval& interval, vector<signed_constraint>& side_cond);
-#endif
-
-        // bool coefficient_is_01(dd::pdd_manager& m, rational const& r) { return r.is_zero() || r.is_one() || r == m.max_value(); };
     public:
         forbidden_intervals(solver& s) :s(s) {}
         bool get_interval(signed_constraint const& c, pvar v, rational & coeff, eval_interval& out_interval, vector<signed_constraint>& side_cond);
