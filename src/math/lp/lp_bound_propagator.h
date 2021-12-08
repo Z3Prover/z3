@@ -148,7 +148,6 @@ class lp_bound_propagator {
         if (v1 == v2)
             return;
 
-        TRACE("eq", tout << v1 << " = " << v2 << "\n");
         explanation ex;
         explain_fixed_in_row(r1, ex);
         explain_fixed_in_row(r2, ex);
