@@ -49,6 +49,8 @@ public:
 
     ~ctx_simplify_tactic() override;
 
+    char const* name() const override { return "ctx_simplify"; }
+
     void updt_params(params_ref const & p) override;
     static  void get_param_descrs(param_descrs & r);
     void collect_param_descrs(param_descrs & r) override { get_param_descrs(r); }

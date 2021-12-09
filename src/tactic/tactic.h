@@ -20,17 +20,18 @@ Notes:
 --*/
 #pragma once
 
-#include "tactic/goal.h"
 #include "util/params.h"
-#include "util/statistics.h"
-#include "tactic/tactic_exception.h"
 #include "util/lbool.h"
+#include "util/statistics.h"
+#include "tactic/user_propagator_base.h"
+#include "tactic/goal.h"
+#include "tactic/tactic_exception.h"
 
 class progress_callback;
 
 typedef ptr_buffer<goal> goal_buffer;
 
-class tactic {
+class tactic : public user_propagator::core {
     unsigned m_ref_count;
 public:
     tactic():m_ref_count(0) {}
@@ -76,6 +77,17 @@ public:
 
     static void checkpoint(ast_manager& m);
 
+    void user_propagate_init(
+        void* ctx,
+        user_propagator::push_eh_t& push_eh,
+        user_propagator::pop_eh_t& pop_eh,
+        user_propagator::fresh_eh_t& fresh_eh) override {
+        throw default_exception("tactic does not support user propagation");
+    }
+
+    unsigned user_propagate_register(expr* e) override { return 0; }
+    virtual char const* name() const = 0;
+
 protected:
     friend class nary_tactical;
     friend class binary_tactical;
@@ -105,6 +117,7 @@ public:
     void operator()(goal_ref const & in, goal_ref_buffer& result) override;
     void cleanup() override {}
     tactic * translate(ast_manager & m) override { return this; } 
+    char const* name() const override { return "skip"; }
 };
 
 tactic * mk_skip_tactic();

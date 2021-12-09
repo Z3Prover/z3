@@ -627,8 +627,9 @@ namespace arith {
         else if (use_nra_model() && lp().external_to_local(v) != lp::null_lpvar) {
             anum const& an = nl_value(v, *m_a1);
             if (a.is_int(o) && !m_nla->am().is_int(an))
-                value = a.mk_numeral(rational::zero(), a.is_int(o));             
-            //value = a.mk_numeral(m_nla->am(), nl_value(v, *m_a1), a.is_int(o));
+                value = a.mk_numeral(rational::zero(), a.is_int(o));       
+            else
+                value = a.mk_numeral(m_nla->am(), nl_value(v, *m_a1), a.is_int(o));
         }
         else if (v != euf::null_theory_var) {
             rational r = get_value(v);
@@ -985,7 +986,7 @@ namespace arith {
         IF_VERBOSE(12, verbose_stream() << "final-check " << lp().get_status() << "\n");
         SASSERT(lp().ax_is_correct());
 
-        if (lp().get_status() != lp::lp_status::OPTIMAL || lp().has_changed_columns()) {
+        if (!lp().is_feasible() || lp().has_changed_columns()) {
             switch (make_feasible()) {
             case l_false:
                 get_infeasibility_explanation_and_set_conflict();
@@ -1096,6 +1097,8 @@ namespace arith {
             return l_false;
         case lp::lp_status::FEASIBLE:
         case lp::lp_status::OPTIMAL:
+        case lp::lp_status::UNBOUNDED:
+            SASSERT(!lp().has_changed_columns());
             return l_true;
         case lp::lp_status::TIME_EXHAUSTED:
         default:

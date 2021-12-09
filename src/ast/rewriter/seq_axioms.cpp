@@ -205,10 +205,12 @@ namespace seq {
             drop_last_axiom(e, s);
             return;
         }
+#if 1
         if (is_extract_prefix(s, _i, _l)) {
             extract_prefix_axiom(e, s, l);
             return;
         }
+#endif
         if (is_extract_suffix(s, _i, _l)) {
             extract_suffix_axiom(e, s, i);
             return;
@@ -325,8 +327,7 @@ namespace seq {
       0 <= l <= len(s) => len(e) = l
       len(s) < l => e = s
     */
-    void axioms::extract_prefix_axiom(expr* e, expr* s, expr* l) {
-        
+    void axioms::extract_prefix_axiom(expr* e, expr* s, expr* l) {        
         TRACE("seq", tout << "prefix " << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << " " << mk_bounded_pp(l, m, 2) << "\n";);
         expr_ref le = mk_len(e);
         expr_ref ls = mk_len(s);
@@ -1029,6 +1030,29 @@ namespace seq {
         add_clause(le, emp);
     }
 
+    /**
+     * Assume that r has the property that if r accepts string p
+     * then r does *not* accept any suffix of p. It is conceptually easy to 
+     * convert a deterministic automaton for a regex to a suffix blocking acceptor
+     * by removing outgoing edges from accepting states and redirecting them
+     * to a sink. Alternative, introduce a different string membership predicate that is 
+     * prefix sensitive. 
+     *
+     * Let e = replace_re(s, r, t)
+     * Then a claim is that the following axioms suffice to encode str.replace_re
+     * 
+     * s = "" => e = t
+     * r = "" => e = s + t
+     * s not in .*r.* => e = t
+     * s = x + y + [z] + u & y + [z] in r & x + y not in .*r.* => e = x + t + u
+     */
+    void axioms::replace_re_axiom(expr* e) {
+        expr* s = nullptr, *r = nullptr, *t = nullptr;
+        VERIFY(seq.str.is_replace_re(e, s, r, t)); 
+        NOT_IMPLEMENTED_YET();
+    }
+
+
 
     /**
        Unit is injective:
@@ -1169,5 +1193,6 @@ namespace seq {
         add_clause(~bound_tracker, mk_le(mk_len(s), k));
         return bound_tracker;
     }
+
 
 }

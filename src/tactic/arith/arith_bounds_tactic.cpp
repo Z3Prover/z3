@@ -27,6 +27,8 @@ struct arith_bounds_tactic : public tactic {
                     /* out */ goal_ref_buffer & result) override {        
         bounds_arith_subsumption(in, result);
     }
+
+    char const* name() const override { return "arith_bounds"; }
     
     tactic* translate(ast_manager & mgr) override {
         return alloc(arith_bounds_tactic, mgr);

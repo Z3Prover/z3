@@ -1050,6 +1050,12 @@ public:
     */
     virtual bool is_value(app * a) const { return false; }
 
+
+    /**
+       \brief return true if the expression can be used as a model value.
+     */
+    virtual bool is_model_value(app* a) const { return is_value(a); }
+
     /**
        \brief Return true if \c a is a unique plugin value.
        The following property should hold for unique theory values:

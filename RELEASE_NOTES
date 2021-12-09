@@ -3,13 +3,17 @@ RELEASE NOTES
 Version 4.8.next
 ================
 - Planned features
-  - specialized solver support for QF_ABV and ABV based on lazy SMT and dual reduction
-    - the smtfd solver and tactic implement this strategy, but is not prime for users.
+  - sat.euf 
+    - a new CDCL core for SMT queries. It extends the SAT engine with theory solver plugins.
+      the current state is unstable. It lacks efficient ematching.
+  - polysat
+    - native word level bit-vector solving.
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
-  - circuit optimization techniques for BV in-processing are available as the sat.cut
-    option, but at this point does not translate into benefits. It is currently 
-    turned off by default.
 
+
+Version 4.8.13
+==============
+The release integrates various bug fixes and tuning.
 
 Version 4.8.12
 ==============

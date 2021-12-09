@@ -903,6 +903,8 @@ public:
     ~purify_arith_tactic() override {
     }
 
+    char const* name() const override { return "purify_arith"; }
+
     void updt_params(params_ref const & p) override {
         m_params = p;
     }

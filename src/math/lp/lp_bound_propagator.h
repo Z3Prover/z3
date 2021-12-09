@@ -116,28 +116,42 @@ class lp_bound_propagator {
 
 
     map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>  m_val2fixed_row;
+
+    bool is_fixed_row(unsigned r, unsigned & x) {
+        x = UINT_MAX;
+        const auto & row = lp().get_row(r);
+        for (unsigned k = 0; k < row.size(); k++) {
+            const auto& c = row[k];
+            if (column_is_fixed(c.var()))
+                continue;
+            if (x != UINT_MAX)
+                return false;
+            x = c.var();
+        }
+        return x != UINT_MAX;
+    }
     
-    void try_add_equation_with_internal_fixed_tables(unsigned r1, vertex const* v) {
+    void try_add_equation_with_internal_fixed_tables(unsigned r1) {
         SASSERT(m_fixed_vertex);
-        if (v != m_root)
+        unsigned v1, v2;
+        if (!is_fixed_row(r1, v1))
             return;
-        unsigned v1 = v->column();
         unsigned r2 = UINT_MAX;
         if (!m_val2fixed_row.find(val(v1), r2) || r2 >= lp().row_count()) {
             m_val2fixed_row.insert(val(v1), r1);
             return;
         }
-        unsigned v2, v3;
-        int polarity;
-        if (!is_tree_offset_row(r2, v2, v3, polarity) || !not_set(v3) ||
-            is_int(v1) != is_int(v2) || val(v1) != val(v2)) {
+        if (!is_fixed_row(r2, v2) || val(v1) != val(v2) || is_int(v1) != is_int(v2)) {
             m_val2fixed_row.insert(val(v1), r1);
             return;
         }
+        if (v1 == v2)
+            return;
 
         explanation ex;
         explain_fixed_in_row(r1, ex);
         explain_fixed_in_row(r2, ex);
+        TRACE("eq", print_row(tout, r1); print_row(tout, r2); tout << v1 << " == " << v2 << " = " << val(v1) << "\n");
         add_eq_on_columns(ex, v1, v2, true);
     }
     
@@ -146,7 +160,7 @@ class lp_bound_propagator {
         unsigned v_j = v->column();
         unsigned j = null_lpvar;
         if (!lp().find_in_fixed_tables(val(v_j), is_int(v_j), j)) {
-            // try_add_equation_with_internal_fixed_tables(row_index, v);
+            try_add_equation_with_internal_fixed_tables(row_index);
             return;
         }
        

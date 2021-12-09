@@ -105,7 +105,7 @@ namespace smt {
                     else
                         proc = alloc(expr_wrapper_proc, m.mk_false());
                 }
-                else if (m.is_value(r->get_expr()))
+                else if (m.is_model_value(r->get_expr()))
                     proc = alloc(expr_wrapper_proc, r->get_expr());                    
                 else {
                     family_id fid = s->get_family_id();

@@ -105,12 +105,12 @@ class solver_subsumption_tactic : public tactic {
         vector<std::pair<unsigned, expr_ref>> pre(mid, fmls.data());
         vector<std::pair<unsigned, expr_ref>> post(fmls.size() - mid, fmls.data() + mid);
         push();
-        for (auto [p, f] : post)
+        for (auto const& [p, f] : post)
             assert_expr(f);
         simplify(pre, change);
         pop();
         push();
-        for (auto [p, f] : pre)
+        for (auto const& [p, f] : pre)
             assert_expr(f);
         simplify(post, change);
         pop();
@@ -132,6 +132,8 @@ public:
     }
 
     ~solver_subsumption_tactic() override {}
+
+    char const* name() const override { return "solver_subsumption"; }
 
     void updt_params(params_ref const& p) override { 
         m_params = p; 

@@ -770,6 +770,8 @@ class Formatter:
             return self.pp_set("Empty", a)
         elif k == Z3_OP_RE_FULL_SET:
             return self.pp_set("Full", a)
+        elif k == Z3_OP_CHAR_CONST:
+            return self.pp_char(a)
         return self.pp_name(a)
 
     def pp_int(self, a):
@@ -1059,6 +1061,10 @@ class Formatter:
 
     def pp_set(self, id, a):
         return seq1(id, [self.pp_sort(a.sort())])
+
+    def pp_char(self, a):
+        n = a.params()[0]
+        return to_format(str(n))
 
     def pp_pattern(self, a, d, xs):
         if a.num_args() == 1:

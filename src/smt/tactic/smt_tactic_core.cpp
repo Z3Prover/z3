@@ -37,31 +37,34 @@ typedef obj_map<expr, expr *> expr2expr_map;
 
 
 class smt_tactic : public tactic {
+    ast_manager&                 m;
     smt_params                   m_params;
     params_ref                   m_params_ref;
     statistics                   m_stats;
-    smt::kernel *                m_ctx;
+    smt::kernel*                 m_ctx = nullptr;
     symbol                       m_logic;
-    progress_callback *          m_callback;
-    bool                         m_candidate_models;
-    bool                         m_fail_if_inconclusive;
+    progress_callback*           m_callback = nullptr;
+    bool                         m_candidate_models = false;
+    bool                         m_fail_if_inconclusive = false;
 
 public:
-    smt_tactic(params_ref const & p):
+    smt_tactic(ast_manager& m, params_ref const & p):
+        m(m),
         m_params_ref(p),
-        m_ctx(nullptr),
-        m_callback(nullptr) {
+        m_vars(m) {
         updt_params_core(p);
         TRACE("smt_tactic", tout << "p: " << p << "\n";);
     }
 
     tactic * translate(ast_manager & m) override {
-        return alloc(smt_tactic, m_params_ref);
+        return alloc(smt_tactic, m, m_params_ref);
     }
 
     ~smt_tactic() override {
         SASSERT(m_ctx == nullptr);
     }
+
+    char const* name() const override { return "smt"; }
 
     smt_params & fparams() {
         return m_params;
@@ -137,6 +140,7 @@ public:
         ~scoped_init_ctx() {
             smt::kernel * d = m_owner.m_ctx;
             m_owner.m_ctx = nullptr;
+            m_owner.m_user_ctx = nullptr;
 
             if (d)
                 dealloc(d);
@@ -151,7 +155,6 @@ public:
                     goal_ref_buffer & result) override {
         try {
             IF_VERBOSE(10, verbose_stream() << "(smt.tactic start)\n";);
-            ast_manager & m = in->m();
             tactic_report report("smt", *in);
             TRACE("smt_tactic", tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " "
                   << " PREPROCESS: " << fparams().m_preprocess << "\n";
@@ -163,7 +166,7 @@ public:
             TRACE("smt_tactic_detail", in->display(tout););
             TRACE("smt_tactic_memory", tout << "wasted_size: " << m.get_allocator().get_wasted_size() << "\n";);
             scoped_init_ctx  init(*this, m);
-            SASSERT(m_ctx != 0);
+            SASSERT(m_ctx);
 
             expr_ref_vector clauses(m);
             expr2expr_map               bool2dep;
@@ -194,10 +197,11 @@ public:
             if (m_ctx->canceled()) {                
                 throw tactic_exception(Z3_CANCELED_MSG);
             }
+            user_propagate_delay_init();
 
             lbool r;
             try {
-                if (assumptions.empty())
+                if (assumptions.empty() && !m_user_ctx)
                     r = m_ctx->setup_and_check();
                 else
                     r = m_ctx->check(assumptions.size(), assumptions.data());
@@ -306,10 +310,163 @@ public:
             throw tactic_exception(ex.msg());
         }
     }
+
+    void* m_user_ctx = nullptr;
+    user_propagator::push_eh_t  m_push_eh;
+    user_propagator::pop_eh_t   m_pop_eh;
+    user_propagator::fresh_eh_t m_fresh_eh;
+    user_propagator::fixed_eh_t m_fixed_eh;
+    user_propagator::final_eh_t m_final_eh;
+    user_propagator::eq_eh_t    m_eq_eh;
+    user_propagator::eq_eh_t    m_diseq_eh;
+    expr_ref_vector             m_vars;
+    unsigned_vector             m_var2internal;
+    unsigned_vector             m_internal2var;
+
+    user_propagator::fixed_eh_t i_fixed_eh;
+    user_propagator::final_eh_t i_final_eh;
+    user_propagator::eq_eh_t    i_eq_eh;
+    user_propagator::eq_eh_t    i_diseq_eh;
+
+
+
+    struct callback : public user_propagator::callback {
+        smt_tactic* t = nullptr;
+        user_propagator::callback* cb = nullptr;
+        unsigned_vector fixed, lhs, rhs;
+        void propagate_cb(unsigned num_fixed, unsigned const* fixed_ids, unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, expr* conseq) override {
+            fixed.reset();
+            lhs.reset();
+            rhs.reset();
+            for (unsigned i = 0; i < num_fixed; ++i)
+                fixed.push_back(t->m_var2internal[fixed_ids[i]]);
+            for (unsigned i = 0; i < num_eqs; ++i) {
+                lhs.push_back(t->m_var2internal[eq_lhs[i]]);
+                rhs.push_back(t->m_var2internal[eq_rhs[i]]);
+            }
+            cb->propagate_cb(num_fixed, fixed.data(), num_eqs, lhs.data(), rhs.data(), conseq);
+        }
+
+        unsigned register_cb(expr* e) override {
+            unsigned j = t->m_vars.size();
+            t->m_vars.push_back(e);
+            unsigned i = cb->register_cb(e);
+            t->m_var2internal.setx(j, i, 0);
+            t->m_internal2var.setx(i, j, 0);
+            return j;
+        }
+    };
+
+    callback i_cb;
+
+    void init_i_fixed_eh() {
+        if (!m_fixed_eh)
+            return;
+        i_fixed_eh = [this](void* ctx, user_propagator::callback* cb, unsigned id, expr* value) {
+            i_cb.t = this;
+            i_cb.cb = cb;
+            m_fixed_eh(ctx, &i_cb, m_internal2var[id], value);
+        };
+        m_ctx->user_propagate_register_fixed(i_fixed_eh);
+    }
+
+    void init_i_final_eh() {
+        if (!m_final_eh)
+            return;
+        i_final_eh = [this](void* ctx, user_propagator::callback* cb) {
+            i_cb.t = this;
+            i_cb.cb = cb;
+            m_final_eh(ctx, &i_cb);
+        };
+        m_ctx->user_propagate_register_final(i_final_eh);
+    }
+
+    void init_i_eq_eh() {
+        if (!m_eq_eh)
+            return;
+        i_eq_eh = [this](void* ctx, user_propagator::callback* cb, unsigned u, unsigned v) {
+            i_cb.t = this;
+            i_cb.cb = cb;
+            m_eq_eh(ctx, &i_cb, m_internal2var[u], m_internal2var[v]);
+        };
+        m_ctx->user_propagate_register_eq(i_eq_eh);
+    }
+
+    void init_i_diseq_eh() {
+        if (!m_diseq_eh)
+            return;
+        i_diseq_eh = [this](void* ctx, user_propagator::callback* cb, unsigned u, unsigned v) {
+            i_cb.t = this;
+            i_cb.cb = cb;
+            m_diseq_eh(ctx, &i_cb, m_internal2var[u], m_internal2var[v]);
+        };
+        m_ctx->user_propagate_register_diseq(i_diseq_eh);
+    }
+
+
+    void user_propagate_delay_init() {
+        if (!m_user_ctx)
+            return;
+        m_ctx->user_propagate_init(m_user_ctx, m_push_eh, m_pop_eh, m_fresh_eh);
+        init_i_fixed_eh();
+        init_i_final_eh();
+        init_i_eq_eh();
+        init_i_diseq_eh();
+
+        unsigned i = 0;
+        for (expr* v : m_vars) {
+            unsigned j = m_ctx->user_propagate_register(v);
+            m_var2internal.setx(i, j, 0);
+            m_internal2var.setx(j, i, 0);
+            ++i;
+        }    
+    }
+
+    void user_propagate_clear() override {
+        m_user_ctx = nullptr;
+        m_vars.reset();
+        m_fixed_eh = nullptr;
+        m_final_eh = nullptr;
+        m_eq_eh = nullptr;
+        m_diseq_eh = nullptr;
+    }
+
+    void user_propagate_init(
+        void* ctx,
+        user_propagator::push_eh_t& push_eh,
+        user_propagator::pop_eh_t& pop_eh,
+        user_propagator::fresh_eh_t& fresh_eh) override {
+        user_propagate_clear();
+        m_user_ctx = ctx;
+        m_push_eh = push_eh;
+        m_pop_eh = pop_eh;
+        m_fresh_eh = fresh_eh;
+    }
+
+    void user_propagate_register_fixed(user_propagator::fixed_eh_t& fixed_eh) override {
+        m_fixed_eh = fixed_eh;
+    }
+
+    void user_propagate_register_final(user_propagator::final_eh_t& final_eh) override {
+        m_final_eh = final_eh;
+    }
+
+    void user_propagate_register_eq(user_propagator::eq_eh_t& eq_eh) override {
+        m_eq_eh = eq_eh;
+    }
+
+    void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh) override {
+        m_diseq_eh = diseq_eh;
+    }
+
+    unsigned user_propagate_register(expr* e) override {
+        m_vars.push_back(e);
+        return m_vars.size() - 1;
+    }
 };
 
-static tactic * mk_seq_smt_tactic(params_ref const & p) {
-    return alloc(smt_tactic, p);
+static tactic * mk_seq_smt_tactic(ast_manager& m, params_ref const & p) {
+    return alloc(smt_tactic, m, p);
 }
 
 
@@ -319,13 +476,13 @@ tactic * mk_parallel_smt_tactic(ast_manager& m, params_ref const& p) {
 
 tactic * mk_smt_tactic_core(ast_manager& m, params_ref const& p, symbol const& logic) {
     parallel_params pp(p);
-    return pp.enable() ? mk_parallel_tactic(mk_smt_solver(m, p, logic), p) : mk_seq_smt_tactic(p);
+    return pp.enable() ? mk_parallel_tactic(mk_smt_solver(m, p, logic), p) : mk_seq_smt_tactic(m, p);
 }
 
 tactic * mk_smt_tactic_core_using(ast_manager& m, bool auto_config, params_ref const& _p) {
     parallel_params pp(_p);
     params_ref p = _p;
     p.set_bool("auto_config", auto_config);
-    return using_params(pp.enable() ? mk_parallel_smt_tactic(m, p) : mk_seq_smt_tactic(p), p);
+    return using_params(pp.enable() ? mk_parallel_smt_tactic(m, p) : mk_seq_smt_tactic(m, p), p);
 }
 

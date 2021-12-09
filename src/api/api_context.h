@@ -115,7 +115,7 @@ namespace api {
         std::string                m_exception_msg; // catch the message associated with a Z3 exception
         Z3_ast_print_mode          m_print_mode;
 
-        event_handler *            m_interruptable; // Reference to an object that can be interrupted by Z3_interrupt
+        ptr_vector<event_handler>  m_interruptable; // Reference to an object that can be interrupted by Z3_interrupt
 
      public:
         // Scoped obj for setting m_interruptable

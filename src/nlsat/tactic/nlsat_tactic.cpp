@@ -223,6 +223,8 @@ public:
         SASSERT(m_imp == 0);
     }
 
+    char const* name() const override { return "nlsat"; }
+
     void updt_params(params_ref const & p) override {
         m_params = p;
     }

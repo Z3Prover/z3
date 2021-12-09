@@ -296,6 +296,8 @@ class lar_solver : public column_namer {
     mutable mpq m_delta;
 
 public:
+    // this function just looks at the status
+    bool is_feasible() const;
     const map<mpq, unsigned, obj_hash<mpq>, default_eq<mpq>>& fixed_var_table_int() const {
         return m_fixed_var_table_int;
     }
@@ -553,6 +555,10 @@ public:
 
     inline bool column_is_bounded(unsigned j) const {
         return m_mpq_lar_core_solver.column_is_bounded(j);
+    }
+
+    bool check_feasible() const {
+        return m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis();
     }
 
     std::pair<constraint_index, constraint_index> add_equality(lpvar j, lpvar k);

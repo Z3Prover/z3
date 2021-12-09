@@ -308,7 +308,6 @@ namespace arith {
 
     bool solver::internalize_atom(expr* atom) {
         TRACE("arith", tout << mk_pp(atom, m) << "\n";);
-        SASSERT(!ctx.get_enode(atom));
         expr* n1, *n2;
         rational r;
         lp_api::bound_kind k;

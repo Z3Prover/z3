@@ -68,6 +68,8 @@ public:
     ~der_tactic() override {
         dealloc(m_imp);
     }
+
+    char const* name() const override { return "der"; }
     
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {

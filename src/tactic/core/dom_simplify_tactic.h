@@ -131,6 +131,8 @@ public:
 
     ~dom_simplify_tactic() override;
 
+    char const* name() const override { return "dom_simplify"; }
+
     tactic * translate(ast_manager & m) override;
     void updt_params(params_ref const & p) override {}
     static  void get_param_descrs(param_descrs & r) {}

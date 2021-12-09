@@ -72,6 +72,7 @@ namespace euf {
         };
         struct scope {
             unsigned m_var_lim;
+            scope(unsigned l) : m_var_lim(l) {}
         };
 
 
@@ -400,27 +401,27 @@ namespace euf {
         // user propagator
         void user_propagate_init(
             void* ctx,
-            ::solver::push_eh_t& push_eh,
-            ::solver::pop_eh_t& pop_eh,
-            ::solver::fresh_eh_t& fresh_eh);
+            user_propagator::push_eh_t& push_eh,
+            user_propagator::pop_eh_t& pop_eh,
+            user_propagator::fresh_eh_t& fresh_eh);
         bool watches_fixed(enode* n) const;
         void assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain);
         void assign_fixed(enode* n, expr* val, literal_vector const& explain) { assign_fixed(n, val, explain.size(), explain.data()); }
         void assign_fixed(enode* n, expr* val, literal explain) { assign_fixed(n, val, 1, &explain); }
 
-        void user_propagate_register_final(::solver::final_eh_t& final_eh) {
+        void user_propagate_register_final(user_propagator::final_eh_t& final_eh) {
             check_for_user_propagator();
             m_user_propagator->register_final(final_eh);
         }
-        void user_propagate_register_fixed(::solver::fixed_eh_t& fixed_eh) {
+        void user_propagate_register_fixed(user_propagator::fixed_eh_t& fixed_eh) {
             check_for_user_propagator();
             m_user_propagator->register_fixed(fixed_eh);
         }
-        void user_propagate_register_eq(::solver::eq_eh_t& eq_eh) {
+        void user_propagate_register_eq(user_propagator::eq_eh_t& eq_eh) {
             check_for_user_propagator();
             m_user_propagator->register_eq(eq_eh);
         }
-        void user_propagate_register_diseq(::solver::eq_eh_t& diseq_eh) {
+        void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh) {
             check_for_user_propagator();
             m_user_propagator->register_diseq(diseq_eh);
         }

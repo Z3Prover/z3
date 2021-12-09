@@ -22,6 +22,7 @@ namespace sat {
         m_solver(m_params, l)
     {
         SASSERT(!m_solver.get_config().m_drat);
+        m_solver.set_incremental(true);
     }
 
     void dual_solver::flush() {
@@ -104,10 +105,10 @@ namespace sat {
             root = ext2lit(clause[0]);
         else {
             root = literal(m_solver.mk_var(), false);
-            m_solver.set_external(root.var());
             for (unsigned i = 0; i < sz; ++i)
                 m_solver.mk_clause(root, ~ext2lit(clause[i]), status::input());
-        }
+        }        
+        m_solver.set_external(root.var());
         m_roots.push_back(~root);
         TRACE("dual", tout << "root: " << ~root << " => " << literal_vector(sz, clause) << "\n";);
     }

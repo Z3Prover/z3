@@ -153,6 +153,8 @@ public:
         dealloc(m_imp);
     }
 
+    char const* name() const override { return "normalize_bounds"; }
+
     void updt_params(params_ref const & p) override {
         m_imp->updt_params(p);
     }

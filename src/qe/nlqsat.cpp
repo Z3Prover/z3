@@ -839,6 +839,8 @@ namespace qe {
         ~nlqsat() override {
         }
 
+        char const* name() const override { return "nlqsat"; }
+
         void updt_params(params_ref const & p) override {
             params_ref p2(p);
             p2.set_bool("factor", false);

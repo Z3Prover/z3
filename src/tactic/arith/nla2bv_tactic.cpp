@@ -438,6 +438,8 @@ public:
     ~nla2bv_tactic() override {
     }
 
+    char const* name() const override { return "nla2bv"; }
+
     void updt_params(params_ref const & p) override {
 		m_params.append(p);
     }

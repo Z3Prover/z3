@@ -43,6 +43,8 @@ public:
 
     tactic * translate(ast_manager & m) override { return alloc(simplify_tactic, m, m_params); }
 
+    char const* name() const override { return "simplify"; }
+
 };
 
 tactic * mk_simplify_tactic(ast_manager & m, params_ref const & p = params_ref());

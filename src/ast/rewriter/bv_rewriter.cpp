@@ -855,6 +855,16 @@ br_status bv_rewriter::mk_bv_shl(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_REWRITE2;
     }
 
+    expr* x = nullptr, *y = nullptr;    
+    if (m_util.is_bv_shl(arg1, x, y)) {
+        expr_ref sum(m_util.mk_bv_add(y, arg2), m());
+        expr_ref cond(m_util.mk_ule(y, sum), m());
+        result = m().mk_ite(cond, 
+                            m_util.mk_bv_shl(x, sum),
+                            mk_numeral(0, bv_size));
+        return BR_REWRITE3;
+    }
+
     return BR_FAILED;
 }
 
@@ -1436,18 +1446,34 @@ br_status bv_rewriter::mk_bv2int(expr * arg, expr_ref & result) {
 
 
 bool bv_rewriter::is_mul_no_overflow(expr* e) {
-    if (!m_util.is_bv_mul(e)) return false;
+    if (!m_util.is_bv_mul(e)) 
+        return false;
     unsigned sz = get_bv_size(e);
     unsigned sum = 0;
-    for (expr* x : *to_app(e)) sum += sz-num_leading_zero_bits(x);
-    return sum < sz;
+    for (expr* x : *to_app(e)) 
+        sum += sz - num_leading_zero_bits(x);
+    if (sum > sz + 1)
+        return false;
+    if (sum <= sz)
+        return true;
+    rational v;
+    unsigned shift;
+    for (expr* x : *to_app(e)) 
+        if (m_util.is_numeral(x, v) && v.is_power_of_two(shift))
+            return true;
+    return false;
 }
 
 bool bv_rewriter::is_add_no_overflow(expr* e) {
-    if (!is_add(e)) return false;
-    for (expr* x : *to_app(e)) {
-        if (0 == num_leading_zero_bits(x)) return false;
-    }
+    if (!is_add(e)) 
+        return false;
+    unsigned num_args = to_app(e)->get_num_args();
+    if (num_args <= 1)
+        return true;
+    num_args -= 2;
+    for (expr* x : *to_app(e)) 
+        if (num_args >= num_leading_zero_bits(x)) 
+            return false;
     return true;
 }
 

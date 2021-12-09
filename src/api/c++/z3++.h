@@ -1911,7 +1911,7 @@ namespace z3 {
     }
     inline expr bvredand(expr const & a) {
         assert(a.is_bv());
-        Z3_ast r = Z3_mk_bvredor(a.ctx(), a);
+        Z3_ast r = Z3_mk_bvredand(a.ctx(), a);
         a.check_error();
         return expr(a.ctx(), r);
     }
@@ -4030,8 +4030,12 @@ namespace z3 {
          */
 
         unsigned add(expr const& e) {
-            assert(s);
-            return Z3_solver_propagate_register(ctx(), *s, e);
+            if (cb)
+                return Z3_solver_propagate_register_cb(ctx(), cb, e);
+            if (s)
+                return Z3_solver_propagate_register(ctx(), *s, e);
+            assert(false);
+            return 0;
         }
 
         void conflict(unsigned num_fixed, unsigned const* fixed) {

@@ -1222,6 +1222,7 @@ typedef enum {
     Z3_OP_RE_COMPLEMENT,
 
     // char
+    Z3_OP_CHAR_CONST,
     Z3_OP_CHAR_LE,
     Z3_OP_CHAR_TO_INT,
     Z3_OP_CHAR_TO_BV,
@@ -3450,6 +3451,10 @@ extern "C" {
     /**
        \brief Create a sort for unicode strings.
 
+       The sort for characters can be changed to ASCII by setting
+       the global parameter \c encoding to \c ascii, or alternative
+       to 16 bit characters by setting \c encoding to \c bmp.
+
        def_API('Z3_mk_string_sort', SORT, (_in(CONTEXT), ))
      */
     Z3_sort Z3_API Z3_mk_string_sort(Z3_context c);
@@ -3458,7 +3463,8 @@ extern "C" {
        \brief Create a sort for unicode characters.
 
        The sort for characters can be changed to ASCII by setting
-       the global parameter \c unicode to \c false.
+       the global parameter \c encoding to \c ascii, or alternative
+       to 16 bit characters by setting \c encoding to \c bmp.
 
        def_API('Z3_mk_char_sort', SORT, (_in(CONTEXT), ))
     */
@@ -3482,8 +3488,8 @@ extern "C" {
        \brief Create a string constant out of the string that is passed in
        The string may contain escape encoding for non-printable characters
        or characters outside of the basic printable ASCII range. For example, 
-       the escape encoding \u{0} represents the character 0 and the encoding
-       \u{100} represents the character 256.
+       the escape encoding \\u{0} represents the character 0 and the encoding
+       \\u{100} represents the character 256.
 
        def_API('Z3_mk_string', AST, (_in(CONTEXT), _in(STRING)))
      */
@@ -3493,7 +3499,7 @@ extern "C" {
        \brief Create a string constant out of the string that is passed in
        It takes the length of the string as well to take into account
        0 characters. The string is treated as if it is unescaped so a sequence
-       of characters \u{0} is treated as 5 characters and not the character 0.
+       of characters \\u{0} is treated as 5 characters and not the character 0.
 
        def_API('Z3_mk_lstring', AST, (_in(CONTEXT), _in(UINT), _in(STRING)))
      */
@@ -6678,6 +6684,16 @@ extern "C" {
     */
 
     unsigned Z3_API Z3_solver_propagate_register(Z3_context c, Z3_solver s, Z3_ast e);   
+
+    /**
+        \brief register an expression to propagate on with the solver.
+        Only expressions of type Bool and type Bit-Vector can be registered for propagation.
+        Unlike \ref Z3_solver_propagate_register, this function takes a solver callback context
+        as argument. It can be invoked during a callback to register new expressions.
+
+        def_API('Z3_solver_propagate_register_cb', UINT, (_in(CONTEXT), _in(SOLVER_CALLBACK), _in(AST)))
+    */
+    unsigned Z3_API Z3_solver_propagate_register_cb(Z3_context c, Z3_solver_callback cb, Z3_ast e);
 
     /**
        \brief propagate a consequence based on fixed values.

@@ -1257,6 +1257,8 @@ namespace qe {
         ~qsat() override {
             clear();
         }
+
+        char const* name() const override { return "qsat"; }
         
         void updt_params(params_ref const & p) override {
         }

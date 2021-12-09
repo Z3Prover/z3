@@ -1,5 +1,5 @@
 variables:
-  ReleaseVersion: '4.8.11'
+  ReleaseVersion: '4.8.13'
 
 stages:
 - stage: Build
@@ -36,14 +36,14 @@ stages:
   - job: UbuntuDoc
     displayName: "Ubuntu Doc build"
     pool:
-      vmImage: "Ubuntu-18.04"
+      vmImage: "Ubuntu-latest"
     steps:
     - script: sudo apt-get install ocaml opam libgmp-dev
-    - script: sudo apt-get install doxygen
-    - script: sudo apt-get install graphviz
     - script: opam init -y
     - script: eval `opam config env`; opam install zarith ocamlfind -y
-    - script: python scripts/mk_make.py --ml --staticlib
+    - script: eval `opam config env`; python scripts/mk_make.py --ml
+    - script: sudo apt-get install doxygen
+    - script: sudo apt-get install graphviz
     - script: |
         set -e
         cd build
@@ -51,7 +51,6 @@ stages:
         make -j3
         make -j3 examples
         make -j3 test-z3
-        ./ml_example
         cd ..
     - script: |
         set -e

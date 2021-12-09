@@ -3,7 +3,7 @@ Copyright (c) 2020 Microsoft Corporation
 
 Module Name:
 
-    user_propagator.cpp
+    theory_user_propagator.cpp
 
 Abstract:
 
@@ -17,20 +17,20 @@ Author:
 
 
 #include "ast/ast_pp.h"
-#include "smt/user_propagator.h"
+#include "smt/theory_user_propagator.h"
 #include "smt/smt_context.h"
 
 using namespace smt;
 
-user_propagator::user_propagator(context& ctx):
+theory_user_propagator::theory_user_propagator(context& ctx):
     theory(ctx, ctx.get_manager().mk_family_id("user_propagator"))
 {}
 
-user_propagator::~user_propagator() {
+theory_user_propagator::~theory_user_propagator() {
     dealloc(m_api_context);
 }
 
-void user_propagator::force_push() {
+void theory_user_propagator::force_push() {
     for (; m_num_scopes > 0; --m_num_scopes) {
         theory::push_scope_eh();
         m_push_eh(m_user_context);
@@ -38,7 +38,7 @@ void user_propagator::force_push() {
     }
 }
 
-unsigned user_propagator::add_expr(expr* e) {
+unsigned theory_user_propagator::add_expr(expr* e) {
     force_push();
     enode* n = ensure_enode(e);
     if (is_attached_to_var(n))
@@ -48,17 +48,23 @@ unsigned user_propagator::add_expr(expr* e) {
     return v;
 }
 
-void user_propagator::propagate_cb(
+void theory_user_propagator::propagate_cb(
     unsigned num_fixed, unsigned const* fixed_ids, 
     unsigned num_eqs, unsigned const* eq_lhs, unsigned const* eq_rhs, 
     expr* conseq) {
-    if (ctx.lit_internalized(conseq) && ctx.get_assignment(ctx.get_literal(conseq)) == l_true)
+    CTRACE("user_propagate", ctx.lit_internalized(conseq) && ctx.get_assignment(ctx.get_literal(conseq)) == l_true,
+           ctx.display(tout << "redundant consequence: " << mk_pp(conseq, m) << "\n"));
+    if (ctx.lit_internalized(conseq) && ctx.get_assignment(ctx.get_literal(conseq)) == l_true) 
         return;
     m_prop.push_back(prop_info(num_fixed, fixed_ids, num_eqs, eq_lhs, eq_rhs, expr_ref(conseq, m)));
 }
 
-theory * user_propagator::mk_fresh(context * new_ctx) { 
-    auto* th = alloc(user_propagator, *new_ctx); 
+unsigned theory_user_propagator::register_cb(expr* e) {
+    return add_expr(e);
+}
+
+theory * theory_user_propagator::mk_fresh(context * new_ctx) {
+    auto* th = alloc(theory_user_propagator, *new_ctx); 
     void* ctx = m_fresh_eh(m_user_context, new_ctx->get_manager(), th->m_api_context);
     th->add(ctx, m_push_eh, m_pop_eh, m_fresh_eh);
     if ((bool)m_fixed_eh) th->register_fixed(m_fixed_eh);
@@ -68,7 +74,7 @@ theory * user_propagator::mk_fresh(context * new_ctx) {
     return th;
 }
 
-final_check_status user_propagator::final_check_eh() {
+final_check_status theory_user_propagator::final_check_eh() {
     if (!(bool)m_final_eh)
         return FC_DONE;
     force_push();
@@ -79,7 +85,7 @@ final_check_status user_propagator::final_check_eh() {
     return done ? FC_DONE : FC_CONTINUE;
 }
 
-void user_propagator::new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits) {
+void theory_user_propagator::new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits) {
     if (!m_fixed_eh)
         return;
     force_push();
@@ -91,11 +97,11 @@ void user_propagator::new_fixed_eh(theory_var v, expr* value, unsigned num_lits,
     m_fixed_eh(m_user_context, this, v, value);
 }
 
-void user_propagator::push_scope_eh() {
+void theory_user_propagator::push_scope_eh() {
     ++m_num_scopes;
 }
 
-void user_propagator::pop_scope_eh(unsigned num_scopes) {
+void theory_user_propagator::pop_scope_eh(unsigned num_scopes) {
     unsigned n = std::min(num_scopes, m_num_scopes);
     m_num_scopes -= n;
     num_scopes -= n;
@@ -108,11 +114,12 @@ void user_propagator::pop_scope_eh(unsigned num_scopes) {
     m_prop_lim.shrink(old_sz);
 }
 
-bool user_propagator::can_propagate() {
+bool theory_user_propagator::can_propagate() {
     return m_qhead < m_prop.size();
 }
 
-void user_propagator::propagate() {
+void theory_user_propagator::propagate() {
+    TRACE("user_propagate", tout << "propagating queue head: " << m_qhead << " prop queue: " << m_prop.size() << "\n");
     if (m_qhead == m_prop.size())
         return;
     force_push();
@@ -127,9 +134,10 @@ void user_propagator::propagate() {
         for (auto const& p : prop.m_eqs)
             m_eqs.push_back(enode_pair(get_enode(p.first), get_enode(p.second)));
         DEBUG_CODE(for (auto const& p : m_eqs) VERIFY(p.first->get_root() == p.second->get_root()););
-	DEBUG_CODE(for (unsigned id : prop.m_ids) VERIFY(m_fixed.contains(id)););
-	DEBUG_CODE(for (literal lit : m_lits) VERIFY(ctx.get_assignment(lit) == l_true););
+        DEBUG_CODE(for (unsigned id : prop.m_ids) VERIFY(m_fixed.contains(id)););
+        DEBUG_CODE(for (literal lit : m_lits) VERIFY(ctx.get_assignment(lit) == l_true););
 
+        TRACE("user_propagate", tout << "propagating #" << prop.m_conseq->get_id() << ": " << prop.m_conseq << "\n");
 	
         if (m.is_false(prop.m_conseq)) {
             js = ctx.mk_justification(
@@ -138,11 +146,25 @@ void user_propagator::propagate() {
             ctx.set_conflict(js);
         }
         else {
-            literal lit = mk_literal(prop.m_conseq);
-            js = ctx.mk_justification(
-                ext_theory_propagation_justification(
-                    get_id(), ctx.get_region(), m_lits.size(), m_lits.data(), m_eqs.size(), m_eqs.data(), lit));
-            ctx.assign(lit, js);
+            for (auto& lit : m_lits)
+                lit.neg();
+            for (auto const& [a,b] : m_eqs)
+                m_lits.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
+
+            literal lit; 
+            if (has_quantifiers(prop.m_conseq)) {
+                expr_ref fn(m.mk_fresh_const("aux-literal", m.mk_bool_sort()), m);
+                expr_ref eq(m.mk_eq(fn, prop.m_conseq), m);
+                ctx.assert_expr(eq);
+                ctx.internalize_assertions();
+                lit = mk_literal(fn);
+            }
+            else 
+                lit = mk_literal(prop.m_conseq);            
+            ctx.mark_as_relevant(lit);
+            m_lits.push_back(lit);
+            ctx.mk_th_lemma(get_id(), m_lits);
+            TRACE("user_propagate", ctx.display(tout););
         }
         ++m_stats.m_num_propagations;
         ++qhead;
@@ -151,7 +173,7 @@ void user_propagator::propagate() {
     m_qhead = qhead;
 }
 
-void user_propagator::collect_statistics(::statistics & st) const {
+void theory_user_propagator::collect_statistics(::statistics & st) const {
     st.update("user-propagations", m_stats.m_num_propagations);
     st.update("user-watched",      get_num_vars());
 }

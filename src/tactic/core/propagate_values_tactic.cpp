@@ -216,6 +216,8 @@ public:
         return alloc(propagate_values_tactic, m, m_params);
     }
 
+    char const* name() const override { return "propagate_values"; }
+
     void updt_params(params_ref const & p) override {
         m_params = p;
         m_r.updt_params(p);

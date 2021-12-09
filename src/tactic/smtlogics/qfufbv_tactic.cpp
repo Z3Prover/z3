@@ -53,6 +53,8 @@ public:
 
     ~qfufbv_ackr_tactic() override { }
 
+    char const* name() const override { return "qfufbv_ackr"; }
+
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         ast_manager& m(g->m());
         tactic_report report("qfufbv_ackr", *g);

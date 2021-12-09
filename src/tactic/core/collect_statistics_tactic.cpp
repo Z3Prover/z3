@@ -53,6 +53,8 @@ public:
 
     ~collect_statistics_tactic() override {}
 
+    char const* name() const override { return "collect_statistics"; }
+
     tactic * translate(ast_manager & m_) override {
         return alloc(collect_statistics_tactic, m_, m_params);
     }

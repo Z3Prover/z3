@@ -38,6 +38,8 @@ struct unit_subsumption_tactic : public tactic {
         m_clauses(m) {
     }
 
+    char const* name() const override { return "unit_subsumption"; }
+
     void cleanup() override {}
 
     void operator()(/* in */  goal_ref const & in, 

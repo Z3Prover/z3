@@ -45,6 +45,8 @@ public:
     aig_tactic(params_ref const & p = params_ref()):m_aig_manager(nullptr) {
         updt_params(p); 
     }
+
+    char const* name() const override { return "aig"; }
     
     tactic * translate(ast_manager & m) override {
         aig_tactic * t = alloc(aig_tactic);

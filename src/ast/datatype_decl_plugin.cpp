@@ -717,6 +717,8 @@ namespace datatype {
                 todo.pop_back();
                 continue;
             }
+            if (!is_declared(s))
+                return true;
             already_found.insert(datatype_name(s), GRAY);
             def const& d = get_def(s);
             bool can_process       = true;

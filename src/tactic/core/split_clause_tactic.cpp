@@ -91,6 +91,8 @@ public:
     ~split_clause_tactic() override {
     }
 
+    char const* name() const override { return "split_clause"; }
+
     void updt_params(params_ref const & p) override {
         m_largest_clause = p.get_bool("split_largest_clause", false);
     }

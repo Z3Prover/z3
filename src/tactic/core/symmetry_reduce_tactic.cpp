@@ -37,6 +37,8 @@ public:
     }
     
     ~symmetry_reduce_tactic() override;
+
+    char const* name() const override { return "symmetry_reduce"; }
     
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override;

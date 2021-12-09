@@ -798,6 +798,18 @@ namespace lp {
     }
 
 
+    // this function just looks at the status    
+    bool lar_solver::is_feasible() const {
+        switch (this->get_status()) {
+        case lp_status::OPTIMAL:
+        case lp_status::FEASIBLE:
+        case lp_status::UNBOUNDED:
+            return true;
+        default:
+            return false;
+        }
+    }
+    
     numeric_pair<mpq> lar_solver::get_basic_var_value_from_row(unsigned i) {
         numeric_pair<mpq> r = zero_of_type<numeric_pair<mpq>>();
 

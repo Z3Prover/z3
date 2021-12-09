@@ -324,6 +324,7 @@ static void set_upper(impq & u, bool & inf_u, impq const & v) {
     }
 }
 
+// this function assumes that all basic columns dependend on j are feasible
 bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m) {
     if (lrac.m_r_heading[j] >= 0) // the basic var
         return false;
@@ -336,62 +337,52 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
     l = u = zero_of_type<impq>();
     m = mpq(1);
 
-    if (has_lower(j)) {
+    if (has_lower(j)) 
         set_lower(l, inf_l, lower_bound(j) - xj);
-    }
-    if (has_upper(j)) {
+    
+    if (has_upper(j)) 
         set_upper(u, inf_u, upper_bound(j) - xj);
-    }
+    
 
-    unsigned row_index;
     lp_assert(settings().use_tableau());
     const auto & A = lra.A_r();
-    unsigned rounds = 0;
-    for (auto c : A.column(j)) {
-        row_index = c.var();
-        const mpq & a = c.coeff();
-        unsigned i = lrac.m_r_basis[row_index];
-        TRACE("random_update", tout << "i = " << i << ", a = " << a << "\n";);
-        if (column_is_int(i) && !a.is_int())
-            m = lcm(m, denominator(a));
-    }
     TRACE("random_update", tout <<  "m = " << m << "\n";);
 
+    auto delta = [](mpq const& x, impq const& y, impq const& z) {
+        if (x.is_one())
+            return y - z;
+        if (x.is_minus_one())
+            return z - y;
+        return (y - z) / x;
+    };
+
     for (auto c : A.column(j)) {
-        if (!inf_l && !inf_u && l >= u) break;
-        row_index = c.var();
+        unsigned row_index = c.var();
         const mpq & a = c.coeff();
         unsigned i = lrac.m_r_basis[row_index];
         impq const & xi = get_value(i);
+        lp_assert(lrac.m_r_solver.column_is_feasible(i));
+        if (column_is_int(i) && !a.is_int())
+            m = lcm(m, denominator(a));
 
-#define SET_BOUND(_fn_, a, b, x, y, z)                                  \
-        if (x.is_one())                                                 \
-            _fn_(a, b, y - z);                                          \
-        else if (x.is_minus_one())                                      \
-            _fn_(a, b, z - y);                                          \
-        else if (z == y)                                                \
-            _fn_(a, b, zero_of_type<impq>());                           \
-        else                                                            \
-            {  _fn_(a, b, (y - z)/x);  }   \
 
+        if (!inf_l && !inf_u) {
+            if (l == u) 
+                continue;            
+        }
 
         if (a.is_neg()) {
-            if (has_lower(i)) {
-                SET_BOUND(set_lower, l, inf_l, a, xi, lrac.m_r_lower_bounds()[i]);
-            }
-            if (has_upper(i)) {
-                SET_BOUND(set_upper, u, inf_u, a, xi, lrac.m_r_upper_bounds()[i]);
-            }
+            if (has_lower(i)) 
+                set_lower(l, inf_l, delta(a, xi, lrac.m_r_lower_bounds()[i]));
+            if (has_upper(i)) 
+                set_upper(u, inf_u, delta(a, xi, lrac.m_r_upper_bounds()[i]));
         }
         else {
-            if (has_upper(i)) {
-                SET_BOUND(set_lower, l, inf_l, a, xi, lrac.m_r_upper_bounds()[i]);
-            }
-            if (has_lower(i)) {
-                SET_BOUND(set_upper, u, inf_u, a, xi, lrac.m_r_lower_bounds()[i]);
-            }
+            if (has_upper(i)) 
+                set_lower(l, inf_l, delta(a, xi, lrac.m_r_upper_bounds()[i]));
+            if (has_lower(i)) 
+                set_upper(u, inf_u, delta(a, xi, lrac.m_r_lower_bounds()[i]));
         }
-        ++rounds;
     }
 
     l += xj;
@@ -545,7 +536,7 @@ for (const auto &c : row)
 }
 std::ostream& int_solver::display_row_info(std::ostream & out, unsigned row_index) const  {    
     auto & rslv = lrac.m_r_solver;
-    auto row = rslv.m_A.m_rows[row_index];
+    auto const& row = rslv.m_A.m_rows[row_index];
     return display_row(out, row);
 }
 

@@ -47,6 +47,10 @@ namespace user_solver {
         DEBUG_CODE(validate_propagation(););
     }
 
+    unsigned solver::register_cb(expr* e) {
+        return add_expr(e);
+    }
+
     sat::check_result solver::check() {
         if (!(bool)m_final_eh)
             return  sat::check_result::CR_DONE;

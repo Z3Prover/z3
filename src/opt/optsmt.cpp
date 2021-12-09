@@ -305,11 +305,9 @@ namespace opt {
         expr_ref fml(m), bound(m.mk_true(), m), tmp(m);
         expr* vars[1];
         {
-            for (unsigned i = 0; i < m_upper.size(); ++i) {
+            for (unsigned i = 0; i < m_upper.size(); ++i) 
                 ors.push_back(m_s->mk_ge(i, m_upper[i]));
-            }
-            
-            
+                        
             fml = mk_or(ors);
             tmp = m.mk_fresh_const("b", m.mk_bool_sort());
             fml = m.mk_implies(tmp, fml);
@@ -328,8 +326,7 @@ namespace opt {
                     m_s->get_model(m_model);       
                     m_s->get_labels(m_labels);            
                     for (unsigned i = 0; i < ors.size(); ++i) {
-                        expr_ref tmp(m);
-                        if (m_model->is_true(ors[i].get())) {
+                        if (m_model->is_true(ors.get(i))) {       
                             m_lower[i] = m_upper[i];
                             ors[i]  = m.mk_false();
                             disj[i] = m.mk_false();

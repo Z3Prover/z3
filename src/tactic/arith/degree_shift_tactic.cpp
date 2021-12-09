@@ -284,6 +284,8 @@ public:
         dealloc(m_imp);
     }
 
+    char const* name() const override { return "degree_shift"; }
+
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
         (*m_imp)(in, result);

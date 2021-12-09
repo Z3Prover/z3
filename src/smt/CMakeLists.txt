@@ -70,9 +70,9 @@ z3_add_component(smt
     theory_str.cpp
     theory_str_mc.cpp
     theory_str_regex.cpp
+    theory_user_propagator.cpp
     theory_utvpi.cpp
     theory_wmaxsat.cpp
-    user_propagator.cpp
     uses_theory.cpp
     watch_list.cpp
   COMPONENT_DEPENDENCIES

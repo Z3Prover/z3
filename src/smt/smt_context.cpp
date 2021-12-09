@@ -198,7 +198,7 @@ namespace smt {
             return;
         ast_translation tr(src_ctx.m, m, false);
         auto* p = get_theory(m.mk_family_id("user_propagator"));
-        m_user_propagator = reinterpret_cast<user_propagator*>(p);
+        m_user_propagator = reinterpret_cast<theory_user_propagator*>(p);
         SASSERT(m_user_propagator);
         for (unsigned i = 0; i < src_ctx.m_user_propagator->get_num_vars(); ++i) {
             app* e = src_ctx.m_user_propagator->get_expr(i);
@@ -2886,11 +2886,11 @@ namespace smt {
 
     void context::user_propagate_init(
         void*                    ctx, 
-        solver::push_eh_t&       push_eh,
-        solver::pop_eh_t&        pop_eh,
-        solver::fresh_eh_t&      fresh_eh) {
+        user_propagator::push_eh_t&       push_eh,
+        user_propagator::pop_eh_t&        pop_eh,
+        user_propagator::fresh_eh_t&      fresh_eh) {
         setup_context(false);
-        m_user_propagator = alloc(user_propagator, *this);
+        m_user_propagator = alloc(theory_user_propagator, *this);
         m_user_propagator->add(ctx, push_eh, pop_eh, fresh_eh);
         for (unsigned i = m_scopes.size(); i-- > 0; ) 
             m_user_propagator->push_scope_eh();
@@ -3552,7 +3552,7 @@ namespace smt {
             parallel p(*this);
             return p(asms);
         }
-        lbool r;
+        lbool r = l_undef;
         do {
             pop_to_base_lvl();
             expr_ref_vector asms(m, num_assumptions, assumptions);
@@ -3573,7 +3573,7 @@ namespace smt {
         if (!check_preamble(true)) return l_undef;
         TRACE("before_search", display(tout););
         setup_context(false);
-        lbool r;
+        lbool r = l_undef;
         do {
             pop_to_base_lvl();
             expr_ref_vector asms(cube);

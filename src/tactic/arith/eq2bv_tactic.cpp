@@ -268,6 +268,8 @@ public:
     tactic * translate(ast_manager & m) override {
         return alloc(eq2bv_tactic, m);
     }
+
+    char const* name() const override { return "eq2bv"; }
         
     void collect_param_descrs(param_descrs & r) override {
     }
