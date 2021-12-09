@@ -202,6 +202,17 @@ namespace polysat {
         return ~ule(b, a); 
     }
 
+    /**
+    * encode that the i'th bit of p is 1.
+    * It holds if p << (K - i - 1) >= 2^{K-1}, where K is the bit-width.
+    */
+    signed_constraint constraint_manager::bit(pdd const& p, unsigned i) {
+        unsigned K = p.manager().power_of_2();
+        pdd q = p * rational::power_of_two(K - i - 1);
+        rational msb = rational::power_of_two(K - 1);
+        return ule(p.manager().mk_val(msb), q);
+    }
+
     signed_constraint constraint_manager::mul_ovfl(pdd const& a, pdd const& b) {
         return { dedup(alloc(mul_ovfl_constraint, *this, a, b)), true };
     }

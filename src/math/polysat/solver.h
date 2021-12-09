@@ -291,7 +291,7 @@ namespace polysat {
         signed_constraint slt(pdd const& p, pdd const& q) { return m_constraints.slt(p, q); }
         signed_constraint mul_ovfl(pdd const& p, pdd const& q) { return m_constraints.mul_ovfl(p, q); }
         signed_constraint mul_ovfl(rational const& p, pdd const& q) { return mul_ovfl(q.manager().mk_val(p), q); }
-
+        signed_constraint bit(pdd const& p, unsigned i) { return m_constraints.bit(p, i); }
 
         /** Create and activate polynomial constraints. */
         void add_eq(pdd const& p, unsigned dep = null_dependency)                { assign_eh(eq(p), dep); }

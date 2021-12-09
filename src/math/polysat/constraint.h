@@ -95,6 +95,7 @@ namespace polysat {
         signed_constraint sle(pdd const& a, pdd const& b);
         signed_constraint slt(pdd const& a, pdd const& b);
         signed_constraint mul_ovfl(pdd const& p, pdd const& q);
+        signed_constraint bit(pdd const& p, unsigned i);
 
         constraint *const* begin() const { return m_constraints.data(); }
         constraint *const* end() const { return m_constraints.data() + m_constraints.size(); }
