@@ -33,7 +33,7 @@ namespace polysat {
         for (auto c1 : core) {
             if (!c1->is_ule())
                 continue;
-            if (!c1.is_currently_false(s))
+            if (c1.is_currently_true(s))
                 continue;
             auto c = c1.as_inequality();
             if (try_ugt_x(v, core, c))
@@ -70,7 +70,7 @@ namespace polysat {
         SASSERT(!crit1.is_currently_true(s));
 
         LOG("critical " << m_rule << " " << crit1);
-        LOG("consequent " << c << " value: " << c.bvalue(s) << " " << c.is_currently_false(s) << " " << core.contains(~c));
+        LOG("consequent " << c << " value: " << c.bvalue(s) << " is-false: " << c.is_currently_false(s) << " " << core.contains(~c));
 
 
         // ensure new core is a conflict
