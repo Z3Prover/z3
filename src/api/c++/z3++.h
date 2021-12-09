@@ -834,7 +834,7 @@ namespace z3 {
 
         double as_double() const { double d = 0; is_numeral(d); return d; }
         uint64_t as_uint64() const { uint64_t r = 0; is_numeral_u64(r); return r; }
-        uint64_t as_int64() const { int64_t r = 0; is_numeral_i64(r); return r; }
+        int64_t as_int64() const { int64_t r = 0; is_numeral_i64(r); return r; }
         
 
         /**
