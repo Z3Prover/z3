@@ -243,7 +243,7 @@ void seq_decl_plugin::init() {
     m_sigs[OP_RE_OF_PRED]        = alloc(psig, m, "re.of.pred", 1, 1, &predA, reA);
     m_sigs[OP_RE_REVERSE]        = alloc(psig, m, "re.reverse", 1, 1, &reA, reA);
     m_sigs[OP_RE_DERIVATIVE]     = alloc(psig, m, "re.derivative", 1, 2, AreA, reA);
-    m_sigs[_OP_RE_ANTIMOROV_UNION] = alloc(psig, m, "re.union", 1, 2, reAreA, reA);
+    m_sigs[_OP_RE_ANTIMIROV_UNION] = alloc(psig, m, "re.union", 1, 2, reAreA, reA);
     m_sigs[OP_SEQ_TO_RE]         = alloc(psig, m, "seq.to.re",  1, 1, &seqA, reA);
     m_sigs[OP_SEQ_IN_RE]         = alloc(psig, m, "seq.in.re", 1, 2, seqAreA, boolT);
     m_sigs[OP_SEQ_REPLACE_RE_ALL] = alloc(psig, m, "str.replace_re_all", 1, 3, seqAreAseqA, seqA);
@@ -414,7 +414,7 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     case OP_RE_COMPLEMENT:
     case OP_RE_REVERSE:
     case OP_RE_DERIVATIVE:
-    case _OP_RE_ANTIMOROV_UNION:
+    case _OP_RE_ANTIMIROV_UNION:
         m_has_re = true;
         // fall-through
     case OP_SEQ_UNIT:
@@ -1283,7 +1283,7 @@ std::ostream& seq_util::rex::pp::print(std::ostream& out, expr* e) const {
         print(out, r1);
         print(out, r2);
     }
-    else if (re.is_antimorov_union(e, r1, r2) || re.is_union(e, r1, r2)) {
+    else if (re.is_antimirov_union(e, r1, r2) || re.is_union(e, r1, r2)) {
         out << "(";
         print(out, r1);
         out << (html_encode ? "&#x22C3;" : "|");

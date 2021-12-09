@@ -200,7 +200,7 @@ class seq_rewriter {
     expr_ref mk_der_inter(expr* a, expr* b);
     expr_ref mk_der_compl(expr* a);
     expr_ref mk_der_cond(expr* cond, expr* ele, sort* seq_sort);
-    expr_ref mk_der_antimorov_union(expr* r1, expr* r2);
+    expr_ref mk_der_antimirov_union(expr* r1, expr* r2);
     bool ite_bdds_compatabile(expr* a, expr* b);
     /* if r has the form deriv(en..deriv(e1,to_re(s))..) returns 's = [e1..en]' else returns '() in r'*/
     expr_ref is_nullable_symbolic_regex(expr* r, sort* seq_sort);
