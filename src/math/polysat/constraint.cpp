@@ -18,6 +18,7 @@ Author:
 #include "math/polysat/log.h"
 #include "math/polysat/log_helper.h"
 #include "math/polysat/ule_constraint.h"
+#include "math/polysat/mul_ovfl_constraint.h"
 
 namespace polysat {
 
@@ -239,6 +240,14 @@ namespace polysat {
 
     ule_constraint const& constraint::to_ule() const {
         return *dynamic_cast<ule_constraint const*>(this);
+    }
+
+    mul_ovfl_constraint& constraint::to_mul_ovfl() {
+        return *dynamic_cast<mul_ovfl_constraint*>(this);
+    }
+
+    mul_ovfl_constraint const& constraint::to_mul_ovfl() const {
+        return *dynamic_cast<mul_ovfl_constraint const*>(this);
     }
 
     std::string constraint::bvar2string() const {

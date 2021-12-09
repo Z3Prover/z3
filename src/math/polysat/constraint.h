@@ -20,10 +20,11 @@ Author:
 
 namespace polysat {
 
-    enum ckind_t { ule_t };
+    enum ckind_t { ule_t, mul_ovfl_t };
 
     class constraint;
     class ule_constraint;
+    class mul_ovfl_constraint;
     class signed_constraint;
 
     using constraint_hash = obj_ptr_hash<constraint>;
@@ -130,6 +131,7 @@ namespace polysat {
         friend class constraint_manager;
         friend class clause;
         friend class ule_constraint;
+        friend class mul_ovfl_constraint;
 
         // constraint_manager* m_manager;
         ckind_t             m_kind;
@@ -156,6 +158,7 @@ namespace polysat {
 
         virtual bool is_eq() const { return false; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }
+        bool is_mul_ovfl() const { return m_kind == ckind_t::mul_ovfl_t; }
         ckind_t kind() const { return m_kind; }
         virtual std::ostream& display(std::ostream& out, lbool status) const = 0;
         virtual std::ostream& display(std::ostream& out) const = 0;
@@ -170,6 +173,8 @@ namespace polysat {
 
         ule_constraint& to_ule();
         ule_constraint const& to_ule() const;
+        mul_ovfl_constraint& to_mul_ovfl();
+        mul_ovfl_constraint const& to_mul_ovfl() const;
         unsigned_vector& vars() { return m_vars; }
         unsigned_vector const& vars() const { return m_vars; }
         unsigned var(unsigned idx) const { return m_vars[idx]; }
