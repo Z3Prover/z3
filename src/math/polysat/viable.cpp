@@ -187,7 +187,7 @@ namespace polysat {
                     // pass
                 }
                 else if (e->interval.lo_val() <= coeff_val) {
-                    rational lambda_u = floor((max_value - coeff_val - 1) / e->coeff);
+                    rational lambda_u = floor((max_value - coeff_val) / e->coeff);
                     hi = val + lambda_u + 1;
                     if (hi > max_value)
                         hi = 0;

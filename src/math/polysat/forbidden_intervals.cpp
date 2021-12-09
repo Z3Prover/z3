@@ -73,9 +73,9 @@ namespace polysat {
         if (p.is_val())
             return;
         else if (is_zero)
-            side_cond.push_back(s.m_constraints.eq(p));
+            side_cond.push_back(s.eq(p));
         else
-            side_cond.push_back(~s.m_constraints.eq(p));
+            side_cond.push_back(~s.eq(p));
     }
 
     std::tuple<bool, rational, pdd, pdd> forbidden_intervals::linear_decompose(pvar v, pdd const& p, vector<signed_constraint>& out_side_cond) {

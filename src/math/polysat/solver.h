@@ -184,7 +184,6 @@ namespace polysat {
         unsigned base_level() const;
 
         void resolve_conflict();
-        bool resolve_value(pvar v);
         void resolve_bool(sat::literal lit);
         void revert_decision(pvar v);
         void revert_bool_decision(sat::literal lit);

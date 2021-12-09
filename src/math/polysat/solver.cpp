@@ -393,7 +393,7 @@ namespace polysat {
     void solver::decide() {
         LOG_H2("Decide");
         SASSERT(can_decide());
-        if (m_bvars.can_decide() && m_branch_bool)
+        if (m_branch_bool && m_bvars.can_decide())
             bdecide(m_bvars.next_var());
         else
             pdecide(m_free_pvars.next_var());
@@ -446,19 +446,6 @@ namespace polysat {
 
     /**
      * Conflict resolution.
-     * - m_conflict are constraints that are infeasible in the current assignment.
-     * 1. walk m_search from top down until last variable in m_conflict.
-     * 2. resolve constraints in m_cjust to isolate lowest degree polynomials
-     *    using variable.
-     *    Use Olm-Seidl division by powers of 2 to preserve invertibility.
-     * 3. resolve conflict with result of resolution.
-     * 4. If the resulting lemma is still infeasible continue, otherwise bail out
-     *    and undo the last assignment by accumulating conflict trail (but without resolution).
-     * 5. When hitting the last decision, determine whether conflict polynomial is asserting,
-     *    If so, apply propagation.
-     * 6. Otherwise, add accumulated constraints to explanation for the next viable solution, prune
-     *    viable solutions by excluding the previous guess.
-     *
      */
     void solver::resolve_conflict() {        
         LOG_H2("Resolve conflict");
@@ -472,9 +459,7 @@ namespace polysat {
 
         if (m_conflict.conflict_var() != null_var) {
             // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
-            VERIFY(m_viable.resolve(m_conflict.conflict_var(), m_conflict));
-            // TBD: make sure last value decision is blocked by this conflict.
-            // A conflict in test_l5 reverts v1 = 2 more than once.
+            VERIFY(m_viable.resolve(m_conflict.conflict_var(), m_conflict));           
         }
 
         search_iterator search_it(m_search);
@@ -491,8 +476,7 @@ namespace polysat {
                     continue;
                 }
                 justification& j = m_justification[v];
-                LOG("Justification: " << j);
-                if (j.level() > base_level() && !resolve_value(v) && j.is_decision()) {
+                if (j.level() > base_level() && !m_conflict.resolve_value(v) && j.is_decision()) {
                     revert_decision(v);
                     return;
                 }
@@ -518,11 +502,6 @@ namespace polysat {
         // here we build conflict clause if it has free variables.
         // the last decision is reverted.
         report_unsat();
-    }
-
-    /** Conflict resolution case where propagation 'v := ...' is on top of the stack */
-    bool solver::resolve_value(pvar v) {
-        return m_conflict.resolve_value(v);
     }
 
     /**
