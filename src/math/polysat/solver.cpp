@@ -465,7 +465,6 @@ namespace polysat {
             LOG("try-saturate");
             m_conflict.try_saturate(v);
             LOG("end-try-saturate");
->>>>>>> ed9c0b84f668548ee1c11f14185b08333baa6f72
         }
 
         search_iterator search_it(m_search);
