@@ -202,6 +202,9 @@ namespace polysat {
         return ~ule(b, a); 
     }
 
+    signed_constraint constraint_manager::mul_ovfl(pdd const& a, pdd const& b) {
+        return { dedup(alloc(mul_ovfl_constraint, *this, a, b)), true };
+    }
 
 
     // To do signed comparison of bitvectors, flip the msb and do unsigned comparison:

@@ -940,6 +940,22 @@ namespace polysat {
         }
     }
 
+    static void test_quot_rem(unsigned bw = 32) {
+        scoped_solver s(__func__);
+        auto a = s.var(s.add_var(bw));
+        auto quot = s.var(s.add_var(bw));
+        auto rem = s.var(s.add_var(bw));
+        auto x = a * 123;
+        auto y = 123;
+        // quot = udiv(a*123, 123)
+        s.add_eq(quot * y + rem - x);
+        s.add_diseq(a - quot);
+        s.add_noovfl(quot, y);     
+        // s.add_ult(rem, x);
+        s.check();
+        s.expect_sat();
+    }
+
 
     // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
     // NOTE: actually, add_var seems to keep them in sync, so this is not an issue at the moment (but we should still test it later)
@@ -1064,6 +1080,9 @@ namespace polysat {
 
 
 void tst_polysat() {
+
+    polysat::test_quot_rem();
+    return;
 
     polysat::test_ineq_axiom1();
     polysat::test_ineq_axiom2();

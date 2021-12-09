@@ -18,7 +18,6 @@ namespace polysat {
 
     mul_ovfl_constraint::mul_ovfl_constraint(constraint_manager& m, pdd const& p, pdd const& q):
         constraint(m, ckind_t::mul_ovfl_t), m_p(p), m_q(q) {
-
         simplify();
         m_vars.append(m_p.free_vars());
         for (auto v : m_q.free_vars())
@@ -33,6 +32,8 @@ namespace polysat {
             m_p = 0;
             return;
         }
+        if (m_p.index() > m_q.index())
+            std::swap(m_p, m_q);
     }
 
     std::ostream& mul_ovfl_constraint::display(std::ostream& out, lbool status) const {
@@ -104,8 +105,6 @@ namespace polysat {
     * TODO optimizations:
     * if p is constant, q variable, update viable for q
     * 
-    * Use bounds on variables in p instead of current assignment as premise.
-    * This is a more general lemma
     */
     bool mul_ovfl_constraint::narrow_bound(solver& s, bool is_positive, 
         pdd const& p0, pdd const& q0, pdd const& p, pdd const& q) {
@@ -118,22 +117,31 @@ namespace polysat {
         // p * q >= max + 1 <=> q >= (max + 1)/p <=> q >= ceil((max+1)/p)
         auto bound = ceil((max + 1) / p.val());
 
+        //
         // the clause that explains bound <= q or bound > q 
         // 
         // Ovfl(p, q)  & p <= p.val() => q >= bound
-        // ~Ovfl(p, q) & p >= p.val() => q < bound      
+        // ~Ovfl(p, q) & p >= p.val() => q < bound 
+        //
 
         signed_constraint sc(this, is_positive);       
         signed_constraint premise = is_positive ? s.ule(p0, p.val()) : s.ule(p.val(), p0);
         signed_constraint conseq = is_positive ? s.ule(bound, q0) : s.ult(q0, bound);
 
-        SASSERT(premise.is_currently_false(s));
+        //std::cout << premise << "\n";
+        //std::cout << sc << "\n";
+        //std::cout << conseq << "\n";
+        //std::cout << "Already true " << conseq.is_currently_true(s) << "\n";
+
+        SASSERT(premise.is_currently_true(s));
         clause_builder cb(s);
         cb.push_new(~sc);
         cb.push_new(~premise);
         cb.push_new(conseq);
         clause_ref just = cb.build();
-        s.assign_propagate(conseq.blit(), *just);
+        s.add_lemma(*just);
+        s.propagate();
+        SASSERT(s.m_bvars.is_true(conseq.blit()));
         return true;
     }
 

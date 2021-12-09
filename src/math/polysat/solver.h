@@ -289,6 +289,8 @@ namespace polysat {
         signed_constraint ult(rational const& p, pdd const& q) { return ult(q.manager().mk_val(p), q); }
         signed_constraint sle(pdd const& p, pdd const& q) { return m_constraints.sle(p, q); }
         signed_constraint slt(pdd const& p, pdd const& q) { return m_constraints.slt(p, q); }
+        signed_constraint mul_ovfl(pdd const& p, pdd const& q) { return m_constraints.mul_ovfl(p, q); }
+        signed_constraint mul_ovfl(rational const& p, pdd const& q) { return mul_ovfl(q.manager().mk_val(p), q); }
 
 
         /** Create and activate polynomial constraints. */
@@ -298,6 +300,8 @@ namespace polysat {
         void add_ult(pdd const& p, pdd const& q, unsigned dep = null_dependency) { assign_eh(ult(p, q), dep); }
         void add_sle(pdd const& p, pdd const& q, unsigned dep = null_dependency) { assign_eh(sle(p, q), dep); }
         void add_slt(pdd const& p, pdd const& q, unsigned dep = null_dependency) { assign_eh(slt(p, q), dep); }
+        void add_noovfl(pdd const& p, pdd const& q, unsigned dep = null_dependency) { assign_eh(~mul_ovfl(p, q), dep); }
+        void add_ovfl(pdd const& p, pdd const& q, unsigned dep = null_dependency) { assign_eh(mul_ovfl(p, q), dep); }
 
         void add_ule(pdd const& p, rational const& q, unsigned dep = null_dependency) { add_ule(p, p.manager().mk_val(q), dep); }
         void add_ule(rational const& p, pdd const& q, unsigned dep = null_dependency) { add_ule(q.manager().mk_val(p), q, dep); }
@@ -307,7 +311,11 @@ namespace polysat {
         void add_ult(rational const& p, pdd const& q, unsigned dep = null_dependency) { add_ult(q.manager().mk_val(p), q, dep); }
         void add_ult(pdd const& p, unsigned q, unsigned dep = null_dependency) { add_ult(p, rational(q), dep); }
         void add_ult(unsigned p, pdd const& q, unsigned dep = null_dependency) { add_ult(rational(p), q, dep); }
-        
+        void add_noovfl(pdd const& p, rational const& q, unsigned dep = null_dependency) { add_noovfl(p, p.manager().mk_val(q), dep); }
+        void add_noovfl(rational const& p, pdd const& q, unsigned dep = null_dependency) { add_noovfl(q, p, dep); }
+        void add_noovfl(pdd const& p, unsigned q, unsigned dep = null_dependency) { add_noovfl(p, rational(q), dep); }
+        void add_noovfl(unsigned p, pdd const& q, unsigned dep = null_dependency) { add_noovfl(q, p, dep); }
+
         /**
          * Activate the constraint corresponding to the given boolean variable.
          * Note: to deactivate, use push/pop.
