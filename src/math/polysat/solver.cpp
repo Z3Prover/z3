@@ -469,12 +469,15 @@ namespace polysat {
         ++m_stats.m_num_conflicts;
 
         SASSERT(is_conflict());
-
+        
         if (m_conflict.conflict_var() != null_var) {
+            pvar v = m_conflict.conflict_var();
             // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
-            VERIFY(m_viable.resolve(m_conflict.conflict_var(), m_conflict));
-            // TBD: make sure last value decision is blocked by this conflict.
-            // A conflict in test_l5 reverts v1 = 2 more than once.
+            VERIFY(m_viable.resolve(v, m_conflict));
+            // TBD: saturate resulting conflict to get better lemmas.
+            LOG("try-saturate");
+            m_conflict.try_saturate(v);
+            LOG("end-try-saturate");
         }
 
         search_iterator search_it(m_search);
