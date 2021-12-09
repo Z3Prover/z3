@@ -24,6 +24,8 @@ namespace polysat {
         mul_ovfl_constraint(constraint_manager& m, pdd const& p, pdd const& q);
         void simplify();
         bool is_always_false(bool is_positive, pdd const& p, pdd const& q) const;
+        bool is_always_true(bool is_positive, pdd const& p, pdd const& q) const;
+        bool narrow_bound(solver& s, bool is_positive, pdd const& p, pdd const& q);
 
     public:
         ~mul_ovfl_constraint() override {}

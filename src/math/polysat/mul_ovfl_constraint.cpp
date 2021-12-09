@@ -12,9 +12,9 @@ Author:
 --*/
 #pragma once
 #include "math/polysat/mul_ovfl_constraint.h"
+#include "math/polysat/solver.h"
 
 namespace polysat {
-
 
     mul_ovfl_constraint::mul_ovfl_constraint(constraint_manager& m, pdd const& p, pdd const& q):
         constraint(m, ckind_t::mul_ovfl_t), m_p(p), m_q(q) {
@@ -41,20 +41,31 @@ namespace polysat {
         case l_false: return display(out << "~");
         case l_undef: return display(out << "?");
         }       
+        return out;
     }
 
     std::ostream& mul_ovfl_constraint::display(std::ostream& out) const {
-        return "ovfl*(" << m_p << ", " << m_q << ")";       
+        return out << "ovfl*(" << m_p << ", " << m_q << ")";       
     }
-
 
     bool mul_ovfl_constraint::is_always_false(bool is_positive, pdd const& p, pdd const& q) const {
         if (!is_positive && (p.is_zero() || q.is_zero() ||
             p.is_one() || q.is_one()))
             return true;
         if (p.is_val() && q.is_val()) {
-            bool ovfl = p.val() * q.val() > p().manager().max_value();
+            bool ovfl = p.val() * q.val() > p.manager().max_value();
             return is_positive == ovfl;
+        }
+        return false;
+    }
+
+    bool mul_ovfl_constraint::is_always_true(bool is_positive, pdd const& p, pdd const& q) const {
+        if (is_positive && (p.is_zero() || q.is_zero() ||
+            p.is_one() || q.is_one()))
+            return true;
+        if (p.is_val() && q.is_val()) {
+            bool noovfl = p.val() * q.val() <= p.manager().max_value();
+            return is_positive == noovfl;
         }
         return false;
     }
@@ -64,29 +75,67 @@ namespace polysat {
     }
 
     bool mul_ovfl_constraint::is_currently_false(assignment_t const& a, bool is_positive) const {
-        auto p = p().subst_val(s.assignment());
-        auto q = q().subst_val(s.assignment());
-        return is_always_false(is_positive, p, q);
+        return is_always_false(is_positive, p().subst_val(a), q().subst_val(a));
     }
 
     bool mul_ovfl_constraint::is_currently_true(assignment_t const& a, bool is_positive) const {
-        return !is_currently_false(a, !is_positive);
+        return is_always_true(is_positive, p().subst_val(a), q().subst_val(a));
     }
 
     void mul_ovfl_constraint::narrow(solver& s, bool is_positive) {    
-        auto p = p().subst_val(s.assignment());
-        auto q = q().subst_val(s.assignment());
+        auto p1 = p().subst_val(s.assignment());
+        auto q1 = q().subst_val(s.assignment());
 
-        if (is_always_false(is_positive, p, q)) {
+        if (is_always_false(is_positive, p1, q1)) {
             s.set_conflict({ this, is_positive });
             return;
         }
+        if (is_always_true(is_positive, p1, q1))
+            return;
+        if (narrow_bound(s, is_positive, p1, q1))
+            return;
+        if (narrow_bound(s, is_positive, q1, p1))
+            return;
+    }
 
-        NOT_IMPLEMENTED_YET();
+    /**
+    * if p constant, q, propagate inequality
+    * 
+    * TODO optimizations:
+    * if p is constant, q variable, update viable for q
+    * 
+    * Use bounds on variables in p instead of current assignment as premise.
+    * This is a more general lemma
+    */
+    bool mul_ovfl_constraint::narrow_bound(solver& s, bool is_positive, pdd const& p, pdd const& q) {
+
+        if (!p.is_val())
+            return false;
+
+        SASSERT(!p.is_zero() && !p.is_one());
+        auto const& max = p.manager().max_value();
+        // p * q >= max + 1 <=> q >= (max + 1)/p <=> q >= ceil((max+1)/p)
+        auto bound = ceil((max + 1) / p.val());
+
+        // the clause that explains bound <= q or bound > q 
+        // is justified by the partial assignment to m_vars
+
+        signed_constraint sc(this, is_positive);       
+        signed_constraint conseq = is_positive ? s.ule(bound, q) : s.ult(q, bound);
+
+        clause_builder cb(s);
+        cb.push_new(~sc);
+        cb.push_new(conseq);
+        for (auto v : m_vars)
+            if (s.is_assigned(v))
+                cb.push_new(~s.eq(s.var(v), s.get_value(v)));
+        clause_ref just = cb.build();
+        s.assign_propagate(conseq.blit(), *just);
+        return true;
     }
 
     unsigned mul_ovfl_constraint::hash() const {
-    	return mk_mix(p().hash(), q().hash(), 25);
+    	return mk_mix(p().hash(), q().hash(), 325);
     }
 
     bool mul_ovfl_constraint::operator==(constraint const& other) const {
