@@ -94,6 +94,16 @@ namespace polysat {
             m_lhs *= x;
             SASSERT(m_lhs.leading_coefficient().is_power_of_two());
         }
+
+        if (m_lhs.is_one() && m_rhs.is_monomial() && m_rhs.leading_coefficient().is_odd() && !m_rhs.leading_coefficient().is_one()) {            
+            pdd rhs = m_rhs;
+            m_rhs = 1;
+            while (!rhs.is_val()) {
+                m_rhs *= rhs.manager().mk_var(rhs.var());
+                SASSERT(rhs.lo().is_zero());
+                rhs = rhs.hi();
+            }
+        }
     }
 
     std::ostream& ule_constraint::display(std::ostream& out, lbool status) const {
