@@ -92,9 +92,9 @@ namespace polysat {
         }
         if (is_always_true(is_positive, p1, q1))
             return;
-        if (narrow_bound(s, is_positive, p1, q1))
+        if (narrow_bound(s, is_positive, p(), q(), p1, q1))
             return;
-        if (narrow_bound(s, is_positive, q1, p1))
+        if (narrow_bound(s, is_positive, q(), p(), q1, p1))
             return;
     }
 
@@ -107,7 +107,8 @@ namespace polysat {
     * Use bounds on variables in p instead of current assignment as premise.
     * This is a more general lemma
     */
-    bool mul_ovfl_constraint::narrow_bound(solver& s, bool is_positive, pdd const& p, pdd const& q) {
+    bool mul_ovfl_constraint::narrow_bound(solver& s, bool is_positive, 
+        pdd const& p0, pdd const& q0, pdd const& p, pdd const& q) {
 
         if (!p.is_val())
             return false;
@@ -118,17 +119,19 @@ namespace polysat {
         auto bound = ceil((max + 1) / p.val());
 
         // the clause that explains bound <= q or bound > q 
-        // is justified by the partial assignment to m_vars
+        // 
+        // Ovfl(p, q)  & p <= p.val() => q >= bound
+        // ~Ovfl(p, q) & p >= p.val() => q < bound      
 
         signed_constraint sc(this, is_positive);       
-        signed_constraint conseq = is_positive ? s.ule(bound, q) : s.ult(q, bound);
+        signed_constraint premise = is_positive ? s.ule(p0, p.val()) : s.ule(p.val(), p0);
+        signed_constraint conseq = is_positive ? s.ule(bound, q0) : s.ult(q0, bound);
 
+        SASSERT(premise.is_currently_false(s));
         clause_builder cb(s);
         cb.push_new(~sc);
+        cb.push_new(~premise);
         cb.push_new(conseq);
-        for (auto v : m_vars)
-            if (s.is_assigned(v))
-                cb.push_new(~s.eq(s.var(v), s.get_value(v)));
         clause_ref just = cb.build();
         s.assign_propagate(conseq.blit(), *just);
         return true;
