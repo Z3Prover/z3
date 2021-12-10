@@ -33,7 +33,7 @@ Revision History:
 #include <pthread.h>
 #endif
 
-enum scoped_timer_work_state { EXPIRED = -1, IDLE = 0, WORKING = 1, EXITING = 2 };
+enum scoped_timer_work_state { IDLE = 0, WORKING = 1, EXITING = 2 };
 
 struct scoped_timer_state {
     std::thread m_thread;
@@ -64,9 +64,8 @@ static void thread_func(scoped_timer_state *s) {
         while (!s->m_mutex.try_lock_until(end)) {
             if (std::chrono::steady_clock::now() >= end) {
                 scoped_timer_work_state working = WORKING;
-                if (s->work.compare_exchange_strong(working, EXPIRED)) {
+                if (s->work.compare_exchange_strong(working, IDLE)) {
                     s->eh->operator()(TIMEOUT_EH_CALLER);
-                    s->work = IDLE;
                     workers.lock();
                     goto start;
                 }
@@ -119,8 +118,6 @@ public:
         bool ret = s->work.compare_exchange_strong(working, IDLE);
         s->m_mutex.unlock();
         if (!ret) {
-            while (s->work == EXPIRED)
-                std::this_thread::yield();
             workers.lock();
             available_workers.push_back(s);
             workers.unlock();
