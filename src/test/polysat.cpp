@@ -19,8 +19,12 @@ namespace polysat {
     public:
         scoped_solver(std::string name): solver(lim), m_name(name) {
             LOG("\n\n\n" << std::string(78, '#') << "\n\nSTART: " << m_name << "\n");
+            set_max_conflicts(10);
+        }
+
+        void set_max_conflicts(unsigned c) {
             params_ref p;
-            p.set_uint("max_conflicts", 10);
+            p.set_uint("max_conflicts", c);
             updt_params(p);
         }
 
@@ -942,6 +946,7 @@ namespace polysat {
 
     static void test_quot_rem(unsigned bw = 32) {
         scoped_solver s(__func__);
+        s.set_max_conflicts(2);
         auto a = s.var(s.add_var(bw));
         auto quot = s.var(s.add_var(bw));
         auto rem = s.var(s.add_var(bw));

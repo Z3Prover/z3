@@ -208,7 +208,7 @@ namespace polysat {
     }
 
     unsigned ule_constraint::hash() const {
-    	return mk_mix(lhs().hash(), rhs().hash(), 23);
+    	return mk_mix(lhs().hash(), rhs().hash(), kind());
     }
     
     bool ule_constraint::operator==(constraint const& other) const {

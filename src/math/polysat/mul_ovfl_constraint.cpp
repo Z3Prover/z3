@@ -100,11 +100,7 @@ namespace polysat {
     }
 
     /**
-    * if p constant, q, propagate inequality
-    * 
-    * TODO optimizations:
-    * if p is constant, q variable, update viable for q
-    * 
+    * if p constant, q, propagate inequality   
     */
     bool mul_ovfl_constraint::narrow_bound(solver& s, bool is_positive, 
         pdd const& p0, pdd const& q0, pdd const& p, pdd const& q) {
@@ -148,7 +144,7 @@ namespace polysat {
     }
 
     unsigned mul_ovfl_constraint::hash() const {
-    	return mk_mix(p().hash(), q().hash(), 325);
+    	return mk_mix(p().hash(), q().hash(), kind());
     }
 
     bool mul_ovfl_constraint::operator==(constraint const& other) const {

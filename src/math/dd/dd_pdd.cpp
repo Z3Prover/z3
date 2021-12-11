@@ -960,13 +960,19 @@ namespace dd {
         pdd r = zero();
         a.factor(v, l, a1, a2);
         b.factor(v, m, b1, b2);
+        std::cout << "factor v*" << a1 << " ++ " << a2 << "\n";
+        std::cout << "factor v*" << b1 << " ++ " << b2 << "\n";
 
         quot_rem(a1, b1, q, r);
+        std::cout << "quot " << q << " rem " << r << "\n";
         if (r.is_zero()) {
             SASSERT(q * b1 == a1);
             a1 = -q * pow(mk_var(v), l - m) * b2;
             if (l > m)
                 a1 = reduce(v, a1, b);
+        }
+        else if (m_semantics == mod2N_e && r.is_val() && r.val().is_odd() && q.is_zero()) {
+            
         }
         else 
             a1 = a1 * pow(mk_var(v), l);        
