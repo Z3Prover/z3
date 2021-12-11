@@ -159,6 +159,7 @@ namespace polysat {
         bool operator!=(constraint const& other) const { return !operator==(other); }
 
         virtual bool is_eq() const { return false; }
+        virtual bool is_diseq() const { return false; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }
         bool is_mul_ovfl() const { return m_kind == ckind_t::mul_ovfl_t; }
         ckind_t kind() const { return m_kind; }
@@ -252,6 +253,9 @@ namespace polysat {
         constraint* operator->() const { return get(); }
         constraint& operator*() { return *m_constraint; }
         constraint const& operator*() const { return *m_constraint; }
+
+        bool is_eq() const;
+        pdd const& eq() const;
 
 
         signed_constraint& operator=(std::nullptr_t) { m_constraint = nullptr; return *this; }

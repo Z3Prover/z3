@@ -202,6 +202,21 @@ namespace polysat {
         return ~ule(b, a); 
     }
 
+    bool signed_constraint::is_eq() const {
+        if (is_positive())
+            return m_constraint->is_eq();
+        else
+            return m_constraint->is_diseq();
+    }
+
+    pdd const& signed_constraint::eq() const {
+        SASSERT(is_eq());
+        if (is_positive())
+            return m_constraint->to_ule().lhs();
+        else
+            return m_constraint->to_ule().rhs();        
+    }
+
     /**
     * encode that the i'th bit of p is 1.
     * It holds if p << (K - i - 1) >= 2^{K-1}, where K is the bit-width.

@@ -308,9 +308,8 @@ namespace polysat {
             for (auto const& c : s.m_viable.get_constraints(v))
                 insert(c);        
 
-        for (auto* engine : ex_engines)
-            if (engine->try_explain(v, *this))
-                return true;
+        if (try_explain(v))
+            return true;
 
         // No value resolution method was successful => fall back to saturation and variable elimination
         while (s.inc()) {
@@ -341,6 +340,13 @@ namespace polysat {
     bool conflict::try_saturate(pvar v) {
         for (auto* engine : inf_engines)
             if (engine->perform(v, *this))
+                return true;
+        return false;
+    }
+
+    bool conflict::try_explain(pvar v) {
+        for (auto* engine : ex_engines)
+            if (engine->try_explain(v, *this))
                 return true;
         return false;
     }

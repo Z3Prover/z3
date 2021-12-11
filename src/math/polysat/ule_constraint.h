@@ -41,7 +41,8 @@ namespace polysat {
         unsigned hash() const override;
         bool operator==(constraint const& other) const override;
         bool is_eq() const override { return m_rhs.is_zero(); }
-        pdd const& p() const { SASSERT(is_eq()); return m_lhs; }
+        bool is_diseq() const override { return m_lhs.is_one(); }
+        // pdd const& p() const { SASSERT(is_eq()); return m_lhs; }
     };
 
 }

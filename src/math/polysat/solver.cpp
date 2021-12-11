@@ -462,9 +462,15 @@ namespace polysat {
             // This case corresponds to a propagation of conflict_var, except it's not explicitly on the stack.
             VERIFY(m_viable.resolve(v, m_conflict));
             // TBD: saturate resulting conflict to get better lemmas.
-            LOG("try-saturate");
-            m_conflict.try_saturate(v);
-            LOG("end-try-saturate");
+            LOG("try-eliminate v" << v);
+            if (m_conflict.try_explain(v))
+                ;
+            else if (m_conflict.try_eliminate(v))
+                ;
+            else
+                m_conflict.try_saturate(v);
+            
+            LOG("end-try-eliminate v");
         }
 
         search_iterator search_it(m_search);

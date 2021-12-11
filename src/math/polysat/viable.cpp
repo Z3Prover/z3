@@ -170,6 +170,7 @@ namespace polysat {
     *   and division with coeff are valid. Is there a more relaxed scheme?
     */
     bool viable::refine_viable(pvar v, rational const& val) {
+        //return true;
         auto* e = m_non_units[v];
         if (!e)
             return true;
@@ -408,7 +409,7 @@ namespace polysat {
         }             
         while (e != first);
 
-        core.set_bailout();
+        // core.set_bailout();
         for (auto c : core) {
             if (c.bvalue(s) == l_false) {
                 core.reset();

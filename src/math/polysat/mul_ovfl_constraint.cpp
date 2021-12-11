@@ -134,6 +134,8 @@ namespace polysat {
         //std::cout << "Already true " << conseq.is_currently_true(s) << "\n";
 
         SASSERT(premise.is_currently_true(s));
+        SASSERT(bound * p.val() > max);
+        SASSERT((bound - 1) * p.val() <= max);
         clause_builder cb(s);
         cb.push_new(~sc);
         cb.push_new(~premise);

@@ -110,6 +110,7 @@ namespace polysat {
 
         bool try_eliminate(pvar v);
         bool try_saturate(pvar v);
+        bool try_explain(pvar v);
 
         using const_iterator = conflict_iterator;
         const_iterator begin() const;
