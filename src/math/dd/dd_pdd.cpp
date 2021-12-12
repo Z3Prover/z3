@@ -946,40 +946,50 @@ namespace dd {
     * result := reduce(v, q*b2*v^{l-m}, b) + reduce(v, a2, b)
     */
     pdd pdd_manager::reduce(unsigned v, pdd const& a, pdd const& b) {
-        unsigned const l = a.degree(v);
         unsigned const m = b.degree(v);
         // no reduction
-        if (l < m || m == 0)
+        if (m == 0)
             return a;
                     
-        pdd a1 = zero();
-        pdd a2 = zero();
         pdd b1 = zero();
         pdd b2 = zero();
+        b.factor(v, m, b1, b2);
+
+        // TODO - generalize this case to when leading coefficient is not a value
+        if (m_semantics == mod2N_e && b1.is_val() && b1.val().is_odd() && !b1.is_one()) {
+            rational b_inv;
+            VERIFY(b1.val().mult_inverse(m_power_of_2, b_inv));
+            b1 = 1;
+            b2 *= b_inv;
+        }
+
+        return reduce(v, a, m, b1, b2);
+    }
+
+    pdd pdd_manager::reduce(unsigned v, pdd const& a, unsigned m, pdd const& b1, pdd const& b2) {
+        SASSERT(m > 0);
+        unsigned const l = a.degree(v);
+        if (l < m)
+            return a;
+
+        pdd a1 = zero();
+        pdd a2 = zero();
         pdd q = zero();
         pdd r = zero();
         a.factor(v, l, a1, a2);
-        b.factor(v, m, b1, b2);
-        std::cout << "factor v*" << a1 << " ++ " << a2 << "\n";
-        std::cout << "factor v*" << b1 << " ++ " << b2 << "\n";
 
         quot_rem(a1, b1, q, r);
-        std::cout << "quot " << q << " rem " << r << "\n";
         if (r.is_zero()) {
             SASSERT(q * b1 == a1);
-            a1 = -q * pow(mk_var(v), l - m) * b2;
+            a1 = -q * b2;
             if (l > m)
-                a1 = reduce(v, a1, b);
+                a1 = reduce(v, a1 * pow(mk_var(v), l - m), m, b1, b2);
         }
-        else if (m_semantics == mod2N_e && r.is_val() && r.val().is_odd() && q.is_zero()) {
-            
-        }
-        else 
-            a1 = a1 * pow(mk_var(v), l);        
-        a2 = a2.reduce(v, b);
+        else
+            a1 = a1 * pow(mk_var(v), l);
+        a2 = reduce(v, a2, m, b1, b2);
 
-        pdd result = a1 + a2;
-        return result;
+        return a1 + a2;
     }
 
     /**

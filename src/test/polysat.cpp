@@ -946,7 +946,7 @@ namespace polysat {
 
     static void test_quot_rem(unsigned bw = 32) {
         scoped_solver s(__func__);
-        s.set_max_conflicts(2);
+        s.set_max_conflicts(5);
         auto a = s.var(s.add_var(bw));
         auto quot = s.var(s.add_var(bw));
         auto rem = s.var(s.add_var(bw));

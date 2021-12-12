@@ -782,7 +782,7 @@ namespace polysat {
         LOG("Lemma: " << lemma);
         for (sat::literal lit : lemma) {
             LOG("   Literal " << lit << " is: " << lit2cnstr(lit));
-            SASSERT(m_bvars.value(lit) != l_true);
+            // SASSERT(m_bvars.value(lit) != l_true);
         }
         SASSERT(!lemma.empty());
         m_constraints.store(&lemma, *this);

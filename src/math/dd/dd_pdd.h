@@ -280,6 +280,8 @@ namespace dd {
         void factor(pdd const& p, unsigned v, unsigned degree, pdd& lc, pdd& rest);
         bool factor(pdd const& p, unsigned v, unsigned degree, pdd& lc);
 
+        pdd reduce(unsigned v, pdd const& a, unsigned m, pdd const& b1, pdd const& b2);
+
         bool var_is_leaf(PDD p, unsigned v);
 
         bool is_reachable(PDD p);

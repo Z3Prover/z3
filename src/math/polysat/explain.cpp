@@ -147,10 +147,6 @@ namespace polysat {
             if (c.is_eq())
                 continue;
             LOG("try-reduce: " << c << " " << c.is_currently_false(s));
-#if 0
-            if (!c.is_currently_false(s))
-                continue;
-#endif
             if (!c->is_ule())
                 continue;
             auto lhs = c->to_ule().lhs();
@@ -166,9 +162,13 @@ namespace polysat {
             LOG("try-reduce is false " << c2.is_currently_false(s));
             if (!c2.is_currently_false(s))
                 continue;
-            SASSERT(c2.is_currently_false(s));
-            if (!c2->has_bvar() || l_undef == c2.bvalue(s))
-                core.keep(c2);  // adds propagation of c to the search stack
+            if (!c2->has_bvar() || l_undef == c2.bvalue(s)) {
+                vector<signed_constraint> premises;
+                premises.push_back(c);
+                premises.push_back(eq);
+                core.insert(c2, premises);
+            }
+            //    core.keep(c2);  // adds propagation of c to the search stack
             core.reset();
             LOG_H3("Polynomial superposition " << eq << " " << c << " reduced to " << c2);
             if (c2.bvalue(s) == l_false) {
