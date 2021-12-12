@@ -259,6 +259,7 @@ int main(int argc, char ** argv) {
     TST(bdd);
     TST(pdd);
     TST(pdd_solver);
+    TST(scoped_timer);
     TST(solver_pool);
     //TST_ARGV(hs);
     TST(finder);

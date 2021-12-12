@@ -416,7 +416,7 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     case OP_RE_DERIVATIVE:
     case _OP_RE_ANTIMIROV_UNION:
         m_has_re = true;
-        // fall-through
+        Z3_fallthrough;   
     case OP_SEQ_UNIT:
     case OP_STRING_ITOS:
     case OP_STRING_STOI:
@@ -516,6 +516,7 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     case OP_SEQ_REPLACE_RE_ALL:
     case OP_SEQ_REPLACE_RE:
         m_has_re = true;
+        Z3_fallthrough;
     case OP_SEQ_REPLACE_ALL:
         return mk_str_fun(k, arity, domain, range, k);        
 
