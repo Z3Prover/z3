@@ -170,30 +170,49 @@ namespace polysat {
     *   and division with coeff are valid. Is there a more relaxed scheme?
     */
     bool viable::refine_viable(pvar v, rational const& val) {
-        //return true;
         auto* e = m_non_units[v];
         if (!e)
             return true;
         entry* first = e;
         rational const& max_value = s.var2pdd(v).max_value();
+        rational mod_value = max_value + 1;
+
+        auto delta_l = [&](rational const& coeff_val) {
+            return floor((coeff_val - e->interval.lo_val()) / e->coeff);
+        };
+        auto delta_u = [&](rational const& coeff_val) {
+            return floor((e->interval.hi_val() - coeff_val - 1) / e->coeff);
+        };
         do {
-            rational coeff_val = mod(e->coeff * val, max_value + 1);
+            rational coeff_val = mod(e->coeff * val, mod_value);
             if (e->interval.currently_contains(coeff_val)) {
-                rational delta_l = floor((coeff_val - e->interval.lo_val()) / e->coeff);
-                rational delta_u = floor((e->interval.hi_val() - coeff_val - 1) / e->coeff);
-                rational lo = val - delta_l;
-                rational hi = val + delta_u + 1;
+                rational lo = val - delta_l(coeff_val);
+                rational hi = val + delta_u(coeff_val) + 1;
 
                 if (e->interval.lo_val() < e->interval.hi_val()) {
-                    // pass
+                    // naive widening. TODO: can we accelerate this?
+                    while (hi < max_value) {
+                        coeff_val = mod(e->coeff * hi, mod_value);
+                        if (!e->interval.currently_contains(coeff_val))
+                            break;
+                        hi += delta_u(coeff_val) + 1;
+                    }
+                    while (lo > 1) {
+                        coeff_val = mod(e->coeff * (lo - 1), mod_value);
+                        if (!e->interval.currently_contains(coeff_val))
+                            break;
+                        lo -= delta_l(coeff_val);
+                    }
                 }
                 else if (e->interval.lo_val() <= coeff_val) {
+                    // TODO can we widen lo here?
                     rational lambda_u = floor((max_value - coeff_val) / e->coeff);
                     hi = val + lambda_u + 1;
                     if (hi > max_value)
                         hi = 0;
                 }
                 else {
+                    // TODO case we widen hi here?
                     SASSERT(coeff_val < e->interval.hi_val());
                     rational lambda_l = floor(coeff_val / e->coeff);
                     lo = val - lambda_l;                   
