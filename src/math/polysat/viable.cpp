@@ -198,7 +198,7 @@ namespace polysat {
                     rational lambda_l = floor(coeff_val / e->coeff);
                     lo = val - lambda_l;                   
                 }
-                LOG("forbidden interval " << e->interval << " - " << val << " " << coeff_val << " [" << lo << ", " << hi << "[");
+                LOG("forbidden interval " << e->coeff << " * " << e->interval << " [" << lo << ", " << hi << "[");
                 SASSERT(hi <= max_value);
                 entry* ne = alloc_entry();
                 ne->src = e->src;

@@ -49,26 +49,33 @@ namespace polysat {
         return out << "ovfl*(" << m_p << ", " << m_q << ")";       
     }
 
-    bool mul_ovfl_constraint::is_always_false(bool is_positive, pdd const& p, pdd const& q) const {
-        if (!is_positive && (p.is_zero() || q.is_zero() ||
-            p.is_one() || q.is_one()))
-            return true;
+    lbool mul_ovfl_constraint::eval(pdd const& p, pdd const& q) const {
+        if (p.is_zero() || q.is_zero() || p.is_one() || q.is_one())
+            return l_false;
+
         if (p.is_val() && q.is_val()) {
-            bool ovfl = p.val() * q.val() > p.manager().max_value();
-            return is_positive == ovfl;
+            if (p.val() * q.val() > p.manager().max_value())
+                return l_true;
+            else
+                return l_false;
         }
-        return false;
+        return l_undef;
+    }
+
+    bool mul_ovfl_constraint::is_always_false(bool is_positive, pdd const& p, pdd const& q) const {
+        switch (eval(p, q)) {
+        case l_true: return !is_positive;
+        case l_false: return is_positive;
+        default: return false;
+        }
     }
 
     bool mul_ovfl_constraint::is_always_true(bool is_positive, pdd const& p, pdd const& q) const {
-        if (is_positive && (p.is_zero() || q.is_zero() ||
-            p.is_one() || q.is_one()))
-            return true;
-        if (p.is_val() && q.is_val()) {
-            bool noovfl = p.val() * q.val() <= p.manager().max_value();
-            return is_positive == noovfl;
+        switch (eval(p, q)) {
+        case l_true: return is_positive;
+        case l_false: return !is_positive;
+        default: return false;
         }
-        return false;
     }
 
     bool mul_ovfl_constraint::is_always_false(bool is_positive) const {
@@ -123,11 +130,6 @@ namespace polysat {
         signed_constraint sc(this, is_positive);       
         signed_constraint premise = is_positive ? s.ule(p0, p.val()) : s.ule(p.val(), p0);
         signed_constraint conseq = is_positive ? s.ule(bound, q0) : s.ult(q0, bound);
-
-        //std::cout << premise << "\n";
-        //std::cout << sc << "\n";
-        //std::cout << conseq << "\n";
-        //std::cout << "Already true " << conseq.is_currently_true(s) << "\n";
 
         SASSERT(premise.is_currently_true(s));
         SASSERT(bound * p.val() > max);

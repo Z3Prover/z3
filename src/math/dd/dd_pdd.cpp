@@ -173,7 +173,7 @@ namespace dd {
         std::sort(s.begin(), s.end(), compare_level);
         pdd r(one());
         for (auto const& q : s) 
-            r = (r*mk_var(q.first)) + q.second;            
+            r = (r * mk_var(q.first)) + q.second;            
         return pdd(apply(p.root, r.root, pdd_subst_val_op), this);
     }
 
@@ -218,6 +218,7 @@ namespace dd {
             if (is_val(p) && is_val(q)) return imk_val(val(p) - val(q));
             if (m_semantics != mod2_e) break;
             op = pdd_add_op;
+            Z3_fallthrough;
         case pdd_add_op:
             if (is_zero(p)) return q;
             if (is_zero(q)) return p;
@@ -346,7 +347,8 @@ namespace dd {
                         push(make_node(level_p, lo(n), read(1)));
                         r = make_node(level_p, bd, read(1));
                         npop = 7;
-                    } else {
+                    } 
+                    else {
                         push(make_node(level_p, n, ac));
                         r = make_node(level_p, bd, read(1));
                         npop = 6;
@@ -942,6 +944,8 @@ namespace dd {
     * b := b1*v^m + b2
     * l >= m
     * q, r := quot_rem(a1, b1) 
+    * that is:
+    *     q * b1 + r = a1
     * r = 0
     * result := reduce(v, q*b2*v^{l-m}, b) + reduce(v, a2, b)
     */

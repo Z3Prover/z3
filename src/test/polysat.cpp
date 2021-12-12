@@ -956,7 +956,7 @@ namespace polysat {
         s.add_eq(quot * y + rem - x);
         s.add_diseq(a - quot);
         s.add_noovfl(quot, y);     
-        // s.add_ult(rem, x);
+        s.add_ult(rem, x);
         s.check();
         s.expect_sat();
     }
