@@ -24,6 +24,7 @@ Author:
 #include "math/polysat/conflict.h"
 #include "math/polysat/constraint.h"
 #include "math/polysat/clause_builder.h"
+#include "math/polysat/simplify.h"
 #include "math/polysat/explain.h"
 #include "math/polysat/ule_constraint.h"
 #include "math/polysat/justification.h"
@@ -59,6 +60,7 @@ namespace polysat {
         friend class clause_builder;
         friend class conflict;
         friend class conflict_explainer;
+        friend class simplify;
         friend class explainer;
         friend class inference_engine;
         friend class forbidden_intervals;
@@ -78,7 +80,8 @@ namespace polysat {
         scoped_ptr_vector<dd::pdd_manager> m_pdd;
         viable                   m_viable;   // viable sets per variable
         linear_solver            m_linear_solver;
-        conflict                 m_conflict;        
+        conflict                 m_conflict; 
+        simplify                 m_simplify;
         forbidden_intervals      m_forbidden_intervals;
         bool_var_manager         m_bvars;       // Map boolean variables to constraints
         var_queue                m_free_pvars;  // free poly vars
@@ -200,9 +203,6 @@ namespace polysat {
         void learn_lemma(clause& lemma);
         void backjump(unsigned new_level);
         void add_lemma(clause& lemma);
-
-        bool should_simplify();
-        void simplify();
 
         unsigned m_conflicts_at_restart = 0;
         unsigned m_restart_threshold = 100;

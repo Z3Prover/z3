@@ -1078,7 +1078,7 @@ namespace polysat {
                 std::cout << "SKIP: " << mk_pp(fm, m) << "\n";            
             }
         }
-        for (auto [k,v] : expr2pdd)
+        for (auto const& [k,v] : expr2pdd)
             dealloc(v);
     }
 }
@@ -1193,7 +1193,7 @@ void tst_polysat_argv(char** argv, int argc, int& i) {
     ast_manager& m = ctx.m();
     ctx.set_ignore_check(true);
     VERIFY(parse_smt2_commands(ctx, is));
-    auto fmls = ctx.assertions();
+    ptr_vector<expr> fmls = ctx.assertions();
     polysat::scoped_solver s("polysat");
     g_solver = &s;
     polysat::internalize(m, s, fmls);

@@ -149,8 +149,8 @@ namespace polysat {
             LOG("try-reduce: " << c << " " << c.is_currently_false(s));
             if (!c->is_ule())
                 continue;
-            auto lhs = c->to_ule().lhs();
-            auto rhs = c->to_ule().rhs();
+            auto const& lhs = c->to_ule().lhs();
+            auto const& rhs = c->to_ule().rhs();
             auto a = lhs.reduce(v, p);
             auto b = rhs.reduce(v, p);
             LOG("try-reduce: " << c << " " << a << " " << b << " vs " << lhs << " " << rhs);

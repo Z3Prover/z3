@@ -34,6 +34,7 @@ namespace polysat {
         m_viable(*this),
         m_linear_solver(*this),
         m_conflict(*this),
+        m_simplify(*this),
         m_forbidden_intervals(*this),
         m_bvars(),
         m_free_pvars(m_activity),
@@ -73,7 +74,7 @@ namespace polysat {
             else if (can_propagate()) propagate();
             else if (!can_decide()) { LOG_H2("SAT"); SASSERT(verify_sat()); return l_true; }
             else if (m_constraints.should_gc()) m_constraints.gc(*this);
-            else if (should_simplify()) simplify();
+            else if (m_simplify.should_apply()) m_simplify();
             else if (should_restart()) restart();
             else decide();
         }
@@ -249,17 +250,6 @@ namespace polysat {
 #if ENABLE_LINEAR_SOLVER
         m_linear_solver.push();
 #endif
-    }
-
-    /*
-    * This is a place holder for in-processing simplification
-    */
-    bool solver::should_simplify() {
-        return false;
-    }
-
-    void solver::simplify() {
-
     }
 
     /*

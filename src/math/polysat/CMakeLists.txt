@@ -13,6 +13,7 @@ z3_add_component(polysat
     mul_ovfl_constraint.cpp
     saturation.cpp
     search_state.cpp
+    simplify.cpp
     solver.cpp
     ule_constraint.cpp
     viable.cpp
