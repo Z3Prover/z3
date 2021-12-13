@@ -284,6 +284,7 @@ namespace polysat {
         eval_interval               interval;
         vector<signed_constraint>   side_cond;
         signed_constraint           src;
+        rational                    coeff;
 
         struct less {
             bool operator()(fi_record const& a, fi_record const& b) const {

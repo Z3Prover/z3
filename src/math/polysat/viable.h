@@ -32,14 +32,15 @@ namespace polysat {
         solver& s;
         
         struct entry : public dll_base<entry>, public fi_record { 
-            rational coeff;
-            entry(rational const& m) : fi_record({ eval_interval::full(), {}, {} }), coeff(m) {}
+            entry() : fi_record({ eval_interval::full(), {}, {}, rational::one()}) {}
         };
+        enum class entry_kind { unit_e, equal_e, diseq_e };
         
         ptr_vector<entry>                    m_alloc;
         ptr_vector<entry>                    m_units;        // set of viable values based on unit multipliers
-        ptr_vector<entry>                    m_non_units;    // entries that have non-unit multipliers
-        svector<std::tuple<pvar, bool, entry*>>     m_trail; // undo stack
+        ptr_vector<entry>                    m_equal_lin;    // entries that have non-unit multipliers, but are equal
+        ptr_vector<entry>                    m_diseq_lin;    // entries that have distinct non-zero multipliers
+        svector<std::tuple<pvar, entry_kind, entry*>>     m_trail; // undo stack
 
         bool well_formed(entry* e);
 
@@ -51,15 +52,17 @@ namespace polysat {
 
         std::ostream& display(std::ostream& out, pvar v, entry* e) const;
 
+        void insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k);
+
     public:
         viable(solver& s);
 
         ~viable();
 
         // declare and remove var
-        void push(unsigned) { m_units.push_back(nullptr); m_non_units.push_back(nullptr); }
+        void push(unsigned) { m_units.push_back(nullptr); m_equal_lin.push_back(nullptr); }
 
-        void pop() { m_units.pop_back(); m_non_units.pop_back(); }
+        void pop() { m_units.pop_back(); m_equal_lin.pop_back(); }
 
         void pop_viable();
 

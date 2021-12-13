@@ -444,7 +444,7 @@ namespace polysat {
             
             LOG("end-try-eliminate v");
         }
-
+        
         search_iterator search_it(m_search);
         while (search_it.next()) {
             LOG("search state: " << m_search);
@@ -458,6 +458,7 @@ namespace polysat {
                     m_search.pop_asssignment();
                     continue;
                 }
+                inc_activity(v);
                 justification& j = m_justification[v];
                 if (j.level() > base_level() && !m_conflict.resolve_value(v) && j.is_decision()) {
                     revert_decision(v);

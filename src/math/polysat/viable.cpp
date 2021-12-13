@@ -34,31 +34,39 @@ namespace polysat {
             dealloc(e);        
     }
 
-    viable::entry* viable::alloc_entry() {
-        rational coeff(1);
+    viable::entry* viable::alloc_entry() {       
         if (m_alloc.empty())
-            return alloc(entry, coeff);
+            return alloc(entry);
         auto* e = m_alloc.back();
         e->side_cond.reset();
-        e->coeff = coeff;
+        e->coeff = 1;
         m_alloc.pop_back();
         return e;
     }
 
     void viable::pop_viable() {
-        auto& [v, is_unit, e] = m_trail.back();
-        auto& vec = is_unit ? m_units[v] : m_non_units[v];
-        e->remove_from(vec, e);
+        auto& [v, k, e] = m_trail.back();
+        switch (k) {
+        case entry_kind::unit_e: 
+            e->remove_from(m_units[v], e); 
+            break;
+        case entry_kind::equal_e: 
+            e->remove_from(m_equal_lin[v], e); 
+            break;
+        default: 
+            e->remove_from(m_diseq_lin[v], e); 
+            break;
+        }
         m_alloc.push_back(e);       
         m_trail.pop_back();
     }
 
     void viable::push_viable() {
-        auto& [v, is_unit, e] = m_trail.back();
+        auto& [v, k, e] = m_trail.back();
         SASSERT(e->prev() != e || !m_units[v]);
         SASSERT(e->prev() != e || e->next() == e);
-        SASSERT(is_unit);
-        (void)is_unit;
+        SASSERT(k == entry_kind::unit_e);
+        (void)k;
         if (e->prev() != e) {
             e->prev()->insert_after(e);
             if (e->interval.lo_val() < e->next()->interval.lo_val())
@@ -72,25 +80,35 @@ namespace polysat {
     bool viable::intersect(pvar v, signed_constraint const& c) {
         auto& fi = s.m_forbidden_intervals;
         entry* ne = alloc_entry();
-        if (!fi.get_interval(c, v, ne->coeff, ne->interval, ne->side_cond) || ne->interval.is_currently_empty()) {
+        if (!fi.get_interval(c, v, *ne)) {
+            m_alloc.push_back(ne);
+            return false;
+        }
+        else if (ne->interval.is_currently_empty()) {
             m_alloc.push_back(ne);
             return false;
         }
         else if (ne->coeff == 1) {
-            ne->src = c;
             return intersect(v, ne);
         }
-        else {
-            ne->src = c;
-            m_trail.push_back({ v, false, ne });
-            s.m_trail.push_back(trail_instr_t::viable_add_i);
-            ne->init(ne);
-            if (!m_non_units[v])
-                m_non_units[v] = ne;
-            else
-                ne->insert_after(m_non_units[v]);
+        else if (ne->coeff == -1) {
+            insert(ne, v, m_diseq_lin, entry_kind::diseq_e);
             return true;
         }
+        else {
+            insert(ne, v, m_equal_lin, entry_kind::equal_e);
+            return true;
+        }
+    }
+
+    void viable::insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k) {
+        m_trail.push_back({ v, k, e });
+        s.m_trail.push_back(trail_instr_t::viable_add_i);
+        e->init(e);
+        if (!entries[v])
+            entries[v] = e;
+        else
+            e->insert_after(entries[v]);
     }
 
     bool viable::intersect(pvar v, entry* ne) {
@@ -106,14 +124,14 @@ namespace polysat {
         }
 
         auto create_entry = [&]() {
-            m_trail.push_back({ v, true, ne });
+            m_trail.push_back({ v, entry_kind::unit_e, ne });
             s.m_trail.push_back(trail_instr_t::viable_add_i);
             ne->init(ne);            
             return ne;
         };
 
         auto remove_entry = [&](entry* e) {
-            m_trail.push_back({ v, true, e });
+            m_trail.push_back({ v, entry_kind::unit_e, e });
             s.m_trail.push_back(trail_instr_t::viable_rem_i);
             e->remove_from(m_units[v], e);
         };
@@ -170,7 +188,7 @@ namespace polysat {
     *   and division with coeff are valid. Is there a more relaxed scheme?
     */
     bool viable::refine_viable(pvar v, rational const& val) {
-        auto* e = m_non_units[v];
+        auto* e = m_equal_lin[v];
         if (!e)
             return true;
         entry* first = e;
@@ -222,6 +240,7 @@ namespace polysat {
                 entry* ne = alloc_entry();
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
+                // TODO: have forbidden_interval.cpp add these side conditions for non-unit equalities and diseq_lin?
                 ne->side_cond.push_back(s.eq(e->interval.hi(), e->interval.hi_val()));
                 ne->side_cond.push_back(s.eq(e->interval.lo(), e->interval.lo_val()));
                 ne->coeff = 1;
@@ -474,7 +493,7 @@ namespace polysat {
 
     std::ostream& viable::display(std::ostream& out, pvar v) const {
         display(out, v, m_units[v]);
-        display(out, v, m_non_units[v]);
+        display(out, v, m_equal_lin[v]);
         return out;
     }
 

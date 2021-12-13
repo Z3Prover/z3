@@ -47,6 +47,6 @@ namespace polysat {
 
     public:
         forbidden_intervals(solver& s) :s(s) {}
-        bool get_interval(signed_constraint const& c, pvar v, rational & coeff, eval_interval& out_interval, vector<signed_constraint>& side_cond);
+        bool get_interval(signed_constraint const& c, pvar v, fi_record& fi);
     };
 }

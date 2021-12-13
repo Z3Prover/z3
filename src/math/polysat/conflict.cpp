@@ -243,13 +243,13 @@ namespace polysat {
         for (unsigned v : m_vars) {
             if (!is_pmarked(v))
                 continue;
-            s.inc_activity(v);
             auto eq = s.eq(s.var(v), s.get_value(v));
             cm().ensure_bvar(eq.get());
             if (eq.bvalue(s) == l_undef) 
                 s.assign_eval(s.get_level(v), eq.blit());            
             lemma.push(~eq);
         }        
+        s.decay_activity();
 
         return lemma;
     }

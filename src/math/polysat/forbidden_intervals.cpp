@@ -27,11 +27,9 @@ namespace polysat {
      * \returns True iff a forbidden interval exists and the output parameters were set.
      */
 
-    bool forbidden_intervals::get_interval(signed_constraint const& c, pvar v, rational & coeff, eval_interval& out_interval, vector<signed_constraint>& out_side_cond) {
+    bool forbidden_intervals::get_interval(signed_constraint const& c, pvar v, fi_record& fi) {
         if (!c->is_ule())
             return false;
-
-        coeff = 1;
         
         struct backtrack {
             bool released = false;
@@ -44,24 +42,30 @@ namespace polysat {
             }
         };
 
-        backtrack _backtrack(out_side_cond);        
+        backtrack _backtrack(fi.side_cond);     
 
-        auto [ok1, a1, e1, b1] = linear_decompose(v, c->to_ule().lhs(), out_side_cond);
-        auto [ok2, a2, e2, b2] = linear_decompose(v, c->to_ule().rhs(), out_side_cond);
+        fi.coeff = 1;
+        fi.src = c;
+
+        auto [ok1, a1, e1, b1] = linear_decompose(v, c->to_ule().lhs(), fi.side_cond);
+        auto [ok2, a2, e2, b2] = linear_decompose(v, c->to_ule().rhs(), fi.side_cond);
         if (!ok1 || !ok2 || (a1.is_zero() && a2.is_zero()))
             return false;
+        SASSERT(b1.is_val());
+        SASSERT(b2.is_val());
+
+        // TBD: use fi.coeff = -1 to tell caller to treat it as a diseq_lin.
+        // record a1, a2, b1, b2 for fast access and add side conditions on b1, b2?
         if (a1 != a2 && !a1.is_zero() && !a2.is_zero())
             return false;
-        SASSERT(b1.is_val());
-        SASSERT(b2.is_val());    
-
+   
         _backtrack.released = true;
 
-        if (match_linear1(c, a1, b1, e1, a2, b2, e2, coeff, out_interval, out_side_cond))
+        if (match_linear1(c, a1, b1, e1, a2, b2, e2, fi.coeff, fi.interval, fi.side_cond))
             return true;
-        if (match_linear2(c, a1, b1, e1, a2, b2, e2, coeff, out_interval, out_side_cond))
+        if (match_linear2(c, a1, b1, e1, a2, b2, e2, fi.coeff, fi.interval, fi.side_cond))
             return true;
-        if (match_linear3(c, a1, b1, e1, a2, b2, e2, coeff, out_interval, out_side_cond))
+        if (match_linear3(c, a1, b1, e1, a2, b2, e2, fi.coeff, fi.interval, fi.side_cond))
             return true;
 
         _backtrack.released = false;
