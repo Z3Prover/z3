@@ -235,6 +235,31 @@ namespace smt {
     
     }
 
+    bool seq_regex::block_if_empty(expr* r, literal lit) {
+        auto info = re().get_info(r);
+
+        //if the minlength of the regex is UINT_MAX then the regex is a deadend
+        if (re().is_empty(r) || info.min_length == UINT_MAX) {
+            STRACE("seq_regex_brief", tout << "(empty) ";);
+            th.add_axiom(~lit);
+            return true;
+        }
+
+        if (info.interpreted) {
+            std::cout << "recur: " << r->get_id() << "\n";
+            std::cout << mk_pp(r, m) << "\n";
+            update_state_graph(r);
+            
+            if (m_state_graph.is_dead(get_state_id(r))) {
+                STRACE("seq_regex_brief", tout << "(dead) ";);
+                th.add_axiom(~lit);
+                return true;
+            }
+        }
+        return false;
+    }
+
+
     /**
      * Propagate the atom (accept s i r)
      *
@@ -271,24 +296,8 @@ namespace smt {
                                        << "PA(" << mk_pp(s, m) << "@" << idx
                                        << "," << state_str(r) << ") ";);
 
-        auto info = re().get_info(r);
-
-        //if the minlength of the regex is UINT_MAX then the regex is a deadend
-        if (re().is_empty(r) || info.min_length == UINT_MAX) {
-            STRACE("seq_regex_brief", tout << "(empty) ";);
-            th.add_axiom(~lit);
+        if (block_if_empty(r, lit))
             return;
-        }
-
-        if (info.interpreted) {
-            update_state_graph(r);
-            
-            if (m_state_graph.is_dead(get_state_id(r))) {
-                STRACE("seq_regex_brief", tout << "(dead) ";);
-                th.add_axiom(~lit);
-                return;
-            }
-        }
 
         if (block_unfolding(lit, idx)) {
             STRACE("seq_regex_brief", tout << "(blocked) ";);
@@ -544,6 +553,10 @@ namespace smt {
         expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr, *n = nullptr;
         VERIFY(sk().is_is_non_empty(e, r, u, n));
 
+        if (block_if_empty(r, lit))
+            return;
+
+
         TRACE("seq_regex", tout << "propagate nonempty: " << mk_pp(e, m) << std::endl;);
         STRACE("seq_regex_brief", tout
             << std::endl << "PNE(" << expr_id_str(e) << "," << state_str(r)
@@ -552,6 +565,7 @@ namespace smt {
         expr_ref is_nullable = is_nullable_wrapper(r);
         if (m.is_true(is_nullable)) 
             return;
+
 
         literal null_lit = th.mk_literal(is_nullable);
         expr_ref hd = mk_first(r, n);
@@ -844,7 +858,6 @@ namespace smt {
         SASSERT(id <= m_state_to_expr.size());
         return m_state_to_expr.get(id - 1);
     }
-
 
     bool seq_regex::can_be_in_cycle(expr *r1, expr *r2) {
         // TBD: This can be used to optimize the state graph:

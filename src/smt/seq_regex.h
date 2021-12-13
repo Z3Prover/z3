@@ -184,6 +184,8 @@ namespace smt {
             }
         }
 
+        bool block_if_empty(expr* r, literal lit);
+
     public:
 
         seq_regex(theory_seq& th);
