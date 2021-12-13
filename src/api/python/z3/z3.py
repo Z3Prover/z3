@@ -4809,7 +4809,7 @@ def Ext(a, b):
     """
     ctx = a.ctx
     if z3_debug():
-        _z3_assert(is_array_sort(a) and is_array(b), "arguments must be arrays")
+        _z3_assert(is_array_sort(a) and (is_array(b) or b.is_lambda()), "arguments must be arrays")
     return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
 
 
