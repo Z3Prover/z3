@@ -178,6 +178,10 @@ namespace polysat {
         return true;
     }
 
+    bool viable::refine_viable(pvar v, rational const& val) {
+        return refine_equal_lin(v, val) && refine_disequal_lin(v, val);
+    }
+
     /**
     * Traverse all interval constraints with coefficients to check whether current value 'val' for
     * 'v' is feasible. If not, extract a (maximal) interval to block 'v' from being assigned val.
@@ -187,7 +191,7 @@ namespace polysat {
     *   be precisely the assigned values. This is to ensure that lo/hi that are computed based on lo_val 
     *   and division with coeff are valid. Is there a more relaxed scheme?
     */
-    bool viable::refine_viable(pvar v, rational const& val) {
+    bool viable::refine_equal_lin(pvar v, rational const& val) {
         auto* e = m_equal_lin[v];
         if (!e)
             return true;
@@ -265,6 +269,14 @@ namespace polysat {
             e = e->next();
         }         
         while (e != first);
+        return true;
+    }
+
+    bool viable::refine_disequal_lin(pvar v, rational const& val) {
+        auto* e = m_diseq_lin[v];
+        if (!e)
+            return true;
+        LOG("refine-disequal-lin is TBD");
         return true;
     }
 
@@ -460,6 +472,7 @@ namespace polysat {
         while (e != first);
 
         // core.set_bailout();
+        // TODO - review this; c is true under current assignment?
         for (auto c : core) {
             if (c.bvalue(s) == l_false) {
                 core.reset();
@@ -506,6 +519,7 @@ namespace polysat {
     std::ostream& viable::display(std::ostream& out, pvar v) const {
         display(out, v, m_units[v]);
         display(out, v, m_equal_lin[v]);
+        display(out, v, m_diseq_lin[v]);
         return out;
     }
 

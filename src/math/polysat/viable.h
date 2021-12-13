@@ -50,6 +50,10 @@ namespace polysat {
 
         bool refine_viable(pvar v, rational const& val);
 
+        bool refine_equal_lin(pvar v, rational const& val);
+
+        bool refine_disequal_lin(pvar v, rational const& val);
+
         std::ostream& display(std::ostream& out, pvar v, entry* e) const;
 
         void insert(entry* e, pvar v, ptr_vector<entry>& entries, entry_kind k);
@@ -60,9 +64,9 @@ namespace polysat {
         ~viable();
 
         // declare and remove var
-        void push(unsigned) { m_units.push_back(nullptr); m_equal_lin.push_back(nullptr); }
+        void push(unsigned) { m_units.push_back(nullptr); m_equal_lin.push_back(nullptr); m_diseq_lin.push_back(nullptr); }
 
-        void pop() { m_units.pop_back(); m_equal_lin.pop_back(); }
+        void pop() { m_units.pop_back(); m_equal_lin.pop_back(); m_diseq_lin.pop_back(); }
 
         void pop_viable();
 

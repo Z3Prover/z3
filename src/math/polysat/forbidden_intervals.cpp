@@ -20,10 +20,11 @@ Author:
 
 namespace polysat {
 
-    /** Precondition: all variables other than v are assigned.
+    /** 
      *
-     * \param[out] out_interval     The forbidden interval for this constraint
-     * \param[out] out_neg_cond     Negation of the side condition (the side condition is true when the forbidden interval is trivial). May be NULL if the condition is constant.
+     * \param[in] c                 Original constraint
+     * \param[in] v                 Variable that is bounded by constraint
+     * \param[out] fi               "forbidden interval" record that captures values not allowed for v
      * \returns True iff a forbidden interval exists and the output parameters were set.
      */
 
@@ -55,7 +56,7 @@ namespace polysat {
         SASSERT(b2.is_val());
 
         // TBD: use fi.coeff = -1 to tell caller to treat it as a diseq_lin.
-        // record a1, a2, b1, b2 for fast access and add side conditions on b1, b2?
+        // record a1, a2, b1, b2 for fast access, add non_unit side conditions on b1 = e1, b2 = e2?
         if (a1 != a2 && !a1.is_zero() && !a2.is_zero())
             return false;
    
@@ -224,7 +225,9 @@ namespace polysat {
     void forbidden_intervals::add_non_unit_side_conds(fi_record& fi, pdd const& b1, pdd const& e1, pdd const& b2, pdd const& e2) {
         if (fi.coeff == 1)
             return;
-        fi.side_cond.push_back(s.eq(b1, e1));
-        fi.side_cond.push_back(s.eq(b2, e2));
+        if (b1 != e1)
+            fi.side_cond.push_back(s.eq(b1, e1));
+        if (b2 != e2)
+            fi.side_cond.push_back(s.eq(b2, e2));
     }
 }
