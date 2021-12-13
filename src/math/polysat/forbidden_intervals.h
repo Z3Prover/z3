@@ -30,20 +30,22 @@ namespace polysat {
 
         std::tuple<bool, rational, pdd, pdd> linear_decompose(pvar v, pdd const& p, vector<signed_constraint>& out_side_cond);
 
-        bool match_linear1(signed_constraint const& c, 
-            rational const & a1, pdd const& b1, pdd const& e1, 
-            rational const & a2, pdd const& b2, pdd const& e2,
-            rational& coeff, eval_interval& interval, vector<signed_constraint>& side_cond);
+        bool match_linear1(signed_constraint const& c,
+            rational const& a1, pdd const& b1, pdd const& e1,
+            rational const& a2, pdd const& b2, pdd const& e2,
+            fi_record& fi);
 
         bool match_linear2(signed_constraint const& c,
             rational const & a1, pdd const& b1, pdd const& e1,
             rational const & a2, pdd const& b2, pdd const& e2,
-            rational& coeff, eval_interval& interval, vector<signed_constraint>& side_cond);
+            fi_record& fi);
 
         bool match_linear3(signed_constraint const& c,
             rational const & a1, pdd const& b1, pdd const& e1,
             rational const & a2, pdd const& b2, pdd const& e2,
-            rational& coeff, eval_interval& interval, vector<signed_constraint>& side_cond);
+            fi_record& fi);
+
+        void add_non_unit_side_conds(fi_record& fi, pdd const& b1, pdd const& e1, pdd const& b2, pdd const& e2);
 
     public:
         forbidden_intervals(solver& s) :s(s) {}

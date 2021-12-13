@@ -61,11 +61,11 @@ namespace polysat {
    
         _backtrack.released = true;
 
-        if (match_linear1(c, a1, b1, e1, a2, b2, e2, fi.coeff, fi.interval, fi.side_cond))
+        if (match_linear1(c, a1, b1, e1, a2, b2, e2, fi))
             return true;
-        if (match_linear2(c, a1, b1, e1, a2, b2, e2, fi.coeff, fi.interval, fi.side_cond))
+        if (match_linear2(c, a1, b1, e1, a2, b2, e2, fi))
             return true;
-        if (match_linear3(c, a1, b1, e1, a2, b2, e2, fi.coeff, fi.interval, fi.side_cond))
+        if (match_linear3(c, a1, b1, e1, a2, b2, e2, fi))
             return true;
 
         _backtrack.released = false;
@@ -157,17 +157,18 @@ namespace polysat {
     bool forbidden_intervals::match_linear1(signed_constraint const& c,
         rational const & a1, pdd const& b1, pdd const& e1, 
         rational const & a2, pdd const& b2, pdd const& e2,
-        rational& coeff, eval_interval& interval, vector<signed_constraint>& side_cond) {
+        fi_record& fi) {
         if (a2.is_zero() && !a1.is_zero()) {
             SASSERT(!a1.is_zero());
             bool is_trivial = (b2 + 1).is_zero();
-            push_eq(is_trivial, e2 + 1, side_cond);
+            push_eq(is_trivial, e2 + 1, fi.side_cond);
             auto lo = e2 - e1 + 1;
             rational lo_val = (b2 - b1 + 1).val();
             auto hi = -e1;
             rational hi_val = (-b1).val();
-            coeff = a1;
-            interval = to_interval(c, is_trivial, coeff, lo_val, lo, hi_val, hi);
+            fi.coeff = a1;
+            fi.interval = to_interval(c, is_trivial, fi.coeff, lo_val, lo, hi_val, hi);
+            add_non_unit_side_conds(fi, b1, e1, b2, e2);
             return true;
         }
         return false;
@@ -180,17 +181,18 @@ namespace polysat {
     bool forbidden_intervals::match_linear2(signed_constraint const& c,
         rational const & a1, pdd const& b1, pdd const& e1,
         rational const & a2, pdd const& b2, pdd const& e2,
-        rational& coeff, eval_interval& interval, vector<signed_constraint>& side_cond) {
+        fi_record& fi) {
         if (a1.is_zero() && !a2.is_zero()) {
             SASSERT(!a2.is_zero());
             bool is_trivial = b1.is_zero();
-            push_eq(is_trivial, e1, side_cond);
+            push_eq(is_trivial, e1, fi.side_cond);
             auto lo = -e2;
             rational lo_val = (-b2).val();
             auto hi = e1 - e2;
             rational hi_val = (b1 - b2).val();
-            coeff = a2;
-            interval = to_interval(c, is_trivial, coeff, lo_val, lo, hi_val, hi);
+            fi.coeff = a2;
+            fi.interval = to_interval(c, is_trivial, fi.coeff, lo_val, lo, hi_val, hi);
+            add_non_unit_side_conds(fi, b1, e1, b2, e2);
             return true;
         }
         return false;
@@ -203,18 +205,26 @@ namespace polysat {
     bool forbidden_intervals::match_linear3(signed_constraint const& c,
         rational const & a1, pdd const& b1, pdd const& e1,
         rational const & a2, pdd const& b2, pdd const& e2,
-        rational& coeff, eval_interval& interval, vector<signed_constraint>& side_cond) {
+        fi_record& fi) {
         if (a1 == a2 && !a1.is_zero()) {
             bool is_trivial = b1.val() == b2.val();
-            push_eq(is_trivial, e1 - e2, side_cond);
+            push_eq(is_trivial, e1 - e2, fi.side_cond);
             auto lo = -e2;
             rational lo_val = (-b2).val();
             auto hi = -e1;
             rational hi_val = (-b1).val();
-            coeff = a1;
-            interval = to_interval(c, is_trivial, coeff, lo_val, lo, hi_val, hi);
+            fi.coeff = a1;
+            fi.interval = to_interval(c, is_trivial, fi.coeff, lo_val, lo, hi_val, hi);
+            add_non_unit_side_conds(fi, b1, e1, b2, e2);
             return true;
         }
         return false;
+    }
+
+    void forbidden_intervals::add_non_unit_side_conds(fi_record& fi, pdd const& b1, pdd const& e1, pdd const& b2, pdd const& e2) {
+        if (fi.coeff == 1)
+            return;
+        fi.side_cond.push_back(s.eq(b1, e1));
+        fi.side_cond.push_back(s.eq(b2, e2));
     }
 }

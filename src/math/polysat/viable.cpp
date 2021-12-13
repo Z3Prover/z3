@@ -252,15 +252,12 @@ namespace polysat {
                 }
                 LOG("forbidden interval " << e->coeff << " * " << e->interval << " [" << lo << ", " << hi << "[");
                 SASSERT(hi <= max_value);
+                pdd lop = s.var2pdd(v).mk_val(lo);
+                pdd hip = s.var2pdd(v).mk_val(hi);
                 entry* ne = alloc_entry();
                 ne->src = e->src;
                 ne->side_cond = e->side_cond;
-                // TODO: have forbidden_interval.cpp add these side conditions for non-unit equalities and diseq_lin?
-                ne->side_cond.push_back(s.eq(e->interval.hi(), e->interval.hi_val()));
-                ne->side_cond.push_back(s.eq(e->interval.lo(), e->interval.lo_val()));
                 ne->coeff = 1;
-                pdd lop = s.var2pdd(v).mk_val(lo);
-                pdd hip = s.var2pdd(v).mk_val(hi);
                 ne->interval = eval_interval::proper(lop, lo, hip, hi);
                 intersect(v, ne);
                 return false;
