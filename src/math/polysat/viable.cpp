@@ -201,6 +201,32 @@ namespace polysat {
         auto delta_u = [&](rational const& coeff_val) {
             return floor((e->interval.hi_val() - coeff_val - 1) / e->coeff);
         };
+
+        // naive widening. TODO: can we accelerate this?
+        // condition e->interval.hi_val() < coeff_val is
+        // to ensure that widening is performed on the same interval
+        // similar for e->interval.lo_val() > coeff_val
+        // needs a proof.
+        auto increase_hi = [&](rational& hi) {
+            while (hi < max_value) {
+                rational coeff_val = mod(e->coeff * hi, mod_value);
+                if (!e->interval.currently_contains(coeff_val))
+                    break;
+                if (e->interval.hi_val() < coeff_val)
+                    break;
+                hi += delta_u(coeff_val) + 1;
+            }
+        };
+        auto decrease_lo = [&](rational& lo) {
+            while (lo > 1) {
+                rational coeff_val = mod(e->coeff * (lo - 1), mod_value);
+                if (!e->interval.currently_contains(coeff_val))
+                    break;
+                if (e->interval.lo_val() > coeff_val)
+                    break;
+                lo -= delta_l(coeff_val);
+            }
+        };
         do {
             rational coeff_val = mod(e->coeff * val, mod_value);
             if (e->interval.currently_contains(coeff_val)) {
@@ -208,32 +234,21 @@ namespace polysat {
                 rational hi = val + delta_u(coeff_val) + 1;
 
                 if (e->interval.lo_val() < e->interval.hi_val()) {
-                    // naive widening. TODO: can we accelerate this?
-                    while (hi < max_value) {
-                        coeff_val = mod(e->coeff * hi, mod_value);
-                        if (!e->interval.currently_contains(coeff_val))
-                            break;
-                        hi += delta_u(coeff_val) + 1;
-                    }
-                    while (lo > 1) {
-                        coeff_val = mod(e->coeff * (lo - 1), mod_value);
-                        if (!e->interval.currently_contains(coeff_val))
-                            break;
-                        lo -= delta_l(coeff_val);
-                    }
+                    increase_hi(hi);
+                    decrease_lo(lo);                    
                 }
                 else if (e->interval.lo_val() <= coeff_val) {
-                    // TODO can we widen lo here?
                     rational lambda_u = floor((max_value - coeff_val) / e->coeff);
                     hi = val + lambda_u + 1;
                     if (hi > max_value)
                         hi = 0;
+                    decrease_lo(lo);
                 }
                 else {
-                    // TODO case we widen hi here?
                     SASSERT(coeff_val < e->interval.hi_val());
                     rational lambda_l = floor(coeff_val / e->coeff);
-                    lo = val - lambda_l;                   
+                    lo = val - lambda_l; 
+                    increase_hi(hi);
                 }
                 LOG("forbidden interval " << e->coeff << " * " << e->interval << " [" << lo << ", " << hi << "[");
                 SASSERT(hi <= max_value);
