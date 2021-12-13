@@ -246,8 +246,6 @@ namespace smt {
         }
 
         if (info.interpreted) {
-            std::cout << "recur: " << r->get_id() << "\n";
-            std::cout << mk_pp(r, m) << "\n";
             update_state_graph(r);
             
             if (m_state_graph.is_dead(get_state_id(r))) {
