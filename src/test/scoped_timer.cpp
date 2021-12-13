@@ -8,6 +8,7 @@
 #include "util/vector.h"
 #include "util/trace.h"
 #include <thread>
+#include <atomic>
 
 class test_scoped_eh : public event_handler {
     std::atomic<bool> m_called = false;
