@@ -11,6 +11,7 @@ z3_add_component(polysat
     linear_solver.cpp
     log.cpp
     mul_ovfl_constraint.cpp
+    restart.cpp
     saturation.cpp
     search_state.cpp
     simplify.cpp

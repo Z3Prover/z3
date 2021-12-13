@@ -20,7 +20,6 @@ Author:
 #include "math/polysat/explain.h"
 #include "math/polysat/log.h"
 #include "math/polysat/variable_elimination.h"
-#include "util/luby.h"
 
 // For development; to be removed once the linear solver works well enough
 #define ENABLE_LINEAR_SOLVER 0
@@ -35,6 +34,7 @@ namespace polysat {
         m_linear_solver(*this),
         m_conflict(*this),
         m_simplify(*this),
+        m_restart(*this),
         m_forbidden_intervals(*this),
         m_bvars(),
         m_free_pvars(m_activity),
@@ -75,7 +75,7 @@ namespace polysat {
             else if (!can_decide()) { LOG_H2("SAT"); SASSERT(verify_sat()); return l_true; }
             else if (m_constraints.should_gc()) m_constraints.gc(*this);
             else if (m_simplify.should_apply()) m_simplify();
-            else if (should_restart()) restart();
+            else if (m_restart.should_apply()) m_restart();
             else decide();
         }
         LOG_H2("UNDEF (resource limit)");
@@ -252,25 +252,7 @@ namespace polysat {
 #endif
     }
 
-    /*
-    * Basic restart functionality.
-    * restarts make more sense when the order of variable 
-    * assignments and the values assigned to variables can be diversified.
-    */
-    bool solver::should_restart() {
-        if (m_stats.m_num_conflicts - m_conflicts_at_restart < m_restart_threshold)
-            return false;
-        if (base_level() + 2 > m_level)
-            return false;
-        return true;        
-    }
 
-    void solver::restart() {
-        ++m_stats.m_num_restarts;
-        pop_levels(m_level - base_level());
-        m_conflicts_at_restart = m_stats.m_num_conflicts;
-        m_restart_threshold = m_restart_init * get_luby(++m_luby_idx);
-    }
 
     void solver::pop_levels(unsigned num_levels) {
         if (num_levels == 0)

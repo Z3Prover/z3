@@ -35,7 +35,6 @@ This is a place holder for simplification.
 
   
 --*/
-#pragma once
 #include "math/polysat/solver.h"
 #include "math/polysat/simplify.h"
 

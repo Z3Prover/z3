@@ -25,6 +25,7 @@ Author:
 #include "math/polysat/constraint.h"
 #include "math/polysat/clause_builder.h"
 #include "math/polysat/simplify.h"
+#include "math/polysat/restart.h"
 #include "math/polysat/explain.h"
 #include "math/polysat/ule_constraint.h"
 #include "math/polysat/justification.h"
@@ -61,6 +62,7 @@ namespace polysat {
         friend class conflict;
         friend class conflict_explainer;
         friend class simplify;
+        friend class restart;
         friend class explainer;
         friend class inference_engine;
         friend class forbidden_intervals;
@@ -82,6 +84,7 @@ namespace polysat {
         linear_solver            m_linear_solver;
         conflict                 m_conflict; 
         simplify                 m_simplify;
+        restart                  m_restart;
         forbidden_intervals      m_forbidden_intervals;
         bool_var_manager         m_bvars;       // Map boolean variables to constraints
         var_queue                m_free_pvars;  // free poly vars
@@ -204,12 +207,6 @@ namespace polysat {
         void backjump(unsigned new_level);
         void add_lemma(clause& lemma);
 
-        unsigned m_conflicts_at_restart = 0;
-        unsigned m_restart_threshold = 100;
-        unsigned m_restart_init = 100;
-        unsigned m_luby_idx = 0;
-        bool should_restart();
-        void restart();
 
         signed_constraint lit2cnstr(sat::literal lit) const { return m_constraints.lookup(lit); }
         static void insert_constraint(signed_constraints& cs, signed_constraint c);
