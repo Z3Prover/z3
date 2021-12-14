@@ -10,7 +10,6 @@ Author:
     Jakob Rath, Nikolaj Bjorner (nbjorner) 2021-12-09
 
 --*/
-#pragma once
 #include "math/polysat/mul_ovfl_constraint.h"
 #include "math/polysat/solver.h"
 
