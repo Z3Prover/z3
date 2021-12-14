@@ -139,7 +139,7 @@ namespace polysat {
         cb.push_new(~premise);
         cb.push_new(conseq);
         clause_ref just = cb.build();
-        s.add_lemma(*just);
+        s.add_clause(*just);
         s.propagate();
         SASSERT(s.m_bvars.is_true(conseq.blit()));
         return true;

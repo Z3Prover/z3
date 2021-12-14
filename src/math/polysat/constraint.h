@@ -20,11 +20,12 @@ Author:
 
 namespace polysat {
 
-    enum ckind_t { ule_t, mul_ovfl_t };
+    enum ckind_t { ule_t, mul_ovfl_t, shr_t };
 
     class constraint;
     class ule_constraint;
     class mul_ovfl_constraint;
+    class shr_constraint;
     class signed_constraint;
 
     using constraint_hash = obj_ptr_hash<constraint>;
@@ -134,6 +135,7 @@ namespace polysat {
         friend class clause;
         friend class ule_constraint;
         friend class mul_ovfl_constraint;
+        friend class shr_constraint;
 
         // constraint_manager* m_manager;
         ckind_t             m_kind;

@@ -961,6 +961,24 @@ namespace polysat {
         s.expect_sat();
     }
 
+    static void test_quot_rem2(unsigned bw = 32) {
+        scoped_solver s(__func__);
+        s.set_max_conflicts(5);
+        auto q = s.var(s.add_var(bw));
+        auto r = s.var(s.add_var(bw));
+        auto idx = s.var(s.add_var(bw));
+        auto second = s.var(s.add_var(bw));
+        auto first = s.var(s.add_var(bw));
+        s.add_eq(q*idx + r, UINT_MAX);
+        s.add_ult(r, idx);
+        s.add_noovfl(q, idx);
+        s.add_ult(first, second);
+        s.add_diseq(idx, 0);
+        s.add_ule(second - first, q);
+        s.add_noovfl(second  - first, idx);
+        s.check();       
+    }
+
 
     // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
     // NOTE: actually, add_var seems to keep them in sync, so this is not an issue at the moment (but we should still test it later)
@@ -1011,9 +1029,10 @@ namespace polysat {
             auto pa = to_pdd(m, s, expr2pdd, a);
             auto pb = to_pdd(m, s, expr2pdd, b);            
             s.add_eq(quot*pb + rem - pa);
-            s.add_ult(rem, pb);
-            // TODO:
-            // s.add_mul_noovfl(quot, pb);
+            s.add_ult(rem, pb);            
+            s.add_noovfl(quot, pb);
+            // todo: add clause or use external iteration?
+            // s.add_clause(s.ult(rem, pb), s.eq(b));
             r = alloc(pdd, quot);
         }
         else if (bv.is_numeral(e, n, sz)) 
