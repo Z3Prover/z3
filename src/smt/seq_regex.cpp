@@ -147,38 +147,6 @@ namespace smt {
             }
         }
 
-        /*
-        //if r is uninterpreted then taking a derivative may diverge try to obtain the 
-        //value from equations providing r a definition
-        if (is_uninterp(r)) {
-            if (m_const_to_expr.contains(r)) {
-                proof* _not_used = nullptr;
-                m_const_to_expr.get(r, r, _not_used);
-                if (is_uninterp(r)) {
-                    if (m_const_to_expr.contains(r)) {
-                        m_const_to_expr.get(r, r, _not_used);
-                    }
-                }
-            }
-            else {
-                //add the literal back
-                expr_ref r_alias(m.mk_fresh_const(symbol(r->get_id()), r->get_sort(), false), m);
-                expr_ref s_in_r_alias(re().mk_in_re(s, r_alias), m);
-                literal s_in_r_alias_lit = th.mk_literal(s_in_r_alias);
-                m_const_to_expr.insert(r_alias, r, nullptr);
-                th.add_axiom(s_in_r_alias_lit);
-                return;
-            }
-        }
-        */
-
-        /*
-        if (is_uninterp(r)) {
-            th.add_unhandled_expr(e);
-            return;
-        }
-        */
-
         expr_ref zero(a().mk_int(0), m);
         expr_ref acc(sk().mk_accept(s, zero, r), m);
         literal acc_lit = th.mk_literal(acc);
@@ -468,13 +436,10 @@ namespace smt {
         STRACE("seq_regex", tout << "derivative(" << mk_pp(ele, m) << "): " << mk_pp(r, m) << std::endl;);
 
         // Uses canonical variable (:var 0) for the derivative element
-        expr_ref der(seq_rw().mk_derivative(r), m);
-
         // Substitute (:var 0) with the actual element
+        expr_ref der = seq_rw().mk_derivative(r);
         var_subst subst(m);
-        expr_ref_vector sub(m);
-        sub.push_back(ele);
-        der = subst(der, sub);
+        der = subst(der, ele);
 
         STRACE("seq_regex", tout << "derivative result: " << mk_pp(der, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "d(" << state_str(r) << ")="
@@ -488,17 +453,6 @@ namespace smt {
     void seq_regex::propagate_eq(expr* r1, expr* r2) {
         TRACE("seq_regex", tout << "propagate EQ: " << mk_pp(r1, m) << ", " << mk_pp(r2, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "PEQ ";);
-
-        /*
-        if (is_uninterp(r1) || is_uninterp(r2)) {
-            th.add_axiom(th.mk_eq(r1, r2, false));
-           if (is_uninterp(r1))
-                m_const_to_expr.insert(r1, r2, nullptr);
-            else 
-                m_const_to_expr.insert(r2, r1, nullptr);
-           
-        }
-        */
 
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
@@ -653,23 +607,6 @@ namespace smt {
                     // s[i..] in .* <==> true, also: s[i..] in .+ <==> true when |s|>i
                     re_to_accept.find(e) = m.mk_true();
                 }
-                /*
-                else if (re().is_epsilon(e))
-                {
-                    expr* one = a().mk_int(1);
-                    _temp_bool_owner.push_back(one);
-                    //the substring starting after position i must be empty
-                    expr* s_end = str().mk_substr(s, i_int, one);
-                    expr* s_end_is_epsilon = m.mk_eq(s_end, str().mk_empty(m.get_sort(s)));
-
-                    _temp_bool_owner.push_back(s_end_is_epsilon);
-                    re_to_accept.find(e) = s_end_is_epsilon;
-
-                    STRACE("seq_regex_verbose", tout
-                        << "added empty sequence leaf: "
-                        << mk_pp(s_end_is_epsilon, m) << std::endl;);
-                }
-                */
                 else if (re().is_union(e, e1, e2)) {
                     expr* b1 = re_to_accept.find(e1);
                     expr* b2 = re_to_accept.find(e2);
