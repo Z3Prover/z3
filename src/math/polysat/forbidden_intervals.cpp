@@ -27,7 +27,6 @@ namespace polysat {
      * \param[out] fi               "forbidden interval" record that captures values not allowed for v
      * \returns True iff a forbidden interval exists and the output parameters were set.
      */
-
     bool forbidden_intervals::get_interval(signed_constraint const& c, pvar v, fi_record& fi) {
         if (!c->is_ule())
             return false;

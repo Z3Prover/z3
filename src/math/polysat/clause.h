@@ -33,7 +33,7 @@ namespace polysat {
         friend class constraint_manager;
 
         unsigned m_ref_count = 0;  // TODO: remove refcount once we confirm it's not needed anymore
-        bool m_redundant = false;
+        bool m_redundant = true;
         sat::literal_vector m_literals;
 
 

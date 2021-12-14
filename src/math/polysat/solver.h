@@ -205,7 +205,8 @@ namespace polysat {
         void report_unsat();
         void learn_lemma(clause& lemma);
         void backjump(unsigned new_level);
-        void add_lemma(clause& lemma);
+        void add_clause(clause& lemma);
+        void add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant);
 
 
         signed_constraint lit2cnstr(sat::literal lit) const { return m_constraints.lookup(lit); }
@@ -236,10 +237,8 @@ namespace polysat {
          * Returns l_undef if the search cannot proceed.
          * Possible reasons:
          * - Resource limits are exhausted.
-         * - A disjunctive lemma should be learned. The disjunction needs to be handled externally.
          */
         lbool check_sat();
-
 
         /**
          * retrieve unsat core dependencies
@@ -255,6 +254,18 @@ namespace polysat {
          * Create polynomial terms
          */
         pdd var(pvar v) { return m_vars[v]; }
+
+        /**
+        * Create terms for unsigned quot-rem
+        * 
+        * Return tuple (quot, rem)
+        * 
+        * The following properties are enforced:
+        * b*quot + rem = a
+        * ~ovfl(b*quot)
+        * rem < b or b = 0
+        */
+        std::tuple<pdd, pdd> quot_rem(pdd const& a, pdd const& b);
 
         /**
          * Create polynomial constant.

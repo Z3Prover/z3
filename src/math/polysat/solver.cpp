@@ -124,6 +124,18 @@ namespace polysat {
         m_free_pvars.del_var_eh(v);
     }
 
+    std::tuple<pdd, pdd> solver::quot_rem(pdd const& a, pdd const& b) {
+        auto& m = a.manager();
+        unsigned sz = m.power_of_2();
+        pdd quot = m.mk_var(add_var(sz));
+        pdd rem = m.mk_var(add_var(sz));
+        add_eq(b * quot + rem - a);
+        add_noovfl(b, quot);
+        add_clause(eq(b), ult(rem, b), false);
+        return std::tuple<pdd, pdd>(quot, rem);
+    }
+
+
     void solver::assign_eh(signed_constraint c, unsigned dep) {
         SASSERT(at_base_level());
         SASSERT(c);
@@ -545,7 +557,7 @@ namespace polysat {
     void solver::learn_lemma(clause& lemma) {
         LOG("Learning: "<< lemma);
         SASSERT(!lemma.empty());
-        add_lemma(lemma);
+        add_clause(lemma);
         if (!is_conflict())
             decide_bool(lemma);
     }
@@ -667,7 +679,7 @@ namespace polysat {
 
         backjump(m_bvars.level(var) - 1);
 
-        add_lemma(*reason);
+        add_clause(*reason);
 
         if (!is_conflict() && lemma)
             decide_bool(*lemma);
@@ -751,15 +763,26 @@ namespace polysat {
     }
 
     // Add lemma to storage
-    void solver::add_lemma(clause& lemma) {
-        LOG("Lemma: " << lemma);
-        for (sat::literal lit : lemma) {
+    void solver::add_clause(clause& clause) {
+        LOG("Lemma: " << clause);
+        for (sat::literal lit : clause) {
             LOG("   Literal " << lit << " is: " << lit2cnstr(lit));
             // SASSERT(m_bvars.value(lit) != l_true);
         }
-        SASSERT(!lemma.empty());
-        m_constraints.store(&lemma, *this);
+        SASSERT(!clause.empty());
+        m_constraints.store(&clause, *this);
         propagate();
+    }
+
+    void solver::add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant) {
+        clause_builder cb(*this);
+        if (!c1.is_always_false())
+            cb.push(c1);
+        if (!c2.is_always_false())
+            cb.push(c2);
+        clause_ref clause = cb.build();
+        clause->set_redundant(is_redundant);
+        add_clause(*clause);
     }
 
     void solver::insert_constraint(signed_constraints& cs, signed_constraint c) {
@@ -780,6 +803,7 @@ namespace polysat {
         LOG("Pop " << num_scopes << " user scopes; lowest popped level = " << base_level << "; current level = " << m_level);
         pop_levels(m_level - base_level + 1);
         m_conflict.reset();   
+        m_base_levels.shrink(m_base_levels.size() - num_scopes);
     }
 
     bool solver::at_base_level() const {
