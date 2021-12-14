@@ -203,9 +203,7 @@ namespace smt {
 
         void propagate_eq(expr* r1, expr* r2);
 
-        void propagate_ne(expr* r1, expr* r2);
-        
-        void propagate_is_non_empty(literal lit);
+        void propagate_ne(expr* r1, expr* r2);        
 
         void propagate_is_empty(literal lit);
         

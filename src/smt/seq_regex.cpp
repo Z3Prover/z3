@@ -246,8 +246,7 @@ namespace smt {
         }
 
         if (info.interpreted) {
-            update_state_graph(r);
-            
+            update_state_graph(r);            
             if (m_state_graph.is_dead(get_state_id(r))) {
                 STRACE("seq_regex_brief", tout << "(dead) ";);
                 th.add_axiom(~lit);
@@ -519,15 +518,12 @@ namespace smt {
     void seq_regex::propagate_ne(expr* r1, expr* r2) {
         TRACE("seq_regex", tout << "propagate NEQ: " << mk_pp(r1, m) << ", " << mk_pp(r2, m) << std::endl;);
         STRACE("seq_regex_brief", tout << "PNEQ ";);
-        // TBD: rewrite to use state_graph
-        // why is is_non_empty even needed, why not just not(in_empty)
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
         expr_ref r = symmetric_diff(r1, r2);
-        expr_ref emp(re().mk_empty(r->get_sort()), m);
-        expr_ref n(m.mk_fresh_const("re.char", seq_sort), m); 
-        expr_ref is_non_empty = sk().mk_is_non_empty(r, r, n);
-        th.add_axiom(th.mk_eq(r1, r2, false), th.mk_literal(is_non_empty));
+        expr_ref s(m.mk_fresh_const("re.member", seq_sort), m);
+        expr_ref is_member(re().mk_in_re(s, r), m);
+        th.add_axiom(th.mk_eq(r1, r2, false), th.mk_literal(is_member));
     }
 
     bool seq_regex::is_member(expr* r, expr* u) {
@@ -537,62 +533,7 @@ namespace smt {
                 return true;
         }
         return r == u;        
-    }
-
-    /**
-     * is_non_empty(r, u) => nullable or \/_i (c_i and is_non_empty(r_i, u union r))
-     *
-     * for each (c_i, r_i) in cofactors (min-terms)
-     *
-     * is_non_empty(r_i, u union r) := false if r_i in u
-     *
-     */
-    void seq_regex::propagate_is_non_empty(literal lit) {
-        expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr, *n = nullptr;
-        VERIFY(sk().is_is_non_empty(e, r, u, n));
-
-        if (block_if_empty(r, lit))
-            return;
-
-
-        TRACE("seq_regex", tout << "propagate nonempty: " << mk_pp(e, m) << std::endl;);
-        STRACE("seq_regex_brief", tout
-            << std::endl << "PNE(" << expr_id_str(e) << "," << state_str(r)
-            << "," << expr_id_str(u) << "," << expr_id_str(n) << ") ";);
-
-        expr_ref is_nullable = is_nullable_wrapper(r);
-        if (m.is_true(is_nullable)) 
-            return;
-
-
-        literal null_lit = th.mk_literal(is_nullable);
-        expr_ref hd = mk_first(r, n);
-        expr_ref d(m);
-        d = mk_derivative_wrapper(hd, r);
-
-        literal_vector lits;
-        lits.push_back(~lit);
-        if (null_lit != false_literal) 
-            lits.push_back(null_lit);
-
-        expr_ref_pair_vector cofactors(m);
-        get_cofactors(d, cofactors);
-        for (auto const& p : cofactors) {
-            if (is_member(p.second, u))
-                continue;
-            expr_ref cond(p.first, m);
-            seq_rw().elim_condition(hd, cond);
-            rewrite(cond);
-            if (m.is_false(cond))
-                continue;            
-            expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, p.second), n);
-            if (!m.is_true(cond))
-                next_non_empty = m.mk_and(cond, next_non_empty);
-            lits.push_back(th.mk_literal(next_non_empty));
-        }
-
-        th.add_axiom(lits);
-    }
+    } 
 
     /*
         Given a string s, index i, and a derivative r, return an
@@ -915,6 +856,7 @@ namespace smt {
             }
             m_state_graph.mark_done(r_id);
         }
+
         STRACE("seq_regex", m_state_graph.display(tout););
         STRACE("seq_regex_brief", tout << std::endl;);
         STRACE("seq_regex_brief", m_state_graph.display(tout););

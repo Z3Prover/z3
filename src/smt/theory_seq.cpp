@@ -3014,10 +3014,6 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
         if (is_true)
             m_regex.propagate_is_empty(lit);
     }
-    else if (m_sk.is_is_non_empty(e)) {
-        if (is_true)
-            m_regex.propagate_is_non_empty(lit);
-    }
     else if (m_sk.is_eq(e, e1, e2)) {
         if (is_true) {
             propagate_eq(lit, e1, e2, true);
