@@ -19,6 +19,9 @@ Author:
 #include "smt/seq_regex.h"
 #include "smt/theory_seq.h"
 #include "ast/expr_abstract.h"
+#include "ast/ast_util.h"
+#include "ast/for_each_expr.h"
+#include <ast/rewriter/expr_safe_replace.h>
 
 namespace smt {
 
@@ -533,7 +536,62 @@ namespace smt {
                 return true;
         }
         return r == u;        
-    } 
+    }
+
+    /**
+     * is_non_empty(r, u) => nullable or \/_i (c_i and is_non_empty(r_i, u union r))
+     *
+     * for each (c_i, r_i) in cofactors (min-terms)
+     *
+     * is_non_empty(r_i, u union r) := false if r_i in u
+     *
+     */
+    void seq_regex::propagate_is_non_empty(literal lit) {
+        expr* e = ctx.bool_var2expr(lit.var()), *r = nullptr, *u = nullptr, *n = nullptr;
+        VERIFY(sk().is_is_non_empty(e, r, u, n));
+
+        if (block_if_empty(r, lit)) 
+            return;
+        
+
+        TRACE("seq_regex", tout << "propagate nonempty: " << mk_pp(e, m) << std::endl;);
+        STRACE("seq_regex_brief", tout
+            << std::endl << "PNE(" << expr_id_str(e) << "," << state_str(r)
+            << "," << expr_id_str(u) << "," << expr_id_str(n) << ") ";);
+
+        expr_ref is_nullable = is_nullable_wrapper(r);
+        if (m.is_true(is_nullable)) 
+            return;
+
+
+        literal null_lit = th.mk_literal(is_nullable);
+        expr_ref hd = mk_first(r, n);
+        expr_ref d(m);
+        d = mk_derivative_wrapper(hd, r);
+
+        literal_vector lits;
+        lits.push_back(~lit);
+        if (null_lit != false_literal) 
+            lits.push_back(null_lit);
+
+        expr_ref_pair_vector cofactors(m);
+        get_cofactors(d, cofactors);
+        for (auto const& p : cofactors) {
+            if (is_member(p.second, u)) 
+                continue;            
+            expr_ref cond(p.first, m);
+            seq_rw().elim_condition(hd, cond);
+            rewrite(cond);
+            if (m.is_false(cond))
+                continue;            
+            expr_ref next_non_empty = sk().mk_is_non_empty(p.second, re().mk_union(u, p.second), n);
+            if (!m.is_true(cond))
+                next_non_empty = m.mk_and(cond, next_non_empty);
+            lits.push_back(th.mk_literal(next_non_empty));
+        }
+
+        th.add_axiom(lits);
+    }
 
     /*
         Given a string s, index i, and a derivative r, return an
@@ -681,39 +739,47 @@ namespace smt {
         Return a list of all (cond, leaf) pairs in a given derivative
         expression r.
 
-        Note: this recursive implementation is inefficient, since if nodes
-        are repeated often in the expression DAG, they may be visited
-        many times. For this reason, prefer mk_deriv_accept and
-        get_all_derivatives when possible.
+        Note: this  implementation is inefficient: it simply collects all expressions under an if and 
+        iterates over all combinations.
 
         This method is still used by:
             propagate_is_empty
             propagate_is_non_empty
     */
     void seq_regex::get_cofactors(expr* r, expr_ref_pair_vector& result) {
-        expr_ref_vector conds(m);
-        get_cofactors_rec(r, conds, result);
-        STRACE("seq_regex", tout << "Number of derivatives: "
-                                 << result.size() << std::endl;);
-        STRACE("seq_regex_brief", tout << "#derivs=" << result.size() << " ";);
-    }
-    void seq_regex::get_cofactors_rec(expr* r, expr_ref_vector& conds,
-                                      expr_ref_pair_vector& result) {
-        expr* cond = nullptr, *r1 = nullptr, *r2 = nullptr;
-        if (m.is_ite(r, cond, r1, r2)) {
-            conds.push_back(cond);
-            get_cofactors_rec(r1, conds, result);
-            conds.pop_back();
-            conds.push_back(mk_not(m, cond));
-            get_cofactors_rec(r2, conds, result);
-            conds.pop_back();
+        obj_hashtable<expr> ifs;
+        expr* cond = nullptr, * r1 = nullptr, * r2 = nullptr;
+        for (expr* e : subterms::ground(expr_ref(r, m))) 
+            if (m.is_ite(e, cond, r1, r2))
+                ifs.insert(cond);
+        
+        expr_ref_vector rs(m);
+        vector<expr_ref_vector> conds;
+        conds.push_back(expr_ref_vector(m));
+        rs.push_back(r);
+        for (expr* c : ifs) {
+            unsigned sz = conds.size();
+            expr_safe_replace rep1(m);
+            expr_safe_replace rep2(m);
+            rep1.insert(c, m.mk_true());
+            rep2.insert(c, m.mk_false());
+            expr_ref r2(m);
+            for (unsigned i = 0; i < sz; ++i) {
+                expr_ref_vector cs = conds[i];
+                cs.push_back(mk_not(m, c));
+                conds.push_back(cs);
+                conds[i].push_back(c);
+                expr_ref r1(rs.get(i), m);
+                rep1(r1, r2);
+                rs[i] = r2;
+                rep2(r1, r2);
+                rs.push_back(r2);
+            }
         }
-        else if (re().is_union(r, r1, r2)) {
-            get_cofactors_rec(r1, conds, result);
-            get_cofactors_rec(r2, conds, result);
-        }
-        else {
-            expr_ref conj = mk_and(conds);
+        for (unsigned i = 0; i < conds.size(); ++i) {
+            expr_ref conj = mk_and(conds[i]);
+            expr_ref r(rs.get(i), m);
+            ctx.get_rewriter()(r);
             if (!m.is_false(conj) && !re().is_empty(r))
                 result.push_back(conj, r);
         }
