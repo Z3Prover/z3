@@ -524,9 +524,10 @@ namespace smt {
         sort* seq_sort = nullptr;
         VERIFY(u().is_re(r1, seq_sort));
         expr_ref r = symmetric_diff(r1, r2);
-        expr_ref s(m.mk_fresh_const("re.member", seq_sort), m);
-        expr_ref is_member(re().mk_in_re(s, r), m);
-        th.add_axiom(th.mk_eq(r1, r2, false), th.mk_literal(is_member));
+        expr_ref emp(re().mk_empty(r->get_sort()), m);
+        expr_ref n(m.mk_fresh_const("re.char", seq_sort), m);
+        expr_ref is_non_empty = sk().mk_is_non_empty(r, r, n);
+        th.add_axiom(th.mk_eq(r1, r2, false), th.mk_literal(is_non_empty));
     }
 
     bool seq_regex::is_member(expr* r, expr* u) {

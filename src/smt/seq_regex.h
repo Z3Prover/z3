@@ -184,8 +184,6 @@ namespace smt {
 
         bool block_if_empty(expr* r, literal lit);
 
-        void propagate_is_non_empty(literal lit);
-
     public:
 
         seq_regex(theory_seq& th);
@@ -206,6 +204,8 @@ namespace smt {
         void propagate_ne(expr* r1, expr* r2);        
 
         void propagate_is_empty(literal lit);
+
+        void propagate_is_non_empty(literal lit);
         
     };
 

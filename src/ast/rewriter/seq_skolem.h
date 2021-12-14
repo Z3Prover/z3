@@ -37,6 +37,7 @@ namespace seq {
         symbol         m_aut_step;                        // regex unfolding state
         symbol         m_accept;                          // regex
         symbol         m_is_empty;                        // regex emptiness check
+        symbol         m_is_non_empty;
         symbol         m_pre, m_post;           // inverse of at: (pre s i) + (at s i) + (post s i) = s if 0 <= i < (len s)
         symbol         m_postp;
         symbol         m_eq;                              // equality atom
@@ -74,6 +75,7 @@ namespace seq {
         expr_ref mk_accept(expr_ref_vector const& args) { return expr_ref(seq.mk_skolem(m_accept, args.size(), args.data(), m.mk_bool_sort()), m); }
         expr_ref mk_accept(expr* s, expr* i, expr* r) { return mk(m_accept, s, i, r, nullptr, m.mk_bool_sort()); }
         expr_ref mk_is_empty(expr* r, expr* u, expr* n) { return mk(m_is_empty, r, u, n, m.mk_bool_sort(), false); }
+        expr_ref mk_is_non_empty(expr* r, expr* u, expr* n) { return mk(m_is_non_empty, r, u, n, m.mk_bool_sort(), false); }
 
         expr_ref mk_indexof_left(expr* t, expr* s, expr* offset = nullptr) { return mk(m_indexof_left, t, s, offset); }
         expr_ref mk_indexof_right(expr* t, expr* s, expr* offset = nullptr) { return mk(m_indexof_right, t, s, offset); }
@@ -154,6 +156,10 @@ namespace seq {
         bool is_is_empty(expr* e) const { return is_skolem(m_is_empty, e); }
         bool is_is_empty(expr* e, expr*& r, expr*& u, expr*& n) const { 
             return is_skolem(m_is_empty, e) && (r = to_app(e)->get_arg(0), u = to_app(e)->get_arg(1), n = to_app(e)->get_arg(2), true); 
+        }
+        bool is_is_non_empty(expr* e) const { return is_skolem(m_is_non_empty, e); }
+        bool is_is_non_empty(expr* e, expr*& r, expr*& u, expr*& n) const {
+            return is_skolem(m_is_non_empty, e) && (r = to_app(e)->get_arg(0), u = to_app(e)->get_arg(1), n = to_app(e)->get_arg(2), true);            
         }
 
         void decompose(expr* e, expr_ref& head, expr_ref& tail);

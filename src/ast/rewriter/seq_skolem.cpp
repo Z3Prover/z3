@@ -38,6 +38,7 @@ skolem::skolem(ast_manager& m, th_rewriter& rw):
     m_max_unfolding  = "seq.max_unfolding";
     m_length_limit   = "seq.length_limit";
     m_is_empty       = "re.is_empty";
+    m_is_non_empty   = "re.is_non_empty";
 }
 
 expr_ref skolem::mk(symbol const& s, expr* e1, expr* e2, expr* e3, expr* e4, sort* range, bool rw) {

@@ -3033,6 +3033,10 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
             propagate_length_limit(e);
         }
     }
+    else if (m_sk.is_is_non_empty(e)) {
+        if (is_true)
+            m_regex.propagate_is_non_empty(lit);        
+    }
     else if (m_util.str.is_lt(e) || m_util.str.is_le(e)) {
         m_lts.push_back(e);
     }
