@@ -25,7 +25,7 @@ Additional possible functionality on constraints:
 
 namespace polysat {
 
-    op_constraint::op_constraint(constraint_manager& m, code c, pdd const& p, pdd const& q, pdd const& r):
+    op_constraint::op_constraint(constraint_manager& m, code c, pdd const& p, pdd const& q, pdd const& r) :
         constraint(m, ckind_t::op_t), m_op(c), m_p(p), m_q(q), m_r(r) {
         m_vars.append(p.free_vars());
         for (auto v : q.free_vars())
@@ -34,17 +34,17 @@ namespace polysat {
         for (auto v : r.free_vars())
             if (!m_vars.contains(v))
                 m_vars.push_back(v);
-    }    
+    }
 
     lbool op_constraint::eval(pdd const& p, pdd const& q, pdd const& r) const {
         switch (m_op) {
         case code::lshr_op:
-            return eval_lshr(p, q, r);         
+            return eval_lshr(p, q, r);
         default:
-            return l_undef;            
-        }       
+            return l_undef;
+        }
     }
-    
+
     bool op_constraint::is_always_false(bool is_positive, pdd const& p, pdd const& q, pdd const& r) const {
         switch (eval(p, q, r)) {
         case l_true: return !is_positive;
@@ -111,7 +111,7 @@ namespace polysat {
 
     /**
     * Propagate consequences or detect conflicts based on partial assignments.
-    * 
+    *
     * We can assume that op_constraint is only asserted positive.
     */
 
@@ -132,8 +132,8 @@ namespace polysat {
             NOT_IMPLEMENTED_YET();
             break;
         }
-        if (!s.is_conflict() && is_currently_false(s.assignment(), is_positive)) 
-            s.set_conflict(signed_constraint(this, is_positive));        
+        if (!s.is_conflict() && is_currently_false(s.assignment(), is_positive))
+            s.set_conflict(signed_constraint(this, is_positive));
     }
 
     unsigned op_constraint::hash() const {
@@ -175,16 +175,21 @@ namespace polysat {
 
         signed_constraint lshr(this, true);
 
-        if (pv.is_val() && rv.is_val() && rv.val() > pv.val()) 
-            s.add_clause(~lshr, s.ule(r(), p()), true);                             // r <= p
-        else if (qv.is_val() && qv.val() >= K && rv.is_val() && !rv.is_zero()) 
-            s.add_clause(~lshr, ~s.ule(K, q()), s.eq(r()), true);                   // q >= K -> r = 0
-        else if (qv.is_zero() && pv.is_val() && rv.is_val() && pv != rv) {
-            s.add_clause(~lshr, ~s.eq(q()), s.eq(p(), r()), true);                  // q != 0 & p > 0 => r < p        
-        else if (qv.is_val() && !qv.is_zero() && pv.is_val() && rv.is_val() && !pv.is_zero() && pv.val() <= rv.val()) {
-            s.add_clause(~lshr, s.eq(q()), s.ule(p(), 0), s.ult(r(), p()), true);   // q >= k -> r <= 2^{K-k-1}        
-        else if (qv.is_val() && !qv.is_zero() && qv.val() < K && rv.is_val() && 
-            rv.val() > rational::power_of_two(K - qv.val().get_unsigned() - 1)) {
+        if (pv.is_val() && rv.is_val() && rv.val() > pv.val())
+            // r <= p
+            s.add_clause(~lshr, s.ule(r(), p()), true);
+        else if (qv.is_val() && qv.val() >= K && rv.is_val() && !rv.is_zero())
+            // q >= K -> r = 0
+            s.add_clause(~lshr, ~s.ule(K, q()), s.eq(r()), true);
+        else if (qv.is_zero() && pv.is_val() && rv.is_val() && pv != rv)
+            // q = 0 -> p = r
+            s.add_clause(~lshr, ~s.eq(q()), s.eq(p(), r()), true);
+        else if (qv.is_val() && !qv.is_zero() && pv.is_val() && rv.is_val() && !pv.is_zero() && pv.val() <= rv.val())
+            // q != 0 & p > 0 => r < p 
+            s.add_clause(~lshr, s.eq(q()), s.ule(p(), 0), s.ult(r(), p()), true);
+        else if (qv.is_val() && !qv.is_zero() && qv.val() < K && rv.is_val() &&
+            rv.val() > rational::power_of_two(K - qv.val().get_unsigned() - 1))
+            // q >= k -> r <= 2^{K-k-1}
             s.add_clause(~lshr, ~s.ule(qv.val(), q()), s.ule(r(), rational::power_of_two(K - qv.val().get_unsigned() - 1)), true);
         // q = k -> r[i - k] = p[i] for K - k <= i < K
         else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
@@ -234,16 +239,16 @@ namespace polysat {
         auto rv = r().subst_val(s.assignment());
 
         signed_constraint andc(this, true);
-        if (pv.is_val() && rv.is_val() && rv.val() > pv.val()) 
+        if (pv.is_val() && rv.is_val() && rv.val() > pv.val())
             s.add_clause(~andc, s.ule(r(), p()), true);
-        else if (qv.is_val() && rv.is_val() && rv.val() > qv.val()) 
+        else if (qv.is_val() && rv.is_val() && rv.val() > qv.val())
             s.add_clause(~andc, s.ule(r(), q()), true);
-        else if (pv.is_val() && qv.is_val() && rv.is_val() && pv == qv && rv != pv) 
+        else if (pv.is_val() && qv.is_val() && rv.is_val() && pv == qv && rv != pv)
             s.add_clause(~andc, ~s.eq(p(), q()), s.eq(r(), p()), true);
-        else if (pv.is_zero() && rv.is_val() && !rv.is_zero()) 
+        else if (pv.is_zero() && rv.is_val() && !rv.is_zero())
             s.add_clause(~andc, ~s.eq(p()), s.eq(r()), true);
-        else if (qv.is_zero() && rv.is_val() && !rv.is_zero()) 
-            s.add_clause(~andc, ~s.eq(q()), s.eq(r()), true);                
+        else if (qv.is_zero() && rv.is_val() && !rv.is_zero())
+            s.add_clause(~andc, ~s.eq(q()), s.eq(r()), true);
         else if (pv.is_val() && qv.is_val() && rv.is_val()) {
             unsigned K = p().manager().power_of_2();
             for (unsigned i = 0; i < K; ++i) {
@@ -261,6 +266,7 @@ namespace polysat {
                 else
                     UNREACHABLE();
                 return;
+            }
         }
     }
 }
