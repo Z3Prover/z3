@@ -184,8 +184,8 @@ namespace polysat {
             return;
         }
         // q != 0 & p > 0 => r < p
-        if (qv.is_val() && !qv.is_zero() && pv.is_val() && rv.is_val() && !pv.is_zero() && pv <= rv) {
-            s.add_clause(~lshr, s.eq(q()), s.ule(p, 0), s.ult(r(), p()), true);
+        if (qv.is_val() && !qv.is_zero() && pv.is_val() && rv.is_val() && !pv.is_zero() && pv.val() <= rv.val()) {
+            s.add_clause(~lshr, s.eq(q()), s.ule(p(), 0), s.ult(r(), p()), true);
             return;
         }
         NOT_IMPLEMENTED_YET();
