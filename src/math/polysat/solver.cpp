@@ -139,7 +139,7 @@ namespace polysat {
         auto& m = p.manager();
         unsigned sz = m.power_of_2();
         pdd r = m.mk_var(add_var(sz));
-        assign_eh(m_constraints.shr(r, p, q));
+        assign_eh(m_constraints.shr(p, q, r), null_dependency);
         return r;
     }
 

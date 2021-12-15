@@ -28,11 +28,13 @@ namespace polysat {
     }    
 
     lbool shr_constraint::eval(pdd const& p, pdd const& q, pdd const& r) const {
-        if (p.is_val() && r.is_val()) {
-            if (p.val() >= p.manager().power_of_2())
+        if (q.is_val() && r.is_val()) {
+            auto& m = p.manager();
+            if (q.val() >= m.power_of_2())
                 return r.is_zero() ? l_true : l_false;            
-            if (r.is_val()) {
-                // todo
+            if (p.is_val()) {
+                pdd rr = p * m.mk_val(rational::power_of_two(q.val().get_unsigned()));
+                return rr == r ? l_true : l_false;
             }
             // other cases when we know lower 
             // bound of q, e.g, q = 2^k*q1 + q2, where q2 is a constant.

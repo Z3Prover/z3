@@ -233,8 +233,8 @@ namespace polysat {
         return { dedup(alloc(mul_ovfl_constraint, *this, a, b)), true };
     }
 
-    signed_constraint constraint_manager::shr(pdd const& p, pdd const& q) {
-        return { dedup(alloc(shr_constraint, *this, p, q)), true };
+    signed_constraint constraint_manager::shr(pdd const& p, pdd const& q, pdd const& r) {
+        return { dedup(alloc(shr_constraint, *this, p, q, r)), true };
     }
 
 
