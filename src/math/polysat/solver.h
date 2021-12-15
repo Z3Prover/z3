@@ -268,6 +268,11 @@ namespace polysat {
         std::tuple<pdd, pdd> quot_rem(pdd const& a, pdd const& b);
 
         /**
+        * Create expression for the logical right shift of p by q.
+        */
+        pdd shr(pdd const& p, pdd const& q);
+
+        /**
          * Create polynomial constant.
          */
         pdd value(rational const& v, unsigned sz);

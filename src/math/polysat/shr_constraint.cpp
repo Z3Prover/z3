@@ -19,6 +19,13 @@ namespace polysat {
 
     shr_constraint::shr_constraint(constraint_manager& m, pdd const& p, pdd const& q, pdd const& r):
         constraint(m, ckind_t::shr_t), m_p(p), m_q(q), m_r(r) {
+        m_vars.append(p.free_vars());
+        for (auto v : q.free_vars())
+            if (!m_vars.contains(v))
+                m_vars.push_back(v);
+        for (auto v : r.free_vars())
+            if (!m_vars.contains(v))
+                m_vars.push_back(v);
     }    
 
     lbool shr_constraint::eval(pdd const& p, pdd const& q, pdd const& r) const {
@@ -76,7 +83,12 @@ namespace polysat {
     * r = p >> q & q >= k -> r[i] = 0 for i > K - k
     * r = p >> q & q >= K -> r = 0
     * r = p >> q & q = k -> r[i] = p[i+k] for k + i < K
-    * r = p >> q & q >= k -> r <= 2^K-k-1
+    * r = p >> q & q >= k -> r <= 2^{K-k-1}
+    * r = p >> q => r <= p
+    * r = p >> q & q != 0 => r < p
+    * r = p >> q & q = 0 => r = p
+    * 
+    * when q is a constant, several axioms can be enforced at activation time.
     * 
     * Enforce also inferences and bounds
     * 
@@ -94,7 +106,7 @@ namespace polysat {
     bool shr_constraint::operator==(constraint const& other) const {
         if (other.kind() != ckind_t::shr_t)
             return false;
-        auto const& o = dynamic_cast<shr_constraint const&>(other);
+        auto const& o = other.to_shr();
         return p() == o.p() && q() == o.q() && r() == o.r();
     }
 

@@ -19,6 +19,7 @@ Author:
 #include "math/polysat/log_helper.h"
 #include "math/polysat/ule_constraint.h"
 #include "math/polysat/mul_ovfl_constraint.h"
+#include "math/polysat/shr_constraint.h"
 
 namespace polysat {
 
@@ -232,6 +233,10 @@ namespace polysat {
         return { dedup(alloc(mul_ovfl_constraint, *this, a, b)), true };
     }
 
+    signed_constraint constraint_manager::shr(pdd const& p, pdd const& q) {
+        return { dedup(alloc(shr_constraint, *this, p, q)), true };
+    }
+
 
     // To do signed comparison of bitvectors, flip the msb and do unsigned comparison:
     //
@@ -277,6 +282,14 @@ namespace polysat {
 
     mul_ovfl_constraint const& constraint::to_mul_ovfl() const {
         return *dynamic_cast<mul_ovfl_constraint const*>(this);
+    }
+
+    shr_constraint& constraint::to_shr() {
+        return *dynamic_cast<shr_constraint*>(this);
+    }
+
+    shr_constraint const& constraint::to_shr() const {
+        return *dynamic_cast<shr_constraint const*>(this);
     }
 
     std::string constraint::bvar2string() const {

@@ -97,6 +97,7 @@ namespace polysat {
         signed_constraint slt(pdd const& a, pdd const& b);
         signed_constraint mul_ovfl(pdd const& p, pdd const& q);
         signed_constraint bit(pdd const& p, unsigned i);
+        signed_constraint shr(pdd const& p, pdd const& q);
 
         constraint *const* begin() const { return m_constraints.data(); }
         constraint *const* end() const { return m_constraints.data() + m_constraints.size(); }
@@ -164,6 +165,7 @@ namespace polysat {
         virtual bool is_diseq() const { return false; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }
         bool is_mul_ovfl() const { return m_kind == ckind_t::mul_ovfl_t; }
+        bool is_shr() const { return m_kind == ckind_t::shr_t; }
         ckind_t kind() const { return m_kind; }
         virtual std::ostream& display(std::ostream& out, lbool status) const = 0;
         virtual std::ostream& display(std::ostream& out) const = 0;
@@ -180,6 +182,8 @@ namespace polysat {
         ule_constraint const& to_ule() const;
         mul_ovfl_constraint& to_mul_ovfl();
         mul_ovfl_constraint const& to_mul_ovfl() const;
+        shr_constraint& to_shr();
+        shr_constraint const& to_shr() const;
         unsigned_vector& vars() { return m_vars; }
         unsigned_vector const& vars() const { return m_vars; }
         unsigned var(unsigned idx) const { return m_vars[idx]; }
