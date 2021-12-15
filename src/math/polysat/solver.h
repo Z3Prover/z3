@@ -270,7 +270,7 @@ namespace polysat {
         /**
         * Create expression for the logical right shift of p by q.
         */
-        pdd shr(pdd const& p, pdd const& q);
+        pdd lshr(pdd const& p, pdd const& q);
 
         /**
          * Create polynomial constant.

@@ -135,11 +135,11 @@ namespace polysat {
         return std::tuple<pdd, pdd>(quot, rem);
     }
 
-    pdd solver::shr(pdd const& p, pdd const& q) {
+    pdd solver::lshr(pdd const& p, pdd const& q) {
         auto& m = p.manager();
         unsigned sz = m.power_of_2();
         pdd r = m.mk_var(add_var(sz));
-        assign_eh(m_constraints.shr(p, q, r), null_dependency);
+        assign_eh(m_constraints.lshr(p, q, r), null_dependency);
         return r;
     }
 

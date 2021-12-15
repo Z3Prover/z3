@@ -1034,7 +1034,7 @@ namespace polysat {
         else if (bv.is_bv_lshr(e, a, b)) {
             auto pa = to_pdd(m, s, expr2pdd, a);
             auto pb = to_pdd(m, s, expr2pdd, b);
-            r = alloc(pdd, s.shr(pa, pb));
+            r = alloc(pdd, s.lshr(pa, pb));
         }
         else if (bv.is_numeral(e, n, sz)) 
             r = alloc(pdd, s.value(n, sz));

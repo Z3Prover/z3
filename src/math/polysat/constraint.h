@@ -20,12 +20,12 @@ Author:
 
 namespace polysat {
 
-    enum ckind_t { ule_t, mul_ovfl_t, shr_t };
+    enum ckind_t { ule_t, mul_ovfl_t, op_t };
 
     class constraint;
     class ule_constraint;
     class mul_ovfl_constraint;
-    class shr_constraint;
+    class op_constraint;
     class signed_constraint;
 
     using constraint_hash = obj_ptr_hash<constraint>;
@@ -97,7 +97,7 @@ namespace polysat {
         signed_constraint slt(pdd const& a, pdd const& b);
         signed_constraint mul_ovfl(pdd const& p, pdd const& q);
         signed_constraint bit(pdd const& p, unsigned i);
-        signed_constraint shr(pdd const& p, pdd const& q, pdd const& r);
+        signed_constraint lshr(pdd const& p, pdd const& q, pdd const& r);
 
         constraint *const* begin() const { return m_constraints.data(); }
         constraint *const* end() const { return m_constraints.data() + m_constraints.size(); }
@@ -136,7 +136,7 @@ namespace polysat {
         friend class clause;
         friend class ule_constraint;
         friend class mul_ovfl_constraint;
-        friend class shr_constraint;
+        friend class op_constraint;
 
         // constraint_manager* m_manager;
         ckind_t             m_kind;
@@ -165,7 +165,7 @@ namespace polysat {
         virtual bool is_diseq() const { return false; }
         bool is_ule() const { return m_kind == ckind_t::ule_t; }
         bool is_mul_ovfl() const { return m_kind == ckind_t::mul_ovfl_t; }
-        bool is_shr() const { return m_kind == ckind_t::shr_t; }
+        bool is_op() const { return m_kind == ckind_t::op_t; }
         ckind_t kind() const { return m_kind; }
         virtual std::ostream& display(std::ostream& out, lbool status) const = 0;
         virtual std::ostream& display(std::ostream& out) const = 0;
@@ -182,8 +182,8 @@ namespace polysat {
         ule_constraint const& to_ule() const;
         mul_ovfl_constraint& to_mul_ovfl();
         mul_ovfl_constraint const& to_mul_ovfl() const;
-        shr_constraint& to_shr();
-        shr_constraint const& to_shr() const;
+        op_constraint& to_op();
+        op_constraint const& to_op() const;
         unsigned_vector& vars() { return m_vars; }
         unsigned_vector const& vars() const { return m_vars; }
         unsigned var(unsigned idx) const { return m_vars[idx]; }

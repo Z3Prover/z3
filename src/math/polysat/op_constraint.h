@@ -3,8 +3,16 @@ Copyright (c) 2021 Microsoft Corporation
 
 Module Name:
 
-    polysat shift right constraint.
+    Op constraint.
 
+    lshr: r == p >> q
+    ashr: r == p >> q
+    lshl: r == p << q
+    and:  r == p & q
+    or:   r == p | q
+    neg:  r == ~p
+    xor:  r == p ^ q
+    
 Author:
 
     Jakob Rath, Nikolaj Bjorner (nbjorner) 2021-12-09
@@ -15,21 +23,25 @@ Author:
 
 namespace polysat {
 
-    class shr_constraint final : public constraint {
+    class op_constraint final : public constraint {
+    public:
+        enum class code { lshr_op, ashr_op, shl_op, and_op, or_op, xor_op, not_op };
+    protected:
         friend class constraint_manager;
 
+        code m_op;
         pdd m_p;
         pdd m_q;
         pdd m_r;
 
-        shr_constraint(constraint_manager& m, pdd const& p, pdd const& q, pdd const& r);
-        void simplify();
+        op_constraint(constraint_manager& m, code c, pdd const& p, pdd const& q, pdd const& r);
+        void simplify() {}
         bool is_always_false(bool is_positive, pdd const& p, pdd const& q, pdd const& r) const;
         bool is_always_true(bool is_positive, pdd const& p, pdd const& q, pdd const& r) const;
         lbool eval(pdd const& p, pdd const& q, pdd const& r) const;
 
-    public:
-        ~shr_constraint() override {}
+    public:        
+        ~op_constraint() override {}
         pdd const& p() const { return m_p; }
         pdd const& q() const { return m_q; }
         pdd const& r() const { return m_r; }
