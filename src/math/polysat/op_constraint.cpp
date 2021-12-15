@@ -30,23 +30,10 @@ namespace polysat {
     lbool op_constraint::eval(pdd const& p, pdd const& q, pdd const& r) const {
         switch (m_op) {
         case code::lshr_op:
-            if (q.is_val() && r.is_val()) {
-                auto& m = p.manager();
-                if (q.val() >= m.power_of_2())
-                    return r.is_zero() ? l_true : l_false;
-                if (p.is_val()) {
-                    pdd rr = p * m.mk_val(rational::power_of_two(q.val().get_unsigned()));
-                    return rr == r ? l_true : l_false;
-                }
-                // other cases when we know lower 
-                // bound of q, e.g, q = 2^k*q1 + q2, where q2 is a constant.
-            }
-            break;
+            return eval_lshr(p, q, r);         
         default:
-            break;
-        }
-
-        return l_undef;
+            return l_undef;            
+        }       
     }
     
     bool op_constraint::is_always_false(bool is_positive, pdd const& p, pdd const& q, pdd const& r) const {
@@ -73,13 +60,28 @@ namespace polysat {
         }
     }
 
-    std::ostream& op_constraint::display(std::ostream& out) const {
-        switch (m_op) {
-        case code::lshr_op:
-            return out << r() << " == " << p() << " << " << q();
+    std::ostream& operator<<(std::ostream & out, op_constraint::code c) {
+        switch (c) {
+        case op_constraint::code::ashr_op:
+            return out << ">>a";
+        case op_constraint::code::lshr_op:
+            return out << ">>";
+        case op_constraint::code::shl_op:
+            return out << "<<";
+        case op_constraint::code::and_op:
+            return out << "&";
+        case op_constraint::code::or_op:
+            return out << "|";
+        case op_constraint::code::xor_op:
+            return out << "^";
         default:
-            return out;
-        }        
+            return out << "?";
+        }
+        return out;
+    }
+
+    std::ostream& op_constraint::display(std::ostream& out) const {
+        return out << r() << " " << m_op << " " << p() << " << " << q();                
     }
 
     bool op_constraint::is_always_false(bool is_positive) const {
@@ -94,26 +96,16 @@ namespace polysat {
         return is_always_true(is_positive, p().subst_val(a), q().subst_val(a), r().subst_val(a));
     }
 
-    /**
-    * Enforce basic axioms, such as:
-    * 
-    * r = p >> q & q >= k -> r[i] = 0 for i > K - k
-    * r = p >> q & q >= K -> r = 0
-    * r = p >> q & q = k -> r[i] = p[i+k] for k + i < K
-    * r = p >> q & q >= k -> r <= 2^{K-k-1}
-    * r = p >> q => r <= p
-    * r = p >> q & q != 0 => r < p
-    * r = p >> q & q = 0 => r = p
-    * 
-    * when q is a constant, several axioms can be enforced at activation time.
-    * 
-    * Enforce also inferences and bounds
-    * 
-    * We can assume that op_constraint is only asserted positive.
-    */
     void op_constraint::narrow(solver& s, bool is_positive) {
         SASSERT(is_positive);
-        NOT_IMPLEMENTED_YET();
+        switch (m_op) {
+        case code::lshr_op:
+            narrow_lshr(s);
+            break;
+        default:
+            NOT_IMPLEMENTED_YET();
+            break;
+        }
     }
 
     unsigned op_constraint::hash() const {
@@ -127,4 +119,39 @@ namespace polysat {
         return m_op == o.m_op && p() == o.p() && q() == o.q() && r() == o.r();
     }
 
+    /**
+     * Enforce basic axioms, such as:
+     *
+     * r = p >> q & q >= k -> r[i] = 0 for i > K - k
+     * r = p >> q & q >= K -> r = 0
+     * r = p >> q & q = k -> r[i] = p[i+k] for k + i < K
+     * r = p >> q & q >= k -> r <= 2^{K-k-1}
+     * r = p >> q => r <= p
+     * r = p >> q & q != 0 => r < p
+     * r = p >> q & q = 0 => r = p
+     *
+     * when q is a constant, several axioms can be enforced at activation time.
+     *
+     * Enforce also inferences and bounds
+     *
+     * We can assume that op_constraint is only asserted positive.
+     */
+    void op_constraint::narrow_lshr(solver& s) {
+        NOT_IMPLEMENTED_YET();
+    }
+
+    lbool op_constraint::eval_lshr(pdd const& p, pdd const& q, pdd const& r) const {
+        if (q.is_val() && r.is_val()) {
+            auto& m = p.manager();
+            if (q.val() >= m.power_of_2())
+                return r.is_zero() ? l_true : l_false;
+            if (p.is_val()) {
+                pdd rr = p * m.mk_val(rational::power_of_two(q.val().get_unsigned()));
+                return rr == r ? l_true : l_false;
+            }
+            // other cases when we know lower 
+            // bound of q, e.g, q = 2^k*q1 + q2, where q2 is a constant.
+        }
+        return l_undef;
+    }
 }

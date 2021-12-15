@@ -40,6 +40,9 @@ namespace polysat {
         bool is_always_true(bool is_positive, pdd const& p, pdd const& q, pdd const& r) const;
         lbool eval(pdd const& p, pdd const& q, pdd const& r) const;
 
+        void narrow_lshr(solver& s);
+        lbool eval_lshr(pdd const& p, pdd const& q, pdd const& r) const;
+
     public:        
         ~op_constraint() override {}
         pdd const& p() const { return m_p; }
