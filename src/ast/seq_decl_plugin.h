@@ -462,6 +462,8 @@ public:
             info diff(info const& rhs) const;
             info orelse(info const& rhs) const;
             info loop(unsigned lower, unsigned upper) const;
+
+            info& info::operator=(info const& other);
         };
     private:
         seq_util&    u;

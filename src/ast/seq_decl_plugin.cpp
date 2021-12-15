@@ -1704,4 +1704,16 @@ seq_util::rex::info seq_util::rex::info::loop(unsigned lower, unsigned upper) co
         return *this;
 }
 
+seq_util::rex::info& seq_util::rex::info::operator=(info const& other) {
+    if (this == &other) {
+        return *this;
+    }
+
+    known = other.known;
+    interpreted = other.interpreted;
+    nullable = other.nullable;
+    min_length = other.min_length;
+    return *this;
+}
+
 
