@@ -16,7 +16,6 @@ Author:
 
 namespace polysat {
 
-
     shr_constraint::shr_constraint(constraint_manager& m, pdd const& p, pdd const& q, pdd const& r):
         constraint(m, ckind_t::shr_t), m_p(p), m_q(q), m_r(r) {
         m_vars.append(p.free_vars());
@@ -64,15 +63,19 @@ namespace polysat {
         default: return display(out << "?");
         }
     }
+
     std::ostream& shr_constraint::display(std::ostream& out) const {
         return out << r() << " == " << p() << " << " << q();
     }
+
     bool shr_constraint::is_always_false(bool is_positive) const {
         return is_always_false(is_positive, p(), q(), r());
     }
+
     bool shr_constraint::is_currently_false(assignment_t const& a, bool is_positive) const {
         return is_always_false(is_positive, p().subst_val(a), q().subst_val(a), r().subst_val(a));
     }
+
     bool shr_constraint::is_currently_true(assignment_t const& a, bool is_positive) const {
         return is_always_true(is_positive, p().subst_val(a), q().subst_val(a), r().subst_val(a));
     }
