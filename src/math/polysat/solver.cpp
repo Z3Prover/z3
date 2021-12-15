@@ -793,6 +793,34 @@ namespace polysat {
         add_clause(*clause);
     }
 
+    void solver::add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, bool is_redundant) {
+        clause_builder cb(*this);
+        if (!c1.is_always_false())
+            cb.push(c1);
+        if (!c2.is_always_false())
+            cb.push(c2);
+        if (!c3.is_always_false())
+            cb.push(c3);
+        clause_ref clause = cb.build();
+        clause->set_redundant(is_redundant);
+        add_clause(*clause);
+    }
+
+    void solver::add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant) {
+        clause_builder cb(*this);
+        if (!c1.is_always_false())
+            cb.push(c1);
+        if (!c2.is_always_false())
+            cb.push(c2);
+        if (!c3.is_always_false())
+            cb.push(c3);
+        if (!c4.is_always_false())
+            cb.push(c4);
+        clause_ref clause = cb.build();
+        clause->set_redundant(is_redundant);
+        add_clause(*clause);
+    }
+
     void solver::insert_constraint(signed_constraints& cs, signed_constraint c) {
         SASSERT(c);
         LOG_V("INSERTING: " << c);

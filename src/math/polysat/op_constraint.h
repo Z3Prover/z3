@@ -6,11 +6,11 @@ Module Name:
     Op constraint.
 
     lshr: r == p >> q
-    ashr: r == p >> q
+    ashr: r == p >>a q
     lshl: r == p << q
     and:  r == p & q
     or:   r == p | q
-    neg:  r == ~p
+    not:  r == ~p
     xor:  r == p ^ q
     
 Author:

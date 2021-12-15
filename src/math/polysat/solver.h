@@ -56,6 +56,7 @@ namespace polysat {
         friend class constraint;
         friend class ule_constraint;
         friend class mul_ovfl_constraint;
+        friend class op_constraint;
         friend class signed_constraint;
         friend class clause;
         friend class clause_builder;
@@ -207,6 +208,8 @@ namespace polysat {
         void backjump(unsigned new_level);
         void add_clause(clause& lemma);
         void add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant);
+        void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, bool is_redundant);
+        void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant);
 
 
         signed_constraint lit2cnstr(sat::literal lit) const { return m_constraints.lookup(lit); }
