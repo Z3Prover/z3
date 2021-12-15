@@ -43,6 +43,8 @@ namespace polysat {
         void narrow_lshr(solver& s);
         lbool eval_lshr(pdd const& p, pdd const& q, pdd const& r) const;
 
+        void narrow_and(solver& s);
+
     public:        
         ~op_constraint() override {}
         pdd const& p() const { return m_p; }

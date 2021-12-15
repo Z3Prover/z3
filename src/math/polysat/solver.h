@@ -294,6 +294,7 @@ namespace polysat {
         signed_constraint eq(pdd const& p, pdd const& q) { return eq(p - q); }
         signed_constraint diseq(pdd const& p, pdd const& q) { return diseq(p - q); }
         signed_constraint eq(pdd const& p, rational const& q) { return eq(p - q); }
+        signed_constraint eq(pdd const& p, unsigned q) { return eq(p - q); }
         signed_constraint diseq(pdd const& p, rational const& q) { return diseq(p - q); }
         signed_constraint ule(pdd const& p, pdd const& q) { return m_constraints.ule(p, q); }
         signed_constraint ule(pdd const& p, rational const& q) { return ule(p, p.manager().mk_val(q)); }

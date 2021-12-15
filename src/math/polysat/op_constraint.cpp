@@ -125,14 +125,15 @@ namespace polysat {
         case code::lshr_op:
             narrow_lshr(s);
             break;
+        case code::and_op:
+            narrow_and(s);
+            break;
         default:
             NOT_IMPLEMENTED_YET();
             break;
         }
-        if (!s.is_conflict() && is_currently_false(s.assignment(), is_positive)) {
-            s.set_conflict(signed_constraint(this, is_positive));
-            return;
-        }
+        if (!s.is_conflict() && is_currently_false(s.assignment(), is_positive)) 
+            s.set_conflict(signed_constraint(this, is_positive));        
     }
 
     unsigned op_constraint::hash() const {
@@ -147,12 +148,12 @@ namespace polysat {
     }
 
     /**
-     * Enforce basic axioms for r == p >> q, such as:
+     * Enforce basic axioms for r == p >> q:
      *
      * q >= k -> r[i] = 0 for i > K - k
      * q >= K -> r = 0
-     * q = k -> r[i] = p[i+k] for k + i < K
      * q >= k -> r <= 2^{K-k-1}
+     * q = k -> r[i - k] = p[i] for i <= K - k
      * r <= p
      * q != 0 => r <= p
      * q = 0 => r = p
@@ -161,34 +162,47 @@ namespace polysat {
      *
      * Enforce also inferences and bounds
      *
+     * TODO use also
+     * s.m_viable.min_viable();
+     * s.m_viable.max_viable()
+     * when r, q are variables.
      */
     void op_constraint::narrow_lshr(solver& s) {
         auto pv = p().subst_val(s.assignment());
         auto qv = q().subst_val(s.assignment());
         auto rv = r().subst_val(s.assignment());
         unsigned K = p().manager().power_of_2();
+
         signed_constraint lshr(this, true);
-        // r <= p
-        if (pv.is_val() && rv.is_val() && rv.val() > pv.val()) {
-            s.add_clause(~lshr, s.ule(r(), p()), true);
-            return;
+
+        if (pv.is_val() && rv.is_val() && rv.val() > pv.val()) 
+            s.add_clause(~lshr, s.ule(r(), p()), true);                             // r <= p
+        else if (qv.is_val() && qv.val() >= K && rv.is_val() && !rv.is_zero()) 
+            s.add_clause(~lshr, ~s.ule(K, q()), s.eq(r()), true);                   // q >= K -> r = 0
+        else if (qv.is_zero() && pv.is_val() && rv.is_val() && pv != rv) {
+            s.add_clause(~lshr, ~s.eq(q()), s.eq(p(), r()), true);                  // q != 0 & p > 0 => r < p        
+        else if (qv.is_val() && !qv.is_zero() && pv.is_val() && rv.is_val() && !pv.is_zero() && pv.val() <= rv.val()) {
+            s.add_clause(~lshr, s.eq(q()), s.ule(p(), 0), s.ult(r(), p()), true);   // q >= k -> r <= 2^{K-k-1}        
+        else if (qv.is_val() && !qv.is_zero() && qv.val() < K && rv.is_val() && 
+            rv.val() > rational::power_of_two(K - qv.val().get_unsigned() - 1)) {
+            s.add_clause(~lshr, ~s.ule(qv.val(), q()), s.ule(r(), rational::power_of_two(K - qv.val().get_unsigned() - 1)), true);
+        // q = k -> r[i - k] = p[i] for K - k <= i < K
+        else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
+            unsigned k = qv.val().get_unsigned();
+            for (unsigned i = K - k; i < K; ++i) {
+                if (rv.val().get_bit(i - k) && !pv.val().get_bit(i)) {
+                    s.add_clause(~lshr, ~s.eq(q(), k), ~s.bit(r(), i - k), s.bit(p(), i), true);
+                    return;
+                }
+                if (!rv.val().get_bit(i - k) && pv.val().get_bit(i)) {
+                    s.add_clause(~lshr, ~s.eq(q(), k), s.bit(r(), i - k), ~s.bit(p(), i), true);
+                    return;
+                }
+            }
         }
-        // q >= K -> r = 0
-        if (qv.is_val() && qv.val() >= K && rv.is_val() && !rv.is_zero()) {
-            s.add_clause(~lshr, ~s.ule(K, q()), s.eq(r()), true);
-            return;
+        else {
+            SASSERT(!(pv.is_val() && qv.is_val() && rv.is_val()));
         }
-        // q = 0 => r = p
-        if (qv.is_zero() && pv.is_val() && rv.is_val() && pv != rv) {
-            s.add_clause(~lshr, ~s.eq(q()), s.eq(p(), r()), true);
-            return;
-        }
-        // q != 0 & p > 0 => r < p
-        if (qv.is_val() && !qv.is_zero() && pv.is_val() && rv.is_val() && !pv.is_zero() && pv.val() <= rv.val()) {
-            s.add_clause(~lshr, s.eq(q()), s.ule(p(), 0), s.ult(r(), p()), true);
-            return;
-        }
-        NOT_IMPLEMENTED_YET();
     }
 
     lbool op_constraint::eval_lshr(pdd const& p, pdd const& q, pdd const& r) const {
@@ -199,9 +213,54 @@ namespace polysat {
             
         if (q.is_val() && q.val() >= m.power_of_2() && r.is_val())
             return r.is_zero() ? l_true : l_false;
-        
+                
         // other cases when we know lower 
         // bound of q, e.g, q = 2^k*q1 + q2, where q2 is a constant.
         return l_undef;
+    }
+
+    /**
+    * Produce lemmas:
+    * p & q <= p
+    * p & q <= q
+    * p = q => p & q = r
+    * p = 0 => r = 0
+    * q = 0 => r = 0
+    * p[i] && q[i] = r[i]
+    */
+    void op_constraint::narrow_and(solver& s) {
+        auto pv = p().subst_val(s.assignment());
+        auto qv = q().subst_val(s.assignment());
+        auto rv = r().subst_val(s.assignment());
+
+        signed_constraint andc(this, true);
+        if (pv.is_val() && rv.is_val() && rv.val() > pv.val()) 
+            s.add_clause(~andc, s.ule(r(), p()), true);
+        else if (qv.is_val() && rv.is_val() && rv.val() > qv.val()) 
+            s.add_clause(~andc, s.ule(r(), q()), true);
+        else if (pv.is_val() && qv.is_val() && rv.is_val() && pv == qv && rv != pv) 
+            s.add_clause(~andc, ~s.eq(p(), q()), s.eq(r(), p()), true);
+        else if (pv.is_zero() && rv.is_val() && !rv.is_zero()) 
+            s.add_clause(~andc, ~s.eq(p()), s.eq(r()), true);
+        else if (qv.is_zero() && rv.is_val() && !rv.is_zero()) 
+            s.add_clause(~andc, ~s.eq(q()), s.eq(r()), true);                
+        else if (pv.is_val() && qv.is_val() && rv.is_val()) {
+            unsigned K = p().manager().power_of_2();
+            for (unsigned i = 0; i < K; ++i) {
+                bool pb = pv.val().get_bit(i);
+                bool qb = qv.val().get_bit(i);
+                bool rb = rv.val().get_bit(i);
+                if (rb == (pb && qb))
+                    continue;
+                if (pb && qb && !rb)
+                    s.add_clause(~andc, ~s.bit(p(), i), ~s.bit(q(), i), s.bit(r(), i), true);
+                else if (!pb && rb)
+                    s.add_clause(~andc, s.bit(p(), i), ~s.bit(r(), i), true);
+                else if (!qb && rb)
+                    s.add_clause(~andc, s.bit(q(), i), ~s.bit(r(), i), true);
+                else
+                    UNREACHABLE();
+                return;
+        }
     }
 }
