@@ -3,7 +3,7 @@ Copyright (c) 2021 Microsoft Corporation
 
 Module Name:
 
-    polysat shift right constraint.
+    polysat constraints for bit operations.
 
 Author:
 
@@ -167,25 +167,25 @@ namespace polysat {
         auto qv = q().subst_val(s.assignment());
         auto rv = r().subst_val(s.assignment());
         unsigned K = p().manager().power_of_2();
-        signed_constraint lshl(this, true);
+        signed_constraint lshr(this, true);
         // r <= p
         if (pv.is_val() && rv.is_val() && rv.val() > pv.val()) {
-            s.add_clause(~lshl, s.ule(r(), p()), true);
+            s.add_clause(~lshr, s.ule(r(), p()), true);
             return;
         }
         // q >= K -> r = 0
         if (qv.is_val() && qv.val() >= K && rv.is_val() && !rv.is_zero()) {
-            s.add_clause(~lshl, ~s.ule(K, q()), s.eq(r()), true);
+            s.add_clause(~lshr, ~s.ule(K, q()), s.eq(r()), true);
             return;
         }
         // q = 0 => r = p
         if (qv.is_zero() && pv.is_val() && rv.is_val() && pv != rv) {
-            s.add_clause(~lshl, ~s.eq(q()), s.eq(p(), r()), true);
+            s.add_clause(~lshr, ~s.eq(q()), s.eq(p(), r()), true);
             return;
         }
         // q != 0 & p > 0 => r < p
-        if (qv.is_val() && !qv.is_zero() && pv.is_val() && rv.is_val() && pv <= rv) {
-            s.add_clause(~lshl, s.eq(q()), s.ule(p, 0), s.ult(r(), p()), true);
+        if (qv.is_val() && !qv.is_zero() && pv.is_val() && rv.is_val() && !pv.is_zero() && pv <= rv) {
+            s.add_clause(~lshr, s.eq(q()), s.ule(p, 0), s.ult(r(), p()), true);
             return;
         }
         NOT_IMPLEMENTED_YET();
