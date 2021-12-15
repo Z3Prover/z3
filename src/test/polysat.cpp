@@ -1020,20 +1020,21 @@ namespace polysat {
             r = alloc(pdd, pa * pb);
         }
         else if (bv.is_bv_udiv(e, a, b)) {
-            // quot = udiv(a, b)
-            // quot*b + rem == a
-            // rem < b or b == 0
-            // quot*b does not overflow
-            auto quot = s.var(s.add_var(sz));
-            auto rem = s.var(s.add_var(sz));
             auto pa = to_pdd(m, s, expr2pdd, a);
-            auto pb = to_pdd(m, s, expr2pdd, b);            
-            s.add_eq(quot*pb + rem - pa);
-            s.add_ult(rem, pb);            
-            s.add_noovfl(quot, pb);
-            // todo: add clause or use external iteration?
-            // s.add_clause(s.ult(rem, pb), s.eq(b));
-            r = alloc(pdd, quot);
+            auto pb = to_pdd(m, s, expr2pdd, b);  
+            auto qr = s.quot_rem(pa, pb);            
+            r = alloc(pdd, std::get<0>(qr));
+        }
+        else if (bv.is_bv_urem(e, a, b)) {
+            auto pa = to_pdd(m, s, expr2pdd, a);
+            auto pb = to_pdd(m, s, expr2pdd, b);
+            auto qr = s.quot_rem(pa, pb);
+            r = alloc(pdd, std::get<1>(qr));
+        }
+        else if (bv.is_bv_lshr(e, a, b)) {
+            auto pa = to_pdd(m, s, expr2pdd, a);
+            auto pb = to_pdd(m, s, expr2pdd, b);
+            r = alloc(pdd, s.shr(pa, pb));
         }
         else if (bv.is_numeral(e, n, sz)) 
             r = alloc(pdd, s.value(n, sz));
