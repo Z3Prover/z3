@@ -3115,8 +3115,8 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
             result = mk_antimirov_deriv_union(c1, re().mk_ite_simplify(r1nullable, mk_antimirov_deriv(e, r2, path), nothing()));
     }
     else if (m().is_ite(r, c, r1, r2)) {
-        c1 = simplify_path(m().mk_and(c, path));
-        c2 = simplify_path(m().mk_and(m().mk_not(c), path));
+        c1 = simplify_path(e, m().mk_and(c, path));
+        c2 = simplify_path(e, m().mk_and(m().mk_not(c), path));
         if (m().is_false(c1))
             result = mk_antimirov_deriv(e, r2, c2);
         else if (m().is_false(c2))
@@ -3131,8 +3131,8 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
             SASSERT(u().is_char(c1));
             SASSERT(u().is_char(c2));
             // case: c1 <= e <= c2
-            range = simplify_path(m().mk_and(u().mk_le(c1, e), u().mk_le(e, c2)));
-            psi = simplify_path(m().mk_and(path, range));
+            range = simplify_path(e, m().mk_and(u().mk_le(c1, e), u().mk_le(e, c2)));
+            psi = simplify_path(e, m().mk_and(path, range));
         }
         else if (!str().is_string(r1) && str().is_unit_string(r2, c2)) {
             SASSERT(u().is_char(c2));
@@ -3141,8 +3141,8 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
             expr_ref zero(m_autil.mk_int(0), m());
             expr_ref r1_length_eq_one(m().mk_eq(str().mk_length(r1), one), m());
             expr_ref r1_0(str().mk_nth_i(r1, zero), m());
-            range = simplify_path(m().mk_and(r1_length_eq_one, m().mk_and(u().mk_le(r1_0, e), u().mk_le(e, c2))));
-            psi = simplify_path(m().mk_and(path, range));
+            range = simplify_path(e, m().mk_and(r1_length_eq_one, m().mk_and(u().mk_le(r1_0, e), u().mk_le(e, c2))));
+            psi = simplify_path(e, m().mk_and(path, range));
         }
         else if (!str().is_string(r2) && str().is_unit_string(r1, c1)) {
             SASSERT(u().is_char(c1));
@@ -3151,8 +3151,8 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
             expr_ref zero(m_autil.mk_int(0), m());
             expr_ref r2_length_eq_one(m().mk_eq(str().mk_length(r2), one), m());
             expr_ref r2_0(str().mk_nth_i(r2, zero), m());
-            range = simplify_path(m().mk_and(r2_length_eq_one, m().mk_and(u().mk_le(c1, e), u().mk_le(e, r2_0))));
-            psi = simplify_path(m().mk_and(path, range));
+            range = simplify_path(e, m().mk_and(r2_length_eq_one, m().mk_and(u().mk_le(c1, e), u().mk_le(e, r2_0))));
+            psi = simplify_path(e, m().mk_and(path, range));
         }
         else if (!str().is_string(r1) && !str().is_string(r2)) {
             // both r1 and r2 nonground: |r1|=1 & |r2|=1 & r1[0] <= e <= r2[0]
@@ -3162,8 +3162,8 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
             expr_ref r1_0(str().mk_nth_i(r1, zero), m());
             expr_ref r2_length_eq_one(m().mk_eq(str().mk_length(r2), one), m());
             expr_ref r2_0(str().mk_nth_i(r2, zero), m());
-            range = simplify_path(m().mk_and(r1_length_eq_one, m().mk_and(r2_length_eq_one, m().mk_and(u().mk_le(r1_0, e), u().mk_le(e, r2_0)))));
-            psi = simplify_path(m().mk_and(path, range));
+            range = simplify_path(e, m().mk_and(r1_length_eq_one, m().mk_and(r2_length_eq_one, m().mk_and(u().mk_le(r1_0, e), u().mk_le(e, r2_0)))));
+            psi = simplify_path(e, m().mk_and(path, range));
         }
         if (m().is_false(psi))
             result = nothing();
@@ -3173,7 +3173,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
     else if (re().is_union(r, r1, r2))
         result = mk_antimirov_deriv_union(mk_antimirov_deriv(e, r1, path), mk_antimirov_deriv(e, r2, path));
     else if (re().is_intersection(r, r1, r2))
-        result = mk_antimirov_deriv_intersection(
+        result = mk_antimirov_deriv_intersection(e, 
             mk_antimirov_deriv(e, r1, path),
             mk_antimirov_deriv(e, r2, path), m().mk_true());
     else if (re().is_star(r, r1) || re().is_plus(r, r1) || (re().is_loop(r, r1, lo) && 0 <= lo && lo <= 1))
@@ -3190,11 +3190,11 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         result = mk_antimirov_deriv(e, r1, path);
     else if (re().is_complement(r, r1))
         // D(e,~r1) = ~D(e,r1)
-        result = mk_antimirov_deriv_negate(mk_antimirov_deriv(e, r1, path));
+        result = mk_antimirov_deriv_negate(e, mk_antimirov_deriv(e, r1, path));
     else if (re().is_diff(r, r1, r2))
-        result = mk_antimirov_deriv_intersection(
+        result = mk_antimirov_deriv_intersection(e, 
             mk_antimirov_deriv(e, r1, path),
-            mk_antimirov_deriv_negate(mk_antimirov_deriv(e, r2, path)), m().mk_true());
+            mk_antimirov_deriv_negate(e, mk_antimirov_deriv(e, r2, path)), m().mk_true());
     else if (re().is_of_pred(r, r1)) {
         array_util array(m());
         expr* args[2] = { r1, e };
@@ -3207,36 +3207,47 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         result = re().mk_derivative(e, r);
 }
 
-expr_ref seq_rewriter::mk_antimirov_deriv_intersection(expr* d1, expr* d2, expr* path) {
+expr_ref seq_rewriter::mk_antimirov_deriv_intersection(expr* e, expr* d1, expr* d2, expr* path) {
     sort* seq_sort = nullptr, * ele_sort = nullptr;
     VERIFY(m_util.is_re(d1, seq_sort));
     VERIFY(m_util.is_seq(seq_sort, ele_sort));
     expr_ref result(m());
     expr* c, * a, * b;
-    if (d1 == d2 || re().is_full_seq(d2) || re().is_empty(d1))
+    //if (d1 == d2 || re().is_full_seq(d2) || re().is_empty(d1))
+    //    result = d1;
+    //else if (re().is_full_seq(d1) || re().is_empty(d2))
+    //    result = d2;
+    //else 
+    if (re().is_empty(d1))
         result = d1;
-    else if (re().is_full_seq(d1) || re().is_empty(d2))
+    else if (re().is_empty(d2))
         result = d2;
     else if (m().is_ite(d1, c, a, b)) {
-        expr_ref path_and_c(simplify_path(m().mk_and(path, c)), m());
-        expr_ref path_and_notc(simplify_path(m().mk_and(path, m().mk_not(c))), m());
+        expr_ref path_and_c(simplify_path(e, m().mk_and(path, c)), m());
+        expr_ref path_and_notc(simplify_path(e, m().mk_and(path, m().mk_not(c))), m());
         if (m().is_false(path_and_c))
-            result = mk_antimirov_deriv_intersection(b, d2, path);
+            result = mk_antimirov_deriv_intersection(e, b, d2, path);
         else if (m().is_false(path_and_notc))
-            result = mk_antimirov_deriv_intersection(a, d2, path);
+            result = mk_antimirov_deriv_intersection(e, a, d2, path);
         else
-            result = m().mk_ite(c, mk_antimirov_deriv_intersection(a, d2, path_and_c),
-                mk_antimirov_deriv_intersection(b, d2, path_and_notc));
+            result = m().mk_ite(c, mk_antimirov_deriv_intersection(e, a, d2, path_and_c),
+                mk_antimirov_deriv_intersection(e, b, d2, path_and_notc));
     }
     else if (m().is_ite(d2))
         // swap d1 and d2
-        result = mk_antimirov_deriv_intersection(d2, d1, path);
+        result = mk_antimirov_deriv_intersection(e, d2, d1, path);
+    else if (d1 == d2 || re().is_full_seq(d2))
+        result = mk_antimirov_deriv_restrict(e, d1, path);
+    else if (re().is_full_seq(d1))
+        result = mk_antimirov_deriv_restrict(e, d2, path);
     else if (re().is_union(d1, a, b))
         // distribute intersection over the union in d1
-        result = mk_antimirov_deriv_union(mk_antimirov_deriv_intersection(a, d2, path), mk_antimirov_deriv_intersection(b, d2, path));
+        result = mk_antimirov_deriv_union(mk_antimirov_deriv_intersection(e, a, d2, path), 
+            mk_antimirov_deriv_intersection(e, b, d2, path));
     else if (re().is_union(d2, a, b))
         // distribute intersection over the union in d2
-        result = mk_antimirov_deriv_union(mk_antimirov_deriv_intersection(d1, a, path), mk_antimirov_deriv_intersection(d1, b, path));
+        result = mk_antimirov_deriv_union(mk_antimirov_deriv_intersection(e, d1, a, path), 
+            mk_antimirov_deriv_intersection(e, d1, b, path));
     else
         // in all other cases create the intersection regex
         // TODO: flatten, order and merge d1 and d2 to maintain equality under similarity
@@ -3258,7 +3269,7 @@ expr_ref seq_rewriter::mk_antimirov_deriv_concat(expr* d, expr* r) {
     return result;
 }
 
-expr_ref seq_rewriter::mk_antimirov_deriv_negate(expr* d) {
+expr_ref seq_rewriter::mk_antimirov_deriv_negate(expr* elem, expr* d) {
     sort* seq_sort = nullptr;
     VERIFY(m_util.is_re(d, seq_sort));
     auto nothing = [&]() { return expr_ref(re().mk_empty(d->get_sort()), m()); };
@@ -3276,11 +3287,12 @@ expr_ref seq_rewriter::mk_antimirov_deriv_negate(expr* d) {
     else if (re().is_dot_plus(d))
         result = epsilon();
     else if (m().is_ite(d, c, t, e))
-        result = m().mk_ite(c, mk_antimirov_deriv_negate(t), mk_antimirov_deriv_negate(e));
+        result = m().mk_ite(c, mk_antimirov_deriv_negate(elem, t), mk_antimirov_deriv_negate(elem, e));
     else if (re().is_union(d, t, e))
-        result = re().mk_inter(mk_antimirov_deriv_negate(t), mk_antimirov_deriv_negate(e));
+        //result = re().mk_inter(mk_antimirov_deriv_negate(t), mk_antimirov_deriv_negate(e));
+        result = mk_antimirov_deriv_intersection(elem, mk_antimirov_deriv_negate(elem, t), mk_antimirov_deriv_negate(elem, e), m().mk_true());
     else if (re().is_intersection(d, t, e))
-        result = re().mk_union(mk_antimirov_deriv_negate(t), mk_antimirov_deriv_negate(e));
+        result = re().mk_union(mk_antimirov_deriv_negate(elem, t), mk_antimirov_deriv_negate(elem, e));
     else if (re().is_complement(d, t))
         result = t;
     else
@@ -3301,6 +3313,45 @@ expr_ref seq_rewriter::mk_antimirov_deriv_union(expr* d1, expr* d2) {
     else
         // TODO: flatten, order and merge d1 and d2 to maintain equality under similarity
         result = (d1->get_id() <= d2->get_id() ? re().mk_union(d1, d2) : re().mk_union(d2, d1));
+    return result;
+}
+
+// restrict the guards of all conditionals id d and simplify the resulting derivative
+// restrict(if(c, a, b), cond) = if(c, restrict(a, cond & c), restrict(b, cond & ~c))
+// restrict(a U b, cond) = restrict(a, cond) U restrict(b, cond)
+//     where {} U X = X, X U X = X
+// restrict(R, cond) = R 
+// 
+// restrict(d, false) = []
+// 
+// it is already assumed that the restriction takes place witin a branch
+// so the condition is not added explicitly but propagated down in order to eliminate 
+// infeasible cases
+expr_ref seq_rewriter::mk_antimirov_deriv_restrict(expr* e, expr* d, expr* cond) {
+    expr_ref result(d, m());
+    expr_ref _cond(cond, m());
+    expr* c, * a, * b;
+    if (m().is_false(cond))
+        result = re().mk_empty(d->get_sort());
+    else if (re().is_empty(d) || m().is_true(cond))
+        result = d;
+    else if (m().is_ite(d, c, a, b)) {
+        expr_ref path_and_c(simplify_path(e, m().mk_and(cond, c)), m());
+        expr_ref path_and_notc(simplify_path(e, m().mk_and(cond, m().mk_not(c))), m());
+        result = re().mk_ite_simplify(c, mk_antimirov_deriv_restrict(e, a, path_and_c),
+            mk_antimirov_deriv_restrict(e, b, path_and_notc));
+    }
+    else if (re().is_union(d, a, b)) {
+        expr_ref a1(mk_antimirov_deriv_restrict(e, a, cond), m());
+        expr_ref b1(mk_antimirov_deriv_restrict(e, b, cond), m());
+        if (a1 == b1 || re().is_empty(b1) || re().is_full_seq(a1))
+            result = a1;
+        else if (re().is_empty(a1) || re().is_full_seq(b1))
+            result = b1;
+        else
+            //TODO: merge
+            result = (a1->get_id() <= b1->get_id() ? re().mk_union(a1, b1) : re().mk_union(b1, a1));
+    }
     return result;
 }
 
@@ -3390,21 +3441,18 @@ expr_ref seq_rewriter::mk_in_antimirov_rec(expr* s, expr* d) {
 }
 
 /*
-path is typically a conjunction of (negated) character equations or constraints that can potentially be simplified
-the first element of each equation is assumed to be the element parameter, for example x = (:var 0),
-for example a constraint x='a' & x='b' is simplified to false
+* calls elim_condition
 */
-expr_ref  seq_rewriter::simplify_path(expr* path) {
-    //TODO: more systematic simplifications
+expr_ref  seq_rewriter::simplify_path(expr* elem, expr* path) {
     expr_ref result(path, m());
-    expr* h = nullptr, * t = nullptr, * lhs = nullptr, * rhs = nullptr, * h1 = nullptr;
+    expr* h = nullptr, * t = nullptr;
     if (m().is_and(path, h, t)) {
         if (m().is_true(h))
-            result = simplify_path(t);
+            result = simplify_path(elem, t);
         else if (m().is_true(t))
-            result = simplify_path(h);
-        else if (m().is_eq(h, lhs, rhs) || (m().is_not(h, h1) && m().is_eq(h1, lhs, rhs)))
-            elim_condition(lhs, result);
+            result = simplify_path(elem, h);
+        else
+            elim_condition(elem, result);
     }
     return result;
 }

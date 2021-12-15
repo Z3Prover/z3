@@ -411,26 +411,11 @@ public:
         struct info {
             /* Value is either undefined (known=l_undef) or defined and known (l_true) or defined but unknown (l_false)*/
             lbool known { l_undef };
-            /* No complement, no intersection, no difference, and no if-then-else is used. Reverse is allowed. */
-            bool classical { false };
-            /* Boolean-reverse combination of classical regexes (using reverse, union, complement, intersection or difference). */
-            bool standard { false };
-            /* There are no uninterpreted symbols. */
             bool interpreted { false };
-            /* No if-then-else is used. */
-            bool nonbranching { false };
-            /* Concatenations are right associative and if a loop body is nullable then the lower bound is zero. */
-            bool normalized { false };
-            /* All bounded loops have a body that is a singleton. */
-            bool monadic { false };
-            /* Positive Boolean combination of ranges or predicates or singleton sequences. */
-            bool singleton { false };
             /* If l_true then empty word is accepted, if l_false then empty word is not accepted. */
             lbool nullable { l_undef };
             /* Lower bound  on the length of all accepted words. */
             unsigned min_length { 0 };
-            /* Maximum nesting depth of Kleene stars. */
-            unsigned star_height { 0 };
 
             /*
               Default constructor of invalid info.
@@ -445,19 +430,13 @@ public:
             /*
               General info constructor.
             */
-            info(bool is_classical,
-                bool is_standard,
-                bool is_interpreted,
-                bool is_nonbranching,
-                bool is_normalized,
-                bool is_monadic,
-                bool is_singleton,
+            info(bool is_interpreted,
                 lbool is_nullable,
-                unsigned min_l,
-                unsigned star_h) :
-                known(l_true), classical(is_classical), standard(is_standard), interpreted(is_interpreted), nonbranching(is_nonbranching),
-                normalized(is_normalized), monadic(is_monadic), singleton(is_singleton), nullable(is_nullable),
-                min_length(min_l), star_height(star_h) {}
+                unsigned min_l) :
+                known(l_true), 
+                interpreted(is_interpreted),
+                nullable(is_nullable),
+                min_length(min_l) {}
 
             /*
               Appends a string representation of the info into the stream.
@@ -483,6 +462,8 @@ public:
             info diff(info const& rhs) const;
             info orelse(info const& rhs) const;
             info loop(unsigned lower, unsigned upper) const;
+
+            info& operator=(info const& other);
         };
     private:
         seq_util&    u;

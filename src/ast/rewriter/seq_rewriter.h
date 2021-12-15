@@ -214,14 +214,15 @@ class seq_rewriter {
     expr_ref mk_in_antimirov_rec(expr* s, expr* d);
     expr_ref mk_in_antimirov(expr* s, expr* d);
 
-    expr_ref mk_antimirov_deriv_intersection(expr* d1, expr* d2, expr* path);
+    expr_ref mk_antimirov_deriv_intersection(expr* elem, expr* d1, expr* d2, expr* path);
     expr_ref mk_antimirov_deriv_concat(expr* d, expr* r);
-    expr_ref mk_antimirov_deriv_negate(expr* d);
+    expr_ref mk_antimirov_deriv_negate(expr* elem, expr* d);
     expr_ref mk_antimirov_deriv_union(expr* d1, expr* d2);
+    expr_ref mk_antimirov_deriv_restrict(expr* elem, expr* d1, expr* cond);
     expr_ref mk_regex_reverse(expr* r);
     expr_ref mk_regex_concat(expr* r1, expr* r2);
 
-    expr_ref simplify_path(expr* path);
+    expr_ref simplify_path(expr* elem, expr* path);
 
     bool lt_char(expr* ch1, expr* ch2);
     bool eq_char(expr* ch1, expr* ch2);
