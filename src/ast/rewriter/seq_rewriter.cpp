@@ -3349,8 +3349,95 @@ expr_ref seq_rewriter::mk_antimirov_deriv_restrict(expr* e, expr* d, expr* cond)
         else if (re().is_empty(a1) || re().is_full_seq(b1))
             result = b1;
         else
-            //TODO: merge
-            result = (a1->get_id() <= b1->get_id() ? re().mk_union(a1, b1) : re().mk_union(b1, a1));
+            result = mk_regex_union_merge(a1, b1);
+    }
+    return result;
+}
+
+// Assumes r1 and r2 are both ordered lists in right-associative form without duplicates when unions
+// Merges the two lists as a new ordered list where duplicates are removed
+expr_ref seq_rewriter::mk_regex_union_merge(expr* r1, expr* r2) {
+    expr_ref result(m());
+    expr* r1first, * r1rest, * r2first, * r2rest;
+    if (re().is_union(r1, r1first, r1rest)) {
+        if (re().is_union(r2, r2first, r2rest)) {
+            if (r1first->get_id() < r2first->get_id())
+                result = re().mk_union(r1first, mk_regex_union_merge(r1rest, r2));
+            else if (r2first->get_id() < r1first->get_id())
+                result = re().mk_union(r2first, mk_regex_union_merge(r1, r2rest));
+            else
+                result = re().mk_union(r1first, mk_regex_union_merge(r1rest, r2rest));
+        }
+        else {
+            if (r1first->get_id() < r2->get_id())
+                result = re().mk_union(r1first, mk_regex_union_merge(r1rest, r2));
+            else if (r2->get_id() < r1first->get_id())
+                result = re().mk_union(r2, r1);
+            else
+                result = r1;
+        }
+    }
+    else {
+        if (re().is_union(r2, r2first, r2rest)) {
+            if (r2first->get_id() < r1->get_id())
+                result = re().mk_union(r2first, mk_regex_union_merge(r1, r2rest));
+            else if (r1->get_id() < r2first->get_id())
+                result = re().mk_union(r1, r2);
+            else
+                result = r2;
+        }
+        else {
+            if (r1->get_id() < r2->get_id())
+                result = re().mk_union(r1, r2);
+            else if (r2->get_id() < r1->get_id())
+                result = re().mk_union(r2, r1);
+            else
+                result = r1;
+        }
+    }
+    return result;
+}
+
+// Assumes r1 and r2 are both ordered lists in right-associative form without duplicates when intersections
+// Merges the two lists as a new ordered list where duplicates are removed
+expr_ref seq_rewriter::mk_regex_inter_merge(expr* r1, expr* r2) {
+    expr_ref result(m());
+    expr* r1first, * r1rest, * r2first, * r2rest;
+    if (re().is_intersection(r1, r1first, r1rest)) {
+        if (re().is_intersection(r2, r2first, r2rest)) {
+            if (r1first->get_id() < r2first->get_id())
+                result = re().mk_inter(r1first, mk_regex_inter_merge(r1rest, r2));
+            else if (r2first->get_id() < r1first->get_id())
+                result = re().mk_inter(r2first, mk_regex_inter_merge(r1, r2rest));
+            else
+                result = re().mk_inter(r1first, mk_regex_inter_merge(r1rest, r2rest));
+        }
+        else {
+            if (r1first->get_id() < r2->get_id())
+                result = re().mk_inter(r1first, mk_regex_inter_merge(r1rest, r2));
+            else if (r2->get_id() < r1first->get_id())
+                result = re().mk_inter(r2, r1);
+            else
+                result = r1;
+        }
+    }
+    else {
+        if (re().is_intersection(r2, r2first, r2rest)) {
+            if (r2first->get_id() < r1->get_id())
+                result = re().mk_inter(r2first, mk_regex_inter_merge(r1, r2rest));
+            else if (r1->get_id() < r2first->get_id())
+                result = re().mk_inter(r1, r2);
+            else
+                result = r2;
+        }
+        else {
+            if (r1->get_id() < r2->get_id())
+                result = re().mk_inter(r1, r2);
+            else if (r2->get_id() < r1->get_id())
+                result = re().mk_inter(r2, r1);
+            else
+                result = r1;
+        }
     }
     return result;
 }
