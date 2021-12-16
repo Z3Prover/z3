@@ -171,6 +171,10 @@ stages:
       inputs:
         artifact: 'WindowsBuild-x64'
         path: $(Agent.TempDirectory)\package
+      displayName: 'Download Win32 Build'
+      inputs:
+        artifact: 'WindowsBuild-x86'
+        path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu Build'
       inputs:
