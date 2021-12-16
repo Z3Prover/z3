@@ -1,5 +1,5 @@
 variables:
-  ReleaseVersion: '4.8.13'
+  ReleaseVersion: '4.8.14'
 
 stages:
 - stage: Build
@@ -287,6 +287,8 @@ stages:
   jobs:
   - job: Deploy
     displayName: "Deploy into GitHub"
+    pool:
+      vmImage: "ubuntu-latest"
     steps:
     - task: DownloadPipelineArtifact@2
       displayName: "Download windows32"
