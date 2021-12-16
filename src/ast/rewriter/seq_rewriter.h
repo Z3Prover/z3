@@ -217,13 +217,19 @@ class seq_rewriter {
     expr_ref mk_antimirov_deriv_intersection(expr* elem, expr* d1, expr* d2, expr* path);
     expr_ref mk_antimirov_deriv_concat(expr* d, expr* r);
     expr_ref mk_antimirov_deriv_negate(expr* elem, expr* d);
-    expr_ref mk_antimirov_deriv_union(expr* d1, expr* d2);
     expr_ref mk_antimirov_deriv_restrict(expr* elem, expr* d1, expr* cond);
     expr_ref mk_regex_union_merge(expr* r1, expr* r2);
     expr_ref mk_regex_inter_merge(expr* r1, expr* r2);
     expr_ref mk_regex_reverse(expr* r);
     expr_ref mk_regex_concat(expr* r1, expr* r2);
 
+    // Apply simplifications and keep the representation normalized
+    // Assuming r1 and r2 are normalized
+    expr_ref mk_regex_union_normalize(expr* r1, expr* r2);
+    expr_ref mk_regex_inter_normalize(expr* r1, expr* r2);
+
+    // elem is (:var 0) and path a condition that may have (:var 0) as a free variable
+    // simplify path, e.g., (:var 0) = 'a' & (:var 0) = 'b' is simplified to false
     expr_ref simplify_path(expr* elem, expr* path);
 
     bool lt_char(expr* ch1, expr* ch2);
