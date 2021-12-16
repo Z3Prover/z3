@@ -260,39 +260,44 @@ expr_ref mk_distinct(expr_ref_vector const& args) {
 void flatten_and(expr_ref_vector& result) {
     ast_manager& m = result.get_manager();
     expr* e1, *e2, *e3;
+    expr_fast_mark1 seen;
     for (unsigned i = 0; i < result.size(); ++i) {
-        if (m.is_and(result.get(i))) {
-            app* a = to_app(result.get(i));
+        expr* e = result.get(i);
+        if (seen.is_marked(e))
+            continue;
+        seen.mark(e);
+        if (m.is_and(e)) {
+            app* a = to_app(e);
             for (expr* arg : *a) result.push_back(arg);
             result[i] = result.back();
             result.pop_back();
             --i;
         }
-        else if (m.is_not(result.get(i), e1) && m.is_not(e1, e2)) {
+        else if (m.is_not(e, e1) && m.is_not(e1, e2)) {
             result[i] = e2;
             --i;
         }
-        else if (m.is_not(result.get(i), e1) && m.is_or(e1)) {
+        else if (m.is_not(e, e1) && m.is_or(e1)) {
             app* a = to_app(e1);
             for (expr* arg : *a) result.push_back(m.mk_not(arg));
             result[i] = result.back();
             result.pop_back();
             --i;
         }
-        else if (m.is_not(result.get(i), e1) && m.is_implies(e1,e2,e3)) {
+        else if (m.is_not(e, e1) && m.is_implies(e1, e2, e3)) {
             result.push_back(e2);
             result[i] = m.mk_not(e3);
             --i;
         }
-        else if (m.is_true(result.get(i)) ||
-                 (m.is_not(result.get(i), e1) &&
+        else if (m.is_true(e) ||
+                 (m.is_not(e, e1) &&
                   m.is_false(e1))) {
             result[i] = result.back();
             result.pop_back();
             --i;
         }
-        else if (m.is_false(result.get(i)) ||
-                 (m.is_not(result.get(i), e1) &&
+        else if (m.is_false(e) ||
+                 (m.is_not(e, e1) &&
                   m.is_true(e1))) {
             result.reset();
             result.push_back(m.mk_false());
@@ -317,39 +322,44 @@ void flatten_and(expr_ref& fml) {
 void flatten_or(expr_ref_vector& result) {
     ast_manager& m = result.get_manager();
     expr* e1, *e2, *e3;
+    expr_fast_mark1 seen;
     for (unsigned i = 0; i < result.size(); ++i) {
-        if (m.is_or(result.get(i))) {
-            app* a = to_app(result.get(i));
+        expr* e = result.get(i);
+        if (seen.is_marked(e))
+            continue;
+        seen.mark(e);
+        if (m.is_or(e)) {
+            app* a = to_app(e);
             for (expr* arg : *a) result.push_back(arg);
             result[i] = result.back();
             result.pop_back();
             --i;
         }
-        else if (m.is_not(result.get(i), e1) && m.is_not(e1, e2)) {
+        else if (m.is_not(e, e1) && m.is_not(e1, e2)) {
             result[i] = e2;
             --i;
         }
-        else if (m.is_not(result.get(i), e1) && m.is_and(e1)) {
+        else if (m.is_not(e, e1) && m.is_and(e1)) {
             app* a = to_app(e1);
             for (expr* arg : *a) result.push_back(m.mk_not(arg));
             result[i] = result.back();
             result.pop_back();
             --i;
         }
-        else if (m.is_implies(result.get(i),e2,e3)) {
+        else if (m.is_implies(e,e2,e3)) {
             result.push_back(e3);
             result[i] = m.mk_not(e2);
             --i;
         }
-        else if (m.is_false(result.get(i)) ||
-                 (m.is_not(result.get(i), e1) &&
+        else if (m.is_false(e) ||
+                 (m.is_not(e, e1) &&
                   m.is_true(e1))) {
             result[i] = result.back();
             result.pop_back();
             --i;
         }
-        else if (m.is_true(result.get(i)) ||
-                 (m.is_not(result.get(i), e1) &&
+        else if (m.is_true(e) ||
+                 (m.is_not(e, e1) &&
                   m.is_false(e1))) {
             result.reset();
             result.push_back(m.mk_true());
