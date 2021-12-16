@@ -342,6 +342,11 @@ namespace opt {
     }
 
     void opt_solver::get_model_core(model_ref & m) {  
+        if (m_last_model.get()) {
+            m = m_last_model.get();
+            return;
+        }
+
         for (unsigned i = m_models.size(); i-- > 0; ) {
             auto* mdl = m_models[i];
             if (mdl) {
