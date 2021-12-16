@@ -131,24 +131,10 @@ namespace Microsoft.Z3
             return an;
         }
 
-        internal static IntPtr[] EnumToNative<T>(IEnumerable<T> a) where T : Z3Object
-        {
-
-            if (a == null) return null;
-            IntPtr[] an = new IntPtr[a.Count()];
-            int i = 0;
-            foreach (var ai in a)
-            {
-                if (ai != null) an[i] = ai.NativeObject;
-                ++i;
-            }
-            return an;
-        }
-
         internal static uint ArrayLength(Z3Object[] a)
         {
             return (a == null)?0:(uint)a.Length;
         }
-        #endregion
+#endregion
     }
 }
