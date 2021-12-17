@@ -248,6 +248,14 @@ namespace smt {
         unsigned user_propagate_register(expr* e) {
             return m_kernel.user_propagate_register(e);
         }
+
+        void user_propagate_register_declared(user_propagator::register_created_eh_t& r) {
+            m_kernel.user_propagate_register_declared(r);
+        }
+
+        func_decl* user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range) {
+            return m_kernel.user_propagate_declare(name, n, domain, range);
+        }
         
     };
 
@@ -476,5 +484,13 @@ namespace smt {
     unsigned kernel::user_propagate_register(expr* e) {
         return m_imp->user_propagate_register(e);
     }        
+
+    void kernel::user_propagate_register_declared(user_propagator::register_created_eh_t& r) {
+        m_imp->user_propagate_register_declared(r);
+    }
+
+    func_decl* kernel::user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range) {
+        return m_imp->user_propagate_declare(name, n, domain, range);
+    }
 
 };

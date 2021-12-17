@@ -301,12 +301,11 @@ namespace smt {
         
         void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh);
 
-
-        /**
-           \brief register an expression to be tracked fro user propagation.
-        */
         unsigned user_propagate_register(expr* e);
         
+        void user_propagate_register_declared(user_propagator::register_created_eh_t& r);
+
+        func_decl* user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range);
 
         /**
            \brief Return a reference to smt::context.

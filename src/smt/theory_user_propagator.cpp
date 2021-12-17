@@ -173,6 +173,26 @@ void theory_user_propagator::propagate() {
     m_qhead = qhead;
 }
 
+func_decl* theory_user_propagator::declare(symbol const& name, unsigned n, sort* const* domain, sort* range) {
+    if (!m_created_eh)
+        throw default_exception("event handler for dynamic expressions has to be registered before functions can be created");
+    // ensure that declaration plugin is registered with m.
+    if (!m.has_plugin(get_id())) 
+        m.register_plugin(get_id(), alloc(user_propagator::plugin));
+    
+    func_decl_info info(get_id(), user_propagator::plugin::kind_t::OP_USER_PROPAGATE);
+    return m.mk_func_decl(name, n, domain, range, info);    
+}
+
+bool theory_user_propagator::internalize_atom(app* atom, bool gate_ctx) {
+    return internalize_term(atom);
+}
+
+bool theory_user_propagator::internalize_term(app* term)  { 
+    NOT_IMPLEMENTED_YET();
+    return false;    
+}
+
 void theory_user_propagator::collect_statistics(::statistics & st) const {
     st.update("user-propagations", m_stats.m_num_propagations);
     st.update("user-watched",      get_num_vars());

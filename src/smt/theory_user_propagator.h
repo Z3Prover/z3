@@ -56,6 +56,8 @@ namespace smt {
         user_propagator::fixed_eh_t     m_fixed_eh;
         user_propagator::eq_eh_t        m_eq_eh;
         user_propagator::eq_eh_t        m_diseq_eh;
+        user_propagator::register_created_eh_t m_created_eh;
+
         user_propagator::context_obj*   m_api_context = nullptr;
         unsigned               m_qhead = 0;
         uint_set               m_fixed;
@@ -94,6 +96,8 @@ namespace smt {
         void register_fixed(user_propagator::fixed_eh_t& fixed_eh) { m_fixed_eh = fixed_eh; }
         void register_eq(user_propagator::eq_eh_t& eq_eh) { m_eq_eh = eq_eh; }
         void register_diseq(user_propagator::eq_eh_t& diseq_eh) { m_diseq_eh = diseq_eh; }
+        void register_declared(user_propagator::register_created_eh_t& created_eh) { m_created_eh = created_eh; }
+        func_decl* declare(symbol const& name, unsigned n, sort* const* domain, sort* range);
 
         bool has_fixed() const { return (bool)m_fixed_eh; }
 
@@ -103,8 +107,8 @@ namespace smt {
         void new_fixed_eh(theory_var v, expr* value, unsigned num_lits, literal const* jlits);
 
         theory * mk_fresh(context * new_ctx) override;
-        bool internalize_atom(app * atom, bool gate_ctx) override { UNREACHABLE(); return false; }
-        bool internalize_term(app * term) override { UNREACHABLE(); return false; }
+        bool internalize_atom(app* atom, bool gate_ctx) override;
+        bool internalize_term(app* term) override;
         void new_eq_eh(theory_var v1, theory_var v2) override { if (m_eq_eh) m_eq_eh(m_user_context, this, v1, v2); }
         void new_diseq_eh(theory_var v1, theory_var v2) override { if (m_diseq_eh) m_diseq_eh(m_user_context, this, v1, v2); }
         bool use_diseqs() const override { return ((bool)m_diseq_eh); }

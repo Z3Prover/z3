@@ -778,7 +778,7 @@ namespace datalog {
             tail_neg.push_back(false);
         }
 
-        SASSERT(tail.size()==tail_neg.size());
+        SASSERT(tail.size() == tail_neg.size());
         rule_ref old_r = r;
         r = mk(head, tail.size(), tail.data(), tail_neg.data(), old_r->name());
         r->set_accounting_parent_object(m_ctx, old_r);
