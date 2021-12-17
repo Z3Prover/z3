@@ -3326,9 +3326,9 @@ expr_ref seq_rewriter::mk_antimirov_deriv_restrict(expr* e, expr* d, expr* cond)
 }
 
 expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
-    expr_ref _r1(r1, m), _r2(r2, m);
-    ASSERT(m_util.is_re(r1));
-    ASSERT(m_util.is_re(r2));
+    expr_ref _r1(r1, m()), _r2(r2, m());
+    SASSERT(m_util.is_re(r1));
+    SASSERT(m_util.is_re(r2));
     expr_ref result(m());
     std::function<bool(expr*, expr*&, expr*&)> test = [&](expr* t, expr*& a, expr*& b) { return re().is_union(t, a, b); };
     std::function<expr* (expr*, expr*)> compose = [&](expr* r1, expr* r2) { return re().mk_union(r1, r2); };
@@ -3346,9 +3346,9 @@ expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
 }
 
 expr_ref seq_rewriter::mk_regex_inter_normalize(expr* r1, expr* r2) {
-    expr_ref _r1(r1, m), _r2(r2, m);
-    ASSERT(m_util.is_re(r1));
-    ASSERT(m_util.is_re(r2));
+    expr_ref _r1(r1, m()), _r2(r2, m());
+    SASSERT(m_util.is_re(r1));
+    SASSERT(m_util.is_re(r2));
     expr_ref result(m());
     std::function<bool(expr*, expr*&, expr*&)> test = [&](expr* t, expr*& a, expr*& b) { return re().is_intersection(t, a, b); };
     std::function<expr* (expr*, expr*)> compose = [&](expr* r1, expr* r2) { return re().mk_inter(r1, r2); };
@@ -3382,7 +3382,7 @@ expr_ref seq_rewriter::merge_regex_sets(expr* r1, expr* r2, expr* unit,
     expr_ref_vector prefix(m());
     expr* a, * ar, * ar1, * b, * br, * br1;
     VERIFY(m_util.is_re(r1, seq_sort));
-    ASSERT(m_util.is_re(r2));
+    SASSERT(m_util.is_re(r2));
     SASSERT(r2->get_sort() == r1->get_sort());
     // Ordering of expressions used by merging, 0 means unordered, -1 means e1 < e2, 1 means e2 < e1
     auto compare = [&](expr* x, expr* y) {
@@ -3395,7 +3395,7 @@ expr_ref seq_rewriter::merge_regex_sets(expr* r1, expr* r2, expr* unit,
 
         xid = (re().is_complement(x, z) ? z->get_id() : x->get_id());
         yid = (re().is_complement(y, z) ? z->get_id() : y->get_id());
-        ASSERT(xid != yid);
+        SASSERT(xid != yid);
         return (xid < yid ? -1 : 1);
     };
     auto composeresult = [&](expr* suffix) {
@@ -3404,124 +3404,80 @@ expr_ref seq_rewriter::merge_regex_sets(expr* r1, expr* r2, expr* unit,
             result = compose(prefix.back(), result);
             prefix.pop_back();
         }
+        return result;
     };
     if (r1 == r2)
         result = r1;
     else if (are_complements(r1, r2))
         // TODO: loops
-        result = unit;
+        return expr_ref(unit, m());       
     else {
-        signed int k;
         ar = r1;
         br = r2;
         while (true) {;
+            if (ar == br) 
+                return composeresult(ar);
+
+            if (are_complements(ar, br)) 
+                return expr_ref(unit, m());
+
+            if (test(br, b, br1) && !test(ar, a, ar1)) 
+                std::swap(ar, br);
+
+            if (test(br, b, br1)) {
+                VERIFY(test(ar, a, ar1));
+                if (are_complements(a, b)) 
+                    return expr_ref(unit, m());
+                switch (compare(a, b)) {
+                case 0:
+                    // a == b
+                    prefix.push_back(a);
+                    ar = ar1;
+                    br = br1;
+                    break;
+                case -1:                    
+                    // a < b
+                    prefix.push_back(a);
+                    ar = ar1;
+                    break;
+                default:
+                    // b < a
+                    prefix.push_back(b);
+                    br = br1;
+                    break;
+                }
+                continue;
+            }
+
             if (test(ar, a, ar1)) {
-                if (test(br, b, br1)) {
-                    if (a == b) {
-                        prefix.push_back(a);
-                        ar = ar1;
-                        br = br1;
-                    }
-                    else if (are_complements(a, b)) {
-                        result = unit;
-                        break;
-                    }
-                    else {
-                        k = compare(a, b);
-                        if (k == -1) {
-                            // a < b
-                            prefix.push_back(a);
-                            ar = ar1;
-                        }
-                        else {
-                            // b < a
-                            prefix.push_back(b);
-                            br = br1;
-                        }
-                    }
+                // br is not decomposable
+                if (are_complements(a, br)) 
+                    return expr_ref(unit, m());
+                switch (compare(a, br)) {
+                case 0:
+                    // result = prefix ++ ar
+                    return composeresult(ar);
+                case -1:
+                    // a < br
+                    prefix.push_back(a);
+                    ar = ar1;
+                    break;
+                case 1:
+                    // br < a, result = prefix ++ (br) ++ ar
+                    prefix.push_back(br);
+                    return composeresult(ar);
+                default:
+                    UNREACHABLE();
                 }
-                else {    
-                    // br is not decomposable
-                    if (a == br) {
-                        // result = prefix ++ ar
-                        composeresult(ar);
-                        break;
-                    }
-                    else if (are_complements(a, br)) {
-                        result = unit;
-                        break;
-                    }
-                    else {
-                        k = compare(a, br);
-                        if (k == -1) {
-                            // a < br
-                            prefix.push_back(a);
-                            ar = ar1;
-                        }
-                        else {
-                            // br < a, result = prefix ++ (br) ++ ar
-                            prefix.push_back(br);
-                            composeresult(ar);
-                            break;
-                        }
-                    }       
-                }
+                continue;
             }
-            else {
-                // ar is not decomposable
-                if (test(br, b, br1)) {
-                    if (ar == b) {
-                        // result = prefix ++ br
-                        composeresult(br);
-                        break;
-                    }
-                    else if (are_complements(ar, b)) {
-                        result = unit;
-                        break;
-                    }
-                    else {
-                        k = compare(ar, b);
-                        if (k == -1) {
-                            // ar < b, result = prefix ++ (ar) ++ br
-                            prefix.push_back(ar);
-                            composeresult(br);
-                            break;
-                        }
-                        else {
-                            // b < ar
-                            prefix.push_back(b);
-                            br = br1;
-                        }
-                    }
-                }
-                else {
-                    // neither ar nor br is decomposable
-                    if (ar == br) {
-                        // result = prefix ++ ar
-                        composeresult(ar);
-                        break;
-                    }
-                    else if (are_complements(ar, br)) {
-                        result = unit;
-                        break;
-                    }
-                    else {
-                        k = compare(ar, br);
-                        if (k == -1) {
-                            // ar < br,  result = prefix ++ (ar) ++ (br)
-                            prefix.push_back(ar);
-                            composeresult(br);
-                            break;
-                        }
-                        else {
-                            // br < ar, result = prefix ++ (br) ++ (ar) 
-                            prefix.push_back(br);
-                            composeresult(ar);
-                            break;
-                        }
-                    }
-                }
-            }
+
+            // neither ar nor br is decomposable
+            if (compare(ar, br) == -1) 
+                std::swap(ar, br);
+            // br < ar, result = prefix ++ (br) ++ (ar) 
+            prefix.push_back(br);
+            return composeresult(ar);
         }
     }
     return result;
