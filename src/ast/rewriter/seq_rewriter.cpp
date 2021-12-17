@@ -3380,21 +3380,20 @@ expr_ref seq_rewriter::merge_regex_sets(expr* r1, expr* r2, expr* unit,
     sort* seq_sort;
     expr_ref result(unit, m());
     expr_ref_vector prefix(m());
-    expr* a, * ar, * ar1, * b, * br, * br1;
+    expr* a, * ar1, * b,  * br1;
     VERIFY(m_util.is_re(r1, seq_sort));
     SASSERT(m_util.is_re(r2));
     SASSERT(r2->get_sort() == r1->get_sort());
     // Ordering of expressions used by merging, 0 means unordered, -1 means e1 < e2, 1 means e2 < e1
     auto compare = [&](expr* x, expr* y) {
-        expr* z;
-        unsigned int xid, yid;
+        expr* z = nullptr;
         // TODO: consider also the case of A{0,l}++B having the same id as A*++B
         // in which case return 0
         if (x == y)
             return 0;
 
-        xid = (re().is_complement(x, z) ? z->get_id() : x->get_id());
-        yid = (re().is_complement(y, z) ? z->get_id() : y->get_id());
+        unsigned xid = (re().is_complement(x, z) ? z->get_id() : x->get_id());
+        unsigned yid = (re().is_complement(y, z) ? z->get_id() : y->get_id());
         SASSERT(xid != yid);
         return (xid < yid ? -1 : 1);
     };
@@ -3406,83 +3405,77 @@ expr_ref seq_rewriter::merge_regex_sets(expr* r1, expr* r2, expr* unit,
         }
         return result;
     };
-    if (r1 == r2)
-        result = r1;
-    else if (are_complements(r1, r2))
-        // TODO: loops
-        return expr_ref(unit, m());       
-    else {
-        ar = r1;
-        br = r2;
-        while (true) {;
-            if (ar == br) 
-                return composeresult(ar);
-
-            if (are_complements(ar, br)) 
-                return expr_ref(unit, m());
-
-            if (test(br, b, br1) && !test(ar, a, ar1)) 
-                std::swap(ar, br);
-
-            if (test(br, b, br1)) {
-                VERIFY(test(ar, a, ar1));
-                if (are_complements(a, b)) 
-                    return expr_ref(unit, m());
-                switch (compare(a, b)) {
-                case 0:
-                    // a == b
-                    prefix.push_back(a);
-                    ar = ar1;
-                    br = br1;
-                    break;
-                case -1:                    
-                    // a < b
-                    prefix.push_back(a);
-                    ar = ar1;
-                    break;
-                default:
-                    // b < a
-                    prefix.push_back(b);
-                    br = br1;
-                    break;
-                }
-                continue;
-            }
-
-            if (test(ar, a, ar1)) {
-                // br is not decomposable
-                if (are_complements(a, br)) 
-                    return expr_ref(unit, m());
-                switch (compare(a, br)) {
-                case 0:
-                    // result = prefix ++ ar
-                    return composeresult(ar);
-                case -1:
-                    // a < br
-                    prefix.push_back(a);
-                    ar = ar1;
-                    break;
-                case 1:
-                    // br < a, result = prefix ++ (br) ++ ar
-                    prefix.push_back(br);
-                    return composeresult(ar);
-                default:
-                    UNREACHABLE();
-                }
-                continue;
-            }
-
-            // neither ar nor br is decomposable
-            if (compare(ar, br) == -1) 
-                std::swap(ar, br);
-            // br < ar, result = prefix ++ (br) ++ (ar) 
-            prefix.push_back(br);
+    expr* ar = r1;
+    expr* br = r2;
+    while (true) {        
+        if (ar == br)
             return composeresult(ar);
-        }
-    }
-    return result;
-}
 
+        if (are_complements(ar, br))
+            return expr_ref(unit, m());
+
+        if (test(br, b, br1) && !test(ar, a, ar1))
+            std::swap(ar, br);
+
+        // both ar, br are decomposable
+        if (test(br, b, br1)) {
+            VERIFY(test(ar, a, ar1));
+            if (are_complements(a, b))
+                return expr_ref(unit, m());
+            switch (compare(a, b)) {
+            case 0:
+                // a == b
+                prefix.push_back(a);
+                ar = ar1;
+                br = br1;
+                break;
+            case -1:
+                // a < b
+                prefix.push_back(a);
+                ar = ar1;
+                break;
+            case 1:
+                // b < a
+                prefix.push_back(b);
+                br = br1;
+                break;
+            default:
+                UNREACHABLE();
+            }
+            continue;
+        }
+
+        // ar is decomposable, br is not decomposable
+        if (test(ar, a, ar1)) {            
+            if (are_complements(a, br))
+                return expr_ref(unit, m());
+            switch (compare(a, br)) {
+            case 0:
+                // result = prefix ++ ar
+                return composeresult(ar);
+            case -1:
+                // a < br
+                prefix.push_back(a);
+                ar = ar1;
+                break;
+            case 1:
+                // br < a, result = prefix ++ (br) ++ ar
+                prefix.push_back(br);
+                return composeresult(ar);
+            default:
+                UNREACHABLE();
+            }
+            continue;
+        }
+
+        // neither ar nor br is decomposable
+        if (compare(ar, br) == -1)
+            std::swap(ar, br);
+        // br < ar, result = prefix ++ (br) ++ (ar) 
+        prefix.push_back(br);
+        return composeresult(ar);
+    }
+}
 
 expr_ref seq_rewriter::mk_regex_reverse(expr* r) {
     expr* r1 = nullptr, * r2 = nullptr, * c = nullptr;
