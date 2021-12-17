@@ -3326,8 +3326,9 @@ expr_ref seq_rewriter::mk_antimirov_deriv_restrict(expr* e, expr* d, expr* cond)
 }
 
 expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
-    VERIFY(m_util.is_re(r1));
-    VERIFY(m_util.is_re(r2));
+    expr_ref _r1(r1, m), _r2(r2, m);
+    ASSERT(m_util.is_re(r1));
+    ASSERT(m_util.is_re(r2));
     expr_ref result(m());
     std::function<bool(expr*, expr*&, expr*&)> test = [&](expr* t, expr*& a, expr*& b) { return re().is_union(t, a, b); };
     std::function<expr* (expr*, expr*)> compose = [&](expr* r1, expr* r2) { return re().mk_union(r1, r2); };
@@ -3345,8 +3346,9 @@ expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
 }
 
 expr_ref seq_rewriter::mk_regex_inter_normalize(expr* r1, expr* r2) {
-    VERIFY(m_util.is_re(r1));
-    VERIFY(m_util.is_re(r2));
+    expr_ref _r1(r1, m), _r2(r2, m);
+    ASSERT(m_util.is_re(r1));
+    ASSERT(m_util.is_re(r2));
     expr_ref result(m());
     std::function<bool(expr*, expr*&, expr*&)> test = [&](expr* t, expr*& a, expr*& b) { return re().is_intersection(t, a, b); };
     std::function<expr* (expr*, expr*)> compose = [&](expr* r1, expr* r2) { return re().mk_inter(r1, r2); };
@@ -3380,7 +3382,7 @@ expr_ref seq_rewriter::merge_regex_sets(expr* r1, expr* r2, expr* unit,
     expr_ref_vector prefix(m());
     expr* a, * ar, * ar1, * b, * br, * br1;
     VERIFY(m_util.is_re(r1, seq_sort));
-    VERIFY(m_util.is_re(r2));
+    ASSERT(m_util.is_re(r2));
     SASSERT(r2->get_sort() == r1->get_sort());
     // Ordering of expressions used by merging, 0 means unordered, -1 means e1 < e2, 1 means e2 < e1
     auto compare = [&](expr* x, expr* y) {
@@ -3393,7 +3395,7 @@ expr_ref seq_rewriter::merge_regex_sets(expr* r1, expr* r2, expr* unit,
 
         xid = (re().is_complement(x, z) ? z->get_id() : x->get_id());
         yid = (re().is_complement(y, z) ? z->get_id() : y->get_id());
-        VERIFY(xid != yid);
+        ASSERT(xid != yid);
         return (xid < yid ? -1 : 1);
     };
     auto composeresult = [&](expr* suffix) {
@@ -3942,7 +3944,7 @@ expr_ref seq_rewriter::mk_der_compl(expr* r) {
 */
 expr_ref seq_rewriter::mk_der_cond(expr* cond, expr* ele, sort* seq_sort) {
     STRACE("seq_verbose", tout << "mk_der_cond: "
-        <<  mk_pp(cond, m()) << ", " << mk_pp(ele, m()) << std::endl;);
+           <<  mk_pp(cond, m()) << ", " << mk_pp(ele, m()) << std::endl;);
     sort *ele_sort = nullptr;
     VERIFY(u().is_seq(seq_sort, ele_sort));
     SASSERT(ele_sort == ele->get_sort());
