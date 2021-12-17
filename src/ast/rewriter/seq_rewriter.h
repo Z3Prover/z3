@@ -218,10 +218,10 @@ class seq_rewriter {
     expr_ref mk_antimirov_deriv_concat(expr* d, expr* r);
     expr_ref mk_antimirov_deriv_negate(expr* elem, expr* d);
     expr_ref mk_antimirov_deriv_restrict(expr* elem, expr* d1, expr* cond);
-    expr_ref mk_regex_union_merge(expr* r1, expr* r2);
-    expr_ref mk_regex_inter_merge(expr* r1, expr* r2);
     expr_ref mk_regex_reverse(expr* r);
     expr_ref mk_regex_concat(expr* r1, expr* r2);
+
+    expr_ref merge_regex_sets(expr* r1, expr* r2, expr* unit, std::function<bool(expr*, expr*&, expr*&)>& decompose, std::function<expr* (expr*, expr*)>& compose);
 
     // Apply simplifications and keep the representation normalized
     // Assuming r1 and r2 are normalized

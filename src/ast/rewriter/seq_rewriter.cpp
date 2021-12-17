@@ -3329,6 +3329,8 @@ expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
     VERIFY(m_util.is_re(r1));
     VERIFY(m_util.is_re(r2));
     expr_ref result(m());
+    std::function<bool(expr*, expr*&, expr*&)> test = [&](expr* t, expr*& a, expr*& b) { return re().is_union(t, a, b); };
+    std::function<expr* (expr*, expr*)> compose = [&](expr* r1, expr* r2) { return re().mk_union(r1, r2); };
     if (r1 == r2 || re().is_empty(r2) || re().is_full_seq(r1))
         result = r1;
     else if (re().is_empty(r1) || re().is_full_seq(r2))
@@ -3338,51 +3340,7 @@ expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
     else if (re().is_dot_plus(r2) && re().get_info(r1).min_length > 0)
         result = r2;
     else
-        result = mk_regex_union_merge(r1, r2);
-    return result;
-}
-// Assumes r1 and r2 are both ordered lists in right-associative form without duplicates when unions
-// Merges the two lists as a new ordered list where duplicates are removed
-// an element and its complement have the same merge-order and result in true
-expr_ref seq_rewriter::mk_regex_union_merge(expr* r1, expr* r2) {
-    expr_ref result(m());
-    expr* r1first, * r1rest, * r2first, * r2rest;
-    if (re().is_union(r1, r1first, r1rest)) {
-        if (re().is_union(r2, r2first, r2rest)) {
-            if (r1first->get_id() < r2first->get_id())
-                result = re().mk_union(r1first, mk_regex_union_merge(r1rest, r2));
-            else if (r2first->get_id() < r1first->get_id())
-                result = re().mk_union(r2first, mk_regex_union_merge(r1, r2rest));
-            else
-                result = re().mk_union(r1first, mk_regex_union_merge(r1rest, r2rest));
-        }
-        else {
-            if (r1first->get_id() < r2->get_id())
-                result = re().mk_union(r1first, mk_regex_union_merge(r1rest, r2));
-            else if (r2->get_id() < r1first->get_id())
-                result = re().mk_union(r2, r1);
-            else
-                result = r1;
-        }
-    }
-    else {
-        if (re().is_union(r2, r2first, r2rest)) {
-            if (r2first->get_id() < r1->get_id())
-                result = re().mk_union(r2first, mk_regex_union_merge(r1, r2rest));
-            else if (r1->get_id() < r2first->get_id())
-                result = re().mk_union(r1, r2);
-            else
-                result = r2;
-        }
-        else {
-            if (r1->get_id() < r2->get_id())
-                result = re().mk_union(r1, r2);
-            else if (r2->get_id() < r1->get_id())
-                result = re().mk_union(r2, r1);
-            else
-                result = r1;
-        }
-    }
+        result = merge_regex_sets(r1, r2, re().mk_full_seq(r1->get_sort()), test, compose);
     return result;
 }
 
@@ -3390,6 +3348,8 @@ expr_ref seq_rewriter::mk_regex_inter_normalize(expr* r1, expr* r2) {
     VERIFY(m_util.is_re(r1));
     VERIFY(m_util.is_re(r2));
     expr_ref result(m());
+    std::function<bool(expr*, expr*&, expr*&)> test = [&](expr* t, expr*& a, expr*& b) { return re().is_intersection(t, a, b); };
+    std::function<expr* (expr*, expr*)> compose = [&](expr* r1, expr* r2) { return re().mk_inter(r1, r2); };
     if (r1 == r2 || re().is_empty(r1) || re().is_full_seq(r2))
         result = r1;
     else if (re().is_empty(r2) || re().is_full_seq(r1))
@@ -3399,61 +3359,172 @@ expr_ref seq_rewriter::mk_regex_inter_normalize(expr* r1, expr* r2) {
             result = r1;
         else if (re().get_info(r2).nullable == l_false)
             result = re().mk_empty(r1->get_sort());
-        else 
-            result = mk_regex_inter_merge(r1, r2);
+        else
+            result = merge_regex_sets(r1, r2, re().mk_empty(r1->get_sort()), test, compose);
     }
     else if (re().is_dot_plus(r1) && re().get_info(r2).min_length > 0)
         result = r2;
     else if (re().is_dot_plus(r2) && re().get_info(r1).min_length > 0)
         result = r1;
-    else
-        result = mk_regex_inter_merge(r1, r2);
-    return result;
-}
-// Assumes r1 and r2 are both ordered lists in right-associative form without duplicates when intersections
-// Merges the two lists as a new ordered list where duplicates are removed
-// an element and its complement have the same merge-order and result in false
-expr_ref seq_rewriter::mk_regex_inter_merge(expr* r1, expr* r2) {
-    expr_ref result(m());
-    expr* r1first, * r1rest, * r2first, * r2rest;
-    if (re().is_intersection(r1, r1first, r1rest)) {
-        if (re().is_intersection(r2, r2first, r2rest)) {
-            if (r1first->get_id() < r2first->get_id())
-                result = re().mk_inter(r1first, mk_regex_inter_merge(r1rest, r2));
-            else if (r2first->get_id() < r1first->get_id())
-                result = re().mk_inter(r2first, mk_regex_inter_merge(r1, r2rest));
-            else
-                result = re().mk_inter(r1first, mk_regex_inter_merge(r1rest, r2rest));
-        }
-        else {
-            if (r1first->get_id() < r2->get_id())
-                result = re().mk_inter(r1first, mk_regex_inter_merge(r1rest, r2));
-            else if (r2->get_id() < r1first->get_id())
-                result = re().mk_inter(r2, r1);
-            else
-                result = r1;
-        }
-    }
     else {
-        if (re().is_intersection(r2, r2first, r2rest)) {
-            if (r2first->get_id() < r1->get_id())
-                result = re().mk_inter(r2first, mk_regex_inter_merge(r1, r2rest));
-            else if (r1->get_id() < r2first->get_id())
-                result = re().mk_inter(r1, r2);
-            else
-                result = r2;
+        result = merge_regex_sets(r1, r2, re().mk_empty(r1->get_sort()), test, compose);
+    }
+    return result;
+}
+
+expr_ref seq_rewriter::merge_regex_sets(expr* r1, expr* r2, expr* unit,
+    std::function<bool(expr*, expr*&, expr*&)>& test, 
+    std::function<expr* (expr*, expr*)>& compose) {
+    sort* seq_sort;
+    expr_ref result(unit, m());
+    expr_ref_vector prefix(m());
+    expr* a, * ar, * ar1, * b, * br, * br1;
+    VERIFY(m_util.is_re(r1, seq_sort));
+    VERIFY(m_util.is_re(r2));
+    SASSERT(r2->get_sort() == r1->get_sort());
+    // Ordering of expressions used by merging, 0 means unordered, -1 means e1 < e2, 1 means e2 < e1
+    auto compare = [&](expr* x, expr* y) {
+        expr* z;
+        unsigned int xid, yid;
+        // TODO: consider also the case of A{0,l}++B having the same id as A*++B
+        // in which case return 0
+        if (x == y)
+            return 0;
+
+        xid = (re().is_complement(x, z) ? z->get_id() : x->get_id());
+        yid = (re().is_complement(y, z) ? z->get_id() : y->get_id());
+        VERIFY(xid != yid);
+        return (xid < yid ? -1 : 1);
+    };
+    auto composeresult = [&](expr* suffix) {
+        result = suffix;
+        while (!prefix.empty()) {
+            result = compose(prefix.back(), result);
+            prefix.pop_back();
         }
-        else {
-            if (r1->get_id() < r2->get_id())
-                result = re().mk_inter(r1, r2);
-            else if (r2->get_id() < r1->get_id())
-                result = re().mk_inter(r2, r1);
-            else
-                result = r1;
+    };
+    if (r1 == r2)
+        result = r1;
+    else if (are_complements(r1, r2))
+        // TODO: loops
+        result = unit;
+    else {
+        signed int k;
+        ar = r1;
+        br = r2;
+        while (true) {;
+            if (test(ar, a, ar1)) {
+                if (test(br, b, br1)) {
+                    if (a == b) {
+                        prefix.push_back(a);
+                        ar = ar1;
+                        br = br1;
+                    }
+                    else if (are_complements(a, b)) {
+                        result = unit;
+                        break;
+                    }
+                    else {
+                        k = compare(a, b);
+                        if (k == -1) {
+                            // a < b
+                            prefix.push_back(a);
+                            ar = ar1;
+                        }
+                        else {
+                            // b < a
+                            prefix.push_back(b);
+                            br = br1;
+                        }
+                    }
+                }
+                else {    
+                    // br is not decomposable
+                    if (a == br) {
+                        // result = prefix ++ ar
+                        composeresult(ar);
+                        break;
+                    }
+                    else if (are_complements(a, br)) {
+                        result = unit;
+                        break;
+                    }
+                    else {
+                        k = compare(a, br);
+                        if (k == -1) {
+                            // a < br
+                            prefix.push_back(a);
+                            ar = ar1;
+                        }
+                        else {
+                            // br < a, result = prefix ++ (br) ++ ar
+                            prefix.push_back(br);
+                            composeresult(ar);
+                            break;
+                        }
+                    }       
+                }
+            }
+            else {
+                // ar is not decomposable
+                if (test(br, b, br1)) {
+                    if (ar == b) {
+                        // result = prefix ++ br
+                        composeresult(br);
+                        break;
+                    }
+                    else if (are_complements(ar, b)) {
+                        result = unit;
+                        break;
+                    }
+                    else {
+                        k = compare(ar, b);
+                        if (k == -1) {
+                            // ar < b, result = prefix ++ (ar) ++ br
+                            prefix.push_back(ar);
+                            composeresult(br);
+                            break;
+                        }
+                        else {
+                            // b < ar
+                            prefix.push_back(b);
+                            br = br1;
+                        }
+                    }
+                }
+                else {
+                    // neither ar nor br is decomposable
+                    if (ar == br) {
+                        // result = prefix ++ ar
+                        composeresult(ar);
+                        break;
+                    }
+                    else if (are_complements(ar, br)) {
+                        result = unit;
+                        break;
+                    }
+                    else {
+                        k = compare(ar, br);
+                        if (k == -1) {
+                            // ar < br,  result = prefix ++ (ar) ++ (br)
+                            prefix.push_back(ar);
+                            composeresult(br);
+                            break;
+                        }
+                        else {
+                            // br < ar, result = prefix ++ (br) ++ (ar) 
+                            prefix.push_back(br);
+                            composeresult(ar);
+                            break;
+                        }
+                    }
+                }
+            }
         }
     }
     return result;
 }
+
 
 expr_ref seq_rewriter::mk_regex_reverse(expr* r) {
     expr* r1 = nullptr, * r2 = nullptr, * c = nullptr;
