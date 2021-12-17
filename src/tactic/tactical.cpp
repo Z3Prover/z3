@@ -200,6 +200,14 @@ public:
         m_t2->user_propagate_clear();
     }
 
+    void user_propagate_register_created(user_propagator::register_created_eh_t& created_eh) override {
+        m_t2->user_propagate_register_created(created_eh);
+    }
+
+    func_decl* user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range) override {
+        return m_t2->user_propagate_declare(name, n, domain, range);
+    }
+
 };
 
 tactic * and_then(tactic * t1, tactic * t2) {

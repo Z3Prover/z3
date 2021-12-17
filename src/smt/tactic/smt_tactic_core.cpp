@@ -319,15 +319,21 @@ public:
     user_propagator::final_eh_t m_final_eh;
     user_propagator::eq_eh_t    m_eq_eh;
     user_propagator::eq_eh_t    m_diseq_eh;
+    user_propagator::register_created_eh_t m_created_eh;
+
     expr_ref_vector             m_vars;
     unsigned_vector             m_var2internal;
     unsigned_vector             m_internal2var;
+    unsigned_vector             m_limit;    
+   
 
+    user_propagator::push_eh_t  i_push_eh;
+    user_propagator::pop_eh_t   i_pop_eh;
     user_propagator::fixed_eh_t i_fixed_eh;
     user_propagator::final_eh_t i_final_eh;
     user_propagator::eq_eh_t    i_eq_eh;
     user_propagator::eq_eh_t    i_diseq_eh;
-
+    user_propagator::register_created_eh_t i_created_eh;
 
 
     struct callback : public user_propagator::callback {
@@ -403,15 +409,43 @@ public:
         m_ctx->user_propagate_register_diseq(i_diseq_eh);
     }
 
+    void init_i_created_eh() {
+        if (!m_created_eh)
+            return;
+        i_created_eh = [this](void* ctx, user_propagator::callback* cb, expr* e, unsigned i) {
+            unsigned j = m_vars.size();
+            m_vars.push_back(e);
+            m_internal2var.setx(i, j, 0);
+            m_var2internal.setx(j, i, 0);
+        };
+        m_ctx->user_propagate_register_created(i_created_eh);
+    }
+
+    void init_i_push_pop() {
+        i_push_eh = [this](void* ctx) {
+            m_limit.push_back(m_vars.size());
+            m_push_eh(ctx);
+        };
+        i_pop_eh = [this](void* ctx, unsigned n) {
+            unsigned old_sz = m_limit.size() - n;
+            unsigned num_vars = m_limit[old_sz];            
+            m_vars.shrink(num_vars);            
+            m_limit.shrink(old_sz);
+            m_pop_eh(ctx, n);            
+        };
+    }
+
 
     void user_propagate_delay_init() {
         if (!m_user_ctx)
             return;
-        m_ctx->user_propagate_init(m_user_ctx, m_push_eh, m_pop_eh, m_fresh_eh);
+        init_i_push_pop();
+        m_ctx->user_propagate_init(m_user_ctx, i_push_eh, i_pop_eh, m_fresh_eh);
         init_i_fixed_eh();
         init_i_final_eh();
         init_i_eq_eh();
         init_i_diseq_eh();
+        init_i_created_eh();
 
         unsigned i = 0;
         for (expr* v : m_vars) {
@@ -462,6 +496,14 @@ public:
     unsigned user_propagate_register(expr* e) override {
         m_vars.push_back(e);
         return m_vars.size() - 1;
+    }
+
+    func_decl* user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range) override {
+        return m_ctx->user_propagate_declare(name, n, domain, range);
+    }
+
+    void user_propagate_register_created(user_propagator::register_created_eh_t& created_eh) override {
+        m_ctx->user_propagate_register_created(created_eh);
     }
 };
 

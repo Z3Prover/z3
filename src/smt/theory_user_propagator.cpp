@@ -189,8 +189,12 @@ bool theory_user_propagator::internalize_atom(app* atom, bool gate_ctx) {
 }
 
 bool theory_user_propagator::internalize_term(app* term)  { 
-    NOT_IMPLEMENTED_YET();
-    return false;    
+    for (auto arg : *term)
+        ensure_enode(arg);
+    unsigned v = add_expr(term);
+    if (m_created_eh)
+        m_created_eh(m_user_context, this, term, v);
+    return true;
 }
 
 void theory_user_propagator::collect_statistics(::statistics & st) const {

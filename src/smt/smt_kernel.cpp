@@ -249,8 +249,8 @@ namespace smt {
             return m_kernel.user_propagate_register(e);
         }
 
-        void user_propagate_register_declared(user_propagator::register_created_eh_t& r) {
-            m_kernel.user_propagate_register_declared(r);
+        void user_propagate_register_created(user_propagator::register_created_eh_t& r) {
+            m_kernel.user_propagate_register_created(r);
         }
 
         func_decl* user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range) {
@@ -304,7 +304,6 @@ namespace smt {
     expr* kernel::get_formula(unsigned i) const {
         return m_imp->get_formula(i);
     }
-
 
     void kernel::push() {
         m_imp->push();
@@ -485,8 +484,8 @@ namespace smt {
         return m_imp->user_propagate_register(e);
     }        
 
-    void kernel::user_propagate_register_declared(user_propagator::register_created_eh_t& r) {
-        m_imp->user_propagate_register_declared(r);
+    void kernel::user_propagate_register_created(user_propagator::register_created_eh_t& r) {
+        m_imp->user_propagate_register_created(r);
     }
 
     func_decl* kernel::user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range) {

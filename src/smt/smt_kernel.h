@@ -303,7 +303,7 @@ namespace smt {
 
         unsigned user_propagate_register(expr* e);
         
-        void user_propagate_register_declared(user_propagator::register_created_eh_t& r);
+        void user_propagate_register_created(user_propagator::register_created_eh_t& r);
 
         func_decl* user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range);
 

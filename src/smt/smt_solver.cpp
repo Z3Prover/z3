@@ -241,6 +241,14 @@ namespace {
             return m_context.user_propagate_register(e);
         }
 
+        void user_propagate_register_created(user_propagator::register_created_eh_t& c) override {
+            m_context.user_propagate_register_created(c);
+        }
+
+        func_decl* user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range) {
+            return m_context.user_propagate_declare(name, n, domain, range);
+        }
+
         struct scoped_minimize_core {
             smt_solver& s;
             expr_ref_vector m_assumptions;
