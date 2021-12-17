@@ -3368,9 +3368,8 @@ expr_ref seq_rewriter::mk_regex_inter_normalize(expr* r1, expr* r2) {
         result = r2;
     else if (re().is_dot_plus(r2) && re().get_info(r1).min_length > 0)
         result = r1;
-    else {
-        result = merge_regex_sets(r1, r2, re().mk_empty(r1->get_sort()), test, compose);
-    }
+    else 
+        result = merge_regex_sets(r1, r2, re().mk_empty(r1->get_sort()), test, compose);    
     return result;
 }
 
@@ -3380,7 +3379,6 @@ expr_ref seq_rewriter::merge_regex_sets(expr* r1, expr* r2, expr* unit,
     sort* seq_sort;
     expr_ref result(unit, m());
     expr_ref_vector prefix(m());
-    expr* a, * ar1, * b,  * br1;
     VERIFY(m_util.is_re(r1, seq_sort));
     SASSERT(m_util.is_re(r2));
     SASSERT(r2->get_sort() == r1->get_sort());
@@ -3414,6 +3412,7 @@ expr_ref seq_rewriter::merge_regex_sets(expr* r1, expr* r2, expr* unit,
         if (are_complements(ar, br))
             return expr_ref(unit, m());
 
+        expr* a, * ar1, * b, * br1;
         if (test(br, b, br1) && !test(ar, a, ar1))
             std::swap(ar, br);
 
