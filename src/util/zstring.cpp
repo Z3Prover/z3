@@ -87,12 +87,12 @@ zstring::zstring(char const* s) {
 
 string_encoding zstring::get_encoding() {
     if (gparams::get_value("encoding") == "unicode") 
-        return unicode;
+        return string_encoding::unicode;
     if (gparams::get_value("encoding") == "bmp") 
-        return bmp;
+        return string_encoding::bmp;
     if (gparams::get_value("encoding") == "ascii") 
-        return ascii;
-    return unicode;
+        return string_encoding::ascii;
+    return string_encoding::unicode;
 }
 
 bool zstring::well_formed() const {

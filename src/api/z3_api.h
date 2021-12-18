@@ -1430,6 +1430,7 @@ typedef void* Z3_fresh_eh(void* ctx, Z3_context new_context);
 typedef void Z3_fixed_eh(void* ctx, Z3_solver_callback cb, unsigned id, Z3_ast value);
 typedef void Z3_eq_eh(void* ctx, Z3_solver_callback cb, unsigned x, unsigned y);
 typedef void Z3_final_eh(void* ctx, Z3_solver_callback cb);
+typedef void Z3_created_eh(void* ctx, Z3_solver_callback cb, Z3_ast e, unsigned id);
 
 
 /**
@@ -6675,6 +6676,20 @@ extern "C" {
        \brief register a callback on expression dis-equalities.
     */
     void Z3_API Z3_solver_propagate_diseq(Z3_context c, Z3_solver s, Z3_eq_eh eq_eh);
+
+    /**
+    * \brief register a callback when a new expression with a registered function is used by the solver 
+    * The registered function appears at the top level and is created using \c Z3_solver_declare.
+    */
+    void Z3_API Z3_solver_propagate_created(Z3_context c, Z3_solver s, Z3_created_eh created_eh);
+
+    /**
+      \brief Create a registered function. Expressions used by the solver \c s that uses the registered function
+      at top level cause the callback propagate_created to be invoked.
+     
+      def_API('Z3_solver_propagate_declare', FUNC_DECL, (_in(CONTEXT), _in(SOLVER), _in(SYMBOL), _in(UINT), _in_array(3, SORT), _in(SORT)))
+    */
+    Z3_func_decl Z3_API Z3_solver_propagate_declare(Z3_context c, Z3_solver s, Z3_symbol name, unsigned n, Z3_sort* domain, Z3_sort range);
 
     /**
        \brief register an expression to propagate on with the solver.

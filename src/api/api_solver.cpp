@@ -964,4 +964,23 @@ extern "C" {
         Z3_CATCH;        
     }
 
+    void Z3_API Z3_solver_propagate_created(Z3_context c, Z3_solver s, Z3_created_eh created_eh) {
+        Z3_TRY;
+        RESET_ERROR_CODE();
+        user_propagator::register_created_eh_t c = (void(*)(void*, user_propagator::callback*, expr*, unsigned))created_eh;
+        to_solver_ref(s)->user_propagate_register_created(c);
+        Z3_CATCH;
+    }
+
+    Z3_func_decl Z3_API Z3_solver_propagate_declare(Z3_context c, Z3_solver s, Z3_symbol name, unsigned n, Z3_sort* domain, Z3_sort range) {
+        Z3_TRY;
+        LOG_Z3_solver_propagate_declare(c, s, name, n, domain, range);
+        RESET_ERROR_CODE();
+        func_decl* f = to_solver_ref(s)->user_propagate_declare(to_symbol(name), n, to_sorts(domain), to_sort(range));
+        mk_c(c)->save_ast_trail(f);
+        RETURN_Z3(of_func_decl(f));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+
 };

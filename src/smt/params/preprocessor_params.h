@@ -21,7 +21,7 @@ Revision History:
 #include "params/pattern_inference_params.h"
 #include "params/bit_blaster_params.h"
 
-enum lift_ite_kind {
+enum class lift_ite_kind {
     LI_NONE,
     LI_CONSERVATIVE,
     LI_FULL
@@ -50,8 +50,8 @@ struct preprocessor_params : public pattern_inference_params,
 
 public:
     preprocessor_params(params_ref const & p = params_ref()):
-        m_lift_ite(LI_NONE),
-        m_ng_lift_ite(LI_NONE), 
+        m_lift_ite(lift_ite_kind::LI_NONE),
+        m_ng_lift_ite(lift_ite_kind::LI_NONE),
         m_pull_cheap_ite(false),
         m_pull_nested_quantifiers(false),
         m_eliminate_term_ite(false),
