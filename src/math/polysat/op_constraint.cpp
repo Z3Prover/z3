@@ -191,6 +191,9 @@ namespace polysat {
             rv.val() > rational::power_of_two(K - qv.val().get_unsigned() - 1))
             // q >= k -> r <= 2^{K-k-1}
             s.add_clause(~lshr, ~s.ule(qv.val(), q()), s.ule(r(), rational::power_of_two(K - qv.val().get_unsigned() - 1)), true);
+        else if (qv.is_val() && qv.val() >= K && rv.is_val() && !rv.is_zero())
+            // q >= K -> r = 0
+            s.add_clause(~lshr, ~s.ule(K, q()), s.eq(r()), true);            
         // q = k -> r[i - k] = p[i] for K - k <= i < K
         else if (pv.is_val() && rv.is_val() && qv.is_val() && !qv.is_zero()) {
             unsigned k = qv.val().get_unsigned();
@@ -232,6 +235,10 @@ namespace polysat {
     * p = 0 => r = 0
     * q = 0 => r = 0
     * p[i] && q[i] = r[i]
+    * 
+    * Possible other:
+    * p = max_value => q = r
+    * q = max_value => p = r
     */
     void op_constraint::narrow_and(solver& s) {
         auto pv = p().subst_val(s.assignment());

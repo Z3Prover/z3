@@ -237,6 +237,10 @@ namespace polysat {
         return { dedup(alloc(op_constraint, *this, op_constraint::code::lshr_op, p, q, r)), true };
     }
 
+    signed_constraint constraint_manager::band(pdd const& p, pdd const& q, pdd const& r) {
+        return { dedup(alloc(op_constraint, *this, op_constraint::code::and_op, p, q, r)), true };
+    }
+
     // To do signed comparison of bitvectors, flip the msb and do unsigned comparison:
     //
     //      x <=s y    <=>    x + 2^(w-1)  <=u  y + 2^(w-1)

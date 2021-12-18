@@ -210,6 +210,7 @@ namespace polysat {
         void add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, bool is_redundant);
         void add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant);
+        void add_clause(unsigned n, signed_constraint* cs, bool is_redundant);
 
 
         signed_constraint lit2cnstr(sat::literal lit) const { return m_constraints.lookup(lit); }
@@ -274,6 +275,11 @@ namespace polysat {
         * Create expression for the logical right shift of p by q.
         */
         pdd lshr(pdd const& p, pdd const& q);
+
+        /**
+         * Create expression for bit-wise and of p by q.
+         */
+        pdd band(pdd const& p, pdd const& q);
 
         /**
          * Create polynomial constant.

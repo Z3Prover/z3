@@ -143,6 +143,14 @@ namespace polysat {
         return r;
     }
 
+    pdd solver::band(pdd const& p, pdd const& q) {
+        auto& m = p.manager();
+        unsigned sz = m.power_of_2();
+        pdd r = m.mk_var(add_var(sz));
+        assign_eh(m_constraints.band(p, q, r), null_dependency);
+        return r;
+    }
+
 
     void solver::assign_eh(signed_constraint c, unsigned dep) {
         SASSERT(at_base_level());
@@ -782,43 +790,33 @@ namespace polysat {
         propagate();
     }
 
-    void solver::add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant) {
+    void solver::add_clause(unsigned n, signed_constraint* cs, bool is_redundant) {
         clause_builder cb(*this);
-        if (!c1.is_always_false())
-            cb.push(c1);
-        if (!c2.is_always_false())
-            cb.push(c2);
+        for (unsigned i = 0; i < n; ++i) {
+            signed_constraint c = cs[i];
+            if (c.is_always_false())
+                continue;
+            m_constraints.ensure_bvar(c.get());
+            cb.push(c);
+        }
         clause_ref clause = cb.build();
         clause->set_redundant(is_redundant);
         add_clause(*clause);
+    }
+
+    void solver::add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant) {
+        signed_constraint cs[2] = { c1, c2 };
+        add_clause(2, cs, is_redundant);        
     }
 
     void solver::add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, bool is_redundant) {
-        clause_builder cb(*this);
-        if (!c1.is_always_false())
-            cb.push(c1);
-        if (!c2.is_always_false())
-            cb.push(c2);
-        if (!c3.is_always_false())
-            cb.push(c3);
-        clause_ref clause = cb.build();
-        clause->set_redundant(is_redundant);
-        add_clause(*clause);
+        signed_constraint cs[3] = { c1, c2, c3 };
+        add_clause(3, cs, is_redundant);
     }
 
     void solver::add_clause(signed_constraint c1, signed_constraint c2, signed_constraint c3, signed_constraint c4, bool is_redundant) {
-        clause_builder cb(*this);
-        if (!c1.is_always_false())
-            cb.push(c1);
-        if (!c2.is_always_false())
-            cb.push(c2);
-        if (!c3.is_always_false())
-            cb.push(c3);
-        if (!c4.is_always_false())
-            cb.push(c4);
-        clause_ref clause = cb.build();
-        clause->set_redundant(is_redundant);
-        add_clause(*clause);
+        signed_constraint cs[4] = { c1, c2, c3, c4 };
+        add_clause(4, cs, is_redundant);
     }
 
     void solver::insert_constraint(signed_constraints& cs, signed_constraint c) {

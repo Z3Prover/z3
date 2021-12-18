@@ -979,6 +979,34 @@ namespace polysat {
         s.check();       
     }
 
+    static void test_band(unsigned bw = 32) {
+        {
+            scoped_solver s(__func__);
+            auto p = s.var(s.add_var(bw));
+            auto q = s.var(s.add_var(bw));
+            s.add_ult(p, s.band(p, q));
+            s.check();
+            s.expect_unsat();
+        }
+        {
+            scoped_solver s(__func__);
+            auto p = s.var(s.add_var(bw));
+            auto q = s.var(s.add_var(bw));
+            s.add_ult(q, s.band(p, q));
+            s.check();
+            s.expect_unsat();
+        }
+        {
+            scoped_solver s(__func__);
+            auto p = s.var(s.add_var(bw));
+            auto q = s.var(s.add_var(bw));
+            s.add_ule(p, s.band(p, q));
+            s.check();
+            s.expect_sat();
+        }
+
+    }
+
 
     // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
     // NOTE: actually, add_var seems to keep them in sync, so this is not an issue at the moment (but we should still test it later)
@@ -1032,6 +1060,13 @@ namespace polysat {
             r = alloc(pdd, std::get<1>(qr));
         }
         else if (bv.is_bv_lshr(e, a, b)) {
+            auto pa = to_pdd(m, s, expr2pdd, a);
+            auto pb = to_pdd(m, s, expr2pdd, b);
+            r = alloc(pdd, s.lshr(pa, pb));
+        }
+        else if (bv.is_bv_and(e) && to_app(e)->get_num_args() == 2) {
+            a = to_app(e)->get_arg(0);
+            b = to_app(e)->get_arg(1);
             auto pa = to_pdd(m, s, expr2pdd, a);
             auto pb = to_pdd(m, s, expr2pdd, b);
             r = alloc(pdd, s.lshr(pa, pb));
@@ -1105,6 +1140,9 @@ namespace polysat {
 
 
 void tst_polysat() {
+
+    polysat::test_band();
+    return;
 
     polysat::test_quot_rem();
     return;
