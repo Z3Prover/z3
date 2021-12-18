@@ -1723,7 +1723,7 @@ namespace smt {
             m_user_propagator->register_diseq(diseq_eh);
         }
 
-        unsigned user_propagate_register(expr* e) {
+        unsigned user_propagate_register_expr(expr* e) {
             if (!m_user_propagator) 
                 throw default_exception("user propagator must be initialized");
             return m_user_propagator->add_expr(e);
@@ -1735,12 +1735,6 @@ namespace smt {
             m_user_propagator->register_created(r);
         }
 
-        func_decl* user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range) {
-            if (!m_user_propagator)
-                throw default_exception("user propagator must be initialized");
-            return m_user_propagator->declare(name, n, domain, range);
-        }
-        
         bool watches_fixed(enode* n) const;
 
         void assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain);

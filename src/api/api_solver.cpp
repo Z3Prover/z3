@@ -944,7 +944,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_solver_propagate_register(c, s, e);
         RESET_ERROR_CODE();
-        return to_solver_ref(s)->user_propagate_register(to_expr(e));
+        return to_solver_ref(s)->user_propagate_register_expr(to_expr(e));
         Z3_CATCH_RETURN(0);
     }
 
@@ -972,11 +972,16 @@ extern "C" {
         Z3_CATCH;
     }
 
-    Z3_func_decl Z3_API Z3_solver_propagate_declare(Z3_context c, Z3_solver s, Z3_symbol name, unsigned n, Z3_sort* domain, Z3_sort range) {
+    Z3_func_decl Z3_API Z3_solver_propagate_declare(Z3_context c, Z3_symbol name, unsigned n, Z3_sort* domain, Z3_sort range) {
         Z3_TRY;
-        LOG_Z3_solver_propagate_declare(c, s, name, n, domain, range);
+        LOG_Z3_solver_propagate_declare(c, name, n, domain, range);
         RESET_ERROR_CODE();
-        func_decl* f = to_solver_ref(s)->user_propagate_declare(to_symbol(name), n, to_sorts(domain), to_sort(range));
+        ast_manager& m = mk_c(c)->m();        
+        family_id fid = m.mk_family_id(user_propagator::plugin::name());
+        if (!m.has_plugin(fid)) 
+            m.register_plugin(fid, alloc(user_propagator::plugin));            
+        func_decl_info info(fid, user_propagator::plugin::kind_t::OP_USER_PROPAGATE);
+        func_decl* f = m.mk_func_decl(to_symbol(name), n, to_sorts(domain), to_sort(range), info);
         mk_c(c)->save_ast_trail(f);
         RETURN_Z3(of_func_decl(f));
         Z3_CATCH_RETURN(nullptr);

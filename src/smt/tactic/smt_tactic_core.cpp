@@ -449,7 +449,7 @@ public:
 
         unsigned i = 0;
         for (expr* v : m_vars) {
-            unsigned j = m_ctx->user_propagate_register(v);
+            unsigned j = m_ctx->user_propagate_register_expr(v);
             m_var2internal.setx(i, j, 0);
             m_internal2var.setx(j, i, 0);
             ++i;
@@ -493,13 +493,9 @@ public:
         m_diseq_eh = diseq_eh;
     }
 
-    unsigned user_propagate_register(expr* e) override {
+    unsigned user_propagate_register_expr(expr* e) override {
         m_vars.push_back(e);
         return m_vars.size() - 1;
-    }
-
-    func_decl* user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range) override {
-        return m_ctx->user_propagate_declare(name, n, domain, range);
     }
 
     void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override {

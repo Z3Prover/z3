@@ -23,7 +23,7 @@ Author:
 using namespace smt;
 
 theory_user_propagator::theory_user_propagator(context& ctx):
-    theory(ctx, ctx.get_manager().mk_family_id("user_propagator"))
+    theory(ctx, ctx.get_manager().mk_family_id(user_propagator::plugin::name()))
 {}
 
 theory_user_propagator::~theory_user_propagator() {
@@ -173,16 +173,6 @@ void theory_user_propagator::propagate() {
     m_qhead = qhead;
 }
 
-func_decl* theory_user_propagator::declare(symbol const& name, unsigned n, sort* const* domain, sort* range) {
-    if (!m_created_eh)
-        throw default_exception("event handler for dynamic expressions has to be registered before functions can be created");
-    // ensure that declaration plugin is registered with m.
-    if (!m.has_plugin(get_id())) 
-        m.register_plugin(get_id(), alloc(user_propagator::plugin));
-    
-    func_decl_info info(get_id(), user_propagator::plugin::kind_t::OP_USER_PROPAGATE);
-    return m.mk_func_decl(name, n, domain, range, info);    
-}
 
 bool theory_user_propagator::internalize_atom(app* atom, bool gate_ctx) {
     return internalize_term(atom);

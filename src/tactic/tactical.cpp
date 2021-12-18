@@ -190,9 +190,9 @@ public:
         m_t2->user_propagate_register_diseq(diseq_eh);
     }
 
-    unsigned user_propagate_register(expr* e) override {
-        m_t1->user_propagate_register(e);
-        return m_t2->user_propagate_register(e);
+    unsigned user_propagate_register_expr(expr* e) override {
+        m_t1->user_propagate_register_expr(e);
+        return m_t2->user_propagate_register_expr(e);
     }
 
     void user_propagate_clear() override {
@@ -202,10 +202,6 @@ public:
 
     void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override {
         m_t2->user_propagate_register_created(created_eh);
-    }
-
-    func_decl* user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range) override {
-        return m_t2->user_propagate_declare(name, n, domain, range);
     }
 
 };
@@ -833,7 +829,7 @@ public:
     void reset() override { m_t->reset(); }
     void set_logic(symbol const& l) override { m_t->set_logic(l); }    
     void set_progress_callback(progress_callback * callback) override { m_t->set_progress_callback(callback); }
-    unsigned user_propagate_register(expr* e) override { return m_t->user_propagate_register(e); }
+    unsigned user_propagate_register_expr(expr* e) override { return m_t->user_propagate_register_expr(e); }
     void user_propagate_clear() override { m_t->user_propagate_clear(); }
 
 protected:

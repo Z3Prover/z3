@@ -97,7 +97,6 @@ namespace smt {
         void register_eq(user_propagator::eq_eh_t& eq_eh) { m_eq_eh = eq_eh; }
         void register_diseq(user_propagator::eq_eh_t& diseq_eh) { m_diseq_eh = diseq_eh; }
         void register_created(user_propagator::created_eh_t& created_eh) { m_created_eh = created_eh; }
-        func_decl* declare(symbol const& name, unsigned n, sort* const* domain, sort* range);
 
         bool has_fixed() const { return (bool)m_fixed_eh; }
 

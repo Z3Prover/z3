@@ -301,11 +301,9 @@ namespace smt {
         
         void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh);
 
-        unsigned user_propagate_register(expr* e);
+        unsigned user_propagate_register_expr(expr* e);
         
         void user_propagate_register_created(user_propagator::created_eh_t& r);
-
-        func_decl* user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range);
 
         /**
            \brief Return a reference to smt::context.

@@ -236,16 +236,12 @@ namespace {
             m_context.user_propagate_register_diseq(diseq_eh);
         }
 
-        unsigned user_propagate_register(expr* e) override { 
-            return m_context.user_propagate_register(e);
+        unsigned user_propagate_register_expr(expr* e) override { 
+            return m_context.user_propagate_register_expr(e);
         }
 
         void user_propagate_register_created(user_propagator::created_eh_t& c) override {
             m_context.user_propagate_register_created(c);
-        }
-
-        func_decl* user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range) {
-            return m_context.user_propagate_declare(name, n, domain, range);
         }
 
         struct scoped_minimize_core {
