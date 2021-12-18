@@ -200,7 +200,7 @@ public:
         m_t2->user_propagate_clear();
     }
 
-    void user_propagate_register_created(user_propagator::register_created_eh_t& created_eh) override {
+    void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override {
         m_t2->user_propagate_register_created(created_eh);
     }
 

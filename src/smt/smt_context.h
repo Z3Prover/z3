@@ -1729,7 +1729,7 @@ namespace smt {
             return m_user_propagator->add_expr(e);
         }
 
-        void user_propagate_register_created(user_propagator::register_created_eh_t& r) {
+        void user_propagate_register_created(user_propagator::created_eh_t& r) {
             if (!m_user_propagator)
                 throw default_exception("user propagator must be initialized");
             m_user_propagator->register_created(r);

@@ -23,7 +23,7 @@ namespace user_propagator {
     typedef std::function<void*(void*, ast_manager&, context_obj*&)> fresh_eh_t;
     typedef std::function<void(void*)>                 push_eh_t;
     typedef std::function<void(void*,unsigned)>        pop_eh_t;
-    typedef std::function<void(void*, callback*, expr*, unsigned)> register_created_eh_t;
+    typedef std::function<void(void*, callback*, expr*, unsigned)> created_eh_t;
 
 
     class plugin : public decl_plugin {
@@ -95,7 +95,7 @@ namespace user_propagator {
             throw default_exception("user-propagators are only supported on the SMT solver");
         }
 
-        virtual void user_propagate_register_created(register_created_eh_t& r) {
+        virtual void user_propagate_register_created(created_eh_t& r) {
             throw default_exception("user-propagators are only supported on the SMT solver");
         }
 

@@ -319,7 +319,7 @@ public:
     user_propagator::final_eh_t m_final_eh;
     user_propagator::eq_eh_t    m_eq_eh;
     user_propagator::eq_eh_t    m_diseq_eh;
-    user_propagator::register_created_eh_t m_created_eh;
+    user_propagator::created_eh_t m_created_eh;
 
     expr_ref_vector             m_vars;
     unsigned_vector             m_var2internal;
@@ -333,7 +333,7 @@ public:
     user_propagator::final_eh_t i_final_eh;
     user_propagator::eq_eh_t    i_eq_eh;
     user_propagator::eq_eh_t    i_diseq_eh;
-    user_propagator::register_created_eh_t i_created_eh;
+    user_propagator::created_eh_t i_created_eh;
 
 
     struct callback : public user_propagator::callback {
@@ -502,7 +502,7 @@ public:
         return m_ctx->user_propagate_declare(name, n, domain, range);
     }
 
-    void user_propagate_register_created(user_propagator::register_created_eh_t& created_eh) override {
+    void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override {
         m_ctx->user_propagate_register_created(created_eh);
     }
 };

@@ -967,7 +967,7 @@ extern "C" {
     void Z3_API Z3_solver_propagate_created(Z3_context c, Z3_solver s, Z3_created_eh created_eh) {
         Z3_TRY;
         RESET_ERROR_CODE();
-        user_propagator::register_created_eh_t c = (void(*)(void*, user_propagator::callback*, expr*, unsigned))created_eh;
+        user_propagator::created_eh_t c = (void(*)(void*, user_propagator::callback*, expr*, unsigned))created_eh;
         to_solver_ref(s)->user_propagate_register_created(c);
         Z3_CATCH;
     }

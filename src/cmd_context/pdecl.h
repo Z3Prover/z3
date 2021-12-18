@@ -157,7 +157,7 @@ class pdatatype_decl;
 class pconstructor_decl;
 class paccessor_decl;
 
-enum ptype_kind {
+enum class ptype_kind {
     PTR_PSORT,       // psort
     PTR_REC_REF,     // recursive reference
     PTR_MISSING_REF  // a symbol, it is useful for building parsers.
@@ -171,14 +171,14 @@ class ptype {
     };
     symbol     m_missing_ref;
 public:
-    ptype():m_kind(PTR_PSORT), m_sort(nullptr) {}
-    ptype(int idx):m_kind(PTR_REC_REF), m_idx(idx) {}
-    ptype(psort * s):m_kind(PTR_PSORT), m_sort(s) {}
-    ptype(symbol const & s):m_kind(PTR_MISSING_REF), m_missing_ref(s) {}
+    ptype():m_kind(ptype_kind::PTR_PSORT), m_sort(nullptr) {}
+    ptype(int idx):m_kind(ptype_kind::PTR_REC_REF), m_idx(idx) {}
+    ptype(psort * s):m_kind(ptype_kind::PTR_PSORT), m_sort(s) {}
+    ptype(symbol const & s):m_kind(ptype_kind::PTR_MISSING_REF), m_sort(nullptr), m_missing_ref(s) {}
     ptype_kind kind() const { return m_kind; }
-    psort * get_psort() const { SASSERT(kind() == PTR_PSORT); return m_sort; }
-    int get_idx() const { SASSERT(kind() == PTR_REC_REF); return m_idx; }
-    symbol const & get_missing_ref() const { SASSERT(kind() == PTR_MISSING_REF); return m_missing_ref; }
+    psort * get_psort() const { SASSERT(kind() == ptype_kind::PTR_PSORT); return m_sort; }
+    int get_idx() const { SASSERT(kind() == ptype_kind::PTR_REC_REF); return m_idx; }
+    symbol const & get_missing_ref() const { SASSERT(kind() == ptype_kind::PTR_MISSING_REF); return m_missing_ref; }
     void display(std::ostream & out, pdatatype_decl const * const * dts) const;
 };
 

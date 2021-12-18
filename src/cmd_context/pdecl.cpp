@@ -416,9 +416,9 @@ void psort_builtin_decl::display(std::ostream & out) const {
 
 void ptype::display(std::ostream & out, pdatatype_decl const * const * dts) const {
     switch (kind()) {
-    case PTR_PSORT:        get_psort()->display(out); break;
-    case PTR_REC_REF:      out << dts[get_idx()]->get_name(); break;
-    case PTR_MISSING_REF:  out << get_missing_ref(); break;
+    case ptype_kind::PTR_PSORT:        get_psort()->display(out); break;
+    case ptype_kind::PTR_REC_REF:      out << dts[get_idx()]->get_name(); break;
+    case ptype_kind::PTR_MISSING_REF:  out << get_missing_ref(); break;
     }
 }
 
@@ -426,19 +426,19 @@ paccessor_decl::paccessor_decl(unsigned id, unsigned num_params, pdecl_manager &
     pdecl(id, num_params),
     m_name(n),
     m_type(r) {
-    if (m_type.kind() == PTR_PSORT) {
+    if (m_type.kind() == ptype_kind::PTR_PSORT) {
         m.inc_ref(r.get_psort());
     }
 }
 
 void paccessor_decl::finalize(pdecl_manager & m) {
-    if (m_type.kind() == PTR_PSORT) {
+    if (m_type.kind() == ptype_kind::PTR_PSORT) {
         m.lazy_dec_ref(m_type.get_psort());
     }
 }
 
 bool paccessor_decl::has_missing_refs(symbol & missing) const {
-    if (m_type.kind() == PTR_MISSING_REF) {
+    if (m_type.kind() == ptype_kind::PTR_MISSING_REF) {
         missing = m_type.get_missing_ref();
         return true;
     }
@@ -446,14 +446,14 @@ bool paccessor_decl::has_missing_refs(symbol & missing) const {
 }
 
 bool paccessor_decl::fix_missing_refs(dictionary<int> const & symbol2idx, symbol & missing) {
-    TRACE("fix_missing_refs", tout << "m_type.kind(): " << m_type.kind() << "\n";
-          if (m_type.kind() == PTR_MISSING_REF) tout << m_type.get_missing_ref() << "\n";);
-    if (m_type.kind() != PTR_MISSING_REF)
+    TRACE("fix_missing_refs", tout << "m_type.kind(): " << (int)m_type.kind() << "\n";
+          if (m_type.kind() == ptype_kind::PTR_MISSING_REF) tout << m_type.get_missing_ref() << "\n";);
+    if (m_type.kind() != ptype_kind::PTR_MISSING_REF)
         return true;
     int idx;
     if (symbol2idx.find(m_type.get_missing_ref(), idx)) {
         m_type = ptype(idx);
-        SASSERT(m_type.kind() == PTR_REC_REF);
+        SASSERT(m_type.kind() == ptype_kind::PTR_REC_REF);
         return true;
     }
     missing = m_type.get_missing_ref();
@@ -462,8 +462,8 @@ bool paccessor_decl::fix_missing_refs(dictionary<int> const & symbol2idx, symbol
 
 accessor_decl * paccessor_decl::instantiate_decl(pdecl_manager & m, unsigned n, sort * const * s) {
     switch (m_type.kind()) {
-    case PTR_REC_REF: return mk_accessor_decl(m.m(), m_name, type_ref(m_type.get_idx()));
-    case PTR_PSORT:   return mk_accessor_decl(m.m(), m_name, type_ref(m_type.get_psort()->instantiate(m, n, s)));
+    case ptype_kind::PTR_REC_REF: return mk_accessor_decl(m.m(), m_name, type_ref(m_type.get_idx()));
+    case ptype_kind::PTR_PSORT:   return mk_accessor_decl(m.m(), m_name, type_ref(m_type.get_psort()->instantiate(m, n, s)));
     default:
         // missing refs must have been eliminated.
         UNREACHABLE();

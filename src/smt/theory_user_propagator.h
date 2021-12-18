@@ -56,7 +56,7 @@ namespace smt {
         user_propagator::fixed_eh_t     m_fixed_eh;
         user_propagator::eq_eh_t        m_eq_eh;
         user_propagator::eq_eh_t        m_diseq_eh;
-        user_propagator::register_created_eh_t m_created_eh;
+        user_propagator::created_eh_t m_created_eh;
 
         user_propagator::context_obj*   m_api_context = nullptr;
         unsigned               m_qhead = 0;
@@ -96,7 +96,7 @@ namespace smt {
         void register_fixed(user_propagator::fixed_eh_t& fixed_eh) { m_fixed_eh = fixed_eh; }
         void register_eq(user_propagator::eq_eh_t& eq_eh) { m_eq_eh = eq_eh; }
         void register_diseq(user_propagator::eq_eh_t& diseq_eh) { m_diseq_eh = diseq_eh; }
-        void register_created(user_propagator::register_created_eh_t& created_eh) { m_created_eh = created_eh; }
+        void register_created(user_propagator::created_eh_t& created_eh) { m_created_eh = created_eh; }
         func_decl* declare(symbol const& name, unsigned n, sort* const* domain, sort* range);
 
         bool has_fixed() const { return (bool)m_fixed_eh; }
@@ -123,7 +123,7 @@ namespace smt {
         void collect_statistics(::statistics & st) const override;
         model_value_proc * mk_value(enode * n, model_generator & mg) override { return nullptr; }
         void init_model(model_generator & m) override {}
-        bool include_func_interp(func_decl* f) override { return false; }
+        bool include_func_interp(func_decl* f) override { return true; }
         bool can_propagate() override;
         void propagate() override; 
         void display(std::ostream& out) const override {}
