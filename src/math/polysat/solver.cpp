@@ -596,10 +596,8 @@ namespace polysat {
             case l_false:
                 break;
             case l_undef:               
-                if (lit2cnstr(lit).is_currently_false(*this)) {
-                    unsigned level = m_level; // TODO
-                    assign_eval(level, lit);
-                }
+                if (lit2cnstr(lit).is_currently_false(*this)) 
+                    assign_eval(lit);                
                 else {
                     num_choices++;
                     choice = lit;
@@ -732,7 +730,10 @@ namespace polysat {
         m_search.push_boolean(lit);
     }
 
-    void solver::assign_eval(unsigned level, sat::literal lit) {
+    void solver::assign_eval(sat::literal lit) {
+        unsigned level = 0;
+        for (auto v : lit2cnstr(lit)->vars())
+            level = std::max(get_level(v), level);
         m_bvars.eval(lit, level);
         m_trail.push_back(trail_instr_t::assign_bool_i);
         m_search.push_boolean(lit);

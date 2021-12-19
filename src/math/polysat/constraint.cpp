@@ -88,8 +88,15 @@ namespace polysat {
             if (m_bvars.is_false(cl[i]))
                 continue;
             signed_constraint sc = s.lit2cnstr(cl[i]);
-            if (sc.is_currently_false(s)) 
-                continue;            
+            if (sc.is_currently_false(s)) {
+                if (m_bvars.is_true(cl[i])) {
+                    s.set_conflict(sc);
+                    return;
+                }
+                s.assign_eval(~cl[i]);
+                continue;
+            }
+            
             m_bvars.watch(cl[i]).push_back(&cl);
             std::swap(cl[!first], cl[i]);
             if (!first)

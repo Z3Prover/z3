@@ -113,10 +113,7 @@ namespace polysat {
         SASSERT(empty());
         for (auto lit : cl) {
             auto c = s.lit2cnstr(lit);
-            if (c.bvalue(s) != l_false) {
-                SASSERT(c.is_currently_false(s));
-                c->set_var_dependent();               
-            }
+            SASSERT(c.bvalue(s) == l_false);
             insert(~c);            
         }
         SASSERT(!empty());
@@ -252,7 +249,7 @@ namespace polysat {
             auto eq = s.eq(s.var(v), s.get_value(v));
             cm().ensure_bvar(eq.get());
             if (eq.bvalue(s) == l_undef) 
-                s.assign_eval(s.get_level(v), eq.blit());            
+                s.assign_eval(eq.blit());            
             lemma.push(~eq);
         }        
         s.decay_activity();
