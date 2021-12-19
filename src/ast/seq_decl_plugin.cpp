@@ -1059,6 +1059,14 @@ app* seq_util::rex::mk_loop(expr* r, unsigned lo) {
 }
 
 app* seq_util::rex::mk_loop(expr* r, unsigned lo, unsigned hi) {
+    if (lo == 0 && hi == 0) {
+        sort* seq_sort = nullptr;
+        VERIFY(u.is_re(r, seq_sort));
+        // avoid creating a loop with both bounds 0
+        // such an expression is invalid as a loop
+        // it is BY DEFINITION = epsilon
+        return mk_epsilon(seq_sort);
+    }
     parameter params[2] = { parameter(lo), parameter(hi) };
     return m.mk_app(m_fid, OP_RE_LOOP, 2, params, 1, &r);
 }
