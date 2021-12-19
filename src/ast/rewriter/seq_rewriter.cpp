@@ -4956,6 +4956,7 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
     expr_ref_vector conds_range(m());
     flatten_and(cond, conds);
     expr* lhs = nullptr, *rhs = nullptr, *e1 = nullptr; 
+    bool all_ranges = true;
     if (u().is_char(elem)) {
         unsigned ch = 0, ch2 = 0;
         svector<std::pair<unsigned, unsigned>> ranges, ranges1;
@@ -4980,7 +4981,6 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
                 ranges.append(ranges1);
             }
         };
-        bool all_ranges = true;
         bool negated = false;
         for (expr* e : conds) {
             if (u().is_char_const_range(elem, e, ch, ch2, negated)) {
@@ -5030,7 +5030,6 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
                 cond = m().mk_true();
                 return;
             }
-            // removes all the trivially true conditions from conds
             conds.set(conds_range);
         }
     }
@@ -5054,6 +5053,13 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
             cond = m().mk_and(m().mk_eq(elem, solution), cond);
         }
     }    
+    else if (all_ranges) {
+        if (conds.empty())
+            // all ranges were removed as trivially true
+            cond = m().mk_true();
+        else
+            cond = m().mk_and(conds_range);
+    }
 }
 
 
