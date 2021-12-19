@@ -2857,7 +2857,7 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
         return BR_REWRITE2;
     }
     else if (re().is_loop(r, r1, lo, hi)) {
-        result = re().mk_loop(re().mk_reverse(r1), lo, hi);
+        result = re().mk_loop_proper(re().mk_reverse(r1), lo, hi);
         return BR_REWRITE2;
     }
     else if (re().is_reverse(r, r1)) {
@@ -3184,7 +3184,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         if ((lo == 0 && hi == 0) || hi < lo)
             result = nothing();
         else
-            result = mk_antimirov_deriv_concat(mk_antimirov_deriv(e, r1, path), re().mk_loop(r1, (lo == 0 ? 0 : lo - 1), hi - 1));
+            result = mk_antimirov_deriv_concat(mk_antimirov_deriv(e, r1, path), re().mk_loop_proper(r1, (lo == 0 ? 0 : lo - 1), hi - 1));
     }
     else if (re().is_opt(r, r1))
         result = mk_antimirov_deriv(e, r1, path);
@@ -3350,6 +3350,8 @@ expr_ref seq_rewriter::mk_regex_inter_normalize(expr* r1, expr* r2) {
     SASSERT(m_util.is_re(r1));
     SASSERT(m_util.is_re(r2));
     expr_ref result(m());
+    if (re().is_epsilon(r2))
+        std::swap(r1, r2);
     std::function<bool(expr*, expr*&, expr*&)> test = [&](expr* t, expr*& a, expr*& b) { return re().is_intersection(t, a, b); };
     std::function<expr* (expr*, expr*)> compose = [&](expr* r1, expr* r2) { return re().mk_inter(r1, r2); };
     if (r1 == r2 || re().is_empty(r1) || re().is_full_seq(r2))
@@ -3504,7 +3506,7 @@ expr_ref seq_rewriter::mk_regex_reverse(expr* r) {
     else if (re().is_loop(r, r1, lo))
         result = re().mk_loop(mk_regex_reverse(r1), lo);
     else if (re().is_loop(r, r1, lo, hi))
-        result = re().mk_loop(mk_regex_reverse(r1), lo, hi);
+        result = re().mk_loop_proper(mk_regex_reverse(r1), lo, hi);
     else if (re().is_opt(r, r1))
         result = re().mk_opt(mk_regex_reverse(r1));
     else if (re().is_complement(r, r1))
@@ -3517,8 +3519,9 @@ expr_ref seq_rewriter::mk_regex_reverse(expr* r) {
 }
 
 expr_ref seq_rewriter::mk_regex_concat(expr* r, expr* s) {
-    sort* seq_sort = nullptr;
+    sort* seq_sort = nullptr, * ele_sort = nullptr;
     VERIFY(m_util.is_re(r, seq_sort));
+    VERIFY(u().is_seq(seq_sort, ele_sort));
     SASSERT(r->get_sort() == s->get_sort());
     expr_ref result(m());
     expr* r1, * r2;
@@ -3528,11 +3531,30 @@ expr_ref seq_rewriter::mk_regex_concat(expr* r, expr* s) {
         result = r;
     else if (re().is_full_seq(r) && re().is_full_seq(s))
         result = r;
+    else if (re().is_full_char(r) && re().is_full_seq(s))
+        // ..* = .+
+        result = re().mk_plus(re().mk_full_char(ele_sort));
+    else if (re().is_full_seq(r) && re().is_full_char(s))
+        // .*. = .+
+        result = re().mk_plus(re().mk_full_char(ele_sort));
     else if (re().is_concat(r, r1, r2))
-        //create the resulting concatenation in right-associative form
+        // create the resulting concatenation in right-associative form except for the following case
+        // TODO: maintain the followig invariant for A ++ B{m,n} + C
+        //       concat(concat(A, B{m,n}), C) (if A != () and C != ()) 
+        //       concat(B{m,n}, C) (if A == () and C != ()) 
+        // where A, B, C are regexes
+        // Using & below for Intersection and | for Union
+        // In other words, do not make A ++ B{m,n} into right-assoc form, but keep B{m,n} at the top 
+        // This will help to identify this situation in the merge routine:
+        //               concat(concat(A, B{0,m}), C) | concat(concat(A, B{0,n}), C)
+        // simplies to 
+        //               concat(concat(A, B{0,max(m,n)}), C)
+        // analogously:
+        //               concat(concat(A, B{0,m}), C) & concat(concat(A, B{0,n}), C)
+        // simplies to 
+        //               concat(concat(A, B{0,min(m,n)}), C)
         result = mk_regex_concat(r1, mk_regex_concat(r2, s));
     else {
-        //TODO: perhaps simplifiy some further cases such as .*. = ..* = .*.+ = .+.* = .+
         result = re().mk_concat(r, s);
     }
     return result;
@@ -3566,15 +3588,7 @@ expr_ref seq_rewriter::mk_in_antimirov_rec(expr* s, expr* d) {
 */
 expr_ref  seq_rewriter::simplify_path(expr* elem, expr* path) {
     expr_ref result(path, m());
-    expr* h = nullptr, * t = nullptr;
-    if (m().is_and(path, h, t)) {
-        if (m().is_true(h))
-            result = simplify_path(elem, t);
-        else if (m().is_true(t))
-            result = simplify_path(elem, h);
-        else
-            elim_condition(elem, result);
-    }
+    elim_condition(elem, result);
     return result;
 }
 
@@ -4027,7 +4041,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             return result;
         }
         else {
-            return mk_der_concat(result, re().mk_loop(r1, lo, hi));
+            return mk_der_concat(result, re().mk_loop_proper(r1, lo, hi));
         }
     }
     else if (re().is_full_seq(r) ||
@@ -4523,7 +4537,7 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
     unsigned lo1, hi1, lo2, hi2;
 
     if (re().is_loop(a, a1, lo1, hi1) && lo1 <= hi1 && re().is_loop(b, b1, lo2, hi2) && lo2 <= hi2 && a1 == b1) {
-        result = re().mk_loop(a1, lo1 + lo2, hi1 + hi2);
+        result = re().mk_loop_proper(a1, lo1 + lo2, hi1 + hi2);
         return BR_DONE;
     }
     if (re().is_loop(a, a1, lo1) && re().is_loop(b, b1, lo2) && a1 == b1) {
@@ -4631,79 +4645,13 @@ br_status seq_rewriter::mk_re_union0(expr* a, expr* b, expr_ref& result) {
     return BR_FAILED;
 }
 
-/*
-  (a + a) = a
-  (a + eps) = a
-  (eps + a) = a
-*/
+/* Creates a normalized union. */
 br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
-    br_status st = mk_re_union0(a, b, result);
-    if (st != BR_FAILED)
-        return st;
-    auto mk_full = [&]() { return re().mk_full_seq(a->get_sort()); };
-    if (are_complements(a, b)) {
-        result = mk_full();
-        return BR_DONE;
-    }
-
-    //just keep the union normalized
     result = mk_regex_union_normalize(a, b);
     return BR_DONE;
-
-        
-    expr* a1 = nullptr, *a2 = nullptr;
-    expr* b1 = nullptr, *b2 = nullptr;
-    // ensure union is right-associative
-    // and swap-sort entries 
-    if (re().is_union(a, a1, a2)) {
-        result = re().mk_union(a1, re().mk_union(a2, b));
-        return BR_REWRITE2;
-    }
-        
-    auto get_id = [&](expr* e) { re().is_complement(e, e); return e->get_id(); };
-    if (re().is_union(b, b1, b2)) {
-        if (is_subset(a, b1)) {
-            result = b;
-            return BR_DONE;
-        }
-        if (is_subset(b1, a)) {
-            result = re().mk_union(a, b2);
-            return BR_REWRITE1;
-        }
-        if (are_complements(a, b1)) {
-            result = mk_full();
-            return BR_DONE;
-        }
-        if (get_id(a) > get_id(b1)) {
-            result = re().mk_union(b1, re().mk_union(a, b2));
-            return BR_REWRITE2;
-        }
-    }
-    else {
-        if (is_subset(a, b)) {
-            result = b;
-            return BR_DONE;
-        }
-        if (is_subset(b, a)) {
-            result = a;
-            return BR_DONE;
-        }
-        if (get_id(a) > get_id(b)) {
-            result = re().mk_union(b, a);
-            return BR_DONE;
-        }
-    }
-    return BR_FAILED;
 }
 
-/*
-    comp(intersect e1 e2) -> union comp(e1) comp(e2)
-    comp(union e1 e2) -> intersect comp(e1) comp(e2)
-    comp(none) -> all
-    comp(all) -> none
-    comp(comp(e1)) -> e1
-    comp(epsilon) -> .+
-*/
+/* Creates a normalized complement */
 br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
     expr *e1 = nullptr, *e2 = nullptr;
     if (re().is_intersection(a, e1, e2)) {
@@ -4758,84 +4706,10 @@ br_status seq_rewriter::mk_re_inter0(expr* a, expr* b, expr_ref& result) {
     return BR_FAILED;
 }
 
-/**
-    (r n r) = r
-    (emp n r) = emp
-    (r n emp) = emp
-    (all n r) = r
-    (r n all) = r
-    (r n comp(r)) = emp
-    (comp(r) n r) = emp
-    (r n to_re(s)) = ite (s in r) to_re(s) emp
-    (to_re(s) n r) = "
- */
+/* Creates a normalized intersection. */
 br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
-    br_status st = mk_re_inter0(a, b, result);
-    if (st != BR_FAILED)
-        return st;
-    auto mk_empty = [&]() { return re().mk_empty(a->get_sort()); };
-    if (are_complements(a, b)) {
-        result = mk_empty();
-        return BR_DONE;
-    }
-
-    // intersect and normalize
     result = mk_regex_inter_normalize(a, b);
     return BR_DONE;
-
-    expr* a1 = nullptr, *a2 = nullptr;
-    expr* b1 = nullptr, *b2 = nullptr;
-
-    // the following rewrite rules do not seem to 
-    // do the right thing when it comes to normalizing
-
-    // ensure intersection is right-associative
-    // and swap-sort entries 
-    if (re().is_intersection(a, a1, a2)) {
-        result = re().mk_inter(a1, re().mk_inter(a2, b));
-        return BR_REWRITE2;
-    }
-    auto get_id = [&](expr* e) { re().is_complement(e, e); return e->get_id(); };
-    if (re().is_intersection(b, b1, b2)) {
-        if (is_subset(b1, a)) {
-            result = b;
-            return BR_DONE;
-        }
-        if (is_subset(a, b1)) {
-            result = re().mk_inter(a, b2);
-            return BR_REWRITE1;
-        }
-        if (are_complements(a, b1)) {
-            result = mk_empty();
-            return BR_DONE;
-        }
-        if (get_id(a) > get_id(b1)) {
-            result = re().mk_inter(b1, re().mk_inter(a, b2));
-            return BR_REWRITE2;
-        }
-    }
-    else {
-        if (get_id(a) > get_id(b)) {
-            result = re().mk_inter(b, a);
-            return BR_DONE;
-        }
-        if (is_subset(a, b)) {
-            result = a;
-            return BR_DONE;
-        }
-        if (is_subset(b, a)) {
-            result = b;
-            return BR_DONE;
-        }
-    }
-    if (re().is_to_re(b)) 
-        std::swap(a, b);
-    expr* s = nullptr;
-    if (re().is_to_re(a, s)) {
-        result = m().mk_ite(re().mk_in_re(s, b), a, re().mk_empty(a->get_sort()));
-        return BR_REWRITE2;
-    }
-    return BR_FAILED;
 }
 
 br_status seq_rewriter::mk_re_diff(expr* a, expr* b, expr_ref& result) {
@@ -4873,7 +4747,7 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
         }
         // (loop (loop a l l) h h) = (loop a l*h l*h)
         if (re().is_loop(args[0], a, lo, hi) && np == 2 && lo == hi && lo2 == hi2) {
-            result = re().mk_loop(a, lo2 * lo, hi2 * hi);
+            result = re().mk_loop_proper(a, lo2 * lo, hi2 * hi);
             return BR_REWRITE1;
         }
         // (loop a 1 1) = a
@@ -4900,7 +4774,7 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
     case 3:
         if (m_autil.is_numeral(args[1], n1) && n1.is_unsigned() &&
             m_autil.is_numeral(args[2], n2) && n2.is_unsigned()) {
-            result = re().mk_loop(args[0], n1.get_unsigned(), n2.get_unsigned());
+            result = re().mk_loop_proper(args[0], n1.get_unsigned(), n2.get_unsigned());
             return BR_REWRITE1;
         }
         break;
@@ -4912,7 +4786,7 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
 
 br_status seq_rewriter::mk_re_power(func_decl* f, expr* a, expr_ref& result) {
     unsigned p = f->get_parameter(0).get_int();
-    result = re().mk_loop(a, p, p);
+    result = re().mk_loop_proper(a, p, p);
     return BR_REWRITE1;
 }
 
@@ -5079,74 +4953,67 @@ void seq_rewriter::intersect(unsigned lo, unsigned hi, svector<std::pair<unsigne
  */
 void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
     expr_ref_vector conds(m());
+    expr_ref_vector conds_range(m());
     flatten_and(cond, conds);
     expr* lhs = nullptr, *rhs = nullptr, *e1 = nullptr; 
     if (u().is_char(elem)) {
         unsigned ch = 0, ch2 = 0;
         svector<std::pair<unsigned, unsigned>> ranges, ranges1;
         ranges.push_back(std::make_pair(0, u().max_char()));
-        auto exclude_char = [&](unsigned ch) {
-            if (ch == 0) {
-                intersect(1, u().max_char(), ranges);
+        auto exclude_range = [&](unsigned lower, unsigned upper) {
+            SASSERT(lower <= upper);
+            if (lower == 0) {
+                if (upper == u().max_char())
+                    ranges.reset();
+                else
+                    intersect(upper + 1, u().max_char(), ranges);
             }
-            else if (ch == u().max_char()) {
-                intersect(0, ch-1, ranges);
-            }
+            else if (upper == u().max_char())
+                intersect(0, lower - 1, ranges);
             else {
+                // not(lower <= e <= upper) iff ((0 <= e <= lower-1) or (upper+1 <= e <= max))
+                // Note that this transformation is correct only when lower <= upper
                 ranges1.reset();
                 ranges1.append(ranges);
-                intersect(0, ch - 1, ranges);
-                intersect(ch + 1, u().max_char(), ranges1);
+                intersect(0, lower - 1, ranges);
+                intersect(upper + 1, u().max_char(), ranges1);
                 ranges.append(ranges1);
             }
         };
         bool all_ranges = true;
+        bool negated = false;
         for (expr* e : conds) {
-            if (m().is_eq(e, lhs, rhs) && elem == lhs && u().is_const_char(rhs, ch)) {
-                intersect(ch, ch, ranges);                
+            if (u().is_char_const_range(elem, e, ch, ch2, negated)) {
+                if (ch > ch2) {
+                    if (negated)
+                        // !(ch <= elem <= ch2) is trivially true
+                        continue;
+                    else
+                        // (ch <= elem <= ch2) is trivially false
+                        ranges.reset();
+                }
+                else if (negated)
+                    exclude_range(ch, ch2);
+                else
+                    intersect(ch, ch2, ranges);
+                conds_range.push_back(e);
             }
-            else if (m().is_eq(e, lhs, rhs) && elem == rhs && u().is_const_char(lhs, ch)) {
-                intersect(ch, ch, ranges);
-            }
-            else if (u().is_char_le(e, lhs, rhs) && elem == lhs && u().is_const_char(rhs, ch)) {
-                intersect(0, ch, ranges);
-            }
-            else if (u().is_char_le(e, lhs, rhs) && elem == rhs && u().is_const_char(lhs, ch)) {
-                intersect(ch, u().max_char(), ranges);
-            }
-            else if (m().is_not(e, e1) && m().is_eq(e1, lhs, rhs) && elem == lhs && u().is_const_char(rhs, ch)) {
-                exclude_char(ch);
-            }
-            else if (m().is_not(e, e1) && m().is_eq(e1, lhs, rhs) && elem == rhs && u().is_const_char(lhs, ch)) {
-                exclude_char(ch);
-            }
-            else if (m().is_not(e, e1) && u().is_char_le(e1, lhs, rhs) && elem == lhs && u().is_const_char(rhs, ch)) {
-                // not (e <= ch)
-                if (ch == u().max_char()) 
-                    ranges.reset();
-                else 
-                    intersect(ch+1, u().max_char(), ranges);
-            }
-            else if (m().is_not(e, e1) && u().is_char_le(e1, lhs, rhs) && elem == rhs && u().is_const_char(lhs, ch)) {
-                // not (ch <= e)
-                if (ch == 0) 
-                    ranges.reset();
-                else                 
-                    intersect(0, ch-1, ranges);
-            }
-            else if (m().is_true(e) || (m().is_eq(e, lhs, rhs) && lhs == rhs)) {
-                // trivially true
+            // trivially true conditions
+            else if (m().is_true(e) || (m().is_eq(e, lhs, rhs) && lhs == rhs))
                 continue;
-            }
-            else if (m().is_not(e, e1) && m().is_eq(e1, lhs, rhs) && u().is_const_char(lhs, ch) && u().is_const_char(rhs, ch2) && ch != ch2) {
-                // trivially true
+            else if (m().is_not(e, e1) && m().is_eq(e1, lhs, rhs) && u().is_const_char(lhs, ch) && u().is_const_char(rhs, ch2) && ch != ch2)
                 continue;
-            }
-            else if (m().is_false(e) || (m().is_not(e, e1) && m().is_eq(e1, lhs, rhs) && lhs == rhs)) {
-                // trivially false
-                cond = m().mk_false();
-                return;
-            }
+            else if (u().is_char_le(e, lhs, rhs) && u().is_const_char(lhs, ch) && u().is_const_char(rhs, ch2) && ch <= ch2)
+                continue;
+            else if (m().is_not(e, e1) && u().is_char_le(e1, lhs, rhs) && u().is_const_char(lhs, ch) && u().is_const_char(rhs, ch2) && ch > ch2)
+                continue;
+            // trivially false conditions
+            else if (m().is_false(e) || (m().is_not(e, e1) && m().is_eq(e1, lhs, rhs) && lhs == rhs))
+                ranges.reset();
+            else if (u().is_char_le(e, lhs, rhs) && u().is_const_char(lhs, ch) && u().is_const_char(rhs, ch2) && ch > ch2)
+                ranges.reset();
+            else if (m().is_not(e, e1) && u().is_char_le(e1, lhs, rhs) && u().is_const_char(lhs, ch) && u().is_const_char(rhs, ch2) && ch <= ch2)
+                ranges.reset();
             else {
                 all_ranges = false;
                 break;
@@ -5163,6 +5030,8 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
                 cond = m().mk_true();
                 return;
             }
+            // removes all the trivially true conditions from conds
+            conds.set(conds_range);
         }
     }
             

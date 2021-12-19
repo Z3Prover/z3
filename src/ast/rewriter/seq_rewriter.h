@@ -223,11 +223,6 @@ class seq_rewriter {
 
     expr_ref merge_regex_sets(expr* r1, expr* r2, expr* unit, std::function<bool(expr*, expr*&, expr*&)>& decompose, std::function<expr* (expr*, expr*)>& compose);
 
-    // Apply simplifications and keep the representation normalized
-    // Assuming r1 and r2 are normalized
-    expr_ref mk_regex_union_normalize(expr* r1, expr* r2);
-    expr_ref mk_regex_inter_normalize(expr* r1, expr* r2);
-
     // elem is (:var 0) and path a condition that may have (:var 0) as a free variable
     // simplify path, e.g., (:var 0) = 'a' & (:var 0) = 'b' is simplified to false
     expr_ref simplify_path(expr* elem, expr* path);
@@ -423,5 +418,10 @@ public:
     // heuristic elimination of element from condition that comes form a derivative.
     // special case optimization for conjunctions of equalities, disequalities and ranges.
     void elim_condition(expr* elem, expr_ref& cond);
+
+    /* Apply simplifications to the union to keep the union normalized (r1 and r2 are not normalized)*/
+    expr_ref mk_regex_union_normalize(expr* r1, expr* r2);
+    /* Apply simplifications to the intersection to keep it normalized (r1 and r2 are not normalized)*/
+    expr_ref mk_regex_inter_normalize(expr* r1, expr* r2);
 };
 

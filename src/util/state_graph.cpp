@@ -445,7 +445,7 @@ bool state_graph::write_dgml() {
                 }
                 r = m_state_ufind.next(r);
             } while (r != s);
-            dgml << " Category=\"State\">" << std::endl;
+            dgml << " Category=\"State\" Group=\"Collapsed\">" << std::endl;
             if (m_dead.contains(s))
                 dgml << "<Category Ref=\"Dead\"/>" << std::endl;
             if (m_live.contains(s))
@@ -453,18 +453,35 @@ bool state_graph::write_dgml() {
             if (m_unexplored.contains(s))
                 dgml << "<Category Ref=\"Unexplored\"/>" << std::endl;
             dgml << "</Node>" << std::endl;
+            dgml << "<Node Id=\"" << s << "info\" Label=\"";
+            r = s;
+            dgml << s << "=";
+            m_state_pp.pp_state_label(dgml, r);
+            do {
+                if (r != s) {
+                    dgml << "&#13;" << r << "=";
+                    m_state_pp.pp_state_label(dgml, r);
+                }
+                r = m_state_ufind.next(r);
+            } while (r != s);
+            dgml << "\"" << std::endl;
+            dgml << " Category=\"StateInfo\">" << std::endl;
+            dgml << "</Node>" << std::endl;
         }
     }
     dgml << "</Nodes>" << std::endl;
     dgml << "<Links>" << std::endl;
     for (auto s : m_seen) {
-        if (m_state_ufind.is_root(s))
+        if (m_state_ufind.is_root(s)) {
             for (auto t : m_targets[s]) {
                 dgml << "<Link Source=\"" << s << "\" Target=\"" << t << "\" Category=\"Transition\">" << std::endl;
                 if (!m_sources_maybecycle[t].contains(s))
                     dgml << "<Category Ref=\"Noncycle\"/>" << std::endl;
                 dgml << "</Link>" << std::endl;
             }
+            dgml << "<Link Source=\"" << s << "\" Target=\"" << s << "info\" Category=\"Contains\">" << std::endl;
+            dgml << "</Link>" << std::endl;
+        }
     }
     dgml << "</Links>" << std::endl;
     dgml << "<Categories>" << std::endl
@@ -494,6 +511,11 @@ bool state_graph::write_dgml() {
         << "<Setter Property=\"Stroke\" Value=\"black\"/>" << std::endl
         << "<Setter Property=\"Background\" Value=\"white\"/>" << std::endl
         << "<Setter Property=\"MinWidth\" Value=\"0\"/>" << std::endl
+        << "<Setter Property=\"FontSize\" Value=\"12\"/>" << std::endl
+        << "</Style>" << std::endl
+        << "<Style TargetType=\"Node\" GroupLabel=\"StateInfo\" ValueLabel=\"True\">" << std::endl
+        << "<Setter Property=\"Stroke\" Value=\"white\"/>" << std::endl
+        << "<Setter Property=\"FontSize\" Value=\"24\"/>" << std::endl
         << "</Style>" << std::endl
         << "<Style TargetType=\"Link\" GroupLabel=\"Transition\" ValueLabel=\"True\">" << std::endl
         << "<Condition Expression=\"HasCategory('Transition')\"/>" << std::endl
