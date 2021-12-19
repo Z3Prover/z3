@@ -342,6 +342,8 @@ namespace polysat {
         pdd a = y;
         if (!is_Y_l_Ax(x, y_l_ax, a, y))
             return false;
+        if (a.is_one())
+            return false;
         for (auto si : s.m_search) {
             if (!si.is_boolean())
                 continue;
