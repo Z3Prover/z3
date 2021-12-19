@@ -4033,14 +4033,14 @@ namespace z3 {
         void register_created(created_eh_t& c) {
             assert(s);
             m_created_eh = c;
-            Z3_solver_propagate_created(c, *s, created_eh);
+            Z3_solver_propagate_created(ctx(), *s, created_eh);
         }
 
         void register_created() {
             m_created_eh = [this](unsigned id, expr const& e) {
                 created(id, e);
             };
-            Z3_solver_propagate_created(c, *s, created_eh);
+            Z3_solver_propagate_created(ctx(), *s, created_eh);
         }
 
         virtual void fixed(unsigned /*id*/, expr const& /*e*/) { }
