@@ -334,7 +334,7 @@ namespace z3 {
         func_decl recfun(char const * name, sort const & d1, sort const & d2, sort const & range);
 
         void      recdef(func_decl, expr_vector const& args, expr const& body);
-        func_decl user_propagate_function(symbol const& name, unsigned arity, sort const* domain, sort const& range);
+        func_decl user_propagate_function(symbol const& name, sort_vector const& domain, sort const& range);
 
         expr constant(symbol const & name, sort const & s);
         expr constant(char const * name, sort const & s);
@@ -3425,13 +3425,13 @@ namespace z3 {
         Z3_add_rec_def(f.ctx(), f, vars.size(), vars.ptr(), body);
     }
 
-    inline func_decl context::user_propagate_function(symbol const& name, unsigned arity, sort const* domain, sort const& range) {
-        array<Z3_sort> args(arity);
-        for (unsigned i = 0; i < arity; i++) {
+    inline func_decl context::user_propagate_function(symbol const& name, sort_vector const& domain, sort const& range) {
+        array<Z3_sort> args(domain.size());
+        for (unsigned i = 0; i < domain.size(); i++) {
             check_context(domain[i], range);
             args[i] = domain[i];
         }
-        Z3_func_decl f = Z3_user_propagate_declare(m_ctx, name, arity, args.ptr(), range);
+        Z3_func_decl f = Z3_solver_propagate_declare(range.ctx(), name, args.size(), args.ptr(), range);
         check_error();
         return func_decl(*this, f);
     }
@@ -3943,7 +3943,7 @@ namespace z3 {
             static_cast<user_propagator_base*>(p)->m_final_eh(); 
         }
 
-        static void created_eh(void* p, Z3_solver_callback cb, unsigned id, Z3_ast _e) {
+        static void created_eh(void* _p, Z3_solver_callback cb, Z3_ast _e, unsigned id) {
             user_propagator_base* p = static_cast<user_propagator_base*>(_p);
             scoped_cb _cb(p, cb);
             scoped_context ctx(p->ctx());
