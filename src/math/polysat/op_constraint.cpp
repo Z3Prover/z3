@@ -34,6 +34,17 @@ namespace polysat {
         for (auto v : r.free_vars())
             if (!m_vars.contains(v))
                 m_vars.push_back(v);
+
+        switch (c) {
+        case code::and_op:
+        case code::or_op:
+        case code::xor_op:
+            if (p.index() > q.index())
+                std::swap(m_p, m_q);
+            break;
+        default:
+            break;
+        }
     }
 
     lbool op_constraint::eval(pdd const& p, pdd const& q, pdd const& r) const {

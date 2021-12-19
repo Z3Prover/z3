@@ -16,7 +16,7 @@ Author:
 
 namespace polysat {
 
-    enum trail_instr_t { 
+    enum class trail_instr_t { 
         qhead_i,
         add_var_i,
         inc_level_i,

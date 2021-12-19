@@ -984,6 +984,15 @@ namespace polysat {
             scoped_solver s(__func__);
             auto p = s.var(s.add_var(bw));
             auto q = s.var(s.add_var(bw));
+            s.add_diseq(p - s.band(p, q));
+            s.add_diseq(p - q);
+            s.check();
+            s.expect_sat();
+        }
+        {
+            scoped_solver s(__func__);
+            auto p = s.var(s.add_var(bw));
+            auto q = s.var(s.add_var(bw));
             s.add_ult(p, s.band(p, q));
             s.check();
             s.expect_unsat();
@@ -1004,6 +1013,16 @@ namespace polysat {
             s.check();
             s.expect_sat();
         }
+        {
+            scoped_solver s(__func__);
+            auto p = s.var(s.add_var(bw));
+            auto q = s.var(s.add_var(bw));
+            s.add_ule(p, s.band(p, q));
+            s.add_diseq(p - s.band(p, q));
+            s.check();
+            s.expect_unsat();
+        }
+ 
 
     }
 

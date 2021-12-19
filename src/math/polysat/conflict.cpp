@@ -111,8 +111,14 @@ namespace polysat {
             return;
         LOG("Conflict: " << cl);
         SASSERT(empty());
-        for (auto lit : cl)          
-            insert(~s.lit2cnstr(lit));        
+        for (auto lit : cl) {
+            auto c = s.lit2cnstr(lit);
+            if (c.bvalue(s) != l_false) {
+                SASSERT(c.is_currently_false(s));
+                c->set_var_dependent();               
+            }
+            insert(~c);            
+        }
         SASSERT(!empty());
     }
 
