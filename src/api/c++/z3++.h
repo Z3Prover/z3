@@ -3426,12 +3426,9 @@ namespace z3 {
     }
 
     inline func_decl context::user_propagate_function(symbol const& name, sort_vector const& domain, sort const& range) {
-        array<Z3_sort> args(domain.size());
-        for (unsigned i = 0; i < domain.size(); i++) {
-            check_context(domain[i], range);
-            args[i] = domain[i];
-        }
-        Z3_func_decl f = Z3_solver_propagate_declare(range.ctx(), name, args.size(), args.ptr(), range);
+        check_context(domain, range);
+        array<Z3_sort> domain1(domain);
+        Z3_func_decl f = Z3_solver_propagate_declare(range.ctx(), name, domain1.size(), domain1.ptr(), range);
         check_error();
         return func_decl(*this, f);
     }
