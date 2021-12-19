@@ -831,6 +831,39 @@ app* seq_util::mk_lt(expr* ch1, expr* ch2) const {
     return m.mk_not(mk_le(ch2, ch1));
 }
 
+bool seq_util::is_char_const_range(expr const* x, expr* e, unsigned& l, unsigned& u, bool& negated) const {
+    expr* a, * b, * e1, * e2, * lb, * ub;
+    e1 = e;
+    negated = (m.is_not(e, e1)) ? true : false;
+    if (m.is_eq(e1, a, b) && (a == x && is_const_char(b, l))) {
+        u = l;
+        return true;
+    }
+    if (is_char_le(e1, a, b) && a == x && is_const_char(b, u)) {
+        // (x <= u)
+        l = 0;
+        return true;
+    }
+    if (is_char_le(e1, a, b) && b == x && is_const_char(a, l)) {
+        // (l <= x)
+        u = max_char();
+        return true;
+    }
+    if (m.is_and(e1, e1, e2) && is_char_le(e1, lb, a) && a == x && is_const_char(lb, l) &&
+        is_char_le(e2, b, ub) && b == x && is_const_char(ub, u))
+        // (l <= x) & (x <= u)
+        return true;
+    if (m.is_eq(e1, a, b) && b == x && is_const_char(a, l)) {
+        u = l;
+        return true;
+    }
+    if (m.is_and(e1, e2, e1) && is_char_le(e1, lb, a) && a == x && is_const_char(lb, l) &&
+        is_char_le(e2, b, ub) && b == x && is_const_char(ub, u))
+        // (x <= u) & (l <= x)
+        return true;
+    return false;
+}
+
 bool seq_util::str::is_string(func_decl const* f, zstring& s) const {
     if (is_string(f)) {
         s = f->get_parameter(0).get_zstring();

@@ -252,6 +252,12 @@ public:
     unsigned max_char() const { return seq.max_char(); }
     unsigned num_bits() const { return seq.num_bits(); }
 
+    /*
+    e has a form that is equivalent to l <= x <= u (then negated = false)
+    or e is equivalent to !(l <= x <= u) (then negated = true)
+    */
+    bool is_char_const_range(expr const* x, expr * e, unsigned& l, unsigned& u, bool& negated) const;
+
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
 
