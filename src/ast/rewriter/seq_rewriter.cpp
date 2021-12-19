@@ -2857,7 +2857,7 @@ br_status seq_rewriter::mk_re_reverse(expr* r, expr_ref& result) {
         return BR_REWRITE2;
     }
     else if (re().is_loop(r, r1, lo, hi)) {
-        result = re().mk_loop(re().mk_reverse(r1), lo, hi);
+        result = re().mk_loop_proper(re().mk_reverse(r1), lo, hi);
         return BR_REWRITE2;
     }
     else if (re().is_reverse(r, r1)) {
@@ -3184,7 +3184,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         if ((lo == 0 && hi == 0) || hi < lo)
             result = nothing();
         else
-            result = mk_antimirov_deriv_concat(mk_antimirov_deriv(e, r1, path), re().mk_loop(r1, (lo == 0 ? 0 : lo - 1), hi - 1));
+            result = mk_antimirov_deriv_concat(mk_antimirov_deriv(e, r1, path), re().mk_loop_proper(r1, (lo == 0 ? 0 : lo - 1), hi - 1));
     }
     else if (re().is_opt(r, r1))
         result = mk_antimirov_deriv(e, r1, path);
@@ -3504,7 +3504,7 @@ expr_ref seq_rewriter::mk_regex_reverse(expr* r) {
     else if (re().is_loop(r, r1, lo))
         result = re().mk_loop(mk_regex_reverse(r1), lo);
     else if (re().is_loop(r, r1, lo, hi))
-        result = re().mk_loop(mk_regex_reverse(r1), lo, hi);
+        result = re().mk_loop_proper(mk_regex_reverse(r1), lo, hi);
     else if (re().is_opt(r, r1))
         result = re().mk_opt(mk_regex_reverse(r1));
     else if (re().is_complement(r, r1))
@@ -4039,7 +4039,7 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
             return result;
         }
         else {
-            return mk_der_concat(result, re().mk_loop(r1, lo, hi));
+            return mk_der_concat(result, re().mk_loop_proper(r1, lo, hi));
         }
     }
     else if (re().is_full_seq(r) ||
@@ -4535,7 +4535,7 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
     unsigned lo1, hi1, lo2, hi2;
 
     if (re().is_loop(a, a1, lo1, hi1) && lo1 <= hi1 && re().is_loop(b, b1, lo2, hi2) && lo2 <= hi2 && a1 == b1) {
-        result = re().mk_loop(a1, lo1 + lo2, hi1 + hi2);
+        result = re().mk_loop_proper(a1, lo1 + lo2, hi1 + hi2);
         return BR_DONE;
     }
     if (re().is_loop(a, a1, lo1) && re().is_loop(b, b1, lo2) && a1 == b1) {
@@ -4745,7 +4745,7 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
         }
         // (loop (loop a l l) h h) = (loop a l*h l*h)
         if (re().is_loop(args[0], a, lo, hi) && np == 2 && lo == hi && lo2 == hi2) {
-            result = re().mk_loop(a, lo2 * lo, hi2 * hi);
+            result = re().mk_loop_proper(a, lo2 * lo, hi2 * hi);
             return BR_REWRITE1;
         }
         // (loop a 1 1) = a
@@ -4772,7 +4772,7 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
     case 3:
         if (m_autil.is_numeral(args[1], n1) && n1.is_unsigned() &&
             m_autil.is_numeral(args[2], n2) && n2.is_unsigned()) {
-            result = re().mk_loop(args[0], n1.get_unsigned(), n2.get_unsigned());
+            result = re().mk_loop_proper(args[0], n1.get_unsigned(), n2.get_unsigned());
             return BR_REWRITE1;
         }
         break;
@@ -4784,7 +4784,7 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
 
 br_status seq_rewriter::mk_re_power(func_decl* f, expr* a, expr_ref& result) {
     unsigned p = f->get_parameter(0).get_int();
-    result = re().mk_loop(a, p, p);
+    result = re().mk_loop_proper(a, p, p);
     return BR_REWRITE1;
 }
 
