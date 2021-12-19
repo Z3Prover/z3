@@ -32,18 +32,6 @@ namespace smt {
             m_kernel(m, fp, p),
             m_params(p) {
         }
-
-        static void copy(imp& src, imp& dst) {
-            context::copy(src.m_kernel, dst.m_kernel);
-        }
-
-        smt_params & fparams() {
-            return m_kernel.get_fparams();
-        }
-
-        params_ref const & params() {
-            return m_params;
-        }
      
         ast_manager & m() const {
             return m_kernel.get_manager();
@@ -76,7 +64,7 @@ namespace smt {
     }
 
     void  kernel::copy(kernel& src, kernel& dst) {
-        imp::copy(*src.m_imp, *dst.m_imp);
+        context::copy(src.m_imp->m_kernel, dst.m_imp->m_kernel);
     }
 
     bool kernel::set_logic(symbol logic) {
@@ -122,8 +110,8 @@ namespace smt {
 
     void kernel::reset() {
         ast_manager & _m = m();
-        smt_params & fps = m_imp->fparams();
-        params_ref ps    = m_imp->params();
+        smt_params& fps = m_imp->m_kernel.get_fparams();
+        params_ref ps = m_imp->m_params;
         m_imp->~imp();
         m_imp = new (m_imp) imp(_m, fps, ps);        
     }
