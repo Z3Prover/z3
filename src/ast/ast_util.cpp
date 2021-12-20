@@ -260,8 +260,8 @@ expr_ref mk_distinct(expr_ref_vector const& args) {
 void flatten_and(expr_ref_vector& result) {
     ast_manager& m = result.get_manager();
     expr* e1, *e2, *e3;
-    expr_fast_mark1 seen;
     expr_ref_vector pin(m);
+    expr_fast_mark1 seen;
     for (unsigned i = 0; i < result.size(); ++i) {
         expr* e = result.get(i);
         if (seen.is_marked(e))
@@ -326,8 +326,8 @@ void flatten_and(expr_ref& fml) {
 void flatten_or(expr_ref_vector& result) {
     ast_manager& m = result.get_manager();
     expr* e1, *e2, *e3;
-    expr_fast_mark1 seen;
     expr_ref_vector pin(m);
+    expr_fast_mark1 seen;
     for (unsigned i = 0; i < result.size(); ++i) {
         expr* e = result.get(i);
         if (seen.is_marked(e))
