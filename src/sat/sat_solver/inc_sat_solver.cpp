@@ -683,8 +683,8 @@ public:
         ensure_euf()->user_propagate_register_diseq(diseq_eh);
     }
     
-    unsigned user_propagate_register(expr* e) override { 
-        return ensure_euf()->user_propagate_register(e);
+    unsigned user_propagate_register_expr(expr* e) override { 
+        return ensure_euf()->user_propagate_register_expr(e);
     }
 
 private:

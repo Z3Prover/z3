@@ -319,7 +319,7 @@ public:
     user_propagator::final_eh_t m_final_eh;
     user_propagator::eq_eh_t    m_eq_eh;
     user_propagator::eq_eh_t    m_diseq_eh;
-    user_propagator::register_created_eh_t m_created_eh;
+    user_propagator::created_eh_t m_created_eh;
 
     expr_ref_vector             m_vars;
     unsigned_vector             m_var2internal;
@@ -333,7 +333,7 @@ public:
     user_propagator::final_eh_t i_final_eh;
     user_propagator::eq_eh_t    i_eq_eh;
     user_propagator::eq_eh_t    i_diseq_eh;
-    user_propagator::register_created_eh_t i_created_eh;
+    user_propagator::created_eh_t i_created_eh;
 
 
     struct callback : public user_propagator::callback {
@@ -449,7 +449,7 @@ public:
 
         unsigned i = 0;
         for (expr* v : m_vars) {
-            unsigned j = m_ctx->user_propagate_register(v);
+            unsigned j = m_ctx->user_propagate_register_expr(v);
             m_var2internal.setx(i, j, 0);
             m_internal2var.setx(j, i, 0);
             ++i;
@@ -493,16 +493,12 @@ public:
         m_diseq_eh = diseq_eh;
     }
 
-    unsigned user_propagate_register(expr* e) override {
+    unsigned user_propagate_register_expr(expr* e) override {
         m_vars.push_back(e);
         return m_vars.size() - 1;
     }
 
-    func_decl* user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range) override {
-        return m_ctx->user_propagate_declare(name, n, domain, range);
-    }
-
-    void user_propagate_register_created(user_propagator::register_created_eh_t& created_eh) override {
+    void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override {
         m_ctx->user_propagate_register_created(created_eh);
     }
 };

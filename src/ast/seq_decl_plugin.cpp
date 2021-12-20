@@ -831,6 +831,39 @@ app* seq_util::mk_lt(expr* ch1, expr* ch2) const {
     return m.mk_not(mk_le(ch2, ch1));
 }
 
+bool seq_util::is_char_const_range(expr const* x, expr* e, unsigned& l, unsigned& u, bool& negated) const {
+    expr* a, * b, * e0, * e1, * e2, * lb, * ub;
+    e1 = e;
+    negated = (m.is_not(e, e1)) ? true : false;
+    if (m.is_eq(e1, a, b) && (a == x && is_const_char(b, l))) {
+        u = l;
+        return true;
+    }
+    if (is_char_le(e1, a, b) && a == x && is_const_char(b, u)) {
+        // (x <= u)
+        l = 0;
+        return true;
+    }
+    if (is_char_le(e1, a, b) && b == x && is_const_char(a, l)) {
+        // (l <= x)
+        u = max_char();
+        return true;
+    }
+    if (m.is_and(e1, e0, e2) && is_char_le(e0, lb, a) && a == x && is_const_char(lb, l) &&
+        is_char_le(e2, b, ub) && b == x && is_const_char(ub, u))
+        // (l <= x) & (x <= u)
+        return true;
+    if (m.is_eq(e1, a, b) && b == x && is_const_char(a, l)) {
+        u = l;
+        return true;
+    }
+    if (m.is_and(e1, e0, e2) && is_char_le(e0, a, ub) && a == x && is_const_char(ub, u) &&
+        is_char_le(e2, lb, b) && b == x && is_const_char(lb, l))
+        // (x <= u) & (l <= x)
+        return true;
+    return false;
+}
+
 bool seq_util::str::is_string(func_decl const* f, zstring& s) const {
     if (is_string(f)) {
         s = f->get_parameter(0).get_zstring();
@@ -1026,6 +1059,23 @@ app* seq_util::rex::mk_loop(expr* r, unsigned lo) {
 }
 
 app* seq_util::rex::mk_loop(expr* r, unsigned lo, unsigned hi) {
+    parameter params[2] = { parameter(lo), parameter(hi) };
+    return m.mk_app(m_fid, OP_RE_LOOP, 2, params, 1, &r);
+}
+
+expr* seq_util::rex::mk_loop_proper(expr* r, unsigned lo, unsigned hi)
+{
+    if (lo == 0 && hi == 0) {
+        sort* seq_sort = nullptr;
+        VERIFY(u.is_re(r, seq_sort));
+        // avoid creating a loop with both bounds 0
+        // such an expression is invalid as a loop
+        // it is BY DEFINITION = epsilon
+        return mk_epsilon(seq_sort);
+    }
+    if (lo == 1 && hi == 1)
+        // do not create a loop unless it actually is a loop
+        return r;
     parameter params[2] = { parameter(lo), parameter(hi) };
     return m.mk_app(m_fid, OP_RE_LOOP, 2, params, 1, &r);
 }

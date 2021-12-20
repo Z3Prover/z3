@@ -643,8 +643,8 @@ namespace smt {
         // It destroys the existing patterns.
         // m_params.m_macro_finder            = true; 
         
-        if (m_params.m_ng_lift_ite == LI_NONE)
-            m_params.m_ng_lift_ite         = LI_CONSERVATIVE;
+        if (m_params.m_ng_lift_ite == lift_ite_kind::LI_NONE)
+            m_params.m_ng_lift_ite = lift_ite_kind::LI_CONSERVATIVE;
         TRACE("setup", tout << "max_eager_multipatterns: " << m_params.m_qi_max_eager_multipatterns << "\n";);
         m_context.register_plugin(alloc(smt::theory_i_arith, m_context));
         setup_arrays();
@@ -668,8 +668,8 @@ namespace smt {
         m_params.m_qi_lazy_threshold       = 20;
         // 
         m_params.m_macro_finder            = true;
-        if (m_params.m_ng_lift_ite == LI_NONE)
-            m_params.m_ng_lift_ite         = LI_CONSERVATIVE;
+        if (m_params.m_ng_lift_ite == lift_ite_kind::LI_NONE)
+            m_params.m_ng_lift_ite         = lift_ite_kind::LI_CONSERVATIVE;
         m_params.m_pi_max_multi_patterns   = 10; //<< it was used for SMT-COMP
         m_params.m_array_lazy_ieq          = true;
         m_params.m_array_lazy_ieq_delay    = 4;

@@ -892,7 +892,7 @@ public:
         m_num_elim_apps = 0;
     }
 
-    unsigned user_propagate_register(expr* e) override { 
+    unsigned user_propagate_register_expr(expr* e) override { 
         m_nonvars.insert(e);
         return 0;
     }

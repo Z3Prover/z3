@@ -334,6 +334,7 @@ namespace z3 {
         func_decl recfun(char const * name, sort const & d1, sort const & d2, sort const & range);
 
         void      recdef(func_decl, expr_vector const& args, expr const& body);
+        func_decl user_propagate_function(symbol const& name, sort_vector const& domain, sort const& range);
 
         expr constant(symbol const & name, sort const & s);
         expr constant(char const * name, sort const & s);
@@ -3424,6 +3425,14 @@ namespace z3 {
         Z3_add_rec_def(f.ctx(), f, vars.size(), vars.ptr(), body);
     }
 
+    inline func_decl context::user_propagate_function(symbol const& name, sort_vector const& domain, sort const& range) {
+        check_context(domain, range);
+        array<Z3_sort> domain1(domain);
+        Z3_func_decl f = Z3_solver_propagate_declare(range.ctx(), name, domain1.size(), domain1.ptr(), range);
+        check_error();
+        return func_decl(*this, f);
+    }
+
     inline expr context::constant(symbol const & name, sort const & s) {
         Z3_ast r = Z3_mk_const(m_ctx, name, s);
         check_error();
@@ -3877,10 +3886,12 @@ namespace z3 {
         typedef std::function<void(unsigned, expr const&)> fixed_eh_t;
         typedef std::function<void(void)> final_eh_t;
         typedef std::function<void(unsigned, unsigned)> eq_eh_t;
+        typedef std::function<void(unsigned, expr const&)> created_eh_t;
 
         final_eh_t m_final_eh;
         eq_eh_t    m_eq_eh;
         fixed_eh_t m_fixed_eh;
+        created_eh_t m_created_eh;
         solver*    s;
         Z3_context c;
         Z3_solver_callback cb { nullptr };
@@ -3927,6 +3938,14 @@ namespace z3 {
         static void final_eh(void* p, Z3_solver_callback cb) {
             scoped_cb _cb(p, cb);
             static_cast<user_propagator_base*>(p)->m_final_eh(); 
+        }
+
+        static void created_eh(void* _p, Z3_solver_callback cb, Z3_ast _e, unsigned id) {
+            user_propagator_base* p = static_cast<user_propagator_base*>(_p);
+            scoped_cb _cb(p, cb);
+            scoped_context ctx(p->ctx());
+            expr e(ctx(), _e);
+            static_cast<user_propagator_base*>(p)->m_created_eh(id, e);
         }
 
 
@@ -4008,12 +4027,26 @@ namespace z3 {
             Z3_solver_propagate_final(ctx(), *s, final_eh); 
         }
 
+        void register_created(created_eh_t& c) {
+            assert(s);
+            m_created_eh = c;
+            Z3_solver_propagate_created(ctx(), *s, created_eh);
+        }
+
+        void register_created() {
+            m_created_eh = [this](unsigned id, expr const& e) {
+                created(id, e);
+            };
+            Z3_solver_propagate_created(ctx(), *s, created_eh);
+        }
 
         virtual void fixed(unsigned /*id*/, expr const& /*e*/) { }
 
         virtual void eq(unsigned /*x*/, unsigned /*y*/) { }
 
         virtual void final() { }
+
+        virtual void created(unsigned /*id*/, expr const& /*e*/) {}
 
         /**
            \brief tracks \c e by a unique identifier that is returned by the call.

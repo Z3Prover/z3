@@ -252,6 +252,12 @@ public:
     unsigned max_char() const { return seq.max_char(); }
     unsigned num_bits() const { return seq.num_bits(); }
 
+    /*
+    e has a form that is equivalent to l <= x <= u (then negated = false)
+    or e is equivalent to !(l <= x <= u) (then negated = true)
+    */
+    bool is_char_const_range(expr const* x, expr * e, unsigned& l, unsigned& u, bool& negated) const;
+
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
 
@@ -498,6 +504,7 @@ public:
         app* mk_opt(expr* r) { return m.mk_app(m_fid, OP_RE_OPTION, r); }
         app* mk_loop(expr* r, unsigned lo);
         app* mk_loop(expr* r, unsigned lo, unsigned hi);
+        expr* mk_loop_proper(expr* r, unsigned lo, unsigned hi);
         app* mk_loop(expr* r, expr* lo);
         app* mk_loop(expr* r, expr* lo, expr* hi);
         app* mk_full_char(sort* s);

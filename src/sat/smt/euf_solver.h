@@ -425,7 +425,7 @@ namespace euf {
             check_for_user_propagator();
             m_user_propagator->register_diseq(diseq_eh);
         }
-        unsigned user_propagate_register(expr* e) {
+        unsigned user_propagate_register_expr(expr* e) {
             check_for_user_propagator();
             return m_user_propagator->add_expr(e);
         }

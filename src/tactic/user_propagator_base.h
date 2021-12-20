@@ -23,11 +23,13 @@ namespace user_propagator {
     typedef std::function<void*(void*, ast_manager&, context_obj*&)> fresh_eh_t;
     typedef std::function<void(void*)>                 push_eh_t;
     typedef std::function<void(void*,unsigned)>        pop_eh_t;
-    typedef std::function<void(void*, callback*, expr*, unsigned)> register_created_eh_t;
+    typedef std::function<void(void*, callback*, expr*, unsigned)> created_eh_t;
 
 
     class plugin : public decl_plugin {
     public:
+
+        static symbol name() { return symbol("user_propagator"); }
 
         enum kind_t { OP_USER_PROPAGATE };
 
@@ -79,23 +81,11 @@ namespace user_propagator {
             throw default_exception("user-propagators are only supported on the SMT solver");
         }
         
-        virtual unsigned user_propagate_register(expr* e) { 
+        virtual unsigned user_propagate_register_expr(expr* e) { 
             throw default_exception("user-propagators are only supported on the SMT solver");
         }
 
-        /**
-         * Create uninterpreted function for the user propagator.
-         * When expressions using the function are assigned values, generate a callback
-         * into a register_declared_eh(user_ctx, solver_ctx, declared_expr, declare_id) with arguments
-         * 1. context and callback context
-         * 2. declared_expr: expression using function that was declared at top.
-         * 3. declared_id: a unique identifier (unique within the current scope) to track the expression.
-         */
-        virtual func_decl* user_propagate_declare(symbol const& name, unsigned n, sort* const* domain, sort* range) {
-            throw default_exception("user-propagators are only supported on the SMT solver");
-        }
-
-        virtual void user_propagate_register_created(register_created_eh_t& r) {
+        virtual void user_propagate_register_created(created_eh_t& r) {
             throw default_exception("user-propagators are only supported on the SMT solver");
         }
 
