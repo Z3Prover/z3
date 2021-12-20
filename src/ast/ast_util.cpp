@@ -261,14 +261,17 @@ void flatten_and(expr_ref_vector& result) {
     ast_manager& m = result.get_manager();
     expr* e1, *e2, *e3;
     expr_fast_mark1 seen;
+    expr_ref_vector pin(m);
     for (unsigned i = 0; i < result.size(); ++i) {
         expr* e = result.get(i);
         if (seen.is_marked(e))
             continue;
         seen.mark(e);
+        pin.push_back(e);
         if (m.is_and(e)) {
             app* a = to_app(e);
-            for (expr* arg : *a) result.push_back(arg);
+            for (expr* arg : *a)
+                result.push_back(arg);
             result[i] = result.back();
             result.pop_back();
             --i;
@@ -279,14 +282,15 @@ void flatten_and(expr_ref_vector& result) {
         }
         else if (m.is_not(e, e1) && m.is_or(e1)) {
             app* a = to_app(e1);
-            for (expr* arg : *a) result.push_back(m.mk_not(arg));
+            for (expr* arg : *a)
+                result.push_back(mk_not(m, arg));
             result[i] = result.back();
             result.pop_back();
             --i;
         }
         else if (m.is_not(e, e1) && m.is_implies(e1, e2, e3)) {
             result.push_back(e2);
-            result[i] = m.mk_not(e3);
+            result[i] = mk_not(m, e3);
             --i;
         }
         else if (m.is_true(e) ||
@@ -323,14 +327,17 @@ void flatten_or(expr_ref_vector& result) {
     ast_manager& m = result.get_manager();
     expr* e1, *e2, *e3;
     expr_fast_mark1 seen;
+    expr_ref_vector pin(m);
     for (unsigned i = 0; i < result.size(); ++i) {
         expr* e = result.get(i);
         if (seen.is_marked(e))
             continue;
         seen.mark(e);
+        pin.push_back(e);
         if (m.is_or(e)) {
             app* a = to_app(e);
-            for (expr* arg : *a) result.push_back(arg);
+            for (expr* arg : *a)
+                result.push_back(arg);
             result[i] = result.back();
             result.pop_back();
             --i;
@@ -341,14 +348,15 @@ void flatten_or(expr_ref_vector& result) {
         }
         else if (m.is_not(e, e1) && m.is_and(e1)) {
             app* a = to_app(e1);
-            for (expr* arg : *a) result.push_back(m.mk_not(arg));
+            for (expr* arg : *a)
+                result.push_back(mk_not(m, arg));
             result[i] = result.back();
             result.pop_back();
             --i;
         }
         else if (m.is_implies(e,e2,e3)) {
             result.push_back(e3);
-            result[i] = m.mk_not(e2);
+            result[i] = mk_not(m, e2);
             --i;
         }
         else if (m.is_false(e) ||
