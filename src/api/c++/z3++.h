@@ -3797,6 +3797,12 @@ namespace z3 {
         ctx.check_error();
         return expr(ctx, r);
     }
+    inline expr re_diff(expr const& a, expr const& b) {
+        check_context(a, b);
+        Z3_ast r = Z3_mk_re_diff(ctx, a, b);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
     inline expr re_complement(expr const& a) {
         MK_EXPR1(Z3_mk_re_complement, a);
     }

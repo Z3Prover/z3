@@ -2247,7 +2247,18 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Create a difference regular expression.
+     */
+    public <R extends Sort> ReExpr<R> mkDiff(Expr<ReSort<R>> a, Expr<ReSort<R>> b)
+    {
+        checkContextMatch(a, b);
+	return (ReExpr<R>) Expr.create(this, Native.mkReDiff(nCtx(), a.getNativeObject(), b.getNativeObject()));
+    }
+
+
+    /**
      * Create the empty regular expression.
+     * Coresponds to re.none
      */
     public <R extends Sort> ReExpr<R> mkEmptyRe(R s)
     {
@@ -2256,10 +2267,20 @@ public class Context implements AutoCloseable {
 
     /**
      * Create the full regular expression.
+     * Corresponds to re.all
      */
     public <R extends Sort> ReExpr<R> mkFullRe(R s)
     {
         return (ReExpr<R>) Expr.create(this, Native.mkReFull(nCtx(), s.getNativeObject()));
+    }
+
+    /**
+     * Create regular expression that accepts all characters
+     * Corresponds to re.allchar
+     */
+    public <R extends Sort> ReExpr<R> mkAllcharRe(R s)
+    {
+        return (ReExpr<R>) Expr.create(this, Native.mkReAllchar(nCtx(), s.getNativeObject()));
     }
 
     /**

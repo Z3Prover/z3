@@ -2668,6 +2668,17 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create a difference regular expression.
+        /// </summary>
+        public ReExpr MkDiff(ReExpr a, ReExpr b) 
+        {
+            Debug.Assert(a != null);
+            Debug.Assert(b != null);
+            CheckContextMatch(a, b);
+            return new ReExpr(this, Native.Z3_mk_re_diff(nCtx, a.NativeObject, b.NativeObject));
+        }
+
+        /// <summary>
         /// Create the empty regular expression.
         /// The sort s should be a regular expression.
         /// </summary>

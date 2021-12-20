@@ -11065,6 +11065,11 @@ def Range(lo, hi, ctx=None):
     hi = _coerce_seq(hi, ctx)
     return ReRef(Z3_mk_re_range(lo.ctx_ref(), lo.ast, hi.ast), lo.ctx)
 
+def Diff(a, b, ctx=None):
+    """Create the difference regular epression
+    """
+    return ReRef(Z3_mk_re_diff(a.ctx_ref(), a.ast, b.ast), a.ctx)
+
 def AllChar(regex_sort, ctx=None):
     """Create a regular expression that accepts all single character strings
     """

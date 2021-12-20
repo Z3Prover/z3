@@ -1187,6 +1187,9 @@ extern "C" {
             case OP_SEQ_CONTAINS: return Z3_OP_SEQ_CONTAINS;
             case OP_SEQ_EXTRACT: return Z3_OP_SEQ_EXTRACT;
             case OP_SEQ_REPLACE: return Z3_OP_SEQ_REPLACE;
+            case OP_SEQ_REPLACE_RE: return Z3_OP_SEQ_REPLACE_RE;
+            case OP_SEQ_REPLACE_RE_ALL: return Z3_OP_SEQ_REPLACE_RE_ALL;
+            case OP_SEQ_REPLACE_ALL: return Z3_OP_SEQ_REPLACE_ALL;
             case OP_SEQ_AT: return Z3_OP_SEQ_AT;
             case OP_SEQ_NTH: return Z3_OP_SEQ_NTH;
             case OP_SEQ_LENGTH: return Z3_OP_SEQ_LENGTH;
@@ -1220,9 +1223,11 @@ extern "C" {
             case OP_RE_OPTION: return Z3_OP_RE_OPTION;
             case OP_RE_CONCAT: return Z3_OP_RE_CONCAT;
             case OP_RE_UNION: return Z3_OP_RE_UNION;
+            case OP_RE_DIFF: return Z3_OP_RE_DIFF;
+             case OP_RE_POWER: return Z3_OP_RE_POWER;
             case OP_RE_INTERSECT: return Z3_OP_RE_INTERSECT;
             case OP_RE_LOOP: return Z3_OP_RE_LOOP;
-            case OP_RE_FULL_SEQ_SET: return Z3_OP_RE_FULL_SET;
+             case OP_RE_FULL_SEQ_SET: return Z3_OP_RE_FULL_SET;
             //case OP_RE_FULL_CHAR_SET: return Z3_OP_RE_FULL_SET;
             case OP_RE_EMPTY_SET: return Z3_OP_RE_EMPTY_SET;
             default:

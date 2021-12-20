@@ -1192,6 +1192,9 @@ typedef enum {
     Z3_OP_SEQ_CONTAINS,
     Z3_OP_SEQ_EXTRACT,
     Z3_OP_SEQ_REPLACE,
+    Z3_OP_SEQ_REPLACE_RE,
+    Z3_OP_SEQ_REPLACE_RE_ALL,
+    Z3_OP_SEQ_REPLACE_ALL,
     Z3_OP_SEQ_AT,
     Z3_OP_SEQ_NTH,
     Z3_OP_SEQ_LENGTH,
@@ -1216,7 +1219,9 @@ typedef enum {
     Z3_OP_RE_UNION,
     Z3_OP_RE_RANGE,
     Z3_OP_RE_LOOP,
+    Z3_OP_RE_POWER,
     Z3_OP_RE_INTERSECT,
+    Z3_OP_RE_DIFF,
     Z3_OP_RE_EMPTY_SET,
     Z3_OP_RE_FULL_SET,
     Z3_OP_RE_COMPLEMENT,
@@ -3811,6 +3816,13 @@ extern "C" {
        def_API('Z3_mk_re_complement', AST ,(_in(CONTEXT), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_re_complement(Z3_context c, Z3_ast re);
+
+    /**
+       \brief Create the difference of regular expressions.
+
+       def_API('Z3_mk_re_diff', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_re_diff(Z3_context c, Z3_ast re1, Z3_ast re2);
 
     /**
        \brief Create an empty regular expression of sort \c re.
