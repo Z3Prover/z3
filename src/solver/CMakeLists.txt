@@ -6,6 +6,7 @@ z3_add_component(solver
     mus.cpp
     parallel_tactic.cpp
     smt_logics.cpp
+    smtmus.cpp
     solver.cpp
     solver_na2as.cpp
     solver_pool.cpp

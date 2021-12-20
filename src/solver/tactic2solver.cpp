@@ -24,7 +24,6 @@ Notes:
 #include "tactic/tactic.h"
 #include "solver/tactic2solver.h"
 #include "solver/solver_na2as.h"
-#include "solver/mus.h"
 
 /**
    \brief Simulates the incremental solver interface using a tactic.
