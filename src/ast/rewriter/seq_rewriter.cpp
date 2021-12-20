@@ -4956,8 +4956,9 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
     expr_ref_vector conds_range(m());
     flatten_and(cond, conds);
     expr* lhs = nullptr, *rhs = nullptr, *e1 = nullptr; 
-    bool all_ranges = true;
+    bool all_ranges = false;
     if (u().is_char(elem)) {
+        all_ranges = true;
         unsigned ch = 0, ch2 = 0;
         svector<std::pair<unsigned, unsigned>> ranges, ranges1;
         ranges.push_back(std::make_pair(0, u().max_char()));
@@ -5057,8 +5058,10 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
         if (conds.empty())
             // all ranges were removed as trivially true
             cond = m().mk_true();
+        else if (conds.size() == 1)
+            cond = conds.get(0);
         else
-            cond = m().mk_and(conds_range);
+            cond = m().mk_and(conds);
     }
 }
 
