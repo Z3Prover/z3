@@ -27,6 +27,7 @@ Notes:
 #include "smt/params/smt_params_helper.hpp"
 #include "solver/solver_na2as.h"
 #include "solver/mus.h"
+#include "solver/smtmus.h"
 
 namespace {
 
@@ -266,12 +267,28 @@ namespace {
 
             if (!m_minimizing_core && smt_params_helper(get_params()).core_minimize()) {
                 scoped_minimize_core scm(*this);
-                mus mus(*this);
-                mus.add_soft(r.size(), r.data());
-                expr_ref_vector r2(m);
-                if (l_true == mus.get_mus(r2)) {
-                    r.reset();
-                    r.append(r2);
+                bool use_smtmus = false;
+                if (solver::get_params().get_bool("solver.smtmus", false))
+                    use_smtmus = true;
+                if (gparams().get_value("solver.smtmus") == "true")
+                    use_smtmus = true;
+                if (use_smtmus) {
+                    smtmus mus(*this);
+                    mus.add_soft(r.size(), r.data());
+                    expr_ref_vector r2(m);
+                    if (l_true == mus.get_mus(r2)) {
+                        r.reset();
+                        r.append(r2);
+                    }
+                }
+                else {
+                    mus mus(*this);
+                    mus.add_soft(r.size(), r.data());
+                    expr_ref_vector r2(m);
+                    if (l_true == mus.get_mus(r2)) {
+                        r.reset();
+                        r.append(r2);
+                    }
                 }
             }
 
