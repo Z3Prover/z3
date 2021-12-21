@@ -14,7 +14,7 @@ namespace user_propagator {
     
     class context_obj {
     public:
-        virtual ~context_obj() {}
+        virtual ~context_obj() = default;
     };
     
     typedef std::function<void(void*, callback*)> final_eh_t;
@@ -33,11 +33,7 @@ namespace user_propagator {
 
         enum kind_t { OP_USER_PROPAGATE };
 
-        virtual ~plugin() {}
-
-        virtual decl_plugin* mk_fresh() { return alloc(plugin); }
-
-        family_id get_family_id() const { return m_family_id; }
+        decl_plugin* mk_fresh() override { return alloc(plugin); }
 
         sort* mk_sort(decl_kind k, unsigned num_parameters, parameter const* parameters) override {
             UNREACHABLE();
@@ -45,7 +41,7 @@ namespace user_propagator {
         }
 
         func_decl* mk_func_decl(decl_kind k, unsigned num_parameters, parameter const* parameters,
-            unsigned arity, sort* const* domain, sort* range) {
+            unsigned arity, sort* const* domain, sort* range) override {
             UNREACHABLE();
             return nullptr;
         }
