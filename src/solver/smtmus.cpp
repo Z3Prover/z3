@@ -94,19 +94,20 @@ struct smtmus::imp {
         }
     };
 
-    solver& m_solver;
-    solver_ref m_reset_solver;
-    solver* m_main_solver;
+    solver&      m_solver;
+    solver_ref   m_reset_solver;
+    solver*      m_main_solver;
     ast_manager& m;
     arith_util   a;
-    obj_map<expr, unsigned>  m_expr2lit;
-    model_ref                m_model;
-    expr_ref_vector          m_soft;
-    expr_ref_vector          m_hard;
-    vector<expr_ref_vector>  m_soft_clauses;
-    obj_map<expr, func_decl_ref_vector*> m_lit2vars;
-    obj_map<func_decl, unsigned_vector*> m_occurs;
-    obj_map<expr, ineq*>                 m_lit2ineq;
+    model_ref                m_model;                   // latest model, if any.
+    expr_ref_vector          m_soft;                    // original soft clauses or indicators
+    expr_ref_vector          m_hard;                    // hard clauses, soft clauses removed
+    vector<expr_ref_vector>  m_soft_clauses;            // set of soft clauses extracted from indicators
+    obj_hashtable<func_decl> m_soft_vars;               // variables used in soft clauses
+    obj_map<expr, func_decl_ref_vector*> m_lit2vars;    // map from literals in soft clauses to variables
+    obj_map<func_decl, unsigned_vector>  m_soft_occurs; // map from variables to soft clause occurrences
+    obj_map<func_decl, unsigned_vector>  m_hard_occurs; // map from variables to hard clause occurrences
+    obj_map<expr, ineq*>                 m_lit2ineq;    // map from literals to inequality abstraction
 
     unsigned m_rotated = 0;
     unsigned p_max_cores = 30;
@@ -123,12 +124,8 @@ struct smtmus::imp {
         reset();
     }
 
-    unsigned add_soft(expr* lit) {
-        unsigned idx = m_soft.size();
-        m_expr2lit.insert(lit, idx);
+    void add_soft(expr* lit) {
         m_soft.push_back(lit);
-        TRACE("mus", tout << idx << ": " << mk_pp(lit, m) << "\n" << m_soft << "\n";);
-        return idx;
     }
 
     // initialize soft_clauses based on control variables in mus, or if mus already is a clause.
@@ -197,20 +194,34 @@ struct smtmus::imp {
                 tout << "clause " << clause << "\n";);
     }
 
+    void init_occurs(unsigned idx, func_decl* v, obj_map<func_decl, unsigned_vector>& occurs) {
+        if (!occurs.contains(v))
+            occurs.insert(v, unsigned_vector());
+        auto& occ = occurs[v];
+        if (!occ.empty() && occ.back() == idx)
+            return;
+        occ.push_back(idx);
+    }
+
     void init_occurs() {
         unsigned idx = 0;
         for (auto const& clause : m_soft_clauses) {
             for (auto* lit : clause) {
-                auto const& vars = get_vars(lit);
-                for (auto* v : vars) {
-                    if (!m_occurs.contains(v))
-                        m_occurs.insert(v, alloc(unsigned_vector));
-                    auto& occ = *m_occurs[v];
-                    if (!occ.empty() && occ.back() == idx)
-                        continue;
-                    occ.push_back(idx);
+                for (auto* v : get_vars(lit)) {
+                    init_occurs(idx, v, m_soft_occurs);
+                    m_soft_vars.insert(v);
                 }
             }
+            ++idx;
+        }
+        idx = 0;
+        func_decl_ref_vector vars(m);
+        for (auto* fml : m_hard) {
+            vars.reset();
+            extract_vars(fml, vars);
+            for (auto* v : vars)
+                if (m_soft_vars.contains(v))
+                    init_occurs(idx, v, m_hard_occurs);
             ++idx;
         }
     }
@@ -257,7 +268,7 @@ struct smtmus::imp {
                     else
                         basis.push_back(mul(coeff, t));
                 }
-                else if (is_app(t) && m_occurs.contains(to_app(t)->get_decl())) {
+                else if (is_app(t) && m_soft_occurs.contains(to_app(t)->get_decl())) {
                     func_decl* v = to_app(t)->get_decl();
                     coeff1 = 0;
                     e->m_coeffs.find(v, coeff1);
@@ -287,9 +298,9 @@ struct smtmus::imp {
         for (auto& [k, v] : m_lit2vars)
             dealloc(v);
         m_lit2vars.reset();
-        for (auto& [k, v] : m_occurs)
-            dealloc(v);
-        m_occurs.reset();
+        m_soft_vars.reset();
+        m_soft_occurs.reset();
+        m_hard_occurs.reset();
         for (auto& [k, v] : m_lit2ineq)
             dealloc(v);
         m_lit2ineq.reset();
@@ -331,11 +342,12 @@ struct smtmus::imp {
             if (!shrunk[i] || crits[i])
                 continue;
             shrunk[i] = false;
+            unsigned critical_extension_unused_vars = 1;
             switch (solve(shrunk, max_cores > 0, false)) {
             case l_true:
                 shrunk[i] = true;
                 crits[i] = true;
-                unsigned critical_extension_unused_vars = 1;
+                
                 if (p_crit_ext)
                     critical_extension_unused_vars = critical_extension(shrunk, crits, i);
                 if (p_model_rotation && critical_extension_unused_vars > 0)
@@ -451,7 +463,6 @@ struct smtmus::imp {
             expr_ref val(m);
             expr* lit2 = lit;
             m.is_not(lit, lit2);
-
             if (is_app(lit2) && to_app(lit2)->get_decl() == v && mdl.eval(v, val)) {
                 result.push_back(m.mk_bool_val(m.is_false(val)));
                 return result;
@@ -521,19 +532,25 @@ struct smtmus::imp {
 
     bool rotate_get_falsified(bool_vector const& formula, model& mdl, func_decl* f, unsigned& falsified) {
         falsified = UINT_MAX;
-        for (auto i : *m_occurs[f]) {
+        for (auto i : m_soft_occurs[f]) {
             if (formula[i] && !is_true(mdl, m_soft_clauses.get(i))) {
                 if (falsified != UINT_MAX)
                     return false;
                 falsified = i;
             }
         }
-        return falsified != UINT_MAX;
+        if (falsified == UINT_MAX)
+            return false;
+        for (auto i : m_hard_occurs[f])
+            if (!mdl.is_true(m_hard.get(i)))
+                return false;
+
+        return true;
     }
 
     bool is_true(model& mdl, expr_ref_vector const& clause) {        
         for (expr* lit : clause)
-            if (m.is_true(lit))
+            if (mdl.is_true(lit))
                 return true;
         return false;
     }
@@ -556,7 +573,7 @@ struct smtmus::imp {
                     continue;
                 checked_vars.mark(v, true);
                 unsigned_vector hits;
-                for (auto j : *m_occurs[v]) {
+                for (auto j : m_soft_occurs[v]) {
                     if (formula[j] && j != i && (are_conflicting(i, j, v) || m.is_bool(v->get_range())))
                         hits.push_back(j);
                 }
@@ -620,7 +637,7 @@ smtmus::~smtmus() {
 }
 
 unsigned smtmus::add_soft(expr* lit) {
-    return m_imp->add_soft(lit);
+    return m_imp->add_soft(lit), 0;
 }
  
 lbool smtmus::get_mus(expr_ref_vector& mus) {
