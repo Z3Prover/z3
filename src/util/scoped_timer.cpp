@@ -63,12 +63,7 @@ static void thread_func(scoped_timer_state *s) {
 
         while (!s->m_mutex.try_lock_until(end)) {
             if (std::chrono::steady_clock::now() >= end) {
-                scoped_timer_work_state working = WORKING;
-                if (s->work.compare_exchange_strong(working, IDLE)) {
-                    s->eh->operator()(TIMEOUT_EH_CALLER);
-                    workers.lock();
-                    goto start;
-                }
+                s->eh->operator()(TIMEOUT_EH_CALLER);
                 goto next;
             }
         }
@@ -114,14 +109,12 @@ public:
     }
 
     ~imp() {
-        scoped_timer_work_state working = WORKING;
-        bool ret = s->work.compare_exchange_strong(working, IDLE);
         s->m_mutex.unlock();
-        if (!ret) {
-            workers.lock();
-            available_workers.push_back(s);
-            workers.unlock();
-        }
+        while (s->work == WORKING)
+            std::this_thread::yield();
+        workers.lock();
+        available_workers.push_back(s);
+        workers.unlock();
     }
 };
 
