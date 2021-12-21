@@ -3331,7 +3331,7 @@ expr_ref seq_rewriter::mk_regex_union_normalize(expr* r1, expr* r2) {
     SASSERT(m_util.is_re(r2));
     expr_ref result(m());
     std::function<bool(expr*, expr*&, expr*&)> test = [&](expr* t, expr*& a, expr*& b) { return re().is_union(t, a, b); };
-    std::function<expr* (expr*, expr*)> compose = [&](expr* r1, expr* r2) { return re().mk_union(r1, r2); };
+    std::function<expr* (expr*, expr*)> compose = [&](expr* r1, expr* r2) { return (is_subset(r1, r2) ? r2 : (is_subset(r2, r1) ? r1 : re().mk_union(r1, r2))); };
     if (r1 == r2 || re().is_empty(r2) || re().is_full_seq(r1))
         result = r1;
     else if (re().is_empty(r1) || re().is_full_seq(r2))
@@ -3353,7 +3353,7 @@ expr_ref seq_rewriter::mk_regex_inter_normalize(expr* r1, expr* r2) {
     if (re().is_epsilon(r2))
         std::swap(r1, r2);
     std::function<bool(expr*, expr*&, expr*&)> test = [&](expr* t, expr*& a, expr*& b) { return re().is_intersection(t, a, b); };
-    std::function<expr* (expr*, expr*)> compose = [&](expr* r1, expr* r2) { return re().mk_inter(r1, r2); };
+    std::function<expr* (expr*, expr*)> compose = [&](expr* r1, expr* r2) { return (is_subset(r1, r2) ? r1 : (is_subset(r2, r1) ? r2 : re().mk_inter(r1, r2))); };
     if (r1 == r2 || re().is_empty(r1) || re().is_full_seq(r2))
         result = r1;
     else if (re().is_empty(r2) || re().is_full_seq(r1))
@@ -4597,6 +4597,8 @@ bool seq_rewriter::is_subset(expr* r1, expr* r2) const {
         if (r1 == r2)
             return true;
         if (re().is_full_seq(r2))
+            return true;
+        if (re().is_dot_plus(r2) && re().get_info(r1).nullable == l_false)
             return true;
         if (is_concat(r1, ra1, ra2, ra3) &&
             is_concat(r2, rb1, rb2, rb3) && ra1 == rb1 && ra2 == rb2) {
