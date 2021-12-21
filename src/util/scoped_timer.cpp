@@ -51,7 +51,6 @@ static atomic<unsigned> num_workers(0);
 static void thread_func(scoped_timer_state *s) {
     workers.lock();
     while (true) {
-    start:
         s->cv.wait(workers, [=]{ return s->work > IDLE; });
         workers.unlock();
 
@@ -71,8 +70,8 @@ static void thread_func(scoped_timer_state *s) {
         s->m_mutex.unlock();
 
     next:
+        s->work = IDLE;
         workers.lock();
-        available_workers.push_back(s);
     }
 }
 
