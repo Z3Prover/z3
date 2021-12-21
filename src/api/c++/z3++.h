@@ -3799,6 +3799,7 @@ namespace z3 {
     }
     inline expr re_diff(expr const& a, expr const& b) {
         check_context(a, b);
+        context& ctx = a.ctx();
         Z3_ast r = Z3_mk_re_diff(ctx, a, b);
         ctx.check_error();
         return expr(ctx, r);
