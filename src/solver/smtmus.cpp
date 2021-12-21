@@ -342,7 +342,8 @@ struct smtmus::imp {
                     rotate(shrunk, crits, i, *m_model, true);                                
                 break;
             case l_false:
-                --max_cores;
+                if (max_cores > 0)
+                    --max_cores;
                 if (p_use_reset && (count_ones(shrunk) < 0.7 * prev_size)) {
                     reset_solver(shrunk);
                     prev_size = count_ones(shrunk);
