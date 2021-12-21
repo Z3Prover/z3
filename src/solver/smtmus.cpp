@@ -276,6 +276,7 @@ struct smtmus::imp {
     void init() {
         init_soft_clauses();
         init_occurs();
+        init_lit2ineq();
     }
 
     lbool get_mus(expr_ref_vector& mus) {
