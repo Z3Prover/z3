@@ -323,6 +323,8 @@ namespace polysat {
         for (auto si : s.m_search) {
             if (!si.is_boolean())
                 continue;
+            if (si.is_resolved())
+                continue;
             auto dd = s.lit2cnstr(si.lit());
             if (!dd->is_ule())
                 continue;
@@ -346,6 +348,8 @@ namespace polysat {
             return false;
         for (auto si : s.m_search) {
             if (!si.is_boolean())
+                continue;
+            if (si.is_resolved())
                 continue;
             auto dd = s.lit2cnstr(si.lit());
             if (!dd->is_ule())
@@ -379,6 +383,8 @@ namespace polysat {
             return false;
         for (auto si : s.m_search) {
             if (!si.is_boolean())
+                continue;
+            if (si.is_resolved())
                 continue;
             auto dd = s.lit2cnstr(si.lit());
             if (!dd->is_ule())

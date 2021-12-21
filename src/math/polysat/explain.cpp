@@ -49,6 +49,8 @@ namespace polysat {
         for (auto si : s.m_search) {
             if (!si.is_boolean())
                 continue;
+            if (si.is_resolved())
+                continue;
             auto c1 = s.lit2cnstr(si.lit());       
             if (!c1->contains_var(v))
                 continue;

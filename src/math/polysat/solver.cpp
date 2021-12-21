@@ -477,7 +477,8 @@ namespace polysat {
         while (search_it.next()) {
             LOG("search state: " << m_search);
             LOG("Conflict: " << m_conflict);
-            auto const& item = *search_it;
+            auto& item = *search_it;
+            search_it.set_resolved();
             LOG_H2("Working on " << search_item_pp(m_search, item));
             if (item.is_assignment()) {
                 // Resolve over variable assignment

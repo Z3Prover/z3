@@ -32,6 +32,7 @@ namespace polysat {
             pvar m_var;
             sat::literal m_lit;
         };
+        bool m_resolved = false; // when marked as resolved it is no longer valid to reduce the conflict state
 
         search_item(pvar var): m_kind(search_item_k::assignment), m_var(var) {}
         search_item(sat::literal lit): m_kind(search_item_k::boolean), m_lit(lit) {}
@@ -40,9 +41,11 @@ namespace polysat {
         static search_item boolean(sat::literal lit) { return search_item(lit); }
         bool is_assignment() const { return m_kind == search_item_k::assignment; }
         bool is_boolean() const { return m_kind == search_item_k::boolean; }
+        bool is_resolved() const { return m_resolved; }
         search_item_k kind() const { return m_kind; }
         pvar var() const { SASSERT(is_assignment()); return m_var; }
         sat::literal lit() const { SASSERT(is_boolean()); return m_lit; }        
+        void set_resolved() { m_resolved = true; }
     };
 
     class search_state {
@@ -64,6 +67,8 @@ namespace polysat {
         void pop();
 
         void pop_asssignment();
+
+        void set_resolved(unsigned i) { m_items[i].set_resolved(); }
 
         using const_iterator = decltype(m_items)::const_iterator;
         const_iterator begin() const { return m_items.begin(); }
@@ -128,7 +133,11 @@ namespace polysat {
             init();
         }
 
-        search_item const& operator*() const {
+        void set_resolved() {
+            m_search->set_resolved(current);
+        }
+
+        search_item const& operator*() {
             return (*m_search)[current];
         }
 
