@@ -27,7 +27,58 @@ Author:
 
 struct smtmus::imp {
 
-    typedef obj_hashtable<expr> expr_set;
+    enum class ineq_kind { EQ, DE, LE, LT };
+    enum class bound_type { Lower, Upper, Unknown };
+    struct ineq {
+        expr_ref m_base;
+        obj_map<func_decl, rational> m_coeffs;
+        ineq_kind m_kind;
+        ineq(ast_manager& m, ineq_kind k) : m_base(m), m_kind(k) {}
+
+        bound_type get_bound_type(func_decl* v) {
+            SASSERT(m_coeffs.contains(v));
+            auto const& c = m_coeffs[v];
+            if (m_kind == ineq_kind::LE || m_kind == ineq_kind::LT) {
+                if (c > 0)
+                    return bound_type::Lower;
+                if (c < 0)
+                    return bound_type::Upper;
+            }
+            return bound_type::Unknown;
+        }
+
+        rational get_value(model& mdl, arith_util& a, func_decl* v) {
+            rational r;
+            VERIFY(a.is_numeral(mdl(m_base), r));
+            rational value = r;
+            expr_ref val(mdl.get_manager());
+            for (auto& [w, coeff] : m_coeffs)
+                if (v != w && mdl.eval(w, val) && a.is_numeral(val, r))
+                    value += r * coeff;
+            adjust_value(a, v, value);
+            return value;
+        }
+
+        void adjust_value(arith_util& a, func_decl* v, rational& value) {
+            bool is_int = a.is_int(v->get_range());
+            rational coeff = m_coeffs[v];
+            value = value / coeff;
+            if (is_int)
+                value = floor(value);
+            switch (m_kind) {
+            case ineq_kind::LE:
+                break;
+            case ineq_kind::LT:
+                if (is_int)
+                    value += 1;
+                else
+                    value += rational(0.00001);
+                break;
+            default:
+                break;
+            }
+        }
+    };
 
     solver& m_solver;
     ast_manager& m;
@@ -38,6 +89,7 @@ struct smtmus::imp {
     vector<expr_ref_vector>  m_soft_clauses;
     obj_map<expr, func_decl_ref_vector*> m_lit2vars;
     obj_map<func_decl, unsigned_vector*> m_occurs;
+    obj_map<expr, ineq*>                 m_lit2ineq;
 
     unsigned m_rotated = 0;
     unsigned p_max_cores = 30;
@@ -140,6 +192,73 @@ struct smtmus::imp {
         }
     }
 
+    void init_lit2ineq() {
+        for (auto const& [lit, vars] : m_lit2vars)
+            init_lit2ineq(lit);        
+    }
+
+    void init_lit2ineq(expr* lit) {
+        bool is_not = m.is_not(lit, lit);
+        expr* x, * y;
+        auto mul = [&](rational const& coeff, expr* t) -> expr* {
+            if (coeff == 1)
+                return t;
+            return a.mk_mul(a.mk_numeral(coeff, a.is_int(t)), t);
+        };
+        if (a.is_le(lit, x, y) || a.is_lt(lit, x, y) || a.is_ge(lit, y, x) || a.is_gt(lit, y, x)) {
+            if (is_not)
+                std::swap(x, y);
+            bool is_strict = is_not ? (a.is_le(lit) || a.is_ge(lit)) : (a.is_lt(lit) || a.is_gt(lit));
+            auto* e = alloc(ineq, m, is_strict ? ineq_kind::LT : ineq_kind::LE);
+            expr_ref_vector basis(m);
+            rational coeff1;
+            vector<std::pair<rational, expr*>> terms;
+            terms.push_back(std::make_pair(rational::one(), x));
+            terms.push_back(std::make_pair(-rational::one(), y));
+            for (unsigned i = 0; i < terms.size(); ++i) {
+                auto [coeff, t] = terms[i];
+                expr* t1, * t2;
+                if (a.is_add(t)) {
+                    for (expr* arg : *to_app(t))
+                        terms.push_back({ coeff, arg });
+                }
+                else if (a.is_sub(t, t1, t2)) {
+                    terms.push_back({ coeff, t1 });
+                    terms.push_back({ -coeff, t2 });
+                }
+                else if (a.is_mul(t, t1, t2)) {
+                    if (a.is_numeral(t1, coeff1))
+                        terms.push_back({ coeff * coeff1, t2 });
+                    else if (a.is_numeral(t2, coeff1))
+                        terms.push_back({ coeff * coeff1, t1 });
+                    else
+                        basis.push_back(mul(coeff, t));
+                }
+                else if (is_app(t) && m_occurs.contains(to_app(t)->get_decl())) {
+                    func_decl* v = to_app(t)->get_decl();
+                    coeff1 = 0;
+                    e->m_coeffs.find(v, coeff1);
+                    coeff1 += coeff;
+                    if (coeff1 == 0)
+                        e->m_coeffs.remove(v);
+                    else
+                        e->m_coeffs.insert(v, coeff1);
+                }
+                else 
+                    basis.push_back(mul(coeff, t));
+            }
+            if (basis.empty())
+                e->m_base = a.mk_numeral(rational::zero(), a.is_int(x));
+            else
+                e->m_base = a.mk_add(basis);
+            m_lit2ineq.insert(lit, e);
+        }
+        else {
+            // literals that don't correspond to inequalities are associated with null.
+            m_lit2ineq.insert(lit, nullptr);
+        }
+    }
+
     void reset() {
         m_model.reset();
         for (auto& [k, v] : m_lit2vars)
@@ -148,6 +267,9 @@ struct smtmus::imp {
         for (auto& [k, v] : m_occurs)
             dealloc(v);
         m_occurs.reset();
+        for (auto& [k, v] : m_lit2ineq)
+            dealloc(v);
+        m_lit2ineq.reset();
         m_soft_clauses.reset();        
     }
 
@@ -295,12 +417,10 @@ struct smtmus::imp {
         result = rotate_get_eq_flips(lit, v, mdl, limit);
         if (!result.empty())
             return result;
-        result = rotate_get_lia_flips(lit, v, mdl, limit);
+        result = rotate_get_ineq_flips(lit, v, mdl, limit);
         if (!result.empty())
             return result;
-        result = rotate_get_lra_flips(lit, v, mdl, limit);
-        if (!result.empty())
-            return result;
+
         return rotate_get_flips_agnostic(lit, v, mdl, limit);
     }
 
@@ -317,15 +437,19 @@ struct smtmus::imp {
         return flips;
     }
 
-    expr_ref_vector rotate_get_lia_flips(expr* lit, func_decl* v, model& mdl, unsigned limit) {
+    expr_ref_vector rotate_get_ineq_flips(expr* lit, func_decl* v, model& mdl, unsigned limit) {
+        ineq* e = nullptr;
         expr_ref_vector flips(m);
+        if (m_lit2ineq.find(lit, e) && e && e->m_coeffs.contains(v)) {
+            rational coeff = e->m_coeffs[v];
+            rational val = e->get_value(mdl, a, v);
+            bool is_int = a.is_int(v->get_range());
+            SASSERT(!is_int || val.is_int());
+            flips.push_back(a.mk_numeral(val, is_int));
+        }       
         return flips;
     }
 
-    expr_ref_vector rotate_get_lra_flips(expr* lit, func_decl* v, model& mdl, unsigned limit) {
-        expr_ref_vector flips(m);
-        return flips;
-    }
 
     expr_ref_vector rotate_get_flips_agnostic(expr* lit, func_decl* v, model& mdl, unsigned limit) {
         solver_ref s2 = mk_smt2_solver(m, m_solver.get_params());
@@ -402,22 +526,42 @@ struct smtmus::imp {
     }
 
     bool are_conflicting(unsigned i, unsigned j, func_decl* v) {
-        if (!lia_are_conflicting(i, j, v))
+        if (!arith_are_conflicting(i, j, v))
             return false;
-        if (!lra_are_conflicting(i, j, v))
-            return false;
-        // TBD: what is the right default value?
         return true;
     }
 
-    bool lia_are_conflicting(unsigned i, unsigned j, func_decl* v) {
-        NOT_IMPLEMENTED_YET();
-        return true;
-    }
-
-    bool lra_are_conflicting(unsigned i, unsigned j, func_decl* v) {
-        NOT_IMPLEMENTED_YET();
-        return true;
+    bool arith_are_conflicting(unsigned i, unsigned j, func_decl* v) {
+        auto insert_bounds = [&](vector<bound_type>& bounds, expr_ref_vector const& lits) {
+            for (auto* lit : lits) {
+                ineq* e = nullptr;
+                if (!m_lit2ineq.find(lit, e))
+                    return true;
+                if (!e)
+                    return true;
+                if (!e->m_coeffs.contains(v))
+                    continue;
+                auto b = e->get_bound_type(v);
+                if (b == bound_type::Unknown)
+                    return true;
+                bounds.insert(b);
+            }
+            return false;
+        };
+        auto const& litsI = m_soft_clauses[i];
+        auto const& litsJ = m_soft_clauses[j];
+        vector<bound_type> iBounds, jBounds;
+        if (insert_bounds(iBounds, litsI))
+            return true;
+        if (insert_bounds(jBounds, litsJ))
+            return true;
+        for (auto b : iBounds) {
+            if (b == bound_type::Lower && jBounds.contains(bound_type::Upper))
+                return true;
+            if (b == bound_type::Upper && jBounds.contains(bound_type::Lower))
+                return true;
+        }
+        return false;
     }
 };
 
@@ -432,7 +576,6 @@ smtmus::~smtmus() {
 unsigned smtmus::add_soft(expr* lit) {
     return m_imp->add_soft(lit);
 }
-
  
 lbool smtmus::get_mus(expr_ref_vector& mus) {
     return m_imp->get_mus(mus);
