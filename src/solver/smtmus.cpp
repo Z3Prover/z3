@@ -13,6 +13,20 @@ Author:
 
     Jaroslav Bendik, Nikolaj Bjorner (nbjorner) 2021-12-20
 
+Notes:
+
+- hard constraints need to be handled.
+  - we need an occurs index into hard constraints so that rotations can be checked
+    to not violate hard constraints.
+- extraction of soft clauses from hard constraints to be revised, made solid.
+- soundness of core reduction to be checked.
+  - The call to check-sat uses negated soft constraints
+  - In other core reduction code I don't minimize cores if there is a dependency on
+    negated soft constraints.
+- sign of ineq::get_value is probably wrong, 
+  - negate it
+  - check if it works with strict inequalities.
+
 --*/
 
 #include "solver/solver.h"
@@ -305,6 +319,7 @@ struct smtmus::imp {
         for (unsigned i = 0; i < m_soft_clauses.size(); ++i) {
             if (!shrunk[i] || crits[i])
                 continue;
+            // TODO - is prev_size used?
             unsigned prev_size = count_ones(shrunk);
             shrunk[i] = false;
             switch (solve(shrunk, max_cores > 0, false)) {
@@ -322,7 +337,7 @@ struct smtmus::imp {
         }
         return true;
     }
-
+    
     unsigned count_ones(bool_vector const& v) {
         unsigned ones = 0;
         for (auto b : v)
@@ -539,6 +554,8 @@ struct smtmus::imp {
                 if (!m_lit2ineq.find(lit, e))
                     return true;
                 if (!e)
+                    return true;
+                if (!a.is_numeral(e->m_base))
                     return true;
                 if (!e->m_coeffs.contains(v))
                     continue;
