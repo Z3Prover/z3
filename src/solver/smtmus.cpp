@@ -95,11 +95,14 @@ struct smtmus::imp {
     };
 
     solver& m_solver;
+    solver_ref m_reset_solver;
+    solver* m_main_solver;
     ast_manager& m;
     arith_util   a;
     obj_map<expr, unsigned>  m_expr2lit;
     model_ref                m_model;
     expr_ref_vector          m_soft;
+    expr_ref_vector          m_hard;
     vector<expr_ref_vector>  m_soft_clauses;
     obj_map<expr, func_decl_ref_vector*> m_lit2vars;
     obj_map<func_decl, unsigned_vector*> m_occurs;
@@ -109,9 +112,11 @@ struct smtmus::imp {
     unsigned p_max_cores = 30;
     bool     p_crit_ext = false;
     unsigned p_limit = 1;
+    bool     p_model_rotation = true;
+    bool     p_use_reset = false;
 
     imp(solver& s) :
-        m_solver(s), m(s.get_manager()), a(m), m_soft(m)
+        m_solver(s), m_main_solver(&s), m(s.get_manager()), a(m), m_soft(m), m_hard(m)
     {}
 
     ~imp() {
@@ -142,6 +147,7 @@ struct smtmus::imp {
                 expr_ref_vector ors(m);
                 flatten_or(f, ors);
                 unsigned idx = 0;
+                bool is_soft = false;
                 for (expr* e : ors) {
                     expr* s = nullptr;
                     if (m.is_not(e, s) && softs.contains(s)) {
@@ -158,10 +164,13 @@ struct smtmus::imp {
                             lit2clause.insert(s, clauses.size());
                             clauses.push_back(ors);
                         }
+                        is_soft = true;
                         break;
                     }
                     ++idx;
                 }
+                if (!is_soft)
+                    m_hard.push_back(f);
             }
         };
         unsigned cl;
@@ -284,7 +293,8 @@ struct smtmus::imp {
         for (auto& [k, v] : m_lit2ineq)
             dealloc(v);
         m_lit2ineq.reset();
-        m_soft_clauses.reset();        
+        m_soft_clauses.reset();     
+        m_hard.reset();
     }
 
     void init() {
@@ -316,20 +326,27 @@ struct smtmus::imp {
         bool_vector crits(m_soft_clauses.size(), false);
 
         unsigned max_cores = p_max_cores;
+        unsigned prev_size = count_ones(shrunk);
         for (unsigned i = 0; i < m_soft_clauses.size(); ++i) {
             if (!shrunk[i] || crits[i])
                 continue;
-            // TODO - is prev_size used?
-            unsigned prev_size = count_ones(shrunk);
             shrunk[i] = false;
             switch (solve(shrunk, max_cores > 0, false)) {
             case l_true:
                 shrunk[i] = true;
                 crits[i] = true;
-                rotate(shrunk, crits, i, *m_model, true);
+                unsigned critical_extension_unused_vars = 1;
+                if (p_crit_ext)
+                    critical_extension_unused_vars = critical_extension(shrunk, crits, i);
+                if (p_model_rotation && critical_extension_unused_vars > 0)
+                    rotate(shrunk, crits, i, *m_model, true);                                
                 break;
             case l_false:
                 --max_cores;
+                if (p_use_reset && (count_ones(shrunk) < 0.7 * prev_size)) {
+                    reset_solver(shrunk);
+                    prev_size = count_ones(shrunk);
+                }
                 break;
             default:
                 return false;
@@ -345,6 +362,16 @@ struct smtmus::imp {
         return ones;
     }
 
+    void reset_solver(bool_vector const& shrunk) {
+        m_reset_solver = mk_smt2_solver(m, m_solver.get_params());
+        m_main_solver = m_reset_solver.get();        
+        for (unsigned i = 0; i < shrunk.size(); i++)
+            if (shrunk[i] && m_soft.get(i) != m_soft_clauses[i].back())
+                m_main_solver->assert_expr(m.mk_implies(m_soft.get(i), m.mk_or(m_soft_clauses[i])));
+        for (auto* f : m_hard)
+            m_main_solver->assert_expr(f);                               
+    }
+
     lbool solve(bool_vector& formula, bool core, bool grow) {
         expr_ref_vector asms(m);
         obj_map<expr, unsigned> soft2idx;
@@ -355,12 +382,12 @@ struct smtmus::imp {
             soft2idx.insert(s, idx++);
         }
 
-        auto r = m_solver.check_sat(asms);
+        auto r = m_main_solver->check_sat(asms);
         switch (r) {
         case l_false:
             if (!core)
                 break;
-            m_solver.get_unsat_core(cs);
+            m_main_solver->get_unsat_core(cs);
             std::fill(formula.begin(), formula.end(), false);
             for (expr* c : cs) {
                 if (soft2idx.find(c, idx))
@@ -369,7 +396,7 @@ struct smtmus::imp {
             }
             break;
         case l_true:
-            m_solver.get_model(m_model);
+            m_main_solver->get_model(m_model);
             if (!grow) // ignored for mus
                 break;
             break;
