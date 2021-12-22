@@ -264,8 +264,12 @@ void flatten_and(expr_ref_vector& result) {
     expr_fast_mark1 seen;
     for (unsigned i = 0; i < result.size(); ++i) {
         expr* e = result.get(i);
-        if (seen.is_marked(e))
+        if (seen.is_marked(e)) {
+            result[i] = result.back();
+            result.pop_back();
+            --i;
             continue;
+        }
         seen.mark(e);
         pin.push_back(e);
         if (m.is_and(e)) {
@@ -330,8 +334,12 @@ void flatten_or(expr_ref_vector& result) {
     expr_fast_mark1 seen;
     for (unsigned i = 0; i < result.size(); ++i) {
         expr* e = result.get(i);
-        if (seen.is_marked(e))
+        if (seen.is_marked(e)) {
+            result[i] = result.back();
+            result.pop_back();
+            --i;
             continue;
+        }
         seen.mark(e);
         pin.push_back(e);
         if (m.is_or(e)) {
