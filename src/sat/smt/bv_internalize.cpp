@@ -166,6 +166,7 @@ namespace bv {
 #define internalize_pun(F) pun = [&](unsigned sz, expr* const* xs, unsigned p, expr_ref_vector& bits) { m_bb.F(sz, xs, p, bits);}; internalize_par_unary(a, pun);
 #define internalize_nfl(F) ebin = [&](unsigned sz, expr* const* xs, expr* const* ys, expr_ref& out) { m_bb.F(sz, xs, ys, out);}; internalize_novfl(a, ebin);
 #define internalize_int(B, U) ibin = [&](expr* x, expr* y) { return B(x, y); }; iun = [&](expr* x) { return U(x); }; internalize_interp(a, ibin, iun);
+#define if_unary(F) if (a->get_num_args() == 1) { internalize_un(F); break; }
 
         switch (a->get_decl_kind()) {
         case OP_BV_NUM:           internalize_num(a); break;
@@ -190,7 +191,7 @@ namespace bv {
         case OP_BXOR:             internalize_ac(mk_xor); break;
         case OP_BNAND:            internalize_bin(mk_nand); break;
         case OP_BNOR:             internalize_bin(mk_nor); break;
-        case OP_BXNOR:            internalize_bin(mk_xnor); break;
+        case OP_BXNOR:            if_unary(mk_not); internalize_bin(mk_xnor); break;
         case OP_BCOMP:            internalize_bin(mk_comp); break;        
         case OP_SIGN_EXT:         internalize_pun(mk_sign_extend); break;
         case OP_ZERO_EXT:         internalize_pun(mk_zero_extend); break;
