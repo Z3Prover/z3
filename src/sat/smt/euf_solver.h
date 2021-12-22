@@ -185,13 +185,17 @@ namespace euf {
         bool_vector m_relevant_visited;
         ptr_vector<expr> m_relevant_todo;
         void ensure_dual_solver();
-        bool init_relevancy();
-
-
+        bool init_relevancy1();
+        bool init_relevancy2();
+        void relevant_subterms();
+        void init_relevant_expr_ids();
+        void push_relevant(sat::bool_var v);
+        bool is_propagated(sat::literal lit);
         // invariant
         void check_eqc_bool_assignment() const;
         void check_missing_bool_enode_propagation() const;
         void check_missing_eq_propagation() const;
+        
 
         // diagnosis
         std::ostream& display_justification_ptr(std::ostream& out, size_t* j) const;

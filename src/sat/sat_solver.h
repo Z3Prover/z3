@@ -444,9 +444,10 @@ namespace sat {
         void       flush_roots();
         typedef std::pair<literal, literal> bin_clause;
         struct bin_clause_hash { unsigned operator()(bin_clause const& b) const { return b.first.hash() + 2*b.second.hash(); } };
-    protected:
-        watch_list & get_wlist(literal l) { return m_watches[l.index()]; }
-        watch_list const & get_wlist(literal l) const { return m_watches[l.index()]; }
+
+        watch_list const& get_wlist(literal l) const { return m_watches[l.index()]; }
+        watch_list& get_wlist(literal l) { return m_watches[l.index()]; }
+    protected:            
         watch_list & get_wlist(unsigned l_idx) { return m_watches[l_idx]; }
         bool is_marked(bool_var v) const { return m_mark[v]; }
         void mark(bool_var v) { SASSERT(!is_marked(v)); m_mark[v] = true; }

@@ -89,7 +89,7 @@ namespace euf {
         m_dual_solver->track_relevancy(v);
     }
 
-    bool solver::init_relevancy() {
+    bool solver::init_relevancy1() {
         m_relevant_expr_ids.reset();
         if (!relevancy_enabled())
             return true;
@@ -97,31 +97,91 @@ namespace euf {
             return true;
         if (!(*m_dual_solver)(s()))
             return false;
+        init_relevant_expr_ids();
+        
+        for (auto lit : m_dual_solver->core()) 
+            push_relevant(lit.var());
+
+        relevant_subterms();
+
+        return true;
+    }
+
+    void solver::push_relevant(sat::bool_var v) {
+        expr* e = m_bool_var2expr.get(v, nullptr);
+        if (e)
+            m_relevant_todo.push_back(e);
+    }
+
+
+    bool solver::init_relevancy2() {
+        m_relevant_expr_ids.reset();
+        if (!relevancy_enabled())
+            return true;
+        init_relevant_expr_ids();
+        for (unsigned i = 0; i < s().trail_size(); ++i) {
+            sat::literal l = s().trail_literal(i);
+            auto v = l.var();
+            auto j = s().get_justification(v);
+            switch (j.get_kind()) {
+            case sat::justification::kind::BINARY:
+            case sat::justification::kind::TERNARY:
+            case sat::justification::kind::CLAUSE:
+            case sat::justification::kind::EXT_JUSTIFICATION:
+                push_relevant(l.var());
+                break;
+            case sat::justification::kind::NONE: 
+                for (auto const& w : s().get_wlist(~l)) {
+                    if (w.is_binary_non_learned_clause()) {
+                        if (is_propagated(w.get_literal()))
+                            continue;
+                    }
+                    else if (w.is_binary_clause())
+                        continue;
+                    else if (w.is_ternary_clause()) {
+                        if (is_propagated(w.get_literal1()))
+                            continue;
+                        if (is_propagated(w.get_literal2()))
+                            continue;
+                    }
+                    else if (w.is_clause()) {
+                        if (is_propagated(w.get_blocked_literal()))
+                            continue;
+                    }
+                    push_relevant(l.var());
+                    break;
+                }
+                break;            
+            }
+        }
+        relevant_subterms();
+        return true;
+    }
+
+    bool solver::is_propagated(sat::literal lit) {
+        return s().value(lit) == l_true && !s().get_justification(lit.var()).is_none();
+    }
+
+    void solver::init_relevant_expr_ids() {
         unsigned max_id = 0;
         for (enode* n : m_egraph.nodes())
             max_id = std::max(max_id, n->get_expr_id());
         m_relevant_expr_ids.resize(max_id + 1, false);
+        m_relevant_todo.reset();
+        m_relevant_todo.append(m_auto_relevant);
+    }
+
+    void solver::relevant_subterms() {
         ptr_vector<expr>& todo = m_relevant_todo;
         bool_vector& visited = m_relevant_visited;
-        auto const& core = m_dual_solver->core();
-        todo.reset();
-        for (auto lit : core) {
-            expr* e = m_bool_var2expr.get(lit.var(), nullptr);
-            if (e)
-                todo.push_back(e);
-        }
-#if 0
-        std::cout << "init-relevant\n";
-        for (expr* e : m_auto_relevant)
-            std::cout << "auto-relevant " << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
-#endif
-        todo.append(m_auto_relevant);
         for (unsigned i = 0; i < todo.size(); ++i) {
             expr* e = todo[i];
             if (visited.get(e->get_id(), false))
                 continue;
             visited.setx(e->get_id(), true, false);
-            if (!si.is_bool_op(e)) 
+            if (si.is_bool_op(e))
+                continue;
+            else
                 m_relevant_expr_ids.setx(e->get_id(), true, false);
             if (!is_app(e))
                 continue;
@@ -152,8 +212,7 @@ namespace euf {
 
         TRACE("euf",
             for (enode* n : m_egraph.nodes())
-                if (is_relevant(n)) 
+                if (is_relevant(n))
                     tout << "relevant " << n->get_expr_id() << " [r" << n->get_root_id() << "]: " << mk_bounded_pp(n->get_expr(), m) << "\n";);
-              return true;
     }
 }
