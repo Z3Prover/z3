@@ -69,6 +69,8 @@ struct smtmus::imp {
             for (auto& [w, coeff] : m_coeffs)
                 if (v != w && mdl.eval(w, val) && a.is_numeral(val, r))
                     value += r * coeff;
+            value.neg();
+
             adjust_value(a, v, value);
             return value;
         }
@@ -76,17 +78,20 @@ struct smtmus::imp {
         void adjust_value(arith_util& a, func_decl* v, rational& value) {
             bool is_int = a.is_int(v->get_range());
             rational coeff = m_coeffs[v];
+            // coeff * v <= value or coeff * v < value
             value = value / coeff;
-            if (is_int)
-                value = floor(value);
+            // v <= value / v < value or when coeff < 0: v >= value/ v > value
+            bool is_rounded = !value.is_int();
+            if (is_int && is_rounded)
+                value = coeff.is_pos() ? floor(value) : ceil(value);
             switch (m_kind) {
             case ineq_kind::LE:
                 break;
             case ineq_kind::LT:
-                if (is_int)
-                    value += 1;
-                else
-                    value += rational(0.00001);
+                if (!is_int)
+                    value += rational(coeff.is_pos() ? 0.001 : -0.001);
+                else if (!is_rounded)
+                    value += coeff.is_pos() ? -1 : 1;
                 break;
             default:
                 break;
@@ -128,65 +133,96 @@ struct smtmus::imp {
         m_soft.push_back(lit);
     }
 
-    // initialize soft_clauses based on control variables in mus, or if mus already is a clause.
-    void init_soft_clauses() {        
-        obj_map<expr, unsigned> lit2clause;
-        vector<expr_ref_vector> clauses;
-        obj_hashtable<expr> softs;
-        bool initialized = false;
-        auto init_lit2clause = [&]() {
-            if (initialized)
-                return;
-            initialized = true;
-            for (expr* s : m_soft)
-                softs.insert(s);
-            for (auto* f : m_solver.get_assertions()) {
-                expr_ref_vector ors(m);
-                flatten_or(f, ors);
-                unsigned idx = 0;
-                bool is_soft = false;
-                for (expr* e : ors) {
-                    expr* s = nullptr;
-                    if (m.is_not(e, s) && softs.contains(s)) {
-                        ors[idx] = ors.back();
-                        ors.pop_back();
-                        if (lit2clause.find(s, idx)) {
-                            expr_ref cl(m.mk_and(mk_or(clauses[idx]), mk_or(ors)), m);
-                            ors.reset();
-                            ors.push_back(cl);
-                            clauses[idx].reset();
-                            clauses[idx].append(ors);
-                        }
-                        else {
-                            lit2clause.insert(s, clauses.size());
-                            clauses.push_back(ors);
-                        }
-                        is_soft = true;
-                        break;
-                    }
-                    ++idx;
-                }
-                if (!is_soft)
-                    m_hard.push_back(f);
-            }
-        };
-        unsigned cl;
+    void init_soft_clauses() {
+        obj_hashtable<expr> dups;
+        obj_map<expr, unsigned> soft2hard;
+        obj_map<expr, unsigned> softs;
+        u_map<expr*> hard2soft;
+        unsigned idx = 0;
+
+        // initialize hard clauses
+        m_hard.reset();
+        m_hard.append(m_solver.get_assertions());
+
+        // initialize soft clauses.
+        m_soft_clauses.reset();
+        for (expr* s : m_soft)
+            m_soft_clauses.push_back(expr_ref_vector(m, 1, &s));
+
+        // collect indicator variable candidates
         for (expr* s : m_soft) {
-            expr_ref_vector clause(m);
-            if (m.is_or(s)) 
-                clause.append(to_app(s)->get_num_args(), to_app(s)->get_args());            
-            else if (is_uninterp_const(s)) {
-                init_lit2clause();
-                if (lit2clause.find(s, cl))
-                    clause.append(clauses[cl]);
+            if (is_uninterp_const(s)) {
+                if (softs.contains(s))
+                    dups.insert(s);
                 else
-                    clause.push_back(s);
+                    softs.insert(s, idx);
             }
-            else 
-                clause.push_back(s);
-            m_soft_clauses.push_back(clause);
+            ++idx;
+        }
+        for (auto* s : dups)
+            softs.remove(s);
+        if (softs.empty())
+            return;
+
+        // find all clauses where soft indicators are used.
+        idx = 0;
+        for (expr* f : m_hard) {
+            expr_ref_vector ors(m);
+            flatten_or(f, ors);
+            for (expr* e : ors) {
+                expr* s = nullptr;
+                if (m.is_not(e, s) && softs.contains(s)) {
+                    soft2hard.insert(s, idx);
+                    hard2soft.insert(idx, s);
+                    break;
+                }
+            }
+            ++idx;
         }
 
+        // remove hard2soft associations if soft clauses don't occur uniquely.
+        idx = 0;
+        unsigned_vector to_remove;
+        for (expr* f : m_hard) {
+            for (expr* v : subterms::all(expr_ref(f, m))) {
+                unsigned idx2;
+                if (is_uninterp_const(v) && soft2hard.find(v, idx2) && idx != idx2) {
+                    to_remove.push_back(idx2);
+                    to_remove.push_back(idx);
+                }
+            }            
+            ++idx;
+        }
+        for (auto i : to_remove)
+            hard2soft.remove(i);    
+
+        //
+        // update soft clauses using hard clauses.
+        // for soft clause s0 and hard clause ~s0 or lit1 or lit2,
+        // replace s0 by (lit1 or lit2), and replace hard clause by true.
+        //
+        idx = 0;
+        for (auto const& [i, s] : hard2soft) {
+            expr* f = m_hard.get(i);
+            expr_ref_vector ors(m);
+            flatten_or(f, ors);
+            idx = 0;
+            for (expr* e : ors) {
+                unsigned j;
+                expr* s2 = nullptr;
+                if (m.is_not(e, s2) && softs.find(s2, j)) {
+                    ors[idx] = ors.back();
+                    ors.pop_back();
+                    m_soft_clauses[j].reset();
+                    m_soft_clauses[j].append(ors);
+                    break;
+                }
+                ++idx;
+            }
+            SASSERT(idx < ors.size());
+            m_hard[i] = m.mk_true();
+        }
+    
         TRACE("satmus",
             for (expr* s : m_soft)
                 tout << "soft " << mk_pp(s, m) << "\n";
@@ -253,6 +289,7 @@ struct smtmus::imp {
             auto* e = alloc(ineq, m, is_strict ? ineq_kind::LT : ineq_kind::LE);
             expr_ref_vector basis(m);
             rational coeff1;
+            // encode x - y <= 0 or x - y < 0
             vector<std::pair<rational, expr*>> terms;
             terms.push_back(std::make_pair(rational::one(), x));
             terms.push_back(std::make_pair(-rational::one(), y));
@@ -512,7 +549,6 @@ struct smtmus::imp {
         }       
         return flips;
     }
-
 
     expr_ref_vector rotate_get_flips_agnostic(expr* lit, func_decl* v, model& mdl, unsigned limit) {
         solver_ref s2 = mk_smt2_solver(m, m_solver.get_params());
