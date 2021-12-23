@@ -167,7 +167,7 @@ stages:
     - powershell: write-host $(System.TeamProjectId)
       displayName: 'System.TeamProjectId'
     - task: DownloadPipelineArtifact@2
-      displayName: 'Download NWin64 Build'
+      displayName: 'Download Win64 Build'
       inputs:
         artifact: 'WindowsBuild-x64'
         path: $(Agent.TempDirectory)\package
