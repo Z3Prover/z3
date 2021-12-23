@@ -3112,7 +3112,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
         else
             // D(e,r1)r2|(ite (r1nullable) (D(e,r2)) [])
             // observe that (mk_ite_simplify(true, D(e,r2), []) = D(e,r2)
-            result = mk_regex_union_normalize(c1, re().mk_ite_simplify(r1nullable, mk_antimirov_deriv(e, r2, path), nothing()));
+            result = mk_antimirov_deriv_union(c1, re().mk_ite_simplify(r1nullable, mk_antimirov_deriv(e, r2, path), nothing()));
     }
     else if (m().is_ite(r, c, r1, r2)) {
         c1 = simplify_path(e, m().mk_and(c, path));
@@ -3171,7 +3171,7 @@ void seq_rewriter::mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref
             result = re().mk_ite_simplify(range, epsilon(), nothing());
     }
     else if (re().is_union(r, r1, r2))
-        result = mk_regex_union_normalize(mk_antimirov_deriv(e, r1, path), mk_antimirov_deriv(e, r2, path));
+        result = mk_antimirov_deriv_union(mk_antimirov_deriv(e, r1, path), mk_antimirov_deriv(e, r2, path));
     else if (re().is_intersection(r, r1, r2))
         result = mk_antimirov_deriv_intersection(e, 
             mk_antimirov_deriv(e, r1, path),
@@ -3237,11 +3237,11 @@ expr_ref seq_rewriter::mk_antimirov_deriv_intersection(expr* e, expr* d1, expr* 
         result = mk_antimirov_deriv_restrict(e, d2, path);
     else if (re().is_union(d1, a, b))
         // distribute intersection over the union in d1
-        result = mk_regex_union_normalize(mk_antimirov_deriv_intersection(e, a, d2, path),
+        result = mk_antimirov_deriv_union(mk_antimirov_deriv_intersection(e, a, d2, path),
             mk_antimirov_deriv_intersection(e, b, d2, path));
     else if (re().is_union(d2, a, b))
         // distribute intersection over the union in d2
-        result = mk_regex_union_normalize(mk_antimirov_deriv_intersection(e, d1, a, path),
+        result = mk_antimirov_deriv_union(mk_antimirov_deriv_intersection(e, d1, a, path),
             mk_antimirov_deriv_intersection(e, d1, b, path));
     else
         result = mk_regex_inter_normalize(d1, d2);
@@ -3256,7 +3256,7 @@ expr_ref seq_rewriter::mk_antimirov_deriv_concat(expr* d, expr* r) {
     if (m().is_ite(d, c, t, e))
         result = m().mk_ite(c, mk_antimirov_deriv_concat(t, r), mk_antimirov_deriv_concat(e, r));
     else if (re().is_union(d, t, e))
-        result = mk_regex_union_normalize(mk_antimirov_deriv_concat(t, r), mk_antimirov_deriv_concat(e, r));
+        result = mk_antimirov_deriv_union(mk_antimirov_deriv_concat(t, r), mk_antimirov_deriv_concat(e, r));
     else
         result = mk_re_append(d, r);
     return result;
@@ -3284,11 +3284,25 @@ expr_ref seq_rewriter::mk_antimirov_deriv_negate(expr* elem, expr* d) {
     else if (re().is_union(d, t, e))
         result = mk_antimirov_deriv_intersection(elem, mk_antimirov_deriv_negate(elem, t), mk_antimirov_deriv_negate(elem, e), m().mk_true());
     else if (re().is_intersection(d, t, e))
-        result = mk_regex_union_normalize(mk_antimirov_deriv_negate(elem, t), mk_antimirov_deriv_negate(elem, e));
+        result = mk_antimirov_deriv_union(mk_antimirov_deriv_negate(elem, t), mk_antimirov_deriv_negate(elem, e));
     else if (re().is_complement(d, t))
         result = t;
     else
         result = re().mk_complement(d);
+    return result;
+}
+
+expr_ref seq_rewriter::mk_antimirov_deriv_union(expr* d1, expr* d2) {
+    sort* seq_sort = nullptr, * ele_sort = nullptr;
+    VERIFY(m_util.is_re(d1, seq_sort));
+    VERIFY(m_util.is_seq(seq_sort, ele_sort));
+    expr_ref result(m());
+    expr* c1, * t1, * e1, * c2, * t2, * e2;
+    if (m().is_ite(d1, c1, t1, e1) && m().is_ite(d2, c2, t2, e2)  && c1 == c2)
+        // eliminate duplicate branching on exactly the same condition
+        result = m().mk_ite(c1, mk_antimirov_deriv_union(t1, t2), mk_antimirov_deriv_union(e1, e2));
+    else
+        result = mk_regex_union_normalize(d1, d2);
     return result;
 }
 
@@ -3320,7 +3334,7 @@ expr_ref seq_rewriter::mk_antimirov_deriv_restrict(expr* e, expr* d, expr* cond)
     else if (re().is_union(d, a, b)) {
         expr_ref a1(mk_antimirov_deriv_restrict(e, a, cond), m());
         expr_ref b1(mk_antimirov_deriv_restrict(e, b, cond), m());
-        result = mk_regex_union_normalize(a1, b1);
+        result = mk_antimirov_deriv_union(a1, b1);
     }
     return result;
 }
@@ -4586,6 +4600,7 @@ bool seq_rewriter::is_subset(expr* r1, expr* r2) const {
     // return false;
     expr* ra1 = nullptr, *ra2 = nullptr, *ra3 = nullptr;
     expr* rb1 = nullptr, *rb2 = nullptr, *rb3 = nullptr;
+    unsigned la, ua, lb, ub;
     if (re().is_complement(r1, ra1) && 
         re().is_complement(r2, rb1)) {
         return is_subset(rb1, ra1);
@@ -4610,6 +4625,20 @@ bool seq_rewriter::is_subset(expr* r1, expr* r2) const {
             re().is_concat(r2, rb1, rb2) && re().is_full_seq(rb1)) {
             r1 = ra2;
             continue;
+        }
+        // r1=ra3{la,ua}ra2, r2=rb3{lb,ub}rb2, ra3=rb3, lb<=la, ua<=ub
+        if (re().is_concat(r1, ra1, ra2) && re().is_loop(ra1, ra3, la, ua) &&
+            re().is_concat(r2, rb1, rb2) && re().is_loop(rb1, rb3, lb, ub) &&
+            ra3 == rb3 && lb <= la && ua <= ub) {
+            r1 = ra2;
+            r2 = rb2;
+            continue;
+        }
+        // ra1=ra3{la,ua}, r2=rb3{lb,ub}, ra3=rb3, lb<=la, ua<=ub
+        if (re().is_loop(r1, ra3, la, ua) &&
+            re().is_loop(r2, rb3, lb, ub) &&
+            ra3 == rb3 && lb <= la && ua <= ub) {
+            return true;
         }
         return false;
     }
