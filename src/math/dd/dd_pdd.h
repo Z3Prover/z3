@@ -405,7 +405,7 @@ namespace dd {
         bool is_zero() const { return m.is_zero(root); }
         bool is_linear() const { return m.is_linear(root); }
         bool is_var() const { return m.is_var(root); }
-        /** Polynomial is of the form: a * x + b */
+        /** Polynomial is of the form a * x + b for numerals a, b. */
         bool is_unilinear() const { return !is_val() && lo().is_val() && hi().is_val(); }
         bool is_unary() const { return !is_val() && lo().is_zero() && hi().is_val(); } 
         bool is_binary() const { return m.is_binary(root); }

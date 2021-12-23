@@ -47,17 +47,15 @@ namespace polysat {
         fi.coeff = 1;
         fi.src = c;
 
+        // eval(lhs) = a1*v + eval(e1) = a1*v + b1
+        // eval(rhs) = a2*v + eval(e2) = a2*v + b2
+        // We keep the e1, e2 around in case we need side conditions such as e1=b1, e2=b2.
         auto [ok1, a1, e1, b1] = linear_decompose(v, c->to_ule().lhs(), fi.side_cond);
         auto [ok2, a2, e2, b2] = linear_decompose(v, c->to_ule().rhs(), fi.side_cond);
         if (!ok1 || !ok2 || (a1.is_zero() && a2.is_zero()))
             return false;
         SASSERT(b1.is_val());
         SASSERT(b2.is_val());
-
-        // TBD: use fi.coeff = -1 to tell caller to treat it as a diseq_lin.
-        // record a1, a2, b1, b2 for fast access, add non_unit side conditions on b1 = e1, b2 = e2?
-        if (a1 != a2 && !a1.is_zero() && !a2.is_zero())
-            return false;
    
         _backtrack.released = true;
 
@@ -66,6 +64,8 @@ namespace polysat {
         if (match_linear2(c, a1, b1, e1, a2, b2, e2, fi))
             return true;
         if (match_linear3(c, a1, b1, e1, a2, b2, e2, fi))
+            return true;
+        if (match_linear4(c, a1, b1, e1, a2, b2, e2, fi))
             return true;
 
         _backtrack.released = false;
@@ -88,12 +88,16 @@ namespace polysat {
         pdd e = m.zero();
         unsigned const deg = p.degree(v);
         if (deg == 0)
+            // p = 0*v + e
             e = p;
         else if (deg == 1)
+            // p = q*v + e
             p.factor(v, 1, q, e);
         else
             return std::tuple(false, rational(0), q, e);
 
+        // r := eval(q)
+        // Add side constraint q = r.
         if (!q.is_val()) {
             pdd r = q.subst_val(s.assignment());
             if (!r.is_val())
@@ -215,6 +219,30 @@ namespace polysat {
             rational hi_val = (-b1).val();
             fi.coeff = a1;
             fi.interval = to_interval(c, is_trivial, fi.coeff, lo_val, lo, hi_val, hi);
+            add_non_unit_side_conds(fi, b1, e1, b2, e2);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * e1 + t <= e2 + t', with t = a1*y, t' = a2*y, a1 != a2, a1, a2 non-zero
+     */
+    bool forbidden_intervals::match_linear4(signed_constraint const& c,
+        rational const & a1, pdd const& b1, pdd const& e1,
+        rational const & a2, pdd const& b2, pdd const& e2,
+        fi_record& fi) {
+        if (a1 != a2 && !a1.is_zero() && !a2.is_zero()) {
+            // NOTE: we don't have an interval here in the same sense as in the other cases.
+            // We use the interval to smuggle out the values a1,b1,a2,b2 without adding additional fields.
+            // to_interval flips a1,b1 with a2,b2 for negative constraints, which we also need for this case.
+            auto lo = b1;
+            rational lo_val = a1;
+            auto hi = b2;
+            rational hi_val = a2;
+            // We use fi.coeff = -1 to tell the caller to treat it as a diseq_lin.
+            fi.coeff = -1;
+            fi.interval = to_interval(c, false, fi.coeff, lo_val, lo, hi_val, hi);
             add_non_unit_side_conds(fi, b1, e1, b2, e2);
             return true;
         }

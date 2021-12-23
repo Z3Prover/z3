@@ -276,7 +276,67 @@ namespace polysat {
         auto* e = m_diseq_lin[v];
         if (!e)
             return true;
-        LOG("refine-disequal-lin is TBD");
+        entry* first = e;
+        rational const& max_value = s.var2pdd(v).max_value();
+        rational mod_value = max_value + 1;
+
+        do {
+            LOG("refine-disequal-lin for src: " << e->src);
+            // We have:
+            //      a1*v + b1 >  a2*v + b2  if e->src.is_positive()
+            //      a1*v + b1 >= a2*v + b2  if e->src.is_negative()
+            // Note that e->interval is meaningless in this case,
+            // we just use it to transport the values a1,b1,a2,b2.
+            rational const& a1 = e->interval.lo_val();
+            rational const& b1 = e->interval.lo().val();
+            rational const& a2 = e->interval.hi_val();
+            rational const& b2 = e->interval.hi().val();
+            rational lhs = a1 * val + b1;
+            rational rhs = a2 * val + b2;
+
+            auto delta_l = [&](rational const& val) {
+                rational m1 = ceil((rhs + 1) / a2);
+                int corr = e->src.is_negative() ? 1 : 0;
+                rational m3 = (lhs - rhs + corr) / (a1 - a2);
+                if (m3 <= 0)
+                    m3 = m1;  // remove m3 from the minimum
+
+                return std::min(m1, m3) - 1;
+            };
+            auto delta_u = [&](rational const& val) {
+                rational m1 = ceil((mod_value - lhs) / a1);
+                rational m2 = mod_value - val;
+                int corr = e->src.is_negative() ? 1 : 0;
+                rational m3 = (lhs - rhs + corr) / (a2 - a1);
+                if (m3 <= 0)
+                    m3 = m2;  // remove m3 from the minimum
+
+                return std::min(m1, std::min(m2, m3)) - 1;
+            };
+
+            if (lhs > rhs || (e->src.is_negative() && lhs == rhs)) {
+                rational lo = val - delta_l(val);
+                rational hi = val + delta_u(val) + 1;
+
+                // TODO: increase interval
+                LOG("refine-disequal-lin: " << " [" << lo << ", " << hi << "[");
+                // SASSERT(false);
+
+                SASSERT(0 <= lo);
+                SASSERT(hi <= max_value);
+                pdd lop = s.var2pdd(v).mk_val(lo);
+                pdd hip = s.var2pdd(v).mk_val(hi);
+                entry* ne = alloc_entry();
+                ne->src = e->src;
+                ne->side_cond = e->side_cond;
+                ne->coeff = 1;
+                ne->interval = eval_interval::proper(lop, lo, hip, hi);
+                intersect(v, ne);
+                return false;
+            }
+            e = e->next();
+        }
+        while (e != first);
         return true;
     }
 
@@ -313,6 +373,7 @@ namespace polysat {
         }         
         while (e != first);
         return false;
+#undef CHECK_RETURN
     }
 
     bool viable::is_viable(pvar v, rational const& val) { 

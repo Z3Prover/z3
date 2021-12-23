@@ -74,7 +74,8 @@ namespace polysat {
 
         /**
          * update state of viable for pvar v
-         * based on affine constraints
+         * based on affine constraints.
+         * Returns true if the state has been changed.
          */
         bool intersect(pvar v, signed_constraint const& c);
 
