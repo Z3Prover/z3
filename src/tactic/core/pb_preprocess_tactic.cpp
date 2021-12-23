@@ -196,6 +196,8 @@ public:
 
         // now check for subsumption.
         for (unsigned i = 0; i < m_ge.size(); ++i) {
+            if (g->inconsistent())
+                break;
             
             expr_ref_vector args1(m), args2(m);
             vector<rational> coeffs1, coeffs2;        
@@ -209,7 +211,7 @@ public:
             if (!m_vars.contains(to_app(arg))) continue;
             rec const& r = m_vars.find(to_app(arg));
             unsigned_vector const& pos = neg?r.neg:r.pos;
-            for (unsigned j = 0; j < pos.size(); ++j) {
+            for (unsigned j = 0; !g->inconsistent() && j < pos.size(); ++j) {
                 unsigned k = pos[j];
                 if (k == m_ge[i]) continue;
                 if (!to_ge(g->form(k), args2, coeffs2, k2)) continue;
