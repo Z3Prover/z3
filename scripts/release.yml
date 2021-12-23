@@ -313,7 +313,7 @@ stages:
   jobs:
 
   - job: GitHubPublish
-    condition: eq(0,1)
+    condition: eq(1,1)
     displayName: "Publish to GitHub"
     pool:
       vmImage: "windows-latest"
