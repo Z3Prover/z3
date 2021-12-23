@@ -11,6 +11,13 @@ Version 4.8.next
   - introduction of simple induction lemmas to handle a limited repertoire of induction proofs.
 
 
+Version 4.8.14
+==============
+ - fixes Antimirov derivatives for intersections and unions required
+   required for solving non-emptiness constraints.
+ - includes x86 dll in nuget package for Windows.
+ - exposes additional user propagator functionality 
+
 Version 4.8.13
 ==============
 The release integrates various bug fixes and tuning.
