@@ -293,6 +293,7 @@ namespace polysat {
             rational const& b2 = e->interval.hi().val();
             rational lhs = a1 * val + b1;
             rational rhs = a2 * val + b2;
+            SASSERT(a1 != a2 && a1 != 0 && a2 != 0);
 
             auto delta_l = [&](rational const& val) {
                 rational m1 = ceil((rhs + 1) / a2);
@@ -300,6 +301,8 @@ namespace polysat {
                 rational m3 = (lhs - rhs + corr) / (a1 - a2);
                 if (m3 <= 0)
                     m3 = m1;  // remove m3 from the minimum
+                else
+                    m3 = ceil(m3);
 
                 return std::min(m1, m3) - 1;
             };
@@ -310,6 +313,8 @@ namespace polysat {
                 rational m3 = (lhs - rhs + corr) / (a2 - a1);
                 if (m3 <= 0)
                     m3 = m2;  // remove m3 from the minimum
+                else
+                    m3 = ceil(m3);
 
                 return std::min(m1, std::min(m2, m3)) - 1;
             };
@@ -320,7 +325,6 @@ namespace polysat {
 
                 // TODO: increase interval
                 LOG("refine-disequal-lin: " << " [" << lo << ", " << hi << "[");
-                // SASSERT(false);
 
                 SASSERT(0 <= lo);
                 SASSERT(hi <= max_value);
