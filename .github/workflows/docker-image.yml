@@ -28,7 +28,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v3
         with:
-          images: z3prover/z3
+          images: ghcr.io/z3prover/z3
           flavor: |
             latest=auto
             prefix=ubuntu-20.04-bare-z3-
