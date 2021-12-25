@@ -7,15 +7,17 @@ on:
 
 jobs:
   push_to_registry:
-    name: Push Docker image to Docker Hub
+    name: Push Docker image to GitHub Docker registry
     runs-on: ubuntu-latest
+
     steps:
-      - name: Check out the repo
+      - name: Check out the repo        
         uses: actions/checkout@v2
 
-      - name: Log in to Docker Hub
+      - name: Log in to GitHub Docker registry
         uses: docker/login-action@v1
         with:
+          registry: ghcr.io
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
@@ -26,7 +28,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v3
         with:
-          images: deemetree/z3-fork
+          images: z3prover/z3
           flavor: |
             latest=auto
             prefix=ubuntu-20.04-bare-z3-
@@ -51,7 +53,8 @@ jobs:
       - name: Update repo description
         uses: peter-evans/dockerhub-description@v2
         with:
-          repository: deemetree/z3-fork
+          registry: ghcr.io        
+          repository: z3prover/z3
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           short-description: ${{ github.event.repository.description }}
