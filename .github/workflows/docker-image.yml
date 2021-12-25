@@ -55,7 +55,7 @@ jobs:
         with:
           registry: ghcr.io        
           repository: z3prover/z3
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_TOKEN }}
           short-description: ${{ github.event.repository.description }}
           readme-filepath: ./docker/README.md
