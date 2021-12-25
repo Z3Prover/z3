@@ -185,8 +185,7 @@ namespace euf {
         bool_vector m_relevant_visited;
         ptr_vector<expr> m_relevant_todo;
         void ensure_dual_solver();
-        bool init_relevancy1();
-        bool init_relevancy2();
+        bool init_relevancy();
         void relevant_subterms();
         void init_relevant_expr_ids();
         void push_relevant(sat::bool_var v);

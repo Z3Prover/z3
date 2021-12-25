@@ -89,7 +89,7 @@ namespace euf {
         m_dual_solver->track_relevancy(v);
     }
 
-    bool solver::init_relevancy1() {
+    bool solver::init_relevancy() {
         m_relevant_expr_ids.reset();
         if (!relevancy_enabled())
             return true;
@@ -111,51 +111,6 @@ namespace euf {
         expr* e = m_bool_var2expr.get(v, nullptr);
         if (e)
             m_relevant_todo.push_back(e);
-    }
-
-
-    bool solver::init_relevancy2() {
-        m_relevant_expr_ids.reset();
-        if (!relevancy_enabled())
-            return true;
-        init_relevant_expr_ids();
-        for (unsigned i = 0; i < s().trail_size(); ++i) {
-            sat::literal l = s().trail_literal(i);
-            auto v = l.var();
-            auto j = s().get_justification(v);
-            switch (j.get_kind()) {
-            case sat::justification::kind::BINARY:
-            case sat::justification::kind::TERNARY:
-            case sat::justification::kind::CLAUSE:
-            case sat::justification::kind::EXT_JUSTIFICATION:
-                push_relevant(l.var());
-                break;
-            case sat::justification::kind::NONE: 
-                for (auto const& w : s().get_wlist(~l)) {
-                    if (w.is_binary_non_learned_clause()) {
-                        if (is_propagated(w.get_literal()))
-                            continue;
-                    }
-                    else if (w.is_binary_clause())
-                        continue;
-                    else if (w.is_ternary_clause()) {
-                        if (is_propagated(w.get_literal1()))
-                            continue;
-                        if (is_propagated(w.get_literal2()))
-                            continue;
-                    }
-                    else if (w.is_clause()) {
-                        if (is_propagated(w.get_blocked_literal()))
-                            continue;
-                    }
-                    push_relevant(l.var());
-                    break;
-                }
-                break;            
-            }
-        }
-        relevant_subterms();
-        return true;
     }
 
     bool solver::is_propagated(sat::literal lit) {

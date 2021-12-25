@@ -149,6 +149,7 @@ namespace sat {
         if (is_sat == l_true) {
             TRACE("dual", display(s, tout); s.display(tout););
             IF_VERBOSE(0, verbose_stream() << "unexpected SAT\n");
+            IF_VERBOSE(0, display(s, verbose_stream()); s.display(verbose_stream()););
             UNREACHABLE();
             return false;
         }

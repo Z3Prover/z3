@@ -459,7 +459,7 @@ namespace euf {
         if (unit_propagate())
             return sat::check_result::CR_CONTINUE;
 
-        if (!init_relevancy1())
+        if (!init_relevancy())
             give_up = true;
         
         unsigned num_nodes = m_egraph.num_nodes();
