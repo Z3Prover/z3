@@ -2,7 +2,7 @@
 # OS Base image
 # -------------
 # >> Includes system-wide dependencies
-FROM ubuntu:20.04 as lib-base
+FROM ghcr.io/ubuntu:20.04 as lib-base
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get -y --no-install-recommends install \
