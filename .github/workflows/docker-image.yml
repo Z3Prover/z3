@@ -39,8 +39,7 @@ jobs:
             type=sha,prefix=ubuntu-20.04-bare-z3-sha-
       - name: Build and push Bare Z3 Docker Image
         uses: docker/build-push-action@v2.7.0
-        with:
-          registry: ghcr.io     
+        with:  
           context: .
           push: true
           target: bare-z3
