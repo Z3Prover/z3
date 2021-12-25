@@ -269,7 +269,7 @@ namespace fpa {
         expr* xe = e_x->get_expr();
         expr* ye = e_y->get_expr();
 
-        if (m_fpa_util.is_bvwrap(xe) || m_fpa_util.is_bvwrap(ye))
+        if (fu.is_bvwrap(xe) || fu.is_bvwrap(ye))
             return;
 
         expr_ref xc = convert(xe);
