@@ -149,7 +149,7 @@ namespace sat {
             for (literal lit : m_solver.get_core())
                 m_core.push_back(lit2ext(lit));        
         if (is_sat == l_true) {
-            TRACE("dual", display(s, tout); s.display(tout););
+            TRACE("dual", display(tout); s.display(tout););
             IF_VERBOSE(0, verbose_stream() << "unexpected SAT\n");
             IF_VERBOSE(0, verbose_stream() << "assumptions: " << m_lits << "\n");
             IF_VERBOSE(0, display(verbose_stream()); s.display(verbose_stream()););

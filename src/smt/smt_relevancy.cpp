@@ -378,9 +378,7 @@ namespace smt {
                 break;
             case l_true: {
                 expr * true_arg = nullptr;
-                unsigned num_args = n->get_num_args();
-                for (unsigned i = 0; i < num_args; i++) {
-                    expr * arg  = n->get_arg(i);
+                for (expr* arg : *n) {
                     if (m_context.find_assignment(arg) == l_true) {
                         if (is_relevant_core(arg))
                             return;
@@ -402,9 +400,7 @@ namespace smt {
             switch (val) {
             case l_false: {
                 expr * false_arg = nullptr;
-                unsigned num_args = n->get_num_args();
-                for (unsigned i = 0; i < num_args; i++) {
-                    expr * arg  = n->get_arg(i);
+                for (expr* arg : *n) {
                     if (m_context.find_assignment(arg) == l_false) {
                         if (is_relevant_core(arg))
                             return; 
