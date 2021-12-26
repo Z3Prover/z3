@@ -48,14 +48,14 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       # ------------------------------
-      # Repo description on Docker Hub
+      # Repo description on GHCR
       # ------------------------------
-      - name: Update repo description
-        uses: peter-evans/dockerhub-description@v2
-        with:
-          registry: ghcr.io        
-          repository: z3prover/z3
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          short-description: ${{ github.event.repository.description }}
-          readme-filepath: ./docker/README.md
+#      - name: Update repo description
+#        uses: peter-evans/dockerhub-description@v2
+#        with:
+#          registry: ghcr.io        
+#          repository: z3prover/z3
+#          username: ${{ secrets.DOCKER_USERNAME }}
+#          password: ${{ secrets.DOCKER_PASSWORD }}
+#          short-description: ${{ github.event.repository.description }}
+#          readme-filepath: ./docker/README.md
