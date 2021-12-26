@@ -59,7 +59,7 @@ namespace euf {
     void solver::ensure_dual_solver() {
         if (m_dual_solver)
             return;
-        m_dual_solver = alloc(sat::dual_solver, s().rlimit());
+        m_dual_solver = alloc(sat::dual_solver, s(), s().rlimit());
         for (unsigned i = s().num_user_scopes(); i-- > 0; )
             m_dual_solver->push();        
     }
@@ -95,7 +95,7 @@ namespace euf {
             return true;
         if (!m_dual_solver)
             return true;
-        if (!(*m_dual_solver)(s()))
+        if (!(*m_dual_solver)())
             return false;
         init_relevant_expr_ids();
         

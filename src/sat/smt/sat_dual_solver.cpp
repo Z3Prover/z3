@@ -18,7 +18,8 @@ Author:
 
 namespace sat {
 
-    dual_solver::dual_solver(reslimit& l):
+    dual_solver::dual_solver(solver& s, reslimit& l):
+        s(s),
         m_solver(m_params, l)
     {
         SASSERT(!m_solver.get_config().m_drat);
@@ -69,6 +70,7 @@ namespace sat {
         if (null_bool_var == w) {
             w = m_solver.mk_var();
             m_solver.set_external(w);
+            s.set_external(v);
             m_ext2var.setx(v, w, null_bool_var);
             m_var2ext.setx(w, v, null_bool_var);
             m_vars.push_back(v);
@@ -122,7 +124,7 @@ namespace sat {
         m_solver.mk_clause(sz, m_lits.data(), status::input());
     }
 
-    void dual_solver::add_assumptions(solver const& s) {
+    void dual_solver::add_assumptions() {
         flush();
         m_lits.reset();
         for (bool_var v : m_tracked_vars)
@@ -134,14 +136,14 @@ namespace sat {
         }
     }
 
-    bool dual_solver::operator()(solver const& s) {        
+    bool dual_solver::operator()() {        
         m_core.reset();
         m_core.append(m_units);
         if (m_roots.empty())
             return true;
         m_solver.user_push();
         m_solver.add_clause(m_roots.size(), m_roots.data(), status::input());
-        add_assumptions(s);
+        add_assumptions();
         lbool is_sat = m_solver.check(m_lits.size(), m_lits.data());
         if (is_sat == l_false) 
             for (literal lit : m_solver.get_core())
@@ -149,7 +151,8 @@ namespace sat {
         if (is_sat == l_true) {
             TRACE("dual", display(s, tout); s.display(tout););
             IF_VERBOSE(0, verbose_stream() << "unexpected SAT\n");
-            IF_VERBOSE(0, display(s, verbose_stream()); s.display(verbose_stream()););
+            IF_VERBOSE(0, verbose_stream() << "assumptions: " << m_lits << "\n");
+            IF_VERBOSE(0, display(verbose_stream()); s.display(verbose_stream()););
             UNREACHABLE();
             return false;
         }
@@ -158,7 +161,7 @@ namespace sat {
         return is_sat == l_false;
     }
 
-    std::ostream& dual_solver::display(solver const& s, std::ostream& out) const {        
+    std::ostream& dual_solver::display(std::ostream& out) const {        
         for (unsigned v = 0; v < m_solver.num_vars(); ++v) {
             bool_var w = m_var2ext.get(v, null_bool_var);
             if (w == null_bool_var)

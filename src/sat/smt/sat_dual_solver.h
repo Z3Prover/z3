@@ -29,6 +29,7 @@ namespace sat {
                 set_bool("core.minimize", false);
             }
         };
+        solver&         s;
         dual_params     m_params;
         solver          m_solver;
         lim_svector<literal> m_units, m_roots;
@@ -46,14 +47,14 @@ namespace sat {
         literal  ext2lit(literal lit);
         literal  lit2ext(literal lit);
 
-        void add_assumptions(solver const& s);
+        void add_assumptions();
 
-        std::ostream& display(solver const& s, std::ostream& out) const;
+        std::ostream& display(std::ostream& out) const;
 
         void flush();
 
     public:
-        dual_solver(reslimit& l);
+        dual_solver(solver& s, reslimit& l);
         void push();
         void pop(unsigned num_scopes);
 
@@ -76,7 +77,7 @@ namespace sat {
         /*
         * Extract a minimized subset of relevant literals from a model for s.
         */
-        bool operator()(solver const& s);
+        bool operator()();
 
         literal_vector const& core() const { return m_core; }
     };
