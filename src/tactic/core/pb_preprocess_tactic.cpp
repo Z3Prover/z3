@@ -605,7 +605,7 @@ private:
         sub.insert(e, v);
         expr_ref tmp(m);
         m_r.set_substitution(&sub);        
-        for (unsigned i = 0; i < positions.size(); ++i) {
+        for (unsigned i = 0; !g->inconsistent() && i < positions.size(); ++i) {
             unsigned idx = positions[i];
             expr_ref f(m);
             proof_ref new_pr(m);
