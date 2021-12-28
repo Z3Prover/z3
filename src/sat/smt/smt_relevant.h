@@ -143,6 +143,7 @@ namespace smt {
         bool is_relevant(expr* e) const { return !m_enabled || m_relevant_expr_ids.get(e->get_id(), false); }
         
         bool enabled() const { return m_enabled; }
+        void set_enabled(bool e) { m_enabled = e; }
 
         void add_relevant(euf::th_solver* th) { m_relevant_eh.push_back(th); }
     };

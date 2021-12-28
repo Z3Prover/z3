@@ -52,6 +52,7 @@ namespace euf {
         m_values(m)
     {
         updt_params(p);
+        m_relevancy.set_enabled(get_config().m_relevancy_lvl > 2);
 
         std::function<void(std::ostream&, void*)> disp =
             [&](std::ostream& out, void* j) { 
@@ -70,6 +71,7 @@ namespace euf {
 
     void solver::updt_params(params_ref const& p) {
         m_config.updt_params(p);
+        std::cout << get_config().m_relevancy_lvl << "\n";
     }
 
     /**

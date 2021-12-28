@@ -22,7 +22,6 @@ Author:
 namespace smt {
 
     relevancy::relevancy(euf::solver& ctx): ctx(ctx) {
-        m_enabled = ctx.get_config().m_relevancy_lvl > 2;
     }
 
     void relevancy::relevant_eh(euf::enode* n) {
@@ -72,6 +71,9 @@ namespace smt {
             }
             case update::set_root:
                 m_roots[idx] = false;
+                break;
+            case update::set_qhead:
+                m_qhead = idx;
                 break;
             default:
                 UNREACHABLE();
