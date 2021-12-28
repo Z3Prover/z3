@@ -58,6 +58,14 @@ namespace euf {
             display_justification_ptr(out, reinterpret_cast<size_t*>(j)); 
         };
         m_egraph.set_display_justification(disp);
+
+        if (m_relevancy.enabled()) {
+            std::function<void(euf::enode* root, euf::enode* other)> on_merge =
+                [&](enode* root, enode* other) {
+                m_relevancy.merge(root, other);
+            };
+            m_egraph.set_on_merge(on_merge);
+        }
     }
 
     void solver::updt_params(params_ref const& p) {
@@ -244,15 +252,8 @@ namespace euf {
     bool solver::propagate(enode* a, enode* b, ext_justification_idx idx) {
         if (a->get_root() == b->get_root())
             return false;
-        merge(a, b, to_ptr(idx));
+        m_egraph.merge(a, b, to_ptr(idx));
         return true;
-    }
-
-    void solver::merge(enode* a, enode* b, void* r) {
-#if NEW_RELEVANCY
-        m_relevancy.merge(a, b);
-#endif
-        m_egraph.merge(a, b, r);
     }
 
     void solver::get_antecedents(literal l, constraint& j, literal_vector& r, bool probing) {
@@ -294,12 +295,11 @@ namespace euf {
     }
 
     void solver::asserted(literal l) {
-#if NEW_RELEVANCY
-        if (!m_relevancy.is_relevant(l)) {
+        if (m_relevancy.enabled() && !m_relevancy.is_relevant(l)) {
             m_relevancy.asserted(l);
             return;
         }
-#endif
+
         expr* e = m_bool_var2expr.get(l.var(), nullptr);
         TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " := " << mk_bounded_pp(e, m) << "\n";);
         if (!e) 
@@ -320,14 +320,14 @@ namespace euf {
             euf::enode* r = n->get_root();
             euf::enode* rb = sign ? mk_true() : mk_false();
             sat::literal rl(r->bool_var(), r->value() == l_false);
-            merge(n, nb, c);
-            merge(r, rb, to_ptr(rl));
+            m_egraph.merge(n, nb, c);
+            m_egraph.merge(r, rb, to_ptr(rl));
             SASSERT(m_egraph.inconsistent());
             return;
 	    }
         if (n->merge_tf()) {
             euf::enode* nb = sign ? mk_false() : mk_true();
-            merge(n, nb, c);
+            m_egraph.merge(n, nb, c);
         }
         if (n->is_equality()) {
             SASSERT(!m.is_iff(e));
@@ -335,7 +335,7 @@ namespace euf {
             if (sign)
                 m_egraph.new_diseq(n);
             else                 
-                merge(n->get_arg(0), n->get_arg(1), c);            
+                m_egraph.merge(n->get_arg(0), n->get_arg(1), c);            
         }    
     }
 
@@ -343,9 +343,8 @@ namespace euf {
     bool solver::unit_propagate() {
         bool propagated = false;
         while (!s().inconsistent()) {
-#if NEW_RELEVANCY
-            m_relevancy.propagate();
-#endif
+            if (m_relevancy.enabled())
+                m_relevancy.propagate();
             if (m_egraph.inconsistent()) {  
                 unsigned lvl = s().scope_lvl();
                 s().set_conflict(sat::justification::mk_ext_justification(lvl, conflict_constraint().to_index()));
@@ -362,9 +361,13 @@ namespace euf {
                 if (m_solvers[i]->unit_propagate())
                     propagated1 = true;
             
-            if (!propagated1)
-                break;
-            propagated = true;             
+            if (propagated1) {
+                propagated = true;
+                continue;
+            }
+            if (m_relevancy.enabled() && m_relevancy.can_propagate())
+                continue;
+            break;                  
         }
         DEBUG_CODE(if (!propagated && !s().inconsistent()) check_missing_eq_propagation(););
         return propagated;
@@ -439,12 +442,10 @@ namespace euf {
     void solver::propagate_th_eqs() {
         for (; m_egraph.has_th_eq() && !s().inconsistent() && !m_egraph.inconsistent(); m_egraph.next_th_eq()) {
             th_eq eq = m_egraph.get_th_eq();
-            if (eq.is_eq()) {
-                if (!is_self_propagated(eq))
-                    m_id2solver[eq.id()]->new_eq_eh(eq);    
-            }
-            else
+            if (!eq.is_eq())
                 m_id2solver[eq.id()]->new_diseq_eh(eq);
+            else if (!is_self_propagated(eq))
+                m_id2solver[eq.id()]->new_eq_eh(eq);                                
         }
     }
 

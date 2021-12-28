@@ -32,6 +32,7 @@ Notes:
 #include "ast/euf/euf_enode.h"
 #include "ast/euf/euf_etable.h"
 #include "ast/ast_ll_pp.h"
+#include <vector>
 
 namespace euf {
 
@@ -181,7 +182,7 @@ namespace euf {
         enode_vector           m_todo;
         stats                  m_stats;
         bool                   m_uses_congruence = false;
-        std::function<void(enode*,enode*)>     m_on_merge;
+        std::vector<std::function<void(enode*,enode*)>>     m_on_merge;
         std::function<void(enode*)>            m_on_make;
         std::function<void(expr*,expr*,expr*)> m_used_eq;
         std::function<void(app*,app*)>         m_used_cc;  
@@ -293,7 +294,7 @@ namespace euf {
         void set_value(enode* n, lbool value);
         void set_bool_var(enode* n, unsigned v) { n->set_bool_var(v); }
 
-        void set_on_merge(std::function<void(enode* root,enode* other)>& on_merge) { m_on_merge = on_merge; }
+        void set_on_merge(std::function<void(enode* root,enode* other)>& on_merge) { m_on_merge.push_back(on_merge); }
         void set_on_make(std::function<void(enode* n)>& on_make) { m_on_make = on_make; }
         void set_used_eq(std::function<void(expr*,expr*,expr*)>& used_eq) { m_used_eq = used_eq; }
         void set_used_cc(std::function<void(app*,app*)>& used_cc) { m_used_cc = used_cc; }

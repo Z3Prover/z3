@@ -111,6 +111,8 @@ namespace euf {
 
         virtual void new_diseq_eh(euf::th_eq const& eq) {}
 
+        virtual void relevant_eh(euf::enode* n) {}
+
         /**
            \brief Parametric theories (e.g. Arrays) should implement this method.
         */

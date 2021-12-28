@@ -3,7 +3,7 @@ Copyright (c) 2020 Microsoft Corporation
 
 Module Name:
 
-    relevancy.cpp
+    smt_relevant.cpp
 
 Abstract:
 
@@ -22,11 +22,13 @@ Author:
 namespace smt {
 
     relevancy::relevancy(euf::solver& ctx): ctx(ctx) {
-        m_enabled = ctx.relevancy_enabled();
+        m_enabled = ctx.get_config().m_relevancy_lvl > 2;
     }
 
     void relevancy::relevant_eh(euf::enode* n) {
-        // nothing
+        SASSERT(is_relevant(n));
+        for (auto* th : m_relevant_eh)
+            th->relevant_eh(n);
     }
 
     void relevancy::relevant_eh(sat::literal lit) {
@@ -102,8 +104,10 @@ namespace smt {
         m_clauses.push_back(cl);
         m_roots.push_back(true);
         m_trail.push_back(std::make_pair(update::add_clause, 0));
-        for (sat::literal lit : *cl) 
+        for (sat::literal lit : *cl) {
+            ctx.s().set_external(lit.var());
             occurs(lit).push_back(sz);
+        }
     }
     
     void relevancy::add_def(unsigned n, sat::literal const* lits) {
@@ -121,15 +125,17 @@ namespace smt {
         m_clauses.push_back(cl);
         m_roots.push_back(false);
         m_trail.push_back(std::make_pair(update::add_clause, 0));
-        for (sat::literal lit : *cl) 
-            occurs(lit).push_back(sz);        
+        for (sat::literal lit : *cl) {
+            ctx.s().set_external(lit.var());
+            occurs(lit).push_back(sz);
+        }
     }
 
     void relevancy::asserted(sat::literal lit) {
         if (!m_enabled)
             return;
         flush();
-        if (ctx.s().lvl(lit) == 0) {
+        if (ctx.s().lvl(lit) <= ctx.s().search_lvl()) {
             mark_relevant(lit);
             return;
         }
@@ -164,11 +170,11 @@ namespace smt {
         }
     }
 
-    void relevancy::merge(euf::enode* n1, euf::enode* n2) {
-        if (is_relevant(n1))
-            mark_relevant(n2);
-        else if (is_relevant(n2))
-            mark_relevant(n1);
+    void relevancy::merge(euf::enode* root, euf::enode* other) {
+        if (is_relevant(root))
+            mark_relevant(other);
+        else if (is_relevant(other))
+            mark_relevant(root);
     }
     
     void relevancy::mark_relevant(euf::enode* n) {
@@ -177,6 +183,8 @@ namespace smt {
         flush();
         if (is_relevant(n))
             return;
+        if (ctx.get_si().is_bool_op(n->get_expr()))
+            return; 
         for (euf::enode* sib : euf::enode_class(n))
             set_relevant(sib);
     }
@@ -195,12 +203,12 @@ namespace smt {
         flush();
         if (is_relevant(lit))
             return;        
+        euf::enode* n = ctx.bool_var2enode(lit.var());
+        if (n)
+            mark_relevant(n);
         m_relevant_var_ids.setx(lit.var(), true, false);
         m_trail.push_back(std::make_pair(update::relevant_var, lit.var()));
         m_queue.push_back(std::make_pair(lit, nullptr));
-        euf::enode* n = nullptr;
-        if (n)
-            mark_relevant(n);
     }
 
     void relevancy::propagate_relevant(sat::literal lit) {
@@ -208,9 +216,9 @@ namespace smt {
         for (auto idx : occurs(~lit)) {
             if (m_roots[idx])
                 continue;
-            sat::clause& cl = *m_clauses[idx];
+            sat::clause* cl = m_clauses[idx];
             sat::literal true_lit = sat::null_literal;
-            for (sat::literal lit2 : cl) {
+            for (sat::literal lit2 : *cl) {
                 if (ctx.s().value(lit2) == l_true) {
                     if (is_relevant(lit2))
                         goto next;
@@ -231,7 +239,6 @@ namespace smt {
 
     void relevancy::propagate_relevant(euf::enode* n) {
         relevant_eh(n);
-        // if is_bool_op n, return;
         for (euf::enode* arg : euf::enode_args(n))
             mark_relevant(arg);
     }

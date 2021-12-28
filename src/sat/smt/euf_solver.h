@@ -31,7 +31,6 @@ Author:
 #include "sat/smt/smt_relevant.h"
 #include "smt/params/smt_params.h"
 
-#define NEW_RELEVANCY 0
 
 namespace euf {
     typedef sat::literal literal;
@@ -257,6 +256,10 @@ namespace euf {
         sat::sat_internalizer& get_si() { return si; }
         ast_manager& get_manager() { return m; }
         enode* get_enode(expr* e) const { return m_egraph.find(e); }
+        enode* bool_var2enode(sat::bool_var b) const {
+            expr* e = m_bool_var2expr.get(b);
+            return e ? get_enode(e) : nullptr;
+        }
         sat::literal expr2literal(expr* e) const { return enode2literal(get_enode(e)); }
         sat::literal enode2literal(enode* n) const { return sat::literal(n->bool_var(), false); }
         lbool value(enode* n) const { return s().value(enode2literal(n)); }
@@ -293,7 +296,6 @@ namespace euf {
 
         void propagate(literal lit, ext_justification_idx idx);
         bool propagate(enode* a, enode* b, ext_justification_idx idx);
-        void merge(enode* a, enode* b, void* r);
         void set_conflict(ext_justification_idx idx);
 
         void propagate(literal lit, th_explain* p) { propagate(lit, p->to_index()); }
@@ -395,7 +397,7 @@ namespace euf {
         void add_auto_relevant(sat::literal lit);
         void pop_relevant(unsigned n);
         void push_relevant();
-
+        smt::relevancy& relevancy() { return m_relevancy; }
 
         // model construction
         void update_model(model_ref& mdl);

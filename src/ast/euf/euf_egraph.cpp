@@ -446,8 +446,8 @@ namespace euf {
         r2->inc_class_size(r1->class_size());   
         merge_th_eq(r1, r2);
         reinsert_parents(r1, r2);
-        if (m_on_merge)
-            m_on_merge(r2, r1);
+        for (auto& cb : m_on_merge)
+            cb(r2, r1);
     }
 
     void egraph::remove_parents(enode* r1, enode* r2) {

@@ -66,11 +66,19 @@ namespace q {
         };
         std::function<void(euf::enode*)> _on_make = 
             [&](euf::enode* n) {
-            m_mam->add_node(n, false);
+            relevant_eh(n);
+
         };
         ctx.get_egraph().set_on_merge(_on_merge);
-        ctx.get_egraph().set_on_make(_on_make);
+        if (ctx.relevancy().enabled())
+            ctx.get_egraph().set_on_make(_on_make);
+        else
+            ctx.relevancy().add_relevant(&s);
         m_mam = mam::mk(ctx, *this);
+    }
+
+    void ematch::relevant_eh(euf::enode* n) {
+        m_mam->add_node(n, false);
     }
 
     void ematch::ensure_ground_enodes(expr* e) {

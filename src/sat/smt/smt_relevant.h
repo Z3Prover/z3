@@ -3,7 +3,7 @@ Copyright (c) 2020 Microsoft Corporation
 
 Module Name:
 
-    relevancy.h
+    smt_relevant.h
 
 Abstract:
 
@@ -26,7 +26,7 @@ The state transitions are:
   ->
   lit is set relevant
 
-  lit is justified at level 0
+  lit is justified at search level
   -> 
   lit is set relevant
 
@@ -39,7 +39,7 @@ The state transitions are:
   -> 
   all clauses C in Defs where lit appears negatively are added to Roots
 
- - When a clause R is added to Roots:
+- When a clause R is added to Roots:
   R contains a positive literal lit that is relevant
   ->
   skip adding R to Roots
@@ -72,7 +72,7 @@ Can a literal that is not in a root be set relevant?
  - yes, if we propagate over expressions
 
 Do we need full watch lists instead of 2-watch lists?
- - probably, but unclear. The dual SAT solver only uses 2-watch lists, but has uses a large clause for tracking 
+ - probably, but unclear. The dual SAT solver only uses 2-watch lists, but uses a large clause for tracking 
    roots.
 
 
@@ -105,6 +105,7 @@ namespace smt {
         vector<unsigned_vector>              m_occurs;            // where do literals occur
         unsigned                             m_qhead = 0;         // queue head for relevancy
         svector<std::pair<sat::literal, euf::enode*>> m_queue;    // propagation queue for relevancy
+        ptr_vector<euf::th_solver>          m_relevant_eh;
 
         // callbacks during propagation
         void relevant_eh(euf::enode* n);
@@ -131,6 +132,7 @@ namespace smt {
         void add_def(unsigned n, sat::literal const* lits);
         void asserted(sat::literal lit);
         void propagate();
+        bool can_propagate() const { return m_qhead < m_queue.size(); }
 
         void mark_relevant(euf::enode* n);
         void mark_relevant(sat::literal lit);
@@ -139,6 +141,9 @@ namespace smt {
         bool is_relevant(sat::literal lit) const { return !m_enabled || m_relevant_var_ids.get(lit.var(), false); }
         bool is_relevant(euf::enode* n) const { return !m_enabled || m_relevant_expr_ids.get(n->get_expr_id(), false); }
         bool is_relevant(expr* e) const { return !m_enabled || m_relevant_expr_ids.get(e->get_id(), false); }
-               
+        
+        bool enabled() const { return m_enabled; }
+
+        void add_relevant(euf::th_solver* th) { m_relevant_eh.push_back(th); }
     };
 }
