@@ -22,16 +22,25 @@ Author:
 
 namespace euf {
 
-    void solver::add_auto_relevant(expr* e) {
+    void solver::add_auto_relevant(sat::literal lit) {
+#if NEW_RELEVANCY
+        m_relevancy.mark_relevant(lit);
+        return;
+#endif
         if (!relevancy_enabled())
             return;
         for (; m_auto_relevant_scopes > 0; --m_auto_relevant_scopes) 
             m_auto_relevant_lim.push_back(m_auto_relevant.size());
         // std::cout << "add-auto " << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
+        expr* e = bool_var2expr(lit.var());
         m_auto_relevant.push_back(e);
     }
     
     void solver::pop_relevant(unsigned n) {
+#if NEW_RELEVANCY
+        m_relevancy.pop(n);
+        return;
+#endif
         if (m_auto_relevant_scopes >= n) {
             m_auto_relevant_scopes -= n;
             return;
@@ -45,18 +54,31 @@ namespace euf {
     }
     
     void solver::push_relevant() {
+#if NEW_RELEVANCY
+        m_relevancy.push();
+        return;
+#endif
         ++m_auto_relevant_scopes;
     }
 
     bool solver::is_relevant(expr* e) const { 
+#if NEW_RELEVANCY
+        return m_relevancy.is_relevant(e);
+#endif
         return m_relevant_expr_ids.get(e->get_id(), true); 
     }
 
     bool solver::is_relevant(enode* n) const { 
+#if NEW_RELEVANCY
+        return m_relevancy.is_relevant(n);
+#endif
         return m_relevant_expr_ids.get(n->get_expr_id(), true); 
     }
 
     void solver::ensure_dual_solver() {
+#if NEW_RELEVANCY
+        return;
+#endif
         if (m_dual_solver)
             return;
         m_dual_solver = alloc(sat::dual_solver, s(), s().rlimit());
@@ -71,6 +93,10 @@ namespace euf {
      * not tracked.
      */
     void solver::add_root(unsigned n, sat::literal const* lits) {
+#if NEW_RELEVANCY
+        m_relevancy.add_root(n, lits);
+        return;
+#endif
         if (!relevancy_enabled())
             return;
         ensure_dual_solver();
@@ -78,6 +104,10 @@ namespace euf {
     }
 
     void solver::add_aux(unsigned n, sat::literal const* lits) {
+#if NEW_RELEVANCY
+        m_relevancy.add_def(n, lits);
+        return;
+#endif
         if (!relevancy_enabled())
             return;
         ensure_dual_solver();
@@ -85,11 +115,17 @@ namespace euf {
     }
 
     void solver::track_relevancy(sat::bool_var v) {
+#if NEW_RELEVANCY
+        return;
+#endif
         ensure_dual_solver();
         m_dual_solver->track_relevancy(v);
     }
 
     bool solver::init_relevancy() {
+#if NEW_RELEVANCY
+        return true;
+#endif
         m_relevant_expr_ids.reset();
         if (!relevancy_enabled())
             return true;
@@ -108,16 +144,19 @@ namespace euf {
     }
 
     void solver::push_relevant(sat::bool_var v) {
+        SASSERT(!NEW_RELEVANCY);
         expr* e = m_bool_var2expr.get(v, nullptr);
         if (e)
             m_relevant_todo.push_back(e);
     }
 
     bool solver::is_propagated(sat::literal lit) {
+        SASSERT(!NEW_RELEVANCY);
         return s().value(lit) == l_true && !s().get_justification(lit.var()).is_none();
     }
 
     void solver::init_relevant_expr_ids() {
+        SASSERT(!NEW_RELEVANCY);
         unsigned max_id = 0;
         for (enode* n : m_egraph.nodes())
             max_id = std::max(max_id, n->get_expr_id());
@@ -127,6 +166,7 @@ namespace euf {
     }
 
     void solver::relevant_subterms() {
+        SASSERT(!NEW_RELEVANCY);
         ptr_vector<expr>& todo = m_relevant_todo;
         bool_vector& visited = m_relevant_visited;
         for (unsigned i = 0; i < todo.size(); ++i) {

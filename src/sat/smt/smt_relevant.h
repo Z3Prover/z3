@@ -129,11 +129,12 @@ namespace smt {
 
         void add_root(unsigned n, sat::literal const* lits);
         void add_def(unsigned n, sat::literal const* lits);
-        void assign(sat::literal lit);
+        void asserted(sat::literal lit);
         void propagate();
 
         void mark_relevant(euf::enode* n);
         void mark_relevant(sat::literal lit);
+        void merge(euf::enode* n1, euf::enode* n2);
 
         bool is_relevant(sat::literal lit) const { return !m_enabled || m_relevant_var_ids.get(lit.var(), false); }
         bool is_relevant(euf::enode* n) const { return !m_enabled || m_relevant_expr_ids.get(n->get_expr_id(), false); }

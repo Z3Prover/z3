@@ -28,7 +28,10 @@ Author:
 #include "sat/smt/sat_dual_solver.h"
 #include "sat/smt/euf_ackerman.h"
 #include "sat/smt/user_solver.h"
+#include "sat/smt/smt_relevant.h"
 #include "smt/params/smt_params.h"
+
+#define NEW_RELEVANCY 0
 
 namespace euf {
     typedef sat::literal literal;
@@ -91,6 +94,7 @@ namespace euf {
         std::function<::solver*(void)>   m_mk_solver;
         ast_manager&                     m;
         sat::sat_internalizer& si;
+        smt::relevancy         m_relevancy;
         smt_params             m_config;
         euf::egraph            m_egraph;
         trail_stack            m_trail;
@@ -289,6 +293,7 @@ namespace euf {
 
         void propagate(literal lit, ext_justification_idx idx);
         bool propagate(enode* a, enode* b, ext_justification_idx idx);
+        void merge(enode* a, enode* b, void* r);
         void set_conflict(ext_justification_idx idx);
 
         void propagate(literal lit, th_explain* p) { propagate(lit, p->to_index()); }
@@ -367,14 +372,14 @@ namespace euf {
         bool is_shared(euf::enode* n) const;
 
         // relevancy
-        bool m_relevancy = true;
+        bool m_relevancy_enabled = true;
         scoped_ptr<sat::dual_solver>  m_dual_solver;
         ptr_vector<expr>              m_auto_relevant;
         unsigned_vector               m_auto_relevant_lim;
         unsigned                      m_auto_relevant_scopes = 0;
 
-        bool relevancy_enabled() const { return m_relevancy && get_config().m_relevancy_lvl > 0; }
-        void disable_relevancy(expr* e) { IF_VERBOSE(0, verbose_stream() << "disabling relevancy " << mk_pp(e, m) << "\n"); m_relevancy = false;  }
+        bool relevancy_enabled() const { return m_relevancy_enabled && get_config().m_relevancy_lvl > 0; }
+        void disable_relevancy(expr* e) { IF_VERBOSE(0, verbose_stream() << "disabling relevancy " << mk_pp(e, m) << "\n"); m_relevancy_enabled = false;  }
         void add_root(unsigned n, sat::literal const* lits);
         void add_root(sat::literal_vector const& lits) { add_root(lits.size(), lits.data()); }
         void add_root(sat::literal lit) { add_root(1, &lit); }
@@ -387,7 +392,7 @@ namespace euf {
         void track_relevancy(sat::bool_var v);
         bool is_relevant(expr* e) const;
         bool is_relevant(enode* n) const;
-        void add_auto_relevant(expr* e);
+        void add_auto_relevant(sat::literal lit);
         void pop_relevant(unsigned n);
         void push_relevant();
 

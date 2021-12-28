@@ -40,7 +40,7 @@ z3_add_component(sat_smt
     recfun_solver.cpp
     sat_dual_solver.cpp
     sat_th.cpp
-    smt_relevancy.cpp
+    smt_relevant.cpp
     user_solver.cpp
   COMPONENT_DEPENDENCIES
     sat

@@ -41,6 +41,7 @@ namespace euf {
         extension(symbol("euf"), m.mk_family_id("euf")),
         m(m),
         si(si),
+        m_relevancy(*this),
         m_egraph(m),
         m_trail(),
         m_rewriter(m),
@@ -183,7 +184,7 @@ namespace euf {
     }
 
     void solver::propagate(literal lit, ext_justification_idx idx) {
-        add_auto_relevant(bool_var2expr(lit.var()));
+        add_auto_relevant(lit);
         s().assign(lit, sat::justification::mk_ext_justification(s().scope_lvl(), idx));
     }
 
@@ -243,8 +244,15 @@ namespace euf {
     bool solver::propagate(enode* a, enode* b, ext_justification_idx idx) {
         if (a->get_root() == b->get_root())
             return false;
-        m_egraph.merge(a, b, to_ptr(idx));
+        merge(a, b, to_ptr(idx));
         return true;
+    }
+
+    void solver::merge(enode* a, enode* b, void* r) {
+#if NEW_RELEVANCY
+        m_relevancy.merge(a, b);
+#endif
+        m_egraph.merge(a, b, r);
     }
 
     void solver::get_antecedents(literal l, constraint& j, literal_vector& r, bool probing) {
@@ -286,6 +294,12 @@ namespace euf {
     }
 
     void solver::asserted(literal l) {
+#if NEW_RELEVANCY
+        if (!m_relevancy.is_relevant(l)) {
+            m_relevancy.asserted(l);
+            return;
+        }
+#endif
         expr* e = m_bool_var2expr.get(l.var(), nullptr);
         TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " := " << mk_bounded_pp(e, m) << "\n";);
         if (!e) 
@@ -306,14 +320,14 @@ namespace euf {
             euf::enode* r = n->get_root();
             euf::enode* rb = sign ? mk_true() : mk_false();
             sat::literal rl(r->bool_var(), r->value() == l_false);
-            m_egraph.merge(n, nb, c);
-            m_egraph.merge(r, rb, to_ptr(rl));
+            merge(n, nb, c);
+            merge(r, rb, to_ptr(rl));
             SASSERT(m_egraph.inconsistent());
             return;
 	    }
         if (n->merge_tf()) {
             euf::enode* nb = sign ? mk_false() : mk_true();
-            m_egraph.merge(n, nb, c);
+            merge(n, nb, c);
         }
         if (n->is_equality()) {
             SASSERT(!m.is_iff(e));
@@ -321,7 +335,7 @@ namespace euf {
             if (sign)
                 m_egraph.new_diseq(n);
             else                 
-                m_egraph.merge(n->get_arg(0), n->get_arg(1), c);            
+                merge(n->get_arg(0), n->get_arg(1), c);            
         }    
     }
 
@@ -329,6 +343,9 @@ namespace euf {
     bool solver::unit_propagate() {
         bool propagated = false;
         while (!s().inconsistent()) {
+#if NEW_RELEVANCY
+            m_relevancy.propagate();
+#endif
             if (m_egraph.inconsistent()) {  
                 unsigned lvl = s().scope_lvl();
                 s().set_conflict(sat::justification::mk_ext_justification(lvl, conflict_constraint().to_index()));

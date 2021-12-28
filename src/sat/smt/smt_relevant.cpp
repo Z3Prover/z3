@@ -13,12 +13,10 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2021-12-27
 
-
-
 --*/
 #include "sat/sat_solver.h"
 #include "sat/smt/euf_solver.h"
-#include "sat/smt/smt_relevancy.h"
+#include "sat/smt/smt_relevant.h"
 
 
 namespace smt {
@@ -28,11 +26,13 @@ namespace smt {
     }
 
     void relevancy::relevant_eh(euf::enode* n) {
-        // callback into ctx.
+        // nothing
     }
 
     void relevancy::relevant_eh(sat::literal lit) {
-        // callback into ctx.
+        SASSERT(ctx.s().value(lit) == l_true);
+        SASSERT(is_relevant(lit));
+        ctx.asserted(lit);
     }
     
     void relevancy::pop(unsigned n) {
@@ -97,12 +97,12 @@ namespace smt {
             return;
         }
 
-        sat::clause cl = *m_alloc.mk_clause(n, lits, false);
+        sat::clause* cl = m_alloc.mk_clause(n, lits, false);
         unsigned sz = m_clauses.size();
-        m_clauses.push_back(&cl);
+        m_clauses.push_back(cl);
         m_roots.push_back(true);
         m_trail.push_back(std::make_pair(update::add_clause, 0));
-        for (sat::literal lit : cl) 
+        for (sat::literal lit : *cl) 
             occurs(lit).push_back(sz);
     }
     
@@ -116,16 +116,16 @@ namespace smt {
                 return;
             }
         }
-        sat::clause cl = *m_alloc.mk_clause(n, lits, false);
+        sat::clause* cl = m_alloc.mk_clause(n, lits, false);
         unsigned sz = m_clauses.size();
-        m_clauses.push_back(&cl);
+        m_clauses.push_back(cl);
         m_roots.push_back(false);
         m_trail.push_back(std::make_pair(update::add_clause, 0));
-        for (sat::literal lit : cl) 
+        for (sat::literal lit : *cl) 
             occurs(lit).push_back(sz);        
     }
 
-    void relevancy::assign(sat::literal lit) {
+    void relevancy::asserted(sat::literal lit) {
         if (!m_enabled)
             return;
         flush();
@@ -163,6 +163,13 @@ namespace smt {
                 propagate_relevant(lit);            
         }
     }
+
+    void relevancy::merge(euf::enode* n1, euf::enode* n2) {
+        if (is_relevant(n1))
+            mark_relevant(n2);
+        else if (is_relevant(n2))
+            mark_relevant(n1);
+    }
     
     void relevancy::mark_relevant(euf::enode* n) {
         if (!m_enabled)
@@ -187,10 +194,13 @@ namespace smt {
             return;
         flush();
         if (is_relevant(lit))
-            return;
+            return;        
         m_relevant_var_ids.setx(lit.var(), true, false);
         m_trail.push_back(std::make_pair(update::relevant_var, lit.var()));
         m_queue.push_back(std::make_pair(lit, nullptr));
+        euf::enode* n = nullptr;
+        if (n)
+            mark_relevant(n);
     }
 
     void relevancy::propagate_relevant(sat::literal lit) {
@@ -221,6 +231,7 @@ namespace smt {
 
     void relevancy::propagate_relevant(euf::enode* n) {
         relevant_eh(n);
+        // if is_bool_op n, return;
         for (euf::enode* arg : euf::enode_args(n))
             mark_relevant(arg);
     }
