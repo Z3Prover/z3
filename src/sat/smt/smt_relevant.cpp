@@ -61,7 +61,7 @@ namespace smt {
             case update::add_clause: {
                 sat::clause* c = m_clauses.back();
                 for (sat::literal lit : *c) {
-                    SASSERT(m_occurs[lit.index()] == m_clauses.size() - 1);
+                    SASSERT(m_occurs[lit.index()].back() == m_clauses.size() - 1);
                     m_occurs[lit.index()].pop_back();
                 }
                 m_clauses.pop_back();

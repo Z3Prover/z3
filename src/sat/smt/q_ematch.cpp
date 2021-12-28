@@ -589,7 +589,7 @@ namespace q {
             return m_inst_queue.propagate() || propagated;
         ctx.push(value_trail<unsigned>(m_qhead));
         ptr_buffer<binding> to_remove;
-        for (; m_qhead < m_clause_queue.size(); ++m_qhead) {
+        for (; m_qhead < m_clause_queue.size() && m.inc(); ++m_qhead) {
             unsigned idx = m_clause_queue[m_qhead];
             clause& c = *m_clauses[idx];
             binding* b = c.m_bindings;

@@ -813,7 +813,7 @@ namespace euf {
         out << "bool-vars\n";
         for (unsigned v : m_var_trail) {
             expr* e = m_bool_var2expr[v];
-            out << v << ": " << e->get_id() << " " << m_solver->value(v) << " " << mk_bounded_pp(e, m, 1) << "\n";        
+            out << v << (is_relevant(v)?"":"n") << ": " << e->get_id() << " " << m_solver->value(v) << " " << mk_bounded_pp(e, m, 1) << "\n";        
         }
         for (auto* e : m_solvers)
             e->display(out);

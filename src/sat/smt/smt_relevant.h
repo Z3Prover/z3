@@ -19,6 +19,21 @@ Clauses are split into two parts:
 - Roots
 - Defs
 
+The goal is to establish a labeling of literals as "relevant" such that
+- the set of relevant literals satisfies Roots
+- there is a set of blocked literals that can be used to satisfy the clauses in Defs
+  independent of their real assignment.
+
+The idea is that the Defs clauses are obtained from Tseitin transformation so they can be
+grouped by the blocked literal that was used to introduce them.
+For example, when clausifying (and a b) we have the clauses
+(=> (and a b) a)
+(=> (and a b) b)
+(or (not a) (not b) (and a b))
+then the literal for "(and a b)" is blocked.
+And recursively for clauses introduced for a, b if they use a Boolean connectives
+at top level.
+
 The state transitions are:
 
 - A literal lit is assigned:
@@ -37,7 +52,7 @@ The state transitions are:
 
 - A lit is set relevant:
   -> 
-  all clauses C in Defs where lit appears negatively are added to Roots
+  all clauses D in Defs where lit appears negatively are added to Roots
 
 - When a clause R is added to Roots:
   R contains a positive literal lit that is relevant
@@ -49,10 +64,10 @@ The state transitions are:
   ->
   lit is set relevant 
 
-- When a clause C is added to Defs:
-  C contains a negative literal that is relevant
+- When a clause D is added to Defs:
+  D contains a negative literal that is relevant
   -> 
-  Add C to Roots
+  Add D to Roots
 
 - When an expression is set relevant:
   All non-relevant children above Boolean connectives are set relevant
@@ -138,7 +153,8 @@ namespace smt {
         void mark_relevant(sat::literal lit);
         void merge(euf::enode* n1, euf::enode* n2);
 
-        bool is_relevant(sat::literal lit) const { return !m_enabled || m_relevant_var_ids.get(lit.var(), false); }
+        bool is_relevant(sat::bool_var v) const { return !m_enabled || m_relevant_var_ids.get(v, false); }
+        bool is_relevant(sat::literal lit) const { return is_relevant(lit.var()); }
         bool is_relevant(euf::enode* n) const { return !m_enabled || m_relevant_expr_ids.get(n->get_expr_id(), false); }
         bool is_relevant(expr* e) const { return !m_enabled || m_relevant_expr_ids.get(e->get_id(), false); }
         

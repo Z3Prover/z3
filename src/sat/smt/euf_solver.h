@@ -257,7 +257,7 @@ namespace euf {
         ast_manager& get_manager() { return m; }
         enode* get_enode(expr* e) const { return m_egraph.find(e); }
         enode* bool_var2enode(sat::bool_var b) const {
-            expr* e = m_bool_var2expr.get(b);
+            expr* e = m_bool_var2expr.get(b, nullptr);
             return e ? get_enode(e) : nullptr;
         }
         sat::literal expr2literal(expr* e) const { return enode2literal(get_enode(e)); }
@@ -394,6 +394,7 @@ namespace euf {
         void track_relevancy(sat::bool_var v);
         bool is_relevant(expr* e) const;
         bool is_relevant(enode* n) const;
+        bool is_relevant(bool_var v) const;
         void add_auto_relevant(sat::literal lit);
         void pop_relevant(unsigned n);
         void push_relevant();

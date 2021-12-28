@@ -73,6 +73,13 @@ namespace euf {
         return m_relevant_expr_ids.get(n->get_expr_id(), true); 
     }
 
+    bool solver::is_relevant(bool_var v) const {
+        if (m_relevancy.enabled())
+            return m_relevancy.is_relevant(v);
+        expr* e = bool_var2expr(v);
+        return !e || is_relevant(e);
+    }
+
     void solver::ensure_dual_solver() {
         if (m_relevancy.enabled())
             return;
