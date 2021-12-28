@@ -71,7 +71,6 @@ namespace euf {
 
     void solver::updt_params(params_ref const& p) {
         m_config.updt_params(p);
-        std::cout << get_config().m_relevancy_lvl << "\n";
     }
 
     /**
