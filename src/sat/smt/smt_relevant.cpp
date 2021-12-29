@@ -215,6 +215,9 @@ namespace smt {
 
     void relevancy::propagate_relevant(sat::literal lit) {
         relevant_eh(lit);
+        euf::enode* n = ctx.bool_var2enode(lit.var());
+        if (n && !ctx.get_si().is_bool_op(n->get_expr()))
+            return;
         for (auto idx : occurs(~lit)) {
             if (m_roots[idx])
                 continue;

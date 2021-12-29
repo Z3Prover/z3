@@ -479,7 +479,7 @@ namespace euf {
             return sat::check_result::CR_CONTINUE;
 
         if (!init_relevancy())
-            give_up = true;
+            give_up = true;    
         
         unsigned num_nodes = m_egraph.num_nodes();
         auto apply_solver = [&](th_solver* e) {
