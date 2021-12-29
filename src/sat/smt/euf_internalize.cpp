@@ -162,10 +162,8 @@ namespace euf {
             sat::literal lit2 = literal(v, false);
             s().mk_clause(~lit, lit2, sat::status::th(m_is_redundant, m.get_basic_family_id()));
             s().mk_clause(lit, ~lit2, sat::status::th(m_is_redundant, m.get_basic_family_id()));
-            if (relevancy_enabled()) {
-                add_aux(~lit, lit2);
-                add_aux(lit, ~lit2);
-            }
+            add_aux(~lit, lit2);
+            add_aux(lit, ~lit2);
             lit = lit2;
         }
 
@@ -225,8 +223,7 @@ namespace euf {
                 }
             }
             s().mk_clause(lits, st);
-            if (relevancy_enabled())
-                add_root(lits);
+            add_root(lits);
         }
         else {
             // g(f(x_i)) = x_i
@@ -251,8 +248,7 @@ namespace euf {
             expr_ref at_least2(pb.mk_at_least_k(eqs.size(), eqs.data(), 2), m);
             sat::literal lit = si.internalize(at_least2, m_is_redundant);
             s().mk_clause(1, &lit, st);
-            if (relevancy_enabled())
-                add_root(1, &lit);
+            add_root(1, &lit);
         }
     }
 
@@ -269,8 +265,7 @@ namespace euf {
                     expr_ref eq = mk_eq(args[i]->get_expr(), args[j]->get_expr());
                     sat::literal lit = ~mk_literal(eq);
                     s().add_clause(1, &lit, st);
-                    if (relevancy_enabled())
-                        add_root(1, &lit);
+                    add_root(1, &lit);
                 }
             }
         }
@@ -288,8 +283,7 @@ namespace euf {
                 expr_ref eq = mk_eq(fapp, fresh);
                 sat::literal lit = mk_literal(eq);
                 s().add_clause(1, &lit, st);
-                if (relevancy_enabled())
-                    add_root(1, &lit);
+                add_root(1, &lit);
             }
         }
     }

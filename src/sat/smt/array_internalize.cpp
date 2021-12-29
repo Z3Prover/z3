@@ -124,7 +124,7 @@ namespace array {
             mk_var(n);
         for (auto* arg : euf::enode_args(n))
             ensure_var(arg);  
-        if (ctx.is_relevant(n))
+        if (ctx.is_relevant(n) || !ctx.relevancy().enabled())
             relevant_eh(n);
         return true;
     }

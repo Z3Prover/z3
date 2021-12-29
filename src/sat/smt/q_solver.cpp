@@ -44,19 +44,16 @@ namespace q {
         if (l.sign() == is_forall(e)) {
             sat::literal lit = skolemize(q);
             add_clause(~l, lit);
-            ctx.add_root(~l, lit);
         }
         else if (expand(q)) {
             for (expr* e : m_expanded) {
                 sat::literal lit = ctx.internalize(e, l.sign(), false, false);
                 add_clause(~l, lit);
-                ctx.add_root(~l, lit);
             }
         }
         else if (is_ground(q->get_expr())) {
             auto lit = ctx.internalize(q->get_expr(), l.sign(), false, false);
             add_clause(~l, lit);
-            ctx.add_root(~l, lit);
         }
         else {
             ctx.push_vec(m_universal, l);

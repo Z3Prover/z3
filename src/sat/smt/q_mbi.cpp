@@ -71,7 +71,6 @@ namespace q {
             euf::solver::scoped_generation sg(ctx, generation + 1);
             sat::literal lit = ctx.mk_literal(fml);
             m_qs.add_clause(~qlit, ~lit);
-            ctx.add_root(~qlit, ~lit);
         }
         m_instantiations.reset();
         return result;
