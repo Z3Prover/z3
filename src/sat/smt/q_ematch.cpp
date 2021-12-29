@@ -66,8 +66,7 @@ namespace q {
         };
         std::function<void(euf::enode*)> _on_make = 
             [&](euf::enode* n) {
-            relevant_eh(n);
-
+            m_mam->add_node(n, false);
         };
         ctx.get_egraph().set_on_merge(_on_merge);
         if (!ctx.relevancy().enabled())
