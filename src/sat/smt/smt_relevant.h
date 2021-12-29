@@ -120,7 +120,6 @@ namespace smt {
         vector<unsigned_vector>              m_occurs;            // where do literals occur
         unsigned                             m_qhead = 0;         // queue head for relevancy
         svector<std::pair<sat::literal, euf::enode*>> m_queue;    // propagation queue for relevancy
-        ptr_vector<euf::th_solver>          m_relevant_eh;
 
         // callbacks during propagation
         void relevant_eh(euf::enode* n);
@@ -160,7 +159,5 @@ namespace smt {
         
         bool enabled() const { return m_enabled; }
         void set_enabled(bool e) { m_enabled = e; }
-
-        void add_relevant(euf::th_solver* th) { m_relevant_eh.push_back(th); }
     };
 }

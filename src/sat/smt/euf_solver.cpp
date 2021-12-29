@@ -739,6 +739,16 @@ namespace euf {
         }
     }
 
+    void solver::relevant_eh(euf::enode* n) {
+        if (m_qsolver)
+            m_qsolver->relevant_eh(n);
+        for (auto thv : enode_th_vars(n)) {
+            auto* th = m_id2solver.get(thv.get_id(), nullptr);
+            if (th && th != m_qsolver)
+                th->relevant_eh(n);
+        }       
+    }
+
     void solver::pre_simplify() {
         for (auto* e : m_solvers)
             e->pre_simplify();

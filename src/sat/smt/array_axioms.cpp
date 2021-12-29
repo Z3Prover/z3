@@ -539,6 +539,8 @@ namespace array {
             if (!d.m_prop_upward)
                 continue;
             euf::enode* n = var2enode(v);
+            if (!ctx.is_relevant(n))
+                continue;
             if (add_as_array_eqs(n))
                 change = true;
             bool has_default = false;
@@ -567,6 +569,8 @@ namespace array {
             return false;
         for (unsigned i = 0; i < ctx.get_egraph().enodes_of(f).size(); ++i) {
             euf::enode* p = ctx.get_egraph().enodes_of(f)[i];
+            if (!ctx.is_relevant(p))
+                continue;
             expr_ref_vector select(m);
             select.push_back(n->get_expr());
             for (expr* arg : *to_app(p->get_expr()))
@@ -615,7 +619,9 @@ namespace array {
             euf::enode * n = var2enode(i);
             
             if (!is_array(n)) 
-                continue;            
+                continue;
+            if (!ctx.is_relevant(n))
+                continue;
             euf::enode * r = n->get_root();
             if (r->is_marked1()) 
                 continue;            

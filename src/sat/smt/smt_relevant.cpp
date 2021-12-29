@@ -26,8 +26,7 @@ namespace smt {
 
     void relevancy::relevant_eh(euf::enode* n) {
         SASSERT(is_relevant(n));
-        for (auto* th : m_relevant_eh)
-            th->relevant_eh(n);
+        ctx.relevant_eh(n);
     }
 
     void relevancy::relevant_eh(sat::literal lit) {

@@ -398,6 +398,7 @@ namespace euf {
         void add_auto_relevant(sat::literal lit);
         void pop_relevant(unsigned n);
         void push_relevant();
+        void relevant_eh(euf::enode* n);
         smt::relevancy& relevancy() { return m_relevancy; }
 
         // model construction

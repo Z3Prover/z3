@@ -124,40 +124,49 @@ namespace array {
             mk_var(n);
         for (auto* arg : euf::enode_args(n))
             ensure_var(arg);  
-        switch (a->get_decl_kind()) {
-        case OP_STORE:           
-            internalize_store(n); 
+        if (ctx.is_relevant(n))
+            relevant_eh(n);
+        return true;
+    }
+
+    void solver::relevant_eh(euf::enode* n) {
+        if (!is_app(n->get_expr()))
+            return;
+        if (n->get_decl()->get_family_id() != a.get_family_id())
+            return;
+        switch (n->get_decl()->get_decl_kind()) {
+        case OP_STORE:
+            internalize_store(n);
             break;
-        case OP_SELECT:          
-            internalize_select(n); 
+        case OP_SELECT:
+            internalize_select(n);
             break;
         case OP_AS_ARRAY:
-        case OP_CONST_ARRAY:     
-            internalize_lambda(n); 
+        case OP_CONST_ARRAY:
+            internalize_lambda(n);
             break;
-        case OP_ARRAY_EXT:       
-            internalize_ext(n); 
+        case OP_ARRAY_EXT:
+            internalize_ext(n);
             break;
-        case OP_ARRAY_DEFAULT:   
-            internalize_default(n); 
+        case OP_ARRAY_DEFAULT:
+            internalize_default(n);
             break;
-        case OP_ARRAY_MAP:       
-            internalize_map(n); 
+        case OP_ARRAY_MAP:
+            internalize_map(n);
             break;
-        case OP_SET_UNION:       
-        case OP_SET_INTERSECT:   
-        case OP_SET_DIFFERENCE:  
-        case OP_SET_COMPLEMENT:  
-        case OP_SET_SUBSET:      
-        case OP_SET_HAS_SIZE:    
-        case OP_SET_CARD:        
-            ctx.unhandled_function(a->get_decl()); 
+        case OP_SET_UNION:
+        case OP_SET_INTERSECT:
+        case OP_SET_DIFFERENCE:
+        case OP_SET_COMPLEMENT:
+        case OP_SET_SUBSET:
+        case OP_SET_HAS_SIZE:
+        case OP_SET_CARD:
+            ctx.unhandled_function(n->get_decl());
             break;
         default:
             UNREACHABLE();
-            break;            
+            break;
         }
-        return true;
     }
 
     /**
