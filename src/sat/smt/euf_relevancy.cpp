@@ -31,7 +31,6 @@ namespace euf {
             return;
         for (; m_auto_relevant_scopes > 0; --m_auto_relevant_scopes) 
             m_auto_relevant_lim.push_back(m_auto_relevant.size());
-        // std::cout << "add-auto " << e->get_id() << " " << mk_bounded_pp(e, m) << "\n";
         expr* e = bool_var2expr(lit.var());
         m_auto_relevant.push_back(e);
     }
@@ -61,12 +60,6 @@ namespace euf {
         ++m_auto_relevant_scopes;
     }
 
-    bool solver::is_relevant(expr* e) const { 
-        if (m_relevancy.enabled())
-            return m_relevancy.is_relevant(e);
-        return m_relevant_expr_ids.get(e->get_id(), true); 
-    }
-
     bool solver::is_relevant(enode* n) const { 
         if (m_relevancy.enabled())
             return m_relevancy.is_relevant(n);
@@ -76,7 +69,7 @@ namespace euf {
     bool solver::is_relevant(bool_var v) const {
         if (m_relevancy.enabled())
             return m_relevancy.is_relevant(v);
-        expr* e = bool_var2expr(v);
+        auto* e = bool_var2enode(v);
         return !e || is_relevant(e);
     }
 

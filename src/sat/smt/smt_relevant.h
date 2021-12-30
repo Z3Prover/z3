@@ -106,13 +106,12 @@ namespace smt {
     class relevancy {
         euf::solver&         ctx;
 
-        enum class update { relevant_expr, relevant_var, add_clause, set_root, set_qhead };
+        enum class update { relevant_var, add_clause, set_root, set_qhead };
        
         bool                                 m_enabled = false;
         svector<std::pair<update, unsigned>> m_trail;
         unsigned_vector                      m_lim;
         unsigned                             m_num_scopes = 0;
-        bool_vector                          m_relevant_expr_ids; // identifiers of relevant expressions
         bool_vector                          m_relevant_var_ids;  // identifiers of relevant Boolean variables
         sat::clause_allocator                m_alloc;
         sat::clause_vector                   m_clauses;           // clauses
@@ -154,10 +153,9 @@ namespace smt {
 
         bool is_relevant(sat::bool_var v) const { return !m_enabled || m_relevant_var_ids.get(v, false); }
         bool is_relevant(sat::literal lit) const { return is_relevant(lit.var()); }
-        bool is_relevant(euf::enode* n) const { return !m_enabled || m_relevant_expr_ids.get(n->get_expr_id(), false); }
-        bool is_relevant(expr* e) const { return !m_enabled || m_relevant_expr_ids.get(e->get_id(), false); }
+        bool is_relevant(euf::enode* n) const { return !m_enabled || n->is_relevant(); }
         
         bool enabled() const { return m_enabled; }
-        void set_enabled(bool e) { m_enabled = e; }
+        void set_enabled(bool e);
     };
 }

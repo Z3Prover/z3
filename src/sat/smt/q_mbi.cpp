@@ -51,7 +51,7 @@ namespace q {
         m_instantiations.reset();
         for (sat::literal lit : m_qs.m_universal) {
             quantifier* q = to_quantifier(ctx.bool_var2expr(lit.var()));
-            if (!ctx.is_relevant(q))
+            if (!ctx.is_relevant(lit.var()))
                 continue;
             init_model();
             switch (check_forall(q)) {

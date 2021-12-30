@@ -49,10 +49,6 @@ namespace smt {
         for (unsigned i = m_trail.size(); i-- > sz; ) {
             auto [u, idx] = m_trail[i];
             switch (u) {
-            case update::relevant_expr:
-                m_relevant_expr_ids[idx] = false;
-                m_queue.pop_back();
-                break;
             case update::relevant_var:
                 m_relevant_var_ids[idx] = false;
                 m_queue.pop_back();
@@ -191,10 +187,9 @@ namespace smt {
     }
 
     void relevancy::set_relevant(euf::enode* n) {
-        if (is_relevant(n))
+        if (n->is_relevant())
             return;
-        m_relevant_expr_ids.setx(n->get_expr_id(), true, false);
-        m_trail.push_back(std::make_pair(update::relevant_expr, n->get_expr_id()));
+        ctx.get_egraph().set_relevant(n);
         m_queue.push_back(std::make_pair(sat::null_literal, n));
     }
 
@@ -245,6 +240,11 @@ namespace smt {
         relevant_eh(n);
         for (euf::enode* arg : euf::enode_args(n))
             mark_relevant(arg);
+    }
+
+    void relevancy::set_enabled(bool e) {
+        m_enabled = e;
+        ctx.get_egraph().set_default_relevant(!e);
     }
 
 }

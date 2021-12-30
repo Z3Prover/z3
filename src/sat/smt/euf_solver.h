@@ -392,7 +392,6 @@ namespace euf {
         void add_aux(sat::literal a, sat::literal b) { sat::literal lits[2] = {a, b}; add_aux(2, lits); } 
         void add_aux(sat::literal a, sat::literal b, sat::literal c) { sat::literal lits[3] = { a, b, c }; add_aux(3, lits); }
         void track_relevancy(sat::bool_var v);
-        bool is_relevant(expr* e) const;
         bool is_relevant(enode* n) const;
         bool is_relevant(bool_var v) const;
         void add_auto_relevant(sat::literal lit);

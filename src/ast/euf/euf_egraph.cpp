@@ -25,6 +25,8 @@ namespace euf {
 
     enode* egraph::mk_enode(expr* f, unsigned generation, unsigned num_args, enode * const* args) {
         enode* n = enode::mk(m_region, f, generation, num_args, args);
+        if (m_default_relevant)
+            n->set_relevant(true);
         m_nodes.push_back(n);
         m_exprs.push_back(f);
         if (is_app(f) && num_args > 0) {
@@ -269,6 +271,13 @@ namespace euf {
         }
     }
 
+    void egraph::set_relevant(enode* n) {
+        if (n->is_relevant())
+            return;
+        n->set_relevant(true);
+        m_updates.push_back(update_record(n, update_record::set_relevant()));
+    }
+
     void egraph::toggle_merge_enabled(enode* n, bool backtracking) {
        bool enable_merge = !n->merge_enabled();
        n->set_merge_enabled(enable_merge);         
@@ -379,6 +388,10 @@ namespace euf {
                 break;
             case update_record::tag_t::is_lbl_set:
                 p.r1->m_lbls.set(p.m_lbls);
+                break;
+            case update_record::tag_t::is_set_relevant:
+                SASSERT(p.r1->is_relevant());
+                p.r1->set_relevant(false);
                 break;
             case update_record::tag_t::is_update_children:
                 for (unsigned i = 0; i < p.r1->num_args(); ++i) {

@@ -66,7 +66,7 @@ namespace q {
         ptr_vector<quantifier> univ;
         for (sat::literal lit : m_qs.universal()) {
             quantifier* q = to_quantifier(ctx.bool_var2expr(lit.var()));
-            if (ctx.is_relevant(q))
+            if (ctx.is_relevant(lit.var()))
                 univ.push_back(q);
         }
         if (univ.empty())
