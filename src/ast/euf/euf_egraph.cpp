@@ -767,6 +767,8 @@ namespace euf {
     }
 
     std::ostream& egraph::display(std::ostream& out, unsigned max_args, enode* n) const {
+        if (!n->is_relevant())
+            out << "n";
         out << "#" << n->get_expr_id() << " := ";
         expr* f = n->get_expr();
         if (is_app(f))

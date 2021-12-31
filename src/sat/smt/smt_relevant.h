@@ -106,7 +106,7 @@ namespace smt {
     class relevancy {
         euf::solver&         ctx;
 
-        enum class update { relevant_var, add_clause, set_root, set_qhead };
+        enum class update { relevant_var, relevant_node, add_clause, set_root, set_qhead };
        
         bool                                 m_enabled = false;
         svector<std::pair<update, unsigned>> m_trail;
@@ -119,6 +119,7 @@ namespace smt {
         vector<unsigned_vector>              m_occurs;            // where do literals occur
         unsigned                             m_qhead = 0;         // queue head for relevancy
         svector<std::pair<sat::literal, euf::enode*>> m_queue;    // propagation queue for relevancy
+        euf::enode_vector                    m_stack;
 
         // callbacks during propagation
         void relevant_eh(euf::enode* n);
@@ -132,8 +133,6 @@ namespace smt {
         void propagate_relevant(sat::literal lit);
 
         void propagate_relevant(euf::enode* n);
-
-        void set_relevant(euf::enode* n);
 
     public:
         relevancy(euf::solver& ctx);

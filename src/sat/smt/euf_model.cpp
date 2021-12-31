@@ -271,6 +271,8 @@ namespace euf {
 
     void solver::display_validation_failure(std::ostream& out, model& mdl, enode* n) {
         out << "Failed to validate " << n->bool_var() << " " << bpp(n) << " " << mdl(n->get_expr()) << "\n";
+        s().display(out);
+        return;
         euf::enode_vector nodes;
         nodes.push_back(n);
         for (unsigned i = 0; i < nodes.size(); ++i) {
@@ -289,7 +291,6 @@ namespace euf {
         for (euf::enode* r : nodes)
             r->unmark1();
         out << mdl << "\n";
-        s().display(out);
     }
 
     void solver::validate_model(model& mdl) {
@@ -322,6 +323,8 @@ namespace euf {
             IF_VERBOSE(0, display_validation_failure(verbose_stream(), mdl, n););
             CTRACE("euf", first, display_validation_failure(tout, mdl, n););
             (void)first;
+            first = false;
+            return;
             exit(1);
             first = false;
         }        

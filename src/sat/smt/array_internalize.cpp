@@ -58,6 +58,7 @@ namespace array {
     }
 
     void solver::internalize_store(euf::enode* n) {
+        //std::cout << "store th-var " << n->get_th_var(get_id()) << "\n";
         add_parent_lambda(n->get_arg(0)->get_th_var(get_id()), n);   
         push_axiom(store_axiom(n));
         add_lambda(n->get_th_var(get_id()), n);
@@ -71,7 +72,7 @@ namespace array {
         }
         push_axiom(default_axiom(n));
         add_lambda(n->get_th_var(get_id()), n);
-        SASSERT(!get_var_data(n->get_th_var(get_id())).m_prop_upward);
+        //SASSERT(!get_var_data(n->get_th_var(get_id())).m_prop_upward);
     }
 
     void solver::internalize_lambda(euf::enode* n) {

@@ -30,9 +30,17 @@ namespace smt {
     }
 
     void relevancy::relevant_eh(sat::literal lit) {
-        SASSERT(ctx.s().value(lit) == l_true);
         SASSERT(is_relevant(lit));
-        ctx.asserted(lit);
+        switch (ctx.s().value(lit)) {
+        case l_true:
+            ctx.asserted(lit);
+            break;
+        case l_false:
+            ctx.asserted(~lit);
+            break;
+        default:
+            break;
+        }
     }
     
     void relevancy::pop(unsigned n) {
@@ -51,6 +59,9 @@ namespace smt {
             switch (u) {
             case update::relevant_var:
                 m_relevant_var_ids[idx] = false;
+                m_queue.pop_back();
+                break;
+            case update::relevant_node:
                 m_queue.pop_back();
                 break;
             case update::add_clause: {
@@ -182,14 +193,7 @@ namespace smt {
             return;
         if (ctx.get_si().is_bool_op(n->get_expr()))
             return; 
-        for (euf::enode* sib : euf::enode_class(n))
-            set_relevant(sib);
-    }
-
-    void relevancy::set_relevant(euf::enode* n) {
-        if (n->is_relevant())
-            return;
-        ctx.get_egraph().set_relevant(n);
+        m_trail.push_back(std::make_pair(update::relevant_node, 0));
         m_queue.push_back(std::make_pair(sat::null_literal, n));
     }
 
@@ -237,9 +241,22 @@ namespace smt {
     }
 
     void relevancy::propagate_relevant(euf::enode* n) {
-        relevant_eh(n);
-        for (euf::enode* arg : euf::enode_args(n))
-            mark_relevant(arg);
+        m_stack.push_back(n);
+        while (!m_stack.empty()) {
+            n = m_stack.back();
+            unsigned sz = m_stack.size();
+            for (euf::enode* arg : euf::enode_args(n)) 
+                if (!arg->is_relevant())                  
+                    m_stack.push_back(arg);                            
+            if (sz == m_stack.size()) {
+                ctx.get_egraph().set_relevant(n);
+                relevant_eh(n);
+                for (euf::enode* sib : euf::enode_class(n))
+                    if (!sib->is_relevant())
+                        mark_relevant(sib);
+                m_stack.pop_back();
+            }
+        }
     }
 
     void relevancy::set_enabled(bool e) {

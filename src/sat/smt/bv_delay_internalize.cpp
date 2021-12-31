@@ -250,7 +250,7 @@ namespace bv {
             return;
         expr_ref tmp = literal2expr(bits.back());
         for (unsigned i = bits.size() - 1; i-- > 0; ) {
-            auto b = bits[i];
+            sat::literal b = bits[i];
             tmp = m.mk_or(literal2expr(b), tmp);
             xs.push_back(tmp);
         }

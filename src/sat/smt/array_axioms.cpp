@@ -57,8 +57,6 @@ namespace array {
 
     bool solver::assert_axiom(unsigned idx) {
         axiom_record& r = m_axiom_trail[idx];
-        if (!is_relevant(r))
-            return false;
         switch (r.m_kind) {
         case axiom_record::kind_t::is_store:
             return assert_store_axiom(to_app(r.n->get_expr()));
@@ -90,29 +88,6 @@ namespace array {
             return assert_default_map_axiom(to_app(child));
         else
             return false;                
-    }
-
-
-    bool solver::is_relevant(axiom_record const& r) const {
-        return true;
-#if 0
-        // relevancy propagation is currently incomplete on terms
-
-        expr* child = r.n->get_expr();
-        switch (r.m_kind) {
-        case axiom_record::kind_t::is_select: {
-            app* select = r.select->get_app();
-            for (unsigned i = 1; i < select->get_num_args(); ++i)
-                if (!ctx.is_relevant(select->get_arg(i)))
-                    return false;
-            return ctx.is_relevant(child);            
-        }
-        case axiom_record::kind_t::is_default:
-            return ctx.is_relevant(child);            
-        default:
-            return true;
-        }
-#endif
     }
 
     bool solver::assert_select(unsigned idx, axiom_record& r) {
@@ -215,10 +190,17 @@ namespace array {
             return new_prop;
         
         sat::literal sel_eq = sat::null_literal;
+        auto ensure_relevant = [&](sat::literal lit) {
+            if (ctx.is_relevant(lit))
+                return;
+            new_prop = true;
+            ctx.mark_relevant(lit);            
+        };
         auto init_sel_eq = [&]() {
             if (sel_eq != sat::null_literal) 
                 return true;
             sel_eq = mk_literal(sel_eq_e);
+            ensure_relevant(sel_eq);
             return s().value(sel_eq) != l_true;
         };
 
@@ -235,6 +217,7 @@ namespace array {
                 break;
             }
             sat::literal idx_eq = eq_internalize(idx1, idx2);
+            ensure_relevant(idx_eq);
             if (s().value(idx_eq) == l_true)
                 continue;
             if (s().value(idx_eq) == l_undef)
@@ -598,13 +581,12 @@ namespace array {
                 expr* e2 = var2expr(v2);
                 if (e1->get_sort() != e2->get_sort())
                     continue;
-                if (must_have_different_model_values(v1, v2)) {
-                    continue;
-                }
-                if (ctx.get_egraph().are_diseq(var2enode(v1), var2enode(v2))) {
-                    continue;
-                }
+                if (must_have_different_model_values(v1, v2)) 
+                    continue;                
+                if (ctx.get_egraph().are_diseq(var2enode(v1), var2enode(v2))) 
+                    continue;                
                 sat::literal lit = eq_internalize(e1, e2);
+                ctx.mark_relevant(lit);
                 if (s().value(lit) == l_undef) 
                     prop = true;
             }
@@ -616,8 +598,7 @@ namespace array {
         ptr_buffer<euf::enode> to_unmark;
         unsigned num_vars = get_num_vars();
         for (unsigned i = 0; i < num_vars; i++) {
-            euf::enode * n = var2enode(i);
-            
+            euf::enode * n = var2enode(i);            
             if (!is_array(n)) 
                 continue;
             if (!ctx.is_relevant(n))

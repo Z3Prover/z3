@@ -22,7 +22,7 @@ Author:
 
 namespace euf {
 
-    void solver::add_auto_relevant(sat::literal lit) {
+    void solver::mark_relevant(sat::literal lit) {
         if (m_relevancy.enabled()) {
             m_relevancy.mark_relevant(lit);
             return;

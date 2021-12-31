@@ -248,7 +248,7 @@ namespace euf {
             expr_ref at_least2(pb.mk_at_least_k(eqs.size(), eqs.data(), 2), m);
             sat::literal lit = si.internalize(at_least2, m_is_redundant);
             s().mk_clause(1, &lit, st);
-            add_root(1, &lit);
+            add_root(lit);
         }
     }
 
@@ -351,7 +351,7 @@ namespace euf {
         // contains a parent application.
         
         family_id th_id = m.get_basic_family_id();
-        for (auto p : euf::enode_th_vars(n)) {
+        for (auto const& p : euf::enode_th_vars(n)) {
             family_id id = p.get_id();
             if (m.get_basic_family_id() != id) {
                 if (th_id != m.get_basic_family_id())

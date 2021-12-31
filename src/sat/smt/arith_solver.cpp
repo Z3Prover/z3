@@ -953,6 +953,7 @@ namespace arith {
             if (n1->get_root() == n2->get_root())
                 continue;
             literal eq = eq_internalize(n1, n2);
+            ctx.mark_relevant(eq);
             if (s().value(eq) != l_true)
                 return true;
         }

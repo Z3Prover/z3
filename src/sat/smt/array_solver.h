@@ -157,7 +157,6 @@ namespace array {
         bool assert_axiom(unsigned idx);
         bool assert_select(unsigned idx, axiom_record & r);
         bool assert_default(axiom_record & r);
-        bool is_relevant(axiom_record const& r) const;
         void set_applied(unsigned idx) { m_axiom_trail[idx].set_applied(); }
         bool is_applied(unsigned idx) const { return m_axiom_trail[idx].is_applied(); }
         bool is_delayed(unsigned idx) const { return m_axiom_trail[idx].is_delayed(); }

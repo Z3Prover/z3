@@ -385,7 +385,6 @@ namespace euf {
         void add_root(unsigned n, sat::literal const* lits);
         void add_root(sat::literal_vector const& lits) { add_root(lits.size(), lits.data()); }
         void add_root(sat::literal lit) { add_root(1, &lit); }
-        void add_root(sat::literal a, sat::literal b) { sat::literal lits[2] = {a, b}; add_root(2, lits); }
         void add_aux(sat::literal_vector const& lits) { add_aux(lits.size(), lits.data()); }
         void add_aux(unsigned n, sat::literal const* lits);
         void add_aux(sat::literal a) { sat::literal lits[1] = { a }; add_aux(1, lits); }
@@ -394,7 +393,8 @@ namespace euf {
         void track_relevancy(sat::bool_var v);
         bool is_relevant(enode* n) const;
         bool is_relevant(bool_var v) const;
-        void add_auto_relevant(sat::literal lit);
+        bool is_relevant(sat::literal lit) const { return is_relevant(lit.var()); }
+        void mark_relevant(sat::literal lit);
         void pop_relevant(unsigned n);
         void push_relevant();
         void relevant_eh(euf::enode* n);
