@@ -80,8 +80,8 @@ simplify_tactic::~simplify_tactic() {
 }
 
 void simplify_tactic::updt_params(params_ref const & p) {
-    m_params = p;
-    m_imp->m_r.updt_params(p);
+    m_params.append(p);
+    m_imp->m_r.updt_params(m_params);
 }
 
 void simplify_tactic::get_param_descrs(param_descrs & r) {

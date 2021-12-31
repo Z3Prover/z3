@@ -199,12 +199,12 @@ void tst_params(cmd_context & ctx) {
     params_ref p1;
     params_ref p2;
     p1.set_uint("val", 100);
-    p2 = p1;
+    p2.append(p1);
     SASSERT(p2.get_uint("val", 0) == 100);
     p2.set_uint("val", 200);
     SASSERT(p2.get_uint("val", 0) == 200);
     SASSERT(p1.get_uint("val", 0) == 100);
-    p2 = p1;
+    p2.append(p1);
     SASSERT(p2.get_uint("val", 0) == 100);
     SASSERT(p1.get_uint("val", 0) == 100);
     ctx.regular_stream() << "worked" << std::endl;

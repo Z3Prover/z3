@@ -49,7 +49,7 @@ public:
 
     ~special_relations_tactic() override {}
 
-    void updt_params(params_ref const & p) override { m_params = p; }
+    void updt_params(params_ref const & p) override { m_params.append(p); }
     
     void collect_param_descrs(param_descrs & r) override { }
     

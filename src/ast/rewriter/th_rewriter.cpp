@@ -859,8 +859,8 @@ ast_manager & th_rewriter::m() const {
 }
 
 void th_rewriter::updt_params(params_ref const & p) {
-    m_params = p;
-    m_imp->cfg().updt_params(p);
+    m_params.append(p);
+    m_imp->cfg().updt_params(m_params);
 }
 
 void th_rewriter::get_param_descrs(param_descrs & r) {

@@ -520,7 +520,7 @@ params_ref::~params_ref() {
 
 params_ref::params_ref(params_ref const & p):
     m_params(nullptr) {
-    operator=(p);
+    set(p);
 }
 
 void params_ref::display(std::ostream & out) const {
@@ -553,18 +553,18 @@ void params_ref::validate(param_descrs const & p) {
         m_params->validate(p);
 }
 
-params_ref & params_ref::operator=(params_ref const & p) {
+
+void params_ref::set(params_ref const & p) {
     if (p.m_params)
         p.m_params->inc_ref();
     if (m_params)
         m_params->dec_ref();
     m_params = p.m_params;
-    return *this;
 }
 
 void params_ref::copy(params_ref const & src) {
-    if (m_params == nullptr)
-        operator=(src);
+    if (m_params == nullptr || m_params->empty())
+        set(src);
     else {
         init();
         copy_core(src.m_params);

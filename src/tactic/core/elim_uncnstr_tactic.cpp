@@ -862,9 +862,9 @@ public:
     }
 
     void updt_params(params_ref const & p) override {
-        m_params = p;
-        m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
-        m_max_steps  = p.get_uint("max_steps", UINT_MAX);
+        m_params.append(p);
+        m_max_memory = megabytes_to_bytes(m_params.get_uint("max_memory", UINT_MAX));
+        m_max_steps  = m_params.get_uint("max_steps", UINT_MAX);
     }
     
     void collect_param_descrs(param_descrs & r) override {

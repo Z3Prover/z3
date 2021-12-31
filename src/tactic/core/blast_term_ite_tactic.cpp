@@ -174,8 +174,8 @@ public:
     char const* name() const override { return "blast_term_ite"; }
 
     void updt_params(params_ref const & p) override {
-        m_params = p;
-        m_imp->m_rw.m_cfg.updt_params(p);
+        m_params.append(p);
+        m_imp->m_rw.m_cfg.updt_params(m_params);
     }
 
     void collect_param_descrs(param_descrs & r) override {

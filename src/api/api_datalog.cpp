@@ -585,7 +585,7 @@ extern "C" {
         to_fixedpoint_ref(d)->collect_param_descrs(descrs);
         to_params(p)->m_params.validate(descrs);
         to_fixedpoint_ref(d)->updt_params(to_param_ref(p));
-        to_fixedpoint(d)->m_params = to_param_ref(p);
+        to_fixedpoint(d)->m_params.append(to_param_ref(p));
         Z3_CATCH;
     }
 
