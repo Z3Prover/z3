@@ -49,7 +49,7 @@ namespace array {
         if (v == euf::null_theory_var) {
             mk_var(n);
             if (is_lambda(n->get_expr()))
-                internalize_eh_lambda(n);
+                internalize_lambda_eh(n);
         }
     }
 
@@ -91,18 +91,13 @@ namespace array {
         return true;
     }
 
-    void solver::internalize_eh_lambda(euf::enode* n) {
-        SASSERT(is_lambda(n->get_expr()) || a.is_const(n->get_expr()) || a.is_map(n->get_expr()) || a.is_as_array(n->get_expr()));
-        theory_var v = n->get_th_var(get_id());
+    void solver::internalize_lambda_eh(euf::enode* n) {
         push_axiom(default_axiom(n));
-        add_lambda(v, n);
+        auto& d = get_var_data(find(n));
+        ctx.push_vec(d.m_lambdas, n);
     }
 
     void solver::internalize_eh(euf::enode* n) {
-        if (is_lambda(n->get_expr())) {
-            internalize_eh_lambda(n);
-            return;
-        }
         switch (n->get_decl()->get_decl_kind()) {
         case OP_STORE:
             push_axiom(store_axiom(n));
@@ -111,20 +106,19 @@ namespace array {
             break;
         case OP_AS_ARRAY:
         case OP_CONST_ARRAY:
-            internalize_eh_lambda(n);
-            // SASSERT(!get_var_data(n->get_th_var(get_id())).m_prop_upward);
+            internalize_lambda_eh(n);
             break;
         case OP_ARRAY_EXT:
             SASSERT(is_array(n->get_arg(0)));
             push_axiom(extensionality_axiom(n->get_arg(0), n->get_arg(1)));
             break;
         case OP_ARRAY_DEFAULT:
-            add_parent_default(n->get_arg(0)->get_th_var(get_id()), n);
+            add_parent_default(find(n->get_arg(0)), n);
             break;
         case OP_ARRAY_MAP:
             for (auto* arg : euf::enode_args(n)) 
-                add_parent_lambda(arg->get_th_var(get_id()), n);
-            internalize_eh_lambda(n);
+                add_parent_lambda(find(arg), n);
+            internalize_lambda_eh(n);
             break;
         case OP_SET_UNION:
         case OP_SET_INTERSECT:
@@ -143,7 +137,7 @@ namespace array {
 
     void solver::relevant_eh(euf::enode* n) {
         if (is_lambda(n->get_expr())) {
-            set_prop_upward(n->get_th_var(get_id()));
+            set_prop_upward(find(n));
             return;
         }
         if (!is_app(n->get_expr()))
@@ -152,23 +146,25 @@ namespace array {
             return;
         switch (n->get_decl()->get_decl_kind()) {
         case OP_STORE:
-            add_parent_lambda(n->get_arg(0)->get_th_var(get_id()), n);   
+            add_parent_lambda(find(n->get_arg(0)), n);   
             break;
         case OP_SELECT:
-            add_parent_select(n->get_arg(0)->get_th_var(get_id()), n);
+            add_parent_select(find(n->get_arg(0)), n);
             break;
-        case OP_AS_ARRAY:
         case OP_CONST_ARRAY:
-            set_prop_upward(n->get_th_var(get_id()));
+        case OP_AS_ARRAY:
+            set_prop_upward(find(n));
+            add_parent_default(find(n), n);
             break;
         case OP_ARRAY_EXT:
             break;
         case OP_ARRAY_DEFAULT:
-            set_prop_upward(n->get_arg(0)->get_th_var(get_id()));
+            set_prop_upward(find(n->get_arg(0)));
             break;
         case OP_ARRAY_MAP:
             for (auto* arg : euf::enode_args(n)) 
                 set_prop_upward_store(arg);
+            set_prop_upward(find(n));
             break;
         case OP_SET_UNION:
         case OP_SET_INTERSECT:

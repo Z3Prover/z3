@@ -66,6 +66,7 @@ namespace array {
         array_union_find                     m_find;
 
         theory_var find(theory_var v) { return m_find.find(v); }
+        theory_var find(euf::enode* n) { return find(n->get_th_var(get_id())); }
         func_decl_ref_vector const& sort2diff(sort* s);
 
         // internalize
@@ -73,8 +74,8 @@ namespace array {
         bool visited(expr* e) override;
         bool post_visit(expr* e, bool sign, bool root) override;
         void ensure_var(euf::enode* n);
-        void internalize_eh_lambda(euf::enode* n);
         void internalize_eh(euf::enode* n);
+        void internalize_lambda_eh(euf::enode* n);
 
         // axioms
         struct axiom_record {
@@ -192,7 +193,7 @@ namespace array {
         // solving          
         void add_parent_select(theory_var v_child, euf::enode* select);
         void add_parent_default(theory_var v_child, euf::enode* def);
-        void add_lambda(theory_var v, euf::enode* lambda);
+        void add_lambda(theory_var v, euf::enode* lambda);        
         void add_parent_lambda(theory_var v_child, euf::enode* lambda);
 
         void propagate_select_axioms(var_data const& d, euf::enode* a);
@@ -226,8 +227,6 @@ namespace array {
         euf::enode* get_default(theory_var v);
         void set_else(theory_var v, expr* e);
         expr* get_else(theory_var v);
-
-        void internalized(euf::enode* n);
 
         // diagnostics
         std::ostream& display_info(std::ostream& out, char const* id, euf::enode_vector const& v) const; 

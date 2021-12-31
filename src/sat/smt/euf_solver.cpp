@@ -298,12 +298,9 @@ namespace euf {
     void solver::asserted(literal l) {
 
         if (m_relevancy.enabled() && !m_relevancy.is_relevant(l)) {
-            if (s().lvl(l) <= s().search_lvl()) 
-                mark_relevant(l);
-            else {
-                m_relevancy.asserted(l);
+            m_relevancy.asserted(l);
+            if (!m_relevancy.is_relevant(l))
                 return;
-            }
         }
 
         expr* e = m_bool_var2expr.get(l.var(), nullptr);

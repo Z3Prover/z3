@@ -241,19 +241,35 @@ namespace smt {
     }
 
     void relevancy::propagate_relevant(euf::enode* n) {
-        m_stack.push_back(n);
-        while (!m_stack.empty()) {
-            n = m_stack.back();
-            unsigned sz = m_stack.size();
-            for (euf::enode* arg : euf::enode_args(n)) 
-                if (!arg->is_relevant())                  
-                    m_stack.push_back(arg);                            
-            if (sz == m_stack.size()) {
-                ctx.get_egraph().set_relevant(n);
-                relevant_eh(n);
-                for (euf::enode* sib : euf::enode_class(n))
-                    if (!sib->is_relevant())
-                        mark_relevant(sib);
+        m_todo.push_back(n);
+        while (!m_todo.empty()) {
+            n = m_todo.back();
+            m_todo.pop_back();
+            if (n->is_relevant())
+                continue;
+            if (ctx.get_si().is_bool_op(n->get_expr()))
+                continue;
+            m_stack.push_back(n);
+            while (!m_stack.empty()) {
+                n = m_stack.back();
+                unsigned sz = m_stack.size();
+                for (euf::enode* arg : euf::enode_args(n))
+                    if (!arg->is_relevant())
+                        m_stack.push_back(arg);
+                if (sz != m_stack.size())
+                    continue;
+                if (!n->is_relevant()) {
+                    ctx.get_egraph().set_relevant(n);
+                    relevant_eh(n);
+                    for (euf::enode* sib : euf::enode_class(n))
+                        if (!sib->is_relevant())
+                            m_todo.push_back(sib);
+                }
+                if (!ctx.get_manager().inc()) {
+                    m_todo.reset();
+                    m_stack.reset();
+                    return;
+                }
                 m_stack.pop_back();
             }
         }

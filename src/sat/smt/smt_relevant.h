@@ -119,7 +119,7 @@ namespace smt {
         vector<unsigned_vector>              m_occurs;            // where do literals occur
         unsigned                             m_qhead = 0;         // queue head for relevancy
         svector<std::pair<sat::literal, euf::enode*>> m_queue;    // propagation queue for relevancy
-        euf::enode_vector                    m_stack;
+        euf::enode_vector                    m_stack, m_todo;
 
         // callbacks during propagation
         void relevant_eh(euf::enode* n);

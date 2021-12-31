@@ -517,13 +517,14 @@ namespace array {
         unsigned num_vars = get_num_vars();
         bool change = false;
         for (unsigned v = 0; v < num_vars; v++) {
-            propagate_parent_select_axioms(v);
             auto& d = get_var_data(v);
             if (!d.m_prop_upward)
                 continue;
             euf::enode* n = var2enode(v);
             if (!ctx.is_relevant(n))
                 continue;
+            for (euf::enode* lambda : d.m_parent_lambdas)
+                propagate_select_axioms(d, lambda);
             if (add_as_array_eqs(n))
                 change = true;
             bool has_default = false;
