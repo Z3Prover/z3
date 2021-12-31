@@ -208,9 +208,9 @@ class elim_small_bv_tactic : public tactic {
 
         void updt_params(params_ref const & p) {
             m_params.append(p);
-            m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
-            m_max_steps = p.get_uint("max_steps", UINT_MAX);
-            m_max_bits = p.get_uint("max_bits", 4);
+            m_max_memory = megabytes_to_bytes(m_params.get_uint("max_memory", UINT_MAX));
+            m_max_steps = m_params.get_uint("max_steps", UINT_MAX);
+            m_max_bits = m_params.get_uint("max_bits", 4);
         }
     };
 
