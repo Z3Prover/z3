@@ -73,12 +73,8 @@ namespace array {
         bool visited(expr* e) override;
         bool post_visit(expr* e, bool sign, bool root) override;
         void ensure_var(euf::enode* n);
-        void internalize_store(euf::enode* n);
-        void internalize_select(euf::enode* n);
-        void internalize_lambda(euf::enode* n);
-        void internalize_ext(euf::enode* n);
-        void internalize_default(euf::enode* n);
-        void internalize_map(euf::enode* n);
+        void internalize_eh_lambda(euf::enode* n);
+        void internalize_eh(euf::enode* n);
 
         // axioms
         struct axiom_record {
@@ -205,7 +201,7 @@ namespace array {
 
         void set_prop_upward(theory_var v);
         void set_prop_upward(var_data& d);
-        void set_prop_upward(euf::enode* n);
+        void set_prop_upward_store(euf::enode* n);
         unsigned get_lambda_equiv_size(var_data const& d) const;
         bool should_set_prop_upward(var_data const& d) const;
         bool should_prop_upward(var_data const& d) const;
@@ -230,6 +226,8 @@ namespace array {
         euf::enode* get_default(theory_var v);
         void set_else(theory_var v, expr* e);
         expr* get_else(theory_var v);
+
+        void internalized(euf::enode* n);
 
         // diagnostics
         std::ostream& display_info(std::ostream& out, char const* id, euf::enode_vector const& v) const; 

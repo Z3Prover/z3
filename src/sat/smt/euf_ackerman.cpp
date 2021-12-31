@@ -176,10 +176,10 @@ namespace euf {
         unsigned sz = a->get_num_args();
         
         for (unsigned i = 0; i < sz; ++i) {
-            expr_ref eq(m.mk_eq(a->get_arg(i), b->get_arg(i)), m);
+            expr_ref eq = s.mk_eq(a->get_arg(i), b->get_arg(i));
             lits.push_back(~s.mk_literal(eq));
         }
-        expr_ref eq(m.mk_eq(a, b), m);
+        expr_ref eq = s.mk_eq(a, b);
         lits.push_back(s.mk_literal(eq));
         s.s().mk_clause(lits, sat::status::th(true, m.get_basic_family_id()));
     }
@@ -187,9 +187,9 @@ namespace euf {
     void ackerman::add_eq(expr* a, expr* b, expr* c) {
         flet<bool> _is_redundant(s.m_is_redundant, true);
         sat::literal lits[3];
-        expr_ref eq1(m.mk_eq(a, c), m);
-        expr_ref eq2(m.mk_eq(b, c), m);
-        expr_ref eq3(m.mk_eq(a, b), m);
+        expr_ref eq1(s.mk_eq(a, c), m);
+        expr_ref eq2(s.mk_eq(b, c), m);
+        expr_ref eq3(s.mk_eq(a, b), m);
         TRACE("ack", tout << mk_pp(a, m) << " " << mk_pp(b, m) << " " << mk_pp(c, m) << "\n";);
         lits[0] = ~s.mk_literal(eq1);
         lits[1] = ~s.mk_literal(eq2);

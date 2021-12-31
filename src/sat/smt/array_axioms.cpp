@@ -537,8 +537,8 @@ namespace array {
         m_delay_qhead = 0;
         
         for (; m_delay_qhead < sz; ++m_delay_qhead) 
-            if (m_axiom_trail[m_delay_qhead].is_delayed() && assert_axiom(m_delay_qhead))
-                change = true;  
+            if (m_axiom_trail[m_delay_qhead].is_delayed() && assert_axiom(m_delay_qhead)) 
+                change = true;              
         flet<bool> _enable_delay(m_enable_delay, false);
         if (unit_propagate())
             change = true;
@@ -561,7 +561,8 @@ namespace array {
             expr_ref _e(a.mk_select(select.size(), select.data()), m);
             euf::enode* e = e_internalize(_e);
             if (e->get_root() != p->get_root()) {
-                add_unit(eq_internalize(_e, p->get_expr()));
+                sat::literal eq = eq_internalize(_e, p->get_expr());
+                add_unit(eq);
                 change = true;
             }
         }

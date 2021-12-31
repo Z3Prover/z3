@@ -187,7 +187,7 @@ namespace array {
             set_prop_upward(d);
         ctx.push_vec(d.m_lambdas, lambda);
         if (should_set_prop_upward(d)) {
-            set_prop_upward(lambda);
+            set_prop_upward_store(lambda);
             propagate_select_axioms(d, lambda);
         }
     }
@@ -196,8 +196,8 @@ namespace array {
         SASSERT(can_beta_reduce(lambda));
         auto& d = get_var_data(find(v_child));
         ctx.push_vec(d.m_parent_lambdas, lambda);
-        if (should_set_prop_upward(d))
-            propagate_select_axioms(d, lambda);
+//        if (should_set_prop_upward(d))
+//            propagate_select_axioms(d, lambda);
     }
 
     void solver::add_parent_default(theory_var v, euf::enode* def) {
@@ -227,6 +227,8 @@ namespace array {
             return;
         
         auto& d = get_var_data(v);
+        if (!d.m_prop_upward)
+            return;
 
         for (euf::enode* lambda : d.m_lambdas) 
             propagate_select_axioms(d, lambda);        
@@ -246,14 +248,14 @@ namespace array {
         set_prop_upward(d);
     }
 
-    void solver::set_prop_upward(euf::enode* n) {
+    void solver::set_prop_upward_store(euf::enode* n) {
         if (a.is_store(n->get_expr()))
             set_prop_upward(n->get_arg(0)->get_th_var(get_id()));
     }
 
     void solver::set_prop_upward(var_data& d) {
         for (auto* p : d.m_lambdas)
-            set_prop_upward(p);
+            set_prop_upward_store(p);
     }
 
     /**

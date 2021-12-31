@@ -49,52 +49,12 @@ namespace array {
         if (v == euf::null_theory_var) {
             mk_var(n);
             if (is_lambda(n->get_expr()))
-                internalize_lambda(n);
+                internalize_eh_lambda(n);
         }
     }
 
     void solver::apply_sort_cnstr(euf::enode * n, sort * s) {
         ensure_var(n);
-    }
-
-    void solver::internalize_store(euf::enode* n) {
-        //std::cout << "store th-var " << n->get_th_var(get_id()) << "\n";
-        add_parent_lambda(n->get_arg(0)->get_th_var(get_id()), n);   
-        push_axiom(store_axiom(n));
-        add_lambda(n->get_th_var(get_id()), n);
-        SASSERT(!get_var_data(n->get_th_var(get_id())).m_prop_upward);
-    }
-
-    void solver::internalize_map(euf::enode* n) {
-        for (auto* arg : euf::enode_args(n)) {
-            add_parent_lambda(arg->get_th_var(get_id()), n);
-            set_prop_upward(arg);
-        }
-        push_axiom(default_axiom(n));
-        add_lambda(n->get_th_var(get_id()), n);
-        //SASSERT(!get_var_data(n->get_th_var(get_id())).m_prop_upward);
-    }
-
-    void solver::internalize_lambda(euf::enode* n) {
-        SASSERT(is_lambda(n->get_expr()) || a.is_const(n->get_expr()) || a.is_as_array(n->get_expr()));
-        theory_var v = n->get_th_var(get_id());
-        push_axiom(default_axiom(n));
-        add_lambda(v, n);
-        set_prop_upward(v);
-    }
-
-    void solver::internalize_select(euf::enode* n) {
-        add_parent_select(n->get_arg(0)->get_th_var(get_id()), n);
-    }
-
-    void solver::internalize_ext(euf::enode* n) {
-        SASSERT(is_array(n->get_arg(0)));
-        push_axiom(extensionality_axiom(n->get_arg(0), n->get_arg(1)));
-    }
-
-    void solver::internalize_default(euf::enode* n) {
-        add_parent_default(n->get_arg(0)->get_th_var(get_id()), n);
-        set_prop_upward(n);
     }
 
     bool solver::visited(expr* e) {
@@ -125,35 +85,90 @@ namespace array {
             mk_var(n);
         for (auto* arg : euf::enode_args(n))
             ensure_var(arg);  
+        internalize_eh(n);
         if (ctx.is_relevant(n) || !ctx.relevancy().enabled())
             relevant_eh(n);
         return true;
     }
 
+    void solver::internalize_eh_lambda(euf::enode* n) {
+        SASSERT(is_lambda(n->get_expr()) || a.is_const(n->get_expr()) || a.is_map(n->get_expr()) || a.is_as_array(n->get_expr()));
+        theory_var v = n->get_th_var(get_id());
+        push_axiom(default_axiom(n));
+        add_lambda(v, n);
+    }
+
+    void solver::internalize_eh(euf::enode* n) {
+        if (is_lambda(n->get_expr())) {
+            internalize_eh_lambda(n);
+            return;
+        }
+        switch (n->get_decl()->get_decl_kind()) {
+        case OP_STORE:
+            push_axiom(store_axiom(n));
+            break;
+        case OP_SELECT:
+            break;
+        case OP_AS_ARRAY:
+        case OP_CONST_ARRAY:
+            internalize_eh_lambda(n);
+            // SASSERT(!get_var_data(n->get_th_var(get_id())).m_prop_upward);
+            break;
+        case OP_ARRAY_EXT:
+            SASSERT(is_array(n->get_arg(0)));
+            push_axiom(extensionality_axiom(n->get_arg(0), n->get_arg(1)));
+            break;
+        case OP_ARRAY_DEFAULT:
+            add_parent_default(n->get_arg(0)->get_th_var(get_id()), n);
+            break;
+        case OP_ARRAY_MAP:
+            for (auto* arg : euf::enode_args(n)) 
+                add_parent_lambda(arg->get_th_var(get_id()), n);
+            internalize_eh_lambda(n);
+            break;
+        case OP_SET_UNION:
+        case OP_SET_INTERSECT:
+        case OP_SET_DIFFERENCE:
+        case OP_SET_COMPLEMENT:
+        case OP_SET_SUBSET:
+        case OP_SET_HAS_SIZE:
+        case OP_SET_CARD:
+            ctx.unhandled_function(n->get_decl());
+            break;
+        default:
+            UNREACHABLE();
+            break;
+        }
+    }
+
     void solver::relevant_eh(euf::enode* n) {
+        if (is_lambda(n->get_expr())) {
+            set_prop_upward(n->get_th_var(get_id()));
+            return;
+        }
         if (!is_app(n->get_expr()))
             return;
         if (n->get_decl()->get_family_id() != a.get_family_id())
             return;
         switch (n->get_decl()->get_decl_kind()) {
         case OP_STORE:
-            internalize_store(n);
+            add_parent_lambda(n->get_arg(0)->get_th_var(get_id()), n);   
             break;
         case OP_SELECT:
-            internalize_select(n);
+            add_parent_select(n->get_arg(0)->get_th_var(get_id()), n);
             break;
         case OP_AS_ARRAY:
         case OP_CONST_ARRAY:
-            internalize_lambda(n);
+            set_prop_upward(n->get_th_var(get_id()));
             break;
         case OP_ARRAY_EXT:
-            internalize_ext(n);
             break;
         case OP_ARRAY_DEFAULT:
-            internalize_default(n);
+            set_prop_upward(n->get_arg(0)->get_th_var(get_id()));
             break;
         case OP_ARRAY_MAP:
-            internalize_map(n);
+            for (auto* arg : euf::enode_args(n)) 
+                set_prop_upward_store(arg);
             break;
         case OP_SET_UNION:
         case OP_SET_INTERSECT:

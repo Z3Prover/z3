@@ -296,9 +296,14 @@ namespace euf {
     }
 
     void solver::asserted(literal l) {
+
         if (m_relevancy.enabled() && !m_relevancy.is_relevant(l)) {
-            m_relevancy.asserted(l);
-            return;
+            if (s().lvl(l) <= s().search_lvl()) 
+                mark_relevant(l);
+            else {
+                m_relevancy.asserted(l);
+                return;
+            }
         }
 
         expr* e = m_bool_var2expr.get(l.var(), nullptr);
@@ -742,7 +747,7 @@ namespace euf {
     void solver::relevant_eh(euf::enode* n) {
         if (m_qsolver)
             m_qsolver->relevant_eh(n);
-        for (auto thv : enode_th_vars(n)) {
+        for (auto const& thv : enode_th_vars(n)) {
             auto* th = m_id2solver.get(thv.get_id(), nullptr);
             if (th && th != m_qsolver)
                 th->relevant_eh(n);
