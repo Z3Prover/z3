@@ -301,10 +301,23 @@ UNARY_CMD(pp_cmd, "display", "<term>", "display the given term.", CPK_EXPR, expr
     ctx.regular_stream() << std::endl;
 });
 
-UNARY_CMD(echo_cmd, "echo", "<string>", "display the given string", CPK_STRING, char const *,
-    bool smt2c = ctx.params().m_smtlib2_compliant;
-    ctx.regular_stream() << (smt2c ? "\"" : "") << arg << (smt2c ? "\"" : "") << std::endl;);
+static std::string escape_string(char const* arg) {
+    std::string result;
+    while (*arg) {
+        auto ch = *arg++;
+        if (ch == '"')
+            result.push_back(ch);
+        result.push_back(ch);
+    }
+    return result;
+}
 
+UNARY_CMD(echo_cmd, "echo", "<string>", "display the given string", CPK_STRING, char const *,
+          bool smt2c = ctx.params().m_smtlib2_compliant;
+          if (smt2c) 
+              ctx.regular_stream() << "\"" << escape_string(arg) << "\"" << std::endl;
+          else
+              ctx.regular_stream() << arg << std::endl;);
 
 class set_get_option_cmd : public cmd {
 protected:
