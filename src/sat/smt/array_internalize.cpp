@@ -99,7 +99,8 @@ namespace array {
 
     void solver::internalize_eh(euf::enode* n) {
         switch (n->get_decl()->get_decl_kind()) {
-        case OP_STORE:
+        case OP_STORE:          
+            ctx.push_vec(get_var_data(find(n)).m_lambdas, n);
             push_axiom(store_axiom(n));
             break;
         case OP_SELECT:
