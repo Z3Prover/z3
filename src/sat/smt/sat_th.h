@@ -111,6 +111,8 @@ namespace euf {
 
         virtual void new_diseq_eh(euf::th_eq const& eq) {}
 
+        virtual bool enable_ackerman_axioms(euf::enode* n) const { return true; }
+
         virtual void relevant_eh(euf::enode* n) {}
 
         /**

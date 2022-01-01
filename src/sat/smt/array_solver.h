@@ -261,7 +261,8 @@ namespace array {
         bool is_shared(theory_var v) const override;
         bool enable_self_propagate() const override { return true; }
         void relevant_eh(euf::enode* n) override;
-
+        bool enable_ackerman_axioms(euf::enode* n) const override { return !a.is_array(n->get_sort()); }
+ 
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
         void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}
         void unmerge_eh(theory_var v1, theory_var v2) {}

@@ -751,6 +751,18 @@ namespace euf {
         }       
     }
 
+    bool solver::enable_ackerman_axioms(expr* e) const {
+        euf::enode* n = get_enode(e);
+        if (!n)
+            return false;
+        for (auto const& thv : enode_th_vars(n)) {
+            auto* th = m_id2solver.get(thv.get_id(), nullptr);
+            if (th && !th->enable_ackerman_axioms(n))
+                return false;
+        }
+        return true;
+    }
+
     void solver::pre_simplify() {
         for (auto* e : m_solvers)
             e->pre_simplify();

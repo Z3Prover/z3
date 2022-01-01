@@ -372,6 +372,7 @@ namespace euf {
         th_rewriter& get_rewriter() { return m_rewriter; }
         void rewrite(expr_ref& e) { m_rewriter(e); }
         bool is_shared(euf::enode* n) const;
+        bool enable_ackerman_axioms(expr* n) const;
 
         // relevancy
         bool m_relevancy_enabled = true;

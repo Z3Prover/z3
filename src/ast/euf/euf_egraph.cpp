@@ -189,10 +189,10 @@ namespace euf {
             add_th_diseq(id, v1, v2, n->get_expr());
             return;
         }
-        for (auto p : euf::enode_th_vars(r1)) {
+        for (auto const& p : euf::enode_th_vars(r1)) {
             if (!th_propagates_diseqs(p.get_id()))
                 continue;
-            for (auto q : euf::enode_th_vars(r2))
+            for (auto const& q : euf::enode_th_vars(r2))
                 if (p.get_id() == q.get_id()) 
                     add_th_diseq(p.get_id(), p.get_var(), q.get_var(), n->get_expr());
         }
@@ -506,7 +506,7 @@ namespace euf {
 
     void egraph::merge_th_eq(enode* n, enode* root) {
         SASSERT(n != root);
-        for (auto iv : enode_th_vars(n)) {
+        for (auto const& iv : enode_th_vars(n)) {
             theory_id id = iv.get_id();
             theory_var v = root->get_th_var(id);
             if (v == null_theory_var) {                
@@ -789,7 +789,7 @@ namespace euf {
             out << "[b" << n->bool_var() << " := " << (n->value() == l_true ? "T":"F") << (n->merge_tf()?"":" no merge") << "] ";
         if (n->has_th_vars()) {
             out << "[t";
-            for (auto v : enode_th_vars(n))
+            for (auto const& v : enode_th_vars(n))
                 out << " " << v.get_id() << ":" << v.get_var();
             out << "] ";
         }
