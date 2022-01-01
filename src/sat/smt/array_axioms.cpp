@@ -236,8 +236,7 @@ namespace array {
      * Assert
      *    select(const(v), i) = v
      */
-    bool solver::assert_select_const_axiom(app* select, app* cnst) {
-        
+    bool solver::assert_select_const_axiom(app* select, app* cnst) {        
         ++m_stats.m_num_select_const_axiom;
         expr* val = nullptr;
         VERIFY(a.is_const(cnst, val));
