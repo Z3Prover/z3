@@ -565,6 +565,8 @@ void params_ref::set(params_ref const & p) {
 void params_ref::copy(params_ref const & src) {
     if (m_params == nullptr || m_params->empty())
         set(src);
+    else if (src.empty())
+        return;
     else {
         init();
         copy_core(src.m_params);
