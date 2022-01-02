@@ -21,7 +21,10 @@ Revision History:
 
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/recfun_decl_plugin.h"
+#include "ast/rewriter/recfun_replace.h"
 #include "ast/rewriter/seq_axioms.h"
+
 
 namespace seq {
 
@@ -1049,6 +1052,75 @@ namespace seq {
     void axioms::replace_re_axiom(expr* e) {
         expr* s = nullptr, *r = nullptr, *t = nullptr;
         VERIFY(seq.str.is_replace_re(e, s, r, t)); 
+        NOT_IMPLEMENTED_YET();
+    }
+
+    // A basic strategy for supporting replace_all and other
+    // similar functions is to use recursive relations.
+    // Then the features for recursive functions that allow expanding definitions
+    // using iterative deepening can be re-used.
+    //
+    // create recursive relation 'ra' with properties:
+    // ra(s, p, t, r) <- s = "" && r = ""
+    // ra(s, p, t, r) <- s != "" && p = "" && r = t + s
+    // ra(s, p, t, r) <- s != "" && p + s' = s && t + r' = r && ra(s', p, t, r')
+    // ra(s, p, t, r) <- s = [s0] + s' && ~prefix(p, s) && r = [s0] + r' && ra(s', p, t, r')
+    // which amounts to:
+    //
+    // s = "" -> r = ""
+    // p = "" -> r = t + s
+    // prefix(p, s) -> p + s' = s && t + r' = r && ra(s', p, t, r')
+    // else ->  s = [s0] + s' && r = [s0] + r' && ra(s', p, t, r')
+    //
+    // Then assert
+    // ra(s, p, t, replace_all(s, p, t))
+    //
+    void axioms::replace_all_axiom(expr* r) {
+        expr* s = nullptr, *p = nullptr, *t = nullptr;
+        VERIFY(seq.str.is_replace_all(r, s, p, t)); 
+        recfun::util rec(m);
+        recfun::decl::plugin& plugin = rec.get_plugin();
+        recfun_replace replace(m);
+        sort* srt = s->get_sort();
+        sort* domain[4] = { srt, srt, srt, srt };
+        auto d = plugin.ensure_def(symbol("ra"), 4, domain, m.mk_bool_sort(), true);
+        func_decl* ra = d.get_def()->get_decl();
+        var_ref vs(m.mk_var(0, srt), m);
+        var_ref vp(m.mk_var(1, srt), m);
+        var_ref vt(m.mk_var(2, srt), m);
+        var_ref vr(m.mk_var(3, srt), m);
+        var* vars[4] = { vs, vp, vt, vr };
+        expr_ref test1(seq.str.mk_is_empty(vs), m);
+        expr_ref branch1(seq.str.mk_is_empty(vr), m);
+        expr_ref test2(seq.str.mk_is_empty(vp), m);
+        expr_ref branch2(m.mk_eq(vr, seq.str.mk_concat(vt, vs)), m);
+        expr_ref test3(seq.str.mk_prefix(vp, vs), m);
+        expr_ref s1(m_sk.mk_prefix_inv(vp, vs), m);
+        expr_ref r1(m_sk.mk_prefix_inv(vp, vr), m);
+        expr* args1[4] = { s1, vp, vt, r1 };
+        expr_ref branch3(m.mk_and(m.mk_eq(seq.str.mk_concat(vp, s1), vs), 
+                                  m.mk_eq(seq.str.mk_concat(vr, r1), vr),
+                                  m.mk_app(ra, 4, args1)
+                                  ), m);
+        expr_ref s0(m), r0(m);
+        m_sk.decompose(vs, s0, s1);
+        m_sk.decompose(vr, r0, r1);
+        expr* args2[4] = { s1, vp, vt, r1 };
+        expr_ref branch4(m.mk_and(m.mk_eq(vs, seq.str.mk_concat(s0, s1)), 
+                                  m.mk_eq(vr, seq.str.mk_concat(s0, r1)),
+                                  m.mk_app(ra, 4, args2)), m);
+        // s = [s0] + s' && r = [s0] + r' && ra(s', p, t, r')
+
+        expr_ref body(m.mk_ite(test1, branch1, m.mk_ite(test2, branch2, m.mk_ite(test3, branch3, branch4))), m);        
+        plugin.set_definition(replace, d, true, 4, vars, body);
+        expr* args3[4] = { s, p, t, r };
+        expr_ref lit(m.mk_app(ra, 4, args3), m);
+        add_clause(lit);
+    }
+
+    void axioms::replace_re_all_axiom(expr* e) {
+        expr* s = nullptr, *p = nullptr, *t = nullptr;
+        VERIFY(seq.str.is_replace_re_all(e, s, p, t)); 
         NOT_IMPLEMENTED_YET();
     }
 
