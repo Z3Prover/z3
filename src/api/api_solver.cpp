@@ -607,7 +607,10 @@ extern "C" {
                 return Z3_L_UNDEF;
             }
             catch (...) {
-                to_solver_ref(s)->set_reason_unknown(eh);
+                if (eh.caller_id() == event_handler_caller_t::UNSET_EH_CALLER)
+                    to_solver_ref(s)->set_reason_unknown("unclassified exception");
+                else
+                    to_solver_ref(s)->set_reason_unknown(eh);
                 to_solver(s)->set_eh(nullptr);
                 return Z3_L_UNDEF;
             }
