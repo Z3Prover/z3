@@ -20,7 +20,9 @@ Notes:
 
 void check_sat_result::set_reason_unknown(event_handler& eh) {
     switch (eh.caller_id()) {
-    case UNSET_EH_CALLER: break;
+    case UNSET_EH_CALLER: 
+        set_reason_unknown("unclassifed exception");
+        break;
     case CTRL_C_EH_CALLER:
         set_reason_unknown("interrupted from keyboard");
         break;
