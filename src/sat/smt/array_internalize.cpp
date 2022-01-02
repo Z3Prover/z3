@@ -117,15 +117,24 @@ namespace array {
             add_parent_default(find(n->get_arg(0)), n);
             break;
         case OP_ARRAY_MAP:
-            for (auto* arg : euf::enode_args(n)) 
-                add_parent_lambda(find(arg), n);
-            internalize_lambda_eh(n);
-            break;
         case OP_SET_UNION:
         case OP_SET_INTERSECT:
         case OP_SET_DIFFERENCE:
         case OP_SET_COMPLEMENT:
-        case OP_SET_SUBSET:
+            for (auto* arg : euf::enode_args(n)) 
+                add_parent_lambda(find(arg), n);
+            internalize_lambda_eh(n);
+            break;
+        case OP_SET_SUBSET: {
+            expr* x, *y;
+            VERIFY(a.is_subset(n->get_expr(), x, y));
+            expr_ref diff(a.mk_setminus(x, y), m);
+            expr_ref emp(a.mk_empty_set(x->get_sort()), m);
+            sat::literal eq = eq_internalize(diff, emp);
+            sat::literal sub = expr2literal(n->get_expr());
+            add_equiv(eq, sub);
+            break;
+        }            
         case OP_SET_HAS_SIZE:
         case OP_SET_CARD:
             ctx.unhandled_function(n->get_decl());
@@ -163,15 +172,16 @@ namespace array {
             set_prop_upward(find(n->get_arg(0)));
             break;
         case OP_ARRAY_MAP:
-            for (auto* arg : euf::enode_args(n)) 
-                set_prop_upward_store(arg);
-            set_prop_upward(find(n));
-            break;
         case OP_SET_UNION:
         case OP_SET_INTERSECT:
         case OP_SET_DIFFERENCE:
         case OP_SET_COMPLEMENT:
+            for (auto* arg : euf::enode_args(n)) 
+                set_prop_upward_store(arg);
+            set_prop_upward(find(n));
+            break;
         case OP_SET_SUBSET:
+            break;
         case OP_SET_HAS_SIZE:
         case OP_SET_CARD:
             ctx.unhandled_function(n->get_decl());

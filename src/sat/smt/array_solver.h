@@ -181,7 +181,9 @@ namespace array {
         bool assert_congruent_axiom(expr* e1, expr* e2);
         bool add_delayed_axioms();
         bool add_as_array_eqs(euf::enode* n);
-        
+        expr_ref apply_map(app* map, unsigned n, expr* const* args);
+        bool is_map_combinator(expr* e) const;
+
         bool has_unitary_domain(app* array_term);
         bool has_large_domain(expr* array_term);
         std::pair<app*, func_decl*> mk_epsilon(sort* s);

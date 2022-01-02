@@ -275,6 +275,6 @@ namespace array {
     }
 
     bool solver::can_beta_reduce(expr* c) const {
-        return a.is_const(c) || a.is_as_array(c) || a.is_store(c) || is_lambda(c) || a.is_map(c);
+        return a.is_const(c) || a.is_as_array(c) || a.is_store(c) || is_lambda(c) || is_map_combinator(c);
     }
 }
