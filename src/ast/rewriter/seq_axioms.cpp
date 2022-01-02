@@ -1085,10 +1085,10 @@ namespace seq {
         sort* domain[4] = { srt, srt, srt, srt };
         auto d = plugin.ensure_def(symbol("ra"), 4, domain, m.mk_bool_sort(), true);
         func_decl* ra = d.get_def()->get_decl();
-        var_ref vs(m.mk_var(0, srt), m);
-        var_ref vp(m.mk_var(1, srt), m);
-        var_ref vt(m.mk_var(2, srt), m);
-        var_ref vr(m.mk_var(3, srt), m);
+        var_ref vs(m.mk_var(3, srt), m);
+        var_ref vp(m.mk_var(2, srt), m);
+        var_ref vt(m.mk_var(1, srt), m);
+        var_ref vr(m.mk_var(0, srt), m);
         var* vars[4] = { vs, vp, vt, vr };
         expr_ref test1(seq.str.mk_is_empty(vs), m);
         expr_ref branch1(seq.str.mk_is_empty(vr), m);

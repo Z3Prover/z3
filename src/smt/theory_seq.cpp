@@ -2646,6 +2646,9 @@ void theory_seq::deque_axiom(expr* n) {
     else if (m_util.str.is_replace(n)) {
         m_ax.add_replace_axiom(n);
     }
+    else if (m_util.str.is_replace_all(n)) {
+        m_ax.add_replace_all_axiom(n);
+    }
     else if (m_util.str.is_extract(n)) {
         m_ax.add_extract_axiom(n);
     }
@@ -3190,6 +3193,7 @@ void theory_seq::relevant_eh(app* n) {
         m_util.str.is_to_code(n) ||
         m_util.str.is_unit(n) ||
         m_util.str.is_length(n) || 
+        /* m_util.str.is_replace_all(n) || uncomment to enable axiomatization */
         m_util.str.is_le(n)) {
         enque_axiom(n);
     }
