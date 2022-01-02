@@ -163,8 +163,8 @@ namespace array {
             break;
         case OP_CONST_ARRAY:
         case OP_AS_ARRAY:
-            set_prop_upward(find(n));
-            add_parent_default(find(n), n);
+            set_prop_upward(find(n));            
+            propagate_parent_default(find(n));
             break;
         case OP_ARRAY_EXT:
             break;
