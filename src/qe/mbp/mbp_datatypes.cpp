@@ -300,8 +300,8 @@ namespace mbp {
         return m_imp->solve(model, vars, lits);
     }
 
-    vector<def> datatype_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
-        return vector<def>();
+    bool datatype_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits, vector<def>& defs) {
+        return true;
     }
 
     void datatype_project_plugin::saturate(model& model, func_decl_ref_vector const& shared, expr_ref_vector& lits) {

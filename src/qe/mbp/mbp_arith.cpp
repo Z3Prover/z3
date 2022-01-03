@@ -249,8 +249,8 @@ namespace mbp {
         bool operator()(model& model, app* v, app_ref_vector& vars, expr_ref_vector& lits) {
             app_ref_vector vs(m);
             vs.push_back(v);
-            project(model, vs, lits, false);
-            return vs.empty();
+            vector<def> defs;
+            return project(model, vs, lits, defs, false) && vs.empty();            
         }
 
         typedef opt::model_based_opt::var var;
@@ -265,12 +265,12 @@ namespace mbp {
             return t;
         }
 
-        vector<def> project(model& model, app_ref_vector& vars, expr_ref_vector& fmls, bool compute_def) {
+        bool project(model& model, app_ref_vector& vars, expr_ref_vector& fmls, vector<def>& result, bool compute_def) {
             bool has_arith = false;
             for (expr* v : vars) 
                 has_arith |= is_arith(v);            
             if (!has_arith) 
-                return vector<def>();            
+                return true;            
             model_evaluator eval(model);
             TRACE("qe", tout << model;);
             eval.set_model_completion(true);
@@ -294,7 +294,7 @@ namespace mbp {
             }
             fmls.shrink(j);
             TRACE("qe", tout << "formulas\n" << fmls << "\n";
-		                for (auto [e, id] : tids)
+		                for (auto const& [e, id] : tids)
 		                    tout << mk_pp(e, m) << " -> " << id << "\n";);
 
             // fmls holds residue,
@@ -312,7 +312,7 @@ namespace mbp {
                     rational r;
                     expr_ref val = eval(v);
                     if (!m.inc())
-                        return vector<def>();
+                        return false;
                     if (!a.is_numeral(val, r))
                         throw default_exception("evaluation did not produce a numeral");
                     TRACE("qe", tout << mk_pp(v, m) << " " << val << "\n";);
@@ -326,15 +326,13 @@ namespace mbp {
                 if (is_arith(e) && !var_mark.is_marked(e)) 
                     mark_rec(fmls_mark, e);                
             }
-
             if (m_check_purified) {
                 for (expr* fml : fmls) 
                     mark_rec(fmls_mark, fml);                
                 for (auto& kv : tids) {
                     expr* e = kv.m_key;
-                    if (!var_mark.is_marked(e)) {
-                        mark_rec(fmls_mark, e);
-                    }
+                    if (!var_mark.is_marked(e)) 
+                        mark_rec(fmls_mark, e);                    
                 }
             }
 
@@ -364,16 +362,18 @@ namespace mbp {
                   for (auto const& d : defs) tout << "def: " << d << "\n";
                   tout << fmls << "\n";);
             
-            vector<def> result;
             if (compute_def) 
                 optdefs2mbpdef(defs, index2expr, real_vars, result);     
-            if (m_apply_projection)
-                apply_projection(result, fmls);
+            if (m_apply_projection && !apply_projection(eval, result, fmls))
+                return false;
+
             TRACE("qe",
-                for (auto [v, t] : result)
+                for (auto const& [v, t] : result)
                     tout << v << " := " << t << "\n";
+                for (auto* f : fmls)
+                    tout << mk_pp(f, m) << " := " << eval(f) << "\n";
                 tout << "fmls:" << fmls << "\n";);
-            return result;
+            return true;
         }        
 
         void optdefs2mbpdef(vector<opt::model_based_opt::def> const& defs, ptr_vector<expr> const& index2expr, unsigned_vector const& real_vars, vector<def>& result) {
@@ -548,10 +548,11 @@ namespace mbp {
             }
         }
 
-        void apply_projection(vector<def>& defs, expr_ref_vector& fmls) {
+        bool apply_projection(model_evaluator& eval, vector<def> const& defs, expr_ref_vector& fmls) {
             if (fmls.empty() || defs.empty())
-                return;
+                return true;
             expr_safe_replace subst(m);
+            expr_ref_vector fmls_tmp(m);
             expr_ref tmp(m);
             for (unsigned i = defs.size(); i-- > 0; ) {
                 auto const& d = defs[i];
@@ -561,8 +562,11 @@ namespace mbp {
             unsigned j = 0;
             for (expr* fml : fmls) {
                 subst(fml, tmp);
+                if (m.is_false(eval(tmp)))
+                    return false;
                 fmls[j++] = tmp;
             }
+            return true;
         }
 
     };
@@ -579,12 +583,13 @@ namespace mbp {
         return (*m_imp)(model, var, vars, lits);
     }
 
-    void arith_project_plugin::operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
-        m_imp->project(model, vars, lits, false);
+    bool arith_project_plugin::operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+        vector<def> defs;
+        return m_imp->project(model, vars, lits, defs, false);
     }
 
-    vector<def> arith_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
-        return m_imp->project(model, vars, lits, true);
+    bool arith_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits, vector<def>& defs) {
+        return m_imp->project(model, vars, lits, defs, true);
     }
 
     void arith_project_plugin::set_check_purified(bool check_purified) {

@@ -67,7 +67,7 @@ namespace q {
             }
         }
         m_max_cex += ctx.get_config().m_mbqi_max_cexs;
-        for (auto [qlit, fml, generation] : m_instantiations) {
+        for (auto const& [qlit, fml, generation] : m_instantiations) {
             euf::solver::scoped_generation sg(ctx, generation + 1);
             sat::literal lit = ctx.mk_literal(fml);
             m_qs.add_clause(~qlit, ~lit);
@@ -308,8 +308,10 @@ namespace q {
                 proj.extract_literals(*m_model, vars, fmls);
                 fmls_extracted = true;
             }
-            if (p)
-                (*p)(*m_model, vars, fmls);
+            if (!p)
+                continue;
+            if (!(*p)(*m_model, vars, fmls))
+                return expr_ref(nullptr, m);
         }
         for (app* v : vars) {
             expr_ref term(m);

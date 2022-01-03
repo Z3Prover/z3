@@ -256,7 +256,7 @@ namespace q {
               tout << "invert-app " << mk_pp(t, m) << " = " << mk_pp(value, m) << "\n";
               if (v2r.find(value, r)) 
                   tout << "inverse " << mk_pp(r->get_expr(), m) << "\n";
-              ctx.display(tout);              
+              /*ctx.display(tout); */
               );
         if (v2r.find(value, r)) 
             return r->get_expr();
