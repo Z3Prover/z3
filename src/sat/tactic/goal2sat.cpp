@@ -239,7 +239,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         for (; m_num_scopes > 0; --m_num_scopes) {
             m_map.push();
             m_cache_lim.push_back(m_cache_trail.size());
-        }
         }        
     }
 
