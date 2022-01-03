@@ -183,8 +183,6 @@ namespace euf {
         m_egraph.set_bool_var(n, v);
         if (m.is_eq(e) || m.is_or(e) || m.is_and(e) || m.is_not(e))
             m_egraph.set_merge_enabled(n, false);
-        if (!si.is_bool_op(e))
-            track_relevancy(lit.var());
         if (s().value(lit) != l_undef) 
             m_egraph.set_value(n, s().value(lit));
         return lit;
@@ -396,7 +394,7 @@ namespace euf {
         // Remark: The inconsistency is not going to be detected if they are
         // not marked as shared.
 
-        for (auto p : euf::enode_th_vars(n)) 
+        for (auto const& p : euf::enode_th_vars(n)) 
             if (fid2solver(p.get_id())->is_shared(p.get_var()))
                 return true;
 

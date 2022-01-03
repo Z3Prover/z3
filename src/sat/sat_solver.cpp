@@ -3009,7 +3009,7 @@ namespace sat {
         svector<double> logits(vars.size(), 0.0);
         double itau = m_config.m_reorder_itau;
         double lse = 0;
-        double mid = m_rand.max_value()/2;
+        double mid = (double)(m_rand.max_value()/2);
         double max = 0;
         for (double& f : logits) {
             f = itau * (m_rand() - mid)/mid;

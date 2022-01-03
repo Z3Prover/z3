@@ -1061,16 +1061,12 @@ namespace seq {
     // using iterative deepening can be re-used.
     //
     // create recursive relation 'ra' with properties:
-    // ra(s, p, t, r) <- s = "" && r = ""
-    // ra(s, p, t, r) <- s != "" && p = "" && r = t + s
-    // ra(s, p, t, r) <- s != "" && p + s' = s && t + r' = r && ra(s', p, t, r')
-    // ra(s, p, t, r) <- s = [s0] + s' && ~prefix(p, s) && r = [s0] + r' && ra(s', p, t, r')
+    // ra(i, j, s, p, t, r) <- len(s) = i && len(r) = j
+    // ra(i, j, s, p, t, r) <- len(s) > i = 0 && p = "" && r = t + s
+    // ra(i, j, s, p, t, r) <- len(s) > i && p != "" && s = extract(s, 0, i) + p + extract(s, i + len(p), len(s)) && r = extract(r, 0, i) + t + extract(r, i + len(p), len(r)) && ra(i + len(p), j + len(t), s, p, t, r)
+    // ra(i, s, p, t, r) <- ~prefix(p, extract(s, i, len(s)) && at(s,i) = at(r,j) && ra(i + 1, j + 1, s, p, t, r)
     // which amounts to:
     //
-    // s = "" -> r = ""
-    // p = "" -> r = t + s
-    // prefix(p, s) -> p + s' = s && t + r' = r && ra(s', p, t, r')
-    // else ->  s = [s0] + s' && r = [s0] + r' && ra(s', p, t, r')
     //
     // Then assert
     // ra(s, p, t, replace_all(s, p, t))
@@ -1085,16 +1081,23 @@ namespace seq {
         sort* domain[4] = { srt, srt, srt, srt };
         auto d = plugin.ensure_def(symbol("ra"), 4, domain, m.mk_bool_sort(), true);
         func_decl* ra = d.get_def()->get_decl();
+        sort* isrt = a.mk_int();
+        var_ref vi(m.mk_var(5, isrt), m);
+        var_ref vj(m.mk_var(4, isrt), m);
         var_ref vs(m.mk_var(3, srt), m);
         var_ref vp(m.mk_var(2, srt), m);
         var_ref vt(m.mk_var(1, srt), m);
         var_ref vr(m.mk_var(0, srt), m);
-        var* vars[4] = { vs, vp, vt, vr };
-        expr_ref test1(seq.str.mk_is_empty(vs), m);
-        expr_ref branch1(seq.str.mk_is_empty(vr), m);
-        expr_ref test2(seq.str.mk_is_empty(vp), m);
+        var* vars[6] = { vi, vj, vs, vp, vt, vr };
+        expr_ref len_s(seq.str.mk_length(vs), m);
+        expr_ref len_r(seq.str.mk_length(vr), m);
+        expr_ref test1(m.mk_eq(len_s, vi), m);
+        expr_ref branch1(m.mk_eq(len_r, vj), m);
+        expr_ref test2(m.mk_and(a.mk_gt(len_s, vi), m.mk_eq(vi, a.mk_int(0)), seq.str.mk_is_empty(vp)), m);
         expr_ref branch2(m.mk_eq(vr, seq.str.mk_concat(vt, vs)), m);
-        expr_ref test3(seq.str.mk_prefix(vp, vs), m);
+        NOT_IMPLEMENTED_YET();
+#if 0
+        expr_ref test3(, m);
         expr_ref s1(m_sk.mk_prefix_inv(vp, vs), m);
         expr_ref r1(m_sk.mk_prefix_inv(vp, vr), m);
         expr* args1[4] = { s1, vp, vt, r1 };
@@ -1116,6 +1119,7 @@ namespace seq {
         expr* args3[4] = { s, p, t, r };
         expr_ref lit(m.mk_app(ra, 4, args3), m);
         add_clause(lit);
+#endif
     }
 
     void axioms::replace_re_all_axiom(expr* e) {

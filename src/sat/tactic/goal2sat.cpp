@@ -186,8 +186,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
             return v;
         v = m_solver.add_var(is_ext);
         log_def(v, n);
-        if (top_level_relevant() && !is_bool_op(n))
-            ensure_euf()->track_relevancy(v);
         return v;
     }
 
@@ -216,10 +214,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         if (!m_expr2var_replay || !m_expr2var_replay->find(t, v))  
             v = add_var(true, t);
         m_map.insert(t, v);
-        if (relevancy_enabled() && (m.is_true(t) || m.is_false(t))) {
-            add_dual_root(sat::literal(v, m.is_false(t)));
-            ensure_euf()->track_relevancy(v);
-        }
         return v;
     }
 
@@ -678,8 +672,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
         }
         if (lit == sat::null_literal) 
             return;
-        if (top_level_relevant())
-            euf->track_relevancy(lit.var());
         if (root)
             mk_root_clause(lit);
         else

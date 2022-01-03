@@ -137,7 +137,7 @@ namespace smt {
     public:
         relevancy(euf::solver& ctx);
 
-        void push() { ++m_num_scopes; }
+        void push() { if (m_enabled) ++m_num_scopes; }
         void pop(unsigned n);
 
         void add_root(unsigned n, sat::literal const* lits);

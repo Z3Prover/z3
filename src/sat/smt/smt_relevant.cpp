@@ -44,6 +44,8 @@ namespace smt {
     }
     
     void relevancy::pop(unsigned n) {
+        if (!m_enabled)
+            return;
         if (n <= m_num_scopes) {
             m_num_scopes -= n;
             return;
@@ -55,7 +57,7 @@ namespace smt {
         SASSERT(n > 0);
         unsigned sz = m_lim[m_lim.size() - n];
         for (unsigned i = m_trail.size(); i-- > sz; ) {
-            auto [u, idx] = m_trail[i];
+            auto const& [u, idx] = m_trail[i];
             switch (u) {
             case update::relevant_var:
                 m_relevant_var_ids[idx] = false;
@@ -168,7 +170,7 @@ namespace smt {
             return;
         m_trail.push_back(std::make_pair(update::set_qhead, m_qhead));
         while (m_qhead < m_queue.size() && !ctx.s().inconsistent() && ctx.get_manager().inc()) {
-            auto [lit, n] = m_queue[m_qhead++];
+            auto const& [lit, n] = m_queue[m_qhead++];
             SASSERT(n || lit != sat::null_literal);
             SASSERT(!n || lit == sat::null_literal);
             if (n)

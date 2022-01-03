@@ -135,6 +135,7 @@ class sat_tactic : public tactic {
                 ref<sat2goal::mc> mc;
                 m_sat2goal(*m_solver, map, m_params, *(g.get()), mc);
                 g->add(mc.get());
+                g->display(std::cout);
                 if (produce_core || m_goal2sat.has_interpreted_funs()) {
                     // sat2goal does not preseve assumptions or assignments to interpreted atoms
                     g->updt_prec(goal::OVER);

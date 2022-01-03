@@ -21,7 +21,6 @@ z3_add_component(sat_smt
     euf_invariant.cpp
     euf_model.cpp
     euf_proof.cpp
-    euf_relevancy.cpp
     euf_solver.cpp
     fpa_solver.cpp
     pb_card.cpp
@@ -38,7 +37,6 @@ z3_add_component(sat_smt
     q_queue.cpp
     q_solver.cpp
     recfun_solver.cpp
-    sat_dual_solver.cpp
     sat_th.cpp
     smt_relevant.cpp
     user_solver.cpp

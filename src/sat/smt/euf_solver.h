@@ -25,7 +25,6 @@ Author:
 #include "sat/sat_extension.h"
 #include "sat/smt/atom2bool_var.h"
 #include "sat/smt/sat_th.h"
-#include "sat/smt/sat_dual_solver.h"
 #include "sat/smt/euf_ackerman.h"
 #include "sat/smt/user_solver.h"
 #include "sat/smt/smt_relevant.h"
@@ -184,14 +183,11 @@ namespace euf {
         void init_drat();
 
         // relevancy
-        bool_vector m_relevant_expr_ids;
-        bool_vector m_relevant_visited;
-        ptr_vector<expr> m_relevant_todo;
-        void ensure_dual_solver();
-        bool init_relevancy();
-        void relevant_subterms();
-        void init_relevant_expr_ids();
-        void push_relevant(sat::bool_var v);
+        //bool_vector m_relevant_expr_ids;
+        //bool_vector m_relevant_visited;
+        //ptr_vector<expr> m_relevant_todo;
+        //void init_relevant_expr_ids();
+        //void push_relevant(sat::bool_var v);
         bool is_propagated(sat::literal lit);
         // invariant
         void check_eqc_bool_assignment() const;
@@ -376,29 +372,26 @@ namespace euf {
 
         // relevancy
         bool m_relevancy_enabled = true;
-        scoped_ptr<sat::dual_solver>  m_dual_solver;
         ptr_vector<expr>              m_auto_relevant;
         unsigned_vector               m_auto_relevant_lim;
         unsigned                      m_auto_relevant_scopes = 0;
 
         bool relevancy_enabled() const { return m_relevancy_enabled && get_config().m_relevancy_lvl > 0; }
         void disable_relevancy(expr* e) { IF_VERBOSE(0, verbose_stream() << "disabling relevancy " << mk_pp(e, m) << "\n"); m_relevancy_enabled = false;  }
-        void add_root(unsigned n, sat::literal const* lits);
+        void add_root(unsigned n, sat::literal const* lits) { m_relevancy.add_root(n, lits); }
         void add_root(sat::literal_vector const& lits) { add_root(lits.size(), lits.data()); }
         void add_root(sat::literal lit) { add_root(1, &lit); }
         void add_aux(sat::literal_vector const& lits) { add_aux(lits.size(), lits.data()); }
-        void add_aux(unsigned n, sat::literal const* lits);
+        void add_aux(unsigned n, sat::literal const* lits) { m_relevancy.add_def(n, lits); }
         void add_aux(sat::literal a) { sat::literal lits[1] = { a }; add_aux(1, lits); }
         void add_aux(sat::literal a, sat::literal b) { sat::literal lits[2] = {a, b}; add_aux(2, lits); } 
         void add_aux(sat::literal a, sat::literal b, sat::literal c) { sat::literal lits[3] = { a, b, c }; add_aux(3, lits); }
-        void track_relevancy(sat::bool_var v);
-        bool is_relevant(enode* n) const;
+        void mark_relevant(sat::literal lit) { m_relevancy.mark_relevant(lit); }
+        bool is_relevant(enode* n) const { return m_relevancy.is_relevant(n); }
         bool is_relevant(bool_var v) const;
         bool is_relevant(sat::literal lit) const { return is_relevant(lit.var()); }
-        void mark_relevant(sat::literal lit);
-        void pop_relevant(unsigned n);
-        void push_relevant();
         void relevant_eh(euf::enode* n);
+
         smt::relevancy& relevancy() { return m_relevancy; }
 
         // model construction
