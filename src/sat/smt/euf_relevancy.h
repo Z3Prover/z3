@@ -97,11 +97,10 @@ Do we need full watch lists instead of 2-watch lists?
 #include "sat/sat_solver.h"
 #include "sat/smt/sat_th.h"
 
-namespace euf {
-    class solver;
-}
 
-namespace smt {
+namespace euf {
+
+    class solver;
 
     class relevancy {
         euf::solver&         ctx;

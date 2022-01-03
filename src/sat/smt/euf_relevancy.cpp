@@ -16,10 +16,10 @@ Author:
 --*/
 #include "sat/sat_solver.h"
 #include "sat/smt/euf_solver.h"
-#include "sat/smt/smt_relevant.h"
+#include "sat/smt/euf_relevancy.h"
 
 
-namespace smt {
+namespace euf {
 
     relevancy::relevancy(euf::solver& ctx): ctx(ctx) {
     }

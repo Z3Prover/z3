@@ -69,13 +69,13 @@ namespace q {
             m_mam->add_node(n, false);
         };
         ctx.get_egraph().set_on_merge(_on_merge);
-        if (!ctx.relevancy().enabled())
+        if (!ctx.relevancy_enabled())
             ctx.get_egraph().set_on_make(_on_make);
         m_mam = mam::mk(ctx, *this);
     }
 
     void ematch::relevant_eh(euf::enode* n) {
-        if (ctx.relevancy().enabled())
+        if (ctx.relevancy_enabled())
             m_mam->add_node(n, false);
     }
 
@@ -358,7 +358,7 @@ namespace q {
         if (m_prop_queue.empty())
             return false;
         for (unsigned i = 0; i < m_prop_queue.size(); ++i) {
-            auto [is_conflict, idx, j_idx] = m_prop_queue[i];
+            auto const& [is_conflict, idx, j_idx] = m_prop_queue[i];
             propagate(is_conflict, idx, j_idx);
         }
         m_prop_queue.reset();

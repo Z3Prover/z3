@@ -86,7 +86,7 @@ namespace array {
         for (auto* arg : euf::enode_args(n))
             ensure_var(arg);  
         internalize_eh(n);
-        if (ctx.is_relevant(n) || !ctx.relevancy().enabled())
+        if (ctx.is_relevant(n))
             relevant_eh(n);
         return true;
     }

@@ -27,7 +27,7 @@ Author:
 #include "sat/smt/sat_th.h"
 #include "sat/smt/euf_ackerman.h"
 #include "sat/smt/user_solver.h"
-#include "sat/smt/smt_relevant.h"
+#include "sat/smt/euf_relevancy.h"
 #include "smt/params/smt_params.h"
 
 
@@ -92,7 +92,7 @@ namespace euf {
         std::function<::solver*(void)>   m_mk_solver;
         ast_manager&                     m;
         sat::sat_internalizer& si;
-        smt::relevancy         m_relevancy;
+        relevancy              m_relevancy;
         smt_params             m_config;
         euf::egraph            m_egraph;
         trail_stack            m_trail;
@@ -388,7 +388,7 @@ namespace euf {
         bool is_relevant(sat::literal lit) const { return is_relevant(lit.var()); }
         void relevant_eh(euf::enode* n);
 
-        smt::relevancy& relevancy() { return m_relevancy; }
+        relevancy& get_relevancy() { return m_relevancy; }
 
         // model construction
         void update_model(model_ref& mdl);
