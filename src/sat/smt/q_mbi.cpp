@@ -129,7 +129,7 @@ namespace q {
                 r = n;
             }
             else if (n->generation() == gen) {
-                if ((++count) % m_qs.random() == 0)
+                if ((++count) % (1 + m_qs.random()) == 0)
                     r = n;
             }
             if (count > m_max_choose_candidates)
