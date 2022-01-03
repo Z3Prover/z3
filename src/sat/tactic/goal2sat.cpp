@@ -224,6 +224,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
     }
 
     sat::bool_var add_bool_var(expr* t) override {
+        force_push();
         sat::bool_var v = m_map.to_bool_var(t);
         if (v == sat::null_bool_var) 
             v = mk_bool_var(t);
@@ -239,10 +240,11 @@ struct goal2sat::imp : public sat::sat_internalizer {
             m_map.push();
             m_cache_lim.push_back(m_cache_trail.size());
         }
+        }        
     }
 
     void push() override {
-        ++m_num_scopes;
+        ++m_num_scopes;        
     }
 
     void pop(unsigned n) override {
@@ -263,7 +265,7 @@ struct goal2sat::imp : public sat::sat_internalizer {
             }
         }
         m_cache_trail.shrink(k);
-        m_cache_lim.shrink(m_cache_lim.size() - n);                              
+        m_cache_lim.shrink(m_cache_lim.size() - n);    
     }
 
     // remove non-external literals from cache.

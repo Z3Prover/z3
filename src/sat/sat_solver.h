@@ -124,7 +124,7 @@ namespace sat {
         clause_vector           m_clauses;
         clause_vector           m_learned;
         unsigned                m_num_frozen;
-        unsigned_vector         m_active_vars, m_free_vars, m_vars_to_reinit;
+        unsigned_vector         m_active_vars, m_free_vars, m_vars_to_free, m_vars_to_reinit;
         vector<watch_list>      m_watches;
         svector<lbool>          m_assignment;
         svector<justification>  m_justification; 

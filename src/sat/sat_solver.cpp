@@ -288,6 +288,7 @@ namespace sat {
             m_free_vars.pop_back();
             m_active_vars.push_back(v);
             reset_var(v, ext, dvar);
+            SASSERT(v < m_justification.size());
             return v;
         }
         m_active_vars.push_back(v);
@@ -3508,7 +3509,6 @@ namespace sat {
         unsigned old_num_vars = m_vars_lim.pop(num_scopes);
         if (old_num_vars == m_active_vars.size())
             return;
-        unsigned free_vars_head = m_free_vars.size();
         unsigned sz = m_active_vars.size(), j = old_num_vars;
         unsigned new_lvl = m_scopes.size() - num_scopes;
 
@@ -3538,9 +3538,7 @@ namespace sat {
             }
             else {
                 set_eliminated(v, true);
-                if (!is_external(v) || true) {
-                    m_free_vars.push_back(v);                   
-                }
+                m_vars_to_free.push_back(v);                                   
             }
         }
         m_active_vars.shrink(j);
@@ -3550,8 +3548,7 @@ namespace sat {
                 IF_VERBOSE(0, verbose_stream() << "cleanup: " << lit << " " << w.is_binary_clause() << "\n");
             }
         };
-        for (unsigned i = m_free_vars.size(); i-- > free_vars_head; ) {
-            bool_var v = m_free_vars[i];
+        for (bool_var v : m_vars_to_free) {
             cleanup_watch(literal(v, false));
             cleanup_watch(literal(v, true));
             
@@ -3560,7 +3557,7 @@ namespace sat {
             tout << "clauses to reinit: " << (m_clauses_to_reinit.size() - old_sz) << "\n";
             tout << "new level:         " << new_lvl << "\n";
             tout << "vars to reinit:    " << m_vars_to_reinit << "\n";
-            tout << "free vars:         " << bool_var_vector(m_free_vars.size() - free_vars_head, m_free_vars.data() + free_vars_head) << "\n";
+            tout << "free vars:         " << bool_var_vector(m_vars_to_free) << "\n";
             for (unsigned i = m_clauses_to_reinit.size(); i-- > old_sz; )
                 tout << "reinit:           " << m_clauses_to_reinit[i] << "\n";
             display(tout););        
@@ -3599,7 +3596,6 @@ namespace sat {
     void solver::pop(unsigned num_scopes) {
         if (num_scopes == 0)
             return;
-        unsigned free_vars_head = m_free_vars.size();
         if (m_ext) {
             pop_vars(num_scopes);
             m_ext->pop(num_scopes);
@@ -3609,13 +3605,16 @@ namespace sat {
         scope & s        = m_scopes[new_lvl];
         m_inconsistent   = false; // TBD: use model seems to make this redundant: s.m_inconsistent;
         unassign_vars(s.m_trail_lim, new_lvl);
-        for (unsigned i = m_free_vars.size(); i-- > free_vars_head; )
-            m_case_split_queue.del_var_eh(m_free_vars[i]);
+        for (bool_var v : m_vars_to_free)
+            m_case_split_queue.del_var_eh(v);
         m_scope_lvl -= num_scopes;
         reinit_clauses(s.m_clauses_to_reinit_lim);
         m_scopes.shrink(new_lvl);
-        if (m_ext) 
+        if (m_ext) {
             m_ext->pop_reinit();
+            m_free_vars.append(m_vars_to_free);
+            m_vars_to_free.reset();
+        }
     }
 
     void solver::unassign_vars(unsigned old_sz, unsigned new_lvl) {
@@ -3692,6 +3691,7 @@ namespace sat {
     //
 
     void solver::user_push() {
+
         pop_to_base_level();
         m_free_var_freeze.push_back(m_free_vars);
         m_free_vars.reset(); // resetting free_vars forces new variables to be assigned above new_v
