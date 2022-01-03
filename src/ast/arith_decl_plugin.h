@@ -273,6 +273,17 @@ public:
     bool is_rem0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_REM0); }
     bool is_mod0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_MOD0); }
     bool is_power0(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_POWER0); }
+    bool is_power(func_decl const * n) const { return is_decl_of(n, arith_family_id, OP_POWER); }
+    bool is_add(func_decl const* f) const { return is_decl_of(f, arith_family_id, OP_ADD); }
+    bool is_mul(func_decl const* f) const { return is_decl_of(f, arith_family_id, OP_MUL); }
+    bool is_sub(func_decl const* f) const { return is_decl_of(f, arith_family_id, OP_SUB); }
+    bool is_uminus(func_decl const* f) const { return is_decl_of(f, arith_family_id, OP_UMINUS); }
+    bool is_div(func_decl const* f) const { return is_decl_of(f, arith_family_id, OP_DIV); }
+    bool is_rem(func_decl const* f) const { return is_decl_of(f, arith_family_id, OP_REM); }
+    bool is_mod(func_decl const* f) const { return is_decl_of(f, arith_family_id, OP_MOD); }
+    bool is_to_real(func_decl const* f) const { return is_decl_of(f, arith_family_id, OP_TO_REAL); }
+    bool is_to_int(func_decl const* f) const { return is_decl_of(f, arith_family_id, OP_TO_INT); }
+    bool is_is_int(func_decl const* f) const { return is_decl_of(f, arith_family_id, OP_IS_INT); }
 
     bool is_add(expr const * n) const { return is_app_of(n, arith_family_id, OP_ADD); }
     bool is_sub(expr const * n) const { return is_app_of(n, arith_family_id, OP_SUB); }
