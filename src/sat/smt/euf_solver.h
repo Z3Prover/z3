@@ -371,13 +371,9 @@ namespace euf {
         bool enable_ackerman_axioms(expr* n) const;
 
         // relevancy
-        bool m_relevancy_enabled = true;
-        ptr_vector<expr>              m_auto_relevant;
-        unsigned_vector               m_auto_relevant_lim;
-        unsigned                      m_auto_relevant_scopes = 0;
 
-        bool relevancy_enabled() const { return m_relevancy_enabled && get_config().m_relevancy_lvl > 0; }
-        void disable_relevancy(expr* e) { IF_VERBOSE(0, verbose_stream() << "disabling relevancy " << mk_pp(e, m) << "\n"); m_relevancy_enabled = false;  }
+        bool relevancy_enabled() const { return m_relevancy.enabled(); }
+        void disable_relevancy(expr* e) { IF_VERBOSE(0, verbose_stream() << "disabling relevancy " << mk_pp(e, m) << "\n"); m_relevancy.set_enabled(false); }
         void add_root(unsigned n, sat::literal const* lits) { m_relevancy.add_root(n, lits); }
         void add_root(sat::literal_vector const& lits) { add_root(lits.size(), lits.data()); }
         void add_root(sat::literal lit) { add_root(1, &lit); }
