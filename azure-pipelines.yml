@@ -288,6 +288,7 @@ jobs:
 
 - job: "MacOSOCaml"
   displayName: "MacOS build with OCaml"
+  condition: eq(0,1) 
   pool:
     vmImage: "macOS-latest"
   steps:
