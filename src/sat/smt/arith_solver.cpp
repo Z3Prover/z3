@@ -1489,6 +1489,7 @@ namespace arith {
         case OP_MOD:
         case OP_REM:
         case OP_DIV:
+        case OP_IDIV:
         case OP_POWER:
         case OP_IS_INT:
         case OP_TO_INT:
