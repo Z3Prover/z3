@@ -304,6 +304,8 @@ namespace euf {
                 literal lits2[2] = { lit_c, lit_el };
                 s().add_clause(2, lits1, st);
                 s().add_clause(2, lits2, st);
+                add_root(2, lits1);
+                add_root(2, lits2);
             }
         }
         else if (m.is_distinct(e)) {
@@ -322,6 +324,8 @@ namespace euf {
             sat::literal lits2[2] = { dist, some_eq };
             s().add_clause(2, lits1, st);
             s().add_clause(2, lits2, st);
+            add_root(2, lits1);
+            add_root(2, lits2);
         }
         else if (m.is_eq(e, th, el) && !m.is_iff(e)) {
             sat::literal lit1 = expr2literal(e);
@@ -334,6 +338,8 @@ namespace euf {
                 sat::literal lits2[2] = { lit1, ~lit2 };
                 s().add_clause(2, lits1, st);
                 s().add_clause(2, lits2, st);
+                add_root(2, lits1);
+                add_root(2, lits2);
             }
         }
     }
