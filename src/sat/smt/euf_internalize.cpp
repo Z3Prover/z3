@@ -220,8 +220,8 @@ namespace euf {
                     lits.push_back(lit);
                 }
             }
-            s().mk_clause(lits, st);
             add_root(lits);
+            s().mk_clause(lits, st);
         }
         else {
             // g(f(x_i)) = x_i
@@ -239,14 +239,13 @@ namespace euf {
                 expr_ref gapp(m.mk_app(g, fapp.get()), m);
                 expr_ref eq = mk_eq(gapp, arg);
                 sat::literal lit = mk_literal(eq);
-                s().add_clause(1, &lit, st);
+                s().add_clause(lit, st);
                 eqs.push_back(mk_eq(fapp, a));
             }
             pb_util pb(m);
             expr_ref at_least2(pb.mk_at_least_k(eqs.size(), eqs.data(), 2), m);
             sat::literal lit = si.internalize(at_least2, m_is_redundant);
-            s().mk_clause(1, &lit, st);
-            add_root(lit);
+            s().add_clause(lit, st);
         }
     }
 
@@ -262,8 +261,7 @@ namespace euf {
                 for (unsigned j = i + 1; j < sz; ++j) {
                     expr_ref eq = mk_eq(args[i]->get_expr(), args[j]->get_expr());
                     sat::literal lit = ~mk_literal(eq);
-                    s().add_clause(1, &lit, st);
-                    add_root(1, &lit);
+                    s().add_clause(lit, st);
                 }
             }
         }
@@ -280,8 +278,7 @@ namespace euf {
                 n->mark_interpreted();
                 expr_ref eq = mk_eq(fapp, fresh);
                 sat::literal lit = mk_literal(eq);
-                s().add_clause(1, &lit, st);
-                add_root(1, &lit);
+                s().add_clause(lit, st);
             }
         }
     }
@@ -294,18 +291,16 @@ namespace euf {
             expr_ref eq_th = mk_eq(e, th);
             sat::literal lit_th = mk_literal(eq_th);
             if (th == el) {
-                s().add_clause(1, &lit_th, st);
+                s().add_clause(lit_th, st);
             }
             else {
                 sat::literal lit_c = mk_literal(c);
                 expr_ref eq_el = mk_eq(e, el);
                 sat::literal lit_el = mk_literal(eq_el);
-                literal lits1[2] = { ~lit_c,  lit_th };
-                literal lits2[2] = { lit_c, lit_el };
-                s().add_clause(2, lits1, st);
-                s().add_clause(2, lits2, st);
-                add_root(2, lits1);
-                add_root(2, lits2);
+                add_root(~lit_c, lit_th);
+                add_root(lit_c, lit_el);
+                s().add_clause(~lit_c, lit_th, st);
+                s().add_clause(lit_c, lit_el, st);
             }
         }
         else if (m.is_distinct(e)) {
@@ -320,12 +315,10 @@ namespace euf {
             expr_ref fml(m.mk_or(eqs), m);
             sat::literal dist(si.to_bool_var(e), false);
             sat::literal some_eq = si.internalize(fml, m_is_redundant);
-            sat::literal lits1[2] = { ~dist, ~some_eq };
-            sat::literal lits2[2] = { dist, some_eq };
-            s().add_clause(2, lits1, st);
-            s().add_clause(2, lits2, st);
-            add_root(2, lits1);
-            add_root(2, lits2);
+            add_root(~dist, ~some_eq);
+            add_root(dist, some_eq);
+            s().add_clause(~dist, ~some_eq, st);
+            s().add_clause(dist, some_eq, st);
         }
         else if (m.is_eq(e, th, el) && !m.is_iff(e)) {
             sat::literal lit1 = expr2literal(e);
@@ -334,12 +327,10 @@ namespace euf {
             enode* n2 = m_egraph.find(e2);
             if (n2) {
                 sat::literal lit2 = expr2literal(e2);
-                sat::literal lits1[2] = { ~lit1, lit2 };
-                sat::literal lits2[2] = { lit1, ~lit2 };
-                s().add_clause(2, lits1, st);
-                s().add_clause(2, lits2, st);
-                add_root(2, lits1);
-                add_root(2, lits2);
+                add_root(~lit1, lit2);
+                add_root(lit1, ~lit2);
+                s().add_clause(~lit1, lit2, st);
+                s().add_clause(lit1, ~lit2, st);
             }
         }
     }
