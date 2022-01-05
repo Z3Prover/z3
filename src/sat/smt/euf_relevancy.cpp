@@ -132,6 +132,35 @@ namespace euf {
         m_trail.push_back(std::make_pair(update::relevant_var, lit.var()));
     }
 
+    void relevancy::set_asserted(sat::literal lit) {
+        SASSERT(!is_relevant(lit));
+        SASSERT(ctx.s().value(lit) == l_true);
+        set_relevant(lit);
+        add_to_propagation_queue(lit);
+        ctx.asserted(lit);
+    }
+
+    /**
+    * Boolean variable is set relevant because an E-node is relevant.
+    * 
+    */
+    void relevancy::relevant_eh(sat::bool_var v) {
+        if (is_relevant(v))
+            return;
+        sat::literal lit(v);
+        switch (ctx.s().value(lit)) {
+        case l_undef:
+            set_relevant(lit);
+            break;
+        case l_true:
+            set_asserted(lit);
+            break;
+        case l_false:
+            set_asserted(~lit);
+            break;
+        }
+    }
+
     void relevancy::asserted(sat::literal lit) {
         TRACE("relevancy", tout << "asserted " << lit << " relevant " << is_relevant(lit) << "\n");
         if (!m_enabled)
@@ -239,11 +268,8 @@ namespace euf {
                 }
             }
 
-            if (true_lit != sat::null_literal) {
-                set_relevant(true_lit);
-                add_to_propagation_queue(true_lit);
-                ctx.asserted(true_lit);
-            }
+            if (true_lit != sat::null_literal) 
+                set_asserted(true_lit);            
             else {
                 m_trail.push_back(std::make_pair(update::set_root, idx));
                 m_roots[idx] = true;
@@ -276,8 +302,9 @@ namespace euf {
                 if (!n->is_relevant()) {
                     ctx.get_egraph().set_relevant(n);
                     ctx.relevant_eh(n);
-                    if (n->bool_var() != sat::null_bool_var) 
-                        mark_relevant(sat::literal(n->bool_var()));
+                    sat::bool_var v = n->bool_var();                    
+                    if (v != sat::null_bool_var)
+                        relevant_eh(v);
                     for (euf::enode* sib : euf::enode_class(n))
                         if (!sib->is_relevant())
                             m_todo.push_back(sib);

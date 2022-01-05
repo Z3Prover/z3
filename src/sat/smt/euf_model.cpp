@@ -199,6 +199,8 @@ namespace euf {
             expr* e = n->get_expr();
             if (!is_app(e))
                 continue;
+            if (!is_relevant(n))
+                continue;
             app* a = to_app(e);
             func_decl* f = a->get_decl();       
             if (!include_func_interp(f))
@@ -297,6 +299,8 @@ namespace euf {
         ev.set_model_completion(true);
         TRACE("model",
             for (enode* n : m_egraph.nodes()) {
+                if (!is_relevant(n))
+                    continue;
                 unsigned id = n->get_root_id();
                 expr* val = m_values.get(id, nullptr);
                 if (!val)

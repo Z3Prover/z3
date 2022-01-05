@@ -139,9 +139,13 @@ namespace euf {
 
         void add_to_propagation_queue(sat::literal lit);        
 
-        void propagate_relevant(euf::enode* n);
-
         void set_relevant(sat::literal lit);
+
+        void set_asserted(sat::literal lit);
+
+        void relevant_eh(sat::bool_var v);
+
+        void propagate_relevant(euf::enode* n);
 
     public:
         relevancy(euf::solver& ctx): ctx(ctx) {}
