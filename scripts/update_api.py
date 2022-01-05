@@ -88,11 +88,16 @@ Type2ML = { VOID : 'unit', VOID_PTR : 'VOIDP', INT : 'int', UINT : 'int', INT64 
             FLOAT : 'float', STRING : 'string', STRING_PTR : 'char**',
             BOOL : 'bool', SYMBOL : 'z3_symbol', PRINT_MODE : 'int', ERROR_CODE : 'int', CHAR : 'char', CHAR_PTR : 'string' }
 
-class DefTypes:
+class APITypes:
     def __init__(self):
         self.next_type_id = FIRST_OBJ_ID
 
     def def_Type(self, var, c_type, py_type):
+        """Process type definitions of the form def_Type(var, c_type, py_type)
+        The variable 'var' is set to a unique number and recorded globally using exec
+        It is used by 'def_APIs' to that uses the unique numbers to access the
+        corresponding C and Python types.
+        """
         id = self.next_type_id
         exec('%s = %s' % (var, id), globals())
         Type2Str[id] = c_type
@@ -127,8 +132,6 @@ def type2pystr(ty):
 def type2dotnet(ty):
     global Type2Dotnet
     return Type2Dotnet[ty]
-
-
 
 def type2ml(ty):
     global Type2ML
@@ -1903,7 +1906,7 @@ def generate_files(api_files,
       import tempfile
       return tempfile.TemporaryFile(mode=mode)
 
-  defT = DefTypes()
+  apiTypes = APITypes()
   with mk_file_or_temp(api_output_dir, 'api_log_macros.h') as log_h:
     with mk_file_or_temp(api_output_dir, 'api_log_macros.cpp') as log_c:
       with mk_file_or_temp(api_output_dir, 'api_commands.cpp') as exe_c:
@@ -1915,7 +1918,7 @@ def generate_files(api_files,
           write_core_py_preamble(core_py)
 
           # FIXME: these functions are awful
-          defT.def_Types(api_files)
+          apiTypes.def_Types(api_files)
           def_APIs(api_files)
           mk_bindings(exe_c)
           mk_py_wrappers()
