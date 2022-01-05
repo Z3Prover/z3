@@ -161,10 +161,9 @@ namespace euf {
                 default:
                     break;
                 }
-                if (is_app(e) && to_app(e)->get_family_id() == m.get_basic_family_id())
-                    continue;
                 sat::bool_var v = get_enode(e)->bool_var();
-                SASSERT(v != sat::null_bool_var);
+                if (v == sat::null_bool_var)
+                    continue;
                 switch (s().value(v)) {
                 case l_true:
                     m_values.set(id, m.mk_true());
@@ -224,7 +223,7 @@ namespace euf {
                     enode* earg = get_enode(arg); 
                     expr* val = m_values.get(earg->get_root_id());
                     args.push_back(val);                
-                    CTRACE("euf", !val, tout << "no value for " << bpp(earg) << "\n";);
+                    CTRACE("euf", !val, tout << "no value for " << bpp(earg) << "\n" << bpp(n) << "\n"; display(tout););
                     SASSERT(val);
                 }
                 SASSERT(args.size() == arity);

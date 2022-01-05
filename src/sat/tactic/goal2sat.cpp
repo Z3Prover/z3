@@ -125,20 +125,6 @@ struct goal2sat::imp : public sat::sat_internalizer {
     bool top_level_relevant() {
         return m_top_level && relevancy_enabled();
     }
-
-    void add_dual_def(unsigned n, sat::literal const* lits) {
-        if (relevancy_enabled())
-            ensure_euf()->add_aux(n, lits);        
-    }
-
-    void add_dual_root(unsigned n, sat::literal const* lits) {
-        if (relevancy_enabled())
-            ensure_euf()->add_root(n, lits);
-    }
-
-    void add_dual_root(sat::literal lit) {
-        add_dual_root(1, &lit);
-    }
     
     void mk_clause(sat::literal l) {
         mk_clause(1, &l);
@@ -156,7 +142,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     void mk_clause(unsigned n, sat::literal * lits) {
         TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < n; i++) tout << lits[i] << " "; tout << "\n";);
-        add_dual_def(n, lits);
+        if (relevancy_enabled())
+            ensure_euf()->add_aux(n, lits);
         m_solver.add_clause(n, lits, mk_status());
     }
 
@@ -176,7 +163,8 @@ struct goal2sat::imp : public sat::sat_internalizer {
 
     void mk_root_clause(unsigned n, sat::literal * lits) {
         TRACE("goal2sat", tout << "mk_root_clause: "; for (unsigned i = 0; i < n; i++) tout << lits[i] << " "; tout << "\n";);
-        add_dual_root(n, lits);
+        if (relevancy_enabled())
+            ensure_euf()->add_root(n, lits);
         m_solver.add_clause(n, lits, m_is_redundant ? mk_status() : sat::status::input());
     }
 

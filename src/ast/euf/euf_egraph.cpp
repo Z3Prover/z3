@@ -785,8 +785,15 @@ namespace euf {
                 out << " " << p->get_expr_id();
             out << "] ";
         }
-        if (n->value() != l_undef) 
-            out << "[b" << n->bool_var() << " := " << (n->value() == l_true ? "T":"F") << (n->merge_tf()?"":" no merge") << "] ";
+        auto value_of = [&]() {
+            switch (n->value()) {
+            case l_true: return "T";
+            case l_false: return "F";
+            default: return "?";
+            }
+        };
+        if (n->bool_var() != sat::null_bool_var) 
+            out << "[b" << n->bool_var() << " := " << value_of() << (n->merge_tf() ? "" : " no merge") << "] ";
         if (n->has_th_vars()) {
             out << "[t";
             for (auto const& v : enode_th_vars(n))

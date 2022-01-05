@@ -297,11 +297,9 @@ namespace euf {
 
     void solver::asserted(literal l) {
 
-        if (m_relevancy.enabled() && !m_relevancy.is_relevant(l)) {
-            m_relevancy.asserted(l);
-            if (!m_relevancy.is_relevant(l))
-                return;
-        }
+        m_relevancy.asserted(l);
+        if (!m_relevancy.is_relevant(l))
+            return;        
 
         expr* e = m_bool_var2expr.get(l.var(), nullptr);
         TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " := " << mk_bounded_pp(e, m) << "\n";);

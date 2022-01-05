@@ -91,6 +91,16 @@ Do we need full watch lists instead of 2-watch lists?
    roots.
 
 
+   State machine for literals: relevant(lit), assigned(lit)
+
+relevant(lit) transitions false -> true
+   if assigned(lit):     add to propagation queue
+   if not assigned(lit): no-op (or mark enodes as relevant)
+
+assigned(lit) transitions false -> true
+   if relevant(lit):      add to propagation queue
+   if not relevant(lit):  set relevant if member of root, add to propagation queue
+
 
 --*/
 #pragma once
@@ -105,7 +115,7 @@ namespace euf {
     class relevancy {
         euf::solver&         ctx;
 
-        enum class update { relevant_var, relevant_node, add_clause, set_root, set_qhead };
+        enum class update { relevant_var, add_queue, add_clause, set_root, set_qhead };
        
         bool                                 m_enabled = false;
         svector<std::pair<update, unsigned>> m_trail;
@@ -120,10 +130,6 @@ namespace euf {
         svector<std::pair<sat::literal, euf::enode*>> m_queue;    // propagation queue for relevancy
         euf::enode_vector                    m_stack, m_todo;
 
-        // callbacks during propagation
-        void relevant_eh(euf::enode* n);
-        void relevant_eh(sat::literal lit);
-
         void push_core() { m_lim.push_back(m_trail.size()); }
         void flush() { for (; m_num_scopes > 0; --m_num_scopes) push_core(); }
 
@@ -131,10 +137,14 @@ namespace euf {
 
         void propagate_relevant(sat::literal lit);
 
+        void add_to_propagation_queue(sat::literal lit);        
+
         void propagate_relevant(euf::enode* n);
 
+        void set_relevant(sat::literal lit);
+
     public:
-        relevancy(euf::solver& ctx);
+        relevancy(euf::solver& ctx): ctx(ctx) {}
 
         void push() { if (m_enabled) ++m_num_scopes; }
         void pop(unsigned n);

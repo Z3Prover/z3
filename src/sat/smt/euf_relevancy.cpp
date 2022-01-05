@@ -20,28 +20,6 @@ Author:
 
 
 namespace euf {
-
-    relevancy::relevancy(euf::solver& ctx): ctx(ctx) {
-    }
-
-    void relevancy::relevant_eh(euf::enode* n) {
-        SASSERT(is_relevant(n));
-        ctx.relevant_eh(n);
-    }
-
-    void relevancy::relevant_eh(sat::literal lit) {
-        SASSERT(is_relevant(lit));
-        switch (ctx.s().value(lit)) {
-        case l_true:
-            ctx.asserted(lit);
-            break;
-        case l_false:
-            ctx.asserted(~lit);
-            break;
-        default:
-            break;
-        }
-    }
     
     void relevancy::pop(unsigned n) {
         if (!m_enabled)
@@ -61,9 +39,8 @@ namespace euf {
             switch (u) {
             case update::relevant_var:
                 m_relevant_var_ids[idx] = false;
-                m_queue.pop_back();
                 break;
-            case update::relevant_node:
+            case update::add_queue:
                 m_queue.pop_back();
                 break;
             case update::add_clause: {
@@ -120,10 +97,11 @@ namespace euf {
         }
     }
     
-    void relevancy::add_def(unsigned n, sat::literal const* lits) {
+    void relevancy::add_def(unsigned n, sat::literal const* lits) {        
         if (!m_enabled)
             return;
         flush();
+        TRACE("relevancy", tout << "def " << sat::literal_vector(n, lits) << "\n");
         for (unsigned i = 0; i < n; ++i) {
             if (ctx.s().value(lits[i]) == l_false && is_relevant(lits[i])) {
                 add_root(n, lits);
@@ -141,21 +119,42 @@ namespace euf {
         }
     }
 
+    void relevancy::add_to_propagation_queue(sat::literal lit) {
+        m_trail.push_back(std::make_pair(update::add_queue, lit.var()));
+        m_queue.push_back(std::make_pair(lit, nullptr));
+    }
+
+    void relevancy::set_relevant(sat::literal lit) {
+        euf::enode* n = ctx.bool_var2enode(lit.var());
+        if (n)
+            mark_relevant(n);        
+        m_relevant_var_ids.setx(lit.var(), true, false);
+        m_trail.push_back(std::make_pair(update::relevant_var, lit.var()));
+    }
+
     void relevancy::asserted(sat::literal lit) {
+        TRACE("relevancy", tout << "asserted " << lit << " relevant " << is_relevant(lit) << "\n");
         if (!m_enabled)
             return;
         flush();
-        if (ctx.s().lvl(lit) <= ctx.s().search_lvl()) {
-            mark_relevant(lit);
+        if (is_relevant(lit)) {
+            add_to_propagation_queue(lit);
             return;
         }
+        if (ctx.s().lvl(lit) <= ctx.s().search_lvl()) {
+            set_relevant(lit);
+            add_to_propagation_queue(lit);
+            return;
+        }
+
         for (auto idx : occurs(lit)) {
             if (!m_roots[idx])
                 continue;
             for (sat::literal lit2 : *m_clauses[idx]) 
                 if (lit2 != lit && ctx.s().value(lit2) == l_true && is_relevant(lit2))
-                    goto next;                       
-            mark_relevant(lit);
+                    goto next;  
+            set_relevant(lit);
+            add_to_propagation_queue(lit);
             return;
         next:
             ;
@@ -181,6 +180,7 @@ namespace euf {
     }
 
     void relevancy::merge(euf::enode* root, euf::enode* other) {
+        TRACE("relevancy", tout << "merge #" << ctx.bpp(root) << " " << is_relevant(root) << " #" << ctx.bpp(other) << " " << is_relevant(other) << "\n");
         if (is_relevant(root))
             mark_relevant(other);
         else if (is_relevant(other))
@@ -193,28 +193,36 @@ namespace euf {
         flush();
         if (is_relevant(n))
             return;
-        if (ctx.get_si().is_bool_op(n->get_expr()))
-            return; 
-        m_trail.push_back(std::make_pair(update::relevant_node, 0));
+        TRACE("relevancy", tout << "mark #" << ctx.bpp(n) << "\n");
+        m_trail.push_back(std::make_pair(update::add_queue, 0));
         m_queue.push_back(std::make_pair(sat::null_literal, n));
     }
 
     void relevancy::mark_relevant(sat::literal lit) {
+        TRACE("relevancy", tout << "mark " << lit << " " << is_relevant(lit) << " " << ctx.s().value(lit) << " lim: " << m_lim.size() << "\n");
         if (!m_enabled)
             return;
         flush();
         if (is_relevant(lit))
             return;        
-        euf::enode* n = ctx.bool_var2enode(lit.var());
-        if (n)
-            mark_relevant(n);
-        m_relevant_var_ids.setx(lit.var(), true, false);
-        m_trail.push_back(std::make_pair(update::relevant_var, lit.var()));
-        m_queue.push_back(std::make_pair(lit, nullptr));
+        set_relevant(lit);
+        switch (ctx.s().value(lit)) {
+        case l_true:
+            break;
+        case l_false:
+            lit.neg();
+            break;
+        default:
+            return;               
+        }
+        add_to_propagation_queue(lit);
     }
 
     void relevancy::propagate_relevant(sat::literal lit) {
-        relevant_eh(lit);
+        SASSERT(m_num_scopes == 0);
+        TRACE("relevancy", tout << "propagate " << lit << " lim: " << m_lim.size() << "\n");
+        SASSERT(ctx.s().value(lit) == l_true);
+        SASSERT(is_relevant(lit));
         euf::enode* n = ctx.bool_var2enode(lit.var());
         if (n && !ctx.get_si().is_bool_op(n->get_expr()))
             return;
@@ -231,13 +239,17 @@ namespace euf {
                 }
             }
 
-            if (true_lit != sat::null_literal)
-                mark_relevant(true_lit);
+            if (true_lit != sat::null_literal) {
+                set_relevant(true_lit);
+                add_to_propagation_queue(true_lit);
+                ctx.asserted(true_lit);
+            }
             else {
                 m_trail.push_back(std::make_pair(update::set_root, idx));
                 m_roots[idx] = true;
             }
         next:
+            TRACE("relevancy", tout << "propagate " << lit << " " << true_lit << " " << m_roots[idx] << "\n");
             ;
         }
     }
@@ -247,22 +259,25 @@ namespace euf {
         while (!m_todo.empty()) {
             n = m_todo.back();
             m_todo.pop_back();
+            TRACE("relevancy", tout << "propagate #" << ctx.bpp(n) << " lim: " << m_lim.size() << "\n");
             if (n->is_relevant())
-                continue;
-            if (ctx.get_si().is_bool_op(n->get_expr()))
                 continue;
             m_stack.push_back(n);
             while (!m_stack.empty()) {
                 n = m_stack.back();
                 unsigned sz = m_stack.size();
-                for (euf::enode* arg : euf::enode_args(n))
-                    if (!arg->is_relevant())
-                        m_stack.push_back(arg);
+                bool is_bool_op = ctx.get_si().is_bool_op(n->get_expr());
+                if (!is_bool_op)
+                    for (euf::enode* arg : euf::enode_args(n))
+                        if (!arg->is_relevant())
+                            m_stack.push_back(arg);
                 if (sz != m_stack.size())
                     continue;
                 if (!n->is_relevant()) {
                     ctx.get_egraph().set_relevant(n);
-                    relevant_eh(n);
+                    ctx.relevant_eh(n);
+                    if (n->bool_var() != sat::null_bool_var) 
+                        mark_relevant(sat::literal(n->bool_var()));
                     for (euf::enode* sib : euf::enode_class(n))
                         if (!sib->is_relevant())
                             m_todo.push_back(sib);
