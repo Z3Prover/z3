@@ -35,7 +35,7 @@ namespace euf {
             s(s), m(s.m), mdl(mdl), values(values), factory(m) {}
 
         ~user_sort() {
-            for (auto kv : sort2values)
+            for (auto const& kv : sort2values)
                 mdl->register_usort(kv.m_key, kv.m_value->size(), kv.m_value->data());
         }
 
@@ -258,7 +258,7 @@ namespace euf {
             if (n->is_root() && m_values.get(n->get_expr_id()))
                 m_values2root.insert(m_values.get(n->get_expr_id()), n);
         TRACE("model", 
-              for (auto kv : m_values2root) 
+              for (auto const& kv : m_values2root) 
                   tout << mk_bounded_pp(kv.m_key, m) << "\n    -> " << bpp(kv.m_value) << "\n";);
         
         return m_values2root;
