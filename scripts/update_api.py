@@ -15,6 +15,7 @@ several API header files. It can also optionally
 emit some of the files required for Z3's different
 language bindings.
 """
+
 import mk_exception
 import argparse
 import logging
@@ -81,42 +82,39 @@ Type2Dotnet = { VOID : 'void', VOID_PTR : 'IntPtr', INT : 'int', UINT : 'uint', 
                 FLOAT : 'float', STRING : 'string', STRING_PTR : 'byte**', BOOL : 'byte', SYMBOL : 'IntPtr',
                 PRINT_MODE : 'uint', ERROR_CODE : 'uint', CHAR : 'char', CHAR_PTR : 'IntPtr' }
 
-# Mapping to Java types
-Type2Java = { VOID : 'void', VOID_PTR : 'long', INT : 'int', UINT : 'int', INT64 : 'long', UINT64 : 'long', DOUBLE : 'double',
-              FLOAT : 'float', STRING : 'String', STRING_PTR : 'StringPtr',
-              BOOL : 'boolean', SYMBOL : 'long', PRINT_MODE : 'int', ERROR_CODE : 'int', CHAR : 'char', CHAR_PTR : 'long' }
-
-Type2JavaW = { VOID : 'void', VOID_PTR : 'jlong', INT : 'jint', UINT : 'jint', INT64 : 'jlong', UINT64 : 'jlong', DOUBLE : 'jdouble',
-               FLOAT : 'jfloat', STRING : 'jstring', STRING_PTR : 'jobject',
-               BOOL : 'jboolean', SYMBOL : 'jlong', PRINT_MODE : 'jint', ERROR_CODE : 'jint', CHAR : 'jchar', CHAR_PTR : 'jlong'}
 
 # Mapping to ML types
 Type2ML = { VOID : 'unit', VOID_PTR : 'VOIDP', INT : 'int', UINT : 'int', INT64 : 'int', UINT64 : 'int', DOUBLE : 'float',
             FLOAT : 'float', STRING : 'string', STRING_PTR : 'char**',
             BOOL : 'bool', SYMBOL : 'z3_symbol', PRINT_MODE : 'int', ERROR_CODE : 'int', CHAR : 'char', CHAR_PTR : 'string' }
 
-next_type_id = FIRST_OBJ_ID
+class DefTypes:
+    def __init__(self):
+        self.next_type_id = FIRST_OBJ_ID
 
-def def_Type(var, c_type, py_type):
-    global next_type_id
-    exec('%s = %s' % (var, next_type_id), globals())
-    Type2Str[next_type_id] = c_type
-    Type2PyStr[next_type_id] = py_type
-    next_type_id    = next_type_id + 1
-
-def def_Types(api_files):
-    pat1 = re.compile(" *def_Type\(\'(.*)\',[^\']*\'(.*)\',[^\']*\'(.*)\'\)[ \t]*")
-    for api_file in api_files:
-        api = open(api_file, 'r')
-        for line in api:
-            m = pat1.match(line)
-            if m:
-                def_Type(m.group(1), m.group(2), m.group(3))
-    for k in Type2Str:
-        v = Type2Str[k]
-        if is_obj(k):
-            Type2Dotnet[k] = v
-            Type2ML[k] = v.lower()
+    def def_Type(self, var, c_type, py_type):
+        id = self.next_type_id
+        exec('%s = %s' % (var, id), globals())
+        Type2Str[id] = c_type
+        Type2PyStr[id] = py_type
+        self.next_type_id += 1
+        
+    def def_Types(self, api_files):
+        pat1 = re.compile(" *def_Type\(\'(.*)\',[^\']*\'(.*)\',[^\']*\'(.*)\'\)[ \t]*")
+        for api_file in api_files:
+            with open(api_file, 'r') as api:
+                for line in api:
+                    m = pat1.match(line)
+                    if m:
+                        self.def_Type(m.group(1), m.group(2), m.group(3))
+        #
+        # Populate object type entries in dotnet and ML bindings.
+        # 
+        for k in Type2Str:
+            v = Type2Str[k]
+            if is_obj(k):
+                Type2Dotnet[k] = v
+                Type2ML[k] = v.lower()
 
 def type2str(ty):
     global Type2Str
@@ -130,19 +128,7 @@ def type2dotnet(ty):
     global Type2Dotnet
     return Type2Dotnet[ty]
 
-def type2java(ty):
-    global Type2Java
-    if (ty >= FIRST_OBJ_ID):
-        return 'long'
-    else:
-        return Type2Java[ty]
 
-def type2javaw(ty):
-    global Type2JavaW
-    if (ty >= FIRST_OBJ_ID):
-        return 'jlong'
-    else:
-        return Type2JavaW[ty]
 
 def type2ml(ty):
     global Type2ML
@@ -217,48 +203,17 @@ def param2dotnet(p):
     else:
         return type2dotnet(param_type(p))
 
-def param2java(p):
-    k = param_kind(p)
-    if k == OUT:
-        if param_type(p) == INT or param_type(p) == UINT:
-            return "IntPtr"
-        elif param_type(p) == INT64 or param_type(p) == UINT64 or param_type(p) == VOID_PTR or param_type(p) >= FIRST_OBJ_ID:
-            return "LongPtr"
-        elif param_type(p) == STRING:
-            return "StringPtr"
-        else:
-            print("ERROR: unreachable code")
-            assert(False)
-            exit(1)
-    elif k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
-        return "%s[]" % type2java(param_type(p))
-    elif k == OUT_MANAGED_ARRAY:
-        if param_type(p) == UINT:
-            return "UIntArrayPtr"
-        else:
-            return "ObjArrayPtr"
-    else:
-        return type2java(param_type(p))
 
-def param2javaw(p):
-    k = param_kind(p)
-    if k == OUT:
-        return "jobject"
-    elif k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
-        if param_type(p) == INT or param_type(p) == UINT or param_type(p) == BOOL:
-            return "jintArray"
-        else:
-            return "jlongArray"
-    elif k == OUT_MANAGED_ARRAY:
-        return "jlong"
-    else:
-        return type2javaw(param_type(p))
+# --------------
 
 def param2pystr(p):
     if param_kind(p) == IN_ARRAY or param_kind(p) == OUT_ARRAY or param_kind(p) == IN_ARRAY or param_kind(p) == INOUT_ARRAY or param_kind(p) == OUT:
         return "ctypes.POINTER(%s)" % type2pystr(param_type(p))
     else:
         return type2pystr(param_type(p))
+
+# --------------
+# ML
 
 def param2ml(p):
     k = param_kind(p)
@@ -509,6 +464,68 @@ def mk_dotnet_wrappers(dotnet):
         dotnet.write("        }\n\n")
     dotnet.write("    }\n\n")
     dotnet.write("}\n\n")
+
+# ----------------------
+# Java
+
+Type2Java = { VOID : 'void', VOID_PTR : 'long', INT : 'int', UINT : 'int', INT64 : 'long', UINT64 : 'long', DOUBLE : 'double',
+              FLOAT : 'float', STRING : 'String', STRING_PTR : 'StringPtr',
+              BOOL : 'boolean', SYMBOL : 'long', PRINT_MODE : 'int', ERROR_CODE : 'int', CHAR : 'char', CHAR_PTR : 'long' }
+
+Type2JavaW = { VOID : 'void', VOID_PTR : 'jlong', INT : 'jint', UINT : 'jint', INT64 : 'jlong', UINT64 : 'jlong', DOUBLE : 'jdouble',
+               FLOAT : 'jfloat', STRING : 'jstring', STRING_PTR : 'jobject',
+               BOOL : 'jboolean', SYMBOL : 'jlong', PRINT_MODE : 'jint', ERROR_CODE : 'jint', CHAR : 'jchar', CHAR_PTR : 'jlong'}
+
+def type2java(ty):
+    global Type2Java
+    if (ty >= FIRST_OBJ_ID):
+        return 'long'
+    else:
+        return Type2Java[ty]
+
+def type2javaw(ty):
+    global Type2JavaW
+    if (ty >= FIRST_OBJ_ID):
+        return 'jlong'
+    else:
+        return Type2JavaW[ty]
+
+def param2java(p):
+    k = param_kind(p)
+    if k == OUT:
+        if param_type(p) == INT or param_type(p) == UINT:
+            return "IntPtr"
+        elif param_type(p) == INT64 or param_type(p) == UINT64 or param_type(p) == VOID_PTR or param_type(p) >= FIRST_OBJ_ID:
+            return "LongPtr"
+        elif param_type(p) == STRING:
+            return "StringPtr"
+        else:
+            print("ERROR: unreachable code")
+            assert(False)
+            exit(1)
+    elif k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
+        return "%s[]" % type2java(param_type(p))
+    elif k == OUT_MANAGED_ARRAY:
+        if param_type(p) == UINT:
+            return "UIntArrayPtr"
+        else:
+            return "ObjArrayPtr"
+    else:
+        return type2java(param_type(p))
+
+def param2javaw(p):
+    k = param_kind(p)
+    if k == OUT:
+        return "jobject"
+    elif k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
+        if param_type(p) == INT or param_type(p) == UINT or param_type(p) == BOOL:
+            return "jintArray"
+        else:
+            return "jlongArray"
+    elif k == OUT_MANAGED_ARRAY:
+        return "jlong"
+    else:
+        return type2javaw(param_type(p))
 
 def java_method_name(name):
     result = ''
@@ -791,6 +808,10 @@ def mk_log_header(file, name, params):
         file.write("%s a%s" % (param2str(p), i))
         i = i + 1
     file.write(")")
+
+# ---------------------------------
+# Logging
+
 
 def log_param(p):
     kind = param_kind(p)
@@ -1882,6 +1903,7 @@ def generate_files(api_files,
       import tempfile
       return tempfile.TemporaryFile(mode=mode)
 
+  defT = DefTypes()
   with mk_file_or_temp(api_output_dir, 'api_log_macros.h') as log_h:
     with mk_file_or_temp(api_output_dir, 'api_log_macros.cpp') as log_c:
       with mk_file_or_temp(api_output_dir, 'api_commands.cpp') as exe_c:
@@ -1893,7 +1915,7 @@ def generate_files(api_files,
           write_core_py_preamble(core_py)
 
           # FIXME: these functions are awful
-          def_Types(api_files)
+          defT.def_Types(api_files)
           def_APIs(api_files)
           mk_bindings(exe_c)
           mk_py_wrappers()
