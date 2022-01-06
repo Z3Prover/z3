@@ -202,7 +202,7 @@ namespace opt {
         for (unsigned i = 0; i < obj_index; ++i) 
             commit_assignment(i);
 
-        bound = update_lower();
+        m_s->maximize_objective(obj_index, bound);
         m_s->assert_expr(bound);
 
         unsigned steps = 0;
