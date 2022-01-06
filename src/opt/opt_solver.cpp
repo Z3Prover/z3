@@ -259,6 +259,9 @@ namespace opt {
         if (!m_models[i]) 
             m_models.set(i, m_last_model.get());
 
+        if (val > m_objective_values[i])
+            m_objective_values[i] = val;            
+
         //
         // retrieve value of objective from current model and update 
         // current optimal.
@@ -267,7 +270,7 @@ namespace opt {
             rational r;
             expr_ref value = (*m_last_model)(m_objective_terms.get(i));
             if (arith_util(m).is_numeral(value, r) && r > m_objective_values[i])
-                m_objective_values[i] = inf_eps(r);            
+                m_objective_values[i] = inf_eps(r);   
         };
 
         update_objective();
