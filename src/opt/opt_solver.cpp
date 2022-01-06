@@ -260,7 +260,10 @@ namespace opt {
             m_models.set(i, m_last_model.get());
 
         if (val > m_objective_values[i])
-            m_objective_values[i] = val;            
+            m_objective_values[i] = val;    
+
+        if (!m_last_model)
+            return true;
 
         //
         // retrieve value of objective from current model and update 
