@@ -806,6 +806,8 @@ namespace euf {
     }
 
     bool solver::set_root(literal l, literal r) {
+        if (m_relevancy.enabled())
+            return false;
         expr* e = bool_var2expr(l.var());
         if (!e)
             return true;

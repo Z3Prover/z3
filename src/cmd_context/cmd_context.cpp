@@ -2107,6 +2107,21 @@ void cmd_context::analyze_failure(expr_mark& seen, model_evaluator& ev, expr* a,
                << (expected_value?"true":"false") << "\n";);                
 
     IF_VERBOSE(11, display_detailed_analysis(verbose_stream(), ev, a));
+
+    if (m().is_iff(a)) {
+        ptr_vector<expr> todo;
+        todo.push_back(a);
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            e = todo[i];
+            if (m().is_and(e) || m().is_or(e) || m().is_iff(e) || m().is_implies(e) || m().is_not(e)) 
+                for (expr* arg : *to_app(e))
+                    todo.push_back(arg);
+            else
+                IF_VERBOSE(10, verbose_stream() << "#" << e->get_id() << " " << mk_bounded_pp(e, m()) << " " << (ev.is_true(e)?"true":"false") << "\n");
+        }
+        return;
+    }
+
 }
 
 void cmd_context::display_detailed_analysis(std::ostream& out, model_evaluator& ev, expr* e) {

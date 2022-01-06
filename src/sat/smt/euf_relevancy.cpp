@@ -73,6 +73,7 @@ namespace euf {
         if (!m_enabled)
             return;
         flush();
+        TRACE("relevancy", tout << "root " << sat::literal_vector(n, lits) << "\n");
         sat::literal true_lit = sat::null_literal;
         for (unsigned i = 0; i < n; ++i) {
             if (ctx.s().value(lits[i]) == l_true) {
