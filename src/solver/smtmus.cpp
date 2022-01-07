@@ -125,6 +125,7 @@ struct smtmus::imp {
     obj_map<func_decl, unsigned_vector>  m_soft_occurs; // map from variables to soft clause occurrences
     obj_map<func_decl, unsigned_vector>  m_hard_occurs; // map from variables to hard clause occurrences
     obj_map<expr, ineq*>                 m_lit2ineq;    // map from literals to inequality abstraction
+    expr_ref_vector          m_assumptions;             // set of assumptions used.
 
     unsigned m_rotated = 0;
     unsigned p_max_cores = 30;
@@ -134,7 +135,7 @@ struct smtmus::imp {
     bool     p_use_reset = false;
 
     imp(solver& s) :
-        m_solver(s), m_main_solver(&s), m(s.get_manager()), a(m), m_soft(m), m_hard(m)
+        m_solver(s), m_main_solver(&s), m(s.get_manager()), a(m), m_soft(m), m_hard(m), m_assumptions(m)
     {}
 
     ~imp() {
@@ -145,23 +146,16 @@ struct smtmus::imp {
         m_soft.push_back(lit);
     }
 
-    void init_soft_clauses() {
+    void set_assumptions(expr_ref_vector const& assumptions) {
+        m_assumptions.reset();
+        m_assumptions.append(assumptions);
+    }
+
+    void init_softs(expr_ref_vector const& soft, obj_map<expr, unsigned>& softs) {
         obj_hashtable<expr> dups;
-        obj_map<expr, unsigned> soft2hard;
-        obj_map<expr, unsigned> softs;
-        u_map<expr*> hard2soft;
-        unsigned idx = 0;
-
-        // initialize hard clauses
-        m_hard.reset();
-        m_hard.append(m_solver.get_assertions());
-        // initialize soft clauses.
-        m_soft_clauses.reset();
-        for (expr* s : m_soft)
-            m_soft_clauses.push_back(expr_ref_vector(m, 1, &s));
-
         // collect indicator variable candidates
-        for (expr* s : m_soft) {
+        unsigned idx = 0;
+        for (expr* s : soft) {
             if (is_uninterp_const(s)) {
                 if (softs.contains(s))
                     dups.insert(s);
@@ -172,11 +166,11 @@ struct smtmus::imp {
         }
         for (auto* s : dups)
             softs.remove(s);
-        if (softs.empty())
-            return;
+    }
 
+    void init_soft2hard(obj_map<expr, unsigned>& soft2hard, u_map<expr*>& hard2soft, obj_map<expr, unsigned>const & softs) {
         // find all clauses where soft indicators are used.
-        idx = 0;
+        unsigned idx = 0;
         for (expr* f : m_hard) {
             expr_ref_vector ors(m);
             flatten_or(f, ors);
@@ -190,7 +184,6 @@ struct smtmus::imp {
             }
             ++idx;
         }
-
         // remove hard2soft associations if soft clauses don't occur uniquely.
         idx = 0;
         unsigned_vector to_remove;
@@ -206,6 +199,32 @@ struct smtmus::imp {
         }
         for (auto i : to_remove)
             hard2soft.remove(i);    
+    }
+
+    void simplify_hard(u_map<expr*> const& hard2soft) {
+        for (auto const& [i, s] : hard2soft) 
+            m_hard[i] = m.mk_true();
+    }
+
+    void init_soft_clauses() {
+        obj_map<expr, unsigned> soft2hard;
+        obj_map<expr, unsigned> softs;
+        u_map<expr*> hard2soft;
+        unsigned idx = 0;
+
+        // initialize hard clauses
+        m_hard.reset();
+        m_hard.append(m_solver.get_assertions());
+        // initialize soft clauses.
+        m_soft_clauses.reset();
+        for (expr* s : m_soft)
+            m_soft_clauses.push_back(expr_ref_vector(m, 1, &s));
+
+        init_softs(m_soft, softs);
+        if (softs.empty())
+            return;
+
+        init_soft2hard(soft2hard, hard2soft, softs);
 
         //
         // update soft clauses using hard clauses.
@@ -231,16 +250,27 @@ struct smtmus::imp {
                 ++idx;
             }
             SASSERT(idx <= ors.size());
-            m_hard[i] = m.mk_true();
+        }
+        simplify_hard(hard2soft);
+        softs.reset();
+        hard2soft.reset();
+        init_softs(m_assumptions, softs);
+        if (!softs.empty()) {
+            init_soft2hard(soft2hard, hard2soft, softs);
+            simplify_hard(hard2soft);
+            
         }
     
         TRACE("satmus",
-            for (expr* s : m_soft)
-                tout << "soft " << mk_pp(s, m) << "\n";
-            for (auto const& clause : m_soft_clauses)
-                tout << "clause " << clause << "\n";
-            for (expr* h : m_hard)
-                tout << "hard " << mk_pp(h, m) << "\n";);
+              for (expr* s : m_soft)
+                  tout << "soft " << mk_pp(s, m) << "\n";
+              for (auto const& clause : m_soft_clauses)
+                  tout << "clause " << clause << "\n";
+              for (expr* h : m_hard)
+                  tout << "hard " << mk_pp(h, m) << "\n";
+              for (expr* a : m_assumptions)
+                  tout << "assumption " << mk_pp(a, m) << "\n";
+              );
     }
 
     void init_occurs(unsigned idx, func_decl* v, obj_map<func_decl, unsigned_vector>& occurs) {
@@ -287,12 +317,16 @@ struct smtmus::imp {
         return init_lit2ineq(lit);
     }
 
-    ineq* init_lit2ineq(expr* lit) {
+    ineq* init_lit2ineq(expr* _lit) {
+        expr* lit = _lit;
         bool is_not = m.is_not(lit, lit);
         expr* x, * y;
         auto mul = [&](rational const& coeff, expr* t) -> expr* {
+            rational coeff2;
             if (coeff == 1)
                 return t;
+            else if (a.is_numeral(t, coeff2)) 
+                return a.mk_numeral(coeff*coeff2, t->get_sort());
             return a.mk_mul(a.mk_numeral(coeff, a.is_int(t)), t);
         };
         if (a.is_le(lit, x, y) || a.is_lt(lit, x, y) || a.is_ge(lit, y, x) || a.is_gt(lit, y, x)) {
@@ -342,12 +376,12 @@ struct smtmus::imp {
                 e->m_base = a.mk_numeral(rational::zero(), a.is_int(x));
             else
                 e->m_base = a.mk_add(basis);
-            m_lit2ineq.insert(lit, e);
+            m_lit2ineq.insert(_lit, e);
             return e;
         }
         else {
             // literals that don't correspond to inequalities are associated with null.
-            m_lit2ineq.insert(lit, nullptr);
+            m_lit2ineq.insert(_lit, nullptr);
             return nullptr;
         }
     }
@@ -735,3 +769,6 @@ lbool smtmus::get_mus(expr_ref_vector& mus) {
     return m_imp->get_mus(mus);
 }
 
+void smtmus::set_assumptions(expr_ref_vector const& assumptions) {
+    m_imp->set_assumptions(assumptions);
+}

@@ -196,6 +196,7 @@ namespace {
             m_context.pop(n);
         }
 
+
         lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
             TRACE("solver_na2as", tout << "smt_solver::check_sat_core: " << num_assumptions << "\n";);
             return m_context.check(num_assumptions, assumptions);
@@ -275,6 +276,7 @@ namespace {
                 if (use_smtmus) {
                     smtmus mus(*this);
                     mus.add_soft(r.size(), r.data());
+                    mus.set_assumptions(m_last_assumptions);
                     expr_ref_vector r2(m);
                     if (l_true == mus.get_mus(r2)) {
                         r.reset();

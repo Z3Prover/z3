@@ -25,7 +25,8 @@ Notes:
 
 solver_na2as::solver_na2as(ast_manager & m):
     m(m), 
-    m_assumptions(m) {
+    m_assumptions(m), 
+    m_last_assumptions(m) {
 }
 
 solver_na2as::~solver_na2as() {}
@@ -45,36 +46,37 @@ void solver_na2as::assert_expr_core2(expr * t, expr * a) {
     }
 }
 
-struct append_assumptions {
-    expr_ref_vector & m_assumptions;
+struct solver_na2as::append_assumptions {
+    solver_na2as& s;
     unsigned           m_old_sz;
-    append_assumptions(expr_ref_vector & _m_assumptions, 
+    append_assumptions(solver_na2as& s,
                        unsigned num_assumptions, 
                        expr * const * assumptions):
-        m_assumptions(_m_assumptions) {
-        m_old_sz = m_assumptions.size();
-        m_assumptions.append(num_assumptions, assumptions);
+        s(s), m_old_sz(s.m_assumptions.size()) {
+        s.m_assumptions.append(num_assumptions, assumptions);
+        s.m_last_assumptions.reset();
+        s.m_last_assumptions.append(s.m_assumptions);
     }
 
     ~append_assumptions() {
-        m_assumptions.shrink(m_old_sz);
+        s.m_assumptions.shrink(m_old_sz);
     }
 };
 
 lbool solver_na2as::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
-    append_assumptions app(m_assumptions, num_assumptions, assumptions);
+    append_assumptions app(*this, num_assumptions, assumptions);
     TRACE("solver_na2as", display(tout););
     return check_sat_core2(m_assumptions.size(), m_assumptions.data());
 }
 
 lbool solver_na2as::check_sat_cc(const expr_ref_vector &assumptions, vector<expr_ref_vector> const &clauses) {
     if (clauses.empty()) return check_sat(assumptions.size(), assumptions.data());
-    append_assumptions app(m_assumptions, assumptions.size(), assumptions.data());
+    append_assumptions app(*this, assumptions.size(), assumptions.data());
     return check_sat_cc_core(m_assumptions, clauses);
 }
 
 lbool solver_na2as::get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
-    append_assumptions app(m_assumptions, asms.size(), asms.data());
+    append_assumptions app(*this, asms.size(), asms.data());
     return get_consequences_core(m_assumptions, vars, consequences);
 }
 

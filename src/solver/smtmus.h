@@ -35,6 +35,8 @@ class smtmus {
             add_soft(clss[i]);
     }    
 
+    void set_assumptions(expr_ref_vector const& assumptions);
+
     /**
        Retrieve mus over soft constraints
     */
