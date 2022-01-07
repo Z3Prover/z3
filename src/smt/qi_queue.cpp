@@ -245,13 +245,15 @@ namespace smt {
 
             return;
         }
+#if 0
         std::cout << "instantiate\n";
         enode_vector _bindings(num_bindings, bindings);
         for (auto * b : _bindings)
             std::cout << enode_pp(b, m_context) << " ";
         std::cout << "\n";
         std::cout << mk_pp(q, m) << "\n";
-        
+#endif
+   
         TRACE("qi_queue", tout << "simplified instance:\n" << s_instance << "\n";);
         stat->inc_num_instances();
         if (stat->get_num_instances() % m_params.m_qi_profile_freq == 0) {

@@ -163,12 +163,13 @@ namespace q {
 
         m_stats.m_num_instances++;
 
+#if 0
         std::cout << "instantiate\n";
         for (unsigned i = 0; i < num_bindings; ++i)
             std::cout << ctx.bpp(f[i]) << " ";
         std::cout << "\n";
         std::cout << mk_pp(q, m) << "\n";
-
+#endif
 
 //        f.display(ctx, std::cout << mk_pp(f.q(), m) << "\n" << instance << "\n") <<  "\n";
 
