@@ -23,9 +23,21 @@ Notes:
   - The call to check-sat uses negated soft constraints
   - In other core reduction code I don't minimize cores if there is a dependency on
     negated soft constraints.
+  - JB: I do not think it is sound to use the core reduction without the dependency check.
+    Note that based on my experience, it might be better not to use the negated soft constraints; 
+    the solver calls might be a little bit more expensive, however, at least we can always use the unsat cores
 - sign of ineq::get_value is probably wrong, 
   - negate it
   - check if it works with strict inequalities.
+
+- m_hard contains clauses that are already excluded from the "original unsat core" when calling get_mus
+  - namely, supposing we call ./z3 on 5 clauses, it first checks it for satisfiability, reduces it to 3 clauses, 
+  and then calls get_mus. At this point, the two clauses that were alreadu excluded are still in m_hard, and even though 
+  they are relaxed by the relaxation variables (assertions' names) and hence does not affect the satisfiability, they might cause troubles
+  when checking m_hard during model rotation and critical extension
+  -- possible solution: remove the "excluded" clauses from m_hard (replace them by True)
+  -- the problematic question: how do we distinguish the hard clauses that come from named assertions and "other" hard clauses, e.g., those defined
+  in the Group MUS sense (clauses that should be indeed presented in every MUS)
 
 --*/
 
@@ -116,7 +128,7 @@ struct smtmus::imp {
 
     unsigned m_rotated = 0;
     unsigned p_max_cores = 30;
-    bool     p_crit_ext = false;
+    bool     p_crit_ext = true;
     unsigned p_limit = 1;
     bool     p_model_rotation = true;
     bool     p_use_reset = false;
@@ -143,7 +155,6 @@ struct smtmus::imp {
         // initialize hard clauses
         m_hard.reset();
         m_hard.append(m_solver.get_assertions());
-
         // initialize soft clauses.
         m_soft_clauses.reset();
         for (expr* s : m_soft)
@@ -219,7 +230,7 @@ struct smtmus::imp {
                 }
                 ++idx;
             }
-            SASSERT(idx < ors.size());
+            SASSERT(idx <= ors.size());
             m_hard[i] = m.mk_true();
         }
     
@@ -227,7 +238,9 @@ struct smtmus::imp {
             for (expr* s : m_soft)
                 tout << "soft " << mk_pp(s, m) << "\n";
             for (auto const& clause : m_soft_clauses)
-                tout << "clause " << clause << "\n";);
+                tout << "clause " << clause << "\n";
+            for (expr* h : m_hard)
+                tout << "hard " << mk_pp(h, m) << "\n";);
     }
 
     void init_occurs(unsigned idx, func_decl* v, obj_map<func_decl, unsigned_vector>& occurs) {
@@ -366,7 +379,7 @@ struct smtmus::imp {
             return l_true;
         }
         init();
-        
+ 
         bool_vector shrunk(m_soft_clauses.size(), true);
 
         if (!shrink(shrunk))
@@ -386,6 +399,10 @@ struct smtmus::imp {
         for (unsigned i = 0; i < m_soft_clauses.size(); ++i) {
             if (!shrunk[i] || crits[i])
                 continue;
+            if (is_critical_extension(shrunk, crits, i)){
+                mark_critical(shrunk, crits, i);
+                continue;
+            }
             shrunk[i] = false;
             unsigned critical_extension_unused_vars = 1;
             switch (solve(shrunk, max_cores > 0, false)) {
@@ -395,8 +412,10 @@ struct smtmus::imp {
                 
                 if (p_crit_ext)
                     critical_extension_unused_vars = critical_extension(shrunk, crits, i);
-                if (p_model_rotation && critical_extension_unused_vars > 0)
-                    rotate(shrunk, crits, i, *m_model, true);                                
+                if (p_model_rotation && critical_extension_unused_vars > 0){
+                    m_main_solver->get_model(m_model); //getting the model can be expensive, hence we get it only if we use model rotation
+                    rotate(shrunk, crits, i, *m_model, true);               
+                }                 
                 break;
             case l_false:
                 if (max_cores > 0)
@@ -430,13 +449,15 @@ struct smtmus::imp {
             m_main_solver->assert_expr(f);                               
     }
 
-    lbool solve(bool_vector& formula, bool core, bool grow) {
+    lbool solve(bool_vector& formula, bool core, bool grow = false, bool get_model = false) {
         expr_ref_vector asms(m);
         obj_map<expr, unsigned> soft2idx;
         unsigned idx = 0;
         expr_ref_vector cs(m);
         for (expr* s : m_soft) {
-            asms.push_back(formula[idx] ? s : mk_not(m, s));
+            if(formula[idx]) //JB: based on my experience, it is more efficient to set only assumptions for the presented clauses
+                asms.push_back(s);
+            //asms.push_back(formula[idx] ? s : mk_not(m, s));
             soft2idx.insert(s, idx++);
         }
 
@@ -454,7 +475,9 @@ struct smtmus::imp {
             }
             break;
         case l_true:
-            m_main_solver->get_model(m_model);
+            //right now, we need the model only if we apply model rotation
+            if(get_model)
+                m_main_solver->get_model(m_model);
             if (!grow) // ignored for mus
                 break;
             break;
@@ -607,6 +630,31 @@ struct smtmus::imp {
             critical_extension(formula, crits, i);
     }
 
+    // Note that this function differs from critical_extension. In particular, 
+    // critical_extension is used whenever we identify a critical clause and it can possibly identify
+    // additional critical clauses. On the other hand, is_critical_extension checks whether a given clause
+    // (i-th clause) is critical based on the already identified critical clauses. 
+    // Especially, note that is_critical_extension can "reveal" some critical clauses that were not revealed before
+    // by calls of critical_extension. Namely, assume that in critical_extension, we get "hits" with two clauses, say p-th and q-th.
+    // Therefore, neither of them is marked as critical. However, it could be the case that (W.L.O.G.) q-th clause is critical and p-th clause is not. 
+    // If we subsequently remove p-th clause from formula, then the p-th clause can be shown to be critical via is_critical_extension 
+    bool is_critical_extension(bool_vector const& formula, bool_vector const& crits, unsigned i) {
+        for (auto* lit : m_soft_clauses[i]) {
+            auto const& vars = get_vars(lit);
+            for (auto* v : vars) {
+                unsigned_vector hits;
+                //TODO: we have to also assume the hard clauses
+                for (auto j : m_soft_occurs[v]) {
+                    if (formula[j] && j != i && (are_conflicting(i, j, v) || m.is_bool(v->get_range())))
+                        hits.push_back(j);
+                }
+                if (hits.size() == 1 && crits[hits[0]])
+                    return true;
+            }
+        }
+       return false; 
+    }
+
     unsigned critical_extension(bool_vector const& formula, bool_vector& crits, unsigned i) {
         unsigned unused_vars = 0;
         ast_mark checked_vars;
@@ -617,6 +665,7 @@ struct smtmus::imp {
                     continue;
                 checked_vars.mark(v, true);
                 unsigned_vector hits;
+                //TODO: we have to also assume the hard clauses
                 for (auto j : m_soft_occurs[v]) {
                     if (formula[j] && j != i && (are_conflicting(i, j, v) || m.is_bool(v->get_range())))
                         hits.push_back(j);
