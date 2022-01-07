@@ -2016,7 +2016,15 @@ public class Context implements AutoCloseable {
      */
     public SeqExpr<CharSort> mkString(String s)
     {
-        return (SeqExpr<CharSort>) Expr.create(this, Native.mkString(nCtx(), s));
+        StringBuilder buf = new StringBuilder();
+        for (int i = 0; i < s.length(); ++i) {
+	    int code = s.codePointAt(i);
+	    if (code <= 32 || 127 < code) 
+	        buf.append(String.format("\\u{%x}", code));
+	    else
+	        buf.append(s.charAt(i));
+        }
+        return (SeqExpr<CharSort>) Expr.create(this, Native.mkString(nCtx(), buf.toString()));
     }
 
     /**
