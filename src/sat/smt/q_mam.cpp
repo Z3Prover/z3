@@ -424,15 +424,19 @@ namespace q {
         friend class compiler;
         friend class code_tree_manager;
 
-        void display_seq(std::ostream & out, instruction * head, unsigned indent) const {
-            for (unsigned i = 0; i < indent; i++) {
+        void spaces(std::ostream& out, unsigned indent) const {
+            for (unsigned i = 0; i < indent; i++) 
                 out << "    ";
-            }
+        }
+
+        void display_seq(std::ostream & out, instruction * head, unsigned indent) const {
+            spaces(out, indent);
             instruction * curr = head;
             out << *curr;
             curr = curr->m_next;
             while (curr != nullptr && curr->m_opcode != CHOOSE && curr->m_opcode != NOOP) {
                 out << "\n";
+                spaces(out, indent);
                 out << *curr;
                 curr = curr->m_next;
             }
@@ -598,7 +602,7 @@ namespace q {
                 ast_manager & m = m_egraph->get_manager();
                 out << "patterns:\n";
                 for (auto [q, a] : m_patterns) 
-                    out << mk_pp(q, m) << " " << mk_pp(a, m) << "\n";
+                    out << q->get_id() << ": " << mk_pp(q, m) << " " << mk_pp(a, m) << "\n";
             }
 #endif
             out << "function: " << m_root_lbl->get_name();
@@ -2878,8 +2882,10 @@ namespace q {
                 if (tree->expected_num_args() == p->get_num_args()) 
                     m_compiler.insert(tree, qa, mp, first_idx, false);
             }
-            DEBUG_CODE(m_trees[lbl_id]->get_patterns().push_back(std::make_pair(qa, mp));
-                       ctx.push(push_back_trail<std::pair<quantifier*,app*>, false>(m_trees[lbl_id]->get_patterns())););
+            DEBUG_CODE(if (first_idx == 0) {
+                m_trees[lbl_id]->get_patterns().push_back(std::make_pair(qa, mp));
+                ctx.push(push_back_trail<std::pair<quantifier*, app*>, false>(m_trees[lbl_id]->get_patterns()));
+            });
             TRACE("trigger_bug", tout << "after add_pattern, first_idx: " << first_idx << "\n"; m_trees[lbl_id]->display(tout););
         }
 

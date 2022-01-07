@@ -1516,7 +1516,7 @@ extern "C" {
 
        def_API('Z3_global_param_get', BOOL, (_in(STRING), _out(STRING)))
     */
-    Z3_bool_opt Z3_API Z3_global_param_get(Z3_string param_id, Z3_string_ptr param_value);
+    Z3_bool Z3_API Z3_global_param_get(Z3_string param_id, Z3_string_ptr param_value);
 
     /**@}*/
 
@@ -4325,7 +4325,7 @@ extern "C" {
 
         def_API('Z3_get_finite_domain_sort_size', BOOL, (_in(CONTEXT), _in(SORT), _out(UINT64)))
     */
-    Z3_bool_opt Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, uint64_t* r);
+    Z3_bool Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, uint64_t* r);
 
     /**
        \brief Return the domain of the given array sort.
@@ -5264,7 +5264,7 @@ extern "C" {
 
        def_API('Z3_model_eval', BOOL, (_in(CONTEXT), _in(MODEL), _in(AST), _in(BOOL), _out(AST)))
     */
-    Z3_bool_opt Z3_API Z3_model_eval(Z3_context c, Z3_model m, Z3_ast t, bool model_completion, Z3_ast * v);
+    Z3_bool Z3_API Z3_model_eval(Z3_context c, Z3_model m, Z3_ast t, bool model_completion, Z3_ast * v);
 
     /**
        \brief Return the interpretation (i.e., assignment) of constant \c a in the model \c m.
