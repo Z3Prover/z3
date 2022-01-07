@@ -190,7 +190,8 @@ void context_params::get_solver_params(params_ref & p, bool & proofs_enabled, bo
     proofs_enabled     &= p.get_bool("proof", m_proof);
     models_enabled     &= p.get_bool("model", m_model);
     unsat_core_enabled = m_unsat_core || p.get_bool("unsat_core", false);
-    p = merge_default_params(p);
+    if (!m_auto_config && !p.contains("auto_config"))
+        p.set_bool("auto_config", false);
 }
 
 

@@ -67,7 +67,7 @@ namespace mbp {
         virtual bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) { return false; }
         virtual family_id get_family_id() { return null_family_id; }
 
-        virtual void operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) { };
+        virtual bool operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) { return false; };
 
         /**
            \brief project vars modulo model, return set of definitions for eliminated variables.
@@ -76,7 +76,7 @@ namespace mbp {
            - returns set of definitions
              (TBD: in triangular form, the last definition can be substituted into definitions that come before)
         */
-        virtual vector<def> project(model& model, app_ref_vector& vars, expr_ref_vector& lits) { return vector<def>(); }
+        virtual bool project(model& model, app_ref_vector& vars, expr_ref_vector& lits, vector<def>& defs) { return true; }
 
         /**
            \brief model based saturation. Saturates theory axioms to equi-satisfiable literals over EUF,

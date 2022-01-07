@@ -35,10 +35,7 @@ namespace sat {
 
         // add clauses
         virtual void add_clause(unsigned n, literal* lits, status st) = 0;
-        void add_clause(literal l1, literal l2, status st) {
-            literal lits[2] = {l1, l2};
-            add_clause(2, lits, st);
-        }
+        
         void add_clause(literal l1, literal l2, literal l3, status st) {
             literal lits[3] = {l1, l2, l3};
             add_clause(3, lits, st);

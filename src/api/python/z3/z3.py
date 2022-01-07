@@ -8789,6 +8789,10 @@ def Product(*args):
         _args, sz = _to_ast_array(args)
         return ArithRef(Z3_mk_mul(ctx.ref(), sz, _args), ctx)
 
+def Abs(arg):
+    """Create the absolute value of an arithmetic expression"""
+    return If(arg > 0, arg, -arg)
+    
 
 def AtMost(*args):
     """Create an at-most Pseudo-Boolean k constraint.

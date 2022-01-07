@@ -69,8 +69,14 @@ namespace q {
             m_mam->add_node(n, false);
         };
         ctx.get_egraph().set_on_merge(_on_merge);
-        ctx.get_egraph().set_on_make(_on_make);
+        if (!ctx.relevancy_enabled())
+            ctx.get_egraph().set_on_make(_on_make);
         m_mam = mam::mk(ctx, *this);
+    }
+
+    void ematch::relevant_eh(euf::enode* n) {
+        if (ctx.relevancy_enabled())
+            m_mam->add_node(n, false);
     }
 
     void ematch::ensure_ground_enodes(expr* e) {
@@ -352,7 +358,7 @@ namespace q {
         if (m_prop_queue.empty())
             return false;
         for (unsigned i = 0; i < m_prop_queue.size(); ++i) {
-            auto [is_conflict, idx, j_idx] = m_prop_queue[i];
+            auto const& [is_conflict, idx, j_idx] = m_prop_queue[i];
             propagate(is_conflict, idx, j_idx);
         }
         m_prop_queue.reset();
@@ -581,7 +587,7 @@ namespace q {
             return m_inst_queue.propagate() || propagated;
         ctx.push(value_trail<unsigned>(m_qhead));
         ptr_buffer<binding> to_remove;
-        for (; m_qhead < m_clause_queue.size(); ++m_qhead) {
+        for (; m_qhead < m_clause_queue.size() && m.inc(); ++m_qhead) {
             unsigned idx = m_clause_queue[m_qhead];
             clause& c = *m_clauses[idx];
             binding* b = c.m_bindings;

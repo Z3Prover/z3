@@ -266,7 +266,10 @@ namespace qe {
     vector<mbp::def> uflia_mbi::arith_project(model_ref& mdl, app_ref_vector& avars, expr_ref_vector& lits) {
         mbp::arith_project_plugin ap(m);
         ap.set_check_purified(false);
-        return ap.project(*mdl.get(), avars, lits);
+        vector<mbp::def> defs;
+        bool ok = ap.project(*mdl.get(), avars, lits, defs);
+        CTRACE("qe", !ok, tout << "projection failure ignored!!!!\n");
+        return defs;
     }
 
     mbi_result uflia_mbi::operator()(expr_ref_vector& lits, model_ref& mdl) {

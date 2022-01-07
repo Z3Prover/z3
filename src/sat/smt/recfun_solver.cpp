@@ -68,8 +68,8 @@ namespace recfun {
         TRACEFN("case expansion " << e);
         SASSERT(e.m_def->is_fun_macro());
         auto & vars = e.m_def->get_vars();
-        auto lhs = e.m_lhs;
-        auto rhs = apply_args(vars, e.m_args, e.m_def->get_rhs());
+        app_ref lhs = e.m_lhs;
+        expr_ref rhs = apply_args(vars, e.m_args, e.m_def->get_rhs());
         unsigned generation = std::max(ctx.get_max_generation(lhs), ctx.get_max_generation(rhs));
         euf::solver::scoped_generation _sgen(ctx, generation + 1);
         auto eq = eq_internalize(lhs, rhs);

@@ -158,7 +158,6 @@ namespace smt {
 
         void mark_as_interpreted() {
             SASSERT(!m_interpreted);
-            SASSERT(m_owner->get_num_args() == 0);
             SASSERT(m_class_size == 1);
             m_interpreted = true;
         }

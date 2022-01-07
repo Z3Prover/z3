@@ -65,7 +65,7 @@ def unpack(packages, symbols):
             mk_dir(f"out/runtimes/{dst}/native")
             replace(f"{tmp}/{package_dir}/bin/libz3.{ext}", f"out/runtimes/{dst}/native/libz3.{ext}")            
             if "x64-win" in f:
-                mk_dir("out/lib/netstandard1.4/")
+                mk_dir("out/lib/netstandard2.0/")
                 if symbols:
                     zip_ref.extract(f"{package_dir}/bin/libz3.pdb", f"{tmp}")
                     replace(f"{tmp}/{package_dir}/bin/libz3.pdb", f"out/runtimes/{dst}/native/libz3.pdb") 
@@ -74,7 +74,7 @@ def unpack(packages, symbols):
                     files += ["Microsoft.Z3.pdb", "Microsoft.Z3.xml"]
                 for b in files:
                     zip_ref.extract(f"{package_dir}/bin/{b}", f"{tmp}")
-                    replace(f"{tmp}/{package_dir}/bin/{b}", f"out/lib/netstandard1.4/{b}")
+                    replace(f"{tmp}/{package_dir}/bin/{b}", f"out/lib/netstandard2.0/{b}")
 
 def mk_targets(source_root):
     mk_dir("out/build")
@@ -107,7 +107,7 @@ Linux Dependencies:
         <requireLicenseAcceptance>true</requireLicenseAcceptance>
         <language>en</language>
         <dependencies>
-            <group targetFramework=".NETStandard1.4" />
+            <group targetFramework=".netstandard2.0" />
         </dependencies>
     </metadata>
 </package>""".format(version, repo, branch, commit)

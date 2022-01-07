@@ -701,6 +701,9 @@ namespace z3 {
         sort array_range() const { assert(is_array()); Z3_sort s = Z3_get_array_sort_range(ctx(), *this); check_error(); return sort(ctx(), s); }
 
         friend std::ostream & operator<<(std::ostream & out, sort const & s) { return out << Z3_sort_to_string(s.ctx(), Z3_sort(s.m_ast)); }
+
+        func_decl_vector constructors();
+        func_decl_vector recognizers();
     };
 
     /**
@@ -741,6 +744,9 @@ namespace z3 {
         expr operator()(expr const & a1, expr const & a2, expr const & a3) const;
         expr operator()(expr const & a1, expr const & a2, expr const & a3, expr const & a4) const;
         expr operator()(expr const & a1, expr const & a2, expr const & a3, expr const & a4, expr const & a5) const;
+
+        func_decl_vector accessors();
+
     };
 
     /**
@@ -3861,6 +3867,42 @@ namespace z3 {
         Z3_ast_vector r = Z3_parse_smtlib2_file(*this, s, sorts.size(), sort_names.ptr(), sorts1.ptr(), decls.size(), decl_names.ptr(), decls1.ptr());
         check_error();
         return expr_vector(*this, r);
+    }
+
+    inline func_decl_vector sort::constructors() {
+        assert(is_datatype()); 
+        func_decl_vector cs(ctx());
+        unsigned n = Z3_get_datatype_sort_num_constructors(ctx(), *this);
+        for (unsigned i = 0; i < n; ++i) 
+            cs.push_back(func_decl(ctx(), Z3_get_datatype_sort_constructor(ctx(), *this, i)));
+        return cs;
+    }
+
+    inline func_decl_vector sort::recognizers() {
+        assert(is_datatype()); 
+        func_decl_vector rs(ctx());
+        unsigned n = Z3_get_datatype_sort_num_constructors(ctx(), *this);
+        for (unsigned i = 0; i < n; ++i) 
+            rs.push_back(func_decl(ctx(), Z3_get_datatype_sort_recognizer(ctx(), *this, i)));
+        return rs;
+    }
+
+    inline func_decl_vector func_decl::accessors() {
+        sort s = range();
+        assert(s.is_datatype());
+        unsigned n = Z3_get_datatype_sort_num_constructors(ctx(), s);
+        unsigned idx = 0;
+        for (; idx < n; ++idx) {
+            func_decl f(ctx(), Z3_get_datatype_sort_constructor(ctx(), s, idx));
+            if (id() == f.id())
+                break;
+        }
+        assert(idx < n);
+        n = arity();
+        func_decl_vector as(ctx());
+        for (unsigned i = 0; i < n; ++i) 
+            as.push_back(func_decl(ctx(), Z3_get_datatype_sort_constructor_accessor(ctx(), s, idx, i)));
+        return as;
     }
 
 

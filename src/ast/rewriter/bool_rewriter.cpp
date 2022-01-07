@@ -722,12 +722,12 @@ br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             return BR_DONE;
         }
 
-	    if (m().is_not(rhs))
+        if (m().is_not(rhs))
             std::swap(lhs, rhs);
 	
-	    if (m().is_not(lhs, lhs)) {
-	        result = m().mk_not(m().mk_eq(lhs, rhs));
-	        return BR_REWRITE2;
+        if (m().is_not(lhs, lhs)) {
+            result = m().mk_not(m().mk_eq(lhs, rhs));
+            return BR_REWRITE2;
         }
 	    
         if (unfolded) {

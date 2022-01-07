@@ -2006,7 +2006,7 @@ namespace pb {
             s().pop_to_base_level();
         if (s().inconsistent())
             return;
-        unsigned trail_sz, count = 0;
+        unsigned trail_sz = 0, count = 0;
         do {
             trail_sz = s().init_trail_size();
             m_simplify_change = false;

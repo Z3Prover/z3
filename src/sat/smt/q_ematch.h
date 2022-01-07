@@ -135,8 +135,9 @@ namespace q {
 
         bool unit_propagate();        
 
-
         void add(quantifier* q);
+
+        void relevant_eh(euf::enode* n);
 
         void collect_statistics(statistics& st) const;
 

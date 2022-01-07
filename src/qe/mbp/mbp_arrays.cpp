@@ -1624,8 +1624,8 @@ namespace mbp {
               );
     }
 
-    vector<def> array_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
-        return vector<def>();
+    bool array_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits, vector<def>& defs) {
+        return true;
     }
 
     void array_project_plugin::saturate(model& model, func_decl_ref_vector const& shared, expr_ref_vector& lits) {

@@ -111,6 +111,10 @@ namespace euf {
 
         virtual void new_diseq_eh(euf::th_eq const& eq) {}
 
+        virtual bool enable_ackerman_axioms(euf::enode* n) const { return true; }
+
+        virtual void relevant_eh(euf::enode* n) {}
+
         /**
            \brief Parametric theories (e.g. Arrays) should implement this method.
         */
@@ -139,7 +143,8 @@ namespace euf {
         bool add_clause(sat::literal a, sat::literal b);
         bool add_clause(sat::literal a, sat::literal b, sat::literal c);
         bool add_clause(sat::literal a, sat::literal b, sat::literal c, sat::literal d);
-        bool add_clause(sat::literal_vector const& lits);
+        bool add_clause(sat::literal_vector const& lits) { return add_clause(lits.size(), lits.data()); }
+        bool add_clause(unsigned n, sat::literal* lits);
         void add_equiv(sat::literal a, sat::literal b);
         void add_equiv_and(sat::literal a, sat::literal_vector const& bs);
 

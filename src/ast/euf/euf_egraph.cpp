@@ -25,6 +25,8 @@ namespace euf {
 
     enode* egraph::mk_enode(expr* f, unsigned generation, unsigned num_args, enode * const* args) {
         enode* n = enode::mk(m_region, f, generation, num_args, args);
+        if (m_default_relevant)
+            n->set_relevant(true);
         m_nodes.push_back(n);
         m_exprs.push_back(f);
         if (is_app(f) && num_args > 0) {
@@ -187,10 +189,10 @@ namespace euf {
             add_th_diseq(id, v1, v2, n->get_expr());
             return;
         }
-        for (auto p : euf::enode_th_vars(r1)) {
+        for (auto const& p : euf::enode_th_vars(r1)) {
             if (!th_propagates_diseqs(p.get_id()))
                 continue;
-            for (auto q : euf::enode_th_vars(r2))
+            for (auto const& q : euf::enode_th_vars(r2))
                 if (p.get_id() == q.get_id()) 
                     add_th_diseq(p.get_id(), p.get_var(), q.get_var(), n->get_expr());
         }
@@ -267,6 +269,13 @@ namespace euf {
             toggle_merge_enabled(n, false);
             m_updates.push_back(update_record(n, update_record::toggle_merge()));
         }
+    }
+
+    void egraph::set_relevant(enode* n) {
+        if (n->is_relevant())
+            return;
+        n->set_relevant(true);
+        m_updates.push_back(update_record(n, update_record::set_relevant()));
     }
 
     void egraph::toggle_merge_enabled(enode* n, bool backtracking) {
@@ -380,6 +389,10 @@ namespace euf {
             case update_record::tag_t::is_lbl_set:
                 p.r1->m_lbls.set(p.m_lbls);
                 break;
+            case update_record::tag_t::is_set_relevant:
+                SASSERT(p.r1->is_relevant());
+                p.r1->set_relevant(false);
+                break;
             case update_record::tag_t::is_update_children:
                 for (unsigned i = 0; i < p.r1->num_args(); ++i) {
                     SASSERT(p.r1->m_args[i]->get_root()->m_parents.back() == p.r1);
@@ -446,8 +459,8 @@ namespace euf {
         r2->inc_class_size(r1->class_size());   
         merge_th_eq(r1, r2);
         reinsert_parents(r1, r2);
-        if (m_on_merge)
-            m_on_merge(r2, r1);
+        for (auto& cb : m_on_merge)
+            cb(r2, r1);
     }
 
     void egraph::remove_parents(enode* r1, enode* r2) {
@@ -493,7 +506,7 @@ namespace euf {
 
     void egraph::merge_th_eq(enode* n, enode* root) {
         SASSERT(n != root);
-        for (auto iv : enode_th_vars(n)) {
+        for (auto const& iv : enode_th_vars(n)) {
             theory_id id = iv.get_id();
             theory_var v = root->get_th_var(id);
             if (v == null_theory_var) {                
@@ -754,6 +767,8 @@ namespace euf {
     }
 
     std::ostream& egraph::display(std::ostream& out, unsigned max_args, enode* n) const {
+        if (!n->is_relevant())
+            out << "n";
         out << "#" << n->get_expr_id() << " := ";
         expr* f = n->get_expr();
         if (is_app(f))
@@ -770,11 +785,18 @@ namespace euf {
                 out << " " << p->get_expr_id();
             out << "] ";
         }
-        if (n->value() != l_undef) 
-            out << "[b" << n->bool_var() << " := " << (n->value() == l_true ? "T":"F") << (n->merge_tf()?"":" no merge") << "] ";
+        auto value_of = [&]() {
+            switch (n->value()) {
+            case l_true: return "T";
+            case l_false: return "F";
+            default: return "?";
+            }
+        };
+        if (n->bool_var() != sat::null_bool_var) 
+            out << "[b" << n->bool_var() << " := " << value_of() << (n->merge_tf() ? "" : " no merge") << "] ";
         if (n->has_th_vars()) {
             out << "[t";
-            for (auto v : enode_th_vars(n))
+            for (auto const& v : enode_th_vars(n))
                 out << " " << v.get_id() << ":" << v.get_var();
             out << "] ";
         }

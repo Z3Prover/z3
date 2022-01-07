@@ -545,11 +545,13 @@ namespace arith {
         }
         m_left_side.clear();
         // reset the coefficients after they have been used.
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            theory_var var = vars[i];
+        for (theory_var var : vars) {
             rational const& r = m_columns[var];
             if (!r.is_zero()) {
-                m_left_side.push_back(std::make_pair(r, register_theory_var_in_lar_solver(var)));
+                auto vi = register_theory_var_in_lar_solver(var);
+                if (lp::tv::is_term(vi))
+                    vi = lp().map_term_index_to_column_index(vi);
+                m_left_side.push_back(std::make_pair(r, vi));
                 m_columns[var].reset();
             }
         }

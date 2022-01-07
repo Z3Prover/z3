@@ -125,7 +125,7 @@ namespace {
         smt_params m_smt_params_save;
 
         void push_params() override {
-            m_params_save = params_ref();
+            m_params_save.reset();           
             m_params_save.copy(solver::get_params());
             m_smt_params_save = m_smt_params;
         }

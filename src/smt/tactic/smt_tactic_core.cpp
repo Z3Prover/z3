@@ -127,7 +127,8 @@ public:
 
         scoped_init_ctx(smt_tactic & o, ast_manager & m):m_owner(o) {
             m_params = o.fparams();
-            m_params_ref = o.params();
+            m_params_ref.reset();
+            m_params_ref.append(o.params());
             smt::kernel * new_ctx = alloc(smt::kernel, m, m_params, m_params_ref);
             TRACE("smt_tactic", tout << "logic: " << o.m_logic << "\n";);
             new_ctx->set_logic(o.m_logic);

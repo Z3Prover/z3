@@ -70,6 +70,9 @@ namespace euf {
         void add_cc(expr* a, expr* b);
         void add_eq(expr* a, expr* b, expr* c);        
         void gc();
+        bool enable_cc(app* a, app* b);
+        bool enable_eq(expr* a, expr* b, expr* c);
+
 
     public:
         ackerman(solver& s, ast_manager& m);

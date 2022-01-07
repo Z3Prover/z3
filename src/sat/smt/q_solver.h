@@ -83,6 +83,7 @@ namespace q {
         void init_search() override;
         void finalize_model(model& mdl) override;
         bool is_shared(euf::theory_var v) const override { return true; }
+        void relevant_eh(euf::enode* n) override { m_ematch.relevant_eh(n); }
 
         ast_manager& get_manager() { return m; }
         sat::literal_vector const& universal() const { return m_universal; }

@@ -445,6 +445,7 @@ namespace arith {
         bool is_shared(theory_var v) const override;
         lbool get_phase(bool_var v) override;
         bool include_func_interp(func_decl* f) const override;
+        bool enable_ackerman_axioms(euf::enode* n) const override { return !a.is_add(n->get_expr()); }
 
         // bounds and equality propagation callbacks
         lp::lar_solver& lp() { return *m_solver; }

@@ -219,9 +219,9 @@ public:
     char const* name() const override { return "propagate_values"; }
 
     void updt_params(params_ref const & p) override {
-        m_params = p;
+        m_params.append(p);
         m_r.updt_params(p);
-        updt_params_core(p);
+        updt_params_core(m_params);
     }
 
     void collect_param_descrs(param_descrs & r) override {

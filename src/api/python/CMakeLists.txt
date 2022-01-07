@@ -99,7 +99,7 @@ if (Z3_INSTALL_PYTHON_BINDINGS)
     message(STATUS "CMAKE_INSTALL_PYTHON_PKG_DIR not set. Trying to guess")
     execute_process(
       COMMAND "${PYTHON_EXECUTABLE}" "-c"
-        "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib())"
+        "import sysconfig; print(sysconfig.get_path('purelib'))"
       RESULT_VARIABLE exit_code
       OUTPUT_VARIABLE CMAKE_INSTALL_PYTHON_PKG_DIR
       OUTPUT_STRIP_TRAILING_WHITESPACE

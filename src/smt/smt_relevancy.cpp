@@ -134,11 +134,11 @@ namespace smt {
         obj_map<expr, relevancy_ehs *> m_relevant_ehs;
         obj_map<expr, relevancy_ehs *> m_watches[2];
         struct eh_trail {
-            enum kind { POS_WATCH, NEG_WATCH, HANDLER };
+            enum class kind { POS_WATCH, NEG_WATCH, HANDLER };
             kind   m_kind;
             expr * m_node;
-            eh_trail(expr * n):m_kind(HANDLER), m_node(n) {}
-            eh_trail(expr * n, bool val):m_kind(val ? POS_WATCH : NEG_WATCH), m_node(n) {}
+            eh_trail(expr * n):m_kind(kind::HANDLER), m_node(n) {}
+            eh_trail(expr * n, bool val):m_kind(val ? kind::POS_WATCH : kind::NEG_WATCH), m_node(n) {}
             kind get_kind() const { return m_kind; }
             expr * get_node() const { return m_node; }
         };
@@ -292,9 +292,9 @@ namespace smt {
                 expr * n = t.get_node();
                 relevancy_ehs * ehs;
                 switch (t.get_kind()) {
-                case eh_trail::POS_WATCH: ehs = get_watches(n, true); SASSERT(ehs); set_watches(n, true, ehs->tail()); break;
-                case eh_trail::NEG_WATCH: ehs = get_watches(n, false); SASSERT(ehs); set_watches(n, false, ehs->tail()); break;
-                case eh_trail::HANDLER:   ehs = get_handlers(n); SASSERT(ehs); set_handlers(n, ehs->tail()); break;
+                case eh_trail::kind::POS_WATCH: ehs = get_watches(n, true); SASSERT(ehs); set_watches(n, true, ehs->tail()); break;
+                case eh_trail::kind::NEG_WATCH: ehs = get_watches(n, false); SASSERT(ehs); set_watches(n, false, ehs->tail()); break;
+                case eh_trail::kind::HANDLER:   ehs = get_handlers(n); SASSERT(ehs); set_handlers(n, ehs->tail()); break;
                 default: UNREACHABLE(); break;
                 }
                 m.dec_ref(n);
@@ -378,9 +378,7 @@ namespace smt {
                 break;
             case l_true: {
                 expr * true_arg = nullptr;
-                unsigned num_args = n->get_num_args();
-                for (unsigned i = 0; i < num_args; i++) {
-                    expr * arg  = n->get_arg(i);
+                for (expr* arg : *n) {
                     if (m_context.find_assignment(arg) == l_true) {
                         if (is_relevant_core(arg))
                             return;
@@ -402,9 +400,7 @@ namespace smt {
             switch (val) {
             case l_false: {
                 expr * false_arg = nullptr;
-                unsigned num_args = n->get_num_args();
-                for (unsigned i = 0; i < num_args; i++) {
-                    expr * arg  = n->get_arg(i);
+                for (expr* arg : *n) {
                     if (m_context.find_assignment(arg) == l_false) {
                         if (is_relevant_core(arg))
                             return; 

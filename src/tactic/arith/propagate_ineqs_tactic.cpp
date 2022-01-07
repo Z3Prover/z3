@@ -543,8 +543,8 @@ propagate_ineqs_tactic::~propagate_ineqs_tactic() {
 }
 
 void propagate_ineqs_tactic::updt_params(params_ref const & p) {
-    m_params = p;
-    m_imp->updt_params(p);
+    m_params.append(p);
+    m_imp->updt_params(m_params);
 }
 
 void propagate_ineqs_tactic::operator()(goal_ref const & g, 

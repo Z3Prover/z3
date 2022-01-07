@@ -186,17 +186,16 @@ namespace array {
         if (should_set_prop_upward(d))
             set_prop_upward(d);
         ctx.push_vec(d.m_lambdas, lambda);
-        if (should_set_prop_upward(d)) {
-            set_prop_upward(lambda);
-            propagate_select_axioms(d, lambda);
-        }
+        propagate_select_axioms(d, lambda);
+        if (should_set_prop_upward(d)) 
+            set_prop_upward_store(lambda);                    
     }
 
     void solver::add_parent_lambda(theory_var v_child, euf::enode* lambda) {
         SASSERT(can_beta_reduce(lambda));
         auto& d = get_var_data(find(v_child));
         ctx.push_vec(d.m_parent_lambdas, lambda);
-        if (should_set_prop_upward(d))
+        if (should_prop_upward(d))        
             propagate_select_axioms(d, lambda);
     }
 
@@ -231,6 +230,9 @@ namespace array {
         for (euf::enode* lambda : d.m_lambdas) 
             propagate_select_axioms(d, lambda);        
         
+        if (!should_prop_upward(d))
+            return;
+
         for (euf::enode* lambda : d.m_parent_lambdas)
             propagate_select_axioms(d, lambda);
     }
@@ -246,14 +248,14 @@ namespace array {
         set_prop_upward(d);
     }
 
-    void solver::set_prop_upward(euf::enode* n) {
+    void solver::set_prop_upward_store(euf::enode* n) {
         if (a.is_store(n->get_expr()))
             set_prop_upward(n->get_arg(0)->get_th_var(get_id()));
     }
 
     void solver::set_prop_upward(var_data& d) {
         for (auto* p : d.m_lambdas)
-            set_prop_upward(p);
+            set_prop_upward_store(p);
     }
 
     /**
@@ -273,6 +275,6 @@ namespace array {
     }
 
     bool solver::can_beta_reduce(expr* c) const {
-        return a.is_const(c) || a.is_as_array(c) || a.is_store(c) || is_lambda(c) || a.is_map(c);
+        return a.is_const(c) || a.is_as_array(c) || a.is_store(c) || is_lambda(c) || is_map_combinator(c);
     }
 }

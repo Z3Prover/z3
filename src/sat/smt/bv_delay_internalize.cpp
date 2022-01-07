@@ -21,7 +21,10 @@ Author:
 namespace bv {
 
     bool solver::check_delay_internalized(expr* e) {
-        if (!ctx.is_relevant(e))
+        euf::enode* n = expr2enode(e);
+        if (!n)
+            return true;
+        if (!ctx.is_relevant(n))
             return true;
         if (get_internalize_mode(e) != internalize_mode::delay_i)
             return true;
@@ -247,7 +250,7 @@ namespace bv {
             return;
         expr_ref tmp = literal2expr(bits.back());
         for (unsigned i = bits.size() - 1; i-- > 0; ) {
-            auto b = bits[i];
+            sat::literal b = bits[i];
             tmp = m.mk_or(literal2expr(b), tmp);
             xs.push_back(tmp);
         }

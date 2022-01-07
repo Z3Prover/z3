@@ -49,14 +49,14 @@ namespace opt {
                 dst[i] = src[i];
                 m_models.set(i, m_s->get_model_idx(i));
                 m_s->get_labels(m_labels);
-                m_lower_fmls[i] = fmls[i].get();
+                m_lower_fmls[i] = fmls.get(i);
                 if (dst[i].is_pos() && !dst[i].is_finite()) { // review: likely done already.
                     m_lower_fmls[i] = m.mk_false();
                     fmls[i] = m.mk_false();
                 }
             }
-            else if (src[i] < dst[i] && !m.is_true(m_lower_fmls[i].get())) {
-                fmls[i] = m_lower_fmls[i].get();                
+            else if (src[i] < dst[i] && !m.is_true(m_lower_fmls.get(i))) {
+                fmls[i] = m_lower_fmls.get(i);                
             }
         }
     }
@@ -202,6 +202,9 @@ namespace opt {
         for (unsigned i = 0; i < obj_index; ++i) 
             commit_assignment(i);
 
+//        m_s->maximize_objective(obj_index, bound);
+//        m_s->assert_expr(bound);
+
         unsigned steps = 0;
         unsigned step_incs = 0;
         rational delta_per_step(1);
@@ -282,7 +285,7 @@ namespace opt {
     bool optsmt::can_increment_delta(vector<inf_eps> const& lower, unsigned i) {
         arith_util arith(m);
         inf_eps max_delta;
-        if (m_lower[i] < m_upper[i] && arith.is_int(m_objs[i].get())) {
+        if (m_lower[i] < m_upper[i] && arith.is_int(m_objs.get(i))) {
             inf_eps delta = m_lower[i] - lower[i];  
             if (m_lower[i].is_finite() && delta > max_delta) {
                 return true;
@@ -435,7 +438,7 @@ namespace opt {
         bool progress = false;
         for (unsigned i = 0; i < m_lower.size() && m.inc(); ++i) {
             if (m_lower[i] <= mid[i] && mid[i] <= m_upper[i] && m_lower[i] < m_upper[i]) {
-                th.enable_record_conflict(bounds[i].get());
+                th.enable_record_conflict(bounds.get(i));
                 lbool is_sat = m_s->check_sat(1, bounds.data() + i);
                 switch(is_sat) {
                 case l_true:
@@ -484,10 +487,10 @@ namespace opt {
         }
 
         for (unsigned i = 0; i < m_objs.size(); ++i) {
-            smt::theory_var v = solver.add_objective(m_objs[i].get());
+            smt::theory_var v = solver.add_objective(m_objs.get(i));
             if (v == smt::null_theory_var) {
                 std::ostringstream out;
-                out << "Objective function '" << mk_pp(m_objs[i].get(), m) << "' is not supported";
+                out << "Objective function '" << mk_pp(m_objs.get(i), m) << "' is not supported";
                 throw default_exception(out.str());
             }
             m_vars.push_back(v);
@@ -547,7 +550,7 @@ namespace opt {
     // force lower_bound(i) <= objective_value(i)    
     void optsmt::commit_assignment(unsigned i) {
         inf_eps lo = m_lower[i];
-        TRACE("opt", tout << "set lower bound of " << mk_pp(m_objs[i].get(), m) << " to: " << lo << "\n";
+        TRACE("opt", tout << "set lower bound of " << mk_pp(m_objs.get(i), m) << " to: " << lo << "\n";
               tout << get_lower(i) << ":" << get_upper(i) << "\n";);    
         // Only assert bounds for bounded objectives
         if (lo.is_finite()) {

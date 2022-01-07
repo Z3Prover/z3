@@ -203,7 +203,7 @@ end = struct
   let equal = (=)
 
   (* The standard comparison uses the custom operations of the C layer *)
-  let compare = Pervasives.compare
+  let compare = Stdlib.compare
 
   let translate (x:ast) (to_ctx:context) =
     if gc x = to_ctx then

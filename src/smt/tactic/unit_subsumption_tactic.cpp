@@ -50,7 +50,7 @@ struct unit_subsumption_tactic : public tactic {
     }
 
     void updt_params(params_ref const& p) override {
-        m_params = p;
+        m_params.append(p);
         // m_context.updt_params(p); does not exist.
     }
     

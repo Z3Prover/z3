@@ -288,6 +288,7 @@ jobs:
 
 - job: "MacOSOCaml"
   displayName: "MacOS build with OCaml"
+  condition: eq(0,1) 
   pool:
     vmImage: "macOS-latest"
   steps:
@@ -310,9 +311,9 @@ jobs:
         eval `opam config env`
         make -j3
         make -j3 _ex_ml_example_post_install
-        ./ml_example_shared.byte
-        ./ml_example_shared_custom.byte
-        ./ml_example_shared
+        # ./ml_example_shared.byte
+        # ./ml_example_shared_custom.byte
+        # ./ml_example_shared
         cd ..
 # Skip as dead-slow in debug mode:
 #  - template: scripts/test-z3.yml
