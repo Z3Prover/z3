@@ -170,6 +170,8 @@ struct smtmus::imp {
 
     void init_soft2hard(obj_map<expr, unsigned>& soft2hard, u_map<expr*>& hard2soft, obj_map<expr, unsigned>const & softs) {
         // find all clauses where soft indicators are used.
+        hard2soft.reset();
+        soft2hard.reset();
         unsigned idx = 0;
         for (expr* f : m_hard) {
             expr_ref_vector ors(m);
@@ -210,15 +212,32 @@ struct smtmus::imp {
         obj_map<expr, unsigned> soft2hard;
         obj_map<expr, unsigned> softs;
         u_map<expr*> hard2soft;
-        unsigned idx = 0;
 
         // initialize hard clauses
         m_hard.reset();
         m_hard.append(m_solver.get_assertions());
         // initialize soft clauses.
         m_soft_clauses.reset();
-        for (expr* s : m_soft)
-            m_soft_clauses.push_back(expr_ref_vector(m, 1, &s));
+        for (expr* s : m_soft) {
+            expr_ref_vector ors(m);
+            flatten_or(s, ors);
+            m_soft_clauses.push_back(ors);
+        }
+
+        expr_mark mark;
+        expr_ref_vector asms(m);
+        for (expr* f : m_soft)
+            mark.mark(f);
+        for (auto * a : m_assumptions)
+            if (!mark.is_marked(a))
+                asms.push_back(a);
+        init_softs(asms, softs);
+        if (!softs.empty()) {
+            init_soft2hard(soft2hard, hard2soft, softs);
+            simplify_hard(hard2soft);            
+        }
+
+        softs.reset();
 
         init_softs(m_soft, softs);
         if (softs.empty())
@@ -231,7 +250,7 @@ struct smtmus::imp {
         // for soft clause s0 and hard clause ~s0 or lit1 or lit2,
         // replace s0 by (lit1 or lit2), and replace hard clause by true.
         //
-        idx = 0;
+        unsigned idx = 0;
         for (auto const& [i, s] : hard2soft) {
             expr* f = m_hard.get(i);
             expr_ref_vector ors(m);
@@ -252,14 +271,6 @@ struct smtmus::imp {
             SASSERT(idx <= ors.size());
         }
         simplify_hard(hard2soft);
-        softs.reset();
-        hard2soft.reset();
-        init_softs(m_assumptions, softs);
-        if (!softs.empty()) {
-            init_soft2hard(soft2hard, hard2soft, softs);
-            simplify_hard(hard2soft);
-            
-        }
     
         TRACE("satmus",
               for (expr* s : m_soft)
