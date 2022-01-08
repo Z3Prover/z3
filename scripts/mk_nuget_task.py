@@ -58,7 +58,7 @@ def unpack(packages, symbols, arch):
     for f in os.listdir(packages):
         print(f)
         if f.endswith(".zip") and classify_package(f, arch):
-            os_name, package_dir, ext, dst = classify_package(f)
+            os_name, package_dir, ext, dst = classify_package(f, arch)
             path = os.path.abspath(os.path.join(packages, f))
             zip_ref = zipfile.ZipFile(path, 'r')
             zip_ref.extract(f"{package_dir}/bin/libz3.{ext}", f"{tmp}")
