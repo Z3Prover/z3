@@ -21,26 +21,17 @@ def mk_dir(d):
     if not os.path.exists(d):
         os.makedirs(d)
 
-os64_info = {"z64-ubuntu-14" : ('so', 'linux-x64'),
-             'ubuntu-18' : ('so', 'linux-x64'),
+os_info = {  'ubuntu-18' : ('so', 'linux-x64'),
              'ubuntu-20' : ('so', 'linux-x64'),
              'glibc-2.31' : ('so', 'linux-x64'),
              'x64-win' : ('dll', 'win-x64'),
+             'x86-win' : ('dll', 'win-x86'),
              'osx' : ('dylib', 'osx-x64'),
              'debian' : ('so', 'linux-x64') }
 
-os86_info = { 'x86-win' : ('dll', 'win-x86') }
-
-
-def os_info(arch):
-    if arch == "x64":
-        return os64_info
-    else:
-        return os86_info
         
 
 def classify_package(f, arch):
-    os_info = os_info(arch)
     for os_name in os_info:
         if os_name in f:
             ext, dst = os_info[os_name]
