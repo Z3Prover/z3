@@ -1,5 +1,5 @@
 variables:
-  ReleaseVersion: '4.8.14'
+  ReleaseVersion: '4.8.15'
 
 stages:
 - stage: Build
@@ -285,7 +285,7 @@ stages:
       inputs:
         ConnectedServiceName: 'z3-esrp-signing-2'
         FolderPath: $(Build.ArtifactStagingDirectory)
-        Pattern: Microsoft.Z3.$(ReleaseVersion).nupkg
+        Pattern: Microsoft.Z3.x86.$(ReleaseVersion).nupkg
         signConfigType: 'inlineSignParams'
         inlineOperation: |
           [
