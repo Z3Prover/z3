@@ -337,7 +337,7 @@ stages:
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
-        artifactName: 'NuGet'
+        artifactName: 'NuGet32'
 
 
   - job: Python
@@ -418,6 +418,11 @@ stages:
       displayName: "Download NuGet"
       inputs:
         artifactName: 'NuGet'
+        targetPath: tmp
+    - task: DownloadPipelineArtifact@2
+      displayName: "Download NuGet32"
+      inputs:
+        artifactName: 'NuGet32'
         targetPath: tmp
     - task: GitHubRelease@0
       inputs:

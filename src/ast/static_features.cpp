@@ -402,16 +402,14 @@ bool static_features::pre_process(expr * e, bool form_ctx, bool or_and_ctx, bool
     if (is_marked_post(e))
         return true;
 
+    if (is_marked_pre(e))
+        return true;
+
     if (is_var(e)) {
         mark_pre(e);
         mark_post(e);
         return true;
     }
-
-    if (is_marked_pre(e)) {
-        m_num_sharing++;
-        return true;
-    }    
 
     mark_pre(e);
 
@@ -430,7 +428,9 @@ bool static_features::pre_process(expr * e, bool form_ctx, bool or_and_ctx, bool
     bool all_processed = true;
     for (expr* arg : *to_app(e)) {
         m.is_not(arg, arg);
-        if (!is_marked_post(arg)) {
+        if (is_marked_post(arg))
+            ++m_num_sharing;
+        else {
             add_process(arg, form_ctx_new, or_and_ctx_new, ite_ctx_new);
             all_processed = false;
         }
@@ -537,6 +537,7 @@ void static_features::process_all() {
         auto const& [e, form, or_and, ite] = m_to_process.back();
         if (is_marked_post(e)) {
             m_to_process.pop_back();
+            ++m_num_sharing;
             continue;
         }
         if (!pre_process(e, form, or_and, ite))
