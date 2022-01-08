@@ -21,17 +21,26 @@ def mk_dir(d):
     if not os.path.exists(d):
         os.makedirs(d)
 
+os64_info = {"z64-ubuntu-14" : ('so', 'linux-x64'),
+             'ubuntu-18' : ('so', 'linux-x64'),
+             'ubuntu-20' : ('so', 'linux-x64'),
+             'glibc-2.31' : ('so', 'linux-x64'),
+             'x64-win' : ('dll', 'win-x64'),
+             'osx' : ('dylib', 'osx-x64'),
+             'debian' : ('so', 'linux-x64') }
 
-os_info = {"z64-ubuntu-14" : ('so', 'linux-x64'),
-           'ubuntu-18' : ('so', 'linux-x64'),
-           'ubuntu-20' : ('so', 'linux-x64'),
-           'glibc-2.31' : ('so', 'linux-x64'),
-           'x64-win' : ('dll', 'win-x64'),
-           'x86-win' : ('dll', 'win-x86'),
-           'osx' : ('dylib', 'osx-x64'),
-           'debian' : ('so', 'linux-x64') }
+os86_info = { 'x86-win' : ('dll', 'win-x86') }
 
-def classify_package(f):
+
+def os_info(arch):
+    if arch == "x64":
+        return os64_info
+    else:
+        return os86_info
+        
+
+def classify_package(f, arch):
+    os_info = os_info(arch)
     for os_name in os_info:
         if os_name in f:
             ext, dst = os_info[os_name]
@@ -45,7 +54,7 @@ def replace(src, dst):
     except:
         shutil.move(src, dst)
     
-def unpack(packages, symbols):
+def unpack(packages, symbols, arch):
     # unzip files in packages
     # out
     # +- runtimes
@@ -57,14 +66,14 @@ def unpack(packages, symbols):
     tmp = "tmp" if not symbols else "tmpsym"
     for f in os.listdir(packages):
         print(f)
-        if f.endswith(".zip") and classify_package(f):
+        if f.endswith(".zip") and classify_package(f, arch):
             os_name, package_dir, ext, dst = classify_package(f)
             path = os.path.abspath(os.path.join(packages, f))
             zip_ref = zipfile.ZipFile(path, 'r')
             zip_ref.extract(f"{package_dir}/bin/libz3.{ext}", f"{tmp}")
             mk_dir(f"out/runtimes/{dst}/native")
             replace(f"{tmp}/{package_dir}/bin/libz3.{ext}", f"out/runtimes/{dst}/native/libz3.{ext}")            
-            if "x64-win" in f:
+            if "x64-win" in f or "x86-win" in f:
                 mk_dir("out/lib/netstandard2.0/")
                 if symbols:
                     zip_ref.extract(f"{package_dir}/bin/libz3.pdb", f"{tmp}")
@@ -85,7 +94,7 @@ def mk_icon(source_root):
     shutil.copy(f"{source_root}/resources/icon.jpg", "out/content/icon.jpg")
 
     
-def create_nuget_spec(version, repo, branch, commit, symbols):
+def create_nuget_spec(version, repo, branch, commit, symbols, arch):
     contents = """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
@@ -113,28 +122,40 @@ Linux Dependencies:
 </package>""".format(version, repo, branch, commit)
     print(contents)
     sym = "sym." if symbols else ""
-    file = f"out/Microsoft.Z3.{sym}nuspec"
+    arch = f"{arch}." if arch == "x86" else ""
+    file = f"out/Microsoft.Z3.{arch}{sym}nuspec"
     print(file)
     with open(file, 'w') as f:
         f.write(contents)
+
+class Env:
+    def __init__(self, argv):
+        self.packages = argv[1]
+        self.version = argv[2]
+        self.repo = argv[3]
+        self.branch = argv[4]
+        self.commit = argv[5]
+        self.source_root = argv[6]
+        self.symbols = False
+        if len(argv) > 7 and "symbols" == argv[7]:
+            self.symbols = True
+
+    def create(self, arch):
+        mk_dir(self.packages)
+        unpack(self.packages, self.symbols, arch)
+        mk_targets(self.source_root)
+        mk_icon(self.source_root)
+        create_nuget_spec(self.version, self.repo, self.branch, self.commit, self.symbols, arch)
+
+    def clear(self):
+        os.rmtree("out/runtimes")
+        os.rmtree("out/lib")
         
 def main():
-    packages = sys.argv[1]
-    version = sys.argv[2]
-    repo = sys.argv[3]
-    branch = sys.argv[4]
-    commit = sys.argv[5]
-    source_root = sys.argv[6]
-    symbols = False
-    if len(sys.argv) > 7:
-        print(sys.argv[7])
-    if len(sys.argv) > 7 and "symbols" == sys.argv[7]:
-        symbols = True
-    print(packages)
-    mk_dir(packages)
-    unpack(packages, symbols)
-    mk_targets(source_root)
-    mk_icon(source_root)
-    create_nuget_spec(version, repo, branch, commit, symbols)
+    env = Env(sys.argv)
+    print(env.packages)
+    self.create("x64")
+    self.clear()
+    self.create("x86")
 
 main()
