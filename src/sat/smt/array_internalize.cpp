@@ -77,7 +77,8 @@ namespace array {
 
     bool solver::post_visit(expr* e, bool sign, bool root) {
         euf::enode* n = expr2enode(e);
-        app* a = to_app(e);        
+        app *a = to_app(e);
+        (void)a;
         SASSERT(!n || !n->is_attached_to(get_id()));
         if (!n) 
             n = mk_enode(e, false);

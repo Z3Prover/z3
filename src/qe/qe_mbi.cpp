@@ -268,6 +268,7 @@ namespace qe {
         ap.set_check_purified(false);
         vector<mbp::def> defs;
         bool ok = ap.project(*mdl.get(), avars, lits, defs);
+        (void)ok;
         CTRACE("qe", !ok, tout << "projection failure ignored!!!!\n");
         return defs;
     }

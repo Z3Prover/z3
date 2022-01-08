@@ -1081,6 +1081,7 @@ namespace seq {
         sort* domain[4] = { srt, srt, srt, srt };
         auto d = plugin.ensure_def(symbol("ra"), 4, domain, m.mk_bool_sort(), true);
         func_decl* ra = d.get_def()->get_decl();
+        (void)ra;
         sort* isrt = a.mk_int();
         var_ref vi(m.mk_var(5, isrt), m);
         var_ref vj(m.mk_var(4, isrt), m);
@@ -1089,6 +1090,7 @@ namespace seq {
         var_ref vt(m.mk_var(1, srt), m);
         var_ref vr(m.mk_var(0, srt), m);
         var* vars[6] = { vi, vj, vs, vp, vt, vr };
+        (void)vars;
         expr_ref len_s(seq.str.mk_length(vs), m);
         expr_ref len_r(seq.str.mk_length(vr), m);
         expr_ref test1(m.mk_eq(len_s, vi), m);
