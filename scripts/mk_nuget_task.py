@@ -154,8 +154,8 @@ class Env:
 def main():
     env = Env(sys.argv)
     print(env.packages)
-    self.create("x64")
-    self.clear()
-    self.create("x86")
+    env.create("x64")
+    env.clear()
+    env.create("x86")
 
 main()
