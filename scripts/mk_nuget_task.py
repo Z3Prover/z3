@@ -137,25 +137,22 @@ class Env:
         self.commit = argv[5]
         self.source_root = argv[6]
         self.symbols = False
+        self.arch = "x64"
         if len(argv) > 7 and "symbols" == argv[7]:
             self.symbols = True
+        if len(argv) > 8:
+            self.arch = argv[8]
 
-    def create(self, arch):
+    def create(self):
         mk_dir(self.packages)
-        unpack(self.packages, self.symbols, arch)
+        unpack(self.packages, self.symbols, self.arch)
         mk_targets(self.source_root)
         mk_icon(self.source_root)
-        create_nuget_spec(self.version, self.repo, self.branch, self.commit, self.symbols, arch)
-
-    def clear(self):
-        os.rmtree("out/runtimes")
-        os.rmtree("out/lib")
+        create_nuget_spec(self.version, self.repo, self.branch, self.commit, self.symbols, self.arch)
         
 def main():
     env = Env(sys.argv)
     print(env.packages)
-    env.create("x64")
-    env.clear()
-    env.create("x86")
+    env.create()
 
 main()
