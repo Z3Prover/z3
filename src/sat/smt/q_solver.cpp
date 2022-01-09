@@ -228,12 +228,13 @@ namespace q {
     }
 
     bool solver::expand(quantifier* q) {
-        expr_ref r(m);
+        expr_ref r(q, m);
         proof_ref pr(m);
-        m_der(q, r, pr);
+        ctx.rewrite(r);
+        m_der(r, r, pr);
         m_expanded.reset();
         if (r != q) {
-            ctx.get_rewriter()(r);
+            ctx.rewrite(r);
             m_expanded.push_back(r);
             return true;
         }
