@@ -19,6 +19,7 @@ Author:
 #include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/normal_forms/pull_quant.h"
+#include "ast/rewriter/inj_axiom.h"
 #include "sat/smt/q_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/sat_th.h"
@@ -69,9 +70,12 @@ namespace q {
 
         if (ctx.get_config().m_mbqi) {
             switch (m_mbqi()) {
-            case l_true:  return sat::check_result::CR_DONE;
-            case l_false: return sat::check_result::CR_CONTINUE;
-            case l_undef: break;
+            case l_true:  
+                return sat::check_result::CR_DONE;
+            case l_false: 
+                return sat::check_result::CR_CONTINUE;
+            case l_undef: 
+                break;
             }
         }
         return sat::check_result::CR_GIVEUP;
@@ -166,13 +170,18 @@ namespace q {
 
     quantifier* solver::flatten(quantifier* q) {
         quantifier* q_flat = nullptr;
-        if (!has_quantifiers(q->get_expr())) 
-            return q;
         if (m_flat.find(q, q_flat))
             return q_flat;
+
+        expr_ref new_q(m);
         proof_ref pr(m);
-        expr_ref  new_q(m);
-        if (is_forall(q)) {
+        if (!has_quantifiers(q->get_expr())) {
+            if (!ctx.get_config().m_refine_inj_axiom)
+                return q;
+            if (!simplify_inj_axiom(m, q, new_q))
+                return q;
+        }
+        else if (is_forall(q)) {
             pull_quant pull(m);
             pull(q, new_q, pr);
             SASSERT(is_well_sorted(m, new_q));

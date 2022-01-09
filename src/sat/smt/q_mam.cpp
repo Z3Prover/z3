@@ -3095,7 +3095,7 @@ namespace q {
         void add_candidate(code_tree * t, enode * app) {
             if (!t)
                 return;
-            TRACE("q", tout << "candidate " << t << " " << ctx.bpp(app) << "\n";);
+            TRACE("q", tout << "candidate " << ctx.bpp(app) << "\n";);
             if (!t->has_candidates()) {
                 ctx.push(push_back_trail<code_tree*, false>(m_to_match));
                 m_to_match.push_back(t);

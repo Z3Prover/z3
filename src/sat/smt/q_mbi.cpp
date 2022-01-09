@@ -155,7 +155,7 @@ namespace q {
         unsigned inc = 1;
         while (true) {
             ::solver::scoped_push _sp(*m_solver);
-            add_universe_restriction(q, *qb);
+            add_universe_restriction(*qb);
             m_solver->assert_expr(qb->mbody);
             ++m_stats.m_num_checks;
             lbool r = m_solver->check_sat(0, nullptr);
@@ -217,17 +217,17 @@ namespace q {
             qlit.neg();
         ctx.rewrite(proj);
         TRACE("q", tout << "project: " << proj << "\n";);
+        IF_VERBOSE(11, verbose_stream() << "mbi:\n" << mk_pp(q, m) << "\n" << proj << "\n");
         ++m_stats.m_num_instantiations;        
         unsigned generation = ctx.get_max_generation(proj);    
         m_instantiations.push_back(instantiation_t(qlit, proj, generation));
     }
 
-    void mbqi::add_universe_restriction(quantifier* q, q_body& qb) {
-        unsigned sz = q->get_num_decls();
-        for (unsigned i = 0; i < sz; ++i) {
-            sort* s = q->get_decl_sort(i);
+    void mbqi::add_universe_restriction(q_body& qb) {
+        for (app* v : qb.vars) {
+            sort* s = v->get_sort();
             if (m_model->has_uninterpreted_sort(s))
-                restrict_to_universe(qb.vars.get(i), m_model->get_universe(s));
+                restrict_to_universe(v, m_model->get_universe(s));
         }
     }
 

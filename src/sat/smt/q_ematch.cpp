@@ -31,6 +31,7 @@ Done:
 #include "ast/ast_util.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/normal_forms/pull_quant.h"
 #include "solver/solver.h"
 #include "sat/smt/sat_th.h"
 #include "sat/smt/euf_solver.h"
@@ -116,12 +117,16 @@ namespace q {
     }
 
     quantifier_ref ematch::nnf_skolem(quantifier* q) {
+        SASSERT(is_forall(q));
         expr_ref r(m);
         proof_ref p(m);
         m_new_defs.reset();
         m_new_proofs.reset();
         m_nnf(q, m_new_defs, m_new_proofs, r, p);
-        SASSERT(is_quantifier(r));
+        SASSERT(is_forall(r));
+        pull_quant pull(m);
+        pull(r, r, p);
+        SASSERT(is_forall(r));
         for (expr* d : m_new_defs)
             m_qs.add_unit(m_qs.mk_literal(d));
         CTRACE("q", r != q, tout << mk_pp(q, m) << " -->\n" << r << "\n" << m_new_defs << "\n";);
@@ -301,7 +306,7 @@ namespace q {
         TRACE("q", b->display(ctx, tout << "on-binding " << mk_pp(q, m) << "\n") << "\n";);
 
 
-        if (false && propagate(false, _binding, max_generation, c, new_propagation))
+        if (propagate(false, _binding, max_generation, c, new_propagation))
             return;
 
         binding::push_to_front(c.m_bindings, b);
@@ -310,6 +315,10 @@ namespace q {
     }
 
     bool ematch::propagate(bool is_owned, euf::enode* const* binding, unsigned max_generation, clause& c, bool& propagated) {
+        if (!m_enable_propagate)
+            return false;
+        if (ctx.s().inconsistent())
+            return true;
         TRACE("q", c.display(ctx, tout) << "\n";);
         unsigned idx = UINT_MAX;
         m_evidence.reset();
@@ -337,7 +346,7 @@ namespace q {
             propagate(ev == l_false, idx, j_idx);
         else
             m_prop_queue.push_back(prop(ev == l_false, idx, j_idx));
-        propagated = true;
+        propagated = true;        
         return true;
     }
 
@@ -576,7 +585,7 @@ namespace q {
 
 
     bool ematch::unit_propagate() {
-        return false;
+        // return false;
         return ctx.get_config().m_ematching && propagate(false);
     }
 
@@ -595,7 +604,7 @@ namespace q {
                 continue;
 
             do {                
-                if (false && propagate(true, b->m_nodes, b->m_max_generation, c, propagated)) 
+                if (propagate(true, b->m_nodes, b->m_max_generation, c, propagated)) 
                     to_remove.push_back(b);
                 else if (flush) {
                     instantiate(*b);
@@ -648,7 +657,7 @@ namespace q {
     void ematch::collect_statistics(statistics& st) const {
         m_inst_queue.collect_statistics(st);
         st.update("q redundant", m_stats.m_num_redundant);
-        st.update("q units",     m_stats.m_num_propagations);
+        st.update("q unit propagations",     m_stats.m_num_propagations);
         st.update("q conflicts", m_stats.m_num_conflicts);
         st.update("q delayed bindings", m_stats.m_num_delayed_bindings);
     }
