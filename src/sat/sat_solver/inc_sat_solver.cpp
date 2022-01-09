@@ -280,8 +280,8 @@ public:
         m_inserted_const2bits.reset();
         m_map.pop(n);
         SASSERT(n <= m_num_scopes);
-        m_solver.user_pop(n);
         m_goal2sat.user_pop(n);
+        m_solver.user_pop(n);
         m_num_scopes -= n;
         // ? m_internalized_converted = false;
         m_has_uninterpreted.pop(n);
