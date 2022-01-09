@@ -1,9 +1,7 @@
-name: WebAssembly Build
+name: WebAssembly Publish
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
+  workflow_dispatch:
 
 defaults:
   run:
@@ -13,8 +11,8 @@ env:
   EM_VERSION: 3.1.0
 
 jobs:
-  check:
-    name: Check
+  publish:
+    name: Publish
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -24,6 +22,13 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: 'lts/*'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Prepare for publish
+        run: |
+          npm version $(node -e 'console.log(fs.readFileSync("../../../scripts/release.yml", "utf8").match(/ReleaseVersion:\s*\x27(\S+)\x27/)[1])')
+          mv PUBLISHED_README.md README.md
+          cp ../../../LICENSE.txt .
 
       - name: Setup emscripten
         uses: mymindstorm/setup-emsdk@v11
@@ -49,3 +54,8 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Publish
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
