@@ -40,3 +40,4 @@ jobs:
       with:
         name: z3-build-wasm
         path: build/z3-build-wasm.tar
+        retention-days: 5
