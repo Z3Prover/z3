@@ -302,6 +302,7 @@ public:
     bool is_is_int(expr const * n) const { return is_app_of(n, arith_family_id, OP_IS_INT); }
     bool is_power(expr const * n) const { return is_app_of(n, arith_family_id, OP_POWER); }
     bool is_power0(expr const * n) const { return is_app_of(n, arith_family_id, OP_POWER0); }
+    bool is_abs(expr const* n) const { return is_app_of(n, arith_family_id, OP_ABS); }
 
     bool is_int(sort const * s) const { return is_sort_of(s, arith_family_id, INT_SORT); }
     bool is_int(expr const * n) const { return is_int(n->get_sort()); }
@@ -341,6 +342,7 @@ public:
     MATCH_UNARY(is_to_real);
     MATCH_UNARY(is_to_int);
     MATCH_UNARY(is_is_int);
+    MATCH_UNARY(is_abs);
     MATCH_BINARY(is_sub);
     MATCH_BINARY(is_add);
     MATCH_BINARY(is_mul);

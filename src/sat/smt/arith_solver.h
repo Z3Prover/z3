@@ -263,6 +263,7 @@ namespace arith {
         // axioms
         void mk_div_axiom(expr* p, expr* q);
         void mk_to_int_axiom(app* n);
+        void mk_abs_axiom(app* n);
         void mk_is_int_axiom(expr* n);
         void mk_idiv_mod_axioms(expr* p, expr* q);
         void mk_rem_axiom(expr* dividend, expr* divisor);

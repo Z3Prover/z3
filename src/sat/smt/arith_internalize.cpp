@@ -237,9 +237,10 @@ namespace arith {
                 if (!is_first) {
                     // skip recursive internalization
                 }
-                else if (a.is_to_int(n, n1)) {
-                    mk_to_int_axiom(t);
-                }
+                else if (a.is_to_int(n, n1)) 
+                    mk_to_int_axiom(t);                
+                else if (a.is_abs(n)) 
+                    mk_abs_axiom(t);                
                 else if (a.is_idiv(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
                     m_idiv_terms.push_back(n);
