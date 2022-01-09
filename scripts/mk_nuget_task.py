@@ -86,7 +86,7 @@ def mk_icon(source_root):
 
     
 def create_nuget_spec(version, repo, branch, commit, symbols, arch):
-    arch = f"{arch}." if arch == "x86" else ""
+    arch = f".{arch}" if arch == "x86" else ""
     contents = """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
@@ -114,7 +114,7 @@ Linux Dependencies:
 </package>""".format(version, repo, branch, commit, arch)
     print(contents)
     sym = "sym." if symbols else ""
-    file = f"out/Microsoft.Z3.{arch}{sym}nuspec"
+    file = f"out/Microsoft.Z3{arch}.{sym}nuspec"
     print(file)
     with open(file, 'w') as f:
         f.write(contents)
