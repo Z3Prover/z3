@@ -55,7 +55,6 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-
     Z3_ast Z3_API Z3_mk_lstring(Z3_context c, unsigned sz, Z3_string str) {
         Z3_TRY;
         LOG_Z3_mk_lstring(c, sz, str);
@@ -75,6 +74,16 @@ extern "C" {
         RESET_ERROR_CODE();
         zstring s(sz, chars);
         app* a = mk_c(c)->sutil().str.mk_string(s);
+        mk_c(c)->save_ast_trail(a);
+        RETURN_Z3(of_ast(a));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    Z3_ast Z3_API Z3_mk_char(Z3_context c, unsigned ch) {
+        Z3_TRY;
+        LOG_Z3_mk_char(c, ch);
+        RESET_ERROR_CODE();
+        app* a = mk_c(c)->sutil().str.mk_char(ch);        
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
         Z3_CATCH_RETURN(nullptr);

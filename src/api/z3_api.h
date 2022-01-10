@@ -3843,6 +3843,13 @@ extern "C" {
      */
     Z3_ast Z3_API Z3_mk_re_full(Z3_context c, Z3_sort re);
 
+
+    /**
+       \brief Create a character literal
+       def_API('Z3_mk_char', AST, (_in(CONTEXT), _in(UINT)))
+    */
+    Z3_ast Z3_API Z3_mk_char(Z3_context c, unsigned ch);
+
     /**
          \brief Create less than or equal to between two characters.
 
