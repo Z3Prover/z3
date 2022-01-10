@@ -10697,7 +10697,8 @@ def CharVal(ch, ctx=None):
     return _to_expr_ref(Z3_mk_char(ctx.ref(), ch), ctx)
     
 def CharFromBv(ch, ctx=None):
-    ch = _coerce_char(ch, ctx)
+    if not is_expr(ch):
+        raise Z3Expression("Bit-vector expression needed")
     return _to_expr_ref(Z3_mk_char_from_bv(ch.ctx_ref(), ch.as_ast()), ch.ctx)
 
 def CharToBv(ch, ctx=None):
