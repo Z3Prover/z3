@@ -132,7 +132,6 @@ protected:
         }
 
         void operator()(app * n) {
-            m_stats["function-applications"]++;
             this->operator()(n->get_decl());
         }
 
