@@ -128,7 +128,6 @@ protected:
             if (m_stats.find("max-quantification-depth") == m_stats.end() ||
                 m_stats["max-quantification-depth"] < m_qdepth)
                 m_stats["max-quantification-depth"] = m_qdepth;
-            this->operator()(body);
             m_qdepth--;
         }
 
