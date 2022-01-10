@@ -195,9 +195,9 @@ See [``examples/python``](examples/python) for examples.
 
 The Julia package [Z3.jl](https://github.com/ahumenberger/Z3.jl) wraps the C++ API of Z3. Information about updating and building the Julia bindings can be found in [src/api/julia](src/api/julia).
 
-### ``Web Assembly``
+### ``Web Assembly`` / ``TypeScript`` / ``JavaScript``
 
-[WebAssembly](https://github.com/cpitclaudel/z3.wasm) bindings are provided by Clément Pit-Claudel.
+A WebAssembly build with associated TypeScript typings is published on npm as [z3-solver](https://www.npmjs.com/package/z3-solver). Information about building these bindings can be found in [src/api/js](src/api/js).
 
 ## System Overview
 
