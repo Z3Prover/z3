@@ -13,6 +13,7 @@ function resolve_async(val) {
     cap.resolve(val);
   }, 0);
 }
+
 function reject_async(val) {
   if (capability == null) {
     return;

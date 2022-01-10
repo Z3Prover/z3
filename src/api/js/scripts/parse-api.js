@@ -271,9 +271,10 @@ for (let file of files) {
           paramType = optTypes[paramType];
         }
 
+        let cType = paramType;
         paramType = aliases[paramType] ?? paramType;
 
-        parsedParams.push({ type: paramType, name: paramName, isConst, isPtr, isArray, nullable });
+        parsedParams.push({ type: paramType, cType, name: paramName, isConst, isPtr, isArray, nullable });
       }
     }
 
@@ -283,10 +284,11 @@ for (let file of files) {
       ret = optTypes[ret];
     }
 
+    let cRet = ret;
     ret = aliases[ret] ?? ret;
 
     if (name in defApis) {
-      functions.push({ ret, name, params: parsedParams, nullableRet });
+      functions.push({ ret, cRet, name, params: parsedParams, nullableRet });
     }
     // only a few things are missing `def_API`; we'll skip those
   }
