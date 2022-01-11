@@ -371,6 +371,7 @@ namespace bv {
         if (m_true == sat::null_literal) {
             ctx.push(value_trail<sat::literal>(m_true));
             m_true = ctx.internalize(m.mk_true(), false, true, false);
+            s().assign_unit(m_true);
         }
         return m_true;
     }
