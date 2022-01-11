@@ -181,6 +181,8 @@ bool theory_user_propagator::internalize_atom(app* atom, bool gate_ctx) {
 bool theory_user_propagator::internalize_term(app* term)  { 
     for (auto arg : *term)
         ensure_enode(arg);
+    if (term->get_family_id() == get_id() && !ctx.e_internalized(term)) 
+        ctx.mk_enode(term, true, false, true);
     unsigned v = add_expr(term);
     if (m_created_eh)
         m_created_eh(m_user_context, this, term, v);
