@@ -1506,7 +1506,6 @@ void theory_seq::add_length(expr* l) {
    Add length limit restrictions to sequence s.
  */
 void theory_seq::add_length_limit(expr* s, unsigned k, bool is_searching) {
-    return;
     if (m_sk.is_indexof_left(s))
         return;
     if (m_sk.is_indexof_right(s))
@@ -3233,7 +3232,6 @@ void theory_seq::add_unhandled_expr(expr* n) {
 
 
 void theory_seq::add_theory_assumptions(expr_ref_vector & assumptions) {
-    return;
     if (m_has_seq) {
         TRACE("seq", tout << "add_theory_assumption\n";);
         expr_ref dlimit = m_sk.mk_max_unfolding_depth(m_max_unfolding_depth);
