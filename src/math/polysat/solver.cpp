@@ -132,6 +132,7 @@ namespace polysat {
         add_eq(b * quot + rem - a);
         add_noovfl(b, quot);
         add_clause(eq(b), ult(rem, b), false);
+        add_ule(quot, a);
         return std::tuple<pdd, pdd>(quot, rem);
     }
 

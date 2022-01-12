@@ -952,6 +952,38 @@ public:
         }
     }
 
+    static void test_quot_rem_incomplete() {
+        unsigned bw = 4;
+        scoped_solver s(__func__);
+        s.set_max_conflicts(5);
+        auto quot = s.var(s.add_var(bw));
+        auto rem = s.var(s.add_var(bw));
+        auto a = s.value(rational(2), bw);
+        auto b = s.value(rational(5), bw);
+        // Incomplete axiomatization of quotient/remainder.
+        // quot_rem(2, 5) should have single solution (0, 2),
+        // but with the usual axioms we also get (3, 3).
+        s.add_eq(b * quot + rem - a);
+        s.add_noovfl(b, quot);
+        s.add_ult(rem, b);
+        // To force a solution that's different from the correct one.
+        s.add_diseq(quot - 0);
+        s.check();
+        s.expect_sat({{quot, 3}, {rem, 3}});
+    }
+
+    static void test_quot_rem_fixed() {
+        unsigned bw = 4;
+        scoped_solver s(__func__);
+        s.set_max_conflicts(5);
+        auto a = s.value(rational(2), bw);
+        auto b = s.value(rational(5), bw);
+        auto [quot, rem] = s.quot_rem(a, b);
+        s.add_diseq(quot - 0);  // to force a solution that's different from the correct one
+        s.check();
+        s.expect_unsat();
+    }
+
     static void test_quot_rem(unsigned bw = 32) {
         scoped_solver s(__func__);
         s.set_max_conflicts(5);
@@ -1170,6 +1202,10 @@ public:
 
 void tst_polysat() {
     using namespace polysat;
+
+    test_polysat::test_quot_rem_incomplete();
+    test_polysat::test_quot_rem_fixed();
+    return;
 
     test_polysat::test_band();
     return;
