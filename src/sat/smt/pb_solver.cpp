@@ -1370,6 +1370,15 @@ namespace pb {
             s().mk_clause(_lits.size(), _lits.data(), sat::status::th(learned, get_id()));
             return nullptr;
         }
+        if (k == 0 && lit == sat::null_literal)
+            return nullptr;
+
+        if (k == 0) {
+            s().assign_unit(lit);
+            return nullptr;
+        }
+            
+
         if (!learned && clausify(lit, lits.size(), lits.data(), k)) {
             return nullptr;
         }
