@@ -10,7 +10,6 @@ z3_add_component(qe
     qe.cpp
     qe_datatype_plugin.cpp
     qe_dl_plugin.cpp
-    qe_lite.cpp
     qe_mbi.cpp
     qe_mbp.cpp
     qe_tactic.cpp
@@ -21,9 +20,9 @@ z3_add_component(qe
     smt
     tactic
     mbp
+    qe_lite
   TACTIC_HEADERS
     nlqsat.h
-    qe_lite.h
     qe_tactic.h
     qsat.h
 )

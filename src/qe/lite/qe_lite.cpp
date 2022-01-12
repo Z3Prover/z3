@@ -34,7 +34,7 @@ Revision History:
 #include "ast/datatype_decl_plugin.h"
 #include "tactic/tactical.h"
 #include "qe/mbp/mbp_solve_plugin.h"
-#include "qe/qe_lite.h"
+#include "qe/lite/qe_lite.h"
 
 namespace qel {
 
