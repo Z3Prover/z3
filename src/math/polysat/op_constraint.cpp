@@ -51,6 +51,8 @@ namespace polysat {
         switch (m_op) {
         case code::lshr_op:
             return eval_lshr(p, q, r);
+        case code::and_op:
+            return eval_and(p, q, r);
         default:
             return l_undef;
         }
@@ -286,5 +288,17 @@ namespace polysat {
                 return;
             }
         }
+    }
+
+    lbool op_constraint::eval_and(pdd const& p, pdd const& q, pdd const& r) const {
+        auto& m = p.manager();
+
+        if ((p.is_zero() || q.is_zero()) && r.is_zero())
+            return l_true;
+
+        if (p.is_val() && q.is_val() && r.is_val())
+            return r.val() == bitwise_and(p.val(), q.val()) ? l_true : l_false;
+
+        return l_undef;
     }
 }
