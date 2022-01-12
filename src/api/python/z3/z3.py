@@ -10961,6 +10961,18 @@ def IntToStr(s):
     return SeqRef(Z3_mk_int_to_str(s.ctx_ref(), s.as_ast()), s.ctx)
 
 
+def StrToCode(s):
+    """Convert a unit length string to integer code"""
+    if not is_expr(s):
+        s = _py2expr(s)
+    return ArithRef(Z3_mk_string_to_code(s.ctx_ref(), s.as_ast()), s.ctx)
+
+def StrFromCode(c):
+    """Convert code to a string"""
+    if not is_expr(c):
+        c = _py2expr(c)
+    return SeqRef(Z3_mk_string_from_code(c.ctx_ref(), c.as_ast()), c.ctx)
+    
 def Re(s, ctx=None):
     """The regular expression that accepts sequence 's'
     >>> s1 = Re("ab")

@@ -286,6 +286,8 @@ extern "C" {
     MK_BINARY(Z3_mk_seq_contains, mk_c(c)->get_seq_fid(), OP_SEQ_CONTAINS, SKIP);
     MK_BINARY(Z3_mk_str_lt, mk_c(c)->get_seq_fid(), OP_STRING_LT, SKIP);
     MK_BINARY(Z3_mk_str_le, mk_c(c)->get_seq_fid(), OP_STRING_LE, SKIP);
+    MK_UNARY(Z3_mk_string_to_code, mk_c(c)->get_seq_fid(), OP_STRING_TO_CODE, SKIP);
+    MK_UNARY(Z3_mk_string_from_code, mk_c(c)->get_seq_fid(), OP_STRING_FROM_CODE, SKIP);
 
     MK_TERNARY(Z3_mk_seq_extract, mk_c(c)->get_seq_fid(), OP_SEQ_EXTRACT, SKIP);
     MK_TERNARY(Z3_mk_seq_replace, mk_c(c)->get_seq_fid(), OP_SEQ_REPLACE, SKIP);
