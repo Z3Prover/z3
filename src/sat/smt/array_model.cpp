@@ -60,6 +60,11 @@ namespace array {
         ptr_vector<expr> args;
         sort* srt = n->get_sort();
         n = n->get_root();
+        if (a.is_as_array(n->get_expr())) {
+            values.set(n->get_expr_id(), n->get_expr());
+            return;
+        }
+            
         unsigned arity = get_array_arity(srt);
         func_decl * f    = mk_aux_decl_for_array_sort(m, srt);
         func_interp * fi = alloc(func_interp, m, arity);

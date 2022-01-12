@@ -1494,6 +1494,7 @@ namespace arith {
         case OP_IS_INT:
         case OP_TO_INT:
         case OP_TO_REAL:
+        case OP_NUM:
             return false;
         default:
             return true;            
