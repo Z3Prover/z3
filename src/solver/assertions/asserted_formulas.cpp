@@ -49,6 +49,7 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & sp, params_re
     m_refine_inj_axiom(*this),
     m_max_bv_sharing_fn(*this),
     m_elim_term_ite(*this),
+    m_qe_lite(*this),
     m_pull_nested_quantifiers(*this),
     m_elim_bvs_from_quantifiers(*this),
     m_cheap_quant_fourier_motzkin(*this),
@@ -285,6 +286,7 @@ void asserted_formulas::reduce() {
     m_ng_lift_ite.m_functor.set_conservative(m_smt_params.m_ng_lift_ite == lift_ite_kind::LI_CONSERVATIVE);
     if (!invoke(m_ng_lift_ite)) return;
     if (!invoke(m_elim_term_ite)) return;
+    if (!invoke(m_qe_lite)) return;
     if (!invoke(m_refine_inj_axiom)) return;
     if (!invoke(m_distribute_forall)) return;
     if (!invoke(m_find_macros)) return;

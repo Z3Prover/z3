@@ -4,4 +4,5 @@ z3_add_component(solver_assertions
   COMPONENT_DEPENDENCIES
     smt2parser
     smt_params
+    qe_lite
 )

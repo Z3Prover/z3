@@ -30,26 +30,27 @@ enum quick_checker_mode {
 struct qi_params {
     std::string        m_qi_cost;
     std::string        m_qi_new_gen;
-    double             m_qi_eager_threshold;
-    double             m_qi_lazy_threshold;
-    unsigned           m_qi_max_eager_multipatterns;
-    unsigned           m_qi_max_lazy_multipattern_matching;
-    bool               m_qi_profile;
-    unsigned           m_qi_profile_freq;
-    quick_checker_mode m_qi_quick_checker;
-    bool               m_qi_lazy_quick_checker;
-    bool               m_qi_promote_unsat;
-    unsigned           m_qi_max_instances;
-    bool               m_qi_lazy_instantiation;
-    bool               m_qi_conservative_final_check;
+    double             m_qi_eager_threshold = 10.0;
+    double             m_qi_lazy_threshold = 20.0;
+    unsigned           m_qi_max_eager_multipatterns = 0;
+    unsigned           m_qi_max_lazy_multipattern_matching = 2;
+    bool               m_qi_profile = false;
+    unsigned           m_qi_profile_freq = UINT_MAX;
+    quick_checker_mode m_qi_quick_checker = MC_NO;
+    bool               m_qi_lazy_quick_checker = true;
+    bool               m_qi_promote_unsat = true;
+    unsigned           m_qi_max_instances = UINT_MAX;
+    bool               m_qi_lazy_instantiation = false;
+    bool               m_qi_conservative_final_check = false;
+    bool               m_qe_lite = false;
 
-    bool               m_mbqi;
-    unsigned           m_mbqi_max_cexs;
-    unsigned           m_mbqi_max_cexs_incr;
-    unsigned           m_mbqi_max_iterations;
-    bool               m_mbqi_trace;
-    unsigned           m_mbqi_force_template;
-    const char *       m_mbqi_id;
+    bool               m_mbqi = true;
+    unsigned           m_mbqi_max_cexs = 1;
+    unsigned           m_mbqi_max_cexs_incr = 1;
+    unsigned           m_mbqi_max_iterations = 1000;
+    bool               m_mbqi_trace = false;
+    unsigned           m_mbqi_force_template = 10;
+    const char *       m_mbqi_id = nullptr;
 
     qi_params(params_ref const & p = params_ref()):
         /*
@@ -78,26 +79,7 @@ struct qi_params {
           matching loop detection.
         */
         m_qi_cost("(+ weight generation)"),
-        m_qi_new_gen("cost"), 
-        m_qi_eager_threshold(10.0),
-        m_qi_lazy_threshold(20.0), // reduced to give a chance to MBQI
-        m_qi_max_eager_multipatterns(0),
-        m_qi_max_lazy_multipattern_matching(2),
-        m_qi_profile(false),
-        m_qi_profile_freq(UINT_MAX),
-        m_qi_quick_checker(MC_NO),
-        m_qi_lazy_quick_checker(true),
-        m_qi_promote_unsat(true),
-        m_qi_max_instances(UINT_MAX),
-        m_qi_lazy_instantiation(false),
-        m_qi_conservative_final_check(false),
-        m_mbqi(true), // enabled by default
-        m_mbqi_max_cexs(1),
-        m_mbqi_max_cexs_incr(1),
-        m_mbqi_max_iterations(1000),
-        m_mbqi_trace(false),
-        m_mbqi_force_template(10),
-        m_mbqi_id(nullptr)
+        m_qi_new_gen("cost") 
     {
         updt_params(p);
     }

@@ -1403,8 +1403,10 @@ namespace pb {
             if (m_solver) m_solver->set_external(lit.var());
             c->watch_literal(*this, lit);
             c->watch_literal(*this, ~lit);
-        }        
-        SASSERT(c->well_formed());
+        }     
+        if (!c->well_formed()) 
+            std::cout << *c << "\n";
+        VERIFY(c->well_formed());
         if (m_solver && m_solver->get_config().m_drat) {
             std::function<void(std::ostream& out)> fn = [&](std::ostream& out) {
                 out << "c ba constraint " << *c << " 0\n";

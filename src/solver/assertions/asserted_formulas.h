@@ -37,6 +37,7 @@ Revision History:
 #include "ast/normal_forms/elim_term_ite.h"
 #include "ast/pattern/pattern_inference.h"
 #include "smt/params/smt_params.h"
+#include "qe/lite/qe_lite.h"
 
 
 class asserted_formulas {
@@ -190,6 +191,8 @@ class asserted_formulas {
     MK_SIMPLIFIERF(lift_ite, push_app_ite_rw, "lift-ite", af.m_smt_params.m_lift_ite != lift_ite_kind::LI_NONE, true);
     MK_SIMPLIFIERF(ng_lift_ite, ng_push_app_ite_rw, "lift-ite", af.m_smt_params.m_ng_lift_ite != lift_ite_kind::LI_NONE, true);
 
+    MK_SIMPLIFIERA(qe_lite_fn, qe_lite, "qe-lite", af.m_smt_params.m_qe_lite && af.has_quantifiers(), (af.m, af.m_params), true);
+
 
     reduce_asserted_formulas_fn m_reduce_asserted_formulas;
     distribute_forall_fn        m_distribute_forall;
@@ -197,6 +200,7 @@ class asserted_formulas {
     refine_inj_axiom_fn         m_refine_inj_axiom;
     max_bv_sharing_fn           m_max_bv_sharing_fn;
     elim_term_ite_fn            m_elim_term_ite;
+    qe_lite_fn                  m_qe_lite;
     pull_nested_quantifiers     m_pull_nested_quantifiers;
     elim_bvs_from_quantifiers   m_elim_bvs_from_quantifiers;
     cheap_quant_fourier_motzkin m_cheap_quant_fourier_motzkin;
