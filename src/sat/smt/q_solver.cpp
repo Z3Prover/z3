@@ -65,6 +65,7 @@ namespace q {
     }
 
     sat::check_result solver::check() {
+        std::cout << "check\n";
         if (ctx.get_config().m_ematching && m_ematch())
             return sat::check_result::CR_CONTINUE;
 
@@ -230,10 +231,9 @@ namespace q {
     bool solver::expand(quantifier* q) {
         expr_ref r(q, m);
         proof_ref pr(m);
-        ctx.rewrite(r);
         m_der(r, r, pr);
         m_expanded.reset();
-        if (r != q) {
+        if (q != r) {
             ctx.rewrite(r);
             m_expanded.push_back(r);
             return true;
