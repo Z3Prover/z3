@@ -4,7 +4,58 @@
 #include "parsers/smt2/smt2parser.h"
 #include <vector>
 
+namespace {
+    using namespace dd;
+
+    void permute_args(unsigned k, pdd& a, pdd& b, pdd& c) {
+        SASSERT(k < 6);
+        unsigned i = k % 3;
+        unsigned j = k % 2;
+        if (i == 1)
+            std::swap(a, b);
+        else if (i == 2)
+            std::swap(a, c);
+        if (j == 1)
+            std::swap(b, c);
+    }
+
+    void permute_args(unsigned n, pdd& a, pdd& b, pdd& c, pdd& d) {
+        SASSERT(n < 24);
+        switch (n % 4) {
+        case 1:
+            std::swap(a, b);
+            break;
+        case 2:
+            std::swap(a, c);
+            break;
+        case 3:
+            std::swap(a, d);
+            break;
+        default:
+            break;
+        }
+        switch (n % 3) {
+        case 1:
+            std::swap(b, c);
+            break;
+        case 2:
+            std::swap(b, d);
+            break;
+        default:
+            break;
+        }
+        switch (n % 2) {
+        case 1:
+            std::swap(c, d);
+            break;
+        default:
+            break;
+        }
+    }
+}
+
 namespace polysat {
+
     // test resolve, factoring routines
     // auxiliary 
 
@@ -63,6 +114,9 @@ namespace polysat {
         }
     };
 
+
+class test_polysat {
+public:
 
     /**
      * Testing the solver's internal state.
@@ -738,52 +792,6 @@ namespace polysat {
         s.expect_unsat();
     }
 
-    void permute_args(unsigned k, pdd& a, pdd& b, pdd& c) {
-        SASSERT(k < 6);
-        unsigned i = k % 3;
-        unsigned j = k % 2;
-        if (i == 1)
-            std::swap(a, b);
-        else if (i == 2)
-            std::swap(a, c);
-        if (j == 1)
-            std::swap(b, c);
-    }
-
-    void permute_args(unsigned n, pdd& a, pdd& b, pdd& c, pdd& d) {
-        SASSERT(n < 24);
-        switch (n % 4) {
-        case 1: 
-            std::swap(a, b);
-            break;
-        case 2:
-            std::swap(a, c);
-            break;
-        case 3:
-            std::swap(a, d);
-            break;
-        default:
-            break;
-        }
-        switch (n % 3) {
-        case 1:
-            std::swap(b, c);
-            break;
-        case 2:
-            std::swap(b, d);
-            break;
-        default:
-            break;
-        }
-        switch (n % 2) {
-        case 1:
-            std::swap(c, d);
-            break;
-        default:
-            break;
-        }
-    }
-
     // xy < xz and !Omega(x*y) => y < z
     static void test_ineq_axiom1(unsigned bw = 32) {
         auto const bound = rational::power_of_two(bw/2);
@@ -1026,7 +1034,6 @@ namespace polysat {
 
     }
 
-
     // Goal: we probably mix up polysat variables and PDD variables at several points; try to uncover such cases
     // NOTE: actually, add_var seems to keep them in sync, so this is not an issue at the moment (but we should still test it later)
     // static void test_mixed_vars() {
@@ -1040,9 +1047,11 @@ namespace polysat {
     //     // Expected result:
     // }
 
+};  // class test_polysat
+
+
     // convert assertions into internal solver state
     // support small grammar of formulas.
-
     pdd to_pdd(ast_manager& m, solver& s, obj_map<expr, pdd*>& expr2pdd, expr* e) {
         pdd* r = nullptr;
         if (expr2pdd.find(e, r))
@@ -1155,77 +1164,79 @@ namespace polysat {
         for (auto const& [k,v] : expr2pdd)
             dealloc(v);
     }
-}
+
+}  // namespace polysat
 
 
 void tst_polysat() {
+    using namespace polysat;
 
-    polysat::test_band();
+    test_polysat::test_band();
     return;
 
-    polysat::test_quot_rem();
+    test_polysat::test_quot_rem();
     return;
 
-    polysat::test_ineq_axiom1();
-    polysat::test_ineq_axiom2();
-    polysat::test_ineq_axiom3();
-    polysat::test_ineq_axiom4();
-    polysat::test_ineq_axiom5();
-    polysat::test_ineq_axiom6();
+    test_polysat::test_ineq_axiom1();
+    test_polysat::test_ineq_axiom2();
+    test_polysat::test_ineq_axiom3();
+    test_polysat::test_ineq_axiom4();
+    test_polysat::test_ineq_axiom5();
+    test_polysat::test_ineq_axiom6();
     return;
 
-    polysat::test_ineq_basic4();
+    test_polysat::test_ineq_basic4();
     //return;
 
-    polysat::test_ineq_basic6();
+    test_polysat::test_ineq_basic6();
             
-    // polysat::test_monot_bounds(8);
+    // test_polysat::test_monot_bounds(8);
 
-    polysat::test_add_conflicts();
-    polysat::test_wlist();
-    polysat::test_l1();
-    polysat::test_l2();
-    polysat::test_l3();
-    polysat::test_l4();
-    polysat::test_l5();
-    polysat::test_p1();
-    polysat::test_p2();
-    polysat::test_p3();
+    test_polysat::test_add_conflicts();
+    test_polysat::test_wlist();
+    test_polysat::test_l1();
+    test_polysat::test_l2();
+    test_polysat::test_l3();
+    test_polysat::test_l4();
+    test_polysat::test_l5();
+    test_polysat::test_p1();
+    test_polysat::test_p2();
+    test_polysat::test_p3();
 
-    polysat::test_ineq_basic1();
-    polysat::test_ineq_basic2();
-    polysat::test_ineq_basic3();
-    polysat::test_ineq_basic4();
-    polysat::test_ineq_basic5();
-    polysat::test_ineq_basic6();
+    test_polysat::test_ineq_basic1();
+    test_polysat::test_ineq_basic2();
+    test_polysat::test_ineq_basic3();
+    test_polysat::test_ineq_basic4();
+    test_polysat::test_ineq_basic5();
+    test_polysat::test_ineq_basic6();
 
-    polysat::test_cjust();
-    polysat::test_subst();
-    polysat::test_monot_bounds(2);
+    test_polysat::test_cjust();
+    test_polysat::test_subst();
+    test_polysat::test_monot_bounds(2);
 
-    polysat::test_var_minimize();
+    test_polysat::test_var_minimize();
 
-    polysat::test_ineq1();
-    polysat::test_ineq2();
-    polysat::test_monot();
+    test_polysat::test_ineq1();
+    test_polysat::test_ineq2();
+    test_polysat::test_monot();
 
     return;
 
-    polysat::test_ineq_axiom1();
-    polysat::test_ineq_axiom2();
-    polysat::test_ineq_axiom3();
-    polysat::test_ineq_axiom4();
-    polysat::test_ineq_axiom5();
-    polysat::test_ineq_axiom6();
+    test_polysat::test_ineq_axiom1();
+    test_polysat::test_ineq_axiom2();
+    test_polysat::test_ineq_axiom3();
+    test_polysat::test_ineq_axiom4();
+    test_polysat::test_ineq_axiom5();
+    test_polysat::test_ineq_axiom6();
 #if 0
-    polysat::test_ineq_non_axiom4(32, 5);
+    test_polysat::test_ineq_non_axiom4(32, 5);
 #endif
 
     // inefficient conflicts:
-    // Takes time: polysat::test_monot_bounds_full();
+    // Takes time: test_polysat::test_monot_bounds_full();
 
-    polysat::test_monot_bounds_simple(8);
-    polysat::test_fixed_point_arith_div_mul_inverse();
+    test_polysat::test_monot_bounds_simple(8);
+    test_polysat::test_fixed_point_arith_div_mul_inverse();
 
 }
 
