@@ -301,7 +301,8 @@ namespace q {
             }
             return true;
         }
-        else if (updated) {
+        else if (m_expanded.size() == 1 && updated) {
+            m_expanded[0] = r;
             flatten(to_quantifier(r));
             return true;
         }
