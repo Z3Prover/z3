@@ -278,7 +278,7 @@ namespace arith {
                 if (is_app(n)) {
                     internalize_args(to_app(n));
                     for (expr* arg : *to_app(n)) 
-                        if (a.is_real(arg) || a.is_int(arg))
+                        if ((a.is_real(arg) || a.is_int(arg)) && !m.is_bool(arg))
                             internalize_term(arg);
                 }
                 theory_var v = mk_evar(n);
