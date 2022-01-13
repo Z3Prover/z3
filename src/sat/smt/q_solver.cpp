@@ -23,6 +23,7 @@ Author:
 #include "sat/smt/q_solver.h"
 #include "sat/smt/euf_solver.h"
 #include "sat/smt/sat_th.h"
+#include "qe/lite/qe_lite.h"
 
 
 namespace q {
@@ -45,15 +46,22 @@ namespace q {
         if (l.sign() == is_forall(e)) {
             sat::literal lit = skolemize(q);
             add_clause(~l, lit);
+            return;
         }
-        else if (expand(q)) {
-            for (expr* e : m_expanded) {
-                sat::literal lit = ctx.internalize(e, l.sign(), false, false);
-                add_clause(~l, lit);
+        quantifier* q_flat = nullptr;
+        if (!m_flat.find(q, q_flat)) {
+            if (expand(q)) {
+                for (expr* e : m_expanded) {
+                    sat::literal lit = ctx.internalize(e, l.sign(), false, false);
+                    add_clause(~l, lit);
+                }
+                return;
             }
+            q_flat = flatten(q);
         }
-        else if (is_ground(q->get_expr())) {
-            auto lit = ctx.internalize(q->get_expr(), l.sign(), false, false);
+            
+        if (is_ground(q_flat->get_expr())) {
+            auto lit = ctx.internalize(q_flat->get_expr(), l.sign(), false, false);
             add_clause(~l, lit);
         }
         else {
@@ -65,7 +73,6 @@ namespace q {
     }
 
     sat::check_result solver::check() {
-        std::cout << "check\n";
         if (ctx.get_config().m_ematching && m_ematch())
             return sat::check_result::CR_CONTINUE;
 
@@ -174,7 +181,7 @@ namespace q {
         if (m_flat.find(q, q_flat))
             return q_flat;
 
-        expr_ref new_q(m);
+        expr_ref new_q(q, m), r(m);
         proof_ref pr(m);
         if (!has_quantifiers(q->get_expr())) {
             if (!ctx.get_config().m_refine_inj_axiom)
@@ -228,15 +235,30 @@ namespace q {
         return val;
     }
 
+    /**
+     * Expand returns true if it was able to rewrite the formula.
+     * If the rewrite results in a quantifier, the rewritten quantifier
+     * is stored in m_flat to avoid repeated expansions.
+     * 
+     */
     bool solver::expand(quantifier* q) {
         expr_ref r(q, m);
         proof_ref pr(m);
+        ctx.rewrite(r);
         m_der(r, r, pr);
+        if (ctx.get_config().m_qe_lite) {
+            qe_lite qe(m, ctx.s().params());
+            qe(r);
+        }
         m_expanded.reset();
-        if (q != r) {
+        bool updated = q != r;
+        if (updated) {
             ctx.rewrite(r);
-            m_expanded.push_back(r);
-            return true;
+            if (!is_quantifier(r)) {
+                m_expanded.push_back(r);
+                return true;
+            }            
+            q = to_quantifier(r);
         }
         if (is_forall(q)) 
             flatten_and(q->get_expr(), m_expanded);
@@ -274,12 +296,18 @@ namespace q {
         if (m_expanded.size() > 1) {
             for (unsigned i = m_expanded.size(); i-- > 0; ) {
                 expr_ref tmp(m.update_quantifier(q, m_expanded.get(i)), m);
-                ctx.get_rewriter()(tmp);
+                ctx.rewrite(tmp);
                 m_expanded[i] = tmp;
             }
             return true;
         }
-        return false;
+        else if (updated) {
+            flatten(to_quantifier(r));
+            return true;
+        }
+        else {
+            return false;
+        }
     }
 
     bool solver::split(expr* arg, expr_ref& e1, expr_ref& e2) {
