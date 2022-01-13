@@ -1370,20 +1370,14 @@ namespace pb {
             s().mk_clause(_lits.size(), _lits.data(), sat::status::th(learned, get_id()));
             return nullptr;
         }
+        if (k == 0 && lit == sat::null_literal)
+            return nullptr;
 
         if (k == 0) {
-            if (lit != sat::null_literal)
-                s().add_clause(lit, sat::status::th(false, get_id()));
+            s().assign_unit(lit);
             return nullptr;
         }
-
-        if (k < lits.size()) {
-            if (lit == sat::null_literal)
-                s().add_clause(0, nullptr, sat::status::th(false, get_id()));
-            else
-                s().add_clause(~lit, sat::status::th(false, get_id()));
-            return nullptr;
-        }
+            
 
         if (!learned && clausify(lit, lits.size(), lits.data(), k)) {
             return nullptr;
@@ -1446,27 +1440,12 @@ namespace pb {
 
     constraint* solver::add_pb_ge(literal lit, svector<wliteral> const& wlits, unsigned k, bool learned) {
         bool units = true;
-        for (wliteral wl : wlits) 
-            units &= wl.first == 1;
-
-        if (k == 0) {
-            if (lit != sat::null_literal)
-                s().add_clause(lit, sat::status::th(false, get_id()));
-            return nullptr;
-        }
-        rational weight(0);
-        for (auto const [w, l] : wlits)
-            weight += w;
-        if (weight < k) {
-            if (lit == sat::null_literal)
-                s().add_clause(0, nullptr, sat::status::th(false, get_id()));
-            else
-                s().add_clause(~lit, sat::status::th(false, get_id()));
+        for (wliteral wl : wlits) units &= wl.first == 1;
+        if (k == 0 && lit == sat::null_literal) {
             return nullptr;
         }
         if (!learned) {
-            for (wliteral wl : wlits) 
-                s().set_external(wl.second.var()); 
+            for (wliteral wl : wlits) s().set_external(wl.second.var()); 
         }
         if (units || k == 1) {
             literal_vector lits;
