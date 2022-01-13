@@ -1377,7 +1377,7 @@ namespace pb {
             return nullptr;
         }
 
-        if (k < lits.size()) {
+        if (k > lits.size()) {
             if (lit == sat::null_literal)
                 s().add_clause(0, nullptr, sat::status::th(false, get_id()));
             else
@@ -1458,6 +1458,7 @@ namespace pb {
         for (auto const [w, l] : wlits)
             weight += w;
         if (weight < k) {
+            std::cout << "weight " << weight << " " << k << "\n";
             if (lit == sat::null_literal)
                 s().add_clause(0, nullptr, sat::status::th(false, get_id()));
             else
