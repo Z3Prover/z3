@@ -55,7 +55,7 @@ namespace smt {
             ctx.internalize(arg, false);
         }
         if (!ctx.e_internalized(atom)) {
-            ctx.mk_enode(atom, false, true, false);
+            ctx.mk_enode(atom, false, true, true);
         }
         if (!ctx.b_internalized(atom)) {
             bool_var v = ctx.mk_bool_var(atom);
@@ -214,7 +214,7 @@ namespace smt {
     void theory_recfun::assign_eh(bool_var v, bool is_true) {
         expr* e = ctx.bool_var2expr(v);
         if (is_true && u().is_case_pred(e)) {
-            TRACEFN("assign_case_pred_true " << mk_pp(e, m));
+            TRACEFN("assign_case_pred_true " << v << " " << mk_pp(e, m));
             // body-expand
             push_body_expand(e);
         }
@@ -343,6 +343,7 @@ namespace smt {
             activate_guard(pred_applied, guards);
         }
 
+        TRACEFN("assert core " << preds);
         // the disjunction of branches is asserted
         // to close the available cases. 
 
