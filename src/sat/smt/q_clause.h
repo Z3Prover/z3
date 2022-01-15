@@ -122,18 +122,17 @@ namespace q {
         return out << "]";
     }
 
-
     struct justification {
-        expr*     m_lhs, *m_rhs;
+        expr* m_lhs, * m_rhs;
         bool      m_sign;
-        unsigned  m_num_ev;
-        euf::enode_pair* m_evidence;
-        clause&   m_clause;
+        unsigned  m_num_ex;
+        size_t** m_explain;
+        clause& m_clause;
         euf::enode* const* m_binding;
-        justification(lit const& l, clause& c, euf::enode* const* b, unsigned n, euf::enode_pair* ev):
-            m_lhs(l.lhs), m_rhs(l.rhs), m_sign(l.sign), m_num_ev(n), m_evidence(ev), m_clause(c), m_binding(b) {}
-        sat::ext_constraint_idx to_index() const { 
-            return sat::constraint_base::mem2base(this); 
+        justification(lit const& l, clause& c, euf::enode* const* b, unsigned n, size_t** ev) :
+            m_lhs(l.lhs), m_rhs(l.rhs), m_sign(l.sign), m_num_ex(n), m_explain(ev), m_clause(c), m_binding(b) {}
+        sat::ext_constraint_idx to_index() const {
+            return sat::constraint_base::mem2base(this);
         }
         static justification& from_index(size_t idx) {
             return *reinterpret_cast<justification*>(sat::constraint_base::from_index(idx)->mem());

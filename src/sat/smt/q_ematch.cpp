@@ -97,23 +97,46 @@ namespace q {
         }
     }
 
+    /**
+    * Create a justification for binding b.
+    * The justification involves equalities in the E-graph that have
+    * explanations. Retrieve the explanations while the justification
+    * is created to ensure the justification trail is well-founded
+    * during conflict resolution.
+    */
     sat::ext_justification_idx ematch::mk_justification(unsigned idx, clause& c, euf::enode* const* b) {
         void* mem = ctx.get_region().allocate(justification::get_obj_size());
         sat::constraint_base::initialize(mem, &m_qs);
         bool sign = false;
-        expr* l = nullptr, *r = nullptr;            
-        lit lit(expr_ref(l, m), expr_ref(r, m), sign); 
+        expr* l = nullptr, * r = nullptr;
+        lit lit(expr_ref(l, m), expr_ref(r, m), sign);
         if (idx != UINT_MAX)
             lit = c[idx];
-        auto* ev = static_cast<euf::enode_pair*>(ctx.get_region().allocate(sizeof(euf::enode_pair) * m_evidence.size()));
-        for (unsigned i = m_evidence.size(); i-- > 0; )
-            ev[i] = m_evidence[i];
-        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(lit, c, b, m_evidence.size(), ev);
+        m_explain.reset();
+        ctx.get_egraph().begin_explain();
+        ctx.reset_explain();
+        for (auto const& [a, b] : m_evidence) {
+            SASSERT(a->get_root() == b->get_root() || ctx.get_egraph().are_diseq(a, b));
+            if (a->get_root() == b->get_root())
+                ctx.get_egraph().explain_eq<size_t>(m_explain, a, b);
+            else
+                ctx.add_diseq_antecedent(m_explain, a, b);
+        }
+        ctx.get_egraph().end_explain();
+        std::cout << "exp size " << m_explain.size() << "\n";
+
+        size_t** ev = static_cast<size_t**>(ctx.get_region().allocate(sizeof(size_t*) * m_explain.size()));
+        for (unsigned i = m_explain.size(); i-- > 0; )
+            ev[i] = m_explain[i];
+        auto* constraint = new (sat::constraint_base::ptr2mem(mem)) justification(lit, c, b, m_explain.size(), ev);
         return constraint->to_index();
     }
 
     void ematch::get_antecedents(sat::literal l, sat::ext_justification_idx idx, sat::literal_vector& r, bool probing) {
-        m_eval.explain(l, justification::from_index(idx), r, probing);
+        justification& j = justification::from_index(idx);
+        for (unsigned i = 0; i < j.m_num_ex; ++i)
+            ctx.add_explain(j.m_explain[i]);
+        r.push_back(j.m_clause.m_literal);
     }
 
     quantifier_ref ematch::nnf_skolem(quantifier* q) {

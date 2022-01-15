@@ -246,20 +246,5 @@ namespace q {
         }
         return m_eval[e->get_id()];
     }
-
-    void eval::explain(sat::literal l, justification& j, sat::literal_vector& r, bool probing) {
-        clause& c = j.m_clause;
-        for (unsigned i = 0; i < j.m_num_ev; ++i) {
-            auto [a, b] = j.m_evidence[i];
-            SASSERT(a->get_root() == b->get_root() || ctx.get_egraph().are_diseq(a, b));
-            if (a->get_root() == b->get_root())
-                ctx.add_antecedent(a, b);
-            else
-                ctx.add_diseq_antecedent(a, b);                            
-        }
-        r.push_back(c.m_literal);
-        (void)probing; // ignored        
-    }
-
     
 }

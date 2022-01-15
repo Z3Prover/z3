@@ -305,7 +305,9 @@ namespace euf {
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) override;
         void get_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing);
         void add_antecedent(enode* a, enode* b);
-        void add_diseq_antecedent(enode* a, enode* b);
+        void add_diseq_antecedent(ptr_vector<size_t>& ex, enode* a, enode* b);
+        void add_explain(size_t* p) { m_explain.push_back(p); }
+        void reset_explain() { m_explain.reset(); }
         void set_eliminated(bool_var v) override;
         void asserted(literal l) override;
         sat::check_result check() override;

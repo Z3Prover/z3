@@ -553,8 +553,8 @@ namespace q {
         void unmark(unsigned head) {
             for (unsigned i = m_candidates.size(); i-- > head; ) {
                 enode* app = m_candidates[i];
-                if (app->is_marked1())
-                    app->unmark1();
+                if (app->is_marked2())
+                    app->unmark2();
             }
         }
 
@@ -946,9 +946,9 @@ namespace q {
         void linearise_core() {
             m_aux.reset();
             app *         first_app = nullptr;
-            unsigned      first_app_reg;
-            unsigned      first_app_sz;
-            unsigned      first_app_num_unbound_vars;
+            unsigned      first_app_reg = 0;
+            unsigned      first_app_sz = 0;
+            unsigned      first_app_num_unbound_vars = 0;
             // generate first the non-BIND operations
             for (unsigned reg : m_todo) {
                 expr *  p    = m_registers[reg];
@@ -2022,9 +2022,9 @@ namespace q {
                 code_tree::scoped_unmark _unmark(t);
                 while ((app = t->next_candidate()) && !ctx.resource_limits_exceeded()) {
                     TRACE("trigger_bug", tout << "candidate\n" << ctx.bpp(app) << "\n";);
-                    if (!app->is_marked1() && app->is_cgr()) {
+                    if (!app->is_marked2() && app->is_cgr()) {
                         execute_core(t, app);                       
-                        app->mark1();
+                        app->mark2();
                     }
                 }
             }
