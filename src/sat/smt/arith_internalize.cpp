@@ -269,17 +269,16 @@ namespace arith {
                 }
                 else if (!a.is_div0(n) && !a.is_mod0(n) && !a.is_idiv0(n) && !a.is_rem0(n) && !a.is_power0(n)) {
                     found_unsupported(n);
+                    ensure_arg_vars(to_app(n));
                 }
                 else {
-                    // no-op
+                    ensure_arg_vars(to_app(n));
                 }
             }
             else {
                 if (is_app(n)) {
                     internalize_args(to_app(n));
-                    for (expr* arg : *to_app(n)) 
-                        if (a.is_real(arg) || a.is_int(arg))
-                            internalize_term(arg);
+                    ensure_arg_vars(to_app(n));
                 }
                 theory_var v = mk_evar(n);
                 coeffs[vars.size()] = coeffs[index];
@@ -424,6 +423,12 @@ namespace arith {
             return;
         for (expr* arg : *t) 
             e_internalize(arg);
+    }
+
+    void solver::ensure_arg_vars(app* n) {
+        for (expr* arg : *to_app(n))
+            if (a.is_real(arg) || a.is_int(arg))
+                internalize_term(arg);
     }
 
     theory_var solver::internalize_power(app* t, app* n, unsigned p) {

@@ -239,6 +239,7 @@ namespace arith {
         void add_def_constraint(lp::constraint_index index, theory_var v);
         void add_def_constraint_and_equality(lpvar vi, lp::lconstraint_kind kind, const rational& bound);
         void internalize_args(app* t, bool force = false);
+        void ensure_arg_vars(app* t);
         theory_var internalize_power(app* t, app* n, unsigned p);
         theory_var internalize_mul(app* t);
         theory_var internalize_def(expr* term);
