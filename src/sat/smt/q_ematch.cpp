@@ -123,7 +123,6 @@ namespace q {
                 ctx.add_diseq_antecedent(m_explain, a, b);
         }
         ctx.get_egraph().end_explain();
-        std::cout << "exp size " << m_explain.size() << "\n";
 
         size_t** ev = static_cast<size_t**>(ctx.get_region().allocate(sizeof(size_t*) * m_explain.size()));
         for (unsigned i = m_explain.size(); i-- > 0; )
