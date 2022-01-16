@@ -1338,7 +1338,9 @@ namespace pb {
     }
 
     solver::solver(euf::solver& ctx, euf::theory_id id) :
-        solver(ctx.get_manager(), ctx.get_si(), id) {}
+        solver(ctx.get_manager(), ctx.get_si(), id) {
+        m_ctx = &ctx;
+    }
 
     solver::solver(ast_manager& m, sat::sat_internalizer& si, euf::theory_id id)
         : euf::th_solver(m, symbol("ba"), id),

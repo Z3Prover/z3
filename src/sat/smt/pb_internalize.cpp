@@ -18,6 +18,7 @@ Author:
 
 #include "sat/smt/pb_solver.h"
 #include "ast/pb_decl_plugin.h"
+#include "sat/smt/euf_solver.h"
 
 namespace pb {
 
@@ -27,8 +28,12 @@ namespace pb {
 
     literal solver::internalize(expr* e, bool sign, bool root, bool redundant) {
         flet<bool> _redundant(m_is_redundant, redundant);
-        if (m_pb.is_pb(e)) 
-            return internalize_pb(e, sign, root);
+        if (m_pb.is_pb(e)) {
+            sat::literal lit = internalize_pb(e, sign, root);
+            if (m_ctx && !root && lit != sat::null_literal)
+                m_ctx->attach_lit(lit, e);            
+            return lit;
+        }
         UNREACHABLE();
         return sat::null_literal;
     }

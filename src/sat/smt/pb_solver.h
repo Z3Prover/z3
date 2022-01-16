@@ -80,7 +80,8 @@ namespace pb {
         sat::sat_internalizer&      si;
         pb_util                m_pb;
 
-        sat::lookahead*        m_lookahead{ nullptr };
+        sat::lookahead*        m_lookahead = nullptr;
+        euf::solver*           m_ctx = nullptr;
         stats                  m_stats; 
         small_object_allocator m_allocator;
        
