@@ -230,13 +230,17 @@ namespace q {
                 if (!n)
                     return nullptr;
                 for (unsigned i = args.size(); i-- > 0; ) {
-                    if (args[i] != n->get_arg(i)) {
-                        // roots could be different when using commutativity
-                        // instead of compensating for this, we just bail out
-                        if (args[i]->get_root() != n->get_arg(i)->get_root())
-                            return nullptr;
-                        evidence.push_back(euf::enode_pair(args[i], n->get_arg(i)));
-                    }
+                    euf::enode* a = args[i], *b = n->get_arg(i);
+                    if (a == b)
+                        continue;
+
+                    // roots could be different when using commutativity
+                    // instead of compensating for this, we just bail out
+                    if (a->get_root() != b->get_root())
+                        return nullptr;
+
+                    TRACE("q", tout << "evidence " << ctx.bpp(a) << " " << ctx.bpp(b) << "\n");
+                    evidence.push_back(euf::enode_pair(a, b));
                 }
                 m_indirect_nodes.push_back(n);
                 m_eval.setx(t->get_id(), n, nullptr);

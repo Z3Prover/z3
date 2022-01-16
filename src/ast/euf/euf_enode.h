@@ -45,6 +45,7 @@ namespace euf {
         expr*         m_expr = nullptr;
         bool          m_mark1 = false;
         bool          m_mark2 = false;
+        bool          m_mark3 = false;
         bool          m_commutative = false;
         bool          m_interpreted = false;
         bool          m_merge_enabled = true; 
@@ -173,6 +174,9 @@ namespace euf {
         void mark2() { m_mark2 = true; }
         void unmark2() { m_mark2 = false; }
         bool is_marked2() { return m_mark2; }
+        void mark3() { m_mark3 = true; }
+        void unmark3() { m_mark3 = false; }
+        bool is_marked3() { return m_mark3; }
 
         template<bool m> void mark1_targets() {
             enode* n = this;

@@ -553,8 +553,8 @@ namespace q {
         void unmark(unsigned head) {
             for (unsigned i = m_candidates.size(); i-- > head; ) {
                 enode* app = m_candidates[i];
-                if (app->is_marked2())
-                    app->unmark2();
+                if (app->is_marked3())
+                    app->unmark3();
             }
         }
 
@@ -2022,9 +2022,9 @@ namespace q {
                 code_tree::scoped_unmark _unmark(t);
                 while ((app = t->next_candidate()) && !ctx.resource_limits_exceeded()) {
                     TRACE("trigger_bug", tout << "candidate\n" << ctx.bpp(app) << "\n";);
-                    if (!app->is_marked2() && app->is_cgr()) {
+                    if (!app->is_marked3() && app->is_cgr()) {
                         execute_core(t, app);                       
-                        app->mark2();
+                        app->mark3();
                     }
                 }
             }
