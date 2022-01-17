@@ -66,7 +66,7 @@ namespace polysat {
         void push_boolean(sat::literal lit);
         void pop();
 
-        void pop_asssignment();
+        void pop_assignment();
 
         void set_resolved(unsigned i) { m_items[i].set_resolved(); }
 

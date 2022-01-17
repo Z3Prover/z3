@@ -94,9 +94,6 @@ namespace polysat {
 
         uint64_t                 m_max_conflicts = std::numeric_limits<uint64_t>::max();
         uint64_t                 m_max_decisions = std::numeric_limits<uint64_t>::max();
-        bool                     m_branch_bool = false;
-
-
 
         // Per constraint state
         constraint_manager       m_constraints;
@@ -177,7 +174,7 @@ namespace polysat {
         void set_conflict(clause& cl) { m_conflict.set(cl); }
         void set_conflict(pvar v) { m_conflict.set(v); }
 
-        bool can_decide() const { return !m_free_pvars.empty() || (m_branch_bool && m_bvars.can_decide()); }
+        bool can_decide() const { return !m_free_pvars.empty(); }
         void decide();
         void pdecide(pvar v);
         void bdecide(sat::bool_var b);

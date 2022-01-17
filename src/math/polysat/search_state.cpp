@@ -51,7 +51,7 @@ namespace polysat {
         m_assignment.push_back({p, r});
     }
 
-    void search_state::pop_asssignment() {
+    void search_state::pop_assignment() {
         m_assignment.pop_back();
     }
 

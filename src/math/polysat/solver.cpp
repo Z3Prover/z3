@@ -48,7 +48,6 @@ namespace polysat {
 
     void solver::updt_params(params_ref const& p) {
         m_params.append(p);
-        m_branch_bool = m_params.get_bool("branch_bool", false);
         m_max_conflicts = m_params.get_uint("max_conflicts", UINT_MAX);
         m_max_decisions = m_params.get_uint("max_decisions", UINT_MAX);
     }
@@ -394,10 +393,7 @@ namespace polysat {
     void solver::decide() {
         LOG_H2("Decide");
         SASSERT(can_decide());
-        if (m_branch_bool && m_bvars.can_decide())
-            bdecide(m_bvars.next_var());
-        else
-            pdecide(m_free_pvars.next_var());
+        pdecide(m_free_pvars.next_var());
     }
 
     void solver::pdecide(pvar v) {
@@ -422,10 +418,6 @@ namespace polysat {
             break;
         }
     }   
-
-    void solver::bdecide(sat::bool_var b) {
-        decide_bool(sat::literal(b), nullptr);
-    }
 
     void solver::assign_core(pvar v, rational const& val, justification const& j) {
         if (j.is_decision()) 
@@ -485,7 +477,7 @@ namespace polysat {
                 // Resolve over variable assignment
                 pvar v = item.var();
                 if (!m_conflict.is_pmarked(v) && !m_conflict.is_bailout()) {
-                    m_search.pop_asssignment();
+                    m_search.pop_assignment();
                     continue;
                 }
                 inc_activity(v);
@@ -494,7 +486,7 @@ namespace polysat {
                     revert_decision(v);
                     return;
                 }
-                m_search.pop_asssignment();
+                m_search.pop_assignment();
             }
             else {
                 // Resolve over boolean literal
@@ -699,13 +691,6 @@ namespace polysat {
 
         if (!is_conflict() && lemma)
             decide_bool(*lemma);
-    }
-
-    void solver::decide_bool(sat::literal lit, clause* lemma) {
-        SASSERT(!can_propagate());
-        SASSERT(!is_conflict());
-        push_level();        
-        assign_decision(lit, lemma);
     }
 
     unsigned solver::level(sat::literal lit0, clause const& cl) {
