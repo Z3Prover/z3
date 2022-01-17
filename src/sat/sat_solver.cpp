@@ -3531,7 +3531,7 @@ namespace sat {
 
         for (unsigned i = old_num_vars; i < sz; ++i) {
             bool_var v = m_active_vars[i];
-            if (is_visited(v) || is_active(v)) {
+            if (is_external(v) || is_visited(v) || is_active(v)) {
                 m_vars_to_reinit.push_back(v);
                 m_active_vars[j++] = v;
                 m_var_scope[v] = new_lvl;
