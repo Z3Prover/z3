@@ -294,6 +294,11 @@ namespace euf {
     }
 
     void solver::validate_model(model& mdl) {
+        if (!m_unhandled_functions.empty())
+            return;
+        for (auto* s : m_solvers)
+            if (s && s->has_unhandled())
+                return;
         model_evaluator ev(mdl);
         ev.set_model_completion(true);
         TRACE("model",

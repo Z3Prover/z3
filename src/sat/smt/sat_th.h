@@ -95,6 +95,11 @@ namespace euf {
           \brief conclude model building
         */
         virtual void finalize_model(model& mdl) {}
+
+        /**
+        * \brief does solver have an unhandled function.
+        */
+        virtual bool has_unhandled() const { return false; }
     };
 
     class th_solver : public sat::extension, public th_model_builder, public th_decompile, public th_internalizer {

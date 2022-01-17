@@ -561,6 +561,8 @@ namespace arith {
     }
 
     void solver::dbg_finalize_model(model& mdl) {
+        if (m_not_handled)
+            return;
         bool found_bad = false;
         for (unsigned v = 0; v < get_num_vars(); ++v) {
             if (!is_bool(v))

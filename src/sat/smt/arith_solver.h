@@ -448,6 +448,7 @@ namespace arith {
         lbool get_phase(bool_var v) override;
         bool include_func_interp(func_decl* f) const override;
         bool enable_ackerman_axioms(euf::enode* n) const override { return !a.is_add(n->get_expr()); }
+        bool has_unhandled() const override { return m_not_handled != nullptr; }
 
         // bounds and equality propagation callbacks
         lp::lar_solver& lp() { return *m_solver; }
