@@ -254,6 +254,7 @@ namespace array {
         void new_diseq_eh(euf::th_eq const& eq) override;
         bool unit_propagate() override;
         void init_model() override;
+        bool include_func_interp(func_decl* f) const override { return a.is_ext(f); }
         void add_value(euf::enode* n, model& mdl, expr_ref_vector& values) override;
         bool add_dep(euf::enode* n, top_sort<euf::enode>& dep) override;
         sat::literal internalize(expr* e, bool sign, bool root, bool learned) override;

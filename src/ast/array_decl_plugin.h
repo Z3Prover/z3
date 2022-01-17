@@ -149,6 +149,7 @@ public:
     bool is_store(expr* n) const { return is_app_of(n, m_fid, OP_STORE); }
     bool is_const(expr* n) const { return is_app_of(n, m_fid, OP_CONST_ARRAY); }
     bool is_ext(expr* n) const { return is_app_of(n, m_fid, OP_ARRAY_EXT); }
+    bool is_ext(func_decl const* f) const { return is_decl_of(f, m_fid, OP_ARRAY_EXT); }
     bool is_map(expr* n) const { return is_app_of(n, m_fid, OP_ARRAY_MAP); }
     bool is_union(expr* n) const { return is_app_of(n, m_fid, OP_SET_UNION); }
     bool is_intersect(expr* n) const { return is_app_of(n, m_fid, OP_SET_INTERSECT); }
