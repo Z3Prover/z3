@@ -258,6 +258,10 @@ namespace q {
                 m_expanded.push_back(r);
                 return true;
             }            
+            if (is_forall(q)  != is_forall(r)) {
+                m_expanded.push_back(r);
+                return true;
+            }
             q = to_quantifier(r);
         }
         if (is_forall(q)) 
