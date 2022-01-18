@@ -80,7 +80,7 @@ A 32 bit build should work similarly (but is untested); the same is true for 32/
 
 By default, it will install z3 executable at ``PREFIX/bin``, libraries at
 ``PREFIX/lib``, and include files at ``PREFIX/include``, where ``PREFIX``
-installation prefix if inferred by the ``mk_make.py`` script. It is usually
+installation prefix is inferred by the ``mk_make.py`` script. It is usually
 ``/usr`` for most Linux distros, and ``/usr/local`` for FreeBSD and macOS. Use
 the ``--prefix=`` command line option to change the install prefix. For example:
 
@@ -158,7 +158,7 @@ You can install the Python wrapper for Z3 for the latest release from pypi using
 
 Use the ``--python`` command line flag with ``mk_make.py`` to enable building these.
 
-Note that is required on certain platforms that the Python package directory
+Note that it is required on certain platforms that the Python package directory
 (``site-packages`` on most distributions and ``dist-packages`` on Debian based
 distributions) live under the install prefix. If you use a non standard prefix
 you can use the ``--pypkgdir`` option to change the Python package directory
