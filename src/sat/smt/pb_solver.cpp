@@ -2193,12 +2193,13 @@ namespace pb {
     }
 
     bool solver::set_root(literal l, literal r) { 
-        if (s().is_assumption(l.var())) {
+        if (s().is_assumption(l.var())) 
             return false;
-        }
         reserve_roots();
         m_roots[l.index()] = r;
         m_roots[(~l).index()] = ~r;
+        m_roots[r.index()] = r;
+        m_roots[(~r).index()] = ~r;
         m_root_vars[l.var()] = true;
         return true;
     }
@@ -2214,7 +2215,6 @@ namespace pb {
             flush_roots(*m_learned[i]);
         cleanup_constraints();
         // validate();
-
         // validate_eliminated();
     }
 
@@ -2225,7 +2225,8 @@ namespace pb {
 
     void solver::validate_eliminated(ptr_vector<constraint> const& cs) {
         for (constraint const* c : cs) {
-            if (c->learned()) continue;
+            if (c->learned())
+                continue;
             for (auto l : constraint::literal_iterator(*c))
                 VERIFY(!s().was_eliminated(l.var()));
         }
@@ -2449,9 +2450,10 @@ namespace pb {
         for (unsigned i = 0; !found && i < c.size(); ++i) {
             found = m_root_vars[c.get_lit(i).var()];
         }
-        if (!found) return;
+        if (!found)
+            return;
         clear_watch(c);
-        
+
         // this could create duplicate literals
         for (unsigned i = 0; i < c.size(); ++i) {
             literal lit = m_roots[c.get_lit(i).index()];

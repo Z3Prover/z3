@@ -808,13 +808,16 @@ namespace euf {
     bool solver::set_root(literal l, literal r) {
         if (m_relevancy.enabled())
             return false;
-        expr* e = bool_var2expr(l.var());
-        if (!e)
-            return true;
         bool ok = true;
         for (auto* s : m_solvers)
             if (!s->set_root(l, r))
                 ok = false;
+
+        if (!ok)
+            return false;
+        expr* e = bool_var2expr(l.var());
+        if (!e)
+            return true;
         if (m.is_eq(e) && !m.is_iff(e))
             ok = false;
         euf::enode* n = get_enode(e);
