@@ -126,13 +126,23 @@ namespace polysat {
     std::tuple<pdd, pdd> solver::quot_rem(pdd const& a, pdd const& b) {
         auto& m = a.manager();
         unsigned sz = m.power_of_2();
-        pdd quot = m.mk_var(add_var(sz));
-        pdd rem = m.mk_var(add_var(sz));
-        add_eq(b * quot + rem - a);
-        add_noovfl(b, quot);
-        add_clause(eq(b), ult(rem, b), false);
-        add_ule(quot, a);
-        return std::tuple<pdd, pdd>(quot, rem);
+        if (a.is_val() && b.is_val()) {
+            // TODO: just evaluate?
+        }
+        pdd q = m.mk_var(add_var(sz));  // quotient
+        pdd r = m.mk_var(add_var(sz));  // remainder
+        // Axioms for quotient/remainder:
+        //      a = b*q + r
+        //      multiplication does not overflow in b*q
+        //      addition does not overflow in (b*q) + r; for now expressed as: r <= bq+r
+        //      b ≠ 0  ==>  r < b
+        //      b = 0  ==>  q = -1
+        add_eq(b * q + r - a);
+        add_noovfl(b, q);
+        add_ule(r, b*q+r);
+        add_clause(eq(b), ult(r, b), false);
+        add_clause(diseq(b), eq(q + 1), false);
+        return std::tuple<pdd, pdd>(q, r);
     }
 
     pdd solver::lshr(pdd const& p, pdd const& q) {
