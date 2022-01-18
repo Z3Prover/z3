@@ -28,10 +28,15 @@ namespace polysat {
 
     void clause_builder::reset() {
         m_literals.reset();
+        m_is_tautology = false;
         SASSERT(empty());
     }
 
     clause_ref clause_builder::build() {
+        if (m_is_tautology) {
+            reset();
+            return nullptr;
+        }
         std::sort(m_literals.data(), m_literals.data() + m_literals.size());
         sat::literal prev = sat::null_literal;
         unsigned j = 0;
@@ -56,7 +61,10 @@ namespace polysat {
     void clause_builder::push(signed_constraint c) {
         SASSERT(c);
         SASSERT(c->has_bvar());
-        SASSERT(!c.is_always_true());  // clause would be a tautology
+        if (c.is_always_true()) {
+            m_is_tautology = true;
+            return;
+        }
 #if 0
         if (c->unit_clause()) {
             return;

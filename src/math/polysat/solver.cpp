@@ -674,6 +674,7 @@ namespace polysat {
 
         SASSERT(std::find(reason_builder.begin(), reason_builder.end(), ~lit));
         clause_ref reason = reason_builder.build();
+        SASSERT(reason);
 
         if (reason->empty()) {
             report_unsat();
@@ -788,8 +789,10 @@ namespace polysat {
             cb.push(c);
         }
         clause_ref clause = cb.build();
-        clause->set_redundant(is_redundant);
-        add_clause(*clause);
+        if (clause) {
+            clause->set_redundant(is_redundant);
+            add_clause(*clause);
+        }
     }
 
     void solver::add_clause(signed_constraint c1, signed_constraint c2, bool is_redundant) {
