@@ -410,10 +410,7 @@ namespace recfun {
 
         promise_def plugin::ensure_def(symbol const& name, unsigned n, sort *const * params, sort * range, bool is_generated) {
             def* d = u().decl_fun(name, n, params, range, is_generated);
-            def* d2 = nullptr;
-            if (m_defs.find(d->get_decl(), d2)) {
-                dealloc(d2);
-            }
+            erase_def(d->get_decl());
             m_defs.insert(d->get_decl(), d);
             return promise_def(&u(), d);
         }
